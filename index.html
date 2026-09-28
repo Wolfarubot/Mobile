@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#14101f" />
+    <title>Monster Horde Idle</title>
+  </head>
+  <body>
+    <div id="app">
+      <header class="topbar">
+        <div class="stat gold"><span>🪙</span><b id="gold">0</b></div>
+        <div class="stage">
+          <div id="zone">Mossy Glade</div>
+          <b id="stageLabel">Stage 1</b>
+        </div>
+        <div class="stat dps"><b id="dps">0</b><small>DPS</small></div>
+      </header>
+      <div class="battle-wrap"><canvas id="battle"></canvas></div>
+      <div class="progress">
+        <div class="kills"><div class="kills-fill" id="killsFill"></div><span id="killsText">0 / 10</span></div>
+        <button id="bossBtn" class="boss-btn hidden">⚔️ Fight Boss</button>
+        <div id="frenzy" class="frenzy hidden">🔥 FRENZY ×2 <span id="frenzyTime"></span></div>
+      </div>
+      <nav class="tabs">
+        <button data-tab="slayers" class="active">⚔️ Slayers</button>
+        <button data-tab="arena">🎮 Arena <span class="badge hidden" id="ticketBadge"></span></button>
+        <button data-tab="souls">🔮 Souls</button>
+      </nav>
+      <main class="panel" id="panel"></main>
+    </div>
+    <div id="modal" class="modal hidden"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
