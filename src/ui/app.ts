@@ -40,7 +40,7 @@ import {
 import { fmt, fmtTime } from '../core/format';
 import type { FarmRates, Game, MinigameReward } from '../core/game';
 import type { OfflineResult } from '../core/offline';
-import type { BuyAmount, Wearer } from '../core/state';
+import type { BuyAmount, GearItem, Wearer } from '../core/state';
 import { bladeStorm } from '../minigames/blades';
 import { runMinigame } from '../minigames/runner';
 import { skySiege } from '../minigames/skysiege';
@@ -190,74 +190,97 @@ export class AppUI {
     for (const h of HUNTERS) this.panel.appendChild(this.hunterCard(h.id));
   }
 
-  /** A Train button (with progress to the next level) for a recruited Hunter or you. */
-  private trainButton(who: Wearer, compact = false): HTMLElement {
+  /** A Train button and a progress bar toward the next level, kept up to date. `compact` is the card's version. */
+  private trainParts(who: Wearer, compact = false): { btn: HTMLButtonElement; bar: HTMLElement } {
     const g = this.game;
-    const wrap = el('div', compact ? 'train compact' : 'train');
     const btn = el('button', 'buy') as HTMLButtonElement;
     const bar = el('div', 'train-bar');
     bar.innerHTML = '<i></i><span></span>';
-    wrap.append(btn, bar);
     btn.addEventListener('click', (ev) => {
       ev.stopPropagation();
       if (g.train(who)) this.refresh();
     });
-    wrap.addEventListener('click', (ev) => ev.stopPropagation());
     this.refreshers.push(() => {
       const p = g.trainPurchase(who);
       const { level, into, need } = g.levelInfo(who);
-      const label = `Train${p.count > 1 ? ` ×${p.count}` : ''}`;
-      btn.innerHTML = compact ? `${label} · 🪙 ${fmt(p.cost)}` : `${label}<small>🪙 ${fmt(p.cost)}</small>`;
+      btn.innerHTML = `Train${p.count > 1 ? ` ×${p.count}` : ''}<small>🪙 ${fmt(p.cost)}</small>`;
       btn.disabled = g.state.gold < p.cost;
       $('i', bar).style.width = `${(into / need) * 100}%`;
       $('span', bar).textContent = compact ? `${into}/${need} to Lv ${level + 1}` : `Lv ${level} · ${into}/${need} to Lv ${level + 1}`;
     });
+    return { btn, bar };
+  }
+
+  /** Train button with its progress bar, for the full view. */
+  private trainButton(who: Wearer): HTMLElement {
+    const wrap = el('div', 'train');
+    const { btn, bar } = this.trainParts(who);
+    wrap.append(btn, bar);
     return wrap;
   }
 
-  /** Compact Hunter card: art, name, location & DPS, equipped gear, ability, and a Train button. Tap for the full view. */
+  /**
+   * Compact Hunter card. Top row: art (level underneath, skill-point dot on its corner); name, ability,
+   * location & DPS and training progress; a big Train (or Recruit) button. Below: equipped gear, full width.
+   * Tap the card for the full view.
+   */
   private hunterCard(who: Wearer): HTMLElement {
     const g = this.game;
     const def = who === 'main' ? null : hunterDef(who);
     const card = el('div', 'hunter-card');
     card.setAttribute('role', 'button');
     card.innerHTML = `
-      <div class="hc-art">${portraitHtml(who)}<b class="sp-dot hidden" title="Unspent skill points"></b></div>
-      <div class="hc-info">
-        <div class="hc-name"></div>
-        <div class="hc-ability">${def ? def.ability : MAIN_ABILITY}</div>
-        <div class="hc-status"></div>
-        <div class="hc-gear"></div>
+      <div class="hc-top">
+        <div class="hc-art">${portraitHtml(who)}<b class="sp-dot hidden" title="Unspent skill points"></b></div>
+        <div class="hc-info">
+          <div class="hc-name">${def ? `${def.name} <small>the ${def.title}</small>` : 'You <small>the Monster Hunter</small>'}</div>
+          <div class="hc-ability">${def ? def.ability : MAIN_ABILITY}</div>
+          <div class="hc-status"></div>
+        </div>
       </div>
-      <div class="hc-chev">›</div>`;
+      <div class="hc-train"><span class="hc-lv"></span><div class="hc-mid"></div><div class="hc-action"></div></div>
+      <div class="hc-gear"></div>`;
     card.addEventListener('click', () => this.openHunterDetail(who));
-    const info = $('.hc-info', card);
-    const name = $('.hc-name', card);
+    const mid = $('.hc-mid', card);
+    const action = $('.hc-action', card);
+    const lv = $('.hc-lv', card);
     const gearEl = $('.hc-gear', card);
     const status = $('.hc-status', card);
     const dot = $('.sp-dot', card);
+    const gearHtml = (items: Array<GearItem | null>) =>
+      g
+        .slotsOf(who)
+        .map((slot, i) => {
+          const it = items[i];
+          return it
+            ? `<span class="gear-chip">${gearDef(it.base).icon} ${gearDef(it.base).name}</span>`
+            : `<span class="gear-chip empty">${GEAR_KINDS[slot.kind].icon} ${slot.label}</span>`;
+        })
+        .join('');
     if (def && !g.state.hunters[def.id].recruited) {
-      const recruitBtn = el('button', 'buy hc-recruit') as HTMLButtonElement;
+      const recruitBtn = el('button', 'buy') as HTMLButtonElement;
       recruitBtn.addEventListener('click', (ev) => {
         ev.stopPropagation();
         g.recruit(def.id);
       });
-      info.appendChild(recruitBtn);
+      action.appendChild(recruitBtn);
       card.classList.add('locked');
+      gearEl.innerHTML = gearHtml([]);
       this.refreshers.push(() => {
-        name.innerHTML = `${def.name} <small>the ${def.title}</small>`;
         status.textContent = g.isAreaUnlocked(def.area) ? 'Available to recruit' : `Found in ${areaDef(def.area).name}`;
-        recruitBtn.innerHTML = g.isAreaUnlocked(def.area) ? `Recruit · 🪙 ${fmt(def.recruitCost)}` : '🔒 Locked';
+        mid.textContent = g.isAreaUnlocked(def.area) ? 'Recruit to start training' : `Unlock ${areaDef(def.area).name} to recruit`;
+        recruitBtn.innerHTML = g.isAreaUnlocked(def.area) ? `Recruit<small>🪙 ${fmt(def.recruitCost)}</small>` : '🔒<small>Locked</small>';
         recruitBtn.disabled = !g.canRecruit(def.id);
       });
-      gearEl.innerHTML = g.slotsOf(who).map((slot) => `<span class="gear-chip empty">${GEAR_KINDS[slot.kind].icon} ${slot.label}</span>`).join('');
       return card;
     }
-    info.appendChild(this.trainButton(who, true));
+    const { btn, bar } = this.trainParts(who, true);
+    mid.appendChild(bar);
+    action.appendChild(btn);
     let gearKey = '';
     this.refreshers.push(() => {
       const points = g.skillPoints(who);
-      name.innerHTML = `${def ? def.name : 'You'} <small>${def ? `the ${def.title}` : 'the Monster Hunter'} · Lv ${g.levelOf(who)}</small>`;
+      lv.textContent = `Lv ${g.levelOf(who)}`;
       dot.textContent = String(points);
       dot.classList.toggle('hidden', points <= 0);
       const station = def ? g.state.hunters[def.id].station : g.area;
@@ -267,15 +290,7 @@ export class AppUI {
       const k = items.map((it) => (it ? `${it.uid}:${it.level}` : '-')).join('|');
       if (k !== gearKey) {
         gearKey = k;
-        gearEl.innerHTML = g
-          .slotsOf(who)
-          .map((slot, i) => {
-            const it = items[i];
-            return it
-              ? `<span class="gear-chip">${gearDef(it.base).icon} ${gearDef(it.base).name}</span>`
-              : `<span class="gear-chip empty">${GEAR_KINDS[slot.kind].icon} ${slot.label}</span>`;
-          })
-          .join('');
+        gearEl.innerHTML = gearHtml(items);
       }
     });
     return card;

@@ -929,15 +929,115 @@ button {
 
 /* ---- Hunter cards ---- */
 .hunter-card {
+  background: var(--card);
+  border-radius: 14px;
+  padding: 12px;
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+.hc-top {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  background: var(--card);
-  border-radius: 14px;
-  padding: 10px;
-  margin-bottom: 10px;
-  cursor: pointer;
-  border: 1px solid transparent;
+}
+.hc-art {
+  position: relative;
+  flex: none;
+}
+.hc-art .hunter-art,
+.hc-lv {
+  width: 52px;
+}
+.hc-art .hunter-art {
+  height: 52px;
+  font-size: 26px;
+}
+.hc-info {
+  flex: 1;
+  min-width: 0;
+}
+.hc-name {
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 1.2;
+}
+.hc-ability {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 1px;
+  line-height: 1.25;
+}
+.hc-status {
+  margin-top: 3px;
+  font-size: 12px;
+  color: #9fe0ff;
+}
+.hc-train {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+.hc-lv {
+  flex: none;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 900;
+  color: var(--gold);
+}
+.hc-mid {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.hc-mid .train-bar {
+  height: 22px;
+}
+.hc-mid .train-bar span {
+  color: var(--text);
+  font-size: 12px;
+  line-height: 22px;
+}
+.hc-action .buy {
+  width: 112px;
+  min-width: 0;
+  padding: 8px 6px;
+  font-size: 16px;
+  border-radius: 12px;
+}
+.hc-action .buy small {
+  font-size: 13px;
+  margin-top: 1px;
+}
+.hc-gear {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+  margin-top: 10px;
+}
+.gear-chip {
+  min-width: 0;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 5px 4px;
+  letter-spacing: -0.01em;
+  border-radius: 8px;
+  background: #0004;
+  border: 1px solid #ffffff22;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gear-chip small {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--gold);
+}
+.gear-chip.empty {
+  border-style: dashed;
+  color: var(--muted);
+  opacity: 0.6;
 }
 .hunter-card:active {
   background: var(--card-hi);
@@ -971,24 +1071,6 @@ button {
   border-radius: 20px;
   font-size: 56px;
 }
-.hc-info {
-  flex: 1;
-  min-width: 0;
-}
-.hc-name {
-  font-weight: 800;
-  font-size: 15px;
-  line-height: 1.2;
-}
-.hc-art {
-  position: relative;
-  flex: none;
-}
-.hc-art .hunter-art {
-  width: 56px;
-  height: 56px;
-  font-size: 28px;
-}
 .sp-dot {
   position: absolute;
   top: -5px;
@@ -1010,31 +1092,6 @@ button {
   color: var(--muted);
   font-weight: 600;
   font-size: 12px;
-}
-.hc-ability {
-  font-size: 12px;
-  color: var(--muted);
-  margin-top: 1px;
-  line-height: 1.25;
-}
-.hc-gear {
-  display: flex;
-  gap: 4px;
-  margin-top: 4px;
-  overflow: hidden;
-}
-.gear-chip {
-  flex: 0 1 auto;
-  min-width: 0;
-  font-size: 11px;
-  font-weight: 700;
-  padding: 2px 5px;
-  border-radius: 6px;
-  background: #0004;
-  border: 1px solid #ffffff22;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .gear-chip small {
   color: var(--muted);
@@ -1091,23 +1148,6 @@ button {
   min-width: 44px;
   font-size: 18px;
 }
-.train.compact {
-  margin-top: 6px;
-  gap: 6px;
-}
-.train.compact .buy {
-  min-width: 0;
-  padding: 5px 10px;
-  font-size: 12px;
-  white-space: nowrap;
-}
-.train.compact .train-bar {
-  height: 16px;
-}
-.train.compact .train-bar span {
-  font-size: 10px;
-  line-height: 16px;
-}
 .amounts-label {
   align-self: center;
   font-size: 12px;
@@ -1117,51 +1157,8 @@ button {
   letter-spacing: 0.06em;
   margin-right: 2px;
 }
-.mini-slot {
-  position: relative;
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  display: grid;
-  place-items: center;
-  font-size: 16px;
-  background: #0004;
-  border: 1px solid #ffffff22;
-}
-.mini-slot.empty {
-  border-style: dashed;
-  opacity: 0.4;
-  filter: grayscale(1);
-}
-.mini-slot small {
-  position: absolute;
-  right: -3px;
-  bottom: -4px;
-  font-size: 9px;
-  font-weight: 800;
-  background: var(--accent);
-  border-radius: 6px;
-  padding: 0 3px;
-}
-.hc-status {
-  margin-top: 4px;
-  font-size: 12px;
-  color: #9fe0ff;
-}
 .hc-status .warn {
   color: #ffd166;
-}
-.hc-recruit {
-  margin-top: 6px;
-  width: 100%;
-  padding: 5px 10px;
-  font-size: 12px;
-}
-.hc-chev {
-  align-self: center;
-  color: var(--muted);
-  font-size: 26px;
-  flex: none;
 }
 
 /* ---- Full-screen Hunter view ---- */
