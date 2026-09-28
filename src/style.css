@@ -929,6 +929,7 @@ button {
 
 /* ---- Hunter cards ---- */
 .hunter-card {
+  position: relative;
   background: var(--card);
   border-radius: 14px;
   padding: 12px;
@@ -960,6 +961,7 @@ button {
   font-weight: 800;
   font-size: 15px;
   line-height: 1.2;
+  padding-right: 24px;
 }
 .hc-ability {
   font-size: 12px;
@@ -1000,15 +1002,14 @@ button {
   line-height: 22px;
 }
 .hc-action .buy {
-  width: 112px;
+  width: 88px;
   min-width: 0;
-  padding: 8px 6px;
-  font-size: 16px;
-  border-radius: 12px;
+  padding: 5px 6px;
+  font-size: 14px;
+  border-radius: 10px;
 }
 .hc-action .buy small {
-  font-size: 13px;
-  margin-top: 1px;
+  font-size: 12px;
 }
 .hc-gear {
   display: grid;
@@ -1073,8 +1074,8 @@ button {
 }
 .sp-dot {
   position: absolute;
-  top: -5px;
-  right: -5px;
+  top: 10px;
+  right: 10px;
   min-width: 20px;
   height: 20px;
   padding: 0 5px;

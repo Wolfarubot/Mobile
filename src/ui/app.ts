@@ -231,7 +231,7 @@ export class AppUI {
     card.setAttribute('role', 'button');
     card.innerHTML = `
       <div class="hc-top">
-        <div class="hc-art">${portraitHtml(who)}<b class="sp-dot hidden" title="Unspent skill points"></b></div>
+        <div class="hc-art">${portraitHtml(who)}</div>
         <div class="hc-info">
           <div class="hc-name">${def ? `${def.name} <small>the ${def.title}</small>` : 'You <small>the Monster Hunter</small>'}</div>
           <div class="hc-ability">${def ? def.ability : MAIN_ABILITY}</div>
@@ -239,7 +239,8 @@ export class AppUI {
         </div>
       </div>
       <div class="hc-train"><span class="hc-lv"></span><div class="hc-mid"></div><div class="hc-action"></div></div>
-      <div class="hc-gear"></div>`;
+      <div class="hc-gear"></div>
+      <b class="sp-dot hidden" title="Unspent skill points"></b>`;
     card.addEventListener('click', () => this.openHunterDetail(who));
     const mid = $('.hc-mid', card);
     const action = $('.hc-action', card);
