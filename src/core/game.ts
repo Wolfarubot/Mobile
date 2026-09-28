@@ -16,6 +16,7 @@ import {
   ENEMY_UPGRADE_MAX,
   enemyDef,
   eventDef,
+  EVENTS,
   enemyUnlockCost,
   enemyUpgradeCost,
   GEAR_MAX_LEVEL,
@@ -481,8 +482,8 @@ export class Game {
 
   /** Unlocked once enough monsters have been slain in its area (and the area is open). */
   eventUnlocked(id: string): boolean {
-    const def = eventDef(id);
-    return this.isAreaUnlocked(def.area) && this.state.areas[def.area].kills >= def.unlockKills;
+    const def = EVENTS.find((e) => e.id === id); // e.g. the final area has no Guardian Challenge
+    return !!def && this.isAreaUnlocked(def.area) && this.state.areas[def.area].kills >= def.unlockKills;
   }
 
   eventCooldown(id: string): number {

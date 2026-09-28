@@ -574,6 +574,11 @@ describe('Events', () => {
     g.state.areas.forest.kills = areaDef('forest').mastery;
     expect(g.eventUnlocked('guardian-forest')).toBe(true);
     expect(g.eventReady('guardian-graveyard')).toBe(false); // graveyard still locked
+    // The final area has no Guardian.
+    for (const a of AREAS) g.state.areas[a.id].unlocked = true;
+    g.travel('rift');
+    expect(g.guardianReady).toBe(false);
+    expect(g.challengeGuardian()).toBe(false);
   });
 
   it('starting an event puts it on cooldown, which also runs down while away', () => {
