@@ -215,6 +215,24 @@ describe('Hunters', () => {
     expect(g.guardOf('lance')).toBe(3); // his own shield isn't rallied
   });
 
+  it('tracks gold, escapes and knockouts per area, live and while away', () => {
+    const g = rich();
+    g.registerKill('greenSlime', false);
+    expect(g.state.areas.forest.gold).toBeGreaterThan(0);
+    g.registerEscape();
+    g.registerKnockout();
+    expect(g.state.areas.forest.escaped).toBe(1);
+    expect(g.state.areas.forest.knockouts).toBe(1);
+    const s = newGame(0);
+    s.main.trains = 20;
+    s.areas.graveyard.unlocked = true;
+    s.area = 'graveyard'; // too tough: knocked out while away
+    const away = new Game(s, noCrit);
+    const r = away.applyOffline(3600 * 1000);
+    expect(away.state.areas.graveyard.knockouts).toBe(r.knockouts);
+    expect(away.state.areas.graveyard.gold).toBeCloseTo(r.gold);
+  });
+
   it('counts kills per Hunter, on the field and while away', () => {
     const g = rich();
     g.recruit('ranger');

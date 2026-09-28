@@ -18,7 +18,6 @@ import {
   gearColor,
   gearDef,
   gearStats,
-  GUARDIAN_TIME,
   HUNTERS,
   hunterDef,
   hunterPerk,
@@ -53,7 +52,7 @@ import { spriteUrl } from '../render/sprites';
 
 export const MINIGAMES: MinigameDef[] = [skySiege, bladeStorm, powerStrike];
 
-type Tab = 'hunters' | 'areas' | 'beasts' | 'forge' | 'arena';
+type Tab = 'hunters' | 'areas' | 'beasts' | 'equipment' | 'events';
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string, root: ParentNode = document) => root.querySelector(sel) as T;
 
@@ -77,12 +76,6 @@ export class AppUI {
     document.querySelectorAll<HTMLButtonElement>('.tabs button').forEach((b) =>
       b.addEventListener('click', () => this.setTab(b.dataset.tab as Tab)),
     );
-    const step = (dir: number) => {
-      const i = AREAS.findIndex((a) => a.id === game.area) + dir;
-      if (AREAS[i]) game.travel(AREAS[i].id);
-    };
-    $('#prevArea').addEventListener('click', () => step(-1));
-    $('#nextArea').addEventListener('click', () => step(1));
     $('#challengeBtn').addEventListener('click', () => game.challengeGuardian() && this.refresh());
     // Panels that depend on which areas/enemies/Hunters exist are rebuilt when those change.
     game.on((e) => {
@@ -100,8 +93,8 @@ export class AppUI {
     if (tab === 'hunters') this.buildHunters();
     else if (tab === 'areas') this.buildAreas();
     else if (tab === 'beasts') this.buildBestiary();
-    else if (tab === 'forge') this.buildForge();
-    else this.buildArena();
+    else if (tab === 'equipment') this.buildEquipment();
+    else this.buildEvents();
     this.panel.scrollTop = scroll;
     this.refresh();
   }
@@ -117,30 +110,6 @@ export class AppUI {
     $('#areaNum').textContent = `Area ${idx + 1} of ${AREAS.length}`;
     $('#areaName').textContent = area.name;
 
-    const kills = s.areas[g.area].kills;
-    const fill = $('#killsFill');
-    let text: string;
-    let frac: number;
-    if (g.guardianActive) {
-      frac = g.bossTimer / GUARDIAN_TIME;
-      text = g.bossAlive ? `Guardian · ${Math.ceil(g.bossTimer)}s` : 'The Guardian approaches…';
-      fill.style.background = 'linear-gradient(90deg,#b8324a,#ff4d6d)';
-    } else if (g.lockedNext) {
-      frac = Math.min(1, kills / area.mastery);
-      text = g.guardianReady ? 'Guardian ready!' : `Mastery ${fmt(kills)} / ${fmt(area.mastery)}`;
-      fill.style.background = '';
-    } else {
-      frac = 1;
-      text = `${fmt(kills)} slain here`;
-      fill.style.background = 'linear-gradient(90deg,#2f7a4a,#3fcf6a)';
-    }
-    if (g.escapesHere) text += ` · ${fmt(g.escapesHere)} escaped`;
-    fill.style.width = `${Math.max(0, Math.min(1, frac)) * 100}%`;
-    $('#killsText').textContent = text;
-
-    $<HTMLButtonElement>('#prevArea').disabled = idx <= 0;
-    const next = AREAS[idx + 1];
-    $<HTMLButtonElement>('#nextArea').disabled = !next || !g.isAreaUnlocked(next.id);
     $('#challengeBtn').classList.toggle('hidden', !g.guardianReady || g.guardianActive);
     $('#frenzy').classList.toggle('hidden', s.frenzyTime <= 0);
     $('#frenzyTime').textContent = fmtTime(s.frenzyTime);
@@ -153,6 +122,7 @@ export class AppUI {
       'hidden',
       !ENEMIES.some((e) => !s.bestiary[e.id].unlocked && g.isAreaUnlocked(e.area) && s.gold >= enemyUnlockCost(e)),
     );
+    $('#areasBadge').classList.toggle('hidden', !g.guardianReady || g.guardianActive);
     $('#huntersBadge').classList.toggle(
       'hidden',
       !HUNTERS.some((h) => g.canRecruit(h.id) || (s.hunters[h.id].recruited && g.skillPoints(h.id) > 0)) && g.skillPoints('main') <= 0,
@@ -268,7 +238,7 @@ export class AppUI {
       });
       action.appendChild(recruitBtn);
       card.classList.add('locked');
-      gearEl.innerHTML = gearHtml([]);
+      gearEl.remove();
       this.refreshers.push(() => {
         status.textContent = g.isAreaUnlocked(def.area) ? 'Available to recruit' : `Found in ${areaDef(def.area).name}`;
         mid.textContent = g.isAreaUnlocked(def.area) ? 'Recruit to start training' : `Unlock ${areaDef(def.area).name} to recruit`;
@@ -527,7 +497,7 @@ export class AppUI {
         body.appendChild(off);
       }
       if (!fits.length) {
-        const p = el('p', '', `No ${GEAR_KINDS[def.kind].name.toLowerCase()} gear in your inventory yet. Craft some in the Forge.`);
+        const p = el('p', '', `No ${GEAR_KINDS[def.kind].name.toLowerCase()} gear in your inventory yet. Craft some in the Equipment tab.`);
         body.appendChild(p);
         return;
       }
@@ -621,6 +591,9 @@ export class AppUI {
       const travel = el('button', 'buy', 'Travel here') as HTMLButtonElement;
       travel.addEventListener('click', () => g.travel(a.id));
       actions.appendChild(travel);
+      const challenge = el('button', 'buy danger-btn hidden', '⚔️ Challenge the Guardian') as HTMLButtonElement;
+      challenge.addEventListener('click', () => g.challengeGuardian() && this.refresh());
+      actions.appendChild(challenge);
 
       this.refreshers.push(() => {
         const unlocked = g.isAreaUnlocked(a.id);
@@ -631,18 +604,34 @@ export class AppUI {
           .querySelectorAll<HTMLElement>('.enemy-chip')
           .forEach((c) => c.classList.toggle('locked', !g.state.bestiary[c.dataset.id as EnemyDef['id']].unlocked));
         travel.classList.toggle('hidden', !unlocked || here);
+        challenge.classList.toggle('hidden', !here || !g.guardianReady || g.guardianActive);
         const status = $('.status', card);
         if (!unlocked) {
           const prev = AREAS[i - 1];
           status.innerHTML = `<p style="margin:0">🔒 Defeat the <b>${prev.name} Guardian</b> to unlock. (${fmt(Math.min(g.state.areas[prev.id].kills, prev.mastery))} / ${fmt(prev.mastery)} mastery)</p>`;
           return;
         }
+        const st = g.state.areas[a.id];
         const helper = g.stationedAt(a.id);
-        const lines = [here ? '📍 <b>You are here</b>' : '', `${fmt(g.state.areas[a.id].kills)} slain`];
-        if (helper) lines.push(`${hunterDef(helper).icon} ${hunterDef(helper).name} stationed`);
-        status.innerHTML = `<p style="margin:0">${lines.filter(Boolean).join(' · ')}</p>${
-          helper && !here ? yieldHtml(g.farmRates(a.id, [helper], STATION_EFFICIENCY), '') : ''
-        }`;
+        const next = AREAS[i + 1];
+        const cleared = !next || g.isAreaUnlocked(next.id);
+        const mastery = cleared
+          ? `<div class="mastery done"><span>${next ? '✓ Guardian defeated' : '✓ The final area'}</span></div>`
+          : `<div class="mastery"><i style="width:${Math.min(1, st.kills / a.mastery) * 100}%"></i><span>${
+              st.kills >= a.mastery ? '⚔️ Guardian ready!' : `Mastery ${fmt(st.kills)} / ${fmt(a.mastery)}`
+            }</span></div>`;
+        const roster = areaEnemies(a.id);
+        const cells: Array<[string, string]> = [
+          ['Slain', fmt(st.kills)],
+          ['Gold earned', `🪙 ${fmt(st.gold)}`],
+          ['Escaped', fmt(st.escaped)],
+          ['Knockouts', fmt(st.knockouts)],
+          ['Monsters', `${roster.filter((e) => g.state.bestiary[e.id].unlocked).length} / ${roster.length}`],
+          ['Stationed', helper ? `${hunterDef(helper).icon} ${hunterDef(helper).name}` : '—'],
+        ];
+        status.innerHTML = `${here ? '<p class="here-line">📍 <b>You are here</b></p>' : ''}${mastery}<div class="area-stats">${cells
+          .map(([k, v]) => `<div><b>${v}</b>${k}</div>`)
+          .join('')}</div>${helper && !here ? yieldHtml(g.farmRates(a.id, [helper], STATION_EFFICIENCY), `${hunterDef(helper).name} earns`) : ''}`;
       });
     });
 
@@ -743,9 +732,9 @@ export class AppUI {
     });
   }
 
-  // ---- Forge tab (materials → items) ----
+  // ---- Equipment tab (materials → gear and Camp Upgrades) ----
 
-  private buildForge(): void {
+  private buildEquipment(): void {
     const g = this.game;
     const mats = el('div', 'mats');
     this.panel.appendChild(mats);
@@ -835,12 +824,15 @@ export class AppUI {
     });
   }
 
-  // ---- Arena tab ----
+  // ---- Events tab (minigames for now; more events to come) ----
 
-  private buildArena(): void {
+  private buildEvents(): void {
     const g = this.game;
+    const soon = el('div', 'card events-soon');
+    soon.innerHTML = '<h3>🎉 Events</h3><p style="margin:0">Special events are on the way. In the meantime, spend tickets on these challenges for materials, gold and Frenzy.</p>';
+    this.panel.appendChild(soon);
     const tickets = el('div', 'card');
-    tickets.innerHTML = `<div class="tickets"><span>Arena Tickets</span><span class="t"></span></div><p class="regen" style="margin:6px 0 0"></p>`;
+    tickets.innerHTML = `<div class="tickets"><span>Event Tickets</span><span class="t"></span></div><p class="regen" style="margin:6px 0 0"></p>`;
     this.panel.appendChild(tickets);
     this.refreshers.push(() => {
       const s = g.state;

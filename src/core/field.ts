@@ -373,6 +373,7 @@ export class Field {
       const t = this.game.stunTime(e.boss, who);
       state.stun = t;
       state.stunTotal = t;
+      this.game.registerKnockout();
       this.events.push({ type: 'stun', x: e.x, y: e.y, boss: e.boss, who });
     }
     if (e.boss) {

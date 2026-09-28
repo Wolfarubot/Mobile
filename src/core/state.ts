@@ -30,6 +30,10 @@ export interface AreaState {
   unlocked: boolean;
   /** Kills here (by anyone) toward challenging the area's Guardian. */
   kills: number;
+  /** Lifetime stats for the Areas tab. */
+  gold: number;
+  escaped: number;
+  knockouts: number;
 }
 
 /** Gold training and the skill points spent from it (see levelFromTrains). */
@@ -109,7 +113,7 @@ export function newGame(now = Date.now()): GameState {
     version: SAVE_VERSION,
     gold: 0,
     area: 'forest',
-    areas: byId(AREAS, (_, i) => ({ unlocked: i === 0, kills: 0 })),
+    areas: byId(AREAS, (_, i) => ({ unlocked: i === 0, kills: 0, gold: 0, escaped: 0, knockouts: 0 })),
     main: { trains: 0, skills: {} },
     bestiary: byId(ENEMIES, (id) => ({ unlocked: ENEMIES.find((e) => e.id === id)!.unlock === 0, swarm: 0, bounty: 0 })),
     hunters: byId(HUNTERS, () => ({ recruited: false, trains: 0, skills: {}, station: null })),

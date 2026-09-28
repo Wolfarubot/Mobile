@@ -156,8 +156,6 @@ export class Game {
   /** The Guardian is on the field (its timer is running). */
   bossAlive = false;
   bossTimer = 0;
-  /** Enemies that got away since arriving in the current area. */
-  escapesHere = 0;
   /** Fractional kills/drops accumulated by stationed Hunters, per area+enemy. */
   private farmAcc = new Map<string, number>();
   /** Stationed Hunters' farm rates, refreshed about once a second (the model iterates, so don't redo it every frame). */
@@ -491,7 +489,6 @@ export class Game {
     if (!this.isAreaUnlocked(id) || id === this.state.area) return false;
     this.state.area = id;
     this.endGuardian();
-    this.escapesHere = 0;
     this.emit({ type: 'travel' });
     return true;
   }
@@ -596,6 +593,7 @@ export class Game {
       const gold = areaDef(s.area).gold * GUARDIAN_GOLD_MULT * this.goldMult;
       s.gold += gold;
       s.stats.totalGold += gold;
+      s.areas[s.area].gold += gold;
       s.materials[e.material] += BOSS_MATERIAL_DROP;
       s.stats.guardians++;
       const next = this.lockedNext;
@@ -609,6 +607,7 @@ export class Game {
     const gold = e.gold * this.shooterGold(shooter);
     s.gold += gold;
     s.stats.totalGold += gold;
+    s.areas[enemyDef(type).area].gold += gold;
     const chance = e.dropChance * this.shooterDrops(shooter);
     const amount = Math.floor(chance) + (this.rng() < chance % 1 ? 1 : 0);
     s.materials[e.material] += amount;
@@ -618,8 +617,13 @@ export class Game {
 
   /** Field calls this when a fleeing enemy leaves the screen with its loot. */
   registerEscape(): void {
-    this.escapesHere++;
     this.state.stats.escaped++;
+    this.state.areas[this.state.area].escaped++;
+  }
+
+  /** Field calls this when a monster knocks out (stuns) a Hunter here. */
+  registerKnockout(): void {
+    this.state.areas[this.state.area].knockouts++;
   }
 
   registerTap(): void {
@@ -768,6 +772,8 @@ export class Game {
     s.stats.totalGold += gold;
     s.stats.totalKills += kills;
     s.areas[area].kills += kills;
+    s.areas[area].gold += gold;
+    for (const n of Object.values(knockouts)) s.areas[area].knockouts += n ?? 0;
     return { kills, gold, materials, knockouts };
   }
 
