@@ -19,16 +19,17 @@
       <div class="battle-wrap"><canvas id="battle"></canvas></div>
       <div class="progress">
         <button id="prevStage" class="nav-btn" aria-label="Previous stage">◀</button>
-        <div class="kills"><div class="kills-fill" id="killsFill"></div><span id="killsText">0 / 20</span></div>
+        <div class="kills"><div class="kills-fill" id="killsFill"></div><span id="killsText">0 / 40</span></div>
         <button id="nextStage" class="nav-btn" aria-label="Next stage">▶</button>
         <button id="autoBtn" class="auto-btn" aria-label="Toggle auto-advance">AUTO</button>
       </div>
       <div id="frenzy" class="frenzy hidden">🔥 FRENZY ×2 damage · <span id="frenzyTime"></span></div>
       <nav class="tabs">
-        <button data-tab="upgrades" class="active">⬆️ Train</button>
-        <button data-tab="forge">🔨 Forge <span class="badge dot hidden" id="forgeBadge"></span></button>
-        <button data-tab="arena">🎮 Arena <span class="badge hidden" id="ticketBadge"></span></button>
-        <button data-tab="souls">🔮 Souls</button>
+        <button data-tab="upgrades" class="active"><i>⬆️</i>Train</button>
+        <button data-tab="beasts"><i>👾</i>Bestiary <span class="badge dot hidden" id="beastBadge"></span></button>
+        <button data-tab="forge"><i>🔨</i>Forge <span class="badge dot hidden" id="forgeBadge"></span></button>
+        <button data-tab="arena"><i>🎮</i>Arena <span class="badge hidden" id="ticketBadge"></span></button>
+        <button data-tab="souls"><i>🔮</i>Souls</button>
       </nav>
       <main class="panel" id="panel"></main>
     </div>

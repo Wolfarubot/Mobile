@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ITEMS, UPGRADES, type ItemId, type UpgradeId } from '../src/core/balance';
+import { ENEMIES, ITEMS, UPGRADES, type ItemId, type UpgradeId } from '../src/core/balance';
 import { Field } from '../src/core/field';
 import { Game } from '../src/core/game';
 import { newGame } from '../src/core/state';
@@ -19,7 +19,7 @@ function mulberry(seed: number) {
 /**
  * A simple bot playing the real battlefield headless: taps the nearest enemy
  * `tapsPerSec` times a second, buys the cheapest useful gold upgrade, crafts
- * whatever it can, and pushes forward again 30s after a retreat.
+ * whatever it can, unlocks new enemies, and pushes forward again 30s after a retreat.
  */
 export function simulate(milestones: number[], maxSec: number, tapsPerSec = 2) {
   const game = new Game(newGame(0), mulberry(42));
@@ -59,6 +59,8 @@ export function simulate(milestones: number[], maxSec: number, tapsPerSec = 2) {
         if (!opts.length || !game.buyUpgrade(opts[0].id)) break;
       }
       for (const it of ITEMS) while (game.craft(it.id as ItemId));
+      // Unlock new enemies once they cost under a tenth of our gold (so training isn't starved).
+      for (const e of ENEMIES) if (!game.isUnlocked(e.id) && e.unlockCost < game.state.gold * 0.1) game.unlockEnemy(e.id);
     }
   }
   return { reached, game };
@@ -81,6 +83,6 @@ it.runIf(!!process.env.SIM_SWEEP)('pacing sweep', () => {
   const started = Date.now();
   const { reached: r, game } = simulate(ms, 6 * 3600);
   console.log(ms.map((m) => `${m}: ${r[m] !== undefined ? (r[m] / 60).toFixed(1) + 'm' : '-'}`).join(' | '));
-  console.log('upgrades', game.state.upgrades, 'items', game.state.items, 'mats', game.state.materials, 'deaths', game.state.stats.deaths);
+  console.log('upgrades', game.state.upgrades, 'items', game.state.items, 'mats', game.state.materials, 'escaped', game.state.stats.escaped, 'kills', game.state.stats.totalKills, 'unlocked', game.unlockedEnemies);
   console.log(`(sim took ${((Date.now() - started) / 1000).toFixed(1)}s)`);
 }, 600_000);

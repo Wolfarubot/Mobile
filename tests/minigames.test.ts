@@ -39,9 +39,10 @@ describe('Sky Siege', () => {
     expect(r.stars).toBeGreaterThanOrEqual(0);
   });
 
-  it('only drops materials from zones the player has reached', () => {
+  it('only drops materials of enemies the player has unlocked', () => {
     const g = game();
-    g.state.maxStage = 25;
+    g.state.bestiary.skeleton.unlocked = true;
+    g.state.bestiary.imp.unlocked = true;
     expect(g.unlockedMaterials).toEqual(['goo', 'bone', 'ember']);
   });
 

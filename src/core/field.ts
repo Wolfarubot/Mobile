@@ -1,23 +1,26 @@
 import {
-  BOSS_CONTACT_DAMAGE,
   BOSS_HP_MULT,
   BULLET_SPEED,
-  CONTACT_DAMAGE,
   CRIT_MULT,
-  enemySpeed,
+  enemyDef,
+  FLEE_SPEED_MULT,
   MAX_ENEMIES,
   MULTISHOT_SPREAD,
+  STUN_IMMUNITY,
   TAP_DAMAGE_MULT,
   TAP_RADIUS,
+  type EnemyId,
 } from './balance';
 import type { Game, KillReward } from './game';
 
 export const PLAYER_RADIUS = 13;
 const BULLET_RADIUS = 4;
 const BULLET_LIFE = 1.4;
+const BOSS_BOUNCE = 260;
 
 export interface Enemy {
   id: number;
+  type: EnemyId;
   x: number;
   y: number;
   hp: number;
@@ -25,6 +28,8 @@ export interface Enemy {
   r: number;
   speed: number;
   boss: boolean;
+  /** Reached the Hunter and is running away with its loot. */
+  fleeing: boolean;
   /** 0..1 hit flash. */
   flash: number;
   /** Knockback velocity. */
@@ -48,30 +53,34 @@ export interface Bullet {
 
 export type FieldEvent =
   | { type: 'hit'; x: number; y: number; dmg: number; crit: boolean }
-  | { type: 'kill'; x: number; y: number; boss: boolean; reward: KillReward }
+  | { type: 'kill'; x: number; y: number; enemy: EnemyId; boss: boolean; reward: KillReward }
   | { type: 'blast'; x: number; y: number }
   | { type: 'boss' }
-  | { type: 'death' };
+  | { type: 'stun'; x: number; y: number; boss: boolean }
+  | { type: 'escape'; x: number; y: number };
 
 /**
- * The survivor-style battlefield in world coordinates centered on the hero.
- * Enemies spawn off-screen and walk inward; the hero auto-fires at the nearest.
+ * The survivor-style battlefield in world coordinates centered on the Hunter.
+ * Enemies spawn just off-screen and walk inward; the Hunter auto-fires at the nearest.
+ * An enemy that reaches the Hunter stuns them and flees; if it gets off-screen it escapes.
  * No rendering here: BattleView draws it, and tests run it headless.
  */
 export class Field {
   enemies: Enemy[] = [];
   bullets: Bullet[] = [];
-  /** Hero HP as a fraction of max. */
-  hp = 1;
-  /** Direction of the last volley, for drawing the hero's aim. */
+  /** Seconds of stun left (the Hunter can't shoot while > 0). */
+  stun = 0;
+  /** Length of the current stun, for drawing its bar. */
+  stunTotal = 0;
+  /** Seconds of post-stun immunity left. */
+  immune = 0;
+  /** Direction of the last volley, for drawing the Hunter's aim. */
   aim = -Math.PI / 2;
-  /** Seconds since the hero last took contact damage (for the hurt flash). */
-  hurtAgo = 99;
   /** Events since the last drain, consumed by the renderer. */
   events: FieldEvent[] = [];
   private spawnAcc = 0;
-  /** Enemies arrive in packs; this is the size of the next one. */
-  private nextPack = 3;
+  /** Enemies arrive in packs; this is the next pack's type and size. */
+  private nextPack: { type: EnemyId; size: number } | null = null;
   private fireAcc = 0;
   private nextId = 1;
   private halfW = 200;
@@ -89,11 +98,17 @@ export class Field {
     this.halfH = h / 2;
   }
 
+  get stunned(): boolean {
+    return this.stun > 0;
+  }
+
   clear(): void {
     this.enemies = [];
     this.bullets = [];
-    this.hp = 1;
+    this.stun = 0;
+    this.immune = 0;
     this.spawnAcc = 0;
+    this.nextPack = null;
   }
 
   drainEvents(): FieldEvent[] {
@@ -102,6 +117,7 @@ export class Field {
     return e;
   }
 
+  /** Enemies beyond this distance are off-screen. */
   private get spawnRadius(): number {
     return Math.hypot(this.halfW, this.halfH) + 24;
   }
@@ -117,21 +133,25 @@ export class Field {
     if (t < 2 * w) return { x: t - w, y: h };
     t -= 2 * w;
     if (t < 2 * h) return { x: -w, y: t - h };
-    return { x: w, y: t - 2 * h - h };
+    return { x: w, y: t - 3 * h };
   }
 
-  private spawn(boss: boolean, at = this.edgePoint()): void {
+  private spawn(type: EnemyId, boss: boolean, at = this.edgePoint()): void {
     const g = this.game;
-    const hp = g.enemyHp * (boss ? BOSS_HP_MULT : 1);
+    const stats = g.enemyStats(type);
+    const def = enemyDef(type);
+    const hp = stats.hp * (boss ? BOSS_HP_MULT : 1);
     this.enemies.push({
       id: this.nextId++,
+      type,
       x: at.x + (boss ? 0 : (g.rng() - 0.5) * 50),
       y: at.y + (boss ? 0 : (g.rng() - 0.5) * 50),
       hp,
       maxHp: hp,
-      r: boss ? 28 : 9 + g.rng() * 3,
-      speed: enemySpeed(g.state.stage) * (boss ? 0.55 : 0.8 + g.rng() * 0.4),
+      r: boss ? def.radius * 2.6 : def.radius * (0.9 + g.rng() * 0.2),
+      speed: stats.speed * (boss ? 0.55 : 0.85 + g.rng() * 0.3),
       boss,
+      fleeing: false,
       flash: 0,
       kx: 0,
       ky: 0,
@@ -139,52 +159,68 @@ export class Field {
     });
   }
 
+  private rollPack(): { type: EnemyId; size: number } {
+    const type = this.game.pickEnemy();
+    const [lo, hi] = enemyDef(type).pack;
+    return { type, size: lo + Math.floor(this.game.rng() * (hi - lo + 1)) };
+  }
+
   update(dt: number): void {
     const g = this.game;
-    this.hurtAgo += dt;
+
+    // Stun & immunity
+    if (this.stun > 0) {
+      this.stun = Math.max(0, this.stun - dt);
+      if (this.stun === 0) this.immune = STUN_IMMUNITY;
+    } else this.immune = Math.max(0, this.immune - dt);
 
     // Spawning
     if (g.isBoss && !g.bossAlive && !this.enemies.some((e) => e.boss)) {
-      this.spawn(true);
+      this.spawn(g.bossType, true);
       g.bossSpawned();
       this.events.push({ type: 'boss' });
     }
     this.spawnAcc += dt * g.spawnRate;
-    while (this.spawnAcc >= this.nextPack) {
-      this.spawnAcc -= this.nextPack;
+    this.nextPack ??= this.rollPack();
+    while (this.spawnAcc >= this.nextPack.size) {
+      this.spawnAcc -= this.nextPack.size;
       const at = this.edgePoint();
-      for (let i = 0; i < this.nextPack && this.enemies.length < MAX_ENEMIES; i++) this.spawn(false, at);
-      this.nextPack = 2 + Math.floor(g.rng() * 4);
+      for (let i = 0; i < this.nextPack.size && this.enemies.length < MAX_ENEMIES; i++) this.spawn(this.nextPack.type, false, at);
+      this.nextPack = this.rollPack();
     }
 
-    // Movement & contact
-    let contact = 0;
+    // Movement, contact and escapes
     const decay = Math.exp(-8 * dt);
+    const escapeR = this.spawnRadius + 30;
     for (const e of this.enemies) {
       e.flash = Math.max(0, e.flash - dt * 6);
       e.phase += dt;
       const d = Math.hypot(e.x, e.y) || 1;
-      const reach = e.r + PLAYER_RADIUS;
-      const step = Math.min(e.speed * dt, Math.max(0, d - reach));
-      e.x += (-e.x / d) * step + e.kx * dt;
-      e.y += (-e.y / d) * step + e.ky * dt;
+      const ux = e.x / d;
+      const uy = e.y / d;
+      if (e.fleeing) {
+        e.x += ux * e.speed * FLEE_SPEED_MULT * dt + e.kx * dt;
+        e.y += uy * e.speed * FLEE_SPEED_MULT * dt + e.ky * dt;
+        if (d > escapeR) {
+          e.hp = 0;
+          g.registerEscape();
+          this.events.push({ type: 'escape', x: e.x, y: e.y });
+        }
+      } else {
+        const reach = e.r + PLAYER_RADIUS;
+        const step = Math.min(e.speed * dt, Math.max(0, d - reach));
+        e.x += -ux * step + e.kx * dt;
+        e.y += -uy * step + e.ky * dt;
+        if (d <= reach + 1) this.contact(e, ux, uy);
+      }
       e.kx *= decay;
       e.ky *= decay;
-      if (d <= reach + 1) contact += e.boss ? BOSS_CONTACT_DAMAGE : CONTACT_DAMAGE;
     }
     this.separate();
 
-    if (contact > 0) this.hurtAgo = 0;
-    this.hp = Math.min(1, this.hp + (g.regen - contact * g.damageTaken) * dt);
-    if (this.hp <= 0) {
-      this.events.push({ type: 'death' });
-      g.playerDied(); // triggers clear() via the stageChange listener
-      this.clear();
-      return;
-    }
-
-    // Shooting
+    // Shooting (not while stunned)
     this.fireAcc = Math.min(this.fireAcc + dt * g.fireRate, 3);
+    if (this.stunned) this.fireAcc = 0;
     while (this.fireAcc >= 1) {
       const target = this.nearest();
       if (!target) {
@@ -215,6 +251,22 @@ export class Field {
     this.enemies = this.enemies.filter((e) => e.hp > 0);
   }
 
+  /** An enemy reached the Hunter: stun them (unless immune), then run (or, for bosses, bounce off). */
+  private contact(e: Enemy, ux: number, uy: number): void {
+    if (this.immune <= 0 || this.stunned) {
+      const t = this.game.stunTime(e.boss);
+      if (t > this.stun) {
+        this.stun = t;
+        this.stunTotal = t;
+      }
+      this.events.push({ type: 'stun', x: e.x, y: e.y, boss: e.boss });
+    }
+    if (e.boss) {
+      e.kx += ux * BOSS_BOUNCE;
+      e.ky += uy * BOSS_BOUNCE;
+    } else e.fleeing = true;
+  }
+
   /** Cheap pairwise push-apart so the horde spreads into a crowd instead of a single dot. */
   private separate(): void {
     const es = this.enemies;
@@ -222,6 +274,7 @@ export class Field {
       const a = es[i];
       for (let j = i + 1; j < es.length; j++) {
         const b = es[j];
+        if (a.fleeing !== b.fleeing) continue; // runners slip through the crowd
         const dx = b.x - a.x;
         const dy = b.y - a.y;
         const min = a.r + b.r;
@@ -239,14 +292,16 @@ export class Field {
     }
   }
 
+  /** Closest enemy still coming in; runners are only targeted when nothing is approaching. */
   private nearest(): Enemy | null {
     let best: Enemy | null = null;
     let bestD = Infinity;
     const range = this.spawnRadius;
     for (const e of this.enemies) {
       if (e.hp <= 0) continue;
-      const d = e.x * e.x + e.y * e.y;
-      if (d < bestD && d < range * range) {
+      // Approaching enemies always sort before fleeing ones.
+      const d = e.x * e.x + e.y * e.y + (e.fleeing ? 1e12 : 0);
+      if (d < bestD && e.x * e.x + e.y * e.y < range * range) {
         bestD = d;
         best = e;
       }
@@ -285,12 +340,12 @@ export class Field {
     }
     this.events.push({ type: 'hit', x: e.x, y: e.y - e.r, dmg, crit });
     if (e.hp <= 0) {
-      const reward = this.game.registerKill(e.boss);
-      this.events.push({ type: 'kill', x: e.x, y: e.y, boss: e.boss, reward });
+      const reward = this.game.registerKill(e.type, e.boss);
+      this.events.push({ type: 'kill', x: e.x, y: e.y, enemy: e.type, boss: e.boss, reward });
     }
   }
 
-  /** Tap blast at a world position: damages every enemy in the radius. */
+  /** Tap blast at a world position: damages every enemy in the radius. Works even while stunned. */
   tap(x: number, y: number): void {
     const g = this.game;
     g.registerTap();

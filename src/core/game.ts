@@ -2,16 +2,25 @@ import {
   BASE_CRIT_CHANCE,
   BASE_DROP_CHANCE,
   BASE_FIRE_RATE,
-  BASE_SPAWN_RATE,
   BH_UPGRADES,
   bhUpgradeCost,
   BOSS_MATERIAL_DROP,
   BOSS_REWARD_MULT,
+  BOSS_STUN_TIME,
   BOSS_TIME,
+  BOUNTY_DROP_PER_LEVEL,
+  BOUNTY_GOLD_PER_LEVEL,
+  BOUNTY_SPEED_PER_LEVEL,
   bulkCost,
   CRIT_MULT,
+  ENEMIES,
+  ENEMY_UPGRADE_MAX,
+  ESCAPES_TO_RETREAT,
+  enemyDef,
   enemyGold,
   enemyHp,
+  enemySpeed,
+  enemyUpgradeCost,
   FRENZY_CAP_SEC,
   FRENZY_MULT,
   hasteMult,
@@ -22,27 +31,30 @@ import {
   MAX_TICKETS,
   maxAffordable,
   MINIGAME_GOLD_PER_UNIT,
-  PLAYER_REGEN,
+  nervesMult,
   powerDamage,
   shardMultiplier,
   shardsForStage,
   spawnRamp,
+  STUN_TIME,
+  SWARM_PER_LEVEL,
   UPGRADES,
-  vitalityMult,
-  zoneFor,
   type BhUpgradeId,
+  type EnemyId,
+  type EnemyUpgrade,
   type ItemId,
   type MaterialId,
   type UpgradeId,
 } from './balance';
 import { computeOffline, farmStage, regenTickets, type OfflineResult } from './offline';
-import { newGame, type BuyAmount, type GameState } from './state';
+import { newBestiary, newGame, type BuyAmount, type GameState } from './state';
 
 export type GameEvent =
   | { type: 'stageClear'; stage: number }
   | { type: 'stageChange'; reason: StageChangeReason }
   | { type: 'bossFail' }
-  | { type: 'death' }
+  | { type: 'overrun' }
+  | { type: 'unlock'; enemy: EnemyId }
   | { type: 'prestige'; shards: number };
 
 /** 'advance' keeps the horde on screen; every other change clears the field. */
@@ -57,6 +69,17 @@ export interface KillReward {
   gold: number;
   material: MaterialId | null;
   amount: number;
+}
+
+/** Live stats for one enemy type on the current stage. */
+export interface EnemyStats {
+  id: EnemyId;
+  hp: number;
+  speed: number;
+  gold: number;
+  spawnRate: number;
+  dropChance: number;
+  material: MaterialId;
 }
 
 export interface MinigameReward {
@@ -77,7 +100,7 @@ export interface MinigamePayout {
 
 /**
  * The economy and progression rules. Positions, bullets and collisions live in
- * Field; Field reports kills/deaths here and reads combat stats from here.
+ * Field; Field reports kills/escapes here and reads combat stats from here.
  */
 export class Game {
   state: GameState;
@@ -103,7 +126,7 @@ export class Game {
     return this.state.items[id];
   }
 
-  // ---- Combat stats (read by Field every frame) ----
+  // ---- Hunter stats (read by Field every frame) ----
 
   get shardMult(): number {
     return shardMultiplier(this.state.shards);
@@ -140,42 +163,73 @@ export class Game {
     return BASE_CRIT_CHANCE + 0.04 * this.item('lantern');
   }
 
-  get spawnRate(): number {
-    return BASE_SPAWN_RATE * spawnRamp(this.state.stage) * (1 + 0.2 * this.item('lure'));
-  }
-
-  get dropChance(): number {
-    return BASE_DROP_CHANCE * (1 + 0.25 * this.item('pouch'));
+  /** Seconds the Hunter is stunned when an enemy reaches them. */
+  stunTime(boss = false): number {
+    return (boss ? BOSS_STUN_TIME : STUN_TIME) * nervesMult(this.state.upgrades.nerves) * 0.88 ** this.item('bonemail');
   }
 
   get goldMult(): number {
     return 1 + 0.25 * this.item('idol');
   }
 
-  /** Multiplier on contact damage the hero takes. */
-  get damageTaken(): number {
-    return 0.88 ** this.item('bonemail') * vitalityMult(this.state.upgrades.vitality);
-  }
-
-  get regen(): number {
-    return PLAYER_REGEN * (1 + 0.1 * this.state.upgrades.vitality);
-  }
-
-  /** Expected damage per second, ignoring overkill and travel time. */
+  /** Expected damage per second, ignoring overkill, travel time and stuns. */
   get dps(): number {
     return this.damage * this.fireRate * this.projectiles * (1 + this.critChance * (CRIT_MULT - 1));
   }
 
-  get enemyHp(): number {
-    return enemyHp(this.state.stage);
+  // ---- Enemies ----
+
+  isUnlocked(id: EnemyId): boolean {
+    return this.state.bestiary[id].unlocked;
+  }
+
+  get unlockedEnemies(): EnemyId[] {
+    return ENEMIES.filter((e) => this.isUnlocked(e.id)).map((e) => e.id);
+  }
+
+  /** Stats of one enemy type on a stage (defaults to the current one). */
+  enemyStats(id: EnemyId, stage = this.state.stage): EnemyStats {
+    const def = enemyDef(id);
+    const b = this.state.bestiary[id];
+    return {
+      id,
+      hp: enemyHp(stage) * def.hp,
+      speed: enemySpeed(stage) * def.speed * (1 + BOUNTY_SPEED_PER_LEVEL * b.bounty),
+      gold: enemyGold(stage) * def.gold * (1 + BOUNTY_GOLD_PER_LEVEL * b.bounty) * this.goldMult,
+      spawnRate: b.unlocked ? def.spawn * (1 + SWARM_PER_LEVEL * b.swarm) * spawnRamp(stage) * (1 + 0.2 * this.item('lure')) : 0,
+      dropChance: BASE_DROP_CHANCE * (1 + 0.25 * this.item('pouch')) * (1 + BOUNTY_DROP_PER_LEVEL * b.bounty),
+      material: def.material,
+    };
+  }
+
+  roster(stage = this.state.stage): EnemyStats[] {
+    return this.unlockedEnemies.map((id) => this.enemyStats(id, stage));
+  }
+
+  /** Total enemies per second across all unlocked types. */
+  get spawnRate(): number {
+    return this.roster().reduce((sum, e) => sum + e.spawnRate, 0);
+  }
+
+  /** Weighted random pick of which enemy type the next pack is. */
+  pickEnemy(): EnemyId {
+    const roster = this.roster();
+    let roll = this.rng() * roster.reduce((sum, e) => sum + e.spawnRate, 0);
+    for (const e of roster) {
+      roll -= e.spawnRate;
+      if (roll <= 0) return e.id;
+    }
+    return roster[roster.length - 1]?.id ?? 'slime';
+  }
+
+  /** The stage boss is a giant version of the toughest enemy you've unlocked. */
+  get bossType(): EnemyId {
+    const u = this.unlockedEnemies;
+    return u[u.length - 1];
   }
 
   get isBoss(): boolean {
     return isBossStage(this.state.stage);
-  }
-
-  get zoneMaterial(): MaterialId {
-    return zoneFor(this.state.stage).material;
   }
 
   get pendingShards(): number {
@@ -201,21 +255,18 @@ export class Game {
   }
 
   /** Field calls this for every enemy killed. */
-  registerKill(boss: boolean): KillReward {
+  registerKill(type: EnemyId, boss: boolean): KillReward {
     const s = this.state;
-    const gold = enemyGold(s.stage) * this.goldMult * (boss ? BOSS_REWARD_MULT : 1);
+    const e = this.enemyStats(type);
+    const gold = e.gold * (boss ? BOSS_REWARD_MULT : 1);
     s.gold += gold;
     s.stats.totalGold += gold;
     s.stats.totalKills++;
 
-    const material = this.zoneMaterial;
     let amount = 0;
     if (boss) amount = Math.round(BOSS_MATERIAL_DROP * (1 + 0.25 * this.item('pouch')));
-    else {
-      const c = this.dropChance;
-      amount = Math.floor(c) + (this.rng() < c % 1 ? 1 : 0);
-    }
-    s.materials[material] += amount;
+    else amount = Math.floor(e.dropChance) + (this.rng() < e.dropChance % 1 ? 1 : 0);
+    s.materials[e.material] += amount;
 
     if (boss) {
       this.bossAlive = false;
@@ -224,19 +275,23 @@ export class Game {
       s.stageKills++;
       if (s.stageKills >= KILLS_PER_STAGE) this.clearStage();
     }
-    return { gold, material: amount > 0 ? material : null, amount };
+    return { gold, material: amount > 0 ? e.material : null, amount };
+  }
+
+  /** Field calls this when a fleeing enemy leaves the screen with its loot. Too many and the Hunter falls back. */
+  registerEscape(): void {
+    const s = this.state;
+    s.stageEscapes++;
+    s.stats.escaped++;
+    if (s.stageEscapes >= ESCAPES_TO_RETREAT && s.stage > 1) {
+      s.autoAdvance = false;
+      this.emit({ type: 'overrun' });
+      this.goToStage(s.stage - 1, 'retreat');
+    }
   }
 
   registerTap(): void {
     this.state.stats.taps++;
-  }
-
-  /** Field calls this when the hero's HP runs out: retreat one stage and stop auto-advancing. */
-  playerDied(): void {
-    this.state.stats.deaths++;
-    this.state.autoAdvance = false;
-    this.emit({ type: 'death' });
-    this.goToStage(this.state.stage - 1, 'retreat');
   }
 
   private clearStage(): void {
@@ -244,7 +299,10 @@ export class Game {
     this.emit({ type: 'stageClear', stage: s.stage });
     s.maxStage = Math.max(s.maxStage, s.stage + 1);
     if (s.autoAdvance) this.goToStage(s.stage + 1, 'advance');
-    else s.stageKills = 0;
+    else {
+      s.stageKills = 0;
+      s.stageEscapes = 0;
+    }
   }
 
   private failBoss(): void {
@@ -257,6 +315,7 @@ export class Game {
     const s = this.state;
     s.stage = Math.min(Math.max(1, stage), s.maxStage);
     s.stageKills = 0;
+    s.stageEscapes = 0;
     s.bossTimer = 0;
     this.bossAlive = false;
     this.emit({ type: 'stageChange', reason });
@@ -291,6 +350,32 @@ export class Game {
     if (p.count <= 0 || this.state.gold < p.cost) return false;
     this.state.gold -= p.cost;
     this.state.upgrades[id] += p.count;
+    return true;
+  }
+
+  // ---- Bestiary ----
+
+  unlockEnemy(id: EnemyId): boolean {
+    const def = enemyDef(id);
+    const b = this.state.bestiary[id];
+    if (b.unlocked || this.state.gold < def.unlockCost) return false;
+    this.state.gold -= def.unlockCost;
+    b.unlocked = true;
+    this.emit({ type: 'unlock', enemy: id });
+    return true;
+  }
+
+  enemyUpgradeCost(id: EnemyId, kind: EnemyUpgrade): number {
+    const level = this.state.bestiary[id][kind];
+    return level >= ENEMY_UPGRADE_MAX ? Infinity : enemyUpgradeCost(enemyDef(id), kind, level);
+  }
+
+  buyEnemyUpgrade(id: EnemyId, kind: EnemyUpgrade): boolean {
+    const b = this.state.bestiary[id];
+    const cost = this.enemyUpgradeCost(id, kind);
+    if (!b.unlocked || this.state.gold < cost) return false;
+    this.state.gold -= cost;
+    b[kind]++;
     return true;
   }
 
@@ -330,7 +415,10 @@ export class Game {
 
   // ---- Ascension ----
 
-  /** Resets stage, gold and gold upgrades for Soul Shards. Materials, items and Arena progress are kept. */
+  /**
+   * Resets stage, gold, training and the bestiary for Soul Shards.
+   * Materials, forged items and Arena progress are kept.
+   */
   prestige(now = Date.now()): number {
     const gained = this.pendingShards;
     if (gained <= 0) return 0;
@@ -341,6 +429,7 @@ export class Game {
     fresh.items = old.items;
     fresh.stars = old.stars;
     fresh.bh = old.bh;
+    fresh.bestiary = newBestiary();
     fresh.tickets = old.tickets;
     fresh.ticketProgress = old.ticketProgress;
     fresh.buyAmount = old.buyAmount;
@@ -359,15 +448,12 @@ export class Game {
     const s = this.state;
     const frenzyWas = s.frenzyTime;
     s.frenzyTime = 0; // offline progress never benefits from Frenzy
-    const result = computeOffline(
-      { stage: s.stage, dps: this.dps, spawnRate: this.spawnRate, goldMult: this.goldMult, dropChance: this.dropChance },
-      (now - s.lastSeen) / 1000,
-    );
+    const result = computeOffline(this.dps, this.roster(farmStage(s.stage)), (now - s.lastSeen) / 1000);
     s.frenzyTime = Math.max(0, frenzyWas - result.away);
     s.gold += result.gold;
     s.stats.totalGold += result.gold;
     s.stats.totalKills += result.kills;
-    s.materials[result.material] += result.materials;
+    for (const [m, n] of Object.entries(result.materials) as [MaterialId, number][]) s.materials[m] += n;
     regenTickets(s, result.away);
     s.lastSeen = now;
     return result;
@@ -384,18 +470,15 @@ export class Game {
     return true;
   }
 
-  /** Materials the player has reached so far (the bullet hell only drops these). */
+  /** Materials of the enemies you've unlocked (the bullet hell only drops these). */
   get unlockedMaterials(): MaterialId[] {
-    const zones = Math.min(6, Math.floor((this.state.maxStage - 1) / 10) + 1);
-    const mats: MaterialId[] = [];
-    for (let z = 0; z < zones; z++) mats.push(zoneFor(z * 10 + 1).material);
-    return mats;
+    return this.unlockedEnemies.map((id) => enemyDef(id).material);
   }
 
   grantMinigame(p: MinigamePayout): MinigameReward {
     const s = this.state;
     const u = Math.max(0, Math.floor(p.units));
-    const gold = u * MINIGAME_GOLD_PER_UNIT * enemyGold(farmStage(s.stage)) * this.goldMult;
+    const gold = u * MINIGAME_GOLD_PER_UNIT * this.enemyStats('slime', farmStage(s.stage)).gold;
     const frenzy = Math.max(0, Math.min(FRENZY_CAP_SEC - s.frenzyTime, u));
     s.gold += gold;
     s.stats.totalGold += gold;

@@ -1,6 +1,12 @@
 import {
   BH_UPGRADES,
   BOSS_EVERY,
+  BOUNTY_DROP_PER_LEVEL,
+  BOUNTY_GOLD_PER_LEVEL,
+  BOUNTY_SPEED_PER_LEVEL,
+  ENEMIES,
+  ENEMY_UPGRADE_MAX,
+  ESCAPES_TO_RETREAT,
   isBossStage,
   itemCost,
   ITEMS,
@@ -10,16 +16,19 @@ import {
   MAX_TICKETS,
   PRESTIGE_MIN_STAGE,
   SHARD_BONUS,
+  SWARM_PER_LEVEL,
   TICKET_REGEN_SEC,
   UPGRADES,
   zoneFor,
-  ZONES,
+  type EnemyDef,
+  type EnemyUpgrade,
   type MaterialId,
 } from '../core/balance';
 import { fmt, fmtTime } from '../core/format';
 import type { Game, MinigameReward } from '../core/game';
 import type { OfflineResult } from '../core/offline';
 import type { BuyAmount } from '../core/state';
+import { drawEnemyPortrait } from '../render/battle';
 import { bladeStorm } from '../minigames/blades';
 import { runMinigame } from '../minigames/runner';
 import { skySiege } from '../minigames/skysiege';
@@ -28,7 +37,7 @@ import type { MinigameDef } from '../minigames/types';
 
 export const MINIGAMES: MinigameDef[] = [skySiege, bladeStorm, powerStrike];
 
-type Tab = 'upgrades' | 'forge' | 'arena' | 'souls';
+type Tab = 'upgrades' | 'beasts' | 'forge' | 'arena' | 'souls';
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string, root: ParentNode = document) => root.querySelector(sel) as T;
 
@@ -64,6 +73,7 @@ export class AppUI {
     this.panel.innerHTML = '';
     this.panel.scrollTop = 0;
     if (tab === 'upgrades') this.buildUpgrades();
+    else if (tab === 'beasts') this.buildBestiary();
     else if (tab === 'forge') this.buildForge();
     else if (tab === 'arena') this.buildArena();
     else this.buildSouls();
@@ -84,7 +94,7 @@ export class AppUI {
     $('#killsFill').style.background = boss ? 'linear-gradient(90deg,#b8324a,#ff4d6d)' : '';
     $('#killsText').textContent = boss
       ? `Boss · ${Math.ceil(s.bossTimer)}s`
-      : `${s.stageKills} / ${KILLS_PER_STAGE}${s.stage < s.maxStage ? ` · farming (best ${s.maxStage})` : ''}`;
+      : `${s.stageKills} / ${KILLS_PER_STAGE}${s.stageEscapes ? ` · ${s.stageEscapes}/${ESCAPES_TO_RETREAT} escaped` : ''}${s.stage < s.maxStage ? ` · farming` : ''}`;
     $<HTMLButtonElement>('#prevStage').disabled = s.stage <= 1;
     const next = $<HTMLButtonElement>('#nextStage');
     next.disabled = s.stage >= s.maxStage;
@@ -98,6 +108,7 @@ export class AppUI {
     badge.textContent = String(s.tickets);
     badge.classList.toggle('hidden', s.tickets <= 0);
     $('#forgeBadge').classList.toggle('hidden', !ITEMS.some((it) => g.canCraft(it.id)));
+    $('#beastBadge').classList.toggle('hidden', !ENEMIES.some((e) => !g.isUnlocked(e.id) && s.gold >= e.unlockCost));
 
     for (const r of this.refreshers) r();
   }
@@ -112,7 +123,7 @@ export class AppUI {
       strip.innerHTML = `
         <div><b>${fmt(g.damage)}</b>damage</div>
         <div><b>${g.fireRate.toFixed(1)}/s</b>${g.projectiles > 1 ? `×${g.projectiles} shots` : 'attack rate'}</div>
-        <div><b>${g.spawnRate.toFixed(1)}/s</b>enemy spawns</div>`;
+        <div><b>${g.stunTime().toFixed(2)}s</b>stun time</div>`;
     });
 
     const amounts = el('div', 'amounts');
@@ -155,8 +166,69 @@ export class AppUI {
     }
 
     const tip = el('div', 'card');
-    tip.innerHTML = `<p style="margin:0">Tap the battlefield to fire a blast. Every ${BOSS_EVERY}th stage is a boss; if you get overrun you fall back a stage. Use ◀ ▶ to farm earlier zones for their materials.</p>`;
+    tip.innerHTML = `<p style="margin:0">Tap the battlefield to fire a blast (works even while stunned). Enemies that reach the Hunter stun them and run off with their loot. If ${ESCAPES_TO_RETREAT} get away before you clear a stage, you fall back one. Every ${BOSS_EVERY}th stage is a boss. Use ◀ ▶ to farm easier stages.</p>`;
     this.panel.appendChild(tip);
+  }
+
+  // ---- Bestiary tab (enemy roster) ----
+
+  private buildBestiary(): void {
+    const intro = el('div', 'card');
+    intro.innerHTML = `<p style="margin:0">Unlock new monsters to join the horde. Each drops its own material. <b>Swarm</b> brings more of them; <b>Bounty</b> makes them pay more but run faster. Resets on Ascension.</p>`;
+    this.panel.appendChild(intro);
+    for (const def of ENEMIES) this.buildBeast(def);
+  }
+
+  private buildBeast(def: EnemyDef): void {
+    const g = this.game;
+    const card = el('div', 'beast');
+    card.innerHTML = `
+      <div class="beast-head">
+        <canvas class="portrait"></canvas>
+        <div class="info"><div class="name"></div><div class="blurb">${def.blurb}</div></div>
+      </div>
+      <div class="beast-stats"></div>
+      <div class="beast-actions"></div>`;
+    this.panel.appendChild(card);
+    requestAnimationFrame(() => drawEnemyPortrait($<HTMLCanvasElement>('canvas', card), def.id));
+
+    const actions = $('.beast-actions', card);
+    const unlockBtn = el('button', 'buy') as HTMLButtonElement;
+    unlockBtn.addEventListener('click', () => g.unlockEnemy(def.id) && this.setTab('beasts'));
+    const upgradeBtn = (kind: EnemyUpgrade) => {
+      const b = el('button', 'buy') as HTMLButtonElement;
+      b.addEventListener('click', () => g.buyEnemyUpgrade(def.id, kind) && this.refresh());
+      return b;
+    };
+    const swarmBtn = upgradeBtn('swarm');
+    const bountyBtn = upgradeBtn('bounty');
+    if (g.isUnlocked(def.id)) actions.append(swarmBtn, bountyBtn);
+    else actions.append(unlockBtn);
+
+    this.refreshers.push(() => {
+      const b = g.state.bestiary[def.id];
+      const st = g.enemyStats(def.id);
+      const mat = materialDef(def.material);
+      card.classList.toggle('locked', !b.unlocked);
+      $('.name', card).innerHTML = `${def.name}${b.unlocked ? '' : ' <small style="color:var(--muted)">locked</small>'}`;
+      const spawn = b.unlocked ? st.spawnRate : def.spawn;
+      $('.beast-stats', card).innerHTML = `
+        <div><b>${fmt(st.hp)}</b>HP</div>
+        <div><b>${Math.round(st.speed)}</b>speed</div>
+        <div><b>${spawn.toFixed(2)}/s</b>spawns</div>
+        <div><b>${fmt(st.gold)}</b>gold</div>`;
+      if (!b.unlocked) {
+        unlockBtn.innerHTML = `Unlock · drops ${gemHtml(def.material)} ${mat.name}<small>🪙 ${fmt(def.unlockCost)}</small>`;
+        unlockBtn.disabled = g.state.gold < def.unlockCost;
+        return;
+      }
+      const sc = g.enemyUpgradeCost(def.id, 'swarm');
+      const bc = g.enemyUpgradeCost(def.id, 'bounty');
+      swarmBtn.innerHTML = `Swarm ${b.swarm}/${ENEMY_UPGRADE_MAX}<span>+${Math.round(SWARM_PER_LEVEL * 100)}% spawns</span><small>${Number.isFinite(sc) ? `🪙 ${fmt(sc)}` : 'MAX'}</small>`;
+      bountyBtn.innerHTML = `Bounty ${b.bounty}/${ENEMY_UPGRADE_MAX}<span>+${Math.round(BOUNTY_GOLD_PER_LEVEL * 100)}% gold, +${Math.round(BOUNTY_DROP_PER_LEVEL * 100)}% drops, +${Math.round(BOUNTY_SPEED_PER_LEVEL * 100)}% speed</span><small>${Number.isFinite(bc) ? `🪙 ${fmt(bc)}` : 'MAX'}</small>`;
+      swarmBtn.disabled = g.state.gold < sc;
+      bountyBtn.disabled = g.state.gold < bc;
+    });
   }
 
   // ---- Forge tab (materials → items) ----
@@ -169,8 +241,8 @@ export class AppUI {
       const seen = new Set(g.unlockedMaterials);
       mats.innerHTML = MATERIALS.map((m) => {
         const known = seen.has(m.id) || g.state.materials[m.id] > 0;
-        const zone = ZONES.find((z) => z.material === m.id)!;
-        return `<div class="mat ${known ? '' : 'unknown'}">${gemHtml(m.id)}<span>${known ? m.name : zone.name}</span><b>${known ? fmt(g.state.materials[m.id]) : '?'}</b></div>`;
+        const source = ENEMIES.find((e) => e.material === m.id)!;
+        return `<div class="mat ${known ? '' : 'unknown'}">${gemHtml(m.id)}<span>${known ? m.name : `from ${source.name}s`}</span><b>${known ? fmt(g.state.materials[m.id]) : '?'}</b></div>`;
       }).join('');
     });
 
@@ -276,7 +348,7 @@ export class AppUI {
     const card = el('div', 'card');
     card.innerHTML = `
       <h3>🔮 Soul Shards: <span class="shards"></span></h3>
-      <p>Each shard permanently grants +${SHARD_BONUS * 100}% damage. Ascending resets your stage, gold and training in exchange for shards. <b>Materials, forged items and Hangar upgrades are kept.</b> Reach stage ${PRESTIGE_MIN_STAGE} to ascend.</p>
+      <p>Each shard permanently grants +${SHARD_BONUS * 100}% damage. Ascending resets your stage, gold, training and bestiary in exchange for shards. <b>Materials, forged items and Hangar upgrades are kept.</b> Reach stage ${PRESTIGE_MIN_STAGE} to ascend.</p>
       <p class="pending"></p>
       <button class="big-btn">Ascend</button>`;
     const btn = $<HTMLButtonElement>('.big-btn', card);
@@ -284,7 +356,7 @@ export class AppUI {
       const n = g.pendingShards;
       if (n <= 0) return;
       this.showModal(
-        `<h2>Ascend?</h2><p>You will restart at stage 1 and lose gold and training levels. Items and materials stay.</p><div class="reward" style="color:#c89bff">+${n} Soul Shards</div><p>New bonus: +${Math.round((g.state.shards + n) * SHARD_BONUS * 100)}% damage</p>`,
+        `<h2>Ascend?</h2><p>You will restart at stage 1 and lose gold, training and bestiary unlocks. Items and materials stay.</p><div class="reward" style="color:#c89bff">+${n} Soul Shards</div><p>New bonus: +${Math.round((g.state.shards + n) * SHARD_BONUS * 100)}% damage</p>`,
         [
           { label: 'Cancel', secondary: true },
           {
@@ -323,7 +395,7 @@ export class AppUI {
         ['Monsters slain', fmt(s.stats.totalKills)],
         ['Gold earned', fmt(s.stats.totalGold)],
         ['Taps', fmt(s.stats.taps)],
-        ['Times overrun', fmt(s.stats.deaths)],
+        ['Monsters escaped', fmt(s.stats.escaped)],
         ['Ascensions', String(s.stats.prestiges)],
       ];
       $('.stats', stats).innerHTML = rows.map(([k, v]) => `<span>${k}</span><span>${v}</span>`).join('');
@@ -363,22 +435,26 @@ export class AppUI {
     const capped = r.away > r.seconds;
     this.showModal(
       `<h2>Welcome back!</h2>
-       <p>You were away for ${fmtTime(r.away)}.${capped ? ` (Your hero rests after ${fmtTime(r.seconds)}.)` : ''}</p>
-       <p>Your hero held the line and slew <b style="color:var(--text)">${fmt(r.kills)}</b> monsters.</p>
+       <p>You were away for ${fmtTime(r.away)}.${capped ? ` (The Hunter rests after ${fmtTime(r.seconds)}.)` : ''}</p>
+       <p>The Hunter held the line and slew <b style="color:var(--text)">${fmt(r.kills)}</b> monsters.</p>
        <div class="reward">+🪙 ${fmt(r.gold)}</div>
-       ${r.materials > 0 ? `<div class="reward" style="font-size:18px;color:${materialDef(r.material).color}">+${fmt(r.materials)} ${materialDef(r.material).name}</div>` : ''}`,
+       ${materialsHtml(r.materials)}`,
       [{ label: 'Collect' }],
     );
   }
 }
 
-function rewardHtml(r: MinigameReward): string {
-  const mats = (Object.entries(r.materials) as [MaterialId, number][])
-    .map(([m, n]) => `<span style="color:${materialDef(m).color}">+${n} ${materialDef(m).name}</span>`)
+function materialsHtml(materials: Partial<Record<MaterialId, number>>): string {
+  const mats = (Object.entries(materials) as [MaterialId, number][])
+    .map(([m, n]) => `<span style="color:${materialDef(m).color}">+${fmt(n)} ${materialDef(m).name}</span>`)
     .join(' · ');
+  return mats ? `<div class="reward" style="font-size:15px">${mats}</div>` : '';
+}
+
+function rewardHtml(r: MinigameReward): string {
   return `
     ${r.gold > 0 ? `<div class="reward">+🪙 ${fmt(r.gold)}</div>` : ''}
-    ${mats ? `<div class="reward" style="font-size:15px">${mats}</div>` : ''}
+    ${materialsHtml(r.materials)}
     ${r.stars > 0 ? `<div class="reward" style="font-size:18px">+⭐ ${r.stars} Stars</div>` : ''}
     ${r.frenzy > 0 ? `<div class="reward frenzy">🔥 +${fmtTime(r.frenzy)} Frenzy (×2 damage)</div>` : ''}`;
 }

@@ -1,6 +1,12 @@
-import { BH_UPGRADES, ITEMS, MATERIALS, MAX_TICKETS, UPGRADES, type BhUpgradeId, type ItemId, type MaterialId, type UpgradeId } from './balance';
+import { BH_UPGRADES, ENEMIES, ITEMS, MATERIALS, MAX_TICKETS, UPGRADES, type BhUpgradeId, type EnemyId, type ItemId, type MaterialId, type UpgradeId } from './balance';
 
 export type BuyAmount = 1 | 10 | 100 | 'max';
+
+export interface BestiaryEntry {
+  unlocked: boolean;
+  swarm: number;
+  bounty: number;
+}
 
 export interface GameState {
   version: number;
@@ -10,10 +16,14 @@ export interface GameState {
   maxStage: number;
   /** Kills toward clearing the current stage. */
   stageKills: number;
-  /** Move on automatically after clearing a stage. Turned off by dying or by stepping back. */
+  /** Enemies that got away on the current stage (shown next to the kill bar). */
+  stageEscapes: number;
+  /** Move on automatically after clearing a stage. Turned off by a failed boss or by stepping back. */
   autoAdvance: boolean;
   bossTimer: number;
   upgrades: Record<UpgradeId, number>;
+  /** Which enemy types spawn and their Swarm/Bounty levels. Resets on Ascension. */
+  bestiary: Record<EnemyId, BestiaryEntry>;
   materials: Record<MaterialId, number>;
   items: Record<ItemId, number>;
   shards: number;
@@ -32,15 +42,19 @@ export interface GameState {
     totalGold: number;
     taps: number;
     prestiges: number;
-    deaths: number;
+    escaped: number;
     best: Record<string, number>;
   };
 }
 
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 const zeroes = <K extends string>(ids: { id: K }[]): Record<K, number> =>
   Object.fromEntries(ids.map((x) => [x.id, 0])) as Record<K, number>;
+
+export function newBestiary(): Record<EnemyId, BestiaryEntry> {
+  return Object.fromEntries(ENEMIES.map((e) => [e.id, { unlocked: e.unlockCost === 0, swarm: 0, bounty: 0 }])) as Record<EnemyId, BestiaryEntry>;
+}
 
 export function newGame(now = Date.now()): GameState {
   return {
@@ -49,9 +63,11 @@ export function newGame(now = Date.now()): GameState {
     stage: 1,
     maxStage: 1,
     stageKills: 0,
+    stageEscapes: 0,
     autoAdvance: true,
     bossTimer: 0,
     upgrades: zeroes(UPGRADES),
+    bestiary: newBestiary(),
     materials: zeroes(MATERIALS),
     items: zeroes(ITEMS),
     shards: 0,
@@ -62,7 +78,7 @@ export function newGame(now = Date.now()): GameState {
     bh: zeroes(BH_UPGRADES),
     lastSeen: now,
     buyAmount: 1,
-    stats: { totalKills: 0, totalGold: 0, taps: 0, prestiges: 0, deaths: 0, best: {} },
+    stats: { totalKills: 0, totalGold: 0, taps: 0, prestiges: 0, escaped: 0, best: {} },
   };
 }
 
@@ -92,16 +108,28 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
     return base;
   }
 
+  // v2 -> v3: Vitality became Steady Nerves; the bestiary is new (defaults are fine).
+  const oldUpgrades = (data.upgrades ?? {}) as Record<string, number>;
+  const upgrades = { ...base.upgrades, ...oldUpgrades };
+  if ('vitality' in upgrades) {
+    upgrades.nerves = Math.max(upgrades.nerves, oldUpgrades.vitality ?? 0);
+    delete (upgrades as Record<string, number>).vitality;
+  }
+  const bestiary = newBestiary();
+  for (const [id, entry] of Object.entries(data.bestiary ?? {})) if (id in bestiary) bestiary[id as EnemyId] = { ...bestiary[id as EnemyId], ...entry };
+
   const state: GameState = {
     ...base,
     ...data,
-    upgrades: { ...base.upgrades, ...(data.upgrades ?? {}) },
+    upgrades,
+    bestiary,
     materials: { ...base.materials, ...(data.materials ?? {}) },
     items: { ...base.items, ...(data.items ?? {}) },
     bh: { ...base.bh, ...(data.bh ?? {}) },
     stats: { ...base.stats, ...(data.stats ?? {}) },
     version: SAVE_VERSION,
   };
+  delete (state.stats as Record<string, unknown>).deaths; // v2 stat with no meaning now
   if (!Number.isFinite(state.gold) || state.gold < 0) state.gold = 0;
   state.stage = Math.min(Math.max(1, state.stage), state.maxStage);
   return state;

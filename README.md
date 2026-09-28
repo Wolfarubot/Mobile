@@ -1,23 +1,27 @@
 # Monster Horde Idle
 
-An incremental (idle) survivor game for Android, with iOS to follow. Your hero stands in the middle of the field and auto-shoots an endless horde closing in from every side, Vampire Survivors style, with deliberately simple flat-shape art. Enemies drop gold and materials. Gold trains your hero; materials are forged into items. It keeps fighting while the app is closed, and the Arena has minigames for active play, including a bullet hell with its own upgrade tree.
+An incremental (idle) survivor game for Android, with iOS to follow. The Hunter stands in the middle of the field and auto-shoots an endless horde closing in from every side, Vampire Survivors style. Enemies that reach the Hunter don't hurt them: they **stun** them and **run off with their loot**. Getting stronger means fewer get away. Gold trains the Hunter and grows the horde; materials dropped by each monster type are forged into permanent items. It keeps fighting while the app is closed, and the Arena has minigames for active play, including a bullet hell with its own upgrade tree.
 
 ## Core loop
 
 | Layer | What happens |
 |---|---|
-| **Battlefield** | The hero auto-fires at the nearest enemy. Enemies arrive in packs from off-screen and walk inward; each one touching you drains HP. Tap anywhere for a blast that hits everything nearby. |
-| **Stages** | 40 kills clear a stage. Every 5th stage is a **boss** with a 30s timer. Get overrun (HP hits 0) or let the boss time out and you fall back a stage and stop auto-advancing. **◀ ▶** move between unlocked stages (farm older zones for their materials); **AUTO** toggles pushing forward. |
-| **Zones** | Every 10 stages: new colors, a new enemy shape and a new material: Slime Goo, Bone, Ember, Frost Shard, Ectoplasm, Void Dust. |
-| **Train** (gold) | **Power** (damage, ×2 every 25 levels), **Rapid Fire** (attack rate), **Vitality** (regen + damage reduction). Reset on Ascension. |
-| **Forge** (materials) | 10 permanent items. Examples: Whetstone (+damage), Quickdraw Gloves (+attack rate), **Monster Lure (+enemy spawns)**, **Scavenger's Pouch (+material drops)**, Split Bow (+projectiles), Frost Lance (pierce), Golden Idol (+gold), Bone Mail (armor), Soul Lantern (crit), Void Engine. Recipes need materials from several zones. |
-| **Offline** | While the app is closed, the hero farms the current stage at 50% efficiency for up to 8h, limited by both damage and spawn rate, earning gold and that zone's material. |
+| **Battlefield** | The Hunter auto-fires at the nearest approaching enemy. Enemies arrive in packs from off-screen. One that reaches the Hunter **stuns** them (no shooting) and **flees**; if it makes it off-screen it escapes with its gold and material. After a stun the Hunter gets a short immunity, so they always get some shots off. Tap anywhere for a blast, even while stunned. |
+| **Stages** | 40 kills clear a stage. If 40 enemies escape first, the Hunter **falls back a stage** and stops auto-advancing, so idle play settles on the best stage you can hold. Every 5th stage is a **boss** (a giant version of your toughest unlocked monster, 30s timer): it stuns longer and bounces off instead of fleeing. **◀ ▶** move between unlocked stages; **AUTO** toggles pushing forward. |
+| **Bestiary** (gold) | 6 monster types, each with its own **HP, movement speed, spawn rate, pack size, gold** and **material**: Slime, Skeleton, Imp, Frost Golem, Wraith, Void Horror. **Unlock** new ones to join the horde. **Swarm** brings more of a type. **Bounty** makes it pay more gold and drop more materials, but it **moves faster**. Resets on Ascension. |
+| **Train** (gold) | **Power** (damage, ×2 every 25 levels), **Rapid Fire** (attack rate), **Steady Nerves** (shorter stuns). Reset on Ascension. |
+| **Forge** (materials) | 10 permanent items, for example Whetstone (+damage), Quickdraw Gloves (+attack rate), Monster Lure (+all spawns), Scavenger's Pouch (+material drops), Split Bow (+projectiles), Frost Lance (pierce), Golden Idol (+gold), Bone Mail (shorter stuns), Soul Lantern (crit) and Void Engine. Each material comes from one monster type, so unlocking monsters opens up recipes. |
+| **Offline** | While the app is closed the Hunter farms the current stage at 50% efficiency for up to 8h. If the horde brings more HP per second than the Hunter can deal, the rest escape. |
 | **Arena** | Tickets (max 3, one per 15 min, refill offline) buy minigame runs. |
 | **Ascension** | From stage 50, reset for **Soul Shards** (+10% damage each). Items, materials and Hangar upgrades are kept. |
 
+## Adding your art
+
+Drop PNGs into `src/assets/sprites/` (`hunter.png`, `enemies/<id>.png`, optional `bosses/<id>.png`) and they replace the placeholder shapes on the next build. No code changes are needed. See [`src/assets/sprites/README.md`](src/assets/sprites/README.md) for names and sizes. Enemy stats live in the `ENEMIES` table in `src/core/balance.ts`.
+
 ### Minigames
 
-- **🚀 Sky Siege** (bullet hell, the featured game): drag to fly; the ship auto-fires. Dodge aimed shots, rotating rings and a spiral-firing boss; only the ship's purple core can be hit. Downed monsters drop **material gems** (from any zone you've reached, worth more the further you've progressed) and you earn **Stars**. Stars buy permanent **Hangar** upgrades: Treasure Hunter (+materials), Rich Skies (+drops), Twin Cannons, Shield (extra hits), Magnet and Endurance (longer runs).
+- **🚀 Sky Siege** (bullet hell, the featured game): drag to fly; the ship auto-fires. Dodge aimed shots, rotating rings and a spiral-firing boss; only the ship's purple core can be hit. Downed monsters drop **material gems** (of the monster types you've unlocked, worth more the further you've progressed) and you earn **Stars**. Stars buy permanent **Hangar** upgrades: Treasure Hunter (+materials), Rich Skies (+drops), Twin Cannons, Shield (extra hits), Magnet and Endurance (longer runs).
 - **⚔️ Blade Storm**: swipe to slice monsters flung into the air, avoid bombs. Pays gold + Frenzy.
 - **💥 Power Strike**: timing bar against a giant boss. Pays gold + Frenzy.
 
@@ -33,12 +37,13 @@ An incremental (idle) survivor game for Android, with iOS to follow. Your hero s
 src/
   core/        pure game logic, no DOM (unit-tested)
     balance.ts   every tunable number, formula and content table (upgrades, items, zones, hangar)
-    game.ts      economy & progression: stats, kills/rewards, stages, bosses, shops, forge, prestige
-    field.ts     the battlefield simulation: spawning, movement, shooting, collisions, contact damage
+    game.ts      economy & progression: stats, enemy roster, kills/escapes, stages, bosses, shops, forge, prestige
+    field.ts     the battlefield simulation: spawning, movement, shooting, collisions, stuns, fleeing
     offline.ts   offline progress + ticket regen
     state.ts     save format + migration
     save.ts      persistence
-  render/      canvas: battlefield view, particles (monsterArt.ts is used by the older minigames)
+  render/      canvas: battlefield view, particles, sprite loader (monsterArt.ts is used by the older minigames)
+  assets/sprites/  drop-in artwork (optional)
   minigames/   runner (harness) + one file per minigame
   ui/          DOM panels (Slayers / Arena / Souls), modals
 tests/         vitest: economy, field, minigames, saves, and a bot that plays the real battlefield to check pacing
@@ -52,7 +57,7 @@ npm run dev        # play in a browser at http://localhost:5173 (use phone view 
 npm test           # unit tests + progression pacing check
 ```
 
-Balancing: `SIM_SWEEP=1 npx vitest run tests/progression.test.ts --silent=false` runs a bot on the real (headless) battlefield and prints how long it takes to reach each stage. Currently stages 1–35 take ~11 minutes, then the wall starts; the first Ascension (stage 50) takes the bot about 2 hours without minigames or offline time.
+Balancing: `SIM_SWEEP=1 npx vitest run tests/progression.test.ts --silent=false` runs a bot on the real (headless) battlefield and prints how long it takes to reach each stage. Currently stage 10 takes ~4 minutes and stage 30 ~11; the wall starts around 35–40, and the first Ascension (stage 50) takes the bot about 2.5 hours without minigames or offline time.
 
 ### On an Android phone
 
@@ -77,7 +82,7 @@ npm run ios        # opens Xcode → pick a device → Run
 - Sound effects & haptics (`@capacitor/haptics`) on hits, crits and kills
 - Local notification when tickets are full or the offline cap is reached (`@capacitor/local-notifications`)
 - Active skills with cooldowns (nova, orbiting blades, freeze) and more weapon types
-- Elite enemies and enemy variety per zone (fast, tanky, ranged)
+- Enemy traits (splitters, shielded, ranged), elite variants, per-enemy boss attacks
 - Daily challenges / leaderboards for Sky Siege; more Hangar upgrades
 - Boss-only rare materials and legendary items; achievements
 - Rewarded ads ("double your offline gold") or IAP; cloud save
