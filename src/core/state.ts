@@ -84,6 +84,8 @@ export interface GameState {
     escaped: number;
     guardians: number;
     best: Record<string, number>;
+    /** Kills per Hunter (you are 'main'). */
+    hunterKills: Partial<Record<Wearer, number>>;
   };
 }
 
@@ -116,7 +118,7 @@ export function newGame(now = Date.now()): GameState {
     bh: zeroes(BH_UPGRADES),
     lastSeen: now,
     buyAmount: 1,
-    stats: { totalKills: 0, totalGold: 0, taps: 0, escaped: 0, guardians: 0, best: {} },
+    stats: { totalKills: 0, totalGold: 0, taps: 0, escaped: 0, guardians: 0, best: {}, hunterKills: {} },
   };
 }
 
@@ -153,6 +155,12 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
   const base = newGame(now);
   const stats = { ...base.stats, ...((data.stats as object) ?? {}) };
   for (const k of ['deaths', 'prestiges']) delete (stats as Record<string, unknown>)[k];
+  // Per-Hunter kills arrived after v5; older saves start them at 0.
+  stats.hunterKills = Object.fromEntries(
+    Object.entries(stats.hunterKills && typeof stats.hunterKills === 'object' ? stats.hunterKills : {}).filter(
+      ([k, v]) => (k === 'main' || HUNTERS.some((h) => h.id === k)) && typeof v === 'number' && Number.isFinite(v),
+    ),
+  );
 
   if (((data.version as number) ?? 1) < 4) {
     // Before v4 progress was stage-based; it doesn't map onto areas. Keep the things

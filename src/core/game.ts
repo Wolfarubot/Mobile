@@ -115,6 +115,8 @@ export interface FarmRates {
   stuns: Partial<Record<Shooter, number>>;
   /** Fraction of the time each Hunter spends stunned (0..1). */
   stunned: Partial<Record<Shooter, number>>;
+  /** Each Hunter's share of the kills (by damage dealt). */
+  share: Partial<Record<Shooter, number>>;
 }
 
 export interface MinigameReward {
@@ -226,10 +228,22 @@ export class Game {
     return 1 + this.gear(shooter).radius;
   }
 
-  /** Shield charges before a Hunter is stunned (Paladin + gear). */
+  /** Shield charges before a Hunter is stunned (Paladin + gear + other Hunters' rally). */
   guardOf(shooter: Shooter): number {
     const base = shooter === 'main' ? 0 : (hunterDef(shooter).guard ?? 0);
-    return base + Math.floor(this.gear(shooter).guard);
+    return base + Math.floor(this.gear(shooter).guard) + this.rallyFor(shooter);
+  }
+
+  /** Shield charges granted to `shooter` by recruited Hunters with a rally (Lance). */
+  rallyFor(shooter: Shooter): number {
+    let n = 0;
+    for (const h of HUNTERS) if (h.rally && h.id !== shooter && this.state.hunters[h.id].recruited) n += h.rally;
+    return n;
+  }
+
+  /** Enemies this Hunter has defeated (on the field, stationed and offline). */
+  killsBy(who: Shooter): number {
+    return this.state.stats.hunterKills[who] ?? 0;
   }
 
   /**
@@ -550,6 +564,7 @@ export class Game {
     const s = this.state;
     const e = this.enemyStats(type);
     s.stats.totalKills++;
+    s.stats.hunterKills[shooter] = (s.stats.hunterKills[shooter] ?? 0) + 1;
     if (boss) {
       const gold = areaDef(s.area).gold * GUARDIAN_GOLD_MULT * this.goldMult;
       s.gold += gold;
@@ -605,7 +620,7 @@ export class Game {
    */
   farmRates(area: AreaId, shooters: Shooter[], efficiency = 1): FarmRates {
     const roster = this.roster(area);
-    const out: FarmRates = { kills: {}, killsTotal: 0, gold: 0, materials: {}, stuns: {}, stunned: {} };
+    const out: FarmRates = { kills: {}, killsTotal: 0, gold: 0, materials: {}, stuns: {}, stunned: {}, share: {} };
     if (!shooters.length || !roster.length) return out;
 
     const hunters = shooters.map((sh) => {
@@ -684,6 +699,7 @@ export class Game {
     for (const h of hunters) {
       out.stuns[h.sh] = h.stunRate * efficiency;
       out.stunned[h.sh] = h.down;
+      out.share[h.sh] = (this.dpsOf(h.sh) * (1 - h.down)) / hunters.reduce((sum, x) => sum + this.dpsOf(x.sh) * (1 - x.down), 0) || 1 / hunters.length;
     }
     return out;
   }
@@ -703,6 +719,10 @@ export class Game {
     };
     let kills = 0;
     for (const [id, rate] of Object.entries(rates.kills) as [EnemyId, number][]) kills += take(`${area}:k:${id}`, rate * seconds);
+    for (const [sh, share] of Object.entries(rates.share) as [Shooter, number][]) {
+      const n = take(`${area}:hk:${sh}`, rates.killsTotal * share * seconds);
+      if (n > 0) s.stats.hunterKills[sh] = (s.stats.hunterKills[sh] ?? 0) + n;
+    }
     const gold = rates.gold * seconds;
     const materials: Partial<Record<MaterialId, number>> = {};
     for (const [m, rate] of Object.entries(rates.materials) as [MaterialId, number][]) {

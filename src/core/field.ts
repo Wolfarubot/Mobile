@@ -143,6 +143,9 @@ export class Field {
   stunTotal = 0;
   /** Seconds of post-stun immunity left. */
   immune = 0;
+  /** Your Hunter's shield charges (from gear or a rally) and recharge progress. */
+  guard = 0;
+  guardAcc = 0;
   /** Direction of your last volley, for drawing the aim. */
   aim = -Math.PI / 2;
   /** Stationed Hunters in the current area, fighting alongside. */
@@ -180,6 +183,7 @@ export class Field {
     this.puddles = [];
     this.stun = 0;
     this.immune = 0;
+    this.guard = this.game.guardOf('main');
     this.spawnAcc = 0;
     this.nextPack = null;
     for (const h of this.helpers) Object.assign(h, { stun: 0, immune: 0, guard: this.game.guardOf(h.id) });
@@ -253,8 +257,11 @@ export class Field {
         h.stun = Math.max(0, h.stun - dt);
         if (h.stun === 0) h.immune = STUN_IMMUNITY;
       } else h.immune = Math.max(0, h.immune - dt);
-      const max = g.guardOf(h.id);
-      if (h.guard < max) {
+    }
+    for (const [who, h] of [['main', this], ...this.helpers.map((x) => [x.id, x])] as Array<[Shooter, { guard: number; guardAcc: number }]>) {
+      const max = g.guardOf(who);
+      if (h.guard > max) h.guard = max;
+      else if (h.guard < max) {
         h.guardAcc += dt;
         if (h.guardAcc >= GUARD_RECHARGE) {
           h.guardAcc = 0;
@@ -355,15 +362,15 @@ export class Field {
   /** An enemy reached a Hunter: shields block it, otherwise the Hunter is stunned (unless immune) and the enemy runs. */
   private contact(e: Enemy, who: Shooter, ux: number, uy: number): void {
     const helper = who === 'main' ? null : this.helpers.find((h) => h.id === who)!;
-    if (helper && helper.guard > 0 && !e.boss) {
-      helper.guard--;
-      helper.guardAcc = 0;
+    const state = helper ?? this;
+    if (state.guard > 0 && !e.boss) {
+      state.guard--;
+      state.guardAcc = 0;
       e.kx += ux * GUARD_BOUNCE;
       e.ky += uy * GUARD_BOUNCE;
-      this.events.push({ type: 'guard', x: helper.x, y: helper.y });
+      this.events.push({ type: 'guard', x: helper?.x ?? 0, y: helper?.y ?? 0 });
       return;
     }
-    const state = helper ?? this;
     if (state.immune <= 0 || state.stun > 0) {
       const fresh = state.stun <= 0;
       const t = this.game.stunTime(e.boss, who);

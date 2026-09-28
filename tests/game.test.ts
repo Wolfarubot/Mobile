@@ -200,6 +200,37 @@ describe('Hunters', () => {
     const plain = g.registerKill('greenSlime', false, 'main').gold;
     expect(g.registerKill('greenSlime', false, 'prospector').gold).toBeCloseTo(plain * 1.75);
   });
+
+  it("Lance's rally gives every other Hunter (you too) an extra shield charge once he's recruited", () => {
+    const g = rich();
+    g.state.areas.graveyard.unlocked = true;
+    g.recruit('ranger');
+    expect(g.guardOf('main')).toBe(0);
+    expect(g.guardOf('ranger')).toBe(0);
+    g.recruit('lance');
+    expect(g.guardOf('main')).toBe(1);
+    expect(g.guardOf('ranger')).toBe(1);
+    expect(g.guardOf('lance')).toBe(3); // his own shield isn't rallied
+  });
+
+  it('counts kills per Hunter, on the field and while away', () => {
+    const g = rich();
+    g.recruit('ranger');
+    g.registerKill('greenSlime', false, 'main');
+    g.registerKill('greenSlime', false, 'ranger');
+    g.registerKill('greenSlime', false, 'ranger');
+    expect(g.killsBy('main')).toBe(1);
+    expect(g.killsBy('ranger')).toBe(2);
+    expect(g.killsBy('glimmer')).toBe(0);
+    g.state.hunters.ranger.level = 60;
+    g.station('ranger', 'forest'); // fights beside you: offline kills are shared by damage
+    const before = { main: g.killsBy('main'), ranger: g.killsBy('ranger') };
+    const r = g.applyOffline(3600 * 1000);
+    const gained = g.killsBy('main') - before.main + g.killsBy('ranger') - before.ranger;
+    expect(g.killsBy('main')).toBeGreaterThan(before.main);
+    expect(g.killsBy('ranger')).toBeGreaterThan(before.ranger);
+    expect(Math.abs(gained - r.kills)).toBeLessThanOrEqual(2); // rounding
+  });
 });
 
 describe('Shops', () => {
@@ -332,7 +363,7 @@ describe('Equipment', () => {
     const plate = g.craftGear('bonePlate')!;
     while (g.gearItem(plate.uid)!.level < 5) g.upgradeGear(plate.uid);
     g.equip('ranger', 1, plate.uid);
-    expect(g.guardOf('ranger')).toBe(1);
+    expect(g.guardOf('ranger')).toBe(1 + g.rallyFor('ranger')); // Lance is recruited: +1 rally
     expect(g.guardOf('lance')).toBe(3);
   });
 
@@ -633,6 +664,19 @@ describe('Field', () => {
     expect(lance.guard).toBeGreaterThan(0);
   });
 
+  it("with Lance recruited, your Hunter's rally shield blocks a hit before you're stunned", () => {
+    const { f } = withHelper('lance');
+    for (let i = 0; i < 5 * 30; i++) f.update(1 / 30);
+    expect(f.guard).toBe(1);
+    f.enemies = [tough({ id: 30, x: 20, y: -5, speed: 40 })];
+    f.update(1 / 30);
+    expect(f.guard).toBe(0);
+    expect(f.stun).toBe(0);
+    f.enemies = [tough({ id: 31, x: 20, y: -5, speed: 40 })];
+    f.update(1 / 30);
+    expect(f.stun).toBeGreaterThan(0);
+  });
+
   it('Wilhelm snipes from long range and switches to akimbo pistols up close', () => {
     const { f } = withHelper('wilhelm');
     f.enemies.push(tough({ id: 1, x: -55, y: -480 }));
@@ -698,6 +742,18 @@ describe('Saves', () => {
     expect(back?.items.gloves).toBe(3);
     expect(back?.hunters.ranger).toEqual({ recruited: true, level: 4, station: 'forest' });
     expect(deserialize('not json')).toBeNull();
+  });
+
+  it('keeps per-Hunter kills, and older saves start them empty', () => {
+    const s = newGame(0);
+    s.stats.hunterKills = { main: 12, ranger: 5 };
+    expect(deserialize(serialize(s))!.stats.hunterKills).toEqual({ main: 12, ranger: 5 });
+    const old = JSON.parse(serialize(newGame(0)));
+    delete old.stats.hunterKills;
+    old.stats.hunterKills = undefined;
+    expect(deserialize(JSON.stringify(old))!.stats.hunterKills).toEqual({});
+    old.stats.hunterKills = { main: 3, nobody: 9, ranger: 'x' };
+    expect(deserialize(JSON.stringify(old))!.stats.hunterKills).toEqual({ main: 3 });
   });
 
   it('migrates a stage-based save: keeps items, surviving materials and Arena progress', () => {

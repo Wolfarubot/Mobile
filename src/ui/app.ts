@@ -21,6 +21,7 @@ import {
   HUNTERS,
   hunterDef,
   hunterPerk,
+  MAIN_ABILITY,
   itemCost,
   ITEMS,
   materialDef,
@@ -47,6 +48,7 @@ import { skySiege } from '../minigames/skysiege';
 import { powerStrike } from '../minigames/strike';
 import type { MinigameDef } from '../minigames/types';
 import { drawEnemyPortrait } from '../render/battle';
+import { spriteUrl } from '../render/sprites';
 
 export const MINIGAMES: MinigameDef[] = [skySiege, bladeStorm, powerStrike];
 
@@ -62,6 +64,8 @@ export class AppUI {
   private panel = $('#panel');
   private modal = $('#modal');
   private modalClose: (() => void) | null = null;
+  /** The open full-screen Hunter view, with its own refreshers. */
+  private detail: { el: HTMLElement; who: Wearer; refreshers: Array<() => void> } | null = null;
   private tab: Tab = 'hunters';
   minigameActive = false;
 
@@ -151,6 +155,7 @@ export class AppUI {
     $('#huntersBadge').classList.toggle('hidden', !HUNTERS.some((h) => g.canRecruit(h.id)));
 
     for (const r of this.refreshers) r();
+    if (this.detail) for (const r of this.detail.refreshers) r();
   }
 
   // ---- Hunters tab: your Hunter's training + the Hunter Guild ----
@@ -158,15 +163,7 @@ export class AppUI {
   private buildHunters(): void {
     const g = this.game;
     this.panel.appendChild(sectionTitle('Your Hunter'));
-    const strip = el('div', 'stat-strip');
-    this.panel.appendChild(strip);
-    this.panel.appendChild(this.gearRow('main'));
-    this.refreshers.push(() => {
-      strip.innerHTML = `
-        <div><b>${fmt(g.damage)}</b>damage</div>
-        <div><b>${g.fireRate.toFixed(1)}/s</b>${g.projectiles > 1 ? `×${g.projectiles} shots` : 'attack rate'}</div>
-        <div><b>${g.stunTime().toFixed(2)}s</b>stun time</div>`;
-    });
+    this.panel.appendChild(this.hunterCard('main'));
 
     const amounts = el('div', 'amounts');
     const opts: BuyAmount[] = [1, 10, 100, 'max'];
@@ -209,50 +206,186 @@ export class AppUI {
 
     this.panel.appendChild(sectionTitle('Hunter Guild'));
     const tip = el('div', 'card');
-    tip.innerHTML = `<p style="margin:0">Station Hunters in areas to keep earning gold and materials there while you hunt elsewhere (${Math.round(STATION_EFFICIENCY * 100)}% efficiency, offline too). One Hunter per area; visit their area and they fight beside you. Tap a slot to equip gear from your inventory; Camp Upgrades boost every Hunter.</p>`;
+    tip.innerHTML = `<p style="margin:0">Tap a Hunter for their stats and gear. Station them in areas to keep earning gold and materials there while you hunt elsewhere (${Math.round(STATION_EFFICIENCY * 100)}% efficiency, offline too). One Hunter per area; visit their area and they fight beside you.</p>`;
     this.panel.appendChild(tip);
-    for (const h of HUNTERS) this.buildHunterCard(h);
+    for (const h of HUNTERS) this.panel.appendChild(this.hunterCard(h.id));
   }
 
-  private buildHunterCard(def: HunterDef): void {
+  /** Compact Hunter card: art on the left, name, ability, equipped gear and status. Tap for the full view. */
+  private hunterCard(who: Wearer): HTMLElement {
     const g = this.game;
-    const card = el('div', 'card');
+    const def = who === 'main' ? null : hunterDef(who);
+    const card = el('div', 'hunter-card');
+    card.setAttribute('role', 'button');
     card.innerHTML = `
-      <div class="beast-head">
-        <div class="hunter-icon" style="background:${def.color}">${def.icon}</div>
-        <div class="info"><div class="name"></div><div class="blurb">${[hunterPerk(def), `range ${def.style.range}`].filter(Boolean).join(' · ')}</div></div>
+      ${portraitHtml(who)}
+      <div class="hc-info">
+        <div class="hc-name"></div>
+        <div class="hc-ability">${def ? def.ability : MAIN_ABILITY}</div>
+        <div class="hc-gear"></div>
+        <div class="hc-status"></div>
       </div>
-      <p class="style-line">${def.style.describe}</p>
-      <div class="body"></div>`;
-    this.panel.appendChild(card);
-    const body = $('.body', card);
+      <div class="hc-chev">›</div>`;
+    card.addEventListener('click', () => this.openHunterDetail(who));
+    const name = $('.hc-name', card);
+    const gearEl = $('.hc-gear', card);
+    const status = $('.hc-status', card);
+    let recruitBtn: HTMLButtonElement | null = null;
+    if (def && !g.state.hunters[def.id].recruited) {
+      recruitBtn = el('button', 'buy hc-recruit') as HTMLButtonElement;
+      recruitBtn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        g.recruit(def.id);
+      });
+      status.replaceWith(recruitBtn);
+    }
+    let gearKey = '';
+    this.refreshers.push(() => {
+      const recruited = !def || g.state.hunters[def.id].recruited;
+      card.classList.toggle('locked', !recruited);
+      name.innerHTML = def
+        ? `${def.name} <small>the ${def.title}${recruited ? ` · Lv ${g.state.hunters[def.id].level}` : ''}</small>`
+        : `You <small>the Monster Hunter</small>`;
+      const items = g.equipped(who);
+      const k = items.map((it) => (it ? `${it.uid}:${it.level}` : '-')).join('|');
+      if (k !== gearKey) {
+        gearKey = k;
+        gearEl.innerHTML = g
+          .slotsOf(who)
+          .map((slot, i) => {
+            const it = items[i];
+            return it
+              ? `<span class="mini-slot" title="${slot.label}">${gearDef(it.base).icon}<small>${it.level}</small></span>`
+              : `<span class="mini-slot empty" title="${slot.label}">${GEAR_KINDS[slot.kind].icon}</span>`;
+          })
+          .join('');
+      }
+      if (recruitBtn && def) {
+        recruitBtn.innerHTML = g.isAreaUnlocked(def.area) ? `Recruit<small>🪙 ${fmt(def.recruitCost)}</small>` : `Found in ${areaDef(def.area).name}`;
+        recruitBtn.disabled = !g.canRecruit(def.id);
+        return;
+      }
+      const station = def ? g.state.hunters[def.id].station : g.area;
+      const where = station ? `📍 ${areaDef(station).name}` : '💤 Resting';
+      const down = def && station && station !== g.area ? (g.farmRates(station, [def.id], STATION_EFFICIENCY).stunned[def.id] ?? 0) : 0;
+      status.innerHTML = `${where} · ⚔️ ${fmt(g.dpsOf(who))} DPS${down >= 0.05 ? ' · <b class="warn">💫 overwhelmed</b>' : ''}`;
+    });
+    return card;
+  }
 
-    if (!g.state.hunters[def.id].recruited) {
-      const btn = el('button', 'buy') as HTMLButtonElement;
-      btn.style.width = '100%';
-      btn.style.marginTop = '8px';
-      btn.addEventListener('click', () => g.recruit(def.id));
+  /** Full-screen Hunter view: stats, kills, equipment, level and station. Closing returns to the battlefield. */
+  private openHunterDetail(who: Wearer): void {
+    this.closeHunterDetail();
+    const g = this.game;
+    const def = who === 'main' ? null : hunterDef(who);
+    const view = el('div', 'hunter-detail');
+    view.innerHTML = `
+      <div class="hd-top"><button class="hd-close" aria-label="Close">✕</button><span>${def ? 'Hunter Guild' : 'Your Hunter'}</span></div>
+      <div class="hd-scroll">
+        <div class="hd-hero">
+          ${portraitHtml(who, 'big')}
+          <div class="hd-title">
+            <h2>${def ? def.name : 'You'}</h2>
+            <div class="hd-sub"></div>
+          </div>
+        </div>
+        <p class="hd-ability">${def ? def.ability : MAIN_ABILITY}</p>
+        ${def ? `<p class="hd-style">${def.style.describe}</p>` : ''}
+        <div class="hd-body"></div>
+      </div>`;
+    document.body.appendChild(view);
+    const body = $('.hd-body', view);
+    const close = () => this.closeHunterDetail();
+    $('.hd-close', view).addEventListener('click', close);
+    this.detail = { el: view, who, refreshers: [] };
+
+    const main = this.refreshers;
+    this.refreshers = [];
+    const recruited = !def || g.state.hunters[def.id].recruited;
+    if (def && !recruited) {
+      const btn = el('button', 'buy hd-recruit') as HTMLButtonElement;
+      btn.addEventListener('click', () => {
+        if (g.recruit(def.id)) this.openHunterDetail(who); // rebuild with the full view
+      });
       body.appendChild(btn);
       this.refreshers.push(() => {
-        const open = g.isAreaUnlocked(def.area);
-        $('.name', card).innerHTML = `${def.name} <small style="color:var(--muted)">the ${def.title}</small>`;
-        btn.innerHTML = open ? `Recruit<small>🪙 ${fmt(def.recruitCost)}</small>` : `Found in ${areaDef(def.area).name}`;
+        btn.innerHTML = g.isAreaUnlocked(def.area) ? `Recruit<small>🪙 ${fmt(def.recruitCost)}</small>` : `Found in ${areaDef(def.area).name}`;
         btn.disabled = !g.canRecruit(def.id);
       });
-      return;
     }
 
-    const actions = el('div', 'actions');
-    const lvl = el('button', 'buy') as HTMLButtonElement;
-    lvl.addEventListener('click', () => g.levelHunter(def.id) && this.refresh());
-    actions.appendChild(lvl);
-    body.appendChild(actions);
-    body.appendChild(this.gearRow(def.id));
-    const chips = el('div', 'chips');
-    body.appendChild(chips);
-    const yieldEl = el('div', 'yield');
-    body.appendChild(yieldEl);
+    body.appendChild(sectionTitle(recruited ? 'Stats' : 'Stats when recruited'));
+    const headline = el('div', 'hd-stats hd-headline');
+    body.appendChild(headline);
+    const stats = el('div', 'hd-stats');
+    body.appendChild(stats);
 
+    body.appendChild(sectionTitle('Equipment'));
+    if (recruited) body.appendChild(this.gearRow(who));
+    else body.appendChild(el('p', 'hd-note', `Slots: ${g.slotsOf(who).map((sl) => `${GEAR_KINDS[sl.kind].icon} ${sl.label}`).join(' · ')}. Recruit them to equip gear.`));
+
+    if (def && recruited) {
+      body.appendChild(sectionTitle('Training'));
+      const lvl = el('button', 'buy hd-level') as HTMLButtonElement;
+      lvl.addEventListener('click', () => g.levelHunter(def.id) && this.refresh());
+      body.appendChild(lvl);
+      this.refreshers.push(() => {
+        const p = g.hunterPurchase(def.id);
+        lvl.innerHTML = `Level +${p.count} → Lv ${g.state.hunters[def.id].level + p.count}<small>🪙 ${fmt(p.cost)}</small>`;
+        lvl.disabled = g.state.gold < p.cost;
+      });
+      body.appendChild(sectionTitle('Station'));
+      body.appendChild(this.stationControls(def));
+    } else if (!def) {
+      body.appendChild(el('p', 'hd-note', 'Train Power, Rapid Fire and Steady Nerves from the Hunters tab. Camp Upgrades in the Forge boost every Hunter.'));
+    }
+
+    this.refreshers.push(() => {
+      const lv = def ? g.state.hunters[def.id].level : null;
+      const station = def ? g.state.hunters[def.id].station : g.area;
+      $('.hd-sub', view).innerHTML = [
+        `<span>${def ? `the ${def.title}${recruited ? ` · Lv ${lv}` : ''}` : 'the Monster Hunter'}</span>`,
+        recruited ? `<span class="where">${station ? `📍 ${areaDef(station).name}` : '💤 Resting'}</span>` : '',
+        def && hunterPerk(def) ? `<span class="perk">${hunterPerk(def)}</span>` : '',
+      ].join('');
+      headline.innerHTML = `<div><b>${fmt(g.dpsOf(who))}</b>DPS</div>${recruited ? `<div><b>${fmt(g.killsBy(who))}</b>Enemies slain</div>` : ''}`;
+      const cells: Array<[string, string]> = [
+        ['Damage', fmt(g.shotDamage(who))],
+        ['Attack rate', `${g.shooterRate(who).toFixed(2)}/s${who === 'main' && g.projectiles > 1 ? ` ×${g.projectiles}` : ''}`],
+        ['Range', fmt(g.shooterRange(who))],
+        ['Stun time', `${g.stunTime(false, who).toFixed(2)}s`],
+        ['Shield', g.guardOf(who) ? `${g.guardOf(who)} hit${g.guardOf(who) > 1 ? 's' : ''}` : '—'],
+        ['Crit chance', `${Math.round(g.critChanceOf(who) * 100)}%`],
+      ];
+      const pierce = g.pierceOf(who) + (def?.style.pierce ?? 0);
+      if (pierce) cells.push(['Pierce', String(pierce)]);
+      if (def?.bane) cells.splice(1, 0, [`vs ${ARCHETYPES[def.bane.archetype].name}`, fmt(g.shotDamage(who, def.bane.archetype))]);
+      if (def?.style.closeRange) cells.splice(1, 0, ['Pistols', `${fmt(g.shotDamage(who, undefined, 'short'))} ×2`]);
+      stats.innerHTML = cells.map(([k, v]) => `<div><b>${v}</b>${k}</div>`).join('');
+    });
+
+    this.detail.refreshers = this.refreshers;
+    this.refreshers = main;
+    this.refresh();
+  }
+
+  /** Closes the full-screen Hunter view. Returns false if it wasn't open. */
+  private closeHunterDetail(): boolean {
+    if (!this.detail) return false;
+    this.detail.el.remove();
+    this.detail = null;
+    this.setTab(this.tab, true);
+    return true;
+  }
+
+  /** Rest / area chips for a recruited Hunter, plus their yield where stationed. */
+  private stationControls(def: HunterDef): HTMLElement {
+    const g = this.game;
+    const wrap = el('div', 'station');
+    const chips = el('div', 'chips');
+    wrap.appendChild(chips);
+    const yieldEl = el('div', 'yield');
+    wrap.appendChild(yieldEl);
     const rest = el('button', 'chip', 'Rest') as HTMLButtonElement;
     rest.addEventListener('click', () => {
       g.station(def.id, null);
@@ -268,13 +401,8 @@ export class AppUI {
       chips.appendChild(c);
       return { a, c };
     });
-
     this.refreshers.push(() => {
       const st = g.state.hunters[def.id];
-      $('.name', card).innerHTML = `${def.name} <small style="color:var(--muted)">the ${def.title} · Lv ${st.level}</small>`;
-      const p = g.hunterPurchase(def.id);
-      lvl.innerHTML = `Level +${p.count} · ${fmt(g.shotDamage(def.id, def.bane?.archetype))} dmg${def.bane ? ` vs ${ARCHETYPES[def.bane.archetype].name}` : ''}<small>🪙 ${fmt(p.cost)}</small>`;
-      lvl.disabled = g.state.gold < p.cost;
       rest.classList.toggle('on', !st.station);
       for (const { a, c } of areaChips) {
         c.classList.toggle('on', st.station === a.id);
@@ -286,6 +414,7 @@ export class AppUI {
       else if (st.station === g.area) yieldEl.textContent = `Fighting beside you in ${areaDef(st.station).name}.`;
       else yieldEl.innerHTML = yieldHtml(g.farmRates(st.station, [def.id], STATION_EFFICIENCY), areaDef(st.station).name);
     });
+    return wrap;
   }
 
   // ---- Equipment ----
@@ -739,9 +868,9 @@ export class AppUI {
     this.modal.classList.remove('hidden');
   }
 
-  /** Closes the open modal (Android back button). Returns false if none was open. */
+  /** Closes the open modal, else the Hunter view (Android back button). Returns false if neither was open. */
   closeModal(): boolean {
-    if (!this.modalClose) return false;
+    if (!this.modalClose) return this.closeHunterDetail();
     this.modalClose();
     return true;
   }
@@ -802,6 +931,13 @@ function rewardHtml(r: MinigameReward): string {
     ${materialsHtml(r.materials)}
     ${r.stars > 0 ? `<div class="reward" style="font-size:18px">+⭐ ${r.stars} Stars</div>` : ''}
     ${r.frenzy > 0 ? `<div class="reward frenzy">🔥 +${fmtTime(r.frenzy)} Frenzy (×2 damage)</div>` : ''}`;
+}
+
+/** A Hunter's art: their sprite if one was added, otherwise their icon on their colour. */
+function portraitHtml(who: Wearer, size = ''): string {
+  const url = spriteUrl(who === 'main' ? 'hunter' : `hunters/${who}`);
+  const color = who === 'main' ? '#7c5cff' : hunterDef(who).color;
+  return `<div class="hunter-art ${size}" style="--hc:${color}">${url ? `<img src="${url}" alt="">` : `<span>${wearerIcon(who)}</span>`}</div>`;
 }
 
 function wearerName(who: Wearer): string {

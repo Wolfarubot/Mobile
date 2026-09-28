@@ -158,8 +158,8 @@ export interface AreaDef {
 
 export const AREAS: AreaDef[] = [
   { id: 'forest', name: 'Whispering Forest', hp: 3, gold: 1, speed: 36, mastery: 600, guardian: 25_000, ground: '#2f4a2c', speck: '#3b5c37', blurb: 'Where every hunt begins.' },
-  { id: 'graveyard', name: 'Old Graveyard', hp: 150, gold: 25, speed: 40, mastery: 1_500, guardian: 25_000_000, ground: '#2b2630', speck: '#383140', blurb: 'The dead do not rest here.' },
-  { id: 'caves', name: 'Ember Caves', hp: 150_000, gold: 600, speed: 45, mastery: 4_000, guardian: 4_000_000_000, ground: '#3a1c14', speck: '#4d271b', blurb: 'Hot, bright and full of teeth.' },
+  { id: 'graveyard', name: 'Old Graveyard', hp: 150, gold: 25, speed: 40, mastery: 1500, guardian: 40_000_000, ground: '#2b2630', speck: '#383140', blurb: 'The dead do not rest here.' },
+  { id: 'caves', name: 'Ember Caves', hp: 150_000, gold: 600, speed: 45, mastery: 4_000, guardian: 5_000_000_000, ground: '#3a1c14', speck: '#4d271b', blurb: 'Hot, bright and full of teeth.' },
   { id: 'peaks', name: 'Frost Peaks', hp: 7_000_000, gold: 15_000, speed: 50, mastery: 10_000, guardian: 3e11, ground: '#23344a', speck: '#2e4561', blurb: 'Cold winds carry cold things.' },
   { id: 'rift', name: 'Void Rift', hp: 250_000_000, gold: 350_000, speed: 56, mastery: Infinity, guardian: Infinity, ground: '#160e22', speck: '#21152f', blurb: 'The end of the known world.' },
 ];
@@ -317,6 +317,10 @@ export interface HunterDef {
   drops?: number;
   /** Hits absorbed before being stunned (recharges over time). */
   guard?: number;
+  /** Extra shield charges this Hunter grants every other Hunter (you included) while recruited. */
+  rally?: number;
+  /** Short description of what makes them special, shown on their card. */
+  ability: string;
   /** Equipment slots (defaults to Weapon, Armor, Accessory). */
   slots?: SlotDef[];
 }
@@ -331,36 +335,44 @@ export const GUARD_RECHARGE = 4;
 export const HUNTERS: HunterDef[] = [
   {
     id: 'alchemist', name: 'Mira', title: 'Alchemist', icon: '⚗️', color: '#7be07b', area: 'forest', recruitCost: 150, bane: { archetype: 'slime', mult: 3 },
+    ability: 'Potions leave poison puddles that keep hurting. Deals triple damage to Slimes.',
     style: { kind: 'potion', range: 230, rate: 0.6, damage: 0.8, radius: 45, farm: 1.6, crowd: 3, describe: 'Lobs potions that leave a bubbling poison puddle.' },
   },
   {
     id: 'glimmer', name: 'Glimmer', title: 'Wizard', icon: '🧙', color: '#b07cff', area: 'forest', recruitCost: 600,
+    ability: 'Fireballs explode for area damage. Can equip two accessories.',
     slots: [{ kind: 'armor', label: 'Robe' }, { kind: 'accessory', label: 'Focus' }, { kind: 'accessory', label: 'Focus' }],
     style: { kind: 'fireball', range: 260, rate: 0.55, damage: 1.6, radius: 55, farm: 1.8, crowd: 3, describe: 'Hurls fireballs that explode, burning everything nearby.' },
   },
   {
     id: 'ranger', name: 'Rin', title: 'Ranger', icon: '🏹', color: '#c09060', area: 'forest', recruitCost: 1_200, bane: { archetype: 'beast', mult: 3 },
+    ability: 'Arrows pierce through lines of enemies. Deals triple damage to Beasts.',
     style: { kind: 'arrow', range: 300, rate: 1, damage: 1, pierce: 3, farm: 1.4, crowd: 2, describe: 'Arrows pierce through up to 4 enemies in a line.' },
   },
   {
     id: 'gravewarden', name: 'Alric', title: 'Gravewarden', icon: '✝️', color: '#efe6cf', area: 'graveyard', recruitCost: 15_000, bane: { archetype: 'undead', mult: 3 },
+    ability: 'Holy pulses strike everything around him. Deals triple damage to Undead.',
     style: { kind: 'nova', range: 110, rate: 0.5, damage: 1.5, radius: 110, farm: 1.5, crowd: 3, describe: 'Pulses holy light, striking every enemy around him.' },
   },
   {
-    id: 'lance', name: 'Lance', title: 'Paladin', icon: '🛡️', color: '#ffe8a3', area: 'graveyard', recruitCost: 40_000, guard: 3,
+    id: 'lance', name: 'Lance', title: 'Paladin', icon: '🛡️', color: '#ffe8a3', area: 'graveyard', recruitCost: 40_000, guard: 3, rally: 1,
+    ability: 'Can take multiple hits before being knocked out. Grants other Hunters an extra hit as well.',
     slots: [{ kind: 'melee', label: 'Melee' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
-    style: { kind: 'thrust', range: 90, rate: 0.9, damage: 1.8, farm: 1.3, crowd: 2, describe: 'Holds the line: his shield takes 3 hits before he is stunned. Lance thrusts pierce everything in reach.' },
+    style: { kind: 'thrust', range: 90, rate: 0.9, damage: 1.8, farm: 1.3, crowd: 2, describe: 'Holds the line: his shield takes 3 hits before he is stunned, and his oath shields every other Hunter for 1 hit. Lance thrusts pierce everything in reach.' },
   },
   {
     id: 'prospector', name: 'Gus', title: 'Prospector', icon: '💰', color: '#ffd34d', area: 'graveyard', recruitCost: 80_000, gold: 1.75,
+    ability: 'Blasts five pellets at close range. Earns +75% gold from his kills.',
     style: { kind: 'shotgun', range: 150, rate: 0.7, damage: 0.45, pellets: 5, farm: 1.2, crowd: 1, describe: 'A trusty shotgun: five pellets per blast at close range.' },
   },
   {
     id: 'demonbane', name: 'Sera', title: 'Demonbane', icon: '🗡️', color: '#ff7a3d', area: 'caves', recruitCost: 1_500_000, bane: { archetype: 'demon', mult: 3 },
+    ability: 'A rapid flurry of daggers at short range. Deals triple damage to Demons.',
     style: { kind: 'daggers', range: 160, rate: 3, damage: 0.4, farm: 1.1, crowd: 1, describe: 'Throws a flurry of daggers at anything that gets close.' },
   },
   {
     id: 'wilhelm', name: 'Wilhelm', title: 'Sniper', icon: '🎯', color: '#9aa7b8', area: 'caves', recruitCost: 3_000_000,
+    ability: 'Snipes from across the field, akimbo pistols up close. Can equip a long-range weapon and a short-range weapon.',
     slots: [
       { kind: 'weapon', label: 'Long-range', role: 'long' },
       { kind: 'weapon', label: 'Short-range', role: 'short' },
@@ -370,10 +382,12 @@ export const HUNTERS: HunterDef[] = [
   },
   {
     id: 'scavenger', name: 'Pip', title: 'Scavenger', icon: '🎒', color: '#3fb0a0', area: 'caves', recruitCost: 6_000_000, drops: 2,
+    ability: 'Stones ricochet between enemies. Doubles material drops from his kills.',
     style: { kind: 'ricochet', range: 220, rate: 1, damage: 0.8, bounces: 3, farm: 1.4, crowd: 2.5, describe: 'Slingshot stones ricochet between up to 4 enemies.' },
   },
   {
     id: 'frostbreaker', name: 'Bjorn', title: 'Frostbreaker', icon: '🔨', color: '#8fdcff', area: 'peaks', recruitCost: 150_000_000, bane: { archetype: 'elemental', mult: 3 },
+    ability: 'Frost hammers slow enemies to a crawl. Deals triple damage to Elementals.',
     style: { kind: 'hammer', range: 200, rate: 0.7, damage: 1.6, slow: 2, farm: 1.3, crowd: 1, describe: 'Throws frost hammers that slow enemies to a crawl.' },
   },
 ];
@@ -383,11 +397,15 @@ export const hunterDef = (id: HunterId): HunterDef => HUNTERS.find((h) => h.id =
 export function hunterPerk(h: HunterDef): string {
   const parts: string[] = [];
   if (h.guard) parts.push(`${h.guard}-hit shield`);
+  if (h.rally) parts.push(`+${h.rally} shield for all`);
   if (h.bane) parts.push(`×${h.bane.mult} damage vs ${ARCHETYPES[h.bane.archetype].name}`);
   if (h.gold) parts.push(`+${Math.round((h.gold - 1) * 100)}% gold`);
   if (h.drops) parts.push(`+${Math.round((h.drops - 1) * 100)}% drops`);
   return parts.join(', ');
 }
+
+/** Your own Hunter's card blurb. */
+export const MAIN_ABILITY = 'Trains Power, Rapid Fire and Steady Nerves with gold. Tap the field for an extra blast, even while stunned.';
 
 /** Hunters fire a little slower than you and level with gold. */
 export const HELPER_FIRE_RATE = 1.2;

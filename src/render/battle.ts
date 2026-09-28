@@ -412,6 +412,7 @@ export class BattleView {
     }
     g.restore();
 
+    drawShieldPips(g, 0, R + (f.stunned ? 17 : 9), f.guard, this.game.guardOf('main'));
     if (f.stunned) {
       drawDizzy(g, R, this.time, 1);
       const bw = 34;
@@ -467,14 +468,7 @@ export class BattleView {
       }
     }
     g.restore();
-    // Shield pips (Paladin)
-    const max = def.guard ?? 0;
-    for (let i = 0; i < max; i++) {
-      g.fillStyle = i < h.guard ? '#ffe8a3' : 'rgba(255,255,255,0.2)';
-      g.beginPath();
-      g.arc(h.x + (i - (max - 1) / 2) * 7, h.y + R + 9, 2.6, 0, Math.PI * 2);
-      g.fill();
-    }
+    drawShieldPips(g, h.x, h.y + R + 9, h.guard, this.game.guardOf(h.id));
     if (h.stun > 0) {
       g.save();
       g.translate(h.x, h.y);
@@ -731,4 +725,14 @@ function drawBullet(g: CanvasRenderingContext2D, b: Bullet, t: number): void {
       g.fill();
   }
   g.restore();
+}
+
+/** Shield charges under a Hunter: lit while charged, faint while recharging. */
+function drawShieldPips(g: CanvasRenderingContext2D, x: number, y: number, guard: number, max: number): void {
+  for (let i = 0; i < max; i++) {
+    g.fillStyle = i < guard ? '#ffe8a3' : 'rgba(255,255,255,0.2)';
+    g.beginPath();
+    g.arc(x + (i - (max - 1) / 2) * 7, y, 2.6, 0, Math.PI * 2);
+    g.fill();
+  }
 }

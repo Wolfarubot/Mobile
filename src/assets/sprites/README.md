@@ -5,8 +5,8 @@ Drop artwork here and it replaces the placeholder shapes automatically on the ne
 
 | File | Used for |
 |---|---|
-| `hunter.png` | Your main Hunter in the middle of the field |
-| `hunters/<id>.png` | A recruited Hunter fighting beside you |
+| `hunter.png` | Your main Hunter in the middle of the field, and the art on your Hunter card |
+| `hunters/<id>.png` | A recruited Hunter fighting beside you, and the art on their Guild card and full view |
 | `enemies/<id>.png` | A regular enemy |
 | `bosses/<id>.png` | That enemy as an area Guardian (optional: falls back to the enemy sprite, drawn bigger) |
 
