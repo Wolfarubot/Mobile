@@ -1,18 +1,19 @@
 import {
+  enemyGold,
+  enemyHp,
   isBossStage,
   MAX_TICKETS,
-  monsterGold,
-  monsterHp,
   OFFLINE_CAP_SEC,
   OFFLINE_EFFICIENCY,
-  RESPAWN_DELAY,
   TICKET_REGEN_SEC,
+  zoneFor,
+  type MaterialId,
 } from './balance';
 import type { GameState } from './state';
 
-/** The stage slayers grind while nobody is watching: bosses need the player. */
-export function farmStage(state: Pick<GameState, 'stage'>): number {
-  return isBossStage(state.stage) ? Math.max(1, state.stage - 1) : state.stage;
+/** The stage the hero grinds while nobody is watching: bosses need the player. */
+export function farmStage(stage: number): number {
+  return isBossStage(stage) ? Math.max(1, stage - 1) : stage;
 }
 
 /** Advances minigame ticket regeneration by `seconds`, mutating the state. Returns tickets gained. */
@@ -29,6 +30,16 @@ export function regenTickets(state: Pick<GameState, 'tickets' | 'ticketProgress'
   return state.tickets - before;
 }
 
+export interface CombatRates {
+  stage: number;
+  /** Expected damage per second. */
+  dps: number;
+  /** Enemies per second arriving on the field. */
+  spawnRate: number;
+  goldMult: number;
+  dropChance: number;
+}
+
 export interface OfflineResult {
   /** Seconds that counted (after the cap). */
   seconds: number;
@@ -36,18 +47,27 @@ export interface OfflineResult {
   away: number;
   kills: number;
   gold: number;
+  material: MaterialId;
+  materials: number;
 }
 
 /**
- * Idle progress while the app was closed: slayers keep farming the current
- * (non-boss) stage at their base DPS, limited by the monster respawn rate,
- * at OFFLINE_EFFICIENCY of the online rate.
+ * Idle progress while the app was closed: the hero keeps farming the current
+ * (non-boss) stage. Kills are limited both by damage and by how fast enemies
+ * spawn, at OFFLINE_EFFICIENCY of the online rate.
  */
-export function computeOffline(state: Pick<GameState, 'stage'>, dps: number, awaySec: number): OfflineResult {
+export function computeOffline(r: CombatRates, awaySec: number): OfflineResult {
   const away = Math.max(0, awaySec);
   const seconds = Math.min(away, OFFLINE_CAP_SEC);
-  const stage = farmStage(state);
-  const timePerKill = monsterHp(stage) / Math.max(dps, 1e-9) + RESPAWN_DELAY;
-  const kills = dps > 0 ? Math.floor((seconds * OFFLINE_EFFICIENCY) / timePerKill) : 0;
-  return { seconds, away, kills, gold: kills * monsterGold(stage) };
+  const stage = farmStage(r.stage);
+  const killRate = Math.min(r.spawnRate, r.dps / enemyHp(stage));
+  const kills = Math.floor(seconds * OFFLINE_EFFICIENCY * killRate);
+  return {
+    seconds,
+    away,
+    kills,
+    gold: Math.floor(kills * enemyGold(stage) * r.goldMult),
+    material: zoneFor(stage).material,
+    materials: Math.floor(kills * r.dropChance),
+  };
 }

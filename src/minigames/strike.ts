@@ -167,5 +167,6 @@ export const powerStrike: MinigameDef = {
   icon: '💥',
   tagline: 'Time your blows against a giant boss.',
   howTo: 'Tap when the marker is in the zone. Gold center = PERFECT. Chain perfects for a growing damage streak.',
+  rewards: '🪙 Gold + Frenzy',
   create: (w, h) => new Strike(w, h),
 };

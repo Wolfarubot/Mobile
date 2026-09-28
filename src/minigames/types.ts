@@ -1,9 +1,16 @@
+import type { MaterialId } from '../core/balance';
+import type { Game } from '../core/game';
+
 export interface MinigameResult {
   score: number;
   /** Reward units, roughly "monsters slain"; converted to gold + frenzy by the Game. */
   units: number;
   /** One-line recap shown on the results screen. */
   summary: string;
+  /** Materials collected (before any Game-side bonuses). */
+  materials?: Partial<Record<MaterialId, number>>;
+  /** Stars for the minigame's own upgrade tree. */
+  stars?: number;
 }
 
 export interface MinigameInstance {
@@ -22,5 +29,7 @@ export interface MinigameDef {
   icon: string;
   tagline: string;
   howTo: string;
-  create(w: number, h: number): MinigameInstance;
+  /** Short line about what the game pays out, shown on its Arena card. */
+  rewards: string;
+  create(w: number, h: number, game: Game): MinigameInstance;
 }

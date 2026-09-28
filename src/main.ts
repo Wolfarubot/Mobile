@@ -2,6 +2,7 @@ import './style.css';
 import { App as CapApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { OFFLINE_MIN_SEC } from './core/balance';
+import { Field } from './core/field';
 import { Game } from './core/game';
 import { loadGame, saveGame, wipeSave } from './core/save';
 import { newGame } from './core/state';
@@ -26,7 +27,8 @@ async function boot(): Promise<void> {
     location.reload();
   };
 
-  const battle = new BattleView(document.getElementById('battle') as HTMLCanvasElement, game);
+  const field = new Field(game);
+  const battle = new BattleView(document.getElementById('battle') as HTMLCanvasElement, game, field);
   const ui = new AppUI(game, { save, wipe });
   if (offline && offline.away >= OFFLINE_MIN_SEC) ui.showOffline(offline);
 
@@ -38,10 +40,17 @@ async function boot(): Promise<void> {
     // Clamp so a throttled/backgrounded tab doesn't simulate a huge jump (offline logic covers that).
     const dt = Math.min(0.25, (now - last) / 1000);
     last = now;
-    game.tick(dt);
+    // Substep so fast bullets can't skip past enemies on a slow frame.
+    const steps = Math.ceil(dt / (1 / 30));
+    for (let i = 0; i < steps; i++) {
+      game.tick(dt / steps);
+      field.update(dt / steps);
+    }
     if (!ui.minigameActive) {
       battle.update(dt);
       battle.render();
+    } else {
+      field.drainEvents(); // the battle keeps going behind the minigame; drop its effects
     }
     uiAcc += dt;
     if (uiAcc >= UI_REFRESH_SEC) {

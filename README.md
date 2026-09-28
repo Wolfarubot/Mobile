@@ -1,42 +1,47 @@
 # Monster Horde Idle
 
-An incremental (idle) monster-slaying game for Android, with iOS to follow. Tap to strike, hire slayers who fight for you, even while the app is closed, and jump into short arcade minigames to earn big rewards.
+An incremental (idle) survivor game for Android, with iOS to follow. Your hero stands in the middle of the field and auto-shoots an endless horde closing in from every side, Vampire Survivors style, with deliberately simple flat-shape art. Enemies drop gold and materials. Gold trains your hero; materials are forged into items. It keeps fighting while the app is closed, and the Arena has minigames for active play, including a bullet hell with its own upgrade tree.
 
 ## Core loop
 
 | Layer | What happens |
 |---|---|
-| **Tap** | Tap the monster to strike. 5% chance of a ×5 crit. Each tap also deals 2% of your slayer DPS, so tapping stays useful. |
-| **Slayers** | 12 heroes (Squire → Void Lord) deal damage per second automatically. Levels cost ×1.07 more each; damage doubles at level 10 and triples every 25 levels. Buy ×1 / ×10 / ×100 / MAX. |
-| **Stages** | 10 kills clear a stage. Every 5th stage is a **boss** with 10× HP and a 30s timer. Fail and you drop back to farm until you tap **Fight Boss**. A new zone look every 10 stages. |
-| **Offline** | While the app is closed, slayers farm your current stage at 50% efficiency for up to 8h. You get a "Welcome back" summary when you return. |
-| **Arena (minigames)** | Spend a ticket (max 3, one refills every 15 min, even offline) to play. Rewards: gold based on your stage, plus **Frenzy** (×2 damage, up to 5 min), so active play speeds up idle progress. |
-| **Ascension (prestige)** | From stage 50, reset for **Soul Shards**: +10% damage each, permanently. |
+| **Battlefield** | The hero auto-fires at the nearest enemy. Enemies arrive in packs from off-screen and walk inward; each one touching you drains HP. Tap anywhere for a blast that hits everything nearby. |
+| **Stages** | 40 kills clear a stage. Every 5th stage is a **boss** with a 30s timer. Get overrun (HP hits 0) or let the boss time out and you fall back a stage and stop auto-advancing. **◀ ▶** move between unlocked stages (farm older zones for their materials); **AUTO** toggles pushing forward. |
+| **Zones** | Every 10 stages: new colors, a new enemy shape and a new material: Slime Goo, Bone, Ember, Frost Shard, Ectoplasm, Void Dust. |
+| **Train** (gold) | **Power** (damage, ×2 every 25 levels), **Rapid Fire** (attack rate), **Vitality** (regen + damage reduction). Reset on Ascension. |
+| **Forge** (materials) | 10 permanent items. Examples: Whetstone (+damage), Quickdraw Gloves (+attack rate), **Monster Lure (+enemy spawns)**, **Scavenger's Pouch (+material drops)**, Split Bow (+projectiles), Frost Lance (pierce), Golden Idol (+gold), Bone Mail (armor), Soul Lantern (crit), Void Engine. Recipes need materials from several zones. |
+| **Offline** | While the app is closed, the hero farms the current stage at 50% efficiency for up to 8h, limited by both damage and spawn rate, earning gold and that zone's material. |
+| **Arena** | Tickets (max 3, one per 15 min, refill offline) buy minigame runs. |
+| **Ascension** | From stage 50, reset for **Soul Shards** (+10% damage each). Items, materials and Hangar upgrades are kept. |
 
 ### Minigames
 
-- **🏰 Horde Rush** (45s): monsters swarm your tower from all sides. Tap to smash groups (3+ = combo multiplier). Kills charge a ring. When it's full, tap the tower for a screen-clearing **Nova**. Golden monsters are worth extra; brutes take two hits.
-- **⚔️ Blade Storm** (30s): monsters are hurled into the air, Fruit Ninja style. Swipe through them and slice 3+ in one swipe for a bonus. Spiked bombs cost 5 seconds.
-- **💥 Power Strike** (12 swings): a timing bar against a giant boss. Hit the gold zone for PERFECT; chained perfects build a damage streak. It speeds up every swing.
+- **🚀 Sky Siege** (bullet hell, the featured game): drag to fly; the ship auto-fires. Dodge aimed shots, rotating rings and a spiral-firing boss; only the ship's purple core can be hit. Downed monsters drop **material gems** (from any zone you've reached, worth more the further you've progressed) and you earn **Stars**. Stars buy permanent **Hangar** upgrades: Treasure Hunter (+materials), Rich Skies (+drops), Twin Cannons, Shield (extra hits), Magnet and Endurance (longer runs).
+- **⚔️ Blade Storm**: swipe to slice monsters flung into the air, avoid bombs. Pays gold + Frenzy.
+- **💥 Power Strike**: timing bar against a giant boss. Pays gold + Frenzy.
+
+**Frenzy** doubles all damage for up to 5 minutes, so active play speeds up the idle game.
 
 ## Tech
 
-- **TypeScript + HTML5 Canvas**, bundled with **Vite**. No game engine, no image assets: all monsters are drawn procedurally (`src/render/monsterArt.ts`).
+- **TypeScript + HTML5 Canvas**, bundled with **Vite**. No game engine and no image assets: everything is drawn with simple shapes.
 - **Capacitor** wraps the web build as a native Android app (`android/`). The same code becomes the iOS app later.
 - Saves use `@capacitor/preferences` (SharedPreferences / UserDefaults natively, localStorage on web). It autosaves every 10s and when the app is backgrounded.
 
 ```
 src/
   core/        pure game logic, no DOM (unit-tested)
-    balance.ts   every tunable number & formula
-    game.ts      simulation: damage, kills, bosses, shop, prestige, rewards
+    balance.ts   every tunable number, formula and content table (upgrades, items, zones, hangar)
+    game.ts      economy & progression: stats, kills/rewards, stages, bosses, shops, forge, prestige
+    field.ts     the battlefield simulation: spawning, movement, shooting, collisions, contact damage
     offline.ts   offline progress + ticket regen
     state.ts     save format + migration
     save.ts      persistence
-  render/      canvas: battle scene, monster art, particles
+  render/      canvas: battlefield view, particles (monsterArt.ts is used by the older minigames)
   minigames/   runner (harness) + one file per minigame
   ui/          DOM panels (Slayers / Arena / Souls), modals
-tests/         vitest: engine, balance, and a bot that plays to check pacing
+tests/         vitest: economy, field, minigames, saves, and a bot that plays the real battlefield to check pacing
 ```
 
 ## Running it
@@ -47,7 +52,7 @@ npm run dev        # play in a browser at http://localhost:5173 (use phone view 
 npm test           # unit tests + progression pacing check
 ```
 
-Balancing: `SIM_SWEEP=1 npx vitest run tests/progression.test.ts --silent=false` prints how long a tapping bot takes to reach each stage. Currently the first Ascension (stage 50) takes about 80 minutes of optimal active play.
+Balancing: `SIM_SWEEP=1 npx vitest run tests/progression.test.ts --silent=false` runs a bot on the real (headless) battlefield and prints how long it takes to reach each stage. Currently stages 1–35 take ~11 minutes, then the wall starts; the first Ascension (stage 50) takes the bot about 2 hours without minigames or offline time.
 
 ### On an Android phone
 
@@ -71,9 +76,10 @@ npm run ios        # opens Xcode → pick a device → Run
 
 - Sound effects & haptics (`@capacitor/haptics`) on hits, crits and kills
 - Local notification when tickets are full or the offline cap is reached (`@capacitor/local-notifications`)
-- Slayer skills with cooldowns (e.g. "Rain of Arrows": 10s of ×10 DPS)
-- More minigames and daily challenges / leaderboards per minigame
-- Equipment/relic drops from bosses; achievements
+- Active skills with cooldowns (nova, orbiting blades, freeze) and more weapon types
+- Elite enemies and enemy variety per zone (fast, tanky, ranged)
+- Daily challenges / leaderboards for Sky Siege; more Hangar upgrades
+- Boss-only rare materials and legendary items; achievements
 - Rewarded ads ("double your offline gold") or IAP; cloud save
 - Replace procedural art with a commissioned sprite set
 - Release signing & Play Store listing (`./gradlew bundleRelease`)

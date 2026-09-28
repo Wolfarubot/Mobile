@@ -1,58 +1,94 @@
 import {
+  BASE_CRIT_CHANCE,
+  BASE_DROP_CHANCE,
+  BASE_FIRE_RATE,
+  BASE_SPAWN_RATE,
+  BH_UPGRADES,
+  bhUpgradeCost,
+  BOSS_MATERIAL_DROP,
+  BOSS_REWARD_MULT,
   BOSS_TIME,
   bulkCost,
+  CRIT_MULT,
+  enemyGold,
+  enemyHp,
   FRENZY_CAP_SEC,
   FRENZY_MULT,
-  HEROES,
-  heroDps,
+  hasteMult,
   isBossStage,
+  itemCost,
+  itemDef,
   KILLS_PER_STAGE,
   MAX_TICKETS,
   maxAffordable,
   MINIGAME_GOLD_PER_UNIT,
-  monsterGold,
-  monsterHp,
-  RESPAWN_DELAY,
+  PLAYER_REGEN,
+  powerDamage,
   shardMultiplier,
   shardsForStage,
-  TAP_BASE_COST,
-  TAP_CRIT_CHANCE,
-  TAP_CRIT_MULT,
-  TAP_DPS_SHARE,
-  tapBaseDamage,
+  spawnRamp,
+  UPGRADES,
+  vitalityMult,
+  zoneFor,
+  type BhUpgradeId,
+  type ItemId,
+  type MaterialId,
+  type UpgradeId,
 } from './balance';
 import { computeOffline, farmStage, regenTickets, type OfflineResult } from './offline';
 import { newGame, type BuyAmount, type GameState } from './state';
 
 export type GameEvent =
-  | { type: 'tap'; amount: number; crit: boolean }
-  | { type: 'kill'; gold: number; boss: boolean }
-  | { type: 'spawn'; boss: boolean }
   | { type: 'stageClear'; stage: number }
+  | { type: 'stageChange'; reason: StageChangeReason }
   | { type: 'bossFail' }
+  | { type: 'death' }
   | { type: 'prestige'; shards: number };
+
+/** 'advance' keeps the horde on screen; every other change clears the field. */
+export type StageChangeReason = 'advance' | 'retreat' | 'manual' | 'prestige';
 
 export interface Purchase {
   count: number;
   cost: number;
 }
 
+export interface KillReward {
+  gold: number;
+  material: MaterialId | null;
+  amount: number;
+}
+
 export interface MinigameReward {
   gold: number;
   frenzy: number;
+  materials: Partial<Record<MaterialId, number>>;
+  stars: number;
 }
 
+export interface MinigamePayout {
+  id: string;
+  score: number;
+  /** ≈ monsters slain; converted to gold and Frenzy. */
+  units: number;
+  materials?: Partial<Record<MaterialId, number>>;
+  stars?: number;
+}
+
+/**
+ * The economy and progression rules. Positions, bullets and collisions live in
+ * Field; Field reports kills/deaths here and reads combat stats from here.
+ */
 export class Game {
   state: GameState;
-  /** Seconds until the next monster appears (0 while one is alive). */
-  respawn = 0;
+  /** True while a boss is on the field (its timer is running). */
+  bossAlive = false;
   private listeners: Array<(e: GameEvent) => void> = [];
-  private rng: () => number;
+  rng: () => number;
 
   constructor(state: GameState, rng: () => number = Math.random) {
     this.state = state;
     this.rng = rng;
-    if (state.monsterHp <= 0) this.spawn();
   }
 
   on(fn: (e: GameEvent) => void): void {
@@ -63,197 +99,256 @@ export class Game {
     for (const fn of this.listeners) fn(e);
   }
 
-  // ---- Derived stats ----
+  private item(id: ItemId): number {
+    return this.state.items[id];
+  }
+
+  // ---- Combat stats (read by Field every frame) ----
 
   get shardMult(): number {
     return shardMultiplier(this.state.shards);
   }
 
-  /** Slayer DPS without temporary buffs (used for offline progress). */
-  get baseDps(): number {
-    let total = 0;
-    HEROES.forEach((h, i) => (total += heroDps(h, this.state.heroes[i])));
-    return total * this.shardMult;
+  get frenzy(): boolean {
+    return this.state.frenzyTime > 0;
   }
 
+  get damage(): number {
+    const it = (id: ItemId) => this.item(id);
+    return (
+      powerDamage(this.state.upgrades.power) *
+      (1 + 0.25 * it('whetstone')) *
+      1.5 ** it('engine') *
+      this.shardMult *
+      (this.frenzy ? FRENZY_MULT : 1)
+    );
+  }
+
+  get fireRate(): number {
+    return BASE_FIRE_RATE * hasteMult(this.state.upgrades.haste) * (1 + 0.1 * this.item('gloves')) * (1 + 0.05 * this.item('engine'));
+  }
+
+  get projectiles(): number {
+    return 1 + this.item('splitbow');
+  }
+
+  get pierce(): number {
+    return this.item('lance');
+  }
+
+  get critChance(): number {
+    return BASE_CRIT_CHANCE + 0.04 * this.item('lantern');
+  }
+
+  get spawnRate(): number {
+    return BASE_SPAWN_RATE * spawnRamp(this.state.stage) * (1 + 0.2 * this.item('lure'));
+  }
+
+  get dropChance(): number {
+    return BASE_DROP_CHANCE * (1 + 0.25 * this.item('pouch'));
+  }
+
+  get goldMult(): number {
+    return 1 + 0.25 * this.item('idol');
+  }
+
+  /** Multiplier on contact damage the hero takes. */
+  get damageTaken(): number {
+    return 0.88 ** this.item('bonemail') * vitalityMult(this.state.upgrades.vitality);
+  }
+
+  get regen(): number {
+    return PLAYER_REGEN * (1 + 0.1 * this.state.upgrades.vitality);
+  }
+
+  /** Expected damage per second, ignoring overkill and travel time. */
   get dps(): number {
-    return this.baseDps * (this.state.frenzyTime > 0 ? FRENZY_MULT : 1);
+    return this.damage * this.fireRate * this.projectiles * (1 + this.critChance * (CRIT_MULT - 1));
   }
 
-  get tapDamage(): number {
-    const frenzy = this.state.frenzyTime > 0 ? FRENZY_MULT : 1;
-    return tapBaseDamage(this.state.tapLevel) * this.shardMult * frenzy + this.dps * TAP_DPS_SHARE;
-  }
-
-  get maxHp(): number {
-    return monsterHp(this.state.stage);
+  get enemyHp(): number {
+    return enemyHp(this.state.stage);
   }
 
   get isBoss(): boolean {
-    return isBossStage(this.state.stage) && !this.state.farming;
+    return isBossStage(this.state.stage);
   }
 
-  get monsterAlive(): boolean {
-    return this.respawn <= 0 && this.state.monsterHp > 0;
-  }
-
-  /** Farming a cleared stage before a boss the player failed. */
-  get canFightBoss(): boolean {
-    return this.state.farming;
+  get zoneMaterial(): MaterialId {
+    return zoneFor(this.state.stage).material;
   }
 
   get pendingShards(): number {
     return shardsForStage(this.state.maxStage);
   }
 
-  // ---- Simulation ----
+  // ---- Simulation hooks ----
 
   tick(dt: number): void {
     const s = this.state;
     regenTickets(s, dt);
     if (s.frenzyTime > 0) s.frenzyTime = Math.max(0, s.frenzyTime - dt);
-
-    if (this.respawn > 0) {
-      this.respawn -= dt;
-      if (this.respawn <= 0) this.spawn();
-      return;
-    }
-
-    if (this.isBoss) {
+    if (this.bossAlive) {
       s.bossTimer -= dt;
-      if (s.bossTimer <= 0) {
-        this.failBoss();
-        return;
-      }
+      if (s.bossTimer <= 0) this.failBoss();
     }
-
-    this.damage(this.dps * dt);
   }
 
-  tap(): { amount: number; crit: boolean } | null {
-    if (!this.monsterAlive) return null;
-    const crit = this.rng() < TAP_CRIT_CHANCE;
-    const amount = this.tapDamage * (crit ? TAP_CRIT_MULT : 1);
-    this.state.stats.taps++;
-    this.emit({ type: 'tap', amount, crit });
-    this.damage(amount);
-    return { amount, crit };
+  /** Field calls this when it puts the stage boss on the field. */
+  bossSpawned(): void {
+    this.bossAlive = true;
+    this.state.bossTimer = BOSS_TIME;
   }
 
-  private damage(amount: number): void {
-    if (!this.monsterAlive || amount <= 0) return;
-    this.state.monsterHp -= amount;
-    if (this.state.monsterHp <= 0) this.kill();
-  }
-
-  private kill(): void {
+  /** Field calls this for every enemy killed. */
+  registerKill(boss: boolean): KillReward {
     const s = this.state;
-    const boss = this.isBoss;
-    const gold = monsterGold(s.stage);
-    s.monsterHp = 0;
+    const gold = enemyGold(s.stage) * this.goldMult * (boss ? BOSS_REWARD_MULT : 1);
     s.gold += gold;
     s.stats.totalGold += gold;
     s.stats.totalKills++;
-    this.emit({ type: 'kill', gold, boss });
+
+    const material = this.zoneMaterial;
+    let amount = 0;
+    if (boss) amount = Math.round(BOSS_MATERIAL_DROP * (1 + 0.25 * this.item('pouch')));
+    else {
+      const c = this.dropChance;
+      amount = Math.floor(c) + (this.rng() < c % 1 ? 1 : 0);
+    }
+    s.materials[material] += amount;
 
     if (boss) {
-      this.advance();
-    } else {
-      s.kills = Math.min(KILLS_PER_STAGE, s.kills + 1);
-      if (s.kills >= KILLS_PER_STAGE && !s.farming) this.advance();
+      this.bossAlive = false;
+      this.clearStage();
+    } else if (!this.isBoss) {
+      s.stageKills++;
+      if (s.stageKills >= KILLS_PER_STAGE) this.clearStage();
     }
-    this.respawn = RESPAWN_DELAY;
+    return { gold, material: amount > 0 ? material : null, amount };
   }
 
-  private advance(): void {
+  registerTap(): void {
+    this.state.stats.taps++;
+  }
+
+  /** Field calls this when the hero's HP runs out: retreat one stage and stop auto-advancing. */
+  playerDied(): void {
+    this.state.stats.deaths++;
+    this.state.autoAdvance = false;
+    this.emit({ type: 'death' });
+    this.goToStage(this.state.stage - 1, 'retreat');
+  }
+
+  private clearStage(): void {
     const s = this.state;
     this.emit({ type: 'stageClear', stage: s.stage });
-    s.stage++;
-    s.maxStage = Math.max(s.maxStage, s.stage);
-    s.kills = 0;
-    s.farming = false;
-  }
-
-  private spawn(): void {
-    const s = this.state;
-    this.respawn = 0;
-    s.monsterHp = this.maxHp;
-    if (this.isBoss) s.bossTimer = BOSS_TIME;
-    this.emit({ type: 'spawn', boss: this.isBoss });
+    s.maxStage = Math.max(s.maxStage, s.stage + 1);
+    if (s.autoAdvance) this.goToStage(s.stage + 1, 'advance');
+    else s.stageKills = 0;
   }
 
   private failBoss(): void {
-    const s = this.state;
-    s.stage = Math.max(1, s.stage - 1);
-    s.farming = true;
-    s.kills = KILLS_PER_STAGE;
-    s.bossTimer = 0;
+    this.state.autoAdvance = false;
     this.emit({ type: 'bossFail' });
-    this.spawn();
+    this.goToStage(this.state.stage - 1, 'retreat');
   }
 
-  fightBoss(): void {
+  private goToStage(stage: number, reason: StageChangeReason): void {
     const s = this.state;
-    if (!s.farming) return;
-    s.farming = false;
-    s.stage++;
-    s.kills = 0;
-    this.spawn();
+    s.stage = Math.min(Math.max(1, stage), s.maxStage);
+    s.stageKills = 0;
+    s.bossTimer = 0;
+    this.bossAlive = false;
+    this.emit({ type: 'stageChange', reason });
   }
 
-  // ---- Shop ----
-
-  private purchase(baseCost: number, level: number, amount: BuyAmount): Purchase {
-    const count = amount === 'max' ? Math.max(1, maxAffordable(baseCost, level, this.state.gold)) : amount;
-    return { count, cost: bulkCost(baseCost, level, count) };
+  /** Player-driven stage navigation. Stepping back pauses auto-advance; reaching the frontier resumes it. */
+  setStage(stage: number): void {
+    const target = Math.min(Math.max(1, stage), this.state.maxStage);
+    if (target === this.state.stage) return;
+    this.state.autoAdvance = target >= this.state.maxStage;
+    this.goToStage(target, 'manual');
   }
 
-  heroPurchase(i: number, amount: BuyAmount = this.state.buyAmount): Purchase {
-    return this.purchase(HEROES[i].baseCost, this.state.heroes[i], amount);
+  toggleAutoAdvance(): void {
+    this.state.autoAdvance = !this.state.autoAdvance;
   }
 
-  tapPurchase(amount: BuyAmount = this.state.buyAmount): Purchase {
-    // tapLevel starts at 1, so level 1 costs TAP_BASE_COST.
-    return this.purchase(TAP_BASE_COST, this.state.tapLevel - 1, amount);
+  // ---- Gold upgrades ----
+
+  upgradePurchase(id: UpgradeId, amount: BuyAmount = this.state.buyAmount): Purchase {
+    const def = UPGRADES.find((u) => u.id === id)!;
+    const level = this.state.upgrades[id];
+    const room = def.maxLevel !== undefined ? def.maxLevel - level : Infinity;
+    if (room <= 0) return { count: 0, cost: Infinity };
+    let count = amount === 'max' ? Math.max(1, maxAffordable(def.baseCost, def.growth, level, this.state.gold)) : amount;
+    count = Math.min(count, room);
+    return { count, cost: bulkCost(def.baseCost, def.growth, level, count) };
   }
 
-  heroUnlocked(i: number): boolean {
-    return i === 0 || this.state.heroes[i] > 0 || this.state.heroes[i - 1] > 0;
-  }
-
-  buyHero(i: number): boolean {
-    if (!this.heroUnlocked(i)) return false;
-    const p = this.heroPurchase(i);
-    if (this.state.gold < p.cost) return false;
+  buyUpgrade(id: UpgradeId): boolean {
+    const p = this.upgradePurchase(id);
+    if (p.count <= 0 || this.state.gold < p.cost) return false;
     this.state.gold -= p.cost;
-    this.state.heroes[i] += p.count;
+    this.state.upgrades[id] += p.count;
     return true;
   }
 
-  buyTap(): boolean {
-    const p = this.tapPurchase();
-    if (this.state.gold < p.cost) return false;
-    this.state.gold -= p.cost;
-    this.state.tapLevel += p.count;
+  // ---- Forge ----
+
+  canCraft(id: ItemId): boolean {
+    const def = itemDef(id);
+    const level = this.state.items[id];
+    if (level >= def.maxLevel) return false;
+    const cost = itemCost(def, level);
+    return (Object.entries(cost) as [MaterialId, number][]).every(([m, n]) => this.state.materials[m] >= n);
+  }
+
+  craft(id: ItemId): boolean {
+    if (!this.canCraft(id)) return false;
+    const cost = itemCost(itemDef(id), this.state.items[id]);
+    for (const [m, n] of Object.entries(cost) as [MaterialId, number][]) this.state.materials[m] -= n;
+    this.state.items[id]++;
     return true;
   }
 
-  // ---- Prestige ----
+  // ---- Bullet hell upgrades ----
 
+  bhCost(id: BhUpgradeId): number {
+    const def = BH_UPGRADES.find((u) => u.id === id)!;
+    const level = this.state.bh[id];
+    return level >= def.maxLevel ? Infinity : bhUpgradeCost(def, level);
+  }
+
+  buyBh(id: BhUpgradeId): boolean {
+    const cost = this.bhCost(id);
+    if (this.state.stars < cost) return false;
+    this.state.stars -= cost;
+    this.state.bh[id]++;
+    return true;
+  }
+
+  // ---- Ascension ----
+
+  /** Resets stage, gold and gold upgrades for Soul Shards. Materials, items and Arena progress are kept. */
   prestige(now = Date.now()): number {
     const gained = this.pendingShards;
     if (gained <= 0) return 0;
     const old = this.state;
     const fresh = newGame(now);
     fresh.shards = old.shards + gained;
+    fresh.materials = old.materials;
+    fresh.items = old.items;
+    fresh.stars = old.stars;
+    fresh.bh = old.bh;
     fresh.tickets = old.tickets;
     fresh.ticketProgress = old.ticketProgress;
     fresh.buyAmount = old.buyAmount;
     fresh.stats = { ...old.stats, prestiges: old.stats.prestiges + 1 };
     this.state = fresh;
-    this.respawn = 0;
-    this.spawn();
+    this.bossAlive = false;
     this.emit({ type: 'prestige', shards: gained });
+    this.emit({ type: 'stageChange', reason: 'prestige' });
     return gained;
   }
 
@@ -262,13 +357,18 @@ export class Game {
   /** Applies progress for time spent away. Returns what was earned. */
   applyOffline(now = Date.now()): OfflineResult {
     const s = this.state;
-    const awaySec = (now - s.lastSeen) / 1000;
-    const result = computeOffline(s, this.baseDps, awaySec);
+    const frenzyWas = s.frenzyTime;
+    s.frenzyTime = 0; // offline progress never benefits from Frenzy
+    const result = computeOffline(
+      { stage: s.stage, dps: this.dps, spawnRate: this.spawnRate, goldMult: this.goldMult, dropChance: this.dropChance },
+      (now - s.lastSeen) / 1000,
+    );
+    s.frenzyTime = Math.max(0, frenzyWas - result.away);
     s.gold += result.gold;
     s.stats.totalGold += result.gold;
     s.stats.totalKills += result.kills;
+    s.materials[result.material] += result.materials;
     regenTickets(s, result.away);
-    s.frenzyTime = Math.max(0, s.frenzyTime - result.away);
     s.lastSeen = now;
     return result;
   }
@@ -284,16 +384,32 @@ export class Game {
     return true;
   }
 
-  /** Converts minigame performance ("units" ≈ monsters slain) into gold and a DPS frenzy. */
-  grantMinigame(id: string, units: number, score: number): MinigameReward {
+  /** Materials the player has reached so far (the bullet hell only drops these). */
+  get unlockedMaterials(): MaterialId[] {
+    const zones = Math.min(6, Math.floor((this.state.maxStage - 1) / 10) + 1);
+    const mats: MaterialId[] = [];
+    for (let z = 0; z < zones; z++) mats.push(zoneFor(z * 10 + 1).material);
+    return mats;
+  }
+
+  grantMinigame(p: MinigamePayout): MinigameReward {
     const s = this.state;
-    const u = Math.max(0, Math.floor(units));
-    const gold = u * MINIGAME_GOLD_PER_UNIT * monsterGold(farmStage(s));
-    const frenzy = Math.min(FRENZY_CAP_SEC - s.frenzyTime, u);
+    const u = Math.max(0, Math.floor(p.units));
+    const gold = u * MINIGAME_GOLD_PER_UNIT * enemyGold(farmStage(s.stage)) * this.goldMult;
+    const frenzy = Math.max(0, Math.min(FRENZY_CAP_SEC - s.frenzyTime, u));
     s.gold += gold;
     s.stats.totalGold += gold;
-    s.frenzyTime += Math.max(0, frenzy);
-    s.stats.best[id] = Math.max(s.stats.best[id] ?? 0, score);
-    return { gold, frenzy: Math.max(0, frenzy) };
+    s.frenzyTime += frenzy;
+    const materials: Partial<Record<MaterialId, number>> = {};
+    for (const [m, n] of Object.entries(p.materials ?? {}) as [MaterialId, number][]) {
+      const amount = Math.floor(n);
+      if (amount <= 0) continue;
+      s.materials[m] += amount;
+      materials[m] = amount;
+    }
+    const stars = Math.max(0, Math.floor(p.stars ?? 0));
+    s.stars += stars;
+    s.stats.best[p.id] = Math.max(s.stats.best[p.id] ?? 0, p.score);
+    return { gold, frenzy, materials, stars };
   }
 }

@@ -1,10 +1,11 @@
+import type { Game } from '../core/game';
 import { fitCanvas } from '../render/fx';
 import type { MinigameDef, MinigameInstance, MinigameResult } from './types';
 
 const COUNTDOWN = 3;
 
 /** Hosts a minigame full screen: countdown, input routing, main loop, quit button. */
-export function runMinigame(def: MinigameDef, onDone: (r: MinigameResult) => void): void {
+export function runMinigame(def: MinigameDef, game: Game, onDone: (r: MinigameResult) => void): void {
   const root = document.createElement('div');
   root.className = 'mg-root';
   root.innerHTML = `<canvas class="mg-canvas"></canvas><button class="mg-quit" aria-label="Quit">✕</button>`;
@@ -13,7 +14,7 @@ export function runMinigame(def: MinigameDef, onDone: (r: MinigameResult) => voi
   const canvas = root.querySelector('canvas')!;
   const g = canvas.getContext('2d')!;
   let { w, h } = fitCanvas(canvas, g);
-  const game: MinigameInstance = def.create(w, h);
+  const mg: MinigameInstance = def.create(w, h, game);
   let countdown = COUNTDOWN;
   let last = performance.now();
   let ended = false;
@@ -25,17 +26,17 @@ export function runMinigame(def: MinigameDef, onDone: (r: MinigameResult) => voi
   canvas.addEventListener('pointerdown', (e) => {
     e.preventDefault();
     canvas.setPointerCapture(e.pointerId);
-    if (countdown <= 0) game.down(...pos(e));
+    if (countdown <= 0) mg.down(...pos(e));
   });
-  canvas.addEventListener('pointermove', (e) => countdown <= 0 && game.move(...pos(e)));
-  canvas.addEventListener('pointerup', (e) => countdown <= 0 && game.up(...pos(e)));
-  canvas.addEventListener('pointercancel', (e) => countdown <= 0 && game.up(...pos(e)));
+  canvas.addEventListener('pointermove', (e) => countdown <= 0 && mg.move(...pos(e)));
+  canvas.addEventListener('pointerup', (e) => countdown <= 0 && mg.up(...pos(e)));
+  canvas.addEventListener('pointercancel', (e) => countdown <= 0 && mg.up(...pos(e)));
 
   const finish = () => {
     if (ended) return;
     ended = true;
     root.remove();
-    onDone(game.result());
+    onDone(mg.result());
   };
   root.querySelector('.mg-quit')!.addEventListener('click', finish);
 
@@ -46,8 +47,8 @@ export function runMinigame(def: MinigameDef, onDone: (r: MinigameResult) => voi
     ({ w, h } = fitCanvas(canvas, g));
 
     if (countdown > 0) countdown -= dt;
-    else game.update(dt, w, h);
-    game.render(g, w, h);
+    else mg.update(dt, w, h);
+    mg.render(g, w, h);
 
     if (countdown > 0) {
       g.fillStyle = 'rgba(10,6,20,0.6)';
@@ -64,7 +65,7 @@ export function runMinigame(def: MinigameDef, onDone: (r: MinigameResult) => voi
       g.fillText(String(Math.ceil(countdown)), w / 2, h * 0.62);
     }
 
-    if (game.finished) finish();
+    if (mg.finished) finish();
     else requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);

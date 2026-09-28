@@ -35,7 +35,9 @@ export class Fx {
   floaters: Floater[] = [];
   slashes: Slash[] = [];
 
-  burst(x: number, y: number, color: string, count = 14, speed = 220, size = 5): void {
+  /** Particle burst. Pass gravity 0 for top-down scenes. */
+  burst(x: number, y: number, color: string, count = 14, speed = 220, size = 5, gravity = 600): void {
+    if (this.particles.length > 400) return;
     for (let i = 0; i < count; i++) {
       const a = Math.random() * Math.PI * 2;
       const v = speed * (0.4 + Math.random() * 0.8);
@@ -43,17 +45,18 @@ export class Fx {
         x,
         y,
         vx: Math.cos(a) * v,
-        vy: Math.sin(a) * v - speed * 0.3,
+        vy: Math.sin(a) * v - (gravity > 0 ? speed * 0.3 : 0),
         life: 0,
         max: 0.5 + Math.random() * 0.4,
         size: size * (0.6 + Math.random() * 0.8),
         color,
-        gravity: 600,
+        gravity,
       });
     }
   }
 
   text(x: number, y: number, text: string, color = '#fff', size = 22, max = 0.9): void {
+    if (this.floaters.length > 45) this.floaters.shift();
     this.floaters.push({ x: x + (Math.random() - 0.5) * 60, y: y + (Math.random() - 0.5) * 24, text, color, size, life: 0, max });
   }
 
@@ -65,6 +68,11 @@ export class Fx {
     for (const p of this.particles) {
       p.life += dt;
       p.vy += p.gravity * dt;
+      if (!p.gravity) {
+        const drag = 0.02 ** dt; // top-down particles slow to a stop instead of falling
+        p.vx *= drag;
+        p.vy *= drag;
+      }
       p.x += p.vx * dt;
       p.y += p.vy * dt;
     }

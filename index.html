@@ -18,12 +18,15 @@
       </header>
       <div class="battle-wrap"><canvas id="battle"></canvas></div>
       <div class="progress">
-        <div class="kills"><div class="kills-fill" id="killsFill"></div><span id="killsText">0 / 10</span></div>
-        <button id="bossBtn" class="boss-btn hidden">⚔️ Fight Boss</button>
-        <div id="frenzy" class="frenzy hidden">🔥 FRENZY ×2 <span id="frenzyTime"></span></div>
+        <button id="prevStage" class="nav-btn" aria-label="Previous stage">◀</button>
+        <div class="kills"><div class="kills-fill" id="killsFill"></div><span id="killsText">0 / 20</span></div>
+        <button id="nextStage" class="nav-btn" aria-label="Next stage">▶</button>
+        <button id="autoBtn" class="auto-btn" aria-label="Toggle auto-advance">AUTO</button>
       </div>
+      <div id="frenzy" class="frenzy hidden">🔥 FRENZY ×2 damage · <span id="frenzyTime"></span></div>
       <nav class="tabs">
-        <button data-tab="slayers" class="active">⚔️ Slayers</button>
+        <button data-tab="upgrades" class="active">⬆️ Train</button>
+        <button data-tab="forge">🔨 Forge <span class="badge dot hidden" id="forgeBadge"></span></button>
         <button data-tab="arena">🎮 Arena <span class="badge hidden" id="ticketBadge"></span></button>
         <button data-tab="souls">🔮 Souls</button>
       </nav>

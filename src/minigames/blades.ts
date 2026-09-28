@@ -224,5 +224,6 @@ export const bladeStorm: MinigameDef = {
   icon: '⚔️',
   tagline: 'Slice flying monsters mid-air.',
   howTo: 'Swipe through monsters as they fly. Slice 3+ in one swipe for a bonus. Avoid the spiked bombs, they cost you time!',
+  rewards: '🪙 Gold + Frenzy',
   create: (w, h) => new Blades(w, h),
 };

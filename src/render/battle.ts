@@ -1,77 +1,60 @@
-import { BOSS_TIME, HEROES, zoneFor } from '../core/balance';
+import { BOSS_TIME, materialDef, TAP_RADIUS, zoneFor, type EnemyShape } from '../core/balance';
+import { PLAYER_RADIUS, type Enemy, type Field } from '../core/field';
 import { fmt } from '../core/format';
 import type { Game } from '../core/game';
-import { drawMonster, monsterLook, type MonsterLook } from './monsterArt';
 import { fitCanvas, Fx } from './fx';
 
-interface Bolt {
+interface Pickup {
   x: number;
   y: number;
-  tx: number;
-  ty: number;
+  vx: number;
+  vy: number;
   t: number;
-  hue: number;
+  color: string;
+  size: number;
+  gem: boolean;
 }
 
-/** The main idle battle scene: one monster at a time, tap to strike, slayers auto-attack. */
+interface Ring {
+  x: number;
+  y: number;
+  t: number;
+}
+
+const OUTLINE = '#120c1c';
+
+/** Draws the survivor-style battlefield: hero in the middle, the horde closing in. */
 export class BattleView {
   private g: CanvasRenderingContext2D;
   private fx = new Fx();
-  private look: MonsterLook;
+  private pickups: Pickup[] = [];
+  private rings: Ring[] = [];
   private time = 0;
-  private hurt = 0;
-  private squash = 0;
-  private spawnAnim = 1;
-  private deathAnim = 0;
-  private deadLook: MonsterLook | null = null;
-  private bolts: Bolt[] = [];
-  private heroTimers: number[] = HEROES.map(() => Math.random());
-  private dpsTick = 0;
   private shake = 0;
   private banner: { text: string; color: string; life: number } | null = null;
   private w = 0;
   private h = 0;
-  private monsterIndex = 0;
+  private specks: Array<{ x: number; y: number; r: number }> = [];
 
   constructor(
     private canvas: HTMLCanvasElement,
     private game: Game,
+    private field: Field,
   ) {
     this.g = canvas.getContext('2d')!;
-    this.look = this.makeLook();
+    // Static ground detail in normalized coords, so it scales with the view.
+    for (let i = 0; i < 70; i++) this.specks.push({ x: Math.random(), y: Math.random(), r: 1 + Math.random() * 3 });
 
     canvas.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       const r = canvas.getBoundingClientRect();
-      this.onTap(e.clientX - r.left, e.clientY - r.top);
+      this.field.tap(e.clientX - r.left - this.w / 2, e.clientY - r.top - this.h / 2);
     });
 
     game.on((e) => {
-      switch (e.type) {
-        case 'kill': {
-          const { x, y, size } = this.monsterRect();
-          this.fx.burst(x, y, `hsl(${this.look.hue} 60% 55%)`, 22, 300, 6);
-          this.fx.burst(x, y, '#ffd34d', e.boss ? 30 : 10, 260, 4);
-          this.fx.text(x, y - size * 0.6, `+${fmt(e.gold)}`, '#ffd34d', e.boss ? 34 : 26, 1.1);
-          this.deadLook = this.look;
-          this.deathAnim = 1;
-          break;
-        }
-        case 'spawn':
-          this.monsterIndex++;
-          this.look = this.makeLook();
-          this.spawnAnim = 0;
-          if (e.boss) this.showBanner('BOSS FIGHT!', '#ff5a5a');
-          break;
-        case 'stageClear':
-          break;
-        case 'bossFail':
-          this.showBanner('Boss escaped…', '#ffb04d');
-          break;
-        case 'prestige':
-          this.showBanner(`+${e.shards} Soul Shards`, '#c89bff');
-          break;
-      }
+      if (e.type === 'bossFail') this.showBanner('Boss escaped! Retreating…', '#ffb04d');
+      if (e.type === 'prestige') this.showBanner(`+${e.shards} Soul Shards`, '#c89bff');
+      if (e.type === 'stageClear') this.fx.text(0, -this.h * 0.3, `Stage ${e.stage} cleared`, '#9fe0ff', 18, 1.2);
     });
   }
 
@@ -79,200 +62,331 @@ export class BattleView {
     this.banner = { text, color, life: 0 };
   }
 
-  private makeLook(): MonsterLook {
-    const s = this.game.state;
-    return monsterLook(s.stage, this.monsterIndex, this.game.isBoss, zoneFor(s.stage).hueBase);
-  }
-
-  private monsterRect() {
-    const size = Math.min(this.w, this.h) * (this.game.isBoss ? 0.27 : 0.21);
-    return { x: this.w / 2, y: this.h * 0.52, size };
-  }
-
-  private onTap(x: number, y: number): void {
-    const hit = this.game.tap();
-    if (!hit) return;
-    const m = this.monsterRect();
-    this.hurt = 1;
-    this.squash = 1;
-    this.fx.slash(m.x + (x - m.x) * 0.3, m.y + (y - m.y) * 0.3, m.size * 0.9);
-    this.fx.burst(m.x + (x - m.x) * 0.3, m.y + (y - m.y) * 0.3, '#fff', hit.crit ? 12 : 5, 200, 3);
-    if (hit.crit) {
-      this.shake = 0.25;
-      this.fx.text(x, y - 40, `CRIT ${fmt(hit.amount)}!`, '#ff5a5a', 28);
-    } else {
-      this.fx.text(x, y - 30, fmt(hit.amount), '#fff', 24);
-    }
-  }
-
   update(dt: number): void {
     this.time += dt;
-    this.hurt = Math.max(0, this.hurt - dt * 6);
-    this.squash = Math.max(0, this.squash - dt * 7);
-    this.spawnAnim = Math.min(1, this.spawnAnim + dt * 4);
-    this.deathAnim = Math.max(0, this.deathAnim - dt * 4);
     this.shake = Math.max(0, this.shake - dt);
     if (this.banner) {
       this.banner.life += dt;
-      if (this.banner.life > 1.8) this.banner = null;
+      if (this.banner.life > 2) this.banner = null;
     }
-    this.fx.update(dt);
 
-    const m = this.monsterRect();
-    const owned = HEROES.map((_, i) => i).filter((i) => this.game.state.heroes[i] > 0);
-    const shown = owned.slice(-6);
-    shown.forEach((heroIdx, slot) => {
-      this.heroTimers[heroIdx] -= dt;
-      if (this.heroTimers[heroIdx] <= 0 && this.game.monsterAlive) {
-        this.heroTimers[heroIdx] = 0.8 + Math.random() * 0.6;
-        const p = this.heroPos(slot, shown.length);
-        this.bolts.push({ x: p.x, y: p.y, tx: m.x + (Math.random() - 0.5) * m.size, ty: m.y + (Math.random() - 0.5) * m.size, t: 0, hue: (heroIdx * 47) % 360 });
+    for (const e of this.field.drainEvents()) {
+      switch (e.type) {
+        case 'hit':
+          if (e.crit) this.fx.text(e.x, e.y, fmt(e.dmg), '#ff5a5a', 16, 0.6);
+          else if (Math.random() < 0.25) this.fx.text(e.x, e.y, fmt(e.dmg), '#ffffff', 11, 0.5);
+          break;
+        case 'kill': {
+          const color = e.boss ? '#ffd34d' : zoneFor(this.game.state.stage).enemy;
+          this.fx.burst(e.x, e.y, color, e.boss ? 40 : 8, e.boss ? 260 : 140, e.boss ? 5 : 3, 0);
+          this.dropPickup(e.x, e.y, '#ffd34d', false, e.boss ? 12 : 1);
+          if (e.reward.material) this.dropPickup(e.x, e.y, materialDef(e.reward.material).color, true, Math.min(8, e.reward.amount));
+          if (e.boss) {
+            this.shake = 0.4;
+            this.showBanner('BOSS SLAIN!', '#ffd34d');
+          }
+          break;
+        }
+        case 'blast':
+          this.rings.push({ x: e.x, y: e.y, t: 0 });
+          break;
+        case 'boss':
+          this.shake = 0.3;
+          this.showBanner('A BOSS APPROACHES', '#ff5a6a');
+          break;
+        case 'death':
+          this.shake = 0.5;
+          this.fx.burst(0, 0, '#ff5a6a', 40, 300, 4, 0);
+          this.showBanner('Overrun! Retreating…', '#ff5a6a');
+          this.pickups = [];
+          break;
       }
-    });
-    for (const b of this.bolts) b.t += dt * 2.2;
-    for (const b of this.bolts.filter((b) => b.t >= 1)) {
-      this.fx.burst(b.tx, b.ty, `hsl(${b.hue} 90% 65%)`, 5, 120, 3);
-      this.hurt = Math.max(this.hurt, 0.35);
     }
-    this.bolts = this.bolts.filter((b) => b.t < 1);
 
-    this.dpsTick += dt;
-    if (this.dpsTick >= 1) {
-      this.dpsTick = 0;
-      if (this.game.dps > 0 && this.game.monsterAlive) this.fx.text(m.x + m.size * 0.9, m.y - m.size * 0.2, fmt(this.game.dps), '#9fe0ff', 18, 0.8);
+    for (const p of this.pickups) {
+      p.t += dt;
+      if (p.t < 0.35) {
+        const drag = 0.01 ** dt;
+        p.vx *= drag;
+        p.vy *= drag;
+      } else {
+        // Vacuum toward the hero, accelerating.
+        const d = Math.hypot(p.x, p.y) || 1;
+        const speed = 200 + (p.t - 0.35) * 900;
+        p.vx = (-p.x / d) * speed;
+        p.vy = (-p.y / d) * speed;
+      }
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
     }
+    this.pickups = this.pickups.filter((p) => p.t < 0.35 || Math.hypot(p.x, p.y) > PLAYER_RADIUS);
+    for (const r of this.rings) r.t += dt;
+    this.rings = this.rings.filter((r) => r.t < 0.25);
+    this.fx.update(dt);
   }
 
-  private heroPos(slot: number, count: number) {
-    const spacing = Math.min(56, (this.w - 40) / Math.max(count, 1));
-    const x0 = this.w / 2 - ((count - 1) * spacing) / 2;
-    return { x: x0 + slot * spacing, y: this.h - 30 };
+  private dropPickup(x: number, y: number, color: string, gem: boolean, count: number): void {
+    if (this.pickups.length > 200) return;
+    for (let i = 0; i < count; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const v = 60 + Math.random() * 90;
+      this.pickups.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, t: 0, color, size: gem ? 5 : 3, gem });
+    }
   }
 
   render(): void {
     const { w, h } = fitCanvas(this.canvas, this.g);
     this.w = w;
     this.h = h;
+    this.field.setView(w, h);
     const g = this.g;
-    const s = this.game.state;
-    const zone = zoneFor(s.stage);
+    const zone = zoneFor(this.game.state.stage);
+
+    g.fillStyle = zone.ground;
+    g.fillRect(0, 0, w, h);
+    g.fillStyle = zone.speck;
+    for (const s of this.specks) {
+      g.beginPath();
+      g.arc(s.x * w, s.y * h, s.r, 0, Math.PI * 2);
+      g.fill();
+    }
 
     g.save();
-    if (this.shake > 0) g.translate((Math.random() - 0.5) * 12 * this.shake * 4, (Math.random() - 0.5) * 12 * this.shake * 4);
+    g.translate(w / 2, h / 2);
+    if (this.shake > 0) g.translate((Math.random() - 0.5) * 24 * this.shake, (Math.random() - 0.5) * 24 * this.shake);
 
-    // Sky & ground
-    const sky = g.createLinearGradient(0, 0, 0, h);
-    sky.addColorStop(0, zone.skyTop);
-    sky.addColorStop(1, zone.skyBottom);
-    g.fillStyle = sky;
-    g.fillRect(-20, -20, w + 40, h + 40);
-    g.fillStyle = 'rgba(255,255,255,0.06)';
-    for (let i = 0; i < 5; i++) {
-      const mx = ((i * 173 + this.time * 6) % (w + 200)) - 100;
+    // Pickups under everything else
+    for (const p of this.pickups) {
+      g.fillStyle = p.color;
       g.beginPath();
-      g.ellipse(mx, h * 0.18 + (i % 3) * 22, 70, 16, 0, 0, Math.PI * 2);
+      if (p.gem) {
+        g.moveTo(p.x, p.y - p.size);
+        g.lineTo(p.x + p.size * 0.75, p.y);
+        g.lineTo(p.x, p.y + p.size);
+        g.lineTo(p.x - p.size * 0.75, p.y);
+        g.closePath();
+      } else g.arc(p.x, p.y, p.size, 0, Math.PI * 2);
       g.fill();
     }
-    g.fillStyle = zone.ground;
-    g.beginPath();
-    g.moveTo(-20, h * 0.72);
-    g.quadraticCurveTo(w / 2, h * 0.64, w + 20, h * 0.72);
-    g.lineTo(w + 20, h + 20);
-    g.lineTo(-20, h + 20);
-    g.fill();
 
-    // Monster
-    const m = this.monsterRect();
-    if (this.deathAnim > 0 && this.deadLook) {
-      g.globalAlpha = this.deathAnim;
-      drawMonster(g, this.deadLook, m.x, m.y + (1 - this.deathAnim) * 20, m.size * (1 + (1 - this.deathAnim) * 0.4), { t: this.time, hurt: 1, squash: 1 });
-      g.globalAlpha = 1;
-    }
-    if (this.game.monsterAlive) {
-      const k = this.spawnAnim;
-      const pop = k < 1 ? 1 - (1 - k) ** 3 * 0.6 : 1;
-      g.globalAlpha = k;
-      drawMonster(g, this.look, m.x, m.y, m.size * pop, { t: this.time, hurt: this.hurt, squash: this.squash, boss: this.game.isBoss });
-      g.globalAlpha = 1;
-    }
+    for (const e of this.field.enemies) this.drawEnemy(g, e, zone.shape, zone.enemy);
+    this.drawHero(g);
 
-    // Slayer bolts & badges
-    for (const b of this.bolts) {
-      const x = b.x + (b.tx - b.x) * b.t;
-      const y = b.y + (b.ty - b.y) * b.t - Math.sin(b.t * Math.PI) * 60;
-      g.fillStyle = `hsl(${b.hue} 90% 65%)`;
+    g.fillStyle = '#fff6c2';
+    for (const b of this.field.bullets) {
+      g.fillStyle = b.crit ? '#ff6b6b' : '#fff6c2';
       g.beginPath();
-      g.arc(x, y, 5, 0, Math.PI * 2);
+      g.arc(b.x, b.y, b.crit ? 4 : 3, 0, Math.PI * 2);
       g.fill();
     }
-    const owned = HEROES.map((_, i) => i).filter((i) => s.heroes[i] > 0).slice(-6);
-    g.font = '24px system-ui, sans-serif';
-    g.textAlign = 'center';
-    g.textBaseline = 'middle';
-    owned.forEach((heroIdx, slot) => {
-      const p = this.heroPos(slot, owned.length);
-      g.fillStyle = 'rgba(0,0,0,0.35)';
+
+    for (const r of this.rings) {
+      g.strokeStyle = `rgba(255,255,255,${1 - r.t / 0.25})`;
+      g.lineWidth = 3;
       g.beginPath();
-      g.arc(p.x, p.y, 20, 0, Math.PI * 2);
-      g.fill();
-      g.fillText(HEROES[heroIdx].icon, p.x, p.y + 1 + Math.sin(this.time * 4 + slot) * 1.5);
-    });
+      g.arc(r.x, r.y, TAP_RADIUS * (0.4 + r.t / 0.25 * 0.6), 0, Math.PI * 2);
+      g.stroke();
+    }
 
     this.fx.draw(g);
     g.restore();
-
-    this.drawHud(g, m);
+    this.drawHud(g);
   }
 
-  private drawHud(g: CanvasRenderingContext2D, m: { x: number; y: number; size: number }): void {
-    const s = this.game.state;
-    const w = this.w;
-    const barW = Math.min(w * 0.7, 320);
-    const x = (w - barW) / 2;
-    const y = 14;
+  private drawEnemy(g: CanvasRenderingContext2D, e: Enemy, shape: EnemyShape, color: string): void {
+    const r = e.r;
+    const wob = Math.sin(e.phase * 8) * 0.08;
+    g.save();
+    g.translate(e.x, e.y);
+    g.scale(1 + wob, 1 - wob);
+    g.fillStyle = e.flash > 0.5 ? '#ffffff' : e.boss ? shade(color, -0.15) : color;
+    g.strokeStyle = OUTLINE;
+    g.lineWidth = e.boss ? 4 : 2;
+    shapePath(g, shape, r);
+    g.fill();
+    g.stroke();
 
-    g.textAlign = 'center';
-    g.textBaseline = 'middle';
-    g.font = '800 16px system-ui, sans-serif';
-    g.fillStyle = this.game.isBoss ? '#ff8080' : '#fff';
-    g.strokeStyle = 'rgba(0,0,0,0.6)';
+    // Eyes look at the hero.
+    const d = Math.hypot(e.x, e.y) || 1;
+    const lx = (-e.x / d) * r * 0.12;
+    const ly = (-e.y / d) * r * 0.12;
+    const eyeR = Math.max(1.6, r * 0.2);
+    for (const side of [-1, 1]) {
+      const ex = side * r * 0.35;
+      const ey = -r * 0.1;
+      g.fillStyle = '#fff';
+      g.beginPath();
+      g.arc(ex, ey, eyeR, 0, Math.PI * 2);
+      g.fill();
+      g.fillStyle = OUTLINE;
+      g.beginPath();
+      g.arc(ex + lx, ey + ly, eyeR * 0.55, 0, Math.PI * 2);
+      g.fill();
+    }
+
+    if (e.boss) {
+      g.fillStyle = '#ffd34d';
+      g.strokeStyle = OUTLINE;
+      g.lineWidth = 2;
+      g.beginPath();
+      const cy = -r - 2;
+      g.moveTo(-r * 0.5, cy);
+      g.lineTo(-r * 0.5, cy - r * 0.35);
+      g.lineTo(-r * 0.2, cy - r * 0.15);
+      g.lineTo(0, cy - r * 0.45);
+      g.lineTo(r * 0.2, cy - r * 0.15);
+      g.lineTo(r * 0.5, cy - r * 0.35);
+      g.lineTo(r * 0.5, cy);
+      g.closePath();
+      g.fill();
+      g.stroke();
+    }
+    g.restore();
+  }
+
+  private drawHero(g: CanvasRenderingContext2D): void {
+    const f = this.field;
+    const R = PLAYER_RADIUS;
+    const hurt = f.hurtAgo < 0.12;
+
+    // Frenzy aura
+    if (this.game.frenzy) {
+      g.strokeStyle = `rgba(255,150,60,${0.5 + Math.sin(this.time * 10) * 0.2})`;
+      g.lineWidth = 3;
+      g.beginPath();
+      g.arc(0, 0, R + 7 + Math.sin(this.time * 6) * 2, 0, Math.PI * 2);
+      g.stroke();
+    }
+
+    // Shadow, gun, body, eyes
+    g.fillStyle = 'rgba(0,0,0,0.3)';
+    g.beginPath();
+    g.ellipse(0, R * 0.9, R, R * 0.35, 0, 0, Math.PI * 2);
+    g.fill();
+    g.save();
+    g.rotate(f.aim);
+    g.fillStyle = '#6b5a7a';
+    g.strokeStyle = OUTLINE;
+    g.lineWidth = 2;
+    g.fillRect(R * 0.4, -3, R * 1.1, 6);
+    g.strokeRect(R * 0.4, -3, R * 1.1, 6);
+    g.restore();
+    g.fillStyle = hurt ? '#ff8080' : '#f4e7cf';
+    g.strokeStyle = OUTLINE;
     g.lineWidth = 3;
-    const name = this.look.name;
-    g.strokeText(name, w / 2, y + 8);
-    g.fillText(name, w / 2, y + 8);
+    g.beginPath();
+    g.arc(0, 0, R, 0, Math.PI * 2);
+    g.fill();
+    g.stroke();
+    // Hood / hat stripe
+    g.fillStyle = '#7c5cff';
+    g.beginPath();
+    g.arc(0, 0, R - 1.5, Math.PI * 1.05, Math.PI * 1.95);
+    g.closePath();
+    g.fill();
+    const ex = Math.cos(f.aim) * 3;
+    const ey = Math.sin(f.aim) * 3;
+    g.fillStyle = OUTLINE;
+    for (const side of [-1, 1]) {
+      g.beginPath();
+      g.arc(side * 4 + ex, 1 + ey, 1.8, 0, Math.PI * 2);
+      g.fill();
+    }
 
     // HP bar
-    const frac = this.game.monsterAlive ? Math.max(0, s.monsterHp / this.game.maxHp) : 0;
-    roundRect(g, x, y + 22, barW, 16, 8, 'rgba(0,0,0,0.5)');
-    if (frac > 0) roundRect(g, x + 2, y + 24, (barW - 4) * frac, 12, 6, this.game.isBoss ? '#ff4d6d' : '#5ee07a');
-    g.font = '700 11px system-ui, sans-serif';
-    g.fillStyle = '#fff';
-    g.fillText(`${fmt(Math.max(0, s.monsterHp))} / ${fmt(this.game.maxHp)}`, w / 2, y + 30);
+    const bw = 34;
+    g.fillStyle = 'rgba(0,0,0,0.55)';
+    g.fillRect(-bw / 2, R + 8, bw, 5);
+    g.fillStyle = f.hp > 0.35 ? '#5ee07a' : '#ff5a6a';
+    g.fillRect(-bw / 2, R + 8, bw * Math.max(0, f.hp), 5);
+  }
 
-    // Boss timer
-    if (this.game.isBoss && this.game.monsterAlive) {
-      const t = Math.max(0, s.bossTimer / BOSS_TIME);
-      roundRect(g, x, y + 42, barW, 8, 4, 'rgba(0,0,0,0.5)');
-      roundRect(g, x + 1, y + 43, (barW - 2) * t, 6, 3, t < 0.3 ? '#ff4d4d' : '#ffb04d');
+  private drawHud(g: CanvasRenderingContext2D): void {
+    const w = this.w;
+    const boss = this.field.enemies.find((e) => e.boss);
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    if (boss) {
+      const bw = Math.min(w * 0.7, 300);
+      const x = (w - bw) / 2;
       g.font = '800 13px system-ui, sans-serif';
-      g.fillStyle = '#ffd0a0';
-      g.fillText(`⏱ ${s.bossTimer.toFixed(1)}s`, w / 2, y + 62);
+      g.fillStyle = '#ff9aa6';
+      g.fillText(`BOSS · ${fmt(Math.max(0, boss.hp))}`, w / 2, 14);
+      g.fillStyle = 'rgba(0,0,0,0.55)';
+      g.fillRect(x, 24, bw, 10);
+      g.fillStyle = '#ff4d6d';
+      g.fillRect(x, 24, bw * Math.max(0, boss.hp / boss.maxHp), 10);
+      const t = Math.max(0, this.game.state.bossTimer / BOSS_TIME);
+      g.fillStyle = 'rgba(0,0,0,0.55)';
+      g.fillRect(x, 37, bw, 5);
+      g.fillStyle = t < 0.3 ? '#ff4d4d' : '#ffb04d';
+      g.fillRect(x, 37, bw * t, 5);
     }
 
     if (this.banner) {
       const k = this.banner.life;
-      const a = k < 0.2 ? k / 0.2 : k > 1.4 ? Math.max(0, 1 - (k - 1.4) / 0.4) : 1;
-      g.globalAlpha = a;
-      g.font = '900 34px system-ui, sans-serif';
-      g.lineWidth = 6;
+      g.globalAlpha = k < 0.2 ? k / 0.2 : k > 1.6 ? Math.max(0, 1 - (k - 1.6) / 0.4) : 1;
+      g.font = '900 26px system-ui, sans-serif';
+      g.lineWidth = 5;
       g.strokeStyle = 'rgba(0,0,0,0.7)';
-      const by = m.y - m.size * 1.5;
+      const by = this.h * 0.24;
       g.strokeText(this.banner.text, w / 2, by);
       g.fillStyle = this.banner.color;
       g.fillText(this.banner.text, w / 2, by);
       g.globalAlpha = 1;
     }
   }
+}
+
+function shapePath(g: CanvasRenderingContext2D, shape: EnemyShape, r: number): void {
+  g.beginPath();
+  switch (shape) {
+    case 'circle':
+      g.arc(0, 0, r, 0, Math.PI * 2);
+      break;
+    case 'square':
+      g.rect(-r * 0.85, -r * 0.85, r * 1.7, r * 1.7);
+      break;
+    case 'triangle':
+      g.moveTo(0, -r * 1.1);
+      g.lineTo(r, r * 0.8);
+      g.lineTo(-r, r * 0.8);
+      g.closePath();
+      break;
+    case 'diamond':
+      g.moveTo(0, -r * 1.15);
+      g.lineTo(r, 0);
+      g.lineTo(0, r * 1.15);
+      g.lineTo(-r, 0);
+      g.closePath();
+      break;
+    case 'ghost':
+      g.arc(0, -r * 0.1, r, Math.PI, 0);
+      g.lineTo(r, r * 0.9);
+      g.lineTo(r * 0.5, r * 0.55);
+      g.lineTo(0, r * 0.9);
+      g.lineTo(-r * 0.5, r * 0.55);
+      g.lineTo(-r, r * 0.9);
+      g.closePath();
+      break;
+    case 'hexagon':
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2 + Math.PI / 6;
+        g.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+      }
+      g.closePath();
+      break;
+  }
+}
+
+/** Lighten (amount > 0) or darken (amount < 0) a #rrggbb color. */
+export function shade(hex: string, amount: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const f = (c: number) => Math.round(Math.min(255, Math.max(0, amount < 0 ? c * (1 + amount) : c + (255 - c) * amount)));
+  const r = f((n >> 16) & 255);
+  const gg = f((n >> 8) & 255);
+  const b = f(n & 255);
+  return `#${((r << 16) | (gg << 8) | b).toString(16).padStart(6, '0')}`;
 }
 
 export function roundRect(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number, fill: string): void {
