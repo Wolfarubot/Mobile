@@ -1,5 +1,5 @@
-import { BOSS_TIME, enemyDef, materialDef, TAP_RADIUS, zoneFor, type EnemyId, type EnemyShape } from '../core/balance';
-import { PLAYER_RADIUS, type Enemy, type Field } from '../core/field';
+import { areaDef, enemyDef, GUARDIAN_TIME, hunterDef, materialDef, TAP_RADIUS, type EnemyId, type EnemyShape } from '../core/balance';
+import { PLAYER_RADIUS, type Enemy, type Field, type Helper } from '../core/field';
 import { fmt } from '../core/format';
 import type { Game } from '../core/game';
 import { fitCanvas, Fx } from './fx';
@@ -55,11 +55,13 @@ export class BattleView {
     });
 
     game.on((e) => {
-      if (e.type === 'bossFail') this.showBanner('The boss got away…', '#ffb04d');
-      if (e.type === 'overrun') this.showBanner('Too many got away! Falling back', '#ffb04d');
-      if (e.type === 'prestige') this.showBanner(`+${e.shards} Soul Shards`, '#c89bff');
+      if (e.type === 'guardianFail') this.showBanner('The Guardian retreats…', '#ffb04d');
+      if (e.type === 'areaUnlocked') this.showBanner(`${areaDef(e.area).name} unlocked!`, '#9fe0ff');
       if (e.type === 'unlock') this.showBanner(`${enemyDef(e.enemy).name}s now roam!`, enemyDef(e.enemy).color);
-      if (e.type === 'stageClear') this.fx.text(0, -this.h * 0.3, `Stage ${e.stage} cleared`, '#9fe0ff', 18, 1.2);
+      if (e.type === 'travel') {
+        this.pickups = [];
+        this.showBanner(areaDef(game.area).name, '#ffffff');
+      }
     });
   }
 
@@ -87,10 +89,7 @@ export class BattleView {
           this.fx.burst(e.x, e.y, color, e.boss ? 40 : 8, e.boss ? 260 : 140, e.boss ? 5 : 3, 0);
           this.dropPickup(e.x, e.y, '#ffd34d', false, e.boss ? 12 : 1);
           if (e.reward.material) this.dropPickup(e.x, e.y, materialDef(e.reward.material).color, true, Math.min(8, e.reward.amount));
-          if (e.boss) {
-            this.shake = 0.4;
-            this.showBanner('BOSS SLAIN!', '#ffd34d');
-          }
+          if (e.boss) this.shake = 0.4;
           break;
         }
         case 'blast':
@@ -98,7 +97,7 @@ export class BattleView {
           break;
         case 'boss':
           this.shake = 0.3;
-          this.showBanner('A BOSS APPROACHES', '#ff5a6a');
+          this.showBanner('THE GUARDIAN APPEARS', '#ff5a6a');
           break;
         case 'stun':
           this.shake = Math.max(this.shake, e.boss ? 0.35 : 0.15);
@@ -155,7 +154,7 @@ export class BattleView {
     this.h = h;
     this.field.setView(w, h);
     const g = this.g;
-    const zone = zoneFor(this.game.state.stage);
+    const zone = areaDef(this.game.area);
 
     g.fillStyle = zone.ground;
     g.fillRect(0, 0, w, h);
@@ -185,6 +184,7 @@ export class BattleView {
     }
 
     for (const e of this.field.enemies) this.drawEnemy(g, e);
+    for (const h of this.field.helpers) this.drawHelper(g, h);
     this.drawHunter(g);
 
     for (const b of this.field.bullets) {
@@ -359,6 +359,45 @@ export class BattleView {
     }
   }
 
+  /** A stationed Hunter: sprite if provided, otherwise a colored circle with their icon. */
+  private drawHelper(g: CanvasRenderingContext2D, h: Helper): void {
+    const def = hunterDef(h.id);
+    const R = PLAYER_RADIUS * 0.9;
+    g.save();
+    g.translate(h.x, h.y);
+    g.fillStyle = 'rgba(0,0,0,0.3)';
+    g.beginPath();
+    g.ellipse(0, R * 0.9, R, R * 0.35, 0, 0, Math.PI * 2);
+    g.fill();
+    const img = sprite(`hunters/${h.id}`);
+    if (img) {
+      const size = R * SPRITE_SCALE * 1.2;
+      g.scale(Math.cos(h.aim) < 0 ? -1 : 1, 1);
+      g.drawImage(img, -size / 2, -size / 2, size, size);
+    } else {
+      g.save();
+      g.rotate(h.aim);
+      g.fillStyle = '#6b5a7a';
+      g.strokeStyle = OUTLINE;
+      g.lineWidth = 2;
+      g.fillRect(R * 0.4, -2.5, R * 1.0, 5);
+      g.strokeRect(R * 0.4, -2.5, R * 1.0, 5);
+      g.restore();
+      g.fillStyle = def.color;
+      g.strokeStyle = OUTLINE;
+      g.lineWidth = 3;
+      g.beginPath();
+      g.arc(0, 0, R, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+      g.font = `${Math.round(R * 1.1)}px system-ui, sans-serif`;
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText(def.icon, 0, 1);
+    }
+    g.restore();
+  }
+
   private drawHud(g: CanvasRenderingContext2D): void {
     const w = this.w;
     const boss = this.field.enemies.find((e) => e.boss);
@@ -369,12 +408,12 @@ export class BattleView {
       const x = (w - bw) / 2;
       g.font = '800 13px system-ui, sans-serif';
       g.fillStyle = '#ff9aa6';
-      g.fillText(`${enemyDef(boss.type).name.toUpperCase()} BOSS · ${fmt(Math.max(0, boss.hp))}`, w / 2, 14);
+      g.fillText(`${areaDef(this.game.area).name.toUpperCase()} GUARDIAN · ${fmt(Math.max(0, boss.hp))}`, w / 2, 14);
       g.fillStyle = 'rgba(0,0,0,0.55)';
       g.fillRect(x, 24, bw, 10);
       g.fillStyle = '#ff4d6d';
       g.fillRect(x, 24, bw * Math.max(0, boss.hp / boss.maxHp), 10);
-      const t = Math.max(0, this.game.state.bossTimer / BOSS_TIME);
+      const t = Math.max(0, this.game.bossTimer / GUARDIAN_TIME);
       g.fillStyle = 'rgba(0,0,0,0.55)';
       g.fillRect(x, 37, bw, 5);
       g.fillStyle = t < 0.3 ? '#ff4d4d' : '#ffb04d';

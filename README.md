@@ -1,27 +1,27 @@
 # Monster Horde Idle
 
-An incremental (idle) survivor game for Android, with iOS to follow. The Hunter stands in the middle of the field and auto-shoots an endless horde closing in from every side, Vampire Survivors style. Enemies that reach the Hunter don't hurt them: they **stun** them and **run off with their loot**. Getting stronger means fewer get away. Gold trains the Hunter and grows the horde; materials dropped by each monster type are forged into permanent items. It keeps fighting while the app is closed, and the Arena has minigames for active play, including a bullet hell with its own upgrade tree.
+An incremental (idle) survivor game for Android, with iOS to follow. Your Hunter stands in the middle of the field and auto-shoots an endless horde closing in from every side, Vampire Survivors style. Enemies that reach the Hunter don't hurt them: they **stun** them and **run off with their loot**. You start in the Whispering Forest and push through **five areas**. Each has its own monsters and materials, and every area you open stays open for good. Recruit extra **Hunters** with their own specialties and station them in areas to keep earning while you hunt elsewhere.
 
 ## Core loop
 
 | Layer | What happens |
 |---|---|
-| **Battlefield** | The Hunter auto-fires at the nearest approaching enemy. Enemies arrive in packs from off-screen. One that reaches the Hunter **stuns** them (no shooting) and **flees**; if it makes it off-screen it escapes with its gold and material. After a stun the Hunter gets a short immunity, so they always get some shots off. Tap anywhere for a blast, even while stunned. |
-| **Stages** | 40 kills clear a stage. If 40 enemies escape first, the Hunter **falls back a stage** and stops auto-advancing, so idle play settles on the best stage you can hold. Every 5th stage is a **boss** (a giant version of your toughest unlocked monster, 30s timer): it stuns longer and bounces off instead of fleeing. **◀ ▶** move between unlocked stages; **AUTO** toggles pushing forward. |
-| **Bestiary** (gold) | 6 monster types, each with its own **HP, movement speed, spawn rate, pack size, gold** and **material**: Slime, Skeleton, Imp, Frost Golem, Wraith, Void Horror. **Unlock** new ones to join the horde. **Swarm** brings more of a type. **Bounty** makes it pay more gold and drop more materials, but it **moves faster**. Resets on Ascension. |
-| **Train** (gold) | **Power** (damage, ×2 every 25 levels), **Rapid Fire** (attack rate), **Steady Nerves** (shorter stuns). Reset on Ascension. |
-| **Forge** (materials) | 10 permanent items, for example Whetstone (+damage), Quickdraw Gloves (+attack rate), Monster Lure (+all spawns), Scavenger's Pouch (+material drops), Split Bow (+projectiles), Frost Lance (pierce), Golden Idol (+gold), Bone Mail (shorter stuns), Soul Lantern (crit) and Void Engine. Each material comes from one monster type, so unlocking monsters opens up recipes. |
-| **Offline** | While the app is closed the Hunter farms the current stage at 50% efficiency for up to 8h. If the horde brings more HP per second than the Hunter can deal, the rest escape. |
+| **Battlefield** | Your Hunter auto-fires at the nearest approaching enemy. Enemies arrive in packs from off-screen. One that reaches the Hunter **stuns** them and **flees**; if it gets off-screen it escapes with its gold and material. A short immunity after each stun means you always get some shots off. Tap anywhere for a blast, even while stunned. |
+| **Areas** | Whispering Forest → Old Graveyard → Ember Caves → Frost Peaks → Void Rift. Get enough kills in an area (**mastery**) to challenge its **Guardian** (a giant version of the area's rarest monster, 45s timer; it stuns longer and bounces off). Beat it and the next area is **permanently unlocked**. Travel freely between unlocked areas with **◀ ▶** or the Areas tab. |
+| **Monsters & archetypes** | 15 monsters, 3 per area. Each has its own **HP, speed, spawn rate, pack size, gold** and **material**, and belongs to an **archetype**: Slime (Green, Red, Magma, Shadow Slime), Undead (Skeleton, Zombie, Snow Wraith, Lich), Beast (Forest Wolf, Grave Bat, Fire Beetle, Ice Wolf), Demon (Imp, Void Horror) or Elemental (Frost Golem). |
+| **Bestiary** (gold) | Each area starts with one monster; **unlock** the others to grow its horde. **Swarm** brings more of a monster; **Bounty** makes it pay more gold and drop more materials, but it **moves faster**. Permanent, and it also applies to Hunters stationed there. |
+| **Hunters** (gold) | Your Hunter trains **Power**, **Rapid Fire** and **Steady Nerves** (shorter stuns). The **Hunter Guild** has 7 recruitable Hunters with perks: Mira the Alchemist (×3 vs Slimes), Rin the Ranger (×3 vs Beasts), Alric the Gravewarden (×3 vs Undead), Gus the Prospector (+75% gold), Sera the Demonbane (×3 vs Demons), Pip the Scavenger (×2 drops) and Bjorn the Frostbreaker (×3 vs Elementals). Level them with gold and **station** one per area. They earn gold and materials there at 80% efficiency (offline too). Visit their area and they fight beside you. |
+| **Forge** (materials) | 10 permanent items that boost **every** Hunter: Whetstone, Quickdraw Gloves, Monster Lure, Scavenger's Pouch, Bone Mail, Split Bow, Golden Idol, Frost Lance, Soul Lantern and Void Engine. Recipes use materials from each area in turn, so every new area opens up new gear. |
+| **Offline** | Up to 8h: you farm your current area at 50% efficiency, and every stationed Hunter keeps farming theirs. |
 | **Arena** | Tickets (max 3, one per 15 min, refill offline) buy minigame runs. |
-| **Ascension** | From stage 50, reset for **Soul Shards** (+10% damage each). Items, materials and Hangar upgrades are kept. |
 
 ## Adding your art
 
-Drop PNGs into `src/assets/sprites/` (`hunter.png`, `enemies/<id>.png`, optional `bosses/<id>.png`) and they replace the placeholder shapes on the next build. No code changes are needed. See [`src/assets/sprites/README.md`](src/assets/sprites/README.md) for names and sizes. Enemy stats live in the `ENEMIES` table in `src/core/balance.ts`.
+Drop PNGs into `src/assets/sprites/` (`hunter.png`, `hunters/<id>.png`, `enemies/<id>.png`, optional `bosses/<id>.png`) and they replace the placeholder shapes on the next build. No code changes are needed. See [`src/assets/sprites/README.md`](src/assets/sprites/README.md) for all ids and sizes. Monster, area and Hunter stats live in `src/core/balance.ts`.
 
 ### Minigames
 
-- **🚀 Sky Siege** (bullet hell, the featured game): drag to fly; the ship auto-fires. Dodge aimed shots, rotating rings and a spiral-firing boss; only the ship's purple core can be hit. Downed monsters drop **material gems** (of the monster types you've unlocked, worth more the further you've progressed) and you earn **Stars**. Stars buy permanent **Hangar** upgrades: Treasure Hunter (+materials), Rich Skies (+drops), Twin Cannons, Shield (extra hits), Magnet and Endurance (longer runs).
+- **🚀 Sky Siege** (bullet hell, the featured game): drag to fly; the ship auto-fires. Dodge aimed shots, rotating rings and a spiral-firing boss; only the ship's purple core can be hit. Downed monsters drop **material gems** (of the monsters you've unlocked, worth more the more areas you've opened) and you earn **Stars**. Stars buy permanent **Hangar** upgrades: Treasure Hunter (+materials), Rich Skies (+drops), Twin Cannons, Shield (extra hits), Magnet and Endurance (longer runs).
 - **⚔️ Blade Storm**: swipe to slice monsters flung into the air, avoid bombs. Pays gold + Frenzy.
 - **💥 Power Strike**: timing bar against a giant boss. Pays gold + Frenzy.
 
@@ -36,10 +36,10 @@ Drop PNGs into `src/assets/sprites/` (`hunter.png`, `enemies/<id>.png`, optional
 ```
 src/
   core/        pure game logic, no DOM (unit-tested)
-    balance.ts   every tunable number, formula and content table (upgrades, items, zones, hangar)
-    game.ts      economy & progression: stats, enemy roster, kills/escapes, stages, bosses, shops, forge, prestige
-    field.ts     the battlefield simulation: spawning, movement, shooting, collisions, stuns, fleeing
-    offline.ts   offline progress + ticket regen
+    balance.ts   every tunable number and content table (areas, monsters, archetypes, Hunters, items, hangar)
+    game.ts      economy & progression: areas, Guardians, Hunters & stationing, bestiary, shops, forge, background farming
+    field.ts     the battlefield simulation: spawning, movement, shooting (you + stationed Hunter), stuns, fleeing, Guardians
+    offline.ts   offline cap + ticket regen
     state.ts     save format + migration
     save.ts      persistence
   render/      canvas: battlefield view, particles, sprite loader (monsterArt.ts is used by the older minigames)
@@ -57,7 +57,7 @@ npm run dev        # play in a browser at http://localhost:5173 (use phone view 
 npm test           # unit tests + progression pacing check
 ```
 
-Balancing: `SIM_SWEEP=1 npx vitest run tests/progression.test.ts --silent=false` runs a bot on the real (headless) battlefield and prints how long it takes to reach each stage. Currently stage 10 takes ~4 minutes and stage 30 ~11; the wall starts around 35–40, and the first Ascension (stage 50) takes the bot about 2.5 hours without minigames or offline time.
+Balancing: `SIM_SWEEP=1 npx vitest run tests/progression.test.ts --silent=false` runs a bot on the real (headless) battlefield (training, Bestiary, Hunters, Forge, Guardians) and prints when each area unlocked. Currently: Graveyard ~6 min, Caves ~48 min, Peaks ~1h50, Void Rift ~3h15 of optimal play without minigames or offline time.
 
 ### On an Android phone
 
@@ -82,7 +82,9 @@ npm run ios        # opens Xcode → pick a device → Run
 - Sound effects & haptics (`@capacitor/haptics`) on hits, crits and kills
 - Local notification when tickets are full or the offline cap is reached (`@capacitor/local-notifications`)
 - Active skills with cooldowns (nova, orbiting blades, freeze) and more weapon types
-- Enemy traits (splitters, shielded, ranged), elite variants, per-enemy boss attacks
+- Enemy traits (splitters, shielded, ranged), elite variants, Guardian attack patterns
+- A prestige layer that fits permanent areas (e.g. harder "tiers" of each area for bigger rewards)
+- More Hunters, Hunter gear slots, and more areas
 - Daily challenges / leaderboards for Sky Siege; more Hangar upgrades
 - Boss-only rare materials and legendary items; achievements
 - Rewarded ads ("double your offline gold") or IAP; cloud save

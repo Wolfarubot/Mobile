@@ -96,7 +96,7 @@ class SkySiege implements MinigameInstance {
     this.magnet = BASE_MAGNET * (1 + 0.4 * bh.magnet);
     this.dropMult = 1 + 0.1 * bh.richskies;
     this.treasureMult = 1 + 0.25 * bh.treasure;
-    this.gemWorth = gemValue(game.state.maxStage);
+    this.gemWorth = gemValue(game.unlockedAreas.length);
     this.mats = game.unlockedMaterials;
     this.ship = { x: w / 2, y: h * 0.8 };
     for (let i = 0; i < 60; i++) this.stars.push({ x: Math.random(), y: Math.random(), s: 0.3 + Math.random() });

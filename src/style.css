@@ -84,7 +84,7 @@ button {
   text-align: center;
   line-height: 1.1;
 }
-.stage #zone {
+.stage #areaNum {
   font-size: 11px;
   color: var(--muted);
   text-transform: uppercase;
@@ -147,6 +147,16 @@ button {
 .nav-btn.pulse {
   background: var(--danger);
   animation: pulse 1s infinite;
+}
+.challenge-btn {
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 8px;
+  background: var(--danger);
+  font-size: 12px;
+  font-weight: 800;
+  animation: pulse 1s infinite;
+  white-space: nowrap;
 }
 .auto-btn {
   height: 30px;
@@ -508,6 +518,9 @@ button {
   font-size: 13px;
 }
 .gem {
+  display: inline-block;
+  vertical-align: -1px;
+  margin: 0 2px;
   width: 10px;
   height: 10px;
   transform: rotate(45deg);
@@ -628,4 +641,93 @@ button {
   font-size: 10px;
   font-weight: 600;
   opacity: 0.85;
+}
+
+.hunter-icon {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  border: 3px solid #120c1c;
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.chip {
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: #0004;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+.chip.on {
+  background: var(--accent);
+  color: #fff;
+}
+.chip:disabled {
+  opacity: 0.35;
+}
+.yield {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #9fe0ff;
+}
+.area-card h3 {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.area-card h3 small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.area-card.here {
+  border: 1px solid #7c5cff;
+}
+.area-card.locked {
+  opacity: 0.6;
+}
+.enemy-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0;
+}
+.enemy-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  background: #0003;
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+.enemy-chip.locked {
+  opacity: 0.45;
+}
+.enemy-chip i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+.archetype {
+  font-size: 11px;
+  color: var(--muted);
+  margin-left: 4px;
+}
+.card .actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.card .actions .buy {
+  flex: 1;
 }

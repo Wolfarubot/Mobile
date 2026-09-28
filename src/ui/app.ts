@@ -1,54 +1,60 @@
 import {
+  areaDef,
+  areaEnemies,
+  AREAS,
+  ARCHETYPES,
   BH_UPGRADES,
-  BOSS_EVERY,
   BOUNTY_DROP_PER_LEVEL,
   BOUNTY_GOLD_PER_LEVEL,
   BOUNTY_SPEED_PER_LEVEL,
   ENEMIES,
   ENEMY_UPGRADE_MAX,
-  ESCAPES_TO_RETREAT,
-  isBossStage,
+  enemyUnlockCost,
+  GUARDIAN_TIME,
+  HUNTERS,
+  hunterDef,
+  hunterPerk,
   itemCost,
   ITEMS,
-  KILLS_PER_STAGE,
   materialDef,
   MATERIALS,
   MAX_TICKETS,
-  PRESTIGE_MIN_STAGE,
-  SHARD_BONUS,
+  nextAreaOf,
+  STATION_EFFICIENCY,
   SWARM_PER_LEVEL,
   TICKET_REGEN_SEC,
   UPGRADES,
-  zoneFor,
   type EnemyDef,
   type EnemyUpgrade,
+  type HunterDef,
   type MaterialId,
 } from '../core/balance';
 import { fmt, fmtTime } from '../core/format';
-import type { Game, MinigameReward } from '../core/game';
+import type { FarmRates, Game, MinigameReward } from '../core/game';
 import type { OfflineResult } from '../core/offline';
 import type { BuyAmount } from '../core/state';
-import { drawEnemyPortrait } from '../render/battle';
 import { bladeStorm } from '../minigames/blades';
 import { runMinigame } from '../minigames/runner';
 import { skySiege } from '../minigames/skysiege';
 import { powerStrike } from '../minigames/strike';
 import type { MinigameDef } from '../minigames/types';
+import { drawEnemyPortrait } from '../render/battle';
 
 export const MINIGAMES: MinigameDef[] = [skySiege, bladeStorm, powerStrike];
 
-type Tab = 'upgrades' | 'beasts' | 'forge' | 'arena' | 'souls';
+type Tab = 'hunters' | 'areas' | 'beasts' | 'forge' | 'arena';
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string, root: ParentNode = document) => root.querySelector(sel) as T;
 
 const gemHtml = (m: MaterialId) => `<i class="gem" style="background:${materialDef(m).color}"></i>`;
 
-/** DOM layer: top bar, stage controls, tabbed panels and modals. Refreshes numbers on a timer. */
+/** DOM layer: top bar, area controls, tabbed panels and modals. Refreshes numbers on a timer. */
 export class AppUI {
   private refreshers: Array<() => void> = [];
   private panel = $('#panel');
   private modal = $('#modal');
   private modalClose: (() => void) | null = null;
+  private tab: Tab = 'hunters';
   minigameActive = false;
 
   constructor(
@@ -58,25 +64,32 @@ export class AppUI {
     document.querySelectorAll<HTMLButtonElement>('.tabs button').forEach((b) =>
       b.addEventListener('click', () => this.setTab(b.dataset.tab as Tab)),
     );
-    $('#prevStage').addEventListener('click', () => game.setStage(game.state.stage - 1));
-    $('#nextStage').addEventListener('click', () => game.setStage(game.state.stage + 1));
-    $('#autoBtn').addEventListener('click', () => {
-      game.toggleAutoAdvance();
-      this.refresh();
+    const step = (dir: number) => {
+      const i = AREAS.findIndex((a) => a.id === game.area) + dir;
+      if (AREAS[i]) game.travel(AREAS[i].id);
+    };
+    $('#prevArea').addEventListener('click', () => step(-1));
+    $('#nextArea').addEventListener('click', () => step(1));
+    $('#challengeBtn').addEventListener('click', () => game.challengeGuardian() && this.refresh());
+    // Panels that depend on which areas/enemies/Hunters exist are rebuilt when those change.
+    game.on((e) => {
+      if (e.type === 'areaUnlocked' || e.type === 'travel' || e.type === 'unlock' || e.type === 'recruit') this.setTab(this.tab, true);
     });
-    this.setTab('upgrades');
+    this.setTab('hunters');
   }
 
-  setTab(tab: Tab): void {
+  setTab(tab: Tab, keepScroll = false): void {
+    this.tab = tab;
     document.querySelectorAll<HTMLButtonElement>('.tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
+    const scroll = keepScroll ? this.panel.scrollTop : 0;
     this.refreshers = [];
     this.panel.innerHTML = '';
-    this.panel.scrollTop = 0;
-    if (tab === 'upgrades') this.buildUpgrades();
+    if (tab === 'hunters') this.buildHunters();
+    else if (tab === 'areas') this.buildAreas();
     else if (tab === 'beasts') this.buildBestiary();
     else if (tab === 'forge') this.buildForge();
-    else if (tab === 'arena') this.buildArena();
-    else this.buildSouls();
+    else this.buildArena();
+    this.panel.scrollTop = scroll;
     this.refresh();
   }
 
@@ -84,23 +97,38 @@ export class AppUI {
   refresh(): void {
     const g = this.game;
     const s = g.state;
+    const area = areaDef(g.area);
+    const idx = AREAS.indexOf(area);
     $('#gold').textContent = fmt(s.gold);
     $('#dps').textContent = fmt(g.dps);
-    $('#zone').textContent = zoneFor(s.stage).name;
-    $('#stageLabel').textContent = `Stage ${s.stage}${g.isBoss ? ' · BOSS' : ''}`;
+    $('#areaNum').textContent = `Area ${idx + 1} of ${AREAS.length}`;
+    $('#areaName').textContent = area.name;
 
-    const boss = isBossStage(s.stage);
-    $('#killsFill').style.width = boss ? '100%' : `${(s.stageKills / KILLS_PER_STAGE) * 100}%`;
-    $('#killsFill').style.background = boss ? 'linear-gradient(90deg,#b8324a,#ff4d6d)' : '';
-    $('#killsText').textContent = boss
-      ? `Boss · ${Math.ceil(s.bossTimer)}s`
-      : `${s.stageKills} / ${KILLS_PER_STAGE}${s.stageEscapes ? ` · ${s.stageEscapes}/${ESCAPES_TO_RETREAT} escaped` : ''}${s.stage < s.maxStage ? ` · farming` : ''}`;
-    $<HTMLButtonElement>('#prevStage').disabled = s.stage <= 1;
-    const next = $<HTMLButtonElement>('#nextStage');
-    next.disabled = s.stage >= s.maxStage;
-    // Nudge the player back toward the frontier after a retreat.
-    next.classList.toggle('pulse', !s.autoAdvance && s.stage === s.maxStage - 1);
-    $('#autoBtn').classList.toggle('on', s.autoAdvance);
+    const kills = s.areas[g.area].kills;
+    const fill = $('#killsFill');
+    let text: string;
+    let frac: number;
+    if (g.guardianActive) {
+      frac = g.bossTimer / GUARDIAN_TIME;
+      text = g.bossAlive ? `Guardian · ${Math.ceil(g.bossTimer)}s` : 'The Guardian approaches…';
+      fill.style.background = 'linear-gradient(90deg,#b8324a,#ff4d6d)';
+    } else if (g.lockedNext) {
+      frac = Math.min(1, kills / area.mastery);
+      text = g.guardianReady ? 'Guardian ready!' : `Mastery ${fmt(kills)} / ${fmt(area.mastery)}`;
+      fill.style.background = '';
+    } else {
+      frac = 1;
+      text = `${fmt(kills)} slain here`;
+      fill.style.background = 'linear-gradient(90deg,#2f7a4a,#3fcf6a)';
+    }
+    if (g.escapesHere) text += ` · ${fmt(g.escapesHere)} escaped`;
+    fill.style.width = `${Math.max(0, Math.min(1, frac)) * 100}%`;
+    $('#killsText').textContent = text;
+
+    $<HTMLButtonElement>('#prevArea').disabled = idx <= 0;
+    const next = AREAS[idx + 1];
+    $<HTMLButtonElement>('#nextArea').disabled = !next || !g.isAreaUnlocked(next.id);
+    $('#challengeBtn').classList.toggle('hidden', !g.guardianReady || g.guardianActive);
     $('#frenzy').classList.toggle('hidden', s.frenzyTime <= 0);
     $('#frenzyTime').textContent = fmtTime(s.frenzyTime);
 
@@ -108,15 +136,20 @@ export class AppUI {
     badge.textContent = String(s.tickets);
     badge.classList.toggle('hidden', s.tickets <= 0);
     $('#forgeBadge').classList.toggle('hidden', !ITEMS.some((it) => g.canCraft(it.id)));
-    $('#beastBadge').classList.toggle('hidden', !ENEMIES.some((e) => !g.isUnlocked(e.id) && s.gold >= e.unlockCost));
+    $('#beastBadge').classList.toggle(
+      'hidden',
+      !ENEMIES.some((e) => !s.bestiary[e.id].unlocked && g.isAreaUnlocked(e.area) && s.gold >= enemyUnlockCost(e)),
+    );
+    $('#huntersBadge').classList.toggle('hidden', !HUNTERS.some((h) => g.canRecruit(h.id)));
 
     for (const r of this.refreshers) r();
   }
 
-  // ---- Train tab (gold upgrades) ----
+  // ---- Hunters tab: your Hunter's training + the Hunter Guild ----
 
-  private buildUpgrades(): void {
+  private buildHunters(): void {
     const g = this.game;
+    this.panel.appendChild(sectionTitle('Your Hunter'));
     const strip = el('div', 'stat-strip');
     this.panel.appendChild(strip);
     this.refreshers.push(() => {
@@ -165,18 +198,171 @@ export class AppUI {
       });
     }
 
+    this.panel.appendChild(sectionTitle('Hunter Guild'));
     const tip = el('div', 'card');
-    tip.innerHTML = `<p style="margin:0">Tap the battlefield to fire a blast (works even while stunned). Enemies that reach the Hunter stun them and run off with their loot. If ${ESCAPES_TO_RETREAT} get away before you clear a stage, you fall back one. Every ${BOSS_EVERY}th stage is a boss. Use ◀ ▶ to farm easier stages.</p>`;
+    tip.innerHTML = `<p style="margin:0">Station Hunters in areas to keep earning gold and materials there while you hunt elsewhere (${Math.round(STATION_EFFICIENCY * 100)}% efficiency, offline too). One Hunter per area; visit their area and they fight beside you. Forge items boost every Hunter.</p>`;
     this.panel.appendChild(tip);
+    for (const h of HUNTERS) this.buildHunterCard(h);
   }
 
-  // ---- Bestiary tab (enemy roster) ----
+  private buildHunterCard(def: HunterDef): void {
+    const g = this.game;
+    const card = el('div', 'card');
+    card.innerHTML = `
+      <div class="beast-head">
+        <div class="hunter-icon" style="background:${def.color}">${def.icon}</div>
+        <div class="info"><div class="name"></div><div class="blurb">${hunterPerk(def)}</div></div>
+      </div>
+      <div class="body"></div>`;
+    this.panel.appendChild(card);
+    const body = $('.body', card);
+
+    if (!g.state.hunters[def.id].recruited) {
+      const btn = el('button', 'buy') as HTMLButtonElement;
+      btn.style.width = '100%';
+      btn.style.marginTop = '8px';
+      btn.addEventListener('click', () => g.recruit(def.id));
+      body.appendChild(btn);
+      this.refreshers.push(() => {
+        const open = g.isAreaUnlocked(def.area);
+        $('.name', card).innerHTML = `${def.name} <small style="color:var(--muted)">the ${def.title}</small>`;
+        btn.innerHTML = open ? `Recruit<small>🪙 ${fmt(def.recruitCost)}</small>` : `Found in ${areaDef(def.area).name}`;
+        btn.disabled = !g.canRecruit(def.id);
+      });
+      return;
+    }
+
+    const actions = el('div', 'actions');
+    const lvl = el('button', 'buy') as HTMLButtonElement;
+    lvl.addEventListener('click', () => g.levelHunter(def.id) && this.refresh());
+    actions.appendChild(lvl);
+    body.appendChild(actions);
+    const chips = el('div', 'chips');
+    body.appendChild(chips);
+    const yieldEl = el('div', 'yield');
+    body.appendChild(yieldEl);
+
+    const rest = el('button', 'chip', 'Rest') as HTMLButtonElement;
+    rest.addEventListener('click', () => {
+      g.station(def.id, null);
+      this.refresh();
+    });
+    chips.appendChild(rest);
+    const areaChips = AREAS.map((a) => {
+      const c = el('button', 'chip', a.name.split(' ').pop()!) as HTMLButtonElement;
+      c.addEventListener('click', () => {
+        g.station(def.id, a.id);
+        this.refresh();
+      });
+      chips.appendChild(c);
+      return { a, c };
+    });
+
+    this.refreshers.push(() => {
+      const st = g.state.hunters[def.id];
+      $('.name', card).innerHTML = `${def.name} <small style="color:var(--muted)">the ${def.title} · Lv ${st.level}</small>`;
+      const p = g.hunterPurchase(def.id);
+      lvl.innerHTML = `Level +${p.count} · ${fmt(g.shotDamage(def.id, def.bane?.archetype))} dmg${def.bane ? ` vs ${ARCHETYPES[def.bane.archetype].name}` : ''}<small>🪙 ${fmt(p.cost)}</small>`;
+      lvl.disabled = g.state.gold < p.cost;
+      rest.classList.toggle('on', !st.station);
+      for (const { a, c } of areaChips) {
+        c.classList.toggle('on', st.station === a.id);
+        c.disabled = !g.isAreaUnlocked(a.id);
+        const other = g.stationedAt(a.id);
+        c.textContent = `${a.name.split(' ').pop()}${other && other !== def.id ? ` (${hunterDef(other).icon})` : ''}`;
+      }
+      if (!st.station) yieldEl.textContent = 'Resting. Station them in an area to earn.';
+      else if (st.station === g.area) yieldEl.textContent = `Fighting beside you in ${areaDef(st.station).name}.`;
+      else yieldEl.innerHTML = yieldHtml(g.farmRates(st.station, [def.id], STATION_EFFICIENCY), areaDef(st.station).name);
+    });
+  }
+
+  // ---- Areas tab ----
+
+  private buildAreas(): void {
+    const g = this.game;
+    AREAS.forEach((a, i) => {
+      const card = el('div', 'card area-card');
+      card.innerHTML = `<h3><span>${a.name}</span><small>Area ${i + 1}</small></h3><p>${a.blurb}</p><div class="enemy-chips"></div><div class="status"></div><div class="actions"></div>`;
+      this.panel.appendChild(card);
+      const chips = $('.enemy-chips', card);
+      chips.innerHTML = areaEnemies(a.id)
+        .map(
+          (e) =>
+            `<span class="enemy-chip" data-id="${e.id}"><i style="background:${e.color}"></i>${g.isAreaUnlocked(a.id) ? e.name : '???'}<span class="archetype">${ARCHETYPES[e.archetype].icon}</span></span>`,
+        )
+        .join('');
+      const actions = $('.actions', card);
+      const travel = el('button', 'buy', 'Travel here') as HTMLButtonElement;
+      travel.addEventListener('click', () => g.travel(a.id));
+      actions.appendChild(travel);
+
+      this.refreshers.push(() => {
+        const unlocked = g.isAreaUnlocked(a.id);
+        const here = g.area === a.id;
+        card.classList.toggle('here', here);
+        card.classList.toggle('locked', !unlocked);
+        chips
+          .querySelectorAll<HTMLElement>('.enemy-chip')
+          .forEach((c) => c.classList.toggle('locked', !g.state.bestiary[c.dataset.id as EnemyDef['id']].unlocked));
+        travel.classList.toggle('hidden', !unlocked || here);
+        const status = $('.status', card);
+        if (!unlocked) {
+          const prev = AREAS[i - 1];
+          status.innerHTML = `<p style="margin:0">🔒 Defeat the <b>${prev.name} Guardian</b> to unlock. (${fmt(Math.min(g.state.areas[prev.id].kills, prev.mastery))} / ${fmt(prev.mastery)} mastery)</p>`;
+          return;
+        }
+        const helper = g.stationedAt(a.id);
+        const lines = [here ? '📍 <b>You are here</b>' : '', `${fmt(g.state.areas[a.id].kills)} slain`];
+        if (helper) lines.push(`${hunterDef(helper).icon} ${hunterDef(helper).name} stationed`);
+        status.innerHTML = `<p style="margin:0">${lines.filter(Boolean).join(' · ')}</p>${
+          helper && !here ? yieldHtml(g.farmRates(a.id, [helper], STATION_EFFICIENCY), '') : ''
+        }`;
+      });
+    });
+
+    const stats = el('div', 'card');
+    stats.innerHTML = `<h3>Records</h3><div class="stats"></div><button class="danger-link">Reset all progress</button>`;
+    $('.danger-link', stats).addEventListener('click', () =>
+      this.showModal('<h2>Reset everything?</h2><p>This deletes your save: areas, Hunters, items and materials. It cannot be undone.</p>', [
+        { label: 'Cancel', secondary: true },
+        { label: 'Delete', action: () => void this.hooks.wipe() },
+      ]),
+    );
+    this.panel.appendChild(stats);
+    this.refreshers.push(() => {
+      const s = g.state;
+      const rows: Array<[string, string]> = [
+        ['Areas unlocked', `${g.unlockedAreas.length} / ${AREAS.length}`],
+        ['Guardians slain', fmt(s.stats.guardians)],
+        ['Monsters slain', fmt(s.stats.totalKills)],
+        ['Monsters escaped', fmt(s.stats.escaped)],
+        ['Gold earned', fmt(s.stats.totalGold)],
+        ['Taps', fmt(s.stats.taps)],
+      ];
+      $('.stats', stats).innerHTML = rows.map(([k, v]) => `<span>${k}</span><span>${v}</span>`).join('');
+    });
+  }
+
+  // ---- Bestiary tab (enemy roster, per area) ----
 
   private buildBestiary(): void {
+    const g = this.game;
     const intro = el('div', 'card');
-    intro.innerHTML = `<p style="margin:0">Unlock new monsters to join the horde. Each drops its own material. <b>Swarm</b> brings more of them; <b>Bounty</b> makes them pay more but run faster. Resets on Ascension.</p>`;
+    intro.innerHTML = `<p style="margin:0">Unlock new monsters to join an area's horde. Each drops its own material. <b>Swarm</b> brings more of them; <b>Bounty</b> makes them pay more but run faster. Upgrades are permanent and apply wherever they're hunted, including by stationed Hunters.</p>`;
     this.panel.appendChild(intro);
-    for (const def of ENEMIES) this.buildBeast(def);
+    // Current area first, then the rest in order.
+    const order = [g.area, ...g.unlockedAreas.filter((a) => a !== g.area)];
+    for (const areaId of order) {
+      this.panel.appendChild(sectionTitle(`${areaDef(areaId).name}${areaId === g.area ? ' · here' : ''}`));
+      for (const def of areaEnemies(areaId)) this.buildBeast(def);
+    }
+    const next = nextAreaOf(g.unlockedAreas[g.unlockedAreas.length - 1]);
+    if (next) {
+      const teaser = el('div', 'card');
+      teaser.innerHTML = `<p style="margin:0">🔒 More monsters await in <b>${next.name}</b>.</p>`;
+      this.panel.appendChild(teaser);
+    }
   }
 
   private buildBeast(def: EnemyDef): void {
@@ -194,7 +380,7 @@ export class AppUI {
 
     const actions = $('.beast-actions', card);
     const unlockBtn = el('button', 'buy') as HTMLButtonElement;
-    unlockBtn.addEventListener('click', () => g.unlockEnemy(def.id) && this.setTab('beasts'));
+    unlockBtn.addEventListener('click', () => g.unlockEnemy(def.id));
     const upgradeBtn = (kind: EnemyUpgrade) => {
       const b = el('button', 'buy') as HTMLButtonElement;
       b.addEventListener('click', () => g.buyEnemyUpgrade(def.id, kind) && this.refresh());
@@ -202,24 +388,25 @@ export class AppUI {
     };
     const swarmBtn = upgradeBtn('swarm');
     const bountyBtn = upgradeBtn('bounty');
-    if (g.isUnlocked(def.id)) actions.append(swarmBtn, bountyBtn);
+    if (g.state.bestiary[def.id].unlocked) actions.append(swarmBtn, bountyBtn);
     else actions.append(unlockBtn);
 
+    const arch = ARCHETYPES[def.archetype];
     this.refreshers.push(() => {
       const b = g.state.bestiary[def.id];
       const st = g.enemyStats(def.id);
       const mat = materialDef(def.material);
       card.classList.toggle('locked', !b.unlocked);
-      $('.name', card).innerHTML = `${def.name}${b.unlocked ? '' : ' <small style="color:var(--muted)">locked</small>'}`;
-      const spawn = b.unlocked ? st.spawnRate : def.spawn;
+      $('.name', card).innerHTML = `${def.name}<span class="archetype">${arch.icon} ${arch.name}</span>${b.unlocked ? '' : ' <small style="color:var(--muted)">locked</small>'}`;
       $('.beast-stats', card).innerHTML = `
         <div><b>${fmt(st.hp)}</b>HP</div>
         <div><b>${Math.round(st.speed)}</b>speed</div>
-        <div><b>${spawn.toFixed(2)}/s</b>spawns</div>
+        <div><b>${(b.unlocked ? st.spawnRate : def.spawn).toFixed(2)}/s</b>spawns</div>
         <div><b>${fmt(st.gold)}</b>gold</div>`;
       if (!b.unlocked) {
-        unlockBtn.innerHTML = `Unlock · drops ${gemHtml(def.material)} ${mat.name}<small>🪙 ${fmt(def.unlockCost)}</small>`;
-        unlockBtn.disabled = g.state.gold < def.unlockCost;
+        const cost = enemyUnlockCost(def);
+        unlockBtn.innerHTML = `Unlock · drops ${gemHtml(def.material)} ${mat.name}<small>🪙 ${fmt(cost)}</small>`;
+        unlockBtn.disabled = g.state.gold < cost;
         return;
       }
       const sc = g.enemyUpgradeCost(def.id, 'swarm');
@@ -238,11 +425,11 @@ export class AppUI {
     const mats = el('div', 'mats');
     this.panel.appendChild(mats);
     this.refreshers.push(() => {
-      const seen = new Set(g.unlockedMaterials);
       mats.innerHTML = MATERIALS.map((m) => {
-        const known = seen.has(m.id) || g.state.materials[m.id] > 0;
         const source = ENEMIES.find((e) => e.material === m.id)!;
-        return `<div class="mat ${known ? '' : 'unknown'}">${gemHtml(m.id)}<span>${known ? m.name : `from ${source.name}s`}</span><b>${known ? fmt(g.state.materials[m.id]) : '?'}</b></div>`;
+        const known = g.isUnlocked(source.id) || g.state.materials[m.id] > 0;
+        const hint = g.isAreaUnlocked(source.area) ? `${source.name}s` : '???';
+        return `<div class="mat ${known ? '' : 'unknown'}">${gemHtml(m.id)}<span>${known ? m.name : hint}</span><b>${known ? fmt(g.state.materials[m.id]) : ''}</b></div>`;
       }).join('');
     });
 
@@ -293,7 +480,6 @@ export class AppUI {
         $('.best', card).textContent = best ? `Best: ★ ${best}` : 'Not played yet';
         btn.disabled = g.state.tickets <= 0;
       });
-
       if (def === skySiege) this.buildHangar();
     });
   }
@@ -341,67 +527,6 @@ export class AppUI {
     });
   }
 
-  // ---- Souls tab ----
-
-  private buildSouls(): void {
-    const g = this.game;
-    const card = el('div', 'card');
-    card.innerHTML = `
-      <h3>🔮 Soul Shards: <span class="shards"></span></h3>
-      <p>Each shard permanently grants +${SHARD_BONUS * 100}% damage. Ascending resets your stage, gold, training and bestiary in exchange for shards. <b>Materials, forged items and Hangar upgrades are kept.</b> Reach stage ${PRESTIGE_MIN_STAGE} to ascend.</p>
-      <p class="pending"></p>
-      <button class="big-btn">Ascend</button>`;
-    const btn = $<HTMLButtonElement>('.big-btn', card);
-    btn.addEventListener('click', () => {
-      const n = g.pendingShards;
-      if (n <= 0) return;
-      this.showModal(
-        `<h2>Ascend?</h2><p>You will restart at stage 1 and lose gold, training and bestiary unlocks. Items and materials stay.</p><div class="reward" style="color:#c89bff">+${n} Soul Shards</div><p>New bonus: +${Math.round((g.state.shards + n) * SHARD_BONUS * 100)}% damage</p>`,
-        [
-          { label: 'Cancel', secondary: true },
-          {
-            label: 'Ascend',
-            action: () => {
-              g.prestige();
-              this.hooks.save();
-              this.setTab('upgrades');
-            },
-          },
-        ],
-      );
-    });
-    this.panel.appendChild(card);
-
-    const stats = el('div', 'card');
-    stats.innerHTML = `<h3>Records</h3><div class="stats"></div><button class="danger-link">Reset all progress</button>`;
-    $('.danger-link', stats).addEventListener('click', () =>
-      this.showModal('<h2>Reset everything?</h2><p>This deletes your save, including Soul Shards and items. It cannot be undone.</p>', [
-        { label: 'Cancel', secondary: true },
-        { label: 'Delete', action: () => void this.hooks.wipe() },
-      ]),
-    );
-    this.panel.appendChild(stats);
-
-    this.refreshers.push(() => {
-      const s = g.state;
-      const n = g.pendingShards;
-      $('.shards', card).textContent = `${s.shards} (+${Math.round(s.shards * SHARD_BONUS * 100)}%)`;
-      $('.pending', card).innerHTML =
-        n > 0 ? `Ascending now grants <b style="color:#c89bff">+${n} shards</b>.` : `Highest stage: ${s.maxStage} / ${PRESTIGE_MIN_STAGE}`;
-      btn.disabled = n <= 0;
-      btn.textContent = n > 0 ? `Ascend for +${n} 🔮` : `Ascend (stage ${PRESTIGE_MIN_STAGE})`;
-      const rows: Array<[string, string]> = [
-        ['Highest stage', String(s.maxStage)],
-        ['Monsters slain', fmt(s.stats.totalKills)],
-        ['Gold earned', fmt(s.stats.totalGold)],
-        ['Taps', fmt(s.stats.taps)],
-        ['Monsters escaped', fmt(s.stats.escaped)],
-        ['Ascensions', String(s.stats.prestiges)],
-      ];
-      $('.stats', stats).innerHTML = rows.map(([k, v]) => `<span>${k}</span><span>${v}</span>`).join('');
-    });
-  }
-
   // ---- Modals ----
 
   showModal(html: string, buttons: Array<{ label: string; secondary?: boolean; action?: () => void }>): void {
@@ -435,8 +560,8 @@ export class AppUI {
     const capped = r.away > r.seconds;
     this.showModal(
       `<h2>Welcome back!</h2>
-       <p>You were away for ${fmtTime(r.away)}.${capped ? ` (The Hunter rests after ${fmtTime(r.seconds)}.)` : ''}</p>
-       <p>The Hunter held the line and slew <b style="color:var(--text)">${fmt(r.kills)}</b> monsters.</p>
+       <p>You were away for ${fmtTime(r.away)}.${capped ? ` (Hunters rest after ${fmtTime(r.seconds)}.)` : ''}</p>
+       <p>Your Hunters slew <b style="color:var(--text)">${fmt(r.kills)}</b> monsters.</p>
        <div class="reward">+🪙 ${fmt(r.gold)}</div>
        ${materialsHtml(r.materials)}`,
       [{ label: 'Collect' }],
@@ -444,8 +569,18 @@ export class AppUI {
   }
 }
 
+/** "≈ 🪙 1.2K/min · <gem>3 /min" for a stationed Hunter. */
+function yieldHtml(r: FarmRates, where: string): string {
+  const mats = (Object.entries(r.materials) as [MaterialId, number][])
+    .filter(([, n]) => n > 0)
+    .map(([m, n]) => `${gemHtml(m)}${fmt(n * 60)}`)
+    .join(' ');
+  return `<div class="yield">${where ? `${where}: ` : ''}≈ 🪙 ${fmt(r.gold * 60)}/min${mats ? ` · ${mats} /min` : ''}</div>`;
+}
+
 function materialsHtml(materials: Partial<Record<MaterialId, number>>): string {
   const mats = (Object.entries(materials) as [MaterialId, number][])
+    .filter(([, n]) => n > 0)
     .map(([m, n]) => `<span style="color:${materialDef(m).color}">+${fmt(n)} ${materialDef(m).name}</span>`)
     .join(' · ');
   return mats ? `<div class="reward" style="font-size:15px">${mats}</div>` : '';
@@ -457,6 +592,12 @@ function rewardHtml(r: MinigameReward): string {
     ${materialsHtml(r.materials)}
     ${r.stars > 0 ? `<div class="reward" style="font-size:18px">+⭐ ${r.stars} Stars</div>` : ''}
     ${r.frenzy > 0 ? `<div class="reward frenzy">🔥 +${fmtTime(r.frenzy)} Frenzy (×2 damage)</div>` : ''}`;
+}
+
+function sectionTitle(text: string): HTMLElement {
+  const t = el('div', 'section-title');
+  t.innerHTML = `<span>${text}</span>`;
+  return t;
 }
 
 function el(tag: string, cls = '', text = ''): HTMLElement {

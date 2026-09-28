@@ -1,4 +1,20 @@
-import { BH_UPGRADES, ENEMIES, ITEMS, MATERIALS, MAX_TICKETS, UPGRADES, type BhUpgradeId, type EnemyId, type ItemId, type MaterialId, type UpgradeId } from './balance';
+import {
+  AREAS,
+  BH_UPGRADES,
+  ENEMIES,
+  HUNTERS,
+  ITEMS,
+  MATERIALS,
+  MAX_TICKETS,
+  UPGRADES,
+  type AreaId,
+  type BhUpgradeId,
+  type EnemyId,
+  type HunterId,
+  type ItemId,
+  type MaterialId,
+  type UpgradeId,
+} from './balance';
 
 export type BuyAmount = 1 | 10 | 100 | 'max';
 
@@ -8,25 +24,32 @@ export interface BestiaryEntry {
   bounty: number;
 }
 
+export interface AreaState {
+  unlocked: boolean;
+  /** Kills here (by anyone) toward challenging the area's Guardian. */
+  kills: number;
+}
+
+export interface HunterState {
+  recruited: boolean;
+  level: number;
+  /** Area they're stationed in, earning in the background (null = resting). */
+  station: AreaId | null;
+}
+
 export interface GameState {
   version: number;
   gold: number;
-  stage: number;
-  /** Highest stage unlocked; the player can move freely between 1 and this. */
-  maxStage: number;
-  /** Kills toward clearing the current stage. */
-  stageKills: number;
-  /** Enemies that got away on the current stage (shown next to the kill bar). */
-  stageEscapes: number;
-  /** Move on automatically after clearing a stage. Turned off by a failed boss or by stepping back. */
-  autoAdvance: boolean;
-  bossTimer: number;
+  /** Where your main Hunter is fighting. */
+  area: AreaId;
+  areas: Record<AreaId, AreaState>;
+  /** Main Hunter training levels. */
   upgrades: Record<UpgradeId, number>;
-  /** Which enemy types spawn and their Swarm/Bounty levels. Resets on Ascension. */
+  /** Which enemy types spawn and their Swarm/Bounty levels. */
   bestiary: Record<EnemyId, BestiaryEntry>;
+  hunters: Record<HunterId, HunterState>;
   materials: Record<MaterialId, number>;
   items: Record<ItemId, number>;
-  shards: number;
   tickets: number;
   /** Seconds accumulated toward the next minigame ticket. */
   ticketProgress: number;
@@ -41,36 +64,31 @@ export interface GameState {
     totalKills: number;
     totalGold: number;
     taps: number;
-    prestiges: number;
     escaped: number;
+    guardians: number;
     best: Record<string, number>;
   };
 }
 
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 
 const zeroes = <K extends string>(ids: { id: K }[]): Record<K, number> =>
   Object.fromEntries(ids.map((x) => [x.id, 0])) as Record<K, number>;
 
-export function newBestiary(): Record<EnemyId, BestiaryEntry> {
-  return Object.fromEntries(ENEMIES.map((e) => [e.id, { unlocked: e.unlockCost === 0, swarm: 0, bounty: 0 }])) as Record<EnemyId, BestiaryEntry>;
-}
+const byId = <K extends string, V>(ids: { id: K }[], make: (id: K, i: number) => V): Record<K, V> =>
+  Object.fromEntries(ids.map((x, i) => [x.id, make(x.id, i)])) as Record<K, V>;
 
 export function newGame(now = Date.now()): GameState {
   return {
     version: SAVE_VERSION,
     gold: 0,
-    stage: 1,
-    maxStage: 1,
-    stageKills: 0,
-    stageEscapes: 0,
-    autoAdvance: true,
-    bossTimer: 0,
+    area: 'forest',
+    areas: byId(AREAS, (_, i) => ({ unlocked: i === 0, kills: 0 })),
     upgrades: zeroes(UPGRADES),
-    bestiary: newBestiary(),
+    bestiary: byId(ENEMIES, (id) => ({ unlocked: ENEMIES.find((e) => e.id === id)!.unlock === 0, swarm: 0, bounty: 0 })),
+    hunters: byId(HUNTERS, () => ({ recruited: false, level: 0, station: null })),
     materials: zeroes(MATERIALS),
     items: zeroes(ITEMS),
-    shards: 0,
     tickets: MAX_TICKETS,
     ticketProgress: 0,
     frenzyTime: 0,
@@ -78,7 +96,7 @@ export function newGame(now = Date.now()): GameState {
     bh: zeroes(BH_UPGRADES),
     lastSeen: now,
     buyAmount: 1,
-    stats: { totalKills: 0, totalGold: 0, taps: 0, prestiges: 0, escaped: 0, best: {} },
+    stats: { totalKills: 0, totalGold: 0, taps: 0, escaped: 0, guardians: 0, best: {} },
   };
 }
 
@@ -86,10 +104,25 @@ export function serialize(state: GameState): string {
   return JSON.stringify(state);
 }
 
+/** Merge saved records onto defaults, ignoring ids that no longer exist. */
+function mergeRecord<K extends string, V extends object>(base: Record<K, V>, saved: unknown): Record<K, V> {
+  const out = { ...base };
+  if (saved && typeof saved === 'object')
+    for (const [k, v] of Object.entries(saved)) if (k in out && v && typeof v === 'object') out[k as K] = { ...out[k as K], ...v };
+  return out;
+}
+
+function mergeNumbers<K extends string>(base: Record<K, number>, saved: unknown): Record<K, number> {
+  const out = { ...base };
+  if (saved && typeof saved === 'object')
+    for (const [k, v] of Object.entries(saved)) if (k in out && typeof v === 'number' && Number.isFinite(v)) out[k as K] = v;
+  return out;
+}
+
 /** Parses a save, filling in fields missing from older versions. Returns null if unusable. */
 export function deserialize(raw: string | null | undefined, now = Date.now()): GameState | null {
   if (!raw) return null;
-  let data: Partial<GameState>;
+  let data: Record<string, unknown>;
   try {
     data = JSON.parse(raw);
   } catch {
@@ -98,39 +131,36 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
   if (!data || typeof data !== 'object' || typeof data.gold !== 'number') return null;
 
   const base = newGame(now);
-  if ((data.version ?? 1) < 2) {
-    // v1 was the single-monster prototype: its progress doesn't map onto the new game.
-    // Keep lifetime stats, tickets and shards; everything else starts fresh.
-    base.stats = { ...base.stats, ...(data.stats ?? {}) };
-    base.shards = data.shards ?? 0;
-    base.tickets = data.tickets ?? base.tickets;
-    base.lastSeen = data.lastSeen ?? now;
+  const stats = { ...base.stats, ...((data.stats as object) ?? {}) };
+  for (const k of ['deaths', 'prestiges']) delete (stats as Record<string, unknown>)[k];
+
+  if (((data.version as number) ?? 1) < 4) {
+    // Before v4 progress was stage-based; it doesn't map onto areas. Keep the things
+    // that still mean the same: forged items, materials that still exist, Arena progress, stats.
+    base.items = mergeNumbers(base.items, data.items);
+    base.materials = mergeNumbers(base.materials, data.materials);
+    base.stars = typeof data.stars === 'number' ? data.stars : 0;
+    base.bh = mergeNumbers(base.bh, data.bh);
+    base.tickets = typeof data.tickets === 'number' ? data.tickets : base.tickets;
+    base.lastSeen = typeof data.lastSeen === 'number' ? data.lastSeen : now;
+    base.stats = stats;
     return base;
   }
 
-  // v2 -> v3: Vitality became Steady Nerves; the bestiary is new (defaults are fine).
-  const oldUpgrades = (data.upgrades ?? {}) as Record<string, number>;
-  const upgrades = { ...base.upgrades, ...oldUpgrades };
-  if ('vitality' in upgrades) {
-    upgrades.nerves = Math.max(upgrades.nerves, oldUpgrades.vitality ?? 0);
-    delete (upgrades as Record<string, number>).vitality;
-  }
-  const bestiary = newBestiary();
-  for (const [id, entry] of Object.entries(data.bestiary ?? {})) if (id in bestiary) bestiary[id as EnemyId] = { ...bestiary[id as EnemyId], ...entry };
-
   const state: GameState = {
     ...base,
-    ...data,
-    upgrades,
-    bestiary,
-    materials: { ...base.materials, ...(data.materials ?? {}) },
-    items: { ...base.items, ...(data.items ?? {}) },
-    bh: { ...base.bh, ...(data.bh ?? {}) },
-    stats: { ...base.stats, ...(data.stats ?? {}) },
+    ...(data as Partial<GameState>),
+    areas: mergeRecord(base.areas, data.areas),
+    upgrades: mergeNumbers(base.upgrades, data.upgrades),
+    bestiary: mergeRecord(base.bestiary, data.bestiary),
+    hunters: mergeRecord(base.hunters, data.hunters),
+    materials: mergeNumbers(base.materials, data.materials),
+    items: mergeNumbers(base.items, data.items),
+    bh: mergeNumbers(base.bh, data.bh),
+    stats,
     version: SAVE_VERSION,
   };
-  delete (state.stats as Record<string, unknown>).deaths; // v2 stat with no meaning now
   if (!Number.isFinite(state.gold) || state.gold < 0) state.gold = 0;
-  state.stage = Math.min(Math.max(1, state.stage), state.maxStage);
+  if (!(state.area in state.areas) || !state.areas[state.area].unlocked) state.area = 'forest';
   return state;
 }

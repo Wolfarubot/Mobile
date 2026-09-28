@@ -1,5 +1,4 @@
 import {
-  BOSS_HP_MULT,
   BULLET_SPEED,
   CRIT_MULT,
   enemyDef,
@@ -10,8 +9,9 @@ import {
   TAP_DAMAGE_MULT,
   TAP_RADIUS,
   type EnemyId,
+  type HunterId,
 } from './balance';
-import type { Game, KillReward } from './game';
+import type { Game, KillReward, Shooter } from './game';
 
 export const PLAYER_RADIUS = 13;
 const BULLET_RADIUS = 4;
@@ -39,12 +39,27 @@ export interface Enemy {
   phase: number;
 }
 
+/** A stationed Hunter fighting next to you: fixed spot, never stunned. */
+export interface Helper {
+  id: HunterId;
+  x: number;
+  y: number;
+  aim: number;
+  fireAcc: number;
+}
+
+/** Where stationed Hunters stand, relative to your Hunter. */
+const HELPER_SPOTS = [
+  { x: -42, y: 26 },
+  { x: 42, y: 26 },
+];
+
 export interface Bullet {
+  shooter: Shooter;
   x: number;
   y: number;
   vx: number;
   vy: number;
-  dmg: number;
   crit: boolean;
   pierce: number;
   life: number;
@@ -58,6 +73,7 @@ export type FieldEvent =
   | { type: 'boss' }
   | { type: 'stun'; x: number; y: number; boss: boolean }
   | { type: 'escape'; x: number; y: number };
+
 
 /**
  * The survivor-style battlefield in world coordinates centered on the Hunter.
@@ -76,6 +92,8 @@ export class Field {
   immune = 0;
   /** Direction of the last volley, for drawing the Hunter's aim. */
   aim = -Math.PI / 2;
+  /** Stationed Hunters in the current area, fighting alongside. */
+  helpers: Helper[] = [];
   /** Events since the last drain, consumed by the renderer. */
   events: FieldEvent[] = [];
   private spawnAcc = 0;
@@ -88,7 +106,8 @@ export class Field {
 
   constructor(private game: Game) {
     game.on((e) => {
-      if (e.type === 'stageChange' && e.reason !== 'advance') this.clear();
+      if (e.type === 'travel') this.clear();
+      if (e.type === 'guardianFail') this.enemies = this.enemies.filter((en) => !en.boss);
     });
   }
 
@@ -140,7 +159,7 @@ export class Field {
     const g = this.game;
     const stats = g.enemyStats(type);
     const def = enemyDef(type);
-    const hp = stats.hp * (boss ? BOSS_HP_MULT : 1);
+    const hp = boss ? g.guardianHp : stats.hp;
     this.enemies.push({
       id: this.nextId++,
       type,
@@ -174,9 +193,11 @@ export class Field {
       if (this.stun === 0) this.immune = STUN_IMMUNITY;
     } else this.immune = Math.max(0, this.immune - dt);
 
+    this.syncHelpers();
+
     // Spawning
-    if (g.isBoss && !g.bossAlive && !this.enemies.some((e) => e.boss)) {
-      this.spawn(g.bossType, true);
+    if (g.guardianActive && !g.bossAlive && !this.enemies.some((e) => e.boss)) {
+      this.spawn(g.guardianType, true);
       g.bossSpawned();
       this.events.push({ type: 'boss' });
     }
@@ -218,17 +239,29 @@ export class Field {
     }
     this.separate();
 
-    // Shooting (not while stunned)
+    // Shooting (you can't while stunned; stationed Hunters never get stunned)
     this.fireAcc = Math.min(this.fireAcc + dt * g.fireRate, 3);
     if (this.stunned) this.fireAcc = 0;
     while (this.fireAcc >= 1) {
-      const target = this.nearest();
+      const target = this.nearest(0, 0);
       if (!target) {
         this.fireAcc = Math.min(this.fireAcc, 1);
         break;
       }
       this.fireAcc -= 1;
-      this.volley(target);
+      this.aim = this.volley('main', 0, 0, target);
+    }
+    for (const h of this.helpers) {
+      h.fireAcc = Math.min(h.fireAcc + dt * g.shooterRate(h.id), 3);
+      while (h.fireAcc >= 1) {
+        const target = this.nearest(h.x, h.y);
+        if (!target) {
+          h.fireAcc = Math.min(h.fireAcc, 1);
+          break;
+        }
+        h.fireAcc -= 1;
+        h.aim = this.volley(h.id, h.x, h.y, target);
+      }
     }
 
     // Bullets
@@ -243,7 +276,8 @@ export class Field {
         const dy = e.y - b.y;
         if (dx * dx + dy * dy > rr * rr) continue;
         b.hits.push(e.id);
-        this.damage(e, b.dmg, b.crit, b.vx / BULLET_SPEED, b.vy / BULLET_SPEED);
+        const dmg = this.game.shotDamage(b.shooter, enemyDef(e.type).archetype) * (b.crit ? CRIT_MULT : 1);
+        this.damage(e, dmg, b.crit, b.vx / BULLET_SPEED, b.vy / BULLET_SPEED, b.shooter);
         if (b.pierce-- <= 0) b.life = 0;
       }
     }
@@ -292,16 +326,16 @@ export class Field {
     }
   }
 
-  /** Closest enemy still coming in; runners are only targeted when nothing is approaching. */
-  private nearest(): Enemy | null {
+  /** Closest enemy to (ox, oy) still coming in; runners are only targeted when nothing is approaching. */
+  private nearest(ox: number, oy: number): Enemy | null {
     let best: Enemy | null = null;
     let bestD = Infinity;
     const range = this.spawnRadius;
     for (const e of this.enemies) {
-      if (e.hp <= 0) continue;
+      if (e.hp <= 0 || e.x * e.x + e.y * e.y > range * range) continue;
       // Approaching enemies always sort before fleeing ones.
-      const d = e.x * e.x + e.y * e.y + (e.fleeing ? 1e12 : 0);
-      if (d < bestD && e.x * e.x + e.y * e.y < range * range) {
+      const d = (e.x - ox) ** 2 + (e.y - oy) ** 2 + (e.fleeing ? 1e12 : 0);
+      if (d < bestD) {
         bestD = d;
         best = e;
       }
@@ -309,29 +343,36 @@ export class Field {
     return best;
   }
 
-  private volley(target: Enemy): void {
+  /** Keep the on-field Hunters in sync with who's stationed here. */
+  private syncHelpers(): void {
+    const ids = this.game.helpersHere;
+    if (ids.length === this.helpers.length && ids.every((id, i) => this.helpers[i].id === id)) return;
+    this.helpers = ids.map((id, i) => ({ id, ...HELPER_SPOTS[i % HELPER_SPOTS.length], aim: -Math.PI / 2, fireAcc: 0 }));
+  }
+
+  /** Fires one volley from (ox, oy) at a target. Returns the aim angle. Damage is priced on hit, per target. */
+  private volley(shooter: Shooter, ox: number, oy: number, target: Enemy): number {
     const g = this.game;
     const n = g.projectiles;
-    const base = Math.atan2(target.y, target.x);
-    this.aim = base;
+    const base = Math.atan2(target.y - oy, target.x - ox);
     for (let i = 0; i < n; i++) {
       const a = base + (i - (n - 1) / 2) * MULTISHOT_SPREAD;
-      const crit = g.rng() < g.critChance;
       this.bullets.push({
-        x: Math.cos(a) * PLAYER_RADIUS,
-        y: Math.sin(a) * PLAYER_RADIUS,
+        shooter,
+        x: ox + Math.cos(a) * PLAYER_RADIUS,
+        y: oy + Math.sin(a) * PLAYER_RADIUS,
         vx: Math.cos(a) * BULLET_SPEED,
         vy: Math.sin(a) * BULLET_SPEED,
-        dmg: g.damage * (crit ? CRIT_MULT : 1),
-        crit,
+        crit: g.rng() < g.critChance,
         pierce: g.pierce,
         life: BULLET_LIFE,
         hits: [],
       });
     }
+    return base;
   }
 
-  private damage(e: Enemy, dmg: number, crit: boolean, dirX: number, dirY: number): void {
+  private damage(e: Enemy, dmg: number, crit: boolean, dirX: number, dirY: number, shooter: Shooter = 'main'): void {
     e.hp -= dmg;
     e.flash = 1;
     if (!e.boss) {
@@ -340,7 +381,7 @@ export class Field {
     }
     this.events.push({ type: 'hit', x: e.x, y: e.y - e.r, dmg, crit });
     if (e.hp <= 0) {
-      const reward = this.game.registerKill(e.type, e.boss);
+      const reward = this.game.registerKill(e.type, e.boss, shooter);
       this.events.push({ type: 'kill', x: e.x, y: e.y, enemy: e.type, boss: e.boss, reward });
     }
   }

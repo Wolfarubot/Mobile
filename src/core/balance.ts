@@ -1,39 +1,6 @@
 // All tunable numbers, content tables and pure formulas live here so balancing never touches game flow code.
 import { fmt } from './format';
 
-// ---- Stages ----
-export const KILLS_PER_STAGE = 40;
-/** If this many enemies escape on a stage before it's cleared, the Hunter falls back a stage. */
-export const ESCAPES_TO_RETREAT = 40;
-export const BOSS_EVERY = 5;
-export const BOSS_TIME = 30; // seconds to beat a boss
-export const BOSS_HP_MULT = 12;
-export const BOSS_REWARD_MULT = 10;
-
-export const isBossStage = (stage: number): boolean => stage % BOSS_EVERY === 0;
-
-/** HP of a regular enemy on a stage (bosses multiply this by BOSS_HP_MULT). */
-export function enemyHp(stage: number): number {
-  const s = Math.max(1, stage);
-  const early = 2 * 1.4 ** (Math.min(s, 150) - 1) + (s - 1);
-  const late = s > 150 ? 1.15 ** (s - 150) : 1;
-  return Math.ceil(early * late);
-}
-
-export function enemyGold(stage: number): number {
-  return Math.max(1, Math.ceil(enemyHp(stage) / 6));
-}
-
-/** The horde thickens over the first 10 stages so new players aren't swamped immediately. */
-export function spawnRamp(stage: number): number {
-  return Math.min(1, 0.8 + 0.04 * (Math.max(1, stage) - 1));
-}
-
-/** Walking speed in px/s. Slowly rises so later zones feel more frantic. */
-export function enemySpeed(stage: number): number {
-  return 34 + Math.min(40, stage * 0.4);
-}
-
 // ---- Player & combat ----
 export const BASE_FIRE_RATE = 1.6; // volleys per second
 export const MAX_ENEMIES = 160;
@@ -52,7 +19,13 @@ export const STUN_IMMUNITY = 0.8;
 /** Fleeing enemies run this much faster than they approached. */
 export const FLEE_SPEED_MULT = 1.4;
 export const BASE_DROP_CHANCE = 0.07; // chance an enemy drops its material
-export const BOSS_MATERIAL_DROP = 5;
+export const BOSS_MATERIAL_DROP = 10;
+/** Seconds to defeat an area's Guardian once challenged. */
+export const GUARDIAN_TIME = 45;
+/** A Guardian has this many times the HP of the *next* area's basic enemy, so beating it means you're ready. */
+export const GUARDIAN_HP_MULT = 60;
+/** Gold for slaying a Guardian, in kills' worth of the area's basic enemy. */
+export const GUARDIAN_GOLD_MULT = 50;
 
 // ---- Offline ----
 export const OFFLINE_CAP_SEC = 8 * 3600;
@@ -65,24 +38,10 @@ export const MAX_TICKETS = 3;
 export const TICKET_REGEN_SEC = 15 * 60;
 export const FRENZY_MULT = 2;
 export const FRENZY_CAP_SEC = 300;
-/** Minigame reward: each "reward unit" is worth this many kills of gold at the current stage. */
+/** Minigame reward: each "reward unit" is worth this many kills of gold in the current area. */
 export const MINIGAME_GOLD_PER_UNIT = 2;
 
-// ---- Ascension ----
-export const PRESTIGE_MIN_STAGE = 50;
-export const SHARD_BONUS = 0.1; // +10% damage per shard
-
-export function shardMultiplier(shards: number): number {
-  return 1 + SHARD_BONUS * shards;
-}
-
-/** Soul shards granted for ascending after reaching `maxStage`. */
-export function shardsForStage(maxStage: number): number {
-  if (maxStage < PRESTIGE_MIN_STAGE) return 0;
-  return Math.floor(((maxStage - 30) / 5) ** 1.5);
-}
-
-// ---- Gold upgrades (reset on Ascension) ----
+// ---- Main Hunter training (gold) ----
 export type UpgradeId = 'power' | 'haste' | 'nerves';
 
 export interface UpgradeDef {
@@ -101,7 +60,7 @@ export const UPGRADES: UpgradeDef[] = [
   { id: 'nerves', name: 'Steady Nerves', icon: '🧘', baseCost: 50, growth: 1.5, maxLevel: 30, describe: (l) => `−${Math.round((1 - nervesMult(l)) * 100)}% stun time` },
 ];
 
-/** Damage per shot from the Power upgrade: linear with a compounding kicker and x3 every 25 levels. */
+/** Damage per shot from a Power (or Hunter) level: linear, doubling every 25 levels. */
 export function powerDamage(level: number): number {
   return (1 + level) * 2 ** Math.floor(level / 25);
 }
@@ -126,7 +85,22 @@ export function maxAffordable(baseCost: number, growth: number, level: number, g
 }
 
 // ---- Materials: each enemy type drops its own ----
-export type MaterialId = 'goo' | 'bone' | 'ember' | 'frost' | 'ecto' | 'void';
+export type MaterialId =
+  | 'goo'
+  | 'pelt'
+  | 'redgel'
+  | 'bone'
+  | 'flesh'
+  | 'wing'
+  | 'ember'
+  | 'magma'
+  | 'chitin'
+  | 'fur'
+  | 'frost'
+  | 'ecto'
+  | 'shade'
+  | 'void'
+  | 'soul';
 
 export interface MaterialDef {
   id: MaterialId;
@@ -135,54 +109,101 @@ export interface MaterialDef {
 }
 
 export const MATERIALS: MaterialDef[] = [
-  { id: 'goo', name: 'Slime Goo', color: '#7be07b' },
+  { id: 'goo', name: 'Slime Gel', color: '#7be07b' },
+  { id: 'pelt', name: 'Wolf Pelt', color: '#c09060' },
+  { id: 'redgel', name: 'Red Gel', color: '#ff6b6b' },
   { id: 'bone', name: 'Bone', color: '#efe6cf' },
+  { id: 'flesh', name: 'Rotten Flesh', color: '#9bb56e' },
+  { id: 'wing', name: 'Bat Wing', color: '#8a78b0' },
   { id: 'ember', name: 'Ember', color: '#ff8a3d' },
+  { id: 'magma', name: 'Magma Gel', color: '#ff4d1a' },
+  { id: 'chitin', name: 'Chitin', color: '#3fb0a0' },
+  { id: 'fur', name: 'Frost Fur', color: '#dfefff' },
   { id: 'frost', name: 'Frost Shard', color: '#8fdcff' },
   { id: 'ecto', name: 'Ectoplasm', color: '#c49bff' },
+  { id: 'shade', name: 'Shadow Gel', color: '#7a5cc0' },
   { id: 'void', name: 'Void Dust', color: '#ff5fd7' },
+  { id: 'soul', name: 'Soul Gem', color: '#6ff0e0' },
 ];
 
 export const materialDef = (id: MaterialId): MaterialDef => MATERIALS.find((m) => m.id === id)!;
 
-// ---- Zones: purely visual, a new backdrop every 10 stages ----
-export interface Zone {
+// ---- Archetypes: enemy families that Hunters specialize against ----
+export type Archetype = 'slime' | 'beast' | 'undead' | 'demon' | 'elemental';
+
+export const ARCHETYPES: Record<Archetype, { name: string; icon: string }> = {
+  slime: { name: 'Slime', icon: '🟢' },
+  beast: { name: 'Beast', icon: '🐾' },
+  undead: { name: 'Undead', icon: '💀' },
+  demon: { name: 'Demon', icon: '😈' },
+  elemental: { name: 'Elemental', icon: '🔷' },
+};
+
+// ---- Areas: permanent unlocks, each with its own enemies and materials ----
+export type AreaId = 'forest' | 'graveyard' | 'caves' | 'peaks' | 'rift';
+
+export interface AreaDef {
+  id: AreaId;
   name: string;
+  /** Base stats that every enemy in the area multiplies. */
+  hp: number;
+  gold: number;
+  speed: number;
+  /** Kills in this area before its Guardian can be challenged. */
+  mastery: number;
   ground: string;
   speck: string;
+  blurb: string;
 }
 
-export const ZONES: Zone[] = [
-  { name: 'Mossy Glade', ground: '#2f4a2c', speck: '#3b5c37' },
-  { name: 'Bone Caverns', ground: '#2b2630', speck: '#383140' },
-  { name: 'Ember Wastes', ground: '#3a1c14', speck: '#4d271b' },
-  { name: 'Frost Peaks', ground: '#23344a', speck: '#2e4561' },
-  { name: 'Haunted Mire', ground: '#1f2b25', speck: '#29392f' },
-  { name: 'Shadow Realm', ground: '#160e22', speck: '#21152f' },
+export const AREAS: AreaDef[] = [
+  { id: 'forest', name: 'Whispering Forest', hp: 3, gold: 1, speed: 36, mastery: 300, ground: '#2f4a2c', speck: '#3b5c37', blurb: 'Where every hunt begins.' },
+  { id: 'graveyard', name: 'Old Graveyard', hp: 150, gold: 25, speed: 40, mastery: 800, ground: '#2b2630', speck: '#383140', blurb: 'The dead do not rest here.' },
+  { id: 'caves', name: 'Ember Caves', hp: 7_500, gold: 600, speed: 45, mastery: 1_500, ground: '#3a1c14', speck: '#4d271b', blurb: 'Hot, bright and full of teeth.' },
+  { id: 'peaks', name: 'Frost Peaks', hp: 375_000, gold: 15_000, speed: 50, mastery: 3_000, ground: '#23344a', speck: '#2e4561', blurb: 'Cold winds carry cold things.' },
+  { id: 'rift', name: 'Void Rift', hp: 19_000_000, gold: 350_000, speed: 56, mastery: Infinity, ground: '#160e22', speck: '#21152f', blurb: 'The end of the known world.' },
 ];
 
-export const zoneIndex = (stage: number): number => Math.floor((Math.max(1, stage) - 1) / 10) % ZONES.length;
-export const zoneFor = (stage: number): Zone => ZONES[zoneIndex(stage)];
+export const areaDef = (id: AreaId): AreaDef => AREAS.find((a) => a.id === id)!;
+export const areaIndex = (id: AreaId): number => AREAS.findIndex((a) => a.id === id);
+export const nextAreaOf = (id: AreaId): AreaDef | undefined => AREAS[areaIndex(id) + 1];
 
-// ---- Enemy roster: each type has its own stats and drops its own material ----
-export type EnemyId = 'slime' | 'skeleton' | 'imp' | 'golem' | 'wraith' | 'horror';
+// ---- Enemy roster ----
+export type EnemyId =
+  | 'greenSlime'
+  | 'wolf'
+  | 'redSlime'
+  | 'skeleton'
+  | 'zombie'
+  | 'bat'
+  | 'imp'
+  | 'magmaSlime'
+  | 'beetle'
+  | 'iceWolf'
+  | 'golem'
+  | 'wraith'
+  | 'shadowSlime'
+  | 'horror'
+  | 'lich';
 export type EnemyShape = 'circle' | 'square' | 'triangle' | 'diamond' | 'ghost' | 'hexagon';
 
 export interface EnemyDef {
   id: EnemyId;
   name: string;
-  /** Multipliers on the stage's base HP / walk speed / gold. */
+  area: AreaId;
+  archetype: Archetype;
+  /** Multipliers on the area's base HP / walk speed / gold. */
   hp: number;
   speed: number;
   gold: number;
-  /** Enemies per second once unlocked (before Swarm, Lure and the early ramp). */
+  /** Enemies per second once unlocked (before Swarm and Lure). */
   spawn: number;
   /** Pack size range [min, max]. */
   pack: [number, number];
   radius: number;
   material: MaterialId;
-  /** Gold to unlock (0 = available from the start). Cost of the first Swarm/Bounty level scales from this. */
-  unlockCost: number;
+  /** Gold to add it to its area's horde, as a multiple of the area's base gold (0 = comes with the area). */
+  unlock: number;
   /** Placeholder look until real art is added (see src/assets/sprites/README.md). */
   color: string;
   shape: EnemyShape;
@@ -190,17 +211,33 @@ export interface EnemyDef {
 }
 
 export const ENEMIES: EnemyDef[] = [
-  { id: 'slime', name: 'Slime', hp: 1, speed: 1, gold: 1, spawn: 1.4, pack: [3, 5], radius: 10, material: 'goo', unlockCost: 0, color: '#7be07b', shape: 'circle', blurb: 'Squishy and plentiful.' },
-  { id: 'skeleton', name: 'Skeleton', hp: 2.5, speed: 0.8, gold: 2.8, spawn: 0.5, pack: [2, 4], radius: 11, material: 'bone', unlockCost: 300, color: '#e8dcc0', shape: 'square', blurb: 'Slow, sturdy, rattles a lot.' },
-  { id: 'imp', name: 'Imp', hp: 0.7, speed: 1.8, gold: 2, spawn: 0.6, pack: [2, 3], radius: 8, material: 'ember', unlockCost: 20_000, color: '#ff7a3d', shape: 'triangle', blurb: 'Tiny and fast. Shoot first.' },
-  { id: 'golem', name: 'Frost Golem', hp: 8, speed: 0.5, gold: 9, spawn: 0.18, pack: [1, 2], radius: 16, material: 'frost', unlockCost: 1_000_000, color: '#8fdcff', shape: 'diamond', blurb: 'A walking wall of ice.' },
-  { id: 'wraith', name: 'Wraith', hp: 1.8, speed: 1.4, gold: 4.5, spawn: 0.4, pack: [2, 4], radius: 11, material: 'ecto', unlockCost: 50_000_000, color: '#c49bff', shape: 'ghost', blurb: 'Drifts in quickly from the dark.' },
-  { id: 'horror', name: 'Void Horror', hp: 12, speed: 0.9, gold: 16, spawn: 0.15, pack: [1, 2], radius: 15, material: 'void', unlockCost: 3_000_000_000, color: '#ff5fd7', shape: 'hexagon', blurb: 'Rare, huge, and very rewarding.' },
+  // Whispering Forest
+  { id: 'greenSlime', name: 'Green Slime', area: 'forest', archetype: 'slime', hp: 1, speed: 1, gold: 1, spawn: 1.6, pack: [3, 5], radius: 10, material: 'goo', unlock: 0, color: '#7be07b', shape: 'circle', blurb: 'Squishy and plentiful.' },
+  { id: 'wolf', name: 'Forest Wolf', area: 'forest', archetype: 'beast', hp: 1.3, speed: 1.5, gold: 1.6, spawn: 0.6, pack: [2, 3], radius: 10, material: 'pelt', unlock: 120, color: '#b08a5a', shape: 'triangle', blurb: 'Fast, hunts in pairs.' },
+  { id: 'redSlime', name: 'Red Slime', area: 'forest', archetype: 'slime', hp: 2, speed: 0.9, gold: 2.5, spawn: 0.5, pack: [2, 4], radius: 11, material: 'redgel', unlock: 900, color: '#ff6b6b', shape: 'circle', blurb: 'A tougher, angrier slime.' },
+  // Old Graveyard
+  { id: 'skeleton', name: 'Skeleton', area: 'graveyard', archetype: 'undead', hp: 1, speed: 0.9, gold: 1, spawn: 1.5, pack: [3, 5], radius: 11, material: 'bone', unlock: 0, color: '#e8dcc0', shape: 'square', blurb: 'Rattles in by the dozen.' },
+  { id: 'zombie', name: 'Zombie', area: 'graveyard', archetype: 'undead', hp: 2.2, speed: 0.6, gold: 2.4, spawn: 0.6, pack: [2, 4], radius: 12, material: 'flesh', unlock: 120, color: '#8fae6b', shape: 'square', blurb: 'Slow, sturdy, relentless.' },
+  { id: 'bat', name: 'Grave Bat', area: 'graveyard', archetype: 'beast', hp: 0.6, speed: 1.9, gold: 1.3, spawn: 0.8, pack: [3, 5], radius: 8, material: 'wing', unlock: 900, color: '#8a78b0', shape: 'triangle', blurb: 'Tiny, fast and everywhere.' },
+  // Ember Caves
+  { id: 'imp', name: 'Imp', area: 'caves', archetype: 'demon', hp: 1, speed: 1.3, gold: 1, spawn: 1.4, pack: [2, 4], radius: 9, material: 'ember', unlock: 0, color: '#ff7a3d', shape: 'hexagon', blurb: 'Cackling little fire-starters.' },
+  { id: 'magmaSlime', name: 'Magma Slime', area: 'caves', archetype: 'slime', hp: 2.5, speed: 0.8, gold: 2.5, spawn: 0.6, pack: [2, 3], radius: 12, material: 'magma', unlock: 120, color: '#ff4d1a', shape: 'circle', blurb: 'Molten and very hard to squish.' },
+  { id: 'beetle', name: 'Fire Beetle', area: 'caves', archetype: 'beast', hp: 1.8, speed: 1.1, gold: 1.8, spawn: 0.7, pack: [2, 4], radius: 11, material: 'chitin', unlock: 900, color: '#3fb0a0', shape: 'triangle', blurb: 'Armored and quick to scuttle.' },
+  // Frost Peaks
+  { id: 'iceWolf', name: 'Ice Wolf', area: 'peaks', archetype: 'beast', hp: 1, speed: 1.4, gold: 1, spawn: 1.4, pack: [2, 4], radius: 10, material: 'fur', unlock: 0, color: '#dfefff', shape: 'triangle', blurb: 'The pack howls on the wind.' },
+  { id: 'golem', name: 'Frost Golem', area: 'peaks', archetype: 'elemental', hp: 4, speed: 0.5, gold: 4.5, spawn: 0.3, pack: [1, 2], radius: 16, material: 'frost', unlock: 120, color: '#8fdcff', shape: 'diamond', blurb: 'A walking wall of ice.' },
+  { id: 'wraith', name: 'Snow Wraith', area: 'peaks', archetype: 'undead', hp: 1.4, speed: 1.3, gold: 1.8, spawn: 0.6, pack: [2, 4], radius: 11, material: 'ecto', unlock: 900, color: '#c49bff', shape: 'ghost', blurb: 'Drifts in quickly from the storm.' },
+  // Void Rift
+  { id: 'shadowSlime', name: 'Shadow Slime', area: 'rift', archetype: 'slime', hp: 1, speed: 1, gold: 1, spawn: 1.5, pack: [3, 5], radius: 11, material: 'shade', unlock: 0, color: '#7a5cc0', shape: 'circle', blurb: 'A slime made of the dark itself.' },
+  { id: 'horror', name: 'Void Horror', area: 'rift', archetype: 'demon', hp: 5, speed: 0.8, gold: 6, spawn: 0.25, pack: [1, 2], radius: 15, material: 'void', unlock: 120, color: '#ff5fd7', shape: 'hexagon', blurb: 'Rare, huge, and very rewarding.' },
+  { id: 'lich', name: 'Lich', area: 'rift', archetype: 'undead', hp: 2.5, speed: 1, gold: 3.5, spawn: 0.4, pack: [1, 3], radius: 12, material: 'soul', unlock: 900, color: '#6ff0e0', shape: 'ghost', blurb: 'An undead king hoarding souls.' },
 ];
 
 export const enemyDef = (id: EnemyId): EnemyDef => ENEMIES.find((e) => e.id === id)!;
+export const areaEnemies = (area: AreaId): EnemyDef[] => ENEMIES.filter((e) => e.area === area);
+export const enemyUnlockCost = (def: EnemyDef): number => def.unlock * areaDef(def.area).gold;
 
-// Per-enemy upgrades (gold, reset on Ascension)
+// Per-enemy upgrades (gold, permanent)
 export type EnemyUpgrade = 'swarm' | 'bounty';
 export const ENEMY_UPGRADE_MAX = 15;
 export const SWARM_PER_LEVEL = 0.4; // +40% of that enemy spawning
@@ -209,11 +246,57 @@ export const BOUNTY_DROP_PER_LEVEL = 0.15; // +15% material drops from that enem
 export const BOUNTY_SPEED_PER_LEVEL = 0.12; // ...but it moves 12% faster
 
 export function enemyUpgradeCost(def: EnemyDef, kind: EnemyUpgrade, level: number): number {
-  const base = Math.max(40, def.unlockCost * 0.4) * (kind === 'bounty' ? 1.5 : 1);
+  const base = areaDef(def.area).gold * Math.max(60, def.unlock * 0.5) * (kind === 'bounty' ? 1.5 : 1);
   return Math.ceil(base * 2.4 ** level);
 }
 
-// ---- Forge items: crafted from materials, permanent (survive Ascension) ----
+// ---- Hunters: extra hunters you recruit and station in areas ----
+export type HunterId = 'alchemist' | 'ranger' | 'gravewarden' | 'prospector' | 'demonbane' | 'scavenger' | 'frostbreaker';
+
+export interface HunterDef {
+  id: HunterId;
+  name: string;
+  title: string;
+  icon: string;
+  color: string;
+  /** Area that must be unlocked before they can be recruited. */
+  area: AreaId;
+  recruitCost: number;
+  /** Damage multiplier against one archetype. */
+  bane?: { archetype: Archetype; mult: number };
+  /** Multipliers on gold / material drops from their kills. */
+  gold?: number;
+  drops?: number;
+}
+
+export const HUNTERS: HunterDef[] = [
+  { id: 'alchemist', name: 'Mira', title: 'Alchemist', icon: '⚗️', color: '#7be07b', area: 'forest', recruitCost: 150, bane: { archetype: 'slime', mult: 3 } },
+  { id: 'ranger', name: 'Rin', title: 'Ranger', icon: '🏹', color: '#c09060', area: 'forest', recruitCost: 1_200, bane: { archetype: 'beast', mult: 3 } },
+  { id: 'gravewarden', name: 'Alric', title: 'Gravewarden', icon: '✝️', color: '#efe6cf', area: 'graveyard', recruitCost: 15_000, bane: { archetype: 'undead', mult: 3 } },
+  { id: 'prospector', name: 'Gus', title: 'Prospector', icon: '💰', color: '#ffd34d', area: 'graveyard', recruitCost: 80_000, gold: 1.75 },
+  { id: 'demonbane', name: 'Sera', title: 'Demonbane', icon: '🗡️', color: '#ff7a3d', area: 'caves', recruitCost: 1_500_000, bane: { archetype: 'demon', mult: 3 } },
+  { id: 'scavenger', name: 'Pip', title: 'Scavenger', icon: '🎒', color: '#3fb0a0', area: 'caves', recruitCost: 6_000_000, drops: 2 },
+  { id: 'frostbreaker', name: 'Bjorn', title: 'Frostbreaker', icon: '🔨', color: '#8fdcff', area: 'peaks', recruitCost: 150_000_000, bane: { archetype: 'elemental', mult: 3 } },
+];
+
+export const hunterDef = (id: HunterId): HunterDef => HUNTERS.find((h) => h.id === id)!;
+
+export function hunterPerk(h: HunterDef): string {
+  const parts: string[] = [];
+  if (h.bane) parts.push(`×${h.bane.mult} damage vs ${ARCHETYPES[h.bane.archetype].name}`);
+  if (h.gold) parts.push(`+${Math.round((h.gold - 1) * 100)}% gold`);
+  if (h.drops) parts.push(`+${Math.round((h.drops - 1) * 100)}% drops`);
+  return parts.join(', ');
+}
+
+/** Hunters fire a little slower than you and level with gold. */
+export const HELPER_FIRE_RATE = 1.2;
+export const HELPER_LEVEL_GROWTH = 1.085;
+export const helperLevelCost = (h: HunterDef, level: number): number => Math.ceil(Math.max(10, h.recruitCost * 0.05) * HELPER_LEVEL_GROWTH ** level);
+/** Stationed Hunters earn at this fraction of their full rate (they don't tap, but they never get stunned). */
+export const STATION_EFFICIENCY = 0.8;
+
+// ---- Forge items: crafted from materials, permanent, boost every Hunter ----
 export type ItemId =
   | 'whetstone'
   | 'gloves'
@@ -239,15 +322,15 @@ export interface ItemDef {
 
 export const ITEMS: ItemDef[] = [
   { id: 'whetstone', name: 'Whetstone', icon: '🪨', maxLevel: 50, recipe: { goo: 4 }, growth: 1.45, describe: (l) => `+${l * 25}% damage` },
-  { id: 'gloves', name: 'Quickdraw Gloves', icon: '🧤', maxLevel: 30, recipe: { goo: 6, bone: 2 }, growth: 1.5, describe: (l) => `+${l * 10}% attack rate` },
-  { id: 'lure', name: 'Monster Lure', icon: '🍖', maxLevel: 20, recipe: { goo: 8 }, growth: 1.6, describe: (l) => `+${l * 20}% enemy spawns` },
-  { id: 'pouch', name: "Scavenger's Pouch", icon: '👝', maxLevel: 25, recipe: { goo: 10, bone: 3 }, growth: 1.5, describe: (l) => `+${l * 25}% material drops` },
-  { id: 'splitbow', name: 'Split Bow', icon: '🔱', maxLevel: 4, recipe: { bone: 8, ember: 4 }, growth: 3, describe: (l) => `+${l} projectile${l === 1 ? '' : 's'} per volley` },
-  { id: 'bonemail', name: 'Bone Mail', icon: '🦴', maxLevel: 10, recipe: { bone: 10 }, growth: 1.6, describe: (l) => `−${Math.round((1 - 0.88 ** l) * 100)}% stun time` },
-  { id: 'idol', name: 'Golden Idol', icon: '🗿', maxLevel: 30, recipe: { goo: 12, ember: 5 }, growth: 1.5, describe: (l) => `+${l * 25}% gold` },
-  { id: 'lance', name: 'Frost Lance', icon: '❄️', maxLevel: 5, recipe: { frost: 8, bone: 12 }, growth: 2.2, describe: (l) => `shots pierce ${l} more enem${l === 1 ? 'y' : 'ies'}` },
-  { id: 'lantern', name: 'Soul Lantern', icon: '🏮', maxLevel: 10, recipe: { ecto: 8, frost: 4 }, growth: 1.8, describe: (l) => `+${l * 4}% crit chance` },
-  { id: 'engine', name: 'Void Engine', icon: '🌀', maxLevel: 20, recipe: { void: 10, ecto: 10 }, growth: 1.7, describe: (l) => `×${(1.5 ** l).toFixed(l > 3 ? 0 : 1)} damage, +${l * 5}% attack rate` },
+  { id: 'gloves', name: 'Quickdraw Gloves', icon: '🧤', maxLevel: 30, recipe: { goo: 6, pelt: 2 }, growth: 1.5, describe: (l) => `+${l * 10}% attack rate` },
+  { id: 'lure', name: 'Monster Lure', icon: '🍖', maxLevel: 20, recipe: { redgel: 5, pelt: 3 }, growth: 1.6, describe: (l) => `+${l * 20}% enemy spawns` },
+  { id: 'pouch', name: "Scavenger's Pouch", icon: '👝', maxLevel: 25, recipe: { pelt: 6, redgel: 3 }, growth: 1.5, describe: (l) => `+${l * 25}% material drops` },
+  { id: 'bonemail', name: 'Bone Mail', icon: '🦴', maxLevel: 10, recipe: { bone: 8, flesh: 4 }, growth: 1.6, describe: (l) => `−${Math.round((1 - 0.88 ** l) * 100)}% stun time` },
+  { id: 'splitbow', name: 'Split Bow', icon: '🔱', maxLevel: 4, recipe: { bone: 10, wing: 6 }, growth: 3, describe: (l) => `+${l} projectile${l === 1 ? '' : 's'} per volley` },
+  { id: 'idol', name: 'Golden Idol', icon: '🗿', maxLevel: 30, recipe: { ember: 6, magma: 3 }, growth: 1.5, describe: (l) => `+${l * 25}% gold` },
+  { id: 'lance', name: 'Frost Lance', icon: '❄️', maxLevel: 5, recipe: { chitin: 8, frost: 4 }, growth: 2.2, describe: (l) => `shots pierce ${l} more enem${l === 1 ? 'y' : 'ies'}` },
+  { id: 'lantern', name: 'Soul Lantern', icon: '🏮', maxLevel: 10, recipe: { ecto: 8, fur: 6 }, growth: 1.8, describe: (l) => `+${l * 4}% crit chance` },
+  { id: 'engine', name: 'Void Engine', icon: '🌀', maxLevel: 20, recipe: { shade: 10, void: 5, soul: 3 }, growth: 1.7, describe: (l) => `×${(1.5 ** l).toFixed(l > 3 ? 0 : 1)} damage, +${l * 5}% attack rate` },
 ];
 
 export const itemDef = (id: ItemId): ItemDef => ITEMS.find((i) => i.id === id)!;
@@ -283,8 +366,8 @@ export const BH_UPGRADES: BhUpgradeDef[] = [
 ];
 
 /** Each gem in Sky Siege is worth this many materials, so runs stay relevant as idle income grows. */
-export function gemValue(maxStage: number): number {
-  return 1 + Math.floor(maxStage / 4);
+export function gemValue(areasUnlocked: number): number {
+  return 1 + 2 * Math.max(0, areasUnlocked - 1);
 }
 
 export const bhUpgradeCost = (u: BhUpgradeDef, level: number): number => Math.ceil(u.baseCost * u.growth ** level);

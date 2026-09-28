@@ -1,84 +1,208 @@
 import { describe, expect, it } from 'vitest';
-import { BOSS_TIME, enemyDef, ESCAPES_TO_RETREAT, itemCost, itemDef, KILLS_PER_STAGE, MAX_TICKETS, OFFLINE_CAP_SEC, STUN_IMMUNITY, TICKET_REGEN_SEC } from '../src/core/balance';
-import { Field } from '../src/core/field';
+import {
+  areaDef,
+  enemyDef,
+  enemyUnlockCost,
+  GUARDIAN_TIME,
+  itemCost,
+  itemDef,
+  MAX_TICKETS,
+  OFFLINE_CAP_SEC,
+  STATION_EFFICIENCY,
+  STUN_IMMUNITY,
+  TICKET_REGEN_SEC,
+} from '../src/core/balance';
+import { Field, type Enemy } from '../src/core/field';
 import { Game } from '../src/core/game';
 import { deserialize, newGame, serialize } from '../src/core/state';
 
 const noCrit = () => 0.99;
 
-describe('Game progression', () => {
-  it('clears a stage after enough kills and auto-advances', () => {
+const enemy = (over: Partial<Enemy>): Enemy => ({
+  id: 1,
+  type: 'greenSlime',
+  x: 100,
+  y: 0,
+  hp: 1,
+  maxHp: 1,
+  r: 10,
+  speed: 0,
+  boss: false,
+  fleeing: false,
+  flash: 0,
+  kx: 0,
+  ky: 0,
+  phase: 0,
+  ...over,
+});
+
+/** A game with plenty of gold and a strong Hunter. */
+function rich(): Game {
+  const s = newGame(0);
+  s.gold = 1e15;
+  s.upgrades.power = 200;
+  return new Game(s, noCrit);
+}
+
+describe('Areas', () => {
+  it('starts in the forest with only its first enemy', () => {
     const g = new Game(newGame(0), noCrit);
-    for (let i = 0; i < KILLS_PER_STAGE; i++) g.registerKill('slime', false);
-    expect(g.state.stage).toBe(2);
-    expect(g.state.maxStage).toBe(2);
-    expect(g.state.gold).toBeGreaterThan(0);
+    expect(g.area).toBe('forest');
+    expect(g.unlockedAreas).toEqual(['forest']);
+    expect(g.roster().map((e) => e.id)).toEqual(['greenSlime']);
+    expect(g.travel('graveyard')).toBe(false);
   });
 
-  it('a boss stage only clears by killing the boss; timing out retreats', () => {
-    const s = newGame(0);
-    s.stage = s.maxStage = 5;
-    const g = new Game(s, noCrit);
-    for (let i = 0; i < KILLS_PER_STAGE * 2; i++) g.registerKill('slime', false);
-    expect(g.state.stage).toBe(5);
+  it('mastery kills make the Guardian available; beating it permanently unlocks the next area', () => {
+    const g = new Game(newGame(0), noCrit);
+    expect(g.guardianReady).toBe(false);
+    for (let i = 0; i < areaDef('forest').mastery; i++) g.registerKill('greenSlime', false);
+    expect(g.guardianReady).toBe(true);
+    expect(g.challengeGuardian()).toBe(true);
     g.bossSpawned();
-    g.tick(BOSS_TIME + 1);
-    expect(g.state.stage).toBe(4);
-    expect(g.state.autoAdvance).toBe(false);
-    g.setStage(5);
-    expect(g.state.autoAdvance).toBe(true);
+    g.registerKill(g.guardianType, true);
+    expect(g.isAreaUnlocked('graveyard')).toBe(true);
+    expect(g.lockedNext).toBeNull();
+    expect(g.state.stats.guardians).toBe(1);
+    // Travel both ways; nothing gets re-locked.
+    expect(g.travel('graveyard')).toBe(true);
+    expect(g.roster().map((e) => e.id)).toEqual(['skeleton']);
+    expect(g.travel('forest')).toBe(true);
+    expect(g.isAreaUnlocked('graveyard')).toBe(true);
+  });
+
+  it('a Guardian that times out just leaves; you can try again', () => {
+    const s = newGame(0);
+    s.areas.forest.kills = 999;
+    const g = new Game(s, noCrit);
+    g.challengeGuardian();
     g.bossSpawned();
-    const r = g.registerKill('slime', true);
-    expect(r.amount).toBeGreaterThan(0);
-    expect(g.state.stage).toBe(6);
+    g.tick(GUARDIAN_TIME + 1);
+    expect(g.guardianActive).toBe(false);
+    expect(g.isAreaUnlocked('graveyard')).toBe(false);
+    expect(g.area).toBe('forest');
+    expect(g.challengeGuardian()).toBe(true);
   });
 
-  it('farming an earlier stage does not advance', () => {
+  it('the Guardian is tuned to the next area and later areas are tougher and richer', () => {
+    const g = new Game(newGame(0), noCrit);
+    expect(g.guardianHp).toBeGreaterThan(areaDef('graveyard').hp);
+    expect(g.enemyStats('skeleton').hp).toBeGreaterThan(g.enemyStats('greenSlime').hp * 10);
+    expect(g.enemyStats('skeleton').gold).toBeGreaterThan(g.enemyStats('greenSlime').gold * 10);
+  });
+});
+
+describe('Enemies & archetypes', () => {
+  it("kills drop the enemy's own material and count toward its area's mastery", () => {
+    const g = new Game(newGame(0), () => 0);
+    g.registerKill('wolf', false);
+    expect(g.state.materials.pelt).toBe(1);
+    expect(g.state.areas.forest.kills).toBe(1);
+  });
+
+  it('bestiary: unlock enemies in unlocked areas; swarm and bounty change their stats', () => {
+    const g = rich();
+    expect(g.unlockEnemy('zombie')).toBe(false); // graveyard still locked
+    const spawn = g.spawnRate;
+    expect(g.unlockEnemy('wolf')).toBe(true);
+    expect(g.spawnRate).toBeGreaterThan(spawn);
+    expect(g.unlockedMaterials).toEqual(['goo', 'pelt']);
+
+    const before = g.enemyStats('wolf');
+    g.buyEnemyUpgrade('wolf', 'swarm');
+    g.buyEnemyUpgrade('wolf', 'bounty');
+    const after = g.enemyStats('wolf');
+    expect(after.spawnRate).toBeGreaterThan(before.spawnRate);
+    expect(after.gold).toBeGreaterThan(before.gold);
+    expect(after.speed).toBeGreaterThan(before.speed);
+    expect(enemyUnlockCost(enemyDef('greenSlime'))).toBe(0);
+  });
+
+  it('enemies belong to archetypes: slimes are slimes, skeletons and zombies are undead', () => {
+    expect(enemyDef('greenSlime').archetype).toBe('slime');
+    expect(enemyDef('redSlime').archetype).toBe('slime');
+    expect(enemyDef('skeleton').archetype).toBe('undead');
+    expect(enemyDef('zombie').archetype).toBe('undead');
+    expect(enemyDef('wolf').archetype).toBe('beast');
+  });
+});
+
+describe('Hunters', () => {
+  it('recruiting needs the Hunter\'s area unlocked and gold', () => {
+    const g = rich();
+    expect(g.recruit('gravewarden')).toBe(false); // graveyard locked
+    expect(g.recruit('alchemist')).toBe(true);
+    expect(g.state.hunters.alchemist.recruited).toBe(true);
+    expect(g.recruit('alchemist')).toBe(false);
+  });
+
+  it('archetype bane multiplies damage only against that archetype', () => {
+    const g = rich();
+    g.recruit('alchemist');
+    g.state.hunters.alchemist.level = 10;
+    expect(g.shotDamage('alchemist', 'slime')).toBeCloseTo(g.shotDamage('alchemist', 'beast') * 3);
+  });
+
+  it('one Hunter per area; stationing swaps; stationed Hunters farm in the background', () => {
+    const g = rich();
+    g.recruit('alchemist');
+    g.recruit('ranger');
+    g.state.areas.graveyard.unlocked = true;
+    g.state.hunters.alchemist.level = 50;
+    expect(g.station('alchemist', 'forest')).toBe(true);
+    expect(g.station('ranger', 'forest')).toBe(true);
+    expect(g.stationedAt('forest')).toBe('ranger');
+    expect(g.state.hunters.alchemist.station).toBeNull();
+
+    g.station('alchemist', 'forest');
+    g.travel('graveyard'); // you leave; Mira keeps hunting slimes in the forest
+    const gold = g.state.gold;
+    const kills = g.state.areas.forest.kills;
+    for (let i = 0; i < 600; i++) g.tick(0.1);
+    expect(g.state.gold).toBeGreaterThan(gold);
+    expect(g.state.areas.forest.kills).toBeGreaterThan(kills);
+    expect(g.state.materials.goo).toBeGreaterThan(0);
+  });
+
+  it('a Hunter stationed where you are fights on the field instead of farming twice', () => {
+    const g = rich();
+    g.recruit('alchemist');
+    g.station('alchemist', 'forest');
+    expect(g.helpersHere).toEqual(['alchemist']);
+    const gold = g.state.gold;
+    g.tick(10);
+    expect(g.state.gold).toBe(gold); // no background accrual for your own area
+  });
+
+  it('farm rates respect the spawn rate and station efficiency, and weak Hunters let enemies escape', () => {
+    const g = rich();
+    g.recruit('alchemist');
+    g.state.hunters.alchemist.level = 300;
+    const strong = g.farmRates('forest', ['alchemist'], STATION_EFFICIENCY);
+    expect(strong.killsTotal).toBeCloseTo(g.spawnRate * STATION_EFFICIENCY);
+    g.state.hunters.alchemist.level = 0;
+    g.state.items.whetstone = 0;
     const s = newGame(0);
-    s.stage = s.maxStage = 8;
-    const g = new Game(s, noCrit);
-    g.setStage(7);
-    for (let i = 0; i < KILLS_PER_STAGE; i++) g.registerKill('slime', false);
-    expect(g.state.stage).toBe(7);
+    s.gold = 1e15;
+    const weakGame = new Game(s, noCrit);
+    weakGame.recruit('alchemist');
+    weakGame.state.areas.graveyard.unlocked = true;
+    const weak = weakGame.farmRates('graveyard', ['alchemist'], 1);
+    expect(weak.killsTotal).toBeLessThan(weakGame.roster('graveyard')[0].spawnRate * 0.1);
   });
 
-  it("kills drop the enemy type's own material", () => {
-    const always = new Game(newGame(0), () => 0);
-    always.registerKill('skeleton', false);
-    expect(always.state.materials.bone).toBe(1);
-    const never = new Game(newGame(0), () => 0.999);
-    never.registerKill('slime', false);
-    expect(never.state.materials.goo).toBe(0);
-  });
-
-  it('escapes are counted per stage and reset on stage change', () => {
-    const s = newGame(0);
-    s.maxStage = 3;
-    const g = new Game(s, noCrit);
-    g.registerEscape();
-    g.registerEscape();
-    expect(g.state.stageEscapes).toBe(2);
-    expect(g.state.stats.escaped).toBe(2);
-    g.setStage(2);
-    expect(g.state.stageEscapes).toBe(0);
-  });
-
-  it('too many escapes on one stage fall back a stage', () => {
-    const s = newGame(0);
-    s.stage = s.maxStage = 12;
-    const g = new Game(s, noCrit);
-    for (let i = 0; i < ESCAPES_TO_RETREAT - 1; i++) g.registerEscape();
-    expect(g.state.stage).toBe(12);
-    g.registerEscape();
-    expect(g.state.stage).toBe(11);
-    expect(g.state.autoAdvance).toBe(false);
+  it('gold and drop perks boost their own kills', () => {
+    const g = rich();
+    g.state.areas.graveyard.unlocked = true;
+    g.recruit('prospector');
+    const plain = g.registerKill('greenSlime', false, 'main').gold;
+    expect(g.registerKill('greenSlime', false, 'prospector').gold).toBeCloseTo(plain * 1.75);
   });
 });
 
 describe('Shops', () => {
-  it('gold upgrades raise combat stats and respect max levels', () => {
-    const g = new Game(newGame(0), noCrit);
-    g.state.gold = 1e12;
+  it('training raises combat stats and respects max levels', () => {
+    const g = rich();
     const dmg = g.damage;
     expect(g.buyUpgrade('power')).toBe(true);
     expect(g.damage).toBeGreaterThan(dmg);
@@ -88,50 +212,15 @@ describe('Shops', () => {
     expect(g.buyUpgrade('haste')).toBe(false);
   });
 
-  it('crafting spends materials and applies item effects', () => {
-    const g = new Game(newGame(0), noCrit);
-    expect(g.craft('lure')).toBe(false);
-    const cost = itemCost(itemDef('lure'), 0).goo!;
+  it('crafting spends materials and items boost every Hunter', () => {
+    const g = rich();
+    g.recruit('alchemist');
+    const cost = itemCost(itemDef('whetstone'), 0).goo!;
     g.state.materials.goo = cost;
-    const spawn = g.spawnRate;
-    expect(g.craft('lure')).toBe(true);
+    const helperDmg = g.shotDamage('alchemist');
+    expect(g.craft('whetstone')).toBe(true);
     expect(g.state.materials.goo).toBe(0);
-    expect(g.spawnRate).toBeGreaterThan(spawn);
-    g.state.materials.bone = 1000;
-    g.state.materials.ember = 1000;
-    g.craft('splitbow');
-    expect(g.projectiles).toBe(2);
-  });
-
-  it('bestiary: unlocking adds a new enemy type; swarm and bounty change its stats', () => {
-    const g = new Game(newGame(0), noCrit);
-    expect(g.unlockedEnemies).toEqual(['slime']);
-    expect(g.unlockEnemy('skeleton')).toBe(false);
-    g.state.gold = 1e9;
-    const spawnBefore = g.spawnRate;
-    expect(g.unlockEnemy('skeleton')).toBe(true);
-    expect(g.unlockedEnemies).toEqual(['slime', 'skeleton']);
-    expect(g.spawnRate).toBeGreaterThan(spawnBefore);
-    expect(g.bossType).toBe('skeleton');
-    expect(g.unlockedMaterials).toEqual(['goo', 'bone']);
-
-    const before = g.enemyStats('slime');
-    expect(g.buyEnemyUpgrade('slime', 'swarm')).toBe(true);
-    expect(g.enemyStats('slime').spawnRate).toBeGreaterThan(before.spawnRate);
-    expect(g.buyEnemyUpgrade('slime', 'bounty')).toBe(true);
-    const after = g.enemyStats('slime');
-    expect(after.gold).toBeGreaterThan(before.gold);
-    expect(after.speed).toBeGreaterThan(before.speed);
-    expect(after.dropChance).toBeGreaterThan(before.dropChance);
-    expect(g.buyEnemyUpgrade('imp', 'swarm')).toBe(false); // still locked
-  });
-
-  it('enemy types differ in hp, speed and gold', () => {
-    const g = new Game(newGame(0), noCrit);
-    expect(g.enemyStats('golem').hp).toBeGreaterThan(g.enemyStats('slime').hp);
-    expect(g.enemyStats('imp').speed).toBeGreaterThan(g.enemyStats('slime').speed);
-    expect(g.enemyStats('horror').gold).toBeGreaterThan(g.enemyStats('skeleton').gold);
-    expect(enemyDef('slime').unlockCost).toBe(0);
+    expect(g.shotDamage('alchemist')).toBeGreaterThan(helperDmg);
   });
 
   it('Steady Nerves and Bone Mail shorten stuns', () => {
@@ -150,40 +239,26 @@ describe('Shops', () => {
     expect(g.buyBh('shield')).toBe(true);
     expect(g.state.bh.shield).toBe(1);
   });
-
-  it('prestige resets progress and the bestiary but keeps shards, items and materials', () => {
-    const s = newGame(0);
-    s.bestiary.skeleton.unlocked = true;
-    s.maxStage = s.stage = 80;
-    s.gold = 1e12;
-    s.upgrades.power = 100;
-    s.items.whetstone = 3;
-    s.materials.goo = 50;
-    s.stars = 9;
-    const g = new Game(s, noCrit);
-    const shards = g.prestige();
-    expect(shards).toBeGreaterThan(0);
-    expect(g.state.stage).toBe(1);
-    expect(g.state.gold).toBe(0);
-    expect(g.state.upgrades.power).toBe(0);
-    expect(g.state.items.whetstone).toBe(3);
-    expect(g.state.materials.goo).toBe(50);
-    expect(g.state.stars).toBe(9);
-    expect(g.state.bestiary.skeleton.unlocked).toBe(false);
-  });
 });
 
 describe('Offline & minigames', () => {
-  it('computes capped offline gold and materials, and regenerates tickets', () => {
+  it('pays out for you and every stationed Hunter, capped, and regenerates tickets', () => {
     const s = newGame(0);
-    s.upgrades.power = 20;
+    s.upgrades.power = 30;
     s.tickets = 0;
+    s.gold = 1e9;
     const g = new Game(s, noCrit);
+    g.state.areas.graveyard.unlocked = true;
+    g.recruit('gravewarden');
+    g.state.hunters.gravewarden.level = 150;
+    g.station('gravewarden', 'graveyard');
+    const gold = g.state.gold;
     const r = g.applyOffline(24 * 3600 * 1000);
     expect(r.seconds).toBe(OFFLINE_CAP_SEC);
     expect(r.gold).toBeGreaterThan(0);
-    expect(r.materials.goo).toBeGreaterThan(0);
-    expect(g.state.materials.goo).toBe(r.materials.goo);
+    expect(g.state.gold).toBeCloseTo(gold + r.gold);
+    expect(r.materials.goo).toBeGreaterThan(0); // you, in the forest
+    expect(r.materials.bone).toBeGreaterThan(0); // Alric, in the graveyard
     expect(g.state.tickets).toBe(MAX_TICKETS);
 
     const g2 = new Game({ ...newGame(0), tickets: 0 }, noCrit);
@@ -191,21 +266,9 @@ describe('Offline & minigames', () => {
     expect(g2.state.tickets).toBe(1);
   });
 
-  it('offline kills are capped by the spawn rate, and weak hunters let most escape', () => {
-    const strong = new Game({ ...newGame(0), upgrades: { power: 500, haste: 0, nerves: 0 } }, noCrit);
-    const r = strong.applyOffline(3600 * 1000);
-    expect(r.kills).toBeLessThanOrEqual(Math.ceil(3600 * strong.spawnRate));
-    expect(r.kills).toBeGreaterThan(3600 * strong.spawnRate * 0.4);
-
-    const s = newGame(0);
-    s.stage = s.maxStage = 30;
-    const weak = new Game(s, noCrit);
-    expect(weak.applyOffline(3600 * 1000).kills).toBeLessThan(3600 * weak.spawnRate * 0.05);
-  });
-
   it('minigame payouts grant gold, frenzy, materials and stars', () => {
     const g = new Game(newGame(0), noCrit);
-    const r = g.grantMinigame({ id: 'skysiege', score: 1234, units: 1000, materials: { goo: 7, bone: 2 }, stars: 5 });
+    const r = g.grantMinigame({ id: 'skysiege', score: 1234, units: 1000, materials: { goo: 7, pelt: 2 }, stars: 5 });
     expect(r.gold).toBeGreaterThan(0);
     expect(g.state.frenzyTime).toBe(300);
     expect(g.state.materials.goo).toBe(7);
@@ -215,24 +278,28 @@ describe('Offline & minigames', () => {
 });
 
 describe('Field', () => {
+  const run = (g: Game, f: Field, seconds: number) => {
+    for (let i = 0; i < seconds * 30; i++) {
+      g.tick(1 / 30);
+      f.update(1 / 30);
+    }
+  };
+
   it('spawns a horde, shoots it down and reports kills', () => {
     const g = new Game(newGame(0), noCrit);
     g.state.upgrades.power = 30;
     const f = new Field(g);
     f.setView(390, 420);
-    for (let i = 0; i < 20 * 30; i++) {
-      g.tick(1 / 30);
-      f.update(1 / 30);
-    }
+    run(g, f, 20);
     const kills = f.drainEvents().filter((e) => e.type === 'kill').length;
     expect(kills).toBeGreaterThan(5);
     expect(g.state.stats.totalKills).toBe(kills);
   });
 
   it('an enemy reaching the Hunter stuns them and flees; unkilled runners escape', () => {
-    const s = newGame(0);
-    s.stage = s.maxStage = 31; // far too tough for a fresh Hunter (and not a boss stage)
-    const g = new Game(s, noCrit);
+    const g = new Game(newGame(0), noCrit);
+    g.state.areas.graveyard.unlocked = true;
+    g.travel('graveyard'); // far too tough for a fresh Hunter
     const f = new Field(g);
     f.setView(390, 420);
     let stunned = false;
@@ -241,50 +308,67 @@ describe('Field', () => {
       f.update(1 / 30);
       stunned ||= f.stunned;
     }
-    const events = f.drainEvents();
     expect(stunned).toBe(true);
-    expect(events.some((e) => e.type === 'stun')).toBe(true);
     expect(g.state.stats.escaped).toBeGreaterThan(0);
-    expect(g.state.stage).toBeLessThan(31); // enough got away to force a fall-back
-    expect(g.state.autoAdvance).toBe(false);
+    expect(g.area).toBe('graveyard'); // no retreat, ever
   });
 
   it('the Hunter cannot shoot while stunned and is briefly immune afterwards', () => {
     const g = new Game(newGame(0), noCrit);
     const f = new Field(g);
     f.setView(390, 420);
-    const enemy = (id: number, x: number) => ({ id, type: 'slime' as const, x, y: 0, hp: 1e9, maxHp: 1e9, r: 10, speed: 40, boss: false, fleeing: false, flash: 0, kx: 0, ky: 0, phase: 0 });
-    f.enemies.push(enemy(1, 20));
+    f.enemies.push(enemy({ id: 1, x: 20, hp: 1e9, maxHp: 1e9, speed: 40 }));
     f.update(1 / 30);
     expect(f.stunned).toBe(true);
     expect(f.enemies[0].fleeing).toBe(true);
     const bullets = f.bullets.length;
     f.update(0.3);
-    expect(f.bullets.length).toBe(bullets); // no new shots while dazed
-    f.update(g.stunTime()); // stun wears off
+    expect(f.bullets.length).toBe(bullets);
+    f.update(g.stunTime());
     expect(f.stunned).toBe(false);
     expect(f.immune).toBeCloseTo(STUN_IMMUNITY, 5);
-    f.enemies.push(enemy(2, -20));
+    f.enemies.push(enemy({ id: 2, x: -20, hp: 1e9, maxHp: 1e9, speed: 40 }));
     f.update(1 / 30);
-    expect(f.stunned).toBe(false); // immune: the runner still flees but doesn't stun
+    expect(f.stunned).toBe(false);
     expect(f.enemies.find((e) => e.id === 2)?.fleeing).toBe(true);
   });
 
-  it('bosses stun longer and bounce off instead of fleeing', () => {
-    const g = new Game(newGame(0), noCrit);
+  it('challenging the Guardian spawns it; it stuns longer and bounces off instead of fleeing', () => {
+    const s = newGame(0);
+    s.areas.forest.kills = 999;
+    const g = new Game(s, noCrit);
     const f = new Field(g);
-    f.enemies.push({ id: 1, type: 'slime', x: 30, y: 0, hp: 1e9, maxHp: 1e9, r: 28, speed: 40, boss: true, fleeing: false, flash: 0, kx: 0, ky: 0, phase: 0 });
+    f.setView(390, 420);
+    g.challengeGuardian();
+    f.update(1 / 30);
+    const boss = f.enemies.find((e) => e.boss)!;
+    expect(boss.maxHp).toBe(g.guardianHp);
+    expect(g.bossAlive).toBe(true);
+    boss.x = 30;
+    boss.y = 0;
     f.update(1 / 30);
     expect(f.stun).toBeCloseTo(g.stunTime(true), 1);
-    expect(f.enemies[0].fleeing).toBe(false);
-    expect(f.enemies[0].kx).toBeGreaterThan(0);
+    expect(boss.fleeing).toBe(false);
+    expect(boss.kx).toBeGreaterThan(0);
+  });
+
+  it('a Hunter stationed here stands on the field and shoots with their bane', () => {
+    const g = rich();
+    g.recruit('alchemist');
+    g.station('alchemist', 'forest');
+    const f = new Field(g);
+    f.setView(390, 420);
+    f.enemies.push(enemy({ id: 1, x: -150, y: 150, hp: 1e12, maxHp: 1e12 }));
+    for (let i = 0; i < 30; i++) f.update(1 / 30);
+    expect(f.helpers.map((h) => h.id)).toEqual(['alchemist']);
+    expect(f.bullets.some((b) => b.shooter === 'alchemist')).toBe(true);
   });
 
   it('tap blasts damage enemies near the tap', () => {
     const g = new Game(newGame(0), noCrit);
     const f = new Field(g);
-    f.enemies.push({ id: 1, type: 'slime', x: 100, y: 0, hp: 1, maxHp: 1, r: 10, speed: 0, boss: false, fleeing: false, flash: 0, kx: 0, ky: 0, phase: 0 });
-    f.enemies.push({ id: 2, type: 'slime', x: -100, y: 0, hp: 1, maxHp: 1, r: 10, speed: 0, boss: false, fleeing: false, flash: 0, kx: 0, ky: 0, phase: 0 });
+    f.enemies.push(enemy({ id: 1, x: 100 }));
+    f.enemies.push(enemy({ id: 2, x: -100 }));
     f.tap(100, 5);
     expect(f.enemies.map((e) => e.id)).toEqual([2]);
     expect(g.state.stats.taps).toBe(1);
@@ -296,31 +380,25 @@ describe('Saves', () => {
     const s = newGame(0);
     s.gold = 42;
     s.items.gloves = 3;
+    s.hunters.ranger = { recruited: true, level: 4, station: 'forest' };
     const back = deserialize(serialize(s));
     expect(back?.gold).toBe(42);
     expect(back?.items.gloves).toBe(3);
+    expect(back?.hunters.ranger).toEqual({ recruited: true, level: 4, station: 'forest' });
     expect(deserialize('not json')).toBeNull();
   });
 
-  it('migrates a v2 save: Vitality becomes Steady Nerves, bestiary defaults', () => {
-    const v2 = newGame(0) as unknown as Record<string, unknown>;
-    v2.version = 2;
-    v2.upgrades = { power: 12, haste: 3, vitality: 7 };
-    delete v2.bestiary;
-    const s = deserialize(JSON.stringify(v2))!;
-    expect(s.version).toBe(3);
-    expect(s.upgrades).toEqual({ power: 12, haste: 3, nerves: 7 });
-    expect(s.bestiary.slime.unlocked).toBe(true);
-    expect(s.bestiary.skeleton.unlocked).toBe(false);
-  });
-
-  it('migrates a v1 prototype save, keeping shards and stats', () => {
-    const v1 = JSON.stringify({ gold: 999, stage: 40, heroes: [5], shards: 7, stats: { totalKills: 123 } });
-    const s = deserialize(v1)!;
-    expect(s.version).toBe(3);
-    expect(s.stage).toBe(1);
+  it('migrates a stage-based save: keeps items, surviving materials and Arena progress', () => {
+    const v3 = { version: 3, gold: 1e9, stage: 40, maxStage: 40, items: { whetstone: 4 }, materials: { goo: 50, bone: 20, ember: 5 }, stars: 7, stats: { totalKills: 123, deaths: 2 } };
+    const s = deserialize(JSON.stringify(v3))!;
+    expect(s.version).toBe(4);
+    expect(s.area).toBe('forest');
     expect(s.gold).toBe(0);
-    expect(s.shards).toBe(7);
+    expect(s.items.whetstone).toBe(4);
+    expect(s.materials.goo).toBe(50);
+    expect(s.materials.bone).toBe(20);
+    expect(s.stars).toBe(7);
     expect(s.stats.totalKills).toBe(123);
+    expect('deaths' in s.stats).toBe(false);
   });
 });

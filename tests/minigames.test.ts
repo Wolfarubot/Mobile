@@ -41,9 +41,9 @@ describe('Sky Siege', () => {
 
   it('only drops materials of enemies the player has unlocked', () => {
     const g = game();
-    g.state.bestiary.skeleton.unlocked = true;
-    g.state.bestiary.imp.unlocked = true;
-    expect(g.unlockedMaterials).toEqual(['goo', 'bone', 'ember']);
+    g.state.bestiary.wolf.unlocked = true;
+    g.state.bestiary.imp.unlocked = true; // its area is still locked, so it doesn't count
+    expect(g.unlockedMaterials).toEqual(['goo', 'pelt']);
   });
 
   it('getting hit costs a life; losing the last one ends the run', () => {
