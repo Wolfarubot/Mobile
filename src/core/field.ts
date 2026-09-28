@@ -9,8 +9,6 @@ import {
   MAX_ENEMIES,
   MULTISHOT_SPREAD,
   STUN_IMMUNITY,
-  TAP_DAMAGE_MULT,
-  TAP_RADIUS,
   type EnemyId,
   type HunterId,
 } from './balance';
@@ -118,8 +116,7 @@ export type FieldEvent =
   | { type: 'kill'; x: number; y: number; enemy: EnemyId; boss: boolean; reward: KillReward }
   | { type: 'blast'; x: number; y: number }
   | { type: 'boss' }
-  /** `fresh` = a new knockout (false when a monster just extends a stun already in progress). */
-  | { type: 'stun'; x: number; y: number; boss: boolean; who: Shooter; fresh: boolean }
+  | { type: 'stun'; x: number; y: number; boss: boolean; who: Shooter }
   | { type: 'guard'; x: number; y: number }
   | { type: 'escape'; x: number; y: number }
   | { type: 'explode'; x: number; y: number; r: number; color: string }
@@ -371,14 +368,12 @@ export class Field {
       this.events.push({ type: 'guard', x: helper?.x ?? 0, y: helper?.y ?? 0 });
       return;
     }
-    if (state.immune <= 0 || state.stun > 0) {
-      const fresh = state.stun <= 0;
+    // A stun runs its course: hits while stunned or immune don't extend it (no stun loops).
+    if (state.immune <= 0 && state.stun <= 0) {
       const t = this.game.stunTime(e.boss, who);
-      if (t > state.stun) {
-        state.stun = t;
-        state.stunTotal = t;
-      }
-      this.events.push({ type: 'stun', x: e.x, y: e.y, boss: e.boss, who, fresh });
+      state.stun = t;
+      state.stunTotal = t;
+      this.events.push({ type: 'stun', x: e.x, y: e.y, boss: e.boss, who });
     }
     if (e.boss) {
       e.kx += ux * BOSS_BOUNCE;
@@ -677,13 +672,13 @@ export class Field {
     g.registerTap();
     this.events.push({ type: 'blast', x, y });
     const crit = g.rng() < g.critChanceOf('main');
-    const dmg = g.damage * TAP_DAMAGE_MULT * (crit ? CRIT_MULT : 1);
+    const dmg = g.tapDamage * (crit ? CRIT_MULT : 1);
     for (const e of this.enemies) {
       if (e.hp <= 0) continue;
       const dx = e.x - x;
       const dy = e.y - y;
       const d = Math.hypot(dx, dy);
-      if (d > TAP_RADIUS + e.r) continue;
+      if (d > g.tapRadius + e.r) continue;
       this.damage(e, dmg, crit, dx / (d || 1), dy / (d || 1));
     }
     this.enemies = this.enemies.filter((e) => e.hp > 0);

@@ -11,8 +11,8 @@ it.runIf(!!process.env.CALIBRATE)('live field vs farm model', () => {
     ['caves', 90, []], ['caves', 130, []],
   ] as Array<[AreaId, number, string[]]>) {
     const s = newGame(0);
-    s.upgrades.power = power;
-    s.upgrades.haste = 10;
+    s.main.trains = power;
+    s.main.skills.speed = 2;
     for (const a of ['forest', 'graveyard', 'caves'] as AreaId[]) s.areas[a].unlocked = true;
     for (const id of extra) (s.bestiary as Record<string, { unlocked: boolean }>)[id].unlocked = true;
     s.area = area;
@@ -26,7 +26,7 @@ it.runIf(!!process.env.CALIBRATE)('live field vs farm model', () => {
       g.tick(1 / 30);
       f.update(1 / 30);
       if (f.stunned) downTime += 1 / 30;
-      for (const e of f.drainEvents()) if (e.type === 'stun' && e.who === 'main' && e.fresh) stuns++;
+      for (const e of f.drainEvents()) if (e.type === 'stun' && e.who === 'main') stuns++;
     }
     const kills = s.areas[area].kills;
     const m = g.farmRates(area, ['main'], 1);

@@ -1,5 +1,4 @@
 // All tunable numbers, content tables and pure formulas live here so balancing never touches game flow code.
-import { fmt } from './format';
 
 // ---- Player & combat ----
 export const BASE_FIRE_RATE = 1.6; // volleys per second
@@ -14,8 +13,11 @@ export const TAP_RADIUS = 48;
 export const STUN_TIME = 1.2;
 /** Bosses don't flee: they stun longer and bounce off. */
 export const BOSS_STUN_TIME = 2.5;
-/** After a stun wears off the Hunter can't be re-stunned for this long, so they always get some shots off. */
-export const STUN_IMMUNITY = 0.8;
+/**
+ * Stuns never stack or extend: monsters that reach a stunned Hunter just run off. After a stun wears off
+ * the Hunter can't be re-stunned for this long, so they always get some shots off.
+ */
+export const STUN_IMMUNITY = 1.2;
 /** Fleeing enemies run this much faster than they approached. */
 export const FLEE_SPEED_MULT = 1.4;
 export const BASE_DROP_CHANCE = 0.07; // chance an enemy drops its material
@@ -29,7 +31,8 @@ export const GUARDIAN_GOLD_MULT = 50;
 export const OFFLINE_CAP_SEC = 8 * 3600;
 /** Fraction of the online kill rate earned while away. */
 export const OFFLINE_EFFICIENCY = 0.5;
-export const OFFLINE_MIN_SEC = 30; // shorter absences are not worth a popup
+/** Shorter absences are granted silently (no Welcome Back popup), e.g. when switching apps. */
+export const OFFLINE_POPUP_SEC = 15 * 60;
 
 // ---- Arena ----
 export const MAX_TICKETS = 3;
@@ -39,33 +42,60 @@ export const FRENZY_CAP_SEC = 300;
 /** Minigame reward: each "reward unit" is worth this many kills of gold in the current area. */
 export const MINIGAME_GOLD_PER_UNIT = 2;
 
-// ---- Main Hunter training (gold) ----
-export type UpgradeId = 'power' | 'haste' | 'nerves';
+// ---- Training & skills (every Hunter, you included) ----
+// Hunters *train* with gold: every session adds a little damage. Enough training raises their level,
+// and each level earns a skill point for their skill tree.
 
-export interface UpgradeDef {
-  id: UpgradeId;
+/** Damage per shot after `trains` training sessions: linear, doubling every 25 sessions. */
+export function powerDamage(trains: number): number {
+  return (1 + trains) * 2 ** Math.floor(trains / 25);
+}
+
+/** Training sessions needed to go from `level` to the next (Lv 1→2: 3, 2→3: 4, ...). */
+export const trainsForLevel = (level: number): number => level + 2;
+
+/** Level reached after `trains` sessions, and progress toward the next one. */
+export function levelFromTrains(trains: number): { level: number; into: number; need: number } {
+  let level = 1;
+  let left = trains;
+  while (left >= trainsForLevel(level)) {
+    left -= trainsForLevel(level);
+    level++;
+  }
+  return { level, into: left, need: trainsForLevel(level) };
+}
+
+/** Your Hunter's training cost: `MAIN_TRAIN_COST × MAIN_TRAIN_GROWTH^trains`. Guild Hunters use helperTrainCost. */
+export const MAIN_TRAIN_COST = 8;
+export const MAIN_TRAIN_GROWTH = 1.075;
+
+export type SkillId = 'power' | 'speed' | 'recovery' | 'tapPower' | 'tapSize';
+
+export interface SkillDef {
+  id: SkillId;
   name: string;
   icon: string;
-  baseCost: number;
-  growth: number;
   maxLevel?: number;
+  /** Only your own Hunter has this skill (the tap blast). */
+  mainOnly?: boolean;
   describe: (level: number) => string;
 }
 
-export const UPGRADES: UpgradeDef[] = [
-  { id: 'power', name: 'Power', icon: '💪', baseCost: 8, growth: 1.075, describe: (l) => `${fmt(powerDamage(l))} damage per shot` },
-  { id: 'haste', name: 'Rapid Fire', icon: '🏹', baseCost: 30, growth: 1.35, maxLevel: 60, describe: (l) => `+${Math.round(l * 5)}% attack rate` },
-  { id: 'nerves', name: 'Steady Nerves', icon: '🧘', baseCost: 50, growth: 1.5, maxLevel: 30, describe: (l) => `−${Math.round((1 - nervesMult(l)) * 100)}% stun time` },
+export const SKILL_POWER = 0.1;
+export const SKILL_SPEED = 0.1;
+export const SKILL_RECOVERY = 0.92;
+export const SKILL_TAP_POWER = 0.5;
+export const SKILL_TAP_SIZE = 0.15;
+
+export const SKILLS: SkillDef[] = [
+  { id: 'power', name: 'Attack Power', icon: '💪', describe: (l) => `+${Math.round(l * SKILL_POWER * 100)}% damage` },
+  { id: 'speed', name: 'Attack Speed', icon: '⚡', maxLevel: 20, describe: (l) => `+${Math.round(l * SKILL_SPEED * 100)}% attack rate` },
+  { id: 'recovery', name: 'Recovery Speed', icon: '🧘', maxLevel: 10, describe: (l) => `−${Math.round((1 - SKILL_RECOVERY ** l) * 100)}% stun time` },
+  { id: 'tapPower', name: 'Tap Power', icon: '👆', mainOnly: true, describe: (l) => `+${Math.round(l * SKILL_TAP_POWER * 100)}% tap damage` },
+  { id: 'tapSize', name: 'Tap Size', icon: '💥', mainOnly: true, maxLevel: 10, describe: (l) => `+${Math.round(l * SKILL_TAP_SIZE * 100)}% tap area` },
 ];
 
-/** Damage per shot from a Power (or Hunter) level: linear, doubling every 25 levels. */
-export function powerDamage(level: number): number {
-  return (1 + level) * 2 ** Math.floor(level / 25);
-}
-
-export const hasteMult = (level: number): number => 1 + 0.05 * level;
-/** Stun duration multiplier from Steady Nerves. */
-export const nervesMult = (level: number): number => 0.96 ** level;
+export const skillDef = (id: SkillId): SkillDef => SKILLS.find((k) => k.id === id)!;
 
 /** Total cost of buying `count` levels starting at `level` (geometric series). */
 export function bulkCost(baseCost: number, growth: number, level: number, count: number): number {
@@ -157,7 +187,7 @@ export interface AreaDef {
 }
 
 export const AREAS: AreaDef[] = [
-  { id: 'forest', name: 'Whispering Forest', hp: 3, gold: 1, speed: 36, mastery: 600, guardian: 25_000, ground: '#2f4a2c', speck: '#3b5c37', blurb: 'Where every hunt begins.' },
+  { id: 'forest', name: 'Whispering Forest', hp: 1, gold: 1, speed: 36, mastery: 600, guardian: 25_000, ground: '#2f4a2c', speck: '#3b5c37', blurb: 'Where every hunt begins.' },
   { id: 'graveyard', name: 'Old Graveyard', hp: 150, gold: 25, speed: 40, mastery: 1500, guardian: 40_000_000, ground: '#2b2630', speck: '#383140', blurb: 'The dead do not rest here.' },
   { id: 'caves', name: 'Ember Caves', hp: 150_000, gold: 600, speed: 45, mastery: 4_000, guardian: 5_000_000_000, ground: '#3a1c14', speck: '#4d271b', blurb: 'Hot, bright and full of teeth.' },
   { id: 'peaks', name: 'Frost Peaks', hp: 7_000_000, gold: 15_000, speed: 50, mastery: 10_000, guardian: 3e11, ground: '#23344a', speck: '#2e4561', blurb: 'Cold winds carry cold things.' },
@@ -212,7 +242,7 @@ export interface EnemyDef {
 
 export const ENEMIES: EnemyDef[] = [
   // Whispering Forest
-  { id: 'greenSlime', name: 'Green Slime', area: 'forest', archetype: 'slime', hp: 1, speed: 1, gold: 1, spawn: 1.6, pack: [3, 5], radius: 10, material: 'goo', unlock: 0, color: '#7be07b', shape: 'circle', blurb: 'Squishy and plentiful.' },
+  { id: 'greenSlime', name: 'Green Slime', area: 'forest', archetype: 'slime', hp: 1, speed: 1, gold: 1, spawn: 0.8, pack: [2, 3], radius: 10, material: 'goo', unlock: 0, color: '#7be07b', shape: 'circle', blurb: 'Squishy and plentiful.' },
   { id: 'wolf', name: 'Forest Wolf', area: 'forest', archetype: 'beast', hp: 1.3, speed: 1.5, gold: 1.6, spawn: 0.6, pack: [2, 3], radius: 10, material: 'pelt', unlock: 120, color: '#b08a5a', shape: 'triangle', blurb: 'Fast, hunts in pairs.' },
   { id: 'redSlime', name: 'Red Slime', area: 'forest', archetype: 'slime', hp: 2, speed: 0.9, gold: 2.5, spawn: 0.5, pack: [2, 4], radius: 11, material: 'redgel', unlock: 900, color: '#ff6b6b', shape: 'circle', blurb: 'A tougher, angrier slime.' },
   // Old Graveyard
@@ -405,12 +435,13 @@ export function hunterPerk(h: HunterDef): string {
 }
 
 /** Your own Hunter's card blurb. */
-export const MAIN_ABILITY = 'Trains Power, Rapid Fire and Steady Nerves with gold. Tap the field for an extra blast, even while stunned.';
+export const MAIN_ABILITY = 'Tap the Battle Field to damage Monsters!';
 
-/** Hunters fire a little slower than you and level with gold. */
+/** Hunters fire a little slower than you and train with gold. */
 export const HELPER_FIRE_RATE = 1.2;
-export const HELPER_LEVEL_GROWTH = 1.085;
-export const helperLevelCost = (h: HunterDef, level: number): number => Math.ceil(Math.max(10, h.recruitCost * 0.05) * HELPER_LEVEL_GROWTH ** level);
+export const HELPER_TRAIN_GROWTH = 1.085;
+/** Cost of a Guild Hunter's first training session (then × HELPER_TRAIN_GROWTH each). */
+export const helperTrainCost = (h: HunterDef): number => Math.ceil(Math.max(10, h.recruitCost * 0.05));
 /** Stationed Hunters earn at this fraction of their full rate (they don't tap, but they never get stunned). */
 export const STATION_EFFICIENCY = 0.8;
 

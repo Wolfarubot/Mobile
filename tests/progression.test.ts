@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AREAS, ENEMIES, GEAR, gearDef, gearStats, type GearId, enemyUnlockCost, HUNTERS, ITEMS, STATION_EFFICIENCY, UPGRADES, type AreaId, type ItemId, type UpgradeId } from '../src/core/balance';
+import { AREAS, ENEMIES, GEAR, gearDef, gearStats, type GearId, enemyUnlockCost, HUNTERS, ITEMS, STATION_EFFICIENCY, type AreaId, type ItemId, type SkillId } from '../src/core/balance';
 import { Field } from '../src/core/field';
 import { Game } from '../src/core/game';
 import { newGame, type Wearer } from '../src/core/state';
@@ -39,6 +39,19 @@ function botGear(game: Game): void {
   for (const who of wearers) for (const it of game.equipped(who)) if (it) game.upgradeGear(it.uid);
 }
 
+/** Spend skill points: alternate Attack Speed and Attack Power, with some Recovery. */
+function botSkills(game: Game): void {
+  const wearers: Wearer[] = ['main', ...HUNTERS.filter((h) => game.state.hunters[h.id].recruited).map((h) => h.id)];
+  for (const who of wearers) {
+    while (game.skillPoints(who) > 0) {
+      const lv = (k: SkillId) => game.skill(who, k);
+      const pick: SkillId =
+        lv('recovery') * 3 < lv('power') && game.canLearn(who, 'recovery') ? 'recovery' : lv('speed') <= lv('power') && game.canLearn(who, 'speed') ? 'speed' : 'power';
+      if (!game.learn(who, pick)) break;
+    }
+  }
+}
+
 /** The bot's decisions, run once per simulated second while it's playing (and on each return from offline). */
 function botShop(game: Game, t: number, memo: { lastChallenge: number }): void {
   const s = game.state;
@@ -53,13 +66,9 @@ function botShop(game: Game, t: number, memo: { lastChallenge: number }): void {
   for (const e of ENEMIES) if (game.isAreaUnlocked(e.area) && !s.bestiary[e.id].unlocked && enemyUnlockCost(e) < s.gold * 0.1) game.unlockEnemy(e.id);
   for (const h of HUNTERS) if (game.canRecruit(h.id) && h.recruitCost < s.gold * 0.25) game.recruit(h.id);
   s.buyAmount = 1;
-  for (const h of HUNTERS) while (s.hunters[h.id].recruited && game.hunterPurchase(h.id, 1).cost < s.gold * 0.03) game.levelHunter(h.id);
-  for (let guard = 0; guard < 400; guard++) {
-    const opts = UPGRADES.map((u) => ({ id: u.id as UpgradeId, p: game.upgradePurchase(u.id, 1) }))
-      .filter((o) => o.p.count > 0)
-      .sort((a, b) => a.p.cost * (a.id === 'power' ? 1 : 1.5) - b.p.cost * (b.id === 'power' ? 1 : 1.5));
-    if (!opts.length || !game.buyUpgrade(opts[0].id)) break;
-  }
+  for (const h of HUNTERS) while (s.hunters[h.id].recruited && game.trainPurchase(h.id, 1).cost < s.gold * 0.03) game.train(h.id);
+  for (let guard = 0; guard < 400 && game.train('main'); guard++);
+  botSkills(game);
   for (const it of ITEMS) while (game.craft(it.id as ItemId));
   botGear(game);
 
@@ -164,8 +173,8 @@ it.runIf(!!process.env.SIM_SWEEP)('pacing sweep', () => {
   console.log('Typical player (since first launch):', AREAS.map((a) => `${a.name}: ${fmtT(player.unlockedAt[a.id])}`).join(' | '));
   console.log('  ...of which actively playing:     ', AREAS.map((a) => `${a.name}: ${fmtT(player.activeAt[a.id])}`).join(' | '));
   const s = player.game.state;
-  console.log('  end state: area', s.area, 'power', s.upgrades.power, 'items', JSON.stringify(s.items));
-  console.log('  hunters', JSON.stringify(Object.fromEntries(Object.entries(s.hunters).filter(([, h]) => h.recruited).map(([id, h]) => [id, `${h.level}@${h.station}`]))));
+  console.log('  end state: area', s.area, 'main', JSON.stringify(s.main), 'items', JSON.stringify(s.items));
+  console.log('  hunters', JSON.stringify(Object.fromEntries(Object.entries(s.hunters).filter(([, h]) => h.recruited).map(([id, h]) => [id, `${h.trains}@${h.station}`]))));
   const nonstop = simulate(12 * H);
   console.log('Nonstop optimal play:', AREAS.map((a) => `${a.name}: ${fmtT(nonstop.unlockedAt[a.id])}`).join(' | '));
   console.log(`(sim took ${((Date.now() - started) / 1000).toFixed(1)}s)`);

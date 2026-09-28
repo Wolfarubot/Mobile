@@ -1,7 +1,7 @@
 import './style.css';
 import { App as CapApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
-import { OFFLINE_MIN_SEC } from './core/balance';
+import { OFFLINE_POPUP_SEC } from './core/balance';
 import { Field } from './core/field';
 import { Game } from './core/game';
 import { loadGame, saveGame, wipeSave } from './core/save';
@@ -30,7 +30,7 @@ async function boot(): Promise<void> {
   const field = new Field(game);
   const battle = new BattleView(document.getElementById('battle') as HTMLCanvasElement, game, field);
   const ui = new AppUI(game, { save, wipe });
-  if (offline && offline.away >= OFFLINE_MIN_SEC) ui.showOffline(offline);
+  if (offline && offline.away >= OFFLINE_POPUP_SEC) ui.showOffline(offline);
 
   // Main loop: simulation runs every frame; the DOM refreshes on a slower cadence.
   let last = performance.now();
@@ -78,7 +78,7 @@ async function boot(): Promise<void> {
     away = false;
     last = performance.now();
     const r = game.applyOffline();
-    if (r.away >= OFFLINE_MIN_SEC && !ui.minigameActive) ui.showOffline(r);
+    if (r.away >= OFFLINE_POPUP_SEC && !ui.minigameActive) ui.showOffline(r);
     ui.refresh();
   };
   document.addEventListener('visibilitychange', () => (document.hidden ? onHide() : onShow()));

@@ -7,7 +7,7 @@ import {
   ITEMS,
   MATERIALS,
   MAX_TICKETS,
-  UPGRADES,
+  SKILLS,
   type AreaId,
   type BhUpgradeId,
   type EnemyId,
@@ -15,7 +15,7 @@ import {
   type HunterId,
   type ItemId,
   type MaterialId,
-  type UpgradeId,
+  type SkillId,
 } from './balance';
 
 export type BuyAmount = 1 | 10 | 100 | 'max';
@@ -32,9 +32,16 @@ export interface AreaState {
   kills: number;
 }
 
-export interface HunterState {
+/** Gold training and the skill points spent from it (see levelFromTrains). */
+export interface Training {
+  /** Training sessions so far: each adds damage; enough of them raise the level. */
+  trains: number;
+  /** Skill points spent per skill. */
+  skills: Partial<Record<SkillId, number>>;
+}
+
+export interface HunterState extends Training {
   recruited: boolean;
-  level: number;
   /** Area they're stationed in, earning in the background (null = resting). */
   station: AreaId | null;
 }
@@ -55,8 +62,8 @@ export interface GameState {
   /** Where your main Hunter is fighting. */
   area: AreaId;
   areas: Record<AreaId, AreaState>;
-  /** Main Hunter training levels. */
-  upgrades: Record<UpgradeId, number>;
+  /** Your Hunter's training and skills. */
+  main: Training;
   /** Which enemy types spawn and their Swarm/Bounty levels. */
   bestiary: Record<EnemyId, BestiaryEntry>;
   hunters: Record<HunterId, HunterState>;
@@ -89,7 +96,7 @@ export interface GameState {
   };
 }
 
-export const SAVE_VERSION = 5;
+export const SAVE_VERSION = 6;
 
 const zeroes = <K extends string>(ids: { id: K }[]): Record<K, number> =>
   Object.fromEntries(ids.map((x) => [x.id, 0])) as Record<K, number>;
@@ -103,9 +110,9 @@ export function newGame(now = Date.now()): GameState {
     gold: 0,
     area: 'forest',
     areas: byId(AREAS, (_, i) => ({ unlocked: i === 0, kills: 0 })),
-    upgrades: zeroes(UPGRADES),
+    main: { trains: 0, skills: {} },
     bestiary: byId(ENEMIES, (id) => ({ unlocked: ENEMIES.find((e) => e.id === id)!.unlock === 0, swarm: 0, bounty: 0 })),
-    hunters: byId(HUNTERS, () => ({ recruited: false, level: 0, station: null })),
+    hunters: byId(HUNTERS, () => ({ recruited: false, trains: 0, skills: {}, station: null })),
     materials: zeroes(MATERIALS),
     items: zeroes(ITEMS),
     inventory: [],
@@ -139,6 +146,13 @@ function mergeNumbers<K extends string>(base: Record<K, number>, saved: unknown)
   if (saved && typeof saved === 'object')
     for (const [k, v] of Object.entries(saved)) if (k in out && typeof v === 'number' && Number.isFinite(v)) out[k as K] = v;
   return out;
+}
+
+function cleanSkills(saved: unknown): Partial<Record<SkillId, number>> {
+  if (!saved || typeof saved !== 'object') return {};
+  return Object.fromEntries(
+    Object.entries(saved).filter(([k, v]) => SKILLS.some((d) => d.id === k) && typeof v === 'number' && Number.isFinite(v) && v >= 0),
+  );
 }
 
 /** Parses a save, filling in fields missing from older versions. Returns null if unusable. */
@@ -179,7 +193,6 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
     ...base,
     ...(data as Partial<GameState>),
     areas: mergeRecord(base.areas, data.areas),
-    upgrades: mergeNumbers(base.upgrades, data.upgrades),
     bestiary: mergeRecord(base.bestiary, data.bestiary),
     hunters: mergeRecord(base.hunters, data.hunters),
     materials: mergeNumbers(base.materials, data.materials),
@@ -188,6 +201,22 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
     stats,
     version: SAVE_VERSION,
   };
+  // v5 -> v6: Power levels and Hunter levels become training sessions; skills start unspent
+  // (Rapid Fire / Steady Nerves are replaced by skill points).
+  const oldPower = (data.upgrades as Record<string, unknown> | undefined)?.power;
+  const main = data.main as Partial<Training> | undefined;
+  state.main = {
+    trains: typeof main?.trains === 'number' ? main.trains : typeof oldPower === 'number' ? oldPower : 0,
+    skills: cleanSkills(main?.skills),
+  };
+  delete (state as unknown as Record<string, unknown>).upgrades;
+  const savedHunters = (data.hunters ?? {}) as Record<string, { trains?: unknown; level?: unknown }>;
+  for (const [id, h] of Object.entries(state.hunters) as Array<[string, HunterState & { level?: number }]>) {
+    const saved = savedHunters[id] ?? {};
+    h.trains = typeof saved.trains === 'number' ? saved.trains : typeof saved.level === 'number' ? saved.level : 0;
+    h.skills = cleanSkills(h.skills);
+    delete h.level;
+  }
   // v4 -> v5: gear is new. Keep only well-formed pieces and slot references to pieces that exist.
   state.inventory = Array.isArray(data.inventory)
     ? (data.inventory as GearItem[]).filter((g) => g && typeof g.uid === 'number' && GEAR.some((d) => d.id === g.base) && typeof g.level === 'number')

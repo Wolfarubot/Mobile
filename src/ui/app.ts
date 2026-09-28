@@ -31,7 +31,6 @@ import {
   STATION_EFFICIENCY,
   SWARM_PER_LEVEL,
   TICKET_REGEN_SEC,
-  UPGRADES,
   type EnemyDef,
   type EnemyUpgrade,
   type GearDef,
@@ -152,7 +151,10 @@ export class AppUI {
       'hidden',
       !ENEMIES.some((e) => !s.bestiary[e.id].unlocked && g.isAreaUnlocked(e.area) && s.gold >= enemyUnlockCost(e)),
     );
-    $('#huntersBadge').classList.toggle('hidden', !HUNTERS.some((h) => g.canRecruit(h.id)));
+    $('#huntersBadge').classList.toggle(
+      'hidden',
+      !HUNTERS.some((h) => g.canRecruit(h.id) || (s.hunters[h.id].recruited && g.skillPoints(h.id) > 0)) && g.skillPoints('main') <= 0,
+    );
 
     for (const r of this.refreshers) r();
     if (this.detail) for (const r of this.detail.refreshers) r();
@@ -162,56 +164,57 @@ export class AppUI {
 
   private buildHunters(): void {
     const g = this.game;
-    this.panel.appendChild(sectionTitle('Your Hunter'));
-    this.panel.appendChild(this.hunterCard('main'));
-
     const amounts = el('div', 'amounts');
+    amounts.appendChild(el('span', 'amounts-label', 'Train'));
     const opts: BuyAmount[] = [1, 10, 100, 'max'];
-    for (const a of opts) {
+    const buttons = opts.map((a) => {
       const b = el('button', '', a === 'max' ? 'MAX' : `×${a}`);
       b.addEventListener('click', () => {
         g.state.buyAmount = a;
-        amounts.querySelectorAll('button').forEach((x, i) => x.classList.toggle('active', opts[i] === a));
+        buttons.forEach((x, i) => x.classList.toggle('active', opts[i] === a));
+        this.refresh();
       });
       b.classList.toggle('active', g.state.buyAmount === a);
       amounts.appendChild(b);
-    }
+      return b;
+    });
     this.panel.appendChild(amounts);
 
-    for (const u of UPGRADES) {
-      const row = el('div', 'row');
-      row.innerHTML = `<div class="icon">${u.icon}</div><div class="info"><div class="name"></div><div class="sub"></div></div><button class="buy"></button>`;
-      const btn = $<HTMLButtonElement>('.buy', row);
-      btn.addEventListener('click', () => g.buyUpgrade(u.id) && this.refresh());
-      this.panel.appendChild(row);
-      let key = '';
-      this.refreshers.push(() => {
-        const lv = g.state.upgrades[u.id];
-        const p = g.upgradePurchase(u.id);
-        const maxed = p.count <= 0;
-        const k = `${lv}|${p.count}|${p.cost}`;
-        if (k !== key) {
-          key = k;
-          $('.name', row).innerHTML = `${u.name} <small>Lv ${lv}${u.maxLevel ? ` / ${u.maxLevel}` : ''}</small>`;
-          $('.sub', row).innerHTML = maxed
-            ? u.describe(lv)
-            : lv === 0
-              ? `<b>${u.describe(p.count)}</b>`
-              : `${u.describe(lv)} → <b>${u.describe(lv + p.count)}</b>`;
-          btn.innerHTML = maxed ? 'MAX' : `Level +${p.count}<small>🪙 ${fmt(p.cost)}</small>`;
-        }
-        btn.disabled = maxed || g.state.gold < p.cost;
-      });
-    }
+    this.panel.appendChild(sectionTitle('Your Hunter'));
+    this.panel.appendChild(this.hunterCard('main'));
 
     this.panel.appendChild(sectionTitle('Hunter Guild'));
     const tip = el('div', 'card');
-    tip.innerHTML = `<p style="margin:0">Tap a Hunter for their stats and gear. Station them in areas to keep earning gold and materials there while you hunt elsewhere (${Math.round(STATION_EFFICIENCY * 100)}% efficiency, offline too). One Hunter per area; visit their area and they fight beside you.</p>`;
+    tip.innerHTML = `<p style="margin:0">Train Hunters with gold: each session adds damage, and every level earns a skill point. Tap a Hunter for their skills, stats and gear. Station them in areas to keep earning there while you hunt elsewhere (${Math.round(STATION_EFFICIENCY * 100)}% efficiency, offline too).</p>`;
     this.panel.appendChild(tip);
     for (const h of HUNTERS) this.panel.appendChild(this.hunterCard(h.id));
   }
 
-  /** Compact Hunter card: art on the left, name, ability, equipped gear and status. Tap for the full view. */
+  /** A Train button (with progress to the next level) for a recruited Hunter or you. */
+  private trainButton(who: Wearer): HTMLElement {
+    const g = this.game;
+    const wrap = el('div', 'train');
+    const btn = el('button', 'buy') as HTMLButtonElement;
+    const bar = el('div', 'train-bar');
+    bar.innerHTML = '<i></i><span></span>';
+    wrap.append(btn, bar);
+    btn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      if (g.train(who)) this.refresh();
+    });
+    wrap.addEventListener('click', (ev) => ev.stopPropagation());
+    this.refreshers.push(() => {
+      const p = g.trainPurchase(who);
+      const { level, into, need } = g.levelInfo(who);
+      btn.innerHTML = `Train${p.count > 1 ? ` ×${p.count}` : ''}<small>🪙 ${fmt(p.cost)}</small>`;
+      btn.disabled = g.state.gold < p.cost;
+      $('i', bar).style.width = `${(into / need) * 100}%`;
+      $('span', bar).textContent = `Lv ${level} · ${into}/${need} to Lv ${level + 1}`;
+    });
+    return wrap;
+  }
+
+  /** Compact Hunter card: art, name, location & DPS, equipped gear, ability, and a Train button. Tap for the full view. */
   private hunterCard(who: Wearer): HTMLElement {
     const g = this.game;
     const def = who === 'main' ? null : hunterDef(who);
@@ -221,31 +224,41 @@ export class AppUI {
       ${portraitHtml(who)}
       <div class="hc-info">
         <div class="hc-name"></div>
-        <div class="hc-ability">${def ? def.ability : MAIN_ABILITY}</div>
-        <div class="hc-gear"></div>
         <div class="hc-status"></div>
+        <div class="hc-gear"></div>
+        <div class="hc-ability">${def ? def.ability : MAIN_ABILITY}</div>
       </div>
       <div class="hc-chev">›</div>`;
     card.addEventListener('click', () => this.openHunterDetail(who));
+    const info = $('.hc-info', card);
     const name = $('.hc-name', card);
     const gearEl = $('.hc-gear', card);
     const status = $('.hc-status', card);
-    let recruitBtn: HTMLButtonElement | null = null;
     if (def && !g.state.hunters[def.id].recruited) {
-      recruitBtn = el('button', 'buy hc-recruit') as HTMLButtonElement;
+      const recruitBtn = el('button', 'buy hc-recruit') as HTMLButtonElement;
       recruitBtn.addEventListener('click', (ev) => {
         ev.stopPropagation();
         g.recruit(def.id);
       });
-      status.replaceWith(recruitBtn);
+      info.appendChild(recruitBtn);
+      card.classList.add('locked');
+      this.refreshers.push(() => {
+        name.innerHTML = `${def.name} <small>the ${def.title}</small>`;
+        status.textContent = g.isAreaUnlocked(def.area) ? 'Available to recruit' : `Found in ${areaDef(def.area).name}`;
+        recruitBtn.innerHTML = g.isAreaUnlocked(def.area) ? `Recruit<small>🪙 ${fmt(def.recruitCost)}</small>` : '🔒 Locked';
+        recruitBtn.disabled = !g.canRecruit(def.id);
+      });
+      gearEl.innerHTML = g.slotsOf(who).map((slot) => `<span class="gear-chip empty">${GEAR_KINDS[slot.kind].icon} ${slot.label}</span>`).join('');
+      return card;
     }
+    info.appendChild(this.trainButton(who));
     let gearKey = '';
     this.refreshers.push(() => {
-      const recruited = !def || g.state.hunters[def.id].recruited;
-      card.classList.toggle('locked', !recruited);
-      name.innerHTML = def
-        ? `${def.name} <small>the ${def.title}${recruited ? ` · Lv ${g.state.hunters[def.id].level}` : ''}</small>`
-        : `You <small>the Monster Hunter</small>`;
+      const points = g.skillPoints(who);
+      name.innerHTML = `${def ? def.name : 'You'} <small>${def ? `the ${def.title}` : 'the Monster Hunter'} · Lv ${g.levelOf(who)}</small>${points > 0 ? ` <b class="sp-badge">+${points} SP</b>` : ''}`;
+      const station = def ? g.state.hunters[def.id].station : g.area;
+      const down = def && station && station !== g.area ? (g.farmRates(station, [def.id], STATION_EFFICIENCY).stunned[def.id] ?? 0) : 0;
+      status.innerHTML = `${station ? `📍 ${areaDef(station).name}` : '💤 Resting'} · ⚔️ ${fmt(g.dpsOf(who))} DPS${down >= 0.05 ? ' · <b class="warn">💫 overwhelmed</b>' : ''}`;
       const items = g.equipped(who);
       const k = items.map((it) => (it ? `${it.uid}:${it.level}` : '-')).join('|');
       if (k !== gearKey) {
@@ -255,27 +268,18 @@ export class AppUI {
           .map((slot, i) => {
             const it = items[i];
             return it
-              ? `<span class="mini-slot" title="${slot.label}">${gearDef(it.base).icon}<small>${it.level}</small></span>`
-              : `<span class="mini-slot empty" title="${slot.label}">${GEAR_KINDS[slot.kind].icon}</span>`;
+              ? `<span class="gear-chip">${gearDef(it.base).icon} ${gearDef(it.base).name} <small>Lv ${it.level}</small></span>`
+              : `<span class="gear-chip empty">${GEAR_KINDS[slot.kind].icon} ${slot.label}</span>`;
           })
           .join('');
       }
-      if (recruitBtn && def) {
-        recruitBtn.innerHTML = g.isAreaUnlocked(def.area) ? `Recruit<small>🪙 ${fmt(def.recruitCost)}</small>` : `Found in ${areaDef(def.area).name}`;
-        recruitBtn.disabled = !g.canRecruit(def.id);
-        return;
-      }
-      const station = def ? g.state.hunters[def.id].station : g.area;
-      const where = station ? `📍 ${areaDef(station).name}` : '💤 Resting';
-      const down = def && station && station !== g.area ? (g.farmRates(station, [def.id], STATION_EFFICIENCY).stunned[def.id] ?? 0) : 0;
-      status.innerHTML = `${where} · ⚔️ ${fmt(g.dpsOf(who))} DPS${down >= 0.05 ? ' · <b class="warn">💫 overwhelmed</b>' : ''}`;
     });
     return card;
   }
 
-  /** Full-screen Hunter view: stats, kills, equipment, level and station. Closing returns to the battlefield. */
+  /** Full-screen Hunter view: training, skills, stats, kills, equipment and station. Closing returns to the battlefield. */
   private openHunterDetail(who: Wearer): void {
-    this.closeHunterDetail();
+    if (this.detail) this.dropDetail();
     const g = this.game;
     const def = who === 'main' ? null : hunterDef(who);
     const view = el('div', 'hunter-detail');
@@ -295,8 +299,7 @@ export class AppUI {
       </div>`;
     document.body.appendChild(view);
     const body = $('.hd-body', view);
-    const close = () => this.closeHunterDetail();
-    $('.hd-close', view).addEventListener('click', close);
+    $('.hd-close', view).addEventListener('click', () => this.closeHunterDetail());
     this.detail = { el: view, who, refreshers: [] };
 
     const main = this.refreshers;
@@ -314,6 +317,12 @@ export class AppUI {
       });
     }
 
+    if (recruited) {
+      body.appendChild(sectionTitle('Training'));
+      body.appendChild(this.trainButton(who));
+      body.appendChild(this.skillTree(who));
+    }
+
     body.appendChild(sectionTitle(recruited ? 'Stats' : 'Stats when recruited'));
     const headline = el('div', 'hd-stats hd-headline');
     body.appendChild(headline);
@@ -325,26 +334,14 @@ export class AppUI {
     else body.appendChild(el('p', 'hd-note', `Slots: ${g.slotsOf(who).map((sl) => `${GEAR_KINDS[sl.kind].icon} ${sl.label}`).join(' · ')}. Recruit them to equip gear.`));
 
     if (def && recruited) {
-      body.appendChild(sectionTitle('Training'));
-      const lvl = el('button', 'buy hd-level') as HTMLButtonElement;
-      lvl.addEventListener('click', () => g.levelHunter(def.id) && this.refresh());
-      body.appendChild(lvl);
-      this.refreshers.push(() => {
-        const p = g.hunterPurchase(def.id);
-        lvl.innerHTML = `Level +${p.count} → Lv ${g.state.hunters[def.id].level + p.count}<small>🪙 ${fmt(p.cost)}</small>`;
-        lvl.disabled = g.state.gold < p.cost;
-      });
       body.appendChild(sectionTitle('Station'));
       body.appendChild(this.stationControls(def));
-    } else if (!def) {
-      body.appendChild(el('p', 'hd-note', 'Train Power, Rapid Fire and Steady Nerves from the Hunters tab. Camp Upgrades in the Forge boost every Hunter.'));
     }
 
     this.refreshers.push(() => {
-      const lv = def ? g.state.hunters[def.id].level : null;
       const station = def ? g.state.hunters[def.id].station : g.area;
       $('.hd-sub', view).innerHTML = [
-        `<span>${def ? `the ${def.title}${recruited ? ` · Lv ${lv}` : ''}` : 'the Monster Hunter'}</span>`,
+        `<span>${def ? `the ${def.title}` : 'the Monster Hunter'}${recruited ? ` · Lv ${g.levelOf(who)}` : ''}</span>`,
         recruited ? `<span class="where">${station ? `📍 ${areaDef(station).name}` : '💤 Resting'}</span>` : '',
         def && hunterPerk(def) ? `<span class="perk">${hunterPerk(def)}</span>` : '',
       ].join('');
@@ -357,6 +354,7 @@ export class AppUI {
         ['Shield', g.guardOf(who) ? `${g.guardOf(who)} hit${g.guardOf(who) > 1 ? 's' : ''}` : '—'],
         ['Crit chance', `${Math.round(g.critChanceOf(who) * 100)}%`],
       ];
+      if (!def) cells.push(['Tap damage', fmt(g.tapDamage)], ['Tap size', fmt(g.tapRadius)]);
       const pierce = g.pierceOf(who) + (def?.style.pierce ?? 0);
       if (pierce) cells.push(['Pierce', String(pierce)]);
       if (def?.bane) cells.splice(1, 0, [`vs ${ARCHETYPES[def.bane.archetype].name}`, fmt(g.shotDamage(who, def.bane.archetype))]);
@@ -369,11 +367,47 @@ export class AppUI {
     this.refresh();
   }
 
+  /** Skill points and the skills they buy. */
+  private skillTree(who: Wearer): HTMLElement {
+    const g = this.game;
+    const wrap = el('div', 'skills');
+    const head = el('div', 'skills-head');
+    wrap.appendChild(head);
+    const rows = g.skillsOf(who).map((k) => {
+      const row = el('div', 'row skill');
+      row.innerHTML = `<div class="icon">${k.icon}</div><div class="info"><div class="name"></div><div class="sub"></div></div><button class="buy learn">+</button>`;
+      const btn = $<HTMLButtonElement>('.learn', row);
+      btn.addEventListener('click', () => g.learn(who, k.id) && this.refresh());
+      wrap.appendChild(row);
+      return { k, row, btn };
+    });
+    this.refreshers.push(() => {
+      const points = g.skillPoints(who);
+      const { level } = g.levelInfo(who);
+      head.innerHTML = points > 0 ? `<b>${points}</b> skill point${points > 1 ? 's' : ''} to spend` : `Next skill point at Lv ${level + 1}`;
+      head.classList.toggle('has', points > 0);
+      for (const { k, row, btn } of rows) {
+        const lv = g.skill(who, k.id);
+        const maxed = k.maxLevel !== undefined && lv >= k.maxLevel;
+        $('.name', row).innerHTML = `${k.name} <small>${lv}${k.maxLevel ? ` / ${k.maxLevel}` : ''}</small>`;
+        $('.sub', row).innerHTML = maxed ? k.describe(lv) : lv === 0 ? `<b>${k.describe(1)}</b>` : `${k.describe(lv)} → <b>${k.describe(lv + 1)}</b>`;
+        btn.textContent = maxed ? 'MAX' : '+';
+        btn.disabled = !g.canLearn(who, k.id);
+      }
+    });
+    return wrap;
+  }
+
+  /** Removes the full-screen view without rebuilding the panel. */
+  private dropDetail(): void {
+    this.detail?.el.remove();
+    this.detail = null;
+  }
+
   /** Closes the full-screen Hunter view. Returns false if it wasn't open. */
   private closeHunterDetail(): boolean {
     if (!this.detail) return false;
-    this.detail.el.remove();
-    this.detail = null;
+    this.dropDetail();
     this.setTab(this.tab, true);
     return true;
   }

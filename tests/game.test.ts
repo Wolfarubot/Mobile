@@ -42,7 +42,7 @@ const enemy = (over: Partial<Enemy>): Enemy => ({
 function rich(): Game {
   const s = newGame(0);
   s.gold = 1e15;
-  s.upgrades.power = 200;
+  s.main.trains = 200;
   return new Game(s, noCrit);
 }
 
@@ -141,7 +141,7 @@ describe('Hunters', () => {
   it('archetype bane multiplies damage only against that archetype', () => {
     const g = rich();
     g.recruit('alchemist');
-    g.state.hunters.alchemist.level = 10;
+    g.state.hunters.alchemist.trains = 10;
     expect(g.shotDamage('alchemist', 'slime')).toBeCloseTo(g.shotDamage('alchemist', 'beast') * 3);
   });
 
@@ -150,7 +150,7 @@ describe('Hunters', () => {
     g.recruit('alchemist');
     g.recruit('ranger');
     g.state.areas.graveyard.unlocked = true;
-    g.state.hunters.alchemist.level = 50;
+    g.state.hunters.alchemist.trains = 50;
     expect(g.station('alchemist', 'forest')).toBe(true);
     expect(g.station('ranger', 'forest')).toBe(true);
     expect(g.stationedAt('forest')).toBe('ranger');
@@ -179,10 +179,10 @@ describe('Hunters', () => {
   it('farm rates respect the spawn rate and station efficiency, and weak Hunters let enemies escape', () => {
     const g = rich();
     g.recruit('alchemist');
-    g.state.hunters.alchemist.level = 300;
+    g.state.hunters.alchemist.trains = 300;
     const strong = g.farmRates('forest', ['alchemist'], STATION_EFFICIENCY);
     expect(strong.killsTotal).toBeCloseTo(g.spawnRate * STATION_EFFICIENCY);
-    g.state.hunters.alchemist.level = 0;
+    g.state.hunters.alchemist.trains = 0;
     g.state.items.whetstone = 0;
     const s = newGame(0);
     s.gold = 1e15;
@@ -222,7 +222,7 @@ describe('Hunters', () => {
     expect(g.killsBy('main')).toBe(1);
     expect(g.killsBy('ranger')).toBe(2);
     expect(g.killsBy('glimmer')).toBe(0);
-    g.state.hunters.ranger.level = 60;
+    g.state.hunters.ranger.trains = 60;
     g.station('ranger', 'forest'); // fights beside you: offline kills are shared by damage
     const before = { main: g.killsBy('main'), ranger: g.killsBy('ranger') };
     const r = g.applyOffline(3600 * 1000);
@@ -234,15 +234,61 @@ describe('Hunters', () => {
 });
 
 describe('Shops', () => {
-  it('training raises combat stats and respects max levels', () => {
-    const g = rich();
+  it('training adds damage; levels need more sessions each time and earn skill points', () => {
+    const g = new Game(newGame(0), noCrit);
+    g.state.gold = 1e9;
+    expect(g.levelOf('main')).toBe(1);
     const dmg = g.damage;
-    expect(g.buyUpgrade('power')).toBe(true);
+    expect(g.train('main')).toBe(true);
     expect(g.damage).toBeGreaterThan(dmg);
-    g.state.buyAmount = 'max';
-    g.buyUpgrade('haste');
-    expect(g.state.upgrades.haste).toBe(60);
-    expect(g.buyUpgrade('haste')).toBe(false);
+    g.train('main');
+    expect(g.levelInfo('main')).toEqual({ level: 1, into: 2, need: 3 });
+    expect(g.skillPoints('main')).toBe(0);
+    g.train('main'); // 3 sessions: Lv 2
+    expect(g.levelOf('main')).toBe(2);
+    expect(g.skillPoints('main')).toBe(1);
+    for (let i = 0; i < 3; i++) g.train('main');
+    expect(g.levelOf('main')).toBe(2); // Lv 2 → 3 takes 4 sessions
+    g.train('main');
+    expect(g.levelOf('main')).toBe(3);
+    expect(g.trainPurchase('main', 1).cost).toBeGreaterThan(g.trainPurchase('main', 1).cost * 0); // costs gold
+    const before = g.trainPurchase('main', 1).cost;
+    g.train('main');
+    expect(g.trainPurchase('main', 1).cost).toBeGreaterThan(before); // and gets pricier
+  });
+
+  it('skill points buy Attack Power, Attack Speed, Recovery and (for you) Tap skills', () => {
+    const g = rich();
+    g.recruit('ranger');
+    g.state.main.trains = 100;
+    g.state.hunters.ranger.trains = 100;
+    const pts = g.skillPoints('main');
+    expect(pts).toBeGreaterThan(5);
+    const [dmg, rate, stun, tap, radius] = [g.damage, g.fireRate, g.stunTime(), g.tapDamage, g.tapRadius];
+    for (const k of ['power', 'speed', 'recovery', 'tapPower', 'tapSize'] as const) expect(g.learn('main', k)).toBe(true);
+    expect(g.skillPoints('main')).toBe(pts - 5);
+    expect(g.damage).toBeCloseTo(dmg * 1.1);
+    expect(g.fireRate).toBeCloseTo(rate * 1.1);
+    expect(g.stunTime()).toBeLessThan(stun);
+    expect(g.tapDamage).toBeGreaterThan(tap * 1.1);
+    expect(g.tapRadius).toBeGreaterThan(radius);
+    // Guild Hunters have the combat skills but not the tap ones.
+    expect(g.skillsOf('ranger').map((k) => k.id)).toEqual(['power', 'speed', 'recovery']);
+    expect(g.learn('ranger', 'tapPower')).toBe(false);
+    const rdmg = g.shotDamage('ranger');
+    expect(g.learn('ranger', 'power')).toBe(true);
+    expect(g.shotDamage('ranger')).toBeCloseTo(rdmg * 1.1);
+    // Out of points: nothing more to learn.
+    g.state.main.skills.power = g.levelOf('main');
+    expect(g.skillPoints('main')).toBeLessThanOrEqual(0);
+    expect(g.learn('main', 'power')).toBe(false);
+  });
+
+  it('skills respect their max level', () => {
+    const g = rich();
+    g.state.main.trains = 5000;
+    for (let i = 0; i < 30; i++) g.learn('main', 'speed');
+    expect(g.skill('main', 'speed')).toBe(20);
   });
 
   it('crafting spends materials and items boost every Hunter', () => {
@@ -256,10 +302,10 @@ describe('Shops', () => {
     expect(g.shotDamage('alchemist')).toBeGreaterThan(helperDmg);
   });
 
-  it('Steady Nerves and Bone Mail shorten stuns', () => {
+  it('Recovery Speed and Bone Mail shorten stuns', () => {
     const g = new Game(newGame(0), noCrit);
     const base = g.stunTime();
-    g.state.upgrades.nerves = 10;
+    g.state.main.skills.recovery = 10;
     g.state.items.bonemail = 2;
     expect(g.stunTime()).toBeLessThan(base * 0.6);
     expect(g.stunTime(true)).toBeGreaterThan(g.stunTime());
@@ -398,7 +444,7 @@ describe('Equipment', () => {
 describe('Stuns in background & offline farming', () => {
   it('a Hunter strong enough for an area is never knocked out', () => {
     const s = newGame(0);
-    s.upgrades.power = 150;
+    s.main.trains = 150;
     const g = new Game(s, noCrit);
     const r = g.farmRates('forest', ['main'], 1);
     expect(r.stuns.main).toBe(0);
@@ -406,15 +452,16 @@ describe('Stuns in background & offline farming', () => {
     expect(r.killsTotal).toBeCloseTo(g.spawnRate);
   });
 
-  it('a Hunter too weak for a new area spends most of the time stunned and kills little', () => {
+  it('a Hunter too weak for a new area is stunned often and kills little', () => {
     const s = newGame(0);
-    s.upgrades.power = 20; // comfortable in the forest...
+    s.main.trains = 20; // comfortable in the forest...
     s.areas.graveyard.unlocked = true;
     const g = new Game(s, noCrit);
     const forest = g.farmRates('forest', ['main'], 1);
     const graveyard = g.farmRates('graveyard', ['main'], 1);
     expect(forest.stunned.main).toBe(0);
-    expect(graveyard.stunned.main).toBeGreaterThan(0.4); // ...but swamped in the graveyard
+    // ...but swamped in the graveyard: stunned again as soon as each immunity wears off (at most T / (T + immunity)).
+    expect(graveyard.stunned.main).toBeGreaterThan(0.3);
     expect(graveyard.stuns.main).toBeGreaterThan(0);
     const spawns = g.roster('graveyard').reduce((sum, e) => sum + e.spawnRate, 0);
     expect(graveyard.killsTotal).toBeLessThan(spawns * 0.25);
@@ -423,7 +470,7 @@ describe('Stuns in background & offline farming', () => {
   it("going offline in an area you can't handle pays less than farming one you can", () => {
     const setup = (area: 'forest' | 'graveyard') => {
       const s = newGame(0);
-      s.upgrades.power = 20;
+      s.main.trains = 20;
       s.areas.graveyard.unlocked = true;
       s.area = area;
       return new Game(s, noCrit).applyOffline(8 * 3600 * 1000);
@@ -438,7 +485,7 @@ describe('Stuns in background & offline farming', () => {
   it('knockouts are reported per Hunter, only when they happened', () => {
     const s = newGame(0);
     s.gold = 1e12;
-    s.upgrades.power = 150;
+    s.main.trains = 150;
     s.areas.graveyard.unlocked = true;
     const g = new Game(s, noCrit);
     g.recruit('alchemist'); // level 0: hopeless in the graveyard
@@ -467,7 +514,7 @@ describe('Stuns in background & offline farming', () => {
     };
     // Find a strength where he's pressed but not hopeless in the graveyard.
     let level = 0;
-    while (level < 400 && !(stunnedAt(false) > 0.05 && stunnedAt(false) < 0.9)) g.state.hunters.lance.level = ++level;
+    while (level < 400 && !(stunnedAt(false) > 0.05 && stunnedAt(false) < 0.9)) g.state.hunters.lance.trains = ++level;
     const shielded = stunnedAt(true);
     const bare = stunnedAt(false);
     expect(bare).toBeGreaterThan(0);
@@ -478,13 +525,13 @@ describe('Stuns in background & offline farming', () => {
 describe('Offline & minigames', () => {
   it('pays out for you and every stationed Hunter, capped, and regenerates tickets', () => {
     const s = newGame(0);
-    s.upgrades.power = 30;
+    s.main.trains = 30;
     s.tickets = 0;
     s.gold = 1e9;
     const g = new Game(s, noCrit);
     g.state.areas.graveyard.unlocked = true;
     g.recruit('gravewarden');
-    g.state.hunters.gravewarden.level = 150;
+    g.state.hunters.gravewarden.trains = 150;
     g.station('gravewarden', 'graveyard');
     const gold = g.state.gold;
     const r = g.applyOffline(24 * 3600 * 1000);
@@ -521,7 +568,7 @@ describe('Field', () => {
 
   it('spawns a horde, shoots it down and reports kills', () => {
     const g = new Game(newGame(0), noCrit);
-    g.state.upgrades.power = 30;
+    g.state.main.trains = 30;
     const f = new Field(g);
     f.setView(390, 420);
     run(g, f, 20);
@@ -592,7 +639,7 @@ describe('Field', () => {
     g.state.areas.graveyard.unlocked = true;
     g.state.areas.caves.unlocked = true;
     g.recruit(id);
-    g.state.hunters[id].level = 10;
+    g.state.hunters[id].trains = 10;
     g.station(id, 'forest');
     const f = new Field(g);
     f.setView(390, 420);
@@ -642,6 +689,46 @@ describe('Field', () => {
     for (let i = 0; i < 90; i++) f.update(1 / 30);
     expect(f.drainEvents().some((e) => e.type === 'explode')).toBe(true);
     expect(f.enemies.every((e) => e.hp < 1e12)).toBe(true);
+  });
+
+  it('a brand-new Hunter handles the opening slimes without being stunned', () => {
+    let seed = 7;
+    const rng = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    const g = new Game(newGame(0), rng);
+    const f = new Field(g);
+    f.setView(390, 420);
+    let stuns = 0;
+    for (let i = 0; i < 120 * 30; i++) {
+      f.update(1 / 30);
+      for (const e of f.drainEvents()) if (e.type === 'stun') stuns++;
+    }
+    expect(stuns).toBe(0);
+    expect(g.state.stats.escaped).toBe(0);
+    expect(g.state.stats.totalKills).toBeGreaterThan(60);
+  });
+
+  it('a stun runs its course: more hits while stunned or immune never extend it', () => {
+    const g = new Game(newGame(0), noCrit);
+    const f = new Field(g);
+    f.setView(390, 420);
+    g.state.bestiary.greenSlime.unlocked = false;
+    f.enemies = [tough({ id: 1, x: 20, y: 0 })];
+    f.update(1 / 30);
+    const t = g.stunTime();
+    expect(f.stun).toBeCloseTo(t, 1);
+    // Another monster arrives mid-stun: the timer keeps running down, and that monster still runs off.
+    for (let i = 0; i < 15; i++) f.update(1 / 30);
+    const left = f.stun;
+    f.enemies = [tough({ id: 2, x: 20, y: 0 })];
+    f.update(1 / 30);
+    expect(f.stun).toBeLessThan(left);
+    expect(f.enemies[0].fleeing).toBe(true);
+    // Once it wears off, immunity protects for a moment.
+    while (f.stun > 0) f.update(1 / 30);
+    expect(f.immune).toBeGreaterThan(1);
+    f.enemies = [tough({ id: 3, x: 20, y: 0 })];
+    f.update(1 / 30);
+    expect(f.stun).toBe(0);
   });
 
   it("Lance's shield blocks hits before he is stunned, then recharges", () => {
@@ -708,7 +795,7 @@ describe('Field', () => {
     const bj = withHelper('frostbreaker');
     bj.g.state.areas.peaks.unlocked = true;
     bj.g.recruit('frostbreaker');
-    bj.g.state.hunters.frostbreaker.level = 10;
+    bj.g.state.hunters.frostbreaker.trains = 10;
     bj.g.station('frostbreaker', 'forest');
     bj.f.enemies.push(tough({ id: 1, x: -55, y: -150 }));
     for (let i = 0; i < 60; i++) bj.f.update(1 / 30);
@@ -736,12 +823,28 @@ describe('Saves', () => {
     const s = newGame(0);
     s.gold = 42;
     s.items.gloves = 3;
-    s.hunters.ranger = { recruited: true, level: 4, station: 'forest' };
+    s.hunters.ranger = { recruited: true, trains: 4, skills: { speed: 1 }, station: 'forest' };
+    s.main = { trains: 9, skills: { tapPower: 2 } };
     const back = deserialize(serialize(s));
     expect(back?.gold).toBe(42);
     expect(back?.items.gloves).toBe(3);
-    expect(back?.hunters.ranger).toEqual({ recruited: true, level: 4, station: 'forest' });
+    expect(back?.hunters.ranger).toEqual({ recruited: true, trains: 4, skills: { speed: 1 }, station: 'forest' });
+    expect(back?.main).toEqual({ trains: 9, skills: { tapPower: 2 } });
     expect(deserialize('not json')).toBeNull();
+  });
+
+  it('migrates v5: Power and Hunter levels become training sessions, skills start unspent', () => {
+    const v5 = JSON.parse(serialize(newGame(0)));
+    v5.version = 5;
+    delete v5.main;
+    v5.upgrades = { power: 40, haste: 12, nerves: 3 };
+    v5.hunters.glimmer = { recruited: true, level: 30, station: 'forest' };
+    const s = deserialize(JSON.stringify(v5))!;
+    expect(s.version).toBe(6);
+    expect(s.main).toEqual({ trains: 40, skills: {} });
+    expect(s.hunters.glimmer).toEqual({ recruited: true, trains: 30, skills: {}, station: 'forest' });
+    expect(s.hunters.ranger.trains).toBe(0);
+    expect('upgrades' in s).toBe(false);
   });
 
   it('keeps per-Hunter kills, and older saves start them empty', () => {
@@ -759,7 +862,7 @@ describe('Saves', () => {
   it('migrates a stage-based save: keeps items, surviving materials and Arena progress', () => {
     const v3 = { version: 3, gold: 1e9, stage: 40, maxStage: 40, items: { whetstone: 4 }, materials: { goo: 50, bone: 20, ember: 5 }, stars: 7, stats: { totalKills: 123, deaths: 2 } };
     const s = deserialize(JSON.stringify(v3))!;
-    expect(s.version).toBe(5);
+    expect(s.version).toBe(6);
     expect(s.area).toBe('forest');
     expect(s.gold).toBe(0);
     expect(s.items.whetstone).toBe(4);

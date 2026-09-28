@@ -30,10 +30,12 @@ import {
   GUARDIAN_GOLD_MULT,
   GUARD_RECHARGE,
   GUARDIAN_TIME,
-  hasteMult,
   HELPER_FIRE_RATE,
-  HELPER_LEVEL_GROWTH,
-  helperLevelCost,
+  HELPER_TRAIN_GROWTH,
+  helperTrainCost,
+  levelFromTrains,
+  MAIN_TRAIN_COST,
+  MAIN_TRAIN_GROWTH,
   hunterDef,
   HUNTERS,
   itemCost,
@@ -42,7 +44,6 @@ import {
   MAX_TICKETS,
   maxAffordable,
   MINIGAME_GOLD_PER_UNIT,
-  nervesMult,
   nextAreaOf,
   OFFLINE_EFFICIENCY,
   powerDamage,
@@ -51,7 +52,14 @@ import {
   STUN_IMMUNITY,
   STUN_TIME,
   SWARM_PER_LEVEL,
-  UPGRADES,
+  SKILL_POWER,
+  SKILL_RECOVERY,
+  SKILL_SPEED,
+  SKILL_TAP_POWER,
+  SKILL_TAP_SIZE,
+  SKILLS,
+  TAP_DAMAGE_MULT,
+  TAP_RADIUS,
   type AreaId,
   type Archetype,
   type BhUpgradeId,
@@ -63,10 +71,11 @@ import {
   type ItemId,
   type MaterialId,
   type SlotDef,
-  type UpgradeId,
+  type SkillDef,
+  type SkillId,
 } from './balance';
 import { capAway, regenTickets, type OfflineResult } from './offline';
-import { type BuyAmount, type GameState, type GearItem, type Wearer } from './state';
+import { type BuyAmount, type GameState, type GearItem, type Training, type Wearer } from './state';
 
 export type GameEvent =
   | { type: 'travel' }
@@ -190,11 +199,29 @@ export class Game {
 
   /** Your main Hunter's damage per shot. */
   get damage(): number {
-    return powerDamage(this.state.upgrades.power) * this.itemDamageMult * (1 + this.gear('main').damage);
+    return powerDamage(this.state.main.trains) * this.skillDamageMult('main') * this.itemDamageMult * (1 + this.gear('main').damage);
   }
 
   get fireRate(): number {
-    return BASE_FIRE_RATE * hasteMult(this.state.upgrades.haste) * this.itemRateMult * (1 + this.gear('main').rate);
+    return BASE_FIRE_RATE * this.skillRateMult('main') * this.itemRateMult * (1 + this.gear('main').rate);
+  }
+
+  /** Damage of a tap blast (Tap Power skill). */
+  get tapDamage(): number {
+    return this.damage * TAP_DAMAGE_MULT * (1 + SKILL_TAP_POWER * this.skill('main', 'tapPower'));
+  }
+
+  /** Radius of a tap blast in world units (Tap Size skill). */
+  get tapRadius(): number {
+    return TAP_RADIUS * (1 + SKILL_TAP_SIZE * this.skill('main', 'tapSize'));
+  }
+
+  private skillDamageMult(who: Wearer): number {
+    return 1 + SKILL_POWER * this.skill(who, 'power');
+  }
+
+  private skillRateMult(who: Wearer): number {
+    return 1 + SKILL_SPEED * this.skill(who, 'speed');
   }
 
   get projectiles(): number {
@@ -247,13 +274,13 @@ export class Game {
   }
 
   /**
-   * Seconds a Hunter is stunned when an enemy reaches them. Steady Nerves only trains your own Hunter;
-   * Bone Mail helps everyone; armor and other gear reduce it per Hunter.
+   * Seconds a Hunter is stunned when an enemy reaches them. Their Recovery Speed skill and armor and other
+   * gear reduce it per Hunter; Bone Mail helps everyone.
    */
   stunTime(boss = false, shooter: Shooter = 'main'): number {
-    const nerves = shooter === 'main' ? nervesMult(this.state.upgrades.nerves) : 1;
+    const recovery = SKILL_RECOVERY ** this.skill(shooter, 'recovery');
     const gear = 1 - Math.min(GEAR_STUN_CAP, this.gear(shooter).stun);
-    return (boss ? BOSS_STUN_TIME : STUN_TIME) * nerves * 0.88 ** this.item('bonemail') * gear;
+    return (boss ? BOSS_STUN_TIME : STUN_TIME) * recovery * 0.88 ** this.item('bonemail') * gear;
   }
 
   get goldMult(): number {
@@ -268,13 +295,13 @@ export class Game {
     if (shooter === 'main') return this.damage;
     const def = hunterDef(shooter);
     const bane = def.bane && def.bane.archetype === archetype ? def.bane.mult : 1;
-    return powerDamage(this.state.hunters[shooter].level) * this.itemDamageMult * def.style.damage * bane * (1 + this.gear(shooter, mode).damage);
+    return powerDamage(this.state.hunters[shooter].trains) * this.skillDamageMult(shooter) * this.itemDamageMult * def.style.damage * bane * (1 + this.gear(shooter, mode).damage);
   }
 
   /** Attacks per second. */
   shooterRate(shooter: Shooter, mode?: GearMode): number {
     if (shooter === 'main') return this.fireRate;
-    return HELPER_FIRE_RATE * hunterDef(shooter).style.rate * this.itemRateMult * (1 + this.gear(shooter, mode).rate);
+    return HELPER_FIRE_RATE * hunterDef(shooter).style.rate * this.skillRateMult(shooter) * this.itemRateMult * (1 + this.gear(shooter, mode).rate);
   }
 
   /** How far a Hunter can attack, in world units. */
@@ -609,9 +636,9 @@ export class Game {
    *    Hunter's kill rate is shots/s ÷ hits-per-kill (area attacks count for more via their `crowd` factor).
    * 2. A monster walks for `range / speed` seconds between entering the Hunters' range and reaching them.
    *    It slips through if the Hunters can't keep up overall, or can't clear a whole pack in that window.
-   * 3. Every monster that slips through stuns a Hunter (shields absorb some), and a monster arriving
-   *    while they're still dazed extends the stun, just like on the field. With arrivals at rate λ and
-   *    stun time T, a stun chain lasts (e^{λT} − 1)/λ, followed by the post-stun immunity.
+   * 3. A monster that slips through stuns a Hunter (shields absorb some). Stuns don't stack: monsters
+   *    arriving while they're dazed or immune just run off. With arrivals at rate λ and stun time T,
+   *    a Hunter is down T out of every T + immunity + 1/λ seconds.
    * 4. When overwhelmed, damage is wasted on monsters that get away half-dead (more so when kills take many hits).
    * 5. Stunned Hunters don't attack, so more slips through. We iterate that feedback to a steady state.
    *
@@ -670,15 +697,15 @@ export class Game {
         killFrac.set(e.id, f);
         leak += e.spawnRate * (1 - f);
       }
-      // Leaks spread across the Hunters; shields soak some; arrivals while dazed extend the stun.
+      // Leaks spread across the Hunters; shields soak some. A stun runs its course, then immunity,
+      // then the next arrival stuns again: one cycle lasts T + immunity + 1/λ.
       for (const h of hunters) {
         const lambda = Math.max(0, leak / hunters.length - h.guardRate);
         let down = 0;
         h.stunRate = 0;
         if (lambda > 1e-9) {
-          const chain = Math.expm1(Math.min(50, lambda * h.stunTime)) / lambda;
-          const cycle = chain + STUN_IMMUNITY + 1 / lambda;
-          down = chain / cycle;
+          const cycle = h.stunTime + STUN_IMMUNITY + 1 / lambda;
+          down = h.stunTime / cycle;
           h.stunRate = 1 / cycle;
         }
         h.down = 0.5 * h.down + 0.5 * down; // damped to converge
@@ -744,23 +771,66 @@ export class Game {
     return { kills, gold, materials, knockouts };
   }
 
-  // ---- Main Hunter training ----
+  // ---- Training & skills ----
 
-  upgradePurchase(id: UpgradeId, amount: BuyAmount = this.state.buyAmount): Purchase {
-    const def = UPGRADES.find((u) => u.id === id)!;
-    const level = this.state.upgrades[id];
-    const room = def.maxLevel !== undefined ? def.maxLevel - level : Infinity;
-    if (room <= 0) return { count: 0, cost: Infinity };
-    let count = amount === 'max' ? Math.max(1, maxAffordable(def.baseCost, def.growth, level, this.state.gold)) : amount;
-    count = Math.min(count, room);
-    return { count, cost: bulkCost(def.baseCost, def.growth, level, count) };
+  training(who: Wearer): Training {
+    return who === 'main' ? this.state.main : this.state.hunters[who];
   }
 
-  buyUpgrade(id: UpgradeId): boolean {
-    const p = this.upgradePurchase(id);
-    if (p.count <= 0 || this.state.gold < p.cost) return false;
+  /** Level from training, and sessions done / needed toward the next one. */
+  levelInfo(who: Wearer): { level: number; into: number; need: number } {
+    return levelFromTrains(this.training(who).trains);
+  }
+
+  levelOf(who: Wearer): number {
+    return this.levelInfo(who).level;
+  }
+
+  skill(who: Wearer, id: SkillId): number {
+    return this.training(who).skills[id] ?? 0;
+  }
+
+  /** The skills in a Hunter's tree (tap skills are yours only). */
+  skillsOf(who: Wearer): SkillDef[] {
+    return SKILLS.filter((k) => !k.mainOnly || who === 'main');
+  }
+
+  /** Unspent skill points: one per level above 1. */
+  skillPoints(who: Wearer): number {
+    const spent = Object.values(this.training(who).skills).reduce((a, b) => a + (b ?? 0), 0);
+    return this.levelOf(who) - 1 - spent;
+  }
+
+  canLearn(who: Wearer, id: SkillId): boolean {
+    const def = SKILLS.find((k) => k.id === id)!;
+    if (def.mainOnly && who !== 'main') return false;
+    if (who !== 'main' && !this.state.hunters[who].recruited) return false;
+    return this.skillPoints(who) > 0 && (def.maxLevel === undefined || this.skill(who, id) < def.maxLevel);
+  }
+
+  learn(who: Wearer, id: SkillId): boolean {
+    if (!this.canLearn(who, id)) return false;
+    const t = this.training(who);
+    t.skills[id] = (t.skills[id] ?? 0) + 1;
+    return true;
+  }
+
+  /** Cost of the next `amount` training sessions (`buyAmount` by default). */
+  trainPurchase(who: Wearer, amount: BuyAmount = this.state.buyAmount): Purchase {
+    const base = who === 'main' ? MAIN_TRAIN_COST : helperTrainCost(hunterDef(who));
+    const growth = who === 'main' ? MAIN_TRAIN_GROWTH : HELPER_TRAIN_GROWTH;
+    const done = this.training(who).trains;
+    const count = amount === 'max' ? Math.max(1, maxAffordable(base, growth, done, this.state.gold)) : amount;
+    return { count, cost: bulkCost(base, growth, done, count) };
+  }
+
+  /** Trains a Hunter `buyAmount` times. Returns false if they can't afford it (or aren't recruited). */
+  train(who: Wearer): boolean {
+    if (who !== 'main' && !this.state.hunters[who].recruited) return false;
+    const p = this.trainPurchase(who);
+    if (this.state.gold < p.cost) return false;
     this.state.gold -= p.cost;
-    this.state.upgrades[id] += p.count;
+    this.training(who).trains += p.count;
     return true;
   }
 
@@ -776,23 +846,6 @@ export class Game {
     this.state.gold -= hunterDef(id).recruitCost;
     this.state.hunters[id].recruited = true;
     this.emit({ type: 'recruit', hunter: id });
-    return true;
-  }
-
-  hunterPurchase(id: HunterId, amount: BuyAmount = this.state.buyAmount): Purchase {
-    const def = hunterDef(id);
-    const level = this.state.hunters[id].level;
-    const base = helperLevelCost(def, 0);
-    const count = amount === 'max' ? Math.max(1, maxAffordable(base, HELPER_LEVEL_GROWTH, level, this.state.gold)) : amount;
-    return { count, cost: bulkCost(base, HELPER_LEVEL_GROWTH, level, count) };
-  }
-
-  levelHunter(id: HunterId): boolean {
-    const h = this.state.hunters[id];
-    const p = this.hunterPurchase(id);
-    if (!h.recruited || this.state.gold < p.cost) return false;
-    this.state.gold -= p.cost;
-    h.level += p.count;
     return true;
   }
 

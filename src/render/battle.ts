@@ -1,4 +1,4 @@
-import { areaDef, enemyDef, FIELD_ZOOM, GUARDIAN_TIME, hunterDef, materialDef, TAP_RADIUS, type EnemyId, type EnemyShape } from '../core/balance';
+import { areaDef, enemyDef, FIELD_ZOOM, GUARDIAN_TIME, hunterDef, materialDef, type EnemyId, type EnemyShape } from '../core/balance';
 import { PLAYER_RADIUS, type Bullet, type Enemy, type Field, type Helper } from '../core/field';
 import { fmt } from '../core/format';
 import type { Game } from '../core/game';
@@ -113,7 +113,7 @@ export class BattleView {
           break;
         }
         case 'blast':
-          this.rings.push({ x: e.x, y: e.y, t: 0, r: TAP_RADIUS, color: '255,255,255', max: 0.25 });
+          this.rings.push({ x: e.x, y: e.y, t: 0, r: this.game.tapRadius, color: '255,255,255', max: 0.25 });
           break;
         case 'explode':
           this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: '255,138,61', max: 0.3, fill: true });
