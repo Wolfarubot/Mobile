@@ -352,16 +352,125 @@ describe('Field', () => {
     expect(boss.kx).toBeGreaterThan(0);
   });
 
-  it('a Hunter stationed here stands on the field and shoots with their bane', () => {
+  /** A field with one Hunter stationed in the forest (you're there too). */
+  const withHelper = (id: Parameters<Game['recruit']>[0]) => {
     const g = rich();
-    g.recruit('alchemist');
-    g.station('alchemist', 'forest');
+    g.state.areas.graveyard.unlocked = true;
+    g.state.areas.caves.unlocked = true;
+    g.recruit(id);
+    g.state.hunters[id].level = 10;
+    g.station(id, 'forest');
     const f = new Field(g);
     f.setView(390, 420);
-    f.enemies.push(enemy({ id: 1, x: -150, y: 150, hp: 1e12, maxHp: 1e12 }));
-    for (let i = 0; i < 30; i++) f.update(1 / 30);
+    g.state.bestiary.greenSlime.unlocked = false; // no random spawns: tests place enemies by hand
+    return { g, f };
+  };
+  const tough = (over: Partial<Enemy>) => enemy({ hp: 1e12, maxHp: 1e12, ...over });
+
+  it('the view is zoomed out: enemies spawn far away and walk in', () => {
+    const g = new Game(newGame(0), noCrit);
+    const f = new Field(g);
+    f.setView(390, 420);
+    for (let i = 0; i < 60; i++) f.update(1 / 30);
+    const d = Math.min(...f.enemies.map((e) => Math.hypot(e.x, e.y)));
+    expect(d).toBeGreaterThan(300); // well beyond the old ~200px edge
+  });
+
+  it('your Hunter only shoots enemies within range', () => {
+    const g = new Game(newGame(0), noCrit);
+    g.state.bestiary.greenSlime.unlocked = false;
+    const f = new Field(g);
+    f.setView(390, 420);
+    f.enemies.push(tough({ id: 1, x: g.shooterRange('main') + 60 }));
+    for (let i = 0; i < 20; i++) f.update(1 / 30);
+    expect(f.bullets.length).toBe(0);
+    f.enemies[0].x = g.shooterRange('main') - 20;
+    for (let i = 0; i < 20; i++) f.update(1 / 30);
+    expect(f.bullets.length).toBeGreaterThan(0);
+  });
+
+  it('Mira lobs potions that leave damaging puddles', () => {
+    const { f } = withHelper('alchemist');
+    f.enemies.push(tough({ id: 1, x: -150, y: 150 }));
+    let puddle = false;
+    for (let i = 0; i < 60; i++) {
+      f.update(1 / 30);
+      puddle ||= f.puddles.some((p) => p.shooter === 'alchemist');
+    }
     expect(f.helpers.map((h) => h.id)).toEqual(['alchemist']);
-    expect(f.bullets.some((b) => b.shooter === 'alchemist')).toBe(true);
+    expect(puddle).toBe(true);
+    expect(f.enemies[0].hp).toBeLessThan(1e12);
+  });
+
+  it("Glimmer's fireballs explode and hit every enemy nearby", () => {
+    const { f } = withHelper('glimmer');
+    for (let i = 0; i < 3; i++) f.enemies.push(tough({ id: i + 1, x: -55 + (i - 1) * 20, y: -150 }));
+    for (let i = 0; i < 90; i++) f.update(1 / 30);
+    expect(f.drainEvents().some((e) => e.type === 'explode')).toBe(true);
+    expect(f.enemies.every((e) => e.hp < 1e12)).toBe(true);
+  });
+
+  it("Lance's shield blocks hits before he is stunned, then recharges", () => {
+    const { f } = withHelper('lance');
+    f.update(1 / 30);
+    const lance = f.helpers[0];
+    expect(lance.guard).toBe(3);
+    for (let i = 0; i < 3; i++) {
+      f.enemies = [tough({ id: 10 + i, x: lance.x - 20, y: lance.y + 5, speed: 40 })];
+      f.update(1 / 30);
+    }
+    expect(lance.guard).toBe(0);
+    expect(lance.stun).toBe(0);
+    f.enemies = [tough({ id: 20, x: lance.x - 20, y: lance.y + 5, speed: 40 })];
+    f.update(1 / 30);
+    expect(lance.stun).toBeGreaterThan(0);
+    expect(f.enemies[0].fleeing).toBe(true);
+    f.enemies = [];
+    for (let i = 0; i < 5 * 30; i++) f.update(1 / 30);
+    expect(lance.guard).toBeGreaterThan(0);
+  });
+
+  it('Wilhelm snipes from long range and switches to akimbo pistols up close', () => {
+    const { f } = withHelper('wilhelm');
+    f.enemies.push(tough({ id: 1, x: -55, y: -480 }));
+    for (let i = 0; i < 90; i++) f.update(1 / 30);
+    expect(f.helpers[0].akimbo).toBe(false);
+    expect(f.drainEvents().some((e) => e.type === 'beam')).toBe(true);
+    expect(f.enemies[0].hp).toBeLessThan(1e12);
+
+    f.enemies = [tough({ id: 2, x: -55, y: -30 })];
+    for (let i = 0; i < 10; i++) f.update(1 / 30);
+    expect(f.helpers[0].akimbo).toBe(true);
+    expect(f.bullets.some((b) => b.kind === 'pistol')).toBe(true);
+  });
+
+  it('stationed Hunters can be stunned too, and stop attacking while dazed', () => {
+    const { f } = withHelper('ranger');
+    f.update(1 / 30);
+    const rin = f.helpers[0];
+    f.enemies = [tough({ id: 1, x: rin.x - 20, y: rin.y + 5, speed: 40 })];
+    f.update(1 / 30);
+    expect(rin.stun).toBeGreaterThan(0);
+    const before = f.bullets.filter((b) => b.shooter === 'ranger').length;
+    f.enemies.push(tough({ id: 2, x: rin.x - 100, y: rin.y - 100 }));
+    f.update(0.2);
+    expect(f.bullets.filter((b) => b.shooter === 'ranger').length).toBe(before);
+  });
+
+  it('frost hammers slow what they hit; ricochets bounce between enemies', () => {
+    const bj = withHelper('frostbreaker');
+    bj.g.state.areas.peaks.unlocked = true;
+    bj.g.recruit('frostbreaker');
+    bj.g.state.hunters.frostbreaker.level = 10;
+    bj.g.station('frostbreaker', 'forest');
+    bj.f.enemies.push(tough({ id: 1, x: -55, y: -150 }));
+    for (let i = 0; i < 60; i++) bj.f.update(1 / 30);
+    expect(bj.f.enemies[0].slow).toBeGreaterThan(0);
+
+    const { f } = withHelper('scavenger');
+    f.enemies.push(tough({ id: 1, x: -55, y: -150 }), tough({ id: 2, x: -55, y: -250 }));
+    for (let i = 0; i < 45; i++) f.update(1 / 30);
+    expect(f.enemies.every((e) => e.hp < 1e12)).toBe(true);
   });
 
   it('tap blasts damage enemies near the tap', () => {

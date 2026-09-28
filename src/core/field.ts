@@ -2,7 +2,10 @@ import {
   BULLET_SPEED,
   CRIT_MULT,
   enemyDef,
+  FIELD_ZOOM,
   FLEE_SPEED_MULT,
+  GUARD_RECHARGE,
+  hunterDef,
   MAX_ENEMIES,
   MULTISHOT_SPREAD,
   STUN_IMMUNITY,
@@ -15,8 +18,17 @@ import type { Game, KillReward, Shooter } from './game';
 
 export const PLAYER_RADIUS = 13;
 const BULLET_RADIUS = 4;
-const BULLET_LIFE = 1.4;
 const BOSS_BOUNCE = 260;
+const GUARD_BOUNCE = 220;
+const PUDDLE_LIFE = 3;
+const PUDDLE_TICK = 0.5;
+/** Each puddle tick deals this fraction of the thrower's shot damage. */
+const PUDDLE_TICK_DAMAGE = 0.5;
+const RICOCHET_RANGE = 160;
+/** Sniper in akimbo mode: fire rate and per-bullet damage multipliers. */
+const AKIMBO_RATE = 4;
+const AKIMBO_DAMAGE = 0.3;
+const AKIMBO_RANGE = 130;
 
 export interface Enemy {
   id: number;
@@ -28,7 +40,7 @@ export interface Enemy {
   r: number;
   speed: number;
   boss: boolean;
-  /** Reached the Hunter and is running away with its loot. */
+  /** Reached a Hunter and is running away with its loot. */
   fleeing: boolean;
   /** 0..1 hit flash. */
   flash: number;
@@ -37,25 +49,40 @@ export interface Enemy {
   ky: number;
   /** Per-enemy phase for wobble animation. */
   phase: number;
+  /** Seconds of half-speed left (frost hammers). */
+  slow?: number;
 }
 
-/** A stationed Hunter fighting next to you: fixed spot, never stunned. */
+/** A stationed Hunter fighting next to you, with their own attack style and stun state. */
 export interface Helper {
   id: HunterId;
   x: number;
   y: number;
   aim: number;
   fireAcc: number;
+  stun: number;
+  stunTotal: number;
+  immune: number;
+  /** Shield charges left (Paladin) and recharge progress. */
+  guard: number;
+  guardAcc: number;
+  /** Sniper using pistols because something got close. */
+  akimbo: boolean;
+  /** Alternates the akimbo pistol hand. */
+  hand: number;
 }
 
 /** Where stationed Hunters stand, relative to your Hunter. */
 const HELPER_SPOTS = [
-  { x: -42, y: 26 },
-  { x: 42, y: 26 },
+  { x: -55, y: 32 },
+  { x: 55, y: 32 },
 ];
+
+export type BulletKind = 'bolt' | 'arrow' | 'fireball' | 'potion' | 'pellet' | 'dagger' | 'pistol' | 'ricochet' | 'hammer';
 
 export interface Bullet {
   shooter: Shooter;
+  kind: BulletKind;
   x: number;
   y: number;
   vx: number;
@@ -64,6 +91,24 @@ export interface Bullet {
   pierce: number;
   life: number;
   hits: number[];
+  /** Multiplier on the shooter's shot damage (pellets, akimbo...). */
+  dmg: number;
+  /** Fireball explosion / potion puddle radius. */
+  radius?: number;
+  bounces?: number;
+  slow?: number;
+  /** Potions fly to a point and burst there. */
+  tx?: number;
+  ty?: number;
+}
+
+export interface Puddle {
+  shooter: Shooter;
+  x: number;
+  y: number;
+  r: number;
+  life: number;
+  tick: number;
 }
 
 export type FieldEvent =
@@ -71,26 +116,31 @@ export type FieldEvent =
   | { type: 'kill'; x: number; y: number; enemy: EnemyId; boss: boolean; reward: KillReward }
   | { type: 'blast'; x: number; y: number }
   | { type: 'boss' }
-  | { type: 'stun'; x: number; y: number; boss: boolean }
-  | { type: 'escape'; x: number; y: number };
-
+  | { type: 'stun'; x: number; y: number; boss: boolean; who: Shooter }
+  | { type: 'guard'; x: number; y: number }
+  | { type: 'escape'; x: number; y: number }
+  | { type: 'explode'; x: number; y: number; r: number; color: string }
+  | { type: 'nova'; x: number; y: number; r: number }
+  | { type: 'beam'; x1: number; y1: number; x2: number; y2: number; color: string; width: number };
 
 /**
- * The survivor-style battlefield in world coordinates centered on the Hunter.
- * Enemies spawn just off-screen and walk inward; the Hunter auto-fires at the nearest.
- * An enemy that reaches the Hunter stuns them and flees; if it gets off-screen it escapes.
+ * The survivor-style battlefield in world coordinates centered on your Hunter.
+ * The view is zoomed out (FIELD_ZOOM), so enemies spawn far off and walk in.
+ * They head for the nearest Hunter; one that reaches a Hunter stuns them and flees,
+ * escaping with its loot if it makes it off-screen. Stationed Hunters fight with their own style.
  * No rendering here: BattleView draws it, and tests run it headless.
  */
 export class Field {
   enemies: Enemy[] = [];
   bullets: Bullet[] = [];
-  /** Seconds of stun left (the Hunter can't shoot while > 0). */
+  puddles: Puddle[] = [];
+  /** Seconds of stun left on your Hunter (can't shoot while > 0). */
   stun = 0;
   /** Length of the current stun, for drawing its bar. */
   stunTotal = 0;
   /** Seconds of post-stun immunity left. */
   immune = 0;
-  /** Direction of the last volley, for drawing the Hunter's aim. */
+  /** Direction of your last volley, for drawing the aim. */
   aim = -Math.PI / 2;
   /** Stationed Hunters in the current area, fighting alongside. */
   helpers: Helper[] = [];
@@ -101,8 +151,8 @@ export class Field {
   private nextPack: { type: EnemyId; size: number } | null = null;
   private fireAcc = 0;
   private nextId = 1;
-  private halfW = 200;
-  private halfH = 300;
+  private halfW = 320;
+  private halfH = 350;
 
   constructor(private game: Game) {
     game.on((e) => {
@@ -111,10 +161,10 @@ export class Field {
     });
   }
 
-  /** Visible area in world units (CSS pixels); enemies spawn just beyond it. */
+  /** Screen size in CSS pixels; the visible world is larger by 1 / FIELD_ZOOM. */
   setView(w: number, h: number): void {
-    this.halfW = w / 2;
-    this.halfH = h / 2;
+    this.halfW = w / 2 / FIELD_ZOOM;
+    this.halfH = h / 2 / FIELD_ZOOM;
   }
 
   get stunned(): boolean {
@@ -124,10 +174,12 @@ export class Field {
   clear(): void {
     this.enemies = [];
     this.bullets = [];
+    this.puddles = [];
     this.stun = 0;
     this.immune = 0;
     this.spawnAcc = 0;
     this.nextPack = null;
+    for (const h of this.helpers) Object.assign(h, { stun: 0, immune: 0, guard: hunterDef(h.id).guard ?? 0 });
   }
 
   drainEvents(): FieldEvent[] {
@@ -187,13 +239,26 @@ export class Field {
   update(dt: number): void {
     const g = this.game;
 
-    // Stun & immunity
+    // Stuns, immunity and shields
     if (this.stun > 0) {
       this.stun = Math.max(0, this.stun - dt);
       if (this.stun === 0) this.immune = STUN_IMMUNITY;
     } else this.immune = Math.max(0, this.immune - dt);
-
     this.syncHelpers();
+    for (const h of this.helpers) {
+      if (h.stun > 0) {
+        h.stun = Math.max(0, h.stun - dt);
+        if (h.stun === 0) h.immune = STUN_IMMUNITY;
+      } else h.immune = Math.max(0, h.immune - dt);
+      const max = hunterDef(h.id).guard ?? 0;
+      if (h.guard < max) {
+        h.guardAcc += dt;
+        if (h.guardAcc >= GUARD_RECHARGE) {
+          h.guardAcc = 0;
+          h.guard++;
+        }
+      }
+    }
 
     // Spawning
     if (g.guardianActive && !g.bossAlive && !this.enemies.some((e) => e.boss)) {
@@ -210,90 +275,99 @@ export class Field {
       this.nextPack = this.rollPack();
     }
 
-    // Movement, contact and escapes
+    this.moveEnemies(dt);
+    this.separate();
+
+    // Your Hunter (not while stunned)
+    this.fireAcc = Math.min(this.fireAcc + dt * g.fireRate, 3);
+    if (this.stunned) this.fireAcc = 0;
+    while (this.fireAcc >= 1) {
+      const target = this.nearest(0, 0, g.shooterRange('main'));
+      if (!target) {
+        this.fireAcc = Math.min(this.fireAcc, 1);
+        break;
+      }
+      this.fireAcc -= 1;
+      this.aim = Math.atan2(target.y, target.x);
+      this.shoot('main', 'bolt', 0, 0, this.aim, BULLET_SPEED, g.shooterRange('main'), { pierce: g.pierce, spread: true });
+    }
+    for (const h of this.helpers) this.helperAttack(h, dt);
+
+    this.moveBullets(dt);
+    this.tickPuddles(dt);
+    this.bullets = this.bullets.filter((b) => b.life > 0);
+    this.enemies = this.enemies.filter((e) => e.hp > 0);
+  }
+
+  // ---- Enemies ----
+
+  /** The Hunter (you or a helper) closest to a point. */
+  private nearestHunter(x: number, y: number): { who: Shooter; x: number; y: number } {
+    let best: { who: Shooter; x: number; y: number } = { who: 'main', x: 0, y: 0 };
+    let bestD = x * x + y * y;
+    for (const h of this.helpers) {
+      const d = (x - h.x) ** 2 + (y - h.y) ** 2;
+      if (d < bestD) {
+        bestD = d;
+        best = { who: h.id, x: h.x, y: h.y };
+      }
+    }
+    return best;
+  }
+
+  private moveEnemies(dt: number): void {
+    const g = this.game;
     const decay = Math.exp(-8 * dt);
     const escapeR = this.spawnRadius + 30;
     for (const e of this.enemies) {
       e.flash = Math.max(0, e.flash - dt * 6);
       e.phase += dt;
-      const d = Math.hypot(e.x, e.y) || 1;
-      const ux = e.x / d;
-      const uy = e.y / d;
+      if (e.slow) e.slow = Math.max(0, e.slow - dt);
+      const speed = e.speed * (e.slow ? 0.5 : 1);
       if (e.fleeing) {
-        e.x += ux * e.speed * FLEE_SPEED_MULT * dt + e.kx * dt;
-        e.y += uy * e.speed * FLEE_SPEED_MULT * dt + e.ky * dt;
+        const d = Math.hypot(e.x, e.y) || 1;
+        e.x += (e.x / d) * speed * FLEE_SPEED_MULT * dt + e.kx * dt;
+        e.y += (e.y / d) * speed * FLEE_SPEED_MULT * dt + e.ky * dt;
         if (d > escapeR) {
           e.hp = 0;
           g.registerEscape();
           this.events.push({ type: 'escape', x: e.x, y: e.y });
         }
       } else {
+        const t = this.nearestHunter(e.x, e.y);
+        const dx = e.x - t.x;
+        const dy = e.y - t.y;
+        const d = Math.hypot(dx, dy) || 1;
         const reach = e.r + PLAYER_RADIUS;
-        const step = Math.min(e.speed * dt, Math.max(0, d - reach));
-        e.x += -ux * step + e.kx * dt;
-        e.y += -uy * step + e.ky * dt;
-        if (d <= reach + 1) this.contact(e, ux, uy);
+        const step = Math.min(speed * dt, Math.max(0, d - reach));
+        e.x += (-dx / d) * step + e.kx * dt;
+        e.y += (-dy / d) * step + e.ky * dt;
+        if (d <= reach + 1) this.contact(e, t.who, dx / d, dy / d);
       }
       e.kx *= decay;
       e.ky *= decay;
     }
-    this.separate();
-
-    // Shooting (you can't while stunned; stationed Hunters never get stunned)
-    this.fireAcc = Math.min(this.fireAcc + dt * g.fireRate, 3);
-    if (this.stunned) this.fireAcc = 0;
-    while (this.fireAcc >= 1) {
-      const target = this.nearest(0, 0);
-      if (!target) {
-        this.fireAcc = Math.min(this.fireAcc, 1);
-        break;
-      }
-      this.fireAcc -= 1;
-      this.aim = this.volley('main', 0, 0, target);
-    }
-    for (const h of this.helpers) {
-      h.fireAcc = Math.min(h.fireAcc + dt * g.shooterRate(h.id), 3);
-      while (h.fireAcc >= 1) {
-        const target = this.nearest(h.x, h.y);
-        if (!target) {
-          h.fireAcc = Math.min(h.fireAcc, 1);
-          break;
-        }
-        h.fireAcc -= 1;
-        h.aim = this.volley(h.id, h.x, h.y, target);
-      }
-    }
-
-    // Bullets
-    for (const b of this.bullets) {
-      b.x += b.vx * dt;
-      b.y += b.vy * dt;
-      b.life -= dt;
-      for (const e of this.enemies) {
-        if (e.hp <= 0 || b.life <= 0 || b.hits.includes(e.id)) continue;
-        const rr = e.r + BULLET_RADIUS;
-        const dx = e.x - b.x;
-        const dy = e.y - b.y;
-        if (dx * dx + dy * dy > rr * rr) continue;
-        b.hits.push(e.id);
-        const dmg = this.game.shotDamage(b.shooter, enemyDef(e.type).archetype) * (b.crit ? CRIT_MULT : 1);
-        this.damage(e, dmg, b.crit, b.vx / BULLET_SPEED, b.vy / BULLET_SPEED, b.shooter);
-        if (b.pierce-- <= 0) b.life = 0;
-      }
-    }
-    this.bullets = this.bullets.filter((b) => b.life > 0);
-    this.enemies = this.enemies.filter((e) => e.hp > 0);
   }
 
-  /** An enemy reached the Hunter: stun them (unless immune), then run (or, for bosses, bounce off). */
-  private contact(e: Enemy, ux: number, uy: number): void {
-    if (this.immune <= 0 || this.stunned) {
-      const t = this.game.stunTime(e.boss);
-      if (t > this.stun) {
-        this.stun = t;
-        this.stunTotal = t;
+  /** An enemy reached a Hunter: shields block it, otherwise the Hunter is stunned (unless immune) and the enemy runs. */
+  private contact(e: Enemy, who: Shooter, ux: number, uy: number): void {
+    const helper = who === 'main' ? null : this.helpers.find((h) => h.id === who)!;
+    if (helper && helper.guard > 0 && !e.boss) {
+      helper.guard--;
+      helper.guardAcc = 0;
+      e.kx += ux * GUARD_BOUNCE;
+      e.ky += uy * GUARD_BOUNCE;
+      this.events.push({ type: 'guard', x: helper.x, y: helper.y });
+      return;
+    }
+    const state = helper ?? this;
+    if (state.immune <= 0 || state.stun > 0) {
+      const t = this.game.stunTime(e.boss, who);
+      if (t > state.stun) {
+        state.stun = t;
+        state.stunTotal = t;
       }
-      this.events.push({ type: 'stun', x: e.x, y: e.y, boss: e.boss });
+      this.events.push({ type: 'stun', x: e.x, y: e.y, boss: e.boss, who });
     }
     if (e.boss) {
       e.kx += ux * BOSS_BOUNCE;
@@ -326,15 +400,15 @@ export class Field {
     }
   }
 
-  /** Closest enemy to (ox, oy) still coming in; runners are only targeted when nothing is approaching. */
-  private nearest(ox: number, oy: number): Enemy | null {
+  /** Closest enemy within `range` of (ox, oy); runners are only targeted when nothing is approaching. */
+  private nearest(ox: number, oy: number, range: number, exclude?: number[]): Enemy | null {
     let best: Enemy | null = null;
     let bestD = Infinity;
-    const range = this.spawnRadius;
     for (const e of this.enemies) {
-      if (e.hp <= 0 || e.x * e.x + e.y * e.y > range * range) continue;
-      // Approaching enemies always sort before fleeing ones.
-      const d = (e.x - ox) ** 2 + (e.y - oy) ** 2 + (e.fleeing ? 1e12 : 0);
+      if (e.hp <= 0 || exclude?.includes(e.id)) continue;
+      const d2 = (e.x - ox) ** 2 + (e.y - oy) ** 2;
+      if (d2 > (range + e.r) ** 2) continue;
+      const d = d2 + (e.fleeing ? 1e12 : 0);
       if (d < bestD) {
         bestD = d;
         best = e;
@@ -343,36 +417,225 @@ export class Field {
     return best;
   }
 
+  // ---- Stationed Hunters ----
+
   /** Keep the on-field Hunters in sync with who's stationed here. */
   private syncHelpers(): void {
     const ids = this.game.helpersHere;
     if (ids.length === this.helpers.length && ids.every((id, i) => this.helpers[i].id === id)) return;
-    this.helpers = ids.map((id, i) => ({ id, ...HELPER_SPOTS[i % HELPER_SPOTS.length], aim: -Math.PI / 2, fireAcc: 0 }));
+    this.helpers = ids.map((id, i) => ({
+      id,
+      ...HELPER_SPOTS[i % HELPER_SPOTS.length],
+      aim: -Math.PI / 2,
+      fireAcc: 0,
+      stun: 0,
+      stunTotal: 0,
+      immune: 0,
+      guard: hunterDef(id).guard ?? 0,
+      guardAcc: 0,
+      akimbo: false,
+      hand: 0,
+    }));
   }
 
-  /** Fires one volley from (ox, oy) at a target. Returns the aim angle. Damage is priced on hit, per target. */
-  private volley(shooter: Shooter, ox: number, oy: number, target: Enemy): number {
+  private helperAttack(h: Helper, dt: number): void {
     const g = this.game;
-    const n = g.projectiles;
-    const base = Math.atan2(target.y - oy, target.x - ox);
+    const style = hunterDef(h.id).style;
+    if (h.stun > 0) {
+      h.fireAcc = 0;
+      return;
+    }
+    // The sniper swaps to pistols when anything is close.
+    if (style.kind === 'sniper') h.akimbo = !!this.nearest(h.x, h.y, style.closeRange ?? 0);
+    const rate = g.shooterRate(h.id) * (h.akimbo ? AKIMBO_RATE : 1);
+    h.fireAcc = Math.min(h.fireAcc + dt * rate, 3);
+    while (h.fireAcc >= 1) {
+      const range = h.akimbo ? AKIMBO_RANGE : style.range;
+      const target = this.nearest(h.x, h.y, style.kind === 'nova' ? style.radius ?? range : range);
+      if (!target) {
+        h.fireAcc = Math.min(h.fireAcc, 1);
+        return;
+      }
+      h.fireAcc -= 1;
+      const a = Math.atan2(target.y - h.y, target.x - h.x);
+      h.aim = a;
+      switch (style.kind) {
+        case 'potion': {
+          const d = Math.hypot(target.x - h.x, target.y - h.y);
+          this.shoot(h.id, 'potion', h.x, h.y, a, 300, d, { radius: style.radius, tx: target.x, ty: target.y });
+          break;
+        }
+        case 'fireball':
+          this.shoot(h.id, 'fireball', h.x, h.y, a, 380, range, { radius: style.radius, spread: true });
+          break;
+        case 'arrow':
+          this.shoot(h.id, 'arrow', h.x, h.y, a, 620, range, { pierce: (style.pierce ?? 0) + g.pierce, spread: true });
+          break;
+        case 'nova': {
+          const r = style.radius ?? 100;
+          this.events.push({ type: 'nova', x: h.x, y: h.y, r });
+          for (const e of this.enemies) if (e.hp > 0 && Math.hypot(e.x - h.x, e.y - h.y) <= r + e.r) this.hitWith(h.id, e, 1, h.x, h.y);
+          break;
+        }
+        case 'thrust':
+          this.strikeLine(h.id, h.x, h.y, a, range, 14, Infinity, 1, '#ffe8a3', 6);
+          break;
+        case 'shotgun': {
+          const n = (style.pellets ?? 5) + g.projectiles - 1;
+          for (let i = 0; i < n; i++) this.shoot(h.id, 'pellet', h.x, h.y, a + (i - (n - 1) / 2) * 0.12, 560, range, {});
+          break;
+        }
+        case 'daggers':
+          this.shoot(h.id, 'dagger', h.x, h.y, a, 640, range, { spread: true });
+          break;
+        case 'sniper':
+          if (h.akimbo) {
+            // Alternate pistols from either side.
+            const side = (h.hand++ % 2 ? 1 : -1) * 6;
+            const ox = h.x + Math.cos(a + Math.PI / 2) * side;
+            const oy = h.y + Math.sin(a + Math.PI / 2) * side;
+            this.shoot(h.id, 'pistol', ox, oy, a, 600, AKIMBO_RANGE, { dmg: AKIMBO_DAMAGE });
+          } else this.strikeLine(h.id, h.x, h.y, a, range, 6, 1 + (style.pierce ?? 0) + g.pierce, 1, '#fffbe0', 3);
+          break;
+        case 'ricochet':
+          this.shoot(h.id, 'ricochet', h.x, h.y, a, 520, range, { bounces: style.bounces });
+          break;
+        case 'hammer':
+          this.shoot(h.id, 'hammer', h.x, h.y, a, 420, range, { slow: style.slow, spread: true });
+          break;
+        default:
+          this.shoot(h.id, 'bolt', h.x, h.y, a, BULLET_SPEED, range, { spread: true });
+      }
+    }
+  }
+
+  // ---- Attacks ----
+
+  /** Fires a projectile (and extra Split Bow projectiles when `spread`). Damage is priced on hit, per target. */
+  private shoot(
+    shooter: Shooter,
+    kind: BulletKind,
+    ox: number,
+    oy: number,
+    angle: number,
+    speed: number,
+    range: number,
+    o: { pierce?: number; spread?: boolean; dmg?: number; radius?: number; bounces?: number; slow?: number; tx?: number; ty?: number },
+  ): void {
+    const g = this.game;
+    const n = o.spread ? g.projectiles : 1;
     for (let i = 0; i < n; i++) {
-      const a = base + (i - (n - 1) / 2) * MULTISHOT_SPREAD;
+      const a = angle + (i - (n - 1) / 2) * MULTISHOT_SPREAD;
       this.bullets.push({
         shooter,
+        kind,
         x: ox + Math.cos(a) * PLAYER_RADIUS,
         y: oy + Math.sin(a) * PLAYER_RADIUS,
-        vx: Math.cos(a) * BULLET_SPEED,
-        vy: Math.sin(a) * BULLET_SPEED,
+        vx: Math.cos(a) * speed,
+        vy: Math.sin(a) * speed,
         crit: g.rng() < g.critChance,
-        pierce: g.pierce,
-        life: BULLET_LIFE,
+        pierce: o.pierce ?? 0,
+        life: Math.max(0.05, (range + 20) / speed),
         hits: [],
+        dmg: o.dmg ?? 1,
+        radius: o.radius,
+        bounces: o.bounces,
+        slow: o.slow,
+        tx: o.tx,
+        ty: o.ty,
       });
     }
-    return base;
+  }
+
+  /** Instant strike along a line (lance thrust, sniper shot): hits up to `maxHits` enemies within `width`. */
+  private strikeLine(shooter: Shooter, ox: number, oy: number, a: number, len: number, width: number, maxHits: number, dmg: number, color: string, beamWidth: number): void {
+    const cx = Math.cos(a);
+    const cy = Math.sin(a);
+    const hits = this.enemies
+      .filter((e) => e.hp > 0)
+      .map((e) => {
+        const t = (e.x - ox) * cx + (e.y - oy) * cy;
+        const perp = Math.abs((e.x - ox) * cy - (e.y - oy) * cx);
+        return { e, t, perp };
+      })
+      .filter((x) => x.t > 0 && x.t <= len + x.e.r && x.perp <= width + x.e.r)
+      .sort((p, q) => p.t - q.t)
+      .slice(0, maxHits);
+    const end = Number.isFinite(maxHits) && hits.length ? hits[hits.length - 1].t : len;
+    this.events.push({ type: 'beam', x1: ox, y1: oy, x2: ox + cx * end, y2: oy + cy * end, color, width: beamWidth });
+    for (const { e } of hits) this.hitWith(shooter, e, dmg, ox, oy);
+  }
+
+  /** One hit from a shooter, priced by their damage vs the enemy's archetype. */
+  private hitWith(shooter: Shooter, e: Enemy, mult: number, fromX: number, fromY: number, crit = this.game.rng() < this.game.critChance): void {
+    const dmg = this.game.shotDamage(shooter, enemyDef(e.type).archetype) * mult * (crit ? CRIT_MULT : 1);
+    const d = Math.hypot(e.x - fromX, e.y - fromY) || 1;
+    this.damage(e, dmg, crit, (e.x - fromX) / d, (e.y - fromY) / d, shooter);
+  }
+
+  private moveBullets(dt: number): void {
+    for (const b of this.bullets) {
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+      b.life -= dt;
+      if (b.kind === 'potion') {
+        // Flies to its target point, then shatters into a puddle.
+        if (b.life <= 0 || (b.tx !== undefined && (b.tx - b.x) * b.vx + (b.ty! - b.y) * b.vy <= 0)) {
+          b.life = 0;
+          this.puddles.push({ shooter: b.shooter, x: b.tx ?? b.x, y: b.ty ?? b.y, r: b.radius ?? 40, life: PUDDLE_LIFE, tick: 0 });
+        }
+        continue;
+      }
+      for (const e of this.enemies) {
+        if (e.hp <= 0 || b.life <= 0 || b.hits.includes(e.id)) continue;
+        const rr = e.r + BULLET_RADIUS;
+        const dx = e.x - b.x;
+        const dy = e.y - b.y;
+        if (dx * dx + dy * dy > rr * rr) continue;
+        b.hits.push(e.id);
+        this.bulletHit(b, e);
+        if (b.life > 0 && b.pierce-- <= 0) b.life = 0;
+      }
+    }
+  }
+
+  private bulletHit(b: Bullet, e: Enemy): void {
+    if (b.kind === 'fireball') {
+      const r = b.radius ?? 50;
+      this.events.push({ type: 'explode', x: b.x, y: b.y, r, color: '#ff8a3d' });
+      for (const o of this.enemies) if (o.hp > 0 && Math.hypot(o.x - b.x, o.y - b.y) <= r + o.r) this.hitWith(b.shooter, o, b.dmg, b.x, b.y, b.crit);
+      b.life = 0;
+      return;
+    }
+    this.hitWith(b.shooter, e, b.dmg, b.x - b.vx, b.y - b.vy, b.crit);
+    if (b.kind === 'hammer' && b.slow) e.slow = Math.max(e.slow ?? 0, b.slow);
+    if (b.kind === 'ricochet' && (b.bounces ?? 0) > 0) {
+      const next = this.nearest(e.x, e.y, RICOCHET_RANGE, b.hits);
+      if (next) {
+        const speed = Math.hypot(b.vx, b.vy);
+        const a = Math.atan2(next.y - e.y, next.x - e.x);
+        b.vx = Math.cos(a) * speed;
+        b.vy = Math.sin(a) * speed;
+        b.life = (RICOCHET_RANGE + 20) / speed;
+        b.bounces!--;
+        b.pierce = 1; // keep flying after this hit
+      }
+    }
+  }
+
+  private tickPuddles(dt: number): void {
+    for (const p of this.puddles) {
+      p.life -= dt;
+      p.tick -= dt;
+      if (p.tick > 0) continue;
+      p.tick = PUDDLE_TICK;
+      for (const e of this.enemies) if (e.hp > 0 && Math.hypot(e.x - p.x, e.y - p.y) <= p.r + e.r) this.hitWith(p.shooter, e, PUDDLE_TICK_DAMAGE, p.x, p.y);
+    }
+    this.puddles = this.puddles.filter((p) => p.life > 0);
   }
 
   private damage(e: Enemy, dmg: number, crit: boolean, dirX: number, dirY: number, shooter: Shooter = 'main'): void {
+    if (e.hp <= 0) return;
     e.hp -= dmg;
     e.flash = 1;
     if (!e.boss) {

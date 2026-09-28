@@ -10,10 +10,27 @@ An incremental (idle) survivor game for Android, with iOS to follow. Your Hunter
 | **Areas** | Whispering Forest → Old Graveyard → Ember Caves → Frost Peaks → Void Rift. Get enough kills in an area (**mastery**) to challenge its **Guardian** (a giant version of the area's rarest monster, 45s timer; it stuns longer and bounces off). Beat it and the next area is **permanently unlocked**. Travel freely between unlocked areas with **◀ ▶** or the Areas tab. |
 | **Monsters & archetypes** | 15 monsters, 3 per area. Each has its own **HP, speed, spawn rate, pack size, gold** and **material**, and belongs to an **archetype**: Slime (Green, Red, Magma, Shadow Slime), Undead (Skeleton, Zombie, Snow Wraith, Lich), Beast (Forest Wolf, Grave Bat, Fire Beetle, Ice Wolf), Demon (Imp, Void Horror) or Elemental (Frost Golem). |
 | **Bestiary** (gold) | Each area starts with one monster; **unlock** the others to grow its horde. **Swarm** brings more of a monster; **Bounty** makes it pay more gold and drop more materials, but it **moves faster**. Permanent, and it also applies to Hunters stationed there. |
-| **Hunters** (gold) | Your Hunter trains **Power**, **Rapid Fire** and **Steady Nerves** (shorter stuns). The **Hunter Guild** has 7 recruitable Hunters with perks: Mira the Alchemist (×3 vs Slimes), Rin the Ranger (×3 vs Beasts), Alric the Gravewarden (×3 vs Undead), Gus the Prospector (+75% gold), Sera the Demonbane (×3 vs Demons), Pip the Scavenger (×2 drops) and Bjorn the Frostbreaker (×3 vs Elementals). Level them with gold and **station** one per area. They earn gold and materials there at 80% efficiency (offline too). Visit their area and they fight beside you. |
+| **Hunters** (gold) | Your Hunter trains **Power**, **Rapid Fire** and **Steady Nerves** (shorter stuns). The **Hunter Guild** has 10 recruitable Hunters, each with their own **attack style**, range and perk (table below). Level them with gold and **station** one per area. They earn gold and materials there at 80% efficiency (offline too). Visit their area and they fight beside you. Monsters head for the **nearest** Hunter, so stationed Hunters can be stunned too. |
 | **Forge** (materials) | 10 permanent items that boost **every** Hunter: Whetstone, Quickdraw Gloves, Monster Lure, Scavenger's Pouch, Bone Mail, Split Bow, Golden Idol, Frost Lance, Soul Lantern and Void Engine. Recipes use materials from each area in turn, so every new area opens up new gear. |
 | **Offline** | Up to 8h: you farm your current area at 50% efficiency, and every stationed Hunter keeps farming theirs. The Welcome Back screen breaks down gold, kills and materials **per area**, including who earned them. |
 | **Arena** | Tickets (max 3, one per 15 min, refill offline) buy minigame runs. |
+
+### The Hunter Guild
+
+| Hunter | Style | Perk |
+|---|---|---|
+| Mira the Alchemist ⚗️ | Lobs potions that leave a poison puddle | ×3 vs Slimes |
+| Glimmer the Wizard 🧙 | Fireballs that explode for area damage | |
+| Rin the Ranger 🏹 | Arrows that pierce up to 4 enemies | ×3 vs Beasts |
+| Alric the Gravewarden ✝️ | Holy pulse hitting everything around him | ×3 vs Undead |
+| Lance the Paladin 🛡️ | Short lance thrusts through a line | 3-hit shield before he's stunned (recharges) |
+| Gus the Prospector 💰 | Shotgun: 5 pellets, close range | +75% gold |
+| Sera the Demonbane 🗡️ | Rapid thrown daggers, short range | ×3 vs Demons |
+| Wilhelm the Sniper 🎯 | Long-range piercing shots; akimbo pistols when enemies get close | |
+| Pip the Scavenger 🎒 | Slingshot stones ricochet between 4 enemies | ×2 drops |
+| Bjorn the Frostbreaker 🔨 | Frost hammers that slow enemies | ×3 vs Elementals |
+
+The battlefield is drawn zoomed out (`FIELD_ZOOM` in `balance.ts`), so monsters appear far off and walk in. Each Hunter only attacks within their range. Styles, ranges and damage multipliers live in `HUNTERS` in `src/core/balance.ts`.
 
 ## Adding your art
 
@@ -38,7 +55,7 @@ src/
   core/        pure game logic, no DOM (unit-tested)
     balance.ts   every tunable number and content table (areas, monsters, archetypes, Hunters, items, hangar)
     game.ts      economy & progression: areas, Guardians, Hunters & stationing, bestiary, shops, forge, background farming
-    field.ts     the battlefield simulation: spawning, movement, shooting (you + stationed Hunter), stuns, fleeing, Guardians
+    field.ts     the battlefield simulation: spawning, movement, attack styles, ranges, stuns & shields, fleeing, Guardians
     offline.ts   offline cap + ticket regen
     state.ts     save format + migration
     save.ts      persistence

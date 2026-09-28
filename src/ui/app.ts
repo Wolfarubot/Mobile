@@ -211,8 +211,9 @@ export class AppUI {
     card.innerHTML = `
       <div class="beast-head">
         <div class="hunter-icon" style="background:${def.color}">${def.icon}</div>
-        <div class="info"><div class="name"></div><div class="blurb">${hunterPerk(def)}</div></div>
+        <div class="info"><div class="name"></div><div class="blurb">${[hunterPerk(def), `range ${def.style.range}`].filter(Boolean).join(' · ')}</div></div>
       </div>
+      <p class="style-line">${def.style.describe}</p>
       <div class="body"></div>`;
     this.panel.appendChild(card);
     const body = $('.body', card);

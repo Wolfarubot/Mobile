@@ -22,10 +22,11 @@ Enemy ids (see `ENEMIES` in `src/core/balance.ts`, which also holds their stats)
 
 The last enemy of each area is the model for that area's Guardian.
 
-Hunter ids (see `HUNTERS`): `alchemist`, `ranger`, `gravewarden`, `prospector`, `demonbane`, `scavenger`, `frostbreaker`.
+Hunter ids (see `HUNTERS`): `alchemist`, `glimmer`, `ranger`, `gravewarden`, `lance`, `prospector`, `demonbane`, `wilhelm`, `scavenger`, `frostbreaker`.
 
 Tips:
 - Square PNG or WebP with a transparent background, around 128×128. Sprites are scaled to the enemy's size.
 - Draw enemies and Hunters **facing right**; they're mirrored automatically.
 - Leave a little padding; the sprite is drawn about 2.4× the enemy's collision radius.
+- The battlefield is drawn zoomed out (60%), so sprites appear small; keep silhouettes bold.
 - Keep the shapes readable at small sizes; there can be 100+ on screen.

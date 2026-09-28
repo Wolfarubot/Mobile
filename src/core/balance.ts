@@ -251,7 +251,52 @@ export function enemyUpgradeCost(def: EnemyDef, kind: EnemyUpgrade, level: numbe
 }
 
 // ---- Hunters: extra hunters you recruit and station in areas ----
-export type HunterId = 'alchemist' | 'ranger' | 'gravewarden' | 'prospector' | 'demonbane' | 'scavenger' | 'frostbreaker';
+export type HunterId =
+  | 'alchemist'
+  | 'glimmer'
+  | 'ranger'
+  | 'gravewarden'
+  | 'lance'
+  | 'prospector'
+  | 'demonbane'
+  | 'wilhelm'
+  | 'scavenger'
+  | 'frostbreaker';
+
+/** How a Hunter fights on the battlefield. */
+export type AttackKind =
+  | 'bolt' // single shot (your Hunter)
+  | 'potion' // lobbed flask that leaves a damaging puddle
+  | 'fireball' // explodes on impact for area damage
+  | 'arrow' // pierces through a line of enemies
+  | 'nova' // holy pulse around themselves
+  | 'thrust' // short lance strike through everything in a line
+  | 'shotgun' // spread of pellets, short range
+  | 'daggers' // very fast, short range
+  | 'sniper' // long-range piercing shot; akimbo pistols up close
+  | 'ricochet' // bounces between enemies
+  | 'hammer'; // slows what it hits
+
+export interface AttackStyle {
+  kind: AttackKind;
+  /** World units (the view shows roughly ±320 × ±350 around your Hunter). */
+  range: number;
+  /** Multipliers on the Hunter's base fire rate and damage per shot. */
+  rate: number;
+  damage: number;
+  /** Area radius for fireballs, potions (puddle) and novas. */
+  radius?: number;
+  pierce?: number;
+  pellets?: number;
+  bounces?: number;
+  /** Seconds a hit enemy is slowed to half speed. */
+  slow?: number;
+  /** Sniper switches to akimbo pistols when an enemy is this close. */
+  closeRange?: number;
+  /** Rough damage efficiency vs a single target, used for background farming (AoE > 1). */
+  farm: number;
+  describe: string;
+}
 
 export interface HunterDef {
   id: HunterId;
@@ -262,27 +307,71 @@ export interface HunterDef {
   /** Area that must be unlocked before they can be recruited. */
   area: AreaId;
   recruitCost: number;
+  style: AttackStyle;
   /** Damage multiplier against one archetype. */
   bane?: { archetype: Archetype; mult: number };
   /** Multipliers on gold / material drops from their kills. */
   gold?: number;
   drops?: number;
+  /** Hits absorbed before being stunned (recharges over time). */
+  guard?: number;
 }
 
+/** Your own Hunter's range, in world units. */
+export const MAIN_RANGE = 250;
+/** How far the battlefield is zoomed out: 0.6 = everything drawn at 60% size, so you see more of the field. */
+export const FIELD_ZOOM = 0.6;
+/** Seconds for a Paladin-style guard to regain one charge. */
+export const GUARD_RECHARGE = 4;
+
 export const HUNTERS: HunterDef[] = [
-  { id: 'alchemist', name: 'Mira', title: 'Alchemist', icon: '⚗️', color: '#7be07b', area: 'forest', recruitCost: 150, bane: { archetype: 'slime', mult: 3 } },
-  { id: 'ranger', name: 'Rin', title: 'Ranger', icon: '🏹', color: '#c09060', area: 'forest', recruitCost: 1_200, bane: { archetype: 'beast', mult: 3 } },
-  { id: 'gravewarden', name: 'Alric', title: 'Gravewarden', icon: '✝️', color: '#efe6cf', area: 'graveyard', recruitCost: 15_000, bane: { archetype: 'undead', mult: 3 } },
-  { id: 'prospector', name: 'Gus', title: 'Prospector', icon: '💰', color: '#ffd34d', area: 'graveyard', recruitCost: 80_000, gold: 1.75 },
-  { id: 'demonbane', name: 'Sera', title: 'Demonbane', icon: '🗡️', color: '#ff7a3d', area: 'caves', recruitCost: 1_500_000, bane: { archetype: 'demon', mult: 3 } },
-  { id: 'scavenger', name: 'Pip', title: 'Scavenger', icon: '🎒', color: '#3fb0a0', area: 'caves', recruitCost: 6_000_000, drops: 2 },
-  { id: 'frostbreaker', name: 'Bjorn', title: 'Frostbreaker', icon: '🔨', color: '#8fdcff', area: 'peaks', recruitCost: 150_000_000, bane: { archetype: 'elemental', mult: 3 } },
+  {
+    id: 'alchemist', name: 'Mira', title: 'Alchemist', icon: '⚗️', color: '#7be07b', area: 'forest', recruitCost: 150, bane: { archetype: 'slime', mult: 3 },
+    style: { kind: 'potion', range: 230, rate: 0.6, damage: 0.8, radius: 45, farm: 1.6, describe: 'Lobs potions that leave a bubbling poison puddle.' },
+  },
+  {
+    id: 'glimmer', name: 'Glimmer', title: 'Wizard', icon: '🧙', color: '#b07cff', area: 'forest', recruitCost: 600,
+    style: { kind: 'fireball', range: 260, rate: 0.55, damage: 1.6, radius: 55, farm: 1.8, describe: 'Hurls fireballs that explode, burning everything nearby.' },
+  },
+  {
+    id: 'ranger', name: 'Rin', title: 'Ranger', icon: '🏹', color: '#c09060', area: 'forest', recruitCost: 1_200, bane: { archetype: 'beast', mult: 3 },
+    style: { kind: 'arrow', range: 300, rate: 1, damage: 1, pierce: 3, farm: 1.4, describe: 'Arrows pierce through up to 4 enemies in a line.' },
+  },
+  {
+    id: 'gravewarden', name: 'Alric', title: 'Gravewarden', icon: '✝️', color: '#efe6cf', area: 'graveyard', recruitCost: 15_000, bane: { archetype: 'undead', mult: 3 },
+    style: { kind: 'nova', range: 110, rate: 0.5, damage: 1.5, radius: 110, farm: 1.5, describe: 'Pulses holy light, striking every enemy around him.' },
+  },
+  {
+    id: 'lance', name: 'Lance', title: 'Paladin', icon: '🛡️', color: '#ffe8a3', area: 'graveyard', recruitCost: 40_000, guard: 3,
+    style: { kind: 'thrust', range: 90, rate: 0.9, damage: 1.8, farm: 1.3, describe: 'Holds the line: his shield takes 3 hits before he is stunned. Lance thrusts pierce everything in reach.' },
+  },
+  {
+    id: 'prospector', name: 'Gus', title: 'Prospector', icon: '💰', color: '#ffd34d', area: 'graveyard', recruitCost: 80_000, gold: 1.75,
+    style: { kind: 'shotgun', range: 150, rate: 0.7, damage: 0.45, pellets: 5, farm: 1.2, describe: 'A trusty shotgun: five pellets per blast at close range.' },
+  },
+  {
+    id: 'demonbane', name: 'Sera', title: 'Demonbane', icon: '🗡️', color: '#ff7a3d', area: 'caves', recruitCost: 1_500_000, bane: { archetype: 'demon', mult: 3 },
+    style: { kind: 'daggers', range: 160, rate: 3, damage: 0.4, farm: 1.1, describe: 'Throws a flurry of daggers at anything that gets close.' },
+  },
+  {
+    id: 'wilhelm', name: 'Wilhelm', title: 'Sniper', icon: '🎯', color: '#9aa7b8', area: 'caves', recruitCost: 3_000_000,
+    style: { kind: 'sniper', range: 520, rate: 0.4, damage: 3.5, pierce: 2, closeRange: 90, farm: 1.5, describe: 'Picks enemies off from across the field with piercing shots; switches to akimbo pistols when they get close.' },
+  },
+  {
+    id: 'scavenger', name: 'Pip', title: 'Scavenger', icon: '🎒', color: '#3fb0a0', area: 'caves', recruitCost: 6_000_000, drops: 2,
+    style: { kind: 'ricochet', range: 220, rate: 1, damage: 0.8, bounces: 3, farm: 1.4, describe: 'Slingshot stones ricochet between up to 4 enemies.' },
+  },
+  {
+    id: 'frostbreaker', name: 'Bjorn', title: 'Frostbreaker', icon: '🔨', color: '#8fdcff', area: 'peaks', recruitCost: 150_000_000, bane: { archetype: 'elemental', mult: 3 },
+    style: { kind: 'hammer', range: 200, rate: 0.7, damage: 1.6, slow: 2, farm: 1.3, describe: 'Throws frost hammers that slow enemies to a crawl.' },
+  },
 ];
 
 export const hunterDef = (id: HunterId): HunterDef => HUNTERS.find((h) => h.id === id)!;
 
 export function hunterPerk(h: HunterDef): string {
   const parts: string[] = [];
+  if (h.guard) parts.push(`${h.guard}-hit shield`);
   if (h.bane) parts.push(`×${h.bane.mult} damage vs ${ARCHETYPES[h.bane.archetype].name}`);
   if (h.gold) parts.push(`+${Math.round((h.gold - 1) * 100)}% gold`);
   if (h.drops) parts.push(`+${Math.round((h.drops - 1) * 100)}% drops`);

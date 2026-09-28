@@ -1,5 +1,5 @@
-import { areaDef, enemyDef, GUARDIAN_TIME, hunterDef, materialDef, TAP_RADIUS, type EnemyId, type EnemyShape } from '../core/balance';
-import { PLAYER_RADIUS, type Enemy, type Field, type Helper } from '../core/field';
+import { areaDef, enemyDef, FIELD_ZOOM, GUARDIAN_TIME, hunterDef, materialDef, TAP_RADIUS, type EnemyId, type EnemyShape } from '../core/balance';
+import { PLAYER_RADIUS, type Bullet, type Enemy, type Field, type Helper } from '../core/field';
 import { fmt } from '../core/format';
 import type { Game } from '../core/game';
 import { fitCanvas, Fx } from './fx';
@@ -20,7 +20,24 @@ interface Ring {
   x: number;
   y: number;
   t: number;
+  /** Radius the ring grows to, color, and how long it lasts. */
+  r: number;
+  color: string;
+  max: number;
+  fill?: boolean;
 }
+
+interface Beam {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  color: string;
+  width: number;
+  t: number;
+}
+
+const Z = FIELD_ZOOM;
 
 const OUTLINE = '#120c1c';
 const SPRITE_SCALE = 2.4;
@@ -31,6 +48,7 @@ export class BattleView {
   private fx = new Fx();
   private pickups: Pickup[] = [];
   private rings: Ring[] = [];
+  private beams: Beam[] = [];
   private time = 0;
   private shake = 0;
   private stunTextCooldown = 0;
@@ -45,13 +63,15 @@ export class BattleView {
     private field: Field,
   ) {
     this.g = canvas.getContext('2d')!;
+    this.fx.textScale = 1 / Z;
     // Static ground detail in normalized coords, so it scales with the view.
     for (let i = 0; i < 70; i++) this.specks.push({ x: Math.random(), y: Math.random(), r: 1 + Math.random() * 3 });
 
     canvas.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       const r = canvas.getBoundingClientRect();
-      this.field.tap(e.clientX - r.left - this.w / 2, e.clientY - r.top - this.h / 2);
+      // Screen -> world (the field is drawn zoomed out around the center).
+      this.field.tap((e.clientX - r.left - this.w / 2) / Z, (e.clientY - r.top - this.h / 2) / Z);
     });
 
     game.on((e) => {
@@ -93,7 +113,21 @@ export class BattleView {
           break;
         }
         case 'blast':
-          this.rings.push({ x: e.x, y: e.y, t: 0 });
+          this.rings.push({ x: e.x, y: e.y, t: 0, r: TAP_RADIUS, color: '255,255,255', max: 0.25 });
+          break;
+        case 'explode':
+          this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: '255,138,61', max: 0.3, fill: true });
+          this.fx.burst(e.x, e.y, '#ffb04d', 8, 160, 3, 0);
+          break;
+        case 'nova':
+          this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: '255,240,190', max: 0.35 });
+          break;
+        case 'beam':
+          this.beams.push({ ...e, t: 0 });
+          break;
+        case 'guard':
+          this.rings.push({ x: e.x, y: e.y, t: 0, r: PLAYER_RADIUS + 10, color: '255,232,163', max: 0.3 });
+          this.fx.text(e.x, e.y - 30, 'BLOCK', '#ffe8a3', 12, 0.6);
           break;
         case 'boss':
           this.shake = 0.3;
@@ -101,16 +135,18 @@ export class BattleView {
           break;
         case 'stun':
           this.shake = Math.max(this.shake, e.boss ? 0.35 : 0.15);
-          this.fx.burst(e.x * 0.5, e.y * 0.5, '#ffe066', 6, 120, 2, 0);
-          if (this.stunTextCooldown <= 0) {
+          this.fx.burst(e.x, e.y, '#ffe066', 6, 120, 2, 0);
+          if (e.who === 'main' && this.stunTextCooldown <= 0) {
             this.fx.text(0, -PLAYER_RADIUS - 26, 'STUNNED!', '#ffe066', 16, 0.8);
             this.stunTextCooldown = 1;
           }
           break;
         case 'escape': {
           // A puff at the screen edge where the loot got away.
-          const x = Math.max(-this.w / 2 + 10, Math.min(this.w / 2 - 10, e.x));
-          const y = Math.max(-this.h / 2 + 10, Math.min(this.h / 2 - 10, e.y));
+          const hw = this.w / 2 / Z;
+          const hh = this.h / 2 / Z;
+          const x = Math.max(-hw + 10, Math.min(hw - 10, e.x));
+          const y = Math.max(-hh + 10, Math.min(hh - 10, e.y));
           this.fx.burst(x, y, 'rgba(200,200,220,0.8)', 5, 60, 3, 0);
           break;
         }
@@ -135,7 +171,9 @@ export class BattleView {
     }
     this.pickups = this.pickups.filter((p) => p.t < 0.35 || Math.hypot(p.x, p.y) > PLAYER_RADIUS);
     for (const r of this.rings) r.t += dt;
-    this.rings = this.rings.filter((r) => r.t < 0.25);
+    this.rings = this.rings.filter((r) => r.t < r.max);
+    for (const b of this.beams) b.t += dt;
+    this.beams = this.beams.filter((b) => b.t < 0.25);
     this.fx.update(dt);
   }
 
@@ -168,6 +206,18 @@ export class BattleView {
     g.save();
     g.translate(w / 2, h / 2);
     if (this.shake > 0) g.translate((Math.random() - 0.5) * 24 * this.shake, (Math.random() - 0.5) * 24 * this.shake);
+    g.scale(Z, Z);
+
+    // Poison puddles on the ground
+    for (const p of this.field.puddles) {
+      g.fillStyle = `rgba(123,224,123,${0.25 * Math.min(1, p.life)})`;
+      g.strokeStyle = `rgba(123,224,123,${0.6 * Math.min(1, p.life)})`;
+      g.lineWidth = 2;
+      g.beginPath();
+      g.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+    }
 
     // Pickups under everything else
     for (const p of this.pickups) {
@@ -187,18 +237,31 @@ export class BattleView {
     for (const h of this.field.helpers) this.drawHelper(g, h);
     this.drawHunter(g);
 
-    for (const b of this.field.bullets) {
-      g.fillStyle = b.crit ? '#ff6b6b' : '#fff6c2';
+    for (const b of this.field.bullets) drawBullet(g, b, this.time);
+
+    for (const b of this.beams) {
+      g.strokeStyle = b.color;
+      g.globalAlpha = 1 - b.t / 0.25;
+      g.lineWidth = b.width;
+      g.lineCap = 'round';
       g.beginPath();
-      g.arc(b.x, b.y, b.crit ? 4 : 3, 0, Math.PI * 2);
-      g.fill();
+      g.moveTo(b.x1, b.y1);
+      g.lineTo(b.x2, b.y2);
+      g.stroke();
+      g.globalAlpha = 1;
     }
 
     for (const r of this.rings) {
-      g.strokeStyle = `rgba(255,255,255,${1 - r.t / 0.25})`;
-      g.lineWidth = 3;
+      const k = r.t / r.max;
+      const rad = r.r * (0.4 + k * 0.6);
       g.beginPath();
-      g.arc(r.x, r.y, TAP_RADIUS * (0.4 + (r.t / 0.25) * 0.6), 0, Math.PI * 2);
+      g.arc(r.x, r.y, rad, 0, Math.PI * 2);
+      if (r.fill) {
+        g.fillStyle = `rgba(${r.color},${0.35 * (1 - k)})`;
+        g.fill();
+      }
+      g.strokeStyle = `rgba(${r.color},${1 - k})`;
+      g.lineWidth = 3;
       g.stroke();
     }
 
@@ -394,8 +457,30 @@ export class BattleView {
       g.textAlign = 'center';
       g.textBaseline = 'middle';
       g.fillText(def.icon, 0, 1);
+      if (h.akimbo) {
+        // Second pistol, pointing the same way.
+        g.save();
+        g.rotate(h.aim);
+        g.fillStyle = '#6b5a7a';
+        g.fillRect(R * 0.4, 4, R * 0.8, 4);
+        g.restore();
+      }
     }
     g.restore();
+    // Shield pips (Paladin)
+    const max = def.guard ?? 0;
+    for (let i = 0; i < max; i++) {
+      g.fillStyle = i < h.guard ? '#ffe8a3' : 'rgba(255,255,255,0.2)';
+      g.beginPath();
+      g.arc(h.x + (i - (max - 1) / 2) * 7, h.y + R + 9, 2.6, 0, Math.PI * 2);
+      g.fill();
+    }
+    if (h.stun > 0) {
+      g.save();
+      g.translate(h.x, h.y);
+      drawDizzy(g, R, this.time, 0.9);
+      g.restore();
+    }
   }
 
   private drawHud(g: CanvasRenderingContext2D): void {
@@ -561,6 +646,89 @@ export function drawEnemyPortrait(canvas: HTMLCanvasElement, id: EnemyId): void 
       g.arc(side * r * 0.35, -r * 0.05, r * 0.11, 0, Math.PI * 2);
       g.fill();
     }
+  }
+  g.restore();
+}
+
+/** Each attack style gets its own simple look. */
+function drawBullet(g: CanvasRenderingContext2D, b: Bullet, t: number): void {
+  const a = Math.atan2(b.vy, b.vx);
+  g.save();
+  g.translate(b.x, b.y);
+  switch (b.kind) {
+    case 'fireball':
+      g.fillStyle = 'rgba(255,120,40,0.35)';
+      g.beginPath();
+      g.arc(0, 0, 9, 0, Math.PI * 2);
+      g.fill();
+      g.fillStyle = '#ffb04d';
+      g.beginPath();
+      g.arc(0, 0, 5.5, 0, Math.PI * 2);
+      g.fill();
+      break;
+    case 'potion':
+      g.rotate(t * 12);
+      g.fillStyle = '#7be07b';
+      g.strokeStyle = OUTLINE;
+      g.lineWidth = 1.5;
+      g.beginPath();
+      g.arc(0, 2, 5, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+      g.fillRect(-1.5, -6, 3, 5);
+      break;
+    case 'arrow':
+      g.rotate(a);
+      g.strokeStyle = '#e8d2a8';
+      g.lineWidth = 2;
+      g.beginPath();
+      g.moveTo(-10, 0);
+      g.lineTo(6, 0);
+      g.stroke();
+      g.fillStyle = '#c0c0c0';
+      g.beginPath();
+      g.moveTo(9, 0);
+      g.lineTo(4, -3);
+      g.lineTo(4, 3);
+      g.closePath();
+      g.fill();
+      break;
+    case 'dagger':
+      g.rotate(t * 30);
+      g.fillStyle = '#dfe6f0';
+      g.beginPath();
+      g.moveTo(7, 0);
+      g.lineTo(-4, -2.5);
+      g.lineTo(-4, 2.5);
+      g.closePath();
+      g.fill();
+      break;
+    case 'hammer':
+      g.rotate(t * 16);
+      g.fillStyle = '#8fdcff';
+      g.strokeStyle = OUTLINE;
+      g.lineWidth = 1.5;
+      g.fillRect(-6, -4, 12, 8);
+      g.strokeRect(-6, -4, 12, 8);
+      break;
+    case 'ricochet':
+      g.fillStyle = '#a0a0a0';
+      g.beginPath();
+      g.arc(0, 0, 3.5, 0, Math.PI * 2);
+      g.fill();
+      break;
+    case 'pellet':
+    case 'pistol':
+      g.fillStyle = '#ffe9a0';
+      g.beginPath();
+      g.arc(0, 0, 2.2, 0, Math.PI * 2);
+      g.fill();
+      break;
+    default:
+      g.fillStyle = b.crit ? '#ff6b6b' : '#fff6c2';
+      g.beginPath();
+      g.arc(0, 0, b.crit ? 4 : 3, 0, Math.PI * 2);
+      g.fill();
   }
   g.restore();
 }

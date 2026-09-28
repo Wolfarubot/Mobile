@@ -31,6 +31,8 @@ interface Slash {
 }
 
 export class Fx {
+  /** Multiplier on floating text size and rise speed (to stay readable in a zoomed-out view). */
+  textScale = 1;
   particles: Particle[] = [];
   floaters: Floater[] = [];
   slashes: Slash[] = [];
@@ -78,7 +80,7 @@ export class Fx {
     }
     for (const f of this.floaters) {
       f.life += dt;
-      f.y -= 70 * dt;
+      f.y -= 70 * this.textScale * dt;
     }
     for (const s of this.slashes) s.life += dt;
     this.particles = this.particles.filter((p) => p.life < p.max);
@@ -115,8 +117,8 @@ export class Fx {
       const k = f.life / f.max;
       const pop = k < 0.15 ? 0.6 + (k / 0.15) * 0.4 : 1;
       g.globalAlpha = k > 0.6 ? 1 - (k - 0.6) / 0.4 : 1;
-      g.font = `900 ${Math.round(f.size * pop)}px system-ui, sans-serif`;
-      g.lineWidth = 4;
+      g.font = `900 ${Math.round(f.size * pop * this.textScale)}px system-ui, sans-serif`;
+      g.lineWidth = 4 * this.textScale;
       g.strokeStyle = 'rgba(0,0,0,0.75)';
       g.strokeText(f.text, f.x, f.y);
       g.fillStyle = f.color;

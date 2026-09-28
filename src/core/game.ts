@@ -31,6 +31,7 @@ import {
   HUNTERS,
   itemCost,
   itemDef,
+  MAIN_RANGE,
   MAX_TICKETS,
   maxAffordable,
   MINIGAME_GOLD_PER_UNIT,
@@ -189,9 +190,10 @@ export class Game {
     return 1 + this.critChance * (CRIT_MULT - 1);
   }
 
-  /** Seconds the main Hunter is stunned when an enemy reaches them. */
-  stunTime(boss = false): number {
-    return (boss ? BOSS_STUN_TIME : STUN_TIME) * nervesMult(this.state.upgrades.nerves) * 0.88 ** this.item('bonemail');
+  /** Seconds a Hunter is stunned when an enemy reaches them. Steady Nerves only trains your own Hunter; Bone Mail helps everyone. */
+  stunTime(boss = false, shooter: Shooter = 'main'): number {
+    const nerves = shooter === 'main' ? nervesMult(this.state.upgrades.nerves) : 1;
+    return (boss ? BOSS_STUN_TIME : STUN_TIME) * nerves * 0.88 ** this.item('bonemail');
   }
 
   get goldMult(): number {
@@ -203,16 +205,27 @@ export class Game {
     if (shooter === 'main') return this.damage;
     const def = hunterDef(shooter);
     const bane = def.bane && def.bane.archetype === archetype ? def.bane.mult : 1;
-    return powerDamage(this.state.hunters[shooter].level) * this.itemDamageMult * bane;
+    return powerDamage(this.state.hunters[shooter].level) * this.itemDamageMult * def.style.damage * bane;
   }
 
+  /** Attacks per second. */
   shooterRate(shooter: Shooter): number {
-    return shooter === 'main' ? this.fireRate : HELPER_FIRE_RATE * this.itemRateMult;
+    return shooter === 'main' ? this.fireRate : HELPER_FIRE_RATE * hunterDef(shooter).style.rate * this.itemRateMult;
   }
 
-  /** Expected damage per second of a Hunter against an archetype, ignoring overkill, travel time and stuns. */
+  /** How far a Hunter can attack, in world units. */
+  shooterRange(shooter: Shooter): number {
+    return shooter === 'main' ? MAIN_RANGE : hunterDef(shooter).style.range;
+  }
+
+  /**
+   * Expected damage per second of a Hunter against an archetype, ignoring overkill, travel time and stuns.
+   * Each attack style has a `farm` factor for how well it works against a crowd (AoE > 1).
+   */
   dpsOf(shooter: Shooter, archetype?: Archetype): number {
-    return this.shotDamage(shooter, archetype) * this.shooterRate(shooter) * this.projectiles * this.critFactor;
+    const style = shooter === 'main' ? null : hunterDef(shooter).style;
+    const perAttack = (style?.pellets ?? 1) * this.projectiles * (style?.farm ?? 1);
+    return this.shotDamage(shooter, archetype) * this.shooterRate(shooter) * perAttack * this.critFactor;
   }
 
   /** Your main Hunter's DPS. */

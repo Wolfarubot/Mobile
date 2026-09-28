@@ -63,8 +63,9 @@ button {
 .stat {
   display: flex;
   align-items: baseline;
-  gap: 6px;
-  font-size: 20px;
+  gap: 5px;
+  font-size: 18px;
+  min-width: 0;
 }
 .stat.gold b {
   color: var(--gold);
@@ -83,6 +84,15 @@ button {
 .stage {
   text-align: center;
   line-height: 1.1;
+  padding: 0 6px;
+  min-width: 0;
+}
+.stage #areaName {
+  display: block;
+  font-size: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .stage #areaNum {
   font-size: 11px;
@@ -750,4 +760,11 @@ button {
 .offline-area > div + div {
   margin-top: 2px;
   color: #9fe0ff;
+}
+
+.style-line {
+  margin: 8px 0 0 !important;
+  font-size: 12px;
+  color: var(--text) !important;
+  opacity: 0.85;
 }
