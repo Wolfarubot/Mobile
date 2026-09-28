@@ -22,8 +22,6 @@ export const BASE_DROP_CHANCE = 0.07; // chance an enemy drops its material
 export const BOSS_MATERIAL_DROP = 10;
 /** Seconds to defeat an area's Guardian once challenged. */
 export const GUARDIAN_TIME = 45;
-/** A Guardian has this many times the HP of the *next* area's basic enemy, so beating it means you're ready. */
-export const GUARDIAN_HP_MULT = 60;
 /** Gold for slaying a Guardian, in kills' worth of the area's basic enemy. */
 export const GUARDIAN_GOLD_MULT = 50;
 
@@ -151,17 +149,19 @@ export interface AreaDef {
   speed: number;
   /** Kills in this area before its Guardian can be challenged. */
   mastery: number;
+  /** HP of this area's Guardian: the real gate to the next area. */
+  guardian: number;
   ground: string;
   speck: string;
   blurb: string;
 }
 
 export const AREAS: AreaDef[] = [
-  { id: 'forest', name: 'Whispering Forest', hp: 3, gold: 1, speed: 36, mastery: 300, ground: '#2f4a2c', speck: '#3b5c37', blurb: 'Where every hunt begins.' },
-  { id: 'graveyard', name: 'Old Graveyard', hp: 150, gold: 25, speed: 40, mastery: 800, ground: '#2b2630', speck: '#383140', blurb: 'The dead do not rest here.' },
-  { id: 'caves', name: 'Ember Caves', hp: 7_500, gold: 600, speed: 45, mastery: 1_500, ground: '#3a1c14', speck: '#4d271b', blurb: 'Hot, bright and full of teeth.' },
-  { id: 'peaks', name: 'Frost Peaks', hp: 375_000, gold: 15_000, speed: 50, mastery: 3_000, ground: '#23344a', speck: '#2e4561', blurb: 'Cold winds carry cold things.' },
-  { id: 'rift', name: 'Void Rift', hp: 19_000_000, gold: 350_000, speed: 56, mastery: Infinity, ground: '#160e22', speck: '#21152f', blurb: 'The end of the known world.' },
+  { id: 'forest', name: 'Whispering Forest', hp: 3, gold: 1, speed: 36, mastery: 600, guardian: 25_000, ground: '#2f4a2c', speck: '#3b5c37', blurb: 'Where every hunt begins.' },
+  { id: 'graveyard', name: 'Old Graveyard', hp: 150, gold: 25, speed: 40, mastery: 1_500, guardian: 25_000_000, ground: '#2b2630', speck: '#383140', blurb: 'The dead do not rest here.' },
+  { id: 'caves', name: 'Ember Caves', hp: 150_000, gold: 600, speed: 45, mastery: 4_000, guardian: 1_000_000_000, ground: '#3a1c14', speck: '#4d271b', blurb: 'Hot, bright and full of teeth.' },
+  { id: 'peaks', name: 'Frost Peaks', hp: 7_000_000, gold: 15_000, speed: 50, mastery: 10_000, guardian: 3.5e10, ground: '#23344a', speck: '#2e4561', blurb: 'Cold winds carry cold things.' },
+  { id: 'rift', name: 'Void Rift', hp: 250_000_000, gold: 350_000, speed: 56, mastery: Infinity, guardian: Infinity, ground: '#160e22', speck: '#21152f', blurb: 'The end of the known world.' },
 ];
 
 export const areaDef = (id: AreaId): AreaDef => AREAS.find((a) => a.id === id)!;

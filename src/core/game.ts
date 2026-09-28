@@ -22,7 +22,6 @@ import {
   FRENZY_CAP_SEC,
   FRENZY_MULT,
   GUARDIAN_GOLD_MULT,
-  GUARDIAN_HP_MULT,
   GUARDIAN_TIME,
   hasteMult,
   HELPER_FIRE_RATE,
@@ -260,8 +259,7 @@ export class Game {
   }
 
   get guardianHp(): number {
-    const next = nextAreaOf(this.state.area);
-    return (next ?? areaDef(this.state.area)).hp * GUARDIAN_HP_MULT;
+    return areaDef(this.state.area).guardian;
   }
 
   travel(id: AreaId): boolean {
@@ -598,17 +596,19 @@ export class Game {
     const frenzyWas = s.frenzyTime;
     s.frenzyTime = 0; // offline progress never benefits from Frenzy
     const { away, seconds } = capAway((now - s.lastSeen) / 1000);
-    const result: OfflineResult = { away, seconds, kills: 0, gold: 0, materials: {} };
-    const add = (r: ReturnType<Game['accrue']>) => {
+    const result: OfflineResult = { away, seconds, kills: 0, gold: 0, materials: {}, areas: [] };
+    const add = (area: AreaId, hunters: Shooter[], r: ReturnType<Game['accrue']>) => {
       result.kills += r.kills;
       result.gold += r.gold;
       for (const [m, n] of Object.entries(r.materials) as [MaterialId, number][]) result.materials[m] = (result.materials[m] ?? 0) + n;
+      result.areas.push({ area, hunters, ...r });
     };
-    add(this.accrue(s.area, this.farmRates(s.area, ['main', ...this.helpersHere], OFFLINE_EFFICIENCY), seconds));
+    const withYou: Shooter[] = ['main', ...this.helpersHere];
+    add(s.area, withYou, this.accrue(s.area, this.farmRates(s.area, withYou, OFFLINE_EFFICIENCY), seconds));
     for (const h of HUNTERS) {
       const station = s.hunters[h.id].station;
       if (!s.hunters[h.id].recruited || !station || station === s.area) continue;
-      add(this.accrue(station, this.farmRates(station, [h.id], STATION_EFFICIENCY * OFFLINE_EFFICIENCY), seconds));
+      add(station, [h.id], this.accrue(station, this.farmRates(station, [h.id], STATION_EFFICIENCY * OFFLINE_EFFICIENCY), seconds));
     }
     s.frenzyTime = Math.max(0, frenzyWas - away);
     regenTickets(s, away);

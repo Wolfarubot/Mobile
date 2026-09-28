@@ -12,7 +12,7 @@ An incremental (idle) survivor game for Android, with iOS to follow. Your Hunter
 | **Bestiary** (gold) | Each area starts with one monster; **unlock** the others to grow its horde. **Swarm** brings more of a monster; **Bounty** makes it pay more gold and drop more materials, but it **moves faster**. Permanent, and it also applies to Hunters stationed there. |
 | **Hunters** (gold) | Your Hunter trains **Power**, **Rapid Fire** and **Steady Nerves** (shorter stuns). The **Hunter Guild** has 7 recruitable Hunters with perks: Mira the Alchemist (×3 vs Slimes), Rin the Ranger (×3 vs Beasts), Alric the Gravewarden (×3 vs Undead), Gus the Prospector (+75% gold), Sera the Demonbane (×3 vs Demons), Pip the Scavenger (×2 drops) and Bjorn the Frostbreaker (×3 vs Elementals). Level them with gold and **station** one per area. They earn gold and materials there at 80% efficiency (offline too). Visit their area and they fight beside you. |
 | **Forge** (materials) | 10 permanent items that boost **every** Hunter: Whetstone, Quickdraw Gloves, Monster Lure, Scavenger's Pouch, Bone Mail, Split Bow, Golden Idol, Frost Lance, Soul Lantern and Void Engine. Recipes use materials from each area in turn, so every new area opens up new gear. |
-| **Offline** | Up to 8h: you farm your current area at 50% efficiency, and every stationed Hunter keeps farming theirs. |
+| **Offline** | Up to 8h: you farm your current area at 50% efficiency, and every stationed Hunter keeps farming theirs. The Welcome Back screen breaks down gold, kills and materials **per area**, including who earned them. |
 | **Arena** | Tickets (max 3, one per 15 min, refill offline) buy minigame runs. |
 
 ## Adding your art
@@ -57,7 +57,7 @@ npm run dev        # play in a browser at http://localhost:5173 (use phone view 
 npm test           # unit tests + progression pacing check
 ```
 
-Balancing: `SIM_SWEEP=1 npx vitest run tests/progression.test.ts --silent=false` runs a bot on the real (headless) battlefield (training, Bestiary, Hunters, Forge, Guardians) and prints when each area unlocked. Currently: Graveyard ~6 min, Caves ~48 min, Peaks ~1h50, Void Rift ~3h15 of optimal play without minigames or offline time.
+Balancing: `SIM_SWEEP=1 npx vitest run tests/progression.test.ts --silent=false` runs a bot on the real (headless) battlefield and prints when each area unlocks, both for a **typical player** and for nonstop play. The typical player has a 40-minute first session, then checks in at 08:00 (15 min), 13:00 (10 min) and 18:00 (20 min) daily, with offline gains in between. Current pacing for that player: **Graveyard ~22 min** (first session), **Caves ~1 day**, **Frost Peaks ~3 days**, **Void Rift ~9 days**. The test suite fails if these drift out of range. The gates are each area's Guardian HP and mastery kills (`AREAS` in `balance.ts`).
 
 ### On an Android phone
 

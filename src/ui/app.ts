@@ -558,12 +558,21 @@ export class AppUI {
 
   showOffline(r: OfflineResult): void {
     const capped = r.away > r.seconds;
+    const rows = r.areas
+      .map((a) => {
+        const who = a.hunters.map((h) => (h === 'main' ? 'You' : `${hunterDef(h).icon} ${hunterDef(h).name}`)).join(' + ');
+        const mats = (Object.entries(a.materials) as [MaterialId, number][])
+          .filter(([, n]) => n > 0)
+          .map(([m, n]) => `${gemHtml(m)}${fmt(n)}`)
+          .join(' ');
+        return `<div class="offline-area"><div><b>${areaDef(a.area).name}</b> <small>${who}</small></div><div>🪙 ${fmt(a.gold)} · ${fmt(a.kills)} slain${mats ? ` · ${mats}` : ''}</div></div>`;
+      })
+      .join('');
     this.showModal(
       `<h2>Welcome back!</h2>
        <p>You were away for ${fmtTime(r.away)}.${capped ? ` (Hunters rest after ${fmtTime(r.seconds)}.)` : ''}</p>
-       <p>Your Hunters slew <b style="color:var(--text)">${fmt(r.kills)}</b> monsters.</p>
        <div class="reward">+🪙 ${fmt(r.gold)}</div>
-       ${materialsHtml(r.materials)}`,
+       <div class="offline-areas">${rows}</div>`,
       [{ label: 'Collect' }],
     );
   }

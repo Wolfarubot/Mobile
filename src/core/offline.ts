@@ -1,4 +1,4 @@
-import { MAX_TICKETS, OFFLINE_CAP_SEC, TICKET_REGEN_SEC, type MaterialId } from './balance';
+import { MAX_TICKETS, OFFLINE_CAP_SEC, TICKET_REGEN_SEC, type AreaId, type HunterId, type MaterialId } from './balance';
 import type { GameState } from './state';
 
 /** Advances minigame ticket regeneration by `seconds`, mutating the state. Returns tickets gained. */
@@ -21,6 +21,15 @@ export function capAway(awaySec: number): { away: number; seconds: number } {
   return { away, seconds: Math.min(away, OFFLINE_CAP_SEC) };
 }
 
+/** What was earned in one area while away, and by whom ('main' is your Hunter). */
+export interface AreaOffline {
+  area: AreaId;
+  hunters: Array<'main' | HunterId>;
+  kills: number;
+  gold: number;
+  materials: Partial<Record<MaterialId, number>>;
+}
+
 export interface OfflineResult {
   /** Seconds that counted (after the cap). */
   seconds: number;
@@ -29,4 +38,6 @@ export interface OfflineResult {
   kills: number;
   gold: number;
   materials: Partial<Record<MaterialId, number>>;
+  /** Per-area breakdown, your area first. */
+  areas: AreaOffline[];
 }
