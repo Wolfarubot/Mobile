@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { AREAS, ENEMIES, enemyUnlockCost, HUNTERS, ITEMS, STATION_EFFICIENCY, UPGRADES, type AreaId, type ItemId, type UpgradeId } from '../src/core/balance';
+import { AREAS, ENEMIES, GEAR, gearDef, gearStats, type GearId, enemyUnlockCost, HUNTERS, ITEMS, STATION_EFFICIENCY, UPGRADES, type AreaId, type ItemId, type UpgradeId } from '../src/core/balance';
 import { Field } from '../src/core/field';
 import { Game } from '../src/core/game';
-import { newGame } from '../src/core/state';
+import { newGame, type Wearer } from '../src/core/state';
 
 /** Small deterministic PRNG so pacing results are reproducible. */
 function mulberry(seed: number) {
@@ -14,6 +14,29 @@ function mulberry(seed: number) {
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
+}
+
+/** Rough value of a piece of gear for the bot. */
+function gearScore(base: GearId, level = 1): number {
+  const st = gearStats(gearDef(base), level);
+  return (st.damage ?? 0) + (st.rate ?? 0) + (st.range ?? 0) / 100 + (st.crit ?? 0) * 3 + (st.stun ?? 0) + (st.gold ?? 0) * 0.3 + (st.drops ?? 0) * 0.2 + (st.radius ?? 0) * 0.5 + (st.guard ?? 0) * 0.2 + (st.pierce ?? 0) * 0.3;
+}
+
+/** Fill every slot with the best gear it can craft, then upgrade what's worn. */
+function botGear(game: Game): void {
+  const wearers: Wearer[] = ['main', ...HUNTERS.filter((h) => game.state.hunters[h.id].recruited).map((h) => h.id)];
+  for (const who of wearers) {
+    game.slotsOf(who).forEach((slot, i) => {
+      const current = game.equipped(who)[i];
+      const best = GEAR.filter((gd) => gd.kind === slot.kind && game.canCraftGear(gd.id)).sort((a, b) => gearScore(b.id) - gearScore(a.id))[0];
+      if (best && (!current || gearScore(best.id) > gearScore(current.base, current.level))) {
+        const item = game.craftGear(best.id)!;
+        game.equip(who, i, item.uid);
+        if (current) game.salvageGear(current.uid);
+      }
+    });
+  }
+  for (const who of wearers) for (const it of game.equipped(who)) if (it) game.upgradeGear(it.uid);
 }
 
 /** The bot's decisions, run once per simulated second while it's playing (and on each return from offline). */
@@ -38,6 +61,7 @@ function botShop(game: Game, t: number, memo: { lastChallenge: number }): void {
     if (!opts.length || !game.buyUpgrade(opts[0].id)) break;
   }
   for (const it of ITEMS) while (game.craft(it.id as ItemId));
+  botGear(game);
 
   // Station Hunters: greedily give each other area the Hunter that earns most there.
   const free = new Set(HUNTERS.filter((h) => s.hunters[h.id].recruited).map((h) => h.id));

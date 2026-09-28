@@ -778,3 +778,151 @@ button {
   font-size: 12px;
   margin-top: 10px !important;
 }
+
+.gear-wrap {
+  margin: 8px 0 10px;
+}
+.gear-slots {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 6px 4px;
+  border-radius: 10px;
+  background: #0004;
+  border: 1px solid #ffffff22;
+  min-width: 0;
+}
+.slot.empty {
+  border-style: dashed;
+  opacity: 0.75;
+}
+.slot i {
+  font-style: normal;
+  font-size: 20px;
+}
+.slot span {
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.slot small {
+  font-size: 10px;
+  color: var(--muted);
+}
+.gear-summary {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #9fe0ff;
+}
+.inventory {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.inv-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 4px;
+  border-radius: 10px;
+  background: var(--card);
+  min-width: 0;
+}
+.inv-tile i {
+  font-style: normal;
+  font-size: 22px;
+}
+.inv-tile span {
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.inv-tile small {
+  font-size: 10px;
+  color: var(--muted);
+}
+.inv-tile em {
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  font-style: normal;
+  font-size: 12px;
+}
+.empty-inv {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0;
+}
+.modal-box.sheet {
+  text-align: left;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+.sheet-body {
+  overflow-y: auto;
+  display: grid;
+  gap: 6px;
+}
+.sheet-body p {
+  margin: 4px 0;
+}
+.pick-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--card);
+  border: 1px solid transparent;
+}
+.pick-row.on {
+  border-color: var(--accent);
+}
+.pick-row i {
+  font-style: normal;
+  font-size: 22px;
+}
+.pick-row .sub {
+  font-size: 12px;
+  color: #9fe0ff;
+}
+.pick-row .worn {
+  font-size: 11px;
+  color: var(--gold);
+}
+.gear-now {
+  color: #9fe0ff !important;
+}
+.buy.danger-btn {
+  background: var(--danger);
+  color: #fff;
+}
+.buy.secondary-btn {
+  background: var(--card-hi);
+  color: var(--text);
+}
+.sheet-body .actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+.sheet-body .actions .buy {
+  flex: 1;
+}

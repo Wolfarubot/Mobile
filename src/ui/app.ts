@@ -7,9 +7,16 @@ import {
   BOUNTY_DROP_PER_LEVEL,
   BOUNTY_GOLD_PER_LEVEL,
   BOUNTY_SPEED_PER_LEVEL,
+  describeGear,
   ENEMIES,
   ENEMY_UPGRADE_MAX,
   enemyUnlockCost,
+  GEAR,
+  GEAR_KINDS,
+  GEAR_MAX_LEVEL,
+  gearCost,
+  gearDef,
+  gearStats,
   GUARDIAN_TIME,
   HUNTERS,
   hunterDef,
@@ -26,13 +33,14 @@ import {
   UPGRADES,
   type EnemyDef,
   type EnemyUpgrade,
+  type GearDef,
   type HunterDef,
   type MaterialId,
 } from '../core/balance';
 import { fmt, fmtTime } from '../core/format';
 import type { FarmRates, Game, MinigameReward } from '../core/game';
 import type { OfflineResult } from '../core/offline';
-import type { BuyAmount } from '../core/state';
+import type { BuyAmount, Wearer } from '../core/state';
 import { bladeStorm } from '../minigames/blades';
 import { runMinigame } from '../minigames/runner';
 import { skySiege } from '../minigames/skysiege';
@@ -152,6 +160,7 @@ export class AppUI {
     this.panel.appendChild(sectionTitle('Your Hunter'));
     const strip = el('div', 'stat-strip');
     this.panel.appendChild(strip);
+    this.panel.appendChild(this.gearRow('main'));
     this.refreshers.push(() => {
       strip.innerHTML = `
         <div><b>${fmt(g.damage)}</b>damage</div>
@@ -200,7 +209,7 @@ export class AppUI {
 
     this.panel.appendChild(sectionTitle('Hunter Guild'));
     const tip = el('div', 'card');
-    tip.innerHTML = `<p style="margin:0">Station Hunters in areas to keep earning gold and materials there while you hunt elsewhere (${Math.round(STATION_EFFICIENCY * 100)}% efficiency, offline too). One Hunter per area; visit their area and they fight beside you. Forge items boost every Hunter.</p>`;
+    tip.innerHTML = `<p style="margin:0">Station Hunters in areas to keep earning gold and materials there while you hunt elsewhere (${Math.round(STATION_EFFICIENCY * 100)}% efficiency, offline too). One Hunter per area; visit their area and they fight beside you. Tap a slot to equip gear from your inventory; Camp Upgrades boost every Hunter.</p>`;
     this.panel.appendChild(tip);
     for (const h of HUNTERS) this.buildHunterCard(h);
   }
@@ -238,6 +247,7 @@ export class AppUI {
     lvl.addEventListener('click', () => g.levelHunter(def.id) && this.refresh());
     actions.appendChild(lvl);
     body.appendChild(actions);
+    body.appendChild(this.gearRow(def.id));
     const chips = el('div', 'chips');
     body.appendChild(chips);
     const yieldEl = el('div', 'yield');
@@ -276,6 +286,132 @@ export class AppUI {
       else if (st.station === g.area) yieldEl.textContent = `Fighting beside you in ${areaDef(st.station).name}.`;
       else yieldEl.innerHTML = yieldHtml(g.farmRates(st.station, [def.id], STATION_EFFICIENCY), areaDef(st.station).name);
     });
+  }
+
+  // ---- Equipment ----
+
+  /** A Hunter's equipment slots; tap one to pick gear for it. */
+  private gearRow(who: Wearer): HTMLElement {
+    const g = this.game;
+    const wrap = el('div', 'gear-wrap');
+    const row = el('div', 'gear-slots');
+    wrap.appendChild(row);
+    const summary = el('div', 'gear-summary');
+    wrap.appendChild(summary);
+    const buttons = g.slotsOf(who).map((slot, i) => {
+      const b = el('button', 'slot') as HTMLButtonElement;
+      b.addEventListener('click', () => this.openSlotPicker(who, i));
+      row.appendChild(b);
+      return { slot, b };
+    });
+    let key = '';
+    this.refreshers.push(() => {
+      const items = g.equipped(who);
+      const k = items.map((it) => (it ? `${it.uid}:${it.level}` : '-')).join('|');
+      if (k === key) return;
+      key = k;
+      buttons.forEach(({ slot, b }, i) => {
+        const it = items[i];
+        b.classList.toggle('empty', !it);
+        b.innerHTML = it
+          ? `<i>${gearDef(it.base).icon}</i><span>${gearDef(it.base).name}</span><small>${slot.label} · Lv ${it.level}</small>`
+          : `<i>${GEAR_KINDS[slot.kind].icon}</i><span>Empty</span><small>${slot.label}</small>`;
+      });
+      const stats = describeGear(g.gear(who));
+      const short = g.slotsOf(who).some((sl) => sl.role === 'short') ? describeGear(g.gear(who, 'short')) : '';
+      summary.textContent = stats || short ? `Gear: ${stats || 'nothing yet'}${short ? ` · pistols: ${short}` : ''}` : '';
+    });
+    return wrap;
+  }
+
+  /** Bottom sheet listing gear that fits a slot. */
+  private openSlotPicker(who: Wearer, slot: number): void {
+    const g = this.game;
+    const def = g.slotsOf(who)[slot];
+    const current = g.equipped(who)[slot];
+    this.showSheet(`${wearerName(who)} · ${def.label}`, (body, close) => {
+      const fits = g.state.inventory.filter((it) => gearDef(it.base).kind === def.kind).sort((a, b) => b.level - a.level);
+      if (current) {
+        const off = el('button', 'buy secondary-btn', 'Unequip') as HTMLButtonElement;
+        off.addEventListener('click', () => {
+          g.equip(who, slot, null);
+          close();
+        });
+        body.appendChild(off);
+      }
+      if (!fits.length) {
+        const p = el('p', '', `No ${GEAR_KINDS[def.kind].name.toLowerCase()} gear in your inventory yet. Craft some in the Forge.`);
+        body.appendChild(p);
+        return;
+      }
+      for (const it of fits) {
+        const gd = gearDef(it.base);
+        const worn = g.wearerOf(it.uid);
+        const row = el('button', `pick-row${current?.uid === it.uid ? ' on' : ''}`) as HTMLButtonElement;
+        row.innerHTML = `<i>${gd.icon}</i><div><b>${gd.name}</b> <small>Lv ${it.level}</small><div class="sub">${describeGear(gearStats(gd, it.level))}</div>${
+          worn ? `<div class="worn">Worn by ${wearerName(worn.who)}${worn.who === who && worn.slot === slot ? ' (this slot)' : ''}</div>` : ''
+        }</div>`;
+        row.addEventListener('click', () => {
+          g.equip(who, slot, it.uid);
+          close();
+        });
+        body.appendChild(row);
+      }
+    });
+  }
+
+  /** Details for one inventory piece: upgrade or salvage. */
+  private openGearDetail(uid: number): void {
+    const g = this.game;
+    const item = g.gearItem(uid);
+    if (!item) return;
+    const gd = gearDef(item.base);
+    this.showSheet(`${gd.icon} ${gd.name}`, (body, close) => {
+      const worn = g.wearerOf(uid);
+      const cost = g.gearUpgradeCost(uid);
+      body.innerHTML = `
+        <p>${GEAR_KINDS[gd.kind].name} · Lv ${item.level} / ${GEAR_MAX_LEVEL}${worn ? ` · worn by ${wearerName(worn.who)}` : ''}</p>
+        <p class="gear-now">${describeGear(gearStats(gd, item.level))}</p>
+        ${cost ? `<p class="gear-next">Next: <b>${describeGear(gearStats(gd, item.level + 1))}</b></p><div class="cost">${costHtml(g, cost)}</div>` : '<p>Fully upgraded.</p>'}`;
+      const actions = el('div', 'actions');
+      if (cost) {
+        const up = el('button', 'buy', 'Upgrade') as HTMLButtonElement;
+        up.disabled = !(Object.entries(cost) as [MaterialId, number][]).every(([m, n]) => g.state.materials[m] >= n);
+        up.addEventListener('click', () => {
+          g.upgradeGear(uid);
+          close();
+          this.openGearDetail(uid);
+        });
+        actions.appendChild(up);
+      }
+      const salvage = el('button', 'buy danger-btn', 'Salvage') as HTMLButtonElement;
+      salvage.addEventListener('click', () => {
+        const refund = g.salvageValue(uid);
+        close();
+        this.showModal(`<h2>Salvage ${gd.name}?</h2><p>You'll get back half of its materials:</p><div class="cost" style="justify-content:center">${costHtml(g, refund, false)}</div>`, [
+          { label: 'Cancel', secondary: true },
+          { label: 'Salvage', action: () => g.salvageGear(uid) },
+        ]);
+      });
+      actions.appendChild(salvage);
+      body.appendChild(actions);
+    });
+  }
+
+  /** A modal with arbitrary content and a Close button. */
+  private showSheet(title: string, build: (body: HTMLElement, close: () => void) => void): void {
+    this.modal.innerHTML = `<div class="modal-box sheet"><h2>${title}</h2><div class="sheet-body"></div><div class="buttons"></div></div>`;
+    const close = () => {
+      this.modal.classList.add('hidden');
+      this.modalClose = null;
+      this.refresh();
+    };
+    build($('.sheet-body', this.modal), close);
+    const btn = el('button', 'secondary', 'Close');
+    btn.addEventListener('click', close);
+    $('.buttons', this.modal).appendChild(btn);
+    this.modalClose = close;
+    this.modal.classList.remove('hidden');
   }
 
   // ---- Areas tab ----
@@ -434,6 +570,39 @@ export class AppUI {
       }).join('');
     });
 
+    // Inventory: every crafted piece; tap for details.
+    const invTitle = sectionTitle('Inventory');
+    this.panel.appendChild(invTitle);
+    const inv = el('div', 'inventory');
+    this.panel.appendChild(inv);
+    let invKey = '';
+    this.refreshers.push(() => {
+      const k = g.state.inventory.map((it) => `${it.uid}:${it.level}:${g.wearerOf(it.uid)?.who ?? ''}`).join('|');
+      if (k === invKey) return;
+      invKey = k;
+      invTitle.innerHTML = `<span>Inventory</span><span>${g.state.inventory.length} item${g.state.inventory.length === 1 ? '' : 's'}</span>`;
+      inv.innerHTML = '';
+      if (!g.state.inventory.length) inv.innerHTML = '<p class="empty-inv">Empty. Craft equipment below, then equip it from the Hunters tab.</p>';
+      for (const it of g.state.inventory) {
+        const gd = gearDef(it.base);
+        const worn = g.wearerOf(it.uid);
+        const tile = el('button', 'inv-tile') as HTMLButtonElement;
+        tile.innerHTML = `<i>${gd.icon}</i><span>${gd.name}</span><small>Lv ${it.level}</small>${worn ? `<em>${wearerIcon(worn.who)}</em>` : ''}`;
+        tile.addEventListener('click', () => this.openGearDetail(it.uid));
+        inv.appendChild(tile);
+      }
+    });
+
+    this.panel.appendChild(sectionTitle('Craft Equipment'));
+    for (const gd of GEAR) this.buildGearRecipe(gd);
+    const lockedGear = GEAR.filter((gd) => !this.gearKnown(gd)).length;
+    if (lockedGear) {
+      const teaser = el('div', 'card');
+      teaser.innerHTML = `<p style="margin:0">🔒 ${lockedGear} more recipes need materials from monsters you haven't met yet.</p>`;
+      this.panel.appendChild(teaser);
+    }
+
+    this.panel.appendChild(sectionTitle('Camp Upgrades'));
     for (const it of ITEMS) {
       const row = el('div', 'row');
       row.innerHTML = `<div class="icon">${it.icon}</div><div class="info"><div class="name"></div><div class="sub"></div><div class="cost"></div></div><button class="buy">Craft</button>`;
@@ -455,6 +624,26 @@ export class AppUI {
         btn.disabled = !g.canCraft(it.id);
       });
     }
+  }
+
+  /** Recipes are shown once every material in them comes from a monster you've unlocked (or you hold some). */
+  private gearKnown(gd: GearDef): boolean {
+    const g = this.game;
+    return (Object.keys(gd.recipe) as MaterialId[]).every((m) => g.state.materials[m] > 0 || ENEMIES.some((e) => e.material === m && g.isUnlocked(e.id)));
+  }
+
+  private buildGearRecipe(gd: GearDef): void {
+    if (!this.gearKnown(gd)) return;
+    const g = this.game;
+    const row = el('div', 'row');
+    row.innerHTML = `<div class="icon">${gd.icon}</div><div class="info"><div class="name">${gd.name} <small>${GEAR_KINDS[gd.kind].name}</small></div><div class="sub"><b>${describeGear(gearStats(gd, 1))}</b> per level</div><div class="cost"></div></div><button class="buy">Craft</button>`;
+    const btn = $<HTMLButtonElement>('.buy', row);
+    btn.addEventListener('click', () => g.craftGear(gd.id) && this.refresh());
+    this.panel.appendChild(row);
+    this.refreshers.push(() => {
+      $('.cost', row).innerHTML = costHtml(g, gearCost(gd, 0));
+      btn.disabled = !g.canCraftGear(gd.id);
+    });
   }
 
   // ---- Arena tab ----
@@ -613,6 +802,23 @@ function rewardHtml(r: MinigameReward): string {
     ${materialsHtml(r.materials)}
     ${r.stars > 0 ? `<div class="reward" style="font-size:18px">+⭐ ${r.stars} Stars</div>` : ''}
     ${r.frenzy > 0 ? `<div class="reward frenzy">🔥 +${fmtTime(r.frenzy)} Frenzy (×2 damage)</div>` : ''}`;
+}
+
+function wearerName(who: Wearer): string {
+  return who === 'main' ? 'Your Hunter' : hunterDef(who).name;
+}
+
+function wearerIcon(who: Wearer): string {
+  return who === 'main' ? '🧑' : hunterDef(who).icon;
+}
+
+/** Material cost list; with `check`, amounts you can't afford are highlighted. */
+function costHtml(g: Game, cost: Partial<Record<MaterialId, number>>, check = true): string {
+  return (Object.entries(cost) as [MaterialId, number][])
+    .map(([m, n]) =>
+      check ? `<span class="${g.state.materials[m] < n ? 'short' : ''}">${gemHtml(m)}${fmt(g.state.materials[m])}/${fmt(n)}</span>` : `<span>${gemHtml(m)}${fmt(n)}</span>`,
+    )
+    .join('');
 }
 
 function sectionTitle(text: string): HTMLElement {

@@ -3,6 +3,7 @@ import {
   areaDef,
   enemyDef,
   enemyUnlockCost,
+  GEAR_COST_GROWTH,
   GUARDIAN_TIME,
   hunterDef,
   itemCost,
@@ -239,6 +240,127 @@ describe('Shops', () => {
     g.state.stars = 100;
     expect(g.buyBh('shield')).toBe(true);
     expect(g.state.bh.shield).toBe(1);
+  });
+});
+
+describe('Equipment', () => {
+  /** A game with plenty of materials and some Hunters recruited. */
+  const stocked = () => {
+    const s = newGame(0);
+    s.gold = 1e15;
+    for (const m of Object.keys(s.materials) as Array<keyof typeof s.materials>) s.materials[m] = 1e6;
+    for (const a of ['graveyard', 'caves'] as const) s.areas[a].unlocked = true;
+    const g = new Game(s, noCrit);
+    for (const id of ['glimmer', 'lance', 'wilhelm', 'ranger'] as const) g.recruit(id);
+    return g;
+  };
+
+  it('crafting puts a level-1 piece in the inventory and spends materials; upgrading raises it', () => {
+    const g = stocked();
+    const goo = g.state.materials.goo;
+    const bow = g.craftGear('huntingBow')!;
+    expect(bow.level).toBe(1);
+    expect(g.state.inventory).toHaveLength(1);
+    expect(g.state.materials.goo).toBeLessThan(goo);
+    expect(g.upgradeGear(bow.uid)).toBe(true);
+    expect(g.gearItem(bow.uid)!.level).toBe(2);
+    const poor = new Game(newGame(0), noCrit);
+    expect(poor.craftGear('huntingBow')).toBeNull();
+  });
+
+  it('every Hunter has 3 slots with armor; Lance melee, Wilhelm two weapons, Glimmer two accessories', () => {
+    const g = stocked();
+    const kinds = (who: Parameters<Game['slotsOf']>[0]) => g.slotsOf(who).map((sl) => sl.kind);
+    expect(kinds('main')).toEqual(['weapon', 'armor', 'accessory']);
+    expect(kinds('ranger')).toEqual(['weapon', 'armor', 'accessory']);
+    expect(kinds('lance')).toEqual(['melee', 'armor', 'accessory']);
+    expect(kinds('wilhelm')).toEqual(['weapon', 'weapon', 'armor']);
+    expect(kinds('glimmer')).toEqual(['armor', 'accessory', 'accessory']);
+    for (const h of ['main', 'glimmer', 'lance', 'wilhelm', 'ranger'] as const) expect(kinds(h)).toContain('armor');
+  });
+
+  it('gear only fits matching slots, and moves between Hunters instead of being shared', () => {
+    const g = stocked();
+    const bow = g.craftGear('huntingBow')!;
+    const spear = g.craftGear('ironSpear')!;
+    expect(g.equip('lance', 0, bow.uid)).toBe(false); // Lance's first slot is melee
+    expect(g.equip('lance', 0, spear.uid)).toBe(true);
+    expect(g.equip('main', 0, bow.uid)).toBe(true);
+    expect(g.equip('ranger', 0, bow.uid)).toBe(true);
+    expect(g.equipped('main')[0]).toBeNull(); // moved to Rin
+    expect(g.wearerOf(bow.uid)).toEqual({ who: 'ranger', slot: 0 });
+    expect(g.equip('gravewarden', 1, null)).toBe(false); // not recruited
+  });
+
+  it('gear changes combat stats', () => {
+    const g = stocked();
+    const dmg = g.damage;
+    const bow = g.craftGear('huntingBow')!;
+    g.equip('main', 0, bow.uid);
+    expect(g.damage).toBeCloseTo(dmg * 1.2);
+    const stun = g.stunTime();
+    const vest = g.craftGear('leatherVest')!;
+    g.equip('main', 1, vest.uid);
+    expect(g.stunTime()).toBeLessThan(stun);
+    const lens = g.craftGear('hawkeyeLens')!;
+    const range = g.shooterRange('main');
+    g.equip('main', 2, lens.uid);
+    expect(g.shooterRange('main')).toBe(range + 20);
+  });
+
+  it("Glimmer's two accessories stack; Wilhelm's long and short weapons each power one mode", () => {
+    const g = stocked();
+    const a = g.craftGear('emberOrb')!;
+    const b = g.craftGear('emberOrb')!;
+    g.equip('glimmer', 1, a.uid);
+    g.equip('glimmer', 2, b.uid);
+    expect(g.radiusMult('glimmer')).toBeCloseTo(1.24);
+
+    const rifle = g.craftGear('frostRifle')!;
+    const bow = g.craftGear('huntingBow')!;
+    const baseLong = g.shotDamage('wilhelm', undefined, 'long');
+    const baseShort = g.shotDamage('wilhelm', undefined, 'short');
+    g.equip('wilhelm', 0, rifle.uid); // long-range slot
+    g.equip('wilhelm', 1, bow.uid); // short-range slot
+    expect(g.shotDamage('wilhelm', undefined, 'long')).toBeCloseTo(baseLong * 1.45);
+    expect(g.shotDamage('wilhelm', undefined, 'short')).toBeCloseTo(baseShort * 1.2);
+    expect(g.shooterRange('wilhelm', 'long')).toBe(g.shooterRange('wilhelm', 'short') + 15);
+  });
+
+  it('armor shields add Paladin-style charges', () => {
+    const g = stocked();
+    const plate = g.craftGear('bonePlate')!;
+    while (g.gearItem(plate.uid)!.level < 5) g.upgradeGear(plate.uid);
+    g.equip('ranger', 1, plate.uid);
+    expect(g.guardOf('ranger')).toBe(1);
+    expect(g.guardOf('lance')).toBe(3);
+  });
+
+  it('salvaging refunds half the materials spent and unequips it', () => {
+    const g = stocked();
+    const bow = g.craftGear('huntingBow')!;
+    g.upgradeGear(bow.uid);
+    g.equip('main', 0, bow.uid);
+    const goo = g.state.materials.goo;
+    const refund = g.salvageValue(bow.uid).goo!;
+    expect(refund).toBe(Math.floor((8 + Math.ceil(8 * GEAR_COST_GROWTH)) * 0.5));
+    expect(g.salvageGear(bow.uid)).toBe(true);
+    expect(g.state.materials.goo).toBe(goo + refund);
+    expect(g.state.inventory).toHaveLength(0);
+    expect(g.equipped('main')[0]).toBeNull();
+  });
+
+  it('inventory and equipment survive a save round-trip; dangling references are dropped', () => {
+    const g = stocked();
+    const bow = g.craftGear('huntingBow')!;
+    g.equip('ranger', 0, bow.uid);
+    const back = deserialize(serialize(g.state))!;
+    expect(back.inventory).toEqual([bow]);
+    expect(back.equipment.ranger?.[0]).toBe(bow.uid);
+    const broken = JSON.parse(serialize(g.state));
+    broken.inventory = [];
+    const fixed = deserialize(JSON.stringify(broken))!;
+    expect(fixed.equipment.ranger?.[0]).toBeNull();
   });
 });
 
@@ -581,7 +703,7 @@ describe('Saves', () => {
   it('migrates a stage-based save: keeps items, surviving materials and Arena progress', () => {
     const v3 = { version: 3, gold: 1e9, stage: 40, maxStage: 40, items: { whetstone: 4 }, materials: { goo: 50, bone: 20, ember: 5 }, stars: 7, stats: { totalKills: 123, deaths: 2 } };
     const s = deserialize(JSON.stringify(v3))!;
-    expect(s.version).toBe(4);
+    expect(s.version).toBe(5);
     expect(s.area).toBe('forest');
     expect(s.gold).toBe(0);
     expect(s.items.whetstone).toBe(4);

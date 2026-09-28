@@ -14,7 +14,7 @@ import {
   type EnemyId,
   type HunterId,
 } from './balance';
-import type { Game, KillReward, Shooter } from './game';
+import type { Game, GearMode, KillReward, Shooter } from './game';
 
 export const PLAYER_RADIUS = 13;
 const BULLET_RADIUS = 4;
@@ -93,6 +93,8 @@ export interface Bullet {
   hits: number[];
   /** Multiplier on the shooter's shot damage (pellets, akimbo...). */
   dmg: number;
+  /** Which of Wilhelm's weapons fired it (gear in that slot applies). */
+  mode?: GearMode;
   /** Fireball explosion / potion puddle radius. */
   radius?: number;
   bounces?: number;
@@ -180,7 +182,7 @@ export class Field {
     this.immune = 0;
     this.spawnAcc = 0;
     this.nextPack = null;
-    for (const h of this.helpers) Object.assign(h, { stun: 0, immune: 0, guard: hunterDef(h.id).guard ?? 0 });
+    for (const h of this.helpers) Object.assign(h, { stun: 0, immune: 0, guard: this.game.guardOf(h.id) });
   }
 
   drainEvents(): FieldEvent[] {
@@ -251,7 +253,7 @@ export class Field {
         h.stun = Math.max(0, h.stun - dt);
         if (h.stun === 0) h.immune = STUN_IMMUNITY;
       } else h.immune = Math.max(0, h.immune - dt);
-      const max = hunterDef(h.id).guard ?? 0;
+      const max = g.guardOf(h.id);
       if (h.guard < max) {
         h.guardAcc += dt;
         if (h.guardAcc >= GUARD_RECHARGE) {
@@ -290,7 +292,7 @@ export class Field {
       }
       this.fireAcc -= 1;
       this.aim = Math.atan2(target.y, target.x);
-      this.shoot('main', 'bolt', 0, 0, this.aim, BULLET_SPEED, g.shooterRange('main'), { pierce: g.pierce, spread: true });
+      this.shoot('main', 'bolt', 0, 0, this.aim, BULLET_SPEED, g.shooterRange('main'), { pierce: g.pierceOf('main'), spread: true });
     }
     for (const h of this.helpers) this.helperAttack(h, dt);
 
@@ -433,7 +435,7 @@ export class Field {
       stun: 0,
       stunTotal: 0,
       immune: 0,
-      guard: hunterDef(id).guard ?? 0,
+      guard: this.game.guardOf(id),
       guardAcc: 0,
       akimbo: false,
       hand: 0,
@@ -449,11 +451,13 @@ export class Field {
     }
     // The sniper swaps to pistols when anything is close.
     if (style.kind === 'sniper') h.akimbo = !!this.nearest(h.x, h.y, style.closeRange ?? 0);
-    const rate = g.shooterRate(h.id) * (h.akimbo ? AKIMBO_RATE : 1);
+    const mode: GearMode = h.akimbo ? 'short' : 'long';
+    const rate = g.shooterRate(h.id, mode) * (h.akimbo ? AKIMBO_RATE : 1);
+    const areaMult = g.radiusMult(h.id);
     h.fireAcc = Math.min(h.fireAcc + dt * rate, 3);
     while (h.fireAcc >= 1) {
-      const range = h.akimbo ? AKIMBO_RANGE : style.range;
-      const target = this.nearest(h.x, h.y, style.kind === 'nova' ? style.radius ?? range : range);
+      const range = h.akimbo ? AKIMBO_RANGE + g.gear(h.id, 'short').range : g.shooterRange(h.id);
+      const target = this.nearest(h.x, h.y, style.kind === 'nova' ? (style.radius ?? range) * areaMult : range);
       if (!target) {
         h.fireAcc = Math.min(h.fireAcc, 1);
         return;
@@ -464,17 +468,17 @@ export class Field {
       switch (style.kind) {
         case 'potion': {
           const d = Math.hypot(target.x - h.x, target.y - h.y);
-          this.shoot(h.id, 'potion', h.x, h.y, a, 300, d, { radius: style.radius, tx: target.x, ty: target.y });
+          this.shoot(h.id, 'potion', h.x, h.y, a, 300, d, { radius: (style.radius ?? 40) * areaMult, tx: target.x, ty: target.y });
           break;
         }
         case 'fireball':
-          this.shoot(h.id, 'fireball', h.x, h.y, a, 380, range, { radius: style.radius, spread: true });
+          this.shoot(h.id, 'fireball', h.x, h.y, a, 380, range, { radius: (style.radius ?? 50) * areaMult, spread: true });
           break;
         case 'arrow':
-          this.shoot(h.id, 'arrow', h.x, h.y, a, 620, range, { pierce: (style.pierce ?? 0) + g.pierce, spread: true });
+          this.shoot(h.id, 'arrow', h.x, h.y, a, 620, range, { pierce: (style.pierce ?? 0) + g.pierceOf(h.id), spread: true });
           break;
         case 'nova': {
-          const r = style.radius ?? 100;
+          const r = (style.radius ?? 100) * areaMult;
           this.events.push({ type: 'nova', x: h.x, y: h.y, r });
           for (const e of this.enemies) if (e.hp > 0 && Math.hypot(e.x - h.x, e.y - h.y) <= r + e.r) this.hitWith(h.id, e, 1, h.x, h.y);
           break;
@@ -496,8 +500,8 @@ export class Field {
             const side = (h.hand++ % 2 ? 1 : -1) * 6;
             const ox = h.x + Math.cos(a + Math.PI / 2) * side;
             const oy = h.y + Math.sin(a + Math.PI / 2) * side;
-            this.shoot(h.id, 'pistol', ox, oy, a, 600, AKIMBO_RANGE, { dmg: AKIMBO_DAMAGE });
-          } else this.strikeLine(h.id, h.x, h.y, a, range, 6, 1 + (style.pierce ?? 0) + g.pierce, 1, '#fffbe0', 3);
+            this.shoot(h.id, 'pistol', ox, oy, a, 600, range, { dmg: AKIMBO_DAMAGE, mode: 'short' });
+          } else this.strikeLine(h.id, h.x, h.y, a, range, 6, 1 + (style.pierce ?? 0) + g.pierceOf(h.id, 'long'), 1, '#fffbe0', 3);
           break;
         case 'ricochet':
           this.shoot(h.id, 'ricochet', h.x, h.y, a, 520, range, { bounces: style.bounces });
@@ -522,7 +526,7 @@ export class Field {
     angle: number,
     speed: number,
     range: number,
-    o: { pierce?: number; spread?: boolean; dmg?: number; radius?: number; bounces?: number; slow?: number; tx?: number; ty?: number },
+    o: { pierce?: number; spread?: boolean; dmg?: number; radius?: number; bounces?: number; slow?: number; tx?: number; ty?: number; mode?: GearMode },
   ): void {
     const g = this.game;
     const n = o.spread ? g.projectiles : 1;
@@ -535,7 +539,7 @@ export class Field {
         y: oy + Math.sin(a) * PLAYER_RADIUS,
         vx: Math.cos(a) * speed,
         vy: Math.sin(a) * speed,
-        crit: g.rng() < g.critChance,
+        crit: g.rng() < g.critChanceOf(shooter),
         pierce: o.pierce ?? 0,
         life: Math.max(0.05, (range + 20) / speed),
         hits: [],
@@ -545,6 +549,7 @@ export class Field {
         slow: o.slow,
         tx: o.tx,
         ty: o.ty,
+        mode: o.mode,
       });
     }
   }
@@ -569,8 +574,16 @@ export class Field {
   }
 
   /** One hit from a shooter, priced by their damage vs the enemy's archetype. */
-  private hitWith(shooter: Shooter, e: Enemy, mult: number, fromX: number, fromY: number, crit = this.game.rng() < this.game.critChance): void {
-    const dmg = this.game.shotDamage(shooter, enemyDef(e.type).archetype) * mult * (crit ? CRIT_MULT : 1);
+  private hitWith(
+    shooter: Shooter,
+    e: Enemy,
+    mult: number,
+    fromX: number,
+    fromY: number,
+    crit = this.game.rng() < this.game.critChanceOf(shooter),
+    mode?: GearMode,
+  ): void {
+    const dmg = this.game.shotDamage(shooter, enemyDef(e.type).archetype, mode) * mult * (crit ? CRIT_MULT : 1);
     const d = Math.hypot(e.x - fromX, e.y - fromY) || 1;
     this.damage(e, dmg, crit, (e.x - fromX) / d, (e.y - fromY) / d, shooter);
   }
@@ -609,7 +622,7 @@ export class Field {
       b.life = 0;
       return;
     }
-    this.hitWith(b.shooter, e, b.dmg, b.x - b.vx, b.y - b.vy, b.crit);
+    this.hitWith(b.shooter, e, b.dmg, b.x - b.vx, b.y - b.vy, b.crit, b.mode);
     if (b.kind === 'hammer' && b.slow) e.slow = Math.max(e.slow ?? 0, b.slow);
     if (b.kind === 'ricochet' && (b.bounces ?? 0) > 0) {
       const next = this.nearest(e.x, e.y, RICOCHET_RANGE, b.hits);
@@ -656,7 +669,7 @@ export class Field {
     const g = this.game;
     g.registerTap();
     this.events.push({ type: 'blast', x, y });
-    const crit = g.rng() < g.critChance;
+    const crit = g.rng() < g.critChanceOf('main');
     const dmg = g.damage * TAP_DAMAGE_MULT * (crit ? CRIT_MULT : 1);
     for (const e of this.enemies) {
       if (e.hp <= 0) continue;

@@ -2,6 +2,7 @@ import {
   AREAS,
   BH_UPGRADES,
   ENEMIES,
+  GEAR,
   HUNTERS,
   ITEMS,
   MATERIALS,
@@ -10,6 +11,7 @@ import {
   type AreaId,
   type BhUpgradeId,
   type EnemyId,
+  type GearId,
   type HunterId,
   type ItemId,
   type MaterialId,
@@ -37,6 +39,16 @@ export interface HunterState {
   station: AreaId | null;
 }
 
+/** One crafted piece of equipment in the inventory. */
+export interface GearItem {
+  uid: number;
+  base: GearId;
+  level: number;
+}
+
+/** Who can wear gear: your Hunter ('main') or a recruited Hunter. */
+export type Wearer = 'main' | HunterId;
+
 export interface GameState {
   version: number;
   gold: number;
@@ -50,6 +62,11 @@ export interface GameState {
   hunters: Record<HunterId, HunterState>;
   materials: Record<MaterialId, number>;
   items: Record<ItemId, number>;
+  /** Every crafted piece of gear, equipped or not. */
+  inventory: GearItem[];
+  /** Gear uid in each of a Hunter's slots (null = empty), indexed like their slot list. */
+  equipment: Partial<Record<Wearer, Array<number | null>>>;
+  nextGearUid: number;
   tickets: number;
   /** Seconds accumulated toward the next minigame ticket. */
   ticketProgress: number;
@@ -70,7 +87,7 @@ export interface GameState {
   };
 }
 
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 
 const zeroes = <K extends string>(ids: { id: K }[]): Record<K, number> =>
   Object.fromEntries(ids.map((x) => [x.id, 0])) as Record<K, number>;
@@ -89,6 +106,9 @@ export function newGame(now = Date.now()): GameState {
     hunters: byId(HUNTERS, () => ({ recruited: false, level: 0, station: null })),
     materials: zeroes(MATERIALS),
     items: zeroes(ITEMS),
+    inventory: [],
+    equipment: {},
+    nextGearUid: 1,
     tickets: MAX_TICKETS,
     ticketProgress: 0,
     frenzyTime: 0,
@@ -160,6 +180,16 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
     stats,
     version: SAVE_VERSION,
   };
+  // v4 -> v5: gear is new. Keep only well-formed pieces and slot references to pieces that exist.
+  state.inventory = Array.isArray(data.inventory)
+    ? (data.inventory as GearItem[]).filter((g) => g && typeof g.uid === 'number' && GEAR.some((d) => d.id === g.base) && typeof g.level === 'number')
+    : [];
+  const uids = new Set(state.inventory.map((g) => g.uid));
+  state.equipment = {};
+  if (data.equipment && typeof data.equipment === 'object')
+    for (const [who, slots] of Object.entries(data.equipment as Record<string, unknown>))
+      if (Array.isArray(slots)) state.equipment[who as Wearer] = slots.map((u) => (typeof u === 'number' && uids.has(u) ? u : null));
+  state.nextGearUid = Math.max(typeof data.nextGearUid === 'number' ? data.nextGearUid : 1, ...state.inventory.map((g) => g.uid + 1));
   if (!Number.isFinite(state.gold) || state.gold < 0) state.gold = 0;
   if (!(state.area in state.areas) || !state.areas[state.area].unlocked) state.area = 'forest';
   return state;

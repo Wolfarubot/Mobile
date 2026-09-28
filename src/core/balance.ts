@@ -159,8 +159,8 @@ export interface AreaDef {
 export const AREAS: AreaDef[] = [
   { id: 'forest', name: 'Whispering Forest', hp: 3, gold: 1, speed: 36, mastery: 600, guardian: 25_000, ground: '#2f4a2c', speck: '#3b5c37', blurb: 'Where every hunt begins.' },
   { id: 'graveyard', name: 'Old Graveyard', hp: 150, gold: 25, speed: 40, mastery: 1_500, guardian: 25_000_000, ground: '#2b2630', speck: '#383140', blurb: 'The dead do not rest here.' },
-  { id: 'caves', name: 'Ember Caves', hp: 150_000, gold: 600, speed: 45, mastery: 4_000, guardian: 1_000_000_000, ground: '#3a1c14', speck: '#4d271b', blurb: 'Hot, bright and full of teeth.' },
-  { id: 'peaks', name: 'Frost Peaks', hp: 7_000_000, gold: 15_000, speed: 50, mastery: 10_000, guardian: 3.5e10, ground: '#23344a', speck: '#2e4561', blurb: 'Cold winds carry cold things.' },
+  { id: 'caves', name: 'Ember Caves', hp: 150_000, gold: 600, speed: 45, mastery: 4_000, guardian: 4_000_000_000, ground: '#3a1c14', speck: '#4d271b', blurb: 'Hot, bright and full of teeth.' },
+  { id: 'peaks', name: 'Frost Peaks', hp: 7_000_000, gold: 15_000, speed: 50, mastery: 10_000, guardian: 3e11, ground: '#23344a', speck: '#2e4561', blurb: 'Cold winds carry cold things.' },
   { id: 'rift', name: 'Void Rift', hp: 250_000_000, gold: 350_000, speed: 56, mastery: Infinity, guardian: Infinity, ground: '#160e22', speck: '#21152f', blurb: 'The end of the known world.' },
 ];
 
@@ -317,6 +317,8 @@ export interface HunterDef {
   drops?: number;
   /** Hits absorbed before being stunned (recharges over time). */
   guard?: number;
+  /** Equipment slots (defaults to Weapon, Armor, Accessory). */
+  slots?: SlotDef[];
 }
 
 /** Your own Hunter's range, in world units. */
@@ -333,6 +335,7 @@ export const HUNTERS: HunterDef[] = [
   },
   {
     id: 'glimmer', name: 'Glimmer', title: 'Wizard', icon: '🧙', color: '#b07cff', area: 'forest', recruitCost: 600,
+    slots: [{ kind: 'armor', label: 'Robe' }, { kind: 'accessory', label: 'Focus' }, { kind: 'accessory', label: 'Focus' }],
     style: { kind: 'fireball', range: 260, rate: 0.55, damage: 1.6, radius: 55, farm: 1.8, crowd: 3, describe: 'Hurls fireballs that explode, burning everything nearby.' },
   },
   {
@@ -345,6 +348,7 @@ export const HUNTERS: HunterDef[] = [
   },
   {
     id: 'lance', name: 'Lance', title: 'Paladin', icon: '🛡️', color: '#ffe8a3', area: 'graveyard', recruitCost: 40_000, guard: 3,
+    slots: [{ kind: 'melee', label: 'Melee' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
     style: { kind: 'thrust', range: 90, rate: 0.9, damage: 1.8, farm: 1.3, crowd: 2, describe: 'Holds the line: his shield takes 3 hits before he is stunned. Lance thrusts pierce everything in reach.' },
   },
   {
@@ -357,6 +361,11 @@ export const HUNTERS: HunterDef[] = [
   },
   {
     id: 'wilhelm', name: 'Wilhelm', title: 'Sniper', icon: '🎯', color: '#9aa7b8', area: 'caves', recruitCost: 3_000_000,
+    slots: [
+      { kind: 'weapon', label: 'Long-range', role: 'long' },
+      { kind: 'weapon', label: 'Short-range', role: 'short' },
+      { kind: 'armor', label: 'Armor' },
+    ],
     style: { kind: 'sniper', range: 520, rate: 0.4, damage: 3.5, pierce: 2, closeRange: 90, farm: 1.5, crowd: 2, describe: 'Picks enemies off from across the field with piercing shots; switches to akimbo pistols when they get close.' },
   },
   {
@@ -387,6 +396,132 @@ export const helperLevelCost = (h: HunterDef, level: number): number => Math.cei
 /** Stationed Hunters earn at this fraction of their full rate (they don't tap, but they never get stunned). */
 export const STATION_EFFICIENCY = 0.8;
 
+// ---- Equipment: crafted into the inventory, equipped into Hunters' slots ----
+export type GearKind = 'weapon' | 'melee' | 'armor' | 'accessory';
+
+export const GEAR_KINDS: Record<GearKind, { name: string; icon: string }> = {
+  weapon: { name: 'Weapon', icon: '🏹' },
+  melee: { name: 'Melee', icon: '⚔️' },
+  armor: { name: 'Armor', icon: '🦺' },
+  accessory: { name: 'Accessory', icon: '💍' },
+};
+
+export interface SlotDef {
+  kind: GearKind;
+  label: string;
+  /** Wilhelm's weapon slots: 'long' powers his sniper shots, 'short' his akimbo pistols. */
+  role?: 'long' | 'short';
+}
+
+export const DEFAULT_SLOTS: SlotDef[] = [
+  { kind: 'weapon', label: 'Weapon' },
+  { kind: 'armor', label: 'Armor' },
+  { kind: 'accessory', label: 'Accessory' },
+];
+
+/** What a piece of gear can modify. Values are per gear level. */
+export type GearStat = 'damage' | 'rate' | 'range' | 'crit' | 'stun' | 'guard' | 'gold' | 'drops' | 'radius' | 'pierce';
+
+export const GEAR_STATS: Record<GearStat, (v: number) => string> = {
+  damage: (v) => `+${Math.round(v * 100)}% damage`,
+  rate: (v) => `+${Math.round(v * 100)}% attack rate`,
+  range: (v) => `+${Math.round(v)} range`,
+  crit: (v) => `+${Math.round(v * 100)}% crit`,
+  stun: (v) => `−${Math.round(v * 100)}% stun time`,
+  guard: (v) => `+${Math.floor(v)} shield`,
+  gold: (v) => `+${Math.round(v * 100)}% gold`,
+  drops: (v) => `+${Math.round(v * 100)}% drops`,
+  radius: (v) => `+${Math.round(v * 100)}% area size`,
+  pierce: (v) => `+${Math.floor(v)} pierce`,
+};
+
+export type GearId =
+  | 'huntingBow'
+  | 'boneCrossbow'
+  | 'emberLongbow'
+  | 'frostRifle'
+  | 'voidRepeater'
+  | 'ironSpear'
+  | 'magmaGlaive'
+  | 'soulLance'
+  | 'leatherVest'
+  | 'bonePlate'
+  | 'chitinCarapace'
+  | 'frostMail'
+  | 'luckyCharm'
+  | 'goldTooth'
+  | 'satchel'
+  | 'emberOrb'
+  | 'hawkeyeLens'
+  | 'soulRing';
+
+export interface GearDef {
+  id: GearId;
+  name: string;
+  icon: string;
+  kind: GearKind;
+  /** Stats at level 1; each level adds the same again. */
+  stats: Partial<Record<GearStat, number>>;
+  /** Materials to craft (level 1); upgrades cost this × GEAR_COST_GROWTH^level. */
+  recipe: Partial<Record<MaterialId, number>>;
+}
+
+export const GEAR_MAX_LEVEL = 10;
+export const GEAR_COST_GROWTH = 1.8;
+/** Salvaging returns this share of the materials spent on a piece. */
+export const SALVAGE_REFUND = 0.5;
+/** Stun reductions from gear stack additively up to this cap. */
+export const GEAR_STUN_CAP = 0.7;
+
+export const GEAR: GearDef[] = [
+  // Weapons
+  { id: 'huntingBow', name: 'Hunting Bow', icon: '🏹', kind: 'weapon', stats: { damage: 0.2 }, recipe: { goo: 8, pelt: 4 } },
+  { id: 'boneCrossbow', name: 'Bone Crossbow', icon: '🎯', kind: 'weapon', stats: { damage: 0.3, range: 8 }, recipe: { bone: 10, wing: 5 } },
+  { id: 'emberLongbow', name: 'Ember Longbow', icon: '🔥', kind: 'weapon', stats: { damage: 0.3, rate: 0.12 }, recipe: { ember: 10, chitin: 5 } },
+  { id: 'frostRifle', name: 'Frost Rifle', icon: '🔫', kind: 'weapon', stats: { damage: 0.45, range: 15 }, recipe: { fur: 10, frost: 5 } },
+  { id: 'voidRepeater', name: 'Void Repeater', icon: '🌀', kind: 'weapon', stats: { damage: 0.6, rate: 0.2 }, recipe: { shade: 10, void: 5 } },
+  // Melee
+  { id: 'ironSpear', name: 'Bone Spear', icon: '🔱', kind: 'melee', stats: { damage: 0.35 }, recipe: { bone: 10, flesh: 5 } },
+  { id: 'magmaGlaive', name: 'Magma Glaive', icon: '🪓', kind: 'melee', stats: { damage: 0.5, range: 6 }, recipe: { magma: 10, ember: 5 } },
+  { id: 'soulLance', name: 'Soulreaver Lance', icon: '⚜️', kind: 'melee', stats: { damage: 0.8, pierce: 0.2 }, recipe: { soul: 8, void: 4 } },
+  // Armor
+  { id: 'leatherVest', name: 'Leather Vest', icon: '🦺', kind: 'armor', stats: { stun: 0.05 }, recipe: { pelt: 8, goo: 6 } },
+  { id: 'bonePlate', name: 'Bone Plate', icon: '🦴', kind: 'armor', stats: { stun: 0.06, guard: 0.2 }, recipe: { bone: 10, flesh: 6 } },
+  { id: 'chitinCarapace', name: 'Chitin Carapace', icon: '🪲', kind: 'armor', stats: { stun: 0.07, damage: 0.05 }, recipe: { chitin: 10, magma: 5 } },
+  { id: 'frostMail', name: 'Frost Mail', icon: '🧥', kind: 'armor', stats: { stun: 0.08, guard: 0.3 }, recipe: { fur: 10, frost: 6 } },
+  // Accessories
+  { id: 'luckyCharm', name: 'Lucky Charm', icon: '🍀', kind: 'accessory', stats: { crit: 0.03 }, recipe: { redgel: 6, goo: 6 } },
+  { id: 'goldTooth', name: 'Gold Tooth', icon: '🦷', kind: 'accessory', stats: { gold: 0.15 }, recipe: { redgel: 6, bone: 6 } },
+  { id: 'satchel', name: "Scavenger's Satchel", icon: '👜', kind: 'accessory', stats: { drops: 0.15 }, recipe: { wing: 6, pelt: 8 } },
+  { id: 'emberOrb', name: 'Ember Orb', icon: '🔮', kind: 'accessory', stats: { radius: 0.12, damage: 0.08 }, recipe: { ember: 8, magma: 4 } },
+  { id: 'hawkeyeLens', name: 'Hawkeye Lens', icon: '🔭', kind: 'accessory', stats: { range: 20 }, recipe: { chitin: 8, wing: 6 } },
+  { id: 'soulRing', name: 'Soul Ring', icon: '💍', kind: 'accessory', stats: { damage: 0.25, crit: 0.02 }, recipe: { soul: 6, ecto: 6 } },
+];
+
+export const gearDef = (id: GearId): GearDef => GEAR.find((g) => g.id === id)!;
+
+/** A piece's stats at a level. */
+export function gearStats(def: GearDef, level: number): Partial<Record<GearStat, number>> {
+  const out: Partial<Record<GearStat, number>> = {};
+  for (const [k, v] of Object.entries(def.stats) as [GearStat, number][]) out[k] = v * level;
+  return out;
+}
+
+export function describeGear(stats: Partial<Record<GearStat, number>>): string {
+  return (Object.entries(stats) as [GearStat, number][])
+    .filter(([k, v]) => (k === 'guard' || k === 'pierce' ? Math.floor(v) >= 1 : v > 0))
+    .map(([k, v]) => GEAR_STATS[k](v))
+    .join(', ');
+}
+
+/** Materials to go from `level` to `level + 1` (level 0 = crafting it). */
+export function gearCost(def: GearDef, level: number): Partial<Record<MaterialId, number>> {
+  const cost: Partial<Record<MaterialId, number>> = {};
+  for (const [m, n] of Object.entries(def.recipe) as [MaterialId, number][]) cost[m] = Math.ceil(n * GEAR_COST_GROWTH ** level);
+  return cost;
+}
+
+// ---- Camp upgrades (the original Forge items): permanent, boost every Hunter ----
 // ---- Forge items: crafted from materials, permanent, boost every Hunter ----
 export type ItemId =
   | 'whetstone'

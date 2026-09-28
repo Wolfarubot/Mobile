@@ -8,6 +8,7 @@ import {
   BH_UPGRADES,
   bhUpgradeCost,
   BOSS_MATERIAL_DROP,
+  DEFAULT_SLOTS,
   BOSS_STUN_TIME,
   BOUNTY_DROP_PER_LEVEL,
   BOUNTY_GOLD_PER_LEVEL,
@@ -20,6 +21,11 @@ import {
   enemyUnlockCost,
   enemyUpgradeCost,
   FRENZY_CAP_SEC,
+  GEAR_MAX_LEVEL,
+  GEAR_STUN_CAP,
+  gearCost,
+  gearDef,
+  gearStats,
   FRENZY_MULT,
   GUARDIAN_GOLD_MULT,
   GUARD_RECHARGE,
@@ -40,6 +46,7 @@ import {
   nextAreaOf,
   OFFLINE_EFFICIENCY,
   powerDamage,
+  SALVAGE_REFUND,
   STATION_EFFICIENCY,
   STUN_IMMUNITY,
   STUN_TIME,
@@ -50,13 +57,16 @@ import {
   type BhUpgradeId,
   type EnemyId,
   type EnemyUpgrade,
+  type GearId,
+  type GearStat,
   type HunterId,
   type ItemId,
   type MaterialId,
+  type SlotDef,
   type UpgradeId,
 } from './balance';
 import { capAway, regenTickets, type OfflineResult } from './offline';
-import { type BuyAmount, type GameState } from './state';
+import { type BuyAmount, type GameState, type GearItem, type Wearer } from './state';
 
 export type GameEvent =
   | { type: 'travel' }
@@ -65,6 +75,9 @@ export type GameEvent =
   | { type: 'areaUnlocked'; area: AreaId }
   | { type: 'unlock'; enemy: EnemyId }
   | { type: 'recruit'; hunter: HunterId };
+
+/** Wilhelm's two weapon slots: 'long' powers sniper shots, 'short' his akimbo pistols. */
+export type GearMode = 'long' | 'short';
 
 /** Who fired a shot: your main Hunter or one of the recruited Hunters. */
 export type Shooter = 'main' | HunterId;
@@ -175,11 +188,11 @@ export class Game {
 
   /** Your main Hunter's damage per shot. */
   get damage(): number {
-    return powerDamage(this.state.upgrades.power) * this.itemDamageMult;
+    return powerDamage(this.state.upgrades.power) * this.itemDamageMult * (1 + this.gear('main').damage);
   }
 
   get fireRate(): number {
-    return BASE_FIRE_RATE * hasteMult(this.state.upgrades.haste) * this.itemRateMult;
+    return BASE_FIRE_RATE * hasteMult(this.state.upgrades.haste) * this.itemRateMult * (1 + this.gear('main').rate);
   }
 
   get projectiles(): number {
@@ -190,40 +203,69 @@ export class Game {
     return this.item('lance');
   }
 
+  /** Camp-wide crit chance (Soul Lantern); gear adds per Hunter via critChanceOf. */
   get critChance(): number {
     return BASE_CRIT_CHANCE + 0.04 * this.item('lantern');
   }
 
-  private get critFactor(): number {
-    return 1 + this.critChance * (CRIT_MULT - 1);
+  critChanceOf(shooter: Shooter): number {
+    return this.critChance + this.gear(shooter).crit;
   }
 
-  /** Seconds a Hunter is stunned when an enemy reaches them. Steady Nerves only trains your own Hunter; Bone Mail helps everyone. */
+  private critFactor(shooter: Shooter): number {
+    return 1 + this.critChanceOf(shooter) * (CRIT_MULT - 1);
+  }
+
+  /** Extra enemies each shot passes through (Frost Lance + gear). */
+  pierceOf(shooter: Shooter, mode?: GearMode): number {
+    return this.pierce + Math.floor(this.gear(shooter, mode).pierce);
+  }
+
+  /** Multiplier on a Hunter's area effects (fireballs, puddles, novas). */
+  radiusMult(shooter: Shooter): number {
+    return 1 + this.gear(shooter).radius;
+  }
+
+  /** Shield charges before a Hunter is stunned (Paladin + gear). */
+  guardOf(shooter: Shooter): number {
+    const base = shooter === 'main' ? 0 : (hunterDef(shooter).guard ?? 0);
+    return base + Math.floor(this.gear(shooter).guard);
+  }
+
+  /**
+   * Seconds a Hunter is stunned when an enemy reaches them. Steady Nerves only trains your own Hunter;
+   * Bone Mail helps everyone; armor and other gear reduce it per Hunter.
+   */
   stunTime(boss = false, shooter: Shooter = 'main'): number {
     const nerves = shooter === 'main' ? nervesMult(this.state.upgrades.nerves) : 1;
-    return (boss ? BOSS_STUN_TIME : STUN_TIME) * nerves * 0.88 ** this.item('bonemail');
+    const gear = 1 - Math.min(GEAR_STUN_CAP, this.gear(shooter).stun);
+    return (boss ? BOSS_STUN_TIME : STUN_TIME) * nerves * 0.88 ** this.item('bonemail') * gear;
   }
 
   get goldMult(): number {
     return 1 + 0.25 * this.item('idol');
   }
 
-  /** Damage per shot of any Hunter against an archetype (archetype bonuses included). */
-  shotDamage(shooter: Shooter, archetype?: Archetype): number {
+  /**
+   * Damage per shot of any Hunter against an archetype (archetype bonuses and gear included).
+   * `mode` picks Wilhelm's weapon: 'long' (sniper, default) or 'short' (akimbo).
+   */
+  shotDamage(shooter: Shooter, archetype?: Archetype, mode?: GearMode): number {
     if (shooter === 'main') return this.damage;
     const def = hunterDef(shooter);
     const bane = def.bane && def.bane.archetype === archetype ? def.bane.mult : 1;
-    return powerDamage(this.state.hunters[shooter].level) * this.itemDamageMult * def.style.damage * bane;
+    return powerDamage(this.state.hunters[shooter].level) * this.itemDamageMult * def.style.damage * bane * (1 + this.gear(shooter, mode).damage);
   }
 
   /** Attacks per second. */
-  shooterRate(shooter: Shooter): number {
-    return shooter === 'main' ? this.fireRate : HELPER_FIRE_RATE * hunterDef(shooter).style.rate * this.itemRateMult;
+  shooterRate(shooter: Shooter, mode?: GearMode): number {
+    if (shooter === 'main') return this.fireRate;
+    return HELPER_FIRE_RATE * hunterDef(shooter).style.rate * this.itemRateMult * (1 + this.gear(shooter, mode).rate);
   }
 
   /** How far a Hunter can attack, in world units. */
-  shooterRange(shooter: Shooter): number {
-    return shooter === 'main' ? MAIN_RANGE : hunterDef(shooter).style.range;
+  shooterRange(shooter: Shooter, mode?: GearMode): number {
+    return (shooter === 'main' ? MAIN_RANGE : hunterDef(shooter).style.range) + this.gear(shooter, mode).range;
   }
 
   /**
@@ -233,7 +275,7 @@ export class Game {
   dpsOf(shooter: Shooter, archetype?: Archetype): number {
     const style = shooter === 'main' ? null : hunterDef(shooter).style;
     const perAttack = (style?.pellets ?? 1) * this.projectiles * (style?.farm ?? 1);
-    return this.shotDamage(shooter, archetype) * this.shooterRate(shooter) * perAttack * this.critFactor;
+    return this.shotDamage(shooter, archetype) * this.shooterRate(shooter) * perAttack * this.critFactor(shooter);
   }
 
   /** Your main Hunter's DPS. */
@@ -242,11 +284,132 @@ export class Game {
   }
 
   private shooterGold(shooter: Shooter): number {
-    return shooter === 'main' ? 1 : (hunterDef(shooter).gold ?? 1);
+    return (shooter === 'main' ? 1 : (hunterDef(shooter).gold ?? 1)) * (1 + this.gear(shooter).gold);
   }
 
   private shooterDrops(shooter: Shooter): number {
-    return shooter === 'main' ? 1 : (hunterDef(shooter).drops ?? 1);
+    return (shooter === 'main' ? 1 : (hunterDef(shooter).drops ?? 1)) * (1 + this.gear(shooter).drops);
+  }
+
+  // ---- Equipment ----
+
+  /** A Hunter's equipment slots. */
+  slotsOf(who: Wearer): SlotDef[] {
+    return who === 'main' ? DEFAULT_SLOTS : (hunterDef(who).slots ?? DEFAULT_SLOTS);
+  }
+
+  gearItem(uid: number): GearItem | undefined {
+    return this.state.inventory.find((g) => g.uid === uid);
+  }
+
+  /** The gear in each of a Hunter's slots (null = empty). */
+  equipped(who: Wearer): Array<GearItem | null> {
+    const uids = this.state.equipment[who] ?? [];
+    return this.slotsOf(who).map((_, i) => (uids[i] != null ? (this.gearItem(uids[i]!) ?? null) : null));
+  }
+
+  /** Who is wearing a piece (and in which slot), if anyone. */
+  wearerOf(uid: number): { who: Wearer; slot: number } | null {
+    for (const [who, uids] of Object.entries(this.state.equipment) as [Wearer, Array<number | null>][]) {
+      const slot = uids.indexOf(uid);
+      if (slot >= 0) return { who, slot };
+    }
+    return null;
+  }
+
+  /**
+   * Summed gear stats of a Hunter. Slots with a role (Wilhelm's long/short weapons) only count in
+   * their mode; with no mode given, the 'long' (default) weapon counts.
+   */
+  gear(who: Shooter, mode: GearMode = 'long'): Record<GearStat, number> {
+    const total: Record<GearStat, number> = { damage: 0, rate: 0, range: 0, crit: 0, stun: 0, guard: 0, gold: 0, drops: 0, radius: 0, pierce: 0 };
+    const slots = this.slotsOf(who);
+    this.equipped(who).forEach((item, i) => {
+      if (!item || (slots[i].role && slots[i].role !== mode)) return;
+      for (const [k, v] of Object.entries(gearStats(gearDef(item.base), item.level)) as [GearStat, number][]) total[k] += v;
+    });
+    return total;
+  }
+
+  canCraftGear(id: GearId): boolean {
+    return this.hasMaterials(gearCost(gearDef(id), 0));
+  }
+
+  /** Crafts a new level-1 piece into the inventory. */
+  craftGear(id: GearId): GearItem | null {
+    if (!this.canCraftGear(id)) return null;
+    this.spend(gearCost(gearDef(id), 0));
+    const item: GearItem = { uid: this.state.nextGearUid++, base: id, level: 1 };
+    this.state.inventory.push(item);
+    return item;
+  }
+
+  gearUpgradeCost(uid: number): Partial<Record<MaterialId, number>> | null {
+    const item = this.gearItem(uid);
+    if (!item || item.level >= GEAR_MAX_LEVEL) return null;
+    return gearCost(gearDef(item.base), item.level);
+  }
+
+  upgradeGear(uid: number): boolean {
+    const cost = this.gearUpgradeCost(uid);
+    if (!cost || !this.hasMaterials(cost)) return false;
+    this.spend(cost);
+    this.gearItem(uid)!.level++;
+    return true;
+  }
+
+  /** Materials returned for salvaging a piece: half of everything spent on it. */
+  salvageValue(uid: number): Partial<Record<MaterialId, number>> {
+    const item = this.gearItem(uid);
+    const out: Partial<Record<MaterialId, number>> = {};
+    if (!item) return out;
+    for (let l = 0; l < item.level; l++)
+      for (const [m, n] of Object.entries(gearCost(gearDef(item.base), l)) as [MaterialId, number][]) out[m] = (out[m] ?? 0) + n;
+    for (const m of Object.keys(out) as MaterialId[]) out[m] = Math.floor(out[m]! * SALVAGE_REFUND);
+    return out;
+  }
+
+  /** Destroys a piece for some of its materials (it's unequipped first). */
+  salvageGear(uid: number): boolean {
+    if (!this.gearItem(uid)) return false;
+    const refund = this.salvageValue(uid);
+    const worn = this.wearerOf(uid);
+    if (worn) this.state.equipment[worn.who]![worn.slot] = null;
+    for (const [m, n] of Object.entries(refund) as [MaterialId, number][]) this.state.materials[m] += n;
+    this.state.inventory = this.state.inventory.filter((g) => g.uid !== uid);
+    return true;
+  }
+
+  /** Can this Hunter wear gear right now? (you always can; others once recruited) */
+  canWear(who: Wearer): boolean {
+    return who === 'main' || this.state.hunters[who].recruited;
+  }
+
+  /**
+   * Puts a piece into a Hunter's slot (null empties it). The piece must fit the slot's kind;
+   * if someone else was wearing it, it moves over.
+   */
+  equip(who: Wearer, slot: number, uid: number | null): boolean {
+    const slots = this.slotsOf(who);
+    if (!this.canWear(who) || slot < 0 || slot >= slots.length) return false;
+    if (uid !== null) {
+      const item = this.gearItem(uid);
+      if (!item || gearDef(item.base).kind !== slots[slot].kind) return false;
+      const worn = this.wearerOf(uid);
+      if (worn) this.state.equipment[worn.who]![worn.slot] = null;
+    }
+    const list = (this.state.equipment[who] ??= slots.map(() => null));
+    while (list.length < slots.length) list.push(null);
+    list[slot] = uid;
+    return true;
+  }
+
+  private hasMaterials(cost: Partial<Record<MaterialId, number>>): boolean {
+    return (Object.entries(cost) as [MaterialId, number][]).every(([m, n]) => this.state.materials[m] >= n);
+  }
+
+  private spend(cost: Partial<Record<MaterialId, number>>): void {
+    for (const [m, n] of Object.entries(cost) as [MaterialId, number][]) this.state.materials[m] -= n;
   }
 
   // ---- Areas ----
@@ -450,7 +613,8 @@ export class Game {
       return {
         sh,
         stunTime: this.stunTime(false, sh),
-        guardRate: sh === 'main' ? 0 : (hunterDef(sh).guard ?? 0) > 0 ? 1 / GUARD_RECHARGE : 0,
+        // A shield regains one charge every GUARD_RECHARGE seconds, however many it holds.
+        guardRate: this.guardOf(sh) > 0 ? 1 / GUARD_RECHARGE : 0,
         /** Effective hits per second, counting pellets, Split Bow and how many monsters each attack reaches. */
         shots: this.shooterRate(sh) * (style?.pellets ?? 1) * this.projectiles * (style?.crowd ?? 1),
         down: 0, // fraction of time stunned
@@ -461,7 +625,7 @@ export class Game {
     const packs = new Map(roster.map((e) => [e.id, (enemyDef(e.id).pack[0] + enemyDef(e.id).pack[1]) / 2]));
     // Hits each Hunter needs to kill one of each enemy type (crits averaged in).
     const hitsToKill = (sh: Shooter, e: EnemyStats) => {
-      const dmg = this.shotDamage(sh, e.archetype) * this.critFactor;
+      const dmg = this.shotDamage(sh, e.archetype) * this.critFactor(sh);
       return dmg > 0 ? Math.max(1, Math.ceil(e.hp / dmg - 1e-9)) : Infinity;
     };
     const hits = new Map(roster.map((e) => [e.id, hunters.map((h) => hitsToKill(h.sh, e))]));
