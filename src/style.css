@@ -768,3 +768,13 @@ button {
   color: var(--text) !important;
   opacity: 0.85;
 }
+
+.knockouts {
+  margin-top: 2px;
+  font-size: 12px;
+  color: #ffd166 !important;
+}
+.ko-tip {
+  font-size: 12px;
+  margin-top: 10px !important;
+}

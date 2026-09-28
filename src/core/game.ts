@@ -22,6 +22,7 @@ import {
   FRENZY_CAP_SEC,
   FRENZY_MULT,
   GUARDIAN_GOLD_MULT,
+  GUARD_RECHARGE,
   GUARDIAN_TIME,
   hasteMult,
   HELPER_FIRE_RATE,
@@ -40,6 +41,7 @@ import {
   OFFLINE_EFFICIENCY,
   powerDamage,
   STATION_EFFICIENCY,
+  STUN_IMMUNITY,
   STUN_TIME,
   SWARM_PER_LEVEL,
   UPGRADES,
@@ -96,6 +98,10 @@ export interface FarmRates {
   killsTotal: number;
   gold: number;
   materials: Partial<Record<MaterialId, number>>;
+  /** Times per second each Hunter gets stunned by monsters slipping through. */
+  stuns: Partial<Record<Shooter, number>>;
+  /** Fraction of the time each Hunter spends stunned (0..1). */
+  stunned: Partial<Record<Shooter, number>>;
 }
 
 export interface MinigameReward {
@@ -130,6 +136,8 @@ export class Game {
   escapesHere = 0;
   /** Fractional kills/drops accumulated by stationed Hunters, per area+enemy. */
   private farmAcc = new Map<string, number>();
+  /** Stationed Hunters' farm rates, refreshed about once a second (the model iterates, so don't redo it every frame). */
+  private stationRates = new Map<HunterId, { area: AreaId; rates: FarmRates; age: number }>();
   private listeners: Array<(e: GameEvent) => void> = [];
   rng: () => number;
 
@@ -364,7 +372,13 @@ export class Game {
     for (const h of HUNTERS) {
       const station = s.hunters[h.id].station;
       if (!s.hunters[h.id].recruited || !station || station === s.area) continue;
-      this.accrue(station, this.farmRates(station, [h.id], STATION_EFFICIENCY), dt);
+      let cached = this.stationRates.get(h.id);
+      if (!cached || cached.area !== station || cached.age >= 1) {
+        cached = { area: station, rates: this.farmRates(station, [h.id], STATION_EFFICIENCY), age: 0 };
+        this.stationRates.set(h.id, cached);
+      }
+      cached.age += dt;
+      this.accrue(station, cached.rates, dt);
     }
   }
 
@@ -410,36 +424,112 @@ export class Game {
   // ---- Background farming ----
 
   /**
-   * Expected yield per second of `shooters` farming `area`. If the horde brings
-   * more (bonus-adjusted) HP per second than they can deal, the rest escape.
+   * Expected yield per second of `shooters` farming `area`, modelling the same pressure as the live field
+   * (calibrated against it in tests/calibrate.test.ts):
+   *
+   * 1. Kills are limited by *shots*, not just damage: every monster needs at least one hit, so a
+   *    Hunter's kill rate is shots/s ÷ hits-per-kill (area attacks count for more via their `crowd` factor).
+   * 2. A monster walks for `range / speed` seconds between entering the Hunters' range and reaching them.
+   *    It slips through if the Hunters can't keep up overall, or can't clear a whole pack in that window.
+   * 3. Every monster that slips through stuns a Hunter (shields absorb some), and a monster arriving
+   *    while they're still dazed extends the stun, just like on the field. With arrivals at rate λ and
+   *    stun time T, a stun chain lasts (e^{λT} − 1)/λ, followed by the post-stun immunity.
+   * 4. When overwhelmed, damage is wasted on monsters that get away half-dead (more so when kills take many hits).
+   * 5. Stunned Hunters don't attack, so more slips through. We iterate that feedback to a steady state.
+   *
+   * So Hunters that are too weak for an area spend most of their time stunned and earn little,
+   * online or offline. `efficiency` scales the result (stationing / offline rates).
    */
   farmRates(area: AreaId, shooters: Shooter[], efficiency = 1): FarmRates {
     const roster = this.roster(area);
-    const out: FarmRates = { kills: {}, killsTotal: 0, gold: 0, materials: {} };
+    const out: FarmRates = { kills: {}, killsTotal: 0, gold: 0, materials: {}, stuns: {}, stunned: {} };
     if (!shooters.length || !roster.length) return out;
-    // Seconds of combined fire needed per second of spawns.
-    let load = 0;
-    for (const e of roster) {
-      const dps = shooters.reduce((sum, sh) => sum + this.dpsOf(sh, e.archetype), 0);
-      load += dps > 0 ? (e.spawnRate * e.hp) / dps : Infinity;
+
+    const hunters = shooters.map((sh) => {
+      const style = sh === 'main' ? null : hunterDef(sh).style;
+      return {
+        sh,
+        stunTime: this.stunTime(false, sh),
+        guardRate: sh === 'main' ? 0 : (hunterDef(sh).guard ?? 0) > 0 ? 1 / GUARD_RECHARGE : 0,
+        /** Effective hits per second, counting pellets, Split Bow and how many monsters each attack reaches. */
+        shots: this.shooterRate(sh) * (style?.pellets ?? 1) * this.projectiles * (style?.crowd ?? 1),
+        down: 0, // fraction of time stunned
+        stunRate: 0,
+      };
+    });
+    const range = Math.max(...shooters.map((sh) => this.shooterRange(sh)));
+    const packs = new Map(roster.map((e) => [e.id, (enemyDef(e.id).pack[0] + enemyDef(e.id).pack[1]) / 2]));
+    // Hits each Hunter needs to kill one of each enemy type (crits averaged in).
+    const hitsToKill = (sh: Shooter, e: EnemyStats) => {
+      const dmg = this.shotDamage(sh, e.archetype) * this.critFactor;
+      return dmg > 0 ? Math.max(1, Math.ceil(e.hp / dmg - 1e-9)) : Infinity;
+    };
+    const hits = new Map(roster.map((e) => [e.id, hunters.map((h) => hitsToKill(h.sh, e))]));
+
+    let killFrac = new Map<EnemyId, number>();
+    for (let iter = 0; iter < 24; iter++) {
+      // Kills per second the group manages if it focuses one enemy type.
+      const killRate = (e: EnemyStats) => hunters.reduce((sum, h, i) => sum + (h.shots * (1 - h.down)) / hits.get(e.id)![i], 0);
+      // Seconds of combined fire needed per second of spawns (> 1 means overwhelmed).
+      let load = 0;
+      for (const e of roster) {
+        const k = killRate(e);
+        load += k > 0 ? e.spawnRate / k : Infinity;
+      }
+      const capacity = Math.min(1, 1 / load);
+      killFrac = new Map();
+      let leak = 0;
+      for (const e of roster) {
+        const window = range / Math.max(1, e.speed);
+        const burst = Math.min(1, (window * killRate(e)) / packs.get(e.id)!);
+        // When overwhelmed, hits spread over monsters that then run off half-dead: that damage is wasted.
+        // The waste grows with how many hits a kill takes and how swamped the Hunters are:
+        // f → f^(1 + (1−f)²·(1 − 1/hits)). One-hit kills waste nothing. Calibrated against the live field.
+        const reach = Math.max(0, Math.min(capacity, burst));
+        const h = Math.min(...hits.get(e.id)!);
+        const f = reach ** (1 + (1 - reach) ** 2 * (1 - 1 / h));
+        killFrac.set(e.id, f);
+        leak += e.spawnRate * (1 - f);
+      }
+      // Leaks spread across the Hunters; shields soak some; arrivals while dazed extend the stun.
+      for (const h of hunters) {
+        const lambda = Math.max(0, leak / hunters.length - h.guardRate);
+        let down = 0;
+        h.stunRate = 0;
+        if (lambda > 1e-9) {
+          const chain = Math.expm1(Math.min(50, lambda * h.stunTime)) / lambda;
+          const cycle = chain + STUN_IMMUNITY + 1 / lambda;
+          down = chain / cycle;
+          h.stunRate = 1 / cycle;
+        }
+        h.down = 0.5 * h.down + 0.5 * down; // damped to converge
+      }
     }
-    const fraction = Math.min(1, 1 / load) * efficiency;
+
     // Gold/drop perks apply in proportion to each shooter's share of the damage.
     const total = shooters.reduce((sum, sh) => sum + this.dpsOf(sh), 0) || 1;
     const goldPerk = shooters.reduce((sum, sh) => sum + (this.dpsOf(sh) / total) * this.shooterGold(sh), 0);
     const dropPerk = shooters.reduce((sum, sh) => sum + (this.dpsOf(sh) / total) * this.shooterDrops(sh), 0);
     for (const e of roster) {
-      const k = e.spawnRate * fraction;
+      const k = e.spawnRate * killFrac.get(e.id)! * efficiency;
       out.kills[e.id] = k;
       out.killsTotal += k;
       out.gold += k * e.gold * goldPerk;
       out.materials[e.material] = (out.materials[e.material] ?? 0) + k * e.dropChance * dropPerk;
     }
+    for (const h of hunters) {
+      out.stuns[h.sh] = h.stunRate * efficiency;
+      out.stunned[h.sh] = h.down;
+    }
     return out;
   }
 
   /** Applies `seconds` of farming yield, carrying fractions so slow trickles still pay out. */
-  private accrue(area: AreaId, rates: FarmRates, seconds: number): { kills: number; gold: number; materials: Partial<Record<MaterialId, number>> } {
+  private accrue(
+    area: AreaId,
+    rates: FarmRates,
+    seconds: number,
+  ): { kills: number; gold: number; materials: Partial<Record<MaterialId, number>>; knockouts: Partial<Record<Shooter, number>> } {
     const s = this.state;
     const take = (key: string, amount: number) => {
       const v = (this.farmAcc.get(key) ?? 0) + amount;
@@ -458,11 +548,16 @@ export class Game {
         materials[m] = n;
       }
     }
+    const knockouts: Partial<Record<Shooter, number>> = {};
+    for (const [sh, rate] of Object.entries(rates.stuns) as [Shooter, number][]) {
+      const n = take(`${area}:s:${sh}`, rate * seconds);
+      if (n > 0) knockouts[sh] = n;
+    }
     s.gold += gold;
     s.stats.totalGold += gold;
     s.stats.totalKills += kills;
     s.areas[area].kills += kills;
-    return { kills, gold, materials };
+    return { kills, gold, materials, knockouts };
   }
 
   // ---- Main Hunter training ----
@@ -609,12 +704,13 @@ export class Game {
     const frenzyWas = s.frenzyTime;
     s.frenzyTime = 0; // offline progress never benefits from Frenzy
     const { away, seconds } = capAway((now - s.lastSeen) / 1000);
-    const result: OfflineResult = { away, seconds, kills: 0, gold: 0, materials: {}, areas: [] };
+    const result: OfflineResult = { away, seconds, kills: 0, gold: 0, materials: {}, areas: [], knockouts: 0 };
     const add = (area: AreaId, hunters: Shooter[], r: ReturnType<Game['accrue']>) => {
       result.kills += r.kills;
       result.gold += r.gold;
       for (const [m, n] of Object.entries(r.materials) as [MaterialId, number][]) result.materials[m] = (result.materials[m] ?? 0) + n;
       result.areas.push({ area, hunters, ...r });
+      for (const n of Object.values(r.knockouts)) result.knockouts += n ?? 0;
     };
     const withYou: Shooter[] = ['main', ...this.helpersHere];
     add(s.area, withYou, this.accrue(s.area, this.farmRates(s.area, withYou, OFFLINE_EFFICIENCY), seconds));

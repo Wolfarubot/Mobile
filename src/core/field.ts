@@ -116,7 +116,8 @@ export type FieldEvent =
   | { type: 'kill'; x: number; y: number; enemy: EnemyId; boss: boolean; reward: KillReward }
   | { type: 'blast'; x: number; y: number }
   | { type: 'boss' }
-  | { type: 'stun'; x: number; y: number; boss: boolean; who: Shooter }
+  /** `fresh` = a new knockout (false when a monster just extends a stun already in progress). */
+  | { type: 'stun'; x: number; y: number; boss: boolean; who: Shooter; fresh: boolean }
   | { type: 'guard'; x: number; y: number }
   | { type: 'escape'; x: number; y: number }
   | { type: 'explode'; x: number; y: number; r: number; color: string }
@@ -362,12 +363,13 @@ export class Field {
     }
     const state = helper ?? this;
     if (state.immune <= 0 || state.stun > 0) {
+      const fresh = state.stun <= 0;
       const t = this.game.stunTime(e.boss, who);
       if (t > state.stun) {
         state.stun = t;
         state.stunTotal = t;
       }
-      this.events.push({ type: 'stun', x: e.x, y: e.y, boss: e.boss, who });
+      this.events.push({ type: 'stun', x: e.x, y: e.y, boss: e.boss, who, fresh });
     }
     if (e.boss) {
       e.kx += ux * BOSS_BOUNCE;

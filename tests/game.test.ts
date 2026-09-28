@@ -4,6 +4,7 @@ import {
   enemyDef,
   enemyUnlockCost,
   GUARDIAN_TIME,
+  hunterDef,
   itemCost,
   itemDef,
   MAX_TICKETS,
@@ -238,6 +239,86 @@ describe('Shops', () => {
     g.state.stars = 100;
     expect(g.buyBh('shield')).toBe(true);
     expect(g.state.bh.shield).toBe(1);
+  });
+});
+
+describe('Stuns in background & offline farming', () => {
+  it('a Hunter strong enough for an area is never knocked out', () => {
+    const s = newGame(0);
+    s.upgrades.power = 150;
+    const g = new Game(s, noCrit);
+    const r = g.farmRates('forest', ['main'], 1);
+    expect(r.stuns.main).toBe(0);
+    expect(r.stunned.main).toBe(0);
+    expect(r.killsTotal).toBeCloseTo(g.spawnRate);
+  });
+
+  it('a Hunter too weak for a new area spends most of the time stunned and kills little', () => {
+    const s = newGame(0);
+    s.upgrades.power = 20; // comfortable in the forest...
+    s.areas.graveyard.unlocked = true;
+    const g = new Game(s, noCrit);
+    const forest = g.farmRates('forest', ['main'], 1);
+    const graveyard = g.farmRates('graveyard', ['main'], 1);
+    expect(forest.stunned.main).toBe(0);
+    expect(graveyard.stunned.main).toBeGreaterThan(0.4); // ...but swamped in the graveyard
+    expect(graveyard.stuns.main).toBeGreaterThan(0);
+    const spawns = g.roster('graveyard').reduce((sum, e) => sum + e.spawnRate, 0);
+    expect(graveyard.killsTotal).toBeLessThan(spawns * 0.25);
+  });
+
+  it("going offline in an area you can't handle pays less than farming one you can", () => {
+    const setup = (area: 'forest' | 'graveyard') => {
+      const s = newGame(0);
+      s.upgrades.power = 20;
+      s.areas.graveyard.unlocked = true;
+      s.area = area;
+      return new Game(s, noCrit).applyOffline(8 * 3600 * 1000);
+    };
+    const easy = setup('forest');
+    const hard = setup('graveyard');
+    expect(hard.knockouts).toBeGreaterThan(1000);
+    expect(easy.knockouts).toBe(0);
+    expect(hard.gold).toBeLessThan(easy.gold); // despite graveyard monsters paying 25x more each
+  });
+
+  it('knockouts are reported per Hunter, only when they happened', () => {
+    const s = newGame(0);
+    s.gold = 1e12;
+    s.upgrades.power = 150;
+    s.areas.graveyard.unlocked = true;
+    const g = new Game(s, noCrit);
+    g.recruit('alchemist'); // level 0: hopeless in the graveyard
+    g.station('alchemist', 'graveyard');
+    const r = g.applyOffline(3600 * 1000);
+    const forest = r.areas.find((a) => a.area === 'forest')!;
+    const graveyard = r.areas.find((a) => a.area === 'graveyard')!;
+    expect(forest.knockouts.main).toBeUndefined(); // strong enough: nothing to report
+    expect(graveyard.knockouts.alchemist).toBeGreaterThan(0);
+    expect(r.knockouts).toBe(graveyard.knockouts.alchemist);
+  });
+
+  it("Lance's shield soaks hits: less time stunned than the same Hunter without it", () => {
+    const s = newGame(0);
+    s.gold = 1e12;
+    s.areas.graveyard.unlocked = true;
+    const g = new Game(s, noCrit);
+    g.recruit('lance');
+    const def = hunterDef('lance');
+    const guard = def.guard;
+    const stunnedAt = (withShield: boolean) => {
+      def.guard = withShield ? guard : 0;
+      const v = g.farmRates('graveyard', ['lance'], 1).stunned.lance!;
+      def.guard = guard;
+      return v;
+    };
+    // Find a strength where he's pressed but not hopeless in the graveyard.
+    let level = 0;
+    while (level < 400 && !(stunnedAt(false) > 0.05 && stunnedAt(false) < 0.9)) g.state.hunters.lance.level = ++level;
+    const shielded = stunnedAt(true);
+    const bare = stunnedAt(false);
+    expect(bare).toBeGreaterThan(0);
+    expect(shielded).toBeLessThan(bare);
   });
 });
 

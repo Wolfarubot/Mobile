@@ -28,6 +28,8 @@ export interface AreaOffline {
   kills: number;
   gold: number;
   materials: Partial<Record<MaterialId, number>>;
+  /** Times each Hunter here was knocked out (stunned) while you were away. */
+  knockouts: Partial<Record<'main' | HunterId, number>>;
 }
 
 export interface OfflineResult {
@@ -40,4 +42,6 @@ export interface OfflineResult {
   materials: Partial<Record<MaterialId, number>>;
   /** Per-area breakdown, your area first. */
   areas: AreaOffline[];
+  /** Total knockouts across all Hunters. */
+  knockouts: number;
 }

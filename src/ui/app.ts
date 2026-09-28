@@ -561,19 +561,28 @@ export class AppUI {
     const capped = r.away > r.seconds;
     const rows = r.areas
       .map((a) => {
-        const who = a.hunters.map((h) => (h === 'main' ? 'You' : `${hunterDef(h).icon} ${hunterDef(h).name}`)).join(' + ');
+        const name = (h: (typeof a.hunters)[number]) => (h === 'main' ? 'You' : `${hunterDef(h).icon} ${hunterDef(h).name}`);
+        const who = a.hunters.map(name).join(' + ');
+        // Only Hunters that were actually knocked out get a count.
+        const kos = a.hunters
+          .filter((h) => (a.knockouts[h] ?? 0) > 0)
+          .map((h) => `${name(h)} ×${fmt(a.knockouts[h]!)}`)
+          .join(', ');
         const mats = (Object.entries(a.materials) as [MaterialId, number][])
           .filter(([, n]) => n > 0)
           .map(([m, n]) => `${gemHtml(m)}${fmt(n)}`)
           .join(' ');
-        return `<div class="offline-area"><div><b>${areaDef(a.area).name}</b> <small>${who}</small></div><div>🪙 ${fmt(a.gold)} · ${fmt(a.kills)} slain${mats ? ` · ${mats}` : ''}</div></div>`;
+        return `<div class="offline-area"><div><b>${areaDef(a.area).name}</b> <small>${who}</small></div><div>🪙 ${fmt(a.gold)} · ${fmt(a.kills)} slain${mats ? ` · ${mats}` : ''}</div>${
+          kos ? `<div class="knockouts">💫 Knocked out: ${kos}</div>` : ''
+        }</div>`;
       })
       .join('');
     this.showModal(
       `<h2>Welcome back!</h2>
        <p>You were away for ${fmtTime(r.away)}.${capped ? ` (Hunters rest after ${fmtTime(r.seconds)}.)` : ''}</p>
        <div class="reward">+🪙 ${fmt(r.gold)}</div>
-       <div class="offline-areas">${rows}</div>`,
+       <div class="offline-areas">${rows}</div>
+       ${r.knockouts > 0 ? '<p class="ko-tip">Knocked-out Hunters stop fighting. Get stronger (or pick an easier area) to keep monsters from slipping through.</p>' : ''}`,
       [{ label: 'Collect' }],
     );
   }
@@ -582,10 +591,12 @@ export class AppUI {
 /** "≈ 🪙 1.2K/min · <gem>3 /min" for a stationed Hunter. */
 function yieldHtml(r: FarmRates, where: string): string {
   const mats = (Object.entries(r.materials) as [MaterialId, number][])
-    .filter(([, n]) => n > 0)
+    .filter(([, n]) => n * 60 >= 0.05)
     .map(([m, n]) => `${gemHtml(m)}${fmt(n * 60)}`)
     .join(' ');
-  return `<div class="yield">${where ? `${where}: ` : ''}≈ 🪙 ${fmt(r.gold * 60)}/min${mats ? ` · ${mats} /min` : ''}</div>`;
+  const down = Math.max(0, ...Object.values(r.stunned).map((x) => x ?? 0));
+  const warn = down >= 0.05 ? `<div class="knockouts">💫 Stunned ${Math.round(down * 100)}% of the time: too weak for this area</div>` : '';
+  return `<div class="yield">${where ? `${where}: ` : ''}≈ 🪙 ${fmt(r.gold * 60)}/min${mats ? ` · ${mats} /min` : ''}</div>${warn}`;
 }
 
 function materialsHtml(materials: Partial<Record<MaterialId, number>>): string {

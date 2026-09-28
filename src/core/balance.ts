@@ -293,8 +293,10 @@ export interface AttackStyle {
   slow?: number;
   /** Sniper switches to akimbo pistols when an enemy is this close. */
   closeRange?: number;
-  /** Rough damage efficiency vs a single target, used for background farming (AoE > 1). */
+  /** Rough damage efficiency vs a crowd, used for background DPS (AoE > 1). */
   farm: number;
+  /** Typical monsters hit per attack against a crowd (area, pierce, bounce), used to model kill rates. */
+  crowd: number;
   describe: string;
 }
 
@@ -327,43 +329,43 @@ export const GUARD_RECHARGE = 4;
 export const HUNTERS: HunterDef[] = [
   {
     id: 'alchemist', name: 'Mira', title: 'Alchemist', icon: '⚗️', color: '#7be07b', area: 'forest', recruitCost: 150, bane: { archetype: 'slime', mult: 3 },
-    style: { kind: 'potion', range: 230, rate: 0.6, damage: 0.8, radius: 45, farm: 1.6, describe: 'Lobs potions that leave a bubbling poison puddle.' },
+    style: { kind: 'potion', range: 230, rate: 0.6, damage: 0.8, radius: 45, farm: 1.6, crowd: 3, describe: 'Lobs potions that leave a bubbling poison puddle.' },
   },
   {
     id: 'glimmer', name: 'Glimmer', title: 'Wizard', icon: '🧙', color: '#b07cff', area: 'forest', recruitCost: 600,
-    style: { kind: 'fireball', range: 260, rate: 0.55, damage: 1.6, radius: 55, farm: 1.8, describe: 'Hurls fireballs that explode, burning everything nearby.' },
+    style: { kind: 'fireball', range: 260, rate: 0.55, damage: 1.6, radius: 55, farm: 1.8, crowd: 3, describe: 'Hurls fireballs that explode, burning everything nearby.' },
   },
   {
     id: 'ranger', name: 'Rin', title: 'Ranger', icon: '🏹', color: '#c09060', area: 'forest', recruitCost: 1_200, bane: { archetype: 'beast', mult: 3 },
-    style: { kind: 'arrow', range: 300, rate: 1, damage: 1, pierce: 3, farm: 1.4, describe: 'Arrows pierce through up to 4 enemies in a line.' },
+    style: { kind: 'arrow', range: 300, rate: 1, damage: 1, pierce: 3, farm: 1.4, crowd: 2, describe: 'Arrows pierce through up to 4 enemies in a line.' },
   },
   {
     id: 'gravewarden', name: 'Alric', title: 'Gravewarden', icon: '✝️', color: '#efe6cf', area: 'graveyard', recruitCost: 15_000, bane: { archetype: 'undead', mult: 3 },
-    style: { kind: 'nova', range: 110, rate: 0.5, damage: 1.5, radius: 110, farm: 1.5, describe: 'Pulses holy light, striking every enemy around him.' },
+    style: { kind: 'nova', range: 110, rate: 0.5, damage: 1.5, radius: 110, farm: 1.5, crowd: 3, describe: 'Pulses holy light, striking every enemy around him.' },
   },
   {
     id: 'lance', name: 'Lance', title: 'Paladin', icon: '🛡️', color: '#ffe8a3', area: 'graveyard', recruitCost: 40_000, guard: 3,
-    style: { kind: 'thrust', range: 90, rate: 0.9, damage: 1.8, farm: 1.3, describe: 'Holds the line: his shield takes 3 hits before he is stunned. Lance thrusts pierce everything in reach.' },
+    style: { kind: 'thrust', range: 90, rate: 0.9, damage: 1.8, farm: 1.3, crowd: 2, describe: 'Holds the line: his shield takes 3 hits before he is stunned. Lance thrusts pierce everything in reach.' },
   },
   {
     id: 'prospector', name: 'Gus', title: 'Prospector', icon: '💰', color: '#ffd34d', area: 'graveyard', recruitCost: 80_000, gold: 1.75,
-    style: { kind: 'shotgun', range: 150, rate: 0.7, damage: 0.45, pellets: 5, farm: 1.2, describe: 'A trusty shotgun: five pellets per blast at close range.' },
+    style: { kind: 'shotgun', range: 150, rate: 0.7, damage: 0.45, pellets: 5, farm: 1.2, crowd: 1, describe: 'A trusty shotgun: five pellets per blast at close range.' },
   },
   {
     id: 'demonbane', name: 'Sera', title: 'Demonbane', icon: '🗡️', color: '#ff7a3d', area: 'caves', recruitCost: 1_500_000, bane: { archetype: 'demon', mult: 3 },
-    style: { kind: 'daggers', range: 160, rate: 3, damage: 0.4, farm: 1.1, describe: 'Throws a flurry of daggers at anything that gets close.' },
+    style: { kind: 'daggers', range: 160, rate: 3, damage: 0.4, farm: 1.1, crowd: 1, describe: 'Throws a flurry of daggers at anything that gets close.' },
   },
   {
     id: 'wilhelm', name: 'Wilhelm', title: 'Sniper', icon: '🎯', color: '#9aa7b8', area: 'caves', recruitCost: 3_000_000,
-    style: { kind: 'sniper', range: 520, rate: 0.4, damage: 3.5, pierce: 2, closeRange: 90, farm: 1.5, describe: 'Picks enemies off from across the field with piercing shots; switches to akimbo pistols when they get close.' },
+    style: { kind: 'sniper', range: 520, rate: 0.4, damage: 3.5, pierce: 2, closeRange: 90, farm: 1.5, crowd: 2, describe: 'Picks enemies off from across the field with piercing shots; switches to akimbo pistols when they get close.' },
   },
   {
     id: 'scavenger', name: 'Pip', title: 'Scavenger', icon: '🎒', color: '#3fb0a0', area: 'caves', recruitCost: 6_000_000, drops: 2,
-    style: { kind: 'ricochet', range: 220, rate: 1, damage: 0.8, bounces: 3, farm: 1.4, describe: 'Slingshot stones ricochet between up to 4 enemies.' },
+    style: { kind: 'ricochet', range: 220, rate: 1, damage: 0.8, bounces: 3, farm: 1.4, crowd: 2.5, describe: 'Slingshot stones ricochet between up to 4 enemies.' },
   },
   {
     id: 'frostbreaker', name: 'Bjorn', title: 'Frostbreaker', icon: '🔨', color: '#8fdcff', area: 'peaks', recruitCost: 150_000_000, bane: { archetype: 'elemental', mult: 3 },
-    style: { kind: 'hammer', range: 200, rate: 0.7, damage: 1.6, slow: 2, farm: 1.3, describe: 'Throws frost hammers that slow enemies to a crawl.' },
+    style: { kind: 'hammer', range: 200, rate: 0.7, damage: 1.6, slow: 2, farm: 1.3, crowd: 1, describe: 'Throws frost hammers that slow enemies to a crawl.' },
   },
 ];
 
