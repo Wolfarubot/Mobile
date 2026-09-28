@@ -191,9 +191,9 @@ export class AppUI {
   }
 
   /** A Train button (with progress to the next level) for a recruited Hunter or you. */
-  private trainButton(who: Wearer): HTMLElement {
+  private trainButton(who: Wearer, compact = false): HTMLElement {
     const g = this.game;
-    const wrap = el('div', 'train');
+    const wrap = el('div', compact ? 'train compact' : 'train');
     const btn = el('button', 'buy') as HTMLButtonElement;
     const bar = el('div', 'train-bar');
     bar.innerHTML = '<i></i><span></span>';
@@ -206,10 +206,11 @@ export class AppUI {
     this.refreshers.push(() => {
       const p = g.trainPurchase(who);
       const { level, into, need } = g.levelInfo(who);
-      btn.innerHTML = `Train${p.count > 1 ? ` ×${p.count}` : ''}<small>🪙 ${fmt(p.cost)}</small>`;
+      const label = `Train${p.count > 1 ? ` ×${p.count}` : ''}`;
+      btn.innerHTML = compact ? `${label} · 🪙 ${fmt(p.cost)}` : `${label}<small>🪙 ${fmt(p.cost)}</small>`;
       btn.disabled = g.state.gold < p.cost;
       $('i', bar).style.width = `${(into / need) * 100}%`;
-      $('span', bar).textContent = `Lv ${level} · ${into}/${need} to Lv ${level + 1}`;
+      $('span', bar).textContent = compact ? `${into}/${need} to Lv ${level + 1}` : `Lv ${level} · ${into}/${need} to Lv ${level + 1}`;
     });
     return wrap;
   }
@@ -221,12 +222,12 @@ export class AppUI {
     const card = el('div', 'hunter-card');
     card.setAttribute('role', 'button');
     card.innerHTML = `
-      ${portraitHtml(who)}
+      <div class="hc-art">${portraitHtml(who)}<b class="sp-dot hidden" title="Unspent skill points"></b></div>
       <div class="hc-info">
         <div class="hc-name"></div>
+        <div class="hc-ability">${def ? def.ability : MAIN_ABILITY}</div>
         <div class="hc-status"></div>
         <div class="hc-gear"></div>
-        <div class="hc-ability">${def ? def.ability : MAIN_ABILITY}</div>
       </div>
       <div class="hc-chev">›</div>`;
     card.addEventListener('click', () => this.openHunterDetail(who));
@@ -234,6 +235,7 @@ export class AppUI {
     const name = $('.hc-name', card);
     const gearEl = $('.hc-gear', card);
     const status = $('.hc-status', card);
+    const dot = $('.sp-dot', card);
     if (def && !g.state.hunters[def.id].recruited) {
       const recruitBtn = el('button', 'buy hc-recruit') as HTMLButtonElement;
       recruitBtn.addEventListener('click', (ev) => {
@@ -245,17 +247,19 @@ export class AppUI {
       this.refreshers.push(() => {
         name.innerHTML = `${def.name} <small>the ${def.title}</small>`;
         status.textContent = g.isAreaUnlocked(def.area) ? 'Available to recruit' : `Found in ${areaDef(def.area).name}`;
-        recruitBtn.innerHTML = g.isAreaUnlocked(def.area) ? `Recruit<small>🪙 ${fmt(def.recruitCost)}</small>` : '🔒 Locked';
+        recruitBtn.innerHTML = g.isAreaUnlocked(def.area) ? `Recruit · 🪙 ${fmt(def.recruitCost)}` : '🔒 Locked';
         recruitBtn.disabled = !g.canRecruit(def.id);
       });
       gearEl.innerHTML = g.slotsOf(who).map((slot) => `<span class="gear-chip empty">${GEAR_KINDS[slot.kind].icon} ${slot.label}</span>`).join('');
       return card;
     }
-    info.appendChild(this.trainButton(who));
+    info.appendChild(this.trainButton(who, true));
     let gearKey = '';
     this.refreshers.push(() => {
       const points = g.skillPoints(who);
-      name.innerHTML = `${def ? def.name : 'You'} <small>${def ? `the ${def.title}` : 'the Monster Hunter'} · Lv ${g.levelOf(who)}</small>${points > 0 ? ` <b class="sp-badge">+${points} SP</b>` : ''}`;
+      name.innerHTML = `${def ? def.name : 'You'} <small>${def ? `the ${def.title}` : 'the Monster Hunter'} · Lv ${g.levelOf(who)}</small>`;
+      dot.textContent = String(points);
+      dot.classList.toggle('hidden', points <= 0);
       const station = def ? g.state.hunters[def.id].station : g.area;
       const down = def && station && station !== g.area ? (g.farmRates(station, [def.id], STATION_EFFICIENCY).stunned[def.id] ?? 0) : 0;
       status.innerHTML = `${station ? `📍 ${areaDef(station).name}` : '💤 Resting'} · ⚔️ ${fmt(g.dpsOf(who))} DPS${down >= 0.05 ? ' · <b class="warn">💫 overwhelmed</b>' : ''}`;
@@ -268,7 +272,7 @@ export class AppUI {
           .map((slot, i) => {
             const it = items[i];
             return it
-              ? `<span class="gear-chip">${gearDef(it.base).icon} ${gearDef(it.base).name} <small>Lv ${it.level}</small></span>`
+              ? `<span class="gear-chip">${gearDef(it.base).icon} ${gearDef(it.base).name}</span>`
               : `<span class="gear-chip empty">${GEAR_KINDS[slot.kind].icon} ${slot.label}</span>`;
           })
           .join('');
