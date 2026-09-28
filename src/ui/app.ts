@@ -101,7 +101,7 @@ export class AppUI {
     $('#areaNum').textContent = `Area ${idx + 1} of ${AREAS.length}`;
     $('#areaName').textContent = area.name;
 
-    const ready = EVENTS.filter((e) => g.eventReady(e.id)).length;
+    const ready = EVENTS.filter((e) => e.area === g.area && g.eventReady(e.id)).length;
     const badge = $('#eventsBadge');
     badge.textContent = String(ready);
     badge.classList.toggle('hidden', ready <= 0);
@@ -812,13 +812,12 @@ export class AppUI {
   private buildEvents(): void {
     const g = this.game;
     const intro = el('div', 'card');
-    intro.innerHTML = `<p style="margin:0">Every area has a <b>Guardian Challenge</b>, and some have their own events. Slay monsters in an area to unlock them. After you start one, it goes on cooldown before it can run again.</p>`;
+    intro.innerHTML = `<p style="margin:0">Events for the area you're in. Slay monsters here to unlock them. After you start one, it goes on cooldown before it can run again. Travel to another area to see its events.</p>`;
     this.panel.appendChild(intro);
-    const order = [g.area, ...g.unlockedAreas.filter((a) => a !== g.area)];
-    for (const areaId of order) {
-      this.panel.appendChild(sectionTitle(`${areaDef(areaId).name}${areaId === g.area ? ' · here' : ''}`));
-      for (const ev of EVENTS.filter((e) => e.area === areaId)) this.buildEventCard(ev);
-    }
+    this.panel.appendChild(sectionTitle(areaDef(g.area).name));
+    const here = EVENTS.filter((e) => e.area === g.area);
+    for (const ev of here) this.buildEventCard(ev);
+    if (!here.length) this.panel.appendChild(el('p', 'hd-note', 'No events here yet.'));
   }
 
   private buildEventCard(ev: EventDef): void {
@@ -856,7 +855,7 @@ export class AppUI {
         btn.disabled = true;
       } else {
         status.innerHTML = extra ? `<small>${extra}</small>` : '';
-        btn.innerHTML = g.eventRunning ? 'Busy<small>another event</small>' : `Start${ev.area !== g.area ? `<small>travels there</small>` : ''}`;
+        btn.innerHTML = g.eventRunning ? 'Busy<small>another event</small>' : 'Start';
         btn.disabled = !g.eventReady(ev.id);
       }
     });
