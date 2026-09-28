@@ -15,6 +15,7 @@ import {
   GEAR_KINDS,
   GEAR_MAX_LEVEL,
   gearCost,
+  gearColor,
   gearDef,
   gearStats,
   GUARDIAN_TIME,
@@ -28,6 +29,7 @@ import {
   MATERIALS,
   MAX_TICKETS,
   nextAreaOf,
+  RARITIES,
   STATION_EFFICIENCY,
   SWARM_PER_LEVEL,
   TICKET_REGEN_SEC,
@@ -254,7 +256,7 @@ export class AppUI {
         .map((slot, i) => {
           const it = items[i];
           return it
-            ? `<span class="gear-chip">${gearDef(it.base).icon} ${gearDef(it.base).name}</span>`
+            ? `<span class="gear-chip rar" style="--rc:${gearColor(it.base)}">${gearDef(it.base).icon} ${gearDef(it.base).name}</span>`
             : `<span class="gear-chip empty">${GEAR_KINDS[slot.kind].icon} ${slot.label}</span>`;
         })
         .join('');
@@ -496,6 +498,8 @@ export class AppUI {
       buttons.forEach(({ slot, b }, i) => {
         const it = items[i];
         b.classList.toggle('empty', !it);
+        b.classList.toggle('rar', !!it);
+        b.style.setProperty('--rc', it ? gearColor(it.base) : '');
         b.innerHTML = it
           ? `<i>${gearDef(it.base).icon}</i><span>${gearDef(it.base).name}</span><small>${slot.label} · Lv ${it.level}</small>`
           : `<i>${GEAR_KINDS[slot.kind].icon}</i><span>Empty</span><small>${slot.label}</small>`;
@@ -530,8 +534,9 @@ export class AppUI {
       for (const it of fits) {
         const gd = gearDef(it.base);
         const worn = g.wearerOf(it.uid);
-        const row = el('button', `pick-row${current?.uid === it.uid ? ' on' : ''}`) as HTMLButtonElement;
-        row.innerHTML = `<i>${gd.icon}</i><div><b>${gd.name}</b> <small>Lv ${it.level}</small><div class="sub">${describeGear(gearStats(gd, it.level))}</div>${
+        const row = el('button', `pick-row rar${current?.uid === it.uid ? ' on' : ''}`) as HTMLButtonElement;
+        row.style.setProperty('--rc', gearColor(gd.id));
+        row.innerHTML = `<i>${gd.icon}</i><div><b>${gd.name}</b> <small>${RARITIES[gd.rarity].name} · Lv ${it.level}</small><div class="sub">${describeGear(gearStats(gd, it.level))}</div>${
           worn ? `<div class="worn">Worn by ${wearerName(worn.who)}${worn.who === who && worn.slot === slot ? ' (this slot)' : ''}</div>` : ''
         }</div>`;
         row.addEventListener('click', () => {
@@ -553,7 +558,7 @@ export class AppUI {
       const worn = g.wearerOf(uid);
       const cost = g.gearUpgradeCost(uid);
       body.innerHTML = `
-        <p>${GEAR_KINDS[gd.kind].name} · Lv ${item.level} / ${GEAR_MAX_LEVEL}${worn ? ` · worn by ${wearerName(worn.who)}` : ''}</p>
+        <p><b class="rarity-tag" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${GEAR_KINDS[gd.kind].name} · Lv ${item.level} / ${GEAR_MAX_LEVEL}${worn ? ` · worn by ${wearerName(worn.who)}` : ''}</p>
         <p class="gear-now">${describeGear(gearStats(gd, item.level))}</p>
         ${cost ? `<p class="gear-next">Next: <b>${describeGear(gearStats(gd, item.level + 1))}</b></p><div class="cost">${costHtml(g, cost)}</div>` : '<p>Fully upgraded.</p>'}`;
       const actions = el('div', 'actions');
@@ -769,7 +774,8 @@ export class AppUI {
       for (const it of g.state.inventory) {
         const gd = gearDef(it.base);
         const worn = g.wearerOf(it.uid);
-        const tile = el('button', 'inv-tile') as HTMLButtonElement;
+        const tile = el('button', 'inv-tile rar') as HTMLButtonElement;
+        tile.style.setProperty('--rc', gearColor(gd.id));
         tile.innerHTML = `<i>${gd.icon}</i><span>${gd.name}</span><small>Lv ${it.level}</small>${worn ? `<em>${wearerIcon(worn.who)}</em>` : ''}`;
         tile.addEventListener('click', () => this.openGearDetail(it.uid));
         inv.appendChild(tile);
@@ -819,7 +825,7 @@ export class AppUI {
     if (!this.gearKnown(gd)) return;
     const g = this.game;
     const row = el('div', 'row');
-    row.innerHTML = `<div class="icon">${gd.icon}</div><div class="info"><div class="name">${gd.name} <small>${GEAR_KINDS[gd.kind].name}</small></div><div class="sub"><b>${describeGear(gearStats(gd, 1))}</b> per level</div><div class="cost"></div></div><button class="buy">Craft</button>`;
+    row.innerHTML = `<div class="icon">${gd.icon}</div><div class="info"><div class="name"><span style="color:${gearColor(gd.id)}">${gd.name}</span> <small>${RARITIES[gd.rarity].name} ${GEAR_KINDS[gd.kind].name.toLowerCase()}</small></div><div class="sub"><b>${describeGear(gearStats(gd, 1))}</b> per level</div><div class="cost"></div></div><button class="buy">Craft</button>`;
     const btn = $<HTMLButtonElement>('.buy', row);
     btn.addEventListener('click', () => g.craftGear(gd.id) && this.refresh());
     this.panel.appendChild(row);

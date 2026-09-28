@@ -1273,3 +1273,29 @@ button {
   font-size: 13px;
   color: var(--muted);
 }
+
+/* ---- Item rarity: --rc is the rarity colour ---- */
+.gear-chip.rar,
+.slot.rar,
+.inv-tile.rar,
+.pick-row.rar {
+  border-color: var(--rc);
+  background: #0004;
+  background: color-mix(in srgb, var(--rc) 14%, #0005);
+}
+.gear-chip.rar,
+.slot.rar span,
+.inv-tile.rar span,
+.pick-row.rar b {
+  color: var(--rc);
+}
+.inv-tile.rar {
+  border: 1px solid var(--rc);
+}
+.pick-row.rar.on {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.rarity-tag {
+  color: var(--rc);
+  margin-right: 4px;
+}

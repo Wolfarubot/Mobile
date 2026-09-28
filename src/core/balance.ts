@@ -504,11 +504,27 @@ export type GearId =
   | 'hawkeyeLens'
   | 'soulRing';
 
+/** Item rarity, lowest to highest. Shown as the item's colour everywhere gear appears. */
+export type Rarity = 'common' | 'uncommon' | 'rare' | 'veryRare' | 'legendary' | 'exotic' | 'relic' | 'artifact' | 'exalted';
+
+export const RARITIES: Record<Rarity, { name: string; color: string }> = {
+  common: { name: 'Common', color: '#a7afba' },
+  uncommon: { name: 'Uncommon', color: '#3fcf6a' },
+  rare: { name: 'Rare', color: '#4d9dff' },
+  veryRare: { name: 'Very Rare', color: '#b48cff' },
+  legendary: { name: 'Legendary', color: '#9a3cff' },
+  exotic: { name: 'Exotic', color: '#ffd34d' },
+  relic: { name: 'Relic', color: '#ff4d4d' },
+  artifact: { name: 'Artifact', color: '#ff8c1a' },
+  exalted: { name: 'Exalted', color: '#ff2fd0' },
+};
+
 export interface GearDef {
   id: GearId;
   name: string;
   icon: string;
   kind: GearKind;
+  rarity: Rarity;
   /** Stats at level 1; each level adds the same again. */
   stats: Partial<Record<GearStat, number>>;
   /** Materials to craft (level 1); upgrades cost this × GEAR_COST_GROWTH^level. */
@@ -524,30 +540,33 @@ export const GEAR_STUN_CAP = 0.7;
 
 export const GEAR: GearDef[] = [
   // Weapons
-  { id: 'huntingBow', name: 'Hunting Bow', icon: '🏹', kind: 'weapon', stats: { damage: 0.2 }, recipe: { goo: 8, pelt: 4 } },
-  { id: 'boneCrossbow', name: 'Bone Crossbow', icon: '🎯', kind: 'weapon', stats: { damage: 0.3, range: 8 }, recipe: { bone: 10, wing: 5 } },
-  { id: 'emberLongbow', name: 'Ember Longbow', icon: '🔥', kind: 'weapon', stats: { damage: 0.3, rate: 0.12 }, recipe: { ember: 10, chitin: 5 } },
-  { id: 'frostRifle', name: 'Frost Rifle', icon: '🔫', kind: 'weapon', stats: { damage: 0.45, range: 15 }, recipe: { fur: 10, frost: 5 } },
-  { id: 'voidRepeater', name: 'Void Repeater', icon: '🌀', kind: 'weapon', stats: { damage: 0.6, rate: 0.2 }, recipe: { shade: 10, void: 5 } },
+  { id: 'huntingBow', name: 'Hunting Bow', icon: '🏹', kind: 'weapon', rarity: 'common', stats: { damage: 0.2 }, recipe: { goo: 8, pelt: 4 } },
+  { id: 'boneCrossbow', name: 'Bone Crossbow', icon: '🎯', kind: 'weapon', rarity: 'uncommon', stats: { damage: 0.3, range: 8 }, recipe: { bone: 10, wing: 5 } },
+  { id: 'emberLongbow', name: 'Ember Longbow', icon: '🔥', kind: 'weapon', rarity: 'rare', stats: { damage: 0.3, rate: 0.12 }, recipe: { ember: 10, chitin: 5 } },
+  { id: 'frostRifle', name: 'Frost Rifle', icon: '🔫', kind: 'weapon', rarity: 'legendary', stats: { damage: 0.45, range: 15 }, recipe: { fur: 10, frost: 5 } },
+  { id: 'voidRepeater', name: 'Void Repeater', icon: '🌀', kind: 'weapon', rarity: 'artifact', stats: { damage: 0.6, rate: 0.2 }, recipe: { shade: 10, void: 5 } },
   // Melee
-  { id: 'ironSpear', name: 'Bone Spear', icon: '🔱', kind: 'melee', stats: { damage: 0.35 }, recipe: { bone: 10, flesh: 5 } },
-  { id: 'magmaGlaive', name: 'Magma Glaive', icon: '🪓', kind: 'melee', stats: { damage: 0.5, range: 6 }, recipe: { magma: 10, ember: 5 } },
-  { id: 'soulLance', name: 'Soulreaver Lance', icon: '⚜️', kind: 'melee', stats: { damage: 0.8, pierce: 0.2 }, recipe: { soul: 8, void: 4 } },
+  { id: 'ironSpear', name: 'Bone Spear', icon: '🔱', kind: 'melee', rarity: 'uncommon', stats: { damage: 0.35 }, recipe: { bone: 10, flesh: 5 } },
+  { id: 'magmaGlaive', name: 'Magma Glaive', icon: '🪓', kind: 'melee', rarity: 'veryRare', stats: { damage: 0.5, range: 6 }, recipe: { magma: 10, ember: 5 } },
+  { id: 'soulLance', name: 'Soulreaver Lance', icon: '⚜️', kind: 'melee', rarity: 'exalted', stats: { damage: 0.8, pierce: 0.2 }, recipe: { soul: 8, void: 4 } },
   // Armor
-  { id: 'leatherVest', name: 'Leather Vest', icon: '🦺', kind: 'armor', stats: { stun: 0.05 }, recipe: { pelt: 8, goo: 6 } },
-  { id: 'bonePlate', name: 'Bone Plate', icon: '🦴', kind: 'armor', stats: { stun: 0.06, guard: 0.2 }, recipe: { bone: 10, flesh: 6 } },
-  { id: 'chitinCarapace', name: 'Chitin Carapace', icon: '🪲', kind: 'armor', stats: { stun: 0.07, damage: 0.05 }, recipe: { chitin: 10, magma: 5 } },
-  { id: 'frostMail', name: 'Frost Mail', icon: '🧥', kind: 'armor', stats: { stun: 0.08, guard: 0.3 }, recipe: { fur: 10, frost: 6 } },
+  { id: 'leatherVest', name: 'Leather Vest', icon: '🦺', kind: 'armor', rarity: 'common', stats: { stun: 0.05 }, recipe: { pelt: 8, goo: 6 } },
+  { id: 'bonePlate', name: 'Bone Plate', icon: '🦴', kind: 'armor', rarity: 'rare', stats: { stun: 0.06, guard: 0.2 }, recipe: { bone: 10, flesh: 6 } },
+  { id: 'chitinCarapace', name: 'Chitin Carapace', icon: '🪲', kind: 'armor', rarity: 'veryRare', stats: { stun: 0.07, damage: 0.05 }, recipe: { chitin: 10, magma: 5 } },
+  { id: 'frostMail', name: 'Frost Mail', icon: '🧥', kind: 'armor', rarity: 'exotic', stats: { stun: 0.08, guard: 0.3 }, recipe: { fur: 10, frost: 6 } },
   // Accessories
-  { id: 'luckyCharm', name: 'Lucky Charm', icon: '🍀', kind: 'accessory', stats: { crit: 0.03 }, recipe: { redgel: 6, goo: 6 } },
-  { id: 'goldTooth', name: 'Gold Tooth', icon: '🦷', kind: 'accessory', stats: { gold: 0.15 }, recipe: { redgel: 6, bone: 6 } },
-  { id: 'satchel', name: "Scavenger's Satchel", icon: '👜', kind: 'accessory', stats: { drops: 0.15 }, recipe: { wing: 6, pelt: 8 } },
-  { id: 'emberOrb', name: 'Ember Orb', icon: '🔮', kind: 'accessory', stats: { radius: 0.12, damage: 0.08 }, recipe: { ember: 8, magma: 4 } },
-  { id: 'hawkeyeLens', name: 'Hawkeye Lens', icon: '🔭', kind: 'accessory', stats: { range: 20 }, recipe: { chitin: 8, wing: 6 } },
-  { id: 'soulRing', name: 'Soul Ring', icon: '💍', kind: 'accessory', stats: { damage: 0.25, crit: 0.02 }, recipe: { soul: 6, ecto: 6 } },
+  { id: 'luckyCharm', name: 'Lucky Charm', icon: '🍀', kind: 'accessory', rarity: 'common', stats: { crit: 0.03 }, recipe: { redgel: 6, goo: 6 } },
+  { id: 'goldTooth', name: 'Gold Tooth', icon: '🦷', kind: 'accessory', rarity: 'uncommon', stats: { gold: 0.15 }, recipe: { redgel: 6, bone: 6 } },
+  { id: 'satchel', name: "Scavenger's Satchel", icon: '👜', kind: 'accessory', rarity: 'uncommon', stats: { drops: 0.15 }, recipe: { wing: 6, pelt: 8 } },
+  { id: 'emberOrb', name: 'Ember Orb', icon: '🔮', kind: 'accessory', rarity: 'veryRare', stats: { radius: 0.12, damage: 0.08 }, recipe: { ember: 8, magma: 4 } },
+  { id: 'hawkeyeLens', name: 'Hawkeye Lens', icon: '🔭', kind: 'accessory', rarity: 'rare', stats: { range: 20 }, recipe: { chitin: 8, wing: 6 } },
+  { id: 'soulRing', name: 'Soul Ring', icon: '💍', kind: 'accessory', rarity: 'relic', stats: { damage: 0.25, crit: 0.02 }, recipe: { soul: 6, ecto: 6 } },
 ];
 
 export const gearDef = (id: GearId): GearDef => GEAR.find((g) => g.id === id)!;
+
+/** Colour of a gear piece's rarity. */
+export const gearColor = (id: GearId): string => RARITIES[gearDef(id).rarity].color;
 
 /** A piece's stats at a level. */
 export function gearStats(def: GearDef, level: number): Partial<Record<GearStat, number>> {

@@ -3,6 +3,7 @@ import {
   areaDef,
   enemyDef,
   enemyUnlockCost,
+  GEAR,
   GEAR_COST_GROWTH,
   GUARDIAN_TIME,
   hunterDef,
@@ -10,6 +11,7 @@ import {
   itemDef,
   MAX_TICKETS,
   OFFLINE_CAP_SEC,
+  RARITIES,
   STATION_EFFICIENCY,
   STUN_IMMUNITY,
   TICKET_REGEN_SEC,
@@ -411,6 +413,11 @@ describe('Equipment', () => {
     g.equip('ranger', 1, plate.uid);
     expect(g.guardOf('ranger')).toBe(1 + g.rallyFor('ranger')); // Lance is recruited: +1 rally
     expect(g.guardOf('lance')).toBe(3);
+  });
+
+  it('every piece of gear has a rarity, and all nine rarities are used', () => {
+    for (const gd of GEAR) expect(Object.keys(RARITIES)).toContain(gd.rarity);
+    expect(new Set(GEAR.map((gd) => gd.rarity)).size).toBe(Object.keys(RARITIES).length);
   });
 
   it('salvaging refunds half the materials spent and unequips it', () => {
