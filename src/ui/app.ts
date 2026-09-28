@@ -3,7 +3,6 @@ import {
   areaEnemies,
   AREAS,
   ARCHETYPES,
-  BH_UPGRADES,
   BOUNTY_DROP_PER_LEVEL,
   BOUNTY_GOLD_PER_LEVEL,
   BOUNTY_SPEED_PER_LEVEL,
@@ -26,12 +25,12 @@ import {
   ITEMS,
   materialDef,
   MATERIALS,
-  MAX_TICKETS,
   nextAreaOf,
+  EVENTS,
+  type EventDef,
   RARITIES,
   STATION_EFFICIENCY,
   SWARM_PER_LEVEL,
-  TICKET_REGEN_SEC,
   type EnemyDef,
   type EnemyUpgrade,
   type GearDef,
@@ -39,18 +38,11 @@ import {
   type MaterialId,
 } from '../core/balance';
 import { fmt, fmtTime } from '../core/format';
-import type { FarmRates, Game, MinigameReward } from '../core/game';
+import type { FarmRates, Game } from '../core/game';
 import type { OfflineResult } from '../core/offline';
 import type { BuyAmount, GearItem, Wearer } from '../core/state';
-import { bladeStorm } from '../minigames/blades';
-import { runMinigame } from '../minigames/runner';
-import { skySiege } from '../minigames/skysiege';
-import { powerStrike } from '../minigames/strike';
-import type { MinigameDef } from '../minigames/types';
 import { drawEnemyPortrait } from '../render/battle';
 import { spriteUrl } from '../render/sprites';
-
-export const MINIGAMES: MinigameDef[] = [skySiege, bladeStorm, powerStrike];
 
 type Tab = 'hunters' | 'areas' | 'beasts' | 'equipment' | 'events';
 
@@ -67,7 +59,6 @@ export class AppUI {
   /** The open full-screen Hunter view, with its own refreshers. */
   private detail: { el: HTMLElement; who: Wearer; refreshers: Array<() => void> } | null = null;
   private tab: Tab = 'hunters';
-  minigameActive = false;
 
   constructor(
     private game: Game,
@@ -76,10 +67,10 @@ export class AppUI {
     document.querySelectorAll<HTMLButtonElement>('.tabs button').forEach((b) =>
       b.addEventListener('click', () => this.setTab(b.dataset.tab as Tab)),
     );
-    $('#challengeBtn').addEventListener('click', () => game.challengeGuardian() && this.refresh());
     // Panels that depend on which areas/enemies/Hunters exist are rebuilt when those change.
     game.on((e) => {
       if (e.type === 'areaUnlocked' || e.type === 'travel' || e.type === 'unlock' || e.type === 'recruit') this.setTab(this.tab, true);
+      else if (e.type === 'eventStart' || e.type === 'eventEnd' || e.type === 'guardianFail') this.refresh();
     });
     this.setTab('hunters');
   }
@@ -110,19 +101,15 @@ export class AppUI {
     $('#areaNum').textContent = `Area ${idx + 1} of ${AREAS.length}`;
     $('#areaName').textContent = area.name;
 
-    $('#challengeBtn').classList.toggle('hidden', !g.guardianReady || g.guardianActive);
-    $('#frenzy').classList.toggle('hidden', s.frenzyTime <= 0);
-    $('#frenzyTime').textContent = fmtTime(s.frenzyTime);
-
-    const badge = $('#ticketBadge');
-    badge.textContent = String(s.tickets);
-    badge.classList.toggle('hidden', s.tickets <= 0);
+    const ready = EVENTS.filter((e) => g.eventReady(e.id)).length;
+    const badge = $('#eventsBadge');
+    badge.textContent = String(ready);
+    badge.classList.toggle('hidden', ready <= 0);
     $('#forgeBadge').classList.toggle('hidden', !ITEMS.some((it) => g.canCraft(it.id)));
     $('#beastBadge').classList.toggle(
       'hidden',
       !ENEMIES.some((e) => !s.bestiary[e.id].unlocked && g.isAreaUnlocked(e.area) && s.gold >= enemyUnlockCost(e)),
     );
-    $('#areasBadge').classList.toggle('hidden', !g.guardianReady || g.guardianActive);
     $('#huntersBadge').classList.toggle(
       'hidden',
       !HUNTERS.some((h) => g.canRecruit(h.id) || (s.hunters[h.id].recruited && g.skillPoints(h.id) > 0)) && g.skillPoints('main') <= 0,
@@ -591,9 +578,6 @@ export class AppUI {
       const travel = el('button', 'buy', 'Travel here') as HTMLButtonElement;
       travel.addEventListener('click', () => g.travel(a.id));
       actions.appendChild(travel);
-      const challenge = el('button', 'buy danger-btn hidden', '⚔️ Challenge the Guardian') as HTMLButtonElement;
-      challenge.addEventListener('click', () => g.challengeGuardian() && this.refresh());
-      actions.appendChild(challenge);
 
       this.refreshers.push(() => {
         const unlocked = g.isAreaUnlocked(a.id);
@@ -604,7 +588,6 @@ export class AppUI {
           .querySelectorAll<HTMLElement>('.enemy-chip')
           .forEach((c) => c.classList.toggle('locked', !g.state.bestiary[c.dataset.id as EnemyDef['id']].unlocked));
         travel.classList.toggle('hidden', !unlocked || here);
-        challenge.classList.toggle('hidden', !here || !g.guardianReady || g.guardianActive);
         const status = $('.status', card);
         if (!unlocked) {
           const prev = AREAS[i - 1];
@@ -618,7 +601,7 @@ export class AppUI {
         const mastery = cleared
           ? `<div class="mastery done"><span>${next ? '✓ Guardian defeated' : '✓ The final area'}</span></div>`
           : `<div class="mastery"><i style="width:${Math.min(1, st.kills / a.mastery) * 100}%"></i><span>${
-              st.kills >= a.mastery ? '⚔️ Guardian ready!' : `Mastery ${fmt(st.kills)} / ${fmt(a.mastery)}`
+              st.kills >= a.mastery ? '⚔️ Guardian Challenge unlocked in Events' : `Mastery ${fmt(st.kills)} / ${fmt(a.mastery)}`
             }</span></div>`;
         const roster = areaEnemies(a.id);
         const cells: Array<[string, string]> = [
@@ -824,77 +807,58 @@ export class AppUI {
     });
   }
 
-  // ---- Events tab (minigames for now; more events to come) ----
+  // ---- Events tab: each area's events, unlocked by slaying monsters there, then on a cooldown ----
 
   private buildEvents(): void {
     const g = this.game;
-    const soon = el('div', 'card events-soon');
-    soon.innerHTML = '<h3>🎉 Events</h3><p style="margin:0">Special events are on the way. In the meantime, spend tickets on these challenges for materials, gold and Frenzy.</p>';
-    this.panel.appendChild(soon);
-    const tickets = el('div', 'card');
-    tickets.innerHTML = `<div class="tickets"><span>Event Tickets</span><span class="t"></span></div><p class="regen" style="margin:6px 0 0"></p>`;
-    this.panel.appendChild(tickets);
-    this.refreshers.push(() => {
-      const s = g.state;
-      $('.t', tickets).textContent = '🎟️'.repeat(s.tickets) + '▫️'.repeat(MAX_TICKETS - s.tickets);
-      $('.regen', tickets).textContent = g.ticketsFull ? 'Tickets full, go play!' : `Next ticket in ${fmtTime(TICKET_REGEN_SEC - s.ticketProgress)}`;
-    });
-
-    MINIGAMES.forEach((def, i) => {
-      const card = el('div', `card mg-card${i === 0 ? ' featured' : ''}`);
-      card.innerHTML = `<div class="icon">${def.icon}</div><div class="info"><h3>${def.name}</h3><p>${def.tagline}</p><div class="rewards">${def.rewards}</div><div class="best"></div></div><button class="play">Play<br><small>🎟️ 1</small></button>`;
-      const btn = $<HTMLButtonElement>('.play', card);
-      btn.addEventListener('click', () => this.playMinigame(def));
-      this.panel.appendChild(card);
-      this.refreshers.push(() => {
-        const best = g.state.stats.best[def.id];
-        $('.best', card).textContent = best ? `Best: ★ ${best}` : 'Not played yet';
-        btn.disabled = g.state.tickets <= 0;
-      });
-      if (def === skySiege) this.buildHangar();
-    });
-  }
-
-  /** Sky Siege's permanent upgrade tree, bought with Stars. */
-  private buildHangar(): void {
-    const g = this.game;
-    const title = el('div', 'section-title');
-    this.panel.appendChild(title);
-    this.refreshers.push(() => (title.innerHTML = `<span>🚀 Sky Siege Hangar</span><span style="color:var(--gold)">⭐ ${g.state.stars}</span>`));
-    for (const u of BH_UPGRADES) {
-      const row = el('div', 'row');
-      row.innerHTML = `<div class="icon">${u.icon}</div><div class="info"><div class="name"></div><div class="sub"></div></div><button class="buy"></button>`;
-      const btn = $<HTMLButtonElement>('.buy', row);
-      btn.addEventListener('click', () => g.buyBh(u.id) && this.refresh());
-      this.panel.appendChild(row);
-      this.refreshers.push(() => {
-        const lv = g.state.bh[u.id];
-        const cost = g.bhCost(u.id);
-        const maxed = !Number.isFinite(cost);
-        $('.name', row).innerHTML = `${u.name} <small>Lv ${lv} / ${u.maxLevel}</small>`;
-        $('.sub', row).innerHTML = maxed ? u.describe(lv) : `${u.describe(lv)} → <b>${u.describe(lv + 1)}</b>`;
-        btn.innerHTML = maxed ? 'MAX' : `Upgrade<small>⭐ ${cost}</small>`;
-        btn.disabled = maxed || g.state.stars < cost;
-      });
+    const intro = el('div', 'card');
+    intro.innerHTML = `<p style="margin:0">Every area has a <b>Guardian Challenge</b>, and some have their own events. Slay monsters in an area to unlock them. After you start one, it goes on cooldown before it can run again.</p>`;
+    this.panel.appendChild(intro);
+    const order = [g.area, ...g.unlockedAreas.filter((a) => a !== g.area)];
+    for (const areaId of order) {
+      this.panel.appendChild(sectionTitle(`${areaDef(areaId).name}${areaId === g.area ? ' · here' : ''}`));
+      for (const ev of EVENTS.filter((e) => e.area === areaId)) this.buildEventCard(ev);
     }
   }
 
-  private playMinigame(def: MinigameDef): void {
-    if (this.minigameActive || !this.game.useTicket()) return;
-    this.minigameActive = true;
-    runMinigame(def, this.game, (r) => {
-      this.minigameActive = false;
-      const prevBest = this.game.state.stats.best[def.id] ?? 0;
-      const reward = this.game.grantMinigame({ id: def.id, score: r.score, units: r.units, materials: r.materials, stars: r.stars });
-      this.hooks.save();
-      this.showModal(
-        `<h2>${def.icon} ${def.name}</h2>
-         <p>${r.summary}</p>
-         <p style="font-size:22px;color:var(--text);font-weight:900">★ ${r.score}${r.score > prevBest && r.score > 0 ? ' <span style="color:var(--gold)">NEW BEST!</span>' : ''}</p>
-         ${rewardHtml(reward)}`,
-        [{ label: 'Collect' }],
-      );
-      this.refresh();
+  private buildEventCard(ev: EventDef): void {
+    const g = this.game;
+    const card = el('div', 'row event-card');
+    card.innerHTML = `<div class="icon">${ev.icon}</div><div class="info"><div class="name">${ev.name}</div><div class="sub">${ev.blurb}</div><div class="ev-status"></div></div><button class="buy"></button>`;
+    const btn = $<HTMLButtonElement>('.buy', card);
+    const status = $('.ev-status', card);
+    btn.addEventListener('click', () => {
+      if (g.startEvent(ev.id)) this.refresh();
+    });
+    this.panel.appendChild(card);
+    this.refreshers.push(() => {
+      const kills = g.state.areas[ev.area].kills;
+      const unlocked = g.eventUnlocked(ev.id);
+      const running = (ev.kind === 'guardian' && g.guardianActive && g.area === ev.area) || g.activeEvent?.id === ev.id;
+      const cd = g.eventCooldown(ev.id);
+      card.classList.toggle('locked', !unlocked);
+      card.classList.toggle('running', running);
+      card.classList.toggle('ready', g.eventReady(ev.id));
+      const next = nextAreaOf(ev.area);
+      const extra = ev.kind !== 'guardian' ? '' : next && !g.isAreaUnlocked(next.id) ? `Reward: unlocks ${next.name}` : 'Reward: a Guardian bounty of gold and materials';
+      if (!unlocked) {
+        status.innerHTML = `<div class="mastery"><i style="width:${Math.min(1, kills / ev.unlockKills) * 100}%"></i><span>🔒 Slay ${fmt(kills)} / ${fmt(ev.unlockKills)} here</span></div>`;
+        btn.innerHTML = '🔒';
+        btn.disabled = true;
+      } else if (running) {
+        const left = ev.kind === 'guardian' ? (g.bossAlive ? g.bossTimer : ev.duration) : (g.activeEvent?.left ?? 0);
+        status.innerHTML = `<b class="ev-live">● Running · ${Math.ceil(left)}s left</b>`;
+        btn.innerHTML = 'Live';
+        btn.disabled = true;
+      } else if (cd > 0) {
+        status.innerHTML = extra ? `<small>${extra}</small>` : '';
+        btn.innerHTML = `Cooldown<small>${fmtTime(cd)}</small>`;
+        btn.disabled = true;
+      } else {
+        status.innerHTML = extra ? `<small>${extra}</small>` : '';
+        btn.innerHTML = g.eventRunning ? 'Busy<small>another event</small>' : `Start${ev.area !== g.area ? `<small>travels there</small>` : ''}`;
+        btn.disabled = !g.eventReady(ev.id);
+      }
     });
   }
 
@@ -967,22 +931,6 @@ function yieldHtml(r: FarmRates, where: string): string {
   const down = Math.max(0, ...Object.values(r.stunned).map((x) => x ?? 0));
   const warn = down >= 0.05 ? `<div class="knockouts">💫 Stunned ${Math.round(down * 100)}% of the time: too weak for this area</div>` : '';
   return `<div class="yield">${where ? `${where}: ` : ''}≈ 🪙 ${fmt(r.gold * 60)}/min${mats ? ` · ${mats} /min` : ''}</div>${warn}`;
-}
-
-function materialsHtml(materials: Partial<Record<MaterialId, number>>): string {
-  const mats = (Object.entries(materials) as [MaterialId, number][])
-    .filter(([, n]) => n > 0)
-    .map(([m, n]) => `<span style="color:${materialDef(m).color}">+${fmt(n)} ${materialDef(m).name}</span>`)
-    .join(' · ');
-  return mats ? `<div class="reward" style="font-size:15px">${mats}</div>` : '';
-}
-
-function rewardHtml(r: MinigameReward): string {
-  return `
-    ${r.gold > 0 ? `<div class="reward">+🪙 ${fmt(r.gold)}</div>` : ''}
-    ${materialsHtml(r.materials)}
-    ${r.stars > 0 ? `<div class="reward" style="font-size:18px">+⭐ ${r.stars} Stars</div>` : ''}
-    ${r.frenzy > 0 ? `<div class="reward frenzy">🔥 +${fmtTime(r.frenzy)} Frenzy (×2 damage)</div>` : ''}`;
 }
 
 /** A Hunter's art: their sprite if one was added, otherwise their icon on their colour. */

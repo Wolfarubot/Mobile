@@ -46,12 +46,8 @@ async function boot(): Promise<void> {
       game.tick(dt / steps);
       field.update(dt / steps);
     }
-    if (!ui.minigameActive) {
-      battle.update(dt);
-      battle.render();
-    } else {
-      field.drainEvents(); // the battle keeps going behind the minigame; drop its effects
-    }
+    battle.update(dt);
+    battle.render();
     uiAcc += dt;
     if (uiAcc >= UI_REFRESH_SEC) {
       uiAcc = 0;
@@ -78,7 +74,7 @@ async function boot(): Promise<void> {
     away = false;
     last = performance.now();
     const r = game.applyOffline();
-    if (r.away >= OFFLINE_POPUP_SEC && !ui.minigameActive) ui.showOffline(r);
+    if (r.away >= OFFLINE_POPUP_SEC) ui.showOffline(r);
     ui.refresh();
   };
   document.addEventListener('visibilitychange', () => (document.hidden ? onHide() : onShow()));

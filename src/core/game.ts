@@ -5,8 +5,6 @@ import {
   BASE_CRIT_CHANCE,
   BASE_DROP_CHANCE,
   BASE_FIRE_RATE,
-  BH_UPGRADES,
-  bhUpgradeCost,
   BOSS_MATERIAL_DROP,
   DEFAULT_SLOTS,
   BOSS_STUN_TIME,
@@ -15,18 +13,16 @@ import {
   BOUNTY_SPEED_PER_LEVEL,
   bulkCost,
   CRIT_MULT,
-  ENEMIES,
   ENEMY_UPGRADE_MAX,
   enemyDef,
+  eventDef,
   enemyUnlockCost,
   enemyUpgradeCost,
-  FRENZY_CAP_SEC,
   GEAR_MAX_LEVEL,
   GEAR_STUN_CAP,
   gearCost,
   gearDef,
   gearStats,
-  FRENZY_MULT,
   GUARDIAN_GOLD_MULT,
   GUARD_RECHARGE,
   GUARDIAN_TIME,
@@ -41,9 +37,7 @@ import {
   itemCost,
   itemDef,
   MAIN_RANGE,
-  MAX_TICKETS,
   maxAffordable,
-  MINIGAME_GOLD_PER_UNIT,
   nextAreaOf,
   OFFLINE_EFFICIENCY,
   powerDamage,
@@ -62,7 +56,6 @@ import {
   TAP_RADIUS,
   type AreaId,
   type Archetype,
-  type BhUpgradeId,
   type EnemyId,
   type EnemyUpgrade,
   type GearId,
@@ -74,7 +67,7 @@ import {
   type SkillDef,
   type SkillId,
 } from './balance';
-import { capAway, regenTickets, type OfflineResult } from './offline';
+import { capAway, type OfflineResult } from './offline';
 import { type BuyAmount, type GameState, type GearItem, type Training, type Wearer } from './state';
 
 export type GameEvent =
@@ -83,7 +76,9 @@ export type GameEvent =
   | { type: 'guardianFail' }
   | { type: 'areaUnlocked'; area: AreaId }
   | { type: 'unlock'; enemy: EnemyId }
-  | { type: 'recruit'; hunter: HunterId };
+  | { type: 'recruit'; hunter: HunterId }
+  | { type: 'eventStart'; event: string }
+  | { type: 'eventEnd'; event: string };
 
 /** Wilhelm's two weapon slots: 'long' powers sniper shots, 'short' his akimbo pistols. */
 export type GearMode = 'long' | 'short';
@@ -128,22 +123,6 @@ export interface FarmRates {
   share: Partial<Record<Shooter, number>>;
 }
 
-export interface MinigameReward {
-  gold: number;
-  frenzy: number;
-  materials: Partial<Record<MaterialId, number>>;
-  stars: number;
-}
-
-export interface MinigamePayout {
-  id: string;
-  score: number;
-  /** ≈ monsters slain; converted to gold and Frenzy. */
-  units: number;
-  materials?: Partial<Record<MaterialId, number>>;
-  stars?: number;
-}
-
 /**
  * The economy and progression rules. Positions, bullets and collisions live in
  * Field; Field reports kills/escapes here and reads combat stats from here.
@@ -156,6 +135,8 @@ export class Game {
   /** The Guardian is on the field (its timer is running). */
   bossAlive = false;
   bossTimer = 0;
+  /** A timed event (e.g. Slime Swarm) running in the current area. */
+  activeEvent: { id: string; left: number } | null = null;
   /** Fractional kills/drops accumulated by stationed Hunters, per area+enemy. */
   private farmAcc = new Map<string, number>();
   /** Stationed Hunters' farm rates, refreshed about once a second (the model iterates, so don't redo it every frame). */
@@ -182,13 +163,9 @@ export class Game {
 
   // ---- Combat stats (read by Field every frame) ----
 
-  get frenzy(): boolean {
-    return this.state.frenzyTime > 0;
-  }
-
-  /** Forge items and Frenzy boost every Hunter. */
+  /** Camp Upgrades boost every Hunter. */
   get itemDamageMult(): number {
-    return (1 + 0.25 * this.item('whetstone')) * 1.5 ** this.item('engine') * (this.frenzy ? FRENZY_MULT : 1);
+    return (1 + 0.25 * this.item('whetstone')) * 1.5 ** this.item('engine');
   }
 
   get itemRateMult(): number {
@@ -471,8 +448,9 @@ export class Game {
     return next && !this.isAreaUnlocked(next.id) ? next.id : null;
   }
 
+  /** The Guardian Challenge for this area can be started now. */
   get guardianReady(): boolean {
-    return this.lockedNext !== null && this.state.areas[this.state.area].kills >= areaDef(this.state.area).mastery;
+    return this.eventReady(`guardian-${this.state.area}`);
   }
 
   /** The Guardian is a giant version of the area's rarest monster. */
@@ -489,15 +467,65 @@ export class Game {
     if (!this.isAreaUnlocked(id) || id === this.state.area) return false;
     this.state.area = id;
     this.endGuardian();
+    this.endEvent();
     this.emit({ type: 'travel' });
     return true;
   }
 
+  /** Starts this area's Guardian Challenge event. */
   challengeGuardian(): boolean {
-    if (!this.guardianReady || this.guardianActive) return false;
-    this.guardianActive = true;
-    this.emit({ type: 'guardianChallenge' });
+    return this.startEvent(`guardian-${this.state.area}`);
+  }
+
+  // ---- Events ----
+
+  /** Unlocked once enough monsters have been slain in its area (and the area is open). */
+  eventUnlocked(id: string): boolean {
+    const def = eventDef(id);
+    return this.isAreaUnlocked(def.area) && this.state.areas[def.area].kills >= def.unlockKills;
+  }
+
+  eventCooldown(id: string): number {
+    return Math.max(0, this.state.events[id]?.cooldown ?? 0);
+  }
+
+  /** Something (a Guardian or a timed event) is running right now. */
+  get eventRunning(): boolean {
+    return this.guardianActive || this.activeEvent !== null;
+  }
+
+  eventReady(id: string): boolean {
+    return this.eventUnlocked(id) && this.eventCooldown(id) <= 0 && !this.eventRunning;
+  }
+
+  /** Starts an event, travelling to its area first. Its cooldown starts now. */
+  startEvent(id: string): boolean {
+    if (!this.eventReady(id)) return false;
+    const def = eventDef(id);
+    if (def.area !== this.state.area) this.travel(def.area);
+    const st = this.state.events[id];
+    st.cooldown = def.cooldown;
+    st.runs++;
+    if (def.kind === 'guardian') {
+      this.guardianActive = true;
+      this.emit({ type: 'guardianChallenge' });
+    } else {
+      this.activeEvent = { id, left: def.duration };
+    }
+    this.emit({ type: 'eventStart', event: id });
     return true;
+  }
+
+  private endEvent(): void {
+    if (!this.activeEvent) return;
+    const id = this.activeEvent.id;
+    this.activeEvent = null;
+    this.emit({ type: 'eventEnd', event: id });
+  }
+
+  /** Counts down every event's cooldown (also used for time away). */
+  private coolEvents(seconds: number): void {
+    for (const st of Object.values(this.state.events)) st.cooldown = Math.max(0, st.cooldown - seconds);
   }
 
   /** Field calls this when it puts the Guardian on the field. */
@@ -522,13 +550,16 @@ export class Game {
     const def = enemyDef(id);
     const area = areaDef(def.area);
     const b = this.state.bestiary[id];
+    // A swarm event here: only its archetype spawns, more of them and faster.
+    const ev = this.activeEvent && def.area === this.state.area ? eventDef(this.activeEvent.id) : null;
+    const swarm = ev?.kind === 'swarm' ? (def.archetype === ev.archetype ? { spawn: ev.spawnMult ?? 1, speed: ev.speedMult ?? 1 } : { spawn: 0, speed: 1 }) : { spawn: 1, speed: 1 };
     return {
       id,
       archetype: def.archetype,
       hp: area.hp * def.hp,
-      speed: area.speed * def.speed * (1 + BOUNTY_SPEED_PER_LEVEL * b.bounty),
+      speed: area.speed * def.speed * (1 + BOUNTY_SPEED_PER_LEVEL * b.bounty) * swarm.speed,
       gold: area.gold * def.gold * (1 + BOUNTY_GOLD_PER_LEVEL * b.bounty) * this.goldMult,
-      spawnRate: b.unlocked ? def.spawn * (1 + SWARM_PER_LEVEL * b.swarm) * (1 + 0.2 * this.item('lure')) : 0,
+      spawnRate: b.unlocked ? def.spawn * (1 + SWARM_PER_LEVEL * b.swarm) * (1 + 0.2 * this.item('lure')) * swarm.spawn : 0,
       dropChance: BASE_DROP_CHANCE * (1 + 0.25 * this.item('pouch')) * (1 + BOUNTY_DROP_PER_LEVEL * b.bounty),
       material: def.material,
     };
@@ -560,8 +591,11 @@ export class Game {
 
   tick(dt: number): void {
     const s = this.state;
-    regenTickets(s, dt);
-    if (s.frenzyTime > 0) s.frenzyTime = Math.max(0, s.frenzyTime - dt);
+    this.coolEvents(dt);
+    if (this.activeEvent) {
+      this.activeEvent.left -= dt;
+      if (this.activeEvent.left <= 0) this.endEvent();
+    }
     if (this.bossAlive) {
       this.bossTimer -= dt;
       if (this.bossTimer <= 0) {
@@ -923,30 +957,13 @@ export class Game {
     return true;
   }
 
-  // ---- Bullet hell upgrades ----
-
-  bhCost(id: BhUpgradeId): number {
-    const def = BH_UPGRADES.find((u) => u.id === id)!;
-    const level = this.state.bh[id];
-    return level >= def.maxLevel ? Infinity : bhUpgradeCost(def, level);
-  }
-
-  buyBh(id: BhUpgradeId): boolean {
-    const cost = this.bhCost(id);
-    if (this.state.stars < cost) return false;
-    this.state.stars -= cost;
-    this.state.bh[id]++;
-    return true;
-  }
-
-  // ---- Offline & minigames ----
+  // ---- Offline ----
 
   /** Applies progress for time spent away: you (plus anyone stationed with you) and every stationed Hunter. */
   applyOffline(now = Date.now()): OfflineResult {
     const s = this.state;
-    const frenzyWas = s.frenzyTime;
-    s.frenzyTime = 0; // offline progress never benefits from Frenzy
     const { away, seconds } = capAway((now - s.lastSeen) / 1000);
+    this.coolEvents(away);
     const result: OfflineResult = { away, seconds, kills: 0, gold: 0, materials: {}, areas: [], knockouts: 0 };
     const add = (area: AreaId, hunters: Shooter[], r: ReturnType<Game['accrue']>) => {
       result.kills += r.kills;
@@ -962,46 +979,7 @@ export class Game {
       if (!s.hunters[h.id].recruited || !station || station === s.area) continue;
       add(station, [h.id], this.accrue(station, this.farmRates(station, [h.id], STATION_EFFICIENCY * OFFLINE_EFFICIENCY), seconds));
     }
-    s.frenzyTime = Math.max(0, frenzyWas - away);
-    regenTickets(s, away);
     s.lastSeen = now;
     return result;
-  }
-
-  get ticketsFull(): boolean {
-    return this.state.tickets >= MAX_TICKETS;
-  }
-
-  useTicket(): boolean {
-    if (this.state.tickets <= 0) return false;
-    if (this.ticketsFull) this.state.ticketProgress = 0;
-    this.state.tickets--;
-    return true;
-  }
-
-  /** Materials of the enemies you've unlocked (the bullet hell only drops these). */
-  get unlockedMaterials(): MaterialId[] {
-    return ENEMIES.filter((e) => this.isUnlocked(e.id)).map((e) => e.material);
-  }
-
-  grantMinigame(p: MinigamePayout): MinigameReward {
-    const s = this.state;
-    const u = Math.max(0, Math.floor(p.units));
-    const gold = u * MINIGAME_GOLD_PER_UNIT * this.enemyStats(areaEnemies(s.area)[0].id).gold;
-    const frenzy = Math.max(0, Math.min(FRENZY_CAP_SEC - s.frenzyTime, u));
-    s.gold += gold;
-    s.stats.totalGold += gold;
-    s.frenzyTime += frenzy;
-    const materials: Partial<Record<MaterialId, number>> = {};
-    for (const [m, n] of Object.entries(p.materials ?? {}) as [MaterialId, number][]) {
-      const amount = Math.floor(n);
-      if (amount <= 0) continue;
-      s.materials[m] += amount;
-      materials[m] = amount;
-    }
-    const stars = Math.max(0, Math.floor(p.stars ?? 0));
-    s.stars += stars;
-    s.stats.best[p.id] = Math.max(s.stats.best[p.id] ?? 0, p.score);
-    return { gold, frenzy, materials, stars };
   }
 }

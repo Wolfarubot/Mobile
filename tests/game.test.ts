@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   areaDef,
+  AREAS,
   enemyDef,
   enemyUnlockCost,
   GEAR,
@@ -9,12 +10,12 @@ import {
   hunterDef,
   itemCost,
   itemDef,
-  MAX_TICKETS,
   OFFLINE_CAP_SEC,
   RARITIES,
   STATION_EFFICIENCY,
   STUN_IMMUNITY,
-  TICKET_REGEN_SEC,
+  GUARDIAN_COOLDOWN,
+  eventDef,
 } from '../src/core/balance';
 import { Field, type Enemy } from '../src/core/field';
 import { Game } from '../src/core/game';
@@ -75,7 +76,7 @@ describe('Areas', () => {
     expect(g.isAreaUnlocked('graveyard')).toBe(true);
   });
 
-  it('a Guardian that times out just leaves; you can try again', () => {
+  it('a Guardian that times out just leaves; you can try again after the cooldown', () => {
     const s = newGame(0);
     s.areas.forest.kills = 999;
     const g = new Game(s, noCrit);
@@ -85,6 +86,8 @@ describe('Areas', () => {
     expect(g.guardianActive).toBe(false);
     expect(g.isAreaUnlocked('graveyard')).toBe(false);
     expect(g.area).toBe('forest');
+    expect(g.challengeGuardian()).toBe(false);
+    g.tick(GUARDIAN_COOLDOWN);
     expect(g.challengeGuardian()).toBe(true);
   });
 
@@ -110,7 +113,6 @@ describe('Enemies & archetypes', () => {
     const spawn = g.spawnRate;
     expect(g.unlockEnemy('wolf')).toBe(true);
     expect(g.spawnRate).toBeGreaterThan(spawn);
-    expect(g.unlockedMaterials).toEqual(['goo', 'pelt']);
 
     const before = g.enemyStats('wolf');
     g.buyEnemyUpgrade('wolf', 'swarm');
@@ -331,13 +333,6 @@ describe('Shops', () => {
     expect(g.stunTime(true)).toBeGreaterThan(g.stunTime());
   });
 
-  it('bullet hell upgrades cost stars', () => {
-    const g = new Game(newGame(0), noCrit);
-    expect(g.buyBh('shield')).toBe(false);
-    g.state.stars = 100;
-    expect(g.buyBh('shield')).toBe(true);
-    expect(g.state.bh.shield).toBe(1);
-  });
 });
 
 describe('Equipment', () => {
@@ -547,11 +542,10 @@ describe('Stuns in background & offline farming', () => {
   });
 });
 
-describe('Offline & minigames', () => {
-  it('pays out for you and every stationed Hunter, capped, and regenerates tickets', () => {
+describe('Offline', () => {
+  it('pays out for you and every stationed Hunter, capped', () => {
     const s = newGame(0);
     s.main.trains = 30;
-    s.tickets = 0;
     s.gold = 1e9;
     const g = new Game(s, noCrit);
     g.state.areas.graveyard.unlocked = true;
@@ -565,21 +559,83 @@ describe('Offline & minigames', () => {
     expect(g.state.gold).toBeCloseTo(gold + r.gold);
     expect(r.materials.goo).toBeGreaterThan(0); // you, in the forest
     expect(r.materials.bone).toBeGreaterThan(0); // Alric, in the graveyard
-    expect(g.state.tickets).toBe(MAX_TICKETS);
+  });
+});
 
-    const g2 = new Game({ ...newGame(0), tickets: 0 }, noCrit);
-    g2.applyOffline(TICKET_REGEN_SEC * 1000 * 1.5);
-    expect(g2.state.tickets).toBe(1);
+describe('Events', () => {
+  it('every area with a Guardian has a Guardian Challenge, unlocked at its mastery', () => {
+    for (const a of AREAS.filter((x) => Number.isFinite(x.mastery))) {
+      const ev = eventDef(`guardian-${a.id}`);
+      expect(ev.kind).toBe('guardian');
+      expect(ev.unlockKills).toBe(a.mastery);
+    }
+    const g = new Game(newGame(0), noCrit);
+    expect(g.eventUnlocked('guardian-forest')).toBe(false);
+    g.state.areas.forest.kills = areaDef('forest').mastery;
+    expect(g.eventUnlocked('guardian-forest')).toBe(true);
+    expect(g.eventReady('guardian-graveyard')).toBe(false); // graveyard still locked
   });
 
-  it('minigame payouts grant gold, frenzy, materials and stars', () => {
-    const g = new Game(newGame(0), noCrit);
-    const r = g.grantMinigame({ id: 'skysiege', score: 1234, units: 1000, materials: { goo: 7, pelt: 2 }, stars: 5 });
-    expect(r.gold).toBeGreaterThan(0);
-    expect(g.state.frenzyTime).toBe(300);
-    expect(g.state.materials.goo).toBe(7);
-    expect(g.state.stars).toBe(5);
-    expect(g.state.stats.best.skysiege).toBe(1234);
+  it('starting an event puts it on cooldown, which also runs down while away', () => {
+    const s = newGame(0);
+    s.areas.forest.kills = 999;
+    const g = new Game(s, noCrit);
+    expect(g.startEvent('guardian-forest')).toBe(true);
+    expect(g.guardianActive).toBe(true);
+    expect(g.eventCooldown('guardian-forest')).toBe(GUARDIAN_COOLDOWN);
+    expect(g.startEvent('guardian-forest')).toBe(false); // already running
+    g.bossSpawned();
+    g.registerKill(g.guardianType, true); // win: graveyard opens
+    expect(g.isAreaUnlocked('graveyard')).toBe(true);
+    expect(g.eventReady('guardian-forest')).toBe(false); // cooling down
+    g.state.lastSeen = 0;
+    g.applyOffline(GUARDIAN_COOLDOWN * 1000);
+    expect(g.eventReady('guardian-forest')).toBe(true);
+    // Repeat wins pay the bounty again.
+    const gold = g.state.gold;
+    g.startEvent('guardian-forest');
+    g.bossSpawned();
+    g.registerKill(g.guardianType, true);
+    expect(g.state.gold).toBeGreaterThan(gold);
+    expect(g.state.events['guardian-forest'].runs).toBe(2);
+  });
+
+  it('Slime Swarm unlocks later in the forest: only slimes, twice as many and twice as fast, for 60s', () => {
+    const s = newGame(0);
+    s.bestiary.wolf.unlocked = true;
+    s.bestiary.redSlime.unlocked = true;
+    const g = new Game(s, noCrit);
+    const def = eventDef('slimeSwarm');
+    expect(def.area).toBe('forest');
+    g.state.areas.forest.kills = def.unlockKills - 1;
+    expect(g.eventUnlocked('slimeSwarm')).toBe(false);
+    g.state.areas.forest.kills = def.unlockKills;
+    const slime = g.enemyStats('greenSlime');
+    expect(g.startEvent('slimeSwarm')).toBe(true);
+    expect(g.enemyStats('greenSlime').spawnRate).toBeCloseTo(slime.spawnRate * 2);
+    expect(g.enemyStats('greenSlime').speed).toBeCloseTo(slime.speed * 2);
+    expect(g.enemyStats('redSlime').spawnRate).toBeGreaterThan(0);
+    expect(g.enemyStats('wolf').spawnRate).toBe(0); // only slimes
+    expect(g.startEvent('guardian-forest')).toBe(false); // one event at a time
+    g.tick(def.duration + 0.1);
+    expect(g.activeEvent).toBeNull();
+    expect(g.enemyStats('greenSlime').spawnRate).toBeCloseTo(slime.spawnRate);
+    expect(g.eventReady('slimeSwarm')).toBe(false);
+    g.tick(def.cooldown);
+    expect(g.eventReady('slimeSwarm')).toBe(true);
+  });
+
+  it('starting an event elsewhere travels there; leaving ends a swarm early', () => {
+    const s = newGame(0);
+    s.areas.graveyard.unlocked = true;
+    s.area = 'graveyard';
+    s.areas.forest.kills = 1e6;
+    const g = new Game(s, noCrit);
+    expect(g.startEvent('slimeSwarm')).toBe(true);
+    expect(g.area).toBe('forest');
+    expect(g.activeEvent?.id).toBe('slimeSwarm');
+    g.travel('graveyard');
+    expect(g.activeEvent).toBeNull();
   });
 });
 
@@ -865,11 +921,22 @@ describe('Saves', () => {
     v5.upgrades = { power: 40, haste: 12, nerves: 3 };
     v5.hunters.glimmer = { recruited: true, level: 30, station: 'forest' };
     const s = deserialize(JSON.stringify(v5))!;
-    expect(s.version).toBe(6);
+    expect(s.version).toBe(7);
     expect(s.main).toEqual({ trains: 40, skills: {} });
     expect(s.hunters.glimmer).toEqual({ recruited: true, trains: 30, skills: {}, station: 'forest' });
     expect(s.hunters.ranger.trains).toBe(0);
     expect('upgrades' in s).toBe(false);
+  });
+
+  it('keeps event cooldowns; v6 saves drop the old Arena (tickets, Stars, Frenzy)', () => {
+    const s = newGame(0);
+    s.events.slimeSwarm = { cooldown: 120, runs: 3 };
+    expect(deserialize(serialize(s))!.events.slimeSwarm).toEqual({ cooldown: 120, runs: 3 });
+    const v6 = { ...JSON.parse(serialize(newGame(0))), version: 6, tickets: 2, ticketProgress: 30, frenzyTime: 40, stars: 9, bh: { shield: 1 } };
+    delete v6.events;
+    const back = deserialize(JSON.stringify(v6))! as unknown as Record<string, unknown>;
+    for (const k of ['tickets', 'ticketProgress', 'frenzyTime', 'stars', 'bh']) expect(k in back).toBe(false);
+    expect((back.events as Record<string, unknown>)['guardian-forest']).toEqual({ cooldown: 0, runs: 0 });
   });
 
   it('keeps per-Hunter kills, and older saves start them empty', () => {
@@ -884,16 +951,16 @@ describe('Saves', () => {
     expect(deserialize(JSON.stringify(old))!.stats.hunterKills).toEqual({ main: 3 });
   });
 
-  it('migrates a stage-based save: keeps items, surviving materials and Arena progress', () => {
+  it('migrates a stage-based save: keeps items and surviving materials', () => {
     const v3 = { version: 3, gold: 1e9, stage: 40, maxStage: 40, items: { whetstone: 4 }, materials: { goo: 50, bone: 20, ember: 5 }, stars: 7, stats: { totalKills: 123, deaths: 2 } };
     const s = deserialize(JSON.stringify(v3))!;
-    expect(s.version).toBe(6);
+    expect(s.version).toBe(7);
     expect(s.area).toBe('forest');
     expect(s.gold).toBe(0);
     expect(s.items.whetstone).toBe(4);
     expect(s.materials.goo).toBe(50);
     expect(s.materials.bone).toBe(20);
-    expect(s.stars).toBe(7);
+    expect('stars' in s).toBe(false);
     expect(s.stats.totalKills).toBe(123);
     expect('deaths' in s.stats).toBe(false);
   });

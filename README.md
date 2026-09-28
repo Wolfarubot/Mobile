@@ -7,14 +7,14 @@ An incremental (idle) survivor game for Android, with iOS to follow. Your Hunter
 | Layer | What happens |
 |---|---|
 | **Battlefield** | Your Hunter auto-fires at the nearest approaching enemy. Enemies arrive in packs from off-screen. One that reaches the Hunter **stuns** them and **flees**; if it gets off-screen it escapes with its gold and material. A stun always runs its course (more monsters arriving don't extend it), then a short immunity means you always get some shots off. Tap anywhere for a blast, even while stunned. |
-| **Areas** | Whispering Forest → Old Graveyard → Ember Caves → Frost Peaks → Void Rift. Get enough kills in an area (**mastery**) to challenge its **Guardian** (a giant version of the area's rarest monster, 45s timer; it stuns longer and bounces off). Beat it and the next area is **permanently unlocked**. A **Challenge the Guardian** button appears on the battlefield when it's ready. Travel between unlocked areas from the **Areas** tab, where each area shows its mastery progress and stats: slain, gold earned, escaped, knockouts, monsters unlocked and who is stationed there. |
+| **Areas** | Whispering Forest → Old Graveyard → Ember Caves → Frost Peaks → Void Rift. Get enough kills in an area (**mastery**) to unlock its **Guardian Challenge** event (a giant version of the area's rarest monster, 45s timer; it stuns longer and bounces off). Beat it and the next area is **permanently unlocked**. Travel between unlocked areas from the **Areas** tab, where each area shows its mastery progress and stats: slain, gold earned, escaped, knockouts, monsters unlocked and who is stationed there. |
 | **Monsters & archetypes** | 15 monsters, 3 per area. Each has its own **HP, speed, spawn rate, pack size, gold** and **material**, and belongs to an **archetype**: Slime (Green, Red, Magma, Shadow Slime), Undead (Skeleton, Zombie, Snow Wraith, Lich), Beast (Forest Wolf, Grave Bat, Fire Beetle, Ice Wolf), Demon (Imp, Void Horror) or Elemental (Frost Golem). |
 | **Bestiary** (gold) | Each area starts with one monster; **unlock** the others to grow its horde. **Swarm** brings more of a monster; **Bounty** makes it pay more gold and drop more materials, but it **moves faster**. Permanent, and it also applies to Hunters stationed there. |
 | **Hunters** (gold) | Every Hunter, you included, **trains** with gold: each session adds a little damage and costs a bit more than the last. Enough sessions raise their **level** (3 sessions for Lv 2, then 4 more for Lv 3, and so on), and every level earns a **skill point** for their skill tree: **Attack Power** (+10% damage), **Attack Speed** (+10% attack rate), **Recovery Speed** (shorter stuns); you also get **Tap Power** and **Tap Size** for your tap blast. The **Hunter Guild** has 10 recruitable Hunters, each with their own **attack style**, range and perk (table below). Each card shows the Hunter's art, a gold dot in the corner counting unspent skill points, their name, ability, location and DPS, equipped gear and a **Train** button (the ×1/×10/×100/MAX switch sets how many sessions). **Tap a card** for a full-screen view with training, the skill tree, DPS, damage, attack rate, range, stun time, shield, crit, **enemies slain**, equipment slots (tap to change gear) and stationing; close it to return to the battlefield. **Station** one Hunter per area. They earn gold and materials there at 80% efficiency (offline too). Visit their area and they fight beside you. Monsters head for the **nearest** Hunter, so stationed Hunters can be stunned too. |
 | **Equipment** (materials) | Craft gear into your **Inventory**, upgrade it (up to Lv 10) or salvage it for half its materials. **Camp Upgrades**: the 10 original permanent items that boost every Hunter (Whetstone, Quickdraw Gloves, Monster Lure, Scavenger's Pouch, Bone Mail, Split Bow, Golden Idol, Frost Lance, Soul Lantern, Void Engine). Recipes use materials from each area in turn, so every new area opens up new gear. |
 | **Equipment** | Every Hunter has 3 slots, always including **Armor**. Most (and you) have Weapon · Armor · Accessory. **Lance**: Melee · Armor · Accessory. **Wilhelm**: Long-range weapon (powers his sniper shots) · Short-range weapon (powers his akimbo pistols) · Armor. **Glimmer**: Armor · Accessory · Accessory. Tap a slot in a Hunter's full view to equip from the inventory; a piece can only be worn by one Hunter at a time. 18 pieces across Weapons, Melee, Armor and Accessories modify damage, attack rate, range, crit, stun time, shield charges, gold, drops, area size and pierce. Every piece has a **rarity**, shown as its colour on Hunter cards, slots, the inventory and recipes: Common (grey), Uncommon (green), Rare (blue), Very Rare (lavender), Legendary (violet), Exotic (gold), Relic (red), Artifact (orange), Exalted (magenta). Rarer gear comes from later areas' materials. |
 | **Offline** | Up to 8h (the Welcome Back screen only appears after 15+ minutes away; shorter breaks are credited silently): you farm your current area at 50% efficiency, and every stationed Hunter keeps farming theirs. The Welcome Back screen breaks down gold, kills and materials **per area**, with who earned them and how many times each Hunter was **knocked out** (shown only if it happened). Offline (and background) farming models the same pressure as the live field. Monsters slip through when Hunters can't keep up (limited by damage *and* shots per kill), each one that gets through stuns someone (unless they're already dazed or immune), and dazed Hunters don't fight. So Hunters that are too weak for an area earn very little there, online or off. Stationed Hunters' cards warn when they spend real time stunned. |
-| **Events** | More events are coming. For now: tickets (max 3, one per 15 min, refill offline) buy minigame runs. |
+| **Events** | Each area has events, unlocked by slaying monsters there. Once unlocked, an event goes on a **cooldown** each time you start it (cooldowns run offline too), and only one event runs at a time. Starting an event in another area takes you there. **Guardian Challenge** (every area, unlocks at mastery, 5 min cooldown): the first win opens the next area, and later wins pay a bounty. **Slime Swarm** (Whispering Forest, unlocks at 2,500 forest kills, 15 min cooldown): for 60s only slimes spawn, twice as often and twice as fast. |
 
 ### The Hunter Guild
 
@@ -39,14 +39,6 @@ The battlefield is drawn zoomed out (`FIELD_ZOOM` in `balance.ts`), so monsters 
 
 Drop PNGs into `src/assets/sprites/` (`hunter.png`, `hunters/<id>.png`, `enemies/<id>.png`, optional `bosses/<id>.png`) and they replace the placeholder shapes on the next build. No code changes are needed. See [`src/assets/sprites/README.md`](src/assets/sprites/README.md) for all ids and sizes. Monster, area and Hunter stats live in `src/core/balance.ts`.
 
-### Minigames
-
-- **🚀 Sky Siege** (bullet hell, the featured game): drag to fly; the ship auto-fires. Dodge aimed shots, rotating rings and a spiral-firing boss; only the ship's purple core can be hit. Downed monsters drop **material gems** (of the monsters you've unlocked, worth more the more areas you've opened) and you earn **Stars**. Stars buy permanent **Hangar** upgrades: Treasure Hunter (+materials), Rich Skies (+drops), Twin Cannons, Shield (extra hits), Magnet and Endurance (longer runs).
-- **⚔️ Blade Storm**: swipe to slice monsters flung into the air, avoid bombs. Pays gold + Frenzy.
-- **💥 Power Strike**: timing bar against a giant boss. Pays gold + Frenzy.
-
-**Frenzy** doubles all damage for up to 5 minutes, so active play speeds up the idle game.
-
 ## Tech
 
 - **TypeScript + HTML5 Canvas**, bundled with **Vite**. No game engine and no image assets: everything is drawn with simple shapes.
@@ -57,16 +49,15 @@ Drop PNGs into `src/assets/sprites/` (`hunter.png`, `hunters/<id>.png`, `enemies
 src/
   core/        pure game logic, no DOM (unit-tested)
     balance.ts   every tunable number and content table (areas, monsters, archetypes, Hunters, items, hangar)
-    game.ts      economy & progression: areas, Guardians, Hunters & stationing, bestiary, shops, forge, background farming
+    game.ts      economy & progression: areas, events & Guardians, Hunters & stationing, bestiary, shops, forge, background farming
     field.ts     the battlefield simulation: spawning, movement, attack styles, ranges, stuns & shields, fleeing, Guardians
     offline.ts   offline cap + ticket regen
     state.ts     save format + migration
     save.ts      persistence
-  render/      canvas: battlefield view, particles, sprite loader (monsterArt.ts is used by the older minigames)
+  render/      canvas: battlefield view, particles, sprite loader
   assets/sprites/  drop-in artwork (optional)
-  minigames/   runner (harness) + one file per minigame
   ui/          DOM panels (Hunters / Areas / Bestiary / Equipment / Events), modals
-tests/         vitest: economy, field, minigames, saves, and a bot that plays the real battlefield to check pacing
+tests/         vitest: economy, field, events, saves, and a bot that plays the real battlefield to check pacing
 ```
 
 ## Running it
@@ -105,7 +96,7 @@ npm run ios        # opens Xcode → pick a device → Run
 - Enemy traits (splitters, shielded, ranged), elite variants, Guardian attack patterns
 - A prestige layer that fits permanent areas (e.g. harder "tiers" of each area for bigger rewards)
 - More Hunters, Hunter gear slots, and more areas
-- Daily challenges / leaderboards for Sky Siege; more Hangar upgrades
+- More area events (each area's own twist on the horde)
 - Boss-only rare materials and legendary items; achievements
 - Rewarded ads ("double your offline gold") or IAP; cloud save
 - Replace procedural art with a commissioned sprite set

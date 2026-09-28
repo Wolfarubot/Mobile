@@ -1,4 +1,4 @@
-// Lightweight particles and floating text shared by the battle view and minigames.
+// Lightweight particles and floating text for the battle view.
 
 interface Particle {
   x: number;

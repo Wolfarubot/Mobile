@@ -34,13 +34,31 @@ export const OFFLINE_EFFICIENCY = 0.5;
 /** Shorter absences are granted silently (no Welcome Back popup), e.g. when switching apps. */
 export const OFFLINE_POPUP_SEC = 15 * 60;
 
-// ---- Arena ----
-export const MAX_TICKETS = 3;
-export const TICKET_REGEN_SEC = 15 * 60;
-export const FRENZY_MULT = 2;
-export const FRENZY_CAP_SEC = 300;
-/** Minigame reward: each "reward unit" is worth this many kills of gold in the current area. */
-export const MINIGAME_GOLD_PER_UNIT = 2;
+// ---- Events: timed challenges per area, unlocked by slaying monsters there, then on a cooldown ----
+export type EventKind = 'guardian' | 'swarm';
+
+export interface EventDef {
+  id: string;
+  area: AreaId;
+  kind: EventKind;
+  name: string;
+  icon: string;
+  blurb: string;
+  /** Monsters slain in the area to unlock it (a Guardian Challenge unlocks at the area's mastery). */
+  unlockKills: number;
+  /** Seconds after starting before it can run again. */
+  cooldown: number;
+  /** Seconds it lasts (a Guardian gives you GUARDIAN_TIME once it appears). */
+  duration: number;
+  /** Swarm: only this archetype spawns, with spawn rate and speed multiplied. */
+  archetype?: Archetype;
+  spawnMult?: number;
+  speedMult?: number;
+}
+
+export const GUARDIAN_COOLDOWN = 5 * 60;
+
+// EVENTS is built at the end of this file, once AREAS exists.
 
 // ---- Training & skills (every Hunter, you included) ----
 // Hunters *train* with gold: every session adds a little damage. Enough training raises their level,
@@ -637,31 +655,34 @@ export function itemCost(item: ItemDef, level: number): Partial<Record<MaterialI
   return cost;
 }
 
-// ---- Bullet hell minigame upgrades: bought with Stars earned in runs, permanent ----
-export type BhUpgradeId = 'treasure' | 'shield' | 'cannons' | 'magnet' | 'endurance' | 'richskies';
-
-export interface BhUpgradeDef {
-  id: BhUpgradeId;
-  name: string;
-  icon: string;
-  maxLevel: number;
-  baseCost: number;
-  growth: number;
-  describe: (level: number) => string;
-}
-
-export const BH_UPGRADES: BhUpgradeDef[] = [
-  { id: 'treasure', name: 'Treasure Hunter', icon: '💎', maxLevel: 20, baseCost: 3, growth: 1.5, describe: (l) => `+${l * 25}% materials from runs` },
-  { id: 'richskies', name: 'Rich Skies', icon: '🌠', maxLevel: 10, baseCost: 4, growth: 1.6, describe: (l) => `+${l * 10}% enemy drop chance` },
-  { id: 'cannons', name: 'Twin Cannons', icon: '🔫', maxLevel: 4, baseCost: 6, growth: 2.5, describe: (l) => `${l + 1} bullet streams` },
-  { id: 'shield', name: 'Shield', icon: '🛡️', maxLevel: 3, baseCost: 8, growth: 2.5, describe: (l) => `${l + 1} hit${l ? 's' : ''} before you fall` },
-  { id: 'magnet', name: 'Magnet', icon: '🧲', maxLevel: 8, baseCost: 3, growth: 1.6, describe: (l) => `+${l * 40}% pickup radius` },
-  { id: 'endurance', name: 'Endurance', icon: '⏳', maxLevel: 4, baseCost: 5, growth: 2, describe: (l) => `${60 + l * 10}s runs` },
+export const EVENTS: EventDef[] = [
+  ...AREAS.filter((a) => Number.isFinite(a.mastery)).map(
+    (a): EventDef => ({
+      id: `guardian-${a.id}`,
+      area: a.id,
+      kind: 'guardian',
+      name: 'Guardian Challenge',
+      icon: '⚔️',
+      blurb: `Bring down the ${a.name} Guardian within ${GUARDIAN_TIME}s.`,
+      unlockKills: a.mastery,
+      cooldown: GUARDIAN_COOLDOWN,
+      duration: GUARDIAN_TIME,
+    }),
+  ),
+  {
+    id: 'slimeSwarm',
+    area: 'forest',
+    kind: 'swarm',
+    name: 'Slime Swarm',
+    icon: '🟢',
+    blurb: 'Slimes flood the forest for 60s: twice as many, twice as fast.',
+    unlockKills: 2500,
+    cooldown: 15 * 60,
+    duration: 60,
+    archetype: 'slime',
+    spawnMult: 2,
+    speedMult: 2,
+  },
 ];
 
-/** Each gem in Sky Siege is worth this many materials, so runs stay relevant as idle income grows. */
-export function gemValue(areasUnlocked: number): number {
-  return 1 + 2 * Math.max(0, areasUnlocked - 1);
-}
-
-export const bhUpgradeCost = (u: BhUpgradeDef, level: number): number => Math.ceil(u.baseCost * u.growth ** level);
+export const eventDef = (id: string): EventDef => EVENTS.find((e) => e.id === id)!;

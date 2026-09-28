@@ -1,4 +1,4 @@
-import { areaDef, enemyDef, FIELD_ZOOM, GUARDIAN_TIME, hunterDef, materialDef, type EnemyId, type EnemyShape } from '../core/balance';
+import { areaDef, enemyDef, eventDef, FIELD_ZOOM, GUARDIAN_TIME, hunterDef, materialDef, type EnemyId, type EnemyShape } from '../core/balance';
 import { PLAYER_RADIUS, type Bullet, type Enemy, type Field, type Helper } from '../core/field';
 import { fmt } from '../core/format';
 import type { Game } from '../core/game';
@@ -82,6 +82,8 @@ export class BattleView {
         this.pickups = [];
         this.showBanner(areaDef(game.area).name, '#ffffff');
       }
+      if (e.type === 'eventStart' && eventDef(e.event).kind !== 'guardian') this.showBanner(`${eventDef(e.event).name}!`, '#7be07b');
+      if (e.type === 'eventEnd') this.showBanner(`${eventDef(e.event).name} is over`, '#c9c2dc');
     });
   }
 
@@ -333,14 +335,7 @@ export class BattleView {
     const f = this.field;
     const R = PLAYER_RADIUS;
 
-    // Frenzy aura / post-stun immunity ring
-    if (this.game.frenzy) {
-      g.strokeStyle = `rgba(255,150,60,${0.5 + Math.sin(this.time * 10) * 0.2})`;
-      g.lineWidth = 3;
-      g.beginPath();
-      g.arc(0, 0, R + 7 + Math.sin(this.time * 6) * 2, 0, Math.PI * 2);
-      g.stroke();
-    }
+    // Post-stun immunity ring
     if (f.immune > 0) {
       g.strokeStyle = `rgba(159,224,255,${Math.min(1, f.immune * 2) * 0.6})`;
       g.lineWidth = 2;
@@ -482,6 +477,19 @@ export class BattleView {
     const boss = this.field.enemies.find((e) => e.boss);
     g.textAlign = 'center';
     g.textBaseline = 'middle';
+    const ev = this.game.activeEvent;
+    if (ev && !boss) {
+      const def = eventDef(ev.id);
+      const bw = Math.min(w * 0.7, 300);
+      const x = (w - bw) / 2;
+      g.font = '800 13px system-ui, sans-serif';
+      g.fillStyle = '#9ff0a8';
+      g.fillText(`${def.icon} ${def.name.toUpperCase()} · ${Math.ceil(ev.left)}s`, w / 2, 14);
+      g.fillStyle = 'rgba(0,0,0,0.55)';
+      g.fillRect(x, 24, bw, 6);
+      g.fillStyle = '#3fcf6a';
+      g.fillRect(x, 24, bw * Math.max(0, ev.left / def.duration), 6);
+    }
     if (boss) {
       const bw = Math.min(w * 0.7, 300);
       const x = (w - bw) / 2;

@@ -113,53 +113,6 @@ button {
   height: 100%;
   touch-action: none;
 }
-
-.challenge-btn {
-  position: absolute;
-  left: 50%;
-  bottom: 12px;
-  transform: translateX(-50%);
-  padding: 10px 18px;
-  border-radius: 999px;
-  background: var(--danger);
-  font-size: 14px;
-  font-weight: 900;
-  box-shadow: 0 4px 16px #0008;
-  animation: pulse-centered 1s infinite;
-  white-space: nowrap;
-}
-@keyframes pulse-centered {
-  50% {
-    transform: translateX(-50%) scale(1.08);
-  }
-}
-.auto-btn {
-  height: 30px;
-  padding: 0 8px;
-  border-radius: 8px;
-  background: var(--card);
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 800;
-}
-.auto-btn.on {
-  background: var(--accent);
-  color: #fff;
-}
-.frenzy {
-  text-align: center;
-  font-size: 12px;
-  font-weight: 800;
-  color: #ffb04d;
-  background: var(--panel);
-  padding-bottom: 6px;
-}
-@keyframes pulse {
-  50% {
-    transform: scale(1.08);
-  }
-}
-
 .tabs {
   display: flex;
   background: var(--panel);
@@ -316,62 +269,6 @@ button {
   color: var(--muted);
   font-size: 13px;
 }
-.mg-card {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-.mg-card .icon {
-  font-size: 34px;
-  width: 58px;
-  height: 58px;
-  display: grid;
-  place-items: center;
-  background: #0004;
-  border-radius: 14px;
-  flex: none;
-}
-.mg-card .info {
-  flex: 1;
-}
-.mg-card .best {
-  font-size: 12px;
-  color: var(--gold);
-}
-.play {
-  background: var(--accent);
-  color: #fff;
-  font-weight: 800;
-  padding: 10px 14px;
-  border-radius: 12px;
-}
-.play:disabled {
-  background: #4a4060;
-  color: #9a90b0;
-}
-.tickets {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-weight: 700;
-}
-.tickets .t {
-  font-size: 20px;
-  letter-spacing: 2px;
-}
-.big-btn {
-  width: 100%;
-  padding: 12px;
-  border-radius: 12px;
-  font-weight: 800;
-  font-size: 16px;
-  background: #9b5cff;
-  color: #fff;
-}
-.big-btn:disabled {
-  background: #4a4060;
-  color: #9a90b0;
-}
 .danger-link {
   background: none;
   color: var(--danger);
@@ -420,10 +317,6 @@ button {
   color: var(--gold);
   margin: 12px 0 4px;
 }
-.modal-box .reward.frenzy {
-  font-size: 16px;
-  color: #ffb04d;
-}
 .modal-box .buttons {
   display: flex;
   gap: 8px;
@@ -445,29 +338,6 @@ button {
     transform: scale(0.85);
     opacity: 0;
   }
-}
-
-.mg-root {
-  position: fixed;
-  inset: 0;
-  z-index: 10;
-  background: #000;
-}
-.mg-canvas {
-  width: 100%;
-  height: 100%;
-  display: block;
-  touch-action: none;
-}
-.mg-quit {
-  position: absolute;
-  top: calc(8px + var(--safe-top));
-  right: 10px;
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  background: #0008;
-  font-size: 18px;
 }
 
 .mats {
@@ -526,33 +396,6 @@ button {
   letter-spacing: 0.06em;
   display: flex;
   justify-content: space-between;
-}
-.stat-strip {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
-  margin-bottom: 10px;
-  font-size: 11px;
-  color: var(--muted);
-  text-align: center;
-}
-.stat-strip div {
-  background: var(--card);
-  border-radius: 10px;
-  padding: 6px 4px;
-}
-.stat-strip b {
-  display: block;
-  color: var(--text);
-  font-size: 14px;
-}
-.mg-card.featured {
-  border: 1px solid #7c5cff88;
-  background: linear-gradient(135deg, #2f2552, var(--card));
-}
-.mg-card .rewards {
-  font-size: 12px;
-  color: #9fe0ff;
 }
 
 .beast {
@@ -616,17 +459,6 @@ button {
   font-size: 10px;
   font-weight: 600;
   opacity: 0.85;
-}
-
-.hunter-icon {
-  width: 44px;
-  height: 44px;
-  flex: none;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  font-size: 22px;
-  border: 3px solid #120c1c;
 }
 .chips {
   display: flex;
@@ -725,13 +557,6 @@ button {
 .offline-area > div + div {
   margin-top: 2px;
   color: #9fe0ff;
-}
-
-.style-line {
-  margin: 8px 0 0 !important;
-  font-size: 12px;
-  color: var(--text) !important;
-  opacity: 0.85;
 }
 
 .knockouts {
@@ -1229,7 +1054,6 @@ button {
   color: var(--text);
   font-size: 15px;
 }
-.hd-level,
 .hd-recruit {
   width: 100%;
   margin-top: 12px;
@@ -1318,4 +1142,29 @@ button {
   font-size: 14px;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* ---- Events tab ---- */
+.event-card .info .mastery {
+  margin-top: 6px;
+}
+.event-card.locked {
+  opacity: 0.7;
+}
+.event-card.ready {
+  border: 1px solid var(--good);
+}
+.event-card.running {
+  border: 1px solid #ff4d6d;
+}
+.ev-status {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #9fe0ff;
+}
+.ev-status small {
+  font-size: 12px;
+}
+.ev-live {
+  color: #ff7a8c;
 }

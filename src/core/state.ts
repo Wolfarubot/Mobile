@@ -1,15 +1,13 @@
 import {
   AREAS,
-  BH_UPGRADES,
   ENEMIES,
+  EVENTS,
   GEAR,
   HUNTERS,
   ITEMS,
   MATERIALS,
-  MAX_TICKETS,
   SKILLS,
   type AreaId,
-  type BhUpgradeId,
   type EnemyId,
   type GearId,
   type HunterId,
@@ -78,15 +76,10 @@ export interface GameState {
   /** Gear uid in each of a Hunter's slots (null = empty), indexed like their slot list. */
   equipment: Partial<Record<Wearer, Array<number | null>>>;
   nextGearUid: number;
-  tickets: number;
-  /** Seconds accumulated toward the next minigame ticket. */
-  ticketProgress: number;
-  frenzyTime: number;
-  /** Bullet hell meta-progression. */
-  stars: number;
-  bh: Record<BhUpgradeId, number>;
   /** Epoch ms of the last save; used to compute offline progress. */
   lastSeen: number;
+  /** Per event: seconds of cooldown left and times run. */
+  events: Record<string, { cooldown: number; runs: number }>;
   buyAmount: BuyAmount;
   stats: {
     totalKills: number;
@@ -94,13 +87,12 @@ export interface GameState {
     taps: number;
     escaped: number;
     guardians: number;
-    best: Record<string, number>;
     /** Kills per Hunter (you are 'main'). */
     hunterKills: Partial<Record<Wearer, number>>;
   };
 }
 
-export const SAVE_VERSION = 6;
+export const SAVE_VERSION = 7;
 
 const zeroes = <K extends string>(ids: { id: K }[]): Record<K, number> =>
   Object.fromEntries(ids.map((x) => [x.id, 0])) as Record<K, number>;
@@ -122,14 +114,10 @@ export function newGame(now = Date.now()): GameState {
     inventory: [],
     equipment: {},
     nextGearUid: 1,
-    tickets: MAX_TICKETS,
-    ticketProgress: 0,
-    frenzyTime: 0,
-    stars: 0,
-    bh: zeroes(BH_UPGRADES),
     lastSeen: now,
+    events: Object.fromEntries(EVENTS.map((e) => [e.id, { cooldown: 0, runs: 0 }])),
     buyAmount: 1,
-    stats: { totalKills: 0, totalGold: 0, taps: 0, escaped: 0, guardians: 0, best: {}, hunterKills: {} },
+    stats: { totalKills: 0, totalGold: 0, taps: 0, escaped: 0, guardians: 0, hunterKills: {} },
   };
 }
 
@@ -172,7 +160,7 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
 
   const base = newGame(now);
   const stats = { ...base.stats, ...((data.stats as object) ?? {}) };
-  for (const k of ['deaths', 'prestiges']) delete (stats as Record<string, unknown>)[k];
+  for (const k of ['deaths', 'prestiges', 'best']) delete (stats as Record<string, unknown>)[k];
   // Per-Hunter kills arrived after v5; older saves start them at 0.
   stats.hunterKills = Object.fromEntries(
     Object.entries(stats.hunterKills && typeof stats.hunterKills === 'object' ? stats.hunterKills : {}).filter(
@@ -185,9 +173,6 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
     // that still mean the same: forged items, materials that still exist, Arena progress, stats.
     base.items = mergeNumbers(base.items, data.items);
     base.materials = mergeNumbers(base.materials, data.materials);
-    base.stars = typeof data.stars === 'number' ? data.stars : 0;
-    base.bh = mergeNumbers(base.bh, data.bh);
-    base.tickets = typeof data.tickets === 'number' ? data.tickets : base.tickets;
     base.lastSeen = typeof data.lastSeen === 'number' ? data.lastSeen : now;
     base.stats = stats;
     return base;
@@ -201,8 +186,13 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
     hunters: mergeRecord(base.hunters, data.hunters),
     materials: mergeNumbers(base.materials, data.materials),
     items: mergeNumbers(base.items, data.items),
-    bh: mergeNumbers(base.bh, data.bh),
     stats,
+    events: Object.fromEntries(
+      EVENTS.map((e) => {
+        const saved = (data.events as Record<string, { cooldown?: unknown; runs?: unknown }> | undefined)?.[e.id];
+        return [e.id, { cooldown: typeof saved?.cooldown === 'number' ? saved.cooldown : 0, runs: typeof saved?.runs === 'number' ? saved.runs : 0 }];
+      }),
+    ),
     version: SAVE_VERSION,
   };
   // v5 -> v6: Power levels and Hunter levels become training sessions; skills start unspent
@@ -213,7 +203,8 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
     trains: typeof main?.trains === 'number' ? main.trains : typeof oldPower === 'number' ? oldPower : 0,
     skills: cleanSkills(main?.skills),
   };
-  delete (state as unknown as Record<string, unknown>).upgrades;
+  // v6 -> v7: the old Arena (minigame tickets, Stars, Hangar, Frenzy) was replaced by area events.
+  for (const k of ['upgrades', 'tickets', 'ticketProgress', 'frenzyTime', 'stars', 'bh']) delete (state as unknown as Record<string, unknown>)[k];
   const savedHunters = (data.hunters ?? {}) as Record<string, { trains?: unknown; level?: unknown }>;
   for (const [id, h] of Object.entries(state.hunters) as Array<[string, HunterState & { level?: number }]>) {
     const saved = savedHunters[id] ?? {};
