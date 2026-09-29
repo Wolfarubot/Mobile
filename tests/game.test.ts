@@ -499,6 +499,24 @@ describe('Equipment', () => {
     expect(g.specialDamageMult('ranger')).toBe(0);
   });
 
+  it("damage types: a Hunter deals their weapon's type, or their own without one; specials keep their own", () => {
+    const g = stocked();
+    g.recruit('alchemist');
+    expect(g.damageTypeOf('main')).toBe('physical');
+    expect(g.damageTypeOf('glimmer')).toBe('fire');
+    expect(g.damageTypeOf('alchemist')).toBe('poison');
+    const staff = g.craftGear('voidScepter')!;
+    g.equip('glimmer', 0, staff.uid);
+    expect(g.damageTypeOf('glimmer')).toBe('void');
+    expect(g.damageTypeOf('glimmer', 'long', true)).toBe('fire'); // fireballs stay fire
+    const rifle = g.craftGear('frostRifle')!;
+    g.equip('wilhelm', 1, rifle.uid); // short-range slot
+    expect(g.damageTypeOf('wilhelm', 'long')).toBe('physical');
+    expect(g.damageTypeOf('wilhelm', 'short')).toBe('frost');
+    // Every weapon has a type; armor and accessories don't.
+    for (const gd of GEAR) expect(!!gd.damageType).toBe(['weapon', 'melee', 'magic'].includes(gd.kind));
+  });
+
   it("Wilhelm's long and short weapons each power one mode", () => {
     const g = stocked();
 
@@ -881,7 +899,10 @@ describe('Field', () => {
     const { f } = withHelper('glimmer');
     for (let i = 0; i < 3; i++) f.enemies.push(tough({ id: i + 1, x: -55 + (i - 1) * 20, y: -150 }));
     for (let i = 0; i < 90; i++) f.update(1 / 30);
-    expect(f.drainEvents().some((e) => e.type === 'explode')).toBe(true);
+    const events = f.drainEvents();
+    expect(events.some((e) => e.type === 'explode')).toBe(true);
+    // His hits are fire (he has no weapon, and fireballs are always fire).
+    expect(events.some((e) => e.type === 'hit' && e.dtype === 'fire')).toBe(true);
     expect(f.enemies.every((e) => e.hp < 1e12)).toBe(true);
   });
 

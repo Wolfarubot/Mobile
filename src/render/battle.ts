@@ -1,4 +1,4 @@
-import { areaDef, enemyDef, eventDef, FIELD_ZOOM, GUARDIAN_TIME, hunterDef, materialDef, type EnemyId, type EnemyShape } from '../core/balance';
+import { areaDef, DAMAGE_TYPES, enemyDef, eventDef, FIELD_ZOOM, GUARDIAN_TIME, hunterDef, materialDef, type EnemyId, type EnemyShape } from '../core/balance';
 import { PLAYER_RADIUS, type Bullet, type Enemy, type Field, type Helper } from '../core/field';
 import { fmt } from '../core/format';
 import type { Game } from '../core/game';
@@ -104,7 +104,7 @@ export class BattleView {
       switch (e.type) {
         case 'hit':
           if (e.crit) this.fx.text(e.x, e.y, fmt(e.dmg), '#ff5a5a', 16, 0.6);
-          else if (Math.random() < 0.25) this.fx.text(e.x, e.y, fmt(e.dmg), '#ffffff', 11, 0.5);
+          else if (Math.random() < 0.25) this.fx.text(e.x, e.y, fmt(e.dmg), DAMAGE_TYPES[e.dtype].color, 11, 0.5);
           break;
         case 'kill': {
           const color = e.boss ? '#ffd34d' : enemyDef(e.enemy).color;

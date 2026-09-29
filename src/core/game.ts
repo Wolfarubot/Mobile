@@ -1,4 +1,5 @@
 import {
+  type DamageType,
   slotAccepts,
   WEAPON_KINDS,
   areaDef,
@@ -304,6 +305,20 @@ export class Game {
     const style = shooter === 'main' ? null : hunterDef(shooter).style;
     const perAttack = (style?.pellets ?? 1) * this.projectiles * (style?.farm ?? 1);
     return this.shotDamage(shooter, archetype) * (this.shooterRate(shooter) * perAttack + this.specialHitRate(shooter)) * this.critFactor(shooter);
+  }
+
+  /**
+   * The damage type a Hunter deals: their weapon's (for Wilhelm, the weapon of that mode), or their own
+   * when the slot is empty or holds an untyped piece. Specials always use the Hunter's own type.
+   */
+  damageTypeOf(who: Shooter, mode: GearMode = 'long', special = false): DamageType {
+    const own: DamageType = who === 'main' ? 'physical' : hunterDef(who).style.damageType;
+    if (special) return own;
+    const slots = this.slotsOf(who);
+    const items = this.equipped(who);
+    const i = slots.findIndex((sl) => WEAPON_KINDS.includes(sl.kind) && (!sl.role || sl.role === mode));
+    const item = i >= 0 ? items[i] : null;
+    return (item && gearDef(item.base).damageType) || own;
   }
 
   // ---- Special attacks (Mira's potions, Glimmer's fireballs) ----

@@ -1183,6 +1183,25 @@ button {
 .pick-row.rar.on {
   box-shadow: 0 0 0 2px var(--accent);
 }
+.dtype-tag {
+  display: inline-block;
+  margin-right: 5px;
+  padding: 0 5px;
+  border-radius: 5px;
+  background: var(--c0);
+  color: var(--dc);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 17px;
+  white-space: nowrap;
+}
+.gc-head .dtype-tag {
+  margin-top: 3px;
+  align-self: flex-start;
+}
+.dt-cell {
+  text-shadow: -1px 0 var(--c0), 1px 0 var(--c0), 0 -1px var(--c0), 0 1px var(--c0);
+}
 .rarity-tag {
   color: var(--rc);
   margin-right: 4px;

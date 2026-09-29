@@ -1,4 +1,5 @@
 import {
+  type DamageType,
   BULLET_SPEED,
   CRIT_MULT,
   enemyDef,
@@ -101,6 +102,8 @@ export interface Bullet {
   /** Potions fly to a point and burst there. */
   tx?: number;
   ty?: number;
+  /** A special attack (potion, fireball): deals the Hunter's own damage type. */
+  special?: boolean;
 }
 
 export interface Puddle {
@@ -115,7 +118,7 @@ export interface Puddle {
 }
 
 export type FieldEvent =
-  | { type: 'hit'; x: number; y: number; dmg: number; crit: boolean }
+  | { type: 'hit'; x: number; y: number; dmg: number; crit: boolean; dtype: DamageType }
   | { type: 'kill'; x: number; y: number; enemy: EnemyId; boss: boolean; reward: KillReward }
   | { type: 'blast'; x: number; y: number }
   | { type: 'boss' }
@@ -536,8 +539,8 @@ export class Field {
     const dmg = g.specialDamageMult(h.id);
     if (style.kind === 'potion') {
       const d = Math.hypot(target.x - h.x, target.y - h.y);
-      this.shoot(h.id, 'potion', h.x, h.y, a, 300, d, { radius, dmg, tx: target.x, ty: target.y });
-    } else this.shoot(h.id, 'fireball', h.x, h.y, a, 380, range, { radius, dmg });
+      this.shoot(h.id, 'potion', h.x, h.y, a, 300, d, { radius, dmg, tx: target.x, ty: target.y, special: true });
+    } else this.shoot(h.id, 'fireball', h.x, h.y, a, 380, range, { radius, dmg, special: true });
   }
 
   // ---- Attacks ----
@@ -551,7 +554,7 @@ export class Field {
     angle: number,
     speed: number,
     range: number,
-    o: { pierce?: number; spread?: boolean; dmg?: number; radius?: number; bounces?: number; slow?: number; tx?: number; ty?: number; mode?: GearMode },
+    o: { pierce?: number; spread?: boolean; dmg?: number; radius?: number; bounces?: number; slow?: number; tx?: number; ty?: number; mode?: GearMode; special?: boolean },
   ): void {
     const g = this.game;
     const n = o.spread ? g.projectiles : 1;
@@ -574,6 +577,7 @@ export class Field {
         slow: o.slow,
         tx: o.tx,
         ty: o.ty,
+        special: o.special,
         mode: o.mode,
       });
     }
@@ -607,10 +611,11 @@ export class Field {
     fromY: number,
     crit = this.game.rng() < this.game.critChanceOf(shooter),
     mode?: GearMode,
+    special = false,
   ): void {
     const dmg = this.game.shotDamage(shooter, enemyDef(e.type).archetype, mode) * mult * (crit ? CRIT_MULT : 1);
     const d = Math.hypot(e.x - fromX, e.y - fromY) || 1;
-    this.damage(e, dmg, crit, (e.x - fromX) / d, (e.y - fromY) / d, shooter);
+    this.damage(e, dmg, crit, (e.x - fromX) / d, (e.y - fromY) / d, shooter, this.game.damageTypeOf(shooter, mode, special));
   }
 
   private moveBullets(dt: number): void {
@@ -644,7 +649,7 @@ export class Field {
     if (b.kind === 'fireball') {
       const r = b.radius ?? 50;
       this.events.push({ type: 'explode', x: b.x, y: b.y, r, color: '#ff8a3d' });
-      for (const o of this.enemies) if (o.hp > 0 && Math.hypot(o.x - b.x, o.y - b.y) <= r + o.r) this.hitWith(b.shooter, o, b.dmg, b.x, b.y, b.crit);
+      for (const o of this.enemies) if (o.hp > 0 && Math.hypot(o.x - b.x, o.y - b.y) <= r + o.r) this.hitWith(b.shooter, o, b.dmg, b.x, b.y, b.crit, b.mode, b.special);
       b.life = 0;
       return;
     }
@@ -670,12 +675,12 @@ export class Field {
       p.tick -= dt;
       if (p.tick > 0) continue;
       p.tick = PUDDLE_TICK;
-      for (const e of this.enemies) if (e.hp > 0 && Math.hypot(e.x - p.x, e.y - p.y) <= p.r + e.r) this.hitWith(p.shooter, e, p.dmg, p.x, p.y);
+      for (const e of this.enemies) if (e.hp > 0 && Math.hypot(e.x - p.x, e.y - p.y) <= p.r + e.r) this.hitWith(p.shooter, e, p.dmg, p.x, p.y, undefined, undefined, true);
     }
     this.puddles = this.puddles.filter((p) => p.life > 0);
   }
 
-  private damage(e: Enemy, dmg: number, crit: boolean, dirX: number, dirY: number, shooter: Shooter = 'main'): void {
+  private damage(e: Enemy, dmg: number, crit: boolean, dirX: number, dirY: number, shooter: Shooter = 'main', dtype: DamageType = 'physical'): void {
     if (e.hp <= 0) return;
     e.hp -= dmg;
     e.flash = 1;
@@ -683,7 +688,7 @@ export class Field {
       e.kx += dirX * 90;
       e.ky += dirY * 90;
     }
-    this.events.push({ type: 'hit', x: e.x, y: e.y - e.r, dmg, crit });
+    this.events.push({ type: 'hit', x: e.x, y: e.y - e.r, dmg, crit, dtype });
     if (e.hp <= 0) {
       const reward = this.game.registerKill(e.type, e.boss, shooter);
       this.events.push({ type: 'kill', x: e.x, y: e.y, enemy: e.type, boss: e.boss, reward });
@@ -697,13 +702,14 @@ export class Field {
     this.events.push({ type: 'blast', x, y });
     const crit = g.rng() < g.critChanceOf('main');
     const dmg = g.tapDamage * (crit ? CRIT_MULT : 1);
+    const dtype = g.damageTypeOf('main');
     for (const e of this.enemies) {
       if (e.hp <= 0) continue;
       const dx = e.x - x;
       const dy = e.y - y;
       const d = Math.hypot(dx, dy);
       if (d > g.tapRadius + e.r) continue;
-      this.damage(e, dmg, crit, dx / (d || 1), dy / (d || 1));
+      this.damage(e, dmg, crit, dx / (d || 1), dy / (d || 1), 'main', dtype);
     }
     this.enemies = this.enemies.filter((e) => e.hp > 0);
   }

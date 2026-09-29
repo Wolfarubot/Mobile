@@ -1,4 +1,6 @@
 import {
+  DAMAGE_TYPES,
+  type DamageType,
   slotAccepts,
   areaDef,
   areaEnemies,
@@ -81,7 +83,9 @@ interface InvFilter {
   type: InvType;
   rarity: Rarity | 'any';
   level: LevelFilter;
+  dtype: DamageType | 'any';
 }
+const NO_FILTER: InvFilter = { type: 'all', rarity: 'any', level: 'any', dtype: 'any' };
 /** Which filter type a gear kind falls under ('weapon' gear is ranged: bows, crossbows, rifles). */
 const GEAR_TYPE: Record<string, InvType> = { weapon: 'ranged', melee: 'melee', magic: 'magic', armor: 'armor', accessory: 'accessory' };
 
@@ -103,7 +107,7 @@ export class AppUI {
   /** The open sub-tab of the Inventory tab. */
   private invSub: InvSub = 'materials';
   /** Filters on the Inventory's Equipment sub-tab (kept for the session). */
-  private invFilter: InvFilter = { type: 'all', rarity: 'any', level: 'any' };
+  private invFilter: InvFilter = { ...NO_FILTER };
   /** The area selected in the Areas tab. */
   private selectedArea: AreaId | null = null;
 
@@ -412,12 +416,14 @@ export class AppUI {
         ['Crit chance', `${Math.round(g.critChanceOf(who) * 100)}%`],
       ];
       if (!def) cells.push(['Tap damage', fmt(g.tapDamage)], ['Tap size', fmt(g.tapRadius)]);
+      const dt = DAMAGE_TYPES[g.damageTypeOf(who)];
+      cells.splice(1, 0, ['Damage type', `<span style="color:${dt.color}" class="dt-cell">${dt.icon} ${dt.name}</span>`]);
       const cd = g.specialCooldown(who);
       if (cd !== null) {
         const potion = def?.style.kind === 'potion';
         const hit = fmt(g.shotDamage(who) * g.specialDamageMult(who));
         cells.push(
-          [potion ? 'Puddle damage' : 'Fireball damage', potion ? `${hit}/tick` : hit],
+          [`${potion ? 'Puddle' : 'Fireball'} damage (${DAMAGE_TYPES[g.damageTypeOf(who, 'long', true)].name})`, potion ? `${hit}/tick` : hit],
           [potion ? 'Puddle size' : 'Blast size', fmt(g.specialRadius(who))],
           [potion ? 'Potion every' : 'Fireball every', `${cd}s`],
         );
@@ -590,7 +596,7 @@ export class AppUI {
         b.classList.toggle('rar', !!it);
         b.style.setProperty('--rc', gd ? gearColor(gd.id) : '');
         b.innerHTML = `<i>${gd ? gd.icon : GEAR_KINDS[slot.kind].icon}</i><div><small>${slot.label}</small><b>${gd ? gd.name : 'Empty'}</b><span class="sub">${
-          gd && it ? `${RARITIES[gd.rarity].name} · Lv ${it.level} · ${describeGear(gearStats(gd, it.level))}` : 'Tap to equip'
+          gd && it ? `${dtypeTag(gd)}${RARITIES[gd.rarity].name} · Lv ${it.level} · ${describeGear(gearStats(gd, it.level))}` : 'Tap to equip'
         }</span></div><span class="chev">›</span>`;
       });
       const stats = describeGear(g.gear(who));
@@ -712,7 +718,7 @@ export class AppUI {
       const worn = g.wearerOf(uid);
       const cost = g.gearUpgradeCost(uid);
       body.innerHTML = `
-        <p><b class="rarity-tag" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${GEAR_KINDS[gd.kind].name} · Lv ${item.level} / ${GEAR_MAX_LEVEL}${worn ? ` · worn by ${wearerName(worn.who)}` : ''}</p>
+        <p>${dtypeTag(gd)}<b class="rarity-tag" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${GEAR_KINDS[gd.kind].name} · Lv ${item.level} / ${GEAR_MAX_LEVEL}${worn ? ` · worn by ${wearerName(worn.who)}` : ''}</p>
         <p class="gear-now">${describeGear(gearStats(gd, item.level))}</p>
         ${cost ? `<p class="gear-next">Next: <b>${describeGear(gearStats(gd, item.level + 1))}</b></p><div class="cost">${costHtml(g, cost)}</div>` : '<p>Fully upgraded.</p>'}`;
       const actions = el('div', 'actions');
@@ -1223,12 +1229,16 @@ export class AppUI {
       const gear = g.state.inventory.filter((it) => {
         const gd = gearDef(it.base);
         return (
-          (f.type === 'all' || GEAR_TYPE[gd.kind] === f.type) && (f.rarity === 'any' || gd.rarity === f.rarity) && it.level >= lv.min && it.level <= lv.max
+          (f.type === 'all' || GEAR_TYPE[gd.kind] === f.type) &&
+          (f.rarity === 'any' || gd.rarity === f.rarity) &&
+          (f.dtype === 'any' || gd.damageType === f.dtype) &&
+          it.level >= lv.min &&
+          it.level <= lv.max
         );
       });
-      // Upgrades have no rarity, so a rarity filter hides them.
+      // Upgrades have no rarity or damage type, so those filters hide them.
       const upgrades =
-        (f.type === 'all' || f.type === 'upgrades') && f.rarity === 'any'
+        (f.type === 'all' || f.type === 'upgrades') && f.rarity === 'any' && f.dtype === 'any'
           ? ITEMS.filter((it) => g.state.items[it.id] > 0 && g.state.items[it.id] >= lv.min && g.state.items[it.id] <= lv.max)
           : [];
       const k = [
@@ -1240,7 +1250,7 @@ export class AppUI {
       invKey = k;
       const total = g.state.inventory.length + ITEMS.filter((it) => g.state.items[it.id] > 0).length;
       const shown = gear.length + upgrades.length;
-      const filtering = f.type !== 'all' || f.rarity !== 'any' || f.level !== 'any';
+      const filtering = f.type !== 'all' || f.rarity !== 'any' || f.level !== 'any' || f.dtype !== 'any';
       invTitle.innerHTML = `<span>Equipment</span><span>${filtering ? `${shown} of ${total}` : total} item${total === 1 ? '' : 's'}</span>`;
       $('.filter-btn', bar).classList.toggle('on', filtering);
       const chips = $('.filter-chips', bar);
@@ -1255,10 +1265,15 @@ export class AppUI {
         chips.appendChild(c);
       }
       if (f.level !== 'any') chips.appendChild(el('span', 'filter-chip', lv.name));
+      if (f.dtype !== 'any') {
+        const c = el('span', 'filter-chip', `${DAMAGE_TYPES[f.dtype].icon} ${DAMAGE_TYPES[f.dtype].name}`);
+        c.style.color = DAMAGE_TYPES[f.dtype].color;
+        chips.appendChild(c);
+      }
       if (filtering) {
         const clear = el('button', 'filter-clear', '✕ Clear');
         clear.addEventListener('click', () => {
-          this.invFilter = { type: 'all', rarity: 'any', level: 'any' };
+          this.invFilter = { ...NO_FILTER };
           this.refresh();
         });
         chips.appendChild(clear);
@@ -1301,6 +1316,13 @@ export class AppUI {
               .map((r) => `<button data-rarity="${r}" class="${f.rarity === r ? 'on' : ''}" style="--rc:${RARITIES[r].color}">${RARITIES[r].name}</button>`)
               .join('')}
           </div>
+          <div class="filter-label">Damage type</div>
+          <div class="filter-options">
+            <button data-dtype="any" class="${f.dtype === 'any' ? 'on' : ''}">Any</button>
+            ${(Object.keys(DAMAGE_TYPES) as DamageType[])
+              .map((t) => `<button data-dtype="${t}" class="${f.dtype === t ? 'on' : ''}">${DAMAGE_TYPES[t].icon} ${DAMAGE_TYPES[t].name}</button>`)
+              .join('')}
+          </div>
           <div class="filter-label">Level</div>
           <div class="filter-options">
             ${LEVEL_FILTERS.map((l) => `<button data-level="${l.id}" class="${f.level === l.id ? 'on' : ''}">${l.name}</button>`).join('')}
@@ -1318,9 +1340,10 @@ export class AppUI {
           }),
         );
         body.querySelectorAll<HTMLButtonElement>('[data-rarity]').forEach((b) => b.addEventListener('click', () => set({ rarity: b.dataset.rarity as Rarity | 'any' })));
+        body.querySelectorAll<HTMLButtonElement>('[data-dtype]').forEach((b) => b.addEventListener('click', () => set({ dtype: b.dataset.dtype as DamageType | 'any' })));
         body.querySelectorAll<HTMLButtonElement>('[data-level]').forEach((b) => b.addEventListener('click', () => set({ level: b.dataset.level as LevelFilter })));
         $('.filter-reset', body).addEventListener('click', () => {
-          set({ type: 'all', rarity: 'any', level: 'any' });
+          set({ ...NO_FILTER });
           close();
         });
       };
@@ -1395,7 +1418,7 @@ export class AppUI {
     if (!this.gearKnown(gd)) return;
     const g = this.game;
     const row = el('div', 'row');
-    row.innerHTML = `<div class="icon">${gd.icon}</div><div class="info"><div class="name"><span style="color:${gearColor(gd.id)}">${gd.name}</span> <small>${RARITIES[gd.rarity].name} ${GEAR_KINDS[gd.kind].name.toLowerCase()}</small></div><div class="sub"><b>${describeGear(gearStats(gd, 1))}</b> per level</div><div class="cost"></div></div><button class="buy">Craft</button>`;
+    row.innerHTML = `<div class="icon">${gd.icon}</div><div class="info"><div class="name"><span style="color:${gearColor(gd.id)}">${gd.name}</span> <small>${RARITIES[gd.rarity].name} ${GEAR_KINDS[gd.kind].name.toLowerCase()}</small> ${dtypeTag(gd)}</div><div class="sub"><b>${describeGear(gearStats(gd, 1))}</b> per level</div><div class="cost"></div></div><button class="buy">Craft</button>`;
     const btn = $<HTMLButtonElement>('.buy', row);
     btn.addEventListener('click', () => g.craftGear(gd.id) && this.refresh());
     parent.appendChild(row);
@@ -1755,7 +1778,7 @@ function gearCardHtml(it: GearItem, vs: GearItem | null = null): string {
       return `<li>${shown}${cmp}</li>`;
     })
     .join('');
-  return `<div class="gear-card rar" style="--rc:${gearColor(gd.id)}"><div class="gc-head"><i>${gd.icon}</i><div><b>${gd.name}</b><small>${RARITIES[gd.rarity].name} ${GEAR_KINDS[gd.kind].name.toLowerCase()} · Lv ${it.level} / ${GEAR_MAX_LEVEL}</small></div></div><ul class="gc-stats">${lines}</ul></div>`;
+  return `<div class="gear-card rar" style="--rc:${gearColor(gd.id)}"><div class="gc-head"><i>${gd.icon}</i><div><b>${gd.name}</b><small>${RARITIES[gd.rarity].name} ${GEAR_KINDS[gd.kind].name.toLowerCase()} · Lv ${it.level} / ${GEAR_MAX_LEVEL}</small>${dtypeTag(gd)}</div></div><ul class="gc-stats">${lines}</ul></div>`;
 }
 
 /** Your Hunter's name (Settings), shown on their card and wherever they're named. */
@@ -1796,6 +1819,16 @@ function wearerIcon(who: Wearer): string {
 }
 
 /** Material cost list; with `check`, amounts you can't afford are highlighted. */
+/** A weapon's damage type as a small coloured tag ('' for gear without one). */
+function dtypeTag(gd: GearDef): string {
+  return gd.damageType ? damageTypeHtml(gd.damageType) : '';
+}
+
+function damageTypeHtml(t: DamageType): string {
+  const d = DAMAGE_TYPES[t];
+  return `<span class="dtype-tag" style="--dc:${d.color}">${d.icon} ${d.name}</span>`;
+}
+
 function costHtml(g: Game, cost: Partial<Record<MaterialId, number>>, check = true): string {
   return (Object.entries(cost) as [MaterialId, number][])
     .map(([m, n]) =>
