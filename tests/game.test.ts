@@ -8,6 +8,7 @@ import {
   GEAR_COST_GROWTH,
   GUARDIAN_TIME,
   hunterDef,
+  HUNTERS,
   itemCost,
   itemDef,
   OFFLINE_CAP_SEC,
@@ -19,7 +20,7 @@ import {
 } from '../src/core/balance';
 import { Field, type Enemy } from '../src/core/field';
 import { Game } from '../src/core/game';
-import { deserialize, newGame, serialize } from '../src/core/state';
+import { deserialize, newGame, serialize, type GameState } from '../src/core/state';
 
 const noCrit = () => 0.99;
 
@@ -42,8 +43,14 @@ const enemy = (over: Partial<Enemy>): Enemy => ({
 });
 
 /** A game with plenty of gold and a strong Hunter. */
+/** Every event completed a few times, so every Hunter can be recruited. */
+function veteran(s: GameState): GameState {
+  for (const e of Object.values(s.events)) e.completed = 5;
+  return s;
+}
+
 function rich(): Game {
-  const s = newGame(0);
+  const s = veteran(newGame(0));
   s.gold = 1e15;
   s.main.trains = 200;
   return new Game(s, noCrit);
@@ -134,12 +141,38 @@ describe('Enemies & archetypes', () => {
 });
 
 describe('Hunters', () => {
-  it('recruiting needs the Hunter\'s area unlocked and gold', () => {
-    const g = rich();
-    expect(g.recruit('gravewarden')).toBe(false); // graveyard locked
-    expect(g.recruit('alchemist')).toBe(true);
-    expect(g.state.hunters.alchemist.recruited).toBe(true);
+  it("Hunters become available through their area's events: Mira after the first Forest Guardian", () => {
+    const s = newGame(0);
+    s.gold = 1e9;
+    s.areas.forest.kills = 1e6;
+    const g = new Game(s, noCrit);
+    expect(hunterDef('alchemist').unlock).toEqual({ event: 'guardian-forest', times: 1 });
+    expect(g.hunterAvailable('alchemist')).toBe(false);
     expect(g.recruit('alchemist')).toBe(false);
+    expect(g.huntersUnlockedBy('guardian-forest')).toEqual(['alchemist']);
+    g.startEvent('guardian-forest');
+    g.bossSpawned();
+    g.registerKill(g.guardianType, true);
+    expect(g.hunterAvailable('alchemist')).toBe(true);
+    expect(g.hunterAvailable('ranger')).toBe(false); // needs a second win
+    expect(g.huntersUnlockedBy('guardian-forest')).toEqual(['ranger']);
+    expect(g.recruit('alchemist')).toBe(true);
+    expect(g.recruit('alchemist')).toBe(false);
+    // Glimmer joins after surviving a full Slime Swarm; leaving early doesn't count.
+    g.travel('forest');
+    g.startEvent('slimeSwarm');
+    g.travel('graveyard');
+    expect(g.hunterAvailable('glimmer')).toBe(false);
+    g.travel('forest');
+    g.tick(eventDef('slimeSwarm').cooldown);
+    g.startEvent('slimeSwarm');
+    g.tick(eventDef('slimeSwarm').duration + 0.1);
+    expect(g.hunterAvailable('glimmer')).toBe(true);
+  });
+
+  it('every Hunter is unlocked by an event in their home area, in order', () => {
+    for (const h of HUNTERS) expect(eventDef(h.unlock.event).area).toBe(h.area);
+    expect(HUNTERS[0].id).toBe('alchemist');
   });
 
   it('archetype bane multiplies damage only against that archetype', () => {
@@ -190,7 +223,7 @@ describe('Hunters', () => {
     g.state.items.whetstone = 0;
     const s = newGame(0);
     s.gold = 1e15;
-    const weakGame = new Game(s, noCrit);
+    const weakGame = new Game(veteran(s), noCrit);
     weakGame.recruit('alchemist');
     weakGame.state.areas.graveyard.unlocked = true;
     const weak = weakGame.farmRates('graveyard', ['alchemist'], 1);
@@ -325,7 +358,7 @@ describe('Shops', () => {
   });
 
   it('Recovery Speed and Bone Mail shorten stuns', () => {
-    const g = new Game(newGame(0), noCrit);
+    const g = new Game(veteran(newGame(0)), noCrit);
     const base = g.stunTime();
     g.state.main.skills.recovery = 10;
     g.state.items.bonemail = 2;
@@ -342,7 +375,7 @@ describe('Equipment', () => {
     s.gold = 1e15;
     for (const m of Object.keys(s.materials) as Array<keyof typeof s.materials>) s.materials[m] = 1e6;
     for (const a of ['graveyard', 'caves'] as const) s.areas[a].unlocked = true;
-    const g = new Game(s, noCrit);
+    const g = new Game(veteran(s), noCrit);
     for (const id of ['glimmer', 'lance', 'wilhelm', 'ranger'] as const) g.recruit(id);
     return g;
   };
@@ -507,7 +540,7 @@ describe('Stuns in background & offline farming', () => {
     s.gold = 1e12;
     s.main.trains = 150;
     s.areas.graveyard.unlocked = true;
-    const g = new Game(s, noCrit);
+    const g = new Game(veteran(s), noCrit);
     g.recruit('alchemist'); // level 0: hopeless in the graveyard
     g.station('alchemist', 'graveyard');
     const r = g.applyOffline(3600 * 1000);
@@ -522,7 +555,7 @@ describe('Stuns in background & offline farming', () => {
     const s = newGame(0);
     s.gold = 1e12;
     s.areas.graveyard.unlocked = true;
-    const g = new Game(s, noCrit);
+    const g = new Game(veteran(s), noCrit);
     g.recruit('lance');
     const def = hunterDef('lance');
     const guard = def.guard;
@@ -547,7 +580,7 @@ describe('Offline', () => {
     const s = newGame(0);
     s.main.trains = 30;
     s.gold = 1e9;
-    const g = new Game(s, noCrit);
+    const g = new Game(veteran(s), noCrit);
     g.state.areas.graveyard.unlocked = true;
     g.recruit('gravewarden');
     g.state.hunters.gravewarden.trains = 150;
@@ -703,7 +736,7 @@ describe('Field', () => {
   it('challenging the Guardian spawns it; it stuns longer and bounces off instead of fleeing', () => {
     const s = newGame(0);
     s.areas.forest.kills = 999;
-    const g = new Game(s, noCrit);
+    const g = new Game(veteran(s), noCrit);
     const f = new Field(g);
     f.setView(390, 420);
     g.challengeGuardian();
@@ -935,13 +968,23 @@ describe('Saves', () => {
 
   it('keeps event cooldowns; v6 saves drop the old Arena (tickets, Stars, Frenzy)', () => {
     const s = newGame(0);
-    s.events.slimeSwarm = { cooldown: 120, runs: 3 };
-    expect(deserialize(serialize(s))!.events.slimeSwarm).toEqual({ cooldown: 120, runs: 3 });
+    s.events.slimeSwarm = { cooldown: 120, runs: 3, completed: 1 };
+    expect(deserialize(serialize(s))!.events.slimeSwarm).toEqual({ cooldown: 120, runs: 3, completed: 1 });
     const v6 = { ...JSON.parse(serialize(newGame(0))), version: 6, tickets: 2, ticketProgress: 30, frenzyTime: 40, stars: 9, bh: { shield: 1 } };
     delete v6.events;
     const back = deserialize(JSON.stringify(v6))! as unknown as Record<string, unknown>;
     for (const k of ['tickets', 'ticketProgress', 'frenzyTime', 'stars', 'bh']) expect(k in back).toBe(false);
-    expect((back.events as Record<string, unknown>)['guardian-forest']).toEqual({ cooldown: 0, runs: 0 });
+    expect((back.events as Record<string, unknown>)['guardian-forest']).toEqual({ cooldown: 0, runs: 0, completed: 0 });
+  });
+
+  it('older saves count a Guardian as beaten once when its next area is open', () => {
+    const old = JSON.parse(serialize(newGame(0)));
+    old.version = 6;
+    delete old.events;
+    old.areas.graveyard.unlocked = true;
+    const s = deserialize(JSON.stringify(old))!;
+    expect(s.events['guardian-forest'].completed).toBe(1);
+    expect(s.events['guardian-graveyard'].completed).toBe(0);
   });
 
   it('keeps per-Hunter kills, and older saves start them empty', () => {

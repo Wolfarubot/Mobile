@@ -18,18 +18,20 @@ An incremental (idle) survivor game for Android, with iOS to follow. Your Hunter
 
 ### The Hunter Guild
 
-| Hunter | Style | Perk |
-|---|---|---|
-| Mira the Alchemist ⚗️ | Lobs potions that leave a poison puddle | ×3 vs Slimes |
-| Glimmer the Wizard 🧙 | Fireballs that explode for area damage | |
-| Rin the Ranger 🏹 | Arrows that pierce up to 4 enemies | ×3 vs Beasts |
-| Alric the Gravewarden ✝️ | Holy pulse hitting everything around him | ×3 vs Undead |
-| Lance the Paladin 🛡️ | Short lance thrusts through a line | 3-hit shield before he's stunned (recharges); once recruited, every other Hunter (you too) gets a 1-hit shield |
-| Gus the Prospector 💰 | Shotgun: 5 pellets, close range | +75% gold |
-| Sera the Demonbane 🗡️ | Rapid thrown daggers, short range | ×3 vs Demons |
-| Wilhelm the Sniper 🎯 | Long-range piercing shots; akimbo pistols when enemies get close | Separate long-range and short-range weapon slots |
-| Pip the Scavenger 🎒 | Slingshot stones ricochet between 4 enemies | ×2 drops |
-| Bjorn the Frostbreaker 🔨 | Frost hammers that slow enemies | ×3 vs Elementals |
+Hunters become available through their home area's events, then cost gold to recruit. The Hunters tab shows your Hunter, everyone you've recruited, and only the next 3 still to come.
+
+| Hunter | Unlocked by | Style | Perk |
+|---|---|---|---|
+| Mira the Alchemist ⚗️ | Beat the Whispering Forest Guardian | Lobs potions that leave a poison puddle | ×3 vs Slimes |
+| Rin the Ranger 🏹 | Beat the Whispering Forest Guardian 2 times | Arrows that pierce up to 4 enemies | ×3 vs Beasts |
+| Glimmer the Wizard 🧙 | Complete a Slime Swarm | Fireballs that explode for area damage | |
+| Alric the Gravewarden ✝️ | Beat the Old Graveyard Guardian | Holy pulse hitting everything around him | ×3 vs Undead |
+| Lance the Paladin 🛡️ | Beat the Old Graveyard Guardian 2 times | Short lance thrusts through a line | 3-hit shield before he's stunned (recharges); once recruited, every other Hunter (you too) gets a 1-hit shield |
+| Gus the Prospector 💰 | Beat the Old Graveyard Guardian 3 times | Shotgun: 5 pellets, close range | +75% gold |
+| Sera the Demonbane 🗡️ | Beat the Ember Caves Guardian | Rapid thrown daggers, short range | ×3 vs Demons |
+| Wilhelm the Sniper 🎯 | Beat the Ember Caves Guardian 2 times | Long-range piercing shots; akimbo pistols when enemies get close | Separate long-range and short-range weapon slots |
+| Pip the Scavenger 🎒 | Beat the Ember Caves Guardian 3 times | Slingshot stones ricochet between 4 enemies | ×2 drops |
+| Bjorn the Frostbreaker 🔨 | Beat the Frost Peaks Guardian | Frost hammers that slow enemies | ×3 vs Elementals |
 
 Card descriptions are each Hunter's `ability`, and slot layouts are their `slots`, in `HUNTERS`; the gear catalog is `GEAR` in `src/core/balance.ts`.
 

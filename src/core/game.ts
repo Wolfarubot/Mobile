@@ -79,7 +79,8 @@ export type GameEvent =
   | { type: 'unlock'; enemy: EnemyId }
   | { type: 'recruit'; hunter: HunterId }
   | { type: 'eventStart'; event: string }
-  | { type: 'eventEnd'; event: string };
+  | { type: 'eventEnd'; event: string }
+  | { type: 'eventComplete'; event: string };
 
 /** Wilhelm's two weapon slots: 'long' powers sniper shots, 'short' his akimbo pistols. */
 export type GearMode = 'long' | 'short';
@@ -517,11 +518,25 @@ export class Game {
     return true;
   }
 
-  private endEvent(): void {
+  /** Ends the running timed event; `completed` if it ran its full length. */
+  private endEvent(completed = false): void {
     if (!this.activeEvent) return;
     const id = this.activeEvent.id;
     this.activeEvent = null;
+    if (completed) this.completeEvent(id);
     this.emit({ type: 'eventEnd', event: id });
+  }
+
+  private completeEvent(id: string): void {
+    const st = this.state.events[id];
+    if (!st) return;
+    st.completed++;
+    this.emit({ type: 'eventComplete', event: id });
+  }
+
+  /** Times an event has been completed (Guardians beaten, swarms survived). */
+  eventCompletions(id: string): number {
+    return this.state.events[id]?.completed ?? 0;
   }
 
   /** Counts down every event's cooldown (also used for time away). */
@@ -595,7 +610,7 @@ export class Game {
     this.coolEvents(dt);
     if (this.activeEvent) {
       this.activeEvent.left -= dt;
-      if (this.activeEvent.left <= 0) this.endEvent();
+      if (this.activeEvent.left <= 0) this.endEvent(true);
     }
     if (this.bossAlive) {
       this.bossTimer -= dt;
@@ -633,6 +648,7 @@ export class Game {
       s.stats.guardians++;
       const next = this.lockedNext;
       this.endGuardian();
+      this.completeEvent(`guardian-${s.area}`);
       if (next) {
         s.areas[next].unlocked = true;
         this.emit({ type: 'areaUnlocked', area: next });
@@ -877,9 +893,20 @@ export class Game {
 
   // ---- Hunters ----
 
+  /** Completed their unlocking event enough times to be recruited. */
+  hunterAvailable(id: HunterId): boolean {
+    const { event, times } = hunterDef(id).unlock;
+    return this.eventCompletions(event) >= times;
+  }
+
   canRecruit(id: HunterId): boolean {
-    const def = hunterDef(id);
-    return !this.state.hunters[id].recruited && this.isAreaUnlocked(def.area) && this.state.gold >= def.recruitCost;
+    return !this.state.hunters[id].recruited && this.hunterAvailable(id) && this.state.gold >= hunterDef(id).recruitCost;
+  }
+
+  /** Hunters a completion of this event would make available (the next time it's completed). */
+  huntersUnlockedBy(id: string): HunterId[] {
+    const next = this.eventCompletions(id) + 1;
+    return HUNTERS.filter((h) => h.unlock.event === id && h.unlock.times === next).map((h) => h.id);
   }
 
   recruit(id: HunterId): boolean {

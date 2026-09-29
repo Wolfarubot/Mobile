@@ -16,6 +16,12 @@ import {
   type SkillId,
 } from './balance';
 
+export interface EventState {
+  cooldown: number;
+  runs: number;
+  completed: number;
+}
+
 export type BuyAmount = 1 | 10 | 100 | 'max';
 
 export interface BestiaryEntry {
@@ -78,8 +84,8 @@ export interface GameState {
   nextGearUid: number;
   /** Epoch ms of the last save; used to compute offline progress. */
   lastSeen: number;
-  /** Per event: seconds of cooldown left and times run. */
-  events: Record<string, { cooldown: number; runs: number }>;
+  /** Per event: seconds of cooldown left, times started and times completed (a Guardian beaten, a swarm survived). */
+  events: Record<string, EventState>;
   buyAmount: BuyAmount;
   stats: {
     totalKills: number;
@@ -115,7 +121,7 @@ export function newGame(now = Date.now()): GameState {
     equipment: {},
     nextGearUid: 1,
     lastSeen: now,
-    events: Object.fromEntries(EVENTS.map((e) => [e.id, { cooldown: 0, runs: 0 }])),
+    events: Object.fromEntries(EVENTS.map((e) => [e.id, { cooldown: 0, runs: 0, completed: 0 }])),
     buyAmount: 1,
     stats: { totalKills: 0, totalGold: 0, taps: 0, escaped: 0, guardians: 0, hunterKills: {} },
   };
@@ -189,8 +195,12 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
     stats,
     events: Object.fromEntries(
       EVENTS.map((e) => {
-        const saved = (data.events as Record<string, { cooldown?: unknown; runs?: unknown }> | undefined)?.[e.id];
-        return [e.id, { cooldown: typeof saved?.cooldown === 'number' ? saved.cooldown : 0, runs: typeof saved?.runs === 'number' ? saved.runs : 0 }];
+        const saved = (data.events as Record<string, Partial<Record<keyof EventState, unknown>>> | undefined)?.[e.id];
+        const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+        // Older saves didn't count completions: a Guardian whose next area is open was beaten at least once.
+        const beaten = e.kind === 'guardian' && AREAS.some((a, i) => AREAS[i - 1]?.id === e.area && (data.areas as Record<string, { unlocked?: boolean }> | undefined)?.[a.id]?.unlocked);
+        const completed = typeof saved?.completed === 'number' ? num(saved.completed) : beaten ? 1 : 0;
+        return [e.id, { cooldown: num(saved?.cooldown), runs: num(saved?.runs), completed }];
       }),
     ),
     version: SAVE_VERSION,

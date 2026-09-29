@@ -56,12 +56,21 @@ function botSkills(game: Game): void {
 function botShop(game: Game, t: number, memo: { lastChallenge: number }): void {
   const s = game.state;
   // Guardian: challenge when ready (retry every 60s); after winning, move to the newest area.
-  if (game.guardianReady && !game.guardianActive && t - memo.lastChallenge > 60) {
+  if (game.guardianReady && !game.eventRunning && t - memo.lastChallenge > 60) {
     game.challengeGuardian();
     memo.lastChallenge = t;
   }
+  // Run the events that make the next Hunters available (back in older areas if need be).
+  for (const h of HUNTERS) {
+    if (s.hunters[h.id].recruited || game.hunterAvailable(h.id)) continue;
+    if (!game.eventRunning && game.eventReady(h.unlock.event) && t - memo.lastChallenge > 60) {
+      game.startEvent(h.unlock.event);
+      memo.lastChallenge = t;
+    }
+    break;
+  }
   const newest = game.unlockedAreas[game.unlockedAreas.length - 1];
-  if (newest !== game.area && !game.guardianActive) game.travel(newest);
+  if (newest !== game.area && !game.eventRunning) game.travel(newest);
 
   for (const e of ENEMIES) if (game.isAreaUnlocked(e.area) && !s.bestiary[e.id].unlocked && enemyUnlockCost(e) < s.gold * 0.1) game.unlockEnemy(e.id);
   for (const h of HUNTERS) if (game.canRecruit(h.id) && h.recruitCost < s.gold * 0.25) game.recruit(h.id);

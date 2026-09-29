@@ -27,6 +27,7 @@ import {
   MATERIALS,
   nextAreaOf,
   EVENTS,
+  eventDef,
   type EventDef,
   RARITIES,
   STATION_EFFICIENCY,
@@ -70,6 +71,7 @@ export class AppUI {
     // Panels that depend on which areas/enemies/Hunters exist are rebuilt when those change.
     game.on((e) => {
       if (e.type === 'areaUnlocked' || e.type === 'travel' || e.type === 'unlock' || e.type === 'recruit') this.setTab(this.tab, true);
+      else if (e.type === 'eventComplete') this.setTab(this.tab, true); // may have made Hunters available
       else if (e.type === 'eventStart' || e.type === 'eventEnd' || e.type === 'guardianFail') this.refresh();
     });
     this.setTab('hunters');
@@ -139,14 +141,11 @@ export class AppUI {
     });
     this.panel.appendChild(amounts);
 
-    this.panel.appendChild(sectionTitle('Your Hunter'));
     this.panel.appendChild(this.hunterCard('main'));
-
-    this.panel.appendChild(sectionTitle('Hunter Guild'));
-    const tip = el('div', 'card');
-    tip.innerHTML = `<p style="margin:0">Train Hunters with gold: each session adds damage, and every level earns a skill point. Tap a Hunter for their skills, stats and gear. Station them in areas to keep earning there while you hunt elsewhere (${Math.round(STATION_EFFICIENCY * 100)}% efficiency, offline too).</p>`;
-    this.panel.appendChild(tip);
-    for (const h of HUNTERS) this.panel.appendChild(this.hunterCard(h.id));
+    // Recruited Hunters, then only the next few still to come (unlocked by their area's events).
+    const recruited = HUNTERS.filter((h) => g.state.hunters[h.id].recruited);
+    const upcoming = HUNTERS.filter((h) => !g.state.hunters[h.id].recruited).slice(0, NEXT_HUNTERS_SHOWN);
+    for (const h of [...recruited, ...upcoming]) this.panel.appendChild(this.hunterCard(h.id));
   }
 
   /** A Train button and a progress bar toward the next level, kept up to date. `compact` is the card's version. */
@@ -224,12 +223,13 @@ export class AppUI {
         g.recruit(def.id);
       });
       action.appendChild(recruitBtn);
-      card.classList.add('locked');
       gearEl.remove();
       this.refreshers.push(() => {
-        status.textContent = g.isAreaUnlocked(def.area) ? 'Available to recruit' : `Found in ${areaDef(def.area).name}`;
-        mid.textContent = g.isAreaUnlocked(def.area) ? 'Recruit to start training' : `Unlock ${areaDef(def.area).name} to recruit`;
-        recruitBtn.innerHTML = g.isAreaUnlocked(def.area) ? `Recruit<small>🪙 ${fmt(def.recruitCost)}</small>` : '🔒<small>Locked</small>';
+        const open = g.hunterAvailable(def.id);
+        card.classList.toggle('locked', !open);
+        status.textContent = open ? 'Available to recruit' : `📍 ${areaDef(def.area).name}`;
+        mid.innerHTML = open ? 'Recruit to start training' : `🔒 ${unlockText(g, def)}`;
+        recruitBtn.innerHTML = open ? `Recruit<small>🪙 ${fmt(def.recruitCost)}</small>` : '🔒<small>Locked</small>';
         recruitBtn.disabled = !g.canRecruit(def.id);
       });
       return card;
@@ -291,7 +291,7 @@ export class AppUI {
       });
       body.appendChild(btn);
       this.refreshers.push(() => {
-        btn.innerHTML = g.isAreaUnlocked(def.area) ? `Recruit<small>🪙 ${fmt(def.recruitCost)}</small>` : `Found in ${areaDef(def.area).name}`;
+        btn.innerHTML = g.hunterAvailable(def.id) ? `Recruit<small>🪙 ${fmt(def.recruitCost)}</small>` : `🔒 ${unlockText(g, def)}`;
         btn.disabled = !g.canRecruit(def.id);
       });
     }
@@ -839,7 +839,10 @@ export class AppUI {
       card.classList.toggle('running', running);
       card.classList.toggle('ready', g.eventReady(ev.id));
       const next = nextAreaOf(ev.area);
-      const extra = ev.kind !== 'guardian' ? '' : next && !g.isAreaUnlocked(next.id) ? `Reward: unlocks ${next.name}` : 'Reward: a Guardian bounty of gold and materials';
+      const rewards: string[] = [];
+      if (ev.kind === 'guardian') rewards.push(next && !g.isAreaUnlocked(next.id) ? `unlocks ${next.name}` : 'a Guardian bounty of gold and materials');
+      for (const h of g.huntersUnlockedBy(ev.id)) rewards.push(`${hunterDef(h).icon} ${hunterDef(h).name} the ${hunterDef(h).title} joins`);
+      const extra = rewards.length ? `Reward: ${rewards.join(' · ')}` : '';
       if (!unlocked) {
         status.innerHTML = `<div class="mastery"><i style="width:${Math.min(1, kills / ev.unlockKills) * 100}%"></i><span>🔒 Slay ${fmt(kills)} / ${fmt(ev.unlockKills)} here</span></div>`;
         btn.innerHTML = '🔒';
@@ -930,6 +933,18 @@ function yieldHtml(r: FarmRates, where: string): string {
   const down = Math.max(0, ...Object.values(r.stunned).map((x) => x ?? 0));
   const warn = down >= 0.05 ? `<div class="knockouts">💫 Stunned ${Math.round(down * 100)}% of the time: too weak for this area</div>` : '';
   return `<div class="yield">${where ? `${where}: ` : ''}≈ 🪙 ${fmt(r.gold * 60)}/min${mats ? ` · ${mats} /min` : ''}</div>${warn}`;
+}
+
+/** How many not-yet-recruited Hunters the Hunters tab shows. */
+const NEXT_HUNTERS_SHOWN = 3;
+
+/** What a Hunter needs before they can be recruited, e.g. "Beat the Old Graveyard Guardian (1/2)". */
+function unlockText(g: Game, def: HunterDef): string {
+  const ev = eventDef(def.unlock.event);
+  const done = Math.min(g.eventCompletions(ev.id), def.unlock.times);
+  const count = def.unlock.times > 1 ? ` ${def.unlock.times} times (${done}/${def.unlock.times})` : '';
+  const what = ev.kind === 'guardian' ? `Beat the ${areaDef(ev.area).name} Guardian` : `Complete the ${ev.name} in ${areaDef(ev.area).name}`;
+  return `${what}${count}`;
 }
 
 /** A Hunter's art: their sprite if one was added, otherwise their icon on their colour. */
