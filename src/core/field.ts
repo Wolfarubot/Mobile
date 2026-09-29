@@ -1,4 +1,6 @@
 import {
+  affinity,
+  typeMult,
   type DamageType,
   BULLET_SPEED,
   CRIT_MULT,
@@ -118,7 +120,7 @@ export interface Puddle {
 }
 
 export type FieldEvent =
-  | { type: 'hit'; x: number; y: number; dmg: number; crit: boolean; dtype: DamageType }
+  | { type: 'hit'; x: number; y: number; dmg: number; crit: boolean; dtype: DamageType; affinity?: 'weak' | 'resist' | null }
   | { type: 'kill'; x: number; y: number; enemy: EnemyId; boss: boolean; reward: KillReward }
   | { type: 'blast'; x: number; y: number }
   | { type: 'boss' }
@@ -613,9 +615,10 @@ export class Field {
     mode?: GearMode,
     special = false,
   ): void {
-    const dmg = this.game.shotDamage(shooter, enemyDef(e.type).archetype, mode) * mult * (crit ? CRIT_MULT : 1);
+    const dtype = this.game.damageTypeOf(shooter, mode, special);
+    const dmg = this.game.shotDamage(shooter, enemyDef(e.type).archetype, mode) * typeMult(dtype, e.type) * mult * (crit ? CRIT_MULT : 1);
     const d = Math.hypot(e.x - fromX, e.y - fromY) || 1;
-    this.damage(e, dmg, crit, (e.x - fromX) / d, (e.y - fromY) / d, shooter, this.game.damageTypeOf(shooter, mode, special));
+    this.damage(e, dmg, crit, (e.x - fromX) / d, (e.y - fromY) / d, shooter, dtype);
   }
 
   private moveBullets(dt: number): void {
@@ -688,7 +691,7 @@ export class Field {
       e.kx += dirX * 90;
       e.ky += dirY * 90;
     }
-    this.events.push({ type: 'hit', x: e.x, y: e.y - e.r, dmg, crit, dtype });
+    this.events.push({ type: 'hit', x: e.x, y: e.y - e.r, dmg, crit, dtype, affinity: affinity(dtype, e.type) });
     if (e.hp <= 0) {
       const reward = this.game.registerKill(e.type, e.boss, shooter);
       this.events.push({ type: 'kill', x: e.x, y: e.y, enemy: e.type, boss: e.boss, reward });
@@ -709,7 +712,7 @@ export class Field {
       const dy = e.y - y;
       const d = Math.hypot(dx, dy);
       if (d > g.tapRadius + e.r) continue;
-      this.damage(e, dmg, crit, dx / (d || 1), dy / (d || 1), 'main', dtype);
+      this.damage(e, dmg * typeMult(dtype, e.type), crit, dx / (d || 1), dy / (d || 1), 'main', dtype);
     }
     this.enemies = this.enemies.filter((e) => e.hp > 0);
   }

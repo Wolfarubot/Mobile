@@ -103,8 +103,11 @@ export class BattleView {
     for (const e of this.field.drainEvents()) {
       switch (e.type) {
         case 'hit':
-          if (e.crit) this.fx.text(e.x, e.y, fmt(e.dmg), '#ff5a5a', 16, 0.6);
-          else if (Math.random() < 0.25) this.fx.text(e.x, e.y, fmt(e.dmg), DAMAGE_TYPES[e.dtype].color, 11, 0.5);
+          // Weak spots get bigger numbers (and show more often); resisted hits smaller ones.
+          if (e.crit) this.fx.text(e.x, e.y, fmt(e.dmg), '#ff5a5a', e.affinity === 'weak' ? 19 : 16, 0.6);
+          else if (e.affinity === 'weak') {
+            if (Math.random() < 0.5) this.fx.text(e.x, e.y, `${fmt(e.dmg)}!`, DAMAGE_TYPES[e.dtype].color, 14, 0.55);
+          } else if (Math.random() < 0.25) this.fx.text(e.x, e.y, fmt(e.dmg), DAMAGE_TYPES[e.dtype].color, e.affinity === 'resist' ? 9 : 11, 0.5);
           break;
         case 'kill': {
           const color = e.boss ? '#ffd34d' : enemyDef(e.enemy).color;

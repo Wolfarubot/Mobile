@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AREAS, ENEMIES, GEAR, gearDef, gearStats, type GearId, enemyUnlockCost, HUNTERS, ITEMS, STATION_EFFICIENCY, type AreaId, type ItemId } from '../src/core/balance';
+import { AREAS, areaEnemies, ENEMIES, GEAR, gearDef, gearStats, slotAccepts, typeMult, type GearId, enemyUnlockCost, HUNTERS, ITEMS, STATION_EFFICIENCY, type AreaId, type ItemId } from '../src/core/balance';
 import { Field } from '../src/core/field';
 import { Game } from '../src/core/game';
 import { newGame, type Wearer } from '../src/core/state';
@@ -16,10 +16,15 @@ function mulberry(seed: number) {
   };
 }
 
-/** Rough value of a piece of gear for the bot. */
-function gearScore(base: GearId, level = 1): number {
-  const st = gearStats(gearDef(base), level);
-  return (st.damage ?? 0) + (st.rate ?? 0) + (st.range ?? 0) / 100 + (st.crit ?? 0) * 3 + (st.stun ?? 0) + (st.gold ?? 0) * 0.3 + (st.drops ?? 0) * 0.2 + (st.radius ?? 0) * 0.5 + (st.guard ?? 0) * 0.2 + (st.pierce ?? 0) * 0.3;
+/** Rough value of a piece of gear for the bot. Weapons count for more when their damage type suits the area. */
+function gearScore(game: Game, base: GearId, level = 1): number {
+  const gd = gearDef(base);
+  const st = gearStats(gd, level);
+  const raw = (st.damage ?? 0) + (st.rate ?? 0) + (st.range ?? 0) / 100 + (st.crit ?? 0) * 3 + (st.stun ?? 0) + (st.gold ?? 0) * 0.3 + (st.drops ?? 0) * 0.2 + (st.radius ?? 0) * 0.5 + (st.guard ?? 0) * 0.2 + (st.pierce ?? 0) * 0.3;
+  if (!gd.damageType) return raw;
+  const here = areaEnemies(game.area);
+  const fit = here.reduce((sum, e) => sum + typeMult(gd.damageType!, e.id), 0) / here.length;
+  return (1 + raw) * fit - 1;
 }
 
 /** Fill every slot with the best gear it can craft, then upgrade what's worn. */
@@ -28,8 +33,8 @@ function botGear(game: Game): void {
   for (const who of wearers) {
     game.slotsOf(who).forEach((slot, i) => {
       const current = game.equipped(who)[i];
-      const best = GEAR.filter((gd) => gd.kind === slot.kind && game.canCraftGear(gd.id)).sort((a, b) => gearScore(b.id) - gearScore(a.id))[0];
-      if (best && (!current || gearScore(best.id) > gearScore(current.base, current.level))) {
+      const best = GEAR.filter((gd) => slotAccepts(slot, gd.kind) && game.canCraftGear(gd.id)).sort((a, b) => gearScore(game, b.id) - gearScore(game, a.id))[0];
+      if (best && (!current || gearScore(game, best.id) > gearScore(game, current.base, current.level))) {
         const item = game.craftGear(best.id)!;
         game.equip(who, i, item.uid);
         if (current) game.salvageGear(current.uid);

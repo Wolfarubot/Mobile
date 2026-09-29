@@ -17,6 +17,10 @@ import {
   STUN_IMMUNITY,
   GUARDIAN_COOLDOWN,
   eventDef,
+  ENEMIES,
+  RESIST_MULT,
+  typeMult,
+  WEAK_MULT,
 } from '../src/core/balance';
 import { Field, type Enemy } from '../src/core/field';
 import { Game } from '../src/core/game';
@@ -515,6 +519,29 @@ describe('Equipment', () => {
     expect(g.damageTypeOf('wilhelm', 'short')).toBe('frost');
     // Every weapon has a type; armor and accessories don't.
     for (const gd of GEAR) expect(!!gd.damageType).toBe(['weapon', 'melee', 'magic'].includes(gd.kind));
+  });
+
+  it('enemies take ×1.5 from types they are weak to and ×0.5 from types they resist', () => {
+    expect(typeMult('fire', 'greenSlime')).toBe(WEAK_MULT);
+    expect(typeMult('poison', 'greenSlime')).toBe(RESIST_MULT);
+    expect(typeMult('physical', 'greenSlime')).toBe(1);
+    for (const e of ENEMIES) {
+      expect(e.weak.length).toBeGreaterThan(0);
+      expect(e.weak.some((t) => e.resist.includes(t))).toBe(false);
+    }
+    // On the field: the same shot deals 1.5x to a weak enemy (Glimmer's bolts are fire).
+    const g = stocked();
+    const f = new Field(g);
+    const hits: Array<{ dmg: number; affinity?: string | null }> = [];
+    const at = (id: number, type: Enemy['type']) => enemy({ id, type, x: 0, y: -150, hp: 1e12, maxHp: 1e12 });
+    const [slime, wolf, redSlime] = [at(1, 'greenSlime'), at(2, 'wolf'), at(3, 'redSlime')];
+    for (const e of [slime, wolf, redSlime]) {
+      f.enemies = [e];
+      (f as unknown as { hitWith: (...a: unknown[]) => void }).hitWith('glimmer', e, 1, 0, 0, false);
+      for (const ev of f.drainEvents()) if (ev.type === 'hit') hits.push(ev);
+    }
+    expect(hits.map((h) => h.affinity)).toEqual(['weak', 'weak', 'resist']);
+    expect(hits[0].dmg / hits[2].dmg).toBeCloseTo(WEAK_MULT / RESIST_MULT);
   });
 
   it("Wilhelm's long and short weapons each power one mode", () => {

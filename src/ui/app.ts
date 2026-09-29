@@ -1,4 +1,6 @@
 import {
+  RESIST_MULT,
+  WEAK_MULT,
   DAMAGE_TYPES,
   type DamageType,
   slotAccepts,
@@ -900,7 +902,7 @@ export class AppUI {
       const known = g.state.bestiary[e.id].unlocked;
       const mat = materialDef(e.material);
       const row = el('div', `row${known ? '' : ' locked'}`);
-      row.innerHTML = `<canvas class="portrait"></canvas><div class="info"><div class="name">${known ? e.name : '???'} <small>${ARCHETYPES[e.archetype].icon} ${ARCHETYPES[e.archetype].name}</small></div><div class="drop">${gemHtml(e.material)} Drops <b>${known ? mat.name : '???'}</b></div><div class="sub">${known ? e.blurb : 'Unlock it in the Bestiary.'}</div></div>`;
+      row.innerHTML = `<canvas class="portrait"></canvas><div class="info"><div class="name">${known ? e.name : '???'} <small>${ARCHETYPES[e.archetype].icon} ${ARCHETYPES[e.archetype].name}</small></div><div class="drop">${gemHtml(e.material)} Drops <b>${known ? mat.name : '???'}</b></div><div class="sub">${known ? e.blurb : 'Unlock it in the Bestiary.'}</div>${known ? affinityHtml(e) : ''}</div>`;
       monsters.appendChild(row);
       requestAnimationFrame(() => drawEnemyPortrait($<HTMLCanvasElement>('canvas', row), e.id));
     }
@@ -1122,6 +1124,7 @@ export class AppUI {
         <canvas class="portrait"></canvas>
         <div class="info"><div class="name"></div><div class="blurb">${def.blurb}</div></div>
       </div>
+      ${affinityHtml(def)}
       <div class="beast-stats"></div>
       <div class="beast-actions"></div>`;
     this.panel.appendChild(card);
@@ -1819,6 +1822,13 @@ function wearerIcon(who: Wearer): string {
 }
 
 /** Material cost list; with `check`, amounts you can't afford are highlighted. */
+/** An enemy's weaknesses and resistances as rows of damage-type tags. */
+function affinityHtml(e: EnemyDef): string {
+  const row = (label: string, cls: string, types: DamageType[]) =>
+    types.length ? `<div class="aff ${cls}"><span>${label}</span>${types.map(damageTypeHtml).join('')}</div>` : '';
+  return `<div class="affinities">${row(`Weak ×${WEAK_MULT}`, 'weak', e.weak)}${row(`Resists ×${RESIST_MULT}`, 'resist', e.resist)}</div>`;
+}
+
 /** A weapon's damage type as a small coloured tag ('' for gear without one). */
 function dtypeTag(gd: GearDef): string {
   return gd.damageType ? damageTypeHtml(gd.damageType) : '';

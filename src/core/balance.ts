@@ -392,29 +392,49 @@ export interface EnemyDef {
   color: string;
   shape: EnemyShape;
   blurb: string;
+  /** Damage types that hit it harder (×WEAK_MULT) or softer (×RESIST_MULT). */
+  weak: DamageType[];
+  resist: DamageType[];
+}
+
+/** Damage multiplier for a type the enemy is vulnerable to. */
+export const WEAK_MULT = 1.5;
+/** Damage multiplier for a type the enemy resists. */
+export const RESIST_MULT = 0.5;
+
+/** How a damage type fares against an enemy: 'weak' (it's vulnerable), 'resist', or null. */
+export function affinity(t: DamageType, enemy: EnemyId): 'weak' | 'resist' | null {
+  const e = enemyDef(enemy);
+  return e.weak.includes(t) ? 'weak' : e.resist.includes(t) ? 'resist' : null;
+}
+
+/** Damage multiplier of a type against an enemy. */
+export function typeMult(t: DamageType, enemy: EnemyId): number {
+  const a = affinity(t, enemy);
+  return a === 'weak' ? WEAK_MULT : a === 'resist' ? RESIST_MULT : 1;
 }
 
 export const ENEMIES: EnemyDef[] = [
   // Whispering Forest
-  { id: 'greenSlime', name: 'Green Slime', area: 'forest', archetype: 'slime', hp: 1, speed: 1, gold: 1, spawn: 0.8, pack: [2, 3], radius: 10, material: 'goo', unlock: 0, color: '#7be07b', shape: 'circle', blurb: 'Squishy and plentiful.' },
-  { id: 'wolf', name: 'Forest Wolf', area: 'forest', archetype: 'beast', hp: 1.3, speed: 1.5, gold: 1.6, spawn: 0.6, pack: [2, 3], radius: 10, material: 'pelt', unlock: 120, color: '#b08a5a', shape: 'triangle', blurb: 'Fast, hunts in pairs.' },
-  { id: 'redSlime', name: 'Red Slime', area: 'forest', archetype: 'slime', hp: 2, speed: 0.9, gold: 2.5, spawn: 0.5, pack: [2, 4], radius: 11, material: 'redgel', unlock: 900, color: '#ff6b6b', shape: 'circle', blurb: 'A tougher, angrier slime.' },
+  { id: 'greenSlime', name: 'Green Slime', area: 'forest', archetype: 'slime', hp: 1, speed: 1, gold: 1, spawn: 0.8, pack: [2, 3], radius: 10, material: 'goo', unlock: 0, color: '#7be07b', shape: 'circle', blurb: 'Squishy and plentiful.', weak: ['fire', 'acid'], resist: ['poison'] },
+  { id: 'wolf', name: 'Forest Wolf', area: 'forest', archetype: 'beast', hp: 1.3, speed: 1.5, gold: 1.6, spawn: 0.6, pack: [2, 3], radius: 10, material: 'pelt', unlock: 120, color: '#b08a5a', shape: 'triangle', blurb: 'Fast, hunts in pairs.', weak: ['fire'], resist: ['frost'] },
+  { id: 'redSlime', name: 'Red Slime', area: 'forest', archetype: 'slime', hp: 2, speed: 0.9, gold: 2.5, spawn: 0.5, pack: [2, 4], radius: 11, material: 'redgel', unlock: 900, color: '#ff6b6b', shape: 'circle', blurb: 'A tougher, angrier slime.', weak: ['frost'], resist: ['fire', 'poison'] },
   // Old Graveyard
-  { id: 'skeleton', name: 'Skeleton', area: 'graveyard', archetype: 'undead', hp: 1, speed: 0.9, gold: 1, spawn: 1.5, pack: [3, 5], radius: 11, material: 'bone', unlock: 0, color: '#e8dcc0', shape: 'square', blurb: 'Rattles in by the dozen.' },
-  { id: 'zombie', name: 'Zombie', area: 'graveyard', archetype: 'undead', hp: 2.2, speed: 0.6, gold: 2.4, spawn: 0.6, pack: [2, 4], radius: 12, material: 'flesh', unlock: 120, color: '#8fae6b', shape: 'square', blurb: 'Slow, sturdy, relentless.' },
-  { id: 'bat', name: 'Grave Bat', area: 'graveyard', archetype: 'beast', hp: 0.6, speed: 1.9, gold: 1.3, spawn: 0.8, pack: [3, 5], radius: 8, material: 'wing', unlock: 900, color: '#8a78b0', shape: 'triangle', blurb: 'Tiny, fast and everywhere.' },
+  { id: 'skeleton', name: 'Skeleton', area: 'graveyard', archetype: 'undead', hp: 1, speed: 0.9, gold: 1, spawn: 1.5, pack: [3, 5], radius: 11, material: 'bone', unlock: 0, color: '#e8dcc0', shape: 'square', blurb: 'Rattles in by the dozen.', weak: ['radiant', 'arcane'], resist: ['poison', 'decay'] },
+  { id: 'zombie', name: 'Zombie', area: 'graveyard', archetype: 'undead', hp: 2.2, speed: 0.6, gold: 2.4, spawn: 0.6, pack: [2, 4], radius: 12, material: 'flesh', unlock: 120, color: '#8fae6b', shape: 'square', blurb: 'Slow, sturdy, relentless.', weak: ['fire', 'radiant'], resist: ['poison', 'decay'] },
+  { id: 'bat', name: 'Grave Bat', area: 'graveyard', archetype: 'beast', hp: 0.6, speed: 1.9, gold: 1.3, spawn: 0.8, pack: [3, 5], radius: 8, material: 'wing', unlock: 900, color: '#8a78b0', shape: 'triangle', blurb: 'Tiny, fast and everywhere.', weak: ['frost', 'radiant'], resist: ['decay'] },
   // Ember Caves
-  { id: 'imp', name: 'Imp', area: 'caves', archetype: 'demon', hp: 1, speed: 1.3, gold: 1, spawn: 1.4, pack: [2, 4], radius: 9, material: 'ember', unlock: 0, color: '#ff7a3d', shape: 'hexagon', blurb: 'Cackling little fire-starters.' },
-  { id: 'magmaSlime', name: 'Magma Slime', area: 'caves', archetype: 'slime', hp: 2.5, speed: 0.8, gold: 2.5, spawn: 0.6, pack: [2, 3], radius: 12, material: 'magma', unlock: 120, color: '#ff4d1a', shape: 'circle', blurb: 'Molten and very hard to squish.' },
-  { id: 'beetle', name: 'Fire Beetle', area: 'caves', archetype: 'beast', hp: 1.8, speed: 1.1, gold: 1.8, spawn: 0.7, pack: [2, 4], radius: 11, material: 'chitin', unlock: 900, color: '#3fb0a0', shape: 'triangle', blurb: 'Armored and quick to scuttle.' },
+  { id: 'imp', name: 'Imp', area: 'caves', archetype: 'demon', hp: 1, speed: 1.3, gold: 1, spawn: 1.4, pack: [2, 4], radius: 9, material: 'ember', unlock: 0, color: '#ff7a3d', shape: 'hexagon', blurb: 'Cackling little fire-starters.', weak: ['frost', 'radiant'], resist: ['fire'] },
+  { id: 'magmaSlime', name: 'Magma Slime', area: 'caves', archetype: 'slime', hp: 2.5, speed: 0.8, gold: 2.5, spawn: 0.6, pack: [2, 3], radius: 12, material: 'magma', unlock: 120, color: '#ff4d1a', shape: 'circle', blurb: 'Molten and very hard to squish.', weak: ['frost', 'acid'], resist: ['fire', 'physical'] },
+  { id: 'beetle', name: 'Fire Beetle', area: 'caves', archetype: 'beast', hp: 1.8, speed: 1.1, gold: 1.8, spawn: 0.7, pack: [2, 4], radius: 11, material: 'chitin', unlock: 900, color: '#3fb0a0', shape: 'triangle', blurb: 'Armored and quick to scuttle.', weak: ['acid', 'frost'], resist: ['physical', 'fire'] },
   // Frost Peaks
-  { id: 'iceWolf', name: 'Ice Wolf', area: 'peaks', archetype: 'beast', hp: 1, speed: 1.4, gold: 1, spawn: 1.4, pack: [2, 4], radius: 10, material: 'fur', unlock: 0, color: '#dfefff', shape: 'triangle', blurb: 'The pack howls on the wind.' },
-  { id: 'golem', name: 'Frost Golem', area: 'peaks', archetype: 'elemental', hp: 4, speed: 0.5, gold: 4.5, spawn: 0.3, pack: [1, 2], radius: 16, material: 'frost', unlock: 120, color: '#8fdcff', shape: 'diamond', blurb: 'A walking wall of ice.' },
-  { id: 'wraith', name: 'Snow Wraith', area: 'peaks', archetype: 'undead', hp: 1.4, speed: 1.3, gold: 1.8, spawn: 0.6, pack: [2, 4], radius: 11, material: 'ecto', unlock: 900, color: '#c49bff', shape: 'ghost', blurb: 'Drifts in quickly from the storm.' },
+  { id: 'iceWolf', name: 'Ice Wolf', area: 'peaks', archetype: 'beast', hp: 1, speed: 1.4, gold: 1, spawn: 1.4, pack: [2, 4], radius: 10, material: 'fur', unlock: 0, color: '#dfefff', shape: 'triangle', blurb: 'The pack howls on the wind.', weak: ['fire'], resist: ['frost'] },
+  { id: 'golem', name: 'Frost Golem', area: 'peaks', archetype: 'elemental', hp: 4, speed: 0.5, gold: 4.5, spawn: 0.3, pack: [1, 2], radius: 16, material: 'frost', unlock: 120, color: '#8fdcff', shape: 'diamond', blurb: 'A walking wall of ice.', weak: ['fire', 'acid'], resist: ['frost', 'poison'] },
+  { id: 'wraith', name: 'Snow Wraith', area: 'peaks', archetype: 'undead', hp: 1.4, speed: 1.3, gold: 1.8, spawn: 0.6, pack: [2, 4], radius: 11, material: 'ecto', unlock: 900, color: '#c49bff', shape: 'ghost', blurb: 'Drifts in quickly from the storm.', weak: ['radiant', 'arcane'], resist: ['physical'] },
   // Void Rift
-  { id: 'shadowSlime', name: 'Shadow Slime', area: 'rift', archetype: 'slime', hp: 1, speed: 1, gold: 1, spawn: 1.5, pack: [3, 5], radius: 11, material: 'shade', unlock: 0, color: '#7a5cc0', shape: 'circle', blurb: 'A slime made of the dark itself.' },
-  { id: 'horror', name: 'Void Horror', area: 'rift', archetype: 'demon', hp: 5, speed: 0.8, gold: 6, spawn: 0.25, pack: [1, 2], radius: 15, material: 'void', unlock: 120, color: '#ff5fd7', shape: 'hexagon', blurb: 'Rare, huge, and very rewarding.' },
-  { id: 'lich', name: 'Lich', area: 'rift', archetype: 'undead', hp: 2.5, speed: 1, gold: 3.5, spawn: 0.4, pack: [1, 3], radius: 12, material: 'soul', unlock: 900, color: '#6ff0e0', shape: 'ghost', blurb: 'An undead king hoarding souls.' },
+  { id: 'shadowSlime', name: 'Shadow Slime', area: 'rift', archetype: 'slime', hp: 1, speed: 1, gold: 1, spawn: 1.5, pack: [3, 5], radius: 11, material: 'shade', unlock: 0, color: '#7a5cc0', shape: 'circle', blurb: 'A slime made of the dark itself.', weak: ['radiant', 'acid'], resist: ['void'] },
+  { id: 'horror', name: 'Void Horror', area: 'rift', archetype: 'demon', hp: 5, speed: 0.8, gold: 6, spawn: 0.25, pack: [1, 2], radius: 15, material: 'void', unlock: 120, color: '#ff5fd7', shape: 'hexagon', blurb: 'Rare, huge, and very rewarding.', weak: ['radiant', 'arcane'], resist: ['void', 'decay'] },
+  { id: 'lich', name: 'Lich', area: 'rift', archetype: 'undead', hp: 2.5, speed: 1, gold: 3.5, spawn: 0.4, pack: [1, 3], radius: 12, material: 'soul', unlock: 900, color: '#6ff0e0', shape: 'ghost', blurb: 'An undead king hoarding souls.', weak: ['radiant', 'fire'], resist: ['decay', 'poison', 'frost'] },
 ];
 
 export const enemyDef = (id: EnemyId): EnemyDef => ENEMIES.find((e) => e.id === id)!;

@@ -1202,6 +1202,29 @@ button {
 .dt-cell {
   text-shadow: -1px 0 var(--c0), 1px 0 var(--c0), 0 -1px var(--c0), 0 1px var(--c0);
 }
+.affinities {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 6px 0 2px;
+}
+.aff {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px;
+}
+.aff > span:first-child {
+  min-width: 78px;
+  font-size: 11px;
+  font-weight: 800;
+}
+.aff.weak > span:first-child {
+  color: var(--good);
+}
+.aff.resist > span:first-child {
+  color: var(--danger);
+}
 .rarity-tag {
   color: var(--rc);
   margin-right: 4px;

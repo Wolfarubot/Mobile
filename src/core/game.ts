@@ -1,4 +1,5 @@
 import {
+  typeMult,
   type DamageType,
   slotAccepts,
   WEAPON_KINDS,
@@ -319,6 +320,19 @@ export class Game {
     const i = slots.findIndex((sl) => WEAPON_KINDS.includes(sl.kind) && (!sl.role || sl.role === mode));
     const item = i >= 0 ? items[i] : null;
     return (item && gearDef(item.base).damageType) || own;
+  }
+
+  /**
+   * Average damage-type multiplier of a Hunter against an enemy (weakness/resistance), blending their normal
+   * attacks and their special by how much of their damage each deals. Used by the background model.
+   */
+  typeMultVs(shooter: Shooter, enemy: EnemyId): number {
+    const normal = typeMult(this.damageTypeOf(shooter), enemy);
+    const sp = this.specialHitRate(shooter);
+    if (!sp) return normal;
+    const style = hunterDef(shooter as HunterId).style;
+    const shots = this.shooterRate(shooter) * (style.pellets ?? 1) * this.projectiles * style.crowd;
+    return (shots * normal + sp * typeMult(this.damageTypeOf(shooter, 'long', true), enemy)) / (shots + sp);
   }
 
   // ---- Special attacks (Mira's potions, Glimmer's fireballs) ----
@@ -790,7 +804,7 @@ export class Game {
     const packs = new Map(roster.map((e) => [e.id, (enemyDef(e.id).pack[0] + enemyDef(e.id).pack[1]) / 2]));
     // Hits each Hunter needs to kill one of each enemy type (crits averaged in).
     const hitsToKill = (sh: Shooter, e: EnemyStats) => {
-      const dmg = this.shotDamage(sh, e.archetype) * this.critFactor(sh);
+      const dmg = this.shotDamage(sh, e.archetype) * this.typeMultVs(sh, e.id) * this.critFactor(sh);
       return dmg > 0 ? Math.max(1, Math.ceil(e.hp / dmg - 1e-9)) : Infinity;
     };
     const hits = new Map(roster.map((e) => [e.id, hunters.map((h) => hitsToKill(h.sh, e))]));
