@@ -184,23 +184,29 @@ export class AppUI {
 
   // ---- Hunters tab: your Hunter's training + the Hunter Guild ----
 
-  private buildHunters(): void {
+  /** The Train ×1 / ×10 / ×100 / MAX switch. Every copy (Hunters tab, Hunter view) shows the same choice. */
+  private amountsBar(extra = ''): HTMLElement {
     const g = this.game;
-    const amounts = el('div', 'amounts');
+    const amounts = el('div', `amounts ${extra}`);
     amounts.appendChild(el('span', 'amounts-label', 'Train'));
     const opts: BuyAmount[] = [1, 10, 100, 'max'];
     const buttons = opts.map((a) => {
       const b = el('button', '', a === 'max' ? 'MAX' : `×${a}`);
       b.addEventListener('click', () => {
         g.state.buyAmount = a;
-        buttons.forEach((x, i) => x.classList.toggle('active', opts[i] === a));
         this.refresh();
       });
-      b.classList.toggle('active', g.state.buyAmount === a);
       amounts.appendChild(b);
       return b;
     });
-    this.panel.appendChild(amounts);
+    this.refreshers.push(() => buttons.forEach((x, i) => x.classList.toggle('active', opts[i] === g.state.buyAmount)));
+    return amounts;
+  }
+
+  private buildHunters(): void {
+    const g = this.game;
+    // Stays pinned to the top of the panel while the cards scroll under it.
+    this.panel.appendChild(this.amountsBar('sticky-amounts'));
 
     this.panel.appendChild(this.hunterCard('main'));
     // Recruited Hunters, then only the next few still to come (unlocked by their area's events).
@@ -376,6 +382,7 @@ export class AppUI {
       });
     } else {
       overview.appendChild(sectionTitle('Training'));
+      overview.appendChild(this.amountsBar());
       overview.appendChild(this.trainButton(who));
     }
     overview.appendChild(sectionTitle(recruited ? 'Stats' : 'Stats when recruited'));

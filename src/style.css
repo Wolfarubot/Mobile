@@ -110,8 +110,9 @@ button {
 }
 
 .battle-wrap {
-  flex: 1 1 52%;
-  min-height: 260px;
+  /* The menu gets the larger share of the screen; the battlefield needn't be square. */
+  flex: 1 1 38%;
+  min-height: 230px;
   position: relative;
 }
 #battle {
@@ -169,7 +170,7 @@ button {
 }
 
 .panel {
-  flex: 1 1 40%;
+  flex: 1 1 54%;
   overflow-y: auto;
   padding: 10px 10px calc(10px + var(--safe-bottom));
   -webkit-overflow-scrolling: touch;
@@ -260,6 +261,16 @@ button {
 .amounts button.active {
   background: var(--accent);
   color: var(--c3);
+}
+/* Hunters tab: the switch stays at the top while scrolling (top: -10px covers the panel's padding). */
+.sticky-amounts {
+  position: sticky;
+  top: -10px;
+  z-index: 3;
+  margin: -10px -10px 8px;
+  padding: 10px 10px 8px;
+  background: var(--bg);
+  box-shadow: 0 4px 6px -4px rgba(0, 0, 0, 0.5);
 }
 
 .card {
