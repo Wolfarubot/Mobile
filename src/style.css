@@ -1226,6 +1226,23 @@ button {
   border-radius: 10px;
   padding: 4px 4px 4px 10px;
 }
+.tab-order-row {
+  touch-action: none;
+  user-select: none;
+  cursor: grab;
+  position: relative;
+}
+.tab-order-row.lifted {
+  cursor: grabbing;
+  z-index: 2;
+  outline: 3px solid var(--gold);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+}
+.tab-order-row .tor-grip {
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+}
 .tab-order-row .tor-num {
   width: 14px;
   color: var(--muted);

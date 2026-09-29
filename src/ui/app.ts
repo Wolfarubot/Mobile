@@ -1364,7 +1364,7 @@ export class AppUI {
     body.appendChild(hand);
 
     const tabsCard = el('div', 'card setting');
-    tabsCard.innerHTML = `<div class="setting-name">Tab order</div><p>The order of the tabs along the bottom of the screen, left to right.</p><div class="tab-order"></div><button class="secondary tab-order-reset">Reset to default</button>`;
+    tabsCard.innerHTML = `<div class="setting-name">Tab order</div><p>The order of the tabs along the bottom of the screen, left to right. Drag a row or use the arrows.</p><div class="tab-order"></div><button class="secondary tab-order-reset">Reset to default</button>`;
     const list = $('.tab-order', tabsCard);
     const reset = $<HTMLButtonElement>('.tab-order-reset', tabsCard);
     const setOrder = (order: TabId[]) => {
@@ -1379,7 +1379,8 @@ export class AppUI {
       order.forEach((t, i) => {
         const tabBtn = $(`.tabs button[data-tab=${t}]`);
         const row = el('div', 'tab-order-row');
-        row.innerHTML = `<span class="tor-num">${i + 1}</span><i>${$('i', tabBtn).textContent}</i><b>${tabBtn.childNodes[1].textContent!.trim()}</b><button class="tor-up" aria-label="Move left">▲</button><button class="tor-down" aria-label="Move right">▼</button>`;
+        row.dataset.tab = t;
+        row.innerHTML = `<span class="tor-grip" aria-hidden="true">⠿</span><span class="tor-num">${i + 1}</span><i>${$('i', tabBtn).textContent}</i><b>${tabBtn.childNodes[1].textContent!.trim()}</b><button class="tor-up" aria-label="Move left">▲</button><button class="tor-down" aria-label="Move right">▼</button>`;
         const move = (d: number) => {
           const next = [...order];
           [next[i], next[i + d]] = [next[i + d], next[i]];
@@ -1391,9 +1392,45 @@ export class AppUI {
         down.disabled = i === order.length - 1;
         up.addEventListener('click', () => move(-1));
         down.addEventListener('click', () => move(1));
+        row.addEventListener('pointerdown', (e) => dragRow(e, row));
         list.appendChild(row);
       });
       reset.disabled = order.every((t, i) => t === TAB_IDS[i]);
+    };
+    /** Drag a row (anywhere but its arrow buttons) up or down; the others make room as it passes them. */
+    const dragRow = (e: PointerEvent, row: HTMLElement) => {
+      if ((e.target as HTMLElement).closest('button') || (e.pointerType === 'mouse' && e.button !== 0)) return;
+      e.preventDefault();
+      row.setPointerCapture(e.pointerId);
+      row.classList.add('lifted');
+      list.classList.add('sorting');
+      const startY = e.clientY;
+      const startTop = row.offsetTop;
+      const follow = (y: number) => (row.style.transform = `translateY(${y - startY - (row.offsetTop - startTop)}px)`);
+      const onMove = (ev: PointerEvent) => {
+        const others = ([...list.children] as HTMLElement[]).filter((r) => r !== row);
+        // The dragged row goes before the first row whose middle is below the pointer.
+        const before = others.find((r) => {
+          const rect = r.getBoundingClientRect();
+          return ev.clientY < rect.top + rect.height / 2;
+        });
+        if (row.nextElementSibling !== (before ?? null)) list.insertBefore(row, before ?? null);
+        follow(ev.clientY);
+      };
+      const onUp = () => {
+        row.removeEventListener('pointermove', onMove);
+        row.removeEventListener('pointerup', onUp);
+        row.removeEventListener('pointercancel', onUp);
+        row.classList.remove('lifted');
+        list.classList.remove('sorting');
+        row.style.transform = '';
+        const next = ([...list.children] as HTMLElement[]).map((r) => r.dataset.tab as TabId);
+        if (next.some((t, i) => t !== g.state.settings.tabOrder[i])) setOrder(next);
+        else drawOrder();
+      };
+      row.addEventListener('pointermove', onMove);
+      row.addEventListener('pointerup', onUp);
+      row.addEventListener('pointercancel', onUp);
     };
     reset.addEventListener('click', () => setOrder([...TAB_IDS]));
     drawOrder();
