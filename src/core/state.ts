@@ -63,6 +63,18 @@ export interface GearItem {
 /** Who can wear gear: your Hunter ('main') or a recruited Hunter. */
 export type Wearer = 'main' | HunterId;
 
+/** The main menu tabs, in their default order. */
+export const TAB_IDS = ['hunters', 'equipment', 'beasts', 'events', 'areas'] as const;
+export type TabId = (typeof TAB_IDS)[number];
+
+/** A saved tab order, keeping known tabs once each and appending any that are missing. */
+function readTabOrder(v: unknown): TabId[] {
+  const saved = Array.isArray(v) ? v.filter((t): t is TabId => (TAB_IDS as readonly unknown[]).includes(t)) : [];
+  const order = [...new Set(saved)];
+  for (const t of TAB_IDS) if (!order.includes(t)) order.push(t);
+  return order;
+}
+
 export interface GameState {
   version: number;
   gold: number;
@@ -84,7 +96,13 @@ export interface GameState {
   /** Epoch ms of the last save; used to compute offline progress. */
   lastSeen: number;
   /** Player preferences (Settings page). */
-  settings: { leftHanded: boolean; /** Your Hunter's name ('' shows as "You"). */ name: string };
+  settings: {
+    leftHanded: boolean;
+    /** Your Hunter's name ('' shows as "You"). */
+    name: string;
+    /** Left-to-right order of the main menu tabs. */
+    tabOrder: TabId[];
+  };
   /** One-time tutorial moments already shown. */
   flags: {
     eventsIntro: boolean;
@@ -130,7 +148,7 @@ export function newGame(now = Date.now()): GameState {
     equipment: {},
     nextGearUid: 1,
     lastSeen: now,
-    settings: { leftHanded: false, name: '' },
+    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS] },
     flags: { eventsIntro: false, welcome: false, trainIntro: false },
     events: Object.fromEntries(EVENTS.map((e) => [e.id, { cooldown: 0, runs: 0, completed: 0 }])),
     buyAmount: 1,
@@ -211,6 +229,7 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
     settings: {
       leftHanded: !!(data.settings as { leftHanded?: unknown } | undefined)?.leftHanded,
       name: String((data.settings as { name?: unknown } | undefined)?.name ?? '').slice(0, 16),
+      tabOrder: readTabOrder((data.settings as { tabOrder?: unknown } | undefined)?.tabOrder),
     },
     flags: {
       eventsIntro: !!(data.flags as { eventsIntro?: unknown } | undefined)?.eventsIntro,

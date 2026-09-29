@@ -47,12 +47,12 @@ import {
 import { fmt, fmtTime } from '../core/format';
 import type { FarmRates, Game } from '../core/game';
 import type { OfflineResult } from '../core/offline';
-import type { BuyAmount, GearItem, Wearer } from '../core/state';
+import { TAB_IDS, type BuyAmount, type GearItem, type TabId, type Wearer } from '../core/state';
 import { drawEnemyPortrait } from '../render/battle';
 import { spriteUrl } from '../render/sprites';
 import { applyAreaTheme } from './theme';
 
-type Tab = 'hunters' | 'areas' | 'beasts' | 'equipment' | 'events';
+type Tab = TabId;
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string, root: ParentNode = document) => root.querySelector(sel) as T;
 
@@ -1317,6 +1317,8 @@ export class AppUI {
   private applySettings(): void {
     document.body.classList.toggle('left-handed', this.game.state.settings.leftHanded);
     mainHunterName = this.game.state.settings.name.trim();
+    const nav = $('.tabs');
+    for (const t of this.game.state.settings.tabOrder) nav.appendChild($(`.tabs button[data-tab=${t}]`));
   }
 
   /** Full-screen Settings page. */
@@ -1361,16 +1363,52 @@ export class AppUI {
     sync();
     body.appendChild(hand);
 
+    const tabsCard = el('div', 'card setting');
+    tabsCard.innerHTML = `<div class="setting-name">Tab order</div><p>The order of the tabs along the bottom of the screen, left to right.</p><div class="tab-order"></div><button class="secondary tab-order-reset">Reset to default</button>`;
+    const list = $('.tab-order', tabsCard);
+    const reset = $<HTMLButtonElement>('.tab-order-reset', tabsCard);
+    const setOrder = (order: TabId[]) => {
+      g.state.settings.tabOrder = order;
+      this.applySettings();
+      this.hooks.save();
+      drawOrder();
+    };
+    const drawOrder = () => {
+      const order = g.state.settings.tabOrder;
+      list.innerHTML = '';
+      order.forEach((t, i) => {
+        const tabBtn = $(`.tabs button[data-tab=${t}]`);
+        const row = el('div', 'tab-order-row');
+        row.innerHTML = `<span class="tor-num">${i + 1}</span><i>${$('i', tabBtn).textContent}</i><b>${tabBtn.childNodes[1].textContent!.trim()}</b><button class="tor-up" aria-label="Move left">▲</button><button class="tor-down" aria-label="Move right">▼</button>`;
+        const move = (d: number) => {
+          const next = [...order];
+          [next[i], next[i + d]] = [next[i + d], next[i]];
+          setOrder(next);
+        };
+        const up = $<HTMLButtonElement>('.tor-up', row);
+        const down = $<HTMLButtonElement>('.tor-down', row);
+        up.disabled = i === 0;
+        down.disabled = i === order.length - 1;
+        up.addEventListener('click', () => move(-1));
+        down.addEventListener('click', () => move(1));
+        list.appendChild(row);
+      });
+      reset.disabled = order.every((t, i) => t === TAB_IDS[i]);
+    };
+    reset.addEventListener('click', () => setOrder([...TAB_IDS]));
+    drawOrder();
+    body.appendChild(tabsCard);
+
     body.appendChild(sectionTitle('Save'));
-    const reset = el('div', 'card setting');
-    reset.innerHTML = `<div class="setting-name">Reset all progress</div><p>Deletes your save: areas, Hunters, gear and materials. It cannot be undone.</p><button class="buy danger-btn">Reset…</button>`;
-    $('.danger-btn', reset).addEventListener('click', () =>
+    const wipe = el('div', 'card setting');
+    wipe.innerHTML = `<div class="setting-name">Reset all progress</div><p>Deletes your save: areas, Hunters, gear and materials. It cannot be undone.</p><button class="buy danger-btn">Reset…</button>`;
+    $('.danger-btn', wipe).addEventListener('click', () =>
       this.showModal('<h2>Reset everything?</h2><p>This deletes your save: areas, Hunters, items and materials. It cannot be undone.</p>', [
         { label: 'Cancel', secondary: true },
         { label: 'Delete', action: () => void this.hooks.wipe() },
       ]),
     );
-    body.appendChild(reset);
+    body.appendChild(wipe);
   }
 
   // ---- Modals ----

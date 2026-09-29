@@ -1212,6 +1212,44 @@ button {
 .setting .danger-btn {
   width: 100%;
 }
+.tab-order {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.tab-order-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--sunk);
+  border-radius: 10px;
+  padding: 4px 4px 4px 10px;
+}
+.tab-order-row .tor-num {
+  width: 14px;
+  color: var(--muted);
+  font-weight: 800;
+}
+.tab-order-row i {
+  font-style: normal;
+  font-size: 18px;
+}
+.tab-order-row b {
+  flex: 1;
+}
+.tab-order-row button {
+  width: 40px;
+  height: 36px;
+  padding: 0;
+  border-radius: 8px;
+}
+.tab-order-row button:disabled {
+  opacity: 0.3;
+}
+.tab-order-reset {
+  width: 100%;
+}
 
 /* Handedness: right-handed puts Train buttons on the right, left-handed on the left. */
 .train {
