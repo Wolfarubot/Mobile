@@ -1,5 +1,6 @@
 import '@fontsource/pixelify-sans/400.css';
 import '@fontsource/pixelify-sans/700.css';
+import './ui/fonts';
 import './style.css';
 import { App as CapApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';

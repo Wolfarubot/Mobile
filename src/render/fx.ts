@@ -117,7 +117,7 @@ export class Fx {
       const k = f.life / f.max;
       const pop = k < 0.15 ? 0.6 + (k / 0.15) * 0.4 : 1;
       g.globalAlpha = k > 0.6 ? 1 - (k - 0.6) / 0.4 : 1;
-      g.font = `700 ${Math.round(f.size * pop * this.textScale)}px ${PIXEL_FONT}`;
+      g.font = canvasFont(f.size * pop * this.textScale, 700);
       g.lineWidth = 4 * this.textScale;
       g.strokeStyle = 'rgba(0,0,0,0.75)';
       g.strokeText(f.text, f.x, f.y);
@@ -129,8 +129,19 @@ export class Fx {
 }
 
 /** Sizes a canvas to its CSS box at device pixel ratio; returns CSS width/height. */
-/** The UI's pixel font, also used for text drawn on canvases. */
-export const PIXEL_FONT = "'Pixelify Sans', system-ui, sans-serif";
+/** The UI's font (chosen in Settings), also used for text drawn on canvases. */
+let canvasFamily = "'Pixelify Sans', system-ui, sans-serif";
+let canvasScale = 1;
+
+export function setCanvasFont(family: string, scale = 1): void {
+  canvasFamily = family;
+  canvasScale = scale;
+}
+
+/** A canvas font string in the chosen font, sized to match the default font. */
+export function canvasFont(px: number, weight = 400): string {
+  return `${weight} ${Math.round(px * canvasScale)}px ${canvasFamily}`;
+}
 
 /** Sizes a canvas to its CSS box at `scale` canvas pixels per CSS pixel (defaults to the device pixel ratio). */
 export function fitCanvas(canvas: HTMLCanvasElement, g: CanvasRenderingContext2D, scale?: number): { w: number; h: number } {

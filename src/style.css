@@ -897,7 +897,27 @@ button {
   font-weight: 800;
   font-size: 15px;
   line-height: 1.2;
-  padding-right: 24px;
+}
+/* Top-right corner of Hunter and monster cards: unspent points and an "Expand ›" hint. It floats, so only
+   the first line of the name makes room for it. */
+.card-corner {
+  float: right;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: -2px -2px 2px 6px;
+}
+.card-corner .sp-dot {
+  position: static;
+}
+.expand-tag {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.hunter-card.locked .expand-tag {
+  opacity: 0.7;
 }
 .hc-ability {
   font-size: 12px;
@@ -976,7 +996,7 @@ button {
   color: var(--muted);
   opacity: 0.6;
 }
-.hunter-card:active {
+.hunter-card:active:not(:has(button:active)) {
   background: var(--card-hi);
 }
 .hunter-card.locked .hunter-art {
@@ -1396,6 +1416,41 @@ button {
 .setting .danger-btn {
   width: 100%;
 }
+.font-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+.font-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--sunk);
+  color: var(--text);
+  text-align: left;
+}
+.font-option b {
+  font-size: 15px;
+}
+.font-option small {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.font-option.on {
+  outline: 3px solid var(--gold);
+  background: var(--c0);
+  color: var(--c3);
+}
+.font-option.on small {
+  color: var(--c2);
+}
 .tab-order {
   display: flex;
   flex-direction: column;
@@ -1748,8 +1803,21 @@ button {
    ====================================================================== */
 html,
 body,
-button {
-  font-family: 'Pixelify Sans', system-ui, sans-serif;
+button,
+input {
+  font-family: var(--ui-font, 'Pixelify Sans', system-ui, sans-serif);
+}
+/* Every font is drawn at the same x-height as the default pixel font, so none reads too small or too big. */
+html {
+  font-size-adjust: var(--font-adjust, none);
+}
+/* Arcade's pixel font is tall for its size: give its lines more room so they don't overlap. */
+html.font-arcade p,
+html.font-arcade .hd-note,
+html.font-arcade .hc-ability,
+html.font-arcade .setting p,
+html.font-arcade .modal-box p {
+  line-height: 1.6;
 }
 *,
 *::before,
@@ -1845,7 +1913,7 @@ canvas {
 .offline-area {
   background: var(--c3);
 }
-.hunter-card:active {
+.hunter-card:active:not(:has(button:active)) {
   background: var(--c2);
 }
 

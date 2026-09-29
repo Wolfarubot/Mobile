@@ -805,6 +805,8 @@ export interface HunterDef {
   area: AreaId;
   /** Becomes available to recruit after completing this event of their area this many times. */
   unlock: { event: string; times: number };
+  /** Shown on their card while locked: where they are and what it takes to win them over. */
+  story: string;
   recruitCost: number;
   style: AttackStyle;
   /** Damage multiplier against one archetype. */
@@ -829,6 +831,7 @@ export const HUNTERS: HunterDef[] = [
   {
     id: 'alchemist', name: 'Mira', title: 'Alchemist', icon: '⚗️', color: '#7be07b', area: 'forest', recruitCost: 150, bane: { archetype: 'slime', mult: 3 },
     unlock: { event: 'guardian-forest', times: 1 },
+    story: 'Mira is in the Whispering Forest doing research on Slimes. She has an idea for a new potion, but the Forest Guardian keeps scaring off her test subjects. Defeat it, and she\'ll help you hunt monsters.',
     ability: 'Every few seconds, lobs a potion that leaves a poison puddle. Deals triple damage to Slimes. Uses ranged or magic weapons.',
     slots: [{ kind: 'weapon', label: 'Weapon', accepts: ['weapon', 'magic'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
     style: {
@@ -840,12 +843,14 @@ export const HUNTERS: HunterDef[] = [
   {
     id: 'ranger', name: 'Rin', title: 'Ranger', icon: '🏹', color: '#c09060', area: 'forest', recruitCost: 1_200, bane: { archetype: 'beast', mult: 3 },
     unlock: { event: 'guardian-forest', times: 2 },
+    story: 'Rin tracks the wolves of the Whispering Forest and doesn\'t trust just anyone. Beat the Forest Guardian twice to earn her respect, and her bow is yours.',
     ability: 'Arrows pierce through lines of enemies. Deals triple damage to Beasts.',
     style: { kind: 'arrow', damageType: 'physical', range: 300, rate: 1, damage: 1, pierce: 3, farm: 1.4, crowd: 2, describe: 'Arrows pierce through up to 4 enemies in a line.' },
   },
   {
     id: 'glimmer', name: 'Glimmer', title: 'Wizard', icon: '🧙', color: '#b07cff', area: 'forest', recruitCost: 600,
     unlock: { event: 'slimeSwarm', times: 1 },
+    story: 'Glimmer is chasing rumors of a slime that glows with magic. Survive a Slime Swarm in the Whispering Forest, and he\'ll join you to study what\'s left.',
     ability: 'Every few seconds, hurls a fireball that explodes for area damage. Wields only magic weapons.',
     slots: [{ kind: 'magic', label: 'Magic weapon' }, { kind: 'armor', label: 'Robe' }, { kind: 'accessory', label: 'Accessory' }],
     style: {
@@ -857,12 +862,14 @@ export const HUNTERS: HunterDef[] = [
   {
     id: 'gravewarden', name: 'Alric', title: 'Gravewarden', icon: '✝️', color: '#efe6cf', area: 'graveyard', recruitCost: 15_000, bane: { archetype: 'undead', mult: 3 },
     unlock: { event: 'guardian-graveyard', times: 1 },
+    story: 'Alric keeps watch over the Old Graveyard, praying for the restless dead. Put its Guardian to rest, and he\'ll lend you his holy light.',
     ability: 'Holy pulses strike everything around him. Deals triple damage to Undead.',
     style: { kind: 'nova', damageType: 'radiant', proc: 0.15, range: 110, rate: 0.5, damage: 1.5, radius: 110, farm: 1.5, crowd: 3, describe: 'Pulses holy light, striking every enemy around him.' },
   },
   {
     id: 'lance', name: 'Lance', title: 'Paladin', icon: '🛡️', color: '#ffe8a3', area: 'graveyard', recruitCost: 40_000,
     unlock: { event: 'guardian-graveyard', times: 2 },
+    story: 'Lance swore to guard the Old Graveyard\'s gates until its Guardian falls twice. Help him keep his oath, and his shield is yours.',
     ability: 'Can take multiple hits before being knocked out (Zone of Protection), and grants other Hunters an extra hit as well (Rallying Oath).',
     slots: [{ kind: 'melee', label: 'Melee' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
     style: { kind: 'thrust', damageType: 'radiant', proc: 0.1, range: 90, rate: 0.9, damage: 1.8, farm: 1.3, crowd: 2, describe: 'Holds the line with lance thrusts that pierce everything in reach.' },
@@ -870,18 +877,21 @@ export const HUNTERS: HunterDef[] = [
   {
     id: 'prospector', name: 'Gus', title: 'Prospector', icon: '💰', color: '#ffd34d', area: 'graveyard', recruitCost: 80_000, gold: 1.75,
     unlock: { event: 'guardian-graveyard', times: 3 },
+    story: 'Gus has been digging for treasure under the Old Graveyard, but the dead keep chasing him off. Beat its Guardian three times, and he\'ll share his luck.',
     ability: 'Blasts five pellets at close range. Earns +75% gold from his kills.',
     style: { kind: 'shotgun', damageType: 'physical', range: 150, rate: 0.7, damage: 0.45, pellets: 5, farm: 1.2, crowd: 1, describe: 'A trusty shotgun: five pellets per blast at close range.' },
   },
   {
     id: 'demonbane', name: 'Sera', title: 'Demonbane', icon: '🗡️', color: '#ff7a3d', area: 'caves', recruitCost: 1_500_000, bane: { archetype: 'demon', mult: 3 },
     unlock: { event: 'guardian-caves', times: 1 },
+    story: 'Sera hunts the demons of the Ember Caves alone. Show her you can beat the Caves\' Guardian, and she\'ll fight beside you.',
     ability: 'A rapid flurry of daggers at short range. Deals triple damage to Demons.',
     style: { kind: 'daggers', damageType: 'arcane', proc: 0.15, range: 160, rate: 3, damage: 0.4, farm: 1.1, crowd: 1, describe: 'Throws a flurry of daggers at anything that gets close.' },
   },
   {
     id: 'wilhelm', name: 'Wilhelm', title: 'Sniper', icon: '🎯', color: '#9aa7b8', area: 'caves', recruitCost: 3_000_000,
     unlock: { event: 'guardian-caves', times: 2 },
+    story: 'Wilhelm has been waiting for a clear shot in the Ember Caves for days. Beat its Guardian twice to prove you\'re worth covering.',
     ability: 'Snipes from across the field, akimbo pistols up close. Can equip a long-range weapon and a short-range weapon.',
     slots: [
       { kind: 'weapon', label: 'Long-range', role: 'long' },
@@ -893,12 +903,14 @@ export const HUNTERS: HunterDef[] = [
   {
     id: 'scavenger', name: 'Pip', title: 'Scavenger', icon: '🎒', color: '#3fb0a0', area: 'caves', recruitCost: 6_000_000, drops: 2,
     unlock: { event: 'guardian-caves', times: 3 },
+    story: 'Pip scavenges the Ember Caves for anything shiny. Beat its Guardian three times, and Pip will tag along for the loot.',
     ability: 'Stones ricochet between enemies. Doubles material drops from his kills.',
     style: { kind: 'ricochet', damageType: 'acid', proc: 0.2, range: 220, rate: 1, damage: 0.8, bounces: 3, farm: 1.4, crowd: 2.5, describe: 'Acid-slicked slingshot stones ricochet between up to 4 enemies.' },
   },
   {
     id: 'frostbreaker', name: 'Bjorn', title: 'Frostbreaker', icon: '🔨', color: '#8fdcff', area: 'peaks', recruitCost: 150_000_000, bane: { archetype: 'elemental', mult: 3 },
     unlock: { event: 'guardian-peaks', times: 1 },
+    story: 'Bjorn climbed the Frost Peaks to hunt the thing that rules them. Defeat the Peaks\' Guardian, and he\'ll bring his hammer to your side.',
     ability: 'Frost hammers slow enemies to a crawl. Deals triple damage to Elementals.',
     style: { kind: 'hammer', damageType: 'frost', proc: 0.5, range: 200, rate: 0.7, damage: 1.6, slow: 2, farm: 1.3, crowd: 1, describe: 'Throws frost hammers that slow enemies to a crawl.' },
   },

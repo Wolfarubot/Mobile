@@ -109,6 +109,8 @@ export interface GameState {
     name: string;
     /** Left-to-right order of the main menu tabs. */
     tabOrder: TabId[];
+    /** Font chosen in Settings (an id from ui/fonts). */
+    font: string;
   };
   /** One-time tutorial moments already shown. */
   flags: {
@@ -157,7 +159,7 @@ export function newGame(now = Date.now()): GameState {
     equipment: {},
     nextGearUid: 1,
     lastSeen: now,
-    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS] },
+    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'pixel' },
     flags: { eventsIntro: false, welcome: false, trainIntro: false, empowerIntro: false },
     events: Object.fromEntries(EVENTS.map((e) => [e.id, { cooldown: 0, runs: 0, completed: 0 }])),
     buyAmount: 1,
@@ -239,6 +241,10 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
       leftHanded: !!(data.settings as { leftHanded?: unknown } | undefined)?.leftHanded,
       name: String((data.settings as { name?: unknown } | undefined)?.name ?? '').slice(0, 16),
       tabOrder: readTabOrder((data.settings as { tabOrder?: unknown } | undefined)?.tabOrder),
+      font: (() => {
+        const f = (data.settings as { font?: unknown } | undefined)?.font;
+        return typeof f === 'string' && /^[a-z0-9-]{1,20}$/.test(f) ? f : 'pixel';
+      })(),
     },
     flags: {
       eventsIntro: !!(data.flags as { eventsIntro?: unknown } | undefined)?.eventsIntro,

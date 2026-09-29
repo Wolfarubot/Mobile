@@ -57,6 +57,7 @@ import { TAB_IDS, type BuyAmount, type GearItem, type TabId, type Wearer } from 
 import { drawEnemyPortrait } from '../render/battle';
 import { spriteUrl } from '../render/sprites';
 import { applyAreaTheme } from './theme';
+import { applyFont, fontDef, FONTS } from './fonts';
 
 type Tab = TabId;
 /** What treeView needs to draw and drive a skill or evolution tree. */
@@ -125,6 +126,8 @@ export class AppUI {
   private invSub: InvSub = 'materials';
   /** Filters on the Inventory's Equipment sub-tab (kept for the session). */
   private invFilter: InvFilter = { ...NO_FILTER };
+  /** The open sub-tab of the monster view. */
+  private monsterSub: 'stats' | 'evolution' = 'stats';
   /** The area selected in the Areas tab. */
   private selectedArea: AreaId | null = null;
 
@@ -176,7 +179,7 @@ export class AppUI {
 
     $('.tabs button[data-tab=events]').classList.toggle('locked', !g.eventsOpen);
     if (g.eventsOpen && !s.flags.eventsIntro && !this.modalClose && !this.detail) this.showEventsIntro();
-    else if (!s.flags.trainIntro && s.flags.welcome && !this.modalClose && !this.detail && s.gold >= g.trainPurchase('main', 1).cost) this.showTrainIntro();
+    else if (!s.flags.trainIntro && s.flags.welcome && !this.modalClose && !this.detail && s.stats.totalKills >= TRAIN_TIP_KILLS && s.gold >= g.trainPurchase('main', 1).cost) this.showTrainIntro();
     else if (!s.flags.empowerIntro && g.empowerUnlocked && !this.modalClose && !this.detail) this.showEmpowerIntro();
     const ready = EVENTS.filter((e) => e.area === g.area && g.eventReady(e.id)).length;
     const badge = $('#eventsBadge');
@@ -275,14 +278,14 @@ export class AppUI {
       <div class="hc-top">
         <div class="hc-art">${portraitHtml(who)}</div>
         <div class="hc-info">
+          <div class="card-corner"><b class="sp-dot hidden" title="Unspent skill points"></b><span class="expand-tag">Expand ›</span></div>
           <div class="hc-name">${def ? `${def.name} <small>the ${def.title}</small>` : `${esc(mainName())} <small>the Monster Hunter</small>`}</div>
           <div class="hc-ability">${def ? def.ability : MAIN_ABILITY}</div>
           <div class="hc-status"></div>
         </div>
       </div>
       <div class="hc-train"><span class="hc-lv"></span><div class="hc-mid"></div><div class="hc-action"></div></div>
-      <div class="hc-gear"></div>
-      <b class="sp-dot hidden" title="Unspent skill points"></b>`;
+      <div class="hc-gear"></div>`;
     card.addEventListener('click', () => this.openHunterDetail(who));
     const mid = $('.hc-mid', card);
     const action = $('.hc-action', card);
@@ -311,7 +314,10 @@ export class AppUI {
       this.refreshers.push(() => {
         const open = g.hunterAvailable(def.id);
         card.classList.toggle('locked', !open);
-        status.textContent = open ? 'Available to recruit' : `📍 ${areaDef(def.area).name}`;
+        // Locked: a short story of how to win them over replaces their ability and location.
+        $('.hc-ability', card).textContent = open ? def.ability : def.story;
+        status.textContent = open ? 'Available to recruit' : '';
+        status.classList.toggle('hidden', !open);
         mid.innerHTML = open ? 'Recruit to start training' : `🔒 ${unlockText(g, def)}`;
         recruitBtn.innerHTML = open ? `Recruit<small>🪙 ${fmt(def.recruitCost)}</small>` : '🔒<small>Locked</small>';
         recruitBtn.disabled = !g.canRecruit(def.id);
@@ -581,7 +587,8 @@ export class AppUI {
       btn.addEventListener('click', () => {
         if (!t.learn(n.id)) return;
         close();
-        this.openTreeNode(t, n);
+        // Maxed (or a one-rank node): done. Otherwise stay open for the next rank, even if it can't be afforded yet.
+        if (t.rank(n.id) < n.maxRank) this.openTreeNode(t, n);
       });
       body.appendChild(btn);
     });
@@ -1196,7 +1203,7 @@ export class AppUI {
     card.innerHTML = `
       <div class="beast-head">
         <canvas class="portrait"></canvas>
-        <div class="info"><div class="name"></div><div class="blurb">${def.blurb}</div>${dropHtml(def)}</div>
+        <div class="info"><div class="card-corner"></div><div class="name"></div><div class="blurb">${def.blurb}</div>${dropHtml(def)}</div>
       </div>
       ${affinityHtml(def)}
       <div class="beast-actions"></div>`;
@@ -1220,7 +1227,7 @@ export class AppUI {
       $('.hc-mid', row).appendChild(bar);
       $('.hc-action', row).appendChild(btn);
       actions.appendChild(row);
-      card.appendChild(dot);
+      $('.card-corner', card).append(dot, el('span', 'expand-tag', 'Expand ›'));
       card.setAttribute('role', 'button');
       card.addEventListener('click', () => this.openMonsterDetail(def.id));
     } else actions.append(unlockBtn);
@@ -1291,9 +1298,25 @@ export class AppUI {
     requestAnimationFrame(() => drawEnemyPortrait($<HTMLCanvasElement>('canvas', view), id));
     $('.hd-close', view).addEventListener('click', () => this.closeHunterDetail());
     this.detail = { el: view, refreshers: [] };
-    const body = $('.hd-scroll', view);
+    const scroll = $('.hd-scroll', view);
     const main = this.refreshers;
     this.refreshers = [];
+
+    // Sub-tabs, like the Hunter view: Stats (Empower and what it's worth) and Evolution (its tree).
+    const tabs = el('div', 'subtabs');
+    tabs.innerHTML = `<button data-sub="stats">📊 Stats</button><button data-sub="evolution">🧬 Evolution <b class="sp-count hidden"></b></button>`;
+    scroll.appendChild(tabs);
+    const body = el('div', 'hd-body');
+    const evoPane = el('div', 'hd-body');
+    scroll.append(body, evoPane);
+    const show = (sub: 'stats' | 'evolution') => {
+      this.monsterSub = sub;
+      tabs.querySelectorAll<HTMLElement>('button').forEach((b) => b.classList.toggle('on', b.dataset.sub === sub));
+      body.classList.toggle('hidden', sub !== 'stats');
+      evoPane.classList.toggle('hidden', sub !== 'evolution');
+    };
+    tabs.querySelectorAll<HTMLButtonElement>('button').forEach((b) => b.addEventListener('click', () => show(b.dataset.sub as 'stats' | 'evolution')));
+    show(this.monsterSub);
 
     body.appendChild(sectionTitle('Empower'));
     body.appendChild(
@@ -1316,8 +1339,13 @@ export class AppUI {
     // (kills of this monster are shown here too; evolutions open with them)
     body.appendChild(stats);
 
-    body.appendChild(sectionTitle('Evolution'));
-    body.appendChild(this.treeView(this.monsterTree(id)));
+    evoPane.appendChild(this.treeView(this.monsterTree(id)));
+    const evoCount = $('.sp-count', tabs);
+    this.refreshers.push(() => {
+      const points = g.isUnlocked(id) ? g.evoPoints(id) : 0;
+      evoCount.textContent = String(points);
+      evoCount.classList.toggle('hidden', points <= 0);
+    });
 
     this.refreshers.push(() => {
       const st = g.enemyStats(id);
@@ -1728,6 +1756,7 @@ export class AppUI {
   private applySettings(): void {
     document.body.classList.toggle('left-handed', this.game.state.settings.leftHanded);
     mainHunterName = this.game.state.settings.name.trim();
+    applyFont(this.game.state.settings.font);
     const nav = $('.tabs');
     for (const t of this.game.state.settings.tabOrder) nav.appendChild($(`.tabs button[data-tab=${t}]`));
   }
@@ -1846,6 +1875,27 @@ export class AppUI {
     reset.addEventListener('click', () => setOrder([...TAB_IDS]));
     drawOrder();
     body.appendChild(tabsCard);
+
+    body.appendChild(sectionTitle('Display'));
+    const fontCard = el('div', 'card setting');
+    fontCard.innerHTML = `<div class="setting-name">Font</div><p>The lettering used in menus and on the battlefield.</p><div class="font-options"></div>`;
+    const fontList = $('.font-options', fontCard);
+    const fontButtons = FONTS.map((f) => {
+      const b = el('button', 'font-option') as HTMLButtonElement;
+      b.style.fontFamily = f.family;
+      b.innerHTML = `<b>${f.name}</b><small>Slay the horde! 123</small>`;
+      b.addEventListener('click', () => {
+        g.state.settings.font = f.id;
+        this.applySettings();
+        this.hooks.save();
+        syncFont();
+      });
+      fontList.appendChild(b);
+      return { f, b };
+    });
+    const syncFont = () => fontButtons.forEach(({ f, b }) => b.classList.toggle('on', fontDef(g.state.settings.font).id === f.id));
+    syncFont();
+    body.appendChild(fontCard);
 
     body.appendChild(sectionTitle('Save'));
     const wipe = el('div', 'card setting');
@@ -1982,6 +2032,9 @@ export const MAX_NAME_LENGTH = 16;
 function esc(text: string): string {
   return text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 }
+
+/** Enemies slain before the "you can train" tip can appear. */
+const TRAIN_TIP_KILLS = 15;
 
 /** How many not-yet-recruited Hunters the Hunters tab shows. */
 const NEXT_HUNTERS_SHOWN = 3;
