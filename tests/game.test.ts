@@ -19,6 +19,7 @@ import {
   eventDef,
   ENEMIES,
   ARCHETYPES,
+  gearDef,
   EMPOWER,
   EVO_TREES,
   RESIST_MULT,
@@ -600,45 +601,98 @@ describe('Equipment', () => {
     expect(hits[0].dmg / hits[2].dmg).toBeCloseTo(WEAK_MULT / RESIST_MULT);
   });
 
-  it('Fire burns, Poison poisons, Frost chills and Acid corrodes; effects refresh rather than stack', () => {
+  it('status effects: burn, poison, chill, acid puddle, radiant burst, dark aura, arcane exposure', () => {
     const g = stocked();
-    g.recruit('alchemist');
     const f = new Field(g);
-    const hit = (who: 'glimmer' | 'alchemist' | 'frostbreaker' | 'scavenger', e: Enemy) =>
-      (f as unknown as { hitWith: (...a: unknown[]) => void }).hitWith(who, e, 1, 0, 0, false);
-    // Fire: a Zombie (neutral to nothing here: weak to fire) keeps burning after the hit.
-    const z = enemy({ id: 1, type: 'wolf', x: 0, y: -300, hp: 1e12, maxHp: 1e12 });
-    f.enemies = [z];
-    hit('glimmer', z);
-    const afterHit = z.hp;
-    expect(z.burn).toBeDefined();
-    const burnTotal = (1e12 - afterHit) * STATUS.burn.share;
-    for (let i = 0; i < 90; i++) (f as unknown as { tickStatus: (e: Enemy, dt: number) => void }).tickStatus(z, 1 / 30);
-    expect(afterHit - z.hp).toBeCloseTo(burnTotal, -3);
-    expect(z.burn).toBeUndefined();
-    // Hitting again refreshes the burn instead of stacking a second one.
-    hit('glimmer', z);
-    hit('glimmer', z);
-    expect(z.burn!.left).toBe(STATUS.burn.duration);
-    // Poison (Mira with no weapon), Frost (Bjorn's hammer type) and Acid (Pip).
-    g.recruit('frostbreaker');
-    g.recruit('scavenger');
-    const p = enemy({ id: 2, type: 'wolf', x: 0, y: -300, hp: 1e12, maxHp: 1e12 });
-    f.enemies.push(p);
-    hit('alchemist', p);
-    expect(p.poison!.left).toBe(STATUS.poison.duration);
-    hit('frostbreaker', p);
-    expect(p.slow).toBe(STATUS.chill.duration);
-    hit('scavenger', p);
-    expect(p.corrode).toBe(STATUS.corrode.duration);
-    // Corroded monsters take more from everything.
-    const q = enemy({ id: 3, type: 'wolf', x: 0, y: -300, hp: 1e12, maxHp: 1e12 });
-    f.enemies.push(q);
-    hit('glimmer', q);
-    const plain = 1e12 - q.hp;
-    const before = p.hp;
-    hit('glimmer', p);
-    expect(before - p.hp).toBeCloseTo(plain * (1 + STATUS.corrode.amp), -3);
+    const api = f as unknown as {
+      applyStatus: (e: Enemy, t: string, dmg: number, by: string) => void;
+      tickStatus: (e: Enemy, dt: number) => void;
+      hitWith: (...a: unknown[]) => void;
+    };
+    const mk = (id: number, x = 0, type: Enemy['type'] = 'wolf') => enemy({ id, type, x, y: -300, hp: 1e6, maxHp: 1e6 });
+    // Fire burns for 30% of the hit over 2s; a new burn refreshes rather than stacks.
+    const a = mk(1);
+    f.enemies = [a];
+    api.applyStatus(a, 'fire', 1000, 'glimmer');
+    for (let i = 0; i < 90; i++) api.tickStatus(a, 1 / 30);
+    // (The hit's own damage already includes weaknesses; the burn is a share of it.)
+    expect(1e6 - a.hp).toBeCloseTo(1000 * STATUS.burn.share, 0);
+    expect(a.burn).toBeUndefined();
+    api.applyStatus(a, 'fire', 1000, 'glimmer');
+    api.applyStatus(a, 'fire', 1000, 'glimmer');
+    expect(a.burn!.left).toBe(STATUS.burn.duration);
+    // Burns spread to monsters right next to the burning one (at half strength), never to ones further off.
+    let roll = 0.5;
+    const spread = new Game(veteran(newGame(0)), () => roll);
+    const sf = new Field(spread);
+    const sapi = sf as unknown as typeof api;
+    const [src, touching, away] = [mk(10, 0), mk(11, 25), mk(12, 200)];
+    sf.enemies = [src, touching, away];
+    sapi.applyStatus(src, 'fire', 1000, 'glimmer');
+    for (let i = 0; i < 20; i++) sapi.tickStatus(src, 1 / 30); // one tick; a roll of 0.5 is above the chance
+    expect(touching.burn).toBeUndefined();
+    roll = 0; // now every roll spreads
+    for (let i = 0; i < 20; i++) sapi.tickStatus(src, 1 / 30);
+    expect(touching.burn!.dps).toBeCloseTo(src.burn!.dps * STATUS.burn.spreadFalloff);
+    expect(away.burn).toBeUndefined();
+    // Poison and Frost.
+    api.applyStatus(a, 'poison', 1000, 'alchemist');
+    expect(a.poison!.left).toBe(STATUS.poison.duration);
+    api.applyStatus(a, 'frost', 1000, 'frostbreaker');
+    expect(a.slow).toBe(STATUS.chill.duration);
+    // Acid drops a puddle at the monster that hurts everything in it.
+    api.applyStatus(a, 'acid', 1000, 'scavenger');
+    expect(f.puddles.some((p) => p.dtype === 'acid' && p.x === a.x)).toBe(true);
+    // Radiant bursts: everything nearby is hit, not the target itself.
+    const [t, near, far] = [mk(2, 0), mk(3, 30), mk(4, 400)];
+    f.enemies = [t, near, far];
+    api.applyStatus(t, 'radiant', 1000, 'gravewarden');
+    expect(t.hp).toBe(1e6);
+    expect(near.hp).toBeCloseTo(1e6 - 1000 * STATUS.burst.share);
+    expect(far.hp).toBe(1e6);
+    // Decay: the monster's dark aura hurts those around it, not itself.
+    const [bearer, n2, f2] = [mk(5, 0), mk(6, 30), mk(7, 400)];
+    f.enemies = [bearer, n2, f2];
+    api.applyStatus(bearer, 'decay', 1000, 'glimmer');
+    for (let i = 0; i < 30; i++) api.tickStatus(bearer, 1 / 30);
+    expect(bearer.hp).toBe(1e6);
+    expect(n2.hp).toBeLessThan(1e6);
+    expect(f2.hp).toBe(1e6);
+    // Arcane strips resistances: a Wolf resists Frost until exposed.
+    const w = mk(8);
+    f.enemies = [w];
+    api.hitWith('frostbreaker', w, 1, 0, 0, false);
+    const resisted = 1e6 - w.hp;
+    api.applyStatus(w, 'arcane', 1000, 'demonbane');
+    const before = w.hp;
+    api.hitWith('frostbreaker', w, 1, 0, 0, false);
+    expect(before - w.hp).toBeCloseTo(resisted / RESIST_MULT);
+  });
+
+  it('effects proc at the weapon\'s chance; Physical weapons never proc', () => {
+    let roll = 0;
+    const s = newGame(0);
+    s.gold = 1e15;
+    for (const m of Object.keys(s.materials) as Array<keyof typeof s.materials>) s.materials[m] = 1e6;
+    const g = new Game(veteran(s), () => roll);
+    g.recruit('glimmer');
+    expect(g.procOf('main')).toBe(0); // bare hands, physical
+    const bow = g.craftGear('emberLongbow')!;
+    g.equip('main', 0, bow.uid);
+    expect(g.procOf('main')).toBe(gearDef('emberLongbow').proc);
+    expect(g.procOf('glimmer')).toBe(hunterDef('glimmer').style.proc); // his own chance, no weapon
+    expect(g.procOf('glimmer', 'long', true)).toBe(1); // fireballs always burn
+    const f = new Field(g);
+    const hit = (f as unknown as { hitWith: (...a: unknown[]) => void }).hitWith.bind(f);
+    const e = enemy({ id: 1, type: 'wolf', x: 0, y: -300, hp: 1e9, maxHp: 1e9 });
+    f.enemies = [e];
+    roll = 0.99; // above the chance: no burn
+    hit('main', e, 1, 0, 0, false);
+    expect(e.burn).toBeUndefined();
+    roll = 0; // under it: burns
+    hit('main', e, 1, 0, 0, false);
+    expect(e.burn).toBeDefined();
+    for (const gd of GEAR) if (gd.damageType === 'physical') expect(gd.proc ?? 0).toBe(0);
   });
 
   it('9 areas in order; saves from before the new areas open everything up to their furthest area', () => {

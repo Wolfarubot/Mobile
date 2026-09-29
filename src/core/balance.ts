@@ -685,31 +685,38 @@ export type HunterId =
 export type DamageType = 'physical' | 'fire' | 'acid' | 'frost' | 'radiant' | 'poison' | 'arcane' | 'decay' | 'void';
 
 /**
- * Lingering effects some damage types leave on what they hit:
- * Fire burns (`share` of the hit again over `duration`), Poison poisons (same, slower and longer),
- * Frost chills (half speed), Acid corrodes (takes `amp` more damage from everything).
- * A new hit refreshes the effect (the stronger damage-over-time wins); they don't stack.
+ * Status effects: a hit of these types has a chance (the weapon's `proc`, or the Hunter's own without one) to:
+ * Fire: burn (`share` of the hit again over `duration`). Poison: poison (the same, slower and longer).
+ * Frost: chill (half speed). Acid: drop an acid puddle that hurts everything in it. Radiant: a radiant burst
+ * around the target. Decay: a dark aura on the monster that hurts the monsters around it. Arcane: strip its
+ * resistances for a while. Physical and Void have no effect. New procs refresh rather than stack.
  */
 export const STATUS = {
-  burn: { share: 0.3, duration: 2 },
+  /** Burns can spread: each tick, a `spreadChance` to ignite each monster within `spreadRadius` of its edge, at `spreadFalloff` strength. */
+  burn: { share: 0.3, duration: 2, spreadChance: 0.1, spreadRadius: 18, spreadFalloff: 0.5 },
   poison: { share: 0.4, duration: 4 },
   chill: { duration: 1.2 },
-  corrode: { duration: 3, amp: 0.2 },
+  /** Each tick hurts everything in the puddle for `share` of the hit. */
+  acid: { share: 0.15, duration: 3, radius: 38 },
+  burst: { share: 0.6, radius: 65 },
+  /** Each tick the aura hurts monsters within `radius` of its bearer for `share` of the hit. */
+  aura: { share: 0.12, duration: 4, radius: 55 },
+  expose: { duration: 4 },
   /** Seconds between damage-over-time ticks. */
   tick: 0.5,
 };
-/** Rough extra damage each type's effect adds, for the background model. */
-export const STATUS_MODEL: Partial<Record<DamageType, number>> = { fire: 1.15, poison: 1.2, acid: 1.1 };
+/** Rough extra damage each type's effect adds when it always procs, for the background model (scaled by proc chance). */
+export const STATUS_MODEL: Partial<Record<DamageType, number>> = { fire: 1.4, poison: 1.4, acid: 1.4, radiant: 1.5, decay: 1.4, arcane: 1.1 };
 
 export const DAMAGE_TYPES: Record<DamageType, { name: string; icon: string; color: string; effect?: string }> = {
   physical: { name: 'Physical', icon: '🗡️', color: '#e8e8e8' },
-  fire: { name: 'Fire', icon: '🔥', color: '#ff7a2a', effect: `Burns: ${STATUS.burn.share * 100}% of the hit again over ${STATUS.burn.duration}s` },
-  acid: { name: 'Acid', icon: '🧪', color: '#c6f03a', effect: `Corrodes: +${STATUS.corrode.amp * 100}% damage taken for ${STATUS.corrode.duration}s` },
+  fire: { name: 'Fire', icon: '🔥', color: '#ff7a2a', effect: `Burns: ${STATUS.burn.share * 100}% of the hit again over ${STATUS.burn.duration}s, and can spread to monsters right next to it` },
+  acid: { name: 'Acid', icon: '🧪', color: '#c6f03a', effect: `Acid puddle: hurts everything in it for ${STATUS.acid.duration}s` },
   frost: { name: 'Frost', icon: '❄️', color: '#8fdcff', effect: `Chills: half speed for ${STATUS.chill.duration}s` },
-  radiant: { name: 'Radiant', icon: '✨', color: '#ffe36e' },
+  radiant: { name: 'Radiant', icon: '✨', color: '#ffe36e', effect: `Radiant burst: ${STATUS.burst.share * 100}% of the hit to everything nearby` },
   poison: { name: 'Poison', icon: '☠️', color: '#6fdc5a', effect: `Poisons: ${STATUS.poison.share * 100}% of the hit again over ${STATUS.poison.duration}s` },
-  arcane: { name: 'Arcane', icon: '🔮', color: '#c08cff' },
-  decay: { name: 'Decay', icon: '🍂', color: '#b09a60' },
+  arcane: { name: 'Arcane', icon: '🔮', color: '#c08cff', effect: `Exposes: removes its resistances for ${STATUS.expose.duration}s` },
+  decay: { name: 'Decay', icon: '🍂', color: '#b09a60', effect: `Dark aura: it hurts the monsters around it for ${STATUS.aura.duration}s` },
   void: { name: 'Void', icon: '🌀', color: '#ff5fd7' },
 };
 
@@ -731,6 +738,8 @@ export interface AttackStyle {
   kind: AttackKind;
   /** Their own damage type, used when their weapon slot is empty (and always for specials). */
   damageType: DamageType;
+  /** Chance their own attacks trigger their type's status effect (without a weapon). */
+  proc?: number;
   /** World units (the view shows roughly ±320 × ±350 around your Hunter). */
   range: number;
   /** Multipliers on the Hunter's base fire rate and damage per shot. */
@@ -751,7 +760,7 @@ export interface AttackStyle {
    * `radius` × (1 + their weapon's attack rate). `ticks` is how many times it hits (a puddle ticks), and
    * `crowd` how many monsters it typically catches, for the background model.
    */
-  special?: { cooldown: number; damage: number; radius: number; ticks: number; crowd: number };
+  special?: { cooldown: number; damage: number; radius: number; ticks: number; crowd: number; proc?: number };
   /** Rough damage efficiency vs a crowd, used for background DPS (AoE > 1). */
   farm: number;
   /** Typical monsters hit per attack against a crowd (area, pierce, bounce), used to model kill rates. */
@@ -796,7 +805,7 @@ export const HUNTERS: HunterDef[] = [
     ability: 'Every few seconds, lobs a potion that leaves a poison puddle. Deals triple damage to Slimes. Uses ranged or magic weapons.',
     slots: [{ kind: 'weapon', label: 'Weapon', accepts: ['weapon', 'magic'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
     style: {
-      kind: 'potion', damageType: 'poison', range: 230, rate: 0.6, damage: 0.8, farm: 1, crowd: 1,
+      kind: 'potion', damageType: 'poison', proc: 0.5, range: 230, rate: 0.6, damage: 0.8, farm: 1, crowd: 1,
       special: { cooldown: 4, damage: 0.35, radius: 45, ticks: 6, crowd: 2.5 },
       describe: 'Flings magic bolts. Every 4s she lobs a potion whose puddle keeps hurting: her weapon\'s damage powers the poison, its attack rate widens the puddle.',
     },
@@ -813,8 +822,8 @@ export const HUNTERS: HunterDef[] = [
     ability: 'Every few seconds, hurls a fireball that explodes for area damage. Wields only magic weapons.',
     slots: [{ kind: 'magic', label: 'Magic weapon' }, { kind: 'armor', label: 'Robe' }, { kind: 'accessory', label: 'Accessory' }],
     style: {
-      kind: 'fireball', damageType: 'fire', range: 260, rate: 0.55, damage: 1.6, farm: 1, crowd: 1,
-      special: { cooldown: 4, damage: 1.75, radius: 55, ticks: 1, crowd: 3 },
+      kind: 'fireball', damageType: 'fire', proc: 0.3, range: 260, rate: 0.55, damage: 1.6, farm: 1, crowd: 1,
+      special: { cooldown: 4, damage: 1.75, radius: 55, ticks: 1, crowd: 3, proc: 1 },
       describe: 'Fires magic bolts. Every 4s he hurls a fireball that explodes: his weapon\'s damage powers the blast, its attack rate widens it.',
     },
   },
@@ -822,14 +831,14 @@ export const HUNTERS: HunterDef[] = [
     id: 'gravewarden', name: 'Alric', title: 'Gravewarden', icon: '✝️', color: '#efe6cf', area: 'graveyard', recruitCost: 15_000, bane: { archetype: 'undead', mult: 3 },
     unlock: { event: 'guardian-graveyard', times: 1 },
     ability: 'Holy pulses strike everything around him. Deals triple damage to Undead.',
-    style: { kind: 'nova', damageType: 'radiant', range: 110, rate: 0.5, damage: 1.5, radius: 110, farm: 1.5, crowd: 3, describe: 'Pulses holy light, striking every enemy around him.' },
+    style: { kind: 'nova', damageType: 'radiant', proc: 0.15, range: 110, rate: 0.5, damage: 1.5, radius: 110, farm: 1.5, crowd: 3, describe: 'Pulses holy light, striking every enemy around him.' },
   },
   {
     id: 'lance', name: 'Lance', title: 'Paladin', icon: '🛡️', color: '#ffe8a3', area: 'graveyard', recruitCost: 40_000,
     unlock: { event: 'guardian-graveyard', times: 2 },
     ability: 'Can take multiple hits before being knocked out (Zone of Protection), and grants other Hunters an extra hit as well (Rallying Oath).',
     slots: [{ kind: 'melee', label: 'Melee' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
-    style: { kind: 'thrust', damageType: 'radiant', range: 90, rate: 0.9, damage: 1.8, farm: 1.3, crowd: 2, describe: 'Holds the line with lance thrusts that pierce everything in reach.' },
+    style: { kind: 'thrust', damageType: 'radiant', proc: 0.1, range: 90, rate: 0.9, damage: 1.8, farm: 1.3, crowd: 2, describe: 'Holds the line with lance thrusts that pierce everything in reach.' },
   },
   {
     id: 'prospector', name: 'Gus', title: 'Prospector', icon: '💰', color: '#ffd34d', area: 'graveyard', recruitCost: 80_000, gold: 1.75,
@@ -841,7 +850,7 @@ export const HUNTERS: HunterDef[] = [
     id: 'demonbane', name: 'Sera', title: 'Demonbane', icon: '🗡️', color: '#ff7a3d', area: 'caves', recruitCost: 1_500_000, bane: { archetype: 'demon', mult: 3 },
     unlock: { event: 'guardian-caves', times: 1 },
     ability: 'A rapid flurry of daggers at short range. Deals triple damage to Demons.',
-    style: { kind: 'daggers', damageType: 'arcane', range: 160, rate: 3, damage: 0.4, farm: 1.1, crowd: 1, describe: 'Throws a flurry of daggers at anything that gets close.' },
+    style: { kind: 'daggers', damageType: 'arcane', proc: 0.15, range: 160, rate: 3, damage: 0.4, farm: 1.1, crowd: 1, describe: 'Throws a flurry of daggers at anything that gets close.' },
   },
   {
     id: 'wilhelm', name: 'Wilhelm', title: 'Sniper', icon: '🎯', color: '#9aa7b8', area: 'caves', recruitCost: 3_000_000,
@@ -858,13 +867,13 @@ export const HUNTERS: HunterDef[] = [
     id: 'scavenger', name: 'Pip', title: 'Scavenger', icon: '🎒', color: '#3fb0a0', area: 'caves', recruitCost: 6_000_000, drops: 2,
     unlock: { event: 'guardian-caves', times: 3 },
     ability: 'Stones ricochet between enemies. Doubles material drops from his kills.',
-    style: { kind: 'ricochet', damageType: 'acid', range: 220, rate: 1, damage: 0.8, bounces: 3, farm: 1.4, crowd: 2.5, describe: 'Acid-slicked slingshot stones ricochet between up to 4 enemies.' },
+    style: { kind: 'ricochet', damageType: 'acid', proc: 0.2, range: 220, rate: 1, damage: 0.8, bounces: 3, farm: 1.4, crowd: 2.5, describe: 'Acid-slicked slingshot stones ricochet between up to 4 enemies.' },
   },
   {
     id: 'frostbreaker', name: 'Bjorn', title: 'Frostbreaker', icon: '🔨', color: '#8fdcff', area: 'peaks', recruitCost: 150_000_000, bane: { archetype: 'elemental', mult: 3 },
     unlock: { event: 'guardian-peaks', times: 1 },
     ability: 'Frost hammers slow enemies to a crawl. Deals triple damage to Elementals.',
-    style: { kind: 'hammer', damageType: 'frost', range: 200, rate: 0.7, damage: 1.6, slow: 2, farm: 1.3, crowd: 1, describe: 'Throws frost hammers that slow enemies to a crawl.' },
+    style: { kind: 'hammer', damageType: 'frost', proc: 0.5, range: 200, rate: 0.7, damage: 1.6, slow: 2, farm: 1.3, crowd: 1, describe: 'Throws frost hammers that slow enemies to a crawl.' },
   },
 ];
 
@@ -989,6 +998,8 @@ export interface GearDef {
   rarity: Rarity;
   /** Weapons only: the damage type they deal. */
   damageType?: DamageType;
+  /** Chance each hit triggers its damage type's status effect (0 or missing: never). */
+  proc?: number;
   /** Stats at level 1; each level adds the same again. */
   stats: Partial<Record<GearStat, number>>;
   /** Materials to craft (level 1); upgrades cost this × GEAR_COST_GROWTH^level. */
@@ -1006,20 +1017,20 @@ export const GEAR: GearDef[] = [
   // Weapons
   { id: 'huntingBow', name: 'Hunting Bow', icon: '🏹', kind: 'weapon', rarity: 'common', damageType: 'physical', stats: { damage: 0.2 }, recipe: { goo: 8, pelt: 4 } },
   { id: 'boneCrossbow', name: 'Bone Crossbow', icon: '🎯', kind: 'weapon', rarity: 'uncommon', damageType: 'physical', stats: { damage: 0.3, range: 8 }, recipe: { bone: 10, wing: 5 } },
-  { id: 'emberLongbow', name: 'Ember Longbow', icon: '🔥', kind: 'weapon', rarity: 'rare', damageType: 'fire', stats: { damage: 0.3, rate: 0.12 }, recipe: { ember: 10, chitin: 5 } },
-  { id: 'frostRifle', name: 'Frost Rifle', icon: '🔫', kind: 'weapon', rarity: 'legendary', damageType: 'frost', stats: { damage: 0.45, range: 15 }, recipe: { fur: 10, frost: 5 } },
+  { id: 'emberLongbow', name: 'Ember Longbow', icon: '🔥', kind: 'weapon', rarity: 'rare', damageType: 'fire', proc: 0.3, stats: { damage: 0.3, rate: 0.12 }, recipe: { ember: 10, chitin: 5 } },
+  { id: 'frostRifle', name: 'Frost Rifle', icon: '🔫', kind: 'weapon', rarity: 'legendary', damageType: 'frost', proc: 0.35, stats: { damage: 0.45, range: 15 }, recipe: { fur: 10, frost: 5 } },
   { id: 'voidRepeater', name: 'Void Repeater', icon: '🌀', kind: 'weapon', rarity: 'artifact', damageType: 'void', stats: { damage: 0.6, rate: 0.2 }, recipe: { shade: 10, void: 5 } },
   // Melee
   { id: 'ironSpear', name: 'Bone Spear', icon: '🔱', kind: 'melee', rarity: 'uncommon', damageType: 'physical', stats: { damage: 0.35 }, recipe: { bone: 10, flesh: 5 } },
-  { id: 'magmaGlaive', name: 'Magma Glaive', icon: '🪓', kind: 'melee', rarity: 'veryRare', damageType: 'fire', stats: { damage: 0.5, range: 6 }, recipe: { magma: 10, ember: 5 } },
-  { id: 'soulLance', name: 'Soulreaver Lance', icon: '⚜️', kind: 'melee', rarity: 'exalted', damageType: 'decay', stats: { damage: 0.8, pierce: 0.2 }, recipe: { soul: 8, void: 4 } },
+  { id: 'magmaGlaive', name: 'Magma Glaive', icon: '🪓', kind: 'melee', rarity: 'veryRare', damageType: 'fire', proc: 0.4, stats: { damage: 0.5, range: 6 }, recipe: { magma: 10, ember: 5 } },
+  { id: 'soulLance', name: 'Soulreaver Lance', icon: '⚜️', kind: 'melee', rarity: 'exalted', damageType: 'decay', proc: 0.2, stats: { damage: 0.8, pierce: 0.2 }, recipe: { soul: 8, void: 4 } },
   // Magic (Mira and Glimmer)
-  { id: 'apprenticeWand', name: 'Apprentice Wand', icon: '🪄', kind: 'magic', rarity: 'common', damageType: 'arcane', stats: { damage: 0.15, rate: 0.1 }, recipe: { goo: 8, redgel: 4 } },
-  { id: 'gravewoodStaff', name: 'Gravewood Staff', icon: '🪵', kind: 'magic', rarity: 'uncommon', damageType: 'decay', stats: { damage: 0.25, rate: 0.1 }, recipe: { flesh: 10, wing: 5 } },
-  { id: 'emberFocus', name: 'Ember Focus', icon: '🕯️', kind: 'magic', rarity: 'rare', damageType: 'fire', stats: { damage: 0.3, rate: 0.15 }, recipe: { ember: 10, magma: 5 } },
-  { id: 'crystalFocus', name: 'Crystal Focus', icon: '💎', kind: 'magic', rarity: 'legendary', damageType: 'frost', stats: { damage: 0.4, rate: 0.2 }, recipe: { frost: 8, ecto: 6 } },
+  { id: 'apprenticeWand', name: 'Apprentice Wand', icon: '🪄', kind: 'magic', rarity: 'common', damageType: 'arcane', proc: 0.15, stats: { damage: 0.15, rate: 0.1 }, recipe: { goo: 8, redgel: 4 } },
+  { id: 'gravewoodStaff', name: 'Gravewood Staff', icon: '🪵', kind: 'magic', rarity: 'uncommon', damageType: 'decay', proc: 0.15, stats: { damage: 0.25, rate: 0.1 }, recipe: { flesh: 10, wing: 5 } },
+  { id: 'emberFocus', name: 'Ember Focus', icon: '🕯️', kind: 'magic', rarity: 'rare', damageType: 'fire', proc: 0.3, stats: { damage: 0.3, rate: 0.15 }, recipe: { ember: 10, magma: 5 } },
+  { id: 'crystalFocus', name: 'Crystal Focus', icon: '💎', kind: 'magic', rarity: 'legendary', damageType: 'frost', proc: 0.3, stats: { damage: 0.4, rate: 0.2 }, recipe: { frost: 8, ecto: 6 } },
   { id: 'voidScepter', name: 'Void Scepter', icon: '🪬', kind: 'magic', rarity: 'relic', damageType: 'void', stats: { damage: 0.55, rate: 0.25 }, recipe: { shade: 10, void: 5 } },
-  { id: 'soulfireStaff', name: 'Soulfire Staff', icon: '🌟', kind: 'magic', rarity: 'exalted', damageType: 'radiant', stats: { damage: 0.75, rate: 0.3 }, recipe: { soul: 8, void: 4 } },
+  { id: 'soulfireStaff', name: 'Soulfire Staff', icon: '🌟', kind: 'magic', rarity: 'exalted', damageType: 'radiant', proc: 0.2, stats: { damage: 0.75, rate: 0.3 }, recipe: { soul: 8, void: 4 } },
   // Armor
   { id: 'leatherVest', name: 'Leather Vest', icon: '🦺', kind: 'armor', rarity: 'common', stats: { stun: 0.05 }, recipe: { pelt: 8, goo: 6 } },
   { id: 'bonePlate', name: 'Bone Plate', icon: '🦴', kind: 'armor', rarity: 'rare', stats: { stun: 0.06, guard: 0.2 }, recipe: { bone: 10, flesh: 6 } },

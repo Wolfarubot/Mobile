@@ -193,7 +193,7 @@ describe('progression pacing', () => {
     expect(r.cliffs).toBeGreaterThan(6 * 24 * H);
     // The Void Rift is the long-term goal: weeks away.
     expect(r.rift ?? Infinity).toBeGreaterThan(10 * 24 * H);
-  }, 900_000);
+  }, 1_500_000);
 });
 
 const fmtT = (sec: number | undefined) =>

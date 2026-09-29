@@ -1,4 +1,5 @@
 import {
+  DAMAGE_TYPES,
   STATUS,
   affinity,
   typeMult,
@@ -54,8 +55,10 @@ export interface Enemy {
   /** Damage over time from Fire and Poison. */
   burn?: Dot;
   poison?: Dot;
-  /** Seconds of Acid corrosion left (takes more damage). */
-  corrode?: number;
+  /** Decay's dark aura: hurts the monsters around it. */
+  aura?: Dot;
+  /** Seconds left with its resistances stripped (Arcane). */
+  exposed?: number;
 }
 
 /** A damage-over-time effect: damage per second, seconds left, who applied it (for kill credit). */
@@ -64,6 +67,8 @@ export interface Dot {
   left: number;
   by: Shooter;
   acc: number;
+  /** Ticks still to deal (counted rather than timed, so a 2s burn always ticks 4 times). */
+  ticks: number;
 }
 
 /** A stationed Hunter fighting next to you, with their own attack style and stun state. */
@@ -129,8 +134,11 @@ export interface Puddle {
   r: number;
   life: number;
   tick: number;
-  /** Multiplier on the thrower's shot damage per tick. */
+  /** Multiplier on the thrower's shot damage per tick (Mira's potions). */
   dmg: number;
+  /** An acid puddle from an Acid proc: fixed damage per tick, of this type. */
+  abs?: number;
+  dtype?: DamageType;
 }
 
 export type FieldEvent =
@@ -352,7 +360,7 @@ export class Field {
       e.flash = Math.max(0, e.flash - dt * 6);
       e.phase += dt;
       if (e.slow) e.slow = Math.max(0, e.slow - dt);
-      if (e.burn || e.poison || e.corrode) this.tickStatus(e, dt);
+      if (e.burn || e.poison || e.aura || e.exposed) this.tickStatus(e, dt);
       const speed = e.speed * (e.slow ? 0.5 : 1);
       if (e.fleeing) {
         const d = Math.hypot(e.x, e.y) || 1;
@@ -632,38 +640,86 @@ export class Field {
     status = true,
   ): void {
     const dtype = this.game.damageTypeOf(shooter, mode, special);
-    const dmg = this.game.shotDamage(shooter, enemyDef(e.type).archetype, mode) * typeMult(dtype, e.type) * mult * (crit ? CRIT_MULT : 1);
+    const dmg = this.game.shotDamage(shooter, enemyDef(e.type).archetype, mode) * this.typeMultOn(dtype, e) * mult * (crit ? CRIT_MULT : 1);
     const d = Math.hypot(e.x - fromX, e.y - fromY) || 1;
     this.damage(e, dmg, crit, (e.x - fromX) / d, (e.y - fromY) / d, shooter, dtype);
-    if (status) this.applyStatus(e, dtype, dmg, shooter);
+    if (status && this.game.rng() < this.game.procOf(shooter, mode, special)) this.applyStatus(e, dtype, dmg, shooter);
   }
 
-  /** Fire burns, Poison poisons, Frost chills, Acid corrodes. Refreshes rather than stacks. */
+  /** Weakness/resistance multiplier, with resistances ignored while the monster is exposed (Arcane). */
+  private typeMultOn(dtype: DamageType, e: Enemy): number {
+    const m = typeMult(dtype, e.type);
+    return e.exposed && m < 1 ? 1 : m;
+  }
+
+  /** Fixed damage of a type to every monster within `r` of a point (bursts, auras, acid). */
+  private hitArea(x: number, y: number, r: number, amount: number, dtype: DamageType, by: Shooter, except?: Enemy): void {
+    for (const o of this.enemies) if (o !== except && o.hp > 0 && Math.hypot(o.x - x, o.y - y) <= r + o.r) this.damage(o, amount * this.typeMultOn(dtype, o), false, 0, 0, by, dtype);
+  }
+
+  /**
+   * A proc'd status effect. Fire burns, Poison poisons, Frost chills, Acid drops a puddle, Radiant bursts,
+   * Decay gives the monster a dark aura, Arcane strips its resistances. Timed effects refresh rather than stack.
+   */
   private applyStatus(e: Enemy, dtype: DamageType, dmg: number, by: Shooter): void {
-    if (e.hp <= 0) return;
     const dot = (cur: Dot | undefined, share: number, duration: number): Dot => {
       const dps = (dmg * share) / duration;
-      return cur && cur.left > 0 && cur.dps > dps ? { ...cur, left: duration } : { dps, left: duration, by, acc: cur?.acc ?? 0 };
+      const ticks = Math.round(duration / STATUS.tick);
+      return cur && cur.left > 0 && cur.dps > dps ? { ...cur, left: duration, ticks } : { dps, left: duration, by, acc: cur?.acc ?? 0, ticks };
     };
-    if (dtype === 'fire') e.burn = dot(e.burn, STATUS.burn.share, STATUS.burn.duration);
-    else if (dtype === 'poison') e.poison = dot(e.poison, STATUS.poison.share, STATUS.poison.duration);
-    else if (dtype === 'frost') e.slow = Math.max(e.slow ?? 0, STATUS.chill.duration);
-    else if (dtype === 'acid') e.corrode = STATUS.corrode.duration;
+    switch (dtype) {
+      case 'fire':
+        if (e.hp > 0) e.burn = dot(e.burn, STATUS.burn.share, STATUS.burn.duration);
+        break;
+      case 'poison':
+        if (e.hp > 0) e.poison = dot(e.poison, STATUS.poison.share, STATUS.poison.duration);
+        break;
+      case 'frost':
+        e.slow = Math.max(e.slow ?? 0, STATUS.chill.duration);
+        break;
+      case 'acid':
+        this.puddles.push({ shooter: by, x: e.x, y: e.y, r: STATUS.acid.radius, life: STATUS.acid.duration, tick: 0, dmg: 0, abs: dmg * STATUS.acid.share, dtype: 'acid' });
+        break;
+      case 'radiant':
+        this.events.push({ type: 'explode', x: e.x, y: e.y, r: STATUS.burst.radius, color: DAMAGE_TYPES.radiant.color });
+        this.hitArea(e.x, e.y, STATUS.burst.radius, dmg * STATUS.burst.share, 'radiant', by, e);
+        break;
+      case 'decay':
+        // Per tick, `share` of the hit to everything around it: stored as damage per second.
+        if (e.hp > 0) e.aura = { dps: (dmg * STATUS.aura.share) / STATUS.tick, left: STATUS.aura.duration, by, acc: 0, ticks: Math.round(STATUS.aura.duration / STATUS.tick) };
+        break;
+      case 'arcane':
+        e.exposed = STATUS.expose.duration;
+        break;
+    }
   }
 
-  /** Ticks burns and poisons, and runs down corrosion. */
+  /** A burning monster can set the ones right next to it alight, weaker each time it spreads. */
+  private spreadBurn(e: Enemy, d: Dot): void {
+    const b = STATUS.burn;
+    for (const o of this.enemies) {
+      if (o === e || o.hp <= 0 || o.burn) continue;
+      if (Math.hypot(o.x - e.x, o.y - e.y) > e.r + o.r + b.spreadRadius || this.game.rng() >= b.spreadChance) continue;
+      o.burn = { dps: d.dps * b.spreadFalloff, left: b.duration, by: d.by, acc: 0, ticks: Math.round(b.duration / STATUS.tick) };
+    }
+  }
+
+  /** Ticks burns, poisons and dark auras, and runs down Arcane exposure. */
   private tickStatus(e: Enemy, dt: number): void {
-    if (e.corrode) e.corrode = Math.max(0, e.corrode - dt);
-    for (const [key, dtype] of [['burn', 'fire'], ['poison', 'poison']] as const) {
+    if (e.exposed) e.exposed = Math.max(0, e.exposed - dt);
+    for (const [key, dtype] of [['burn', 'fire'], ['poison', 'poison'], ['aura', 'decay']] as const) {
       const d = e[key];
       if (!d) continue;
       d.left -= dt;
       d.acc += dt;
-      while (d.acc >= STATUS.tick && e.hp > 0) {
+      while (d.acc >= STATUS.tick - 1e-9 && d.ticks > 0 && e.hp > 0) {
         d.acc -= STATUS.tick;
-        this.damage(e, d.dps * STATUS.tick, false, 0, 0, d.by, dtype);
+        d.ticks--;
+        if (key === 'aura') this.hitArea(e.x, e.y, STATUS.aura.radius, d.dps * STATUS.tick, 'decay', d.by, e);
+        else this.damage(e, d.dps * STATUS.tick, false, 0, 0, d.by, dtype);
+        if (key === 'burn') this.spreadBurn(e, d);
       }
-      if (d.left <= 0) e[key] = undefined;
+      if (d.ticks <= 0 || (d.left <= 0 && d.acc < STATUS.tick)) e[key] = undefined;
     }
   }
 
@@ -724,14 +780,14 @@ export class Field {
       p.tick -= dt;
       if (p.tick > 0) continue;
       p.tick = PUDDLE_TICK;
-      for (const e of this.enemies) if (e.hp > 0 && Math.hypot(e.x - p.x, e.y - p.y) <= p.r + e.r) this.hitWith(p.shooter, e, p.dmg, p.x, p.y, undefined, undefined, true, false);
+      if (p.abs !== undefined) this.hitArea(p.x, p.y, p.r, p.abs, p.dtype ?? 'acid', p.shooter);
+      else for (const e of this.enemies) if (e.hp > 0 && Math.hypot(e.x - p.x, e.y - p.y) <= p.r + e.r) this.hitWith(p.shooter, e, p.dmg, p.x, p.y, undefined, undefined, true, false);
     }
     this.puddles = this.puddles.filter((p) => p.life > 0);
   }
 
   private damage(e: Enemy, dmg: number, crit: boolean, dirX: number, dirY: number, shooter: Shooter = 'main', dtype: DamageType = 'physical'): void {
     if (e.hp <= 0) return;
-    if (e.corrode) dmg *= 1 + STATUS.corrode.amp;
     e.hp -= dmg;
     e.flash = 1;
     if (!e.boss) {
@@ -759,7 +815,7 @@ export class Field {
       const dy = e.y - y;
       const d = Math.hypot(dx, dy);
       if (d > g.tapRadius + e.r) continue;
-      this.damage(e, dmg * typeMult(dtype, e.type), crit, dx / (d || 1), dy / (d || 1), 'main', dtype);
+      this.damage(e, dmg * this.typeMultOn(dtype, e), crit, dx / (d || 1), dy / (d || 1), 'main', dtype);
     }
     this.enemies = this.enemies.filter((e) => e.hp > 0);
   }

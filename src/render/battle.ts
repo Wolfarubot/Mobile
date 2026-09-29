@@ -1,4 +1,4 @@
-import { areaDef, DAMAGE_TYPES, enemyDef, eventDef, FIELD_ZOOM, GUARDIAN_TIME, hunterDef, materialDef, type EnemyId, type EnemyShape } from '../core/balance';
+import { areaDef, DAMAGE_TYPES, STATUS, enemyDef, eventDef, FIELD_ZOOM, GUARDIAN_TIME, hunterDef, materialDef, type EnemyId, type EnemyShape } from '../core/balance';
 import { PLAYER_RADIUS, type Bullet, type Enemy, type Field, type Helper } from '../core/field';
 import { fmt } from '../core/format';
 import type { Game } from '../core/game';
@@ -211,8 +211,9 @@ export class BattleView {
 
     // Poison puddles on the ground
     for (const p of this.field.puddles) {
-      g.fillStyle = `rgba(123,224,123,${0.25 * Math.min(1, p.life)})`;
-      g.strokeStyle = `rgba(123,224,123,${0.6 * Math.min(1, p.life)})`;
+      const rgb = p.dtype === 'acid' ? '198,240,58' : '123,224,123';
+      g.fillStyle = `rgba(${rgb},${0.25 * Math.min(1, p.life)})`;
+      g.strokeStyle = `rgba(${rgb},${0.6 * Math.min(1, p.life)})`;
       g.lineWidth = 2;
       g.beginPath();
       g.arc(p.x, p.y, p.r, 0, Math.PI * 2);
@@ -652,7 +653,7 @@ export function drawEnemyPortrait(canvas: HTMLCanvasElement, id: EnemyId): void 
   g.restore();
 }
 
-/** Status effects on a monster: flickering flames (burn), rising bubbles (poison), a frosty ring (chill), acid drips (corrode). */
+/** Status effects on a monster: flames (burn), bubbles (poison), a frosty ring (chill), a dark aura (decay), violet sparks (arcane). */
 function drawStatus(g: CanvasRenderingContext2D, e: Enemy, t: number): void {
   const r = e.r;
   if (e.slow) {
@@ -676,14 +677,24 @@ function drawStatus(g: CanvasRenderingContext2D, e: Enemy, t: number): void {
   };
   if (e.burn) specks('#ff8a2a', 4, r * 1.6, 1.8);
   if (e.poison) specks('#6fdc5a', 3, r * 1.3, 0.9);
-  if (e.corrode) {
-    g.fillStyle = '#c6f03a';
-    for (let i = 0; i < 2; i++) {
-      const p = (t * 1.2 + i * 0.5 + e.phase) % 1;
-      g.globalAlpha = 1 - p;
-      g.fillRect((i ? 0.4 : -0.45) * r - 1, r * 0.5 + p * r * 0.8, 2, 3);
+  if (e.aura) {
+    // Decay's dark aura: a slowly pulsing ring the size of its reach.
+    const pulse = 0.5 + 0.5 * Math.sin(t * 6 + e.phase);
+    g.strokeStyle = `rgba(90,60,40,${0.35 + 0.3 * pulse})`;
+    g.fillStyle = 'rgba(60,40,30,0.12)';
+    g.lineWidth = 2;
+    g.beginPath();
+    g.arc(0, 0, STATUS.aura.radius, 0, Math.PI * 2);
+    g.fill();
+    g.stroke();
+  }
+  if (e.exposed) {
+    // Arcane: resistances stripped. Orbiting violet sparks.
+    g.fillStyle = '#c08cff';
+    for (let i = 0; i < 3; i++) {
+      const a = t * 4 + (i * Math.PI * 2) / 3;
+      g.fillRect(Math.cos(a) * (r + 5) - 1.5, Math.sin(a) * (r + 5) - 1.5, 3, 3);
     }
-    g.globalAlpha = 1;
   }
 }
 

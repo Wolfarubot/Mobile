@@ -329,14 +329,33 @@ export class Game {
    * attacks and their special by how much of their damage each deals. Used by the background model.
    */
   typeMultVs(shooter: Shooter, enemy: EnemyId): number {
-    // Burns, poisons and corrosion add some damage on top.
-    const vs = (t: DamageType) => typeMult(t, enemy) * (STATUS_MODEL[t] ?? 1);
-    const normal = vs(this.damageTypeOf(shooter));
+    // Status effects (burns, puddles, bursts...) add some damage on top, as often as they proc.
+    const vs = (t: DamageType, proc: number) => typeMult(t, enemy) * (1 + ((STATUS_MODEL[t] ?? 1) - 1) * proc);
+    const normal = vs(this.damageTypeOf(shooter), this.procOf(shooter));
     const sp = this.specialHitRate(shooter);
     if (!sp) return normal;
     const style = hunterDef(shooter as HunterId).style;
     const shots = this.shooterRate(shooter) * (style.pellets ?? 1) * this.projectiles * style.crowd;
-    return (shots * normal + sp * vs(this.damageTypeOf(shooter, 'long', true))) / (shots + sp);
+    return (shots * normal + sp * vs(this.damageTypeOf(shooter, 'long', true), this.procOf(shooter, 'long', true))) / (shots + sp);
+  }
+
+  /**
+   * Chance a hit triggers its damage type's status effect: the weapon's own chance (for Wilhelm, that mode's
+   * weapon), or the Hunter's own without one. Specials use their own chance (Glimmer's fireballs always burn).
+   */
+  procOf(who: Shooter, mode: GearMode = 'long', special = false): number {
+    if (who === 'main') return this.weaponItem(who, mode) ? (gearDef(this.weaponItem(who, mode)!.base).proc ?? 0) : 0;
+    const style = hunterDef(who).style;
+    if (special) return style.special?.proc ?? 0;
+    const item = this.weaponItem(who, mode);
+    return item ? (gearDef(item.base).proc ?? 0) : (style.proc ?? 0);
+  }
+
+  /** The piece in a Hunter's weapon slot for a mode, if any. */
+  private weaponItem(who: Shooter, mode: GearMode = 'long'): GearItem | null {
+    const slots = this.slotsOf(who);
+    const i = slots.findIndex((sl) => WEAPON_KINDS.includes(sl.kind) && (!sl.role || sl.role === mode));
+    return i >= 0 ? this.equipped(who)[i] : null;
   }
 
   // ---- Special attacks (Mira's potions, Glimmer's fireballs) ----
