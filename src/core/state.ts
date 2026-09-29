@@ -1,5 +1,6 @@
 import {
   ASCENDED_TREES,
+  SLAYER_TREE,
   AREAS,
   ENEMIES,
   EVENTS,
@@ -287,6 +288,11 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
     trains: typeof main?.trains === 'number' ? main.trains : typeof oldPower === 'number' ? oldPower : 0,
     skills: trees ? cleanSkills('main', main?.skills) : {},
   };
+  // Becoming the Slayer: keep a sane point where it happened, and only ranks in the Slayer's tree.
+  if (typeof main?.ascendAt === 'number' && Number.isFinite(main.ascendAt) && main.ascendAt >= 0 && main.ascendAt <= state.main.trains) {
+    state.main.ascendAt = main.ascendAt;
+    state.main.skills2 = cleanRanks(SLAYER_TREE, main.skills2);
+  }
   // v6 -> v7: the old Arena (minigame tickets, Stars, Hangar, Frenzy) was replaced by area events.
   for (const k of ['upgrades', 'tickets', 'ticketProgress', 'frenzyTime', 'stars', 'bh']) delete (state as unknown as Record<string, unknown>)[k];
   const savedHunters = (data.hunters ?? {}) as Record<string, { trains?: unknown; level?: unknown }>;

@@ -2,6 +2,14 @@ import {
   ASCEND_LEVEL,
   ASCEND_NODE,
   ASCENDED_TREES,
+  affordableCount,
+  MAIN_ASCEND_LEVEL,
+  MAIN_ASCEND_NODE,
+  MAIN_MAX_LEVEL,
+  mainBulkCost,
+  SLAYER_TREE,
+  MAIN_SESSIONS_TO_ASCEND,
+  MAIN_SESSIONS_AFTER_ASCEND,
   levelAfterAscending,
   MAX_LEVEL,
   SESSIONS_AFTER_ASCEND,
@@ -51,8 +59,6 @@ import {
   helperMaxAffordable,
   helperTrainCost,
   levelFromTrains,
-  MAIN_TRAIN_COST,
-  MAIN_TRAIN_GROWTH,
   hunterDef,
   HUNTERS,
   itemCost,
@@ -969,6 +975,12 @@ export class Game {
   /** Level from training, and sessions done / needed toward the next one (the curve starts over after ascending). */
   levelInfo(who: Wearer): { level: number; into: number; need: number } {
     const t = this.training(who);
+    if (who === 'main') {
+      if (t.ascendAt !== undefined) return levelAfterAscending(t.trains - t.ascendAt, MAIN_ASCEND_LEVEL, MAIN_MAX_LEVEL);
+      const info = levelFromTrains(t.trains);
+      // Saves from before the cap could be past it: hold them at Lv 100 until they ascend.
+      return info.level >= MAIN_ASCEND_LEVEL ? { level: MAIN_ASCEND_LEVEL, into: 0, need: 1 } : info;
+    }
     if (t.ascendAt !== undefined) return levelAfterAscending(t.trains - t.ascendAt);
     return levelFromTrains(t.trains);
   }
@@ -977,40 +989,43 @@ export class Game {
     return this.levelInfo(who).level;
   }
 
-  /** Has this Guild Hunter ascended? */
+  /** Has this Hunter ascended (your Hunter: become the Slayer)? */
   ascended(who: Wearer): boolean {
     return this.training(who).ascendAt !== undefined;
   }
 
-  /** Highest level they can train to: Guild Hunters stop at Lv 50 until they ascend, then at Lv 100. */
+  /** Highest level they can train to: Guild Hunters stop at Lv 50 until they ascend, then Lv 100; your Hunter Lv 100, then 200. */
   maxLevel(who: Wearer): number {
-    return who === 'main' ? Infinity : this.ascended(who) ? MAX_LEVEL : ASCEND_LEVEL;
+    if (who === 'main') return this.ascended(who) ? MAIN_MAX_LEVEL : MAIN_ASCEND_LEVEL;
+    return this.ascended(who) ? MAX_LEVEL : ASCEND_LEVEL;
   }
 
   /** Training sessions left before they hit their level cap. */
   sessionsLeft(who: Wearer): number {
-    if (who === 'main') return Infinity;
     const t = this.training(who);
+    if (who === 'main')
+      return Math.max(0, t.ascendAt !== undefined ? MAIN_SESSIONS_AFTER_ASCEND - (t.trains - t.ascendAt) : MAIN_SESSIONS_TO_ASCEND - t.trains);
     return t.ascendAt !== undefined ? SESSIONS_AFTER_ASCEND - (t.trains - t.ascendAt) : SESSIONS_TO_ASCEND - t.trains;
   }
 
-  /** Their title: Guild Hunters take a new one when they ascend. */
-  titleOf(who: HunterId): string {
+  /** Their title: Guild Hunters take a new one when they ascend; your Hunter becomes the Slayer. */
+  titleOf(who: Wearer): string {
+    if (who === 'main') return this.ascended(who) ? 'Slayer' : 'Hunter';
     const def = hunterDef(who);
     return this.ascended(who) ? def.ascendedTitle : def.title;
   }
 
   /** Ranks in a skill-tree node (their first tree, or the one they grow after ascending). */
   skill(who: Wearer, id: string, which: TreeKind = 'base'): number {
-    if (which === 'base' && id === ASCEND_NODE.id) return this.ascended(who) ? 1 : 0;
+    if (which === 'base' && id === 'ascend') return this.ascended(who) ? 1 : 0;
     const t = this.training(who);
     return (which === 'base' ? t.skills : (t.skills2 ?? {}))[id] ?? 0;
   }
 
   /** A Hunter's skill tree: their first (with the Ascend node for Guild Hunters), or their ascended one. */
   skillTree(who: Wearer, which: TreeKind = 'base'): SkillNode[] {
-    if (which === 'ascended') return who === 'main' ? [] : ASCENDED_TREES[who];
-    return who === 'main' ? SKILL_TREES.main : [...SKILL_TREES[who], ASCEND_NODE];
+    if (which === 'ascended') return who === 'main' ? SLAYER_TREE : ASCENDED_TREES[who];
+    return [...SKILL_TREES[who], who === 'main' ? MAIN_ASCEND_NODE : ASCEND_NODE];
   }
 
   private treeNode(who: Wearer, id: string, which: TreeKind): SkillNode | undefined {
@@ -1032,7 +1047,7 @@ export class Game {
 
   /** A node is reachable once any node it hangs from has a rank (the root always is). Ascend needs the whole first tree. */
   nodeReachable(who: Wearer, id: string, which: TreeKind = 'base'): boolean {
-    if (which === 'base' && id === ASCEND_NODE.id) return this.baseTreeComplete(who);
+    if (which === 'base' && id === 'ascend') return this.baseTreeComplete(who);
     const node = this.treeNode(who, id, which);
     return !!node && (node.requires.length === 0 || node.requires.some((r) => this.skill(who, r, which) > 0));
   }
@@ -1048,8 +1063,8 @@ export class Game {
   learn(who: Wearer, id: string, which: TreeKind = 'base'): boolean {
     if (!this.canLearn(who, id, which)) return false;
     const t = this.training(who);
-    if (which === 'base' && id === ASCEND_NODE.id) {
-      // Ascend: keep Lv 50, start the level curve over from here (the training price carries on), open the next tree.
+    if (which === 'base' && id === 'ascend') {
+      // Ascend: keep the level (Lv 50, or Lv 100 for your Hunter), start the level curve over from here (the training price carries on), open the next tree.
       t.ascendAt = t.trains;
       t.skills2 = {};
       return true;
@@ -1062,14 +1077,17 @@ export class Game {
   /** Cost of the next `amount` training sessions (`buyAmount` by default), stopping at their level cap. */
   trainPurchase(who: Wearer, amount: BuyAmount = this.state.buyAmount): Purchase {
     const done = this.training(who).trains;
+    const left = this.sessionsLeft(who);
+    if (left <= 0) return { count: 0, cost: Infinity };
     if (who === 'main') {
-      const count = amount === 'max' ? Math.max(1, maxAffordable(MAIN_TRAIN_COST, MAIN_TRAIN_GROWTH, done, this.state.gold)) : amount;
-      return { count, cost: bulkCost(MAIN_TRAIN_COST, MAIN_TRAIN_GROWTH, done, count) };
+      // Your Hunter: costs taper past Lv 30 too (more gently than a Guild Hunter's climb), up to the level cap.
+      const cost = (n: number) => mainBulkCost(done, n);
+      const wanted = amount === 'max' ? Math.max(1, affordableCount(cost, this.state.gold, left)) : amount;
+      const count = Math.min(wanted, left);
+      return { count, cost: cost(count) };
     }
     // Guild Hunters: costs taper past Lv 30, and training stops at their level cap.
     const base = helperTrainCost(hunterDef(who));
-    const left = this.sessionsLeft(who);
-    if (left <= 0) return { count: 0, cost: Infinity };
     const wanted = amount === 'max' ? Math.max(1, helperMaxAffordable(base, done, this.state.gold, left)) : amount;
     const count = Math.min(wanted, left);
     return { count, cost: helperBulkCost(base, done, count) };

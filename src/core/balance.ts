@@ -147,6 +147,91 @@ function skillTree(root: NodeSpec, branches: [NodeSpec, NodeSpec, NodeSpec], cap
   ];
 }
 
+// ---- Your Hunter: a longer first tree (Lv 90), Ascend at Lv 100 to become the Slayer, then on to Lv 200 ----
+
+/** Rows below your first tree's capstone: 50 more points, finishing with Legend (so the whole tree is done at Lv 90). */
+const MAIN_VETERAN_NODES: SkillNode[] = [
+  { id: 'might', name: "Hunter's Might", icon: '🗡️', desc: '+5% damage per rank.', maxRank: 10, effect: { damage: 0.05 }, requires: ['capstone'], col: 0, row: 4 },
+  { id: 'haste', name: "Hunter's Haste", icon: '💨', desc: '+5% attack rate per rank.', maxRank: 10, effect: { rate: 0.05 }, requires: ['capstone'], col: 1, row: 4 },
+  { id: 'will', name: 'Iron Will', icon: '🪨', desc: 'Stuns wear off 8% faster per rank.', maxRank: 5, effect: { recovery: 1 }, requires: ['capstone'], col: 2, row: 4 },
+  { id: 'deadlyTaps', name: 'Deadly Taps', icon: '👊', desc: '+25% tap blast damage per rank.', maxRank: 5, effect: { tapPower: 0.25 }, requires: ['might'], col: 0, row: 5 },
+  { id: 'keenEye', name: 'Keen Eye', icon: '🦅', desc: '+1% crit chance per rank.', maxRank: 5, effect: { crit: 0.01 }, requires: ['haste'], col: 1, row: 5 },
+  { id: 'wideTaps', name: 'Wide Taps', icon: '🌀', desc: '+8% tap blast area per rank.', maxRank: 5, effect: { tapSize: 0.08 }, requires: ['will'], col: 2, row: 5 },
+  { id: 'legend', name: 'Legend', icon: '🏆', desc: '+50% damage and +20% attack rate.', maxRank: 1, cost: 10, effect: { damage: 0.5, rate: 0.2 }, requires: ['deadlyTaps', 'keenEye', 'wideTaps'], col: 1, row: 6 },
+];
+
+/** Your Hunter's gold Ascend node, below Legend: 10 points, so Lv 100. */
+export const MAIN_ASCEND_NODE: SkillNode = {
+  id: 'ascend',
+  name: 'Ascend',
+  icon: '🌟',
+  desc: 'Become the Slayer: a new skill tree, and training up to Lv 200. Keeps Lv 100; the level curve starts over (1 session to Lv 101).',
+  maxRank: 1,
+  cost: 10,
+  effect: {},
+  requires: ['legend'],
+  col: 1,
+  row: 7,
+};
+
+/** Your Hunter's level cap before ascending, and after (as the Slayer). */
+export const MAIN_ASCEND_LEVEL = 100;
+export const MAIN_MAX_LEVEL = 200;
+
+/**
+ * Past Lv 30 your Hunter's sessions cost only this much more than the last. Tuned so ascending costs about
+ * 1.4x what it costs a Guild Hunter (Reginald) to ascend, and the Slayer's climb from Lv 100 to 200 about
+ * 2x a Guild Hunter's climb from Lv 50 to 100 (both in gold).
+ */
+export const MAIN_TAPER_GROWTH = 1.00259;
+
+/** Cost of `count` of your Hunter's sessions after `done`: ×MAIN_TRAIN_GROWTH to Lv 30, then ×MAIN_TAPER_GROWTH. */
+export function mainBulkCost(done: number, count: number): number {
+  return taperedBulkCost(MAIN_TRAIN_COST, MAIN_TRAIN_GROWTH, MAIN_TAPER_GROWTH, done, count);
+}
+
+/** Sessions of a two-speed cost curve: `growth` per session until Lv 30 (HELPER_TAPER_SESSIONS), then `taper`. */
+export function taperedBulkCost(base: number, growth: number, taper: number, done: number, count: number): number {
+  if (count <= 0) return 0;
+  const k = HELPER_TAPER_SESSIONS;
+  const steep = Math.max(0, Math.min(count, k - done));
+  const before = bulkCost(base, growth, done, steep);
+  const flat = count - steep;
+  if (flat <= 0) return before;
+  return before + bulkCost(base * growth ** k, taper, Math.max(done, k) - k, flat);
+}
+
+/** How many sessions `gold` buys on a cost curve `cost(count)` (at most `limit`). */
+export function affordableCount(cost: (count: number) => number, gold: number, limit: number): number {
+  let lo = 0;
+  let hi = Math.max(0, limit);
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (cost(mid) <= gold) lo = mid;
+    else hi = mid - 1;
+  }
+  return lo;
+}
+
+/** The Slayer's tree (100 points: Lv 101–200), its capstone the last 21 points. */
+export const SLAYER_TREE: SkillNode[] = skillTree(
+  { name: "Slayer's Oath", icon: '⚔️', desc: '+30% damage and +10% attack rate.', maxRank: 1, cost: 4, effect: { damage: 0.3, rate: 0.1 } },
+  [
+    { name: 'Precision', icon: '🎯', desc: '+1% crit chance per rank.', maxRank: 10, effect: { crit: 0.01 } },
+    { name: 'Tap Fury', icon: '💥', desc: '+30% tap blast damage per rank.', maxRank: 10, effect: { tapPower: 0.3 } },
+    { name: 'Tap Reach', icon: '🌊', desc: '+8% tap blast area per rank.', maxRank: 10, effect: { tapSize: 0.08 } },
+  ],
+  { name: 'Godslayer', icon: '👑', desc: '+100% damage, +25% attack rate and +5% crit chance.', maxRank: 1, cost: 21, effect: { damage: 1, rate: 0.25, crit: 0.05 } },
+).map((n) =>
+  n.id === 'power'
+    ? { ...n, name: 'Carnage', icon: '🩸', desc: '+5% damage per rank.', maxRank: 20, effect: { damage: 0.05 } }
+    : n.id === 'speed'
+      ? { ...n, name: 'Frenzy', icon: '⚡', desc: '+5% attack rate per rank.', maxRank: 20, effect: { rate: 0.05 } }
+      : n.id === 'recovery'
+        ? { ...n, name: 'Unbreakable', icon: '🗿' }
+        : n,
+);
+
 // ---- Ascension (Guild Hunters) ----
 // A Guild Hunter's first tree costs 39 points: it's complete at Lv 40. Then a gold Ascend node appears
 // (10 points, so Lv 50). Training stops at Lv 50 until they ascend. Ascending keeps Lv 50, starts the level
@@ -172,15 +257,19 @@ export const ASCEND_NODE: SkillNode = {
 };
 
 /** Level after `sessions` training sessions since ascending (Lv 50 → 51 takes 1, 51 → 52 takes 2, ...). */
-export function levelAfterAscending(sessions: number): { level: number; into: number; need: number } {
-  let level = ASCEND_LEVEL;
+export function levelAfterAscending(sessions: number, from = ASCEND_LEVEL, to = MAX_LEVEL): { level: number; into: number; need: number } {
+  let level = from;
   let left = sessions;
-  while (level < MAX_LEVEL && left >= level - ASCEND_LEVEL + 1) {
-    left -= level - ASCEND_LEVEL + 1;
+  while (level < to && left >= level - from + 1) {
+    left -= level - from + 1;
     level++;
   }
-  return { level, into: left, need: level - ASCEND_LEVEL + 1 };
+  return { level, into: left, need: level - from + 1 };
 }
+
+/** Sessions from Lv 1 to `level` on the normal curve, and from ascending at `from` to `to` on the restarted one. */
+export const sessionsToLevel = (level: number): number => Array.from({ length: level - 1 }, (_, i) => trainsForLevel(i + 1)).reduce((a, b) => a + b, 0);
+export const sessionsAfterAscending = (from: number, to: number): number => ((to - from) * (to - from + 1)) / 2;
 
 /** Sessions from Lv 1 to the pre-ascension cap, and from ascending to the final cap. */
 export const SESSIONS_TO_ASCEND = Array.from({ length: ASCEND_LEVEL - 1 }, (_, i) => trainsForLevel(i + 1)).reduce((a, b) => a + b, 0);
@@ -227,15 +316,18 @@ export const ASCENDED_TREES: Record<HunterId, SkillNode[]> = {
 
 /** Each Hunter's skill tree ('main' is yours). */
 export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
-  main: skillTree(
-    { name: "Hunter's Instinct", icon: '👁️', desc: '+5% crit chance.', maxRank: 1, effect: { crit: 0.05 } },
-    [
-      { name: 'Tap Power', icon: '👆', desc: '+50% tap blast damage per rank.', maxRank: 5, effect: { tapPower: 0.5 } },
-      { name: 'Split Shot', icon: '🔱', desc: 'Shots pierce 1 more enemy per rank.', maxRank: 2, effect: { pierce: 1 } },
-      { name: 'Tap Size', icon: '💥', desc: '+15% tap blast area per rank.', maxRank: 5, effect: { tapSize: 0.15 } },
-    ],
-    { name: 'Apex Hunter', icon: '👑', desc: '+25% damage and +10% attack rate.', maxRank: 1, effect: { damage: 0.25, rate: 0.1 } },
-  ),
+  main: [
+    ...skillTree(
+      { name: "Hunter's Instinct", icon: '👁️', desc: '+5% crit chance.', maxRank: 1, effect: { crit: 0.05 } },
+      [
+        { name: 'Tap Power', icon: '👆', desc: '+50% tap blast damage per rank.', maxRank: 5, effect: { tapPower: 0.5 } },
+        { name: 'Split Shot', icon: '🔱', desc: 'Shots pierce 1 more enemy per rank.', maxRank: 2, effect: { pierce: 1 } },
+        { name: 'Tap Size', icon: '💥', desc: '+15% tap blast area per rank.', maxRank: 5, effect: { tapSize: 0.15 } },
+      ],
+      { name: 'Apex Hunter', icon: '👑', desc: '+25% damage and +10% attack rate.', maxRank: 1, effect: { damage: 0.25, rate: 0.1 } },
+    ),
+    ...MAIN_VETERAN_NODES,
+  ],
   alchemist: skillTree(
     { name: 'Toxic Brew', icon: '🧪', desc: 'Poison puddles spread 15% wider.', maxRank: 1, effect: { radius: 0.15 } },
     [
@@ -1068,28 +1160,12 @@ export const HELPER_TAPER_SESSIONS = Array.from({ length: HELPER_TAPER_LEVEL - 1
  * then ×HELPER_TAPER_GROWTH. Counted in sessions, so it carries on unchanged through Ascension.
  */
 export function helperBulkCost(base: number, done: number, count: number): number {
-  if (count <= 0) return 0;
-  const k = HELPER_TAPER_SESSIONS;
-  const steep = Math.max(0, Math.min(count, k - done));
-  const before = bulkCost(base, HELPER_TRAIN_GROWTH, done, steep);
-  const flat = count - steep;
-  if (flat <= 0) return before;
-  // Past the taper: the first tapered session costs what session k would have, then grows slowly.
-  const start = Math.max(done, k);
-  const atTaper = base * HELPER_TRAIN_GROWTH ** k;
-  return before + bulkCost(atTaper, HELPER_TAPER_GROWTH, start - k, flat);
+  return taperedBulkCost(base, HELPER_TRAIN_GROWTH, HELPER_TAPER_GROWTH, done, count);
 }
 
 /** How many Guild Hunter sessions `gold` buys after `done` (at most `limit`). */
 export function helperMaxAffordable(base: number, done: number, gold: number, limit: number): number {
-  let lo = 0;
-  let hi = Math.max(0, limit);
-  while (lo < hi) {
-    const mid = Math.ceil((lo + hi) / 2);
-    if (helperBulkCost(base, done, mid) <= gold) lo = mid;
-    else hi = mid - 1;
-  }
-  return lo;
+  return affordableCount((n) => helperBulkCost(base, done, n), gold, limit);
 }
 
 /** Cost of a Guild Hunter's first training session (then × HELPER_TRAIN_GROWTH each, tapering past Lv 30). */
@@ -1349,3 +1425,7 @@ export const EVENTS: EventDef[] = [
 ];
 
 export const eventDef = (id: string): EventDef => EVENTS.find((e) => e.id === id)!;
+
+/** Your Hunter's sessions from Lv 1 to 100, and from becoming the Slayer to Lv 200. */
+export const MAIN_SESSIONS_TO_ASCEND = sessionsToLevel(MAIN_ASCEND_LEVEL);
+export const MAIN_SESSIONS_AFTER_ASCEND = sessionsAfterAscending(MAIN_ASCEND_LEVEL, MAIN_MAX_LEVEL);

@@ -28,6 +28,12 @@ import {
   helperMaxAffordable,
   levelFromTrains,
   ASCEND_LEVEL,
+  MAIN_ASCEND_LEVEL,
+  MAIN_MAX_LEVEL,
+  MAIN_SESSIONS_TO_ASCEND,
+  MAIN_SESSIONS_AFTER_ASCEND,
+  mainBulkCost,
+  SLAYER_TREE,
   ASCENDED_TREES,
   MAX_LEVEL,
   SESSIONS_AFTER_ASCEND,
@@ -526,6 +532,50 @@ describe('Shops', () => {
     const back = deserialize(serialize(g.state))!;
     expect(back.hunters.alchemist.ascendAt).toBe(t.ascendAt);
     expect(back.hunters.alchemist.skills2).toEqual(t.skills2);
+  });
+
+  it("the Slayer: your Hunter's tree runs to Lv 90, Ascend at Lv 100, then the Slayer's tree to Lv 200", () => {
+    const g = rich();
+    const t = g.state.main;
+    expect(g.titleOf('main')).toBe('Hunter');
+    // The whole first tree costs 89 points, plus 10 for Ascend: Lv 100.
+    expect(SKILL_TREES.main.reduce((sum, n) => sum + n.maxRank * (n.cost ?? 1), 0)).toBe(89);
+    expect(SLAYER_TREE.reduce((sum, n) => sum + n.maxRank * (n.cost ?? 1), 0)).toBe(100);
+    // Training stops at Lv 100.
+    t.trains = MAIN_SESSIONS_TO_ASCEND - 1;
+    expect(g.trainPurchase('main', 10).count).toBe(1);
+    t.trains = MAIN_SESSIONS_TO_ASCEND;
+    expect(g.levelOf('main')).toBe(MAIN_ASCEND_LEVEL);
+    expect(g.trainPurchase('main', 1).count).toBe(0);
+    expect(g.nodeReachable('main', 'ascend')).toBe(false);
+    for (const n of SKILL_TREES.main) while (g.skill('main', n.id) < n.maxRank) expect(g.learn('main', n.id)).toBe(true);
+    expect(g.skillPoints('main')).toBe(10);
+    expect(g.learn('main', 'ascend')).toBe(true);
+    expect(g.titleOf('main')).toBe('Slayer');
+    expect(g.levelInfo('main')).toEqual({ level: 100, into: 0, need: 1 });
+    expect(g.trainPurchase('main', 1).count).toBe(1);
+    t.trains = t.ascendAt! + MAIN_SESSIONS_AFTER_ASCEND;
+    expect(g.levelOf('main')).toBe(MAIN_MAX_LEVEL);
+    expect(g.trainPurchase('main', 1).count).toBe(0);
+    const dmg = g.damage;
+    for (const n of SLAYER_TREE) while (g.skill('main', n.id, 'ascended') < n.maxRank) expect(g.learn('main', n.id, 'ascended')).toBe(true);
+    expect(g.skillPoints('main')).toBe(0);
+    expect(g.damage).toBeGreaterThan(dmg * 1.5);
+    const back = deserialize(serialize(g.state))!;
+    expect(back.main.ascendAt).toBe(t.ascendAt);
+    expect(back.main.skills2).toEqual(t.skills2);
+  });
+
+  it("the Slayer's pace: ascending costs ~1.4x a Guild Hunter's, the climb to Lv 200 ~2x theirs to Lv 100", () => {
+    const base = helperTrainCost(hunterDef('alchemist'));
+    const helperAscend = helperBulkCost(base, 0, SESSIONS_TO_ASCEND);
+    const helperClimb = helperBulkCost(base, SESSIONS_TO_ASCEND, SESSIONS_AFTER_ASCEND);
+    const mainAscend = mainBulkCost(0, MAIN_SESSIONS_TO_ASCEND);
+    const mainClimb = mainBulkCost(MAIN_SESSIONS_TO_ASCEND, MAIN_SESSIONS_AFTER_ASCEND);
+    expect(mainAscend / helperAscend).toBeGreaterThan(1.25);
+    expect(mainAscend / helperAscend).toBeLessThan(1.5);
+    expect(mainClimb / helperClimb).toBeGreaterThan(1.8);
+    expect(mainClimb / helperClimb).toBeLessThan(2.2);
   });
 
   it('skill trees: the root first, then branches; each node needs a point in the one it hangs from', () => {

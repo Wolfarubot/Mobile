@@ -2,6 +2,8 @@ import {
   ASCEND_LEVEL,
   ASCEND_NODE,
   MAX_LEVEL,
+  MAIN_ASCEND_LEVEL,
+  MAIN_MAX_LEVEL,
   EMPOWER_LEVEL,
   EMPOWER_UNLOCK_KILLS,
   enemyDef,
@@ -257,14 +259,14 @@ export class AppUI {
     this.refreshers.push(() => {
       const p = g.trainPurchase(who);
       const { level, into, need } = g.levelInfo(who);
-      if (p.count === 0) btn.innerHTML = level >= MAX_LEVEL ? 'Max level' : `Lv ${level} cap<small>Ascend in Skills</small>`;
+      if (p.count === 0) btn.innerHTML = g.ascended(who) ? 'Max level' : `Lv ${level} cap<small>Ascend in Skills</small>`;
       else btn.innerHTML = `Train${p.count > 1 ? ` ×${p.count}` : ''}<small>🪙 ${fmt(p.cost)}</small>`;
       btn.disabled = p.count === 0 || g.state.gold < p.cost;
       $('i', bar).style.width = `${(into / need) * 100}%`;
       // The card's bar is just the bar; the numbers are in the full view.
       const capped = p.count === 0;
       $('i', bar).style.width = capped ? '100%' : `${(into / need) * 100}%`;
-      $('span', bar).textContent = compact ? '' : capped ? (level >= MAX_LEVEL ? `Lv ${level} · max level` : `Lv ${level} · ascend to go on`) : `Lv ${level} · ${into}/${need} to Lv ${level + 1}`;
+      $('span', bar).textContent = compact ? '' : capped ? (g.ascended(who) ? `Lv ${level} · max level` : `Lv ${level} · ascend to go on`) : `Lv ${level} · ${into}/${need} to Lv ${level + 1}`;
     });
     return { btn, bar };
   }
@@ -292,7 +294,7 @@ export class AppUI {
         <div class="hc-art">${portraitHtml(who)}</div>
         <div class="hc-info">
           <div class="card-corner"><b class="sp-dot hidden" title="Unspent skill points"></b><span class="expand-tag">Expand ›</span></div>
-          <div class="hc-name">${def ? `${def.name} <small>the ${g.titleOf(def.id)}</small>` : `${esc(mainName())} <small>the Monster Hunter</small>`}</div>
+          <div class="hc-name">${def ? `${def.name} <small>the ${g.titleOf(def.id)}</small>` : `${esc(mainName())} <small>the ${g.titleOf('main')}</small>`}</div>
           <div class="hc-ability">${def ? def.ability : MAIN_ABILITY}</div>
           <div class="hc-status"></div>
         </div>
@@ -447,8 +449,8 @@ export class AppUI {
     else equipment.appendChild(el('p', 'hd-note', `Slots: ${g.slotsOf(who).map((sl) => `${GEAR_KINDS[sl.kind].icon} ${sl.label}`).join(' · ')}. Recruit them to equip gear.`));
 
     // Skills
-    if (who !== 'main' && g.ascended(who)) {
-      pane('skills').appendChild(sectionTitle(`Ascended tree · the ${g.titleOf(who)}`));
+    if (g.ascended(who)) {
+      pane('skills').appendChild(sectionTitle(`${who === 'main' ? "Slayer's tree" : 'Ascended tree'} · the ${g.titleOf(who)}`));
       pane('skills').appendChild(this.treeView(this.hunterTree(who, 'ascended')));
       pane('skills').appendChild(sectionTitle('First tree'));
     }
@@ -461,7 +463,7 @@ export class AppUI {
       spCount.classList.toggle('hidden', points <= 0);
       const station = def ? g.state.hunters[def.id].station : g.area;
       $('.hd-sub', view).innerHTML = [
-        `<span>${def ? `the ${g.titleOf(def.id)}` : 'the Monster Hunter'}${recruited ? ` · Lv ${g.levelOf(who)}` : ''}</span>`,
+        `<span>the ${g.titleOf(who)}${recruited ? ` · Lv ${g.levelOf(who)}` : ''}</span>`,
         recruited ? `<span class="where">${station ? `📍 ${areaDef(station).name}` : '💤 Resting'}</span>` : '',
         def && hunterPerk(def) ? `<span class="perk">${hunterPerk(def)}</span>` : '',
       ].join('');
@@ -518,9 +520,17 @@ export class AppUI {
       learn: (id) => g.learn(who, id, which),
       verb: 'Learn',
       // The gold Ascend node only shows once the first tree is complete.
-      hidden: (id) => id === ASCEND_NODE.id && !g.baseTreeComplete(who),
+      hidden: (id) => which === 'base' && id === ASCEND_NODE.id && !g.baseTreeComplete(who),
       after: (id) => {
-        if (id !== ASCEND_NODE.id || who === 'main') return;
+        if (which !== 'base' || id !== ASCEND_NODE.id) return;
+        if (who === 'main') {
+          this.openHunterDetail(who, 'skills');
+          this.showModal(
+            `<h2>⚔️ You are the Slayer!</h2><p>${esc(mainName())} ${mainHunterName ? 'is' : 'are'} now <b>the Slayer</b>. The Slayer's tree is open, and training goes on to <b>Lv ${MAIN_MAX_LEVEL}</b>: the level curve starts over (1 session to Lv ${MAIN_ASCEND_LEVEL + 1}), at the same training price.</p>`,
+            [{ label: 'Onward' }],
+          );
+          return;
+        }
         const def = hunterDef(who);
         this.openHunterDetail(who, 'skills');
         this.showModal(

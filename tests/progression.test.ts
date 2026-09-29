@@ -53,7 +53,13 @@ function botSkills(game: Game): void {
       const lv = (k: string) => game.skill(who, k);
       const order = ['root', lv('speed') <= lv('power') ? 'speed' : 'power', lv('recovery') * 3 < lv('power') ? 'recovery' : 'power', 'speed', 'power2', 'speed2', 'capstone', 'recovery2', 'recovery'];
       const pick = order.find((k) => game.canLearn(who, k));
-      if (!pick || !game.learn(who, pick)) break;
+      if (pick) {
+        if (!game.learn(who, pick)) break;
+        continue;
+      }
+      // Past the core: the rest of the first tree in order, then Ascend, then the ascended tree.
+      const next = (['base', 'ascended'] as const).flatMap((w) => game.skillTree(who, w).map((n) => [w, n.id] as const)).find(([w, id]) => game.canLearn(who, id, w));
+      if (!next || !game.learn(who, next[1], next[0])) break;
     }
   }
 }
