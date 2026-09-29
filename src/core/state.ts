@@ -86,7 +86,7 @@ export interface GameState {
   /** Player preferences (Settings page). */
   settings: { leftHanded: boolean; /** Your Hunter's name ('' shows as "You"). */ name: string };
   /** One-time tutorial moments already shown. */
-  flags: { eventsIntro: boolean };
+  flags: { eventsIntro: boolean; /** The first-launch welcome has been shown. */ welcome: boolean };
   /** Per event: seconds of cooldown left, times started and times completed (a Guardian beaten, a swarm survived). */
   events: Record<string, EventState>;
   buyAmount: BuyAmount;
@@ -125,7 +125,7 @@ export function newGame(now = Date.now()): GameState {
     nextGearUid: 1,
     lastSeen: now,
     settings: { leftHanded: false, name: '' },
-    flags: { eventsIntro: false },
+    flags: { eventsIntro: false, welcome: false },
     events: Object.fromEntries(EVENTS.map((e) => [e.id, { cooldown: 0, runs: 0, completed: 0 }])),
     buyAmount: 1,
     stats: { totalKills: 0, totalGold: 0, taps: 0, escaped: 0, guardians: 0, hunterKills: {} },
@@ -206,7 +206,11 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
       leftHanded: !!(data.settings as { leftHanded?: unknown } | undefined)?.leftHanded,
       name: String((data.settings as { name?: unknown } | undefined)?.name ?? '').slice(0, 16),
     },
-    flags: { eventsIntro: !!(data.flags as { eventsIntro?: unknown } | undefined)?.eventsIntro },
+    flags: {
+      eventsIntro: !!(data.flags as { eventsIntro?: unknown } | undefined)?.eventsIntro,
+      // Anyone with a save from before the welcome existed has already started playing.
+      welcome: (data.flags as { welcome?: unknown } | undefined)?.welcome !== false,
+    },
     events: Object.fromEntries(
       EVENTS.map((e) => {
         const saved = (data.events as Record<string, Partial<Record<keyof EventState, unknown>>> | undefined)?.[e.id];

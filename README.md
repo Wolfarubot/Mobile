@@ -1,4 +1,4 @@
-# Monster Horde Idle
+# Pocket Hunter
 
 An incremental (idle) survivor game for Android, with iOS to follow. Your Hunter stands in the middle of the field and auto-shoots an endless horde closing in from every side, Vampire Survivors style. Enemies that reach the Hunter don't hurt them: they **stun** them and **run off with their loot**. You start in the Whispering Forest and push through **five areas**. Each has its own monsters and materials, and every area you open stays open for good. Recruit extra **Hunters** with their own specialties and station them in areas to keep earning while you hunt elsewhere.
 

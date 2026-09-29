@@ -32,7 +32,8 @@ async function boot(): Promise<void> {
   const field = new Field(game);
   const battle = new BattleView(document.getElementById('battle') as HTMLCanvasElement, game, field);
   const ui = new AppUI(game, { save, wipe });
-  if (offline && offline.away >= OFFLINE_POPUP_SEC) ui.showOffline(offline);
+  if (!game.state.flags.welcome) ui.showWelcome();
+  else if (offline && offline.away >= OFFLINE_POPUP_SEC) ui.showOffline(offline);
 
   // Main loop: simulation runs every frame; the DOM refreshes on a slower cadence.
   let last = performance.now();

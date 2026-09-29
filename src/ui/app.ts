@@ -1266,6 +1266,21 @@ export class AppUI {
     this.showModal(`<h2>🔒 Events</h2><p>Slay ${fmt(forest.mastery)} monsters in the ${forest.name} to unlock Events and the Guardian Challenge.</p><p><b>${fmt(kills)} / ${fmt(forest.mastery)}</b></p>`, [{ label: 'OK' }]);
   }
 
+  /** Shown once, the very first time the game opens. */
+  showWelcome(): void {
+    this.game.state.flags.welcome = true;
+    this.showModal(
+      `<h2>Welcome!</h2>
+       <p>This is <b>Pocket Hunter</b>, an idle swarm slaying game!</p>
+       <p>Start your journey by tapping on the monsters while your Hunter attacks.</p>
+       <p>You can change the name of your Hunter in the ⚙️ settings.</p>`,
+      [
+        { label: 'Name my Hunter', secondary: true, action: () => this.openSettings() },
+        { label: "Let's hunt!" },
+      ],
+    );
+  }
+
   /** Shown once, when the first Guardian Challenge unlocks. */
   private showEventsIntro(): void {
     this.game.state.flags.eventsIntro = true;
