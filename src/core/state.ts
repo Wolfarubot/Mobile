@@ -127,7 +127,7 @@ export interface GameState {
   };
 }
 
-export const SAVE_VERSION = 8;
+export const SAVE_VERSION = 9;
 
 const zeroes = <K extends string>(ids: { id: K }[]): Record<K, number> =>
   Object.fromEntries(ids.map((x) => [x.id, 0])) as Record<K, number>;
@@ -279,6 +279,9 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
   if (data.equipment && typeof data.equipment === 'object')
     for (const [who, slots] of Object.entries(data.equipment as Record<string, unknown>))
       if (Array.isArray(slots)) state.equipment[who as Wearer] = slots.map((u) => (typeof u === 'number' && uids.has(u) ? u : null));
+  // v8 -> v9: Glimmer's slots went from Robe · Focus · Focus to Magic weapon · Robe · Accessory.
+  const glimmer = state.equipment.glimmer;
+  if (((data.version as number) ?? 1) < 9 && glimmer) state.equipment.glimmer = [null, glimmer[0] ?? null, glimmer[1] ?? null];
   state.nextGearUid = Math.max(typeof data.nextGearUid === 'number' ? data.nextGearUid : 1, ...state.inventory.map((g) => g.uid + 1));
   if (!Number.isFinite(state.gold) || state.gold < 0) state.gold = 0;
   if (!(state.area in state.areas) || !state.areas[state.area].unlocked) state.area = 'forest';

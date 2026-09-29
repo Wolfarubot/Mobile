@@ -1,4 +1,6 @@
 import {
+  slotAccepts,
+  WEAPON_KINDS,
   areaDef,
   areaEnemies,
   AREAS,
@@ -301,7 +303,43 @@ export class Game {
   dpsOf(shooter: Shooter, archetype?: Archetype): number {
     const style = shooter === 'main' ? null : hunterDef(shooter).style;
     const perAttack = (style?.pellets ?? 1) * this.projectiles * (style?.farm ?? 1);
-    return this.shotDamage(shooter, archetype) * this.shooterRate(shooter) * perAttack * this.critFactor(shooter);
+    return this.shotDamage(shooter, archetype) * (this.shooterRate(shooter) * perAttack + this.specialHitRate(shooter)) * this.critFactor(shooter);
+  }
+
+  // ---- Special attacks (Mira's potions, Glimmer's fireballs) ----
+
+  /** Stats of the piece in a Hunter's weapon slot (zeros when empty). Its damage and attack rate power their special. */
+  weaponStats(who: Shooter): Partial<Record<GearStat, number>> {
+    const slots = this.slotsOf(who);
+    const i = slots.findIndex((sl) => WEAPON_KINDS.includes(sl.kind));
+    const item = i >= 0 ? this.equipped(who)[i] : null;
+    return item ? gearStats(gearDef(item.base), item.level) : {};
+  }
+
+  /** Seconds between special attacks, or null if the Hunter has none. */
+  specialCooldown(shooter: Shooter): number | null {
+    return shooter === 'main' ? null : (hunterDef(shooter).style.special?.cooldown ?? null);
+  }
+
+  /** Multiplier on shot damage for each hit of the special: its base × (1 + weapon damage). */
+  specialDamageMult(shooter: Shooter): number {
+    const sp = shooter === 'main' ? undefined : hunterDef(shooter).style.special;
+    return sp ? sp.damage * (1 + (this.weaponStats(shooter).damage ?? 0)) : 0;
+  }
+
+  /** Radius of the special: its base × (1 + weapon attack rate) × area bonuses (skills, gear). */
+  specialRadius(shooter: Shooter): number {
+    const sp = shooter === 'main' ? undefined : hunterDef(shooter).style.special;
+    return sp ? sp.radius * (1 + (this.weaponStats(shooter).rate ?? 0)) * this.radiusMult(shooter) : 0;
+  }
+
+  /** The special's damage in shot-equivalents per second against a crowd (for DPS and the farm model). */
+  private specialHitRate(shooter: Shooter): number {
+    const sp = shooter === 'main' ? undefined : hunterDef(shooter).style.special;
+    if (!sp) return 0;
+    // Wider specials catch more of the crowd.
+    const reach = this.specialRadius(shooter) / sp.radius;
+    return (sp.ticks * sp.crowd * reach * this.specialDamageMult(shooter)) / sp.cooldown;
   }
 
   /** Your main Hunter's DPS. */
@@ -420,7 +458,7 @@ export class Game {
     if (!this.canWear(who) || slot < 0 || slot >= slots.length) return false;
     if (uid !== null) {
       const item = this.gearItem(uid);
-      if (!item || gearDef(item.base).kind !== slots[slot].kind) return false;
+      if (!item || !slotAccepts(slots[slot], gearDef(item.base).kind)) return false;
       const worn = this.wearerOf(uid);
       if (worn) this.state.equipment[worn.who]![worn.slot] = null;
     }
@@ -728,7 +766,7 @@ export class Game {
         // A shield regains one charge every GUARD_RECHARGE seconds, however many it holds.
         guardRate: this.guardOf(sh) > 0 ? 1 / GUARD_RECHARGE : 0,
         /** Effective hits per second, counting pellets, Split Bow and how many monsters each attack reaches. */
-        shots: this.shooterRate(sh) * (style?.pellets ?? 1) * this.projectiles * (style?.crowd ?? 1),
+        shots: this.shooterRate(sh) * (style?.pellets ?? 1) * this.projectiles * (style?.crowd ?? 1) + this.specialHitRate(sh),
         down: 0, // fraction of time stunned
         stunRate: 0,
       };

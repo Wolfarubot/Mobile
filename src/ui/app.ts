@@ -1,4 +1,5 @@
 import {
+  slotAccepts,
   areaDef,
   areaEnemies,
   AREAS,
@@ -81,8 +82,8 @@ interface InvFilter {
   rarity: Rarity | 'any';
   level: LevelFilter;
 }
-/** Which filter type a gear kind falls under. Plain 'weapon' gear is ranged (bows, rifles); no magic weapons exist yet. */
-const GEAR_TYPE: Record<string, InvType> = { weapon: 'ranged', melee: 'melee', armor: 'armor', accessory: 'accessory' };
+/** Which filter type a gear kind falls under ('weapon' gear is ranged: bows, crossbows, rifles). */
+const GEAR_TYPE: Record<string, InvType> = { weapon: 'ranged', melee: 'melee', magic: 'magic', armor: 'armor', accessory: 'accessory' };
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string, root: ParentNode = document) => root.querySelector(sel) as T;
 
@@ -411,6 +412,16 @@ export class AppUI {
         ['Crit chance', `${Math.round(g.critChanceOf(who) * 100)}%`],
       ];
       if (!def) cells.push(['Tap damage', fmt(g.tapDamage)], ['Tap size', fmt(g.tapRadius)]);
+      const cd = g.specialCooldown(who);
+      if (cd !== null) {
+        const potion = def?.style.kind === 'potion';
+        const hit = fmt(g.shotDamage(who) * g.specialDamageMult(who));
+        cells.push(
+          [potion ? 'Puddle damage' : 'Fireball damage', potion ? `${hit}/tick` : hit],
+          [potion ? 'Puddle size' : 'Blast size', fmt(g.specialRadius(who))],
+          [potion ? 'Potion every' : 'Fireball every', `${cd}s`],
+        );
+      }
       const pierce = g.pierceOf(who) + (def?.style.pierce ?? 0);
       if (pierce) cells.push(['Pierce', String(pierce)]);
       if (def?.bane) cells.splice(1, 0, [`vs ${ARCHETYPES[def.bane.archetype].name}`, fmt(g.shotDamage(who, def.bane.archetype))]);
@@ -611,7 +622,7 @@ export class AppUI {
     document.body.appendChild(view);
     this.picker = view;
     $('.hd-close', view).addEventListener('click', () => this.closePicker());
-    const fits = (it: GearItem) => gearDef(it.base).kind === def.kind;
+    const fits = (it: GearItem) => slotAccepts(def, gearDef(it.base).kind);
     // Start on the best piece that fits and nobody is wearing.
     let selected: number | null =
       g.state.inventory.filter((it) => fits(it) && !g.wearerOf(it.uid)).sort((a, b) => b.level - a.level)[0]?.uid ?? null;
@@ -1255,7 +1266,7 @@ export class AppUI {
       inv.innerHTML = '';
       if (!total) inv.innerHTML = '<p class="empty-inv">Empty. Craft equipment in Crafting, then equip it from a Hunter\'s card.</p>';
       else if (!shown)
-        inv.innerHTML = `<p class="empty-inv">${f.type === 'magic' ? 'No magic weapons yet.' : 'Nothing matches these filters.'}</p>`;
+        inv.innerHTML = '<p class="empty-inv">Nothing matches these filters.</p>';
       for (const it of gear) {
         const gd = gearDef(it.base);
         const worn = g.wearerOf(it.uid);

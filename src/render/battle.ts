@@ -715,6 +715,21 @@ function drawBullet(g: CanvasRenderingContext2D, b: Bullet, t: number): void {
       g.arc(0, 0, 3.5, 0, Math.PI * 2);
       g.fill();
       break;
+    case 'spark': {
+      // A spellcaster's magic bolt, in their colour.
+      const c = b.shooter === 'main' ? '#fff6c2' : hunterDef(b.shooter).color;
+      g.rotate(t * 10);
+      g.fillStyle = c;
+      g.globalAlpha = 0.35;
+      g.beginPath();
+      g.arc(0, 0, 6, 0, Math.PI * 2);
+      g.fill();
+      g.globalAlpha = 1;
+      g.fillRect(-2.5, -2.5, 5, 5);
+      g.fillStyle = '#ffffff';
+      g.fillRect(-1, -1, 2, 2);
+      break;
+    }
     case 'pellet':
     case 'pistol':
       g.fillStyle = '#ffe9a0';

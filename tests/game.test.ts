@@ -20,7 +20,7 @@ import {
 } from '../src/core/balance';
 import { Field, type Enemy } from '../src/core/field';
 import { Game } from '../src/core/game';
-import { deserialize, newGame, serialize, type GameState } from '../src/core/state';
+import { deserialize, newGame, SAVE_VERSION, serialize, type GameState } from '../src/core/state';
 
 const noCrit = () => 0.99;
 
@@ -427,14 +427,14 @@ describe('Equipment', () => {
     expect(poor.craftGear('huntingBow')).toBeNull();
   });
 
-  it('every Hunter has 3 slots with armor; Lance melee, Wilhelm two weapons, Glimmer two accessories', () => {
+  it('every Hunter has 3 slots with armor; Lance melee, Wilhelm two weapons, Glimmer a magic weapon', () => {
     const g = stocked();
     const kinds = (who: Parameters<Game['slotsOf']>[0]) => g.slotsOf(who).map((sl) => sl.kind);
     expect(kinds('main')).toEqual(['weapon', 'armor', 'accessory']);
     expect(kinds('ranger')).toEqual(['weapon', 'armor', 'accessory']);
     expect(kinds('lance')).toEqual(['melee', 'armor', 'accessory']);
     expect(kinds('wilhelm')).toEqual(['weapon', 'weapon', 'armor']);
-    expect(kinds('glimmer')).toEqual(['armor', 'accessory', 'accessory']);
+    expect(kinds('glimmer')).toEqual(['magic', 'armor', 'accessory']);
     for (const h of ['main', 'glimmer', 'lance', 'wilhelm', 'ranger'] as const) expect(kinds(h)).toContain('armor');
   });
 
@@ -467,13 +467,40 @@ describe('Equipment', () => {
     expect(g.shooterRange('main')).toBe(range + 20);
   });
 
-  it("Glimmer's two accessories stack; Wilhelm's long and short weapons each power one mode", () => {
+  it('magic weapons: Glimmer takes only magic, Mira takes ranged or magic, nobody else takes magic', () => {
     const g = stocked();
-    const a = g.craftGear('emberOrb')!;
-    const b = g.craftGear('emberOrb')!;
-    g.equip('glimmer', 1, a.uid);
-    g.equip('glimmer', 2, b.uid);
-    expect(g.radiusMult('glimmer')).toBeCloseTo(1.24);
+    g.recruit('alchemist');
+    const wand = g.craftGear('apprenticeWand')!;
+    const bow = g.craftGear('huntingBow')!;
+    expect(g.equip('glimmer', 0, bow.uid)).toBe(false);
+    expect(g.equip('glimmer', 0, wand.uid)).toBe(true);
+    expect(g.equip('alchemist', 0, bow.uid)).toBe(true);
+    expect(g.equip('alchemist', 0, wand.uid)).toBe(true); // moves from Glimmer
+    expect(g.equip('main', 0, wand.uid)).toBe(false);
+    expect(g.equip('ranger', 0, wand.uid)).toBe(false);
+    expect(g.equip('lance', 0, wand.uid)).toBe(false);
+  });
+
+  it("a spellcaster's weapon damage powers their special and its attack rate widens it", () => {
+    const g = stocked();
+    const dmg = g.specialDamageMult('glimmer');
+    const r = g.specialRadius('glimmer');
+    const dps = g.dpsOf('glimmer');
+    const staff = g.craftGear('soulfireStaff')!; // +75% damage, +30% rate
+    g.equip('glimmer', 0, staff.uid);
+    expect(g.specialDamageMult('glimmer')).toBeCloseTo(dmg * 1.75);
+    expect(g.specialRadius('glimmer')).toBeCloseTo(r * 1.3);
+    expect(g.dpsOf('glimmer')).toBeGreaterThan(dps * 1.75);
+    // Area gear still widens it too, and Hunters without a special have none.
+    const orb = g.craftGear('emberOrb')!;
+    g.equip('glimmer', 2, orb.uid);
+    expect(g.specialRadius('glimmer')).toBeCloseTo(r * 1.3 * 1.12);
+    expect(g.specialCooldown('ranger')).toBeNull();
+    expect(g.specialDamageMult('ranger')).toBe(0);
+  });
+
+  it("Wilhelm's long and short weapons each power one mode", () => {
+    const g = stocked();
 
     const rifle = g.craftGear('frostRifle')!;
     const bow = g.craftGear('huntingBow')!;
@@ -831,16 +858,22 @@ describe('Field', () => {
     expect(f.bullets.length).toBeGreaterThan(0);
   });
 
-  it('Mira lobs potions that leave damaging puddles', () => {
+  it('Mira flings magic bolts and lobs a potion that leaves a damaging puddle on a cooldown', () => {
     const { f } = withHelper('alchemist');
     f.enemies.push(tough({ id: 1, x: -150, y: 150 }));
     let puddle = false;
-    for (let i = 0; i < 60; i++) {
+    let spark = false;
+    for (let i = 0; i < 90; i++) {
       f.update(1 / 30);
       puddle ||= f.puddles.some((p) => p.shooter === 'alchemist');
+      spark ||= f.bullets.some((b) => b.shooter === 'alchemist' && b.kind === 'spark');
     }
     expect(f.helpers.map((h) => h.id)).toEqual(['alchemist']);
     expect(puddle).toBe(true);
+    // The potion is on a cooldown: in between, only sparks fly.
+    expect(f.puddles.filter((p) => p.shooter === 'alchemist').length).toBeLessThanOrEqual(1);
+    expect(f.helpers[0].specialCd).toBeGreaterThan(0);
+    expect(spark).toBe(true);
     expect(f.enemies[0].hp).toBeLessThan(1e12);
   });
 
@@ -1002,7 +1035,7 @@ describe('Saves', () => {
     v5.upgrades = { power: 40, haste: 12, nerves: 3 };
     v5.hunters.glimmer = { recruited: true, level: 30, station: 'forest' };
     const s = deserialize(JSON.stringify(v5))!;
-    expect(s.version).toBe(8);
+    expect(s.version).toBe(SAVE_VERSION);
     expect(s.main).toEqual({ trains: 40, skills: {} });
     expect(s.hunters.glimmer).toEqual({ recruited: true, trains: 30, skills: {}, station: 'forest' });
     expect(s.hunters.ranger.trains).toBe(0);
@@ -1063,6 +1096,23 @@ describe('Saves', () => {
     expect(s.main).toEqual({ trains: 50, skills: {} });
   });
 
+  it("v8 -> v9: Glimmer's robe and first focus move over for his new magic weapon slot", () => {
+    const v8 = JSON.parse(serialize(newGame(0)));
+    v8.version = 8;
+    v8.inventory = [
+      { uid: 1, base: 'leatherVest', level: 1 },
+      { uid: 2, base: 'emberOrb', level: 2 },
+      { uid: 3, base: 'luckyCharm', level: 1 },
+    ];
+    v8.equipment = { glimmer: [1, 2, 3], main: [null, null, 3] };
+    const s = deserialize(JSON.stringify(v8))!;
+    expect(s.equipment.glimmer).toEqual([null, 1, 2]);
+    expect(s.equipment.main).toEqual([null, null, 3]);
+    expect(s.inventory).toHaveLength(3); // the second focus stays in the inventory
+    // Current saves aren't remapped again.
+    expect(deserialize(serialize(s))!.equipment.glimmer).toEqual([null, 1, 2]);
+  });
+
   it('keeps per-Hunter kills, and older saves start them empty', () => {
     const s = newGame(0);
     s.stats.hunterKills = { main: 12, ranger: 5 };
@@ -1078,7 +1128,7 @@ describe('Saves', () => {
   it('migrates a stage-based save: keeps items and surviving materials', () => {
     const v3 = { version: 3, gold: 1e9, stage: 40, maxStage: 40, items: { whetstone: 4 }, materials: { goo: 50, bone: 20, ember: 5 }, stars: 7, stats: { totalKills: 123, deaths: 2 } };
     const s = deserialize(JSON.stringify(v3))!;
-    expect(s.version).toBe(8);
+    expect(s.version).toBe(SAVE_VERSION);
     expect(s.area).toBe('forest');
     expect(s.gold).toBe(0);
     expect(s.items.whetstone).toBe(4);

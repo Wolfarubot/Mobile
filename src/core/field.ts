@@ -18,10 +18,8 @@ export const PLAYER_RADIUS = 13;
 const BULLET_RADIUS = 4;
 const BOSS_BOUNCE = 260;
 const GUARD_BOUNCE = 220;
-const PUDDLE_LIFE = 3;
+/** Seconds between puddle ticks; a puddle lasts its special's `ticks` of these. */
 const PUDDLE_TICK = 0.5;
-/** Each puddle tick deals this fraction of the thrower's shot damage. */
-const PUDDLE_TICK_DAMAGE = 0.5;
 const RICOCHET_RANGE = 160;
 /** Sniper in akimbo mode: fire rate and per-bullet damage multipliers. */
 const AKIMBO_RATE = 4;
@@ -68,6 +66,8 @@ export interface Helper {
   akimbo: boolean;
   /** Alternates the akimbo pistol hand. */
   hand: number;
+  /** Seconds until their special attack (potion, fireball) is ready. */
+  specialCd: number;
 }
 
 /** Where stationed Hunters stand, relative to your Hunter. */
@@ -77,7 +77,7 @@ const HELPER_SPOTS = [
   { x: 0, y: -62 },
 ];
 
-export type BulletKind = 'bolt' | 'arrow' | 'fireball' | 'potion' | 'pellet' | 'dagger' | 'pistol' | 'ricochet' | 'hammer';
+export type BulletKind = 'bolt' | 'spark' | 'arrow' | 'fireball' | 'potion' | 'pellet' | 'dagger' | 'pistol' | 'ricochet' | 'hammer';
 
 export interface Bullet {
   shooter: Shooter;
@@ -110,6 +110,8 @@ export interface Puddle {
   r: number;
   life: number;
   tick: number;
+  /** Multiplier on the thrower's shot damage per tick. */
+  dmg: number;
 }
 
 export type FieldEvent =
@@ -443,6 +445,7 @@ export class Field {
       guardAcc: 0,
       akimbo: false,
       hand: 0,
+      specialCd: 1,
     }));
   }
 
@@ -458,6 +461,7 @@ export class Field {
     const mode: GearMode = h.akimbo ? 'short' : 'long';
     const rate = g.shooterRate(h.id, mode) * (h.akimbo ? AKIMBO_RATE : 1);
     const areaMult = g.radiusMult(h.id);
+    if (style.special) this.helperSpecial(h, dt);
     h.fireAcc = Math.min(h.fireAcc + dt * rate, 3);
     while (h.fireAcc >= 1) {
       const range = h.akimbo ? AKIMBO_RANGE + g.gear(h.id, 'short').range : g.shooterRange(h.id);
@@ -470,13 +474,10 @@ export class Field {
       const a = Math.atan2(target.y - h.y, target.x - h.x);
       h.aim = a;
       switch (style.kind) {
-        case 'potion': {
-          const d = Math.hypot(target.x - h.x, target.y - h.y);
-          this.shoot(h.id, 'potion', h.x, h.y, a, 300, d, { radius: (style.radius ?? 40) * areaMult, tx: target.x, ty: target.y });
-          break;
-        }
+        case 'potion':
         case 'fireball':
-          this.shoot(h.id, 'fireball', h.x, h.y, a, 380, range, { radius: (style.radius ?? 50) * areaMult, spread: true });
+          // Between specials, spellcasters fling magic bolts.
+          this.shoot(h.id, 'spark', h.x, h.y, a, 520, range, { spread: true });
           break;
         case 'arrow':
           this.shoot(h.id, 'arrow', h.x, h.y, a, 620, range, { pierce: (style.pierce ?? 0) + g.pierceOf(h.id), spread: true });
@@ -517,6 +518,26 @@ export class Field {
           this.shoot(h.id, 'bolt', h.x, h.y, a, BULLET_SPEED, range, { spread: true });
       }
     }
+  }
+
+  /** Mira's potion / Glimmer's fireball: cast at the nearest monster in range whenever the cooldown is up. */
+  private helperSpecial(h: Helper, dt: number): void {
+    const g = this.game;
+    const style = hunterDef(h.id).style;
+    const sp = style.special!;
+    h.specialCd = Math.max(0, h.specialCd - dt);
+    if (h.specialCd > 0) return;
+    const range = g.shooterRange(h.id);
+    const target = this.nearest(h.x, h.y, range);
+    if (!target) return;
+    h.specialCd = sp.cooldown;
+    const a = Math.atan2(target.y - h.y, target.x - h.x);
+    const radius = g.specialRadius(h.id);
+    const dmg = g.specialDamageMult(h.id);
+    if (style.kind === 'potion') {
+      const d = Math.hypot(target.x - h.x, target.y - h.y);
+      this.shoot(h.id, 'potion', h.x, h.y, a, 300, d, { radius, dmg, tx: target.x, ty: target.y });
+    } else this.shoot(h.id, 'fireball', h.x, h.y, a, 380, range, { radius, dmg });
   }
 
   // ---- Attacks ----
@@ -601,7 +622,8 @@ export class Field {
         // Flies to its target point, then shatters into a puddle.
         if (b.life <= 0 || (b.tx !== undefined && (b.tx - b.x) * b.vx + (b.ty! - b.y) * b.vy <= 0)) {
           b.life = 0;
-          this.puddles.push({ shooter: b.shooter, x: b.tx ?? b.x, y: b.ty ?? b.y, r: b.radius ?? 40, life: PUDDLE_LIFE, tick: 0 });
+          const ticks = hunterDef(b.shooter as HunterId).style.special?.ticks ?? 6;
+          this.puddles.push({ shooter: b.shooter, x: b.tx ?? b.x, y: b.ty ?? b.y, r: b.radius ?? 40, life: ticks * PUDDLE_TICK, tick: 0, dmg: b.dmg });
         }
         continue;
       }
@@ -648,7 +670,7 @@ export class Field {
       p.tick -= dt;
       if (p.tick > 0) continue;
       p.tick = PUDDLE_TICK;
-      for (const e of this.enemies) if (e.hp > 0 && Math.hypot(e.x - p.x, e.y - p.y) <= p.r + e.r) this.hitWith(p.shooter, e, PUDDLE_TICK_DAMAGE, p.x, p.y);
+      for (const e of this.enemies) if (e.hp > 0 && Math.hypot(e.x - p.x, e.y - p.y) <= p.r + e.r) this.hitWith(p.shooter, e, p.dmg, p.x, p.y);
     }
     this.puddles = this.puddles.filter((p) => p.life > 0);
   }

@@ -450,8 +450,8 @@ export type HunterId =
 /** How a Hunter fights on the battlefield. */
 export type AttackKind =
   | 'bolt' // single shot (your Hunter)
-  | 'potion' // lobbed flask that leaves a damaging puddle
-  | 'fireball' // explodes on impact for area damage
+  | 'potion' // magic bolts, plus a lobbed flask that leaves a damaging puddle (special)
+  | 'fireball' // magic bolts, plus a fireball that explodes for area damage (special)
   | 'arrow' // pierces through a line of enemies
   | 'nova' // holy pulse around themselves
   | 'thrust' // short lance strike through everything in a line
@@ -477,6 +477,13 @@ export interface AttackStyle {
   slow?: number;
   /** Sniper switches to akimbo pistols when an enemy is this close. */
   closeRange?: number;
+  /**
+   * A special attack on a cooldown (Mira's potions, Glimmer's fireballs), cast alongside their normal shots.
+   * Its damage per hit is `damage` × their shot damage × (1 + their weapon's damage); its radius is
+   * `radius` × (1 + their weapon's attack rate). `ticks` is how many times it hits (a puddle ticks), and
+   * `crowd` how many monsters it typically catches, for the background model.
+   */
+  special?: { cooldown: number; damage: number; radius: number; ticks: number; crowd: number };
   /** Rough damage efficiency vs a crowd, used for background DPS (AoE > 1). */
   farm: number;
   /** Typical monsters hit per attack against a crowd (area, pierce, bounce), used to model kill rates. */
@@ -518,8 +525,13 @@ export const HUNTERS: HunterDef[] = [
   {
     id: 'alchemist', name: 'Mira', title: 'Alchemist', icon: '⚗️', color: '#7be07b', area: 'forest', recruitCost: 150, bane: { archetype: 'slime', mult: 3 },
     unlock: { event: 'guardian-forest', times: 1 },
-    ability: 'Potions leave poison puddles that keep hurting. Deals triple damage to Slimes.',
-    style: { kind: 'potion', range: 230, rate: 0.6, damage: 0.8, radius: 45, farm: 1.6, crowd: 3, describe: 'Lobs potions that leave a bubbling poison puddle.' },
+    ability: 'Every few seconds, lobs a potion that leaves a poison puddle. Deals triple damage to Slimes. Uses ranged or magic weapons.',
+    slots: [{ kind: 'weapon', label: 'Weapon', accepts: ['weapon', 'magic'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
+    style: {
+      kind: 'potion', range: 230, rate: 0.6, damage: 0.8, farm: 1, crowd: 1,
+      special: { cooldown: 4, damage: 0.35, radius: 45, ticks: 6, crowd: 2.5 },
+      describe: 'Flings magic bolts. Every 4s she lobs a potion whose puddle keeps hurting: her weapon\'s damage powers the poison, its attack rate widens the puddle.',
+    },
   },
   {
     id: 'ranger', name: 'Rin', title: 'Ranger', icon: '🏹', color: '#c09060', area: 'forest', recruitCost: 1_200, bane: { archetype: 'beast', mult: 3 },
@@ -530,9 +542,13 @@ export const HUNTERS: HunterDef[] = [
   {
     id: 'glimmer', name: 'Glimmer', title: 'Wizard', icon: '🧙', color: '#b07cff', area: 'forest', recruitCost: 600,
     unlock: { event: 'slimeSwarm', times: 1 },
-    ability: 'Fireballs explode for area damage. Can equip two accessories.',
-    slots: [{ kind: 'armor', label: 'Robe' }, { kind: 'accessory', label: 'Focus' }, { kind: 'accessory', label: 'Focus' }],
-    style: { kind: 'fireball', range: 260, rate: 0.55, damage: 1.6, radius: 55, farm: 1.8, crowd: 3, describe: 'Hurls fireballs that explode, burning everything nearby.' },
+    ability: 'Every few seconds, hurls a fireball that explodes for area damage. Wields only magic weapons.',
+    slots: [{ kind: 'magic', label: 'Magic weapon' }, { kind: 'armor', label: 'Robe' }, { kind: 'accessory', label: 'Accessory' }],
+    style: {
+      kind: 'fireball', range: 260, rate: 0.55, damage: 1.6, farm: 1, crowd: 1,
+      special: { cooldown: 4, damage: 1.75, radius: 55, ticks: 1, crowd: 3 },
+      describe: 'Fires magic bolts. Every 4s he hurls a fireball that explodes: his weapon\'s damage powers the blast, its attack rate widens it.',
+    },
   },
   {
     id: 'gravewarden', name: 'Alric', title: 'Gravewarden', icon: '✝️', color: '#efe6cf', area: 'graveyard', recruitCost: 15_000, bane: { archetype: 'undead', mult: 3 },
@@ -608,11 +624,13 @@ export const STATION_CAPACITY = 3;
 export const STATION_EFFICIENCY = 0.8;
 
 // ---- Equipment: crafted into the inventory, equipped into Hunters' slots ----
-export type GearKind = 'weapon' | 'melee' | 'armor' | 'accessory';
+export type GearKind = 'weapon' | 'melee' | 'magic' | 'armor' | 'accessory';
 
+/** 'weapon' is a ranged weapon (bows, crossbows, rifles). */
 export const GEAR_KINDS: Record<GearKind, { name: string; icon: string }> = {
-  weapon: { name: 'Weapon', icon: '🏹' },
-  melee: { name: 'Melee', icon: '⚔️' },
+  weapon: { name: 'Ranged weapon', icon: '🏹' },
+  melee: { name: 'Melee weapon', icon: '⚔️' },
+  magic: { name: 'Magic weapon', icon: '🪄' },
   armor: { name: 'Armor', icon: '🦺' },
   accessory: { name: 'Accessory', icon: '💍' },
 };
@@ -622,7 +640,15 @@ export interface SlotDef {
   label: string;
   /** Wilhelm's weapon slots: 'long' powers his sniper shots, 'short' his akimbo pistols. */
   role?: 'long' | 'short';
+  /** Kinds the slot takes, when more than its own `kind` (Mira's weapon slot takes ranged or magic). */
+  accepts?: GearKind[];
 }
+
+/** Can a piece of this kind go in this slot? */
+export const slotAccepts = (slot: SlotDef, kind: GearKind): boolean => (slot.accepts ?? [slot.kind]).includes(kind);
+
+/** Weapon kinds: a Hunter's weapon slot powers their special attack. */
+export const WEAPON_KINDS: GearKind[] = ['weapon', 'melee', 'magic'];
 
 export const DEFAULT_SLOTS: SlotDef[] = [
   { kind: 'weapon', label: 'Weapon' },
@@ -655,6 +681,12 @@ export type GearId =
   | 'ironSpear'
   | 'magmaGlaive'
   | 'soulLance'
+  | 'apprenticeWand'
+  | 'gravewoodStaff'
+  | 'emberFocus'
+  | 'crystalFocus'
+  | 'voidScepter'
+  | 'soulfireStaff'
   | 'leatherVest'
   | 'bonePlate'
   | 'chitinCarapace'
@@ -711,6 +743,13 @@ export const GEAR: GearDef[] = [
   { id: 'ironSpear', name: 'Bone Spear', icon: '🔱', kind: 'melee', rarity: 'uncommon', stats: { damage: 0.35 }, recipe: { bone: 10, flesh: 5 } },
   { id: 'magmaGlaive', name: 'Magma Glaive', icon: '🪓', kind: 'melee', rarity: 'veryRare', stats: { damage: 0.5, range: 6 }, recipe: { magma: 10, ember: 5 } },
   { id: 'soulLance', name: 'Soulreaver Lance', icon: '⚜️', kind: 'melee', rarity: 'exalted', stats: { damage: 0.8, pierce: 0.2 }, recipe: { soul: 8, void: 4 } },
+  // Magic (Mira and Glimmer)
+  { id: 'apprenticeWand', name: 'Apprentice Wand', icon: '🪄', kind: 'magic', rarity: 'common', stats: { damage: 0.15, rate: 0.1 }, recipe: { goo: 8, redgel: 4 } },
+  { id: 'gravewoodStaff', name: 'Gravewood Staff', icon: '🪵', kind: 'magic', rarity: 'uncommon', stats: { damage: 0.25, rate: 0.1 }, recipe: { flesh: 10, wing: 5 } },
+  { id: 'emberFocus', name: 'Ember Focus', icon: '🕯️', kind: 'magic', rarity: 'rare', stats: { damage: 0.3, rate: 0.15 }, recipe: { ember: 10, magma: 5 } },
+  { id: 'crystalFocus', name: 'Crystal Focus', icon: '💎', kind: 'magic', rarity: 'legendary', stats: { damage: 0.4, rate: 0.2 }, recipe: { frost: 8, ecto: 6 } },
+  { id: 'voidScepter', name: 'Void Scepter', icon: '🪬', kind: 'magic', rarity: 'relic', stats: { damage: 0.55, rate: 0.25 }, recipe: { shade: 10, void: 5 } },
+  { id: 'soulfireStaff', name: 'Soulfire Staff', icon: '🌟', kind: 'magic', rarity: 'exalted', stats: { damage: 0.75, rate: 0.3 }, recipe: { soul: 8, void: 4 } },
   // Armor
   { id: 'leatherVest', name: 'Leather Vest', icon: '🦺', kind: 'armor', rarity: 'common', stats: { stun: 0.05 }, recipe: { pelt: 8, goo: 6 } },
   { id: 'bonePlate', name: 'Bone Plate', icon: '🦴', kind: 'armor', rarity: 'rare', stats: { stun: 0.06, guard: 0.2 }, recipe: { bone: 10, flesh: 6 } },
