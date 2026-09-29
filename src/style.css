@@ -1,14 +1,22 @@
 :root {
-  --bg: #14101f;
-  --panel: #1f1830;
-  --card: #2a2140;
-  --card-hi: #352a52;
-  --text: #f3eefc;
-  --muted: #a89cc4;
-  --gold: #ffd34d;
-  --accent: #7c5cff;
-  --good: #3fcf6a;
-  --danger: #ff5a6a;
+  /* The current area's palette, darkest to lightest (set by ui/theme.ts). */
+  --c0: #183c18;
+  --c1: #2f7d32;
+  --c2: #7ec850;
+  --c3: #e2f5c4;
+  --bg: var(--c2);
+  --panel: var(--c0);
+  --card: var(--c3);
+  --card-hi: var(--c2);
+  --text: var(--c0);
+  --muted: var(--c1);
+  --gold: #e8a800;
+  --accent: var(--c1);
+  --good: #30a838;
+  --danger: #d83838;
+  --info: var(--c1);
+  --sunk: var(--c2);
+  --line: var(--c1);
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
@@ -58,7 +66,7 @@ button {
   align-items: center;
   padding: 8px 12px;
   background: var(--panel);
-  border-bottom: 1px solid #0006;
+  border-bottom: 1px solid var(--c0);
 }
 .stat {
   display: flex;
@@ -74,7 +82,7 @@ button {
   justify-content: flex-end;
 }
 .stat.dps b {
-  color: #9fe0ff;
+  color: var(--info);
   font-size: 17px;
 }
 .stat small {
@@ -116,7 +124,7 @@ button {
 .tabs {
   display: flex;
   background: var(--panel);
-  border-top: 1px solid #0006;
+  border-top: 1px solid var(--c0);
 }
 .tabs button {
   flex: 1;
@@ -155,7 +163,7 @@ button {
   padding: 0 5px;
   border-radius: 9px;
   background: var(--danger);
-  color: #fff;
+  color: var(--c3);
   font-size: 11px;
   line-height: 18px;
 }
@@ -185,7 +193,7 @@ button {
   height: 44px;
   display: grid;
   place-items: center;
-  background: #0004;
+  background: var(--sunk);
   border-radius: 10px;
   flex: none;
 }
@@ -208,7 +216,7 @@ button {
   margin-top: 2px;
 }
 .row .sub b {
-  color: #9fe0ff;
+  color: var(--info);
 }
 .buy {
   flex: none;
@@ -216,7 +224,7 @@ button {
   padding: 7px 8px;
   border-radius: 10px;
   background: var(--good);
-  color: #062010;
+  color: var(--c3);
   font-weight: 800;
   font-size: 13px;
   line-height: 1.15;
@@ -228,8 +236,8 @@ button {
   font-weight: 700;
 }
 .buy:disabled {
-  background: #4a4060;
-  color: #9a90b0;
+  background: var(--c1);
+  color: var(--c1);
 }
 .buy:not(:disabled):active {
   transform: scale(0.96);
@@ -251,7 +259,7 @@ button {
 }
 .amounts button.active {
   background: var(--accent);
-  color: #fff;
+  color: var(--c3);
 }
 
 .card {
@@ -298,7 +306,7 @@ button {
 .modal-box {
   width: min(360px, 100%);
   background: var(--panel);
-  border: 1px solid #fff1;
+  border: 1px solid var(--line);
   border-radius: 18px;
   padding: 20px;
   text-align: center;
@@ -328,7 +336,7 @@ button {
   border-radius: 12px;
   font-weight: 800;
   background: var(--accent);
-  color: #fff;
+  color: var(--c3);
 }
 .modal-box .buttons button.secondary {
   background: var(--card-hi);
@@ -406,7 +414,7 @@ button {
 }
 .beast.locked {
   opacity: 0.85;
-  border: 1px dashed #ffffff22;
+  border: 1px dashed var(--line);
 }
 .beast-head {
   display: flex;
@@ -418,7 +426,7 @@ button {
   height: 48px;
   flex: none;
   border-radius: 12px;
-  background: #0004;
+  background: var(--sunk);
 }
 .beast-head .info {
   flex: 1;
@@ -469,14 +477,14 @@ button {
 .chip {
   padding: 5px 9px;
   border-radius: 999px;
-  background: #0004;
+  background: var(--sunk);
   color: var(--muted);
   font-size: 12px;
   font-weight: 700;
 }
 .chip.on {
   background: var(--accent);
-  color: #fff;
+  color: var(--c3);
 }
 .chip:disabled {
   opacity: 0.35;
@@ -484,7 +492,7 @@ button {
 .yield {
   margin-top: 6px;
   font-size: 12px;
-  color: #9fe0ff;
+  color: var(--info);
 }
 .area-card h3 {
   display: flex;
@@ -497,7 +505,7 @@ button {
   font-weight: 600;
 }
 .area-card.here {
-  border: 1px solid #7c5cff;
+  border: 1px solid var(--c1);
 }
 .area-card.locked {
   opacity: 0.6;
@@ -513,7 +521,7 @@ button {
   align-items: center;
   gap: 5px;
   font-size: 12px;
-  background: #0003;
+  background: var(--sunk);
   padding: 3px 8px;
   border-radius: 999px;
 }
@@ -556,13 +564,13 @@ button {
 }
 .offline-area > div + div {
   margin-top: 2px;
-  color: #9fe0ff;
+  color: var(--info);
 }
 
 .knockouts {
   margin-top: 2px;
   font-size: 12px;
-  color: #ffd166 !important;
+  color: var(--c0) !important;
 }
 .ko-tip {
   font-size: 12px;
@@ -584,8 +592,8 @@ button {
   gap: 1px;
   padding: 6px 4px;
   border-radius: 10px;
-  background: #0004;
-  border: 1px solid #ffffff22;
+  background: var(--sunk);
+  border: 1px solid var(--line);
   min-width: 0;
 }
 .slot.empty {
@@ -611,7 +619,7 @@ button {
 .gear-summary {
   margin-top: 4px;
   font-size: 11px;
-  color: #9fe0ff;
+  color: var(--info);
 }
 .inventory {
   display: grid;
@@ -691,18 +699,18 @@ button {
 }
 .pick-row .sub {
   font-size: 12px;
-  color: #9fe0ff;
+  color: var(--info);
 }
 .pick-row .worn {
   font-size: 11px;
   color: var(--gold);
 }
 .gear-now {
-  color: #9fe0ff !important;
+  color: var(--info) !important;
 }
 .buy.danger-btn {
   background: var(--danger);
-  color: #fff;
+  color: var(--c3);
 }
 .buy.secondary-btn {
   background: var(--card-hi);
@@ -762,7 +770,7 @@ button {
 .hc-status {
   margin-top: 3px;
   font-size: 12px;
-  color: #9fe0ff;
+  color: var(--info);
 }
 .hc-train {
   display: flex;
@@ -814,8 +822,8 @@ button {
   padding: 5px 4px;
   letter-spacing: -0.01em;
   border-radius: 8px;
-  background: #0004;
-  border: 1px solid #ffffff22;
+  background: var(--sunk);
+  border: 1px solid var(--line);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -837,7 +845,7 @@ button {
   filter: grayscale(0.8) brightness(0.7);
 }
 .hunter-art {
-  --hc: #7c5cff;
+  --hc: var(--c1);
   width: 64px;
   height: 64px;
   flex: none;
@@ -846,8 +854,8 @@ button {
   place-items: center;
   overflow: hidden;
   background: var(--hc);
-  background: radial-gradient(circle at 50% 35%, var(--hc), color-mix(in srgb, var(--hc) 35%, #120c1c));
-  border: 2px solid #120c1c;
+  background: radial-gradient(circle at 50% 35%, var(--hc), color-mix(in srgb, var(--hc) 35%, var(--c0)));
+  border: 2px solid var(--c0);
   font-size: 32px;
 }
 .hunter-art img {
@@ -871,13 +879,13 @@ button {
   padding: 0 5px;
   border-radius: 10px;
   background: var(--gold);
-  color: #2a1a00;
+  color: var(--c3);
   font-size: 11px;
   font-weight: 900;
   line-height: 20px;
   text-align: center;
   border: 2px solid var(--card);
-  box-shadow: 0 0 8px #ffd34d88;
+  box-shadow: 0 0 8px transparent;
 }
 .hc-name small {
   color: var(--muted);
@@ -907,13 +915,13 @@ button {
   flex: 1;
   height: 20px;
   border-radius: 6px;
-  background: #0005;
+  background: var(--sunk);
   overflow: hidden;
 }
 .train-bar i {
   position: absolute;
   inset: 0 auto 0 0;
-  background: linear-gradient(90deg, #5a3fd6, var(--accent));
+  background: linear-gradient(90deg, var(--c1), var(--accent));
   transition: width 0.2s;
 }
 .train-bar span {
@@ -949,7 +957,7 @@ button {
   margin-right: 2px;
 }
 .hc-status .warn {
-  color: #ffd166;
+  color: var(--c0);
 }
 
 /* ---- Full-screen Hunter view ---- */
@@ -1011,7 +1019,7 @@ button {
   margin-top: 2px;
 }
 .hd-sub .where {
-  color: #9fe0ff;
+  color: var(--info);
 }
 .hd-sub .perk {
   color: var(--gold);
@@ -1069,8 +1077,8 @@ button {
 .inv-tile.rar,
 .pick-row.rar {
   border-color: var(--rc);
-  background: #0004;
-  background: color-mix(in srgb, var(--rc) 14%, #0005);
+  background: var(--sunk);
+  background: color-mix(in srgb, var(--rc) 14%, var(--sunk));
 }
 .gear-chip.rar,
 .slot.rar span,
@@ -1092,23 +1100,23 @@ button {
 /* ---- Areas tab: per-area stats ---- */
 .here-line {
   margin: 0 0 6px !important;
-  color: #9fe0ff !important;
+  color: var(--info) !important;
 }
 .mastery {
   position: relative;
   height: 22px;
   border-radius: 11px;
-  background: #0007;
+  background: var(--sunk);
   overflow: hidden;
   margin-top: 8px;
 }
 .mastery i {
   position: absolute;
   inset: 0 auto 0 0;
-  background: linear-gradient(90deg, #5a3fd6, var(--accent));
+  background: linear-gradient(90deg, var(--c1), var(--accent));
 }
 .mastery.done {
-  background: linear-gradient(90deg, #2f7a4a, #3fcf6a);
+  background: linear-gradient(90deg, var(--c1), var(--c1));
 }
 .mastery span {
   position: relative;
@@ -1128,7 +1136,7 @@ button {
   text-align: center;
 }
 .area-stats div {
-  background: #0003;
+  background: var(--sunk);
   border-radius: 10px;
   padding: 6px 4px;
   min-width: 0;
@@ -1155,18 +1163,18 @@ button {
   border: 1px solid var(--good);
 }
 .event-card.running {
-  border: 1px solid #ff4d6d;
+  border: 1px solid var(--danger);
 }
 .ev-status {
   margin-top: 4px;
   font-size: 12px;
-  color: #9fe0ff;
+  color: var(--info);
 }
 .ev-status small {
   font-size: 12px;
 }
 .ev-live {
-  color: #ff7a8c;
+  color: var(--danger);
 }
 
 /* ---- Settings ---- */
@@ -1185,7 +1193,7 @@ button {
 .segmented {
   display: flex;
   gap: 6px;
-  background: #0004;
+  background: var(--sunk);
   border-radius: 12px;
   padding: 4px;
 }
@@ -1199,7 +1207,7 @@ button {
 }
 .segmented button.on {
   background: var(--accent);
-  color: #fff;
+  color: var(--c3);
 }
 .setting .danger-btn {
   width: 100%;
@@ -1226,7 +1234,7 @@ button {
 .subtabs {
   display: flex;
   gap: 4px;
-  background: #0004;
+  background: var(--sunk);
   border-radius: 12px;
   padding: 4px;
   margin: 12px 0 4px;
@@ -1250,7 +1258,7 @@ button {
   padding: 0 5px;
   border-radius: 9px;
   background: var(--gold);
-  color: #2a1a00;
+  color: var(--c3);
   font-size: 11px;
   line-height: 18px;
 }
@@ -1268,7 +1276,7 @@ button {
   padding: 10px 12px;
   border-radius: 12px;
   background: var(--card);
-  border: 1px solid #ffffff22;
+  border: 1px solid var(--line);
   text-align: left;
 }
 .equip-row.empty {
@@ -1326,7 +1334,7 @@ button {
   height: 100%;
 }
 .tree line {
-  stroke: #ffffff22;
+  stroke: var(--line);
   stroke-width: 3;
 }
 .tree line.on {
@@ -1352,7 +1360,7 @@ button {
   place-items: center;
   font-size: 26px;
   background: var(--card);
-  border: 3px solid #ffffff33;
+  border: 3px solid var(--line);
 }
 .tn-icon em {
   position: absolute;
@@ -1363,8 +1371,8 @@ button {
   font-weight: 900;
   padding: 1px 5px;
   border-radius: 8px;
-  background: #120c1c;
-  border: 1px solid #ffffff33;
+  background: var(--c0);
+  border: 1px solid var(--line);
   color: var(--muted);
 }
 .tn-name {
@@ -1386,7 +1394,7 @@ button {
 }
 .tnode.learned .tn-icon {
   border-color: var(--accent);
-  background: #3a2c6a;
+  background: var(--c2);
 }
 .tnode.learned .tn-name {
   color: var(--text);
@@ -1399,7 +1407,7 @@ button {
   border-color: var(--gold);
 }
 .tnode.available .tn-icon {
-  box-shadow: 0 0 0 3px #3fcf6a66, 0 0 14px #3fcf6a88;
+  box-shadow: 0 0 0 3px var(--c0), 0 0 14px transparent;
 }
 
 /* ---- Gear picker: equipped vs inspected, inventory grid ---- */
@@ -1412,7 +1420,7 @@ button {
   padding: 12px;
   border-radius: 14px;
   background: var(--card);
-  border: 1px solid #ffffff22;
+  border: 1px solid var(--line);
 }
 .gear-card.rar {
   border-color: var(--rc);
@@ -1481,4 +1489,297 @@ button {
 }
 .inv-tile.selected {
   box-shadow: 0 0 0 3px var(--accent);
+}
+
+/* ======================================================================
+   Retro look: Game Boy Advance style. Each area recolours the menus (--c0..--c3);
+   a pixel font, square corners, thick borders, hard drop shadows, bright accents.
+   ====================================================================== */
+html,
+body,
+button {
+  font-family: 'Pixelify Sans', system-ui, sans-serif;
+}
+*,
+*::before,
+*::after {
+  border-radius: 0 !important;
+}
+html,
+body {
+  background: var(--c0);
+}
+canvas {
+  image-rendering: pixelated;
+}
+
+.topbar {
+  background: var(--c0);
+  color: var(--c3);
+  border-bottom: 3px solid var(--c1);
+}
+.stat.dps b,
+.stage #areaName {
+  color: var(--c3);
+}
+.stat.gold b {
+  color: #ffd84a;
+}
+.stat small {
+  color: var(--c2);
+}
+.stage {
+  max-width: 48vw;
+}
+.stage #areaName {
+  font-size: 16px;
+}
+
+.tabs {
+  background: var(--c0);
+  border-top: 3px solid var(--c1);
+}
+.tabs button {
+  color: var(--c2);
+}
+.tabs button.active {
+  color: var(--c3);
+  background: var(--c1);
+  border-bottom-color: var(--c3);
+}
+.panel,
+.hunter-detail {
+  background: var(--c2);
+}
+.hd-top {
+  background: var(--c0);
+  color: var(--c3);
+  border-bottom: 3px solid var(--c1);
+}
+.hd-close,
+.settings-btn {
+  background: var(--c1);
+  color: var(--c3);
+  border: 2px solid var(--c3);
+}
+.section-title {
+  color: var(--c0);
+}
+
+/* Boxes: light "text window" panels with a dark frame and a hard shadow. */
+.card,
+.row,
+.hunter-card,
+.beast,
+.gear-card,
+.equip-row,
+.hd-stats div,
+.area-stats div,
+.offline-area,
+.inv-tile,
+.mat,
+.segmented,
+.subtabs {
+  border: 2px solid var(--c0) !important;
+  box-shadow: 3px 3px 0 var(--c0);
+}
+.card,
+.row,
+.hunter-card,
+.beast,
+.equip-row,
+.inv-tile,
+.hd-stats div,
+.area-stats div,
+.offline-area {
+  background: var(--c3);
+}
+.hunter-card:active {
+  background: var(--c2);
+}
+
+/* Buttons: dark with light text, pressed = shadow disappears. */
+.buy,
+.chip,
+.amounts button,
+.modal-box .buttons button,
+.segmented button.on,
+.subtabs button.on {
+  border: 2px solid var(--c0);
+  box-shadow: 2px 2px 0 var(--c0);
+}
+.buy {
+  background: var(--good);
+  color: #fff;
+  text-shadow: 1px 1px 0 #0006;
+}
+.buy:disabled {
+  background: var(--c2);
+  color: var(--c1);
+  box-shadow: none;
+}
+.buy:not(:disabled):active,
+.chip:active,
+.modal-box .buttons button:active {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+.buy.danger-btn {
+  background: var(--danger);
+  color: #fff;
+}
+.chip {
+  background: var(--c3);
+  color: var(--c0);
+}
+.chip.on,
+.amounts button.active,
+.segmented button.on,
+.subtabs button.on {
+  background: var(--c1);
+  color: var(--c3);
+}
+.amounts button {
+  background: var(--c3);
+  color: var(--c1);
+}
+.badge {
+  background: var(--c3);
+  color: var(--c0);
+  border: 2px solid var(--c0);
+}
+.sp-dot,
+.sp-count {
+  background: var(--gold);
+  color: var(--c0);
+  box-shadow: none;
+  border-color: var(--c0);
+}
+.hc-lv,
+.hd-stats.hd-headline b {
+  color: var(--c1);
+}
+.badge {
+  background: var(--danger) !important;
+  color: #fff !important;
+}
+
+/* Dialogs */
+.modal {
+  background: rgba(0, 0, 0, 0.5);
+}
+.modal-box {
+  background: var(--c3);
+  color: var(--c0);
+  border: 3px solid var(--c0);
+  box-shadow: 5px 5px 0 var(--c0);
+}
+.modal-box .buttons button {
+  background: var(--c1);
+  color: var(--c3);
+}
+.modal-box .buttons button.secondary {
+  background: var(--c2);
+  color: var(--c0);
+}
+.modal-box .reward {
+  color: var(--c0);
+}
+
+/* Progress bars: light track, mid fill, dark text. */
+.train-bar,
+.mastery {
+  background: var(--c3);
+  border: 2px solid var(--c0);
+}
+.train-bar i,
+.mastery i {
+  background: var(--c2);
+  background: linear-gradient(180deg, var(--c2), color-mix(in srgb, var(--c2) 70%, var(--c1)));
+}
+.train-bar span,
+.mastery span,
+.hc-mid .train-bar span {
+  color: var(--c0);
+  text-shadow: 1px 1px 0 var(--c3);
+}
+.mastery.done {
+  background: var(--good);
+}
+.mastery.done span {
+  color: var(--c3);
+  text-shadow: none;
+}
+
+/* Rarity keeps its colour as a thick frame and tint; names stay dark so every rarity is readable. */
+.gear-chip.rar,
+.slot.rar,
+.inv-tile.rar,
+.pick-row.rar,
+.equip-row.rar,
+.gear-card.rar {
+  border: 3px solid var(--rc) !important;
+  background: color-mix(in srgb, var(--rc) 22%, var(--c3));
+}
+.gear-chip.rar,
+.slot.rar span,
+.inv-tile.rar span,
+.pick-row.rar b,
+.equip-row.rar b,
+.gear-card.rar .gc-head b {
+  color: var(--c0);
+}
+
+/* Skill tree */
+.tree line {
+  stroke: var(--c1);
+  opacity: 0.35;
+}
+.tree line.on {
+  stroke: var(--c0);
+  opacity: 1;
+}
+.tn-icon {
+  background: var(--c3);
+  border-color: var(--c1);
+}
+.tnode.learned .tn-icon {
+  background: var(--c2);
+  border-color: var(--c0);
+}
+.tnode.maxed .tn-icon {
+  border-color: var(--c0);
+  box-shadow: 0 0 0 3px var(--c3), 0 0 0 5px var(--c0);
+}
+.tnode.available .tn-icon {
+  box-shadow: 0 0 0 3px var(--good);
+  animation: blink 1s steps(2) infinite;
+}
+@keyframes blink {
+  50% {
+    box-shadow: 0 0 0 3px var(--c3);
+  }
+}
+.tn-name {
+  background: var(--c2);
+  color: var(--c0);
+}
+.tn-icon em {
+  background: var(--c3);
+  color: var(--c0);
+  border-color: var(--c0);
+}
+
+/* GBA-style windows: a soft vertical sheen on panels and bars. */
+.card,
+.row,
+.hunter-card,
+.equip-row,
+.modal-box {
+  background-image: linear-gradient(180deg, #ffffff40, #ffffff00 60%);
+}
+.topbar,
+.tabs,
+.hd-top {
+  background-image: linear-gradient(180deg, color-mix(in srgb, var(--c1) 55%, var(--c0)), var(--c0));
 }

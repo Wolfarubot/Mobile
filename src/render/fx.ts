@@ -117,7 +117,7 @@ export class Fx {
       const k = f.life / f.max;
       const pop = k < 0.15 ? 0.6 + (k / 0.15) * 0.4 : 1;
       g.globalAlpha = k > 0.6 ? 1 - (k - 0.6) / 0.4 : 1;
-      g.font = `900 ${Math.round(f.size * pop * this.textScale)}px system-ui, sans-serif`;
+      g.font = `700 ${Math.round(f.size * pop * this.textScale)}px ${PIXEL_FONT}`;
       g.lineWidth = 4 * this.textScale;
       g.strokeStyle = 'rgba(0,0,0,0.75)';
       g.strokeText(f.text, f.x, f.y);
@@ -129,8 +129,12 @@ export class Fx {
 }
 
 /** Sizes a canvas to its CSS box at device pixel ratio; returns CSS width/height. */
-export function fitCanvas(canvas: HTMLCanvasElement, g: CanvasRenderingContext2D): { w: number; h: number } {
-  const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+/** The UI's pixel font, also used for text drawn on canvases. */
+export const PIXEL_FONT = "'Pixelify Sans', system-ui, sans-serif";
+
+/** Sizes a canvas to its CSS box at `scale` canvas pixels per CSS pixel (defaults to the device pixel ratio). */
+export function fitCanvas(canvas: HTMLCanvasElement, g: CanvasRenderingContext2D, scale?: number): { w: number; h: number } {
+  const dpr = scale ?? Math.min(window.devicePixelRatio || 1, 2.5);
   const w = canvas.clientWidth;
   const h = canvas.clientHeight;
   if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {

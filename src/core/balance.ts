@@ -332,17 +332,19 @@ export interface AreaDef {
   mastery: number;
   /** HP of this area's Guardian: the real gate to the next area. */
   guardian: number;
-  ground: string;
-  speck: string;
+  /** Game Boy Advance-style UI palette, darkest to lightest: menus take on these colours in this area. */
+  palette: [string, string, string, string];
+  /** Battlefield ground colour and its speckles. */
+  ground: [string, string];
   blurb: string;
 }
 
 export const AREAS: AreaDef[] = [
-  { id: 'forest', name: 'Whispering Forest', hp: 1, gold: 1, speed: 36, mastery: 600, guardian: 25_000, ground: '#2f4a2c', speck: '#3b5c37', blurb: 'Where every hunt begins.' },
-  { id: 'graveyard', name: 'Old Graveyard', hp: 150, gold: 25, speed: 40, mastery: 1_500, guardian: 60_000_000, ground: '#2b2630', speck: '#383140', blurb: 'The dead do not rest here.' },
-  { id: 'caves', name: 'Ember Caves', hp: 150_000, gold: 600, speed: 45, mastery: 4_000, guardian: 5_000_000_000, ground: '#3a1c14', speck: '#4d271b', blurb: 'Hot, bright and full of teeth.' },
-  { id: 'peaks', name: 'Frost Peaks', hp: 7_000_000, gold: 15_000, speed: 50, mastery: 10_000, guardian: 220_000_000_000, ground: '#23344a', speck: '#2e4561', blurb: 'Cold winds carry cold things.' },
-  { id: 'rift', name: 'Void Rift', hp: 250_000_000, gold: 350_000, speed: 56, mastery: Infinity, guardian: Infinity, ground: '#160e22', speck: '#21152f', blurb: 'The end of the known world.' },
+  { id: 'forest', name: 'Whispering Forest', hp: 1, gold: 1, speed: 36, mastery: 600, guardian: 25_000, palette: ['#183c18', '#2f7d32', '#7ec850', '#e2f5c4'], ground: ['#6cb848', '#58a03c'], blurb: 'Where every hunt begins.' },
+  { id: 'graveyard', name: 'Old Graveyard', hp: 150, gold: 25, speed: 40, mastery: 1_500, guardian: 60_000_000, palette: ['#1e1a2a', '#4a4460', '#9a94b0', '#e8e4f0'], ground: ['#5b5670', '#4c4762'], blurb: 'The dead do not rest here.' },
+  { id: 'caves', name: 'Ember Caves', hp: 150_000, gold: 600, speed: 45, mastery: 4_000, guardian: 5_000_000_000, palette: ['#2a0e08', '#8a2c10', '#e07030', '#fde4c0'], ground: ['#6a2c1a', '#823722'], blurb: 'Hot, bright and full of teeth.' },
+  { id: 'peaks', name: 'Frost Peaks', hp: 7_000_000, gold: 15_000, speed: 50, mastery: 10_000, guardian: 220_000_000_000, palette: ['#0c2038', '#2a60a0', '#78b8e8', '#e4f4ff'], ground: ['#bcd8f0', '#a4c6e6'], blurb: 'Cold winds carry cold things.' },
+  { id: 'rift', name: 'Void Rift', hp: 250_000_000, gold: 350_000, speed: 56, mastery: Infinity, guardian: Infinity, palette: ['#1a0830', '#5a2098', '#b070e0', '#f2e4ff'], ground: ['#2a1440', '#3a1d58'], blurb: 'The end of the known world.' },
 ];
 
 export const areaDef = (id: AreaId): AreaDef => AREAS.find((a) => a.id === id)!;

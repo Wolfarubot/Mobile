@@ -47,6 +47,7 @@ import type { OfflineResult } from '../core/offline';
 import type { BuyAmount, GearItem, Wearer } from '../core/state';
 import { drawEnemyPortrait } from '../render/battle';
 import { spriteUrl } from '../render/sprites';
+import { applyAreaTheme } from './theme';
 
 type Tab = 'hunters' | 'areas' | 'beasts' | 'equipment' | 'events';
 
@@ -107,11 +108,10 @@ export class AppUI {
     const g = this.game;
     const s = g.state;
     const area = areaDef(g.area);
-    const idx = AREAS.indexOf(area);
     $('#gold').textContent = fmt(s.gold);
     $('#dps').textContent = fmt(g.dps);
-    $('#areaNum').textContent = `Area ${idx + 1} of ${AREAS.length}`;
     $('#areaName').textContent = area.name;
+    applyAreaTheme(g.area);
 
     $('.tabs button[data-tab=events]').classList.toggle('locked', !g.eventsOpen);
     if (g.eventsOpen && !s.flags.eventsIntro && !this.modalClose && !this.detail) this.showEventsIntro();

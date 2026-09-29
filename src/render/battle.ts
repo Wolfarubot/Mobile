@@ -2,7 +2,7 @@ import { areaDef, enemyDef, eventDef, FIELD_ZOOM, GUARDIAN_TIME, hunterDef, mate
 import { PLAYER_RADIUS, type Bullet, type Enemy, type Field, type Helper } from '../core/field';
 import { fmt } from '../core/format';
 import type { Game } from '../core/game';
-import { fitCanvas, Fx } from './fx';
+import { fitCanvas, Fx, PIXEL_FONT } from './fx';
 import { sprite } from './sprites';
 
 interface Pickup {
@@ -189,21 +189,17 @@ export class BattleView {
   }
 
   render(): void {
-    const { w, h } = fitCanvas(this.canvas, this.g);
+    // One canvas pixel per CSS pixel (not per device pixel): drawn chunky, then scaled up crisply.
+    const { w, h } = fitCanvas(this.canvas, this.g, 1);
     this.w = w;
     this.h = h;
     this.field.setView(w, h);
     const g = this.g;
-    const zone = areaDef(this.game.area);
-
-    g.fillStyle = zone.ground;
+    const [ground, speck] = areaDef(this.game.area).ground;
+    g.fillStyle = ground;
     g.fillRect(0, 0, w, h);
-    g.fillStyle = zone.speck;
-    for (const s of this.specks) {
-      g.beginPath();
-      g.arc(s.x * w, s.y * h, s.r, 0, Math.PI * 2);
-      g.fill();
-    }
+    g.fillStyle = speck;
+    for (const s of this.specks) g.fillRect(Math.round(s.x * w), Math.round(s.y * h), Math.ceil(s.r), Math.ceil(s.r));
 
     g.save();
     g.translate(w / 2, h / 2);
@@ -449,7 +445,7 @@ export class BattleView {
       g.arc(0, 0, R, 0, Math.PI * 2);
       g.fill();
       g.stroke();
-      g.font = `${Math.round(R * 1.1)}px system-ui, sans-serif`;
+      g.font = `${Math.round(R * 1.1)}px ${PIXEL_FONT}`;
       g.textAlign = 'center';
       g.textBaseline = 'middle';
       g.fillText(def.icon, 0, 1);
@@ -482,7 +478,7 @@ export class BattleView {
       const def = eventDef(ev.id);
       const bw = Math.min(w * 0.7, 300);
       const x = (w - bw) / 2;
-      g.font = '800 13px system-ui, sans-serif';
+      g.font = `700 13px ${PIXEL_FONT}`;
       g.fillStyle = '#9ff0a8';
       g.fillText(`${def.icon} ${def.name.toUpperCase()} · ${Math.ceil(ev.left)}s`, w / 2, 14);
       g.fillStyle = 'rgba(0,0,0,0.55)';
@@ -493,7 +489,7 @@ export class BattleView {
     if (boss) {
       const bw = Math.min(w * 0.7, 300);
       const x = (w - bw) / 2;
-      g.font = '800 13px system-ui, sans-serif';
+      g.font = `700 13px ${PIXEL_FONT}`;
       g.fillStyle = '#ff9aa6';
       g.fillText(`${areaDef(this.game.area).name.toUpperCase()} GUARDIAN · ${fmt(Math.max(0, boss.hp))}`, w / 2, 14);
       g.fillStyle = 'rgba(0,0,0,0.55)';
@@ -510,7 +506,7 @@ export class BattleView {
     if (this.banner) {
       const k = this.banner.life;
       g.globalAlpha = k < 0.2 ? k / 0.2 : k > 1.6 ? Math.max(0, 1 - (k - 1.6) / 0.4) : 1;
-      g.font = '900 26px system-ui, sans-serif';
+      g.font = `700 26px ${PIXEL_FONT}`;
       g.lineWidth = 5;
       g.strokeStyle = 'rgba(0,0,0,0.7)';
       const by = this.h * 0.24;
