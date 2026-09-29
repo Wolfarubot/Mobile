@@ -163,7 +163,7 @@ export class Game {
 
   // ---- Combat stats (read by Field every frame) ----
 
-  /** Camp Upgrades boost every Hunter. */
+  /** Upgrades boost every Hunter. */
   get itemDamageMult(): number {
     return (1 + 0.25 * this.item('whetstone')) * 1.5 ** this.item('engine');
   }

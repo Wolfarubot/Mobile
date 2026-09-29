@@ -660,6 +660,97 @@ button {
   font-style: normal;
   font-size: 12px;
 }
+.inv-tile.upgrade small {
+  color: var(--gold);
+}
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.filter-btn {
+  flex: none;
+  padding: 7px 12px;
+  border-radius: 9px;
+  background: var(--card);
+  color: var(--text);
+  font-weight: 800;
+}
+.filter-btn.on {
+  background: var(--gold);
+  color: var(--c0);
+}
+.filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+}
+.filter-chip,
+.filter-clear {
+  padding: 3px 7px;
+  border-radius: 7px;
+  background: var(--c0);
+  color: var(--c3);
+  font-size: 11px;
+  font-weight: 800;
+}
+.filter-clear {
+  background: none;
+  color: var(--on-bg, var(--text));
+  text-decoration: underline;
+}
+.filter-label {
+  margin: 10px 0 5px;
+  font-weight: 800;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.filter-label:first-child {
+  margin-top: 0;
+}
+.type-cycler {
+  display: flex;
+  gap: 6px;
+}
+.type-cycler button {
+  width: 44px;
+  padding: 10px 0;
+  border-radius: 9px;
+  font-size: 18px;
+  font-weight: 800;
+}
+.type-cycler .cyc-cur {
+  flex: 1;
+  font-size: 15px;
+}
+.filter-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.filter-options button {
+  padding: 7px 9px;
+  border-radius: 8px;
+  background: var(--sunk);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 800;
+}
+.rarity-options button[style] {
+  border-left: 5px solid var(--rc);
+}
+.filter-options button.on {
+  background: var(--c0);
+  color: var(--c3);
+  outline: 2px solid var(--gold);
+}
+.filter-reset {
+  width: 100%;
+  margin-top: 12px;
+}
 .empty-inv {
   grid-column: 1 / -1;
   color: var(--muted);

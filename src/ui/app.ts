@@ -42,7 +42,9 @@ import {
   type GearStat,
   type HunterDef,
   type HunterId,
+  type ItemDef,
   type MaterialId,
+  type Rarity,
 } from '../core/balance';
 import { fmt, fmtTime } from '../core/format';
 import type { FarmRates, Game } from '../core/game';
@@ -55,6 +57,32 @@ import { applyAreaTheme } from './theme';
 type Tab = TabId;
 const INV_SUBS = ['materials', 'equipment', 'crafting'] as const;
 type InvSub = (typeof INV_SUBS)[number];
+/** Inventory Equipment filters. Types cycle in this order; weapons are split by how they fight. */
+const INV_TYPES = [
+  { id: 'all', name: 'All types', icon: '🎒' },
+  { id: 'melee', name: 'Melee', icon: '⚔️' },
+  { id: 'ranged', name: 'Ranged', icon: '🏹' },
+  { id: 'magic', name: 'Magic', icon: '🪄' },
+  { id: 'armor', name: 'Armor', icon: '🦺' },
+  { id: 'accessory', name: 'Accessories', icon: '💍' },
+  { id: 'upgrades', name: 'Upgrades', icon: '⛺' },
+] as const;
+type InvType = (typeof INV_TYPES)[number]['id'];
+const LEVEL_FILTERS = [
+  { id: 'any', name: 'Any', min: 0, max: Infinity },
+  { id: '1-3', name: 'Lv 1–3', min: 1, max: 3 },
+  { id: '4-6', name: 'Lv 4–6', min: 4, max: 6 },
+  { id: '7-9', name: 'Lv 7–9', min: 7, max: 9 },
+  { id: '10+', name: 'Lv 10+', min: 10, max: Infinity },
+] as const;
+type LevelFilter = (typeof LEVEL_FILTERS)[number]['id'];
+interface InvFilter {
+  type: InvType;
+  rarity: Rarity | 'any';
+  level: LevelFilter;
+}
+/** Which filter type a gear kind falls under. Plain 'weapon' gear is ranged (bows, rifles); no magic weapons exist yet. */
+const GEAR_TYPE: Record<string, InvType> = { weapon: 'ranged', melee: 'melee', armor: 'armor', accessory: 'accessory' };
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string, root: ParentNode = document) => root.querySelector(sel) as T;
 
@@ -73,6 +101,8 @@ export class AppUI {
   private tab: Tab = 'hunters';
   /** The open sub-tab of the Inventory tab. */
   private invSub: InvSub = 'materials';
+  /** Filters on the Inventory's Equipment sub-tab (kept for the session). */
+  private invFilter: InvFilter = { type: 'all', rarity: 'any', level: 'any' };
   /** The area selected in the Areas tab. */
   private selectedArea: AreaId | null = null;
 
@@ -1120,7 +1150,7 @@ export class AppUI {
     });
   }
 
-  // ---- Inventory tab: sub-tabs for Materials, Equipment (crafted gear) and Crafting (gear + Camp Upgrades) ----
+  // ---- Inventory tab: sub-tabs for Materials, Equipment (crafted gear) and Crafting (gear + Upgrades) ----
 
   private buildInventory(): void {
     const bar = el('div', 'subtabs inv-subtabs');
@@ -1164,22 +1194,69 @@ export class AppUI {
     });
   }
 
-  /** Every crafted piece; tap one for details. */
+  /** Every crafted piece and Upgrade, narrowed by the Filter sheet; tap one for details. */
   private buildGearList(pane: HTMLElement): void {
     const g = this.game;
     const invTitle = sectionTitle('Equipment');
     pane.appendChild(invTitle);
+    const bar = el('div', 'filter-bar');
+    bar.innerHTML = `<button class="filter-btn">⚙️ Filter</button><div class="filter-chips"></div>`;
+    $('.filter-btn', bar).addEventListener('click', () => this.openInvFilter());
+    pane.appendChild(bar);
     const inv = el('div', 'inventory');
     pane.appendChild(inv);
     let invKey: string | null = null;
     this.refreshers.push(() => {
-      const k = g.state.inventory.map((it) => `${it.uid}:${it.level}:${g.wearerOf(it.uid)?.who ?? ''}`).join('|');
+      const f = this.invFilter;
+      const lv = LEVEL_FILTERS.find((l) => l.id === f.level)!;
+      const gear = g.state.inventory.filter((it) => {
+        const gd = gearDef(it.base);
+        return (
+          (f.type === 'all' || GEAR_TYPE[gd.kind] === f.type) && (f.rarity === 'any' || gd.rarity === f.rarity) && it.level >= lv.min && it.level <= lv.max
+        );
+      });
+      // Upgrades have no rarity, so a rarity filter hides them.
+      const upgrades =
+        (f.type === 'all' || f.type === 'upgrades') && f.rarity === 'any'
+          ? ITEMS.filter((it) => g.state.items[it.id] > 0 && g.state.items[it.id] >= lv.min && g.state.items[it.id] <= lv.max)
+          : [];
+      const k = [
+        JSON.stringify(f),
+        gear.map((it) => `${it.uid}:${it.level}:${g.wearerOf(it.uid)?.who ?? ''}`).join('|'),
+        upgrades.map((it) => `${it.id}:${g.state.items[it.id]}`).join('|'),
+      ].join('/');
       if (k === invKey) return;
       invKey = k;
-      invTitle.innerHTML = `<span>Equipment</span><span>${g.state.inventory.length} item${g.state.inventory.length === 1 ? '' : 's'}</span>`;
+      const total = g.state.inventory.length + ITEMS.filter((it) => g.state.items[it.id] > 0).length;
+      const shown = gear.length + upgrades.length;
+      const filtering = f.type !== 'all' || f.rarity !== 'any' || f.level !== 'any';
+      invTitle.innerHTML = `<span>Equipment</span><span>${filtering ? `${shown} of ${total}` : total} item${total === 1 ? '' : 's'}</span>`;
+      $('.filter-btn', bar).classList.toggle('on', filtering);
+      const chips = $('.filter-chips', bar);
+      chips.innerHTML = '';
+      if (f.type !== 'all') {
+        const t = INV_TYPES.find((x) => x.id === f.type)!;
+        chips.appendChild(el('span', 'filter-chip', `${t.icon} ${t.name}`));
+      }
+      if (f.rarity !== 'any') {
+        const c = el('span', 'filter-chip', RARITIES[f.rarity].name);
+        c.style.color = RARITIES[f.rarity].color;
+        chips.appendChild(c);
+      }
+      if (f.level !== 'any') chips.appendChild(el('span', 'filter-chip', lv.name));
+      if (filtering) {
+        const clear = el('button', 'filter-clear', '✕ Clear');
+        clear.addEventListener('click', () => {
+          this.invFilter = { type: 'all', rarity: 'any', level: 'any' };
+          this.refresh();
+        });
+        chips.appendChild(clear);
+      }
       inv.innerHTML = '';
-      if (!g.state.inventory.length) inv.innerHTML = '<p class="empty-inv">Empty. Craft equipment in Crafting, then equip it from a Hunter\'s card.</p>';
-      for (const it of g.state.inventory) {
+      if (!total) inv.innerHTML = '<p class="empty-inv">Empty. Craft equipment in Crafting, then equip it from a Hunter\'s card.</p>';
+      else if (!shown)
+        inv.innerHTML = `<p class="empty-inv">${f.type === 'magic' ? 'No magic weapons yet.' : 'Nothing matches these filters.'}</p>`;
+      for (const it of gear) {
         const gd = gearDef(it.base);
         const worn = g.wearerOf(it.uid);
         const tile = el('button', 'inv-tile rar') as HTMLButtonElement;
@@ -1188,10 +1265,80 @@ export class AppUI {
         tile.addEventListener('click', () => this.openGearDetail(it.uid));
         inv.appendChild(tile);
       }
+      for (const it of upgrades) {
+        const tile = el('button', 'inv-tile upgrade') as HTMLButtonElement;
+        tile.innerHTML = `<i>${it.icon}</i><span>${it.name}</span><small>Lv ${g.state.items[it.id]}</small><em>⛺</em>`;
+        tile.addEventListener('click', () => this.openUpgradeDetail(it));
+        inv.appendChild(tile);
+      }
     });
   }
 
-  /** Gear recipes you know, then Camp Upgrades. */
+  /** The Equipment filters: a Type cycler, Rarity and Level. Changes apply as you tap. */
+  private openInvFilter(): void {
+    this.showSheet('⚙️ Filter', (body, close) => {
+      const draw = () => {
+        const f = this.invFilter;
+        const t = INV_TYPES.find((x) => x.id === f.type)!;
+        body.innerHTML = `
+          <div class="filter-label">Type</div>
+          <div class="type-cycler"><button data-step="-1" aria-label="Previous type">‹</button><button class="cyc-cur" data-step="1">${t.icon} ${t.name}</button><button data-step="1" aria-label="Next type">›</button></div>
+          <div class="filter-label">Rarity</div>
+          <div class="filter-options rarity-options">
+            <button data-rarity="any" class="${f.rarity === 'any' ? 'on' : ''}">Any</button>
+            ${(Object.keys(RARITIES) as Rarity[])
+              .map((r) => `<button data-rarity="${r}" class="${f.rarity === r ? 'on' : ''}" style="--rc:${RARITIES[r].color}">${RARITIES[r].name}</button>`)
+              .join('')}
+          </div>
+          <div class="filter-label">Level</div>
+          <div class="filter-options">
+            ${LEVEL_FILTERS.map((l) => `<button data-level="${l.id}" class="${f.level === l.id ? 'on' : ''}">${l.name}</button>`).join('')}
+          </div>
+          <button class="secondary filter-reset">Clear filters</button>`;
+        const set = (next: Partial<InvFilter>) => {
+          this.invFilter = { ...this.invFilter, ...next };
+          this.refresh();
+          draw();
+        };
+        body.querySelectorAll<HTMLButtonElement>('.type-cycler button').forEach((b) =>
+          b.addEventListener('click', () => {
+            const i = INV_TYPES.findIndex((x) => x.id === this.invFilter.type);
+            set({ type: INV_TYPES[(i + Number(b.dataset.step) + INV_TYPES.length) % INV_TYPES.length].id });
+          }),
+        );
+        body.querySelectorAll<HTMLButtonElement>('[data-rarity]').forEach((b) => b.addEventListener('click', () => set({ rarity: b.dataset.rarity as Rarity | 'any' })));
+        body.querySelectorAll<HTMLButtonElement>('[data-level]').forEach((b) => b.addEventListener('click', () => set({ level: b.dataset.level as LevelFilter })));
+        $('.filter-reset', body).addEventListener('click', () => {
+          set({ type: 'all', rarity: 'any', level: 'any' });
+          close();
+        });
+      };
+      draw();
+    });
+  }
+
+  /** An Upgrade's current and next effect, with a button to upgrade it. */
+  private openUpgradeDetail(it: ItemDef): void {
+    const g = this.game;
+    this.showSheet(`${it.icon} ${it.name}`, (body, close) => {
+      const lv = g.state.items[it.id];
+      const maxed = lv >= it.maxLevel;
+      body.innerHTML = `<p class="gear-now">Permanent upgrade · Lv ${lv} / ${it.maxLevel}</p><p><b>${it.describe(lv)}</b>${maxed ? '' : ` → ${it.describe(lv + 1)}`}</p>${
+        maxed ? '' : `<div class="cost">${costHtml(g, itemCost(it, lv))}</div>`
+      }`;
+      const btn = el('button', 'buy', maxed ? 'MAX' : 'Upgrade') as HTMLButtonElement;
+      btn.style.width = '100%';
+      btn.disabled = !g.canCraft(it.id);
+      btn.addEventListener('click', () => {
+        if (!g.craft(it.id)) return;
+        close();
+        this.openUpgradeDetail(it);
+      });
+      body.appendChild(btn);
+    });
+  }
+
+  /** Gear recipes you know, then Upgrades. */
   private buildCrafting(pane: HTMLElement): void {
     const g = this.game;
     pane.appendChild(sectionTitle('Craft Equipment'));
@@ -1203,7 +1350,7 @@ export class AppUI {
       pane.appendChild(teaser);
     }
 
-    pane.appendChild(sectionTitle('Camp Upgrades'));
+    pane.appendChild(sectionTitle('Upgrades'));
     for (const it of ITEMS) {
       const row = el('div', 'row');
       row.innerHTML = `<div class="icon">${it.icon}</div><div class="info"><div class="name"></div><div class="sub"></div><div class="cost"></div></div><button class="buy">Craft</button>`;
