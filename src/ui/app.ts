@@ -32,8 +32,10 @@ import {
   type EventDef,
   type SkillNode,
   RARITIES,
+  STATION_CAPACITY,
   STATION_EFFICIENCY,
   SWARM_PER_LEVEL,
+  type AreaId,
   type EnemyDef,
   type EnemyUpgrade,
   type GearDef,
@@ -66,6 +68,8 @@ export class AppUI {
   /** The full-screen gear picker, above the Hunter view. */
   private picker: HTMLElement | null = null;
   private tab: Tab = 'hunters';
+  /** The area selected in the Areas tab. */
+  private selectedArea: AreaId | null = null;
 
   constructor(
     private game: Game,
@@ -257,7 +261,7 @@ export class AppUI {
       dot.textContent = String(points);
       dot.classList.toggle('hidden', points <= 0);
       const station = def ? g.state.hunters[def.id].station : g.area;
-      const down = def && station && station !== g.area ? (g.farmRates(station, [def.id], STATION_EFFICIENCY).stunned[def.id] ?? 0) : 0;
+      const down = def && station && station !== g.area ? (g.farmRates(station, g.stationedIn(station), STATION_EFFICIENCY).stunned[def.id] ?? 0) : 0;
       status.innerHTML = `${station ? `📍 ${areaDef(station).name}` : '💤 Resting'} · ⚔️ ${fmt(g.dpsOf(who))} DPS${down >= 0.05 ? ' · <b class="warn">💫 overwhelmed</b>' : ''}`;
       const items = g.equipped(who);
       const k = items.map((it) => (it ? `${it.uid}:${it.level}` : '-')).join('|');
@@ -496,13 +500,16 @@ export class AppUI {
       rest.classList.toggle('on', !st.station);
       for (const { a, c } of areaChips) {
         c.classList.toggle('on', st.station === a.id);
-        c.disabled = !g.isAreaUnlocked(a.id);
-        const other = g.stationedAt(a.id);
-        c.textContent = `${a.name.split(' ').pop()}${other && other !== def.id ? ` (${hunterDef(other).icon})` : ''}`;
+        c.disabled = !g.isAreaUnlocked(a.id) || !g.canStation(def.id, a.id);
+        const n = g.stationedIn(a.id).length;
+        c.textContent = `${a.name.split(' ').pop()} ${n}/${STATION_CAPACITY}`;
       }
       if (!st.station) yieldEl.textContent = 'Resting. Station them in an area to earn.';
       else if (st.station === g.area) yieldEl.textContent = `Fighting beside you in ${areaDef(st.station).name}.`;
-      else yieldEl.innerHTML = yieldHtml(g.farmRates(st.station, [def.id], STATION_EFFICIENCY), areaDef(st.station).name);
+      else {
+        const group = g.stationedIn(st.station);
+        yieldEl.innerHTML = yieldHtml(g.farmRates(st.station, group, STATION_EFFICIENCY), `${areaDef(st.station).name}${group.length > 1 ? ` (with ${group.length - 1} other${group.length > 2 ? 's' : ''})` : ''}`);
+      }
     });
     return wrap;
   }
@@ -702,61 +709,65 @@ export class AppUI {
 
   // ---- Areas tab ----
 
+  /**
+   * Areas tab: a 3-wide grid of area icons, each with slots for the Hunters stationed there. Selecting an
+   * area shows its description and monsters below, with Details (the full area card) and Travel.
+   */
   private buildAreas(): void {
     const g = this.game;
-    AREAS.forEach((a, i) => {
-      const card = el('div', 'card area-card');
-      card.innerHTML = `<h3><span>${a.name}</span><small>Area ${i + 1}</small></h3><p>${a.blurb}</p><div class="enemy-chips"></div><div class="status"></div><div class="actions"></div>`;
-      this.panel.appendChild(card);
-      const chips = $('.enemy-chips', card);
-      chips.innerHTML = areaEnemies(a.id)
-        .map(
-          (e) =>
-            `<span class="enemy-chip" data-id="${e.id}"><i style="background:${e.color}"></i>${g.isAreaUnlocked(a.id) ? e.name : '???'}<span class="archetype">${ARCHETYPES[e.archetype].icon}</span></span>`,
-        )
-        .join('');
-      const actions = $('.actions', card);
-      const travel = el('button', 'buy', 'Travel here') as HTMLButtonElement;
-      travel.addEventListener('click', () => g.travel(a.id));
-      actions.appendChild(travel);
-
-      this.refreshers.push(() => {
-        const unlocked = g.isAreaUnlocked(a.id);
-        const here = g.area === a.id;
-        card.classList.toggle('here', here);
-        card.classList.toggle('locked', !unlocked);
-        chips
-          .querySelectorAll<HTMLElement>('.enemy-chip')
-          .forEach((c) => c.classList.toggle('locked', !g.state.bestiary[c.dataset.id as EnemyDef['id']].unlocked));
-        travel.classList.toggle('hidden', !unlocked || here);
-        const status = $('.status', card);
-        if (!unlocked) {
-          const prev = AREAS[i - 1];
-          status.innerHTML = `<p style="margin:0">🔒 Defeat the <b>${prev.name} Guardian</b> to unlock. (${fmt(Math.min(g.state.areas[prev.id].kills, prev.mastery))} / ${fmt(prev.mastery)} mastery)</p>`;
-          return;
-        }
-        const st = g.state.areas[a.id];
-        const helper = g.stationedAt(a.id);
-        const next = AREAS[i + 1];
-        const cleared = !next || g.isAreaUnlocked(next.id);
-        const mastery = cleared
-          ? `<div class="mastery done"><span>${next ? '✓ Guardian defeated' : '✓ The final area'}</span></div>`
-          : `<div class="mastery"><i style="width:${Math.min(1, st.kills / a.mastery) * 100}%"></i><span>${
-              st.kills >= a.mastery ? '⚔️ Guardian Challenge unlocked in Events' : `Mastery ${fmt(st.kills)} / ${fmt(a.mastery)}`
-            }</span></div>`;
-        const roster = areaEnemies(a.id);
-        const cells: Array<[string, string]> = [
-          ['Slain', fmt(st.kills)],
-          ['Gold earned', `🪙 ${fmt(st.gold)}`],
-          ['Escaped', fmt(st.escaped)],
-          ['Knockouts', fmt(st.knockouts)],
-          ['Monsters', `${roster.filter((e) => g.state.bestiary[e.id].unlocked).length} / ${roster.length}`],
-          ['Stationed', helper ? `${hunterDef(helper).icon} ${hunterDef(helper).name}` : '—'],
-        ];
-        status.innerHTML = `${here ? '<p class="here-line">📍 <b>You are here</b></p>' : ''}${mastery}<div class="area-stats">${cells
-          .map(([k, v]) => `<div><b>${v}</b>${k}</div>`)
-          .join('')}</div>${helper && !here ? yieldHtml(g.farmRates(a.id, [helper], STATION_EFFICIENCY), `${hunterDef(helper).name} earns`) : ''}`;
+    if (!this.selectedArea || !g.isAreaUnlocked(this.selectedArea)) this.selectedArea = g.area;
+    const grid = el('div', 'area-grid');
+    this.panel.appendChild(grid);
+    const tiles = AREAS.map((a) => {
+      const cell = el('div', 'area-cell');
+      const tile = el('button', 'area-tile') as HTMLButtonElement;
+      tile.innerHTML = `<i>${a.icon}</i><span>${a.name}</span>`;
+      tile.style.setProperty('--ac', a.palette[2]);
+      tile.addEventListener('click', () => {
+        if (!g.isAreaUnlocked(a.id)) return;
+        this.selectedArea = a.id;
+        this.setTab('areas', true);
       });
+      const slots = el('div', 'area-hunters');
+      cell.append(tile, slots);
+      grid.appendChild(cell);
+      return { a, tile, slots };
+    });
+    this.refreshers.push(() => {
+      for (const { a, tile, slots } of tiles) {
+        const open = g.isAreaUnlocked(a.id);
+        tile.classList.toggle('locked', !open);
+        tile.classList.toggle('here', g.area === a.id);
+        tile.classList.toggle('selected', this.selectedArea === a.id);
+        tile.innerHTML = open ? `<i>${a.icon}</i><span>${a.name}</span>${g.area === a.id ? '<b class="you-here">📍</b>' : ''}` : '<i>🔒</i><span>???</span>';
+        const here = open ? g.stationedIn(a.id) : [];
+        slots.innerHTML = Array.from({ length: STATION_CAPACITY }, (_, i) => {
+          const h = here[i];
+          return h ? `<span class="mini-hunter" style="--hc:${hunterDef(h).color}" title="${hunterDef(h).name}">${hunterDef(h).icon}</span>` : '<span class="mini-hunter empty"></span>';
+        }).join('');
+      }
+    });
+
+    // The selected area
+    const a = areaDef(this.selectedArea);
+    const panel = el('div', 'card area-panel');
+    panel.innerHTML = `<h3><span>${a.icon} ${a.name}</span></h3><p>${a.blurb}</p><div class="monster-icons"></div><div class="actions"><button class="buy secondary-btn details">Details</button><button class="buy travel">Travel</button></div>`;
+    this.panel.appendChild(panel);
+    const icons = $('.monster-icons', panel);
+    for (const e of areaEnemies(a.id)) {
+      const known = g.state.bestiary[e.id].unlocked;
+      const m = el('div', `monster-icon${known ? '' : ' unknown'}`);
+      m.innerHTML = `<canvas></canvas><small>${known ? e.name : '???'}</small>`;
+      icons.appendChild(m);
+      requestAnimationFrame(() => drawEnemyPortrait($<HTMLCanvasElement>('canvas', m), e.id));
+    }
+    $('.details', panel).addEventListener('click', () => this.openAreaDetail(a.id));
+    const travel = $<HTMLButtonElement>('.travel', panel);
+    travel.addEventListener('click', () => g.travel(a.id));
+    this.refreshers.push(() => {
+      const here = g.area === a.id;
+      travel.disabled = here || g.eventRunning;
+      travel.textContent = here ? 'You are here' : 'Travel';
     });
 
     const stats = el('div', 'card');
@@ -774,6 +785,99 @@ export class AppUI {
       ];
       $('.stats', stats).innerHTML = rows.map(([k, v]) => `<span>${k}</span><span>${v}</span>`).join('');
     });
+  }
+
+  /** Full-screen area card: stats, events, stationed Hunters and every monster with its drop. */
+  private openAreaDetail(id: AreaId): void {
+    if (this.detail) this.dropDetail();
+    const g = this.game;
+    const a = areaDef(id);
+    const view = el('div', 'hunter-detail area-detail');
+    view.innerHTML = `
+      <div class="hd-top"><button class="hd-close" aria-label="Close">✕</button><span>Areas</span></div>
+      <div class="hd-scroll">
+        <div class="hd-hero">
+          <div class="area-tile big" style="--ac:${a.palette[2]}"><i>${a.icon}</i></div>
+          <div class="hd-title"><h2>${a.name}</h2><div class="hd-sub"><span>${a.blurb}</span></div></div>
+        </div>
+        <div class="hd-body"></div>
+      </div>`;
+    document.body.appendChild(view);
+    $('.hd-close', view).addEventListener('click', () => this.closeHunterDetail());
+    this.detail = { el: view, refreshers: [] };
+    const body = $('.hd-body', view);
+    const main = this.refreshers;
+    this.refreshers = [];
+
+    body.appendChild(sectionTitle('Stats'));
+    const mastery = el('div', 'mastery-wrap');
+    body.appendChild(mastery);
+    const stats = el('div', 'hd-stats');
+    body.appendChild(stats);
+
+    const events = EVENTS.filter((e) => e.area === id);
+    if (events.length) {
+      body.appendChild(sectionTitle('Events'));
+      const list = el('div', 'area-events');
+      body.appendChild(list);
+      this.refreshers.push(() => {
+        list.innerHTML = events
+          .map((e) => {
+            const st = g.state.events[e.id];
+            const unlocked = g.eventUnlocked(e.id);
+            return `<div class="row"><div class="icon">${e.icon}</div><div class="info"><div class="name">${e.name}</div><div class="sub">${
+              unlocked ? `Run ${fmt(st.runs)} time${st.runs === 1 ? '' : 's'} · completed ${fmt(st.completed)}` : `🔒 Unlocks at ${fmt(e.unlockKills)} slain here`
+            }</div></div></div>`;
+          })
+          .join('');
+      });
+    }
+
+    body.appendChild(sectionTitle(`Stationed Hunters (max ${STATION_CAPACITY})`));
+    const hunters = el('div', 'area-stationed');
+    body.appendChild(hunters);
+
+    body.appendChild(sectionTitle('Monsters'));
+    const monsters = el('div', 'area-monsters');
+    body.appendChild(monsters);
+    for (const e of areaEnemies(id)) {
+      const known = g.state.bestiary[e.id].unlocked;
+      const mat = materialDef(e.material);
+      const row = el('div', `row${known ? '' : ' locked'}`);
+      row.innerHTML = `<canvas class="portrait"></canvas><div class="info"><div class="name">${known ? e.name : '???'} <small>${ARCHETYPES[e.archetype].icon} ${ARCHETYPES[e.archetype].name}</small></div><div class="drop">${gemHtml(e.material)} Drops <b>${known ? mat.name : '???'}</b></div><div class="sub">${known ? e.blurb : 'Unlock it in the Bestiary.'}</div></div>`;
+      monsters.appendChild(row);
+      requestAnimationFrame(() => drawEnemyPortrait($<HTMLCanvasElement>('canvas', row), e.id));
+    }
+
+    this.refreshers.push(() => {
+      const st = g.state.areas[id];
+      const next = nextAreaOf(id);
+      const cleared = !next || g.isAreaUnlocked(next.id);
+      mastery.innerHTML = cleared
+        ? `<div class="mastery done"><span>${next ? '✓ Guardian defeated' : '✓ The final area'}</span></div>`
+        : `<div class="mastery"><i style="width:${Math.min(1, st.kills / a.mastery) * 100}%"></i><span>Mastery ${fmt(st.kills)} / ${fmt(a.mastery)}</span></div>`;
+      const guardian = g.state.events[`guardian-${id}`];
+      const runs = events.reduce((sum, e) => sum + g.state.events[e.id].runs, 0);
+      const cells: Array<[string, string]> = [
+        ['Monsters slain', fmt(st.kills)],
+        ['Guardian slain', guardian ? fmt(guardian.completed) : '—'],
+        ['Events run', fmt(runs)],
+        ['Gold earned', `🪙 ${fmt(st.gold)}`],
+        ['Escaped', fmt(st.escaped)],
+        ['Knockouts', fmt(st.knockouts)],
+      ];
+      stats.innerHTML = cells.map(([k, v]) => `<div><b>${v}</b>${k}</div>`).join('');
+      const here = g.stationedIn(id);
+      hunters.innerHTML = here.length
+        ? `<div class="chips">${here.map((h) => `<span class="chip on">${hunterDef(h).icon} ${hunterDef(h).name}</span>`).join('')}</div>${
+            g.area !== id ? yieldHtml(g.farmRates(id, here, STATION_EFFICIENCY), 'Together they earn') : '<p class="hd-note">Fighting beside you here.</p>'
+          }`
+        : '<p class="hd-note">No Hunters stationed here. Station them from their Hunter card.</p>';
+    });
+
+    this.detail.refreshers = this.refreshers;
+    this.refreshers = main;
+    this.refresh();
   }
 
   // ---- Bestiary tab (enemy roster, per area) ----

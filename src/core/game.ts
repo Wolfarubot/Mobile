@@ -43,6 +43,7 @@ import {
   OFFLINE_EFFICIENCY,
   powerDamage,
   SALVAGE_REFUND,
+  STATION_CAPACITY,
   STATION_EFFICIENCY,
   STUN_IMMUNITY,
   STUN_TIME,
@@ -139,7 +140,7 @@ export class Game {
   /** Fractional kills/drops accumulated by stationed Hunters, per area+enemy. */
   private farmAcc = new Map<string, number>();
   /** Stationed Hunters' farm rates, refreshed about once a second (the model iterates, so don't redo it every frame). */
-  private stationRates = new Map<HunterId, { area: AreaId; rates: FarmRates; age: number }>();
+  private stationRates = new Map<AreaId, { key: string; rates: FarmRates; age: number }>();
   private listeners: Array<(e: GameEvent) => void> = [];
   rng: () => number;
 
@@ -631,17 +632,19 @@ export class Game {
         this.emit({ type: 'guardianFail' });
       }
     }
-    // Hunters stationed elsewhere keep farming in the background.
-    for (const h of HUNTERS) {
-      const station = s.hunters[h.id].station;
-      if (!s.hunters[h.id].recruited || !station || station === s.area) continue;
-      let cached = this.stationRates.get(h.id);
-      if (!cached || cached.area !== station || cached.age >= 1) {
-        cached = { area: station, rates: this.farmRates(station, [h.id], STATION_EFFICIENCY), age: 0 };
-        this.stationRates.set(h.id, cached);
+    // Hunters stationed elsewhere keep farming in the background, together per area.
+    for (const area of AREAS) {
+      if (area.id === s.area) continue;
+      const group = this.stationedIn(area.id);
+      if (!group.length) continue;
+      const key = group.join(',');
+      let cached = this.stationRates.get(area.id);
+      if (!cached || cached.key !== key || cached.age >= 1) {
+        cached = { key, rates: this.farmRates(area.id, group, STATION_EFFICIENCY), age: 0 };
+        this.stationRates.set(area.id, cached);
       }
       cached.age += dt;
-      this.accrue(station, cached.rates, dt);
+      this.accrue(area.id, cached.rates, dt);
     }
   }
 
@@ -936,27 +939,28 @@ export class Game {
     return true;
   }
 
-  /** Who's stationed in an area (at most one Hunter per area). */
-  stationedAt(area: AreaId): HunterId | null {
-    return HUNTERS.find((h) => this.state.hunters[h.id].recruited && this.state.hunters[h.id].station === area)?.id ?? null;
+  /** Hunters stationed in an area (up to STATION_CAPACITY). */
+  stationedIn(area: AreaId): HunterId[] {
+    return HUNTERS.filter((h) => this.state.hunters[h.id].recruited && this.state.hunters[h.id].station === area).map((h) => h.id);
   }
 
-  /** Station a Hunter in an area (or pass null to call them back). Swaps out whoever was there. */
+  /** Room for another Hunter in this area (one already there always "fits"). */
+  canStation(id: HunterId, area: AreaId): boolean {
+    const here = this.stationedIn(area);
+    return here.includes(id) || here.length < STATION_CAPACITY;
+  }
+
+  /** Station a Hunter in an area (or pass null to call them back). Fails if the area is full. */
   station(id: HunterId, area: AreaId | null): boolean {
     const h = this.state.hunters[id];
-    if (!h.recruited || (area && !this.isAreaUnlocked(area))) return false;
-    if (area) {
-      const current = this.stationedAt(area);
-      if (current && current !== id) this.state.hunters[current].station = null;
-    }
+    if (!h.recruited || (area && (!this.isAreaUnlocked(area) || !this.canStation(id, area)))) return false;
     h.station = area;
     return true;
   }
 
   /** Recruited Hunters fighting next to you in the current area. */
   get helpersHere(): HunterId[] {
-    const here = this.stationedAt(this.state.area);
-    return here ? [here] : [];
+    return this.stationedIn(this.state.area);
   }
 
   // ---- Bestiary ----
@@ -1021,10 +1025,10 @@ export class Game {
     };
     const withYou: Shooter[] = ['main', ...this.helpersHere];
     add(s.area, withYou, this.accrue(s.area, this.farmRates(s.area, withYou, OFFLINE_EFFICIENCY), seconds));
-    for (const h of HUNTERS) {
-      const station = s.hunters[h.id].station;
-      if (!s.hunters[h.id].recruited || !station || station === s.area) continue;
-      add(station, [h.id], this.accrue(station, this.farmRates(station, [h.id], STATION_EFFICIENCY * OFFLINE_EFFICIENCY), seconds));
+    for (const area of AREAS) {
+      const group = this.stationedIn(area.id);
+      if (area.id === s.area || !group.length) continue;
+      add(area.id, group, this.accrue(area.id, this.farmRates(area.id, group, STATION_EFFICIENCY * OFFLINE_EFFICIENCY), seconds));
     }
     s.lastSeen = now;
     return result;

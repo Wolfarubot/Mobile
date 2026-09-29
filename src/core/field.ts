@@ -74,6 +74,7 @@ export interface Helper {
 const HELPER_SPOTS = [
   { x: -55, y: 32 },
   { x: 55, y: 32 },
+  { x: 0, y: -62 },
 ];
 
 export type BulletKind = 'bolt' | 'arrow' | 'fireball' | 'potion' | 'pellet' | 'dagger' | 'pistol' | 'ricochet' | 'hammer';

@@ -182,25 +182,41 @@ describe('Hunters', () => {
     expect(g.shotDamage('alchemist', 'slime')).toBeCloseTo(g.shotDamage('alchemist', 'beast') * 3);
   });
 
-  it('one Hunter per area; stationing swaps; stationed Hunters farm in the background', () => {
+  it('up to 3 Hunters per area; stationed Hunters farm in the background, together', () => {
     const g = rich();
-    g.recruit('alchemist');
-    g.recruit('ranger');
+    for (const id of ['alchemist', 'ranger', 'glimmer', 'gravewarden'] as const) g.recruit(id);
     g.state.areas.graveyard.unlocked = true;
     g.state.hunters.alchemist.trains = 50;
     expect(g.station('alchemist', 'forest')).toBe(true);
     expect(g.station('ranger', 'forest')).toBe(true);
-    expect(g.stationedAt('forest')).toBe('ranger');
-    expect(g.state.hunters.alchemist.station).toBeNull();
+    expect(g.station('glimmer', 'forest')).toBe(true);
+    expect(g.stationedIn('forest')).toEqual(['alchemist', 'ranger', 'glimmer']);
+    expect(g.station('gravewarden', 'forest')).toBe(false); // full
+    expect(g.canStation('ranger', 'forest')).toBe(true); // already there
+    g.station('glimmer', null);
+    expect(g.station('gravewarden', 'forest')).toBe(true);
 
-    g.station('alchemist', 'forest');
-    g.travel('graveyard'); // you leave; Mira keeps hunting slimes in the forest
+    g.travel('graveyard'); // you leave; they keep hunting in the forest
     const gold = g.state.gold;
     const kills = g.state.areas.forest.kills;
     for (let i = 0; i < 600; i++) g.tick(0.1);
     expect(g.state.gold).toBeGreaterThan(gold);
     expect(g.state.areas.forest.kills).toBeGreaterThan(kills);
     expect(g.state.materials.goo).toBeGreaterThan(0);
+    // Together they can't kill more than the forest spawns.
+    const spawns = g.roster('forest').reduce((sum, e) => sum + e.spawnRate, 0);
+    expect(g.state.areas.forest.kills - kills).toBeLessThanOrEqual(spawns * 60 + 5);
+  });
+
+  it('offline, Hunters sharing an area are reported together', () => {
+    const g = rich();
+    for (const id of ['alchemist', 'ranger'] as const) g.recruit(id);
+    g.state.areas.graveyard.unlocked = true;
+    g.station('alchemist', 'graveyard');
+    g.station('ranger', 'graveyard');
+    g.state.lastSeen = 0;
+    const r = g.applyOffline(3600 * 1000);
+    expect(r.areas.find((a) => a.area === 'graveyard')?.hunters).toEqual(['alchemist', 'ranger']);
   });
 
   it('a Hunter stationed where you are fights on the field instead of farming twice', () => {

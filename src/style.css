@@ -1832,3 +1832,161 @@ canvas {
 .name-input:focus {
   border-color: var(--good);
 }
+
+/* ---- Areas tab: grid of area icons with Hunter slots ---- */
+.area-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px 10px;
+  margin-bottom: 14px;
+}
+.area-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.area-tile {
+  --ac: var(--c2);
+  position: relative;
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: var(--ac);
+  background-image: linear-gradient(180deg, #ffffff55, #ffffff00 60%);
+  border: 2px solid var(--c0);
+  box-shadow: 3px 3px 0 var(--c0);
+  color: var(--c0);
+  padding: 6px 4px;
+}
+.area-tile i {
+  font-style: normal;
+  font-size: 36px;
+  line-height: 1;
+}
+.area-tile span {
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  line-height: 1.1;
+}
+.area-tile.locked {
+  background: var(--c1);
+  color: var(--c2);
+  opacity: 0.7;
+}
+.area-tile.selected {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
+}
+.area-tile .you-here {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  font-size: 14px;
+}
+.area-tile.big {
+  width: 96px;
+  flex: none;
+}
+.area-tile.big i {
+  font-size: 52px;
+}
+.area-hunters {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+}
+.mini-hunter {
+  --hc: var(--c2);
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  background: var(--hc);
+  border: 2px solid var(--c0);
+}
+.mini-hunter.empty {
+  background: transparent;
+  border: 2px dashed color-mix(in srgb, var(--c3) 45%, transparent);
+}
+.area-panel h3 {
+  margin-bottom: 2px;
+}
+.monster-icons {
+  display: flex;
+  gap: 10px;
+  margin: 6px 0 10px;
+}
+.monster-icon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 64px;
+}
+.monster-icon canvas {
+  width: 48px;
+  height: 48px;
+  background: var(--c2);
+  border: 2px solid var(--c0);
+}
+.monster-icon small {
+  font-size: 10px;
+  text-align: center;
+  color: var(--c0);
+  line-height: 1.1;
+}
+.monster-icon.unknown canvas {
+  filter: brightness(0) opacity(0.5);
+}
+.area-panel .actions .buy {
+  padding: 10px;
+  font-size: 15px;
+}
+.buy.secondary-btn {
+  background: var(--c2);
+  color: var(--c0);
+  text-shadow: none;
+}
+
+/* Area detail */
+.area-detail .hd-sub span {
+  color: var(--on-bg);
+}
+.mastery-wrap {
+  margin-bottom: 8px;
+}
+.area-monsters .row .portrait {
+  width: 52px;
+  height: 52px;
+  flex: none;
+  background: var(--c2);
+  border: 2px solid var(--c0);
+}
+.area-monsters .row.locked .portrait {
+  filter: brightness(0) opacity(0.5);
+}
+.area-monsters .name small {
+  color: var(--muted);
+  font-size: 12px;
+  margin-left: 4px;
+}
+.area-monsters .drop {
+  font-size: 13px;
+  margin-top: 2px;
+}
+.area-events .row,
+.area-monsters .row {
+  margin-bottom: 8px;
+}
+.area-stationed .chip {
+  font-size: 13px;
+}
+.hunter-detail .yield,
+.hunter-detail .knockouts {
+  color: var(--on-bg) !important;
+}
