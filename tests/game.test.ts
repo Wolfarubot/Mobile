@@ -596,6 +596,16 @@ describe('Offline', () => {
 });
 
 describe('Events', () => {
+  it('the Events tab opens once the first Guardian Challenge unlocks, and stays open', () => {
+    const g = new Game(newGame(0), noCrit);
+    expect(g.eventsOpen).toBe(false);
+    g.state.areas.forest.kills = areaDef('forest').mastery;
+    expect(g.eventsOpen).toBe(true);
+    g.state.flags.eventsIntro = true;
+    g.state.areas.forest.kills = 0;
+    expect(g.eventsOpen).toBe(true);
+  });
+
   it('every area with a Guardian has a Guardian Challenge, unlocked at its mastery', () => {
     for (const a of AREAS.filter((x) => Number.isFinite(x.mastery))) {
       const ev = eventDef(`guardian-${a.id}`);
@@ -985,6 +995,19 @@ describe('Saves', () => {
     const s = deserialize(JSON.stringify(old))!;
     expect(s.events['guardian-forest'].completed).toBe(1);
     expect(s.events['guardian-graveyard'].completed).toBe(0);
+  });
+
+  it('keeps settings and tutorial flags; older saves get the defaults', () => {
+    const s = newGame(0);
+    s.settings.leftHanded = true;
+    s.flags.eventsIntro = true;
+    const back = deserialize(serialize(s))!;
+    expect(back.settings).toEqual({ leftHanded: true });
+    expect(back.flags).toEqual({ eventsIntro: true });
+    const old = JSON.parse(serialize(newGame(0)));
+    delete old.settings;
+    delete old.flags;
+    expect(deserialize(JSON.stringify(old))!.settings).toEqual({ leftHanded: false });
   });
 
   it('keeps per-Hunter kills, and older saves start them empty', () => {

@@ -58,7 +58,7 @@ export class AppUI {
   private modal = $('#modal');
   private modalClose: (() => void) | null = null;
   /** The open full-screen Hunter view, with its own refreshers. */
-  private detail: { el: HTMLElement; who: Wearer; refreshers: Array<() => void> } | null = null;
+  private detail: { el: HTMLElement; refreshers: Array<() => void> } | null = null;
   private tab: Tab = 'hunters';
 
   constructor(
@@ -66,8 +66,13 @@ export class AppUI {
     private hooks: { save: () => void; wipe: () => Promise<void> },
   ) {
     document.querySelectorAll<HTMLButtonElement>('.tabs button').forEach((b) =>
-      b.addEventListener('click', () => this.setTab(b.dataset.tab as Tab)),
+      b.addEventListener('click', () => {
+        if (b.dataset.tab === 'events' && !game.eventsOpen) this.showEventsLocked();
+        else this.setTab(b.dataset.tab as Tab);
+      }),
     );
+    $('#settingsBtn').addEventListener('click', () => this.openSettings());
+    this.applySettings();
     // Panels that depend on which areas/enemies/Hunters exist are rebuilt when those change.
     game.on((e) => {
       if (e.type === 'areaUnlocked' || e.type === 'travel' || e.type === 'unlock' || e.type === 'recruit') this.setTab(this.tab, true);
@@ -103,6 +108,8 @@ export class AppUI {
     $('#areaNum').textContent = `Area ${idx + 1} of ${AREAS.length}`;
     $('#areaName').textContent = area.name;
 
+    $('.tabs button[data-tab=events]').classList.toggle('locked', !g.eventsOpen);
+    if (g.eventsOpen && !s.flags.eventsIntro && !this.modalClose && !this.detail) this.showEventsIntro();
     const ready = EVENTS.filter((e) => e.area === g.area && g.eventReady(e.id)).length;
     const badge = $('#eventsBadge');
     badge.textContent = String(ready);
@@ -279,7 +286,7 @@ export class AppUI {
     document.body.appendChild(view);
     const body = $('.hd-body', view);
     $('.hd-close', view).addEventListener('click', () => this.closeHunterDetail());
-    this.detail = { el: view, who, refreshers: [] };
+    this.detail = { el: view, refreshers: [] };
 
     const main = this.refreshers;
     this.refreshers = [];
@@ -619,13 +626,7 @@ export class AppUI {
     });
 
     const stats = el('div', 'card');
-    stats.innerHTML = `<h3>Records</h3><div class="stats"></div><button class="danger-link">Reset all progress</button>`;
-    $('.danger-link', stats).addEventListener('click', () =>
-      this.showModal('<h2>Reset everything?</h2><p>This deletes your save: areas, Hunters, items and materials. It cannot be undone.</p>', [
-        { label: 'Cancel', secondary: true },
-        { label: 'Delete', action: () => void this.hooks.wipe() },
-      ]),
-    );
+    stats.innerHTML = `<h3>Records</h3><div class="stats"></div>`;
     this.panel.appendChild(stats);
     this.refreshers.push(() => {
       const s = g.state;
@@ -811,9 +812,6 @@ export class AppUI {
 
   private buildEvents(): void {
     const g = this.game;
-    const intro = el('div', 'card');
-    intro.innerHTML = `<p style="margin:0">Events for the area you're in. Slay monsters here to unlock them. After you start one, it goes on cooldown before it can run again. Travel to another area to see its events.</p>`;
-    this.panel.appendChild(intro);
     this.panel.appendChild(sectionTitle(areaDef(g.area).name));
     const here = EVENTS.filter((e) => e.area === g.area);
     for (const ev of here) this.buildEventCard(ev);
@@ -862,6 +860,75 @@ export class AppUI {
         btn.disabled = !g.eventReady(ev.id);
       }
     });
+  }
+
+  /** Tapping the greyed-out Events tab explains how to open it. */
+  private showEventsLocked(): void {
+    const forest = areaDef('forest');
+    const kills = Math.min(this.game.state.areas.forest.kills, forest.mastery);
+    this.showModal(`<h2>🔒 Events</h2><p>Slay ${fmt(forest.mastery)} monsters in the ${forest.name} to unlock Events and the Guardian Challenge.</p><p><b>${fmt(kills)} / ${fmt(forest.mastery)}</b></p>`, [{ label: 'OK' }]);
+  }
+
+  /** Shown once, when the first Guardian Challenge unlocks. */
+  private showEventsIntro(): void {
+    this.game.state.flags.eventsIntro = true;
+    this.showModal(
+      `<h2>🎉 Events unlocked!</h2>
+       <p>The <b>Guardian Challenge</b> is ready in the ${areaDef('forest').name}.</p>
+       <p>The Events tab shows the events for the area you're in. Slay monsters there to unlock them. After you start one, it goes on cooldown before it can run again. Travel to another area to see its events.</p>`,
+      [
+        { label: 'Later', secondary: true },
+        { label: 'Go to Events', action: () => this.setTab('events') },
+      ],
+    );
+  }
+
+  // ---- Settings ----
+
+  /** Puts per-player preferences into effect (e.g. which side Train buttons sit on). */
+  private applySettings(): void {
+    document.body.classList.toggle('left-handed', this.game.state.settings.leftHanded);
+  }
+
+  /** Full-screen Settings page. */
+  private openSettings(): void {
+    if (this.detail) this.dropDetail();
+    const g = this.game;
+    const view = el('div', 'hunter-detail settings');
+    view.innerHTML = `
+      <div class="hd-top"><button class="hd-close" aria-label="Close">✕</button><span>Settings</span></div>
+      <div class="hd-scroll"></div>`;
+    document.body.appendChild(view);
+    $('.hd-close', view).addEventListener('click', () => this.closeHunterDetail());
+    this.detail = { el: view, refreshers: [] };
+    const body = $('.hd-scroll', view);
+
+    body.appendChild(sectionTitle('Controls'));
+    const hand = el('div', 'card setting');
+    hand.innerHTML = `<div class="setting-name">Handedness</div><p>Which side of the Hunter cards the Train button sits on.</p><div class="segmented"><button data-v="left">✋ Left-handed</button><button data-v="right">Right-handed 🤚</button></div>`;
+    const buttons = hand.querySelectorAll<HTMLButtonElement>('.segmented button');
+    const sync = () => buttons.forEach((b) => b.classList.toggle('on', (b.dataset.v === 'left') === g.state.settings.leftHanded));
+    buttons.forEach((b) =>
+      b.addEventListener('click', () => {
+        g.state.settings.leftHanded = b.dataset.v === 'left';
+        this.applySettings();
+        this.hooks.save();
+        sync();
+      }),
+    );
+    sync();
+    body.appendChild(hand);
+
+    body.appendChild(sectionTitle('Save'));
+    const reset = el('div', 'card setting');
+    reset.innerHTML = `<div class="setting-name">Reset all progress</div><p>Deletes your save: areas, Hunters, gear and materials. It cannot be undone.</p><button class="buy danger-btn">Reset…</button>`;
+    $('.danger-btn', reset).addEventListener('click', () =>
+      this.showModal('<h2>Reset everything?</h2><p>This deletes your save: areas, Hunters, items and materials. It cannot be undone.</p>', [
+        { label: 'Cancel', secondary: true },
+        { label: 'Delete', action: () => void this.hooks.wipe() },
+      ]),
+    );
+    body.appendChild(reset);
   }
 
   // ---- Modals ----

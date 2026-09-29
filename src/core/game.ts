@@ -534,6 +534,11 @@ export class Game {
     this.emit({ type: 'eventComplete', event: id });
   }
 
+  /** The Events tab opens once the first Guardian Challenge unlocks (and stays open). */
+  get eventsOpen(): boolean {
+    return this.state.flags.eventsIntro || this.eventUnlocked('guardian-forest') || this.isAreaUnlocked('graveyard');
+  }
+
   /** Times an event has been completed (Guardians beaten, swarms survived). */
   eventCompletions(id: string): number {
     return this.state.events[id]?.completed ?? 0;

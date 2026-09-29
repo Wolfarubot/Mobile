@@ -1168,3 +1168,56 @@ button {
 .ev-live {
   color: #ff7a8c;
 }
+
+/* ---- Settings ---- */
+.settings-btn {
+  margin-left: 6px;
+  padding: 2px 4px;
+  background: none;
+  font-size: 18px;
+  align-self: center;
+}
+.setting-name {
+  font-weight: 800;
+  font-size: 15px;
+  margin-bottom: 2px;
+}
+.segmented {
+  display: flex;
+  gap: 6px;
+  background: #0004;
+  border-radius: 12px;
+  padding: 4px;
+}
+.segmented button {
+  flex: 1;
+  padding: 10px 6px;
+  border-radius: 9px;
+  background: none;
+  color: var(--muted);
+  font-weight: 800;
+}
+.segmented button.on {
+  background: var(--accent);
+  color: #fff;
+}
+.setting .danger-btn {
+  width: 100%;
+}
+
+/* Handedness: right-handed puts Train buttons on the right, left-handed on the left. */
+.train {
+  flex-direction: row-reverse;
+}
+.left-handed .train {
+  flex-direction: row;
+}
+.left-handed .hc-train {
+  flex-direction: row-reverse;
+}
+
+/* Events tab greyed out until the first Guardian Challenge unlocks. */
+.tabs button.locked {
+  opacity: 0.35;
+  filter: grayscale(1);
+}

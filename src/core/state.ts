@@ -84,6 +84,10 @@ export interface GameState {
   nextGearUid: number;
   /** Epoch ms of the last save; used to compute offline progress. */
   lastSeen: number;
+  /** Player preferences (Settings page). */
+  settings: { leftHanded: boolean };
+  /** One-time tutorial moments already shown. */
+  flags: { eventsIntro: boolean };
   /** Per event: seconds of cooldown left, times started and times completed (a Guardian beaten, a swarm survived). */
   events: Record<string, EventState>;
   buyAmount: BuyAmount;
@@ -121,6 +125,8 @@ export function newGame(now = Date.now()): GameState {
     equipment: {},
     nextGearUid: 1,
     lastSeen: now,
+    settings: { leftHanded: false },
+    flags: { eventsIntro: false },
     events: Object.fromEntries(EVENTS.map((e) => [e.id, { cooldown: 0, runs: 0, completed: 0 }])),
     buyAmount: 1,
     stats: { totalKills: 0, totalGold: 0, taps: 0, escaped: 0, guardians: 0, hunterKills: {} },
@@ -193,6 +199,8 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
     materials: mergeNumbers(base.materials, data.materials),
     items: mergeNumbers(base.items, data.items),
     stats,
+    settings: { leftHanded: !!(data.settings as { leftHanded?: unknown } | undefined)?.leftHanded },
+    flags: { eventsIntro: !!(data.flags as { eventsIntro?: unknown } | undefined)?.eventsIntro },
     events: Object.fromEntries(
       EVENTS.map((e) => {
         const saved = (data.events as Record<string, Partial<Record<keyof EventState, unknown>>> | undefined)?.[e.id];
