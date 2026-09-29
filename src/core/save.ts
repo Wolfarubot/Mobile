@@ -1,6 +1,7 @@
 import { Preferences } from '@capacitor/preferences';
 import { deserialize, serialize, type GameState } from './state';
 
+// Kept from the game's first name so existing saves still load.
 const KEY = 'monster-horde-save';
 
 // Capacitor Preferences maps to SharedPreferences (Android) / UserDefaults (iOS),

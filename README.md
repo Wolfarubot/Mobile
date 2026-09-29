@@ -76,7 +76,7 @@ Balancing: `SIM_SWEEP=1 npx vitest run tests/progression.test.ts --silent=false`
 
 ### On an Android phone
 
-**Easiest:** every push to GitHub runs the **Build** workflow, which uploads `monster-horde-debug-apk`. Download it from the workflow run's *Artifacts*, copy the APK to your phone, and install it. You'll need to allow "install unknown apps".
+**Easiest:** every push to GitHub runs the **Build** workflow, which uploads `pocket-hunter-debug-apk`. Download it from the workflow run's *Artifacts*, copy the APK to your phone, and install it. You'll need to allow "install unknown apps".
 
 **With Android Studio:**
 
