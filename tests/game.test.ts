@@ -19,6 +19,14 @@ import {
   eventDef,
   ENEMIES,
   ARCHETYPES,
+  helperTrainCost,
+  HELPER_TRAIN_GROWTH,
+  ASCEND_LEVEL,
+  ASCENDED_TREES,
+  MAX_LEVEL,
+  SESSIONS_AFTER_ASCEND,
+  SESSIONS_TO_ASCEND,
+  SKILL_TREES,
   gearDef,
   EMPOWER,
   EMPOWER_LEVEL,
@@ -439,6 +447,61 @@ describe('Shops', () => {
     expect(g.trainPurchase('main', 1).cost).toBeGreaterThan(before); // and gets pricier
   });
 
+  it("every Guild Hunter's first tree costs 39 points: complete at Lv 40", () => {
+    for (const h of HUNTERS) {
+      const cost = SKILL_TREES[h.id].reduce((sum, n) => sum + n.maxRank * (n.cost ?? 1), 0);
+      expect(cost, h.id).toBe(39);
+      // The capstone is the last node: its cost is what's left after everything else at Lv 40.
+    }
+  });
+
+  it('Ascension: gold node after a full tree (10 points = Lv 50), level curve restarts, new tree to Lv 100', () => {
+    const g = rich();
+    g.recruit('alchemist');
+    const t = g.state.hunters.alchemist;
+    // Training stops at Lv 50 until they ascend.
+    t.trains = SESSIONS_TO_ASCEND - 1;
+    expect(g.trainPurchase('alchemist', 10).count).toBe(1);
+    t.trains = SESSIONS_TO_ASCEND;
+    expect(g.levelOf('alchemist')).toBe(ASCEND_LEVEL);
+    expect(g.trainPurchase('alchemist', 1).count).toBe(0);
+    expect(g.train('alchemist')).toBe(false);
+    // Fill the first tree (39 points), leaving 10 for Ascend.
+    expect(g.nodeReachable('alchemist', 'ascend')).toBe(false);
+    for (const n of SKILL_TREES.alchemist) while (g.skill('alchemist', n.id) < n.maxRank) expect(g.learn('alchemist', n.id)).toBe(true);
+    expect(g.skillPoints('alchemist')).toBe(10);
+    expect(g.nodeReachable('alchemist', 'ascend')).toBe(true);
+    const cost = g.trainPurchase('alchemist', 1);
+    expect(g.titleOf('alchemist')).toBe('Alchemist');
+    expect(g.learn('alchemist', 'ascend')).toBe(true);
+    // Ascended: new title, still Lv 50, 1 session to Lv 51, and the price picks up where it was.
+    expect(g.ascended('alchemist')).toBe(true);
+    expect(g.titleOf('alchemist')).toBe(hunterDef('alchemist').ascendedTitle);
+    expect(g.levelInfo('alchemist')).toEqual({ level: 50, into: 0, need: 1 });
+    expect(g.skillPoints('alchemist')).toBe(0);
+    const after = g.trainPurchase('alchemist', 1);
+    expect(after.count).toBe(1);
+    g.state.gold = 1e300;
+    g.state.buyAmount = 1;
+    expect(g.train('alchemist')).toBe(true);
+    expect(g.levelOf('alchemist')).toBe(51);
+    // The price carries on from where it was: the first session after ascending costs what the next one would have.
+    expect(after.cost / (helperTrainCost(hunterDef('alchemist')) * HELPER_TRAIN_GROWTH ** SESSIONS_TO_ASCEND)).toBeCloseTo(1, 6);
+    void cost;
+    // The ascended tree is 50 points with its capstone last: at Lv 100 exactly.
+    expect(ASCENDED_TREES.alchemist.reduce((sum, n) => sum + n.maxRank * (n.cost ?? 1), 0)).toBe(50);
+    t.trains = t.ascendAt! + SESSIONS_AFTER_ASCEND;
+    expect(g.levelOf('alchemist')).toBe(MAX_LEVEL);
+    expect(g.trainPurchase('alchemist', 1).count).toBe(0);
+    expect(g.skillPoints('alchemist')).toBe(50);
+    for (const n of ASCENDED_TREES.alchemist) while (g.skill('alchemist', n.id, 'ascended') < n.maxRank) expect(g.learn('alchemist', n.id, 'ascended')).toBe(true);
+    expect(g.skillPoints('alchemist')).toBe(0);
+    // It survives a save.
+    const back = deserialize(serialize(g.state))!;
+    expect(back.hunters.alchemist.ascendAt).toBe(t.ascendAt);
+    expect(back.hunters.alchemist.skills2).toEqual(t.skills2);
+  });
+
   it('skill trees: the root first, then branches; each node needs a point in the one it hangs from', () => {
     const g = rich();
     g.recruit('ranger');
@@ -460,7 +523,7 @@ describe('Shops', () => {
     expect(g.tapRadius).toBeGreaterThan(radius);
     expect(g.learn('main', 'capstone')).toBe(true); // reachable from any second-row node
     // Every Hunter has their own tree of the same shape.
-    expect(g.skillTree('ranger').map((n) => n.id)).toEqual(['root', 'power', 'speed', 'recovery', 'power2', 'speed2', 'recovery2', 'capstone']);
+    expect(g.skillTree('ranger').map((n) => n.id)).toEqual(['root', 'power', 'speed', 'recovery', 'power2', 'speed2', 'recovery2', 'capstone', 'ascend']);
     expect(g.skillTree('ranger')[4].name).toBe('Beast Bane');
     const vsBeast = g.shotDamage('ranger', 'beast');
     g.learn('ranger', 'root');

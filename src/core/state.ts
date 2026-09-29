@@ -1,4 +1,5 @@
 import {
+  ASCENDED_TREES,
   AREAS,
   ENEMIES,
   EVENTS,
@@ -50,6 +51,10 @@ export interface Training {
   trains: number;
   /** Ranks bought in each skill-tree node (by node id). */
   skills: Record<string, number>;
+  /** Guild Hunters: `trains` when they ascended (their level curve restarts from there). */
+  ascendAt?: number;
+  /** Ranks in their ascended tree. */
+  skills2?: Record<string, number>;
 }
 
 export interface HunterState extends Training {
@@ -188,10 +193,15 @@ function mergeNumbers<K extends string>(base: Record<K, number>, saved: unknown)
 
 /** Keeps only ranks in nodes that exist in this wearer's tree, capped at each node's max. */
 function cleanSkills(who: Wearer, saved: unknown): Record<string, number> {
+  return cleanRanks(SKILL_TREES[who], saved);
+}
+
+/** Saved ranks, kept only for nodes of `nodes` and capped at their max. */
+function cleanRanks(nodes: ReadonlyArray<{ id: string; maxRank: number }>, saved: unknown): Record<string, number> {
   if (!saved || typeof saved !== 'object') return {};
   const out: Record<string, number> = {};
   for (const [k, v] of Object.entries(saved)) {
-    const node = SKILL_TREES[who].find((n) => n.id === k);
+    const node = nodes.find((n) => n.id === k);
     if (node && typeof v === 'number' && Number.isFinite(v) && v > 0) out[k] = Math.min(node.maxRank, Math.floor(v));
   }
   return out;
@@ -285,6 +295,13 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
     h.trains = typeof saved.trains === 'number' ? saved.trains : typeof saved.level === 'number' ? saved.level : 0;
     h.skills = trees ? cleanSkills(id as HunterId, h.skills) : {};
     delete h.level;
+    // Ascension: keep a sane point where it happened, and only ranks in nodes that exist.
+    if (typeof h.ascendAt === 'number' && Number.isFinite(h.ascendAt) && h.ascendAt >= 0 && h.ascendAt <= h.trains) {
+      h.skills2 = cleanRanks(ASCENDED_TREES[id as HunterId], h.skills2);
+    } else {
+      delete h.ascendAt;
+      delete h.skills2;
+    }
   }
   // v4 -> v5: gear is new. Keep only well-formed pieces and slot references to pieces that exist.
   state.inventory = Array.isArray(data.inventory)

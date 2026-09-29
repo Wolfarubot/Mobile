@@ -1,4 +1,7 @@
 import {
+  ASCEND_LEVEL,
+  ASCEND_NODE,
+  MAX_LEVEL,
   EMPOWER_LEVEL,
   EMPOWER_UNLOCK_KILLS,
   enemyDef,
@@ -51,7 +54,7 @@ import {
   type Rarity,
 } from '../core/balance';
 import { fmt, fmtTime } from '../core/format';
-import type { FarmRates, Game } from '../core/game';
+import type { FarmRates, Game, TreeKind } from '../core/game';
 import type { OfflineResult } from '../core/offline';
 import { TAB_IDS, type BuyAmount, type GearItem, type TabId, type Wearer } from '../core/state';
 import { drawEnemyPortrait } from '../render/battle';
@@ -75,6 +78,10 @@ interface TreeAdapter {
   verb: string;
   /** Why a node is still closed beyond its prerequisites (e.g. kills needed), or null. */
   gate?: (id: string) => string | null;
+  /** Nodes not shown yet (the Ascend node until the first tree is complete). */
+  hidden?: (id: string) => boolean;
+  /** Called after a node is learned. */
+  after?: (id: string) => void;
 }
 const INV_SUBS = ['materials', 'equipment', 'crafting'] as const;
 type InvSub = (typeof INV_SUBS)[number];
@@ -250,11 +257,14 @@ export class AppUI {
     this.refreshers.push(() => {
       const p = g.trainPurchase(who);
       const { level, into, need } = g.levelInfo(who);
-      btn.innerHTML = `Train${p.count > 1 ? ` ×${p.count}` : ''}<small>🪙 ${fmt(p.cost)}</small>`;
-      btn.disabled = g.state.gold < p.cost;
+      if (p.count === 0) btn.innerHTML = level >= MAX_LEVEL ? 'Max level' : `Lv ${level} cap<small>Ascend in Skills</small>`;
+      else btn.innerHTML = `Train${p.count > 1 ? ` ×${p.count}` : ''}<small>🪙 ${fmt(p.cost)}</small>`;
+      btn.disabled = p.count === 0 || g.state.gold < p.cost;
       $('i', bar).style.width = `${(into / need) * 100}%`;
       // The card's bar is just the bar; the numbers are in the full view.
-      $('span', bar).textContent = compact ? '' : `Lv ${level} · ${into}/${need} to Lv ${level + 1}`;
+      const capped = p.count === 0;
+      $('i', bar).style.width = capped ? '100%' : `${(into / need) * 100}%`;
+      $('span', bar).textContent = compact ? '' : capped ? (level >= MAX_LEVEL ? `Lv ${level} · max level` : `Lv ${level} · ascend to go on`) : `Lv ${level} · ${into}/${need} to Lv ${level + 1}`;
     });
     return { btn, bar };
   }
@@ -282,7 +292,7 @@ export class AppUI {
         <div class="hc-art">${portraitHtml(who)}</div>
         <div class="hc-info">
           <div class="card-corner"><b class="sp-dot hidden" title="Unspent skill points"></b><span class="expand-tag">Expand ›</span></div>
-          <div class="hc-name">${def ? `${def.name} <small>the ${def.title}</small>` : `${esc(mainName())} <small>the Monster Hunter</small>`}</div>
+          <div class="hc-name">${def ? `${def.name} <small>the ${g.titleOf(def.id)}</small>` : `${esc(mainName())} <small>the Monster Hunter</small>`}</div>
           <div class="hc-ability">${def ? def.ability : MAIN_ABILITY}</div>
           <div class="hc-status"></div>
         </div>
@@ -437,6 +447,11 @@ export class AppUI {
     else equipment.appendChild(el('p', 'hd-note', `Slots: ${g.slotsOf(who).map((sl) => `${GEAR_KINDS[sl.kind].icon} ${sl.label}`).join(' · ')}. Recruit them to equip gear.`));
 
     // Skills
+    if (who !== 'main' && g.ascended(who)) {
+      pane('skills').appendChild(sectionTitle(`Ascended tree · the ${g.titleOf(who)}`));
+      pane('skills').appendChild(this.treeView(this.hunterTree(who, 'ascended')));
+      pane('skills').appendChild(sectionTitle('First tree'));
+    }
     pane('skills').appendChild(this.treeView(this.hunterTree(who)));
 
     const spCount = $('.sp-count', view);
@@ -446,7 +461,7 @@ export class AppUI {
       spCount.classList.toggle('hidden', points <= 0);
       const station = def ? g.state.hunters[def.id].station : g.area;
       $('.hd-sub', view).innerHTML = [
-        `<span>${def ? `the ${def.title}` : 'the Monster Hunter'}${recruited ? ` · Lv ${g.levelOf(who)}` : ''}</span>`,
+        `<span>${def ? `the ${g.titleOf(def.id)}` : 'the Monster Hunter'}${recruited ? ` · Lv ${g.levelOf(who)}` : ''}</span>`,
         recruited ? `<span class="where">${station ? `📍 ${areaDef(station).name}` : '💤 Resting'}</span>` : '',
         def && hunterPerk(def) ? `<span class="perk">${hunterPerk(def)}</span>` : '',
       ].join('');
@@ -485,20 +500,34 @@ export class AppUI {
   }
 
   /** A Hunter's skill tree as a generic tree for treeView. */
-  private hunterTree(who: Wearer): TreeAdapter {
+  private hunterTree(who: Wearer, which: TreeKind = 'base'): TreeAdapter {
     const g = this.game;
     return {
-      nodes: g.skillTree(who),
-      rank: (id) => g.skill(who, id),
+      nodes: g.skillTree(who, which),
+      rank: (id) => g.skill(who, id, which),
       points: () => g.skillPoints(who),
       active: () => who === 'main' || g.state.hunters[who].recruited,
       inactiveText: 'Recruit them to start spending skill points.',
-      waitText: () => `Next skill point at Lv ${g.levelOf(who) + 1}. Train to level up.`,
+      waitText: () =>
+        g.levelOf(who) >= g.maxLevel(who)
+          ? 'Every skill point is spent.'
+          : `Next skill point at Lv ${g.levelOf(who) + 1}. Train to level up.`,
       pointName: 'skill point',
-      reachable: (id) => g.nodeReachable(who, id),
-      canLearn: (id) => g.canLearn(who, id),
-      learn: (id) => g.learn(who, id),
+      reachable: (id) => g.nodeReachable(who, id, which),
+      canLearn: (id) => g.canLearn(who, id, which),
+      learn: (id) => g.learn(who, id, which),
       verb: 'Learn',
+      // The gold Ascend node only shows once the first tree is complete.
+      hidden: (id) => id === ASCEND_NODE.id && !g.baseTreeComplete(who),
+      after: (id) => {
+        if (id !== ASCEND_NODE.id || who === 'main') return;
+        const def = hunterDef(who);
+        this.openHunterDetail(who, 'skills');
+        this.showModal(
+          `<h2>🌟 ${def.name} ascended!</h2><p>${def.name} is now <b>the ${def.ascendedTitle}</b>. A new skill tree is open, and training goes on to <b>Lv ${MAX_LEVEL}</b>: the level curve starts over (1 session to Lv ${ASCEND_LEVEL + 1}), at the same training price.</p>`,
+          [{ label: 'Onward' }],
+        );
+      },
     };
   }
 
@@ -540,7 +569,7 @@ export class AppUI {
       n.requires.map((r) => {
         const a = pos(nodes.find((x) => x.id === r)!);
         const b = pos(n);
-        return `<line data-from="${r}" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" vector-effect="non-scaling-stroke" />`;
+        return `<line data-from="${r}" data-to="${n.id}" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" vector-effect="non-scaling-stroke" />`;
       }),
     );
     tree.innerHTML = `<svg viewBox="0 0 300 ${H}" preserveAspectRatio="none">${lines.join('')}</svg>`;
@@ -549,7 +578,8 @@ export class AppUI {
       const p = pos(n);
       b.style.left = `${(p.x / 300) * 100}%`;
       b.style.top = `${p.y}px`;
-      b.innerHTML = `<span class="tn-icon">${n.icon}<em></em></span><span class="tn-name">${n.name}</span>`;
+      b.innerHTML = `<span class="tn-icon">${n.icon}<em></em></span><span class="tn-name">${n.name}</span>${(n.cost ?? 1) > 1 ? `<span class="tn-cost">${n.cost} pts</span>` : ''}`;
+      if (n.id === ASCEND_NODE.id) b.classList.add('ascend');
       b.addEventListener('click', () => this.openTreeNode(t, n));
       tree.appendChild(b);
       return { n, b };
@@ -569,9 +599,13 @@ export class AppUI {
         b.classList.toggle('available', t.canLearn(n.id));
         b.classList.toggle('locked', !t.reachable(n.id));
         b.classList.toggle('gated', !!t.gate?.(n.id));
+        b.classList.toggle('hidden', !!t.hidden?.(n.id));
         $('em', b).textContent = `${rank}/${n.maxRank}`;
       }
-      tree.querySelectorAll<SVGLineElement>('line').forEach((l) => l.classList.toggle('on', t.rank(l.dataset.from!) > 0));
+      tree.querySelectorAll<SVGLineElement>('line').forEach((l) => {
+        l.classList.toggle('on', t.rank(l.dataset.from!) > 0);
+        l.classList.toggle('hidden', !!t.hidden?.(l.dataset.to!));
+      });
     });
     return wrap;
   }
@@ -584,7 +618,12 @@ export class AppUI {
       body.innerHTML = `<p class="gear-now">${n.desc}</p><p>Rank ${rank} / ${n.maxRank}</p>${
         !t.reachable(n.id) ? `<p>🔒 Needs a point in ${needs.join(' or ')} first.</p>` : ''
       }${t.gate?.(n.id) ? `<p>🔒 ${t.gate(n.id)} to open this evolution.</p>` : ''}`;
-      const btn = el('button', 'buy', rank >= n.maxRank ? 'Maxed' : `${t.verb} · 1 ${t.pointName} (${Math.max(0, t.points())} left)`) as HTMLButtonElement;
+      const cost = n.cost ?? 1;
+      const btn = el(
+        'button',
+        'buy',
+        rank >= n.maxRank ? 'Maxed' : `${n.id === ASCEND_NODE.id ? 'Ascend' : t.verb} · ${cost} ${t.pointName}${cost > 1 ? 's' : ''} (${Math.max(0, t.points())} left)`,
+      ) as HTMLButtonElement;
       btn.style.width = '100%';
       btn.disabled = !t.canLearn(n.id);
       btn.addEventListener('click', () => {
@@ -592,6 +631,7 @@ export class AppUI {
         close();
         // Maxed (or a one-rank node): done. Otherwise stay open for the next rank, even if it can't be afforded yet.
         if (t.rank(n.id) < n.maxRank) this.openTreeNode(t, n);
+        t.after?.(n.id);
       });
       body.appendChild(btn);
     });

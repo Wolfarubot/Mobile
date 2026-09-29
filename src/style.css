@@ -448,6 +448,22 @@ button {
 .beast .hc-mid .train-bar span {
   font-size: 11px;
 }
+/* The gold Ascend node below a completed first tree. */
+.tnode.ascend .tn-icon {
+  background: var(--gold) !important;
+  border-color: #fff3b0 !important;
+  box-shadow: 0 0 0 3px rgba(255, 211, 77, 0.45), 0 0 16px rgba(255, 211, 77, 0.8);
+}
+.tnode.ascend .tn-name {
+  background: var(--gold) !important;
+  color: var(--c0) !important;
+}
+.tn-cost {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--gold);
+  text-shadow: 0 1px 0 var(--c0);
+}
 .tnode.gated .tn-icon {
   filter: grayscale(1);
   opacity: 0.6;

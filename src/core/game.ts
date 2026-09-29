@@ -1,4 +1,11 @@
 import {
+  ASCEND_LEVEL,
+  ASCEND_NODE,
+  ASCENDED_TREES,
+  levelAfterAscending,
+  MAX_LEVEL,
+  SESSIONS_AFTER_ASCEND,
+  SESSIONS_TO_ASCEND,
   type Rarity,
   evoKillsNeeded,
   ENEMIES,
@@ -71,7 +78,6 @@ import {
   type ItemId,
   type MaterialId,
   type SlotDef,
-  skillNode,
   SKILL_TREES,
   type SkillNode,
   type TreeStat,
@@ -91,6 +97,9 @@ export type GameEvent =
   | { type: 'eventComplete'; event: string };
 
 /** Wilhelm's two weapon slots: 'long' powers sniper shots, 'short' his akimbo pistols. */
+/** Which of a Hunter's skill trees: their first, or the one they grow after ascending. */
+export type TreeKind = 'base' | 'ascended';
+
 export type GearMode = 'long' | 'short';
 
 /** Who fired a shot: your main Hunter or one of the recruited Hunters. */
@@ -212,11 +221,11 @@ export class Game {
   /** Everything a Hunter's learned skill-tree nodes add up to. */
   tree(who: Wearer): Record<TreeStat, number> {
     const out: Record<TreeStat, number> = { damage: 0, rate: 0, recovery: 0, crit: 0, range: 0, pierce: 0, radius: 0, bane: 0, guard: 0, rally: 0, gold: 0, drops: 0, tapPower: 0, tapSize: 0 };
-    const skills = this.training(who).skills;
-    for (const node of SKILL_TREES[who]) {
-      const rank = skills[node.id] ?? 0;
-      if (rank > 0) for (const [k, v] of Object.entries(node.effect) as [TreeStat, number][]) out[k] += v * rank;
-    }
+    for (const which of ['base', 'ascended'] as const)
+      for (const node of this.skillTree(who, which)) {
+        const rank = this.skill(who, node.id, which);
+        if (rank > 0) for (const [k, v] of Object.entries(node.effect) as [TreeStat, number][]) out[k] += v * rank;
+      }
     return out;
   }
 
@@ -956,57 +965,108 @@ export class Game {
     return who === 'main' ? this.state.main : this.state.hunters[who];
   }
 
-  /** Level from training, and sessions done / needed toward the next one. */
+  /** Level from training, and sessions done / needed toward the next one (the curve starts over after ascending). */
   levelInfo(who: Wearer): { level: number; into: number; need: number } {
-    return levelFromTrains(this.training(who).trains);
+    const t = this.training(who);
+    if (t.ascendAt !== undefined) return levelAfterAscending(t.trains - t.ascendAt);
+    return levelFromTrains(t.trains);
   }
 
   levelOf(who: Wearer): number {
     return this.levelInfo(who).level;
   }
 
-  /** Ranks in a skill-tree node. */
-  skill(who: Wearer, id: string): number {
-    return this.training(who).skills[id] ?? 0;
+  /** Has this Guild Hunter ascended? */
+  ascended(who: Wearer): boolean {
+    return this.training(who).ascendAt !== undefined;
   }
 
-  /** A Hunter's skill tree. */
-  skillTree(who: Wearer): SkillNode[] {
-    return SKILL_TREES[who];
+  /** Highest level they can train to: Guild Hunters stop at Lv 50 until they ascend, then at Lv 100. */
+  maxLevel(who: Wearer): number {
+    return who === 'main' ? Infinity : this.ascended(who) ? MAX_LEVEL : ASCEND_LEVEL;
   }
 
-  /** Unspent skill points: one per level above 1. */
+  /** Training sessions left before they hit their level cap. */
+  sessionsLeft(who: Wearer): number {
+    if (who === 'main') return Infinity;
+    const t = this.training(who);
+    return t.ascendAt !== undefined ? SESSIONS_AFTER_ASCEND - (t.trains - t.ascendAt) : SESSIONS_TO_ASCEND - t.trains;
+  }
+
+  /** Their title: Guild Hunters take a new one when they ascend. */
+  titleOf(who: HunterId): string {
+    const def = hunterDef(who);
+    return this.ascended(who) ? def.ascendedTitle : def.title;
+  }
+
+  /** Ranks in a skill-tree node (their first tree, or the one they grow after ascending). */
+  skill(who: Wearer, id: string, which: TreeKind = 'base'): number {
+    if (which === 'base' && id === ASCEND_NODE.id) return this.ascended(who) ? 1 : 0;
+    const t = this.training(who);
+    return (which === 'base' ? t.skills : (t.skills2 ?? {}))[id] ?? 0;
+  }
+
+  /** A Hunter's skill tree: their first (with the Ascend node for Guild Hunters), or their ascended one. */
+  skillTree(who: Wearer, which: TreeKind = 'base'): SkillNode[] {
+    if (which === 'ascended') return who === 'main' ? [] : ASCENDED_TREES[who];
+    return who === 'main' ? SKILL_TREES.main : [...SKILL_TREES[who], ASCEND_NODE];
+  }
+
+  private treeNode(who: Wearer, id: string, which: TreeKind): SkillNode | undefined {
+    return this.skillTree(who, which).find((n) => n.id === id);
+  }
+
+  /** Unspent skill points: one per level above 1, less what's been spent (each node rank costs its `cost`). */
   skillPoints(who: Wearer): number {
-    const spent = Object.values(this.training(who).skills).reduce((a, b) => a + b, 0);
+    let spent = 0;
+    for (const which of ['base', 'ascended'] as const)
+      for (const n of this.skillTree(who, which)) spent += this.skill(who, n.id, which) * (n.cost ?? 1);
     return this.levelOf(who) - 1 - spent;
   }
 
-  /** A node is reachable once any node it hangs from has a rank (the root always is). */
-  nodeReachable(who: Wearer, id: string): boolean {
-    const node = skillNode(who, id);
-    return !!node && (node.requires.length === 0 || node.requires.some((r) => this.skill(who, r) > 0));
+  /** Is every node of their first tree maxed (so the Ascend node shows)? */
+  baseTreeComplete(who: Wearer): boolean {
+    return SKILL_TREES[who].every((n) => this.skill(who, n.id) >= n.maxRank);
   }
 
-  canLearn(who: Wearer, id: string): boolean {
-    const node = skillNode(who, id);
+  /** A node is reachable once any node it hangs from has a rank (the root always is). Ascend needs the whole first tree. */
+  nodeReachable(who: Wearer, id: string, which: TreeKind = 'base'): boolean {
+    if (which === 'base' && id === ASCEND_NODE.id) return this.baseTreeComplete(who);
+    const node = this.treeNode(who, id, which);
+    return !!node && (node.requires.length === 0 || node.requires.some((r) => this.skill(who, r, which) > 0));
+  }
+
+  canLearn(who: Wearer, id: string, which: TreeKind = 'base'): boolean {
+    const node = this.treeNode(who, id, which);
     if (!node) return false;
     if (who !== 'main' && !this.state.hunters[who].recruited) return false;
-    return this.skillPoints(who) > 0 && this.skill(who, id) < node.maxRank && this.nodeReachable(who, id);
+    if (which === 'ascended' && !this.ascended(who)) return false;
+    return this.skillPoints(who) >= (node.cost ?? 1) && this.skill(who, id, which) < node.maxRank && this.nodeReachable(who, id, which);
   }
 
-  learn(who: Wearer, id: string): boolean {
-    if (!this.canLearn(who, id)) return false;
+  learn(who: Wearer, id: string, which: TreeKind = 'base'): boolean {
+    if (!this.canLearn(who, id, which)) return false;
     const t = this.training(who);
-    t.skills[id] = (t.skills[id] ?? 0) + 1;
+    if (which === 'base' && id === ASCEND_NODE.id) {
+      // Ascend: keep Lv 50, start the level curve over from here (the training price carries on), open the next tree.
+      t.ascendAt = t.trains;
+      t.skills2 = {};
+      return true;
+    }
+    const ranks = which === 'base' ? t.skills : (t.skills2 ??= {});
+    ranks[id] = (ranks[id] ?? 0) + 1;
     return true;
   }
 
-  /** Cost of the next `amount` training sessions (`buyAmount` by default). */
+  /** Cost of the next `amount` training sessions (`buyAmount` by default), stopping at their level cap. */
   trainPurchase(who: Wearer, amount: BuyAmount = this.state.buyAmount): Purchase {
     const base = who === 'main' ? MAIN_TRAIN_COST : helperTrainCost(hunterDef(who));
     const growth = who === 'main' ? MAIN_TRAIN_GROWTH : HELPER_TRAIN_GROWTH;
     const done = this.training(who).trains;
-    const count = amount === 'max' ? Math.max(1, maxAffordable(base, growth, done, this.state.gold)) : amount;
+    const left = this.sessionsLeft(who);
+    if (left <= 0) return { count: 0, cost: Infinity };
+    const wanted = amount === 'max' ? Math.max(1, maxAffordable(base, growth, done, this.state.gold)) : amount;
+    const count = Math.min(wanted, left);
     return { count, cost: bulkCost(base, growth, done, count) };
   }
 

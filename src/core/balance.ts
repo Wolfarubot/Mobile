@@ -115,6 +115,8 @@ export interface TreeNode<S extends string = string> {
   effect: Partial<Record<S, number>>;
   /** Nodes that must have at least one rank first (any one of them). */
   requires: string[];
+  /** Skill points each rank costs (default 1). */
+  cost?: number;
   /** Grid position in the tree: column 0–2, row from the top. */
   col: number;
   row: number;
@@ -124,7 +126,7 @@ export type SkillNode = TreeNode<TreeStat>;
 /** Recovery Speed: each rank shortens stuns by this factor. */
 export const SKILL_RECOVERY = 0.92;
 
-type NodeSpec = Pick<SkillNode, 'name' | 'icon' | 'desc' | 'maxRank' | 'effect'>;
+type NodeSpec = Pick<SkillNode, 'name' | 'icon' | 'desc' | 'maxRank' | 'effect' | 'cost'>;
 
 /**
  * Every tree has the same shape: a signature root; three branches of Attack Power, Attack Speed and
@@ -145,6 +147,84 @@ function skillTree(root: NodeSpec, branches: [NodeSpec, NodeSpec, NodeSpec], cap
   ];
 }
 
+// ---- Ascension (Guild Hunters) ----
+// A Guild Hunter's first tree costs 39 points: it's complete at Lv 40. Then a gold Ascend node appears
+// (10 points, so Lv 50). Training stops at Lv 50 until they ascend. Ascending keeps Lv 50, starts the level
+// curve over (1 session to Lv 51, 2 to Lv 52, ...) without making training cheaper, opens a second tree
+// worth 50 points and raises the cap to Lv 100, where its capstone becomes affordable.
+
+/** Level cap before ascending, and after. */
+export const ASCEND_LEVEL = 50;
+export const MAX_LEVEL = 100;
+
+/** The gold node below a completed first tree. Learning it ascends the Hunter. */
+export const ASCEND_NODE: SkillNode = {
+  id: 'ascend',
+  name: 'Ascend',
+  icon: '🌟',
+  desc: 'Ascend: a new title, a new skill tree, and training up to Lv 100. Keeps Lv 50; the level curve starts over (1 session to Lv 51).',
+  maxRank: 1,
+  cost: 10,
+  effect: {},
+  requires: ['capstone'],
+  col: 1,
+  row: 4,
+};
+
+/** Level after `sessions` training sessions since ascending (Lv 50 → 51 takes 1, 51 → 52 takes 2, ...). */
+export function levelAfterAscending(sessions: number): { level: number; into: number; need: number } {
+  let level = ASCEND_LEVEL;
+  let left = sessions;
+  while (level < MAX_LEVEL && left >= level - ASCEND_LEVEL + 1) {
+    left -= level - ASCEND_LEVEL + 1;
+    level++;
+  }
+  return { level, into: left, need: level - ASCEND_LEVEL + 1 };
+}
+
+/** Sessions from Lv 1 to the pre-ascension cap, and from ascending to the final cap. */
+export const SESSIONS_TO_ASCEND = Array.from({ length: ASCEND_LEVEL - 1 }, (_, i) => trainsForLevel(i + 1)).reduce((a, b) => a + b, 0);
+export const SESSIONS_AFTER_ASCEND = Array.from({ length: MAX_LEVEL - ASCEND_LEVEL }, (_, i) => i + 1).reduce((a, b) => a + b, 0);
+
+/**
+ * The tree a Hunter grows after ascending (50 points: Lv 51–100). The same shape as the first tree; its
+ * capstone is theirs alone and is the last 8 points, so it opens at Lv 100.
+ */
+function ascendedTree(capstone: NodeSpec): SkillNode[] {
+  return skillTree(
+    { name: 'Awakening', icon: '🌅', desc: '+20% damage and +10% attack rate.', maxRank: 1, cost: 2, effect: { damage: 0.2, rate: 0.1 } },
+    [
+      { name: 'Precision', icon: '🎯', desc: '+2% crit chance per rank.', maxRank: 5, effect: { crit: 0.02 } },
+      { name: 'Reach', icon: '📏', desc: '+15 range per rank.', maxRank: 5, effect: { range: 15 } },
+      { name: 'Fortune', icon: '🍀', desc: '+10% gold and materials from their kills per rank.', maxRank: 5, effect: { gold: 0.1, drops: 0.1 } },
+    ],
+    { cost: 8, ...capstone },
+  ).map((n) =>
+    n.id === 'power'
+      ? { ...n, name: 'Mastery', icon: '⚔️', desc: '+8% damage per rank.', effect: { damage: 0.08 } }
+      : n.id === 'speed'
+        ? { ...n, name: 'Fervor', icon: '🔥', desc: '+8% attack rate per rank.', effect: { rate: 0.08 } }
+        : n.id === 'recovery'
+          ? { ...n, name: 'Resolve', icon: '🗿' }
+          : n,
+  );
+}
+
+/** Each Guild Hunter's ascended tree. */
+export const ASCENDED_TREES: Record<HunterId, SkillNode[]> = {
+  alchemist: ascendedTree({ name: "Philosopher's Stone", icon: '💠', desc: '+100% damage and puddles 20% wider.', maxRank: 1, effect: { damage: 1, radius: 0.2 } }),
+  ranger: ascendedTree({ name: 'Hundred Arrows', icon: '🏹', desc: '+100% damage; arrows pierce 2 more enemies.', maxRank: 1, effect: { damage: 1, pierce: 2 } }),
+  glimmer: ascendedTree({ name: 'Starfire', icon: '☄️', desc: '+100% damage and explosions 30% wider.', maxRank: 1, effect: { damage: 1, radius: 0.3 } }),
+  gravewarden: ascendedTree({ name: 'Dawn Eternal', icon: '🌄', desc: '+100% damage and pulses reach 30% further.', maxRank: 1, effect: { damage: 1, radius: 0.3 } }),
+  lance: ascendedTree({ name: 'Aegis', icon: '🛡️', desc: '+100% damage and 2 more shield charges.', maxRank: 1, effect: { damage: 1, guard: 2 } }),
+  prospector: ascendedTree({ name: 'Midas Touch', icon: '👑', desc: '+100% damage and +50% gold from their kills.', maxRank: 1, effect: { damage: 1, gold: 0.5 } }),
+  demonbane: ascendedTree({ name: 'Hellsbane', icon: '🔥', desc: '+100% damage and +1× extra damage to Demons.', maxRank: 1, effect: { damage: 1, bane: 1 } }),
+  wilhelm: ascendedTree({ name: 'One Shot', icon: '🎯', desc: '+100% damage and +10% crit chance.', maxRank: 1, effect: { damage: 1, crit: 0.1 } }),
+  celeste: ascendedTree({ name: 'Omniscience', icon: '🧠', desc: '+100% damage and +10% crit chance.', maxRank: 1, effect: { damage: 1, crit: 0.1 } }),
+  scavenger: ascendedTree({ name: 'Hoard', icon: '💎', desc: '+100% damage and +50% materials from their kills.', maxRank: 1, effect: { damage: 1, drops: 0.5 } }),
+  frostbreaker: ascendedTree({ name: 'Eternal Winter', icon: '❄️', desc: '+100% damage and +1× extra damage to Elementals.', maxRank: 1, effect: { damage: 1, bane: 1 } }),
+};
+
 /** Each Hunter's skill tree ('main' is yours). */
 export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
   main: skillTree(
@@ -163,7 +243,7 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
       { name: 'Wide Splash', icon: '💦', desc: 'Puddles 15% wider per rank.', maxRank: 3, effect: { radius: 0.15 } },
       { name: 'Lucky Finds', icon: '🍀', desc: '+15% materials from her kills per rank.', maxRank: 3, effect: { drops: 0.15 } },
     ],
-    { name: 'Grand Alchemy', icon: '⚗️', desc: '+25% damage, puddles 15% wider.', maxRank: 1, effect: { damage: 0.25, radius: 0.15 } },
+    { name: 'Grand Alchemy', icon: '⚗️', desc: '+25% damage, puddles 15% wider.', maxRank: 1, cost: 4, effect: { damage: 0.25, radius: 0.15 } },
   ),
   ranger: skillTree(
     { name: 'Trueshot', icon: '🎯', desc: '+20 range.', maxRank: 1, effect: { range: 20 } },
@@ -172,7 +252,7 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
       { name: 'Longshot', icon: '🏹', desc: '+25 range per rank.', maxRank: 3, effect: { range: 25 } },
       { name: 'Piercing Arrows', icon: '➶', desc: 'Arrows pierce 1 more enemy per rank.', maxRank: 2, effect: { pierce: 1 } },
     ],
-    { name: 'Volley', icon: '🌧️', desc: '+20% attack rate and +10% damage.', maxRank: 1, effect: { rate: 0.2, damage: 0.1 } },
+    { name: 'Volley', icon: '🌧️', desc: '+20% attack rate and +10% damage.', maxRank: 1, cost: 5, effect: { rate: 0.2, damage: 0.1 } },
   ),
   glimmer: skillTree(
     { name: 'Kindling', icon: '🔥', desc: 'Fireball explosions 10% wider.', maxRank: 1, effect: { radius: 0.1 } },
@@ -181,7 +261,7 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
       { name: 'Wildfire', icon: '💥', desc: 'Explosions 15% wider per rank.', maxRank: 3, effect: { radius: 0.15 } },
       { name: 'Arcane Focus', icon: '🔮', desc: '+3% crit chance per rank.', maxRank: 3, effect: { crit: 0.03 } },
     ],
-    { name: 'Meteor', icon: '☄️', desc: '+30% damage, explosions 20% wider.', maxRank: 1, effect: { damage: 0.3, radius: 0.2 } },
+    { name: 'Meteor', icon: '☄️', desc: '+30% damage, explosions 20% wider.', maxRank: 1, cost: 2, effect: { damage: 0.3, radius: 0.2 } },
   ),
   gravewarden: skillTree(
     { name: 'Consecration', icon: '✨', desc: 'Holy pulses reach 10% further.', maxRank: 1, effect: { radius: 0.1 } },
@@ -190,16 +270,16 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
       { name: 'Holy Radiance', icon: '🌟', desc: 'Pulses reach 15% further per rank.', maxRank: 3, effect: { radius: 0.15 } },
       { name: 'Sanctuary', icon: '⛪', desc: 'Stuns wear off 8% faster per rank.', maxRank: 3, effect: { recovery: 1 } },
     ],
-    { name: 'Divine Wrath', icon: '⚡', desc: '+30% damage.', maxRank: 1, effect: { damage: 0.3 } },
+    { name: 'Divine Wrath', icon: '⚡', desc: '+30% damage.', maxRank: 1, cost: 4, effect: { damage: 0.3 } },
   ),
   lance: skillTree(
     { name: 'Zone of Protection', icon: '🛡️', desc: 'His shield: blocks 3 hits before he is stunned, regaining a charge every few seconds.', maxRank: 1, effect: { guard: 3 } },
     [
-      { name: 'Piercing Thrust', icon: '🔱', desc: '+10 reach per rank.', maxRank: 3, effect: { range: 10 } },
+      { name: 'Piercing Thrust', icon: '🔱', desc: '+10 reach per rank.', maxRank: 3, cost: 2, effect: { range: 10 } },
       { name: 'Bulwark', icon: '🧱', desc: 'His shield blocks 1 more hit per rank.', maxRank: 2, effect: { guard: 1 } },
       { name: 'Rallying Oath', icon: '📯', desc: 'Every other Hunter (you too) gets a 1-hit shield.', maxRank: 1, effect: { rally: 1 } },
     ],
-    { name: 'Holy Lance', icon: '⚜️', desc: '+30% damage and 1 more shield charge.', maxRank: 1, effect: { damage: 0.3, guard: 1 } },
+    { name: 'Holy Lance', icon: '⚜️', desc: '+30% damage and 1 more shield charge.', maxRank: 1, cost: 4, effect: { damage: 0.3, guard: 1 } },
   ),
   prospector: skillTree(
     { name: 'Gold Rush', icon: '💰', desc: '+25% gold from his kills.', maxRank: 1, effect: { gold: 0.25 } },
@@ -208,7 +288,7 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
       { name: 'Prospecting', icon: '⛏️', desc: '+25% gold from his kills per rank.', maxRank: 3, effect: { gold: 0.25 } },
       { name: 'Lucky Strike', icon: '🎲', desc: '+3% crit chance per rank.', maxRank: 3, effect: { crit: 0.03 } },
     ],
-    { name: 'Motherlode', icon: '🏆', desc: '+50% gold and +15% damage.', maxRank: 1, effect: { gold: 0.5, damage: 0.15 } },
+    { name: 'Motherlode', icon: '🏆', desc: '+50% gold and +15% damage.', maxRank: 1, cost: 4, effect: { gold: 0.5, damage: 0.15 } },
   ),
   demonbane: skillTree(
     { name: 'Hexed Blades', icon: '🗡️', desc: '+5% crit chance.', maxRank: 1, effect: { crit: 0.05 } },
@@ -217,7 +297,7 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
       { name: 'Flurry', icon: '🌪️', desc: '+10% attack rate per rank.', maxRank: 3, effect: { rate: 0.1 } },
       { name: 'Keen Edge', icon: '🔪', desc: '+3% crit chance per rank.', maxRank: 3, effect: { crit: 0.03 } },
     ],
-    { name: 'Exorcist', icon: '📿', desc: '+30% damage.', maxRank: 1, effect: { damage: 0.3 } },
+    { name: 'Exorcist', icon: '📿', desc: '+30% damage.', maxRank: 1, cost: 4, effect: { damage: 0.3 } },
   ),
   wilhelm: skillTree(
     { name: 'Steady Aim', icon: '🎯', desc: '+30 range.', maxRank: 1, effect: { range: 30 } },
@@ -226,7 +306,7 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
       { name: 'Hollow Point', icon: '🔩', desc: 'Shots pierce 1 more enemy per rank.', maxRank: 2, effect: { pierce: 1 } },
       { name: 'Quickdraw', icon: '🔫', desc: '+10% attack rate per rank.', maxRank: 3, effect: { rate: 0.1 } },
     ],
-    { name: 'Marksman', icon: '🏅', desc: '+30% damage and +30 range.', maxRank: 1, effect: { damage: 0.3, range: 30 } },
+    { name: 'Marksman', icon: '🏅', desc: '+30% damage and +30 range.', maxRank: 1, cost: 5, effect: { damage: 0.3, range: 30 } },
   ),
   celeste: skillTree(
     { name: 'Mind\'s Eye', icon: '👁️', desc: '+10% damage and +20 range.', maxRank: 1, effect: { damage: 0.1, range: 20 } },
@@ -235,7 +315,7 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
       { name: 'Far Reach', icon: '🧠', desc: '+25 range per rank.', maxRank: 3, effect: { range: 25 } },
       { name: 'Insight', icon: '💡', desc: '+3% crit chance per rank.', maxRank: 3, effect: { crit: 0.03 } },
     ],
-    { name: 'Transcendence', icon: '👑', desc: '+30% damage and +15% attack rate.', maxRank: 1, effect: { damage: 0.3, rate: 0.15 } },
+    { name: 'Transcendence', icon: '👑', desc: '+30% damage and +15% attack rate.', maxRank: 1, cost: 4, effect: { damage: 0.3, rate: 0.15 } },
   ),
   scavenger: skillTree(
     { name: 'Magpie', icon: '🐦', desc: '+20% materials from his kills.', maxRank: 1, effect: { drops: 0.2 } },
@@ -244,7 +324,7 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
       { name: 'Keen Nose', icon: '👃', desc: '+20% materials per rank.', maxRank: 3, effect: { drops: 0.2 } },
       { name: 'Long Sling', icon: '🎯', desc: '+20 range per rank.', maxRank: 3, effect: { range: 20 } },
     ],
-    { name: 'Treasure Trove', icon: '💎', desc: '+40% materials and +20% gold.', maxRank: 1, effect: { drops: 0.4, gold: 0.2 } },
+    { name: 'Treasure Trove', icon: '💎', desc: '+40% materials and +20% gold.', maxRank: 1, cost: 4, effect: { drops: 0.4, gold: 0.2 } },
   ),
   frostbreaker: skillTree(
     { name: 'Permafrost', icon: '❄️', desc: '+10% damage.', maxRank: 1, effect: { damage: 0.1 } },
@@ -253,7 +333,7 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
       { name: 'Heavy Hammer', icon: '🔨', desc: '+15% damage per rank.', maxRank: 3, effect: { damage: 0.15 } },
       { name: 'Glacial Hide', icon: '🧊', desc: 'Stuns wear off 8% faster per rank.', maxRank: 3, effect: { recovery: 1 } },
     ],
-    { name: 'Avalanche', icon: '🏔️', desc: '+30% damage and +10% attack rate.', maxRank: 1, effect: { damage: 0.3, rate: 0.1 } },
+    { name: 'Avalanche', icon: '🏔️', desc: '+30% damage and +10% attack rate.', maxRank: 1, cost: 4, effect: { damage: 0.3, rate: 0.1 } },
   ),
 };
 
@@ -832,6 +912,8 @@ export interface HunterDef {
   unlock: { event: string; times: number };
   /** Shown on their card while locked: where they are and what it takes to win them over. */
   story: string;
+  /** Their title after ascending. */
+  ascendedTitle: string;
   recruitCost: number;
   style: AttackStyle;
   /** Damage multiplier against one archetype. */
@@ -856,6 +938,7 @@ export const HUNTERS: HunterDef[] = [
   {
     id: 'alchemist', name: 'Reginald', title: 'Alchemist', icon: '⚗️', color: '#7be07b', area: 'forest', recruitCost: 150, bane: { archetype: 'slime', mult: 3 },
     unlock: { event: 'guardian-forest', times: 1 },
+    ascendedTitle: 'Archalchemist',
     story: 'Reginald is in the Whispering Forest doing research on Slimes, with an idea for a new potion, but the Forest Guardian keeps scaring off the test subjects. Defeat it, and Reginald will help you hunt monsters.',
     ability: 'Every few seconds, lobs a potion that leaves a poison puddle. Deals triple damage to Slimes. Uses ranged or magic weapons.',
     slots: [{ kind: 'weapon', label: 'Weapon', accepts: ['weapon', 'magic'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
@@ -868,6 +951,7 @@ export const HUNTERS: HunterDef[] = [
   {
     id: 'ranger', name: 'Galladair', title: 'Ranger', icon: '🏹', color: '#c09060', area: 'forest', recruitCost: 1_200, bane: { archetype: 'beast', mult: 3 },
     unlock: { event: 'guardian-forest', times: 2 },
+    ascendedTitle: 'Pathfinder',
     story: 'Galladair tracks the wolves of the Whispering Forest and doesn\'t trust just anyone. Beat the Forest Guardian twice to earn Galladair\'s respect, and the bow is yours.',
     ability: 'Arrows pierce through lines of enemies. Deals triple damage to Beasts.',
     style: { kind: 'arrow', damageType: 'physical', range: 300, rate: 1, damage: 1, pierce: 3, farm: 1.4, crowd: 2, describe: 'Arrows pierce through up to 4 enemies in a line.' },
@@ -875,6 +959,7 @@ export const HUNTERS: HunterDef[] = [
   {
     id: 'gravewarden', name: 'Alric', title: 'Gravewarden', icon: '✝️', color: '#efe6cf', area: 'graveyard', recruitCost: 15_000, bane: { archetype: 'undead', mult: 3 },
     unlock: { event: 'guardian-graveyard', times: 1 },
+    ascendedTitle: 'Lightbringer',
     story: 'Alric keeps watch over the Old Graveyard, praying for the restless dead. Put its Guardian to rest, and he\'ll lend you his holy light.',
     ability: 'Holy pulses strike everything around him. Deals triple damage to Undead.',
     style: { kind: 'nova', damageType: 'radiant', proc: 0.15, range: 110, rate: 0.5, damage: 1.5, radius: 110, farm: 1.5, crowd: 3, describe: 'Pulses holy light, striking every enemy around him.' },
@@ -882,6 +967,7 @@ export const HUNTERS: HunterDef[] = [
   {
     id: 'lance', name: 'Lance', title: 'Paladin', icon: '🛡️', color: '#ffe8a3', area: 'graveyard', recruitCost: 40_000,
     unlock: { event: 'guardian-graveyard', times: 2 },
+    ascendedTitle: 'Crusader',
     story: 'Lance swore to guard the Old Graveyard\'s gates until its Guardian falls twice. Help him keep his oath, and his shield is yours.',
     ability: 'Can take multiple hits before being knocked out (Zone of Protection), and grants other Hunters an extra hit as well (Rallying Oath).',
     slots: [{ kind: 'melee', label: 'Melee' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
@@ -890,6 +976,7 @@ export const HUNTERS: HunterDef[] = [
   {
     id: 'prospector', name: 'Gus', title: 'Prospector', icon: '💰', color: '#ffd34d', area: 'graveyard', recruitCost: 80_000, gold: 1.75,
     unlock: { event: 'guardian-graveyard', times: 3 },
+    ascendedTitle: 'Tycoon',
     story: 'Gus has been digging for treasure under the Old Graveyard, but the dead keep chasing him off. Beat its Guardian three times, and he\'ll share his luck.',
     ability: 'Blasts five pellets at close range. Earns +75% gold from his kills.',
     style: { kind: 'shotgun', damageType: 'physical', range: 150, rate: 0.7, damage: 0.45, pellets: 5, farm: 1.2, crowd: 1, describe: 'A trusty shotgun: five pellets per blast at close range.' },
@@ -897,6 +984,7 @@ export const HUNTERS: HunterDef[] = [
   {
     id: 'glimmer', name: 'Glimmer', title: 'Wizard', icon: '🧙', color: '#b07cff', area: 'crypt', recruitCost: 250_000,
     unlock: { event: 'guardian-crypt', times: 1 },
+    ascendedTitle: 'Archmage',
     story: 'Glimmer came to the Forsaken Crypt to study the old magic sealed inside, but its Guardian won\'t let anyone near. Put it to rest, and Glimmer will lend you a fireball or two.',
     ability: 'Every few seconds, hurls a fireball that explodes for area damage. Wields only magic weapons.',
     slots: [{ kind: 'magic', label: 'Magic weapon' }, { kind: 'armor', label: 'Robe' }, { kind: 'accessory', label: 'Accessory' }],
@@ -909,6 +997,7 @@ export const HUNTERS: HunterDef[] = [
   {
     id: 'wilhelm', name: 'Wilhelm', title: 'Sniper', icon: '🎯', color: '#9aa7b8', area: 'depths', recruitCost: 600_000,
     unlock: { event: 'guardian-depths', times: 1 },
+    ascendedTitle: 'Deadeye',
     story: '“I was hunting a creature with a hundred eyes, but after shooting 99 of them, it got away. Help me track it down in the Shadowy Depths.”',
     ability: 'Snipes from across the field, akimbo pistols up close. Can equip a long-range weapon and a short-range weapon.',
     slots: [
@@ -921,6 +1010,7 @@ export const HUNTERS: HunterDef[] = [
   {
     id: 'celeste', name: 'Celeste', title: 'Psion', icon: '🔮', color: '#c9a8ff', area: 'depths', recruitCost: 1_000_000, bane: { archetype: 'dragon', mult: 3 },
     unlock: { event: 'guardian-depths', times: 2 },
+    ascendedTitle: 'Oracle',
     story: 'Celeste, a Psion who hears the thoughts of monsters, followed a whisper into the Shadowy Depths and got lost in the noise. Beat the Depths\' Guardian twice to quiet it, and Celeste will lend you that mind.',
     ability: 'Fires long psychic beams that pierce every monster in a line. Deals triple damage to Dragons.',
     style: { kind: 'beam', damageType: 'arcane', proc: 0.15, range: 280, rate: 0.6, damage: 1.4, farm: 1.5, crowd: 2.5, describe: 'A beam of pure thought through everything in its path.' },
@@ -928,6 +1018,7 @@ export const HUNTERS: HunterDef[] = [
   {
     id: 'demonbane', name: 'Sera', title: 'Demonbane', icon: '🗡️', color: '#ff7a3d', area: 'caves', recruitCost: 1_500_000, bane: { archetype: 'demon', mult: 3 },
     unlock: { event: 'guardian-caves', times: 1 },
+    ascendedTitle: 'Demonslayer',
     story: 'Sera hunts the demons of the Ember Caves alone. Show her you can beat the Caves\' Guardian, and she\'ll fight beside you.',
     ability: 'A rapid flurry of daggers at short range. Deals triple damage to Demons.',
     style: { kind: 'daggers', damageType: 'arcane', proc: 0.15, range: 160, rate: 3, damage: 0.4, farm: 1.1, crowd: 1, describe: 'Throws a flurry of daggers at anything that gets close.' },
@@ -935,6 +1026,7 @@ export const HUNTERS: HunterDef[] = [
   {
     id: 'scavenger', name: 'Pip', title: 'Scavenger', icon: '🎒', color: '#3fb0a0', area: 'caves', recruitCost: 6_000_000, drops: 2,
     unlock: { event: 'guardian-caves', times: 2 },
+    ascendedTitle: 'Treasure Hunter',
     story: 'Pip scavenges the Ember Caves for anything shiny. Beat its Guardian twice, and Pip will tag along for the loot.',
     ability: 'Stones ricochet between enemies. Doubles material drops from his kills.',
     style: { kind: 'ricochet', damageType: 'acid', proc: 0.2, range: 220, rate: 1, damage: 0.8, bounces: 3, farm: 1.4, crowd: 2.5, describe: 'Acid-slicked slingshot stones ricochet between up to 4 enemies.' },
@@ -942,6 +1034,7 @@ export const HUNTERS: HunterDef[] = [
   {
     id: 'frostbreaker', name: 'Bjorn', title: 'Frostbreaker', icon: '🔨', color: '#8fdcff', area: 'peaks', recruitCost: 150_000_000, bane: { archetype: 'elemental', mult: 3 },
     unlock: { event: 'guardian-peaks', times: 1 },
+    ascendedTitle: 'Winterking',
     story: 'Bjorn climbed the Frost Peaks to hunt the thing that rules them. Defeat the Peaks\' Guardian, and he\'ll bring his hammer to your side.',
     ability: 'Frost hammers slow enemies to a crawl. Deals triple damage to Elementals.',
     style: { kind: 'hammer', damageType: 'frost', proc: 0.5, range: 200, rate: 0.7, damage: 1.6, slow: 2, farm: 1.3, crowd: 1, describe: 'Throws frost hammers that slow enemies to a crawl.' },
