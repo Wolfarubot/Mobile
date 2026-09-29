@@ -1050,7 +1050,7 @@ export class AppUI {
       const known = g.state.bestiary[e.id].unlocked;
       const mat = materialDef(e.material);
       const row = el('div', `row${known ? '' : ' locked'}`);
-      row.innerHTML = `<canvas class="portrait"></canvas><div class="info"><div class="name">${known ? e.name : '???'} <small>${ARCHETYPES[e.archetype].icon} ${ARCHETYPES[e.archetype].name}</small></div><div class="drop">${gemHtml(e.material)} Drops <b>${known ? mat.name : '???'}</b></div><div class="sub">${known ? e.blurb : 'Unlock it in the Bestiary.'}</div>${known ? affinityHtml(e) : ''}</div>`;
+      row.innerHTML = `<canvas class="portrait"></canvas><div class="info"><div class="name">${known ? e.name : '???'} <small>${ARCHETYPES[e.archetype].icon} ${ARCHETYPES[e.archetype].name}</small></div><div class="drop">${gemHtml(e.material)} Drops <b>${known ? mat.name : '???'}</b></div><div class="sub">${known ? e.blurb : 'Unlock it in the Bestiary.'}</div>${known ? affinityHtml(e, true) : ''}</div>`;
       monsters.appendChild(row);
       requestAnimationFrame(() => drawEnemyPortrait($<HTMLCanvasElement>('canvas', row), e.id));
     }
@@ -1270,7 +1270,7 @@ export class AppUI {
         <canvas class="portrait"></canvas>
         <div class="info"><div class="card-corner"></div><div class="name"></div><div class="blurb">${def.blurb}</div>${dropHtml(def)}</div>
       </div>
-      ${affinityHtml(def)}
+      ${affinityHtml(def, true)}
       <div class="beast-actions"></div>`;
     this.panel.appendChild(card);
     requestAnimationFrame(() => drawEnemyPortrait($<HTMLCanvasElement>('canvas', card), def.id));
@@ -2147,11 +2147,21 @@ function dropHtml(e: EnemyDef): string {
   return `<div class="drop-line">${gemHtml(e.material)} Drops <b>${materialDef(e.material).name}</b></div>`;
 }
 
-/** An enemy's weaknesses and resistances as rows of damage-type tags. */
-function affinityHtml(e: EnemyDef): string {
+/**
+ * An enemy's weaknesses and resistances as damage-type tags: a row each, or (`compact`, for cards) both on a
+ * single row of icon chips.
+ */
+function affinityHtml(e: EnemyDef, compact = false): string {
+  const tag = compact ? damageTypeChip : damageTypeHtml;
   const row = (label: string, cls: string, types: DamageType[]) =>
-    types.length ? `<div class="aff ${cls}"><span>${label}</span>${types.map(damageTypeHtml).join('')}</div>` : '';
-  return `<div class="affinities">${row(`Weak ×${WEAK_MULT}`, 'weak', e.weak)}${row(`Resists ×${RESIST_MULT}`, 'resist', e.resist)}</div>`;
+    types.length ? `<div class="aff ${cls}"><span>${label}</span>${types.map(tag).join('')}</div>` : '';
+  return `<div class="affinities${compact ? ' compact' : ''}">${row(`Weak ×${WEAK_MULT}`, 'weak', e.weak)}${row(`Resists ×${RESIST_MULT}`, 'resist', e.resist)}</div>`;
+}
+
+/** A damage type as a small icon-only chip in its colour (the name on long-press / hover). */
+function damageTypeChip(t: DamageType): string {
+  const d = DAMAGE_TYPES[t];
+  return `<span class="dtype-tag chip" style="--dc:${d.color}" title="${d.name}">${d.icon}</span>`;
 }
 
 /** A weapon's damage type as a small coloured tag ('' for gear without one). */
