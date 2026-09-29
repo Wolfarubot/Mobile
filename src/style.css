@@ -1783,3 +1783,35 @@ canvas {
 .hd-top {
   background-image: linear-gradient(180deg, color-mix(in srgb, var(--c1) 55%, var(--c0)), var(--c0));
 }
+
+/* Muted menus: a darker, desaturated backdrop behind light windows, so the battlefield stands out. */
+:root {
+  --bg: color-mix(in srgb, var(--c1) 55%, var(--c0));
+  --on-bg: var(--c3);
+}
+.panel,
+.hunter-detail {
+  background: var(--bg);
+}
+.section-title,
+.skills-head,
+.amounts-label,
+.gear-summary,
+.hd-note,
+.hd-ability,
+.hd-style,
+.hd-title h2,
+.hd-sub,
+.picker-current {
+  color: var(--on-bg) !important;
+}
+.skills-head.has,
+.skills-head b {
+  color: var(--gold) !important;
+}
+.hd-sub .where {
+  color: var(--c2) !important;
+}
+.tabs button.active {
+  background: color-mix(in srgb, var(--c1) 70%, var(--c0));
+}

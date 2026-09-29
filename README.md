@@ -45,7 +45,7 @@ Drop PNGs into `src/assets/sprites/` (`hunter.png`, `hunters/<id>.png`, `enemies
 ## Tech
 
 - **TypeScript + HTML5 Canvas**, bundled with **Vite**. No game engine and no image assets: everything is drawn with simple shapes.
-- **Look**: Game Boy Advance-style. A bundled pixel font (Pixelify Sans, so it works offline), square windows with thick borders and hard shadows, and a battlefield drawn at one canvas pixel per screen point, then scaled up crisply. Each area recolours the menus with its own 4-colour palette and gives the battlefield its own ground colour (`palette` and `ground` in `AREAS`; applied by `src/ui/theme.ts`).
+- **Look**: Game Boy Advance-style. A bundled pixel font (Pixelify Sans, so it works offline), square windows with thick borders and hard shadows, and a battlefield drawn at one canvas pixel per screen point, then scaled up crisply. Each area tints the menus with a muted (desaturated) version of its palette over a darker backdrop, so the brightly coloured battlefield stands out, and gives the battlefield its own ground colour (`palette` and `ground` in `AREAS`; applied by `src/ui/theme.ts`).
 - **Capacitor** wraps the web build as a native Android app (`android/`). The same code becomes the iOS app later.
 - Saves use `@capacitor/preferences` (SharedPreferences / UserDefaults natively, localStorage on web). It autosaves every 10s and when the app is backgrounded.
 
