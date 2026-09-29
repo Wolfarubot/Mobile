@@ -21,6 +21,9 @@ import {
   ARCHETYPES,
   gearDef,
   EMPOWER,
+  EMPOWER_LEVEL,
+  EMPOWER_UNLOCK_KILLS,
+  evoKillsNeeded,
   EVO_TREES,
   RESIST_MULT,
   STATUS,
@@ -134,6 +137,15 @@ describe('Enemies & archetypes', () => {
 
     const before = g.enemyStats('wolf');
     g.state.buyAmount = 1;
+    // Empower opens after 100 slimes.
+    expect(g.empowerUnlocked).toBe(false);
+    expect(g.empower('wolf')).toBe(false);
+    g.state.bestiary.greenSlime.kills = 60;
+    g.state.bestiary.redSlime.kills = 39;
+    expect(g.empowerUnlocked).toBe(false);
+    g.registerKill('greenSlime', false);
+    expect(g.slimeKills).toBe(EMPOWER_UNLOCK_KILLS);
+    expect(g.empowerUnlocked).toBe(true);
     const cost = g.empowerPurchase('wolf').cost;
     const gold = g.state.gold;
     expect(g.empower('wolf')).toBe(true);
@@ -141,7 +153,7 @@ describe('Enemies & archetypes', () => {
     expect(g.empowerPurchase('wolf').cost).toBeGreaterThan(cost);
     const after = g.enemyStats('wolf');
     expect(after.hp).toBeCloseTo(before.hp * (1 + EMPOWER.hp));
-    expect(after.gold).toBeCloseTo(before.gold * (1 + EMPOWER.gold));
+    expect(after.gold / g.goldMult).toBeCloseTo((before.gold / g.goldMult) * (1 + EMPOWER.gold));
     expect(after.dropChance).toBeCloseTo(before.dropChance * (1 + EMPOWER.drops));
     expect(after.speed).toBe(before.speed);
     // Levels follow the Hunters' curve: 3 sessions for Lv 2, each level is an evolution point.
@@ -152,6 +164,9 @@ describe('Enemies & archetypes', () => {
     expect(g.state.bestiary.wolf.empower).toBe(11);
     expect(g.monsterLevelInfo('wolf').level).toBe(3);
     expect(g.evoPoints('wolf')).toBe(2);
+    // Each level multiplies the per-session gains: exponential in level.
+    const lv3 = g.enemyStats('wolf');
+    expect(lv3.gold / g.goldMult).toBeCloseTo((before.gold / g.goldMult) * (1 + 11 * EMPOWER.gold) * EMPOWER_LEVEL.gold ** 2);
     // Locked monsters can't be empowered.
     expect(g.empower('zombie')).toBe(false);
   });
@@ -159,6 +174,13 @@ describe('Enemies & archetypes', () => {
   it('evolution trees: one per archetype, root first; slimes get HP and gold, then bigger hordes', () => {
     const g = rich();
     g.state.bestiary.greenSlime.empower = 30; // plenty of points
+    // Evolutions open as you slay more of that monster.
+    expect(g.canEvolve('greenSlime', 'root')).toBe(false);
+    expect(g.evoKillsLeft('greenSlime', 'root')).toBe(evoKillsNeeded(enemyDef('greenSlime'), EVO_TREES.slime[0]));
+    g.state.bestiary.greenSlime.kills = 100;
+    expect(g.canEvolve('greenSlime', 'root')).toBe(true);
+    expect(g.evoKillsLeft('greenSlime', 'capstone')).toBeGreaterThan(0);
+    g.state.bestiary.greenSlime.kills = 1e6;
     expect(g.evoTree('greenSlime')).toBe(EVO_TREES.slime);
     expect(g.canEvolve('greenSlime', 'horde')).toBe(false); // needs the root first
     const base = g.enemyStats('greenSlime');
@@ -184,12 +206,12 @@ describe('Enemies & archetypes', () => {
     old.bestiary.greenSlime = { unlocked: true, swarm: 3, bounty: 2 };
     old.bestiary.wolf = { unlocked: true, swarm: 0, bounty: 0 };
     const s = deserialize(JSON.stringify(old))!;
-    expect(s.bestiary.greenSlime).toEqual({ unlocked: true, empower: 5, evo: {} });
-    expect(s.bestiary.wolf).toEqual({ unlocked: true, empower: 0, evo: {} });
+    expect(s.bestiary.greenSlime).toEqual({ unlocked: true, empower: 5, evo: {}, kills: 0 });
+    expect(s.bestiary.wolf).toEqual({ unlocked: true, empower: 0, evo: {}, kills: 0 });
     // Current saves keep their evolutions (and drop ranks for nodes that don't exist).
     const cur = newGame(0);
-    cur.bestiary.greenSlime = { unlocked: true, empower: 12, evo: { root: 1, horde: 2, bogus: 4 } };
-    expect(deserialize(serialize(cur))!.bestiary.greenSlime).toEqual({ unlocked: true, empower: 12, evo: { root: 1, horde: 2 } });
+    cur.bestiary.greenSlime = { unlocked: true, empower: 12, evo: { root: 1, horde: 2, bogus: 4 }, kills: 345 };
+    expect(deserialize(serialize(cur))!.bestiary.greenSlime).toEqual({ unlocked: true, empower: 12, evo: { root: 1, horde: 2 }, kills: 345 });
   });
 
   it('enemies belong to archetypes: slimes are slimes, skeletons and zombies are undead', () => {
@@ -667,6 +689,24 @@ describe('Equipment', () => {
     const before = w.hp;
     api.hitWith('frostbreaker', w, 1, 0, 0, false);
     expect(before - w.hp).toBeCloseTo(resisted / RESIST_MULT);
+  });
+
+  it('poison also eats a share of max HP: more from rarer weapons, a tenth on Guardians', () => {
+    const g = stocked();
+    const f = new Field(g);
+    const api = f as unknown as { applyStatus: (...a: unknown[]) => void; tickStatus: (e: Enemy, dt: number) => void };
+    const run = (rarity: string, boss: boolean) => {
+      const e = enemy({ id: 1, type: 'wolf', x: 0, y: -300, hp: 1e6, maxHp: 1e6, boss });
+      f.enemies = [e];
+      api.applyStatus(e, 'poison', 0, 'alchemist', rarity); // no hit damage: only the max-HP part
+      for (let i = 0; i < 150; i++) api.tickStatus(e, 1 / 30);
+      return 1e6 - e.hp;
+    };
+    expect(run('common', false)).toBeCloseTo(1e6 * STATUS.poison.maxHp.common, 0);
+    expect(run('exalted', false)).toBeCloseTo(1e6 * STATUS.poison.maxHp.exalted, 0);
+    expect(run('common', true)).toBeCloseTo(1e6 * STATUS.poison.maxHp.common * STATUS.poison.guardian, 0);
+    // Rarer monsters need fewer kills to evolve.
+    expect(evoKillsNeeded(enemyDef('behemoth'), EVO_TREES.beast[7])).toBeLessThan(evoKillsNeeded(enemyDef('wolf'), EVO_TREES.beast[7]));
   });
 
   it('effects proc at the weapon\'s chance; Physical weapons never proc', () => {
@@ -1287,7 +1327,7 @@ describe('Saves', () => {
     s.flags.eventsIntro = true;
     const back = deserialize(serialize(s))!;
     expect(back.settings).toEqual({ leftHanded: true, name: 'Wolfa', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'] });
-    expect(back.flags).toEqual({ eventsIntro: true, welcome: false, trainIntro: false });
+    expect(back.flags).toEqual({ eventsIntro: true, welcome: false, trainIntro: false, empowerIntro: false });
     const old = JSON.parse(serialize(newGame(0)));
     delete old.settings;
     delete old.flags;

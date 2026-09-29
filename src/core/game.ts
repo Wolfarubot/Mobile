@@ -1,5 +1,9 @@
 import {
-  EMPOWER,
+  type Rarity,
+  evoKillsNeeded,
+  ENEMIES,
+  EMPOWER_UNLOCK_KILLS,
+  empowerMult,
   EMPOWER_GROWTH,
   empowerBaseCost,
   EVO_TREES,
@@ -351,6 +355,12 @@ export class Game {
     return item ? (gearDef(item.base).proc ?? 0) : (style.proc ?? 0);
   }
 
+  /** Rarity behind a Hunter's status effects: their weapon's, or Common for their own attacks and specials. */
+  procRarity(who: Shooter, mode: GearMode = 'long', special = false): Rarity {
+    const item = special ? null : this.weaponItem(who, mode);
+    return item ? gearDef(item.base).rarity : 'common';
+  }
+
   /** The piece in a Hunter's weapon slot for a mode, if any. */
   private weaponItem(who: Shooter, mode: GearMode = 'long'): GearItem | null {
     const slots = this.slotsOf(who);
@@ -672,15 +682,16 @@ export class Game {
     const ev = this.activeEvent && def.area === this.state.area ? eventDef(this.activeEvent.id) : null;
     const swarm = ev?.kind === 'swarm' ? (def.archetype === ev.archetype ? { spawn: ev.spawnMult ?? 1, speed: ev.speedMult ?? 1 } : { spawn: 0, speed: 1 }) : { spawn: 1, speed: 1 };
     const evo = this.evo(id);
-    const e = b.empower;
+    const lv = levelFromTrains(b.empower).level;
+    const emp = (stat: 'hp' | 'gold' | 'drops') => empowerMult(stat, b.empower, lv);
     return {
       id,
       archetype: def.archetype,
-      hp: area.hp * def.hp * (1 + EMPOWER.hp * e) * (1 + evo.hp),
+      hp: area.hp * def.hp * emp('hp') * (1 + evo.hp),
       speed: area.speed * def.speed * (1 + evo.speed) * swarm.speed,
-      gold: area.gold * def.gold * (1 + EMPOWER.gold * e) * (1 + evo.gold) * this.goldMult,
+      gold: area.gold * def.gold * emp('gold') * (1 + evo.gold) * this.goldMult,
       spawnRate: b.unlocked ? def.spawn * (1 + evo.spawn) * (1 + 0.2 * this.item('lure')) * swarm.spawn : 0,
-      dropChance: BASE_DROP_CHANCE * (1 + 0.25 * this.item('pouch')) * (1 + EMPOWER.drops * e) * (1 + evo.drops),
+      dropChance: BASE_DROP_CHANCE * (1 + 0.25 * this.item('pouch')) * emp('drops') * (1 + evo.drops),
       material: def.material,
     };
   }
@@ -765,6 +776,7 @@ export class Game {
     s.gold += gold;
     s.stats.totalGold += gold;
     s.areas[enemyDef(type).area].gold += gold;
+    s.bestiary[type].kills++;
     const chance = e.dropChance * this.shooterDrops(shooter);
     const amount = Math.floor(chance) + (this.rng() < chance % 1 ? 1 : 0);
     s.materials[e.material] += amount;
@@ -906,7 +918,11 @@ export class Game {
       return whole;
     };
     let kills = 0;
-    for (const [id, rate] of Object.entries(rates.kills) as [EnemyId, number][]) kills += take(`${area}:k:${id}`, rate * seconds);
+    for (const [id, rate] of Object.entries(rates.kills) as [EnemyId, number][]) {
+      const n = take(`${area}:k:${id}`, rate * seconds);
+      kills += n;
+      s.bestiary[id].kills += n;
+    }
     for (const [sh, share] of Object.entries(rates.share) as [Shooter, number][]) {
       const n = take(`${area}:hk:${sh}`, rates.killsTotal * share * seconds);
       if (n > 0) s.stats.hunterKills[sh] = (s.stats.hunterKills[sh] ?? 0) + n;
@@ -1069,6 +1085,16 @@ export class Game {
 
   // ---- Monster Empower & evolution ----
 
+  /** Slimes slain in all (any slime monster, anywhere). */
+  get slimeKills(): number {
+    return ENEMIES.filter((e) => e.archetype === 'slime').reduce((n, e) => n + this.state.bestiary[e.id].kills, 0);
+  }
+
+  /** Empower opens once you've slain EMPOWER_UNLOCK_KILLS slimes. */
+  get empowerUnlocked(): boolean {
+    return this.state.flags.empowerIntro || this.slimeKills >= EMPOWER_UNLOCK_KILLS;
+  }
+
   /** Cost of the next `amount` Empower sessions for a monster (`buyAmount` by default). */
   empowerPurchase(id: EnemyId, amount: BuyAmount = this.state.buyAmount): Purchase {
     const base = empowerBaseCost(enemyDef(id));
@@ -1080,7 +1106,7 @@ export class Game {
   /** Empowers a monster (`buyAmount` sessions): more HP, gold and material drops; levels earn evolution points. */
   empower(id: EnemyId, amount: BuyAmount = this.state.buyAmount): boolean {
     const p = this.empowerPurchase(id, amount);
-    if (!this.isUnlocked(id) || this.state.gold < p.cost) return false;
+    if (!this.empowerUnlocked || !this.isUnlocked(id) || this.state.gold < p.cost) return false;
     this.state.gold -= p.cost;
     this.state.bestiary[id].empower += p.count;
     return true;
@@ -1111,9 +1137,22 @@ export class Game {
     return !!n && (n.requires.length === 0 || n.requires.some((r) => this.evoRank(id, r) > 0));
   }
 
+  /** Kills of this monster still needed before an evolution node opens (0 = open). */
+  evoKillsLeft(id: EnemyId, node: string): number {
+    const n = evoNode(enemyDef(id).archetype, node);
+    return n ? Math.max(0, evoKillsNeeded(enemyDef(id), n) - this.state.bestiary[id].kills) : 0;
+  }
+
   canEvolve(id: EnemyId, node: string): boolean {
     const n = evoNode(enemyDef(id).archetype, node);
-    return !!n && this.isUnlocked(id) && this.evoPoints(id) > 0 && this.evoRank(id, node) < n.maxRank && this.evoReachable(id, node);
+    return (
+      !!n &&
+      this.isUnlocked(id) &&
+      this.evoPoints(id) > 0 &&
+      this.evoRank(id, node) < n.maxRank &&
+      this.evoReachable(id, node) &&
+      this.evoKillsLeft(id, node) === 0
+    );
   }
 
   evolve(id: EnemyId, node: string): boolean {

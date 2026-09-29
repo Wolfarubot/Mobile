@@ -30,6 +30,8 @@ export interface BestiaryEntry {
   empower: number;
   /** Ranks in each evolution-tree node. */
   evo: Record<string, number>;
+  /** How many of this monster have been slain (on the field, stationed and offline). */
+  kills: number;
 }
 
 export interface AreaState {
@@ -115,6 +117,8 @@ export interface GameState {
     welcome: boolean;
     /** The "you can train your Hunter" tip has been shown. */
     trainIntro: boolean;
+    /** Empower is unlocked (100 slimes slain) and its intro has been shown. */
+    empowerIntro: boolean;
   };
   /** Per event: seconds of cooldown left, times started and times completed (a Guardian beaten, a swarm survived). */
   events: Record<string, EventState>;
@@ -145,7 +149,7 @@ export function newGame(now = Date.now()): GameState {
     area: 'forest',
     areas: byId(AREAS, (_, i) => ({ unlocked: i === 0, kills: 0, gold: 0, escaped: 0, knockouts: 0 })),
     main: { trains: 0, skills: {} },
-    bestiary: byId(ENEMIES, (id) => ({ unlocked: ENEMIES.find((e) => e.id === id)!.unlock === 0, empower: 0, evo: {} })),
+    bestiary: byId(ENEMIES, (id) => ({ unlocked: ENEMIES.find((e) => e.id === id)!.unlock === 0, empower: 0, evo: {}, kills: 0 })),
     hunters: byId(HUNTERS, () => ({ recruited: false, trains: 0, skills: {}, station: null })),
     materials: zeroes(MATERIALS),
     items: zeroes(ITEMS),
@@ -154,7 +158,7 @@ export function newGame(now = Date.now()): GameState {
     nextGearUid: 1,
     lastSeen: now,
     settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS] },
-    flags: { eventsIntro: false, welcome: false, trainIntro: false },
+    flags: { eventsIntro: false, welcome: false, trainIntro: false, empowerIntro: false },
     events: Object.fromEntries(EVENTS.map((e) => [e.id, { cooldown: 0, runs: 0, completed: 0 }])),
     buyAmount: 1,
     stats: { totalKills: 0, totalGold: 0, taps: 0, escaped: 0, guardians: 0, hunterKills: {} },
@@ -241,6 +245,8 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
       // Anyone with a save from before the welcome existed has already started playing.
       welcome: (data.flags as { welcome?: unknown } | undefined)?.welcome !== false,
       trainIntro: (data.flags as { trainIntro?: unknown } | undefined)?.trainIntro !== false,
+      // Saves from before per-monster kill counts already had Empower (then Swarm/Bounty) available.
+      empowerIntro: (data.flags as { empowerIntro?: unknown } | undefined)?.empowerIntro !== false,
     },
     events: Object.fromEntries(
       EVENTS.map((e) => {
@@ -289,6 +295,7 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
     const b = state.bestiary[e.id] as BestiaryEntry & { swarm?: unknown; bounty?: unknown };
     const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.floor(v) : 0);
     b.empower = n(b.empower) + n(b.swarm) + n(b.bounty);
+    b.kills = n(b.kills);
     delete b.swarm;
     delete b.bounty;
     const evo = b.evo && typeof b.evo === 'object' ? b.evo : {};

@@ -1,4 +1,5 @@
 import {
+  type Rarity,
   DAMAGE_TYPES,
   STATUS,
   affinity,
@@ -69,6 +70,8 @@ export interface Dot {
   acc: number;
   /** Ticks still to deal (counted rather than timed, so a 2s burn always ticks 4 times). */
   ticks: number;
+  /** Poison: extra damage per tick as a fraction of the monster's max HP. */
+  maxHpPerTick?: number;
 }
 
 /** A stationed Hunter fighting next to you, with their own attack style and stun state. */
@@ -643,7 +646,7 @@ export class Field {
     const dmg = this.game.shotDamage(shooter, enemyDef(e.type).archetype, mode) * this.typeMultOn(dtype, e) * mult * (crit ? CRIT_MULT : 1);
     const d = Math.hypot(e.x - fromX, e.y - fromY) || 1;
     this.damage(e, dmg, crit, (e.x - fromX) / d, (e.y - fromY) / d, shooter, dtype);
-    if (status && this.game.rng() < this.game.procOf(shooter, mode, special)) this.applyStatus(e, dtype, dmg, shooter);
+    if (status && this.game.rng() < this.game.procOf(shooter, mode, special)) this.applyStatus(e, dtype, dmg, shooter, this.game.procRarity(shooter, mode, special));
   }
 
   /** Weakness/resistance multiplier, with resistances ignored while the monster is exposed (Arcane). */
@@ -661,7 +664,7 @@ export class Field {
    * A proc'd status effect. Fire burns, Poison poisons, Frost chills, Acid drops a puddle, Radiant bursts,
    * Decay gives the monster a dark aura, Arcane strips its resistances. Timed effects refresh rather than stack.
    */
-  private applyStatus(e: Enemy, dtype: DamageType, dmg: number, by: Shooter): void {
+  private applyStatus(e: Enemy, dtype: DamageType, dmg: number, by: Shooter, rarity: Rarity = 'common'): void {
     const dot = (cur: Dot | undefined, share: number, duration: number): Dot => {
       const dps = (dmg * share) / duration;
       const ticks = Math.round(duration / STATUS.tick);
@@ -672,7 +675,12 @@ export class Field {
         if (e.hp > 0) e.burn = dot(e.burn, STATUS.burn.share, STATUS.burn.duration);
         break;
       case 'poison':
-        if (e.hp > 0) e.poison = dot(e.poison, STATUS.poison.share, STATUS.poison.duration);
+        if (e.hp > 0) {
+          const p = STATUS.poison;
+          e.poison = dot(e.poison, p.share, p.duration);
+          const pct = p.maxHp[rarity] * (e.boss ? p.guardian : 1);
+          e.poison.maxHpPerTick = Math.max(e.poison.maxHpPerTick ?? 0, pct / e.poison.ticks);
+        }
         break;
       case 'frost':
         e.slow = Math.max(e.slow ?? 0, STATUS.chill.duration);
@@ -716,7 +724,7 @@ export class Field {
         d.acc -= STATUS.tick;
         d.ticks--;
         if (key === 'aura') this.hitArea(e.x, e.y, STATUS.aura.radius, d.dps * STATUS.tick, 'decay', d.by, e);
-        else this.damage(e, d.dps * STATUS.tick, false, 0, 0, d.by, dtype);
+        else this.damage(e, d.dps * STATUS.tick + (d.maxHpPerTick ?? 0) * e.maxHp, false, 0, 0, d.by, dtype);
         if (key === 'burn') this.spreadBurn(e, d);
       }
       if (d.ticks <= 0 || (d.left <= 0 && d.acc < STATUS.tick)) e[key] = undefined;

@@ -554,8 +554,19 @@ export const enemyUnlockCost = (def: EnemyDef): number => def.unlock * areaDef(d
 
 // ---- Monsters: Empower (gold) raises a monster's level; levels earn evolution points for its evolution tree ----
 
-/** Per Empower session: this much more HP, gold and material drops (added up, not compounded). */
-export const EMPOWER = { hp: 0.04, gold: 0.06, drops: 0.05 };
+/** Slimes to slay (in all) before Empower unlocks. */
+export const EMPOWER_UNLOCK_KILLS = 100;
+
+/**
+ * Empower's effect on a monster's HP, gold and material drops: a little per session (added up), multiplied
+ * by a growth factor per level above 1, so it grows exponentially as the monster levels.
+ */
+export const EMPOWER = { hp: 0.02, gold: 0.03, drops: 0.02 };
+export const EMPOWER_LEVEL = { hp: 1.03, gold: 1.05, drops: 1.03 };
+
+/** Multiplier from `sessions` Empower sessions at `level`. */
+export const empowerMult = (stat: keyof typeof EMPOWER, sessions: number, level: number): number =>
+  (1 + EMPOWER[stat] * sessions) * EMPOWER_LEVEL[stat] ** (level - 1);
 export const EMPOWER_GROWTH = 1.15;
 /** Cost of a monster's first Empower session (then × EMPOWER_GROWTH each). */
 export const empowerBaseCost = (def: EnemyDef): number => Math.ceil(areaDef(def.area).gold * Math.max(40, def.unlock * 0.3) * def.gold);
@@ -668,6 +679,16 @@ export const EVO_TREES: Record<Archetype, EvoNode[]> = {
 
 export const evoNode = (archetype: Archetype, id: string): EvoNode | undefined => EVO_TREES[archetype].find((n) => n.id === id);
 
+/** Kills of a monster needed before each row of its evolution tree opens (root, branches, signature nodes, capstone). */
+export const EVO_KILLS = [100, 1_000, 5_000, 20_000];
+
+/** Kills of this monster needed for an evolution node: rarer monsters (lower spawn rates) need fewer. */
+export function evoKillsNeeded(def: EnemyDef, node: EvoNode): number {
+  const n = EVO_KILLS[Math.min(node.row, EVO_KILLS.length - 1)] * Math.min(1, def.spawn);
+  const mag = 10 ** Math.max(0, Math.floor(Math.log10(n)) - 1);
+  return Math.max(10, Math.round(n / mag) * mag); // two significant figures
+}
+
 // ---- Hunters: extra hunters you recruit and station in areas ----
 export type HunterId =
   | 'alchemist'
@@ -694,7 +715,13 @@ export type DamageType = 'physical' | 'fire' | 'acid' | 'frost' | 'radiant' | 'p
 export const STATUS = {
   /** Burns can spread: each tick, a `spreadChance` to ignite each monster within `spreadRadius` of its edge, at `spreadFalloff` strength. */
   burn: { share: 0.3, duration: 2, spreadChance: 0.1, spreadRadius: 18, spreadFalloff: 0.5 },
-  poison: { share: 0.4, duration: 4 },
+  /** Poison also deals `maxHp[rarity]` of the monster's max HP over its duration (by the weapon's rarity; ×`guardian` on Guardians). */
+  poison: {
+    share: 0.4,
+    duration: 4,
+    maxHp: { common: 0.01, uncommon: 0.015, rare: 0.02, veryRare: 0.025, legendary: 0.03, exotic: 0.035, relic: 0.04, artifact: 0.05, exalted: 0.06 } as Record<Rarity, number>,
+    guardian: 0.1,
+  },
   chill: { duration: 1.2 },
   /** Each tick hurts everything in the puddle for `share` of the hit. */
   acid: { share: 0.15, duration: 3, radius: 38 },
@@ -706,7 +733,7 @@ export const STATUS = {
   tick: 0.5,
 };
 /** Rough extra damage each type's effect adds when it always procs, for the background model (scaled by proc chance). */
-export const STATUS_MODEL: Partial<Record<DamageType, number>> = { fire: 1.4, poison: 1.4, acid: 1.4, radiant: 1.5, decay: 1.4, arcane: 1.1 };
+export const STATUS_MODEL: Partial<Record<DamageType, number>> = { fire: 1.4, poison: 1.5, acid: 1.4, radiant: 1.5, decay: 1.4, arcane: 1.1 };
 
 export const DAMAGE_TYPES: Record<DamageType, { name: string; icon: string; color: string; effect?: string }> = {
   physical: { name: 'Physical', icon: '🗡️', color: '#e8e8e8' },
@@ -714,7 +741,7 @@ export const DAMAGE_TYPES: Record<DamageType, { name: string; icon: string; colo
   acid: { name: 'Acid', icon: '🧪', color: '#c6f03a', effect: `Acid puddle: hurts everything in it for ${STATUS.acid.duration}s` },
   frost: { name: 'Frost', icon: '❄️', color: '#8fdcff', effect: `Chills: half speed for ${STATUS.chill.duration}s` },
   radiant: { name: 'Radiant', icon: '✨', color: '#ffe36e', effect: `Radiant burst: ${STATUS.burst.share * 100}% of the hit to everything nearby` },
-  poison: { name: 'Poison', icon: '☠️', color: '#6fdc5a', effect: `Poisons: ${STATUS.poison.share * 100}% of the hit again over ${STATUS.poison.duration}s` },
+  poison: { name: 'Poison', icon: '☠️', color: '#6fdc5a', effect: `Poisons: ${STATUS.poison.share * 100}% of the hit again over ${STATUS.poison.duration}s, plus a share of its max HP (more from rarer weapons, less on Guardians)` },
   arcane: { name: 'Arcane', icon: '🔮', color: '#c08cff', effect: `Exposes: removes its resistances for ${STATUS.expose.duration}s` },
   decay: { name: 'Decay', icon: '🍂', color: '#b09a60', effect: `Dark aura: it hurts the monsters around it for ${STATUS.aura.duration}s` },
   void: { name: 'Void', icon: '🌀', color: '#ff5fd7' },

@@ -1,4 +1,6 @@
 import {
+  EMPOWER_LEVEL,
+  EMPOWER_UNLOCK_KILLS,
   enemyDef,
   EMPOWER,
   type EnemyId,
@@ -70,6 +72,8 @@ interface TreeAdapter {
   canLearn: (id: string) => boolean;
   learn: (id: string) => boolean;
   verb: string;
+  /** Why a node is still closed beyond its prerequisites (e.g. kills needed), or null. */
+  gate?: (id: string) => string | null;
 }
 const INV_SUBS = ['materials', 'equipment', 'crafting'] as const;
 type InvSub = (typeof INV_SUBS)[number];
@@ -173,6 +177,7 @@ export class AppUI {
     $('.tabs button[data-tab=events]').classList.toggle('locked', !g.eventsOpen);
     if (g.eventsOpen && !s.flags.eventsIntro && !this.modalClose && !this.detail) this.showEventsIntro();
     else if (!s.flags.trainIntro && s.flags.welcome && !this.modalClose && !this.detail && s.gold >= g.trainPurchase('main', 1).cost) this.showTrainIntro();
+    else if (!s.flags.empowerIntro && g.empowerUnlocked && !this.modalClose && !this.detail) this.showEmpowerIntro();
     const ready = EVENTS.filter((e) => e.area === g.area && g.eventReady(e.id)).length;
     const badge = $('#eventsBadge');
     badge.textContent = String(ready);
@@ -503,6 +508,10 @@ export class AppUI {
       canLearn: (n) => g.canEvolve(id, n),
       learn: (n) => g.evolve(id, n),
       verb: 'Evolve',
+      gate: (n) => {
+        const left = g.evoKillsLeft(id, n);
+        return left > 0 ? `Slay ${fmt(left)} more ${enemyDef(id).name}${left === 1 ? '' : 's'}` : null;
+      },
     };
   }
 
@@ -550,6 +559,7 @@ export class AppUI {
         b.classList.toggle('maxed', rank >= n.maxRank);
         b.classList.toggle('available', t.canLearn(n.id));
         b.classList.toggle('locked', !t.reachable(n.id));
+        b.classList.toggle('gated', !!t.gate?.(n.id));
         $('em', b).textContent = `${rank}/${n.maxRank}`;
       }
       tree.querySelectorAll<SVGLineElement>('line').forEach((l) => l.classList.toggle('on', t.rank(l.dataset.from!) > 0));
@@ -564,7 +574,7 @@ export class AppUI {
       const needs = n.requires.map((r) => t.nodes.find((x) => x.id === r)!.name);
       body.innerHTML = `<p class="gear-now">${n.desc}</p><p>Rank ${rank} / ${n.maxRank}</p>${
         !t.reachable(n.id) ? `<p>🔒 Needs a point in ${needs.join(' or ')} first.</p>` : ''
-      }`;
+      }${t.gate?.(n.id) ? `<p>🔒 ${t.gate(n.id)} to open this evolution.</p>` : ''}`;
       const btn = el('button', 'buy', rank >= n.maxRank ? 'Maxed' : `${t.verb} · 1 ${t.pointName} (${Math.max(0, t.points())} left)`) as HTMLButtonElement;
       btn.style.width = '100%';
       btn.disabled = !t.canLearn(n.id);
@@ -1165,10 +1175,7 @@ export class AppUI {
 
   private buildBestiary(): void {
     const g = this.game;
-    const intro = el('div', 'card');
-    intro.innerHTML = `<p style="margin:0">Unlock new monsters to join an area's horde. <b>Empower</b> them with gold: tougher, but they pay more gold and drop more materials. Every level earns an <b>evolution point</b>; tap a monster to evolve it. It all applies wherever they're hunted, including by stationed Hunters.</p>`;
-    this.panel.appendChild(this.amountsBar('sticky-amounts', 'Empower'));
-    this.panel.appendChild(intro);
+    if (g.empowerUnlocked) this.panel.appendChild(this.amountsBar('sticky-amounts', 'Empower'));
     // Current area first, then the rest in order.
     const order = [g.area, ...g.unlockedAreas.filter((a) => a !== g.area)];
     for (const areaId of order) {
@@ -1189,10 +1196,9 @@ export class AppUI {
     card.innerHTML = `
       <div class="beast-head">
         <canvas class="portrait"></canvas>
-        <div class="info"><div class="name"></div><div class="blurb">${def.blurb}</div></div>
+        <div class="info"><div class="name"></div><div class="blurb">${def.blurb}</div>${dropHtml(def)}</div>
       </div>
       ${affinityHtml(def)}
-      <div class="beast-stats"></div>
       <div class="beast-actions"></div>`;
     this.panel.appendChild(card);
     requestAnimationFrame(() => drawEnemyPortrait($<HTMLCanvasElement>('canvas', card), def.id));
@@ -1210,7 +1216,7 @@ export class AppUI {
     const dot = el('b', 'sp-dot hidden');
     dot.title = 'Unspent evolution points';
     if (unlocked) {
-      const { btn, bar } = this.empowerParts(def.id, true);
+      const { btn, bar } = this.empowerParts(def.id);
       $('.hc-mid', row).appendChild(bar);
       $('.hc-action', row).appendChild(btn);
       actions.appendChild(row);
@@ -1222,15 +1228,9 @@ export class AppUI {
     const arch = ARCHETYPES[def.archetype];
     this.refreshers.push(() => {
       const b = g.state.bestiary[def.id];
-      const st = g.enemyStats(def.id);
       const mat = materialDef(def.material);
       card.classList.toggle('locked', !b.unlocked);
       $('.name', card).innerHTML = `${def.name}<span class="archetype">${arch.icon} ${arch.name}</span>${b.unlocked ? '' : ' <small style="color:var(--muted)">locked</small>'}`;
-      $('.beast-stats', card).innerHTML = `
-        <div><b>${fmt(st.hp)}</b>HP</div>
-        <div><b>${Math.round(st.speed)}</b>speed</div>
-        <div><b>${(b.unlocked ? st.spawnRate : def.spawn).toFixed(2)}/s</b>spawns</div>
-        <div><b>${fmt(st.gold)}</b>gold</div>`;
       if (!b.unlocked) {
         const cost = enemyUnlockCost(def);
         unlockBtn.innerHTML = `Unlock · drops ${gemHtml(def.material)} ${mat.name}<small>🪙 ${fmt(cost)}</small>`;
@@ -1257,8 +1257,9 @@ export class AppUI {
     this.refreshers.push(() => {
       const p = g.empowerPurchase(id);
       const { level, into, need } = g.monsterLevelInfo(id);
-      btn.innerHTML = `Empower${p.count > 1 ? ` ×${p.count}` : ''}<small>🪙 ${fmt(p.cost)}</small>`;
-      btn.disabled = g.state.gold < p.cost || !g.isUnlocked(id);
+      if (g.empowerUnlocked) btn.innerHTML = `Empower${p.count > 1 ? ` ×${p.count}` : ''}<small>🪙 ${fmt(p.cost)}</small>`;
+      else btn.innerHTML = `🔒 Empower<small>${fmt(g.slimeKills)}/${EMPOWER_UNLOCK_KILLS} slimes</small>`;
+      btn.disabled = !g.empowerUnlocked || g.state.gold < p.cost || !g.isUnlocked(id);
       $('i', bar).style.width = `${(into / need) * 100}%`;
       $('span', bar).textContent = compact ? '' : `Lv ${level} · ${into}/${need} to Lv ${level + 1}`;
     });
@@ -1283,6 +1284,7 @@ export class AppUI {
           </div>
         </div>
         <p class="hd-ability">${def.blurb}</p>
+        ${dropHtml(def)}
         ${affinityHtml(def)}
       </div>`;
     document.body.appendChild(view);
@@ -1294,7 +1296,15 @@ export class AppUI {
     this.refreshers = [];
 
     body.appendChild(sectionTitle('Empower'));
-    body.appendChild(el('p', 'hd-note', `Each session: +${EMPOWER.hp * 100}% HP, +${EMPOWER.gold * 100}% gold, +${EMPOWER.drops * 100}% material drops. Every level earns an evolution point.`));
+    body.appendChild(
+      el(
+        'p',
+        'hd-note',
+        g.empowerUnlocked
+          ? `Each session: +${EMPOWER.hp * 100}% HP, +${EMPOWER.gold * 100}% gold and +${EMPOWER.drops * 100}% material drops, and every level multiplies them (×${EMPOWER_LEVEL.hp} HP, ×${EMPOWER_LEVEL.gold} gold, ×${EMPOWER_LEVEL.drops} drops). Every level earns an evolution point.`
+          : `🔒 Slay ${EMPOWER_UNLOCK_KILLS} slimes to unlock Empower.`,
+      ),
+    );
     body.appendChild(this.amountsBar('', 'Empower'));
     const wrap = el('div', 'train');
     const { btn, bar } = this.empowerParts(id);
@@ -1303,6 +1313,7 @@ export class AppUI {
 
     body.appendChild(sectionTitle('Stats'));
     const stats = el('div', 'hd-stats');
+    // (kills of this monster are shown here too; evolutions open with them)
     body.appendChild(stats);
 
     body.appendChild(sectionTitle('Evolution'));
@@ -1314,6 +1325,7 @@ export class AppUI {
       const [lo, hi] = g.packOf(id);
       $('.hd-sub', view).innerHTML = `<span>${arch.icon} ${arch.name} · Lv ${g.monsterLevelInfo(id).level}</span><span class="where">📍 ${areaDef(def.area).name}</span>`;
       const cells: Array<[string, string]> = [
+        ['Slain', fmt(g.state.bestiary[id].kills)],
         ['HP', fmt(st.hp)],
         ['Gold', fmt(st.gold)],
         ['Drop chance', `${(st.dropChance * 100).toFixed(1)}%`],
@@ -1666,6 +1678,21 @@ export class AppUI {
     );
   }
 
+  /** Shown once, when the 100th slime falls: Empower opens in the Bestiary. */
+  private showEmpowerIntro(): void {
+    this.game.state.flags.empowerIntro = true;
+    if (this.tab === 'beasts') this.setTab('beasts', true);
+    this.showModal(
+      `<h2>👾 Empower unlocked!</h2>
+       <p>You've slain ${EMPOWER_UNLOCK_KILLS} slimes. In the <b>Bestiary</b>, unlock new monsters to join an area's horde, and <b>Empower</b> them with gold: tougher, but they pay more gold and drop more materials.</p>
+       <p>Every level earns an <b>evolution point</b>. Tap a monster to evolve it; slaying more of it opens further evolutions. It all applies wherever they're hunted, including by stationed Hunters.</p>`,
+      [
+        { label: 'Later', secondary: true },
+        { label: 'Go to Bestiary', action: () => this.setTab('beasts') },
+      ],
+    );
+  }
+
   /** Shown once, the first time you can afford to train your Hunter. */
   private showTrainIntro(): void {
     this.game.state.flags.trainIntro = true;
@@ -1984,6 +2011,11 @@ function wearerIcon(who: Wearer): string {
 }
 
 /** Material cost list; with `check`, amounts you can't afford are highlighted. */
+/** What a monster drops. */
+function dropHtml(e: EnemyDef): string {
+  return `<div class="drop-line">${gemHtml(e.material)} Drops <b>${materialDef(e.material).name}</b></div>`;
+}
+
 /** An enemy's weaknesses and resistances as rows of damage-type tags. */
 function affinityHtml(e: EnemyDef): string {
   const row = (label: string, cls: string, types: DamageType[]) =>
