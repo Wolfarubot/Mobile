@@ -545,6 +545,9 @@ export class Field {
         case 'hammer':
           this.shoot(h.id, 'hammer', h.x, h.y, a, 420, range, { slow: style.slow, spread: true });
           break;
+        case 'beam':
+          this.strikeLine(h.id, h.x, h.y, a, range, 8, Infinity, 1, '#fff3b0', 4);
+          break;
         default:
           this.shoot(h.id, 'bolt', h.x, h.y, a, BULLET_SPEED, range, { spread: true });
       }

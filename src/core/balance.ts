@@ -228,6 +228,15 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
     ],
     { name: 'Marksman', icon: '🏅', desc: '+30% damage and +30 range.', maxRank: 1, effect: { damage: 0.3, range: 30 } },
   ),
+  celeste: skillTree(
+    { name: 'Heir of Stars', icon: '⭐', desc: '+10% damage and +20 range.', maxRank: 1, effect: { damage: 0.1, range: 20 } },
+    [
+      { name: 'Dragon Bane', icon: '🐉', desc: '+0.5× extra damage to Dragons per rank.', maxRank: 3, effect: { bane: 0.5 } },
+      { name: 'Long Light', icon: '🔦', desc: '+25 range per rank.', maxRank: 3, effect: { range: 25 } },
+      { name: 'Starfall', icon: '🌠', desc: '+3% crit chance per rank.', maxRank: 3, effect: { crit: 0.03 } },
+    ],
+    { name: 'Ascension', icon: '👑', desc: '+30% damage and +15% attack rate.', maxRank: 1, effect: { damage: 0.3, rate: 0.15 } },
+  ),
   scavenger: skillTree(
     { name: 'Magpie', icon: '🐦', desc: '+20% materials from his kills.', maxRank: 1, effect: { drops: 0.2 } },
     [
@@ -713,6 +722,7 @@ export type HunterId =
   | 'prospector'
   | 'demonbane'
   | 'wilhelm'
+  | 'celeste'
   | 'scavenger'
   | 'frostbreaker';
 
@@ -773,7 +783,8 @@ export type AttackKind =
   | 'daggers' // very fast, short range
   | 'sniper' // long-range piercing shot; akimbo pistols up close
   | 'ricochet' // bounces between enemies
-  | 'hammer'; // slows what it hits
+  | 'hammer' // slows what it hits
+  | 'beam'; // a long beam of light through everything in a line
 
 export interface AttackStyle {
   kind: AttackKind;
@@ -896,16 +907,9 @@ export const HUNTERS: HunterDef[] = [
     },
   },
   {
-    id: 'demonbane', name: 'Sera', title: 'Demonbane', icon: '🗡️', color: '#ff7a3d', area: 'caves', recruitCost: 1_500_000, bane: { archetype: 'demon', mult: 3 },
-    unlock: { event: 'guardian-caves', times: 1 },
-    story: 'Sera hunts the demons of the Ember Caves alone. Show her you can beat the Caves\' Guardian, and she\'ll fight beside you.',
-    ability: 'A rapid flurry of daggers at short range. Deals triple damage to Demons.',
-    style: { kind: 'daggers', damageType: 'arcane', proc: 0.15, range: 160, rate: 3, damage: 0.4, farm: 1.1, crowd: 1, describe: 'Throws a flurry of daggers at anything that gets close.' },
-  },
-  {
-    id: 'wilhelm', name: 'Wilhelm', title: 'Sniper', icon: '🎯', color: '#9aa7b8', area: 'caves', recruitCost: 3_000_000,
-    unlock: { event: 'guardian-caves', times: 2 },
-    story: 'Wilhelm has been waiting for a clear shot in the Ember Caves for days. Beat its Guardian twice to prove you\'re worth covering.',
+    id: 'wilhelm', name: 'Wilhelm', title: 'Sniper', icon: '🎯', color: '#9aa7b8', area: 'depths', recruitCost: 600_000,
+    unlock: { event: 'guardian-depths', times: 1 },
+    story: '“I was hunting a creature with a hundred eyes, but after shooting 99 of them, it got away. Help me track it down in the Shadowy Depths.”',
     ability: 'Snipes from across the field, akimbo pistols up close. Can equip a long-range weapon and a short-range weapon.',
     slots: [
       { kind: 'weapon', label: 'Long-range', role: 'long' },
@@ -915,9 +919,23 @@ export const HUNTERS: HunterDef[] = [
     style: { kind: 'sniper', damageType: 'physical', range: 520, rate: 0.4, damage: 3.5, pierce: 2, closeRange: 90, farm: 1.5, crowd: 2, describe: 'Picks enemies off from across the field with piercing shots; switches to akimbo pistols when they get close.' },
   },
   {
+    id: 'celeste', name: 'Celeste', title: 'Scion', icon: '🌟', color: '#ffe9a8', area: 'depths', recruitCost: 1_000_000, bane: { archetype: 'dragon', mult: 3 },
+    unlock: { event: 'guardian-depths', times: 2 },
+    story: 'Celeste, last Scion of a fallen house, went down into the Shadowy Depths to reclaim a family relic and has not come back up. Beat the Depths\' Guardian twice to clear the way, and Celeste will carry that light at your side.',
+    ability: 'Fires long beams of light that pierce every monster in a line. Deals triple damage to Dragons.',
+    style: { kind: 'beam', damageType: 'radiant', proc: 0.15, range: 280, rate: 0.6, damage: 1.4, farm: 1.5, crowd: 2.5, describe: 'A beam of starlight through everything in its path.' },
+  },
+  {
+    id: 'demonbane', name: 'Sera', title: 'Demonbane', icon: '🗡️', color: '#ff7a3d', area: 'caves', recruitCost: 1_500_000, bane: { archetype: 'demon', mult: 3 },
+    unlock: { event: 'guardian-caves', times: 1 },
+    story: 'Sera hunts the demons of the Ember Caves alone. Show her you can beat the Caves\' Guardian, and she\'ll fight beside you.',
+    ability: 'A rapid flurry of daggers at short range. Deals triple damage to Demons.',
+    style: { kind: 'daggers', damageType: 'arcane', proc: 0.15, range: 160, rate: 3, damage: 0.4, farm: 1.1, crowd: 1, describe: 'Throws a flurry of daggers at anything that gets close.' },
+  },
+  {
     id: 'scavenger', name: 'Pip', title: 'Scavenger', icon: '🎒', color: '#3fb0a0', area: 'caves', recruitCost: 6_000_000, drops: 2,
-    unlock: { event: 'guardian-caves', times: 3 },
-    story: 'Pip scavenges the Ember Caves for anything shiny. Beat its Guardian three times, and Pip will tag along for the loot.',
+    unlock: { event: 'guardian-caves', times: 2 },
+    story: 'Pip scavenges the Ember Caves for anything shiny. Beat its Guardian twice, and Pip will tag along for the loot.',
     ability: 'Stones ricochet between enemies. Doubles material drops from his kills.',
     style: { kind: 'ricochet', damageType: 'acid', proc: 0.2, range: 220, rate: 1, damage: 0.8, bounces: 3, farm: 1.4, crowd: 2.5, describe: 'Acid-slicked slingshot stones ricochet between up to 4 enemies.' },
   },

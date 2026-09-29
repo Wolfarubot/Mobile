@@ -249,6 +249,30 @@ describe('Hunters', () => {
     expect(g.hunterAvailable('glimmer')).toBe(true);
   });
 
+  it('the Shadowy Depths: Wilhelm after its Guardian, Celeste the Scion after two; Celeste beams through a line', () => {
+    expect(hunterDef('wilhelm').area).toBe('depths');
+    expect(hunterDef('wilhelm').unlock).toEqual({ event: 'guardian-depths', times: 1 });
+    expect(hunterDef('wilhelm').story).toContain('a hundred eyes');
+    const c = hunterDef('celeste');
+    expect([c.name, c.title, c.area]).toEqual(['Celeste', 'Scion', 'depths']);
+    expect(c.unlock).toEqual({ event: 'guardian-depths', times: 2 });
+    expect(c.bane).toEqual({ archetype: 'dragon', mult: 3 });
+    // The beam hits every monster in a line.
+    const s = newGame(0);
+    s.hunters.celeste.recruited = true;
+    s.hunters.celeste.station = 'forest';
+    const g = new Game(s, noCrit);
+    const f = new Field(g);
+    f.setView(390, 420);
+    f.update(0);
+    const h = f.helpers.find((x) => x.id === 'celeste')!;
+    const line = [1, 2, 3].map((i) => enemy({ id: i, x: h.x, y: h.y - 60 * i, hp: 1e9, maxHp: 1e9, speed: 0 }));
+    f.enemies = line;
+    f.stun = 1e3; // keep your Hunter's shots from knocking the line apart
+    for (let i = 0; i < 60; i++) f.update(1 / 30);
+    expect(line.every((e) => e.hp < 1e9)).toBe(true);
+  });
+
   it('every Hunter is unlocked by an event in their home area, in order', () => {
     for (const h of HUNTERS) expect(eventDef(h.unlock.event).area).toBe(h.area);
     expect(HUNTERS[0].id).toBe('alchemist');
