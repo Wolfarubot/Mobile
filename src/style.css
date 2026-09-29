@@ -2157,3 +2157,30 @@ canvas {
   padding: 9px;
   font-size: 15px;
 }
+
+/* Assign / Unassign button on the selected Hunter's icon. */
+.assign-tile,
+.assign-slots .active-slot {
+  position: relative;
+}
+.tile-action {
+  position: absolute;
+  left: 50%;
+  bottom: 6px;
+  transform: translateX(-50%);
+  min-width: 0;
+  width: calc(100% - 12px);
+  padding: 6px 4px;
+  font-size: 13px;
+  z-index: 2;
+  touch-action: manipulation;
+}
+.buy.tile-action:not(:disabled):active {
+  transform: translate(calc(-50% + 2px), 2px);
+}
+.assign-tile.selected b,
+.assign-tile.selected small,
+.assign-slots .active-slot.selected b,
+.assign-slots .active-slot.selected small {
+  visibility: hidden;
+}

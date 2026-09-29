@@ -921,9 +921,8 @@ export class AppUI {
     view.innerHTML = `
       <div class="hd-top"><button class="hd-close" aria-label="Close">✕</button><span>${a.icon} ${a.name} · Active Hunters</span></div>
       <div class="hd-scroll">
-        <p class="hd-note assign-tip">Drag a Hunter into a slot, or tap one and choose Assign or Unassign.</p>
+        <p class="hd-note assign-tip">Drag a Hunter into a slot, double-tap one to assign it, or tap one for Assign / Unassign.</p>
         <div class="active-slots assign-slots"></div>
-        <div class="assign-bar"></div>
         <div class="section-title"><span>Your Hunters</span></div>
         <div class="assign-grid"></div>
       </div>`;
@@ -965,30 +964,30 @@ export class AppUI {
         tile.innerHTML = `${portraitHtml(h)}<b>${hunterDef(h).name}</b><small>${st === id ? '✓ Here' : st ? `📍 ${areaDef(st).name.split(' ').pop()}` : '💤 Resting'}</small>`;
         grid.appendChild(tile);
       }
-      // Action bar for the selected Hunter.
-      const bar = $('.assign-bar', view);
-      bar.innerHTML = '';
+      // The selected Hunter gets its Assign / Unassign button right on its icon (in the slot and the grid).
       if (selected) {
-        const def = hunterDef(selected);
-        const isHere = g.state.hunters[selected].station === id;
-        const full = !g.canStation(selected, id);
-        bar.innerHTML = `<span>${def.icon} <b>${def.name}</b></span>`;
-        const btn = el('button', `buy${isHere ? ' danger-btn' : ''}`, isHere ? 'Unassign' : full ? 'Area full' : 'Assign') as HTMLButtonElement;
-        btn.disabled = !isHere && full;
-        btn.addEventListener('click', () => {
-          const h = selected!;
-          if (isHere) unassign(h);
-          else assign(h);
-          render();
+        const h = selected;
+        const isHere = g.state.hunters[h].station === id;
+        const full = !g.canStation(h, id);
+        view.querySelectorAll<HTMLElement>(`[data-hunter="${h}"]`).forEach((holder) => {
+          const btn = el('button', `buy tile-action${isHere ? ' danger-btn' : ''}`, isHere ? 'Unassign' : full ? 'Full' : 'Assign') as HTMLButtonElement;
+          btn.disabled = !isHere && full;
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (isHere) unassign(h);
+            else assign(h);
+            render();
+          });
+          holder.appendChild(btn);
         });
-        bar.appendChild(btn);
       }
-      bar.classList.toggle('hidden', !selected);
     };
+    let lastTap = { h: null as HunterId | null, at: 0 };
 
     // Tap to select, drag to move (pointer events, so it works with touch).
     const scroll = $('.hd-scroll', view);
     scroll.addEventListener('pointerdown', (ev) => {
+      if ((ev.target as HTMLElement).closest('.tile-action')) return; // its own click handler
       const src = (ev.target as HTMLElement).closest<HTMLElement>('[data-hunter]');
       if (!src) return;
       const h = src.dataset.hunter as HunterId;
@@ -1015,7 +1014,15 @@ export class AppUI {
         window.removeEventListener('pointerup', up);
         src.classList.remove('dragging');
         if (!ghost) {
-          selected = selected === h ? null : h; // a tap
+          // A double tap assigns straight away when there's room; a single tap selects.
+          const now = performance.now();
+          if (lastTap.h === h && now - lastTap.at < 350 && g.state.hunters[h].station !== id && g.canStation(h, id)) {
+            assign(h);
+            lastTap = { h: null, at: 0 };
+          } else {
+            lastTap = { h, at: now };
+            selected = h;
+          }
           render();
           return;
         }
