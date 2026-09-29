@@ -1135,6 +1135,40 @@ export const HUNTERS: HunterDef[] = [
 
 export const hunterDef = (id: HunterId): HunterDef => HUNTERS.find((h) => h.id === id)!;
 
+// ---- Guild Bonds: your Hunter's nodes drawn from the Guild Hunters ----
+// Each Guild Hunter teaches your Hunter one Bond once they're recruited and reach BOND_LEVEL. It costs no
+// skill points and grows with that Hunter's level: `perLevel` × their level.
+
+/** What a Bond improves: for every Hunter, except tap blasts (yours alone). */
+export type BondStat = 'drops' | 'gold' | 'damage' | 'rate' | 'stun' | 'crit' | 'tapPower' | 'tapSize';
+
+export interface BondDef {
+  hunter: HunterId;
+  name: string;
+  icon: string;
+  /** What it does, per level of that Hunter. */
+  desc: string;
+  stat: BondStat;
+  perLevel: number;
+}
+
+/** A Guild Hunter's level when their Bond opens. */
+export const BOND_LEVEL = 10;
+
+export const BONDS: BondDef[] = [
+  { hunter: 'alchemist', name: "Reginald's Remarkable Resources", icon: '🧪', desc: '+0.1% material drop rate in every area per level Reginald has.', stat: 'drops', perLevel: 0.001 },
+  { hunter: 'ranger', name: "Galladair's Grace", icon: '🍃', desc: '+0.1% attack rate for every Hunter per level Galladair has.', stat: 'rate', perLevel: 0.001 },
+  { hunter: 'gravewarden', name: "Alric's Absolution", icon: '🕯️', desc: 'Stuns 0.1% shorter for every Hunter per level Alric has.', stat: 'stun', perLevel: 0.001 },
+  { hunter: 'lance', name: "Lance's Lionheart", icon: '🦁', desc: '+0.1% damage for every Hunter per level Lance has.', stat: 'damage', perLevel: 0.001 },
+  { hunter: 'prospector', name: "Gus's Gilded Greed", icon: '💰', desc: '+0.1% gold from every kill per level Gus has.', stat: 'gold', perLevel: 0.001 },
+  { hunter: 'glimmer', name: "Glimmer's Glittering Blasts", icon: '✨', desc: '+0.2% tap blast area per level Glimmer has.', stat: 'tapSize', perLevel: 0.002 },
+  { hunter: 'wilhelm', name: "Wilhelm's Watchful Eye", icon: '👁️', desc: '+0.02% crit chance for every Hunter per level Wilhelm has.', stat: 'crit', perLevel: 0.0002 },
+  { hunter: 'celeste', name: "Celeste's Clairvoyance", icon: '🔮', desc: '+0.5% tap blast damage per level Celeste has.', stat: 'tapPower', perLevel: 0.005 },
+  { hunter: 'demonbane', name: "Sera's Searing Soul", icon: '🔥', desc: '+0.1% damage for every Hunter per level Sera has.', stat: 'damage', perLevel: 0.001 },
+  { hunter: 'scavenger', name: "Pip's Pack Rat", icon: '🎒', desc: '+0.1% material drop rate in every area per level Pip has.', stat: 'drops', perLevel: 0.001 },
+  { hunter: 'frostbreaker', name: "Bjorn's Blizzard", icon: '❄️', desc: '+0.1% attack rate for every Hunter per level Bjorn has.', stat: 'rate', perLevel: 0.001 },
+];
+
 export function hunterPerk(h: HunterDef): string {
   const parts: string[] = [];
   if (h.bane) parts.push(`×${h.bane.mult} damage vs ${ARCHETYPES[h.bane.archetype].name}`);
