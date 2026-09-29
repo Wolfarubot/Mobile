@@ -1221,3 +1221,183 @@ button {
   opacity: 0.35;
   filter: grayscale(1);
 }
+
+/* ---- Full Hunter view: sub-tabs ---- */
+.subtabs {
+  display: flex;
+  gap: 4px;
+  background: #0004;
+  border-radius: 12px;
+  padding: 4px;
+  margin: 12px 0 4px;
+}
+.subtabs button {
+  flex: 1;
+  padding: 9px 4px;
+  border-radius: 9px;
+  background: none;
+  color: var(--muted);
+  font-weight: 800;
+  font-size: 13px;
+}
+.subtabs button.on {
+  background: var(--card-hi);
+  color: var(--text);
+}
+.sp-count {
+  display: inline-block;
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--gold);
+  color: #2a1a00;
+  font-size: 11px;
+  line-height: 18px;
+}
+
+/* ---- Equipment sub-tab ---- */
+.equip-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+.equip-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--card);
+  border: 1px solid #ffffff22;
+  text-align: left;
+}
+.equip-row.empty {
+  border-style: dashed;
+}
+.equip-row.rar {
+  border-color: var(--rc);
+  background: color-mix(in srgb, var(--rc) 12%, var(--card));
+}
+.equip-row i {
+  font-style: normal;
+  font-size: 28px;
+  width: 40px;
+  text-align: center;
+}
+.equip-row div {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.equip-row small {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.equip-row b {
+  font-size: 15px;
+}
+.equip-row.rar b {
+  color: var(--rc);
+}
+.equip-row .sub {
+  font-size: 12px;
+  color: var(--muted);
+}
+.equip-row .chev {
+  color: var(--muted);
+  font-size: 22px;
+}
+.picker-current {
+  color: var(--text) !important;
+}
+
+/* ---- Skills sub-tab: the tree ---- */
+.tree {
+  position: relative;
+  margin-top: 8px;
+}
+.tree svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.tree line {
+  stroke: #ffffff22;
+  stroke-width: 3;
+}
+.tree line.on {
+  stroke: var(--gold);
+}
+.tnode {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 96px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  padding: 0;
+}
+.tn-icon {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 26px;
+  background: var(--card);
+  border: 3px solid #ffffff33;
+}
+.tn-icon em {
+  position: absolute;
+  top: -6px;
+  right: -10px;
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 900;
+  padding: 1px 5px;
+  border-radius: 8px;
+  background: #120c1c;
+  border: 1px solid #ffffff33;
+  color: var(--muted);
+}
+.tn-name {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.15;
+  text-align: center;
+  color: var(--muted);
+  background: var(--bg);
+  border-radius: 6px;
+  padding: 1px 4px;
+}
+.tnode.locked .tn-icon {
+  opacity: 0.4;
+  filter: grayscale(1);
+}
+.tnode.locked .tn-name {
+  opacity: 0.5;
+}
+.tnode.learned .tn-icon {
+  border-color: var(--accent);
+  background: #3a2c6a;
+}
+.tnode.learned .tn-name {
+  color: var(--text);
+}
+.tnode.maxed .tn-icon {
+  border-color: var(--gold);
+}
+.tnode.maxed em {
+  color: var(--gold);
+  border-color: var(--gold);
+}
+.tnode.available .tn-icon {
+  box-shadow: 0 0 0 3px #3fcf6a66, 0 0 14px #3fcf6a88;
+}

@@ -238,13 +238,21 @@ describe('Hunters', () => {
     expect(g.registerKill('greenSlime', false, 'prospector').gold).toBeCloseTo(plain * 1.75);
   });
 
-  it("Lance's rally gives every other Hunter (you too) an extra shield charge once he's recruited", () => {
+  it("Lance's shield is his Zone of Protection node; his Rallying Oath gives every other Hunter a hit", () => {
     const g = rich();
     g.state.areas.graveyard.unlocked = true;
     g.recruit('ranger');
     expect(g.guardOf('main')).toBe(0);
     expect(g.guardOf('ranger')).toBe(0);
     g.recruit('lance');
+    g.state.hunters.lance.trains = 100;
+    expect(g.guardOf('lance')).toBe(0); // his shield comes from his skill tree
+    expect(g.learn('lance', 'recovery')).toBe(false); // the root comes first
+    expect(g.learn('lance', 'root')).toBe(true); // Zone of Protection
+    expect(g.guardOf('lance')).toBe(3);
+    expect(g.guardOf('main')).toBe(0);
+    g.learn('lance', 'recovery');
+    expect(g.learn('lance', 'recovery2')).toBe(true); // Rallying Oath
     expect(g.guardOf('main')).toBe(1);
     expect(g.guardOf('ranger')).toBe(1);
     expect(g.guardOf('lance')).toBe(3); // his own shield isn't rallied
@@ -312,38 +320,48 @@ describe('Shops', () => {
     expect(g.trainPurchase('main', 1).cost).toBeGreaterThan(before); // and gets pricier
   });
 
-  it('skill points buy Attack Power, Attack Speed, Recovery and (for you) Tap skills', () => {
+  it('skill trees: the root first, then branches; each node needs a point in the one it hangs from', () => {
     const g = rich();
     g.recruit('ranger');
     g.state.main.trains = 100;
     g.state.hunters.ranger.trains = 100;
     const pts = g.skillPoints('main');
     expect(pts).toBeGreaterThan(5);
-    const [dmg, rate, stun, tap, radius] = [g.damage, g.fireRate, g.stunTime(), g.tapDamage, g.tapRadius];
-    for (const k of ['power', 'speed', 'recovery', 'tapPower', 'tapSize'] as const) expect(g.learn('main', k)).toBe(true);
-    expect(g.skillPoints('main')).toBe(pts - 5);
+    const [dmg, rate, stun, tap, radius, crit] = [g.damage, g.fireRate, g.stunTime(), g.tapDamage, g.tapRadius, g.critChanceOf('main')];
+    expect(g.learn('main', 'power')).toBe(false); // needs the root
+    expect(g.learn('main', 'root')).toBe(true); // Hunter's Instinct: +5% crit
+    expect(g.critChanceOf('main')).toBeCloseTo(crit + 0.05);
+    expect(g.learn('main', 'power2')).toBe(false); // Tap Power hangs from Attack Power
+    for (const k of ['power', 'speed', 'recovery', 'power2', 'recovery2']) expect(g.learn('main', k)).toBe(true);
+    expect(g.skillPoints('main')).toBe(pts - 6);
     expect(g.damage).toBeCloseTo(dmg * 1.1);
     expect(g.fireRate).toBeCloseTo(rate * 1.1);
     expect(g.stunTime()).toBeLessThan(stun);
     expect(g.tapDamage).toBeGreaterThan(tap * 1.1);
     expect(g.tapRadius).toBeGreaterThan(radius);
-    // Guild Hunters have the combat skills but not the tap ones.
-    expect(g.skillsOf('ranger').map((k) => k.id)).toEqual(['power', 'speed', 'recovery']);
-    expect(g.learn('ranger', 'tapPower')).toBe(false);
-    const rdmg = g.shotDamage('ranger');
-    expect(g.learn('ranger', 'power')).toBe(true);
-    expect(g.shotDamage('ranger')).toBeCloseTo(rdmg * 1.1);
+    expect(g.learn('main', 'capstone')).toBe(true); // reachable from any second-row node
+    // Every Hunter has their own tree of the same shape.
+    expect(g.skillTree('ranger').map((n) => n.id)).toEqual(['root', 'power', 'speed', 'recovery', 'power2', 'speed2', 'recovery2', 'capstone']);
+    expect(g.skillTree('ranger')[4].name).toBe('Beast Bane');
+    const vsBeast = g.shotDamage('ranger', 'beast');
+    g.learn('ranger', 'root');
+    g.learn('ranger', 'power');
+    g.learn('ranger', 'power2');
+    expect(g.shotDamage('ranger', 'beast')).toBeGreaterThan(vsBeast * 1.1);
     // Out of points: nothing more to learn.
-    g.state.main.skills.power = g.levelOf('main');
+    g.state.main.skills.speed = 10;
+    g.state.main.skills.power = 10;
+    g.state.main.skills.recovery = 5;
     expect(g.skillPoints('main')).toBeLessThanOrEqual(0);
-    expect(g.learn('main', 'power')).toBe(false);
+    expect(g.learn('main', 'speed2')).toBe(false);
   });
 
   it('skills respect their max level', () => {
     const g = rich();
     g.state.main.trains = 5000;
+    g.learn('main', 'root');
     for (let i = 0; i < 30; i++) g.learn('main', 'speed');
-    expect(g.skill('main', 'speed')).toBe(20);
+    expect(g.skill('main', 'speed')).toBe(10);
   });
 
   it('crafting spends materials and items boost every Hunter', () => {
@@ -457,8 +475,9 @@ describe('Equipment', () => {
     const plate = g.craftGear('bonePlate')!;
     while (g.gearItem(plate.uid)!.level < 5) g.upgradeGear(plate.uid);
     g.equip('ranger', 1, plate.uid);
-    expect(g.guardOf('ranger')).toBe(1 + g.rallyFor('ranger')); // Lance is recruited: +1 rally
-    expect(g.guardOf('lance')).toBe(3);
+    expect(g.guardOf('ranger')).toBe(1);
+    g.state.hunters.lance.skills = { root: 1 };
+    expect(g.guardOf('lance')).toBe(3 + Math.floor(g.gear('lance').guard));
   });
 
   it('every piece of gear has a rarity, and all nine rarities are used', () => {
@@ -557,13 +576,9 @@ describe('Stuns in background & offline farming', () => {
     s.areas.graveyard.unlocked = true;
     const g = new Game(veteran(s), noCrit);
     g.recruit('lance');
-    const def = hunterDef('lance');
-    const guard = def.guard;
     const stunnedAt = (withShield: boolean) => {
-      def.guard = withShield ? guard : 0;
-      const v = g.farmRates('graveyard', ['lance'], 1).stunned.lance!;
-      def.guard = guard;
-      return v;
+      g.state.hunters.lance.skills = withShield ? { root: 1 } : {};
+      return g.farmRates('graveyard', ['lance'], 1).stunned.lance!;
     };
     // Find a strength where he's pressed but not hopeless in the graveyard.
     let level = 0;
@@ -769,6 +784,7 @@ describe('Field', () => {
     g.state.areas.caves.unlocked = true;
     g.recruit(id);
     g.state.hunters[id].trains = 10;
+    g.state.hunters[id].skills = { root: 1 }; // e.g. Lance's Zone of Protection
     g.station(id, 'forest');
     const f = new Field(g);
     f.setView(390, 420);
@@ -880,8 +896,9 @@ describe('Field', () => {
     expect(lance.guard).toBeGreaterThan(0);
   });
 
-  it("with Lance recruited, your Hunter's rally shield blocks a hit before you're stunned", () => {
-    const { f } = withHelper('lance');
+  it("with Lance's Rallying Oath, your Hunter's rally shield blocks a hit before you're stunned", () => {
+    const { g, f } = withHelper('lance');
+    g.state.hunters.lance.skills = { root: 1, recovery: 1, recovery2: 1 };
     for (let i = 0; i < 5 * 30; i++) f.update(1 / 30);
     expect(f.guard).toBe(1);
     f.enemies = [tough({ id: 30, x: 20, y: -5, speed: 40 })];
@@ -952,13 +969,13 @@ describe('Saves', () => {
     const s = newGame(0);
     s.gold = 42;
     s.items.gloves = 3;
-    s.hunters.ranger = { recruited: true, trains: 4, skills: { speed: 1 }, station: 'forest' };
-    s.main = { trains: 9, skills: { tapPower: 2 } };
+    s.hunters.ranger = { recruited: true, trains: 4, skills: { root: 1, speed: 1 }, station: 'forest' };
+    s.main = { trains: 9, skills: { root: 1, power: 2, nope: 3 } };
     const back = deserialize(serialize(s));
     expect(back?.gold).toBe(42);
     expect(back?.items.gloves).toBe(3);
-    expect(back?.hunters.ranger).toEqual({ recruited: true, trains: 4, skills: { speed: 1 }, station: 'forest' });
-    expect(back?.main).toEqual({ trains: 9, skills: { tapPower: 2 } });
+    expect(back?.hunters.ranger).toEqual({ recruited: true, trains: 4, skills: { root: 1, speed: 1 }, station: 'forest' });
+    expect(back?.main).toEqual({ trains: 9, skills: { root: 1, power: 2 } }); // unknown nodes dropped
     expect(deserialize('not json')).toBeNull();
   });
 
@@ -969,7 +986,7 @@ describe('Saves', () => {
     v5.upgrades = { power: 40, haste: 12, nerves: 3 };
     v5.hunters.glimmer = { recruited: true, level: 30, station: 'forest' };
     const s = deserialize(JSON.stringify(v5))!;
-    expect(s.version).toBe(7);
+    expect(s.version).toBe(8);
     expect(s.main).toEqual({ trains: 40, skills: {} });
     expect(s.hunters.glimmer).toEqual({ recruited: true, trains: 30, skills: {}, station: 'forest' });
     expect(s.hunters.ranger.trains).toBe(0);
@@ -1010,6 +1027,14 @@ describe('Saves', () => {
     expect(deserialize(JSON.stringify(old))!.settings).toEqual({ leftHanded: false });
   });
 
+  it('v7 saves: the old flat skills are refunded as unspent points', () => {
+    const v7 = JSON.parse(serialize(newGame(0)));
+    v7.version = 7;
+    v7.main = { trains: 50, skills: { power: 3, speed: 2 } };
+    const s = deserialize(JSON.stringify(v7))!;
+    expect(s.main).toEqual({ trains: 50, skills: {} });
+  });
+
   it('keeps per-Hunter kills, and older saves start them empty', () => {
     const s = newGame(0);
     s.stats.hunterKills = { main: 12, ranger: 5 };
@@ -1025,7 +1050,7 @@ describe('Saves', () => {
   it('migrates a stage-based save: keeps items and surviving materials', () => {
     const v3 = { version: 3, gold: 1e9, stage: 40, maxStage: 40, items: { whetstone: 4 }, materials: { goo: 50, bone: 20, ember: 5 }, stars: 7, stats: { totalKills: 123, deaths: 2 } };
     const s = deserialize(JSON.stringify(v3))!;
-    expect(s.version).toBe(7);
+    expect(s.version).toBe(8);
     expect(s.area).toBe('forest');
     expect(s.gold).toBe(0);
     expect(s.items.whetstone).toBe(4);

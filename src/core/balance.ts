@@ -87,33 +87,166 @@ export function levelFromTrains(trains: number): { level: number; into: number; 
 export const MAIN_TRAIN_COST = 8;
 export const MAIN_TRAIN_GROWTH = 1.075;
 
-export type SkillId = 'power' | 'speed' | 'recovery' | 'tapPower' | 'tapSize';
+/** What skill-tree nodes can improve (per rank). */
+export type TreeStat =
+  | 'damage' // +x attack damage (multiplier)
+  | 'rate' // +x attack rate (multiplier)
+  | 'recovery' // ranks of Recovery Speed: stuns ×0.92 each
+  | 'crit' // +x crit chance
+  | 'range' // +x world units of range
+  | 'pierce' // +x enemies each shot passes through
+  | 'radius' // +x area-effect size (multiplier)
+  | 'bane' // +x to their archetype damage multiplier
+  | 'guard' // shield charges before being stunned
+  | 'rally' // shield charges granted to every other Hunter
+  | 'gold' // +x gold from their kills
+  | 'drops' // +x materials from their kills
+  | 'tapPower' // +x tap blast damage
+  | 'tapSize'; // +x tap blast area
 
-export interface SkillDef {
-  id: SkillId;
+export interface SkillNode {
+  id: string;
   name: string;
   icon: string;
-  maxLevel?: number;
-  /** Only your own Hunter has this skill (the tap blast). */
-  mainOnly?: boolean;
-  describe: (level: number) => string;
+  desc: string;
+  maxRank: number;
+  /** Effect per rank. */
+  effect: Partial<Record<TreeStat, number>>;
+  /** Nodes that must have at least one rank first (any one of them). */
+  requires: string[];
+  /** Grid position in the tree: column 0–2, row from the top. */
+  col: number;
+  row: number;
 }
 
-export const SKILL_POWER = 0.1;
-export const SKILL_SPEED = 0.1;
+/** Recovery Speed: each rank shortens stuns by this factor. */
 export const SKILL_RECOVERY = 0.92;
-export const SKILL_TAP_POWER = 0.5;
-export const SKILL_TAP_SIZE = 0.15;
 
-export const SKILLS: SkillDef[] = [
-  { id: 'power', name: 'Attack Power', icon: '💪', describe: (l) => `+${Math.round(l * SKILL_POWER * 100)}% damage` },
-  { id: 'speed', name: 'Attack Speed', icon: '⚡', maxLevel: 20, describe: (l) => `+${Math.round(l * SKILL_SPEED * 100)}% attack rate` },
-  { id: 'recovery', name: 'Recovery Speed', icon: '🧘', maxLevel: 10, describe: (l) => `−${Math.round((1 - SKILL_RECOVERY ** l) * 100)}% stun time` },
-  { id: 'tapPower', name: 'Tap Power', icon: '👆', mainOnly: true, describe: (l) => `+${Math.round(l * SKILL_TAP_POWER * 100)}% tap damage` },
-  { id: 'tapSize', name: 'Tap Size', icon: '💥', mainOnly: true, maxLevel: 10, describe: (l) => `+${Math.round(l * SKILL_TAP_SIZE * 100)}% tap area` },
-];
+type NodeSpec = Pick<SkillNode, 'name' | 'icon' | 'desc' | 'maxRank' | 'effect'>;
 
-export const skillDef = (id: SkillId): SkillDef => SKILLS.find((k) => k.id === id)!;
+/**
+ * Every tree has the same shape: a signature root; three branches of Attack Power, Attack Speed and
+ * Recovery Speed; one signature node under each branch; and a capstone reached from any of them.
+ */
+function skillTree(root: NodeSpec, branches: [NodeSpec, NodeSpec, NodeSpec], capstone: NodeSpec): SkillNode[] {
+  const core: [NodeSpec, NodeSpec, NodeSpec] = [
+    { name: 'Attack Power', icon: '💪', desc: '+10% damage per rank.', maxRank: 10, effect: { damage: 0.1 } },
+    { name: 'Attack Speed', icon: '⚡', desc: '+10% attack rate per rank.', maxRank: 10, effect: { rate: 0.1 } },
+    { name: 'Recovery Speed', icon: '🧘', desc: 'Stuns wear off 8% faster per rank.', maxRank: 5, effect: { recovery: 1 } },
+  ];
+  const ids = ['power', 'speed', 'recovery'];
+  return [
+    { id: 'root', ...root, requires: [], col: 1, row: 0 },
+    ...core.map((n, i) => ({ id: ids[i], ...n, requires: ['root'], col: i, row: 1 })),
+    ...branches.map((n, i) => ({ id: `${ids[i]}2`, ...n, requires: [ids[i]], col: i, row: 2 })),
+    { id: 'capstone', ...capstone, requires: ids.map((x) => `${x}2`), col: 1, row: 3 },
+  ];
+}
+
+/** Each Hunter's skill tree ('main' is yours). */
+export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
+  main: skillTree(
+    { name: "Hunter's Instinct", icon: '👁️', desc: '+5% crit chance.', maxRank: 1, effect: { crit: 0.05 } },
+    [
+      { name: 'Tap Power', icon: '👆', desc: '+50% tap blast damage per rank.', maxRank: 5, effect: { tapPower: 0.5 } },
+      { name: 'Split Shot', icon: '🔱', desc: 'Shots pierce 1 more enemy per rank.', maxRank: 2, effect: { pierce: 1 } },
+      { name: 'Tap Size', icon: '💥', desc: '+15% tap blast area per rank.', maxRank: 5, effect: { tapSize: 0.15 } },
+    ],
+    { name: 'Apex Hunter', icon: '👑', desc: '+25% damage and +10% attack rate.', maxRank: 1, effect: { damage: 0.25, rate: 0.1 } },
+  ),
+  alchemist: skillTree(
+    { name: 'Toxic Brew', icon: '🧪', desc: 'Poison puddles spread 15% wider.', maxRank: 1, effect: { radius: 0.15 } },
+    [
+      { name: 'Slime Bane', icon: '🟢', desc: '+0.5× extra damage to Slimes per rank.', maxRank: 3, effect: { bane: 0.5 } },
+      { name: 'Wide Splash', icon: '💦', desc: 'Puddles 15% wider per rank.', maxRank: 3, effect: { radius: 0.15 } },
+      { name: 'Lucky Finds', icon: '🍀', desc: '+15% materials from her kills per rank.', maxRank: 3, effect: { drops: 0.15 } },
+    ],
+    { name: 'Grand Alchemy', icon: '⚗️', desc: '+25% damage, puddles 15% wider.', maxRank: 1, effect: { damage: 0.25, radius: 0.15 } },
+  ),
+  ranger: skillTree(
+    { name: 'Trueshot', icon: '🎯', desc: '+20 range.', maxRank: 1, effect: { range: 20 } },
+    [
+      { name: 'Beast Bane', icon: '🐾', desc: '+0.5× extra damage to Beasts per rank.', maxRank: 3, effect: { bane: 0.5 } },
+      { name: 'Longshot', icon: '🏹', desc: '+25 range per rank.', maxRank: 3, effect: { range: 25 } },
+      { name: 'Piercing Arrows', icon: '➶', desc: 'Arrows pierce 1 more enemy per rank.', maxRank: 2, effect: { pierce: 1 } },
+    ],
+    { name: 'Volley', icon: '🌧️', desc: '+20% attack rate and +10% damage.', maxRank: 1, effect: { rate: 0.2, damage: 0.1 } },
+  ),
+  glimmer: skillTree(
+    { name: 'Kindling', icon: '🔥', desc: 'Fireball explosions 10% wider.', maxRank: 1, effect: { radius: 0.1 } },
+    [
+      { name: 'Inferno', icon: '🌋', desc: '+15% damage per rank.', maxRank: 5, effect: { damage: 0.15 } },
+      { name: 'Wildfire', icon: '💥', desc: 'Explosions 15% wider per rank.', maxRank: 3, effect: { radius: 0.15 } },
+      { name: 'Arcane Focus', icon: '🔮', desc: '+3% crit chance per rank.', maxRank: 3, effect: { crit: 0.03 } },
+    ],
+    { name: 'Meteor', icon: '☄️', desc: '+30% damage, explosions 20% wider.', maxRank: 1, effect: { damage: 0.3, radius: 0.2 } },
+  ),
+  gravewarden: skillTree(
+    { name: 'Consecration', icon: '✨', desc: 'Holy pulses reach 10% further.', maxRank: 1, effect: { radius: 0.1 } },
+    [
+      { name: 'Undead Bane', icon: '💀', desc: '+0.5× extra damage to Undead per rank.', maxRank: 3, effect: { bane: 0.5 } },
+      { name: 'Holy Radiance', icon: '🌟', desc: 'Pulses reach 15% further per rank.', maxRank: 3, effect: { radius: 0.15 } },
+      { name: 'Sanctuary', icon: '⛪', desc: 'Stuns wear off 8% faster per rank.', maxRank: 3, effect: { recovery: 1 } },
+    ],
+    { name: 'Divine Wrath', icon: '⚡', desc: '+30% damage.', maxRank: 1, effect: { damage: 0.3 } },
+  ),
+  lance: skillTree(
+    { name: 'Zone of Protection', icon: '🛡️', desc: 'His shield: blocks 3 hits before he is stunned, regaining a charge every few seconds.', maxRank: 1, effect: { guard: 3 } },
+    [
+      { name: 'Piercing Thrust', icon: '🔱', desc: '+10 reach per rank.', maxRank: 3, effect: { range: 10 } },
+      { name: 'Bulwark', icon: '🧱', desc: 'His shield blocks 1 more hit per rank.', maxRank: 2, effect: { guard: 1 } },
+      { name: 'Rallying Oath', icon: '📯', desc: 'Every other Hunter (you too) gets a 1-hit shield.', maxRank: 1, effect: { rally: 1 } },
+    ],
+    { name: 'Holy Lance', icon: '⚜️', desc: '+30% damage and 1 more shield charge.', maxRank: 1, effect: { damage: 0.3, guard: 1 } },
+  ),
+  prospector: skillTree(
+    { name: 'Gold Rush', icon: '💰', desc: '+25% gold from his kills.', maxRank: 1, effect: { gold: 0.25 } },
+    [
+      { name: 'Buckshot', icon: '💥', desc: '+15% damage per rank.', maxRank: 3, effect: { damage: 0.15 } },
+      { name: 'Prospecting', icon: '⛏️', desc: '+25% gold from his kills per rank.', maxRank: 3, effect: { gold: 0.25 } },
+      { name: 'Lucky Strike', icon: '🎲', desc: '+3% crit chance per rank.', maxRank: 3, effect: { crit: 0.03 } },
+    ],
+    { name: 'Motherlode', icon: '🏆', desc: '+50% gold and +15% damage.', maxRank: 1, effect: { gold: 0.5, damage: 0.15 } },
+  ),
+  demonbane: skillTree(
+    { name: 'Hexed Blades', icon: '🗡️', desc: '+5% crit chance.', maxRank: 1, effect: { crit: 0.05 } },
+    [
+      { name: 'Demon Bane', icon: '😈', desc: '+0.5× extra damage to Demons per rank.', maxRank: 3, effect: { bane: 0.5 } },
+      { name: 'Flurry', icon: '🌪️', desc: '+10% attack rate per rank.', maxRank: 3, effect: { rate: 0.1 } },
+      { name: 'Keen Edge', icon: '🔪', desc: '+3% crit chance per rank.', maxRank: 3, effect: { crit: 0.03 } },
+    ],
+    { name: 'Exorcist', icon: '📿', desc: '+30% damage.', maxRank: 1, effect: { damage: 0.3 } },
+  ),
+  wilhelm: skillTree(
+    { name: 'Steady Aim', icon: '🎯', desc: '+30 range.', maxRank: 1, effect: { range: 30 } },
+    [
+      { name: 'Deadeye', icon: '👁️', desc: '+4% crit chance per rank.', maxRank: 3, effect: { crit: 0.04 } },
+      { name: 'Hollow Point', icon: '🔩', desc: 'Shots pierce 1 more enemy per rank.', maxRank: 2, effect: { pierce: 1 } },
+      { name: 'Quickdraw', icon: '🔫', desc: '+10% attack rate per rank.', maxRank: 3, effect: { rate: 0.1 } },
+    ],
+    { name: 'Marksman', icon: '🏅', desc: '+30% damage and +30 range.', maxRank: 1, effect: { damage: 0.3, range: 30 } },
+  ),
+  scavenger: skillTree(
+    { name: 'Magpie', icon: '🐦', desc: '+20% materials from his kills.', maxRank: 1, effect: { drops: 0.2 } },
+    [
+      { name: 'Hard Stones', icon: '🪨', desc: '+15% damage per rank.', maxRank: 3, effect: { damage: 0.15 } },
+      { name: 'Keen Nose', icon: '👃', desc: '+20% materials per rank.', maxRank: 3, effect: { drops: 0.2 } },
+      { name: 'Long Sling', icon: '🎯', desc: '+20 range per rank.', maxRank: 3, effect: { range: 20 } },
+    ],
+    { name: 'Treasure Trove', icon: '💎', desc: '+40% materials and +20% gold.', maxRank: 1, effect: { drops: 0.4, gold: 0.2 } },
+  ),
+  frostbreaker: skillTree(
+    { name: 'Permafrost', icon: '❄️', desc: '+10% damage.', maxRank: 1, effect: { damage: 0.1 } },
+    [
+      { name: 'Elemental Bane', icon: '🔷', desc: '+0.5× extra damage to Elementals per rank.', maxRank: 3, effect: { bane: 0.5 } },
+      { name: 'Heavy Hammer', icon: '🔨', desc: '+15% damage per rank.', maxRank: 3, effect: { damage: 0.15 } },
+      { name: 'Glacial Hide', icon: '🧊', desc: 'Stuns wear off 8% faster per rank.', maxRank: 3, effect: { recovery: 1 } },
+    ],
+    { name: 'Avalanche', icon: '🏔️', desc: '+30% damage and +10% attack rate.', maxRank: 1, effect: { damage: 0.3, rate: 0.1 } },
+  ),
+};
+
+export const skillNode = (who: 'main' | HunterId, id: string): SkillNode | undefined => SKILL_TREES[who].find((n) => n.id === id);
 
 /** Total cost of buying `count` levels starting at `level` (geometric series). */
 export function bulkCost(baseCost: number, growth: number, level: number, count: number): number {
@@ -365,10 +498,6 @@ export interface HunterDef {
   /** Multipliers on gold / material drops from their kills. */
   gold?: number;
   drops?: number;
-  /** Hits absorbed before being stunned (recharges over time). */
-  guard?: number;
-  /** Extra shield charges this Hunter grants every other Hunter (you included) while recruited. */
-  rally?: number;
   /** Short description of what makes them special, shown on their card. */
   ability: string;
   /** Equipment slots (defaults to Weapon, Armor, Accessory). */
@@ -409,11 +538,11 @@ export const HUNTERS: HunterDef[] = [
     style: { kind: 'nova', range: 110, rate: 0.5, damage: 1.5, radius: 110, farm: 1.5, crowd: 3, describe: 'Pulses holy light, striking every enemy around him.' },
   },
   {
-    id: 'lance', name: 'Lance', title: 'Paladin', icon: '🛡️', color: '#ffe8a3', area: 'graveyard', recruitCost: 40_000, guard: 3, rally: 1,
+    id: 'lance', name: 'Lance', title: 'Paladin', icon: '🛡️', color: '#ffe8a3', area: 'graveyard', recruitCost: 40_000,
     unlock: { event: 'guardian-graveyard', times: 2 },
-    ability: 'Can take multiple hits before being knocked out. Grants other Hunters an extra hit as well.',
+    ability: 'Can take multiple hits before being knocked out (Zone of Protection), and grants other Hunters an extra hit as well (Rallying Oath).',
     slots: [{ kind: 'melee', label: 'Melee' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
-    style: { kind: 'thrust', range: 90, rate: 0.9, damage: 1.8, farm: 1.3, crowd: 2, describe: 'Holds the line: his shield takes 3 hits before he is stunned, and his oath shields every other Hunter for 1 hit. Lance thrusts pierce everything in reach.' },
+    style: { kind: 'thrust', range: 90, rate: 0.9, damage: 1.8, farm: 1.3, crowd: 2, describe: 'Holds the line with lance thrusts that pierce everything in reach.' },
   },
   {
     id: 'prospector', name: 'Gus', title: 'Prospector', icon: '💰', color: '#ffd34d', area: 'graveyard', recruitCost: 80_000, gold: 1.75,
@@ -456,8 +585,6 @@ export const hunterDef = (id: HunterId): HunterDef => HUNTERS.find((h) => h.id =
 
 export function hunterPerk(h: HunterDef): string {
   const parts: string[] = [];
-  if (h.guard) parts.push(`${h.guard}-hit shield`);
-  if (h.rally) parts.push(`+${h.rally} shield for all`);
   if (h.bane) parts.push(`×${h.bane.mult} damage vs ${ARCHETYPES[h.bane.archetype].name}`);
   if (h.gold) parts.push(`+${Math.round((h.gold - 1) * 100)}% gold`);
   if (h.drops) parts.push(`+${Math.round((h.drops - 1) * 100)}% drops`);

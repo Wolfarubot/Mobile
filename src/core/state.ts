@@ -6,14 +6,13 @@ import {
   HUNTERS,
   ITEMS,
   MATERIALS,
-  SKILLS,
+  SKILL_TREES,
   type AreaId,
   type EnemyId,
   type GearId,
   type HunterId,
   type ItemId,
   type MaterialId,
-  type SkillId,
 } from './balance';
 
 export interface EventState {
@@ -44,8 +43,8 @@ export interface AreaState {
 export interface Training {
   /** Training sessions so far: each adds damage; enough of them raise the level. */
   trains: number;
-  /** Skill points spent per skill. */
-  skills: Partial<Record<SkillId, number>>;
+  /** Ranks bought in each skill-tree node (by node id). */
+  skills: Record<string, number>;
 }
 
 export interface HunterState extends Training {
@@ -102,7 +101,7 @@ export interface GameState {
   };
 }
 
-export const SAVE_VERSION = 7;
+export const SAVE_VERSION = 8;
 
 const zeroes = <K extends string>(ids: { id: K }[]): Record<K, number> =>
   Object.fromEntries(ids.map((x) => [x.id, 0])) as Record<K, number>;
@@ -152,11 +151,15 @@ function mergeNumbers<K extends string>(base: Record<K, number>, saved: unknown)
   return out;
 }
 
-function cleanSkills(saved: unknown): Partial<Record<SkillId, number>> {
+/** Keeps only ranks in nodes that exist in this wearer's tree, capped at each node's max. */
+function cleanSkills(who: Wearer, saved: unknown): Record<string, number> {
   if (!saved || typeof saved !== 'object') return {};
-  return Object.fromEntries(
-    Object.entries(saved).filter(([k, v]) => SKILLS.some((d) => d.id === k) && typeof v === 'number' && Number.isFinite(v) && v >= 0),
-  );
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(saved)) {
+    const node = SKILL_TREES[who].find((n) => n.id === k);
+    if (node && typeof v === 'number' && Number.isFinite(v) && v > 0) out[k] = Math.min(node.maxRank, Math.floor(v));
+  }
+  return out;
 }
 
 /** Parses a save, filling in fields missing from older versions. Returns null if unusable. */
@@ -217,9 +220,11 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
   // (Rapid Fire / Steady Nerves are replaced by skill points).
   const oldPower = (data.upgrades as Record<string, unknown> | undefined)?.power;
   const main = data.main as Partial<Training> | undefined;
+  // v7 -> v8: flat skills became skill trees; points spent before are refunded (skills reset).
+  const trees = ((data.version as number) ?? 1) >= 8;
   state.main = {
     trains: typeof main?.trains === 'number' ? main.trains : typeof oldPower === 'number' ? oldPower : 0,
-    skills: cleanSkills(main?.skills),
+    skills: trees ? cleanSkills('main', main?.skills) : {},
   };
   // v6 -> v7: the old Arena (minigame tickets, Stars, Hangar, Frenzy) was replaced by area events.
   for (const k of ['upgrades', 'tickets', 'ticketProgress', 'frenzyTime', 'stars', 'bh']) delete (state as unknown as Record<string, unknown>)[k];
@@ -227,7 +232,7 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
   for (const [id, h] of Object.entries(state.hunters) as Array<[string, HunterState & { level?: number }]>) {
     const saved = savedHunters[id] ?? {};
     h.trains = typeof saved.trains === 'number' ? saved.trains : typeof saved.level === 'number' ? saved.level : 0;
-    h.skills = cleanSkills(h.skills);
+    h.skills = trees ? cleanSkills(id as HunterId, h.skills) : {};
     delete h.level;
   }
   // v4 -> v5: gear is new. Keep only well-formed pieces and slot references to pieces that exist.

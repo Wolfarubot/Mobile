@@ -29,6 +29,7 @@ import {
   EVENTS,
   eventDef,
   type EventDef,
+  type SkillNode,
   RARITIES,
   STATION_EFFICIENCY,
   SWARM_PER_LEVEL,
@@ -263,14 +264,17 @@ export class AppUI {
     return card;
   }
 
-  /** Full-screen Hunter view: training, skills, stats, kills, equipment and station. Closing returns to the battlefield. */
-  private openHunterDetail(who: Wearer): void {
+  /**
+   * Full-screen Hunter view with sub-tabs: Overview (training, stats, station), Equipment (slots; tap one to
+   * pick from unequipped gear) and Skills (the branching skill tree). Closing returns to the battlefield.
+   */
+  private openHunterDetail(who: Wearer, sub: 'overview' | 'equipment' | 'skills' = 'overview'): void {
     if (this.detail) this.dropDetail();
     const g = this.game;
     const def = who === 'main' ? null : hunterDef(who);
     const view = el('div', 'hunter-detail');
     view.innerHTML = `
-      <div class="hd-top"><button class="hd-close" aria-label="Close">✕</button><span>${def ? 'Hunter Guild' : 'Your Hunter'}</span></div>
+      <div class="hd-top"><button class="hd-close" aria-label="Close">✕</button><span>${def ? 'Hunters' : 'Your Hunter'}</span></div>
       <div class="hd-scroll">
         <div class="hd-hero">
           ${portraitHtml(who, 'big')}
@@ -280,51 +284,70 @@ export class AppUI {
           </div>
         </div>
         <p class="hd-ability">${def ? def.ability : MAIN_ABILITY}</p>
-        ${def ? `<p class="hd-style">${def.style.describe}</p>` : ''}
-        <div class="hd-body"></div>
+        <div class="subtabs">
+          <button data-sub="overview">📊 Overview</button>
+          <button data-sub="equipment">🛡️ Equipment</button>
+          <button data-sub="skills">🌳 Skills <b class="sp-count hidden"></b></button>
+        </div>
+        <div class="hd-body" data-sub="overview"></div>
+        <div class="hd-body" data-sub="equipment"></div>
+        <div class="hd-body" data-sub="skills"></div>
       </div>`;
     document.body.appendChild(view);
-    const body = $('.hd-body', view);
     $('.hd-close', view).addEventListener('click', () => this.closeHunterDetail());
     this.detail = { el: view, refreshers: [] };
+    const pane = (name: string) => $(`.hd-body[data-sub=${name}]`, view);
+    const show = (name: string) => {
+      view.querySelectorAll<HTMLElement>('.subtabs button').forEach((b) => b.classList.toggle('on', b.dataset.sub === name));
+      view.querySelectorAll<HTMLElement>('.hd-body').forEach((b) => b.classList.toggle('hidden', b.dataset.sub !== name));
+    };
+    view.querySelectorAll<HTMLButtonElement>('.subtabs button').forEach((b) => b.addEventListener('click', () => show(b.dataset.sub!)));
+    show(sub);
 
     const main = this.refreshers;
     this.refreshers = [];
     const recruited = !def || g.state.hunters[def.id].recruited;
+
+    // Overview
+    const overview = pane('overview');
     if (def && !recruited) {
       const btn = el('button', 'buy hd-recruit') as HTMLButtonElement;
       btn.addEventListener('click', () => {
         if (g.recruit(def.id)) this.openHunterDetail(who); // rebuild with the full view
       });
-      body.appendChild(btn);
+      overview.appendChild(btn);
       this.refreshers.push(() => {
         btn.innerHTML = g.hunterAvailable(def.id) ? `Recruit<small>🪙 ${fmt(def.recruitCost)}</small>` : `🔒 ${unlockText(g, def)}`;
         btn.disabled = !g.canRecruit(def.id);
       });
+    } else {
+      overview.appendChild(sectionTitle('Training'));
+      overview.appendChild(this.trainButton(who));
     }
-
-    if (recruited) {
-      body.appendChild(sectionTitle('Training'));
-      body.appendChild(this.trainButton(who));
-      body.appendChild(this.skillTree(who));
-    }
-
-    body.appendChild(sectionTitle(recruited ? 'Stats' : 'Stats when recruited'));
+    overview.appendChild(sectionTitle(recruited ? 'Stats' : 'Stats when recruited'));
     const headline = el('div', 'hd-stats hd-headline');
-    body.appendChild(headline);
+    overview.appendChild(headline);
     const stats = el('div', 'hd-stats');
-    body.appendChild(stats);
-
-    body.appendChild(sectionTitle('Equipment'));
-    if (recruited) body.appendChild(this.gearRow(who));
-    else body.appendChild(el('p', 'hd-note', `Slots: ${g.slotsOf(who).map((sl) => `${GEAR_KINDS[sl.kind].icon} ${sl.label}`).join(' · ')}. Recruit them to equip gear.`));
-
+    overview.appendChild(stats);
+    if (def) overview.appendChild(el('p', 'hd-style', def.style.describe));
     if (def && recruited) {
-      body.appendChild(sectionTitle('Station'));
-      body.appendChild(this.stationControls(def));
+      overview.appendChild(sectionTitle('Station'));
+      overview.appendChild(this.stationControls(def));
     }
 
+    // Equipment
+    const equipment = pane('equipment');
+    if (recruited) equipment.appendChild(this.equipmentList(who));
+    else equipment.appendChild(el('p', 'hd-note', `Slots: ${g.slotsOf(who).map((sl) => `${GEAR_KINDS[sl.kind].icon} ${sl.label}`).join(' · ')}. Recruit them to equip gear.`));
+
+    // Skills
+    pane('skills').appendChild(this.skillTreeView(who));
+
+    const spCount = $('.sp-count', view);
     this.refreshers.push(() => {
+      const points = recruited ? g.skillPoints(who) : 0;
+      spCount.textContent = String(points);
+      spCount.classList.toggle('hidden', points <= 0);
       const station = def ? g.state.hunters[def.id].station : g.area;
       $('.hd-sub', view).innerHTML = [
         `<span>${def ? `the ${def.title}` : 'the Monster Hunter'}${recruited ? ` · Lv ${g.levelOf(who)}` : ''}</span>`,
@@ -353,35 +376,77 @@ export class AppUI {
     this.refresh();
   }
 
-  /** Skill points and the skills they buy. */
-  private skillTree(who: Wearer): HTMLElement {
+  /** The branching skill tree: tap a node for details and to spend a point on it. */
+  private skillTreeView(who: Wearer): HTMLElement {
     const g = this.game;
+    const nodes = g.skillTree(who);
+    const recruited = who === 'main' || g.state.hunters[who].recruited;
+    const ROW = 112;
+    const rows = Math.max(...nodes.map((n) => n.row)) + 1;
+    const H = rows * ROW;
     const wrap = el('div', 'skills');
     const head = el('div', 'skills-head');
     wrap.appendChild(head);
-    const rows = g.skillsOf(who).map((k) => {
-      const row = el('div', 'row skill');
-      row.innerHTML = `<div class="icon">${k.icon}</div><div class="info"><div class="name"></div><div class="sub"></div></div><button class="buy learn">+</button>`;
-      const btn = $<HTMLButtonElement>('.learn', row);
-      btn.addEventListener('click', () => g.learn(who, k.id) && this.refresh());
-      wrap.appendChild(row);
-      return { k, row, btn };
+    const tree = el('div', 'tree');
+    tree.style.height = `${H}px`;
+    const pos = (n: SkillNode) => ({ x: ((n.col + 0.5) / 3) * 300, y: n.row * ROW + ROW / 2 - 8 });
+    const lines = nodes.flatMap((n) =>
+      n.requires.map((r) => {
+        const a = pos(nodes.find((x) => x.id === r)!);
+        const b = pos(n);
+        return `<line data-from="${r}" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" vector-effect="non-scaling-stroke" />`;
+      }),
+    );
+    tree.innerHTML = `<svg viewBox="0 0 300 ${H}" preserveAspectRatio="none">${lines.join('')}</svg>`;
+    const buttons = nodes.map((n) => {
+      const b = el('button', 'tnode') as HTMLButtonElement;
+      const p = pos(n);
+      b.style.left = `${(p.x / 300) * 100}%`;
+      b.style.top = `${p.y}px`;
+      b.innerHTML = `<span class="tn-icon">${n.icon}<em></em></span><span class="tn-name">${n.name}</span>`;
+      b.addEventListener('click', () => this.openSkillNode(who, n));
+      tree.appendChild(b);
+      return { n, b };
     });
+    wrap.appendChild(tree);
     this.refreshers.push(() => {
       const points = g.skillPoints(who);
-      const { level } = g.levelInfo(who);
-      head.innerHTML = points > 0 ? `<b>${points}</b> skill point${points > 1 ? 's' : ''} to spend` : `Next skill point at Lv ${level + 1}`;
-      head.classList.toggle('has', points > 0);
-      for (const { k, row, btn } of rows) {
-        const lv = g.skill(who, k.id);
-        const maxed = k.maxLevel !== undefined && lv >= k.maxLevel;
-        $('.name', row).innerHTML = `${k.name} <small>${lv}${k.maxLevel ? ` / ${k.maxLevel}` : ''}</small>`;
-        $('.sub', row).innerHTML = maxed ? k.describe(lv) : lv === 0 ? `<b>${k.describe(1)}</b>` : `${k.describe(lv)} → <b>${k.describe(lv + 1)}</b>`;
-        btn.textContent = maxed ? 'MAX' : '+';
-        btn.disabled = !g.canLearn(who, k.id);
+      if (!recruited) head.textContent = 'Recruit them to start spending skill points.';
+      else if (points > 0) head.innerHTML = `<b>${points}</b> skill point${points > 1 ? 's' : ''} to spend. Tap a glowing node.`;
+      else head.textContent = `Next skill point at Lv ${g.levelOf(who) + 1}. Train to level up.`;
+      head.classList.toggle('has', recruited && points > 0);
+      for (const { n, b } of buttons) {
+        const rank = g.skill(who, n.id);
+        b.classList.toggle('learned', rank > 0);
+        b.classList.toggle('maxed', rank >= n.maxRank);
+        b.classList.toggle('available', g.canLearn(who, n.id));
+        b.classList.toggle('locked', !g.nodeReachable(who, n.id));
+        $('em', b).textContent = `${rank}/${n.maxRank}`;
       }
+      tree.querySelectorAll<SVGLineElement>('line').forEach((l) => l.classList.toggle('on', g.skill(who, l.dataset.from!) > 0));
     });
     return wrap;
+  }
+
+  /** A skill node's details, with a button to spend a point on it. */
+  private openSkillNode(who: Wearer, n: SkillNode): void {
+    const g = this.game;
+    this.showSheet(`${n.icon} ${n.name}`, (body, close) => {
+      const rank = g.skill(who, n.id);
+      const needs = n.requires.map((r) => g.skillTree(who).find((x) => x.id === r)!.name);
+      body.innerHTML = `<p class="gear-now">${n.desc}</p><p>Rank ${rank} / ${n.maxRank}</p>${
+        !g.nodeReachable(who, n.id) ? `<p>🔒 Needs a point in ${needs.join(' or ')} first.</p>` : ''
+      }`;
+      const btn = el('button', 'buy', rank >= n.maxRank ? 'Maxed' : `Learn · 1 skill point (${Math.max(0, g.skillPoints(who))} left)`) as HTMLButtonElement;
+      btn.style.width = '100%';
+      btn.disabled = !g.canLearn(who, n.id);
+      btn.addEventListener('click', () => {
+        if (!g.learn(who, n.id)) return;
+        close();
+        this.openSkillNode(who, n);
+      });
+      body.appendChild(btn);
+    });
   }
 
   /** Removes the full-screen view without rebuilding the panel. */
@@ -439,38 +504,37 @@ export class AppUI {
 
   // ---- Equipment ----
 
-  /** A Hunter's equipment slots; tap one to pick gear for it. */
-  private gearRow(who: Wearer): HTMLElement {
+  /** A Hunter's equipment, one row per slot; tap a slot to choose from unequipped gear that fits. */
+  private equipmentList(who: Wearer): HTMLElement {
     const g = this.game;
-    const wrap = el('div', 'gear-wrap');
-    const row = el('div', 'gear-slots');
-    wrap.appendChild(row);
-    const summary = el('div', 'gear-summary');
-    wrap.appendChild(summary);
-    const buttons = g.slotsOf(who).map((slot, i) => {
-      const b = el('button', 'slot') as HTMLButtonElement;
+    const wrap = el('div', 'equip-list');
+    const rows = g.slotsOf(who).map((slot, i) => {
+      const b = el('button', 'equip-row') as HTMLButtonElement;
       b.addEventListener('click', () => this.openSlotPicker(who, i));
-      row.appendChild(b);
+      wrap.appendChild(b);
       return { slot, b };
     });
+    const summary = el('div', 'gear-summary');
+    wrap.appendChild(summary);
     let key = '';
     this.refreshers.push(() => {
       const items = g.equipped(who);
       const k = items.map((it) => (it ? `${it.uid}:${it.level}` : '-')).join('|');
       if (k === key) return;
       key = k;
-      buttons.forEach(({ slot, b }, i) => {
+      rows.forEach(({ slot, b }, i) => {
         const it = items[i];
+        const gd = it ? gearDef(it.base) : null;
         b.classList.toggle('empty', !it);
         b.classList.toggle('rar', !!it);
-        b.style.setProperty('--rc', it ? gearColor(it.base) : '');
-        b.innerHTML = it
-          ? `<i>${gearDef(it.base).icon}</i><span>${gearDef(it.base).name}</span><small>${slot.label} · Lv ${it.level}</small>`
-          : `<i>${GEAR_KINDS[slot.kind].icon}</i><span>Empty</span><small>${slot.label}</small>`;
+        b.style.setProperty('--rc', gd ? gearColor(gd.id) : '');
+        b.innerHTML = `<i>${gd ? gd.icon : GEAR_KINDS[slot.kind].icon}</i><div><small>${slot.label}</small><b>${gd ? gd.name : 'Empty'}</b><span class="sub">${
+          gd && it ? `${RARITIES[gd.rarity].name} · Lv ${it.level} · ${describeGear(gearStats(gd, it.level))}` : 'Tap to equip'
+        }</span></div><span class="chev">›</span>`;
       });
       const stats = describeGear(g.gear(who));
       const short = g.slotsOf(who).some((sl) => sl.role === 'short') ? describeGear(g.gear(who, 'short')) : '';
-      summary.textContent = stats || short ? `Gear: ${stats || 'nothing yet'}${short ? ` · pistols: ${short}` : ''}` : '';
+      summary.textContent = stats || short ? `Total: ${stats || 'nothing yet'}${short ? ` · pistols: ${short}` : ''}` : '';
     });
     return wrap;
   }
@@ -481,8 +545,11 @@ export class AppUI {
     const def = g.slotsOf(who)[slot];
     const current = g.equipped(who)[slot];
     this.showSheet(`${wearerName(who)} · ${def.label}`, (body, close) => {
-      const fits = g.state.inventory.filter((it) => gearDef(it.base).kind === def.kind).sort((a, b) => b.level - a.level);
+      // Only gear nobody is wearing (unequip it from another Hunter first to move it here).
+      const fits = g.state.inventory.filter((it) => gearDef(it.base).kind === def.kind && !g.wearerOf(it.uid)).sort((a, b) => b.level - a.level);
       if (current) {
+        const cd = gearDef(current.base);
+        body.appendChild(el('p', 'picker-current', `Equipped: ${cd.icon} ${cd.name} (Lv ${current.level})`));
         const off = el('button', 'buy secondary-btn', 'Unequip') as HTMLButtonElement;
         off.addEventListener('click', () => {
           g.equip(who, slot, null);
@@ -491,18 +558,15 @@ export class AppUI {
         body.appendChild(off);
       }
       if (!fits.length) {
-        const p = el('p', '', `No ${GEAR_KINDS[def.kind].name.toLowerCase()} gear in your inventory yet. Craft some in the Equipment tab.`);
+        const p = el('p', '', `No unequipped ${GEAR_KINDS[def.kind].name.toLowerCase()} gear. Craft more in the Equipment tab.`);
         body.appendChild(p);
         return;
       }
       for (const it of fits) {
         const gd = gearDef(it.base);
-        const worn = g.wearerOf(it.uid);
-        const row = el('button', `pick-row rar${current?.uid === it.uid ? ' on' : ''}`) as HTMLButtonElement;
+        const row = el('button', 'pick-row rar') as HTMLButtonElement;
         row.style.setProperty('--rc', gearColor(gd.id));
-        row.innerHTML = `<i>${gd.icon}</i><div><b>${gd.name}</b> <small>${RARITIES[gd.rarity].name} · Lv ${it.level}</small><div class="sub">${describeGear(gearStats(gd, it.level))}</div>${
-          worn ? `<div class="worn">Worn by ${wearerName(worn.who)}${worn.who === who && worn.slot === slot ? ' (this slot)' : ''}</div>` : ''
-        }</div>`;
+        row.innerHTML = `<i>${gd.icon}</i><div><b>${gd.name}</b> <small>${RARITIES[gd.rarity].name} · Lv ${it.level}</small><div class="sub">${describeGear(gearStats(gd, it.level))}</div></div>`;
         row.addEventListener('click', () => {
           g.equip(who, slot, it.uid);
           close();

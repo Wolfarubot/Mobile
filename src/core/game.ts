@@ -47,12 +47,7 @@ import {
   STUN_IMMUNITY,
   STUN_TIME,
   SWARM_PER_LEVEL,
-  SKILL_POWER,
   SKILL_RECOVERY,
-  SKILL_SPEED,
-  SKILL_TAP_POWER,
-  SKILL_TAP_SIZE,
-  SKILLS,
   TAP_DAMAGE_MULT,
   TAP_RADIUS,
   type AreaId,
@@ -65,8 +60,10 @@ import {
   type ItemId,
   type MaterialId,
   type SlotDef,
-  type SkillDef,
-  type SkillId,
+  skillNode,
+  SKILL_TREES,
+  type SkillNode,
+  type TreeStat,
 } from './balance';
 import { capAway, type OfflineResult } from './offline';
 import { type BuyAmount, type GameState, type GearItem, type Training, type Wearer } from './state';
@@ -183,22 +180,33 @@ export class Game {
     return BASE_FIRE_RATE * this.skillRateMult('main') * this.itemRateMult * (1 + this.gear('main').rate);
   }
 
-  /** Damage of a tap blast (Tap Power skill). */
+  /** Damage of a tap blast (Tap Power nodes). */
   get tapDamage(): number {
-    return this.damage * TAP_DAMAGE_MULT * (1 + SKILL_TAP_POWER * this.skill('main', 'tapPower'));
+    return this.damage * TAP_DAMAGE_MULT * (1 + this.tree('main').tapPower);
   }
 
-  /** Radius of a tap blast in world units (Tap Size skill). */
+  /** Radius of a tap blast in world units (Tap Size nodes). */
   get tapRadius(): number {
-    return TAP_RADIUS * (1 + SKILL_TAP_SIZE * this.skill('main', 'tapSize'));
+    return TAP_RADIUS * (1 + this.tree('main').tapSize);
   }
 
   private skillDamageMult(who: Wearer): number {
-    return 1 + SKILL_POWER * this.skill(who, 'power');
+    return 1 + this.tree(who).damage;
   }
 
   private skillRateMult(who: Wearer): number {
-    return 1 + SKILL_SPEED * this.skill(who, 'speed');
+    return 1 + this.tree(who).rate;
+  }
+
+  /** Everything a Hunter's learned skill-tree nodes add up to. */
+  tree(who: Wearer): Record<TreeStat, number> {
+    const out: Record<TreeStat, number> = { damage: 0, rate: 0, recovery: 0, crit: 0, range: 0, pierce: 0, radius: 0, bane: 0, guard: 0, rally: 0, gold: 0, drops: 0, tapPower: 0, tapSize: 0 };
+    const skills = this.training(who).skills;
+    for (const node of SKILL_TREES[who]) {
+      const rank = skills[node.id] ?? 0;
+      if (rank > 0) for (const [k, v] of Object.entries(node.effect) as [TreeStat, number][]) out[k] += v * rank;
+    }
+    return out;
   }
 
   get projectiles(): number {
@@ -215,7 +223,7 @@ export class Game {
   }
 
   critChanceOf(shooter: Shooter): number {
-    return this.critChance + this.gear(shooter).crit;
+    return this.critChance + this.gear(shooter).crit + this.tree(shooter).crit;
   }
 
   private critFactor(shooter: Shooter): number {
@@ -224,24 +232,23 @@ export class Game {
 
   /** Extra enemies each shot passes through (Frost Lance + gear). */
   pierceOf(shooter: Shooter, mode?: GearMode): number {
-    return this.pierce + Math.floor(this.gear(shooter, mode).pierce);
+    return this.pierce + Math.floor(this.gear(shooter, mode).pierce) + this.tree(shooter).pierce;
   }
 
   /** Multiplier on a Hunter's area effects (fireballs, puddles, novas). */
   radiusMult(shooter: Shooter): number {
-    return 1 + this.gear(shooter).radius;
+    return 1 + this.gear(shooter).radius + this.tree(shooter).radius;
   }
 
-  /** Shield charges before a Hunter is stunned (Paladin + gear + other Hunters' rally). */
+  /** Shield charges before a Hunter is stunned (skill tree, e.g. Lance's Zone of Protection + gear + rallies). */
   guardOf(shooter: Shooter): number {
-    const base = shooter === 'main' ? 0 : (hunterDef(shooter).guard ?? 0);
-    return base + Math.floor(this.gear(shooter).guard) + this.rallyFor(shooter);
+    return this.tree(shooter).guard + Math.floor(this.gear(shooter).guard) + this.rallyFor(shooter);
   }
 
-  /** Shield charges granted to `shooter` by recruited Hunters with a rally (Lance). */
+  /** Shield charges granted to `shooter` by other recruited Hunters' rally nodes (Lance's Rallying Oath). */
   rallyFor(shooter: Shooter): number {
     let n = 0;
-    for (const h of HUNTERS) if (h.rally && h.id !== shooter && this.state.hunters[h.id].recruited) n += h.rally;
+    for (const h of HUNTERS) if (h.id !== shooter && this.state.hunters[h.id].recruited) n += this.tree(h.id).rally;
     return n;
   }
 
@@ -255,7 +262,7 @@ export class Game {
    * gear reduce it per Hunter; Bone Mail helps everyone.
    */
   stunTime(boss = false, shooter: Shooter = 'main'): number {
-    const recovery = SKILL_RECOVERY ** this.skill(shooter, 'recovery');
+    const recovery = SKILL_RECOVERY ** this.tree(shooter).recovery;
     const gear = 1 - Math.min(GEAR_STUN_CAP, this.gear(shooter).stun);
     return (boss ? BOSS_STUN_TIME : STUN_TIME) * recovery * 0.88 ** this.item('bonemail') * gear;
   }
@@ -271,7 +278,7 @@ export class Game {
   shotDamage(shooter: Shooter, archetype?: Archetype, mode?: GearMode): number {
     if (shooter === 'main') return this.damage;
     const def = hunterDef(shooter);
-    const bane = def.bane && def.bane.archetype === archetype ? def.bane.mult : 1;
+    const bane = def.bane && def.bane.archetype === archetype ? def.bane.mult + this.tree(shooter).bane : 1;
     return powerDamage(this.state.hunters[shooter].trains) * this.skillDamageMult(shooter) * this.itemDamageMult * def.style.damage * bane * (1 + this.gear(shooter, mode).damage);
   }
 
@@ -283,7 +290,7 @@ export class Game {
 
   /** How far a Hunter can attack, in world units. */
   shooterRange(shooter: Shooter, mode?: GearMode): number {
-    return (shooter === 'main' ? MAIN_RANGE : hunterDef(shooter).style.range) + this.gear(shooter, mode).range;
+    return (shooter === 'main' ? MAIN_RANGE : hunterDef(shooter).style.range) + this.gear(shooter, mode).range + this.tree(shooter).range;
   }
 
   /**
@@ -302,11 +309,11 @@ export class Game {
   }
 
   private shooterGold(shooter: Shooter): number {
-    return (shooter === 'main' ? 1 : (hunterDef(shooter).gold ?? 1)) * (1 + this.gear(shooter).gold);
+    return (shooter === 'main' ? 1 : (hunterDef(shooter).gold ?? 1)) * (1 + this.gear(shooter).gold + this.tree(shooter).gold);
   }
 
   private shooterDrops(shooter: Shooter): number {
-    return (shooter === 'main' ? 1 : (hunterDef(shooter).drops ?? 1)) * (1 + this.gear(shooter).drops);
+    return (shooter === 'main' ? 1 : (hunterDef(shooter).drops ?? 1)) * (1 + this.gear(shooter).drops + this.tree(shooter).drops);
   }
 
   // ---- Equipment ----
@@ -848,29 +855,36 @@ export class Game {
     return this.levelInfo(who).level;
   }
 
-  skill(who: Wearer, id: SkillId): number {
+  /** Ranks in a skill-tree node. */
+  skill(who: Wearer, id: string): number {
     return this.training(who).skills[id] ?? 0;
   }
 
-  /** The skills in a Hunter's tree (tap skills are yours only). */
-  skillsOf(who: Wearer): SkillDef[] {
-    return SKILLS.filter((k) => !k.mainOnly || who === 'main');
+  /** A Hunter's skill tree. */
+  skillTree(who: Wearer): SkillNode[] {
+    return SKILL_TREES[who];
   }
 
   /** Unspent skill points: one per level above 1. */
   skillPoints(who: Wearer): number {
-    const spent = Object.values(this.training(who).skills).reduce((a, b) => a + (b ?? 0), 0);
+    const spent = Object.values(this.training(who).skills).reduce((a, b) => a + b, 0);
     return this.levelOf(who) - 1 - spent;
   }
 
-  canLearn(who: Wearer, id: SkillId): boolean {
-    const def = SKILLS.find((k) => k.id === id)!;
-    if (def.mainOnly && who !== 'main') return false;
-    if (who !== 'main' && !this.state.hunters[who].recruited) return false;
-    return this.skillPoints(who) > 0 && (def.maxLevel === undefined || this.skill(who, id) < def.maxLevel);
+  /** A node is reachable once any node it hangs from has a rank (the root always is). */
+  nodeReachable(who: Wearer, id: string): boolean {
+    const node = skillNode(who, id);
+    return !!node && (node.requires.length === 0 || node.requires.some((r) => this.skill(who, r) > 0));
   }
 
-  learn(who: Wearer, id: SkillId): boolean {
+  canLearn(who: Wearer, id: string): boolean {
+    const node = skillNode(who, id);
+    if (!node) return false;
+    if (who !== 'main' && !this.state.hunters[who].recruited) return false;
+    return this.skillPoints(who) > 0 && this.skill(who, id) < node.maxRank && this.nodeReachable(who, id);
+  }
+
+  learn(who: Wearer, id: string): boolean {
     if (!this.canLearn(who, id)) return false;
     const t = this.training(who);
     t.skills[id] = (t.skills[id] ?? 0) + 1;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AREAS, ENEMIES, GEAR, gearDef, gearStats, type GearId, enemyUnlockCost, HUNTERS, ITEMS, STATION_EFFICIENCY, type AreaId, type ItemId, type SkillId } from '../src/core/balance';
+import { AREAS, ENEMIES, GEAR, gearDef, gearStats, type GearId, enemyUnlockCost, HUNTERS, ITEMS, STATION_EFFICIENCY, type AreaId, type ItemId } from '../src/core/balance';
 import { Field } from '../src/core/field';
 import { Game } from '../src/core/game';
 import { newGame, type Wearer } from '../src/core/state';
@@ -39,15 +39,15 @@ function botGear(game: Game): void {
   for (const who of wearers) for (const it of game.equipped(who)) if (it) game.upgradeGear(it.uid);
 }
 
-/** Spend skill points: alternate Attack Speed and Attack Power, with some Recovery. */
+/** Spend skill points down the tree: root, then Attack Speed and Power in turn (some Recovery), then the rest. */
 function botSkills(game: Game): void {
   const wearers: Wearer[] = ['main', ...HUNTERS.filter((h) => game.state.hunters[h.id].recruited).map((h) => h.id)];
   for (const who of wearers) {
-    while (game.skillPoints(who) > 0) {
-      const lv = (k: SkillId) => game.skill(who, k);
-      const pick: SkillId =
-        lv('recovery') * 3 < lv('power') && game.canLearn(who, 'recovery') ? 'recovery' : lv('speed') <= lv('power') && game.canLearn(who, 'speed') ? 'speed' : 'power';
-      if (!game.learn(who, pick)) break;
+    for (let guard = 0; guard < 100 && game.skillPoints(who) > 0; guard++) {
+      const lv = (k: string) => game.skill(who, k);
+      const order = ['root', lv('speed') <= lv('power') ? 'speed' : 'power', lv('recovery') * 3 < lv('power') ? 'recovery' : 'power', 'speed', 'power2', 'speed2', 'capstone', 'recovery2', 'recovery'];
+      const pick = order.find((k) => game.canLearn(who, k));
+      if (!pick || !game.learn(who, pick)) break;
     }
   }
 }
