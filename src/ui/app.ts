@@ -1,4 +1,8 @@
 import {
+  enemyDef,
+  EMPOWER,
+  type EnemyId,
+  type TreeNode,
   RESIST_MULT,
   WEAK_MULT,
   DAMAGE_TYPES,
@@ -8,12 +12,8 @@ import {
   areaEnemies,
   AREAS,
   ARCHETYPES,
-  BOUNTY_DROP_PER_LEVEL,
-  BOUNTY_GOLD_PER_LEVEL,
-  BOUNTY_SPEED_PER_LEVEL,
   describeGear,
   ENEMIES,
-  ENEMY_UPGRADE_MAX,
   enemyUnlockCost,
   GEAR,
   GEAR_KINDS,
@@ -35,14 +35,11 @@ import {
   EVENTS,
   eventDef,
   type EventDef,
-  type SkillNode,
   RARITIES,
   STATION_CAPACITY,
   STATION_EFFICIENCY,
-  SWARM_PER_LEVEL,
   type AreaId,
   type EnemyDef,
-  type EnemyUpgrade,
   type GearDef,
   type GearStat,
   type HunterDef,
@@ -60,6 +57,20 @@ import { spriteUrl } from '../render/sprites';
 import { applyAreaTheme } from './theme';
 
 type Tab = TabId;
+/** What treeView needs to draw and drive a skill or evolution tree. */
+interface TreeAdapter {
+  nodes: TreeNode[];
+  rank: (id: string) => number;
+  points: () => number;
+  active: () => boolean;
+  inactiveText: string;
+  waitText: () => string;
+  pointName: string;
+  reachable: (id: string) => boolean;
+  canLearn: (id: string) => boolean;
+  learn: (id: string) => boolean;
+  verb: string;
+}
 const INV_SUBS = ['materials', 'equipment', 'crafting'] as const;
 type InvSub = (typeof INV_SUBS)[number];
 /** Inventory Equipment filters. Types cycle in this order; weapons are split by how they fight. */
@@ -171,7 +182,7 @@ export class AppUI {
     this.panel.querySelector('.craft-dot')?.classList.toggle('hidden', !craftable);
     $('#beastBadge').classList.toggle(
       'hidden',
-      !ENEMIES.some((e) => !s.bestiary[e.id].unlocked && g.isAreaUnlocked(e.area) && s.gold >= enemyUnlockCost(e)),
+      !ENEMIES.some((e) => (!s.bestiary[e.id].unlocked && g.isAreaUnlocked(e.area) && s.gold >= enemyUnlockCost(e)) || (g.isUnlocked(e.id) && g.evoPoints(e.id) > 0)),
     );
     $('#huntersBadge').classList.toggle(
       'hidden',
@@ -185,10 +196,10 @@ export class AppUI {
   // ---- Hunters tab: your Hunter's training + the Hunter Guild ----
 
   /** The Train ×1 / ×10 / ×100 / MAX switch. Every copy (Hunters tab, Hunter view) shows the same choice. */
-  private amountsBar(extra = ''): HTMLElement {
+  private amountsBar(extra = '', label = 'Train'): HTMLElement {
     const g = this.game;
     const amounts = el('div', `amounts ${extra}`);
-    amounts.appendChild(el('span', 'amounts-label', 'Train'));
+    amounts.appendChild(el('span', 'amounts-label', label));
     const opts: BuyAmount[] = [1, 10, 100, 'max'];
     const buttons = opts.map((a) => {
       const b = el('button', '', a === 'max' ? 'MAX' : `×${a}`);
@@ -411,7 +422,7 @@ export class AppUI {
     else equipment.appendChild(el('p', 'hd-note', `Slots: ${g.slotsOf(who).map((sl) => `${GEAR_KINDS[sl.kind].icon} ${sl.label}`).join(' · ')}. Recruit them to equip gear.`));
 
     // Skills
-    pane('skills').appendChild(this.skillTreeView(who));
+    pane('skills').appendChild(this.treeView(this.hunterTree(who)));
 
     const spCount = $('.sp-count', view);
     this.refreshers.push(() => {
@@ -458,11 +469,45 @@ export class AppUI {
     this.refresh();
   }
 
-  /** The branching skill tree: tap a node for details and to spend a point on it. */
-  private skillTreeView(who: Wearer): HTMLElement {
+  /** A Hunter's skill tree as a generic tree for treeView. */
+  private hunterTree(who: Wearer): TreeAdapter {
     const g = this.game;
-    const nodes = g.skillTree(who);
-    const recruited = who === 'main' || g.state.hunters[who].recruited;
+    return {
+      nodes: g.skillTree(who),
+      rank: (id) => g.skill(who, id),
+      points: () => g.skillPoints(who),
+      active: () => who === 'main' || g.state.hunters[who].recruited,
+      inactiveText: 'Recruit them to start spending skill points.',
+      waitText: () => `Next skill point at Lv ${g.levelOf(who) + 1}. Train to level up.`,
+      pointName: 'skill point',
+      reachable: (id) => g.nodeReachable(who, id),
+      canLearn: (id) => g.canLearn(who, id),
+      learn: (id) => g.learn(who, id),
+      verb: 'Learn',
+    };
+  }
+
+  /** A monster's evolution tree as a generic tree for treeView. */
+  private monsterTree(id: EnemyId): TreeAdapter {
+    const g = this.game;
+    return {
+      nodes: g.evoTree(id),
+      rank: (n) => g.evoRank(id, n),
+      points: () => g.evoPoints(id),
+      active: () => g.isUnlocked(id),
+      inactiveText: 'Unlock it to start evolving it.',
+      waitText: () => `Next evolution point at Lv ${g.monsterLevelInfo(id).level + 1}. Empower to level up.`,
+      pointName: 'evolution point',
+      reachable: (n) => g.evoReachable(id, n),
+      canLearn: (n) => g.canEvolve(id, n),
+      learn: (n) => g.evolve(id, n),
+      verb: 'Evolve',
+    };
+  }
+
+  /** A branching tree (skills or evolutions): tap a node for details and to spend a point on it. */
+  private treeView(t: TreeAdapter): HTMLElement {
+    const nodes = t.nodes;
     const ROW = 112;
     const rows = Math.max(...nodes.map((n) => n.row)) + 1;
     const H = rows * ROW;
@@ -471,7 +516,7 @@ export class AppUI {
     wrap.appendChild(head);
     const tree = el('div', 'tree');
     tree.style.height = `${H}px`;
-    const pos = (n: SkillNode) => ({ x: ((n.col + 0.5) / 3) * 300, y: n.row * ROW + ROW / 2 - 8 });
+    const pos = (n: TreeNode) => ({ x: ((n.col + 0.5) / 3) * 300, y: n.row * ROW + ROW / 2 - 8 });
     const lines = nodes.flatMap((n) =>
       n.requires.map((r) => {
         const a = pos(nodes.find((x) => x.id === r)!);
@@ -486,46 +531,46 @@ export class AppUI {
       b.style.left = `${(p.x / 300) * 100}%`;
       b.style.top = `${p.y}px`;
       b.innerHTML = `<span class="tn-icon">${n.icon}<em></em></span><span class="tn-name">${n.name}</span>`;
-      b.addEventListener('click', () => this.openSkillNode(who, n));
+      b.addEventListener('click', () => this.openTreeNode(t, n));
       tree.appendChild(b);
       return { n, b };
     });
     wrap.appendChild(tree);
     this.refreshers.push(() => {
-      const points = g.skillPoints(who);
-      if (!recruited) head.textContent = 'Recruit them to start spending skill points.';
-      else if (points > 0) head.innerHTML = `<b>${points}</b> skill point${points > 1 ? 's' : ''} to spend. Tap a glowing node.`;
-      else head.textContent = `Next skill point at Lv ${g.levelOf(who) + 1}. Train to level up.`;
-      head.classList.toggle('has', recruited && points > 0);
+      const points = t.points();
+      const active = t.active();
+      if (!active) head.textContent = t.inactiveText;
+      else if (points > 0) head.innerHTML = `<b>${points}</b> ${t.pointName}${points > 1 ? 's' : ''} to spend. Tap a glowing node.`;
+      else head.textContent = t.waitText();
+      head.classList.toggle('has', active && points > 0);
       for (const { n, b } of buttons) {
-        const rank = g.skill(who, n.id);
+        const rank = t.rank(n.id);
         b.classList.toggle('learned', rank > 0);
         b.classList.toggle('maxed', rank >= n.maxRank);
-        b.classList.toggle('available', g.canLearn(who, n.id));
-        b.classList.toggle('locked', !g.nodeReachable(who, n.id));
+        b.classList.toggle('available', t.canLearn(n.id));
+        b.classList.toggle('locked', !t.reachable(n.id));
         $('em', b).textContent = `${rank}/${n.maxRank}`;
       }
-      tree.querySelectorAll<SVGLineElement>('line').forEach((l) => l.classList.toggle('on', g.skill(who, l.dataset.from!) > 0));
+      tree.querySelectorAll<SVGLineElement>('line').forEach((l) => l.classList.toggle('on', t.rank(l.dataset.from!) > 0));
     });
     return wrap;
   }
 
-  /** A skill node's details, with a button to spend a point on it. */
-  private openSkillNode(who: Wearer, n: SkillNode): void {
-    const g = this.game;
+  /** A tree node's details, with a button to spend a point on it. */
+  private openTreeNode(t: TreeAdapter, n: TreeNode): void {
     this.showSheet(`${n.icon} ${n.name}`, (body, close) => {
-      const rank = g.skill(who, n.id);
-      const needs = n.requires.map((r) => g.skillTree(who).find((x) => x.id === r)!.name);
+      const rank = t.rank(n.id);
+      const needs = n.requires.map((r) => t.nodes.find((x) => x.id === r)!.name);
       body.innerHTML = `<p class="gear-now">${n.desc}</p><p>Rank ${rank} / ${n.maxRank}</p>${
-        !g.nodeReachable(who, n.id) ? `<p>🔒 Needs a point in ${needs.join(' or ')} first.</p>` : ''
+        !t.reachable(n.id) ? `<p>🔒 Needs a point in ${needs.join(' or ')} first.</p>` : ''
       }`;
-      const btn = el('button', 'buy', rank >= n.maxRank ? 'Maxed' : `Learn · 1 skill point (${Math.max(0, g.skillPoints(who))} left)`) as HTMLButtonElement;
+      const btn = el('button', 'buy', rank >= n.maxRank ? 'Maxed' : `${t.verb} · 1 ${t.pointName} (${Math.max(0, t.points())} left)`) as HTMLButtonElement;
       btn.style.width = '100%';
-      btn.disabled = !g.canLearn(who, n.id);
+      btn.disabled = !t.canLearn(n.id);
       btn.addEventListener('click', () => {
-        if (!g.learn(who, n.id)) return;
+        if (!t.learn(n.id)) return;
         close();
-        this.openSkillNode(who, n);
+        this.openTreeNode(t, n);
       });
       body.appendChild(btn);
     });
@@ -1120,7 +1165,8 @@ export class AppUI {
   private buildBestiary(): void {
     const g = this.game;
     const intro = el('div', 'card');
-    intro.innerHTML = `<p style="margin:0">Unlock new monsters to join an area's horde. Each drops its own material. <b>Swarm</b> brings more of them; <b>Bounty</b> makes them pay more but run faster. Upgrades are permanent and apply wherever they're hunted, including by stationed Hunters.</p>`;
+    intro.innerHTML = `<p style="margin:0">Unlock new monsters to join an area's horde. <b>Empower</b> them with gold: tougher, but they pay more gold and drop more materials. Every level earns an <b>evolution point</b>; tap a monster to evolve it. It all applies wherever they're hunted, including by stationed Hunters.</p>`;
+    this.panel.appendChild(this.amountsBar('sticky-amounts', 'Empower'));
     this.panel.appendChild(intro);
     // Current area first, then the rest in order.
     const order = [g.area, ...g.unlockedAreas.filter((a) => a !== g.area)];
@@ -1152,16 +1198,25 @@ export class AppUI {
 
     const actions = $('.beast-actions', card);
     const unlockBtn = el('button', 'buy') as HTMLButtonElement;
-    unlockBtn.addEventListener('click', () => g.unlockEnemy(def.id));
-    const upgradeBtn = (kind: EnemyUpgrade) => {
-      const b = el('button', 'buy') as HTMLButtonElement;
-      b.addEventListener('click', () => g.buyEnemyUpgrade(def.id, kind) && this.refresh());
-      return b;
-    };
-    const swarmBtn = upgradeBtn('swarm');
-    const bountyBtn = upgradeBtn('bounty');
-    if (g.state.bestiary[def.id].unlocked) actions.append(swarmBtn, bountyBtn);
-    else actions.append(unlockBtn);
+    unlockBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      g.unlockEnemy(def.id);
+    });
+    const unlocked = g.state.bestiary[def.id].unlocked;
+    // Unlocked: level, progress and an Empower button, like a Hunter's Train row. Tap the card to evolve.
+    const row = el('div', 'hc-train');
+    row.innerHTML = '<span class="hc-lv"></span><div class="hc-mid"></div><div class="hc-action"></div>';
+    const dot = el('b', 'sp-dot hidden');
+    dot.title = 'Unspent evolution points';
+    if (unlocked) {
+      const { btn, bar } = this.empowerParts(def.id, true);
+      $('.hc-mid', row).appendChild(bar);
+      $('.hc-action', row).appendChild(btn);
+      actions.appendChild(row);
+      card.appendChild(dot);
+      card.setAttribute('role', 'button');
+      card.addEventListener('click', () => this.openMonsterDetail(def.id));
+    } else actions.append(unlockBtn);
 
     const arch = ARCHETYPES[def.archetype];
     this.refreshers.push(() => {
@@ -1181,13 +1236,96 @@ export class AppUI {
         unlockBtn.disabled = g.state.gold < cost;
         return;
       }
-      const sc = g.enemyUpgradeCost(def.id, 'swarm');
-      const bc = g.enemyUpgradeCost(def.id, 'bounty');
-      swarmBtn.innerHTML = `Swarm ${b.swarm}/${ENEMY_UPGRADE_MAX}<span>+${Math.round(SWARM_PER_LEVEL * 100)}% spawns</span><small>${Number.isFinite(sc) ? `🪙 ${fmt(sc)}` : 'MAX'}</small>`;
-      bountyBtn.innerHTML = `Bounty ${b.bounty}/${ENEMY_UPGRADE_MAX}<span>+${Math.round(BOUNTY_GOLD_PER_LEVEL * 100)}% gold, +${Math.round(BOUNTY_DROP_PER_LEVEL * 100)}% drops, +${Math.round(BOUNTY_SPEED_PER_LEVEL * 100)}% speed</span><small>${Number.isFinite(bc) ? `🪙 ${fmt(bc)}` : 'MAX'}</small>`;
-      swarmBtn.disabled = g.state.gold < sc;
-      bountyBtn.disabled = g.state.gold < bc;
+      $('.hc-lv', row).textContent = `Lv ${g.monsterLevelInfo(def.id).level}`;
+      const points = g.evoPoints(def.id);
+      dot.textContent = String(points);
+      dot.classList.toggle('hidden', points <= 0);
     });
+  }
+
+  /** An Empower button and a progress bar toward the monster's next level. `compact` is the card's version. */
+  private empowerParts(id: EnemyId, compact = false): { btn: HTMLButtonElement; bar: HTMLElement } {
+    const g = this.game;
+    const btn = el('button', 'buy') as HTMLButtonElement;
+    const bar = el('div', 'train-bar');
+    bar.innerHTML = '<i></i><span></span>';
+    btn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      if (g.empower(id)) this.refresh();
+    });
+    this.refreshers.push(() => {
+      const p = g.empowerPurchase(id);
+      const { level, into, need } = g.monsterLevelInfo(id);
+      btn.innerHTML = `Empower${p.count > 1 ? ` ×${p.count}` : ''}<small>🪙 ${fmt(p.cost)}</small>`;
+      btn.disabled = g.state.gold < p.cost || !g.isUnlocked(id);
+      $('i', bar).style.width = `${(into / need) * 100}%`;
+      $('span', bar).textContent = compact ? '' : `Lv ${level} · ${into}/${need} to Lv ${level + 1}`;
+    });
+    return { btn, bar };
+  }
+
+  /** Full-screen monster view: Empower, what it's worth now, and its evolution tree. */
+  private openMonsterDetail(id: EnemyId): void {
+    if (this.detail) this.dropDetail();
+    const g = this.game;
+    const def = enemyDef(id);
+    const arch = ARCHETYPES[def.archetype];
+    const view = el('div', 'hunter-detail');
+    view.innerHTML = `
+      <div class="hd-top"><button class="hd-close" aria-label="Close">✕</button><span>Bestiary</span></div>
+      <div class="hd-scroll">
+        <div class="hd-hero">
+          <canvas class="portrait big-portrait"></canvas>
+          <div class="hd-title">
+            <h2>${def.name}</h2>
+            <div class="hd-sub"></div>
+          </div>
+        </div>
+        <p class="hd-ability">${def.blurb}</p>
+        ${affinityHtml(def)}
+      </div>`;
+    document.body.appendChild(view);
+    requestAnimationFrame(() => drawEnemyPortrait($<HTMLCanvasElement>('canvas', view), id));
+    $('.hd-close', view).addEventListener('click', () => this.closeHunterDetail());
+    this.detail = { el: view, refreshers: [] };
+    const body = $('.hd-scroll', view);
+    const main = this.refreshers;
+    this.refreshers = [];
+
+    body.appendChild(sectionTitle('Empower'));
+    body.appendChild(el('p', 'hd-note', `Each session: +${EMPOWER.hp * 100}% HP, +${EMPOWER.gold * 100}% gold, +${EMPOWER.drops * 100}% material drops. Every level earns an evolution point.`));
+    body.appendChild(this.amountsBar('', 'Empower'));
+    const wrap = el('div', 'train');
+    const { btn, bar } = this.empowerParts(id);
+    wrap.append(btn, bar);
+    body.appendChild(wrap);
+
+    body.appendChild(sectionTitle('Stats'));
+    const stats = el('div', 'hd-stats');
+    body.appendChild(stats);
+
+    body.appendChild(sectionTitle('Evolution'));
+    body.appendChild(this.treeView(this.monsterTree(id)));
+
+    this.refreshers.push(() => {
+      const st = g.enemyStats(id);
+      const evo = g.evo(id);
+      const [lo, hi] = g.packOf(id);
+      $('.hd-sub', view).innerHTML = `<span>${arch.icon} ${arch.name} · Lv ${g.monsterLevelInfo(id).level}</span><span class="where">📍 ${areaDef(def.area).name}</span>`;
+      const cells: Array<[string, string]> = [
+        ['HP', fmt(st.hp)],
+        ['Gold', fmt(st.gold)],
+        ['Drop chance', `${(st.dropChance * 100).toFixed(1)}%`],
+        ['Spawns', `${st.spawnRate.toFixed(2)}/s`],
+        ['Pack size', lo === hi ? String(lo) : `${lo}–${hi}`],
+        ['Speed', `${Math.round(st.speed)}${evo.speed ? ` (+${Math.round(evo.speed * 100)}%)` : ''}`],
+      ];
+      stats.innerHTML = cells.map(([k, v]) => `<div><b>${v}</b>${k}</div>`).join('');
+    });
+
+    this.detail.refreshers = this.refreshers;
+    this.refreshers = main;
+    this.refresh();
   }
 
   // ---- Inventory tab: sub-tabs for Materials, Equipment (crafted gear) and Crafting (gear + Upgrades) ----

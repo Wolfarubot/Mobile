@@ -418,10 +418,30 @@ button {
 }
 
 .beast {
+  position: relative;
   background: var(--card);
   border-radius: 14px;
   padding: 10px;
   margin-bottom: 10px;
+}
+.beast[role='button'] {
+  cursor: pointer;
+}
+.beast .hc-train {
+  flex: 1;
+  min-width: 0;
+  margin-top: 4px;
+}
+.beast .hc-action .buy {
+  flex: none;
+  width: 88px;
+}
+.big-portrait {
+  width: 100px;
+  height: 100px;
+  flex: none;
+  border-radius: 14px;
+  background: var(--sunk);
 }
 .beast.locked {
   opacity: 0.85;

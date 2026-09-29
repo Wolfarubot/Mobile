@@ -2,6 +2,7 @@ import {
   AREAS,
   ENEMIES,
   EVENTS,
+  EVO_TREES,
   GEAR,
   HUNTERS,
   ITEMS,
@@ -25,8 +26,10 @@ export type BuyAmount = 1 | 10 | 100 | 'max';
 
 export interface BestiaryEntry {
   unlocked: boolean;
-  swarm: number;
-  bounty: number;
+  /** Empower sessions bought (they set the monster's level). */
+  empower: number;
+  /** Ranks in each evolution-tree node. */
+  evo: Record<string, number>;
 }
 
 export interface AreaState {
@@ -127,7 +130,7 @@ export interface GameState {
   };
 }
 
-export const SAVE_VERSION = 10;
+export const SAVE_VERSION = 11;
 
 const zeroes = <K extends string>(ids: { id: K }[]): Record<K, number> =>
   Object.fromEntries(ids.map((x) => [x.id, 0])) as Record<K, number>;
@@ -142,7 +145,7 @@ export function newGame(now = Date.now()): GameState {
     area: 'forest',
     areas: byId(AREAS, (_, i) => ({ unlocked: i === 0, kills: 0, gold: 0, escaped: 0, knockouts: 0 })),
     main: { trains: 0, skills: {} },
-    bestiary: byId(ENEMIES, (id) => ({ unlocked: ENEMIES.find((e) => e.id === id)!.unlock === 0, swarm: 0, bounty: 0 })),
+    bestiary: byId(ENEMIES, (id) => ({ unlocked: ENEMIES.find((e) => e.id === id)!.unlock === 0, empower: 0, evo: {} })),
     hunters: byId(HUNTERS, () => ({ recruited: false, trains: 0, skills: {}, station: null })),
     materials: zeroes(MATERIALS),
     items: zeroes(ITEMS),
@@ -280,6 +283,22 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
   if (data.equipment && typeof data.equipment === 'object')
     for (const [who, slots] of Object.entries(data.equipment as Record<string, unknown>))
       if (Array.isArray(slots)) state.equipment[who as Wearer] = slots.map((u) => (typeof u === 'number' && uids.has(u) ? u : null));
+  // v10 -> v11: Swarm and Bounty became Empower; each level bought carries over as an Empower session.
+  // Evolution ranks are kept only for nodes that exist.
+  for (const e of ENEMIES) {
+    const b = state.bestiary[e.id] as BestiaryEntry & { swarm?: unknown; bounty?: unknown };
+    const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.floor(v) : 0);
+    b.empower = n(b.empower) + n(b.swarm) + n(b.bounty);
+    delete b.swarm;
+    delete b.bounty;
+    const evo = b.evo && typeof b.evo === 'object' ? b.evo : {};
+    b.evo = Object.fromEntries(
+      EVO_TREES[e.archetype].flatMap((node) => {
+        const r = Math.min(node.maxRank, n((evo as Record<string, unknown>)[node.id]));
+        return r > 0 ? [[node.id, r]] : [];
+      }),
+    );
+  }
   // v9 -> v10: new areas were added between the old ones. Everything before your furthest area is open.
   const furthest = AREAS.reduce((last, a, i) => (state.areas[a.id].unlocked ? i : last), 0);
   for (let i = 0; i <= furthest; i++) state.areas[AREAS[i].id].unlocked = true;

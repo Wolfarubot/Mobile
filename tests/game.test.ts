@@ -18,6 +18,9 @@ import {
   GUARDIAN_COOLDOWN,
   eventDef,
   ENEMIES,
+  ARCHETYPES,
+  EMPOWER,
+  EVO_TREES,
   RESIST_MULT,
   STATUS,
   typeMult,
@@ -120,21 +123,72 @@ describe('Enemies & archetypes', () => {
     expect(g.state.areas.forest.kills).toBe(1);
   });
 
-  it('bestiary: unlock enemies in unlocked areas; swarm and bounty change their stats', () => {
+  it('bestiary: unlock enemies in unlocked areas; Empower makes them tougher but richer and levels them up', () => {
     const g = rich();
     expect(g.unlockEnemy('zombie')).toBe(false); // graveyard still locked
     const spawn = g.spawnRate;
     expect(g.unlockEnemy('wolf')).toBe(true);
     expect(g.spawnRate).toBeGreaterThan(spawn);
+    expect(enemyUnlockCost(enemyDef('greenSlime'))).toBe(0);
 
     const before = g.enemyStats('wolf');
-    g.buyEnemyUpgrade('wolf', 'swarm');
-    g.buyEnemyUpgrade('wolf', 'bounty');
+    g.state.buyAmount = 1;
+    const cost = g.empowerPurchase('wolf').cost;
+    const gold = g.state.gold;
+    expect(g.empower('wolf')).toBe(true);
+    expect(g.state.gold).toBe(gold - cost);
+    expect(g.empowerPurchase('wolf').cost).toBeGreaterThan(cost);
     const after = g.enemyStats('wolf');
-    expect(after.spawnRate).toBeGreaterThan(before.spawnRate);
-    expect(after.gold).toBeGreaterThan(before.gold);
-    expect(after.speed).toBeGreaterThan(before.speed);
-    expect(enemyUnlockCost(enemyDef('greenSlime'))).toBe(0);
+    expect(after.hp).toBeCloseTo(before.hp * (1 + EMPOWER.hp));
+    expect(after.gold).toBeCloseTo(before.gold * (1 + EMPOWER.gold));
+    expect(after.dropChance).toBeCloseTo(before.dropChance * (1 + EMPOWER.drops));
+    expect(after.speed).toBe(before.speed);
+    // Levels follow the Hunters' curve: 3 sessions for Lv 2, each level is an evolution point.
+    expect(g.monsterLevelInfo('wolf').level).toBe(1);
+    expect(g.evoPoints('wolf')).toBe(0);
+    g.state.buyAmount = 10;
+    g.empower('wolf');
+    expect(g.state.bestiary.wolf.empower).toBe(11);
+    expect(g.monsterLevelInfo('wolf').level).toBe(3);
+    expect(g.evoPoints('wolf')).toBe(2);
+    // Locked monsters can't be empowered.
+    expect(g.empower('zombie')).toBe(false);
+  });
+
+  it('evolution trees: one per archetype, root first; slimes get HP and gold, then bigger hordes', () => {
+    const g = rich();
+    g.state.bestiary.greenSlime.empower = 30; // plenty of points
+    expect(g.evoTree('greenSlime')).toBe(EVO_TREES.slime);
+    expect(g.canEvolve('greenSlime', 'horde')).toBe(false); // needs the root first
+    const base = g.enemyStats('greenSlime');
+    expect(g.evolve('greenSlime', 'root')).toBe(true);
+    const rooted = g.enemyStats('greenSlime');
+    expect(rooted.hp).toBeCloseTo(base.hp * 1.25);
+    expect(rooted.gold).toBeCloseTo(base.gold * 1.25);
+    expect(g.evolve('greenSlime', 'root')).toBe(false); // maxed at 1 rank
+    expect(g.evolve('greenSlime', 'horde')).toBe(true);
+    expect(g.evolve('greenSlime', 'horde2')).toBe(true); // Small Hordes
+    expect(g.packOf('greenSlime')).toEqual([enemyDef('greenSlime').pack[0] + 1, enemyDef('greenSlime').pack[1] + 1]);
+    const points = g.evoPoints('greenSlime');
+    expect(points).toBe(g.monsterLevelInfo('greenSlime').level - 1 - 3);
+    // Every archetype has a tree of the same shape.
+    for (const a of Object.keys(ARCHETYPES) as Array<keyof typeof ARCHETYPES>) {
+      expect(EVO_TREES[a].map((n) => n.id)).toEqual(['root', 'wealth', 'horde', 'harvest', 'wealth2', 'horde2', 'harvest2', 'capstone']);
+    }
+  });
+
+  it('v10 -> v11: Swarm and Bounty levels carry over as Empower sessions', () => {
+    const old = JSON.parse(serialize(newGame(0)));
+    old.version = 10;
+    old.bestiary.greenSlime = { unlocked: true, swarm: 3, bounty: 2 };
+    old.bestiary.wolf = { unlocked: true, swarm: 0, bounty: 0 };
+    const s = deserialize(JSON.stringify(old))!;
+    expect(s.bestiary.greenSlime).toEqual({ unlocked: true, empower: 5, evo: {} });
+    expect(s.bestiary.wolf).toEqual({ unlocked: true, empower: 0, evo: {} });
+    // Current saves keep their evolutions (and drop ranks for nodes that don't exist).
+    const cur = newGame(0);
+    cur.bestiary.greenSlime = { unlocked: true, empower: 12, evo: { root: 1, horde: 2, bogus: 4 } };
+    expect(deserialize(serialize(cur))!.bestiary.greenSlime).toEqual({ unlocked: true, empower: 12, evo: { root: 1, horde: 2 } });
   });
 
   it('enemies belong to archetypes: slimes are slimes, skeletons and zombies are undead', () => {

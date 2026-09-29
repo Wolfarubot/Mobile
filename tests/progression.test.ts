@@ -58,6 +58,18 @@ function botSkills(game: Game): void {
   }
 }
 
+/** Empower unlocked monsters while it's cheap, and evolve them: root, then gold, then materials. */
+function botMonsters(game: Game): void {
+  for (const e of ENEMIES) {
+    if (!game.isUnlocked(e.id)) continue;
+    for (let guard = 0; guard < 50 && game.empowerPurchase(e.id, 1).cost < game.state.gold * 0.01; guard++) game.empower(e.id, 1);
+    for (let guard = 0; guard < 50 && game.evoPoints(e.id) > 0; guard++) {
+      const pick = ['root', 'wealth2', 'wealth', 'harvest', 'harvest2', 'capstone', 'horde'].find((n) => game.canEvolve(e.id, n));
+      if (!pick || !game.evolve(e.id, pick)) break;
+    }
+  }
+}
+
 /** The bot's decisions, run once per simulated second while it's playing (and on each return from offline). */
 function botShop(game: Game, t: number, memo: { lastChallenge: number }): void {
   const s = game.state;
@@ -84,6 +96,7 @@ function botShop(game: Game, t: number, memo: { lastChallenge: number }): void {
   for (const h of HUNTERS) while (s.hunters[h.id].recruited && game.trainPurchase(h.id, 1).cost < s.gold * 0.03) game.train(h.id);
   for (let guard = 0; guard < 400 && game.train('main'); guard++);
   botSkills(game);
+  botMonsters(game);
   for (const it of ITEMS) while (game.craft(it.id as ItemId));
   botGear(game);
 

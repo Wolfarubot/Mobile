@@ -1,4 +1,11 @@
 import {
+  EMPOWER,
+  EMPOWER_GROWTH,
+  empowerBaseCost,
+  EVO_TREES,
+  evoNode,
+  type EvoNode,
+  type EvoStat,
   STATUS_MODEL,
   GUARDIAN_ENEMY,
   typeMult,
@@ -14,17 +21,12 @@ import {
   BOSS_MATERIAL_DROP,
   DEFAULT_SLOTS,
   BOSS_STUN_TIME,
-  BOUNTY_DROP_PER_LEVEL,
-  BOUNTY_GOLD_PER_LEVEL,
-  BOUNTY_SPEED_PER_LEVEL,
   bulkCost,
   CRIT_MULT,
-  ENEMY_UPGRADE_MAX,
   enemyDef,
   eventDef,
   EVENTS,
   enemyUnlockCost,
-  enemyUpgradeCost,
   GEAR_MAX_LEVEL,
   GEAR_STUN_CAP,
   gearCost,
@@ -53,14 +55,12 @@ import {
   STATION_EFFICIENCY,
   STUN_IMMUNITY,
   STUN_TIME,
-  SWARM_PER_LEVEL,
   SKILL_RECOVERY,
   TAP_DAMAGE_MULT,
   TAP_RADIUS,
   type AreaId,
   type Archetype,
   type EnemyId,
-  type EnemyUpgrade,
   type GearId,
   type GearStat,
   type HunterId,
@@ -652,14 +652,16 @@ export class Game {
     // A swarm event here: only its archetype spawns, more of them and faster.
     const ev = this.activeEvent && def.area === this.state.area ? eventDef(this.activeEvent.id) : null;
     const swarm = ev?.kind === 'swarm' ? (def.archetype === ev.archetype ? { spawn: ev.spawnMult ?? 1, speed: ev.speedMult ?? 1 } : { spawn: 0, speed: 1 }) : { spawn: 1, speed: 1 };
+    const evo = this.evo(id);
+    const e = b.empower;
     return {
       id,
       archetype: def.archetype,
-      hp: area.hp * def.hp,
-      speed: area.speed * def.speed * (1 + BOUNTY_SPEED_PER_LEVEL * b.bounty) * swarm.speed,
-      gold: area.gold * def.gold * (1 + BOUNTY_GOLD_PER_LEVEL * b.bounty) * this.goldMult,
-      spawnRate: b.unlocked ? def.spawn * (1 + SWARM_PER_LEVEL * b.swarm) * (1 + 0.2 * this.item('lure')) * swarm.spawn : 0,
-      dropChance: BASE_DROP_CHANCE * (1 + 0.25 * this.item('pouch')) * (1 + BOUNTY_DROP_PER_LEVEL * b.bounty),
+      hp: area.hp * def.hp * (1 + EMPOWER.hp * e) * (1 + evo.hp),
+      speed: area.speed * def.speed * (1 + evo.speed) * swarm.speed,
+      gold: area.gold * def.gold * (1 + EMPOWER.gold * e) * (1 + evo.gold) * this.goldMult,
+      spawnRate: b.unlocked ? def.spawn * (1 + evo.spawn) * (1 + 0.2 * this.item('lure')) * swarm.spawn : 0,
+      dropChance: BASE_DROP_CHANCE * (1 + 0.25 * this.item('pouch')) * (1 + EMPOWER.drops * e) * (1 + evo.drops),
       material: def.material,
     };
   }
@@ -804,7 +806,7 @@ export class Game {
       };
     });
     const range = Math.max(...shooters.map((sh) => this.shooterRange(sh)));
-    const packs = new Map(roster.map((e) => [e.id, (enemyDef(e.id).pack[0] + enemyDef(e.id).pack[1]) / 2]));
+    const packs = new Map(roster.map((e) => [e.id, (this.packOf(e.id)[0] + this.packOf(e.id)[1]) / 2]));
     // Hits each Hunter needs to kill one of each enemy type (crits averaged in).
     const hitsToKill = (sh: Shooter, e: EnemyStats) => {
       const dmg = this.shotDamage(sh, e.archetype) * this.typeMultVs(sh, e.id) * this.critFactor(sh);
@@ -1046,18 +1048,78 @@ export class Game {
     return true;
   }
 
-  enemyUpgradeCost(id: EnemyId, kind: EnemyUpgrade): number {
-    const level = this.state.bestiary[id][kind];
-    return level >= ENEMY_UPGRADE_MAX ? Infinity : enemyUpgradeCost(enemyDef(id), kind, level);
+  // ---- Monster Empower & evolution ----
+
+  /** Cost of the next `amount` Empower sessions for a monster (`buyAmount` by default). */
+  empowerPurchase(id: EnemyId, amount: BuyAmount = this.state.buyAmount): Purchase {
+    const base = empowerBaseCost(enemyDef(id));
+    const done = this.state.bestiary[id].empower;
+    const count = amount === 'max' ? Math.max(1, maxAffordable(base, EMPOWER_GROWTH, done, this.state.gold)) : amount;
+    return { count, cost: bulkCost(base, EMPOWER_GROWTH, done, count) };
   }
 
-  buyEnemyUpgrade(id: EnemyId, kind: EnemyUpgrade): boolean {
-    const b = this.state.bestiary[id];
-    const cost = this.enemyUpgradeCost(id, kind);
-    if (!this.isUnlocked(id) || this.state.gold < cost) return false;
-    this.state.gold -= cost;
-    b[kind]++;
+  /** Empowers a monster (`buyAmount` sessions): more HP, gold and material drops; levels earn evolution points. */
+  empower(id: EnemyId, amount: BuyAmount = this.state.buyAmount): boolean {
+    const p = this.empowerPurchase(id, amount);
+    if (!this.isUnlocked(id) || this.state.gold < p.cost) return false;
+    this.state.gold -= p.cost;
+    this.state.bestiary[id].empower += p.count;
     return true;
+  }
+
+  /** A monster's level from Empower sessions (same curve as Hunter training), and progress to the next. */
+  monsterLevelInfo(id: EnemyId): { level: number; into: number; need: number } {
+    return levelFromTrains(this.state.bestiary[id].empower);
+  }
+
+  /** The evolution tree a monster grows along (its archetype's). */
+  evoTree(id: EnemyId): EvoNode[] {
+    return EVO_TREES[enemyDef(id).archetype];
+  }
+
+  evoRank(id: EnemyId, node: string): number {
+    return this.state.bestiary[id].evo[node] ?? 0;
+  }
+
+  /** Unspent evolution points: one per level above 1. */
+  evoPoints(id: EnemyId): number {
+    const spent = Object.values(this.state.bestiary[id].evo).reduce((a, b) => a + b, 0);
+    return this.monsterLevelInfo(id).level - 1 - spent;
+  }
+
+  evoReachable(id: EnemyId, node: string): boolean {
+    const n = evoNode(enemyDef(id).archetype, node);
+    return !!n && (n.requires.length === 0 || n.requires.some((r) => this.evoRank(id, r) > 0));
+  }
+
+  canEvolve(id: EnemyId, node: string): boolean {
+    const n = evoNode(enemyDef(id).archetype, node);
+    return !!n && this.isUnlocked(id) && this.evoPoints(id) > 0 && this.evoRank(id, node) < n.maxRank && this.evoReachable(id, node);
+  }
+
+  evolve(id: EnemyId, node: string): boolean {
+    if (!this.canEvolve(id, node)) return false;
+    const evo = this.state.bestiary[id].evo;
+    evo[node] = (evo[node] ?? 0) + 1;
+    return true;
+  }
+
+  /** Summed evolution effects of a monster. */
+  evo(id: EnemyId): Record<EvoStat, number> {
+    const total: Record<EvoStat, number> = { hp: 0, gold: 0, drops: 0, spawn: 0, pack: 0, speed: 0 };
+    const ranks = this.state.bestiary[id].evo;
+    for (const n of this.evoTree(id)) {
+      const r = ranks[n.id] ?? 0;
+      if (r) for (const [k, v] of Object.entries(n.effect) as [EvoStat, number][]) total[k] += v * r;
+    }
+    return total;
+  }
+
+  /** Pack size range of a monster, after evolutions that make it arrive in bigger hordes. */
+  packOf(id: EnemyId): [number, number] {
+    const [lo, hi] = enemyDef(id).pack;
+    const extra = Math.floor(this.evo(id).pack);
+    return [lo + extra, hi + extra];
   }
 
   // ---- Forge ----

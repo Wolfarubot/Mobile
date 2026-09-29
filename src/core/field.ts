@@ -258,7 +258,7 @@ export class Field {
 
   private rollPack(): { type: EnemyId; size: number } {
     const type = this.game.pickEnemy();
-    const [lo, hi] = enemyDef(type).pack;
+    const [lo, hi] = this.game.packOf(type);
     return { type, size: lo + Math.floor(this.game.rng() * (hi - lo + 1)) };
   }
 

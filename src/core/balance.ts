@@ -104,20 +104,22 @@ export type TreeStat =
   | 'tapPower' // +x tap blast damage
   | 'tapSize'; // +x tap blast area
 
-export interface SkillNode {
+/** A node in a branching tree: a Hunter's skill tree or a monster's evolution tree. */
+export interface TreeNode<S extends string = string> {
   id: string;
   name: string;
   icon: string;
   desc: string;
   maxRank: number;
   /** Effect per rank. */
-  effect: Partial<Record<TreeStat, number>>;
+  effect: Partial<Record<S, number>>;
   /** Nodes that must have at least one rank first (any one of them). */
   requires: string[];
   /** Grid position in the tree: column 0–2, row from the top. */
   col: number;
   row: number;
 }
+export type SkillNode = TreeNode<TreeStat>;
 
 /** Recovery Speed: each rank shortens stuns by this factor. */
 export const SKILL_RECOVERY = 0.92;
@@ -349,8 +351,8 @@ export const AREAS: AreaDef[] = [
   { id: 'graveyard', name: 'Old Graveyard', icon: '🪦', hp: 150, gold: 25, speed: 40, mastery: 1_500, guardian: 60_000_000, palette: ['#1e1a2a', '#4a4460', '#9a94b0', '#e8e4f0'], ground: ['#5b5670', '#4c4762'], blurb: 'The dead do not rest here.' },
   { id: 'crypt', name: 'Forsaken Crypt', icon: '⚰️', hp: 6_000, gold: 120, speed: 42, mastery: 2_500, guardian: 800_000_000, palette: ['#1a1614', '#4a403a', '#9a8e80', '#ece4d8'], ground: ['#5a524a', '#4e4640'], blurb: 'Deeper than the graves, and older.' },
   { id: 'caves', name: 'Ember Caves', icon: '🌋', hp: 150_000, gold: 600, speed: 45, mastery: 4_000, guardian: 5_000_000_000, palette: ['#2a0e08', '#8a2c10', '#e07030', '#fde4c0'], ground: ['#6a2c1a', '#823722'], blurb: 'Hot, bright and full of teeth.' },
-  { id: 'mines', name: 'Deep Mines', icon: '⛏️', hp: 1_200_000, gold: 3_000, speed: 47, mastery: 6_000, guardian: 25_000_000_000, palette: ['#1e140a', '#6a4a22', '#c09050', '#f4e4c8'], ground: ['#5a4228', '#4e3820'], blurb: 'Dug too deep, woke too much.' },
-  { id: 'peaks', name: 'Frost Peaks', icon: '🏔️', hp: 7_000_000, gold: 15_000, speed: 50, mastery: 10_000, guardian: 90_000_000_000, palette: ['#0c2038', '#2a60a0', '#78b8e8', '#e4f4ff'], ground: ['#bcd8f0', '#a4c6e6'], blurb: 'Cold winds carry cold things.' },
+  { id: 'mines', name: 'Deep Mines', icon: '⛏️', hp: 1_200_000, gold: 3_000, speed: 47, mastery: 6_000, guardian: 40_000_000_000, palette: ['#1e140a', '#6a4a22', '#c09050', '#f4e4c8'], ground: ['#5a4228', '#4e3820'], blurb: 'Dug too deep, woke too much.' },
+  { id: 'peaks', name: 'Frost Peaks', icon: '🏔️', hp: 7_000_000, gold: 15_000, speed: 50, mastery: 10_000, guardian: 250_000_000_000, palette: ['#0c2038', '#2a60a0', '#78b8e8', '#e4f4ff'], ground: ['#bcd8f0', '#a4c6e6'], blurb: 'Cold winds carry cold things.' },
   { id: 'cliffs', name: 'Stormcrest Cliffs', icon: '🦅', hp: 50_000_000, gold: 80_000, speed: 53, mastery: 15_000, guardian: 3_000_000_000_000, palette: ['#101c2c', '#3a5a7a', '#90b8d8', '#eef6ff'], ground: ['#8a9aa8', '#7a8a98'], blurb: 'Wind, wings and a long way down.' },
   { id: 'rift', name: 'Void Rift', icon: '🌀', hp: 250_000_000, gold: 350_000, speed: 56, mastery: Infinity, guardian: Infinity, palette: ['#1a0830', '#5a2098', '#b070e0', '#f2e4ff'], ground: ['#2a1440', '#3a1d58'], blurb: 'The end of the known world.' },
 ];
@@ -550,18 +552,121 @@ export const GUARDIAN_ENEMY: Record<AreaId, EnemyId> = {
 };
 export const enemyUnlockCost = (def: EnemyDef): number => def.unlock * areaDef(def.area).gold;
 
-// Per-enemy upgrades (gold, permanent)
-export type EnemyUpgrade = 'swarm' | 'bounty';
-export const ENEMY_UPGRADE_MAX = 15;
-export const SWARM_PER_LEVEL = 0.4; // +40% of that enemy spawning
-export const BOUNTY_GOLD_PER_LEVEL = 0.5; // +50% gold from that enemy
-export const BOUNTY_DROP_PER_LEVEL = 0.15; // +15% material drops from that enemy
-export const BOUNTY_SPEED_PER_LEVEL = 0.12; // ...but it moves 12% faster
+// ---- Monsters: Empower (gold) raises a monster's level; levels earn evolution points for its evolution tree ----
 
-export function enemyUpgradeCost(def: EnemyDef, kind: EnemyUpgrade, level: number): number {
-  const base = areaDef(def.area).gold * Math.max(60, def.unlock * 0.5) * (kind === 'bounty' ? 1.5 : 1);
-  return Math.ceil(base * 2.4 ** level);
+/** Per Empower session: this much more HP, gold and material drops (added up, not compounded). */
+export const EMPOWER = { hp: 0.04, gold: 0.06, drops: 0.05 };
+export const EMPOWER_GROWTH = 1.15;
+/** Cost of a monster's first Empower session (then × EMPOWER_GROWTH each). */
+export const empowerBaseCost = (def: EnemyDef): number => Math.ceil(areaDef(def.area).gold * Math.max(40, def.unlock * 0.3) * def.gold);
+
+/** What evolution nodes change (per rank). */
+export type EvoStat =
+  | 'hp' // +x HP (multiplier)
+  | 'gold' // +x gold (multiplier)
+  | 'drops' // +x material drop chance (multiplier)
+  | 'spawn' // +x spawn rate (multiplier)
+  | 'pack' // +x monsters per pack (they arrive in bigger hordes)
+  | 'speed'; // +x move speed (multiplier): riskier, usually paired with a bigger reward
+export type EvoNode = TreeNode<EvoStat>;
+type EvoSpec = Pick<EvoNode, 'name' | 'icon' | 'desc' | 'maxRank' | 'effect'>;
+
+/**
+ * Every evolution tree has the same shape as a Hunter's skill tree: a signature root; three branches,
+ * Wealth (gold), Horde (spawns) and Harvest (materials); a signature node under each; and a capstone.
+ */
+function evoTree(root: EvoSpec, branches: [EvoSpec, EvoSpec, EvoSpec], capstone: EvoSpec): EvoNode[] {
+  const core: [EvoSpec, EvoSpec, EvoSpec] = [
+    { name: 'Wealth', icon: '💰', desc: '+10% gold per rank.', maxRank: 10, effect: { gold: 0.1 } },
+    { name: 'Horde', icon: '👥', desc: '+8% spawns per rank.', maxRank: 10, effect: { spawn: 0.08 } },
+    { name: 'Harvest', icon: '💎', desc: '+10% material drops per rank.', maxRank: 10, effect: { drops: 0.1 } },
+  ];
+  const ids = ['wealth', 'horde', 'harvest'];
+  return [
+    { id: 'root', ...root, requires: [], col: 1, row: 0 },
+    ...core.map((n, i) => ({ id: ids[i], ...n, requires: ['root'], col: i, row: 1 })),
+    ...branches.map((n, i) => ({ id: `${ids[i]}2`, ...n, requires: [ids[i]], col: i, row: 2 })),
+    { id: 'capstone', ...capstone, requires: ids.map((x) => `${x}2`), col: 1, row: 3 },
+  ];
 }
+
+/** Each archetype's evolution tree; every monster of that archetype evolves along it. */
+export const EVO_TREES: Record<Archetype, EvoNode[]> = {
+  slime: evoTree(
+    { name: 'Gelatinous Bulk', icon: '🟢', desc: '+25% HP and +25% gold.', maxRank: 1, effect: { hp: 0.25, gold: 0.25 } },
+    [
+      { name: 'Treasure Gel', icon: '🪙', desc: '+30% gold per rank.', maxRank: 3, effect: { gold: 0.3 } },
+      { name: 'Small Hordes', icon: '🫧', desc: 'Packs of 1 more and +10% spawns per rank.', maxRank: 2, effect: { pack: 1, spawn: 0.1 } },
+      { name: 'Rich Ooze', icon: '💧', desc: '+25% material drops per rank.', maxRank: 3, effect: { drops: 0.25 } },
+    ],
+    { name: "Slime King's Court", icon: '👑', desc: '+50% gold, +50% drops, packs of 1 more.', maxRank: 1, effect: { gold: 0.5, drops: 0.5, pack: 1 } },
+  ),
+  beast: evoTree(
+    { name: 'Thick Hide', icon: '🐾', desc: '+20% HP and +20% material drops.', maxRank: 1, effect: { hp: 0.2, drops: 0.2 } },
+    [
+      { name: 'Prized Pelts', icon: '🪙', desc: '+40% gold but 8% faster per rank.', maxRank: 3, effect: { gold: 0.4, speed: 0.08 } },
+      { name: 'Pack Hunters', icon: '🐺', desc: 'Packs of 1 more and +10% spawns per rank.', maxRank: 2, effect: { pack: 1, spawn: 0.1 } },
+      { name: 'Alpha Stock', icon: '🦴', desc: '+25% material drops per rank.', maxRank: 3, effect: { drops: 0.25 } },
+    ],
+    { name: 'Apex Herd', icon: '👑', desc: '+40% gold and +25% spawns.', maxRank: 1, effect: { gold: 0.4, spawn: 0.25 } },
+  ),
+  undead: evoTree(
+    { name: 'Restless Dead', icon: '💀', desc: '+20% HP and +20% spawns.', maxRank: 1, effect: { hp: 0.2, spawn: 0.2 } },
+    [
+      { name: 'Grave Goods', icon: '🪙', desc: '+30% gold per rank.', maxRank: 3, effect: { gold: 0.3 } },
+      { name: 'Rising Horde', icon: '🧟', desc: 'Packs of 1 more and +12% spawns per rank.', maxRank: 2, effect: { pack: 1, spawn: 0.12 } },
+      { name: 'Bone Harvest', icon: '🦴', desc: '+25% material drops per rank.', maxRank: 3, effect: { drops: 0.25 } },
+    ],
+    { name: 'Endless Legion', icon: '👑', desc: '+30% spawns, packs of 1 more, +30% gold.', maxRank: 1, effect: { spawn: 0.3, pack: 1, gold: 0.3 } },
+  ),
+  demon: evoTree(
+    { name: 'Infernal Pact', icon: '😈', desc: '+20% HP and +30% gold.', maxRank: 1, effect: { hp: 0.2, gold: 0.3 } },
+    [
+      { name: 'Hoarded Souls', icon: '🪙', desc: '+45% gold but 8% faster per rank.', maxRank: 3, effect: { gold: 0.45, speed: 0.08 } },
+      { name: 'Summoning Circle', icon: '🔥', desc: '+15% spawns per rank.', maxRank: 3, effect: { spawn: 0.15 } },
+      { name: 'Brimstone', icon: '🪨', desc: '+25% material drops per rank.', maxRank: 3, effect: { drops: 0.25 } },
+    ],
+    { name: 'Hellgate', icon: '👑', desc: '+60% gold and packs of 1 more.', maxRank: 1, effect: { gold: 0.6, pack: 1 } },
+  ),
+  elemental: evoTree(
+    { name: 'Condensed Core', icon: '🔷', desc: '+25% HP and +25% material drops.', maxRank: 1, effect: { hp: 0.25, drops: 0.25 } },
+    [
+      { name: 'Crystal Heart', icon: '🪙', desc: '+30% gold per rank.', maxRank: 3, effect: { gold: 0.3 } },
+      { name: 'Surge', icon: '🌪️', desc: '+15% spawns per rank.', maxRank: 3, effect: { spawn: 0.15 } },
+      { name: 'Shard Shedding', icon: '💠', desc: '+35% material drops per rank.', maxRank: 3, effect: { drops: 0.35 } },
+    ],
+    { name: 'Primordial', icon: '👑', desc: '+60% material drops and +30% gold.', maxRank: 1, effect: { drops: 0.6, gold: 0.3 } },
+  ),
+  humanoid: evoTree(
+    { name: 'Loot Sacks', icon: '👤', desc: '+10% HP and +30% gold.', maxRank: 1, effect: { hp: 0.1, gold: 0.3 } },
+    [
+      { name: 'War Chest', icon: '🪙', desc: '+35% gold per rank.', maxRank: 3, effect: { gold: 0.35 } },
+      { name: 'Warbands', icon: '⚔️', desc: 'Packs of 1 more and +10% spawns per rank.', maxRank: 2, effect: { pack: 1, spawn: 0.1 } },
+      { name: 'Supply Lines', icon: '🎒', desc: '+25% material drops per rank.', maxRank: 3, effect: { drops: 0.25 } },
+    ],
+    { name: 'Warlord', icon: '👑', desc: '+50% gold and +20% spawns.', maxRank: 1, effect: { gold: 0.5, spawn: 0.2 } },
+  ),
+  plant: evoTree(
+    { name: 'Deep Roots', icon: '🌿', desc: '+30% HP and +20% material drops.', maxRank: 1, effect: { hp: 0.3, drops: 0.2 } },
+    [
+      { name: 'Golden Sap', icon: '🪙', desc: '+30% gold per rank.', maxRank: 3, effect: { gold: 0.3 } },
+      { name: 'Spreading Spores', icon: '🍄', desc: '+15% spawns per rank.', maxRank: 3, effect: { spawn: 0.15 } },
+      { name: 'Bountiful Bloom', icon: '🌸', desc: '+30% material drops per rank.', maxRank: 3, effect: { drops: 0.3 } },
+    ],
+    { name: 'World Tree', icon: '👑', desc: '+50% material drops and +40% gold.', maxRank: 1, effect: { drops: 0.5, gold: 0.4 } },
+  ),
+  dragon: evoTree(
+    { name: 'Dragon Hoard', icon: '🐉', desc: '+30% HP and +40% gold.', maxRank: 1, effect: { hp: 0.3, gold: 0.4 } },
+    [
+      { name: 'Golden Scales', icon: '🪙', desc: '+50% gold but 8% faster per rank.', maxRank: 3, effect: { gold: 0.5, speed: 0.08 } },
+      { name: 'Clutch', icon: '🥚', desc: '+15% spawns per rank.', maxRank: 3, effect: { spawn: 0.15 } },
+      { name: 'Shed Scales', icon: '💎', desc: '+30% material drops per rank.', maxRank: 3, effect: { drops: 0.3 } },
+    ],
+    { name: 'Elder Wyrm', icon: '👑', desc: '+75% gold and +40% material drops.', maxRank: 1, effect: { gold: 0.75, drops: 0.4 } },
+  ),
+};
+
+export const evoNode = (archetype: Archetype, id: string): EvoNode | undefined => EVO_TREES[archetype].find((n) => n.id === id);
 
 // ---- Hunters: extra hunters you recruit and station in areas ----
 export type HunterId =
