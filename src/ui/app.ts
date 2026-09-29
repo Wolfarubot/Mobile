@@ -41,6 +41,7 @@ import {
   type GearDef,
   type GearStat,
   type HunterDef,
+  type HunterId,
   type MaterialId,
 } from '../core/balance';
 import { fmt, fmtTime } from '../core/format';
@@ -833,9 +834,10 @@ export class AppUI {
       });
     }
 
-    body.appendChild(sectionTitle(`Stationed Hunters (max ${STATION_CAPACITY})`));
-    const hunters = el('div', 'area-stationed');
-    body.appendChild(hunters);
+    const activeTitle = sectionTitle('Active Hunters');
+    activeTitle.classList.add('center');
+    body.appendChild(activeTitle);
+    body.appendChild(this.activeHunters(id));
 
     body.appendChild(sectionTitle('Monsters'));
     const monsters = el('div', 'area-monsters');
@@ -867,17 +869,167 @@ export class AppUI {
         ['Knockouts', fmt(st.knockouts)],
       ];
       stats.innerHTML = cells.map(([k, v]) => `<div><b>${v}</b>${k}</div>`).join('');
-      const here = g.stationedIn(id);
-      hunters.innerHTML = here.length
-        ? `<div class="chips">${here.map((h) => `<span class="chip on">${hunterDef(h).icon} ${hunterDef(h).name}</span>`).join('')}</div>${
-            g.area !== id ? yieldHtml(g.farmRates(id, here, STATION_EFFICIENCY), 'Together they earn') : '<p class="hd-note">Fighting beside you here.</p>'
-          }`
-        : '<p class="hd-note">No Hunters stationed here. Station them from their Hunter card.</p>';
     });
 
     this.detail.refreshers = this.refreshers;
     this.refreshers = main;
     this.refresh();
+  }
+
+  /** The Active Hunters row: one slot per space in the area; tap any slot to manage who's here. */
+  private activeHunters(id: AreaId): HTMLElement {
+    const g = this.game;
+    const wrap = el('div', 'active-hunters');
+    const you = el('div', 'you-here-line');
+    const row = el('div', 'active-slots');
+    const yieldEl = el('div', 'active-yield');
+    wrap.append(you, row, yieldEl);
+    let key = '';
+    this.refreshers.push(() => {
+      const here = g.stationedIn(id);
+      you.innerHTML = g.area === id ? `${portraitHtml('main', 'mini')}<span>📍 ${esc(mainName())} ${mainHunterName ? 'is' : 'are'} hunting here</span>` : '';
+      you.classList.toggle('hidden', g.area !== id);
+      const k = `${here.join(',')}|${g.area}`;
+      if (k !== key) {
+        key = k;
+        row.innerHTML = '';
+        for (let i = 0; i < STATION_CAPACITY; i++) {
+          const h = here[i];
+          const slot = el('button', `active-slot${h ? '' : ' empty'}`) as HTMLButtonElement;
+          slot.innerHTML = h
+            ? `${portraitHtml(h)}<b>${hunterDef(h).name}</b><small>Lv ${g.levelOf(h)}</small>`
+            : '<span class="plus">+</span><small>Assign a Hunter</small>';
+          slot.addEventListener('click', () => this.openAssign(id, h ?? null));
+          row.appendChild(slot);
+        }
+      }
+      yieldEl.innerHTML = here.length && g.area !== id ? yieldHtml(g.farmRates(id, here, STATION_EFFICIENCY), 'Together they earn') : '';
+    });
+    return wrap;
+  }
+
+  /**
+   * Full-screen Hunter assignment for an area: its slots on top, every recruited Hunter in a grid below.
+   * Drag a Hunter onto a slot to assign them (bumping whoever was there if the area is full), or drag one out
+   * of a slot to unassign them. Or tap a Hunter and use Assign / Unassign.
+   */
+  private openAssign(id: AreaId, preselect: HunterId | null): void {
+    this.closePicker();
+    const g = this.game;
+    const a = areaDef(id);
+    const view = el('div', 'hunter-detail picker assign');
+    view.innerHTML = `
+      <div class="hd-top"><button class="hd-close" aria-label="Close">✕</button><span>${a.icon} ${a.name} · Active Hunters</span></div>
+      <div class="hd-scroll">
+        <p class="hd-note assign-tip">Drag a Hunter into a slot, or tap one and choose Assign or Unassign.</p>
+        <div class="active-slots assign-slots"></div>
+        <div class="assign-bar"></div>
+        <div class="section-title"><span>Your Hunters</span></div>
+        <div class="assign-grid"></div>
+      </div>`;
+    document.body.appendChild(view);
+    this.picker = view;
+    $('.hd-close', view).addEventListener('click', () => this.closePicker());
+    let selected: HunterId | null = preselect;
+    const recruited = HUNTERS.filter((h) => g.state.hunters[h.id].recruited).map((h) => h.id);
+
+    const assign = (h: HunterId, bump: HunterId | null = null) => {
+      if (g.state.hunters[h].station === id) return;
+      if (!g.canStation(h, id) && bump) g.station(bump, null);
+      g.station(h, id);
+    };
+    const unassign = (h: HunterId) => {
+      if (g.state.hunters[h].station === id) g.station(h, null);
+    };
+
+    const render = () => {
+      const here = g.stationedIn(id);
+      const slots = $('.assign-slots', view);
+      slots.innerHTML = '';
+      for (let i = 0; i < STATION_CAPACITY; i++) {
+        const h = here[i];
+        const slot = el('div', `active-slot${h ? '' : ' empty'}${h && h === selected ? ' selected' : ''}`);
+        slot.dataset.slot = String(i);
+        if (h) slot.dataset.hunter = h;
+        slot.innerHTML = h ? `${portraitHtml(h)}<b>${hunterDef(h).name}</b><small>Lv ${g.levelOf(h)}</small>` : '<span class="plus">+</span><small>Empty</small>';
+        slots.appendChild(slot);
+      }
+      const grid = $('.assign-grid', view);
+      grid.innerHTML = '';
+      grid.dataset.drop = 'grid';
+      if (!recruited.length) grid.innerHTML = '<p class="hd-note">Recruit Hunters from the Hunters tab first.</p>';
+      for (const h of recruited) {
+        const st = g.state.hunters[h].station;
+        const tile = el('div', `assign-tile${h === selected ? ' selected' : ''}${st === id ? ' here' : ''}`);
+        tile.dataset.hunter = h;
+        tile.innerHTML = `${portraitHtml(h)}<b>${hunterDef(h).name}</b><small>${st === id ? '✓ Here' : st ? `📍 ${areaDef(st).name.split(' ').pop()}` : '💤 Resting'}</small>`;
+        grid.appendChild(tile);
+      }
+      // Action bar for the selected Hunter.
+      const bar = $('.assign-bar', view);
+      bar.innerHTML = '';
+      if (selected) {
+        const def = hunterDef(selected);
+        const isHere = g.state.hunters[selected].station === id;
+        const full = !g.canStation(selected, id);
+        bar.innerHTML = `<span>${def.icon} <b>${def.name}</b></span>`;
+        const btn = el('button', `buy${isHere ? ' danger-btn' : ''}`, isHere ? 'Unassign' : full ? 'Area full' : 'Assign') as HTMLButtonElement;
+        btn.disabled = !isHere && full;
+        btn.addEventListener('click', () => {
+          const h = selected!;
+          if (isHere) unassign(h);
+          else assign(h);
+          render();
+        });
+        bar.appendChild(btn);
+      }
+      bar.classList.toggle('hidden', !selected);
+    };
+
+    // Tap to select, drag to move (pointer events, so it works with touch).
+    const scroll = $('.hd-scroll', view);
+    scroll.addEventListener('pointerdown', (ev) => {
+      const src = (ev.target as HTMLElement).closest<HTMLElement>('[data-hunter]');
+      if (!src) return;
+      const h = src.dataset.hunter as HunterId;
+      const fromSlot = src.classList.contains('active-slot');
+      const start = { x: ev.clientX, y: ev.clientY };
+      let ghost: HTMLElement | null = null;
+      const move = (e: PointerEvent) => {
+        if (!ghost && Math.hypot(e.clientX - start.x, e.clientY - start.y) > 8) {
+          ghost = el('div', 'drag-ghost');
+          ghost.innerHTML = portraitHtml(h);
+          document.body.appendChild(ghost);
+          src.classList.add('dragging');
+        }
+        if (ghost) {
+          e.preventDefault();
+          ghost.style.left = `${e.clientX}px`;
+          ghost.style.top = `${e.clientY}px`;
+          view.querySelectorAll('.drop-over').forEach((x) => x.classList.remove('drop-over'));
+          (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null)?.closest('.active-slot, .assign-grid')?.classList.add('drop-over');
+        }
+      };
+      const up = (e: PointerEvent) => {
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', up);
+        src.classList.remove('dragging');
+        if (!ghost) {
+          selected = selected === h ? null : h; // a tap
+          render();
+          return;
+        }
+        ghost.remove();
+        const target = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null)?.closest<HTMLElement>('.active-slot, .assign-grid');
+        if (target?.classList.contains('active-slot') && !fromSlot) assign(h, (target.dataset.hunter as HunterId) ?? null);
+        else if (target?.classList.contains('assign-grid') && fromSlot) unassign(h);
+        selected = h;
+        render();
+      };
+      window.addEventListener('pointermove', move, { passive: false });
+      window.addEventListener('pointerup', up);
+    });
+    render();
   }
 
   // ---- Bestiary tab (enemy roster, per area) ----
