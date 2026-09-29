@@ -120,6 +120,7 @@ export class AppUI {
 
     $('.tabs button[data-tab=events]').classList.toggle('locked', !g.eventsOpen);
     if (g.eventsOpen && !s.flags.eventsIntro && !this.modalClose && !this.detail) this.showEventsIntro();
+    else if (!s.flags.trainIntro && s.flags.welcome && !this.modalClose && !this.detail && s.gold >= g.trainPurchase('main', 1).cost) this.showTrainIntro();
     const ready = EVENTS.filter((e) => e.area === g.area && g.eventReady(e.id)).length;
     const badge = $('#eventsBadge');
     badge.textContent = String(ready);
@@ -1277,6 +1278,21 @@ export class AppUI {
       [
         { label: 'Name my Hunter', secondary: true, action: () => this.openSettings() },
         { label: "Let's hunt!" },
+      ],
+    );
+  }
+
+  /** Shown once, the first time you can afford to train your Hunter. */
+  private showTrainIntro(): void {
+    this.game.state.flags.trainIntro = true;
+    this.showModal(
+      `<h2>💪 Time to train!</h2>
+       <p>You have enough gold to <b>Train</b> your Hunter! Tap <b>Train</b> in the Hunters tab to increase your strength!</p>
+       <p>After training enough, your Hunter will level up, granting <b>Skill Points</b> that can unlock more power and abilities.</p>
+       <p>Open the Hunter's card to see more details, upgrade their abilities, and change their equipment!</p>`,
+      [
+        { label: 'Later', secondary: true },
+        { label: 'Go to Hunters', action: () => this.setTab('hunters') },
       ],
     );
   }

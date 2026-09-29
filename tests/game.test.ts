@@ -1037,13 +1037,15 @@ describe('Saves', () => {
     s.flags.eventsIntro = true;
     const back = deserialize(serialize(s))!;
     expect(back.settings).toEqual({ leftHanded: true, name: 'Wolfa' });
-    expect(back.flags).toEqual({ eventsIntro: true, welcome: false });
+    expect(back.flags).toEqual({ eventsIntro: true, welcome: false, trainIntro: false });
     const old = JSON.parse(serialize(newGame(0)));
     delete old.settings;
     delete old.flags;
     expect(deserialize(JSON.stringify(old))!.settings).toEqual({ leftHanded: false, name: '' });
     expect(deserialize(JSON.stringify(old))!.flags.welcome).toBe(true); // existing players skip the welcome
     expect(newGame(0).flags.welcome).toBe(false); // a brand-new game shows it
+    expect(deserialize(JSON.stringify(old))!.flags.trainIntro).toBe(true);
+    expect(newGame(0).flags.trainIntro).toBe(false);
   });
 
   it('v7 saves: the old flat skills are refunded as unspent points', () => {
