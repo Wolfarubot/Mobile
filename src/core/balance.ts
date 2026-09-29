@@ -1057,7 +1057,42 @@ export const MAIN_ABILITY = 'Tap the Battle Field to damage Monsters!';
 /** Hunters fire a little slower than you and train with gold. */
 export const HELPER_FIRE_RATE = 1.2;
 export const HELPER_TRAIN_GROWTH = 1.085;
-/** Cost of a Guild Hunter's first training session (then × HELPER_TRAIN_GROWTH each). */
+/** From Lv 30 on, each Guild Hunter session costs only this much more than the last (the climb to Ascension). */
+export const HELPER_TAPER_LEVEL = 30;
+export const HELPER_TAPER_GROWTH = 1.01;
+/** Sessions it takes to reach HELPER_TAPER_LEVEL. */
+export const HELPER_TAPER_SESSIONS = Array.from({ length: HELPER_TAPER_LEVEL - 1 }, (_, i) => trainsForLevel(i + 1)).reduce((a, b) => a + b, 0);
+
+/**
+ * Cost of `count` Guild Hunter sessions after `done` of them: ×HELPER_TRAIN_GROWTH per session until Lv 30,
+ * then ×HELPER_TAPER_GROWTH. Counted in sessions, so it carries on unchanged through Ascension.
+ */
+export function helperBulkCost(base: number, done: number, count: number): number {
+  if (count <= 0) return 0;
+  const k = HELPER_TAPER_SESSIONS;
+  const steep = Math.max(0, Math.min(count, k - done));
+  const before = bulkCost(base, HELPER_TRAIN_GROWTH, done, steep);
+  const flat = count - steep;
+  if (flat <= 0) return before;
+  // Past the taper: the first tapered session costs what session k would have, then grows slowly.
+  const start = Math.max(done, k);
+  const atTaper = base * HELPER_TRAIN_GROWTH ** k;
+  return before + bulkCost(atTaper, HELPER_TAPER_GROWTH, start - k, flat);
+}
+
+/** How many Guild Hunter sessions `gold` buys after `done` (at most `limit`). */
+export function helperMaxAffordable(base: number, done: number, gold: number, limit: number): number {
+  let lo = 0;
+  let hi = Math.max(0, limit);
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (helperBulkCost(base, done, mid) <= gold) lo = mid;
+    else hi = mid - 1;
+  }
+  return lo;
+}
+
+/** Cost of a Guild Hunter's first training session (then × HELPER_TRAIN_GROWTH each, tapering past Lv 30). */
 export const helperTrainCost = (h: HunterDef): number => Math.ceil(Math.max(10, h.recruitCost * 0.05));
 /** Stationed Hunters earn at this fraction of their full rate (they don't tap, but they never get stunned). */
 /** Hunters that can be stationed in one area (besides yours). */

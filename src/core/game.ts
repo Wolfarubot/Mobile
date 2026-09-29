@@ -47,7 +47,8 @@ import {
   GUARD_RECHARGE,
   GUARDIAN_TIME,
   HELPER_FIRE_RATE,
-  HELPER_TRAIN_GROWTH,
+  helperBulkCost,
+  helperMaxAffordable,
   helperTrainCost,
   levelFromTrains,
   MAIN_TRAIN_COST,
@@ -1060,14 +1061,18 @@ export class Game {
 
   /** Cost of the next `amount` training sessions (`buyAmount` by default), stopping at their level cap. */
   trainPurchase(who: Wearer, amount: BuyAmount = this.state.buyAmount): Purchase {
-    const base = who === 'main' ? MAIN_TRAIN_COST : helperTrainCost(hunterDef(who));
-    const growth = who === 'main' ? MAIN_TRAIN_GROWTH : HELPER_TRAIN_GROWTH;
     const done = this.training(who).trains;
+    if (who === 'main') {
+      const count = amount === 'max' ? Math.max(1, maxAffordable(MAIN_TRAIN_COST, MAIN_TRAIN_GROWTH, done, this.state.gold)) : amount;
+      return { count, cost: bulkCost(MAIN_TRAIN_COST, MAIN_TRAIN_GROWTH, done, count) };
+    }
+    // Guild Hunters: costs taper past Lv 30, and training stops at their level cap.
+    const base = helperTrainCost(hunterDef(who));
     const left = this.sessionsLeft(who);
     if (left <= 0) return { count: 0, cost: Infinity };
-    const wanted = amount === 'max' ? Math.max(1, maxAffordable(base, growth, done, this.state.gold)) : amount;
+    const wanted = amount === 'max' ? Math.max(1, helperMaxAffordable(base, done, this.state.gold, left)) : amount;
     const count = Math.min(wanted, left);
-    return { count, cost: bulkCost(base, growth, done, count) };
+    return { count, cost: helperBulkCost(base, done, count) };
   }
 
   /** Trains a Hunter `buyAmount` times. Returns false if they can't afford it (or aren't recruited). */

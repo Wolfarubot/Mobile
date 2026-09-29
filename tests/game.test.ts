@@ -21,6 +21,12 @@ import {
   ARCHETYPES,
   helperTrainCost,
   HELPER_TRAIN_GROWTH,
+  HELPER_TAPER_GROWTH,
+  HELPER_TAPER_LEVEL,
+  HELPER_TAPER_SESSIONS,
+  helperBulkCost,
+  helperMaxAffordable,
+  levelFromTrains,
   ASCEND_LEVEL,
   ASCENDED_TREES,
   MAX_LEVEL,
@@ -455,6 +461,24 @@ describe('Shops', () => {
     }
   });
 
+  it('Guild Hunter training costs taper past Lv 30: +8.5% per session before, +1% after', () => {
+    const base = 10;
+    const k = HELPER_TAPER_SESSIONS;
+    expect(levelFromTrains(k).level).toBe(HELPER_TAPER_LEVEL);
+    const one = (n: number) => helperBulkCost(base, n, 1);
+    expect(one(k - 1) / one(k - 2)).toBeCloseTo(HELPER_TRAIN_GROWTH);
+    expect(one(k + 1) / one(k)).toBeCloseTo(HELPER_TAPER_GROWTH);
+    expect(one(k) / one(k - 1)).toBeCloseTo(HELPER_TRAIN_GROWTH); // no jump at the switch
+    // Bulk costs add up session by session, across the switch.
+    let sum = 0;
+    for (let n = k - 5; n < k + 5; n++) sum += one(n);
+    expect(helperBulkCost(base, k - 5, 10) / sum).toBeCloseTo(1, 9);
+    // MAX buys as many as the gold covers, within the level cap.
+    const ten = helperBulkCost(base, k - 5, 10);
+    expect(helperMaxAffordable(base, k - 5, ten, 100)).toBe(10);
+    expect(helperMaxAffordable(base, k - 5, ten, 4)).toBe(4);
+  });
+
   it('Ascension: gold node after a full tree (10 points = Lv 50), level curve restarts, new tree to Lv 100', () => {
     const g = rich();
     g.recruit('alchemist');
@@ -486,7 +510,9 @@ describe('Shops', () => {
     expect(g.train('alchemist')).toBe(true);
     expect(g.levelOf('alchemist')).toBe(51);
     // The price carries on from where it was: the first session after ascending costs what the next one would have.
-    expect(after.cost / (helperTrainCost(hunterDef('alchemist')) * HELPER_TRAIN_GROWTH ** SESSIONS_TO_ASCEND)).toBeCloseTo(1, 6);
+    const base = helperTrainCost(hunterDef('alchemist'));
+    const expected = base * HELPER_TRAIN_GROWTH ** HELPER_TAPER_SESSIONS * HELPER_TAPER_GROWTH ** (SESSIONS_TO_ASCEND - HELPER_TAPER_SESSIONS);
+    expect(after.cost / expected).toBeCloseTo(1, 6);
     void cost;
     // The ascended tree is 50 points with its capstone last: at Lv 100 exactly.
     expect(ASCENDED_TREES.alchemist.reduce((sum, n) => sum + n.maxRank * (n.cost ?? 1), 0)).toBe(50);
