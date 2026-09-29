@@ -19,6 +19,7 @@ import {
   eventDef,
   ENEMIES,
   RESIST_MULT,
+  STATUS,
   typeMult,
   WEAK_MULT,
 } from '../src/core/balance';
@@ -542,6 +543,55 @@ describe('Equipment', () => {
     }
     expect(hits.map((h) => h.affinity)).toEqual(['weak', 'weak', 'resist']);
     expect(hits[0].dmg / hits[2].dmg).toBeCloseTo(WEAK_MULT / RESIST_MULT);
+  });
+
+  it('Fire burns, Poison poisons, Frost chills and Acid corrodes; effects refresh rather than stack', () => {
+    const g = stocked();
+    g.recruit('alchemist');
+    const f = new Field(g);
+    const hit = (who: 'glimmer' | 'alchemist' | 'frostbreaker' | 'scavenger', e: Enemy) =>
+      (f as unknown as { hitWith: (...a: unknown[]) => void }).hitWith(who, e, 1, 0, 0, false);
+    // Fire: a Zombie (neutral to nothing here: weak to fire) keeps burning after the hit.
+    const z = enemy({ id: 1, type: 'wolf', x: 0, y: -300, hp: 1e12, maxHp: 1e12 });
+    f.enemies = [z];
+    hit('glimmer', z);
+    const afterHit = z.hp;
+    expect(z.burn).toBeDefined();
+    const burnTotal = (1e12 - afterHit) * STATUS.burn.share;
+    for (let i = 0; i < 90; i++) (f as unknown as { tickStatus: (e: Enemy, dt: number) => void }).tickStatus(z, 1 / 30);
+    expect(afterHit - z.hp).toBeCloseTo(burnTotal, -3);
+    expect(z.burn).toBeUndefined();
+    // Hitting again refreshes the burn instead of stacking a second one.
+    hit('glimmer', z);
+    hit('glimmer', z);
+    expect(z.burn!.left).toBe(STATUS.burn.duration);
+    // Poison (Mira with no weapon), Frost (Bjorn's hammer type) and Acid (Pip).
+    g.recruit('frostbreaker');
+    g.recruit('scavenger');
+    const p = enemy({ id: 2, type: 'wolf', x: 0, y: -300, hp: 1e12, maxHp: 1e12 });
+    f.enemies.push(p);
+    hit('alchemist', p);
+    expect(p.poison!.left).toBe(STATUS.poison.duration);
+    hit('frostbreaker', p);
+    expect(p.slow).toBe(STATUS.chill.duration);
+    hit('scavenger', p);
+    expect(p.corrode).toBe(STATUS.corrode.duration);
+    // Corroded monsters take more from everything.
+    const q = enemy({ id: 3, type: 'wolf', x: 0, y: -300, hp: 1e12, maxHp: 1e12 });
+    f.enemies.push(q);
+    hit('glimmer', q);
+    const plain = 1e12 - q.hp;
+    const before = p.hp;
+    hit('glimmer', p);
+    expect(before - p.hp).toBeCloseTo(plain * (1 + STATUS.corrode.amp), -3);
+  });
+
+  it('50 monsters, at least 5 per area, each with a weakness; Guardians stay put', () => {
+    expect(ENEMIES).toHaveLength(50);
+    expect(new Set(ENEMIES.map((e) => e.id)).size).toBe(50);
+    for (const a of AREAS) expect(ENEMIES.filter((e) => e.area === a.id).length).toBeGreaterThanOrEqual(5);
+    const g = new Game(newGame(0), noCrit);
+    expect(g.guardianType).toBe('redSlime');
   });
 
   it("Wilhelm's long and short weapons each power one mode", () => {

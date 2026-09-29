@@ -384,6 +384,15 @@ export class AppUI {
     const stats = el('div', 'hd-stats');
     overview.appendChild(stats);
     if (def) overview.appendChild(el('p', 'hd-style', def.style.describe));
+    const effectNote = el('p', 'hd-style hd-effect');
+    overview.appendChild(effectNote);
+    this.refreshers.push(() => {
+      const types = [...new Set([g.damageTypeOf(who), ...(g.specialCooldown(who) !== null ? [g.damageTypeOf(who, 'long', true)] : [])])];
+      effectNote.innerHTML = types
+        .filter((t) => DAMAGE_TYPES[t].effect)
+        .map((t) => `${DAMAGE_TYPES[t].icon} <b>${DAMAGE_TYPES[t].name}</b>: ${DAMAGE_TYPES[t].effect}.`)
+        .join('<br>');
+    });
     if (def && recruited) {
       overview.appendChild(sectionTitle('Station'));
       overview.appendChild(this.stationControls(def));
@@ -1780,7 +1789,7 @@ function gearCardHtml(it: GearItem, vs: GearItem | null = null): string {
       const cmp = vs && Math.abs(d) > 1e-9 ? `<span class="${d > 0 ? 'up' : 'down'}">${d > 0 ? '▲' : '▼'} ${statDelta(k, d)}</span>` : '';
       return `<li>${shown}${cmp}</li>`;
     })
-    .join('');
+    .join('') + (gd.damageType && DAMAGE_TYPES[gd.damageType].effect ? `<li class="gc-effect">${DAMAGE_TYPES[gd.damageType].icon} ${DAMAGE_TYPES[gd.damageType].effect}</li>` : '');
   return `<div class="gear-card rar" style="--rc:${gearColor(gd.id)}"><div class="gc-head"><i>${gd.icon}</i><div><b>${gd.name}</b><small>${RARITIES[gd.rarity].name} ${GEAR_KINDS[gd.kind].name.toLowerCase()} · Lv ${it.level} / ${GEAR_MAX_LEVEL}</small>${dtypeTag(gd)}</div></div><ul class="gc-stats">${lines}</ul></div>`;
 }
 

@@ -1,4 +1,5 @@
 import {
+  STATUS,
   affinity,
   typeMult,
   type DamageType,
@@ -48,8 +49,21 @@ export interface Enemy {
   ky: number;
   /** Per-enemy phase for wobble animation. */
   phase: number;
-  /** Seconds of half-speed left (frost hammers). */
+  /** Seconds of half-speed left (frost hammers, Frost chill). */
   slow?: number;
+  /** Damage over time from Fire and Poison. */
+  burn?: Dot;
+  poison?: Dot;
+  /** Seconds of Acid corrosion left (takes more damage). */
+  corrode?: number;
+}
+
+/** A damage-over-time effect: damage per second, seconds left, who applied it (for kill credit). */
+export interface Dot {
+  dps: number;
+  left: number;
+  by: Shooter;
+  acc: number;
 }
 
 /** A stationed Hunter fighting next to you, with their own attack style and stun state. */
@@ -338,6 +352,7 @@ export class Field {
       e.flash = Math.max(0, e.flash - dt * 6);
       e.phase += dt;
       if (e.slow) e.slow = Math.max(0, e.slow - dt);
+      if (e.burn || e.poison || e.corrode) this.tickStatus(e, dt);
       const speed = e.speed * (e.slow ? 0.5 : 1);
       if (e.fleeing) {
         const d = Math.hypot(e.x, e.y) || 1;
@@ -614,11 +629,42 @@ export class Field {
     crit = this.game.rng() < this.game.critChanceOf(shooter),
     mode?: GearMode,
     special = false,
+    status = true,
   ): void {
     const dtype = this.game.damageTypeOf(shooter, mode, special);
     const dmg = this.game.shotDamage(shooter, enemyDef(e.type).archetype, mode) * typeMult(dtype, e.type) * mult * (crit ? CRIT_MULT : 1);
     const d = Math.hypot(e.x - fromX, e.y - fromY) || 1;
     this.damage(e, dmg, crit, (e.x - fromX) / d, (e.y - fromY) / d, shooter, dtype);
+    if (status) this.applyStatus(e, dtype, dmg, shooter);
+  }
+
+  /** Fire burns, Poison poisons, Frost chills, Acid corrodes. Refreshes rather than stacks. */
+  private applyStatus(e: Enemy, dtype: DamageType, dmg: number, by: Shooter): void {
+    if (e.hp <= 0) return;
+    const dot = (cur: Dot | undefined, share: number, duration: number): Dot => {
+      const dps = (dmg * share) / duration;
+      return cur && cur.left > 0 && cur.dps > dps ? { ...cur, left: duration } : { dps, left: duration, by, acc: cur?.acc ?? 0 };
+    };
+    if (dtype === 'fire') e.burn = dot(e.burn, STATUS.burn.share, STATUS.burn.duration);
+    else if (dtype === 'poison') e.poison = dot(e.poison, STATUS.poison.share, STATUS.poison.duration);
+    else if (dtype === 'frost') e.slow = Math.max(e.slow ?? 0, STATUS.chill.duration);
+    else if (dtype === 'acid') e.corrode = STATUS.corrode.duration;
+  }
+
+  /** Ticks burns and poisons, and runs down corrosion. */
+  private tickStatus(e: Enemy, dt: number): void {
+    if (e.corrode) e.corrode = Math.max(0, e.corrode - dt);
+    for (const [key, dtype] of [['burn', 'fire'], ['poison', 'poison']] as const) {
+      const d = e[key];
+      if (!d) continue;
+      d.left -= dt;
+      d.acc += dt;
+      while (d.acc >= STATUS.tick && e.hp > 0) {
+        d.acc -= STATUS.tick;
+        this.damage(e, d.dps * STATUS.tick, false, 0, 0, d.by, dtype);
+      }
+      if (d.left <= 0) e[key] = undefined;
+    }
   }
 
   private moveBullets(dt: number): void {
@@ -678,13 +724,14 @@ export class Field {
       p.tick -= dt;
       if (p.tick > 0) continue;
       p.tick = PUDDLE_TICK;
-      for (const e of this.enemies) if (e.hp > 0 && Math.hypot(e.x - p.x, e.y - p.y) <= p.r + e.r) this.hitWith(p.shooter, e, p.dmg, p.x, p.y, undefined, undefined, true);
+      for (const e of this.enemies) if (e.hp > 0 && Math.hypot(e.x - p.x, e.y - p.y) <= p.r + e.r) this.hitWith(p.shooter, e, p.dmg, p.x, p.y, undefined, undefined, true, false);
     }
     this.puddles = this.puddles.filter((p) => p.life > 0);
   }
 
   private damage(e: Enemy, dmg: number, crit: boolean, dirX: number, dirY: number, shooter: Shooter = 'main', dtype: DamageType = 'physical'): void {
     if (e.hp <= 0) return;
+    if (e.corrode) dmg *= 1 + STATUS.corrode.amp;
     e.hp -= dmg;
     e.flash = 1;
     if (!e.boss) {

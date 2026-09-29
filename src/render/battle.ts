@@ -327,6 +327,7 @@ export class BattleView {
 
     if (e.boss) drawCrown(g, r);
     if (e.fleeing) drawDizzy(g, r, this.time + e.phase, 0.6);
+    drawStatus(g, e, this.time);
     g.restore();
   }
 
@@ -649,6 +650,41 @@ export function drawEnemyPortrait(canvas: HTMLCanvasElement, id: EnemyId): void 
     }
   }
   g.restore();
+}
+
+/** Status effects on a monster: flickering flames (burn), rising bubbles (poison), a frosty ring (chill), acid drips (corrode). */
+function drawStatus(g: CanvasRenderingContext2D, e: Enemy, t: number): void {
+  const r = e.r;
+  if (e.slow) {
+    g.strokeStyle = 'rgba(143,220,255,0.85)';
+    g.lineWidth = 2;
+    g.beginPath();
+    g.arc(0, 0, r + 3, 0, Math.PI * 2);
+    g.stroke();
+  }
+  const specks = (color: string, n: number, rise: number, speed: number) => {
+    g.fillStyle = color;
+    for (let i = 0; i < n; i++) {
+      const p = (t * speed + i / n + e.phase) % 1;
+      const x = Math.sin((i + 1) * 2.4 + e.phase * 3) * r * 0.7;
+      const y = -r * 0.2 - p * rise;
+      const s = 3 * (1 - p) + 1;
+      g.globalAlpha = 1 - p;
+      g.fillRect(x - s / 2, y - s / 2, s, s);
+    }
+    g.globalAlpha = 1;
+  };
+  if (e.burn) specks('#ff8a2a', 4, r * 1.6, 1.8);
+  if (e.poison) specks('#6fdc5a', 3, r * 1.3, 0.9);
+  if (e.corrode) {
+    g.fillStyle = '#c6f03a';
+    for (let i = 0; i < 2; i++) {
+      const p = (t * 1.2 + i * 0.5 + e.phase) % 1;
+      g.globalAlpha = 1 - p;
+      g.fillRect((i ? 0.4 : -0.45) * r - 1, r * 0.5 + p * r * 0.8, 2, 3);
+    }
+    g.globalAlpha = 1;
+  }
 }
 
 /** Each attack style gets its own simple look. */

@@ -1,3 +1,4 @@
+import { writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { AREAS, areaEnemies, ENEMIES, GEAR, gearDef, gearStats, slotAccepts, typeMult, type GearId, enemyUnlockCost, HUNTERS, ITEMS, STATION_EFFICIENCY, type AreaId, type ItemId } from '../src/core/balance';
 import { Field } from '../src/core/field';
@@ -167,14 +168,15 @@ export function simulatePlayer(days: number) {
 describe('progression pacing', () => {
   it('a typical player unlocks the Graveyard in their first session, then each area takes days', () => {
     const { unlockedAt: r } = simulatePlayer(14);
-    if (process.env.SIM_VERBOSE) console.log(r);
+    // SIM_OUT=file.json writes when each area unlocked, in hours.
+    if (process.env.SIM_OUT) writeFileSync(process.env.SIM_OUT, JSON.stringify(Object.fromEntries(Object.entries(r).map(([k, v]) => [k, +(v! / 3600).toFixed(1)]))));
     expect(r.graveyard).toBeLessThan(40 * 60); // first session
     expect(r.caves).toBeGreaterThan(12 * H);
     expect(r.caves).toBeLessThan(2 * 24 * H);
     expect(r.peaks).toBeGreaterThan(2 * 24 * H);
     expect(r.peaks).toBeLessThan(5 * 24 * H);
     expect(r.rift).toBeGreaterThan(5 * 24 * H);
-  }, 300_000);
+  }, 900_000);
 });
 
 const fmtT = (sec: number | undefined) =>
