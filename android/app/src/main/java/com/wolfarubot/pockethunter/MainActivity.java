@@ -1,4 +1,4 @@
-package com.wolfarubot.monsterhorde;
+package com.wolfarubot.pockethunter;
 
 import com.getcapacitor.BridgeActivity;
 
