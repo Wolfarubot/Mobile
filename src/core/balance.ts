@@ -324,7 +324,7 @@ export const ARCHETYPES: Record<Archetype, { name: string; icon: string }> = {
 };
 
 // ---- Areas: permanent unlocks, each with its own enemies and materials ----
-export type AreaId = 'forest' | 'glade' | 'graveyard' | 'crypt' | 'caves' | 'mines' | 'peaks' | 'cliffs' | 'rift';
+export type AreaId = 'forest' | 'glade' | 'graveyard' | 'crypt' | 'depths' | 'caves' | 'mines' | 'peaks' | 'cliffs' | 'rift';
 
 export interface AreaDef {
   id: AreaId;
@@ -349,7 +349,8 @@ export const AREAS: AreaDef[] = [
   { id: 'forest', name: 'Whispering Forest', icon: '🌲', hp: 1, gold: 1, speed: 36, mastery: 600, guardian: 25_000, palette: ['#183c18', '#2f7d32', '#7ec850', '#e2f5c4'], ground: ['#6cb848', '#58a03c'], blurb: 'Where every hunt begins.' },
   { id: 'glade', name: 'Faerie Glade', icon: '🍄', hp: 12, gold: 5, speed: 38, mastery: 1_000, guardian: 350_000, palette: ['#221a30', '#5a4a8a', '#a8d8b0', '#f4f0ff'], ground: ['#7cc47c', '#8ed28a'], blurb: 'Mushroom rings and things that bite.' },
   { id: 'graveyard', name: 'Old Graveyard', icon: '🪦', hp: 150, gold: 25, speed: 40, mastery: 1_500, guardian: 60_000_000, palette: ['#1e1a2a', '#4a4460', '#9a94b0', '#e8e4f0'], ground: ['#5b5670', '#4c4762'], blurb: 'The dead do not rest here.' },
-  { id: 'crypt', name: 'Forsaken Crypt', icon: '⚰️', hp: 6_000, gold: 120, speed: 42, mastery: 2_500, guardian: 800_000_000, palette: ['#1a1614', '#4a403a', '#9a8e80', '#ece4d8'], ground: ['#5a524a', '#4e4640'], blurb: 'Deeper than the graves, and older.' },
+  { id: 'crypt', name: 'Forsaken Crypt', icon: '⚰️', hp: 6_000, gold: 120, speed: 42, mastery: 2_500, guardian: 300_000_000, palette: ['#1a1614', '#4a403a', '#9a8e80', '#ece4d8'], ground: ['#5a524a', '#4e4640'], blurb: 'Deeper than the graves, and older.' },
+  { id: 'depths', name: 'Shadowy Depths', icon: '🕳️', hp: 30_000, gold: 250, speed: 43, mastery: 3_000, guardian: 2_500_000_000, palette: ['#120e1c', '#3a3050', '#8a7ea8', '#e6e0f4'], ground: ['#2e2838', '#26212f'], blurb: 'Below the crypt, the dark has teeth.' },
   { id: 'caves', name: 'Ember Caves', icon: '🌋', hp: 150_000, gold: 600, speed: 45, mastery: 4_000, guardian: 5_000_000_000, palette: ['#2a0e08', '#8a2c10', '#e07030', '#fde4c0'], ground: ['#6a2c1a', '#823722'], blurb: 'Hot, bright and full of teeth.' },
   { id: 'mines', name: 'Deep Mines', icon: '⛏️', hp: 1_200_000, gold: 3_000, speed: 47, mastery: 6_000, guardian: 40_000_000_000, palette: ['#1e140a', '#6a4a22', '#c09050', '#f4e4c8'], ground: ['#5a4228', '#4e3820'], blurb: 'Dug too deep, woke too much.' },
   { id: 'peaks', name: 'Frost Peaks', icon: '🏔️', hp: 7_000_000, gold: 15_000, speed: 50, mastery: 10_000, guardian: 250_000_000_000, palette: ['#0c2038', '#2a60a0', '#78b8e8', '#e4f4ff'], ground: ['#bcd8f0', '#a4c6e6'], blurb: 'Cold winds carry cold things.' },
@@ -412,7 +413,12 @@ export type EnemyId =
   | 'succubus'
   | 'chimera'
   | 'voidWyrm'
-  | 'behemoth';
+  | 'behemoth'
+  | 'gloomcrawler'
+  | 'duskmoth'
+  | 'shadowWisp'
+  | 'umbralOoze'
+  | 'deepLurker';
 export type EnemyShape = 'circle' | 'square' | 'triangle' | 'diamond' | 'ghost' | 'hexagon';
 
 export interface EnemyDef {
@@ -491,6 +497,13 @@ export const ENEMIES: EnemyDef[] = [
   { id: 'necromancer', name: 'Necromancer', area: 'crypt', archetype: 'humanoid', hp: 3, speed: 0.9, gold: 4, spawn: 0.25, pack: [1, 2], radius: 12, material: 'bone', unlock: 15_000, color: '#5a3a7a', shape: 'diamond', blurb: 'Raises the dead for fun.', weak: ['radiant', 'physical'], resist: ['decay', 'void'] },
 
 
+  // Shadowy Depths
+  { id: 'gloomcrawler', name: 'Gloomcrawler', area: 'depths', archetype: 'beast', hp: 1, speed: 1.3, gold: 1.1, spawn: 1.4, pack: [3, 5], radius: 9, material: 'wing', unlock: 0, color: '#4a4058', shape: 'triangle', blurb: 'Too many legs, all of them quiet.', weak: ['fire', 'radiant'], resist: ['poison'] },
+  { id: 'duskmoth', name: 'Duskmoth', area: 'depths', archetype: 'beast', hp: 0.8, speed: 1.8, gold: 1.2, spawn: 0.6, pack: [2, 4], radius: 8, material: 'wing', unlock: 120, color: '#8a7a9a', shape: 'diamond', blurb: 'Drawn to light. Especially yours.', weak: ['fire', 'frost'], resist: ['decay'] },
+  { id: 'shadowWisp', name: 'Shadow Wisp', area: 'depths', archetype: 'elemental', hp: 1, speed: 1.5, gold: 1.8, spawn: 0.5, pack: [2, 3], radius: 9, material: 'bone', unlock: 900, color: '#6a5a8a', shape: 'ghost', blurb: 'A flicker of dark that bites back.', weak: ['radiant', 'arcane'], resist: ['physical', 'decay'] },
+  { id: 'umbralOoze', name: 'Umbral Ooze', area: 'depths', archetype: 'slime', hp: 2.2, speed: 0.8, gold: 2.6, spawn: 0.45, pack: [2, 3], radius: 12, material: 'flesh', unlock: 4_000, color: '#3a2e4a', shape: 'circle', blurb: 'A slime that soaked up the dark.', weak: ['fire', 'radiant'], resist: ['poison', 'void'] },
+  { id: 'deepLurker', name: 'Deep Lurker', area: 'depths', archetype: 'demon', hp: 3, speed: 0.7, gold: 3.5, spawn: 0.35, pack: [1, 2], radius: 13, material: 'flesh', unlock: 15_000, color: '#2a2036', shape: 'hexagon', blurb: 'All eyes, somewhere in the dark.', weak: ['radiant'], resist: ['physical', 'void'] },
+
   // Ember Caves
   { id: 'imp', name: 'Imp', area: 'caves', archetype: 'demon', hp: 1, speed: 1.3, gold: 1, spawn: 1.4, pack: [2, 4], radius: 9, material: 'ember', unlock: 0, color: '#ff7a3d', shape: 'hexagon', blurb: 'Cackling little fire-starters.', weak: ['frost', 'radiant'], resist: ['fire'] },
   { id: 'magmaSlime', name: 'Magma Slime', area: 'caves', archetype: 'slime', hp: 2.5, speed: 0.8, gold: 2.5, spawn: 0.6, pack: [2, 3], radius: 12, material: 'magma', unlock: 120, color: '#ff4d1a', shape: 'circle', blurb: 'Molten and very hard to squish.', weak: ['frost', 'acid'], resist: ['fire', 'physical'] },
@@ -544,6 +557,7 @@ export const GUARDIAN_ENEMY: Record<AreaId, EnemyId> = {
   glade: 'treant',
   graveyard: 'bat',
   crypt: 'necromancer',
+  depths: 'deepLurker',
   caves: 'beetle',
   mines: 'caveTroll',
   peaks: 'wraith',
@@ -782,7 +796,7 @@ export interface AttackStyle {
   /** Sniper switches to akimbo pistols when an enemy is this close. */
   closeRange?: number;
   /**
-   * A special attack on a cooldown (Mira's potions, Glimmer's fireballs), cast alongside their normal shots.
+   * A special attack on a cooldown (Reginald's potions, Glimmer's fireballs), cast alongside their normal shots.
    * Its damage per hit is `damage` × their shot damage × (1 + their weapon's damage); its radius is
    * `radius` × (1 + their weapon's attack rate). `ticks` is how many times it hits (a puddle ticks), and
    * `crowd` how many monsters it typically catches, for the background model.
@@ -829,35 +843,23 @@ export const GUARD_RECHARGE = 4;
 
 export const HUNTERS: HunterDef[] = [
   {
-    id: 'alchemist', name: 'Mira', title: 'Alchemist', icon: '⚗️', color: '#7be07b', area: 'forest', recruitCost: 150, bane: { archetype: 'slime', mult: 3 },
+    id: 'alchemist', name: 'Reginald', title: 'Alchemist', icon: '⚗️', color: '#7be07b', area: 'forest', recruitCost: 150, bane: { archetype: 'slime', mult: 3 },
     unlock: { event: 'guardian-forest', times: 1 },
-    story: 'Mira is in the Whispering Forest doing research on Slimes. She has an idea for a new potion, but the Forest Guardian keeps scaring off her test subjects. Defeat it, and she\'ll help you hunt monsters.',
+    story: 'Reginald is in the Whispering Forest doing research on Slimes, with an idea for a new potion, but the Forest Guardian keeps scaring off the test subjects. Defeat it, and Reginald will help you hunt monsters.',
     ability: 'Every few seconds, lobs a potion that leaves a poison puddle. Deals triple damage to Slimes. Uses ranged or magic weapons.',
     slots: [{ kind: 'weapon', label: 'Weapon', accepts: ['weapon', 'magic'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
     style: {
       kind: 'potion', damageType: 'poison', proc: 0.5, range: 230, rate: 0.6, damage: 0.8, farm: 1, crowd: 1,
       special: { cooldown: 4, damage: 0.35, radius: 45, ticks: 6, crowd: 2.5 },
-      describe: 'Flings magic bolts. Every 4s she lobs a potion whose puddle keeps hurting: her weapon\'s damage powers the poison, its attack rate widens the puddle.',
+      describe: 'Flings magic bolts. Every 4s, lobs a potion whose puddle keeps hurting: the weapon\'s damage powers the poison, its attack rate widens the puddle.',
     },
   },
   {
-    id: 'ranger', name: 'Rin', title: 'Ranger', icon: '🏹', color: '#c09060', area: 'forest', recruitCost: 1_200, bane: { archetype: 'beast', mult: 3 },
+    id: 'ranger', name: 'Galladair', title: 'Ranger', icon: '🏹', color: '#c09060', area: 'forest', recruitCost: 1_200, bane: { archetype: 'beast', mult: 3 },
     unlock: { event: 'guardian-forest', times: 2 },
-    story: 'Rin tracks the wolves of the Whispering Forest and doesn\'t trust just anyone. Beat the Forest Guardian twice to earn her respect, and her bow is yours.',
+    story: 'Galladair tracks the wolves of the Whispering Forest and doesn\'t trust just anyone. Beat the Forest Guardian twice to earn Galladair\'s respect, and the bow is yours.',
     ability: 'Arrows pierce through lines of enemies. Deals triple damage to Beasts.',
     style: { kind: 'arrow', damageType: 'physical', range: 300, rate: 1, damage: 1, pierce: 3, farm: 1.4, crowd: 2, describe: 'Arrows pierce through up to 4 enemies in a line.' },
-  },
-  {
-    id: 'glimmer', name: 'Glimmer', title: 'Wizard', icon: '🧙', color: '#b07cff', area: 'forest', recruitCost: 600,
-    unlock: { event: 'slimeSwarm', times: 1 },
-    story: 'Glimmer is chasing rumors of a slime that glows with magic. Survive a Slime Swarm in the Whispering Forest, and he\'ll join you to study what\'s left.',
-    ability: 'Every few seconds, hurls a fireball that explodes for area damage. Wields only magic weapons.',
-    slots: [{ kind: 'magic', label: 'Magic weapon' }, { kind: 'armor', label: 'Robe' }, { kind: 'accessory', label: 'Accessory' }],
-    style: {
-      kind: 'fireball', damageType: 'fire', proc: 0.3, range: 260, rate: 0.55, damage: 1.6, farm: 1, crowd: 1,
-      special: { cooldown: 4, damage: 1.75, radius: 55, ticks: 1, crowd: 3, proc: 1 },
-      describe: 'Fires magic bolts. Every 4s he hurls a fireball that explodes: his weapon\'s damage powers the blast, its attack rate widens it.',
-    },
   },
   {
     id: 'gravewarden', name: 'Alric', title: 'Gravewarden', icon: '✝️', color: '#efe6cf', area: 'graveyard', recruitCost: 15_000, bane: { archetype: 'undead', mult: 3 },
@@ -880,6 +882,18 @@ export const HUNTERS: HunterDef[] = [
     story: 'Gus has been digging for treasure under the Old Graveyard, but the dead keep chasing him off. Beat its Guardian three times, and he\'ll share his luck.',
     ability: 'Blasts five pellets at close range. Earns +75% gold from his kills.',
     style: { kind: 'shotgun', damageType: 'physical', range: 150, rate: 0.7, damage: 0.45, pellets: 5, farm: 1.2, crowd: 1, describe: 'A trusty shotgun: five pellets per blast at close range.' },
+  },
+  {
+    id: 'glimmer', name: 'Glimmer', title: 'Wizard', icon: '🧙', color: '#b07cff', area: 'crypt', recruitCost: 250_000,
+    unlock: { event: 'guardian-crypt', times: 1 },
+    story: 'Glimmer came to the Forsaken Crypt to study the old magic sealed inside, but its Guardian won\'t let anyone near. Put it to rest, and Glimmer will lend you a fireball or two.',
+    ability: 'Every few seconds, hurls a fireball that explodes for area damage. Wields only magic weapons.',
+    slots: [{ kind: 'magic', label: 'Magic weapon' }, { kind: 'armor', label: 'Robe' }, { kind: 'accessory', label: 'Accessory' }],
+    style: {
+      kind: 'fireball', damageType: 'fire', proc: 0.3, range: 260, rate: 0.55, damage: 1.6, farm: 1, crowd: 1,
+      special: { cooldown: 4, damage: 1.75, radius: 55, ticks: 1, crowd: 3, proc: 1 },
+      describe: 'Fires magic bolts. Every 4s he hurls a fireball that explodes: his weapon\'s damage powers the blast, its attack rate widens it.',
+    },
   },
   {
     id: 'demonbane', name: 'Sera', title: 'Demonbane', icon: '🗡️', color: '#ff7a3d', area: 'caves', recruitCost: 1_500_000, bane: { archetype: 'demon', mult: 3 },
@@ -956,7 +970,7 @@ export interface SlotDef {
   label: string;
   /** Wilhelm's weapon slots: 'long' powers his sniper shots, 'short' his akimbo pistols. */
   role?: 'long' | 'short';
-  /** Kinds the slot takes, when more than its own `kind` (Mira's weapon slot takes ranged or magic). */
+  /** Kinds the slot takes, when more than its own `kind` (Reginald's weapon slot takes ranged or magic). */
   accepts?: GearKind[];
 }
 
@@ -1063,7 +1077,7 @@ export const GEAR: GearDef[] = [
   { id: 'ironSpear', name: 'Bone Spear', icon: '🔱', kind: 'melee', rarity: 'uncommon', damageType: 'physical', stats: { damage: 0.35 }, recipe: { bone: 10, flesh: 5 } },
   { id: 'magmaGlaive', name: 'Magma Glaive', icon: '🪓', kind: 'melee', rarity: 'veryRare', damageType: 'fire', proc: 0.4, stats: { damage: 0.5, range: 6 }, recipe: { magma: 10, ember: 5 } },
   { id: 'soulLance', name: 'Soulreaver Lance', icon: '⚜️', kind: 'melee', rarity: 'exalted', damageType: 'decay', proc: 0.2, stats: { damage: 0.8, pierce: 0.2 }, recipe: { soul: 8, void: 4 } },
-  // Magic (Mira and Glimmer)
+  // Magic (Reginald and Glimmer)
   { id: 'apprenticeWand', name: 'Apprentice Wand', icon: '🪄', kind: 'magic', rarity: 'common', damageType: 'arcane', proc: 0.15, stats: { damage: 0.15, rate: 0.1 }, recipe: { goo: 8, redgel: 4 } },
   { id: 'gravewoodStaff', name: 'Gravewood Staff', icon: '🪵', kind: 'magic', rarity: 'uncommon', damageType: 'decay', proc: 0.15, stats: { damage: 0.25, rate: 0.1 }, recipe: { flesh: 10, wing: 5 } },
   { id: 'emberFocus', name: 'Ember Focus', icon: '🕯️', kind: 'magic', rarity: 'rare', damageType: 'fire', proc: 0.3, stats: { damage: 0.3, rate: 0.15 }, recipe: { ember: 10, magma: 5 } },

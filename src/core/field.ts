@@ -137,7 +137,7 @@ export interface Puddle {
   r: number;
   life: number;
   tick: number;
-  /** Multiplier on the thrower's shot damage per tick (Mira's potions). */
+  /** Multiplier on the thrower's shot damage per tick (Reginald's potions). */
   dmg: number;
   /** An acid puddle from an Acid proc: fixed damage per tick, of this type. */
   abs?: number;
@@ -551,7 +551,7 @@ export class Field {
     }
   }
 
-  /** Mira's potion / Glimmer's fireball: cast at the nearest monster in range whenever the cooldown is up. */
+  /** Reginald's potion / Glimmer's fireball: cast at the nearest monster in range whenever the cooldown is up. */
   private helperSpecial(h: Helper, dt: number): void {
     const g = this.game;
     const style = hunterDef(h.id).style;

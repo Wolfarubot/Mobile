@@ -224,7 +224,7 @@ describe('Enemies & archetypes', () => {
 });
 
 describe('Hunters', () => {
-  it("Hunters become available through their area's events: Mira after the first Forest Guardian", () => {
+  it("Hunters become available through their area's events: Reginald after the first Forest Guardian", () => {
     const s = newGame(0);
     s.gold = 1e9;
     s.areas.forest.kills = 1e6;
@@ -241,15 +241,11 @@ describe('Hunters', () => {
     expect(g.huntersUnlockedBy('guardian-forest')).toEqual(['ranger']);
     expect(g.recruit('alchemist')).toBe(true);
     expect(g.recruit('alchemist')).toBe(false);
-    // Glimmer joins after surviving a full Slime Swarm; leaving early doesn't count.
-    g.travel('forest');
-    g.startEvent('slimeSwarm');
-    g.travel('graveyard');
+    // Glimmer waits in the Forsaken Crypt for its Guardian to fall.
+    expect(hunterDef('glimmer').area).toBe('crypt');
+    expect(hunterDef('glimmer').unlock).toEqual({ event: 'guardian-crypt', times: 1 });
     expect(g.hunterAvailable('glimmer')).toBe(false);
-    g.travel('forest');
-    g.tick(eventDef('slimeSwarm').cooldown);
-    g.startEvent('slimeSwarm');
-    g.tick(eventDef('slimeSwarm').duration + 0.1);
+    g.state.events['guardian-crypt'].completed = 1;
     expect(g.hunterAvailable('glimmer')).toBe(true);
   });
 
@@ -529,7 +525,7 @@ describe('Equipment', () => {
     expect(g.equip('lance', 0, spear.uid)).toBe(true);
     expect(g.equip('main', 0, bow.uid)).toBe(true);
     expect(g.equip('ranger', 0, bow.uid)).toBe(true);
-    expect(g.equipped('main')[0]).toBeNull(); // moved to Rin
+    expect(g.equipped('main')[0]).toBeNull(); // moved to Galladair
     expect(g.wearerOf(bow.uid)).toEqual({ who: 'ranger', slot: 0 });
     expect(g.equip('gravewarden', 1, null)).toBe(false); // not recruited
   });
@@ -550,7 +546,7 @@ describe('Equipment', () => {
     expect(g.shooterRange('main')).toBe(range + 20);
   });
 
-  it('magic weapons: Glimmer takes only magic, Mira takes ranged or magic, nobody else takes magic', () => {
+  it('magic weapons: Glimmer takes only magic, Reginald takes ranged or magic, nobody else takes magic', () => {
     const g = stocked();
     g.recruit('alchemist');
     const wand = g.craftGear('apprenticeWand')!;
@@ -735,19 +731,19 @@ describe('Equipment', () => {
     for (const gd of GEAR) if (gd.damageType === 'physical') expect(gd.proc ?? 0).toBe(0);
   });
 
-  it('9 areas in order; saves from before the new areas open everything up to their furthest area', () => {
-    expect(AREAS.map((a) => a.id)).toEqual(['forest', 'glade', 'graveyard', 'crypt', 'caves', 'mines', 'peaks', 'cliffs', 'rift']);
+  it('10 areas in order; saves from before the new areas open everything up to their furthest area', () => {
+    expect(AREAS.map((a) => a.id)).toEqual(['forest', 'glade', 'graveyard', 'crypt', 'depths', 'caves', 'mines', 'peaks', 'cliffs', 'rift']);
     const old = JSON.parse(serialize(newGame(0)));
     old.version = 9;
     old.areas.graveyard.unlocked = true;
     old.areas.caves.unlocked = true;
     const s = deserialize(JSON.stringify(old))!;
-    expect(AREAS.filter((a) => s.areas[a.id].unlocked).map((a) => a.id)).toEqual(['forest', 'glade', 'graveyard', 'crypt', 'caves']);
+    expect(AREAS.filter((a) => s.areas[a.id].unlocked).map((a) => a.id)).toEqual(['forest', 'glade', 'graveyard', 'crypt', 'depths', 'caves']);
   });
 
-  it('50 monsters, at least 5 per area, each with a weakness; Guardians stay put', () => {
-    expect(ENEMIES).toHaveLength(50);
-    expect(new Set(ENEMIES.map((e) => e.id)).size).toBe(50);
+  it('55 monsters, at least 5 per area, each with a weakness; Guardians stay put', () => {
+    expect(ENEMIES).toHaveLength(55);
+    expect(new Set(ENEMIES.map((e) => e.id)).size).toBe(55);
     for (const a of AREAS) expect(ENEMIES.filter((e) => e.area === a.id).length).toBeGreaterThanOrEqual(5);
     const g = new Game(newGame(0), noCrit);
     expect(g.guardianType).toBe('redSlime');
@@ -1112,7 +1108,7 @@ describe('Field', () => {
     expect(f.bullets.length).toBeGreaterThan(0);
   });
 
-  it('Mira flings magic bolts and lobs a potion that leaves a damaging puddle on a cooldown', () => {
+  it('Reginald flings magic bolts and lobs a potion that leaves a damaging puddle on a cooldown', () => {
     const { f } = withHelper('alchemist');
     f.enemies.push(tough({ id: 1, x: -150, y: 150 }));
     let puddle = false;

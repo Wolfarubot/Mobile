@@ -368,7 +368,7 @@ export class Game {
     return i >= 0 ? this.equipped(who)[i] : null;
   }
 
-  // ---- Special attacks (Mira's potions, Glimmer's fireballs) ----
+  // ---- Special attacks (Reginald's potions, Glimmer's fireballs) ----
 
   /** Stats of the piece in a Hunter's weapon slot (zeros when empty). Its damage and attack rate power their special. */
   weaponStats(who: Shooter): Partial<Record<GearStat, number>> {
