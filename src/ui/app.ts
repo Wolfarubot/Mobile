@@ -242,7 +242,10 @@ export class AppUI {
     bar.innerHTML = '<i></i><span></span>';
     btn.addEventListener('click', (ev) => {
       ev.stopPropagation();
-      if (g.train(who)) this.refresh();
+      if (g.train(who)) {
+        bumpCard(btn);
+        this.refresh();
+      }
     });
     this.refreshers.push(() => {
       const p = g.trainPurchase(who);
@@ -1259,7 +1262,10 @@ export class AppUI {
     bar.innerHTML = '<i></i><span></span>';
     btn.addEventListener('click', (ev) => {
       ev.stopPropagation();
-      if (g.empower(id)) this.refresh();
+      if (g.empower(id)) {
+        bumpCard(btn);
+        this.refresh();
+      }
     });
     this.refreshers.push(() => {
       const p = g.empowerPurchase(id);
@@ -2064,6 +2070,16 @@ function wearerIcon(who: Wearer): string {
 }
 
 /** Material cost list; with `check`, amounts you can't afford are highlighted. */
+/** Swells the Hunter or monster card holding `from` for a moment (restarting if it's already mid-bump). */
+function bumpCard(from: HTMLElement): void {
+  const card = from.closest<HTMLElement>('.hunter-card, .beast');
+  if (!card) return;
+  card.classList.remove('bump');
+  void card.offsetWidth; // restart the animation on rapid taps
+  card.classList.add('bump');
+  card.addEventListener('animationend', () => card.classList.remove('bump'), { once: true });
+}
+
 /** What a monster drops. */
 function dropHtml(e: EnemyDef): string {
   return `<div class="drop-line">${gemHtml(e.material)} Drops <b>${materialDef(e.material).name}</b></div>`;
