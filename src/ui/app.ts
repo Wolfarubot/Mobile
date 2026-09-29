@@ -12,6 +12,7 @@ import {
   enemyUnlockCost,
   GEAR,
   GEAR_KINDS,
+  GEAR_STATS,
   GEAR_MAX_LEVEL,
   gearCost,
   gearColor,
@@ -36,6 +37,7 @@ import {
   type EnemyDef,
   type EnemyUpgrade,
   type GearDef,
+  type GearStat,
   type HunterDef,
   type MaterialId,
 } from '../core/balance';
@@ -60,6 +62,8 @@ export class AppUI {
   private modalClose: (() => void) | null = null;
   /** The open full-screen Hunter view, with its own refreshers. */
   private detail: { el: HTMLElement; refreshers: Array<() => void> } | null = null;
+  /** The full-screen gear picker, above the Hunter view. */
+  private picker: HTMLElement | null = null;
   private tab: Tab = 'hunters';
 
   constructor(
@@ -539,41 +543,106 @@ export class AppUI {
     return wrap;
   }
 
-  /** Bottom sheet listing gear that fits a slot. */
+  /**
+   * Full-screen gear picker for one slot: the equipped item's card on top, the item you're inspecting
+   * below it (with what changes if you swap), and your whole inventory as a grid at the bottom.
+   */
   private openSlotPicker(who: Wearer, slot: number): void {
+    this.closePicker();
     const g = this.game;
     const def = g.slotsOf(who)[slot];
-    const current = g.equipped(who)[slot];
-    this.showSheet(`${wearerName(who)} · ${def.label}`, (body, close) => {
-      // Only gear nobody is wearing (unequip it from another Hunter first to move it here).
-      const fits = g.state.inventory.filter((it) => gearDef(it.base).kind === def.kind && !g.wearerOf(it.uid)).sort((a, b) => b.level - a.level);
+    const view = el('div', 'hunter-detail picker');
+    view.innerHTML = `
+      <div class="hd-top"><button class="hd-close" aria-label="Close">✕</button><span>${wearerName(who)} · ${def.label}</span></div>
+      <div class="hd-scroll">
+        <div class="section-title"><span>Equipped</span></div>
+        <div class="pk-equipped"></div>
+        <div class="section-title pk-inspect-title"><span>Inspecting</span></div>
+        <div class="pk-inspect"></div>
+        <div class="section-title"><span>Inventory</span><span class="pk-count"></span></div>
+        <div class="inventory pk-grid"></div>
+      </div>`;
+    document.body.appendChild(view);
+    this.picker = view;
+    $('.hd-close', view).addEventListener('click', () => this.closePicker());
+    const fits = (it: GearItem) => gearDef(it.base).kind === def.kind;
+    // Start on the best piece that fits and nobody is wearing.
+    let selected: number | null =
+      g.state.inventory.filter((it) => fits(it) && !g.wearerOf(it.uid)).sort((a, b) => b.level - a.level)[0]?.uid ?? null;
+
+    const render = () => {
+      const current = g.equipped(who)[slot];
+      // Equipped
+      const eq = $('.pk-equipped', view);
       if (current) {
-        const cd = gearDef(current.base);
-        body.appendChild(el('p', 'picker-current', `Equipped: ${cd.icon} ${cd.name} (Lv ${current.level})`));
+        eq.innerHTML = gearCardHtml(current);
         const off = el('button', 'buy secondary-btn', 'Unequip') as HTMLButtonElement;
         off.addEventListener('click', () => {
           g.equip(who, slot, null);
-          close();
+          render();
         });
-        body.appendChild(off);
+        eq.firstElementChild!.appendChild(off);
+      } else {
+        eq.innerHTML = `<div class="gear-card empty"><div class="gc-head"><i>${GEAR_KINDS[def.kind].icon}</i><div><b>Empty</b><small>${def.label} slot</small></div></div></div>`;
       }
-      if (!fits.length) {
-        const p = el('p', '', `No unequipped ${GEAR_KINDS[def.kind].name.toLowerCase()} gear. Craft more in the Equipment tab.`);
-        body.appendChild(p);
-        return;
+      // Inspecting
+      const insp = $('.pk-inspect', view);
+      const item = selected !== null ? g.gearItem(selected) : undefined;
+      $('.pk-inspect-title', view).classList.toggle('hidden', !item);
+      insp.innerHTML = '';
+      if (item) {
+        insp.innerHTML = gearCardHtml(item, current && current.uid !== item.uid ? current : null);
+        const worn = g.wearerOf(item.uid);
+        const btn = el('button', 'buy') as HTMLButtonElement;
+        if (current?.uid === item.uid) {
+          btn.textContent = 'Equipped';
+          btn.disabled = true;
+        } else if (!fits(item)) {
+          btn.textContent = `Doesn't fit the ${def.label} slot`;
+          btn.disabled = true;
+        } else if (worn) {
+          btn.textContent = `Worn by ${wearerName(worn.who)}`;
+          btn.disabled = true;
+        } else {
+          btn.textContent = current ? 'Equip (swap)' : 'Equip';
+        }
+        btn.addEventListener('click', () => {
+          if (!g.equip(who, slot, item.uid)) return;
+          selected = current?.uid ?? null; // keep the old piece in view for comparison
+          render();
+        });
+        insp.firstElementChild!.appendChild(btn);
       }
-      for (const it of fits) {
+      // Inventory grid: everything, with what fits this slot first.
+      const grid = $('.pk-grid', view);
+      grid.innerHTML = '';
+      const inv = [...g.state.inventory].sort((a, b) => Number(fits(b)) - Number(fits(a)) || b.level - a.level);
+      $('.pk-count', view).textContent = `${inv.length} item${inv.length === 1 ? '' : 's'}`;
+      if (!inv.length) grid.innerHTML = '<p class="empty-inv">Empty. Craft gear in the Equipment tab.</p>';
+      for (const it of inv) {
         const gd = gearDef(it.base);
-        const row = el('button', 'pick-row rar') as HTMLButtonElement;
-        row.style.setProperty('--rc', gearColor(gd.id));
-        row.innerHTML = `<i>${gd.icon}</i><div><b>${gd.name}</b> <small>${RARITIES[gd.rarity].name} · Lv ${it.level}</small><div class="sub">${describeGear(gearStats(gd, it.level))}</div></div>`;
-        row.addEventListener('click', () => {
-          g.equip(who, slot, it.uid);
-          close();
+        const worn = g.wearerOf(it.uid);
+        const tile = el('button', `inv-tile rar${fits(it) ? '' : ' misfit'}${it.uid === selected ? ' selected' : ''}`) as HTMLButtonElement;
+        tile.style.setProperty('--rc', gearColor(gd.id));
+        tile.innerHTML = `<i>${gd.icon}</i><span>${gd.name}</span><small>Lv ${it.level}</small>${worn ? `<em>${wearerIcon(worn.who)}</em>` : ''}`;
+        tile.addEventListener('click', () => {
+          selected = it.uid;
+          render();
+          $('.hd-scroll', view).scrollTo({ top: 0, behavior: 'smooth' });
         });
-        body.appendChild(row);
+        grid.appendChild(tile);
       }
-    });
+    };
+    render();
+  }
+
+  /** Closes the gear picker (back to the Hunter view). Returns false if it wasn't open. */
+  private closePicker(): boolean {
+    if (!this.picker) return false;
+    this.picker.remove();
+    this.picker = null;
+    this.refresh();
+    return true;
   }
 
   /** Details for one inventory piece: upgrade or salvage. */
@@ -1019,7 +1088,7 @@ export class AppUI {
 
   /** Closes the open modal, else the Hunter view (Android back button). Returns false if neither was open. */
   closeModal(): boolean {
-    if (!this.modalClose) return this.closeHunterDetail();
+    if (!this.modalClose) return this.closePicker() || this.closeHunterDetail();
     this.modalClose();
     return true;
   }
@@ -1064,6 +1133,46 @@ function yieldHtml(r: FarmRates, where: string): string {
   const down = Math.max(0, ...Object.values(r.stunned).map((x) => x ?? 0));
   const warn = down >= 0.05 ? `<div class="knockouts">💫 Stunned ${Math.round(down * 100)}% of the time: too weak for this area</div>` : '';
   return `<div class="yield">${where ? `${where}: ` : ''}≈ 🪙 ${fmt(r.gold * 60)}/min${mats ? ` · ${mats} /min` : ''}</div>${warn}`;
+}
+
+const STAT_LABELS: Record<GearStat, string> = {
+  damage: 'damage',
+  rate: 'attack rate',
+  range: 'range',
+  crit: 'crit',
+  stun: 'stun time',
+  guard: 'shield',
+  gold: 'gold',
+  drops: 'drops',
+  radius: 'area size',
+  pierce: 'pierce',
+};
+
+/** A difference in one stat, e.g. "+20% damage" or "−3 range". */
+function statDelta(k: GearStat, d: number): string {
+  const flat = k === 'range' || k === 'guard' || k === 'pierce';
+  const v = flat ? Math.round(Math.abs(d)) : `${Math.round(Math.abs(d) * 100)}%`;
+  const sign = k === 'stun' ? (d > 0 ? '−' : '+') : d > 0 ? '+' : '−';
+  return `${sign}${v} ${STAT_LABELS[k]}`;
+}
+
+/** A piece of gear's full card; with `vs`, each stat shows how it compares to that piece. */
+function gearCardHtml(it: GearItem, vs: GearItem | null = null): string {
+  const gd = gearDef(it.base);
+  const st = gearStats(gd, it.level);
+  const other = vs ? gearStats(gearDef(vs.base), vs.level) : {};
+  const keys = [...new Set([...Object.keys(st), ...(vs ? Object.keys(other) : [])])] as GearStat[];
+  const lines = keys
+    .map((k) => {
+      const a = st[k] ?? 0;
+      const b = other[k] ?? 0;
+      const d = a - b;
+      const shown = a > 0 && describeGear({ [k]: a }) ? GEAR_STATS[k](a) : `<s>no ${STAT_LABELS[k]}</s>`;
+      const cmp = vs && Math.abs(d) > 1e-9 ? `<span class="${d > 0 ? 'up' : 'down'}">${d > 0 ? '▲' : '▼'} ${statDelta(k, d)}</span>` : '';
+      return `<li>${shown}${cmp}</li>`;
+    })
+    .join('');
+  return `<div class="gear-card rar" style="--rc:${gearColor(gd.id)}"><div class="gc-head"><i>${gd.icon}</i><div><b>${gd.name}</b><small>${RARITIES[gd.rarity].name} ${GEAR_KINDS[gd.kind].name.toLowerCase()} · Lv ${it.level} / ${GEAR_MAX_LEVEL}</small></div></div><ul class="gc-stats">${lines}</ul></div>`;
 }
 
 /** How many not-yet-recruited Hunters the Hunters tab shows. */

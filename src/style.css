@@ -1401,3 +1401,84 @@ button {
 .tnode.available .tn-icon {
   box-shadow: 0 0 0 3px #3fcf6a66, 0 0 14px #3fcf6a88;
 }
+
+/* ---- Gear picker: equipped vs inspected, inventory grid ---- */
+.hunter-detail.picker {
+  z-index: 16;
+}
+.gear-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--card);
+  border: 1px solid #ffffff22;
+}
+.gear-card.rar {
+  border-color: var(--rc);
+  background: color-mix(in srgb, var(--rc) 10%, var(--card));
+}
+.gear-card.empty {
+  border-style: dashed;
+  opacity: 0.7;
+}
+.gc-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.gc-head i {
+  font-style: normal;
+  font-size: 34px;
+  width: 48px;
+  text-align: center;
+}
+.gc-head div {
+  display: flex;
+  flex-direction: column;
+}
+.gc-head b {
+  font-size: 17px;
+}
+.gear-card.rar .gc-head b {
+  color: var(--rc);
+}
+.gc-head small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.gc-stats {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 3px;
+  font-size: 13px;
+}
+.gc-stats li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.gc-stats s {
+  color: var(--muted);
+}
+.gc-stats .up {
+  color: var(--good);
+  font-weight: 800;
+}
+.gc-stats .down {
+  color: var(--danger);
+  font-weight: 800;
+}
+.gear-card .buy {
+  width: 100%;
+  padding: 10px;
+  font-size: 15px;
+}
+.inv-tile.misfit {
+  opacity: 0.35;
+}
+.inv-tile.selected {
+  box-shadow: 0 0 0 3px var(--accent);
+}
