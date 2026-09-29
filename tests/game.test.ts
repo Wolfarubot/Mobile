@@ -34,7 +34,6 @@ import {
   MAIN_SESSIONS_AFTER_ASCEND,
   mainBulkCost,
   SLAYER_TREE,
-  BONDS,
   ASCENDED_TREES,
   MAX_LEVEL,
   SESSIONS_AFTER_ASCEND,
@@ -565,28 +564,6 @@ describe('Shops', () => {
     const back = deserialize(serialize(g.state))!;
     expect(back.main.ascendAt).toBe(t.ascendAt);
     expect(back.main.skills2).toEqual(t.skills2);
-  });
-
-  it("Guild Bonds: a recruited Hunter at Lv 10 gives your Hunter a bonus that grows with their level", () => {
-    const g = rich();
-    const bond = BONDS.find((b) => b.hunter === 'alchemist')!;
-    expect(bond.name).toBe("Reginald's Remarkable Resources");
-    const drop = () => g.enemyStats('greenSlime').dropChance;
-    const base = drop();
-    // Not recruited, or recruited below Lv 10: nothing.
-    g.state.hunters.alchemist.trains = 1000;
-    expect(g.bondActive(bond)).toBe(false);
-    g.recruit('alchemist');
-    g.state.hunters.alchemist.trains = 0;
-    expect(g.bondActive(bond)).toBe(false);
-    expect(drop()).toBe(base);
-    // Lv 20: +2% materials, in every area.
-    while (g.levelOf('alchemist') < 20) g.state.hunters.alchemist.trains++;
-    expect(g.bondActive(bond)).toBe(true);
-    expect(g.bondValue(bond)).toBeCloseTo(0.02);
-    expect(drop() / base).toBeCloseTo(1.02);
-    // Every Guild Hunter has one Bond.
-    expect(new Set(BONDS.map((b) => b.hunter)).size).toBe(HUNTERS.length);
   });
 
   it("the Slayer's pace: ascending costs ~1.4x a Guild Hunter's, the climb to Lv 200 ~2x theirs to Lv 100", () => {

@@ -2568,18 +2568,6 @@ canvas {
   visibility: hidden;
 }
 
-/* ---- Guild Bonds: your Hunter's nodes from the Guild Hunters ---- */
-.bonds {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px 4px;
-  padding: 10px 0 6px;
-}
-.bonds .tnode {
-  position: static;
-  transform: none;
-  width: auto;
-}
 .tree-switch {
   margin-top: 4px;
 }

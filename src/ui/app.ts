@@ -1,9 +1,6 @@
 import {
   ASCEND_LEVEL,
   ASCEND_NODE,
-  BOND_LEVEL,
-  BONDS,
-  type BondDef,
   MAX_LEVEL,
   MAIN_ASCEND_LEVEL,
   MAIN_MAX_LEVEL,
@@ -470,10 +467,6 @@ export class AppUI {
       skills.append(sw, newTree, firstTree);
       pick(this.treePick.get(who) ?? 'ascended');
     } else skills.appendChild(firstTree);
-    if (who === 'main') {
-      skills.appendChild(sectionTitle('Guild Bonds'));
-      skills.appendChild(this.bondView());
-    }
 
     const spCount = $('.sp-count', view);
     this.refreshers.push(() => {
@@ -637,47 +630,6 @@ export class AppUI {
       });
     });
     return wrap;
-  }
-
-  /** Your Hunter's Guild Bonds: one per Guild Hunter, open once they're recruited and at BOND_LEVEL. */
-  private bondView(): HTMLElement {
-    const g = this.game;
-    const wrap = el('div', 'skills');
-    const head = el('div', 'skills-head', `Each Guild Hunter teaches you a Bond at Lv ${BOND_LEVEL}. Bonds cost no skill points and grow with that Hunter's level.`);
-    const grid = el('div', 'bonds');
-    const buttons = BONDS.map((b) => {
-      const btn = el('button', 'tnode') as HTMLButtonElement;
-      btn.innerHTML = `<span class="tn-icon">${b.icon}<em></em></span><span class="tn-name">${b.name}</span>`;
-      btn.addEventListener('click', () => this.openBond(b));
-      grid.appendChild(btn);
-      return { b, btn };
-    });
-    wrap.append(head, grid);
-    this.refreshers.push(() => {
-      for (const { b, btn } of buttons) {
-        const on = g.bondActive(b);
-        btn.classList.toggle('learned', on);
-        btn.classList.toggle('locked', !on);
-        $('em', btn).textContent = g.state.hunters[b.hunter].recruited ? `Lv ${g.levelOf(b.hunter)}` : '🔒';
-      }
-    });
-    return wrap;
-  }
-
-  /** A Guild Bond's details: what it does, what it gives now, and what opens it. */
-  private openBond(b: BondDef): void {
-    const g = this.game;
-    const def = hunterDef(b.hunter);
-    const pct = (v: number) => `${+(v * 100).toFixed(2)}%`;
-    this.showSheet(`${b.icon} ${b.name}`, (body) => {
-      const recruited = g.state.hunters[b.hunter].recruited;
-      const level = recruited ? g.levelOf(b.hunter) : 0;
-      body.innerHTML = `<p class="gear-now">${b.desc}</p>${
-        g.bondActive(b)
-          ? `<p>✅ Active: <b>+${pct(g.bondValue(b))}</b> (${def.name} is Lv ${level}).</p>`
-          : `<p>🔒 ${recruited ? `Train ${def.name} to Lv ${BOND_LEVEL} to open this Bond (now Lv ${level}).` : `Recruit ${def.icon} ${def.name}, then train them to Lv ${BOND_LEVEL}.`}</p>`
-      }`;
-    });
   }
 
   /** A tree node's details, with a button to spend a point on it. */

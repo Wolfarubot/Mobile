@@ -2,10 +2,6 @@ import {
   ASCEND_LEVEL,
   ASCEND_NODE,
   ASCENDED_TREES,
-  BOND_LEVEL,
-  BONDS,
-  type BondDef,
-  type BondStat,
   affordableCount,
   MAIN_ASCEND_LEVEL,
   MAIN_ASCEND_NODE,
@@ -195,40 +191,11 @@ export class Game {
 
   /** Upgrades boost every Hunter. */
   get itemDamageMult(): number {
-    return (1 + 0.25 * this.item('whetstone')) * 1.5 ** this.item('engine') * (1 + this.bond('damage'));
+    return (1 + 0.25 * this.item('whetstone')) * 1.5 ** this.item('engine');
   }
 
   get itemRateMult(): number {
-    return (1 + 0.1 * this.item('gloves')) * (1 + 0.05 * this.item('engine')) * (1 + this.bond('rate'));
-  }
-
-  // ---- Guild Bonds ----
-
-  /** Is this Bond open: its Hunter recruited and at BOND_LEVEL or above? */
-  bondActive(b: BondDef): boolean {
-    return this.state.hunters[b.hunter].recruited && this.levelOf(b.hunter) >= BOND_LEVEL;
-  }
-
-  /** What a Bond gives right now (0 until it opens). */
-  bondValue(b: BondDef): number {
-    return this.bondActive(b) ? b.perLevel * this.levelOf(b.hunter) : 0;
-  }
-
-  private bondCache: { key: string; out: Record<BondStat, number> } | null = null;
-
-  /** All open Bonds' bonus to one stat (cached until a Guild Hunter trains, ascends or is recruited). */
-  bond(stat: BondStat): number {
-    let key = '';
-    for (const b of BONDS) {
-      const h = this.state.hunters[b.hunter];
-      key += `${h.recruited ? 1 : 0}.${h.trains}.${h.ascendAt ?? ''},`;
-    }
-    if (this.bondCache?.key !== key) {
-      const out: Record<BondStat, number> = { drops: 0, gold: 0, damage: 0, rate: 0, stun: 0, crit: 0, tapPower: 0, tapSize: 0 };
-      for (const b of BONDS) out[b.stat] += this.bondValue(b);
-      this.bondCache = { key, out };
-    }
-    return this.bondCache.out[stat];
+    return (1 + 0.1 * this.item('gloves')) * (1 + 0.05 * this.item('engine'));
   }
 
   /** Your main Hunter's damage per shot. */
@@ -242,12 +209,12 @@ export class Game {
 
   /** Damage of a tap blast (Tap Power nodes). */
   get tapDamage(): number {
-    return this.damage * TAP_DAMAGE_MULT * (1 + this.tree('main').tapPower + this.bond('tapPower'));
+    return this.damage * TAP_DAMAGE_MULT * (1 + this.tree('main').tapPower);
   }
 
   /** Radius of a tap blast in world units (Tap Size nodes). */
   get tapRadius(): number {
-    return TAP_RADIUS * (1 + this.tree('main').tapSize + this.bond('tapSize'));
+    return TAP_RADIUS * (1 + this.tree('main').tapSize);
   }
 
   private skillDamageMult(who: Wearer): number {
@@ -279,7 +246,7 @@ export class Game {
 
   /** Camp-wide crit chance (Soul Lantern); gear adds per Hunter via critChanceOf. */
   get critChance(): number {
-    return BASE_CRIT_CHANCE + 0.04 * this.item('lantern') + this.bond('crit');
+    return BASE_CRIT_CHANCE + 0.04 * this.item('lantern');
   }
 
   critChanceOf(shooter: Shooter): number {
@@ -324,11 +291,11 @@ export class Game {
   stunTime(boss = false, shooter: Shooter = 'main'): number {
     const recovery = SKILL_RECOVERY ** this.tree(shooter).recovery;
     const gear = 1 - Math.min(GEAR_STUN_CAP, this.gear(shooter).stun);
-    return (boss ? BOSS_STUN_TIME : STUN_TIME) * recovery * 0.88 ** this.item('bonemail') * gear * (1 - this.bond('stun'));
+    return (boss ? BOSS_STUN_TIME : STUN_TIME) * recovery * 0.88 ** this.item('bonemail') * gear;
   }
 
   get goldMult(): number {
-    return (1 + 0.25 * this.item('idol')) * (1 + this.bond('gold'));
+    return 1 + 0.25 * this.item('idol');
   }
 
   /**
@@ -740,7 +707,7 @@ export class Game {
       speed: area.speed * def.speed * (1 + evo.speed) * swarm.speed,
       gold: area.gold * def.gold * emp('gold') * (1 + evo.gold) * this.goldMult,
       spawnRate: b.unlocked ? def.spawn * (1 + evo.spawn) * (1 + 0.2 * this.item('lure')) * swarm.spawn : 0,
-      dropChance: BASE_DROP_CHANCE * (1 + 0.25 * this.item('pouch')) * emp('drops') * (1 + evo.drops) * (1 + this.bond('drops')),
+      dropChance: BASE_DROP_CHANCE * (1 + 0.25 * this.item('pouch')) * emp('drops') * (1 + evo.drops),
       material: def.material,
     };
   }
