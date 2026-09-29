@@ -127,7 +127,7 @@ export interface GameState {
   };
 }
 
-export const SAVE_VERSION = 9;
+export const SAVE_VERSION = 10;
 
 const zeroes = <K extends string>(ids: { id: K }[]): Record<K, number> =>
   Object.fromEntries(ids.map((x) => [x.id, 0])) as Record<K, number>;
@@ -243,8 +243,9 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
       EVENTS.map((e) => {
         const saved = (data.events as Record<string, Partial<Record<keyof EventState, unknown>>> | undefined)?.[e.id];
         const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
-        // Older saves didn't count completions: a Guardian whose next area is open was beaten at least once.
-        const beaten = e.kind === 'guardian' && AREAS.some((a, i) => AREAS[i - 1]?.id === e.area && (data.areas as Record<string, { unlocked?: boolean }> | undefined)?.[a.id]?.unlocked);
+        // Older saves didn't count completions: a Guardian with any later area open was beaten at least once.
+        const at = AREAS.findIndex((a) => a.id === e.area);
+        const beaten = e.kind === 'guardian' && AREAS.some((a, i) => i > at && (data.areas as Record<string, { unlocked?: boolean }> | undefined)?.[a.id]?.unlocked);
         const completed = typeof saved?.completed === 'number' ? num(saved.completed) : beaten ? 1 : 0;
         return [e.id, { cooldown: num(saved?.cooldown), runs: num(saved?.runs), completed }];
       }),
@@ -279,6 +280,9 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
   if (data.equipment && typeof data.equipment === 'object')
     for (const [who, slots] of Object.entries(data.equipment as Record<string, unknown>))
       if (Array.isArray(slots)) state.equipment[who as Wearer] = slots.map((u) => (typeof u === 'number' && uids.has(u) ? u : null));
+  // v9 -> v10: new areas were added between the old ones. Everything before your furthest area is open.
+  const furthest = AREAS.reduce((last, a, i) => (state.areas[a.id].unlocked ? i : last), 0);
+  for (let i = 0; i <= furthest; i++) state.areas[AREAS[i].id].unlocked = true;
   // v8 -> v9: Glimmer's slots went from Robe · Focus · Focus to Magic weapon · Robe · Accessory.
   const glimmer = state.equipment.glimmer;
   if (((data.version as number) ?? 1) < 9 && glimmer) state.equipment.glimmer = [null, glimmer[0] ?? null, glimmer[1] ?? null];

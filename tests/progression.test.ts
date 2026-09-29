@@ -166,16 +166,20 @@ export function simulatePlayer(days: number) {
 }
 
 describe('progression pacing', () => {
-  it('a typical player unlocks the Graveyard in their first session, then each area takes days', () => {
+  it('a typical player opens the Faerie Glade in their first session, then new areas every day or few', () => {
     const { unlockedAt: r } = simulatePlayer(14);
     // SIM_OUT=file.json writes when each area unlocked, in hours.
     if (process.env.SIM_OUT) writeFileSync(process.env.SIM_OUT, JSON.stringify(Object.fromEntries(Object.entries(r).map(([k, v]) => [k, +(v! / 3600).toFixed(1)]))));
-    expect(r.graveyard).toBeLessThan(40 * 60); // first session
-    expect(r.caves).toBeGreaterThan(12 * H);
-    expect(r.caves).toBeLessThan(2 * 24 * H);
-    expect(r.peaks).toBeGreaterThan(2 * 24 * H);
-    expect(r.peaks).toBeLessThan(5 * 24 * H);
-    expect(r.rift).toBeGreaterThan(5 * 24 * H);
+    expect(r.glade).toBeLessThan(40 * 60); // first session
+    expect(r.graveyard).toBeGreaterThan(4 * H);
+    expect(r.graveyard).toBeLessThan(36 * H);
+    expect(r.caves).toBeGreaterThan(24 * H);
+    expect(r.caves).toBeLessThan(3 * 24 * H);
+    expect(r.peaks).toBeGreaterThan(3 * 24 * H);
+    expect(r.peaks).toBeLessThan(8 * 24 * H);
+    expect(r.cliffs).toBeGreaterThan(6 * 24 * H);
+    // The Void Rift is the long-term goal: weeks away.
+    expect(r.rift ?? Infinity).toBeGreaterThan(10 * 24 * H);
   }, 900_000);
 });
 

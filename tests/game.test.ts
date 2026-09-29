@@ -78,14 +78,15 @@ describe('Areas', () => {
     expect(g.challengeGuardian()).toBe(true);
     g.bossSpawned();
     g.registerKill(g.guardianType, true);
-    expect(g.isAreaUnlocked('graveyard')).toBe(true);
+    expect(g.isAreaUnlocked('glade')).toBe(true);
+    expect(g.isAreaUnlocked('graveyard')).toBe(false); // one area at a time
     expect(g.lockedNext).toBeNull();
     expect(g.state.stats.guardians).toBe(1);
     // Travel both ways; nothing gets re-locked.
-    expect(g.travel('graveyard')).toBe(true);
-    expect(g.roster().map((e) => e.id)).toEqual(['skeleton']);
+    expect(g.travel('glade')).toBe(true);
+    expect(g.roster().map((e) => e.id)).toEqual(['toadstool']);
     expect(g.travel('forest')).toBe(true);
-    expect(g.isAreaUnlocked('graveyard')).toBe(true);
+    expect(g.isAreaUnlocked('glade')).toBe(true);
   });
 
   it('a Guardian that times out just leaves; you can try again after the cooldown', () => {
@@ -586,6 +587,16 @@ describe('Equipment', () => {
     expect(before - p.hp).toBeCloseTo(plain * (1 + STATUS.corrode.amp), -3);
   });
 
+  it('9 areas in order; saves from before the new areas open everything up to their furthest area', () => {
+    expect(AREAS.map((a) => a.id)).toEqual(['forest', 'glade', 'graveyard', 'crypt', 'caves', 'mines', 'peaks', 'cliffs', 'rift']);
+    const old = JSON.parse(serialize(newGame(0)));
+    old.version = 9;
+    old.areas.graveyard.unlocked = true;
+    old.areas.caves.unlocked = true;
+    const s = deserialize(JSON.stringify(old))!;
+    expect(AREAS.filter((a) => s.areas[a.id].unlocked).map((a) => a.id)).toEqual(['forest', 'glade', 'graveyard', 'crypt', 'caves']);
+  });
+
   it('50 monsters, at least 5 per area, each with a weakness; Guardians stay put', () => {
     expect(ENEMIES).toHaveLength(50);
     expect(new Set(ENEMIES.map((e) => e.id)).size).toBe(50);
@@ -786,8 +797,8 @@ describe('Events', () => {
     expect(g.eventCooldown('guardian-forest')).toBe(GUARDIAN_COOLDOWN);
     expect(g.startEvent('guardian-forest')).toBe(false); // already running
     g.bossSpawned();
-    g.registerKill(g.guardianType, true); // win: graveyard opens
-    expect(g.isAreaUnlocked('graveyard')).toBe(true);
+    g.registerKill(g.guardianType, true); // win: the Faerie Glade opens
+    expect(g.isAreaUnlocked('glade')).toBe(true);
     expect(g.eventReady('guardian-forest')).toBe(false); // cooling down
     g.state.lastSeen = 0;
     g.applyOffline(GUARDIAN_COOLDOWN * 1000);
