@@ -1036,19 +1036,19 @@ describe('Saves', () => {
     s.settings.name = 'Wolfa';
     s.flags.eventsIntro = true;
     const back = deserialize(serialize(s))!;
-    expect(back.settings).toEqual({ leftHanded: true, name: 'Wolfa', tabOrder: ['hunters', 'equipment', 'beasts', 'events', 'areas'] });
+    expect(back.settings).toEqual({ leftHanded: true, name: 'Wolfa', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'] });
     expect(back.flags).toEqual({ eventsIntro: true, welcome: false, trainIntro: false });
     const old = JSON.parse(serialize(newGame(0)));
     delete old.settings;
     delete old.flags;
-    expect(deserialize(JSON.stringify(old))!.settings).toEqual({ leftHanded: false, name: '', tabOrder: ['hunters', 'equipment', 'beasts', 'events', 'areas'] });
+    expect(deserialize(JSON.stringify(old))!.settings).toEqual({ leftHanded: false, name: '', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'] });
     // A saved tab order survives; junk is dropped and missing tabs are appended.
     const custom = newGame(0);
-    custom.settings.tabOrder = ['areas', 'events', 'hunters', 'beasts', 'equipment'];
-    expect(deserialize(serialize(custom))!.settings.tabOrder).toEqual(['areas', 'events', 'hunters', 'beasts', 'equipment']);
+    custom.settings.tabOrder = ['areas', 'events', 'hunters', 'beasts', 'inventory'];
+    expect(deserialize(serialize(custom))!.settings.tabOrder).toEqual(['areas', 'events', 'hunters', 'beasts', 'inventory']);
     const broken = JSON.parse(serialize(newGame(0)));
-    broken.settings.tabOrder = ['areas', 'nope', 'areas', 'events'];
-    expect(deserialize(JSON.stringify(broken))!.settings.tabOrder).toEqual(['areas', 'events', 'hunters', 'equipment', 'beasts']);
+    broken.settings.tabOrder = ['areas', 'nope', 'areas', 'events', 'equipment'];
+    expect(deserialize(JSON.stringify(broken))!.settings.tabOrder).toEqual(['areas', 'events', 'inventory', 'hunters', 'beasts']);
     expect(deserialize(JSON.stringify(old))!.flags.welcome).toBe(true); // existing players skip the welcome
     expect(newGame(0).flags.welcome).toBe(false); // a brand-new game shows it
     expect(deserialize(JSON.stringify(old))!.flags.trainIntro).toBe(true);

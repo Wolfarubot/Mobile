@@ -53,6 +53,8 @@ import { spriteUrl } from '../render/sprites';
 import { applyAreaTheme } from './theme';
 
 type Tab = TabId;
+const INV_SUBS = ['materials', 'equipment', 'crafting'] as const;
+type InvSub = (typeof INV_SUBS)[number];
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string, root: ParentNode = document) => root.querySelector(sel) as T;
 
@@ -69,6 +71,8 @@ export class AppUI {
   /** The full-screen gear picker, above the Hunter view. */
   private picker: HTMLElement | null = null;
   private tab: Tab = 'hunters';
+  /** The open sub-tab of the Inventory tab. */
+  private invSub: InvSub = 'materials';
   /** The area selected in the Areas tab. */
   private selectedArea: AreaId | null = null;
 
@@ -102,7 +106,7 @@ export class AppUI {
     if (tab === 'hunters') this.buildHunters();
     else if (tab === 'areas') this.buildAreas();
     else if (tab === 'beasts') this.buildBestiary();
-    else if (tab === 'equipment') this.buildEquipment();
+    else if (tab === 'inventory') this.buildInventory();
     else this.buildEvents();
     this.panel.scrollTop = scroll;
     this.refresh();
@@ -125,7 +129,9 @@ export class AppUI {
     const badge = $('#eventsBadge');
     badge.textContent = String(ready);
     badge.classList.toggle('hidden', ready <= 0);
-    $('#forgeBadge').classList.toggle('hidden', !ITEMS.some((it) => g.canCraft(it.id)));
+    const craftable = ITEMS.some((it) => g.canCraft(it.id));
+    $('#forgeBadge').classList.toggle('hidden', !craftable);
+    this.panel.querySelector('.craft-dot')?.classList.toggle('hidden', !craftable);
     $('#beastBadge').classList.toggle(
       'hidden',
       !ENEMIES.some((e) => !s.bestiary[e.id].unlocked && g.isAreaUnlocked(e.area) && s.gold >= enemyUnlockCost(e)),
@@ -628,7 +634,7 @@ export class AppUI {
       grid.innerHTML = '';
       const inv = [...g.state.inventory].sort((a, b) => Number(fits(b)) - Number(fits(a)) || b.level - a.level);
       $('.pk-count', view).textContent = `${inv.length} item${inv.length === 1 ? '' : 's'}`;
-      if (!inv.length) grid.innerHTML = '<p class="empty-inv">Empty. Craft gear in the Equipment tab.</p>';
+      if (!inv.length) grid.innerHTML = '<p class="empty-inv">Empty. Craft gear in Inventory → Crafting.</p>';
       for (const it of inv) {
         const gd = gearDef(it.base);
         const worn = g.wearerOf(it.uid);
@@ -1114,12 +1120,40 @@ export class AppUI {
     });
   }
 
-  // ---- Equipment tab (materials → gear and Camp Upgrades) ----
+  // ---- Inventory tab: sub-tabs for Materials, Equipment (crafted gear) and Crafting (gear + Camp Upgrades) ----
 
-  private buildEquipment(): void {
+  private buildInventory(): void {
+    const bar = el('div', 'subtabs inv-subtabs');
+    bar.innerHTML = `<button data-sub="materials">💎 Materials</button><button data-sub="equipment">🛡️ Equipment</button><button data-sub="crafting">🔨 Crafting <span class="badge dot hidden craft-dot"></span></button>`;
+    this.panel.appendChild(bar);
+    const panes = {} as Record<InvSub, HTMLElement>;
+    for (const sub of INV_SUBS) {
+      panes[sub] = el('div', 'inv-pane');
+      this.panel.appendChild(panes[sub]);
+    }
+    const show = (sub: InvSub) => {
+      this.invSub = sub;
+      bar.querySelectorAll<HTMLElement>('button').forEach((b) => b.classList.toggle('on', b.dataset.sub === sub));
+      for (const k of INV_SUBS) panes[k].classList.toggle('hidden', k !== sub);
+    };
+    bar.querySelectorAll<HTMLButtonElement>('button').forEach((b) =>
+      b.addEventListener('click', () => {
+        show(b.dataset.sub as InvSub);
+        this.panel.scrollTop = 0;
+      }),
+    );
+    this.buildMaterials(panes.materials);
+    this.buildGearList(panes.equipment);
+    this.buildCrafting(panes.crafting);
+    show(this.invSub);
+  }
+
+  /** Every material, with how many you hold and which monster drops it (hidden until you've met it). */
+  private buildMaterials(pane: HTMLElement): void {
     const g = this.game;
     const mats = el('div', 'mats');
-    this.panel.appendChild(mats);
+    pane.appendChild(mats);
+    pane.appendChild(el('p', 'hd-note', 'Monsters drop materials when slain. Spend them in Crafting.'));
     this.refreshers.push(() => {
       mats.innerHTML = MATERIALS.map((m) => {
         const source = ENEMIES.find((e) => e.material === m.id)!;
@@ -1128,20 +1162,23 @@ export class AppUI {
         return `<div class="mat ${known ? '' : 'unknown'}">${gemHtml(m.id)}<span>${known ? m.name : hint}</span><b>${known ? fmt(g.state.materials[m.id]) : ''}</b></div>`;
       }).join('');
     });
+  }
 
-    // Inventory: every crafted piece; tap for details.
-    const invTitle = sectionTitle('Inventory');
-    this.panel.appendChild(invTitle);
+  /** Every crafted piece; tap one for details. */
+  private buildGearList(pane: HTMLElement): void {
+    const g = this.game;
+    const invTitle = sectionTitle('Equipment');
+    pane.appendChild(invTitle);
     const inv = el('div', 'inventory');
-    this.panel.appendChild(inv);
-    let invKey = '';
+    pane.appendChild(inv);
+    let invKey: string | null = null;
     this.refreshers.push(() => {
       const k = g.state.inventory.map((it) => `${it.uid}:${it.level}:${g.wearerOf(it.uid)?.who ?? ''}`).join('|');
       if (k === invKey) return;
       invKey = k;
-      invTitle.innerHTML = `<span>Inventory</span><span>${g.state.inventory.length} item${g.state.inventory.length === 1 ? '' : 's'}</span>`;
+      invTitle.innerHTML = `<span>Equipment</span><span>${g.state.inventory.length} item${g.state.inventory.length === 1 ? '' : 's'}</span>`;
       inv.innerHTML = '';
-      if (!g.state.inventory.length) inv.innerHTML = '<p class="empty-inv">Empty. Craft equipment below, then equip it from the Hunters tab.</p>';
+      if (!g.state.inventory.length) inv.innerHTML = '<p class="empty-inv">Empty. Craft equipment in Crafting, then equip it from a Hunter\'s card.</p>';
       for (const it of g.state.inventory) {
         const gd = gearDef(it.base);
         const worn = g.wearerOf(it.uid);
@@ -1152,23 +1189,27 @@ export class AppUI {
         inv.appendChild(tile);
       }
     });
+  }
 
-    this.panel.appendChild(sectionTitle('Craft Equipment'));
-    for (const gd of GEAR) this.buildGearRecipe(gd);
+  /** Gear recipes you know, then Camp Upgrades. */
+  private buildCrafting(pane: HTMLElement): void {
+    const g = this.game;
+    pane.appendChild(sectionTitle('Craft Equipment'));
+    for (const gd of GEAR) this.buildGearRecipe(gd, pane);
     const lockedGear = GEAR.filter((gd) => !this.gearKnown(gd)).length;
     if (lockedGear) {
       const teaser = el('div', 'card');
       teaser.innerHTML = `<p style="margin:0">🔒 ${lockedGear} more recipes need materials from monsters you haven't met yet.</p>`;
-      this.panel.appendChild(teaser);
+      pane.appendChild(teaser);
     }
 
-    this.panel.appendChild(sectionTitle('Camp Upgrades'));
+    pane.appendChild(sectionTitle('Camp Upgrades'));
     for (const it of ITEMS) {
       const row = el('div', 'row');
       row.innerHTML = `<div class="icon">${it.icon}</div><div class="info"><div class="name"></div><div class="sub"></div><div class="cost"></div></div><button class="buy">Craft</button>`;
       const btn = $<HTMLButtonElement>('.buy', row);
       btn.addEventListener('click', () => g.craft(it.id) && this.refresh());
-      this.panel.appendChild(row);
+      pane.appendChild(row);
       this.refreshers.push(() => {
         const lv = g.state.items[it.id];
         const maxed = lv >= it.maxLevel;
@@ -1192,14 +1233,14 @@ export class AppUI {
     return (Object.keys(gd.recipe) as MaterialId[]).every((m) => g.state.materials[m] > 0 || ENEMIES.some((e) => e.material === m && g.isUnlocked(e.id)));
   }
 
-  private buildGearRecipe(gd: GearDef): void {
+  private buildGearRecipe(gd: GearDef, parent: HTMLElement): void {
     if (!this.gearKnown(gd)) return;
     const g = this.game;
     const row = el('div', 'row');
     row.innerHTML = `<div class="icon">${gd.icon}</div><div class="info"><div class="name"><span style="color:${gearColor(gd.id)}">${gd.name}</span> <small>${RARITIES[gd.rarity].name} ${GEAR_KINDS[gd.kind].name.toLowerCase()}</small></div><div class="sub"><b>${describeGear(gearStats(gd, 1))}</b> per level</div><div class="cost"></div></div><button class="buy">Craft</button>`;
     const btn = $<HTMLButtonElement>('.buy', row);
     btn.addEventListener('click', () => g.craftGear(gd.id) && this.refresh());
-    this.panel.appendChild(row);
+    parent.appendChild(row);
     this.refreshers.push(() => {
       $('.cost', row).innerHTML = costHtml(g, gearCost(gd, 0));
       btn.disabled = !g.canCraftGear(gd.id);

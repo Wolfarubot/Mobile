@@ -1307,6 +1307,18 @@ button {
   background: var(--card-hi);
   color: var(--text);
 }
+.inv-subtabs {
+  position: sticky;
+  top: -10px; /* the panel's top padding, so nothing peeks above it */
+  z-index: 3;
+  margin-top: 0;
+  background: var(--sunk);
+}
+.inv-subtabs .badge {
+  position: static;
+  display: inline-block;
+  vertical-align: middle;
+}
 .sp-count {
   display: inline-block;
   min-width: 18px;
@@ -1857,7 +1869,8 @@ canvas {
 .hd-style,
 .hd-title h2,
 .hd-sub,
-.picker-current {
+.picker-current,
+.panel > .inv-pane .empty-inv {
   color: var(--on-bg) !important;
 }
 .skills-head.has,

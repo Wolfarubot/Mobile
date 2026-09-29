@@ -64,12 +64,14 @@ export interface GearItem {
 export type Wearer = 'main' | HunterId;
 
 /** The main menu tabs, in their default order. */
-export const TAB_IDS = ['hunters', 'equipment', 'beasts', 'events', 'areas'] as const;
+export const TAB_IDS = ['hunters', 'inventory', 'beasts', 'events', 'areas'] as const;
 export type TabId = (typeof TAB_IDS)[number];
 
 /** A saved tab order, keeping known tabs once each and appending any that are missing. */
 function readTabOrder(v: unknown): TabId[] {
-  const saved = Array.isArray(v) ? v.filter((t): t is TabId => (TAB_IDS as readonly unknown[]).includes(t)) : [];
+  // The Inventory tab used to be called Equipment.
+  const renamed = Array.isArray(v) ? v.map((t) => (t === 'equipment' ? 'inventory' : t)) : v;
+  const saved = Array.isArray(renamed) ? renamed.filter((t): t is TabId => (TAB_IDS as readonly unknown[]).includes(t)) : [];
   const order = [...new Set(saved)];
   for (const t of TAB_IDS) if (!order.includes(t)) order.push(t);
   return order;
