@@ -824,8 +824,11 @@ export class AppUI {
     // The selected area
     const a = areaDef(this.selectedArea);
     const panel = el('div', 'card area-panel');
-    panel.innerHTML = `<h3><span>${a.icon} ${a.name}</span></h3><p>${a.blurb}</p><div class="monster-icons"></div><div class="actions"><button class="buy secondary-btn details">Details</button><button class="buy travel">Travel</button></div>`;
+    panel.innerHTML = `<h3><span>${a.icon} ${a.name}</span></h3><p>${a.blurb}</p><div class="monster-icons"></div>`;
     this.panel.appendChild(panel);
+    // Details and Travel sit in a bar pinned to the bottom of the menu, so they're in reach wherever you've scrolled.
+    const bar = el('div', 'area-actions');
+    bar.innerHTML = `<span class="aa-name">${a.icon} ${a.name}</span><div class="actions"><button class="buy secondary-btn details">Details</button><button class="buy travel">Travel</button></div>`;
     const icons = $('.monster-icons', panel);
     for (const e of areaEnemies(a.id)) {
       const known = g.state.bestiary[e.id].unlocked;
@@ -834,8 +837,8 @@ export class AppUI {
       icons.appendChild(m);
       requestAnimationFrame(() => drawEnemyPortrait($<HTMLCanvasElement>('canvas', m), e.id));
     }
-    $('.details', panel).addEventListener('click', () => this.openAreaDetail(a.id));
-    const travel = $<HTMLButtonElement>('.travel', panel);
+    $('.details', bar).addEventListener('click', () => this.openAreaDetail(a.id));
+    const travel = $<HTMLButtonElement>('.travel', bar);
     travel.addEventListener('click', () => g.travel(a.id));
     this.refreshers.push(() => {
       const here = g.area === a.id;
@@ -858,6 +861,7 @@ export class AppUI {
       ];
       $('.stats', stats).innerHTML = rows.map(([k, v]) => `<span>${k}</span><span>${v}</span>`).join('');
     });
+    this.panel.appendChild(bar);
   }
 
   /** Full-screen area card: stats, events, stationed Hunters and every monster with its drop. */
