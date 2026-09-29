@@ -176,7 +176,8 @@ export class AppUI {
       btn.innerHTML = `Train${p.count > 1 ? ` ×${p.count}` : ''}<small>🪙 ${fmt(p.cost)}</small>`;
       btn.disabled = g.state.gold < p.cost;
       $('i', bar).style.width = `${(into / need) * 100}%`;
-      $('span', bar).textContent = compact ? `${into}/${need} to Lv ${level + 1}` : `Lv ${level} · ${into}/${need} to Lv ${level + 1}`;
+      // The card's bar is just the bar; the numbers are in the full view.
+      $('span', bar).textContent = compact ? '' : `Lv ${level} · ${into}/${need} to Lv ${level + 1}`;
     });
     return { btn, bar };
   }
@@ -203,7 +204,7 @@ export class AppUI {
       <div class="hc-top">
         <div class="hc-art">${portraitHtml(who)}</div>
         <div class="hc-info">
-          <div class="hc-name">${def ? `${def.name} <small>the ${def.title}</small>` : 'You <small>the Monster Hunter</small>'}</div>
+          <div class="hc-name">${def ? `${def.name} <small>the ${def.title}</small>` : `${esc(mainName())} <small>the Monster Hunter</small>`}</div>
           <div class="hc-ability">${def ? def.ability : MAIN_ABILITY}</div>
           <div class="hc-status"></div>
         </div>
@@ -283,7 +284,7 @@ export class AppUI {
         <div class="hd-hero">
           ${portraitHtml(who, 'big')}
           <div class="hd-title">
-            <h2>${def ? def.name : 'You'}</h2>
+            <h2>${def ? def.name : esc(mainName())}</h2>
             <div class="hd-sub"></div>
           </div>
         </div>
@@ -1021,6 +1022,7 @@ export class AppUI {
   /** Puts per-player preferences into effect (e.g. which side Train buttons sit on). */
   private applySettings(): void {
     document.body.classList.toggle('left-handed', this.game.state.settings.leftHanded);
+    mainHunterName = this.game.state.settings.name.trim();
   }
 
   /** Full-screen Settings page. */
@@ -1035,6 +1037,19 @@ export class AppUI {
     $('.hd-close', view).addEventListener('click', () => this.closeHunterDetail());
     this.detail = { el: view, refreshers: [] };
     const body = $('.hd-scroll', view);
+
+    body.appendChild(sectionTitle('Your Hunter'));
+    const nameCard = el('div', 'card setting');
+    nameCard.innerHTML = `<div class="setting-name">Name</div><p>What your Hunter is called on their card and around the game.</p><input class="name-input" type="text" maxlength="${MAX_NAME_LENGTH}" placeholder="You" autocomplete="off" spellcheck="false" />`;
+    const input = $<HTMLInputElement>('.name-input', nameCard);
+    input.value = g.state.settings.name;
+    input.addEventListener('input', () => {
+      g.state.settings.name = input.value.slice(0, MAX_NAME_LENGTH);
+      this.applySettings();
+    });
+    input.addEventListener('change', () => this.hooks.save());
+    input.addEventListener('keydown', (e) => e.key === 'Enter' && input.blur());
+    body.appendChild(nameCard);
 
     body.appendChild(sectionTitle('Controls'));
     const hand = el('div', 'card setting');
@@ -1097,7 +1112,7 @@ export class AppUI {
     const capped = r.away > r.seconds;
     const rows = r.areas
       .map((a) => {
-        const name = (h: (typeof a.hunters)[number]) => (h === 'main' ? 'You' : `${hunterDef(h).icon} ${hunterDef(h).name}`);
+        const name = (h: (typeof a.hunters)[number]) => (h === 'main' ? esc(mainName()) : `${hunterDef(h).icon} ${hunterDef(h).name}`);
         const who = a.hunters.map(name).join(' + ');
         // Only Hunters that were actually knocked out get a count.
         const kos = a.hunters
@@ -1175,6 +1190,16 @@ function gearCardHtml(it: GearItem, vs: GearItem | null = null): string {
   return `<div class="gear-card rar" style="--rc:${gearColor(gd.id)}"><div class="gc-head"><i>${gd.icon}</i><div><b>${gd.name}</b><small>${RARITIES[gd.rarity].name} ${GEAR_KINDS[gd.kind].name.toLowerCase()} · Lv ${it.level} / ${GEAR_MAX_LEVEL}</small></div></div><ul class="gc-stats">${lines}</ul></div>`;
 }
 
+/** Your Hunter's name (Settings), shown on their card and wherever they're named. */
+let mainHunterName = '';
+const mainName = () => mainHunterName || 'You';
+export const MAX_NAME_LENGTH = 16;
+
+/** Escapes text typed by the player before it goes into HTML. */
+function esc(text: string): string {
+  return text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+}
+
 /** How many not-yet-recruited Hunters the Hunters tab shows. */
 const NEXT_HUNTERS_SHOWN = 3;
 
@@ -1195,7 +1220,7 @@ function portraitHtml(who: Wearer, size = ''): string {
 }
 
 function wearerName(who: Wearer): string {
-  return who === 'main' ? 'Your Hunter' : hunterDef(who).name;
+  return who === 'main' ? esc(mainName()) : hunterDef(who).name;
 }
 
 function wearerIcon(who: Wearer): string {

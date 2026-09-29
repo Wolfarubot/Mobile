@@ -84,7 +84,7 @@ export interface GameState {
   /** Epoch ms of the last save; used to compute offline progress. */
   lastSeen: number;
   /** Player preferences (Settings page). */
-  settings: { leftHanded: boolean };
+  settings: { leftHanded: boolean; /** Your Hunter's name ('' shows as "You"). */ name: string };
   /** One-time tutorial moments already shown. */
   flags: { eventsIntro: boolean };
   /** Per event: seconds of cooldown left, times started and times completed (a Guardian beaten, a swarm survived). */
@@ -124,7 +124,7 @@ export function newGame(now = Date.now()): GameState {
     equipment: {},
     nextGearUid: 1,
     lastSeen: now,
-    settings: { leftHanded: false },
+    settings: { leftHanded: false, name: '' },
     flags: { eventsIntro: false },
     events: Object.fromEntries(EVENTS.map((e) => [e.id, { cooldown: 0, runs: 0, completed: 0 }])),
     buyAmount: 1,
@@ -202,7 +202,10 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
     materials: mergeNumbers(base.materials, data.materials),
     items: mergeNumbers(base.items, data.items),
     stats,
-    settings: { leftHanded: !!(data.settings as { leftHanded?: unknown } | undefined)?.leftHanded },
+    settings: {
+      leftHanded: !!(data.settings as { leftHanded?: unknown } | undefined)?.leftHanded,
+      name: String((data.settings as { name?: unknown } | undefined)?.name ?? '').slice(0, 16),
+    },
     flags: { eventsIntro: !!(data.flags as { eventsIntro?: unknown } | undefined)?.eventsIntro },
     events: Object.fromEntries(
       EVENTS.map((e) => {

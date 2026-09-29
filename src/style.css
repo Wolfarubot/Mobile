@@ -1815,3 +1815,20 @@ canvas {
 .tabs button.active {
   background: color-mix(in srgb, var(--c1) 70%, var(--c0));
 }
+
+.name-input {
+  width: 100%;
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 16px;
+  color: var(--c0);
+  background: #fff;
+  border: 2px solid var(--c0);
+  box-shadow: inset 2px 2px 0 color-mix(in srgb, var(--c0) 25%, transparent);
+  outline: none;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.name-input:focus {
+  border-color: var(--good);
+}

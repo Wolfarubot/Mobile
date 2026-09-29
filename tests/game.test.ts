@@ -1017,14 +1017,15 @@ describe('Saves', () => {
   it('keeps settings and tutorial flags; older saves get the defaults', () => {
     const s = newGame(0);
     s.settings.leftHanded = true;
+    s.settings.name = 'Wolfa';
     s.flags.eventsIntro = true;
     const back = deserialize(serialize(s))!;
-    expect(back.settings).toEqual({ leftHanded: true });
+    expect(back.settings).toEqual({ leftHanded: true, name: 'Wolfa' });
     expect(back.flags).toEqual({ eventsIntro: true });
     const old = JSON.parse(serialize(newGame(0)));
     delete old.settings;
     delete old.flags;
-    expect(deserialize(JSON.stringify(old))!.settings).toEqual({ leftHanded: false });
+    expect(deserialize(JSON.stringify(old))!.settings).toEqual({ leftHanded: false, name: '' });
   });
 
   it('v7 saves: the old flat skills are refunded as unspent points', () => {
