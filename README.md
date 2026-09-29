@@ -30,7 +30,7 @@ Hunters become available through their home area's events, then cost gold to rec
 | Gus the Prospector 💰 | Beat the Old Graveyard Guardian 3 times | Shotgun: 5 pellets, close range | +75% gold |
 | Glimmer the Wizard 🧙 | Beat the Forsaken Crypt Guardian | Magic bolts; every 4s a fireball that explodes for area damage (weapon damage powers the blast, weapon attack rate widens it) | |
 | Wilhelm the Sniper 🎯 | Beat the Shadowy Depths Guardian | Long-range piercing shots; akimbo pistols when enemies get close | Separate long-range and short-range weapon slots |
-| Celeste the Scion 🌟 | Beat the Shadowy Depths Guardian 2 times | Long beams of light that pierce every monster in a line | ×3 vs Dragons |
+| Celeste the Psion 🔮 | Beat the Shadowy Depths Guardian 2 times | Long psychic beams (Arcane) that pierce every monster in a line | ×3 vs Dragons |
 | Sera the Demonbane 🗡️ | Beat the Ember Caves Guardian | Rapid thrown daggers, short range | ×3 vs Demons |
 | Pip the Scavenger 🎒 | Beat the Ember Caves Guardian 2 times | Slingshot stones ricochet between 4 enemies | ×2 drops |
 | Bjorn the Frostbreaker 🔨 | Beat the Frost Peaks Guardian | Frost hammers that slow enemies | ×3 vs Elementals |

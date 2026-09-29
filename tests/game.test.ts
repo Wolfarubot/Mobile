@@ -249,12 +249,12 @@ describe('Hunters', () => {
     expect(g.hunterAvailable('glimmer')).toBe(true);
   });
 
-  it('the Shadowy Depths: Wilhelm after its Guardian, Celeste the Scion after two; Celeste beams through a line', () => {
+  it('the Shadowy Depths: Wilhelm after its Guardian, Celeste the Psion after two; Celeste beams through a line', () => {
     expect(hunterDef('wilhelm').area).toBe('depths');
     expect(hunterDef('wilhelm').unlock).toEqual({ event: 'guardian-depths', times: 1 });
     expect(hunterDef('wilhelm').story).toContain('a hundred eyes');
     const c = hunterDef('celeste');
-    expect([c.name, c.title, c.area]).toEqual(['Celeste', 'Scion', 'depths']);
+    expect([c.name, c.title, c.area]).toEqual(['Celeste', 'Psion', 'depths']);
     expect(c.unlock).toEqual({ event: 'guardian-depths', times: 2 });
     expect(c.bane).toEqual({ archetype: 'dragon', mult: 3 });
     // The beam hits every monster in a line.
