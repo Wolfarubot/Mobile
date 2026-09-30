@@ -1324,21 +1324,40 @@ button {
 .aff.resist > span:first-child {
   color: var(--danger);
 }
-/* Cards: weaknesses and resistances share one row of icon chips. */
+/* Cards: weaknesses and resistances share one row; names drop to icons only when it doesn't fit. */
 .affinities.compact {
   flex-direction: row;
-  flex-wrap: wrap;
-  gap: 3px 12px;
+  flex-wrap: nowrap;
+  gap: 10px;
+  overflow: hidden;
+}
+.affinities.compact .aff {
+  flex-wrap: nowrap;
+  flex-shrink: 0;
 }
 .affinities.compact .aff > span:first-child {
   min-width: 0;
-  margin-right: 1px;
 }
-.dtype-tag.chip {
+.affinities.compact .dtype-tag {
   margin-right: 0;
+}
+.affinities.compact.icons .dt-name {
+  display: none;
+}
+.affinities.compact.icons .dtype-tag {
   padding: 0 3px;
   font-size: 12px;
-  border: 2px solid var(--dc);
+}
+/* Weak / Resists as tags of their own, like the damage types. */
+.aff > .aff-label {
+  display: inline-block;
+  padding: 0 5px;
+  border-radius: 5px;
+  background: var(--c0);
+  line-height: 17px;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 .gc-effect {
   font-size: 12px;

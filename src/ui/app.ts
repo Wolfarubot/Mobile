@@ -1825,6 +1825,8 @@ export class AppUI {
     document.body.classList.toggle('left-handed', this.game.state.settings.leftHanded);
     mainHunterName = this.game.state.settings.name.trim();
     applyFont(this.game.state.settings.font);
+    requestAnimationFrame(refitAffinities);
+    void document.fonts?.ready.then(refitAffinities);
     const nav = $('.tabs');
     for (const t of this.game.state.settings.tabOrder) nav.appendChild($(`.tabs button[data-tab=${t}]`));
   }
@@ -2154,15 +2156,41 @@ function dropHtml(e: EnemyDef): string {
 function affinityHtml(e: EnemyDef, compact = false): string {
   const tag = compact ? damageTypeChip : damageTypeHtml;
   const row = (label: string, cls: string, types: DamageType[]) =>
-    types.length ? `<div class="aff ${cls}"><span>${label}</span>${types.map(tag).join('')}</div>` : '';
-  return `<div class="affinities${compact ? ' compact' : ''}">${row(`Weak ×${WEAK_MULT}`, 'weak', e.weak)}${row(`Resists ×${RESIST_MULT}`, 'resist', e.resist)}</div>`;
+    types.length ? `<div class="aff ${cls}"><span class="aff-label">${label}</span>${types.map(tag).join('')}</div>` : '';
+  return compact
+    ? `<div class="affinities compact">${row('Weak', 'weak', e.weak)}${row('Resists', 'resist', e.resist)}</div>`
+    : `<div class="affinities">${row(`Weak ×${WEAK_MULT}`, 'weak', e.weak)}${row(`Resists ×${RESIST_MULT}`, 'resist', e.resist)}</div>`;
 }
 
-/** A damage type as a small icon-only chip in its colour (the name on long-press / hover). */
+/** A damage type tag whose name can be hidden (icon only) when its row runs out of room. */
 function damageTypeChip(t: DamageType): string {
   const d = DAMAGE_TYPES[t];
-  return `<span class="dtype-tag chip" style="--dc:${d.color}" title="${d.name}">${d.icon}</span>`;
+  return `<span class="dtype-tag chip" style="--dc:${d.color}" title="${d.name}">${d.icon}<span class="dt-name"> ${d.name}</span></span>`;
 }
+
+/** Shows a compact affinity row with names if it fits on one line, else icons only. */
+function fitAffinities(row: HTMLElement): void {
+  row.classList.remove('icons');
+  if (row.clientWidth > 0 && row.scrollWidth > row.clientWidth + 1) row.classList.add('icons');
+}
+
+/** Keeps every compact affinity row fitted: when it appears, when its width changes, and when the font changes. */
+const affinityResize = typeof ResizeObserver !== 'undefined' ? new ResizeObserver((entries) => entries.forEach((e) => fitAffinities(e.target as HTMLElement))) : null;
+function refitAffinities(): void {
+  document.querySelectorAll<HTMLElement>('.affinities.compact').forEach(fitAffinities);
+}
+if (typeof MutationObserver !== 'undefined' && typeof document !== 'undefined')
+  new MutationObserver((muts) => {
+    for (const m of muts)
+      m.addedNodes.forEach((n) => {
+        if (!(n instanceof HTMLElement)) return;
+        const rows = n.matches('.affinities.compact') ? [n] : Array.from(n.querySelectorAll<HTMLElement>('.affinities.compact'));
+        for (const row of rows) {
+          affinityResize?.observe(row);
+          fitAffinities(row);
+        }
+      });
+  }).observe(document.body, { childList: true, subtree: true });
 
 /** A weapon's damage type as a small coloured tag ('' for gear without one). */
 function dtypeTag(gd: GearDef): string {
