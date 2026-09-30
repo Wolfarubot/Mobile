@@ -624,7 +624,15 @@ export class Game {
   /** Unlocked once enough monsters have been slain in its area (and the area is open). */
   eventUnlocked(id: string): boolean {
     const def = EVENTS.find((e) => e.id === id); // e.g. the final area has no Guardian Challenge
-    return !!def && this.isAreaUnlocked(def.area) && this.state.areas[def.area].kills >= def.unlockKills;
+    return !!def && this.isAreaUnlocked(def.area) && this.eventProgress(id) >= def.unlockKills;
+  }
+
+  /** Kills counting toward unlocking an event: every kill in its area, or only its archetype's (e.g. slimes). */
+  eventProgress(id: string): number {
+    const def = EVENTS.find((e) => e.id === id);
+    if (!def) return 0;
+    if (!def.unlockArchetype) return this.state.areas[def.area].kills;
+    return ENEMIES.filter((e) => e.area === def.area && e.archetype === def.unlockArchetype).reduce((n, e) => n + this.state.bestiary[e.id].kills, 0);
   }
 
   eventCooldown(id: string): number {

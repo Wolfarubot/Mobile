@@ -1051,7 +1051,7 @@ export class AppUI {
             const st = g.state.events[e.id];
             const unlocked = g.eventUnlocked(e.id);
             return `<div class="row"><div class="icon">${e.icon}</div><div class="info"><div class="name">${e.name}</div><div class="sub">${
-              unlocked ? `Run ${fmt(st.runs)} time${st.runs === 1 ? '' : 's'} · completed ${fmt(st.completed)}` : `🔒 Unlocks at ${fmt(e.unlockKills)} slain here`
+              unlocked ? `Run ${fmt(st.runs)} time${st.runs === 1 ? '' : 's'} · completed ${fmt(st.completed)}` : `🔒 Unlocks at ${fmt(e.unlockKills)} ${unlockNoun(e)} slain here`
             }</div></div></div>`;
           })
           .join('');
@@ -1870,7 +1870,7 @@ export class AppUI {
     });
     this.panel.appendChild(card);
     this.refreshers.push(() => {
-      const kills = g.state.areas[ev.area].kills;
+      const kills = g.eventProgress(ev.id);
       const unlocked = g.eventUnlocked(ev.id);
       const running = (ev.kind === 'guardian' && g.guardianActive && g.area === ev.area) || g.activeEvent?.id === ev.id;
       const cd = g.eventCooldown(ev.id);
@@ -1883,7 +1883,7 @@ export class AppUI {
       for (const h of g.huntersUnlockedBy(ev.id)) rewards.push(`${hunterDef(h).icon} ${hunterDef(h).name} the ${hunterDef(h).title} joins`);
       const extra = rewards.length ? `Reward: ${rewards.join(' · ')}` : '';
       if (!unlocked) {
-        status.innerHTML = `<div class="mastery"><i style="width:${Math.min(1, kills / ev.unlockKills) * 100}%"></i><span>🔒 Slay ${fmt(kills)} / ${fmt(ev.unlockKills)} here</span></div>`;
+        status.innerHTML = `<div class="mastery"><i style="width:${Math.min(1, kills / ev.unlockKills) * 100}%"></i><span>🔒 Slay ${fmt(kills)} / ${fmt(ev.unlockKills)} ${unlockNoun(ev)} here</span></div>`;
         btn.innerHTML = '🔒';
         btn.disabled = true;
       } else if (running) {
@@ -1906,9 +1906,12 @@ export class AppUI {
   /** Tapping the greyed-out Events tab explains how to open it. */
   private showEventsLocked(): void {
     const forest = areaDef('forest');
-    const first = Math.min(...EVENTS.filter((e) => e.area === 'forest').map((e) => e.unlockKills));
-    const kills = Math.min(this.game.state.areas.forest.kills, first);
-    this.showModal(`<h2>🔒 Events</h2><p>Slay ${fmt(first)} monsters in the ${forest.name} to unlock Events.</p><p><b>${fmt(kills)} / ${fmt(first)}</b></p>`, [{ label: 'OK' }]);
+    const first = EVENTS.find((e) => e.area === 'forest')!; // listed in unlock order
+    const kills = Math.min(this.game.eventProgress(first.id), first.unlockKills);
+    this.showModal(
+      `<h2>🔒 Events</h2><p>Slay ${fmt(first.unlockKills)} ${unlockNoun(first)} in the ${forest.name} to unlock Events, starting with the ${first.name}.</p><p><b>${fmt(kills)} / ${fmt(first.unlockKills)}</b></p>`,
+      [{ label: 'OK' }],
+    );
   }
 
   /** Shown once, the very first time the game opens. */
@@ -2284,6 +2287,9 @@ function esc(text: string): string {
 }
 
 
+/** What counts toward unlocking an event: its archetype ("slimes") or any monster. */
+const unlockNoun = (ev: EventDef): string => (ev.unlockArchetype ? `${ARCHETYPES[ev.unlockArchetype].name.toLowerCase()}s` : 'monsters');
+
 /** How many not-yet-recruited Hunters the Hunters tab shows. */
 const NEXT_HUNTERS_SHOWN = 3;
 
@@ -2292,7 +2298,7 @@ function unlockText(g: Game, def: HunterDef): string {
   const ev = eventDef(def.unlock.event);
   const done = Math.min(g.eventCompletions(ev.id), def.unlock.times);
   const count = def.unlock.times > 1 ? ` ${def.unlock.times} times (${done}/${def.unlock.times})` : '';
-  const what = ev.kind === 'guardian' ? `Beat the ${areaDef(ev.area).name} Guardian` : `Complete the ${ev.name} in ${areaDef(ev.area).name}`;
+  const what = ev.kind === 'guardian' ? `Beat the ${areaDef(ev.area).name} Guardian` : `Survive a ${ev.name} in the ${areaDef(ev.area).name}`;
   return `${what}${count}`;
 }
 

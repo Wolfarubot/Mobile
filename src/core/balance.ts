@@ -46,6 +46,8 @@ export interface EventDef {
   blurb: string;
   /** Monsters slain in the area to unlock it (a Guardian Challenge unlocks at the area's mastery). */
   unlockKills: number;
+  /** Count only this archetype's kills in the area toward unlocking it (e.g. slimes for the Slime Swarm). */
+  unlockArchetype?: Archetype;
   /** Seconds after starting before it can run again. */
   cooldown: number;
   /** Seconds it lasts (a Guardian gives you GUARDIAN_TIME once it appears). */
@@ -1042,9 +1044,9 @@ export const GUARD_RECHARGE = 4;
 export const HUNTERS: HunterDef[] = [
   {
     id: 'alchemist', name: 'Reginald', title: 'Alchemist', icon: '⚗️', color: '#7be07b', area: 'forest', recruitCost: 150, bane: { archetype: 'slime', mult: 3 },
-    unlock: { event: 'guardian-forest', times: 1 },
+    unlock: { event: 'slimeSwarm', times: 1 },
     ascendedTitle: 'Archalchemist',
-    story: 'Reginald is in the Whispering Forest doing research on Slimes, with an idea for a new potion, but the Forest Guardian keeps scaring off the test subjects. Defeat it, and Reginald will help you hunt monsters.',
+    story: "Reginald is in the Whispering Forest doing research on Slimes, with an idea for a new potion, but he needs far more test subjects than he can catch. Survive a Slime Swarm, and Reginald will help you hunt monsters.",
     ability: 'Every few seconds, lobs a potion that leaves a poison puddle. Deals triple damage to Slimes. Uses ranged or magic weapons.',
     slots: [{ kind: 'weapon', label: 'Weapon', accepts: ['weapon', 'magic'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
     style: {
@@ -1483,6 +1485,23 @@ export function starsFromLevel(levels: number[], level: number, recipe: Partial<
 }
 
 export const EVENTS: EventDef[] = [
+  // Listed in the order they unlock: the Slime Swarm comes first in the Forest.
+  {
+    id: 'slimeSwarm',
+    area: 'forest',
+    kind: 'swarm',
+    name: 'Slime Swarm',
+    icon: '🟢',
+    blurb: 'Slimes flood the forest for 60s: twice as many (at least 10 Green Slimes a second), twice as fast.',
+    unlockKills: 1000,
+    unlockArchetype: 'slime',
+    cooldown: 15 * 60,
+    duration: 60,
+    archetype: 'slime',
+    spawnMult: 2,
+    speedMult: 2,
+    minSpawn: { greenSlime: 10 },
+  },
   ...AREAS.filter((a) => Number.isFinite(a.mastery)).map(
     (a): EventDef => ({
       id: `guardian-${a.id}`,
@@ -1496,21 +1515,6 @@ export const EVENTS: EventDef[] = [
       duration: GUARDIAN_TIME,
     }),
   ),
-  {
-    id: 'slimeSwarm',
-    area: 'forest',
-    kind: 'swarm',
-    name: 'Slime Swarm',
-    icon: '🟢',
-    blurb: 'Slimes flood the forest for 60s: twice as many (at least 10 Green Slimes a second), twice as fast.',
-    unlockKills: 2500,
-    cooldown: 15 * 60,
-    duration: 60,
-    archetype: 'slime',
-    spawnMult: 2,
-    speedMult: 2,
-    minSpawn: { greenSlime: 10 },
-  },
 ];
 
 export const eventDef = (id: string): EventDef => EVENTS.find((e) => e.id === id)!;

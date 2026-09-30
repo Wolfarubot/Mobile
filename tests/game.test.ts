@@ -38,6 +38,7 @@ import {
   MAIN_SESSIONS_AFTER_ASCEND,
   mainBulkCost,
   SLAYER_TREE,
+  EVENTS,
   TRAIN_UNLOCK_KILLS,
   dropsFrom,
   ASCENDED_TREES,
@@ -252,20 +253,21 @@ describe('Enemies & archetypes', () => {
 });
 
 describe('Hunters', () => {
-  it("Hunters become available through their area's events: Reginald after the first Forest Guardian", () => {
+  it("Hunters become available through their area's events: Reginald after a Slime Swarm", () => {
     const s = newGame(0);
     s.gold = 1e9;
     s.areas.forest.kills = 1e6;
     const g = new Game(s, noCrit);
-    expect(hunterDef('alchemist').unlock).toEqual({ event: 'guardian-forest', times: 1 });
+    expect(hunterDef('alchemist').unlock).toEqual({ event: 'slimeSwarm', times: 1 });
     expect(g.hunterAvailable('alchemist')).toBe(false);
     expect(g.recruit('alchemist')).toBe(false);
-    expect(g.huntersUnlockedBy('guardian-forest')).toEqual(['alchemist']);
+    expect(g.huntersUnlockedBy('slimeSwarm')).toEqual(['alchemist']);
+    g.state.events.slimeSwarm.completed = 1;
+    expect(g.hunterAvailable('alchemist')).toBe(true);
     g.startEvent('guardian-forest');
     g.bossSpawned();
     g.registerKill(g.guardianType, true);
-    expect(g.hunterAvailable('alchemist')).toBe(true);
-    expect(g.hunterAvailable('ranger')).toBe(false); // needs a second win
+    expect(g.hunterAvailable('ranger')).toBe(false); // needs a second Guardian win
     expect(g.huntersUnlockedBy('guardian-forest')).toEqual(['ranger']);
     expect(g.recruit('alchemist')).toBe(true);
     expect(g.recruit('alchemist')).toBe(false);
@@ -1186,9 +1188,13 @@ describe('Events', () => {
     const g = new Game(s, noCrit);
     const def = eventDef('slimeSwarm');
     expect(def.area).toBe('forest');
-    g.state.areas.forest.kills = def.unlockKills - 1;
+    // It unlocks at 1,000 slimes slain in the Forest (other monsters don't count), before the Guardian.
+    expect(EVENTS.filter((e) => e.area === 'forest').map((e) => e.id)).toEqual(['slimeSwarm', 'guardian-forest']);
+    expect(def.unlockKills).toBe(1000);
+    g.state.areas.forest.kills = 1e6;
+    g.state.bestiary.greenSlime.kills = def.unlockKills - 1;
     expect(g.eventUnlocked('slimeSwarm')).toBe(false);
-    g.state.areas.forest.kills = def.unlockKills;
+    g.state.bestiary.greenSlime.kills = def.unlockKills;
     const slime = g.enemyStats('greenSlime');
     const red = g.enemyStats('redSlime');
     expect(g.startEvent('slimeSwarm')).toBe(true);
@@ -1212,6 +1218,7 @@ describe('Events', () => {
     s.areas.graveyard.unlocked = true;
     s.area = 'graveyard';
     s.areas.forest.kills = 1e6;
+    s.bestiary.greenSlime.kills = 1e6;
     const g = new Game(s, noCrit);
     expect(g.startEvent('slimeSwarm')).toBe(true);
     expect(g.area).toBe('forest');
