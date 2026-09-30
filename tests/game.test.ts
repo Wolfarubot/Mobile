@@ -57,6 +57,7 @@ import {
   EVO_TREES,
   RESIST_MULT,
   STATUS,
+  type DamageType,
   typeMult,
   WEAK_MULT,
 } from '../src/core/balance';
@@ -957,7 +958,8 @@ describe('Equipment', () => {
     roll = 0; // under it: burns
     hit('main', e, 1, 0, 0, false);
     expect(e.burn).toBeDefined();
-    for (const gd of GEAR) if (gd.damageType === 'physical') expect(gd.proc ?? 0).toBe(0);
+    // Physical's effect is bleeding: only blades (daggers, swords, spears) have a chance to cause it.
+    for (const gd of GEAR) if (gd.damageType === 'physical' && gd.proc) expect(['dagger', 'sword', 'spear']).toContain(gd.weaponClass);
   });
 
   it('10 areas in order; saves from before the new areas open everything up to their furthest area', () => {
@@ -1138,6 +1140,31 @@ describe('Equipment', () => {
     const icons = f.cooldowns();
     expect(icons.map((c) => c.key)).toEqual(['item:wolfTome']); // the lunge, not the tome's own summoning
     expect(icons[0].progress).toBeLessThan(1);
+  });
+
+  it('bleeding (Physical) is the only status that stacks; others refresh a single instance', () => {
+    const g = new Game(newGame(0), noCrit);
+    const f = new Field(g);
+    f.setView(390, 420);
+    const e = enemy({ id: 1, x: 200, hp: 1e9, maxHp: 1e9 });
+    f.enemies.push(e);
+    const apply = (t: DamageType, dmg = 100) => (f as unknown as { applyStatus: (e: Enemy, t: DamageType, d: number, by: string) => void }).applyStatus(e, t, dmg, 'main');
+    apply('physical');
+    apply('physical');
+    apply('physical');
+    expect(e.bleeds).toHaveLength(3);
+    for (let i = 0; i < 20; i++) apply('physical');
+    expect(e.bleeds).toHaveLength(STATUS.bleed.maxStacks);
+    apply('decay', 100);
+    apply('decay', 50); // weaker: the stronger aura stays
+    expect(e.aura!.dps).toBeCloseTo((100 * STATUS.aura.share) / STATUS.tick);
+    apply('acid');
+    apply('acid');
+    expect(f.puddles.filter((p) => p.dtype === 'acid')).toHaveLength(1);
+    // Stacked bleeds each tick on their own.
+    const hp = e.hp;
+    f.update(STATUS.tick + 0.01);
+    expect(hp - e.hp).toBeGreaterThan(STATUS.bleed.maxStacks * ((100 * STATUS.bleed.share) / STATUS.bleed.duration) * STATUS.tick * 0.9);
   });
 
   it('a repeater sprays a fan; extra bolts of one volley on the same monster hit harder (×1.5, ×2)', () => {

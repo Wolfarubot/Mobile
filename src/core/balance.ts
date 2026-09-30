@@ -940,14 +940,19 @@ export const STATUS = {
   /** Each tick the aura hurts monsters within `radius` of its bearer for `share` of the hit. */
   aura: { share: 0.12, duration: 4, radius: 55 },
   expose: { duration: 4 },
+  /**
+   * Bleeding (Physical): `share` of the hit again over `duration`. The only effect that stacks: each bleed is
+   * its own instance, up to `maxStacks` at once (a new one replaces the oldest).
+   */
+  bleed: { share: 0.25, duration: 3, maxStacks: 8 },
   /** Seconds between damage-over-time ticks. */
   tick: 0.5,
 };
 /** Rough extra damage each type's effect adds when it always procs, for the background model (scaled by proc chance). */
-export const STATUS_MODEL: Partial<Record<DamageType, number>> = { fire: 1.4, poison: 1.5, acid: 1.4, radiant: 1.5, decay: 1.4, arcane: 1.1 };
+export const STATUS_MODEL: Partial<Record<DamageType, number>> = { physical: 1.25, fire: 1.4, poison: 1.5, acid: 1.4, radiant: 1.5, decay: 1.4, arcane: 1.1 };
 
 export const DAMAGE_TYPES: Record<DamageType, { name: string; icon: string; color: string; effect?: string }> = {
-  physical: { name: 'Physical', icon: '🗡️', color: '#e8e8e8' },
+  physical: { name: 'Physical', icon: '🗡️', color: '#e8e8e8', effect: `Bleeds: ${STATUS.bleed.share * 100}% of the hit again over ${STATUS.bleed.duration}s; bleeds stack (up to ${STATUS.bleed.maxStacks})` },
   fire: { name: 'Fire', icon: '🔥', color: '#ff7a2a', effect: `Burns: ${STATUS.burn.share * 100}% of the hit again over ${STATUS.burn.duration}s, and can spread to monsters right next to it` },
   acid: { name: 'Acid', icon: '🧪', color: '#c6f03a', effect: `Acid puddle: hurts everything in it for ${STATUS.acid.duration}s` },
   frost: { name: 'Frost', icon: '❄️', color: '#8fdcff', effect: `Chills: half speed for ${STATUS.chill.duration}s` },
@@ -1440,10 +1445,10 @@ export const GEAR: GearDef[] = [
   { id: 'frostRifle', name: 'Frost Rifle', icon: '🔫', kind: 'weapon', rarity: 'legendary', weaponClass: 'rifle', damageType: 'frost', proc: 0.35, stats: { damage: 0.45, range: 15 }, recipe: { fur: 10, frost: 5 } },
   { id: 'voidRepeater', name: 'Void Repeater', icon: '🌀', kind: 'weapon', rarity: 'artifact', weaponClass: 'repeater', damageType: 'void', stats: { damage: 0.6, rate: 0.2 }, recipe: { shade: 10, void: 5 } },
   // Melee
-  { id: 'fangDagger', name: 'Fang Dagger', icon: '🗡️', kind: 'melee', rarity: 'common', weaponClass: 'dagger', damageType: 'physical', stats: { damage: 0.2, rate: 0.05 }, recipe: { pelt: 6, goo: 6 } },
-  { id: 'goblinSword', name: 'Goblin Sword', icon: '⚔️', kind: 'melee', rarity: 'common', weaponClass: 'sword', damageType: 'physical', stats: { damage: 0.25 }, recipe: { pelt: 8, redgel: 4 } },
+  { id: 'fangDagger', name: 'Fang Dagger', icon: '🗡️', kind: 'melee', rarity: 'common', weaponClass: 'dagger', damageType: 'physical', proc: 0.3, stats: { damage: 0.2, rate: 0.05 }, recipe: { pelt: 6, goo: 6 } },
+  { id: 'goblinSword', name: 'Goblin Sword', icon: '⚔️', kind: 'melee', rarity: 'common', weaponClass: 'sword', damageType: 'physical', proc: 0.2, stats: { damage: 0.25 }, recipe: { pelt: 8, redgel: 4 } },
   { id: 'boneMaul', name: 'Bone Maul', icon: '🔨', kind: 'melee', rarity: 'uncommon', weaponClass: 'hammer', damageType: 'physical', stats: { damage: 0.35 }, recipe: { bone: 12, flesh: 6 } },
-  { id: 'ironSpear', name: 'Bone Spear', icon: '🔱', kind: 'melee', rarity: 'uncommon', weaponClass: 'spear', damageType: 'physical', stats: { damage: 0.35 }, recipe: { bone: 10, flesh: 5 } },
+  { id: 'ironSpear', name: 'Bone Spear', icon: '🔱', kind: 'melee', rarity: 'uncommon', weaponClass: 'spear', damageType: 'physical', proc: 0.2, stats: { damage: 0.35 }, recipe: { bone: 10, flesh: 5 } },
   { id: 'magmaGlaive', name: 'Magma Glaive', icon: '🪓', kind: 'melee', rarity: 'veryRare', weaponClass: 'glaive', damageType: 'fire', proc: 0.4, stats: { damage: 0.5, range: 6 }, recipe: { magma: 10, ember: 5 } },
   { id: 'soulLance', name: 'Soulreaver Lance', icon: '⚜️', kind: 'melee', rarity: 'exalted', weaponClass: 'spear', damageType: 'decay', proc: 0.2, stats: { damage: 0.8, pierce: 0.2 }, recipe: { soul: 8, void: 4 } },
   // Magic (Reginald and Glimmer)

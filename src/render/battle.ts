@@ -836,7 +836,7 @@ export function drawEnemyPortrait(canvas: HTMLCanvasElement, id: EnemyId): void 
   g.restore();
 }
 
-/** Status effects on a monster: flames (burn), bubbles (poison), a frosty ring (chill), a dark aura (decay), violet sparks (arcane). */
+/** Status effects on a monster: embers (burn), bubbles (poison), dripping blood (bleed), a dark aura (decay), violet sparks (arcane). Frost tints the body. */
 function drawStatus(g: CanvasRenderingContext2D, e: Enemy, t: number): void {
   const r = e.r;
   // (Frost's chill tints the monster itself blue; see drawEnemy.)
@@ -854,6 +854,19 @@ function drawStatus(g: CanvasRenderingContext2D, e: Enemy, t: number): void {
   };
   if (e.burn) specks(['#ffd23a', '#ff8a2a', '#e8321e'], 6, r * 1.7, 1.8); // embers: yellow, orange and red
   if (e.poison) specks('#6fdc5a', 3, r * 1.3, 0.9);
+  if (e.bleeds?.length) {
+    // Bleeding: crimson and dark red pixels drip down off it, more with each stacked bleed.
+    const n = Math.min(8, 1 + e.bleeds.length);
+    for (let i = 0; i < n; i++) {
+      const p = (t * 1.4 + i / n + e.phase * 1.7) % 1;
+      const x = Math.sin((i + 1) * 3.1 + e.phase * 5) * r * 0.6;
+      const y = r * 0.2 + p * p * r * 2; // falls, speeding up
+      g.globalAlpha = 1 - p * 0.6;
+      g.fillStyle = i % 2 ? '#6a0a14' : '#c0142e';
+      g.fillRect(x - 2.5, y - 2.5, 5, i % 3 === 0 ? 7 : 5); // some drops stretch as they fall
+    }
+    g.globalAlpha = 1;
+  }
   if (e.aura) {
     // Decay's aura: corrupted ground, a dim scatter of dark pixels across its reach inside a pulsing
     // purple-brown pixel ring.

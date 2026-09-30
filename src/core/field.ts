@@ -67,6 +67,10 @@ export interface Enemy {
   aura?: Dot;
   /** Seconds left with its resistances stripped (Arcane). */
   exposed?: number;
+  /** Bleeds (Physical): the only status that stacks, each its own instance. */
+  bleeds?: Dot[];
+  /** Its acid puddle, if one is still on the ground (one per monster; a new proc refreshes it). */
+  acidPuddle?: Puddle;
   /** The last repeater volley that hit it, and how many of its bolts have (each extra hits harder). */
   volley?: number;
   volleyHits?: number;
@@ -950,7 +954,14 @@ export class Field {
       const ticks = Math.round(duration / STATUS.tick);
       return cur && cur.left > 0 && cur.dps > dps ? { ...cur, left: duration, ticks } : { dps, left: duration, by, acc: cur?.acc ?? 0, ticks };
     };
+    // Every effect but bleeding is one instance per monster: a new proc refreshes it (keeping the stronger).
     switch (dtype) {
+      case 'physical':
+        if (e.hp > 0) {
+          const b = STATUS.bleed;
+          e.bleeds = [...(e.bleeds ?? []), dot(undefined, b.share, b.duration)].slice(-b.maxStacks);
+        }
+        break;
       case 'fire':
         if (e.hp > 0) e.burn = dot(e.burn, STATUS.burn.share, STATUS.burn.duration);
         break;
@@ -966,7 +977,13 @@ export class Field {
         e.slow = Math.max(e.slow ?? 0, STATUS.chill.duration);
         break;
       case 'acid':
-        this.puddles.push({ shooter: by, x: e.x, y: e.y, r: STATUS.acid.radius, life: STATUS.acid.duration, tick: 0, dmg: 0, abs: dmg * STATUS.acid.share, dtype: 'acid' });
+        if (e.acidPuddle && e.acidPuddle.life > 0) {
+          // Its puddle is still there: refresh it where the monster is now, at the stronger strength.
+          Object.assign(e.acidPuddle, { x: e.x, y: e.y, life: STATUS.acid.duration, shooter: by, abs: Math.max(e.acidPuddle.abs ?? 0, dmg * STATUS.acid.share) });
+        } else {
+          e.acidPuddle = { shooter: by, x: e.x, y: e.y, r: STATUS.acid.radius, life: STATUS.acid.duration, tick: 0, dmg: 0, abs: dmg * STATUS.acid.share, dtype: 'acid' };
+          this.puddles.push(e.acidPuddle);
+        }
         break;
       case 'radiant':
         this.events.push({ type: 'explode', x: e.x, y: e.y, r: STATUS.burst.radius, color: DAMAGE_TYPES.radiant.color });
@@ -974,7 +991,11 @@ export class Field {
         break;
       case 'decay':
         // Per tick, `share` of the hit to everything around it: stored as damage per second.
-        if (e.hp > 0) e.aura = { dps: (dmg * STATUS.aura.share) / STATUS.tick, left: STATUS.aura.duration, by, acc: 0, ticks: Math.round(STATUS.aura.duration / STATUS.tick) };
+        if (e.hp > 0) {
+          const dps = (dmg * STATUS.aura.share) / STATUS.tick;
+          const ticks = Math.round(STATUS.aura.duration / STATUS.tick);
+          e.aura = e.aura && e.aura.dps > dps ? { ...e.aura, left: STATUS.aura.duration, ticks } : { dps, left: STATUS.aura.duration, by, acc: e.aura?.acc ?? 0, ticks };
+        }
         break;
       case 'arcane':
         e.exposed = STATUS.expose.duration;
@@ -995,6 +1016,19 @@ export class Field {
   /** Ticks burns, poisons and dark auras, and runs down Arcane exposure. */
   private tickStatus(e: Enemy, dt: number): void {
     if (e.exposed) e.exposed = Math.max(0, e.exposed - dt);
+    if (e.bleeds?.length) {
+      // Each bleed ticks on its own.
+      for (const d of e.bleeds) {
+        d.left -= dt;
+        d.acc += dt;
+        while (d.acc >= STATUS.tick - 1e-9 && d.ticks > 0 && e.hp > 0) {
+          d.acc -= STATUS.tick;
+          d.ticks--;
+          this.damage(e, d.dps * STATUS.tick, false, 0, 0, d.by, 'physical');
+        }
+      }
+      e.bleeds = e.bleeds.filter((d) => d.ticks > 0 && !(d.left <= 0 && d.acc < STATUS.tick));
+    }
     for (const [key, dtype] of [['burn', 'fire'], ['poison', 'poison'], ['aura', 'decay']] as const) {
       const d = e[key];
       if (!d) continue;
