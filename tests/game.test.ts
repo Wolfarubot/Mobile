@@ -1155,6 +1155,11 @@ describe('Equipment', () => {
     }
     expect(shots).toBe(mag);
     expect(f.drainEvents().some((e) => e.type === 'reload')).toBe(true);
+    // The reload indicator's progress runs from 0 toward 1 over the reload.
+    const p0 = f.reloadProgress('main')!;
+    expect(p0).toBeGreaterThanOrEqual(0);
+    f.update(0.1);
+    expect(f.reloadProgress('main')!).toBeGreaterThan(p0);
     // No shots during the reload (the class's `reload` shots' worth of time), then a full magazine again.
     for (let t = 0; t < shotTime * (WEAPON_CLASSES.pistol.reload! - 0.6); t += 0.01) {
       f.bullets = [];
@@ -1773,18 +1778,45 @@ describe('Saves', () => {
     expect(deserialize(JSON.stringify(old))!.stats.matGained).toEqual({ pelt: 12 });
   });
 
+  it('cooldown and reload indicator settings survive a save; junk falls back to the defaults', () => {
+    const s = newGame(0);
+    Object.assign(s.settings, { cooldowns: false, cooldownPos: 'left', reloads: false, reloadPos: 'below' });
+    const back = deserialize(serialize(s))!.settings;
+    expect([back.cooldowns, back.cooldownPos, back.reloads, back.reloadPos]).toEqual([false, 'left', false, 'below']);
+    const junk = JSON.parse(serialize(newGame(0)));
+    junk.settings.cooldownPos = 'sideways';
+    junk.settings.reloadPos = 7;
+    const j = deserialize(JSON.stringify(junk))!.settings;
+    expect([j.cooldownPos, j.reloadPos]).toEqual(['top', 'above']);
+  });
+
+  it('the field reports recharging abilities and gun reloads', () => {
+    const g = rich();
+    for (const [m] of Object.entries(g.state.materials)) g.state.materials[m as keyof typeof g.state.materials] = 1e6;
+    g.recruit('alchemist');
+    g.station('alchemist', g.area);
+    const f = new Field(g);
+    f.setView(390, 420);
+    f.update(0.01);
+    const reg = f.cooldowns().find((c) => c.key === 'alchemist');
+    expect(reg).toBeDefined();
+    expect(reg!.progress).toBeGreaterThanOrEqual(0);
+    expect(reg!.progress).toBeLessThanOrEqual(1);
+    expect(f.reloadProgress('main')).toBeNull(); // no gun
+  });
+
   it('keeps settings and tutorial flags; older saves get the defaults', () => {
     const s = newGame(0);
     s.settings.leftHanded = true;
     s.settings.name = 'Wolfa';
     s.flags.eventsIntro = true;
     const back = deserialize(serialize(s))!;
-    expect(back.settings).toEqual({ leftHanded: true, name: 'Wolfa', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal' });
+    expect(back.settings).toEqual({ leftHanded: true, name: 'Wolfa', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above' });
     expect(back.flags).toEqual({ eventsIntro: true, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false });
     const old = JSON.parse(serialize(newGame(0)));
     delete old.settings;
     delete old.flags;
-    expect(deserialize(JSON.stringify(old))!.settings).toEqual({ leftHanded: false, name: '', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal' });
+    expect(deserialize(JSON.stringify(old))!.settings).toEqual({ leftHanded: false, name: '', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above' });
     // A saved tab order survives; junk is dropped and missing tabs are appended.
     const custom = newGame(0);
     custom.settings.tabOrder = ['areas', 'events', 'hunters', 'beasts', 'inventory'];

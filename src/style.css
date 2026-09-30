@@ -2882,3 +2882,62 @@ button.mat:not(:disabled):active {
   font-style: italic;
   opacity: 0.85;
 }
+
+/* ---- Battlefield cooldown icons (Settings: on/off and which edge) ---- */
+.cd-bar {
+  position: absolute;
+  z-index: 3;
+  display: flex;
+  gap: 6px;
+  pointer-events: none;
+  --cd-size: 34px;
+}
+.cd-top,
+.cd-bottom {
+  left: 8px;
+  right: 8px;
+  flex-direction: row;
+  justify-content: center;
+}
+.cd-top {
+  top: 6px;
+}
+.cd-bottom {
+  bottom: 6px;
+}
+.cd-left,
+.cd-right {
+  top: 8px;
+  bottom: 8px;
+  flex-direction: column;
+  justify-content: center;
+}
+.cd-left {
+  left: 6px;
+}
+.cd-right {
+  right: 6px;
+}
+.cd-icon {
+  position: relative;
+  width: var(--cd-size);
+  height: var(--cd-size);
+  flex: none;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.35);
+  border: 2px solid var(--c0);
+  font-size: calc(var(--cd-size) * 0.62);
+  line-height: 1;
+}
+.cd-icon span {
+  grid-area: 1 / 1;
+}
+/* Recharging: a grey copy underneath; the coloured copy is revealed from the top down. */
+.cd-gray {
+  filter: grayscale(1) brightness(0.7);
+  opacity: 0.6;
+}
+.cd-icon.pulse {
+  animation: card-bump 0.3s ease-out;
+}

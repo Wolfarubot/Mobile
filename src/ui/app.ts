@@ -61,7 +61,7 @@ import {
 import { fmt, fmtTime } from '../core/format';
 import type { FarmRates, Game, TreeKind } from '../core/game';
 import type { OfflineResult } from '../core/offline';
-import { TAB_IDS, type BuyAmount, type GearItem, type TabId, type Wearer } from '../core/state';
+import { COOLDOWN_POSITIONS, TAB_IDS, type BuyAmount, type CooldownPos, type GearItem, type TabId, type Wearer } from '../core/state';
 import { drawEnemyPortrait } from '../render/battle';
 import { spriteUrl } from '../render/sprites';
 import { applyAreaTheme } from './theme';
@@ -2058,6 +2058,29 @@ export class AppUI {
     );
     sync();
     body.appendChild(hand);
+
+    body.appendChild(sectionTitle('Battlefield'));
+    // A setting with a row of choices; `get`/`set` read and write it.
+    const choices = <T extends string>(title: string, blurb: string, opts: Array<[T, string]>, get: () => T, set: (v: T) => void) => {
+      const card = el('div', 'card setting');
+      card.innerHTML = `<div class="setting-name">${title}</div><p>${blurb}</p><div class="segmented">${opts.map(([v, label]) => `<button data-v="${v}">${label}</button>`).join('')}</div>`;
+      const btns = card.querySelectorAll<HTMLButtonElement>('.segmented button');
+      const draw = () => btns.forEach((b) => b.classList.toggle('on', b.dataset.v === get()));
+      btns.forEach((b) =>
+        b.addEventListener('click', () => {
+          set(b.dataset.v as T);
+          this.hooks.save();
+          draw();
+        }),
+      );
+      draw();
+      body.appendChild(card);
+    };
+    const st = g.state.settings;
+    choices('Cooldown icons', 'Icons for abilities that recharge (Hunter specials, staff spells, tome summons). They grey out when used and refill from the top down.', [['on', 'Show'], ['off', 'Hide']], () => (st.cooldowns ? 'on' : 'off'), (v) => (st.cooldowns = v === 'on'));
+    choices('Cooldown icon position', 'Which edge of the battlefield the cooldown icons sit on.', COOLDOWN_POSITIONS.map((p) => [p, p[0].toUpperCase() + p.slice(1)] as [CooldownPos, string]), () => st.cooldownPos, (v) => (st.cooldownPos = v));
+    choices('Reload indicator', '"RELOADING!" over Hunters whose pistol, rifle or repeater is reloading. It fades from right to left as the reload finishes.', [['on', 'Show'], ['off', 'Hide']], () => (st.reloads ? 'on' : 'off'), (v) => (st.reloads = v === 'on'));
+    choices('Reload indicator position', 'Whether it shows above or below the Hunter.', [['above', 'Above'], ['below', 'Below']], () => st.reloadPos, (v) => (st.reloadPos = v));
 
     const tabsCard = el('div', 'card setting');
     tabsCard.innerHTML = `<div class="setting-name">Tab order</div><p>The order of the tabs along the bottom of the screen, left to right. Drag a row or use the arrows.</p><div class="tab-order"></div><button class="secondary tab-order-reset">Reset to default</button>`;

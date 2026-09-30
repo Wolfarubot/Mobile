@@ -124,6 +124,12 @@ export interface GameState {
     tabOrder: TabId[];
     /** Font chosen in Settings (an id from ui/fonts). */
     font: string;
+    /** Cooldown icons on the battlefield (abilities recharging), and which edge they sit on. */
+    cooldowns: boolean;
+    cooldownPos: CooldownPos;
+    /** "RELOADING!" over Hunters whose gun is reloading, and whether it's above or below them. */
+    reloads: boolean;
+    reloadPos: ReloadPos;
   };
   /** One-time tutorial moments already shown. */
   flags: {
@@ -176,13 +182,18 @@ export function newGame(now = Date.now()): GameState {
     equipment: {},
     nextGearUid: 1,
     lastSeen: now,
-    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal' },
+    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above' },
     flags: { eventsIntro: false, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false },
     events: Object.fromEntries(EVENTS.map((e) => [e.id, { cooldown: 0, runs: 0, completed: 0 }])),
     buyAmount: 1,
     stats: { totalKills: 0, totalGold: 0, taps: 0, escaped: 0, guardians: 0, hunterKills: {}, matGained: {} },
   };
 }
+
+export const COOLDOWN_POSITIONS = ['top', 'bottom', 'left', 'right'] as const;
+export type CooldownPos = (typeof COOLDOWN_POSITIONS)[number];
+export const RELOAD_POSITIONS = ['above', 'below'] as const;
+export type ReloadPos = (typeof RELOAD_POSITIONS)[number];
 
 export function serialize(state: GameState): string {
   return JSON.stringify(state);
@@ -236,6 +247,11 @@ function convertItems(state: GameState, oldLevels: boolean): void {
 
 function addMaterials(state: GameState, add: Partial<Record<MaterialId, number>>): void {
   for (const [m, n] of Object.entries(add) as [MaterialId, number][]) if (m in state.materials) state.materials[m] += n;
+}
+
+/** A saved value if it's one of the allowed ones, else the default. */
+function pick<T extends string>(allowed: readonly T[], v: unknown, fallback: T): T {
+  return allowed.includes(v as T) ? (v as T) : fallback;
 }
 
 export function deserialize(raw: string | null | undefined, now = Date.now()): GameState | null {
@@ -298,6 +314,10 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
         if (((data.version as number) ?? 1) < 12 && (f === undefined || f === 'pixel')) return 'terminal';
         return typeof f === 'string' && /^[a-z0-9-]{1,20}$/.test(f) ? f : 'terminal';
       })(),
+      cooldowns: (data.settings as { cooldowns?: unknown } | undefined)?.cooldowns !== false,
+      cooldownPos: pick(COOLDOWN_POSITIONS, (data.settings as { cooldownPos?: unknown } | undefined)?.cooldownPos, 'top'),
+      reloads: (data.settings as { reloads?: unknown } | undefined)?.reloads !== false,
+      reloadPos: pick(RELOAD_POSITIONS, (data.settings as { reloadPos?: unknown } | undefined)?.reloadPos, 'above'),
     },
     flags: {
       eventsIntro: !!(data.flags as { eventsIntro?: unknown } | undefined)?.eventsIntro,

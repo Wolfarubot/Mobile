@@ -13,6 +13,7 @@ import {
   FLEE_SPEED_MULT,
   GUARD_RECHARGE,
   hunterDef,
+  gearDef,
   MAX_ENEMIES,
   MULTISHOT_SPREAD,
   STUN_IMMUNITY,
@@ -119,6 +120,16 @@ export interface GunState {
   cls: string | null;
   ammo: number;
   reload: number;
+  /** Length of the current reload, for how far along it is. */
+  total?: number;
+}
+
+/** An ability recharging, for the cooldown icons: who or what it belongs to, and 0..1 recharged. */
+export interface CooldownView {
+  key: string;
+  icon: string;
+  name: string;
+  progress: number;
 }
 
 /** Where stationed Hunters stand, relative to your Hunter. */
@@ -655,6 +666,39 @@ export class Field {
     } else this.shoot(h.id, 'fireball', h.x, h.y, a, 380, range, { radius, dmg, special: true });
   }
 
+  // ---- Cooldowns (for the battlefield's cooldown icons) ----
+
+  /**
+   * Every ability on the field that recharges, with how far along it is: Guild Hunters' specials (Reginald's
+   * potions, Glimmer's fireballs), your staff's spell (its cooldown after casting) and your tome's next summon.
+   * Guns reloading aren't abilities; they show "RELOADING!" instead (see reloadProgress).
+   */
+  cooldowns(): CooldownView[] {
+    const g = this.game;
+    const out: CooldownView[] = [];
+    const cls = g.weaponClassOf('main');
+    const weapon = g.equipped('main')[0];
+    const icon = weapon ? gearDef(weapon.base).icon : '✨';
+    const name = weapon ? gearDef(weapon.base).name : '';
+    if (cls?.spell) {
+      const gun = this.gunState;
+      out.push({ key: `main:${name}`, icon, name, progress: gun.reload > 0 && gun.total ? 1 - gun.reload / gun.total : 1 });
+    } else if (cls?.summon) out.push({ key: `main:${name}`, icon, name, progress: Math.min(1, this.fireAcc) });
+    for (const h of this.helpers) {
+      const sp = hunterDef(h.id).style.special;
+      if (sp) out.push({ key: h.id, icon: hunterDef(h.id).icon, name: hunterDef(h.id).name, progress: 1 - Math.max(0, h.specialCd) / sp.cooldown });
+    }
+    return out;
+  }
+
+  /** How far along a Hunter's gun reload is (0..1), or null when they aren't reloading a gun. */
+  reloadProgress(who: Shooter): number | null {
+    const gun = who === 'main' ? this.gunState : this.helpers.find((h) => h.id === who)?.gun;
+    const cls = this.game.weaponClassOf(who);
+    if (!gun || !cls?.mag || cls.spell || gun.reload <= 0 || !gun.total) return null;
+    return 1 - gun.reload / gun.total;
+  }
+
   // ---- Attacks ----
 
   /**
@@ -678,6 +722,7 @@ export class Field {
     if (!cls?.mag) return false;
     if (--gun.ammo > 0) return false;
     gun.reload = (cls.reload ?? 0) / Math.max(rate, 1e-6);
+    gun.total = gun.reload;
     return true;
   }
 

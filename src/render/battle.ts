@@ -1,7 +1,7 @@
 import { areaDef, DAMAGE_TYPES, STATUS, enemyDef, eventDef, FIELD_ZOOM, GUARDIAN_TIME, hunterDef, materialDef, type EnemyId, type EnemyShape } from '../core/balance';
 import { PLAYER_RADIUS, SUMMON_RADIUS, type Bullet, type Enemy, type Field, type Helper } from '../core/field';
 import { fmt } from '../core/format';
-import type { Game } from '../core/game';
+import type { Game, Shooter } from '../core/game';
 import { canvasFont, fitCanvas, Fx } from './fx';
 import { sprite } from './sprites';
 
@@ -49,6 +49,8 @@ export class BattleView {
   private pickups: Pickup[] = [];
   private rings: Ring[] = [];
   private beams: Beam[] = [];
+  /** Ability cooldown icons, overlaid on the battlefield. */
+  private cooldownBar: CooldownBar;
   /** Melee sweeps and swipes: a fading arc in front of the attacker. */
   private sweeps: Array<{ x: number; y: number; a: number; arc: number; r: number; color: string; t: number }> = [];
   private time = 0;
@@ -65,6 +67,7 @@ export class BattleView {
     private field: Field,
   ) {
     this.g = canvas.getContext('2d')!;
+    this.cooldownBar = new CooldownBar(canvas.parentElement!, game, field);
     this.fx.textScale = 1 / Z;
     // Static ground detail in normalized coords, so it scales with the view.
     for (let i = 0; i < 70; i++) this.specks.push({ x: Math.random(), y: Math.random(), r: 1 + Math.random() * 3 });
@@ -137,8 +140,7 @@ export class BattleView {
           if (e.heavy) this.shake = Math.max(this.shake, 0.12); // a hammer's smash
           break;
         case 'reload':
-          this.fx.text(e.x, e.y - PLAYER_RADIUS - 16, 'RELOAD', '#e8e0c0', 11, 0.6);
-          break;
+          break; // drawn each frame as "RELOADING!" (drawReloads)
         case 'guard':
           this.rings.push({ x: e.x, y: e.y, t: 0, r: PLAYER_RADIUS + 10, color: '255,232,163', max: 0.3 });
           this.fx.text(e.x, e.y - 30, 'BLOCK', '#ffe8a3', 12, 0.6);
@@ -320,9 +322,40 @@ export class BattleView {
       g.stroke();
     }
 
+    this.drawReloads(g);
     this.fx.draw(g);
     g.restore();
     this.drawHud(g);
+    this.cooldownBar.update();
+  }
+
+  /** "RELOADING!" over (or under) each Hunter reloading a gun, fading away from right to left as it reloads. */
+  private drawReloads(g: CanvasRenderingContext2D): void {
+    const st = this.game.state.settings;
+    if (!st.reloads) return;
+    const spots: Array<{ who: Shooter; x: number; y: number }> = [{ who: 'main', x: 0, y: 0 }, ...this.field.helpers.map((h) => ({ who: h.id as Shooter, x: h.x, y: h.y }))];
+    g.font = canvasFont(11 / Z, 700);
+    g.textAlign = 'left';
+    g.textBaseline = 'middle';
+    for (const s of spots) {
+      const p = this.field.reloadProgress(s.who);
+      if (p === null) continue;
+      const text = 'RELOADING!';
+      const w = g.measureText(text).width;
+      const x = s.x - w / 2;
+      const y = s.y + (st.reloadPos === 'below' ? 1 : -1) * (PLAYER_RADIUS + 14 / Z);
+      // What's left of the reload: the text from the left edge, shrinking toward it as the reload runs.
+      g.save();
+      g.beginPath();
+      g.rect(x - 4, y - 20, (w + 8) * (1 - p), 40);
+      g.clip();
+      g.lineWidth = 3 / Z;
+      g.strokeStyle = 'rgba(0,0,0,0.75)';
+      g.strokeText(text, x, y);
+      g.fillStyle = '#ffe066';
+      g.fillText(text, x, y);
+      g.restore();
+    }
   }
 
   private drawEnemy(g: CanvasRenderingContext2D, e: Enemy): void {
@@ -856,5 +889,65 @@ function drawShieldPips(g: CanvasRenderingContext2D, x: number, y: number, guard
     g.beginPath();
     g.arc(x + (i - (max - 1) / 2) * 7, y, 2.6, 0, Math.PI * 2);
     g.fill();
+  }
+}
+
+/**
+ * Ability cooldowns as icons along one edge of the battlefield (Settings picks the edge). A recharging icon
+ * is greyed out and refills with colour from the top down; when it's ready it gives a little pulse. Icons
+ * shrink as more of them share the edge.
+ */
+class CooldownBar {
+  private el: HTMLDivElement;
+  private icons = new Map<string, { el: HTMLDivElement; color: HTMLSpanElement; ready: boolean }>();
+
+  constructor(
+    parent: HTMLElement,
+    private game: Game,
+    private field: Field,
+  ) {
+    this.el = document.createElement('div');
+    this.el.className = 'cd-bar';
+    parent.appendChild(this.el);
+  }
+
+  update(): void {
+    const st = this.game.state.settings;
+    const list = st.cooldowns ? this.field.cooldowns() : [];
+    this.el.className = `cd-bar cd-${st.cooldownPos}`;
+    this.el.classList.toggle('hidden', !list.length);
+    // Size: as big as fits, up to 34px, sharing the edge's length.
+    const vertical = st.cooldownPos === 'left' || st.cooldownPos === 'right';
+    const room = (vertical ? this.el.parentElement!.clientHeight : this.el.parentElement!.clientWidth) - 16;
+    const size = Math.max(14, Math.min(34, room / Math.max(1, list.length) - 6));
+    this.el.style.setProperty('--cd-size', `${size}px`);
+    const seen = new Set<string>();
+    for (const c of list) {
+      seen.add(c.key);
+      let ic = this.icons.get(c.key);
+      if (!ic) {
+        const el = document.createElement('div');
+        el.className = 'cd-icon';
+        el.title = c.name;
+        el.innerHTML = `<span class="cd-gray">${c.icon}</span><span class="cd-color">${c.icon}</span>`;
+        this.el.appendChild(el);
+        ic = { el, color: el.querySelector('.cd-color') as HTMLSpanElement, ready: c.progress >= 1 };
+        this.icons.set(c.key, ic);
+      }
+      // The coloured copy shows from the top down as it recharges.
+      ic.color.style.clipPath = `inset(0 0 ${(1 - Math.min(1, c.progress)) * 100}% 0)`;
+      const ready = c.progress >= 1;
+      if (ready && !ic.ready) {
+        ic.el.classList.remove('pulse');
+        void ic.el.offsetWidth;
+        ic.el.classList.add('pulse');
+      }
+      ic.ready = ready;
+    }
+    for (const [key, ic] of this.icons)
+      if (!seen.has(key)) {
+        ic.el.remove();
+        this.icons.delete(key);
+      }
   }
 }
