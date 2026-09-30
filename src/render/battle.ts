@@ -1,5 +1,5 @@
 import { areaDef, DAMAGE_TYPES, STATUS, enemyDef, eventDef, FIELD_ZOOM, GUARDIAN_TIME, hunterDef, materialDef, type EnemyId, type EnemyShape } from '../core/balance';
-import { PLAYER_RADIUS, type Bullet, type Enemy, type Field, type Helper } from '../core/field';
+import { PLAYER_RADIUS, SUMMON_RADIUS, type Bullet, type Enemy, type Field, type Helper } from '../core/field';
 import { fmt } from '../core/format';
 import type { Game } from '../core/game';
 import { canvasFont, fitCanvas, Fx } from './fx';
@@ -251,6 +251,29 @@ export class BattleView {
     this.drawHunter(g);
 
     for (const b of this.field.bullets) drawBullet(g, b, this.time);
+
+    // Tome spirits: a glowing wisp with a trailing tail, fading as their time runs out.
+    for (const sm of this.field.summons) {
+      const fade = Math.min(1, sm.life / 1.2);
+      const bob = Math.sin(this.time * 8 + sm.maxLife) * 2;
+      g.globalAlpha = 0.35 * fade;
+      g.fillStyle = '#b48cff';
+      g.beginPath();
+      g.arc(sm.x, sm.y + bob, SUMMON_RADIUS + 5, 0, Math.PI * 2);
+      g.fill();
+      g.globalAlpha = fade;
+      g.fillStyle = '#e8dcff';
+      g.strokeStyle = '#5a3a9a';
+      g.lineWidth = 2;
+      g.beginPath();
+      g.arc(sm.x, sm.y + bob, SUMMON_RADIUS, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+      g.fillStyle = '#3a2060';
+      g.fillRect(sm.x - 4, sm.y + bob - 2, 2, 3);
+      g.fillRect(sm.x + 2, sm.y + bob - 2, 2, 3);
+      g.globalAlpha = 1;
+    }
 
     for (const b of this.beams) {
       g.strokeStyle = b.color;

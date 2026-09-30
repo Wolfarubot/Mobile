@@ -346,7 +346,7 @@ export class Game {
   shooterRange(shooter: Shooter, mode?: GearMode): number {
     const cls = this.weaponClassOf(shooter, mode);
     const bonus = this.gear(shooter, mode).range + this.tree(shooter).range;
-    if (shooter === 'main' && cls && (cls.attack === 'sweep' || cls.attack === 'stab')) return cls.reach! + bonus / 4;
+    if (shooter === 'main' && cls && (cls.attack === 'sweep' || cls.attack === 'stab' || cls.attack === 'nova')) return cls.reach! + bonus / 4;
     return (shooter === 'main' ? MAIN_RANGE : hunterDef(shooter).style.range) * (cls?.range ?? 1) + bonus;
   }
 

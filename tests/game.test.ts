@@ -1055,11 +1055,66 @@ describe('Equipment', () => {
 
   it('a hammer is slow and crushing, and knocks monsters much further than other weapons', () => {
     const h = WEAPON_CLASSES.hammer;
-    for (const [id, c] of Object.entries(WEAPON_CLASSES)) if (id !== 'hammer') {
+    for (const [id, c] of Object.entries(WEAPON_CLASSES)) if (id !== 'hammer' && !c.summon) {
       expect(h.rate).toBeLessThan(c.rate);
       expect(h.knock ?? 0).toBeGreaterThan(c.knock ?? 0);
     }
     expect(h.damage).toBeGreaterThan(2);
+  });
+
+  it('magic: scepter bolts bounce; a staff casts a big spell every 6th attack; a focus bursts around the Hunter; a tome summons a spirit', () => {
+    const fresh = (gear: Parameters<Game['craftGear']>[0]) => {
+      const g = stocked();
+      g.state.hunters = Object.fromEntries(Object.entries(g.state.hunters).map(([k, h]) => [k, { ...h, station: null }])) as typeof g.state.hunters;
+      g.state.items.splitbow = 0;
+      g.equip('main', 0, g.craftGear(gear)!.uid);
+      const f = new Field(g);
+      f.setView(390, 420);
+      return { g, f };
+    };
+    const hp = 1e12;
+    const run = (f: Field, secs: number) => {
+      const ev: ReturnType<Field['drainEvents']> = [];
+      for (let t = 0; t < secs; t += 0.01) {
+        f.update(0.01);
+        ev.push(...f.drainEvents());
+      }
+      return ev;
+    };
+    // Scepter: one bolt, three monsters close together: it bounces on to the other two.
+    {
+      const { g, f } = fresh('voidScepter');
+      f.enemies.push(enemy({ id: 1, x: 150, hp, maxHp: hp }), enemy({ id: 2, x: 210, y: 40, hp, maxHp: hp }), enemy({ id: 3, x: 210, y: -40, hp, maxHp: hp }));
+      run(f, 1 / g.shooterRate('main') + 0.6);
+      expect(f.enemies.filter((e) => e.hp < hp)).toHaveLength(3);
+    }
+    // Staff: 5 bolts, then an explosion.
+    {
+      const { g, f } = fresh('gravewoodStaff');
+      f.enemies.push(enemy({ id: 1, x: 150, r: 20, hp, maxHp: hp }));
+      const ev = run(f, 6 / g.shooterRate('main') + 0.6);
+      expect(ev.filter((e) => e.type === 'explode')).toHaveLength(1);
+      expect(ev.filter((e) => e.type === 'hit').length).toBeGreaterThanOrEqual(6);
+    }
+    // Focus: a burst hits everything around the Hunter, front and back.
+    {
+      const { g, f } = fresh('emberFocus');
+      f.enemies.push(enemy({ id: 1, x: 70, hp, maxHp: hp }), enemy({ id: 2, x: -70, hp, maxHp: hp }), enemy({ id: 3, x: 300, hp, maxHp: hp }));
+      run(f, 1 / g.shooterRate('main') + 0.02);
+      expect(f.enemies.filter((e) => e.hp < hp).map((e) => e.id).sort()).toEqual([1, 2]);
+    }
+    // Tome: a spirit appears, goes for a monster and bites it, then fades.
+    {
+      const { g, f } = fresh('wispTome');
+      f.enemies.push(enemy({ id: 1, x: 200, hp, maxHp: hp }));
+      run(f, 1 / g.shooterRate('main') + 0.05);
+      expect(f.summons).toHaveLength(1);
+      run(f, 3);
+      expect(f.enemies[0].hp).toBeLessThan(hp);
+      f.enemies = [];
+      run(f, WEAPON_CLASSES.tome.summon!.duration);
+      expect(f.summons).toHaveLength(0);
+    }
   });
 
   it('a repeater sprays a fan; extra bolts of one volley on the same monster hit harder (×1.5, ×2)', () => {

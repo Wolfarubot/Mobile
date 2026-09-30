@@ -1248,6 +1248,7 @@ export const GEAR_STATS: Record<GearStat, (v: number) => string> = {
 
 export type GearId =
   | 'fangDagger'
+  | 'wispTome'
   | 'boneMaul'
   | 'goblinSword'
   | 'huntingBow'
@@ -1327,7 +1328,7 @@ export const GEAR_STUN_CAP = 0.7;
 // weapon's class reshapes it (a longbow makes Galladair's arrows slower, heavier and longer-ranged).
 // Each class's rate × damage is about 1, so none is simply better: they trade speed, reach and crowd hits.
 
-export type WeaponClass = 'dagger' | 'sword' | 'glaive' | 'spear' | 'hammer' | 'shortbow' | 'longbow' | 'crossbow' | 'pistol' | 'rifle' | 'repeater' | 'wand' | 'staff' | 'focus' | 'scepter';
+export type WeaponClass = 'tome' | 'dagger' | 'sword' | 'glaive' | 'spear' | 'hammer' | 'shortbow' | 'longbow' | 'crossbow' | 'pistol' | 'rifle' | 'repeater' | 'wand' | 'staff' | 'focus' | 'scepter';
 
 export interface WeaponClassDef {
   name: string;
@@ -1335,9 +1336,10 @@ export interface WeaponClassDef {
    * How your Hunter attacks with it. 'shot': a projectile out to their range × `range`. 'sweep': an arc of
    * `arc` radians in front of them, `reach` deep, hitting everything in it. 'stab': a thrust `reach` long that
    * pierces `pierce` extra enemies in a line. 'dagger': a swipe (like a small sweep) when something is within
-   * `reach`, else a thrown dagger out to their range × `range`.
+   * `reach`, else a thrown dagger out to their range × `range`. 'nova': when a monster comes within `reach`,
+   * a burst hits every monster in that radius around the Hunter. 'summon': calls up a creature (see `summon`).
    */
-  attack: 'shot' | 'sweep' | 'stab' | 'dagger';
+  attack: 'shot' | 'sweep' | 'stab' | 'dagger' | 'nova' | 'summon';
   /** Projectile look for shots and throws. */
   projectile?: 'bolt' | 'arrow' | 'spark' | 'pistol' | 'dagger';
   range: number;
@@ -1367,6 +1369,18 @@ export interface WeaponClassDef {
   width?: number;
   /** Melee: how hard a hit knocks a surviving monster back (daggers: only the last stab). */
   knock?: number;
+  /** Scepters: each bolt bounces on to this many more monsters nearby. */
+  bounces?: number;
+  /**
+   * Staffs: after `every` bolts, the next attack is a big spell (an explosion `radius` wide, dealing `damage` ×
+   * a bolt to everything in it), then a short cooldown (the magazine's reload).
+   */
+  spell?: { every: number; radius: number; damage: number };
+  /**
+   * Tomes: each attack summons a creature that roams the field for `duration` seconds, biting monsters within
+   * reach `bites` times a second for `damage` × a shot (the class's `damage`). Attack speed shortens the wait.
+   */
+  summon?: { duration: number; bites: number; speed: number; name: string };
   /** Rough crowd efficiency for the background model (sweeps and stabs hit several). */
   farm: number;
   describe: string;
@@ -1382,6 +1396,8 @@ export const weaponUptime = (c: WeaponClassDef | null | undefined): number => (c
 export const weaponHitsPerAttack = (c: WeaponClassDef | null | undefined): number => {
   if (!c) return 1;
   if (c.thrusts) return c.thrusts;
+  if (c.summon) return c.summon.duration * c.summon.bites;
+  if (c.spell) return (c.spell.every + c.spell.damage) / (c.spell.every + 1);
   const v = c.volley ?? 1;
   return v * (1 + ((c.stack ?? 0) * (v - 1)) / 4);
 };
@@ -1398,10 +1414,11 @@ export const WEAPON_CLASSES: Record<WeaponClass, WeaponClassDef> = {
   pistol: { name: 'Pistol', attack: 'shot', projectile: 'pistol', range: 0.7, rate: 1.6, damage: 1, mag: 6, reload: 3, farm: 1, describe: 'Hard-hitting shots at close range: 6 shots, then a reload.' },
   rifle: { name: 'Rifle', attack: 'shot', projectile: 'pistol', range: 1.5, rate: 0.8, damage: 2.4, pierce: 1, mag: 4, reload: 3, farm: 1.1, describe: 'Very hard, very long shots that pierce: 4 shots, then a long reload.' },
   repeater: { name: 'Repeater', attack: 'shot', projectile: 'bolt', range: 0.9, rate: 1.2, damage: 0.32, volley: 3, fan: 0.5, stack: 0.5, mag: 6, reload: 3, farm: 1, describe: 'Sprays volleys of 3 bolts in a random fan; each extra bolt of a volley on the same monster hits 50% harder. 6 volleys, then a reload.' },
-  wand: { name: 'Wand', attack: 'shot', projectile: 'spark', range: 1, rate: 1.3, damage: 0.77, farm: 1, describe: 'Fast, light magic bolts.' },
-  staff: { name: 'Staff', attack: 'shot', projectile: 'spark', range: 1.1, rate: 0.75, damage: 1.4, farm: 1, describe: 'Slower, heavier magic bolts.' },
-  focus: { name: 'Focus', attack: 'shot', projectile: 'spark', range: 1.25, rate: 1, damage: 1, farm: 1, describe: 'Steady magic bolts with extra reach.' },
-  scepter: { name: 'Scepter', attack: 'shot', projectile: 'spark', range: 1, rate: 1, damage: 1.1, farm: 1, describe: 'Strong, steady magic bolts.' },
+  wand: { name: 'Wand', attack: 'shot', projectile: 'spark', range: 0.85, rate: 1.35, damage: 0.75, farm: 1, describe: 'The basic magic weapon: quick, light bolts at shorter range.' },
+  scepter: { name: 'Scepter', attack: 'shot', projectile: 'spark', range: 1.25, rate: 0.75, damage: 1.3, bounces: 2, farm: 1.5, describe: 'Slower, longer-range bolts that bounce on to 2 more monsters nearby.' },
+  staff: { name: 'Staff', attack: 'shot', projectile: 'spark', range: 1.1, rate: 0.8, damage: 1.25, spell: { every: 5, radius: 70, damage: 3 }, mag: 6, reload: 2, farm: 1.4, describe: 'Casts 5 bolts, then a big spell that blasts everything around its target, then a short cooldown.' },
+  focus: { name: 'Focus', attack: 'nova', range: 1, reach: 110, rate: 0.8, damage: 1.2, farm: 2, describe: 'When monsters come close, bursts with power that hits every monster around the Hunter.' },
+  tome: { name: 'Tome', attack: 'summon', range: 1, rate: 0.12, damage: 0.7, summon: { duration: 8, bites: 1.5, speed: 150, name: 'spirit' }, farm: 1, describe: 'Summons a spirit that hunts monsters across the field for 8s, then fades; a new one comes after a cooldown.' },
 };
 
 export const GEAR: GearDef[] = [
@@ -1425,6 +1442,7 @@ export const GEAR: GearDef[] = [
   { id: 'emberFocus', name: 'Ember Focus', icon: '🕯️', kind: 'magic', rarity: 'rare', weaponClass: 'focus', damageType: 'fire', proc: 0.3, stats: { damage: 0.3, rate: 0.15 }, recipe: { ember: 10, magma: 5 } },
   { id: 'crystalFocus', name: 'Crystal Focus', icon: '💎', kind: 'magic', rarity: 'legendary', weaponClass: 'focus', damageType: 'frost', proc: 0.3, stats: { damage: 0.4, rate: 0.2 }, recipe: { frost: 8, ecto: 6 } },
   { id: 'voidScepter', name: 'Void Scepter', icon: '🪬', kind: 'magic', rarity: 'relic', weaponClass: 'scepter', damageType: 'void', stats: { damage: 0.55, rate: 0.25 }, recipe: { shade: 10, void: 5 } },
+  { id: 'wispTome', name: 'Tome of Wisps', icon: '📖', kind: 'magic', rarity: 'rare', weaponClass: 'tome', damageType: 'arcane', proc: 0.15, stats: { damage: 0.3 }, recipe: { flesh: 10, wing: 6, bone: 4 } },
   { id: 'soulfireStaff', name: 'Soulfire Staff', icon: '🌟', kind: 'magic', rarity: 'exalted', weaponClass: 'staff', damageType: 'radiant', proc: 0.2, stats: { damage: 0.75, rate: 0.3 }, recipe: { soul: 8, void: 4 } },
   // Armor
   { id: 'leatherVest', name: 'Leather Vest', icon: '🦺', kind: 'armor', rarity: 'common', stats: { stun: 0.05 }, recipe: { pelt: 8, goo: 6 } },

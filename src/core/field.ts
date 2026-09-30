@@ -23,6 +23,8 @@ import type { Game, GearMode, KillReward, Shooter } from './game';
 
 export const PLAYER_RADIUS = 13;
 const BULLET_RADIUS = 4;
+/** Size of a tome's summoned creature. */
+export const SUMMON_RADIUS = 9;
 /** Seconds between a dagger's stabs in one burst. */
 const DAGGER_GAP = 0.09;
 const BOSS_BOUNCE = 260;
@@ -66,6 +68,15 @@ export interface Enemy {
   /** The last repeater volley that hit it, and how many of its bolts have (each extra hits harder). */
   volley?: number;
   volleyHits?: number;
+}
+
+/** A creature summoned by your Hunter's tome: roams to the nearest monster and bites it until it fades. */
+export interface Summon {
+  x: number;
+  y: number;
+  life: number;
+  maxLife: number;
+  bite: number;
 }
 
 /** A damage-over-time effect: damage per second, seconds left, who applied it (for kill credit). */
@@ -212,6 +223,8 @@ export class Field {
   gunState: GunState = { cls: null, ammo: 0, reload: 0 };
   /** A dagger's burst in progress: stabs (or throws) still to come, at a monster. */
   private stabs: Array<{ t: number; target: number; last: boolean }> = [];
+  /** Creatures your Hunter's tome has summoned. */
+  summons: Summon[] = [];
   private nextVolley = 1;
   private nextId = 1;
   private halfW = 320;
@@ -363,6 +376,16 @@ export class Field {
         // A burst of stabs (or throws, if it's out of reach) at this monster, a moment apart.
         const n = cls.thrusts ?? 1;
         for (let i = 0; i < n; i++) this.stabs.push({ t: i * DAGGER_GAP, target: target.id, last: i === n - 1 });
+      } else if (cls?.attack === 'nova') {
+        // A burst of power around the Hunter: every monster in the radius.
+        this.events.push({ type: 'nova', x: 0, y: 0, r: cls.reach! });
+        for (const e of this.enemies) if (e.hp > 0 && Math.hypot(e.x, e.y) <= cls.reach! + e.r) this.hitWith('main', e, 1, 0, 0);
+      } else if (cls?.summon) {
+        this.summons.push({ x: Math.cos(this.aim) * 20, y: Math.sin(this.aim) * 20, life: cls.summon.duration, maxLife: cls.summon.duration, bite: 0 });
+        this.events.push({ type: 'nova', x: 0, y: 0, r: 30 });
+      } else if (cls?.spell && this.gunState.ammo === 1) {
+        // A staff's big spell: the last round of each cast.
+        this.shoot('main', 'fireball', 0, 0, this.aim, 380, range, { radius: cls.spell.radius, dmg: cls.spell.damage });
       } else if (cls?.attack === 'sweep') this.strikeArc('main', 0, 0, this.aim, cls.reach!, cls.arc!, 1, cls.knock ?? 0);
       else if (cls?.attack === 'stab') this.strikeLine('main', 0, 0, this.aim, range, cls.width ?? 10, Infinity, 1, '#f4f4f4', (cls.width ?? 10) / 2, cls.knock ?? 0);
       else if (cls?.volley) {
@@ -372,7 +395,7 @@ export class Field {
           const a = this.aim + (g.rng() - 0.5) * (cls.fan ?? 0);
           this.shoot('main', cls.projectile ?? 'bolt', 0, 0, a, BULLET_SPEED, range, { pierce: g.pierceOf('main'), volley, stack: cls.stack });
         }
-      } else this.shoot('main', cls?.projectile ?? 'bolt', 0, 0, this.aim, BULLET_SPEED, range, { pierce: g.pierceOf('main'), spread: true, followThrough: cls?.followThrough });
+      } else this.shoot('main', cls?.projectile ?? 'bolt', 0, 0, this.aim, BULLET_SPEED, range, { pierce: g.pierceOf('main'), spread: true, followThrough: cls?.followThrough, bounces: cls?.bounces });
       if (this.spendShot(this.gunState, cls, g.shooterRate('main'))) {
         this.events.push({ type: 'reload', who: 'main', x: 0, y: 0 });
         this.fireAcc = 0;
@@ -380,6 +403,7 @@ export class Field {
       }
     }
     this.runStabs(dt, cls);
+    this.runSummons(dt, cls);
     for (const h of this.helpers) this.helperAttack(h, dt);
 
     this.moveBullets(dt);
@@ -742,6 +766,38 @@ export class Field {
     }
   }
 
+  /** Tome creatures: each heads for the nearest monster and bites it while in reach, until it fades. */
+  private runSummons(dt: number, cls: WeaponClassDef | null): void {
+    if (!this.summons.length) return;
+    const sm = cls?.summon;
+    if (!sm) {
+      this.summons = [];
+      return;
+    }
+    for (const s of this.summons) {
+      s.life -= dt;
+      const e = this.nearest(s.x, s.y, 2000);
+      if (!e) continue;
+      const dx = e.x - s.x;
+      const dy = e.y - s.y;
+      const d = Math.hypot(dx, dy) || 1;
+      const reach = SUMMON_RADIUS + e.r;
+      if (d > reach) {
+        const step = Math.min(sm.speed * dt, d - reach + 1);
+        s.x += (dx / d) * step;
+        s.y += (dy / d) * step;
+      }
+      if (d <= reach + 2) {
+        s.bite += dt * sm.bites;
+        while (s.bite >= 1 && e.hp > 0) {
+          s.bite -= 1;
+          this.hitWith('main', e, 1, s.x, s.y);
+        }
+      } else s.bite = Math.min(s.bite + dt * sm.bites, 1);
+    }
+    this.summons = this.summons.filter((s) => s.life > 0);
+  }
+
   /** A melee hit: damage, then a knock back if the monster survives (Guardians hold their ground). */
   private meleeHit(shooter: Shooter, e: Enemy, dmg: number, ox: number, oy: number, knock: number): void {
     this.hitWith(shooter, e, dmg, ox, oy);
@@ -915,7 +971,7 @@ export class Field {
     }
     this.hitWith(b.shooter, e, mult, b.x - b.vx, b.y - b.vy, b.crit, b.mode);
     if (b.kind === 'hammer' && b.slow) e.slow = Math.max(e.slow ?? 0, b.slow);
-    if (b.kind === 'ricochet' && (b.bounces ?? 0) > 0) {
+    if ((b.bounces ?? 0) > 0) {
       const next = this.nearest(e.x, e.y, RICOCHET_RANGE, b.hits);
       if (next) {
         const speed = Math.hypot(b.vx, b.vy);
