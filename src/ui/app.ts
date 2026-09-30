@@ -2165,7 +2165,7 @@ function affinityHtml(e: EnemyDef, compact = false): string {
 /** A damage type tag whose name can be hidden (icon only) when its row runs out of room. */
 function damageTypeChip(t: DamageType): string {
   const d = DAMAGE_TYPES[t];
-  return `<span class="dtype-tag chip" style="--dc:${d.color}" title="${d.name}">${d.icon}<span class="dt-name"> ${d.name}</span></span>`;
+  return `<span class="dtype-tag" style="--dc:${d.color}" title="${d.name}">${d.icon}<span class="dt-name"> ${d.name}</span></span>`;
 }
 
 /** Shows a compact affinity row with names if it fits on one line, else icons only. */
