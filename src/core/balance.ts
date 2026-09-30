@@ -1255,7 +1255,6 @@ export type GearId =
   | 'fangDagger'
   | 'wispTome'
   | 'wolfTome'
-  | 'testDecayStaff'
   | 'boneMaul'
   | 'goblinSword'
   | 'huntingBow'
@@ -1471,8 +1470,6 @@ export const GEAR: GearDef[] = [
     summon: { look: 'wolf', name: 'wolf spirit', dash: { cooldown: 4, range: 150, speed: 520, damage: 2.5 } },
     ability: 'Its wolves lunge at a monster every 4s; a lunge that lands bites for ×2.5.',
   },
-  // TEMPORARY (decay aura test): a staff whose every hit inflicts Decay. Not craftable (needs 999,999 Soul Gems).
-  { id: 'testDecayStaff', name: 'Staff of Rot (test)', icon: '🦠', kind: 'magic', rarity: 'legendary', weaponClass: 'staff', damageType: 'decay', proc: 1, stats: { damage: 0.3 }, recipe: { soul: 999_999 } },
   { id: 'soulfireStaff', name: 'Soulfire Staff', icon: '🌟', kind: 'magic', rarity: 'exalted', weaponClass: 'staff', damageType: 'radiant', proc: 0.2, stats: { damage: 0.5, rate: 0.15 }, recipe: { soul: 8, void: 4 } },
   // Armor
   { id: 'leatherVest', name: 'Leather Vest', icon: '🦺', kind: 'armor', rarity: 'common', stats: { stun: 0.05 }, recipe: { pelt: 8, goo: 6 } },

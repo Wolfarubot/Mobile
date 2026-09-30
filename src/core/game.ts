@@ -184,9 +184,6 @@ export class Game {
     this.rng = rng;
   }
 
-  /** TEMPORARY (decay aura test): every monster in this area has exactly this much HP. Set only by the app. */
-  testHp: { area: AreaId; hp: number } | null = null;
-
   on(fn: (e: GameEvent) => void): void {
     this.listeners.push(fn);
   }
@@ -759,7 +756,7 @@ export class Game {
     return {
       id,
       archetype: def.archetype,
-      hp: this.testHp?.area === def.area ? this.testHp.hp : area.hp * def.hp * emp('hp') * (1 + evo.hp) * idol.hp,
+      hp: area.hp * def.hp * emp('hp') * (1 + evo.hp) * idol.hp,
       speed: area.speed * def.speed * (1 + evo.speed) * swarm.speed,
       gold: area.gold * def.gold * emp('gold') * (1 + evo.gold) * this.goldMult * idol.gold,
       spawnRate: b.unlocked ? Math.max(def.spawn * emp('spawn') * (1 + evo.spawn) * (1 + 0.2 * this.item('lure')) * swarm.spawn, swarm.spawn ? (ev?.minSpawn?.[id] ?? 0) : 0) : 0,
