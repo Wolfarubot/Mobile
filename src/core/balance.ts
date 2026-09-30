@@ -54,6 +54,8 @@ export interface EventDef {
   archetype?: Archetype;
   spawnMult?: number;
   speedMult?: number;
+  /** Swarm: spawns per second a monster gets at least, if its multiplied rate is lower. */
+  minSpawn?: Partial<Record<EnemyId, number>>;
 }
 
 export const GUARDIAN_COOLDOWN = 5 * 60;
@@ -1491,13 +1493,14 @@ export const EVENTS: EventDef[] = [
     kind: 'swarm',
     name: 'Slime Swarm',
     icon: '🟢',
-    blurb: 'Slimes flood the forest for 60s: twice as many, twice as fast.',
+    blurb: 'Slimes flood the forest for 60s: twice as many (at least 10 Green Slimes a second), twice as fast.',
     unlockKills: 2500,
     cooldown: 15 * 60,
     duration: 60,
     archetype: 'slime',
     spawnMult: 2,
     speedMult: 2,
+    minSpawn: { greenSlime: 10 },
   },
 ];
 

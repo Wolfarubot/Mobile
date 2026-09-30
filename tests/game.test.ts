@@ -640,6 +640,16 @@ describe('Shops', () => {
     expect(g.enemyStats('greenSlime').gold / before.gold).toBeCloseTo(3);
   });
 
+  it('a new recruit joins you in your current area (if there is room)', () => {
+    const g = rich();
+    g.state.areas.graveyard.unlocked = true;
+    g.state.area = 'graveyard';
+    for (const h of ['alchemist', 'ranger'] as const) g.state.hunters[h].recruited = false;
+    g.state.stats.guardians = 99;
+    g.recruit('alchemist');
+    expect(g.state.hunters.alchemist.station).toBe('graveyard');
+  });
+
   it('crafting spends materials and items boost every Hunter', () => {
     const g = rich();
     g.recruit('alchemist');
@@ -1148,8 +1158,11 @@ describe('Events', () => {
     expect(g.eventUnlocked('slimeSwarm')).toBe(false);
     g.state.areas.forest.kills = def.unlockKills;
     const slime = g.enemyStats('greenSlime');
+    const red = g.enemyStats('redSlime');
     expect(g.startEvent('slimeSwarm')).toBe(true);
-    expect(g.enemyStats('greenSlime').spawnRate).toBeCloseTo(slime.spawnRate * 2);
+    // Green Slimes: twice as many, but at least 10 a second.
+    expect(g.enemyStats('greenSlime').spawnRate).toBeCloseTo(Math.max(10, slime.spawnRate * 2));
+    expect(g.enemyStats('redSlime').spawnRate).toBeCloseTo(red.spawnRate * 2);
     expect(g.enemyStats('greenSlime').speed).toBeCloseTo(slime.speed * 2);
     expect(g.enemyStats('redSlime').spawnRate).toBeGreaterThan(0);
     expect(g.enemyStats('wolf').spawnRate).toBe(0); // only slimes

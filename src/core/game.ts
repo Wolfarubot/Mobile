@@ -722,7 +722,7 @@ export class Game {
       hp: area.hp * def.hp * emp('hp') * (1 + evo.hp) * idol.hp,
       speed: area.speed * def.speed * (1 + evo.speed) * swarm.speed,
       gold: area.gold * def.gold * emp('gold') * (1 + evo.gold) * this.goldMult * idol.gold,
-      spawnRate: b.unlocked ? def.spawn * (1 + evo.spawn) * (1 + 0.2 * this.item('lure')) * swarm.spawn : 0,
+      spawnRate: b.unlocked ? Math.max(def.spawn * (1 + evo.spawn) * (1 + 0.2 * this.item('lure')) * swarm.spawn, swarm.spawn ? (ev?.minSpawn?.[id] ?? 0) : 0) : 0,
       dropChance: BASE_DROP_CHANCE * (1 + 0.25 * this.item('pouch')) * emp('drops') * (1 + evo.drops),
       material: def.material,
     };
@@ -1148,6 +1148,8 @@ export class Game {
     if (!this.canRecruit(id)) return false;
     this.state.gold -= hunterDef(id).recruitCost;
     this.state.hunters[id].recruited = true;
+    // New recruits join you where you are, if there's room.
+    this.station(id, this.state.area);
     this.emit({ type: 'recruit', hunter: id });
     return true;
   }
