@@ -1094,6 +1094,7 @@ describe('Equipment', () => {
       f.enemies.push(enemy({ id: 1, x: 150, r: 20, hp, maxHp: hp }));
       const ev = run(f, 6 / g.shooterRate('main') + 0.6);
       expect(ev.filter((e) => e.type === 'explode')).toHaveLength(1);
+      expect(f.weaponStatus('main')?.text).toBe('RECHARGING!'); // the staff's cooldown after its spell
       expect(ev.filter((e) => e.type === 'hit').length).toBeGreaterThanOrEqual(6);
     }
     // Focus: a burst hits everything around the Hunter, front and back.
@@ -1109,6 +1110,7 @@ describe('Equipment', () => {
       f.enemies.push(enemy({ id: 1, x: 200, hp, maxHp: hp }));
       run(f, 1 / g.shooterRate('main') + 0.05);
       expect(f.summons).toHaveLength(1);
+      expect(f.weaponStatus('main')?.text).toBe('SUMMONING!'); // readying the next one
       run(f, 3);
       expect(f.enemies[0].hp).toBeLessThan(hp);
       f.enemies = [];

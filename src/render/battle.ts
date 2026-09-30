@@ -329,7 +329,10 @@ export class BattleView {
     this.cooldownBar.update();
   }
 
-  /** "RELOADING!" over (or under) each Hunter reloading a gun, fading away from right to left as it reloads. */
+  /**
+   * "RELOADING!" (guns), "RECHARGING!" (staffs) or "SUMMONING!" (tomes) over or under each Hunter waiting on
+   * their weapon, fading away from right to left as the wait runs out.
+   */
   private drawReloads(g: CanvasRenderingContext2D): void {
     const st = this.game.state.settings;
     if (!st.reloads) return;
@@ -338,9 +341,9 @@ export class BattleView {
     g.textAlign = 'left';
     g.textBaseline = 'middle';
     for (const s of spots) {
-      const p = this.field.reloadProgress(s.who);
-      if (p === null) continue;
-      const text = 'RELOADING!';
+      const status = this.field.weaponStatus(s.who);
+      if (!status) continue;
+      const { text, progress: p } = status;
       const w = g.measureText(text).width;
       const x = s.x - w / 2;
       const y = s.y + (st.reloadPos === 'below' ? 1 : -1) * (PLAYER_RADIUS + 14 / Z);

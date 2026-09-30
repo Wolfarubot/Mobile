@@ -693,10 +693,21 @@ export class Field {
 
   /** How far along a Hunter's gun reload is (0..1), or null when they aren't reloading a gun. */
   reloadProgress(who: Shooter): number | null {
+    const st = this.weaponStatus(who);
+    return st?.text === 'RELOADING!' ? st.progress : null;
+  }
+
+  /**
+   * What a Hunter's weapon is waiting on, for the text over them, and how far along it is (0..1): a gun
+   * "RELOADING!", a staff "RECHARGING!" its spell, or your tome "SUMMONING!" its next creature. Null otherwise.
+   */
+  weaponStatus(who: Shooter): { text: string; progress: number } | null {
     const gun = who === 'main' ? this.gunState : this.helpers.find((h) => h.id === who)?.gun;
     const cls = this.game.weaponClassOf(who);
-    if (!gun || !cls?.mag || cls.spell || gun.reload <= 0 || !gun.total) return null;
-    return 1 - gun.reload / gun.total;
+    if (!gun || !cls) return null;
+    if (cls.summon && who === 'main') return this.fireAcc < 1 && !this.stunned ? { text: 'SUMMONING!', progress: Math.max(0, this.fireAcc) } : null;
+    if (!cls.mag || gun.reload <= 0 || !gun.total) return null;
+    return { text: cls.spell ? 'RECHARGING!' : 'RELOADING!', progress: 1 - gun.reload / gun.total };
   }
 
   // ---- Attacks ----
