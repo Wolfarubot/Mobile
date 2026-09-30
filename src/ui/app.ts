@@ -35,6 +35,9 @@ import {
   gearColor,
   gearDef,
   gearStats,
+  gearSummary,
+  hitText,
+  weaponHit,
   HUNTERS,
   hunterDef,
   hunterPerk,
@@ -803,7 +806,7 @@ export class AppUI {
         b.classList.toggle('rar', !!it);
         b.style.setProperty('--rc', gd ? gearColor(gd.id) : '');
         b.innerHTML = `<i>${gd ? gd.icon : GEAR_KINDS[slot.kind].icon}</i><div><small>${slot.label}</small><b>${gd ? gd.name : 'Empty'}</b><span class="sub">${
-          gd && it ? `${dtypeTag(gd)}${RARITIES[gd.rarity].name} · <span class="stars">${starsHtml(it.stars)}</span> · ${describeGear(gearStats(gd, it.stars))}` : 'Tap to equip'
+          gd && it ? `${dtypeTag(gd)}${RARITIES[gd.rarity].name} · <span class="stars">${starsHtml(it.stars)}</span> · ${gearSummary(gd, it.stars)}` : 'Tap to equip'
         }</span></div><span class="chev">›</span>`;
       });
       const stats = describeGear(g.gear(who));
@@ -928,8 +931,8 @@ export class AppUI {
       body.innerHTML = `
         <p>${dtypeTag(gd)}<b class="rarity-tag" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${gearKindName(gd)} · <span class="stars">${starsHtml(item.stars)}</span>${worn ? ` · worn by ${wearerName(worn.who)}` : ''}</p>
         ${weaponLine(gd)}
-        <p class="gear-now">${describeGear(gearStats(gd, item.stars)) || 'No bonuses: plain everyday wear.'}</p>
-        ${cost ? `<p class="gear-next">Next: <b>${describeGear(gearStats(gd, item.stars + 1))}</b></p><div class="cost">${costHtml(g, cost)}</div>` : Object.keys(gd.stats).length ? '<p>Fully upgraded.</p>' : '<p>Nothing to upgrade.</p>'}`;
+        <p class="gear-now">${gearSummary(gd, item.stars) || 'No bonuses: plain everyday wear.'}</p>
+        ${cost ? `<p class="gear-next">Next: <b>${gearSummary(gd, item.stars + 1)}</b></p><div class="cost">${costHtml(g, cost)}</div>` : Object.keys(gd.stats).length ? '<p>Fully upgraded.</p>' : '<p>Nothing to upgrade.</p>'}`;
       const actions = el('div', 'actions');
       if (cost) {
         const up = el('button', 'buy', `Upgrade to ${item.stars + 1}★`) as HTMLButtonElement;
@@ -2195,7 +2198,7 @@ export class AppUI {
     const update = () => {
       if (gd) {
         const owned = g.state.inventory.filter((x) => x.base === gd.id).length;
-        $('.fc-effect', card).innerHTML = `1★: <b>${describeGear(gearStats(gd, 1))}</b> · 5★: <b>${describeGear(gearStats(gd, MAX_STARS))}</b>`;
+        $('.fc-effect', card).innerHTML = `1★: <b>${gearSummary(gd, 1)}</b> · 5★: <b>${gearSummary(gd, MAX_STARS)}</b>`;
         $('.fc-owned', card).innerHTML = `In your equipment: <b>${owned}</b>`;
         $('.fc-cost', card).innerHTML = recipeHtml(g, gearCost(gd, 0));
         btn.textContent = 'Craft';
@@ -2473,7 +2476,7 @@ export class AppUI {
 
   private buildWeaponGuide(body: HTMLElement): void {
     const intro = el('div', 'card setting');
-    intro.innerHTML = `<p>Your Hunter can wield any weapon and attacks the way it does. Guild Hunters keep their own signature attack; their weapon's type reshapes its speed, damage and range.</p><p>Every type trades speed, damage, reach and crowd hits, so none is simply best. Melee hits knock surviving monsters back.</p>`;
+    intro.innerHTML = `<p>Every hit starts from the weapon's own damage (the starting Short Sword and Short Bow: 1), which upgrading it raises; training, skills, Upgrades and armor or accessory bonuses multiply it. Heavier types have higher base damage for their rarity.</p><p>Your Hunter can wield any weapon and attacks the way it does. Guild Hunters keep their own signature attack; their weapon's type reshapes its speed, damage and range.</p><p>Every type trades speed, damage, reach and crowd hits, so none is simply best. Melee hits knock surviving monsters back.</p>`;
     body.appendChild(intro);
     const groups: Array<[string, WeaponClass[]]> = [
       ['Ranged', ['shortbow', 'longbow', 'crossbow', 'pistol', 'rifle', 'repeater']],
@@ -2938,11 +2941,20 @@ function gearCardHtml(it: GearItem, vs: GearItem | null = null): string {
       const cmp = vs && Math.abs(d) > 1e-9 ? `<span class="${d > 0 ? 'up' : 'down'}">${d > 0 ? '▲' : '▼'} ${statDelta(k, d)}</span>` : '';
       return `<li>${shown}${cmp}</li>`;
     })
-    .join('') +
+    .join('');
+  // A weapon's base damage per hit comes first (compared with the weapon it would replace).
+  const hit = weaponHit(gd, it.stars);
+  const otherHit = vs ? weaponHit(gearDef(vs.base), vs.stars) : 0;
+  const hitLine = hit
+    ? `<li><b>${hitText(hit)}</b>${vs && otherHit && Math.abs(hit - otherHit) > 1e-9 ? `<span class="${hit > otherHit ? 'up' : 'down'}">${hit > otherHit ? '▲' : '▼'} ${Number(Math.abs(hit - otherHit).toFixed(2))}</span>` : ''}</li>`
+    : '';
+  const all =
+    hitLine +
+    lines +
     (gd.damageType && gd.proc && DAMAGE_TYPES[gd.damageType].effect
       ? `<li class="gc-effect">${DAMAGE_TYPES[gd.damageType].icon} ${Math.round(gd.proc * 100)}% chance · ${DAMAGE_TYPES[gd.damageType].effect}</li>`
       : '');
-  return `<div class="gear-card rar" style="--rc:${gearColor(gd.id)}"><div class="gc-head"><i>${gd.icon}</i><div><b>${gd.name}</b><small>${RARITIES[gd.rarity].name} ${gearKindName(gd).toLowerCase()} · <span class="stars">${starsHtml(it.stars)}</span></small>${dtypeTag(gd)}</div></div><ul class="gc-stats">${lines}</ul></div>`;
+  return `<div class="gear-card rar" style="--rc:${gearColor(gd.id)}"><div class="gc-head"><i>${gd.icon}</i><div><b>${gd.name}</b><small>${RARITIES[gd.rarity].name} ${gearKindName(gd).toLowerCase()} · <span class="stars">${starsHtml(it.stars)}</span></small>${dtypeTag(gd)}</div></div><ul class="gc-stats">${all}</ul></div>`;
 }
 
 /** Your Hunter's name (Settings), shown on their card and wherever they're named. */
@@ -3115,7 +3127,7 @@ function weaponTraits(c: WeaponClassDef): string[] {
   const out: string[] = [];
   if (c.summon) out.push(`🐾 Summon lasts ${c.summon.duration}s`);
   else out.push(`⏱️ ${speed(c.rate)}`);
-  out.push(`💢 ×${c.damage} per hit`);
+  out.push(`💢 ${c.damage >= 1.5 ? 'Heavy' : c.damage <= 0.6 ? 'Light' : 'Medium'} hits`);
   if (c.attack === 'shot') out.push(`📏 ${Math.round(c.range * 100)}% range`);
   else if (c.attack === 'dagger') out.push('📏 Close, or thrown');
   else if (c.attack === 'stab') out.push('📏 Medium thrust');

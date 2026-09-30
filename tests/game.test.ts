@@ -27,6 +27,9 @@ import {
   HELPER_TRAIN_GROWTH,
   HELPER_TAPER_GROWTH,
   powerDamage,
+  RARITY_HIT,
+  weaponHit,
+  WEAPON_HIT_POWER,
   HELPER_TAPER_LEVEL,
   HELPER_TAPER_SESSIONS,
   helperBulkCost,
@@ -158,6 +161,9 @@ describe('Areas', () => {
     expect(g.equipped('main').map((it) => it?.base ?? null)).toEqual(['shortSword', 'commonClothes', null]);
     expect(g.state.inventory.map((it) => it.base)).toContain('shortBow');
     expect(g.weaponClassOf('main')?.name).toBe('Sword');
+    // One damage from the Short Sword, no bonuses: exactly a green slime's HP.
+    expect(g.damage).toBe(1);
+    expect(g.enemyStats('greenSlime').hp).toBe(1);
     expect(g.canCraftGear('shortSword')).toBe(false); // starting gear isn't craftable
     const clothes = g.equipped('main')[1]!;
     expect(g.gearUpgradeCost(clothes.uid)).toBeNull(); // no stats, nothing to upgrade
@@ -789,7 +795,9 @@ describe('Equipment', () => {
     const dmg = g.damage;
     const bow = g.craftGear('huntingBow')!;
     g.equip('main', 0, bow.uid);
-    expect(g.damage).toBeCloseTo(dmg * 1.2);
+    // Every hit starts from the weapon's own damage (bare-handed: 1).
+    expect(g.damage).toBeCloseTo(dmg * weaponHit(gearDef('huntingBow'), 1));
+    expect(weaponHit(gearDef('huntingBow'), 1)).toBeGreaterThan(weaponHit(gearDef('shortBow'), 1)); // crafted beats starting gear
     const stun = g.stunTime();
     const vest = g.craftGear('leatherVest')!;
     g.equip('main', 1, vest.uid);
@@ -817,12 +825,12 @@ describe('Equipment', () => {
 
   it("a spellcaster's weapon damage powers their special and its attack rate widens it", () => {
     const g = stocked();
-    const dmg = g.specialDamageMult('glimmer');
+    const dmg = g.shotDamage('glimmer') * g.specialDamageMult('glimmer');
     const r = g.specialRadius('glimmer');
     const dps = g.dpsOf('glimmer');
-    const staff = g.craftGear('soulfireStaff')!; // +50% damage, +15% rate
+    const staff = g.craftGear('soulfireStaff')!; // its base damage, +15% rate
     g.equip('glimmer', 0, staff.uid);
-    expect(g.specialDamageMult('glimmer')).toBeCloseTo(dmg * 1.5);
+    expect(g.shotDamage('glimmer') * g.specialDamageMult('glimmer')).toBeCloseTo(dmg * weaponHit(gearDef('soulfireStaff'), 1));
     expect(g.specialRadius('glimmer')).toBeCloseTo(r * 1.15);
     expect(g.dpsOf('glimmer')).toBeGreaterThan(dps * 1.5);
     // Area gear still widens it too, and Hunters without a special have none.
@@ -1015,8 +1023,10 @@ describe('Equipment', () => {
     g.equip('wilhelm', 0, rifle.uid); // long-range slot
     g.equip('wilhelm', 1, bow.uid); // short-range slot
     // Each weapon's stats and its class (rifle: heavy and long; shortbow: light and short) apply to its mode.
-    expect(g.shotDamage('wilhelm', undefined, 'long')).toBeCloseTo(baseLong * 1.45 * WEAPON_CLASSES.rifle.damage);
-    expect(g.shotDamage('wilhelm', undefined, 'short')).toBeCloseTo(baseShort * 1.2 * WEAPON_CLASSES.shortbow.damage);
+    expect(g.shotDamage('wilhelm', undefined, 'long')).toBeCloseTo(baseLong * weaponHit(gearDef('frostRifle'), 1));
+    expect(g.shotDamage('wilhelm', undefined, 'short')).toBeCloseTo(baseShort * weaponHit(gearDef('huntingBow'), 1));
+    // A class's weight is part of its weapons' base damage: a rifle hits harder than a bow of the same rarity.
+    expect(weaponHit(gearDef('frostRifle'), 1) / RARITY_HIT.legendary).toBeCloseTo(WEAPON_CLASSES.rifle.damage, 1);
     expect(g.shooterRange('wilhelm', 'long')).toBeCloseTo(hunterDef('wilhelm').style.range * WEAPON_CLASSES.rifle.range + 15);
   });
 
@@ -1966,9 +1976,11 @@ describe('Saves', () => {
 
   it('stars: gear and Upgrades go 1★ to 5★; old levels convert down to a star and refund the rest', () => {
     // 1★ is the old Lv 1 and 5★ the old max, so the strongest pieces are as strong as before.
-    const bow = gearDef('huntingBow');
-    expect(gearStats(bow, 1).damage).toBeCloseTo(0.2);
-    expect(gearStats(bow, MAX_STARS).damage).toBeCloseTo(2);
+    const ring = gearDef('soulRing');
+    expect(gearStats(ring, 1).damage).toBeCloseTo(0.25);
+    expect(gearStats(ring, MAX_STARS).damage).toBeCloseTo(2.5);
+    const bow = gearDef('huntingBow'); // a weapon's base damage grows with its stars too
+    expect(weaponHit(bow, MAX_STARS)).toBeCloseTo(weaponHit(bow, 1) * WEAPON_HIT_POWER[MAX_STARS]);
     const whet = itemDef('whetstone');
     expect(itemLevels(whet)).toEqual([0, 1, 2, 4, 8, 15]); // Common: stops at its old Lv 15
     for (const it of ITEMS) if (it.rarity === 'common' || it.rarity === 'uncommon') expect(itemLevels(it)[MAX_STARS]).toBeLessThanOrEqual(15);

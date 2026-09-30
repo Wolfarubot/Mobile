@@ -1364,6 +1364,32 @@ export interface GearDef {
   recipe: Partial<Record<MaterialId, number>>;
   /** Starting gear: every new game begins with it; it can't be crafted (its recipe prices its stars). */
   starter?: boolean;
+  /**
+   * Weapons: base damage per hit at 1★, the number every damage bonus multiplies. Without it, it comes from
+   * the weapon's rarity and class (see weaponHit).
+   */
+  hit?: number;
+}
+
+// ---- Weapon damage: every hit starts from the weapon's own damage ----
+/** A weapon's base damage per hit at 1★ by rarity, before its class makes it heavier or lighter. */
+export const RARITY_HIT: Record<Rarity, number> = { common: 2, uncommon: 2.6, rare: 3.3, veryRare: 4, legendary: 4.8, exotic: 5.6, relic: 6.5, artifact: 7.5, exalted: 8.5 };
+/** A weapon's base damage at each star, as a multiple of 1★. */
+export const WEAPON_HIT_POWER = [0, 1, 1.3, 1.65, 2.1, 2.6];
+/** Base damage per hit with no weapon equipped. */
+export const UNARMED_HIT = 1;
+/** A weapon's base damage per hit at a star count (0 for gear that isn't a weapon). */
+export function weaponHit(def: GearDef, stars: number): number {
+  if (!def.weaponClass) return 0;
+  const base = def.hit ?? Math.round(RARITY_HIT[def.rarity] * WEAPON_CLASSES[def.weaponClass].damage * 10) / 10;
+  return base * WEAPON_HIT_POWER[Math.max(0, Math.min(MAX_STARS, stars))];
+}
+/** A weapon's damage for display (e.g. "1.3 damage"). */
+export const hitText = (v: number): string => `${Number(v.toFixed(v < 10 ? 2 : 1))} damage`;
+/** Everything a piece does at a star count: a weapon's base damage, then its stat bonuses. */
+export function gearSummary(def: GearDef, stars: number): string {
+  const hit = weaponHit(def, stars);
+  return [hit ? hitText(hit) : '', describeGear(gearStats(def, stars))].filter(Boolean).join(', ');
 }
 
 // ---- Stars: gear and Upgrades go from 1★ (crafted) to 5★ ----
@@ -1479,30 +1505,30 @@ export const WEAPON_CLASSES: Record<WeaponClass, WeaponClassDef> = {
 
 export const GEAR: GearDef[] = [
   // Starting gear (not craftable): your Hunter begins with the Short Sword and Common Clothes on, and a Short Bow spare.
-  { id: 'shortSword', name: 'Short Sword', icon: '🗡️', kind: 'melee', rarity: 'common', weaponClass: 'sword', damageType: 'physical', stats: { damage: 0.1 }, recipe: { goo: 6 }, starter: true },
-  { id: 'shortBow', name: 'Short Bow', icon: '🏹', kind: 'weapon', rarity: 'common', weaponClass: 'shortbow', damageType: 'physical', stats: { damage: 0.1 }, recipe: { goo: 6 }, starter: true },
+  { id: 'shortSword', name: 'Short Sword', icon: '🗡️', kind: 'melee', rarity: 'common', weaponClass: 'sword', damageType: 'physical', hit: 1, stats: {}, recipe: { goo: 6 }, starter: true },
+  { id: 'shortBow', name: 'Short Bow', icon: '🏹', kind: 'weapon', rarity: 'common', weaponClass: 'shortbow', damageType: 'physical', hit: 1, stats: {}, recipe: { goo: 6 }, starter: true },
   { id: 'commonClothes', name: 'Common Clothes', icon: '👕', kind: 'armor', rarity: 'common', stats: {}, recipe: { goo: 4 }, starter: true },
   // Weapons
-  { id: 'huntingBow', name: 'Hunting Bow', icon: '🏹', kind: 'weapon', rarity: 'common', weaponClass: 'shortbow', damageType: 'physical', stats: { damage: 0.2 }, recipe: { goo: 8, pelt: 4 } },
-  { id: 'boneCrossbow', name: 'Bone Crossbow', icon: '🎯', kind: 'weapon', rarity: 'uncommon', weaponClass: 'crossbow', damageType: 'physical', stats: { damage: 0.3, range: 8 }, recipe: { bone: 10, wing: 5 } },
-  { id: 'emberLongbow', name: 'Ember Longbow', icon: '🔥', kind: 'weapon', rarity: 'rare', weaponClass: 'longbow', damageType: 'fire', proc: 0.3, stats: { damage: 0.3, rate: 0.12 }, recipe: { ember: 10, chitin: 5 } },
-  { id: 'bonePistol', name: 'Bone Pistol', icon: '🔫', kind: 'weapon', rarity: 'uncommon', weaponClass: 'pistol', damageType: 'physical', stats: { damage: 0.3 }, recipe: { bone: 8, wing: 4 } },
-  { id: 'frostRifle', name: 'Frost Rifle', icon: '🔫', kind: 'weapon', rarity: 'legendary', weaponClass: 'rifle', damageType: 'frost', proc: 0.35, stats: { damage: 0.45, range: 15 }, recipe: { fur: 10, frost: 5 } },
-  { id: 'voidRepeater', name: 'Void Repeater', icon: '🌀', kind: 'weapon', rarity: 'artifact', weaponClass: 'repeater', damageType: 'void', stats: { damage: 0.6, rate: 0.2 }, recipe: { shade: 10, void: 5 } },
+  { id: 'huntingBow', name: 'Hunting Bow', icon: '🏹', kind: 'weapon', rarity: 'common', weaponClass: 'shortbow', damageType: 'physical', stats: {}, recipe: { goo: 8, pelt: 4 } },
+  { id: 'boneCrossbow', name: 'Bone Crossbow', icon: '🎯', kind: 'weapon', rarity: 'uncommon', weaponClass: 'crossbow', damageType: 'physical', stats: { range: 8 }, recipe: { bone: 10, wing: 5 } },
+  { id: 'emberLongbow', name: 'Ember Longbow', icon: '🔥', kind: 'weapon', rarity: 'rare', weaponClass: 'longbow', damageType: 'fire', proc: 0.3, stats: { rate: 0.12 }, recipe: { ember: 10, chitin: 5 } },
+  { id: 'bonePistol', name: 'Bone Pistol', icon: '🔫', kind: 'weapon', rarity: 'uncommon', weaponClass: 'pistol', damageType: 'physical', stats: {}, recipe: { bone: 8, wing: 4 } },
+  { id: 'frostRifle', name: 'Frost Rifle', icon: '🔫', kind: 'weapon', rarity: 'legendary', weaponClass: 'rifle', damageType: 'frost', proc: 0.35, stats: { range: 15 }, recipe: { fur: 10, frost: 5 } },
+  { id: 'voidRepeater', name: 'Void Repeater', icon: '🌀', kind: 'weapon', rarity: 'artifact', weaponClass: 'repeater', damageType: 'void', stats: { rate: 0.2 }, recipe: { shade: 10, void: 5 } },
   // Melee
-  { id: 'fangDagger', name: 'Fang Dagger', icon: '🗡️', kind: 'melee', rarity: 'common', weaponClass: 'dagger', damageType: 'physical', proc: 0.3, stats: { damage: 0.2, rate: 0.05 }, recipe: { pelt: 6, goo: 6 } },
-  { id: 'goblinSword', name: 'Goblin Sword', icon: '⚔️', kind: 'melee', rarity: 'common', weaponClass: 'sword', damageType: 'physical', proc: 0.2, stats: { damage: 0.25 }, recipe: { pelt: 8, redgel: 4 } },
-  { id: 'boneMaul', name: 'Bone Maul', icon: '🔨', kind: 'melee', rarity: 'uncommon', weaponClass: 'hammer', damageType: 'physical', stats: { damage: 0.35 }, recipe: { bone: 12, flesh: 6 } },
-  { id: 'ironSpear', name: 'Bone Spear', icon: '🔱', kind: 'melee', rarity: 'uncommon', weaponClass: 'spear', damageType: 'physical', proc: 0.2, stats: { damage: 0.35 }, recipe: { bone: 10, flesh: 5 } },
-  { id: 'magmaGlaive', name: 'Magma Glaive', icon: '🪓', kind: 'melee', rarity: 'veryRare', weaponClass: 'glaive', damageType: 'fire', proc: 0.4, stats: { damage: 0.5, range: 6 }, recipe: { magma: 10, ember: 5 } },
-  { id: 'soulLance', name: 'Soulreaver Lance', icon: '⚜️', kind: 'melee', rarity: 'exalted', weaponClass: 'spear', damageType: 'decay', proc: 0.2, stats: { damage: 0.8, pierce: 0.2 }, recipe: { soul: 8, void: 4 } },
+  { id: 'fangDagger', name: 'Fang Dagger', icon: '🗡️', kind: 'melee', rarity: 'common', weaponClass: 'dagger', damageType: 'physical', proc: 0.3, stats: { rate: 0.05 }, recipe: { pelt: 6, goo: 6 } },
+  { id: 'goblinSword', name: 'Goblin Sword', icon: '⚔️', kind: 'melee', rarity: 'common', weaponClass: 'sword', damageType: 'physical', proc: 0.2, stats: {}, recipe: { pelt: 8, redgel: 4 } },
+  { id: 'boneMaul', name: 'Bone Maul', icon: '🔨', kind: 'melee', rarity: 'uncommon', weaponClass: 'hammer', damageType: 'physical', stats: {}, recipe: { bone: 12, flesh: 6 } },
+  { id: 'ironSpear', name: 'Bone Spear', icon: '🔱', kind: 'melee', rarity: 'uncommon', weaponClass: 'spear', damageType: 'physical', proc: 0.2, stats: {}, recipe: { bone: 10, flesh: 5 } },
+  { id: 'magmaGlaive', name: 'Magma Glaive', icon: '🪓', kind: 'melee', rarity: 'veryRare', weaponClass: 'glaive', damageType: 'fire', proc: 0.4, stats: { range: 6 }, recipe: { magma: 10, ember: 5 } },
+  { id: 'soulLance', name: 'Soulreaver Lance', icon: '⚜️', kind: 'melee', rarity: 'exalted', weaponClass: 'spear', damageType: 'decay', proc: 0.2, stats: { pierce: 0.2 }, recipe: { soul: 8, void: 4 } },
   // Magic (Reginald and Glimmer)
-  { id: 'apprenticeWand', name: 'Apprentice Wand', icon: '🪄', kind: 'magic', rarity: 'common', weaponClass: 'wand', damageType: 'arcane', proc: 0.15, stats: { damage: 0.1, rate: 0.05 }, recipe: { goo: 8, redgel: 4 } },
-  { id: 'gravewoodStaff', name: 'Gravewood Staff', icon: '🪵', kind: 'magic', rarity: 'uncommon', weaponClass: 'staff', damageType: 'decay', proc: 0.15, stats: { damage: 0.15, rate: 0.06 }, recipe: { flesh: 10, wing: 5 } },
-  { id: 'emberFocus', name: 'Ember Focus', icon: '🕯️', kind: 'magic', rarity: 'rare', weaponClass: 'focus', damageType: 'fire', proc: 0.3, stats: { damage: 0.3, rate: 0.15 }, recipe: { ember: 10, magma: 5 } },
-  { id: 'crystalFocus', name: 'Crystal Focus', icon: '💎', kind: 'magic', rarity: 'legendary', weaponClass: 'focus', damageType: 'frost', proc: 0.3, stats: { damage: 0.3, rate: 0.1 }, recipe: { frost: 8, ecto: 6 } },
-  { id: 'voidScepter', name: 'Void Scepter', icon: '🪬', kind: 'magic', rarity: 'relic', weaponClass: 'scepter', damageType: 'void', stats: { damage: 0.55, rate: 0.25 }, recipe: { shade: 10, void: 5 } },
-  { id: 'wispTome', name: 'Tome of Wisps', icon: '📖', kind: 'magic', rarity: 'rare', weaponClass: 'tome', damageType: 'arcane', proc: 0.15, stats: { damage: 0.3 }, recipe: { flesh: 10, wing: 6, bone: 4 } },
+  { id: 'apprenticeWand', name: 'Apprentice Wand', icon: '🪄', kind: 'magic', rarity: 'common', weaponClass: 'wand', damageType: 'arcane', proc: 0.15, stats: { rate: 0.05 }, recipe: { goo: 8, redgel: 4 } },
+  { id: 'gravewoodStaff', name: 'Gravewood Staff', icon: '🪵', kind: 'magic', rarity: 'uncommon', weaponClass: 'staff', damageType: 'decay', proc: 0.15, stats: { rate: 0.06 }, recipe: { flesh: 10, wing: 5 } },
+  { id: 'emberFocus', name: 'Ember Focus', icon: '🕯️', kind: 'magic', rarity: 'rare', weaponClass: 'focus', damageType: 'fire', proc: 0.3, stats: { rate: 0.15 }, recipe: { ember: 10, magma: 5 } },
+  { id: 'crystalFocus', name: 'Crystal Focus', icon: '💎', kind: 'magic', rarity: 'legendary', weaponClass: 'focus', damageType: 'frost', proc: 0.3, stats: { rate: 0.1 }, recipe: { frost: 8, ecto: 6 } },
+  { id: 'voidScepter', name: 'Void Scepter', icon: '🪬', kind: 'magic', rarity: 'relic', weaponClass: 'scepter', damageType: 'void', stats: { rate: 0.25 }, recipe: { shade: 10, void: 5 } },
+  { id: 'wispTome', name: 'Tome of Wisps', icon: '📖', kind: 'magic', rarity: 'rare', weaponClass: 'tome', damageType: 'arcane', proc: 0.15, stats: {}, recipe: { flesh: 10, wing: 6, bone: 4 } },
   {
     id: 'wolfTome',
     name: 'Tome of the Wolf Spirit',
@@ -1511,12 +1537,12 @@ export const GEAR: GearDef[] = [
     rarity: 'uncommon',
     weaponClass: 'tome',
     damageType: 'physical',
-    stats: { damage: 0.25 },
+    stats: {},
     recipe: { pelt: 24 },
     summon: { look: 'wolf', name: 'wolf spirit', dash: { cooldown: 4, range: 150, speed: 520, damage: 2.5 } },
     ability: 'Its wolves lunge at a monster every 4s; a lunge that lands bites for ×2.5.',
   },
-  { id: 'soulfireStaff', name: 'Soulfire Staff', icon: '🌟', kind: 'magic', rarity: 'exalted', weaponClass: 'staff', damageType: 'radiant', proc: 0.2, stats: { damage: 0.5, rate: 0.15 }, recipe: { soul: 8, void: 4 } },
+  { id: 'soulfireStaff', name: 'Soulfire Staff', icon: '🌟', kind: 'magic', rarity: 'exalted', weaponClass: 'staff', damageType: 'radiant', proc: 0.2, stats: { rate: 0.15 }, recipe: { soul: 8, void: 4 } },
   // Armor
   { id: 'leatherVest', name: 'Leather Vest', icon: '🦺', kind: 'armor', rarity: 'common', stats: { stun: 0.05 }, recipe: { pelt: 8, goo: 6 } },
   { id: 'bonePlate', name: 'Bone Plate', icon: '🦴', kind: 'armor', rarity: 'rare', stats: { stun: 0.06, guard: 0.2 }, recipe: { bone: 10, flesh: 6 } },

@@ -1,6 +1,6 @@
 import { writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { AREAS, areaEnemies, ENEMIES, GEAR, gearDef, gearStats, slotAccepts, typeMult, type GearId, enemyUnlockCost, HUNTERS, ITEMS, STATION_EFFICIENCY, type AreaId, type ItemId } from '../src/core/balance';
+import { weaponHit, AREAS, areaEnemies, ENEMIES, GEAR, gearDef, gearStats, slotAccepts, typeMult, type GearId, enemyUnlockCost, HUNTERS, ITEMS, STATION_EFFICIENCY, type AreaId, type ItemId } from '../src/core/balance';
 import { Field } from '../src/core/field';
 import { Game } from '../src/core/game';
 import { newGame, type Wearer } from '../src/core/state';
@@ -21,7 +21,8 @@ function mulberry(seed: number) {
 function gearScore(game: Game, base: GearId, level = 1): number {
   const gd = gearDef(base);
   const st = gearStats(gd, level);
-  const raw = (st.damage ?? 0) + (st.rate ?? 0) + (st.range ?? 0) / 100 + (st.crit ?? 0) * 3 + (st.stun ?? 0) + (st.gold ?? 0) * 0.3 + (st.drops ?? 0) * 0.2 + (st.radius ?? 0) * 0.5 + (st.guard ?? 0) * 0.2 + (st.pierce ?? 0) * 0.3;
+  // A weapon's base damage multiplies everything, so it counts in full (a bare hit is 1).
+  const raw = (gd.weaponClass ? weaponHit(gd, level) - 1 : 0) + (st.damage ?? 0) + (st.rate ?? 0) + (st.range ?? 0) / 100 + (st.crit ?? 0) * 3 + (st.stun ?? 0) + (st.gold ?? 0) * 0.3 + (st.drops ?? 0) * 0.2 + (st.radius ?? 0) * 0.5 + (st.guard ?? 0) * 0.2 + (st.pierce ?? 0) * 0.3;
   if (!gd.damageType) return raw;
   const here = areaEnemies(game.area);
   const fit = here.reduce((sum, e) => sum + typeMult(gd.damageType!, e.id), 0) / here.length;

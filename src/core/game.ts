@@ -77,6 +77,8 @@ import {
   nextAreaOf,
   OFFLINE_EFFICIENCY,
   powerDamage,
+  UNARMED_HIT,
+  weaponHit,
   SALVAGE_REFUND,
   STATION_CAPACITY,
   STATION_EFFICIENCY,
@@ -220,9 +222,21 @@ export class Game {
     return (1 + 0.1 * this.item('gloves')) * (1 + 0.06 * this.item('batwingGloves')) * (1 + 0.05 * this.item('engine'));
   }
 
-  /** Your main Hunter's damage per shot. */
+  /**
+   * Your main Hunter's damage per hit: their weapon's base damage (the starting Short Sword: 1), multiplied
+   * by training, skills, Upgrades and the % damage on their armor and accessory.
+   */
   get damage(): number {
-    return powerDamage(this.state.main.trains) * this.skillDamageMult('main') * this.itemDamageMult * (1 + this.gear('main').damage);
+    return this.weaponHitOf('main') * powerDamage(this.state.main.trains) * this.skillDamageMult('main') * this.itemDamageMult * (1 + this.gear('main').damage);
+  }
+
+  /** Base damage per hit of the weapon a Hunter holds (UNARMED_HIT without one). */
+  weaponHitOf(who: Shooter, mode: GearMode = 'long'): number {
+    const slots = this.slotsOf(who);
+    const i = slots.findIndex((sl) => WEAPON_KINDS.includes(sl.kind) && (!sl.role || sl.role === mode));
+    const item = i >= 0 ? this.equipped(who)[i] : null;
+    const def = item ? gearDef(item.base) : null;
+    return def?.weaponClass ? weaponHit(def, item!.stars) : UNARMED_HIT;
   }
 
   get fireRate(): number {
@@ -325,11 +339,11 @@ export class Game {
    * `mode` picks Wilhelm's weapon: 'long' (sniper, default) or 'short' (akimbo).
    */
   shotDamage(shooter: Shooter, archetype?: Archetype, mode?: GearMode): number {
-    const cls = this.weaponClassOf(shooter, mode)?.damage ?? 1;
-    if (shooter === 'main') return this.damage * cls;
+    // A weapon's class weight is already in its base damage (a hammer's hits start higher than a dagger's).
+    if (shooter === 'main') return this.damage;
     const def = hunterDef(shooter);
     const bane = def.bane && def.bane.archetype === archetype ? def.bane.mult + this.tree(shooter).bane : 1;
-    return powerDamage(this.state.hunters[shooter].trains) * this.skillDamageMult(shooter) * this.itemDamageMult * def.style.damage * bane * (1 + this.gear(shooter, mode).damage) * cls;
+    return this.weaponHitOf(shooter, mode) * powerDamage(this.state.hunters[shooter].trains) * this.skillDamageMult(shooter) * this.itemDamageMult * def.style.damage * bane * (1 + this.gear(shooter, mode).damage);
   }
 
   /** Attacks per second. */
@@ -446,7 +460,8 @@ export class Game {
   /** Multiplier on shot damage for each hit of the special: its base × (1 + weapon damage). */
   specialDamageMult(shooter: Shooter): number {
     const sp = shooter === 'main' ? undefined : hunterDef(shooter).style.special;
-    return sp ? sp.damage * (1 + (this.weaponStats(shooter).damage ?? 0)) : 0;
+    // The weapon powers it through the shot it multiplies (every hit starts from the weapon's damage).
+    return sp ? sp.damage : 0;
   }
 
   /** Radius of the special: its base × (1 + weapon attack rate) × area bonuses (skills, gear). */
@@ -533,7 +548,7 @@ export class Game {
   gearUpgradeCost(uid: number): Partial<Record<MaterialId, number>> | null {
     const item = this.gearItem(uid);
     // Pieces with no stats (Common Clothes) have nothing to improve.
-    if (!item || item.stars >= MAX_STARS || !Object.keys(gearDef(item.base).stats).length) return null;
+    if (!item || item.stars >= MAX_STARS || (!Object.keys(gearDef(item.base).stats).length && !gearDef(item.base).weaponClass)) return null;
     return gearCost(gearDef(item.base), item.stars);
   }
 
