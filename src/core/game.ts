@@ -64,6 +64,7 @@ import {
   HUNTERS,
   itemCost,
   itemDef,
+  ITEMS,
   MAIN_RANGE,
   maxAffordable,
   nextAreaOf,
@@ -182,6 +183,18 @@ export class Game {
 
   private emit(e: GameEvent): void {
     for (const fn of this.listeners) fn(e);
+  }
+
+  /** What crafted area Upgrades (e.g. the Forest Idol) do to an area's monsters. */
+  areaUpgrades(area: AreaId): { hp: number; gold: number } {
+    const out = { hp: 1, gold: 1 };
+    for (const it of ITEMS)
+      if (it.area?.id === area && this.state.items[it.id] > 0) {
+        const l = this.item(it.id);
+        out.hp *= it.area.hp(l);
+        out.gold *= it.area.gold(l);
+      }
+    return out;
   }
 
   /** An Upgrade's strength (in steps) at its current stars. */
@@ -702,12 +715,13 @@ export class Game {
     const evo = this.evo(id);
     const lv = levelFromTrains(b.empower).level;
     const emp = (stat: 'hp' | 'gold' | 'drops') => empowerMult(stat, b.empower, lv);
+    const idol = this.areaUpgrades(def.area);
     return {
       id,
       archetype: def.archetype,
-      hp: area.hp * def.hp * emp('hp') * (1 + evo.hp),
+      hp: area.hp * def.hp * emp('hp') * (1 + evo.hp) * idol.hp,
       speed: area.speed * def.speed * (1 + evo.speed) * swarm.speed,
-      gold: area.gold * def.gold * emp('gold') * (1 + evo.gold) * this.goldMult,
+      gold: area.gold * def.gold * emp('gold') * (1 + evo.gold) * this.goldMult * idol.gold,
       spawnRate: b.unlocked ? def.spawn * (1 + evo.spawn) * (1 + 0.2 * this.item('lure')) * swarm.spawn : 0,
       dropChance: BASE_DROP_CHANCE * (1 + 0.25 * this.item('pouch')) * emp('drops') * (1 + evo.drops),
       material: def.material,

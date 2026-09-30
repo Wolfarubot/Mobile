@@ -120,6 +120,9 @@ const GEAR_TYPE: Record<string, InvType> = { weapon: 'ranged', melee: 'melee', m
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string, root: ParentNode = document) => root.querySelector(sel) as T;
 
+/** Who an Upgrade affects: every Hunter, or one area's monsters. */
+const upgradeReach = (it: ItemDef): string => (it.area ? `affects the ${areaDef(it.area.id).name}` : 'boosts every Hunter');
+
 /** A star rank for inside a `.stars` element: filled stars, then the rest dimmed. */
 const starsHtml = (n: number): string => `${'★'.repeat(n)}<span class="off">${'★'.repeat(Math.max(0, MAX_STARS - n))}</span>`;
 const gemHtml = (m: MaterialId, size = '') => `<i class="gem ${size}" style="background:${materialDef(m).color}"></i>`;
@@ -1616,7 +1619,8 @@ export class AppUI {
         inv.appendChild(tile);
       }
       for (const it of upgrades) {
-        const tile = el('button', 'inv-tile upgrade') as HTMLButtonElement;
+        const tile = el('button', 'inv-tile upgrade rar') as HTMLButtonElement;
+        tile.style.setProperty('--rc', RARITIES[it.rarity].color);
         tile.innerHTML = `<i>${it.icon}</i><span>${it.name}</span><small class="stars">${starsHtml(g.state.items[it.id])}</small><em>⛺</em>`;
         tile.addEventListener('click', () => this.openUpgradeDetail(it));
         inv.appendChild(tile);
@@ -1681,7 +1685,7 @@ export class AppUI {
     this.showSheet(`${it.icon} ${it.name}`, (body, close) => {
       const lv = g.state.items[it.id];
       const maxed = lv >= MAX_STARS;
-      body.innerHTML = `<p class="gear-now">Permanent upgrade · <span class="stars">${starsHtml(lv)}</span></p><p><b>${it.describe(itemLevel(it, lv))}</b>${maxed ? '' : ` → ${it.describe(itemLevel(it, lv + 1))}`}</p>${
+      body.innerHTML = `<p class="gear-now"><b class="rarity-tag" style="--rc:${RARITIES[it.rarity].color}">${RARITIES[it.rarity].name}</b> upgrade · ${upgradeReach(it)} · <span class="stars">${starsHtml(lv)}</span></p><p><b>${it.describe(itemLevel(it, lv))}</b>${maxed ? '' : ` → ${it.describe(itemLevel(it, lv + 1))}`}</p>${
         maxed ? '' : `<div class="cost">${costHtml(g, itemCost(it, lv))}</div>`
       }`;
       const btn = el('button', 'buy', maxed ? 'MAX' : 'Upgrade') as HTMLButtonElement;
@@ -1774,9 +1778,9 @@ export class AppUI {
     const name = gd ? gd.name : it!.name;
     card.innerHTML = `
       <button class="fc-close" aria-label="Close">✕</button>
-      <div class="fc-head"><i class="fc-icon"${gd ? ` style="--rc:${gearColor(gd.id)}"` : ''}>${gd ? gd.icon : it!.icon}</i><div>
+      <div class="fc-head"><i class="fc-icon" style="--rc:${gd ? gearColor(gd.id) : RARITIES[it!.rarity].color}">${gd ? gd.icon : it!.icon}</i><div>
         <h3>${name}</h3>
-        <small>${gd ? `<b class="fc-rarity" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${GEAR_KINDS[gd.kind].name.toLowerCase()} ${dtypeTag(gd)}` : 'Upgrade · boosts every Hunter'}</small>
+        <small>${gd ? `<b class="fc-rarity" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${GEAR_KINDS[gd.kind].name.toLowerCase()} ${dtypeTag(gd)}` : `<b class="fc-rarity" style="--rc:${RARITIES[it!.rarity].color}">${RARITIES[it!.rarity].name}</b> upgrade · ${upgradeReach(it!)}`}</small>
       </div></div>
       <p class="fc-effect"></p>
       <div class="fc-owned"></div>

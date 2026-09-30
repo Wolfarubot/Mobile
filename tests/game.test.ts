@@ -16,6 +16,7 @@ import {
   MAX_STARS,
   OFFLINE_CAP_SEC,
   RARITIES,
+  ITEMS,
   STATION_EFFICIENCY,
   STUN_IMMUNITY,
   GUARDIAN_COOLDOWN,
@@ -623,6 +624,20 @@ describe('Shops', () => {
     g.learn('main', 'root');
     for (let i = 0; i < 30; i++) g.learn('main', 'speed');
     expect(g.skill('main', 'speed')).toBe(10);
+  });
+
+  it('Upgrades have rarities; the Forest Idol doubles Whispering Forest HP and gold, and nowhere else', () => {
+    for (const it of ITEMS) expect(Object.keys(RARITIES)).toContain(it.rarity);
+    const g = rich();
+    const before = g.enemyStats('greenSlime');
+    const elsewhere = g.enemyStats('skeleton');
+    for (const [m, n] of Object.entries(itemCost(itemDef('forestIdol'), 0))) g.state.materials[m as keyof typeof g.state.materials] = n!;
+    expect(g.craft('forestIdol')).toBe(true);
+    expect(g.enemyStats('greenSlime').hp / before.hp).toBeCloseTo(2);
+    expect(g.enemyStats('greenSlime').gold / before.gold).toBeCloseTo(2);
+    expect(g.enemyStats('skeleton').hp).toBeCloseTo(elsewhere.hp);
+    g.state.items.forestIdol = MAX_STARS;
+    expect(g.enemyStats('greenSlime').gold / before.gold).toBeCloseTo(3);
   });
 
   it('crafting spends materials and items boost every Hunter', () => {
