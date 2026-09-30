@@ -183,11 +183,11 @@ export const MAIN_ASCEND_LEVEL = 100;
 export const MAIN_MAX_LEVEL = 200;
 
 /**
- * Past Lv 30 your Hunter's sessions cost only this much more than the last. Tuned so ascending costs about
- * 1.4x what it costs a Guild Hunter (Reginald) to ascend, and the Slayer's climb from Lv 100 to 200 about
- * 2x a Guild Hunter's climb from Lv 50 to 100 (both in gold).
+ * Past Lv 30 each of your Hunter's sessions costs this much more than the last: a little faster than the
+ * damage a session adds (×2 every 25), so gold stays what paces the climb and the richer areas keep mattering,
+ * while the price stays within range all the way to Lv 200.
  */
-export const MAIN_TAPER_GROWTH = 1.00259;
+export const MAIN_TAPER_GROWTH = 1.03;
 
 /** Cost of `count` of your Hunter's sessions after `done`: ×MAIN_TRAIN_GROWTH to Lv 30, then ×MAIN_TAPER_GROWTH. */
 export function mainBulkCost(done: number, count: number): number {
@@ -539,10 +539,10 @@ export const AREAS: AreaDef[] = [
   { id: 'crypt', name: 'Forsaken Crypt', icon: '⚰️', hp: 150_000_000, gold: 2_000_000, speed: 42, mastery: 2_500, guardian: 180_000_000_000, palette: ['#1a1614', '#4a403a', '#9a8e80', '#ece4d8'], ground: ['#5a524a', '#4e4640'], blurb: 'Deeper than the graves, and older.' },
   { id: 'depths', name: 'Shadowy Depths', icon: '🕳️', hp: 2_500_000_000, gold: 10_000_000_000, speed: 43, mastery: 3_000, guardian: 1_500_000_000_000, palette: ['#120e1c', '#3a3050', '#8a7ea8', '#e6e0f4'], ground: ['#2e2838', '#26212f'], blurb: 'Below the crypt, the dark has teeth.' },
   { id: 'caves', name: 'Ember Caves', icon: '🌋', hp: 100_000_000_000, gold: 3_000_000_000_000, speed: 45, mastery: 4_000, guardian: 15_000_000_000_000, palette: ['#2a0e08', '#8a2c10', '#e07030', '#fde4c0'], ground: ['#6a2c1a', '#823722'], blurb: 'Hot, bright and full of teeth.' },
-  { id: 'mines', name: 'Deep Mines', icon: '⛏️', hp: 500_000_000_000, gold: 100_000_000_000_000, speed: 47, mastery: 6_000, guardian: 200_000_000_000_000, palette: ['#1e140a', '#6a4a22', '#c09050', '#f4e4c8'], ground: ['#5a4228', '#4e3820'], blurb: 'Dug too deep, woke too much.' },
-  { id: 'peaks', name: 'Frost Peaks', icon: '🏔️', hp: 5_000_000_000_000, gold: 3e15, speed: 50, mastery: 10_000, guardian: 3e15, palette: ['#0c2038', '#2a60a0', '#78b8e8', '#e4f4ff'], ground: ['#bcd8f0', '#a4c6e6'], blurb: 'Cold winds carry cold things.' },
-  { id: 'cliffs', name: 'Stormcrest Cliffs', icon: '🦅', hp: 100_000_000_000_000, gold: 1e17, speed: 53, mastery: 15_000, guardian: 1e17, palette: ['#101c2c', '#3a5a7a', '#90b8d8', '#eef6ff'], ground: ['#8a9aa8', '#7a8a98'], blurb: 'Wind, wings and a long way down.' },
-  { id: 'rift', name: 'Void Rift', icon: '🌀', hp: 1e16, gold: 3e18, speed: 56, mastery: Infinity, guardian: Infinity, palette: ['#1a0830', '#5a2098', '#b070e0', '#f2e4ff'], ground: ['#2a1440', '#3a1d58'], blurb: 'The end of the known world.' },
+  { id: 'mines', name: 'Deep Mines', icon: '⛏️', hp: 5_000_000_000_000, gold: 100_000_000_000_000, speed: 47, mastery: 6_000, guardian: 200_000_000_000_000, palette: ['#1e140a', '#6a4a22', '#c09050', '#f4e4c8'], ground: ['#5a4228', '#4e3820'], blurb: 'Dug too deep, woke too much.' },
+  { id: 'peaks', name: 'Frost Peaks', icon: '🏔️', hp: 50_000_000_000_000, gold: 3e15, speed: 50, mastery: 10_000, guardian: 5e15, palette: ['#0c2038', '#2a60a0', '#78b8e8', '#e4f4ff'], ground: ['#bcd8f0', '#a4c6e6'], blurb: 'Cold winds carry cold things.' },
+  { id: 'cliffs', name: 'Stormcrest Cliffs', icon: '🦅', hp: 5e15, gold: 5e17, speed: 53, mastery: 15_000, guardian: 5e18, palette: ['#101c2c', '#3a5a7a', '#90b8d8', '#eef6ff'], ground: ['#8a9aa8', '#7a8a98'], blurb: 'Wind, wings and a long way down.' },
+  { id: 'rift', name: 'Void Rift', icon: '🌀', hp: 5e17, gold: 3e19, speed: 56, mastery: Infinity, guardian: Infinity, palette: ['#1a0830', '#5a2098', '#b070e0', '#f2e4ff'], ground: ['#2a1440', '#3a1d58'], blurb: 'The end of the known world.' },
 ];
 
 export const areaDef = (id: AreaId): AreaDef => AREAS.find((a) => a.id === id)!;
@@ -1144,7 +1144,7 @@ export const HUNTERS: HunterDef[] = [
     style: { kind: 'ricochet', damageType: 'acid', proc: 0.2, range: 220, rate: 1, damage: 0.8, bounces: 3, farm: 1.4, crowd: 2.5, describe: 'Acid-slicked slingshot stones ricochet between up to 4 enemies.' },
   },
   {
-    id: 'frostbreaker', name: 'Bjorn', title: 'Frostbreaker', icon: '🔨', color: '#8fdcff', area: 'peaks', recruitCost: 5e18, bane: { archetype: 'elemental', mult: 3 },
+    id: 'frostbreaker', name: 'Bjorn', title: 'Frostbreaker', icon: '🔨', color: '#8fdcff', area: 'peaks', recruitCost: 2.5e19, bane: { archetype: 'elemental', mult: 3 },
     unlock: { event: 'guardian-peaks', times: 1 },
     ascendedTitle: 'Winterking',
     story: 'Bjorn climbed the Frost Peaks to hunt the thing that rules them. Defeat the Peaks\' Guardian, and he\'ll bring his hammer to your side.',
@@ -1169,9 +1169,9 @@ export const MAIN_ABILITY = 'Tap the Battle Field to damage Monsters!';
 /** Hunters fire a little slower than you and train with gold. */
 export const HELPER_FIRE_RATE = 1.2;
 export const HELPER_TRAIN_GROWTH = 1.085;
-/** From Lv 30 on, each Guild Hunter session costs only this much more than the last (the climb to Ascension). */
+/** From Lv 30 on, each Guild Hunter session costs this much more than the last (as for your Hunter). */
 export const HELPER_TAPER_LEVEL = 30;
-export const HELPER_TAPER_GROWTH = 1.01;
+export const HELPER_TAPER_GROWTH = 1.03;
 /** Sessions it takes to reach HELPER_TAPER_LEVEL. */
 export const HELPER_TAPER_SESSIONS = Array.from({ length: HELPER_TAPER_LEVEL - 1 }, (_, i) => trainsForLevel(i + 1)).reduce((a, b) => a + b, 0);
 

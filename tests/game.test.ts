@@ -26,6 +26,7 @@ import {
   helperTrainCost,
   HELPER_TRAIN_GROWTH,
   HELPER_TAPER_GROWTH,
+  powerDamage,
   HELPER_TAPER_LEVEL,
   HELPER_TAPER_SESSIONS,
   helperBulkCost,
@@ -604,16 +605,14 @@ describe('Shops', () => {
     expect(back.main.skills2).toEqual(t.skills2);
   });
 
-  it("the Slayer's pace: ascending costs ~1.4x a Guild Hunter's, the climb to Lv 200 ~2x theirs to Lv 100", () => {
+  it('past Lv 30 training keeps getting pricier at least as fast as it adds damage, and stays finite to the top', () => {
+    const k = MAIN_SESSIONS_TO_ASCEND;
+    const costStep = mainBulkCost(k, 1) / mainBulkCost(k - 1, 1);
+    const dmgStep = (powerDamage(k + 25) / powerDamage(k)) ** (1 / 25);
+    expect(costStep).toBeGreaterThanOrEqual(dmgStep);
+    expect(Number.isFinite(mainBulkCost(0, MAIN_SESSIONS_TO_ASCEND + MAIN_SESSIONS_AFTER_ASCEND))).toBe(true);
     const base = helperTrainCost(hunterDef('alchemist'));
-    const helperAscend = helperBulkCost(base, 0, SESSIONS_TO_ASCEND);
-    const helperClimb = helperBulkCost(base, SESSIONS_TO_ASCEND, SESSIONS_AFTER_ASCEND);
-    const mainAscend = mainBulkCost(0, MAIN_SESSIONS_TO_ASCEND);
-    const mainClimb = mainBulkCost(MAIN_SESSIONS_TO_ASCEND, MAIN_SESSIONS_AFTER_ASCEND);
-    expect(mainAscend / helperAscend).toBeGreaterThan(1.25);
-    expect(mainAscend / helperAscend).toBeLessThan(1.5);
-    expect(mainClimb / helperClimb).toBeGreaterThan(1.8);
-    expect(mainClimb / helperClimb).toBeLessThan(2.2);
+    expect(Number.isFinite(helperBulkCost(base, 0, SESSIONS_TO_ASCEND + SESSIONS_AFTER_ASCEND))).toBe(true);
   });
 
   it('skill trees: the root first, then branches; each node needs a point in the one it hangs from', () => {
