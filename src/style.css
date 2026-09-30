@@ -2722,10 +2722,29 @@ button.mat:not(:disabled):active {
   font-weight: 800;
   color: var(--c0);
 }
+/* Star ranks: a sans-serif glyph (pixel fonts draw ★ tiny), sized up so the rank reads at a glance. */
 .stars {
-  color: var(--gold);
-  letter-spacing: 1px;
-  text-shadow: 1px 1px 0 var(--c0);
+  font-family: system-ui, 'Segoe UI Symbol', sans-serif;
+  font-size: 17px !important;
+  line-height: 1;
+  color: var(--gold) !important;
+  letter-spacing: 0;
+  text-shadow: 1px 1px 0 var(--c0), -1px 0 0 var(--c0), 0 -1px 0 var(--c0), 1px 0 0 var(--c0);
+  white-space: nowrap;
+  vertical-align: -1px;
+}
+.stars .off {
+  color: var(--c2);
+  text-shadow: none;
+  opacity: 0.7;
+}
+.inv-tile small.stars {
+  font-size: 15px !important;
+  margin-top: 2px;
+}
+.craft-tile em {
+  font-family: system-ui, sans-serif;
+  font-size: 13px !important;
 }
 .craft-tile:active {
   transform: translate(2px, 2px);
