@@ -537,12 +537,12 @@ export const AREAS: AreaDef[] = [
   { id: 'glade', name: 'Faerie Glade', icon: '🍄', hp: 2_500, gold: 80, speed: 38, mastery: 1_000, guardian: 30_000_000, palette: ['#221a30', '#5a4a8a', '#a8d8b0', '#f4f0ff'], ground: ['#7cc47c', '#8ed28a'], blurb: 'Mushroom rings and things that bite.' },
   { id: 'graveyard', name: 'Old Graveyard', icon: '🪦', hp: 150_000, gold: 15_000, speed: 40, mastery: 1_500, guardian: 10_000_000_000, palette: ['#1e1a2a', '#4a4460', '#9a94b0', '#e8e4f0'], ground: ['#5b5670', '#4c4762'], blurb: 'The dead do not rest here.' },
   { id: 'crypt', name: 'Forsaken Crypt', icon: '⚰️', hp: 150_000_000, gold: 2_000_000, speed: 42, mastery: 2_500, guardian: 180_000_000_000, palette: ['#1a1614', '#4a403a', '#9a8e80', '#ece4d8'], ground: ['#5a524a', '#4e4640'], blurb: 'Deeper than the graves, and older.' },
-  { id: 'depths', name: 'Shadowy Depths', icon: '🕳️', hp: 2_500_000_000, gold: 600_000_000, speed: 43, mastery: 3_000, guardian: 7_000_000_000_000, palette: ['#120e1c', '#3a3050', '#8a7ea8', '#e6e0f4'], ground: ['#2e2838', '#26212f'], blurb: 'Below the crypt, the dark has teeth.' },
-  { id: 'caves', name: 'Ember Caves', icon: '🌋', hp: 100_000_000_000, gold: 50_000_000_000, speed: 45, mastery: 4_000, guardian: 40_000_000_000_000, palette: ['#2a0e08', '#8a2c10', '#e07030', '#fde4c0'], ground: ['#6a2c1a', '#823722'], blurb: 'Hot, bright and full of teeth.' },
-  { id: 'mines', name: 'Deep Mines', icon: '⛏️', hp: 500_000_000_000, gold: 1_000_000_000_000, speed: 47, mastery: 6_000, guardian: 400_000_000_000_000, palette: ['#1e140a', '#6a4a22', '#c09050', '#f4e4c8'], ground: ['#5a4228', '#4e3820'], blurb: 'Dug too deep, woke too much.' },
-  { id: 'peaks', name: 'Frost Peaks', icon: '🏔️', hp: 5_000_000_000_000, gold: 30_000_000_000_000, speed: 50, mastery: 10_000, guardian: 8e15, palette: ['#0c2038', '#2a60a0', '#78b8e8', '#e4f4ff'], ground: ['#bcd8f0', '#a4c6e6'], blurb: 'Cold winds carry cold things.' },
-  { id: 'cliffs', name: 'Stormcrest Cliffs', icon: '🦅', hp: 100_000_000_000_000, gold: 1e15, speed: 53, mastery: 15_000, guardian: 9e17, palette: ['#101c2c', '#3a5a7a', '#90b8d8', '#eef6ff'], ground: ['#8a9aa8', '#7a8a98'], blurb: 'Wind, wings and a long way down.' },
-  { id: 'rift', name: 'Void Rift', icon: '🌀', hp: 1e16, gold: 3e16, speed: 56, mastery: Infinity, guardian: Infinity, palette: ['#1a0830', '#5a2098', '#b070e0', '#f2e4ff'], ground: ['#2a1440', '#3a1d58'], blurb: 'The end of the known world.' },
+  { id: 'depths', name: 'Shadowy Depths', icon: '🕳️', hp: 2_500_000_000, gold: 3_000_000_000, speed: 43, mastery: 3_000, guardian: 4_000_000_000_000, palette: ['#120e1c', '#3a3050', '#8a7ea8', '#e6e0f4'], ground: ['#2e2838', '#26212f'], blurb: 'Below the crypt, the dark has teeth.' },
+  { id: 'caves', name: 'Ember Caves', icon: '🌋', hp: 100_000_000_000, gold: 300_000_000_000, speed: 45, mastery: 4_000, guardian: 40_000_000_000_000, palette: ['#2a0e08', '#8a2c10', '#e07030', '#fde4c0'], ground: ['#6a2c1a', '#823722'], blurb: 'Hot, bright and full of teeth.' },
+  { id: 'mines', name: 'Deep Mines', icon: '⛏️', hp: 500_000_000_000, gold: 10_000_000_000_000, speed: 47, mastery: 6_000, guardian: 400_000_000_000_000, palette: ['#1e140a', '#6a4a22', '#c09050', '#f4e4c8'], ground: ['#5a4228', '#4e3820'], blurb: 'Dug too deep, woke too much.' },
+  { id: 'peaks', name: 'Frost Peaks', icon: '🏔️', hp: 5_000_000_000_000, gold: 300_000_000_000_000, speed: 50, mastery: 10_000, guardian: 8e15, palette: ['#0c2038', '#2a60a0', '#78b8e8', '#e4f4ff'], ground: ['#bcd8f0', '#a4c6e6'], blurb: 'Cold winds carry cold things.' },
+  { id: 'cliffs', name: 'Stormcrest Cliffs', icon: '🦅', hp: 100_000_000_000_000, gold: 1e16, speed: 53, mastery: 15_000, guardian: 9e17, palette: ['#101c2c', '#3a5a7a', '#90b8d8', '#eef6ff'], ground: ['#8a9aa8', '#7a8a98'], blurb: 'Wind, wings and a long way down.' },
+  { id: 'rift', name: 'Void Rift', icon: '🌀', hp: 1e16, gold: 3e17, speed: 56, mastery: Infinity, guardian: Infinity, palette: ['#1a0830', '#5a2098', '#b070e0', '#f2e4ff'], ground: ['#2a1440', '#3a1d58'], blurb: 'The end of the known world.' },
 ];
 
 export const areaDef = (id: AreaId): AreaDef => AREAS.find((a) => a.id === id)!;
@@ -1094,7 +1094,7 @@ export const HUNTERS: HunterDef[] = [
     style: { kind: 'shotgun', damageType: 'physical', range: 150, rate: 0.7, damage: 0.45, pellets: 5, farm: 1.2, crowd: 1, describe: 'A trusty shotgun: five pellets per blast at close range.' },
   },
   {
-    id: 'glimmer', name: 'Glimmer', title: 'Wizard', icon: '🧙', color: '#b07cff', area: 'crypt', recruitCost: 20_000_000_000,
+    id: 'glimmer', name: 'Glimmer', title: 'Wizard', icon: '🧙', color: '#b07cff', area: 'crypt', recruitCost: 100_000_000_000,
     unlock: { event: 'guardian-crypt', times: 1 },
     ascendedTitle: 'Archmage',
     story: 'Glimmer came to the Forsaken Crypt to study the old magic sealed inside, but its Guardian won\'t let anyone near. Put it to rest, and Glimmer will lend you a fireball or two.',
@@ -1107,7 +1107,7 @@ export const HUNTERS: HunterDef[] = [
     },
   },
   {
-    id: 'wilhelm', name: 'Wilhelm', title: 'Sniper', icon: '🎯', color: '#9aa7b8', area: 'depths', recruitCost: 1_500_000_000_000,
+    id: 'wilhelm', name: 'Wilhelm', title: 'Sniper', icon: '🎯', color: '#9aa7b8', area: 'depths', recruitCost: 10_000_000_000_000,
     unlock: { event: 'guardian-depths', times: 1 },
     ascendedTitle: 'Deadeye',
     story: '“I was hunting a creature with a hundred eyes, but after shooting 99 of them, it got away. Help me track it down in the Shadowy Depths.”',
@@ -1120,7 +1120,7 @@ export const HUNTERS: HunterDef[] = [
     style: { kind: 'sniper', damageType: 'physical', range: 520, rate: 0.4, damage: 3.5, pierce: 2, closeRange: 90, farm: 1.5, crowd: 2, describe: 'Picks enemies off from across the field with piercing shots; switches to akimbo pistols when they get close.' },
   },
   {
-    id: 'celeste', name: 'Celeste', title: 'Psion', icon: '🔮', color: '#c9a8ff', area: 'depths', recruitCost: 3_000_000_000_000, bane: { archetype: 'dragon', mult: 3 },
+    id: 'celeste', name: 'Celeste', title: 'Psion', icon: '🔮', color: '#c9a8ff', area: 'depths', recruitCost: 20_000_000_000_000, bane: { archetype: 'dragon', mult: 3 },
     unlock: { event: 'guardian-depths', times: 2 },
     ascendedTitle: 'Oracle',
     story: 'Celeste, a Psion who hears the thoughts of monsters, followed a whisper into the Shadowy Depths and got lost in the noise. Beat the Depths\' Guardian twice to quiet it, and Celeste will lend you that mind.',
@@ -1128,7 +1128,7 @@ export const HUNTERS: HunterDef[] = [
     style: { kind: 'beam', damageType: 'arcane', proc: 0.15, range: 280, rate: 0.6, damage: 1.4, farm: 1.5, crowd: 2.5, describe: 'A beam of pure thought through everything in its path.' },
   },
   {
-    id: 'demonbane', name: 'Sera', title: 'Demonbane', icon: '🗡️', color: '#ff7a3d', area: 'caves', recruitCost: 30_000_000_000_000, bane: { archetype: 'demon', mult: 3 },
+    id: 'demonbane', name: 'Sera', title: 'Demonbane', icon: '🗡️', color: '#ff7a3d', area: 'caves', recruitCost: 300_000_000_000_000, bane: { archetype: 'demon', mult: 3 },
     unlock: { event: 'guardian-caves', times: 1 },
     ascendedTitle: 'Demonslayer',
     story: 'Sera hunts the demons of the Ember Caves alone. Show her you can beat the Caves\' Guardian, and she\'ll fight beside you.',
@@ -1136,7 +1136,7 @@ export const HUNTERS: HunterDef[] = [
     style: { kind: 'daggers', damageType: 'arcane', proc: 0.15, range: 160, rate: 3, damage: 0.4, farm: 1.1, crowd: 1, describe: 'Throws a flurry of daggers at anything that gets close.' },
   },
   {
-    id: 'scavenger', name: 'Pip', title: 'Scavenger', icon: '🎒', color: '#3fb0a0', area: 'caves', recruitCost: 120_000_000_000_000, drops: 2,
+    id: 'scavenger', name: 'Pip', title: 'Scavenger', icon: '🎒', color: '#3fb0a0', area: 'caves', recruitCost: 1.2e15, drops: 2,
     unlock: { event: 'guardian-caves', times: 2 },
     ascendedTitle: 'Treasure Hunter',
     story: 'Pip scavenges the Ember Caves for anything shiny. Beat its Guardian twice, and Pip will tag along for the loot.',
@@ -1144,7 +1144,7 @@ export const HUNTERS: HunterDef[] = [
     style: { kind: 'ricochet', damageType: 'acid', proc: 0.2, range: 220, rate: 1, damage: 0.8, bounces: 3, farm: 1.4, crowd: 2.5, describe: 'Acid-slicked slingshot stones ricochet between up to 4 enemies.' },
   },
   {
-    id: 'frostbreaker', name: 'Bjorn', title: 'Frostbreaker', icon: '🔨', color: '#8fdcff', area: 'peaks', recruitCost: 5e16, bane: { archetype: 'elemental', mult: 3 },
+    id: 'frostbreaker', name: 'Bjorn', title: 'Frostbreaker', icon: '🔨', color: '#8fdcff', area: 'peaks', recruitCost: 5e17, bane: { archetype: 'elemental', mult: 3 },
     unlock: { event: 'guardian-peaks', times: 1 },
     ascendedTitle: 'Winterking',
     story: 'Bjorn climbed the Frost Peaks to hunt the thing that rules them. Defeat the Peaks\' Guardian, and he\'ll bring his hammer to your side.',
