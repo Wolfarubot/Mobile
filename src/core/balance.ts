@@ -1353,6 +1353,19 @@ export interface WeaponClassDef {
   reload?: number;
   /** Longbows: after hitting its target, the arrow carries on this far and hits anything just behind it. */
   followThrough?: number;
+  /**
+   * Repeaters: projectiles per attack, fired at random angles within a fan `fan` radians wide. Each extra one
+   * from the same volley that hits the same monster deals `stack` more (the 2nd ×1.5, the 3rd ×2...).
+   */
+  volley?: number;
+  fan?: number;
+  stack?: number;
+  /** Daggers: stabs per attack, in quick succession at the same monster (or daggers thrown, when it's far). */
+  thrusts?: number;
+  /** Spears: how wide the thrust is (it hits everything in that band). */
+  width?: number;
+  /** Melee: how hard a hit knocks a surviving monster back (daggers: only the last stab). */
+  knock?: number;
   /** Rough crowd efficiency for the background model (sweeps and stabs hit several). */
   farm: number;
   describe: string;
@@ -1361,17 +1374,28 @@ export interface WeaponClassDef {
 /** Share of time a weapon spends firing rather than reloading (1 for weapons that never reload). */
 export const weaponUptime = (c: WeaponClassDef | null | undefined): number => (c?.mag ? c.mag / (c.mag + (c.reload ?? 0)) : 1);
 
+/**
+ * Hits per attack for the background model: a dagger's stabs, or a repeater's volley (with some of it stacking
+ * on the same monster: about half the extra shots land on the first one).
+ */
+export const weaponHitsPerAttack = (c: WeaponClassDef | null | undefined): number => {
+  if (!c) return 1;
+  if (c.thrusts) return c.thrusts;
+  const v = c.volley ?? 1;
+  return v * (1 + ((c.stack ?? 0) * (v - 1)) / 4);
+};
+
 export const WEAPON_CLASSES: Record<WeaponClass, WeaponClassDef> = {
-  dagger: { name: 'Dagger', attack: 'dagger', projectile: 'dagger', range: 0.8, reach: 55, arc: 1.6, rate: 1.5, damage: 0.7, farm: 1.1, describe: 'Quick swipes up close; thrown when monsters are further off.' },
-  sword: { name: 'Sword', attack: 'sweep', range: 1, reach: 80, arc: 2.4, rate: 0.9, damage: 1.1, farm: 1.8, describe: 'A close sweeping slash that hits every monster in front.' },
-  glaive: { name: 'Glaive', attack: 'sweep', range: 1, reach: 100, arc: 3.2, rate: 0.7, damage: 1.4, farm: 2, describe: 'A wide, heavy cleave that hits everything around the front.' },
-  spear: { name: 'Spear', attack: 'stab', range: 1, reach: 140, rate: 0.85, damage: 1.15, pierce: 3, farm: 1.6, describe: 'A long stab straight out, piercing up to 4 monsters in a line.' },
+  dagger: { name: 'Dagger', attack: 'dagger', projectile: 'dagger', range: 0.8, reach: 60, thrusts: 3, knock: 160, rate: 0.9, damage: 0.4, farm: 1, describe: 'A quick burst of 3 stabs at one monster; the last knocks it back. Thrown when monsters are further off.' },
+  sword: { name: 'Sword', attack: 'sweep', range: 1, reach: 80, arc: 2.4, knock: 120, rate: 0.9, damage: 1.1, farm: 1.8, describe: 'A sweeping slash that hits every monster in front and knocks them back.' },
+  glaive: { name: 'Glaive', attack: 'sweep', range: 1, reach: 100, arc: 3.2, knock: 160, rate: 0.7, damage: 1.4, farm: 2, describe: 'A wide, heavy cleave around the front that knocks monsters back.' },
+  spear: { name: 'Spear', attack: 'stab', range: 1, reach: 170, width: 24, knock: 200, rate: 0.8, damage: 1.2, farm: 2, describe: 'A long, wide thrust straight out that hits everything in its path and drives it back.' },
   shortbow: { name: 'Shortbow', attack: 'shot', projectile: 'arrow', range: 0.85, rate: 1.35, damage: 0.75, farm: 1, describe: 'The basic bow: quick, light shots that never stop.' },
   longbow: { name: 'Longbow', attack: 'shot', projectile: 'arrow', range: 1.35, rate: 0.65, damage: 1.5, followThrough: 45, farm: 1.2, describe: 'Slow, heavy shots from far away; each arrow carries on through its target into whatever is just behind.' },
   crossbow: { name: 'Crossbow', attack: 'shot', projectile: 'arrow', range: 1.1, rate: 0.8, damage: 1.25, pierce: 1, farm: 1.2, describe: 'Heavy bolts that always pierce at least one more monster.' },
   pistol: { name: 'Pistol', attack: 'shot', projectile: 'pistol', range: 0.7, rate: 1.6, damage: 1, mag: 6, reload: 3, farm: 1, describe: 'Hard-hitting shots at close range: 6 shots, then a reload.' },
   rifle: { name: 'Rifle', attack: 'shot', projectile: 'pistol', range: 1.5, rate: 0.8, damage: 2.4, pierce: 1, mag: 4, reload: 3, farm: 1.1, describe: 'Very hard, very long shots that pierce: 4 shots, then a long reload.' },
-  repeater: { name: 'Repeater', attack: 'shot', projectile: 'bolt', range: 0.9, rate: 3, damage: 0.6, mag: 10, reload: 6, farm: 1, describe: 'Bursts of 10 rapid shots, then a reload.' },
+  repeater: { name: 'Repeater', attack: 'shot', projectile: 'bolt', range: 0.9, rate: 1.2, damage: 0.32, volley: 3, fan: 0.5, stack: 0.5, mag: 6, reload: 3, farm: 1, describe: 'Sprays volleys of 3 bolts in a random fan; each extra bolt of a volley on the same monster hits 50% harder. 6 volleys, then a reload.' },
   wand: { name: 'Wand', attack: 'shot', projectile: 'spark', range: 1, rate: 1.3, damage: 0.77, farm: 1, describe: 'Fast, light magic bolts.' },
   staff: { name: 'Staff', attack: 'shot', projectile: 'spark', range: 1.1, rate: 0.75, damage: 1.4, farm: 1, describe: 'Slower, heavier magic bolts.' },
   focus: { name: 'Focus', attack: 'shot', projectile: 'spark', range: 1.25, rate: 1, damage: 1, farm: 1, describe: 'Steady magic bolts with extra reach.' },

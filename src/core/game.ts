@@ -5,6 +5,7 @@ import {
   MAIN_SLOTS,
   WEAPON_CLASSES,
   weaponUptime,
+  weaponHitsPerAttack,
   type WeaponClassDef,
   dropsFrom,
   affordableCount,
@@ -368,7 +369,8 @@ export class Game {
     const shots = !cls || cls.attack === 'shot' || cls.attack === 'dagger' ? this.projectiles : 1;
     const perAttack = (style?.pellets ?? 1) * shots * (style?.farm ?? cls?.farm ?? 1);
     // Guns spend part of their time reloading.
-    const uptime = weaponUptime(this.weaponClassOf(shooter));
+    const wc = this.weaponClassOf(shooter);
+    const uptime = weaponUptime(wc) * (shooter === 'main' ? weaponHitsPerAttack(wc) : 1);
     return this.shotDamage(shooter, archetype) * (this.shooterRate(shooter) * perAttack * uptime + this.specialHitRate(shooter)) * this.critFactor(shooter);
   }
 

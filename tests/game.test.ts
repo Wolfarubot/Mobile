@@ -40,6 +40,7 @@ import {
   SLAYER_TREE,
   WEAPON_CLASSES,
   weaponUptime,
+  weaponHitsPerAttack,
   EVENTS,
   TRAIN_UNLOCK_KILLS,
   dropsFrom,
@@ -995,7 +996,7 @@ describe('Equipment', () => {
   it('weapon classes: your Hunter attacks the way the weapon does; each class trades speed for weight', () => {
     // Sustained speed × damage (guns counting their reloads) is about the same for every class.
     for (const c of Object.values(WEAPON_CLASSES)) {
-      const sustained = c.rate * c.damage * weaponUptime(c);
+      const sustained = c.rate * c.damage * weaponUptime(c) * weaponHitsPerAttack(c);
       expect(sustained).toBeGreaterThan(0.9);
       expect(sustained).toBeLessThan(1.25);
     }
@@ -1023,6 +1024,52 @@ describe('Equipment', () => {
     f.update(1 / g.shooterRate('main') + 0.01);
     expect(f.enemies.filter((e) => e.hp < hp).map((e) => e.id).sort()).toEqual([1, 2, 3]);
     expect(f.bullets).toHaveLength(0); // no projectiles: it's a blade
+  });
+
+  it('daggers stab 3 times at one monster and the last stab knocks it back; spears thrust wide and drive monsters back', () => {
+    const g = stocked();
+    g.state.hunters = Object.fromEntries(Object.entries(g.state.hunters).map(([k, h]) => [k, { ...h, station: null }])) as typeof g.state.hunters;
+    g.equip('main', 0, g.craftGear('fangDagger')!.uid);
+    const f = new Field(g);
+    f.setView(390, 420);
+    const hp = 1e12;
+    f.enemies.push(enemy({ id: 1, x: 50, hp, maxHp: hp }));
+    const hits: number[] = [];
+    for (let t = 0; t < 1 / g.shooterRate('main') + 0.3; t += 0.01) {
+      f.update(0.01);
+      for (const e of f.drainEvents()) if (e.type === 'hit') hits.push(e.dmg);
+    }
+    expect(hits.length).toBe(WEAPON_CLASSES.dagger.thrusts);
+    expect(f.enemies[0].kx).toBeGreaterThan(WEAPON_CLASSES.dagger.knock! * 0.5); // shoved back after the last stab
+    // A spear hits everything in a wide band in front, and pushes each one back.
+    const g2 = stocked();
+    g2.state.hunters = g.state.hunters;
+    g2.equip('main', 0, g2.craftGear('ironSpear')!.uid);
+    const f2 = new Field(g2);
+    f2.setView(390, 420);
+    f2.enemies.push(enemy({ id: 1, x: 60, y: 0, hp, maxHp: hp }), enemy({ id: 2, x: 120, y: 18, hp, maxHp: hp }), enemy({ id: 3, x: 150, y: -15, hp, maxHp: hp }));
+    for (let t = 0; t < 1 / g2.shooterRate('main') + 0.02; t += 0.01) f2.update(0.01);
+    expect(f2.enemies.filter((e) => e.hp < hp)).toHaveLength(3);
+    for (const e of f2.enemies) expect(e.kx).toBeGreaterThan(50);
+  });
+
+  it('a repeater sprays a fan; extra bolts of one volley on the same monster hit harder (×1.5, ×2)', () => {
+    const g = stocked();
+    g.state.hunters = Object.fromEntries(Object.entries(g.state.hunters).map(([k, h]) => [k, { ...h, station: null }])) as typeof g.state.hunters;
+    g.state.items.splitbow = 0;
+    g.equip('main', 0, g.craftGear('voidRepeater')!.uid);
+    const f = new Field(g);
+    f.setView(390, 420);
+    // A huge monster right in front: the whole volley lands on it.
+    f.enemies.push(enemy({ id: 1, x: 150, r: 50, hp: 1e12, maxHp: 1e12 }));
+    const dmg: number[] = [];
+    for (let t = 0; t < 1 / g.shooterRate('main') + 0.2; t += 0.005) {
+      f.update(0.005);
+      for (const e of f.drainEvents()) if (e.type === 'hit') dmg.push(e.dmg);
+    }
+    expect(dmg.length).toBe(WEAPON_CLASSES.repeater.volley);
+    expect(dmg[1] / dmg[0]).toBeCloseTo(1.5);
+    expect(dmg[2] / dmg[0]).toBeCloseTo(2);
   });
 
   it('guns fire a magazine, then reload; bows never stop', () => {

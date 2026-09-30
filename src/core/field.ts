@@ -23,6 +23,8 @@ import type { Game, GearMode, KillReward, Shooter } from './game';
 
 export const PLAYER_RADIUS = 13;
 const BULLET_RADIUS = 4;
+/** Seconds between a dagger's stabs in one burst. */
+const DAGGER_GAP = 0.09;
 const BOSS_BOUNCE = 260;
 const GUARD_BOUNCE = 220;
 /** Seconds between puddle ticks; a puddle lasts its special's `ticks` of these. */
@@ -61,6 +63,9 @@ export interface Enemy {
   aura?: Dot;
   /** Seconds left with its resistances stripped (Arcane). */
   exposed?: number;
+  /** The last repeater volley that hit it, and how many of its bolts have (each extra hits harder). */
+  volley?: number;
+  volleyHits?: number;
 }
 
 /** A damage-over-time effect: damage per second, seconds left, who applied it (for kill credit). */
@@ -135,6 +140,9 @@ export interface Bullet {
   slow?: number;
   /** Longbow arrows: how far they carry on after their first hit. */
   followThrough?: number;
+  /** Repeater bolts: their volley, and how much harder each extra bolt of it hits the same monster. */
+  volley?: number;
+  stack?: number;
   /** Potions fly to a point and burst there. */
   tx?: number;
   ty?: number;
@@ -202,6 +210,9 @@ export class Field {
   private fireAcc = 0;
   /** Your Hunter's gun magazine (when their weapon is a pistol, rifle or repeater). */
   gunState: GunState = { cls: null, ammo: 0, reload: 0 };
+  /** A dagger's burst in progress: stabs (or throws) still to come, at a monster. */
+  private stabs: Array<{ t: number; target: number; last: boolean }> = [];
+  private nextVolley = 1;
   private nextId = 1;
   private halfW = 320;
   private halfH = 350;
@@ -348,16 +359,27 @@ export class Field {
       }
       this.fireAcc -= 1;
       this.aim = Math.atan2(target.y, target.x);
-      const close = cls?.attack === 'dagger' && Math.hypot(target.x, target.y) <= cls.reach! + target.r;
-      if (cls?.attack === 'sweep' || close) this.strikeArc('main', 0, 0, this.aim, cls!.reach!, cls!.arc!, 1);
-      else if (cls?.attack === 'stab') this.strikeLine('main', 0, 0, this.aim, range, 10, 1 + g.pierceOf('main'), 1, '#f4f4f4', 5);
-      else this.shoot('main', cls?.projectile ?? 'bolt', 0, 0, this.aim, BULLET_SPEED, range, { pierce: g.pierceOf('main'), spread: true, followThrough: cls?.followThrough });
+      if (cls?.attack === 'dagger') {
+        // A burst of stabs (or throws, if it's out of reach) at this monster, a moment apart.
+        const n = cls.thrusts ?? 1;
+        for (let i = 0; i < n; i++) this.stabs.push({ t: i * DAGGER_GAP, target: target.id, last: i === n - 1 });
+      } else if (cls?.attack === 'sweep') this.strikeArc('main', 0, 0, this.aim, cls.reach!, cls.arc!, 1, cls.knock ?? 0);
+      else if (cls?.attack === 'stab') this.strikeLine('main', 0, 0, this.aim, range, cls.width ?? 10, Infinity, 1, '#f4f4f4', (cls.width ?? 10) / 2, cls.knock ?? 0);
+      else if (cls?.volley) {
+        // A fan: each bolt at a random angle within it. Bolts of one volley stack on the same monster.
+        const volley = this.nextVolley++;
+        for (let i = 0; i < cls.volley; i++) {
+          const a = this.aim + (g.rng() - 0.5) * (cls.fan ?? 0);
+          this.shoot('main', cls.projectile ?? 'bolt', 0, 0, a, BULLET_SPEED, range, { pierce: g.pierceOf('main'), volley, stack: cls.stack });
+        }
+      } else this.shoot('main', cls?.projectile ?? 'bolt', 0, 0, this.aim, BULLET_SPEED, range, { pierce: g.pierceOf('main'), spread: true, followThrough: cls?.followThrough });
       if (this.spendShot(this.gunState, cls, g.shooterRate('main'))) {
         this.events.push({ type: 'reload', who: 'main', x: 0, y: 0 });
         this.fireAcc = 0;
         break;
       }
     }
+    this.runStabs(dt, cls);
     for (const h of this.helpers) this.helperAttack(h, dt);
 
     this.moveBullets(dt);
@@ -550,7 +572,7 @@ export class Field {
           break;
         }
         case 'thrust':
-          this.strikeLine(h.id, h.x, h.y, a, range, 14, Infinity, 1, '#ffe8a3', 6);
+          this.strikeLine(h.id, h.x, h.y, a, range, 14, Infinity, 1, '#ffe8a3', 6, cls?.knock ?? 0); // melee weapons knock back
           break;
         case 'shotgun': {
           const n = (style.pellets ?? 5) + g.projectiles - 1;
@@ -644,7 +666,7 @@ export class Field {
     angle: number,
     speed: number,
     range: number,
-    o: { pierce?: number; spread?: boolean; dmg?: number; radius?: number; bounces?: number; slow?: number; tx?: number; ty?: number; mode?: GearMode; special?: boolean; followThrough?: number },
+    o: { pierce?: number; spread?: boolean; dmg?: number; radius?: number; bounces?: number; slow?: number; tx?: number; ty?: number; mode?: GearMode; special?: boolean; followThrough?: number; volley?: number; stack?: number },
   ): void {
     const g = this.game;
     const n = o.spread ? g.projectiles : 1;
@@ -670,12 +692,14 @@ export class Field {
         special: o.special,
         mode: o.mode,
         followThrough: o.followThrough,
+        volley: o.volley,
+        stack: o.stack,
       });
     }
   }
 
   /** Instant strike along a line (lance thrust, sniper shot): hits up to `maxHits` enemies within `width`. */
-  private strikeLine(shooter: Shooter, ox: number, oy: number, a: number, len: number, width: number, maxHits: number, dmg: number, color: string, beamWidth: number): void {
+  private strikeLine(shooter: Shooter, ox: number, oy: number, a: number, len: number, width: number, maxHits: number, dmg: number, color: string, beamWidth: number, knock = 0): void {
     const cx = Math.cos(a);
     const cy = Math.sin(a);
     const hits = this.enemies
@@ -690,11 +714,45 @@ export class Field {
       .slice(0, maxHits);
     const end = Number.isFinite(maxHits) && hits.length ? hits[hits.length - 1].t : len;
     this.events.push({ type: 'beam', x1: ox, y1: oy, x2: ox + cx * end, y2: oy + cy * end, color, width: beamWidth });
-    for (const { e } of hits) this.hitWith(shooter, e, dmg, ox, oy);
+    for (const { e } of hits) this.meleeHit(shooter, e, dmg, ox, oy, knock);
   }
 
-  /** Instant strike in an arc in front (sword sweep, dagger swipe): hits every enemy within `reach` and `arc`. */
-  private strikeArc(shooter: Shooter, ox: number, oy: number, a: number, reach: number, arc: number, dmg: number): void {
+  /**
+   * Your Hunter's dagger burst: each stab lands in turn on its monster if it's within reach (else a dagger is
+   * thrown at it); the last stab knocks it back.
+   */
+  private runStabs(dt: number, cls: WeaponClassDef | null): void {
+    if (!this.stabs.length) return;
+    if (cls?.attack !== 'dagger' || this.stunned) {
+      this.stabs = [];
+      return;
+    }
+    for (const s of this.stabs) s.t -= dt;
+    const due = this.stabs.filter((s) => s.t <= 0);
+    this.stabs = this.stabs.filter((s) => s.t > 0);
+    for (const s of due) {
+      const e = this.enemies.find((x) => x.id === s.target && x.hp > 0) ?? this.nearest(0, 0, this.game.shooterRange('main'));
+      if (!e) continue;
+      const a = Math.atan2(e.y, e.x);
+      this.aim = a;
+      if (Math.hypot(e.x, e.y) <= cls.reach! + e.r) {
+        this.events.push({ type: 'beam', x1: 0, y1: 0, x2: Math.cos(a) * (Math.hypot(e.x, e.y) - e.r * 0.3), y2: Math.sin(a) * (Math.hypot(e.x, e.y) - e.r * 0.3), color: '#f4f4f4', width: 3 });
+        this.meleeHit('main', e, 1, 0, 0, s.last ? (cls.knock ?? 0) : 0);
+      } else this.shoot('main', 'dagger', 0, 0, a, BULLET_SPEED, this.game.shooterRange('main'), { pierce: this.game.pierceOf('main') });
+    }
+  }
+
+  /** A melee hit: damage, then a knock back if the monster survives (Guardians hold their ground). */
+  private meleeHit(shooter: Shooter, e: Enemy, dmg: number, ox: number, oy: number, knock: number): void {
+    this.hitWith(shooter, e, dmg, ox, oy);
+    if (knock <= 0 || e.hp <= 0 || e.boss) return;
+    const d = Math.hypot(e.x - ox, e.y - oy) || 1;
+    e.kx += ((e.x - ox) / d) * knock;
+    e.ky += ((e.y - oy) / d) * knock;
+  }
+
+  /** Instant strike in an arc in front (sword sweep, glaive cleave): hits every enemy within `reach` and `arc`. */
+  private strikeArc(shooter: Shooter, ox: number, oy: number, a: number, reach: number, arc: number, dmg: number, knock = 0): void {
     this.events.push({ type: 'sweep', x: ox, y: oy, a, arc, r: reach, color: '#f4f4f4' });
     for (const e of this.enemies) {
       if (e.hp <= 0) continue;
@@ -703,7 +761,7 @@ export class Field {
       if (Math.hypot(dx, dy) > reach + e.r) continue;
       let da = Math.atan2(dy, dx) - a;
       da = Math.atan2(Math.sin(da), Math.cos(da));
-      if (Math.abs(da) <= arc / 2) this.hitWith(shooter, e, dmg, ox, oy);
+      if (Math.abs(da) <= arc / 2) this.meleeHit(shooter, e, dmg, ox, oy, knock);
     }
   }
 
@@ -848,7 +906,14 @@ export class Field {
       b.life = 0;
       return;
     }
-    this.hitWith(b.shooter, e, b.dmg, b.x - b.vx, b.y - b.vy, b.crit, b.mode);
+    let mult = b.dmg;
+    if (b.volley) {
+      // Each extra bolt of the same volley on this monster hits harder (×1.5, ×2, ...).
+      e.volleyHits = e.volley === b.volley ? (e.volleyHits ?? 0) + 1 : 0;
+      e.volley = b.volley;
+      mult *= 1 + (b.stack ?? 0) * e.volleyHits;
+    }
+    this.hitWith(b.shooter, e, mult, b.x - b.vx, b.y - b.vy, b.crit, b.mode);
     if (b.kind === 'hammer' && b.slow) e.slow = Math.max(e.slow ?? 0, b.slow);
     if (b.kind === 'ricochet' && (b.bounces ?? 0) > 0) {
       const next = this.nearest(e.x, e.y, RICOCHET_RANGE, b.hits);
