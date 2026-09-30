@@ -1396,7 +1396,10 @@ export interface ItemDef {
   rarity: Rarity;
   /** Area Upgrades change one area's monsters (multipliers at a strength, in steps). */
   area?: { id: AreaId; hp: (level: number) => number; gold: (level: number) => number };
-  /** Its strength at 5★, in steps (1★ is 1 step; none go past 15). The stars between are spread out geometrically. */
+  /**
+   * Its strength at 5★, in steps (1★ is 1 step). Common and Uncommon Upgrades stop at 15, since rarer gear
+   * and Upgrades take over from there. The stars between are spread out geometrically.
+   */
   maxLevel: number;
   recipe: Partial<Record<MaterialId, number>>;
   /** Material cost multiplier per step already owned. */
@@ -1412,7 +1415,7 @@ export const ITEMS: ItemDef[] = [
   { id: 'pouch', name: "Scavenger's Pouch", icon: '👝', rarity: 'uncommon', maxLevel: 15, recipe: { pelt: 6, redgel: 3 }, growth: 1.5, describe: (l) => `+${l * 25}% material drops` },
   { id: 'bonemail', name: 'Bone Mail', icon: '🦴', rarity: 'rare', maxLevel: 10, recipe: { bone: 8, flesh: 4 }, growth: 1.6, describe: (l) => `−${Math.round((1 - 0.88 ** l) * 100)}% stun time` },
   { id: 'splitbow', name: 'Split Bow', icon: '🔱', rarity: 'rare', maxLevel: 5, recipe: { bone: 10, wing: 6 }, growth: 3, describe: (l) => `+${l} projectile${l === 1 ? '' : 's'} per volley` },
-  { id: 'idol', name: 'Golden Idol', icon: '🗿', rarity: 'veryRare', maxLevel: 15, recipe: { ember: 6, magma: 3 }, growth: 1.5, describe: (l) => `+${l * 25}% gold` },
+  { id: 'idol', name: 'Golden Idol', icon: '🗿', rarity: 'veryRare', maxLevel: 30, recipe: { ember: 6, magma: 3 }, growth: 1.5, describe: (l) => `+${l * 25}% gold` },
   { id: 'lance', name: 'Frost Lance', icon: '❄️', rarity: 'legendary', maxLevel: 5, recipe: { chitin: 8, frost: 4 }, growth: 2.2, describe: (l) => `shots pierce ${l} more enem${l === 1 ? 'y' : 'ies'}` },
   { id: 'lantern', name: 'Soul Lantern', icon: '🏮', rarity: 'exotic', maxLevel: 10, recipe: { ecto: 8, fur: 6 }, growth: 1.8, describe: (l) => `+${l * 4}% crit chance` },
   {
@@ -1426,7 +1429,7 @@ export const ITEMS: ItemDef[] = [
     growth: 2,
     describe: (l) => `Whispering Forest monsters: ×2 HP, ×${2 + 0.25 * (l - 1)} gold`,
   },
-  { id: 'engine', name: 'Void Engine', icon: '🌀', rarity: 'artifact', maxLevel: 15, recipe: { shade: 10, void: 5, soul: 3 }, growth: 1.7, describe: (l) => `×${(1.5 ** l).toFixed(l > 3 ? 0 : 1)} damage, +${l * 5}% attack rate` },
+  { id: 'engine', name: 'Void Engine', icon: '🌀', rarity: 'artifact', maxLevel: 20, recipe: { shade: 10, void: 5, soul: 3 }, growth: 1.7, describe: (l) => `×${(1.5 ** l).toFixed(l > 3 ? 0 : 1)} damage, +${l * 5}% attack rate` },
 ];
 
 export const itemDef = (id: ItemId): ItemDef => ITEMS.find((i) => i.id === id)!;

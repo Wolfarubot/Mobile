@@ -1590,7 +1590,8 @@ describe('Saves', () => {
     expect(gearStats(bow, 1).damage).toBeCloseTo(0.2);
     expect(gearStats(bow, MAX_STARS).damage).toBeCloseTo(2);
     const whet = itemDef('whetstone');
-    expect(itemLevels(whet)).toEqual([0, 1, 2, 4, 8, 15]); // no Upgrade goes past its old Lv 15
+    expect(itemLevels(whet)).toEqual([0, 1, 2, 4, 8, 15]); // Common: stops at its old Lv 15
+    for (const it of ITEMS) if (it.rarity === 'common' || it.rarity === 'uncommon') expect(itemLevels(it)[MAX_STARS]).toBeLessThanOrEqual(15);
     // A star costs the price of the step two thirds of the way (geometrically) through the ones it covers.
     expect(itemCost(whet, 0).goo).toBe(4);
     expect(itemCost(whet, 1).goo).toBe(Math.ceil(4 * 1.45 ** 1)); // Lv 1 → 2: step 1
