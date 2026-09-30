@@ -1387,7 +1387,9 @@ export type ItemId =
   | 'lance'
   | 'lantern'
   | 'engine'
-  | 'forestIdol';
+  | 'forestIdol'
+  | 'graveWhetstone'
+  | 'batwingGloves';
 
 export interface ItemDef {
   id: ItemId;
@@ -1418,6 +1420,9 @@ export const ITEMS: ItemDef[] = [
   { id: 'idol', name: 'Golden Idol', icon: '🗿', rarity: 'veryRare', maxLevel: 30, recipe: { ember: 6, magma: 3 }, growth: 1.5, describe: (l) => `+${l * 25}% gold` },
   { id: 'lance', name: 'Frost Lance', icon: '❄️', rarity: 'legendary', maxLevel: 5, recipe: { chitin: 8, frost: 4 }, growth: 2.2, describe: (l) => `shots pierce ${l} more enem${l === 1 ? 'y' : 'ies'}` },
   { id: 'lantern', name: 'Soul Lantern', icon: '🏮', rarity: 'exotic', maxLevel: 10, recipe: { ecto: 8, fur: 6 }, growth: 1.8, describe: (l) => `+${l * 4}% crit chance` },
+  // Rare successors: they pick up where the Common Whetstone and Gloves stop, from Graveyard and Crypt materials.
+  { id: 'graveWhetstone', name: 'Grave Whetstone', icon: '⚱️', rarity: 'rare', maxLevel: 20, recipe: { bone: 12, flesh: 8 }, growth: 1.5, describe: (l) => `+${l * 25}% damage (on top of the Whetstone)` },
+  { id: 'batwingGloves', name: 'Batwing Gloves', icon: '🦇', rarity: 'rare', maxLevel: 20, recipe: { wing: 10, bone: 6 }, growth: 1.55, describe: (l) => `+${l * 10}% attack rate (on top of the Quickdraw Gloves)` },
   {
     id: 'forestIdol',
     name: 'Forest Idol',
