@@ -534,7 +534,7 @@ export interface AreaDef {
 
 export const AREAS: AreaDef[] = [
   { id: 'forest', name: 'Whispering Forest', icon: '🌲', hp: 1, gold: 1, speed: 36, mastery: 10_000, guardian: 25_000, palette: ['#183c18', '#2f7d32', '#7ec850', '#e2f5c4'], ground: ['#6cb848', '#58a03c'], blurb: 'Where every hunt begins.' },
-  { id: 'glade', name: 'Faerie Glade', icon: '🍄', hp: 2_500, gold: 80, speed: 38, mastery: 1_000, guardian: 10_000_000, palette: ['#221a30', '#5a4a8a', '#a8d8b0', '#f4f0ff'], ground: ['#7cc47c', '#8ed28a'], blurb: 'Mushroom rings and things that bite.' },
+  { id: 'glade', name: 'Faerie Glade', icon: '🍄', hp: 2_500, gold: 80, speed: 38, mastery: 1_000, guardian: 30_000_000, palette: ['#221a30', '#5a4a8a', '#a8d8b0', '#f4f0ff'], ground: ['#7cc47c', '#8ed28a'], blurb: 'Mushroom rings and things that bite.' },
   { id: 'graveyard', name: 'Old Graveyard', icon: '🪦', hp: 150_000, gold: 15_000, speed: 40, mastery: 1_500, guardian: 10_000_000_000, palette: ['#1e1a2a', '#4a4460', '#9a94b0', '#e8e4f0'], ground: ['#5b5670', '#4c4762'], blurb: 'The dead do not rest here.' },
   { id: 'crypt', name: 'Forsaken Crypt', icon: '⚰️', hp: 150_000_000, gold: 2_000_000, speed: 42, mastery: 2_500, guardian: 180_000_000_000, palette: ['#1a1614', '#4a403a', '#9a8e80', '#ece4d8'], ground: ['#5a524a', '#4e4640'], blurb: 'Deeper than the graves, and older.' },
   { id: 'depths', name: 'Shadowy Depths', icon: '🕳️', hp: 2_500_000_000, gold: 600_000_000, speed: 43, mastery: 3_000, guardian: 7_000_000_000_000, palette: ['#120e1c', '#3a3050', '#8a7ea8', '#e6e0f4'], ground: ['#2e2838', '#26212f'], blurb: 'Below the crypt, the dark has teeth.' },
