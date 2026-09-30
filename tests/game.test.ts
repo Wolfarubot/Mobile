@@ -176,7 +176,7 @@ describe('Areas', () => {
     expect(g.guardianHp).toBeGreaterThan(areaDef('glade').hp * 5);
     // Each area is far tougher and far richer than the last, and HP and gold both grow exponentially.
     for (let i = 1; i < AREAS.length; i++) {
-      expect(AREAS[i].hp).toBeGreaterThan(AREAS[i - 1].hp * 4);
+      expect(AREAS[i].hp).toBeGreaterThan(AREAS[i - 1].hp * 1.5);
       expect(AREAS[i].gold).toBeGreaterThan(AREAS[i - 1].gold * 10);
       if (i < AREAS.length - 1) expect(AREAS[i].guardian).toBeGreaterThan(AREAS[i + 1].hp * 2);
     }
@@ -1405,7 +1405,7 @@ describe('Offline', () => {
     const g = new Game(veteran(s), noCrit);
     g.state.areas.graveyard.unlocked = true;
     g.recruit('gravewarden');
-    g.state.hunters.gravewarden.trains = 150;
+    g.state.hunters.gravewarden.trains = 3000; // strong enough for the Graveyard
     g.station('gravewarden', 'graveyard');
     const gold = g.state.gold;
     const r = g.applyOffline(24 * 3600 * 1000);

@@ -215,7 +215,7 @@ export class Game {
 
   /** Upgrades boost every Hunter. */
   get itemDamageMult(): number {
-    return (1 + 0.25 * this.item('whetstone')) * (1 + 0.15 * this.item('graveWhetstone')) * 1.5 ** this.item('engine');
+    return (1 + 0.25 * this.item('whetstone')) * (1 + 0.15 * this.item('graveWhetstone')) * (1 + 0.25 * this.item('engine'));
   }
 
   get itemRateMult(): number {
