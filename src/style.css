@@ -2876,3 +2876,9 @@ button.mat:not(:disabled):active {
   background: var(--c0);
   color: var(--rc);
 }
+.weapon-line {
+  margin: 4px 0 2px;
+  font-size: 12px;
+  font-style: italic;
+  opacity: 0.85;
+}

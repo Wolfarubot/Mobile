@@ -2,6 +2,9 @@ import {
   ASCEND_LEVEL,
   ASCEND_NODE,
   ASCENDED_TREES,
+  MAIN_SLOTS,
+  WEAPON_CLASSES,
+  type WeaponClassDef,
   dropsFrom,
   affordableCount,
   MAIN_ASCEND_LEVEL,
@@ -276,7 +279,7 @@ export class Game {
 
   /** Extra enemies each shot passes through (Frost Lance + gear). */
   pierceOf(shooter: Shooter, mode?: GearMode): number {
-    return this.pierce + Math.floor(this.gear(shooter, mode).pierce) + this.tree(shooter).pierce;
+    return this.pierce + Math.floor(this.gear(shooter, mode).pierce) + this.tree(shooter).pierce + (this.weaponClassOf(shooter, mode)?.pierce ?? 0);
   }
 
   /** Multiplier on a Hunter's area effects (fireballs, puddles, novas). */
@@ -320,21 +323,38 @@ export class Game {
    * `mode` picks Wilhelm's weapon: 'long' (sniper, default) or 'short' (akimbo).
    */
   shotDamage(shooter: Shooter, archetype?: Archetype, mode?: GearMode): number {
-    if (shooter === 'main') return this.damage;
+    const cls = this.weaponClassOf(shooter, mode)?.damage ?? 1;
+    if (shooter === 'main') return this.damage * cls;
     const def = hunterDef(shooter);
     const bane = def.bane && def.bane.archetype === archetype ? def.bane.mult + this.tree(shooter).bane : 1;
-    return powerDamage(this.state.hunters[shooter].trains) * this.skillDamageMult(shooter) * this.itemDamageMult * def.style.damage * bane * (1 + this.gear(shooter, mode).damage);
+    return powerDamage(this.state.hunters[shooter].trains) * this.skillDamageMult(shooter) * this.itemDamageMult * def.style.damage * bane * (1 + this.gear(shooter, mode).damage) * cls;
   }
 
   /** Attacks per second. */
   shooterRate(shooter: Shooter, mode?: GearMode): number {
-    if (shooter === 'main') return this.fireRate;
-    return HELPER_FIRE_RATE * hunterDef(shooter).style.rate * this.skillRateMult(shooter) * this.itemRateMult * (1 + this.gear(shooter, mode).rate);
+    const cls = this.weaponClassOf(shooter, mode)?.rate ?? 1;
+    if (shooter === 'main') return this.fireRate * cls;
+    return HELPER_FIRE_RATE * hunterDef(shooter).style.rate * this.skillRateMult(shooter) * this.itemRateMult * (1 + this.gear(shooter, mode).rate) * cls;
   }
 
-  /** How far a Hunter can attack, in world units. */
+  /**
+   * How far a Hunter can attack, in world units. A shot's range is scaled by their weapon's class; your Hunter
+   * with a sweeping or stabbing weapon reaches only as far as it does (range bonuses count a quarter).
+   */
   shooterRange(shooter: Shooter, mode?: GearMode): number {
-    return (shooter === 'main' ? MAIN_RANGE : hunterDef(shooter).style.range) + this.gear(shooter, mode).range + this.tree(shooter).range;
+    const cls = this.weaponClassOf(shooter, mode);
+    const bonus = this.gear(shooter, mode).range + this.tree(shooter).range;
+    if (shooter === 'main' && cls && (cls.attack === 'sweep' || cls.attack === 'stab')) return cls.reach! + bonus / 4;
+    return (shooter === 'main' ? MAIN_RANGE : hunterDef(shooter).style.range) * (cls?.range ?? 1) + bonus;
+  }
+
+  /** The class of the weapon a Hunter has equipped (for Wilhelm, the one for `mode`), or null. */
+  weaponClassOf(who: Shooter, mode: GearMode = 'long'): WeaponClassDef | null {
+    const slots = this.slotsOf(who);
+    const i = slots.findIndex((sl) => WEAPON_KINDS.includes(sl.kind) && (!sl.role || sl.role === mode));
+    const item = i >= 0 ? this.equipped(who)[i] : null;
+    const id = item ? gearDef(item.base).weaponClass : undefined;
+    return id ? WEAPON_CLASSES[id] : null;
   }
 
   /**
@@ -343,7 +363,9 @@ export class Game {
    */
   dpsOf(shooter: Shooter, archetype?: Archetype): number {
     const style = shooter === 'main' ? null : hunterDef(shooter).style;
-    const perAttack = (style?.pellets ?? 1) * this.projectiles * (style?.farm ?? 1);
+    const cls = shooter === 'main' ? this.weaponClassOf('main') : null;
+    const shots = !cls || cls.attack === 'shot' || cls.attack === 'dagger' ? this.projectiles : 1;
+    const perAttack = (style?.pellets ?? 1) * shots * (style?.farm ?? cls?.farm ?? 1);
     return this.shotDamage(shooter, archetype) * (this.shooterRate(shooter) * perAttack + this.specialHitRate(shooter)) * this.critFactor(shooter);
   }
 
@@ -454,7 +476,7 @@ export class Game {
 
   /** A Hunter's equipment slots. */
   slotsOf(who: Wearer): SlotDef[] {
-    return who === 'main' ? DEFAULT_SLOTS : (hunterDef(who).slots ?? DEFAULT_SLOTS);
+    return who === 'main' ? MAIN_SLOTS : (hunterDef(who).slots ?? DEFAULT_SLOTS);
   }
 
   gearItem(uid: number): GearItem | undefined {

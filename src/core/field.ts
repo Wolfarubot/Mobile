@@ -154,7 +154,8 @@ export type FieldEvent =
   | { type: 'escape'; x: number; y: number }
   | { type: 'explode'; x: number; y: number; r: number; color: string }
   | { type: 'nova'; x: number; y: number; r: number }
-  | { type: 'beam'; x1: number; y1: number; x2: number; y2: number; color: string; width: number };
+  | { type: 'beam'; x1: number; y1: number; x2: number; y2: number; color: string; width: number }
+  | { type: 'sweep'; x: number; y: number; a: number; arc: number; r: number; color: string };
 
 /**
  * The survivor-style battlefield in world coordinates centered on your Hunter.
@@ -318,18 +319,23 @@ export class Field {
     this.moveEnemies(dt);
     this.separate();
 
-    // Your Hunter (not while stunned)
-    this.fireAcc = Math.min(this.fireAcc + dt * g.fireRate, 3);
+    // Your Hunter (not while stunned): attacks the way their weapon's class does.
+    this.fireAcc = Math.min(this.fireAcc + dt * g.shooterRate('main'), 3);
     if (this.stunned) this.fireAcc = 0;
+    const cls = g.weaponClassOf('main');
+    const range = g.shooterRange('main');
     while (this.fireAcc >= 1) {
-      const target = this.nearest(0, 0, g.shooterRange('main'));
+      const target = this.nearest(0, 0, range);
       if (!target) {
         this.fireAcc = Math.min(this.fireAcc, 1);
         break;
       }
       this.fireAcc -= 1;
       this.aim = Math.atan2(target.y, target.x);
-      this.shoot('main', 'bolt', 0, 0, this.aim, BULLET_SPEED, g.shooterRange('main'), { pierce: g.pierceOf('main'), spread: true });
+      const close = cls?.attack === 'dagger' && Math.hypot(target.x, target.y) <= cls.reach! + target.r;
+      if (cls?.attack === 'sweep' || close) this.strikeArc('main', 0, 0, this.aim, cls!.reach!, cls!.arc!, 1);
+      else if (cls?.attack === 'stab') this.strikeLine('main', 0, 0, this.aim, range, 10, 1 + g.pierceOf('main'), 1, '#f4f4f4', 5);
+      else this.shoot('main', cls?.projectile ?? 'bolt', 0, 0, this.aim, BULLET_SPEED, range, { pierce: g.pierceOf('main'), spread: true });
     }
     for (const h of this.helpers) this.helperAttack(h, dt);
 
@@ -631,6 +637,20 @@ export class Field {
     const end = Number.isFinite(maxHits) && hits.length ? hits[hits.length - 1].t : len;
     this.events.push({ type: 'beam', x1: ox, y1: oy, x2: ox + cx * end, y2: oy + cy * end, color, width: beamWidth });
     for (const { e } of hits) this.hitWith(shooter, e, dmg, ox, oy);
+  }
+
+  /** Instant strike in an arc in front (sword sweep, dagger swipe): hits every enemy within `reach` and `arc`. */
+  private strikeArc(shooter: Shooter, ox: number, oy: number, a: number, reach: number, arc: number, dmg: number): void {
+    this.events.push({ type: 'sweep', x: ox, y: oy, a, arc, r: reach, color: '#f4f4f4' });
+    for (const e of this.enemies) {
+      if (e.hp <= 0) continue;
+      const dx = e.x - ox;
+      const dy = e.y - oy;
+      if (Math.hypot(dx, dy) > reach + e.r) continue;
+      let da = Math.atan2(dy, dx) - a;
+      da = Math.atan2(Math.sin(da), Math.cos(da));
+      if (Math.abs(da) <= arc / 2) this.hitWith(shooter, e, dmg, ox, oy);
+    }
   }
 
   /** One hit from a shooter, priced by their damage vs the enemy's archetype. */

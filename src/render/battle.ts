@@ -49,6 +49,8 @@ export class BattleView {
   private pickups: Pickup[] = [];
   private rings: Ring[] = [];
   private beams: Beam[] = [];
+  /** Melee sweeps and swipes: a fading arc in front of the attacker. */
+  private sweeps: Array<{ x: number; y: number; a: number; arc: number; r: number; color: string; t: number }> = [];
   private time = 0;
   private shake = 0;
   private stunTextCooldown = 0;
@@ -130,6 +132,9 @@ export class BattleView {
         case 'beam':
           this.beams.push({ ...e, t: 0 });
           break;
+        case 'sweep':
+          this.sweeps.push({ ...e, t: 0 });
+          break;
         case 'guard':
           this.rings.push({ x: e.x, y: e.y, t: 0, r: PLAYER_RADIUS + 10, color: '255,232,163', max: 0.3 });
           this.fx.text(e.x, e.y - 30, 'BLOCK', '#ffe8a3', 12, 0.6);
@@ -179,6 +184,8 @@ export class BattleView {
     this.rings = this.rings.filter((r) => r.t < r.max);
     for (const b of this.beams) b.t += dt;
     this.beams = this.beams.filter((b) => b.t < 0.25);
+    for (const w of this.sweeps) w.t += dt;
+    this.sweeps = this.sweeps.filter((w) => w.t < 0.2);
     this.fx.update(dt);
   }
 
@@ -249,6 +256,25 @@ export class BattleView {
       g.beginPath();
       g.moveTo(b.x1, b.y1);
       g.lineTo(b.x2, b.y2);
+      g.stroke();
+      g.globalAlpha = 1;
+    }
+
+    for (const w of this.sweeps) {
+      // The blade's arc sweeps across (a trailing crescent), fading out.
+      const k = w.t / 0.2;
+      const from = w.a - w.arc / 2;
+      const to = from + w.arc * Math.min(1, k * 2.5);
+      g.globalAlpha = 0.85 * (1 - k);
+      g.strokeStyle = w.color;
+      g.lineCap = 'round';
+      g.lineWidth = 5;
+      g.beginPath();
+      g.arc(w.x, w.y, w.r * 0.85, from, to);
+      g.stroke();
+      g.lineWidth = 2;
+      g.beginPath();
+      g.arc(w.x, w.y, w.r * 0.55, from, to);
       g.stroke();
       g.globalAlpha = 1;
     }

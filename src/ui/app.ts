@@ -1,6 +1,7 @@
 import {
   ASCEND_LEVEL,
   ASCEND_NODE,
+  WEAPON_CLASSES,
   MAX_LEVEL,
   MAIN_ASCEND_LEVEL,
   MAIN_MAX_LEVEL,
@@ -884,7 +885,8 @@ export class AppUI {
       const worn = g.wearerOf(uid);
       const cost = g.gearUpgradeCost(uid);
       body.innerHTML = `
-        <p>${dtypeTag(gd)}<b class="rarity-tag" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${GEAR_KINDS[gd.kind].name} · <span class="stars">${starsHtml(item.stars)}</span>${worn ? ` · worn by ${wearerName(worn.who)}` : ''}</p>
+        <p>${dtypeTag(gd)}<b class="rarity-tag" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${gearKindName(gd)} · <span class="stars">${starsHtml(item.stars)}</span>${worn ? ` · worn by ${wearerName(worn.who)}` : ''}</p>
+        ${weaponLine(gd)}
         <p class="gear-now">${describeGear(gearStats(gd, item.stars))}</p>
         ${cost ? `<p class="gear-next">Next: <b>${describeGear(gearStats(gd, item.stars + 1))}</b></p><div class="cost">${costHtml(g, cost)}</div>` : '<p>Fully upgraded.</p>'}`;
       const actions = el('div', 'actions');
@@ -1789,8 +1791,9 @@ export class AppUI {
       <button class="fc-close" aria-label="Close">✕</button>
       <div class="fc-head"><i class="fc-icon" style="--rc:${gd ? gearColor(gd.id) : RARITIES[it!.rarity].color}">${gd ? gd.icon : it!.icon}</i><div>
         <h3>${name}</h3>
-        <small>${gd ? `<b class="fc-rarity" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${GEAR_KINDS[gd.kind].name.toLowerCase()} ${dtypeTag(gd)}` : `<b class="fc-rarity" style="--rc:${RARITIES[it!.rarity].color}">${RARITIES[it!.rarity].name}</b> upgrade · ${upgradeReach(it!)}`}</small>
+        <small>${gd ? `<b class="fc-rarity" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${gearKindName(gd).toLowerCase()} ${dtypeTag(gd)}` : `<b class="fc-rarity" style="--rc:${RARITIES[it!.rarity].color}">${RARITIES[it!.rarity].name}</b> upgrade · ${upgradeReach(it!)}`}</small>
       </div></div>
+      ${gd ? weaponLine(gd) : ''}
       <p class="fc-effect"></p>
       <div class="fc-owned"></div>
       <div class="fc-label">Recipe</div>
@@ -2273,7 +2276,7 @@ function gearCardHtml(it: GearItem, vs: GearItem | null = null): string {
     (gd.damageType && gd.proc && DAMAGE_TYPES[gd.damageType].effect
       ? `<li class="gc-effect">${DAMAGE_TYPES[gd.damageType].icon} ${Math.round(gd.proc * 100)}% chance · ${DAMAGE_TYPES[gd.damageType].effect}</li>`
       : '');
-  return `<div class="gear-card rar" style="--rc:${gearColor(gd.id)}"><div class="gc-head"><i>${gd.icon}</i><div><b>${gd.name}</b><small>${RARITIES[gd.rarity].name} ${GEAR_KINDS[gd.kind].name.toLowerCase()} · <span class="stars">${starsHtml(it.stars)}</span></small>${dtypeTag(gd)}</div></div><ul class="gc-stats">${lines}</ul></div>`;
+  return `<div class="gear-card rar" style="--rc:${gearColor(gd.id)}"><div class="gc-head"><i>${gd.icon}</i><div><b>${gd.name}</b><small>${RARITIES[gd.rarity].name} ${gearKindName(gd).toLowerCase()} · <span class="stars">${starsHtml(it.stars)}</span></small>${dtypeTag(gd)}</div></div><ul class="gc-stats">${lines}</ul></div>`;
 }
 
 /** Your Hunter's name (Settings), shown on their card and wherever they're named. */
@@ -2286,6 +2289,12 @@ function esc(text: string): string {
   return text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 }
 
+
+/** A piece's kind for display: its weapon class ("Longbow") or its gear kind ("Armor"). */
+const gearKindName = (gd: GearDef): string => (gd.weaponClass ? WEAPON_CLASSES[gd.weaponClass].name : GEAR_KINDS[gd.kind].name);
+
+/** How a weapon attacks (for your Hunter), or '' for other gear. */
+const weaponLine = (gd: GearDef): string => (gd.weaponClass ? `<p class="weapon-line">⚔️ ${WEAPON_CLASSES[gd.weaponClass].describe}</p>` : '');
 
 /** What counts toward unlocking an event: its archetype ("slimes") or any monster. */
 const unlockNoun = (ev: EventDef): string => (ev.unlockArchetype ? `${ARCHETYPES[ev.unlockArchetype].name.toLowerCase()}s` : 'monsters');

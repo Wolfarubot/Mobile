@@ -1217,6 +1217,13 @@ export const slotAccepts = (slot: SlotDef, kind: GearKind): boolean => (slot.acc
 /** Weapon kinds: a Hunter's weapon slot powers their special attack. */
 export const WEAPON_KINDS: GearKind[] = ['weapon', 'melee', 'magic'];
 
+/** Your Hunter's slots: the weapon slot takes any weapon (ranged, melee or magic). */
+export const MAIN_SLOTS: SlotDef[] = [
+  { kind: 'weapon', label: 'Weapon', accepts: ['weapon', 'melee', 'magic'] },
+  { kind: 'armor', label: 'Armor' },
+  { kind: 'accessory', label: 'Accessory' },
+];
+
 export const DEFAULT_SLOTS: SlotDef[] = [
   { kind: 'weapon', label: 'Weapon' },
   { kind: 'armor', label: 'Armor' },
@@ -1240,6 +1247,8 @@ export const GEAR_STATS: Record<GearStat, (v: number) => string> = {
 };
 
 export type GearId =
+  | 'fangDagger'
+  | 'goblinSword'
   | 'huntingBow'
   | 'boneCrossbow'
   | 'emberLongbow'
@@ -1288,6 +1297,8 @@ export interface GearDef {
   rarity: Rarity;
   /** Weapons only: the damage type they deal. */
   damageType?: DamageType;
+  /** Weapons only: what kind of weapon it is, which shapes how it attacks (see WEAPON_CLASSES). */
+  weaponClass?: WeaponClass;
   /** Chance each hit triggers its damage type's status effect (0 or missing: never). */
   proc?: number;
   /** Stats at 1★; higher stars multiply them by GEAR_STAR_POWER. */
@@ -1309,24 +1320,71 @@ export const SALVAGE_REFUND = 0.5;
 /** Stun reductions from gear stack additively up to this cap. */
 export const GEAR_STUN_CAP = 0.7;
 
+// ---- Weapon classes: how a weapon attacks ----
+// Your Hunter attacks the way their weapon does. Guild Hunters keep their own signature attack; their
+// weapon's class reshapes it (a longbow makes Galladair's arrows slower, heavier and longer-ranged).
+// Each class's rate × damage is about 1, so none is simply better: they trade speed, reach and crowd hits.
+
+export type WeaponClass = 'dagger' | 'sword' | 'glaive' | 'spear' | 'shortbow' | 'longbow' | 'crossbow' | 'rifle' | 'repeater' | 'wand' | 'staff' | 'focus' | 'scepter';
+
+export interface WeaponClassDef {
+  name: string;
+  /**
+   * How your Hunter attacks with it. 'shot': a projectile out to their range × `range`. 'sweep': an arc of
+   * `arc` radians in front of them, `reach` deep, hitting everything in it. 'stab': a thrust `reach` long that
+   * pierces `pierce` extra enemies in a line. 'dagger': a swipe (like a small sweep) when something is within
+   * `reach`, else a thrown dagger out to their range × `range`.
+   */
+  attack: 'shot' | 'sweep' | 'stab' | 'dagger';
+  /** Projectile look for shots and throws. */
+  projectile?: 'bolt' | 'arrow' | 'spark' | 'pistol' | 'dagger';
+  range: number;
+  reach?: number;
+  arc?: number;
+  rate: number;
+  damage: number;
+  pierce?: number;
+  /** Rough crowd efficiency for the background model (sweeps and stabs hit several). */
+  farm: number;
+  describe: string;
+}
+
+export const WEAPON_CLASSES: Record<WeaponClass, WeaponClassDef> = {
+  dagger: { name: 'Dagger', attack: 'dagger', projectile: 'dagger', range: 0.8, reach: 55, arc: 1.6, rate: 1.5, damage: 0.7, farm: 1.1, describe: 'Quick swipes up close; thrown when monsters are further off.' },
+  sword: { name: 'Sword', attack: 'sweep', range: 1, reach: 80, arc: 2.4, rate: 0.9, damage: 1.1, farm: 1.8, describe: 'A close sweeping slash that hits every monster in front.' },
+  glaive: { name: 'Glaive', attack: 'sweep', range: 1, reach: 100, arc: 3.2, rate: 0.7, damage: 1.4, farm: 2, describe: 'A wide, heavy cleave that hits everything around the front.' },
+  spear: { name: 'Spear', attack: 'stab', range: 1, reach: 140, rate: 0.85, damage: 1.15, pierce: 3, farm: 1.6, describe: 'A long stab straight out, piercing up to 4 monsters in a line.' },
+  shortbow: { name: 'Shortbow', attack: 'shot', projectile: 'arrow', range: 0.8, rate: 1.35, damage: 0.75, farm: 1, describe: 'Quick, lighter shots at closer range.' },
+  longbow: { name: 'Longbow', attack: 'shot', projectile: 'arrow', range: 1.35, rate: 0.65, damage: 1.6, farm: 1, describe: 'Slow, heavy-hitting shots from far away.' },
+  crossbow: { name: 'Crossbow', attack: 'shot', projectile: 'arrow', range: 1.1, rate: 0.8, damage: 1.3, pierce: 1, farm: 1.2, describe: 'Heavy bolts that punch through one more monster.' },
+  rifle: { name: 'Rifle', attack: 'shot', projectile: 'pistol', range: 1.5, rate: 0.5, damage: 2.1, pierce: 1, farm: 1.1, describe: 'Very slow, very hard, very long shots that pierce.' },
+  repeater: { name: 'Repeater', attack: 'shot', projectile: 'bolt', range: 0.9, rate: 2, damage: 0.5, farm: 1, describe: 'A storm of light shots.' },
+  wand: { name: 'Wand', attack: 'shot', projectile: 'spark', range: 1, rate: 1.3, damage: 0.77, farm: 1, describe: 'Fast, light magic bolts.' },
+  staff: { name: 'Staff', attack: 'shot', projectile: 'spark', range: 1.1, rate: 0.75, damage: 1.4, farm: 1, describe: 'Slower, heavier magic bolts.' },
+  focus: { name: 'Focus', attack: 'shot', projectile: 'spark', range: 1.25, rate: 1, damage: 1, farm: 1, describe: 'Steady magic bolts with extra reach.' },
+  scepter: { name: 'Scepter', attack: 'shot', projectile: 'spark', range: 1, rate: 1, damage: 1.1, farm: 1, describe: 'Strong, steady magic bolts.' },
+};
+
 export const GEAR: GearDef[] = [
   // Weapons
-  { id: 'huntingBow', name: 'Hunting Bow', icon: '🏹', kind: 'weapon', rarity: 'common', damageType: 'physical', stats: { damage: 0.2 }, recipe: { goo: 8, pelt: 4 } },
-  { id: 'boneCrossbow', name: 'Bone Crossbow', icon: '🎯', kind: 'weapon', rarity: 'uncommon', damageType: 'physical', stats: { damage: 0.3, range: 8 }, recipe: { bone: 10, wing: 5 } },
-  { id: 'emberLongbow', name: 'Ember Longbow', icon: '🔥', kind: 'weapon', rarity: 'rare', damageType: 'fire', proc: 0.3, stats: { damage: 0.3, rate: 0.12 }, recipe: { ember: 10, chitin: 5 } },
-  { id: 'frostRifle', name: 'Frost Rifle', icon: '🔫', kind: 'weapon', rarity: 'legendary', damageType: 'frost', proc: 0.35, stats: { damage: 0.45, range: 15 }, recipe: { fur: 10, frost: 5 } },
-  { id: 'voidRepeater', name: 'Void Repeater', icon: '🌀', kind: 'weapon', rarity: 'artifact', damageType: 'void', stats: { damage: 0.6, rate: 0.2 }, recipe: { shade: 10, void: 5 } },
+  { id: 'huntingBow', name: 'Hunting Bow', icon: '🏹', kind: 'weapon', rarity: 'common', weaponClass: 'shortbow', damageType: 'physical', stats: { damage: 0.2 }, recipe: { goo: 8, pelt: 4 } },
+  { id: 'boneCrossbow', name: 'Bone Crossbow', icon: '🎯', kind: 'weapon', rarity: 'uncommon', weaponClass: 'crossbow', damageType: 'physical', stats: { damage: 0.3, range: 8 }, recipe: { bone: 10, wing: 5 } },
+  { id: 'emberLongbow', name: 'Ember Longbow', icon: '🔥', kind: 'weapon', rarity: 'rare', weaponClass: 'longbow', damageType: 'fire', proc: 0.3, stats: { damage: 0.3, rate: 0.12 }, recipe: { ember: 10, chitin: 5 } },
+  { id: 'frostRifle', name: 'Frost Rifle', icon: '🔫', kind: 'weapon', rarity: 'legendary', weaponClass: 'rifle', damageType: 'frost', proc: 0.35, stats: { damage: 0.45, range: 15 }, recipe: { fur: 10, frost: 5 } },
+  { id: 'voidRepeater', name: 'Void Repeater', icon: '🌀', kind: 'weapon', rarity: 'artifact', weaponClass: 'repeater', damageType: 'void', stats: { damage: 0.6, rate: 0.2 }, recipe: { shade: 10, void: 5 } },
   // Melee
-  { id: 'ironSpear', name: 'Bone Spear', icon: '🔱', kind: 'melee', rarity: 'uncommon', damageType: 'physical', stats: { damage: 0.35 }, recipe: { bone: 10, flesh: 5 } },
-  { id: 'magmaGlaive', name: 'Magma Glaive', icon: '🪓', kind: 'melee', rarity: 'veryRare', damageType: 'fire', proc: 0.4, stats: { damage: 0.5, range: 6 }, recipe: { magma: 10, ember: 5 } },
-  { id: 'soulLance', name: 'Soulreaver Lance', icon: '⚜️', kind: 'melee', rarity: 'exalted', damageType: 'decay', proc: 0.2, stats: { damage: 0.8, pierce: 0.2 }, recipe: { soul: 8, void: 4 } },
+  { id: 'fangDagger', name: 'Fang Dagger', icon: '🗡️', kind: 'melee', rarity: 'common', weaponClass: 'dagger', damageType: 'physical', stats: { damage: 0.2, rate: 0.05 }, recipe: { pelt: 6, goo: 6 } },
+  { id: 'goblinSword', name: 'Goblin Sword', icon: '⚔️', kind: 'melee', rarity: 'common', weaponClass: 'sword', damageType: 'physical', stats: { damage: 0.25 }, recipe: { pelt: 8, redgel: 4 } },
+  { id: 'ironSpear', name: 'Bone Spear', icon: '🔱', kind: 'melee', rarity: 'uncommon', weaponClass: 'spear', damageType: 'physical', stats: { damage: 0.35 }, recipe: { bone: 10, flesh: 5 } },
+  { id: 'magmaGlaive', name: 'Magma Glaive', icon: '🪓', kind: 'melee', rarity: 'veryRare', weaponClass: 'glaive', damageType: 'fire', proc: 0.4, stats: { damage: 0.5, range: 6 }, recipe: { magma: 10, ember: 5 } },
+  { id: 'soulLance', name: 'Soulreaver Lance', icon: '⚜️', kind: 'melee', rarity: 'exalted', weaponClass: 'spear', damageType: 'decay', proc: 0.2, stats: { damage: 0.8, pierce: 0.2 }, recipe: { soul: 8, void: 4 } },
   // Magic (Reginald and Glimmer)
-  { id: 'apprenticeWand', name: 'Apprentice Wand', icon: '🪄', kind: 'magic', rarity: 'common', damageType: 'arcane', proc: 0.15, stats: { damage: 0.15, rate: 0.1 }, recipe: { goo: 8, redgel: 4 } },
-  { id: 'gravewoodStaff', name: 'Gravewood Staff', icon: '🪵', kind: 'magic', rarity: 'uncommon', damageType: 'decay', proc: 0.15, stats: { damage: 0.25, rate: 0.1 }, recipe: { flesh: 10, wing: 5 } },
-  { id: 'emberFocus', name: 'Ember Focus', icon: '🕯️', kind: 'magic', rarity: 'rare', damageType: 'fire', proc: 0.3, stats: { damage: 0.3, rate: 0.15 }, recipe: { ember: 10, magma: 5 } },
-  { id: 'crystalFocus', name: 'Crystal Focus', icon: '💎', kind: 'magic', rarity: 'legendary', damageType: 'frost', proc: 0.3, stats: { damage: 0.4, rate: 0.2 }, recipe: { frost: 8, ecto: 6 } },
-  { id: 'voidScepter', name: 'Void Scepter', icon: '🪬', kind: 'magic', rarity: 'relic', damageType: 'void', stats: { damage: 0.55, rate: 0.25 }, recipe: { shade: 10, void: 5 } },
-  { id: 'soulfireStaff', name: 'Soulfire Staff', icon: '🌟', kind: 'magic', rarity: 'exalted', damageType: 'radiant', proc: 0.2, stats: { damage: 0.75, rate: 0.3 }, recipe: { soul: 8, void: 4 } },
+  { id: 'apprenticeWand', name: 'Apprentice Wand', icon: '🪄', kind: 'magic', rarity: 'common', weaponClass: 'wand', damageType: 'arcane', proc: 0.15, stats: { damage: 0.15, rate: 0.1 }, recipe: { goo: 8, redgel: 4 } },
+  { id: 'gravewoodStaff', name: 'Gravewood Staff', icon: '🪵', kind: 'magic', rarity: 'uncommon', weaponClass: 'staff', damageType: 'decay', proc: 0.15, stats: { damage: 0.25, rate: 0.1 }, recipe: { flesh: 10, wing: 5 } },
+  { id: 'emberFocus', name: 'Ember Focus', icon: '🕯️', kind: 'magic', rarity: 'rare', weaponClass: 'focus', damageType: 'fire', proc: 0.3, stats: { damage: 0.3, rate: 0.15 }, recipe: { ember: 10, magma: 5 } },
+  { id: 'crystalFocus', name: 'Crystal Focus', icon: '💎', kind: 'magic', rarity: 'legendary', weaponClass: 'focus', damageType: 'frost', proc: 0.3, stats: { damage: 0.4, rate: 0.2 }, recipe: { frost: 8, ecto: 6 } },
+  { id: 'voidScepter', name: 'Void Scepter', icon: '🪬', kind: 'magic', rarity: 'relic', weaponClass: 'scepter', damageType: 'void', stats: { damage: 0.55, rate: 0.25 }, recipe: { shade: 10, void: 5 } },
+  { id: 'soulfireStaff', name: 'Soulfire Staff', icon: '🌟', kind: 'magic', rarity: 'exalted', weaponClass: 'staff', damageType: 'radiant', proc: 0.2, stats: { damage: 0.75, rate: 0.3 }, recipe: { soul: 8, void: 4 } },
   // Armor
   { id: 'leatherVest', name: 'Leather Vest', icon: '🦺', kind: 'armor', rarity: 'common', stats: { stun: 0.05 }, recipe: { pelt: 8, goo: 6 } },
   { id: 'bonePlate', name: 'Bone Plate', icon: '🦴', kind: 'armor', rarity: 'rare', stats: { stun: 0.06, guard: 0.2 }, recipe: { bone: 10, flesh: 6 } },

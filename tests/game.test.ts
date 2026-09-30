@@ -38,6 +38,7 @@ import {
   MAIN_SESSIONS_AFTER_ASCEND,
   mainBulkCost,
   SLAYER_TREE,
+  WEAPON_CLASSES,
   EVENTS,
   TRAIN_UNLOCK_KILLS,
   dropsFrom,
@@ -780,7 +781,8 @@ describe('Equipment', () => {
     expect(g.equip('glimmer', 0, wand.uid)).toBe(true);
     expect(g.equip('alchemist', 0, bow.uid)).toBe(true);
     expect(g.equip('alchemist', 0, wand.uid)).toBe(true); // moves from Glimmer
-    expect(g.equip('main', 0, wand.uid)).toBe(false);
+    expect(g.equip('main', 0, wand.uid)).toBe(true); // your Hunter's weapon slot takes any weapon
+    g.equip('alchemist', 0, wand.uid);
     expect(g.equip('ranger', 0, wand.uid)).toBe(false);
     expect(g.equip('lance', 0, wand.uid)).toBe(false);
   });
@@ -983,9 +985,38 @@ describe('Equipment', () => {
     const baseShort = g.shotDamage('wilhelm', undefined, 'short');
     g.equip('wilhelm', 0, rifle.uid); // long-range slot
     g.equip('wilhelm', 1, bow.uid); // short-range slot
-    expect(g.shotDamage('wilhelm', undefined, 'long')).toBeCloseTo(baseLong * 1.45);
-    expect(g.shotDamage('wilhelm', undefined, 'short')).toBeCloseTo(baseShort * 1.2);
-    expect(g.shooterRange('wilhelm', 'long')).toBe(g.shooterRange('wilhelm', 'short') + 15);
+    // Each weapon's stats and its class (rifle: heavy and long; shortbow: light and short) apply to its mode.
+    expect(g.shotDamage('wilhelm', undefined, 'long')).toBeCloseTo(baseLong * 1.45 * WEAPON_CLASSES.rifle.damage);
+    expect(g.shotDamage('wilhelm', undefined, 'short')).toBeCloseTo(baseShort * 1.2 * WEAPON_CLASSES.shortbow.damage);
+    expect(g.shooterRange('wilhelm', 'long')).toBeCloseTo(hunterDef('wilhelm').style.range * WEAPON_CLASSES.rifle.range + 15);
+  });
+
+  it('weapon classes: your Hunter attacks the way the weapon does; each class trades speed for weight', () => {
+    for (const c of Object.values(WEAPON_CLASSES)) expect(c.rate * c.damage).toBeGreaterThan(0.9), expect(c.rate * c.damage).toBeLessThan(1.25);
+    for (const gd of GEAR) if (gd.kind === 'weapon' || gd.kind === 'melee' || gd.kind === 'magic') expect(gd.weaponClass).toBeDefined();
+    const g = stocked();
+    const base = { rate: g.shooterRate('main'), dmg: g.shotDamage('main'), range: g.shooterRange('main') };
+    const long = g.craftGear('emberLongbow')!;
+    g.equip('main', 0, long.uid);
+    expect(g.shooterRate('main')).toBeLessThan(base.rate);
+    expect(g.shooterRange('main')).toBeGreaterThan(base.range);
+    const short = g.craftGear('huntingBow')!;
+    g.equip('main', 0, short.uid);
+    expect(g.shooterRate('main')).toBeGreaterThan(base.rate);
+    expect(g.shooterRange('main')).toBeLessThan(base.range);
+    // A sword reaches only as far as the blade, but sweeps through several monsters.
+    const sword = g.craftGear('goblinSword')!;
+    g.equip('main', 0, sword.uid);
+    expect(g.weaponClassOf('main')?.attack).toBe('sweep');
+    expect(g.shooterRange('main')).toBeLessThan(120);
+    const f = new Field(g);
+    f.setView(390, 420);
+    // Three monsters in front (one straight ahead, two to the sides), one behind: one sweep hits the three.
+    const hp = 1e9;
+    f.enemies.push(enemy({ id: 1, x: 60, y: 0, hp, maxHp: hp }), enemy({ id: 2, x: 45, y: 40, hp, maxHp: hp }), enemy({ id: 3, x: 45, y: -40, hp, maxHp: hp }), enemy({ id: 4, x: -60, y: 0, hp, maxHp: hp }));
+    f.update(1 / g.shooterRate('main') + 0.01);
+    expect(f.enemies.filter((e) => e.hp < hp).map((e) => e.id).sort()).toEqual([1, 2, 3]);
+    expect(f.bullets).toHaveLength(0); // no projectiles: it's a blade
   });
 
   it('armor shields add Paladin-style charges', () => {
