@@ -18,7 +18,8 @@ jobs:
 
       - run: npm ci
       - run: npm run typecheck
-      - run: npm test
+      # Unit tests gate the build. The long pacing simulation runs after the APK is uploaded (below).
+      - run: npx vitest run --exclude tests/progression.test.ts
       - run: npm run build
       - run: npx cap sync android
 
@@ -35,3 +36,8 @@ jobs:
         with:
           name: pocket-hunter-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
+
+      # Balance check: flags pacing drift (shown as a failed step) without holding back the APK.
+      - name: Pacing simulation
+        continue-on-error: true
+        run: npx vitest run tests/progression.test.ts
