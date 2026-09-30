@@ -387,10 +387,11 @@ export class BattleView {
       const w = g.measureText(text).width;
       const x = s.x - w / 2;
       const y = s.y + (st.reloadPos === 'below' ? 1 : -1) * (PLAYER_RADIUS + 14 / Z);
-      // What's left of the reload: the text from the left edge, shrinking toward it as the reload runs.
+      // What's left of the wait: the text from the left edge, shrinking toward it as the wait runs.
+      const edge = x - 4 + (w + 8) * (1 - p);
       g.save();
       g.beginPath();
-      g.rect(x - 4, y - 20, (w + 8) * (1 - p), 40);
+      g.rect(x - 4, y - 20, edge - (x - 4), 40);
       g.clip();
       g.lineWidth = 3 / Z;
       g.strokeStyle = 'rgba(0,0,0,0.75)';
@@ -398,6 +399,19 @@ export class BattleView {
       g.fillStyle = '#ffe066';
       g.fillText(text, x, y);
       g.restore();
+      // The fading edge breaks up into pixels: sparks and metal for guns, magic for staffs, a haze for tomes.
+      const palette = EDGE_PIXELS[text] ?? EDGE_PIXELS['RELOADING!'];
+      const px = 2 / Z;
+      const half = 7 / Z;
+      if (p > 0 && p < 1) {
+        for (let i = 0; i < 9; i++) {
+          g.fillStyle = palette[(Math.random() * palette.length) | 0];
+          g.globalAlpha = 0.6 + Math.random() * 0.4;
+          g.fillRect(edge - Math.random() * 6 / Z, y - half + Math.random() * half * 2, px, px);
+        }
+        g.globalAlpha = 1;
+        if (Math.random() < 0.35) this.fx.burst(edge, y - half + Math.random() * half * 2, palette[(Math.random() * palette.length) | 0], 1, 40 / Z, 2 / Z, text === 'RELOADING!' ? 300 : -60);
+      }
     }
   }
 
@@ -934,6 +948,13 @@ function drawShieldPips(g: CanvasRenderingContext2D, x: number, y: number, guard
     g.fill();
   }
 }
+
+/** Pixel colours where a weapon's waiting text breaks up: sparks and metal, magic, or a summoning haze. */
+const EDGE_PIXELS: Record<string, string[]> = {
+  'RELOADING!': ['#8a8f96', '#c4c8cc', '#5a5f66', '#ff3a2a', '#ff7a3a'],
+  'RECHARGING!': ['#ffffff', '#ffd34d', '#e8a800', '#5ab0ff', '#9fd8ff'],
+  'SUMMONING!': ['#ff8ad8', '#e040c0', '#b020a0', '#2a2a7a', '#3a3aa0'],
+};
 
 /**
  * Ability cooldowns as icons along one edge of the battlefield (Settings picks the edge). A recharging icon
