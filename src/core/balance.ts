@@ -574,7 +574,7 @@ export const AREAS: AreaDef[] = [
   { id: 'cliffs', name: 'Ascendant Steps', icon: '🪜', hp: 600_000, gold: 5e17, speed: 53, mastery: 15_000, guardian: 70_000_000, palette: ['#141c30', '#4a5a86', '#a8b8e0', '#f2f4ff'], ground: ['#9aa6bc', '#8a96ac'], blurb: 'Stone stairs above the peaks, climbing into the sky.' },
   { id: 'fortress', name: 'Cloud Fortress', icon: '🏰', hp: 1_400_000, gold: 1e19, speed: 54, mastery: 20_000, guardian: 160_000_000, palette: ['#1a2440', '#4a70b0', '#a8d0f8', '#fdfcf4'], ground: ['#e8f0fa', '#d4e2f4'], blurb: 'A citadel on the clouds, held by storm and steel.' },
   { id: 'meteors', name: 'Meteor Fields', icon: '☄️', hp: 3_300_000, gold: 2e20, speed: 55, mastery: 25_000, guardian: 400_000_000, palette: ['#0a0a1e', '#3a2a6a', '#e08a4a', '#fce8d0'], ground: ['#1c1830', '#2a2440'], blurb: 'Past the sky, where falling stars still burn.' },
-  { id: 'rift', name: 'Void Rift', icon: '🌀', hp: 8_000_000, gold: 5e21, speed: 56, mastery: 30_000, guardian: 400_000_000, palette: ['#1a0830', '#5a2098', '#b070e0', '#f2e4ff'], ground: ['#2a1440', '#3a1d58'], blurb: 'The end of the known world.' },
+  { id: 'rift', name: 'Void Rift', icon: '🌀', hp: 8_000_000, gold: 5e21, speed: 56, mastery: 30_000, guardian: 800_000_000, palette: ['#1a0830', '#5a2098', '#b070e0', '#f2e4ff'], ground: ['#2a1440', '#3a1d58'], blurb: 'The end of the known world.' },
 ];
 
 export const areaDef = (id: AreaId): AreaDef => AREAS.find((a) => a.id === id)!;
@@ -657,6 +657,8 @@ export interface EnemyDef {
   area: AreaId;
   /** Only ever appears as its area's Guardian (never in the horde or the Bestiary), like the Time Eater. */
   guardianOnly?: boolean;
+  /** As a Guardian, the fight is won once its HP falls to this fraction of its maximum (the Time Eater: half). */
+  winAt?: number;
   archetype: Archetype;
   /** Multipliers on the area's base HP / walk speed / gold. */
   hp: number;
@@ -794,7 +796,7 @@ export const ENEMIES: EnemyDef[] = [
   { id: 'voidWyrm', name: 'Void Wyrm', area: 'rift', archetype: 'dragon', hp: 8, speed: 0.9, gold: 9.5, spawn: 0.1, pack: [1, 1], radius: 18, material: 'void', unlock: 600_000, color: '#8a3ae0', shape: 'hexagon', blurb: 'Swims through the dark between stars.', weak: ['radiant'], resist: ['void', 'physical', 'frost'] },
   { id: 'behemoth', name: 'Behemoth', area: 'rift', archetype: 'beast', hp: 10, speed: 0.6, gold: 12, spawn: 0.08, pack: [1, 1], radius: 20, material: 'soul', unlock: 1_500_000, color: '#6a4a8a', shape: 'hexagon', blurb: 'The ground shakes when it walks.', weak: ['arcane', 'acid'], resist: ['physical', 'fire'] },
   // The Void Rift's Guardian: it only ever appears as the final Guardian.
-  { id: 'timeEater', name: 'Time Eater', area: 'rift', archetype: 'demon', guardianOnly: true, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 22, material: 'void', unlock: Infinity, color: '#e0c060', shape: 'hexagon', blurb: 'It devours the hours of every world it finds. The Void Rift is its mouth.', weak: ['radiant', 'arcane'], resist: ['void', 'decay', 'physical'] },
+  { id: 'timeEater', name: 'Time Eater', area: 'rift', archetype: 'demon', guardianOnly: true, winAt: 0.5, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 22, material: 'void', unlock: Infinity, color: '#e0c060', shape: 'hexagon', blurb: 'It devours the hours of every world it finds. The Void Rift is its mouth.', weak: ['radiant', 'arcane'], resist: ['void', 'decay', 'physical'] },
 ];
 
 export const enemyDef = (id: EnemyId): EnemyDef => ENEMIES.find((e) => e.id === id)!;

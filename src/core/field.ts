@@ -1129,6 +1129,8 @@ export class Field {
       e.ky += dirY * 90;
     }
     this.events.push({ type: 'hit', x: e.x, y: e.y - e.r, dmg, crit, dtype, affinity: affinity(dtype, e.type) });
+    // Some Guardians are beaten before their HP runs out (the Time Eater: at half).
+    if (e.boss && e.hp > 0 && e.hp <= e.maxHp * (enemyDef(e.type).winAt ?? 0)) e.hp = 0;
     if (e.hp <= 0) {
       const reward = this.game.registerKill(e.type, e.boss, shooter);
       this.events.push({ type: 'kill', x: e.x, y: e.y, enemy: e.type, boss: e.boss, reward });

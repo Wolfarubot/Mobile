@@ -186,6 +186,24 @@ describe('Areas', () => {
     expect(g.state.events['guardian-rift'].completed).toBe(1);
   });
 
+  it('the Time Eater is beaten once its HP falls to half', () => {
+    const g = new Game(newGame(0), noCrit);
+    for (const a of AREAS) g.state.areas[a.id].unlocked = true;
+    g.travel('rift');
+    g.state.areas.rift.kills = AREAS[AREAS.length - 1].mastery;
+    g.challengeGuardian();
+    g.bossSpawned();
+    const events: string[] = [];
+    g.on((e) => events.push(e.type));
+    const f = new Field(g);
+    const max = g.guardianHp;
+    const boss = enemy({ id: 1, type: 'timeEater', boss: true, x: 100, hp: max * 0.5 + g.tapDamage * 0.5, maxHp: max, r: 40 });
+    f.enemies.push(boss);
+    f.tap(100, 0); // one tap takes it just past half
+    expect(boss.hp).toBe(0);
+    expect(events).toContain('finalGuardian');
+  });
+
   it('the Guardian is tuned to the next area and later areas are tougher and richer', () => {
     const g = new Game(newGame(0), noCrit);
     // The Guardian is a wall: far tougher than anything in the next area.

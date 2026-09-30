@@ -71,6 +71,7 @@ import { COOLDOWN_POSITIONS, TAB_IDS, type BuyAmount, type CooldownPos, type FxK
 import { drawEnemyPortrait } from '../render/battle';
 import { spriteUrl } from '../render/sprites';
 import { applyAreaTheme } from './theme';
+import { playCutscene, TIME_EATER_CUTSCENE } from './cutscene';
 import { applyFont, fontDef, FONTS } from './fonts';
 
 type Tab = TabId;
@@ -2304,8 +2305,13 @@ export class AppUI {
     });
   }
 
-  /** The first time the Time Eater falls: the Void Rift, the last area, is conquered. */
+  /** The first time the Time Eater falls: the Hunters' attempt to kill it, then the Void Rift is conquered. */
   private showRiftConquered(): void {
+    this.lastPopup = performance.now();
+    playCutscene(TIME_EATER_CUTSCENE, () => this.showRiftConqueredCard());
+  }
+
+  private showRiftConqueredCard(): void {
     this.showModal(
       `<h2>⏳ The Time Eater is defeated!</h2><p>You've conquered the <b>${areaDef('rift').name}</b>, the end of the known world.</p><p>The Rift still teems with monsters to hunt, and the Time Eater can be fought again whenever it's ready.</p>`,
       [{ label: 'Onward' }],
@@ -2483,6 +2489,8 @@ export class AppUI {
     row('👾', 'Empower', `Unlocking and empowering monsters (opens after ${EMPOWER_UNLOCK_KILLS} slimes).`, () => this.showEmpowerIntro(true));
     row('🔒', 'Unlocking Events', 'How to open the Events tab.', () => this.showEventsLocked());
     row('🎉', 'Events', 'Guardian Challenges, swarms and cooldowns.', () => this.showEventsIntro(true));
+    // The story so far, once you've seen it.
+    if ((this.game.state.events['guardian-rift']?.completed ?? 0) > 0) row('⏳', 'The Time Eater', 'Replay the cutscene from the Void Rift.', () => playCutscene(TIME_EATER_CUTSCENE));
   }
 
   private buildWeaponGuide(body: HTMLElement): void {

@@ -3457,3 +3457,99 @@ body.left-handed .hd-float-close {
   border-color: color-mix(in srgb, var(--c0) 45%, transparent) !important;
   color: color-mix(in srgb, var(--c0) 60%, transparent) !important;
 }
+
+/* ---- Story cutscenes (the Time Eater) ---- */
+.cutscene {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  padding: calc(40px + var(--safe-top)) 24px calc(40px + var(--safe-bottom));
+  background: radial-gradient(circle at 50% 40%, #3a1660 0%, #12061f 60%, #05020a 100%);
+  color: #f2e4ff;
+  animation: cs-fade 0.5s ease-out;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.cutscene.out {
+  opacity: 0;
+  transition: opacity 0.35s;
+}
+@keyframes cs-fade {
+  from {
+    opacity: 0;
+  }
+}
+.cs-stars i {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  background: #c9a8ff;
+  opacity: 0.2;
+  animation: cs-twinkle 2.8s steps(4) infinite;
+}
+@keyframes cs-twinkle {
+  50% {
+    opacity: 0.9;
+  }
+}
+.cs-skip {
+  position: absolute;
+  top: calc(12px + var(--safe-top));
+  right: 12px;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #f2e4ff;
+  border: 2px solid rgba(242, 228, 255, 0.5);
+  font-weight: 800;
+}
+.cs-art {
+  font-size: 96px;
+  line-height: 1;
+  filter: drop-shadow(0 0 18px rgba(176, 112, 224, 0.8));
+}
+.cs-art.in {
+  animation: cs-art-in 0.6s ease-out;
+}
+@keyframes cs-art-in {
+  from {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+}
+.cs-box {
+  width: min(520px, 100%);
+  min-height: 118px;
+  padding: 14px 16px 10px;
+  background: rgba(10, 4, 20, 0.85);
+  border: 2px solid #b070e0;
+  box-shadow: 4px 4px 0 #000;
+}
+.cs-text {
+  margin: 0 0 8px;
+  font-size: 17px;
+  line-height: 1.5;
+  min-height: 3em;
+}
+.cs-hint {
+  display: block;
+  text-align: right;
+  font-size: 11px;
+  opacity: 0.6;
+}
+.cs-dots {
+  display: flex;
+  gap: 6px;
+}
+.cs-dots b {
+  width: 8px;
+  height: 8px;
+  background: rgba(242, 228, 255, 0.25);
+}
+.cs-dots b.on {
+  background: #ffe36e;
+}

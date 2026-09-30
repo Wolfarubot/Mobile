@@ -715,6 +715,12 @@ export class BattleView {
       g.fillRect(x, 24, bw, 10);
       g.fillStyle = '#ff4d6d';
       g.fillRect(x, 24, bw * Math.max(0, boss.hp / boss.maxHp), 10);
+      // A Guardian beaten before 0 HP (the Time Eater) shows where the win is.
+      const winAt = bossDef.winAt ?? 0;
+      if (winAt > 0) {
+        g.fillStyle = '#ffe36e';
+        g.fillRect(Math.round(x + bw * winAt) - 1, 21, 2, 16);
+      }
       const t = Math.max(0, this.game.bossTimer / GUARDIAN_TIME);
       g.fillStyle = 'rgba(0,0,0,0.55)';
       g.fillRect(x, 37, bw, 5);
