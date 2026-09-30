@@ -128,6 +128,8 @@ export class AppUI {
   private modalClose: (() => void) | null = null;
   /** The open full-screen Hunter view, with its own refreshers. */
   private detail: { el: HTMLElement; refreshers: Array<() => void> } | null = null;
+  /** A card shown over the Battle Field (e.g. a crafting recipe), with its own refresh. */
+  private fieldCard: { el: HTMLElement; update: () => void } | null = null;
   /** Which tree an ascended Hunter's Skills tab last showed. */
   private treePick = new Map<Wearer, TreeKind>();
   /** The full-screen gear picker, above the Hunter view. */
@@ -164,6 +166,7 @@ export class AppUI {
   }
 
   setTab(tab: Tab, keepScroll = false): void {
+    if (tab !== this.tab || this.invSub !== 'crafting') this.closeFieldCard();
     this.tab = tab;
     document.querySelectorAll<HTMLButtonElement>('.tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
     const scroll = keepScroll ? this.panel.scrollTop : 0;
@@ -187,6 +190,7 @@ export class AppUI {
     $('#dps').textContent = fmt(g.dps);
     $('#areaName').textContent = area.name;
     applyAreaTheme(g.area);
+    this.fieldCard?.update();
 
     $('.tabs button[data-tab=events]').classList.toggle('locked', !g.eventsOpen);
     if (g.eventsOpen && !s.flags.eventsIntro && !this.modalClose && !this.detail) this.showEventsIntro();
@@ -1456,6 +1460,7 @@ export class AppUI {
     bar.querySelectorAll<HTMLButtonElement>('button').forEach((b) =>
       b.addEventListener('click', () => {
         show(b.dataset.sub as InvSub);
+        if (this.invSub !== 'crafting') this.closeFieldCard();
         this.panel.scrollTop = 0;
       }),
     );
@@ -1688,59 +1693,116 @@ export class AppUI {
   }
 
   /** Gear recipes you know, then Upgrades. */
+  /** Crafting: every known recipe and Upgrade as a 5-wide grid of icons; tap one for its card over the Battle Field. */
   private buildCrafting(pane: HTMLElement): void {
     const g = this.game;
     pane.appendChild(sectionTitle('Craft Equipment'));
-    for (const gd of GEAR) this.buildGearRecipe(gd, pane);
-    const lockedGear = GEAR.filter((gd) => !this.gearKnown(gd)).length;
-    if (lockedGear) {
-      const teaser = el('div', 'card');
-      teaser.innerHTML = `<p style="margin:0">🔒 ${lockedGear} more recipes need materials from monsters you haven't met yet.</p>`;
-      pane.appendChild(teaser);
+    const gearGrid = el('div', 'craft-grid');
+    pane.appendChild(gearGrid);
+    const tiles: Array<{ tile: HTMLElement; ready: () => boolean; badge: () => string }> = [];
+    for (const gd of GEAR.filter((x) => this.gearKnown(x))) {
+      const tile = el('button', 'craft-tile rar') as HTMLButtonElement;
+      tile.style.setProperty('--rc', gearColor(gd.id));
+      tile.innerHTML = `<i>${gd.icon}</i><em></em>`;
+      tile.title = gd.name;
+      tile.addEventListener('click', () => this.openCraftCard({ gear: gd }));
+      gearGrid.appendChild(tile);
+      tiles.push({ tile, ready: () => g.canCraftGear(gd.id), badge: () => String(g.state.inventory.filter((it) => it.base === gd.id).length || '') });
     }
+    const lockedGear = GEAR.filter((gd) => !this.gearKnown(gd)).length;
+    if (lockedGear) pane.appendChild(el('p', 'hd-note', `🔒 ${lockedGear} more recipes need materials from monsters you haven't met yet.`));
 
     pane.appendChild(sectionTitle('Upgrades'));
+    const upGrid = el('div', 'craft-grid');
+    pane.appendChild(upGrid);
     for (const it of ITEMS) {
-      const row = el('div', 'row');
-      row.innerHTML = `<div class="icon">${it.icon}</div><div class="info"><div class="name"></div><div class="sub"></div><div class="cost"></div></div><button class="buy">Craft</button>`;
-      const btn = $<HTMLButtonElement>('.buy', row);
-      btn.addEventListener('click', () => g.craft(it.id) && this.refresh());
-      pane.appendChild(row);
-      this.refreshers.push(() => {
-        const lv = g.state.items[it.id];
-        const maxed = lv >= it.maxLevel;
-        $('.name', row).innerHTML = `${it.name} <small>${lv ? `Lv ${lv}` : 'not crafted'}${maxed ? ' · MAX' : ''}</small>`;
-        $('.sub', row).innerHTML = lv ? `${it.describe(lv)}${maxed ? '' : ` → <b>${it.describe(lv + 1)}</b>`}` : `<b>${it.describe(1)}</b>`;
-        const cost = itemCost(it, lv);
-        $('.cost', row).innerHTML = maxed
-          ? ''
-          : (Object.entries(cost) as [MaterialId, number][])
-              .map(([m, n]) => `<span class="${g.state.materials[m] < n ? 'short' : ''}">${gemHtml(m)}${fmt(g.state.materials[m])}/${fmt(n)}</span>`)
-              .join('');
-        btn.textContent = maxed ? 'MAX' : lv ? 'Upgrade' : 'Craft';
-        btn.disabled = !g.canCraft(it.id);
-      });
+      const tile = el('button', 'craft-tile upgrade') as HTMLButtonElement;
+      tile.innerHTML = `<i>${it.icon}</i><em></em>`;
+      tile.title = it.name;
+      tile.addEventListener('click', () => this.openCraftCard({ item: it }));
+      upGrid.appendChild(tile);
+      tiles.push({ tile, ready: () => g.canCraft(it.id), badge: () => (g.state.items[it.id] ? `Lv ${g.state.items[it.id]}` : '') });
     }
+    this.refreshers.push(() => {
+      for (const t of tiles) {
+        t.tile.classList.toggle('ready', t.ready());
+        $('em', t.tile).textContent = t.badge();
+      }
+    });
+  }
+
+  /**
+   * A recipe's card over the Battle Field: the item's details, its recipe with what you hold, how many you
+   * own, and a Craft (or Upgrade) button. It stays open so you can craft again.
+   */
+  private openCraftCard(what: { gear: GearDef } | { item: ItemDef }): void {
+    const g = this.game;
+    this.closeFieldCard();
+    const card = el('div', 'field-card');
+    const gd = 'gear' in what ? what.gear : null;
+    const it = 'item' in what ? what.item : null;
+    const name = gd ? gd.name : it!.name;
+    card.innerHTML = `
+      <button class="fc-close" aria-label="Close">✕</button>
+      <div class="fc-head"><i class="fc-icon"${gd ? ` style="--rc:${gearColor(gd.id)}"` : ''}>${gd ? gd.icon : it!.icon}</i><div>
+        <h3>${name}</h3>
+        <small>${gd ? `<b class="fc-rarity" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${GEAR_KINDS[gd.kind].name.toLowerCase()} ${dtypeTag(gd)}` : 'Upgrade · boosts every Hunter'}</small>
+      </div></div>
+      <p class="fc-effect"></p>
+      <div class="fc-owned"></div>
+      <div class="fc-label">Recipe</div>
+      <div class="fc-cost"></div>
+      <button class="buy fc-craft"></button>`;
+    $('.fc-close', card).addEventListener('click', () => this.closeFieldCard());
+    const btn = $<HTMLButtonElement>('.fc-craft', card);
+    btn.addEventListener('click', () => {
+      const ok = gd ? g.craftGear(gd.id) : g.craft(it!.id);
+      if (!ok) return;
+      this.toast(gd ? `Crafted ${gd.name}!` : g.state.items[it!.id] > 1 ? `Upgraded ${it!.name} to Lv ${g.state.items[it!.id]}!` : `Crafted ${it!.name}!`);
+      bumpCard(btn);
+      this.refresh();
+    });
+    const update = () => {
+      if (gd) {
+        const owned = g.state.inventory.filter((x) => x.base === gd.id).length;
+        $('.fc-effect', card).innerHTML = `<b>${describeGear(gearStats(gd, 1))}</b> per level`;
+        $('.fc-owned', card).innerHTML = `In your equipment: <b>${owned}</b>`;
+        $('.fc-cost', card).innerHTML = recipeHtml(g, gearCost(gd, 0));
+        btn.textContent = 'Craft';
+        btn.disabled = !g.canCraftGear(gd.id);
+      } else {
+        const item = it!;
+        const lv = g.state.items[item.id];
+        const maxed = lv >= item.maxLevel;
+        $('.fc-effect', card).innerHTML = lv ? `${item.describe(lv)}${maxed ? '' : ` → <b>${item.describe(lv + 1)}</b>`}` : `<b>${item.describe(1)}</b>`;
+        $('.fc-owned', card).innerHTML = lv ? `Owned: <b>Lv ${lv}</b> / ${item.maxLevel}${maxed ? ' · MAX' : ''}` : 'Owned: <b>not crafted yet</b>';
+        $('.fc-cost', card).innerHTML = maxed ? '<p>Fully upgraded.</p>' : recipeHtml(g, itemCost(item, lv));
+        btn.textContent = maxed ? 'MAX' : lv ? 'Upgrade' : 'Craft';
+        btn.disabled = !g.canCraft(item.id);
+      }
+    };
+    $('.battle-wrap').appendChild(card);
+    this.fieldCard = { el: card, update };
+    update();
+  }
+
+  /** Closes the card over the Battle Field, if one is open. */
+  private closeFieldCard(): void {
+    this.fieldCard?.el.remove();
+    this.fieldCard = null;
+  }
+
+  /** A short message that pops up over the Battle Field and fades away. */
+  private toast(text: string): void {
+    const t = el('div', 'toast', text);
+    $('.battle-wrap').appendChild(t);
+    t.addEventListener('animationend', () => t.remove());
   }
 
   /** Recipes are shown once every material in them comes from a monster you've unlocked (or you hold some). */
   private gearKnown(gd: GearDef): boolean {
     const g = this.game;
     return (Object.keys(gd.recipe) as MaterialId[]).every((m) => g.state.materials[m] > 0 || ENEMIES.some((e) => e.material === m && g.isUnlocked(e.id)));
-  }
-
-  private buildGearRecipe(gd: GearDef, parent: HTMLElement): void {
-    if (!this.gearKnown(gd)) return;
-    const g = this.game;
-    const row = el('div', 'row');
-    row.innerHTML = `<div class="icon">${gd.icon}</div><div class="info"><div class="name"><span style="color:${gearColor(gd.id)}">${gd.name}</span> <small>${RARITIES[gd.rarity].name} ${GEAR_KINDS[gd.kind].name.toLowerCase()}</small> ${dtypeTag(gd)}</div><div class="sub"><b>${describeGear(gearStats(gd, 1))}</b> per level</div><div class="cost"></div></div><button class="buy">Craft</button>`;
-    const btn = $<HTMLButtonElement>('.buy', row);
-    btn.addEventListener('click', () => g.craftGear(gd.id) && this.refresh());
-    parent.appendChild(row);
-    this.refreshers.push(() => {
-      $('.cost', row).innerHTML = costHtml(g, gearCost(gd, 0));
-      btn.disabled = !g.canCraftGear(gd.id);
-    });
   }
 
   // ---- Events tab: each area's events, unlocked by slaying monsters there, then on a cooldown ----
@@ -2245,6 +2307,13 @@ function dtypeTag(gd: GearDef): string {
 function damageTypeHtml(t: DamageType): string {
   const d = DAMAGE_TYPES[t];
   return `<span class="dtype-tag" style="--dc:${d.color}">${d.icon} ${d.name}</span>`;
+}
+
+/** A recipe as one line per material: its gem and name, and how many you hold of how many it takes. */
+function recipeHtml(g: Game, cost: Partial<Record<MaterialId, number>>): string {
+  return (Object.entries(cost) as [MaterialId, number][])
+    .map(([m, n]) => `<div class="fc-mat${g.state.materials[m] < n ? ' short' : ''}">${gemHtml(m)}<span>${materialDef(m).name}</span><b>${fmt(g.state.materials[m])} / ${fmt(n)}</b></div>`)
+    .join('');
 }
 
 function costHtml(g: Game, cost: Partial<Record<MaterialId, number>>, check = true): string {
