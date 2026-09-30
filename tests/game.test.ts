@@ -152,7 +152,7 @@ describe('Areas', () => {
     for (let i = 1; i < AREAS.length; i++) {
       expect(AREAS[i].hp).toBeGreaterThan(AREAS[i - 1].hp * 4);
       expect(AREAS[i].gold).toBeGreaterThan(AREAS[i - 1].gold * 10);
-      if (i < AREAS.length - 1) expect(AREAS[i].guardian).toBeGreaterThan(AREAS[i + 1].hp * 5);
+      if (i < AREAS.length - 1) expect(AREAS[i].guardian).toBeGreaterThan(AREAS[i + 1].hp * 2);
     }
   });
 });

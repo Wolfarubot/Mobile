@@ -541,7 +541,7 @@ export const AREAS: AreaDef[] = [
   { id: 'caves', name: 'Ember Caves', icon: '🌋', hp: 100_000_000_000, gold: 3_000_000_000_000, speed: 45, mastery: 4_000, guardian: 15_000_000_000_000, palette: ['#2a0e08', '#8a2c10', '#e07030', '#fde4c0'], ground: ['#6a2c1a', '#823722'], blurb: 'Hot, bright and full of teeth.' },
   { id: 'mines', name: 'Deep Mines', icon: '⛏️', hp: 5_000_000_000_000, gold: 100_000_000_000_000, speed: 47, mastery: 6_000, guardian: 200_000_000_000_000, palette: ['#1e140a', '#6a4a22', '#c09050', '#f4e4c8'], ground: ['#5a4228', '#4e3820'], blurb: 'Dug too deep, woke too much.' },
   { id: 'peaks', name: 'Frost Peaks', icon: '🏔️', hp: 50_000_000_000_000, gold: 3e15, speed: 50, mastery: 10_000, guardian: 5e15, palette: ['#0c2038', '#2a60a0', '#78b8e8', '#e4f4ff'], ground: ['#bcd8f0', '#a4c6e6'], blurb: 'Cold winds carry cold things.' },
-  { id: 'cliffs', name: 'Stormcrest Cliffs', icon: '🦅', hp: 5e15, gold: 5e17, speed: 53, mastery: 15_000, guardian: 5e18, palette: ['#101c2c', '#3a5a7a', '#90b8d8', '#eef6ff'], ground: ['#8a9aa8', '#7a8a98'], blurb: 'Wind, wings and a long way down.' },
+  { id: 'cliffs', name: 'Stormcrest Cliffs', icon: '🦅', hp: 1e15, gold: 5e17, speed: 53, mastery: 15_000, guardian: 5e18, palette: ['#101c2c', '#3a5a7a', '#90b8d8', '#eef6ff'], ground: ['#8a9aa8', '#7a8a98'], blurb: 'Wind, wings and a long way down.' },
   { id: 'rift', name: 'Void Rift', icon: '🌀', hp: 5e17, gold: 3e19, speed: 56, mastery: Infinity, guardian: Infinity, palette: ['#1a0830', '#5a2098', '#b070e0', '#f2e4ff'], ground: ['#2a1440', '#3a1d58'], blurb: 'The end of the known world.' },
 ];
 
