@@ -1349,11 +1349,12 @@ export function describeGear(stats: Partial<Record<GearStat, number>>): string {
 }
 
 /**
- * The step whose price a star costs: the geometric middle of the steps it covers (0 = crafting). Its power
- * arrives in one go, so pricing it mid-range keeps it about as fast as paying step by step was.
+ * The step whose price a star costs (0 = crafting): two thirds of the way (geometrically) through the steps
+ * it covers. Its power arrives in one go, so pricing it below the top step keeps the pace about where paying
+ * step by step had it (the top step made it slower, the middle one faster).
  */
 function starStep(from: number, to: number): number {
-  return from === 0 ? 0 : Math.round(Math.sqrt(from * to)) - 1;
+  return from === 0 ? 0 : Math.max(from, Math.round(from ** (1 / 3) * to ** (2 / 3)) - 1);
 }
 
 /** Materials to go from `stars` to `stars + 1` (0 = crafting it). */

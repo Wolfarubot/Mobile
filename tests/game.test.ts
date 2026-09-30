@@ -1576,10 +1576,10 @@ describe('Saves', () => {
     expect(gearStats(bow, MAX_STARS).damage).toBeCloseTo(2);
     const whet = itemDef('whetstone');
     expect(itemLevels(whet)).toEqual([0, 1, 3, 7, 19, 50]);
-    // A star costs the price of the step in the (geometric) middle of the ones it covers.
+    // A star costs the price of the step two thirds of the way (geometrically) through the ones it covers.
     expect(itemCost(whet, 0).goo).toBe(4);
-    expect(itemCost(whet, 1).goo).toBe(Math.ceil(4 * 1.45 ** 1)); // steps 1–2 → √3 ≈ 2 → step 1
-    expect(itemCost(whet, 4).goo).toBe(Math.ceil(4 * 1.45 ** 30)); // steps 19–49 → √950 ≈ 31 → step 30
+    expect(itemCost(whet, 1).goo).toBe(Math.ceil(4 * 1.45 ** 1)); // Lv 1 → 3: step 1
+    expect(itemCost(whet, 4).goo).toBe(Math.ceil(4 * 1.45 ** 35)); // Lv 19 → 50: 19^⅓·50^⅔ ≈ 36 → step 35
     const g = rich();
     g.state.materials.goo = 1e12;
     for (let i = 0; i < MAX_STARS; i++) expect(g.craft('whetstone')).toBe(true);
