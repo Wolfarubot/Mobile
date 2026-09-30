@@ -19,6 +19,7 @@ import {
   evoKillsNeeded,
   ENEMIES,
   EMPOWER_UNLOCK_KILLS,
+  TRAIN_UNLOCK_KILLS,
   empowerMult,
   EMPOWER_GROWTH,
   empowerBaseCost,
@@ -673,9 +674,9 @@ export class Game {
     this.emit({ type: 'eventComplete', event: id });
   }
 
-  /** The Events tab opens once the first Guardian Challenge unlocks (and stays open). */
+  /** The Events tab opens once the Forest's first event (the Slime Swarm, then its Guardian Challenge) unlocks, and stays open. */
   get eventsOpen(): boolean {
-    return this.state.flags.eventsIntro || this.eventUnlocked('guardian-forest') || this.isAreaUnlocked('graveyard');
+    return this.state.flags.eventsIntro || EVENTS.some((e) => e.area === 'forest' && this.eventUnlocked(e.id)) || this.isAreaUnlocked('graveyard');
   }
 
   /** Times an event has been completed (Guardians beaten, swarms survived). */
@@ -1119,6 +1120,7 @@ export class Game {
 
   /** Trains a Hunter `buyAmount` times. Returns false if they can't afford it (or aren't recruited). */
   train(who: Wearer): boolean {
+    if (!this.trainUnlocked) return false;
     if (who !== 'main' && !this.state.hunters[who].recruited) return false;
     const p = this.trainPurchase(who);
     if (this.state.gold < p.cost) return false;
@@ -1200,6 +1202,11 @@ export class Game {
   }
 
   /** Empower opens once you've slain EMPOWER_UNLOCK_KILLS slimes. */
+  /** Training opens once you've slain TRAIN_UNLOCK_KILLS slimes (for good). */
+  get trainUnlocked(): boolean {
+    return this.state.flags.trainIntro || this.slimeKills >= TRAIN_UNLOCK_KILLS;
+  }
+
   get empowerUnlocked(): boolean {
     return this.state.flags.empowerIntro || this.slimeKills >= EMPOWER_UNLOCK_KILLS;
   }

@@ -6,6 +6,7 @@ import {
   MAIN_MAX_LEVEL,
   EMPOWER_LEVEL,
   EMPOWER_UNLOCK_KILLS,
+  TRAIN_UNLOCK_KILLS,
   enemyDef,
   EMPOWER,
   type EnemyId,
@@ -201,7 +202,8 @@ export class AppUI {
 
     $('.tabs button[data-tab=events]').classList.toggle('locked', !g.eventsOpen);
     if (g.eventsOpen && !s.flags.eventsIntro && !this.modalClose && !this.detail) this.showEventsIntro();
-    else if (!s.flags.trainIntro && s.flags.welcome && !this.modalClose && !this.detail && s.stats.totalKills >= TRAIN_TIP_KILLS && s.gold >= g.trainPurchase('main', 1).cost) this.showTrainIntro();
+    else if (!s.flags.trainIntro && s.flags.welcome && !this.modalClose && !this.detail && g.trainUnlocked && s.gold >= g.trainPurchase('main', 1).cost) this.showTrainIntro();
+    else if (!s.flags.craftIntro && s.flags.welcome && !this.modalClose && !this.detail && this.firstCraftable()) this.showCraftIntro();
     else if (!s.flags.empowerIntro && g.empowerUnlocked && !this.modalClose && !this.detail) this.showEmpowerIntro();
     const ready = EVENTS.filter((e) => e.area === g.area && g.eventReady(e.id)).length;
     const badge = $('#eventsBadge');
@@ -272,6 +274,13 @@ export class AppUI {
     this.refreshers.push(() => {
       const p = g.trainPurchase(who);
       const { level, into, need } = g.levelInfo(who);
+      if (!g.trainUnlocked) {
+        btn.innerHTML = `🔒 Train<small>Slay ${fmt(Math.min(g.slimeKills, TRAIN_UNLOCK_KILLS))} / ${TRAIN_UNLOCK_KILLS} slimes</small>`;
+        btn.disabled = true;
+        $('i', bar).style.width = '0%';
+        $('span', bar).textContent = compact ? '' : `Lv ${level}`;
+        return;
+      }
       if (p.count === 0) btn.innerHTML = g.ascended(who) ? 'Max level' : `Lv ${level} cap<small>Ascend in Skills</small>`;
       else btn.innerHTML = `Train${p.count > 1 ? ` ×${p.count}` : ''}<small>🪙 ${fmt(p.cost)}</small>`;
       btn.disabled = p.count === 0 || g.state.gold < p.cost;
@@ -1897,8 +1906,9 @@ export class AppUI {
   /** Tapping the greyed-out Events tab explains how to open it. */
   private showEventsLocked(): void {
     const forest = areaDef('forest');
-    const kills = Math.min(this.game.state.areas.forest.kills, forest.mastery);
-    this.showModal(`<h2>🔒 Events</h2><p>Slay ${fmt(forest.mastery)} monsters in the ${forest.name} to unlock Events and the Guardian Challenge.</p><p><b>${fmt(kills)} / ${fmt(forest.mastery)}</b></p>`, [{ label: 'OK' }]);
+    const first = Math.min(...EVENTS.filter((e) => e.area === 'forest').map((e) => e.unlockKills));
+    const kills = Math.min(this.game.state.areas.forest.kills, first);
+    this.showModal(`<h2>🔒 Events</h2><p>Slay ${fmt(first)} monsters in the ${forest.name} to unlock Events.</p><p><b>${fmt(kills)} / ${fmt(first)}</b></p>`, [{ label: 'OK' }]);
   }
 
   /** Shown once, the very first time the game opens. */
@@ -1912,6 +1922,34 @@ export class AppUI {
       [
         { label: 'Name my Hunter', secondary: true, action: () => this.openSettings() },
         { label: "Let's hunt!" },
+      ],
+    );
+  }
+
+  /** The first recipe (gear or Upgrade) you have the materials for, if any. */
+  private firstCraftable(): string | null {
+    const g = this.game;
+    const gear = GEAR.find((gd) => this.gearKnown(gd) && g.canCraftGear(gd.id));
+    if (gear) return gear.name;
+    return ITEMS.find((it) => !it.area && g.canCraft(it.id))?.name ?? null;
+  }
+
+  /** Shown once, when you first have the materials to craft something. */
+  private showCraftIntro(): void {
+    this.game.state.flags.craftIntro = true;
+    this.showModal(
+      `<h2>🔨 Ready to craft!</h2>
+       <p>You've gathered enough materials to craft your first item: <b>${this.firstCraftable()}</b>.</p>
+       <p>Monsters drop materials when slain. Spend them in <b>Inventory → Crafting</b> on gear for your Hunters and on Upgrades that make everyone stronger.</p>`,
+      [
+        { label: 'Later', secondary: true },
+        {
+          label: 'Go to Crafting',
+          action: () => {
+            this.invSub = 'crafting';
+            this.setTab('inventory');
+          },
+        },
       ],
     );
   }
@@ -1951,7 +1989,7 @@ export class AppUI {
     this.game.state.flags.eventsIntro = true;
     this.showModal(
       `<h2>🎉 Events unlocked!</h2>
-       <p>The <b>Guardian Challenge</b> is ready in the ${areaDef('forest').name}.</p>
+       <p>${this.game.eventUnlocked('guardian-forest') ? '<b>Guardian Challenge</b>' : `<b>${eventDef('slimeSwarm').name}</b>`} is ready in the ${areaDef('forest').name}.</p>
        <p>The Events tab shows the events for the area you're in. Slay monsters there to unlock them. After you start one, it goes on cooldown before it can run again. Travel to another area to see its events.</p>`,
       [
         { label: 'Later', secondary: true },
@@ -2245,8 +2283,6 @@ function esc(text: string): string {
   return text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 }
 
-/** Enemies slain before the "you can train" tip can appear. */
-const TRAIN_TIP_KILLS = 15;
 
 /** How many not-yet-recruited Hunters the Hunters tab shows. */
 const NEXT_HUNTERS_SHOWN = 3;

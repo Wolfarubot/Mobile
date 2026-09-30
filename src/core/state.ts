@@ -134,6 +134,8 @@ export interface GameState {
     trainIntro: boolean;
     /** Empower is unlocked (100 slimes slain) and its intro has been shown. */
     empowerIntro: boolean;
+    /** The "you can craft your first item" tip has been shown. */
+    craftIntro: boolean;
   };
   /** Per event: seconds of cooldown left, times started and times completed (a Guardian beaten, a swarm survived). */
   events: Record<string, EventState>;
@@ -175,7 +177,7 @@ export function newGame(now = Date.now()): GameState {
     nextGearUid: 1,
     lastSeen: now,
     settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal' },
-    flags: { eventsIntro: false, welcome: false, trainIntro: false, empowerIntro: false },
+    flags: { eventsIntro: false, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false },
     events: Object.fromEntries(EVENTS.map((e) => [e.id, { cooldown: 0, runs: 0, completed: 0 }])),
     buyAmount: 1,
     stats: { totalKills: 0, totalGold: 0, taps: 0, escaped: 0, guardians: 0, hunterKills: {}, matGained: {} },
@@ -304,6 +306,8 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
       trainIntro: (data.flags as { trainIntro?: unknown } | undefined)?.trainIntro !== false,
       // Saves from before per-monster kill counts already had Empower (then Swarm/Bounty) available.
       empowerIntro: (data.flags as { empowerIntro?: unknown } | undefined)?.empowerIntro !== false,
+      // Saves from before this tip already knew about crafting.
+      craftIntro: (data.flags as { craftIntro?: unknown } | undefined)?.craftIntro !== false,
     },
     events: Object.fromEntries(
       EVENTS.map((e) => {

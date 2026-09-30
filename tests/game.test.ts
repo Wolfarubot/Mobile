@@ -38,6 +38,7 @@ import {
   MAIN_SESSIONS_AFTER_ASCEND,
   mainBulkCost,
   SLAYER_TREE,
+  TRAIN_UNLOCK_KILLS,
   dropsFrom,
   ASCENDED_TREES,
   MAX_LEVEL,
@@ -83,6 +84,7 @@ const enemy = (over: Partial<Enemy>): Enemy => ({
 /** Every event completed a few times, so every Hunter can be recruited. */
 function veteran(s: GameState): GameState {
   for (const e of Object.values(s.events)) e.completed = 5;
+  s.flags.trainIntro = true; // past the first 20 slimes, so training is open
   return s;
 }
 
@@ -123,7 +125,7 @@ describe('Areas', () => {
 
   it('a Guardian that times out just leaves; you can try again after the cooldown', () => {
     const s = newGame(0);
-    s.areas.forest.kills = 999;
+    s.areas.forest.kills = areaDef('forest').mastery;
     const g = new Game(s, noCrit);
     g.challengeGuardian();
     g.bossSpawned();
@@ -442,9 +444,27 @@ describe('Hunters', () => {
 });
 
 describe('Shops', () => {
+  it('training opens once 20 slimes are slain', () => {
+    const g = new Game(newGame(0), noCrit);
+    g.state.gold = 1e9;
+    expect(g.trainUnlocked).toBe(false);
+    expect(g.train('main')).toBe(false);
+    g.state.bestiary.greenSlime.kills = TRAIN_UNLOCK_KILLS - 1;
+    expect(g.train('main')).toBe(false);
+    g.state.bestiary.greenSlime.kills = TRAIN_UNLOCK_KILLS;
+    expect(g.train('main')).toBe(true);
+  });
+
+  it('the Forest Guardian Challenge unlocks at 10,000 Forest kills (any monster); wolves cost 250 gold', () => {
+    expect(areaDef('forest').mastery).toBe(10_000);
+    expect(eventDef('guardian-forest').unlockKills).toBe(10_000);
+    expect(enemyUnlockCost(enemyDef('wolf'))).toBe(250);
+  });
+
   it('training adds damage; levels need more sessions each time and earn skill points', () => {
     const g = new Game(newGame(0), noCrit);
     g.state.gold = 1e9;
+    g.state.flags.trainIntro = true;
     expect(g.levelOf('main')).toBe(1);
     const dmg = g.damage;
     expect(g.train('main')).toBe(true);
@@ -1137,7 +1157,7 @@ describe('Events', () => {
 
   it('starting an event puts it on cooldown, which also runs down while away', () => {
     const s = newGame(0);
-    s.areas.forest.kills = 999;
+    s.areas.forest.kills = areaDef('forest').mastery;
     const g = new Game(s, noCrit);
     expect(g.startEvent('guardian-forest')).toBe(true);
     expect(g.guardianActive).toBe(true);
@@ -1259,7 +1279,7 @@ describe('Field', () => {
 
   it('challenging the Guardian spawns it; it stuns longer and bounces off instead of fleeing', () => {
     const s = newGame(0);
-    s.areas.forest.kills = 999;
+    s.areas.forest.kills = areaDef('forest').mastery;
     const g = new Game(veteran(s), noCrit);
     const f = new Field(g);
     f.setView(390, 420);
@@ -1554,7 +1574,7 @@ describe('Saves', () => {
     s.flags.eventsIntro = true;
     const back = deserialize(serialize(s))!;
     expect(back.settings).toEqual({ leftHanded: true, name: 'Wolfa', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal' });
-    expect(back.flags).toEqual({ eventsIntro: true, welcome: false, trainIntro: false, empowerIntro: false });
+    expect(back.flags).toEqual({ eventsIntro: true, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false });
     const old = JSON.parse(serialize(newGame(0)));
     delete old.settings;
     delete old.flags;

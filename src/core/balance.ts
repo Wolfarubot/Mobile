@@ -531,7 +531,7 @@ export interface AreaDef {
 }
 
 export const AREAS: AreaDef[] = [
-  { id: 'forest', name: 'Whispering Forest', icon: '🌲', hp: 1, gold: 1, speed: 36, mastery: 600, guardian: 25_000, palette: ['#183c18', '#2f7d32', '#7ec850', '#e2f5c4'], ground: ['#6cb848', '#58a03c'], blurb: 'Where every hunt begins.' },
+  { id: 'forest', name: 'Whispering Forest', icon: '🌲', hp: 1, gold: 1, speed: 36, mastery: 10_000, guardian: 25_000, palette: ['#183c18', '#2f7d32', '#7ec850', '#e2f5c4'], ground: ['#6cb848', '#58a03c'], blurb: 'Where every hunt begins.' },
   { id: 'glade', name: 'Faerie Glade', icon: '🍄', hp: 12, gold: 5, speed: 38, mastery: 1_000, guardian: 350_000, palette: ['#221a30', '#5a4a8a', '#a8d8b0', '#f4f0ff'], ground: ['#7cc47c', '#8ed28a'], blurb: 'Mushroom rings and things that bite.' },
   { id: 'graveyard', name: 'Old Graveyard', icon: '🪦', hp: 150, gold: 25, speed: 40, mastery: 1_500, guardian: 60_000_000, palette: ['#1e1a2a', '#4a4460', '#9a94b0', '#e8e4f0'], ground: ['#5b5670', '#4c4762'], blurb: 'The dead do not rest here.' },
   { id: 'crypt', name: 'Forsaken Crypt', icon: '⚰️', hp: 6_000, gold: 120, speed: 42, mastery: 2_500, guardian: 300_000_000, palette: ['#1a1614', '#4a403a', '#9a8e80', '#ece4d8'], ground: ['#5a524a', '#4e4640'], blurb: 'Deeper than the graves, and older.' },
@@ -652,7 +652,7 @@ export function typeMult(t: DamageType, enemy: EnemyId): number {
 export const ENEMIES: EnemyDef[] = [
   // Whispering Forest
   { id: 'greenSlime', name: 'Green Slime', area: 'forest', archetype: 'slime', hp: 1, speed: 1, gold: 1, spawn: 0.8, pack: [2, 3], radius: 10, material: 'goo', unlock: 0, color: '#7be07b', shape: 'circle', blurb: 'Squishy and plentiful.', weak: ['fire', 'acid'], resist: ['poison'] },
-  { id: 'wolf', name: 'Forest Wolf', area: 'forest', archetype: 'beast', hp: 1.3, speed: 1.5, gold: 1.6, spawn: 0.6, pack: [2, 3], radius: 10, material: 'pelt', unlock: 120, color: '#b08a5a', shape: 'triangle', blurb: 'Fast, hunts in pairs.', weak: ['fire'], resist: ['frost'] },
+  { id: 'wolf', name: 'Forest Wolf', area: 'forest', archetype: 'beast', hp: 1.3, speed: 1.5, gold: 1.6, spawn: 0.6, pack: [2, 3], radius: 10, material: 'pelt', unlock: 250, color: '#b08a5a', shape: 'triangle', blurb: 'Fast, hunts in pairs.', weak: ['fire'], resist: ['frost'] },
   { id: 'redSlime', name: 'Red Slime', area: 'forest', archetype: 'slime', hp: 2, speed: 0.9, gold: 2.5, spawn: 0.5, pack: [2, 4], radius: 11, material: 'redgel', unlock: 900, color: '#ff6b6b', shape: 'circle', blurb: 'A tougher, angrier slime.', weak: ['frost'], resist: ['fire', 'poison'] },
   { id: 'goblin', name: 'Goblin', area: 'forest', archetype: 'humanoid', hp: 1.5, speed: 1.1, gold: 1.8, spawn: 0.5, pack: [2, 4], radius: 10, material: 'pelt', unlock: 4_000, color: '#6a9a3a', shape: 'square', blurb: 'Sneaky, greedy and always in a gang.', weak: ['fire', 'radiant'], resist: ['poison'] },
   { id: 'killerBee', name: 'Killer Bee', area: 'forest', archetype: 'beast', hp: 0.6, speed: 2, gold: 1.2, spawn: 0.8, pack: [3, 5], radius: 7, material: 'redgel', unlock: 15_000, color: '#f0c030', shape: 'triangle', blurb: 'Tiny, angry and very fast.', weak: ['frost', 'fire'], resist: ['poison'] },
@@ -752,6 +752,9 @@ export const GUARDIAN_ENEMY: Record<AreaId, EnemyId> = {
 export const enemyUnlockCost = (def: EnemyDef): number => def.unlock * areaDef(def.area).gold;
 
 // ---- Monsters: Empower (gold) raises a monster's level; levels earn evolution points for its evolution tree ----
+
+/** Slimes to slay (in all) before training unlocks. */
+export const TRAIN_UNLOCK_KILLS = 20;
 
 /** Slimes to slay (in all) before Empower unlocks. */
 export const EMPOWER_UNLOCK_KILLS = 100;
