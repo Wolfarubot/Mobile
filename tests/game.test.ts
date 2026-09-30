@@ -27,7 +27,7 @@ import {
   HELPER_TRAIN_GROWTH,
   HELPER_TAPER_GROWTH,
   powerDamage,
-  RARITY_HIT,
+  TIER_HIT,
   weaponHit,
   WEAPON_HIT_POWER,
   HELPER_TAPER_LEVEL,
@@ -1026,7 +1026,7 @@ describe('Equipment', () => {
     expect(g.shotDamage('wilhelm', undefined, 'long')).toBeCloseTo(baseLong * weaponHit(gearDef('frostRifle'), 1));
     expect(g.shotDamage('wilhelm', undefined, 'short')).toBeCloseTo(baseShort * weaponHit(gearDef('huntingBow'), 1));
     // A class's weight is part of its weapons' base damage: a rifle hits harder than a bow of the same rarity.
-    expect(weaponHit(gearDef('frostRifle'), 1) / RARITY_HIT.legendary).toBeCloseTo(WEAPON_CLASSES.rifle.damage, 1);
+    expect(weaponHit(gearDef('frostRifle'), 1) / TIER_HIT[7]).toBeCloseTo(WEAPON_CLASSES.rifle.damage, 1);
     expect(g.shooterRange('wilhelm', 'long')).toBeCloseTo(hunterDef('wilhelm').style.range * WEAPON_CLASSES.rifle.range + 15);
   });
 
