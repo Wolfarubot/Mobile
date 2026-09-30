@@ -11,6 +11,9 @@ import {
   HUNTERS,
   itemCost,
   itemDef,
+  itemLevels,
+  gearStats,
+  MAX_STARS,
   OFFLINE_CAP_SEC,
   RARITIES,
   STATION_EFFICIENCY,
@@ -660,11 +663,11 @@ describe('Equipment', () => {
     const g = stocked();
     const goo = g.state.materials.goo;
     const bow = g.craftGear('huntingBow')!;
-    expect(bow.level).toBe(1);
+    expect(bow.stars).toBe(1);
     expect(g.state.inventory).toHaveLength(1);
     expect(g.state.materials.goo).toBeLessThan(goo);
     expect(g.upgradeGear(bow.uid)).toBe(true);
-    expect(g.gearItem(bow.uid)!.level).toBe(2);
+    expect(g.gearItem(bow.uid)!.stars).toBe(2);
     const poor = new Game(newGame(0), noCrit);
     expect(poor.craftGear('huntingBow')).toBeNull();
   });
@@ -929,7 +932,7 @@ describe('Equipment', () => {
   it('armor shields add Paladin-style charges', () => {
     const g = stocked();
     const plate = g.craftGear('bonePlate')!;
-    while (g.gearItem(plate.uid)!.level < 5) g.upgradeGear(plate.uid);
+    while (g.gearItem(plate.uid)!.stars < 4) g.upgradeGear(plate.uid);
     g.equip('ranger', 1, plate.uid);
     expect(g.guardOf('ranger')).toBe(1);
     g.state.hunters.lance.skills = { root: 1 };
@@ -1566,14 +1569,40 @@ describe('Saves', () => {
     expect(deserialize(JSON.stringify(old))!.stats.hunterKills).toEqual({ main: 3 });
   });
 
+  it('stars: gear and Upgrades go 1★ to 5★; old levels convert down to a star and refund the rest', () => {
+    // 1★ is the old Lv 1 and 5★ the old max, so the strongest pieces are as strong as before.
+    const bow = gearDef('huntingBow');
+    expect(gearStats(bow, 1).damage).toBeCloseTo(0.2);
+    expect(gearStats(bow, MAX_STARS).damage).toBeCloseTo(2);
+    const whet = itemDef('whetstone');
+    expect(itemLevels(whet)).toEqual([0, 1, 3, 7, 19, 50]);
+    // A star costs every old level it skips.
+    expect(itemCost(whet, 1).goo).toBe(Math.ceil(4 * 1.45) + Math.ceil(4 * 1.45 ** 2));
+    const g = rich();
+    g.state.materials.goo = 1e12;
+    for (let i = 0; i < MAX_STARS; i++) expect(g.craft('whetstone')).toBe(true);
+    expect(g.craft('whetstone')).toBe(false);
+    expect(g.state.items.whetstone).toBe(MAX_STARS);
+    // An old save: a Lv 5 bow becomes 3★ (Lv 4) + a refund; a Lv 10 one is 5★.
+    const old = JSON.parse(serialize(newGame(0)));
+    old.version = 12;
+    old.inventory = [{ uid: 1, base: 'huntingBow', level: 5 }, { uid: 2, base: 'huntingBow', level: 10 }];
+    old.items.gloves = 30;
+    const s = deserialize(JSON.stringify(old))!;
+    expect(s.inventory.map((it) => it.stars)).toEqual([3, 5]);
+    expect(s.materials.goo).toBe(old.materials.goo + Math.ceil(8 * 1.8 ** 4));
+    expect(s.items.gloves).toBe(MAX_STARS);
+  });
+
   it('migrates a stage-based save: keeps items and surviving materials', () => {
     const v3 = { version: 3, gold: 1e9, stage: 40, maxStage: 40, items: { whetstone: 4 }, materials: { goo: 50, bone: 20, ember: 5 }, stars: 7, stats: { totalKills: 123, deaths: 2 } };
     const s = deserialize(JSON.stringify(v3))!;
     expect(s.version).toBe(SAVE_VERSION);
     expect(s.area).toBe('forest');
     expect(s.gold).toBe(0);
-    expect(s.items.whetstone).toBe(4);
-    expect(s.materials.goo).toBe(50);
+    // Whetstone Lv 4 became 2★ (Lv 3), with the materials for its 4th level refunded.
+    expect(s.items.whetstone).toBe(2);
+    expect(s.materials.goo).toBe(50 + Math.ceil(4 * 1.45 ** 3));
     expect(s.materials.bone).toBe(20);
     expect('stars' in s).toBe(false);
     expect(s.stats.totalKills).toBe(123);

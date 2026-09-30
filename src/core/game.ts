@@ -46,7 +46,8 @@ import {
   eventDef,
   EVENTS,
   enemyUnlockCost,
-  GEAR_MAX_LEVEL,
+  MAX_STARS,
+  itemLevel,
   GEAR_STUN_CAP,
   gearCost,
   gearDef,
@@ -183,8 +184,9 @@ export class Game {
     for (const fn of this.listeners) fn(e);
   }
 
+  /** An Upgrade's strength (in steps) at its current stars. */
   private item(id: ItemId): number {
-    return this.state.items[id];
+    return itemLevel(itemDef(id), this.state.items[id]);
   }
 
   // ---- Combat stats (read by Field every frame) ----
@@ -391,7 +393,7 @@ export class Game {
     const slots = this.slotsOf(who);
     const i = slots.findIndex((sl) => WEAPON_KINDS.includes(sl.kind));
     const item = i >= 0 ? this.equipped(who)[i] : null;
-    return item ? gearStats(gearDef(item.base), item.level) : {};
+    return item ? gearStats(gearDef(item.base), item.stars) : {};
   }
 
   /** Seconds between special attacks, or null if the Hunter has none. */
@@ -468,7 +470,7 @@ export class Game {
     const slots = this.slotsOf(who);
     this.equipped(who).forEach((item, i) => {
       if (!item || (slots[i].role && slots[i].role !== mode)) return;
-      for (const [k, v] of Object.entries(gearStats(gearDef(item.base), item.level)) as [GearStat, number][]) total[k] += v;
+      for (const [k, v] of Object.entries(gearStats(gearDef(item.base), item.stars)) as [GearStat, number][]) total[k] += v;
     });
     return total;
   }
@@ -477,26 +479,26 @@ export class Game {
     return this.hasMaterials(gearCost(gearDef(id), 0));
   }
 
-  /** Crafts a new level-1 piece into the inventory. */
+  /** Crafts a new 1★ piece into the inventory. */
   craftGear(id: GearId): GearItem | null {
     if (!this.canCraftGear(id)) return null;
     this.spend(gearCost(gearDef(id), 0));
-    const item: GearItem = { uid: this.state.nextGearUid++, base: id, level: 1 };
+    const item: GearItem = { uid: this.state.nextGearUid++, base: id, stars: 1 };
     this.state.inventory.push(item);
     return item;
   }
 
   gearUpgradeCost(uid: number): Partial<Record<MaterialId, number>> | null {
     const item = this.gearItem(uid);
-    if (!item || item.level >= GEAR_MAX_LEVEL) return null;
-    return gearCost(gearDef(item.base), item.level);
+    if (!item || item.stars >= MAX_STARS) return null;
+    return gearCost(gearDef(item.base), item.stars);
   }
 
   upgradeGear(uid: number): boolean {
     const cost = this.gearUpgradeCost(uid);
     if (!cost || !this.hasMaterials(cost)) return false;
     this.spend(cost);
-    this.gearItem(uid)!.level++;
+    this.gearItem(uid)!.stars++;
     return true;
   }
 
@@ -505,7 +507,7 @@ export class Game {
     const item = this.gearItem(uid);
     const out: Partial<Record<MaterialId, number>> = {};
     if (!item) return out;
-    for (let l = 0; l < item.level; l++)
+    for (let l = 0; l < item.stars; l++)
       for (const [m, n] of Object.entries(gearCost(gearDef(item.base), l)) as [MaterialId, number][]) out[m] = (out[m] ?? 0) + n;
     for (const m of Object.keys(out) as MaterialId[]) out[m] = Math.floor(out[m]! * SALVAGE_REFUND);
     return out;
@@ -1274,9 +1276,9 @@ export class Game {
 
   canCraft(id: ItemId): boolean {
     const def = itemDef(id);
-    const level = this.state.items[id];
-    if (level >= def.maxLevel) return false;
-    const cost = itemCost(def, level);
+    const stars = this.state.items[id];
+    if (stars >= MAX_STARS) return false;
+    const cost = itemCost(def, stars);
     return (Object.entries(cost) as [MaterialId, number][]).every(([m, n]) => this.state.materials[m] >= n);
   }
 

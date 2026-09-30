@@ -2698,33 +2698,34 @@ button.mat:not(:disabled):active {
   aspect-ratio: 1;
   display: grid;
   place-items: center;
-  background: var(--card);
-  border: 2px solid var(--rc, var(--c0));
+  background: var(--c3);
+  border: 2px solid var(--c0);
+  box-shadow: 2px 2px 0 var(--c0);
   min-width: 0;
   padding: 0;
-}
-.craft-tile.upgrade {
-  --rc: var(--gold);
 }
 .craft-tile i {
   font-style: normal;
   font-size: 26px;
-  opacity: 0.55;
 }
-.craft-tile.ready i {
-  opacity: 1;
-}
-.craft-tile.ready {
-  box-shadow: 0 0 0 2px var(--c0), 0 0 10px var(--rc, var(--gold));
+/* Can't afford it: the icon greys out. */
+.craft-tile.short i {
+  filter: grayscale(1);
+  opacity: 0.45;
 }
 .craft-tile em {
   position: absolute;
-  right: 2px;
+  right: 3px;
   bottom: 1px;
   font-style: normal;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
-  color: var(--text);
+  color: var(--c0);
+}
+.stars {
+  color: var(--gold);
+  letter-spacing: 1px;
+  text-shadow: 1px 1px 0 var(--c0);
 }
 .craft-tile:active {
   transform: translate(2px, 2px);

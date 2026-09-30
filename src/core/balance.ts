@@ -1277,14 +1277,20 @@ export interface GearDef {
   damageType?: DamageType;
   /** Chance each hit triggers its damage type's status effect (0 or missing: never). */
   proc?: number;
-  /** Stats at level 1; each level adds the same again. */
+  /** Stats at 1★; higher stars multiply them by GEAR_STAR_POWER. */
   stats: Partial<Record<GearStat, number>>;
-  /** Materials to craft (level 1); upgrades cost this × GEAR_COST_GROWTH^level. */
+  /** Materials to craft (1★); each star after costs more (see gearCost). */
   recipe: Partial<Record<MaterialId, number>>;
 }
 
-export const GEAR_MAX_LEVEL = 10;
+// ---- Stars: gear and Upgrades go from 1★ (crafted) to 5★ ----
+export const MAX_STARS = 5;
+/** Gear stats at each star, as a multiple of 1★ (0★ = not crafted). */
+export const GEAR_STAR_POWER = [0, 1, 2, 4, 7, 10];
+/** Gear costs grow this much per step of power (so a star costs the sum of the steps it skips). */
 export const GEAR_COST_GROWTH = 1.8;
+/** The ★★★☆☆ display of a star count. */
+export const starsText = (stars: number): string => '★'.repeat(stars) + '☆'.repeat(Math.max(0, MAX_STARS - stars));
 /** Salvaging returns this share of the materials spent on a piece. */
 export const SALVAGE_REFUND = 0.5;
 /** Stun reductions from gear stack additively up to this cap. */
@@ -1327,10 +1333,11 @@ export const gearDef = (id: GearId): GearDef => GEAR.find((g) => g.id === id)!;
 /** Colour of a gear piece's rarity. */
 export const gearColor = (id: GearId): string => RARITIES[gearDef(id).rarity].color;
 
-/** A piece's stats at a level. */
-export function gearStats(def: GearDef, level: number): Partial<Record<GearStat, number>> {
+/** A piece's stats at a star count. */
+export function gearStats(def: GearDef, stars: number): Partial<Record<GearStat, number>> {
   const out: Partial<Record<GearStat, number>> = {};
-  for (const [k, v] of Object.entries(def.stats) as [GearStat, number][]) out[k] = v * level;
+  const power = GEAR_STAR_POWER[Math.max(0, Math.min(MAX_STARS, stars))];
+  for (const [k, v] of Object.entries(def.stats) as [GearStat, number][]) out[k] = v * power;
   return out;
 }
 
@@ -1341,10 +1348,19 @@ export function describeGear(stats: Partial<Record<GearStat, number>>): string {
     .join(', ');
 }
 
-/** Materials to go from `level` to `level + 1` (level 0 = crafting it). */
-export function gearCost(def: GearDef, level: number): Partial<Record<MaterialId, number>> {
+/** Materials to go from `stars` to `stars + 1` (0 = crafting it): one step per point of power gained. */
+export function gearCost(def: GearDef, stars: number): Partial<Record<MaterialId, number>> {
+  return stepsCost(def.recipe, GEAR_COST_GROWTH, GEAR_STAR_POWER[stars], GEAR_STAR_POWER[stars + 1]);
+}
+
+/** The cost of steps `from` … `to − 1` of a recipe whose step `l` costs `recipe × growth^l`. */
+function stepsCost(recipe: Partial<Record<MaterialId, number>>, growth: number, from: number, to: number): Partial<Record<MaterialId, number>> {
   const cost: Partial<Record<MaterialId, number>> = {};
-  for (const [m, n] of Object.entries(def.recipe) as [MaterialId, number][]) cost[m] = Math.ceil(n * GEAR_COST_GROWTH ** level);
+  for (const [m, n] of Object.entries(recipe) as [MaterialId, number][]) {
+    let sum = 0;
+    for (let l = from; l < to; l++) sum += Math.ceil(n * growth ** l);
+    cost[m] = sum;
+  }
   return cost;
 }
 
@@ -1366,10 +1382,12 @@ export interface ItemDef {
   id: ItemId;
   name: string;
   icon: string;
+  /** Its strength at 5★, in steps (1★ is 1 step). The stars between are spread out geometrically. */
   maxLevel: number;
   recipe: Partial<Record<MaterialId, number>>;
-  /** Material cost multiplier per level already owned. */
+  /** Material cost multiplier per step already owned. */
   growth: number;
+  /** What it does at a strength (in steps; see itemLevel). */
   describe: (level: number) => string;
 }
 
@@ -1379,7 +1397,7 @@ export const ITEMS: ItemDef[] = [
   { id: 'lure', name: 'Monster Lure', icon: '🍖', maxLevel: 20, recipe: { redgel: 5, pelt: 3 }, growth: 1.6, describe: (l) => `+${l * 20}% enemy spawns` },
   { id: 'pouch', name: "Scavenger's Pouch", icon: '👝', maxLevel: 25, recipe: { pelt: 6, redgel: 3 }, growth: 1.5, describe: (l) => `+${l * 25}% material drops` },
   { id: 'bonemail', name: 'Bone Mail', icon: '🦴', maxLevel: 10, recipe: { bone: 8, flesh: 4 }, growth: 1.6, describe: (l) => `−${Math.round((1 - 0.88 ** l) * 100)}% stun time` },
-  { id: 'splitbow', name: 'Split Bow', icon: '🔱', maxLevel: 4, recipe: { bone: 10, wing: 6 }, growth: 3, describe: (l) => `+${l} projectile${l === 1 ? '' : 's'} per volley` },
+  { id: 'splitbow', name: 'Split Bow', icon: '🔱', maxLevel: 5, recipe: { bone: 10, wing: 6 }, growth: 3, describe: (l) => `+${l} projectile${l === 1 ? '' : 's'} per volley` },
   { id: 'idol', name: 'Golden Idol', icon: '🗿', maxLevel: 30, recipe: { ember: 6, magma: 3 }, growth: 1.5, describe: (l) => `+${l * 25}% gold` },
   { id: 'lance', name: 'Frost Lance', icon: '❄️', maxLevel: 5, recipe: { chitin: 8, frost: 4 }, growth: 2.2, describe: (l) => `shots pierce ${l} more enem${l === 1 ? 'y' : 'ies'}` },
   { id: 'lantern', name: 'Soul Lantern', icon: '🏮', maxLevel: 10, recipe: { ecto: 8, fur: 6 }, growth: 1.8, describe: (l) => `+${l * 4}% crit chance` },
@@ -1388,12 +1406,35 @@ export const ITEMS: ItemDef[] = [
 
 export const itemDef = (id: ItemId): ItemDef => ITEMS.find((i) => i.id === id)!;
 
-export function itemCost(item: ItemDef, level: number): Partial<Record<MaterialId, number>> {
-  const cost: Partial<Record<MaterialId, number>> = {};
-  for (const [mat, base] of Object.entries(item.recipe) as [MaterialId, number][]) {
-    cost[mat] = Math.ceil(base * item.growth ** level);
-  }
-  return cost;
+/** An Upgrade's strength (in steps) at each star: 1★ = 1, 5★ = maxLevel, geometric in between. */
+const itemLevelCache = new Map<ItemId, number[]>();
+export function itemLevels(item: ItemDef): number[] {
+  const hit = itemLevelCache.get(item.id);
+  if (hit) return hit;
+  const out = [0, 1];
+  for (let s = 2; s <= MAX_STARS; s++) out.push(Math.max(out[s - 1] + 1, Math.round(item.maxLevel ** ((s - 1) / (MAX_STARS - 1)))));
+  out[MAX_STARS] = Math.max(out[MAX_STARS], item.maxLevel);
+  itemLevelCache.set(item.id, out);
+  return out;
+}
+
+/** An Upgrade's strength at a star count. */
+export const itemLevel = (item: ItemDef, stars: number): number => itemLevels(item)[Math.max(0, Math.min(MAX_STARS, stars))];
+
+/** Materials to go from `stars` to `stars + 1` (0 = crafting it): every step it skips. */
+export function itemCost(item: ItemDef, stars: number): Partial<Record<MaterialId, number>> {
+  const levels = itemLevels(item);
+  return stepsCost(item.recipe, item.growth, levels[stars], levels[stars + 1]);
+}
+
+/**
+ * Converts an old level-based piece or Upgrade to stars: the highest star at or below its level, and the
+ * materials spent on the levels above that star (refunded).
+ */
+export function starsFromLevel(levels: number[], level: number, recipe: Partial<Record<MaterialId, number>>, growth: number): { stars: number; refund: Partial<Record<MaterialId, number>> } {
+  let stars = 0;
+  while (stars < MAX_STARS && levels[stars + 1] <= level) stars++;
+  return { stars, refund: level > levels[stars] ? stepsCost(recipe, growth, levels[stars], level) : {} };
 }
 
 export const EVENTS: EventDef[] = [

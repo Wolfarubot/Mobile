@@ -6,6 +6,12 @@ import {
   EVENTS,
   EVO_TREES,
   GEAR,
+  GEAR_COST_GROWTH,
+  GEAR_STAR_POWER,
+  gearDef,
+  itemLevels,
+  MAX_STARS,
+  starsFromLevel,
   HUNTERS,
   ITEMS,
   MATERIALS,
@@ -68,7 +74,8 @@ export interface HunterState extends Training {
 export interface GearItem {
   uid: number;
   base: GearId;
-  level: number;
+  /** 1★ when crafted, up to MAX_STARS. */
+  stars: number;
 }
 
 /** Who can wear gear: your Hunter ('main') or a recruited Hunter. */
@@ -144,7 +151,7 @@ export interface GameState {
   };
 }
 
-export const SAVE_VERSION = 12;
+export const SAVE_VERSION = 13;
 
 const zeroes = <K extends string>(ids: { id: K }[]): Record<K, number> =>
   Object.fromEntries(ids.map((x) => [x.id, 0])) as Record<K, number>;
@@ -211,6 +218,24 @@ function cleanRanks(nodes: ReadonlyArray<{ id: string; maxRank: number }>, saved
 }
 
 /** Parses a save, filling in fields missing from older versions. Returns null if unusable. */
+/** Upgrades: old saves hold levels (converted to stars, refunding the levels above); newer ones hold stars. */
+function convertItems(state: GameState, oldLevels: boolean): void {
+  for (const it of ITEMS) {
+    const v = Math.max(0, Math.floor(state.items[it.id] || 0));
+    if (!oldLevels) {
+      state.items[it.id] = Math.min(MAX_STARS, v);
+      continue;
+    }
+    const { stars, refund } = starsFromLevel(itemLevels(it), v, it.recipe, it.growth);
+    state.items[it.id] = stars;
+    addMaterials(state, refund);
+  }
+}
+
+function addMaterials(state: GameState, add: Partial<Record<MaterialId, number>>): void {
+  for (const [m, n] of Object.entries(add) as [MaterialId, number][]) if (m in state.materials) state.materials[m] += n;
+}
+
 export function deserialize(raw: string | null | undefined, now = Date.now()): GameState | null {
   if (!raw) return null;
   let data: Record<string, unknown>;
@@ -248,6 +273,7 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
     base.materials = mergeNumbers(base.materials, data.materials);
     base.lastSeen = typeof data.lastSeen === 'number' ? data.lastSeen : now;
     base.stats = stats;
+    convertItems(base, true);
     return base;
   }
 
@@ -324,9 +350,20 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
     }
   }
   // v4 -> v5: gear is new. Keep only well-formed pieces and slot references to pieces that exist.
+  // v12 -> v13: gear and Upgrades use stars instead of levels (converted, with the levels above a star refunded).
+  const oldLevels = ((data.version as number) ?? 1) < 13;
   state.inventory = Array.isArray(data.inventory)
-    ? (data.inventory as GearItem[]).filter((g) => g && typeof g.uid === 'number' && GEAR.some((d) => d.id === g.base) && typeof g.level === 'number')
+    ? (data.inventory as Array<GearItem & { level?: number }>)
+        .filter((g) => g && typeof g.uid === 'number' && GEAR.some((d) => d.id === g.base) && typeof (oldLevels ? g.level : g.stars) === 'number')
+        .map((g) => {
+          if (!oldLevels) return { uid: g.uid, base: g.base, stars: Math.max(1, Math.min(MAX_STARS, Math.floor(g.stars))) };
+          const def = gearDef(g.base);
+          const { stars, refund } = starsFromLevel(GEAR_STAR_POWER, Math.max(1, g.level!), def.recipe, GEAR_COST_GROWTH);
+          addMaterials(state, refund);
+          return { uid: g.uid, base: g.base, stars };
+        })
     : [];
+  convertItems(state, oldLevels);
   const uids = new Set(state.inventory.map((g) => g.uid));
   state.equipment = {};
   if (data.equipment && typeof data.equipment === 'object')

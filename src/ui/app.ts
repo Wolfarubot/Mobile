@@ -25,7 +25,9 @@ import {
   GEAR,
   GEAR_KINDS,
   GEAR_STATS,
-  GEAR_MAX_LEVEL,
+  MAX_STARS,
+  starsText,
+  itemLevel,
   gearCost,
   gearColor,
   gearDef,
@@ -100,10 +102,11 @@ const INV_TYPES = [
 type InvType = (typeof INV_TYPES)[number]['id'];
 const LEVEL_FILTERS = [
   { id: 'any', name: 'Any', min: 0, max: Infinity },
-  { id: '1-3', name: 'Lv 1–3', min: 1, max: 3 },
-  { id: '4-6', name: 'Lv 4–6', min: 4, max: 6 },
-  { id: '7-9', name: 'Lv 7–9', min: 7, max: 9 },
-  { id: '10+', name: 'Lv 10+', min: 10, max: Infinity },
+  { id: '1', name: '1★', min: 1, max: 1 },
+  { id: '2', name: '2★', min: 2, max: 2 },
+  { id: '3', name: '3★', min: 3, max: 3 },
+  { id: '4', name: '4★', min: 4, max: 4 },
+  { id: '5', name: '5★', min: 5, max: 5 },
 ] as const;
 type LevelFilter = (typeof LEVEL_FILTERS)[number]['id'];
 interface InvFilter {
@@ -358,7 +361,7 @@ export class AppUI {
       const down = def && station && station !== g.area ? (g.farmRates(station, g.stationedIn(station), STATION_EFFICIENCY).stunned[def.id] ?? 0) : 0;
       status.innerHTML = `${station ? `📍 ${areaDef(station).name}` : '💤 Resting'} · ⚔️ ${fmt(g.dpsOf(who))} DPS${down >= 0.05 ? ' · <b class="warn">💫 overwhelmed</b>' : ''}`;
       const items = g.equipped(who);
-      const k = items.map((it) => (it ? `${it.uid}:${it.level}` : '-')).join('|');
+      const k = items.map((it) => (it ? `${it.uid}:${it.stars}` : '-')).join('|');
       if (k !== gearKey) {
         gearKey = k;
         gearEl.innerHTML = gearHtml(items);
@@ -736,7 +739,7 @@ export class AppUI {
     let key = '';
     this.refreshers.push(() => {
       const items = g.equipped(who);
-      const k = items.map((it) => (it ? `${it.uid}:${it.level}` : '-')).join('|');
+      const k = items.map((it) => (it ? `${it.uid}:${it.stars}` : '-')).join('|');
       if (k === key) return;
       key = k;
       rows.forEach(({ slot, b }, i) => {
@@ -746,7 +749,7 @@ export class AppUI {
         b.classList.toggle('rar', !!it);
         b.style.setProperty('--rc', gd ? gearColor(gd.id) : '');
         b.innerHTML = `<i>${gd ? gd.icon : GEAR_KINDS[slot.kind].icon}</i><div><small>${slot.label}</small><b>${gd ? gd.name : 'Empty'}</b><span class="sub">${
-          gd && it ? `${dtypeTag(gd)}${RARITIES[gd.rarity].name} · Lv ${it.level} · ${describeGear(gearStats(gd, it.level))}` : 'Tap to equip'
+          gd && it ? `${dtypeTag(gd)}${RARITIES[gd.rarity].name} · <span class="stars">${starsText(it.stars)}</span> · ${describeGear(gearStats(gd, it.stars))}` : 'Tap to equip'
         }</span></div><span class="chev">›</span>`;
       });
       const stats = describeGear(g.gear(who));
@@ -781,7 +784,7 @@ export class AppUI {
     const fits = (it: GearItem) => slotAccepts(def, gearDef(it.base).kind);
     // Start on the best piece that fits and nobody is wearing.
     let selected: number | null =
-      g.state.inventory.filter((it) => fits(it) && !g.wearerOf(it.uid)).sort((a, b) => b.level - a.level)[0]?.uid ?? null;
+      g.state.inventory.filter((it) => fits(it) && !g.wearerOf(it.uid)).sort((a, b) => b.stars - a.stars)[0]?.uid ?? null;
 
     const render = () => {
       const current = g.equipped(who)[slot];
@@ -829,7 +832,7 @@ export class AppUI {
       // Inventory grid: everything, with what fits this slot first.
       const grid = $('.pk-grid', view);
       grid.innerHTML = '';
-      const inv = [...g.state.inventory].sort((a, b) => Number(fits(b)) - Number(fits(a)) || b.level - a.level);
+      const inv = [...g.state.inventory].sort((a, b) => Number(fits(b)) - Number(fits(a)) || b.stars - a.stars);
       $('.pk-count', view).textContent = `${inv.length} item${inv.length === 1 ? '' : 's'}`;
       if (!inv.length) grid.innerHTML = '<p class="empty-inv">Empty. Craft gear in Inventory → Crafting.</p>';
       for (const it of inv) {
@@ -837,7 +840,7 @@ export class AppUI {
         const worn = g.wearerOf(it.uid);
         const tile = el('button', `inv-tile rar${fits(it) ? '' : ' misfit'}${it.uid === selected ? ' selected' : ''}`) as HTMLButtonElement;
         tile.style.setProperty('--rc', gearColor(gd.id));
-        tile.innerHTML = `<i>${gd.icon}</i><span>${gd.name}</span><small>Lv ${it.level}</small>${worn ? `<em>${wearerIcon(worn.who)}</em>` : ''}`;
+        tile.innerHTML = `<i>${gd.icon}</i><span>${gd.name}</span><small class="stars">${starsText(it.stars)}</small>${worn ? `<em>${wearerIcon(worn.who)}</em>` : ''}`;
         tile.addEventListener('click', () => {
           selected = it.uid;
           render();
@@ -868,12 +871,12 @@ export class AppUI {
       const worn = g.wearerOf(uid);
       const cost = g.gearUpgradeCost(uid);
       body.innerHTML = `
-        <p>${dtypeTag(gd)}<b class="rarity-tag" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${GEAR_KINDS[gd.kind].name} · Lv ${item.level} / ${GEAR_MAX_LEVEL}${worn ? ` · worn by ${wearerName(worn.who)}` : ''}</p>
-        <p class="gear-now">${describeGear(gearStats(gd, item.level))}</p>
-        ${cost ? `<p class="gear-next">Next: <b>${describeGear(gearStats(gd, item.level + 1))}</b></p><div class="cost">${costHtml(g, cost)}</div>` : '<p>Fully upgraded.</p>'}`;
+        <p>${dtypeTag(gd)}<b class="rarity-tag" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${GEAR_KINDS[gd.kind].name} · <span class="stars">${starsText(item.stars)}</span>${worn ? ` · worn by ${wearerName(worn.who)}` : ''}</p>
+        <p class="gear-now">${describeGear(gearStats(gd, item.stars))}</p>
+        ${cost ? `<p class="gear-next">Next: <b>${describeGear(gearStats(gd, item.stars + 1))}</b></p><div class="cost">${costHtml(g, cost)}</div>` : '<p>Fully upgraded.</p>'}`;
       const actions = el('div', 'actions');
       if (cost) {
-        const up = el('button', 'buy', 'Upgrade') as HTMLButtonElement;
+        const up = el('button', 'buy', `Upgrade to ${item.stars + 1}★`) as HTMLButtonElement;
         up.disabled = !(Object.entries(cost) as [MaterialId, number][]).every(([m, n]) => g.state.materials[m] >= n);
         up.addEventListener('click', () => {
           g.upgradeGear(uid);
@@ -1552,8 +1555,8 @@ export class AppUI {
           (f.type === 'all' || GEAR_TYPE[gd.kind] === f.type) &&
           (f.rarity === 'any' || gd.rarity === f.rarity) &&
           (f.dtype === 'any' || gd.damageType === f.dtype) &&
-          it.level >= lv.min &&
-          it.level <= lv.max
+          it.stars >= lv.min &&
+          it.stars <= lv.max
         );
       });
       // Upgrades have no rarity or damage type, so those filters hide them.
@@ -1563,7 +1566,7 @@ export class AppUI {
           : [];
       const k = [
         JSON.stringify(f),
-        gear.map((it) => `${it.uid}:${it.level}:${g.wearerOf(it.uid)?.who ?? ''}`).join('|'),
+        gear.map((it) => `${it.uid}:${it.stars}:${g.wearerOf(it.uid)?.who ?? ''}`).join('|'),
         upgrades.map((it) => `${it.id}:${g.state.items[it.id]}`).join('|'),
       ].join('/');
       if (k === invKey) return;
@@ -1607,13 +1610,13 @@ export class AppUI {
         const worn = g.wearerOf(it.uid);
         const tile = el('button', 'inv-tile rar') as HTMLButtonElement;
         tile.style.setProperty('--rc', gearColor(gd.id));
-        tile.innerHTML = `<i>${gd.icon}</i><span>${gd.name}</span><small>Lv ${it.level}</small>${worn ? `<em>${wearerIcon(worn.who)}</em>` : ''}`;
+        tile.innerHTML = `<i>${gd.icon}</i><span>${gd.name}</span><small class="stars">${starsText(it.stars)}</small>${worn ? `<em>${wearerIcon(worn.who)}</em>` : ''}`;
         tile.addEventListener('click', () => this.openGearDetail(it.uid));
         inv.appendChild(tile);
       }
       for (const it of upgrades) {
         const tile = el('button', 'inv-tile upgrade') as HTMLButtonElement;
-        tile.innerHTML = `<i>${it.icon}</i><span>${it.name}</span><small>Lv ${g.state.items[it.id]}</small><em>⛺</em>`;
+        tile.innerHTML = `<i>${it.icon}</i><span>${it.name}</span><small class="stars">${starsText(g.state.items[it.id])}</small><em>⛺</em>`;
         tile.addEventListener('click', () => this.openUpgradeDetail(it));
         inv.appendChild(tile);
       }
@@ -1676,8 +1679,8 @@ export class AppUI {
     const g = this.game;
     this.showSheet(`${it.icon} ${it.name}`, (body, close) => {
       const lv = g.state.items[it.id];
-      const maxed = lv >= it.maxLevel;
-      body.innerHTML = `<p class="gear-now">Permanent upgrade · Lv ${lv} / ${it.maxLevel}</p><p><b>${it.describe(lv)}</b>${maxed ? '' : ` → ${it.describe(lv + 1)}`}</p>${
+      const maxed = lv >= MAX_STARS;
+      body.innerHTML = `<p class="gear-now">Permanent upgrade · <span class="stars">${starsText(lv)}</span></p><p><b>${it.describe(itemLevel(it, lv))}</b>${maxed ? '' : ` → ${it.describe(itemLevel(it, lv + 1))}`}</p>${
         maxed ? '' : `<div class="cost">${costHtml(g, itemCost(it, lv))}</div>`
       }`;
       const btn = el('button', 'buy', maxed ? 'MAX' : 'Upgrade') as HTMLButtonElement;
@@ -1693,16 +1696,18 @@ export class AppUI {
   }
 
   /** Gear recipes you know, then Upgrades. */
-  /** Crafting: every known recipe and Upgrade as a 5-wide grid of icons; tap one for its card over the Battle Field. */
+  /**
+   * Crafting: every known recipe, then the Upgrades split into Available (not crafted yet) and Crafted, as
+   * 5-wide grids of icons (greyed out when you can't afford them); tap one for its card over the Battle Field.
+   */
   private buildCrafting(pane: HTMLElement): void {
     const g = this.game;
+    const tiles: Array<{ tile: HTMLElement; ready: () => boolean; badge: () => string }> = [];
     pane.appendChild(sectionTitle('Craft Equipment'));
     const gearGrid = el('div', 'craft-grid');
     pane.appendChild(gearGrid);
-    const tiles: Array<{ tile: HTMLElement; ready: () => boolean; badge: () => string }> = [];
     for (const gd of GEAR.filter((x) => this.gearKnown(x))) {
-      const tile = el('button', 'craft-tile rar') as HTMLButtonElement;
-      tile.style.setProperty('--rc', gearColor(gd.id));
+      const tile = el('button', 'craft-tile') as HTMLButtonElement;
       tile.innerHTML = `<i>${gd.icon}</i><em></em>`;
       tile.title = gd.name;
       tile.addEventListener('click', () => this.openCraftCard({ gear: gd }));
@@ -1712,20 +1717,44 @@ export class AppUI {
     const lockedGear = GEAR.filter((gd) => !this.gearKnown(gd)).length;
     if (lockedGear) pane.appendChild(el('p', 'hd-note', `🔒 ${lockedGear} more recipes need materials from monsters you haven't met yet.`));
 
-    pane.appendChild(sectionTitle('Upgrades'));
-    const upGrid = el('div', 'craft-grid');
-    pane.appendChild(upGrid);
-    for (const it of ITEMS) {
-      const tile = el('button', 'craft-tile upgrade') as HTMLButtonElement;
-      tile.innerHTML = `<i>${it.icon}</i><em></em>`;
-      tile.title = it.name;
-      tile.addEventListener('click', () => this.openCraftCard({ item: it }));
-      upGrid.appendChild(tile);
-      tiles.push({ tile, ready: () => g.canCraft(it.id), badge: () => (g.state.items[it.id] ? `Lv ${g.state.items[it.id]}` : '') });
-    }
+    // Upgrades move from Available to Crafted once made, so this section is rebuilt when that changes.
+    const upgrades = el('div');
+    pane.appendChild(upgrades);
+    let upTiles: typeof tiles = [];
+    let crafted = '';
+    const buildUpgrades = () => {
+      upgrades.innerHTML = '';
+      upTiles = [];
+      for (const [title, list] of [
+        ['Available Upgrades', ITEMS.filter((it) => !g.state.items[it.id])],
+        ['Crafted Upgrades', ITEMS.filter((it) => g.state.items[it.id] > 0)],
+      ] as const) {
+        if (!list.length) continue;
+        upgrades.appendChild(sectionTitle(title));
+        const grid = el('div', 'craft-grid');
+        upgrades.appendChild(grid);
+        for (const it of list) {
+          const tile = el('button', 'craft-tile') as HTMLButtonElement;
+          tile.innerHTML = `<i>${it.icon}</i><em></em>`;
+          tile.title = it.name;
+          tile.addEventListener('click', () => this.openCraftCard({ item: it }));
+          grid.appendChild(tile);
+          upTiles.push({
+            tile,
+            ready: () => g.canCraft(it.id) || g.state.items[it.id] >= MAX_STARS,
+            badge: () => (g.state.items[it.id] ? `${g.state.items[it.id]}★` : ''),
+          });
+        }
+      }
+    };
     this.refreshers.push(() => {
-      for (const t of tiles) {
-        t.tile.classList.toggle('ready', t.ready());
+      const k = ITEMS.map((it) => (g.state.items[it.id] ? 1 : 0)).join('');
+      if (k !== crafted) {
+        crafted = k;
+        buildUpgrades();
+      }
+      for (const t of [...tiles, ...upTiles]) {
+        t.tile.classList.toggle('short', !t.ready());
         $('em', t.tile).textContent = t.badge();
       }
     });
@@ -1758,14 +1787,14 @@ export class AppUI {
     btn.addEventListener('click', () => {
       const ok = gd ? g.craftGear(gd.id) : g.craft(it!.id);
       if (!ok) return;
-      this.toast(gd ? `Crafted ${gd.name}!` : g.state.items[it!.id] > 1 ? `Upgraded ${it!.name} to Lv ${g.state.items[it!.id]}!` : `Crafted ${it!.name}!`);
+      this.toast(gd ? `Crafted ${gd.name}!` : g.state.items[it!.id] > 1 ? `Upgraded ${it!.name} to ${g.state.items[it!.id]}★!` : `Crafted ${it!.name}!`);
       bumpCard(btn);
       this.refresh();
     });
     const update = () => {
       if (gd) {
         const owned = g.state.inventory.filter((x) => x.base === gd.id).length;
-        $('.fc-effect', card).innerHTML = `<b>${describeGear(gearStats(gd, 1))}</b> per level`;
+        $('.fc-effect', card).innerHTML = `1★: <b>${describeGear(gearStats(gd, 1))}</b> · 5★: <b>${describeGear(gearStats(gd, MAX_STARS))}</b>`;
         $('.fc-owned', card).innerHTML = `In your equipment: <b>${owned}</b>`;
         $('.fc-cost', card).innerHTML = recipeHtml(g, gearCost(gd, 0));
         btn.textContent = 'Craft';
@@ -1773,9 +1802,10 @@ export class AppUI {
       } else {
         const item = it!;
         const lv = g.state.items[item.id];
-        const maxed = lv >= item.maxLevel;
-        $('.fc-effect', card).innerHTML = lv ? `${item.describe(lv)}${maxed ? '' : ` → <b>${item.describe(lv + 1)}</b>`}` : `<b>${item.describe(1)}</b>`;
-        $('.fc-owned', card).innerHTML = lv ? `Owned: <b>Lv ${lv}</b> / ${item.maxLevel}${maxed ? ' · MAX' : ''}` : 'Owned: <b>not crafted yet</b>';
+        const maxed = lv >= MAX_STARS;
+        const at = (stars: number) => item.describe(itemLevel(item, stars));
+        $('.fc-effect', card).innerHTML = lv ? `${at(lv)}${maxed ? '' : ` → <b>${at(lv + 1)}</b>`}` : `<b>${at(1)}</b>`;
+        $('.fc-owned', card).innerHTML = lv ? `Owned: <b class="stars">${starsText(lv)}</b>${maxed ? ' · MAX' : ''}` : 'Owned: <b>not crafted yet</b>';
         $('.fc-cost', card).innerHTML = maxed ? '<p>Fully upgraded.</p>' : recipeHtml(g, itemCost(item, lv));
         btn.textContent = maxed ? 'MAX' : lv ? 'Upgrade' : 'Craft';
         btn.disabled = !g.canCraft(item.id);
@@ -2181,8 +2211,8 @@ function statDelta(k: GearStat, d: number): string {
 /** A piece of gear's full card; with `vs`, each stat shows how it compares to that piece. */
 function gearCardHtml(it: GearItem, vs: GearItem | null = null): string {
   const gd = gearDef(it.base);
-  const st = gearStats(gd, it.level);
-  const other = vs ? gearStats(gearDef(vs.base), vs.level) : {};
+  const st = gearStats(gd, it.stars);
+  const other = vs ? gearStats(gearDef(vs.base), vs.stars) : {};
   const keys = [...new Set([...Object.keys(st), ...(vs ? Object.keys(other) : [])])] as GearStat[];
   const lines = keys
     .map((k) => {
@@ -2197,7 +2227,7 @@ function gearCardHtml(it: GearItem, vs: GearItem | null = null): string {
     (gd.damageType && gd.proc && DAMAGE_TYPES[gd.damageType].effect
       ? `<li class="gc-effect">${DAMAGE_TYPES[gd.damageType].icon} ${Math.round(gd.proc * 100)}% chance · ${DAMAGE_TYPES[gd.damageType].effect}</li>`
       : '');
-  return `<div class="gear-card rar" style="--rc:${gearColor(gd.id)}"><div class="gc-head"><i>${gd.icon}</i><div><b>${gd.name}</b><small>${RARITIES[gd.rarity].name} ${GEAR_KINDS[gd.kind].name.toLowerCase()} · Lv ${it.level} / ${GEAR_MAX_LEVEL}</small>${dtypeTag(gd)}</div></div><ul class="gc-stats">${lines}</ul></div>`;
+  return `<div class="gear-card rar" style="--rc:${gearColor(gd.id)}"><div class="gc-head"><i>${gd.icon}</i><div><b>${gd.name}</b><small>${RARITIES[gd.rarity].name} ${GEAR_KINDS[gd.kind].name.toLowerCase()} · <span class="stars">${starsText(it.stars)}</span></small>${dtypeTag(gd)}</div></div><ul class="gc-stats">${lines}</ul></div>`;
 }
 
 /** Your Hunter's name (Settings), shown on their card and wherever they're named. */
