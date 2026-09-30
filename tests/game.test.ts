@@ -5,13 +5,13 @@ import {
   enemyDef,
   enemyUnlockCost,
   GEAR,
-  GEAR_COST_GROWTH,
   GUARDIAN_TIME,
   hunterDef,
   HUNTERS,
   itemCost,
   itemDef,
   itemLevels,
+  gearCost,
   gearStats,
   MAX_STARS,
   OFFLINE_CAP_SEC,
@@ -951,7 +951,7 @@ describe('Equipment', () => {
     g.equip('main', 0, bow.uid);
     const goo = g.state.materials.goo;
     const refund = g.salvageValue(bow.uid).goo!;
-    expect(refund).toBe(Math.floor((8 + Math.ceil(8 * GEAR_COST_GROWTH)) * 0.5));
+    expect(refund).toBe(Math.floor((gearCost(gearDef('huntingBow'), 0).goo! + gearCost(gearDef('huntingBow'), 1).goo!) * 0.5));
     expect(g.salvageGear(bow.uid)).toBe(true);
     expect(g.state.materials.goo).toBe(goo + refund);
     expect(g.state.inventory).toHaveLength(0);
@@ -1576,9 +1576,10 @@ describe('Saves', () => {
     expect(gearStats(bow, MAX_STARS).damage).toBeCloseTo(2);
     const whet = itemDef('whetstone');
     expect(itemLevels(whet)).toEqual([0, 1, 3, 7, 19, 50]);
-    // A star costs the price of the top step it reaches.
+    // A star costs the price of the step in the (geometric) middle of the ones it covers.
     expect(itemCost(whet, 0).goo).toBe(4);
-    expect(itemCost(whet, 1).goo).toBe(Math.ceil(4 * 1.45 ** 2));
+    expect(itemCost(whet, 1).goo).toBe(Math.ceil(4 * 1.45 ** 1)); // steps 1–2 → √3 ≈ 2 → step 1
+    expect(itemCost(whet, 4).goo).toBe(Math.ceil(4 * 1.45 ** 30)); // steps 19–49 → √950 ≈ 31 → step 30
     const g = rich();
     g.state.materials.goo = 1e12;
     for (let i = 0; i < MAX_STARS; i++) expect(g.craft('whetstone')).toBe(true);

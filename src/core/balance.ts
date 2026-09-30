@@ -1349,12 +1349,17 @@ export function describeGear(stats: Partial<Record<GearStat, number>>): string {
 }
 
 /**
- * Materials to go from `stars` to `stars + 1` (0 = crafting it): the price of the top step it reaches, so a
- * star arrives about when that step would have by paying step by step.
+ * The step whose price a star costs: the geometric middle of the steps it covers (0 = crafting). Its power
+ * arrives in one go, so pricing it mid-range keeps it about as fast as paying step by step was.
  */
+function starStep(from: number, to: number): number {
+  return from === 0 ? 0 : Math.round(Math.sqrt(from * to)) - 1;
+}
+
+/** Materials to go from `stars` to `stars + 1` (0 = crafting it). */
 export function gearCost(def: GearDef, stars: number): Partial<Record<MaterialId, number>> {
-  const to = GEAR_STAR_POWER[stars + 1];
-  return stepsCost(def.recipe, GEAR_COST_GROWTH, to - 1, to);
+  const step = starStep(GEAR_STAR_POWER[stars], GEAR_STAR_POWER[stars + 1]);
+  return stepsCost(def.recipe, GEAR_COST_GROWTH, step, step + 1);
 }
 
 /** The cost of steps `from` … `to − 1` of a recipe whose step `l` costs `recipe × growth^l`. */
@@ -1425,10 +1430,11 @@ export function itemLevels(item: ItemDef): number[] {
 /** An Upgrade's strength at a star count. */
 export const itemLevel = (item: ItemDef, stars: number): number => itemLevels(item)[Math.max(0, Math.min(MAX_STARS, stars))];
 
-/** Materials to go from `stars` to `stars + 1` (0 = crafting it): the price of the top step it reaches. */
+/** Materials to go from `stars` to `stars + 1` (0 = crafting it). */
 export function itemCost(item: ItemDef, stars: number): Partial<Record<MaterialId, number>> {
-  const to = itemLevels(item)[stars + 1];
-  return stepsCost(item.recipe, item.growth, to - 1, to);
+  const levels = itemLevels(item);
+  const step = starStep(levels[stars], levels[stars + 1]);
+  return stepsCost(item.recipe, item.growth, step, step + 1);
 }
 
 /**
