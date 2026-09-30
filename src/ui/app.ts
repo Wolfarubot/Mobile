@@ -199,6 +199,8 @@ export class AppUI {
     const area = areaDef(g.area);
     $('#gold').textContent = fmt(s.gold);
     $('#dps').textContent = fmt(g.dps);
+    $('#dpsMeter').classList.toggle('hidden', !s.settings.dps);
+    $('.battle-wrap').classList.toggle('with-dps', s.settings.dps);
     $('#areaName').textContent = area.name;
     applyAreaTheme(g.area);
     this.fieldCard?.update();
@@ -2182,6 +2184,10 @@ export class AppUI {
     const st = g.state.settings;
     const onOff: Array<['on' | 'off', string]> = [['on', 'Show'], ['off', 'Hide']];
     const styles: Array<[IndicatorStyle, string]> = [['fancy', '✨ Fancy'], ['basic', 'Basic']];
+    choices('DPS meter', 'Your total damage per second, in the top-right corner of the battlefield.', onOff, () => (st.dps ? 'on' : 'off'), (v) => {
+      st.dps = v === 'on';
+      this.refresh();
+    });
     choices('Cooldown icons', 'Icons for abilities that recharge (like Reginald\'s potions, Glimmer\'s fireballs and item abilities). They grey out when used and refill from the top down.', onOff, () => (st.cooldowns ? 'on' : 'off'), (v) => (st.cooldowns = v === 'on'));
     choices('Cooldown icon position', 'Which edge of the battlefield the cooldown icons sit on.', COOLDOWN_POSITIONS.map((p) => [p, p[0].toUpperCase() + p.slice(1)] as [CooldownPos, string]), () => st.cooldownPos, (v) => (st.cooldownPos = v), () => st.cooldowns);
     choices('Cooldown icon style', 'Fancy adds a glowing line where the colour meets the grey as an icon refills.', styles, () => st.cooldownStyle, (v) => (st.cooldownStyle = v), () => st.cooldowns);

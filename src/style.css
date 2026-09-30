@@ -78,12 +78,8 @@ button {
 .stat.gold b {
   color: var(--gold);
 }
-.stat.dps {
+.stat.right {
   justify-content: flex-end;
-}
-.stat.dps b {
-  color: var(--info);
-  font-size: 17px;
 }
 .stat small {
   color: var(--muted);
@@ -1904,7 +1900,6 @@ canvas {
   color: var(--c3);
   border-bottom: 3px solid var(--c1);
 }
-.stat.dps b,
 .stage #areaName {
   color: var(--c3);
 }
@@ -3034,4 +3029,31 @@ button.mat:not(:disabled):active {
   margin-top: 6px;
   font-size: 12px;
   opacity: 0.85;
+}
+
+/* DPS meter: top-right of the battlefield, just under the Settings button. Optional (Settings → Battlefield). */
+.dps-meter {
+  position: absolute;
+  z-index: 3;
+  top: 6px;
+  right: 8px;
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 2px 7px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 2px solid var(--c0);
+  color: var(--c3);
+  pointer-events: none;
+}
+.dps-meter b {
+  font-size: 15px;
+}
+.dps-meter small {
+  font-size: 10px;
+  opacity: 0.8;
+}
+/* Right-edge cooldown icons start below the meter while it shows. */
+.battle-wrap.with-dps .cd-right {
+  top: 36px;
 }

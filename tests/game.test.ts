@@ -1879,12 +1879,16 @@ describe('Saves', () => {
     s.settings.name = 'Wolfa';
     s.flags.eventsIntro = true;
     const back = deserialize(serialize(s))!;
-    expect(back.settings).toEqual({ leftHanded: true, name: 'Wolfa', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', cooldownStyle: 'fancy', fx: Object.fromEntries(FX_KEYS.map((k) => [k, true])), aoeStyle: 'fancy' });
+    expect(back.settings).toEqual({ leftHanded: true, name: 'Wolfa', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal', dps: true, cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', cooldownStyle: 'fancy', fx: Object.fromEntries(FX_KEYS.map((k) => [k, true])), aoeStyle: 'fancy' });
     expect(back.flags).toEqual({ eventsIntro: true, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false });
     const old = JSON.parse(serialize(newGame(0)));
     delete old.settings;
     delete old.flags;
-    expect(deserialize(JSON.stringify(old))!.settings).toEqual({ leftHanded: false, name: '', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', cooldownStyle: 'fancy', fx: Object.fromEntries(FX_KEYS.map((k) => [k, true])), aoeStyle: 'fancy' });
+    expect(deserialize(JSON.stringify(old))!.settings).toEqual({ leftHanded: false, name: '', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal', dps: true, cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', cooldownStyle: 'fancy', fx: Object.fromEntries(FX_KEYS.map((k) => [k, true])), aoeStyle: 'fancy' });
+    // A hidden DPS meter stays hidden.
+    const noDps = newGame(0);
+    noDps.settings.dps = false;
+    expect(deserialize(serialize(noDps))!.settings.dps).toBe(false);
     // A saved tab order survives; junk is dropped and missing tabs are appended.
     const custom = newGame(0);
     custom.settings.tabOrder = ['areas', 'events', 'hunters', 'beasts', 'inventory'];

@@ -124,6 +124,8 @@ export interface GameState {
     tabOrder: TabId[];
     /** Font chosen in Settings (an id from ui/fonts). */
     font: string;
+    /** The DPS meter in the battlefield's top-right corner. */
+    dps: boolean;
     /** Cooldown icons on the battlefield (abilities recharging), and which edge they sit on. */
     cooldowns: boolean;
     cooldownPos: CooldownPos;
@@ -189,7 +191,7 @@ export function newGame(now = Date.now()): GameState {
     equipment: {},
     nextGearUid: 1,
     lastSeen: now,
-    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', cooldownStyle: 'fancy', fx: allFx(), aoeStyle: 'fancy' },
+    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', dps: true, cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', cooldownStyle: 'fancy', fx: allFx(), aoeStyle: 'fancy' },
     flags: { eventsIntro: false, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false },
     events: Object.fromEntries(EVENTS.map((e) => [e.id, { cooldown: 0, runs: 0, completed: 0 }])),
     buyAmount: 1,
@@ -343,6 +345,7 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
         if (((data.version as number) ?? 1) < 12 && (f === undefined || f === 'pixel')) return 'terminal';
         return typeof f === 'string' && /^[a-z0-9-]{1,20}$/.test(f) ? f : 'terminal';
       })(),
+      dps: (data.settings as { dps?: unknown } | undefined)?.dps !== false,
       cooldowns: (data.settings as { cooldowns?: unknown } | undefined)?.cooldowns !== false,
       cooldownPos: pick(COOLDOWN_POSITIONS, (data.settings as { cooldownPos?: unknown } | undefined)?.cooldownPos, 'top'),
       reloads: (data.settings as { reloads?: unknown } | undefined)?.reloads !== false,

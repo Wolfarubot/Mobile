@@ -11,10 +11,11 @@
       <header class="topbar">
         <div class="stat gold"><span>🪙</span><b id="gold">0</b></div>
         <div class="stage"><b id="areaName">Whispering Forest</b></div>
-        <div class="stat dps"><b id="dps">0</b><small>DPS</small><button id="settingsBtn" class="settings-btn" aria-label="Settings">⚙️</button></div>
+        <div class="stat right"><button id="settingsBtn" class="settings-btn" aria-label="Settings">⚙️</button></div>
       </header>
       <div class="battle-wrap">
         <canvas id="battle"></canvas>
+        <div id="dpsMeter" class="dps-meter"><b id="dps">0</b><small>DPS</small></div>
       </div>
       <nav class="tabs">
         <button data-tab="hunters" class="active"><i>🏹</i>Hunters <span class="badge dot hidden" id="huntersBadge"></span></button>
