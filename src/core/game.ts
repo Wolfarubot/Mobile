@@ -27,6 +27,8 @@ import {
   TRAIN_UNLOCK_KILLS,
   empowerMult,
   EMPOWER_GROWTH,
+  MAX_EMPOWER_SESSIONS,
+  monsterLevel,
   empowerBaseCost,
   EVO_TREES,
   evoNode,
@@ -769,8 +771,7 @@ export class Game {
     const ev = this.activeEvent && def.area === this.state.area ? eventDef(this.activeEvent.id) : null;
     const swarm = ev?.kind === 'swarm' ? (def.archetype === ev.archetype ? { spawn: ev.spawnMult ?? 1, speed: ev.speedMult ?? 1 } : { spawn: 0, speed: 1 }) : { spawn: 1, speed: 1 };
     const evo = this.evo(id);
-    const lv = levelFromTrains(b.empower).level;
-    const emp = (stat: 'hp' | 'gold' | 'drops' | 'spawn') => empowerMult(stat, b.empower, lv);
+    const emp = (stat: 'hp' | 'gold' | 'drops' | 'spawn') => empowerMult(stat, Math.min(b.empower, MAX_EMPOWER_SESSIONS));
     const idol = this.areaUpgrades(def.area);
     return {
       id,
@@ -1269,22 +1270,24 @@ export class Game {
   empowerPurchase(id: EnemyId, amount: BuyAmount = this.state.buyAmount): Purchase {
     const base = empowerBaseCost(enemyDef(id));
     const done = this.state.bestiary[id].empower;
-    const count = amount === 'max' ? Math.max(1, maxAffordable(base, EMPOWER_GROWTH, done, this.state.gold)) : amount;
+    // Never past the top level.
+    const left = Math.max(0, MAX_EMPOWER_SESSIONS - done);
+    const count = Math.min(left, amount === 'max' ? Math.max(1, maxAffordable(base, EMPOWER_GROWTH, done, this.state.gold)) : amount);
     return { count, cost: bulkCost(base, EMPOWER_GROWTH, done, count) };
   }
 
   /** Empowers a monster (`buyAmount` sessions): more HP, gold and material drops; levels earn evolution points. */
   empower(id: EnemyId, amount: BuyAmount = this.state.buyAmount): boolean {
     const p = this.empowerPurchase(id, amount);
-    if (!this.empowerUnlocked || !this.isUnlocked(id) || this.state.gold < p.cost) return false;
+    if (!this.empowerUnlocked || !this.isUnlocked(id) || p.count <= 0 || this.state.gold < p.cost) return false;
     this.state.gold -= p.cost;
     this.state.bestiary[id].empower += p.count;
     return true;
   }
 
-  /** A monster's level from Empower sessions (same curve as Hunter training), and progress to the next. */
+  /** A monster's level from Empower sessions (5 per level, up to MAX_MONSTER_LEVEL), and progress to the next. */
   monsterLevelInfo(id: EnemyId): { level: number; into: number; need: number } {
-    return levelFromTrains(this.state.bestiary[id].empower);
+    return monsterLevel(this.state.bestiary[id].empower);
   }
 
   /** The evolution tree a monster grows along (its archetype's). */

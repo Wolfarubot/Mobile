@@ -56,7 +56,8 @@ import {
   SKILL_TREES,
   gearDef,
   EMPOWER,
-  EMPOWER_LEVEL,
+  MAX_EMPOWER_SESSIONS,
+  MAX_MONSTER_LEVEL,
   EMPOWER_UNLOCK_KILLS,
   evoKillsNeeded,
   EVO_TREES,
@@ -255,7 +256,7 @@ describe('Enemies & archetypes', () => {
     expect(after.dropChance).toBeCloseTo(before.dropChance * (1 + EMPOWER.drops));
     expect(after.spawnRate).toBeCloseTo(before.spawnRate * (1 + EMPOWER.spawn));
     expect(after.speed).toBe(before.speed);
-    // Levels follow the Hunters' curve: 3 sessions for Lv 2, each level is an evolution point.
+    // Every 5 sessions is a level; each level is an evolution point.
     expect(g.monsterLevelInfo('wolf').level).toBe(1);
     expect(g.evoPoints('wolf')).toBe(0);
     g.state.buyAmount = 10;
@@ -263,9 +264,15 @@ describe('Enemies & archetypes', () => {
     expect(g.state.bestiary.wolf.empower).toBe(11);
     expect(g.monsterLevelInfo('wolf').level).toBe(3);
     expect(g.evoPoints('wolf')).toBe(2);
-    // Each level multiplies the per-session gains: exponential in level.
     const lv3 = g.enemyStats('wolf');
-    expect(lv3.gold / g.goldMult).toBeCloseTo((before.gold / g.goldMult) * (1 + 11 * EMPOWER.gold) * EMPOWER_LEVEL.gold ** 2);
+    expect(lv3.gold / g.goldMult).toBeCloseTo((before.gold / g.goldMult) * (1 + 11 * EMPOWER.gold));
+    // Lv 42 is the top (enough points for any evolution tree): Empower stops there.
+    g.state.gold = 1e300;
+    g.state.buyAmount = 'max';
+    g.empower('wolf');
+    expect(g.state.bestiary.wolf.empower).toBe(MAX_EMPOWER_SESSIONS);
+    expect(g.monsterLevelInfo('wolf').level).toBe(MAX_MONSTER_LEVEL);
+    expect(g.empower('wolf')).toBe(false);
     // Locked monsters can't be empowered.
     expect(g.empower('zombie')).toBe(false);
   });
@@ -1826,6 +1833,15 @@ describe('Field', () => {
 });
 
 describe('Saves', () => {
+  it('v13 saves keep each monster\'s Empower level under the 5-sessions-a-level curve', () => {
+    const old = JSON.parse(serialize(newGame(0)));
+    old.version = 13;
+    old.bestiary.wolf.empower = 11; // Lv 3 on the old curve (3 + 4 sessions for Lv 2 and 3)
+    const s = deserialize(JSON.stringify(old))!;
+    expect(s.bestiary.wolf.empower).toBe(10);
+    expect(new Game(s).monsterLevelInfo('wolf').level).toBe(3);
+  });
+
   it('round-trips and tolerates garbage', () => {
     const s = newGame(0);
     s.gold = 42;

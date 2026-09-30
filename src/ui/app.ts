@@ -5,7 +5,8 @@ import {
   MAX_LEVEL,
   MAIN_ASCEND_LEVEL,
   MAIN_MAX_LEVEL,
-  EMPOWER_LEVEL,
+  EMPOWER_SESSIONS_PER_LEVEL,
+  MAX_MONSTER_LEVEL,
   EMPOWER_UNLOCK_KILLS,
   TRAIN_UNLOCK_KILLS,
   enemyDef,
@@ -1745,11 +1746,13 @@ export class AppUI {
     this.refreshers.push(() => {
       const p = g.empowerPurchase(id);
       const { level, into, need } = g.monsterLevelInfo(id);
-      if (g.empowerUnlocked) btn.innerHTML = `Empower${p.count > 1 ? ` ×${p.count}` : ''}<small>🪙 ${fmt(p.cost)}</small>`;
+      const maxed = level >= MAX_MONSTER_LEVEL;
+      if (maxed) btn.innerHTML = 'Max level<small>fully evolved</small>';
+      else if (g.empowerUnlocked) btn.innerHTML = `Empower${p.count > 1 ? ` ×${p.count}` : ''}<small>🪙 ${fmt(p.cost)}</small>`;
       else btn.innerHTML = `🔒 Empower<small>${fmt(g.slimeKills)}/${EMPOWER_UNLOCK_KILLS} slimes</small>`;
-      btn.disabled = !g.empowerUnlocked || g.state.gold < p.cost || !g.isUnlocked(id);
+      btn.disabled = maxed || !g.empowerUnlocked || g.state.gold < p.cost || !g.isUnlocked(id);
       $('i', bar).style.width = `${(into / need) * 100}%`;
-      $('span', bar).textContent = compact ? '' : `Lv ${level} · ${into}/${need} to Lv ${level + 1}`;
+      $('span', bar).textContent = compact ? '' : maxed ? `Lv ${level} · max level` : `Lv ${level} · ${into}/${need} to Lv ${level + 1}`;
     });
     return { btn, bar };
   }
@@ -1805,7 +1808,7 @@ export class AppUI {
         'p',
         'hd-note',
         g.empowerUnlocked
-          ? `Each session: +${EMPOWER.hp * 100}% HP, +${EMPOWER.gold * 100}% gold, +${EMPOWER.drops * 100}% material drops and +${EMPOWER.spawn * 100}% spawns, and every level multiplies them (×${EMPOWER_LEVEL.hp} HP, ×${EMPOWER_LEVEL.gold} gold, ×${EMPOWER_LEVEL.drops} drops, ×${EMPOWER_LEVEL.spawn} spawns). Every level earns an evolution point.`
+          ? `Each session: +${Math.round(EMPOWER.hp * 1000) / 10}% HP, +${Math.round(EMPOWER.gold * 1000) / 10}% gold, +${Math.round(EMPOWER.drops * 1000) / 10}% material drops and +${Math.round(EMPOWER.spawn * 1000) / 10}% spawns. Every ${EMPOWER_SESSIONS_PER_LEVEL} sessions is a level, and every level earns an evolution point, up to Lv ${MAX_MONSTER_LEVEL} (fully evolved).`
           : `🔒 Slay ${EMPOWER_UNLOCK_KILLS} slimes to unlock Empower.`,
       ),
     );

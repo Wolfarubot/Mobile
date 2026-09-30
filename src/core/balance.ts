@@ -564,17 +564,17 @@ export interface AreaDef {
 
 export const AREAS: AreaDef[] = [
   { id: 'forest', name: 'Whispering Forest', icon: '🌲', hp: 1, gold: 1, speed: 36, mastery: 10_000, guardian: 1_500, palette: ['#183c18', '#2f7d32', '#7ec850', '#e2f5c4'], ground: ['#6cb848', '#58a03c'], blurb: 'Where every hunt begins.' },
-  { id: 'glade', name: 'Faerie Glade', icon: '🍄', hp: 150, gold: 80, speed: 38, mastery: 150_000, guardian: 25_000, palette: ['#221a30', '#5a4a8a', '#a8d8b0', '#f4f0ff'], ground: ['#7cc47c', '#8ed28a'], blurb: 'Mushroom rings and things that bite.' },
-  { id: 'graveyard', name: 'Old Graveyard', icon: '🪦', hp: 1_200, gold: 15_000, speed: 40, mastery: 300_000, guardian: 300_000, palette: ['#1e1a2a', '#4a4460', '#9a94b0', '#e8e4f0'], ground: ['#5b5670', '#4c4762'], blurb: 'The dead do not rest here.' },
-  { id: 'crypt', name: 'Forsaken Crypt', icon: '⚰️', hp: 5_000, gold: 2_000_000, speed: 42, mastery: 450_000, guardian: 600_000, palette: ['#1a1614', '#4a403a', '#9a8e80', '#ece4d8'], ground: ['#5a524a', '#4e4640'], blurb: 'Deeper than the graves, and older.' },
-  { id: 'depths', name: 'Shadowy Depths', icon: '🕳️', hp: 10_000, gold: 10_000_000_000, speed: 43, mastery: 600_000, guardian: 1_200_000, palette: ['#120e1c', '#3a3050', '#8a7ea8', '#e6e0f4'], ground: ['#2e2838', '#26212f'], blurb: 'Below the crypt, the dark has teeth.' },
-  { id: 'caves', name: 'Ember Caves', icon: '🌋', hp: 20_000, gold: 3_000_000_000_000, speed: 45, mastery: 700_000, guardian: 2_400_000, palette: ['#2a0e08', '#8a2c10', '#e07030', '#fde4c0'], ground: ['#6a2c1a', '#823722'], blurb: 'Hot, bright and full of teeth.' },
-  { id: 'mines', name: 'Deep Mines', icon: '⛏️', hp: 40_000, gold: 100_000_000_000_000, speed: 47, mastery: 800_000, guardian: 6_000_000, palette: ['#1e140a', '#6a4a22', '#c09050', '#f4e4c8'], ground: ['#5a4228', '#4e3820'], blurb: 'Dug too deep, woke too much.' },
-  { id: 'peaks', name: 'Frost Peaks', icon: '🏔️', hp: 100_000, gold: 3e15, speed: 50, mastery: 900_000, guardian: 15_000_000, palette: ['#0c2038', '#2a60a0', '#78b8e8', '#e4f4ff'], ground: ['#bcd8f0', '#a4c6e6'], blurb: 'Cold winds carry cold things.' },
-  { id: 'cliffs', name: 'Ascendant Steps', icon: '🪜', hp: 250_000, gold: 5e17, speed: 53, mastery: 1_000_000, guardian: 24_000_000, palette: ['#141c30', '#4a5a86', '#a8b8e0', '#f2f4ff'], ground: ['#9aa6bc', '#8a96ac'], blurb: 'Stone stairs above the peaks, climbing into the sky.' },
-  { id: 'fortress', name: 'Cloud Fortress', icon: '🏰', hp: 400_000, gold: 1e19, speed: 54, mastery: 1_100_000, guardian: 36_000_000, palette: ['#1a2440', '#4a70b0', '#a8d0f8', '#fdfcf4'], ground: ['#e8f0fa', '#d4e2f4'], blurb: 'A citadel on the clouds, held by storm and steel.' },
-  { id: 'meteors', name: 'Meteor Fields', icon: '☄️', hp: 650_000, gold: 2e20, speed: 55, mastery: 1_200_000, guardian: 90_000_000, palette: ['#0a0a1e', '#3a2a6a', '#e08a4a', '#fce8d0'], ground: ['#1c1830', '#2a2440'], blurb: 'Past the sky, where falling stars still burn.' },
-  { id: 'rift', name: 'Void Rift', icon: '🌀', hp: 1_500_000, gold: 5e21, speed: 56, mastery: 1_500_000, guardian: 160_000_000, palette: ['#1a0830', '#5a2098', '#b070e0', '#f2e4ff'], ground: ['#2a1440', '#3a1d58'], blurb: 'The end of the known world.' },
+  { id: 'glade', name: 'Faerie Glade', icon: '🍄', hp: 150, gold: 80, speed: 38, mastery: 180_000, guardian: 23_000, palette: ['#221a30', '#5a4a8a', '#a8d8b0', '#f4f0ff'], ground: ['#7cc47c', '#8ed28a'], blurb: 'Mushroom rings and things that bite.' },
+  { id: 'graveyard', name: 'Old Graveyard', icon: '🪦', hp: 1_200, gold: 15_000, speed: 40, mastery: 450_000, guardian: 150_000, palette: ['#1e1a2a', '#4a4460', '#9a94b0', '#e8e4f0'], ground: ['#5b5670', '#4c4762'], blurb: 'The dead do not rest here.' },
+  { id: 'crypt', name: 'Forsaken Crypt', icon: '⚰️', hp: 5_000, gold: 2_000_000, speed: 42, mastery: 1_500_000, guardian: 660_000, palette: ['#1a1614', '#4a403a', '#9a8e80', '#ece4d8'], ground: ['#5a524a', '#4e4640'], blurb: 'Deeper than the graves, and older.' },
+  { id: 'depths', name: 'Shadowy Depths', icon: '🕳️', hp: 10_000, gold: 10_000_000_000, speed: 43, mastery: 1_900_000, guardian: 1_500_000, palette: ['#120e1c', '#3a3050', '#8a7ea8', '#e6e0f4'], ground: ['#2e2838', '#26212f'], blurb: 'Below the crypt, the dark has teeth.' },
+  { id: 'caves', name: 'Ember Caves', icon: '🌋', hp: 20_000, gold: 3_000_000_000_000, speed: 45, mastery: 1_250_000, guardian: 3_600_000, palette: ['#2a0e08', '#8a2c10', '#e07030', '#fde4c0'], ground: ['#6a2c1a', '#823722'], blurb: 'Hot, bright and full of teeth.' },
+  { id: 'mines', name: 'Deep Mines', icon: '⛏️', hp: 40_000, gold: 100_000_000_000_000, speed: 47, mastery: 3_400_000, guardian: 39_000_000, palette: ['#1e140a', '#6a4a22', '#c09050', '#f4e4c8'], ground: ['#5a4228', '#4e3820'], blurb: 'Dug too deep, woke too much.' },
+  { id: 'peaks', name: 'Frost Peaks', icon: '🏔️', hp: 100_000, gold: 3e15, speed: 50, mastery: 5_100_000, guardian: 70_000_000, palette: ['#0c2038', '#2a60a0', '#78b8e8', '#e4f4ff'], ground: ['#bcd8f0', '#a4c6e6'], blurb: 'Cold winds carry cold things.' },
+  { id: 'cliffs', name: 'Ascendant Steps', icon: '🪜', hp: 250_000, gold: 5e17, speed: 53, mastery: 4_800_000, guardian: 140_000_000, palette: ['#141c30', '#4a5a86', '#a8b8e0', '#f2f4ff'], ground: ['#9aa6bc', '#8a96ac'], blurb: 'Stone stairs above the peaks, climbing into the sky.' },
+  { id: 'fortress', name: 'Cloud Fortress', icon: '🏰', hp: 400_000, gold: 1e19, speed: 54, mastery: 4_400_000, guardian: 150_000_000, palette: ['#1a2440', '#4a70b0', '#a8d0f8', '#fdfcf4'], ground: ['#e8f0fa', '#d4e2f4'], blurb: 'A citadel on the clouds, held by storm and steel.' },
+  { id: 'meteors', name: 'Meteor Fields', icon: '☄️', hp: 650_000, gold: 2e20, speed: 55, mastery: 4_800_000, guardian: 200_000_000, palette: ['#0a0a1e', '#3a2a6a', '#e08a4a', '#fce8d0'], ground: ['#1c1830', '#2a2440'], blurb: 'Past the sky, where falling stars still burn.' },
+  { id: 'rift', name: 'Void Rift', icon: '🌀', hp: 1_500_000, gold: 5e21, speed: 56, mastery: 4_800_000, guardian: 640_000_000, palette: ['#1a0830', '#5a2098', '#b070e0', '#f2e4ff'], ground: ['#2a1440', '#3a1d58'], blurb: 'The end of the known world.' },
 ];
 
 export const areaDef = (id: AreaId): AreaDef => AREAS.find((a) => a.id === id)!;
@@ -828,17 +828,30 @@ export const TRAIN_UNLOCK_KILLS = 20;
 export const EMPOWER_UNLOCK_KILLS = 100;
 
 /**
- * Empower's effect on a monster's HP, gold and material drops: a little per session (added up), multiplied
- * by a growth factor per level above 1, so it grows exponentially as the monster levels.
+ * Empower: each session adds a share of a monster's HP, gold, material drops and spawns (added up). Every
+ * EMPOWER_SESSIONS_PER_LEVEL sessions is a level, and each level above 1 earns an evolution point, up to
+ * MAX_MONSTER_LEVEL, where every evolution tree can be completed (about ×15 HP, ×30 gold, ×4 drops, ×7 spawns).
  */
-// HP and spawns grow fastest: Empowered monsters keep up with a Hunter's damage, and more of them means more gold.
-export const EMPOWER = { hp: 0.05, gold: 0.03, drops: 0.02, spawn: 0.04 };
-export const EMPOWER_LEVEL = { hp: 1.08, gold: 1.05, drops: 1.03, spawn: 1.05 };
+export const EMPOWER = { hp: 0.07, gold: 0.145, drops: 0.015, spawn: 0.03 };
+export const EMPOWER_SESSIONS_PER_LEVEL = 5;
+/** A monster's top level: enough evolution points for its whole tree. */
+export const MAX_MONSTER_LEVEL = 42;
+export const MAX_EMPOWER_SESSIONS = (MAX_MONSTER_LEVEL - 1) * EMPOWER_SESSIONS_PER_LEVEL;
 
-/** Multiplier from `sessions` Empower sessions at `level`. */
-export const empowerMult = (stat: keyof typeof EMPOWER, sessions: number, level: number): number =>
-  (1 + EMPOWER[stat] * sessions) * EMPOWER_LEVEL[stat] ** (level - 1);
-export const EMPOWER_GROWTH = 1.15;
+/** Multiplier from `sessions` Empower sessions. */
+export const empowerMult = (stat: keyof typeof EMPOWER, sessions: number): number => 1 + EMPOWER[stat] * sessions;
+/**
+ * Each session costs this much more than the last: maxing out a monster takes gold from about three areas
+ * further on (Green Slimes finish evolving while you level in the Forsaken Crypt).
+ */
+export const EMPOWER_GROWTH = 1.115;
+
+/** A monster's level from its Empower sessions, and progress toward the next (capped at MAX_MONSTER_LEVEL). */
+export function monsterLevel(sessions: number): { level: number; into: number; need: number } {
+  const s = Math.max(0, Math.min(MAX_EMPOWER_SESSIONS, Math.floor(sessions)));
+  const level = 1 + Math.floor(s / EMPOWER_SESSIONS_PER_LEVEL);
+  return { level, into: level >= MAX_MONSTER_LEVEL ? EMPOWER_SESSIONS_PER_LEVEL : s % EMPOWER_SESSIONS_PER_LEVEL, need: EMPOWER_SESSIONS_PER_LEVEL };
+}
 
 /**
  * Materials from one kill at a drop chance: every full 100% is a guaranteed drop, and the rest is the chance

@@ -22,6 +22,9 @@ import {
   type HunterId,
   type ItemId,
   type MaterialId,
+  MAX_EMPOWER_SESSIONS,
+  levelFromTrains,
+  EMPOWER_SESSIONS_PER_LEVEL,
 } from './balance';
 
 export interface EventState {
@@ -170,7 +173,7 @@ export interface GameState {
   };
 }
 
-export const SAVE_VERSION = 13;
+export const SAVE_VERSION = 14;
 
 const zeroes = <K extends string>(ids: { id: K }[]): Record<K, number> =>
   Object.fromEntries(ids.map((x) => [x.id, 0])) as Record<K, number>;
@@ -447,6 +450,9 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
     const b = state.bestiary[e.id] as BestiaryEntry & { swarm?: unknown; bounty?: unknown };
     const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.floor(v) : 0);
     b.empower = n(b.empower) + n(b.swarm) + n(b.bounty);
+    // v13 -> v14: Empower levels went from the Hunter curve (3, 4, 5 … sessions per level) to 5 per level,
+    // capped at Lv 41. Monsters keep their level.
+    if (((data.version as number) ?? 1) < 14 && b.empower > 0) b.empower = Math.min(MAX_EMPOWER_SESSIONS, (levelFromTrains(b.empower).level - 1) * EMPOWER_SESSIONS_PER_LEVEL);
     b.kills = n(b.kills);
     delete b.swarm;
     delete b.bounty;
