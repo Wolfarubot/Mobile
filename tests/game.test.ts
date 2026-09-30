@@ -95,7 +95,7 @@ function veteran(s: GameState): GameState {
 
 function rich(): Game {
   const s = veteran(newGame(0));
-  s.gold = 1e15;
+  s.gold = 1e20;
   s.main.trains = 200;
   return new Game(s, noCrit);
 }
@@ -145,9 +145,14 @@ describe('Areas', () => {
 
   it('the Guardian is tuned to the next area and later areas are tougher and richer', () => {
     const g = new Game(newGame(0), noCrit);
-    expect(g.guardianHp).toBeGreaterThan(areaDef('graveyard').hp);
-    expect(g.enemyStats('skeleton').hp).toBeGreaterThan(g.enemyStats('greenSlime').hp * 10);
-    expect(g.enemyStats('skeleton').gold).toBeGreaterThan(g.enemyStats('greenSlime').gold * 10);
+    // The Guardian is a wall: far tougher than anything in the next area.
+    expect(g.guardianHp).toBeGreaterThan(areaDef('glade').hp * 5);
+    // Each area is far tougher and far richer than the last, and HP and gold both grow exponentially.
+    for (let i = 1; i < AREAS.length; i++) {
+      expect(AREAS[i].hp).toBeGreaterThan(AREAS[i - 1].hp * 4);
+      expect(AREAS[i].gold).toBeGreaterThan(AREAS[i - 1].gold * 10);
+      if (i < AREAS.length - 1) expect(AREAS[i].guardian).toBeGreaterThan(AREAS[i + 1].hp * 5);
+    }
   });
 });
 
@@ -324,6 +329,7 @@ describe('Hunters', () => {
     for (const id of ['alchemist', 'ranger', 'glimmer', 'gravewarden'] as const) g.recruit(id);
     g.state.areas.graveyard.unlocked = true;
     g.state.hunters.alchemist.trains = 50;
+    g.state.gold = 1000; // small enough that forest gold still shows up
     expect(g.station('alchemist', 'forest')).toBe(true);
     expect(g.station('ranger', 'forest')).toBe(true);
     expect(g.station('glimmer', 'forest')).toBe(true);
