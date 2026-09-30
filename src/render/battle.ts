@@ -25,8 +25,9 @@ interface Ring {
   color: string;
   max: number;
   fill?: boolean;
-  /** Drawn as a circle of square pixels. */
+  /** Drawn as a circle of square pixels, with a fainter ring inside and a scatter of pixels across it. */
   pixel?: boolean;
+  scatter?: Cell[];
 }
 
 interface Beam {
@@ -136,7 +137,7 @@ export class BattleView {
           this.fx.burst(e.x, e.y, '#ffb04d', 8, 160, 3, 0);
           break;
         case 'nova':
-          this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: '255,240,190', max: 0.35, pixel: true });
+          this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: hexRgb(e.color ?? '#fff0be'), max: 0.4, pixel: true, scatter: sparseCells(e.r, Math.random() * 1e6) });
           break;
         case 'beam':
           this.beams.push({ ...e, t: 0 });
@@ -339,9 +340,17 @@ export class BattleView {
       const k = r.t / r.max;
       const rad = r.r * (0.4 + k * 0.6);
       if (r.pixel) {
-        // A round ring built from square pixels.
-        g.fillStyle = `rgba(${r.color},${1 - k})`;
-        pixelCircle(g, r.x, r.y, rad, PIXEL);
+        // A burst: a solid ring of square pixels in its colour, a fainter ring trailing inside it, and a
+        // scatter of pixels across the area it hit.
+        const a = k < 0.5 ? 1 : 1 - (k - 0.5) * 2; // full strength for the first half, then fades
+        g.fillStyle = `rgba(${r.color},${0.3 * a})`;
+        for (const c of r.scatter ?? []) if (Math.hypot(c.x, c.y) <= rad) g.fillRect(r.x + c.x - c.s / 2, r.y + c.y - c.s / 2, c.s, c.s);
+        g.fillStyle = `rgba(${r.color},${0.45 * a})`;
+        pixelCircle(g, r.x, r.y, Math.max(0, rad - PIXEL * 2), PIXEL);
+        g.fillStyle = `rgba(0,0,0,${0.35 * a})`;
+        pixelCircle(g, r.x + 1, r.y + 1, rad, PIXEL, 2);
+        g.fillStyle = `rgba(${r.color},${a})`;
+        pixelCircle(g, r.x, r.y, rad, PIXEL, 2);
         continue;
       }
       g.beginPath();
@@ -846,9 +855,12 @@ function drawStatus(g: CanvasRenderingContext2D, e: Enemy, t: number): void {
   if (e.burn) specks(['#ffd23a', '#ff8a2a', '#e8321e'], 6, r * 1.7, 1.8); // embers: yellow, orange and red
   if (e.poison) specks('#6fdc5a', 3, r * 1.3, 0.9);
   if (e.aura) {
-    // Decay's dark aura: a slowly pulsing pixel ring the size of its reach.
+    // Decay's aura: corrupted ground, a dim scatter of dark pixels across its reach inside a pulsing
+    // purple-brown pixel ring.
     const pulse = 0.5 + 0.5 * Math.sin(t * 6 + e.phase);
-    g.fillStyle = `rgba(90,60,40,${0.35 + 0.3 * pulse})`;
+    g.fillStyle = `rgba(60,24,52,${0.22 + 0.12 * pulse})`;
+    for (const c of auraCells(e.phase)) g.fillRect(c.x - c.s / 2, c.y - c.s / 2, c.s, c.s);
+    g.fillStyle = `rgba(88,34,70,${0.6 + 0.3 * pulse})`;
     pixelCircle(g, 0, 0, STATUS.aura.radius, PIXEL);
   }
   if (e.exposed) {
@@ -1077,13 +1089,16 @@ function squareCluster(r: number, big: number, seed: number): Cell[] {
   return out;
 }
 
-/** A circle of radius `r` drawn as square pixels (like a circle in a block game), in the current fill colour. */
-function pixelCircle(g: CanvasRenderingContext2D, cx: number, cy: number, r: number, px: number): void {
+/**
+ * A circle of radius `r` drawn as square pixels (like a circle in a block game), `thick` pixels wide, in the
+ * current fill colour.
+ */
+function pixelCircle(g: CanvasRenderingContext2D, cx: number, cy: number, r: number, px: number, thick = 1): void {
   const n = Math.ceil(r / px) + 1;
   for (let j = -n; j <= n; j++)
     for (let i = -n; i <= n; i++) {
       const d = Math.hypot(i * px, j * px);
-      if (Math.abs(d - r) <= px / 2) g.fillRect(cx + i * px - px / 2, cy + j * px - px / 2, px, px);
+      if (d <= r + px / 2 && d > r - px * (thick - 0.5)) g.fillRect(cx + i * px - px / 2, cy + j * px - px / 2, px, px);
     }
 }
 
@@ -1109,4 +1124,36 @@ function frostTint(img: HTMLImageElement | HTMLCanvasElement): HTMLCanvasElement
   x.fillRect(0, 0, c.width, c.height);
   frostCache.set(img, c);
   return c;
+}
+
+/** "#rrggbb" as "r,g,b" for rgba(). */
+function hexRgb(hex: string): string {
+  return [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(',');
+}
+
+/** A sparse scatter of pixels across radius `r` (a burst's hit area, a decay aura's ground). */
+function sparseCells(r: number, seed: number): Cell[] {
+  let x = Math.abs(Math.floor(seed)) % 2147483646 || 1;
+  const rand = () => (x = (x * 48271) % 2147483647) / 2147483647;
+  const out: Cell[] = [];
+  const n = Math.round((r * r) / 60);
+  for (let i = 0; i < n; i++) {
+    const a = rand() * Math.PI * 2;
+    const d = Math.sqrt(rand()) * r;
+    out.push({ x: Math.round((Math.cos(a) * d) / PIXEL) * PIXEL, y: Math.round((Math.sin(a) * d) / PIXEL) * PIXEL, s: rand() < 0.3 ? PIXEL * 2 : PIXEL, color: 0 });
+  }
+  return out;
+}
+
+/** Each decay aura's ground pattern, by the monster's phase (so it holds still as the monster moves). */
+const auraCache = new Map<number, Cell[]>();
+function auraCells(phase: number): Cell[] {
+  const key = Math.round(phase * 1000);
+  let cells = auraCache.get(key);
+  if (!cells) {
+    if (auraCache.size > 200) auraCache.clear();
+    cells = sparseCells(STATUS.aura.radius, key + 1);
+    auraCache.set(key, cells);
+  }
+  return cells;
 }

@@ -200,7 +200,7 @@ export type FieldEvent =
   | { type: 'guard'; x: number; y: number }
   | { type: 'escape'; x: number; y: number }
   | { type: 'explode'; x: number; y: number; r: number; color: string }
-  | { type: 'nova'; x: number; y: number; r: number }
+  | { type: 'nova'; x: number; y: number; r: number; color?: string }
   | { type: 'beam'; x1: number; y1: number; x2: number; y2: number; color: string; width: number }
   | { type: 'sweep'; x: number; y: number; a: number; arc: number; r: number; color: string; heavy?: boolean }
   | { type: 'reload'; who: Shooter; x: number; y: number };
@@ -396,12 +396,12 @@ export class Field {
         for (let i = 0; i < n; i++) this.stabs.push({ t: i * DAGGER_GAP, target: target.id, last: i === n - 1 });
       } else if (cls?.attack === 'nova') {
         // A burst of power around the Hunter: every monster in the radius.
-        this.events.push({ type: 'nova', x: 0, y: 0, r: cls.reach! });
+        this.events.push({ type: 'nova', x: 0, y: 0, r: cls.reach!, color: DAMAGE_TYPES[g.damageTypeOf('main')].color });
         for (const e of this.enemies) if (e.hp > 0 && Math.hypot(e.x, e.y) <= cls.reach! + e.r) this.hitWith('main', e, 1, 0, 0);
       } else if (cls?.summon) {
         const look = this.mainWeapon()?.summon?.look ?? 'wisp';
         this.summons.push({ x: Math.cos(this.aim) * 20, y: Math.sin(this.aim) * 20, life: cls.summon.duration, maxLife: cls.summon.duration, bite: 0, look, dash: 0, dashHit: false });
-        this.events.push({ type: 'nova', x: 0, y: 0, r: 30 });
+        this.events.push({ type: 'nova', x: 0, y: 0, r: 30, color: '#c9a8ff' });
       } else if (cls?.spell && this.gunState.ammo === 1) {
         // A staff's big spell: the last round of each cast.
         this.shoot('main', 'fireball', 0, 0, this.aim, 380, range, { radius: cls.spell.radius, dmg: cls.spell.damage });
@@ -610,7 +610,7 @@ export class Field {
           break;
         case 'nova': {
           const r = (style.radius ?? 100) * areaMult;
-          this.events.push({ type: 'nova', x: h.x, y: h.y, r });
+          this.events.push({ type: 'nova', x: h.x, y: h.y, r, color: DAMAGE_TYPES[g.damageTypeOf(h.id)].color });
           for (const e of this.enemies) if (e.hp > 0 && Math.hypot(e.x - h.x, e.y - h.y) <= r + e.r) this.hitWith(h.id, e, 1, h.x, h.y);
           break;
         }
