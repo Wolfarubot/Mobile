@@ -16,6 +16,8 @@ import {
   WEAK_MULT,
   DAMAGE_TYPES,
   type DamageType,
+  type WeaponClass,
+  type WeaponClassDef,
   slotAccepts,
   areaDef,
   areaEnemies,
@@ -164,6 +166,7 @@ export class AppUI {
       }),
     );
     $('#settingsBtn').addEventListener('click', () => this.openSettings());
+    $('#tutorialsBtn').addEventListener('click', () => this.openTutorials());
     this.applySettings();
     // Panels that depend on which areas/enemies/Hunters exist are rebuilt when those change.
     game.on((e) => {
@@ -1918,8 +1921,8 @@ export class AppUI {
   }
 
   /** Shown once, the very first time the game opens. */
-  showWelcome(): void {
-    this.game.state.flags.welcome = true;
+  showWelcome(replay = false): void {
+    if (!replay) this.game.state.flags.welcome = true;
     this.showModal(
       `<h2>Welcome!</h2>
        <p>This is <b>Pocket Hunter</b>, an idle swarm slaying game!</p>
@@ -1941,17 +1944,19 @@ export class AppUI {
   }
 
   /** Shown once, when you first have the materials to craft something. */
-  private showCraftIntro(): void {
-    this.game.state.flags.craftIntro = true;
+  private showCraftIntro(replay = false): void {
+    if (!replay) this.game.state.flags.craftIntro = true;
+    const first = this.firstCraftable();
     this.showModal(
       `<h2>🔨 Ready to craft!</h2>
-       <p>You've gathered enough materials to craft your first item: <b>${this.firstCraftable()}</b>.</p>
+       <p>${first ? `You've gathered enough materials to craft your first item: <b>${first}</b>.` : 'Once you gather enough materials, you can craft your first item.'}</p>
        <p>Monsters drop materials when slain. Spend them in <b>Inventory → Crafting</b> on gear for your Hunters and on Upgrades that make everyone stronger.</p>`,
       [
         { label: 'Later', secondary: true },
         {
           label: 'Go to Crafting',
           action: () => {
+            this.dropDetail();
             this.invSub = 'crafting';
             this.setTab('inventory');
           },
@@ -1961,8 +1966,8 @@ export class AppUI {
   }
 
   /** Shown once, when the 100th slime falls: Empower opens in the Bestiary. */
-  private showEmpowerIntro(): void {
-    this.game.state.flags.empowerIntro = true;
+  private showEmpowerIntro(replay = false): void {
+    if (!replay) this.game.state.flags.empowerIntro = true;
     if (this.tab === 'beasts') this.setTab('beasts', true);
     this.showModal(
       `<h2>👾 Empower unlocked!</h2>
@@ -1970,14 +1975,14 @@ export class AppUI {
        <p>Every level earns an <b>evolution point</b>. Tap a monster to evolve it; slaying more of it opens further evolutions. It all applies wherever they're hunted, including by stationed Hunters.</p>`,
       [
         { label: 'Later', secondary: true },
-        { label: 'Go to Bestiary', action: () => this.setTab('beasts') },
+        { label: 'Go to Bestiary', action: () => this.goTo('beasts') },
       ],
     );
   }
 
   /** Shown once, the first time you can afford to train your Hunter. */
-  private showTrainIntro(): void {
-    this.game.state.flags.trainIntro = true;
+  private showTrainIntro(replay = false): void {
+    if (!replay) this.game.state.flags.trainIntro = true;
     this.showModal(
       `<h2>💪 Time to train!</h2>
        <p>You have enough gold to <b>Train</b> your Hunter! Tap <b>Train</b> in the Hunters tab to increase your strength!</p>
@@ -1985,23 +1990,105 @@ export class AppUI {
        <p>Open the Hunter's card to see more details, upgrade their abilities, and change their equipment!</p>`,
       [
         { label: 'Later', secondary: true },
-        { label: 'Go to Hunters', action: () => this.setTab('hunters') },
+        { label: 'Go to Hunters', action: () => this.goTo('hunters') },
       ],
     );
   }
 
   /** Shown once, when the first Guardian Challenge unlocks. */
-  private showEventsIntro(): void {
-    this.game.state.flags.eventsIntro = true;
+  private showEventsIntro(replay = false): void {
+    if (!replay) this.game.state.flags.eventsIntro = true;
     this.showModal(
       `<h2>🎉 Events unlocked!</h2>
        <p>${this.game.eventUnlocked('guardian-forest') ? '<b>Guardian Challenge</b>' : `<b>${eventDef('slimeSwarm').name}</b>`} is ready in the ${areaDef('forest').name}.</p>
        <p>The Events tab shows the events for the area you're in. Slay monsters there to unlock them. After you start one, it goes on cooldown before it can run again. Travel to another area to see its events.</p>`,
       [
         { label: 'Later', secondary: true },
-        { label: 'Go to Events', action: () => this.setTab('events') },
+        { label: 'Go to Events', action: () => (this.game.eventsOpen ? this.goTo('events') : this.showEventsLocked()) },
       ],
     );
+  }
+
+  /** Switches tab from anywhere, closing a full-screen view (e.g. Tutorials) on the way. */
+  private goTo(tab: Tab): void {
+    this.dropDetail();
+    this.setTab(tab);
+  }
+
+  // ---- Tutorials ----
+
+  /** Full-screen Tutorials menu: replay the tips, and pages on weapon types and damage types. */
+  private openTutorials(page: 'menu' | 'weapons' | 'damage' = 'menu'): void {
+    if (this.detail) this.dropDetail();
+    const title = page === 'menu' ? 'Tutorials' : page === 'weapons' ? 'Weapon types' : 'Damage types';
+    const view = el('div', 'hunter-detail settings tutorials');
+    view.innerHTML = `
+      <div class="hd-top">${page === 'menu' ? '<button class="hd-close" aria-label="Close">✕</button>' : '<button class="hd-close" aria-label="Back">‹</button>'}<span>${title}</span></div>
+      <div class="hd-scroll"></div>`;
+    document.body.appendChild(view);
+    $('.hd-close', view).addEventListener('click', () => (page === 'menu' ? this.closeHunterDetail() : this.openTutorials()));
+    this.detail = { el: view, refreshers: [] };
+    const body = $('.hd-scroll', view);
+    if (page === 'weapons') this.buildWeaponGuide(body);
+    else if (page === 'damage') this.buildDamageGuide(body);
+    else this.buildTutorialMenu(body);
+  }
+
+  private buildTutorialMenu(body: HTMLElement): void {
+    const row = (icon: string, name: string, text: string, open: () => void) => {
+      const b = el('button', 'card tut-row');
+      b.innerHTML = `<span class="tut-icon">${icon}</span><span class="tut-text"><b>${name}</b><small>${text}</small></span><span class="tut-go">›</span>`;
+      b.addEventListener('click', open);
+      body.appendChild(b);
+    };
+    body.appendChild(sectionTitle('Guides'));
+    row('⚔️', 'Weapon types', 'How each kind of weapon attacks: range, speed, reloads, knockback and more.', () => this.openTutorials('weapons'));
+    row('🔥', 'Damage types & status effects', 'What each damage type does, weaknesses and resistances.', () => this.openTutorials('damage'));
+    body.appendChild(sectionTitle('Tips'));
+    row('👋', 'Welcome', 'Getting started.', () => this.showWelcome(true));
+    row('💪', 'Training', `Making your Hunter stronger (opens after ${TRAIN_UNLOCK_KILLS} slimes).`, () => this.showTrainIntro(true));
+    row('🔨', 'Crafting', 'Materials, gear and Upgrades.', () => this.showCraftIntro(true));
+    row('👾', 'Empower', `Unlocking and empowering monsters (opens after ${EMPOWER_UNLOCK_KILLS} slimes).`, () => this.showEmpowerIntro(true));
+    row('🔒', 'Unlocking Events', 'How to open the Events tab.', () => this.showEventsLocked());
+    row('🎉', 'Events', 'Guardian Challenges, swarms and cooldowns.', () => this.showEventsIntro(true));
+  }
+
+  private buildWeaponGuide(body: HTMLElement): void {
+    const intro = el('div', 'card setting');
+    intro.innerHTML = `<p>Your Hunter can wield any weapon and attacks the way it does. Guild Hunters keep their own signature attack; their weapon's type reshapes its speed, damage and range.</p><p>Every type trades speed, damage, reach and crowd hits, so none is simply best. Melee hits knock surviving monsters back.</p>`;
+    body.appendChild(intro);
+    const groups: Array<[string, WeaponClass[]]> = [
+      ['Ranged', ['shortbow', 'longbow', 'crossbow', 'pistol', 'rifle', 'repeater']],
+      ['Melee', ['dagger', 'sword', 'glaive', 'spear', 'hammer']],
+      ['Magic', ['wand', 'scepter', 'staff', 'focus', 'tome']],
+    ];
+    for (const [name, classes] of groups) {
+      body.appendChild(sectionTitle(name));
+      for (const id of classes) {
+        const c = WEAPON_CLASSES[id];
+        const known = GEAR.filter((gd) => gd.weaponClass === id && this.gearKnown(gd));
+        const card = el('div', 'card setting tut-card');
+        card.innerHTML = `<div class="setting-name">${CLASS_ICONS[id]} ${c.name}</div><p>${c.describe}</p><div class="tut-traits">${weaponTraits(c)
+          .map((t) => `<span class="tut-trait">${t}</span>`)
+          .join('')}</div>${known.length ? `<p class="tut-examples">${known.map((gd) => `${gd.icon} ${gd.name}`).join(' · ')}</p>` : ''}`;
+        body.appendChild(card);
+      }
+    }
+  }
+
+  private buildDamageGuide(body: HTMLElement): void {
+    const intro = el('div', 'card setting');
+    intro.innerHTML = `<p>Every attack deals a damage type: a weapon's own, or the Hunter's if the weapon has none.</p>
+      <p>Monsters can be <b>Weak</b> to a type (×${WEAK_MULT} damage) or <b>Resist</b> it (×${RESIST_MULT}); their Bestiary card shows which.</p>
+      <p>Most types can inflict a <b>status effect</b>. A weapon's proc chance sets how often. A monster holds one of each effect at a time, and a new one refreshes it. <b>Bleeding</b> is the exception: it stacks.</p>`;
+    body.appendChild(intro);
+    body.appendChild(sectionTitle('Damage types'));
+    for (const t of Object.keys(DAMAGE_TYPES) as DamageType[]) {
+      const d = DAMAGE_TYPES[t];
+      const card = el('div', 'card setting tut-card');
+      card.innerHTML = `<div class="setting-name">${damageTypeHtml(t)}${STATUS_NAMES[t] ? ` <span class="tut-status">${STATUS_NAMES[t]}</span>` : ''}</div><p>${d.effect ? `${d.effect}.` : 'No status effect: pure damage that few monsters resist.'}</p>`;
+      body.appendChild(card);
+    }
   }
 
   // ---- Settings ----
@@ -2504,6 +2591,63 @@ function costHtml(g: Game, cost: Partial<Record<MaterialId, number>>, check = tr
       check ? `<span class="${g.state.materials[m] < n ? 'short' : ''}">${gemHtml(m)}${fmt(g.state.materials[m])}/${fmt(n)}</span>` : `<span>${gemHtml(m)}${fmt(n)}</span>`,
     )
     .join('');
+}
+
+const CLASS_ICONS: Record<WeaponClass, string> = {
+  dagger: '🗡️',
+  sword: '⚔️',
+  glaive: '🪓',
+  spear: '🔱',
+  hammer: '🔨',
+  shortbow: '🏹',
+  longbow: '🏹',
+  crossbow: '🎯',
+  pistol: '🔫',
+  rifle: '🔫',
+  repeater: '💥',
+  wand: '🪄',
+  scepter: '🪬',
+  staff: '🪵',
+  focus: '💎',
+  tome: '📖',
+};
+
+/** The status effect each damage type inflicts. */
+const STATUS_NAMES: Partial<Record<DamageType, string>> = {
+  physical: 'Bleeding',
+  fire: 'Burning',
+  acid: 'Acid puddle',
+  frost: 'Chilled',
+  radiant: 'Radiant burst',
+  poison: 'Poisoned',
+  arcane: 'Exposed',
+  decay: 'Decay aura',
+};
+
+/** Short, player-facing traits of a weapon type for the Tutorials page. */
+function weaponTraits(c: WeaponClassDef): string[] {
+  const speed = (r: number) => (r >= 1.3 ? 'Very fast' : r >= 1 ? 'Fast' : r >= 0.75 ? 'Steady' : r >= 0.55 ? 'Slow' : 'Very slow');
+  const knock = (k: number) => (k >= 300 ? 'Extreme' : k >= 180 ? 'Strong' : 'Light');
+  const out: string[] = [];
+  if (c.summon) out.push(`🐾 Summon lasts ${c.summon.duration}s`);
+  else out.push(`⏱️ ${speed(c.rate)}`);
+  out.push(`💢 ×${c.damage} per hit`);
+  if (c.attack === 'shot') out.push(`📏 ${Math.round(c.range * 100)}% range`);
+  else if (c.attack === 'dagger') out.push('📏 Close, or thrown');
+  else if (c.attack === 'stab') out.push('📏 Medium thrust');
+  else if (c.attack === 'sweep') out.push('📏 Close sweep');
+  else if (c.attack === 'nova') out.push('📏 Around the Hunter');
+  else out.push('📏 Whole field');
+  if (c.thrusts) out.push(`🔪 ${c.thrusts} stabs`);
+  if (c.volley) out.push(`🎇 ${c.volley}-shot volleys`);
+  if (c.pierce) out.push(`➡️ Pierces ${c.pierce}`);
+  if (c.followThrough) out.push('➡️ Follow-through');
+  if (c.bounces) out.push(`↪️ Bounces ${c.bounces}`);
+  if (c.spell) out.push(`💥 Big spell every ${c.spell.every + 1}`);
+  if (c.mag && !c.spell) out.push(`🔄 ${c.mag} shots, then reload`);
+  if (c.spell) out.push('🔄 Recharges after its spell');
+  if (c.knock) out.push(`💨 ${knock(c.knock)} knockback`);
+  return out;
 }
 
 function sectionTitle(text: string): HTMLElement {
