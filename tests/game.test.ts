@@ -264,11 +264,11 @@ describe('Hunters', () => {
     expect(g.huntersUnlockedBy('slimeSwarm')).toEqual(['alchemist']);
     g.state.events.slimeSwarm.completed = 1;
     expect(g.hunterAvailable('alchemist')).toBe(true);
+    expect(g.huntersUnlockedBy('guardian-forest')).toEqual(['ranger']);
     g.startEvent('guardian-forest');
     g.bossSpawned();
     g.registerKill(g.guardianType, true);
-    expect(g.hunterAvailable('ranger')).toBe(false); // needs a second Guardian win
-    expect(g.huntersUnlockedBy('guardian-forest')).toEqual(['ranger']);
+    expect(g.hunterAvailable('ranger')).toBe(true); // Galladair: one Forest Guardian win
     expect(g.recruit('alchemist')).toBe(true);
     expect(g.recruit('alchemist')).toBe(false);
     // Glimmer waits in the Forsaken Crypt for its Guardian to fall.

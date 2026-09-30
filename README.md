@@ -24,7 +24,7 @@ Hunters become available through their home area's events, then cost gold to rec
 | Hunter | Unlocked by | Style | Perk |
 |---|---|---|---|
 | Reginald the Alchemist ⚗️ | Survive a Slime Swarm in the Whispering Forest | Magic bolts; every 4s a potion whose poison puddle keeps hurting (weapon damage powers the poison, weapon attack rate widens the puddle) | ×3 vs Slimes |
-| Galladair the Ranger 🏹 | Beat the Whispering Forest Guardian 2 times | Arrows that pierce up to 4 enemies | ×3 vs Beasts |
+| Galladair the Ranger 🏹 | Beat the Whispering Forest Guardian | Arrows that pierce up to 4 enemies | ×3 vs Beasts |
 | Alric the Gravewarden ✝️ | Beat the Old Graveyard Guardian | Holy pulse hitting everything around him | ×3 vs Undead |
 | Lance the Paladin 🛡️ | Beat the Old Graveyard Guardian 2 times | Short lance thrusts through a line | Skill tree: Zone of Protection (3-hit recharging shield), Rallying Oath (every other Hunter gets a 1-hit shield) |
 | Gus the Prospector 💰 | Beat the Old Graveyard Guardian 3 times | Shotgun: 5 pellets, close range | +75% gold |

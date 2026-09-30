@@ -1057,9 +1057,9 @@ export const HUNTERS: HunterDef[] = [
   },
   {
     id: 'ranger', name: 'Galladair', title: 'Ranger', icon: '🏹', color: '#c09060', area: 'forest', recruitCost: 1_200, bane: { archetype: 'beast', mult: 3 },
-    unlock: { event: 'guardian-forest', times: 2 },
+    unlock: { event: 'guardian-forest', times: 1 },
     ascendedTitle: 'Pathfinder',
-    story: 'Galladair tracks the wolves of the Whispering Forest and doesn\'t trust just anyone. Beat the Forest Guardian twice to earn Galladair\'s respect, and the bow is yours.',
+    story: 'Galladair tracks the wolves of the Whispering Forest and doesn\'t trust just anyone. Beat the Forest Guardian to earn Galladair\'s respect, and the bow is yours.',
     ability: 'Arrows pierce through lines of enemies. Deals triple damage to Beasts.',
     style: { kind: 'arrow', damageType: 'physical', range: 300, rate: 1, damage: 1, pierce: 3, farm: 1.4, crowd: 2, describe: 'Arrows pierce through up to 4 enemies in a line.' },
   },
