@@ -2957,3 +2957,26 @@ button.mat:not(:disabled):active {
 .setting.disabled .segmented button {
   pointer-events: none;
 }
+.fx-list {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+.fx-list.disabled {
+  opacity: 0.45;
+}
+.fx-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+}
+.fx-row .segmented {
+  flex: none;
+  width: 130px;
+  margin: 0;
+}
+.fx-row .segmented button {
+  padding: 4px 6px;
+}

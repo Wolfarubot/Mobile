@@ -63,7 +63,7 @@ import {
 } from '../src/core/balance';
 import { Field, type Enemy } from '../src/core/field';
 import { Game } from '../src/core/game';
-import { deserialize, newGame, SAVE_VERSION, serialize, type GameState } from '../src/core/state';
+import { deserialize, FX_KEYS, newGame, SAVE_VERSION, serialize, type GameState } from '../src/core/state';
 
 const noCrit = () => 0.99;
 
@@ -1828,6 +1828,24 @@ describe('Saves', () => {
     expect(deserialize(JSON.stringify(old))!.stats.matGained).toEqual({ pelt: 12 });
   });
 
+  it('effect settings: all on and fancy by default; switches survive a save', () => {
+    const s = newGame(0);
+    expect(FX_KEYS.every((k) => s.settings.fx[k])).toBe(true);
+    expect(s.settings.aoeStyle).toBe('fancy');
+    s.settings.fx.dmgCrit = false;
+    s.settings.fx.status = false;
+    s.settings.aoeStyle = 'basic';
+    const back = deserialize(serialize(s))!.settings;
+    expect([back.fx.dmgCrit, back.fx.status, back.fx.bleed, back.aoeStyle]).toEqual([false, false, true, 'basic']);
+    // Saves from before these settings get everything on.
+    const old = JSON.parse(serialize(newGame(0)));
+    delete old.settings.fx;
+    delete old.settings.aoeStyle;
+    const o = deserialize(JSON.stringify(old))!.settings;
+    expect(FX_KEYS.every((k) => o.fx[k])).toBe(true);
+    expect(o.aoeStyle).toBe('fancy');
+  });
+
   it('cooldown and reload indicator settings survive a save; junk falls back to the defaults', () => {
     const s = newGame(0);
     Object.assign(s.settings, { cooldowns: false, cooldownPos: 'left', reloads: false, reloadPos: 'below' });
@@ -1861,12 +1879,12 @@ describe('Saves', () => {
     s.settings.name = 'Wolfa';
     s.flags.eventsIntro = true;
     const back = deserialize(serialize(s))!;
-    expect(back.settings).toEqual({ leftHanded: true, name: 'Wolfa', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', cooldownStyle: 'fancy' });
+    expect(back.settings).toEqual({ leftHanded: true, name: 'Wolfa', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', cooldownStyle: 'fancy', fx: Object.fromEntries(FX_KEYS.map((k) => [k, true])), aoeStyle: 'fancy' });
     expect(back.flags).toEqual({ eventsIntro: true, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false });
     const old = JSON.parse(serialize(newGame(0)));
     delete old.settings;
     delete old.flags;
-    expect(deserialize(JSON.stringify(old))!.settings).toEqual({ leftHanded: false, name: '', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', cooldownStyle: 'fancy' });
+    expect(deserialize(JSON.stringify(old))!.settings).toEqual({ leftHanded: false, name: '', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', cooldownStyle: 'fancy', fx: Object.fromEntries(FX_KEYS.map((k) => [k, true])), aoeStyle: 'fancy' });
     // A saved tab order survives; junk is dropped and missing tabs are appended.
     const custom = newGame(0);
     custom.settings.tabOrder = ['areas', 'events', 'hunters', 'beasts', 'inventory'];

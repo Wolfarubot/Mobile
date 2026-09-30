@@ -133,6 +133,10 @@ export interface GameState {
     /** 'fancy' adds effects (pixels at the reload text's fading edge, a glowing line on refilling icons). */
     reloadStyle: IndicatorStyle;
     cooldownStyle: IndicatorStyle;
+    /** Which visual effects show (damage numbers by kind, status effects by kind). All on by default. */
+    fx: Record<FxKey, boolean>;
+    /** Area effects (puddles, explosions, fireballs, bursts, auras): pixel squares ('fancy') or plain circles ('basic'). */
+    aoeStyle: IndicatorStyle;
   };
   /** One-time tutorial moments already shown. */
   flags: {
@@ -185,7 +189,7 @@ export function newGame(now = Date.now()): GameState {
     equipment: {},
     nextGearUid: 1,
     lastSeen: now,
-    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', cooldownStyle: 'fancy' },
+    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', cooldownStyle: 'fancy', fx: allFx(), aoeStyle: 'fancy' },
     flags: { eventsIntro: false, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false },
     events: Object.fromEntries(EVENTS.map((e) => [e.id, { cooldown: 0, runs: 0, completed: 0 }])),
     buyAmount: 1,
@@ -199,6 +203,26 @@ export const RELOAD_POSITIONS = ['above', 'below'] as const;
 export const INDICATOR_STYLES = ['fancy', 'basic'] as const;
 export type IndicatorStyle = (typeof INDICATOR_STYLES)[number];
 export type ReloadPos = (typeof RELOAD_POSITIONS)[number];
+
+/** Effect switches in Settings: the damage numbers and status effect groups, and each kind within them. */
+export const FX_KEYS = [
+  'damage',
+  'dmgNormal',
+  'dmgCrit',
+  'dmgResist',
+  'dmgWeak',
+  'status',
+  'burn',
+  'poison',
+  'bleed',
+  'chill',
+  'acid',
+  'radiant',
+  'decay',
+  'arcane',
+] as const;
+export type FxKey = (typeof FX_KEYS)[number];
+const allFx = (): Record<FxKey, boolean> => Object.fromEntries(FX_KEYS.map((k) => [k, true])) as Record<FxKey, boolean>;
 
 export function serialize(state: GameState): string {
   return JSON.stringify(state);
@@ -325,6 +349,11 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
       reloadPos: pick(RELOAD_POSITIONS, (data.settings as { reloadPos?: unknown } | undefined)?.reloadPos, 'above'),
       reloadStyle: pick(INDICATOR_STYLES, (data.settings as { reloadStyle?: unknown } | undefined)?.reloadStyle, 'fancy'),
       cooldownStyle: pick(INDICATOR_STYLES, (data.settings as { cooldownStyle?: unknown } | undefined)?.cooldownStyle, 'fancy'),
+      fx: (() => {
+        const saved = ((data.settings as { fx?: unknown } | undefined)?.fx ?? {}) as Record<string, unknown>;
+        return Object.fromEntries(FX_KEYS.map((k) => [k, saved[k] !== false])) as Record<FxKey, boolean>;
+      })(),
+      aoeStyle: pick(INDICATOR_STYLES, (data.settings as { aoeStyle?: unknown } | undefined)?.aoeStyle, 'fancy'),
     },
     flags: {
       eventsIntro: !!(data.flags as { eventsIntro?: unknown } | undefined)?.eventsIntro,

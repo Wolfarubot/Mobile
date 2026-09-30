@@ -2,6 +2,7 @@ import { areaDef, DAMAGE_TYPES, STATUS, enemyDef, eventDef, FIELD_ZOOM, GUARDIAN
 import { PLAYER_RADIUS, SUMMON_RADIUS, type Summon, type Bullet, type Enemy, type Field, type Helper } from '../core/field';
 import { fmt } from '../core/format';
 import type { Game, Shooter } from '../core/game';
+import type { FxKey } from '../core/state';
 import { canvasFont, fitCanvas, Fx } from './fx';
 import { sprite } from './sprites';
 
@@ -54,7 +55,7 @@ export class BattleView {
   /** Each puddle's squares, generated once. */
   private puddleCells = new WeakMap<object, Cell[]>();
   /** Explosions (fireballs, staff spells): a burst of fiery squares that spreads and fades. */
-  private blasts: Array<{ x: number; y: number; r: number; t: number; cells: Cell[] }> = [];
+  private blasts: Array<{ x: number; y: number; r: number; t: number; cells: Cell[]; colors: string[] }> = [];
   private beams: Beam[] = [];
   /** Ability cooldown icons, overlaid on the battlefield. */
   private cooldownBar: CooldownBar;
@@ -115,7 +116,9 @@ export class BattleView {
     for (const e of this.field.drainEvents()) {
       switch (e.type) {
         case 'hit':
-          // Weak spots get bigger numbers (and show more often); resisted hits smaller ones.
+          // Weak spots get bigger numbers (and show more often); resisted hits smaller ones. Each kind can be
+          // switched off in Settings.
+          if (!this.fxOn(e.crit ? 'dmgCrit' : e.affinity === 'weak' ? 'dmgWeak' : e.affinity === 'resist' ? 'dmgResist' : 'dmgNormal')) break;
           if (e.crit) this.fx.text(e.x, e.y, fmt(e.dmg), '#ff5a5a', e.affinity === 'weak' ? 19 : 16, 0.6);
           else if (e.affinity === 'weak') {
             if (Math.random() < 0.5) this.fx.text(e.x, e.y, `${fmt(e.dmg)}!`, DAMAGE_TYPES[e.dtype].color, 14, 0.55);
@@ -132,12 +135,18 @@ export class BattleView {
         case 'blast':
           this.rings.push({ x: e.x, y: e.y, t: 0, r: this.game.tapRadius, color: '255,255,255', max: 0.25 });
           break;
-        case 'explode':
-          this.blasts.push({ x: e.x, y: e.y, r: e.r, t: 0, cells: squareCluster(e.r, Math.max(5, e.r / 5), Math.random() * 1e6) });
-          this.fx.burst(e.x, e.y, '#ffb04d', 8, 160, 3, 0);
+        case 'explode': {
+          const radiant = e.color === DAMAGE_TYPES.radiant.color;
+          if (radiant && !this.fxOn('radiant')) break;
+          if (this.game.state.settings.aoeStyle === 'basic') {
+            this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: radiant ? '255,227,110' : '255,138,61', max: 0.3, fill: true });
+            this.fx.burst(e.x, e.y, '#ffb04d', 8, 160, 3, 0);
+          } else this.blasts.push({ x: e.x, y: e.y, r: e.r, t: 0, cells: squareCluster(e.r, Math.max(5, e.r / 5), Math.random() * 1e6), colors: radiant ? RADIANT_COLORS : FIRE_COLORS });
           break;
+        }
         case 'nova':
-          this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: hexRgb(e.color ?? '#fff0be'), max: 0.4, pixel: true, scatter: sparseCells(e.r, Math.random() * 1e6) });
+          if (this.game.state.settings.aoeStyle === 'basic') this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: hexRgb(e.color ?? '#fff0be'), max: 0.35 });
+          else this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: hexRgb(e.color ?? '#fff0be'), max: 0.4, pixel: true, scatter: sparseCells(e.r, Math.random() * 1e6) });
           break;
         case 'beam':
           this.beams.push({ ...e, t: 0 });
@@ -232,7 +241,20 @@ export class BattleView {
     g.scale(Z, Z);
 
     // Poison and acid puddles: a cluster of green squares (acid's are simply smaller puddles).
+    const basic = this.game.state.settings.aoeStyle === 'basic';
     for (const p of this.field.puddles) {
+      if (p.dtype === 'acid' && !this.fxOn('acid')) continue;
+      if (basic) {
+        const rgb = p.dtype === 'acid' ? '198,240,58' : '123,224,123';
+        g.fillStyle = `rgba(${rgb},${0.25 * Math.min(1, p.life)})`;
+        g.strokeStyle = `rgba(${rgb},${0.6 * Math.min(1, p.life)})`;
+        g.lineWidth = 2;
+        g.beginPath();
+        g.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        g.fill();
+        g.stroke();
+        continue;
+      }
       let cells = this.puddleCells.get(p);
       if (!cells) {
         cells = squareCluster(p.r, Math.max(4, p.r / 6), p.x * 7 + p.y * 13);
@@ -264,7 +286,7 @@ export class BattleView {
     for (const h of this.field.helpers) this.drawHelper(g, h);
     this.drawHunter(g);
 
-    for (const b of this.field.bullets) drawBullet(g, b, this.time);
+    for (const b of this.field.bullets) drawBullet(g, b, this.time, this.game.state.settings.aoeStyle === 'basic');
 
     // Tome spirits: a glowing wisp with a trailing tail, fading as their time runs out.
     for (const sm of this.field.summons) {
@@ -330,7 +352,7 @@ export class BattleView {
       const spread = 0.35 + 0.65 * Math.min(1, k * 1.6);
       g.globalAlpha = 1 - k * k;
       for (const c of b.cells) {
-        g.fillStyle = FIRE_COLORS[(c.color + Math.floor(b.t * 20)) % FIRE_COLORS.length];
+        g.fillStyle = b.colors[(c.color + Math.floor(b.t * 20)) % b.colors.length];
         g.fillRect(b.x + c.x * spread - c.s / 2, b.y + c.y * spread - c.s / 2, c.s, c.s);
       }
       g.globalAlpha = 1;
@@ -369,6 +391,13 @@ export class BattleView {
     g.restore();
     this.drawHud(g);
     this.cooldownBar.update();
+  }
+
+  /** Is this effect switched on in Settings (its group and itself)? */
+  private fxOn(k: FxKey): boolean {
+    const fx = this.game.state.settings.fx;
+    if (k.startsWith('dmg')) return fx.damage && fx[k];
+    return fx.status && fx[k];
   }
 
   /** A wolf spirit: a pale blue-grey wolf head with ears, streaking when it lunges. */
@@ -468,7 +497,7 @@ export class BattleView {
       const bob = Math.sin(e.phase * 10) * r * 0.06;
       g.scale(dirX < 0 ? -1 : 1, 1);
       // Chilled by Frost: drawn with a blue tint.
-      g.drawImage(e.slow ? frostTint(img) : img, -size / 2, -size / 2 + bob, size, size);
+      g.drawImage(e.slow && this.fxOn('chill') ? frostTint(img) : img, -size / 2, -size / 2 + bob, size, size);
       if (e.flash > 0.5) {
         // Brief white flash on hit without needing a tinted copy of the sprite.
         g.globalAlpha = 0.5;
@@ -482,7 +511,7 @@ export class BattleView {
       g.save();
       g.scale(1 + wob, 1 - wob);
       const body = e.boss ? shade(def.color, -0.15) : def.color;
-      g.fillStyle = e.flash > 0.5 ? '#ffffff' : e.slow ? mixHex(body, '#8fdcff', 0.55) : body;
+      g.fillStyle = e.flash > 0.5 ? '#ffffff' : e.slow && this.fxOn('chill') ? mixHex(body, '#8fdcff', 0.55) : body;
       g.strokeStyle = OUTLINE;
       g.lineWidth = e.boss ? 4 : 2;
       shapePath(g, def.shape, r);
@@ -511,7 +540,7 @@ export class BattleView {
 
     if (e.boss) drawCrown(g, r);
     if (e.fleeing) drawDizzy(g, r, this.time + e.phase, 0.6);
-    drawStatus(g, e, this.time);
+    drawStatus(g, e, this.time, (k) => this.fxOn(k), this.game.state.settings.aoeStyle === 'basic');
     g.restore();
   }
 
@@ -837,7 +866,7 @@ export function drawEnemyPortrait(canvas: HTMLCanvasElement, id: EnemyId): void 
 }
 
 /** Status effects on a monster: embers (burn), bubbles (poison), dripping blood (bleed), a dark aura (decay), violet sparks (arcane). Frost tints the body. */
-function drawStatus(g: CanvasRenderingContext2D, e: Enemy, t: number): void {
+function drawStatus(g: CanvasRenderingContext2D, e: Enemy, t: number, on: (k: FxKey) => boolean, basic: boolean): void {
   const r = e.r;
   // (Frost's chill tints the monster itself blue; see drawEnemy.)
   const specks = (color: string | string[], n: number, rise: number, speed: number) => {
@@ -852,9 +881,9 @@ function drawStatus(g: CanvasRenderingContext2D, e: Enemy, t: number): void {
     }
     g.globalAlpha = 1;
   };
-  if (e.burn) specks(['#ffd23a', '#ff8a2a', '#e8321e'], 6, r * 1.7, 1.8); // embers: yellow, orange and red
-  if (e.poison) specks('#6fdc5a', 3, r * 1.3, 0.9);
-  if (e.bleeds?.length) {
+  if (e.burn && on('burn')) specks(['#ffd23a', '#ff8a2a', '#e8321e'], 6, r * 1.7, 1.8); // embers: yellow, orange and red
+  if (e.poison && on('poison')) specks('#6fdc5a', 3, r * 1.3, 0.9);
+  if (e.bleeds?.length && on('bleed')) {
     // Bleeding: crimson and dark red pixels drip down off it, more with each stacked bleed.
     const n = Math.min(8, 1 + e.bleeds.length);
     for (let i = 0; i < n; i++) {
@@ -867,16 +896,26 @@ function drawStatus(g: CanvasRenderingContext2D, e: Enemy, t: number): void {
     }
     g.globalAlpha = 1;
   }
-  if (e.aura) {
+  if (e.aura && on('decay')) {
     // Decay's aura: corrupted ground, a dim scatter of dark pixels across its reach inside a pulsing
-    // purple-brown pixel ring.
+    // purple-brown pixel ring (basic: a plain ring).
     const pulse = 0.5 + 0.5 * Math.sin(t * 6 + e.phase);
+    if (basic) {
+      g.strokeStyle = `rgba(90,60,40,${0.35 + 0.3 * pulse})`;
+      g.fillStyle = 'rgba(60,40,30,0.12)';
+      g.lineWidth = 2;
+      g.beginPath();
+      g.arc(0, 0, STATUS.aura.radius, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+    } else {
     g.fillStyle = `rgba(60,24,52,${0.22 + 0.12 * pulse})`;
     for (const c of auraCells(e.phase)) g.fillRect(c.x - c.s / 2, c.y - c.s / 2, c.s, c.s);
     g.fillStyle = `rgba(88,34,70,${0.6 + 0.3 * pulse})`;
     pixelCircle(g, 0, 0, STATUS.aura.radius, PIXEL);
+    }
   }
-  if (e.exposed) {
+  if (e.exposed && on('arcane')) {
     // Arcane: resistances stripped. Orbiting violet sparks.
     g.fillStyle = '#c08cff';
     for (let i = 0; i < 3; i++) {
@@ -887,12 +926,23 @@ function drawStatus(g: CanvasRenderingContext2D, e: Enemy, t: number): void {
 }
 
 /** Each attack style gets its own simple look. */
-function drawBullet(g: CanvasRenderingContext2D, b: Bullet, t: number): void {
+function drawBullet(g: CanvasRenderingContext2D, b: Bullet, t: number, basic = false): void {
   const a = Math.atan2(b.vy, b.vx);
   g.save();
   g.translate(b.x, b.y);
   switch (b.kind) {
     case 'fireball': {
+      if (basic) {
+        g.fillStyle = 'rgba(255,120,40,0.35)';
+        g.beginPath();
+        g.arc(0, 0, 9, 0, Math.PI * 2);
+        g.fill();
+        g.fillStyle = '#ffb04d';
+        g.beginPath();
+        g.arc(0, 0, 5.5, 0, Math.PI * 2);
+        g.fill();
+        break;
+      }
       // A flickering ball of fire squares: a big one at the core, small ones around it.
       const f = Math.floor(t * 20);
       g.fillStyle = FIRE_COLORS[f % 3];
@@ -1079,6 +1129,7 @@ const PIXEL = 4;
 const BLAST_TIME = 0.35;
 const PUDDLE_GREENS = ['#b4f04a', '#4caf3a', '#2a6e26'];
 const FIRE_COLORS = ['#ffd23a', '#ff8a2a', '#e8321e'];
+const RADIANT_COLORS = ['#fffbe0', '#ffe36e', '#ffc830'];
 
 /**
  * A round patch of squares in two sizes (`big` and half that) filling radius `r`, laid out on a grid with a

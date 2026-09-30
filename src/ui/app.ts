@@ -61,7 +61,7 @@ import {
 import { fmt, fmtTime } from '../core/format';
 import type { FarmRates, Game, TreeKind } from '../core/game';
 import type { OfflineResult } from '../core/offline';
-import { COOLDOWN_POSITIONS, TAB_IDS, type BuyAmount, type CooldownPos, type IndicatorStyle, type GearItem, type TabId, type Wearer } from '../core/state';
+import { COOLDOWN_POSITIONS, TAB_IDS, type BuyAmount, type CooldownPos, type FxKey, type IndicatorStyle, type GearItem, type TabId, type Wearer } from '../core/state';
 import { drawEnemyPortrait } from '../render/battle';
 import { spriteUrl } from '../render/sprites';
 import { applyAreaTheme } from './theme';
@@ -2096,6 +2096,63 @@ export class AppUI {
     choices('Reload indicator', 'Text over a Hunter waiting on their weapon: "RELOADING!" (pistols, rifles, repeaters), "RECHARGING!" (staffs) or "SUMMONING!" (tomes). It fades from right to left as the wait runs out.', onOff, () => (st.reloads ? 'on' : 'off'), (v) => (st.reloads = v === 'on'));
     choices('Reload indicator position', 'Whether it shows above or below the Hunter.', [['above', 'Above'], ['below', 'Below']], () => st.reloadPos, (v) => (st.reloadPos = v), () => st.reloads);
     choices('Reload indicator style', 'Fancy breaks the fading edge into pixels: sparks and metal for reloads, magic for recharges, a haze for summons.', styles, () => st.reloadStyle, (v) => (st.reloadStyle = v), () => st.reloads);
+
+    body.appendChild(sectionTitle('Effects'));
+    // A group of effects with a master switch and a switch for each kind (greyed out while the group is off).
+    const fxGroup = (title: string, blurb: string, master: FxKey, kinds: Array<[FxKey, string]>) => {
+      const fx = st.fx;
+      const card = el('div', 'card setting');
+      card.innerHTML = `<div class="setting-name">${title}</div><p>${blurb}</p><div class="segmented fx-master"><button data-v="on">Show</button><button data-v="off">Hide</button></div><div class="fx-list">${kinds
+        .map(([k, label]) => `<div class="fx-row" data-k="${k}"><span>${label}</span><div class="segmented"><button data-v="on">On</button><button data-v="off">Off</button></div></div>`)
+        .join('')}</div>`;
+      const draw = () => {
+        card.querySelectorAll<HTMLButtonElement>('.fx-master button').forEach((b) => b.classList.toggle('on', (b.dataset.v === 'on') === fx[master]));
+        $('.fx-list', card).classList.toggle('disabled', !fx[master]);
+        card.querySelectorAll<HTMLElement>('.fx-row').forEach((row) => {
+          const k = row.dataset.k as FxKey;
+          row.querySelectorAll<HTMLButtonElement>('button').forEach((b) => {
+            b.classList.toggle('on', (b.dataset.v === 'on') === fx[k]);
+            b.disabled = !fx[master];
+          });
+        });
+      };
+      card.querySelectorAll<HTMLButtonElement>('.fx-master button').forEach((b) =>
+        b.addEventListener('click', () => {
+          fx[master] = b.dataset.v === 'on';
+          this.hooks.save();
+          draw();
+        }),
+      );
+      card.querySelectorAll<HTMLElement>('.fx-row').forEach((row) =>
+        row.querySelectorAll<HTMLButtonElement>('button').forEach((b) =>
+          b.addEventListener('click', () => {
+            if (!fx[master]) return;
+            fx[row.dataset.k as FxKey] = b.dataset.v === 'on';
+            this.hooks.save();
+            draw();
+          }),
+        ),
+      );
+      draw();
+      body.appendChild(card);
+    };
+    fxGroup('Damage numbers', 'Numbers that pop up when monsters are hit.', 'damage', [
+      ['dmgNormal', 'Normal hits'],
+      ['dmgCrit', 'Critical hits'],
+      ['dmgResist', 'Resisted hits'],
+      ['dmgWeak', 'Weak-spot hits'],
+    ]);
+    fxGroup('Status effect particles', 'What monsters show while affected by a status effect.', 'status', [
+      ['burn', '🔥 Burning embers'],
+      ['poison', '☠️ Poison bubbles'],
+      ['bleed', '🩸 Bleeding drips'],
+      ['chill', '❄️ Frost tint'],
+      ['acid', '🧪 Acid puddles'],
+      ['radiant', '✨ Radiant bursts'],
+      ['decay', '🍂 Decay aura'],
+      ['arcane', '🔮 Arcane sparks'],
+    ]);
+    choices('Area effect style', 'Fancy draws puddles, fireballs, explosions, bursts and auras as clusters of coloured pixel squares; Basic draws them as plain circles.', styles, () => st.aoeStyle, (v) => (st.aoeStyle = v));
 
     const tabsCard = el('div', 'card setting');
     tabsCard.innerHTML = `<div class="setting-name">Tab order</div><p>The order of the tabs along the bottom of the screen, left to right. Drag a row or use the arrows.</p><div class="tab-order"></div><button class="secondary tab-order-reset">Reset to default</button>`;
