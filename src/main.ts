@@ -20,6 +20,18 @@ async function boot(): Promise<void> {
   const game = new Game(saved ?? newGame());
   const offline = saved ? game.applyOffline() : null;
 
+  // TEMPORARY (decay aura test): your Hunter wields the Staff of Rot (every hit inflicts Decay) and every
+  // Whispering Forest monster has 1,000,000 HP. Remove this block to revert.
+  {
+    let staff = game.state.inventory.find((it) => it.base === 'testDecayStaff');
+    if (!staff) {
+      staff = { uid: game.state.nextGearUid++, base: 'testDecayStaff', stars: 5 };
+      game.state.inventory.push(staff);
+    }
+    game.equip('main', 0, staff.uid);
+    game.testHp = { area: 'forest', hp: 1_000_000 };
+  }
+
   let saving = true;
   const save = () => {
     if (saving) void saveGame(game.state);
