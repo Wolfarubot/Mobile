@@ -195,12 +195,12 @@ describe('progression pacing', () => {
     expect(r.glade).toBeLessThan(24 * H);
     expect(r.graveyard).toBeGreaterThan(4 * H);
     expect(r.graveyard).toBeLessThan(36 * H);
-    expect(r.caves).toBeGreaterThan(24 * H);
-    expect(r.caves).toBeLessThan(3 * 24 * H);
-    expect(r.peaks).toBeGreaterThan(3 * 24 * H);
-    expect(r.peaks).toBeLessThan(8 * 24 * H);
-    expect(r.cliffs).toBeGreaterThan(6 * 24 * H);
-    // The Void Rift is the long-term goal: weeks away.
+    expect(r.caves).toBeGreaterThan(4 * 24 * H);
+    expect(r.caves).toBeLessThan(10 * 24 * H);
+    expect(r.peaks).toBeGreaterThan(7 * 24 * H);
+    expect(r.peaks).toBeLessThan(14 * 24 * H);
+    expect(r.cliffs).toBeGreaterThan(9 * 24 * H);
+    // The Void Rift is the long-term goal: about two weeks in.
     expect(r.rift ?? Infinity).toBeGreaterThan(10 * 24 * H);
   }, 1_500_000);
 });
