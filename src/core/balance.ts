@@ -69,8 +69,8 @@ export const GUARDIAN_COOLDOWN = 5 * 60;
 // and each level earns a skill point for their skill tree.
 
 /** Each training session adds this much of the weapon's base damage (a multiplier on every hit). */
-export const TRAIN_DAMAGE = 0.02;
-/** Training's damage multiplier after `trains` sessions: +2% per session (about ×11 at Lv 30, ×100 at Lv 100). */
+export const TRAIN_DAMAGE = 0.01;
+/** Training's damage multiplier after `trains` sessions: +1% per session (about ×6 at Lv 30, ×50 at Lv 100). */
 export function powerDamage(trains: number): number {
   return 1 + TRAIN_DAMAGE * trains;
 }
@@ -564,17 +564,17 @@ export interface AreaDef {
 
 export const AREAS: AreaDef[] = [
   { id: 'forest', name: 'Whispering Forest', icon: '🌲', hp: 1, gold: 1, speed: 36, mastery: 10_000, guardian: 1_500, palette: ['#183c18', '#2f7d32', '#7ec850', '#e2f5c4'], ground: ['#6cb848', '#58a03c'], blurb: 'Where every hunt begins.' },
-  { id: 'glade', name: 'Faerie Glade', icon: '🍄', hp: 200, gold: 80, speed: 38, mastery: 1_000, guardian: 60_000, palette: ['#221a30', '#5a4a8a', '#a8d8b0', '#f4f0ff'], ground: ['#7cc47c', '#8ed28a'], blurb: 'Mushroom rings and things that bite.' },
-  { id: 'graveyard', name: 'Old Graveyard', icon: '🪦', hp: 1_000, gold: 15_000, speed: 40, mastery: 1_500, guardian: 225_000, palette: ['#1e1a2a', '#4a4460', '#9a94b0', '#e8e4f0'], ground: ['#5b5670', '#4c4762'], blurb: 'The dead do not rest here.' },
-  { id: 'crypt', name: 'Forsaken Crypt', icon: '⚰️', hp: 7_500, gold: 2_000_000, speed: 42, mastery: 2_500, guardian: 3_000_000, palette: ['#1a1614', '#4a403a', '#9a8e80', '#ece4d8'], ground: ['#5a524a', '#4e4640'], blurb: 'Deeper than the graves, and older.' },
-  { id: 'depths', name: 'Shadowy Depths', icon: '🕳️', hp: 30_000, gold: 10_000_000_000, speed: 43, mastery: 3_000, guardian: 2_000_000, palette: ['#120e1c', '#3a3050', '#8a7ea8', '#e6e0f4'], ground: ['#2e2838', '#26212f'], blurb: 'Below the crypt, the dark has teeth.' },
-  { id: 'caves', name: 'Ember Caves', icon: '🌋', hp: 50_000, gold: 3_000_000_000_000, speed: 45, mastery: 4_000, guardian: 5_000_000, palette: ['#2a0e08', '#8a2c10', '#e07030', '#fde4c0'], ground: ['#6a2c1a', '#823722'], blurb: 'Hot, bright and full of teeth.' },
-  { id: 'mines', name: 'Deep Mines', icon: '⛏️', hp: 110_000, gold: 100_000_000_000_000, speed: 47, mastery: 6_000, guardian: 12_000_000, palette: ['#1e140a', '#6a4a22', '#c09050', '#f4e4c8'], ground: ['#5a4228', '#4e3820'], blurb: 'Dug too deep, woke too much.' },
-  { id: 'peaks', name: 'Frost Peaks', icon: '🏔️', hp: 250_000, gold: 3e15, speed: 50, mastery: 10_000, guardian: 30_000_000, palette: ['#0c2038', '#2a60a0', '#78b8e8', '#e4f4ff'], ground: ['#bcd8f0', '#a4c6e6'], blurb: 'Cold winds carry cold things.' },
-  { id: 'cliffs', name: 'Ascendant Steps', icon: '🪜', hp: 600_000, gold: 5e17, speed: 53, mastery: 15_000, guardian: 70_000_000, palette: ['#141c30', '#4a5a86', '#a8b8e0', '#f2f4ff'], ground: ['#9aa6bc', '#8a96ac'], blurb: 'Stone stairs above the peaks, climbing into the sky.' },
-  { id: 'fortress', name: 'Cloud Fortress', icon: '🏰', hp: 1_400_000, gold: 1e19, speed: 54, mastery: 20_000, guardian: 160_000_000, palette: ['#1a2440', '#4a70b0', '#a8d0f8', '#fdfcf4'], ground: ['#e8f0fa', '#d4e2f4'], blurb: 'A citadel on the clouds, held by storm and steel.' },
-  { id: 'meteors', name: 'Meteor Fields', icon: '☄️', hp: 3_300_000, gold: 2e20, speed: 55, mastery: 25_000, guardian: 400_000_000, palette: ['#0a0a1e', '#3a2a6a', '#e08a4a', '#fce8d0'], ground: ['#1c1830', '#2a2440'], blurb: 'Past the sky, where falling stars still burn.' },
-  { id: 'rift', name: 'Void Rift', icon: '🌀', hp: 8_000_000, gold: 5e21, speed: 56, mastery: 30_000, guardian: 800_000_000, palette: ['#1a0830', '#5a2098', '#b070e0', '#f2e4ff'], ground: ['#2a1440', '#3a1d58'], blurb: 'The end of the known world.' },
+  { id: 'glade', name: 'Faerie Glade', icon: '🍄', hp: 150, gold: 80, speed: 38, mastery: 1_000, guardian: 50_000, palette: ['#221a30', '#5a4a8a', '#a8d8b0', '#f4f0ff'], ground: ['#7cc47c', '#8ed28a'], blurb: 'Mushroom rings and things that bite.' },
+  { id: 'graveyard', name: 'Old Graveyard', icon: '🪦', hp: 1_200, gold: 15_000, speed: 40, mastery: 1_500, guardian: 300_000, palette: ['#1e1a2a', '#4a4460', '#9a94b0', '#e8e4f0'], ground: ['#5b5670', '#4c4762'], blurb: 'The dead do not rest here.' },
+  { id: 'crypt', name: 'Forsaken Crypt', icon: '⚰️', hp: 5_000, gold: 2_000_000, speed: 42, mastery: 2_500, guardian: 600_000, palette: ['#1a1614', '#4a403a', '#9a8e80', '#ece4d8'], ground: ['#5a524a', '#4e4640'], blurb: 'Deeper than the graves, and older.' },
+  { id: 'depths', name: 'Shadowy Depths', icon: '🕳️', hp: 10_000, gold: 10_000_000_000, speed: 43, mastery: 3_000, guardian: 1_200_000, palette: ['#120e1c', '#3a3050', '#8a7ea8', '#e6e0f4'], ground: ['#2e2838', '#26212f'], blurb: 'Below the crypt, the dark has teeth.' },
+  { id: 'caves', name: 'Ember Caves', icon: '🌋', hp: 20_000, gold: 3_000_000_000_000, speed: 45, mastery: 4_000, guardian: 2_400_000, palette: ['#2a0e08', '#8a2c10', '#e07030', '#fde4c0'], ground: ['#6a2c1a', '#823722'], blurb: 'Hot, bright and full of teeth.' },
+  { id: 'mines', name: 'Deep Mines', icon: '⛏️', hp: 40_000, gold: 100_000_000_000_000, speed: 47, mastery: 6_000, guardian: 6_000_000, palette: ['#1e140a', '#6a4a22', '#c09050', '#f4e4c8'], ground: ['#5a4228', '#4e3820'], blurb: 'Dug too deep, woke too much.' },
+  { id: 'peaks', name: 'Frost Peaks', icon: '🏔️', hp: 100_000, gold: 3e15, speed: 50, mastery: 10_000, guardian: 15_000_000, palette: ['#0c2038', '#2a60a0', '#78b8e8', '#e4f4ff'], ground: ['#bcd8f0', '#a4c6e6'], blurb: 'Cold winds carry cold things.' },
+  { id: 'cliffs', name: 'Ascendant Steps', icon: '🪜', hp: 250_000, gold: 5e17, speed: 53, mastery: 15_000, guardian: 24_000_000, palette: ['#141c30', '#4a5a86', '#a8b8e0', '#f2f4ff'], ground: ['#9aa6bc', '#8a96ac'], blurb: 'Stone stairs above the peaks, climbing into the sky.' },
+  { id: 'fortress', name: 'Cloud Fortress', icon: '🏰', hp: 400_000, gold: 1e19, speed: 54, mastery: 20_000, guardian: 36_000_000, palette: ['#1a2440', '#4a70b0', '#a8d0f8', '#fdfcf4'], ground: ['#e8f0fa', '#d4e2f4'], blurb: 'A citadel on the clouds, held by storm and steel.' },
+  { id: 'meteors', name: 'Meteor Fields', icon: '☄️', hp: 650_000, gold: 2e20, speed: 55, mastery: 25_000, guardian: 90_000_000, palette: ['#0a0a1e', '#3a2a6a', '#e08a4a', '#fce8d0'], ground: ['#1c1830', '#2a2440'], blurb: 'Past the sky, where falling stars still burn.' },
+  { id: 'rift', name: 'Void Rift', icon: '🌀', hp: 1_500_000, gold: 5e21, speed: 56, mastery: 30_000, guardian: 160_000_000, palette: ['#1a0830', '#5a2098', '#b070e0', '#f2e4ff'], ground: ['#2a1440', '#3a1d58'], blurb: 'The end of the known world.' },
 ];
 
 export const areaDef = (id: AreaId): AreaDef => AREAS.find((a) => a.id === id)!;
@@ -1719,7 +1719,7 @@ export interface ItemDef {
 }
 
 export const ITEMS: ItemDef[] = [
-  { id: 'whetstone', name: 'Whetstone', icon: '🪨', rarity: 'common', maxLevel: 15, recipe: { goo: 4 }, growth: 1.45, describe: (l) => `+${l * 25}% damage` },
+  { id: 'whetstone', name: 'Whetstone', icon: '🪨', rarity: 'common', maxLevel: 15, recipe: { goo: 4 }, growth: 1.45, describe: (l) => `+${l * 10}% damage` },
   { id: 'gloves', name: 'Quickdraw Gloves', icon: '🧤', rarity: 'common', maxLevel: 15, recipe: { goo: 6, pelt: 2 }, growth: 1.5, describe: (l) => `+${l * 10}% attack rate` },
   { id: 'lure', name: 'Monster Lure', icon: '🍖', rarity: 'uncommon', maxLevel: 15, recipe: { redgel: 5, pelt: 3 }, growth: 1.6, describe: (l) => `+${l * 20}% enemy spawns` },
   { id: 'pouch', name: "Scavenger's Pouch", icon: '👝', rarity: 'uncommon', maxLevel: 15, recipe: { pelt: 6, redgel: 3 }, growth: 1.5, describe: (l) => `+${l * 25}% material drops` },
@@ -1729,7 +1729,7 @@ export const ITEMS: ItemDef[] = [
   { id: 'lance', name: 'Frost Lance', icon: '❄️', rarity: 'legendary', maxLevel: 5, recipe: { chitin: 8, frost: 4 }, growth: 2.2, describe: (l) => `shots pierce ${l} more enem${l === 1 ? 'y' : 'ies'}` },
   { id: 'lantern', name: 'Soul Lantern', icon: '🏮', rarity: 'exotic', maxLevel: 10, recipe: { ecto: 8, fur: 6 }, growth: 1.8, describe: (l) => `+${l * 4}% crit chance` },
   // Rare successors: they pick up where the Common Whetstone and Gloves stop, from Graveyard and Crypt materials.
-  { id: 'graveWhetstone', name: 'Grave Whetstone', icon: '⚱️', rarity: 'rare', maxLevel: 8, recipe: { bone: 12, flesh: 8 }, growth: 1.6, describe: (l) => `+${l * 15}% damage (on top of the Whetstone)` },
+  { id: 'graveWhetstone', name: 'Grave Whetstone', icon: '⚱️', rarity: 'rare', maxLevel: 8, recipe: { bone: 12, flesh: 8 }, growth: 1.6, describe: (l) => `+${l * 8}% damage (on top of the Whetstone)` },
   { id: 'batwingGloves', name: 'Batwing Gloves', icon: '🦇', rarity: 'rare', maxLevel: 8, recipe: { wing: 10, bone: 6 }, growth: 1.65, describe: (l) => `+${l * 6}% attack rate (on top of the Quickdraw Gloves)` },
   {
     id: 'forestIdol',
@@ -1742,7 +1742,7 @@ export const ITEMS: ItemDef[] = [
     growth: 2,
     describe: (l) => `Whispering Forest monsters: ×2 HP, ×${2 + 0.25 * (l - 1)} gold`,
   },
-  { id: 'engine', name: 'Void Engine', icon: '🌀', rarity: 'artifact', maxLevel: 20, recipe: { shade: 10, void: 5, soul: 3 }, growth: 1.7, describe: (l) => `+${l * 25}% damage, +${l * 5}% attack rate` },
+  { id: 'engine', name: 'Void Engine', icon: '🌀', rarity: 'artifact', maxLevel: 20, recipe: { shade: 10, void: 5, soul: 3 }, growth: 1.7, describe: (l) => `+${l * 10}% damage, +${l * 5}% attack rate` },
 ];
 
 export const itemDef = (id: ItemId): ItemDef => ITEMS.find((i) => i.id === id)!;
