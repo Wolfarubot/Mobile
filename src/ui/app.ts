@@ -2077,7 +2077,7 @@ export class AppUI {
       body.appendChild(card);
     };
     const st = g.state.settings;
-    choices('Cooldown icons', 'Icons for abilities that recharge (Hunter specials, staff spells, tome summons). They grey out when used and refill from the top down.', [['on', 'Show'], ['off', 'Hide']], () => (st.cooldowns ? 'on' : 'off'), (v) => (st.cooldowns = v === 'on'));
+    choices('Cooldown icons', 'Icons for Hunter abilities that recharge (like Reginald\'s potions and Glimmer\'s fireballs). They grey out when used and refill from the top down.', [['on', 'Show'], ['off', 'Hide']], () => (st.cooldowns ? 'on' : 'off'), (v) => (st.cooldowns = v === 'on'));
     choices('Cooldown icon position', 'Which edge of the battlefield the cooldown icons sit on.', COOLDOWN_POSITIONS.map((p) => [p, p[0].toUpperCase() + p.slice(1)] as [CooldownPos, string]), () => st.cooldownPos, (v) => (st.cooldownPos = v));
     choices('Reload indicator', 'Text over a Hunter waiting on their weapon: "RELOADING!" (pistols, rifles, repeaters), "RECHARGING!" (staffs) or "SUMMONING!" (tomes). It fades from right to left as the wait runs out.', [['on', 'Show'], ['off', 'Hide']], () => (st.reloads ? 'on' : 'off'), (v) => (st.reloads = v === 'on'));
     choices('Reload indicator position', 'Whether it shows above or below the Hunter.', [['above', 'Above'], ['below', 'Below']], () => st.reloadPos, (v) => (st.reloadPos = v));

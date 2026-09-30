@@ -13,7 +13,6 @@ import {
   FLEE_SPEED_MULT,
   GUARD_RECHARGE,
   hunterDef,
-  gearDef,
   MAX_ENEMIES,
   MULTISHOT_SPREAD,
   STUN_IMMUNITY,
@@ -670,20 +669,11 @@ export class Field {
 
   /**
    * Every ability on the field that recharges, with how far along it is: Guild Hunters' specials (Reginald's
-   * potions, Glimmer's fireballs), your staff's spell (its cooldown after casting) and your tome's next summon.
-   * Guns reloading aren't abilities; they show "RELOADING!" instead (see reloadProgress).
+   * potions, Glimmer's fireballs). Weapons waiting (guns reloading, staffs recharging, tomes summoning) show
+   * text over the Hunter instead (see weaponStatus).
    */
   cooldowns(): CooldownView[] {
-    const g = this.game;
     const out: CooldownView[] = [];
-    const cls = g.weaponClassOf('main');
-    const weapon = g.equipped('main')[0];
-    const icon = weapon ? gearDef(weapon.base).icon : '✨';
-    const name = weapon ? gearDef(weapon.base).name : '';
-    if (cls?.spell) {
-      const gun = this.gunState;
-      out.push({ key: `main:${name}`, icon, name, progress: gun.reload > 0 && gun.total ? 1 - gun.reload / gun.total : 1 });
-    } else if (cls?.summon) out.push({ key: `main:${name}`, icon, name, progress: Math.min(1, this.fireAcc) });
     for (const h of this.helpers) {
       const sp = hunterDef(h.id).style.special;
       if (sp) out.push({ key: h.id, icon: hunterDef(h.id).icon, name: hunterDef(h.id).name, progress: 1 - Math.max(0, h.specialCd) / sp.cooldown });
