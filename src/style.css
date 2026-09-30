@@ -2703,10 +2703,13 @@ button.mat:not(:disabled):active {
   font-style: normal;
   font-size: 26px;
 }
-/* Can't afford it: the icon greys out. */
+/* Can't afford it: the icon greys out and darkens (so naturally grey items like the Whetstone read as unavailable too). */
 .craft-tile.short i {
-  filter: grayscale(1);
-  opacity: 0.45;
+  filter: grayscale(1) brightness(0.4);
+  opacity: 0.6;
+}
+.craft-tile.short {
+  background: color-mix(in srgb, var(--c3) 55%, var(--c0));
 }
 .craft-tile em {
   position: absolute;
@@ -3406,4 +3409,51 @@ body.left-handed .hd-float-close {
   max-width: 584px;
   max-height: 60vh;
   z-index: 14;
+}
+
+/* Sub-options inside a setting's card (Cooldown icons, Reload indicator): a small label and small choices. */
+.sub-row {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.sub-row .segmented {
+  margin: 0;
+}
+.sub-row .segmented button {
+  padding: 4px 6px;
+  font-size: 12px;
+}
+.hunter-card.no-expand {
+  cursor: default;
+}
+.hunter-card.no-expand .expand-tag {
+  display: none;
+}
+.pk-title {
+  margin: 0 0 8px;
+  font-size: 18px;
+  color: var(--on-bg, var(--c3));
+}
+
+/* Empty equipment slots: a dashed outline, like an area's empty Hunter slot. */
+.gear-chip.empty,
+.equip-row.empty {
+  background: transparent !important;
+  border: 2px dashed color-mix(in srgb, var(--c3) 45%, transparent) !important;
+  box-shadow: none !important;
+  color: color-mix(in srgb, var(--c3) 70%, transparent) !important;
+  opacity: 1;
+}
+.gear-chip.empty {
+  text-shadow: none;
+}
+.equip-row.empty i {
+  opacity: 0.5;
+}
+/* On the light Hunter cards the empty slot's outline is dark. */
+.hunter-card .gear-chip.empty {
+  border-color: color-mix(in srgb, var(--c0) 45%, transparent) !important;
+  color: color-mix(in srgb, var(--c0) 60%, transparent) !important;
 }

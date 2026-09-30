@@ -151,6 +151,8 @@ export interface GameState {
     empowerIntro: boolean;
     /** The "you can craft your first item" tip has been shown. */
     craftIntro: boolean;
+    /** The tip shown when you can first afford to unlock the wolf (also explains the full-screen menu). */
+    wolfIntro: boolean;
   };
   /** Per event: seconds of cooldown left, times started and times completed (a Guardian beaten, a swarm survived). */
   events: Record<string, EventState>;
@@ -187,12 +189,17 @@ export function newGame(now = Date.now()): GameState {
     hunters: byId(HUNTERS, () => ({ recruited: false, trains: 0, skills: {}, station: null })),
     materials: zeroes(MATERIALS),
     items: zeroes(ITEMS),
-    inventory: [],
-    equipment: {},
-    nextGearUid: 1,
+    // Starting gear: a Short Sword and Common Clothes on your Hunter, and a Short Bow to try.
+    inventory: [
+      { uid: 1, base: 'shortSword', stars: 1 },
+      { uid: 2, base: 'commonClothes', stars: 1 },
+      { uid: 3, base: 'shortBow', stars: 1 },
+    ],
+    equipment: { main: [1, 2, null] },
+    nextGearUid: 4,
     lastSeen: now,
     settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', dps: true, cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', cooldownStyle: 'fancy', fx: allFx(), aoeStyle: 'fancy' },
-    flags: { eventsIntro: false, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false },
+    flags: { eventsIntro: false, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false },
     events: Object.fromEntries(EVENTS.map((e) => [e.id, { cooldown: 0, runs: 0, completed: 0 }])),
     buyAmount: 1,
     stats: { totalKills: 0, totalGold: 0, taps: 0, escaped: 0, guardians: 0, hunterKills: {}, matGained: {} },
@@ -367,6 +374,8 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
       empowerIntro: (data.flags as { empowerIntro?: unknown } | undefined)?.empowerIntro !== false,
       // Saves from before this tip already knew about crafting.
       craftIntro: (data.flags as { craftIntro?: unknown } | undefined)?.craftIntro !== false,
+      // Saves from before this tip already had the wolf within reach.
+      wolfIntro: (data.flags as { wolfIntro?: unknown } | undefined)?.wolfIntro !== false,
     },
     events: Object.fromEntries(
       EVENTS.map((e) => {

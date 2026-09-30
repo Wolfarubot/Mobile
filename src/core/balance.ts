@@ -801,8 +801,9 @@ export const EMPOWER_UNLOCK_KILLS = 100;
  * Empower's effect on a monster's HP, gold and material drops: a little per session (added up), multiplied
  * by a growth factor per level above 1, so it grows exponentially as the monster levels.
  */
-export const EMPOWER = { hp: 0.02, gold: 0.03, drops: 0.02, spawn: 0.015 };
-export const EMPOWER_LEVEL = { hp: 1.03, gold: 1.05, drops: 1.03, spawn: 1.03 };
+// HP and spawns grow fastest: Empowered monsters keep up with a Hunter's damage, and more of them means more gold.
+export const EMPOWER = { hp: 0.05, gold: 0.03, drops: 0.02, spawn: 0.04 };
+export const EMPOWER_LEVEL = { hp: 1.08, gold: 1.05, drops: 1.03, spawn: 1.05 };
 
 /** Multiplier from `sessions` Empower sessions at `level`. */
 export const empowerMult = (stat: keyof typeof EMPOWER, sessions: number, level: number): number =>
@@ -1288,6 +1289,9 @@ export const GEAR_STATS: Record<GearStat, (v: number) => string> = {
 };
 
 export type GearId =
+  | 'shortSword'
+  | 'shortBow'
+  | 'commonClothes'
   | 'fangDagger'
   | 'wispTome'
   | 'wolfTome'
@@ -1358,6 +1362,8 @@ export interface GearDef {
   stats: Partial<Record<GearStat, number>>;
   /** Materials to craft (1★); each star after costs more (see gearCost). */
   recipe: Partial<Record<MaterialId, number>>;
+  /** Starting gear: every new game begins with it; it can't be crafted (its recipe prices its stars). */
+  starter?: boolean;
 }
 
 // ---- Stars: gear and Upgrades go from 1★ (crafted) to 5★ ----
@@ -1472,6 +1478,10 @@ export const WEAPON_CLASSES: Record<WeaponClass, WeaponClassDef> = {
 };
 
 export const GEAR: GearDef[] = [
+  // Starting gear (not craftable): your Hunter begins with the Short Sword and Common Clothes on, and a Short Bow spare.
+  { id: 'shortSword', name: 'Short Sword', icon: '🗡️', kind: 'melee', rarity: 'common', weaponClass: 'sword', damageType: 'physical', stats: { damage: 0.1 }, recipe: { goo: 6 }, starter: true },
+  { id: 'shortBow', name: 'Short Bow', icon: '🏹', kind: 'weapon', rarity: 'common', weaponClass: 'shortbow', damageType: 'physical', stats: { damage: 0.1 }, recipe: { goo: 6 }, starter: true },
+  { id: 'commonClothes', name: 'Common Clothes', icon: '👕', kind: 'armor', rarity: 'common', stats: {}, recipe: { goo: 4 }, starter: true },
   // Weapons
   { id: 'huntingBow', name: 'Hunting Bow', icon: '🏹', kind: 'weapon', rarity: 'common', weaponClass: 'shortbow', damageType: 'physical', stats: { damage: 0.2 }, recipe: { goo: 8, pelt: 4 } },
   { id: 'boneCrossbow', name: 'Bone Crossbow', icon: '🎯', kind: 'weapon', rarity: 'uncommon', weaponClass: 'crossbow', damageType: 'physical', stats: { damage: 0.3, range: 8 }, recipe: { bone: 10, wing: 5 } },

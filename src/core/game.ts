@@ -518,7 +518,7 @@ export class Game {
   }
 
   canCraftGear(id: GearId): boolean {
-    return this.hasMaterials(gearCost(gearDef(id), 0));
+    return !gearDef(id).starter && this.hasMaterials(gearCost(gearDef(id), 0));
   }
 
   /** Crafts a new 1★ piece into the inventory. */
@@ -532,7 +532,8 @@ export class Game {
 
   gearUpgradeCost(uid: number): Partial<Record<MaterialId, number>> | null {
     const item = this.gearItem(uid);
-    if (!item || item.stars >= MAX_STARS) return null;
+    // Pieces with no stats (Common Clothes) have nothing to improve.
+    if (!item || item.stars >= MAX_STARS || !Object.keys(gearDef(item.base).stats).length) return null;
     return gearCost(gearDef(item.base), item.stars);
   }
 
@@ -549,7 +550,8 @@ export class Game {
     const item = this.gearItem(uid);
     const out: Partial<Record<MaterialId, number>> = {};
     if (!item) return out;
-    for (let l = 0; l < item.stars; l++)
+    // Starting gear was free: only its stars count.
+    for (let l = gearDef(item.base).starter ? 1 : 0; l < item.stars; l++)
       for (const [m, n] of Object.entries(gearCost(gearDef(item.base), l)) as [MaterialId, number][]) out[m] = (out[m] ?? 0) + n;
     for (const m of Object.keys(out) as MaterialId[]) out[m] = Math.floor(out[m]! * SALVAGE_REFUND);
     return out;

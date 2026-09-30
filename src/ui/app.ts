@@ -128,6 +128,8 @@ const $ = <T extends HTMLElement = HTMLElement>(sel: string, root: ParentNode = 
 /** Holding an area tile this long travels there; two taps this close together open its details. */
 const AREA_HOLD_MS = 550;
 const DOUBLE_TAP_MS = 350;
+/** One-time tips wait at least this long after the last popup opened or closed. */
+const POPUP_GAP_MS = 30_000;
 /** Holding a tab this long raises (or drops) the full-screen menu. */
 const MENU_HOLD_MS = 450;
 
@@ -164,6 +166,8 @@ export class AppUI {
   private areaTap: { id: AreaId | null; at: number } = { id: null, at: 0 };
   /** The menu raised to full screen over the battlefield. */
   private menuFull = false;
+  /** When the last popup opened or closed (performance.now), to space out the one-time tips. */
+  private lastPopup = -Infinity;
 
   constructor(
     private game: Game,
@@ -172,6 +176,7 @@ export class AppUI {
     document.querySelectorAll<HTMLButtonElement>('.tabs button').forEach((b) =>
       b.addEventListener('click', () => {
         if (b.dataset.tab === 'events' && !game.eventsOpen) this.showEventsLocked();
+        else if (b.dataset.tab === 'areas' && !this.areasOpen) this.showAreasLocked();
         else this.setTab(b.dataset.tab as Tab);
       }),
     );
@@ -218,10 +223,16 @@ export class AppUI {
     this.fieldCard?.update();
 
     $('.tabs button[data-tab=events]').classList.toggle('locked', !g.eventsOpen);
-    if (g.eventsOpen && !s.flags.eventsIntro && !this.modalClose && !this.detail) this.showEventsIntro();
-    else if (!s.flags.trainIntro && s.flags.welcome && !this.modalClose && !this.detail && g.trainUnlocked && s.gold >= g.trainPurchase('main', 1).cost) this.showTrainIntro();
-    else if (!s.flags.craftIntro && s.flags.welcome && !this.modalClose && !this.detail && this.firstCraftable()) this.showCraftIntro();
-    else if (!s.flags.empowerIntro && g.empowerUnlocked && !this.modalClose && !this.detail) this.showEmpowerIntro();
+    $('.tabs button[data-tab=areas]').classList.toggle('locked', !this.areasOpen);
+    // One-time tips, never two within POPUP_GAP of each other (or of any other popup).
+    const tipReady = s.flags.welcome && !this.modalClose && !this.detail && performance.now() - this.lastPopup >= POPUP_GAP_MS;
+    if (tipReady) {
+      if (g.eventsOpen && !s.flags.eventsIntro) this.showEventsIntro();
+      else if (!s.flags.trainIntro && g.trainUnlocked && s.gold >= g.trainPurchase('main', 1).cost) this.showTrainIntro();
+      else if (!s.flags.wolfIntro && !s.bestiary.wolf.unlocked && s.gold >= enemyUnlockCost(enemyDef('wolf'))) this.showWolfIntro();
+      else if (!s.flags.craftIntro && this.firstCraftable()) this.showCraftIntro();
+      else if (!s.flags.empowerIntro && g.empowerUnlocked) this.showEmpowerIntro();
+    }
     const ready = EVENTS.filter((e) => e.area === g.area && g.eventReady(e.id)).length;
     const badge = $('#eventsBadge');
     badge.textContent = String(ready);
@@ -340,7 +351,12 @@ export class AppUI {
       </div>
       <div class="hc-train"><span class="hc-lv"></span><div class="hc-mid"></div><div class="hc-action"></div></div>
       <div class="hc-gear"></div>`;
-    card.addEventListener('click', () => this.openHunterDetail(who));
+    // Only recruited Hunters open their full view (a locked card's story and Recruit button are all there is).
+    const recruitedNow = () => !def || g.state.hunters[def.id].recruited;
+    card.addEventListener('click', () => {
+      if (recruitedNow()) this.openHunterDetail(who);
+    });
+    this.refreshers.push(() => card.classList.toggle('no-expand', !recruitedNow()));
     const mid = $('.hc-mid', card);
     const action = $('.hc-action', card);
     const lv = $('.hc-lv', card);
@@ -805,17 +821,18 @@ export class AppUI {
     this.closePicker();
     const g = this.game;
     const def = g.slotsOf(who)[slot];
-    const view = el('div', 'hunter-detail picker');
+    const view = el('div', 'hunter-detail picker floating-close');
     view.innerHTML = `
-      <div class="hd-top"><button class="hd-close" aria-label="Close">✕</button><span>${wearerName(who)} · ${def.label}</span></div>
       <div class="hd-scroll">
+        <h2 class="pk-title">${wearerName(who)} · ${def.label}</h2>
         <div class="section-title"><span>Equipped</span></div>
         <div class="pk-equipped"></div>
         <div class="section-title pk-inspect-title"><span>Inspecting</span></div>
         <div class="pk-inspect"></div>
         <div class="section-title"><span>Inventory</span><span class="pk-count"></span></div>
         <div class="inventory pk-grid"></div>
-      </div>`;
+      </div>
+      <button class="hd-close hd-float-close" aria-label="Close">✕</button>`;
     document.body.appendChild(view);
     this.picker = view;
     $('.hd-close', view).addEventListener('click', () => this.closePicker());
@@ -911,8 +928,8 @@ export class AppUI {
       body.innerHTML = `
         <p>${dtypeTag(gd)}<b class="rarity-tag" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${gearKindName(gd)} · <span class="stars">${starsHtml(item.stars)}</span>${worn ? ` · worn by ${wearerName(worn.who)}` : ''}</p>
         ${weaponLine(gd)}
-        <p class="gear-now">${describeGear(gearStats(gd, item.stars))}</p>
-        ${cost ? `<p class="gear-next">Next: <b>${describeGear(gearStats(gd, item.stars + 1))}</b></p><div class="cost">${costHtml(g, cost)}</div>` : '<p>Fully upgraded.</p>'}`;
+        <p class="gear-now">${describeGear(gearStats(gd, item.stars)) || 'No bonuses: plain everyday wear.'}</p>
+        ${cost ? `<p class="gear-next">Next: <b>${describeGear(gearStats(gd, item.stars + 1))}</b></p><div class="cost">${costHtml(g, cost)}</div>` : Object.keys(gd.stats).length ? '<p>Fully upgraded.</p>' : '<p>Nothing to upgrade.</p>'}`;
       const actions = el('div', 'actions');
       if (cost) {
         const up = el('button', 'buy', `Upgrade to ${item.stars + 1}★`) as HTMLButtonElement;
@@ -1004,7 +1021,7 @@ export class AppUI {
     this.panel.appendChild(panel);
     // Details and Travel sit in a bar pinned to the bottom of the menu, so they're in reach wherever you've scrolled.
     const bar = el('div', 'area-actions');
-    bar.innerHTML = `${this.menuFull ? '<button class="buy secondary-btn hunters-btn">🏹 Hunters</button>' : `<span class="aa-name">${a.icon} ${a.name}</span>`}<div class="actions"><button class="buy secondary-btn details">Details</button><button class="buy travel">Travel</button></div>`;
+    bar.innerHTML = `${this.menuFull ? '' : `<span class="aa-name">${a.icon} ${a.name}</span>`}<div class="actions">${this.menuFull ? '<button class="buy secondary-btn hunters-btn">Hunters</button>' : ''}<button class="buy secondary-btn details">Details</button><button class="buy travel">Travel</button></div>`;
     bar.querySelector('.hunters-btn')?.addEventListener('click', () => this.openWorld(null, a.id));
     const icons = $('.monster-icons', panel);
     for (const e of areaEnemies(a.id)) {
@@ -1600,7 +1617,7 @@ export class AppUI {
         end();
         navigator.vibrate?.(25);
         const tab = btn?.dataset.tab as Tab | undefined;
-        if (tab && (tab !== 'events' || this.game.eventsOpen)) this.tab = tab;
+        if (tab && (tab !== 'events' || this.game.eventsOpen) && (tab !== 'areas' || this.areasOpen)) this.tab = tab;
         this.setMenuFull(!this.menuFull);
       }, MENU_HOLD_MS);
       const move = (e: PointerEvent) => {
@@ -2089,7 +2106,7 @@ export class AppUI {
     pane.appendChild(sectionTitle('Craft Equipment'));
     const gearGrid = el('div', 'craft-grid');
     pane.appendChild(gearGrid);
-    for (const gd of GEAR.filter((x) => this.gearKnown(x))) {
+    for (const gd of GEAR.filter((x) => !x.starter && this.gearKnown(x))) {
       const tile = el('button', 'craft-tile') as HTMLButtonElement;
       tile.innerHTML = `<i>${gd.icon}</i><em></em>`;
       tile.title = gd.name;
@@ -2097,7 +2114,7 @@ export class AppUI {
       gearGrid.appendChild(tile);
       tiles.push({ tile, ready: () => g.canCraftGear(gd.id), badge: () => String(g.state.inventory.filter((it) => it.base === gd.id).length || '') });
     }
-    const lockedGear = GEAR.filter((gd) => !this.gearKnown(gd)).length;
+    const lockedGear = GEAR.filter((gd) => !gd.starter && !this.gearKnown(gd)).length;
     if (lockedGear) pane.appendChild(el('p', 'hd-note', `🔒 ${lockedGear} more recipes need materials from monsters you haven't met yet.`));
 
     // Upgrades move from Available to Completed at 5★, so this section is rebuilt when that changes.
@@ -2281,6 +2298,19 @@ export class AppUI {
     });
   }
 
+  /** The Areas tab opens with the second area (the Faerie Glade). */
+  private get areasOpen(): boolean {
+    return this.game.unlockedAreas.length > 1;
+  }
+
+  /** Tapping the greyed-out Areas tab explains how to open it. */
+  private showAreasLocked(): void {
+    this.showModal(
+      `<h2>🔒 Areas</h2><p>Beat the <b>${areaDef('forest').name} Guardian</b> to unlock the ${areaDef('glade').name}, and the Areas tab with it.</p><p>The Guardian Challenge opens in Events once you've slain ${fmt(areaDef('forest').mastery)} monsters in the ${areaDef('forest').name}.</p>`,
+      [{ label: 'OK' }],
+    );
+  }
+
   /** Tapping the greyed-out Events tab explains how to open it. */
   private showEventsLocked(): void {
     const forest = areaDef('forest');
@@ -2333,6 +2363,20 @@ export class AppUI {
             this.setTab('inventory');
           },
         },
+      ],
+    );
+  }
+
+  /** Shown once, when you can first afford to unlock the wolf: also how to raise the menu to full screen. */
+  private showWolfIntro(replay = false): void {
+    if (!replay) this.game.state.flags.wolfIntro = true;
+    this.showModal(
+      `<h2>🐺 A new monster!</h2>
+       <p>The wolf is now ready to be unlocked! Scroll down in the <b>Bestiary</b> to see the wolf.</p>
+       <p>Additionally, you can <b>swipe up</b> on the tab bar, or <b>long press</b> it, to expand the menu. To close the expanded menu, you can swipe down, long press again, or press the <b>red arrow</b> button to drop it down.</p>`,
+      [
+        { label: 'Later', secondary: true },
+        { label: 'Go to Bestiary', action: () => this.goTo('beasts') },
       ],
     );
   }
@@ -2421,6 +2465,7 @@ export class AppUI {
     row('👋', 'Welcome', 'Getting started.', () => this.showWelcome(true));
     row('💪', 'Training', `Making your Hunter stronger (opens after ${TRAIN_UNLOCK_KILLS} slimes).`, () => this.showTrainIntro(true));
     row('🔨', 'Crafting', 'Materials, gear and Upgrades.', () => this.showCraftIntro(true));
+    row('🐺', 'New monsters & the full-screen menu', 'Unlocking the wolf, and raising the menu over the battlefield.', () => this.showWolfIntro(true));
     row('👾', 'Empower', `Unlocking and empowering monsters (opens after ${EMPOWER_UNLOCK_KILLS} slimes).`, () => this.showEmpowerIntro(true));
     row('🔒', 'Unlocking Events', 'How to open the Events tab.', () => this.showEventsLocked());
     row('🎉', 'Events', 'Guardian Challenges, swarms and cooldowns.', () => this.showEventsIntro(true));
@@ -2559,12 +2604,67 @@ export class AppUI {
       st.dps = v === 'on';
       this.refresh();
     });
-    choices('Cooldown icons', 'Icons for abilities that recharge (like Reginald\'s potions, Glimmer\'s fireballs and item abilities). They grey out when used and refill from the top down.', onOff, () => (st.cooldowns ? 'on' : 'off'), (v) => (st.cooldowns = v === 'on'));
-    choices('Cooldown icon position', 'Which edge of the battlefield the cooldown icons sit on.', COOLDOWN_POSITIONS.map((p) => [p, p[0].toUpperCase() + p.slice(1)] as [CooldownPos, string]), () => st.cooldownPos, (v) => (st.cooldownPos = v), () => st.cooldowns);
-    choices('Cooldown icon style', 'Fancy adds a glowing line where the colour meets the grey as an icon refills.', styles, () => st.cooldownStyle, (v) => (st.cooldownStyle = v), () => st.cooldowns);
-    choices('Reload indicator', 'Text over a Hunter waiting on their weapon: "RELOADING!" (pistols, rifles, repeaters), "RECHARGING!" (staffs) or "SUMMONING!" (tomes). It fades from right to left as the wait runs out.', onOff, () => (st.reloads ? 'on' : 'off'), (v) => (st.reloads = v === 'on'));
-    choices('Reload indicator position', 'Whether it shows above or below the Hunter.', [['above', 'Above'], ['below', 'Below']], () => st.reloadPos, (v) => (st.reloadPos = v), () => st.reloads);
-    choices('Reload indicator style', 'Fancy breaks the fading edge into pixels: sparks and metal for reloads, magic for recharges, a haze for summons.', styles, () => st.reloadStyle, (v) => (st.reloadStyle = v), () => st.reloads);
+    /**
+     * A setting with a Show / Hide switch and its options underneath in the same card (smaller), greyed out
+     * and locked while it's hidden, like the Effects groups.
+     */
+    const group = (title: string, blurb: string, get: () => boolean, set: (on: boolean) => void, subs: Array<{ label: string; opts: Array<[string, string]>; get: () => string; set: (v: string) => void }>) => {
+      const card = el('div', 'card setting');
+      card.innerHTML = `<div class="setting-name">${title}</div><p>${blurb}</p><div class="segmented fx-master"><button data-v="on">Show</button><button data-v="off">Hide</button></div><div class="fx-list sub-list">${subs
+        .map((sb, i) => `<div class="sub-row" data-i="${i}"><span>${sb.label}</span><div class="segmented">${sb.opts.map(([v, l]) => `<button data-v="${v}">${l}</button>`).join('')}</div></div>`)
+        .join('')}</div>`;
+      const draw = () => {
+        const on = get();
+        card.querySelectorAll<HTMLButtonElement>('.fx-master button').forEach((b) => b.classList.toggle('on', (b.dataset.v === 'on') === on));
+        $('.sub-list', card).classList.toggle('disabled', !on);
+        card.querySelectorAll<HTMLElement>('.sub-row').forEach((row) => {
+          const sb = subs[Number(row.dataset.i)];
+          row.querySelectorAll<HTMLButtonElement>('button').forEach((b) => {
+            b.classList.toggle('on', b.dataset.v === sb.get());
+            b.disabled = !on;
+          });
+        });
+      };
+      card.querySelectorAll<HTMLButtonElement>('.fx-master button').forEach((b) =>
+        b.addEventListener('click', () => {
+          set(b.dataset.v === 'on');
+          this.hooks.save();
+          draw();
+        }),
+      );
+      card.querySelectorAll<HTMLElement>('.sub-row').forEach((row) =>
+        row.querySelectorAll<HTMLButtonElement>('button').forEach((b) =>
+          b.addEventListener('click', () => {
+            if (!get()) return;
+            subs[Number(row.dataset.i)].set(b.dataset.v!);
+            this.hooks.save();
+            draw();
+          }),
+        ),
+      );
+      draw();
+      body.appendChild(card);
+    };
+    group(
+      'Cooldown icons',
+      "Icons for abilities that recharge (like Reginald's potions, Glimmer's fireballs and item abilities). They grey out when used and refill from the top down.",
+      () => st.cooldowns,
+      (on) => (st.cooldowns = on),
+      [
+        { label: 'Position', opts: COOLDOWN_POSITIONS.map((p) => [p, p[0].toUpperCase() + p.slice(1)]), get: () => st.cooldownPos, set: (v) => (st.cooldownPos = v as CooldownPos) },
+        { label: 'Style', opts: styles, get: () => st.cooldownStyle, set: (v) => (st.cooldownStyle = v as IndicatorStyle) },
+      ],
+    );
+    group(
+      'Reload indicator',
+      'Text over a Hunter waiting on their weapon: "RELOADING!" (pistols, rifles, repeaters), "RECHARGING!" (staffs) or "SUMMONING!" (tomes). It fades from right to left as the wait runs out.',
+      () => st.reloads,
+      (on) => (st.reloads = on),
+      [
+        { label: 'Position', opts: [['above', 'Above'], ['below', 'Below']], get: () => st.reloadPos, set: (v) => (st.reloadPos = v as 'above' | 'below') },
+        { label: 'Style', opts: styles, get: () => st.reloadStyle, set: (v) => (st.reloadStyle = v as IndicatorStyle) },
+      ],
+    );
 
     body.appendChild(sectionTitle('Effects'));
     // A group of effects with a master switch and a switch for each kind (greyed out while the group is off).
@@ -2734,9 +2834,11 @@ export class AppUI {
   showModal(html: string, buttons: Array<{ label: string; secondary?: boolean; action?: () => void }>): void {
     this.modal.innerHTML = `<div class="modal-box">${html}<div class="buttons"></div></div>`;
     const wrap = $('.buttons', this.modal);
+    this.lastPopup = performance.now();
     const close = () => {
       this.modal.classList.add('hidden');
       this.modalClose = null;
+      this.lastPopup = performance.now(); // the gap before the next tip counts from when this one closes
     };
     for (const b of buttons) {
       const btn = el('button', b.secondary ? 'secondary' : '', b.label);

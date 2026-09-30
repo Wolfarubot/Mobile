@@ -64,7 +64,16 @@ import {
 } from '../src/core/balance';
 import { Field, type Enemy } from '../src/core/field';
 import { Game } from '../src/core/game';
-import { deserialize, FX_KEYS, newGame, SAVE_VERSION, serialize, type GameState } from '../src/core/state';
+import { deserialize, FX_KEYS, newGame as startingGame, SAVE_VERSION, serialize, type GameState } from '../src/core/state';
+
+/** A new game without the starting gear, so tests see a bare Hunter unless they add gear themselves. */
+function newGame(now = 0): GameState {
+  const s = startingGame(now);
+  s.inventory = [];
+  s.equipment = {};
+  s.nextGearUid = 1;
+  return s;
+}
 
 const noCrit = () => 0.99;
 
@@ -142,6 +151,17 @@ describe('Areas', () => {
     expect(g.challengeGuardian()).toBe(false);
     g.tick(GUARDIAN_COOLDOWN);
     expect(g.challengeGuardian()).toBe(true);
+  });
+
+  it('a new game starts with a Short Sword and Common Clothes on, and a Short Bow in the inventory', () => {
+    const g = new Game(startingGame(0), noCrit);
+    expect(g.equipped('main').map((it) => it?.base ?? null)).toEqual(['shortSword', 'commonClothes', null]);
+    expect(g.state.inventory.map((it) => it.base)).toContain('shortBow');
+    expect(g.weaponClassOf('main')?.name).toBe('Sword');
+    expect(g.canCraftGear('shortSword')).toBe(false); // starting gear isn't craftable
+    const clothes = g.equipped('main')[1]!;
+    expect(g.gearUpgradeCost(clothes.uid)).toBeNull(); // no stats, nothing to upgrade
+    expect(g.salvageValue(clothes.uid)).toEqual({}); // it was free
   });
 
   it('the Guardian is tuned to the next area and later areas are tougher and richer', () => {
@@ -1885,7 +1905,7 @@ describe('Saves', () => {
     s.flags.eventsIntro = true;
     const back = deserialize(serialize(s))!;
     expect(back.settings).toEqual({ leftHanded: true, name: 'Wolfa', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal', dps: true, cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', cooldownStyle: 'fancy', fx: Object.fromEntries(FX_KEYS.map((k) => [k, true])), aoeStyle: 'fancy' });
-    expect(back.flags).toEqual({ eventsIntro: true, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false });
+    expect(back.flags).toEqual({ eventsIntro: true, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false });
     const old = JSON.parse(serialize(newGame(0)));
     delete old.settings;
     delete old.flags;
