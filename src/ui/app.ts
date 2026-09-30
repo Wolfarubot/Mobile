@@ -2317,7 +2317,8 @@ function esc(text: string): string {
 const gearKindName = (gd: GearDef): string => (gd.weaponClass ? WEAPON_CLASSES[gd.weaponClass].name : GEAR_KINDS[gd.kind].name);
 
 /** How a weapon attacks (for your Hunter), or '' for other gear. */
-const weaponLine = (gd: GearDef): string => (gd.weaponClass ? `<p class="weapon-line">⚔️ ${WEAPON_CLASSES[gd.weaponClass].describe}</p>` : '');
+const weaponLine = (gd: GearDef): string =>
+  (gd.weaponClass ? `<p class="weapon-line">⚔️ ${WEAPON_CLASSES[gd.weaponClass].describe}</p>` : '') + (gd.ability ? `<p class="weapon-line">✨ ${gd.ability}</p>` : '');
 
 /** What counts toward unlocking an event: its archetype ("slimes") or any monster. */
 const unlockNoun = (ev: EventDef): string => (ev.unlockArchetype ? `${ARCHETYPES[ev.unlockArchetype].name.toLowerCase()}s` : 'monsters');

@@ -1119,6 +1119,27 @@ describe('Equipment', () => {
     }
   });
 
+  it("the Wolf Spirit tome's wolves lunge on a cooldown; a landed lunge bites ×2.5; only that ability gets a cooldown icon", () => {
+    const g = stocked();
+    g.state.hunters = Object.fromEntries(Object.entries(g.state.hunters).map(([k, h]) => [k, { ...h, station: null }])) as typeof g.state.hunters;
+    g.equip('main', 0, g.craftGear('wolfTome')!.uid);
+    const f = new Field(g);
+    f.setView(390, 420);
+    const hp = 1e12;
+    f.enemies.push(enemy({ id: 1, x: 220, hp, maxHp: hp }));
+    const hits: number[] = [];
+    for (let t = 0; t < 1 / g.shooterRate('main') + 2; t += 0.01) {
+      f.update(0.01);
+      for (const e of f.drainEvents()) if (e.type === 'hit') hits.push(e.dmg);
+    }
+    expect(f.summons[0]?.look).toBe('wolf');
+    const bite = Math.min(...hits);
+    expect(Math.max(...hits) / bite).toBeCloseTo(2.5); // the lunge
+    const icons = f.cooldowns();
+    expect(icons.map((c) => c.key)).toEqual(['item:wolfTome']); // the lunge, not the tome's own summoning
+    expect(icons[0].progress).toBeLessThan(1);
+  });
+
   it('a repeater sprays a fan; extra bolts of one volley on the same monster hit harder (×1.5, ×2)', () => {
     const g = stocked();
     g.state.hunters = Object.fromEntries(Object.entries(g.state.hunters).map(([k, h]) => [k, { ...h, station: null }])) as typeof g.state.hunters;

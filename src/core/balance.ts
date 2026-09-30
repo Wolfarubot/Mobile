@@ -1249,6 +1249,7 @@ export const GEAR_STATS: Record<GearStat, (v: number) => string> = {
 export type GearId =
   | 'fangDagger'
   | 'wispTome'
+  | 'wolfTome'
   | 'boneMaul'
   | 'goblinSword'
   | 'huntingBow'
@@ -1302,6 +1303,14 @@ export interface GearDef {
   damageType?: DamageType;
   /** Weapons only: what kind of weapon it is, which shapes how it attacks (see WEAPON_CLASSES). */
   weaponClass?: WeaponClass;
+  /**
+   * Tomes: what this one summons (a spirit by default). `dash` is the creatures' own ability: every
+   * `cooldown` seconds they lunge `range` at a monster, and a lunge that lands deals `damage` × a bite. Its
+   * cooldown shows as the item's icon on the battlefield.
+   */
+  summon?: { look: 'wisp' | 'wolf'; name: string; dash?: { cooldown: number; range: number; speed: number; damage: number } };
+  /** A line about the item's own ability, shown on its card. */
+  ability?: string;
   /** Chance each hit triggers its damage type's status effect (0 or missing: never). */
   proc?: number;
   /** Stats at 1★; higher stars multiply them by GEAR_STAR_POWER. */
@@ -1443,6 +1452,19 @@ export const GEAR: GearDef[] = [
   { id: 'crystalFocus', name: 'Crystal Focus', icon: '💎', kind: 'magic', rarity: 'legendary', weaponClass: 'focus', damageType: 'frost', proc: 0.3, stats: { damage: 0.4, rate: 0.2 }, recipe: { frost: 8, ecto: 6 } },
   { id: 'voidScepter', name: 'Void Scepter', icon: '🪬', kind: 'magic', rarity: 'relic', weaponClass: 'scepter', damageType: 'void', stats: { damage: 0.55, rate: 0.25 }, recipe: { shade: 10, void: 5 } },
   { id: 'wispTome', name: 'Tome of Wisps', icon: '📖', kind: 'magic', rarity: 'rare', weaponClass: 'tome', damageType: 'arcane', proc: 0.15, stats: { damage: 0.3 }, recipe: { flesh: 10, wing: 6, bone: 4 } },
+  {
+    id: 'wolfTome',
+    name: 'Tome of the Wolf Spirit',
+    icon: '🐺',
+    kind: 'magic',
+    rarity: 'uncommon',
+    weaponClass: 'tome',
+    damageType: 'physical',
+    stats: { damage: 0.25 },
+    recipe: { pelt: 24 },
+    summon: { look: 'wolf', name: 'wolf spirit', dash: { cooldown: 4, range: 150, speed: 520, damage: 2.5 } },
+    ability: 'Its wolves lunge at a monster every 4s; a lunge that lands bites for ×2.5.',
+  },
   { id: 'soulfireStaff', name: 'Soulfire Staff', icon: '🌟', kind: 'magic', rarity: 'exalted', weaponClass: 'staff', damageType: 'radiant', proc: 0.2, stats: { damage: 0.75, rate: 0.3 }, recipe: { soul: 8, void: 4 } },
   // Armor
   { id: 'leatherVest', name: 'Leather Vest', icon: '🦺', kind: 'armor', rarity: 'common', stats: { stun: 0.05 }, recipe: { pelt: 8, goo: 6 } },

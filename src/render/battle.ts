@@ -1,5 +1,5 @@
 import { areaDef, DAMAGE_TYPES, STATUS, enemyDef, eventDef, FIELD_ZOOM, GUARDIAN_TIME, hunterDef, materialDef, type EnemyId, type EnemyShape } from '../core/balance';
-import { PLAYER_RADIUS, SUMMON_RADIUS, type Bullet, type Enemy, type Field, type Helper } from '../core/field';
+import { PLAYER_RADIUS, SUMMON_RADIUS, type Summon, type Bullet, type Enemy, type Field, type Helper } from '../core/field';
 import { fmt } from '../core/format';
 import type { Game, Shooter } from '../core/game';
 import { canvasFont, fitCanvas, Fx } from './fx';
@@ -256,6 +256,10 @@ export class BattleView {
 
     // Tome spirits: a glowing wisp with a trailing tail, fading as their time runs out.
     for (const sm of this.field.summons) {
+      if (sm.look === 'wolf') {
+        this.drawWolf(g, sm);
+        continue;
+      }
       const fade = Math.min(1, sm.life / 1.2);
       const bob = Math.sin(this.time * 8 + sm.maxLife) * 2;
       g.globalAlpha = 0.35 * fade;
@@ -327,6 +331,42 @@ export class BattleView {
     g.restore();
     this.drawHud(g);
     this.cooldownBar.update();
+  }
+
+  /** A wolf spirit: a pale blue-grey wolf head with ears, streaking when it lunges. */
+  private drawWolf(g: CanvasRenderingContext2D, sm: Summon): void {
+    const fade = Math.min(1, sm.life / 1.2);
+    const r = SUMMON_RADIUS + 1;
+    if (sm.dash > 0) {
+      g.globalAlpha = 0.35 * fade;
+      g.fillStyle = '#9fd8ff';
+      g.beginPath();
+      g.arc(sm.x, sm.y, r + 7, 0, Math.PI * 2);
+      g.fill();
+    }
+    g.globalAlpha = 0.85 * fade;
+    g.fillStyle = '#cfe0ee';
+    g.strokeStyle = '#3a4a5a';
+    g.lineWidth = 2;
+    // Ears
+    for (const side of [-1, 1]) {
+      g.beginPath();
+      g.moveTo(sm.x + side * r * 0.9, sm.y - r * 0.2);
+      g.lineTo(sm.x + side * r * 0.55, sm.y - r * 1.35);
+      g.lineTo(sm.x + side * r * 0.1, sm.y - r * 0.7);
+      g.closePath();
+      g.fill();
+      g.stroke();
+    }
+    g.beginPath();
+    g.arc(sm.x, sm.y, r, 0, Math.PI * 2);
+    g.fill();
+    g.stroke();
+    g.fillStyle = '#1e2a36';
+    g.fillRect(sm.x - 4, sm.y - 2, 2, 3);
+    g.fillRect(sm.x + 2, sm.y - 2, 2, 3);
+    g.fillRect(sm.x - 1, sm.y + 3, 2, 2);
+    g.globalAlpha = 1;
   }
 
   /**

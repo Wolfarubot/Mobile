@@ -13,6 +13,8 @@ import {
   FLEE_SPEED_MULT,
   GUARD_RECHARGE,
   hunterDef,
+  gearDef,
+  type GearDef,
   MAX_ENEMIES,
   MULTISHOT_SPREAD,
   STUN_IMMUNITY,
@@ -77,6 +79,10 @@ export interface Summon {
   life: number;
   maxLife: number;
   bite: number;
+  look: 'wisp' | 'wolf';
+  /** Seconds left in a lunge (their tome's ability), and whether this lunge has landed yet. */
+  dash: number;
+  dashHit: boolean;
 }
 
 /** A damage-over-time effect: damage per second, seconds left, who applied it (for kill credit). */
@@ -235,6 +241,8 @@ export class Field {
   private stabs: Array<{ t: number; target: number; last: boolean }> = [];
   /** Creatures your Hunter's tome has summoned. */
   summons: Summon[] = [];
+  /** Seconds until your tome's creatures can lunge again (a tome with a lunge ability, e.g. the Wolf Spirit). */
+  private dashCd = 0;
   private nextVolley = 1;
   private nextId = 1;
   private halfW = 320;
@@ -391,7 +399,8 @@ export class Field {
         this.events.push({ type: 'nova', x: 0, y: 0, r: cls.reach! });
         for (const e of this.enemies) if (e.hp > 0 && Math.hypot(e.x, e.y) <= cls.reach! + e.r) this.hitWith('main', e, 1, 0, 0);
       } else if (cls?.summon) {
-        this.summons.push({ x: Math.cos(this.aim) * 20, y: Math.sin(this.aim) * 20, life: cls.summon.duration, maxLife: cls.summon.duration, bite: 0 });
+        const look = this.mainWeapon()?.summon?.look ?? 'wisp';
+        this.summons.push({ x: Math.cos(this.aim) * 20, y: Math.sin(this.aim) * 20, life: cls.summon.duration, maxLife: cls.summon.duration, bite: 0, look, dash: 0, dashHit: false });
         this.events.push({ type: 'nova', x: 0, y: 0, r: 30 });
       } else if (cls?.spell && this.gunState.ammo === 1) {
         // A staff's big spell: the last round of each cast.
@@ -674,6 +683,10 @@ export class Field {
    */
   cooldowns(): CooldownView[] {
     const out: CooldownView[] = [];
+    // Items' own abilities (not the weapon's basic cooldown): e.g. the Wolf Spirit tome's lunge.
+    const w = this.mainWeapon();
+    const dash = w?.summon?.dash;
+    if (w && dash && this.game.weaponClassOf('main')?.summon) out.push({ key: `item:${w.id}`, icon: w.icon, name: w.name, progress: 1 - this.dashCd / dash.cooldown });
     for (const h of this.helpers) {
       const sp = hunterDef(h.id).style.special;
       if (sp) out.push({ key: h.id, icon: hunterDef(h.id).icon, name: hunterDef(h.id).name, progress: 1 - Math.max(0, h.specialCd) / sp.cooldown });
@@ -812,16 +825,40 @@ export class Field {
     }
   }
 
-  /** Tome creatures: each heads for the nearest monster and bites it while in reach, until it fades. */
+  /** The gear in your Hunter's weapon slot, if any. */
+  private mainWeapon(): GearDef | null {
+    const w = this.game.equipped('main')[0];
+    return w ? gearDef(w.base) : null;
+  }
+
+  /**
+   * Tome creatures: each heads for the nearest monster and bites it while in reach, until it fades. A tome with
+   * a lunge ability (the Wolf Spirit) sends them all lunging at their monsters when it's off cooldown; a lunge
+   * that lands bites extra hard.
+   */
   private runSummons(dt: number, cls: WeaponClassDef | null): void {
+    const dash = this.mainWeapon()?.summon?.dash;
+    this.dashCd = Math.max(0, this.dashCd - dt);
     if (!this.summons.length) return;
     const sm = cls?.summon;
     if (!sm) {
       this.summons = [];
       return;
     }
+    if (dash && this.dashCd <= 0) {
+      let lunged = false;
+      for (const s of this.summons) {
+        const e = this.nearest(s.x, s.y, dash.range);
+        if (!e || s.dash > 0) continue;
+        s.dash = dash.range / dash.speed + 0.05;
+        s.dashHit = false;
+        lunged = true;
+      }
+      if (lunged) this.dashCd = dash.cooldown;
+    }
     for (const s of this.summons) {
       s.life -= dt;
+      s.dash = Math.max(0, s.dash - dt);
       const e = this.nearest(s.x, s.y, 2000);
       if (!e) continue;
       const dx = e.x - s.x;
@@ -829,9 +866,15 @@ export class Field {
       const d = Math.hypot(dx, dy) || 1;
       const reach = SUMMON_RADIUS + e.r;
       if (d > reach) {
-        const step = Math.min(sm.speed * dt, d - reach + 1);
+        const step = Math.min((s.dash > 0 && dash ? dash.speed : sm.speed) * dt, d - reach + 1);
         s.x += (dx / d) * step;
         s.y += (dy / d) * step;
+      }
+      if (s.dash > 0 && dash && !s.dashHit && Math.hypot(e.x - s.x, e.y - s.y) <= reach + 2) {
+        // The lunge lands: a big bite, and the lunge is spent.
+        s.dashHit = true;
+        s.dash = 0;
+        this.hitWith('main', e, dash.damage, s.x, s.y);
       }
       if (d <= reach + 2) {
         s.bite += dt * sm.bites;
