@@ -130,6 +130,9 @@ export interface GameState {
     /** "RELOADING!" over Hunters whose gun is reloading, and whether it's above or below them. */
     reloads: boolean;
     reloadPos: ReloadPos;
+    /** 'fancy' adds effects (pixels at the reload text's fading edge, a glowing line on refilling icons). */
+    reloadStyle: IndicatorStyle;
+    cooldownStyle: IndicatorStyle;
   };
   /** One-time tutorial moments already shown. */
   flags: {
@@ -182,7 +185,7 @@ export function newGame(now = Date.now()): GameState {
     equipment: {},
     nextGearUid: 1,
     lastSeen: now,
-    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above' },
+    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', cooldownStyle: 'fancy' },
     flags: { eventsIntro: false, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false },
     events: Object.fromEntries(EVENTS.map((e) => [e.id, { cooldown: 0, runs: 0, completed: 0 }])),
     buyAmount: 1,
@@ -193,6 +196,8 @@ export function newGame(now = Date.now()): GameState {
 export const COOLDOWN_POSITIONS = ['top', 'bottom', 'left', 'right'] as const;
 export type CooldownPos = (typeof COOLDOWN_POSITIONS)[number];
 export const RELOAD_POSITIONS = ['above', 'below'] as const;
+export const INDICATOR_STYLES = ['fancy', 'basic'] as const;
+export type IndicatorStyle = (typeof INDICATOR_STYLES)[number];
 export type ReloadPos = (typeof RELOAD_POSITIONS)[number];
 
 export function serialize(state: GameState): string {
@@ -318,6 +323,8 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
       cooldownPos: pick(COOLDOWN_POSITIONS, (data.settings as { cooldownPos?: unknown } | undefined)?.cooldownPos, 'top'),
       reloads: (data.settings as { reloads?: unknown } | undefined)?.reloads !== false,
       reloadPos: pick(RELOAD_POSITIONS, (data.settings as { reloadPos?: unknown } | undefined)?.reloadPos, 'above'),
+      reloadStyle: pick(INDICATOR_STYLES, (data.settings as { reloadStyle?: unknown } | undefined)?.reloadStyle, 'fancy'),
+      cooldownStyle: pick(INDICATOR_STYLES, (data.settings as { cooldownStyle?: unknown } | undefined)?.cooldownStyle, 'fancy'),
     },
     flags: {
       eventsIntro: !!(data.flags as { eventsIntro?: unknown } | undefined)?.eventsIntro,

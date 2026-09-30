@@ -2941,3 +2941,19 @@ button.mat:not(:disabled):active {
 .cd-icon.pulse {
   animation: card-bump 0.3s ease-out;
 }
+.cd-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  margin-top: -1px;
+  background: #fff8d0;
+  box-shadow: 0 0 4px 1px #ffd34d, 0 0 8px 2px rgba(255, 211, 77, 0.6);
+  pointer-events: none;
+}
+.setting.disabled {
+  opacity: 0.45;
+}
+.setting.disabled .segmented button {
+  pointer-events: none;
+}

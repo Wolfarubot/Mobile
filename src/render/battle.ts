@@ -403,14 +403,14 @@ export class BattleView {
       const palette = EDGE_PIXELS[text] ?? EDGE_PIXELS['RELOADING!'];
       const px = 2 / Z;
       const half = 7 / Z;
-      if (p > 0 && p < 1) {
+      if (st.reloadStyle === 'fancy' && p > 0 && p < 1) {
         for (let i = 0; i < 9; i++) {
           g.fillStyle = palette[(Math.random() * palette.length) | 0];
           g.globalAlpha = 0.6 + Math.random() * 0.4;
           g.fillRect(edge - Math.random() * 6 / Z, y - half + Math.random() * half * 2, px, px);
         }
         g.globalAlpha = 1;
-        if (Math.random() < 0.35) this.fx.burst(edge, y - half + Math.random() * half * 2, palette[(Math.random() * palette.length) | 0], 1, 40 / Z, 2 / Z, text === 'RELOADING!' ? 300 : -60);
+        if (Math.random() < 0.35) this.fx.burst(edge, y - half + Math.random() * half * 2, palette[(Math.random() * palette.length) | 0], 1, 40 / Z, 2.5 / Z, text === 'RELOADING!' ? 300 : -60, true);
       }
     }
   }
@@ -963,7 +963,7 @@ const EDGE_PIXELS: Record<string, string[]> = {
  */
 class CooldownBar {
   private el: HTMLDivElement;
-  private icons = new Map<string, { el: HTMLDivElement; color: HTMLSpanElement; ready: boolean }>();
+  private icons = new Map<string, { el: HTMLDivElement; color: HTMLSpanElement; line: HTMLElement; ready: boolean }>();
 
   constructor(
     parent: HTMLElement,
@@ -993,13 +993,16 @@ class CooldownBar {
         const el = document.createElement('div');
         el.className = 'cd-icon';
         el.title = c.name;
-        el.innerHTML = `<span class="cd-gray">${c.icon}</span><span class="cd-color">${c.icon}</span>`;
+        el.innerHTML = `<span class="cd-gray">${c.icon}</span><span class="cd-color">${c.icon}</span><i class="cd-line"></i>`;
         this.el.appendChild(el);
-        ic = { el, color: el.querySelector('.cd-color') as HTMLSpanElement, ready: c.progress >= 1 };
+        ic = { el, color: el.querySelector('.cd-color') as HTMLSpanElement, line: el.querySelector('.cd-line') as HTMLElement, ready: c.progress >= 1 };
         this.icons.set(c.key, ic);
       }
       // The coloured copy shows from the top down as it recharges.
       ic.color.style.clipPath = `inset(0 0 ${(1 - Math.min(1, c.progress)) * 100}% 0)`;
+      // Fancy: a glowing line where the colour meets the grey.
+      ic.line.style.top = `${Math.min(1, c.progress) * 100}%`;
+      ic.line.classList.toggle('hidden', st.cooldownStyle !== 'fancy' || c.progress >= 1);
       const ready = c.progress >= 1;
       if (ready && !ic.ready) {
         ic.el.classList.remove('pulse');

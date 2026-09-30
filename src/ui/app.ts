@@ -61,7 +61,7 @@ import {
 import { fmt, fmtTime } from '../core/format';
 import type { FarmRates, Game, TreeKind } from '../core/game';
 import type { OfflineResult } from '../core/offline';
-import { COOLDOWN_POSITIONS, TAB_IDS, type BuyAmount, type CooldownPos, type GearItem, type TabId, type Wearer } from '../core/state';
+import { COOLDOWN_POSITIONS, TAB_IDS, type BuyAmount, type CooldownPos, type IndicatorStyle, type GearItem, type TabId, type Wearer } from '../core/state';
 import { drawEnemyPortrait } from '../render/battle';
 import { spriteUrl } from '../render/sprites';
 import { applyAreaTheme } from './theme';
@@ -2060,27 +2060,42 @@ export class AppUI {
     body.appendChild(hand);
 
     body.appendChild(sectionTitle('Battlefield'));
-    // A setting with a row of choices; `get`/`set` read and write it.
-    const choices = <T extends string>(title: string, blurb: string, opts: Array<[T, string]>, get: () => T, set: (v: T) => void) => {
+    // A setting with a row of choices; `get`/`set` read and write it. `enabled` greys it out (and locks it)
+    // while the setting it belongs to is off.
+    const syncs: Array<() => void> = [];
+    const choices = <T extends string>(title: string, blurb: string, opts: Array<[T, string]>, get: () => T, set: (v: T) => void, enabled: () => boolean = () => true) => {
       const card = el('div', 'card setting');
       card.innerHTML = `<div class="setting-name">${title}</div><p>${blurb}</p><div class="segmented">${opts.map(([v, label]) => `<button data-v="${v}">${label}</button>`).join('')}</div>`;
       const btns = card.querySelectorAll<HTMLButtonElement>('.segmented button');
-      const draw = () => btns.forEach((b) => b.classList.toggle('on', b.dataset.v === get()));
+      const draw = () => {
+        const on = enabled();
+        card.classList.toggle('disabled', !on);
+        btns.forEach((b) => {
+          b.classList.toggle('on', b.dataset.v === get());
+          b.disabled = !on;
+        });
+      };
       btns.forEach((b) =>
         b.addEventListener('click', () => {
+          if (!enabled()) return;
           set(b.dataset.v as T);
           this.hooks.save();
-          draw();
+          syncs.forEach((f) => f());
         }),
       );
+      syncs.push(draw);
       draw();
       body.appendChild(card);
     };
     const st = g.state.settings;
-    choices('Cooldown icons', 'Icons for Hunter abilities that recharge (like Reginald\'s potions and Glimmer\'s fireballs). They grey out when used and refill from the top down.', [['on', 'Show'], ['off', 'Hide']], () => (st.cooldowns ? 'on' : 'off'), (v) => (st.cooldowns = v === 'on'));
-    choices('Cooldown icon position', 'Which edge of the battlefield the cooldown icons sit on.', COOLDOWN_POSITIONS.map((p) => [p, p[0].toUpperCase() + p.slice(1)] as [CooldownPos, string]), () => st.cooldownPos, (v) => (st.cooldownPos = v));
-    choices('Reload indicator', 'Text over a Hunter waiting on their weapon: "RELOADING!" (pistols, rifles, repeaters), "RECHARGING!" (staffs) or "SUMMONING!" (tomes). It fades from right to left as the wait runs out.', [['on', 'Show'], ['off', 'Hide']], () => (st.reloads ? 'on' : 'off'), (v) => (st.reloads = v === 'on'));
-    choices('Reload indicator position', 'Whether it shows above or below the Hunter.', [['above', 'Above'], ['below', 'Below']], () => st.reloadPos, (v) => (st.reloadPos = v));
+    const onOff: Array<['on' | 'off', string]> = [['on', 'Show'], ['off', 'Hide']];
+    const styles: Array<[IndicatorStyle, string]> = [['fancy', '✨ Fancy'], ['basic', 'Basic']];
+    choices('Cooldown icons', 'Icons for abilities that recharge (like Reginald\'s potions, Glimmer\'s fireballs and item abilities). They grey out when used and refill from the top down.', onOff, () => (st.cooldowns ? 'on' : 'off'), (v) => (st.cooldowns = v === 'on'));
+    choices('Cooldown icon position', 'Which edge of the battlefield the cooldown icons sit on.', COOLDOWN_POSITIONS.map((p) => [p, p[0].toUpperCase() + p.slice(1)] as [CooldownPos, string]), () => st.cooldownPos, (v) => (st.cooldownPos = v), () => st.cooldowns);
+    choices('Cooldown icon style', 'Fancy adds a glowing line where the colour meets the grey as an icon refills.', styles, () => st.cooldownStyle, (v) => (st.cooldownStyle = v), () => st.cooldowns);
+    choices('Reload indicator', 'Text over a Hunter waiting on their weapon: "RELOADING!" (pistols, rifles, repeaters), "RECHARGING!" (staffs) or "SUMMONING!" (tomes). It fades from right to left as the wait runs out.', onOff, () => (st.reloads ? 'on' : 'off'), (v) => (st.reloads = v === 'on'));
+    choices('Reload indicator position', 'Whether it shows above or below the Hunter.', [['above', 'Above'], ['below', 'Below']], () => st.reloadPos, (v) => (st.reloadPos = v), () => st.reloads);
+    choices('Reload indicator style', 'Fancy breaks the fading edge into pixels: sparks and metal for reloads, magic for recharges, a haze for summons.', styles, () => st.reloadStyle, (v) => (st.reloadStyle = v), () => st.reloads);
 
     const tabsCard = el('div', 'card setting');
     tabsCard.innerHTML = `<div class="setting-name">Tab order</div><p>The order of the tabs along the bottom of the screen, left to right. Drag a row or use the arrows.</p><div class="tab-order"></div><button class="secondary tab-order-reset">Reset to default</button>`;

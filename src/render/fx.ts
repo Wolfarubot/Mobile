@@ -10,6 +10,8 @@ interface Particle {
   size: number;
   color: string;
   gravity: number;
+  /** Drawn as a square pixel instead of a round dot. */
+  square?: boolean;
 }
 
 interface Floater {
@@ -38,7 +40,7 @@ export class Fx {
   slashes: Slash[] = [];
 
   /** Particle burst. Pass gravity 0 for top-down scenes. */
-  burst(x: number, y: number, color: string, count = 14, speed = 220, size = 5, gravity = 600): void {
+  burst(x: number, y: number, color: string, count = 14, speed = 220, size = 5, gravity = 600, square = false): void {
     if (this.particles.length > 400) return;
     for (let i = 0; i < count; i++) {
       const a = Math.random() * Math.PI * 2;
@@ -53,6 +55,7 @@ export class Fx {
         size: size * (0.6 + Math.random() * 0.8),
         color,
         gravity,
+        square,
       });
     }
   }
@@ -92,6 +95,10 @@ export class Fx {
     for (const p of this.particles) {
       g.globalAlpha = 1 - p.life / p.max;
       g.fillStyle = p.color;
+      if (p.square) {
+        g.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+        continue;
+      }
       g.beginPath();
       g.arc(p.x, p.y, p.size, 0, Math.PI * 2);
       g.fill();
