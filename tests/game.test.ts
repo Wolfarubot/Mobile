@@ -1053,6 +1053,15 @@ describe('Equipment', () => {
     for (const e of f2.enemies) expect(e.kx).toBeGreaterThan(50);
   });
 
+  it('a hammer is slow and crushing, and knocks monsters much further than other weapons', () => {
+    const h = WEAPON_CLASSES.hammer;
+    for (const [id, c] of Object.entries(WEAPON_CLASSES)) if (id !== 'hammer') {
+      expect(h.rate).toBeLessThan(c.rate);
+      expect(h.knock ?? 0).toBeGreaterThan(c.knock ?? 0);
+    }
+    expect(h.damage).toBeGreaterThan(2);
+  });
+
   it('a repeater sprays a fan; extra bolts of one volley on the same monster hit harder (×1.5, ×2)', () => {
     const g = stocked();
     g.state.hunters = Object.fromEntries(Object.entries(g.state.hunters).map(([k, h]) => [k, { ...h, station: null }])) as typeof g.state.hunters;

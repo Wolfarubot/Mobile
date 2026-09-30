@@ -134,6 +134,7 @@ export class BattleView {
           break;
         case 'sweep':
           this.sweeps.push({ ...e, t: 0 });
+          if (e.heavy) this.shake = Math.max(this.shake, 0.12); // a hammer's smash
           break;
         case 'reload':
           this.fx.text(e.x, e.y - PLAYER_RADIUS - 16, 'RELOAD', '#e8e0c0', 11, 0.6);

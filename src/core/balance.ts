@@ -1248,6 +1248,7 @@ export const GEAR_STATS: Record<GearStat, (v: number) => string> = {
 
 export type GearId =
   | 'fangDagger'
+  | 'boneMaul'
   | 'goblinSword'
   | 'huntingBow'
   | 'boneCrossbow'
@@ -1326,7 +1327,7 @@ export const GEAR_STUN_CAP = 0.7;
 // weapon's class reshapes it (a longbow makes Galladair's arrows slower, heavier and longer-ranged).
 // Each class's rate × damage is about 1, so none is simply better: they trade speed, reach and crowd hits.
 
-export type WeaponClass = 'dagger' | 'sword' | 'glaive' | 'spear' | 'shortbow' | 'longbow' | 'crossbow' | 'pistol' | 'rifle' | 'repeater' | 'wand' | 'staff' | 'focus' | 'scepter';
+export type WeaponClass = 'dagger' | 'sword' | 'glaive' | 'spear' | 'hammer' | 'shortbow' | 'longbow' | 'crossbow' | 'pistol' | 'rifle' | 'repeater' | 'wand' | 'staff' | 'focus' | 'scepter';
 
 export interface WeaponClassDef {
   name: string;
@@ -1390,6 +1391,7 @@ export const WEAPON_CLASSES: Record<WeaponClass, WeaponClassDef> = {
   sword: { name: 'Sword', attack: 'sweep', range: 1, reach: 80, arc: 2.4, knock: 120, rate: 0.9, damage: 1.1, farm: 1.8, describe: 'A sweeping slash that hits every monster in front and knocks them back.' },
   glaive: { name: 'Glaive', attack: 'sweep', range: 1, reach: 100, arc: 3.2, knock: 160, rate: 0.7, damage: 1.4, farm: 2, describe: 'A wide, heavy cleave around the front that knocks monsters back.' },
   spear: { name: 'Spear', attack: 'stab', range: 1, reach: 170, width: 24, knock: 200, rate: 0.8, damage: 1.2, farm: 2, describe: 'A long, wide thrust straight out that hits everything in its path and drives it back.' },
+  hammer: { name: 'Hammer', attack: 'sweep', range: 1, reach: 75, arc: 1.3, knock: 420, rate: 0.45, damage: 2.3, farm: 1.4, describe: 'Very slow, crushing smashes that send monsters flying.' },
   shortbow: { name: 'Shortbow', attack: 'shot', projectile: 'arrow', range: 0.85, rate: 1.35, damage: 0.75, farm: 1, describe: 'The basic bow: quick, light shots that never stop.' },
   longbow: { name: 'Longbow', attack: 'shot', projectile: 'arrow', range: 1.35, rate: 0.65, damage: 1.5, followThrough: 45, farm: 1.2, describe: 'Slow, heavy shots from far away; each arrow carries on through its target into whatever is just behind.' },
   crossbow: { name: 'Crossbow', attack: 'shot', projectile: 'arrow', range: 1.1, rate: 0.8, damage: 1.25, pierce: 1, farm: 1.2, describe: 'Heavy bolts that always pierce at least one more monster.' },
@@ -1413,6 +1415,7 @@ export const GEAR: GearDef[] = [
   // Melee
   { id: 'fangDagger', name: 'Fang Dagger', icon: '🗡️', kind: 'melee', rarity: 'common', weaponClass: 'dagger', damageType: 'physical', stats: { damage: 0.2, rate: 0.05 }, recipe: { pelt: 6, goo: 6 } },
   { id: 'goblinSword', name: 'Goblin Sword', icon: '⚔️', kind: 'melee', rarity: 'common', weaponClass: 'sword', damageType: 'physical', stats: { damage: 0.25 }, recipe: { pelt: 8, redgel: 4 } },
+  { id: 'boneMaul', name: 'Bone Maul', icon: '🔨', kind: 'melee', rarity: 'uncommon', weaponClass: 'hammer', damageType: 'physical', stats: { damage: 0.35 }, recipe: { bone: 12, flesh: 6 } },
   { id: 'ironSpear', name: 'Bone Spear', icon: '🔱', kind: 'melee', rarity: 'uncommon', weaponClass: 'spear', damageType: 'physical', stats: { damage: 0.35 }, recipe: { bone: 10, flesh: 5 } },
   { id: 'magmaGlaive', name: 'Magma Glaive', icon: '🪓', kind: 'melee', rarity: 'veryRare', weaponClass: 'glaive', damageType: 'fire', proc: 0.4, stats: { damage: 0.5, range: 6 }, recipe: { magma: 10, ember: 5 } },
   { id: 'soulLance', name: 'Soulreaver Lance', icon: '⚜️', kind: 'melee', rarity: 'exalted', weaponClass: 'spear', damageType: 'decay', proc: 0.2, stats: { damage: 0.8, pierce: 0.2 }, recipe: { soul: 8, void: 4 } },

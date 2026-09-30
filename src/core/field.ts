@@ -175,7 +175,7 @@ export type FieldEvent =
   | { type: 'explode'; x: number; y: number; r: number; color: string }
   | { type: 'nova'; x: number; y: number; r: number }
   | { type: 'beam'; x1: number; y1: number; x2: number; y2: number; color: string; width: number }
-  | { type: 'sweep'; x: number; y: number; a: number; arc: number; r: number; color: string }
+  | { type: 'sweep'; x: number; y: number; a: number; arc: number; r: number; color: string; heavy?: boolean }
   | { type: 'reload'; who: Shooter; x: number; y: number };
 
 /**
@@ -753,7 +753,7 @@ export class Field {
 
   /** Instant strike in an arc in front (sword sweep, glaive cleave): hits every enemy within `reach` and `arc`. */
   private strikeArc(shooter: Shooter, ox: number, oy: number, a: number, reach: number, arc: number, dmg: number, knock = 0): void {
-    this.events.push({ type: 'sweep', x: ox, y: oy, a, arc, r: reach, color: '#f4f4f4' });
+    this.events.push({ type: 'sweep', x: ox, y: oy, a, arc, r: reach, color: '#f4f4f4', heavy: knock >= 300 });
     for (const e of this.enemies) {
       if (e.hp <= 0) continue;
       const dx = e.x - ox;
