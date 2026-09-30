@@ -9,6 +9,7 @@ import {
   EMPOWER_UNLOCK_KILLS,
   TRAIN_UNLOCK_KILLS,
   enemyDef,
+  GUARDIAN_ENEMY,
   EMPOWER,
   type EnemyId,
   type TreeNode,
@@ -190,6 +191,7 @@ export class AppUI {
     game.on((e) => {
       if (e.type === 'areaUnlocked' || e.type === 'travel' || e.type === 'unlock' || e.type === 'recruit') this.setTab(this.tab, true);
       else if (e.type === 'eventComplete') this.setTab(this.tab, true); // may have made Hunters available
+      else if (e.type === 'finalGuardian' && this.game.state.events['guardian-rift'].completed === 1) this.showRiftConquered();
       else if (e.type === 'eventStart' || e.type === 'eventEnd' || e.type === 'guardianFail') this.refresh();
     });
     this.setTab('hunters');
@@ -1127,9 +1129,10 @@ export class AppUI {
     this.refreshers.push(() => {
       const st = g.state.areas[id];
       const next = nextAreaOf(id);
-      const cleared = !next || g.isAreaUnlocked(next.id);
+      // The last area is cleared by beating its Guardian (the Time Eater) at least once.
+      const cleared = next ? g.isAreaUnlocked(next.id) : (g.state.events[`guardian-${id}`]?.completed ?? 0) > 0;
       mastery.innerHTML = cleared
-        ? `<div class="mastery done"><span>${next ? '✓ Guardian defeated' : '✓ The final area'}</span></div>`
+        ? `<div class="mastery done"><span>${next ? '✓ Guardian defeated' : `✓ ${enemyDef(GUARDIAN_ENEMY[id]).name} defeated`}</span></div>`
         : `<div class="mastery"><i style="width:${Math.min(1, st.kills / a.mastery) * 100}%"></i><span>Mastery ${fmt(st.kills)} / ${fmt(a.mastery)}</span></div>`;
       const guardian = g.state.events[`guardian-${id}`];
       const runs = events.reduce((sum, e) => sum + g.state.events[e.id].runs, 0);
@@ -2299,6 +2302,14 @@ export class AppUI {
         btn.disabled = !g.eventReady(ev.id);
       }
     });
+  }
+
+  /** The first time the Time Eater falls: the Void Rift, the last area, is conquered. */
+  private showRiftConquered(): void {
+    this.showModal(
+      `<h2>⏳ The Time Eater is defeated!</h2><p>You've conquered the <b>${areaDef('rift').name}</b>, the end of the known world.</p><p>The Rift still teems with monsters to hunt, and the Time Eater can be fought again whenever it's ready.</p>`,
+      [{ label: 'Onward' }],
+    );
   }
 
   /** The Areas tab opens with the second area (the Faerie Glade). */

@@ -112,7 +112,9 @@ export type GameEvent =
   | { type: 'recruit'; hunter: HunterId }
   | { type: 'eventStart'; event: string }
   | { type: 'eventEnd'; event: string }
-  | { type: 'eventComplete'; event: string };
+  | { type: 'eventComplete'; event: string }
+  /** The last area's Guardian (the Time Eater) fell: the Void Rift is conquered. */
+  | { type: 'finalGuardian' };
 
 /** Wilhelm's two weapon slots: 'long' powers sniper shots, 'short' his akimbo pistols. */
 /** Which of a Hunter's skill trees: their first, or the one they grow after ascending. */
@@ -855,7 +857,7 @@ export class Game {
       if (next) {
         s.areas[next].unlocked = true;
         this.emit({ type: 'areaUnlocked', area: next });
-      }
+      } else if (!nextAreaOf(s.area)) this.emit({ type: 'finalGuardian' });
       return { gold, material: e.material, amount: BOSS_MATERIAL_DROP };
     }
     const gold = e.gold * this.shooterGold(shooter);

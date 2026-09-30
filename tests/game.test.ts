@@ -3,6 +3,7 @@ import {
   areaDef,
   AREAS,
   enemyDef,
+  areaEnemies,
   enemyUnlockCost,
   GEAR,
   GUARDIAN_TIME,
@@ -168,6 +169,21 @@ describe('Areas', () => {
     const clothes = g.equipped('main')[1]!;
     expect(g.gearUpgradeCost(clothes.uid)).toBeNull(); // no stats, nothing to upgrade
     expect(g.salvageValue(clothes.uid)).toEqual({}); // it was free
+  });
+
+  it('beating the Time Eater, the Void Rift Guardian, conquers the Void Rift', () => {
+    const g = new Game(newGame(0), noCrit);
+    for (const a of AREAS) g.state.areas[a.id].unlocked = true;
+    g.travel('rift');
+    expect(g.guardianType).toBe('timeEater');
+    const events: string[] = [];
+    g.on((e) => events.push(e.type));
+    g.state.areas.rift.kills = AREAS[AREAS.length - 1].mastery;
+    expect(g.challengeGuardian()).toBe(true);
+    g.bossSpawned();
+    g.registerKill('timeEater', true);
+    expect(events).toContain('finalGuardian');
+    expect(g.state.events['guardian-rift'].completed).toBe(1);
   });
 
   it('the Guardian is tuned to the next area and later areas are tougher and richer', () => {
@@ -1005,9 +1021,12 @@ describe('Equipment', () => {
     expect(AREAS.filter((a) => s.areas[a.id].unlocked).map((a) => a.id)).toEqual(['forest', 'glade', 'graveyard', 'crypt', 'depths', 'caves']);
   });
 
-  it('65 monsters, at least 5 per area, each with a weakness; Guardians stay put', () => {
-    expect(ENEMIES).toHaveLength(65);
-    expect(new Set(ENEMIES.map((e) => e.id)).size).toBe(65);
+  it('65 monsters plus the Time Eater, at least 5 per area, each with a weakness; Guardians stay put', () => {
+    expect(ENEMIES).toHaveLength(66);
+    expect(new Set(ENEMIES.map((e) => e.id)).size).toBe(66);
+    // The Time Eater is only ever the Void Rift's Guardian: not in its horde or unlockable.
+    expect(areaEnemies('rift').map((e) => e.id)).not.toContain('timeEater');
+    expect(enemyUnlockCost(enemyDef('timeEater'))).toBe(Infinity);
     for (const a of AREAS) expect(ENEMIES.filter((e) => e.area === a.id).length).toBeGreaterThanOrEqual(5);
     const g = new Game(newGame(0), noCrit);
     expect(g.guardianType).toBe('redSlime');

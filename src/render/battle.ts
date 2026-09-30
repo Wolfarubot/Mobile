@@ -90,6 +90,7 @@ export class BattleView {
     game.on((e) => {
       if (e.type === 'guardianFail') this.showBanner('The Guardian retreats…', '#ffb04d');
       if (e.type === 'areaUnlocked') this.showBanner(`${areaDef(e.area).name} unlocked!`, '#9fe0ff');
+      else if (e.type === 'finalGuardian') this.showBanner('The Time Eater is defeated!', '#ffe36e');
       if (e.type === 'unlock') this.showBanner(`${enemyDef(e.enemy).name}s now roam!`, enemyDef(e.enemy).color);
       if (e.type === 'travel') {
         this.pickups = [];
@@ -708,7 +709,8 @@ export class BattleView {
       const x = (w - bw) / 2;
       g.font = canvasFont(13, 700);
       g.fillStyle = '#ff9aa6';
-      g.fillText(`${areaDef(this.game.area).name.toUpperCase()} GUARDIAN · ${fmt(Math.max(0, boss.hp))}`, w / 2, 14);
+      const bossDef = enemyDef(boss.type);
+      g.fillText(`${bossDef.guardianOnly ? bossDef.name.toUpperCase() : `${areaDef(this.game.area).name.toUpperCase()} GUARDIAN`} · ${fmt(Math.max(0, boss.hp))}`, w / 2, 14);
       g.fillStyle = 'rgba(0,0,0,0.55)';
       g.fillRect(x, 24, bw, 10);
       g.fillStyle = '#ff4d6d';
