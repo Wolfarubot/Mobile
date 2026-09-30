@@ -186,11 +186,13 @@ export function simulatePlayer(days: number) {
 }
 
 describe('progression pacing', () => {
-  it('a typical player opens the Faerie Glade in their first session, then new areas every day or few', () => {
+  it('a typical player opens the Faerie Glade on day one, then new areas every day or few', () => {
     const { unlockedAt: r } = simulatePlayer(14);
     // SIM_OUT=file.json writes when each area unlocked, in hours.
     if (process.env.SIM_OUT) writeFileSync(process.env.SIM_OUT, JSON.stringify(Object.fromEntries(Object.entries(r).map(([k, v]) => [k, +(v! / 3600).toFixed(1)]))));
-    expect(r.glade).toBeLessThan(40 * 60); // first session
+    // The Forest Guardian takes 10,000 Forest kills, so the Glade opens on day one, not in the first session.
+    expect(r.glade).toBeGreaterThan(40 * 60);
+    expect(r.glade).toBeLessThan(24 * H);
     expect(r.graveyard).toBeGreaterThan(4 * H);
     expect(r.graveyard).toBeLessThan(36 * H);
     expect(r.caves).toBeGreaterThan(24 * H);
