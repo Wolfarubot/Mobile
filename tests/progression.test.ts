@@ -103,7 +103,8 @@ function botShop(game: Game, t: number, memo: { lastChallenge: number }): void {
   for (let guard = 0; guard < 400 && game.train('main'); guard++);
   botSkills(game);
   botMonsters(game);
-  for (const it of ITEMS) while (game.craft(it.id as ItemId));
+  // Area Upgrades (e.g. the Forest Idol) only pay off where you farm, so the bot leaves them.
+  for (const it of ITEMS) if (!it.area) while (game.craft(it.id as ItemId));
   botGear(game);
 
   // Station Hunters: greedily give each other area the Hunter that earns most there.
