@@ -714,7 +714,7 @@ export class Game {
     const swarm = ev?.kind === 'swarm' ? (def.archetype === ev.archetype ? { spawn: ev.spawnMult ?? 1, speed: ev.speedMult ?? 1 } : { spawn: 0, speed: 1 }) : { spawn: 1, speed: 1 };
     const evo = this.evo(id);
     const lv = levelFromTrains(b.empower).level;
-    const emp = (stat: 'hp' | 'gold' | 'drops') => empowerMult(stat, b.empower, lv);
+    const emp = (stat: 'hp' | 'gold' | 'drops' | 'spawn') => empowerMult(stat, b.empower, lv);
     const idol = this.areaUpgrades(def.area);
     return {
       id,
@@ -722,7 +722,7 @@ export class Game {
       hp: area.hp * def.hp * emp('hp') * (1 + evo.hp) * idol.hp,
       speed: area.speed * def.speed * (1 + evo.speed) * swarm.speed,
       gold: area.gold * def.gold * emp('gold') * (1 + evo.gold) * this.goldMult * idol.gold,
-      spawnRate: b.unlocked ? Math.max(def.spawn * (1 + evo.spawn) * (1 + 0.2 * this.item('lure')) * swarm.spawn, swarm.spawn ? (ev?.minSpawn?.[id] ?? 0) : 0) : 0,
+      spawnRate: b.unlocked ? Math.max(def.spawn * emp('spawn') * (1 + evo.spawn) * (1 + 0.2 * this.item('lure')) * swarm.spawn, swarm.spawn ? (ev?.minSpawn?.[id] ?? 0) : 0) : 0,
       dropChance: BASE_DROP_CHANCE * (1 + 0.25 * this.item('pouch')) * emp('drops') * (1 + evo.drops),
       material: def.material,
     };

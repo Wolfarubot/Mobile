@@ -1403,7 +1403,7 @@ export class AppUI {
         'p',
         'hd-note',
         g.empowerUnlocked
-          ? `Each session: +${EMPOWER.hp * 100}% HP, +${EMPOWER.gold * 100}% gold and +${EMPOWER.drops * 100}% material drops, and every level multiplies them (×${EMPOWER_LEVEL.hp} HP, ×${EMPOWER_LEVEL.gold} gold, ×${EMPOWER_LEVEL.drops} drops). Every level earns an evolution point.`
+          ? `Each session: +${EMPOWER.hp * 100}% HP, +${EMPOWER.gold * 100}% gold, +${EMPOWER.drops * 100}% material drops and +${EMPOWER.spawn * 100}% spawns, and every level multiplies them (×${EMPOWER_LEVEL.hp} HP, ×${EMPOWER_LEVEL.gold} gold, ×${EMPOWER_LEVEL.drops} drops, ×${EMPOWER_LEVEL.spawn} spawns). Every level earns an evolution point.`
           : `🔒 Slay ${EMPOWER_UNLOCK_KILLS} slimes to unlock Empower.`,
       ),
     );

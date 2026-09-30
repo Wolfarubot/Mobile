@@ -760,8 +760,8 @@ export const EMPOWER_UNLOCK_KILLS = 100;
  * Empower's effect on a monster's HP, gold and material drops: a little per session (added up), multiplied
  * by a growth factor per level above 1, so it grows exponentially as the monster levels.
  */
-export const EMPOWER = { hp: 0.02, gold: 0.03, drops: 0.02 };
-export const EMPOWER_LEVEL = { hp: 1.03, gold: 1.05, drops: 1.03 };
+export const EMPOWER = { hp: 0.02, gold: 0.03, drops: 0.02, spawn: 0.015 };
+export const EMPOWER_LEVEL = { hp: 1.03, gold: 1.05, drops: 1.03, spawn: 1.03 };
 
 /** Multiplier from `sessions` Empower sessions at `level`. */
 export const empowerMult = (stat: keyof typeof EMPOWER, sessions: number, level: number): number =>

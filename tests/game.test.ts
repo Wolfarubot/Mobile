@@ -179,6 +179,7 @@ describe('Enemies & archetypes', () => {
     expect(after.hp).toBeCloseTo(before.hp * (1 + EMPOWER.hp));
     expect(after.gold / g.goldMult).toBeCloseTo((before.gold / g.goldMult) * (1 + EMPOWER.gold));
     expect(after.dropChance).toBeCloseTo(before.dropChance * (1 + EMPOWER.drops));
+    expect(after.spawnRate).toBeCloseTo(before.spawnRate * (1 + EMPOWER.spawn));
     expect(after.speed).toBe(before.speed);
     // Levels follow the Hunters' curve: 3 sessions for Lv 2, each level is an evolution point.
     expect(g.monsterLevelInfo('wolf').level).toBe(1);
