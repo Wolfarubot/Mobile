@@ -1698,7 +1698,7 @@ export class AppUI {
 
   /** Gear recipes you know, then Upgrades. */
   /**
-   * Crafting: every known recipe, then the Upgrades split into Available (not crafted yet) and Crafted, as
+   * Crafting: every known recipe, then the Upgrades split into Available (still to craft or upgrade) and Completed (5★), as
    * 5-wide grids of icons (greyed out when you can't afford them); tap one for its card over the Battle Field.
    */
   private buildCrafting(pane: HTMLElement): void {
@@ -1718,7 +1718,7 @@ export class AppUI {
     const lockedGear = GEAR.filter((gd) => !this.gearKnown(gd)).length;
     if (lockedGear) pane.appendChild(el('p', 'hd-note', `🔒 ${lockedGear} more recipes need materials from monsters you haven't met yet.`));
 
-    // Upgrades move from Available to Crafted once made, so this section is rebuilt when that changes.
+    // Upgrades move from Available to Completed at 5★, so this section is rebuilt when that changes.
     const upgrades = el('div');
     pane.appendChild(upgrades);
     let upTiles: typeof tiles = [];
@@ -1727,8 +1727,8 @@ export class AppUI {
       upgrades.innerHTML = '';
       upTiles = [];
       for (const [title, list] of [
-        ['Available Upgrades', ITEMS.filter((it) => !g.state.items[it.id])],
-        ['Crafted Upgrades', ITEMS.filter((it) => g.state.items[it.id] > 0)],
+        ['Available Upgrades', ITEMS.filter((it) => g.state.items[it.id] < MAX_STARS)],
+        ['Completed Upgrades', ITEMS.filter((it) => g.state.items[it.id] >= MAX_STARS)],
       ] as const) {
         if (!list.length) continue;
         upgrades.appendChild(sectionTitle(title));
@@ -1749,7 +1749,7 @@ export class AppUI {
       }
     };
     this.refreshers.push(() => {
-      const k = ITEMS.map((it) => (g.state.items[it.id] ? 1 : 0)).join('');
+      const k = ITEMS.map((it) => (g.state.items[it.id] >= MAX_STARS ? 1 : 0)).join('');
       if (k !== crafted) {
         crafted = k;
         buildUpgrades();
