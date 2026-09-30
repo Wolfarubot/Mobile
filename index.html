@@ -10,13 +10,14 @@
     <div id="app">
       <header class="topbar">
         <div class="stat gold"><span>🪙</span><b id="gold">0</b></div>
-        <div class="stage"><b id="areaName">Whispering Forest</b></div>
+        <div class="stage"><small id="areaLabel" class="area-label hidden">Current Area</small><b id="areaName">Whispering Forest</b></div>
         <div class="stat right"><button id="settingsBtn" class="settings-btn" aria-label="Settings">⚙️</button></div>
       </header>
       <div class="battle-wrap">
         <canvas id="battle"></canvas>
         <div id="dpsMeter" class="dps-meter"><b id="dps">0</b><small>DPS</small></div>
       </div>
+      <button id="menuDrop" class="menu-drop" aria-label="Lower the menu"><span>▼</span></button>
       <nav class="tabs">
         <button data-tab="hunters" class="active"><i>🏹</i>Hunters <span class="badge dot hidden" id="huntersBadge"></span></button>
         <button data-tab="inventory"><i>🎒</i>Inventory <span class="badge dot hidden" id="forgeBadge"></span></button>

@@ -3057,3 +3057,353 @@ button.mat:not(:disabled):active {
 .battle-wrap.with-dps .cd-right {
   top: 36px;
 }
+
+/* ---- Hunter and monster cards: no header; the close button floats at the bottom (handedness side) ---- */
+.hunter-detail.floating-close .hd-scroll {
+  padding-top: calc(14px + var(--safe-top));
+  padding-bottom: calc(84px + var(--safe-bottom));
+}
+.hd-float-close {
+  position: absolute;
+  right: 16px;
+  bottom: calc(16px + var(--safe-bottom));
+  z-index: 4;
+  width: 54px;
+  height: 54px;
+  font-size: 22px;
+  box-shadow: 3px 3px 0 var(--c0);
+}
+body.left-handed .hd-float-close {
+  right: auto;
+  left: 16px;
+}
+.hd-sub .where-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: fit-content;
+  padding: 2px 8px;
+  background: var(--c0);
+  border: 2px solid var(--c3);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.hd-sub .where-btn b {
+  font-size: 15px;
+}
+
+/* ---- Areas tab: double-tap for details, hold to travel ---- */
+.area-tile {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.area-tile::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 5px;
+  width: 0;
+  background: var(--gold);
+}
+.area-tile.holding::after {
+  animation: hold-fill 0.55s linear forwards;
+}
+@keyframes hold-fill {
+  from {
+    width: 0;
+  }
+  to {
+    width: 100%;
+  }
+}
+.area-hint {
+  margin: 8px 0 0;
+  font-size: 11px;
+  opacity: 0.75;
+  text-align: center;
+}
+.assign .all-areas {
+  display: block;
+  width: 100%;
+  margin: 0 0 12px;
+}
+
+/* ---- All-areas Hunter view ---- */
+.world .hd-scroll {
+  padding-bottom: 12px;
+}
+.world-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px 10px;
+}
+.world-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px;
+  border: 2px dashed transparent;
+}
+.world-cell.locked {
+  opacity: 0.6;
+}
+.world-cell.focus .world-tile {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
+}
+.world-tile i {
+  font-size: 42px;
+}
+.world-tile span {
+  font-size: 12px;
+}
+.world-slots {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+}
+.world-slot {
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.18);
+  border: 2px solid var(--c0);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.world-slot.empty {
+  border-style: dashed;
+  opacity: 0.7;
+}
+.hunter-art.wh {
+  width: 100%;
+  height: 100%;
+  min-width: 26px;
+  border-radius: 6px;
+  border-width: 2px;
+  font-size: 18px;
+}
+.world-slot .hunter-art.wh {
+  width: 90%;
+  height: 90%;
+}
+.world-slot.selected,
+.wt-hunter.selected {
+  outline: 3px solid var(--gold);
+  outline-offset: 1px;
+}
+.dragging {
+  opacity: 0.35;
+}
+.world-cell.can-drop,
+.world-cell.drop-over {
+  border-color: var(--gold);
+  background: rgba(255, 216, 74, 0.15);
+}
+.world-cell.can-swap,
+.world-cell.drop-swap {
+  border-color: var(--info);
+  background: rgba(120, 200, 255, 0.12);
+}
+.world-cell.drop-full {
+  border-color: var(--danger);
+  background: rgba(255, 80, 80, 0.15);
+}
+.world-foot {
+  flex: none;
+  background: var(--c0);
+  color: var(--c3);
+  padding: 8px 10px calc(8px + var(--safe-bottom));
+  box-shadow: 0 -4px 8px -4px rgba(0, 0, 0, 0.6);
+}
+.world-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 4px 10px;
+  margin-bottom: 8px;
+  border-bottom: 2px solid var(--c1);
+}
+.world-bar > .hunter-art.wh {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  font-size: 24px;
+}
+.wb-name {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.wb-name b {
+  font-size: 16px;
+}
+.wb-name small {
+  font-size: 12px;
+  opacity: 0.8;
+}
+.wb-actions {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+.wb-actions .buy {
+  padding: 8px 12px;
+}
+.world-tray.drop-over {
+  outline: 3px dashed var(--gold);
+  outline-offset: 2px;
+}
+.wt-label {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.8;
+  margin-bottom: 6px;
+}
+.wt-icons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.wt-hunter {
+  position: relative;
+  width: 46px;
+  height: 46px;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grab;
+}
+.wt-hunter.away .hunter-art {
+  filter: saturate(0.6) brightness(0.85);
+}
+.wt-where {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  font-style: normal;
+  font-size: 14px;
+  line-height: 1;
+  padding: 1px;
+  background: var(--c0);
+  border: 1px solid var(--c3);
+}
+.swap-preview {
+  position: fixed;
+  z-index: 41;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  background: var(--c0);
+  border: 2px solid var(--info);
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.5);
+  transform: translate(-50%, -100%);
+  pointer-events: none;
+}
+.swap-preview .hunter-art.wh {
+  width: 40px;
+  height: 40px;
+  font-size: 22px;
+}
+.swap-preview .hunter-art.wh:first-child {
+  opacity: 0.55;
+}
+.swap-preview b {
+  color: var(--info);
+  font-size: 18px;
+  line-height: 1;
+}
+
+/* ---- Full-screen menu: long-press a tab or swipe the tab bar up ---- */
+#app {
+  position: relative;
+}
+.tabs {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+#app.menu-full .battle-wrap {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.menu-drop {
+  display: none;
+}
+#app.menu-full .menu-drop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 18px;
+  padding: 0;
+  background: #c0392b;
+  color: #ffd9d4;
+  border: none;
+  border-bottom: 2px solid #7d1f16;
+  font-size: 10px;
+}
+#app.menu-full .tabs,
+#app.menu-full .panel {
+  animation: menu-rise 0.18s ease-out;
+}
+@keyframes menu-rise {
+  from {
+    transform: translateY(40px);
+    opacity: 0.6;
+  }
+}
+.area-label {
+  display: block;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.75;
+}
+.area-head {
+  position: sticky;
+  top: -10px;
+  z-index: 3;
+  margin: -10px -10px 10px;
+  padding: 8px 12px;
+  background: var(--c1);
+  color: var(--c3);
+  font-weight: 800;
+  font-size: 15px;
+  text-align: center;
+  border-bottom: 2px solid var(--c0);
+}
+.area-actions .hunters-btn {
+  flex: 0 0 auto;
+  padding: 8px 12px;
+}
+.toast.floating {
+  position: fixed;
+  top: calc(64px + var(--safe-top));
+  bottom: auto;
+  z-index: 50;
+}
+.field-card.floating {
+  position: fixed;
+  top: calc(60px + var(--safe-top));
+  left: 8px;
+  right: 8px;
+  margin: 0 auto;
+  max-width: 584px;
+  max-height: 60vh;
+  z-index: 14;
+}

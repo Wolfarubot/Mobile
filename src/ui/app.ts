@@ -125,6 +125,12 @@ const GEAR_TYPE: Record<string, InvType> = { weapon: 'ranged', melee: 'melee', m
 const $ = <T extends HTMLElement = HTMLElement>(sel: string, root: ParentNode = document) => root.querySelector(sel) as T;
 
 /** Who an Upgrade affects: every Hunter, or one area's monsters. */
+/** Holding an area tile this long travels there; two taps this close together open its details. */
+const AREA_HOLD_MS = 550;
+const DOUBLE_TAP_MS = 350;
+/** Holding a tab this long raises (or drops) the full-screen menu. */
+const MENU_HOLD_MS = 450;
+
 const upgradeReach = (it: ItemDef): string => (it.area ? `affects the ${areaDef(it.area.id).name}` : 'boosts every Hunter');
 
 /** A star rank for inside a `.stars` element: filled stars, then the rest dimmed. */
@@ -154,6 +160,10 @@ export class AppUI {
   private monsterSub: 'stats' | 'evolution' = 'stats';
   /** The area selected in the Areas tab. */
   private selectedArea: AreaId | null = null;
+  /** The last area tile tapped, for double-taps (tiles are rebuilt on each tap). */
+  private areaTap: { id: AreaId | null; at: number } = { id: null, at: 0 };
+  /** The menu raised to full screen over the battlefield. */
+  private menuFull = false;
 
   constructor(
     private game: Game,
@@ -166,6 +176,7 @@ export class AppUI {
       }),
     );
     $('#settingsBtn').addEventListener('click', () => this.openSettings());
+    this.menuGestures();
     this.applySettings();
     // Panels that depend on which areas/enemies/Hunters exist are rebuilt when those change.
     game.on((e) => {
@@ -202,6 +213,7 @@ export class AppUI {
     $('#dpsMeter').classList.toggle('hidden', !s.settings.dps);
     $('.battle-wrap').classList.toggle('with-dps', s.settings.dps);
     $('#areaName').textContent = area.name;
+    $('#areaLabel').classList.toggle('hidden', !this.menuFull);
     applyAreaTheme(g.area);
     this.fieldCard?.update();
 
@@ -396,9 +408,8 @@ export class AppUI {
     if (this.detail) this.dropDetail();
     const g = this.game;
     const def = who === 'main' ? null : hunterDef(who);
-    const view = el('div', 'hunter-detail');
+    const view = el('div', 'hunter-detail floating-close');
     view.innerHTML = `
-      <div class="hd-top"><button class="hd-close" aria-label="Close">✕</button><span>${def ? 'Hunters' : 'Your Hunter'}</span></div>
       <div class="hd-scroll">
         <div class="hd-hero">
           ${portraitHtml(who, 'big')}
@@ -416,7 +427,8 @@ export class AppUI {
         <div class="hd-body" data-sub="overview"></div>
         <div class="hd-body" data-sub="equipment"></div>
         <div class="hd-body" data-sub="skills"></div>
-      </div>`;
+      </div>
+      <button class="hd-close hd-float-close" aria-label="Close">✕</button>`;
     document.body.appendChild(view);
     $('.hd-close', view).addEventListener('click', () => this.closeHunterDetail());
     this.detail = { el: view, refreshers: [] };
@@ -494,16 +506,24 @@ export class AppUI {
     } else skills.appendChild(firstTree);
 
     const spCount = $('.sp-count', view);
+    const subLine = $('.hd-sub', view);
+    // The location opens the all-areas Hunter view (delegated: the line is redrawn as things change).
+    subLine.addEventListener('click', (e) => {
+      if ((e.target as HTMLElement).closest('.where-btn')) this.openWorld(def?.id ?? null);
+    });
+    let subHtml = '';
     this.refreshers.push(() => {
       const points = recruited ? g.skillPoints(who) : 0;
       spCount.textContent = String(points);
       spCount.classList.toggle('hidden', points <= 0);
       const station = def ? g.state.hunters[def.id].station : g.area;
-      $('.hd-sub', view).innerHTML = [
+      const html = [
         `<span>the ${g.titleOf(who)}${recruited ? ` · Lv ${g.levelOf(who)}` : ''}</span>`,
-        recruited ? `<span class="where">${station ? `📍 ${areaDef(station).name}` : '💤 Resting'}</span>` : '',
+        recruited ? `<button class="where where-btn">${station ? `📍 ${areaDef(station).name}` : '💤 Resting'} <b>›</b></button>` : '',
         def && hunterPerk(def) ? `<span class="perk">${hunterPerk(def)}</span>` : '',
       ].join('');
+      // Only redrawn when it changes, so a tap on the location button isn't lost mid-press.
+      if (html !== subHtml) subLine.innerHTML = subHtml = html;
       headline.innerHTML = `<div><b>${fmt(g.dpsOf(who))}</b>DPS</div>${recruited ? `<div><b>${fmt(g.killsBy(who))}</b>Enemies slain</div>` : ''}`;
       const cells: Array<[string, string]> = [
         ['Damage', fmt(g.shotDamage(who))],
@@ -950,11 +970,7 @@ export class AppUI {
       const tile = el('button', 'area-tile') as HTMLButtonElement;
       tile.innerHTML = `<i>${a.icon}</i><span>${a.name}</span>`;
       tile.style.setProperty('--ac', a.palette[2]);
-      tile.addEventListener('click', () => {
-        if (!g.isAreaUnlocked(a.id)) return;
-        this.selectedArea = a.id;
-        this.setTab('areas', true);
-      });
+      this.areaGestures(tile, a.id);
       const slots = el('div', 'area-hunters');
       cell.append(tile, slots);
       grid.appendChild(cell);
@@ -978,11 +994,18 @@ export class AppUI {
     // The selected area
     const a = areaDef(this.selectedArea);
     const panel = el('div', 'card area-panel');
-    panel.innerHTML = `<h3><span>${a.icon} ${a.name}</span></h3><p>${a.blurb}</p><div class="monster-icons"></div>`;
+    panel.innerHTML = `<h3><span>${a.icon} ${a.name}</span></h3><p>${a.blurb}</p><div class="monster-icons"></div><p class="area-hint">Double-tap an area for its details · hold one to travel there</p>`;
+    // Full-screen menu: the selected area's name heads the tab, right under the tabs.
+    if (this.menuFull) {
+      const head = el('div', 'area-head');
+      head.innerHTML = `<span>${a.icon} ${a.name}</span>`;
+      this.panel.prepend(head);
+    }
     this.panel.appendChild(panel);
     // Details and Travel sit in a bar pinned to the bottom of the menu, so they're in reach wherever you've scrolled.
     const bar = el('div', 'area-actions');
-    bar.innerHTML = `<span class="aa-name">${a.icon} ${a.name}</span><div class="actions"><button class="buy secondary-btn details">Details</button><button class="buy travel">Travel</button></div>`;
+    bar.innerHTML = `${this.menuFull ? '<button class="buy secondary-btn hunters-btn">🏹 Hunters</button>' : `<span class="aa-name">${a.icon} ${a.name}</span>`}<div class="actions"><button class="buy secondary-btn details">Details</button><button class="buy travel">Travel</button></div>`;
+    bar.querySelector('.hunters-btn')?.addEventListener('click', () => this.openWorld(null, a.id));
     const icons = $('.monster-icons', panel);
     for (const e of areaEnemies(a.id)) {
       const known = g.state.bestiary[e.id].unlocked;
@@ -1152,6 +1175,7 @@ export class AppUI {
       <div class="hd-top"><button class="hd-close" aria-label="Close">✕</button><span>${a.icon} ${a.name} · Active Hunters</span></div>
       <div class="hd-scroll">
         <p class="hd-note assign-tip">Drag a Hunter into a slot, double-tap one to assign it, or tap one for Assign / Unassign.</p>
+        <button class="buy secondary-btn all-areas">🗺️ All Areas</button>
         <div class="active-slots assign-slots"></div>
         <div class="section-title"><span>Your Hunters</span></div>
         <div class="assign-grid"></div>
@@ -1160,6 +1184,7 @@ export class AppUI {
     this.picker = view;
     $('.hd-close', view).addEventListener('click', () => this.closePicker());
     let selected: HunterId | null = preselect;
+    $('.all-areas', view).addEventListener('click', () => this.openWorld(selected, id));
     const recruited = HUNTERS.filter((h) => g.state.hunters[h.id].recruited).map((h) => h.id);
 
     const assign = (h: HunterId, bump: HunterId | null = null) => {
@@ -1269,6 +1294,344 @@ export class AppUI {
     render();
   }
 
+  /** Area tile gestures: tap selects it, double-tap opens its details, holding it travels there. */
+  private areaGestures(tile: HTMLElement, id: AreaId): void {
+    const g = this.game;
+    tile.addEventListener('contextmenu', (e) => e.preventDefault());
+    tile.addEventListener('pointerdown', (ev) => {
+      if (!g.isAreaUnlocked(id)) return;
+      const start = { x: ev.clientX, y: ev.clientY };
+      let over = false;
+      const end = () => {
+        clearTimeout(timer);
+        tile.classList.remove('holding');
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', up);
+        window.removeEventListener('pointercancel', cancel);
+      };
+      const timer = setTimeout(() => {
+        over = true;
+        end();
+        this.holdTravel(id);
+      }, AREA_HOLD_MS);
+      const move = (e: PointerEvent) => {
+        if (Math.hypot(e.clientX - start.x, e.clientY - start.y) > 10) cancel(); // scrolling, not holding
+      };
+      const cancel = () => {
+        over = true;
+        end();
+      };
+      const up = () => {
+        end();
+        if (over) return;
+        const now = performance.now();
+        if (this.areaTap.id === id && now - this.areaTap.at < DOUBLE_TAP_MS) {
+          this.areaTap = { id: null, at: 0 };
+          this.openAreaDetail(id);
+          return;
+        }
+        this.areaTap = { id, at: now };
+        if (this.selectedArea !== id) {
+          this.selectedArea = id;
+          this.setTab('areas', true);
+        }
+      };
+      tile.classList.add('holding');
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', up);
+      window.addEventListener('pointercancel', cancel);
+    });
+  }
+
+  /** Holding an area tile: travel there. */
+  private holdTravel(id: AreaId): void {
+    const g = this.game;
+    navigator.vibrate?.(25);
+    this.selectedArea = id;
+    if (g.area === id) this.toast(`You're already in ${areaDef(id).name}`);
+    else if (g.eventRunning) this.toast('Finish the event first!');
+    else {
+      g.travel(id);
+      this.toast(`Traveled to ${areaDef(id).name}!`);
+    }
+    this.setTab('areas', true);
+  }
+
+  /**
+   * The all-areas Hunter view: every area with its stations, and every recruited Hunter as an icon along
+   * the bottom. Drag a Hunter onto an area with room to station them there, onto a Hunter in a full area to
+   * swap the two, or onto the tray to rest them. Tapping one shows its name with Details and Assign / Unassign.
+   */
+  private openWorld(preselect: HunterId | null = null, focus: AreaId | null = null): void {
+    this.closePicker();
+    const g = this.game;
+    const view = el('div', 'hunter-detail picker world');
+    view.innerHTML = `
+      <div class="hd-top"><button class="hd-close" aria-label="Close">✕</button><span>🗺️ All Areas · Hunters</span></div>
+      <div class="hd-scroll">
+        <p class="hd-note">Drag a Hunter onto an area to station them there, or onto a Hunter in a full area to swap them. Tap one for Details and Assign.</p>
+        <div class="world-grid"></div>
+      </div>
+      <div class="world-foot">
+        <div class="world-bar hidden"></div>
+        <div class="world-tray"><div class="wt-label">Your Hunters · drop one here to rest</div><div class="wt-icons"></div></div>
+      </div>`;
+    document.body.appendChild(view);
+    this.picker = view;
+    $('.hd-close', view).addEventListener('click', () => this.closePicker());
+    const recruited = HUNTERS.filter((h) => g.state.hunters[h.id].recruited).map((h) => h.id);
+    let selected: HunterId | null = preselect && recruited.includes(preselect) ? preselect : null;
+    /** Assign mode: waiting for a tap on the area to send the selected Hunter to. */
+    let picking = false;
+
+    /** Moves `h` into `area`; if it's full, swaps with `bump` (who takes `h`'s old place, or rests). */
+    const moveTo = (h: HunterId, area: AreaId, bump: HunterId | null): boolean => {
+      const from = g.state.hunters[h].station;
+      if (from === area || !g.isAreaUnlocked(area)) return false;
+      if (g.canStation(h, area)) g.station(h, area);
+      else if (bump) {
+        g.station(bump, null);
+        g.station(h, area);
+        g.station(bump, from);
+      } else {
+        this.toast(`${areaDef(area).name} is full`);
+        return false;
+      }
+      return true;
+    };
+
+    const render = () => {
+      const grid = $('.world-grid', view);
+      grid.innerHTML = '';
+      for (const a of AREAS) {
+        const open = g.isAreaUnlocked(a.id);
+        const here = open ? g.stationedIn(a.id) : [];
+        const cell = el('div', `world-cell${open ? '' : ' locked'}${a.id === focus ? ' focus' : ''}`);
+        if (open) cell.dataset.area = a.id;
+        if (picking && open && selected && g.state.hunters[selected].station !== a.id) cell.classList.add(g.canStation(selected, a.id) ? 'can-drop' : 'can-swap');
+        cell.innerHTML = `<div class="area-tile world-tile" style="--ac:${a.palette[2]}">${
+          open ? `<i>${a.icon}</i><span>${a.name}</span>${g.area === a.id ? '<b class="you-here">📍</b>' : ''}` : '<i>🔒</i><span>???</span>'
+        }</div><div class="world-slots"></div>`;
+        const slots = $('.world-slots', cell);
+        for (let i = 0; i < STATION_CAPACITY; i++) {
+          const h = here[i];
+          const slot = el('div', `world-slot${h ? '' : ' empty'}${h && h === selected ? ' selected' : ''}`);
+          if (h) {
+            slot.dataset.hunter = h;
+            slot.innerHTML = portraitHtml(h, 'wh');
+          }
+          slots.appendChild(slot);
+        }
+        grid.appendChild(cell);
+      }
+      const tray = $('.wt-icons', view);
+      tray.innerHTML = recruited.length ? '' : '<p class="hd-note">Recruit Hunters from the Hunters tab first.</p>';
+      for (const h of recruited) {
+        const st = g.state.hunters[h].station;
+        const icon = el('div', `wt-hunter${h === selected ? ' selected' : ''}${st ? ' away' : ''}`);
+        icon.dataset.hunter = h;
+        icon.innerHTML = `${portraitHtml(h, 'wh')}<i class="wt-where">${st ? areaDef(st).icon : '💤'}</i>`;
+        tray.appendChild(icon);
+      }
+      const bar = $('.world-bar', view);
+      bar.classList.toggle('hidden', !selected);
+      if (selected) {
+        const h = selected;
+        const st = g.state.hunters[h].station;
+        if (picking) {
+          bar.innerHTML = `${portraitHtml(h, 'wh')}<div class="wb-name"><b>${hunterDef(h).name}</b><small>Tap an area to send them there</small></div><div class="wb-actions"><button class="buy secondary-btn wb-cancel">Cancel</button></div>`;
+          $('.wb-cancel', bar).addEventListener('click', () => {
+            picking = false;
+            render();
+          });
+        } else {
+          bar.innerHTML = `${portraitHtml(h, 'wh')}<div class="wb-name"><b>${hunterDef(h).name}</b><small>${st ? `📍 ${areaDef(st).name}` : '💤 Resting'} · Lv ${g.levelOf(h)}</small></div><div class="wb-actions"><button class="buy secondary-btn wb-details">Details</button><button class="buy ${st ? 'danger-btn wb-unassign' : 'wb-assign'}">${st ? 'Unassign' : 'Assign'}</button></div>`;
+          $('.wb-details', bar).addEventListener('click', () => {
+            this.closePicker();
+            this.openHunterDetail(h);
+          });
+          bar.querySelector('.wb-unassign')?.addEventListener('click', () => {
+            g.station(h, null);
+            this.refresh();
+            render();
+          });
+          bar.querySelector('.wb-assign')?.addEventListener('click', () => {
+            picking = true;
+            render();
+          });
+        }
+      }
+    };
+
+    // Assign mode: tapping an area sends the selected Hunter there (onto a Hunter in a full one: a swap).
+    $('.world-grid', view).addEventListener('click', (e) => {
+      if (!picking || !selected) return;
+      const t = e.target as HTMLElement;
+      const cell = t.closest<HTMLElement>('.world-cell[data-area]');
+      if (!cell) return;
+      const bump = (t.closest<HTMLElement>('.world-slot')?.dataset.hunter as HunterId | undefined) ?? null;
+      const area = cell.dataset.area as AreaId;
+      if (!g.canStation(selected, area) && !bump) {
+        this.toast(`${areaDef(area).name} is full: tap a Hunter there to swap`);
+        return;
+      }
+      if (moveTo(selected, area, bump)) {
+        picking = false;
+        this.refresh();
+        render();
+      }
+    });
+
+    // Tap to select, drag to move (pointer events, so it works with touch).
+    let preview: HTMLElement | null = null;
+    const clearHover = () => {
+      view.querySelectorAll('.drop-over, .drop-full, .drop-swap').forEach((x) => x.classList.remove('drop-over', 'drop-full', 'drop-swap'));
+      preview?.remove();
+      preview = null;
+    };
+    /** What's under the pointer for a Hunter being dragged. */
+    const targetAt = (x: number, y: number) => {
+      const hit = document.elementFromPoint(x, y) as HTMLElement | null;
+      const cell = hit?.closest<HTMLElement>('.world-cell[data-area]') ?? null;
+      const slot = hit?.closest<HTMLElement>('.world-slot') ?? null;
+      const tray = hit?.closest<HTMLElement>('.world-tray') ?? null;
+      return { cell, slot, tray, area: (cell?.dataset.area as AreaId | undefined) ?? null, occupant: (slot?.dataset.hunter as HunterId | undefined) ?? null };
+    };
+    view.addEventListener('pointerdown', (ev) => {
+      if (picking || (ev.target as HTMLElement).closest('button')) return;
+      const src = (ev.target as HTMLElement).closest<HTMLElement>('[data-hunter]');
+      if (!src) return;
+      const h = src.dataset.hunter as HunterId;
+      const start = { x: ev.clientX, y: ev.clientY };
+      let ghost: HTMLElement | null = null;
+      const move = (e: PointerEvent) => {
+        if (!ghost && Math.hypot(e.clientX - start.x, e.clientY - start.y) > 8) {
+          ghost = el('div', 'drag-ghost');
+          ghost.innerHTML = portraitHtml(h);
+          document.body.appendChild(ghost);
+          src.classList.add('dragging');
+          if (selected !== h) {
+            selected = h;
+            render(); // shows their name in the bar (src stays in place until the drop)
+          }
+        }
+        if (!ghost) return;
+        e.preventDefault();
+        ghost.style.left = `${e.clientX}px`;
+        ghost.style.top = `${e.clientY}px`;
+        clearHover();
+        ghost.classList.remove('hidden');
+        const t = targetAt(e.clientX, e.clientY);
+        const from = g.state.hunters[h].station;
+        if (t.tray && from) t.tray.classList.add('drop-over');
+        if (!t.cell || !t.area || t.area === from) return;
+        if (g.canStation(h, t.area)) t.cell.classList.add('drop-over');
+        else if (t.occupant && t.slot) {
+          // Full: hovering a Hunter shows the swap, above the slot so the finger doesn't hide it.
+          t.cell.classList.add('drop-swap');
+          preview = el('div', 'swap-preview');
+          preview.innerHTML = `${portraitHtml(t.occupant, 'wh')}<b>↓</b>${portraitHtml(h, 'wh')}`;
+          document.body.appendChild(preview);
+          const r = t.slot.getBoundingClientRect();
+          preview.style.left = `${r.left + r.width / 2}px`;
+          preview.style.top = `${r.top - 6}px`;
+          ghost.classList.add('hidden'); // the line-up already shows who's coming in
+        } else t.cell.classList.add('drop-full');
+      };
+      const up = (e: PointerEvent) => {
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', up);
+        src.classList.remove('dragging');
+        if (!ghost) {
+          selected = selected === h ? null : h;
+          render();
+          return;
+        }
+        ghost.remove();
+        clearHover();
+        const t = targetAt(e.clientX, e.clientY);
+        if (t.tray && g.state.hunters[h].station) g.station(h, null);
+        else if (t.area) moveTo(h, t.area, t.occupant);
+        selected = h;
+        this.refresh();
+        render();
+      };
+      window.addEventListener('pointermove', move, { passive: false });
+      window.addEventListener('pointerup', up);
+    });
+    render();
+    if (focus) requestAnimationFrame(() => view.querySelector('.world-cell.focus')?.scrollIntoView({ block: 'center' }));
+  }
+
+  // ---- Full-screen menu ----
+
+  /**
+   * Long-pressing a tab, or swiping the tab bar up, raises the menu over the battlefield (under the top
+   * bar); a red strip above the tabs, a swipe down, or another long press drops it back.
+   */
+  private menuGestures(): void {
+    const tabs = $('.tabs');
+    let suppress = false;
+    tabs.addEventListener(
+      'click',
+      (e) => {
+        if (!suppress) return;
+        suppress = false;
+        e.stopPropagation();
+        e.preventDefault();
+      },
+      true,
+    );
+    tabs.addEventListener('contextmenu', (e) => e.preventDefault());
+    tabs.addEventListener('pointerdown', (ev) => {
+      suppress = false;
+      const btn = (ev.target as HTMLElement).closest<HTMLButtonElement>('button[data-tab]');
+      const startY = ev.clientY;
+      const startX = ev.clientX;
+      let done = false;
+      const end = () => {
+        clearTimeout(timer);
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', end);
+        window.removeEventListener('pointercancel', end);
+      };
+      const timer = setTimeout(() => {
+        done = suppress = true;
+        end();
+        navigator.vibrate?.(25);
+        const tab = btn?.dataset.tab as Tab | undefined;
+        if (tab && (tab !== 'events' || this.game.eventsOpen)) this.tab = tab;
+        this.setMenuFull(!this.menuFull);
+      }, MENU_HOLD_MS);
+      const move = (e: PointerEvent) => {
+        const dy = e.clientY - startY;
+        if (Math.hypot(e.clientX - startX, dy) > 10) clearTimeout(timer);
+        if (done || Math.abs(dy) < 36 || Math.abs(dy) < Math.abs(e.clientX - startX)) return;
+        done = suppress = true;
+        end();
+        this.setMenuFull(dy < 0);
+      };
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', end);
+      window.addEventListener('pointercancel', end);
+    });
+    $('#menuDrop').addEventListener('click', () => this.setMenuFull(false));
+  }
+
+  /** Raises the menu to full screen (the battlefield keeps running underneath) or drops it back. */
+  private setMenuFull(on: boolean): boolean {
+    if (on === this.menuFull) return false;
+    const app = $('#app');
+    const wrap = $('.battle-wrap');
+    // The battlefield keeps its size while hidden, so the fight carries on as it was.
+    wrap.style.height = on ? `${wrap.clientHeight}px` : '';
+    this.menuFull = on;
+    app.classList.toggle('menu-full', on);
+    this.closeFieldCard();
+    this.setTab(this.tab, true);
+    return true;
+  }
+
   // ---- Bestiary tab (enemy roster, per area) ----
 
   private buildBestiary(): void {
@@ -1373,9 +1736,8 @@ export class AppUI {
     const g = this.game;
     const def = enemyDef(id);
     const arch = ARCHETYPES[def.archetype];
-    const view = el('div', 'hunter-detail');
+    const view = el('div', 'hunter-detail floating-close');
     view.innerHTML = `
-      <div class="hd-top"><button class="hd-close" aria-label="Close">✕</button><span>Bestiary</span></div>
       <div class="hd-scroll">
         <div class="hd-hero">
           <canvas class="portrait big-portrait"></canvas>
@@ -1387,7 +1749,8 @@ export class AppUI {
         <p class="hd-ability">${def.blurb}</p>
         ${dropHtml(def)}
         ${affinityHtml(def)}
-      </div>`;
+      </div>
+      <button class="hd-close hd-float-close" aria-label="Close">✕</button>`;
     document.body.appendChild(view);
     requestAnimationFrame(() => drawEnemyPortrait($<HTMLCanvasElement>('canvas', view), id));
     $('.hd-close', view).addEventListener('click', () => this.closeHunterDetail());
@@ -1832,7 +2195,11 @@ export class AppUI {
         btn.disabled = !g.canCraft(item.id);
       }
     };
-    $('.battle-wrap').appendChild(card);
+    // Over the battlefield; with the menu raised to full screen, it floats under the top bar instead.
+    if (this.menuFull) {
+      card.classList.add('floating');
+      document.body.appendChild(card);
+    } else $('.battle-wrap').appendChild(card);
     this.fieldCard = { el: card, update };
     update();
   }
@@ -1846,7 +2213,11 @@ export class AppUI {
   /** A short message that pops up over the Battle Field and fades away. */
   private toast(text: string): void {
     const t = el('div', 'toast', text);
-    $('.battle-wrap').appendChild(t);
+    // Over the battlefield, or floating near the top while it's hidden (full-screen menu, open views).
+    if (this.menuFull || this.picker || this.detail) {
+      t.classList.add('floating');
+      document.body.appendChild(t);
+    } else $('.battle-wrap').appendChild(t);
     t.addEventListener('animationend', () => t.remove());
   }
 
@@ -2382,7 +2753,7 @@ export class AppUI {
 
   /** Closes the open modal, else the Hunter view (Android back button). Returns false if neither was open. */
   closeModal(): boolean {
-    if (!this.modalClose) return this.closePicker() || this.closeHunterDetail();
+    if (!this.modalClose) return this.closePicker() || this.closeHunterDetail() || this.setMenuFull(false);
     this.modalClose();
     return true;
   }
