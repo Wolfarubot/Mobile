@@ -767,6 +767,12 @@ export const EMPOWER_LEVEL = { hp: 1.03, gold: 1.05, drops: 1.03, spawn: 1.03 };
 export const empowerMult = (stat: keyof typeof EMPOWER, sessions: number, level: number): number =>
   (1 + EMPOWER[stat] * sessions) * EMPOWER_LEVEL[stat] ** (level - 1);
 export const EMPOWER_GROWTH = 1.15;
+
+/**
+ * Materials from one kill at a drop chance: every full 100% is a guaranteed drop, and the rest is the chance
+ * of one more (150% = 1 + a 50% chance; 350% = 3 + a 50% chance). `roll` is uniform in [0, 1).
+ */
+export const dropsFrom = (chance: number, roll: number): number => Math.floor(chance) + (roll < chance % 1 ? 1 : 0);
 /** Cost of a monster's first Empower session (then × EMPOWER_GROWTH each). */
 export const empowerBaseCost = (def: EnemyDef): number => Math.ceil(areaDef(def.area).gold * Math.max(40, def.unlock * 0.3) * def.gold);
 

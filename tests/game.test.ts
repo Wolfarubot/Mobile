@@ -38,6 +38,7 @@ import {
   MAIN_SESSIONS_AFTER_ASCEND,
   mainBulkCost,
   SLAYER_TREE,
+  dropsFrom,
   ASCENDED_TREES,
   MAX_LEVEL,
   SESSIONS_AFTER_ASCEND,
@@ -639,6 +640,16 @@ describe('Shops', () => {
     expect(g.enemyStats('skeleton').hp).toBeCloseTo(elsewhere.hp);
     g.state.items.forestIdol = MAX_STARS;
     expect(g.enemyStats('greenSlime').gold / before.gold).toBeCloseTo(3);
+  });
+
+  it('drop chances past 100% drop several: each 100% is guaranteed, the rest is a chance of one more', () => {
+    expect(dropsFrom(0.5, 0.4)).toBe(1);
+    expect(dropsFrom(0.5, 0.6)).toBe(0);
+    expect(dropsFrom(1.5, 0.4)).toBe(2);
+    expect(dropsFrom(1.5, 0.6)).toBe(1);
+    expect(dropsFrom(3.5, 0.49)).toBe(4);
+    expect(dropsFrom(3.5, 0.99)).toBe(3);
+    expect(dropsFrom(2, 0.999)).toBe(2);
   });
 
   it('a new recruit joins you in your current area (if there is room)', () => {

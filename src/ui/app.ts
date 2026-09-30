@@ -1435,7 +1435,7 @@ export class AppUI {
         ['Slain', fmt(g.state.bestiary[id].kills)],
         ['HP', fmt(st.hp)],
         ['Gold', fmt(st.gold)],
-        ['Drop chance', `${(st.dropChance * 100).toFixed(1)}%`],
+        ['Drop chance', st.dropChance >= 1 ? `${(st.dropChance * 100).toFixed(0)}%<small>${Math.floor(st.dropChance)} guaranteed${st.dropChance % 1 ? ` + ${Math.round((st.dropChance % 1) * 100)}%` : ''}</small>` : `${(st.dropChance * 100).toFixed(1)}%`],
         ['Spawns', `${st.spawnRate.toFixed(2)}/s`],
         ['Pack size', lo === hi ? String(lo) : `${lo}–${hi}`],
         ['Speed', `${Math.round(st.speed)}${evo.speed ? ` (+${Math.round(evo.speed * 100)}%)` : ''}`],

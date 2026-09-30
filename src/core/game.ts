@@ -2,6 +2,7 @@ import {
   ASCEND_LEVEL,
   ASCEND_NODE,
   ASCENDED_TREES,
+  dropsFrom,
   affordableCount,
   MAIN_ASCEND_LEVEL,
   MAIN_ASCEND_NODE,
@@ -810,7 +811,7 @@ export class Game {
     s.areas[enemyDef(type).area].gold += gold;
     s.bestiary[type].kills++;
     const chance = e.dropChance * this.shooterDrops(shooter);
-    const amount = Math.floor(chance) + (this.rng() < chance % 1 ? 1 : 0);
+    const amount = dropsFrom(chance, this.rng());
     this.gainMaterial(e.material, amount);
     s.areas[enemyDef(type).area].kills++;
     return { gold, material: amount > 0 ? e.material : null, amount };
