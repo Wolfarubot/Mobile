@@ -1348,13 +1348,17 @@ export function describeGear(stats: Partial<Record<GearStat, number>>): string {
     .join(', ');
 }
 
-/** Materials to go from `stars` to `stars + 1` (0 = crafting it): one step per point of power gained. */
+/**
+ * Materials to go from `stars` to `stars + 1` (0 = crafting it): the price of the top step it reaches, so a
+ * star arrives about when that step would have by paying step by step.
+ */
 export function gearCost(def: GearDef, stars: number): Partial<Record<MaterialId, number>> {
-  return stepsCost(def.recipe, GEAR_COST_GROWTH, GEAR_STAR_POWER[stars], GEAR_STAR_POWER[stars + 1]);
+  const to = GEAR_STAR_POWER[stars + 1];
+  return stepsCost(def.recipe, GEAR_COST_GROWTH, to - 1, to);
 }
 
 /** The cost of steps `from` … `to − 1` of a recipe whose step `l` costs `recipe × growth^l`. */
-function stepsCost(recipe: Partial<Record<MaterialId, number>>, growth: number, from: number, to: number): Partial<Record<MaterialId, number>> {
+export function stepsCost(recipe: Partial<Record<MaterialId, number>>, growth: number, from: number, to: number): Partial<Record<MaterialId, number>> {
   const cost: Partial<Record<MaterialId, number>> = {};
   for (const [m, n] of Object.entries(recipe) as [MaterialId, number][]) {
     let sum = 0;
@@ -1421,10 +1425,10 @@ export function itemLevels(item: ItemDef): number[] {
 /** An Upgrade's strength at a star count. */
 export const itemLevel = (item: ItemDef, stars: number): number => itemLevels(item)[Math.max(0, Math.min(MAX_STARS, stars))];
 
-/** Materials to go from `stars` to `stars + 1` (0 = crafting it): every step it skips. */
+/** Materials to go from `stars` to `stars + 1` (0 = crafting it): the price of the top step it reaches. */
 export function itemCost(item: ItemDef, stars: number): Partial<Record<MaterialId, number>> {
-  const levels = itemLevels(item);
-  return stepsCost(item.recipe, item.growth, levels[stars], levels[stars + 1]);
+  const to = itemLevels(item)[stars + 1];
+  return stepsCost(item.recipe, item.growth, to - 1, to);
 }
 
 /**
