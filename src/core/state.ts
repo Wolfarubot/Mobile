@@ -139,10 +139,12 @@ export interface GameState {
     guardians: number;
     /** Kills per Hunter (you are 'main'). */
     hunterKills: Partial<Record<Wearer, number>>;
+    /** Every material ever gained, per material (spending doesn't lower it). */
+    matGained: Partial<Record<MaterialId, number>>;
   };
 }
 
-export const SAVE_VERSION = 11;
+export const SAVE_VERSION = 12;
 
 const zeroes = <K extends string>(ids: { id: K }[]): Record<K, number> =>
   Object.fromEntries(ids.map((x) => [x.id, 0])) as Record<K, number>;
@@ -165,11 +167,11 @@ export function newGame(now = Date.now()): GameState {
     equipment: {},
     nextGearUid: 1,
     lastSeen: now,
-    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'pixel' },
+    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal' },
     flags: { eventsIntro: false, welcome: false, trainIntro: false, empowerIntro: false },
     events: Object.fromEntries(EVENTS.map((e) => [e.id, { cooldown: 0, runs: 0, completed: 0 }])),
     buyAmount: 1,
-    stats: { totalKills: 0, totalGold: 0, taps: 0, escaped: 0, guardians: 0, hunterKills: {} },
+    stats: { totalKills: 0, totalGold: 0, taps: 0, escaped: 0, guardians: 0, hunterKills: {}, matGained: {} },
   };
 }
 
@@ -229,6 +231,16 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
     ),
   );
 
+  // Materials gained arrived in v12: older saves start from what they hold now.
+  const gained = (stats.matGained && typeof stats.matGained === 'object' ? stats.matGained : {}) as Record<string, unknown>;
+  stats.matGained = {};
+  const held = (data.materials ?? {}) as Record<string, unknown>;
+  for (const m of MATERIALS) {
+    const had = typeof gained[m.id] === 'number' && Number.isFinite(gained[m.id]) ? (gained[m.id] as number) : 0;
+    const now = typeof held[m.id] === 'number' && Number.isFinite(held[m.id]) ? (held[m.id] as number) : 0;
+    if (Math.max(had, now) > 0) stats.matGained[m.id] = Math.max(had, now);
+  }
+
   if (((data.version as number) ?? 1) < 4) {
     // Before v4 progress was stage-based; it doesn't map onto areas. Keep the things
     // that still mean the same: forged items, materials that still exist, Arena progress, stats.
@@ -254,7 +266,9 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
       tabOrder: readTabOrder((data.settings as { tabOrder?: unknown } | undefined)?.tabOrder),
       font: (() => {
         const f = (data.settings as { font?: unknown } | undefined)?.font;
-        return typeof f === 'string' && /^[a-z0-9-]{1,20}$/.test(f) ? f : 'pixel';
+        // v11 -> v12: Terminal became the default font, so the old default moves over with it.
+        if (((data.version as number) ?? 1) < 12 && (f === undefined || f === 'pixel')) return 'terminal';
+        return typeof f === 'string' && /^[a-z0-9-]{1,20}$/.test(f) ? f : 'terminal';
       })(),
     },
     flags: {

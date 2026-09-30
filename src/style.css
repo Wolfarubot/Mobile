@@ -1872,7 +1872,7 @@ html,
 body,
 button,
 input {
-  font-family: var(--ui-font, 'Pixelify Sans', system-ui, sans-serif);
+  font-family: var(--ui-font, 'VT323', monospace);
 }
 /* Every font is drawn at the same x-height as the default pixel font, so none reads too small or too big. */
 html {
@@ -2605,4 +2605,83 @@ canvas {
 
 .tree-switch {
   margin-top: 4px;
+}
+
+/* ---- Materials: tappable tiles and the details sheet ---- */
+button.mat {
+  color: var(--text);
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+}
+button.mat:not(:disabled):active {
+  transform: translate(2px, 2px);
+}
+.gem.big {
+  width: 22px;
+  height: 22px;
+  border-radius: 3px;
+  margin: 0 12px 0 6px;
+  vertical-align: -3px;
+  box-shadow: 0 0 0 2px var(--c0);
+}
+.mat-title {
+  display: inline-flex;
+  align-items: center;
+}
+.mat-stats {
+  grid-template-columns: repeat(2, 1fr);
+  margin: 10px 0 4px;
+}
+.droppers {
+  display: grid;
+  gap: 6px;
+}
+.dropper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  background: var(--card);
+  border: 2px solid var(--c0);
+  color: var(--text);
+  text-align: left;
+  font-family: inherit;
+}
+.dropper:not(:disabled):active {
+  transform: translate(2px, 2px);
+}
+.dropper .portrait {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  background: var(--c2);
+  border: 2px solid var(--c0);
+}
+.dropper span {
+  display: flex;
+  flex-direction: column;
+}
+.dropper small {
+  color: var(--muted);
+  font-size: 11px;
+}
+.dropper::after {
+  content: '›';
+  margin-left: auto;
+  font-size: 20px;
+  color: var(--muted);
+}
+.dropper.unknown {
+  opacity: 0.45;
+}
+.dropper.unknown::after {
+  content: '';
+}
+.droppers-title {
+  margin: 12px 0 6px;
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
 }

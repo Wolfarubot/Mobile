@@ -777,7 +777,7 @@ export class Game {
       s.gold += gold;
       s.stats.totalGold += gold;
       s.areas[s.area].gold += gold;
-      s.materials[e.material] += BOSS_MATERIAL_DROP;
+      this.gainMaterial(e.material, BOSS_MATERIAL_DROP);
       s.stats.guardians++;
       const next = this.lockedNext;
       this.endGuardian();
@@ -795,7 +795,7 @@ export class Game {
     s.bestiary[type].kills++;
     const chance = e.dropChance * this.shooterDrops(shooter);
     const amount = Math.floor(chance) + (this.rng() < chance % 1 ? 1 : 0);
-    s.materials[e.material] += amount;
+    this.gainMaterial(e.material, amount);
     s.areas[enemyDef(type).area].kills++;
     return { gold, material: amount > 0 ? e.material : null, amount };
   }
@@ -948,7 +948,7 @@ export class Game {
     for (const [m, rate] of Object.entries(rates.materials) as [MaterialId, number][]) {
       const n = take(`${area}:m:${m}`, rate * seconds);
       if (n > 0) {
-        s.materials[m] += n;
+        this.gainMaterial(m, n);
         materials[m] = n;
       }
     }
@@ -1091,6 +1091,13 @@ export class Game {
     const wanted = amount === 'max' ? Math.max(1, helperMaxAffordable(base, done, this.state.gold, left)) : amount;
     const count = Math.min(wanted, left);
     return { count, cost: helperBulkCost(base, done, count) };
+  }
+
+  /** Adds materials to your stock and to the all-time count of that material gained. */
+  gainMaterial(id: MaterialId, n: number): void {
+    if (n <= 0) return;
+    this.state.materials[id] += n;
+    this.state.stats.matGained[id] = (this.state.stats.matGained[id] ?? 0) + n;
   }
 
   /** Trains a Hunter `buyAmount` times. Returns false if they can't afford it (or aren't recruited). */

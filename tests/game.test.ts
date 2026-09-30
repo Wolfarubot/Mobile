@@ -1479,18 +1479,43 @@ describe('Saves', () => {
     expect(s.events['guardian-graveyard'].completed).toBe(0);
   });
 
+  it("Terminal is the default font; saves from before it that used the old default switch over, a later choice stays", () => {
+    const old = JSON.parse(serialize(newGame(0)));
+    old.version = 11;
+    old.settings.font = 'pixel';
+    expect(deserialize(JSON.stringify(old))!.settings.font).toBe('terminal');
+    old.settings.font = 'jersey';
+    expect(deserialize(JSON.stringify(old))!.settings.font).toBe('jersey');
+    const now = newGame(0);
+    now.settings.font = 'pixel';
+    expect(deserialize(serialize(now))!.settings.font).toBe('pixel');
+  });
+
+  it('counts every material gained (spending does not lower it); older saves start from what they hold', () => {
+    const g = rich();
+    g.gainMaterial('goo', 30);
+    g.state.materials.goo -= 20;
+    expect(g.state.stats.matGained.goo).toBe(30);
+    expect(deserialize(serialize(g.state))!.stats.matGained.goo).toBe(30);
+    const old = JSON.parse(serialize(newGame(0)));
+    old.version = 11;
+    delete old.stats.matGained;
+    old.materials.pelt = 12;
+    expect(deserialize(JSON.stringify(old))!.stats.matGained).toEqual({ pelt: 12 });
+  });
+
   it('keeps settings and tutorial flags; older saves get the defaults', () => {
     const s = newGame(0);
     s.settings.leftHanded = true;
     s.settings.name = 'Wolfa';
     s.flags.eventsIntro = true;
     const back = deserialize(serialize(s))!;
-    expect(back.settings).toEqual({ leftHanded: true, name: 'Wolfa', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'pixel' });
+    expect(back.settings).toEqual({ leftHanded: true, name: 'Wolfa', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal' });
     expect(back.flags).toEqual({ eventsIntro: true, welcome: false, trainIntro: false, empowerIntro: false });
     const old = JSON.parse(serialize(newGame(0)));
     delete old.settings;
     delete old.flags;
-    expect(deserialize(JSON.stringify(old))!.settings).toEqual({ leftHanded: false, name: '', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'pixel' });
+    expect(deserialize(JSON.stringify(old))!.settings).toEqual({ leftHanded: false, name: '', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal' });
     // A saved tab order survives; junk is dropped and missing tabs are appended.
     const custom = newGame(0);
     custom.settings.tabOrder = ['areas', 'events', 'hunters', 'beasts', 'inventory'];

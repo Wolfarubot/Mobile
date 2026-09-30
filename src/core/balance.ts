@@ -468,24 +468,26 @@ export interface MaterialDef {
   id: MaterialId;
   name: string;
   color: string;
+  /** A line of flavour for its details card. */
+  desc: string;
 }
 
 export const MATERIALS: MaterialDef[] = [
-  { id: 'goo', name: 'Slime Gel', color: '#7be07b' },
-  { id: 'pelt', name: 'Wolf Pelt', color: '#c09060' },
-  { id: 'redgel', name: 'Red Gel', color: '#ff6b6b' },
-  { id: 'bone', name: 'Bone', color: '#efe6cf' },
-  { id: 'flesh', name: 'Rotten Flesh', color: '#9bb56e' },
-  { id: 'wing', name: 'Bat Wing', color: '#8a78b0' },
-  { id: 'ember', name: 'Ember', color: '#ff8a3d' },
-  { id: 'magma', name: 'Magma Gel', color: '#ff4d1a' },
-  { id: 'chitin', name: 'Chitin', color: '#3fb0a0' },
-  { id: 'fur', name: 'Frost Fur', color: '#dfefff' },
-  { id: 'frost', name: 'Frost Shard', color: '#8fdcff' },
-  { id: 'ecto', name: 'Ectoplasm', color: '#c49bff' },
-  { id: 'shade', name: 'Shadow Gel', color: '#7a5cc0' },
-  { id: 'void', name: 'Void Dust', color: '#ff5fd7' },
-  { id: 'soul', name: 'Soul Gem', color: '#6ff0e0' },
+  { id: 'goo', name: 'Slime Gel', color: '#7be07b', desc: 'A wobbly glob of green slime. Sticky, harmless, and oddly useful for binding things together.' },
+  { id: 'pelt', name: 'Wolf Pelt', color: '#c09060', desc: 'A coarse hide from the beasts of the wilds. Warm, tough, and a favourite of leatherworkers.' },
+  { id: 'redgel', name: 'Red Gel', color: '#ff6b6b', desc: 'Angry red slime that still feels warm. It stings a little to hold.' },
+  { id: 'bone', name: 'Bone', color: '#efe6cf', desc: 'Old, dry bone from the restless dead. Sturdy enough to carve into blades and charms.' },
+  { id: 'flesh', name: 'Rotten Flesh', color: '#9bb56e', desc: "A lump of rotten flesh. It smells exactly as bad as you'd expect." },
+  { id: 'wing', name: 'Bat Wing', color: '#8a78b0', desc: 'A leathery bat wing, thin as paper and surprisingly strong.' },
+  { id: 'ember', name: 'Ember', color: '#ff8a3d', desc: 'A coal that never quite goes out. It glows brighter when monsters are near.' },
+  { id: 'magma', name: 'Magma Gel', color: '#ff4d1a', desc: "Molten gel scooped from the caves and mines. Keep it in something that won't melt." },
+  { id: 'chitin', name: 'Chitin', color: '#3fb0a0', desc: 'A hard shell plate from the creatures of the caves and mines. Light, tough and a little shiny.' },
+  { id: 'fur', name: 'Frost Fur', color: '#dfefff', desc: 'Thick white fur from the frozen peaks. It keeps out even the bitterest cold.' },
+  { id: 'frost', name: 'Frost Shard', color: '#8fdcff', desc: 'A shard of ice that never melts. Cold enough to numb your fingers through gloves.' },
+  { id: 'ecto', name: 'Ectoplasm', color: '#c49bff', desc: 'Faintly glowing ectoplasm left behind by spirits. It hums when you hold it.' },
+  { id: 'shade', name: 'Shadow Gel', color: '#7a5cc0', desc: 'Inky gel from the Rift that swallows the light around it.' },
+  { id: 'void', name: 'Void Dust', color: '#ff5fd7', desc: 'Glittering dust from beyond the Rift. It drifts upward when you let it go.' },
+  { id: 'soul', name: 'Soul Gem', color: '#6ff0e0', desc: 'A crystal holding a trapped soul. It whispers at night.' },
 ];
 
 export const materialDef = (id: MaterialId): MaterialDef => MATERIALS.find((m) => m.id === id)!;

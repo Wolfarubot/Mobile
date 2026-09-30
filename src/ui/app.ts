@@ -85,7 +85,7 @@ interface TreeAdapter {
   /** Called after a node is learned. */
   after?: (id: string) => void;
 }
-const INV_SUBS = ['materials', 'equipment', 'crafting'] as const;
+const INV_SUBS = ['equipment', 'crafting', 'materials'] as const;
 type InvSub = (typeof INV_SUBS)[number];
 /** Inventory Equipment filters. Types cycle in this order; weapons are split by how they fight. */
 const INV_TYPES = [
@@ -118,7 +118,7 @@ const GEAR_TYPE: Record<string, InvType> = { weapon: 'ranged', melee: 'melee', m
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string, root: ParentNode = document) => root.querySelector(sel) as T;
 
-const gemHtml = (m: MaterialId) => `<i class="gem" style="background:${materialDef(m).color}"></i>`;
+const gemHtml = (m: MaterialId, size = '') => `<i class="gem ${size}" style="background:${materialDef(m).color}"></i>`;
 
 /** DOM layer: top bar, area controls, tabbed panels and modals. Refreshes numbers on a timer. */
 export class AppUI {
@@ -134,7 +134,7 @@ export class AppUI {
   private picker: HTMLElement | null = null;
   private tab: Tab = 'hunters';
   /** The open sub-tab of the Inventory tab. */
-  private invSub: InvSub = 'materials';
+  private invSub: InvSub = 'equipment';
   /** Filters on the Inventory's Equipment sub-tab (kept for the session). */
   private invFilter: InvFilter = { ...NO_FILTER };
   /** The open sub-tab of the monster view. */
@@ -1437,11 +1437,11 @@ export class AppUI {
     this.refresh();
   }
 
-  // ---- Inventory tab: sub-tabs for Materials, Equipment (crafted gear) and Crafting (gear + Upgrades) ----
+  // ---- Inventory tab: sub-tabs for Equipment (crafted gear), Crafting (gear + Upgrades) and Materials ----
 
   private buildInventory(): void {
     const bar = el('div', 'subtabs inv-subtabs');
-    bar.innerHTML = `<button data-sub="materials">💎 Materials</button><button data-sub="equipment">🛡️ Equipment</button><button data-sub="crafting">🔨 Crafting <span class="badge dot hidden craft-dot"></span></button>`;
+    bar.innerHTML = `<button data-sub="equipment">🛡️ Equipment</button><button data-sub="crafting">🔨 Crafting <span class="badge dot hidden craft-dot"></span></button><button data-sub="materials">💎 Materials</button>`;
     this.panel.appendChild(bar);
     const panes = {} as Record<InvSub, HTMLElement>;
     for (const sub of INV_SUBS) {
@@ -1465,19 +1465,64 @@ export class AppUI {
     show(this.invSub);
   }
 
-  /** Every material, with how many you hold and which monster drops it (hidden until you've met it). */
+  /** Every material, with how many you hold (hidden until you've met a monster that drops it); tap one for details. */
   private buildMaterials(pane: HTMLElement): void {
     const g = this.game;
     const mats = el('div', 'mats');
     pane.appendChild(mats);
-    pane.appendChild(el('p', 'hd-note', 'Monsters drop materials when slain. Spend them in Crafting.'));
+    pane.appendChild(el('p', 'hd-note', 'Monsters drop materials when slain. Spend them in Crafting. Tap a material for details.'));
+    const tiles = MATERIALS.map((m) => {
+      const tile = el('button', 'mat') as HTMLButtonElement;
+      tile.addEventListener('click', () => this.openMaterialDetail(m.id));
+      mats.appendChild(tile);
+      return { m, tile };
+    });
+    let key = '';
     this.refreshers.push(() => {
-      mats.innerHTML = MATERIALS.map((m) => {
+      const k = tiles.map(({ m }) => `${this.materialKnown(m.id) ? 1 : 0}:${fmt(g.state.materials[m.id])}`).join('|');
+      if (k === key) return;
+      key = k;
+      for (const { m, tile } of tiles) {
+        const known = this.materialKnown(m.id);
         const source = ENEMIES.find((e) => e.material === m.id)!;
-        const known = g.isUnlocked(source.id) || g.state.materials[m.id] > 0;
         const hint = g.isAreaUnlocked(source.area) ? `${source.name}s` : '???';
-        return `<div class="mat ${known ? '' : 'unknown'}">${gemHtml(m.id)}<span>${known ? m.name : hint}</span><b>${known ? fmt(g.state.materials[m.id]) : ''}</b></div>`;
-      }).join('');
+        tile.classList.toggle('unknown', !known);
+        tile.disabled = !known;
+        tile.innerHTML = `${gemHtml(m.id)}<span>${known ? m.name : hint}</span><b>${known ? fmt(g.state.materials[m.id]) : ''}</b>`;
+      }
+    });
+  }
+
+  /** You've met a material once you've unlocked a monster that drops it or held some. */
+  private materialKnown(id: MaterialId): boolean {
+    const g = this.game;
+    return g.state.materials[id] > 0 || (g.state.stats.matGained[id] ?? 0) > 0 || ENEMIES.some((e) => e.material === id && g.isUnlocked(e.id));
+  }
+
+  /** A material's details: icon, name, flavour, how many you hold and have ever gained, and who drops it. */
+  private openMaterialDetail(id: MaterialId): void {
+    const g = this.game;
+    const m = materialDef(id);
+    this.showSheet(`<span class="mat-title">${gemHtml(id, 'big')}${m.name}</span>`, (body, close) => {
+      body.innerHTML = `<p class="gear-now">${m.desc}</p>
+        <div class="hd-stats mat-stats"><div><b>${fmt(g.state.materials[id])}</b>You have</div><div><b>${fmt(g.state.stats.matGained[id] ?? 0)}</b>Gained in total</div></div>
+        <p class="droppers-title">Dropped by</p>
+        <div class="droppers"></div>`;
+      const list = $('.droppers', body);
+      for (const e of ENEMIES.filter((x) => x.material === id)) {
+        const seen = g.isAreaUnlocked(e.area);
+        const b = el('button', `dropper${seen ? '' : ' unknown'}`) as HTMLButtonElement;
+        b.innerHTML = `<canvas class="portrait"></canvas><span><b>${seen ? e.name : '???'}</b><small>${seen ? `${areaDef(e.area).name}${g.isUnlocked(e.id) ? '' : ' · locked'}` : 'Somewhere further on'}</small></span>`;
+        b.disabled = !seen;
+        if (seen) {
+          requestAnimationFrame(() => drawEnemyPortrait($<HTMLCanvasElement>('canvas', b), e.id));
+          b.addEventListener('click', () => {
+            close();
+            this.openMonsterDetail(e.id);
+          });
+        }
+        list.appendChild(b);
+      }
     });
   }
 
