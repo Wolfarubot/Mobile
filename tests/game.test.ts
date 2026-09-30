@@ -1575,11 +1575,11 @@ describe('Saves', () => {
     expect(gearStats(bow, 1).damage).toBeCloseTo(0.2);
     expect(gearStats(bow, MAX_STARS).damage).toBeCloseTo(2);
     const whet = itemDef('whetstone');
-    expect(itemLevels(whet)).toEqual([0, 1, 3, 7, 19, 50]);
+    expect(itemLevels(whet)).toEqual([0, 1, 2, 4, 8, 15]); // no Upgrade goes past its old Lv 15
     // A star costs the price of the step two thirds of the way (geometrically) through the ones it covers.
     expect(itemCost(whet, 0).goo).toBe(4);
-    expect(itemCost(whet, 1).goo).toBe(Math.ceil(4 * 1.45 ** 1)); // Lv 1 → 3: step 1
-    expect(itemCost(whet, 4).goo).toBe(Math.ceil(4 * 1.45 ** 35)); // Lv 19 → 50: 19^⅓·50^⅔ ≈ 36 → step 35
+    expect(itemCost(whet, 1).goo).toBe(Math.ceil(4 * 1.45 ** 1)); // Lv 1 → 2: step 1
+    expect(itemCost(whet, 4).goo).toBe(Math.ceil(4 * 1.45 ** 11)); // Lv 8 → 15: 8^⅓·15^⅔ ≈ 12 → step 11
     const g = rich();
     g.state.materials.goo = 1e12;
     for (let i = 0; i < MAX_STARS; i++) expect(g.craft('whetstone')).toBe(true);
@@ -1589,7 +1589,7 @@ describe('Saves', () => {
     const old = JSON.parse(serialize(newGame(0)));
     old.version = 12;
     old.inventory = [{ uid: 1, base: 'huntingBow', level: 5 }, { uid: 2, base: 'huntingBow', level: 10 }];
-    old.items.gloves = 30;
+    old.items.gloves = 15;
     const s = deserialize(JSON.stringify(old))!;
     expect(s.inventory.map((it) => it.stars)).toEqual([3, 5]);
     expect(s.materials.goo).toBe(old.materials.goo + Math.ceil(8 * 1.8 ** 4));
@@ -1602,9 +1602,9 @@ describe('Saves', () => {
     expect(s.version).toBe(SAVE_VERSION);
     expect(s.area).toBe('forest');
     expect(s.gold).toBe(0);
-    // Whetstone Lv 4 became 2★ (Lv 3), with the materials for its 4th level refunded.
-    expect(s.items.whetstone).toBe(2);
-    expect(s.materials.goo).toBe(50 + Math.ceil(4 * 1.45 ** 3));
+    // Whetstone Lv 4 became 3★ (exactly Lv 4), so nothing is refunded.
+    expect(s.items.whetstone).toBe(3);
+    expect(s.materials.goo).toBe(50);
     expect(s.materials.bone).toBe(20);
     expect('stars' in s).toBe(false);
     expect(s.stats.totalKills).toBe(123);

@@ -1392,7 +1392,7 @@ export interface ItemDef {
   id: ItemId;
   name: string;
   icon: string;
-  /** Its strength at 5★, in steps (1★ is 1 step). The stars between are spread out geometrically. */
+  /** Its strength at 5★, in steps (1★ is 1 step; none go past 15). The stars between are spread out geometrically. */
   maxLevel: number;
   recipe: Partial<Record<MaterialId, number>>;
   /** Material cost multiplier per step already owned. */
@@ -1402,16 +1402,16 @@ export interface ItemDef {
 }
 
 export const ITEMS: ItemDef[] = [
-  { id: 'whetstone', name: 'Whetstone', icon: '🪨', maxLevel: 50, recipe: { goo: 4 }, growth: 1.45, describe: (l) => `+${l * 25}% damage` },
-  { id: 'gloves', name: 'Quickdraw Gloves', icon: '🧤', maxLevel: 30, recipe: { goo: 6, pelt: 2 }, growth: 1.5, describe: (l) => `+${l * 10}% attack rate` },
-  { id: 'lure', name: 'Monster Lure', icon: '🍖', maxLevel: 20, recipe: { redgel: 5, pelt: 3 }, growth: 1.6, describe: (l) => `+${l * 20}% enemy spawns` },
-  { id: 'pouch', name: "Scavenger's Pouch", icon: '👝', maxLevel: 25, recipe: { pelt: 6, redgel: 3 }, growth: 1.5, describe: (l) => `+${l * 25}% material drops` },
+  { id: 'whetstone', name: 'Whetstone', icon: '🪨', maxLevel: 15, recipe: { goo: 4 }, growth: 1.45, describe: (l) => `+${l * 25}% damage` },
+  { id: 'gloves', name: 'Quickdraw Gloves', icon: '🧤', maxLevel: 15, recipe: { goo: 6, pelt: 2 }, growth: 1.5, describe: (l) => `+${l * 10}% attack rate` },
+  { id: 'lure', name: 'Monster Lure', icon: '🍖', maxLevel: 15, recipe: { redgel: 5, pelt: 3 }, growth: 1.6, describe: (l) => `+${l * 20}% enemy spawns` },
+  { id: 'pouch', name: "Scavenger's Pouch", icon: '👝', maxLevel: 15, recipe: { pelt: 6, redgel: 3 }, growth: 1.5, describe: (l) => `+${l * 25}% material drops` },
   { id: 'bonemail', name: 'Bone Mail', icon: '🦴', maxLevel: 10, recipe: { bone: 8, flesh: 4 }, growth: 1.6, describe: (l) => `−${Math.round((1 - 0.88 ** l) * 100)}% stun time` },
   { id: 'splitbow', name: 'Split Bow', icon: '🔱', maxLevel: 5, recipe: { bone: 10, wing: 6 }, growth: 3, describe: (l) => `+${l} projectile${l === 1 ? '' : 's'} per volley` },
-  { id: 'idol', name: 'Golden Idol', icon: '🗿', maxLevel: 30, recipe: { ember: 6, magma: 3 }, growth: 1.5, describe: (l) => `+${l * 25}% gold` },
+  { id: 'idol', name: 'Golden Idol', icon: '🗿', maxLevel: 15, recipe: { ember: 6, magma: 3 }, growth: 1.5, describe: (l) => `+${l * 25}% gold` },
   { id: 'lance', name: 'Frost Lance', icon: '❄️', maxLevel: 5, recipe: { chitin: 8, frost: 4 }, growth: 2.2, describe: (l) => `shots pierce ${l} more enem${l === 1 ? 'y' : 'ies'}` },
   { id: 'lantern', name: 'Soul Lantern', icon: '🏮', maxLevel: 10, recipe: { ecto: 8, fur: 6 }, growth: 1.8, describe: (l) => `+${l * 4}% crit chance` },
-  { id: 'engine', name: 'Void Engine', icon: '🌀', maxLevel: 20, recipe: { shade: 10, void: 5, soul: 3 }, growth: 1.7, describe: (l) => `×${(1.5 ** l).toFixed(l > 3 ? 0 : 1)} damage, +${l * 5}% attack rate` },
+  { id: 'engine', name: 'Void Engine', icon: '🌀', maxLevel: 15, recipe: { shade: 10, void: 5, soul: 3 }, growth: 1.7, describe: (l) => `×${(1.5 ** l).toFixed(l > 3 ? 0 : 1)} damage, +${l * 5}% attack rate` },
 ];
 
 export const itemDef = (id: ItemId): ItemDef => ITEMS.find((i) => i.id === id)!;
