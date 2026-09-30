@@ -1446,10 +1446,10 @@ export const GEAR: GearDef[] = [
   { id: 'magmaGlaive', name: 'Magma Glaive', icon: '🪓', kind: 'melee', rarity: 'veryRare', weaponClass: 'glaive', damageType: 'fire', proc: 0.4, stats: { damage: 0.5, range: 6 }, recipe: { magma: 10, ember: 5 } },
   { id: 'soulLance', name: 'Soulreaver Lance', icon: '⚜️', kind: 'melee', rarity: 'exalted', weaponClass: 'spear', damageType: 'decay', proc: 0.2, stats: { damage: 0.8, pierce: 0.2 }, recipe: { soul: 8, void: 4 } },
   // Magic (Reginald and Glimmer)
-  { id: 'apprenticeWand', name: 'Apprentice Wand', icon: '🪄', kind: 'magic', rarity: 'common', weaponClass: 'wand', damageType: 'arcane', proc: 0.15, stats: { damage: 0.15, rate: 0.1 }, recipe: { goo: 8, redgel: 4 } },
-  { id: 'gravewoodStaff', name: 'Gravewood Staff', icon: '🪵', kind: 'magic', rarity: 'uncommon', weaponClass: 'staff', damageType: 'decay', proc: 0.15, stats: { damage: 0.25, rate: 0.1 }, recipe: { flesh: 10, wing: 5 } },
+  { id: 'apprenticeWand', name: 'Apprentice Wand', icon: '🪄', kind: 'magic', rarity: 'common', weaponClass: 'wand', damageType: 'arcane', proc: 0.15, stats: { damage: 0.1, rate: 0.05 }, recipe: { goo: 8, redgel: 4 } },
+  { id: 'gravewoodStaff', name: 'Gravewood Staff', icon: '🪵', kind: 'magic', rarity: 'uncommon', weaponClass: 'staff', damageType: 'decay', proc: 0.15, stats: { damage: 0.15, rate: 0.06 }, recipe: { flesh: 10, wing: 5 } },
   { id: 'emberFocus', name: 'Ember Focus', icon: '🕯️', kind: 'magic', rarity: 'rare', weaponClass: 'focus', damageType: 'fire', proc: 0.3, stats: { damage: 0.3, rate: 0.15 }, recipe: { ember: 10, magma: 5 } },
-  { id: 'crystalFocus', name: 'Crystal Focus', icon: '💎', kind: 'magic', rarity: 'legendary', weaponClass: 'focus', damageType: 'frost', proc: 0.3, stats: { damage: 0.4, rate: 0.2 }, recipe: { frost: 8, ecto: 6 } },
+  { id: 'crystalFocus', name: 'Crystal Focus', icon: '💎', kind: 'magic', rarity: 'legendary', weaponClass: 'focus', damageType: 'frost', proc: 0.3, stats: { damage: 0.3, rate: 0.1 }, recipe: { frost: 8, ecto: 6 } },
   { id: 'voidScepter', name: 'Void Scepter', icon: '🪬', kind: 'magic', rarity: 'relic', weaponClass: 'scepter', damageType: 'void', stats: { damage: 0.55, rate: 0.25 }, recipe: { shade: 10, void: 5 } },
   { id: 'wispTome', name: 'Tome of Wisps', icon: '📖', kind: 'magic', rarity: 'rare', weaponClass: 'tome', damageType: 'arcane', proc: 0.15, stats: { damage: 0.3 }, recipe: { flesh: 10, wing: 6, bone: 4 } },
   {
@@ -1465,7 +1465,7 @@ export const GEAR: GearDef[] = [
     summon: { look: 'wolf', name: 'wolf spirit', dash: { cooldown: 4, range: 150, speed: 520, damage: 2.5 } },
     ability: 'Its wolves lunge at a monster every 4s; a lunge that lands bites for ×2.5.',
   },
-  { id: 'soulfireStaff', name: 'Soulfire Staff', icon: '🌟', kind: 'magic', rarity: 'exalted', weaponClass: 'staff', damageType: 'radiant', proc: 0.2, stats: { damage: 0.75, rate: 0.3 }, recipe: { soul: 8, void: 4 } },
+  { id: 'soulfireStaff', name: 'Soulfire Staff', icon: '🌟', kind: 'magic', rarity: 'exalted', weaponClass: 'staff', damageType: 'radiant', proc: 0.2, stats: { damage: 0.5, rate: 0.15 }, recipe: { soul: 8, void: 4 } },
   // Armor
   { id: 'leatherVest', name: 'Leather Vest', icon: '🦺', kind: 'armor', rarity: 'common', stats: { stun: 0.05 }, recipe: { pelt: 8, goo: 6 } },
   { id: 'bonePlate', name: 'Bone Plate', icon: '🦴', kind: 'armor', rarity: 'rare', stats: { stun: 0.06, guard: 0.2 }, recipe: { bone: 10, flesh: 6 } },

@@ -794,15 +794,15 @@ describe('Equipment', () => {
     const dmg = g.specialDamageMult('glimmer');
     const r = g.specialRadius('glimmer');
     const dps = g.dpsOf('glimmer');
-    const staff = g.craftGear('soulfireStaff')!; // +75% damage, +30% rate
+    const staff = g.craftGear('soulfireStaff')!; // +50% damage, +15% rate
     g.equip('glimmer', 0, staff.uid);
-    expect(g.specialDamageMult('glimmer')).toBeCloseTo(dmg * 1.75);
-    expect(g.specialRadius('glimmer')).toBeCloseTo(r * 1.3);
-    expect(g.dpsOf('glimmer')).toBeGreaterThan(dps * 1.75);
+    expect(g.specialDamageMult('glimmer')).toBeCloseTo(dmg * 1.5);
+    expect(g.specialRadius('glimmer')).toBeCloseTo(r * 1.15);
+    expect(g.dpsOf('glimmer')).toBeGreaterThan(dps * 1.5);
     // Area gear still widens it too, and Hunters without a special have none.
     const orb = g.craftGear('emberOrb')!;
     g.equip('glimmer', 2, orb.uid);
-    expect(g.specialRadius('glimmer')).toBeCloseTo(r * 1.3 * 1.12);
+    expect(g.specialRadius('glimmer')).toBeCloseTo(r * 1.15 * 1.12);
     expect(g.specialCooldown('ranger')).toBeNull();
     expect(g.specialDamageMult('ranger')).toBe(0);
   });
