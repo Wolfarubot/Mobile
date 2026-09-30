@@ -1,5 +1,6 @@
 import {
   type Rarity,
+  type WeaponClassDef,
   DAMAGE_TYPES,
   STATUS,
   affinity,
@@ -93,6 +94,15 @@ export interface Helper {
   hand: number;
   /** Seconds until their special attack (potion, fireball) is ready. */
   specialCd: number;
+  /** A gun's magazine: shots left and seconds of reload left (see Field.gun). */
+  gun: GunState;
+}
+
+/** Ammo for a gun-class weapon: shots left in the magazine, and seconds until the reload finishes. */
+export interface GunState {
+  cls: string | null;
+  ammo: number;
+  reload: number;
 }
 
 /** Where stationed Hunters stand, relative to your Hunter. */
@@ -123,6 +133,8 @@ export interface Bullet {
   radius?: number;
   bounces?: number;
   slow?: number;
+  /** Longbow arrows: how far they carry on after their first hit. */
+  followThrough?: number;
   /** Potions fly to a point and burst there. */
   tx?: number;
   ty?: number;
@@ -155,7 +167,8 @@ export type FieldEvent =
   | { type: 'explode'; x: number; y: number; r: number; color: string }
   | { type: 'nova'; x: number; y: number; r: number }
   | { type: 'beam'; x1: number; y1: number; x2: number; y2: number; color: string; width: number }
-  | { type: 'sweep'; x: number; y: number; a: number; arc: number; r: number; color: string };
+  | { type: 'sweep'; x: number; y: number; a: number; arc: number; r: number; color: string }
+  | { type: 'reload'; who: Shooter; x: number; y: number };
 
 /**
  * The survivor-style battlefield in world coordinates centered on your Hunter.
@@ -187,6 +200,8 @@ export class Field {
   /** Enemies arrive in packs; this is the next pack's type and size. */
   private nextPack: { type: EnemyId; size: number } | null = null;
   private fireAcc = 0;
+  /** Your Hunter's gun magazine (when their weapon is a pistol, rifle or repeater). */
+  gunState: GunState = { cls: null, ammo: 0, reload: 0 };
   private nextId = 1;
   private halfW = 320;
   private halfH = 350;
@@ -324,6 +339,7 @@ export class Field {
     if (this.stunned) this.fireAcc = 0;
     const cls = g.weaponClassOf('main');
     const range = g.shooterRange('main');
+    if (!this.gunReady(this.gunState, cls, dt)) this.fireAcc = 0;
     while (this.fireAcc >= 1) {
       const target = this.nearest(0, 0, range);
       if (!target) {
@@ -335,7 +351,12 @@ export class Field {
       const close = cls?.attack === 'dagger' && Math.hypot(target.x, target.y) <= cls.reach! + target.r;
       if (cls?.attack === 'sweep' || close) this.strikeArc('main', 0, 0, this.aim, cls!.reach!, cls!.arc!, 1);
       else if (cls?.attack === 'stab') this.strikeLine('main', 0, 0, this.aim, range, 10, 1 + g.pierceOf('main'), 1, '#f4f4f4', 5);
-      else this.shoot('main', cls?.projectile ?? 'bolt', 0, 0, this.aim, BULLET_SPEED, range, { pierce: g.pierceOf('main'), spread: true });
+      else this.shoot('main', cls?.projectile ?? 'bolt', 0, 0, this.aim, BULLET_SPEED, range, { pierce: g.pierceOf('main'), spread: true, followThrough: cls?.followThrough });
+      if (this.spendShot(this.gunState, cls, g.shooterRate('main'))) {
+        this.events.push({ type: 'reload', who: 'main', x: 0, y: 0 });
+        this.fireAcc = 0;
+        break;
+      }
     }
     for (const h of this.helpers) this.helperAttack(h, dt);
 
@@ -483,6 +504,7 @@ export class Field {
       akimbo: false,
       hand: 0,
       specialCd: 1,
+      gun: { cls: null, ammo: 0, reload: 0 },
     }));
   }
 
@@ -500,6 +522,8 @@ export class Field {
     const areaMult = g.radiusMult(h.id);
     if (style.special) this.helperSpecial(h, dt);
     h.fireAcc = Math.min(h.fireAcc + dt * rate, 3);
+    const cls = g.weaponClassOf(h.id, mode);
+    if (!this.gunReady(h.gun, cls, dt)) h.fireAcc = 0;
     while (h.fireAcc >= 1) {
       const range = h.akimbo ? AKIMBO_RANGE + g.gear(h.id, 'short').range : g.shooterRange(h.id);
       const target = this.nearest(h.x, h.y, style.kind === 'nova' ? (style.radius ?? range) * areaMult : range);
@@ -517,7 +541,7 @@ export class Field {
           this.shoot(h.id, 'spark', h.x, h.y, a, 520, range, { spread: true });
           break;
         case 'arrow':
-          this.shoot(h.id, 'arrow', h.x, h.y, a, 620, range, { pierce: (style.pierce ?? 0) + g.pierceOf(h.id), spread: true });
+          this.shoot(h.id, 'arrow', h.x, h.y, a, 620, range, { pierce: (style.pierce ?? 0) + g.pierceOf(h.id), spread: true, followThrough: cls?.followThrough });
           break;
         case 'nova': {
           const r = (style.radius ?? 100) * areaMult;
@@ -555,7 +579,12 @@ export class Field {
           this.strikeLine(h.id, h.x, h.y, a, range, 8, Infinity, 1, '#d6b8ff', 4);
           break;
         default:
-          this.shoot(h.id, 'bolt', h.x, h.y, a, BULLET_SPEED, range, { spread: true });
+          this.shoot(h.id, 'bolt', h.x, h.y, a, BULLET_SPEED, range, { spread: true, followThrough: cls?.followThrough });
+      }
+      if (this.spendShot(h.gun, cls, rate)) {
+        this.events.push({ type: 'reload', who: h.id, x: h.x, y: h.y });
+        h.fireAcc = 0;
+        return;
       }
     }
   }
@@ -582,6 +611,30 @@ export class Field {
 
   // ---- Attacks ----
 
+  /**
+   * Keeps a gun's magazine up to date (a new weapon starts full) and runs down its reload. Returns whether it
+   * can fire now. Weapons without a magazine always can.
+   */
+  private gunReady(gun: GunState, cls: WeaponClassDef | null, dt: number): boolean {
+    const id = cls?.mag ? cls.name : null;
+    if (gun.cls !== id) Object.assign(gun, { cls: id, ammo: cls?.mag ?? 0, reload: 0 });
+    if (!cls?.mag) return true;
+    if (gun.reload > 0) {
+      gun.reload -= dt;
+      if (gun.reload > 0) return false;
+      gun.ammo = cls.mag;
+    }
+    return true;
+  }
+
+  /** Uses a round; when the magazine runs dry, starts the reload (the class's `reload` shots' worth of time). Returns true if it just emptied. */
+  private spendShot(gun: GunState, cls: WeaponClassDef | null, rate: number): boolean {
+    if (!cls?.mag) return false;
+    if (--gun.ammo > 0) return false;
+    gun.reload = (cls.reload ?? 0) / Math.max(rate, 1e-6);
+    return true;
+  }
+
   /** Fires a projectile (and extra Split Bow projectiles when `spread`). Damage is priced on hit, per target. */
   private shoot(
     shooter: Shooter,
@@ -591,7 +644,7 @@ export class Field {
     angle: number,
     speed: number,
     range: number,
-    o: { pierce?: number; spread?: boolean; dmg?: number; radius?: number; bounces?: number; slow?: number; tx?: number; ty?: number; mode?: GearMode; special?: boolean },
+    o: { pierce?: number; spread?: boolean; dmg?: number; radius?: number; bounces?: number; slow?: number; tx?: number; ty?: number; mode?: GearMode; special?: boolean; followThrough?: number },
   ): void {
     const g = this.game;
     const n = o.spread ? g.projectiles : 1;
@@ -616,6 +669,7 @@ export class Field {
         ty: o.ty,
         special: o.special,
         mode: o.mode,
+        followThrough: o.followThrough,
       });
     }
   }
@@ -776,7 +830,12 @@ export class Field {
         if (dx * dx + dy * dy > rr * rr) continue;
         b.hits.push(e.id);
         this.bulletHit(b, e);
-        if (b.life > 0 && b.pierce-- <= 0) b.life = 0;
+        if (b.followThrough) {
+          // A longbow arrow drives on through its target a short way, hitting anything just behind.
+          b.life = b.followThrough / Math.hypot(b.vx, b.vy);
+          b.pierce = Infinity;
+          b.followThrough = undefined;
+        } else if (b.life > 0 && b.pierce-- <= 0) b.life = 0;
       }
     }
   }

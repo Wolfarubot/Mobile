@@ -39,6 +39,7 @@ import {
   mainBulkCost,
   SLAYER_TREE,
   WEAPON_CLASSES,
+  weaponUptime,
   EVENTS,
   TRAIN_UNLOCK_KILLS,
   dropsFrom,
@@ -992,7 +993,12 @@ describe('Equipment', () => {
   });
 
   it('weapon classes: your Hunter attacks the way the weapon does; each class trades speed for weight', () => {
-    for (const c of Object.values(WEAPON_CLASSES)) expect(c.rate * c.damage).toBeGreaterThan(0.9), expect(c.rate * c.damage).toBeLessThan(1.25);
+    // Sustained speed × damage (guns counting their reloads) is about the same for every class.
+    for (const c of Object.values(WEAPON_CLASSES)) {
+      const sustained = c.rate * c.damage * weaponUptime(c);
+      expect(sustained).toBeGreaterThan(0.9);
+      expect(sustained).toBeLessThan(1.25);
+    }
     for (const gd of GEAR) if (gd.kind === 'weapon' || gd.kind === 'melee' || gd.kind === 'magic') expect(gd.weaponClass).toBeDefined();
     const g = stocked();
     const base = { rate: g.shooterRate('main'), dmg: g.shotDamage('main'), range: g.shooterRange('main') };
@@ -1017,6 +1023,57 @@ describe('Equipment', () => {
     f.update(1 / g.shooterRate('main') + 0.01);
     expect(f.enemies.filter((e) => e.hp < hp).map((e) => e.id).sort()).toEqual([1, 2, 3]);
     expect(f.bullets).toHaveLength(0); // no projectiles: it's a blade
+  });
+
+  it('guns fire a magazine, then reload; bows never stop', () => {
+    const g = stocked();
+    const pistol = g.craftGear('bonePistol')!;
+    g.equip('main', 0, pistol.uid);
+    g.state.items.splitbow = 0; // one bullet per shot
+    const f = new Field(g);
+    f.setView(390, 420);
+    f.enemies.push(enemy({ id: 1, x: 120, hp: 1e12, maxHp: 1e12 }));
+    const shotTime = 1 / g.shooterRate('main');
+    const mag = WEAPON_CLASSES.pistol.mag!;
+    let shots = 0;
+    const mine = () => f.bullets.filter((b) => b.shooter === 'main').length;
+    for (let t = 0; t < shotTime * (mag + 0.5); t += 0.01) {
+      f.bullets = [];
+      f.update(0.01);
+      shots += mine();
+    }
+    expect(shots).toBe(mag);
+    expect(f.drainEvents().some((e) => e.type === 'reload')).toBe(true);
+    // No shots during the reload (the class's `reload` shots' worth of time), then a full magazine again.
+    for (let t = 0; t < shotTime * (WEAPON_CLASSES.pistol.reload! - 0.6); t += 0.01) {
+      f.bullets = [];
+      f.update(0.01);
+      expect(mine()).toBe(0);
+    }
+    let after = 0;
+    for (let t = 0; t < shotTime * 2; t += 0.01) {
+      f.bullets = [];
+      f.update(0.01);
+      after += mine();
+    }
+    expect(after).toBeGreaterThan(0);
+  });
+
+  it('longbow arrows carry on through their target into whatever is just behind', () => {
+    const g = stocked();
+    g.equip('main', 0, g.craftGear('emberLongbow')!.uid);
+    const f = new Field(g);
+    f.setView(390, 420);
+    const hp = 1e12;
+    // Two in a line, 30 apart: both hit. A third 150 further back: out of the follow-through.
+    f.enemies.push(enemy({ id: 1, x: 150, hp, maxHp: hp }), enemy({ id: 2, x: 180, hp, maxHp: hp }), enemy({ id: 3, x: 330, hp, maxHp: hp }));
+    g.state.hunters = Object.fromEntries(Object.entries(g.state.hunters).map(([k, h]) => [k, { ...h, station: null }])) as typeof g.state.hunters;
+    // Small steps, so the arrow doesn't skip past them in one frame.
+    for (let t = 0; t < 1 / g.shooterRate('main') + 0.6; t += 0.01) f.update(0.01);
+    const hit = f.enemies.filter((e) => e.hp < hp).map((e) => e.id);
+    expect(hit).toContain(1);
+    expect(hit).toContain(2);
+    expect(hit).not.toContain(3);
   });
 
   it('armor shields add Paladin-style charges', () => {

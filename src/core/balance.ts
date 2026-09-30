@@ -1252,6 +1252,7 @@ export type GearId =
   | 'huntingBow'
   | 'boneCrossbow'
   | 'emberLongbow'
+  | 'bonePistol'
   | 'frostRifle'
   | 'voidRepeater'
   | 'ironSpear'
@@ -1325,7 +1326,7 @@ export const GEAR_STUN_CAP = 0.7;
 // weapon's class reshapes it (a longbow makes Galladair's arrows slower, heavier and longer-ranged).
 // Each class's rate × damage is about 1, so none is simply better: they trade speed, reach and crowd hits.
 
-export type WeaponClass = 'dagger' | 'sword' | 'glaive' | 'spear' | 'shortbow' | 'longbow' | 'crossbow' | 'rifle' | 'repeater' | 'wand' | 'staff' | 'focus' | 'scepter';
+export type WeaponClass = 'dagger' | 'sword' | 'glaive' | 'spear' | 'shortbow' | 'longbow' | 'crossbow' | 'pistol' | 'rifle' | 'repeater' | 'wand' | 'staff' | 'focus' | 'scepter';
 
 export interface WeaponClassDef {
   name: string;
@@ -1344,21 +1345,33 @@ export interface WeaponClassDef {
   rate: number;
   damage: number;
   pierce?: number;
+  /**
+   * Guns: shots in a magazine, then a reload lasting `reload` shots' worth of time (so reloads keep pace with
+   * attack speed). Bows and blades never reload.
+   */
+  mag?: number;
+  reload?: number;
+  /** Longbows: after hitting its target, the arrow carries on this far and hits anything just behind it. */
+  followThrough?: number;
   /** Rough crowd efficiency for the background model (sweeps and stabs hit several). */
   farm: number;
   describe: string;
 }
+
+/** Share of time a weapon spends firing rather than reloading (1 for weapons that never reload). */
+export const weaponUptime = (c: WeaponClassDef | null | undefined): number => (c?.mag ? c.mag / (c.mag + (c.reload ?? 0)) : 1);
 
 export const WEAPON_CLASSES: Record<WeaponClass, WeaponClassDef> = {
   dagger: { name: 'Dagger', attack: 'dagger', projectile: 'dagger', range: 0.8, reach: 55, arc: 1.6, rate: 1.5, damage: 0.7, farm: 1.1, describe: 'Quick swipes up close; thrown when monsters are further off.' },
   sword: { name: 'Sword', attack: 'sweep', range: 1, reach: 80, arc: 2.4, rate: 0.9, damage: 1.1, farm: 1.8, describe: 'A close sweeping slash that hits every monster in front.' },
   glaive: { name: 'Glaive', attack: 'sweep', range: 1, reach: 100, arc: 3.2, rate: 0.7, damage: 1.4, farm: 2, describe: 'A wide, heavy cleave that hits everything around the front.' },
   spear: { name: 'Spear', attack: 'stab', range: 1, reach: 140, rate: 0.85, damage: 1.15, pierce: 3, farm: 1.6, describe: 'A long stab straight out, piercing up to 4 monsters in a line.' },
-  shortbow: { name: 'Shortbow', attack: 'shot', projectile: 'arrow', range: 0.8, rate: 1.35, damage: 0.75, farm: 1, describe: 'Quick, lighter shots at closer range.' },
-  longbow: { name: 'Longbow', attack: 'shot', projectile: 'arrow', range: 1.35, rate: 0.65, damage: 1.6, farm: 1, describe: 'Slow, heavy-hitting shots from far away.' },
-  crossbow: { name: 'Crossbow', attack: 'shot', projectile: 'arrow', range: 1.1, rate: 0.8, damage: 1.3, pierce: 1, farm: 1.2, describe: 'Heavy bolts that punch through one more monster.' },
-  rifle: { name: 'Rifle', attack: 'shot', projectile: 'pistol', range: 1.5, rate: 0.5, damage: 2.1, pierce: 1, farm: 1.1, describe: 'Very slow, very hard, very long shots that pierce.' },
-  repeater: { name: 'Repeater', attack: 'shot', projectile: 'bolt', range: 0.9, rate: 2, damage: 0.5, farm: 1, describe: 'A storm of light shots.' },
+  shortbow: { name: 'Shortbow', attack: 'shot', projectile: 'arrow', range: 0.85, rate: 1.35, damage: 0.75, farm: 1, describe: 'The basic bow: quick, light shots that never stop.' },
+  longbow: { name: 'Longbow', attack: 'shot', projectile: 'arrow', range: 1.35, rate: 0.65, damage: 1.5, followThrough: 45, farm: 1.2, describe: 'Slow, heavy shots from far away; each arrow carries on through its target into whatever is just behind.' },
+  crossbow: { name: 'Crossbow', attack: 'shot', projectile: 'arrow', range: 1.1, rate: 0.8, damage: 1.25, pierce: 1, farm: 1.2, describe: 'Heavy bolts that always pierce at least one more monster.' },
+  pistol: { name: 'Pistol', attack: 'shot', projectile: 'pistol', range: 0.7, rate: 1.6, damage: 1, mag: 6, reload: 3, farm: 1, describe: 'Hard-hitting shots at close range: 6 shots, then a reload.' },
+  rifle: { name: 'Rifle', attack: 'shot', projectile: 'pistol', range: 1.5, rate: 0.8, damage: 2.4, pierce: 1, mag: 4, reload: 3, farm: 1.1, describe: 'Very hard, very long shots that pierce: 4 shots, then a long reload.' },
+  repeater: { name: 'Repeater', attack: 'shot', projectile: 'bolt', range: 0.9, rate: 3, damage: 0.6, mag: 10, reload: 6, farm: 1, describe: 'Bursts of 10 rapid shots, then a reload.' },
   wand: { name: 'Wand', attack: 'shot', projectile: 'spark', range: 1, rate: 1.3, damage: 0.77, farm: 1, describe: 'Fast, light magic bolts.' },
   staff: { name: 'Staff', attack: 'shot', projectile: 'spark', range: 1.1, rate: 0.75, damage: 1.4, farm: 1, describe: 'Slower, heavier magic bolts.' },
   focus: { name: 'Focus', attack: 'shot', projectile: 'spark', range: 1.25, rate: 1, damage: 1, farm: 1, describe: 'Steady magic bolts with extra reach.' },
@@ -1370,6 +1383,7 @@ export const GEAR: GearDef[] = [
   { id: 'huntingBow', name: 'Hunting Bow', icon: '🏹', kind: 'weapon', rarity: 'common', weaponClass: 'shortbow', damageType: 'physical', stats: { damage: 0.2 }, recipe: { goo: 8, pelt: 4 } },
   { id: 'boneCrossbow', name: 'Bone Crossbow', icon: '🎯', kind: 'weapon', rarity: 'uncommon', weaponClass: 'crossbow', damageType: 'physical', stats: { damage: 0.3, range: 8 }, recipe: { bone: 10, wing: 5 } },
   { id: 'emberLongbow', name: 'Ember Longbow', icon: '🔥', kind: 'weapon', rarity: 'rare', weaponClass: 'longbow', damageType: 'fire', proc: 0.3, stats: { damage: 0.3, rate: 0.12 }, recipe: { ember: 10, chitin: 5 } },
+  { id: 'bonePistol', name: 'Bone Pistol', icon: '🔫', kind: 'weapon', rarity: 'uncommon', weaponClass: 'pistol', damageType: 'physical', stats: { damage: 0.3 }, recipe: { bone: 8, wing: 4 } },
   { id: 'frostRifle', name: 'Frost Rifle', icon: '🔫', kind: 'weapon', rarity: 'legendary', weaponClass: 'rifle', damageType: 'frost', proc: 0.35, stats: { damage: 0.45, range: 15 }, recipe: { fur: 10, frost: 5 } },
   { id: 'voidRepeater', name: 'Void Repeater', icon: '🌀', kind: 'weapon', rarity: 'artifact', weaponClass: 'repeater', damageType: 'void', stats: { damage: 0.6, rate: 0.2 }, recipe: { shade: 10, void: 5 } },
   // Melee

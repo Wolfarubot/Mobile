@@ -135,6 +135,9 @@ export class BattleView {
         case 'sweep':
           this.sweeps.push({ ...e, t: 0 });
           break;
+        case 'reload':
+          this.fx.text(e.x, e.y - PLAYER_RADIUS - 16, 'RELOAD', '#e8e0c0', 11, 0.6);
+          break;
         case 'guard':
           this.rings.push({ x: e.x, y: e.y, t: 0, r: PLAYER_RADIUS + 10, color: '255,232,163', max: 0.3 });
           this.fx.text(e.x, e.y - 30, 'BLOCK', '#ffe8a3', 12, 0.6);
