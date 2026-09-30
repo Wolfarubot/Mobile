@@ -452,6 +452,10 @@ export function maxAffordable(baseCost: number, growth: number, level: number, g
 
 // ---- Materials: each enemy type drops its own ----
 export type MaterialId =
+  | 'feather'
+  | 'thunder'
+  | 'meteor'
+  | 'stardust'
   | 'goo'
   | 'pelt'
   | 'redgel'
@@ -489,6 +493,10 @@ export const MATERIALS: MaterialDef[] = [
   { id: 'fur', name: 'Frost Fur', color: '#dfefff', desc: 'Thick white fur from the frozen peaks. It keeps out even the bitterest cold.' },
   { id: 'frost', name: 'Frost Shard', color: '#8fdcff', desc: 'A shard of ice that never melts. Cold enough to numb your fingers through gloves.' },
   { id: 'ecto', name: 'Ectoplasm', color: '#c49bff', desc: 'Faintly glowing ectoplasm left behind by spirits. It hums when you hold it.' },
+  { id: 'feather', name: 'Storm Feather', color: '#e8f4ff', desc: 'A feather that crackles with static. It never quite settles when you put it down.' },
+  { id: 'thunder', name: 'Thunder Crystal', color: '#ffe36e', desc: 'Lightning caught in glass, taken from the storms around the Cloud Fortress.' },
+  { id: 'meteor', name: 'Meteor Iron', color: '#c07048', desc: 'Dense, pitted metal from a fallen star. Still warm, and heavier than it looks.' },
+  { id: 'stardust', name: 'Stardust', color: '#b8a8ff', desc: 'Sparkling dust from the Meteor Fields. It glows faintly in the dark, like a sky in a jar.' },
   { id: 'shade', name: 'Shadow Gel', color: '#7a5cc0', desc: 'Inky gel from the Rift that swallows the light around it.' },
   { id: 'void', name: 'Void Dust', color: '#ff5fd7', desc: 'Glittering dust from beyond the Rift. It drifts upward when you let it go.' },
   { id: 'soul', name: 'Soul Gem', color: '#6ff0e0', desc: 'A crystal holding a trapped soul. It whispers at night.' },
@@ -511,7 +519,7 @@ export const ARCHETYPES: Record<Archetype, { name: string; icon: string }> = {
 };
 
 // ---- Areas: permanent unlocks, each with its own enemies and materials ----
-export type AreaId = 'forest' | 'glade' | 'graveyard' | 'crypt' | 'depths' | 'caves' | 'mines' | 'peaks' | 'cliffs' | 'rift';
+export type AreaId = 'forest' | 'glade' | 'graveyard' | 'crypt' | 'depths' | 'caves' | 'mines' | 'peaks' | 'cliffs' | 'fortress' | 'meteors' | 'rift';
 
 export interface AreaDef {
   id: AreaId;
@@ -541,8 +549,10 @@ export const AREAS: AreaDef[] = [
   { id: 'caves', name: 'Ember Caves', icon: '🌋', hp: 100_000_000_000, gold: 3_000_000_000_000, speed: 45, mastery: 4_000, guardian: 15_000_000_000_000, palette: ['#2a0e08', '#8a2c10', '#e07030', '#fde4c0'], ground: ['#6a2c1a', '#823722'], blurb: 'Hot, bright and full of teeth.' },
   { id: 'mines', name: 'Deep Mines', icon: '⛏️', hp: 5_000_000_000_000, gold: 100_000_000_000_000, speed: 47, mastery: 6_000, guardian: 200_000_000_000_000, palette: ['#1e140a', '#6a4a22', '#c09050', '#f4e4c8'], ground: ['#5a4228', '#4e3820'], blurb: 'Dug too deep, woke too much.' },
   { id: 'peaks', name: 'Frost Peaks', icon: '🏔️', hp: 50_000_000_000_000, gold: 3e15, speed: 50, mastery: 10_000, guardian: 5e15, palette: ['#0c2038', '#2a60a0', '#78b8e8', '#e4f4ff'], ground: ['#bcd8f0', '#a4c6e6'], blurb: 'Cold winds carry cold things.' },
-  { id: 'cliffs', name: 'Stormcrest Cliffs', icon: '🦅', hp: 1e15, gold: 5e17, speed: 53, mastery: 15_000, guardian: 5e18, palette: ['#101c2c', '#3a5a7a', '#90b8d8', '#eef6ff'], ground: ['#8a9aa8', '#7a8a98'], blurb: 'Wind, wings and a long way down.' },
-  { id: 'rift', name: 'Void Rift', icon: '🌀', hp: 5e17, gold: 3e19, speed: 56, mastery: Infinity, guardian: Infinity, palette: ['#1a0830', '#5a2098', '#b070e0', '#f2e4ff'], ground: ['#2a1440', '#3a1d58'], blurb: 'The end of the known world.' },
+  { id: 'cliffs', name: 'Ascendant Steps', icon: '🪜', hp: 1e15, gold: 5e17, speed: 53, mastery: 15_000, guardian: 5e18, palette: ['#141c30', '#4a5a86', '#a8b8e0', '#f2f4ff'], ground: ['#9aa6bc', '#8a96ac'], blurb: 'Stone stairs above the peaks, climbing into the sky.' },
+  { id: 'fortress', name: 'Cloud Fortress', icon: '🏰', hp: 2e16, gold: 1e19, speed: 54, mastery: 20_000, guardian: 1e20, palette: ['#1a2440', '#4a70b0', '#a8d0f8', '#fdfcf4'], ground: ['#e8f0fa', '#d4e2f4'], blurb: 'A citadel on the clouds, held by storm and steel.' },
+  { id: 'meteors', name: 'Meteor Fields', icon: '☄️', hp: 5e17, gold: 2e20, speed: 55, mastery: 25_000, guardian: 3e21, palette: ['#0a0a1e', '#3a2a6a', '#e08a4a', '#fce8d0'], ground: ['#1c1830', '#2a2440'], blurb: 'Past the sky, where falling stars still burn.' },
+  { id: 'rift', name: 'Void Rift', icon: '🌀', hp: 2e19, gold: 5e21, speed: 56, mastery: Infinity, guardian: Infinity, palette: ['#1a0830', '#5a2098', '#b070e0', '#f2e4ff'], ground: ['#2a1440', '#3a1d58'], blurb: 'The end of the known world.' },
 ];
 
 export const areaDef = (id: AreaId): AreaDef => AREAS.find((a) => a.id === id)!;
@@ -605,7 +615,17 @@ export type EnemyId =
   | 'duskmoth'
   | 'shadowWisp'
   | 'umbralOoze'
-  | 'deepLurker';
+  | 'deepLurker'
+  | 'cloudling'
+  | 'thunderbird'
+  | 'skyKnight'
+  | 'valkyrie'
+  | 'stormTitan'
+  | 'meteorite'
+  | 'cometWisp'
+  | 'rockMite'
+  | 'astralSentinel'
+  | 'starEater';
 export type EnemyShape = 'circle' | 'square' | 'triangle' | 'diamond' | 'ghost' | 'hexagon';
 
 export interface EnemyDef {
@@ -715,13 +735,27 @@ export const ENEMIES: EnemyDef[] = [
   { id: 'frostSprite', name: 'Frost Sprite', area: 'peaks', archetype: 'elemental', hp: 0.8, speed: 1.6, gold: 1.5, spawn: 0.8, pack: [3, 5], radius: 8, material: 'frost', unlock: 15_000, color: '#bfefff', shape: 'diamond', blurb: 'A snowflake with a grudge.', weak: ['fire', 'physical'], resist: ['frost', 'poison'] },
 
 
-  // Stormcrest Cliffs
-  { id: 'harpy', name: 'Harpy', area: 'cliffs', archetype: 'beast', hp: 1, speed: 1.8, gold: 1.8, spawn: 1.4, pack: [2, 4], radius: 10, material: 'fur', unlock: 0, color: '#a08ac0', shape: 'triangle', blurb: 'Screeches down from the cliffs.', weak: ['physical', 'acid'], resist: ['frost'] },
+  // Ascendant Steps
+  { id: 'harpy', name: 'Harpy', area: 'cliffs', archetype: 'beast', hp: 1, speed: 1.8, gold: 1.8, spawn: 1.4, pack: [2, 4], radius: 10, material: 'fur', unlock: 0, color: '#a08ac0', shape: 'triangle', blurb: 'Screeches down from the heights.', weak: ['physical', 'acid'], resist: ['frost'] },
   { id: 'snowOwl', name: 'Snow Owl', area: 'cliffs', archetype: 'beast', hp: 1, speed: 1.9, gold: 1.6, spawn: 0.6, pack: [2, 4], radius: 9, material: 'fur', unlock: 120, color: '#e8e8f0', shape: 'triangle', blurb: 'Silent wings, sharp talons.', weak: ['fire', 'acid'], resist: ['frost'] },
   { id: 'griffin', name: 'Griffin', area: 'cliffs', archetype: 'beast', hp: 3, speed: 1.6, gold: 3.8, spawn: 0.3, pack: [1, 2], radius: 14, material: 'fur', unlock: 900, color: '#d8b060', shape: 'triangle', blurb: 'Half eagle, half lion, all trouble.', weak: ['acid', 'void'], resist: ['frost'] },
   { id: 'iceWyvern', name: 'Ice Wyvern', area: 'cliffs', archetype: 'dragon', hp: 5, speed: 1.2, gold: 6, spawn: 0.18, pack: [1, 1], radius: 16, material: 'ecto', unlock: 4_000, color: '#6ac8f0', shape: 'hexagon', blurb: 'Breathes blizzards.', weak: ['fire', 'radiant'], resist: ['frost', 'poison'] },
   { id: 'frostGiant', name: 'Frost Giant', area: 'cliffs', archetype: 'humanoid', hp: 7, speed: 0.5, gold: 8, spawn: 0.12, pack: [1, 1], radius: 18, material: 'frost', unlock: 15_000, color: '#8ab8e8', shape: 'square', blurb: 'Throws boulders like snowballs.', weak: ['fire', 'radiant'], resist: ['frost', 'physical'] },
 
+
+  // Cloud Fortress
+  { id: 'cloudling', name: 'Cloudling', area: 'fortress', archetype: 'slime', hp: 1, speed: 1.3, gold: 1.2, spawn: 1.4, pack: [3, 5], radius: 11, material: 'feather', unlock: 0, color: '#eef6ff', shape: 'circle', blurb: 'A puff of cloud with a mean streak.', weak: ['fire', 'void'], resist: ['frost', 'physical'] },
+  { id: 'thunderbird', name: 'Thunderbird', area: 'fortress', archetype: 'beast', hp: 1.4, speed: 1.9, gold: 1.8, spawn: 0.6, pack: [2, 4], radius: 11, material: 'feather', unlock: 120, color: '#f0d050', shape: 'triangle', blurb: 'Every beat of its wings is a thunderclap.', weak: ['frost', 'acid'], resist: ['arcane'] },
+  { id: 'skyKnight', name: 'Sky Knight', area: 'fortress', archetype: 'humanoid', hp: 3, speed: 1, gold: 3.6, spawn: 0.35, pack: [1, 2], radius: 13, material: 'thunder', unlock: 900, color: '#a8c0e0', shape: 'square', blurb: 'Guards the gates in armour of polished cloud-steel.', weak: ['acid', 'decay'], resist: ['physical', 'radiant'] },
+  { id: 'valkyrie', name: 'Valkyrie', area: 'fortress', archetype: 'humanoid', hp: 2.5, speed: 1.6, gold: 3.2, spawn: 0.3, pack: [1, 2], radius: 12, material: 'feather', unlock: 4_000, color: '#ffe8b0', shape: 'diamond', blurb: 'Dives from the battlements, spear first.', weak: ['decay', 'void'], resist: ['radiant', 'frost'] },
+  { id: 'stormTitan', name: 'Storm Titan', area: 'fortress', archetype: 'elemental', hp: 7, speed: 0.5, gold: 8, spawn: 0.12, pack: [1, 1], radius: 19, material: 'thunder', unlock: 15_000, color: '#6a80c0', shape: 'hexagon', blurb: 'A thundercloud that learned to walk.', weak: ['acid', 'poison'], resist: ['arcane', 'frost', 'physical'] },
+
+  // Meteor Fields
+  { id: 'meteorite', name: 'Meteorite', area: 'meteors', archetype: 'elemental', hp: 1, speed: 1.4, gold: 1.2, spawn: 1.4, pack: [3, 5], radius: 11, material: 'meteor', unlock: 0, color: '#c07048', shape: 'circle', blurb: 'A burning rock that never stopped falling.', weak: ['frost', 'physical'], resist: ['fire'] },
+  { id: 'cometWisp', name: 'Comet Wisp', area: 'meteors', archetype: 'elemental', hp: 0.8, speed: 2, gold: 1.6, spawn: 0.7, pack: [3, 5], radius: 9, material: 'stardust', unlock: 120, color: '#9ad8ff', shape: 'ghost', blurb: 'A streak of ice and light with a long, bright tail.', weak: ['fire', 'void'], resist: ['frost', 'physical'] },
+  { id: 'rockMite', name: 'Rock Mite', area: 'meteors', archetype: 'beast', hp: 2.2, speed: 1.2, gold: 2.6, spawn: 0.45, pack: [2, 4], radius: 11, material: 'meteor', unlock: 900, color: '#8a7a6a', shape: 'triangle', blurb: 'Burrows into asteroids and eats its way out.', weak: ['acid', 'radiant'], resist: ['physical', 'fire'] },
+  { id: 'astralSentinel', name: 'Astral Sentinel', area: 'meteors', archetype: 'humanoid', hp: 4, speed: 0.8, gold: 4.8, spawn: 0.25, pack: [1, 2], radius: 14, material: 'stardust', unlock: 4_000, color: '#b8a8ff', shape: 'diamond', blurb: 'An ancient watcher, carved from starlight.', weak: ['void', 'decay'], resist: ['arcane', 'radiant'] },
+  { id: 'starEater', name: 'Star Eater', area: 'meteors', archetype: 'dragon', hp: 8, speed: 0.9, gold: 9.5, spawn: 0.1, pack: [1, 1], radius: 19, material: 'stardust', unlock: 15_000, color: '#5a3a9a', shape: 'hexagon', blurb: 'Swallows falling stars whole. The way down to the Rift lies past it.', weak: ['radiant', 'frost'], resist: ['fire', 'physical', 'arcane'] },
 
   // Void Rift
   { id: 'shadowSlime', name: 'Shadow Slime', area: 'rift', archetype: 'slime', hp: 1, speed: 1, gold: 1, spawn: 1.5, pack: [3, 5], radius: 11, material: 'shade', unlock: 0, color: '#7a5cc0', shape: 'circle', blurb: 'A slime made of the dark itself.', weak: ['radiant', 'acid'], resist: ['void'] },
@@ -749,6 +783,8 @@ export const GUARDIAN_ENEMY: Record<AreaId, EnemyId> = {
   mines: 'caveTroll',
   peaks: 'wraith',
   cliffs: 'iceWyvern',
+  fortress: 'stormTitan',
+  meteors: 'starEater',
   rift: 'lich',
 };
 export const enemyUnlockCost = (def: EnemyDef): number => def.unlock * areaDef(def.area).gold;

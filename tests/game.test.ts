@@ -968,7 +968,7 @@ describe('Equipment', () => {
   });
 
   it('10 areas in order; saves from before the new areas open everything up to their furthest area', () => {
-    expect(AREAS.map((a) => a.id)).toEqual(['forest', 'glade', 'graveyard', 'crypt', 'depths', 'caves', 'mines', 'peaks', 'cliffs', 'rift']);
+    expect(AREAS.map((a) => a.id)).toEqual(['forest', 'glade', 'graveyard', 'crypt', 'depths', 'caves', 'mines', 'peaks', 'cliffs', 'fortress', 'meteors', 'rift']);
     const old = JSON.parse(serialize(newGame(0)));
     old.version = 9;
     old.areas.graveyard.unlocked = true;
@@ -977,9 +977,9 @@ describe('Equipment', () => {
     expect(AREAS.filter((a) => s.areas[a.id].unlocked).map((a) => a.id)).toEqual(['forest', 'glade', 'graveyard', 'crypt', 'depths', 'caves']);
   });
 
-  it('55 monsters, at least 5 per area, each with a weakness; Guardians stay put', () => {
-    expect(ENEMIES).toHaveLength(55);
-    expect(new Set(ENEMIES.map((e) => e.id)).size).toBe(55);
+  it('65 monsters, at least 5 per area, each with a weakness; Guardians stay put', () => {
+    expect(ENEMIES).toHaveLength(65);
+    expect(new Set(ENEMIES.map((e) => e.id)).size).toBe(65);
     for (const a of AREAS) expect(ENEMIES.filter((e) => e.area === a.id).length).toBeGreaterThanOrEqual(5);
     const g = new Game(newGame(0), noCrit);
     expect(g.guardianType).toBe('redSlime');
