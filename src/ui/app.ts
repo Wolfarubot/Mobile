@@ -166,7 +166,6 @@ export class AppUI {
       }),
     );
     $('#settingsBtn').addEventListener('click', () => this.openSettings());
-    $('#tutorialsBtn').addEventListener('click', () => this.openTutorials());
     this.applySettings();
     // Panels that depend on which areas/enemies/Hunters exist are rebuilt when those change.
     game.on((e) => {
@@ -2017,16 +2016,17 @@ export class AppUI {
 
   // ---- Tutorials ----
 
-  /** Full-screen Tutorials menu: replay the tips, and pages on weapon types and damage types. */
+  /** Full-screen Tutorials menu (opened from the top of Settings): replay the tips, and pages on weapon types and damage types. */
   private openTutorials(page: 'menu' | 'weapons' | 'damage' = 'menu'): void {
     if (this.detail) this.dropDetail();
     const title = page === 'menu' ? 'Tutorials' : page === 'weapons' ? 'Weapon types' : 'Damage types';
     const view = el('div', 'hunter-detail settings tutorials');
     view.innerHTML = `
-      <div class="hd-top">${page === 'menu' ? '<button class="hd-close" aria-label="Close">✕</button>' : '<button class="hd-close" aria-label="Back">‹</button>'}<span>${title}</span></div>
+      <div class="hd-top"><button class="hd-close" aria-label="Back">‹</button><span>${title}</span></div>
       <div class="hd-scroll"></div>`;
     document.body.appendChild(view);
-    $('.hd-close', view).addEventListener('click', () => (page === 'menu' ? this.closeHunterDetail() : this.openTutorials()));
+    // Back goes up a level: a guide to the Tutorials menu, the menu to Settings.
+    $('.hd-close', view).addEventListener('click', () => (page === 'menu' ? this.openSettings() : this.openTutorials()));
     this.detail = { el: view, refreshers: [] };
     const body = $('.hd-scroll', view);
     if (page === 'weapons') this.buildWeaponGuide(body);
@@ -2116,6 +2116,11 @@ export class AppUI {
     $('.hd-close', view).addEventListener('click', () => this.closeHunterDetail());
     this.detail = { el: view, refreshers: [] };
     const body = $('.hd-scroll', view);
+
+    const tutorials = el('button', 'card tut-row');
+    tutorials.innerHTML = `<span class="tut-icon">📖</span><span class="tut-text"><b>Tutorials</b><small>Replay the tips, and guides to weapon types, damage types and status effects.</small></span><span class="tut-go">›</span>`;
+    tutorials.addEventListener('click', () => this.openTutorials());
+    body.appendChild(tutorials);
 
     body.appendChild(sectionTitle('Your Hunter'));
     const nameCard = el('div', 'card setting');

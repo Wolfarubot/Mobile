@@ -2981,18 +2981,7 @@ button.mat:not(:disabled):active {
   padding: 4px 6px;
 }
 
-/* Tutorials: a small labelled button in the top bar, and the menu / guide pages it opens. */
-.tutorials-btn {
-  margin-top: 3px;
-  padding: 1px 8px;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  background: var(--c1);
-  color: var(--c3);
-  border: 2px solid var(--c3);
-  white-space: nowrap;
-}
+/* Tutorials: a row at the top of Settings, and the menu / guide pages it opens. */
 .tut-row {
   display: flex;
   align-items: center;
