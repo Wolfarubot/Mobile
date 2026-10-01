@@ -830,9 +830,9 @@ export const EMPOWER_UNLOCK_KILLS = 100;
 /**
  * Empower: each session adds a share of a monster's HP, gold, material drops and spawns (added up). Every
  * EMPOWER_SESSIONS_PER_LEVEL sessions is a level, and each level above 1 earns an evolution point, up to
- * MAX_MONSTER_LEVEL, where every evolution tree can be completed (about ×15 HP, ×30 gold, ×4 drops, ×7 spawns).
+ * MAX_MONSTER_LEVEL, where every evolution tree can be completed (about ×7 HP, ×30 gold, ×4 drops, ×7 spawns).
  */
-export const EMPOWER = { hp: 0.07, gold: 0.145, drops: 0.015, spawn: 0.03 };
+export const EMPOWER = { hp: 0.03, gold: 0.145, drops: 0.015, spawn: 0.03 };
 export const EMPOWER_SESSIONS_PER_LEVEL = 5;
 /** A monster's top level: enough evolution points for its whole tree. */
 export const MAX_MONSTER_LEVEL = 42;
