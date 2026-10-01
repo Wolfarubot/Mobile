@@ -573,8 +573,8 @@ export const AREAS: AreaDef[] = [
   { id: 'peaks', name: 'Frost Peaks', icon: '🏔️', hp: 100_000, gold: 3e15, speed: 50, mastery: 5_300_000, guardian: 40_000_000, palette: ['#0c2038', '#2a60a0', '#78b8e8', '#e4f4ff'], ground: ['#bcd8f0', '#a4c6e6'], blurb: 'Cold winds carry cold things.' },
   { id: 'cliffs', name: 'Ascendant Steps', icon: '🪜', hp: 250_000, gold: 5e17, speed: 53, mastery: 2_200_000, guardian: 80_000_000, palette: ['#141c30', '#4a5a86', '#a8b8e0', '#f2f4ff'], ground: ['#9aa6bc', '#8a96ac'], blurb: 'Stone stairs above the peaks, climbing into the sky.' },
   { id: 'fortress', name: 'Cloud Fortress', icon: '🏰', hp: 400_000, gold: 1e19, speed: 54, mastery: 1_200_000, guardian: 60_000_000, palette: ['#1a2440', '#4a70b0', '#a8d0f8', '#fdfcf4'], ground: ['#e8f0fa', '#d4e2f4'], blurb: 'A citadel on the clouds, held by storm and steel.' },
-  { id: 'meteors', name: 'Meteor Fields', icon: '☄️', hp: 650_000, gold: 2e20, speed: 55, mastery: 1_300_000, guardian: 150_000_000, palette: ['#0a0a1e', '#3a2a6a', '#e08a4a', '#fce8d0'], ground: ['#1c1830', '#2a2440'], blurb: 'Past the sky, where falling stars still burn.' },
-  { id: 'rift', name: 'Void Rift', icon: '🌀', hp: 1_500_000, gold: 5e21, speed: 56, mastery: 1_600_000, guardian: 1_000_000_000, palette: ['#1a0830', '#5a2098', '#b070e0', '#f2e4ff'], ground: ['#2a1440', '#3a1d58'], blurb: 'The end of the known world.' },
+  { id: 'meteors', name: 'Meteor Fields', icon: '☄️', hp: 650_000, gold: 2e20, speed: 55, mastery: 2_700_000, guardian: 150_000_000, palette: ['#0a0a1e', '#3a2a6a', '#e08a4a', '#fce8d0'], ground: ['#1c1830', '#2a2440'], blurb: 'Past the sky, where falling stars still burn.' },
+  { id: 'rift', name: 'Void Rift', icon: '🌀', hp: 1_500_000, gold: 5e21, speed: 56, mastery: 13_000_000, guardian: 1_000_000_000, palette: ['#1a0830', '#5a2098', '#b070e0', '#f2e4ff'], ground: ['#2a1440', '#3a1d58'], blurb: 'The end of the known world.' },
 ];
 
 export const areaDef = (id: AreaId): AreaDef => AREAS.find((a) => a.id === id)!;
