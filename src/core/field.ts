@@ -93,6 +93,8 @@ export interface Summon {
   look: 'wisp' | 'wolf' | 'puppet';
   /** A gear ability's creature (a Puppeteer's Doll's puppets): the piece that made it and its own bite. */
   gear?: { uid: number; base: number; damageType: DamageType; bites: number; speed: number };
+  /** A Hunter's own creature (Deku's spirit wolves): it bites for their special's damage. */
+  own?: { bites: number; speed: number; mult: number };
   /** Seconds left in a lunge (their tome's ability), and whether this lunge has landed yet. */
   dash: number;
   dashHit: boolean;
@@ -642,6 +644,7 @@ export class Field {
       switch (style.kind) {
         case 'potion':
         case 'fireball':
+        case 'druid':
           // Between specials, spellcasters fling magic bolts.
           this.shoot(h.id, 'spark', h.x, h.y, a, 520, range, { spread: true });
           break;
@@ -709,7 +712,13 @@ export class Field {
     const a = Math.atan2(target.y - h.y, target.x - h.x);
     const radius = g.specialRadius(h.id);
     const dmg = g.specialDamageMult(h.id);
-    if (style.kind === 'potion') {
+    if (style.kind === 'druid') {
+      // Two spirit wolves: each hunts for 6s, biting 1.5 times a second for his special's damage (Pack Bond makes them fiercer).
+      const mult = dmg * (radius / sp.radius);
+      for (const side of [-1, 1])
+        this.summons.push({ who: h.id, x: h.x + side * 18, y: h.y, life: 6, maxLife: 6, bite: 0, look: 'wolf', dash: 0, dashHit: false, own: { bites: 1.5, speed: 170, mult } });
+      this.events.push({ type: 'nova', x: h.x, y: h.y, r: 30, color: '#8fdc7a' });
+    } else if (style.kind === 'potion') {
       const d = Math.hypot(target.x - h.x, target.y - h.y);
       this.shoot(h.id, 'potion', h.x, h.y, a, 300, d, { radius, dmg, tx: target.x, ty: target.y, special: true });
     } else this.shoot(h.id, 'fireball', h.x, h.y, a, 380, range, { radius, dmg, special: true });
@@ -996,15 +1005,15 @@ export class Field {
     this.summons = this.summons.filter(
       (s) =>
         (s.who === 'main' || this.helpers.some((h) => h.id === s.who)) &&
-        (s.gear ? this.game.equipped(s.who).some((it) => it?.uid === s.gear!.uid) : this.game.weaponClassOf(s.who)?.summon),
+        (s.own || (s.gear ? this.game.equipped(s.who).some((it) => it?.uid === s.gear!.uid) : this.game.weaponClassOf(s.who)?.summon)),
     );
-    for (const who of new Set(this.summons.filter((s) => !s.gear).map((s) => s.who))) {
+    for (const who of new Set(this.summons.filter((s) => !s.gear && !s.own).map((s) => s.who))) {
       const dash = this.weaponDef(who)?.summon?.dash;
       const owner: { dashCd: number } = who === 'main' ? this : this.helpers.find((h) => h.id === who)!;
       if (!dash || owner.dashCd > 0) continue;
       let lunged = false;
       for (const s of this.summons) {
-        if (s.who !== who || s.gear) continue;
+        if (s.who !== who || s.gear || s.own) continue;
         const e = this.nearest(s.x, s.y, dash.range);
         if (!e || s.dash > 0) continue;
         s.dash = dash.range / dash.speed + 0.05;
@@ -1014,8 +1023,8 @@ export class Field {
       if (lunged) owner.dashCd = dash.cooldown;
     }
     for (const s of this.summons) {
-      const sm = s.gear ?? this.game.weaponClassOf(s.who)!.summon!;
-      const dash = s.gear ? undefined : this.weaponDef(s.who)?.summon?.dash;
+      const sm = s.gear ?? s.own ?? this.game.weaponClassOf(s.who)!.summon!;
+      const dash = s.gear || s.own ? undefined : this.weaponDef(s.who)?.summon?.dash;
       s.life -= dt;
       s.dash = Math.max(0, s.dash - dt);
       const e = this.nearest(s.x, s.y, 2000);
@@ -1040,6 +1049,7 @@ export class Field {
         while (s.bite >= 1 && e.hp > 0) {
           s.bite -= 1;
           if (s.gear) this.abilityHit(s.who, e, s.gear.base, s.gear.damageType, false);
+          else if (s.own) this.hitWith(s.who, e, s.own.mult, s.x, s.y, undefined, undefined, true);
           else this.hitWith(s.who, e, 1, s.x, s.y);
         }
       } else s.bite = Math.min(s.bite + dt * sm.bites, 1);

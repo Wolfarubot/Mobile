@@ -1439,6 +1439,38 @@ describe('Equipment', () => {
     }
   });
 
+  it("the Faerie Glade's Hunters: Ba'al's song speeds up the Hunters beside him, Deku calls spirit wolves", () => {
+    expect(hunterDef('bard').unlock).toEqual({ event: 'guardian-glade', times: 1 });
+    expect(hunterDef('druid').unlock).toEqual({ event: 'guardian-glade', times: 2 });
+    const g = new Game(newGame(0), noCrit);
+    g.state.areas.glade.unlocked = true;
+    for (const id of ['bard', 'druid', 'ranger'] as const) g.state.hunters[id].recruited = true;
+    const you = g.fireRate;
+    const ranger = g.shooterRate('ranger');
+    g.station('ranger', 'forest');
+    const rangerHere = g.shooterRate('ranger');
+    expect(g.station('bard', 'forest')).toBe(true);
+    expect(g.fireRate).toBeCloseTo(you * 1.15); // you're in the Forest with him
+    expect(g.shooterRate('ranger')).toBeCloseTo(rangerHere * 1.15);
+    expect(rangerHere).toBeCloseTo(ranger);
+    g.station('bard', 'glade');
+    expect(g.fireRate).toBeCloseTo(you); // he left
+    // Deku: every 6s, two spirit wolves that bite for his damage.
+    g.station('bard', null);
+    expect(g.station('druid', 'forest')).toBe(true);
+    const f = new Field(g);
+    f.setView(390, 420);
+    f.enemies.push(enemy({ id: 1, x: 120, y: 0, hp: 1e12, maxHp: 1e12 }));
+    for (let t = 0; t < 3; t += 0.01) {
+      f.update(0.01);
+      f.drainEvents();
+    }
+    const wolves = f.summons.filter((s) => s.who === 'druid' && s.own);
+    expect(wolves).toHaveLength(2);
+    expect(f.cooldowns().some((c) => c.key === 'druid')).toBe(true);
+    expect(f.enemies[0].hp).toBeLessThan(1e12);
+  });
+
   it('lightning arcs to a creature in its radius, striking every creature the bolt passes through', () => {
     let seed = 1;
     const g = new Game(newGame(0), () => ((seed = (seed * 16807) % 2147483647) / 2147483647));

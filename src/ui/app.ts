@@ -501,7 +501,7 @@ export class AppUI {
     overview.appendChild(effectNote);
     this.refreshers.push(() => {
       const lines: Array<[string, DamageType, number]> = [['Attacks', g.damageTypeOf(who), g.procOf(who)]];
-      if (g.specialCooldown(who) !== null) lines.push([def?.style.kind === 'potion' ? 'Potions' : 'Fireballs', g.damageTypeOf(who, 'long', true), g.procOf(who, 'long', true)]);
+      if (g.specialCooldown(who) !== null) lines.push([def?.style.kind === 'potion' ? 'Potions' : def?.style.kind === 'druid' ? 'Wolves' : 'Fireballs', g.damageTypeOf(who, 'long', true), g.procOf(who, 'long', true)]);
       effectNote.innerHTML = lines
         .filter(([, t, p]) => p > 0 && DAMAGE_TYPES[t].effect)
         .map(([what, t, p]) => `${DAMAGE_TYPES[t].icon} <b>${what}</b> (${Math.round(p * 100)}% chance): ${DAMAGE_TYPES[t].effect}.`)
@@ -568,7 +568,12 @@ export class AppUI {
       if (cd !== null) {
         const potion = def?.style.kind === 'potion';
         const hit = fmt(g.shotDamage(who) * g.specialDamageMult(who));
-        cells.push(
+        if (def?.style.kind === 'druid')
+          cells.push(
+            [`Wolf bite (${DAMAGE_TYPES[g.damageTypeOf(who, 'long', true)].name})`, fmt(g.shotDamage(who) * g.specialDamageMult(who) * (g.specialRadius(who) / (def.style.special?.radius ?? 1)))],
+            ['Wolves every', `${cd}s`],
+          );
+        else cells.push(
           [`${potion ? 'Puddle' : 'Fireball'} damage (${DAMAGE_TYPES[g.damageTypeOf(who, 'long', true)].name})`, potion ? `${hit}/tick` : hit],
           [potion ? 'Puddle size' : 'Blast size', fmt(g.specialRadius(who))],
           [potion ? 'Potion every' : 'Fireball every', `${cd}s`],

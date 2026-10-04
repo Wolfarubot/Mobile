@@ -344,6 +344,8 @@ function ascendedTree(capstone: NodeSpec): SkillNode[] {
 /** Each Guild Hunter's ascended tree. */
 export const ASCENDED_TREES: Record<HunterId, SkillNode[]> = {
   alchemist: ascendedTree({ name: "Philosopher's Stone", icon: '💠', desc: '+100% damage and puddles 20% wider.', maxRank: 1, effect: { damage: 1, radius: 0.2 } }),
+  bard: ascendedTree({ name: 'Symphony', icon: '🎼', desc: '+100% damage and +15% attack rate.', maxRank: 1, effect: { damage: 1, rate: 0.15 } }),
+  druid: ascendedTree({ name: 'Wild Hunt', icon: '🐺', desc: '+100% damage and wolves 30% fiercer.', maxRank: 1, effect: { damage: 1, radius: 0.3 } }),
   ranger: ascendedTree({ name: 'Hundred Arrows', icon: '🏹', desc: '+100% damage; arrows pierce 2 more enemies.', maxRank: 1, effect: { damage: 1, pierce: 2 } }),
   glimmer: ascendedTree({ name: 'Starfire', icon: '☄️', desc: '+100% damage and explosions 30% wider.', maxRank: 1, effect: { damage: 1, radius: 0.3 } }),
   gravewarden: ascendedTree({ name: 'Dawn Eternal', icon: '🌄', desc: '+100% damage and pulses reach 30% further.', maxRank: 1, effect: { damage: 1, radius: 0.3 } }),
@@ -379,6 +381,24 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
       { name: 'Lucky Finds', icon: '🍀', desc: '+15% materials from her kills per rank.', maxRank: 3, effect: { drops: 0.15 } },
     ],
     { name: 'Grand Alchemy', icon: '⚗️', desc: '+25% damage, puddles 15% wider.', maxRank: 1, cost: 4, effect: { damage: 0.25, radius: 0.15 } },
+  ),
+  bard: skillTree(
+    { name: 'Opening Chord', icon: '🎵', desc: 'Sound waves reach 10% further.', maxRank: 1, effect: { radius: 0.1 } },
+    [
+      { name: 'Silver Tongue', icon: '👤', desc: '+0.5× extra damage to Humanoids per rank.', maxRank: 3, effect: { bane: 0.5 } },
+      { name: 'Crescendo', icon: '🔊', desc: 'Sound waves reach 10% further per rank.', maxRank: 3, effect: { radius: 0.1 } },
+      { name: 'Encore', icon: '🎤', desc: '+10% attack rate per rank.', maxRank: 2, effect: { rate: 0.1 } },
+    ],
+    { name: 'Ballad of Heroes', icon: '🎶', desc: '+20% damage and +15% attack rate.', maxRank: 1, cost: 5, effect: { damage: 0.2, rate: 0.15 } },
+  ),
+  druid: skillTree(
+    { name: 'Thornskin', icon: '🌵', desc: '+1 shield.', maxRank: 1, effect: { guard: 1 } },
+    [
+      { name: 'Weedkiller', icon: '🌱', desc: '+0.5× extra damage to Plants per rank.', maxRank: 3, effect: { bane: 0.5 } },
+      { name: 'Pack Bond', icon: '🐺', desc: 'Wolves bite 10% harder per rank.', maxRank: 3, effect: { radius: 0.1 } },
+      { name: "Nature's Gift", icon: '🍃', desc: '+15% materials from his kills per rank.', maxRank: 2, effect: { drops: 0.15 } },
+    ],
+    { name: 'Call of the Wild', icon: '🌳', desc: '+25% damage, wolves 20% fiercer.', maxRank: 1, cost: 5, effect: { damage: 0.25, radius: 0.2 } },
   ),
   ranger: skillTree(
     { name: 'Trueshot', icon: '🎯', desc: '+20 range.', maxRank: 1, effect: { range: 20 } },
@@ -1028,6 +1048,8 @@ export type HunterId =
   | 'alchemist'
   | 'glimmer'
   | 'ranger'
+  | 'bard'
+  | 'druid'
   | 'gravewarden'
   | 'lance'
   | 'prospector'
@@ -1099,6 +1121,7 @@ export type AttackKind =
   | 'bolt' // single shot (your Hunter)
   | 'potion' // magic bolts, plus a lobbed flask that leaves a damaging puddle (special)
   | 'fireball' // magic bolts, plus a fireball that explodes for area damage (special)
+  | 'druid' // thorn bolts, plus spirit wolves called to hunt (special)
   | 'arrow' // pierces through a line of enemies
   | 'nova' // holy pulse around themselves
   | 'thrust' // short lance strike through everything in a line
@@ -1166,6 +1189,8 @@ export interface HunterDef {
   drops?: number;
   /** Short description of what makes them special, shown on their card. */
   ability: string;
+  /** Their song: every other Hunter fighting in the same area attacks this much faster (Ba'al). */
+  inspire?: number;
   /** Equipment slots (defaults to Weapon, Armor, Accessory). */
   slots?: SlotDef[];
 }
@@ -1207,6 +1232,27 @@ export const HUNTERS: HunterDef[] = [
     story: 'Galladair\'s home on the edge of the Whispering Forest is being threatened by monsters. Help her defeat the Forest Guardian, and she will fight by your side.',
     ability: 'Arrows pierce through lines of enemies. Deals triple damage to Beasts.',
     style: { kind: 'arrow', damageType: 'physical', range: 300, rate: 1, damage: 1, pierce: 3, farm: 1.4, crowd: 2, describe: 'Arrows pierce through up to 4 enemies in a line.' },
+  },
+  {
+    id: 'bard', name: "Ba'al", title: 'Bard', icon: '🪕', color: '#e0a0ff', area: 'glade', recruitCost: 40_000, bane: { archetype: 'humanoid', mult: 3 },
+    unlock: { event: 'guardian-glade', times: 1 },
+    ascendedTitle: 'Maestro',
+    inspire: 0.15,
+    story: "Ba'al wandered into the Faerie Glade chasing a melody only the pixies hum, and the Glade's Guardian won't let him leave. Beat it, and his songs are yours.",
+    ability: 'Plays chords whose sound waves strike everything around him. His song makes every other Hunter in his area attack 15% faster. Deals triple damage to Humanoids.',
+    style: { kind: 'nova', damageType: 'arcane', proc: 0.15, range: 120, rate: 0.6, damage: 1.2, radius: 115, farm: 1.4, crowd: 3, describe: 'Sound waves strike every enemy around him; his song speeds up the Hunters beside him.' },
+  },
+  {
+    id: 'druid', name: 'Deku', title: 'Druid', icon: '🌿', color: '#6abf5a', area: 'glade', recruitCost: 250_000, bane: { archetype: 'plant', mult: 3 },
+    unlock: { event: 'guardian-glade', times: 2 },
+    ascendedTitle: 'Archdruid',
+    story: 'Deku tends the oldest trees of the Faerie Glade, and the Guardian keeps trampling his saplings. Beat it twice, and he\'ll lend you the spirits of the wild.',
+    ability: 'Flings thorns, and every 6s calls two spirit wolves to hunt. Deals triple damage to Plants.',
+    style: {
+      kind: 'druid', damageType: 'poison', proc: 0.25, range: 240, rate: 0.7, damage: 0.9, farm: 1, crowd: 1,
+      special: { cooldown: 6, damage: 0.7, radius: 1, ticks: 18, crowd: 1 },
+      describe: 'Flings thorns. Every 6s calls two spirit wolves that hunt for 6s, biting for his damage: his weapon powers them.',
+    },
   },
   {
     id: 'gravewarden', name: 'Alric', title: 'Gravewarden', icon: '✝️', color: '#efe6cf', area: 'graveyard', recruitCost: 60_000_000, bane: { archetype: 'undead', mult: 3 },
@@ -1300,6 +1346,7 @@ export function hunterPerk(h: HunterDef): string {
   if (h.bane) parts.push(`×${h.bane.mult} damage vs ${ARCHETYPES[h.bane.archetype].name}`);
   if (h.gold) parts.push(`+${Math.round((h.gold - 1) * 100)}% gold`);
   if (h.drops) parts.push(`+${Math.round((h.drops - 1) * 100)}% drops`);
+  if (h.inspire) parts.push(`+${Math.round(h.inspire * 100)}% attack rate to Hunters beside him`);
   return parts.join(', ');
 }
 

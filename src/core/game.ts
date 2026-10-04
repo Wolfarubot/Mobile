@@ -249,7 +249,20 @@ export class Game {
   }
 
   get fireRate(): number {
-    return BASE_FIRE_RATE * this.skillRateMult('main') * this.itemRateMult * (1 + this.gear('main').rate);
+    return BASE_FIRE_RATE * this.skillRateMult('main') * this.itemRateMult * (1 + this.gear('main').rate) * this.inspireFor('main');
+  }
+
+  /**
+   * Attack-rate multiplier from a Bard's song: Ba'al speeds up every other Hunter fighting in the same area
+   * (you count wherever you are; Guild Hunters where they're stationed).
+   */
+  inspireFor(who: Shooter): number {
+    const where = who === 'main' ? this.state.area : this.state.hunters[who].station;
+    if (!where) return 1;
+    let m = 1;
+    for (const h of HUNTERS)
+      if (h.inspire && h.id !== who && this.state.hunters[h.id].recruited && this.state.hunters[h.id].station === where) m *= 1 + h.inspire;
+    return m;
   }
 
   /**
@@ -405,7 +418,7 @@ export class Game {
   shooterRate(shooter: Shooter, mode?: GearMode): number {
     const cls = this.weaponClassOf(shooter, mode)?.rate ?? 1;
     if (shooter === 'main') return this.fireRate * cls;
-    return HELPER_FIRE_RATE * hunterDef(shooter).style.rate * this.skillRateMult(shooter) * this.itemRateMult * (1 + this.gear(shooter, mode).rate) * cls;
+    return HELPER_FIRE_RATE * hunterDef(shooter).style.rate * this.skillRateMult(shooter) * this.itemRateMult * (1 + this.gear(shooter, mode).rate) * cls * this.inspireFor(shooter);
   }
 
   /**
