@@ -209,7 +209,7 @@ export type FieldEvent =
   | { type: 'escape'; x: number; y: number }
   | { type: 'explode'; x: number; y: number; r: number; color: string }
   | { type: 'nova'; x: number; y: number; r: number; color?: string }
-  | { type: 'beam'; x1: number; y1: number; x2: number; y2: number; color: string; width: number }
+  | { type: 'beam'; x1: number; y1: number; x2: number; y2: number; color: string; width: number; zigzag?: boolean }
   | { type: 'sweep'; x: number; y: number; a: number; arc: number; r: number; color: string; heavy?: boolean }
   | { type: 'reload'; who: Shooter; x: number; y: number };
 
@@ -1027,6 +1027,30 @@ export class Field {
       case 'arcane':
         e.exposed = STATUS.expose.duration;
         break;
+      case 'lightning':
+        this.arc(e, dmg * STATUS.arc.share, by);
+        break;
+    }
+  }
+
+  /**
+   * Lightning: a bolt jumps from a monster to another creature within the arc radius (picked at random), and
+   * strikes it and every creature whose body the bolt passes through on the way.
+   */
+  private arc(from: Enemy, amount: number, by: Shooter): void {
+    const r = STATUS.arc.radius;
+    const near = this.enemies.filter((o) => o !== from && o.hp > 0 && Math.hypot(o.x - from.x, o.y - from.y) <= r + o.r);
+    if (!near.length) return;
+    const to = near[Math.floor(this.game.rng() * near.length)];
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const len2 = dx * dx + dy * dy || 1;
+    this.events.push({ type: 'beam', x1: from.x, y1: from.y, x2: to.x, y2: to.y, color: DAMAGE_TYPES.lightning.color, width: 2.5, zigzag: true });
+    for (const o of near) {
+      // Closest point on the bolt to this creature: struck if the bolt crosses its body.
+      const t = Math.max(0, Math.min(1, ((o.x - from.x) * dx + (o.y - from.y) * dy) / len2));
+      if (o !== to && Math.hypot(from.x + dx * t - o.x, from.y + dy * t - o.y) > o.r) continue;
+      this.damage(o, amount * this.typeMultOn('lightning', o), false, 0, 0, by, 'lightning');
     }
   }
 

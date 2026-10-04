@@ -997,14 +997,15 @@ export type HunterId =
   | 'frostbreaker';
 
 // ---- Damage types: every attack deals one. Weapons carry a type; without one, a Hunter uses their own. ----
-export type DamageType = 'physical' | 'fire' | 'acid' | 'frost' | 'radiant' | 'poison' | 'arcane' | 'decay' | 'void';
+export type DamageType = 'physical' | 'fire' | 'acid' | 'frost' | 'radiant' | 'poison' | 'arcane' | 'decay' | 'lightning' | 'void';
 
 /**
  * Status effects: a hit of these types has a chance (the weapon's `proc`, or the Hunter's own without one) to:
  * Fire: burn (`share` of the hit again over `duration`). Poison: poison (the same, slower and longer).
  * Frost: chill (half speed). Acid: drop an acid puddle that hurts everything in it. Radiant: a radiant burst
  * around the target. Decay: a dark aura on the monster that hurts the monsters around it. Arcane: strip its
- * resistances for a while. Physical and Void have no effect. New procs refresh rather than stack.
+ * resistances for a while. Lightning: arc to another monster nearby, hurting everything on the way.
+ * Void has no effect. New procs refresh rather than stack.
  */
 export const STATUS = {
   /** Burns can spread: each tick, a `spreadChance` to ignite each monster within `spreadRadius` of its edge, at `spreadFalloff` strength. */
@@ -1024,6 +1025,11 @@ export const STATUS = {
   aura: { share: 0.12, duration: 4, radius: 55 },
   expose: { duration: 4 },
   /**
+   * Lightning arcs from the monster it hits to another creature within `radius` of it (any one, at random),
+   * dealing `share` of the hit to that creature and to every creature the arc passes through on the way.
+   */
+  arc: { share: 0.6, radius: 110 },
+  /**
    * Bleeding (Physical): `share` of the hit again over `duration`. The only effect that stacks: each bleed is
    * its own instance, up to `maxStacks` at once (a new one replaces the oldest).
    */
@@ -1032,7 +1038,7 @@ export const STATUS = {
   tick: 0.5,
 };
 /** Rough extra damage each type's effect adds when it always procs, for the background model (scaled by proc chance). */
-export const STATUS_MODEL: Partial<Record<DamageType, number>> = { physical: 1.25, fire: 1.4, poison: 1.5, acid: 1.4, radiant: 1.5, decay: 1.4, arcane: 1.1 };
+export const STATUS_MODEL: Partial<Record<DamageType, number>> = { physical: 1.25, fire: 1.4, poison: 1.5, acid: 1.4, radiant: 1.5, decay: 1.4, arcane: 1.1, lightning: 1.5 };
 
 export const DAMAGE_TYPES: Record<DamageType, { name: string; icon: string; color: string; effect?: string }> = {
   physical: { name: 'Physical', icon: '🗡️', color: '#e8e8e8', effect: `Bleeds: ${STATUS.bleed.share * 100}% of the hit again over ${STATUS.bleed.duration}s; bleeds stack (up to ${STATUS.bleed.maxStacks})` },
@@ -1043,6 +1049,7 @@ export const DAMAGE_TYPES: Record<DamageType, { name: string; icon: string; colo
   poison: { name: 'Poison', icon: '☠️', color: '#6fdc5a', effect: `Poisons: ${STATUS.poison.share * 100}% of the hit again over ${STATUS.poison.duration}s, plus a share of its max HP (more from rarer weapons, less on Guardians)` },
   arcane: { name: 'Arcane', icon: '🔮', color: '#c08cff', effect: `Exposes: removes its resistances for ${STATUS.expose.duration}s` },
   decay: { name: 'Decay', icon: '🍂', color: '#b09a60', effect: `Dark aura: it hurts the monsters around it for ${STATUS.aura.duration}s` },
+  lightning: { name: 'Lightning', icon: '⚡', color: '#8fb4ff', effect: `Arcs: ${STATUS.arc.share * 100}% of the hit jumps to another creature nearby, striking everything it passes through` },
   void: { name: 'Void', icon: '🌀', color: '#ff5fd7' },
 };
 
@@ -1631,10 +1638,10 @@ export const GEAR: GearDef[] = [
   { id: 'frostbiteBlade', name: 'Frostbite Blade', icon: '❄️', kind: 'melee', rarity: 'legendary', weaponClass: 'sword', tier: 8, damageType: 'frost', proc: 0.3, stats: {}, recipe: { frost: 10, fur: 6 } },
   { id: 'skyLongbow', name: 'Skyward Longbow', icon: '🏹', kind: 'weapon', rarity: 'exotic', weaponClass: 'longbow', tier: 9, damageType: 'physical', stats: {}, recipe: { plume: 10, skystone: 5 } },
   { id: 'griffinSpear', name: 'Griffin Spear', icon: '🔱', kind: 'melee', rarity: 'exotic', weaponClass: 'spear', tier: 9, damageType: 'physical', proc: 0.2, stats: {}, recipe: { plume: 8, skystone: 6 } },
-  { id: 'skyStaff', name: 'Sky Staff', icon: '🌤️', kind: 'magic', rarity: 'exotic', weaponClass: 'staff', tier: 9, damageType: 'frost', proc: 0.2, stats: {}, recipe: { skystone: 10, plume: 4 } },
-  { id: 'thunderRepeater', name: 'Thunder Repeater', icon: '⚡', kind: 'weapon', rarity: 'relic', weaponClass: 'repeater', tier: 10, damageType: 'arcane', proc: 0.2, stats: {}, recipe: { thunder: 10, feather: 5 } },
-  { id: 'stormbreaker', name: 'Stormbreaker', icon: '🔨', kind: 'melee', rarity: 'relic', weaponClass: 'hammer', tier: 10, damageType: 'radiant', proc: 0.25, stats: {}, recipe: { thunder: 12, feather: 6 } },
-  { id: 'stormTome', name: 'Tome of Storms', icon: '📘', kind: 'magic', rarity: 'relic', weaponClass: 'tome', tier: 10, damageType: 'arcane', proc: 0.2, stats: {}, recipe: { feather: 10, thunder: 6 } },
+  { id: 'skyStaff', name: 'Sky Staff', icon: '🌤️', kind: 'magic', rarity: 'exotic', weaponClass: 'staff', tier: 9, damageType: 'lightning', proc: 0.2, stats: {}, recipe: { skystone: 10, plume: 4 } },
+  { id: 'thunderRepeater', name: 'Thunder Repeater', icon: '⚡', kind: 'weapon', rarity: 'relic', weaponClass: 'repeater', tier: 10, damageType: 'lightning', proc: 0.2, stats: {}, recipe: { thunder: 10, feather: 5 } },
+  { id: 'stormbreaker', name: 'Stormbreaker', icon: '🔨', kind: 'melee', rarity: 'relic', weaponClass: 'hammer', tier: 10, damageType: 'lightning', proc: 0.25, stats: {}, recipe: { thunder: 12, feather: 6 } },
+  { id: 'stormTome', name: 'Tome of Storms', icon: '📘', kind: 'magic', rarity: 'relic', weaponClass: 'tome', tier: 10, damageType: 'lightning', proc: 0.2, stats: {}, recipe: { feather: 10, thunder: 6 } },
   { id: 'meteorRifle', name: 'Meteor Rifle', icon: '☄️', kind: 'weapon', rarity: 'artifact', weaponClass: 'rifle', tier: 11, damageType: 'fire', proc: 0.3, stats: {}, recipe: { meteor: 10, stardust: 5 } },
   { id: 'starsteelSword', name: 'Starsteel Sword', icon: '⚔️', kind: 'melee', rarity: 'artifact', weaponClass: 'sword', tier: 11, damageType: 'radiant', proc: 0.25, stats: {}, recipe: { meteor: 10, stardust: 6 } },
   { id: 'starScepter', name: 'Star Scepter', icon: '🌟', kind: 'magic', rarity: 'artifact', weaponClass: 'scepter', tier: 11, damageType: 'radiant', proc: 0.25, stats: {}, recipe: { stardust: 10, meteor: 4 } },

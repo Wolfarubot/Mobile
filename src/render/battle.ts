@@ -39,6 +39,8 @@ interface Beam {
   color: string;
   width: number;
   t: number;
+  /** Lightning: a jagged bolt (its kinks, as offsets across the line, fixed when it appears). */
+  kinks?: number[];
 }
 
 const Z = FIELD_ZOOM;
@@ -150,7 +152,7 @@ export class BattleView {
           else this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: hexRgb(e.color ?? '#fff0be'), max: 0.4, pixel: true, scatter: sparseCells(e.r, Math.random() * 1e6) });
           break;
         case 'beam':
-          this.beams.push({ ...e, t: 0 });
+          this.beams.push({ ...e, t: 0, kinks: e.zigzag ? Array.from({ length: 6 }, () => (Math.random() - 0.5) * 16) : undefined });
           break;
         case 'sweep':
           this.sweeps.push({ ...e, t: 0 });
@@ -326,6 +328,17 @@ export class BattleView {
       g.lineCap = 'round';
       g.beginPath();
       g.moveTo(b.x1, b.y1);
+      if (b.kinks) {
+        // A jagged bolt: points along the line, each pushed sideways by its kink.
+        const dx = b.x2 - b.x1;
+        const dy = b.y2 - b.y1;
+        const len = Math.hypot(dx, dy) || 1;
+        const n = b.kinks.length;
+        for (let i = 0; i < n; i++) {
+          const k = (i + 1) / (n + 1);
+          g.lineTo(b.x1 + dx * k - (dy / len) * b.kinks[i], b.y1 + dy * k + (dx / len) * b.kinks[i]);
+        }
+      }
       g.lineTo(b.x2, b.y2);
       g.stroke();
       g.globalAlpha = 1;

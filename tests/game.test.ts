@@ -1244,6 +1244,28 @@ describe('Equipment', () => {
     expect(f.summons.filter((s) => s.who === 'glimmer')).toHaveLength(0);
   });
 
+  it('lightning arcs to a creature in its radius, striking every creature the bolt passes through', () => {
+    let seed = 1;
+    const g = new Game(newGame(0), () => ((seed = (seed * 16807) % 2147483647) / 2147483647));
+    const f = new Field(g);
+    f.setView(390, 420);
+    const hp = 1e9;
+    const src = enemy({ id: 1, x: 100, y: 0, hp, maxHp: hp });
+    const mid = enemy({ id: 2, x: 150, y: 0, hp, maxHp: hp }); // in the bolt's way if it goes to #3
+    const end = enemy({ id: 3, x: 200, y: 0, hp, maxHp: hp });
+    const far = enemy({ id: 4, x: 100 + STATUS.arc.radius + 60, y: 200, hp, maxHp: hp }); // out of reach
+    f.enemies.push(src, mid, end, far);
+    const arc = (f as unknown as { arc: (e: Enemy, amount: number, by: string) => void }).arc.bind(f);
+    for (let i = 0; i < 40; i++) arc(src, 10, 'main');
+    expect(src.hp).toBe(hp); // it jumps away from the monster that was hit
+    expect(far.hp).toBe(hp);
+    expect(mid.hp).toBeLessThan(hp);
+    // Every arc toward #3 crossed #2, so #2 was struck at least as often as #3.
+    expect(hp - mid.hp).toBeGreaterThan(hp - end.hp);
+    expect(end.hp).toBeLessThan(hp);
+    expect(f.drainEvents().some((e) => e.type === 'beam' && e.zigzag)).toBe(true);
+  });
+
   it('bleeding (Physical) is the only status that stacks; others refresh a single instance', () => {
     const g = new Game(newGame(0), noCrit);
     const f = new Field(g);

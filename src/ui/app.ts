@@ -3140,6 +3140,7 @@ const STATUS_NAMES: Partial<Record<DamageType, string>> = {
   poison: 'Poisoned',
   arcane: 'Exposed',
   decay: 'Decay aura',
+  lightning: 'Arcing',
 };
 
 /** Short, player-facing traits of a weapon type for the Tutorials page. */
