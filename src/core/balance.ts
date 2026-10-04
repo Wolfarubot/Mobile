@@ -127,6 +127,8 @@ export interface TreeNode<S extends string = string> {
   /** Grid position in the tree: column 0–2, row from the top. */
   col: number;
   row: number;
+  /** Your Hunter: the tap ability this node unlocks (equip it in the Abilities tab). */
+  ability?: TapAbilityId;
 }
 export type SkillNode = TreeNode<TreeStat>;
 
@@ -154,17 +156,50 @@ function skillTree(root: NodeSpec, branches: [NodeSpec, NodeSpec, NodeSpec], cap
   ];
 }
 
+// ---- Your Hunter: tap abilities, unlocked in the skill tree and swapped in the Abilities tab ----
+
+export type TapAbilityId = 'flame' | 'thunder' | 'frost';
+
+/**
+ * Elemental tap abilities: with one equipped, a tap blast deals its element's damage (instead of your weapon's)
+ * and always sets off its effect on everything it hits.
+ */
+export interface TapAbilityDef {
+  id: TapAbilityId;
+  name: string;
+  icon: string;
+  damageType: DamageType;
+  /** Tap blast damage multiplier. */
+  damage: number;
+  desc: string;
+}
+export const TAP_ABILITIES: TapAbilityDef[] = [
+  { id: 'flame', name: 'Flame Burst', icon: '🔥', damageType: 'fire', damage: 1, desc: 'Your taps erupt in fire, setting everything they hit ablaze.' },
+  { id: 'thunder', name: 'Thunderclap', icon: '⚡', damageType: 'lightning', damage: 1, desc: 'Your taps crack with lightning: every monster hit arcs a bolt to another one nearby.' },
+  { id: 'frost', name: 'Frost Nova', icon: '❄️', damageType: 'frost', damage: 1, desc: 'Your taps freeze: everything hit is chilled (half speed) for 3s.' },
+];
+export const tapAbilityDef = (id: TapAbilityId): TapAbilityDef => TAP_ABILITIES.find((a) => a.id === id)!;
+/** How long Frost Nova chills. */
+export const FROST_TAP_CHILL = 3;
+
+/** Your Hunter's ability nodes: one point each, under the three signature nodes, above Apex Hunter. */
+const MAIN_ABILITY_NODES: SkillNode[] = [
+  { id: 'flameTap', name: 'Flame Burst', icon: '🔥', desc: 'Unlocks the Flame Burst tap ability: taps deal Fire damage and set monsters ablaze. Equip it in the Abilities tab.', maxRank: 1, effect: {}, ability: 'flame', requires: ['power2'], col: 0, row: 3 },
+  { id: 'thunderTap', name: 'Thunderclap', icon: '⚡', desc: 'Unlocks the Thunderclap tap ability: taps deal Lightning damage and arc to monsters nearby. Equip it in the Abilities tab.', maxRank: 1, effect: {}, ability: 'thunder', requires: ['speed2'], col: 1, row: 3 },
+  { id: 'frostTap', name: 'Frost Nova', icon: '❄️', desc: 'Unlocks the Frost Nova tap ability: taps deal Frost damage and chill monsters. Equip it in the Abilities tab.', maxRank: 1, effect: {}, ability: 'frost', requires: ['recovery2'], col: 2, row: 3 },
+];
+
 // ---- Your Hunter: a longer first tree (Lv 90), Ascend at Lv 100 to become the Slayer, then on to Lv 200 ----
 
-/** Rows below your first tree's capstone: 50 more points, finishing with Legend (so the whole tree is done at Lv 90). */
+/** Rows below your first tree's capstone: 47 more points, finishing with Legend (so the whole tree is done at Lv 90). */
 const MAIN_VETERAN_NODES: SkillNode[] = [
-  { id: 'might', name: "Hunter's Might", icon: '🗡️', desc: '+5% damage per rank.', maxRank: 10, effect: { damage: 0.05 }, requires: ['capstone'], col: 0, row: 4 },
-  { id: 'haste', name: "Hunter's Haste", icon: '💨', desc: '+3% attack rate per rank.', maxRank: 10, effect: { rate: 0.03 }, requires: ['capstone'], col: 1, row: 4 },
-  { id: 'will', name: 'Iron Will', icon: '🪨', desc: 'Stuns wear off 8% faster per rank.', maxRank: 5, effect: { recovery: 1 }, requires: ['capstone'], col: 2, row: 4 },
-  { id: 'deadlyTaps', name: 'Deadly Taps', icon: '👊', desc: '+25% tap blast damage per rank.', maxRank: 5, effect: { tapPower: 0.25 }, requires: ['might'], col: 0, row: 5 },
-  { id: 'keenEye', name: 'Keen Eye', icon: '🦅', desc: '+1% crit chance per rank.', maxRank: 5, effect: { crit: 0.01 }, requires: ['haste'], col: 1, row: 5 },
-  { id: 'wideTaps', name: 'Wide Taps', icon: '🌀', desc: '+8% tap blast area per rank.', maxRank: 5, effect: { tapSize: 0.08 }, requires: ['will'], col: 2, row: 5 },
-  { id: 'legend', name: 'Legend', icon: '🏆', desc: '+50% damage and +20% attack rate.', maxRank: 1, cost: 10, effect: { damage: 0.5, rate: 0.2 }, requires: ['deadlyTaps', 'keenEye', 'wideTaps'], col: 1, row: 6 },
+  { id: 'might', name: "Hunter's Might", icon: '🗡️', desc: '+5% damage per rank.', maxRank: 9, effect: { damage: 0.05 }, requires: ['capstone'], col: 0, row: 5 },
+  { id: 'haste', name: "Hunter's Haste", icon: '💨', desc: '+3% attack rate per rank.', maxRank: 9, effect: { rate: 0.03 }, requires: ['capstone'], col: 1, row: 5 },
+  { id: 'will', name: 'Iron Will', icon: '🪨', desc: 'Stuns wear off 8% faster per rank.', maxRank: 5, effect: { recovery: 1 }, requires: ['capstone'], col: 2, row: 5 },
+  { id: 'deadlyTaps', name: 'Deadly Taps', icon: '👊', desc: '+25% tap blast damage per rank.', maxRank: 5, effect: { tapPower: 0.25 }, requires: ['might'], col: 0, row: 6 },
+  { id: 'keenEye', name: 'Keen Eye', icon: '🦅', desc: '+1% crit chance per rank.', maxRank: 4, effect: { crit: 0.01 }, requires: ['haste'], col: 1, row: 6 },
+  { id: 'wideTaps', name: 'Wide Taps', icon: '🌀', desc: '+8% tap blast area per rank.', maxRank: 5, effect: { tapSize: 0.08 }, requires: ['will'], col: 2, row: 6 },
+  { id: 'legend', name: 'Legend', icon: '🏆', desc: '+50% damage and +20% attack rate.', maxRank: 1, cost: 10, effect: { damage: 0.5, rate: 0.2 }, requires: ['deadlyTaps', 'keenEye', 'wideTaps'], col: 1, row: 7 },
 ];
 
 /** Your Hunter's gold Ascend node, below Legend: 10 points, so Lv 100. */
@@ -178,7 +213,7 @@ export const MAIN_ASCEND_NODE: SkillNode = {
   effect: {},
   requires: ['legend'],
   col: 1,
-  row: 7,
+  row: 8,
 };
 
 /** Your Hunter's level cap before ascending, and after (as the Slayer). */
@@ -332,7 +367,8 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
         { name: 'Tap Size', icon: '💥', desc: '+15% tap blast area per rank.', maxRank: 5, effect: { tapSize: 0.15 } },
       ],
       { name: 'Apex Hunter', icon: '👑', desc: '+25% damage and +10% attack rate.', maxRank: 1, effect: { damage: 0.25, rate: 0.1 } },
-    ),
+    ).map((n) => (n.id === 'capstone' ? { ...n, row: 4, requires: MAIN_ABILITY_NODES.map((a) => a.id) } : n)),
+    ...MAIN_ABILITY_NODES,
     ...MAIN_VETERAN_NODES,
   ],
   alchemist: skillTree(

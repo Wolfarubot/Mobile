@@ -10,6 +10,7 @@ import {
   CRIT_MULT,
   enemyDef,
   fieldZoom,
+  FROST_TAP_CHILL,
   FLEE_SPEED_MULT,
   GUARD_RECHARGE,
   hunterDef,
@@ -203,7 +204,7 @@ export interface Puddle {
 export type FieldEvent =
   | { type: 'hit'; x: number; y: number; dmg: number; crit: boolean; dtype: DamageType; affinity?: 'weak' | 'resist' | null }
   | { type: 'kill'; x: number; y: number; enemy: EnemyId; boss: boolean; reward: KillReward }
-  | { type: 'blast'; x: number; y: number }
+  | { type: 'blast'; x: number; y: number; color?: string }
   | { type: 'boss' }
   | { type: 'stun'; x: number; y: number; boss: boolean; who: Shooter }
   | { type: 'guard'; x: number; y: number }
@@ -1195,17 +1196,27 @@ export class Field {
   tap(x: number, y: number): void {
     const g = this.game;
     g.registerTap();
-    this.events.push({ type: 'blast', x, y });
+    const ability = g.tapAbility;
+    this.events.push({ type: 'blast', x, y, color: ability ? DAMAGE_TYPES[g.tapDamageType].color : undefined });
     const crit = g.rng() < g.critChanceOf('main');
     const dmg = g.tapDamage * (crit ? CRIT_MULT : 1);
-    const dtype = g.damageTypeOf('main');
+    const dtype = g.tapDamageType;
+    const hit: Array<{ e: Enemy; dmg: number }> = [];
     for (const e of this.enemies) {
       if (e.hp <= 0) continue;
       const dx = e.x - x;
       const dy = e.y - y;
       const d = Math.hypot(dx, dy);
       if (d > g.tapRadius + e.r) continue;
-      this.damage(e, dmg * this.typeMultOn(dtype, e), crit, dx / (d || 1), dy / (d || 1), 'main', dtype);
+      const amount = dmg * this.typeMultOn(dtype, e);
+      this.damage(e, amount, crit, dx / (d || 1), dy / (d || 1), 'main', dtype);
+      hit.push({ e, dmg: amount });
+    }
+    // An elemental tap ability sets off its effect on everything the blast hit.
+    for (const { e, dmg: amount } of hit) {
+      if (ability === 'flame' && e.hp > 0) this.applyStatus(e, 'fire', amount, 'main');
+      else if (ability === 'frost' && e.hp > 0) e.slow = Math.max(e.slow ?? 0, FROST_TAP_CHILL);
+      else if (ability === 'thunder') this.arc(e, amount * STATUS.arc.share, 'main');
     }
     this.enemies = this.enemies.filter((e) => e.hp > 0);
   }

@@ -22,6 +22,8 @@ import {
   type HunterId,
   type ItemId,
   type MaterialId,
+  TAP_ABILITIES,
+  type TapAbilityId,
   MAX_EMPOWER_SESSIONS,
   levelFromTrains,
   EMPOWER_SESSIONS_PER_LEVEL,
@@ -65,6 +67,8 @@ export interface Training {
   ascendAt?: number;
   /** Ranks in their ascended tree. */
   skills2?: Record<string, number>;
+  /** Your Hunter: the tap ability equipped (unlocked in the skill tree; none = a plain blast). */
+  tapAbility?: TapAbilityId;
 }
 
 export interface HunterState extends Training {
@@ -412,6 +416,7 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
     trains: typeof main?.trains === 'number' ? main.trains : typeof oldPower === 'number' ? oldPower : 0,
     skills: trees ? cleanSkills('main', main?.skills) : {},
   };
+  if (TAP_ABILITIES.some((t) => t.id === main?.tapAbility)) state.main.tapAbility = main!.tapAbility;
   // Becoming the Slayer: keep a sane point where it happened, and only ranks in the Slayer's tree.
   if (typeof main?.ascendAt === 'number' && Number.isFinite(main.ascendAt) && main.ascendAt >= 0 && main.ascendAt <= state.main.trains) {
     state.main.ascendAt = main.ascendAt;

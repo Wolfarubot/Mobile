@@ -63,6 +63,7 @@ import {
   EVO_TREES,
   RESIST_MULT,
   STATUS,
+  FROST_TAP_CHILL,
   type DamageType,
   typeMult,
   WEAK_MULT,
@@ -654,7 +655,7 @@ describe('Shops', () => {
     expect(g.levelOf('main')).toBe(MAIN_ASCEND_LEVEL);
     expect(g.trainPurchase('main', 1).count).toBe(0);
     expect(g.nodeReachable('main', 'ascend')).toBe(false);
-    for (const n of SKILL_TREES.main) while (g.skill('main', n.id) < n.maxRank) expect(g.learn('main', n.id)).toBe(true);
+    for (const n of [...SKILL_TREES.main].sort((a, b) => a.row - b.row)) while (g.skill('main', n.id) < n.maxRank) expect(g.learn('main', n.id)).toBe(true);
     expect(g.skillPoints('main')).toBe(10);
     expect(g.learn('main', 'ascend')).toBe(true);
     expect(g.titleOf('main')).toBe('Slayer');
@@ -701,7 +702,9 @@ describe('Shops', () => {
     expect(g.stunTime()).toBeLessThan(stun);
     expect(g.tapDamage).toBeGreaterThan(tap * 1.1);
     expect(g.tapRadius).toBeGreaterThan(radius);
-    expect(g.learn('main', 'capstone')).toBe(true); // reachable from any second-row node
+    expect(g.learn('main', 'capstone')).toBe(false); // your Hunter's capstone hangs from the ability nodes
+    expect(g.learn('main', 'flameTap')).toBe(true);
+    expect(g.learn('main', 'capstone')).toBe(true); // reachable from any one of them
     // Every Hunter has their own tree of the same shape.
     expect(g.skillTree('ranger').map((n) => n.id)).toEqual(['root', 'power', 'speed', 'recovery', 'power2', 'speed2', 'recovery2', 'capstone', 'ascend']);
     expect(g.skillTree('ranger')[4].name).toBe('Beast Bane');
@@ -1242,6 +1245,50 @@ describe('Equipment', () => {
     g.equip('glimmer', 0, null);
     f.update(0.01);
     expect(f.summons.filter((s) => s.who === 'glimmer')).toHaveLength(0);
+  });
+
+  it('tap abilities: unlocked in the skill tree, equipped one at a time; each sets off its element on everything the blast hits', () => {
+    let seed = 7;
+    const g = new Game(newGame(0), () => ((seed = (seed * 16807) % 2147483647) / 2147483647));
+    g.state.main.trains = 200;
+    expect(g.setTapAbility('flame')).toBe(false); // locked
+    expect(g.tapAbility).toBeNull();
+    for (const k of ['root', 'power', 'power2', 'flameTap', 'speed', 'speed2', 'thunderTap', 'recovery', 'recovery2', 'frostTap']) expect(g.learn('main', k)).toBe(true);
+    const f = new Field(g);
+    f.setView(390, 420);
+    const hp = 1e12;
+    const fresh = () => {
+      f.enemies = [enemy({ id: 1, x: 0, y: 0, hp, maxHp: hp }), enemy({ id: 2, x: 60, y: 0, hp, maxHp: hp })];
+      f.drainEvents();
+    };
+    // Plain blast: your weapon's damage type, no effect.
+    fresh();
+    f.tap(0, 0);
+    expect(f.enemies[0].burn).toBeUndefined();
+    expect(f.enemies[0].slow ?? 0).toBe(0);
+    // Flame Burst: Fire, and everything hit burns.
+    expect(g.setTapAbility('flame')).toBe(true);
+    expect(g.tapDamageType).toBe('fire');
+    fresh();
+    f.tap(0, 0);
+    expect(f.enemies[0].burn).toBeDefined();
+    // Frost Nova: chilled.
+    g.setTapAbility('frost');
+    fresh();
+    f.tap(0, 0);
+    expect(f.enemies[0].slow).toBe(FROST_TAP_CHILL);
+    // Thunderclap: each monster hit arcs to another one nearby.
+    g.setTapAbility('thunder');
+    fresh();
+    f.tap(-200, -200); // hits nothing
+    expect(f.drainEvents().some((e) => e.type === 'beam')).toBe(false);
+    f.tap(0, 0);
+    expect(f.drainEvents().some((e) => e.type === 'beam' && e.zigzag)).toBe(true);
+    // Unequip: back to a plain blast; and a save keeps the equipped one.
+    g.setTapAbility('frost');
+    expect(deserialize(serialize(g.state))!.main.tapAbility).toBe('frost');
+    g.setTapAbility(null);
+    expect(g.tapAbility).toBeNull();
   });
 
   it('lightning arcs to a creature in its radius, striking every creature the bolt passes through', () => {

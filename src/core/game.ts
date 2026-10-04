@@ -38,6 +38,8 @@ import {
   GUARDIAN_ENEMY,
   typeMult,
   type DamageType,
+  type TapAbilityId,
+  tapAbilityDef,
   slotAccepts,
   WEAPON_KINDS,
   areaDef,
@@ -247,9 +249,36 @@ export class Game {
     return BASE_FIRE_RATE * this.skillRateMult('main') * this.itemRateMult * (1 + this.gear('main').rate);
   }
 
-  /** Damage of a tap blast (Tap Power nodes). */
+  /** Damage of a tap blast (Tap Power nodes, and the equipped tap ability). */
   get tapDamage(): number {
-    return this.damage * TAP_DAMAGE_MULT * (1 + this.tree('main').tapPower);
+    const ab = this.tapAbility;
+    return this.damage * TAP_DAMAGE_MULT * (1 + this.tree('main').tapPower) * (ab ? tapAbilityDef(ab).damage : 1);
+  }
+
+  /** The tap ability your Hunter has equipped, if it's still unlocked. */
+  get tapAbility(): TapAbilityId | null {
+    const id = this.state.main.tapAbility;
+    return id && this.tapAbilityUnlocked(id) ? id : null;
+  }
+
+  /** A tap ability is unlocked by learning its node in your Hunter's skill tree. */
+  tapAbilityUnlocked(id: TapAbilityId): boolean {
+    const node = SKILL_TREES.main.find((n) => n.ability === id);
+    return !!node && this.skill('main', node.id) > 0;
+  }
+
+  /** Equips a tap ability (null = a plain blast in your weapon's damage type). */
+  setTapAbility(id: TapAbilityId | null): boolean {
+    if (id && !this.tapAbilityUnlocked(id)) return false;
+    if (id) this.state.main.tapAbility = id;
+    else delete this.state.main.tapAbility;
+    return true;
+  }
+
+  /** The damage type of a tap blast: the equipped ability's element, else your weapon's. */
+  get tapDamageType(): DamageType {
+    const ab = this.tapAbility;
+    return ab ? tapAbilityDef(ab).damageType : this.damageTypeOf('main');
   }
 
   /** Radius of a tap blast in world units (Tap Size nodes). */

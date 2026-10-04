@@ -137,7 +137,8 @@ export class BattleView {
           break;
         }
         case 'blast':
-          this.rings.push({ x: e.x, y: e.y, t: 0, r: this.game.tapRadius, color: '255,255,255', max: 0.25 });
+          this.rings.push({ x: e.x, y: e.y, t: 0, r: this.game.tapRadius, color: e.color ? hexRgb(e.color) : '255,255,255', max: 0.25 });
+          if (e.color) this.fx.burst(e.x, e.y, e.color, 10, 160, 3, 0);
           break;
         case 'explode': {
           const radiant = e.color === DAMAGE_TYPES.radiant.color;

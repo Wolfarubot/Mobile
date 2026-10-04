@@ -3624,3 +3624,57 @@ body.left-handed .hd-float-close {
 .cs-dots b.on {
   background: #ffe36e;
 }
+
+/* ---- Tree node sheet: points under the name, a big Acquire / Evolve button ---- */
+.node-points {
+  display: grid;
+  gap: 2px;
+  margin: -2px 0 8px;
+  font-size: 13px;
+}
+.node-points b {
+  font-size: 15px;
+}
+.node-points .short b {
+  color: #e05a5a;
+}
+.node-buy {
+  width: 100%;
+  padding: 16px 12px !important;
+  font-size: 20px !important;
+}
+
+/* ---- Your Hunter's Abilities tab ---- */
+.abilities {
+  display: grid;
+  gap: 8px;
+}
+.ability-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ability-card .ab-icon {
+  font-size: 28px;
+  flex: none;
+}
+.ability-card .ab-info {
+  flex: 1;
+}
+.ability-card .ab-name {
+  font-weight: 700;
+}
+.ability-card p {
+  margin: 2px 0 0;
+  font-size: 12px;
+}
+.ability-card .ab-equip {
+  flex: none;
+  min-width: 92px;
+}
+.ability-card.locked {
+  opacity: 0.6;
+}
+.ability-card.equipped {
+  outline: 3px solid var(--accent, #ffd34d);
+}

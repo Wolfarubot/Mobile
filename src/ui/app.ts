@@ -44,6 +44,8 @@ import {
   hunterDef,
   hunterPerk,
   MAIN_ABILITY,
+  TAP_ABILITIES,
+  type TapAbilityId,
   itemCost,
   ITEMS,
   materialDef,
@@ -423,10 +425,11 @@ export class AppUI {
   }
 
   /**
-   * Full-screen Hunter view with sub-tabs: Overview (training, stats, station), Equipment (slots; tap one to
-   * pick from unequipped gear) and Skills (the branching skill tree). Closing returns to the battlefield.
+   * Full-screen Hunter view with sub-tabs: Overview (training, equipment, stats, station), Skills (the
+   * branching skill tree) and, for your Hunter, Abilities (tap abilities unlocked in the tree, swapped here).
+   * Closing returns to the battlefield.
    */
-  private openHunterDetail(who: Wearer, sub: 'overview' | 'equipment' | 'skills' = 'overview'): void {
+  private openHunterDetail(who: Wearer, sub: 'overview' | 'skills' | 'abilities' = 'overview'): void {
     if (this.detail) this.dropDetail();
     const g = this.game;
     const def = who === 'main' ? null : hunterDef(who);
@@ -443,12 +446,12 @@ export class AppUI {
         <p class="hd-ability">${def ? def.ability : MAIN_ABILITY}</p>
         <div class="subtabs">
           <button data-sub="overview">📊 Overview</button>
-          <button data-sub="equipment">🛡️ Equipment</button>
           <button data-sub="skills">🌳 Skills <b class="sp-count hidden"></b></button>
+          ${def ? '' : '<button data-sub="abilities">✨ Abilities</button>'}
         </div>
         <div class="hd-body" data-sub="overview"></div>
-        <div class="hd-body" data-sub="equipment"></div>
         <div class="hd-body" data-sub="skills"></div>
+        ${def ? '' : '<div class="hd-body" data-sub="abilities"></div>'}
       </div>
       <button class="hd-close hd-float-close" aria-label="Close">✕</button>`;
     document.body.appendChild(view);
@@ -483,6 +486,10 @@ export class AppUI {
       overview.appendChild(this.amountsBar());
       overview.appendChild(this.trainButton(who));
     }
+    // Equipment, right under Training: tap a slot to pick from unequipped gear that fits.
+    overview.appendChild(sectionTitle('Equipment'));
+    if (recruited) overview.appendChild(this.equipmentList(who));
+    else overview.appendChild(el('p', 'hd-note', `Slots: ${g.slotsOf(who).map((sl) => `${GEAR_KINDS[sl.kind].icon} ${sl.label}`).join(' · ')}. Recruit them to equip gear.`));
     overview.appendChild(sectionTitle(recruited ? 'Stats' : 'Stats when recruited'));
     const headline = el('div', 'hd-stats hd-headline');
     overview.appendChild(headline);
@@ -504,10 +511,8 @@ export class AppUI {
       overview.appendChild(this.stationControls(def));
     }
 
-    // Equipment
-    const equipment = pane('equipment');
-    if (recruited) equipment.appendChild(this.equipmentList(who));
-    else equipment.appendChild(el('p', 'hd-note', `Slots: ${g.slotsOf(who).map((sl) => `${GEAR_KINDS[sl.kind].icon} ${sl.label}`).join(' · ')}. Recruit them to equip gear.`));
+    // Abilities (your Hunter): tap abilities unlocked in the skill tree; one is equipped at a time.
+    if (!def) pane('abilities').appendChild(this.abilitiesList());
 
     // Skills: once they've ascended, a switch at the top flips between the new tree and the first one.
     const skills = pane('skills');
@@ -597,7 +602,7 @@ export class AppUI {
       reachable: (id) => g.nodeReachable(who, id, which),
       canLearn: (id) => g.canLearn(who, id, which),
       learn: (id) => g.learn(who, id, which),
-      verb: 'Learn',
+      verb: 'Acquire',
       // The gold Ascend node only shows once the first tree is complete.
       hidden: (id) => which === 'base' && id === ASCEND_NODE.id && !g.baseTreeComplete(who),
       after: (id) => {
@@ -699,21 +704,25 @@ export class AppUI {
     return wrap;
   }
 
-  /** A tree node's details, with a button to spend a point on it. */
+  /**
+   * A tree node's details: under its name, the points it needs and the points you have; then what it does,
+   * and a big button to spend the points ("Acquire" a skill, "Evolve" a monster).
+   */
   private openTreeNode(t: TreeAdapter, n: TreeNode): void {
     this.showSheet(`${n.icon} ${n.name}`, (body, close) => {
       const rank = t.rank(n.id);
       const needs = n.requires.map((r) => t.nodes.find((x) => x.id === r)!.name);
-      body.innerHTML = `<p class="gear-now">${n.desc}</p><p>Rank ${rank} / ${n.maxRank}</p>${
+      const cost = n.cost ?? 1;
+      const have = Math.max(0, t.points());
+      const maxed = rank >= n.maxRank;
+      body.innerHTML = `<div class="node-points">${
+        maxed
+          ? '<div>Fully learned</div>'
+          : `<div>Points required <b>${cost}</b></div><div class="${have >= cost ? 'ok' : 'short'}">Points available <b>${have}</b></div>`
+      }</div><p class="gear-now">${n.desc}</p><p>Rank ${rank} / ${n.maxRank}</p>${
         !t.reachable(n.id) ? `<p>🔒 Needs a point in ${needs.join(' or ')} first.</p>` : ''
       }${t.gate?.(n.id) ? `<p>🔒 ${t.gate(n.id)} to open this evolution.</p>` : ''}`;
-      const cost = n.cost ?? 1;
-      const btn = el(
-        'button',
-        'buy',
-        rank >= n.maxRank ? 'Maxed' : `${n.id === ASCEND_NODE.id ? 'Ascend' : t.verb} · ${cost} ${t.pointName}${cost > 1 ? 's' : ''} (${Math.max(0, t.points())} left)`,
-      ) as HTMLButtonElement;
-      btn.style.width = '100%';
+      const btn = el('button', 'buy node-buy', maxed ? 'Maxed' : n.id === ASCEND_NODE.id ? 'Ascend' : t.verb) as HTMLButtonElement;
       btn.disabled = !t.canLearn(n.id);
       btn.addEventListener('click', () => {
         if (!t.learn(n.id)) return;
@@ -724,6 +733,46 @@ export class AppUI {
       });
       body.appendChild(btn);
     });
+  }
+
+  /** Your Hunter's tap abilities: the plain blast, then each elemental one (locked until learned in the tree). */
+  private abilitiesList(): HTMLElement {
+    const g = this.game;
+    const wrap = el('div', 'abilities');
+    wrap.appendChild(sectionTitle('Tap ability'));
+    wrap.appendChild(el('p', 'hd-note', 'Tapping the battlefield sets off a blast. Equip an ability to change its element and effect. Unlock more in the Skills tab.'));
+    const rows: Array<{ id: TapAbilityId | null; btn: HTMLButtonElement; card: HTMLElement }> = [];
+    const add = (id: TapAbilityId | null, icon: string, name: string, desc: string) => {
+      const card = el('div', 'card ability-card');
+      card.innerHTML = `<div class="ab-icon">${icon}</div><div class="ab-info"><div class="ab-name">${name}</div><p>${desc}</p></div>`;
+      const btn = el('button', 'buy ab-equip') as HTMLButtonElement;
+      btn.addEventListener('click', () => {
+        if (g.setTapAbility(id)) {
+          this.hooks.save();
+          this.refresh();
+        }
+      });
+      card.appendChild(btn);
+      wrap.appendChild(card);
+      rows.push({ id, btn, card });
+    };
+    add(null, '💥', 'Blast', "A plain blast in your weapon's damage type.");
+    for (const a of TAP_ABILITIES) {
+      const dt = DAMAGE_TYPES[a.damageType];
+      add(a.id, a.icon, a.name, `${a.desc} <span style="color:${dt.color}">${dt.icon} ${dt.name}</span>`);
+    }
+    this.refreshers.push(() => {
+      const on = g.tapAbility;
+      for (const r of rows) {
+        const unlocked = r.id === null || g.tapAbilityUnlocked(r.id);
+        const equipped = r.id === on;
+        r.card.classList.toggle('equipped', equipped);
+        r.card.classList.toggle('locked', !unlocked);
+        r.btn.textContent = equipped ? 'Equipped' : unlocked ? 'Equip' : '🔒 Skill tree';
+        r.btn.disabled = equipped || !unlocked;
+      }
+    });
+    return wrap;
   }
 
   /** Removes the full-screen view without rebuilding the panel. */
