@@ -440,7 +440,7 @@ export class Game {
   }
 
   /** The piece in a Hunter's weapon slot for a mode, if any. */
-  private weaponItem(who: Shooter, mode: GearMode = 'long'): GearItem | null {
+  weaponItem(who: Shooter, mode: GearMode = 'long'): GearItem | null {
     const slots = this.slotsOf(who);
     const i = slots.findIndex((sl) => WEAPON_KINDS.includes(sl.kind) && (!sl.role || sl.role === mode));
     return i >= 0 ? this.equipped(who)[i] : null;

@@ -76,8 +76,10 @@ export interface Enemy {
   volleyHits?: number;
 }
 
-/** A creature summoned by your Hunter's tome: roams to the nearest monster and bites it until it fades. */
+/** A creature summoned by a Hunter's tome: roams to the nearest monster and bites it until it fades. */
 export interface Summon {
+  /** The Hunter whose tome summoned it (damage and kills are theirs). */
+  who: Shooter;
   x: number;
   y: number;
   life: number;
@@ -122,6 +124,8 @@ export interface Helper {
   specialCd: number;
   /** A gun's magazine: shots left and seconds of reload left (see Field.gun). */
   gun: GunState;
+  /** Seconds until their tome's lunge is ready (a Wolf Spirit tome). */
+  dashCd: number;
 }
 
 /** Ammo for a gun-class weapon: shots left in the magazine, and seconds until the reload finishes. */
@@ -246,7 +250,7 @@ export class Field {
   /** Creatures your Hunter's tome has summoned. */
   summons: Summon[] = [];
   /** Seconds until your tome's creatures can lunge again (a tome with a lunge ability, e.g. the Wolf Spirit). */
-  private dashCd = 0;
+  dashCd = 0;
   private nextVolley = 1;
   private nextId = 1;
   private halfW = 320;
@@ -403,9 +407,7 @@ export class Field {
         this.events.push({ type: 'nova', x: 0, y: 0, r: cls.reach!, color: DAMAGE_TYPES[g.damageTypeOf('main')].color });
         for (const e of this.enemies) if (e.hp > 0 && Math.hypot(e.x, e.y) <= cls.reach! + e.r) this.hitWith('main', e, 1, 0, 0);
       } else if (cls?.summon) {
-        const look = this.mainWeapon()?.summon?.look ?? 'wisp';
-        this.summons.push({ x: Math.cos(this.aim) * 20, y: Math.sin(this.aim) * 20, life: cls.summon.duration, maxLife: cls.summon.duration, bite: 0, look, dash: 0, dashHit: false });
-        this.events.push({ type: 'nova', x: 0, y: 0, r: 30, color: '#c9a8ff' });
+        this.summon('main', 0, 0, this.aim, cls);
       } else if (cls?.spell && this.gunState.ammo === 1) {
         // A staff's big spell: the last round of each cast.
         this.shoot('main', 'fireball', 0, 0, this.aim, 380, range, { radius: cls.spell.radius, dmg: cls.spell.damage });
@@ -426,7 +428,7 @@ export class Field {
       }
     }
     this.runStabs(dt, cls);
-    this.runSummons(dt, cls);
+    this.runSummons(dt);
     for (const h of this.helpers) this.helperAttack(h, dt);
 
     this.moveBullets(dt);
@@ -574,6 +576,7 @@ export class Field {
       hand: 0,
       specialCd: 1,
       gun: { cls: null, ammo: 0, reload: 0 },
+      dashCd: 0,
     }));
   }
 
@@ -603,6 +606,11 @@ export class Field {
       h.fireAcc -= 1;
       const a = Math.atan2(target.y - h.y, target.x - h.x);
       h.aim = a;
+      // A tome summons its creature, whoever holds it.
+      if (cls?.summon) {
+        this.summon(h.id, h.x, h.y, a, cls);
+        continue;
+      }
       switch (style.kind) {
         case 'potion':
         case 'fireball':
@@ -688,10 +696,13 @@ export class Field {
   cooldowns(): CooldownView[] {
     const out: CooldownView[] = [];
     // Items' own abilities (not the weapon's basic cooldown): e.g. the Wolf Spirit tome's lunge.
-    const w = this.mainWeapon();
+    const w = this.weaponDef('main');
     const dash = w?.summon?.dash;
     if (w && dash && this.game.weaponClassOf('main')?.summon) out.push({ key: `item:${w.id}`, icon: w.icon, name: w.name, progress: 1 - this.dashCd / dash.cooldown });
     for (const h of this.helpers) {
+      const hw = this.weaponDef(h.id);
+      const hd = hw?.summon?.dash;
+      if (hw && hd && this.game.weaponClassOf(h.id)?.summon) out.push({ key: `item:${h.id}:${hw.id}`, icon: hw.icon, name: `${hunterDef(h.id).name}'s ${hw.name}`, progress: 1 - h.dashCd / hd.cooldown });
       const sp = hunterDef(h.id).style.special;
       if (sp) out.push({ key: h.id, icon: hunterDef(h.id).icon, name: hunterDef(h.id).name, progress: 1 - Math.max(0, h.specialCd) / sp.cooldown });
     }
@@ -712,7 +723,12 @@ export class Field {
     const gun = who === 'main' ? this.gunState : this.helpers.find((h) => h.id === who)?.gun;
     const cls = this.game.weaponClassOf(who);
     if (!gun || !cls) return null;
-    if (cls.summon && who === 'main') return this.fireAcc < 1 && !this.stunned ? { text: 'SUMMONING!', progress: Math.max(0, this.fireAcc) } : null;
+    if (cls.summon) {
+      const h = who === 'main' ? null : this.helpers.find((x) => x.id === who);
+      const acc = h ? h.fireAcc : this.fireAcc;
+      const stunned = h ? h.stun > 0 : this.stunned;
+      return acc < 1 && !stunned ? { text: 'SUMMONING!', progress: Math.max(0, acc) } : null;
+    }
     if (!cls.mag || gun.reload <= 0 || !gun.total) return null;
     return { text: cls.spell ? 'RECHARGING!' : 'RELOADING!', progress: 1 - gun.reload / gun.total };
   }
@@ -829,10 +845,18 @@ export class Field {
     }
   }
 
-  /** The gear in your Hunter's weapon slot, if any. */
-  private mainWeapon(): GearDef | null {
-    const w = this.game.equipped('main')[0];
+  /** The gear in a Hunter's weapon slot, if any. */
+  private weaponDef(who: Shooter): GearDef | null {
+    const w = this.game.weaponItem(who);
     return w ? gearDef(w.base) : null;
+  }
+
+  /** A tome's creature appears beside the Hunter holding it. */
+  private summon(who: Shooter, ox: number, oy: number, aim: number, cls: WeaponClassDef): void {
+    const sm = cls.summon!;
+    const look = this.weaponDef(who)?.summon?.look ?? 'wisp';
+    this.summons.push({ who, x: ox + Math.cos(aim) * 20, y: oy + Math.sin(aim) * 20, life: sm.duration, maxLife: sm.duration, bite: 0, look, dash: 0, dashHit: false });
+    this.events.push({ type: 'nova', x: ox, y: oy, r: 30, color: '#c9a8ff' });
   }
 
   /**
@@ -840,27 +864,30 @@ export class Field {
    * a lunge ability (the Wolf Spirit) sends them all lunging at their monsters when it's off cooldown; a lunge
    * that lands bites extra hard.
    */
-  private runSummons(dt: number, cls: WeaponClassDef | null): void {
-    const dash = this.mainWeapon()?.summon?.dash;
+  private runSummons(dt: number): void {
     this.dashCd = Math.max(0, this.dashCd - dt);
+    for (const h of this.helpers) h.dashCd = Math.max(0, h.dashCd - dt);
     if (!this.summons.length) return;
-    const sm = cls?.summon;
-    if (!sm) {
-      this.summons = [];
-      return;
-    }
-    if (dash && this.dashCd <= 0) {
+    // A creature fades at once if its Hunter put the tome away or left the area.
+    this.summons = this.summons.filter((s) => (s.who === 'main' || this.helpers.some((h) => h.id === s.who)) && this.game.weaponClassOf(s.who)?.summon);
+    for (const who of new Set(this.summons.map((s) => s.who))) {
+      const dash = this.weaponDef(who)?.summon?.dash;
+      const owner: { dashCd: number } = who === 'main' ? this : this.helpers.find((h) => h.id === who)!;
+      if (!dash || owner.dashCd > 0) continue;
       let lunged = false;
       for (const s of this.summons) {
+        if (s.who !== who) continue;
         const e = this.nearest(s.x, s.y, dash.range);
         if (!e || s.dash > 0) continue;
         s.dash = dash.range / dash.speed + 0.05;
         s.dashHit = false;
         lunged = true;
       }
-      if (lunged) this.dashCd = dash.cooldown;
+      if (lunged) owner.dashCd = dash.cooldown;
     }
     for (const s of this.summons) {
+      const sm = this.game.weaponClassOf(s.who)!.summon!;
+      const dash = this.weaponDef(s.who)?.summon?.dash;
       s.life -= dt;
       s.dash = Math.max(0, s.dash - dt);
       const e = this.nearest(s.x, s.y, 2000);
@@ -878,13 +905,13 @@ export class Field {
         // The lunge lands: a big bite, and the lunge is spent.
         s.dashHit = true;
         s.dash = 0;
-        this.hitWith('main', e, dash.damage, s.x, s.y);
+        this.hitWith(s.who, e, dash.damage, s.x, s.y);
       }
       if (d <= reach + 2) {
         s.bite += dt * sm.bites;
         while (s.bite >= 1 && e.hp > 0) {
           s.bite -= 1;
-          this.hitWith('main', e, 1, s.x, s.y);
+          this.hitWith(s.who, e, 1, s.x, s.y);
         }
       } else s.bite = Math.min(s.bite + dt * sm.bites, 1);
     }

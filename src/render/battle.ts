@@ -172,6 +172,9 @@ export class BattleView {
           if (e.who === 'main' && this.stunTextCooldown <= 0) {
             this.fx.text(0, -PLAYER_RADIUS - 26, 'STUNNED!', '#ffe066', 16, 0.8);
             this.stunTextCooldown = 1;
+          } else if (e.who !== 'main') {
+            const h = this.field.helpers.find((x) => x.id === e.who);
+            if (h) this.fx.text(h.x, h.y - PLAYER_RADIUS - 22, 'STUNNED!', '#ffe066', 14, 0.8);
           }
           break;
         case 'escape': {
@@ -677,13 +680,26 @@ export class BattleView {
       }
     }
     g.restore();
-    drawShieldPips(g, h.x, h.y + R + 9, h.guard, this.game.guardOf(h.id));
-    if (h.stun > 0) {
-      g.save();
-      g.translate(h.x, h.y);
-      drawDizzy(g, R, this.time, 0.9);
-      g.restore();
+    drawShieldPips(g, h.x, h.y + R + (h.stun > 0 ? 17 : 9), h.guard, this.game.guardOf(h.id));
+    g.save();
+    g.translate(h.x, h.y);
+    // Post-stun immunity ring
+    if (h.immune > 0) {
+      g.strokeStyle = `rgba(159,224,255,${Math.min(1, h.immune * 2) * 0.6})`;
+      g.lineWidth = 2;
+      g.beginPath();
+      g.arc(0, 0, R + 4, 0, Math.PI * 2);
+      g.stroke();
     }
+    if (h.stun > 0) {
+      drawDizzy(g, R, this.time, 0.9);
+      const bw = 30;
+      g.fillStyle = 'rgba(0,0,0,0.55)';
+      g.fillRect(-bw / 2, R + 8, bw, 5);
+      g.fillStyle = '#ffe066';
+      g.fillRect(-bw / 2, R + 8, bw * (h.stun / Math.max(0.01, h.stunTotal)), 5);
+    }
+    g.restore();
   }
 
   private drawHud(g: CanvasRenderingContext2D): void {

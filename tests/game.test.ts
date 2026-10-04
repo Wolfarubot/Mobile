@@ -1221,6 +1221,29 @@ describe('Equipment', () => {
     expect(icons[0].progress).toBeLessThan(1);
   });
 
+  it('a Guild Hunter holding a tome summons its creatures too (with their own lunge cooldown)', () => {
+    const g = stocked();
+    g.state.hunters = Object.fromEntries(Object.entries(g.state.hunters).map(([k, h]) => [k, { ...h, station: null }])) as typeof g.state.hunters;
+    expect(g.station('glimmer', g.state.area)).toBe(true);
+    g.equip('glimmer', 0, g.craftGear('wolfTome')!.uid);
+    const f = new Field(g);
+    f.setView(390, 420);
+    const hp = 1e12;
+    f.enemies.push(enemy({ id: 1, x: 220, hp, maxHp: hp }));
+    for (let t = 0; t < 1 / g.shooterRate('glimmer') + 2; t += 0.01) {
+      f.update(0.01);
+      f.drainEvents();
+    }
+    expect(f.summons.some((s) => s.who === 'glimmer' && s.look === 'wolf')).toBe(true);
+    expect(f.enemies[0].hp).toBeLessThan(hp);
+    expect(f.weaponStatus('glimmer')?.text).toBe('SUMMONING!');
+    expect(f.cooldowns().some((c) => c.key === 'item:glimmer:wolfTome')).toBe(true);
+    // Unequipping the tome dismisses its creatures.
+    g.equip('glimmer', 0, null);
+    f.update(0.01);
+    expect(f.summons.filter((s) => s.who === 'glimmer')).toHaveLength(0);
+  });
+
   it('bleeding (Physical) is the only status that stacks; others refresh a single instance', () => {
     const g = new Game(newGame(0), noCrit);
     const f = new Field(g);
