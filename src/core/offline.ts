@@ -1,4 +1,4 @@
-import { OFFLINE_CAP_SEC, type AreaId, type HunterId, type MaterialId } from './balance';
+import { OFFLINE_CAP_SEC, type AreaId, type GearId, type HunterId, type MaterialId } from './balance';
 
 /** Real seconds away, and how many of them count toward offline progress. */
 export function capAway(awaySec: number): { away: number; seconds: number } {
@@ -15,6 +15,8 @@ export interface AreaOffline {
   materials: Partial<Record<MaterialId, number>>;
   /** Times each Hunter here was knocked out (stunned) while you were away. */
   knockouts: Partial<Record<'main' | HunterId, number>>;
+  /** Gear looted here (salvaged ones included, flagged). */
+  loot: Array<{ gear: GearId; salvaged: boolean }>;
 }
 
 export interface OfflineResult {
@@ -29,4 +31,6 @@ export interface OfflineResult {
   areas: AreaOffline[];
   /** Total knockouts across all Hunters. */
   knockouts: number;
+  /** Every piece of gear looted while away. */
+  loot: Array<{ gear: GearId; salvaged: boolean }>;
 }

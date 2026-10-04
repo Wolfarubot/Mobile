@@ -15,6 +15,9 @@ import {
   gearCost,
   gearStats,
   gearTotals,
+  rollLoot,
+  gearTier,
+  lootChance,
   ARMOR_TYPES,
   effectBase,
   MAX_STARS,
@@ -399,7 +402,7 @@ describe('Hunters', () => {
 
   it('up to 3 Hunters per area; stationed Hunters farm in the background, together', () => {
     const g = rich();
-    for (const id of ['alchemist', 'ranger', 'glimmer', 'gravewarden'] as const) g.recruit(id);
+    for (const id of ['alchemist', 'ranger', 'glimmer', 'thief'] as const) g.recruit(id);
     g.state.areas.graveyard.unlocked = true;
     g.state.hunters.alchemist.trains = 50;
     g.state.gold = 1000; // small enough that forest gold still shows up
@@ -407,10 +410,10 @@ describe('Hunters', () => {
     expect(g.station('ranger', 'forest')).toBe(true);
     expect(g.station('glimmer', 'forest')).toBe(true);
     expect(g.stationedIn('forest')).toEqual(['alchemist', 'ranger', 'glimmer']);
-    expect(g.station('gravewarden', 'forest')).toBe(false); // full
+    expect(g.station('thief', 'forest')).toBe(false); // full
     expect(g.canStation('ranger', 'forest')).toBe(true); // already there
     g.station('glimmer', null);
-    expect(g.station('gravewarden', 'forest')).toBe(true);
+    expect(g.station('thief', 'forest')).toBe(true);
 
     g.travel('graveyard'); // you leave; they keep hunting in the forest
     const gold = g.state.gold;
@@ -835,7 +838,7 @@ describe('Equipment', () => {
     expect(g.equip('ranger', 0, bow.uid)).toBe(true);
     expect(g.equipped('main')[0]).toBeNull(); // moved to Galladair
     expect(g.wearerOf(bow.uid)).toEqual({ who: 'ranger', slot: 0 });
-    expect(g.equip('gravewarden', 1, null)).toBe(false); // not recruited
+    expect(g.equip('thief', 1, null)).toBe(false); // not recruited
   });
 
   it('gear changes combat stats', () => {
@@ -975,7 +978,7 @@ describe('Equipment', () => {
     // Radiant bursts: everything nearby is hit, not the target itself.
     const [t, near, far] = [mk(2, 0), mk(3, 30), mk(4, 400)];
     f.enemies = [t, near, far];
-    api.applyStatus(t, 'radiant', 1000, 'gravewarden');
+    api.applyStatus(t, 'radiant', 1000, 'thief');
     expect(t.hp).toBe(1e6);
     expect(near.hp).toBeCloseTo(1e6 - 1000 * STATUS.burst.share);
     expect(far.hp).toBe(1e6);
@@ -1471,6 +1474,56 @@ describe('Equipment', () => {
     expect(f.enemies[0].hp).toBeLessThan(1e12);
   });
 
+  it('loot: carriers drop gear of their area (or older); Guardians always drop a piece; Auto Salvage salvages chosen rarities as they drop', () => {
+    // Loot comes from the area's tier, or older ones; never newer.
+    for (const [area, tier] of [['forest', 1], ['crypt', 4], ['rift', 12]] as const) {
+      for (let i = 0; i < 40; i++) expect(gearTier(rollLoot(area, i / 40, ((i * 7) % 40) / 40))).toBeLessThanOrEqual(tier);
+      expect(gearTier(rollLoot(area, 0, 0.5))).toBe(Math.max(...GEAR.filter((x) => !x.starter && gearTier(x) <= tier).map(gearTier)));
+    }
+    expect(lootChance('goblin')).toBeGreaterThan(0);
+    expect(lootChance('greenSlime')).toBe(0);
+    // A goblin with a certain drop: loot goes into the inventory, and you hear about it.
+    const g = new Game(newGame(0), () => 0);
+    const events: string[] = [];
+    g.on((e) => events.push(e.type));
+    const before = g.state.inventory.length;
+    g.registerKill('goblin', false);
+    expect(g.state.inventory.length).toBe(before + 1);
+    expect(events).toContain('loot');
+    // Auto Salvage: that rarity turns into materials instead.
+    const looted = gearDef(g.state.inventory[g.state.inventory.length - 1].base);
+    g.state.settings.autoSalvage = [looted.rarity];
+    const mats = { ...g.state.materials };
+    g.registerKill('goblin', false);
+    expect(g.state.inventory.length).toBe(before + 1);
+    expect(Object.entries(g.state.materials).some(([m, n]) => n > mats[m as keyof typeof mats])).toBe(true);
+    // Salvage now: unequipped pieces of the chosen rarities go; equipped gear stays.
+    expect(g.salvageRarities([looted.rarity])).toBe(1);
+    // Auto Salvage opens at the Old Graveyard.
+    expect(g.autoSalvageOpen).toBe(false);
+    g.state.areas.graveyard.unlocked = true;
+    expect(g.autoSalvageOpen).toBe(true);
+  });
+
+  it('Alias the Thief: his area pays 30% more gold and drops loot twice as often; old saves turn Alric into Alias', () => {
+    const g = new Game(newGame(0));
+    g.state.hunters.thief.recruited = true;
+    const gold = g.enemyStats('greenSlime').gold;
+    expect(g.areaPerk('forest')).toEqual({ gold: 1, loot: 1 });
+    g.station('thief', 'forest');
+    expect(g.areaPerk('forest')).toEqual({ gold: 1.3, loot: 2 });
+    expect(g.enemyStats('greenSlime').gold).toBeCloseTo(gold * 1.3);
+    expect(g.areaPerk('glade').gold).toBe(1);
+    const old = JSON.parse(serialize(newGame(0)));
+    old.version = 15;
+    old.hunters.gravewarden = { recruited: true, trains: 77, skills: { root: 1 }, station: 'forest' };
+    delete old.hunters.thief;
+    old.stats.hunterKills = { gravewarden: 12 };
+    const back = deserialize(JSON.stringify(old))!;
+    expect(back.hunters.thief).toMatchObject({ recruited: true, trains: 77, station: 'forest' });
+    expect(back.stats.hunterKills.thief).toBe(12);
+  });
+
   it('lightning arcs to a creature in its radius, striking every creature the bolt passes through', () => {
     let seed = 1;
     const g = new Game(newGame(0), () => ((seed = (seed * 16807) % 2147483647) / 2147483647));
@@ -1720,16 +1773,16 @@ describe('Offline', () => {
     s.gold = 1e9;
     const g = new Game(veteran(s), noCrit);
     g.state.areas.graveyard.unlocked = true;
-    g.recruit('gravewarden');
-    g.state.hunters.gravewarden.trains = 3000; // strong enough for the Graveyard
-    g.station('gravewarden', 'graveyard');
+    g.recruit('thief');
+    g.state.hunters.thief.trains = 8000; // strong enough for the Graveyard
+    g.station('thief', 'graveyard');
     const gold = g.state.gold;
     const r = g.applyOffline(24 * 3600 * 1000);
     expect(r.seconds).toBe(OFFLINE_CAP_SEC);
     expect(r.gold).toBeGreaterThan(0);
     expect(g.state.gold).toBeCloseTo(gold + r.gold);
     expect(r.materials.goo).toBeGreaterThan(0); // you, in the forest
-    expect(r.materials.bone).toBeGreaterThan(0); // Alric, in the graveyard
+    expect(r.materials.bone).toBeGreaterThan(0); // Alias, in the graveyard
   });
 });
 
@@ -2257,12 +2310,12 @@ describe('Saves', () => {
     s.settings.name = 'Wolfa';
     s.flags.eventsIntro = true;
     const back = deserialize(serialize(s))!;
-    expect(back.settings).toEqual({ leftHanded: true, name: 'Wolfa', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal', dps: true, dpsCorner: 'tr', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', cooldownStyle: 'fancy', fx: Object.fromEntries(FX_KEYS.map((k) => [k, true])), aoeStyle: 'fancy' });
+    expect(back.settings).toEqual({ leftHanded: true, name: 'Wolfa', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal', dps: true, dpsCorner: 'tr', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', cooldownStyle: 'fancy', autoSalvage: [], fx: Object.fromEntries(FX_KEYS.map((k) => [k, true])), aoeStyle: 'fancy' });
     expect(back.flags).toEqual({ eventsIntro: true, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false });
     const old = JSON.parse(serialize(newGame(0)));
     delete old.settings;
     delete old.flags;
-    expect(deserialize(JSON.stringify(old))!.settings).toEqual({ leftHanded: false, name: '', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal', dps: true, dpsCorner: 'tr', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', cooldownStyle: 'fancy', fx: Object.fromEntries(FX_KEYS.map((k) => [k, true])), aoeStyle: 'fancy' });
+    expect(deserialize(JSON.stringify(old))!.settings).toEqual({ leftHanded: false, name: '', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal', dps: true, dpsCorner: 'tr', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', cooldownStyle: 'fancy', autoSalvage: [], fx: Object.fromEntries(FX_KEYS.map((k) => [k, true])), aoeStyle: 'fancy' });
     // A hidden DPS meter stays hidden.
     const noDps = newGame(0);
     noDps.settings.dps = false;

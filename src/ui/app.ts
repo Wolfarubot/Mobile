@@ -198,6 +198,11 @@ export class AppUI {
       else if (e.type === 'eventComplete') this.setTab(this.tab, true); // may have made Hunters available
       else if (e.type === 'finalGuardian' && this.game.state.events['guardian-rift'].completed === 1) this.showRiftConquered();
       else if (e.type === 'eventStart' || e.type === 'eventEnd' || e.type === 'guardianFail') this.refresh();
+      else if (e.type === 'loot') {
+        const d = gearDef(e.gear);
+        this.toast(e.salvaged ? `♻️ Looted and salvaged: ${d.icon} ${d.name}` : `🎁 Loot! ${d.icon} ${d.name}${e.stars > 1 ? ` ${e.stars}★` : ''}`);
+        if (this.tab === 'inventory') this.setTab('inventory', true);
+      }
     });
     this.setTab('hunters');
   }
@@ -2000,6 +2005,7 @@ export class AppUI {
   /** Every crafted piece and Upgrade, narrowed by the Filter sheet; tap one for details. */
   private buildGearList(pane: HTMLElement): void {
     const g = this.game;
+    if (g.autoSalvageOpen) pane.appendChild(this.autoSalvageCard());
     const invTitle = sectionTitle('Equipment');
     pane.appendChild(invTitle);
     const bar = el('div', 'filter-bar');
@@ -2292,6 +2298,53 @@ export class AppUI {
   }
 
   /** A short message that pops up over the Battle Field and fades away. */
+  /**
+   * Auto Salvage (from the Old Graveyard): pick rarities, and looted gear of those rarities is salvaged the
+   * moment it drops. "Salvage now" clears out the unequipped pieces of those rarities you already have.
+   */
+  private autoSalvageCard(): HTMLElement {
+    const g = this.game;
+    const st = g.state.settings;
+    const card = el('div', 'card auto-salvage');
+    const rarities = Object.keys(RARITIES) as Rarity[];
+    card.innerHTML = `<div class="as-head"><b>♻️ Auto Salvage</b><small>Looted gear of these rarities is salvaged for materials as it drops.</small></div><div class="as-chips">${rarities
+      .map((r) => `<button class="chip as-chip" data-r="${r}" style="--rc:${RARITIES[r].color}">${RARITIES[r].name}</button>`)
+      .join('')}</div><button class="buy as-now"></button>`;
+    const now = $<HTMLButtonElement>('.as-now', card);
+    const spare = () => g.state.inventory.filter((it) => st.autoSalvage.includes(gearDef(it.base).rarity) && !gearDef(it.base).starter && !g.wearerOf(it.uid)).length;
+    const draw = () => {
+      card.querySelectorAll<HTMLButtonElement>('.as-chip').forEach((b) => b.classList.toggle('on', st.autoSalvage.includes(b.dataset.r as Rarity)));
+      const n = spare();
+      now.textContent = n ? `Salvage ${n} unequipped piece${n === 1 ? '' : 's'} of these rarities now` : 'Nothing of these rarities to salvage';
+      now.disabled = !n;
+    };
+    card.querySelectorAll<HTMLButtonElement>('.as-chip').forEach((b) =>
+      b.addEventListener('click', () => {
+        const r = b.dataset.r as Rarity;
+        st.autoSalvage = st.autoSalvage.includes(r) ? st.autoSalvage.filter((x) => x !== r) : rarities.filter((x) => x === r || st.autoSalvage.includes(x));
+        this.hooks.save();
+        draw();
+      }),
+    );
+    now.addEventListener('click', () => {
+      const n = spare();
+      this.showModal(`<h2>♻️ Salvage ${n} piece${n === 1 ? '' : 's'}?</h2><p>Every unequipped ${st.autoSalvage.map((r) => RARITIES[r].name).join(', ')} piece goes, for half its materials. Equipped gear is kept.</p>`, [
+        { label: 'Cancel', secondary: true },
+        {
+          label: 'Salvage',
+          action: () => {
+            const done = g.salvageRarities(st.autoSalvage);
+            this.toast(`♻️ Salvaged ${done} piece${done === 1 ? '' : 's'}`);
+            this.hooks.save();
+            this.setTab('inventory', true);
+          },
+        },
+      ]);
+    });
+    this.refreshers.push(draw);
+    return card;
+  }
+
   private toast(text: string): void {
     const t = el('div', 'toast', text);
     // Over the battlefield, or floating near the top while it's hidden (full-screen menu, open views).
@@ -2988,7 +3041,8 @@ export class AppUI {
           .filter(([, n]) => n > 0)
           .map(([m, n]) => `${gemHtml(m)}${fmt(n)}`)
           .join(' ');
-        return `<div class="offline-area"><div><b>${areaDef(a.area).icon} ${areaDef(a.area).name}</b> <small>${who}</small></div><div>⚔️ ${fmt(a.kills)} monsters slain · 🪙 ${fmt(a.gold)}</div>${am ? `<div>${am}</div>` : ''}${
+        const loot = a.loot.length ? `<div>🎁 ${a.loot.map((l) => `${gearDef(l.gear).icon}${l.salvaged ? '♻️' : ''}`).join(' ')}</div>` : '';
+        return `<div class="offline-area"><div><b>${areaDef(a.area).icon} ${areaDef(a.area).name}</b> <small>${who}</small></div><div>⚔️ ${fmt(a.kills)} monsters slain · 🪙 ${fmt(a.gold)}</div>${am ? `<div>${am}</div>` : ''}${loot}${
           kos ? `<div class="knockouts">💫 Knocked out: ${kos}</div>` : ''
         }</div>`;
       })
@@ -2998,6 +3052,7 @@ export class AppUI {
        <p>You were away for ${fmtTime(r.away)}.${capped ? ` (Hunters rest after ${fmtTime(r.seconds)}.)` : ''}</p>
        <div class="reward">+🪙 ${fmt(r.gold)}</div>
        ${matsHtml}
+       ${r.loot.length ? `<p class="offline-loot">🎁 ${r.loot.length} piece${r.loot.length === 1 ? '' : 's'} of loot${r.loot.some((l) => l.salvaged) ? ` (${r.loot.filter((l) => l.salvaged).length} auto-salvaged)` : ''}</p>` : ''}
        ${r.knockouts > 0 ? '<p class="ko-tip">💫 Some Hunters were knocked out while you were away. See Details.</p>' : ''}
        <button class="secondary offline-details-btn">Details ▾</button>
        <div class="offline-details hidden">

@@ -8,6 +8,9 @@ import {
   weaponHitsPerAttack,
   type WeaponClassDef,
   dropsFrom,
+  rollLoot,
+  lootChance,
+  LOOT_TWO_STAR,
   affordableCount,
   MAIN_ASCEND_LEVEL,
   MAIN_ASCEND_NODE,
@@ -121,7 +124,9 @@ export type GameEvent =
   | { type: 'eventEnd'; event: string }
   | { type: 'eventComplete'; event: string }
   /** The last area's Guardian (the Time Eater) fell: the Void Rift is conquered. */
-  | { type: 'finalGuardian' };
+  | { type: 'finalGuardian' }
+  /** A monster dropped a piece of gear (auto-salvaged into materials if its rarity is set to). */
+  | { type: 'loot'; gear: GearId; stars: number; salvaged: boolean };
 
 /** Wilhelm's two weapon slots: 'long' powers sniper shots, 'short' his akimbo pistols. */
 /** Which of a Hunter's skill trees: their first, or the one they grow after ascending. */
@@ -843,7 +848,7 @@ export class Game {
       archetype: def.archetype,
       hp: area.hp * def.hp * emp('hp') * (1 + evo.hp) * idol.hp,
       speed: area.speed * def.speed * (1 + evo.speed) * swarm.speed,
-      gold: area.gold * def.gold * emp('gold') * (1 + evo.gold) * this.goldMult * idol.gold,
+      gold: area.gold * def.gold * emp('gold') * (1 + evo.gold) * this.goldMult * idol.gold * this.areaPerk(def.area).gold,
       spawnRate: b.unlocked ? Math.max(def.spawn * emp('spawn') * (1 + evo.spawn) * (1 + 0.2 * this.item('lure')) * swarm.spawn, swarm.spawn ? (ev?.minSpawn?.[id] ?? 0) : 0) : 0,
       dropChance: BASE_DROP_CHANCE * (1 + 0.25 * this.item('pouch')) * emp('drops') * (1 + evo.drops),
       material: def.material,
@@ -904,6 +909,49 @@ export class Game {
     }
   }
 
+  /**
+   * Area-wide perks of the Guild Hunters stationed there (Alias the Thief): ×gold for every kill in the area,
+   * ×loot chance. Your current area counts the Hunters stationed with you.
+   */
+  areaPerk(area: AreaId): { gold: number; loot: number } {
+    const out = { gold: 1, loot: 1 };
+    for (const h of HUNTERS) {
+      if (!this.state.hunters[h.id].recruited || this.state.hunters[h.id].station !== area) continue;
+      out.gold *= 1 + (h.areaGold ?? 0);
+      out.loot *= 1 + (h.areaLoot ?? 0);
+    }
+    return out;
+  }
+
+  /**
+   * A monster in `area` dropped gear: a random piece for the area (see rollLoot), 1★ or sometimes 2★. If its
+   * rarity is set to Auto Salvage, it's salvaged straight away (half its materials, like salvaging by hand).
+   */
+  dropLoot(area: AreaId, quiet = false): { gear: GearId; salvaged: boolean } {
+    const def = rollLoot(area, this.rng(), this.rng());
+    const stars = this.rng() < LOOT_TWO_STAR ? 2 : 1;
+    const salvaged = this.state.settings.autoSalvage.includes(def.rarity);
+    if (salvaged) {
+      for (let l = 0; l < stars; l++)
+        for (const [m, n] of Object.entries(gearCost(def, l)) as [MaterialId, number][]) this.gainMaterial(m, Math.floor(n * SALVAGE_REFUND));
+    } else this.state.inventory.push({ uid: this.state.nextGearUid++, base: def.id, stars });
+    this.state.stats.looted = (this.state.stats.looted ?? 0) + 1;
+    if (!quiet) this.emit({ type: 'loot', gear: def.id, stars, salvaged });
+    return { gear: def.id, salvaged };
+  }
+
+  /** Salvages every unequipped piece of the given rarities. Returns how many went. */
+  salvageRarities(rarities: Rarity[]): number {
+    const doomed = this.state.inventory.filter((it) => rarities.includes(gearDef(it.base).rarity) && !gearDef(it.base).starter && !this.wearerOf(it.uid));
+    for (const it of doomed) this.salvageGear(it.uid);
+    return doomed.length;
+  }
+
+  /** Auto Salvage shows up once you've reached the Old Graveyard. */
+  get autoSalvageOpen(): boolean {
+    return this.state.areas.graveyard.unlocked;
+  }
+
   /** Field calls this for every enemy killed. */
   registerKill(type: EnemyId, boss: boolean, shooter: Shooter = 'main'): KillReward {
     const s = this.state;
@@ -916,6 +964,7 @@ export class Game {
       s.stats.totalGold += gold;
       s.areas[s.area].gold += gold;
       this.gainMaterial(e.material, BOSS_MATERIAL_DROP);
+      this.dropLoot(s.area); // every Guardian carries a piece
       s.stats.guardians++;
       const next = this.lockedNext;
       this.endGuardian();
@@ -935,6 +984,8 @@ export class Game {
     const amount = dropsFrom(chance, this.rng());
     this.gainMaterial(e.material, amount);
     s.areas[enemyDef(type).area].kills++;
+    const loot = lootChance(type) * this.areaPerk(enemyDef(type).area).loot;
+    if (loot > 0 && this.rng() < loot) this.dropLoot(enemyDef(type).area);
     return { gold, material: amount > 0 ? e.material : null, amount };
   }
 
@@ -1063,7 +1114,8 @@ export class Game {
     area: AreaId,
     rates: FarmRates,
     seconds: number,
-  ): { kills: number; gold: number; materials: Partial<Record<MaterialId, number>>; knockouts: Partial<Record<Shooter, number>> } {
+    quiet = false,
+  ): { kills: number; gold: number; materials: Partial<Record<MaterialId, number>>; knockouts: Partial<Record<Shooter, number>>; loot: Array<{ gear: GearId; salvaged: boolean }> } {
     const s = this.state;
     const take = (key: string, amount: number) => {
       const v = (this.farmAcc.get(key) ?? 0) + amount;
@@ -1072,11 +1124,16 @@ export class Game {
       return whole;
     };
     let kills = 0;
+    let lootRate = 0;
     for (const [id, rate] of Object.entries(rates.kills) as [EnemyId, number][]) {
       const n = take(`${area}:k:${id}`, rate * seconds);
       kills += n;
       s.bestiary[id].kills += n;
+      lootRate += rate * lootChance(id);
     }
+    const loot: Array<{ gear: GearId; salvaged: boolean }> = [];
+    const pieces = take(`${area}:loot`, lootRate * this.areaPerk(area).loot * seconds);
+    for (let i = 0; i < pieces; i++) loot.push(this.dropLoot(area, quiet));
     for (const [sh, share] of Object.entries(rates.share) as [Shooter, number][]) {
       const n = take(`${area}:hk:${sh}`, rates.killsTotal * share * seconds);
       if (n > 0) s.stats.hunterKills[sh] = (s.stats.hunterKills[sh] ?? 0) + n;
@@ -1101,7 +1158,7 @@ export class Game {
     s.areas[area].kills += kills;
     s.areas[area].gold += gold;
     for (const n of Object.values(knockouts)) s.areas[area].knockouts += n ?? 0;
-    return { kills, gold, materials, knockouts };
+    return { kills, gold, materials, knockouts, loot };
   }
 
   // ---- Training & skills ----
@@ -1444,20 +1501,21 @@ export class Game {
     const s = this.state;
     const { away, seconds } = capAway((now - s.lastSeen) / 1000);
     this.coolEvents(away);
-    const result: OfflineResult = { away, seconds, kills: 0, gold: 0, materials: {}, areas: [], knockouts: 0 };
+    const result: OfflineResult = { away, seconds, kills: 0, gold: 0, materials: {}, areas: [], knockouts: 0, loot: [] };
     const add = (area: AreaId, hunters: Shooter[], r: ReturnType<Game['accrue']>) => {
       result.kills += r.kills;
       result.gold += r.gold;
       for (const [m, n] of Object.entries(r.materials) as [MaterialId, number][]) result.materials[m] = (result.materials[m] ?? 0) + n;
       result.areas.push({ area, hunters, ...r });
       for (const n of Object.values(r.knockouts)) result.knockouts += n ?? 0;
+      result.loot.push(...r.loot);
     };
     const withYou: Shooter[] = ['main', ...this.helpersHere];
-    add(s.area, withYou, this.accrue(s.area, this.farmRates(s.area, withYou, OFFLINE_EFFICIENCY), seconds));
+    add(s.area, withYou, this.accrue(s.area, this.farmRates(s.area, withYou, OFFLINE_EFFICIENCY), seconds, true));
     for (const area of AREAS) {
       const group = this.stationedIn(area.id);
       if (area.id === s.area || !group.length) continue;
-      add(area.id, group, this.accrue(area.id, this.farmRates(area.id, group, STATION_EFFICIENCY * OFFLINE_EFFICIENCY), seconds));
+      add(area.id, group, this.accrue(area.id, this.farmRates(area.id, group, STATION_EFFICIENCY * OFFLINE_EFFICIENCY), seconds, true));
     }
     s.lastSeen = now;
     return result;

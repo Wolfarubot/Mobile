@@ -348,7 +348,7 @@ export const ASCENDED_TREES: Record<HunterId, SkillNode[]> = {
   druid: ascendedTree({ name: 'Wild Hunt', icon: '🐺', desc: '+100% damage and wolves 30% fiercer.', maxRank: 1, effect: { damage: 1, radius: 0.3 } }),
   ranger: ascendedTree({ name: 'Hundred Arrows', icon: '🏹', desc: '+100% damage; arrows pierce 2 more enemies.', maxRank: 1, effect: { damage: 1, pierce: 2 } }),
   glimmer: ascendedTree({ name: 'Starfire', icon: '☄️', desc: '+100% damage and explosions 30% wider.', maxRank: 1, effect: { damage: 1, radius: 0.3 } }),
-  gravewarden: ascendedTree({ name: 'Dawn Eternal', icon: '🌄', desc: '+100% damage and pulses reach 30% further.', maxRank: 1, effect: { damage: 1, radius: 0.3 } }),
+  thief: ascendedTree({ name: 'Grand Heist', icon: '💎', desc: '+100% damage and +50% gold from his kills.', maxRank: 1, effect: { damage: 1, gold: 0.5 } }),
   lance: ascendedTree({ name: 'Aegis', icon: '🛡️', desc: '+100% damage and 2 more shield charges.', maxRank: 1, effect: { damage: 1, guard: 2 } }),
   prospector: ascendedTree({ name: 'Midas Touch', icon: '👑', desc: '+100% damage and +50% gold from their kills.', maxRank: 1, effect: { damage: 1, gold: 0.5 } }),
   demonbane: ascendedTree({ name: 'Hellsbane', icon: '🔥', desc: '+100% damage and +1× extra damage to Demons.', maxRank: 1, effect: { damage: 1, bane: 1 } }),
@@ -418,14 +418,14 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
     ],
     { name: 'Meteor', icon: '☄️', desc: '+30% damage, explosions 20% wider.', maxRank: 1, cost: 2, effect: { damage: 0.3, radius: 0.2 } },
   ),
-  gravewarden: skillTree(
-    { name: 'Consecration', icon: '✨', desc: 'Holy pulses reach 10% further.', maxRank: 1, effect: { radius: 0.1 } },
+  thief: skillTree(
+    { name: 'Sticky Fingers', icon: '🤏', desc: '+10% gold from his kills.', maxRank: 1, effect: { gold: 0.1 } },
     [
-      { name: 'Undead Bane', icon: '💀', desc: '+0.5× extra damage to Undead per rank.', maxRank: 3, effect: { bane: 0.5 } },
-      { name: 'Holy Radiance', icon: '🌟', desc: 'Pulses reach 15% further per rank.', maxRank: 3, effect: { radius: 0.15 } },
-      { name: 'Sanctuary', icon: '⛪', desc: 'Stuns wear off 8% faster per rank.', maxRank: 3, effect: { recovery: 1 } },
+      { name: 'Pickpocket', icon: '👛', desc: '+15% gold from his kills per rank.', maxRank: 3, effect: { gold: 0.15 } },
+      { name: 'Treasure Sense', icon: '🗝️', desc: '+15% materials from his kills per rank.', maxRank: 3, effect: { drops: 0.15 } },
+      { name: 'Shadowstep', icon: '👣', desc: 'Stuns wear off 8% faster per rank.', maxRank: 2, effect: { recovery: 1 } },
     ],
-    { name: 'Divine Wrath', icon: '⚡', desc: '+30% damage.', maxRank: 1, cost: 4, effect: { damage: 0.3 } },
+    { name: 'Master Thief', icon: '🎭', desc: '+25% damage and +25% gold from his kills.', maxRank: 1, cost: 5, effect: { damage: 0.25, gold: 0.25 } },
   ),
   lance: skillTree(
     { name: 'Zone of Protection', icon: '🛡️', desc: 'His shield: blocks 3 hits before he is stunned, regaining a charge every few seconds.', maxRank: 1, effect: { guard: 3 } },
@@ -920,6 +920,61 @@ export function monsterLevel(sessions: number): { level: number; into: number; n
  * of one more (150% = 1 + a 50% chance; 350% = 3 + a 50% chance). `roll` is uniform in [0, 1).
  */
 export const dropsFrom = (chance: number, roll: number): number => Math.floor(chance) + (roll < chance % 1 ? 1 : 0);
+// ---- Loot: some monsters carry gear; Guardians always drop a piece ----
+
+/**
+ * Chance per kill that a monster drops a piece of gear (loot). Only certain monsters carry it: thieves,
+ * knights, grave robbers and the like. A Guardian always drops a piece when it falls.
+ */
+export const LOOT_CARRIERS: Partial<Record<EnemyId, number>> = {
+  goblin: 1 / 1500,
+  pixie: 1 / 2500,
+  ghoul: 1 / 2000,
+  boneKnight: 1 / 1500,
+  necromancer: 1 / 1200,
+  deepLurker: 1 / 1500,
+  imp: 1 / 6000,
+  kobold: 1 / 6000,
+  caveTroll: 1 / 1000,
+  yeti: 1 / 1500,
+  frostGiant: 1 / 1000,
+  skyKnight: 1 / 2000,
+  valkyrie: 1 / 1500,
+  astralSentinel: 1 / 1500,
+  darkKnight: 1 / 1200,
+  lich: 1 / 2000,
+};
+export const lootChance = (id: EnemyId): number => LOOT_CARRIERS[id] ?? 0;
+/** Share of loot from the area's own tier (the rest comes from older areas' gear). */
+export const LOOT_CURRENT_SHARE = 0.6;
+/** Chance a looted piece is already 2★. */
+export const LOOT_TWO_STAR = 0.1;
+
+/** The area tier a piece of gear belongs to: its own, or the newest area whose materials its recipe uses. */
+export function gearTier(def: GearDef): number {
+  if (def.tier) return def.tier;
+  let t = 1;
+  for (const m of Object.keys(def.recipe) as MaterialId[]) {
+    const a = AREAS.findIndex((ar) => ENEMIES.some((e) => e.area === ar.id && e.material === m));
+    if (a >= 0) t = Math.max(t, a + 1);
+  }
+  return t;
+}
+
+/**
+ * A random piece of loot for an area: usually gear of that area's tier (or the newest tier below it that has
+ * gear), otherwise something from an older area. `roll` and `pick` are uniform in [0, 1).
+ */
+export function rollLoot(area: AreaId, roll: number, pick: number): GearDef {
+  const tier = AREAS.findIndex((a) => a.id === area) + 1;
+  const pool = GEAR.filter((g) => !g.starter && gearTier(g) <= tier);
+  const top = Math.max(...pool.map(gearTier));
+  const current = pool.filter((g) => gearTier(g) === top);
+  const older = pool.filter((g) => gearTier(g) < top);
+  const from = roll < LOOT_CURRENT_SHARE || !older.length ? current : older;
+  return from[Math.floor(pick * from.length) % from.length];
+}
+
 /** Cost of a monster's first Empower session (then × EMPOWER_GROWTH each). */
 export const empowerBaseCost = (def: EnemyDef): number => Math.ceil(areaDef(def.area).gold * Math.max(10, def.unlock * 0.075) * def.gold);
 
@@ -1050,7 +1105,7 @@ export type HunterId =
   | 'ranger'
   | 'bard'
   | 'druid'
-  | 'gravewarden'
+  | 'thief'
   | 'lance'
   | 'prospector'
   | 'demonbane'
@@ -1191,6 +1246,9 @@ export interface HunterDef {
   ability: string;
   /** Their song: every other Hunter fighting in the same area attacks this much faster (Ba'al). */
   inspire?: number;
+  /** Wherever they're stationed, every kill there pays this much more gold, and loot drops this much more often (Alias). */
+  areaGold?: number;
+  areaLoot?: number;
   /** Equipment slots (defaults to Weapon, Armor, Accessory). */
   slots?: SlotDef[];
 }
@@ -1255,12 +1313,14 @@ export const HUNTERS: HunterDef[] = [
     },
   },
   {
-    id: 'gravewarden', name: 'Alric', title: 'Gravewarden', icon: '✝️', color: '#efe6cf', area: 'graveyard', recruitCost: 60_000_000, bane: { archetype: 'undead', mult: 3 },
+    id: 'thief', name: 'Alias', title: 'Thief', icon: '🦹', color: '#8a8aa8', area: 'graveyard', recruitCost: 60_000_000,
     unlock: { event: 'guardian-graveyard', times: 1 },
-    ascendedTitle: 'Lightbringer',
-    story: 'Alric keeps watch over the Old Graveyard, praying for the restless dead. Put its Guardian to rest, and he\'ll lend you his holy light.',
-    ability: 'Holy pulses strike everything around him. Deals triple damage to Undead.',
-    style: { kind: 'nova', damageType: 'radiant', proc: 0.15, range: 110, rate: 0.5, damage: 1.5, radius: 110, farm: 1.5, crowd: 3, describe: 'Pulses holy light, striking every enemy around him.' },
+    ascendedTitle: 'Master Thief',
+    areaGold: 0.3,
+    areaLoot: 1,
+    story: "Alias has been robbing the Old Graveyard's tombs, but its Guardian guards the best of them. Beat it, and he'll share the take.",
+    ability: 'Throws knives in quick pairs. Wherever he is, monsters pay 30% more gold and drop loot twice as often.',
+    style: { kind: 'daggers', damageType: 'physical', proc: 0.2, range: 170, rate: 1.3, damage: 0.55, farm: 1, crowd: 1, describe: 'Throws knives fast at short range (they can make monsters bleed). His area pays more gold and drops more loot.' },
   },
   {
     id: 'lance', name: 'Lance', title: 'Paladin', icon: '🛡️', color: '#ffe8a3', area: 'graveyard', recruitCost: 200_000_000,
@@ -1347,6 +1407,8 @@ export function hunterPerk(h: HunterDef): string {
   if (h.gold) parts.push(`+${Math.round((h.gold - 1) * 100)}% gold`);
   if (h.drops) parts.push(`+${Math.round((h.drops - 1) * 100)}% drops`);
   if (h.inspire) parts.push(`+${Math.round(h.inspire * 100)}% attack rate to Hunters beside him`);
+  if (h.areaGold) parts.push(`+${Math.round(h.areaGold * 100)}% gold in his area`);
+  if (h.areaLoot) parts.push(`×${1 + h.areaLoot} loot in his area`);
   return parts.join(', ');
 }
 

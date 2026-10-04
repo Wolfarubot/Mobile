@@ -22,7 +22,7 @@ Enemy ids (see `ENEMIES` in `src/core/balance.ts`, which also holds their stats)
 
 The last enemy of each area is the model for that area's Guardian.
 
-Hunter ids (see `HUNTERS`): `alchemist`, `glimmer`, `ranger`, `gravewarden`, `lance`, `prospector`, `demonbane`, `wilhelm`, `scavenger`, `frostbreaker`.
+Hunter ids (see `HUNTERS`): `alchemist`, `glimmer`, `ranger`, `thief`, `lance`, `prospector`, `demonbane`, `wilhelm`, `scavenger`, `frostbreaker`.
 
 Tips:
 - Square PNG or WebP with a transparent background, around 128×128. Sprites are scaled to the enemy's size.

@@ -3682,3 +3682,37 @@ body.left-handed .hd-float-close {
 .gc-stats .penalty {
   color: var(--danger);
 }
+
+/* ---- Inventory → Equipment: Auto Salvage (from the Old Graveyard) ---- */
+.auto-salvage {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.auto-salvage .as-head {
+  display: grid;
+  gap: 2px;
+}
+.auto-salvage .as-head small {
+  font-size: 12px;
+  opacity: 0.8;
+}
+.as-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.as-chip {
+  border-left: 6px solid var(--rc) !important;
+}
+.as-chip.on {
+  background: var(--rc) !important;
+  color: #111 !important;
+}
+.as-now {
+  width: 100%;
+}
+.offline-loot {
+  margin: 4px 0;
+  font-weight: 700;
+}

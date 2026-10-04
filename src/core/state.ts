@@ -16,6 +16,8 @@ import {
   ITEMS,
   MATERIALS,
   SKILL_TREES,
+  RARITIES,
+  type Rarity,
   type AreaId,
   type EnemyId,
   type GearId,
@@ -145,6 +147,8 @@ export interface GameState {
     /** 'fancy' adds effects (pixels at the reload text's fading edge, a glowing line on refilling icons). */
     reloadStyle: IndicatorStyle;
     cooldownStyle: IndicatorStyle;
+    /** Rarities of looted gear to salvage the moment it drops (Equipment → Auto Salvage, from the Old Graveyard). */
+    autoSalvage: Rarity[];
     /** Which visual effects show (damage numbers by kind, status effects by kind). All on by default. */
     fx: Record<FxKey, boolean>;
     /** Area effects (puddles, explosions, fireballs, bursts, auras): pixel squares ('fancy') or plain circles ('basic'). */
@@ -175,12 +179,14 @@ export interface GameState {
     guardians: number;
     /** Kills per Hunter (you are 'main'). */
     hunterKills: Partial<Record<Wearer, number>>;
+    /** Pieces of gear looted from monsters. */
+    looted?: number;
     /** Every material ever gained, per material (spending doesn't lower it). */
     matGained: Partial<Record<MaterialId, number>>;
   };
 }
 
-export const SAVE_VERSION = 15;
+export const SAVE_VERSION = 16;
 
 const zeroes = <K extends string>(ids: { id: K }[]): Record<K, number> =>
   Object.fromEntries(ids.map((x) => [x.id, 0])) as Record<K, number>;
@@ -208,7 +214,7 @@ export function newGame(now = Date.now()): GameState {
     equipment: { main: [1, 2, null] },
     nextGearUid: 4,
     lastSeen: now,
-    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', dps: true, dpsCorner: 'tr', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', cooldownStyle: 'fancy', fx: allFx(), aoeStyle: 'fancy' },
+    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', dps: true, dpsCorner: 'tr', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', cooldownStyle: 'fancy', autoSalvage: [], fx: allFx(), aoeStyle: 'fancy' },
     flags: { eventsIntro: false, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false },
     events: Object.fromEntries(EVENTS.map((e) => [e.id, { cooldown: 0, runs: 0, completed: 0 }])),
     buyAmount: 1,
@@ -315,6 +321,19 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
     return null;
   }
   if (!data || typeof data !== 'object' || typeof data.gold !== 'number') return null;
+  // v15 -> v16: Alric the Gravewarden became Alias the Thief; he keeps Alric's place (recruited, training, gear, kills).
+  for (const key of ['hunters', 'equipment']) {
+    const m = data[key] as Record<string, unknown> | undefined;
+    if (m && typeof m === 'object' && 'gravewarden' in m && !('thief' in m)) {
+      m.thief = m.gravewarden;
+      delete m.gravewarden;
+    }
+  }
+  const hk = (data.stats as { hunterKills?: Record<string, unknown> } | undefined)?.hunterKills;
+  if (hk && typeof hk === 'object' && 'gravewarden' in hk) {
+    hk.thief = hk.gravewarden;
+    delete hk.gravewarden;
+  }
 
   const base = newGame(now);
   const stats = { ...base.stats, ...((data.stats as object) ?? {}) };
@@ -375,6 +394,10 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
       reloadPos: pick(RELOAD_POSITIONS, (data.settings as { reloadPos?: unknown } | undefined)?.reloadPos, 'above'),
       reloadStyle: pick(INDICATOR_STYLES, (data.settings as { reloadStyle?: unknown } | undefined)?.reloadStyle, 'fancy'),
       cooldownStyle: pick(INDICATOR_STYLES, (data.settings as { cooldownStyle?: unknown } | undefined)?.cooldownStyle, 'fancy'),
+      autoSalvage: (() => {
+        const a = (data.settings as { autoSalvage?: unknown } | undefined)?.autoSalvage;
+        return Array.isArray(a) ? (Object.keys(RARITIES) as Rarity[]).filter((r) => a.includes(r)) : [];
+      })(),
       fx: (() => {
         const saved = ((data.settings as { fx?: unknown } | undefined)?.fx ?? {}) as Record<string, unknown>;
         return Object.fromEntries(FX_KEYS.map((k) => [k, saved[k] !== false])) as Record<FxKey, boolean>;
