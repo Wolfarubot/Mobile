@@ -1333,19 +1333,6 @@ export const HUNTERS: HunterDef[] = [
     style: { kind: 'thrust', damageType: 'radiant', proc: 0.1, range: 90, rate: 0.9, damage: 1.8, farm: 1.3, crowd: 2, describe: 'Holds the line with lance thrusts that pierce everything in reach.' },
   },
   {
-    id: 'puppeteer', name: 'Theon', title: 'Puppeteer', icon: '🎎', color: '#c89a6a', area: 'graveyard', recruitCost: 400_000_000,
-    unlock: { event: 'guardian-graveyard', times: 3 },
-    ascendedTitle: 'Grand Puppeteer',
-    story: "Theon carves puppets from the Old Graveyard's coffin wood, and the restless dead keep stealing his strings. Beat its Guardian three times, and his puppets will dance for you.",
-    ability: 'Fights with magic or melee weapons, and every 6s calls two puppets that hunt across the field.',
-    slots: [{ kind: 'magic', label: 'Weapon', accepts: ['magic', 'melee'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
-    style: {
-      kind: 'puppeteer', damageType: 'arcane', proc: 0.15, range: 200, rate: 0.75, damage: 0.9, farm: 1, crowd: 1,
-      special: { cooldown: 6, damage: 0.7, radius: 1, ticks: 18, crowd: 1, summon: { look: 'puppet' } },
-      describe: 'Casts magic bolts (or strikes up close with a melee weapon). Every 6s calls two puppets that hunt for 6s, biting for his damage: his weapon powers them.',
-    },
-  },
-  {
     id: 'glimmer', name: 'Glimmer', title: 'Wizard', icon: '🧙', color: '#b07cff', area: 'crypt', recruitCost: 300_000_000_000,
     unlock: { event: 'guardian-crypt', times: 1 },
     ascendedTitle: 'Archmage',
@@ -1357,7 +1344,20 @@ export const HUNTERS: HunterDef[] = [
       special: { cooldown: 4, damage: 1.75, radius: 55, ticks: 1, crowd: 3, proc: 1 },
       describe: 'Fires magic bolts. Every 4s he hurls a fireball that explodes: his weapon\'s damage powers the blast, its attack rate widens it.',
     },
+  },  {
+    id: 'puppeteer', name: 'Theon', title: 'Puppeteer', icon: '🎎', color: '#c89a6a', area: 'crypt', recruitCost: 1_000_000_000_000,
+    unlock: { event: 'guardian-crypt', times: 2 },
+    ascendedTitle: 'Grand Puppeteer',
+    story: "Theon pulls the strings of the Forsaken Crypt's Possessed Puppets, or tries to: something in the dark keeps cutting them. Beat the Crypt's Guardian twice, and his puppets will dance for you.",
+    ability: 'Fights with magic or melee weapons, and every 6s calls two puppets that hunt across the field.',
+    slots: [{ kind: 'magic', label: 'Weapon', accepts: ['magic', 'melee'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
+    style: {
+      kind: 'puppeteer', damageType: 'arcane', proc: 0.15, range: 200, rate: 0.75, damage: 0.9, farm: 1, crowd: 1,
+      special: { cooldown: 6, damage: 0.7, radius: 1, ticks: 18, crowd: 1, summon: { look: 'puppet' } },
+      describe: 'Casts magic bolts (or strikes up close with a melee weapon). Every 6s calls two puppets that hunt for 6s, biting for his damage: his weapon powers them.',
+    },
   },
+
   {
     id: 'wilhelm', name: 'Wilhelm', title: 'Sniper', icon: '🎯', color: '#9aa7b8', area: 'depths', recruitCost: 100_000_000_000_000,
     unlock: { event: 'guardian-depths', times: 1 },
