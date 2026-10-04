@@ -2325,7 +2325,7 @@ export class AppUI {
     const draw = () => {
       card.querySelectorAll<HTMLButtonElement>('.as-chip').forEach((b) => b.classList.toggle('on', st.autoSalvage.includes(b.dataset.r as Rarity)));
       const n = spare();
-      now.textContent = n ? `Salvage ${n} unequipped now` : 'Nothing unequipped to salvage';
+      now.innerHTML = `Confirm<small>${n ? `Salvages ${n} unequipped piece${n === 1 ? '' : 's'} of these rarities` : 'Nothing unequipped of these rarities'}</small>`;
       now.disabled = !n;
     };
     card.querySelectorAll<HTMLButtonElement>('.as-chip').forEach((b) =>
