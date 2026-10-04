@@ -173,7 +173,7 @@ export interface GameState {
   };
 }
 
-export const SAVE_VERSION = 14;
+export const SAVE_VERSION = 15;
 
 const zeroes = <K extends string>(ids: { id: K }[]): Record<K, number> =>
   Object.fromEntries(ids.map((x) => [x.id, 0])) as Record<K, number>;
@@ -453,6 +453,9 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
     // v13 -> v14: Empower levels went from the Hunter curve (3, 4, 5 … sessions per level) to 5 per level,
     // capped at Lv 41. Monsters keep their level.
     if (((data.version as number) ?? 1) < 14 && b.empower > 0) b.empower = Math.min(MAX_EMPOWER_SESSIONS, (levelFromTrains(b.empower).level - 1) * EMPOWER_SESSIONS_PER_LEVEL);
+    // v14 -> v15: monsters top out at Lv 30 and the evolution trees were resized, so points are refunded.
+    b.empower = Math.min(MAX_EMPOWER_SESSIONS, b.empower);
+    if (((data.version as number) ?? 1) < 15) b.evo = {};
     b.kills = n(b.kills);
     delete b.swarm;
     delete b.bounty;

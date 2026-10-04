@@ -141,7 +141,7 @@ type NodeSpec = Pick<SkillNode, 'name' | 'icon' | 'desc' | 'maxRank' | 'effect' 
 function skillTree(root: NodeSpec, branches: [NodeSpec, NodeSpec, NodeSpec], capstone: NodeSpec): SkillNode[] {
   const core: [NodeSpec, NodeSpec, NodeSpec] = [
     { name: 'Attack Power', icon: '💪', desc: '+10% damage per rank.', maxRank: 10, effect: { damage: 0.1 } },
-    { name: 'Attack Speed', icon: '⚡', desc: '+10% attack rate per rank.', maxRank: 10, effect: { rate: 0.1 } },
+    { name: 'Attack Speed', icon: '⚡', desc: '+5% attack rate per rank.', maxRank: 10, effect: { rate: 0.05 } },
     { name: 'Recovery Speed', icon: '🧘', desc: 'Stuns wear off 8% faster per rank.', maxRank: 5, effect: { recovery: 1 } },
   ];
   const ids = ['power', 'speed', 'recovery'];
@@ -158,7 +158,7 @@ function skillTree(root: NodeSpec, branches: [NodeSpec, NodeSpec, NodeSpec], cap
 /** Rows below your first tree's capstone: 50 more points, finishing with Legend (so the whole tree is done at Lv 90). */
 const MAIN_VETERAN_NODES: SkillNode[] = [
   { id: 'might', name: "Hunter's Might", icon: '🗡️', desc: '+5% damage per rank.', maxRank: 10, effect: { damage: 0.05 }, requires: ['capstone'], col: 0, row: 4 },
-  { id: 'haste', name: "Hunter's Haste", icon: '💨', desc: '+5% attack rate per rank.', maxRank: 10, effect: { rate: 0.05 }, requires: ['capstone'], col: 1, row: 4 },
+  { id: 'haste', name: "Hunter's Haste", icon: '💨', desc: '+3% attack rate per rank.', maxRank: 10, effect: { rate: 0.03 }, requires: ['capstone'], col: 1, row: 4 },
   { id: 'will', name: 'Iron Will', icon: '🪨', desc: 'Stuns wear off 8% faster per rank.', maxRank: 5, effect: { recovery: 1 }, requires: ['capstone'], col: 2, row: 4 },
   { id: 'deadlyTaps', name: 'Deadly Taps', icon: '👊', desc: '+25% tap blast damage per rank.', maxRank: 5, effect: { tapPower: 0.25 }, requires: ['might'], col: 0, row: 5 },
   { id: 'keenEye', name: 'Keen Eye', icon: '🦅', desc: '+1% crit chance per rank.', maxRank: 5, effect: { crit: 0.01 }, requires: ['haste'], col: 1, row: 5 },
@@ -830,21 +830,22 @@ export const EMPOWER_UNLOCK_KILLS = 100;
 /**
  * Empower: each session adds a share of a monster's HP, gold, material drops and spawns (added up). Every
  * EMPOWER_SESSIONS_PER_LEVEL sessions is a level, and each level above 1 earns an evolution point, up to
- * MAX_MONSTER_LEVEL, where every evolution tree can be completed (about ×7 HP, ×30 gold, ×4 drops, ×7 spawns).
+ * MAX_MONSTER_LEVEL, where every evolution tree can be completed (about ×7 HP, ×30 gold, ×4 drops, ×7.5 spawns).
  */
-export const EMPOWER = { hp: 0.03, gold: 0.145, drops: 0.015, spawn: 0.03 };
+export const EMPOWER = { hp: 0.042, gold: 0.2, drops: 0.021, spawn: 0.045 };
 export const EMPOWER_SESSIONS_PER_LEVEL = 5;
 /** A monster's top level: enough evolution points for its whole tree. */
-export const MAX_MONSTER_LEVEL = 42;
+export const MAX_MONSTER_LEVEL = 30;
 export const MAX_EMPOWER_SESSIONS = (MAX_MONSTER_LEVEL - 1) * EMPOWER_SESSIONS_PER_LEVEL;
 
 /** Multiplier from `sessions` Empower sessions. */
 export const empowerMult = (stat: keyof typeof EMPOWER, sessions: number): number => 1 + EMPOWER[stat] * sessions;
 /**
- * Each session costs this much more than the last: maxing out a monster takes gold from about three areas
- * further on (Green Slimes finish evolving while you level in the Forsaken Crypt).
+ * Each session costs this much more than the last: the first levels are cheap (monsters keep up with your
+ * early damage), and Lv 30 takes gold from about two areas further on (Green Slimes max out around the end of
+ * the Old Graveyard, or soon after reaching the Forsaken Crypt).
  */
-export const EMPOWER_GROWTH = 1.12;
+export const EMPOWER_GROWTH = 1.125;
 
 /** A monster's level from its Empower sessions, and progress toward the next (capped at MAX_MONSTER_LEVEL). */
 export function monsterLevel(sessions: number): { level: number; into: number; need: number } {
@@ -859,7 +860,7 @@ export function monsterLevel(sessions: number): { level: number; into: number; n
  */
 export const dropsFrom = (chance: number, roll: number): number => Math.floor(chance) + (roll < chance % 1 ? 1 : 0);
 /** Cost of a monster's first Empower session (then × EMPOWER_GROWTH each). */
-export const empowerBaseCost = (def: EnemyDef): number => Math.ceil(areaDef(def.area).gold * Math.max(40, def.unlock * 0.3) * def.gold);
+export const empowerBaseCost = (def: EnemyDef): number => Math.ceil(areaDef(def.area).gold * Math.max(10, def.unlock * 0.075) * def.gold);
 
 /** What evolution nodes change (per rank). */
 export type EvoStat =
@@ -878,17 +879,19 @@ type EvoSpec = Pick<EvoNode, 'name' | 'icon' | 'desc' | 'maxRank' | 'effect'>;
  */
 function evoTree(root: EvoSpec, branches: [EvoSpec, EvoSpec, EvoSpec], capstone: EvoSpec): EvoNode[] {
   const core: [EvoSpec, EvoSpec, EvoSpec] = [
-    { name: 'Wealth', icon: '💰', desc: '+10% gold per rank.', maxRank: 10, effect: { gold: 0.1 } },
-    { name: 'Horde', icon: '👥', desc: '+8% spawns per rank.', maxRank: 10, effect: { spawn: 0.08 } },
-    { name: 'Harvest', icon: '💎', desc: '+10% material drops per rank.', maxRank: 10, effect: { drops: 0.1 } },
+    { name: 'Wealth', icon: '💰', desc: '+15% gold per rank.', maxRank: 6, effect: { gold: 0.15 } },
+    { name: 'Horde', icon: '👥', desc: '+12% spawns per rank.', maxRank: 6, effect: { spawn: 0.12 } },
+    { name: 'Harvest', icon: '💎', desc: '+15% material drops per rank.', maxRank: 6, effect: { drops: 0.15 } },
   ];
   const ids = ['wealth', 'horde', 'harvest'];
-  return [
+  const nodes: EvoNode[] = [
     { id: 'root', ...root, requires: [], col: 1, row: 0 },
     ...core.map((n, i) => ({ id: ids[i], ...n, requires: ['root'], col: i, row: 1 })),
     ...branches.map((n, i) => ({ id: `${ids[i]}2`, ...n, requires: [ids[i]], col: i, row: 2 })),
-    { id: 'capstone', ...capstone, requires: ids.map((x) => `${x}2`), col: 1, row: 3 },
   ];
+  // The capstone takes whatever points are left, so every tree completes exactly at the top level.
+  const spent = nodes.reduce((a, n) => a + n.maxRank * (n.cost ?? 1), 0);
+  return [...nodes, { id: 'capstone', ...capstone, cost: MAX_MONSTER_LEVEL - 1 - spent, requires: ids.map((x) => `${x}2`), col: 1, row: 3 }];
 }
 
 /** Each archetype's evolution tree; every monster of that archetype evolves along it. */
@@ -1733,7 +1736,7 @@ export interface ItemDef {
 
 export const ITEMS: ItemDef[] = [
   { id: 'whetstone', name: 'Whetstone', icon: '🪨', rarity: 'common', maxLevel: 15, recipe: { goo: 4 }, growth: 1.45, describe: (l) => `+${l * 10}% damage` },
-  { id: 'gloves', name: 'Quickdraw Gloves', icon: '🧤', rarity: 'common', maxLevel: 15, recipe: { goo: 6, pelt: 2 }, growth: 1.5, describe: (l) => `+${l * 10}% attack rate` },
+  { id: 'gloves', name: 'Quickdraw Gloves', icon: '🧤', rarity: 'common', maxLevel: 15, recipe: { goo: 6, pelt: 2 }, growth: 1.5, describe: (l) => `+${l * 4}% attack rate` },
   { id: 'lure', name: 'Monster Lure', icon: '🍖', rarity: 'uncommon', maxLevel: 15, recipe: { redgel: 5, pelt: 3 }, growth: 1.6, describe: (l) => `+${l * 20}% enemy spawns` },
   { id: 'pouch', name: "Scavenger's Pouch", icon: '👝', rarity: 'uncommon', maxLevel: 15, recipe: { pelt: 6, redgel: 3 }, growth: 1.5, describe: (l) => `+${l * 25}% material drops` },
   { id: 'bonemail', name: 'Bone Mail', icon: '🦴', rarity: 'rare', maxLevel: 10, recipe: { bone: 8, flesh: 4 }, growth: 1.6, describe: (l) => `−${Math.round((1 - 0.88 ** l) * 100)}% stun time` },
@@ -1743,7 +1746,7 @@ export const ITEMS: ItemDef[] = [
   { id: 'lantern', name: 'Soul Lantern', icon: '🏮', rarity: 'exotic', maxLevel: 10, recipe: { ecto: 8, fur: 6 }, growth: 1.8, describe: (l) => `+${l * 4}% crit chance` },
   // Rare successors: they pick up where the Common Whetstone and Gloves stop, from Graveyard and Crypt materials.
   { id: 'graveWhetstone', name: 'Grave Whetstone', icon: '⚱️', rarity: 'rare', maxLevel: 8, recipe: { bone: 12, flesh: 8 }, growth: 1.6, describe: (l) => `+${l * 8}% damage (on top of the Whetstone)` },
-  { id: 'batwingGloves', name: 'Batwing Gloves', icon: '🦇', rarity: 'rare', maxLevel: 8, recipe: { wing: 10, bone: 6 }, growth: 1.65, describe: (l) => `+${l * 6}% attack rate (on top of the Quickdraw Gloves)` },
+  { id: 'batwingGloves', name: 'Batwing Gloves', icon: '🦇', rarity: 'rare', maxLevel: 8, recipe: { wing: 10, bone: 6 }, growth: 1.65, describe: (l) => `+${l * 3}% attack rate (on top of the Quickdraw Gloves)` },
   {
     id: 'forestIdol',
     name: 'Forest Idol',
@@ -1755,7 +1758,7 @@ export const ITEMS: ItemDef[] = [
     growth: 2,
     describe: (l) => `Whispering Forest monsters: ×2 HP, ×${2 + 0.25 * (l - 1)} gold`,
   },
-  { id: 'engine', name: 'Void Engine', icon: '🌀', rarity: 'artifact', maxLevel: 20, recipe: { shade: 10, void: 5, soul: 3 }, growth: 1.7, describe: (l) => `+${l * 10}% damage, +${l * 5}% attack rate` },
+  { id: 'engine', name: 'Void Engine', icon: '🌀', rarity: 'artifact', maxLevel: 20, recipe: { shade: 10, void: 5, soul: 3 }, growth: 1.7, describe: (l) => `+${l * 10}% damage, +${l * 3}% attack rate` },
 ];
 
 export const itemDef = (id: ItemId): ItemDef => ITEMS.find((i) => i.id === id)!;

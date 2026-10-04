@@ -697,7 +697,7 @@ describe('Shops', () => {
     for (const k of ['power', 'speed', 'recovery', 'power2', 'recovery2']) expect(g.learn('main', k)).toBe(true);
     expect(g.skillPoints('main')).toBe(pts - 6);
     expect(g.damage).toBeCloseTo(dmg * 1.1);
-    expect(g.fireRate).toBeCloseTo(rate * 1.1);
+    expect(g.fireRate).toBeCloseTo(rate * 1.05);
     expect(g.stunTime()).toBeLessThan(stun);
     expect(g.tapDamage).toBeGreaterThan(tap * 1.1);
     expect(g.tapRadius).toBeGreaterThan(radius);
@@ -1856,6 +1856,11 @@ describe('Field', () => {
 });
 
 describe('Saves', () => {
+  it('every evolution tree completes exactly at Lv 30 (the capstone takes the points left over)', () => {
+    expect(MAX_MONSTER_LEVEL).toBe(30);
+    for (const tree of Object.values(EVO_TREES)) expect(tree.reduce((a, n) => a + n.maxRank * (n.cost ?? 1), 0)).toBe(MAX_MONSTER_LEVEL - 1);
+  });
+
   it('v13 saves keep each monster\'s Empower level under the 5-sessions-a-level curve', () => {
     const old = JSON.parse(serialize(newGame(0)));
     old.version = 13;
@@ -1863,6 +1868,19 @@ describe('Saves', () => {
     const s = deserialize(JSON.stringify(old))!;
     expect(s.bestiary.wolf.empower).toBe(10);
     expect(new Game(s).monsterLevelInfo('wolf').level).toBe(3);
+  });
+
+  it('v14 saves: Empower is capped at Lv 30 and evolution points are refunded (the trees were resized)', () => {
+    const old = JSON.parse(serialize(newGame(0)));
+    old.version = 14;
+    old.bestiary.greenSlime.empower = 205;
+    old.bestiary.greenSlime.evo = { root: 1, wealth: 10 };
+    const s = deserialize(JSON.stringify(old))!;
+    const g = new Game(s);
+    expect(s.bestiary.greenSlime.empower).toBe(MAX_EMPOWER_SESSIONS);
+    expect(s.bestiary.greenSlime.evo).toEqual({});
+    expect(g.monsterLevelInfo('greenSlime').level).toBe(30);
+    expect(g.evoPoints('greenSlime')).toBe(29);
   });
 
   it('round-trips and tolerates garbage', () => {

@@ -223,7 +223,7 @@ export class Game {
   }
 
   get itemRateMult(): number {
-    return (1 + 0.1 * this.item('gloves')) * (1 + 0.06 * this.item('batwingGloves')) * (1 + 0.05 * this.item('engine'));
+    return (1 + 0.04 * this.item('gloves')) * (1 + 0.03 * this.item('batwingGloves')) * (1 + 0.03 * this.item('engine'));
   }
 
   /**
@@ -1301,7 +1301,8 @@ export class Game {
 
   /** Unspent evolution points: one per level above 1. */
   evoPoints(id: EnemyId): number {
-    const spent = Object.values(this.state.bestiary[id].evo).reduce((a, b) => a + b, 0);
+    const tree = this.evoTree(id);
+    const spent = Object.entries(this.state.bestiary[id].evo).reduce((a, [node, rank]) => a + rank * (tree.find((n) => n.id === node)?.cost ?? 1), 0);
     return this.monsterLevelInfo(id).level - 1 - spent;
   }
 
@@ -1321,7 +1322,7 @@ export class Game {
     return (
       !!n &&
       this.isUnlocked(id) &&
-      this.evoPoints(id) > 0 &&
+      this.evoPoints(id) >= (n.cost ?? 1) &&
       this.evoRank(id, node) < n.maxRank &&
       this.evoReachable(id, node) &&
       this.evoKillsLeft(id, node) === 0
