@@ -63,6 +63,9 @@ import {
   gearCost,
   gearDef,
   gearStats,
+  gearTotals,
+  type GearDef,
+  type GearEffect,
   GUARDIAN_GOLD_MULT,
   GUARD_RECHARGE,
   GUARDIAN_TIME,
@@ -247,6 +250,25 @@ export class Game {
 
   get fireRate(): number {
     return BASE_FIRE_RATE * this.skillRateMult('main') * this.itemRateMult * (1 + this.gear('main').rate);
+  }
+
+  /**
+   * Gear abilities (accessories, rarer armor) have their own base damage: this is what a Hunter's bonuses
+   * multiply it by (training, skills, Upgrades, % damage, Guild Hunters' style and bane), everything their
+   * weapon's own damage would get except the weapon itself.
+   */
+  abilityMult(who: Shooter, archetype?: Archetype): number {
+    return this.shotDamage(who, archetype) / Math.max(1e-9, this.weaponHitOf(who));
+  }
+
+  /** The pieces a Hunter wears that have a special effect, with their stars. */
+  gearEffects(who: Shooter): Array<{ uid: number; def: GearDef; effect: GearEffect; stars: number }> {
+    const out: Array<{ uid: number; def: GearDef; effect: GearEffect; stars: number }> = [];
+    for (const item of this.equipped(who)) {
+      const def = item ? gearDef(item.base) : null;
+      if (item && def?.effect) out.push({ uid: item.uid, def, effect: def.effect, stars: item.stars });
+    }
+    return out;
   }
 
   /** Damage of a tap blast (Tap Power nodes, and the equipped tap ability). */
@@ -560,7 +582,7 @@ export class Game {
     const slots = this.slotsOf(who);
     this.equipped(who).forEach((item, i) => {
       if (!item || (slots[i].role && slots[i].role !== mode)) return;
-      for (const [k, v] of Object.entries(gearStats(gearDef(item.base), item.stars)) as [GearStat, number][]) total[k] += v;
+      for (const [k, v] of Object.entries(gearTotals(gearDef(item.base), item.stars)) as [GearStat, number][]) total[k] += v;
     });
     return total;
   }
@@ -581,7 +603,8 @@ export class Game {
   gearUpgradeCost(uid: number): Partial<Record<MaterialId, number>> | null {
     const item = this.gearItem(uid);
     // Pieces with no stats (Common Clothes) have nothing to improve.
-    if (!item || item.stars >= MAX_STARS || (!Object.keys(gearDef(item.base).stats).length && !gearDef(item.base).weaponClass)) return null;
+    const def = item ? gearDef(item.base) : null;
+    if (!item || !def || item.stars >= MAX_STARS || (!Object.keys(def.stats).length && !def.weaponClass && !def.effect)) return null;
     return gearCost(gearDef(item.base), item.stars);
   }
 
@@ -630,7 +653,7 @@ export class Game {
     if (!this.canWear(who) || slot < 0 || slot >= slots.length) return false;
     if (uid !== null) {
       const item = this.gearItem(uid);
-      if (!item || !slotAccepts(slots[slot], gearDef(item.base).kind)) return false;
+      if (!item || !slotAccepts(slots[slot], gearDef(item.base))) return false;
       const worn = this.wearerOf(uid);
       if (worn) this.state.equipment[worn.who]![worn.slot] = null;
     }

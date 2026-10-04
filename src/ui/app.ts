@@ -26,17 +26,18 @@ import {
   AREAS,
   ARCHETYPES,
   describeGear,
+  describeEffect,
+  ARMOR_TYPES,
   ENEMIES,
   enemyUnlockCost,
   GEAR,
   GEAR_KINDS,
-  GEAR_STATS,
   MAX_STARS,
   itemLevel,
   gearCost,
   gearColor,
   gearDef,
-  gearStats,
+  gearTotals,
   gearSummary,
   hitText,
   weaponHit,
@@ -891,7 +892,7 @@ export class AppUI {
     document.body.appendChild(view);
     this.picker = view;
     $('.hd-close', view).addEventListener('click', () => this.closePicker());
-    const fits = (it: GearItem) => slotAccepts(def, gearDef(it.base).kind);
+    const fits = (it: GearItem) => slotAccepts(def, gearDef(it.base));
     // Start on the best piece that fits and nobody is wearing.
     let selected: number | null =
       g.state.inventory.filter((it) => fits(it) && !g.wearerOf(it.uid)).sort((a, b) => b.stars - a.stars)[0]?.uid ?? null;
@@ -982,9 +983,9 @@ export class AppUI {
       const cost = g.gearUpgradeCost(uid);
       body.innerHTML = `
         <p>${dtypeTag(gd)}<b class="rarity-tag" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${gearKindName(gd)} · <span class="stars">${starsHtml(item.stars)}</span>${worn ? ` · worn by ${wearerName(worn.who)}` : ''}</p>
-        ${weaponLine(gd)}
-        <p class="gear-now">${gearSummary(gd, item.stars) || 'No bonuses: plain everyday wear.'}</p>
-        ${cost ? `<p class="gear-next">Next: <b>${gearSummary(gd, item.stars + 1)}</b></p><div class="cost">${costHtml(g, cost)}</div>` : Object.keys(gd.stats).length ? '<p>Fully upgraded.</p>' : '<p>Nothing to upgrade.</p>'}`;
+        ${weaponLine(gd, item.stars)}
+        <p class="gear-now">${gearSummary(gd, item.stars) || (gd.effect ? '' : 'No bonuses: plain everyday wear.')}</p>
+        ${cost ? `<p class="gear-next">Next: <b>${[gearSummary(gd, item.stars + 1), gd.effect && 'base' in gd.effect ? describeEffect(gd.effect, item.stars + 1) : ''].filter(Boolean).join(' ')}</b></p><div class="cost">${costHtml(g, cost)}</div>` : Object.keys(gd.stats).length || gd.effect ? '<p>Fully upgraded.</p>' : '<p>Nothing to upgrade.</p>'}`;
       const actions = el('div', 'actions');
       if (cost) {
         const up = el('button', 'buy', `Upgrade to ${item.stars + 1}★`) as HTMLButtonElement;
@@ -2253,7 +2254,7 @@ export class AppUI {
     const update = () => {
       if (gd) {
         const owned = g.state.inventory.filter((x) => x.base === gd.id).length;
-        $('.fc-effect', card).innerHTML = `1★: <b>${gearSummary(gd, 1)}</b> · 5★: <b>${gearSummary(gd, MAX_STARS)}</b>`;
+        $('.fc-effect', card).innerHTML = `${gd.armorType ? `${ARMOR_TYPES[gd.armorType].icon} ${ARMOR_TYPES[gd.armorType].name}. ` : ''}${gearSummary(gd, 1) ? `1★: <b>${gearSummary(gd, 1)}</b> · 5★: <b>${gearSummary(gd, MAX_STARS)}</b>` : ''}`;
         $('.fc-owned', card).innerHTML = `In your equipment: <b>${owned}</b>`;
         $('.fc-cost', card).innerHTML = recipeHtml(g, gearCost(gd, 0));
         btn.textContent = 'Craft';
@@ -3044,15 +3045,15 @@ function statDelta(k: GearStat, d: number): string {
 /** A piece of gear's full card; with `vs`, each stat shows how it compares to that piece. */
 function gearCardHtml(it: GearItem, vs: GearItem | null = null): string {
   const gd = gearDef(it.base);
-  const st = gearStats(gd, it.stars);
-  const other = vs ? gearStats(gearDef(vs.base), vs.stars) : {};
+  const st = gearTotals(gd, it.stars);
+  const other = vs ? gearTotals(gearDef(vs.base), vs.stars) : {};
   const keys = [...new Set([...Object.keys(st), ...(vs ? Object.keys(other) : [])])] as GearStat[];
   const lines = keys
     .map((k) => {
       const a = st[k] ?? 0;
       const b = other[k] ?? 0;
       const d = a - b;
-      const shown = a > 0 && describeGear({ [k]: a }) ? GEAR_STATS[k](a) : `<s>no ${STAT_LABELS[k]}</s>`;
+      const shown = a !== 0 && describeGear({ [k]: a }) ? `<span class="${a < 0 ? 'penalty' : ''}">${describeGear({ [k]: a })}</span>` : `<s>no ${STAT_LABELS[k]}</s>`;
       const cmp = vs && Math.abs(d) > 1e-9 ? `<span class="${d > 0 ? 'up' : 'down'}">${d > 0 ? '▲' : '▼'} ${statDelta(k, d)}</span>` : '';
       return `<li>${shown}${cmp}</li>`;
     })
@@ -3068,7 +3069,8 @@ function gearCardHtml(it: GearItem, vs: GearItem | null = null): string {
     lines +
     (gd.damageType && gd.proc && DAMAGE_TYPES[gd.damageType].effect
       ? `<li class="gc-effect">${DAMAGE_TYPES[gd.damageType].icon} ${Math.round(gd.proc * 100)}% chance · ${DAMAGE_TYPES[gd.damageType].effect}</li>`
-      : '');
+      : '') +
+    (gd.effect ? `<li class="gc-effect">✨ ${describeEffect(gd.effect, it.stars)}</li>` : '');
   return `<div class="gear-card rar" style="--rc:${gearColor(gd.id)}"><div class="gc-head"><i>${gd.icon}</i><div><b>${gd.name}</b><small>${RARITIES[gd.rarity].name} ${gearKindName(gd).toLowerCase()} · <span class="stars">${starsHtml(it.stars)}</span></small>${dtypeTag(gd)}</div></div><ul class="gc-stats">${all}</ul></div>`;
 }
 
@@ -3084,11 +3086,14 @@ function esc(text: string): string {
 
 
 /** A piece's kind for display: its weapon class ("Longbow") or its gear kind ("Armor"). */
-const gearKindName = (gd: GearDef): string => (gd.weaponClass ? WEAPON_CLASSES[gd.weaponClass].name : GEAR_KINDS[gd.kind].name);
+const gearKindName = (gd: GearDef): string => (gd.weaponClass ? WEAPON_CLASSES[gd.weaponClass].name : gd.armorType ? `${ARMOR_TYPES[gd.armorType].icon} ${ARMOR_TYPES[gd.armorType].name}` : GEAR_KINDS[gd.kind].name);
 
-/** How a weapon attacks (for your Hunter), or '' for other gear. */
-const weaponLine = (gd: GearDef): string =>
-  (gd.weaponClass ? `<p class="weapon-line">⚔️ ${WEAPON_CLASSES[gd.weaponClass].describe}</p>` : '') + (gd.ability ? `<p class="weapon-line">✨ ${gd.ability}</p>` : '');
+/** How a weapon attacks (for your Hunter), what an armor kind is good at, and any special effect (at `stars`). */
+const weaponLine = (gd: GearDef, stars = 1): string =>
+  (gd.weaponClass ? `<p class="weapon-line">⚔️ ${WEAPON_CLASSES[gd.weaponClass].describe}</p>` : '') +
+  (gd.armorType ? `<p class="weapon-line">${ARMOR_TYPES[gd.armorType].icon} ${ARMOR_TYPES[gd.armorType].desc}</p>` : '') +
+  (gd.ability ? `<p class="weapon-line">✨ ${gd.ability}</p>` : '') +
+  (gd.effect ? `<p class="weapon-line gear-effect">✨ ${describeEffect(gd.effect, stars)}${'base' in gd.effect ? ' <small>(own damage, raised by your bonuses, not your weapon)</small>' : ''}</p>` : '');
 
 /** What counts toward unlocking an event: its archetype ("slimes") or any monster. */
 const unlockNoun = (ev: EventDef): string => (ev.unlockArchetype ? `${ARCHETYPES[ev.unlockArchetype].name.toLowerCase()}s` : 'monsters');

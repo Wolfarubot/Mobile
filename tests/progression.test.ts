@@ -35,7 +35,7 @@ function botGear(game: Game): void {
   for (const who of wearers) {
     game.slotsOf(who).forEach((slot, i) => {
       const current = game.equipped(who)[i];
-      const best = GEAR.filter((gd) => slotAccepts(slot, gd.kind) && game.canCraftGear(gd.id)).sort((a, b) => gearScore(game, b.id) - gearScore(game, a.id))[0];
+      const best = GEAR.filter((gd) => slotAccepts(slot, gd) && game.canCraftGear(gd.id)).sort((a, b) => gearScore(game, b.id) - gearScore(game, a.id))[0];
       if (best && (!current || gearScore(game, best.id) > gearScore(game, current.base, current.stars))) {
         const item = game.craftGear(best.id)!;
         game.equip(who, i, item.uid);

@@ -3678,3 +3678,7 @@ body.left-handed .hd-float-close {
 .ability-card.equipped {
   outline: 3px solid var(--accent, #ffd34d);
 }
+/* Armor penalties (Heavy: slower attacks; Shields: less damage) read red on item cards. */
+.gc-stats .penalty {
+  color: var(--danger);
+}

@@ -162,6 +162,9 @@ export class BattleView {
           break;
         case 'reload':
           break; // drawn each frame as "RELOADING!" (drawReloads)
+        case 'dodge':
+          this.fx.text(e.x, e.y - 30, 'DODGE', '#c8f0ff', 12, 0.6);
+          break;
         case 'guard':
           this.rings.push({ x: e.x, y: e.y, t: 0, r: PLAYER_RADIUS + 10, color: '255,232,163', max: 0.3 });
           this.fx.text(e.x, e.y - 30, 'BLOCK', '#ffe8a3', 12, 0.6);
@@ -304,6 +307,10 @@ export class BattleView {
         this.drawWolf(g, sm);
         continue;
       }
+      if (sm.look === 'puppet') {
+        this.drawPuppet(g, sm);
+        continue;
+      }
       const fade = Math.min(1, sm.life / 1.2);
       const bob = Math.sin(this.time * 8 + sm.maxLife) * 2;
       g.globalAlpha = 0.35 * fade;
@@ -422,6 +429,37 @@ export class BattleView {
   }
 
   /** A wolf spirit: a pale blue-grey wolf head with ears, streaking when it lunges. */
+  /** A Puppeteer's Doll puppet: a little wooden marionette, jerking along on strings that fade upward. */
+  private drawPuppet(g: CanvasRenderingContext2D, sm: Summon): void {
+    const fade = Math.min(1, sm.life / 1.2);
+    const r = SUMMON_RADIUS;
+    const jerk = Math.sin(this.time * 12 + sm.maxLife * 3) * 2;
+    g.globalAlpha = 0.5 * fade;
+    g.strokeStyle = '#f0e0c0';
+    g.lineWidth = 1;
+    for (const side of [-1, 1]) {
+      g.beginPath();
+      g.moveTo(sm.x + side * r * 0.6, sm.y - r * 0.4 + jerk);
+      g.lineTo(sm.x + side * r * 0.3, sm.y - r * 3);
+      g.stroke();
+    }
+    g.globalAlpha = fade;
+    g.fillStyle = '#c8956a';
+    g.strokeStyle = OUTLINE;
+    g.lineWidth = 2;
+    // Body, then head
+    g.fillRect(sm.x - r * 0.45, sm.y - r * 0.1 + jerk, r * 0.9, r * 1.1);
+    g.strokeRect(sm.x - r * 0.45, sm.y - r * 0.1 + jerk, r * 0.9, r * 1.1);
+    g.beginPath();
+    g.arc(sm.x, sm.y - r * 0.5 + jerk, r * 0.55, 0, Math.PI * 2);
+    g.fill();
+    g.stroke();
+    g.fillStyle = '#ff4060';
+    g.fillRect(sm.x - 3, sm.y - r * 0.6 + jerk, 2, 2);
+    g.fillRect(sm.x + 1, sm.y - r * 0.6 + jerk, 2, 2);
+    g.globalAlpha = 1;
+  }
+
   private drawWolf(g: CanvasRenderingContext2D, sm: Summon): void {
     const fade = Math.min(1, sm.life / 1.2);
     const r = SUMMON_RADIUS + 1;

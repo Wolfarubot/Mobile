@@ -16,6 +16,9 @@ import {
   hunterDef,
   gearDef,
   type GearDef,
+  type GearEffect,
+  effectBase,
+  effectCooldown,
   MAX_ENEMIES,
   areaScale,
   MULTISHOT_SPREAD,
@@ -87,7 +90,9 @@ export interface Summon {
   life: number;
   maxLife: number;
   bite: number;
-  look: 'wisp' | 'wolf';
+  look: 'wisp' | 'wolf' | 'puppet';
+  /** A gear ability's creature (a Puppeteer's Doll's puppets): the piece that made it and its own bite. */
+  gear?: { uid: number; base: number; damageType: DamageType; bites: number; speed: number };
   /** Seconds left in a lunge (their tome's ability), and whether this lunge has landed yet. */
   dash: number;
   dashHit: boolean;
@@ -205,6 +210,7 @@ export type FieldEvent =
   | { type: 'hit'; x: number; y: number; dmg: number; crit: boolean; dtype: DamageType; affinity?: 'weak' | 'resist' | null }
   | { type: 'kill'; x: number; y: number; enemy: EnemyId; boss: boolean; reward: KillReward }
   | { type: 'blast'; x: number; y: number; color?: string }
+  | { type: 'dodge'; x: number; y: number }
   | { type: 'boss' }
   | { type: 'stun'; x: number; y: number; boss: boolean; who: Shooter }
   | { type: 'guard'; x: number; y: number }
@@ -249,6 +255,8 @@ export class Field {
   gunState: GunState = { cls: null, ammo: 0, reload: 0 };
   /** A dagger's burst in progress: stabs (or throws) still to come, at a monster. */
   private stabs: Array<{ t: number; target: number; last: boolean }> = [];
+  /** Seconds until each worn piece's ability is ready again, by `${who}:${uid}`. */
+  private gearCd = new Map<string, number>();
   /** Creatures your Hunter's tome has summoned. */
   summons: Summon[] = [];
   /** Seconds until your tome's creatures can lunge again (a tome with a lunge ability, e.g. the Wolf Spirit). */
@@ -425,6 +433,7 @@ export class Field {
           this.shoot('main', cls.projectile ?? 'bolt', 0, 0, a, BULLET_SPEED, range, { pierce: g.pierceOf('main'), volley, stack: cls.stack });
         }
       } else this.shoot('main', cls?.projectile ?? 'bolt', 0, 0, this.aim, BULLET_SPEED, range, { pierce: g.pierceOf('main'), spread: true, followThrough: cls?.followThrough, bounces: cls?.bounces });
+      if (this.isMelee('main')) this.meleeWave('main', 0, 0);
       if (this.spendShot(this.gunState, cls, g.shooterRate('main'))) {
         this.events.push({ type: 'reload', who: 'main', x: 0, y: 0 });
         this.fireAcc = 0;
@@ -433,6 +442,7 @@ export class Field {
     }
     this.runStabs(dt, cls);
     this.runSummons(dt);
+    this.runGearEffects(dt);
     for (const h of this.helpers) this.helperAttack(h, dt);
 
     this.moveBullets(dt);
@@ -496,12 +506,26 @@ export class Field {
   private contact(e: Enemy, who: Shooter, ux: number, uy: number): void {
     const helper = who === 'main' ? null : this.helpers.find((h) => h.id === who)!;
     const state = helper ?? this;
+    const hx = helper?.x ?? 0;
+    const hy = helper?.y ?? 0;
+    const effects = this.game.gearEffects(who);
+    // Thorns: whatever reaches you gets hurt, blocked or not.
+    for (const { effect: ef, stars } of effects) if (ef.kind === 'thorns') this.abilityHit(who, e, effectBase(ef, stars), ef.damageType, false);
+    // Evasion (light armor): slip it entirely, no stun and no shield used.
+    if (!e.boss && effects.some(({ effect: ef }) => ef.kind === 'evade' && this.game.rng() < ef.chance)) {
+      e.fleeing = true;
+      this.events.push({ type: 'dodge', x: hx, y: hy });
+      return;
+    }
     if (state.guard > 0 && !e.boss) {
       state.guard--;
       state.guardAcc = 0;
       e.kx += ux * GUARD_BOUNCE;
       e.ky += uy * GUARD_BOUNCE;
-      this.events.push({ type: 'guard', x: helper?.x ?? 0, y: helper?.y ?? 0 });
+      this.events.push({ type: 'guard', x: hx, y: hy });
+      // Shield burst: the block blasts everything around the wearer.
+      for (const { effect: ef, stars } of effects)
+        if (ef.kind === 'block') this.abilityBurst(who, hx, hy, ef.radius, effectBase(ef, stars), ef.damageType);
       return;
     }
     // A stun runs its course: hits while stunned or immune don't extend it (no stun loops).
@@ -631,6 +655,7 @@ export class Field {
           break;
         }
         case 'thrust':
+          this.meleeWave(h.id, h.x, h.y);
           this.strikeLine(h.id, h.x, h.y, a, range, 14, Infinity, 1, '#ffe8a3', 6, cls?.knock ?? 0); // melee weapons knock back
           break;
         case 'shotgun': {
@@ -703,6 +728,14 @@ export class Field {
     const w = this.weaponDef('main');
     const dash = w?.summon?.dash;
     if (w && dash && this.game.weaponClassOf('main')?.summon) out.push({ key: `item:${w.id}`, icon: w.icon, name: w.name, progress: 1 - this.dashCd / dash.cooldown });
+    for (const who of ['main' as Shooter, ...this.helpers.map((h) => h.id)]) {
+      for (const { uid, def, effect } of this.game.gearEffects(who)) {
+        const cd = effectCooldown(effect);
+        if (cd === null) continue;
+        const left = this.gearCd.get(`${who}:${uid}`) ?? 0;
+        out.push({ key: `gear:${who}:${uid}`, icon: def.icon, name: who === 'main' ? def.name : `${hunterDef(who as HunterId).name}'s ${def.name}`, progress: 1 - Math.max(0, left) / cd });
+      }
+    }
     for (const h of this.helpers) {
       const hw = this.weaponDef(h.id);
       const hd = hw?.summon?.dash;
@@ -849,6 +882,93 @@ export class Field {
     }
   }
 
+  // ---- Gear abilities (accessories and rarer armor): their own base damage, the wearer's bonuses ----
+
+  /** Is a Hunter's weapon a melee one (for melee-only gear abilities)? */
+  private isMelee(who: Shooter): boolean {
+    return this.weaponDef(who)?.kind === 'melee';
+  }
+
+  /** One gear-ability hit: its own base damage × the wearer's bonuses (not their weapon), and its type. */
+  private abilityHit(who: Shooter, e: Enemy, base: number, dtype: DamageType, status: boolean): void {
+    if (e.hp <= 0 || base <= 0) return;
+    const crit = this.game.rng() < this.game.critChanceOf(who);
+    const amount = base * this.game.abilityMult(who, enemyDef(e.type).archetype) * this.typeMultOn(dtype, e) * (crit ? CRIT_MULT : 1);
+    this.damage(e, amount, crit, 0, 0, who, dtype);
+    if (status) this.applyStatus(e, dtype, amount, who);
+  }
+
+  /** A gear burst around a point: every monster within `r` is hit (and gets its type's effect). */
+  private abilityBurst(who: Shooter, x: number, y: number, r: number, base: number, dtype: DamageType): void {
+    this.events.push({ type: 'nova', x, y, r, color: DAMAGE_TYPES[dtype].color });
+    for (const e of [...this.enemies]) if (e.hp > 0 && Math.hypot(e.x - x, e.y - y) <= r + e.r) this.abilityHit(who, e, base, dtype, true);
+  }
+
+  /** A melee attack with a wave-sending accessory (the Flame Brand): sometimes a wave bursts out. */
+  private meleeWave(who: Shooter, x: number, y: number): void {
+    for (const { effect: ef, stars } of this.game.gearEffects(who))
+      if (ef.kind === 'wave' && this.game.rng() < ef.chance) this.abilityBurst(who, x, y, ef.radius, effectBase(ef, stars), ef.damageType);
+  }
+
+  /**
+   * Abilities that run on their own: summons, pulses and lightning strikes recharge (a Hunter that's stunned
+   * still recharges, but only acts once they're up), and chill auras slow everything near the wearer.
+   */
+  private runGearEffects(dt: number): void {
+    const wearers: Array<{ who: Shooter; x: number; y: number; stunned: boolean }> = [
+      { who: 'main', x: 0, y: 0, stunned: this.stunned },
+      ...this.helpers.map((h) => ({ who: h.id as Shooter, x: h.x, y: h.y, stunned: h.stun > 0 })),
+    ];
+    for (const w of wearers) {
+      for (const { uid, effect: ef, stars } of this.game.gearEffects(w.who)) {
+        if (ef.kind === 'chill') {
+          for (const e of this.enemies) if (!e.boss && Math.hypot(e.x - w.x, e.y - w.y) <= ef.radius + e.r) e.slow = Math.max(e.slow ?? 0, 0.2);
+          continue;
+        }
+        const cd = effectCooldown(ef);
+        if (cd === null) continue;
+        const key = `${w.who}:${uid}`;
+        const left = Math.max(0, (this.gearCd.get(key) ?? 0) - dt);
+        this.gearCd.set(key, left);
+        if (left > 0 || w.stunned) continue;
+        if (this.fireGear(w.who, w.x, w.y, ef, stars, uid)) this.gearCd.set(key, cd);
+      }
+    }
+  }
+
+  /** Sets off a recharging gear ability. Returns false (staying ready) when there's nothing to use it on. */
+  private fireGear(who: Shooter, x: number, y: number, ef: GearEffect, stars: number, uid: number): boolean {
+    const base = effectBase(ef, stars);
+    switch (ef.kind) {
+      case 'pulse':
+        if (!this.nearest(x, y, ef.radius)) return false;
+        this.abilityBurst(who, x, y, ef.radius, base, ef.damageType);
+        return true;
+      case 'summon': {
+        if (!this.nearest(x, y, 2000)) return false;
+        for (let i = 0; i < ef.count; i++) {
+          const a = (i / ef.count) * Math.PI * 2 + this.game.rng();
+          this.summons.push({ who, x: x + Math.cos(a) * 22, y: y + Math.sin(a) * 22, life: ef.duration, maxLife: ef.duration, bite: 0, look: ef.look, dash: 0, dashHit: false, gear: { uid, base, damageType: ef.damageType, bites: ef.bites, speed: ef.speed } });
+        }
+        this.events.push({ type: 'nova', x, y, r: 30, color: '#d8a878' });
+        return true;
+      }
+      case 'strike': {
+        // Lightning from above: random monsters in range, each bolt arcing on (Lightning's effect).
+        const near = this.enemies.filter((e) => e.hp > 0 && !e.fleeing && Math.hypot(e.x - x, e.y - y) <= ef.range + e.r);
+        if (!near.length) return false;
+        for (let i = 0; i < ef.targets && near.length; i++) {
+          const e = near.splice(Math.floor(this.game.rng() * near.length), 1)[0];
+          this.events.push({ type: 'beam', x1: e.x + (this.game.rng() - 0.5) * 60, y1: e.y - 220, x2: e.x, y2: e.y, color: DAMAGE_TYPES[ef.damageType].color, width: 3, zigzag: true });
+          this.abilityHit(who, e, base, ef.damageType, true);
+        }
+        return true;
+      }
+      default:
+        return false;
+    }
+  }
+
   /** The gear in a Hunter's weapon slot, if any. */
   private weaponDef(who: Shooter): GearDef | null {
     const w = this.game.weaponItem(who);
@@ -872,15 +992,19 @@ export class Field {
     this.dashCd = Math.max(0, this.dashCd - dt);
     for (const h of this.helpers) h.dashCd = Math.max(0, h.dashCd - dt);
     if (!this.summons.length) return;
-    // A creature fades at once if its Hunter put the tome away or left the area.
-    this.summons = this.summons.filter((s) => (s.who === 'main' || this.helpers.some((h) => h.id === s.who)) && this.game.weaponClassOf(s.who)?.summon);
-    for (const who of new Set(this.summons.map((s) => s.who))) {
+    // A creature fades at once if its Hunter put the tome (or the piece that made it) away, or left the area.
+    this.summons = this.summons.filter(
+      (s) =>
+        (s.who === 'main' || this.helpers.some((h) => h.id === s.who)) &&
+        (s.gear ? this.game.equipped(s.who).some((it) => it?.uid === s.gear!.uid) : this.game.weaponClassOf(s.who)?.summon),
+    );
+    for (const who of new Set(this.summons.filter((s) => !s.gear).map((s) => s.who))) {
       const dash = this.weaponDef(who)?.summon?.dash;
       const owner: { dashCd: number } = who === 'main' ? this : this.helpers.find((h) => h.id === who)!;
       if (!dash || owner.dashCd > 0) continue;
       let lunged = false;
       for (const s of this.summons) {
-        if (s.who !== who) continue;
+        if (s.who !== who || s.gear) continue;
         const e = this.nearest(s.x, s.y, dash.range);
         if (!e || s.dash > 0) continue;
         s.dash = dash.range / dash.speed + 0.05;
@@ -890,8 +1014,8 @@ export class Field {
       if (lunged) owner.dashCd = dash.cooldown;
     }
     for (const s of this.summons) {
-      const sm = this.game.weaponClassOf(s.who)!.summon!;
-      const dash = this.weaponDef(s.who)?.summon?.dash;
+      const sm = s.gear ?? this.game.weaponClassOf(s.who)!.summon!;
+      const dash = s.gear ? undefined : this.weaponDef(s.who)?.summon?.dash;
       s.life -= dt;
       s.dash = Math.max(0, s.dash - dt);
       const e = this.nearest(s.x, s.y, 2000);
@@ -915,7 +1039,8 @@ export class Field {
         s.bite += dt * sm.bites;
         while (s.bite >= 1 && e.hp > 0) {
           s.bite -= 1;
-          this.hitWith(s.who, e, 1, s.x, s.y);
+          if (s.gear) this.abilityHit(s.who, e, s.gear.base, s.gear.damageType, false);
+          else this.hitWith(s.who, e, 1, s.x, s.y);
         }
       } else s.bite = Math.min(s.bite + dt * sm.bites, 1);
     }

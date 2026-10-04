@@ -495,6 +495,7 @@ export type MaterialId =
   | 'dust'
   | 'wrap'
   | 'grave'
+  | 'string'
   | 'gloom'
   | 'umbra'
   | 'ore'
@@ -545,6 +546,7 @@ export const MATERIALS: MaterialDef[] = [
   { id: 'spore', name: 'Glowing Spore', color: '#b8e86a', desc: 'A spore from the Faerie Glade that glows softly green. It sneezes back if you shake it.' },
   { id: 'dust', name: 'Pixie Dust', color: '#ffb8f0', desc: 'Sparkling dust shaken off a pixie. Things sprinkled with it feel a little lighter.' },
   { id: 'wrap', name: 'Mummy Wrap', color: '#e8d8b0', desc: 'Ancient linen from the Forsaken Crypt, still tight around whatever it held.' },
+  { id: 'string', name: 'Puppet String', color: '#c89a6a', desc: 'A taut string from a Possessed Puppet. It twitches when nobody is holding it.' },
   { id: 'grave', name: 'Grave Dust', color: '#9a8e80', desc: 'Fine grey dust from the oldest tombs in the Crypt. It never quite settles.' },
   { id: 'gloom', name: 'Gloom Silk', color: '#5a4a7a', desc: 'Thread spun in the Shadowy Depths. It drinks the light around it.' },
   { id: 'umbra', name: 'Umbral Pearl', color: '#8a7ea8', desc: 'A dark pearl from the Depths, cold and heavier than it looks.' },
@@ -649,6 +651,7 @@ export type EnemyId =
   | 'boneKnight'
   | 'banshee'
   | 'necromancer'
+  | 'puppet'
   | 'kobold'
   | 'salamander'
   | 'hellhound'
@@ -766,6 +769,7 @@ export const ENEMIES: EnemyDef[] = [
   { id: 'banshee', name: 'Banshee', area: 'crypt', archetype: 'undead', hp: 1.8, speed: 1.4, gold: 2.4, spawn: 0.4, pack: [1, 3], radius: 11, material: 'grave', unlock: 900, color: '#b0d8ff', shape: 'ghost', blurb: 'Her wail freezes the blood.', weak: ['radiant', 'arcane'], resist: ['frost', 'physical'] },
   { id: 'boneKnight', name: 'Bone Knight', area: 'crypt', archetype: 'undead', hp: 4, speed: 0.8, gold: 4.5, spawn: 0.25, pack: [1, 2], radius: 13, material: 'bone', unlock: 4_000, color: '#c8c0a8', shape: 'hexagon', blurb: 'A skeleton that kept its armor.', weak: ['radiant'], resist: ['physical', 'poison', 'decay'] },
   { id: 'necromancer', name: 'Necromancer', area: 'crypt', archetype: 'humanoid', hp: 3, speed: 0.9, gold: 4, spawn: 0.25, pack: [1, 2], radius: 12, material: 'grave', unlock: 15_000, color: '#5a3a7a', shape: 'diamond', blurb: 'Raises the dead for fun.', weak: ['radiant', 'physical'], resist: ['decay', 'void'] },
+  { id: 'puppet', name: 'Possessed Puppet', area: 'crypt', archetype: 'demon', hp: 2.2, speed: 1.2, gold: 3, spawn: 0.35, pack: [2, 4], radius: 10, material: 'string', unlock: 8_000, color: '#b08058', shape: 'diamond', blurb: 'A marionette that dances with no hand on its strings.', weak: ['fire', 'physical'], resist: ['poison', 'frost'] },
 
 
   // Shadowy Depths
@@ -1235,7 +1239,7 @@ export const HUNTERS: HunterDef[] = [
     ascendedTitle: 'Archmage',
     story: 'Glimmer came to the Forsaken Crypt to study the old magic sealed inside, but its Guardian won\'t let anyone near. Put it to rest, and Glimmer will lend you a fireball or two.',
     ability: 'Every few seconds, hurls a fireball that explodes for area damage. Wields only magic weapons.',
-    slots: [{ kind: 'magic', label: 'Magic weapon' }, { kind: 'armor', label: 'Robe' }, { kind: 'accessory', label: 'Accessory' }],
+    slots: [{ kind: 'magic', label: 'Magic weapon' }, { kind: 'armor', label: 'Robe', armorTypes: ['robe'] }, { kind: 'accessory', label: 'Accessory' }],
     style: {
       kind: 'fireball', damageType: 'fire', proc: 0.3, range: 260, rate: 0.55, damage: 1.6, farm: 1, crowd: 1,
       special: { cooldown: 4, damage: 1.75, radius: 55, ticks: 1, crowd: 3, proc: 1 },
@@ -1350,10 +1354,68 @@ export interface SlotDef {
   role?: 'long' | 'short';
   /** Kinds the slot takes, when more than its own `kind` (Reginald's weapon slot takes ranged or magic). */
   accepts?: GearKind[];
+  /** Armor slots that only take some kinds of armor (Glimmer wears robes). */
+  armorTypes?: ArmorType[];
 }
 
-/** Can a piece of this kind go in this slot? */
-export const slotAccepts = (slot: SlotDef, kind: GearKind): boolean => (slot.accepts ?? [slot.kind]).includes(kind);
+/** Can this piece go in this slot? */
+export const slotAccepts = (slot: SlotDef, def: Pick<GearDef, 'kind' | 'armorType'>): boolean =>
+  (slot.accepts ?? [slot.kind]).includes(def.kind) && (!slot.armorTypes || !def.armorType || slot.armorTypes.includes(def.armorType));
+
+// ---- Armor: four kinds, each trading attack speed, damage and shield charges differently ----
+export type ArmorType = 'light' | 'heavy' | 'robe' | 'shield';
+
+/**
+ * Each kind of armor has a stat profile (what its stats lean toward) and a fixed penalty that never grows
+ * with stars: Light is quick, Heavy shrugs off hits but slows you, Robes channel power, Shields block.
+ */
+export const ARMOR_TYPES: Record<ArmorType, { name: string; icon: string; desc: string; penalty: Partial<Record<GearStat, number>> }> = {
+  light: { name: 'Light armor', icon: '🥋', desc: 'Quick and free: more attack speed and a little damage.', penalty: {} },
+  heavy: { name: 'Heavy armor', icon: '🪖', desc: 'Shrugs off hits: shield charges and shorter stuns, but slower attacks.', penalty: { rate: -0.1 } },
+  robe: { name: 'Robe', icon: '👘', desc: 'Channels power: more damage and bigger area effects, but no shield.', penalty: {} },
+  shield: { name: 'Shield', icon: '🛡️', desc: 'Blocks: the most shield charges, but a little less damage.', penalty: { damage: -0.08 } },
+};
+
+/** Armor stats at 1★ by kind and area tier (1 = Whispering Forest … 12 = Void Rift). */
+export function armorStats(type: ArmorType, tier: number): Partial<Record<GearStat, number>> {
+  const m = 1 + 0.25 * (tier - 1);
+  const r = (v: number) => Math.round(v * m * 1000) / 1000;
+  switch (type) {
+    case 'light':
+      return { rate: r(0.02), damage: r(0.01), stun: r(0.02) };
+    case 'heavy':
+      return { guard: tier >= 6 ? 2 : 1, stun: r(0.04), damage: r(0.01) };
+    case 'robe':
+      return { damage: r(0.03), radius: r(0.02) };
+    case 'shield':
+      return { guard: tier >= 6 ? 3 : 2, stun: r(0.02) };
+  }
+}
+
+/**
+ * Special effects on rarer armor and on accessories. Abilities that deal damage have their own base damage
+ * (`base`, ×WEAPON_HIT_POWER for the piece's stars), multiplied by the wearer's own bonuses (training,
+ * skills, Upgrades, % damage) but never by their weapon's damage.
+ *  Armor:  thorns (monsters that reach you take damage), block (a shield block bursts out), evade (a chance to
+ *          slip a monster entirely), pulse (a burst around you every few seconds).
+ *  Accessories only: summon (creatures of their own, like a tome's), wave (melee attacks send out a wave),
+ *          strike (lightning from above), chill (an aura that slows every monster near you).
+ */
+export type GearEffect =
+  | { kind: 'thorns'; base: number; damageType: DamageType }
+  | { kind: 'block'; base: number; damageType: DamageType; radius: number }
+  | { kind: 'evade'; chance: number }
+  | { kind: 'pulse'; base: number; damageType: DamageType; radius: number; cooldown: number }
+  | { kind: 'summon'; base: number; damageType: DamageType; look: 'puppet'; name: string; count: number; duration: number; cooldown: number; bites: number; speed: number }
+  | { kind: 'wave'; base: number; damageType: DamageType; radius: number; chance: number }
+  | { kind: 'strike'; base: number; damageType: DamageType; targets: number; cooldown: number; range: number }
+  | { kind: 'chill'; radius: number };
+
+/** Effects that recharge (and get a cooldown icon on the battlefield). */
+export const effectCooldown = (e: GearEffect): number | null => ('cooldown' in e ? e.cooldown : null);
+
+/** A piece's ability base damage at its stars. */
+export const effectBase = (e: GearEffect, stars: number): number => ('base' in e ? e.base * WEAPON_HIT_POWER[Math.max(1, Math.min(MAX_STARS, stars))] : 0);
 
 /** Weapon kinds: a Hunter's weapon slot powers their special attack. */
 export const WEAPON_KINDS: GearKind[] = ['weapon', 'melee', 'magic'];
@@ -1434,6 +1496,25 @@ export type GearId =
   | 'voidScepter'
   | 'soulfireStaff'
   | 'leatherVest'
+  | 'silkTunic'
+  | 'gloomLeathers'
+  | 'griffinHide'
+  | 'starweave'
+  | 'stormplate'
+  | 'voidPlate'
+  | 'apprenticeRobe'
+  | 'wrapRobe'
+  | 'emberRobe'
+  | 'cloudRobe'
+  | 'soulRobe'
+  | 'buckler'
+  | 'boneShield'
+  | 'drakeShield'
+  | 'starAegis'
+  | 'puppetDoll'
+  | 'flameBrand'
+  | 'frostCharm'
+  | 'thunderTotem'
   | 'bonePlate'
   | 'chitinCarapace'
   | 'frostMail'
@@ -1477,6 +1558,10 @@ export interface GearDef {
   summon?: { look: 'wisp' | 'wolf'; name: string; dash?: { cooldown: number; range: number; speed: number; damage: number } };
   /** A line about the item's own ability, shown on its card. */
   ability?: string;
+  /** Armor: which kind it is (sets its stat profile and penalty). */
+  armorType?: ArmorType;
+  /** Rarer armor and accessories: a special effect (see GearEffect). */
+  effect?: GearEffect;
   /** Chance each hit triggers its damage type's status effect (0 or missing: never). */
   proc?: number;
   /** Stats at 1★; higher stars multiply them by GEAR_STAR_POWER. */
@@ -1513,7 +1598,7 @@ export const hitText = (v: number): string => `${Number(v.toFixed(v < 10 ? 2 : 1
 /** Everything a piece does at a star count: a weapon's base damage, then its stat bonuses. */
 export function gearSummary(def: GearDef, stars: number): string {
   const hit = weaponHit(def, stars);
-  return [hit ? hitText(hit) : '', describeGear(gearStats(def, stars))].filter(Boolean).join(', ');
+  return [hit ? hitText(hit) : '', describeGear(gearTotals(def, stars))].filter(Boolean).join(', ');
 }
 
 // ---- Stars: gear and Upgrades go from 1★ (crafted) to 5★ ----
@@ -1691,11 +1776,26 @@ export const GEAR: GearDef[] = [
   { id: 'meteorRifle', name: 'Meteor Rifle', icon: '☄️', kind: 'weapon', rarity: 'artifact', weaponClass: 'rifle', tier: 11, damageType: 'fire', proc: 0.3, stats: {}, recipe: { meteor: 10, stardust: 5 } },
   { id: 'starsteelSword', name: 'Starsteel Sword', icon: '⚔️', kind: 'melee', rarity: 'artifact', weaponClass: 'sword', tier: 11, damageType: 'radiant', proc: 0.25, stats: {}, recipe: { meteor: 10, stardust: 6 } },
   { id: 'starScepter', name: 'Star Scepter', icon: '🌟', kind: 'magic', rarity: 'artifact', weaponClass: 'scepter', tier: 11, damageType: 'radiant', proc: 0.25, stats: {}, recipe: { stardust: 10, meteor: 4 } },
-  // Armor
-  { id: 'leatherVest', name: 'Leather Vest', icon: '🦺', kind: 'armor', rarity: 'common', stats: { stun: 0.05 }, recipe: { pelt: 8, goo: 6 } },
-  { id: 'bonePlate', name: 'Bone Plate', icon: '🦴', kind: 'armor', rarity: 'rare', stats: { stun: 0.06, guard: 0.2 }, recipe: { bone: 10, flesh: 6 } },
-  { id: 'chitinCarapace', name: 'Chitin Carapace', icon: '🪲', kind: 'armor', rarity: 'veryRare', stats: { stun: 0.07, damage: 0.05 }, recipe: { chitin: 10, magma: 5 } },
-  { id: 'frostMail', name: 'Frost Mail', icon: '🧥', kind: 'armor', rarity: 'exotic', stats: { stun: 0.08, guard: 0.3 }, recipe: { fur: 10, frost: 6 } },
+  // Armor: Light, Heavy, Robes and Shields; stats from their kind and tier (armorStats), specials from Very Rare up
+  { id: 'leatherVest', name: 'Leather Vest', icon: '🦺', kind: 'armor', armorType: 'light', rarity: 'common', tier: 1, stats: armorStats('light', 1), recipe: { pelt: 8, goo: 6 } },
+  { id: 'apprenticeRobe', name: 'Apprentice Robe', icon: '👘', kind: 'armor', armorType: 'robe', rarity: 'common', tier: 1, stats: armorStats('robe', 1), recipe: { goo: 8, redgel: 4 } },
+  { id: 'silkTunic', name: 'Pixie Silk Tunic', icon: '👚', kind: 'armor', armorType: 'light', rarity: 'uncommon', tier: 2, stats: armorStats('light', 2), recipe: { dust: 8, spore: 5 } },
+  { id: 'buckler', name: 'Wooden Buckler', icon: '🛡️', kind: 'armor', armorType: 'shield', rarity: 'uncommon', tier: 2, stats: armorStats('shield', 2), recipe: { pelt: 8, spore: 5 } },
+  { id: 'bonePlate', name: 'Bone Plate', icon: '🦴', kind: 'armor', armorType: 'heavy', rarity: 'uncommon', tier: 3, stats: armorStats('heavy', 3), recipe: { bone: 10, flesh: 6 } },
+  { id: 'boneShield', name: 'Bone Shield', icon: '🛡️', kind: 'armor', armorType: 'shield', rarity: 'uncommon', tier: 3, stats: armorStats('shield', 3), recipe: { bone: 8, wing: 6 } },
+  { id: 'wrapRobe', name: 'Mummy-Wrap Robe', icon: '🧻', kind: 'armor', armorType: 'robe', rarity: 'rare', tier: 4, stats: armorStats('robe', 4), recipe: { wrap: 10, grave: 5 } },
+  { id: 'gloomLeathers', name: 'Gloom Leathers', icon: '🥋', kind: 'armor', armorType: 'light', rarity: 'rare', tier: 5, stats: armorStats('light', 5), recipe: { gloom: 10, umbra: 5 } },
+  { id: 'chitinCarapace', name: 'Chitin Carapace', icon: '🪲', kind: 'armor', armorType: 'heavy', rarity: 'veryRare', tier: 6, stats: armorStats('heavy', 6), recipe: { chitin: 10, magma: 5 }, effect: { kind: 'thorns', base: 45, damageType: 'physical' } },
+  { id: 'emberRobe', name: 'Ember Robe', icon: '🔥', kind: 'armor', armorType: 'robe', rarity: 'veryRare', tier: 6, stats: armorStats('robe', 6), recipe: { ember: 10, magma: 5 }, effect: { kind: 'pulse', base: 45, damageType: 'fire', radius: 90, cooldown: 5 } },
+  { id: 'drakeShield', name: 'Drake Shield', icon: '🐉', kind: 'armor', armorType: 'shield', rarity: 'veryRare', tier: 7, stats: armorStats('shield', 7), recipe: { scale: 10, ore: 6 }, effect: { kind: 'block', base: 72, damageType: 'fire', radius: 80 } },
+  { id: 'frostMail', name: 'Frost Mail', icon: '🧥', kind: 'armor', armorType: 'heavy', rarity: 'legendary', tier: 8, stats: armorStats('heavy', 8), recipe: { fur: 10, frost: 6 }, effect: { kind: 'block', base: 110, damageType: 'frost', radius: 90 } },
+  { id: 'griffinHide', name: 'Griffin Hide', icon: '🪶', kind: 'armor', armorType: 'light', rarity: 'exotic', tier: 9, stats: armorStats('light', 9), recipe: { plume: 10, skystone: 5 }, effect: { kind: 'evade', chance: 0.25 } },
+  { id: 'stormplate', name: 'Stormplate', icon: '⚡', kind: 'armor', armorType: 'heavy', rarity: 'relic', tier: 10, stats: armorStats('heavy', 10), recipe: { thunder: 10, feather: 6 }, effect: { kind: 'block', base: 230, damageType: 'lightning', radius: 100 } },
+  { id: 'cloudRobe', name: 'Cloudsilk Robe', icon: '☁️', kind: 'armor', armorType: 'robe', rarity: 'relic', tier: 10, stats: armorStats('robe', 10), recipe: { feather: 10, thunder: 5 }, effect: { kind: 'pulse', base: 230, damageType: 'lightning', radius: 110, cooldown: 5 } },
+  { id: 'starweave', name: 'Starweave Jerkin', icon: '✨', kind: 'armor', armorType: 'light', rarity: 'artifact', tier: 11, stats: armorStats('light', 11), recipe: { stardust: 10, meteor: 5 }, effect: { kind: 'evade', chance: 0.35 } },
+  { id: 'starAegis', name: 'Star Aegis', icon: '🌟', kind: 'armor', armorType: 'shield', rarity: 'artifact', tier: 11, stats: armorStats('shield', 11), recipe: { meteor: 10, stardust: 6 }, effect: { kind: 'block', base: 320, damageType: 'radiant', radius: 110 } },
+  { id: 'voidPlate', name: 'Void Plate', icon: '🌀', kind: 'armor', armorType: 'heavy', rarity: 'exalted', tier: 12, stats: armorStats('heavy', 12), recipe: { void: 10, shade: 6 }, effect: { kind: 'thorns', base: 440, damageType: 'void' } },
+  { id: 'soulRobe', name: 'Soul Vestments', icon: '👻', kind: 'armor', armorType: 'robe', rarity: 'exalted', tier: 12, stats: armorStats('robe', 12), recipe: { soul: 10, shade: 5 }, effect: { kind: 'pulse', base: 440, damageType: 'void', radius: 120, cooldown: 5 } },
   // Accessories
   { id: 'luckyCharm', name: 'Lucky Charm', icon: '🍀', kind: 'accessory', rarity: 'common', stats: { crit: 0.03 }, recipe: { redgel: 6, goo: 6 } },
   { id: 'goldTooth', name: 'Gold Tooth', icon: '🦷', kind: 'accessory', rarity: 'uncommon', stats: { gold: 0.15 }, recipe: { redgel: 6, bone: 6 } },
@@ -1703,6 +1803,11 @@ export const GEAR: GearDef[] = [
   { id: 'emberOrb', name: 'Ember Orb', icon: '🔮', kind: 'accessory', rarity: 'veryRare', stats: { radius: 0.12, damage: 0.08 }, recipe: { ember: 8, magma: 4 } },
   { id: 'hawkeyeLens', name: 'Hawkeye Lens', icon: '🔭', kind: 'accessory', rarity: 'rare', stats: { range: 20 }, recipe: { chitin: 8, wing: 6 } },
   { id: 'soulRing', name: 'Soul Ring', icon: '💍', kind: 'accessory', rarity: 'relic', stats: { damage: 0.25, crit: 0.02 }, recipe: { soul: 6, ecto: 6 } },
+  // Accessories with abilities of their own (found on nothing else)
+  { id: 'puppetDoll', name: "Puppeteer's Doll", icon: '🪆', kind: 'accessory', rarity: 'rare', tier: 4, stats: {}, recipe: { string: 10, wrap: 5 }, effect: { kind: 'summon', base: 8, damageType: 'physical', look: 'puppet', name: 'puppet', count: 2, duration: 6, cooldown: 8, bites: 1.5, speed: 140 } },
+  { id: 'flameBrand', name: 'Flame Brand', icon: '🔥', kind: 'accessory', rarity: 'veryRare', tier: 6, stats: {}, recipe: { ember: 10, chitin: 6 }, effect: { kind: 'wave', base: 45, damageType: 'fire', radius: 100, chance: 0.3 } },
+  { id: 'frostCharm', name: 'Frostbite Charm', icon: '❄️', kind: 'accessory', rarity: 'legendary', tier: 8, stats: {}, recipe: { frost: 10, ecto: 6 }, effect: { kind: 'chill', radius: 110 } },
+  { id: 'thunderTotem', name: 'Thunder Totem', icon: '🗿', kind: 'accessory', rarity: 'relic', tier: 10, stats: {}, recipe: { thunder: 10, feather: 6 }, effect: { kind: 'strike', base: 230, damageType: 'lightning', targets: 3, cooldown: 3, range: 320 } },
 ];
 
 export const gearDef = (id: GearId): GearDef => GEAR.find((g) => g.id === id)!;
@@ -1713,16 +1818,55 @@ export const gearColor = (id: GearId): string => RARITIES[gearDef(id).rarity].co
 /** A piece's stats at a star count. */
 export function gearStats(def: GearDef, stars: number): Partial<Record<GearStat, number>> {
   const out: Partial<Record<GearStat, number>> = {};
-  const power = GEAR_STAR_POWER[Math.max(0, Math.min(MAX_STARS, stars))];
-  for (const [k, v] of Object.entries(def.stats) as [GearStat, number][]) out[k] = v * power;
+  const st = Math.max(0, Math.min(MAX_STARS, stars));
+  // Shield charges grow slowly with stars (a 5★ piece has twice its 1★ charges); everything else ×GEAR_STAR_POWER.
+  for (const [k, v] of Object.entries(def.stats) as [GearStat, number][]) out[k] = v * (k === 'guard' ? GUARD_STAR_POWER[st] : GEAR_STAR_POWER[st]);
+  return out;
+}
+
+/** Shield charges at each star, as a multiple of 1★. */
+export const GUARD_STAR_POWER = [0, 1, 1.25, 1.5, 1.75, 2];
+
+/** A piece's stats at its stars, plus its armor kind's fixed penalty. */
+export function gearTotals(def: GearDef, stars: number): Partial<Record<GearStat, number>> {
+  const out = gearStats(def, stars);
+  if (def.armorType) for (const [k, v] of Object.entries(ARMOR_TYPES[def.armorType].penalty) as [GearStat, number][]) out[k] = (out[k] ?? 0) + v;
   return out;
 }
 
 export function describeGear(stats: Partial<Record<GearStat, number>>): string {
   return (Object.entries(stats) as [GearStat, number][])
-    .filter(([k, v]) => (k === 'guard' || k === 'pierce' ? Math.floor(v) >= 1 : v > 0))
-    .map(([k, v]) => GEAR_STATS[k](v))
+    .filter(([k, v]) => (k === 'guard' || k === 'pierce' ? Math.floor(v) >= 1 : v !== 0))
+    .map(([k, v]) => (v < 0 ? GEAR_STATS[k](-v).replace(/^\+/, '−') : GEAR_STATS[k](v)))
     .join(', ');
+}
+
+/** A gear effect in words, with its damage at a star count (before the wearer's bonuses). */
+export function describeEffect(e: GearEffect, stars: number): string {
+  const dmg = 'base' in e ? `${fmtNum(effectBase(e, stars))} ${DAMAGE_TYPES[e.damageType].name}` : '';
+  switch (e.kind) {
+    case 'thorns':
+      return `Thorns: monsters that reach you take ${dmg} damage.`;
+    case 'block':
+      return `Shield burst: each block blasts ${dmg} damage at everything nearby.`;
+    case 'evade':
+      return `Evasion: ${Math.round(e.chance * 100)}% chance to slip a monster that reaches you (no stun, no shield used).`;
+    case 'pulse':
+      return `Pulse: every ${e.cooldown}s, a burst of ${dmg} damage around you.`;
+    case 'summon':
+      return `Summons ${e.count} ${e.name}s every ${e.cooldown}s; they hunt for ${e.duration}s, biting for ${dmg} damage.`;
+    case 'wave':
+      return `Melee attacks have a ${Math.round(e.chance * 100)}% chance to send out a wave of ${dmg} damage.`;
+    case 'strike':
+      return `Every ${e.cooldown}s, lightning strikes ${e.targets} monsters for ${dmg} damage.`;
+    case 'chill':
+      return 'Chill aura: monsters near you move at half speed.';
+  }
+}
+
+/** Compact number for item cards (no formatter import here). */
+function fmtNum(n: number): string {
+  return n >= 100 ? String(Math.round(n)) : String(Math.round(n * 10) / 10);
 }
 
 /**

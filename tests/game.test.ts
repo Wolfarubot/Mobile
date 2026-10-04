@@ -14,6 +14,9 @@ import {
   itemLevels,
   gearCost,
   gearStats,
+  gearTotals,
+  ARMOR_TYPES,
+  effectBase,
   MAX_STARS,
   OFFLINE_CAP_SEC,
   RARITIES,
@@ -55,6 +58,7 @@ import {
   SESSIONS_TO_ASCEND,
   SKILL_TREES,
   gearDef,
+  type GearId,
   EMPOWER,
   MAX_EMPOWER_SESSIONS,
   MAX_MONSTER_LEVEL,
@@ -1049,9 +1053,9 @@ describe('Equipment', () => {
     expect(AREAS.filter((a) => s.areas[a.id].unlocked).map((a) => a.id)).toEqual(['forest', 'glade', 'graveyard', 'crypt', 'depths', 'caves']);
   });
 
-  it('65 monsters plus the Time Eater, at least 5 per area, each with a weakness; Guardians stay put', () => {
-    expect(ENEMIES).toHaveLength(66);
-    expect(new Set(ENEMIES.map((e) => e.id)).size).toBe(66);
+  it('66 monsters (the Possessed Puppet included) plus the Time Eater, at least 5 per area, each with a weakness; Guardians stay put', () => {
+    expect(ENEMIES).toHaveLength(67);
+    expect(new Set(ENEMIES.map((e) => e.id)).size).toBe(67);
     // The Time Eater is only ever the Void Rift's Guardian: not in its horde or unlockable.
     expect(areaEnemies('rift').map((e) => e.id)).not.toContain('timeEater');
     expect(enemyUnlockCost(enemyDef('timeEater'))).toBe(Infinity);
@@ -1289,6 +1293,150 @@ describe('Equipment', () => {
     expect(deserialize(serialize(g.state))!.main.tapAbility).toBe('frost');
     g.setTapAbility(null);
     expect(g.tapAbility).toBeNull();
+  });
+
+  it('armor kinds: Light is quick, Heavy and Shields add shield charges (Heavy slows you, Shields cost damage), Robes add damage', () => {
+    const light = gearTotals(gearDef('gloomLeathers'), 1);
+    const heavy = gearTotals(gearDef('bonePlate'), 1);
+    const robe = gearTotals(gearDef('wrapRobe'), 1);
+    const shield = gearTotals(gearDef('boneShield'), 1);
+    expect(light.rate).toBeGreaterThan(0);
+    expect(light.guard ?? 0).toBe(0);
+    expect(heavy.guard).toBe(1);
+    expect(heavy.rate).toBeCloseTo(ARMOR_TYPES.heavy.penalty.rate!); // the fixed penalty
+    expect(robe.damage).toBeGreaterThan(light.damage!);
+    expect(robe.guard ?? 0).toBe(0);
+    expect(shield.guard).toBe(2);
+    expect(shield.damage).toBeCloseTo(ARMOR_TYPES.shield.penalty.damage!);
+    // Shield charges grow slowly with stars (×2 at 5★); the penalty never grows.
+    expect(gearTotals(gearDef('boneShield'), MAX_STARS).guard).toBe(4);
+    expect(gearTotals(gearDef('bonePlate'), MAX_STARS).rate).toBeCloseTo(ARMOR_TYPES.heavy.penalty.rate!);
+    // Every armor piece has a kind; specials from Very Rare up.
+    for (const d of GEAR.filter((x) => x.kind === 'armor' && !x.starter)) {
+      expect(d.armorType).toBeDefined();
+      expect(!!d.effect).toBe(['veryRare', 'legendary', 'exotic', 'relic', 'artifact', 'exalted'].includes(d.rarity));
+    }
+    // Glimmer only wears robes.
+    const g = new Game(newGame(0));
+    g.state.gold = 1e30;
+    for (const m of Object.keys(g.state.materials) as Array<keyof typeof g.state.materials>) g.state.materials[m] = 1e6;
+    g.state.hunters.glimmer.recruited = true;
+    expect(g.equip('glimmer', 1, g.craftGear('bonePlate')!.uid)).toBe(false);
+    expect(g.equip('glimmer', 1, g.craftGear('wrapRobe')!.uid)).toBe(true);
+    // Wearing heavy armor: more shield, slower attacks.
+    const rate = g.fireRate;
+    g.equip('main', 1, g.craftGear('bonePlate')!.uid);
+    expect(g.guardOf('main')).toBe(1);
+    expect(g.fireRate).toBeLessThan(rate);
+  });
+
+  it("gear abilities have their own base damage: the Puppeteer's Doll's puppets bite the same whatever the weapon, and Hunter bonuses raise them", () => {
+    const setup = (weapon: 'shortSword' | 'drakeHammer') => {
+      const g = new Game(newGame(0), noCrit);
+      g.state.gold = 1e30;
+      for (const m of Object.keys(g.state.materials) as Array<keyof typeof g.state.materials>) g.state.materials[m] = 1e6;
+      const w = weapon === 'shortSword' ? g.state.inventory.find((x) => x.base === 'shortSword') ?? g.craftGear('drakeHammer')! : g.craftGear('drakeHammer')!;
+      g.equip('main', 0, w.uid);
+      g.equip('main', 2, g.craftGear('puppetDoll')!.uid);
+      const f = new Field(g);
+      f.setView(390, 420);
+      return { g, f };
+    };
+    const bite = (weapon: 'shortSword' | 'drakeHammer') => {
+      const { g, f } = setup(weapon);
+      g.state.main.trains = 0;
+      f.enemies.push(enemy({ id: 1, x: 300, y: 300, hp: 1e12, maxHp: 1e12 }));
+      const hits: number[] = [];
+      for (let t = 0; t < 4; t += 0.01) {
+        f.update(0.01);
+        for (const e of f.drainEvents()) if (e.type === 'hit') hits.push(e.dmg);
+      }
+      expect(f.summons.some((s) => s.look === 'puppet' && s.gear)).toBe(true);
+      expect(f.cooldowns().some((c) => c.key.startsWith('gear:main:'))).toBe(true);
+      return { hits, g };
+    };
+    const a = bite('drakeHammer');
+    const base = effectBase(gearDef('puppetDoll').effect!, 1);
+    // The weapon is out of range; every hit is a puppet bite at the Doll's base × your bonuses.
+    expect(a.hits.length).toBeGreaterThan(0);
+    for (const h of a.hits) expect(h).toBeCloseTo(base * a.g.abilityMult('main', 'slime') * typeMult('physical', 'greenSlime'));
+    expect(a.g.abilityMult('main')).toBeCloseTo(1); // no training, skills or Upgrades yet
+    expect(effectBase(gearDef('puppetDoll').effect!, MAX_STARS)).toBeCloseTo(base * WEAPON_HIT_POWER[MAX_STARS]);
+  });
+
+  it('thorns, shield bursts, evasion, melee waves and lightning strikes', () => {
+    const fresh = (ids: GearId[]) => {
+      let seed = 3;
+      const g = new Game(newGame(0), () => ((seed = (seed * 16807) % 2147483647) / 2147483647));
+      g.state.gold = 1e30;
+      for (const m of Object.keys(g.state.materials) as Array<keyof typeof g.state.materials>) g.state.materials[m] = 1e6;
+      for (const id of ids) {
+        const d = gearDef(id);
+        const slot = d.kind === 'armor' ? 1 : d.kind === 'accessory' ? 2 : 0;
+        g.equip('main', slot, g.craftGear(id)!.uid);
+      }
+      const f = new Field(g);
+      f.setView(390, 420);
+      return { g, f };
+    };
+    const contact = (f: Field, e: Enemy) => (f as unknown as { contact: (e: Enemy, who: string, ux: number, uy: number) => void }).contact(e, 'main', 1, 0);
+    // Thorns (Chitin Carapace): whatever reaches you is hurt.
+    {
+      const { f } = fresh(['chitinCarapace']);
+      const e = enemy({ id: 1, x: 14, y: 0, hp: 1e9, maxHp: 1e9 });
+      f.enemies.push(e);
+      contact(f, e);
+      expect(e.hp).toBeLessThan(1e9);
+    }
+    // Shield burst (Drake Shield): a block blasts everything nearby with fire.
+    {
+      const { f } = fresh(['drakeShield']);
+      f.guard = 3;
+      const e = enemy({ id: 1, x: 14, y: 0, hp: 1e9, maxHp: 1e9 });
+      const near = enemy({ id: 2, x: 40, y: 20, hp: 1e9, maxHp: 1e9 });
+      f.enemies.push(e, near);
+      contact(f, e);
+      expect(f.guard).toBe(2);
+      expect(near.hp).toBeLessThan(1e9);
+      expect(near.burn).toBeDefined();
+    }
+    // Evasion (Griffin Hide): some contacts are slipped with no stun and no shield used.
+    {
+      const { f } = fresh(['griffinHide']);
+      let dodged = 0;
+      for (let i = 0; i < 200; i++) {
+        f.stun = 0;
+        f.immune = 0;
+        const e = enemy({ id: i, x: 14, y: 0, hp: 10, maxHp: 10 });
+        contact(f, e);
+        if (f.stun === 0) dodged++;
+      }
+      expect(dodged).toBeGreaterThan(20);
+      expect(dodged).toBeLessThan(90);
+    }
+    // Flame Brand: melee attacks sometimes send out a wave of fire.
+    {
+      const { f } = fresh(['flameBrand']);
+      for (let i = 0; i < 40; i++) (f as unknown as { meleeWave: (w: string, x: number, y: number) => void }).meleeWave('main', 0, 0);
+      expect(f.drainEvents().filter((e) => e.type === 'nova').length).toBeGreaterThan(3);
+    }
+    // Thunder Totem: lightning strikes monsters in range on a cooldown.
+    {
+      const { f } = fresh(['thunderTotem']);
+      const e = enemy({ id: 1, x: 200, y: 0, hp: 1e12, maxHp: 1e12 });
+      f.enemies.push(e);
+      f.update(0.01);
+      expect(e.hp).toBeLessThan(1e12);
+      expect(f.drainEvents().some((x) => x.type === 'beam' && x.zigzag)).toBe(true);
+    }
+    // Frostbite Charm: monsters near you are chilled.
+    {
+      const { f } = fresh(['frostCharm']);
+      const e = enemy({ id: 1, x: 60, y: 0, hp: 1e12, maxHp: 1e12 });
+      f.enemies.push(e);
+      f.update(0.01);
+      expect(e.slow).toBeGreaterThan(0);
+    }
   });
 
   it('lightning arcs to a creature in its radius, striking every creature the bolt passes through', () => {
