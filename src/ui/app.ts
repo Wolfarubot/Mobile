@@ -2906,8 +2906,20 @@ export class AppUI {
     return true;
   }
 
+  /**
+   * Welcome back: the gold and materials gained while away. "Details" opens the breakdown by area: who hunted
+   * there, the monsters they slew, and what each area paid out.
+   */
   showOffline(r: OfflineResult): void {
     const capped = r.away > r.seconds;
+    const mats = (Object.entries(r.materials) as [MaterialId, number][]).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]);
+    // A few materials get their names; more than fit are icons and counts, two columns going down.
+    const compact = mats.length > 6;
+    const matsHtml = mats.length
+      ? `<div class="offline-mats${compact ? ' compact' : ''}">${mats
+          .map(([m, n]) => `<div class="offline-mat" title="${materialDef(m).name}">${gemHtml(m)}${compact ? '' : `<span>${materialDef(m).name}</span>`}<b>+${fmt(n)}</b></div>`)
+          .join('')}</div>`
+      : '';
     const rows = r.areas
       .map((a) => {
         const name = (h: (typeof a.hunters)[number]) => (h === 'main' ? esc(mainName()) : `${hunterDef(h).icon} ${hunterDef(h).name}`);
@@ -2917,11 +2929,11 @@ export class AppUI {
           .filter((h) => (a.knockouts[h] ?? 0) > 0)
           .map((h) => `${name(h)} ×${fmt(a.knockouts[h]!)}`)
           .join(', ');
-        const mats = (Object.entries(a.materials) as [MaterialId, number][])
+        const am = (Object.entries(a.materials) as [MaterialId, number][])
           .filter(([, n]) => n > 0)
           .map(([m, n]) => `${gemHtml(m)}${fmt(n)}`)
           .join(' ');
-        return `<div class="offline-area"><div><b>${areaDef(a.area).name}</b> <small>${who}</small></div><div>🪙 ${fmt(a.gold)} · ${fmt(a.kills)} slain${mats ? ` · ${mats}` : ''}</div>${
+        return `<div class="offline-area"><div><b>${areaDef(a.area).icon} ${areaDef(a.area).name}</b> <small>${who}</small></div><div>⚔️ ${fmt(a.kills)} monsters slain · 🪙 ${fmt(a.gold)}</div>${am ? `<div>${am}</div>` : ''}${
           kos ? `<div class="knockouts">💫 Knocked out: ${kos}</div>` : ''
         }</div>`;
       })
@@ -2930,10 +2942,21 @@ export class AppUI {
       `<h2>Welcome back!</h2>
        <p>You were away for ${fmtTime(r.away)}.${capped ? ` (Hunters rest after ${fmtTime(r.seconds)}.)` : ''}</p>
        <div class="reward">+🪙 ${fmt(r.gold)}</div>
-       <div class="offline-areas">${rows}</div>
-       ${r.knockouts > 0 ? '<p class="ko-tip">Knocked-out Hunters stop fighting. Get stronger (or pick an easier area) to keep monsters from slipping through.</p>' : ''}`,
+       ${matsHtml}
+       ${r.knockouts > 0 ? '<p class="ko-tip">💫 Some Hunters were knocked out while you were away. See Details.</p>' : ''}
+       <button class="secondary offline-details-btn">Details ▾</button>
+       <div class="offline-details hidden">
+         <p class="offline-total">⚔️ ${fmt(r.kills)} monsters slain in all</p>
+         <div class="offline-areas">${rows}</div>
+         ${r.knockouts > 0 ? '<p class="ko-tip">Knocked-out Hunters stop fighting. Get stronger (or pick an easier area) to keep monsters from slipping through.</p>' : ''}
+       </div>`,
       [{ label: 'Collect' }],
     );
+    const btn = $('.offline-details-btn', this.modal);
+    btn.addEventListener('click', () => {
+      const open = $('.offline-details', this.modal).classList.toggle('hidden') === false;
+      btn.textContent = open ? 'Hide details ▴' : 'Details ▾';
+    });
   }
 }
 

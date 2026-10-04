@@ -625,6 +625,42 @@ button {
   flex: 1;
 }
 
+.offline-mats {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0 4px;
+  text-align: left;
+}
+/* Too many to name: icons and counts, two columns going down. */
+.offline-mats.compact {
+  grid-template-columns: 1fr 1fr;
+  grid-auto-flow: row;
+}
+.offline-mat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+.offline-mat span {
+  flex: 1;
+}
+.offline-mats.compact .offline-mat {
+  justify-content: center;
+}
+.offline-details-btn {
+  margin-top: 8px;
+  padding: 6px 14px;
+  font-size: 13px;
+}
+.offline-details {
+  max-height: 42vh;
+  overflow-y: auto;
+}
+.offline-total {
+  margin: 8px 0 0;
+  font-weight: 700;
+}
 .offline-areas {
   margin-top: 10px;
   text-align: left;
