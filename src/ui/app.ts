@@ -2005,12 +2005,17 @@ export class AppUI {
   /** Every crafted piece and Upgrade, narrowed by the Filter sheet; tap one for details. */
   private buildGearList(pane: HTMLElement): void {
     const g = this.game;
-    if (g.autoSalvageOpen) pane.appendChild(this.autoSalvageCard());
     const invTitle = sectionTitle('Equipment');
     pane.appendChild(invTitle);
     const bar = el('div', 'filter-bar');
-    bar.innerHTML = `<button class="filter-btn">⚙️ Filter</button><div class="filter-chips"></div>`;
+    bar.innerHTML = `<button class="filter-btn">⚙️ Filter</button>${g.autoSalvageOpen ? '<button class="filter-btn as-btn">♻️ Auto Salvage</button>' : ''}<div class="filter-chips"></div>`;
     $('.filter-btn', bar).addEventListener('click', () => this.openInvFilter());
+    const asBtn = bar.querySelector<HTMLButtonElement>('.as-btn');
+    if (asBtn) {
+      asBtn.addEventListener('click', () => this.openAutoSalvage());
+      // Lit while any rarity is set to salvage.
+      this.refreshers.push(() => asBtn.classList.toggle('on', g.state.settings.autoSalvage.length > 0));
+    }
     pane.appendChild(bar);
     const inv = el('div', 'inventory');
     pane.appendChild(inv);
@@ -2299,15 +2304,20 @@ export class AppUI {
 
   /** A short message that pops up over the Battle Field and fades away. */
   /**
-   * Auto Salvage (from the Old Graveyard): pick rarities, and looted gear of those rarities is salvaged the
-   * moment it drops. "Salvage now" clears out the unequipped pieces of those rarities you already have.
+   * Auto Salvage (Inventory → Equipment, from the Old Graveyard), a menu like the Filter: pick rarities, and
+   * looted gear of those rarities is salvaged the moment it drops. "Salvage now" clears out the unequipped
+   * pieces of those rarities you already have.
    */
+  private openAutoSalvage(): void {
+    this.showSheet('♻️ Auto Salvage', (body) => body.appendChild(this.autoSalvageCard()));
+  }
+
   private autoSalvageCard(): HTMLElement {
     const g = this.game;
     const st = g.state.settings;
-    const card = el('div', 'card auto-salvage');
+    const card = el('div', 'auto-salvage');
     const rarities = Object.keys(RARITIES) as Rarity[];
-    card.innerHTML = `<div class="as-head"><b>♻️ Auto Salvage</b><small>Looted gear of these rarities is salvaged for materials as it drops.</small></div><div class="as-chips">${rarities
+    card.innerHTML = `<p class="as-head">Tap the rarities to salvage: looted gear of those rarities turns straight into half its materials as it drops. Equipped gear is never touched.</p><div class="as-chips">${rarities
       .map((r) => `<button class="chip as-chip" data-r="${r}" style="--rc:${RARITIES[r].color}">${RARITIES[r].name}</button>`)
       .join('')}</div><button class="buy as-now"></button>`;
     const now = $<HTMLButtonElement>('.as-now', card);
@@ -2315,7 +2325,7 @@ export class AppUI {
     const draw = () => {
       card.querySelectorAll<HTMLButtonElement>('.as-chip').forEach((b) => b.classList.toggle('on', st.autoSalvage.includes(b.dataset.r as Rarity)));
       const n = spare();
-      now.textContent = n ? `Salvage ${n} unequipped piece${n === 1 ? '' : 's'} of these rarities now` : 'Nothing of these rarities to salvage';
+      now.textContent = n ? `Salvage ${n} unequipped now` : 'Nothing unequipped to salvage';
       now.disabled = !n;
     };
     card.querySelectorAll<HTMLButtonElement>('.as-chip').forEach((b) =>
@@ -2341,7 +2351,7 @@ export class AppUI {
         },
       ]);
     });
-    this.refreshers.push(draw);
+    draw();
     return card;
   }
 

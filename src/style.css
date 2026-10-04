@@ -3690,12 +3690,12 @@ body.left-handed .hd-float-close {
   margin-bottom: 10px;
 }
 .auto-salvage .as-head {
-  display: grid;
-  gap: 2px;
+  margin: 0;
+  font-size: 13px;
+  text-align: left;
 }
-.auto-salvage .as-head small {
-  font-size: 12px;
-  opacity: 0.8;
+.auto-salvage .as-chip {
+  padding: 8px 10px;
 }
 .as-chips {
   display: flex;
