@@ -2008,7 +2008,7 @@ export class AppUI {
     const invTitle = sectionTitle('Equipment');
     pane.appendChild(invTitle);
     const bar = el('div', 'filter-bar');
-    bar.innerHTML = `<button class="filter-btn">⚙️ Filter</button>${g.autoSalvageOpen ? '<button class="filter-btn as-btn">♻️ Auto Salvage</button>' : ''}<div class="filter-chips"></div>`;
+    bar.innerHTML = `<button class="filter-btn">⚙️ Filter</button><div class="filter-chips"></div>${g.autoSalvageOpen ? '<button class="filter-btn as-btn">♻️ Auto Salvage</button>' : ''}`;
     $('.filter-btn', bar).addEventListener('click', () => this.openInvFilter());
     const asBtn = bar.querySelector<HTMLButtonElement>('.as-btn');
     if (asBtn) {

@@ -3716,3 +3716,7 @@ body.left-handed .hd-float-close {
   margin: 4px 0;
   font-weight: 700;
 }
+/* Auto Salvage sits at the far right of the Filter line. */
+.filter-bar .as-btn {
+  margin-left: auto;
+}
