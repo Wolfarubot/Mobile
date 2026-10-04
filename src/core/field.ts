@@ -17,6 +17,8 @@ import {
   gearDef,
   type GearDef,
   type GearEffect,
+  type SummonType,
+  tomeSummonType,
   effectBase,
   effectCooldown,
   MAX_ENEMIES,
@@ -91,6 +93,8 @@ export interface Summon {
   maxLife: number;
   bite: number;
   look: 'wisp' | 'wolf' | 'puppet';
+  /** What kind of creature it is (some Hunters' summons of a type hit harder). */
+  type: SummonType;
   /** A gear ability's creature (a Puppeteer's Doll's puppets): the piece that made it and its own bite. */
   gear?: { uid: number; base: number; damageType: DamageType; bites: number; speed: number };
   /** A Hunter's own creature (Deku's spirit wolves): it bites for their special's damage. */
@@ -724,7 +728,7 @@ export class Field {
       // the special's damage (their "radius" skills make them fiercer).
       const mult = dmg * (radius / sp.radius);
       for (const side of [-1, 1])
-        this.summons.push({ who: h.id, x: h.x + side * 18, y: h.y, life: 6, maxLife: 6, bite: 0, look: sp.summon.look, dash: 0, dashHit: false, own: { bites: 1.5, speed: sp.summon.look === 'wolf' ? 170 : 140, mult } });
+        this.summons.push({ who: h.id, type: sp.summon.type, x: h.x + side * 18, y: h.y, life: 6, maxLife: 6, bite: 0, look: sp.summon.look, dash: 0, dashHit: false, own: { bites: 1.5, speed: sp.summon.look === 'wolf' ? 170 : 140, mult } });
       this.events.push({ type: 'nova', x: h.x, y: h.y, r: 30, color: sp.summon.look === 'wolf' ? '#8fdc7a' : '#d8a878' });
     } else if (style.kind === 'potion') {
       const d = Math.hypot(target.x - h.x, target.y - h.y);
@@ -965,7 +969,7 @@ export class Field {
         if (!this.nearest(x, y, 2000)) return false;
         for (let i = 0; i < ef.count; i++) {
           const a = (i / ef.count) * Math.PI * 2 + this.game.rng();
-          this.summons.push({ who, x: x + Math.cos(a) * 22, y: y + Math.sin(a) * 22, life: ef.duration, maxLife: ef.duration, bite: 0, look: ef.look, dash: 0, dashHit: false, gear: { uid, base, damageType: ef.damageType, bites: ef.bites, speed: ef.speed } });
+          this.summons.push({ who, type: ef.type, x: x + Math.cos(a) * 22, y: y + Math.sin(a) * 22, life: ef.duration, maxLife: ef.duration, bite: 0, look: ef.look, dash: 0, dashHit: false, gear: { uid, base, damageType: ef.damageType, bites: ef.bites, speed: ef.speed } });
         }
         this.events.push({ type: 'nova', x, y, r: 30, color: '#d8a878' });
         return true;
@@ -995,8 +999,9 @@ export class Field {
   /** A tome's creature appears beside the Hunter holding it. */
   private summon(who: Shooter, ox: number, oy: number, aim: number, cls: WeaponClassDef): void {
     const sm = cls.summon!;
-    const look = this.weaponDef(who)?.summon?.look ?? 'wisp';
-    this.summons.push({ who, x: ox + Math.cos(aim) * 20, y: oy + Math.sin(aim) * 20, life: sm.duration, maxLife: sm.duration, bite: 0, look, dash: 0, dashHit: false });
+    const def = this.weaponDef(who);
+    const look = def?.summon?.look ?? 'wisp';
+    this.summons.push({ who, type: def ? tomeSummonType(def) : 'spirit', x: ox + Math.cos(aim) * 20, y: oy + Math.sin(aim) * 20, life: sm.duration, maxLife: sm.duration, bite: 0, look, dash: 0, dashHit: false });
     this.events.push({ type: 'nova', x: ox, y: oy, r: 30, color: '#c9a8ff' });
   }
 
@@ -1050,15 +1055,16 @@ export class Field {
         // The lunge lands: a big bite, and the lunge is spent.
         s.dashHit = true;
         s.dash = 0;
-        this.hitWith(s.who, e, dash.damage, s.x, s.y);
+        this.hitWith(s.who, e, dash.damage * this.game.summonMult(s.who, s.type), s.x, s.y);
       }
       if (d <= reach + 2) {
         s.bite += dt * sm.bites;
         while (s.bite >= 1 && e.hp > 0) {
           s.bite -= 1;
-          if (s.gear) this.abilityHit(s.who, e, s.gear.base, s.gear.damageType, false);
-          else if (s.own) this.hitWith(s.who, e, s.own.mult, s.x, s.y, undefined, undefined, true);
-          else this.hitWith(s.who, e, 1, s.x, s.y);
+          const m = this.game.summonMult(s.who, s.type);
+          if (s.gear) this.abilityHit(s.who, e, s.gear.base * m, s.gear.damageType, false);
+          else if (s.own) this.hitWith(s.who, e, s.own.mult * m, s.x, s.y, undefined, undefined, true);
+          else this.hitWith(s.who, e, m, s.x, s.y);
         }
       } else s.bite = Math.min(s.bite + dt * sm.bites, 1);
     }

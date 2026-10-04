@@ -1214,7 +1214,7 @@ export interface AttackStyle {
    * `radius` × (1 + their weapon's attack rate). `ticks` is how many times it hits (a puddle ticks), and
    * `crowd` how many monsters it typically catches, for the background model.
    */
-  special?: { cooldown: number; damage: number; radius: number; ticks: number; crowd: number; proc?: number; summon?: { look: 'wolf' | 'puppet' } };
+  special?: { cooldown: number; damage: number; radius: number; ticks: number; crowd: number; proc?: number; summon?: { look: 'wolf' | 'puppet'; type: SummonType } };
   /** Rough damage efficiency vs a crowd, used for background DPS (AoE > 1). */
   farm: number;
   /** Typical monsters hit per attack against a crowd (area, pierce, bounce), used to model kill rates. */
@@ -1245,6 +1245,8 @@ export interface HunterDef {
   drops?: number;
   /** Short description of what makes them special, shown on their card. */
   ability: string;
+  /** Their summons of this type hit this much harder (Deku's Beasts, Theon's Constructs), whatever summoned them. */
+  summonBonus?: { type: SummonType; mult: number };
   /** Their song: every other Hunter fighting in the same area attacks this much faster (Ba'al). */
   inspire?: number;
   /** Wherever they're stationed, every kill there pays this much more gold, and loot drops this much more often (Alias). */
@@ -1302,14 +1304,15 @@ export const HUNTERS: HunterDef[] = [
     style: { kind: 'nova', damageType: 'arcane', proc: 0.15, range: 120, rate: 0.6, damage: 1.2, radius: 115, farm: 1.4, crowd: 3, describe: 'Sound waves strike every enemy around him; his song speeds up the Hunters beside him.' },
   },
   {
-    id: 'druid', name: 'Deku', title: 'Druid', icon: '🌿', color: '#6abf5a', area: 'glade', recruitCost: 250_000, bane: { archetype: 'plant', mult: 3 },
+    id: 'druid', name: 'Deku', title: 'Druid', icon: '🌿', color: '#6abf5a', area: 'glade', recruitCost: 250_000, bane: { archetype: 'plant', mult: 3 }, summonBonus: { type: 'beast', mult: 1.5 },
     unlock: { event: 'guardian-glade', times: 2 },
     ascendedTitle: 'Archdruid',
     story: 'Deku tends the oldest trees of the Faerie Glade, and the Guardian keeps trampling his saplings. Beat it twice, and he\'ll lend you the spirits of the wild.',
-    ability: 'Flings thorns, and every 6s calls two spirit wolves to hunt. Deals triple damage to Plants.',
+    ability: 'Flings thorns, and every 6s calls two spirit wolves to hunt. Deals triple damage to Plants, and his Beast summons (wolves from any source) hit 50% harder. Uses ranged or magic weapons.',
+    slots: [{ kind: 'weapon', label: 'Weapon', accepts: ['weapon', 'magic'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
     style: {
       kind: 'druid', damageType: 'poison', proc: 0.25, range: 240, rate: 0.7, damage: 0.9, farm: 1, crowd: 1,
-      special: { cooldown: 6, damage: 0.7, radius: 1, ticks: 18, crowd: 1, summon: { look: 'wolf' } },
+      special: { cooldown: 6, damage: 0.7, radius: 1, ticks: 18, crowd: 1, summon: { look: 'wolf', type: 'beast' } },
       describe: 'Flings thorns. Every 6s calls two spirit wolves that hunt for 6s, biting for his damage: his weapon powers them.',
     },
   },
@@ -1345,16 +1348,16 @@ export const HUNTERS: HunterDef[] = [
       describe: 'Fires magic bolts. Every 4s he hurls a fireball that explodes: his weapon\'s damage powers the blast, its attack rate widens it.',
     },
   },  {
-    id: 'puppeteer', name: 'Theon', title: 'Puppeteer', icon: '🎎', color: '#c89a6a', area: 'crypt', recruitCost: 1_000_000_000_000,
+    id: 'puppeteer', name: 'Theon', title: 'Puppeteer', icon: '🎎', color: '#c89a6a', area: 'crypt', recruitCost: 1_000_000_000_000, summonBonus: { type: 'construct', mult: 1.5 },
     unlock: { event: 'guardian-crypt', times: 2 },
     ascendedTitle: 'Grand Puppeteer',
-    story: "Theon pulls the strings of the Forsaken Crypt's Possessed Puppets, or tries to: something in the dark keeps cutting them. Beat the Crypt's Guardian twice, and his puppets will dance for you.",
-    ability: 'Fights with magic or melee weapons, and every 6s calls two puppets that hunt across the field.',
+    story: "Theon pulls the strings of the Forsaken Crypt's Possessed Puppets, or tries to: something in the dark keeps cutting them. Beat the Crypt's Guardian twice, and her puppets will dance for you.",
+    ability: 'Fights with magic or melee weapons, and every 6s calls two puppets that hunt across the field. Her Construct summons (puppets from any source) hit 50% harder.',
     slots: [{ kind: 'magic', label: 'Weapon', accepts: ['magic', 'melee'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
     style: {
       kind: 'puppeteer', damageType: 'arcane', proc: 0.15, range: 200, rate: 0.75, damage: 0.9, farm: 1, crowd: 1,
-      special: { cooldown: 6, damage: 0.7, radius: 1, ticks: 18, crowd: 1, summon: { look: 'puppet' } },
-      describe: 'Casts magic bolts (or strikes up close with a melee weapon). Every 6s calls two puppets that hunt for 6s, biting for his damage: his weapon powers them.',
+      special: { cooldown: 6, damage: 0.7, radius: 1, ticks: 18, crowd: 1, summon: { look: 'puppet', type: 'construct' } },
+      describe: 'Casts magic bolts (or strikes up close with a melee weapon). Every 6s calls two puppets that hunt for 6s, biting for her damage: her weapon powers them.',
     },
   },
 
@@ -1412,6 +1415,7 @@ export function hunterPerk(h: HunterDef): string {
   if (h.bane) parts.push(`×${h.bane.mult} damage vs ${ARCHETYPES[h.bane.archetype].name}`);
   if (h.gold) parts.push(`+${Math.round((h.gold - 1) * 100)}% gold`);
   if (h.drops) parts.push(`+${Math.round((h.drops - 1) * 100)}% drops`);
+  if (h.summonBonus) parts.push(`×${h.summonBonus.mult} damage from ${SUMMON_TYPES[h.summonBonus.type].name} summons`);
   if (h.inspire) parts.push(`+${Math.round(h.inspire * 100)}% attack rate to Hunters beside him`);
   if (h.areaGold) parts.push(`+${Math.round(h.areaGold * 100)}% gold in his area`);
   if (h.areaLoot) parts.push(`×${1 + h.areaLoot} loot in his area`);
@@ -1477,6 +1481,16 @@ export interface SlotDef {
 export const slotAccepts = (slot: SlotDef, def: Pick<GearDef, 'kind' | 'armorType'>): boolean =>
   (slot.accepts ?? [slot.kind]).includes(def.kind) && (!slot.armorTypes || !def.armorType || slot.armorTypes.includes(def.armorType));
 
+// ---- Summons: every summoned creature has a type, which some Hunters are better at commanding ----
+export type SummonType = 'beast' | 'construct' | 'spirit' | 'undead' | 'elemental';
+export const SUMMON_TYPES: Record<SummonType, { name: string; icon: string }> = {
+  beast: { name: 'Beast', icon: '🐺' },
+  construct: { name: 'Construct', icon: '🪆' },
+  spirit: { name: 'Spirit', icon: '👻' },
+  undead: { name: 'Undead', icon: '💀' },
+  elemental: { name: 'Elemental', icon: '🌪️' },
+};
+
 // ---- Armor: four kinds, each trading attack speed, damage and shield charges differently ----
 export type ArmorType = 'light' | 'heavy' | 'robe' | 'shield';
 
@@ -1521,7 +1535,7 @@ export type GearEffect =
   | { kind: 'block'; base: number; damageType: DamageType; radius: number }
   | { kind: 'evade'; chance: number }
   | { kind: 'pulse'; base: number; damageType: DamageType; radius: number; cooldown: number }
-  | { kind: 'summon'; base: number; damageType: DamageType; look: 'puppet'; name: string; count: number; duration: number; cooldown: number; bites: number; speed: number }
+  | { kind: 'summon'; base: number; damageType: DamageType; look: 'puppet'; type: SummonType; name: string; count: number; duration: number; cooldown: number; bites: number; speed: number }
   | { kind: 'wave'; base: number; damageType: DamageType; radius: number; chance: number }
   | { kind: 'strike'; base: number; damageType: DamageType; targets: number; cooldown: number; range: number }
   | { kind: 'chill'; radius: number };
@@ -1671,6 +1685,8 @@ export interface GearDef {
    * cooldown shows as the item's icon on the battlefield.
    */
   summon?: { look: 'wisp' | 'wolf'; name: string; dash?: { cooldown: number; range: number; speed: number; damage: number } };
+  /** Tomes: the type of creature they summon (default: Spirit, or Beast for wolves). */
+  summonType?: SummonType;
   /** A line about the item's own ability, shown on its card. */
   ability?: string;
   /** Armor: which kind it is (sets its stat profile and penalty). */
@@ -1874,7 +1890,7 @@ export const GEAR: GearDef[] = [
   { id: 'faerieWand', name: 'Faerie Scepter', icon: '🧚', kind: 'magic', rarity: 'uncommon', weaponClass: 'scepter', tier: 2, damageType: 'arcane', proc: 0.15, stats: {}, recipe: { dust: 10, spore: 4 } },
   { id: 'bansheeBow', name: 'Banshee Bow', icon: '👻', kind: 'weapon', rarity: 'rare', weaponClass: 'longbow', tier: 4, damageType: 'decay', proc: 0.2, stats: {}, recipe: { wrap: 10, grave: 5 } },
   { id: 'knightGlaive', name: 'Bone Knight Glaive', icon: '🪓', kind: 'melee', rarity: 'rare', weaponClass: 'glaive', tier: 4, damageType: 'physical', stats: {}, recipe: { grave: 10, bone: 6 } },
-  { id: 'necroTome', name: 'Necronomicon', icon: '📕', kind: 'magic', rarity: 'rare', weaponClass: 'tome', tier: 4, damageType: 'decay', proc: 0.2, stats: {}, recipe: { wrap: 8, grave: 8 } },
+  { id: 'necroTome', name: 'Necronomicon', icon: '📕', kind: 'magic', rarity: 'rare', weaponClass: 'tome', summonType: 'undead', tier: 4, damageType: 'decay', proc: 0.2, stats: {}, recipe: { wrap: 8, grave: 8 } },
   { id: 'gloomPistol', name: 'Gloom Pistol', icon: '🔫', kind: 'weapon', rarity: 'rare', weaponClass: 'pistol', tier: 5, damageType: 'arcane', proc: 0.15, stats: {}, recipe: { gloom: 10, umbra: 5 } },
   { id: 'umbralDagger', name: 'Umbral Dagger', icon: '🗡️', kind: 'melee', rarity: 'rare', weaponClass: 'dagger', tier: 5, damageType: 'physical', proc: 0.3, stats: {}, recipe: { umbra: 8, gloom: 6 } },
   { id: 'umbralFocus', name: 'Umbral Focus', icon: '🌑', kind: 'magic', rarity: 'rare', weaponClass: 'focus', tier: 5, damageType: 'arcane', proc: 0.25, stats: {}, recipe: { umbra: 10, gloom: 5 } },
@@ -1887,7 +1903,7 @@ export const GEAR: GearDef[] = [
   { id: 'skyStaff', name: 'Sky Staff', icon: '🌤️', kind: 'magic', rarity: 'exotic', weaponClass: 'staff', tier: 9, damageType: 'lightning', proc: 0.2, stats: {}, recipe: { skystone: 10, plume: 4 } },
   { id: 'thunderRepeater', name: 'Thunder Repeater', icon: '⚡', kind: 'weapon', rarity: 'relic', weaponClass: 'repeater', tier: 10, damageType: 'lightning', proc: 0.2, stats: {}, recipe: { thunder: 10, feather: 5 } },
   { id: 'stormbreaker', name: 'Stormbreaker', icon: '🔨', kind: 'melee', rarity: 'relic', weaponClass: 'hammer', tier: 10, damageType: 'lightning', proc: 0.25, stats: {}, recipe: { thunder: 12, feather: 6 } },
-  { id: 'stormTome', name: 'Tome of Storms', icon: '📘', kind: 'magic', rarity: 'relic', weaponClass: 'tome', tier: 10, damageType: 'lightning', proc: 0.2, stats: {}, recipe: { feather: 10, thunder: 6 } },
+  { id: 'stormTome', name: 'Tome of Storms', icon: '📘', kind: 'magic', rarity: 'relic', weaponClass: 'tome', summonType: 'elemental', tier: 10, damageType: 'lightning', proc: 0.2, stats: {}, recipe: { feather: 10, thunder: 6 } },
   { id: 'meteorRifle', name: 'Meteor Rifle', icon: '☄️', kind: 'weapon', rarity: 'artifact', weaponClass: 'rifle', tier: 11, damageType: 'fire', proc: 0.3, stats: {}, recipe: { meteor: 10, stardust: 5 } },
   { id: 'starsteelSword', name: 'Starsteel Sword', icon: '⚔️', kind: 'melee', rarity: 'artifact', weaponClass: 'sword', tier: 11, damageType: 'radiant', proc: 0.25, stats: {}, recipe: { meteor: 10, stardust: 6 } },
   { id: 'starScepter', name: 'Star Scepter', icon: '🌟', kind: 'magic', rarity: 'artifact', weaponClass: 'scepter', tier: 11, damageType: 'radiant', proc: 0.25, stats: {}, recipe: { stardust: 10, meteor: 4 } },
@@ -1919,7 +1935,7 @@ export const GEAR: GearDef[] = [
   { id: 'hawkeyeLens', name: 'Hawkeye Lens', icon: '🔭', kind: 'accessory', rarity: 'rare', stats: { range: 20 }, recipe: { chitin: 8, wing: 6 } },
   { id: 'soulRing', name: 'Soul Ring', icon: '💍', kind: 'accessory', rarity: 'relic', stats: { damage: 0.25, crit: 0.02 }, recipe: { soul: 6, ecto: 6 } },
   // Accessories with abilities of their own (found on nothing else)
-  { id: 'puppetDoll', name: "Puppeteer's Doll", icon: '🪆', kind: 'accessory', rarity: 'rare', tier: 4, stats: {}, recipe: { string: 10, wrap: 5 }, effect: { kind: 'summon', base: 8, damageType: 'physical', look: 'puppet', name: 'puppet', count: 2, duration: 6, cooldown: 8, bites: 1.5, speed: 140 } },
+  { id: 'puppetDoll', name: "Puppeteer's Doll", icon: '🪆', kind: 'accessory', rarity: 'rare', tier: 4, stats: {}, recipe: { string: 10, wrap: 5 }, effect: { kind: 'summon', base: 8, damageType: 'physical', look: 'puppet', type: 'construct', name: 'puppet', count: 2, duration: 6, cooldown: 8, bites: 1.5, speed: 140 } },
   { id: 'flameBrand', name: 'Flame Brand', icon: '🔥', kind: 'accessory', rarity: 'veryRare', tier: 6, stats: {}, recipe: { ember: 10, chitin: 6 }, effect: { kind: 'wave', base: 45, damageType: 'fire', radius: 100, chance: 0.3 } },
   { id: 'frostCharm', name: 'Frostbite Charm', icon: '❄️', kind: 'accessory', rarity: 'legendary', tier: 8, stats: {}, recipe: { frost: 10, ecto: 6 }, effect: { kind: 'chill', radius: 110 } },
   { id: 'thunderTotem', name: 'Thunder Totem', icon: '🗿', kind: 'accessory', rarity: 'relic', tier: 10, stats: {}, recipe: { thunder: 10, feather: 6 }, effect: { kind: 'strike', base: 230, damageType: 'lightning', targets: 3, cooldown: 3, range: 320 } },
@@ -1956,6 +1972,9 @@ export function describeGear(stats: Partial<Record<GearStat, number>>): string {
     .join(', ');
 }
 
+/** The type of creature a tome summons. */
+export const tomeSummonType = (def: GearDef): SummonType => def.summonType ?? (def.summon?.look === 'wolf' ? 'beast' : 'spirit');
+
 /** A gear effect in words, with its damage at a star count (before the wearer's bonuses). */
 export function describeEffect(e: GearEffect, stars: number): string {
   const dmg = 'base' in e ? `${fmtNum(effectBase(e, stars))} ${DAMAGE_TYPES[e.damageType].name}` : '';
@@ -1969,7 +1988,7 @@ export function describeEffect(e: GearEffect, stars: number): string {
     case 'pulse':
       return `Pulse: every ${e.cooldown}s, a burst of ${dmg} damage around you.`;
     case 'summon':
-      return `Summons ${e.count} ${e.name}s every ${e.cooldown}s; they hunt for ${e.duration}s, biting for ${dmg} damage.`;
+      return `Summons ${e.count} ${e.name}s (${SUMMON_TYPES[e.type].icon} ${SUMMON_TYPES[e.type].name}) every ${e.cooldown}s; they hunt for ${e.duration}s, biting for ${dmg} damage.`;
     case 'wave':
       return `Melee attacks have a ${Math.round(e.chance * 100)}% chance to send out a wave of ${dmg} damage.`;
     case 'strike':

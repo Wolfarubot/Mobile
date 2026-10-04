@@ -28,6 +28,8 @@ import {
   describeGear,
   describeEffect,
   ARMOR_TYPES,
+  SUMMON_TYPES,
+  tomeSummonType,
   ENEMIES,
   enemyUnlockCost,
   GEAR,
@@ -3161,6 +3163,7 @@ const gearKindName = (gd: GearDef): string => (gd.weaponClass ? WEAPON_CLASSES[g
 /** How a weapon attacks (for your Hunter), what an armor kind is good at, and any special effect (at `stars`). */
 const weaponLine = (gd: GearDef, stars = 1): string =>
   (gd.weaponClass ? `<p class="weapon-line">⚔️ ${WEAPON_CLASSES[gd.weaponClass].describe}</p>` : '') +
+  (gd.weaponClass === 'tome' ? `<p class="weapon-line">${SUMMON_TYPES[tomeSummonType(gd)].icon} Summon type: <b>${SUMMON_TYPES[tomeSummonType(gd)].name}</b></p>` : '') +
   (gd.armorType ? `<p class="weapon-line">${ARMOR_TYPES[gd.armorType].icon} ${ARMOR_TYPES[gd.armorType].desc}</p>` : '') +
   (gd.ability ? `<p class="weapon-line">✨ ${gd.ability}</p>` : '') +
   (gd.effect ? `<p class="weapon-line gear-effect">✨ ${describeEffect(gd.effect, stars)}${'base' in gd.effect ? ' <small>(own damage, raised by your bonuses, not your weapon)</small>' : ''}</p>` : '');

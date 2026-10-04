@@ -18,6 +18,7 @@ import {
   rollLoot,
   gearTier,
   lootChance,
+  tomeSummonType,
   ARMOR_TYPES,
   effectBase,
   MAX_STARS,
@@ -1548,6 +1549,40 @@ describe('Equipment', () => {
     old.hunters.prospector = { recruited: true, trains: 40, skills: {}, station: null };
     delete old.hunters.puppeteer;
     expect(deserialize(JSON.stringify(old))!.hunters.puppeteer).toMatchObject({ recruited: true, trains: 40 });
+  });
+
+  it('summon types: Deku hits harder with Beast summons and Theon with Constructs, whatever summoned them', () => {
+    const g = new Game(newGame(0), noCrit);
+    expect(g.summonMult('druid', 'beast')).toBe(1.5);
+    expect(g.summonMult('druid', 'construct')).toBe(1);
+    expect(g.summonMult('puppeteer', 'construct')).toBe(1.5);
+    expect(g.summonMult('main', 'beast')).toBe(1);
+    expect(tomeSummonType(gearDef('wolfTome'))).toBe('beast');
+    expect(tomeSummonType(gearDef('wispTome'))).toBe('spirit');
+    expect(tomeSummonType(gearDef('necroTome'))).toBe('undead');
+    expect((gearDef('puppetDoll').effect as { type: string }).type).toBe('construct');
+    // Deku with the Wolf Spirit tome: his tome wolves bite 1.5× what the same tome's wolves bite for Reginald.
+    g.state.gold = 1e30;
+    for (const m of Object.keys(g.state.materials) as Array<keyof typeof g.state.materials>) g.state.materials[m] = 1e6;
+    const bite = (who: 'druid' | 'puppeteer', tome: 'wolfTome' | 'wispTome') => {
+      const f = new Field(g);
+      f.setView(390, 420);
+      const e = enemy({ id: 1, x: 100, y: 0, hp: 1e12, maxHp: 1e12, type: 'greenSlime' });
+      f.enemies.push(e);
+      g.station(who, g.state.area);
+      (f as unknown as { syncHelpers: () => void }).syncHelpers();
+      f.summons.push({ who, type: tomeSummonType(gearDef(tome)), x: 100, y: 0, life: 5, maxLife: 5, bite: 0.99, look: 'wolf', dash: 0, dashHit: false });
+      (f as unknown as { runSummons: (dt: number) => void }).runSummons(0.02);
+      return 1e12 - e.hp;
+    };
+    for (const id of ['druid', 'puppeteer'] as const) {
+      g.state.hunters[id].recruited = true;
+      g.equip(id, 0, g.craftGear(id === 'druid' ? 'wolfTome' : 'wispTome')!.uid);
+    }
+    // Same Hunter, same shot damage: Beast bites for Deku are ×1.5 of what a Spirit would do.
+    g.equip('druid', 0, g.craftGear('wispTome')!.uid);
+    const spirit = bite('druid', 'wispTome');
+    expect(bite('druid', 'wolfTome') / spirit).toBeCloseTo(1.5);
   });
 
   it('lightning arcs to a creature in its radius, striking every creature the bolt passes through', () => {

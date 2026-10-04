@@ -69,6 +69,7 @@ import {
   gearTotals,
   type GearDef,
   type GearEffect,
+  type SummonType,
   GUARDIAN_GOLD_MULT,
   GUARD_RECHARGE,
   GUARDIAN_TIME,
@@ -277,6 +278,12 @@ export class Game {
    */
   abilityMult(who: Shooter, archetype?: Archetype): number {
     return this.shotDamage(who, archetype) / Math.max(1e-9, this.weaponHitOf(who));
+  }
+
+  /** Damage multiplier for a Hunter's summons of a type (Deku's Beasts, Theon's Constructs). */
+  summonMult(who: Shooter, type: SummonType): number {
+    const b = who === 'main' ? undefined : hunterDef(who).summonBonus;
+    return b && b.type === type ? b.mult : 1;
   }
 
   /** The pieces a Hunter wears that have a special effect, with their stars. */
