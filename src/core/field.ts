@@ -645,6 +645,13 @@ export class Field {
         case 'potion':
         case 'fireball':
         case 'druid':
+        case 'puppeteer':
+          // Theon with a melee weapon strikes up close instead.
+          if (style.kind === 'puppeteer' && this.isMelee(h.id)) {
+            this.strikeLine(h.id, h.x, h.y, a, Math.min(range, 90), 14, Infinity, 1, '#f0d8b0', 6, cls?.knock ?? 0);
+            this.meleeWave(h.id, h.x, h.y);
+            break;
+          }
           // Between specials, spellcasters fling magic bolts.
           this.shoot(h.id, 'spark', h.x, h.y, a, 520, range, { spread: true });
           break;
@@ -712,12 +719,13 @@ export class Field {
     const a = Math.atan2(target.y - h.y, target.x - h.x);
     const radius = g.specialRadius(h.id);
     const dmg = g.specialDamageMult(h.id);
-    if (style.kind === 'druid') {
-      // Two spirit wolves: each hunts for 6s, biting 1.5 times a second for his special's damage (Pack Bond makes them fiercer).
+    if (sp.summon) {
+      // Two creatures (Deku's spirit wolves, Theon's puppets): each hunts for 6s, biting 1.5 times a second for
+      // the special's damage (their "radius" skills make them fiercer).
       const mult = dmg * (radius / sp.radius);
       for (const side of [-1, 1])
-        this.summons.push({ who: h.id, x: h.x + side * 18, y: h.y, life: 6, maxLife: 6, bite: 0, look: 'wolf', dash: 0, dashHit: false, own: { bites: 1.5, speed: 170, mult } });
-      this.events.push({ type: 'nova', x: h.x, y: h.y, r: 30, color: '#8fdc7a' });
+        this.summons.push({ who: h.id, x: h.x + side * 18, y: h.y, life: 6, maxLife: 6, bite: 0, look: sp.summon.look, dash: 0, dashHit: false, own: { bites: 1.5, speed: sp.summon.look === 'wolf' ? 170 : 140, mult } });
+      this.events.push({ type: 'nova', x: h.x, y: h.y, r: 30, color: sp.summon.look === 'wolf' ? '#8fdc7a' : '#d8a878' });
     } else if (style.kind === 'potion') {
       const d = Math.hypot(target.x - h.x, target.y - h.y);
       this.shoot(h.id, 'potion', h.x, h.y, a, 300, d, { radius, dmg, tx: target.x, ty: target.y, special: true });

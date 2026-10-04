@@ -186,7 +186,7 @@ export interface GameState {
   };
 }
 
-export const SAVE_VERSION = 16;
+export const SAVE_VERSION = 17;
 
 const zeroes = <K extends string>(ids: { id: K }[]): Record<K, number> =>
   Object.fromEntries(ids.map((x) => [x.id, 0])) as Record<K, number>;
@@ -322,18 +322,14 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
   }
   if (!data || typeof data !== 'object' || typeof data.gold !== 'number') return null;
   // v15 -> v16: Alric the Gravewarden became Alias the Thief; he keeps Alric's place (recruited, training, gear, kills).
-  for (const key of ['hunters', 'equipment']) {
-    const m = data[key] as Record<string, unknown> | undefined;
-    if (m && typeof m === 'object' && 'gravewarden' in m && !('thief' in m)) {
-      m.thief = m.gravewarden;
-      delete m.gravewarden;
-    }
-  }
+  // v16 -> v17: Gus the Prospector became Theon the Puppeteer, the same way.
   const hk = (data.stats as { hunterKills?: Record<string, unknown> } | undefined)?.hunterKills;
-  if (hk && typeof hk === 'object' && 'gravewarden' in hk) {
-    hk.thief = hk.gravewarden;
-    delete hk.gravewarden;
-  }
+  for (const [from, to] of [['gravewarden', 'thief'], ['prospector', 'puppeteer']])
+    for (const m of [data.hunters, data.equipment, hk] as Array<Record<string, unknown> | undefined>)
+      if (m && typeof m === 'object' && from in m && !(to in m)) {
+        m[to] = m[from];
+        delete m[from];
+      }
 
   const base = newGame(now);
   const stats = { ...base.stats, ...((data.stats as object) ?? {}) };

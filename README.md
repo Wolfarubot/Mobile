@@ -31,7 +31,7 @@ Hunters become available through their home area's events, then cost gold to rec
 | Deku the Druid 🌿 | Beat the Faerie Glade Guardian twice | Thorns (Poison), and every 6s two spirit wolves that hunt for 6s | ×3 vs Plants |
 | Alias the Thief 🦹 | Beat the Old Graveyard Guardian | Throws knives fast at short range | Wherever he's stationed (with you or away), every kill pays **+30% gold** and **loot** drops twice as often |
 | Lance the Paladin 🛡️ | Beat the Old Graveyard Guardian 2 times | Short lance thrusts through a line | Skill tree: Zone of Protection (3-hit recharging shield), Rallying Oath (every other Hunter gets a 1-hit shield) |
-| Gus the Prospector 💰 | Beat the Old Graveyard Guardian 3 times | Shotgun: 5 pellets, close range | +75% gold |
+| Theon the Puppeteer 🎎 | Beat the Old Graveyard Guardian 3 times | Magic bolts, or strikes up close with a melee weapon (his slot takes either); every 6s two puppets hunt for 6s | — |
 | Glimmer the Wizard 🧙 | Beat the Forsaken Crypt Guardian | Magic bolts; every 4s a fireball that explodes for area damage (weapon damage powers the blast, weapon attack rate widens it) | |
 | Wilhelm the Sniper 🎯 | Beat the Shadowy Depths Guardian | Long-range piercing shots; akimbo pistols when enemies get close | Separate long-range and short-range weapon slots |
 | Celeste the Psion 🔮 | Beat the Shadowy Depths Guardian 2 times | Long psychic beams (Arcane) that pierce every monster in a line | ×3 vs Dragons |

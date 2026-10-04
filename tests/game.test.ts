@@ -465,12 +465,13 @@ describe('Hunters', () => {
     expect(weak.killsTotal).toBeLessThan(weakGame.roster('graveyard')[0].spawnRate * 0.1);
   });
 
-  it('gold and drop perks boost their own kills', () => {
+  it('gold perks boost their own kills (Alias\'s Sticky Fingers)', () => {
     const g = rich();
-    g.state.areas.graveyard.unlocked = true;
-    g.recruit('prospector');
+    g.state.hunters.thief.recruited = true;
     const plain = g.registerKill('greenSlime', false, 'main').gold;
-    expect(g.registerKill('greenSlime', false, 'prospector').gold).toBeCloseTo(plain * 1.75);
+    g.state.hunters.thief.trains = 50;
+    expect(g.learn('thief', 'root')).toBe(true);
+    expect(g.registerKill('greenSlime', false, 'thief').gold).toBeCloseTo(plain * 1.1);
   });
 
   it("Lance's shield is his Zone of Protection node; his Rallying Oath gives every other Hunter a hit", () => {
@@ -1522,6 +1523,31 @@ describe('Equipment', () => {
     const back = deserialize(JSON.stringify(old))!;
     expect(back.hunters.thief).toMatchObject({ recruited: true, trains: 77, station: 'forest' });
     expect(back.stats.hunterKills.thief).toBe(12);
+  });
+
+  it('Theon the Puppeteer: magic or melee weapons, and puppets every 6s; old saves turn Gus into Theon', () => {
+    const g = new Game(newGame(0), noCrit);
+    g.state.gold = 1e30;
+    for (const m of Object.keys(g.state.materials) as Array<keyof typeof g.state.materials>) g.state.materials[m] = 1e6;
+    g.state.hunters.puppeteer.recruited = true;
+    expect(g.equip('puppeteer', 0, g.craftGear('apprenticeWand')!.uid)).toBe(true);
+    expect(g.equip('puppeteer', 0, g.craftGear('goblinSword')!.uid)).toBe(true);
+    expect(g.equip('puppeteer', 0, g.craftGear('huntingBow')!.uid)).toBe(false); // no ranged weapons
+    expect(g.station('puppeteer', 'forest')).toBe(true);
+    const f = new Field(g);
+    f.setView(390, 420);
+    f.enemies.push(enemy({ id: 1, x: 120, y: 0, hp: 1e12, maxHp: 1e12 }));
+    for (let t = 0; t < 3; t += 0.01) {
+      f.update(0.01);
+      f.drainEvents();
+    }
+    expect(f.summons.filter((s) => s.who === 'puppeteer' && s.own && s.look === 'puppet')).toHaveLength(2);
+    expect(f.enemies[0].hp).toBeLessThan(1e12);
+    const old = JSON.parse(serialize(newGame(0)));
+    old.version = 16;
+    old.hunters.prospector = { recruited: true, trains: 40, skills: {}, station: null };
+    delete old.hunters.puppeteer;
+    expect(deserialize(JSON.stringify(old))!.hunters.puppeteer).toMatchObject({ recruited: true, trains: 40 });
   });
 
   it('lightning arcs to a creature in its radius, striking every creature the bolt passes through', () => {

@@ -350,7 +350,7 @@ export const ASCENDED_TREES: Record<HunterId, SkillNode[]> = {
   glimmer: ascendedTree({ name: 'Starfire', icon: '☄️', desc: '+100% damage and explosions 30% wider.', maxRank: 1, effect: { damage: 1, radius: 0.3 } }),
   thief: ascendedTree({ name: 'Grand Heist', icon: '💎', desc: '+100% damage and +50% gold from his kills.', maxRank: 1, effect: { damage: 1, gold: 0.5 } }),
   lance: ascendedTree({ name: 'Aegis', icon: '🛡️', desc: '+100% damage and 2 more shield charges.', maxRank: 1, effect: { damage: 1, guard: 2 } }),
-  prospector: ascendedTree({ name: 'Midas Touch', icon: '👑', desc: '+100% damage and +50% gold from their kills.', maxRank: 1, effect: { damage: 1, gold: 0.5 } }),
+  puppeteer: ascendedTree({ name: 'Theater of Puppets', icon: '🎭', desc: '+100% damage and puppets 30% fiercer.', maxRank: 1, effect: { damage: 1, radius: 0.3 } }),
   demonbane: ascendedTree({ name: 'Hellsbane', icon: '🔥', desc: '+100% damage and +1× extra damage to Demons.', maxRank: 1, effect: { damage: 1, bane: 1 } }),
   wilhelm: ascendedTree({ name: 'One Shot', icon: '🎯', desc: '+100% damage and +10% crit chance.', maxRank: 1, effect: { damage: 1, crit: 0.1 } }),
   celeste: ascendedTree({ name: 'Omniscience', icon: '🧠', desc: '+100% damage and +10% crit chance.', maxRank: 1, effect: { damage: 1, crit: 0.1 } }),
@@ -436,14 +436,14 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
     ],
     { name: 'Holy Lance', icon: '⚜️', desc: '+30% damage and 1 more shield charge.', maxRank: 1, cost: 4, effect: { damage: 0.3, guard: 1 } },
   ),
-  prospector: skillTree(
-    { name: 'Gold Rush', icon: '💰', desc: '+25% gold from his kills.', maxRank: 1, effect: { gold: 0.25 } },
+  puppeteer: skillTree(
+    { name: 'Strings Attached', icon: '🧵', desc: 'Puppets bite 10% harder.', maxRank: 1, effect: { radius: 0.1 } },
     [
-      { name: 'Buckshot', icon: '💥', desc: '+15% damage per rank.', maxRank: 3, effect: { damage: 0.15 } },
-      { name: 'Prospecting', icon: '⛏️', desc: '+25% gold from his kills per rank.', maxRank: 3, effect: { gold: 0.25 } },
-      { name: 'Lucky Strike', icon: '🎲', desc: '+3% crit chance per rank.', maxRank: 3, effect: { crit: 0.03 } },
+      { name: 'Marionette Master', icon: '🪆', desc: 'Puppets bite 10% harder per rank.', maxRank: 3, effect: { radius: 0.1 } },
+      { name: 'Twin Threads', icon: '🪡', desc: '+10% damage per rank.', maxRank: 3, effect: { damage: 0.1 } },
+      { name: 'Cut the Strings', icon: '✂️', desc: 'Stuns wear off 8% faster per rank.', maxRank: 2, effect: { recovery: 1 } },
     ],
-    { name: 'Motherlode', icon: '🏆', desc: '+50% gold and +15% damage.', maxRank: 1, cost: 4, effect: { gold: 0.5, damage: 0.15 } },
+    { name: 'Grand Performance', icon: '🎭', desc: '+25% damage and puppets 20% fiercer.', maxRank: 1, cost: 5, effect: { damage: 0.25, radius: 0.2 } },
   ),
   demonbane: skillTree(
     { name: 'Hexed Blades', icon: '🗡️', desc: '+5% crit chance.', maxRank: 1, effect: { crit: 0.05 } },
@@ -1107,7 +1107,7 @@ export type HunterId =
   | 'druid'
   | 'thief'
   | 'lance'
-  | 'prospector'
+  | 'puppeteer'
   | 'demonbane'
   | 'wilhelm'
   | 'celeste'
@@ -1177,6 +1177,7 @@ export type AttackKind =
   | 'potion' // magic bolts, plus a lobbed flask that leaves a damaging puddle (special)
   | 'fireball' // magic bolts, plus a fireball that explodes for area damage (special)
   | 'druid' // thorn bolts, plus spirit wolves called to hunt (special)
+  | 'puppeteer' // magic bolts (or a strike with a melee weapon), plus puppets that hunt (special)
   | 'arrow' // pierces through a line of enemies
   | 'nova' // holy pulse around themselves
   | 'thrust' // short lance strike through everything in a line
@@ -1213,7 +1214,7 @@ export interface AttackStyle {
    * `radius` × (1 + their weapon's attack rate). `ticks` is how many times it hits (a puddle ticks), and
    * `crowd` how many monsters it typically catches, for the background model.
    */
-  special?: { cooldown: number; damage: number; radius: number; ticks: number; crowd: number; proc?: number };
+  special?: { cooldown: number; damage: number; radius: number; ticks: number; crowd: number; proc?: number; summon?: { look: 'wolf' | 'puppet' } };
   /** Rough damage efficiency vs a crowd, used for background DPS (AoE > 1). */
   farm: number;
   /** Typical monsters hit per attack against a crowd (area, pierce, bounce), used to model kill rates. */
@@ -1308,7 +1309,7 @@ export const HUNTERS: HunterDef[] = [
     ability: 'Flings thorns, and every 6s calls two spirit wolves to hunt. Deals triple damage to Plants.',
     style: {
       kind: 'druid', damageType: 'poison', proc: 0.25, range: 240, rate: 0.7, damage: 0.9, farm: 1, crowd: 1,
-      special: { cooldown: 6, damage: 0.7, radius: 1, ticks: 18, crowd: 1 },
+      special: { cooldown: 6, damage: 0.7, radius: 1, ticks: 18, crowd: 1, summon: { look: 'wolf' } },
       describe: 'Flings thorns. Every 6s calls two spirit wolves that hunt for 6s, biting for his damage: his weapon powers them.',
     },
   },
@@ -1332,12 +1333,17 @@ export const HUNTERS: HunterDef[] = [
     style: { kind: 'thrust', damageType: 'radiant', proc: 0.1, range: 90, rate: 0.9, damage: 1.8, farm: 1.3, crowd: 2, describe: 'Holds the line with lance thrusts that pierce everything in reach.' },
   },
   {
-    id: 'prospector', name: 'Gus', title: 'Prospector', icon: '💰', color: '#ffd34d', area: 'graveyard', recruitCost: 400_000_000, gold: 1.75,
+    id: 'puppeteer', name: 'Theon', title: 'Puppeteer', icon: '🎎', color: '#c89a6a', area: 'graveyard', recruitCost: 400_000_000,
     unlock: { event: 'guardian-graveyard', times: 3 },
-    ascendedTitle: 'Tycoon',
-    story: 'Gus has been digging for treasure under the Old Graveyard, but the dead keep chasing him off. Beat its Guardian three times, and he\'ll share his luck.',
-    ability: 'Blasts five pellets at close range. Earns +75% gold from his kills.',
-    style: { kind: 'shotgun', damageType: 'physical', range: 150, rate: 0.7, damage: 0.45, pellets: 5, farm: 1.2, crowd: 1, describe: 'A trusty shotgun: five pellets per blast at close range.' },
+    ascendedTitle: 'Grand Puppeteer',
+    story: "Theon carves puppets from the Old Graveyard's coffin wood, and the restless dead keep stealing his strings. Beat its Guardian three times, and his puppets will dance for you.",
+    ability: 'Fights with magic or melee weapons, and every 6s calls two puppets that hunt across the field.',
+    slots: [{ kind: 'magic', label: 'Weapon', accepts: ['magic', 'melee'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
+    style: {
+      kind: 'puppeteer', damageType: 'arcane', proc: 0.15, range: 200, rate: 0.75, damage: 0.9, farm: 1, crowd: 1,
+      special: { cooldown: 6, damage: 0.7, radius: 1, ticks: 18, crowd: 1, summon: { look: 'puppet' } },
+      describe: 'Casts magic bolts (or strikes up close with a melee weapon). Every 6s calls two puppets that hunt for 6s, biting for his damage: his weapon powers them.',
+    },
   },
   {
     id: 'glimmer', name: 'Glimmer', title: 'Wizard', icon: '🧙', color: '#b07cff', area: 'crypt', recruitCost: 300_000_000_000,
