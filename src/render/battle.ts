@@ -1,4 +1,4 @@
-import { areaDef, DAMAGE_TYPES, STATUS, enemyDef, eventDef, FIELD_ZOOM, GUARDIAN_TIME, hunterDef, materialDef, type EnemyId, type EnemyShape } from '../core/balance';
+import { areaDef, DAMAGE_TYPES, STATUS, enemyDef, eventDef, fieldZoom, GUARDIAN_TIME, hunterDef, materialDef, type EnemyId, type EnemyShape } from '../core/balance';
 import { PLAYER_RADIUS, SUMMON_RADIUS, type Summon, type Bullet, type Enemy, type Field, type Helper } from '../core/field';
 import { fmt } from '../core/format';
 import type { Game, Shooter } from '../core/game';
@@ -43,7 +43,8 @@ interface Beam {
   kinks?: number[];
 }
 
-const Z = FIELD_ZOOM;
+/** The battlefield's zoom: set each frame from the area you're in (later areas are bigger, so zoomed out more). */
+let Z = 0.6;
 
 const OUTLINE = '#120c1c';
 const SPRITE_SCALE = 2.4;
@@ -233,6 +234,8 @@ export class BattleView {
     const { w, h } = fitCanvas(this.canvas, this.g, 1);
     this.w = w;
     this.h = h;
+    Z = fieldZoom(this.game.area);
+    this.fx.textScale = 1 / Z;
     this.field.setView(w, h);
     const g = this.g;
     const [ground, speck] = areaDef(this.game.area).ground;

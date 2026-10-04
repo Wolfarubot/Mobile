@@ -9,13 +9,14 @@ import {
   BULLET_SPEED,
   CRIT_MULT,
   enemyDef,
-  FIELD_ZOOM,
+  fieldZoom,
   FLEE_SPEED_MULT,
   GUARD_RECHARGE,
   hunterDef,
   gearDef,
   type GearDef,
   MAX_ENEMIES,
+  areaScale,
   MULTISHOT_SPREAD,
   STUN_IMMUNITY,
   type EnemyId,
@@ -215,7 +216,7 @@ export type FieldEvent =
 
 /**
  * The survivor-style battlefield in world coordinates centered on your Hunter.
- * The view is zoomed out (FIELD_ZOOM), so enemies spawn far off and walk in.
+ * The view is zoomed out (fieldZoom: more in later areas, which are bigger), so enemies spawn far off and walk in.
  * They head for the nearest Hunter; one that reaches a Hunter stuns them and flees,
  * escaping with its loot if it makes it off-screen. Stationed Hunters fight with their own style.
  * No rendering here: BattleView draws it, and tests run it headless.
@@ -263,10 +264,11 @@ export class Field {
     });
   }
 
-  /** Screen size in CSS pixels; the visible world is larger by 1 / FIELD_ZOOM. */
+  /** Screen size in CSS pixels; the visible world is larger by 1 / the area's zoom. */
   setView(w: number, h: number): void {
-    this.halfW = w / 2 / FIELD_ZOOM;
-    this.halfH = h / 2 / FIELD_ZOOM;
+    const z = fieldZoom(this.game.area);
+    this.halfW = w / 2 / z;
+    this.halfH = h / 2 / z;
   }
 
   get stunned(): boolean {
@@ -377,7 +379,8 @@ export class Field {
     while (this.spawnAcc >= this.nextPack.size) {
       this.spawnAcc -= this.nextPack.size;
       const at = this.edgePoint();
-      for (let i = 0; i < this.nextPack.size && this.enemies.length < MAX_ENEMIES; i++) this.spawn(this.nextPack.type, false, at);
+      const cap = MAX_ENEMIES * areaScale(g.area);
+      for (let i = 0; i < this.nextPack.size && this.enemies.length < cap; i++) this.spawn(this.nextPack.type, false, at);
       this.nextPack = this.rollPack();
     }
 

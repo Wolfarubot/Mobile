@@ -2,6 +2,7 @@
 
 // ---- Player & combat ----
 export const BASE_FIRE_RATE = 1.6; // volleys per second
+/** Monsters on the Whispering Forest's battlefield at most; bigger areas hold more (× areaScale). */
 export const MAX_ENEMIES = 160;
 export const BULLET_SPEED = 520;
 export const MULTISHOT_SPREAD = 0.2; // radians between projectiles in a volley
@@ -1133,6 +1134,15 @@ export interface HunterDef {
 export const MAIN_RANGE = 250;
 /** How far the battlefield is zoomed out: 0.6 = everything drawn at 60% size, so you see more of the field. */
 export const FIELD_ZOOM = 0.6;
+/** Each area's battlefield is this much bigger than the Whispering Forest's, per area after it. */
+export const AREA_GROWTH = 0.1;
+/**
+ * How big an area's battlefield is next to the Whispering Forest's: 10% more per area (the Faerie Glade 110%,
+ * the Meteor Fields 200%). The view zooms out to fit it, so Hunters and monsters are drawn smaller.
+ */
+export const areaScale = (area: AreaId): number => 1 + AREA_GROWTH * Math.max(0, AREAS.findIndex((a) => a.id === area));
+/** The battlefield's zoom in an area. */
+export const fieldZoom = (area: AreaId): number => FIELD_ZOOM / areaScale(area);
 /** Seconds for a Paladin-style guard to regain one charge. */
 export const GUARD_RECHARGE = 4;
 
