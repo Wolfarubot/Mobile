@@ -697,7 +697,7 @@ describe('Shops', () => {
     expect(g.learn('main', 'power2')).toBe(false); // Tap Power hangs from Attack Power
     for (const k of ['power', 'speed', 'recovery', 'power2', 'recovery2']) expect(g.learn('main', k)).toBe(true);
     expect(g.skillPoints('main')).toBe(pts - 6);
-    expect(g.damage).toBeCloseTo(dmg * 1.1);
+    expect(g.damage).toBeCloseTo(dmg * 1.2);
     expect(g.fireRate).toBeCloseTo(rate * 1.05);
     expect(g.stunTime()).toBeLessThan(stun);
     expect(g.tapDamage).toBeGreaterThan(tap * 1.1);
