@@ -3720,3 +3720,19 @@ body.left-handed .hd-float-close {
 .filter-bar .as-btn {
   margin-left: auto;
 }
+/* Auto Salvage's Confirm: a big label, and what it will salvage in a box underneath. */
+.as-now {
+  padding: 10px 12px 12px !important;
+}
+.as-now .as-confirm {
+  display: block;
+  font-size: 22px;
+  line-height: 1.1;
+  margin-bottom: 6px;
+}
+.as-now small {
+  display: block;
+  border: 2px solid currentColor;
+  padding: 4px 8px;
+  font-size: 12px;
+}
