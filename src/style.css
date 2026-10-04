@@ -2888,33 +2888,43 @@ button.mat:not(:disabled):active {
   display: flex;
   gap: 6px;
   pointer-events: none;
-  --cd-size: 34px;
+  --cd-size: var(--hud-row);
+}
+/* Rows (top/bottom edge) or columns (left/right edge) of icons; a full one spills into the next, further in. */
+.cd-line-wrap {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
 }
 .cd-top,
 .cd-bottom {
   left: 8px;
   right: 8px;
-  flex-direction: row;
-  justify-content: center;
 }
 .cd-top {
   top: 6px;
+  flex-direction: column;
 }
 .cd-bottom {
   bottom: 6px;
+  flex-direction: column-reverse;
 }
 .cd-left,
 .cd-right {
-  top: 8px;
-  bottom: 8px;
-  flex-direction: column;
-  justify-content: center;
+  top: 6px;
+  bottom: 6px;
 }
 .cd-left {
-  left: 6px;
+  left: 8px;
+  flex-direction: row;
 }
 .cd-right {
-  right: 6px;
+  right: 8px;
+  flex-direction: row-reverse;
+}
+.cd-left .cd-line-wrap,
+.cd-right .cd-line-wrap {
+  flex-direction: column;
 }
 .cd-icon {
   position: relative;
@@ -3034,12 +3044,12 @@ button.mat:not(:disabled):active {
   opacity: 0.85;
 }
 
-/* DPS meter: top-right of the battlefield, just under the Settings button. Optional (Settings → Battlefield). */
+/* DPS meter: a corner of the battlefield (top right by default). Optional (Settings → Battlefield). */
 .dps-meter {
   position: absolute;
   z-index: 3;
-  top: 6px;
-  right: 8px;
+  height: var(--hud-row);
+  box-sizing: border-box;
   display: flex;
   align-items: baseline;
   gap: 4px;
@@ -3056,9 +3066,34 @@ button.mat:not(:disabled):active {
   font-size: 10px;
   opacity: 0.8;
 }
-/* Right-edge cooldown icons start below the meter while it shows. */
-.battle-wrap.with-dps .cd-right {
-  top: 36px;
+.dps-tl,
+.dps-tr {
+  top: 6px;
+}
+.dps-bl,
+.dps-br {
+  bottom: 6px;
+}
+.dps-tl,
+.dps-bl {
+  left: 8px;
+}
+.dps-tr,
+.dps-br {
+  right: 8px;
+}
+.dps-meter b {
+  font-variant-numeric: tabular-nums;
+}
+.battle-wrap {
+  /* One row of the battlefield's HUD: the DPS meter's height, and the cooldown icons'. */
+  --hud-row: 26px;
+}
+.sub-row .segmented:has(button:nth-child(4)) {
+  flex-wrap: wrap;
+}
+.sub-row .segmented:has(button:nth-child(4)) button {
+  flex: 1 1 40%;
 }
 
 /* ---- Hunter and monster cards: no header; the close button floats at the bottom (handedness side) ---- */

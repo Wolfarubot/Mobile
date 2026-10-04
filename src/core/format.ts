@@ -18,6 +18,24 @@ export function fmt(n: number): string {
   return scaled.toFixed(digits) + SUFFIXES[tier];
 }
 
+/**
+ * The DPS meter's number: at most five digits, abbreviated (1.5243M, 15.243B, 152.43T), so it stays the same
+ * width as damage climbs.
+ */
+export function fmtDps(n: number): string {
+  if (!Number.isFinite(n)) return '∞';
+  if (n < 1000) return n < 100 ? n.toFixed(n < 10 ? 2 : 1) : Math.floor(n).toString();
+  let tier = Math.floor(Math.log10(n) / 3);
+  let scaled = n / 10 ** (tier * 3);
+  const digits = (v: number) => 5 - (v < 10 ? 1 : v < 100 ? 2 : 3);
+  if (Number(scaled.toFixed(digits(scaled))) >= 1000) {
+    tier += 1;
+    scaled /= 1000;
+  }
+  if (tier >= SUFFIXES.length) return n.toExponential(4).replace('+', '');
+  return scaled.toFixed(digits(scaled)) + SUFFIXES[tier];
+}
+
 /** Formats a duration in seconds as e.g. "2h 05m", "4m 09s" or "12s". */
 export function fmtTime(seconds: number): string {
   const s = Math.max(0, Math.floor(seconds));

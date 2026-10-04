@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fmt, fmtTime } from '../src/core/format';
+import { fmt, fmtDps, fmtTime } from '../src/core/format';
 
 describe('fmt', () => {
   it('formats small and large numbers', () => {
@@ -12,6 +12,17 @@ describe('fmt', () => {
   });
   it('rolls over when rounding reaches 1000', () => {
     expect(fmt(999_999)).toBe('1.00M');
+  });
+});
+
+describe('fmtDps', () => {
+  it('shows at most five digits, abbreviated', () => {
+    expect(fmtDps(5.5)).toBe('5.50');
+    expect(fmtDps(523.4)).toBe('523');
+    expect(fmtDps(1_524_300)).toBe('1.5243M');
+    expect(fmtDps(15_243_000_000)).toBe('15.243B');
+    expect(fmtDps(152_430_000_000_000)).toBe('152.43T');
+    expect(fmtDps(999_999_990)).toBe('1.0000B');
   });
 });
 

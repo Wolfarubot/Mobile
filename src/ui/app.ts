@@ -65,10 +65,10 @@ import {
   type MaterialId,
   type Rarity,
 } from '../core/balance';
-import { fmt, fmtTime } from '../core/format';
+import { fmt, fmtDps, fmtTime } from '../core/format';
 import type { FarmRates, Game, TreeKind } from '../core/game';
 import type { OfflineResult } from '../core/offline';
-import { COOLDOWN_POSITIONS, TAB_IDS, type BuyAmount, type CooldownPos, type FxKey, type IndicatorStyle, type GearItem, type TabId, type Wearer } from '../core/state';
+import { COOLDOWN_POSITIONS, TAB_IDS, type BuyAmount, type CooldownPos, type DpsCorner, type FxKey, type IndicatorStyle, type GearItem, type TabId, type Wearer } from '../core/state';
 import { drawEnemyPortrait } from '../render/battle';
 import { spriteUrl } from '../render/sprites';
 import { applyAreaTheme } from './theme';
@@ -221,9 +221,8 @@ export class AppUI {
     const s = g.state;
     const area = areaDef(g.area);
     $('#gold').textContent = fmt(s.gold);
-    $('#dps').textContent = fmt(g.dps);
-    $('#dpsMeter').classList.toggle('hidden', !s.settings.dps);
-    $('.battle-wrap').classList.toggle('with-dps', s.settings.dps);
+    $('#dps').textContent = fmtDps(g.dps);
+    $('#dpsMeter').className = `dps-meter dps-${s.settings.dpsCorner}${s.settings.dps ? '' : ' hidden'}`;
     $('#areaName').textContent = area.name;
     $('#areaLabel').classList.toggle('hidden', !this.menuFull);
     applyAreaTheme(g.area);
@@ -2623,12 +2622,14 @@ export class AppUI {
       body.appendChild(card);
     };
     const st = g.state.settings;
-    const onOff: Array<['on' | 'off', string]> = [['on', 'Show'], ['off', 'Hide']];
     const styles: Array<[IndicatorStyle, string]> = [['fancy', '✨ Fancy'], ['basic', 'Basic']];
-    choices('DPS meter', 'Your total damage per second, in the top-right corner of the battlefield.', onOff, () => (st.dps ? 'on' : 'off'), (v) => {
-      st.dps = v === 'on';
-      this.refresh();
-    });
+    choices(
+      'Event timer & Guardian bar',
+      "Where an event's timer and a Guardian's health bar go on the battlefield. They always sit clear of the cooldown icons and the DPS meter.",
+      [['bottom', 'Bottom'], ['top', 'Top']],
+      () => st.hudPos,
+      (v) => (st.hudPos = v),
+    );
     /**
      * A setting with a Show / Hide switch and its options underneath in the same card (smaller), greyed out
      * and locked while it's hidden, like the Effects groups.
@@ -2670,6 +2671,26 @@ export class AppUI {
       draw();
       body.appendChild(card);
     };
+    group(
+      'DPS meter',
+      'Your total damage per second, in a corner of the battlefield.',
+      () => st.dps,
+      (on) => {
+        st.dps = on;
+        this.refresh();
+      },
+      [
+        {
+          label: 'Corner',
+          opts: [['tl', '↖ Top left'], ['tr', '↗ Top right'], ['bl', '↙ Bottom left'], ['br', '↘ Bottom right']],
+          get: () => st.dpsCorner,
+          set: (v) => {
+            st.dpsCorner = v as DpsCorner;
+            this.refresh();
+          },
+        },
+      ],
+    );
     group(
       'Cooldown icons',
       "Icons for abilities that recharge (like Reginald's potions, Glimmer's fireballs and item abilities). They grey out when used and refill from the top down.",

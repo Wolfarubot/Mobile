@@ -715,46 +715,62 @@ export class BattleView {
     g.restore();
   }
 
+  /**
+   * Top of the event timer / Guardian bar (`height` tall, spanning x1..x2): at the battlefield's top or bottom
+   * edge (Settings), moved clear of the cooldown icons and the DPS meter when they're on that edge.
+   */
+  private hudTop(x1: number, x2: number, height: number): number {
+    const st = this.game.state.settings;
+    const boxes: Array<{ top: number; bottom: number; left: number; right: number }> = [];
+    const cd = this.cooldownBar.rect();
+    if (cd) boxes.push(cd);
+    const meter = this.cooldownBar.el.parentElement?.querySelector<HTMLElement>('#dpsMeter');
+    if (meter && !meter.classList.contains('hidden'))
+      boxes.push({ top: meter.offsetTop, bottom: meter.offsetTop + meter.offsetHeight, left: meter.offsetLeft, right: meter.offsetLeft + meter.offsetWidth });
+    const inWay = boxes.filter((b) => b.right > x1 && b.left < x2);
+    if (st.hudPos === 'top') return inWay.filter((b) => b.top < this.h / 2).reduce((y, b) => Math.max(y, b.bottom + 4), 4);
+    return inWay.filter((b) => b.bottom > this.h / 2).reduce((y, b) => Math.min(y, b.top - 4), this.h - 4) - height;
+  }
+
   private drawHud(g: CanvasRenderingContext2D): void {
     const w = this.w;
     const boss = this.field.enemies.find((e) => e.boss);
     g.textAlign = 'center';
     g.textBaseline = 'middle';
     const ev = this.game.activeEvent;
+    const bw = Math.min(w * 0.7, 300);
+    const x = (w - bw) / 2;
+    const y0 = ev || boss ? this.hudTop(x, x + bw, boss ? 38 : 26) : 0;
     if (ev && !boss) {
       const def = eventDef(ev.id);
-      const bw = Math.min(w * 0.7, 300);
-      const x = (w - bw) / 2;
       g.font = canvasFont(13, 700);
       g.fillStyle = '#9ff0a8';
-      g.fillText(`${def.icon} ${def.name.toUpperCase()} · ${Math.ceil(ev.left)}s`, w / 2, 14);
+      g.fillText(`${def.icon} ${def.name.toUpperCase()} · ${Math.ceil(ev.left)}s`, w / 2, y0 + 10);
       g.fillStyle = 'rgba(0,0,0,0.55)';
-      g.fillRect(x, 24, bw, 6);
+      g.fillRect(x, y0 + 20, bw, 6);
       g.fillStyle = '#3fcf6a';
-      g.fillRect(x, 24, bw * Math.max(0, ev.left / def.duration), 6);
+      g.fillRect(x, y0 + 20, bw * Math.max(0, ev.left / def.duration), 6);
     }
     if (boss) {
-      const bw = Math.min(w * 0.7, 300);
-      const x = (w - bw) / 2;
       g.font = canvasFont(13, 700);
       g.fillStyle = '#ff9aa6';
       const bossDef = enemyDef(boss.type);
-      g.fillText(`${bossDef.guardianOnly ? bossDef.name.toUpperCase() : `${areaDef(this.game.area).name.toUpperCase()} GUARDIAN`} · ${fmt(Math.max(0, boss.hp))}`, w / 2, 14);
+      g.fillText(`${bossDef.guardianOnly ? bossDef.name.toUpperCase() : `${areaDef(this.game.area).name.toUpperCase()} GUARDIAN`} · ${fmt(Math.max(0, boss.hp))}`, w / 2, y0 + 10);
       g.fillStyle = 'rgba(0,0,0,0.55)';
-      g.fillRect(x, 24, bw, 10);
+      g.fillRect(x, y0 + 20, bw, 10);
       g.fillStyle = '#ff4d6d';
-      g.fillRect(x, 24, bw * Math.max(0, boss.hp / boss.maxHp), 10);
+      g.fillRect(x, y0 + 20, bw * Math.max(0, boss.hp / boss.maxHp), 10);
       // A Guardian beaten before 0 HP (the Time Eater) shows where the win is.
       const winAt = bossDef.winAt ?? 0;
       if (winAt > 0) {
         g.fillStyle = '#ffe36e';
-        g.fillRect(Math.round(x + bw * winAt) - 1, 21, 2, 16);
+        g.fillRect(Math.round(x + bw * winAt) - 1, y0 + 17, 2, 16);
       }
       const t = Math.max(0, this.game.bossTimer / GUARDIAN_TIME);
       g.fillStyle = 'rgba(0,0,0,0.55)';
-      g.fillRect(x, 37, bw, 5);
+      g.fillRect(x, y0 + 33, bw, 5);
       g.fillStyle = t < 0.3 ? '#ff4d4d' : '#ffb04d';
-      g.fillRect(x, 37, bw * t, 5);
+      g.fillRect(x, y0 + 33, bw * t, 5);
     }
 
     if (this.banner) {
@@ -1092,11 +1108,13 @@ const EDGE_PIXELS: Record<string, string[]> = {
 
 /**
  * Ability cooldowns as icons along one edge of the battlefield (Settings picks the edge). A recharging icon
- * is greyed out and refills with colour from the top down; when it's ready it gives a little pulse. Icons
- * shrink as more of them share the edge.
+ * is greyed out and refills with colour from the top down; when it's ready it gives a little pulse. Icons are
+ * as tall as the DPS meter and share its row (leaving it room); when a row is full the rest go in a second
+ * row, further in from the edge (below the icons and the meter, at the top).
  */
 class CooldownBar {
-  private el: HTMLDivElement;
+  readonly el: HTMLDivElement;
+  private lines: HTMLDivElement[] = [];
   private icons = new Map<string, { el: HTMLDivElement; color: HTMLSpanElement; line: HTMLElement; ready: boolean }>();
 
   constructor(
@@ -1109,18 +1127,41 @@ class CooldownBar {
     parent.appendChild(this.el);
   }
 
+  private line(i: number): HTMLDivElement {
+    while (this.lines.length <= i) {
+      const l = document.createElement('div');
+      l.className = 'cd-line-wrap';
+      this.el.appendChild(l);
+      this.lines.push(l);
+    }
+    return this.lines[i];
+  }
+
   update(): void {
     const st = this.game.state.settings;
     const list = st.cooldowns ? this.field.cooldowns() : [];
-    this.el.className = `cd-bar cd-${st.cooldownPos}`;
+    const pos = st.cooldownPos;
+    this.el.className = `cd-bar cd-${pos}`;
     this.el.classList.toggle('hidden', !list.length);
-    // Size: as big as fits, up to 34px, sharing the edge's length.
-    const vertical = st.cooldownPos === 'left' || st.cooldownPos === 'right';
-    const room = (vertical ? this.el.parentElement!.clientHeight : this.el.parentElement!.clientWidth) - 16;
-    const size = Math.max(14, Math.min(34, room / Math.max(1, list.length) - 6));
+    const wrap = this.el.parentElement!;
+    const meter = wrap.querySelector<HTMLElement>('#dpsMeter');
+    const meterOn = !!meter && st.dps && !meter.classList.contains('hidden');
+    const size = meterOn ? meter!.offsetHeight : 26;
+    const gap = 6;
+    const vertical = pos === 'left' || pos === 'right';
+    // The first line shares its edge with the DPS meter when the meter sits on that edge: leave it room.
+    const corner = st.dpsCorner;
+    const meterHere = meterOn && (pos === 'top' ? corner[0] === 't' : pos === 'bottom' ? corner[0] === 'b' : pos === 'left' ? corner[1] === 'l' : corner[1] === 'r');
+    const meterLen = meterHere ? (vertical ? meter!.offsetHeight : meter!.offsetWidth) + gap : 0;
+    const room = (vertical ? wrap.clientHeight - 12 : wrap.clientWidth - 16) + gap;
+    const perLine = Math.max(1, Math.floor(room / (size + gap)));
+    // Keep the first line clear of the meter, leaving the same room at both ends so the icons stay centred.
+    const firstLine = Math.max(0, Math.floor((room - 2 * meterLen) / (size + gap)));
+    const first = this.line(0);
+    first.style.padding = meterHere ? (vertical ? `${meterLen}px 0` : `0 ${meterLen}px`) : '0';
     this.el.style.setProperty('--cd-size', `${size}px`);
     const seen = new Set<string>();
-    for (const c of list) {
+    list.forEach((c, i) => {
       seen.add(c.key);
       let ic = this.icons.get(c.key);
       if (!ic) {
@@ -1128,10 +1169,13 @@ class CooldownBar {
         el.className = 'cd-icon';
         el.title = c.name;
         el.innerHTML = `<span class="cd-gray">${c.icon}</span><span class="cd-color">${c.icon}</span><i class="cd-line"></i>`;
-        this.el.appendChild(el);
         ic = { el, color: el.querySelector('.cd-color') as HTMLSpanElement, line: el.querySelector('.cd-line') as HTMLElement, ready: c.progress >= 1 };
         this.icons.set(c.key, ic);
       }
+      const li = i < firstLine ? 0 : 1 + Math.floor((i - firstLine) / perLine);
+      const at = li === 0 ? i : (i - firstLine) % perLine;
+      const target = this.line(li);
+      if (target.children[at] !== ic.el) target.insertBefore(ic.el, target.children[at] ?? null);
       // The coloured copy shows from the top down as it recharges.
       ic.color.style.clipPath = `inset(0 0 ${(1 - Math.min(1, c.progress)) * 100}% 0)`;
       // Fancy: a glowing line where the colour meets the grey.
@@ -1144,12 +1188,34 @@ class CooldownBar {
         ic.el.classList.add('pulse');
       }
       ic.ready = ready;
-    }
+    });
     for (const [key, ic] of this.icons)
       if (!seen.has(key)) {
         ic.el.remove();
         this.icons.delete(key);
       }
+    // Empty lines take no room (the first stays: it holds the gap beside the meter).
+    this.lines.forEach((l, i) => l.classList.toggle('hidden', i > 0 && !l.childElementCount));
+  }
+
+  /** The icons' box within the battlefield, when they're showing. */
+  rect(): { top: number; bottom: number; left: number; right: number } | null {
+    if (this.el.classList.contains('hidden')) return null;
+    let top = Infinity;
+    let bottom = -Infinity;
+    let left = Infinity;
+    let right = -Infinity;
+    for (const ic of this.icons.values()) {
+      const e = ic.el;
+      const line = e.parentElement as HTMLElement;
+      const x = this.el.offsetLeft + line.offsetLeft + e.offsetLeft;
+      const y = this.el.offsetTop + line.offsetTop + e.offsetTop;
+      top = Math.min(top, y);
+      bottom = Math.max(bottom, y + e.offsetHeight);
+      left = Math.min(left, x);
+      right = Math.max(right, x + e.offsetWidth);
+    }
+    return Number.isFinite(top) ? { top, bottom, left, right } : null;
   }
 }
 

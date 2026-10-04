@@ -127,8 +127,11 @@ export interface GameState {
     tabOrder: TabId[];
     /** Font chosen in Settings (an id from ui/fonts). */
     font: string;
-    /** The DPS meter in the battlefield's top-right corner. */
+    /** The DPS meter on the battlefield, and which corner it sits in. */
     dps: boolean;
+    dpsCorner: DpsCorner;
+    /** Where the event timer and Guardian health bar go: the battlefield's top or bottom edge. */
+    hudPos: HudPos;
     /** Cooldown icons on the battlefield (abilities recharging), and which edge they sit on. */
     cooldowns: boolean;
     cooldownPos: CooldownPos;
@@ -201,7 +204,7 @@ export function newGame(now = Date.now()): GameState {
     equipment: { main: [1, 2, null] },
     nextGearUid: 4,
     lastSeen: now,
-    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', dps: true, cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', cooldownStyle: 'fancy', fx: allFx(), aoeStyle: 'fancy' },
+    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', dps: true, dpsCorner: 'tr', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', cooldownStyle: 'fancy', fx: allFx(), aoeStyle: 'fancy' },
     flags: { eventsIntro: false, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false },
     events: Object.fromEntries(EVENTS.map((e) => [e.id, { cooldown: 0, runs: 0, completed: 0 }])),
     buyAmount: 1,
@@ -210,6 +213,10 @@ export function newGame(now = Date.now()): GameState {
 }
 
 export const COOLDOWN_POSITIONS = ['top', 'bottom', 'left', 'right'] as const;
+export const DPS_CORNERS = ['tl', 'tr', 'bl', 'br'] as const;
+export type DpsCorner = (typeof DPS_CORNERS)[number];
+export const HUD_POSITIONS = ['top', 'bottom'] as const;
+export type HudPos = (typeof HUD_POSITIONS)[number];
 export type CooldownPos = (typeof COOLDOWN_POSITIONS)[number];
 export const RELOAD_POSITIONS = ['above', 'below'] as const;
 export const INDICATOR_STYLES = ['fancy', 'basic'] as const;
@@ -356,6 +363,8 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
         return typeof f === 'string' && /^[a-z0-9-]{1,20}$/.test(f) ? f : 'terminal';
       })(),
       dps: (data.settings as { dps?: unknown } | undefined)?.dps !== false,
+      dpsCorner: pick(DPS_CORNERS, (data.settings as { dpsCorner?: unknown } | undefined)?.dpsCorner, 'tr'),
+      hudPos: pick(HUD_POSITIONS, (data.settings as { hudPos?: unknown } | undefined)?.hudPos, 'bottom'),
       cooldowns: (data.settings as { cooldowns?: unknown } | undefined)?.cooldowns !== false,
       cooldownPos: pick(COOLDOWN_POSITIONS, (data.settings as { cooldownPos?: unknown } | undefined)?.cooldownPos, 'top'),
       reloads: (data.settings as { reloads?: unknown } | undefined)?.reloads !== false,
