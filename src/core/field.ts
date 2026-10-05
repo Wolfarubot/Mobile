@@ -943,7 +943,7 @@ export class Field {
     for (const w of wearers) {
       for (const { uid, effect: ef, stars } of this.game.gearEffects(w.who)) {
         if (ef.kind === 'chill') {
-          for (const e of this.enemies) if (!e.boss && Math.hypot(e.x - w.x, e.y - w.y) <= ef.radius + e.r) e.slow = Math.max(e.slow ?? 0, 0.2);
+          for (const e of this.enemies) if (!e.boss && !this.immuneTo(e, 'frost') && Math.hypot(e.x - w.x, e.y - w.y) <= ef.radius + e.r) e.slow = Math.max(e.slow ?? 0, 0.2);
           continue;
         }
         const cd = effectCooldown(ef);
@@ -1128,7 +1128,13 @@ export class Field {
    * A proc'd status effect. Fire burns, Poison poisons, Frost chills, Acid drops a puddle, Radiant bursts,
    * Decay gives the monster a dark aura, Arcane strips its resistances. Timed effects refresh rather than stack.
    */
+  /** A monster that resists a damage type is immune to its status effect (unless Arcane has stripped its resistances). */
+  private immuneTo(e: Enemy, dtype: DamageType): boolean {
+    return this.typeMultOn(dtype, e) < 1;
+  }
+
   private applyStatus(e: Enemy, dtype: DamageType, dmg: number, by: Shooter, rarity: Rarity = 'common'): void {
+    if (this.immuneTo(e, dtype)) return;
     const dot = (cur: Dot | undefined, share: number, duration: number): Dot => {
       const dps = (dmg * share) / duration;
       const ticks = Math.round(duration / STATUS.tick);
@@ -1211,7 +1217,7 @@ export class Field {
   private spreadBurn(e: Enemy, d: Dot): void {
     const b = STATUS.burn;
     for (const o of this.enemies) {
-      if (o === e || o.hp <= 0 || o.burn) continue;
+      if (o === e || o.hp <= 0 || o.burn || this.immuneTo(o, 'fire')) continue;
       if (Math.hypot(o.x - e.x, o.y - e.y) > e.r + o.r + b.spreadRadius || this.game.rng() >= b.spreadChance) continue;
       o.burn = { dps: d.dps * b.spreadFalloff, left: b.duration, by: d.by, acc: 0, ticks: Math.round(b.duration / STATUS.tick) };
     }
@@ -1364,8 +1370,8 @@ export class Field {
     // An elemental tap ability sets off its effect on everything the blast hit.
     for (const { e, dmg: amount } of hit) {
       if (ability === 'flame' && e.hp > 0) this.applyStatus(e, 'fire', amount, 'main');
-      else if (ability === 'frost' && e.hp > 0) e.slow = Math.max(e.slow ?? 0, FROST_TAP_CHILL);
-      else if (ability === 'thunder') this.arc(e, amount * STATUS.arc.share, 'main');
+      else if (ability === 'frost' && e.hp > 0 && !this.immuneTo(e, 'frost')) e.slow = Math.max(e.slow ?? 0, FROST_TAP_CHILL);
+      else if (ability === 'thunder' && !this.immuneTo(e, 'lightning')) this.arc(e, amount * STATUS.arc.share, 'main');
     }
     this.enemies = this.enemies.filter((e) => e.hp > 0);
   }

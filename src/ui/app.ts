@@ -2622,7 +2622,7 @@ export class AppUI {
     body.appendChild(intro);
     const groups: Array<[string, WeaponClass[]]> = [
       ['Ranged', ['shortbow', 'longbow', 'crossbow', 'pistol', 'rifle', 'repeater']],
-      ['Melee', ['dagger', 'sword', 'longsword', 'glaive', 'spear', 'hammer']],
+      ['Melee', ['dagger', 'sword', 'glaive', 'spear', 'hammer']],
       ['Magic', ['wand', 'scepter', 'staff', 'focus', 'tome']],
     ];
     for (const [name, classes] of groups) {
@@ -3295,7 +3295,6 @@ function costHtml(g: Game, cost: Partial<Record<MaterialId, number>>, check = tr
 const CLASS_ICONS: Record<WeaponClass, string> = {
   dagger: '🗡️',
   sword: '⚔️',
-  longsword: '🗡️',
   glaive: '🪓',
   spear: '🔱',
   hammer: '🔨',

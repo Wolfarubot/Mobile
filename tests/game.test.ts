@@ -946,7 +946,7 @@ describe('Equipment', () => {
     };
     const mk = (id: number, x = 0, type: Enemy['type'] = 'wolf') => enemy({ id, type, x, y: -300, hp: 1e6, maxHp: 1e6 });
     // Fire burns for 30% of the hit over 2s; a new burn refreshes rather than stacks.
-    const a = mk(1);
+    const a = mk(1, 0, 'bat'); // a Vampire Bat resists none of fire, poison, frost or acid
     f.enemies = [a];
     api.applyStatus(a, 'fire', 1000, 'glimmer');
     for (let i = 0; i < 90; i++) api.tickStatus(a, 1 / 30);
@@ -975,6 +975,10 @@ describe('Equipment', () => {
     expect(a.poison!.left).toBe(STATUS.poison.duration);
     api.applyStatus(a, 'frost', 1000, 'frostbreaker');
     expect(a.slow).toBe(STATUS.chill.duration);
+    // A monster that resists a type is immune to its effect: a Forest Wolf resists Frost, so it isn't chilled.
+    const resists = mk(9);
+    api.applyStatus(resists, 'frost', 1000, 'frostbreaker');
+    expect(resists.slow ?? 0).toBe(0);
     // Acid drops a puddle at the monster that hurts everything in it.
     api.applyStatus(a, 'acid', 1000, 'scavenger');
     expect(f.puddles.some((p) => p.dtype === 'acid' && p.x === a.x)).toBe(true);
@@ -1046,7 +1050,7 @@ describe('Equipment', () => {
     hit('main', e, 1, 0, 0, false);
     expect(e.burn).toBeDefined();
     // Physical's effect is bleeding: only blades (daggers, swords, spears) have a chance to cause it.
-    for (const gd of GEAR) if (gd.damageType === 'physical' && gd.proc) expect(['dagger', 'sword', 'longsword', 'spear']).toContain(gd.weaponClass);
+    for (const gd of GEAR) if (gd.damageType === 'physical' && gd.proc) expect(['dagger', 'sword', 'spear']).toContain(gd.weaponClass);
   });
 
   it('10 areas in order; saves from before the new areas open everything up to their furthest area', () => {
@@ -1601,7 +1605,9 @@ describe('Equipment', () => {
     expect(gearTier(gearDef('slimeWand'))).toBeCloseTo(1.9);
     expect(weaponHit(gearDef('forestBlade'), 1)).toBeGreaterThan(weaponHit(gearDef('slimeSword'), 1));
     expect(weaponHit(gearDef('slimeWand'), 1)).toBeGreaterThan(weaponHit(gearDef('forestBow'), 1));
-    expect(gearDef('forestBlade').weaponClass).toBe('longsword');
+    expect(gearDef('forestBlade').weaponClass).toBe('sword');
+    expect(GEAR.filter((x) => gearTier(x) < 2 && x.damageType === 'physical' && x.proc).map((x) => x.id)).toEqual(['beastBlade']); // only the Beast Blade bleeds
+    expect(gearDef('sparkWand').damageType).toBe('fire');
     expect(gearDef('slimeWand').damageType).toBe('poison');
     expect(gearDef('commonClothes').name).toBe('Common Garb');
     const g = new Game(newGame(0), () => 0);
