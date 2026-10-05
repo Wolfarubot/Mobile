@@ -7,8 +7,8 @@ import { Capacitor } from '@capacitor/core';
 import { OFFLINE_POPUP_SEC } from './core/balance';
 import { Field } from './core/field';
 import { Game } from './core/game';
-import { loadGame, saveGame, wipeSave } from './core/save';
-import { newGame } from './core/state';
+import { hasDevBackup, loadDevPhase, loadGame, restoreDevBackup, saveGame, wipeSave } from './core/save';
+import { newGame, type GameState } from './core/state';
 import { BattleView } from './render/battle';
 import { AppUI } from './ui/app';
 
@@ -29,10 +29,21 @@ async function boot(): Promise<void> {
     await wipeSave();
     location.reload();
   };
+  // Settings → Dev → Progress: swap in a progress phase (keeping your save to restore), or restore it.
+  const devPhase = async (phase: GameState) => {
+    saving = false;
+    await loadDevPhase(game.state, phase);
+    location.reload();
+  };
+  const devRestore = async () => {
+    saving = false;
+    await restoreDevBackup();
+    location.reload();
+  };
 
   const field = new Field(game);
   const battle = new BattleView(document.getElementById('battle') as HTMLCanvasElement, game, field);
-  const ui = new AppUI(game, { save, wipe });
+  const ui = new AppUI(game, { save, wipe, devPhase, devRestore, hasDevBackup });
   if (!game.state.flags.welcome) ui.showWelcome();
   else if (offline && offline.away >= OFFLINE_POPUP_SEC) ui.showOffline(offline);
 

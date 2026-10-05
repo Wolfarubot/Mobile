@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { weaponHit, AREAS, areaEnemies, ENEMIES, GEAR, gearDef, gearStats, slotAccepts, typeMult, type GearId, enemyUnlockCost, HUNTERS, ITEMS, STATION_EFFICIENCY, type AreaId, type ItemId } from '../src/core/balance';
 import { Field } from '../src/core/field';
 import { Game } from '../src/core/game';
-import { newGame, type Wearer } from '../src/core/state';
+import { newGame, serialize, type Wearer } from '../src/core/state';
 
 /** Small deterministic PRNG so pacing results are reproducible. */
 function mulberry(seed: number) {
@@ -128,7 +128,7 @@ function botShop(game: Game, t: number, memo: { lastChallenge: number }): void {
  * A bot playing the real battlefield headless for `seconds`, tapping `tapsPerSec` and shopping
  * once a second. Records when areas unlock (at clock time `clock + elapsed`).
  */
-function play(game: Game, field: Field, seconds: number, clock: number, tapsPerSec: number, memo: { lastChallenge: number }, unlockedAt: Partial<Record<AreaId, number>>): void {
+function play(game: Game, field: Field, seconds: number, clock: number, tapsPerSec: number, memo: { lastChallenge: number }, unlockedAt: Partial<Record<AreaId, number>>, onShop?: () => void): void {
   const dt = 0.05;
   let tapAcc = 0;
   for (let t = 0; t < seconds; t += dt) {
@@ -142,7 +142,10 @@ function play(game: Game, field: Field, seconds: number, clock: number, tapsPerS
       if (e) field.tap(e.x, e.y);
     }
     for (const a of AREAS) if (!(a.id in unlockedAt) && game.isAreaUnlocked(a.id)) unlockedAt[a.id] = clock + t;
-    if (Math.round(t / dt) % 20 === 0) botShop(game, clock + t, memo);
+    if (Math.round(t / dt) % 20 === 0) {
+      botShop(game, clock + t, memo);
+      onShop?.();
+    }
   }
 }
 
@@ -222,3 +225,42 @@ it.runIf(!!process.env.SIM_SWEEP)('pacing sweep', () => {
   console.log('Nonstop optimal play:', AREAS.map((a) => `${a.name}: ${fmtT(nonstop.unlockedAt[a.id])}`).join(' | '));
   console.log(`(sim took ${((Date.now() - started) / 1000).toFixed(1)}s)`);
 }, 900_000);
+
+/**
+ * The Dev menu's progress phases (Settings → Dev → Progress), recorded from a typical player's bot run:
+ * each area's start (right after arriving and crafting with the last Guardian's materials) and its end
+ * (just before the Guardian challenge that wins). Regenerate after balance or content changes with
+ * `npm run presets` (writes src/dev/presets.json; takes a while).
+ */
+it.runIf(!!process.env.PRESETS_OUT)('dev progress presets', () => {
+  const bot = newBot();
+  const g = bot.game;
+  const presets: Record<string, string> = {};
+  const take = (key: string, save: string) => {
+    if (!presets[key]) presets[key] = save;
+  };
+  take('forest-start', serialize(g.state));
+  // The save from just before each Guardian challenge; kept once that challenge wins.
+  let pending: { area: AreaId; save: string } | null = null;
+  const challenge = g.challengeGuardian.bind(g);
+  g.challengeGuardian = () => {
+    pending = { area: g.state.area, save: serialize(g.state) };
+    return challenge();
+  };
+  g.on((e) => {
+    if (e.type === 'eventComplete' && pending && e.event === `guardian-${pending.area}`) take(`${pending.area}-end`, pending.save);
+  });
+  const onShop = () => take(`${g.state.area}-start`, serialize(g.state));
+  const sessions: Array<[number, number]> = [[0, 40 * 60]];
+  for (let d = 0; d < 200; d++) sessions.push([d * 24 * H + 14 * H, 15 * 60], [d * 24 * H + 19 * H, 10 * 60], [d * 24 * H + 24 * H, 20 * 60]);
+  for (const [start, length] of sessions) {
+    if (presets['rift-end']) break;
+    g.applyOffline(start * 1000);
+    botShop(g, start, bot.memo);
+    onShop();
+    play(g, bot.field, length, start, 1, bot.memo, bot.unlockedAt, onShop);
+    g.state.lastSeen = (start + length) * 1000;
+    writeFileSync(process.env.PRESETS_OUT!, JSON.stringify(Object.fromEntries(AREAS.flatMap((a) => [`${a.id}-start`, `${a.id}-end`]).filter((k) => presets[k]).map((k) => [k, JSON.parse(presets[k])]))));
+  }
+  expect(Object.keys(presets)).toHaveLength(AREAS.length * 2);
+}, 0);

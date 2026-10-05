@@ -3736,3 +3736,36 @@ body.left-handed .hd-float-close {
   padding: 4px 8px;
   font-size: 12px;
 }
+
+/* ---- Settings → Dev → Progress ---- */
+.dev-progress button {
+  width: 100%;
+  margin-top: 6px;
+}
+.dev-phases {
+  display: grid;
+  gap: 6px;
+  max-height: 60vh;
+  overflow-y: auto;
+  margin: 8px 0;
+}
+.dev-row {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 1fr;
+  gap: 6px;
+  align-items: center;
+}
+.dev-area {
+  font-weight: 700;
+  font-size: 13px;
+}
+.dev-row button {
+  display: grid;
+  gap: 2px;
+  padding: 6px 4px;
+  font-size: 13px;
+}
+.dev-row button small {
+  font-size: 11px;
+  opacity: 0.8;
+}

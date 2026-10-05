@@ -8,6 +8,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host",
     "test": "vitest run",
+    "presets": "PRESETS_OUT=public/dev-presets.json vitest run tests/progression.test.ts -t \"dev progress presets\"",
     "typecheck": "tsc --noEmit",
     "cap:sync": "npm run build && cap sync",
     "android": "npm run build && cap sync android && cap open android",

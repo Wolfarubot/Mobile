@@ -1,3 +1,4 @@
+import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   areaDef,
@@ -2609,5 +2610,31 @@ describe('Saves', () => {
     expect('stars' in s).toBe(false);
     expect(s.stats.totalKills).toBe(123);
     expect('deaths' in s.stats).toBe(false);
+  });
+});
+
+describe('Dev progress phases (public/dev-presets.json)', () => {
+  const file = 'public/dev-presets.json';
+  const presets = existsSync(file) ? (JSON.parse(readFileSync(file, 'utf8')) as Record<string, unknown>) : {};
+  it('every phase is an area start or end', () => {
+    // (Being re-recorded: the full set of 24 is checked once the run is in.)
+    const valid = AREAS.flatMap((a) => [`${a.id}-start`, `${a.id}-end`]);
+    expect(Object.keys(presets).length).toBeGreaterThan(0);
+    for (const k of Object.keys(presets)) expect(valid).toContain(k);
+  });
+  it("every phase loads: in its area, and at the end ready for (but not past) the area's Guardian", () => {
+    for (const [key, raw] of Object.entries(presets)) {
+      const [area, when] = key.split('-');
+      const st = deserialize(JSON.stringify(raw))!;
+      expect(st, key).not.toBeNull();
+      const g = new Game(st);
+      expect(st.area, key).toBe(area);
+      expect(g.isAreaUnlocked(area as never), key).toBe(true);
+      expect(st.events[`guardian-${area}`]?.completed ?? 0, key).toBe(0);
+      if (when === 'end') expect(g.guardianReady, key).toBe(true);
+      // Everything worn is real gear.
+      for (const who of ['main', ...HUNTERS.filter((h) => st.hunters[h.id].recruited).map((h) => h.id)] as const)
+        for (const it of g.equipped(who as never)) if (it) expect(gearDef(it.base), key).toBeDefined();
+    }
   });
 });

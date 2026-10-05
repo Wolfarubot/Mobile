@@ -36,6 +36,7 @@ import {
   ENEMIES,
   enemyUnlockCost,
   GEAR,
+  gearArea,
   GEAR_KINDS,
   MAX_STARS,
   itemLevel,
@@ -75,9 +76,9 @@ import {
   type Rarity,
 } from '../core/balance';
 import { fmt, fmtDps, fmtTime } from '../core/format';
-import type { FarmRates, Game, TreeKind } from '../core/game';
+import { Game, type FarmRates, type TreeKind } from '../core/game';
 import type { OfflineResult } from '../core/offline';
-import { COOLDOWN_POSITIONS, TAB_IDS, type BuyAmount, type CooldownPos, type DpsCorner, type FxKey, type IndicatorStyle, type GearItem, type TabId, type Wearer } from '../core/state';
+import { COOLDOWN_POSITIONS, deserialize, TAB_IDS, type GameState, type BuyAmount, type CooldownPos, type DpsCorner, type FxKey, type IndicatorStyle, type GearItem, type TabId, type Wearer } from '../core/state';
 import { drawEnemyPortrait } from '../render/battle';
 import { spriteUrl } from '../render/sprites';
 import { applyAreaTheme } from './theme';
@@ -186,7 +187,13 @@ export class AppUI {
 
   constructor(
     private game: Game,
-    private hooks: { save: () => void; wipe: () => Promise<void> },
+    private hooks: {
+      save: () => void;
+      wipe: () => Promise<void>;
+      devPhase: (phase: GameState) => Promise<void>;
+      devRestore: () => Promise<void>;
+      hasDevBackup: () => Promise<boolean>;
+    },
   ) {
     document.querySelectorAll<HTMLButtonElement>('.tabs button').forEach((b) =>
       b.addEventListener('click', () => {
@@ -2996,6 +3003,66 @@ export class AppUI {
       ]),
     );
     body.appendChild(wipe);
+
+    // Dev: jump to any point of the game to try an area's monsters and gear.
+    body.appendChild(sectionTitle('Dev'));
+    const dev = el('div', 'card setting dev-progress');
+    dev.innerHTML = `<div class="setting-name">Progress</div><p>Load a saved point in the game: the start of an area (gear made from the last Guardian's materials) or its end, just before its Guardian falls, with Hunters, gear and monsters where a typical player would have them. Your own save is kept, and comes back with Restore.</p><button class="buy dev-load">Load a phase…</button><button class="secondary dev-mats">Materials for every piece you can reach</button><button class="secondary dev-restore hidden">Restore my save</button>`;
+    $('.dev-load', dev).addEventListener('click', () => void this.openDevPhases());
+    $('.dev-mats', dev).addEventListener('click', () => {
+      const reach = Math.max(...g.unlockedAreas.map((a) => AREAS.findIndex((x) => x.id === a) + 1));
+      for (const gd of GEAR) if (gearArea(gd) <= reach) for (const [m, n] of Object.entries(gd.recipe) as [MaterialId, number][]) g.state.materials[m] += n;
+      this.hooks.save();
+      this.toast(`🧰 Added the materials to craft every piece from ${AREAS.slice(0, reach).length} area${reach === 1 ? '' : 's'}`);
+    });
+    const restore = $<HTMLButtonElement>('.dev-restore', dev);
+    restore.addEventListener('click', () =>
+      this.showModal('<h2>Restore your save?</h2><p>The phase you are playing is replaced by the save you had before loading one.</p>', [
+        { label: 'Cancel', secondary: true },
+        { label: 'Restore', action: () => void this.hooks.devRestore() },
+      ]),
+    );
+    void this.hooks.hasDevBackup().then((has) => restore.classList.toggle('hidden', !has));
+    body.appendChild(dev);
+  }
+
+  /** Settings → Dev → Progress: every area's start and end, recorded from a typical player's run (public/dev-presets.json). */
+  private async openDevPhases(): Promise<void> {
+    let presets: Record<string, unknown>;
+    try {
+      presets = (await (await fetch('./dev-presets.json')).json()) as Record<string, unknown>;
+    } catch {
+      this.toast('Could not load the progress phases');
+      return;
+    }
+    const phase = (key: string): GameState | null => {
+      const st = presets[key] ? deserialize(JSON.stringify(presets[key])) : null;
+      if (!st) return null;
+      // Keep your settings, skip the tutorial tips, and start fresh (no offline gains).
+      st.settings = structuredClone(this.game.state.settings);
+      for (const k of Object.keys(st.flags) as Array<keyof GameState['flags']>) st.flags[k] = true;
+      st.lastSeen = Date.now();
+      return st;
+    };
+    const summary = (key: string) => {
+      const st = phase(key);
+      if (!st) return '';
+      const gm = new Game(st);
+      const hunters = HUNTERS.filter((h) => st.hunters[h.id].recruited).length;
+      return `Lv ${gm.levelOf('main')}${hunters ? ` · ${hunters} Hunter${hunters === 1 ? '' : 's'}` : ''}`;
+    };
+    const rows = AREAS.map((a) => {
+      const btn = (key: string, label: string) =>
+        presets[key] ? `<button class="secondary dev-phase" data-key="${key}"><b>${label}</b><small>${summary(key)}</small></button>` : `<button class="secondary" disabled><b>${label}</b><small>Not recorded</small></button>`;
+      return `<div class="dev-row"><div class="dev-area">${a.icon} ${a.name}</div>${btn(`${a.id}-start`, 'Start')}${btn(`${a.id}-end`, 'Before Guardian')}</div>`;
+    }).join('');
+    this.showModal(`<h2>🛠️ Progress phases</h2><p>Loading one replaces the game you're playing; your own save is kept until you Restore it.</p><div class="dev-phases">${rows}</div>`, [{ label: 'Close', secondary: true }]);
+    this.modal.querySelectorAll<HTMLButtonElement>('.dev-phase').forEach((b) =>
+      b.addEventListener('click', () => {
+        const st = phase(b.dataset.key!);
+        if (st) void this.hooks.devPhase(st);
+      }),
+    );
   }
 
   // ---- Modals ----
