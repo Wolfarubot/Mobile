@@ -28,6 +28,7 @@ import {
   describeGear,
   describeEffect,
   ARMOR_TYPES,
+  GEAR_STAR_POWER,
   enemyDrops,
   lootChance,
   SUMMON_TYPES,
@@ -2621,7 +2622,7 @@ export class AppUI {
     body.appendChild(intro);
     const groups: Array<[string, WeaponClass[]]> = [
       ['Ranged', ['shortbow', 'longbow', 'crossbow', 'pistol', 'rifle', 'repeater']],
-      ['Melee', ['dagger', 'sword', 'glaive', 'spear', 'hammer']],
+      ['Melee', ['dagger', 'sword', 'longsword', 'glaive', 'spear', 'hammer']],
       ['Magic', ['wand', 'scepter', 'staff', 'focus', 'tome']],
     ];
     for (const [name, classes] of groups) {
@@ -3142,7 +3143,9 @@ function gearCardHtml(it: GearItem, vs: GearItem | null = null): string {
     (gd.damageType && gd.proc && DAMAGE_TYPES[gd.damageType].effect
       ? `<li class="gc-effect">${DAMAGE_TYPES[gd.damageType].icon} ${Math.round(gd.proc * 100)}% chance · ${DAMAGE_TYPES[gd.damageType].effect}</li>`
       : '') +
-    (gd.effect ? `<li class="gc-effect">✨ ${describeEffect(gd.effect, it.stars)}</li>` : '');
+    (gd.effect ? `<li class="gc-effect">✨ ${describeEffect(gd.effect, it.stars)}</li>` : '') +
+    (gd.bane ? `<li class="gc-effect">${ARCHETYPES[gd.bane.archetype].icon} +${Math.round(gd.bane.bonus * GEAR_STAR_POWER[it.stars] * 100)}% damage vs ${ARCHETYPES[gd.bane.archetype].name}s</li>` : '') +
+    (gd.findDrop ? `<li class="gc-effect">💎 ${it.stars >= gd.findDrop.stars ? '' : `At ${gd.findDrop.stars}★: `}${gd.findDrop.chance * 100}% chance for ${materialDef(gd.findDrop.material).name} from ${ARCHETYPES[gd.findDrop.archetype].name.toLowerCase()} kills</li>` : '');
   return `<div class="gear-card rar" style="--rc:${gearColor(gd.id)}"><div class="gc-head"><i>${gd.icon}</i><div><b>${gd.name}</b><small>${RARITIES[gd.rarity].name} ${gearKindName(gd).toLowerCase()} · <span class="stars">${starsHtml(it.stars)}</span></small>${dtypeTag(gd)}</div></div><ul class="gc-stats">${all}</ul></div>`;
 }
 
@@ -3166,6 +3169,8 @@ const weaponLine = (gd: GearDef, stars = 1): string =>
   (gd.weaponClass === 'tome' ? `<p class="weapon-line">${SUMMON_TYPES[tomeSummonType(gd)].icon} Summon type: <b>${SUMMON_TYPES[tomeSummonType(gd)].name}</b></p>` : '') +
   (gd.armorType ? `<p class="weapon-line">${ARMOR_TYPES[gd.armorType].icon} ${ARMOR_TYPES[gd.armorType].desc}</p>` : '') +
   (gd.ability ? `<p class="weapon-line">✨ ${gd.ability}</p>` : '') +
+  (gd.bane ? `<p class="weapon-line">${ARCHETYPES[gd.bane.archetype].icon} +${Math.round(gd.bane.bonus * GEAR_STAR_POWER[stars] * 100)}% damage against ${ARCHETYPES[gd.bane.archetype].name}s</p>` : '') +
+  (gd.findDrop ? `<p class="weapon-line">💎 At ${gd.findDrop.stars}★: your ${ARCHETYPES[gd.findDrop.archetype].name.toLowerCase()} kills have a ${gd.findDrop.chance * 100}% chance to drop ${materialDef(gd.findDrop.material).name}${stars >= gd.findDrop.stars ? '' : ` (now ${stars}★)`}</p>` : '') +
   (gd.effect ? `<p class="weapon-line gear-effect">✨ ${describeEffect(gd.effect, stars)}${'base' in gd.effect ? ' <small>(own damage, raised by your bonuses, not your weapon)</small>' : ''}</p>` : '');
 
 /** What counts toward unlocking an event: its archetype ("slimes") or any monster. */
@@ -3290,6 +3295,7 @@ function costHtml(g: Game, cost: Partial<Record<MaterialId, number>>, check = tr
 const CLASS_ICONS: Record<WeaponClass, string> = {
   dagger: '🗡️',
   sword: '⚔️',
+  longsword: '🗡️',
   glaive: '🪓',
   spear: '🔱',
   hammer: '🔨',

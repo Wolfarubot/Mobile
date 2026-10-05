@@ -186,7 +186,18 @@ export interface GameState {
   };
 }
 
-export const SAVE_VERSION = 19;
+export const SAVE_VERSION = 20;
+
+/** Gear that was replaced, and what saves holding it get instead. */
+const RENAMED_GEAR: Record<string, GearItem['base']> = {
+  huntingBow: 'forestBow',
+  fangDagger: 'beastBlade',
+  goblinSword: 'slimeSword',
+  apprenticeWand: 'slimeWand',
+  leatherVest: 'furCoat',
+  apprenticeRobe: 'furCoat',
+  luckyCharm: 'fangTalisman',
+};
 
 const zeroes = <K extends string>(ids: { id: K }[]): Record<K, number> =>
   Object.fromEntries(ids.map((x) => [x.id, 0])) as Record<K, number>;
@@ -475,6 +486,8 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
   const oldLevels = ((data.version as number) ?? 1) < 13;
   state.inventory = Array.isArray(data.inventory)
     ? (data.inventory as Array<GearItem & { level?: number }>)
+        // v19 -> v20: the Forest's gear was replaced; old pieces become their nearest new one.
+        .map((g) => (g && typeof g.base === 'string' && g.base in RENAMED_GEAR ? { ...g, base: RENAMED_GEAR[g.base] } : g))
         .filter((g) => g && typeof g.uid === 'number' && GEAR.some((d) => d.id === g.base) && typeof (oldLevels ? g.level : g.stars) === 'number')
         .map((g) => {
           if (!oldLevels) return { uid: g.uid, base: g.base, stars: Math.max(1, Math.min(MAX_STARS, Math.floor(g.stars))) };

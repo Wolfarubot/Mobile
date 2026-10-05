@@ -17,6 +17,7 @@ import {
   gearTotals,
   rollLoot,
   gearTier,
+  gearArea,
   lootChance,
   tomeSummonType,
   ARMOR_TYPES,
@@ -809,14 +810,14 @@ describe('Equipment', () => {
   it('crafting puts a level-1 piece in the inventory and spends materials; upgrading raises it', () => {
     const g = stocked();
     const twig = g.state.materials.twig;
-    const bow = g.craftGear('huntingBow')!;
+    const bow = g.craftGear('forestBow')!;
     expect(bow.stars).toBe(1);
     expect(g.state.inventory).toHaveLength(1);
     expect(g.state.materials.twig).toBeLessThan(twig);
     expect(g.upgradeGear(bow.uid)).toBe(true);
     expect(g.gearItem(bow.uid)!.stars).toBe(2);
     const poor = new Game(newGame(0), noCrit);
-    expect(poor.craftGear('huntingBow')).toBeNull();
+    expect(poor.craftGear('forestBow')).toBeNull();
   });
 
   it('every Hunter has 3 slots with armor; Lance melee, Wilhelm two weapons, Glimmer a magic weapon', () => {
@@ -832,7 +833,7 @@ describe('Equipment', () => {
 
   it('gear only fits matching slots, and moves between Hunters instead of being shared', () => {
     const g = stocked();
-    const bow = g.craftGear('huntingBow')!;
+    const bow = g.craftGear('forestBow')!;
     const spear = g.craftGear('ironSpear')!;
     expect(g.equip('lance', 0, bow.uid)).toBe(false); // Lance's first slot is melee
     expect(g.equip('lance', 0, spear.uid)).toBe(true);
@@ -846,13 +847,13 @@ describe('Equipment', () => {
   it('gear changes combat stats', () => {
     const g = stocked();
     const dmg = g.damage;
-    const bow = g.craftGear('huntingBow')!;
+    const bow = g.craftGear('forestBow')!;
     g.equip('main', 0, bow.uid);
     // Every hit starts from the weapon's own damage (bare-handed: 1).
-    expect(g.damage).toBeCloseTo(dmg * weaponHit(gearDef('huntingBow'), 1));
-    expect(weaponHit(gearDef('huntingBow'), 1)).toBeGreaterThan(weaponHit(gearDef('shortBow'), 1)); // crafted beats starting gear
+    expect(g.damage).toBeCloseTo(dmg * weaponHit(gearDef('forestBow'), 1));
+    expect(weaponHit(gearDef('forestBow'), 1)).toBeGreaterThan(weaponHit(gearDef('shortBow'), 1)); // crafted beats starting gear
     const stun = g.stunTime();
-    const vest = g.craftGear('leatherVest')!;
+    const vest = g.craftGear('furCoat')!;
     g.equip('main', 1, vest.uid);
     expect(g.stunTime()).toBeLessThan(stun);
     const lens = g.craftGear('hawkeyeLens')!;
@@ -864,8 +865,8 @@ describe('Equipment', () => {
   it('magic weapons: Glimmer takes only magic, Reginald takes ranged or magic, nobody else takes magic', () => {
     const g = stocked();
     g.recruit('alchemist');
-    const wand = g.craftGear('apprenticeWand')!;
-    const bow = g.craftGear('huntingBow')!;
+    const wand = g.craftGear('slimeWand')!;
+    const bow = g.craftGear('forestBow')!;
     expect(g.equip('glimmer', 0, bow.uid)).toBe(false);
     expect(g.equip('glimmer', 0, wand.uid)).toBe(true);
     expect(g.equip('alchemist', 0, bow.uid)).toBe(true);
@@ -1045,7 +1046,7 @@ describe('Equipment', () => {
     hit('main', e, 1, 0, 0, false);
     expect(e.burn).toBeDefined();
     // Physical's effect is bleeding: only blades (daggers, swords, spears) have a chance to cause it.
-    for (const gd of GEAR) if (gd.damageType === 'physical' && gd.proc) expect(['dagger', 'sword', 'spear']).toContain(gd.weaponClass);
+    for (const gd of GEAR) if (gd.damageType === 'physical' && gd.proc) expect(['dagger', 'sword', 'longsword', 'spear']).toContain(gd.weaponClass);
   });
 
   it('10 areas in order; saves from before the new areas open everything up to their furthest area', () => {
@@ -1082,14 +1083,14 @@ describe('Equipment', () => {
     const g = stocked();
 
     const rifle = g.craftGear('frostRifle')!;
-    const bow = g.craftGear('huntingBow')!;
+    const bow = g.craftGear('forestBow')!;
     const baseLong = g.shotDamage('wilhelm', undefined, 'long');
     const baseShort = g.shotDamage('wilhelm', undefined, 'short');
     g.equip('wilhelm', 0, rifle.uid); // long-range slot
     g.equip('wilhelm', 1, bow.uid); // short-range slot
     // Each weapon's stats and its class (rifle: heavy and long; shortbow: light and short) apply to its mode.
     expect(g.shotDamage('wilhelm', undefined, 'long')).toBeCloseTo(baseLong * weaponHit(gearDef('frostRifle'), 1));
-    expect(g.shotDamage('wilhelm', undefined, 'short')).toBeCloseTo(baseShort * weaponHit(gearDef('huntingBow'), 1));
+    expect(g.shotDamage('wilhelm', undefined, 'short')).toBeCloseTo(baseShort * weaponHit(gearDef('forestBow'), 1));
     // A class's weight is part of its weapons' base damage: a rifle hits harder than a bow of the same rarity.
     expect(weaponHit(gearDef('frostRifle'), 1) / TIER_HIT[7]).toBeCloseTo(WEAPON_CLASSES.rifle.damage, 1);
     expect(g.shooterRange('wilhelm', 'long')).toBeCloseTo(hunterDef('wilhelm').style.range * WEAPON_CLASSES.rifle.range + 15);
@@ -1109,12 +1110,12 @@ describe('Equipment', () => {
     g.equip('main', 0, long.uid);
     expect(g.shooterRate('main')).toBeLessThan(base.rate);
     expect(g.shooterRange('main')).toBeGreaterThan(base.range);
-    const short = g.craftGear('huntingBow')!;
+    const short = g.craftGear('forestBow')!;
     g.equip('main', 0, short.uid);
     expect(g.shooterRate('main')).toBeGreaterThan(base.rate);
     expect(g.shooterRange('main')).toBeLessThan(base.range);
     // A sword reaches only as far as the blade, but sweeps through several monsters.
-    const sword = g.craftGear('goblinSword')!;
+    const sword = g.craftGear('slimeSword')!;
     g.equip('main', 0, sword.uid);
     expect(g.weaponClassOf('main')?.attack).toBe('sweep');
     expect(g.shooterRange('main')).toBeLessThan(120);
@@ -1131,7 +1132,7 @@ describe('Equipment', () => {
   it('daggers stab 3 times at one monster and the last stab knocks it back; spears thrust wide and drive monsters back', () => {
     const g = stocked();
     g.state.hunters = Object.fromEntries(Object.entries(g.state.hunters).map(([k, h]) => [k, { ...h, station: null }])) as typeof g.state.hunters;
-    g.equip('main', 0, g.craftGear('fangDagger')!.uid);
+    g.equip('main', 0, g.craftGear('beastBlade')!.uid);
     const f = new Field(g);
     f.setView(390, 420);
     const hp = 1e12;
@@ -1488,8 +1489,8 @@ describe('Equipment', () => {
   it('loot: carriers drop gear of their area (or older); Guardians always drop a piece; Auto Salvage salvages chosen rarities as they drop', () => {
     // Loot comes from the area's tier, or older ones; never newer.
     for (const [area, tier] of [['forest', 1], ['crypt', 4], ['rift', 12]] as const) {
-      for (let i = 0; i < 40; i++) expect(gearTier(rollLoot(area, i / 40, ((i * 7) % 40) / 40))).toBeLessThanOrEqual(tier);
-      expect(gearTier(rollLoot(area, 0, 0.5))).toBe(Math.max(...GEAR.filter((x) => !x.starter && gearTier(x) <= tier).map(gearTier)));
+      for (let i = 0; i < 40; i++) expect(gearArea(rollLoot(area, i / 40, ((i * 7) % 40) / 40))).toBeLessThanOrEqual(tier);
+      expect(gearArea(rollLoot(area, 0, 0.5))).toBe(Math.max(...GEAR.filter((x) => gearArea(x) <= tier).map(gearArea)));
     }
     expect(lootChance('zombie')).toBeGreaterThan(0);
     expect(lootChance('greenSlime')).toBe(0);
@@ -1540,9 +1541,9 @@ describe('Equipment', () => {
     g.state.gold = 1e30;
     for (const m of Object.keys(g.state.materials) as Array<keyof typeof g.state.materials>) g.state.materials[m] = 1e6;
     g.state.hunters.puppeteer.recruited = true;
-    expect(g.equip('puppeteer', 0, g.craftGear('apprenticeWand')!.uid)).toBe(true);
-    expect(g.equip('puppeteer', 0, g.craftGear('goblinSword')!.uid)).toBe(true);
-    expect(g.equip('puppeteer', 0, g.craftGear('huntingBow')!.uid)).toBe(false); // no ranged weapons
+    expect(g.equip('puppeteer', 0, g.craftGear('slimeWand')!.uid)).toBe(true);
+    expect(g.equip('puppeteer', 0, g.craftGear('slimeSword')!.uid)).toBe(true);
+    expect(g.equip('puppeteer', 0, g.craftGear('forestBow')!.uid)).toBe(false); // no ranged weapons
     expect(g.station('puppeteer', 'forest')).toBe(true);
     const f = new Field(g);
     f.setView(390, 420);
@@ -1592,6 +1593,34 @@ describe('Equipment', () => {
     g.equip('druid', 0, g.craftGear('wispTome')!.uid);
     const spirit = bite('druid', 'wispTome');
     expect(bite('druid', 'wolfTome') / spirit).toBeCloseTo(1.5);
+  });
+
+  it('Forest gear: deeper materials make stronger gear; the Fang Talisman and Slime Vial hit their archetypes harder; a 5★ Slime Vial finds Royal Slime', () => {
+    expect(gearTier(gearDef('slimeSword'))).toBe(1);
+    expect(gearTier(gearDef('forestBow'))).toBeGreaterThan(1);
+    expect(gearTier(gearDef('slimeWand'))).toBeCloseTo(1.9);
+    expect(weaponHit(gearDef('forestBlade'), 1)).toBeGreaterThan(weaponHit(gearDef('slimeSword'), 1));
+    expect(weaponHit(gearDef('slimeWand'), 1)).toBeGreaterThan(weaponHit(gearDef('forestBow'), 1));
+    expect(gearDef('forestBlade').weaponClass).toBe('longsword');
+    expect(gearDef('slimeWand').damageType).toBe('poison');
+    expect(gearDef('commonClothes').name).toBe('Common Garb');
+    const g = new Game(newGame(0), () => 0);
+    g.state.gold = 1e30;
+    for (const m of Object.keys(g.state.materials) as Array<keyof typeof g.state.materials>) g.state.materials[m] = 1e6;
+    const vsBeast = g.shotDamage('main', 'beast');
+    const tal = g.craftGear('fangTalisman')!;
+    g.equip('main', 2, tal.uid);
+    expect(g.shotDamage('main', 'beast')).toBeCloseTo(vsBeast * 1.05);
+    expect(g.shotDamage('main', 'slime')).toBeCloseTo(vsBeast);
+    const vial = g.craftGear('slimeVial')!;
+    g.equip('main', 2, vial.uid);
+    expect(g.shotDamage('main', 'slime')).toBeCloseTo(vsBeast * 1.1);
+    const royal = g.state.materials.royalSlime;
+    g.registerKill('greenSlime', false);
+    expect(g.state.materials.royalSlime).toBe(royal); // only at 5★
+    vial.stars = 5;
+    g.registerKill('greenSlime', false);
+    expect(g.state.materials.royalSlime).toBe(royal + 1);
   });
 
   it('lightning arcs to a creature in its radius, striking every creature the bolt passes through', () => {
@@ -1733,12 +1762,12 @@ describe('Equipment', () => {
 
   it('salvaging refunds half the materials spent and unequips it', () => {
     const g = stocked();
-    const bow = g.craftGear('huntingBow')!;
+    const bow = g.craftGear('forestBow')!;
     g.upgradeGear(bow.uid);
     g.equip('main', 0, bow.uid);
     const twig = g.state.materials.twig;
     const refund = g.salvageValue(bow.uid).twig!;
-    expect(refund).toBe(Math.floor((gearCost(gearDef('huntingBow'), 0).twig! + gearCost(gearDef('huntingBow'), 1).twig!) * 0.5));
+    expect(refund).toBe(Math.floor((gearCost(gearDef('forestBow'), 0).twig! + gearCost(gearDef('forestBow'), 1).twig!) * 0.5));
     expect(g.salvageGear(bow.uid)).toBe(true);
     expect(g.state.materials.twig).toBe(twig + refund);
     expect(g.state.inventory).toHaveLength(0);
@@ -1747,7 +1776,7 @@ describe('Equipment', () => {
 
   it('inventory and equipment survive a save round-trip; dangling references are dropped', () => {
     const g = stocked();
-    const bow = g.craftGear('huntingBow')!;
+    const bow = g.craftGear('forestBow')!;
     g.equip('ranger', 0, bow.uid);
     const back = deserialize(serialize(g.state))!;
     expect(back.inventory).toEqual([bow]);
@@ -2416,9 +2445,9 @@ describe('Saves', () => {
     const v8 = JSON.parse(serialize(newGame(0)));
     v8.version = 8;
     v8.inventory = [
-      { uid: 1, base: 'leatherVest', level: 1 },
+      { uid: 1, base: 'furCoat', level: 1 },
       { uid: 2, base: 'emberOrb', level: 2 },
-      { uid: 3, base: 'luckyCharm', level: 1 },
+      { uid: 3, base: 'fangTalisman', level: 1 },
     ];
     v8.equipment = { glimmer: [1, 2, 3], main: [null, null, 3] };
     const s = deserialize(JSON.stringify(v8))!;
@@ -2446,7 +2475,7 @@ describe('Saves', () => {
     const ring = gearDef('soulRing');
     expect(gearStats(ring, 1).damage).toBeCloseTo(0.25);
     expect(gearStats(ring, MAX_STARS).damage).toBeCloseTo(2.5);
-    const bow = gearDef('huntingBow'); // a weapon's base damage grows with its stars too
+    const bow = gearDef('forestBow'); // a weapon's base damage grows with its stars too
     expect(weaponHit(bow, MAX_STARS)).toBeCloseTo(weaponHit(bow, 1) * WEAPON_HIT_POWER[MAX_STARS]);
     const whet = itemDef('whetstone');
     expect(itemLevels(whet)).toEqual([0, 1, 2, 4, 8, 15]); // Common: stops at its old Lv 15
@@ -2463,11 +2492,11 @@ describe('Saves', () => {
     // An old save: a Lv 5 bow becomes 3★ (Lv 4) + a refund; a Lv 10 one is 5★.
     const old = JSON.parse(serialize(newGame(0)));
     old.version = 12;
-    old.inventory = [{ uid: 1, base: 'huntingBow', level: 5 }, { uid: 2, base: 'huntingBow', level: 10 }];
+    old.inventory = [{ uid: 1, base: 'forestBow', level: 5 }, { uid: 2, base: 'forestBow', level: 10 }];
     old.items.gloves = 15;
     const s = deserialize(JSON.stringify(old))!;
     expect(s.inventory.map((it) => it.stars)).toEqual([3, 5]);
-    expect(s.materials.twig).toBe(old.materials.twig + Math.ceil(8 * 1.8 ** 4));
+    expect(s.materials.twig).toBe(old.materials.twig + Math.ceil(6 * 1.8 ** 4));
     expect(s.items.gloves).toBe(MAX_STARS);
   });
 

@@ -65,6 +65,7 @@ import {
   itemLevel,
   GEAR_STUN_CAP,
   gearCost,
+  GEAR_STAR_POWER,
   gearDef,
   gearStats,
   gearTotals,
@@ -421,10 +422,21 @@ export class Game {
    */
   shotDamage(shooter: Shooter, archetype?: Archetype, mode?: GearMode): number {
     // A weapon's class weight is already in its base damage (a hammer's hits start higher than a dagger's).
-    if (shooter === 'main') return this.damage;
+    if (shooter === 'main') return this.damage * (1 + this.gearBane('main', archetype));
     const def = hunterDef(shooter);
     const bane = def.bane && def.bane.archetype === archetype ? def.bane.mult + this.tree(shooter).bane : 1;
-    return this.weaponHitOf(shooter, mode) * powerDamage(this.state.hunters[shooter].trains) * this.skillDamageMult(shooter) * this.itemDamageMult * def.style.damage * bane * (1 + this.gear(shooter, mode).damage);
+    return this.weaponHitOf(shooter, mode) * powerDamage(this.state.hunters[shooter].trains) * this.skillDamageMult(shooter) * this.itemDamageMult * def.style.damage * bane * (1 + this.gear(shooter, mode).damage) * (1 + this.gearBane(shooter, archetype));
+  }
+
+  /** Extra damage from a Hunter's gear against an archetype (the Fang Talisman vs Beasts, the Slime Vial vs Slimes). */
+  gearBane(who: Shooter, archetype?: Archetype): number {
+    if (!archetype) return 0;
+    let b = 0;
+    for (const item of this.equipped(who)) {
+      const d = item ? gearDef(item.base) : null;
+      if (item && d?.bane?.archetype === archetype) b += d.bane.bonus * GEAR_STAR_POWER[item.stars];
+    }
+    return b;
   }
 
   /** Attacks per second. */
@@ -995,6 +1007,11 @@ export class Game {
     const extra = enemyDef(type).extra;
     if (extra) this.gainMaterial(extra, dropsFrom(chance * EXTRA_DROP_SHARE, this.rng()));
     s.areas[enemyDef(type).area].kills++;
+    // Gear that finds extra materials (the Slime Vial at 5★: Royal Slime from slimes).
+    for (const item of this.equipped(shooter)) {
+      const fd = item ? gearDef(item.base).findDrop : undefined;
+      if (item && fd && item.stars >= fd.stars && enemyDef(type).archetype === fd.archetype && this.rng() < fd.chance) this.gainMaterial(fd.material, 1);
+    }
     const loot = lootChance(type) * this.areaPerk(enemyDef(type).area).loot;
     if (loot > 0 && this.rng() < loot) this.dropLoot(enemyDef(type).area);
     return { gold, material: amount > 0 ? e.material : null, amount };

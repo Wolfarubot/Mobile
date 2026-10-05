@@ -1025,16 +1025,36 @@ export const LOOT_CURRENT_SHARE = 0.6;
 /** Chance a looted piece is already 2★. */
 export const LOOT_TWO_STAR = 0.1;
 
-/** The area tier a piece of gear belongs to: its own, or the newest area whose materials its recipe uses. */
+/**
+ * How deep into the game a material comes from: its area's index, plus how far into the area the first
+ * monster dropping it is met (its place in the unlock order, up to +0.8; a Guardian's material is +0.9).
+ */
+export function materialDepth(m: MaterialId): number {
+  let best = Infinity;
+  for (const e of ENEMIES) {
+    if (!enemyDrops(e).includes(m)) continue;
+    const a = AREAS.findIndex((ar) => ar.id === e.area);
+    const roster = areaEnemies(e.area);
+    const into = e.guardianOnly ? 0.9 : (roster.findIndex((x) => x.id === e.id) / roster.length) * 0.8;
+    best = Math.min(best, a + into);
+  }
+  return Number.isFinite(best) ? best : 0;
+}
+
+/**
+ * The tier a piece of gear belongs to (1 = Whispering Forest … 12 = Void Rift): its own, or worked out from
+ * its recipe, so gear made from materials further into an area is a little stronger (Forest gear runs from
+ * 1.0 for Green Slime up to 1.9 for Royal Slime).
+ */
 export function gearTier(def: GearDef): number {
   if (def.tier) return def.tier;
-  let t = 1;
-  for (const m of Object.keys(def.recipe) as MaterialId[]) {
-    const a = AREAS.findIndex((ar) => ENEMIES.some((e) => e.area === ar.id && enemyDrops(e).includes(m)));
-    if (a >= 0) t = Math.max(t, a + 1);
-  }
-  return t;
+  let t = 0;
+  for (const m of Object.keys(def.recipe) as MaterialId[]) t = Math.max(t, materialDepth(m));
+  return 1 + Math.round(t * 100) / 100;
 }
+
+/** The area a piece of gear comes from (its whole tier). */
+export const gearArea = (def: GearDef): number => Math.floor(gearTier(def));
 
 /**
  * A random piece of loot for an area: usually gear of that area's tier (or the newest tier below it that has
@@ -1042,10 +1062,11 @@ export function gearTier(def: GearDef): number {
  */
 export function rollLoot(area: AreaId, roll: number, pick: number): GearDef {
   const tier = AREAS.findIndex((a) => a.id === area) + 1;
-  const pool = GEAR.filter((g) => !g.starter && gearTier(g) <= tier);
-  const top = Math.max(...pool.map(gearTier));
-  const current = pool.filter((g) => gearTier(g) === top);
-  const older = pool.filter((g) => gearTier(g) < top);
+  // Starting gear can drop too (it can't be crafted).
+  const pool = GEAR.filter((g) => gearArea(g) <= tier);
+  const top = Math.max(...pool.map(gearArea));
+  const current = pool.filter((g) => gearArea(g) === top);
+  const older = pool.filter((g) => gearArea(g) < top);
   const from = roll < LOOT_CURRENT_SHARE || !older.length ? current : older;
   return from[Math.floor(pick * from.length) % from.length];
 }
@@ -1669,6 +1690,24 @@ export const GEAR_STATS: Record<GearStat, (v: number) => string> = {
 };
 
 export type GearId =
+  | 'slimeSword'
+  | 'forestBow'
+  | 'furCoat'
+  | 'boneArmor'
+  | 'boneSpear'
+  | 'forestLongbow'
+  | 'forestGlaive'
+  | 'beastBlade'
+  | 'fangTalisman'
+  | 'forestBlade'
+  | 'natureBow'
+  | 'slimeVial'
+  | 'forestCrossbow'
+  | 'forestShield'
+  | 'royalGlaive'
+  | 'leatherArmor'
+  | 'plateArmor'
+  | 'slimeWand'
   | 'thornLongbow'
   | 'thornSpear'
   | 'faerieWand'
@@ -1694,12 +1733,9 @@ export type GearId =
   | 'shortSword'
   | 'shortBow'
   | 'commonClothes'
-  | 'fangDagger'
   | 'wispTome'
   | 'wolfTome'
   | 'boneMaul'
-  | 'goblinSword'
-  | 'huntingBow'
   | 'boneCrossbow'
   | 'emberLongbow'
   | 'bonePistol'
@@ -1708,13 +1744,11 @@ export type GearId =
   | 'ironSpear'
   | 'magmaGlaive'
   | 'soulLance'
-  | 'apprenticeWand'
   | 'gravewoodStaff'
   | 'emberFocus'
   | 'crystalFocus'
   | 'voidScepter'
   | 'soulfireStaff'
-  | 'leatherVest'
   | 'silkTunic'
   | 'gloomLeathers'
   | 'hauntedPlate'
@@ -1722,7 +1756,6 @@ export type GearId =
   | 'starweave'
   | 'stormplate'
   | 'voidPlate'
-  | 'apprenticeRobe'
   | 'cultistRobe'
   | 'wrapRobe'
   | 'emberRobe'
@@ -1739,7 +1772,6 @@ export type GearId =
   | 'bonePlate'
   | 'chitinCarapace'
   | 'frostMail'
-  | 'luckyCharm'
   | 'goldTooth'
   | 'satchel'
   | 'emberOrb'
@@ -1785,6 +1817,10 @@ export interface GearDef {
   armorType?: ArmorType;
   /** Rarer armor and accessories: a special effect (see GearEffect). */
   effect?: GearEffect;
+  /** Extra damage against one archetype (+bonus at 1★, ×GEAR_STAR_POWER for stars), e.g. the Fang Talisman vs Beasts. */
+  bane?: { archetype: Archetype; bonus: number };
+  /** From `stars`★: the wearer's kills of `archetype` have `chance` to also drop one `material` (the Slime Vial's Royal Slime). */
+  findDrop?: { archetype: Archetype; material: MaterialId; chance: number; stars: number };
   /** Chance each hit triggers its damage type's status effect (0 or missing: never). */
   proc?: number;
   /** Stats at 1★; higher stars multiply them by GEAR_STAR_POWER. */
@@ -1812,7 +1848,11 @@ export const UNARMED_HIT = 1;
 /** A weapon's base damage per hit at a star count (0 for gear that isn't a weapon). */
 export function weaponHit(def: GearDef, stars: number): number {
   if (!def.weaponClass) return 0;
-  const raw = TIER_HIT[Math.max(1, Math.min(TIER_HIT.length, def.tier ?? 1)) - 1] * WEAPON_CLASSES[def.weaponClass].damage;
+  // Between whole tiers, damage grows geometrically toward the next tier's.
+  const t = Math.max(1, Math.min(TIER_HIT.length, gearTier(def)));
+  const lo = Math.floor(t);
+  const tierHit = lo >= TIER_HIT.length ? TIER_HIT[TIER_HIT.length - 1] : TIER_HIT[lo - 1] * (TIER_HIT[lo] / TIER_HIT[lo - 1]) ** (t - lo);
+  const raw = tierHit * WEAPON_CLASSES[def.weaponClass].damage;
   const base = def.hit ?? (raw >= 10 ? Math.round(raw) : Math.round(raw * 10) / 10);
   return base * WEAPON_HIT_POWER[Math.max(0, Math.min(MAX_STARS, stars))];
 }
@@ -1842,7 +1882,7 @@ export const GEAR_STUN_CAP = 0.7;
 // weapon's class reshapes it (a longbow makes Galladair's arrows slower, heavier and longer-ranged).
 // Each class's rate × damage is about 1, so none is simply better: they trade speed, reach and crowd hits.
 
-export type WeaponClass = 'tome' | 'dagger' | 'sword' | 'glaive' | 'spear' | 'hammer' | 'shortbow' | 'longbow' | 'crossbow' | 'pistol' | 'rifle' | 'repeater' | 'wand' | 'staff' | 'focus' | 'scepter';
+export type WeaponClass = 'tome' | 'dagger' | 'sword' | 'longsword' | 'glaive' | 'spear' | 'hammer' | 'shortbow' | 'longbow' | 'crossbow' | 'pistol' | 'rifle' | 'repeater' | 'wand' | 'staff' | 'focus' | 'scepter';
 
 export interface WeaponClassDef {
   name: string;
@@ -1919,6 +1959,7 @@ export const weaponHitsPerAttack = (c: WeaponClassDef | null | undefined): numbe
 export const WEAPON_CLASSES: Record<WeaponClass, WeaponClassDef> = {
   dagger: { name: 'Dagger', attack: 'dagger', projectile: 'dagger', range: 0.8, reach: 60, thrusts: 3, knock: 160, rate: 0.9, damage: 0.4, farm: 1, describe: 'A quick burst of 3 stabs at one monster; the last knocks it back. Thrown when monsters are further off.' },
   sword: { name: 'Sword', attack: 'sweep', range: 1, reach: 80, arc: 2.4, knock: 120, rate: 0.9, damage: 1.1, farm: 1.8, describe: 'A sweeping slash that hits every monster in front and knocks them back.' },
+  longsword: { name: 'Longsword', attack: 'sweep', range: 1, reach: 100, arc: 2.1, knock: 200, rate: 0.6, damage: 1.65, farm: 1.8, describe: 'A long two-handed blade: slower, heavier sweeps that reach further and knock monsters back hard.' },
   glaive: { name: 'Glaive', attack: 'sweep', range: 1, reach: 100, arc: 3.2, knock: 160, rate: 0.7, damage: 1.4, farm: 2, describe: 'A wide, heavy cleave around the front that knocks monsters back.' },
   spear: { name: 'Spear', attack: 'stab', range: 1, reach: 170, width: 24, knock: 200, rate: 0.8, damage: 1.2, farm: 2, describe: 'A long, wide thrust straight out that hits everything in its path and drives it back.' },
   hammer: { name: 'Hammer', attack: 'sweep', range: 1, reach: 75, arc: 1.3, knock: 420, rate: 0.45, damage: 2.3, farm: 1.4, describe: 'Very slow, crushing smashes that send monsters flying.' },
@@ -1939,23 +1980,39 @@ export const GEAR: GearDef[] = [
   // Starting gear (not craftable): your Hunter begins with the Short Sword and Common Clothes on, and a Short Bow spare.
   { id: 'shortSword', name: 'Short Sword', icon: '🗡️', kind: 'melee', rarity: 'common', weaponClass: 'sword', damageType: 'physical', hit: 1, stats: {}, recipe: { goo: 6 }, starter: true },
   { id: 'shortBow', name: 'Short Bow', icon: '🏹', kind: 'weapon', rarity: 'common', weaponClass: 'shortbow', damageType: 'physical', hit: 1, stats: {}, recipe: { goo: 6 }, starter: true },
-  { id: 'commonClothes', name: 'Common Clothes', icon: '👕', kind: 'armor', rarity: 'common', stats: {}, recipe: { goo: 4 }, starter: true },
+  { id: 'commonClothes', name: 'Common Garb', icon: '👕', kind: 'armor', rarity: 'common', stats: {}, recipe: { goo: 4 }, starter: true },
   // Weapons
-  { id: 'huntingBow', name: 'Hunting Bow', icon: '🏹', kind: 'weapon', rarity: 'common', weaponClass: 'shortbow', tier: 1, damageType: 'physical', stats: {}, recipe: { twig: 8, pelt: 4 } },
+  // Whispering Forest: tiers (and damage) come from how deep into the Forest each recipe's materials are
+  { id: 'slimeSword', name: 'Slime Sword', icon: '⚔️', kind: 'melee', rarity: 'common', weaponClass: 'sword', damageType: 'physical', proc: 0.1, stats: {}, recipe: { goo: 8 } },
+  { id: 'forestBow', name: 'Forest Bow', icon: '🏹', kind: 'weapon', rarity: 'common', weaponClass: 'shortbow', damageType: 'physical', stats: {}, recipe: { goo: 6, twig: 6 } },
+  { id: 'furCoat', name: 'Fur Coat', icon: '🧥', kind: 'armor', armorType: 'light', rarity: 'common', stats: armorStats('light', gearTier({ recipe: { pelt: 8 } } as GearDef)), recipe: { pelt: 8 } },
+  { id: 'boneArmor', name: 'Bone Armor', icon: '🦴', kind: 'armor', armorType: 'heavy', rarity: 'common', stats: armorStats('heavy', gearTier({ recipe: { beastBone: 8 } } as GearDef)), recipe: { beastBone: 8 } },
+  { id: 'boneSpear', name: 'Bone Spear', icon: '🔱', kind: 'melee', rarity: 'common', weaponClass: 'spear', damageType: 'physical', proc: 0.1, stats: {}, recipe: { goo: 6, beastBone: 5 } },
+  { id: 'forestLongbow', name: 'Longbow', icon: '🏹', kind: 'weapon', rarity: 'common', weaponClass: 'longbow', damageType: 'physical', stats: {}, recipe: { scrap: 6, twig: 8 } },
+  { id: 'forestGlaive', name: 'Glaive', icon: '🪓', kind: 'melee', rarity: 'common', weaponClass: 'glaive', damageType: 'physical', stats: {}, recipe: { scrap: 8, twig: 6 } },
+  { id: 'beastBlade', name: 'Beast Blade', icon: '🔪', kind: 'melee', rarity: 'uncommon', weaponClass: 'dagger', damageType: 'physical', proc: 0.25, stats: {}, recipe: { bearClaw: 5, beastBone: 6 } },
+  { id: 'fangTalisman', name: 'Fang Talisman', icon: '🦷', kind: 'accessory', rarity: 'uncommon', stats: { rate: 0.05 }, bane: { archetype: 'beast', bonus: 0.05 }, recipe: { bearClaw: 4, beastBone: 4, pelt: 6 } },
+  { id: 'forestBlade', name: 'Forest Blade', icon: '🗡️', kind: 'melee', rarity: 'uncommon', weaponClass: 'longsword', damageType: 'physical', proc: 0.2, stats: {}, recipe: { scrap: 8, beastBone: 6, bearClaw: 4 } },
+  { id: 'natureBow', name: 'Nature Bow', icon: '🏹', kind: 'weapon', rarity: 'uncommon', weaponClass: 'shortbow', damageType: 'physical', stats: {}, recipe: { bearClaw: 4, twig: 10, scrap: 5 } },
+  { id: 'slimeVial', name: 'Slime Vial', icon: '🧪', kind: 'accessory', rarity: 'uncommon', stats: {}, bane: { archetype: 'slime', bonus: 0.1 }, findDrop: { archetype: 'slime', material: 'royalSlime', chance: 0.01, stars: 5 }, recipe: { goo: 15, royalSlime: 2 } },
+  { id: 'forestCrossbow', name: 'Crossbow', icon: '🎯', kind: 'weapon', rarity: 'uncommon', weaponClass: 'crossbow', damageType: 'physical', stats: {}, recipe: { royalSlime: 2, twig: 12 } },
+  { id: 'forestShield', name: 'Shield', icon: '🛡️', kind: 'armor', armorType: 'shield', rarity: 'uncommon', stats: armorStats('shield', gearTier({ recipe: { royalSlime: 2, scrap: 10 } } as GearDef)), recipe: { royalSlime: 2, scrap: 10 } },
+  { id: 'royalGlaive', name: 'Royal Glaive', icon: '🪓', kind: 'melee', rarity: 'uncommon', weaponClass: 'glaive', damageType: 'physical', stats: {}, recipe: { scrap: 10, royalSlime: 2, beastBone: 6 } },
+  { id: 'leatherArmor', name: 'Leather Armor', icon: '🦺', kind: 'armor', armorType: 'light', rarity: 'uncommon', stats: armorStats('light', gearTier({ recipe: { pelt: 12, royalSlime: 2 } } as GearDef)), recipe: { pelt: 12, royalSlime: 2 } },
+  { id: 'plateArmor', name: 'Plate Armor', icon: '🪖', kind: 'armor', armorType: 'heavy', rarity: 'uncommon', stats: armorStats('heavy', gearTier({ recipe: { scrap: 12, royalSlime: 2 } } as GearDef)), recipe: { scrap: 12, royalSlime: 2 } },
+  { id: 'slimeWand', name: 'Slime Wand', icon: '🪄', kind: 'magic', rarity: 'uncommon', weaponClass: 'wand', damageType: 'poison', proc: 0.2, stats: {}, recipe: { twig: 10, royalSlime: 2 } },
+  // Later areas
   { id: 'boneCrossbow', name: 'Bone Crossbow', icon: '🎯', kind: 'weapon', rarity: 'uncommon', weaponClass: 'crossbow', tier: 3, damageType: 'physical', stats: { range: 8 }, recipe: { bone: 10, wing: 5 } },
   { id: 'emberLongbow', name: 'Ember Longbow', icon: '🔥', kind: 'weapon', rarity: 'veryRare', weaponClass: 'longbow', tier: 6, damageType: 'fire', proc: 0.3, stats: { rate: 0.12 }, recipe: { ember: 10, chitin: 5 } },
   { id: 'bonePistol', name: 'Bone Pistol', icon: '🔫', kind: 'weapon', rarity: 'uncommon', weaponClass: 'pistol', tier: 3, damageType: 'physical', stats: {}, recipe: { bone: 8, vampEssence: 4 } },
   { id: 'frostRifle', name: 'Frost Rifle', icon: '🔫', kind: 'weapon', rarity: 'legendary', weaponClass: 'rifle', tier: 8, damageType: 'frost', proc: 0.35, stats: { range: 15 }, recipe: { fur: 10, frost: 5 } },
   { id: 'voidRepeater', name: 'Void Repeater', icon: '🌀', kind: 'weapon', rarity: 'exalted', weaponClass: 'repeater', tier: 12, damageType: 'void', stats: { rate: 0.2 }, recipe: { shade: 10, void: 5 } },
   // Melee
-  { id: 'fangDagger', name: 'Fang Dagger', icon: '🗡️', kind: 'melee', rarity: 'common', weaponClass: 'dagger', tier: 1, damageType: 'physical', proc: 0.3, stats: { rate: 0.05 }, recipe: { bearClaw: 4, beastBone: 4 } },
-  { id: 'goblinSword', name: 'Goblin Sword', icon: '⚔️', kind: 'melee', rarity: 'common', weaponClass: 'sword', tier: 1, damageType: 'physical', proc: 0.2, stats: {}, recipe: { scrap: 8, beastBone: 4 } },
   { id: 'boneMaul', name: 'Bone Maul', icon: '🔨', kind: 'melee', rarity: 'uncommon', weaponClass: 'hammer', tier: 3, damageType: 'physical', stats: {}, recipe: { bone: 12, flesh: 6 } },
   { id: 'ironSpear', name: 'Bone Spear', icon: '🔱', kind: 'melee', rarity: 'uncommon', weaponClass: 'spear', tier: 3, damageType: 'physical', proc: 0.2, stats: {}, recipe: { bone: 10, flesh: 5 } },
   { id: 'magmaGlaive', name: 'Magma Glaive', icon: '🪓', kind: 'melee', rarity: 'veryRare', weaponClass: 'glaive', tier: 6, damageType: 'fire', proc: 0.4, stats: { range: 6 }, recipe: { demonTooth: 8, magma: 6 } },
   { id: 'soulLance', name: 'Soulreaver Lance', icon: '⚜️', kind: 'melee', rarity: 'exalted', weaponClass: 'spear', tier: 12, damageType: 'decay', proc: 0.2, stats: { pierce: 0.2 }, recipe: { soul: 8, void: 4 } },
   // Magic (Reginald and Glimmer)
-  { id: 'apprenticeWand', name: 'Apprentice Wand', icon: '🪄', kind: 'magic', rarity: 'common', weaponClass: 'wand', tier: 1, damageType: 'arcane', proc: 0.15, stats: { rate: 0.05 }, recipe: { twig: 8, goo: 6 } },
   { id: 'gravewoodStaff', name: 'Gravewood Staff', icon: '🪵', kind: 'magic', rarity: 'uncommon', weaponClass: 'staff', tier: 3, damageType: 'decay', proc: 0.15, stats: { rate: 0.06 }, recipe: { sacredText: 8, vampEssence: 5 } },
   { id: 'emberFocus', name: 'Ember Focus', icon: '🕯️', kind: 'magic', rarity: 'veryRare', weaponClass: 'focus', tier: 6, damageType: 'fire', proc: 0.3, stats: { rate: 0.15 }, recipe: { ember: 10, demonBone: 5 } },
   { id: 'crystalFocus', name: 'Crystal Focus', icon: '💎', kind: 'magic', rarity: 'legendary', weaponClass: 'focus', tier: 8, damageType: 'frost', proc: 0.3, stats: { rate: 0.1 }, recipe: { frost: 8, ecto: 6 } },
@@ -2000,8 +2057,6 @@ export const GEAR: GearDef[] = [
   { id: 'starsteelSword', name: 'Starsteel Sword', icon: '⚔️', kind: 'melee', rarity: 'artifact', weaponClass: 'sword', tier: 11, damageType: 'radiant', proc: 0.25, stats: {}, recipe: { meteor: 10, stardust: 6 } },
   { id: 'starScepter', name: 'Star Scepter', icon: '🌟', kind: 'magic', rarity: 'artifact', weaponClass: 'scepter', tier: 11, damageType: 'radiant', proc: 0.25, stats: {}, recipe: { stardust: 10, meteor: 4 } },
   // Armor: Light, Heavy, Robes and Shields; stats from their kind and tier (armorStats), specials from Very Rare up
-  { id: 'leatherVest', name: 'Leather Vest', icon: '🦺', kind: 'armor', armorType: 'light', rarity: 'common', tier: 1, stats: armorStats('light', 1), recipe: { pelt: 8, scrap: 4 } },
-  { id: 'apprenticeRobe', name: 'Apprentice Robe', icon: '👘', kind: 'armor', armorType: 'robe', rarity: 'common', tier: 1, stats: armorStats('robe', 1), recipe: { goo: 8, twig: 4 } },
   { id: 'silkTunic', name: 'Pixie Silk Tunic', icon: '👚', kind: 'armor', armorType: 'light', rarity: 'uncommon', tier: 2, stats: armorStats('light', 2), recipe: { dust: 8, spore: 5 } },
   { id: 'buckler', name: 'Wooden Buckler', icon: '🛡️', kind: 'armor', armorType: 'shield', rarity: 'uncommon', tier: 2, stats: armorStats('shield', 2), recipe: { sap: 6, enchantedBone: 6 } },
   { id: 'cultistRobe', name: 'Cultist Robe', icon: '🥻', kind: 'armor', armorType: 'robe', rarity: 'uncommon', tier: 3, stats: armorStats('robe', 3), recipe: { robePiece: 10, sacredText: 5 } },
@@ -2022,7 +2077,6 @@ export const GEAR: GearDef[] = [
   { id: 'voidPlate', name: 'Void Plate', icon: '🌀', kind: 'armor', armorType: 'heavy', rarity: 'exalted', tier: 12, stats: armorStats('heavy', 12), recipe: { void: 10, shade: 6 }, effect: { kind: 'thorns', base: 440, damageType: 'void' } },
   { id: 'soulRobe', name: 'Soul Vestments', icon: '👻', kind: 'armor', armorType: 'robe', rarity: 'exalted', tier: 12, stats: armorStats('robe', 12), recipe: { soul: 10, shade: 5 }, effect: { kind: 'pulse', base: 440, damageType: 'void', radius: 120, cooldown: 5 } },
   // Accessories
-  { id: 'luckyCharm', name: 'Lucky Charm', icon: '🍀', kind: 'accessory', rarity: 'common', stats: { crit: 0.03 }, recipe: { bearClaw: 4, scrap: 6, royalSlime: 2 } },
   { id: 'goldTooth', name: 'Gold Tooth', icon: '🦷', kind: 'accessory', rarity: 'uncommon', stats: { gold: 0.15 }, recipe: { scrap: 8, bone: 6 } },
   { id: 'satchel', name: "Scavenger's Satchel", icon: '👜', kind: 'accessory', rarity: 'uncommon', stats: { drops: 0.15 }, recipe: { robePiece: 6, flesh: 8 } },
   { id: 'emberOrb', name: 'Ember Orb', icon: '🔮', kind: 'accessory', rarity: 'veryRare', stats: { radius: 0.12, damage: 0.08 }, recipe: { ember: 8, magma: 4 } },
