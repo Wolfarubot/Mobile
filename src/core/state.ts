@@ -186,7 +186,7 @@ export interface GameState {
   };
 }
 
-export const SAVE_VERSION = 18;
+export const SAVE_VERSION = 19;
 
 const zeroes = <K extends string>(ids: { id: K }[]): Record<K, number> =>
   Object.fromEntries(ids.map((x) => [x.id, 0])) as Record<K, number>;
@@ -325,7 +325,7 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
   // v17 -> v18: the first three areas' monsters were revamped. Each replaced monster's progress (unlocked,
   // Empower, evolutions, kills) passes to the one that took its place; Red Gel becomes Scrap.
   const best = data.bestiary as Record<string, unknown> | undefined;
-  for (const [from, to] of [['redSlime', 'twiggling'], ['killerBee', 'brownBear'], ['boar', 'unicorn'], ['mandragora', 'manTrap'], ['ghoul', 'cultist'], ['ghost', 'graveWraith']])
+  for (const [from, to] of [['redSlime', 'twiggling'], ['killerBee', 'brownBear'], ['boar', 'unicorn'], ['mandragora', 'manTrap'], ['ghoul', 'cultist'], ['ghost', 'graveWraith'], ['banshee', 'possessedArmor']])
     if (best && typeof best === 'object' && from in best && !(to in best)) {
       best[to] = best[from];
       delete best[from];

@@ -1058,9 +1058,9 @@ describe('Equipment', () => {
     expect(AREAS.filter((a) => s.areas[a.id].unlocked).map((a) => a.id)).toEqual(['forest', 'glade', 'graveyard', 'crypt', 'depths', 'caves']);
   });
 
-  it('66 monsters (the Possessed Puppet included) plus the Time Eater, at least 5 per area, each with a weakness; Guardians stay put', () => {
-    expect(ENEMIES).toHaveLength(67);
-    expect(new Set(ENEMIES.map((e) => e.id)).size).toBe(67);
+  it('67 monsters plus the Time Eater, at least 5 per area, each with a weakness; Guardians stay put', () => {
+    expect(ENEMIES).toHaveLength(68);
+    expect(new Set(ENEMIES.map((e) => e.id)).size).toBe(68);
     // The Time Eater is only ever the Void Rift's Guardian: not in its horde or unlockable.
     expect(areaEnemies('rift').map((e) => e.id)).not.toContain('timeEater');
     expect(enemyUnlockCost(enemyDef('timeEater'))).toBe(Infinity);
