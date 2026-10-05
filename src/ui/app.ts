@@ -28,6 +28,8 @@ import {
   describeGear,
   describeEffect,
   ARMOR_TYPES,
+  enemyDrops,
+  lootChance,
   SUMMON_TYPES,
   tomeSummonType,
   ENEMIES,
@@ -1182,9 +1184,8 @@ export class AppUI {
     body.appendChild(monsters);
     for (const e of areaEnemies(id)) {
       const known = g.state.bestiary[e.id].unlocked;
-      const mat = materialDef(e.material);
       const row = el('div', `row${known ? '' : ' locked'}`);
-      row.innerHTML = `<canvas class="portrait"></canvas><div class="info"><div class="name">${known ? e.name : '???'} <small>${ARCHETYPES[e.archetype].icon} ${ARCHETYPES[e.archetype].name}</small></div><div class="drop">${gemHtml(e.material)} Drops <b>${known ? mat.name : '???'}</b></div><div class="sub">${known ? e.blurb : 'Unlock it in the Bestiary.'}</div>${known ? affinityHtml(e, true) : ''}</div>`;
+      row.innerHTML = `<canvas class="portrait"></canvas><div class="info"><div class="name">${known ? e.name : '???'} <small>${ARCHETYPES[e.archetype].icon} ${ARCHETYPES[e.archetype].name}</small></div><div class="drop">${known ? dropsText(e) : `${gemHtml(e.material)} Drops <b>???</b>`}</div><div class="sub">${known ? e.blurb : 'Unlock it in the Bestiary.'}</div>${known ? affinityHtml(e, true) : ''}</div>`;
       monsters.appendChild(row);
       requestAnimationFrame(() => drawEnemyPortrait($<HTMLCanvasElement>('canvas', row), e.id));
     }
@@ -1775,12 +1776,11 @@ export class AppUI {
     const arch = ARCHETYPES[def.archetype];
     this.refreshers.push(() => {
       const b = g.state.bestiary[def.id];
-      const mat = materialDef(def.material);
       card.classList.toggle('locked', !b.unlocked);
       $('.name', card).innerHTML = `${def.name}<span class="archetype">${arch.icon} ${arch.name}</span>${b.unlocked ? '' : ' <small style="color:var(--muted)">locked</small>'}`;
       if (!b.unlocked) {
         const cost = enemyUnlockCost(def);
-        unlockBtn.innerHTML = `Unlock · drops ${gemHtml(def.material)} ${mat.name}<small>🪙 ${fmt(cost)}</small>`;
+        unlockBtn.innerHTML = `Unlock · drops ${enemyDrops(def).map((m) => `${gemHtml(m)} ${materialDef(m).name}`).join(' + ')}<small>🪙 ${fmt(cost)}</small>`;
         unlockBtn.disabled = g.state.gold < cost;
         return;
       }
@@ -1962,7 +1962,7 @@ export class AppUI {
       key = k;
       for (const { m, tile } of tiles) {
         const known = this.materialKnown(m.id);
-        const source = ENEMIES.find((e) => e.material === m.id)!;
+        const source = ENEMIES.find((e) => enemyDrops(e).includes(m.id))!;
         const hint = g.isAreaUnlocked(source.area) ? `${source.name}s` : '???';
         tile.classList.toggle('unknown', !known);
         tile.disabled = !known;
@@ -1974,7 +1974,7 @@ export class AppUI {
   /** You've met a material once you've unlocked a monster that drops it or held some. */
   private materialKnown(id: MaterialId): boolean {
     const g = this.game;
-    return g.state.materials[id] > 0 || (g.state.stats.matGained[id] ?? 0) > 0 || ENEMIES.some((e) => e.material === id && g.isUnlocked(e.id));
+    return g.state.materials[id] > 0 || (g.state.stats.matGained[id] ?? 0) > 0 || ENEMIES.some((e) => enemyDrops(e).includes(id) && g.isUnlocked(e.id));
   }
 
   /** A material's details: icon, name, flavour, how many you hold and have ever gained, and who drops it. */
@@ -1987,7 +1987,7 @@ export class AppUI {
         <p class="droppers-title">Dropped by</p>
         <div class="droppers"></div>`;
       const list = $('.droppers', body);
-      for (const e of ENEMIES.filter((x) => x.material === id)) {
+      for (const e of ENEMIES.filter((x) => enemyDrops(x).includes(id))) {
         const seen = g.isAreaUnlocked(e.area);
         const b = el('button', `dropper${seen ? '' : ' unknown'}`) as HTMLButtonElement;
         b.innerHTML = `<canvas class="portrait"></canvas><span><b>${seen ? e.name : '???'}</b><small>${seen ? `${areaDef(e.area).name}${g.isUnlocked(e.id) ? '' : ' · locked'}` : 'Somewhere further on'}</small></span>`;
@@ -2370,7 +2370,7 @@ export class AppUI {
   /** Recipes are shown once every material in them comes from a monster you've unlocked (or you hold some). */
   private gearKnown(gd: GearDef): boolean {
     const g = this.game;
-    return (Object.keys(gd.recipe) as MaterialId[]).every((m) => g.state.materials[m] > 0 || ENEMIES.some((e) => e.material === m && g.isUnlocked(e.id)));
+    return (Object.keys(gd.recipe) as MaterialId[]).every((m) => g.state.materials[m] > 0 || ENEMIES.some((e) => enemyDrops(e).includes(m) && g.isUnlocked(e.id)));
   }
 
   // ---- Events tab: each area's events, unlocked by slaying monsters there, then on a cooldown ----
@@ -3209,9 +3209,14 @@ function bumpCard(from: HTMLElement): void {
   card.addEventListener('animationend', () => card.classList.remove('bump'), { once: true });
 }
 
-/** What a monster drops. */
+/** What a monster drops (both materials when it has two), and whether it can carry gear. */
+function dropsText(e: EnemyDef): string {
+  const mats = enemyDrops(e).map((m) => `${gemHtml(m)} <b>${materialDef(m).name}</b>`).join(' and ');
+  return `Drops ${mats}${lootChance(e.id) > 0 ? ' · 🎁 can carry gear' : ''}`;
+}
+
 function dropHtml(e: EnemyDef): string {
-  return `<div class="drop-line">${gemHtml(e.material)} Drops <b>${materialDef(e.material).name}</b></div>`;
+  return `<div class="drop-line">${dropsText(e)}</div>`;
 }
 
 /**

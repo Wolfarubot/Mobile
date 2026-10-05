@@ -9,6 +9,7 @@ import {
   type WeaponClassDef,
   dropsFrom,
   rollLoot,
+  EXTRA_DROP_SHARE,
   lootChance,
   LOOT_TWO_STAR,
   affordableCount,
@@ -990,6 +991,9 @@ export class Game {
     const chance = e.dropChance * this.shooterDrops(shooter);
     const amount = dropsFrom(chance, this.rng());
     this.gainMaterial(e.material, amount);
+    // A second drop (a Forest Wolf's Beast Bone), at a share of the chance.
+    const extra = enemyDef(type).extra;
+    if (extra) this.gainMaterial(extra, dropsFrom(chance * EXTRA_DROP_SHARE, this.rng()));
     s.areas[enemyDef(type).area].kills++;
     const loot = lootChance(type) * this.areaPerk(enemyDef(type).area).loot;
     if (loot > 0 && this.rng() < loot) this.dropLoot(enemyDef(type).area);
@@ -1107,6 +1111,8 @@ export class Game {
       out.killsTotal += k;
       out.gold += k * e.gold * goldPerk;
       out.materials[e.material] = (out.materials[e.material] ?? 0) + k * e.dropChance * dropPerk;
+      const extra = enemyDef(e.id).extra;
+      if (extra) out.materials[extra] = (out.materials[extra] ?? 0) + k * e.dropChance * dropPerk * EXTRA_DROP_SHARE;
     }
     for (const h of hunters) {
       out.stuns[h.sh] = h.stunRate * efficiency;

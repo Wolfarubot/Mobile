@@ -527,8 +527,19 @@ export type MaterialId =
   | 'meteor'
   | 'stardust'
   | 'goo'
+  | 'twig'
   | 'pelt'
-  | 'redgel'
+  | 'beastBone'
+  | 'scrap'
+  | 'bearClaw'
+  | 'enchantedBone'
+  | 'unicornHorn'
+  | 'thorn'
+  | 'sap'
+  | 'vampEssence'
+  | 'sacredText'
+  | 'robePiece'
+  | 'nightmareWisp'
   | 'bone'
   | 'flesh'
   | 'wing'
@@ -551,20 +562,34 @@ export interface MaterialDef {
 }
 
 export const MATERIALS: MaterialDef[] = [
-  { id: 'goo', name: 'Slime Gel', color: '#7be07b', desc: 'A wobbly glob of green slime. Sticky, harmless, and oddly useful for binding things together.' },
-  { id: 'pelt', name: 'Wolf Pelt', color: '#c09060', desc: 'A coarse hide from the beasts of the wilds. Warm, tough, and a favourite of leatherworkers.' },
-  { id: 'redgel', name: 'Red Gel', color: '#ff6b6b', desc: 'Angry red slime that still feels warm. It stings a little to hold.' },
-  { id: 'bone', name: 'Bone', color: '#efe6cf', desc: 'Old, dry bone from the restless dead. Sturdy enough to carve into blades and charms.' },
-  { id: 'flesh', name: 'Rotten Flesh', color: '#9bb56e', desc: "A lump of rotten flesh. It smells exactly as bad as you'd expect." },
+  // Whispering Forest
+  { id: 'goo', name: 'Green Slime', color: '#7be07b', desc: 'A wobbly glob of green slime. Sticky, harmless, and oddly useful for binding things together.' },
+  { id: 'twig', name: 'Twigs', color: '#a07a4a', desc: "A bundle of twigs from a Twiggling. They still twitch now and then." },
+  { id: 'pelt', name: 'Wolf Pelt', color: '#c09060', desc: 'A coarse hide from the wolves of the forest. Warm, tough, and a favourite of leatherworkers.' },
+  { id: 'beastBone', name: 'Beast Bone', color: '#e8dcc0', desc: 'A heavy bone from a forest beast. Good for handles, hilts and anything that needs to take a beating.' },
+  { id: 'scrap', name: 'Scrap', color: '#9a9a8a', desc: 'Bent nails, broken buckles and stolen spoons: everything a goblin thought was worth taking.' },
+  { id: 'bearClaw', name: 'Bear Claw', color: '#5a4030', desc: 'A claw as long as your hand. Sharp enough to carve wood, and other things.' },
+  // Faerie Glade
+  { id: 'spore', name: 'Mushroom Cap', color: '#d0584a', desc: 'The spotted cap of a Toadstool. It sneezes spores if you squeeze it.' },
+  { id: 'dust', name: 'Pixie Dust', color: '#ffb8f0', desc: 'Sparkling dust shaken off a pixie. Things sprinkled with it feel a little lighter.' },
+  { id: 'enchantedBone', name: 'Enchanted Bone', color: '#f0e8ff', desc: 'A unicorn bone that hums with old magic. It is warm to the touch.' },
+  { id: 'unicornHorn', name: 'Unicorn Horn', color: '#ffe0f8', desc: 'A spiralled horn that glows faintly. Wands made from it never miss.' },
+  { id: 'thorn', name: 'Enchanted Thorn', color: '#6ab04a', desc: 'A thorn from a Walking Man Trap. It keeps trying to bite.' },
+  { id: 'sap', name: 'Sentient Sap', color: '#d8a040', desc: 'Golden sap from a Treant. It slowly crawls back toward the nearest tree.' },
+  // Old Graveyard
+  { id: 'bone', name: 'Undead Bone', color: '#efe6cf', desc: 'Old, dry bone from the restless dead. Sturdy enough to carve into blades and charms.' },
+  { id: 'flesh', name: 'Rotting Flesh', color: '#9bb56e', desc: "A lump of rotting flesh. It smells exactly as bad as you'd expect." },
+  { id: 'vampEssence', name: 'Vampire Essence', color: '#c0203a', desc: 'A drop of a vampire bat\'s blood magic, thick and dark red. It never dries.' },
   { id: 'wing', name: 'Bat Wing', color: '#8a78b0', desc: 'A leathery bat wing, thin as paper and surprisingly strong.' },
+  { id: 'sacredText', name: 'Sacred Text', color: '#e0c890', desc: 'A torn page of a cultist\'s scripture. The words shift when you are not looking.' },
+  { id: 'robePiece', name: 'Robe Piece', color: '#7a2a3a', desc: 'A strip of a cultist\'s robe, dyed deep red and stitched with symbols.' },
+  { id: 'nightmareWisp', name: 'Nightmare Wisp', color: '#5a6a8a', desc: 'A wisp of a wraith\'s nightmare. Holding it, you hear someone else\'s bad dream.' },
   { id: 'ember', name: 'Ember', color: '#ff8a3d', desc: 'A coal that never quite goes out. It glows brighter when monsters are near.' },
   { id: 'magma', name: 'Magma Gel', color: '#ff4d1a', desc: "Molten gel scooped from the caves and mines. Keep it in something that won't melt." },
   { id: 'chitin', name: 'Chitin', color: '#3fb0a0', desc: 'A hard shell plate from the creatures of the caves and mines. Light, tough and a little shiny.' },
   { id: 'fur', name: 'Frost Fur', color: '#dfefff', desc: 'Thick white fur from the frozen peaks. It keeps out even the bitterest cold.' },
   { id: 'frost', name: 'Frost Shard', color: '#8fdcff', desc: 'A shard of ice that never melts. Cold enough to numb your fingers through gloves.' },
   { id: 'ecto', name: 'Ectoplasm', color: '#c49bff', desc: 'Faintly glowing ectoplasm left behind by spirits. It hums when you hold it.' },
-  { id: 'spore', name: 'Glowing Spore', color: '#b8e86a', desc: 'A spore from the Faerie Glade that glows softly green. It sneezes back if you shake it.' },
-  { id: 'dust', name: 'Pixie Dust', color: '#ffb8f0', desc: 'Sparkling dust shaken off a pixie. Things sprinkled with it feel a little lighter.' },
   { id: 'wrap', name: 'Mummy Wrap', color: '#e8d8b0', desc: 'Ancient linen from the Forsaken Crypt, still tight around whatever it held.' },
   { id: 'string', name: 'Puppet String', color: '#c89a6a', desc: 'A taut string from a Possessed Puppet. It twitches when nobody is holding it.' },
   { id: 'grave', name: 'Grave Dust', color: '#9a8e80', desc: 'Fine grey dust from the oldest tombs in the Crypt. It never quite settles.' },
@@ -644,7 +669,7 @@ export const nextAreaOf = (id: AreaId): AreaDef | undefined => AREAS[areaIndex(i
 export type EnemyId =
   | 'greenSlime'
   | 'wolf'
-  | 'redSlime'
+  | 'twiggling'
   | 'skeleton'
   | 'zombie'
   | 'bat'
@@ -659,13 +684,13 @@ export type EnemyId =
   | 'lich'
   | 'goblin'
   | 'toadstool'
-  | 'killerBee'
-  | 'boar'
+  | 'brownBear'
+  | 'unicorn'
   | 'pixie'
-  | 'mandragora'
+  | 'manTrap'
   | 'treant'
-  | 'ghoul'
-  | 'ghost'
+  | 'cultist'
+  | 'graveWraith'
   | 'mummy'
   | 'crow'
   | 'boneKnight'
@@ -730,6 +755,8 @@ export interface EnemyDef {
   pack: [number, number];
   radius: number;
   material: MaterialId;
+  /** A second material it can drop, at EXTRA_DROP_SHARE of its drop chance (a Forest Wolf's Beast Bone). */
+  extra?: MaterialId;
   /** Gold to add it to its area's horde, as a multiple of the area's base gold (0 = comes with the area). */
   unlock: number;
   /** Placeholder look until real art is added (see src/assets/sprites/README.md). */
@@ -761,26 +788,26 @@ export function typeMult(t: DamageType, enemy: EnemyId): number {
 export const ENEMIES: EnemyDef[] = [
   // Whispering Forest
   { id: 'greenSlime', name: 'Green Slime', area: 'forest', archetype: 'slime', hp: 1, speed: 1, gold: 1, spawn: 0.8, pack: [2, 3], radius: 10, material: 'goo', unlock: 0, color: '#7be07b', shape: 'circle', blurb: 'Squishy and plentiful.', weak: ['fire', 'acid'], resist: ['poison'] },
-  { id: 'wolf', name: 'Forest Wolf', area: 'forest', archetype: 'beast', hp: 1.3, speed: 1.5, gold: 1.6, spawn: 0.6, pack: [2, 3], radius: 10, material: 'pelt', unlock: 250, color: '#b08a5a', shape: 'triangle', blurb: 'Fast, hunts in pairs.', weak: ['fire'], resist: ['frost'] },
-  { id: 'redSlime', name: 'Red Slime', area: 'forest', archetype: 'slime', hp: 2, speed: 0.9, gold: 2.5, spawn: 0.5, pack: [2, 4], radius: 11, material: 'redgel', unlock: 900, color: '#ff6b6b', shape: 'circle', blurb: 'A tougher, angrier slime.', weak: ['frost'], resist: ['fire', 'poison'] },
-  { id: 'goblin', name: 'Goblin', area: 'forest', archetype: 'humanoid', hp: 1.5, speed: 1.1, gold: 1.8, spawn: 0.5, pack: [2, 4], radius: 10, material: 'pelt', unlock: 4_000, color: '#6a9a3a', shape: 'square', blurb: 'Sneaky, greedy and always in a gang.', weak: ['fire', 'radiant'], resist: ['poison'] },
-  { id: 'killerBee', name: 'Killer Bee', area: 'forest', archetype: 'beast', hp: 0.6, speed: 2, gold: 1.2, spawn: 0.8, pack: [3, 5], radius: 7, material: 'redgel', unlock: 15_000, color: '#f0c030', shape: 'triangle', blurb: 'Tiny, angry and very fast.', weak: ['frost', 'fire'], resist: ['poison'] },
+  { id: 'twiggling', name: 'Twiggling', area: 'forest', archetype: 'plant', hp: 1.2, speed: 1.2, gold: 1.5, spawn: 0.7, pack: [2, 4], radius: 9, material: 'twig', unlock: 250, color: '#a07a4a', shape: 'diamond', blurb: 'A bundle of sticks that learned to walk, and then to bite.', weak: ['fire', 'physical'], resist: ['poison'] },
+  { id: 'wolf', name: 'Forest Wolf', area: 'forest', archetype: 'beast', hp: 1.8, speed: 1.5, gold: 2.4, spawn: 0.55, pack: [2, 3], radius: 10, material: 'pelt', extra: 'beastBone', unlock: 900, color: '#b08a5a', shape: 'triangle', blurb: 'Fast, hunts in pairs.', weak: ['fire'], resist: ['frost'] },
+  { id: 'goblin', name: 'Goblin', area: 'forest', archetype: 'humanoid', hp: 1.5, speed: 1.1, gold: 1.8, spawn: 0.5, pack: [2, 4], radius: 10, material: 'scrap', unlock: 4_000, color: '#6a9a3a', shape: 'square', blurb: 'Sneaky, greedy and always in a gang.', weak: ['fire', 'radiant'], resist: ['poison'] },
+  { id: 'brownBear', name: 'Brown Bear', area: 'forest', archetype: 'beast', hp: 4, speed: 0.8, gold: 5, spawn: 0.25, pack: [1, 2], radius: 15, material: 'bearClaw', extra: 'beastBone', unlock: 15_000, color: '#7a5030', shape: 'hexagon', blurb: 'Big, brown and always hungry.', weak: ['fire', 'arcane'], resist: ['frost', 'physical'] },
 
 
   // Faerie Glade
   { id: 'toadstool', name: 'Toadstool', area: 'glade', archetype: 'plant', hp: 1, speed: 0.7, gold: 1.5, spawn: 1.2, pack: [2, 4], radius: 10, material: 'spore', unlock: 0, color: '#d0584a', shape: 'circle', blurb: 'A walking mushroom that puffs spores.', weak: ['fire', 'frost'], resist: ['poison', 'acid'] },
   { id: 'pixie', name: 'Pixie', area: 'glade', archetype: 'elemental', hp: 0.8, speed: 1.7, gold: 2, spawn: 0.5, pack: [2, 3], radius: 8, material: 'dust', unlock: 120, color: '#ff9ae0', shape: 'diamond', blurb: 'Giggles, glitters and bites.', weak: ['void', 'decay'], resist: ['arcane'] },
-  { id: 'boar', name: 'Wild Boar', area: 'glade', archetype: 'beast', hp: 2.5, speed: 1.3, gold: 2.8, spawn: 0.4, pack: [1, 2], radius: 13, material: 'pelt', unlock: 900, color: '#8a5a3a', shape: 'triangle', blurb: 'Charges head-first at anything.', weak: ['poison', 'acid'], resist: ['frost'] },
-  { id: 'mandragora', name: 'Mandragora', area: 'glade', archetype: 'plant', hp: 2, speed: 0.8, gold: 2.6, spawn: 0.4, pack: [1, 3], radius: 10, material: 'spore', unlock: 4_000, color: '#9ad060', shape: 'diamond', blurb: 'Its scream stops hearts. Pull with care.', weak: ['fire', 'acid'], resist: ['poison', 'decay'] },
-  { id: 'treant', name: 'Treant', area: 'glade', archetype: 'plant', hp: 5, speed: 0.5, gold: 6, spawn: 0.2, pack: [1, 1], radius: 17, material: 'dust', unlock: 15_000, color: '#5a7a3a', shape: 'hexagon', blurb: 'An old tree that has had enough.', weak: ['fire', 'acid'], resist: ['physical', 'poison'] },
+  { id: 'unicorn', name: 'Unicorn', area: 'glade', archetype: 'beast', hp: 2.5, speed: 1.6, gold: 3, spawn: 0.35, pack: [1, 2], radius: 13, material: 'enchantedBone', extra: 'unicornHorn', unlock: 900, color: '#f4f0ff', shape: 'triangle', blurb: 'Beautiful, magical, and it will absolutely stab you.', weak: ['void', 'decay'], resist: ['radiant', 'arcane'] },
+  { id: 'manTrap', name: 'Walking Man Trap', area: 'glade', archetype: 'plant', hp: 2.4, speed: 0.7, gold: 2.8, spawn: 0.4, pack: [1, 3], radius: 12, material: 'thorn', unlock: 4_000, color: '#6ab04a', shape: 'diamond', blurb: 'A giant flytrap on legs. It is not picky about flies.', weak: ['fire', 'frost'], resist: ['poison', 'acid'] },
+  { id: 'treant', name: 'Treant', area: 'glade', archetype: 'plant', hp: 5, speed: 0.5, gold: 6, spawn: 0.2, pack: [1, 1], radius: 17, material: 'sap', unlock: 15_000, color: '#5a7a3a', shape: 'hexagon', blurb: 'An old tree that has had enough.', weak: ['fire', 'acid'], resist: ['physical', 'poison'] },
 
 
   // Old Graveyard
   { id: 'skeleton', name: 'Skeleton', area: 'graveyard', archetype: 'undead', hp: 1, speed: 0.9, gold: 1, spawn: 1.5, pack: [3, 5], radius: 11, material: 'bone', unlock: 0, color: '#e8dcc0', shape: 'square', blurb: 'Rattles in by the dozen.', weak: ['radiant', 'arcane'], resist: ['poison', 'decay'] },
-  { id: 'zombie', name: 'Zombie', area: 'graveyard', archetype: 'undead', hp: 2.2, speed: 0.6, gold: 2.4, spawn: 0.6, pack: [2, 4], radius: 12, material: 'flesh', unlock: 120, color: '#8fae6b', shape: 'square', blurb: 'Slow, sturdy, relentless.', weak: ['fire', 'radiant'], resist: ['poison', 'decay'] },
-  { id: 'bat', name: 'Grave Bat', area: 'graveyard', archetype: 'beast', hp: 0.6, speed: 1.9, gold: 1.3, spawn: 0.8, pack: [3, 5], radius: 8, material: 'wing', unlock: 900, color: '#8a78b0', shape: 'triangle', blurb: 'Tiny, fast and everywhere.', weak: ['frost', 'radiant'], resist: ['decay'] },
-  { id: 'ghoul', name: 'Ghoul', area: 'graveyard', archetype: 'undead', hp: 1.6, speed: 1.2, gold: 1.8, spawn: 0.6, pack: [2, 4], radius: 11, material: 'flesh', unlock: 4_000, color: '#7a8a6a', shape: 'square', blurb: 'Hungry, fast and not picky.', weak: ['fire', 'radiant'], resist: ['poison', 'decay'] },
-  { id: 'ghost', name: 'Ghost', area: 'graveyard', archetype: 'undead', hp: 1, speed: 1.1, gold: 1.6, spawn: 0.6, pack: [2, 4], radius: 11, material: 'wing', unlock: 15_000, color: '#dfe8ff', shape: 'ghost', blurb: 'Drifts through walls and swords alike.', weak: ['radiant', 'arcane'], resist: ['physical', 'poison'] },
+  { id: 'zombie', name: 'Zombie', area: 'graveyard', archetype: 'undead', hp: 2.2, speed: 0.6, gold: 2.4, spawn: 0.6, pack: [2, 4], radius: 12, material: 'flesh', unlock: 120, color: '#8fae6b', shape: 'square', blurb: 'Slow, sturdy, relentless. Sometimes still wearing its gear.', weak: ['fire', 'radiant'], resist: ['poison', 'decay'] },
+  { id: 'bat', name: 'Vampire Bat', area: 'graveyard', archetype: 'beast', hp: 0.8, speed: 1.9, gold: 1.5, spawn: 0.8, pack: [3, 5], radius: 8, material: 'vampEssence', extra: 'wing', unlock: 900, color: '#8a2a4a', shape: 'triangle', blurb: 'Tiny, fast and thirsty.', weak: ['frost', 'radiant'], resist: ['decay'] },
+  { id: 'cultist', name: 'Cultist', area: 'graveyard', archetype: 'humanoid', hp: 1.8, speed: 1, gold: 2.2, spawn: 0.5, pack: [2, 3], radius: 11, material: 'sacredText', extra: 'robePiece', unlock: 4_000, color: '#7a2a3a', shape: 'diamond', blurb: 'Chants in the dark; sometimes the dark answers.', weak: ['radiant', 'physical'], resist: ['decay'] },
+  { id: 'graveWraith', name: 'Wraith', area: 'graveyard', archetype: 'undead', hp: 1.2, speed: 1.3, gold: 1.8, spawn: 0.6, pack: [2, 4], radius: 11, material: 'nightmareWisp', unlock: 15_000, color: '#5a6a8a', shape: 'ghost', blurb: 'The shadow of a nightmare that never ended.', weak: ['radiant', 'arcane'], resist: ['physical', 'frost'] },
 
 
   // Forsaken Crypt
@@ -865,7 +892,7 @@ export const enemyDef = (id: EnemyId): EnemyDef => ENEMIES.find((e) => e.id === 
 export const areaEnemies = (area: AreaId): EnemyDef[] => ENEMIES.filter((e) => e.area === area && !e.guardianOnly);
 /** Which monster each area's Guardian is a giant version of. */
 export const GUARDIAN_ENEMY: Record<AreaId, EnemyId> = {
-  forest: 'redSlime',
+  forest: 'brownBear',
   glade: 'treant',
   graveyard: 'bat',
   crypt: 'necromancer',
@@ -927,9 +954,7 @@ export const dropsFrom = (chance: number, roll: number): number => Math.floor(ch
  * knights, grave robbers and the like. A Guardian always drops a piece when it falls.
  */
 export const LOOT_CARRIERS: Partial<Record<EnemyId, number>> = {
-  goblin: 1 / 1500,
-  pixie: 1 / 2500,
-  ghoul: 1 / 2000,
+  zombie: 1 / 2500,
   boneKnight: 1 / 1500,
   necromancer: 1 / 1200,
   deepLurker: 1 / 1500,
@@ -955,7 +980,7 @@ export function gearTier(def: GearDef): number {
   if (def.tier) return def.tier;
   let t = 1;
   for (const m of Object.keys(def.recipe) as MaterialId[]) {
-    const a = AREAS.findIndex((ar) => ENEMIES.some((e) => e.area === ar.id && e.material === m));
+    const a = AREAS.findIndex((ar) => ENEMIES.some((e) => e.area === ar.id && enemyDrops(e).includes(m)));
     if (a >= 0) t = Math.max(t, a + 1);
   }
   return t;
@@ -974,6 +999,12 @@ export function rollLoot(area: AreaId, roll: number, pick: number): GearDef {
   const from = roll < LOOT_CURRENT_SHARE || !older.length ? current : older;
   return from[Math.floor(pick * from.length) % from.length];
 }
+
+/** A second drop (`extra`) comes at this share of the monster's drop chance. */
+export const EXTRA_DROP_SHARE = 0.5;
+
+/** Every material a monster drops (its main one, then its second if it has one). */
+export const enemyDrops = (def: EnemyDef): MaterialId[] => (def.extra ? [def.material, def.extra] : [def.material]);
 
 /** Cost of a monster's first Empower session (then × EMPOWER_GROWTH each). */
 export const empowerBaseCost = (def: EnemyDef): number => Math.ceil(areaDef(def.area).gold * Math.max(10, def.unlock * 0.075) * def.gold);
@@ -1632,6 +1663,7 @@ export type GearId =
   | 'stormplate'
   | 'voidPlate'
   | 'apprenticeRobe'
+  | 'cultistRobe'
   | 'wrapRobe'
   | 'emberRobe'
   | 'cloudRobe'
@@ -1849,26 +1881,26 @@ export const GEAR: GearDef[] = [
   { id: 'shortBow', name: 'Short Bow', icon: '🏹', kind: 'weapon', rarity: 'common', weaponClass: 'shortbow', damageType: 'physical', hit: 1, stats: {}, recipe: { goo: 6 }, starter: true },
   { id: 'commonClothes', name: 'Common Clothes', icon: '👕', kind: 'armor', rarity: 'common', stats: {}, recipe: { goo: 4 }, starter: true },
   // Weapons
-  { id: 'huntingBow', name: 'Hunting Bow', icon: '🏹', kind: 'weapon', rarity: 'common', weaponClass: 'shortbow', tier: 1, damageType: 'physical', stats: {}, recipe: { goo: 8, pelt: 4 } },
+  { id: 'huntingBow', name: 'Hunting Bow', icon: '🏹', kind: 'weapon', rarity: 'common', weaponClass: 'shortbow', tier: 1, damageType: 'physical', stats: {}, recipe: { twig: 8, pelt: 4 } },
   { id: 'boneCrossbow', name: 'Bone Crossbow', icon: '🎯', kind: 'weapon', rarity: 'uncommon', weaponClass: 'crossbow', tier: 3, damageType: 'physical', stats: { range: 8 }, recipe: { bone: 10, wing: 5 } },
   { id: 'emberLongbow', name: 'Ember Longbow', icon: '🔥', kind: 'weapon', rarity: 'veryRare', weaponClass: 'longbow', tier: 6, damageType: 'fire', proc: 0.3, stats: { rate: 0.12 }, recipe: { ember: 10, chitin: 5 } },
-  { id: 'bonePistol', name: 'Bone Pistol', icon: '🔫', kind: 'weapon', rarity: 'uncommon', weaponClass: 'pistol', tier: 3, damageType: 'physical', stats: {}, recipe: { bone: 8, wing: 4 } },
+  { id: 'bonePistol', name: 'Bone Pistol', icon: '🔫', kind: 'weapon', rarity: 'uncommon', weaponClass: 'pistol', tier: 3, damageType: 'physical', stats: {}, recipe: { bone: 8, vampEssence: 4 } },
   { id: 'frostRifle', name: 'Frost Rifle', icon: '🔫', kind: 'weapon', rarity: 'legendary', weaponClass: 'rifle', tier: 8, damageType: 'frost', proc: 0.35, stats: { range: 15 }, recipe: { fur: 10, frost: 5 } },
   { id: 'voidRepeater', name: 'Void Repeater', icon: '🌀', kind: 'weapon', rarity: 'exalted', weaponClass: 'repeater', tier: 12, damageType: 'void', stats: { rate: 0.2 }, recipe: { shade: 10, void: 5 } },
   // Melee
-  { id: 'fangDagger', name: 'Fang Dagger', icon: '🗡️', kind: 'melee', rarity: 'common', weaponClass: 'dagger', tier: 1, damageType: 'physical', proc: 0.3, stats: { rate: 0.05 }, recipe: { pelt: 6, goo: 6 } },
-  { id: 'goblinSword', name: 'Goblin Sword', icon: '⚔️', kind: 'melee', rarity: 'common', weaponClass: 'sword', tier: 1, damageType: 'physical', proc: 0.2, stats: {}, recipe: { pelt: 8, redgel: 4 } },
+  { id: 'fangDagger', name: 'Fang Dagger', icon: '🗡️', kind: 'melee', rarity: 'common', weaponClass: 'dagger', tier: 1, damageType: 'physical', proc: 0.3, stats: { rate: 0.05 }, recipe: { bearClaw: 4, beastBone: 4 } },
+  { id: 'goblinSword', name: 'Goblin Sword', icon: '⚔️', kind: 'melee', rarity: 'common', weaponClass: 'sword', tier: 1, damageType: 'physical', proc: 0.2, stats: {}, recipe: { scrap: 8, beastBone: 4 } },
   { id: 'boneMaul', name: 'Bone Maul', icon: '🔨', kind: 'melee', rarity: 'uncommon', weaponClass: 'hammer', tier: 3, damageType: 'physical', stats: {}, recipe: { bone: 12, flesh: 6 } },
   { id: 'ironSpear', name: 'Bone Spear', icon: '🔱', kind: 'melee', rarity: 'uncommon', weaponClass: 'spear', tier: 3, damageType: 'physical', proc: 0.2, stats: {}, recipe: { bone: 10, flesh: 5 } },
   { id: 'magmaGlaive', name: 'Magma Glaive', icon: '🪓', kind: 'melee', rarity: 'veryRare', weaponClass: 'glaive', tier: 6, damageType: 'fire', proc: 0.4, stats: { range: 6 }, recipe: { magma: 10, ember: 5 } },
   { id: 'soulLance', name: 'Soulreaver Lance', icon: '⚜️', kind: 'melee', rarity: 'exalted', weaponClass: 'spear', tier: 12, damageType: 'decay', proc: 0.2, stats: { pierce: 0.2 }, recipe: { soul: 8, void: 4 } },
   // Magic (Reginald and Glimmer)
-  { id: 'apprenticeWand', name: 'Apprentice Wand', icon: '🪄', kind: 'magic', rarity: 'common', weaponClass: 'wand', tier: 1, damageType: 'arcane', proc: 0.15, stats: { rate: 0.05 }, recipe: { goo: 8, redgel: 4 } },
-  { id: 'gravewoodStaff', name: 'Gravewood Staff', icon: '🪵', kind: 'magic', rarity: 'uncommon', weaponClass: 'staff', tier: 3, damageType: 'decay', proc: 0.15, stats: { rate: 0.06 }, recipe: { flesh: 10, wing: 5 } },
+  { id: 'apprenticeWand', name: 'Apprentice Wand', icon: '🪄', kind: 'magic', rarity: 'common', weaponClass: 'wand', tier: 1, damageType: 'arcane', proc: 0.15, stats: { rate: 0.05 }, recipe: { twig: 8, goo: 6 } },
+  { id: 'gravewoodStaff', name: 'Gravewood Staff', icon: '🪵', kind: 'magic', rarity: 'uncommon', weaponClass: 'staff', tier: 3, damageType: 'decay', proc: 0.15, stats: { rate: 0.06 }, recipe: { sacredText: 8, vampEssence: 5 } },
   { id: 'emberFocus', name: 'Ember Focus', icon: '🕯️', kind: 'magic', rarity: 'veryRare', weaponClass: 'focus', tier: 6, damageType: 'fire', proc: 0.3, stats: { rate: 0.15 }, recipe: { ember: 10, magma: 5 } },
   { id: 'crystalFocus', name: 'Crystal Focus', icon: '💎', kind: 'magic', rarity: 'legendary', weaponClass: 'focus', tier: 8, damageType: 'frost', proc: 0.3, stats: { rate: 0.1 }, recipe: { frost: 8, ecto: 6 } },
   { id: 'voidScepter', name: 'Void Scepter', icon: '🪬', kind: 'magic', rarity: 'exalted', weaponClass: 'scepter', tier: 12, damageType: 'void', stats: { rate: 0.25 }, recipe: { shade: 10, void: 5 } },
-  { id: 'wispTome', name: 'Tome of Wisps', icon: '📖', kind: 'magic', rarity: 'uncommon', weaponClass: 'tome', tier: 3, damageType: 'arcane', proc: 0.15, stats: {}, recipe: { flesh: 10, wing: 6, bone: 4 } },
+  { id: 'wispTome', name: 'Tome of Wisps', icon: '📖', kind: 'magic', rarity: 'uncommon', weaponClass: 'tome', tier: 3, damageType: 'arcane', proc: 0.15, stats: {}, recipe: { nightmareWisp: 10, sacredText: 6 } },
   {
     id: 'wolfTome',
     name: 'Tome of the Wolf Spirit',
@@ -1885,9 +1917,9 @@ export const GEAR: GearDef[] = [
   },
   { id: 'soulfireStaff', name: 'Soulfire Staff', icon: '🌟', kind: 'magic', rarity: 'exalted', weaponClass: 'staff', tier: 12, damageType: 'radiant', proc: 0.2, stats: { rate: 0.15 }, recipe: { soul: 8, void: 4 } },
   // A weapon for every area tier (ranged, melee and magic), crafted from that area's materials.
-  { id: 'thornLongbow', name: 'Thorn Longbow', icon: '🌿', kind: 'weapon', rarity: 'uncommon', weaponClass: 'longbow', tier: 2, damageType: 'physical', stats: {}, recipe: { spore: 10, pelt: 5 } },
-  { id: 'thornSpear', name: 'Thorn Spear', icon: '🌱', kind: 'melee', rarity: 'uncommon', weaponClass: 'spear', tier: 2, damageType: 'poison', proc: 0.2, stats: {}, recipe: { spore: 8, dust: 5 } },
-  { id: 'faerieWand', name: 'Faerie Scepter', icon: '🧚', kind: 'magic', rarity: 'uncommon', weaponClass: 'scepter', tier: 2, damageType: 'arcane', proc: 0.15, stats: {}, recipe: { dust: 10, spore: 4 } },
+  { id: 'thornLongbow', name: 'Thorn Longbow', icon: '🌿', kind: 'weapon', rarity: 'uncommon', weaponClass: 'longbow', tier: 2, damageType: 'physical', stats: {}, recipe: { thorn: 10, sap: 5 } },
+  { id: 'thornSpear', name: 'Thorn Spear', icon: '🌱', kind: 'melee', rarity: 'uncommon', weaponClass: 'spear', tier: 2, damageType: 'poison', proc: 0.2, stats: {}, recipe: { thorn: 8, enchantedBone: 5 } },
+  { id: 'faerieWand', name: 'Faerie Scepter', icon: '🧚', kind: 'magic', rarity: 'uncommon', weaponClass: 'scepter', tier: 2, damageType: 'arcane', proc: 0.15, stats: {}, recipe: { unicornHorn: 6, dust: 8 } },
   { id: 'bansheeBow', name: 'Banshee Bow', icon: '👻', kind: 'weapon', rarity: 'rare', weaponClass: 'longbow', tier: 4, damageType: 'decay', proc: 0.2, stats: {}, recipe: { wrap: 10, grave: 5 } },
   { id: 'knightGlaive', name: 'Bone Knight Glaive', icon: '🪓', kind: 'melee', rarity: 'rare', weaponClass: 'glaive', tier: 4, damageType: 'physical', stats: {}, recipe: { grave: 10, bone: 6 } },
   { id: 'necroTome', name: 'Necronomicon', icon: '📕', kind: 'magic', rarity: 'rare', weaponClass: 'tome', summonType: 'undead', tier: 4, damageType: 'decay', proc: 0.2, stats: {}, recipe: { wrap: 8, grave: 8 } },
@@ -1908,10 +1940,11 @@ export const GEAR: GearDef[] = [
   { id: 'starsteelSword', name: 'Starsteel Sword', icon: '⚔️', kind: 'melee', rarity: 'artifact', weaponClass: 'sword', tier: 11, damageType: 'radiant', proc: 0.25, stats: {}, recipe: { meteor: 10, stardust: 6 } },
   { id: 'starScepter', name: 'Star Scepter', icon: '🌟', kind: 'magic', rarity: 'artifact', weaponClass: 'scepter', tier: 11, damageType: 'radiant', proc: 0.25, stats: {}, recipe: { stardust: 10, meteor: 4 } },
   // Armor: Light, Heavy, Robes and Shields; stats from their kind and tier (armorStats), specials from Very Rare up
-  { id: 'leatherVest', name: 'Leather Vest', icon: '🦺', kind: 'armor', armorType: 'light', rarity: 'common', tier: 1, stats: armorStats('light', 1), recipe: { pelt: 8, goo: 6 } },
-  { id: 'apprenticeRobe', name: 'Apprentice Robe', icon: '👘', kind: 'armor', armorType: 'robe', rarity: 'common', tier: 1, stats: armorStats('robe', 1), recipe: { goo: 8, redgel: 4 } },
+  { id: 'leatherVest', name: 'Leather Vest', icon: '🦺', kind: 'armor', armorType: 'light', rarity: 'common', tier: 1, stats: armorStats('light', 1), recipe: { pelt: 8, scrap: 4 } },
+  { id: 'apprenticeRobe', name: 'Apprentice Robe', icon: '👘', kind: 'armor', armorType: 'robe', rarity: 'common', tier: 1, stats: armorStats('robe', 1), recipe: { goo: 8, twig: 4 } },
   { id: 'silkTunic', name: 'Pixie Silk Tunic', icon: '👚', kind: 'armor', armorType: 'light', rarity: 'uncommon', tier: 2, stats: armorStats('light', 2), recipe: { dust: 8, spore: 5 } },
-  { id: 'buckler', name: 'Wooden Buckler', icon: '🛡️', kind: 'armor', armorType: 'shield', rarity: 'uncommon', tier: 2, stats: armorStats('shield', 2), recipe: { pelt: 8, spore: 5 } },
+  { id: 'buckler', name: 'Wooden Buckler', icon: '🛡️', kind: 'armor', armorType: 'shield', rarity: 'uncommon', tier: 2, stats: armorStats('shield', 2), recipe: { sap: 6, enchantedBone: 6 } },
+  { id: 'cultistRobe', name: 'Cultist Robe', icon: '🥻', kind: 'armor', armorType: 'robe', rarity: 'uncommon', tier: 3, stats: armorStats('robe', 3), recipe: { robePiece: 10, sacredText: 5 } },
   { id: 'bonePlate', name: 'Bone Plate', icon: '🦴', kind: 'armor', armorType: 'heavy', rarity: 'uncommon', tier: 3, stats: armorStats('heavy', 3), recipe: { bone: 10, flesh: 6 } },
   { id: 'boneShield', name: 'Bone Shield', icon: '🛡️', kind: 'armor', armorType: 'shield', rarity: 'uncommon', tier: 3, stats: armorStats('shield', 3), recipe: { bone: 8, wing: 6 } },
   { id: 'wrapRobe', name: 'Mummy-Wrap Robe', icon: '🧻', kind: 'armor', armorType: 'robe', rarity: 'rare', tier: 4, stats: armorStats('robe', 4), recipe: { wrap: 10, grave: 5 } },
@@ -1928,9 +1961,9 @@ export const GEAR: GearDef[] = [
   { id: 'voidPlate', name: 'Void Plate', icon: '🌀', kind: 'armor', armorType: 'heavy', rarity: 'exalted', tier: 12, stats: armorStats('heavy', 12), recipe: { void: 10, shade: 6 }, effect: { kind: 'thorns', base: 440, damageType: 'void' } },
   { id: 'soulRobe', name: 'Soul Vestments', icon: '👻', kind: 'armor', armorType: 'robe', rarity: 'exalted', tier: 12, stats: armorStats('robe', 12), recipe: { soul: 10, shade: 5 }, effect: { kind: 'pulse', base: 440, damageType: 'void', radius: 120, cooldown: 5 } },
   // Accessories
-  { id: 'luckyCharm', name: 'Lucky Charm', icon: '🍀', kind: 'accessory', rarity: 'common', stats: { crit: 0.03 }, recipe: { redgel: 6, goo: 6 } },
-  { id: 'goldTooth', name: 'Gold Tooth', icon: '🦷', kind: 'accessory', rarity: 'uncommon', stats: { gold: 0.15 }, recipe: { redgel: 6, bone: 6 } },
-  { id: 'satchel', name: "Scavenger's Satchel", icon: '👜', kind: 'accessory', rarity: 'uncommon', stats: { drops: 0.15 }, recipe: { wing: 6, pelt: 8 } },
+  { id: 'luckyCharm', name: 'Lucky Charm', icon: '🍀', kind: 'accessory', rarity: 'common', stats: { crit: 0.03 }, recipe: { bearClaw: 4, scrap: 6 } },
+  { id: 'goldTooth', name: 'Gold Tooth', icon: '🦷', kind: 'accessory', rarity: 'uncommon', stats: { gold: 0.15 }, recipe: { scrap: 8, bone: 6 } },
+  { id: 'satchel', name: "Scavenger's Satchel", icon: '👜', kind: 'accessory', rarity: 'uncommon', stats: { drops: 0.15 }, recipe: { robePiece: 6, flesh: 8 } },
   { id: 'emberOrb', name: 'Ember Orb', icon: '🔮', kind: 'accessory', rarity: 'veryRare', stats: { radius: 0.12, damage: 0.08 }, recipe: { ember: 8, magma: 4 } },
   { id: 'hawkeyeLens', name: 'Hawkeye Lens', icon: '🔭', kind: 'accessory', rarity: 'rare', stats: { range: 20 }, recipe: { chitin: 8, wing: 6 } },
   { id: 'soulRing', name: 'Soul Ring', icon: '💍', kind: 'accessory', rarity: 'relic', stats: { damage: 0.25, crit: 0.02 }, recipe: { soul: 6, ecto: 6 } },
@@ -2068,8 +2101,8 @@ export interface ItemDef {
 export const ITEMS: ItemDef[] = [
   { id: 'whetstone', name: 'Whetstone', icon: '🪨', rarity: 'common', maxLevel: 15, recipe: { goo: 4 }, growth: 1.45, describe: (l) => `+${l * 20}% damage` },
   { id: 'gloves', name: 'Quickdraw Gloves', icon: '🧤', rarity: 'common', maxLevel: 15, recipe: { goo: 6, pelt: 2 }, growth: 1.5, describe: (l) => `+${l * 4}% attack rate` },
-  { id: 'lure', name: 'Monster Lure', icon: '🍖', rarity: 'uncommon', maxLevel: 15, recipe: { redgel: 5, pelt: 3 }, growth: 1.6, describe: (l) => `+${l * 20}% enemy spawns` },
-  { id: 'pouch', name: "Scavenger's Pouch", icon: '👝', rarity: 'uncommon', maxLevel: 15, recipe: { pelt: 6, redgel: 3 }, growth: 1.5, describe: (l) => `+${l * 25}% material drops` },
+  { id: 'lure', name: 'Monster Lure', icon: '🍖', rarity: 'uncommon', maxLevel: 15, recipe: { beastBone: 5, pelt: 3 }, growth: 1.6, describe: (l) => `+${l * 20}% enemy spawns` },
+  { id: 'pouch', name: "Scavenger's Pouch", icon: '👝', rarity: 'uncommon', maxLevel: 15, recipe: { pelt: 6, scrap: 3 }, growth: 1.5, describe: (l) => `+${l * 25}% material drops` },
   { id: 'bonemail', name: 'Bone Mail', icon: '🦴', rarity: 'rare', maxLevel: 10, recipe: { bone: 8, flesh: 4 }, growth: 1.6, describe: (l) => `−${Math.round((1 - 0.88 ** l) * 100)}% stun time` },
   { id: 'splitbow', name: 'Split Bow', icon: '🔱', rarity: 'rare', maxLevel: 5, recipe: { bone: 10, wing: 6 }, growth: 3, describe: (l) => `+${l} projectile${l === 1 ? '' : 's'} per volley` },
   { id: 'idol', name: 'Golden Idol', icon: '🗿', rarity: 'veryRare', maxLevel: 30, recipe: { ember: 6, magma: 3 }, growth: 1.5, describe: (l) => `+${l * 25}% gold` },
@@ -2085,7 +2118,7 @@ export const ITEMS: ItemDef[] = [
     rarity: 'uncommon',
     area: { id: 'forest', hp: () => 2, gold: (l) => 2 + 0.25 * (l - 1) },
     maxLevel: 5,
-    recipe: { goo: 30, pelt: 15, redgel: 10 },
+    recipe: { goo: 30, twig: 15, bearClaw: 6 },
     growth: 2,
     describe: (l) => `Whispering Forest monsters: ×2 HP, ×${2 + 0.25 * (l - 1)} gold`,
   },

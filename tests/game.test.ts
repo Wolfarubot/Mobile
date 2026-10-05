@@ -249,7 +249,7 @@ describe('Enemies & archetypes', () => {
     expect(g.empowerUnlocked).toBe(false);
     expect(g.empower('wolf')).toBe(false);
     g.state.bestiary.greenSlime.kills = 60;
-    g.state.bestiary.redSlime.kills = 39;
+    g.state.bestiary.umbralOoze.kills = 39; // every slime counts
     expect(g.empowerUnlocked).toBe(false);
     g.registerKill('greenSlime', false);
     expect(g.slimeKills).toBe(EMPOWER_UNLOCK_KILLS);
@@ -331,7 +331,7 @@ describe('Enemies & archetypes', () => {
 
   it('enemies belong to archetypes: slimes are slimes, skeletons and zombies are undead', () => {
     expect(enemyDef('greenSlime').archetype).toBe('slime');
-    expect(enemyDef('redSlime').archetype).toBe('slime');
+    expect(enemyDef('umbralOoze').archetype).toBe('slime');
     expect(enemyDef('skeleton').archetype).toBe('undead');
     expect(enemyDef('zombie').archetype).toBe('undead');
     expect(enemyDef('wolf').archetype).toBe('beast');
@@ -545,10 +545,10 @@ describe('Shops', () => {
     expect(g.train('main')).toBe(true);
   });
 
-  it('the Forest Guardian Challenge unlocks at 10,000 Forest kills (any monster); wolves cost 250 gold', () => {
+  it('the Forest Guardian Challenge unlocks at 10,000 Forest kills (any monster); Twigglings cost 250 gold', () => {
     expect(areaDef('forest').mastery).toBe(10_000);
     expect(eventDef('guardian-forest').unlockKills).toBe(10_000);
-    expect(enemyUnlockCost(enemyDef('wolf'))).toBe(250);
+    expect(enemyUnlockCost(enemyDef('twiggling'))).toBe(250);
   });
 
   it('training adds damage; levels need more sessions each time and earn skill points', () => {
@@ -808,11 +808,11 @@ describe('Equipment', () => {
 
   it('crafting puts a level-1 piece in the inventory and spends materials; upgrading raises it', () => {
     const g = stocked();
-    const goo = g.state.materials.goo;
+    const twig = g.state.materials.twig;
     const bow = g.craftGear('huntingBow')!;
     expect(bow.stars).toBe(1);
     expect(g.state.inventory).toHaveLength(1);
-    expect(g.state.materials.goo).toBeLessThan(goo);
+    expect(g.state.materials.twig).toBeLessThan(twig);
     expect(g.upgradeGear(bow.uid)).toBe(true);
     expect(g.gearItem(bow.uid)!.stars).toBe(2);
     const poor = new Game(newGame(0), noCrit);
@@ -925,8 +925,8 @@ describe('Equipment', () => {
     const f = new Field(g);
     const hits: Array<{ dmg: number; affinity?: string | null }> = [];
     const at = (id: number, type: Enemy['type']) => enemy({ id, type, x: 0, y: -150, hp: 1e12, maxHp: 1e12 });
-    const [slime, wolf, redSlime] = [at(1, 'greenSlime'), at(2, 'wolf'), at(3, 'redSlime')];
-    for (const e of [slime, wolf, redSlime]) {
+    const [slime, wolf, magma] = [at(1, 'greenSlime'), at(2, 'wolf'), at(3, 'magmaSlime')];
+    for (const e of [slime, wolf, magma]) {
       f.enemies = [e];
       (f as unknown as { hitWith: (...a: unknown[]) => void }).hitWith('glimmer', e, 1, 0, 0, false);
       for (const ev of f.drainEvents()) if (ev.type === 'hit') hits.push(ev);
@@ -1066,7 +1066,7 @@ describe('Equipment', () => {
     expect(enemyUnlockCost(enemyDef('timeEater'))).toBe(Infinity);
     for (const a of AREAS) expect(ENEMIES.filter((e) => e.area === a.id).length).toBeGreaterThanOrEqual(5);
     const g = new Game(newGame(0), noCrit);
-    expect(g.guardianType).toBe('redSlime');
+    expect(g.guardianType).toBe('brownBear');
   });
 
   it("Wilhelm's long and short weapons each power one mode", () => {
@@ -1482,21 +1482,21 @@ describe('Equipment', () => {
       for (let i = 0; i < 40; i++) expect(gearTier(rollLoot(area, i / 40, ((i * 7) % 40) / 40))).toBeLessThanOrEqual(tier);
       expect(gearTier(rollLoot(area, 0, 0.5))).toBe(Math.max(...GEAR.filter((x) => !x.starter && gearTier(x) <= tier).map(gearTier)));
     }
-    expect(lootChance('goblin')).toBeGreaterThan(0);
+    expect(lootChance('zombie')).toBeGreaterThan(0);
     expect(lootChance('greenSlime')).toBe(0);
     // A goblin with a certain drop: loot goes into the inventory, and you hear about it.
     const g = new Game(newGame(0), () => 0);
     const events: string[] = [];
     g.on((e) => events.push(e.type));
     const before = g.state.inventory.length;
-    g.registerKill('goblin', false);
+    g.registerKill('zombie', false);
     expect(g.state.inventory.length).toBe(before + 1);
     expect(events).toContain('loot');
     // Auto Salvage: that rarity turns into materials instead.
     const looted = gearDef(g.state.inventory[g.state.inventory.length - 1].base);
     g.state.settings.autoSalvage = [looted.rarity];
     const mats = { ...g.state.materials };
-    g.registerKill('goblin', false);
+    g.registerKill('zombie', false);
     expect(g.state.inventory.length).toBe(before + 1);
     expect(Object.entries(g.state.materials).some(([m, n]) => n > mats[m as keyof typeof mats])).toBe(true);
     // Salvage now: unequipped pieces of the chosen rarities go; equipped gear stays.
@@ -1727,11 +1727,11 @@ describe('Equipment', () => {
     const bow = g.craftGear('huntingBow')!;
     g.upgradeGear(bow.uid);
     g.equip('main', 0, bow.uid);
-    const goo = g.state.materials.goo;
-    const refund = g.salvageValue(bow.uid).goo!;
-    expect(refund).toBe(Math.floor((gearCost(gearDef('huntingBow'), 0).goo! + gearCost(gearDef('huntingBow'), 1).goo!) * 0.5));
+    const twig = g.state.materials.twig;
+    const refund = g.salvageValue(bow.uid).twig!;
+    expect(refund).toBe(Math.floor((gearCost(gearDef('huntingBow'), 0).twig! + gearCost(gearDef('huntingBow'), 1).twig!) * 0.5));
     expect(g.salvageGear(bow.uid)).toBe(true);
-    expect(g.state.materials.goo).toBe(goo + refund);
+    expect(g.state.materials.twig).toBe(twig + refund);
     expect(g.state.inventory).toHaveLength(0);
     expect(g.equipped('main')[0]).toBeNull();
   });
@@ -1903,7 +1903,7 @@ describe('Events', () => {
   it('Slime Swarm unlocks later in the forest: only slimes, twice as many and twice as fast, for 60s', () => {
     const s = newGame(0);
     s.bestiary.wolf.unlocked = true;
-    s.bestiary.redSlime.unlocked = true;
+    s.bestiary.twiggling.unlocked = true;
     const g = new Game(s, noCrit);
     const def = eventDef('slimeSwarm');
     expect(def.area).toBe('forest');
@@ -1915,13 +1915,11 @@ describe('Events', () => {
     expect(g.eventUnlocked('slimeSwarm')).toBe(false);
     g.state.bestiary.greenSlime.kills = def.unlockKills;
     const slime = g.enemyStats('greenSlime');
-    const red = g.enemyStats('redSlime');
     expect(g.startEvent('slimeSwarm')).toBe(true);
     // Green Slimes: twice as many, but at least 10 a second.
     expect(g.enemyStats('greenSlime').spawnRate).toBeCloseTo(Math.max(10, slime.spawnRate * 2));
-    expect(g.enemyStats('redSlime').spawnRate).toBeCloseTo(red.spawnRate * 2);
     expect(g.enemyStats('greenSlime').speed).toBeCloseTo(slime.speed * 2);
-    expect(g.enemyStats('redSlime').spawnRate).toBeGreaterThan(0);
+    expect(g.enemyStats('twiggling').spawnRate).toBe(0);
     expect(g.enemyStats('wolf').spawnRate).toBe(0); // only slimes
     expect(g.startEvent('guardian-forest')).toBe(false); // one event at a time
     g.tick(def.duration + 0.1);
@@ -2460,7 +2458,7 @@ describe('Saves', () => {
     old.items.gloves = 15;
     const s = deserialize(JSON.stringify(old))!;
     expect(s.inventory.map((it) => it.stars)).toEqual([3, 5]);
-    expect(s.materials.goo).toBe(old.materials.goo + Math.ceil(8 * 1.8 ** 4));
+    expect(s.materials.twig).toBe(old.materials.twig + Math.ceil(8 * 1.8 ** 4));
     expect(s.items.gloves).toBe(MAX_STARS);
   });
 

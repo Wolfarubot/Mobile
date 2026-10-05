@@ -186,7 +186,7 @@ export interface GameState {
   };
 }
 
-export const SAVE_VERSION = 17;
+export const SAVE_VERSION = 18;
 
 const zeroes = <K extends string>(ids: { id: K }[]): Record<K, number> =>
   Object.fromEntries(ids.map((x) => [x.id, 0])) as Record<K, number>;
@@ -322,6 +322,19 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
   }
   if (!data || typeof data !== 'object' || typeof data.gold !== 'number') return null;
   // v15 -> v16: Alric the Gravewarden became Alias the Thief; he keeps Alric's place (recruited, training, gear, kills).
+  // v17 -> v18: the first three areas' monsters were revamped. Each replaced monster's progress (unlocked,
+  // Empower, evolutions, kills) passes to the one that took its place; Red Gel becomes Scrap.
+  const best = data.bestiary as Record<string, unknown> | undefined;
+  for (const [from, to] of [['redSlime', 'twiggling'], ['killerBee', 'brownBear'], ['boar', 'unicorn'], ['mandragora', 'manTrap'], ['ghoul', 'cultist'], ['ghost', 'graveWraith']])
+    if (best && typeof best === 'object' && from in best && !(to in best)) {
+      best[to] = best[from];
+      delete best[from];
+    }
+  const mats = data.materials as Record<string, unknown> | undefined;
+  if (mats && typeof mats.redgel === 'number') {
+    mats.scrap = (typeof mats.scrap === 'number' ? mats.scrap : 0) + mats.redgel;
+    delete mats.redgel;
+  }
   // v16 -> v17: Gus the Prospector became Theon the Puppeteer, the same way.
   const hk = (data.stats as { hunterKills?: Record<string, unknown> } | undefined)?.hunterKills;
   for (const [from, to] of [['gravewarden', 'thief'], ['prospector', 'puppeteer']])
