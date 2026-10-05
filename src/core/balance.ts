@@ -1751,8 +1751,18 @@ export interface GearDef {
   icon: string;
   kind: GearKind;
   rarity: Rarity;
-  /** Weapons only: the damage type they deal. */
+  /** Weapons only: the damage type they deal (the first of them, with `extraTypes`). */
   damageType?: DamageType;
+  /**
+   * Weapons with more than one damage type. Each hit is split evenly between all of them (a Fire and Frost
+   * sword hitting for 100 deals 50 Fire and 50 Frost), each half checked against the monster's weaknesses and
+   * resistances on its own and rolling its own status effect. See `perShot` for projectiles.
+   */
+  extraTypes?: DamageType[];
+  /** Projectile weapons with several types: each projectile deals one type at full damage, taking turns, instead of splitting. */
+  perShot?: boolean;
+  /** Extra damage of one type, whatever deals it (+bonus at 1★, ×GEAR_STAR_POWER for stars). */
+  typeBonus?: { type: DamageType; bonus: number };
   /** Weapons only: what kind of weapon it is, which shapes how it attacks (see WEAPON_CLASSES). */
   weaponClass?: WeaponClass;
   /**
@@ -2042,6 +2052,9 @@ export const GEAR: GearDef[] = [
 ];
 
 export const gearDef = (id: GearId): GearDef => GEAR.find((g) => g.id === id)!;
+
+/** Every damage type a piece deals (none for armor and accessories). */
+export const gearTypes = (def: GearDef): DamageType[] => (def.damageType ? [def.damageType, ...(def.extraTypes ?? [])] : []);
 
 /** Colour of a gear piece's rarity. */
 export const gearColor = (id: GearId): string => RARITIES[gearDef(id).rarity].color;

@@ -925,6 +925,83 @@ describe('Equipment', () => {
     expect(hits[0].dmg / hits[2].dmg).toBeCloseTo(WEAK_MULT / RESIST_MULT);
   });
 
+  it('a multi-type weapon splits each hit evenly between its types, each priced and rolling its effect on its own', () => {
+    const sword = gearDef('slimeSword');
+    const saved = { ...sword };
+    try {
+      Object.assign(sword, { damageType: 'fire', extraTypes: ['frost'], proc: 1 });
+      const g = stocked();
+      g.equip('main', 0, g.craftGear('slimeSword')!.uid);
+      expect(g.damageTypesOf('main')).toEqual(['fire', 'frost']);
+      const f = new Field(g);
+      const e = enemy({ id: 1, type: 'wolf', x: 0, y: -50, hp: 1e9, maxHp: 1e9 }); // weak to Fire, resists Frost
+      f.enemies = [e];
+      (f as unknown as { hitWith: (...a: unknown[]) => void }).hitWith('main', e, 1, 0, 0, false);
+      const hits = f.drainEvents().filter((ev) => ev.type === 'hit') as Array<{ dmg: number; dtype: string }>;
+      const base = g.shotDamage('main', 'beast');
+      expect(hits.map((h) => h.dtype)).toEqual(['fire', 'frost']);
+      expect(hits[0].dmg).toBeCloseTo((base / 2) * WEAK_MULT);
+      expect(hits[1].dmg).toBeCloseTo((base / 2) * RESIST_MULT);
+      expect(1e9 - e.hp).toBeCloseTo(hits[0].dmg + hits[1].dmg);
+      // The Fire half burns; the wolf resists Frost, so it can't be chilled.
+      expect(e.burn).toBeDefined();
+      expect(e.slow ?? 0).toBe(0);
+    } finally {
+      for (const k of Object.keys(sword)) delete (sword as unknown as Record<string, unknown>)[k];
+      Object.assign(sword, saved);
+    }
+  });
+
+  it('a weapon firing one type per projectile hands its types out in turn, each at full damage', () => {
+    const bow = gearDef('forestBow');
+    const saved = { ...bow };
+    try {
+      Object.assign(bow, { damageType: 'frost', extraTypes: ['lightning'], perShot: true });
+      const g = stocked();
+      g.equip('main', 0, g.craftGear('forestBow')!.uid);
+      expect(g.perShotOf('main')).toBe(true);
+      const f = new Field(g);
+      const shoot = (f as unknown as { shoot: (...a: unknown[]) => void }).shoot.bind(f);
+      for (let i = 0; i < 4; i++) shoot('main', 'arrow', 0, 0, 0, 500, 300, {});
+      expect(f.bullets.map((b) => b.dtype)).toEqual(['frost', 'lightning', 'frost', 'lightning']);
+      // A lightning arrow hits for the whole shot, as Lightning (no split).
+      const e = enemy({ id: 1, type: 'greenSlime', x: 0, y: -50, hp: 1e9, maxHp: 1e9 });
+      f.enemies = [e];
+      (f as unknown as { hitWith: (...a: unknown[]) => void }).hitWith('main', e, 1, 0, 0, false, undefined, false, false, 'lightning');
+      const hits = f.drainEvents().filter((ev) => ev.type === 'hit') as Array<{ dmg: number; dtype: string }>;
+      expect(hits).toHaveLength(1);
+      expect(hits[0].dtype).toBe('lightning');
+      expect(hits[0].dmg).toBeCloseTo(g.shotDamage('main', 'slime') * typeMult('lightning', 'greenSlime'));
+    } finally {
+      for (const k of Object.keys(bow)) delete (bow as unknown as Record<string, unknown>)[k];
+      Object.assign(bow, saved);
+    }
+  });
+
+  it('bonuses multiply: a bane × the weakness to the type × a bonus to that type', () => {
+    const charm = gearDef('fangTalisman');
+    const saved = { ...charm };
+    try {
+      Object.assign(charm, { typeBonus: { type: 'fire', bonus: 0.2 } });
+      const g = stocked();
+      g.equip('ranger', 0, g.craftGear('emberLongbow')!.uid); // Fire
+      g.equip('ranger', 2, g.craftGear('fangTalisman')!.uid);
+      const f = new Field(g);
+      const e = enemy({ id: 1, type: 'wolf', x: 0, y: -50, hp: 1e12, maxHp: 1e12 }); // a Beast, weak to Fire
+      f.enemies = [e];
+      (f as unknown as { hitWith: (...a: unknown[]) => void }).hitWith('ranger', e, 1, 0, 0, false, undefined, false, false);
+      const hit = f.drainEvents().find((ev) => ev.type === 'hit') as { dmg: number };
+      // Galladair's ×3 vs Beasts and the talisman's +5% vs Beasts, then ×1.5 for the weakness, then +20% Fire.
+      const plain = g.shotDamage('ranger');
+      const bane = hunterDef('ranger').bane!.mult * (1 + g.gearBane('ranger', 'beast'));
+      expect(g.shotDamage('ranger', 'beast')).toBeCloseTo(plain * bane);
+      expect(hit.dmg).toBeCloseTo(plain * bane * WEAK_MULT * 1.2);
+    } finally {
+      for (const k of Object.keys(charm)) delete (charm as unknown as Record<string, unknown>)[k];
+      Object.assign(charm, saved);
+    }
+  });
+
   it('status effects: burn, poison, chill, acid puddle, radiant burst, dark aura, arcane exposure', () => {
     const g = stocked();
     const f = new Field(g);

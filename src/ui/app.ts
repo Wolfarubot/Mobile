@@ -42,6 +42,7 @@ import {
   gearCost,
   gearColor,
   gearDef,
+  gearTypes,
   gearTotals,
   gearSummary,
   hitText,
@@ -510,8 +511,8 @@ export class AppUI {
     const effectNote = el('p', 'hd-style hd-effect');
     overview.appendChild(effectNote);
     this.refreshers.push(() => {
-      const lines: Array<[string, DamageType, number]> = [['Attacks', g.damageTypeOf(who), g.procOf(who)]];
-      if (g.specialCooldown(who) !== null) lines.push([def?.special?.name ?? '', g.damageTypeOf(who, 'long', true), g.procOf(who, 'long', true)]);
+      const lines: Array<[string, DamageType, number]> = g.damageTypesOf(who).map((t) => ['Attacks', t, g.procOf(who)]);
+      if (g.specialCooldown(who) !== null) for (const t of g.damageTypesOf(who, 'long', true)) lines.push([def?.special?.name ?? '', t, g.procOf(who, 'long', true)]);
       effectNote.innerHTML = lines
         .filter(([, t, p]) => p > 0 && DAMAGE_TYPES[t].effect)
         .map(([what, t, p]) => `${DAMAGE_TYPES[t].icon} <b>${what}</b> (${Math.round(p * 100)}% chance): ${DAMAGE_TYPES[t].effect}.`)
@@ -572,8 +573,9 @@ export class AppUI {
         ['Crit chance', `${Math.round(g.critChanceOf(who) * 100)}%`],
       ];
       if (!def) cells.push(['Tap damage', fmt(g.tapDamage)], ['Tap size', fmt(g.tapRadius)]);
-      const dt = DAMAGE_TYPES[g.damageTypeOf(who)];
-      cells.splice(1, 0, ['Damage type', `<span style="color:${dt.color}" class="dt-cell">${dt.icon} ${dt.name}</span>`]);
+      const types = g.damageTypesOf(who);
+      const typeHtml = types.map((t) => `<span style="color:${DAMAGE_TYPES[t].color}" class="dt-cell">${DAMAGE_TYPES[t].icon} ${DAMAGE_TYPES[t].name}</span>`).join(' ');
+      cells.splice(1, 0, [types.length > 1 ? (g.perShotOf(who) ? 'Damage types (by shot)' : 'Damage types (split)') : 'Damage type', typeHtml]);
       const cd = g.specialCooldown(who);
       if (cd !== null) {
         const potion = def?.special?.kind === 'potion';
@@ -2031,7 +2033,7 @@ export class AppUI {
         return (
           (f.type === 'all' || GEAR_TYPE[gd.kind] === f.type) &&
           (f.rarity === 'any' || gd.rarity === f.rarity) &&
-          (f.dtype === 'any' || gd.damageType === f.dtype) &&
+          (f.dtype === 'any' || gearTypes(gd).includes(f.dtype)) &&
           it.stars >= lv.min &&
           it.stars <= lv.max
         );
@@ -3140,9 +3142,14 @@ function gearCardHtml(it: GearItem, vs: GearItem | null = null): string {
   const all =
     hitLine +
     lines +
-    (gd.damageType && gd.proc && DAMAGE_TYPES[gd.damageType].effect
-      ? `<li class="gc-effect">${DAMAGE_TYPES[gd.damageType].icon} ${Math.round(gd.proc * 100)}% chance · ${DAMAGE_TYPES[gd.damageType].effect}</li>`
+    (gearTypes(gd).length > 1
+      ? `<li class="gc-effect">${gd.perShot ? `Each projectile deals one of its types in turn, at full damage` : `Each hit is split evenly between its ${gearTypes(gd).length} types`}</li>`
       : '') +
+    gearTypes(gd)
+      .filter((t) => gd.proc && DAMAGE_TYPES[t].effect)
+      .map((t) => `<li class="gc-effect">${DAMAGE_TYPES[t].icon} ${Math.round(gd.proc! * 100)}% chance · ${DAMAGE_TYPES[t].effect}</li>`)
+      .join('') +
+    (gd.typeBonus ? `<li class="gc-effect">${DAMAGE_TYPES[gd.typeBonus.type].icon} +${Math.round(gd.typeBonus.bonus * GEAR_STAR_POWER[it.stars] * 100)}% ${DAMAGE_TYPES[gd.typeBonus.type].name} damage</li>` : '') +
     (gd.effect ? `<li class="gc-effect">✨ ${describeEffect(gd.effect, it.stars)}</li>` : '') +
     (gd.bane ? `<li class="gc-effect">${ARCHETYPES[gd.bane.archetype].icon} +${Math.round(gd.bane.bonus * GEAR_STAR_POWER[it.stars] * 100)}% damage vs ${ARCHETYPES[gd.bane.archetype].name}s</li>` : '') +
     (gd.findDrop ? `<li class="gc-effect">💎 ${it.stars >= gd.findDrop.stars ? '' : `At ${gd.findDrop.stars}★: `}${gd.findDrop.chance * 100}% chance for ${materialDef(gd.findDrop.material).name} from ${ARCHETYPES[gd.findDrop.archetype].name.toLowerCase()} kills</li>` : '');
@@ -3269,7 +3276,7 @@ if (typeof MutationObserver !== 'undefined' && typeof document !== 'undefined')
 
 /** A weapon's damage type as a small coloured tag ('' for gear without one). */
 function dtypeTag(gd: GearDef): string {
-  return gd.damageType ? damageTypeHtml(gd.damageType) : '';
+  return gearTypes(gd).map(damageTypeHtml).join('');
 }
 
 function damageTypeHtml(t: DamageType): string {

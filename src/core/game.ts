@@ -66,6 +66,7 @@ import {
   GEAR_STUN_CAP,
   gearCost,
   GEAR_STAR_POWER,
+  gearTypes,
   gearDef,
   gearStats,
   gearTotals,
@@ -485,14 +486,35 @@ export class Game {
    * weapon's.
    */
   damageTypeOf(who: Shooter, mode: GearMode = 'long', special = false): DamageType {
+    return this.damageTypesOf(who, mode, special)[0];
+  }
+
+  /**
+   * Every damage type a Hunter's attacks deal: their weapon's (several for a multi-type weapon), or Physical.
+   * A hit is split evenly between them, unless the weapon fires one type per projectile (see perShotOf).
+   */
+  damageTypesOf(who: Shooter, mode: GearMode = 'long', special = false): DamageType[] {
     const sp = who === 'main' ? undefined : hunterDef(who).special;
-    if (special && sp && !sp.summon) return sp.damageType;
-    const own: DamageType = 'physical';
-    const slots = this.slotsOf(who);
-    const items = this.equipped(who);
-    const i = slots.findIndex((sl) => WEAPON_KINDS.includes(sl.kind) && (!sl.role || sl.role === mode));
-    const item = i >= 0 ? items[i] : null;
-    return (item && gearDef(item.base).damageType) || own;
+    if (special && sp && !sp.summon) return [sp.damageType];
+    const item = this.weaponItem(who, mode);
+    const types = item ? gearTypes(gearDef(item.base)) : [];
+    return types.length ? types : ['physical'];
+  }
+
+  /** Does a Hunter's multi-type weapon fire one type per projectile (rather than splitting each hit)? */
+  perShotOf(who: Shooter, mode: GearMode = 'long'): boolean {
+    const item = this.weaponItem(who, mode);
+    return !!item && !!gearDef(item.base).perShot && this.damageTypesOf(who, mode).length > 1;
+  }
+
+  /** Multiplier on a Hunter's damage of one type, from their gear's type bonuses (on top of everything else). */
+  typeBonus(who: Shooter, t: DamageType): number {
+    let b = 0;
+    for (const item of this.equipped(who)) {
+      const d = item ? gearDef(item.base) : null;
+      if (item && d?.typeBonus?.type === t) b += d.typeBonus.bonus * GEAR_STAR_POWER[item.stars];
+    }
+    return 1 + b;
   }
 
   /**
@@ -501,12 +523,14 @@ export class Game {
    */
   typeMultVs(shooter: Shooter, enemy: EnemyId): number {
     // Status effects (burns, puddles, bursts...) add some damage on top, as often as they proc.
-    const vs = (t: DamageType, proc: number) => typeMult(t, enemy) * (1 + ((STATUS_MODEL[t] ?? 1) - 1) * proc);
-    const normal = vs(this.damageTypeOf(shooter), this.procOf(shooter));
+    // Several types (split hits or one type per projectile) average out over their share of the damage.
+    const vs = (types: DamageType[], proc: number) =>
+      types.reduce((sum, t) => sum + typeMult(t, enemy) * this.typeBonus(shooter, t) * (1 + ((STATUS_MODEL[t] ?? 1) - 1) * proc), 0) / types.length;
+    const normal = vs(this.damageTypesOf(shooter), this.procOf(shooter));
     const sp = this.specialHitRate(shooter);
     if (!sp) return normal;
     const shots = this.shooterRate(shooter) * this.projectiles;
-    return (shots * normal + sp * vs(this.damageTypeOf(shooter, 'long', true), this.procOf(shooter, 'long', true))) / (shots + sp);
+    return (shots * normal + sp * vs(this.damageTypesOf(shooter, 'long', true), this.procOf(shooter, 'long', true))) / (shots + sp);
   }
 
   /**

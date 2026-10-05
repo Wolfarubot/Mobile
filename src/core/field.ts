@@ -191,6 +191,8 @@ export interface Bullet {
   ty?: number;
   /** A special attack (potion, fireball): deals the Hunter's own damage type. */
   special?: boolean;
+  /** A multi-type weapon firing one type per projectile: the one this projectile deals (at full damage). */
+  dtype?: DamageType;
 }
 
 export interface Puddle {
@@ -263,6 +265,8 @@ export class Field {
   /** Seconds until your tome's creatures can lunge again (a tome with a lunge ability, e.g. the Wolf Spirit). */
   dashCd = 0;
   private nextVolley = 1;
+  /** Each Hunter's turn through their weapon's types, for weapons that fire one type per projectile. */
+  private typeTurn = new Map<Shooter, number>();
   private nextId = 1;
   private halfW = 320;
   private halfH = 350;
@@ -775,8 +779,16 @@ export class Field {
   ): void {
     const g = this.game;
     const n = o.spread ? g.projectiles : 1;
+    // A weapon firing one type per projectile hands them out in turn.
+    const types = !o.special && g.perShotOf(shooter, o.mode) ? g.damageTypesOf(shooter, o.mode) : null;
     for (let i = 0; i < n; i++) {
       const a = angle + (i - (n - 1) / 2) * MULTISHOT_SPREAD;
+      let dtype: DamageType | undefined;
+      if (types) {
+        const turn = this.typeTurn.get(shooter) ?? 0;
+        this.typeTurn.set(shooter, turn + 1);
+        dtype = types[turn % types.length];
+      }
       this.bullets.push({
         shooter,
         kind,
@@ -799,6 +811,7 @@ export class Field {
         followThrough: o.followThrough,
         volley: o.volley,
         stack: o.stack,
+        dtype,
       });
     }
   }
@@ -866,7 +879,7 @@ export class Field {
   private abilityHit(who: Shooter, e: Enemy, base: number, dtype: DamageType, status: boolean): void {
     if (e.hp <= 0 || base <= 0) return;
     const crit = this.game.rng() < this.game.critChanceOf(who);
-    const amount = base * this.game.abilityMult(who, enemyDef(e.type).archetype) * this.typeMultOn(dtype, e) * (crit ? CRIT_MULT : 1);
+    const amount = base * this.game.abilityMult(who, enemyDef(e.type).archetype) * this.typeMultOn(dtype, e) * this.game.typeBonus(who, dtype) * (crit ? CRIT_MULT : 1);
     this.damage(e, amount, crit, 0, 0, who, dtype);
     if (status) this.applyStatus(e, dtype, amount, who);
   }
@@ -1047,7 +1060,12 @@ export class Field {
     }
   }
 
-  /** One hit from a shooter, priced by their damage vs the enemy's archetype. */
+  /**
+   * One hit from a shooter, priced by their damage vs the enemy's archetype. Every bonus multiplies: archetype
+   * bonuses (banes) × the monster's weakness or resistance to the type × the shooter's bonus to that type.
+   * A multi-type weapon splits the hit evenly between its types, each priced and rolling its status effect
+   * on its own; `only` is a projectile's single type (weapons that fire one type per projectile).
+   */
   private hitWith(
     shooter: Shooter,
     e: Enemy,
@@ -1058,12 +1076,18 @@ export class Field {
     mode?: GearMode,
     special = false,
     status = true,
+    only?: DamageType,
   ): void {
-    const dtype = this.game.damageTypeOf(shooter, mode, special);
-    const dmg = this.game.shotDamage(shooter, enemyDef(e.type).archetype, mode) * this.typeMultOn(dtype, e) * mult * (crit ? CRIT_MULT : 1);
+    const g = this.game;
+    const types = only ? [only] : g.damageTypesOf(shooter, mode, special);
+    const base = (g.shotDamage(shooter, enemyDef(e.type).archetype, mode) * mult * (crit ? CRIT_MULT : 1)) / types.length;
+    const proc = g.procOf(shooter, mode, special);
     const d = Math.hypot(e.x - fromX, e.y - fromY) || 1;
-    this.damage(e, dmg, crit, (e.x - fromX) / d, (e.y - fromY) / d, shooter, dtype);
-    if (status && this.game.rng() < this.game.procOf(shooter, mode, special)) this.applyStatus(e, dtype, dmg, shooter, this.game.procRarity(shooter, mode, special));
+    for (const t of types) {
+      const dmg = base * this.typeMultOn(t, e) * g.typeBonus(shooter, t);
+      this.damage(e, dmg, crit, (e.x - fromX) / d, (e.y - fromY) / d, shooter, t);
+      if (status && g.rng() < proc) this.applyStatus(e, t, dmg, shooter, g.procRarity(shooter, mode, special));
+    }
   }
 
   /** Weakness/resistance multiplier, with resistances ignored while the monster is exposed (Arcane). */
@@ -1244,7 +1268,7 @@ export class Field {
     if (b.kind === 'fireball') {
       const r = b.radius ?? 50;
       this.events.push({ type: 'explode', x: b.x, y: b.y, r, color: '#ff8a3d' });
-      for (const o of this.enemies) if (o.hp > 0 && Math.hypot(o.x - b.x, o.y - b.y) <= r + o.r) this.hitWith(b.shooter, o, b.dmg, b.x, b.y, b.crit, b.mode, b.special);
+      for (const o of this.enemies) if (o.hp > 0 && Math.hypot(o.x - b.x, o.y - b.y) <= r + o.r) this.hitWith(b.shooter, o, b.dmg, b.x, b.y, b.crit, b.mode, b.special, true, b.dtype);
       b.life = 0;
       return;
     }
@@ -1255,7 +1279,7 @@ export class Field {
       e.volley = b.volley;
       mult *= 1 + (b.stack ?? 0) * e.volleyHits;
     }
-    this.hitWith(b.shooter, e, mult, b.x - b.vx, b.y - b.vy, b.crit, b.mode);
+    this.hitWith(b.shooter, e, mult, b.x - b.vx, b.y - b.vy, b.crit, b.mode, false, true, b.dtype);
     if (b.kind === 'hammer' && b.slow) e.slow = Math.max(e.slow ?? 0, b.slow);
     if ((b.bounces ?? 0) > 0) {
       const next = this.nearest(e.x, e.y, RICOCHET_RANGE, b.hits);
@@ -1316,7 +1340,7 @@ export class Field {
       const dy = e.y - y;
       const d = Math.hypot(dx, dy);
       if (d > g.tapRadius + e.r) continue;
-      const amount = dmg * this.typeMultOn(dtype, e);
+      const amount = dmg * this.typeMultOn(dtype, e) * g.typeBonus('main', dtype);
       this.damage(e, amount, crit, dx / (d || 1), dy / (d || 1), 'main', dtype);
       hit.push({ e, dmg: amount });
     }
