@@ -2,7 +2,7 @@
 
 // ---- Player & combat ----
 export const BASE_FIRE_RATE = 1.6; // volleys per second
-/** Monsters on the Whispering Forest's battlefield at most; bigger areas hold more (× areaScale). */
+/** Monsters on the Wandering Woods' battlefield at most; bigger areas hold more (× areaScale). */
 export const MAX_ENEMIES = 160;
 export const BULLET_SPEED = 520;
 export const MULTISHOT_SPREAD = 0.2; // radians between projectiles in a volley
@@ -577,21 +577,21 @@ export interface MaterialDef {
 }
 
 export const MATERIALS: MaterialDef[] = [
-  // Whispering Forest
+  // Wandering Woods
   { id: 'goo', name: 'Green Slime', color: '#7be07b', desc: 'A wobbly glob of green slime. Sticky, harmless, and oddly useful for binding things together.' },
   { id: 'twig', name: 'Twigs', color: '#a07a4a', desc: "A bundle of twigs from a Twiggling. They still twitch now and then." },
   { id: 'pelt', name: 'Wolf Pelt', color: '#c09060', desc: 'A coarse hide from the wolves of the forest. Warm, tough, and a favourite of leatherworkers.' },
   { id: 'beastBone', name: 'Beast Bone', color: '#e8dcc0', desc: 'A heavy bone from a forest beast. Good for handles, hilts and anything that needs to take a beating.' },
   { id: 'scrap', name: 'Scrap', color: '#9a9a8a', desc: 'Bent nails, broken buckles and stolen spoons: everything a goblin thought was worth taking.' },
   { id: 'bearClaw', name: 'Bear Claw', color: '#5a4030', desc: 'A claw as long as your hand. Sharp enough to carve wood, and other things.' },
-  // Faerie Glade
+  // Fey Grove
   { id: 'spore', name: 'Mushroom Cap', color: '#d0584a', desc: 'The spotted cap of a Toadstool. It sneezes spores if you squeeze it.' },
   { id: 'dust', name: 'Pixie Dust', color: '#ffb8f0', desc: 'Sparkling dust shaken off a pixie. Things sprinkled with it feel a little lighter.' },
   { id: 'enchantedBone', name: 'Enchanted Bone', color: '#f0e8ff', desc: 'A unicorn bone that hums with old magic. It is warm to the touch.' },
   { id: 'unicornHorn', name: 'Unicorn Horn', color: '#ffe0f8', desc: 'A spiralled horn that glows faintly. Wands made from it never miss.' },
   { id: 'thorn', name: 'Enchanted Thorn', color: '#6ab04a', desc: 'A thorn from a Walking Man Trap. It keeps trying to bite.' },
   { id: 'sap', name: 'Sentient Sap', color: '#d8a040', desc: 'Golden sap from a Treant. It slowly crawls back toward the nearest tree.' },
-  // Old Graveyard
+  // Restless Graveyard
   { id: 'bone', name: 'Undead Bone', color: '#efe6cf', desc: 'Old, dry bone from the restless dead. Sturdy enough to carve into blades and charms.' },
   { id: 'flesh', name: 'Rotting Flesh', color: '#9bb56e', desc: "A lump of rotting flesh. It smells exactly as bad as you'd expect." },
   { id: 'vampEssence', name: 'Vampire Essence', color: '#c0203a', desc: 'A drop of a vampire bat\'s blood magic, thick and dark red. It never dries.' },
@@ -599,7 +599,7 @@ export const MATERIALS: MaterialDef[] = [
   { id: 'sacredText', name: 'Sacred Text', color: '#e0c890', desc: 'A torn page of a cultist\'s scripture. The words shift when you are not looking.' },
   { id: 'robePiece', name: 'Robe Piece', color: '#7a2a3a', desc: 'A strip of a cultist\'s robe, dyed deep red and stitched with symbols.' },
   { id: 'nightmareWisp', name: 'Nightmare Wisp', color: '#5a6a8a', desc: 'A wisp of a wraith\'s nightmare. Holding it, you hear someone else\'s bad dream.' },
-  // Forsaken Crypt
+  // Forbidden Crypt
   { id: 'undeadFeather', name: 'Undead Feather', color: '#4a4a5a', desc: 'A black feather from a carrion crow. It is cold, and it never quite stops twitching.' },
   { id: 'enchantedScrap', name: 'Enchanted Scrap', color: '#a8b0d0', desc: 'A plate of possessed armor. Whatever moved it still hums inside the metal.' },
   // Shadowy Depths
@@ -619,8 +619,8 @@ export const MATERIALS: MaterialDef[] = [
   { id: 'everwatchingEye', name: 'Everwatching Eye', color: '#c0a0e0', desc: 'An eye of the Beholden Watcher. It still sees, and it still watches you.' },
   { id: 'forsakenSoul', name: 'Forsaken Soul', color: '#ff5030', desc: 'A soul the Demon Lord held captive. It burns cold, and it is grateful to be free.' },
   { id: 'ember', name: 'Ember', color: '#ff8a3d', desc: 'A coal that never quite goes out. It glows brighter when monsters are near.' },
-  { id: 'magma', name: 'Magma Slime', color: '#ff4d1a', desc: "Molten gel scooped from the caves and mines. Keep it in something that won't melt." },
-  { id: 'chitin', name: 'Chitin', color: '#3fb0a0', desc: 'A hard shell plate from the creatures of the caves and mines. Light, tough and a little shiny.' },
+  { id: 'magma', name: 'Magma Slime', color: '#ff4d1a', desc: "Molten gel scooped from the caves and caverns. Keep it in something that won't melt." },
+  { id: 'chitin', name: 'Chitin', color: '#3fb0a0', desc: 'A hard shell plate from the creatures of the caves and caverns. Light, tough and a little shiny.' },
   { id: 'fur', name: 'Frost Fur', color: '#dfefff', desc: 'Thick white fur from the frozen peaks. It keeps out even the bitterest cold.' },
   { id: 'frost', name: 'Frost Shard', color: '#8fdcff', desc: 'A shard of ice that never melts. Cold enough to numb your fingers through gloves.' },
   { id: 'ecto', name: 'Ectoplasm', color: '#c49bff', desc: 'Faintly glowing ectoplasm left behind by spirits. It hums when you hold it.' },
@@ -629,14 +629,14 @@ export const MATERIALS: MaterialDef[] = [
   { id: 'grave', name: 'Forbidden Text', color: '#5a3a7a', desc: 'A page torn from a necromancer\'s grimoire. Reading it out loud is a bad idea.' },
   { id: 'gloom', name: 'Gloom Silk', color: '#5a4a7a', desc: 'Thread spun in the Shadowy Depths. It drinks the light around it.' },
   { id: 'umbra', name: 'Umbral Pearl', color: '#8a7ea8', desc: 'A dark pearl from the Depths, cold and heavier than it looks.' },
-  { id: 'ore', name: 'Mithril Ore', color: '#b8c8d8', desc: 'A silvery ore from the Deep Mines, light and harder than steel.' },
+  { id: 'ore', name: 'Mithril Ore', color: '#b8c8d8', desc: 'A silvery ore from the Venom Caverns, light and harder than steel.' },
   { id: 'scale', name: 'Drake Scale', color: '#e0603a', desc: 'A scale shed by a fire drake. Still warm, and it never burns.' },
   { id: 'plume', name: 'Griffin Plume', color: '#f0d890', desc: 'A golden feather from the Ascendant Steps. It catches every breeze.' },
   { id: 'skystone', name: 'Sky Stone', color: '#a8b8e0', desc: 'A pale stone from the stairs to the sky. It hangs in the air a moment when dropped.' },
   { id: 'feather', name: 'Storm Feather', color: '#e8f4ff', desc: 'A feather that crackles with static. It never quite settles when you put it down.' },
   { id: 'thunder', name: 'Thunder Crystal', color: '#ffe36e', desc: 'Lightning caught in glass, taken from the storms around the Cloud Fortress.' },
   { id: 'meteor', name: 'Meteor Iron', color: '#c07048', desc: 'Dense, pitted metal from a fallen star. Still warm, and heavier than it looks.' },
-  { id: 'stardust', name: 'Stardust', color: '#b8a8ff', desc: 'Sparkling dust from the Meteor Fields. It glows faintly in the dark, like a sky in a jar.' },
+  { id: 'stardust', name: 'Stardust', color: '#b8a8ff', desc: 'Sparkling dust from the Meteor Field. It glows faintly in the dark, like a sky in a jar.' },
   { id: 'shade', name: 'Shadow Gel', color: '#7a5cc0', desc: 'Inky gel from the Rift that swallows the light around it.' },
   { id: 'void', name: 'Void Dust', color: '#ff5fd7', desc: 'Glittering dust from beyond the Rift. It drifts upward when you let it go.' },
   { id: 'soul', name: 'Soul Gem', color: '#6ff0e0', desc: 'A crystal holding a trapped soul. It whispers at night.' },
@@ -682,17 +682,17 @@ export interface AreaDef {
 }
 
 export const AREAS: AreaDef[] = [
-  { id: 'forest', name: 'Whispering Forest', icon: '🌲', hp: 1, gold: 1, speed: 36, mastery: 10_000, guardian: 1_500, palette: ['#183c18', '#2f7d32', '#7ec850', '#e2f5c4'], ground: ['#6cb848', '#58a03c'], blurb: 'Where every hunt begins.' },
-  { id: 'glade', name: 'Faerie Glade', icon: '🍄', hp: 150, gold: 80, speed: 38, mastery: 150_000, guardian: 12_000, palette: ['#221a30', '#5a4a8a', '#a8d8b0', '#f4f0ff'], ground: ['#7cc47c', '#8ed28a'], blurb: 'Mushroom rings and things that bite.' },
-  { id: 'graveyard', name: 'Old Graveyard', icon: '🪦', hp: 1_200, gold: 15_000, speed: 40, mastery: 700_000, guardian: 120_000, palette: ['#1e1a2a', '#4a4460', '#9a94b0', '#e8e4f0'], ground: ['#5b5670', '#4c4762'], blurb: 'The dead do not rest here.' },
-  { id: 'crypt', name: 'Forsaken Crypt', icon: '⚰️', hp: 5_000, gold: 2_000_000, speed: 42, mastery: 520_000, guardian: 530_000, palette: ['#1a1614', '#4a403a', '#9a8e80', '#ece4d8'], ground: ['#5a524a', '#4e4640'], blurb: 'Deeper than the graves, and older.' },
+  { id: 'forest', name: 'Wandering Woods', icon: '🌲', hp: 1, gold: 1, speed: 36, mastery: 10_000, guardian: 1_500, palette: ['#183c18', '#2f7d32', '#7ec850', '#e2f5c4'], ground: ['#6cb848', '#58a03c'], blurb: 'Where every hunt begins.' },
+  { id: 'glade', name: 'Fey Grove', icon: '🍄', hp: 150, gold: 80, speed: 38, mastery: 150_000, guardian: 12_000, palette: ['#221a30', '#5a4a8a', '#a8d8b0', '#f4f0ff'], ground: ['#7cc47c', '#8ed28a'], blurb: 'Mushroom rings and things that bite.' },
+  { id: 'graveyard', name: 'Restless Graveyard', icon: '🪦', hp: 1_200, gold: 15_000, speed: 40, mastery: 700_000, guardian: 120_000, palette: ['#1e1a2a', '#4a4460', '#9a94b0', '#e8e4f0'], ground: ['#5b5670', '#4c4762'], blurb: 'The dead do not rest here.' },
+  { id: 'crypt', name: 'Forbidden Crypt', icon: '⚰️', hp: 5_000, gold: 2_000_000, speed: 42, mastery: 520_000, guardian: 530_000, palette: ['#1a1614', '#4a403a', '#9a8e80', '#ece4d8'], ground: ['#5a524a', '#4e4640'], blurb: 'Deeper than the graves, and older.' },
   { id: 'depths', name: 'Shadowy Depths', icon: '🕳️', hp: 10_000, gold: 10_000_000_000, speed: 43, mastery: 1_000_000, guardian: 720_000, palette: ['#120e1c', '#3a3050', '#8a7ea8', '#e6e0f4'], ground: ['#2e2838', '#26212f'], blurb: 'Below the crypt, the dark has teeth.' },
   { id: 'caves', name: 'Ember Caves', icon: '🌋', hp: 20_000, gold: 3_000_000_000_000, speed: 45, mastery: 1_400_000, guardian: 2_900_000, palette: ['#2a0e08', '#8a2c10', '#e07030', '#fde4c0'], ground: ['#6a2c1a', '#823722'], blurb: 'Hot, bright and full of teeth.' },
-  { id: 'mines', name: 'Deep Mines', icon: '⛏️', hp: 40_000, gold: 100_000_000_000_000, speed: 47, mastery: 1_250_000, guardian: 31_000_000, palette: ['#1e140a', '#6a4a22', '#c09050', '#f4e4c8'], ground: ['#5a4228', '#4e3820'], blurb: 'Dug too deep, woke too much.' },
+  { id: 'mines', name: 'Venom Caverns', icon: '⛏️', hp: 40_000, gold: 100_000_000_000_000, speed: 47, mastery: 1_250_000, guardian: 31_000_000, palette: ['#1e140a', '#6a4a22', '#c09050', '#f4e4c8'], ground: ['#5a4228', '#4e3820'], blurb: 'Dug too deep, woke too much.' },
   { id: 'peaks', name: 'Frost Peaks', icon: '🏔️', hp: 100_000, gold: 3e15, speed: 50, mastery: 2_650_000, guardian: 32_000_000, palette: ['#0c2038', '#2a60a0', '#78b8e8', '#e4f4ff'], ground: ['#bcd8f0', '#a4c6e6'], blurb: 'Cold winds carry cold things.' },
   { id: 'cliffs', name: 'Ascendant Steps', icon: '🪜', hp: 250_000, gold: 5e17, speed: 53, mastery: 680_000, guardian: 64_000_000, palette: ['#141c30', '#4a5a86', '#a8b8e0', '#f2f4ff'], ground: ['#9aa6bc', '#8a96ac'], blurb: 'Stone stairs above the peaks, climbing into the sky.' },
   { id: 'fortress', name: 'Cloud Fortress', icon: '🏰', hp: 400_000, gold: 1e19, speed: 54, mastery: 1_250_000, guardian: 48_000_000, palette: ['#1a2440', '#4a70b0', '#a8d0f8', '#fdfcf4'], ground: ['#e8f0fa', '#d4e2f4'], blurb: 'A citadel on the clouds, held by storm and steel.' },
-  { id: 'meteors', name: 'Meteor Fields', icon: '☄️', hp: 650_000, gold: 2e20, speed: 55, mastery: 1_150_000, guardian: 120_000_000, palette: ['#0a0a1e', '#3a2a6a', '#e08a4a', '#fce8d0'], ground: ['#1c1830', '#2a2440'], blurb: 'Past the sky, where falling stars still burn.' },
+  { id: 'meteors', name: 'Meteor Field', icon: '☄️', hp: 650_000, gold: 2e20, speed: 55, mastery: 1_150_000, guardian: 120_000_000, palette: ['#0a0a1e', '#3a2a6a', '#e08a4a', '#fce8d0'], ground: ['#1c1830', '#2a2440'], blurb: 'Past the sky, where falling stars still burn.' },
   { id: 'rift', name: 'Void Rift', icon: '🌀', hp: 1_500_000, gold: 5e21, speed: 56, mastery: 4_800_000, guardian: 800_000_000, palette: ['#1a0830', '#5a2098', '#b070e0', '#f2e4ff'], ground: ['#2a1440', '#3a1d58'], blurb: 'The end of the known world.' },
 ];
 
@@ -828,7 +828,7 @@ export function typeMult(t: DamageType, enemy: EnemyId): number {
 }
 
 export const ENEMIES: EnemyDef[] = [
-  // Whispering Forest
+  // Wandering Woods
   { id: 'greenSlime', name: 'Green Slime', area: 'forest', archetype: 'slime', hp: 1, speed: 1, gold: 1, spawn: 0.8, pack: [2, 3], radius: 10, material: 'goo', unlock: 0, color: '#7be07b', shape: 'circle', blurb: 'Squishy and plentiful.', weak: ['fire', 'acid'], resist: ['poison'] },
   { id: 'twiggling', name: 'Twiggling', area: 'forest', archetype: 'plant', hp: 1.2, speed: 1.2, gold: 1.5, spawn: 0.7, pack: [2, 4], radius: 9, material: 'twig', unlock: 250, color: '#a07a4a', shape: 'diamond', blurb: 'A bundle of sticks that learned to walk, and then to bite.', weak: ['fire', 'physical'], resist: ['poison'] },
   { id: 'wolf', name: 'Forest Wolf', area: 'forest', archetype: 'beast', hp: 1.8, speed: 1.5, gold: 2.4, spawn: 0.55, pack: [2, 3], radius: 10, material: 'pelt', extra: 'beastBone', unlock: 900, color: '#b08a5a', shape: 'triangle', blurb: 'Fast, hunts in pairs.', weak: ['fire'], resist: ['frost'] },
@@ -836,7 +836,7 @@ export const ENEMIES: EnemyDef[] = [
   { id: 'brownBear', name: 'Brown Bear', area: 'forest', archetype: 'beast', hp: 4, speed: 0.8, gold: 5, spawn: 0.25, pack: [1, 2], radius: 15, material: 'bearClaw', extra: 'beastBone', unlock: 15_000, color: '#7a5030', shape: 'hexagon', blurb: 'Big, brown and always hungry.', weak: ['fire', 'arcane'], resist: ['frost', 'physical'] },
 
 
-  // Faerie Glade
+  // Fey Grove
   { id: 'toadstool', name: 'Toadstool', area: 'glade', archetype: 'plant', hp: 1, speed: 0.7, gold: 1.5, spawn: 1.2, pack: [2, 4], radius: 10, material: 'spore', unlock: 0, color: '#d0584a', shape: 'circle', blurb: 'A walking mushroom that puffs spores.', weak: ['fire', 'frost'], resist: ['poison', 'acid'] },
   { id: 'pixie', name: 'Pixie', area: 'glade', archetype: 'elemental', hp: 0.8, speed: 1.7, gold: 2, spawn: 0.5, pack: [2, 3], radius: 8, material: 'dust', unlock: 120, color: '#ff9ae0', shape: 'diamond', blurb: 'Giggles, glitters and bites.', weak: ['void', 'decay'], resist: ['arcane'] },
   { id: 'unicorn', name: 'Unicorn', area: 'glade', archetype: 'beast', hp: 2.5, speed: 1.6, gold: 3, spawn: 0.35, pack: [1, 2], radius: 13, material: 'enchantedBone', extra: 'unicornHorn', unlock: 900, color: '#f4f0ff', shape: 'triangle', blurb: 'Beautiful, magical, and it will absolutely stab you.', weak: ['void', 'decay'], resist: ['radiant', 'arcane'] },
@@ -844,7 +844,7 @@ export const ENEMIES: EnemyDef[] = [
   { id: 'treant', name: 'Treant', area: 'glade', archetype: 'plant', hp: 5, speed: 0.5, gold: 6, spawn: 0.2, pack: [1, 1], radius: 17, material: 'sap', unlock: 15_000, color: '#5a7a3a', shape: 'hexagon', blurb: 'An old tree that has had enough.', weak: ['fire', 'acid'], resist: ['physical', 'poison'] },
 
 
-  // Old Graveyard
+  // Restless Graveyard
   { id: 'skeleton', name: 'Skeleton', area: 'graveyard', archetype: 'undead', hp: 1, speed: 0.9, gold: 1, spawn: 1.5, pack: [3, 5], radius: 11, material: 'bone', unlock: 0, color: '#e8dcc0', shape: 'square', blurb: 'Rattles in by the dozen.', weak: ['radiant', 'arcane'], resist: ['poison', 'decay'] },
   { id: 'zombie', name: 'Zombie', area: 'graveyard', archetype: 'undead', hp: 2.2, speed: 0.6, gold: 2.4, spawn: 0.6, pack: [2, 4], radius: 12, material: 'flesh', unlock: 120, color: '#8fae6b', shape: 'square', blurb: 'Slow, sturdy, relentless. Sometimes still wearing its gear.', weak: ['fire', 'radiant'], resist: ['poison', 'decay'] },
   { id: 'bat', name: 'Vampire Bat', area: 'graveyard', archetype: 'beast', hp: 0.8, speed: 1.9, gold: 1.5, spawn: 0.8, pack: [3, 5], radius: 8, material: 'vampEssence', extra: 'wing', unlock: 900, color: '#8a2a4a', shape: 'triangle', blurb: 'Tiny, fast and thirsty.', weak: ['frost', 'radiant'], resist: ['decay'] },
@@ -852,7 +852,7 @@ export const ENEMIES: EnemyDef[] = [
   { id: 'graveWraith', name: 'Wraith', area: 'graveyard', archetype: 'undead', hp: 1.2, speed: 1.3, gold: 1.8, spawn: 0.6, pack: [2, 4], radius: 11, material: 'nightmareWisp', unlock: 15_000, color: '#5a6a8a', shape: 'ghost', blurb: 'The shadow of a nightmare that never ended.', weak: ['radiant', 'arcane'], resist: ['physical', 'frost'] },
 
 
-  // Forsaken Crypt
+  // Forbidden Crypt
   { id: 'crow', name: 'Carrion Crow', area: 'crypt', archetype: 'beast', hp: 1, speed: 2, gold: 1.2, spawn: 1.4, pack: [3, 6], radius: 7, material: 'undeadFeather', unlock: 0, color: '#3a3a4a', shape: 'triangle', blurb: 'Follows the dead, and those about to be.', weak: ['frost', 'physical'], resist: ['decay'] },
   { id: 'puppet', name: 'Possessed Puppet', area: 'crypt', archetype: 'construct', hp: 2.2, speed: 1.2, gold: 3, spawn: 0.4, pack: [2, 4], radius: 10, material: 'string', unlock: 120, color: '#b08058', shape: 'diamond', blurb: 'A marionette that dances with no hand on its strings.', weak: ['fire', 'physical'], resist: ['poison', 'frost'] },
   { id: 'boneKnight', name: 'Bone Knight', area: 'crypt', archetype: 'undead', hp: 4, speed: 0.8, gold: 4.5, spawn: 0.3, pack: [1, 2], radius: 13, material: 'enchantedBone', unlock: 900, color: '#c8c0a8', shape: 'hexagon', blurb: 'A skeleton that kept its armor, and its sword.', weak: ['radiant'], resist: ['physical', 'poison', 'decay'] },
@@ -878,7 +878,7 @@ export const ENEMIES: EnemyDef[] = [
   { id: 'hellhound', name: 'Hellhound', area: 'caves', archetype: 'demon', hp: 2, speed: 1.8, gold: 2.6, spawn: 0.4, pack: [2, 3], radius: 11, material: 'demonTooth', extra: 'demonBone', unlock: 15_000, color: '#b02a1a', shape: 'triangle', blurb: 'Its bark is fire. So is its bite.', weak: ['frost', 'radiant'], resist: ['fire', 'decay'] },
 
 
-  // Deep Mines
+  // Venom Caverns
   { id: 'kobold', name: 'Kobold', area: 'mines', archetype: 'humanoid', hp: 1, speed: 1.2, gold: 1.4, spawn: 1.4, pack: [3, 5], radius: 9, material: 'ore', unlock: 0, color: '#c07a3a', shape: 'square', blurb: 'Digs tunnels, sets traps, yips a lot.', weak: ['frost', 'physical'], resist: ['fire'] },
   { id: 'basilisk', name: 'Basilisk', area: 'mines', archetype: 'beast', hp: 3, speed: 1, gold: 3.8, spawn: 0.3, pack: [1, 2], radius: 13, material: 'scale', unlock: 120, color: '#5aa05a', shape: 'triangle', blurb: 'Whatever you do, don\'t meet its eyes.', weak: ['radiant', 'frost'], resist: ['poison', 'acid'] },
   { id: 'lavaGolem', name: 'Lava Golem', area: 'mines', archetype: 'elemental', hp: 5, speed: 0.5, gold: 5.5, spawn: 0.2, pack: [1, 1], radius: 16, material: 'magma', unlock: 900, color: '#d8401a', shape: 'diamond', blurb: 'Molten rock with a bad temper.', weak: ['frost'], resist: ['fire', 'physical', 'poison'] },
@@ -909,7 +909,7 @@ export const ENEMIES: EnemyDef[] = [
   { id: 'valkyrie', name: 'Valkyrie', area: 'fortress', archetype: 'humanoid', hp: 2.5, speed: 1.6, gold: 3.2, spawn: 0.3, pack: [1, 2], radius: 12, material: 'feather', unlock: 4_000, color: '#ffe8b0', shape: 'diamond', blurb: 'Dives from the battlements, spear first.', weak: ['decay', 'void'], resist: ['radiant', 'frost'] },
   { id: 'stormTitan', name: 'Storm Titan', area: 'fortress', archetype: 'elemental', hp: 7, speed: 0.5, gold: 8, spawn: 0.12, pack: [1, 1], radius: 19, material: 'thunder', unlock: 15_000, color: '#6a80c0', shape: 'hexagon', blurb: 'A thundercloud that learned to walk.', weak: ['acid', 'poison'], resist: ['arcane', 'frost', 'physical'] },
 
-  // Meteor Fields
+  // Meteor Field
   { id: 'meteorite', name: 'Meteorite', area: 'meteors', archetype: 'elemental', hp: 1, speed: 1.4, gold: 1.2, spawn: 1.4, pack: [3, 5], radius: 11, material: 'meteor', unlock: 0, color: '#c07048', shape: 'circle', blurb: 'A burning rock that never stopped falling.', weak: ['frost', 'physical'], resist: ['fire'] },
   { id: 'cometWisp', name: 'Comet Wisp', area: 'meteors', archetype: 'elemental', hp: 0.8, speed: 2, gold: 1.6, spawn: 0.7, pack: [3, 5], radius: 9, material: 'stardust', unlock: 120, color: '#9ad8ff', shape: 'ghost', blurb: 'A streak of ice and light with a long, bright tail.', weak: ['fire', 'void'], resist: ['frost', 'physical'] },
   { id: 'rockMite', name: 'Rock Mite', area: 'meteors', archetype: 'beast', hp: 2.2, speed: 1.2, gold: 2.6, spawn: 0.45, pack: [2, 4], radius: 11, material: 'meteor', unlock: 900, color: '#8a7a6a', shape: 'triangle', blurb: 'Burrows into asteroids and eats its way out.', weak: ['acid', 'radiant'], resist: ['physical', 'fire'] },
@@ -930,7 +930,7 @@ export const ENEMIES: EnemyDef[] = [
   // The Void Rift's Guardian: it only ever appears as the final Guardian.
   // Guardians: boss versions of each area's monsters, only ever met in its Guardian Challenge
   { id: 'kingSlime', name: 'King of Slimes', area: 'forest', archetype: 'slime', guardianOnly: true, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 20, material: 'royalSlime', unlock: Infinity, color: '#4ad04a', shape: 'circle', blurb: "The biggest, oldest slime in the forest, crowned in its own goo.", weak: ['fire', 'acid'], resist: ['poison'] },
-  { id: 'pixieQueen', name: 'Pixie Queen', area: 'glade', archetype: 'elemental', guardianOnly: true, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 16, material: 'regalEssence', unlock: Infinity, color: '#ff7ad8', shape: 'diamond', blurb: "She rules the Glade with a smile, a wand and a very long memory.", weak: ['void', 'decay'], resist: ['arcane', 'radiant'] },
+  { id: 'pixieQueen', name: 'Pixie Queen', area: 'glade', archetype: 'elemental', guardianOnly: true, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 16, material: 'regalEssence', unlock: Infinity, color: '#ff7ad8', shape: 'diamond', blurb: "She rules the Grove with a smile, a wand and a very long memory.", weak: ['void', 'decay'], resist: ['arcane', 'radiant'] },
   { id: 'skeletonKing', name: 'Skeleton King', area: 'graveyard', archetype: 'undead', guardianOnly: true, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 20, material: 'calciumCrystal', unlock: Infinity, color: '#f0e8d0', shape: 'square', blurb: "He wears a crown of finger bones and commands every skeleton in the Graveyard.", weak: ['radiant', 'arcane'], resist: ['poison', 'decay', 'physical'] },
   { id: 'awokenLich', name: 'Awoken Lich', area: 'crypt', archetype: 'undead', guardianOnly: true, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 20, material: 'eldritchText', unlock: Infinity, color: '#8a5ac0', shape: 'hexagon', blurb: "The Crypt's oldest master, risen at last, and furious about it.", weak: ['radiant', 'physical'], resist: ['decay', 'void', 'frost'] },
   { id: 'beholdenWatcher', name: 'Beholden Watcher', area: 'depths', archetype: 'demon', guardianOnly: true, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 22, material: 'everwatchingEye', unlock: Infinity, color: '#c0a0e0', shape: 'circle', blurb: "A great eye ringed with smaller ones. Every one of them is looking at you.", weak: ['radiant', 'lightning'], resist: ['arcane', 'void', 'physical'] },
@@ -982,7 +982,7 @@ export const empowerMult = (stat: keyof typeof EMPOWER, sessions: number): numbe
 /**
  * Each session costs this much more than the last: the first levels are cheap (monsters keep up with your
  * early damage), and Lv 30 takes gold from about two areas further on (Green Slimes max out around the end of
- * the Old Graveyard, or soon after reaching the Forsaken Crypt).
+ * the Restless Graveyard, or soon after reaching the Forbidden Crypt).
  */
 export const EMPOWER_GROWTH = 1.125;
 
@@ -1042,7 +1042,7 @@ export function materialDepth(m: MaterialId): number {
 }
 
 /**
- * The tier a piece of gear belongs to (1 = Whispering Forest … 12 = Void Rift): its own, or worked out from
+ * The tier a piece of gear belongs to (1 = Wandering Woods … 12 = Void Rift): its own, or worked out from
  * its recipe, so gear made from materials further into an area is a little stronger (Forest gear runs from
  * 1.0 for Green Slime up to 1.9 for Royal Slime).
  */
@@ -1346,11 +1346,11 @@ export interface HunterDef {
 export const MAIN_RANGE = 250;
 /** How far the battlefield is zoomed out: 0.6 = everything drawn at 60% size, so you see more of the field. */
 export const FIELD_ZOOM = 0.6;
-/** Each area's battlefield is this much bigger than the Whispering Forest's, per area after it. */
+/** Each area's battlefield is this much bigger than the Wandering Woods', per area after it. */
 export const AREA_GROWTH = 0.1;
 /**
- * How big an area's battlefield is next to the Whispering Forest's: 10% more per area (the Faerie Glade 110%,
- * the Meteor Fields 200%). The view zooms out to fit it, so Hunters and monsters are drawn smaller.
+ * How big an area's battlefield is next to the Wandering Woods': 10% more per area (the Fey Grove 110%,
+ * the Meteor Field 200%). The view zooms out to fit it, so Hunters and monsters are drawn smaller.
  */
 export const areaScale = (area: AreaId): number => 1 + AREA_GROWTH * Math.max(0, AREAS.findIndex((a) => a.id === area));
 /** The battlefield's zoom in an area. */
@@ -1363,7 +1363,7 @@ export const HUNTERS: HunterDef[] = [
     id: 'alchemist', name: 'Reginald', title: 'Alchemist', icon: '⚗️', color: '#7be07b', area: 'forest', recruitCost: 150, bane: { archetype: 'slime', mult: 3 },
     unlock: { event: 'slimeSwarm', times: 1 },
     ascendedTitle: 'Archalchemist',
-    story: "Reginald is in the Whispering Forest doing research on Slimes, with an idea for a new potion, but he needs far more test subjects than he can catch. Survive a Slime Swarm, and Reginald will help you hunt monsters.",
+    story: "Reginald is in the Wandering Woods doing research on Slimes, with an idea for a new potion, but he needs far more test subjects than he can catch. Survive a Slime Swarm, and Reginald will help you hunt monsters.",
     ability: 'Every 4s, lobs a potion that leaves a poison puddle. Deals triple damage to Slimes. Uses ranged or magic weapons.',
     slots: [{ kind: 'weapon', label: 'Weapon', accepts: ['weapon', 'magic'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
     special: { kind: 'potion', name: 'Potions', damageType: 'poison', cooldown: 4, damage: 0.35, radius: 45, ticks: 6, crowd: 2.5, describe: 'Every 4s, lobs a potion whose poison puddle keeps hurting: his weapon\'s damage powers it, its attack rate widens the puddle.' },
@@ -1372,7 +1372,7 @@ export const HUNTERS: HunterDef[] = [
     id: 'ranger', name: 'Galladair', title: 'Ranger', icon: '🏹', color: '#c09060', area: 'forest', recruitCost: 2_000, bane: { archetype: 'beast', mult: 3 },
     unlock: { event: 'guardian-forest', times: 1 },
     ascendedTitle: 'Pathfinder',
-    story: 'Galladair\'s home on the edge of the Whispering Forest is being threatened by monsters. Help her defeat the Forest Guardian, and she will fight by your side.',
+    story: 'Galladair\'s home on the edge of the Wandering Woods is being threatened by monsters. Help her defeat the Woods\' Guardian, and she will fight by your side.',
     ability: 'Deals triple damage to Beasts.',
   },
   {
@@ -1380,14 +1380,14 @@ export const HUNTERS: HunterDef[] = [
     unlock: { event: 'guardian-glade', times: 1 },
     ascendedTitle: 'Maestro',
     inspire: 0.15,
-    story: "Ba'al wandered into the Faerie Glade chasing a melody only the pixies hum, and the Glade's Guardian won't let him leave. Beat it, and his songs are yours.",
+    story: "Ba'al wandered into the Fey Grove chasing a melody only the pixies hum, and the Grove's Guardian won't let him leave. Beat it, and his songs are yours.",
     ability: 'His song makes every other Hunter in his area attack 15% faster. Deals triple damage to Humanoids.',
   },
   {
     id: 'druid', name: 'Deku', title: 'Druid', icon: '🌿', color: '#6abf5a', area: 'glade', recruitCost: 250_000, bane: { archetype: 'plant', mult: 3 }, summonBonus: { type: 'beast', mult: 1.5 },
     unlock: { event: 'guardian-glade', times: 2 },
     ascendedTitle: 'Archdruid',
-    story: 'Deku tends the oldest trees of the Faerie Glade, and the Guardian keeps trampling his saplings. Beat it twice, and he\'ll lend you the spirits of the wild.',
+    story: 'Deku tends the oldest trees of the Fey Grove, and the Guardian keeps trampling his saplings. Beat it twice, and he\'ll lend you the spirits of the wild.',
     ability: 'Every 6s calls two spirit wolves to hunt. Deals triple damage to Plants, and his Beast summons (wolves from any source) hit 50% harder. Uses ranged or magic weapons.',
     slots: [{ kind: 'weapon', label: 'Weapon', accepts: ['weapon', 'magic'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
     special: { kind: 'summon', name: 'Wolves', damageType: 'physical', cooldown: 6, damage: 0.7, radius: 1, ticks: 18, crowd: 1, summon: { look: 'wolf', type: 'beast' }, describe: 'Every 6s calls two spirit wolves that hunt for 6s, biting for his damage: his weapon powers them, and they share its damage type and status effects.' },
@@ -1398,14 +1398,14 @@ export const HUNTERS: HunterDef[] = [
     ascendedTitle: 'Master Thief',
     areaGold: 0.3,
     areaLoot: 1,
-    story: "Alias has been robbing the Old Graveyard's tombs, but its Guardian guards the best of them. Beat it, and he'll share the take.",
+    story: "Alias has been robbing the Restless Graveyard's tombs, but its Guardian guards the best of them. Beat it, and he'll share the take.",
     ability: 'Wherever he is, monsters pay 30% more gold and drop loot twice as often.',
   },
   {
     id: 'lance', name: 'Lance', title: 'Paladin', icon: '🛡️', color: '#ffe8a3', area: 'graveyard', recruitCost: 200_000_000,
     unlock: { event: 'guardian-graveyard', times: 2 },
     ascendedTitle: 'Crusader',
-    story: 'Lance swore to guard the Old Graveyard\'s gates until its Guardian falls twice. Help him keep his oath, and his shield is yours.',
+    story: 'Lance swore to guard the Restless Graveyard\'s gates until its Guardian falls twice. Help him keep his oath, and his shield is yours.',
     ability: 'Can take multiple hits before being knocked out (Zone of Protection), and grants other Hunters an extra hit as well (Rallying Oath).',
     slots: [{ kind: 'melee', label: 'Melee' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
   },
@@ -1413,7 +1413,7 @@ export const HUNTERS: HunterDef[] = [
     id: 'glimmer', name: 'Glimmer', title: 'Wizard', icon: '🧙', color: '#b07cff', area: 'crypt', recruitCost: 300_000_000_000,
     unlock: { event: 'guardian-crypt', times: 1 },
     ascendedTitle: 'Archmage',
-    story: 'Glimmer came to the Forsaken Crypt to study the old magic sealed inside, but its Guardian won\'t let anyone near. Put it to rest, and Glimmer will lend you a fireball or two.',
+    story: 'Glimmer came to the Forbidden Crypt to study the old magic sealed inside, but its Guardian won\'t let anyone near. Put it to rest, and Glimmer will lend you a fireball or two.',
     ability: 'Every 4s, hurls a fireball that explodes for area damage. Wields only magic weapons.',
     slots: [{ kind: 'magic', label: 'Magic weapon' }, { kind: 'armor', label: 'Robe', armorTypes: ['robe'] }, { kind: 'accessory', label: 'Accessory' }],
     special: { kind: 'fireball', name: 'Fireballs', damageType: 'fire', proc: 1, cooldown: 4, damage: 1.75, radius: 55, ticks: 1, crowd: 3, describe: 'Every 4s hurls a fireball that explodes: his weapon\'s damage powers the blast, its attack rate widens it.' },
@@ -1421,7 +1421,7 @@ export const HUNTERS: HunterDef[] = [
     id: 'puppeteer', name: 'Theon', title: 'Puppeteer', icon: '🎎', color: '#c89a6a', area: 'crypt', recruitCost: 1_000_000_000_000, summonBonus: { type: 'construct', mult: 1.5 },
     unlock: { event: 'guardian-crypt', times: 2 },
     ascendedTitle: 'Grand Puppeteer',
-    story: "Theon pulls the strings of the Forsaken Crypt's Possessed Puppets, or tries to: something in the dark keeps cutting them. Beat the Crypt's Guardian twice, and her puppets will dance for you.",
+    story: "Theon pulls the strings of the Forbidden Crypt's Possessed Puppets, or tries to: something in the dark keeps cutting them. Beat the Crypt's Guardian twice, and her puppets will dance for you.",
     ability: 'Every 6s calls two puppets that hunt across the field. Her Construct summons (puppets from any source) hit 50% harder. Uses magic or melee weapons.',
     slots: [{ kind: 'magic', label: 'Weapon', accepts: ['magic', 'melee'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
     special: { kind: 'summon', name: 'Puppets', damageType: 'physical', cooldown: 6, damage: 0.7, radius: 1, ticks: 18, crowd: 1, summon: { look: 'puppet', type: 'construct' }, describe: 'Every 6s calls two puppets that hunt for 6s, biting for her damage: her weapon powers them, and they share its damage type and status effects.' },
@@ -1567,7 +1567,7 @@ export const ARMOR_TYPES: Record<ArmorType, { name: string; icon: string; desc: 
   shield: { name: 'Shield', icon: '🛡️', desc: 'Blocks: the most shield charges, but a little less damage.', penalty: { damage: -0.08 } },
 };
 
-/** Armor stats at 1★ by kind and area tier (1 = Whispering Forest … 12 = Void Rift). */
+/** Armor stats at 1★ by kind and area tier (1 = Wandering Woods … 12 = Void Rift). */
 export function armorStats(type: ArmorType, tier: number): Partial<Record<GearStat, number>> {
   const m = 1 + 0.25 * (tier - 1);
   const r = (v: number) => Math.round(v * m * 1000) / 1000;
@@ -1791,7 +1791,7 @@ export interface GearDef {
   recipe: Partial<Record<MaterialId, number>>;
   /** Starting gear: every new game begins with it; it can't be crafted (its recipe prices its stars). */
   starter?: boolean;
-  /** Weapons: the area tier they belong to (1 = Whispering Forest … 12 = Void Rift), which sets their base damage. */
+  /** Weapons: the area tier they belong to (1 = Wandering Woods … 12 = Void Rift), which sets their base damage. */
   tier?: number;
   /** Weapons: base damage per hit at 1★, overriding the tier's (the starting weapons deal 1). */
   hit?: number;
@@ -1799,7 +1799,7 @@ export interface GearDef {
 
 // ---- Weapon damage: every hit starts from the weapon's own damage ----
 /**
- * A weapon's base damage per hit at 1★ by its area tier (1 = Whispering Forest … 12 = Void Rift), before its
+ * A weapon's base damage per hit at 1★ by its area tier (1 = Wandering Woods … 12 = Void Rift), before its
  * class makes it heavier or lighter: each new area's weapons reach well past the last area's.
  */
 export const TIER_HIT = [2, 4, 8, 15, 27, 45, 72, 110, 160, 230, 320, 440];
@@ -1943,7 +1943,7 @@ export const GEAR: GearDef[] = [
   { id: 'shortBow', name: 'Short Bow', icon: '🏹', kind: 'weapon', rarity: 'common', weaponClass: 'shortbow', damageType: 'physical', hit: 1, stats: {}, recipe: { goo: 6 }, starter: true },
   { id: 'commonClothes', name: 'Common Garb', icon: '👕', kind: 'armor', rarity: 'common', stats: {}, recipe: { goo: 4 }, starter: true },
   // Weapons
-  // Whispering Forest: tiers (and damage) come from how deep into the Forest each recipe's materials are
+  // Wandering Woods: tiers (and damage) come from how deep into the Woods each recipe's materials are
   { id: 'slimeSword', name: 'Slime Sword', icon: '⚔️', kind: 'melee', rarity: 'common', weaponClass: 'sword', damageType: 'physical', stats: {}, recipe: { goo: 8 } },
   { id: 'forestBow', name: 'Forest Bow', icon: '🏹', kind: 'weapon', rarity: 'common', weaponClass: 'shortbow', damageType: 'physical', stats: {}, recipe: { goo: 6, twig: 6 } },
   { id: 'furCoat', name: 'Fur Coat', icon: '🧥', kind: 'armor', armorType: 'light', rarity: 'common', stats: armorStats('light', gearTier({ recipe: { pelt: 8 } } as GearDef)), recipe: { pelt: 8 } },
@@ -2200,7 +2200,7 @@ export const ITEMS: ItemDef[] = [
     maxLevel: 5,
     recipe: { goo: 30, twig: 15, bearClaw: 6 },
     growth: 2,
-    describe: (l) => `Whispering Forest monsters: ×2 HP, ×${2 + 0.25 * (l - 1)} gold`,
+    describe: (l) => `Wandering Woods monsters: ×2 HP, ×${2 + 0.25 * (l - 1)} gold`,
   },
   { id: 'engine', name: 'Void Engine', icon: '🌀', rarity: 'artifact', maxLevel: 20, recipe: { shade: 10, void: 5, soul: 3 }, growth: 1.7, describe: (l) => `+${l * 10}% damage, +${l * 3}% attack rate` },
 ];
@@ -2240,7 +2240,7 @@ export function starsFromLevel(levels: number[], level: number, recipe: Partial<
 }
 
 export const EVENTS: EventDef[] = [
-  // Listed in the order they unlock: the Slime Swarm comes first in the Forest.
+  // Listed in the order they unlock: the Slime Swarm comes first in the Woods.
   {
     id: 'slimeSwarm',
     area: 'forest',

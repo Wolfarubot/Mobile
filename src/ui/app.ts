@@ -2316,7 +2316,7 @@ export class AppUI {
 
   /** A short message that pops up over the Battle Field and fades away. */
   /**
-   * Auto Salvage (Inventory → Equipment, from the Old Graveyard), a menu like the Filter: pick rarities, and
+   * Auto Salvage (Inventory → Equipment, from the Restless Graveyard), a menu like the Filter: pick rarities, and
    * looted gear of those rarities is salvaged the moment it drops. "Salvage now" clears out the unequipped
    * pieces of those rarities you already have.
    */
@@ -2450,7 +2450,7 @@ export class AppUI {
     );
   }
 
-  /** The Areas tab opens with the second area (the Faerie Glade). */
+  /** The Areas tab opens with the second area (the Fey Grove). */
   private get areasOpen(): boolean {
     return this.game.unlockedAreas.length > 1;
   }
@@ -3253,7 +3253,7 @@ const unlockNoun = (ev: EventDef): string => (ev.unlockArchetype ? `${ARCHETYPES
 /** How many not-yet-recruited Hunters the Hunters tab shows. */
 const NEXT_HUNTERS_SHOWN = 3;
 
-/** What a Hunter needs before they can be recruited, e.g. "Beat the Old Graveyard Guardian (1/2)". */
+/** What a Hunter needs before they can be recruited, e.g. "Beat the Restless Graveyard Guardian (1/2)". */
 function unlockText(g: Game, def: HunterDef): string {
   const ev = eventDef(def.unlock.event);
   const done = Math.min(g.eventCompletions(ev.id), def.unlock.times);

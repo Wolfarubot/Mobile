@@ -190,7 +190,7 @@ export function simulatePlayer(days: number) {
 }
 
 describe('progression pacing', () => {
-  it('a typical player opens the Faerie Glade on day one, then new areas every day or few', () => {
+  it('a typical player opens the Fey Grove on day one, then new areas every day or few', () => {
     const { unlockedAt: r } = simulatePlayer(14);
     // SIM_OUT=file.json writes when each area unlocked, in hours.
     if (process.env.SIM_OUT) writeFileSync(process.env.SIM_OUT, JSON.stringify(Object.fromEntries(Object.entries(r).map(([k, v]) => [k, +(v! / 3600).toFixed(1)]))));

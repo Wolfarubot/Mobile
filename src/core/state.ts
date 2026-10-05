@@ -147,7 +147,7 @@ export interface GameState {
     /** 'fancy' adds effects (pixels at the reload text's fading edge, a glowing line on refilling icons). */
     reloadStyle: IndicatorStyle;
     cooldownStyle: IndicatorStyle;
-    /** Rarities of looted gear to salvage the moment it drops (Equipment → Auto Salvage, from the Old Graveyard). */
+    /** Rarities of looted gear to salvage the moment it drops (Equipment → Auto Salvage, from the Restless Graveyard). */
     autoSalvage: Rarity[];
     /** Which visual effects show (damage numbers by kind, status effects by kind). All on by default. */
     fx: Record<FxKey, boolean>;

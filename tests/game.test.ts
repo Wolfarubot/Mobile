@@ -360,7 +360,7 @@ describe('Hunters', () => {
     expect(g.hunterAvailable('ranger')).toBe(true); // Galladair: one Forest Guardian win
     expect(g.recruit('alchemist')).toBe(true);
     expect(g.recruit('alchemist')).toBe(false);
-    // Glimmer waits in the Forsaken Crypt for its Guardian to fall.
+    // Glimmer waits in the Forbidden Crypt for its Guardian to fall.
     expect(hunterDef('glimmer').area).toBe('crypt');
     expect(hunterDef('glimmer').unlock).toEqual({ event: 'guardian-crypt', times: 1 });
     expect(g.hunterAvailable('glimmer')).toBe(false);
@@ -727,7 +727,7 @@ describe('Shops', () => {
     expect(g.skill('main', 'speed')).toBe(10);
   });
 
-  it('Upgrades have rarities; the Forest Idol doubles Whispering Forest HP and gold, and nowhere else', () => {
+  it('Upgrades have rarities; the Forest Idol doubles Wandering Woods HP and gold, and nowhere else', () => {
     for (const it of ITEMS) expect(Object.keys(RARITIES)).toContain(it.rarity);
     const g = rich();
     const before = g.enemyStats('greenSlime');
@@ -1529,7 +1529,7 @@ describe('Equipment', () => {
     }
   });
 
-  it("the Faerie Glade's Hunters: Ba'al's song speeds up the Hunters beside him, Deku calls spirit wolves", () => {
+  it("the Fey Grove's Hunters: Ba'al's song speeds up the Hunters beside him, Deku calls spirit wolves", () => {
     expect(hunterDef('bard').unlock).toEqual({ event: 'guardian-glade', times: 1 });
     expect(hunterDef('druid').unlock).toEqual({ event: 'guardian-glade', times: 2 });
     const g = new Game(newGame(0), noCrit);
@@ -1586,7 +1586,7 @@ describe('Equipment', () => {
     expect(Object.entries(g.state.materials).some(([m, n]) => n > mats[m as keyof typeof mats])).toBe(true);
     // Salvage now: unequipped pieces of the chosen rarities go; equipped gear stays.
     expect(g.salvageRarities([looted.rarity])).toBe(1);
-    // Auto Salvage opens at the Old Graveyard.
+    // Auto Salvage opens at the Restless Graveyard.
     expect(g.autoSalvageOpen).toBe(false);
     g.state.areas.graveyard.unlocked = true;
     expect(g.autoSalvageOpen).toBe(true);
@@ -2022,7 +2022,7 @@ describe('Events', () => {
     expect(g.eventCooldown('guardian-forest')).toBe(GUARDIAN_COOLDOWN);
     expect(g.startEvent('guardian-forest')).toBe(false); // already running
     g.bossSpawned();
-    g.registerKill(g.guardianType, true); // win: the Faerie Glade opens
+    g.registerKill(g.guardianType, true); // win: the Fey Grove opens
     expect(g.isAreaUnlocked('glade')).toBe(true);
     expect(g.eventReady('guardian-forest')).toBe(false); // cooling down
     g.state.lastSeen = 0;

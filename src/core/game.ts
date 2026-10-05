@@ -996,7 +996,7 @@ export class Game {
     return doomed.length;
   }
 
-  /** Auto Salvage shows up once you've reached the Old Graveyard. */
+  /** Auto Salvage shows up once you've reached the Restless Graveyard. */
   get autoSalvageOpen(): boolean {
     return this.state.areas.graveyard.unlocked;
   }
