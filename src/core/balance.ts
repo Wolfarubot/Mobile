@@ -549,6 +549,12 @@ export type MaterialId =
   | 'demonTooth'
   | 'demonBone'
   | 'demonWing'
+  | 'royalSlime'
+  | 'regalEssence'
+  | 'calciumCrystal'
+  | 'eldritchText'
+  | 'everwatchingEye'
+  | 'forsakenSoul'
   | 'bone'
   | 'flesh'
   | 'wing'
@@ -605,6 +611,13 @@ export const MATERIALS: MaterialDef[] = [
   { id: 'demonTooth', name: 'Demon Tooth', color: '#f0e0c0', desc: 'A fang from a hellhound, still hot enough to scorch leather.' },
   { id: 'demonBone', name: 'Demon Bone', color: '#7a2a1a', desc: 'A blackened bone from a demon of the caves. It smells of brimstone.' },
   { id: 'demonWing', name: 'Demon Wing', color: '#c04a2a', desc: 'A leathery imp wing, scorched at the edges.' },
+  // Guardians' own materials (10 per Guardian slain)
+  { id: 'royalSlime', name: 'Royal Slime', color: '#4ad04a', desc: 'A glob of the King of Slimes, golden-green and faintly regal. It wobbles with dignity.' },
+  { id: 'regalEssence', name: 'Regal Essence', color: '#ff7ad8', desc: 'A shimmering drop of the Pixie Queen\'s magic. Everything near it sparkles.' },
+  { id: 'calciumCrystal', name: 'Calcium Crystal', color: '#f8f0e0', desc: 'A crystal grown in the Skeleton King\'s bones over centuries. Hard as diamond.' },
+  { id: 'eldritchText', name: 'Eldritch Text', color: '#8a5ac0', desc: 'A page from the Awoken Lich\'s own book. The ink moves to follow your eyes.' },
+  { id: 'everwatchingEye', name: 'Everwatching Eye', color: '#c0a0e0', desc: 'An eye of the Beholden Watcher. It still sees, and it still watches you.' },
+  { id: 'forsakenSoul', name: 'Forsaken Soul', color: '#ff5030', desc: 'A soul the Demon Lord held captive. It burns cold, and it is grateful to be free.' },
   { id: 'ember', name: 'Ember', color: '#ff8a3d', desc: 'A coal that never quite goes out. It glows brighter when monsters are near.' },
   { id: 'magma', name: 'Magma Slime', color: '#ff4d1a', desc: "Molten gel scooped from the caves and mines. Keep it in something that won't melt." },
   { id: 'chitin', name: 'Chitin', color: '#3fb0a0', desc: 'A hard shell plate from the creatures of the caves and mines. Light, tough and a little shiny.' },
@@ -741,6 +754,12 @@ export type EnemyId =
   | 'voidWyrm'
   | 'behemoth'
   | 'timeEater'
+  | 'kingSlime'
+  | 'pixieQueen'
+  | 'skeletonKing'
+  | 'awokenLich'
+  | 'beholdenWatcher'
+  | 'demonLord'
   | 'gloomcrawler'
   | 'duskmoth'
   | 'shadowWisp'
@@ -909,6 +928,13 @@ export const ENEMIES: EnemyDef[] = [
   { id: 'voidWyrm', name: 'Void Wyrm', area: 'rift', archetype: 'dragon', hp: 8, speed: 0.9, gold: 9.5, spawn: 0.1, pack: [1, 1], radius: 18, material: 'void', unlock: 600_000, color: '#8a3ae0', shape: 'hexagon', blurb: 'Swims through the dark between stars.', weak: ['radiant'], resist: ['void', 'physical', 'frost'] },
   { id: 'behemoth', name: 'Behemoth', area: 'rift', archetype: 'beast', hp: 10, speed: 0.6, gold: 12, spawn: 0.08, pack: [1, 1], radius: 20, material: 'soul', unlock: 1_500_000, color: '#6a4a8a', shape: 'hexagon', blurb: 'The ground shakes when it walks.', weak: ['arcane', 'acid'], resist: ['physical', 'fire'] },
   // The Void Rift's Guardian: it only ever appears as the final Guardian.
+  // Guardians: boss versions of each area's monsters, only ever met in its Guardian Challenge
+  { id: 'kingSlime', name: 'King of Slimes', area: 'forest', archetype: 'slime', guardianOnly: true, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 20, material: 'royalSlime', unlock: Infinity, color: '#4ad04a', shape: 'circle', blurb: "The biggest, oldest slime in the forest, crowned in its own goo.", weak: ['fire', 'acid'], resist: ['poison'] },
+  { id: 'pixieQueen', name: 'Pixie Queen', area: 'glade', archetype: 'elemental', guardianOnly: true, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 16, material: 'regalEssence', unlock: Infinity, color: '#ff7ad8', shape: 'diamond', blurb: "She rules the Glade with a smile, a wand and a very long memory.", weak: ['void', 'decay'], resist: ['arcane', 'radiant'] },
+  { id: 'skeletonKing', name: 'Skeleton King', area: 'graveyard', archetype: 'undead', guardianOnly: true, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 20, material: 'calciumCrystal', unlock: Infinity, color: '#f0e8d0', shape: 'square', blurb: "He wears a crown of finger bones and commands every skeleton in the Graveyard.", weak: ['radiant', 'arcane'], resist: ['poison', 'decay', 'physical'] },
+  { id: 'awokenLich', name: 'Awoken Lich', area: 'crypt', archetype: 'undead', guardianOnly: true, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 20, material: 'eldritchText', unlock: Infinity, color: '#8a5ac0', shape: 'hexagon', blurb: "The Crypt's oldest master, risen at last, and furious about it.", weak: ['radiant', 'physical'], resist: ['decay', 'void', 'frost'] },
+  { id: 'beholdenWatcher', name: 'Beholden Watcher', area: 'depths', archetype: 'demon', guardianOnly: true, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 22, material: 'everwatchingEye', unlock: Infinity, color: '#c0a0e0', shape: 'circle', blurb: "A great eye ringed with smaller ones. Every one of them is looking at you.", weak: ['radiant', 'lightning'], resist: ['arcane', 'void', 'physical'] },
+  { id: 'demonLord', name: 'Demon Lord', area: 'caves', archetype: 'demon', guardianOnly: true, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 22, material: 'forsakenSoul', unlock: Infinity, color: '#c02a1a', shape: 'hexagon', blurb: "The master of the Ember Caves, wreathed in the souls it has taken.", weak: ['frost', 'radiant'], resist: ['fire', 'decay', 'physical'] },
   { id: 'timeEater', name: 'Time Eater', area: 'rift', archetype: 'demon', guardianOnly: true, winAt: 0.5, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 22, material: 'void', unlock: Infinity, color: '#e0c060', shape: 'hexagon', blurb: 'It devours the hours of every world it finds. The Void Rift is its mouth.', weak: ['radiant', 'arcane'], resist: ['void', 'decay', 'physical'] },
 ];
 
@@ -917,12 +943,12 @@ export const enemyDef = (id: EnemyId): EnemyDef => ENEMIES.find((e) => e.id === 
 export const areaEnemies = (area: AreaId): EnemyDef[] => ENEMIES.filter((e) => e.area === area && !e.guardianOnly);
 /** Which monster each area's Guardian is a giant version of. */
 export const GUARDIAN_ENEMY: Record<AreaId, EnemyId> = {
-  forest: 'brownBear',
-  glade: 'treant',
-  graveyard: 'bat',
-  crypt: 'necromancer',
-  depths: 'deepLurker',
-  caves: 'beetle',
+  forest: 'kingSlime',
+  glade: 'pixieQueen',
+  graveyard: 'skeletonKing',
+  crypt: 'awokenLich',
+  depths: 'beholdenWatcher',
+  caves: 'demonLord',
   mines: 'caveTroll',
   peaks: 'wraith',
   cliffs: 'iceWyvern',
@@ -1934,7 +1960,7 @@ export const GEAR: GearDef[] = [
   { id: 'emberFocus', name: 'Ember Focus', icon: '🕯️', kind: 'magic', rarity: 'veryRare', weaponClass: 'focus', tier: 6, damageType: 'fire', proc: 0.3, stats: { rate: 0.15 }, recipe: { ember: 10, demonBone: 5 } },
   { id: 'crystalFocus', name: 'Crystal Focus', icon: '💎', kind: 'magic', rarity: 'legendary', weaponClass: 'focus', tier: 8, damageType: 'frost', proc: 0.3, stats: { rate: 0.1 }, recipe: { frost: 8, ecto: 6 } },
   { id: 'voidScepter', name: 'Void Scepter', icon: '🪬', kind: 'magic', rarity: 'exalted', weaponClass: 'scepter', tier: 12, damageType: 'void', stats: { rate: 0.25 }, recipe: { shade: 10, void: 5 } },
-  { id: 'wispTome', name: 'Tome of Wisps', icon: '📖', kind: 'magic', rarity: 'uncommon', weaponClass: 'tome', tier: 3, damageType: 'arcane', proc: 0.15, stats: {}, recipe: { nightmareWisp: 10, sacredText: 6 } },
+  { id: 'wispTome', name: 'Tome of Wisps', icon: '📖', kind: 'magic', rarity: 'uncommon', weaponClass: 'tome', tier: 3, damageType: 'arcane', proc: 0.15, stats: {}, recipe: { nightmareWisp: 10, sacredText: 6, calciumCrystal: 2 } },
   {
     id: 'wolfTome',
     name: 'Tome of the Wolf Spirit',
@@ -1953,13 +1979,13 @@ export const GEAR: GearDef[] = [
   // A weapon for every area tier (ranged, melee and magic), crafted from that area's materials.
   { id: 'thornLongbow', name: 'Thorn Longbow', icon: '🌿', kind: 'weapon', rarity: 'uncommon', weaponClass: 'longbow', tier: 2, damageType: 'physical', stats: {}, recipe: { thorn: 10, sap: 5 } },
   { id: 'thornSpear', name: 'Thorn Spear', icon: '🌱', kind: 'melee', rarity: 'uncommon', weaponClass: 'spear', tier: 2, damageType: 'poison', proc: 0.2, stats: {}, recipe: { thorn: 8, enchantedBone: 5 } },
-  { id: 'faerieWand', name: 'Faerie Scepter', icon: '🧚', kind: 'magic', rarity: 'uncommon', weaponClass: 'scepter', tier: 2, damageType: 'arcane', proc: 0.15, stats: {}, recipe: { unicornHorn: 6, dust: 8 } },
+  { id: 'faerieWand', name: 'Faerie Scepter', icon: '🧚', kind: 'magic', rarity: 'uncommon', weaponClass: 'scepter', tier: 2, damageType: 'arcane', proc: 0.15, stats: {}, recipe: { unicornHorn: 6, dust: 8, regalEssence: 2 } },
   { id: 'bansheeBow', name: 'Banshee Bow', icon: '👻', kind: 'weapon', rarity: 'rare', weaponClass: 'longbow', tier: 4, damageType: 'decay', proc: 0.2, stats: {}, recipe: { undeadFeather: 10, string: 5 } },
   { id: 'knightGlaive', name: 'Bone Knight Glaive', icon: '🪓', kind: 'melee', rarity: 'rare', weaponClass: 'glaive', tier: 4, damageType: 'physical', stats: {}, recipe: { enchantedScrap: 8, enchantedBone: 6 } },
-  { id: 'necroTome', name: 'Necronomicon', icon: '📕', kind: 'magic', rarity: 'rare', weaponClass: 'tome', summonType: 'undead', tier: 4, damageType: 'decay', proc: 0.2, stats: {}, recipe: { grave: 8, wrap: 8 } },
+  { id: 'necroTome', name: 'Necronomicon', icon: '📕', kind: 'magic', rarity: 'rare', weaponClass: 'tome', summonType: 'undead', tier: 4, damageType: 'decay', proc: 0.2, stats: {}, recipe: { grave: 8, wrap: 8, eldritchText: 2 } },
   { id: 'gloomPistol', name: 'Gloom Pistol', icon: '🔫', kind: 'weapon', rarity: 'rare', weaponClass: 'pistol', tier: 5, damageType: 'arcane', proc: 0.15, stats: {}, recipe: { darkClaw: 10, umbralEye: 4 } },
   { id: 'umbralDagger', name: 'Umbral Dagger', icon: '🗡️', kind: 'melee', rarity: 'rare', weaponClass: 'dagger', tier: 5, damageType: 'physical', proc: 0.3, stats: {}, recipe: { darkClaw: 8, shadowWisp: 6 } },
-  { id: 'umbralFocus', name: 'Umbral Focus', icon: '🌑', kind: 'magic', rarity: 'rare', weaponClass: 'focus', tier: 5, damageType: 'arcane', proc: 0.25, stats: {}, recipe: { umbralEye: 8, umbra: 4 } },
+  { id: 'umbralFocus', name: 'Umbral Focus', icon: '🌑', kind: 'magic', rarity: 'rare', weaponClass: 'focus', tier: 5, damageType: 'arcane', proc: 0.25, stats: {}, recipe: { umbralEye: 8, umbra: 4, everwatchingEye: 2 } },
   { id: 'mithrilCrossbow', name: 'Mithril Crossbow', icon: '🎯', kind: 'weapon', rarity: 'veryRare', weaponClass: 'crossbow', tier: 7, damageType: 'physical', stats: {}, recipe: { ore: 10, scale: 5 } },
   { id: 'drakeHammer', name: 'Drakebone Hammer', icon: '🔨', kind: 'melee', rarity: 'veryRare', weaponClass: 'hammer', tier: 7, damageType: 'fire', proc: 0.3, stats: {}, recipe: { scale: 10, ore: 6 } },
   { id: 'drakeScepter', name: 'Drake Scepter', icon: '🐉', kind: 'magic', rarity: 'veryRare', weaponClass: 'scepter', tier: 7, damageType: 'fire', proc: 0.25, stats: {}, recipe: { scale: 8, magma: 6 } },
@@ -1996,7 +2022,7 @@ export const GEAR: GearDef[] = [
   { id: 'voidPlate', name: 'Void Plate', icon: '🌀', kind: 'armor', armorType: 'heavy', rarity: 'exalted', tier: 12, stats: armorStats('heavy', 12), recipe: { void: 10, shade: 6 }, effect: { kind: 'thorns', base: 440, damageType: 'void' } },
   { id: 'soulRobe', name: 'Soul Vestments', icon: '👻', kind: 'armor', armorType: 'robe', rarity: 'exalted', tier: 12, stats: armorStats('robe', 12), recipe: { soul: 10, shade: 5 }, effect: { kind: 'pulse', base: 440, damageType: 'void', radius: 120, cooldown: 5 } },
   // Accessories
-  { id: 'luckyCharm', name: 'Lucky Charm', icon: '🍀', kind: 'accessory', rarity: 'common', stats: { crit: 0.03 }, recipe: { bearClaw: 4, scrap: 6 } },
+  { id: 'luckyCharm', name: 'Lucky Charm', icon: '🍀', kind: 'accessory', rarity: 'common', stats: { crit: 0.03 }, recipe: { bearClaw: 4, scrap: 6, royalSlime: 2 } },
   { id: 'goldTooth', name: 'Gold Tooth', icon: '🦷', kind: 'accessory', rarity: 'uncommon', stats: { gold: 0.15 }, recipe: { scrap: 8, bone: 6 } },
   { id: 'satchel', name: "Scavenger's Satchel", icon: '👜', kind: 'accessory', rarity: 'uncommon', stats: { drops: 0.15 }, recipe: { robePiece: 6, flesh: 8 } },
   { id: 'emberOrb', name: 'Ember Orb', icon: '🔮', kind: 'accessory', rarity: 'veryRare', stats: { radius: 0.12, damage: 0.08 }, recipe: { ember: 8, magma: 4 } },
@@ -2004,7 +2030,7 @@ export const GEAR: GearDef[] = [
   { id: 'soulRing', name: 'Soul Ring', icon: '💍', kind: 'accessory', rarity: 'relic', stats: { damage: 0.25, crit: 0.02 }, recipe: { soul: 6, ecto: 6 } },
   // Accessories with abilities of their own (found on nothing else)
   { id: 'puppetDoll', name: "Puppeteer's Doll", icon: '🪆', kind: 'accessory', rarity: 'rare', tier: 4, stats: {}, recipe: { string: 10, wrap: 5 }, effect: { kind: 'summon', base: 8, damageType: 'physical', look: 'puppet', type: 'construct', name: 'puppet', count: 2, duration: 6, cooldown: 8, bites: 1.5, speed: 140 } },
-  { id: 'flameBrand', name: 'Flame Brand', icon: '🔥', kind: 'accessory', rarity: 'veryRare', tier: 6, stats: {}, recipe: { demonTooth: 8, ember: 6 }, effect: { kind: 'wave', base: 45, damageType: 'fire', radius: 100, chance: 0.3 } },
+  { id: 'flameBrand', name: 'Flame Brand', icon: '🔥', kind: 'accessory', rarity: 'veryRare', tier: 6, stats: {}, recipe: { demonTooth: 8, ember: 6, forsakenSoul: 2 }, effect: { kind: 'wave', base: 45, damageType: 'fire', radius: 100, chance: 0.3 } },
   { id: 'frostCharm', name: 'Frostbite Charm', icon: '❄️', kind: 'accessory', rarity: 'legendary', tier: 8, stats: {}, recipe: { frost: 10, ecto: 6 }, effect: { kind: 'chill', radius: 110 } },
   { id: 'thunderTotem', name: 'Thunder Totem', icon: '🗿', kind: 'accessory', rarity: 'relic', tier: 10, stats: {}, recipe: { thunder: 10, feather: 6 }, effect: { kind: 'strike', base: 230, damageType: 'lightning', targets: 3, cooldown: 3, range: 320 } },
 ];

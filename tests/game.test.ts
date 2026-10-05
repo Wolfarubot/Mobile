@@ -1058,15 +1058,24 @@ describe('Equipment', () => {
     expect(AREAS.filter((a) => s.areas[a.id].unlocked).map((a) => a.id)).toEqual(['forest', 'glade', 'graveyard', 'crypt', 'depths', 'caves']);
   });
 
-  it('67 monsters plus the Time Eater, at least 5 per area, each with a weakness; Guardians stay put', () => {
-    expect(ENEMIES).toHaveLength(68);
-    expect(new Set(ENEMIES.map((e) => e.id)).size).toBe(68);
+  it('67 monsters, plus 7 Guardian-only bosses (the first six areas\' and the Time Eater); each with a weakness', () => {
+    expect(ENEMIES).toHaveLength(74);
+    expect(new Set(ENEMIES.map((e) => e.id)).size).toBe(74);
     // The Time Eater is only ever the Void Rift's Guardian: not in its horde or unlockable.
     expect(areaEnemies('rift').map((e) => e.id)).not.toContain('timeEater');
     expect(enemyUnlockCost(enemyDef('timeEater'))).toBe(Infinity);
     for (const a of AREAS) expect(ENEMIES.filter((e) => e.area === a.id).length).toBeGreaterThanOrEqual(5);
     const g = new Game(newGame(0), noCrit);
-    expect(g.guardianType).toBe('brownBear');
+    expect(g.guardianType).toBe('kingSlime');
+    // Guardian-only bosses never join the horde, can't be unlocked, and drop their own material.
+    for (const id of ['kingSlime', 'pixieQueen', 'skeletonKing', 'awokenLich', 'beholdenWatcher', 'demonLord'] as const) {
+      expect(enemyDef(id).guardianOnly).toBe(true);
+      expect(areaEnemies(enemyDef(id).area).map((e) => e.id)).not.toContain(id);
+    }
+    const before = g.state.materials.royalSlime;
+    g.challengeGuardian();
+    g.registerKill('kingSlime', true);
+    expect(g.state.materials.royalSlime).toBe(before + 10);
   });
 
   it("Wilhelm's long and short weapons each power one mode", () => {

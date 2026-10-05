@@ -1963,7 +1963,7 @@ export class AppUI {
       for (const { m, tile } of tiles) {
         const known = this.materialKnown(m.id);
         const source = ENEMIES.find((e) => enemyDrops(e).includes(m.id))!;
-        const hint = g.isAreaUnlocked(source.area) ? `${source.name}s` : '???';
+        const hint = g.isAreaUnlocked(source.area) ? (source.guardianOnly ? `the ${source.name}` : `${source.name}s`) : '???';
         tile.classList.toggle('unknown', !known);
         tile.disabled = !known;
         tile.innerHTML = `${gemHtml(m.id)}<span>${known ? m.name : hint}</span><b>${known ? fmt(g.state.materials[m.id]) : ''}</b>`;
