@@ -1063,6 +1063,7 @@ export class Field {
           s.bite -= 1;
           const m = this.game.summonMult(s.who, s.type);
           if (s.gear) this.abilityHit(s.who, e, s.gear.base * m, s.gear.damageType, false);
+          // A Hunter's own creatures bite with their weapon's type, and can inflict its status effect.
           else if (s.own) this.hitWith(s.who, e, s.own.mult * m, s.x, s.y, undefined, undefined, true);
           else this.hitWith(s.who, e, m, s.x, s.y);
         }

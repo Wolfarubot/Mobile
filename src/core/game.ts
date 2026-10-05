@@ -483,11 +483,12 @@ export class Game {
 
   /**
    * The damage type a Hunter deals: their weapon's (for Wilhelm, the weapon of that mode), or their own
-   * when the slot is empty or holds an untyped piece. Specials always use the Hunter's own type.
+   * when the slot is empty or holds an untyped piece. Specials use the Hunter's own type, except summons, which
+   * copy the weapon's.
    */
   damageTypeOf(who: Shooter, mode: GearMode = 'long', special = false): DamageType {
     const own: DamageType = who === 'main' ? 'physical' : hunterDef(who).style.damageType;
-    if (special) return own;
+    if (special && !this.summonSpecial(who)) return own;
     const slots = this.slotsOf(who);
     const items = this.equipped(who);
     const i = slots.findIndex((sl) => WEAPON_KINDS.includes(sl.kind) && (!sl.role || sl.role === mode));
@@ -517,15 +518,23 @@ export class Game {
   procOf(who: Shooter, mode: GearMode = 'long', special = false): number {
     if (who === 'main') return this.weaponItem(who, mode) ? (gearDef(this.weaponItem(who, mode)!.base).proc ?? 0) : 0;
     const style = hunterDef(who).style;
-    if (special) return style.special?.proc ?? 0;
+    if (special && !this.summonSpecial(who)) return style.special?.proc ?? 0;
     const item = this.weaponItem(who, mode);
     return item ? (gearDef(item.base).proc ?? 0) : (style.proc ?? 0);
   }
 
   /** Rarity behind a Hunter's status effects: their weapon's, or Common for their own attacks and specials. */
   procRarity(who: Shooter, mode: GearMode = 'long', special = false): Rarity {
-    const item = special ? null : this.weaponItem(who, mode);
+    const item = special && !this.summonSpecial(who) ? null : this.weaponItem(who, mode);
     return item ? gearDef(item.base).rarity : 'common';
+  }
+
+  /**
+   * Is a Hunter's special a summon (Deku's wolves, Theon's puppets)? Their creatures copy the Hunter's weapon:
+   * its damage type, and its chance to inflict that type's status effect.
+   */
+  summonSpecial(who: Shooter): boolean {
+    return who !== 'main' && !!hunterDef(who).style.special?.summon;
   }
 
   /** The piece in a Hunter's weapon slot for a mode, if any. */

@@ -1629,6 +1629,28 @@ describe('Equipment', () => {
     expect(g.state.materials.royalSlime).toBe(royal + 1);
   });
 
+  it("summoners' own creatures copy their weapon: Theon's puppets with a Spark Wand bite with Fire and can set monsters burning", () => {
+    const g = new Game(newGame(0), () => 0); // every proc roll succeeds
+    g.state.gold = 1e30;
+    for (const m of Object.keys(g.state.materials) as Array<keyof typeof g.state.materials>) g.state.materials[m] = 1e6;
+    g.state.hunters.puppeteer.recruited = true;
+    expect(g.damageTypeOf('puppeteer', 'long', true)).toBe('arcane'); // no weapon: her own type
+    g.equip('puppeteer', 0, g.craftGear('sparkWand')!.uid);
+    expect(g.damageTypeOf('puppeteer', 'long', true)).toBe('fire');
+    expect(g.procOf('puppeteer', 'long', true)).toBe(gearDef('sparkWand').proc);
+    expect(g.damageTypeOf('glimmer', 'long', true)).toBe('fire'); // Glimmer's fireballs keep his own type
+    g.station('puppeteer', g.state.area);
+    const f = new Field(g);
+    f.setView(390, 420);
+    (f as unknown as { syncHelpers: () => void }).syncHelpers();
+    const e = enemy({ id: 1, x: 200, y: 0, hp: 1e12, maxHp: 1e12, type: 'greenSlime' });
+    f.enemies.push(e);
+    f.summons.push({ who: 'puppeteer', type: 'construct', x: 200, y: 0, life: 5, maxLife: 5, bite: 0.99, look: 'puppet', dash: 0, dashHit: false, own: { bites: 1.5, speed: 140, mult: 0.7 } });
+    (f as unknown as { runSummons: (dt: number) => void }).runSummons(0.02);
+    expect(e.hp).toBeLessThan(1e12);
+    expect(e.burn).toBeDefined();
+  });
+
   it('lightning arcs to a creature in its radius, striking every creature the bolt passes through', () => {
     let seed = 1;
     const g = new Game(newGame(0), () => ((seed = (seed * 16807) % 2147483647) / 2147483647));
