@@ -13,6 +13,8 @@ import {
   MAX_STARS,
   MOD_SLOTS,
   REFINES,
+  ENCHANTS,
+  type EnchantId,
   type RefineStat,
   starsFromLevel,
   HUNTERS,
@@ -92,8 +94,8 @@ export interface GearItem {
   mods?: Array<GearMod | null>;
 }
 
-/** A modifier on a piece of gear: a Refine stat for now (Enchantments come later). */
-export type GearMod = { kind: 'refine'; stat: RefineStat };
+/** A modifier on a piece of gear: a Refine stat (Kargesh) or an Enchantment (Marceline). */
+export type GearMod = { kind: 'refine'; stat: RefineStat } | { kind: 'enchant'; id: EnchantId };
 
 /** Who can wear gear: your Hunter ('main') or a recruited Hunter. */
 export type Wearer = 'main' | HunterId;
@@ -507,7 +509,9 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
             if (Array.isArray(g.mods) && slots > 0)
               item.mods = Array.from({ length: slots }, (_, i) => {
                 const m = g.mods![i] as GearMod | null | undefined;
-                return m && m.kind === 'refine' && m.stat in REFINES ? { kind: 'refine' as const, stat: m.stat } : null;
+                if (m && m.kind === 'refine' && m.stat in REFINES) return { kind: 'refine' as const, stat: m.stat };
+                if (m && m.kind === 'enchant' && m.id in ENCHANTS) return { kind: 'enchant' as const, id: m.id };
+                return null;
               });
             return item;
           }

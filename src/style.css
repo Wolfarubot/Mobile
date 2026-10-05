@@ -3770,13 +3770,9 @@ body.left-handed .hd-float-close {
   opacity: 0.8;
 }
 
-/* ---- Refine (Kargesh the Blacksmith) ---- */
-.refine-bar {
-  margin-top: -2px;
-}
-.refine-hint {
-  font-size: 12px;
-  opacity: 0.7;
+/* ---- Modify: Refine (Kargesh) and Enchant (Marceline) ---- */
+.mod-tabs {
+  margin: 4px 0 8px;
 }
 .inv-tile .mod-pips {
   position: absolute;

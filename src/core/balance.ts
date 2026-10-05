@@ -354,6 +354,7 @@ export const ASCENDED_TREES: Record<HunterId, SkillNode[]> = {
   blacksmith: ascendedTree({ name: 'Masterwork', icon: '⚒️', desc: '+100% damage and +20% attack rate.', maxRank: 1, effect: { damage: 1, rate: 0.2 } }),
   wilhelm: ascendedTree({ name: 'One Shot', icon: '🎯', desc: '+100% damage and +10% crit chance.', maxRank: 1, effect: { damage: 1, crit: 0.1 } }),
   celeste: ascendedTree({ name: 'Omniscience', icon: '🧠', desc: '+100% damage and +10% crit chance.', maxRank: 1, effect: { damage: 1, crit: 0.1 } }),
+  enchantress: ascendedTree({ name: 'Grand Enchantment', icon: '✨', desc: '+100% damage and +10% crit chance.', maxRank: 1, effect: { damage: 1, crit: 0.1 } }),
   scavenger: ascendedTree({ name: 'Hoard', icon: '💎', desc: '+100% damage and +50% materials from their kills.', maxRank: 1, effect: { damage: 1, drops: 0.5 } }),
   frostbreaker: ascendedTree({ name: 'Eternal Winter', icon: '❄️', desc: '+100% damage and +1× extra damage to Elementals.', maxRank: 1, effect: { damage: 1, bane: 1 } }),
 };
@@ -480,6 +481,15 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
       { name: 'Long Sling', icon: '🎯', desc: '+20 range per rank.', maxRank: 3, effect: { range: 20 } },
     ],
     { name: 'Treasure Trove', icon: '💎', desc: '+40% materials and +20% gold.', maxRank: 1, cost: 4, effect: { drops: 0.4, gold: 0.2 } },
+  ),
+  enchantress: skillTree(
+    { name: 'Glyphwork', icon: '🔯', desc: '+5% crit chance.', maxRank: 1, effect: { crit: 0.05 } },
+    [
+      { name: 'Runed Bolts', icon: '✴️', desc: '+10% damage per rank.', maxRank: 3, effect: { damage: 0.1 } },
+      { name: 'Quickened Words', icon: '💬', desc: '+10% attack rate per rank.', maxRank: 3, effect: { rate: 0.1 } },
+      { name: 'Wide Wards', icon: '🌀', desc: '+10% area size per rank.', maxRank: 3, effect: { radius: 0.1 } },
+    ],
+    { name: 'Spellbinder', icon: '📜', desc: '+30% damage.', maxRank: 1, cost: 4, effect: { damage: 0.3 } },
   ),
   frostbreaker: skillTree(
     { name: 'Permafrost', icon: '❄️', desc: '+10% damage.', maxRank: 1, effect: { damage: 0.1 } },
@@ -1263,6 +1273,7 @@ export type HunterId =
   | 'wilhelm'
   | 'celeste'
   | 'scavenger'
+  | 'enchantress'
   | 'frostbreaker';
 
 // ---- Damage types: every attack deals one. Weapons carry a type; without one, a Hunter uses their own. ----
@@ -1503,6 +1514,14 @@ export const HUNTERS: HunterDef[] = [
     ascendedTitle: 'Treasure Hunter',
     story: 'Pip scavenges the Ember Mines for anything shiny. Beat its Guardian twice, and Pip will tag along for the loot.',
     ability: 'Doubles material drops from his kills.',
+  },
+  {
+    id: 'enchantress', name: 'Marceline', title: 'Enchantress', icon: '✨', color: '#c47cff', area: 'mines', recruitCost: 6e17,
+    unlock: { event: 'guardian-mines', times: 1 },
+    ascendedTitle: 'Archenchantress',
+    story: "Marceline came to the Venom Caverns for the venom-bright crystals that hold an enchantment best, and the Caverns' Guardian has kept her pinned in the dark ever since. Beat it, and she'll put her runes on your gear.",
+    ability: 'Unlocks Enchant in Equipment: add damage types, stronger status effects and abilities to Very Rare and rarer gear. Fights with magic weapons.',
+    slots: [{ kind: 'magic', label: 'Magic weapon' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
   },
   {
     id: 'frostbreaker', name: 'Bjorn', title: 'Frostbreaker', icon: '🔨', color: '#8fdcff', area: 'peaks', recruitCost: 2.5e19, bane: { archetype: 'elemental', mult: 3 },
@@ -1900,8 +1919,74 @@ export const refineValue = (stat: RefineStat, rarity: Rarity): number => {
   return stat === 'pierce' ? Math.max(1, Math.round(v)) : Math.round(v * 1000) / 1000;
 };
 
+/**
+ * Enchantments (Marceline the Enchantress): the involved modifiers. An **infusion** adds a damage type to a
+ * weapon (its hits split evenly between its types, like any multi-type weapon); **Potency** raises its status
+ * chance; the rest are abilities with their own base damage (from the piece's area, like gear abilities), which
+ * stars don't change.
+ */
+export type EnchantId =
+  | 'infuseFire'
+  | 'infuseFrost'
+  | 'infuseAcid'
+  | 'infusePoison'
+  | 'infuseLightning'
+  | 'infuseRadiant'
+  | 'infuseArcane'
+  | 'infuseDecay'
+  | 'infuseVoid'
+  | 'potency'
+  | 'fireburst'
+  | 'thunderCall'
+  | 'frostPulse';
+
+export interface EnchantDef {
+  name: string;
+  icon: string;
+  /** Infusions: the damage type they add. */
+  infuse?: DamageType;
+  /** Potency: added status effect chance (at Very Rare; ×REFINE_POWER for rarer pieces). */
+  potency?: number;
+  /** Fireburst: monsters this weapon kills burst for `base` × the area's TIER_HIT, within `radius`. */
+  onKill?: { base: number; radius: number; damageType: DamageType };
+  /** Abilities that run on their own, like gear abilities; `base` is × the piece's area TIER_HIT. */
+  effect?: GearEffect;
+  /** Weapons only (infusions, Potency, Fireburst), or any piece. */
+  weaponOnly: boolean;
+  describe: string;
+}
+
+const infusion = (t: DamageType, icon: string): EnchantDef => ({
+  name: `${DAMAGE_TYPES[t].name} Infusion`,
+  icon,
+  infuse: t,
+  weaponOnly: true,
+  describe: `Adds ${DAMAGE_TYPES[t].name} damage: hits split evenly between the weapon's types, and can ${DAMAGE_TYPES[t].effect ? DAMAGE_TYPES[t].effect!.split(':')[0].toLowerCase() : 'deal it'}`,
+});
+
+export const ENCHANTS: Record<EnchantId, EnchantDef> = {
+  infuseFire: infusion('fire', '🔥'),
+  infuseFrost: infusion('frost', '❄️'),
+  infuseAcid: infusion('acid', '🧪'),
+  infusePoison: infusion('poison', '☠️'),
+  infuseLightning: infusion('lightning', '⚡'),
+  infuseRadiant: infusion('radiant', '✨'),
+  infuseArcane: infusion('arcane', '🔮'),
+  infuseDecay: infusion('decay', '🍂'),
+  infuseVoid: infusion('void', '🌀'),
+  potency: { name: 'Potency', icon: '🧫', potency: 0.1, weaponOnly: true, describe: "Raises the weapon's chance to inflict its status effects" },
+  fireburst: { name: 'Fireburst', icon: '💥', onKill: { base: 0.8, radius: 70, damageType: 'fire' }, weaponOnly: true, describe: 'Monsters this weapon kills burst into flame, blasting everything around them' },
+  thunderCall: { name: 'Thunder Call', icon: '🌩️', effect: { kind: 'strike', base: 0.6, damageType: 'lightning', targets: 2, cooldown: 4, range: 300 }, weaponOnly: false, describe: 'Every 4s, lightning strikes 2 monsters nearby' },
+  frostPulse: { name: 'Frost Pulse', icon: '🧊', effect: { kind: 'pulse', base: 0.7, damageType: 'frost', radius: 90, cooldown: 5 }, weaponOnly: false, describe: 'Every 5s, a burst of frost around the wearer' },
+};
+
+/** The TIER_HIT an enchantment's damage is a multiple of: the piece's area's. */
+export const enchantTierHit = (def: GearDef): number => TIER_HIT[Math.max(1, Math.min(TIER_HIT.length, gearArea(def))) - 1];
+
 /** Refining a slot costs gold: this many kills' worth in the piece's own area. */
 export const REFINE_COST_KILLS = 2_000;
+/** Enchanting costs this many times as much as refining. */
+export const ENCHANT_COST_MULT = 2;
 export const refineCost = (def: GearDef): number => areaDef(AREAS[Math.max(0, Math.min(AREAS.length, gearArea(def)) - 1)].id).gold * REFINE_COST_KILLS;
 /** Gear stats at each star, as a multiple of 1★ (0★ = not crafted). */
 export const GEAR_STAR_POWER = [0, 1, 2, 4, 7, 10];

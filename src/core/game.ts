@@ -68,6 +68,12 @@ import {
   GEAR_STAR_POWER,
   MOD_SLOTS,
   REFINES,
+  REFINE_POWER,
+  ENCHANTS,
+  ENCHANT_COST_MULT,
+  enchantTierHit,
+  type EnchantDef,
+  type EnchantId,
   refineCost,
   refineValue,
   type RefineStat,
@@ -299,9 +305,29 @@ export class Game {
     const out: Array<{ uid: number; def: GearDef; effect: GearEffect; stars: number }> = [];
     for (const item of this.equipped(who)) {
       const def = item ? gearDef(item.base) : null;
-      if (item && def?.effect) out.push({ uid: item.uid, def, effect: def.effect, stars: item.stars });
+      if (!item || !def) continue;
+      if (def.effect) out.push({ uid: item.uid, def, effect: def.effect, stars: item.stars });
+      // Enchanted abilities (Thunder Call, Frost Pulse): their own cooldown key, base damage from the piece's area.
+      (item.mods ?? []).forEach((m, slot) => {
+        const en = m?.kind === 'enchant' ? ENCHANTS[m.id] : null;
+        if (!en?.effect || !('base' in en.effect)) return;
+        const effect = { ...en.effect, base: en.effect.base * enchantTierHit(def) } as GearEffect;
+        out.push({ uid: -(item.uid * 4 + slot + 1), def: { ...def, icon: en.icon, name: `${en.name} (${def.name})` }, effect, stars: 1 });
+      });
     }
     return out;
+  }
+
+  /** The enchantments on a piece. */
+  private enchantsOf(item: GearItem | null): EnchantDef[] {
+    return (item?.mods ?? []).flatMap((m) => (m?.kind === 'enchant' ? [ENCHANTS[m.id]] : []));
+  }
+
+  /** Fireburst on a Hunter's weapon: monsters it kills burst for this much base damage around them. */
+  killBurst(who: Shooter): { base: number; radius: number; damageType: DamageType } | null {
+    const item = this.weaponItem(who);
+    const en = this.enchantsOf(item).find((e) => e.onKill);
+    return item && en?.onKill ? { ...en.onKill, base: en.onKill.base * enchantTierHit(gearDef(item.base)) } : null;
   }
 
   /** Damage of a tap blast (Tap Power nodes, and the equipped tap ability). */
@@ -514,7 +540,9 @@ export class Game {
     const sp = who === 'main' ? undefined : hunterDef(who).special;
     if (special && sp && !sp.summon) return [sp.damageType];
     const item = this.weaponItem(who, mode);
-    const types = item ? gearTypes(gearDef(item.base)) : [];
+    // A weapon's own types, then any its infusions add.
+    const types = item ? [...gearTypes(gearDef(item.base))] : [];
+    for (const e of this.enchantsOf(item)) if (e.infuse && !types.includes(e.infuse)) types.push(e.infuse);
     return types.length ? types : ['physical'];
   }
 
@@ -557,7 +585,10 @@ export class Game {
   procOf(who: Shooter, mode: GearMode = 'long', special = false): number {
     if (special && who !== 'main' && !this.summonSpecial(who)) return hunterDef(who).special?.proc ?? 0;
     const item = this.weaponItem(who, mode);
-    return item ? (gearDef(item.base).proc ?? 0) : 0;
+    if (!item) return 0;
+    // Potency enchantments add to the weapon's own chance.
+    const potency = this.enchantsOf(item).reduce((sum, e) => sum + (e.potency ?? 0) * REFINE_POWER[gearDef(item.base).rarity], 0);
+    return Math.min(1, (gearDef(item.base).proc ?? 0) + potency);
   }
 
   /** Rarity behind a Hunter's status effects: their weapon's, or Common for their own attacks and specials. */
@@ -686,6 +717,52 @@ export class Game {
     if (!item) return [];
     const n = MOD_SLOTS[gearDef(item.base).rarity];
     return Array.from({ length: n }, (_, i) => item.mods?.[i] ?? null);
+  }
+
+  /** Enchant opens once Marceline the Enchantress is recruited. */
+  get enchantOpen(): boolean {
+    return this.state.hunters.enchantress.recruited;
+  }
+
+  /** Can this piece be modified (refined or enchanted) at all? */
+  modifiable(uid: number): boolean {
+    return (this.refineOpen || this.enchantOpen) && this.modSlots(uid).length > 0;
+  }
+
+  /** Enchantments that can go on this piece: weapon-only ones need a weapon, and an infusion a type it doesn't deal yet. */
+  enchantsFor(uid: number): EnchantId[] {
+    const item = this.gearItem(uid);
+    if (!item) return [];
+    const def = gearDef(item.base);
+    const own = gearTypes(def);
+    return (Object.keys(ENCHANTS) as EnchantId[]).filter((id) => {
+      const en = ENCHANTS[id];
+      if (en.weaponOnly && !def.weaponClass) return false;
+      if (en.infuse && own.includes(en.infuse)) return false;
+      return true;
+    });
+  }
+
+  enchantCostOf(uid: number): number {
+    return this.refineCostOf(uid) * ENCHANT_COST_MULT;
+  }
+
+  canEnchant(uid: number, slot: number, id: EnchantId): boolean {
+    const slots = this.modSlots(uid);
+    if (!this.enchantOpen || slot < 0 || slot >= slots.length || !this.enchantsFor(uid).includes(id)) return false;
+    // One of each enchantment per piece (re-enchanting the slot that holds it does nothing).
+    if (slots.some((m) => m?.kind === 'enchant' && m.id === id)) return false;
+    return this.state.gold >= this.enchantCostOf(uid);
+  }
+
+  /** Puts an Enchantment in a slot (replacing what was there), for gold. */
+  enchant(uid: number, slot: number, id: EnchantId): boolean {
+    if (!this.canEnchant(uid, slot, id)) return false;
+    const item = this.gearItem(uid)!;
+    this.state.gold -= this.enchantCostOf(uid);
+    item.mods = this.modSlots(uid);
+    item.mods[slot] = { kind: 'enchant', id };
+    return true;
   }
 
   /** Can this piece be refined at all (Refine open, and it has modifier slots)? */

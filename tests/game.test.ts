@@ -996,6 +996,53 @@ describe('Equipment', () => {
     expect(back.inventory.find((it) => it.uid === rifle.uid)!.mods).toEqual([null, { kind: 'refine', stat: 'mag' }]);
   });
 
+  it('Enchant (Marceline the Enchantress): infusions add a damage type, Potency raises status chance, Fireburst and abilities', () => {
+    const g = stocked();
+    g.state.gold = 1e30;
+    const bow = g.craftGear('emberLongbow')!; // Fire, Very Rare: 1 slot
+    const rifle = g.craftGear('frostRifle')!; // Frost, Legendary: 2 slots
+    const robe = g.craftGear('emberRobe')!;
+    expect(hunterDef('enchantress')).toMatchObject({ name: 'Marceline', area: 'mines', unlock: { event: 'guardian-mines', times: 1 } });
+    expect(g.enchant(bow.uid, 0, 'infuseFrost')).toBe(false); // closed until she joins
+    g.state.hunters.enchantress.recruited = true;
+    expect(g.modifiable(bow.uid)).toBe(true);
+    // No infusing a type the weapon already deals; weapon-only enchantments stay off armor.
+    expect(g.enchantsFor(bow.uid)).not.toContain('infuseFire');
+    expect(g.enchantsFor(robe.uid)).toEqual(['thunderCall', 'frostPulse']);
+    // An infusion: the weapon's hits split between Fire and Frost.
+    g.equip('main', 0, bow.uid);
+    const gold = g.state.gold;
+    expect(g.enchant(bow.uid, 0, 'infuseFrost')).toBe(true);
+    expect(g.state.gold).toBe(gold - g.enchantCostOf(bow.uid));
+    expect(g.enchantCostOf(bow.uid)).toBe(g.refineCostOf(bow.uid) * 2);
+    expect(g.damageTypesOf('main')).toEqual(['fire', 'frost']);
+    // Potency adds status chance; one of each enchantment per piece.
+    g.equip('main', 0, rifle.uid);
+    const proc = g.procOf('main');
+    expect(g.enchant(rifle.uid, 0, 'potency')).toBe(true);
+    expect(g.procOf('main')).toBeCloseTo(proc + 0.1 * 1.25);
+    expect(g.canEnchant(rifle.uid, 1, 'potency')).toBe(false);
+    // Fireburst: kills by the weapon burst around the monster.
+    expect(g.killBurst('main')).toBeNull();
+    expect(g.enchant(rifle.uid, 1, 'fireburst')).toBe(true);
+    expect(g.killBurst('main')!.base).toBeCloseTo(0.8 * TIER_HIT[gearArea(gearDef('frostRifle')) - 1]);
+    const f = new Field(g);
+    const victim = enemy({ id: 1, x: 0, y: -100, hp: 1, maxHp: 1 });
+    const bystander = enemy({ id: 2, x: 30, y: -100, hp: 1e9, maxHp: 1e9 });
+    f.enemies = [victim, bystander];
+    (f as unknown as { hitWith: (...a: unknown[]) => void }).hitWith('main', victim, 1, 0, 0, false);
+    expect(victim.hp).toBeLessThanOrEqual(0);
+    expect(bystander.hp).toBeLessThan(1e9);
+    // Ability enchantments run like gear abilities, with their own cooldown icon.
+    g.equip('main', 1, robe.uid);
+    expect(g.enchant(robe.uid, 0, 'thunderCall')).toBe(true);
+    expect(g.gearEffects('main').some((e) => e.effect.kind === 'strike')).toBe(true);
+    expect(new Field(g).cooldowns().some((c) => c.name.startsWith('Thunder Call'))).toBe(true);
+    // Saved and loaded.
+    const back = deserialize(serialize(g.state))!;
+    expect(back.inventory.find((it) => it.uid === rifle.uid)!.mods).toEqual([{ kind: 'enchant', id: 'potency' }, { kind: 'enchant', id: 'fireburst' }]);
+  });
+
   it('Kargesh the Blacksmith replaces Sera; old saves move her over', () => {
     expect(hunterDef('blacksmith').name).toBe('Kargesh');
     expect(HUNTERS.some((h) => (h.id as string) === 'demonbane')).toBe(false);
