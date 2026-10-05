@@ -506,12 +506,12 @@ export class AppUI {
     overview.appendChild(headline);
     const stats = el('div', 'hd-stats');
     overview.appendChild(stats);
-    if (def) overview.appendChild(el('p', 'hd-style', def.style.describe));
+    overview.appendChild(el('p', 'hd-style', `${g.weaponClassOf(who) ? `⚔️ Attacks with their weapon: ${g.weaponClassOf(who)!.describe}` : '⚔️ Unarmed: fires a basic bolt. Equip a weapon to fight with its attacks.'}${def?.special ? ` ✨ ${def.special.describe}` : ''}`));
     const effectNote = el('p', 'hd-style hd-effect');
     overview.appendChild(effectNote);
     this.refreshers.push(() => {
       const lines: Array<[string, DamageType, number]> = [['Attacks', g.damageTypeOf(who), g.procOf(who)]];
-      if (g.specialCooldown(who) !== null) lines.push([def?.style.kind === 'potion' ? 'Potions' : def?.style.special?.summon ? (def.style.special.summon.look === 'wolf' ? 'Wolves' : 'Puppets') : 'Fireballs', g.damageTypeOf(who, 'long', true), g.procOf(who, 'long', true)]);
+      if (g.specialCooldown(who) !== null) lines.push([def?.special?.name ?? '', g.damageTypeOf(who, 'long', true), g.procOf(who, 'long', true)]);
       effectNote.innerHTML = lines
         .filter(([, t, p]) => p > 0 && DAMAGE_TYPES[t].effect)
         .map(([what, t, p]) => `${DAMAGE_TYPES[t].icon} <b>${what}</b> (${Math.round(p * 100)}% chance): ${DAMAGE_TYPES[t].effect}.`)
@@ -576,12 +576,12 @@ export class AppUI {
       cells.splice(1, 0, ['Damage type', `<span style="color:${dt.color}" class="dt-cell">${dt.icon} ${dt.name}</span>`]);
       const cd = g.specialCooldown(who);
       if (cd !== null) {
-        const potion = def?.style.kind === 'potion';
+        const potion = def?.special?.kind === 'potion';
         const hit = fmt(g.shotDamage(who) * g.specialDamageMult(who));
-        if (def?.style.special?.summon)
+        if (def?.special?.summon)
           cells.push(
-            [`${def.style.special.summon.look === 'wolf' ? 'Wolf' : 'Puppet'} bite (${DAMAGE_TYPES[g.damageTypeOf(who, 'long', true)].name})`, fmt(g.shotDamage(who) * g.specialDamageMult(who) * (g.specialRadius(who) / (def.style.special?.radius ?? 1)))],
-            [def.style.special.summon.look === 'wolf' ? 'Wolves every' : 'Puppets every', `${cd}s`],
+            [`${def.special.summon.look === 'wolf' ? 'Wolf' : 'Puppet'} bite (${DAMAGE_TYPES[g.damageTypeOf(who, 'long', true)].name})`, fmt(g.shotDamage(who) * g.specialDamageMult(who) * (g.specialRadius(who) / def.special.radius))],
+            [`${def.special.name} every`, `${cd}s`],
           );
         else cells.push(
           [`${potion ? 'Puddle' : 'Fireball'} damage (${DAMAGE_TYPES[g.damageTypeOf(who, 'long', true)].name})`, potion ? `${hit}/tick` : hit],
@@ -589,10 +589,10 @@ export class AppUI {
           [potion ? 'Potion every' : 'Fireball every', `${cd}s`],
         );
       }
-      const pierce = g.pierceOf(who) + (def?.style.pierce ?? 0);
+      const pierce = g.pierceOf(who);
       if (pierce) cells.push(['Pierce', String(pierce)]);
       if (def?.bane) cells.splice(1, 0, [`vs ${ARCHETYPES[def.bane.archetype].name}`, fmt(g.shotDamage(who, def.bane.archetype))]);
-      if (def?.style.closeRange) cells.splice(1, 0, ['Pistols', `${fmt(g.shotDamage(who, undefined, 'short'))} ×2`]);
+      if (def?.swapRange) cells.splice(1, 0, ['Short-range', fmt(g.shotDamage(who, undefined, 'short'))]);
       stats.innerHTML = cells.map(([k, v]) => `<div><b>${v}</b>${k}</div>`).join('');
     });
 

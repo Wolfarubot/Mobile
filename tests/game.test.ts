@@ -9,6 +9,7 @@ import {
   GUARDIAN_TIME,
   hunterDef,
   HUNTERS,
+  MAIN_RANGE,
   itemCost,
   itemDef,
   itemLevels,
@@ -366,7 +367,7 @@ describe('Hunters', () => {
     expect(g.hunterAvailable('glimmer')).toBe(true);
   });
 
-  it('the Shadowy Depths: Wilhelm after its Guardian, Celeste the Psion after two; Celeste beams through a line', () => {
+  it('the Shadowy Depths: Wilhelm after its Guardian, Celeste the Psion after two', () => {
     expect(hunterDef('wilhelm').area).toBe('depths');
     expect(hunterDef('wilhelm').unlock).toEqual({ event: 'guardian-depths', times: 1 });
     expect(hunterDef('wilhelm').story).toContain('a hundred eyes');
@@ -374,20 +375,6 @@ describe('Hunters', () => {
     expect([c.name, c.title, c.area]).toEqual(['Celeste', 'Psion', 'depths']);
     expect(c.unlock).toEqual({ event: 'guardian-depths', times: 2 });
     expect(c.bane).toEqual({ archetype: 'dragon', mult: 3 });
-    // The beam hits every monster in a line.
-    const s = newGame(0);
-    s.hunters.celeste.recruited = true;
-    s.hunters.celeste.station = 'forest';
-    const g = new Game(s, noCrit);
-    const f = new Field(g);
-    f.setView(390, 420);
-    f.update(0);
-    const h = f.helpers.find((x) => x.id === 'celeste')!;
-    const line = [1, 2, 3].map((i) => enemy({ id: i, x: h.x, y: h.y - 60 * i, hp: 1e9, maxHp: 1e9, speed: 0 }));
-    f.enemies = line;
-    f.stun = 1e3; // keep your Hunter's shots from knocking the line apart
-    for (let i = 0; i < 60; i++) f.update(1 / 30);
-    expect(line.every((e) => e.hp < 1e9)).toBe(true);
   });
 
   it('every Hunter is unlocked by an event in their home area, in order', () => {
@@ -895,12 +882,13 @@ describe('Equipment', () => {
     expect(g.specialDamageMult('ranger')).toBe(0);
   });
 
-  it("damage types: a Hunter deals their weapon's type, or their own without one; specials keep their own", () => {
+  it("damage types: a Hunter deals their weapon's type, or Physical without one; specials keep their own", () => {
     const g = stocked();
     g.recruit('alchemist');
     expect(g.damageTypeOf('main')).toBe('physical');
-    expect(g.damageTypeOf('glimmer')).toBe('fire');
-    expect(g.damageTypeOf('alchemist')).toBe('poison');
+    expect(g.damageTypeOf('glimmer')).toBe('physical');
+    expect(g.damageTypeOf('alchemist')).toBe('physical');
+    expect(g.damageTypeOf('alchemist', 'long', true)).toBe('poison'); // potions stay poison
     const staff = g.craftGear('voidScepter')!;
     g.equip('glimmer', 0, staff.uid);
     expect(g.damageTypeOf('glimmer')).toBe('void');
@@ -921,8 +909,9 @@ describe('Equipment', () => {
       expect(e.weak.length).toBeGreaterThan(0);
       expect(e.weak.some((t) => e.resist.includes(t))).toBe(false);
     }
-    // On the field: the same shot deals 1.5x to a weak enemy (Glimmer's bolts are fire).
+    // On the field: the same shot deals 1.5x to a weak enemy (Glimmer with a Spark Wand deals fire).
     const g = stocked();
+    g.equip('glimmer', 0, g.craftGear('sparkWand')!.uid);
     const f = new Field(g);
     const hits: Array<{ dmg: number; affinity?: string | null }> = [];
     const at = (id: number, type: Enemy['type']) => enemy({ id, type, x: 0, y: -150, hp: 1e12, maxHp: 1e12 });
@@ -997,7 +986,9 @@ describe('Equipment', () => {
     expect(bearer.hp).toBe(1e6);
     expect(n2.hp).toBeLessThan(1e6);
     expect(f2.hp).toBe(1e6);
-    // Arcane strips resistances: a Wolf resists Frost until exposed.
+    // Arcane strips resistances: a Wolf resists Frost until exposed (Bjorn with a Frost Rifle deals frost).
+    g.state.hunters.frostbreaker.recruited = true;
+    g.equip('frostbreaker', 0, g.craftGear('frostRifle')!.uid);
     const w = mk(8);
     f.enemies = [w];
     api.hitWith('frostbreaker', w, 1, 0, 0, false);
@@ -1037,7 +1028,7 @@ describe('Equipment', () => {
     const bow = g.craftGear('emberLongbow')!;
     g.equip('main', 0, bow.uid);
     expect(g.procOf('main')).toBe(gearDef('emberLongbow').proc);
-    expect(g.procOf('glimmer')).toBe(hunterDef('glimmer').style.proc); // his own chance, no weapon
+    expect(g.procOf('glimmer')).toBe(0); // no weapon: a plain bolt
     expect(g.procOf('glimmer', 'long', true)).toBe(1); // fireballs always burn
     const f = new Field(g);
     const hit = (f as unknown as { hitWith: (...a: unknown[]) => void }).hitWith.bind(f);
@@ -1097,7 +1088,7 @@ describe('Equipment', () => {
     expect(g.shotDamage('wilhelm', undefined, 'short')).toBeCloseTo(baseShort * weaponHit(gearDef('forestBow'), 1));
     // A class's weight is part of its weapons' base damage: a rifle hits harder than a bow of the same rarity.
     expect(weaponHit(gearDef('frostRifle'), 1) / TIER_HIT[7]).toBeCloseTo(WEAPON_CLASSES.rifle.damage, 1);
-    expect(g.shooterRange('wilhelm', 'long')).toBeCloseTo(hunterDef('wilhelm').style.range * WEAPON_CLASSES.rifle.range + 15);
+    expect(g.shooterRange('wilhelm', 'long')).toBeCloseTo(MAIN_RANGE * WEAPON_CLASSES.rifle.range + 15);
   });
 
   it('weapon classes: your Hunter attacks the way the weapon does; each class trades speed for weight', () => {
@@ -1255,7 +1246,9 @@ describe('Equipment', () => {
     const f = new Field(g);
     f.setView(390, 420);
     const hp = 1e12;
-    f.enemies.push(enemy({ id: 1, x: 220, hp, maxHp: hp }));
+    f.update(0);
+    const gl = f.helpers.find((h) => h.id === 'glimmer')!;
+    f.enemies.push(enemy({ id: 1, x: gl.x + 120, y: gl.y, hp, maxHp: hp }));
     for (let t = 0; t < 1 / g.shooterRate('glimmer') + 2; t += 0.01) {
       f.update(0.01);
       f.drainEvents();
@@ -1634,7 +1627,7 @@ describe('Equipment', () => {
     g.state.gold = 1e30;
     for (const m of Object.keys(g.state.materials) as Array<keyof typeof g.state.materials>) g.state.materials[m] = 1e6;
     g.state.hunters.puppeteer.recruited = true;
-    expect(g.damageTypeOf('puppeteer', 'long', true)).toBe('arcane'); // no weapon: her own type
+    expect(g.damageTypeOf('puppeteer', 'long', true)).toBe('physical'); // no weapon: Physical
     g.equip('puppeteer', 0, g.craftGear('sparkWand')!.uid);
     expect(g.damageTypeOf('puppeteer', 'long', true)).toBe('fire');
     expect(g.procOf('puppeteer', 'long', true)).toBe(gearDef('sparkWand').proc);
@@ -2124,7 +2117,7 @@ describe('Field', () => {
     expect(f.bullets.length).toBeGreaterThan(0);
   });
 
-  it('Reginald flings magic bolts and lobs a potion that leaves a damaging puddle on a cooldown', () => {
+  it('Reginald attacks with his weapon (a plain bolt unarmed) and lobs a potion that leaves a damaging puddle on a cooldown', () => {
     const { f } = withHelper('alchemist');
     f.enemies.push(tough({ id: 1, x: -150, y: 150 }));
     let puddle = false;
@@ -2132,11 +2125,11 @@ describe('Field', () => {
     for (let i = 0; i < 90; i++) {
       f.update(1 / 30);
       puddle ||= f.puddles.some((p) => p.shooter === 'alchemist');
-      spark ||= f.bullets.some((b) => b.shooter === 'alchemist' && b.kind === 'spark');
+      spark ||= f.bullets.some((b) => b.shooter === 'alchemist' && b.kind === 'bolt');
     }
     expect(f.helpers.map((h) => h.id)).toEqual(['alchemist']);
     expect(puddle).toBe(true);
-    // The potion is on a cooldown: in between, only sparks fly.
+    // The potion is on a cooldown: in between, only bolts fly.
     expect(f.puddles.filter((p) => p.shooter === 'alchemist').length).toBeLessThanOrEqual(1);
     expect(f.helpers[0].specialCd).toBeGreaterThan(0);
     expect(spark).toBe(true);
@@ -2228,18 +2221,32 @@ describe('Field', () => {
     expect(f.stun).toBeGreaterThan(0);
   });
 
-  it('Wilhelm snipes from long range and switches to akimbo pistols up close', () => {
+  it('Wilhelm fights with his long-range weapon, and switches to his short-range one up close', () => {
     const { f } = withHelper('wilhelm');
-    f.enemies.push(tough({ id: 1, x: -55, y: -480 }));
+    f.enemies.push(tough({ id: 1, x: -55, y: -200 }));
     for (let i = 0; i < 90; i++) f.update(1 / 30);
-    expect(f.helpers[0].akimbo).toBe(false);
-    expect(f.drainEvents().some((e) => e.type === 'beam')).toBe(true);
+    expect(f.helpers[0].close).toBe(false);
     expect(f.enemies[0].hp).toBeLessThan(1e12);
 
+    f.bullets = [];
     f.enemies = [tough({ id: 2, x: -55, y: -30 })];
-    for (let i = 0; i < 10; i++) f.update(1 / 30);
-    expect(f.helpers[0].akimbo).toBe(true);
-    expect(f.bullets.some((b) => b.kind === 'pistol')).toBe(true);
+    for (let i = 0; i < 30; i++) f.update(1 / 30);
+    expect(f.helpers[0].close).toBe(true);
+  });
+
+  it('Guild Hunters attack the way their weapon does, not with an attack of their own', () => {
+    const { g, f } = withHelper('lance');
+    for (const m of Object.keys(g.state.materials) as Array<keyof typeof g.state.materials>) g.state.materials[m] = 1e6;
+    const spear = g.craftGear('boneSpear')!;
+    g.equip('lance', 0, spear.uid);
+    f.update(0);
+    const h = f.helpers[0];
+    f.enemies = [tough({ id: 1, x: h.x, y: h.y - 40 })];
+    for (let i = 0; i < 30; i++) f.update(1 / 30);
+    // A spear's thrust is an instant line strike, no projectile.
+    expect(f.bullets.filter((b) => b.shooter === 'lance').length).toBe(0);
+    expect(f.enemies[0].hp).toBeLessThan(1e12);
+    expect(g.shooterRange('lance')).toBeCloseTo(WEAPON_CLASSES.spear.reach! + g.gear('lance').range / 4 + g.tree('lance').range / 4);
   });
 
   it('stationed Hunters can be stunned too, and stop attacking while dazed', () => {
@@ -2253,22 +2260,6 @@ describe('Field', () => {
     f.enemies.push(tough({ id: 2, x: rin.x - 100, y: rin.y - 100 }));
     f.update(0.2);
     expect(f.bullets.filter((b) => b.shooter === 'ranger').length).toBe(before);
-  });
-
-  it('frost hammers slow what they hit; ricochets bounce between enemies', () => {
-    const bj = withHelper('frostbreaker');
-    bj.g.state.areas.peaks.unlocked = true;
-    bj.g.recruit('frostbreaker');
-    bj.g.state.hunters.frostbreaker.trains = 10;
-    bj.g.station('frostbreaker', 'forest');
-    bj.f.enemies.push(tough({ id: 1, x: -55, y: -150 }));
-    for (let i = 0; i < 60; i++) bj.f.update(1 / 30);
-    expect(bj.f.enemies[0].slow).toBeGreaterThan(0);
-
-    const { f } = withHelper('scavenger');
-    f.enemies.push(tough({ id: 1, x: -55, y: -150 }), tough({ id: 2, x: -55, y: -250 }));
-    for (let i = 0; i < 45; i++) f.update(1 / 30);
-    expect(f.enemies.every((e) => e.hp < 1e12)).toBe(true);
   });
 
   it('tap blasts damage enemies near the tap', () => {

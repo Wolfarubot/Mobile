@@ -1282,54 +1282,26 @@ export const DAMAGE_TYPES: Record<DamageType, { name: string; icon: string; colo
   void: { name: 'Void', icon: '🌀', color: '#ff5fd7' },
 };
 
-/** How a Hunter fights on the battlefield. */
-export type AttackKind =
-  | 'bolt' // single shot (your Hunter)
-  | 'potion' // magic bolts, plus a lobbed flask that leaves a damaging puddle (special)
-  | 'fireball' // magic bolts, plus a fireball that explodes for area damage (special)
-  | 'druid' // thorn bolts, plus spirit wolves called to hunt (special)
-  | 'puppeteer' // magic bolts (or a strike with a melee weapon), plus puppets that hunt (special)
-  | 'arrow' // pierces through a line of enemies
-  | 'nova' // holy pulse around themselves
-  | 'thrust' // short lance strike through everything in a line
-  | 'shotgun' // spread of pellets, short range
-  | 'daggers' // very fast, short range
-  | 'sniper' // long-range piercing shot; akimbo pistols up close
-  | 'ricochet' // bounces between enemies
-  | 'hammer' // slows what it hits
-  | 'beam'; // a long psychic beam through everything in a line
-
-export interface AttackStyle {
-  kind: AttackKind;
-  /** Their own damage type, used when their weapon slot is empty (and always for specials). */
+/**
+ * A Guild Hunter's signature ability, used on a cooldown alongside the attacks of the weapon they hold:
+ * Reginald's potions, Glimmer's fireballs, Deku's wolves, Theon's puppets. Its damage per hit is `damage` ×
+ * their shot damage (so their weapon powers it); its radius is `radius` × (1 + their weapon's attack rate).
+ * `ticks` is how many times it hits (a puddle ticks), and `crowd` how many monsters it typically catches, for
+ * the background model. Summons copy the weapon's damage type and status effects; the others keep their own.
+ */
+export interface HunterSpecial {
+  kind: 'potion' | 'fireball' | 'summon';
+  /** What it's called on the Hunter's card ("Potions", "Wolves"...). */
+  name: string;
   damageType: DamageType;
-  /** Chance their own attacks trigger their type's status effect (without a weapon). */
+  /** Chance it triggers its type's status effect (summons use their weapon's). */
   proc?: number;
-  /** World units (the view shows roughly ±320 × ±350 around your Hunter). */
-  range: number;
-  /** Multipliers on the Hunter's base fire rate and damage per shot. */
-  rate: number;
+  cooldown: number;
   damage: number;
-  /** Area radius for fireballs, potions (puddle) and novas. */
-  radius?: number;
-  pierce?: number;
-  pellets?: number;
-  bounces?: number;
-  /** Seconds a hit enemy is slowed to half speed. */
-  slow?: number;
-  /** Sniper switches to akimbo pistols when an enemy is this close. */
-  closeRange?: number;
-  /**
-   * A special attack on a cooldown (Reginald's potions, Glimmer's fireballs), cast alongside their normal shots.
-   * Its damage per hit is `damage` × their shot damage × (1 + their weapon's damage); its radius is
-   * `radius` × (1 + their weapon's attack rate). `ticks` is how many times it hits (a puddle ticks), and
-   * `crowd` how many monsters it typically catches, for the background model.
-   */
-  special?: { cooldown: number; damage: number; radius: number; ticks: number; crowd: number; proc?: number; summon?: { look: 'wolf' | 'puppet'; type: SummonType } };
-  /** Rough damage efficiency vs a crowd, used for background DPS (AoE > 1). */
-  farm: number;
-  /** Typical monsters hit per attack against a crowd (area, pierce, bounce), used to model kill rates. */
+  radius: number;
+  ticks: number;
   crowd: number;
+  summon?: { look: 'wolf' | 'puppet'; type: SummonType };
   describe: string;
 }
 
@@ -1348,7 +1320,10 @@ export interface HunterDef {
   /** Their title after ascending. */
   ascendedTitle: string;
   recruitCost: number;
-  style: AttackStyle;
+  /** Their signature ability on a cooldown (they otherwise fight with their weapon's attacks). */
+  special?: HunterSpecial;
+  /** Wilhelm: switches to his short-range weapon when a monster is this close. */
+  swapRange?: number;
   /** Damage multiplier against one archetype. */
   bane?: { archetype: Archetype; mult: number };
   /** Multipliers on gold / material drops from their kills. */
@@ -1367,7 +1342,7 @@ export interface HunterDef {
   slots?: SlotDef[];
 }
 
-/** Your own Hunter's range, in world units. */
+/** Every Hunter's base range with a shooting weapon (scaled by its class), in world units. */
 export const MAIN_RANGE = 250;
 /** How far the battlefield is zoomed out: 0.6 = everything drawn at 60% size, so you see more of the field. */
 export const FIELD_ZOOM = 0.6;
@@ -1389,21 +1364,16 @@ export const HUNTERS: HunterDef[] = [
     unlock: { event: 'slimeSwarm', times: 1 },
     ascendedTitle: 'Archalchemist',
     story: "Reginald is in the Whispering Forest doing research on Slimes, with an idea for a new potion, but he needs far more test subjects than he can catch. Survive a Slime Swarm, and Reginald will help you hunt monsters.",
-    ability: 'Every few seconds, lobs a potion that leaves a poison puddle. Deals triple damage to Slimes. Uses ranged or magic weapons.',
+    ability: 'Every 4s, lobs a potion that leaves a poison puddle. Deals triple damage to Slimes. Uses ranged or magic weapons.',
     slots: [{ kind: 'weapon', label: 'Weapon', accepts: ['weapon', 'magic'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
-    style: {
-      kind: 'potion', damageType: 'poison', proc: 0.5, range: 230, rate: 0.6, damage: 0.8, farm: 1, crowd: 1,
-      special: { cooldown: 4, damage: 0.35, radius: 45, ticks: 6, crowd: 2.5 },
-      describe: 'Flings magic bolts. Every 4s, lobs a potion whose puddle keeps hurting: the weapon\'s damage powers the poison, its attack rate widens the puddle.',
-    },
+    special: { kind: 'potion', name: 'Potions', damageType: 'poison', cooldown: 4, damage: 0.35, radius: 45, ticks: 6, crowd: 2.5, describe: 'Every 4s, lobs a potion whose poison puddle keeps hurting: his weapon\'s damage powers it, its attack rate widens the puddle.' },
   },
   {
     id: 'ranger', name: 'Galladair', title: 'Ranger', icon: '🏹', color: '#c09060', area: 'forest', recruitCost: 2_000, bane: { archetype: 'beast', mult: 3 },
     unlock: { event: 'guardian-forest', times: 1 },
     ascendedTitle: 'Pathfinder',
     story: 'Galladair\'s home on the edge of the Whispering Forest is being threatened by monsters. Help her defeat the Forest Guardian, and she will fight by your side.',
-    ability: 'Arrows pierce through lines of enemies. Deals triple damage to Beasts.',
-    style: { kind: 'arrow', damageType: 'physical', range: 300, rate: 1, damage: 1, pierce: 3, farm: 1.4, crowd: 2, describe: 'Arrows pierce through up to 4 enemies in a line.' },
+    ability: 'Deals triple damage to Beasts.',
   },
   {
     id: 'bard', name: "Ba'al", title: 'Bard', icon: '🪕', color: '#e0a0ff', area: 'glade', recruitCost: 40_000, bane: { archetype: 'humanoid', mult: 3 },
@@ -1411,21 +1381,16 @@ export const HUNTERS: HunterDef[] = [
     ascendedTitle: 'Maestro',
     inspire: 0.15,
     story: "Ba'al wandered into the Faerie Glade chasing a melody only the pixies hum, and the Glade's Guardian won't let him leave. Beat it, and his songs are yours.",
-    ability: 'Plays chords whose sound waves strike everything around him. His song makes every other Hunter in his area attack 15% faster. Deals triple damage to Humanoids.',
-    style: { kind: 'nova', damageType: 'arcane', proc: 0.15, range: 120, rate: 0.6, damage: 1.2, radius: 115, farm: 1.4, crowd: 3, describe: 'Sound waves strike every enemy around him; his song speeds up the Hunters beside him.' },
+    ability: 'His song makes every other Hunter in his area attack 15% faster. Deals triple damage to Humanoids.',
   },
   {
     id: 'druid', name: 'Deku', title: 'Druid', icon: '🌿', color: '#6abf5a', area: 'glade', recruitCost: 250_000, bane: { archetype: 'plant', mult: 3 }, summonBonus: { type: 'beast', mult: 1.5 },
     unlock: { event: 'guardian-glade', times: 2 },
     ascendedTitle: 'Archdruid',
     story: 'Deku tends the oldest trees of the Faerie Glade, and the Guardian keeps trampling his saplings. Beat it twice, and he\'ll lend you the spirits of the wild.',
-    ability: 'Flings thorns, and every 6s calls two spirit wolves to hunt. Deals triple damage to Plants, and his Beast summons (wolves from any source) hit 50% harder. Uses ranged or magic weapons.',
+    ability: 'Every 6s calls two spirit wolves to hunt. Deals triple damage to Plants, and his Beast summons (wolves from any source) hit 50% harder. Uses ranged or magic weapons.',
     slots: [{ kind: 'weapon', label: 'Weapon', accepts: ['weapon', 'magic'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
-    style: {
-      kind: 'druid', damageType: 'poison', proc: 0.25, range: 240, rate: 0.7, damage: 0.9, farm: 1, crowd: 1,
-      special: { cooldown: 6, damage: 0.7, radius: 1, ticks: 18, crowd: 1, summon: { look: 'wolf', type: 'beast' } },
-      describe: 'Flings thorns. Every 6s calls two spirit wolves that hunt for 6s, biting for his damage: his weapon powers them.',
-    },
+    special: { kind: 'summon', name: 'Wolves', damageType: 'physical', cooldown: 6, damage: 0.7, radius: 1, ticks: 18, crowd: 1, summon: { look: 'wolf', type: 'beast' }, describe: 'Every 6s calls two spirit wolves that hunt for 6s, biting for his damage: his weapon powers them, and they share its damage type and status effects.' },
   },
   {
     id: 'thief', name: 'Alias', title: 'Thief', icon: '🦹', color: '#8a8aa8', area: 'graveyard', recruitCost: 60_000_000,
@@ -1434,8 +1399,7 @@ export const HUNTERS: HunterDef[] = [
     areaGold: 0.3,
     areaLoot: 1,
     story: "Alias has been robbing the Old Graveyard's tombs, but its Guardian guards the best of them. Beat it, and he'll share the take.",
-    ability: 'Throws knives in quick pairs. Wherever he is, monsters pay 30% more gold and drop loot twice as often.',
-    style: { kind: 'daggers', damageType: 'physical', proc: 0.2, range: 170, rate: 1.3, damage: 0.55, farm: 1, crowd: 1, describe: 'Throws knives fast at short range (they can make monsters bleed). His area pays more gold and drops more loot.' },
+    ability: 'Wherever he is, monsters pay 30% more gold and drop loot twice as often.',
   },
   {
     id: 'lance', name: 'Lance', title: 'Paladin', icon: '🛡️', color: '#ffe8a3', area: 'graveyard', recruitCost: 200_000_000,
@@ -1444,32 +1408,23 @@ export const HUNTERS: HunterDef[] = [
     story: 'Lance swore to guard the Old Graveyard\'s gates until its Guardian falls twice. Help him keep his oath, and his shield is yours.',
     ability: 'Can take multiple hits before being knocked out (Zone of Protection), and grants other Hunters an extra hit as well (Rallying Oath).',
     slots: [{ kind: 'melee', label: 'Melee' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
-    style: { kind: 'thrust', damageType: 'radiant', proc: 0.1, range: 90, rate: 0.9, damage: 1.8, farm: 1.3, crowd: 2, describe: 'Holds the line with lance thrusts that pierce everything in reach.' },
   },
   {
     id: 'glimmer', name: 'Glimmer', title: 'Wizard', icon: '🧙', color: '#b07cff', area: 'crypt', recruitCost: 300_000_000_000,
     unlock: { event: 'guardian-crypt', times: 1 },
     ascendedTitle: 'Archmage',
     story: 'Glimmer came to the Forsaken Crypt to study the old magic sealed inside, but its Guardian won\'t let anyone near. Put it to rest, and Glimmer will lend you a fireball or two.',
-    ability: 'Every few seconds, hurls a fireball that explodes for area damage. Wields only magic weapons.',
+    ability: 'Every 4s, hurls a fireball that explodes for area damage. Wields only magic weapons.',
     slots: [{ kind: 'magic', label: 'Magic weapon' }, { kind: 'armor', label: 'Robe', armorTypes: ['robe'] }, { kind: 'accessory', label: 'Accessory' }],
-    style: {
-      kind: 'fireball', damageType: 'fire', proc: 0.3, range: 260, rate: 0.55, damage: 1.6, farm: 1, crowd: 1,
-      special: { cooldown: 4, damage: 1.75, radius: 55, ticks: 1, crowd: 3, proc: 1 },
-      describe: 'Fires magic bolts. Every 4s he hurls a fireball that explodes: his weapon\'s damage powers the blast, its attack rate widens it.',
-    },
+    special: { kind: 'fireball', name: 'Fireballs', damageType: 'fire', proc: 1, cooldown: 4, damage: 1.75, radius: 55, ticks: 1, crowd: 3, describe: 'Every 4s hurls a fireball that explodes: his weapon\'s damage powers the blast, its attack rate widens it.' },
   },  {
     id: 'puppeteer', name: 'Theon', title: 'Puppeteer', icon: '🎎', color: '#c89a6a', area: 'crypt', recruitCost: 1_000_000_000_000, summonBonus: { type: 'construct', mult: 1.5 },
     unlock: { event: 'guardian-crypt', times: 2 },
     ascendedTitle: 'Grand Puppeteer',
     story: "Theon pulls the strings of the Forsaken Crypt's Possessed Puppets, or tries to: something in the dark keeps cutting them. Beat the Crypt's Guardian twice, and her puppets will dance for you.",
-    ability: 'Fights with magic or melee weapons, and every 6s calls two puppets that hunt across the field. Her Construct summons (puppets from any source) hit 50% harder.',
+    ability: 'Every 6s calls two puppets that hunt across the field. Her Construct summons (puppets from any source) hit 50% harder. Uses magic or melee weapons.',
     slots: [{ kind: 'magic', label: 'Weapon', accepts: ['magic', 'melee'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
-    style: {
-      kind: 'puppeteer', damageType: 'arcane', proc: 0.15, range: 200, rate: 0.75, damage: 0.9, farm: 1, crowd: 1,
-      special: { cooldown: 6, damage: 0.7, radius: 1, ticks: 18, crowd: 1, summon: { look: 'puppet', type: 'construct' } },
-      describe: 'Casts magic bolts (or strikes up close with a melee weapon). Every 6s calls two puppets that hunt for 6s, biting for her damage: her weapon powers them.',
-    },
+    special: { kind: 'summon', name: 'Puppets', damageType: 'physical', cooldown: 6, damage: 0.7, radius: 1, ticks: 18, crowd: 1, summon: { look: 'puppet', type: 'construct' }, describe: 'Every 6s calls two puppets that hunt for 6s, biting for her damage: her weapon powers them, and they share its damage type and status effects.' },
   },
 
   {
@@ -1477,45 +1432,41 @@ export const HUNTERS: HunterDef[] = [
     unlock: { event: 'guardian-depths', times: 1 },
     ascendedTitle: 'Deadeye',
     story: '“I was hunting a creature with a hundred eyes, but after shooting 99 of them, it got away. Help me track it down in the Shadowy Depths.”',
-    ability: 'Snipes from across the field, akimbo pistols up close. Can equip a long-range weapon and a short-range weapon.',
+    ability: 'Carries a long-range weapon and a short-range one, and switches to the short-range one when monsters get close.',
     slots: [
       { kind: 'weapon', label: 'Long-range', role: 'long' },
       { kind: 'weapon', label: 'Short-range', role: 'short' },
       { kind: 'armor', label: 'Armor' },
     ],
-    style: { kind: 'sniper', damageType: 'physical', range: 520, rate: 0.4, damage: 3.5, pierce: 2, closeRange: 90, farm: 1.5, crowd: 2, describe: 'Picks enemies off from across the field with piercing shots; switches to akimbo pistols when they get close.' },
+    swapRange: 90,
   },
   {
     id: 'celeste', name: 'Celeste', title: 'Psion', icon: '🔮', color: '#c9a8ff', area: 'depths', recruitCost: 200_000_000_000_000, bane: { archetype: 'dragon', mult: 3 },
     unlock: { event: 'guardian-depths', times: 2 },
     ascendedTitle: 'Oracle',
     story: 'Celeste, a Psion who hears the thoughts of monsters, followed a whisper into the Shadowy Depths and got lost in the noise. Beat the Depths\' Guardian twice to quiet it, and Celeste will lend you that mind.',
-    ability: 'Fires long psychic beams that pierce every monster in a line. Deals triple damage to Dragons.',
-    style: { kind: 'beam', damageType: 'arcane', proc: 0.15, range: 280, rate: 0.6, damage: 1.4, farm: 1.5, crowd: 2.5, describe: 'A beam of pure thought through everything in its path.' },
+    ability: 'Deals triple damage to Dragons.',
   },
   {
     id: 'demonbane', name: 'Sera', title: 'Demonbane', icon: '🗡️', color: '#ff7a3d', area: 'caves', recruitCost: 3e15, bane: { archetype: 'demon', mult: 3 },
     unlock: { event: 'guardian-caves', times: 1 },
     ascendedTitle: 'Demonslayer',
     story: 'Sera hunts the demons of the Ember Caves alone. Show her you can beat the Caves\' Guardian, and she\'ll fight beside you.',
-    ability: 'A rapid flurry of daggers at short range. Deals triple damage to Demons.',
-    style: { kind: 'daggers', damageType: 'arcane', proc: 0.15, range: 160, rate: 3, damage: 0.4, farm: 1.1, crowd: 1, describe: 'Throws a flurry of daggers at anything that gets close.' },
+    ability: 'Deals triple damage to Demons.',
   },
   {
     id: 'scavenger', name: 'Pip', title: 'Scavenger', icon: '🎒', color: '#3fb0a0', area: 'caves', recruitCost: 1.2e16, drops: 2,
     unlock: { event: 'guardian-caves', times: 2 },
     ascendedTitle: 'Treasure Hunter',
     story: 'Pip scavenges the Ember Caves for anything shiny. Beat its Guardian twice, and Pip will tag along for the loot.',
-    ability: 'Stones ricochet between enemies. Doubles material drops from his kills.',
-    style: { kind: 'ricochet', damageType: 'acid', proc: 0.2, range: 220, rate: 1, damage: 0.8, bounces: 3, farm: 1.4, crowd: 2.5, describe: 'Acid-slicked slingshot stones ricochet between up to 4 enemies.' },
+    ability: 'Doubles material drops from his kills.',
   },
   {
     id: 'frostbreaker', name: 'Bjorn', title: 'Frostbreaker', icon: '🔨', color: '#8fdcff', area: 'peaks', recruitCost: 2.5e19, bane: { archetype: 'elemental', mult: 3 },
     unlock: { event: 'guardian-peaks', times: 1 },
     ascendedTitle: 'Winterking',
     story: 'Bjorn climbed the Frost Peaks to hunt the thing that rules them. Defeat the Peaks\' Guardian, and he\'ll bring his hammer to your side.',
-    ability: 'Frost hammers slow enemies to a crawl. Deals triple damage to Elementals.',
-    style: { kind: 'hammer', damageType: 'frost', proc: 0.5, range: 200, rate: 0.7, damage: 1.6, slow: 2, farm: 1.3, crowd: 1, describe: 'Throws frost hammers that slow enemies to a crawl.' },
+    ability: 'Deals triple damage to Elementals.',
   },
 ];
 
@@ -1580,7 +1531,7 @@ export const GEAR_KINDS: Record<GearKind, { name: string; icon: string }> = {
 export interface SlotDef {
   kind: GearKind;
   label: string;
-  /** Wilhelm's weapon slots: 'long' powers his sniper shots, 'short' his akimbo pistols. */
+  /** Wilhelm's weapon slots: 'long' is his usual weapon, 'short' the one he switches to up close. */
   role?: 'long' | 'short';
   /** Kinds the slot takes, when more than its own `kind` (Reginald's weapon slot takes ranged or magic). */
   accepts?: GearKind[];

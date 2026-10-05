@@ -725,14 +725,6 @@ export class BattleView {
       g.textAlign = 'center';
       g.textBaseline = 'middle';
       g.fillText(def.icon, 0, 1);
-      if (h.akimbo) {
-        // Second pistol, pointing the same way.
-        g.save();
-        g.rotate(h.aim);
-        g.fillStyle = '#6b5a7a';
-        g.fillRect(R * 0.4, 4, R * 0.8, 4);
-        g.restore();
-      }
     }
     g.restore();
     drawShieldPips(g, h.x, h.y + R + (h.stun > 0 ? 17 : 9), h.guard, this.game.guardOf(h.id));

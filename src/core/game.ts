@@ -131,7 +131,7 @@ export type GameEvent =
   /** A monster dropped a piece of gear (auto-salvaged into materials if its rarity is set to). */
   | { type: 'loot'; gear: GearId; stars: number; salvaged: boolean };
 
-/** Wilhelm's two weapon slots: 'long' powers sniper shots, 'short' his akimbo pistols. */
+/** Wilhelm's two weapon slots: 'long' is his usual weapon, 'short' the one he switches to up close. */
 /** Which of a Hunter's skill trees: their first, or the one they grow after ascending. */
 export type TreeKind = 'base' | 'ascended';
 
@@ -275,7 +275,7 @@ export class Game {
 
   /**
    * Gear abilities (accessories, rarer armor) have their own base damage: this is what a Hunter's bonuses
-   * multiply it by (training, skills, Upgrades, % damage, Guild Hunters' style and bane), everything their
+   * multiply it by (training, skills, Upgrades, % damage, Guild Hunters' bane), everything their
    * weapon's own damage would get except the weapon itself.
    */
   abilityMult(who: Shooter, archetype?: Archetype): number {
@@ -425,7 +425,7 @@ export class Game {
     if (shooter === 'main') return this.damage * (1 + this.gearBane('main', archetype));
     const def = hunterDef(shooter);
     const bane = def.bane && def.bane.archetype === archetype ? def.bane.mult + this.tree(shooter).bane : 1;
-    return this.weaponHitOf(shooter, mode) * powerDamage(this.state.hunters[shooter].trains) * this.skillDamageMult(shooter) * this.itemDamageMult * def.style.damage * bane * (1 + this.gear(shooter, mode).damage) * (1 + this.gearBane(shooter, archetype));
+    return this.weaponHitOf(shooter, mode) * powerDamage(this.state.hunters[shooter].trains) * this.skillDamageMult(shooter) * this.itemDamageMult * bane * (1 + this.gear(shooter, mode).damage) * (1 + this.gearBane(shooter, archetype));
   }
 
   /** Extra damage from a Hunter's gear against an archetype (the Fang Talisman vs Beasts, the Slime Vial vs Slimes). */
@@ -443,18 +443,18 @@ export class Game {
   shooterRate(shooter: Shooter, mode?: GearMode): number {
     const cls = this.weaponClassOf(shooter, mode)?.rate ?? 1;
     if (shooter === 'main') return this.fireRate * cls;
-    return HELPER_FIRE_RATE * hunterDef(shooter).style.rate * this.skillRateMult(shooter) * this.itemRateMult * (1 + this.gear(shooter, mode).rate) * cls * this.inspireFor(shooter);
+    return HELPER_FIRE_RATE * this.skillRateMult(shooter) * this.itemRateMult * (1 + this.gear(shooter, mode).rate) * cls * this.inspireFor(shooter);
   }
 
   /**
-   * How far a Hunter can attack, in world units. A shot's range is scaled by their weapon's class; your Hunter
-   * with a sweeping or stabbing weapon reaches only as far as it does (range bonuses count a quarter).
+   * How far a Hunter can attack, in world units. A shot's range is scaled by their weapon's class; a sweeping,
+   * stabbing or bursting weapon reaches only as far as it does (range bonuses count a quarter).
    */
   shooterRange(shooter: Shooter, mode?: GearMode): number {
     const cls = this.weaponClassOf(shooter, mode);
     const bonus = this.gear(shooter, mode).range + this.tree(shooter).range;
-    if (shooter === 'main' && cls && (cls.attack === 'sweep' || cls.attack === 'stab' || cls.attack === 'nova')) return cls.reach! + bonus / 4;
-    return (shooter === 'main' ? MAIN_RANGE : hunterDef(shooter).style.range) * (cls?.range ?? 1) + bonus;
+    if (cls && (cls.attack === 'sweep' || cls.attack === 'stab' || cls.attack === 'nova')) return cls.reach! + bonus / 4;
+    return MAIN_RANGE * (cls?.range ?? 1) + bonus;
   }
 
   /** The class of the weapon a Hunter has equipped (for Wilhelm, the one for `mode`), or null. */
@@ -468,27 +468,26 @@ export class Game {
 
   /**
    * Expected damage per second of a Hunter against an archetype, ignoring overkill, travel time and stuns.
-   * Each attack style has a `farm` factor for how well it works against a crowd (AoE > 1).
+   * Each weapon class has a `farm` factor for how well it works against a crowd (AoE > 1).
    */
   dpsOf(shooter: Shooter, archetype?: Archetype): number {
-    const style = shooter === 'main' ? null : hunterDef(shooter).style;
-    const cls = shooter === 'main' ? this.weaponClassOf('main') : null;
+    const cls = this.weaponClassOf(shooter);
     const shots = !cls || cls.attack === 'shot' || cls.attack === 'dagger' ? this.projectiles : 1;
-    const perAttack = (style?.pellets ?? 1) * shots * (style?.farm ?? cls?.farm ?? 1);
+    const perAttack = shots * (cls?.farm ?? 1);
     // Guns spend part of their time reloading.
-    const wc = this.weaponClassOf(shooter);
-    const uptime = weaponUptime(wc) * (shooter === 'main' ? weaponHitsPerAttack(wc) : 1);
+    const uptime = weaponUptime(cls) * weaponHitsPerAttack(cls);
     return this.shotDamage(shooter, archetype) * (this.shooterRate(shooter) * perAttack * uptime + this.specialHitRate(shooter)) * this.critFactor(shooter);
   }
 
   /**
-   * The damage type a Hunter deals: their weapon's (for Wilhelm, the weapon of that mode), or their own
-   * when the slot is empty or holds an untyped piece. Specials use the Hunter's own type, except summons, which
-   * copy the weapon's.
+   * The damage type a Hunter deals: their weapon's (for Wilhelm, the weapon of that mode), or Physical when
+   * the slot is empty or holds an untyped piece. Specials have their own type, except summons, which copy the
+   * weapon's.
    */
   damageTypeOf(who: Shooter, mode: GearMode = 'long', special = false): DamageType {
-    const own: DamageType = who === 'main' ? 'physical' : hunterDef(who).style.damageType;
-    if (special && !this.summonSpecial(who)) return own;
+    const sp = who === 'main' ? undefined : hunterDef(who).special;
+    if (special && sp && !sp.summon) return sp.damageType;
+    const own: DamageType = 'physical';
     const slots = this.slotsOf(who);
     const items = this.equipped(who);
     const i = slots.findIndex((sl) => WEAPON_KINDS.includes(sl.kind) && (!sl.role || sl.role === mode));
@@ -506,21 +505,18 @@ export class Game {
     const normal = vs(this.damageTypeOf(shooter), this.procOf(shooter));
     const sp = this.specialHitRate(shooter);
     if (!sp) return normal;
-    const style = hunterDef(shooter as HunterId).style;
-    const shots = this.shooterRate(shooter) * (style.pellets ?? 1) * this.projectiles * style.crowd;
+    const shots = this.shooterRate(shooter) * this.projectiles;
     return (shots * normal + sp * vs(this.damageTypeOf(shooter, 'long', true), this.procOf(shooter, 'long', true))) / (shots + sp);
   }
 
   /**
    * Chance a hit triggers its damage type's status effect: the weapon's own chance (for Wilhelm, that mode's
-   * weapon), or the Hunter's own without one. Specials use their own chance (Glimmer's fireballs always burn).
+   * weapon), or none without one. Specials use their own chance (Glimmer's fireballs always burn).
    */
   procOf(who: Shooter, mode: GearMode = 'long', special = false): number {
-    if (who === 'main') return this.weaponItem(who, mode) ? (gearDef(this.weaponItem(who, mode)!.base).proc ?? 0) : 0;
-    const style = hunterDef(who).style;
-    if (special && !this.summonSpecial(who)) return style.special?.proc ?? 0;
+    if (special && who !== 'main' && !this.summonSpecial(who)) return hunterDef(who).special?.proc ?? 0;
     const item = this.weaponItem(who, mode);
-    return item ? (gearDef(item.base).proc ?? 0) : (style.proc ?? 0);
+    return item ? (gearDef(item.base).proc ?? 0) : 0;
   }
 
   /** Rarity behind a Hunter's status effects: their weapon's, or Common for their own attacks and specials. */
@@ -534,7 +530,7 @@ export class Game {
    * its damage type, and its chance to inflict that type's status effect.
    */
   summonSpecial(who: Shooter): boolean {
-    return who !== 'main' && !!hunterDef(who).style.special?.summon;
+    return who !== 'main' && !!hunterDef(who).special?.summon;
   }
 
   /** The piece in a Hunter's weapon slot for a mode, if any. */
@@ -556,25 +552,25 @@ export class Game {
 
   /** Seconds between special attacks, or null if the Hunter has none. */
   specialCooldown(shooter: Shooter): number | null {
-    return shooter === 'main' ? null : (hunterDef(shooter).style.special?.cooldown ?? null);
+    return shooter === 'main' ? null : (hunterDef(shooter).special?.cooldown ?? null);
   }
 
   /** Multiplier on shot damage for each hit of the special: its base × (1 + weapon damage). */
   specialDamageMult(shooter: Shooter): number {
-    const sp = shooter === 'main' ? undefined : hunterDef(shooter).style.special;
+    const sp = shooter === 'main' ? undefined : hunterDef(shooter).special;
     // The weapon powers it through the shot it multiplies (every hit starts from the weapon's damage).
     return sp ? sp.damage : 0;
   }
 
   /** Radius of the special: its base × (1 + weapon attack rate) × area bonuses (skills, gear). */
   specialRadius(shooter: Shooter): number {
-    const sp = shooter === 'main' ? undefined : hunterDef(shooter).style.special;
+    const sp = shooter === 'main' ? undefined : hunterDef(shooter).special;
     return sp ? sp.radius * (1 + (this.weaponStats(shooter).rate ?? 0)) * this.radiusMult(shooter) : 0;
   }
 
   /** The special's damage in shot-equivalents per second against a crowd (for DPS and the farm model). */
   private specialHitRate(shooter: Shooter): number {
-    const sp = shooter === 'main' ? undefined : hunterDef(shooter).style.special;
+    const sp = shooter === 'main' ? undefined : hunterDef(shooter).special;
     if (!sp) return 0;
     // Wider specials catch more of the crowd.
     const reach = this.specialRadius(shooter) / sp.radius;
@@ -1066,14 +1062,13 @@ export class Game {
     if (!shooters.length || !roster.length) return out;
 
     const hunters = shooters.map((sh) => {
-      const style = sh === 'main' ? null : hunterDef(sh).style;
       return {
         sh,
         stunTime: this.stunTime(false, sh),
         // A shield regains one charge every GUARD_RECHARGE seconds, however many it holds.
         guardRate: this.guardOf(sh) > 0 ? 1 / GUARD_RECHARGE : 0,
         /** Effective hits per second, counting pellets, Split Bow and how many monsters each attack reaches. */
-        shots: this.shooterRate(sh) * (style?.pellets ?? 1) * this.projectiles * (style?.crowd ?? 1) + this.specialHitRate(sh),
+        shots: this.shooterRate(sh) * this.projectiles + this.specialHitRate(sh),
         down: 0, // fraction of time stunned
         stunRate: 0,
       };

@@ -1,4 +1,5 @@
 import {
+  MAIN_RANGE,
   type Rarity,
   type WeaponClassDef,
   DAMAGE_TYPES,
@@ -41,10 +42,6 @@ const GUARD_BOUNCE = 220;
 /** Seconds between puddle ticks; a puddle lasts its special's `ticks` of these. */
 const PUDDLE_TICK = 0.5;
 const RICOCHET_RANGE = 160;
-/** Sniper in akimbo mode: fire rate and per-bullet damage multipliers. */
-const AKIMBO_RATE = 4;
-const AKIMBO_DAMAGE = 0.3;
-const AKIMBO_RANGE = 130;
 
 export interface Enemy {
   id: number;
@@ -129,10 +126,8 @@ export interface Helper {
   /** Shield charges left (Paladin) and recharge progress. */
   guard: number;
   guardAcc: number;
-  /** Sniper using pistols because something got close. */
-  akimbo: boolean;
-  /** Alternates the akimbo pistol hand. */
-  hand: number;
+  /** Wilhelm using his short-range weapon because something got close. */
+  close: boolean;
   /** Seconds until their special attack (potion, fireball) is ready. */
   specialCd: number;
   /** A gun's magazine: shots left and seconds of reload left (see Field.gun). */
@@ -178,7 +173,7 @@ export interface Bullet {
   pierce: number;
   life: number;
   hits: number[];
-  /** Multiplier on the shooter's shot damage (pellets, akimbo...). */
+  /** Multiplier on the shooter's shot damage (e.g. a staff's spell). */
   dmg: number;
   /** Which of Wilhelm's weapons fired it (gear in that slot applies). */
   mode?: GearMode;
@@ -259,8 +254,8 @@ export class Field {
   private fireAcc = 0;
   /** Your Hunter's gun magazine (when their weapon is a pistol, rifle or repeater). */
   gunState: GunState = { cls: null, ammo: 0, reload: 0 };
-  /** A dagger's burst in progress: stabs (or throws) still to come, at a monster. */
-  private stabs: Array<{ t: number; target: number; last: boolean }> = [];
+  /** Daggers' bursts in progress (anyone's): stabs (or throws) still to come, at a monster. */
+  private stabs: Array<{ who: Shooter; t: number; target: number; last: boolean }> = [];
   /** Seconds until each worn piece's ability is ready again, by `${who}:${uid}`. */
   private gearCd = new Map<string, number>();
   /** Creatures your Hunter's tome has summoned. */
@@ -416,37 +411,14 @@ export class Field {
       }
       this.fireAcc -= 1;
       this.aim = Math.atan2(target.y, target.x);
-      if (cls?.attack === 'dagger') {
-        // A burst of stabs (or throws, if it's out of reach) at this monster, a moment apart.
-        const n = cls.thrusts ?? 1;
-        for (let i = 0; i < n; i++) this.stabs.push({ t: i * DAGGER_GAP, target: target.id, last: i === n - 1 });
-      } else if (cls?.attack === 'nova') {
-        // A burst of power around the Hunter: every monster in the radius.
-        this.events.push({ type: 'nova', x: 0, y: 0, r: cls.reach!, color: DAMAGE_TYPES[g.damageTypeOf('main')].color });
-        for (const e of this.enemies) if (e.hp > 0 && Math.hypot(e.x, e.y) <= cls.reach! + e.r) this.hitWith('main', e, 1, 0, 0);
-      } else if (cls?.summon) {
-        this.summon('main', 0, 0, this.aim, cls);
-      } else if (cls?.spell && this.gunState.ammo === 1) {
-        // A staff's big spell: the last round of each cast.
-        this.shoot('main', 'fireball', 0, 0, this.aim, 380, range, { radius: cls.spell.radius, dmg: cls.spell.damage });
-      } else if (cls?.attack === 'sweep') this.strikeArc('main', 0, 0, this.aim, cls.reach!, cls.arc!, 1, cls.knock ?? 0);
-      else if (cls?.attack === 'stab') this.strikeLine('main', 0, 0, this.aim, range, cls.width ?? 10, Infinity, 1, '#f4f4f4', (cls.width ?? 10) / 2, cls.knock ?? 0);
-      else if (cls?.volley) {
-        // A fan: each bolt at a random angle within it. Bolts of one volley stack on the same monster.
-        const volley = this.nextVolley++;
-        for (let i = 0; i < cls.volley; i++) {
-          const a = this.aim + (g.rng() - 0.5) * (cls.fan ?? 0);
-          this.shoot('main', cls.projectile ?? 'bolt', 0, 0, a, BULLET_SPEED, range, { pierce: g.pierceOf('main'), volley, stack: cls.stack });
-        }
-      } else this.shoot('main', cls?.projectile ?? 'bolt', 0, 0, this.aim, BULLET_SPEED, range, { pierce: g.pierceOf('main'), spread: true, followThrough: cls?.followThrough, bounces: cls?.bounces });
-      if (this.isMelee('main')) this.meleeWave('main', 0, 0);
+      this.weaponAttack('main', 0, 0, this.aim, target, cls, this.gunState, range);
       if (this.spendShot(this.gunState, cls, g.shooterRate('main'))) {
         this.events.push({ type: 'reload', who: 'main', x: 0, y: 0 });
         this.fireAcc = 0;
         break;
       }
     }
-    this.runStabs(dt, cls);
+    this.runStabs(dt);
     this.runSummons(dt);
     this.runGearEffects(dt);
     for (const h of this.helpers) this.helperAttack(h, dt);
@@ -606,101 +578,39 @@ export class Field {
       immune: 0,
       guard: this.game.guardOf(id),
       guardAcc: 0,
-      akimbo: false,
-      hand: 0,
+      close: false,
       specialCd: 1,
       gun: { cls: null, ammo: 0, reload: 0 },
       dashCd: 0,
     }));
   }
 
+  /** A Guild Hunter fights exactly as their weapon's class does (a basic bolt unarmed), with their special on top. */
   private helperAttack(h: Helper, dt: number): void {
     const g = this.game;
-    const style = hunterDef(h.id).style;
+    const def = hunterDef(h.id);
     if (h.stun > 0) {
       h.fireAcc = 0;
       return;
     }
-    // The sniper swaps to pistols when anything is close.
-    if (style.kind === 'sniper') h.akimbo = !!this.nearest(h.x, h.y, style.closeRange ?? 0);
-    const mode: GearMode = h.akimbo ? 'short' : 'long';
-    const rate = g.shooterRate(h.id, mode) * (h.akimbo ? AKIMBO_RATE : 1);
-    const areaMult = g.radiusMult(h.id);
-    if (style.special) this.helperSpecial(h, dt);
+    // Wilhelm switches to his short-range weapon when anything is close.
+    h.close = !!def.swapRange && !!this.nearest(h.x, h.y, def.swapRange);
+    const mode: GearMode = h.close ? 'short' : 'long';
+    const rate = g.shooterRate(h.id, mode);
+    if (def.special) this.helperSpecial(h, dt);
     h.fireAcc = Math.min(h.fireAcc + dt * rate, 3);
     const cls = g.weaponClassOf(h.id, mode);
     if (!this.gunReady(h.gun, cls, dt)) h.fireAcc = 0;
+    const range = g.shooterRange(h.id, mode);
     while (h.fireAcc >= 1) {
-      const range = h.akimbo ? AKIMBO_RANGE + g.gear(h.id, 'short').range : g.shooterRange(h.id);
-      const target = this.nearest(h.x, h.y, style.kind === 'nova' ? (style.radius ?? range) * areaMult : range);
+      const target = this.nearest(h.x, h.y, range);
       if (!target) {
         h.fireAcc = Math.min(h.fireAcc, 1);
         return;
       }
       h.fireAcc -= 1;
-      const a = Math.atan2(target.y - h.y, target.x - h.x);
-      h.aim = a;
-      // A tome summons its creature, whoever holds it.
-      if (cls?.summon) {
-        this.summon(h.id, h.x, h.y, a, cls);
-        continue;
-      }
-      switch (style.kind) {
-        case 'potion':
-        case 'fireball':
-        case 'druid':
-        case 'puppeteer':
-          // Theon with a melee weapon strikes up close instead.
-          if (style.kind === 'puppeteer' && this.isMelee(h.id)) {
-            this.strikeLine(h.id, h.x, h.y, a, Math.min(range, 90), 14, Infinity, 1, '#f0d8b0', 6, cls?.knock ?? 0);
-            this.meleeWave(h.id, h.x, h.y);
-            break;
-          }
-          // Between specials, spellcasters fling magic bolts.
-          this.shoot(h.id, 'spark', h.x, h.y, a, 520, range, { spread: true });
-          break;
-        case 'arrow':
-          this.shoot(h.id, 'arrow', h.x, h.y, a, 620, range, { pierce: (style.pierce ?? 0) + g.pierceOf(h.id), spread: true, followThrough: cls?.followThrough });
-          break;
-        case 'nova': {
-          const r = (style.radius ?? 100) * areaMult;
-          this.events.push({ type: 'nova', x: h.x, y: h.y, r, color: DAMAGE_TYPES[g.damageTypeOf(h.id)].color });
-          for (const e of this.enemies) if (e.hp > 0 && Math.hypot(e.x - h.x, e.y - h.y) <= r + e.r) this.hitWith(h.id, e, 1, h.x, h.y);
-          break;
-        }
-        case 'thrust':
-          this.meleeWave(h.id, h.x, h.y);
-          this.strikeLine(h.id, h.x, h.y, a, range, 14, Infinity, 1, '#ffe8a3', 6, cls?.knock ?? 0); // melee weapons knock back
-          break;
-        case 'shotgun': {
-          const n = (style.pellets ?? 5) + g.projectiles - 1;
-          for (let i = 0; i < n; i++) this.shoot(h.id, 'pellet', h.x, h.y, a + (i - (n - 1) / 2) * 0.12, 560, range, {});
-          break;
-        }
-        case 'daggers':
-          this.shoot(h.id, 'dagger', h.x, h.y, a, 640, range, { spread: true });
-          break;
-        case 'sniper':
-          if (h.akimbo) {
-            // Alternate pistols from either side.
-            const side = (h.hand++ % 2 ? 1 : -1) * 6;
-            const ox = h.x + Math.cos(a + Math.PI / 2) * side;
-            const oy = h.y + Math.sin(a + Math.PI / 2) * side;
-            this.shoot(h.id, 'pistol', ox, oy, a, 600, range, { dmg: AKIMBO_DAMAGE, mode: 'short' });
-          } else this.strikeLine(h.id, h.x, h.y, a, range, 6, 1 + (style.pierce ?? 0) + g.pierceOf(h.id, 'long'), 1, '#fffbe0', 3);
-          break;
-        case 'ricochet':
-          this.shoot(h.id, 'ricochet', h.x, h.y, a, 520, range, { bounces: style.bounces });
-          break;
-        case 'hammer':
-          this.shoot(h.id, 'hammer', h.x, h.y, a, 420, range, { slow: style.slow, spread: true });
-          break;
-        case 'beam':
-          this.strikeLine(h.id, h.x, h.y, a, range, 8, Infinity, 1, '#d6b8ff', 4);
-          break;
-        default:
-          this.shoot(h.id, 'bolt', h.x, h.y, a, BULLET_SPEED, range, { spread: true, followThrough: cls?.followThrough });
-      }
+      h.aim = Math.atan2(target.y - h.y, target.x - h.x);
+      this.weaponAttack(h.id, h.x, h.y, h.aim, target, cls, h.gun, range, mode);
       if (this.spendShot(h.gun, cls, rate)) {
         this.events.push({ type: 'reload', who: h.id, x: h.x, y: h.y });
         h.fireAcc = 0;
@@ -709,14 +619,48 @@ export class Field {
     }
   }
 
+  /**
+   * One attack the way a weapon's class makes it, for your Hunter and Guild Hunters alike: a dagger's burst of
+   * stabs, a sword's sweep, a spear's thrust, a focus's burst, a tome's summon, a staff's spell, a bow's or
+   * gun's shots. Unarmed, a basic bolt.
+   */
+  private weaponAttack(who: Shooter, x: number, y: number, aim: number, target: Enemy, cls: WeaponClassDef | null, gun: GunState, range: number, mode: GearMode = 'long'): void {
+    const g = this.game;
+    const m = mode === 'short' ? 'short' : undefined;
+    if (cls?.attack === 'dagger') {
+      // A burst of stabs (or throws, if it's out of reach) at this monster, a moment apart.
+      const n = cls.thrusts ?? 1;
+      for (let i = 0; i < n; i++) this.stabs.push({ who, t: i * DAGGER_GAP, target: target.id, last: i === n - 1 });
+    } else if (cls?.attack === 'nova') {
+      // A burst of power around the Hunter: every monster in the radius.
+      this.events.push({ type: 'nova', x, y, r: cls.reach!, color: DAMAGE_TYPES[g.damageTypeOf(who, mode)].color });
+      for (const e of this.enemies) if (e.hp > 0 && Math.hypot(e.x - x, e.y - y) <= cls.reach! + e.r) this.hitWith(who, e, 1, x, y);
+    } else if (cls?.summon) {
+      this.summon(who, x, y, aim, cls);
+    } else if (cls?.spell && gun.ammo === 1) {
+      // A staff's big spell: the last round of each cast.
+      this.shoot(who, 'fireball', x, y, aim, 380, range, { radius: cls.spell.radius, dmg: cls.spell.damage, mode: m });
+    } else if (cls?.attack === 'sweep') this.strikeArc(who, x, y, aim, cls.reach!, cls.arc!, 1, cls.knock ?? 0);
+    else if (cls?.attack === 'stab') this.strikeLine(who, x, y, aim, range, cls.width ?? 10, Infinity, 1, '#f4f4f4', (cls.width ?? 10) / 2, cls.knock ?? 0);
+    else if (cls?.volley) {
+      // A fan: each bolt at a random angle within it. Bolts of one volley stack on the same monster.
+      const volley = this.nextVolley++;
+      for (let i = 0; i < cls.volley; i++) {
+        const a = aim + (g.rng() - 0.5) * (cls.fan ?? 0);
+        this.shoot(who, cls.projectile ?? 'bolt', x, y, a, BULLET_SPEED, range, { pierce: g.pierceOf(who, mode), volley, stack: cls.stack, mode: m });
+      }
+    } else this.shoot(who, cls?.projectile ?? 'bolt', x, y, aim, BULLET_SPEED, range, { pierce: g.pierceOf(who, mode), spread: true, followThrough: cls?.followThrough, bounces: cls?.bounces, mode: m });
+    if (this.isMelee(who)) this.meleeWave(who, x, y);
+  }
+
   /** Reginald's potion / Glimmer's fireball: cast at the nearest monster in range whenever the cooldown is up. */
   private helperSpecial(h: Helper, dt: number): void {
     const g = this.game;
-    const style = hunterDef(h.id).style;
-    const sp = style.special!;
+    const sp = hunterDef(h.id).special!;
     h.specialCd = Math.max(0, h.specialCd - dt);
     if (h.specialCd > 0) return;
-    const range = g.shooterRange(h.id);
+    // Specials reach at least as far as a bow would, even for a Hunter holding a melee weapon.
+    const range = Math.max(g.shooterRange(h.id), MAIN_RANGE);
     const target = this.nearest(h.x, h.y, range);
     if (!target) return;
     h.specialCd = sp.cooldown;
@@ -730,7 +674,7 @@ export class Field {
       for (const side of [-1, 1])
         this.summons.push({ who: h.id, type: sp.summon.type, x: h.x + side * 18, y: h.y, life: 6, maxLife: 6, bite: 0, look: sp.summon.look, dash: 0, dashHit: false, own: { bites: 1.5, speed: sp.summon.look === 'wolf' ? 170 : 140, mult } });
       this.events.push({ type: 'nova', x: h.x, y: h.y, r: 30, color: sp.summon.look === 'wolf' ? '#8fdc7a' : '#d8a878' });
-    } else if (style.kind === 'potion') {
+    } else if (sp.kind === 'potion') {
       const d = Math.hypot(target.x - h.x, target.y - h.y);
       this.shoot(h.id, 'potion', h.x, h.y, a, 300, d, { radius, dmg, tx: target.x, ty: target.y, special: true });
     } else this.shoot(h.id, 'fireball', h.x, h.y, a, 380, range, { radius, dmg, special: true });
@@ -761,7 +705,7 @@ export class Field {
       const hw = this.weaponDef(h.id);
       const hd = hw?.summon?.dash;
       if (hw && hd && this.game.weaponClassOf(h.id)?.summon) out.push({ key: `item:${h.id}:${hw.id}`, icon: hw.icon, name: `${hunterDef(h.id).name}'s ${hw.name}`, progress: 1 - h.dashCd / hd.cooldown });
-      const sp = hunterDef(h.id).style.special;
+      const sp = hunterDef(h.id).special;
       if (sp) out.push({ key: h.id, icon: hunterDef(h.id).icon, name: hunterDef(h.id).name, progress: 1 - Math.max(0, h.specialCd) / sp.cooldown });
     }
     return out;
@@ -879,27 +823,35 @@ export class Field {
   }
 
   /**
-   * Your Hunter's dagger burst: each stab lands in turn on its monster if it's within reach (else a dagger is
-   * thrown at it); the last stab knocks it back.
+   * Dagger bursts: each stab lands in turn on its monster if it's within reach (else a dagger is thrown at it);
+   * the last stab knocks it back. A burst stops if its Hunter is stunned or no longer holds a dagger.
    */
-  private runStabs(dt: number, cls: WeaponClassDef | null): void {
+  private runStabs(dt: number): void {
     if (!this.stabs.length) return;
-    if (cls?.attack !== 'dagger' || this.stunned) {
-      this.stabs = [];
-      return;
-    }
     for (const s of this.stabs) s.t -= dt;
     const due = this.stabs.filter((s) => s.t <= 0);
     this.stabs = this.stabs.filter((s) => s.t > 0);
     for (const s of due) {
-      const e = this.enemies.find((x) => x.id === s.target && x.hp > 0) ?? this.nearest(0, 0, this.game.shooterRange('main'));
+      const h = s.who === 'main' ? null : this.helpers.find((x) => x.id === s.who);
+      if (s.who !== 'main' && !h) continue;
+      const cls = this.game.weaponClassOf(s.who);
+      if (cls?.attack !== 'dagger' || (h ? h.stun > 0 : this.stunned)) {
+        this.stabs = this.stabs.filter((x) => x.who !== s.who);
+        continue;
+      }
+      const ox = h?.x ?? 0;
+      const oy = h?.y ?? 0;
+      const range = this.game.shooterRange(s.who);
+      const e = this.enemies.find((x) => x.id === s.target && x.hp > 0) ?? this.nearest(ox, oy, range);
       if (!e) continue;
-      const a = Math.atan2(e.y, e.x);
-      this.aim = a;
-      if (Math.hypot(e.x, e.y) <= cls.reach! + e.r) {
-        this.events.push({ type: 'beam', x1: 0, y1: 0, x2: Math.cos(a) * (Math.hypot(e.x, e.y) - e.r * 0.3), y2: Math.sin(a) * (Math.hypot(e.x, e.y) - e.r * 0.3), color: '#f4f4f4', width: 3 });
-        this.meleeHit('main', e, 1, 0, 0, s.last ? (cls.knock ?? 0) : 0);
-      } else this.shoot('main', 'dagger', 0, 0, a, BULLET_SPEED, this.game.shooterRange('main'), { pierce: this.game.pierceOf('main') });
+      const a = Math.atan2(e.y - oy, e.x - ox);
+      if (h) h.aim = a;
+      else this.aim = a;
+      const d = Math.hypot(e.x - ox, e.y - oy);
+      if (d <= cls.reach! + e.r) {
+        this.events.push({ type: 'beam', x1: ox, y1: oy, x2: ox + Math.cos(a) * (d - e.r * 0.3), y2: oy + Math.sin(a) * (d - e.r * 0.3), color: '#f4f4f4', width: 3 });
+        this.meleeHit(s.who, e, 1, ox, oy, s.last ? (cls.knock ?? 0) : 0);
+      } else this.shoot(s.who, 'dagger', ox, oy, a, BULLET_SPEED, range, { pierce: this.game.pierceOf(s.who) });
     }
   }
 
@@ -1265,7 +1217,7 @@ export class Field {
         // Flies to its target point, then shatters into a puddle.
         if (b.life <= 0 || (b.tx !== undefined && (b.tx - b.x) * b.vx + (b.ty! - b.y) * b.vy <= 0)) {
           b.life = 0;
-          const ticks = hunterDef(b.shooter as HunterId).style.special?.ticks ?? 6;
+          const ticks = hunterDef(b.shooter as HunterId).special?.ticks ?? 6;
           this.puddles.push({ shooter: b.shooter, x: b.tx ?? b.x, y: b.ty ?? b.y, r: b.radius ?? 40, life: ticks * PUDDLE_TICK, tick: 0, dmg: b.dmg });
         }
         continue;
