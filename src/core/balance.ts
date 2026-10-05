@@ -519,6 +519,16 @@ export type MaterialId =
   | 'gloom'
   | 'umbra'
   | 'ore'
+  | 'awokenRock'
+  | 'obsidian'
+  | 'ironOre'
+  | 'silverOre'
+  | 'goldOre'
+  | 'quartz'
+  | 'amethyst'
+  | 'topaz'
+  | 'emerald'
+  | 'diamond'
   | 'scale'
   | 'plume'
   | 'skystone'
@@ -607,7 +617,7 @@ export const MATERIALS: MaterialDef[] = [
   { id: 'shadowWisp', name: 'Shadow Wisp', color: '#6a5a8a', desc: 'A flicker of living shadow left by a Shadow Haunt. It hides from light.' },
   { id: 'umbralEye', name: 'Umbral Eyeball', color: '#b8a0d8', desc: 'An eye from a Gazing Eye. It keeps watching you from the bag.' },
   { id: 'umbralSlime', name: 'Umbral Slime', color: '#3a2e4a', desc: 'Dark slime from an Umbral Ooze. It soaks up any light that touches it.' },
-  // Ember Caves
+  // Ember Mines
   { id: 'demonTooth', name: 'Demon Tooth', color: '#f0e0c0', desc: 'A fang from a hellhound, still hot enough to scorch leather.' },
   { id: 'demonBone', name: 'Demon Bone', color: '#7a2a1a', desc: 'A blackened bone from a demon of the caves. It smells of brimstone.' },
   { id: 'demonWing', name: 'Demon Wing', color: '#c04a2a', desc: 'A leathery imp wing, scorched at the edges.' },
@@ -619,8 +629,8 @@ export const MATERIALS: MaterialDef[] = [
   { id: 'everwatchingEye', name: 'Everwatching Eye', color: '#c0a0e0', desc: 'An eye of the Beholden Watcher. It still sees, and it still watches you.' },
   { id: 'forsakenSoul', name: 'Forsaken Soul', color: '#ff5030', desc: 'A soul the Demon Lord held captive. It burns cold, and it is grateful to be free.' },
   { id: 'ember', name: 'Ember', color: '#ff8a3d', desc: 'A coal that never quite goes out. It glows brighter when monsters are near.' },
-  { id: 'magma', name: 'Magma Slime', color: '#ff4d1a', desc: "Molten gel scooped from the caves and caverns. Keep it in something that won't melt." },
-  { id: 'chitin', name: 'Chitin', color: '#3fb0a0', desc: 'A hard shell plate from the creatures of the caves and caverns. Light, tough and a little shiny.' },
+  { id: 'magma', name: 'Magma Slime', color: '#ff4d1a', desc: "Molten gel scooped from the mines and caverns. Keep it in something that won't melt." },
+  { id: 'chitin', name: 'Chitin', color: '#3fb0a0', desc: 'A hard shell plate from the creatures of the mines and caverns. Light, tough and a little shiny.' },
   { id: 'fur', name: 'Frost Fur', color: '#dfefff', desc: 'Thick white fur from the frozen peaks. It keeps out even the bitterest cold.' },
   { id: 'frost', name: 'Frost Shard', color: '#8fdcff', desc: 'A shard of ice that never melts. Cold enough to numb your fingers through gloves.' },
   { id: 'ecto', name: 'Ectoplasm', color: '#c49bff', desc: 'Faintly glowing ectoplasm left behind by spirits. It hums when you hold it.' },
@@ -629,6 +639,16 @@ export const MATERIALS: MaterialDef[] = [
   { id: 'grave', name: 'Forbidden Text', color: '#5a3a7a', desc: 'A page torn from a necromancer\'s grimoire. Reading it out loud is a bad idea.' },
   { id: 'gloom', name: 'Gloom Silk', color: '#5a4a7a', desc: 'Thread spun in the Shadowy Depths. It drinks the light around it.' },
   { id: 'umbra', name: 'Umbral Pearl', color: '#8a7ea8', desc: 'A dark pearl from the Depths, cold and heavier than it looks.' },
+  { id: 'awokenRock', name: 'Awoken Rock', color: '#9a9488', desc: "A chunk of a Stone Golem that hasn't quite stopped moving. It hums when you hold it." },
+  { id: 'obsidian', name: 'Obsidian', color: '#3a2e44', desc: 'Black volcanic glass from deep inside a golem. Sharp enough to cut a shadow.' },
+  { id: 'ironOre', name: 'Iron Ore', color: '#8a7a70', desc: 'Rust-red ore, heavy in the hand. The backbone of any good smithy.' },
+  { id: 'silverOre', name: 'Silver Ore', color: '#d0d8e0', desc: 'Bright ore that shines even in the dark. Monsters of the night hate it.' },
+  { id: 'goldOre', name: 'Gold Ore', color: '#f0c040', desc: 'A rare vein of gold, torn from an Ore Golem. Too precious to spend.' },
+  { id: 'quartz', name: 'Quartz', color: '#eef0f4', desc: 'Clear crystal from a geode. Common, but it rings like a bell.' },
+  { id: 'amethyst', name: 'Amethyst', color: '#a070d8', desc: 'A violet crystal said to keep a clear head.' },
+  { id: 'topaz', name: 'Topaz', color: '#f0a040', desc: 'A warm golden stone that holds the heat of the mines.' },
+  { id: 'emerald', name: 'Emerald', color: '#30c070', desc: 'A deep green gem, rarely found whole.' },
+  { id: 'diamond', name: 'Diamond', color: '#c8f4ff', desc: "The rarest stone in a Geode Golem's heart. Nothing scratches it." },
   { id: 'ore', name: 'Mithril Ore', color: '#b8c8d8', desc: 'A silvery ore from the Venom Caverns, light and harder than steel.' },
   { id: 'scale', name: 'Drake Scale', color: '#e0603a', desc: 'A scale shed by a fire drake. Still warm, and it never burns.' },
   { id: 'plume', name: 'Griffin Plume', color: '#f0d890', desc: 'A golden feather from the Ascendant Steps. It catches every breeze.' },
@@ -687,7 +707,7 @@ export const AREAS: AreaDef[] = [
   { id: 'graveyard', name: 'Restless Graveyard', icon: '🪦', hp: 1_200, gold: 15_000, speed: 40, mastery: 700_000, guardian: 120_000, palette: ['#1e1a2a', '#4a4460', '#9a94b0', '#e8e4f0'], ground: ['#5b5670', '#4c4762'], blurb: 'The dead do not rest here.' },
   { id: 'crypt', name: 'Forbidden Crypt', icon: '⚰️', hp: 5_000, gold: 2_000_000, speed: 42, mastery: 520_000, guardian: 530_000, palette: ['#1a1614', '#4a403a', '#9a8e80', '#ece4d8'], ground: ['#5a524a', '#4e4640'], blurb: 'Deeper than the graves, and older.' },
   { id: 'depths', name: 'Shadowy Depths', icon: '🕳️', hp: 10_000, gold: 10_000_000_000, speed: 43, mastery: 1_000_000, guardian: 720_000, palette: ['#120e1c', '#3a3050', '#8a7ea8', '#e6e0f4'], ground: ['#2e2838', '#26212f'], blurb: 'Below the crypt, the dark has teeth.' },
-  { id: 'caves', name: 'Ember Caves', icon: '🌋', hp: 20_000, gold: 3_000_000_000_000, speed: 45, mastery: 1_400_000, guardian: 2_900_000, palette: ['#2a0e08', '#8a2c10', '#e07030', '#fde4c0'], ground: ['#6a2c1a', '#823722'], blurb: 'Hot, bright and full of teeth.' },
+  { id: 'caves', name: 'Ember Mines', icon: '🌋', hp: 20_000, gold: 3_000_000_000_000, speed: 45, mastery: 1_400_000, guardian: 2_900_000, palette: ['#2a0e08', '#8a2c10', '#e07030', '#fde4c0'], ground: ['#6a2c1a', '#823722'], blurb: 'Hot, bright and full of teeth.' },
   { id: 'mines', name: 'Venom Caverns', icon: '⛏️', hp: 40_000, gold: 100_000_000_000_000, speed: 47, mastery: 1_250_000, guardian: 31_000_000, palette: ['#1e140a', '#6a4a22', '#c09050', '#f4e4c8'], ground: ['#5a4228', '#4e3820'], blurb: 'Dug too deep, woke too much.' },
   { id: 'peaks', name: 'Frost Peaks', icon: '🏔️', hp: 100_000, gold: 3e15, speed: 50, mastery: 2_650_000, guardian: 32_000_000, palette: ['#0c2038', '#2a60a0', '#78b8e8', '#e4f4ff'], ground: ['#bcd8f0', '#a4c6e6'], blurb: 'Cold winds carry cold things.' },
   { id: 'cliffs', name: 'Ascendant Steps', icon: '🪜', hp: 250_000, gold: 5e17, speed: 53, mastery: 680_000, guardian: 64_000_000, palette: ['#141c30', '#4a5a86', '#a8b8e0', '#f2f4ff'], ground: ['#9aa6bc', '#8a96ac'], blurb: 'Stone stairs above the peaks, climbing into the sky.' },
@@ -724,6 +744,7 @@ export type EnemyId =
   | 'pixie'
   | 'manTrap'
   | 'treant'
+  | 'stoneGolem'
   | 'cultist'
   | 'graveWraith'
   | 'mummy'
@@ -735,6 +756,8 @@ export type EnemyId =
   | 'kobold'
   | 'salamander'
   | 'hellhound'
+  | 'oreGolem'
+  | 'geodeGolem'
   | 'lavaGolem'
   | 'fireDrake'
   | 'caveTroll'
@@ -799,6 +822,11 @@ export interface EnemyDef {
   material: MaterialId;
   /** A second material it can drop, at EXTRA_DROP_SHARE of its drop chance (a Forest Wolf's Beast Bone). */
   extra?: MaterialId;
+  /**
+   * More materials it can drop, each at `share` of its drop chance, rarer down the list (a Stone Golem's
+   * Obsidian and Iron Ore). Each rolls on its own.
+   */
+  drops?: Array<{ material: MaterialId; share: number }>;
   /** Gold to add it to its area's horde, as a multiple of the area's base gold (0 = comes with the area). */
   unlock: number;
   /** Placeholder look until real art is added (see src/assets/sprites/README.md). */
@@ -842,6 +870,7 @@ export const ENEMIES: EnemyDef[] = [
   { id: 'unicorn', name: 'Unicorn', area: 'glade', archetype: 'beast', hp: 2.5, speed: 1.6, gold: 3, spawn: 0.35, pack: [1, 2], radius: 13, material: 'enchantedBone', extra: 'unicornHorn', unlock: 900, color: '#f4f0ff', shape: 'triangle', blurb: 'Beautiful, magical, and it will absolutely stab you.', weak: ['void', 'decay'], resist: ['radiant', 'arcane'] },
   { id: 'manTrap', name: 'Walking Man Trap', area: 'glade', archetype: 'plant', hp: 2.4, speed: 0.7, gold: 2.8, spawn: 0.4, pack: [1, 3], radius: 12, material: 'thorn', unlock: 4_000, color: '#6ab04a', shape: 'diamond', blurb: 'A giant flytrap on legs. It is not picky about flies.', weak: ['fire', 'frost'], resist: ['poison', 'acid'] },
   { id: 'treant', name: 'Treant', area: 'glade', archetype: 'plant', hp: 5, speed: 0.5, gold: 6, spawn: 0.2, pack: [1, 1], radius: 17, material: 'sap', unlock: 15_000, color: '#5a7a3a', shape: 'hexagon', blurb: 'An old tree that has had enough.', weak: ['fire', 'acid'], resist: ['physical', 'poison'] },
+  { id: 'stoneGolem', name: 'Stone Golem', area: 'glade', archetype: 'construct', hp: 6, speed: 0.45, gold: 7, spawn: 0.15, pack: [1, 1], radius: 18, material: 'awokenRock', drops: [{ material: 'obsidian', share: 0.3 }, { material: 'ironOre', share: 0.1 }], unlock: 40_000, color: '#8a8478', shape: 'square', blurb: 'A hillside that woke up and started walking.', weak: ['acid', 'lightning'], resist: ['physical', 'fire'] },
 
 
   // Restless Graveyard
@@ -870,12 +899,14 @@ export const ENEMIES: EnemyDef[] = [
   { id: 'deepLurker', name: 'Abyssal Lurker', area: 'depths', archetype: 'demon', hp: 3, speed: 0.7, gold: 3.5, spawn: 0.35, pack: [1, 2], radius: 13, material: 'umbra', unlock: 15_000, color: '#2a2036', shape: 'hexagon', blurb: 'All eyes and teeth, somewhere in the abyss.', weak: ['radiant'], resist: ['physical', 'void'] },
 
 
-  // Ember Caves
+  // Ember Mines
   { id: 'imp', name: 'Imp', area: 'caves', archetype: 'demon', hp: 1, speed: 1.3, gold: 1, spawn: 1.4, pack: [2, 4], radius: 9, material: 'demonBone', extra: 'demonWing', unlock: 0, color: '#ff7a3d', shape: 'hexagon', blurb: 'Cackling little fire-starters.', weak: ['frost', 'radiant'], resist: ['fire'] },
   { id: 'magmaSlime', name: 'Magma Slime', area: 'caves', archetype: 'slime', hp: 2.5, speed: 0.8, gold: 2.5, spawn: 0.6, pack: [2, 3], radius: 12, material: 'magma', unlock: 120, color: '#ff4d1a', shape: 'circle', blurb: 'Molten and very hard to squish.', weak: ['frost', 'acid'], resist: ['fire', 'physical'] },
   { id: 'beetle', name: 'Fire Beetle', area: 'caves', archetype: 'beast', hp: 1.8, speed: 1.1, gold: 1.8, spawn: 0.7, pack: [2, 4], radius: 11, material: 'chitin', unlock: 900, color: '#3fb0a0', shape: 'triangle', blurb: 'Armored and quick to scuttle.', weak: ['acid', 'frost'], resist: ['physical', 'fire'] },
   { id: 'salamander', name: 'Salamander', area: 'caves', archetype: 'beast', hp: 1.8, speed: 1.3, gold: 2, spawn: 0.5, pack: [2, 3], radius: 11, material: 'ember', unlock: 4_000, color: '#ff9a3a', shape: 'triangle', blurb: 'A lizard that swims in lava.', weak: ['frost'], resist: ['fire', 'poison'] },
   { id: 'hellhound', name: 'Hellhound', area: 'caves', archetype: 'demon', hp: 2, speed: 1.8, gold: 2.6, spawn: 0.4, pack: [2, 3], radius: 11, material: 'demonTooth', extra: 'demonBone', unlock: 15_000, color: '#b02a1a', shape: 'triangle', blurb: 'Its bark is fire. So is its bite.', weak: ['frost', 'radiant'], resist: ['fire', 'decay'] },
+  { id: 'oreGolem', name: 'Ore Golem', area: 'caves', archetype: 'construct', hp: 6, speed: 0.45, gold: 7, spawn: 0.18, pack: [1, 1], radius: 18, material: 'ironOre', drops: [{ material: 'silverOre', share: 0.3 }, { material: 'goldOre', share: 0.1 }], unlock: 40_000, color: '#7a6250', shape: 'square', blurb: 'Rock threaded with metal veins, guarding the richest seams.', weak: ['acid', 'lightning'], resist: ['physical', 'frost'] },
+  { id: 'geodeGolem', name: 'Geode Golem', area: 'caves', archetype: 'construct', hp: 8, speed: 0.4, gold: 9, spawn: 0.12, pack: [1, 1], radius: 19, material: 'quartz', drops: [{ material: 'amethyst', share: 0.4 }, { material: 'topaz', share: 0.2 }, { material: 'emerald', share: 0.08 }, { material: 'diamond', share: 0.03 }], unlock: 120_000, color: '#9a70d0', shape: 'hexagon', blurb: 'Plain grey rock outside; a glittering crystal heart inside.', weak: ['acid', 'void'], resist: ['physical', 'arcane'] },
 
 
   // Venom Caverns
@@ -934,7 +965,7 @@ export const ENEMIES: EnemyDef[] = [
   { id: 'skeletonKing', name: 'Skeleton King', area: 'graveyard', archetype: 'undead', guardianOnly: true, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 20, material: 'calciumCrystal', unlock: Infinity, color: '#f0e8d0', shape: 'square', blurb: "He wears a crown of finger bones and commands every skeleton in the Graveyard.", weak: ['radiant', 'arcane'], resist: ['poison', 'decay', 'physical'] },
   { id: 'awokenLich', name: 'Awoken Lich', area: 'crypt', archetype: 'undead', guardianOnly: true, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 20, material: 'eldritchText', unlock: Infinity, color: '#8a5ac0', shape: 'hexagon', blurb: "The Crypt's oldest master, risen at last, and furious about it.", weak: ['radiant', 'physical'], resist: ['decay', 'void', 'frost'] },
   { id: 'beholdenWatcher', name: 'Beholden Watcher', area: 'depths', archetype: 'demon', guardianOnly: true, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 22, material: 'everwatchingEye', unlock: Infinity, color: '#c0a0e0', shape: 'circle', blurb: "A great eye ringed with smaller ones. Every one of them is looking at you.", weak: ['radiant', 'lightning'], resist: ['arcane', 'void', 'physical'] },
-  { id: 'demonLord', name: 'Demon Lord', area: 'caves', archetype: 'demon', guardianOnly: true, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 22, material: 'forsakenSoul', unlock: Infinity, color: '#c02a1a', shape: 'hexagon', blurb: "The master of the Ember Caves, wreathed in the souls it has taken.", weak: ['frost', 'radiant'], resist: ['fire', 'decay', 'physical'] },
+  { id: 'demonLord', name: 'Demon Lord', area: 'caves', archetype: 'demon', guardianOnly: true, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 22, material: 'forsakenSoul', unlock: Infinity, color: '#c02a1a', shape: 'hexagon', blurb: "The master of the Ember Mines, wreathed in the souls it has taken.", weak: ['frost', 'radiant'], resist: ['fire', 'decay', 'physical'] },
   { id: 'timeEater', name: 'Time Eater', area: 'rift', archetype: 'demon', guardianOnly: true, winAt: 0.5, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 22, material: 'void', unlock: Infinity, color: '#e0c060', shape: 'hexagon', blurb: 'It devours the hours of every world it finds. The Void Rift is its mouth.', weak: ['radiant', 'arcane'], resist: ['void', 'decay', 'physical'] },
 ];
 
@@ -1075,7 +1106,16 @@ export function rollLoot(area: AreaId, roll: number, pick: number): GearDef {
 export const EXTRA_DROP_SHARE = 0.5;
 
 /** Every material a monster drops (its main one, then its second if it has one). */
-export const enemyDrops = (def: EnemyDef): MaterialId[] => (def.extra ? [def.material, def.extra] : [def.material]);
+export const enemyDrops = (def: EnemyDef): MaterialId[] => [def.material, ...enemyExtraDrops(def).map((d) => d.material)];
+
+/** Every drop after a monster's main one, with its share of the drop chance. */
+export const enemyExtraDrops = (def: EnemyDef): Array<{ material: MaterialId; share: number }> => [
+  ...(def.extra ? [{ material: def.extra, share: EXTRA_DROP_SHARE }] : []),
+  ...(def.drops ?? []),
+];
+
+/** How rare a drop is, by its share of the monster's drop chance (for the Bestiary). */
+export const dropRarity = (share: number): Rarity => (share >= 0.5 ? 'common' : share >= 0.25 ? 'uncommon' : share >= 0.1 ? 'rare' : share >= 0.05 ? 'veryRare' : 'legendary');
 
 /** Cost of a monster's first Empower session (then × EMPOWER_GROWTH each). */
 export const empowerBaseCost = (def: EnemyDef): number => Math.ceil(areaDef(def.area).gold * Math.max(10, def.unlock * 0.075) * def.gold);
@@ -1451,14 +1491,14 @@ export const HUNTERS: HunterDef[] = [
     id: 'demonbane', name: 'Sera', title: 'Demonbane', icon: '🗡️', color: '#ff7a3d', area: 'caves', recruitCost: 3e15, bane: { archetype: 'demon', mult: 3 },
     unlock: { event: 'guardian-caves', times: 1 },
     ascendedTitle: 'Demonslayer',
-    story: 'Sera hunts the demons of the Ember Caves alone. Show her you can beat the Caves\' Guardian, and she\'ll fight beside you.',
+    story: 'Sera hunts the demons of the Ember Mines alone. Show her you can beat the Mines\' Guardian, and she\'ll fight beside you.',
     ability: 'Deals triple damage to Demons.',
   },
   {
     id: 'scavenger', name: 'Pip', title: 'Scavenger', icon: '🎒', color: '#3fb0a0', area: 'caves', recruitCost: 1.2e16, drops: 2,
     unlock: { event: 'guardian-caves', times: 2 },
     ascendedTitle: 'Treasure Hunter',
-    story: 'Pip scavenges the Ember Caves for anything shiny. Beat its Guardian twice, and Pip will tag along for the loot.',
+    story: 'Pip scavenges the Ember Mines for anything shiny. Beat its Guardian twice, and Pip will tag along for the loot.',
     ability: 'Doubles material drops from his kills.',
   },
   {

@@ -9,7 +9,7 @@ import {
   type WeaponClassDef,
   dropsFrom,
   rollLoot,
-  EXTRA_DROP_SHARE,
+  enemyExtraDrops,
   lootChance,
   LOOT_TWO_STAR,
   affordableCount,
@@ -1032,9 +1032,8 @@ export class Game {
     const chance = e.dropChance * this.shooterDrops(shooter);
     const amount = dropsFrom(chance, this.rng());
     this.gainMaterial(e.material, amount);
-    // A second drop (a Forest Wolf's Beast Bone), at a share of the chance.
-    const extra = enemyDef(type).extra;
-    if (extra) this.gainMaterial(extra, dropsFrom(chance * EXTRA_DROP_SHARE, this.rng()));
+    // More drops (a Forest Wolf's Beast Bone, a golem's rarer stones), each at its share of the chance.
+    for (const d of enemyExtraDrops(enemyDef(type))) this.gainMaterial(d.material, dropsFrom(chance * d.share, this.rng()));
     s.areas[enemyDef(type).area].kills++;
     // Gear that finds extra materials (the Slime Vial at 5★: Royal Slime from slimes).
     for (const item of this.equipped(shooter)) {
@@ -1156,8 +1155,7 @@ export class Game {
       out.killsTotal += k;
       out.gold += k * e.gold * goldPerk;
       out.materials[e.material] = (out.materials[e.material] ?? 0) + k * e.dropChance * dropPerk;
-      const extra = enemyDef(e.id).extra;
-      if (extra) out.materials[extra] = (out.materials[extra] ?? 0) + k * e.dropChance * dropPerk * EXTRA_DROP_SHARE;
+      for (const d of enemyExtraDrops(enemyDef(e.id))) out.materials[d.material] = (out.materials[d.material] ?? 0) + k * e.dropChance * dropPerk * d.share;
     }
     for (const h of hunters) {
       out.stuns[h.sh] = h.stunRate * efficiency;

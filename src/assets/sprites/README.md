@@ -16,7 +16,7 @@ Enemy ids (see `ENEMIES` in `src/core/balance.ts`, which also holds their stats)
 |---|---|
 | Whispering Forest | `greenSlime` (slime), `twiggling` (plant), `wolf` (beast), `goblin` (humanoid), `brownBear` (beast) |
 | Old Graveyard | `skeleton` (undead), `zombie` (undead), `bat` (beast) |
-| Ember Caves | `imp` (demon), `magmaSlime` (slime), `beetle` (beast) |
+| Ember Mines | `imp` (demon), `magmaSlime` (slime), `beetle` (beast) |
 | Frost Peaks | `iceWolf` (beast), `golem` (elemental), `wraith` (undead) |
 | Void Rift | `shadowSlime` (slime), `horror` (demon), `lich` (undead) |
 

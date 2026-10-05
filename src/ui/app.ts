@@ -30,6 +30,8 @@ import {
   ARMOR_TYPES,
   GEAR_STAR_POWER,
   enemyDrops,
+  enemyExtraDrops,
+  dropRarity,
   lootChance,
   SUMMON_TYPES,
   tomeSummonType,
@@ -3290,7 +3292,13 @@ function bumpCard(from: HTMLElement): void {
 
 /** What a monster drops (both materials when it has two), and whether it can carry gear. */
 function dropsText(e: EnemyDef): string {
-  const mats = enemyDrops(e).map((m) => `${gemHtml(m)} <b>${materialDef(m).name}</b>`).join(' and ');
+  // Rarer drops are tagged with how rare they are (a golem's Obsidian, Iron Ore...).
+  const extra = enemyExtraDrops(e).map((d) => {
+    const r = dropRarity(d.share);
+    return `${gemHtml(d.material)} <b>${materialDef(d.material).name}</b>${r === 'common' ? '' : ` <small style="color:${RARITIES[r].color}">(${RARITIES[r].name})</small>`}`;
+  });
+  const all = [`${gemHtml(e.material)} <b>${materialDef(e.material).name}</b>`, ...extra];
+  const mats = all.length > 2 ? `${all.slice(0, -1).join(', ')} and ${all[all.length - 1]}` : all.join(' and ');
   return `Drops ${mats}${lootChance(e.id) > 0 ? ' · 🎁 can carry gear' : ''}`;
 }
 

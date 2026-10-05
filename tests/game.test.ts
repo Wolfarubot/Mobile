@@ -4,6 +4,9 @@ import {
   areaDef,
   AREAS,
   enemyDef,
+  enemyDrops,
+  enemyExtraDrops,
+  dropRarity,
   areaEnemies,
   enemyUnlockCost,
   GEAR,
@@ -1132,9 +1135,30 @@ describe('Equipment', () => {
     expect(AREAS.filter((a) => s.areas[a.id].unlocked).map((a) => a.id)).toEqual(['forest', 'glade', 'graveyard', 'crypt', 'depths', 'caves']);
   });
 
-  it('67 monsters, plus 7 Guardian-only bosses (the first six areas\' and the Time Eater); each with a weakness', () => {
-    expect(ENEMIES).toHaveLength(74);
-    expect(new Set(ENEMIES.map((e) => e.id)).size).toBe(74);
+  it("golems are Constructs with tiered drops: each rarer material rolls on its own at a smaller share", () => {
+    expect(areaEnemies('glade').map((e) => e.id)).toContain('stoneGolem');
+    expect(areaEnemies('caves').map((e) => e.id)).toEqual(expect.arrayContaining(['oreGolem', 'geodeGolem']));
+    for (const id of ['stoneGolem', 'oreGolem', 'geodeGolem'] as const) expect(enemyDef(id).archetype).toBe('construct');
+    expect(enemyDrops(enemyDef('stoneGolem'))).toEqual(['awokenRock', 'obsidian', 'ironOre']);
+    expect(enemyDrops(enemyDef('oreGolem'))).toEqual(['ironOre', 'silverOre', 'goldOre']);
+    expect(enemyDrops(enemyDef('geodeGolem'))).toEqual(['quartz', 'amethyst', 'topaz', 'emerald', 'diamond']);
+    const shares = enemyExtraDrops(enemyDef('geodeGolem')).map((d) => d.share);
+    expect([...shares].sort((a, b) => b - a)).toEqual(shares);
+    expect(shares.map(dropRarity)).toEqual(['uncommon', 'rare', 'veryRare', 'legendary']);
+    // Kills hand out each drop at its share: over many kills, Iron Ore comes about a third as often as Obsidian.
+    let roll = 0;
+    const g = new Game(newGame(0), () => (roll = (roll * 9301 + 49297) % 233280) / 233280);
+    for (let i = 0; i < 20_000; i++) g.registerKill('stoneGolem', false, 'main');
+    const m = g.state.materials;
+    expect(m.awokenRock).toBeGreaterThan(m.obsidian);
+    expect(m.obsidian).toBeGreaterThan(m.ironOre);
+    expect(m.ironOre).toBeGreaterThan(0);
+    expect(m.ironOre / m.obsidian).toBeCloseTo(1 / 3, 0);
+  });
+
+  it('70 monsters, plus 7 Guardian-only bosses (the first six areas\' and the Time Eater); each with a weakness', () => {
+    expect(ENEMIES).toHaveLength(77);
+    expect(new Set(ENEMIES.map((e) => e.id)).size).toBe(77);
     // The Time Eater is only ever the Void Rift's Guardian: not in its horde or unlockable.
     expect(areaEnemies('rift').map((e) => e.id)).not.toContain('timeEater');
     expect(enemyUnlockCost(enemyDef('timeEater'))).toBe(Infinity);
