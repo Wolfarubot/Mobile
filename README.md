@@ -101,6 +101,7 @@ npm run ios        # opens Xcode → pick a device → Run
 
 ## Roadmap ideas
 
+- **Gear modifiers: Refine and Enchant** (planned for around the Ember Caves, unlocked by recruiting a Hunter still to be chosen). From Very Rare up, gear holds modifiers: 1 at Very Rare, 2 at Legendary and Exotic, 3 from Relic up. Stars don't change them; they're separate from a piece's own stats. **Refine** adds basic stat modifiers (attack speed, damage, knockback, piercing, magazine size...). **Enchant** adds the involved ones: extra damage types, status effects and their chances, spells and abilities (e.g. monsters killed by the weapon burst into fireballs); crafted Enchantments can replace an existing one. Still to decide: whether slots are Refine-only or Enchant-only, whether modifiers are chosen or rolled, what they cost, and how replacing works.
 - Sound effects & haptics (`@capacitor/haptics`) on hits, crits and kills
 - Local notification when tickets are full or the offline cap is reached (`@capacitor/local-notifications`)
 - Active skills with cooldowns (nova, orbiting blades, freeze) and more weapon types
