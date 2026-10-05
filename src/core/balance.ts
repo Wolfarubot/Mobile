@@ -1298,6 +1298,8 @@ export const STATUS = {
    * dealing `share` of the hit to that creature and to every creature the arc passes through on the way.
    */
   arc: { share: 0.6, radius: 110 },
+  /** Void opens a gravity well on the monster it hits: for `duration`s, monsters within `radius` are pulled toward it at `pull` units/s (Guardians and Void-resistant monsters hold their ground). */
+  well: { duration: 1.5, radius: 95, pull: 150 },
   /**
    * Bleeding (Physical): `share` of the hit again over `duration`. The only effect that stacks: each bleed is
    * its own instance, up to `maxStacks` at once (a new one replaces the oldest).
@@ -1307,7 +1309,7 @@ export const STATUS = {
   tick: 0.5,
 };
 /** Rough extra damage each type's effect adds when it always procs, for the background model (scaled by proc chance). */
-export const STATUS_MODEL: Partial<Record<DamageType, number>> = { physical: 1.25, fire: 1.4, poison: 1.5, acid: 1.4, radiant: 1.5, decay: 1.4, arcane: 1.1, lightning: 1.5 };
+export const STATUS_MODEL: Partial<Record<DamageType, number>> = { physical: 1.25, fire: 1.4, poison: 1.5, acid: 1.4, radiant: 1.5, decay: 1.4, arcane: 1.1, lightning: 1.5, void: 1.15 };
 
 export const DAMAGE_TYPES: Record<DamageType, { name: string; icon: string; color: string; effect?: string }> = {
   physical: { name: 'Physical', icon: '🗡️', color: '#e8e8e8', effect: `Bleeds: ${STATUS.bleed.share * 100}% of the hit again over ${STATUS.bleed.duration}s; bleeds stack (up to ${STATUS.bleed.maxStacks})` },
@@ -1319,7 +1321,7 @@ export const DAMAGE_TYPES: Record<DamageType, { name: string; icon: string; colo
   arcane: { name: 'Arcane', icon: '🔮', color: '#c08cff', effect: `Exposes: removes its resistances for ${STATUS.expose.duration}s` },
   decay: { name: 'Decay', icon: '🍂', color: '#b09a60', effect: `Dark aura: it hurts the monsters around it for ${STATUS.aura.duration}s` },
   lightning: { name: 'Lightning', icon: '⚡', color: '#8fb4ff', effect: `Arcs: ${STATUS.arc.share * 100}% of the hit jumps to another creature nearby, striking everything it passes through` },
-  void: { name: 'Void', icon: '🌀', color: '#ff5fd7' },
+  void: { name: 'Void', icon: '🌀', color: '#ff5fd7', effect: `Gravity well: for ${STATUS.well.duration}s it pulls the monsters around it in toward itself` },
 };
 
 /**

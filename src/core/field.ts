@@ -71,6 +71,8 @@ export interface Enemy {
   aura?: Dot;
   /** Seconds left with its resistances stripped (Arcane). */
   exposed?: number;
+  /** Seconds left of Void's gravity well around it, pulling nearby monsters in. */
+  well?: number;
   /** Bleeds (Physical): the only status that stacks, each its own instance. */
   bleeds?: Dot[];
   /** Its acid puddle, if one is still on the ground (one per monster; a new proc refreshes it). */
@@ -457,7 +459,7 @@ export class Field {
       e.flash = Math.max(0, e.flash - dt * 6);
       e.phase += dt;
       if (e.slow) e.slow = Math.max(0, e.slow - dt);
-      if (e.burn || e.poison || e.aura || e.exposed) this.tickStatus(e, dt);
+      if (e.burn || e.poison || e.aura || e.exposed || e.well) this.tickStatus(e, dt);
       const speed = e.speed * (e.slow ? 0.5 : 1);
       if (e.fleeing) {
         const d = Math.hypot(e.x, e.y) || 1;
@@ -1166,6 +1168,9 @@ export class Field {
       case 'lightning':
         this.arc(e, dmg * STATUS.arc.share, by);
         break;
+      case 'void':
+        if (e.hp > 0) e.well = STATUS.well.duration;
+        break;
     }
   }
 
@@ -1190,6 +1195,25 @@ export class Field {
     }
   }
 
+  /**
+   * Void's gravity well: monsters around `e` are drawn in toward it until they touch it. Guardians and
+   * monsters that resist Void aren't moved.
+   */
+  private pullIn(e: Enemy, dt: number): void {
+    const w = STATUS.well;
+    for (const o of this.enemies) {
+      if (o === e || o.hp <= 0 || o.boss || this.immuneTo(o, 'void')) continue;
+      const dx = e.x - o.x;
+      const dy = e.y - o.y;
+      const d = Math.hypot(dx, dy);
+      const gap = d - e.r - o.r;
+      if (d > w.radius + o.r || gap <= 0) continue;
+      const step = Math.min(gap, w.pull * dt);
+      o.x += (dx / d) * step;
+      o.y += (dy / d) * step;
+    }
+  }
+
   /** A burning monster can set the ones right next to it alight, weaker each time it spreads. */
   private spreadBurn(e: Enemy, d: Dot): void {
     const b = STATUS.burn;
@@ -1200,9 +1224,13 @@ export class Field {
     }
   }
 
-  /** Ticks burns, poisons and dark auras, and runs down Arcane exposure. */
+  /** Ticks burns, poisons and dark auras, runs down Arcane exposure, and pulls monsters into Void's gravity wells. */
   private tickStatus(e: Enemy, dt: number): void {
     if (e.exposed) e.exposed = Math.max(0, e.exposed - dt);
+    if (e.well) {
+      e.well = Math.max(0, e.well - dt);
+      this.pullIn(e, dt);
+    }
     if (e.bleeds?.length) {
       // Each bleed ticks on its own.
       for (const d of e.bleeds) {

@@ -952,7 +952,7 @@ export function drawEnemyPortrait(canvas: HTMLCanvasElement, id: EnemyId): void 
   g.restore();
 }
 
-/** Status effects on a monster: embers (burn), bubbles (poison), dripping blood (bleed), a dark aura (decay), violet sparks (arcane). Frost tints the body. */
+/** Status effects on a monster: embers (burn), bubbles (poison), dripping blood (bleed), a dark aura (decay), violet sparks (arcane), a gravity well (void). Frost tints the body. */
 function drawStatus(g: CanvasRenderingContext2D, e: Enemy, t: number, on: (k: FxKey) => boolean, basic: boolean): void {
   const r = e.r;
   // (Frost's chill tints the monster itself blue; see drawEnemy.)
@@ -1000,6 +1000,30 @@ function drawStatus(g: CanvasRenderingContext2D, e: Enemy, t: number, on: (k: Fx
     for (const c of auraCells(e.phase)) g.fillRect(c.x - c.s / 2, c.y - c.s / 2, c.s, c.s);
     g.fillStyle = `rgba(88,34,70,${0.6 + 0.3 * pulse})`;
     pixelCircle(g, 0, 0, STATUS.aura.radius, PIXEL);
+    }
+  }
+  if (e.well && on('void')) {
+    // Void's gravity well: magenta and deep-violet pixels spiral in from its reach (basic: a shrinking ring).
+    const R = STATUS.well.radius;
+    const fade = Math.min(1, e.well * 3);
+    if (basic) {
+      g.strokeStyle = `rgba(255,95,215,${0.5 * fade})`;
+      g.lineWidth = 2;
+      g.beginPath();
+      g.arc(0, 0, r + (R - r) * (1 - ((t * 1.5 + e.phase) % 1)), 0, Math.PI * 2);
+      g.stroke();
+    } else {
+      const n = 14;
+      for (let i = 0; i < n; i++) {
+        const p = (t * 1.2 + i / n + e.phase) % 1; // 0 at the rim, 1 at the centre
+        const dist = r + (R - r) * (1 - p);
+        const a = (i * Math.PI * 2) / n + p * 3 + t * 2;
+        const s = 2 + 2 * (1 - p);
+        g.globalAlpha = fade * (0.35 + 0.65 * p);
+        g.fillStyle = i % 2 ? '#ff5fd7' : '#5a2a8a';
+        g.fillRect(Math.cos(a) * dist - s / 2, Math.sin(a) * dist - s / 2, s, s);
+      }
+      g.globalAlpha = 1;
     }
   }
   if (e.exposed && on('arcane')) {

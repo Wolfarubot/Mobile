@@ -2898,6 +2898,7 @@ export class AppUI {
       ['radiant', '✨ Radiant bursts'],
       ['decay', '🍂 Decay aura'],
       ['arcane', '🔮 Arcane sparks'],
+      ['void', '🌀 Void gravity wells'],
     ]);
     choices('Area effect style', 'Fancy draws puddles, fireballs, explosions, bursts and auras as clusters of coloured pixel squares; Basic draws them as plain circles.', styles, () => st.aoeStyle, (v) => (st.aoeStyle = v));
 
@@ -3404,6 +3405,7 @@ const STATUS_NAMES: Partial<Record<DamageType, string>> = {
   arcane: 'Exposed',
   decay: 'Decay aura',
   lightning: 'Arcing',
+  void: 'Gravity well',
 };
 
 /** Short, player-facing traits of a weapon type for the Tutorials page. */

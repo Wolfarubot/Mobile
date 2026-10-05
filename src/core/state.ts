@@ -260,6 +260,7 @@ export const FX_KEYS = [
   'radiant',
   'decay',
   'arcane',
+  'void',
 ] as const;
 export type FxKey = (typeof FX_KEYS)[number];
 const allFx = (): Record<FxKey, boolean> => Object.fromEntries(FX_KEYS.map((k) => [k, true])) as Record<FxKey, boolean>;

@@ -929,6 +929,31 @@ describe('Equipment', () => {
     expect(hits[0].dmg / hits[2].dmg).toBeCloseTo(WEAK_MULT / RESIST_MULT);
   });
 
+  it("Void opens a gravity well: monsters around the one hit are pulled in to it (not Guardians or the Void-resistant)", () => {
+    const g = stocked();
+    const f = new Field(g);
+    const api = f as unknown as { applyStatus: (e: Enemy, t: string, dmg: number, by: string) => void; tickStatus: (e: Enemy, dt: number) => void };
+    const at = (id: number, x: number, type: Enemy['type'] = 'greenSlime', boss = false) => enemy({ id, type, x, y: -200, hp: 1e9, maxHp: 1e9, boss });
+    const host = at(1, 0);
+    const near = at(2, 60);
+    const far = at(3, 400);
+    const guardian = at(4, -60, 'greenSlime', true);
+    const resists = ENEMIES.find((d) => d.resist.includes('void') && !d.guardianOnly);
+    const holder = resists ? at(5, 0, resists.id) : null;
+    if (holder) holder.y = -140;
+    f.enemies = [host, near, far, guardian, ...(holder ? [holder] : [])];
+    api.applyStatus(host, 'void', 100, 'main');
+    expect(host.well).toBe(STATUS.well.duration);
+    for (let i = 0; i < 30; i++) api.tickStatus(host, 1 / 30);
+    // Pulled in until it touches the host, no further.
+    expect(near.x).toBeCloseTo(host.r + near.r, 0);
+    expect(far.x).toBe(400);
+    expect(guardian.x).toBe(-60);
+    if (holder) expect(holder.y).toBe(-140);
+    for (let i = 0; i < 30; i++) api.tickStatus(host, 1 / 30);
+    expect(host.well).toBe(0);
+  });
+
   it('a multi-type weapon splits each hit evenly between its types, each priced and rolling its effect on its own', () => {
     const sword = gearDef('slimeSword');
     const saved = { ...sword };
