@@ -66,6 +66,11 @@ import {
   GEAR_STUN_CAP,
   gearCost,
   GEAR_STAR_POWER,
+  MOD_SLOTS,
+  REFINES,
+  refineCost,
+  refineValue,
+  type RefineStat,
   gearTypes,
   gearDef,
   gearStats,
@@ -115,7 +120,7 @@ import {
   type TreeStat,
 } from './balance';
 import { capAway, type OfflineResult } from './offline';
-import { type BuyAmount, type GameState, type GearItem, type Training, type Wearer } from './state';
+import { type BuyAmount, type GameState, type GearItem, type GearMod, type Training, type Wearer } from './state';
 
 export type GameEvent =
   | { type: 'travel' }
@@ -464,7 +469,19 @@ export class Game {
     const i = slots.findIndex((sl) => WEAPON_KINDS.includes(sl.kind) && (!sl.role || sl.role === mode));
     const item = i >= 0 ? this.equipped(who)[i] : null;
     const id = item ? gearDef(item.base).weaponClass : undefined;
-    return id ? WEAPON_CLASSES[id] : null;
+    if (!id) return null;
+    const cls = WEAPON_CLASSES[id];
+    // Refined knockback and magazine size change the class's own numbers for this piece.
+    let knock = 0;
+    let mag = 0;
+    for (const m of item!.mods ?? [])
+      if (m?.kind === 'refine' && (m.stat === 'knock' || m.stat === 'mag')) {
+        const v = refineValue(m.stat, gearDef(item!.base).rarity);
+        if (m.stat === 'knock') knock += v;
+        else mag += v;
+      }
+    if (!knock && !mag) return cls;
+    return { ...cls, knock: cls.knock && cls.knock * (1 + knock), mag: cls.mag && Math.round(cls.mag * (1 + mag)) };
   }
 
   /**
@@ -650,8 +667,54 @@ export class Game {
     this.equipped(who).forEach((item, i) => {
       if (!item || (slots[i].role && slots[i].role !== mode)) return;
       for (const [k, v] of Object.entries(gearTotals(gearDef(item.base), item.stars)) as [GearStat, number][]) total[k] += v;
+      // Refined attack speed, damage and pierce add to the piece's own stats.
+      for (const m of item.mods ?? []) if (m?.kind === 'refine' && (m.stat === 'rate' || m.stat === 'damage' || m.stat === 'pierce')) total[m.stat] += refineValue(m.stat, gearDef(item.base).rarity);
     });
     return total;
+  }
+
+  // ---- Refine (Kargesh the Blacksmith): stat modifiers in a Very Rare or rarer piece's modifier slots ----
+
+  /** Refine opens once Kargesh the Blacksmith is recruited. */
+  get refineOpen(): boolean {
+    return this.state.hunters.blacksmith.recruited;
+  }
+
+  /** A piece's modifier slots, each empty (null) or holding its modifier. */
+  modSlots(uid: number): Array<GearMod | null> {
+    const item = this.gearItem(uid);
+    if (!item) return [];
+    const n = MOD_SLOTS[gearDef(item.base).rarity];
+    return Array.from({ length: n }, (_, i) => item.mods?.[i] ?? null);
+  }
+
+  /** Can this piece be refined at all (Refine open, and it has modifier slots)? */
+  refinable(uid: number): boolean {
+    return this.refineOpen && this.modSlots(uid).length > 0;
+  }
+
+  /** Gold to refine a slot of this piece. */
+  refineCostOf(uid: number): number {
+    const item = this.gearItem(uid);
+    return item ? refineCost(gearDef(item.base)) : Infinity;
+  }
+
+  canRefine(uid: number, slot: number, stat: RefineStat): boolean {
+    const item = this.gearItem(uid);
+    if (!item || !this.refinable(uid) || slot < 0 || slot >= this.modSlots(uid).length) return false;
+    const cur = this.modSlots(uid)[slot];
+    if (cur?.kind === 'refine' && cur.stat === stat) return false;
+    return REFINES[stat].fits(gearDef(item.base)) && this.state.gold >= this.refineCostOf(uid);
+  }
+
+  /** Puts a Refine modifier in a slot (replacing what was there), for gold. */
+  refine(uid: number, slot: number, stat: RefineStat): boolean {
+    if (!this.canRefine(uid, slot, stat)) return false;
+    const item = this.gearItem(uid)!;
+    this.state.gold -= this.refineCostOf(uid);
+    item.mods = this.modSlots(uid);
+    item.mods[slot] = { kind: 'refine', stat };
+    return true;
   }
 
   canCraftGear(id: GearId): boolean {

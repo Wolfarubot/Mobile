@@ -5,6 +5,7 @@ import {
   AREAS,
   enemyDef,
   enemyDrops,
+  refineValue,
   enemyExtraDrops,
   dropRarity,
   areaEnemies,
@@ -954,6 +955,57 @@ describe('Equipment', () => {
     expect(host.well).toBe(0);
   });
 
+  it('Refine (Kargesh the Blacksmith): stat modifiers in the slots of Very Rare and rarer gear, for gold', () => {
+    const g = stocked();
+    g.state.gold = 1e30;
+    const bow = g.craftGear('emberLongbow')!; // Very Rare: 1 slot
+    const rifle = g.craftGear('frostRifle')!; // Legendary: 2 slots
+    const plain = g.craftGear('slimeSword')!; // Common: none
+    expect(g.modSlots(bow.uid)).toEqual([null]);
+    expect(g.modSlots(rifle.uid)).toEqual([null, null]);
+    expect(g.modSlots(plain.uid)).toEqual([]);
+    // Closed until Kargesh joins.
+    expect(g.refineOpen).toBe(false);
+    expect(g.refine(bow.uid, 0, 'damage')).toBe(false);
+    g.state.hunters.blacksmith.recruited = true;
+    expect(g.refinable(bow.uid)).toBe(true);
+    expect(g.refinable(plain.uid)).toBe(false);
+    // Only modifiers that fit: no magazine on a bow, no knockback on a rifle.
+    expect(g.canRefine(bow.uid, 0, 'mag')).toBe(false);
+    expect(g.canRefine(rifle.uid, 0, 'knock')).toBe(false);
+    // Damage and attack speed add to the wearer's stats; the cost is gold.
+    g.equip('main', 0, bow.uid);
+    const before = g.gear('main');
+    const gold = g.state.gold;
+    expect(g.refine(bow.uid, 0, 'damage')).toBe(true);
+    expect(g.state.gold).toBe(gold - g.refineCostOf(bow.uid));
+    expect(g.gear('main').damage).toBeCloseTo(before.damage + refineValue('damage', 'veryRare'));
+    // Replacing a slot's modifier; stars don't change it.
+    expect(g.refine(bow.uid, 0, 'rate')).toBe(true);
+    expect(g.gear('main').damage).toBeCloseTo(before.damage);
+    expect(g.gear('main').rate).toBeCloseTo(before.rate + refineValue('rate', 'veryRare'));
+    g.upgradeGear(bow.uid);
+    expect(g.modSlots(bow.uid)).toEqual([{ kind: 'refine', stat: 'rate' }]);
+    // A rifle's magazine grows with a Magazine Size refine, and rarer pieces get more from a modifier.
+    expect(g.refine(rifle.uid, 1, 'mag')).toBe(true);
+    g.equip('main', 0, rifle.uid);
+    expect(g.weaponClassOf('main')!.mag).toBe(Math.round(WEAPON_CLASSES.rifle.mag! * (1 + refineValue('mag', 'legendary'))));
+    expect(refineValue('damage', 'legendary')).toBeGreaterThan(refineValue('damage', 'veryRare'));
+    // Modifiers survive a save.
+    const back = deserialize(serialize(g.state))!;
+    expect(back.inventory.find((it) => it.uid === rifle.uid)!.mods).toEqual([null, { kind: 'refine', stat: 'mag' }]);
+  });
+
+  it('Kargesh the Blacksmith replaces Sera; old saves move her over', () => {
+    expect(hunterDef('blacksmith').name).toBe('Kargesh');
+    expect(HUNTERS.some((h) => (h.id as string) === 'demonbane')).toBe(false);
+    const old = JSON.parse(serialize(startingGame(0)));
+    old.version = 20;
+    old.hunters.demonbane = { recruited: true, trains: 12, skills: {}, station: null };
+    delete old.hunters.blacksmith;
+    expect(deserialize(JSON.stringify(old))!.hunters.blacksmith).toMatchObject({ recruited: true, trains: 12 });
+  });
+
   it('a multi-type weapon splits each hit evenly between its types, each priced and rolling its effect on its own', () => {
     const sword = gearDef('slimeSword');
     const saved = { ...sword };
@@ -1099,7 +1151,7 @@ describe('Equipment', () => {
     f.enemies = [w];
     api.hitWith('frostbreaker', w, 1, 0, 0, false);
     const resisted = 1e6 - w.hp;
-    api.applyStatus(w, 'arcane', 1000, 'demonbane');
+    api.applyStatus(w, 'arcane', 1000, 'blacksmith');
     const before = w.hp;
     api.hitWith('frostbreaker', w, 1, 0, 0, false);
     expect(before - w.hp).toBeCloseTo(resisted / RESIST_MULT);

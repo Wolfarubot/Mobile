@@ -11,6 +11,9 @@ import {
   gearDef,
   itemLevels,
   MAX_STARS,
+  MOD_SLOTS,
+  REFINES,
+  type RefineStat,
   starsFromLevel,
   HUNTERS,
   ITEMS,
@@ -85,7 +88,12 @@ export interface GearItem {
   base: GearId;
   /** 1★ when crafted, up to MAX_STARS. */
   stars: number;
+  /** Modifier slots (Very Rare and up, see MOD_SLOTS): each empty (null) or holding a modifier. */
+  mods?: Array<GearMod | null>;
 }
+
+/** A modifier on a piece of gear: a Refine stat for now (Enchantments come later). */
+export type GearMod = { kind: 'refine'; stat: RefineStat };
 
 /** Who can wear gear: your Hunter ('main') or a recruited Hunter. */
 export type Wearer = 'main' | HunterId;
@@ -186,7 +194,7 @@ export interface GameState {
   };
 }
 
-export const SAVE_VERSION = 20;
+export const SAVE_VERSION = 21;
 
 /** Gear that was replaced, and what saves holding it get instead. */
 const RENAMED_GEAR: Record<string, GearItem['base']> = {
@@ -349,7 +357,8 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
   }
   // v16 -> v17: Gus the Prospector became Theon the Puppeteer, the same way.
   const hk = (data.stats as { hunterKills?: Record<string, unknown> } | undefined)?.hunterKills;
-  for (const [from, to] of [['gravewarden', 'thief'], ['prospector', 'puppeteer']])
+  // v20 -> v21: Sera the Demonbane became Kargesh the Blacksmith.
+  for (const [from, to] of [['gravewarden', 'thief'], ['prospector', 'puppeteer'], ['demonbane', 'blacksmith']])
     for (const m of [data.hunters, data.equipment, hk] as Array<Record<string, unknown> | undefined>)
       if (m && typeof m === 'object' && from in m && !(to in m)) {
         m[to] = m[from];
@@ -491,7 +500,17 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
         .map((g) => (g && typeof g.base === 'string' && g.base in RENAMED_GEAR ? { ...g, base: RENAMED_GEAR[g.base] } : g))
         .filter((g) => g && typeof g.uid === 'number' && GEAR.some((d) => d.id === g.base) && typeof (oldLevels ? g.level : g.stars) === 'number')
         .map((g) => {
-          if (!oldLevels) return { uid: g.uid, base: g.base, stars: Math.max(1, Math.min(MAX_STARS, Math.floor(g.stars))) };
+          if (!oldLevels) {
+            const item: GearItem = { uid: g.uid, base: g.base, stars: Math.max(1, Math.min(MAX_STARS, Math.floor(g.stars))) };
+            // Modifiers: only well-formed ones, in the slots the piece has.
+            const slots = MOD_SLOTS[gearDef(g.base).rarity];
+            if (Array.isArray(g.mods) && slots > 0)
+              item.mods = Array.from({ length: slots }, (_, i) => {
+                const m = g.mods![i] as GearMod | null | undefined;
+                return m && m.kind === 'refine' && m.stat in REFINES ? { kind: 'refine' as const, stat: m.stat } : null;
+              });
+            return item;
+          }
           const def = gearDef(g.base);
           const { stars, refund } = starsFromLevel(GEAR_STAR_POWER, Math.max(1, g.level!), def.recipe, GEAR_COST_GROWTH);
           addMaterials(state, refund);

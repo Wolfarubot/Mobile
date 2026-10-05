@@ -65,6 +65,9 @@ import {
   eventDef,
   type EventDef,
   RARITIES,
+  REFINES,
+  refineValue,
+  type RefineStat,
   STATION_CAPACITY,
   STATION_EFFICIENCY,
   type AreaId,
@@ -176,6 +179,8 @@ export class AppUI {
   private invSub: InvSub = 'equipment';
   /** Filters on the Inventory's Equipment sub-tab (kept for the session). */
   private invFilter: InvFilter = { ...NO_FILTER };
+  /** Equipment's Refine toggle: show only pieces that can be refined, and open Refine when one is tapped. */
+  private refineMode = false;
   /** The open sub-tab of the monster view. */
   private monsterSub: 'stats' | 'evolution' = 'stats';
   /** The area selected in the Areas tab. */
@@ -1011,7 +1016,17 @@ export class AppUI {
         <p>${dtypeTag(gd)}<b class="rarity-tag" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${gearKindName(gd)} · <span class="stars">${starsHtml(item.stars)}</span>${worn ? ` · worn by ${wearerName(worn.who)}` : ''}</p>
         ${weaponLine(gd, item.stars)}
         <p class="gear-now">${gearSummary(gd, item.stars) || (gd.effect ? '' : 'No bonuses: plain everyday wear.')}</p>
+        ${modSlotsHtml(g, uid)}
         ${cost ? `<p class="gear-next">Next: <b>${[gearSummary(gd, item.stars + 1), gd.effect && 'base' in gd.effect ? describeEffect(gd.effect, item.stars + 1) : ''].filter(Boolean).join(' ')}</b></p><div class="cost">${costHtml(g, cost)}</div>` : Object.keys(gd.stats).length || gd.effect ? '<p>Fully upgraded.</p>' : '<p>Nothing to upgrade.</p>'}`;
+      // Under the modifier slots: Refine (once Kargesh has joined).
+      if (g.refinable(uid)) {
+        const rb = el('button', 'buy refine-open', '⚒️ Refine') as HTMLButtonElement;
+        rb.addEventListener('click', () => {
+          close();
+          this.openRefine(uid);
+        });
+        body.querySelector('.mod-slots')?.after(rb);
+      }
       const actions = el('div', 'actions');
       if (cost) {
         const up = el('button', 'buy', `Upgrade to ${item.stars + 1}★`) as HTMLButtonElement;
@@ -1034,6 +1049,68 @@ export class AppUI {
       });
       actions.appendChild(salvage);
       body.appendChild(actions);
+    });
+  }
+
+  /**
+   * Refine a piece (Kargesh the Blacksmith): pick a modifier slot and a stat; refining puts it in the slot
+   * (replacing what's there) for gold. Modifiers stay as the piece gains stars.
+   */
+  private openRefine(uid: number): void {
+    const g = this.game;
+    const item = g.gearItem(uid);
+    if (!item) return;
+    const gd = gearDef(item.base);
+    let slot = Math.max(0, g.modSlots(uid).findIndex((m) => !m));
+    let pick: RefineStat | null = null;
+    this.showSheet(`⚒️ Refine ${gd.icon} ${gd.name}`, (body) => {
+      const draw = () => {
+        const slots = g.modSlots(uid);
+        const cost = g.refineCostOf(uid);
+        const stats = (Object.keys(REFINES) as RefineStat[]).filter((s) => REFINES[s].fits(gd));
+        body.innerHTML = `
+          <p><b class="rarity-tag" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${gearKindName(gd)} · ${slots.length} modifier slot${slots.length === 1 ? '' : 's'}</p>
+          <div class="filter-label">Slot</div>
+          <div class="refine-slots">${slots
+            .map((m, i) => `<button class="refine-slot${i === slot ? ' on' : ''}" data-slot="${i}">${m ? `${REFINES[m.stat].icon} ${REFINES[m.stat].text(refineValue(m.stat, gd.rarity))}` : '<i>Empty slot</i>'}</button>`)
+            .join('')}</div>
+          <div class="filter-label">Modifier</div>
+          <div class="refine-stats">${stats
+            .map((s) => {
+              const same = slots[slot]?.stat === s;
+              return `<button class="refine-stat${pick === s ? ' on' : ''}" data-stat="${s}"${same ? ' disabled' : ''}><b>${REFINES[s].icon} ${REFINES[s].name}</b><small>${REFINES[s].text(refineValue(s, gd.rarity))}${same ? ' · in this slot' : ''}</small></button>`;
+            })
+            .join('')}</div>
+          <p class="refine-note">${slots[slot] ? 'Refining this slot replaces its modifier.' : 'Modifiers stay as the piece gains stars.'}</p>`;
+        const go = el('button', 'buy refine-go') as HTMLButtonElement;
+        go.innerHTML = `Refine <span class="refine-cost">🪙 ${fmt(cost)}</span>`;
+        go.disabled = !pick || !g.canRefine(uid, slot, pick);
+        go.addEventListener('click', () => {
+          if (pick && g.refine(uid, slot, pick)) {
+            this.toast(`⚒️ ${gd.name}: ${REFINES[pick].text(refineValue(pick, gd.rarity))}`);
+            this.hooks.save();
+            pick = null;
+            const next = g.modSlots(uid).findIndex((m) => !m);
+            if (next >= 0) slot = next;
+            draw();
+          }
+        });
+        body.appendChild(go);
+        body.querySelectorAll<HTMLButtonElement>('.refine-slot').forEach((b) =>
+          b.addEventListener('click', () => {
+            slot = Number(b.dataset.slot);
+            if (pick && g.modSlots(uid)[slot]?.stat === pick) pick = null;
+            draw();
+          }),
+        );
+        body.querySelectorAll<HTMLButtonElement>('.refine-stat').forEach((b) =>
+          b.addEventListener('click', () => {
+            pick = b.dataset.stat as RefineStat;
+            draw();
+          }),
+        );
+      };
+      draw();
     });
   }
 
@@ -2031,14 +2108,30 @@ export class AppUI {
       this.refreshers.push(() => asBtn.classList.toggle('on', g.state.settings.autoSalvage.length > 0));
     }
     pane.appendChild(bar);
+    // Refine (once Kargesh the Blacksmith joins): a toggle under Filter and Auto Salvage.
+    let refineBtn: HTMLButtonElement | null = null;
+    if (g.refineOpen) {
+      const row = el('div', 'filter-bar refine-bar');
+      refineBtn = el('button', 'filter-btn refine-btn', '⚒️ Refine') as HTMLButtonElement;
+      refineBtn.addEventListener('click', () => {
+        this.refineMode = !this.refineMode;
+        this.refresh();
+      });
+      row.appendChild(refineBtn);
+      row.appendChild(el('span', 'refine-hint', 'Show only gear you can refine'));
+      pane.appendChild(row);
+    } else this.refineMode = false;
     const inv = el('div', 'inventory');
     pane.appendChild(inv);
     let invKey: string | null = null;
     this.refreshers.push(() => {
       const f = this.invFilter;
       const lv = LEVEL_FILTERS.find((l) => l.id === f.level)!;
+      const refining = this.refineMode && g.refineOpen;
+      refineBtn?.classList.toggle('on', refining);
       const gear = g.state.inventory.filter((it) => {
         const gd = gearDef(it.base);
+        if (refining && !g.refinable(it.uid)) return false;
         return (
           (f.type === 'all' || GEAR_TYPE[gd.kind] === f.type) &&
           (f.rarity === 'any' || gd.rarity === f.rarity) &&
@@ -2049,12 +2142,13 @@ export class AppUI {
       });
       // Upgrades have no rarity or damage type, so those filters hide them.
       const upgrades =
-        (f.type === 'all' || f.type === 'upgrades') && f.rarity === 'any' && f.dtype === 'any'
+        !refining && (f.type === 'all' || f.type === 'upgrades') && f.rarity === 'any' && f.dtype === 'any'
           ? ITEMS.filter((it) => g.state.items[it.id] > 0 && g.state.items[it.id] >= lv.min && g.state.items[it.id] <= lv.max)
           : [];
       const k = [
         JSON.stringify(f),
-        gear.map((it) => `${it.uid}:${it.stars}:${g.wearerOf(it.uid)?.who ?? ''}`).join('|'),
+        refining,
+        gear.map((it) => `${it.uid}:${it.stars}:${g.wearerOf(it.uid)?.who ?? ''}:${g.modSlots(it.uid).filter(Boolean).length}`).join('|'),
         upgrades.map((it) => `${it.id}:${g.state.items[it.id]}`).join('|'),
       ].join('/');
       if (k === invKey) return;
@@ -2062,7 +2156,9 @@ export class AppUI {
       const total = g.state.inventory.length + ITEMS.filter((it) => g.state.items[it.id] > 0).length;
       const shown = gear.length + upgrades.length;
       const filtering = f.type !== 'all' || f.rarity !== 'any' || f.level !== 'any' || f.dtype !== 'any';
-      invTitle.innerHTML = `<span>Equipment</span><span>${filtering ? `${shown} of ${total}` : total} item${total === 1 ? '' : 's'}</span>`;
+      invTitle.innerHTML = refining
+        ? `<span>⚒️ Refine</span><span>${shown} piece${shown === 1 ? '' : 's'} with modifier slots</span>`
+        : `<span>Equipment</span><span>${filtering ? `${shown} of ${total}` : total} item${total === 1 ? '' : 's'}</span>`;
       $('.filter-btn', bar).classList.toggle('on', filtering);
       const chips = $('.filter-chips', bar);
       chips.innerHTML = '';
@@ -2092,14 +2188,17 @@ export class AppUI {
       inv.innerHTML = '';
       if (!total) inv.innerHTML = '<p class="empty-inv">Empty. Craft equipment in Crafting, then equip it from a Hunter\'s card.</p>';
       else if (!shown)
-        inv.innerHTML = '<p class="empty-inv">Nothing matches these filters.</p>';
+        inv.innerHTML = refining
+          ? '<p class="empty-inv">Nothing to refine yet: Very Rare and rarer gear has modifier slots.</p>'
+          : '<p class="empty-inv">Nothing matches these filters.</p>';
       for (const it of gear) {
         const gd = gearDef(it.base);
         const worn = g.wearerOf(it.uid);
         const tile = el('button', 'inv-tile rar') as HTMLButtonElement;
         tile.style.setProperty('--rc', gearColor(gd.id));
-        tile.innerHTML = `<i>${gd.icon}</i><span>${gd.name}</span><small class="stars">${starsHtml(it.stars)}</small>${worn ? `<em>${wearerIcon(worn.who)}</em>` : ''}`;
-        tile.addEventListener('click', () => this.openGearDetail(it.uid));
+        const slots = g.modSlots(it.uid);
+        tile.innerHTML = `<i>${gd.icon}</i><span>${gd.name}</span><small class="stars">${starsHtml(it.stars)}</small>${worn ? `<em>${wearerIcon(worn.who)}</em>` : ''}${slots.length ? `<b class="mod-pips">${slots.map((m) => (m ? '◆' : '◇')).join('')}</b>` : ''}`;
+        tile.addEventListener('click', () => (refining ? this.openRefine(it.uid) : this.openGearDetail(it.uid)));
         inv.appendChild(tile);
       }
       for (const it of upgrades) {
@@ -3220,6 +3319,7 @@ function gearCardHtml(it: GearItem, vs: GearItem | null = null): string {
       .map((t) => `<li class="gc-effect">${DAMAGE_TYPES[t].icon} ${Math.round(gd.proc! * 100)}% chance · ${DAMAGE_TYPES[t].effect}</li>`)
       .join('') +
     (gd.typeBonus ? `<li class="gc-effect">${DAMAGE_TYPES[gd.typeBonus.type].icon} +${Math.round(gd.typeBonus.bonus * GEAR_STAR_POWER[it.stars] * 100)}% ${DAMAGE_TYPES[gd.typeBonus.type].name} damage</li>` : '') +
+    (it.mods ?? []).filter(Boolean).map((m) => `<li class="gc-mod">${REFINES[m!.stat].icon} ${REFINES[m!.stat].text(refineValue(m!.stat, gd.rarity))}</li>`).join('') +
     (gd.effect ? `<li class="gc-effect">✨ ${describeEffect(gd.effect, it.stars)}</li>` : '') +
     (gd.bane ? `<li class="gc-effect">${ARCHETYPES[gd.bane.archetype].icon} +${Math.round(gd.bane.bonus * GEAR_STAR_POWER[it.stars] * 100)}% damage vs ${ARCHETYPES[gd.bane.archetype].name}s</li>` : '') +
     (gd.findDrop ? `<li class="gc-effect">💎 ${it.stars >= gd.findDrop.stars ? '' : `At ${gd.findDrop.stars}★: `}${gd.findDrop.chance * 100}% chance for ${materialDef(gd.findDrop.material).name} from ${ARCHETYPES[gd.findDrop.archetype].name.toLowerCase()} kills</li>` : '');
@@ -3349,6 +3449,17 @@ if (typeof MutationObserver !== 'undefined' && typeof document !== 'undefined')
         }
       });
   }).observe(document.body, { childList: true, subtree: true });
+
+/** A piece's modifier slots (Very Rare and up): what each holds, or that it's empty. */
+function modSlotsHtml(g: Game, uid: number): string {
+  const item = g.gearItem(uid);
+  const slots = g.modSlots(uid);
+  if (!item || !slots.length) return '';
+  const rarity = gearDef(item.base).rarity;
+  return `<div class="mod-slots"><div class="filter-label">Modifiers</div>${slots
+    .map((m) => `<div class="mod-slot${m ? ' full' : ''}">${m ? `${REFINES[m.stat].icon} ${REFINES[m.stat].text(refineValue(m.stat, rarity))}` : '<i>Empty slot</i>'}</div>`)
+    .join('')}${g.refineOpen ? '' : '<p class="refine-note">Recruit Kargesh the Blacksmith (Ember Mines) to refine.</p>'}</div>`;
+}
 
 /** A weapon's damage type as a small coloured tag ('' for gear without one). */
 function dtypeTag(gd: GearDef): string {

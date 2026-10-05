@@ -351,7 +351,7 @@ export const ASCENDED_TREES: Record<HunterId, SkillNode[]> = {
   thief: ascendedTree({ name: 'Grand Heist', icon: '💎', desc: '+100% damage and +50% gold from his kills.', maxRank: 1, effect: { damage: 1, gold: 0.5 } }),
   lance: ascendedTree({ name: 'Aegis', icon: '🛡️', desc: '+100% damage and 2 more shield charges.', maxRank: 1, effect: { damage: 1, guard: 2 } }),
   puppeteer: ascendedTree({ name: 'Theater of Puppets', icon: '🎭', desc: '+100% damage and puppets 30% fiercer.', maxRank: 1, effect: { damage: 1, radius: 0.3 } }),
-  demonbane: ascendedTree({ name: 'Hellsbane', icon: '🔥', desc: '+100% damage and +1× extra damage to Demons.', maxRank: 1, effect: { damage: 1, bane: 1 } }),
+  blacksmith: ascendedTree({ name: 'Masterwork', icon: '⚒️', desc: '+100% damage and +20% attack rate.', maxRank: 1, effect: { damage: 1, rate: 0.2 } }),
   wilhelm: ascendedTree({ name: 'One Shot', icon: '🎯', desc: '+100% damage and +10% crit chance.', maxRank: 1, effect: { damage: 1, crit: 0.1 } }),
   celeste: ascendedTree({ name: 'Omniscience', icon: '🧠', desc: '+100% damage and +10% crit chance.', maxRank: 1, effect: { damage: 1, crit: 0.1 } }),
   scavenger: ascendedTree({ name: 'Hoard', icon: '💎', desc: '+100% damage and +50% materials from their kills.', maxRank: 1, effect: { damage: 1, drops: 0.5 } }),
@@ -445,14 +445,14 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
     ],
     { name: 'Grand Performance', icon: '🎭', desc: '+25% damage and puppets 20% fiercer.', maxRank: 1, cost: 5, effect: { damage: 0.25, radius: 0.2 } },
   ),
-  demonbane: skillTree(
-    { name: 'Hexed Blades', icon: '🗡️', desc: '+5% crit chance.', maxRank: 1, effect: { crit: 0.05 } },
+  blacksmith: skillTree(
+    { name: 'Forge-Hardened', icon: '🔥', desc: 'Stuns wear off 8% faster.', maxRank: 1, effect: { recovery: 1 } },
     [
-      { name: 'Demon Bane', icon: '😈', desc: '+0.5× extra damage to Demons per rank.', maxRank: 3, effect: { bane: 0.5 } },
-      { name: 'Flurry', icon: '🌪️', desc: '+10% attack rate per rank.', maxRank: 3, effect: { rate: 0.1 } },
-      { name: 'Keen Edge', icon: '🔪', desc: '+3% crit chance per rank.', maxRank: 3, effect: { crit: 0.03 } },
+      { name: 'Heavy Blows', icon: '🔨', desc: '+10% damage per rank.', maxRank: 3, effect: { damage: 0.1 } },
+      { name: 'Quench', icon: '💧', desc: '+10% attack rate per rank.', maxRank: 3, effect: { rate: 0.1 } },
+      { name: 'Whetstone Eye', icon: '🪨', desc: '+3% crit chance per rank.', maxRank: 3, effect: { crit: 0.03 } },
     ],
-    { name: 'Exorcist', icon: '📿', desc: '+30% damage.', maxRank: 1, cost: 4, effect: { damage: 0.3 } },
+    { name: 'Master Smith', icon: '⚒️', desc: '+30% damage.', maxRank: 1, cost: 4, effect: { damage: 0.3 } },
   ),
   wilhelm: skillTree(
     { name: 'Steady Aim', icon: '🎯', desc: '+30 range.', maxRank: 1, effect: { range: 30 } },
@@ -1259,7 +1259,7 @@ export type HunterId =
   | 'thief'
   | 'lance'
   | 'puppeteer'
-  | 'demonbane'
+  | 'blacksmith'
   | 'wilhelm'
   | 'celeste'
   | 'scavenger'
@@ -1490,11 +1490,12 @@ export const HUNTERS: HunterDef[] = [
     ability: 'Deals triple damage to Dragons.',
   },
   {
-    id: 'demonbane', name: 'Sera', title: 'Demonbane', icon: '🗡️', color: '#ff7a3d', area: 'caves', recruitCost: 3e15, bane: { archetype: 'demon', mult: 3 },
+    id: 'blacksmith', name: 'Kargesh', title: 'Blacksmith', icon: '⚒️', color: '#d07a3a', area: 'caves', recruitCost: 3e15,
     unlock: { event: 'guardian-caves', times: 1 },
-    ascendedTitle: 'Demonslayer',
-    story: 'Sera hunts the demons of the Ember Mines alone. Show her you can beat the Mines\' Guardian, and she\'ll fight beside you.',
-    ability: 'Deals triple damage to Demons.',
+    ascendedTitle: 'Master Smith',
+    story: "Kargesh keeps a forge deep in the Ember Mines, fed by the heat of the Demon Lord's lair. Beat the Mines' Guardian, and he'll bring his anvil to the guild.",
+    ability: 'Unlocks Refine in Equipment: add stat modifiers (attack speed, damage, knockback, piercing, magazine size) to Very Rare and rarer gear. Fights with melee weapons.',
+    slots: [{ kind: 'melee', label: 'Melee' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
   },
   {
     id: 'scavenger', name: 'Pip', title: 'Scavenger', icon: '🎒', color: '#3fb0a0', area: 'caves', recruitCost: 1.2e16, drops: 2,
@@ -1870,6 +1871,38 @@ export function gearSummary(def: GearDef, stars: number): string {
 
 // ---- Stars: gear and Upgrades go from 1★ (crafted) to 5★ ----
 export const MAX_STARS = 5;
+
+// ---- Gear modifiers: Refine (Kargesh the Blacksmith) adds stat modifiers to Very Rare and rarer gear ----
+
+/** Modifier slots on a piece by its rarity (Refine now; Enchant later). Stars don't change them. */
+export const MOD_SLOTS: Record<Rarity, number> = { common: 0, uncommon: 0, rare: 0, veryRare: 1, legendary: 2, exotic: 2, relic: 3, artifact: 3, exalted: 3 };
+
+export type RefineStat = 'rate' | 'damage' | 'knock' | 'pierce' | 'mag';
+
+/**
+ * Refine modifiers: basic stat bonuses. `value` is at Very Rare; rarer pieces get more (REFINE_POWER).
+ * `fits` says which pieces can take it (knockback on weapons that knock back, magazine size on guns...).
+ */
+export const REFINES: Record<RefineStat, { name: string; icon: string; value: number; text: (v: number) => string; fits: (def: GearDef) => boolean }> = {
+  rate: { name: 'Attack Speed', icon: '⚡', value: 0.06, text: (v) => `+${Math.round(v * 100)}% attack speed`, fits: () => true },
+  damage: { name: 'Damage', icon: '💥', value: 0.08, text: (v) => `+${Math.round(v * 100)}% damage`, fits: () => true },
+  knock: { name: 'Knockback', icon: '🥊', value: 0.3, text: (v) => `+${Math.round(v * 100)}% knockback`, fits: (d) => !!d.weaponClass && (WEAPON_CLASSES[d.weaponClass].knock ?? 0) > 0 },
+  pierce: { name: 'Piercing', icon: '🎯', value: 1, text: (v) => `+${v} pierce`, fits: (d) => !!d.weaponClass && WEAPON_CLASSES[d.weaponClass].attack === 'shot' },
+  mag: { name: 'Magazine Size', icon: '🔋', value: 0.25, text: (v) => `+${Math.round(v * 100)}% magazine size`, fits: (d) => !!d.weaponClass && !!WEAPON_CLASSES[d.weaponClass].mag },
+};
+
+/** Rarer pieces take stronger modifiers. */
+export const REFINE_POWER: Record<Rarity, number> = { common: 1, uncommon: 1, rare: 1, veryRare: 1, legendary: 1.25, exotic: 1.5, relic: 1.75, artifact: 2, exalted: 2.5 };
+
+/** A Refine modifier's value on a piece of a rarity (pierce in whole enemies). */
+export const refineValue = (stat: RefineStat, rarity: Rarity): number => {
+  const v = REFINES[stat].value * REFINE_POWER[rarity];
+  return stat === 'pierce' ? Math.max(1, Math.round(v)) : Math.round(v * 1000) / 1000;
+};
+
+/** Refining a slot costs gold: this many kills' worth in the piece's own area. */
+export const REFINE_COST_KILLS = 2_000;
+export const refineCost = (def: GearDef): number => areaDef(AREAS[Math.max(0, Math.min(AREAS.length, gearArea(def)) - 1)].id).gold * REFINE_COST_KILLS;
 /** Gear stats at each star, as a multiple of 1★ (0★ = not crafted). */
 export const GEAR_STAR_POWER = [0, 1, 2, 4, 7, 10];
 /** Gear costs grow this much per step of power (so a star costs the sum of the steps it skips). */

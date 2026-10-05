@@ -3769,3 +3769,82 @@ body.left-handed .hd-float-close {
   font-size: 11px;
   opacity: 0.8;
 }
+
+/* ---- Refine (Kargesh the Blacksmith) ---- */
+.refine-bar {
+  margin-top: -2px;
+}
+.refine-hint {
+  font-size: 12px;
+  opacity: 0.7;
+}
+.inv-tile .mod-pips {
+  position: absolute;
+  left: 4px;
+  top: 2px;
+  font-size: 10px;
+  color: var(--gold);
+  letter-spacing: 1px;
+}
+.mod-slots {
+  display: grid;
+  gap: 4px;
+  margin: 6px 0;
+}
+.mod-slot {
+  padding: 6px 10px;
+  border: 2px dashed currentColor;
+  border-radius: 8px;
+  opacity: 0.6;
+  font-size: 13px;
+}
+.mod-slot.full {
+  border-style: solid;
+  opacity: 1;
+  color: var(--gold);
+  font-weight: 700;
+}
+.refine-open {
+  width: 100%;
+  margin: 2px 0 8px;
+}
+.refine-slots,
+.refine-stats {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.refine-slot,
+.refine-stat {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 2px solid rgba(0, 0, 0, 0.18);
+  text-align: left;
+  border-radius: 9px;
+  background: var(--card);
+  color: var(--text);
+}
+.refine-slot.on,
+.refine-stat.on {
+  background: var(--gold);
+  color: var(--c0);
+}
+.refine-stat small {
+  font-size: 12px;
+  opacity: 0.85;
+}
+.refine-note {
+  font-size: 12px;
+  opacity: 0.75;
+}
+.refine-go {
+  width: 100%;
+}
+.refine-go .refine-cost {
+  margin-left: 8px;
+}
+.gc-mod {
+  color: var(--gold);
+  font-weight: 700;
+}
