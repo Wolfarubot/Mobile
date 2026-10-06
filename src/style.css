@@ -3931,6 +3931,7 @@ body.left-handed .hd-float-close {
 /* A perfect roll (the top of its range): a shimmering rainbow border. */
 .refine-slot.perfect,
 .mod-slot.perfect,
+.mod-choice.perfect,
 .gc-mod.perfect {
   border: 3px solid transparent !important;
   background:
@@ -3965,7 +3966,8 @@ body.left-handed .hd-float-close {
   position: relative;
   overflow: visible;
 }
-.refine-slot.shaking {
+.refine-slot.shaking,
+.mod-choice.shaking {
   animation: roll-shake 0.12s linear infinite;
 }
 @keyframes roll-shake {
@@ -3994,4 +3996,40 @@ body.left-handed .hd-float-close {
   0% { transform: scale(1); }
   40% { transform: scale(1.05); }
   100% { transform: scale(1); }
+}
+
+/* A roll's choices: pick one. Each box shakes, then fades in left to right shedding pixels. */
+.mod-choices {
+  position: relative;
+  display: grid;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.mod-choice {
+  position: relative;
+  min-height: 52px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  text-align: left;
+  font-weight: 700;
+  background: var(--card);
+  color: var(--text);
+  border: 2px solid rgba(0, 0, 0, 0.2);
+}
+.mod-choice.refine {
+  box-shadow: inset 4px 0 0 #c4c8cc;
+}
+.mod-choice.enchant {
+  box-shadow: inset 4px 0 0 #9fd8ff;
+}
+.mod-choice:not(:disabled):active {
+  transform: scale(0.98);
+}
+.mod-choice .roll-dice {
+  display: block;
+  text-align: center;
+  font-size: 22px;
+}
+.mod-choice.perfect {
+  animation: perfect-shine 3s linear infinite, perfect-pop 0.4s ease-out;
 }

@@ -93,11 +93,20 @@ export interface GearItem {
   stars: number;
   /** Modifier slots (Very Rare and up, see MOD_SLOTS): each empty (null) or holding a modifier. */
   mods?: Array<GearMod | null>;
+  /** A paid-for roll waiting on you to pick one of its choices (kept if you close the window). */
+  pending?: PendingMod;
 }
 
 /** A modifier on a piece of gear: a Refine stat (Kargesh) or an Enchantment (Marceline). */
 /** `q` is its rolled quality step (0 to MOD_QUALITY_STEPS; the top step is a perfect roll). */
 export type GearMod = { kind: 'refine'; stat: RefineStat; q: number } | { kind: 'enchant'; id: EnchantId; q: number };
+
+/** A roll's choices for a slot, waiting to be picked. */
+export interface PendingMod {
+  slot: number;
+  kind: 'refine' | 'enchant';
+  options: GearMod[];
+}
 
 /** Who can wear gear: your Hunter ('main') or a recruited Hunter. */
 export type Wearer = 'main' | HunterId;
@@ -336,6 +345,16 @@ function pick<T extends string>(allowed: readonly T[], v: unknown, fallback: T):
   return allowed.includes(v as T) ? (v as T) : fallback;
 }
 
+/** A saved modifier, if well-formed (ones from before rolls count as middling). */
+function parseMod(m: unknown): GearMod | null {
+  const x = m as { kind?: string; stat?: string; id?: string; q?: number } | null;
+  if (!x) return null;
+  const q = typeof x.q === 'number' ? Math.max(0, Math.min(MOD_QUALITY_STEPS, Math.round(x.q))) : Math.round(MOD_QUALITY_STEPS / 2);
+  if (x.kind === 'refine' && x.stat && x.stat in REFINES) return { kind: 'refine', stat: x.stat as RefineStat, q };
+  if (x.kind === 'enchant' && x.id && x.id in ENCHANTS) return { kind: 'enchant', id: x.id as EnchantId, q };
+  return null;
+}
+
 export function deserialize(raw: string | null | undefined, now = Date.now()): GameState | null {
   if (!raw) return null;
   let data: Record<string, unknown>;
@@ -508,6 +527,10 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
             const item: GearItem = { uid: g.uid, base: g.base, stars: Math.max(1, Math.min(MAX_STARS, Math.floor(g.stars))) };
             // Modifiers: only well-formed ones, in the slots the piece has.
             const slots = MOD_SLOTS[gearDef(g.base).rarity];
+            if (slots > 0 && g.pending && Array.isArray(g.pending.options) && typeof g.pending.slot === 'number' && g.pending.slot < slots) {
+              const options = g.pending.options.map((m) => parseMod(m)).filter((m): m is GearMod => !!m);
+              if (options.length) item.pending = { slot: g.pending.slot, kind: g.pending.kind === 'enchant' ? 'enchant' : 'refine', options };
+            }
             if (Array.isArray(g.mods) && slots > 0)
               item.mods = Array.from({ length: slots }, (_, i) => {
                 const m = g.mods![i] as GearMod | null | undefined;

@@ -69,12 +69,8 @@ import {
   REFINES,
   ENCHANTS,
   enchantTierHit,
-  type EnchantId,
   modValue,
-  modRoll,
   modPerfect,
-  MOD_QUALITY_STEPS,
-  type RefineStat,
   STATION_CAPACITY,
   STATION_EFFICIENCY,
   type AreaId,
@@ -1069,87 +1065,100 @@ export class AppUI {
   }
 
   /**
-   * Modify a piece. The slots come first, then what can roll, then the Refine and Enchant buttons. Choosing
-   * one lights up the empty slots; picking a slot (confirming first if it already holds a modifier, which
-   * will be replaced) brings up the Roll button: the modifier, and how strong it is, are random. A roll at the
-   * top of its range is perfect and gets a special border.
+   * Modify a piece. The slots come first, then the choices area, then the Refine and Enchant buttons.
+   * Choosing one lights up the empty slots; picking a slot (confirming first if it already holds a modifier,
+   * which will be replaced) brings up Roll, which draws `modChoices` random modifiers (2 to start). Their boxes
+   * shake for a second, then fade in left to right shedding pixels (falling metal for Refine, rising magic for
+   * Enchant), and a perfect roll gets its border. Pick one and it goes in the slot. A paid-for roll waits on
+   * the piece until you pick, even if you close the window.
    */
   private openModify(uid: number): void {
     const g = this.game;
     const item = g.gearItem(uid);
     if (!item) return;
     const gd = gearDef(item.base);
-    const t = enchantTierHit(gd);
-    let action: 'refine' | 'enchant' | null = null;
-    let slot: number | null = null;
-    let last: number | null = null; // the slot just rolled, to show its result
-    // A roll's animation: the slot shakes for a second, then the result is revealed left to right.
-    let rolling: { slot: number; step: 'shake' | 'reveal'; kind: 'refine' | 'enchant' } | null = null;
+    const waiting = g.pendingMod(uid);
+    let action: 'refine' | 'enchant' | null = waiting?.kind ?? null;
+    let slot: number | null = waiting?.slot ?? null;
+    let last: number | null = null; // the slot just filled
+    let anim: 'shake' | 'reveal' | null = null;
     this.showSheet(`🛠️ Modify ${gd.icon} ${gd.name}`, (body) => {
       const draw = () => {
         const slots = g.modSlots(uid);
-        const options =
-          action === 'refine'
-            ? g.refinesFor(uid).map((st) => `<div class="mod-option"><b>${REFINES[st].icon} ${REFINES[st].name}</b><small>${refineRangeText(st, gd)}</small></div>`)
-            : action === 'enchant'
-              ? g.enchantsFor(uid, slot ?? -1).map((id) => `<div class="mod-option"><b>${ENCHANTS[id].icon} ${ENCHANTS[id].name}</b><small>${enchantRangeText(id, gd, t)}</small></div>`)
-              : [];
+        const pending = g.pendingMod(uid);
+        const busy = !!pending || !!anim;
+        const choices = pending
+          ? `<div class="filter-label">${anim ? (pending.kind === 'refine' ? 'Refining…' : 'Enchanting…') : 'Choose one'}</div><div class="mod-choices">${pending.options
+              .map((m, i) => {
+                const perfect = modPerfect(m) && !anim;
+                const inner = anim === 'shake' ? `<span class="roll-dice">🎲</span>` : `${modText(m, gd)}${perfect ? ' <em class="perfect-tag">Perfect</em>' : ''}`;
+                return `<button class="mod-choice ${pending.kind}${anim === 'shake' ? ' shaking' : ''}${perfect ? ' perfect' : ''}" data-choice="${i}"${anim ? ' disabled' : ''}>${inner}</button>`;
+              })
+              .join('')}</div>`
+          : action
+            ? `<p class="refine-note">${slot === null ? 'Pick a slot.' : `🎲 Roll draws ${g.modChoices} random ${action === 'refine' ? 'refinements' : 'enchantments'} (stronger on rarer gear); pick one for the slot. A roll at the top of its range is perfect.`}</p>`
+            : '<p class="refine-note">Choose Refine or Enchant: the empty slots light up. Rolling draws random choices to pick from.</p>';
         body.innerHTML = `
           <p><b class="rarity-tag" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${gearKindName(gd)} · ${slots.length} modifier slot${slots.length === 1 ? '' : 's'}</p>
           <div class="filter-label">${action && slot === null ? 'Choose a slot' : 'Slots'}</div>
           <div class="refine-slots">${slots
             .map((m, i) => {
-              const r = rolling?.slot === i ? rolling : null;
-              const perfect = !!m && modPerfect(m) && !r;
-              const cls = ['refine-slot', action && !m && !r ? 'open' : '', i === slot ? 'on' : '', perfect ? 'perfect' : '', i === last && !r ? 'fresh' : '', r?.step === 'shake' ? 'shaking' : ''].filter(Boolean).join(' ');
-              const inner = r?.step === 'shake' ? `<span class="roll-dice">🎲 ${r.kind === 'refine' ? 'Refining' : 'Enchanting'}…</span>` : m ? `${r ? '<span class="reveal">' : ''}${modText(m, gd)}${r ? '</span>' : ''}${perfect ? ' <em class="perfect-tag">Perfect</em>' : ''}` : '<i>Empty slot</i>';
-              return `<button class="${cls}" data-slot="${i}"${action && !rolling ? '' : ' disabled'}>${inner}</button>`;
+              const perfect = !!m && modPerfect(m);
+              const cls = ['refine-slot', action && !m && !busy ? 'open' : '', i === slot ? 'on' : '', perfect ? 'perfect' : '', i === last ? 'fresh' : ''].filter(Boolean).join(' ');
+              return `<button class="${cls}" data-slot="${i}"${action && !busy ? '' : ' disabled'}>${m ? `${modText(m, gd)}${perfect ? ' <em class="perfect-tag">Perfect</em>' : ''}` : '<i>Empty slot</i>'}</button>`;
             })
             .join('')}</div>
-          ${
-            action
-              ? `<div class="filter-label">${action === 'refine' ? 'Refine can roll' : 'Enchant can roll'} (random, stronger on rarer gear)</div><div class="mod-options">${options.join('') || '<p class="refine-note">Nothing left that fits this piece.</p>'}</div>`
-              : '<p class="refine-note">Choose Refine or Enchant: the empty slots light up. What you get, and how strong, is rolled at random; a roll at the top of its range is perfect.</p>'
-          }
+          ${choices}
           <div class="mod-actions">
-            ${g.refineOpen ? `<button class="mod-action${action === 'refine' ? ' on' : ''}" data-action="refine"><b>⚒️ Refine</b><small>A random stat · 🪙 ${fmt(g.refineCostOf(uid))}</small></button>` : ''}
-            ${g.enchantOpen ? `<button class="mod-action${action === 'enchant' ? ' on' : ''}" data-action="enchant"><b>✨ Enchant</b><small>A random enchantment · 🪙 ${fmt(g.enchantCostOf(uid))}</small></button>` : ''}
+            ${g.refineOpen ? `<button class="mod-action${action === 'refine' ? ' on' : ''}" data-action="refine"${busy ? ' disabled' : ''}><b>⚒️ Refine</b><small>A random stat · 🪙 ${fmt(g.refineCostOf(uid))}</small></button>` : ''}
+            ${g.enchantOpen ? `<button class="mod-action${action === 'enchant' ? ' on' : ''}" data-action="enchant"${busy ? ' disabled' : ''}><b>✨ Enchant</b><small>A random enchantment · 🪙 ${fmt(g.enchantCostOf(uid))}</small></button>` : ''}
           </div>
           ${!g.refineOpen ? '<p class="refine-note">Recruit Kargesh the Blacksmith (Ember Mines) to Refine.</p>' : ''}
           ${!g.enchantOpen ? '<p class="refine-note">Recruit Marceline the Enchantress (Venom Caverns) to Enchant.</p>' : ''}`;
-        if (action && slot !== null) {
+        if (action && slot !== null && !pending) {
           const cost = action === 'refine' ? g.refineCostOf(uid) : g.enchantCostOf(uid);
           const go = el('button', 'buy refine-go') as HTMLButtonElement;
-          go.innerHTML = `🎲 ${slots[slot] ? 'Reroll' : 'Roll'} ${action === 'refine' ? 'a Refinement' : 'an Enchantment'} <span class="refine-cost">🪙 ${fmt(cost)}</span>`;
-          go.disabled = !!rolling || !(action === 'refine' ? g.canRefine(uid, slot) : g.canEnchant(uid, slot));
+          go.innerHTML = `🎲 Roll ${g.modChoices} ${action === 'refine' ? 'Refinements' : 'Enchantments'} <span class="refine-cost">🪙 ${fmt(cost)}</span>`;
+          go.disabled = !(action === 'refine' ? g.canRefine(uid, slot) : g.canEnchant(uid, slot));
           go.addEventListener('click', () => {
-            if (slot === null || !action || rolling) return;
+            if (slot === null || !action || anim) return;
             const kind = action;
-            const at = slot;
-            const m = kind === 'refine' ? g.refine(uid, at) : g.enchant(uid, at);
-            if (!m) return;
+            if (!g.rollMod(uid, slot, kind)) return;
             this.hooks.save();
-            last = at;
-            // Shake for a second, then reveal it; a perfect roll gets its border once it's in.
-            rolling = { slot: at, step: 'shake', kind };
+            last = null;
+            // The choice boxes shake for a second, then each is revealed in turn.
+            anim = 'shake';
             draw();
             setTimeout(() => {
               if (!body.isConnected) return;
-              rolling = { slot: at, step: 'reveal', kind };
+              anim = 'reveal';
               draw();
-              const reveal = body.querySelector<HTMLElement>(`.refine-slot[data-slot="${at}"] .reveal`);
+              const boxes = Array.from(body.querySelectorAll<HTMLElement>('.mod-choice'));
+              let left = boxes.length;
               const done = () => {
-                if (!body.isConnected) return;
-                rolling = null;
+                if (--left > 0 || !body.isConnected) return;
+                anim = null;
                 draw();
-                this.toast(`${modPerfect(m) ? '🌟 Perfect! ' : kind === 'refine' ? '⚒️ ' : '✨ '}${gd.name}: ${modText(m, gd)}`);
               };
-              if (reveal) revealWithPixels(reveal, kind === 'refine' ? REVEAL_PIXELS.refine : REVEAL_PIXELS.enchant, kind === 'refine' ? 1 : -1, done);
-              else done();
+              boxes.forEach((box, i) => setTimeout(() => revealWithPixels(box, REVEAL_PIXELS[kind], kind === 'refine' ? 1 : -1, done), i * 220));
+              if (!boxes.length) done();
             }, 1000);
           });
           body.appendChild(go);
         }
+        body.querySelectorAll<HTMLButtonElement>('.mod-choice').forEach((b) =>
+          b.addEventListener('click', () => {
+            if (anim) return;
+            const at = g.pendingMod(uid)?.slot ?? null;
+            const m = g.chooseMod(uid, Number(b.dataset.choice));
+            if (!m) return;
+            this.hooks.save();
+            this.toast(`${modPerfect(m) ? '🌟 Perfect! ' : m.kind === 'refine' ? '⚒️ ' : '✨ '}${gd.name}: ${modText(m, gd)}`);
+            last = at;
+            slot = null;
+            draw();
+          }),
+        );
         body.querySelectorAll<HTMLButtonElement>('.mod-action').forEach((b) =>
           b.addEventListener('click', () => {
             action = b.dataset.action as 'refine' | 'enchant';
@@ -3532,39 +3541,42 @@ function modSlotsHtml(g: Game, uid: number): string {
 }
 
 /**
- * A roll's reveal, like the battlefield's RELOADING! / RECHARGING! text in reverse: the text appears from left to
- * right over 0.8s, and its edge sheds pixels (metal and sparks falling for Refine, magic rising for Enchant).
+ * A roll's reveal, like the battlefield's RELOADING! / RECHARGING! text in reverse: a choice box appears from left
+ * to right over 0.8s, and its edge sheds pixels (metal and sparks falling for Refine, magic rising for Enchant).
  */
 const REVEAL_PIXELS = {
   refine: ['#8a8f96', '#c4c8cc', '#5a5f66', '#ff3a2a', '#ff7a3a'],
   enchant: ['#ffffff', '#ffd34d', '#e8a800', '#5ab0ff', '#9fd8ff'],
 };
-function revealWithPixels(text: HTMLElement, palette: string[], fall: 1 | -1, done: () => void): void {
-  const host = text.closest<HTMLElement>('.refine-slot') ?? text;
+function revealWithPixels(box: HTMLElement, palette: string[], fall: 1 | -1, done: () => void): void {
+  const host = box.parentElement ?? box;
   const start = performance.now();
   const ms = 800;
   const step = (now: number) => {
-    if (!text.isConnected) return;
+    if (!box.isConnected) return;
     const p = Math.min(1, (now - start) / ms);
-    text.style.clipPath = `inset(-4px ${(1 - p) * 100}% -4px 0)`;
-    // Pixels break off the moving edge.
+    box.style.clipPath = `inset(-6px ${(1 - p) * 100}% -6px -6px)`;
+    // Pixels break off the moving edge, all the way down the box.
     const hb = host.getBoundingClientRect();
-    const tb = text.getBoundingClientRect();
-    const edge = tb.left - hb.left + tb.width * p;
-    for (let i = 0; i < 3 && p < 1; i++) {
+    const bb = box.getBoundingClientRect();
+    const edge = bb.left - hb.left + bb.width * p;
+    for (let i = 0; i < 4 && p < 1; i++) {
       const px = document.createElement('i');
       px.className = 'roll-px';
       const size = 2 + Math.random() * 3;
-      Object.assign(px.style, { left: `${edge - Math.random() * 6}px`, top: `${tb.top - hb.top + Math.random() * tb.height}px`, width: `${size}px`, height: `${size}px`, background: palette[(Math.random() * palette.length) | 0] });
+      Object.assign(px.style, { left: `${edge - Math.random() * 6}px`, top: `${bb.top - hb.top + Math.random() * bb.height}px`, width: `${size}px`, height: `${size}px`, background: palette[(Math.random() * palette.length) | 0] });
       host.appendChild(px);
       const dx = (Math.random() - 0.5) * 30;
-      const dy = fall * (14 + Math.random() * 26);
+      const dy = fall * (14 + Math.random() * 30);
       px.animate([{ transform: 'translate(0,0)', opacity: 1 }, { transform: `translate(${dx}px, ${dy}px)`, opacity: 0 }], { duration: 450 + Math.random() * 300, easing: fall > 0 ? 'cubic-bezier(.4,0,1,1)' : 'ease-out' }).onfinish = () => px.remove();
     }
     if (p < 1) requestAnimationFrame(step);
-    else setTimeout(done, 250);
+    else {
+      box.style.clipPath = '';
+      setTimeout(done, 200);
+    }
   };
-  text.style.clipPath = 'inset(-4px 100% -4px 0)';
+  box.style.clipPath = 'inset(-6px 100% -6px -6px)';
   requestAnimationFrame(step);
 }
 
@@ -3572,30 +3584,6 @@ function revealWithPixels(text: HTMLElement, palette: string[], fall: 1 | -1, do
 function modText(m: GearMod, gd: GearDef): string {
   const v = modValue(m, gd);
   return m.kind === 'refine' ? `${REFINES[m.stat].icon} ${REFINES[m.stat].text(v)}` : `${ENCHANTS[m.id].icon} ${ENCHANTS[m.id].name}: ${ENCHANTS[m.id].text(v, enchantTierHit(gd))}`;
-}
-
-/** What a Refine stat can roll on this piece, lowest to highest. */
-function refineRangeText(st: RefineStat, gd: GearDef): string {
-  const r = REFINES[st];
-  return `${r.text(modRoll(r.range, r.int, gd.rarity, 0))} to ${r.text(modRoll(r.range, r.int, gd.rarity, MOD_QUALITY_STEPS))}`;
-}
-
-/** What an enchantment can roll on this piece: its effect, with its lowest to highest number. */
-function enchantRangeText(id: EnchantId, gd: GearDef, tierHit: number): string {
-  const en = ENCHANTS[id];
-  const lo = modRoll(en.range, false, gd.rarity, 0);
-  const hi = modRoll(en.range, false, gd.rarity, MOD_QUALITY_STEPS);
-  const damage = !!en.onKill || (!!en.effect && 'base' in en.effect);
-  const num = (v: number) => (damage ? fmt(Math.round(v * tierHit * 10) / 10) : `${Math.round(v * 1000) / 10}%`);
-  // What it does, without its number (the range follows).
-  const what = en.infuse
-    ? `adds ${DAMAGE_TYPES[en.infuse].name} damage (hits split between the weapon's types), plus a ${DAMAGE_TYPES[en.infuse].name} damage bonus of`
-    : en.potency
-      ? 'more status effect chance:'
-      : en.effect?.kind === 'evade'
-        ? 'a chance to slip a monster entirely:'
-        : `${en.text(hi, tierHit).replace(/\s*\([^)]*\)$/, '')} ·`;
-  return `${what} ${num(lo)} to ${num(hi)}${damage ? ' base damage' : ''}`;
 }
 
 /** A weapon's damage type as a small coloured tag ('' for gear without one). */

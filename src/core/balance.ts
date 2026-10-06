@@ -1909,6 +1909,8 @@ export const MOD_SLOTS: Record<Rarity, number> = { common: 0, uncommon: 0, rare:
  * MOD_QUALITY_STEPS; the top step is a **perfect** roll (it gets a special border).
  */
 export const MOD_QUALITY_STEPS = 10;
+/** Choices a roll offers to pick from (crafted items will raise it, up to 5). */
+export const MOD_CHOICES = 2;
 export const MOD_POWER: Record<Rarity, number> = { common: 1, uncommon: 1, rare: 1, veryRare: 0.8, legendary: 1, exotic: 1.2, relic: 1.45, artifact: 1.75, exalted: 2.1 };
 
 /** Where a piece of gear goes, for which modifiers fit it. */

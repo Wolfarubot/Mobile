@@ -1075,6 +1075,28 @@ describe('Equipment', () => {
     expect((ev.effect as { chance: number }).chance).toBeCloseTo(modRoll(ENCHANTS.evasion.range, false, 'exalted', (g.modSlots(plate.uid)[0] as { q: number }).q));
   });
 
+  it('a roll draws 2 choices (different ones), paid up front; picking one fills the slot; unpicked choices survive a save', () => {
+    const g = stocked();
+    g.state.gold = 1e30;
+    g.state.hunters.blacksmith.recruited = true;
+    const rifle = g.craftGear('frostRifle')!;
+    expect(g.modChoices).toBe(2);
+    const gold = g.state.gold;
+    const options = g.rollMod(rifle.uid, 1, 'refine')!;
+    expect(options).toHaveLength(2);
+    expect((options[0] as { stat: string }).stat).not.toBe((options[1] as { stat: string }).stat);
+    expect(g.state.gold).toBe(gold - g.refineCostOf(rifle.uid));
+    // Nothing goes in until you pick, and no second roll meanwhile.
+    expect(g.modSlots(rifle.uid)).toEqual([null, null]);
+    expect(g.rollMod(rifle.uid, 0, 'refine')).toBeNull();
+    // The choices wait on the piece, across a save.
+    const back = deserialize(serialize(g.state))!;
+    expect(back.inventory.find((it) => it.uid === rifle.uid)!.pending).toEqual({ slot: 1, kind: 'refine', options });
+    expect(g.chooseMod(rifle.uid, 1)).toEqual(options[1]);
+    expect(g.modSlots(rifle.uid)).toEqual([null, options[1]]);
+    expect(g.pendingMod(rifle.uid)).toBeNull();
+  });
+
   it('Kargesh the Blacksmith replaces Sera; old saves move her over', () => {
     expect(hunterDef('blacksmith').name).toBe('Kargesh');
     expect(HUNTERS.some((h) => (h.id as string) === 'demonbane')).toBe(false);

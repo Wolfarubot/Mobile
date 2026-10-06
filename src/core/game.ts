@@ -68,6 +68,7 @@ import {
   GEAR_STAR_POWER,
   MOD_SLOTS,
   MOD_QUALITY_STEPS,
+  MOD_CHOICES,
   REFINES,
   ENCHANTS,
   ENCHANT_COST_MULT,
@@ -126,7 +127,7 @@ import {
   type TreeStat,
 } from './balance';
 import { capAway, type OfflineResult } from './offline';
-import { type BuyAmount, type GameState, type GearItem, type GearMod, type Training, type Wearer } from './state';
+import { type BuyAmount, type GameState, type GearItem, type GearMod, type PendingMod, type Training, type Wearer } from './state';
 
 export type GameEvent =
   | { type: 'travel' }
@@ -784,30 +785,71 @@ export class Game {
     return Math.min(MOD_QUALITY_STEPS, Math.floor(this.rng() * (MOD_QUALITY_STEPS + 1)));
   }
 
-  /** Refines a slot, for gold: a random stat that fits the piece, at a random strength. Replaces what was there. */
-  refine(uid: number, slot: number): GearMod | null {
-    if (!this.canRefine(uid, slot)) return null;
-    const pool = this.refinesFor(uid);
-    const stat = pool[Math.min(pool.length - 1, Math.floor(this.rng() * pool.length))];
-    return this.putMod(uid, slot, { kind: 'refine', stat, q: this.rollQuality() }, this.refineCostOf(uid));
+  /**
+   * How many choices a roll offers (pick one). 2 to start; crafted items will raise it, up to 5 by the
+   * Void Rift.
+   */
+  get modChoices(): number {
+    return MOD_CHOICES;
   }
 
-  /** Enchants a slot, for gold: a random enchantment that fits (weighted), at a random strength. */
-  enchant(uid: number, slot: number): GearMod | null {
-    if (!this.canEnchant(uid, slot)) return null;
-    const pool = this.enchantsFor(uid, slot);
-    const total = pool.reduce((sum, id) => sum + ENCHANTS[id].weight, 0);
-    let r = this.rng() * total;
-    const id = pool.find((x) => (r -= ENCHANTS[x].weight) < 0) ?? pool[pool.length - 1];
-    return this.putMod(uid, slot, { kind: 'enchant', id, q: this.rollQuality() }, this.enchantCostOf(uid));
+  /** The choices a piece is waiting on you to pick from (a roll you've paid for), if any. */
+  pendingMod(uid: number): PendingMod | null {
+    return this.gearItem(uid)?.pending ?? null;
   }
 
-  private putMod(uid: number, slot: number, mod: GearMod, cost: number): GearMod {
-    const item = this.gearItem(uid)!;
-    this.state.gold -= cost;
+  /**
+   * Rolls a slot, for gold: `modChoices` random modifiers that fit the piece (different ones while there are
+   * enough), each at a random strength. They wait on the piece until you pick one (see chooseMod).
+   */
+  rollMod(uid: number, slot: number, kind: 'refine' | 'enchant'): GearMod[] | null {
+    const item = this.gearItem(uid);
+    if (!item || item.pending || !(kind === 'refine' ? this.canRefine(uid, slot) : this.canEnchant(uid, slot))) return null;
+    const options: GearMod[] = [];
+    if (kind === 'refine') {
+      let pool = this.refinesFor(uid);
+      for (let i = 0; i < this.modChoices; i++) {
+        if (!pool.length) pool = this.refinesFor(uid);
+        const stat = pool[Math.min(pool.length - 1, Math.floor(this.rng() * pool.length))];
+        pool = pool.filter((x) => x !== stat);
+        options.push({ kind: 'refine', stat, q: this.rollQuality() });
+      }
+    } else {
+      let pool = this.enchantsFor(uid, slot);
+      for (let i = 0; i < this.modChoices; i++) {
+        if (!pool.length) pool = this.enchantsFor(uid, slot);
+        const total = pool.reduce((sum, id) => sum + ENCHANTS[id].weight, 0);
+        let r = this.rng() * total;
+        const id = pool.find((x) => (r -= ENCHANTS[x].weight) < 0) ?? pool[pool.length - 1];
+        pool = pool.filter((x) => x !== id);
+        options.push({ kind: 'enchant', id, q: this.rollQuality() });
+      }
+    }
+    this.state.gold -= kind === 'refine' ? this.refineCostOf(uid) : this.enchantCostOf(uid);
+    item.pending = { slot, kind, options };
+    return options;
+  }
+
+  /** Picks one of a roll's choices: it goes into the rolled slot, replacing what was there. */
+  chooseMod(uid: number, index: number): GearMod | null {
+    const item = this.gearItem(uid);
+    const p = item?.pending;
+    const mod = p?.options[index];
+    if (!item || !p || !mod) return null;
     item.mods = this.modSlots(uid);
-    item.mods[slot] = mod;
+    item.mods[p.slot] = mod;
+    item.pending = undefined;
     return mod;
+  }
+
+  /** Refines a slot and takes the first choice (a quick roll; the Modify window lets you pick). */
+  refine(uid: number, slot: number): GearMod | null {
+    return this.rollMod(uid, slot, 'refine') ? this.chooseMod(uid, 0) : null;
+  }
+
+  /** Enchants a slot and takes the first choice. */
+  enchant(uid: number, slot: number): GearMod | null {
+    return this.rollMod(uid, slot, 'enchant') ? this.chooseMod(uid, 0) : null;
   }
 
   canCraftGear(id: GearId): boolean {
