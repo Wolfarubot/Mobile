@@ -3680,6 +3680,7 @@ function weaponTraits(c: WeaponClassDef): string[] {
   else if (c.attack === 'dagger') out.push('📏 Close, or thrown');
   else if (c.attack === 'stab') out.push('📏 Medium thrust');
   else if (c.attack === 'sweep') out.push('📏 Close sweep');
+  else if (c.attack === 'slam') out.push('📏 Slams all around');
   else if (c.attack === 'nova') out.push('📏 Around the Hunter');
   else out.push('📏 Whole field');
   if (c.thrusts) out.push(`🔪 ${c.thrusts} stabs`);

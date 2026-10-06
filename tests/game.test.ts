@@ -2225,6 +2225,35 @@ describe('Equipment', () => {
     expect(startingGame(0).settings.summonText).toBe(false);
   });
 
+  it('hammers slam the ground: every monster close around (behind too) is hit and thrown far back; Size, Range and Expanse', () => {
+    const g = stocked();
+    const maul = g.craftGear('boneMaul')!;
+    g.equip('main', 0, maul.uid);
+    expect(WEAPON_CLASSES.hammer.attack).toBe('slam');
+    const f = new Field(g);
+    const front = enemy({ id: 1, x: 0, y: -50, hp: 1e9, maxHp: 1e9 });
+    const behind = enemy({ id: 2, x: 0, y: 50, hp: 1e9, maxHp: 1e9 });
+    const far = enemy({ id: 3, x: 0, y: -300, hp: 1e9, maxHp: 1e9 });
+    f.enemies = [front, behind, far];
+    (f as unknown as { weaponAttack: (...a: unknown[]) => void }).weaponAttack('main', 0, 0, -Math.PI / 2, front, g.weaponClassOf('main'), { cls: null, ammo: 0, reload: 0 }, g.shooterRange('main'));
+    expect(front.hp).toBeLessThan(1e9);
+    expect(behind.hp).toBeLessThan(1e9);
+    expect(far.hp).toBe(1e9);
+    expect(behind.ky).toBeGreaterThan(0); // knocked away from the Hunter
+    expect(f.drainEvents().some((e) => e.type === 'slam')).toBe(true);
+    // Which weapons take Size, Range and Expanse.
+    expect(REFINES.size.fits(gearDef('boneMaul'))).toBe(true);
+    expect(REFINES.size.fits(gearDef('frostRifle'))).toBe(false);
+    expect(REFINES.range.fits(gearDef('frostRifle'))).toBe(true);
+    expect(REFINES.range.fits(gearDef('emberFocus'))).toBe(true);
+    expect(REFINES.range.fits(gearDef('boneMaul'))).toBe(false);
+    expect(REFINES.radius.fits(gearDef('boneMaul'))).toBe(true);
+    expect(REFINES.radius.fits(gearDef('frostbiteBlade'))).toBe(false);
+    // Size lengthens a melee weapon's reach.
+    maul.mods = [{ kind: 'refine', stat: 'size', q: MOD_QUALITY_STEPS }];
+    expect(g.weaponClassOf('main')!.reach).toBeCloseTo(WEAPON_CLASSES.hammer.reach! * (1 + modRoll(REFINES.size.range, false, 'uncommon', MOD_QUALITY_STEPS)));
+  });
+
   it("salvage returns half of what the piece's current modifiers cost (replaced ones are gone)", () => {
     const g = stocked();
     g.state.gold = 1e30;

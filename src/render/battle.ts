@@ -156,6 +156,15 @@ export class BattleView {
         case 'beam':
           this.beams.push({ ...e, t: 0, kinks: e.zigzag ? Array.from({ length: 6 }, () => (Math.random() - 0.5) * 16) : undefined });
           break;
+        case 'slam':
+          // A hammer's ground slam: a shockwave ring, dust kicked up all around, and a jolt.
+          this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: '232,216,176', max: 0.35 });
+          for (let i = 0; i < 10; i++) {
+            const a = (i / 10) * Math.PI * 2;
+            this.fx.burst(e.x + Math.cos(a) * e.r * 0.6, e.y + Math.sin(a) * e.r * 0.6, i % 2 ? '#c8b48a' : '#8a7a5a', 2, 90, 4, 300, true);
+          }
+          this.shake = Math.max(this.shake, 0.16);
+          break;
         case 'sweep':
           this.sweeps.push({ ...e, t: 0 });
           if (e.heavy) this.shake = Math.max(this.shake, 0.12); // a hammer's smash

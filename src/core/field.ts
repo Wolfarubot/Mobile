@@ -224,6 +224,8 @@ export type FieldEvent =
   | { type: 'nova'; x: number; y: number; r: number; color?: string }
   | { type: 'beam'; x1: number; y1: number; x2: number; y2: number; color: string; width: number; zigzag?: boolean }
   | { type: 'sweep'; x: number; y: number; a: number; arc: number; r: number; color: string; heavy?: boolean }
+  /** A hammer's ground slam: a shockwave ring of radius `r`. */
+  | { type: 'slam'; x: number; y: number; r: number }
   | { type: 'reload'; who: Shooter; x: number; y: number };
 
 /**
@@ -646,6 +648,11 @@ export class Field {
     } else if (cls?.spell && gun.ammo === 1) {
       // A staff's big spell: the last round of each cast.
       this.shoot(who, 'fireball', x, y, aim, 380, range, { radius: cls.spell.radius, dmg: cls.spell.damage, mode: m });
+    } else if (cls?.attack === 'slam') {
+      // A hammer smashes the ground: everything close around is hit and thrown far back.
+      const r = cls.reach! * g.radiusMult(who);
+      this.events.push({ type: 'slam', x, y, r });
+      for (const e of [...this.enemies]) if (e.hp > 0 && Math.hypot(e.x - x, e.y - y) <= r + e.r) this.meleeHit(who, e, 1, x, y, cls.knock ?? 0);
     } else if (cls?.attack === 'sweep') this.strikeArc(who, x, y, aim, cls.reach!, cls.arc!, 1, cls.knock ?? 0);
     else if (cls?.attack === 'stab') this.strikeLine(who, x, y, aim, range, cls.width ?? 10, Infinity, 1, '#f4f4f4', (cls.width ?? 10) / 2, cls.knock ?? 0);
     else if (cls?.volley) {

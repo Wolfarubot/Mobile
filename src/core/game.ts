@@ -528,6 +528,8 @@ export class Game {
   shooterRange(shooter: Shooter, mode?: GearMode): number {
     const cls = this.weaponClassOf(shooter, mode);
     const bonus = this.gear(shooter, mode).range + this.tree(shooter).range;
+    // A slam reaches as far as its (area-sized) ring.
+    if (cls?.attack === 'slam') return cls.reach! * this.radiusMult(shooter) + bonus / 4;
     if (cls && (cls.attack === 'sweep' || cls.attack === 'stab' || cls.attack === 'nova')) return cls.reach! + bonus / 4;
     return MAIN_RANGE * (cls?.range ?? 1) + bonus;
   }
@@ -544,18 +546,22 @@ export class Game {
     let knock = 0;
     let mag = 0;
     let reload = 0;
+    let size = 0;
     // (Accessories can carry these for whatever weapon their wearer holds.)
     for (const it of [item!, ...this.wornNonWeapons(who)])
       for (const m of it.mods ?? [])
-        if (m?.kind === 'refine' && (m.stat === 'knock' || m.stat === 'mag' || m.stat === 'reload')) {
+        if (m?.kind === 'refine' && (m.stat === 'knock' || m.stat === 'mag' || m.stat === 'reload' || m.stat === 'size')) {
           const v = modValue(m, gearDef(it.base));
           if (m.stat === 'knock') knock += v;
           else if (m.stat === 'mag') mag += v;
+          else if (m.stat === 'size') size += v;
           else reload += v;
         }
-    if (!knock && !mag && !reload) return cls;
+    if (!knock && !mag && !reload && !size) return cls;
     // Quick Reload shortens reloads (and a staff's recharge), down to 40% at most.
-    return { ...cls, knock: cls.knock && cls.knock * (1 + knock), mag: cls.mag && Math.round(cls.mag * (1 + mag)), reload: cls.reload && cls.reload * Math.max(0.4, 1 - reload) };
+    // Size lengthens a melee weapon's reach (its sweep, thrust, stabs or slam).
+    const reach = cls.reach && gearDef(item!.base).kind === 'melee' ? cls.reach * (1 + size) : cls.reach;
+    return { ...cls, knock: cls.knock && cls.knock * (1 + knock), mag: cls.mag && Math.round(cls.mag * (1 + mag)), reload: cls.reload && cls.reload * Math.max(0.4, 1 - reload), reach };
   }
 
   /**

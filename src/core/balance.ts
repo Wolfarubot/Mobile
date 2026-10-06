@@ -1967,7 +1967,7 @@ export function modRoll(range: [number, number], int: boolean | undefined, rarit
   return int ? Math.max(1, Math.round(v)) : Math.round(v * 1000) / 1000;
 }
 
-export type RefineStat = 'rate' | 'damage' | 'crit' | 'knock' | 'pierce' | 'mag' | 'guard' | 'stun' | 'radius' | 'range' | 'gold' | 'drops' | 'reload' | 'critDmg' | 'status' | 'summonDur' | 'cooldown';
+export type RefineStat = 'rate' | 'damage' | 'crit' | 'knock' | 'pierce' | 'mag' | 'guard' | 'stun' | 'radius' | 'range' | 'gold' | 'drops' | 'reload' | 'critDmg' | 'status' | 'summonDur' | 'cooldown' | 'size';
 
 /** Gear that summons (a tome, a Puppeteer's Doll), for summon modifiers. */
 const summons = (d: GearDef) => (isWeapon(d) && !!WEAPON_CLASSES[d.weaponClass!].summon) || d.effect?.kind === 'summon';
@@ -1984,8 +1984,9 @@ export const REFINES: Record<RefineStat, { name: string; icon: string; range: [n
   mag: { name: 'Magazine Size', icon: '🔋', range: [0.15, 0.3], text: (v) => `+${pct(v)} magazine size`, fits: (d) => isWeapon(d) && !!WEAPON_CLASSES[d.weaponClass!].mag },
   guard: { name: 'Bulwark', icon: '🛡️', range: [1, 2], int: true, text: (v) => `+${v} shield charge${v === 1 ? '' : 's'}`, fits: isArmor },
   stun: { name: 'Steadfast', icon: '🪨', range: [0.05, 0.1], text: (v) => `−${pct(v)} stun time`, fits: isArmor },
-  radius: { name: 'Expanse', icon: '🌐', range: [0.05, 0.1], text: (v) => `+${pct(v)} area size`, fits: (d) => isAccessory(d) || d.armorType === 'robe' },
-  range: { name: 'Reach', icon: '📏', range: [10, 20], int: true, text: (v) => `+${v} range`, fits: isAccessory },
+  radius: { name: 'Expanse', icon: '🌐', range: [0.05, 0.1], text: (v) => `+${pct(v)} area size`, fits: (d) => isAccessory(d) || d.armorType === 'robe' || d.weaponClass === 'hammer' },
+  range: { name: 'Reach', icon: '📏', range: [10, 20], int: true, text: (v) => `+${v} range`, fits: (d) => isAccessory(d) || (isWeapon(d) && d.kind !== 'melee') },
+  size: { name: 'Size', icon: '📐', range: [0.1, 0.2], text: (v) => `+${pct(v)} melee reach`, fits: (d) => d.kind === 'melee' },
   gold: { name: 'Fortune', icon: '🪙', range: [0.06, 0.12], text: (v) => `+${pct(v)} gold`, fits: isAccessory },
   drops: { name: 'Plunder', icon: '💎', range: [0.06, 0.12], text: (v) => `+${pct(v)} materials`, fits: isAccessory },
   reload: { name: 'Quick Reload', icon: '🔄', range: [0.1, 0.2], text: (v) => `−${pct(v)} reload and recharge time`, fits: (d) => isWeapon(d) && !!WEAPON_CLASSES[d.weaponClass!].mag },
@@ -2160,9 +2161,11 @@ export interface WeaponClassDef {
    * `arc` radians in front of them, `reach` deep, hitting everything in it. 'stab': a thrust `reach` long that
    * pierces `pierce` extra enemies in a line. 'dagger': a swipe (like a small sweep) when something is within
    * `reach`, else a thrown dagger out to their range × `range`. 'nova': when a monster comes within `reach`,
-   * a burst hits every monster in that radius around the Hunter. 'summon': calls up a creature (see `summon`).
+   * a burst hits every monster in that radius around the Hunter. 'slam': a hammer smashes the ground, hitting
+   * every monster within `reach` all around (× area size) and knocking them far back. 'summon': calls up a
+   * creature (see `summon`).
    */
-  attack: 'shot' | 'sweep' | 'stab' | 'dagger' | 'nova' | 'summon';
+  attack: 'shot' | 'sweep' | 'stab' | 'dagger' | 'nova' | 'slam' | 'summon';
   /** Projectile look for shots and throws. */
   projectile?: 'bolt' | 'arrow' | 'spark' | 'pistol' | 'dagger';
   range: number;
@@ -2230,7 +2233,7 @@ export const WEAPON_CLASSES: Record<WeaponClass, WeaponClassDef> = {
   sword: { name: 'Sword', attack: 'sweep', range: 1, reach: 80, arc: 2.4, knock: 120, rate: 0.9, damage: 1.1, farm: 1.8, describe: 'A sweeping slash that hits every monster in front and knocks them back.' },
   glaive: { name: 'Glaive', attack: 'sweep', range: 1, reach: 100, arc: 3.2, knock: 160, rate: 0.7, damage: 1.4, farm: 2, describe: 'A wide, heavy cleave around the front that knocks monsters back.' },
   spear: { name: 'Spear', attack: 'stab', range: 1, reach: 170, width: 24, knock: 200, rate: 0.8, damage: 1.2, farm: 2, describe: 'A long, wide thrust straight out that hits everything in its path and drives it back.' },
-  hammer: { name: 'Hammer', attack: 'sweep', range: 1, reach: 75, arc: 1.3, knock: 420, rate: 0.45, damage: 2.3, farm: 1.4, describe: 'Very slow, crushing smashes that send monsters flying.' },
+  hammer: { name: 'Hammer', attack: 'slam', range: 1, reach: 80, knock: 460, rate: 0.45, damage: 2.3, farm: 2.2, describe: 'Very slow, crushing slams on the ground that hit every monster close around and send them flying.' },
   shortbow: { name: 'Shortbow', attack: 'shot', projectile: 'arrow', range: 0.85, rate: 1.35, damage: 0.75, farm: 1, describe: 'The basic bow: quick, light shots that never stop.' },
   longbow: { name: 'Longbow', attack: 'shot', projectile: 'arrow', range: 1.35, rate: 0.65, damage: 1.5, followThrough: 45, farm: 1.2, describe: 'Slow, heavy shots from far away; each arrow carries on through its target into whatever is just behind.' },
   crossbow: { name: 'Crossbow', attack: 'shot', projectile: 'arrow', range: 1.1, rate: 0.8, damage: 1.25, pierce: 1, farm: 1.2, describe: 'Heavy bolts that always pierce at least one more monster.' },
