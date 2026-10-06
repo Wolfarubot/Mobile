@@ -2163,6 +2163,29 @@ describe('Equipment', () => {
     expect(new Set(GEAR.map((gd) => gd.rarity)).size).toBe(Object.keys(RARITIES).length);
   });
 
+  it('accessories take every refinement and enchantment, acting on whatever weapon the wearer holds (or doing nothing)', () => {
+    const g = stocked();
+    g.state.gold = 1e30;
+    g.state.hunters.blacksmith.recruited = true;
+    g.state.hunters.enchantress.recruited = true;
+    const orb = g.craftGear('emberOrb')!; // a Very Rare accessory
+    expect(g.refinesFor(orb.uid).sort()).toEqual((Object.keys(REFINES) as string[]).sort());
+    expect(g.enchantsFor(orb.uid).sort()).toEqual((Object.keys(ENCHANTS) as string[]).sort());
+    // A Magazine Size refine on the accessory grows the wearer's gun magazine...
+    orb.mods = [{ kind: 'refine', stat: 'mag', q: MOD_QUALITY_STEPS }];
+    const rifle = g.craftGear('frostRifle')!;
+    g.equip('main', 0, rifle.uid);
+    g.equip('main', 2, orb.uid);
+    expect(g.weaponClassOf('main')!.mag).toBe(Math.round(WEAPON_CLASSES.rifle.mag! * (1 + modRoll(REFINES.mag.range, false, 'veryRare', MOD_QUALITY_STEPS))));
+    // ...and does nothing for a Hunter with no gun.
+    g.equip('main', 0, g.craftGear('slimeSword')!.uid);
+    expect(g.weaponClassOf('main')!.mag).toBeUndefined();
+    // An infusion on the accessory adds its type to the wearer's weapon.
+    orb.mods = [{ kind: 'enchant', id: 'infuseVoid', q: 5, p: 5 }];
+    expect(g.damageTypesOf('main')).toContain('void');
+    expect(g.procFor('main', 'void')).toBeCloseTo(modRoll(ENCHANTS.infuseVoid.range, false, 'veryRare', 5));
+  });
+
   it("salvage returns half of what the piece's current modifiers cost (replaced ones are gone)", () => {
     const g = stocked();
     g.state.gold = 1e30;

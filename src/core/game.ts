@@ -323,18 +323,30 @@ export class Game {
     return out;
   }
 
-  /** The enchantments on a piece, with their rolled chance (`v`) and power (`p`). */
-  private enchantsOf(item: GearItem | null): Array<{ en: EnchantDef; v: number; p: number }> {
+  /** The enchantments on a piece, with their rolled chance (`v`) and power (`p`), and the piece they're on. */
+  private enchantsOf(item: GearItem | null): Array<{ en: EnchantDef; v: number; p: number; def: GearDef }> {
     if (!item) return [];
     const def = gearDef(item.base);
-    return (item.mods ?? []).flatMap((m) => (m?.kind === 'enchant' ? [{ en: ENCHANTS[m.id], v: modValue(m, def), p: modPower(m, def) }] : []));
+    return (item.mods ?? []).flatMap((m) => (m?.kind === 'enchant' ? [{ en: ENCHANTS[m.id], v: modValue(m, def), p: modPower(m, def), def }] : []));
   }
 
-  /** Fireburst on a Hunter's weapon: each kill has `chance` to burst for this much base damage around it. */
+  /** Pieces a Hunter wears that aren't weapons (their armor and accessories). */
+  private wornNonWeapons(who: Shooter): GearItem[] {
+    return this.equipped(who).filter((it): it is GearItem => !!it && !WEAPON_KINDS.includes(gearDef(it.base).kind));
+  }
+
+  /**
+   * Enchantments that act on a Hunter's weapon (infusions, Potency, Fireburst): the weapon's own, and any on
+   * their accessories (which can carry weapon enchantments for whatever weapon the wearer holds).
+   */
+  private weaponEnchants(who: Shooter, mode: GearMode = 'long'): Array<{ en: EnchantDef; v: number; p: number; def: GearDef }> {
+    return [this.weaponItem(who, mode), ...this.wornNonWeapons(who)].flatMap((it) => this.enchantsOf(it));
+  }
+
+  /** Fireburst (on the weapon or an accessory): each kill has `chance` to burst for this much base damage around it. */
   killBurst(who: Shooter): { base: number; radius: number; damageType: DamageType; chance: number } | null {
-    const item = this.weaponItem(who);
-    const e = this.enchantsOf(item).find(({ en }) => en.onKill);
-    return item && e?.en.onKill ? { ...e.en.onKill, chance: e.v, base: e.p * enchantTierHit(gearDef(item.base)) } : null;
+    const e = this.weaponEnchants(who).find(({ en }) => en.onKill);
+    return e?.en.onKill ? { ...e.en.onKill, chance: e.v, base: e.p * enchantTierHit(e.def) } : null;
   }
 
   /** Enchantments set off by a Hunter's attacks (Thunder Call, the pulses), from anything they wear. */
@@ -354,10 +366,10 @@ export class Game {
   procFor(who: Shooter, t: DamageType, mode: GearMode = 'long', special = false): number {
     if (special) return this.procOf(who, mode, true);
     const item = this.weaponItem(who, mode);
-    if (!item) return 0;
-    const inf = this.enchantsOf(item).find(({ en }) => en.infuse === t && !gearTypes(gearDef(item.base)).includes(t));
+    const own = item ? gearTypes(gearDef(item.base)) : [];
+    const inf = this.weaponEnchants(who, mode).find(({ en }) => en.infuse === t && !own.includes(t));
     if (!inf) return this.procOf(who, mode);
-    const potency = this.enchantsOf(item).reduce((sum, { en, v }) => sum + (en.potency ? v : 0), 0);
+    const potency = item ? this.weaponEnchants(who, mode).reduce((sum, { en, v }) => sum + (en.potency ? v : 0), 0) : 0;
     return Math.min(1, inf.v + potency);
   }
 
@@ -531,12 +543,14 @@ export class Game {
     // Refined knockback and magazine size change the class's own numbers for this piece.
     let knock = 0;
     let mag = 0;
-    for (const m of item!.mods ?? [])
-      if (m?.kind === 'refine' && (m.stat === 'knock' || m.stat === 'mag')) {
-        const v = modValue(m, gearDef(item!.base));
-        if (m.stat === 'knock') knock += v;
-        else mag += v;
-      }
+    // (Accessories can carry these for whatever weapon their wearer holds.)
+    for (const it of [item!, ...this.wornNonWeapons(who)])
+      for (const m of it.mods ?? [])
+        if (m?.kind === 'refine' && (m.stat === 'knock' || m.stat === 'mag')) {
+          const v = modValue(m, gearDef(it.base));
+          if (m.stat === 'knock') knock += v;
+          else mag += v;
+        }
     if (!knock && !mag) return cls;
     return { ...cls, knock: cls.knock && cls.knock * (1 + knock), mag: cls.mag && Math.round(cls.mag * (1 + mag)) };
   }
@@ -571,10 +585,11 @@ export class Game {
     const sp = who === 'main' ? undefined : hunterDef(who).special;
     if (special && sp && !sp.summon) return [sp.damageType];
     const item = this.weaponItem(who, mode);
-    // A weapon's own types, then any its infusions add.
-    const types = item ? [...gearTypes(gearDef(item.base))] : [];
-    for (const { en } of this.enchantsOf(item)) if (en.infuse && !types.includes(en.infuse)) types.push(en.infuse);
-    return types.length ? types : ['physical'];
+    // A weapon's own types (Physical bare-handed), then any infusions add (from the weapon or an accessory).
+    const own = item ? gearTypes(gearDef(item.base)) : [];
+    const types: DamageType[] = own.length ? [...own] : ['physical'];
+    for (const { en } of this.weaponEnchants(who, mode)) if (en.infuse && !types.includes(en.infuse)) types.push(en.infuse);
+    return types;
   }
 
   /** Does a Hunter's multi-type weapon fire one type per projectile (rather than splitting each hit)? */
@@ -619,8 +634,8 @@ export class Game {
     if (special && who !== 'main' && !this.summonSpecial(who)) return hunterDef(who).special?.proc ?? 0;
     const item = this.weaponItem(who, mode);
     if (!item) return 0;
-    // Potency enchantments add to the weapon's own chance.
-    const potency = this.enchantsOf(item).reduce((sum, { en, v }) => sum + (en.potency ? v : 0), 0);
+    // Potency enchantments (on the weapon or an accessory) add to the weapon's own chance.
+    const potency = this.weaponEnchants(who, mode).reduce((sum, { en, v }) => sum + (en.potency ? v : 0), 0);
     return Math.min(1, (gearDef(item.base).proc ?? 0) + potency);
   }
 
@@ -770,7 +785,9 @@ export class Game {
   /** Refine stats that can roll on this piece. */
   refinesFor(uid: number): RefineStat[] {
     const item = this.gearItem(uid);
-    return item ? (Object.keys(REFINES) as RefineStat[]).filter((st) => REFINES[st].fits(gearDef(item.base))) : [];
+    // Accessories are flexible: they take every refinement (one with nothing to act on, like Magazine Size for a
+    // Hunter without a gun, simply does nothing).
+    return item ? (Object.keys(REFINES) as RefineStat[]).filter((st) => REFINES[st].fits(gearDef(item.base)) || gearDef(item.base).kind === 'accessory') : [];
   }
 
   /**
@@ -785,7 +802,7 @@ export class Game {
     const others = this.modSlots(uid).filter((m, i) => i !== slot && m?.kind === 'enchant') as Array<{ kind: 'enchant'; id: EnchantId }>;
     return (Object.keys(ENCHANTS) as EnchantId[]).filter((id) => {
       const en = ENCHANTS[id];
-      return en.fits(def) && !(en.infuse && own.includes(en.infuse)) && !others.some((m) => m.id === id);
+      return (en.fits(def) || def.kind === 'accessory') && !(en.infuse && own.includes(en.infuse)) && !others.some((m) => m.id === id);
     });
   }
 
