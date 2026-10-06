@@ -541,7 +541,23 @@ export class Game {
     const item = i >= 0 ? this.equipped(who)[i] : null;
     const id = item ? gearDef(item.base).weaponClass : undefined;
     if (!id) return null;
-    const cls = WEAPON_CLASSES[id];
+    let cls = WEAPON_CLASSES[id];
+    // The weapon's own tweaks to its class: more stabs (and slower), more or fewer bolts before a staff's spell,
+    // a focus that sends out a wave (reaching twice as far).
+    const tw = gearDef(item!.base).tweak;
+    if (tw) {
+      cls = { ...cls };
+      if (tw.thrusts) cls.thrusts = tw.thrusts;
+      if (tw.rate) cls.rate *= tw.rate;
+      if (tw.bolts && cls.spell) {
+        cls.spell = { ...cls.spell, every: tw.bolts };
+        cls.mag = tw.bolts + 1;
+      }
+      if (tw.wave) {
+        cls.wave = true;
+        cls.reach = (cls.reach ?? 110) * 2;
+      }
+    }
     // Refined knockback and magazine size change the class's own numbers for this piece.
     let knock = 0;
     let mag = 0;

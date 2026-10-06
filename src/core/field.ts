@@ -34,6 +34,8 @@ export const PLAYER_RADIUS = 13;
 const BULLET_RADIUS = 4;
 /** Size of a tome's summoned creature. */
 export const SUMMON_RADIUS = 9;
+/** How fast a focus's wave expands, in world units per second. */
+const WAVE_SPEED = 420;
 /** Seconds between a dagger's stabs in one burst. */
 const DAGGER_GAP = 0.09;
 const BOSS_BOUNCE = 260;
@@ -224,6 +226,8 @@ export type FieldEvent =
   | { type: 'nova'; x: number; y: number; r: number; color?: string }
   | { type: 'beam'; x1: number; y1: number; x2: number; y2: number; color: string; width: number; zigzag?: boolean }
   | { type: 'sweep'; x: number; y: number; a: number; arc: number; r: number; color: string; heavy?: boolean }
+  /** A focus's wave: a ring growing to `r` over `time` seconds. */
+  | { type: 'wave'; x: number; y: number; r: number; time: number; color: string }
   /** A hammer's ground slam: a shockwave ring of radius `r`. */
   | { type: 'slam'; x: number; y: number; r: number }
   | { type: 'reload'; who: Shooter; x: number; y: number };
@@ -239,6 +243,8 @@ export class Field {
   enemies: Enemy[] = [];
   bullets: Bullet[] = [];
   puddles: Puddle[] = [];
+  /** A focus's waves: rings expanding from where they were sent, hitting each monster once as they pass. */
+  waves: Array<{ who: Shooter; x: number; y: number; r: number; max: number; hit: Set<number> }> = [];
   /** Seconds of stun left on your Hunter (can't shoot while > 0). */
   stun = 0;
   /** Length of the current stun, for drawing its bar. */
@@ -433,6 +439,7 @@ export class Field {
 
     this.moveBullets(dt);
     this.tickPuddles(dt);
+    this.runWaves(dt);
     this.bullets = this.bullets.filter((b) => b.life > 0);
     this.enemies = this.enemies.filter((e) => e.hp > 0);
   }
@@ -639,10 +646,16 @@ export class Field {
       // A burst of stabs (or throws, if it's out of reach) at this monster, a moment apart.
       const n = cls.thrusts ?? 1;
       for (let i = 0; i < n; i++) this.stabs.push({ who, t: i * DAGGER_GAP, target: target.id, last: i === n - 1 });
+    } else if (cls?.attack === 'nova' && cls.wave) {
+      // A focus's wave: a ring expanding out to its reach (× area size), hitting monsters as it passes.
+      const max = cls.reach! * g.radiusMult(who);
+      this.waves.push({ who, x, y, r: 0, max, hit: new Set() });
+      this.events.push({ type: 'wave', x, y, r: max, time: max / WAVE_SPEED, color: DAMAGE_TYPES[g.damageTypeOf(who, mode)].color });
     } else if (cls?.attack === 'nova') {
-      // A burst of power around the Hunter: every monster in the radius.
-      this.events.push({ type: 'nova', x, y, r: cls.reach!, color: DAMAGE_TYPES[g.damageTypeOf(who, mode)].color });
-      for (const e of this.enemies) if (e.hp > 0 && Math.hypot(e.x - x, e.y - y) <= cls.reach! + e.r) this.hitWith(who, e, 1, x, y);
+      // A burst of power around the Hunter: every monster in the radius (× area size).
+      const r = cls.reach! * g.radiusMult(who);
+      this.events.push({ type: 'nova', x, y, r, color: DAMAGE_TYPES[g.damageTypeOf(who, mode)].color });
+      for (const e of this.enemies) if (e.hp > 0 && Math.hypot(e.x - x, e.y - y) <= r + e.r) this.hitWith(who, e, 1, x, y);
     } else if (cls?.summon) {
       this.summon(who, x, y, aim, cls);
     } else if (cls?.spell && gun.ammo === 1) {
@@ -662,7 +675,11 @@ export class Field {
         const a = aim + (g.rng() - 0.5) * (cls.fan ?? 0);
         this.shoot(who, cls.projectile ?? 'bolt', x, y, a, BULLET_SPEED, range, { pierce: g.pierceOf(who, mode), volley, stack: cls.stack, mode: m });
       }
-    } else this.shoot(who, cls?.projectile ?? 'bolt', x, y, aim, BULLET_SPEED, range, { pierce: g.pierceOf(who, mode), spread: true, followThrough: cls?.followThrough, bounces: cls?.bounces, mode: m });
+    } else {
+      // A longbow's follow-through grows with the Hunter's range.
+      const follow = cls?.followThrough ? cls.followThrough * (range / (MAIN_RANGE * cls.range)) : undefined;
+      this.shoot(who, cls?.projectile ?? 'bolt', x, y, aim, BULLET_SPEED, range, { pierce: g.pierceOf(who, mode), spread: true, followThrough: follow, bounces: cls?.bounces, mode: m });
+    }
     if (this.isMelee(who)) this.meleeWave(who, x, y);
     // Enchantments set off by attacks (Thunder Call, the pulses), each at its rolled chance.
     for (const { effect, chance } of g.attackEnchants(who)) if (g.rng() < chance) this.fireGear(who, x, y, effect, 1, 0);
@@ -1227,6 +1244,19 @@ export class Field {
       o.x += (dx / d) * step;
       o.y += (dy / d) * step;
     }
+  }
+
+  /** Focus waves expand; each monster the ring reaches is hit once. */
+  private runWaves(dt: number): void {
+    for (const w of this.waves) {
+      w.r = Math.min(w.max, w.r + WAVE_SPEED * dt);
+      for (const e of this.enemies)
+        if (e.hp > 0 && !w.hit.has(e.id) && Math.hypot(e.x - w.x, e.y - w.y) <= w.r + e.r) {
+          w.hit.add(e.id);
+          this.hitWith(w.who, e, 1, w.x, w.y);
+        }
+    }
+    this.waves = this.waves.filter((w) => w.r < w.max);
   }
 
   /** A burning monster can set the ones right next to it alight, weaker each time it spreads. */

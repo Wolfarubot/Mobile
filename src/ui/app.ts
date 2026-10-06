@@ -3428,8 +3428,20 @@ function esc(text: string): string {
 const gearKindName = (gd: GearDef): string => (gd.weaponClass ? WEAPON_CLASSES[gd.weaponClass].name : gd.armorType ? `${ARMOR_TYPES[gd.armorType].icon} ${ARMOR_TYPES[gd.armorType].name}` : GEAR_KINDS[gd.kind].name);
 
 /** How a weapon attacks (for your Hunter), what an armor kind is good at, and any special effect (at `stars`). */
+/** How a weapon differs from the rest of its class (its stabs, a staff's bolts, a focus's wave). */
+function tweakText(gd: GearDef): string {
+  const t = gd.tweak!;
+  const parts: string[] = [];
+  if (t.thrusts) parts.push(`${t.thrusts} stabs per attack (or daggers thrown)${t.rate && t.rate < 1 ? ', but slower' : t.rate && t.rate > 1 ? ', and faster' : ''}`);
+  else if (t.rate) parts.push(`${t.rate < 1 ? 'Slower' : 'Faster'} attacks`);
+  if (t.bolts) parts.push(`${t.bolts} bolts before its big spell`);
+  if (t.wave) parts.push('Sends out a wave that travels twice as far, hitting monsters as it passes, instead of bursting around you');
+  return parts.join('; ');
+}
+
 const weaponLine = (gd: GearDef, stars = 1): string =>
   (gd.weaponClass ? `<p class="weapon-line">⚔️ ${WEAPON_CLASSES[gd.weaponClass].describe}</p>` : '') +
+  (gd.tweak ? `<p class="weapon-line">🔧 ${tweakText(gd)}</p>` : '') +
   (gd.weaponClass === 'tome' ? `<p class="weapon-line">${SUMMON_TYPES[tomeSummonType(gd)].icon} Summon type: <b>${SUMMON_TYPES[tomeSummonType(gd)].name}</b></p>` : '') +
   (gd.armorType ? `<p class="weapon-line">${ARMOR_TYPES[gd.armorType].icon} ${ARMOR_TYPES[gd.armorType].desc}</p>` : '') +
   (gd.ability ? `<p class="weapon-line">✨ ${gd.ability}</p>` : '') +
@@ -3681,7 +3693,7 @@ function weaponTraits(c: WeaponClassDef): string[] {
   else if (c.attack === 'stab') out.push('📏 Medium thrust');
   else if (c.attack === 'sweep') out.push('📏 Close sweep');
   else if (c.attack === 'slam') out.push('📏 Slams all around');
-  else if (c.attack === 'nova') out.push('📏 Around the Hunter');
+  else if (c.attack === 'nova') out.push(c.wave ? '🌊 A wave outward' : '📏 Around the Hunter');
   else out.push('📏 Whole field');
   if (c.thrusts) out.push(`🔪 ${c.thrusts} stabs`);
   if (c.volley) out.push(`🎇 ${c.volley}-shot volleys`);

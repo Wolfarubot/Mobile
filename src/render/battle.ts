@@ -26,6 +26,8 @@ interface Ring {
   color: string;
   max: number;
   fill?: boolean;
+  /** Grows from the centre (a focus's wave) instead of from 40% of its size. */
+  grow?: boolean;
   /** Drawn as a circle of square pixels, with a fainter ring inside and a scatter of pixels across it. */
   pixel?: boolean;
   scatter?: Cell[];
@@ -155,6 +157,9 @@ export class BattleView {
           break;
         case 'beam':
           this.beams.push({ ...e, t: 0, kinks: e.zigzag ? Array.from({ length: 6 }, () => (Math.random() - 0.5) * 16) : undefined });
+          break;
+        case 'wave':
+          this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: hexRgb(e.color), max: e.time + 0.1, grow: true });
           break;
         case 'slam':
           // A hammer's ground slam: a shockwave ring, dust kicked up all around, and a jolt.
@@ -397,7 +402,7 @@ export class BattleView {
 
     for (const r of this.rings) {
       const k = r.t / r.max;
-      const rad = r.r * (0.4 + k * 0.6);
+      const rad = r.r * (r.grow ? k : 0.4 + k * 0.6);
       if (r.pixel) {
         // A burst: a solid ring of square pixels in its colour, a fainter ring trailing inside it, and a
         // scatter of pixels across the area it hit.

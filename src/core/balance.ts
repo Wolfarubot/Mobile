@@ -1864,6 +1864,11 @@ export interface GearDef {
    * resistances on its own and rolling its own status effect. See `perShot` for projectiles.
    */
   extraTypes?: DamageType[];
+  /**
+   * Tweaks to its weapon class: a dagger's stabs per attack (and its attack speed, × `rate`), a staff's bolts
+   * before its big spell, or a focus that sends out an expanding `wave` instead of bursting around the Hunter.
+   */
+  tweak?: { thrusts?: number; rate?: number; bolts?: number; wave?: boolean };
   /** Projectile weapons with several types: each projectile deals one type at full damage, taking turns, instead of splitting. */
   perShot?: boolean;
   /**
@@ -2196,6 +2201,8 @@ export interface WeaponClassDef {
   stack?: number;
   /** Daggers: stabs per attack, in quick succession at the same monster (or daggers thrown, when it's far). */
   thrusts?: number;
+  /** Focuses that send out a wave: it expands from the Hunter out to `reach`, hitting monsters as it passes. */
+  wave?: boolean;
   /** Spears: how wide the thrust is (it hits everything in that band). */
   width?: number;
   /** Melee: how hard a hit knocks a surviving monster back (daggers: only the last stab). */
@@ -2293,7 +2300,7 @@ export const GEAR: GearDef[] = [
   { id: 'soulLance', name: 'Soulreaver Lance', icon: '⚜️', kind: 'melee', rarity: 'exalted', weaponClass: 'spear', tier: 12, damageType: 'decay', proc: 0.2, stats: { pierce: 0.2 }, recipe: { soul: 8, void: 4 } },
   // Magic (Reginald and Glimmer)
   { id: 'gravewoodStaff', name: 'Gravewood Staff', icon: '🪵', kind: 'magic', rarity: 'uncommon', weaponClass: 'staff', tier: 3, damageType: 'decay', proc: 0.15, stats: { rate: 0.06 }, recipe: { sacredText: 8, vampEssence: 5 } },
-  { id: 'emberFocus', name: 'Ember Focus', icon: '🕯️', kind: 'magic', rarity: 'veryRare', weaponClass: 'focus', tier: 6, damageType: 'fire', proc: 0.3, stats: { rate: 0.15 }, recipe: { ember: 10, demonBone: 5 } },
+  { id: 'emberFocus', name: 'Ember Focus', icon: '🕯️', kind: 'magic', rarity: 'veryRare', weaponClass: 'focus', tier: 6, damageType: 'fire', proc: 0.3, stats: { rate: 0.15 }, tweak: { wave: true }, recipe: { ember: 10, demonBone: 5 } },
   { id: 'crystalFocus', name: 'Crystal Focus', icon: '💎', kind: 'magic', rarity: 'legendary', weaponClass: 'focus', tier: 8, damageType: 'frost', proc: 0.3, stats: { rate: 0.1 }, recipe: { frost: 8, ecto: 6 } },
   { id: 'voidScepter', name: 'Void Scepter', icon: '🪬', kind: 'magic', rarity: 'exalted', weaponClass: 'scepter', tier: 12, damageType: 'void', stats: { rate: 0.25 }, recipe: { shade: 10, void: 5 } },
   { id: 'wispTome', name: 'Tome of Wisps', icon: '📖', kind: 'magic', rarity: 'uncommon', weaponClass: 'tome', tier: 3, damageType: 'arcane', proc: 0.15, stats: {}, recipe: { nightmareWisp: 10, sacredText: 6, calciumCrystal: 2 } },
@@ -2311,7 +2318,7 @@ export const GEAR: GearDef[] = [
     summon: { look: 'wolf', name: 'wolf spirit', dash: { cooldown: 4, range: 150, speed: 520, damage: 2.5 } },
     ability: 'Its wolves lunge at a monster every 4s; a lunge that lands bites for ×2.5.',
   },
-  { id: 'soulfireStaff', name: 'Soulfire Staff', icon: '🌟', kind: 'magic', rarity: 'exalted', weaponClass: 'staff', tier: 12, damageType: 'radiant', proc: 0.2, stats: { rate: 0.15 }, recipe: { soul: 8, void: 4 } },
+  { id: 'soulfireStaff', name: 'Soulfire Staff', icon: '🌟', kind: 'magic', rarity: 'exalted', weaponClass: 'staff', tier: 12, damageType: 'radiant', proc: 0.2, stats: { rate: 0.15 }, tweak: { bolts: 8 }, recipe: { soul: 8, void: 4 } },
   // A weapon for every area tier (ranged, melee and magic), crafted from that area's materials.
   { id: 'thornLongbow', name: 'Thorn Longbow', icon: '🌿', kind: 'weapon', rarity: 'uncommon', weaponClass: 'longbow', tier: 2, damageType: 'physical', stats: {}, recipe: { thorn: 10, sap: 5 } },
   { id: 'thornSpear', name: 'Thorn Spear', icon: '🌱', kind: 'melee', rarity: 'uncommon', weaponClass: 'spear', tier: 2, damageType: 'poison', proc: 0.2, stats: {}, recipe: { thorn: 8, enchantedBone: 5 } },
@@ -2320,7 +2327,7 @@ export const GEAR: GearDef[] = [
   { id: 'knightGlaive', name: 'Bone Knight Glaive', icon: '🪓', kind: 'melee', rarity: 'rare', weaponClass: 'glaive', tier: 4, damageType: 'physical', stats: {}, recipe: { enchantedScrap: 8, enchantedBone: 6 } },
   { id: 'necroTome', name: 'Necronomicon', icon: '📕', kind: 'magic', rarity: 'rare', weaponClass: 'tome', summonType: 'undead', tier: 4, damageType: 'decay', proc: 0.2, stats: {}, recipe: { grave: 8, wrap: 8, eldritchText: 2 } },
   { id: 'gloomPistol', name: 'Gloom Pistol', icon: '🔫', kind: 'weapon', rarity: 'rare', weaponClass: 'pistol', tier: 5, damageType: 'arcane', proc: 0.15, stats: {}, recipe: { darkClaw: 10, umbralEye: 4 } },
-  { id: 'umbralDagger', name: 'Umbral Dagger', icon: '🗡️', kind: 'melee', rarity: 'rare', weaponClass: 'dagger', tier: 5, damageType: 'physical', proc: 0.3, stats: {}, recipe: { darkClaw: 8, shadowWisp: 6 } },
+  { id: 'umbralDagger', name: 'Umbral Dagger', icon: '🗡️', kind: 'melee', rarity: 'rare', weaponClass: 'dagger', tier: 5, damageType: 'physical', proc: 0.3, stats: {}, tweak: { thrusts: 5, rate: 0.65 }, recipe: { darkClaw: 8, shadowWisp: 6 } },
   { id: 'umbralFocus', name: 'Umbral Focus', icon: '🌑', kind: 'magic', rarity: 'rare', weaponClass: 'focus', tier: 5, damageType: 'arcane', proc: 0.25, stats: {}, recipe: { umbralEye: 8, umbra: 4, everwatchingEye: 2 } },
   { id: 'mithrilCrossbow', name: 'Mithril Crossbow', icon: '🎯', kind: 'weapon', rarity: 'veryRare', weaponClass: 'crossbow', tier: 7, damageType: 'physical', stats: {}, recipe: { ore: 10, scale: 5 } },
   { id: 'drakeHammer', name: 'Drakebone Hammer', icon: '🔨', kind: 'melee', rarity: 'veryRare', weaponClass: 'hammer', tier: 7, damageType: 'fire', proc: 0.3, stats: {}, recipe: { scale: 10, ore: 6 } },
@@ -2328,7 +2335,7 @@ export const GEAR: GearDef[] = [
   { id: 'frostbiteBlade', name: 'Frostbite Blade', icon: '❄️', kind: 'melee', rarity: 'legendary', weaponClass: 'sword', tier: 8, damageType: 'frost', proc: 0.3, stats: {}, recipe: { frost: 10, fur: 6 } },
   { id: 'skyLongbow', name: 'Skyward Longbow', icon: '🏹', kind: 'weapon', rarity: 'exotic', weaponClass: 'longbow', tier: 9, damageType: 'physical', stats: {}, recipe: { plume: 10, skystone: 5 } },
   { id: 'griffinSpear', name: 'Griffin Spear', icon: '🔱', kind: 'melee', rarity: 'exotic', weaponClass: 'spear', tier: 9, damageType: 'physical', proc: 0.2, stats: {}, recipe: { plume: 8, skystone: 6 } },
-  { id: 'skyStaff', name: 'Sky Staff', icon: '🌤️', kind: 'magic', rarity: 'exotic', weaponClass: 'staff', tier: 9, damageType: 'lightning', proc: 0.2, stats: {}, recipe: { skystone: 10, plume: 4 } },
+  { id: 'skyStaff', name: 'Sky Staff', icon: '🌤️', kind: 'magic', rarity: 'exotic', weaponClass: 'staff', tier: 9, damageType: 'lightning', proc: 0.2, stats: {}, tweak: { bolts: 3 }, recipe: { skystone: 10, plume: 4 } },
   { id: 'thunderRepeater', name: 'Thunder Repeater', icon: '⚡', kind: 'weapon', rarity: 'relic', weaponClass: 'repeater', tier: 10, damageType: 'lightning', proc: 0.2, stats: {}, recipe: { thunder: 10, feather: 5 } },
   { id: 'stormbreaker', name: 'Stormbreaker', icon: '🔨', kind: 'melee', rarity: 'relic', weaponClass: 'hammer', tier: 10, damageType: 'lightning', proc: 0.25, stats: {}, recipe: { thunder: 12, feather: 6 } },
   { id: 'stormTome', name: 'Tome of Storms', icon: '📘', kind: 'magic', rarity: 'relic', weaponClass: 'tome', summonType: 'elemental', tier: 10, damageType: 'lightning', proc: 0.2, stats: {}, recipe: { feather: 10, thunder: 6 } },

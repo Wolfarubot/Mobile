@@ -1580,7 +1580,7 @@ describe('Equipment', () => {
     }
     // Focus: a burst hits everything around the Hunter, front and back.
     {
-      const { g, f } = fresh('emberFocus');
+      const { g, f } = fresh('umbralFocus'); // (the Ember Focus sends a wave instead)
       f.enemies.push(enemy({ id: 1, x: 70, hp, maxHp: hp }), enemy({ id: 2, x: -70, hp, maxHp: hp }), enemy({ id: 3, x: 300, hp, maxHp: hp }));
       run(f, 1 / g.shooterRate('main') + 0.02);
       expect(f.enemies.filter((e) => e.hp < hp).map((e) => e.id).sort()).toEqual([1, 2]);
@@ -2262,6 +2262,41 @@ describe('Equipment', () => {
     // Size lengthens a melee weapon's reach.
     maul.mods = [{ kind: 'refine', stat: 'size', q: MOD_QUALITY_STEPS }];
     expect(g.weaponClassOf('main')!.reach).toBeCloseTo(WEAPON_CLASSES.hammer.reach! * (1 + modRoll(REFINES.size.range, false, 'uncommon', MOD_QUALITY_STEPS)));
+  });
+
+  it('weapon tweaks: more stabs (slower), staff bolts before the spell, focus waves; longbow follow-through grows with range; slam size', () => {
+    const g = stocked();
+    const dagger = g.craftGear('umbralDagger')!;
+    g.equip('main', 0, dagger.uid);
+    expect(g.weaponClassOf('main')!.thrusts).toBe(5);
+    expect(g.weaponClassOf('main')!.rate).toBeCloseTo(WEAPON_CLASSES.dagger.rate * 0.65);
+    g.equip('main', 0, g.craftGear('soulfireStaff')!.uid);
+    expect(g.weaponClassOf('main')!.spell!.every).toBe(8);
+    expect(g.weaponClassOf('main')!.mag).toBe(9);
+    // A focus's wave: it expands and hits each monster once as it passes, reaching further than a burst.
+    g.equip('main', 0, g.craftGear('emberFocus')!.uid);
+    const cls = g.weaponClassOf('main')!;
+    expect(cls.wave).toBe(true);
+    expect(cls.reach).toBe(WEAPON_CLASSES.focus.reach! * 2);
+    const f = new Field(g);
+    const near = enemy({ id: 1, x: 0, y: -60, hp: 1e9, maxHp: 1e9, speed: 0 });
+    const out = enemy({ id: 2, x: 0, y: -190, hp: 1e9, maxHp: 1e9, speed: 0 });
+    f.enemies = [near, out];
+    (f as unknown as { weaponAttack: (...a: unknown[]) => void }).weaponAttack('main', 0, 0, -Math.PI / 2, near, cls, { cls: null, ammo: 0, reload: 0 }, g.shooterRange('main'));
+    expect(out.hp).toBe(1e9); // not reached yet
+    (f as unknown as { runWaves: (dt: number) => void }).runWaves(0.2);
+    expect(near.hp).toBeLessThan(1e9);
+    const once = near.hp;
+    (f as unknown as { runWaves: (dt: number) => void }).runWaves(0.3);
+    expect(out.hp).toBeLessThan(1e9);
+    expect(near.hp).toBe(once); // each monster is hit once
+    // A longbow's follow-through grows with range.
+    g.equip('main', 0, g.craftGear('thornLongbow')!.uid);
+    const f2 = new Field(g);
+    const lb = g.weaponClassOf('main')!;
+    const target = enemy({ id: 3, x: 0, y: -100, hp: 1e9, maxHp: 1e9 });
+    (f2 as unknown as { weaponAttack: (...a: unknown[]) => void }).weaponAttack('main', 0, 0, -Math.PI / 2, target, lb, { cls: null, ammo: 0, reload: 0 }, MAIN_RANGE * lb.range * 1.5);
+    expect(f2.bullets[0].followThrough).toBeCloseTo(lb.followThrough! * 1.5);
   });
 
   it("salvage returns half of what the piece's current modifiers cost (replaced ones are gone)", () => {
