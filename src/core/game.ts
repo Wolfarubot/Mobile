@@ -941,14 +941,25 @@ export class Game {
     // Starting gear was free: only its stars count.
     for (let l = gearDef(item.base).starter ? 1 : 0; l < item.stars; l++)
       for (const [m, n] of Object.entries(gearCost(gearDef(item.base), l)) as [MaterialId, number][]) out[m] = (out[m] ?? 0) + n;
+    // The modifiers it holds now (not ones they replaced: those costs are gone) return what they cost too.
+    for (const mod of this.modSlots(uid))
+      if (mod) for (const [m, n] of Object.entries(modCost(gearDef(item.base), mod.kind)) as [MaterialId, number][]) out[m] = (out[m] ?? 0) + n;
     for (const m of Object.keys(out) as MaterialId[]) out[m] = Math.floor(out[m]! * SALVAGE_REFUND);
     return out;
+  }
+
+  /** Gold returned for salvaging a piece: half what its current modifiers cost. */
+  salvageGold(uid: number): number {
+    const item = this.gearItem(uid);
+    if (!item) return 0;
+    return Math.floor(this.modSlots(uid).reduce((sum, mod) => sum + (mod ? modGold(gearDef(item.base), mod.kind) : 0), 0) * SALVAGE_REFUND);
   }
 
   /** Destroys a piece for some of its materials. Worn gear can't be salvaged: take it off first. */
   salvageGear(uid: number): boolean {
     if (!this.gearItem(uid) || this.wearerOf(uid)) return false;
     const refund = this.salvageValue(uid);
+    this.state.gold += this.salvageGold(uid);
     for (const [m, n] of Object.entries(refund) as [MaterialId, number][]) this.state.materials[m] += n;
     this.state.inventory = this.state.inventory.filter((g) => g.uid !== uid);
     return true;

@@ -7,6 +7,8 @@ import {
   enemyDrops,
   modRoll,
   MOD_METALS,
+  modCost,
+  modGold,
   MOD_GEMS,
   modValue,
   modPower,
@@ -2159,6 +2161,33 @@ describe('Equipment', () => {
   it('every piece of gear has a rarity, and all nine rarities are used', () => {
     for (const gd of GEAR) expect(Object.keys(RARITIES)).toContain(gd.rarity);
     expect(new Set(GEAR.map((gd) => gd.rarity)).size).toBe(Object.keys(RARITIES).length);
+  });
+
+  it("salvage returns half of what the piece's current modifiers cost (replaced ones are gone)", () => {
+    const g = stocked();
+    g.state.gold = 1e30;
+    g.state.hunters.blacksmith.recruited = true;
+    g.state.hunters.enchantress.recruited = true;
+    const rifle = g.craftGear('frostRifle')!;
+    const plain = g.salvageValue(rifle.uid);
+    expect(g.salvageGold(rifle.uid)).toBe(0);
+    g.refine(rifle.uid, 0);
+    g.refine(rifle.uid, 0); // replaces the first: its cost is gone
+    g.enchant(rifle.uid, 1);
+    const gd = gearDef('frostRifle');
+    expect(g.salvageGold(rifle.uid)).toBe(Math.floor((modGold(gd, 'refine') + modGold(gd, 'enchant')) * 0.5));
+    const mods = { ...modCost(gd, 'refine') };
+    for (const [m, n] of Object.entries(modCost(gd, 'enchant'))) mods[m as MaterialId] = (mods[m as MaterialId] ?? 0) + n!;
+    const value = g.salvageValue(rifle.uid);
+    expect(value.silverOre).toBe(Math.floor(mods.silverOre! * 0.5));
+    expect(value.amethyst).toBe(Math.floor(mods.amethyst! * 0.5));
+    expect(value.fur).toBe(Math.floor((gearCost(gd, 0).fur! + mods.fur!) * 0.5));
+    expect(plain.silverOre).toBeUndefined();
+    const gold = g.state.gold;
+    const amethyst = g.state.materials.amethyst;
+    expect(g.salvageGear(rifle.uid)).toBe(true);
+    expect(g.state.gold).toBe(gold + Math.floor((modGold(gd, 'refine') + modGold(gd, 'enchant')) * 0.5));
+    expect(g.state.materials.amethyst).toBe(amethyst + value.amethyst!);
   });
 
   it('upgrading costs materials and gold (doubling each star)', () => {

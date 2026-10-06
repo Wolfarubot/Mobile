@@ -1056,7 +1056,8 @@ export class AppUI {
       salvage.addEventListener('click', () => {
         const refund = g.salvageValue(uid);
         close();
-        this.showModal(`<h2>Salvage ${gd.name}?</h2><p>You'll get back half of its materials:</p><div class="cost" style="justify-content:center">${costHtml(g, refund, false)}</div>`, [
+        const gold = g.salvageGold(uid);
+        this.showModal(`<h2>Salvage ${gd.name}?</h2><p>You'll get back half of its materials${gold ? ', and half of what its modifiers cost' : ''}:</p><div class="cost" style="justify-content:center">${costHtml(g, refund, false)}${gold ? `<span>🪙 ${fmt(gold)}</span>` : ''}</div>`, [
           { label: 'Cancel', secondary: true },
           { label: 'Salvage', action: () => g.salvageGear(uid) },
         ]);
