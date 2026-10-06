@@ -1067,78 +1067,100 @@ export class AppUI {
   }
 
   /**
-   * Modify a piece: pick a modifier slot, then Refine (Kargesh: a stat) or Enchant (Marceline: a damage type,
-   * status chance or ability). Either goes in the slot (replacing what's there) for gold. Stars don't change it.
+   * Modify a piece, in steps: choose Refine (Kargesh) or Enchant (Marceline); the slots light up (empty ones
+   * highlighted) and you pick one, confirming first if it already holds a modifier, which will be replaced;
+   * then pick the modifier and pay its gold. Stars never change a modifier.
    */
-  private openModify(uid: number, start: 'refine' | 'enchant' = 'refine'): void {
+  private openModify(uid: number): void {
     const g = this.game;
     const item = g.gearItem(uid);
     if (!item) return;
     const gd = gearDef(item.base);
-    let slot = Math.max(0, g.modSlots(uid).findIndex((m) => !m));
-    let tab: 'refine' | 'enchant' = start === 'enchant' || !g.refineOpen ? (g.enchantOpen ? 'enchant' : 'refine') : 'refine';
+    let action: 'refine' | 'enchant' | null = null;
+    let slot: number | null = null;
     let pick: string | null = null;
     this.showSheet(`🛠️ Modify ${gd.icon} ${gd.name}`, (body) => {
       const draw = () => {
         const slots = g.modSlots(uid);
-        const cur = slots[slot];
-        const open = tab === 'refine' ? g.refineOpen : g.enchantOpen;
-        const cost = tab === 'refine' ? g.refineCostOf(uid) : g.enchantCostOf(uid);
-        const options =
-          tab === 'refine'
-            ? (Object.keys(REFINES) as RefineStat[])
-                .filter((s) => REFINES[s].fits(gd))
-                .map((s) => ({ id: s as string, icon: REFINES[s].icon, name: REFINES[s].name, text: REFINES[s].text(refineValue(s, gd.rarity)), here: cur?.kind === 'refine' && cur.stat === s, blocked: false }))
-            : g.enchantsFor(uid).map((id) => ({
-                id: id as string,
-                icon: ENCHANTS[id].icon,
-                name: ENCHANTS[id].name,
-                text: enchantText(id, gd),
-                here: cur?.kind === 'enchant' && cur.id === id,
-                blocked: slots.some((m, i) => i !== slot && m?.kind === 'enchant' && m.id === id),
-              }));
+        const cur = slot === null ? null : slots[slot];
         body.innerHTML = `
           <p><b class="rarity-tag" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${gearKindName(gd)} · ${slots.length} modifier slot${slots.length === 1 ? '' : 's'}</p>
-          <div class="filter-label">Slot</div>
-          <div class="refine-slots">${slots.map((m, i) => `<button class="refine-slot${i === slot ? ' on' : ''}" data-slot="${i}">${m ? modText(m, gd) : '<i>Empty slot</i>'}</button>`).join('')}</div>
-          <div class="subtabs mod-tabs"><button data-tab="refine" class="${tab === 'refine' ? 'on' : ''}">⚒️ Refine</button><button data-tab="enchant" class="${tab === 'enchant' ? 'on' : ''}">✨ Enchant</button></div>
-          ${
-            open
-              ? `<div class="refine-stats">${options
-                  .map((o) => `<button class="refine-stat${pick === o.id ? ' on' : ''}" data-pick="${o.id}"${o.here || o.blocked ? ' disabled' : ''}><b>${o.icon} ${o.name}</b><small>${o.text}${o.here ? ' · in this slot' : o.blocked ? ' · already on this piece' : ''}</small></button>`)
-                  .join('')}</div>
-                <p class="refine-note">${slots[slot] ? 'This replaces the modifier in the slot.' : 'Modifiers stay as the piece gains stars.'}</p>`
-              : `<p class="refine-note">${tab === 'refine' ? 'Recruit Kargesh the Blacksmith (Ember Mines) to Refine.' : 'Recruit Marceline the Enchantress (Venom Caverns) to Enchant.'}</p>`
-          }`;
-        if (open) {
+          <div class="mod-actions">
+            ${g.refineOpen ? `<button class="mod-action${action === 'refine' ? ' on' : ''}" data-action="refine"><b>⚒️ Refine</b><small>A stat bonus · 🪙 ${fmt(g.refineCostOf(uid))}</small></button>` : ''}
+            ${g.enchantOpen ? `<button class="mod-action${action === 'enchant' ? ' on' : ''}" data-action="enchant"><b>✨ Enchant</b><small>Types, effects, abilities · 🪙 ${fmt(g.enchantCostOf(uid))}</small></button>` : ''}
+          </div>
+          ${!g.refineOpen ? '<p class="refine-note">Recruit Kargesh the Blacksmith (Ember Mines) to Refine.</p>' : ''}
+          ${!g.enchantOpen ? '<p class="refine-note">Recruit Marceline the Enchantress (Venom Caverns) to Enchant.</p>' : ''}
+          <div class="filter-label">${action ? (slot === null ? 'Choose a slot' : 'Slot') : 'Slots'}</div>
+          <div class="refine-slots">${slots
+            .map((m, i) => {
+              const cls = ['refine-slot', action && !m ? 'open' : '', i === slot ? 'on' : '', !action ? 'idle' : ''].filter(Boolean).join(' ');
+              return `<button class="${cls}" data-slot="${i}"${action ? '' : ' disabled'}>${m ? modText(m, gd) : '<i>Empty slot</i>'}</button>`;
+            })
+            .join('')}</div>
+          ${action ? '' : '<p class="refine-note">Choose Refine or Enchant to pick a slot.</p>'}`;
+        if (action && slot !== null) {
+          const options =
+            action === 'refine'
+              ? (Object.keys(REFINES) as RefineStat[])
+                  .filter((st) => REFINES[st].fits(gd))
+                  .map((st) => ({ id: st as string, icon: REFINES[st].icon, name: REFINES[st].name, text: REFINES[st].text(refineValue(st, gd.rarity)), here: cur?.kind === 'refine' && cur.stat === st, blocked: false }))
+              : g.enchantsFor(uid).map((id) => ({
+                  id: id as string,
+                  icon: ENCHANTS[id].icon,
+                  name: ENCHANTS[id].name,
+                  text: enchantText(id, gd),
+                  here: cur?.kind === 'enchant' && cur.id === id,
+                  blocked: slots.some((m, i) => i !== slot && m?.kind === 'enchant' && m.id === id),
+                }));
+          const list = el('div', 'refine-stats');
+          list.innerHTML = `<div class="filter-label">${action === 'refine' ? 'Refine with' : 'Enchant with'}</div>${options
+            .map((o) => `<button class="refine-stat${pick === o.id ? ' on' : ''}" data-pick="${o.id}"${o.here || o.blocked ? ' disabled' : ''}><b>${o.icon} ${o.name}</b><small>${o.text}${o.here ? ' · in this slot' : o.blocked ? ' · already on this piece' : ''}</small></button>`)
+            .join('')}`;
+          body.appendChild(list);
           const go = el('button', 'buy refine-go') as HTMLButtonElement;
-          go.innerHTML = `${tab === 'refine' ? 'Refine' : 'Enchant'} <span class="refine-cost">🪙 ${fmt(cost)}</span>`;
-          go.disabled = !pick || !(tab === 'refine' ? g.canRefine(uid, slot, pick as RefineStat) : g.canEnchant(uid, slot, pick as EnchantId));
+          go.innerHTML = `${action === 'refine' ? 'Refine' : 'Enchant'} <span class="refine-cost">🪙 ${fmt(action === 'refine' ? g.refineCostOf(uid) : g.enchantCostOf(uid))}</span>`;
+          go.disabled = !pick || !(action === 'refine' ? g.canRefine(uid, slot, pick as RefineStat) : g.canEnchant(uid, slot, pick as EnchantId));
           go.addEventListener('click', () => {
-            if (!pick) return;
-            const ok = tab === 'refine' ? g.refine(uid, slot, pick as RefineStat) : g.enchant(uid, slot, pick as EnchantId);
+            if (!pick || slot === null) return;
+            const ok = action === 'refine' ? g.refine(uid, slot, pick as RefineStat) : g.enchant(uid, slot, pick as EnchantId);
             if (!ok) return;
-            this.toast(`${tab === 'refine' ? '⚒️' : '✨'} ${gd.name}: ${modText(g.modSlots(uid)[slot]!, gd)}`);
+            this.toast(`${action === 'refine' ? '⚒️' : '✨'} ${gd.name}: ${modText(g.modSlots(uid)[slot]!, gd)}`);
             this.hooks.save();
+            action = null;
+            slot = null;
             pick = null;
-            const next = g.modSlots(uid).findIndex((m) => !m);
-            if (next >= 0) slot = next;
             draw();
           });
           body.appendChild(go);
         }
-        body.querySelectorAll<HTMLButtonElement>('.refine-slot').forEach((b) =>
+        body.querySelectorAll<HTMLButtonElement>('.mod-action').forEach((b) =>
           b.addEventListener('click', () => {
-            slot = Number(b.dataset.slot);
+            action = b.dataset.action as 'refine' | 'enchant';
+            slot = null;
             pick = null;
             draw();
           }),
         );
-        body.querySelectorAll<HTMLButtonElement>('.mod-tabs button').forEach((b) =>
+        body.querySelectorAll<HTMLButtonElement>('.refine-slot').forEach((b) =>
           b.addEventListener('click', () => {
-            tab = b.dataset.tab as 'refine' | 'enchant';
-            pick = null;
-            draw();
+            const i = Number(b.dataset.slot);
+            const held = g.modSlots(uid)[i];
+            const choose = () => {
+              slot = i;
+              pick = null;
+              draw();
+            };
+            if (!held || slot === i) return choose();
+            // An occupied slot: confirm replacing what's there.
+            const wrap = el('div', 'mod-confirm-wrap');
+            wrap.innerHTML = `<div class="modal-box mod-confirm"><h2>Replace modifier?</h2><p>Using this slot will replace its existing modifier:</p><p class="mod-confirm-cur">${modText(held, gd)}</p><div class="buttons"><button class="secondary mc-cancel">Cancel</button><button class="buy mc-ok">Confirm</button></div></div>`;
+            $('.mc-cancel', wrap).addEventListener('click', () => wrap.remove());
+            $('.mc-ok', wrap).addEventListener('click', () => {
+              wrap.remove();
+              choose();
+            });
+            this.modal.appendChild(wrap);
           }),
         );
         body.querySelectorAll<HTMLButtonElement>('.refine-stat').forEach((b) =>

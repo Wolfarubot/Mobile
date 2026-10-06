@@ -3771,8 +3771,63 @@ body.left-handed .hd-float-close {
 }
 
 /* ---- Modify: Refine (Kargesh) and Enchant (Marceline) ---- */
-.mod-tabs {
-  margin: 4px 0 8px;
+.mod-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+  margin: 6px 0 10px;
+}
+.mod-action {
+  display: grid;
+  gap: 2px;
+  padding: 10px 8px;
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--text);
+  border: 2px solid rgba(0, 0, 0, 0.18);
+}
+.mod-action b {
+  font-size: 17px;
+}
+.mod-action small {
+  font-size: 11px;
+  opacity: 0.8;
+}
+.mod-action.on {
+  background: var(--gold);
+  color: var(--c0);
+}
+/* With Refine or Enchant chosen, open slots light up. */
+.refine-slot.open {
+  outline: 3px solid var(--gold);
+  outline-offset: -1px;
+  animation: slot-glow 1.2s ease-in-out infinite;
+}
+@keyframes slot-glow {
+  50% {
+    outline-color: transparent;
+  }
+}
+.refine-slot.idle:disabled {
+  opacity: 1;
+}
+.mod-confirm-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.55);
+}
+.mod-confirm .buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.mod-confirm-cur {
+  font-weight: 700;
+  color: var(--gold);
 }
 .inv-tile .mod-pips {
   position: absolute;
