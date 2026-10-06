@@ -77,6 +77,7 @@ import {
   type EnchantId,
   refineCost,
   modValue,
+  modPower,
   type RefineStat,
   gearTypes,
   gearDef,
@@ -308,30 +309,55 @@ export class Game {
       const def = item ? gearDef(item.base) : null;
       if (!item || !def) continue;
       if (def.effect) out.push({ uid: item.uid, def, effect: def.effect, stars: item.stars });
-      // Enchanted abilities and armor specials: their own cooldown key; damage from the roll × the piece's area.
+      // Enchanted armor specials (Thorns, Evasion, Shield Burst): their rolled chance, and damage from their
+      // rolled power × the piece's area.
       (item.mods ?? []).forEach((m, slot) => {
         const en = m?.kind === 'enchant' ? ENCHANTS[m.id] : null;
         if (!m || !en?.effect) return;
-        const v = modValue(m, def);
-        const effect = (en.effect.kind === 'evade' ? { ...en.effect, chance: v } : 'base' in en.effect ? { ...en.effect, base: v * enchantTierHit(def) } : en.effect) as GearEffect;
+        const chance = modValue(m, def);
+        const effect = (en.effect.kind === 'evade' ? { ...en.effect, chance } : 'base' in en.effect ? { ...en.effect, chance, base: modPower(m, def) * enchantTierHit(def) } : en.effect) as GearEffect;
         out.push({ uid: -(item.uid * 4 + slot + 1), def: { ...def, icon: en.icon, name: `${en.name} (${def.name})` }, effect, stars: 1 });
       });
     }
     return out;
   }
 
-  /** The enchantments on a piece, with their rolled values. */
-  private enchantsOf(item: GearItem | null): Array<{ en: EnchantDef; v: number }> {
+  /** The enchantments on a piece, with their rolled chance (`v`) and power (`p`). */
+  private enchantsOf(item: GearItem | null): Array<{ en: EnchantDef; v: number; p: number }> {
     if (!item) return [];
     const def = gearDef(item.base);
-    return (item.mods ?? []).flatMap((m) => (m?.kind === 'enchant' ? [{ en: ENCHANTS[m.id], v: modValue(m, def) }] : []));
+    return (item.mods ?? []).flatMap((m) => (m?.kind === 'enchant' ? [{ en: ENCHANTS[m.id], v: modValue(m, def), p: modPower(m, def) }] : []));
   }
 
-  /** Fireburst on a Hunter's weapon: monsters it kills burst for this much base damage around them. */
-  killBurst(who: Shooter): { base: number; radius: number; damageType: DamageType } | null {
+  /** Fireburst on a Hunter's weapon: each kill has `chance` to burst for this much base damage around it. */
+  killBurst(who: Shooter): { base: number; radius: number; damageType: DamageType; chance: number } | null {
     const item = this.weaponItem(who);
     const e = this.enchantsOf(item).find(({ en }) => en.onKill);
-    return item && e?.en.onKill ? { ...e.en.onKill, base: e.v * enchantTierHit(gearDef(item.base)) } : null;
+    return item && e?.en.onKill ? { ...e.en.onKill, chance: e.v, base: e.p * enchantTierHit(gearDef(item.base)) } : null;
+  }
+
+  /** Enchantments set off by a Hunter's attacks (Thunder Call, the pulses), from anything they wear. */
+  attackEnchants(who: Shooter): Array<{ effect: GearEffect; chance: number }> {
+    const out: Array<{ effect: GearEffect; chance: number }> = [];
+    for (const item of this.equipped(who))
+      if (item)
+        for (const { en, v, p } of this.enchantsOf(item))
+          if (en.onAttack && 'base' in en.onAttack) out.push({ chance: v, effect: { ...en.onAttack, base: p * enchantTierHit(gearDef(item.base)) } as GearEffect });
+    return out;
+  }
+
+  /**
+   * Status chance of one damage type of a Hunter's hits: an infused type uses its infusion's rolled chance,
+   * the weapon's own types its own; Potency adds to both.
+   */
+  procFor(who: Shooter, t: DamageType, mode: GearMode = 'long', special = false): number {
+    if (special) return this.procOf(who, mode, true);
+    const item = this.weaponItem(who, mode);
+    if (!item) return 0;
+    const inf = this.enchantsOf(item).find(({ en }) => en.infuse === t && !gearTypes(gearDef(item.base)).includes(t));
+    if (!inf) return this.procOf(who, mode);
+    const potency = this.enchantsOf(item).reduce((sum, { en, v }) => sum + (en.potency ? v : 0), 0);
+    return Math.min(1, inf.v + potency);
   }
 
   /** Damage of a tap blast (Tap Power nodes, and the equipped tap ability). */
@@ -563,7 +589,7 @@ export class Game {
       const d = item ? gearDef(item.base) : null;
       if (item && d?.typeBonus?.type === t) b += d.typeBonus.bonus * GEAR_STAR_POWER[item.stars];
       // An infusion's rolled bonus to its own type.
-      for (const { en, v } of this.enchantsOf(item)) if (en.infuse === t) b += v;
+      for (const { en, p } of this.enchantsOf(item)) if (en.infuse === t) b += p;
     }
     return 1 + b;
   }
@@ -822,7 +848,7 @@ export class Game {
         let r = this.rng() * total;
         const id = pool.find((x) => (r -= ENCHANTS[x].weight) < 0) ?? pool[pool.length - 1];
         pool = pool.filter((x) => x !== id);
-        options.push({ kind: 'enchant', id, q: this.rollQuality() });
+        options.push({ kind: 'enchant', id, q: this.rollQuality(), p: this.rollQuality() });
       }
     }
     this.state.gold -= kind === 'refine' ? this.refineCostOf(uid) : this.enchantCostOf(uid);

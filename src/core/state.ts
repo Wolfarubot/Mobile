@@ -99,7 +99,8 @@ export interface GearItem {
 
 /** A modifier on a piece of gear: a Refine stat (Kargesh) or an Enchantment (Marceline). */
 /** `q` is its rolled quality step (0 to MOD_QUALITY_STEPS; the top step is a perfect roll). */
-export type GearMod = { kind: 'refine'; stat: RefineStat; q: number } | { kind: 'enchant'; id: EnchantId; q: number };
+/** Enchantments also roll `p`, their power step (an infusion's bonus, an ability's damage). */
+export type GearMod = { kind: 'refine'; stat: RefineStat; q: number } | { kind: 'enchant'; id: EnchantId; q: number; p?: number };
 
 /** A roll's choices for a slot, waiting to be picked. */
 export interface PendingMod {
@@ -347,11 +348,12 @@ function pick<T extends string>(allowed: readonly T[], v: unknown, fallback: T):
 
 /** A saved modifier, if well-formed (ones from before rolls count as middling). */
 function parseMod(m: unknown): GearMod | null {
-  const x = m as { kind?: string; stat?: string; id?: string; q?: number } | null;
+  const x = m as { kind?: string; stat?: string; id?: string; q?: number; p?: number } | null;
   if (!x) return null;
-  const q = typeof x.q === 'number' ? Math.max(0, Math.min(MOD_QUALITY_STEPS, Math.round(x.q))) : Math.round(MOD_QUALITY_STEPS / 2);
+  const step = (v: unknown) => (typeof v === 'number' ? Math.max(0, Math.min(MOD_QUALITY_STEPS, Math.round(v))) : Math.round(MOD_QUALITY_STEPS / 2));
+  const q = step(x.q);
   if (x.kind === 'refine' && x.stat && x.stat in REFINES) return { kind: 'refine', stat: x.stat as RefineStat, q };
-  if (x.kind === 'enchant' && x.id && x.id in ENCHANTS) return { kind: 'enchant', id: x.id as EnchantId, q };
+  if (x.kind === 'enchant' && x.id && x.id in ENCHANTS) return { kind: 'enchant', id: x.id as EnchantId, q, p: step(x.p) };
   return null;
 }
 
@@ -532,14 +534,7 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
               if (options.length) item.pending = { slot: g.pending.slot, kind: g.pending.kind === 'enchant' ? 'enchant' : 'refine', options };
             }
             if (Array.isArray(g.mods) && slots > 0)
-              item.mods = Array.from({ length: slots }, (_, i) => {
-                const m = g.mods![i] as GearMod | null | undefined;
-                // Modifiers from before rolls (v21) count as middling ones.
-                const q = typeof m?.q === 'number' ? Math.max(0, Math.min(MOD_QUALITY_STEPS, Math.round(m.q))) : Math.round(MOD_QUALITY_STEPS / 2);
-                if (m && m.kind === 'refine' && m.stat in REFINES) return { kind: 'refine' as const, stat: m.stat, q };
-                if (m && m.kind === 'enchant' && m.id in ENCHANTS) return { kind: 'enchant' as const, id: m.id, q };
-                return null;
-              });
+              item.mods = Array.from({ length: slots }, (_, i) => parseMod(g.mods![i]));
             return item;
           }
           const def = gearDef(g.base);

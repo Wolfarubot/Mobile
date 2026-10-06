@@ -6,6 +6,8 @@ import {
   enemyDef,
   enemyDrops,
   modRoll,
+  modValue,
+  modPower,
   modPerfect,
   MOD_QUALITY_STEPS,
   REFINES,
@@ -1043,12 +1045,15 @@ describe('Equipment', () => {
     g.equip('main', 0, bow.uid);
     const gold = g.state.gold;
     roll = rollFor(bow.uid, 0, 'infuseFrost');
-    const m = g.enchant(bow.uid, 0)! as { id: string; q: number };
+    const m = g.enchant(bow.uid, 0)! as { id: string; q: number; p: number };
     expect(m.id).toBe('infuseFrost');
     expect(g.state.gold).toBe(gold - g.enchantCostOf(bow.uid));
     expect(g.enchantCostOf(bow.uid)).toBe(g.refineCostOf(bow.uid) * 2);
     expect(g.damageTypesOf('main')).toEqual(['fire', 'frost']);
-    expect(g.typeBonus('main', 'frost')).toBeCloseTo(1 + modRoll(ENCHANTS.infuseFrost.range, false, 'veryRare', m.q));
+    // Two rolls: its Frost bonus (power) and its chance to chill (the one that decides Perfect).
+    expect(g.typeBonus('main', 'frost')).toBeCloseTo(1 + modRoll(ENCHANTS.infuseFrost.power!, false, 'veryRare', m.p));
+    expect(g.procFor('main', 'frost')).toBeCloseTo(modRoll(ENCHANTS.infuseFrost.range, false, 'veryRare', m.q));
+    expect(g.procFor('main', 'fire')).toBe(g.procOf('main')); // the bow's own Fire keeps its own chance
     // Potency on the rifle: more status chance; what one slot holds can't roll into another.
     g.equip('main', 0, rifle.uid);
     const proc = g.procOf('main');
@@ -1064,6 +1069,8 @@ describe('Equipment', () => {
     const victim = enemy({ id: 1, x: 0, y: -100, hp: 1, maxHp: 1 });
     const bystander = enemy({ id: 2, x: 30, y: -100, hp: 1e9, maxHp: 1e9 });
     f.enemies = [victim, bystander];
+    expect(g.killBurst('main')!.chance).toBeGreaterThanOrEqual(0.25);
+    roll = 0; // the burst's chance comes up
     (f as unknown as { hitWith: (...a: unknown[]) => void }).hitWith('main', victim, 1, 0, 0, false);
     expect(victim.hp).toBeLessThanOrEqual(0);
     expect(bystander.hp).toBeLessThan(1e9);
@@ -1095,6 +1102,34 @@ describe('Equipment', () => {
     expect(g.chooseMod(rifle.uid, 1)).toEqual(options[1]);
     expect(g.modSlots(rifle.uid)).toEqual([null, options[1]]);
     expect(g.pendingMod(rifle.uid)).toBeNull();
+  });
+
+  it('enchantments roll a chance to activate (top chance = Perfect) and a separate power; attack enchantments fire on attacks', () => {
+    let roll = 0;
+    const g = stocked();
+    (g as unknown as { rng: () => number }).rng = () => roll;
+    g.state.gold = 1e30;
+    g.state.hunters.enchantress.recruited = true;
+    const orb = g.craftGear('emberOrb')!; // Very Rare accessory
+    const pool = g.enchantsFor(orb.uid, 0);
+    const total = pool.reduce((sum, x) => sum + ENCHANTS[x].weight, 0);
+    roll = (pool.slice(0, pool.indexOf('thunderCall')).reduce((sum, x) => sum + ENCHANTS[x].weight, 0) + 0.5) / total;
+    expect((g.rollMod(orb.uid, 0, 'enchant')![0] as { id: string }).id).toBe('thunderCall');
+    const m = g.chooseMod(orb.uid, 0)!;
+    expect(m).toMatchObject({ kind: 'enchant', id: 'thunderCall' });
+    // Perfect is decided by the chance roll alone.
+    expect(modPerfect({ q: MOD_QUALITY_STEPS })).toBe(true);
+    g.equip('main', 2, orb.uid);
+    const [atk] = g.attackEnchants('main');
+    expect(atk.chance).toBeCloseTo(modValue(m, gearDef('emberOrb')));
+    expect((atk.effect as { base: number }).base).toBeCloseTo(modPower(m, gearDef('emberOrb')) * TIER_HIT[gearArea(gearDef('emberOrb')) - 1]);
+    // An attack sets it off when its chance comes up: lightning strikes.
+    const f = new Field(g);
+    const e = enemy({ id: 1, x: 0, y: -120, hp: 1e9, maxHp: 1e9 });
+    f.enemies = [e];
+    roll = 0;
+    (f as unknown as { weaponAttack: (...a: unknown[]) => void }).weaponAttack('main', 0, 0, -Math.PI / 2, e, null, { cls: null, ammo: 0, reload: 0 }, 300);
+    expect(f.drainEvents().some((ev) => ev.type === 'beam' && (ev as { zigzag?: boolean }).zigzag)).toBe(true);
   });
 
   it('Kargesh the Blacksmith replaces Sera; old saves move her over', () => {

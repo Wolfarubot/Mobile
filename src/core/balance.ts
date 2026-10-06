@@ -1655,8 +1655,8 @@ export function armorStats(type: ArmorType, tier: number): Partial<Record<GearSt
  *          strike (lightning from above), chill (an aura that slows every monster near you).
  */
 export type GearEffect =
-  | { kind: 'thorns'; base: number; damageType: DamageType }
-  | { kind: 'block'; base: number; damageType: DamageType; radius: number }
+  | { kind: 'thorns'; base: number; damageType: DamageType; chance?: number }
+  | { kind: 'block'; base: number; damageType: DamageType; radius: number; chance?: number }
   | { kind: 'evade'; chance: number }
   | { kind: 'pulse'; base: number; damageType: DamageType; radius: number; cooldown: number }
   | { kind: 'summon'; base: number; damageType: DamageType; look: 'puppet'; type: SummonType; name: string; count: number; duration: number; cooldown: number; bites: number; speed: number }
@@ -1947,10 +1947,10 @@ export const REFINES: Record<RefineStat, { name: string; icon: string; range: [n
 const pct = (v: number): string => `${Math.round(v * 1000) / 10}%`;
 
 /**
- * Enchantments: the involved modifiers. An **infusion** adds a damage type to a weapon (its hits split evenly
- * between its types) with a bonus to that type; **Potency** raises status chance; the rest are abilities and
- * armor specials whose damage is `v` × the piece's area TIER_HIT (like gear abilities). `range` is at
- * Legendary, like Refine's. `weight` makes some likelier to roll (each infusion is one of nine).
+ * Enchantments: the involved modifiers. Each has a rolled **chance** to activate (`range`, the roll that makes it
+ * Perfect at its top), and most also a separately rolled **power** (`power`): an infusion's bonus to its type,
+ * an ability's damage (× the piece's area TIER_HIT, like gear abilities). Both ranges are at Legendary, like
+ * Refine's, and scale with rarity. `weight` makes some likelier to roll (each infusion is one of nine).
  */
 export type EnchantId =
   | 'infuseFire'
@@ -1974,30 +1974,36 @@ export type EnchantId =
 export interface EnchantDef {
   name: string;
   icon: string;
+  /** Its chance to activate, at Legendary (the roll that decides a Perfect). */
   range: [number, number];
+  /** Its second roll, at Legendary: an infusion's bonus to its type, or damage as a multiple of TIER_HIT. */
+  power?: [number, number];
   weight: number;
-  /** Infusions: the damage type they add (their roll is a bonus to it). */
+  /** Infusions: the damage type they add; their chance is that type's status chance. */
   infuse?: DamageType;
-  /** Potency: its roll is added status chance. */
+  /** Potency: its chance is added to the weapon's status chance. */
   potency?: boolean;
-  /** Fireburst: monsters the weapon kills burst within `radius` (roll × TIER_HIT damage). */
+  /** Fireburst: each kill by the weapon has its chance to burst within `radius`. */
   onKill?: { radius: number; damageType: DamageType };
-  /** An ability or armor special; its `base` (or evade `chance`) comes from the roll. */
+  /** Thunder Call and the pulses: each of the wearer's attacks has its chance to set this off. */
+  onAttack?: GearEffect;
+  /** Armor specials (thorns, evade, block): each time they could, they activate at its chance. */
   effect?: GearEffect;
   fits: (def: GearDef) => boolean;
-  /** In words, given the rolled value (and the piece's TIER_HIT for damage). */
-  text: (v: number, tierHit: number) => string;
+  /** In words, given its rolled chance, power and the piece's TIER_HIT. */
+  text: (chance: number, power: number, tierHit: number) => string;
 }
 
 const dmg = (v: number, t: number) => `${Math.round(v * t * 10) / 10} base damage`;
 const infusion = (t: DamageType, icon: string): EnchantDef => ({
   name: `${DAMAGE_TYPES[t].name} Infusion`,
   icon,
-  range: [0.05, 0.15],
+  range: [0.1, 0.25],
+  power: [0.05, 0.15],
   weight: 0.4,
   infuse: t,
   fits: isWeapon,
-  text: (v) => `adds ${DAMAGE_TYPES[t].name} damage (hits split between the weapon's types) and +${pct(v)} ${DAMAGE_TYPES[t].name} damage`,
+  text: (c, p) => `adds ${DAMAGE_TYPES[t].name} damage (+${pct(p)}; hits split between the weapon's types)${DAMAGE_TYPES[t].effect ? `, ${pct(c)} chance to ${DAMAGE_TYPES[t].effect!.split(':')[0].toLowerCase()}` : ''}`,
 });
 
 export const ENCHANTS: Record<EnchantId, EnchantDef> = {
@@ -2010,20 +2016,29 @@ export const ENCHANTS: Record<EnchantId, EnchantDef> = {
   infuseArcane: infusion('arcane', '🔮'),
   infuseDecay: infusion('decay', '🍂'),
   infuseVoid: infusion('void', '🌀'),
-  potency: { name: 'Potency', icon: '🧫', range: [0.08, 0.15], weight: 1, potency: true, fits: isWeapon, text: (v) => `+${pct(v)} status effect chance` },
-  fireburst: { name: 'Fireburst', icon: '💥', range: [0.6, 1], weight: 1, onKill: { radius: 70, damageType: 'fire' }, fits: isWeapon, text: (v, t) => `monsters this weapon kills burst into flame around them (${dmg(v, t)})` },
-  thunderCall: { name: 'Thunder Call', icon: '🌩️', range: [0.5, 0.8], weight: 1, effect: { kind: 'strike', base: 1, damageType: 'lightning', targets: 2, cooldown: 4, range: 300 }, fits: () => true, text: (v, t) => `every 4s, lightning strikes 2 monsters nearby (${dmg(v, t)})` },
-  frostPulse: { name: 'Frost Pulse', icon: '🧊', range: [0.6, 0.9], weight: 1, effect: { kind: 'pulse', base: 1, damageType: 'frost', radius: 90, cooldown: 5 }, fits: () => true, text: (v, t) => `every 5s, a burst of frost around the wearer (${dmg(v, t)})` },
-  emberPulse: { name: 'Ember Pulse', icon: '🔥', range: [0.6, 0.9], weight: 1, effect: { kind: 'pulse', base: 1, damageType: 'fire', radius: 90, cooldown: 5 }, fits: (d) => !isWeapon(d), text: (v, t) => `every 5s, a burst of fire around the wearer (${dmg(v, t)})` },
-  thorns: { name: 'Thorns', icon: '🌵', range: [0.8, 1.2], weight: 1, effect: { kind: 'thorns', base: 1, damageType: 'physical' }, fits: isArmor, text: (v, t) => `monsters that reach the wearer take damage (${dmg(v, t)})` },
-  evasion: { name: 'Evasion', icon: '💨', range: [0.05, 0.1], weight: 1, effect: { kind: 'evade', chance: 1 }, fits: isArmor, text: (v) => `${pct(v)} chance to slip a monster entirely` },
-  shieldBurst: { name: 'Shield Burst', icon: '🛡️', range: [0.8, 1.2], weight: 1, effect: { kind: 'block', base: 1, damageType: 'radiant', radius: 80 }, fits: isArmor, text: (v, t) => `each blocked hit blasts everything nearby (${dmg(v, t)})` },
+  potency: { name: 'Potency', icon: '🧫', range: [0.08, 0.15], weight: 1, potency: true, fits: isWeapon, text: (c) => `+${pct(c)} status effect chance` },
+  fireburst: { name: 'Fireburst', icon: '💥', range: [0.25, 0.5], power: [0.6, 1], weight: 1, onKill: { radius: 70, damageType: 'fire' }, fits: isWeapon, text: (c, p, t) => `${pct(c)} chance a monster this weapon kills bursts into flame (${dmg(p, t)})` },
+  thunderCall: { name: 'Thunder Call', icon: '🌩️', range: [0.05, 0.12], power: [0.5, 0.8], weight: 1, onAttack: { kind: 'strike', base: 1, damageType: 'lightning', targets: 2, cooldown: 0, range: 300 }, fits: () => true, text: (c, p, t) => `${pct(c)} chance on attack to call lightning on 2 monsters (${dmg(p, t)})` },
+  frostPulse: { name: 'Frost Pulse', icon: '🧊', range: [0.05, 0.12], power: [0.6, 0.9], weight: 1, onAttack: { kind: 'pulse', base: 1, damageType: 'frost', radius: 90, cooldown: 0 }, fits: () => true, text: (c, p, t) => `${pct(c)} chance on attack for a burst of frost around the wearer (${dmg(p, t)})` },
+  emberPulse: { name: 'Ember Pulse', icon: '🔥', range: [0.05, 0.12], power: [0.6, 0.9], weight: 1, onAttack: { kind: 'pulse', base: 1, damageType: 'fire', radius: 90, cooldown: 0 }, fits: (d) => !isWeapon(d), text: (c, p, t) => `${pct(c)} chance on attack for a burst of fire around the wearer (${dmg(p, t)})` },
+  thorns: { name: 'Thorns', icon: '🌵', range: [0.3, 0.6], power: [0.8, 1.2], weight: 1, effect: { kind: 'thorns', base: 1, damageType: 'physical' }, fits: isArmor, text: (c, p, t) => `${pct(c)} chance a monster that reaches the wearer takes damage (${dmg(p, t)})` },
+  evasion: { name: 'Evasion', icon: '💨', range: [0.05, 0.1], weight: 1, effect: { kind: 'evade', chance: 1 }, fits: isArmor, text: (c) => `${pct(c)} chance to slip a monster entirely` },
+  shieldBurst: { name: 'Shield Burst', icon: '🛡️', range: [0.4, 0.8], power: [0.8, 1.2], weight: 1, effect: { kind: 'block', base: 1, damageType: 'radiant', radius: 80 }, fits: isArmor, text: (c, p, t) => `${pct(c)} chance a blocked hit blasts everything nearby (${dmg(p, t)})` },
 };
 
-/** A rolled modifier's value on a piece (its quality step within its range for the piece's rarity). */
-export function modValue(m: { kind: 'refine'; stat: RefineStat; q: number } | { kind: 'enchant'; id: EnchantId; q: number }, def: GearDef): number {
+type ModLike = { kind: 'refine'; stat: RefineStat; q: number } | { kind: 'enchant'; id: EnchantId; q: number; p?: number };
+
+/** A rolled modifier's value on a piece: a Refine stat, or an Enchantment's chance (its quality step in its range). */
+export function modValue(m: ModLike, def: GearDef): number {
   const d = m.kind === 'refine' ? REFINES[m.stat] : ENCHANTS[m.id];
   return modRoll(d.range, 'int' in d ? d.int : false, def.rarity, m.q);
+}
+
+/** An Enchantment's second roll on a piece (an infusion's bonus, an ability's damage multiple); 0 if it has none. */
+export function modPower(m: ModLike, def: GearDef): number {
+  if (m.kind !== 'enchant') return 0;
+  const r = ENCHANTS[m.id].power;
+  return r ? modRoll(r, false, def.rarity, m.p ?? Math.round(MOD_QUALITY_STEPS / 2)) : 0;
 }
 
 /** A perfect roll: the top of its range (shown with a special border). */

@@ -494,7 +494,7 @@ export class Field {
     const hy = helper?.y ?? 0;
     const effects = this.game.gearEffects(who);
     // Thorns: whatever reaches you gets hurt, blocked or not.
-    for (const { effect: ef, stars } of effects) if (ef.kind === 'thorns') this.abilityHit(who, e, effectBase(ef, stars), ef.damageType, false);
+    for (const { effect: ef, stars } of effects) if (ef.kind === 'thorns' && (ef.chance === undefined || this.game.rng() < ef.chance)) this.abilityHit(who, e, effectBase(ef, stars), ef.damageType, false);
     // Evasion (light armor): slip it entirely, no stun and no shield used.
     if (!e.boss && effects.some(({ effect: ef }) => ef.kind === 'evade' && this.game.rng() < ef.chance)) {
       e.fleeing = true;
@@ -509,7 +509,7 @@ export class Field {
       this.events.push({ type: 'guard', x: hx, y: hy });
       // Shield burst: the block blasts everything around the wearer.
       for (const { effect: ef, stars } of effects)
-        if (ef.kind === 'block') this.abilityBurst(who, hx, hy, ef.radius, effectBase(ef, stars), ef.damageType);
+        if (ef.kind === 'block' && (ef.chance === undefined || this.game.rng() < ef.chance)) this.abilityBurst(who, hx, hy, ef.radius, effectBase(ef, stars), ef.damageType);
       return;
     }
     // A stun runs its course: hits while stunned or immune don't extend it (no stun loops).
@@ -657,6 +657,8 @@ export class Field {
       }
     } else this.shoot(who, cls?.projectile ?? 'bolt', x, y, aim, BULLET_SPEED, range, { pierce: g.pierceOf(who, mode), spread: true, followThrough: cls?.followThrough, bounces: cls?.bounces, mode: m });
     if (this.isMelee(who)) this.meleeWave(who, x, y);
+    // Enchantments set off by attacks (Thunder Call, the pulses), each at its rolled chance.
+    for (const { effect, chance } of g.attackEnchants(who)) if (g.rng() < chance) this.fireGear(who, x, y, effect, 1, 0);
   }
 
   /** Reginald's potion / Glimmer's fireball: cast at the nearest monster in range whenever the cooldown is up. */
@@ -1083,12 +1085,12 @@ export class Field {
     const g = this.game;
     const types = only ? [only] : g.damageTypesOf(shooter, mode, special);
     const base = (g.shotDamage(shooter, enemyDef(e.type).archetype, mode) * mult * (crit ? CRIT_MULT : 1)) / types.length;
-    const proc = g.procOf(shooter, mode, special);
     const d = Math.hypot(e.x - fromX, e.y - fromY) || 1;
     for (const t of types) {
       const dmg = base * this.typeMultOn(t, e) * g.typeBonus(shooter, t);
       this.damage(e, dmg, crit, (e.x - fromX) / d, (e.y - fromY) / d, shooter, t);
-      if (status && g.rng() < proc) this.applyStatus(e, t, dmg, shooter, g.procRarity(shooter, mode, special));
+      // Each type rolls its own effect (an infused type at its infusion's chance).
+      if (status && g.rng() < g.procFor(shooter, t, mode, special)) this.applyStatus(e, t, dmg, shooter, g.procRarity(shooter, mode, special));
     }
   }
 
@@ -1350,7 +1352,7 @@ export class Field {
       const reward = this.game.registerKill(e.type, e.boss, shooter);
       // Fireburst (an enchantment): monsters the weapon kills burst, hurting everything around them.
       const burst = this.game.killBurst(shooter);
-      if (burst) this.abilityBurst(shooter, e.x, e.y, burst.radius, burst.base, burst.damageType);
+      if (burst && this.game.rng() < burst.chance) this.abilityBurst(shooter, e.x, e.y, burst.radius, burst.base, burst.damageType);
       this.events.push({ type: 'kill', x: e.x, y: e.y, enemy: e.type, boss: e.boss, reward });
     }
   }

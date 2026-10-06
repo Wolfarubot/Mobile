@@ -70,6 +70,7 @@ import {
   ENCHANTS,
   enchantTierHit,
   modValue,
+  modPower,
   modPerfect,
   STATION_CAPACITY,
   STATION_EFFICIENCY,
@@ -532,7 +533,7 @@ export class AppUI {
       const wItem = g.weaponItem(who);
       const special = !!(wItem && gearDef(wItem.base).special);
       // A Special weapon's many elements read as one line, not one per element.
-      const lines: Array<[string, DamageType, number]> = special ? [] : g.damageTypesOf(who).map((t) => ['Attacks', t, g.procOf(who)]);
+      const lines: Array<[string, DamageType, number]> = special ? [] : g.damageTypesOf(who).map((t) => ['Attacks', t, g.procFor(who, t)]);
       if (g.specialCooldown(who) !== null) for (const t of g.damageTypesOf(who, 'long', true)) lines.push([def?.special?.name ?? '', t, g.procOf(who, 'long', true)]);
       effectNote.innerHTML = lines
         .filter(([, t, p]) => p > 0 && DAMAGE_TYPES[t].effect)
@@ -3583,7 +3584,7 @@ function revealWithPixels(box: HTMLElement, palette: string[], fall: 1 | -1, don
 /** A modifier in words, with its icon (its rolled value on this piece). */
 function modText(m: GearMod, gd: GearDef): string {
   const v = modValue(m, gd);
-  return m.kind === 'refine' ? `${REFINES[m.stat].icon} ${REFINES[m.stat].text(v)}` : `${ENCHANTS[m.id].icon} ${ENCHANTS[m.id].name}: ${ENCHANTS[m.id].text(v, enchantTierHit(gd))}`;
+  return m.kind === 'refine' ? `${REFINES[m.stat].icon} ${REFINES[m.stat].text(v)}` : `${ENCHANTS[m.id].icon} ${ENCHANTS[m.id].name}: ${ENCHANTS[m.id].text(v, modPower(m, gd), enchantTierHit(gd))}`;
 }
 
 /** A weapon's damage type as a small coloured tag ('' for gear without one). */
