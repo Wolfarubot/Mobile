@@ -1139,7 +1139,8 @@ function drawBullet(g: CanvasRenderingContext2D, b: Bullet, t: number, basic = f
       g.fill();
       break;
     default:
-      g.fillStyle = b.crit ? '#ff6b6b' : '#fff6c2';
+      // A bolt of one element (weapons that fire one type per bolt) takes its colour.
+      g.fillStyle = b.crit ? '#ff6b6b' : b.dtype ? DAMAGE_TYPES[b.dtype].color : '#fff6c2';
       g.beginPath();
       g.arc(0, 0, b.crit ? 4 : 3, 0, Math.PI * 2);
       g.fill();

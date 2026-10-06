@@ -46,6 +46,7 @@ import {
   gearColor,
   gearDef,
   gearTypes,
+  SPECIAL_TYPE,
   gearTotals,
   gearSummary,
   hitText,
@@ -141,7 +142,8 @@ interface InvFilter {
   type: InvType;
   rarity: Rarity | 'any';
   level: LevelFilter;
-  dtype: DamageType | 'any';
+  /** A damage type, or 'special' for Special weapons (Elemental Cataclysm). */
+  dtype: DamageType | 'any' | 'special';
 }
 const NO_FILTER: InvFilter = { type: 'all', rarity: 'any', level: 'any', dtype: 'any' };
 /** Which filter type a gear kind falls under ('weapon' gear is ranged: bows, crossbows, rifles). */
@@ -529,11 +531,15 @@ export class AppUI {
     const effectNote = el('p', 'hd-style hd-effect');
     overview.appendChild(effectNote);
     this.refreshers.push(() => {
-      const lines: Array<[string, DamageType, number]> = g.damageTypesOf(who).map((t) => ['Attacks', t, g.procOf(who)]);
+      const wItem = g.weaponItem(who);
+      const special = !!(wItem && gearDef(wItem.base).special);
+      // A Special weapon's many elements read as one line, not one per element.
+      const lines: Array<[string, DamageType, number]> = special ? [] : g.damageTypesOf(who).map((t) => ['Attacks', t, g.procOf(who)]);
       if (g.specialCooldown(who) !== null) for (const t of g.damageTypesOf(who, 'long', true)) lines.push([def?.special?.name ?? '', t, g.procOf(who, 'long', true)]);
       effectNote.innerHTML = lines
         .filter(([, t, p]) => p > 0 && DAMAGE_TYPES[t].effect)
         .map(([what, t, p]) => `${DAMAGE_TYPES[t].icon} <b>${what}</b> (${Math.round(p * 100)}% chance): ${DAMAGE_TYPES[t].effect}.`)
+        .concat(special && g.procOf(who) > 0 ? [`${SPECIAL_TYPE.icon} <b>Attacks</b> (${Math.round(g.procOf(who) * 100)}% chance): each element's own status effect.`] : [])
         .join('<br>');
     });
     if (def && recruited) {
@@ -592,8 +598,11 @@ export class AppUI {
       ];
       if (!def) cells.push(['Tap damage', fmt(g.tapDamage)], ['Tap size', fmt(g.tapRadius)]);
       const types = g.damageTypesOf(who);
-      const typeHtml = types.map((t) => `<span style="color:${DAMAGE_TYPES[t].color}" class="dt-cell">${DAMAGE_TYPES[t].icon} ${DAMAGE_TYPES[t].name}</span>`).join(' ');
-      cells.splice(1, 0, [types.length > 1 ? (g.perShotOf(who) ? 'Damage types (by shot)' : 'Damage types (split)') : 'Damage type', typeHtml]);
+      const special = !!(g.weaponItem(who) && gearDef(g.weaponItem(who)!.base).special);
+      const typeHtml = special
+        ? `<span style="color:${SPECIAL_TYPE.color}" class="dt-cell">${SPECIAL_TYPE.icon} ${SPECIAL_TYPE.name}</span>`
+        : types.map((t) => `<span style="color:${DAMAGE_TYPES[t].color}" class="dt-cell">${DAMAGE_TYPES[t].icon} ${DAMAGE_TYPES[t].name}</span>`).join(' ');
+      cells.splice(1, 0, [special ? 'Damage type' : types.length > 1 ? (g.perShotOf(who) ? 'Damage types (by shot)' : 'Damage types (split)') : 'Damage type', typeHtml]);
       const cd = g.specialCooldown(who);
       if (cd !== null) {
         const potion = def?.special?.kind === 'potion';
@@ -1019,6 +1028,7 @@ export class AppUI {
       body.innerHTML = `
         <p>${dtypeTag(gd)}<b class="rarity-tag" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${gearKindName(gd)} · <span class="stars">${starsHtml(item.stars)}</span>${worn ? ` · worn by ${wearerName(worn.who)}` : ''}</p>
         ${weaponLine(gd, item.stars)}
+        ${gd.special ? `<p class="weapon-line">${specialText(gd)}</p>` : ''}
         <p class="gear-now">${gearSummary(gd, item.stars) || (gd.effect ? '' : 'No bonuses: plain everyday wear.')}</p>
         ${modSlotsHtml(g, uid)}
         ${cost ? `<p class="gear-next">Next: <b>${[gearSummary(gd, item.stars + 1), gd.effect && 'base' in gd.effect ? describeEffect(gd.effect, item.stars + 1) : ''].filter(Boolean).join(' ')}</b></p><div class="cost">${costHtml(g, cost)}</div>` : Object.keys(gd.stats).length || gd.effect ? '<p>Fully upgraded.</p>' : '<p>Nothing to upgrade.</p>'}`;
@@ -2158,7 +2168,7 @@ export class AppUI {
         return (
           (f.type === 'all' || GEAR_TYPE[gd.kind] === f.type) &&
           (f.rarity === 'any' || gd.rarity === f.rarity) &&
-          (f.dtype === 'any' || gearTypes(gd).includes(f.dtype)) &&
+          (f.dtype === 'any' || (f.dtype === 'special' ? !!gd.special : gearTypes(gd).includes(f.dtype))) &&
           it.stars >= lv.min &&
           it.stars <= lv.max
         );
@@ -2196,8 +2206,9 @@ export class AppUI {
       }
       if (f.level !== 'any') chips.appendChild(el('span', 'filter-chip', lv.name));
       if (f.dtype !== 'any') {
-        const c = el('span', 'filter-chip', `${DAMAGE_TYPES[f.dtype].icon} ${DAMAGE_TYPES[f.dtype].name}`);
-        c.style.color = DAMAGE_TYPES[f.dtype].color;
+        const dt = f.dtype === 'special' ? SPECIAL_TYPE : DAMAGE_TYPES[f.dtype];
+        const c = el('span', 'filter-chip', `${dt.icon} ${dt.name}`);
+        c.style.color = dt.color;
         chips.appendChild(c);
       }
       if (filtering) {
@@ -2256,6 +2267,7 @@ export class AppUI {
             ${(Object.keys(DAMAGE_TYPES) as DamageType[])
               .map((t) => `<button data-dtype="${t}" class="${f.dtype === t ? 'on' : ''}">${DAMAGE_TYPES[t].icon} ${DAMAGE_TYPES[t].name}</button>`)
               .join('')}
+            <button data-dtype="special" class="${f.dtype === 'special' ? 'on' : ''}">${SPECIAL_TYPE.icon} ${SPECIAL_TYPE.name}</button>
           </div>
           <div class="filter-label">Level</div>
           <div class="filter-options">
@@ -3334,11 +3346,14 @@ function gearCardHtml(it: GearItem, vs: GearItem | null = null): string {
   const all =
     hitLine +
     lines +
-    (gearTypes(gd).length > 1
+    (gd.special
+      ? `<li class="gc-effect">${specialText(gd)}</li>`
+      : '') +
+    (!gd.special && gearTypes(gd).length > 1
       ? `<li class="gc-effect">${gd.perShot ? `Each projectile deals one of its types in turn, at full damage` : `Each hit is split evenly between its ${gearTypes(gd).length} types`}</li>`
       : '') +
     gearTypes(gd)
-      .filter((t) => gd.proc && DAMAGE_TYPES[t].effect)
+      .filter((t) => !gd.special && gd.proc && DAMAGE_TYPES[t].effect)
       .map((t) => `<li class="gc-effect">${DAMAGE_TYPES[t].icon} ${Math.round(gd.proc! * 100)}% chance · ${DAMAGE_TYPES[t].effect}</li>`)
       .join('') +
     (gd.typeBonus ? `<li class="gc-effect">${DAMAGE_TYPES[gd.typeBonus.type].icon} +${Math.round(gd.typeBonus.bonus * GEAR_STAR_POWER[it.stars] * 100)}% ${DAMAGE_TYPES[gd.typeBonus.type].name} damage</li>` : '') +
@@ -3500,7 +3515,18 @@ function enchantText(id: EnchantId, gd: GearDef): string {
 
 /** A weapon's damage type as a small coloured tag ('' for gear without one). */
 function dtypeTag(gd: GearDef): string {
-  return gearTypes(gd).map(damageTypeHtml).join('');
+  return gd.special ? specialTypeHtml() : gearTypes(gd).map(damageTypeHtml).join('');
+}
+
+/** What a Special weapon does with its many elements, in words. */
+function specialText(gd: GearDef): string {
+  const types = gearTypes(gd);
+  return `${SPECIAL_TYPE.icon} Special: ${gd.perShot ? 'each projectile deals the next element in turn' : 'its hits split between its elements'} (${types.map((t) => DAMAGE_TYPES[t].icon).join('')}), starting with ${DAMAGE_TYPES[types[0]].name}${gd.proc ? `; each can trigger its status effect (${Math.round(gd.proc * 100)}% chance)` : ''}`;
+}
+
+/** The Special damage type's tag (weapons that change elements, or deal too many to list). */
+function specialTypeHtml(): string {
+  return `<span class="dtype-tag special-type" style="--dc:${SPECIAL_TYPE.color}">${SPECIAL_TYPE.icon} ${SPECIAL_TYPE.name}</span>`;
 }
 
 function damageTypeHtml(t: DamageType): string {

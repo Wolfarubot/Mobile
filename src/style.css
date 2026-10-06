@@ -3844,3 +3844,10 @@ body.left-handed .hd-float-close {
   color: var(--gold);
   font-weight: 700;
 }
+
+/* The Special damage type (Elemental Cataclysm): a rainbow tag. */
+.dtype-tag.special-type {
+  background: linear-gradient(90deg, #ff7a2a, #ffe36e, #6fdc5a, #8fdcff, #c08cff, #ff5fd7);
+  color: #111;
+  border-color: transparent;
+}

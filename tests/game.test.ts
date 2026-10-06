@@ -24,6 +24,8 @@ import {
   rollLoot,
   gearTier,
   gearArea,
+  gearTypes,
+  DAMAGE_TYPES,
   lootChance,
   tomeSummonType,
   ARMOR_TYPES,
@@ -1104,6 +1106,24 @@ describe('Equipment', () => {
       for (const k of Object.keys(bow)) delete (bow as unknown as Record<string, unknown>)[k];
       Object.assign(bow, saved);
     }
+  });
+
+  it('Elemental Cataclysm (Exalted repeater): its bolts start with Arcane and cycle through every element; shown as Special', () => {
+    const gd = gearDef('elementalCataclysm');
+    expect(gd).toMatchObject({ rarity: 'exalted', weaponClass: 'repeater', special: true, perShot: true });
+    expect(gearArea(gd)).toBe(12);
+    const elements = (Object.keys(DAMAGE_TYPES) as DamageType[]).filter((t) => t !== 'physical');
+    expect(new Set(gearTypes(gd))).toEqual(new Set(elements));
+    const g = stocked();
+    g.state.areas.rift.unlocked = true;
+    g.equip('main', 0, g.craftGear('elementalCataclysm')!.uid);
+    const f = new Field(g);
+    const shoot = (f as unknown as { shoot: (...a: unknown[]) => void }).shoot.bind(f);
+    for (let i = 0; i < elements.length + 1; i++) shoot('main', 'bolt', 0, 0, 0, 500, 300, {});
+    const order = f.bullets.map((b) => b.dtype);
+    expect(order[0]).toBe('arcane');
+    expect(new Set(order.slice(0, elements.length))).toEqual(new Set(elements));
+    expect(order[elements.length]).toBe('arcane'); // and round again
   });
 
   it('bonuses multiply: a bane × the weakness to the type × a bonus to that type', () => {

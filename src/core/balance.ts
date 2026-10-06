@@ -1755,6 +1755,7 @@ export type GearId =
   | 'bonePistol'
   | 'frostRifle'
   | 'voidRepeater'
+  | 'elementalCataclysm'
   | 'ironSpear'
   | 'magmaGlaive'
   | 'soulLance'
@@ -1823,6 +1824,11 @@ export interface GearDef {
   extraTypes?: DamageType[];
   /** Projectile weapons with several types: each projectile deals one type at full damage, taking turns, instead of splitting. */
   perShot?: boolean;
+  /**
+   * Shown as the **Special** damage type instead of listing its types: weapons that change elements, or deal
+   * too many to list (Elemental Cataclysm).
+   */
+  special?: boolean;
   /** Extra damage of one type, whatever deals it (+bonus at 1★, ×GEAR_STAR_POWER for stars). */
   typeBonus?: { type: DamageType; bonus: number };
   /** Weapons only: what kind of weapon it is, which shapes how it attacks (see WEAPON_CLASSES). */
@@ -2128,6 +2134,8 @@ export const GEAR: GearDef[] = [
   { id: 'emberLongbow', name: 'Ember Longbow', icon: '🔥', kind: 'weapon', rarity: 'veryRare', weaponClass: 'longbow', tier: 6, damageType: 'fire', proc: 0.3, stats: { rate: 0.12 }, recipe: { ember: 10, chitin: 5 } },
   { id: 'bonePistol', name: 'Bone Pistol', icon: '🔫', kind: 'weapon', rarity: 'uncommon', weaponClass: 'pistol', tier: 3, damageType: 'physical', stats: {}, recipe: { bone: 8, vampEssence: 4 } },
   { id: 'frostRifle', name: 'Frost Rifle', icon: '🔫', kind: 'weapon', rarity: 'legendary', weaponClass: 'rifle', tier: 8, damageType: 'frost', proc: 0.35, stats: { range: 15 }, recipe: { fur: 10, frost: 5 } },
+  // Its volleys start with Arcane and cycle through every element, one per bolt (shown as Special).
+  { id: 'elementalCataclysm', name: 'Elemental Cataclysm', icon: '🌈', kind: 'weapon', rarity: 'exalted', weaponClass: 'repeater', tier: 12, damageType: 'arcane', extraTypes: ['fire', 'frost', 'acid', 'poison', 'lightning', 'radiant', 'decay', 'void'], perShot: true, special: true, proc: 0.25, stats: { rate: 0.2 }, recipe: { soul: 10, void: 8, shade: 8 } },
   { id: 'voidRepeater', name: 'Void Repeater', icon: '🌀', kind: 'weapon', rarity: 'exalted', weaponClass: 'repeater', tier: 12, damageType: 'void', stats: { rate: 0.2 }, recipe: { shade: 10, void: 5 } },
   // Melee
   { id: 'boneMaul', name: 'Bone Maul', icon: '🔨', kind: 'melee', rarity: 'uncommon', weaponClass: 'hammer', tier: 3, damageType: 'physical', stats: {}, recipe: { bone: 12, flesh: 6 } },
@@ -2212,6 +2220,9 @@ export const GEAR: GearDef[] = [
 ];
 
 export const gearDef = (id: GearId): GearDef => GEAR.find((g) => g.id === id)!;
+
+/** The Special damage type's look (weapons with `special`: they change elements, or deal too many to list). */
+export const SPECIAL_TYPE = { name: 'Special', icon: '✴️', color: '#ffd84a' };
 
 /** Every damage type a piece deals (none for armor and accessories). */
 export const gearTypes = (def: GearDef): DamageType[] => (def.damageType ? [def.damageType, ...(def.extraTypes ?? [])] : []);
