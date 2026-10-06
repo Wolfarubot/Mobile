@@ -1132,6 +1132,25 @@ describe('Equipment', () => {
     expect(f.drainEvents().some((ev) => ev.type === 'beam' && (ev as { zigzag?: boolean }).zigzag)).toBe(true);
   });
 
+  it('a perfect chance rolls the power twice and keeps the higher', () => {
+    const rolls: number[] = [];
+    const g = stocked();
+    (g as unknown as { rng: () => number }).rng = () => rolls.shift() ?? 0;
+    g.state.gold = 1e30;
+    g.state.hunters.enchantress.recruited = true;
+    const orb = g.craftGear('emberOrb')!;
+    const pool = g.enchantsFor(orb.uid, 0);
+    const total = pool.reduce((sum, x) => sum + ENCHANTS[x].weight, 0);
+    const pick = (pool.slice(0, pool.indexOf('thunderCall')).reduce((sum, x) => sum + ENCHANTS[x].weight, 0) + 0.5) / total;
+    // Choice 1: Thunder Call, a perfect chance, power 0.1 then a reroll of 0.75: keeps the reroll.
+    // Choice 2: anything, chance not perfect, power 0.9: no reroll.
+    rolls.push(pick, 0.9999, 0.1, 0.75, 0, 0.5, 0.9);
+    const [a, b] = g.rollMod(orb.uid, 0, 'enchant') as Array<{ id: string; q: number; p: number }>;
+    expect(a).toMatchObject({ id: 'thunderCall', q: MOD_QUALITY_STEPS, p: Math.floor(0.75 * (MOD_QUALITY_STEPS + 1)) });
+    expect(b.q).toBeLessThan(MOD_QUALITY_STEPS);
+    expect(b.p).toBe(Math.floor(0.9 * (MOD_QUALITY_STEPS + 1)));
+  });
+
   it('Kargesh the Blacksmith replaces Sera; old saves move her over', () => {
     expect(hunterDef('blacksmith').name).toBe('Kargesh');
     expect(HUNTERS.some((h) => (h.id as string) === 'demonbane')).toBe(false);

@@ -848,7 +848,11 @@ export class Game {
         let r = this.rng() * total;
         const id = pool.find((x) => (r -= ENCHANTS[x].weight) < 0) ?? pool[pool.length - 1];
         pool = pool.filter((x) => x !== id);
-        options.push({ kind: 'enchant', id, q: this.rollQuality(), p: this.rollQuality() });
+        // A perfect chance rolls its power twice and keeps the better one.
+        const q = this.rollQuality();
+        let p = this.rollQuality();
+        if (q >= MOD_QUALITY_STEPS && ENCHANTS[id].power) p = Math.max(p, this.rollQuality());
+        options.push({ kind: 'enchant', id, q, p });
       }
     }
     this.state.gold -= kind === 'refine' ? this.refineCostOf(uid) : this.enchantCostOf(uid);
