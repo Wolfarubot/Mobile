@@ -777,12 +777,19 @@ export class Game {
 
   /** How much stronger a Hunter's status effects are: more damage, or longer / stronger for ones that deal none (Virulence). */
   statusStrength(who: Shooter): number {
-    return 1 + this.modStat(who, 'status');
+    return 1 + this.enchantBoost(who, 'status');
   }
 
   /** Multiplier on how long a Hunter's summons last (Binding). */
   summonDurationMult(who: Shooter): number {
-    return 1 + this.modStat(who, 'summonDur');
+    return 1 + this.enchantBoost(who, 'summonDur');
+  }
+
+  /** The total of Virulence or Binding across a Hunter's gear (Enchantments). */
+  private enchantBoost(who: Shooter, boost: 'status' | 'summonDur'): number {
+    let v = 0;
+    for (const it of this.equipped(who)) if (it) for (const e of this.enchantsOf(it)) if (e.en.boost === boost) v += e.v;
+    return v;
   }
 
   /** Multiplier on a Hunter's gear ability cooldowns (Haste), never below 40%. */

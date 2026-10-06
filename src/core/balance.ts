@@ -1967,7 +1967,7 @@ export function modRoll(range: [number, number], int: boolean | undefined, rarit
   return int ? Math.max(1, Math.round(v)) : Math.round(v * 1000) / 1000;
 }
 
-export type RefineStat = 'rate' | 'damage' | 'crit' | 'knock' | 'pierce' | 'mag' | 'guard' | 'stun' | 'radius' | 'range' | 'gold' | 'drops' | 'reload' | 'critDmg' | 'status' | 'summonDur' | 'cooldown' | 'size';
+export type RefineStat = 'rate' | 'damage' | 'crit' | 'knock' | 'pierce' | 'mag' | 'guard' | 'stun' | 'radius' | 'range' | 'gold' | 'drops' | 'reload' | 'critDmg' | 'cooldown' | 'size';
 
 /** Gear that summons (a tome, a Puppeteer's Doll), for summon modifiers. */
 const summons = (d: GearDef) => (isWeapon(d) && !!WEAPON_CLASSES[d.weaponClass!].summon) || d.effect?.kind === 'summon';
@@ -1991,8 +1991,6 @@ export const REFINES: Record<RefineStat, { name: string; icon: string; range: [n
   drops: { name: 'Plunder', icon: '💎', range: [0.06, 0.12], text: (v) => `+${pct(v)} materials`, fits: isAccessory },
   reload: { name: 'Quick Reload', icon: '🔄', range: [0.1, 0.2], text: (v) => `−${pct(v)} reload and recharge time`, fits: (d) => isWeapon(d) && !!WEAPON_CLASSES[d.weaponClass!].mag },
   critDmg: { name: 'Brutal', icon: '💢', range: [0.15, 0.3], text: (v) => `+${pct(v)} crit damage`, fits: (d) => !isArmor(d) },
-  status: { name: 'Virulence', icon: '🧫', range: [0.1, 0.25], text: (v) => `+${pct(v)} status effect strength (longer or stronger)`, fits: isWeapon },
-  summonDur: { name: 'Binding', icon: '⏳', range: [0.15, 0.3], text: (v) => `+${pct(v)} summon duration`, fits: summons },
   cooldown: { name: 'Haste', icon: '⏱️', range: [0.08, 0.16], text: (v) => `−${pct(v)} ability cooldowns`, fits: hasCooldown },
 };
 
@@ -2022,7 +2020,9 @@ export type EnchantId =
   | 'emberPulse'
   | 'thorns'
   | 'evasion'
-  | 'shieldBurst';
+  | 'shieldBurst'
+  | 'virulence'
+  | 'binding';
 
 export interface EnchantDef {
   name: string;
@@ -2036,6 +2036,8 @@ export interface EnchantDef {
   infuse?: DamageType;
   /** Potency: its chance is added to the weapon's status chance. */
   potency?: boolean;
+  /** Virulence / Binding: their roll is a strength, not a chance: status effect strength, or summon duration. */
+  boost?: 'status' | 'summonDur';
   /** Fireburst: each kill by the weapon has its chance to burst within `radius`. */
   onKill?: { radius: number; damageType: DamageType };
   /** Thunder Call and the pulses: each of the wearer's attacks has its chance to set this off. */
@@ -2076,6 +2078,8 @@ export const ENCHANTS: Record<EnchantId, EnchantDef> = {
   emberPulse: { name: 'Ember Pulse', icon: '🔥', range: [0.05, 0.12], power: [0.6, 0.9], weight: 1, onAttack: { kind: 'pulse', base: 1, damageType: 'fire', radius: 90, cooldown: 0 }, fits: (d) => !isWeapon(d), text: (c, p, t) => `${pct(c)} chance on attack for a burst of fire around the wearer (${dmg(p, t)})` },
   thorns: { name: 'Thorns', icon: '🌵', range: [0.3, 0.6], power: [0.8, 1.2], weight: 1, effect: { kind: 'thorns', base: 1, damageType: 'physical' }, fits: isArmor, text: (c, p, t) => `${pct(c)} chance a monster that reaches the wearer takes damage (${dmg(p, t)})` },
   evasion: { name: 'Evasion', icon: '💨', range: [0.05, 0.1], weight: 1, effect: { kind: 'evade', chance: 1 }, fits: isArmor, text: (c) => `${pct(c)} chance to slip a monster entirely` },
+  virulence: { name: 'Virulence', icon: '🧫', range: [0.1, 0.25], weight: 1, boost: 'status', fits: isWeapon, text: (v) => `+${pct(v)} status effect strength (damaging effects hit harder; the others last longer or pull harder)` },
+  binding: { name: 'Binding', icon: '⏳', range: [0.15, 0.3], weight: 1, boost: 'summonDur', fits: summons, text: (v) => `+${pct(v)} summon duration` },
   shieldBurst: { name: 'Shield Burst', icon: '🛡️', range: [0.4, 0.8], power: [0.8, 1.2], weight: 1, effect: { kind: 'block', base: 1, damageType: 'radiant', radius: 80 }, fits: isArmor, text: (c, p, t) => `${pct(c)} chance a blocked hit blasts everything nearby (${dmg(p, t)})` },
 };
 

@@ -2187,15 +2187,18 @@ describe('Equipment', () => {
     expect(g.procFor('main', 'void')).toBeCloseTo(modRoll(ENCHANTS.infuseVoid.range, false, 'veryRare', 5));
   });
 
-  it('Quick Reload, Brutal, Virulence, Binding and Haste refinements', () => {
+  it('Quick Reload, Brutal and Haste refinements; Virulence and Binding enchantments', () => {
     const g = stocked();
     const top = (stat: string) => [{ kind: 'refine' as const, stat: stat as 'reload', q: MOD_QUALITY_STEPS }];
     // Which pieces they fit: reload on guns and staffs, summon duration on summoners, Haste on cooldown abilities.
     expect(REFINES.reload.fits(gearDef('frostRifle'))).toBe(true);
     expect(REFINES.reload.fits(gearDef('frostbiteBlade'))).toBe(false);
-    expect(REFINES.summonDur.fits(gearDef('wolfTome'))).toBe(true);
-    expect(REFINES.summonDur.fits(gearDef('puppetDoll'))).toBe(true);
-    expect(REFINES.summonDur.fits(gearDef('frostRifle'))).toBe(false);
+    // (Virulence and Binding are Enchantments now: on weapons, and on summoners.)
+    expect('status' in REFINES || 'summonDur' in REFINES).toBe(false);
+    expect(ENCHANTS.binding.fits(gearDef('wolfTome'))).toBe(true);
+    expect(ENCHANTS.binding.fits(gearDef('puppetDoll'))).toBe(true);
+    expect(ENCHANTS.binding.fits(gearDef('frostRifle'))).toBe(false);
+    expect(ENCHANTS.virulence.fits(gearDef('frostRifle'))).toBe(true);
     expect(REFINES.cooldown.fits(gearDef('wolfTome'))).toBe(true); // the wolves' lunge
     expect(REFINES.cooldown.fits(gearDef('emberRobe'))).toBe(true); // its pulse
     expect(REFINES.cooldown.fits(gearDef('frostRifle'))).toBe(false);
@@ -2208,8 +2211,8 @@ describe('Equipment', () => {
     rifle.mods = [...top('critDmg'), null];
     expect(g.critMultOf('main')).toBeCloseTo(CRIT_MULT * (1 + modRoll(REFINES.critDmg.range, false, 'legendary', MOD_QUALITY_STEPS)));
     // Virulence: damaging effects hit harder; others (a chill) last longer.
-    rifle.mods = top('status');
-    const k = 1 + modRoll(REFINES.status.range, false, 'legendary', MOD_QUALITY_STEPS);
+    rifle.mods = [{ kind: 'enchant', id: 'virulence', q: MOD_QUALITY_STEPS, p: 0 }];
+    const k = 1 + modRoll(ENCHANTS.virulence.range, false, 'legendary', MOD_QUALITY_STEPS);
     expect(g.statusStrength('main')).toBeCloseTo(k);
     const f = new Field(g);
     const e = enemy({ id: 1, type: 'bat', x: 0, y: -100, hp: 1e9, maxHp: 1e9 });
@@ -2217,8 +2220,15 @@ describe('Equipment', () => {
     (f as unknown as { applyStatus: (...a: unknown[]) => void }).applyStatus(e, 'frost', 100, 'main');
     expect(e.slow).toBeCloseTo(STATUS.chill.duration * k);
     // Binding: summons last longer; Haste: shorter cooldowns.
-    rifle.mods = top('summonDur');
-    expect(g.summonDurationMult('main')).toBeCloseTo(1 + modRoll(REFINES.summonDur.range, false, 'legendary', MOD_QUALITY_STEPS));
+    rifle.mods = [{ kind: 'enchant', id: 'binding', q: MOD_QUALITY_STEPS, p: 0 }];
+    expect(g.summonDurationMult('main')).toBeCloseTo(1 + modRoll(ENCHANTS.binding.range, false, 'legendary', MOD_QUALITY_STEPS));
+    // Saves from when they were Refinements turn them into the Enchantments, keeping the roll.
+    const old = JSON.parse(serialize(g.state));
+    old.inventory.find((it: { uid: number }) => it.uid === rifle.uid).mods = [{ kind: 'refine', stat: 'status', q: 7 }, { kind: 'refine', stat: 'summonDur', q: 3 }];
+    expect(deserialize(JSON.stringify(old))!.inventory.find((it) => it.uid === rifle.uid)!.mods).toEqual([
+      { kind: 'enchant', id: 'virulence', q: 7, p: 7 },
+      { kind: 'enchant', id: 'binding', q: 3, p: 3 },
+    ]);
     rifle.mods = top('cooldown');
     expect(g.cooldownMult('main')).toBeCloseTo(1 - modRoll(REFINES.cooldown.range, false, 'legendary', MOD_QUALITY_STEPS));
     // The SUMMONING! text is off by default.
