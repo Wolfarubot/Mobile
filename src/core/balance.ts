@@ -1967,7 +1967,12 @@ export function modRoll(range: [number, number], int: boolean | undefined, rarit
   return int ? Math.max(1, Math.round(v)) : Math.round(v * 1000) / 1000;
 }
 
-export type RefineStat = 'rate' | 'damage' | 'crit' | 'knock' | 'pierce' | 'mag' | 'guard' | 'stun' | 'radius' | 'range' | 'gold' | 'drops';
+export type RefineStat = 'rate' | 'damage' | 'crit' | 'knock' | 'pierce' | 'mag' | 'guard' | 'stun' | 'radius' | 'range' | 'gold' | 'drops' | 'reload' | 'critDmg' | 'status' | 'summonDur' | 'cooldown';
+
+/** Gear that summons (a tome, a Puppeteer's Doll), for summon modifiers. */
+const summons = (d: GearDef) => (isWeapon(d) && !!WEAPON_CLASSES[d.weaponClass!].summon) || d.effect?.kind === 'summon';
+/** Gear with a built-in ability on a cooldown (pulses, strikes, summons, a tome's lunge), for Haste. */
+const hasCooldown = (d: GearDef) => (!!d.effect && 'cooldown' in d.effect) || !!d.summon?.dash;
 
 /** Refine modifiers: stat bonuses. `range` is at Legendary (see MOD_POWER); `fits` says which pieces take it. */
 export const REFINES: Record<RefineStat, { name: string; icon: string; range: [number, number]; int?: boolean; text: (v: number) => string; fits: (def: GearDef) => boolean }> = {
@@ -1983,6 +1988,11 @@ export const REFINES: Record<RefineStat, { name: string; icon: string; range: [n
   range: { name: 'Reach', icon: '📏', range: [10, 20], int: true, text: (v) => `+${v} range`, fits: isAccessory },
   gold: { name: 'Fortune', icon: '🪙', range: [0.06, 0.12], text: (v) => `+${pct(v)} gold`, fits: isAccessory },
   drops: { name: 'Plunder', icon: '💎', range: [0.06, 0.12], text: (v) => `+${pct(v)} materials`, fits: isAccessory },
+  reload: { name: 'Quick Reload', icon: '🔄', range: [0.1, 0.2], text: (v) => `−${pct(v)} reload and recharge time`, fits: (d) => isWeapon(d) && !!WEAPON_CLASSES[d.weaponClass!].mag },
+  critDmg: { name: 'Brutal', icon: '💢', range: [0.15, 0.3], text: (v) => `+${pct(v)} crit damage`, fits: (d) => !isArmor(d) },
+  status: { name: 'Virulence', icon: '🧫', range: [0.1, 0.25], text: (v) => `+${pct(v)} status effect strength (longer or stronger)`, fits: isWeapon },
+  summonDur: { name: 'Binding', icon: '⏳', range: [0.15, 0.3], text: (v) => `+${pct(v)} summon duration`, fits: summons },
+  cooldown: { name: 'Haste', icon: '⏱️', range: [0.08, 0.16], text: (v) => `−${pct(v)} ability cooldowns`, fits: hasCooldown },
 };
 
 /** A percentage, to one decimal place when it isn't whole. */

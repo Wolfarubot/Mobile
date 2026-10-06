@@ -510,6 +510,8 @@ export class BattleView {
       const status = this.field.weaponStatus(s.who);
       if (!status) continue;
       const { text, progress: p } = status;
+      // A tome's "SUMMONING!" has its own switch (off by default).
+      if (text === 'SUMMONING!' && !st.summonText) continue;
       const w = g.measureText(text).width;
       const x = s.x - w / 2;
       const y = s.y + (st.reloadPos === 'below' ? 1 : -1) * (PLAYER_RADIUS + 14 / Z);

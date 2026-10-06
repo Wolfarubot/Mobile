@@ -3017,12 +3017,13 @@ export class AppUI {
     );
     group(
       'Reload indicator',
-      'Text over a Hunter waiting on their weapon: "RELOADING!" (pistols, rifles, repeaters), "RECHARGING!" (staffs) or "SUMMONING!" (tomes). It fades from right to left as the wait runs out.',
+      'Text over a Hunter waiting on their weapon: "RELOADING!" (pistols, rifles, repeaters) or "RECHARGING!" (staffs), and "SUMMONING!" (tomes) if Summoning is on. It fades from right to left as the wait runs out.',
       () => st.reloads,
       (on) => (st.reloads = on),
       [
         { label: 'Position', opts: [['above', 'Above'], ['below', 'Below']], get: () => st.reloadPos, set: (v) => (st.reloadPos = v as 'above' | 'below') },
         { label: 'Style', opts: styles, get: () => st.reloadStyle, set: (v) => (st.reloadStyle = v as IndicatorStyle) },
+        { label: 'Summoning', opts: [['off', 'Off'], ['on', 'On']], get: () => (st.summonText ? 'on' : 'off'), set: (v) => (st.summonText = v === 'on') },
       ],
     );
 

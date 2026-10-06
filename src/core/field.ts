@@ -8,7 +8,6 @@ import {
   typeMult,
   type DamageType,
   BULLET_SPEED,
-  CRIT_MULT,
   enemyDef,
   fieldZoom,
   FROST_TAP_CHILL,
@@ -71,8 +70,9 @@ export interface Enemy {
   aura?: Dot;
   /** Seconds left with its resistances stripped (Arcane). */
   exposed?: number;
-  /** Seconds left of Void's gravity well around it, pulling nearby monsters in. */
+  /** Seconds left of Void's gravity well around it, pulling nearby monsters in (`wellPull` × as hard). */
   well?: number;
+  wellPull?: number;
   /** Bleeds (Physical): the only status that stacks, each its own instance. */
   bleeds?: Dot[];
   /** Its acid puddle, if one is still on the ground (one per monster; a new proc refreshes it). */
@@ -680,7 +680,7 @@ export class Field {
       // the special's damage (their "radius" skills make them fiercer).
       const mult = dmg * (radius / sp.radius);
       for (const side of [-1, 1])
-        this.summons.push({ who: h.id, type: sp.summon.type, x: h.x + side * 18, y: h.y, life: 6, maxLife: 6, bite: 0, look: sp.summon.look, dash: 0, dashHit: false, own: { bites: 1.5, speed: sp.summon.look === 'wolf' ? 170 : 140, mult } });
+        this.summons.push({ who: h.id, type: sp.summon.type, x: h.x + side * 18, y: h.y, life: 6 * g.summonDurationMult(h.id), maxLife: 6 * g.summonDurationMult(h.id), bite: 0, look: sp.summon.look, dash: 0, dashHit: false, own: { bites: 1.5, speed: sp.summon.look === 'wolf' ? 170 : 140, mult } });
       this.events.push({ type: 'nova', x: h.x, y: h.y, r: 30, color: sp.summon.look === 'wolf' ? '#8fdc7a' : '#d8a878' });
     } else if (sp.kind === 'potion') {
       const d = Math.hypot(target.x - h.x, target.y - h.y);
@@ -700,19 +700,19 @@ export class Field {
     // Items' own abilities (not the weapon's basic cooldown): e.g. the Wolf Spirit tome's lunge.
     const w = this.weaponDef('main');
     const dash = w?.summon?.dash;
-    if (w && dash && this.game.weaponClassOf('main')?.summon) out.push({ key: `item:${w.id}`, icon: w.icon, name: w.name, progress: 1 - this.dashCd / dash.cooldown });
+    if (w && dash && this.game.weaponClassOf('main')?.summon) out.push({ key: `item:${w.id}`, icon: w.icon, name: w.name, progress: 1 - this.dashCd / (dash.cooldown * this.game.cooldownMult('main')) });
     for (const who of ['main' as Shooter, ...this.helpers.map((h) => h.id)]) {
       for (const { uid, def, effect } of this.game.gearEffects(who)) {
         const cd = effectCooldown(effect);
         if (cd === null) continue;
         const left = this.gearCd.get(`${who}:${uid}`) ?? 0;
-        out.push({ key: `gear:${who}:${uid}`, icon: def.icon, name: who === 'main' ? def.name : `${hunterDef(who as HunterId).name}'s ${def.name}`, progress: 1 - Math.max(0, left) / cd });
+        out.push({ key: `gear:${who}:${uid}`, icon: def.icon, name: who === 'main' ? def.name : `${hunterDef(who as HunterId).name}'s ${def.name}`, progress: 1 - Math.max(0, left) / (cd * this.game.cooldownMult(who)) });
       }
     }
     for (const h of this.helpers) {
       const hw = this.weaponDef(h.id);
       const hd = hw?.summon?.dash;
-      if (hw && hd && this.game.weaponClassOf(h.id)?.summon) out.push({ key: `item:${h.id}:${hw.id}`, icon: hw.icon, name: `${hunterDef(h.id).name}'s ${hw.name}`, progress: 1 - h.dashCd / hd.cooldown });
+      if (hw && hd && this.game.weaponClassOf(h.id)?.summon) out.push({ key: `item:${h.id}:${hw.id}`, icon: hw.icon, name: `${hunterDef(h.id).name}'s ${hw.name}`, progress: 1 - h.dashCd / (hd.cooldown * this.game.cooldownMult(h.id)) });
       const sp = hunterDef(h.id).special;
       if (sp) out.push({ key: h.id, icon: hunterDef(h.id).icon, name: hunterDef(h.id).name, progress: 1 - Math.max(0, h.specialCd) / sp.cooldown });
     }
@@ -883,7 +883,7 @@ export class Field {
   private abilityHit(who: Shooter, e: Enemy, base: number, dtype: DamageType, status: boolean): void {
     if (e.hp <= 0 || base <= 0) return;
     const crit = this.game.rng() < this.game.critChanceOf(who);
-    const amount = base * this.game.abilityMult(who, enemyDef(e.type).archetype) * this.typeMultOn(dtype, e) * this.game.typeBonus(who, dtype) * (crit ? CRIT_MULT : 1);
+    const amount = base * this.game.abilityMult(who, enemyDef(e.type).archetype) * this.typeMultOn(dtype, e) * this.game.typeBonus(who, dtype) * (crit ? this.game.critMultOf(who) : 1);
     this.damage(e, amount, crit, 0, 0, who, dtype);
     if (status) this.applyStatus(e, dtype, amount, who);
   }
@@ -921,7 +921,7 @@ export class Field {
         const left = Math.max(0, (this.gearCd.get(key) ?? 0) - dt);
         this.gearCd.set(key, left);
         if (left > 0 || w.stunned) continue;
-        if (this.fireGear(w.who, w.x, w.y, ef, stars, uid)) this.gearCd.set(key, cd);
+        if (this.fireGear(w.who, w.x, w.y, ef, stars, uid)) this.gearCd.set(key, cd * this.game.cooldownMult(w.who));
       }
     }
   }
@@ -938,7 +938,7 @@ export class Field {
         if (!this.nearest(x, y, 2000)) return false;
         for (let i = 0; i < ef.count; i++) {
           const a = (i / ef.count) * Math.PI * 2 + this.game.rng();
-          this.summons.push({ who, type: ef.type, x: x + Math.cos(a) * 22, y: y + Math.sin(a) * 22, life: ef.duration, maxLife: ef.duration, bite: 0, look: ef.look, dash: 0, dashHit: false, gear: { uid, base, damageType: ef.damageType, bites: ef.bites, speed: ef.speed } });
+          this.summons.push({ who, type: ef.type, x: x + Math.cos(a) * 22, y: y + Math.sin(a) * 22, life: ef.duration * this.game.summonDurationMult(who), maxLife: ef.duration * this.game.summonDurationMult(who), bite: 0, look: ef.look, dash: 0, dashHit: false, gear: { uid, base, damageType: ef.damageType, bites: ef.bites, speed: ef.speed } });
         }
         this.events.push({ type: 'nova', x, y, r: 30, color: '#d8a878' });
         return true;
@@ -970,7 +970,7 @@ export class Field {
     const sm = cls.summon!;
     const def = this.weaponDef(who);
     const look = def?.summon?.look ?? 'wisp';
-    this.summons.push({ who, type: def ? tomeSummonType(def) : 'spirit', x: ox + Math.cos(aim) * 20, y: oy + Math.sin(aim) * 20, life: sm.duration, maxLife: sm.duration, bite: 0, look, dash: 0, dashHit: false });
+    this.summons.push({ who, type: def ? tomeSummonType(def) : 'spirit', x: ox + Math.cos(aim) * 20, y: oy + Math.sin(aim) * 20, life: sm.duration * this.game.summonDurationMult(who), maxLife: sm.duration * this.game.summonDurationMult(who), bite: 0, look, dash: 0, dashHit: false });
     this.events.push({ type: 'nova', x: ox, y: oy, r: 30, color: '#c9a8ff' });
   }
 
@@ -1002,7 +1002,7 @@ export class Field {
         s.dashHit = false;
         lunged = true;
       }
-      if (lunged) owner.dashCd = dash.cooldown;
+      if (lunged) owner.dashCd = dash.cooldown * this.game.cooldownMult(who);
     }
     for (const s of this.summons) {
       const sm = s.gear ?? s.own ?? this.game.weaponClassOf(s.who)!.summon!;
@@ -1084,7 +1084,7 @@ export class Field {
   ): void {
     const g = this.game;
     const types = only ? [only] : g.damageTypesOf(shooter, mode, special);
-    const base = (g.shotDamage(shooter, enemyDef(e.type).archetype, mode) * mult * (crit ? CRIT_MULT : 1)) / types.length;
+    const base = (g.shotDamage(shooter, enemyDef(e.type).archetype, mode) * mult * (crit ? g.critMultOf(shooter) : 1)) / types.length;
     const d = Math.hypot(e.x - fromX, e.y - fromY) || 1;
     for (const t of types) {
       const dmg = base * this.typeMultOn(t, e) * g.typeBonus(shooter, t);
@@ -1115,6 +1115,9 @@ export class Field {
   }
 
   private applyStatus(e: Enemy, dtype: DamageType, dmg: number, by: Shooter, rarity: Rarity = 'common'): void {
+    // Virulence: damaging effects hit harder; the others last longer (or pull harder).
+    const k = this.game.statusStrength(by);
+    dmg *= k;
     if (this.immuneTo(e, dtype)) return;
     const dot = (cur: Dot | undefined, share: number, duration: number): Dot => {
       const dps = (dmg * share) / duration;
@@ -1136,12 +1139,12 @@ export class Field {
         if (e.hp > 0) {
           const p = STATUS.poison;
           e.poison = dot(e.poison, p.share, p.duration);
-          const pct = p.maxHp[rarity] * (e.boss ? p.guardian : 1);
+          const pct = p.maxHp[rarity] * (e.boss ? p.guardian : 1) * k;
           e.poison.maxHpPerTick = Math.max(e.poison.maxHpPerTick ?? 0, pct / e.poison.ticks);
         }
         break;
       case 'frost':
-        e.slow = Math.max(e.slow ?? 0, STATUS.chill.duration);
+        e.slow = Math.max(e.slow ?? 0, STATUS.chill.duration * k);
         break;
       case 'acid':
         if (e.acidPuddle && e.acidPuddle.life > 0) {
@@ -1165,13 +1168,16 @@ export class Field {
         }
         break;
       case 'arcane':
-        e.exposed = STATUS.expose.duration;
+        e.exposed = STATUS.expose.duration * k;
         break;
       case 'lightning':
         this.arc(e, dmg * STATUS.arc.share, by);
         break;
       case 'void':
-        if (e.hp > 0) e.well = STATUS.well.duration;
+        if (e.hp > 0) {
+          e.well = STATUS.well.duration * k;
+          e.wellPull = k;
+        }
         break;
     }
   }
@@ -1210,7 +1216,7 @@ export class Field {
       const d = Math.hypot(dx, dy);
       const gap = d - e.r - o.r;
       if (d > w.radius + o.r || gap <= 0) continue;
-      const step = Math.min(gap, w.pull * dt);
+      const step = Math.min(gap, w.pull * (e.wellPull ?? 1) * dt);
       o.x += (dx / d) * step;
       o.y += (dy / d) * step;
     }
@@ -1364,7 +1370,7 @@ export class Field {
     const ability = g.tapAbility;
     this.events.push({ type: 'blast', x, y, color: ability ? DAMAGE_TYPES[g.tapDamageType].color : undefined });
     const crit = g.rng() < g.critChanceOf('main');
-    const dmg = g.tapDamage * (crit ? CRIT_MULT : 1);
+    const dmg = g.tapDamage * (crit ? g.critMultOf('main') : 1);
     const dtype = g.tapDamageType;
     const hit: Array<{ e: Enemy; dmg: number }> = [];
     for (const e of this.enemies) {

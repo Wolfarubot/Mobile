@@ -168,6 +168,8 @@ export interface GameState {
     reloadPos: ReloadPos;
     /** 'fancy' adds effects (pixels at the reload text's fading edge, a glowing line on refilling icons). */
     reloadStyle: IndicatorStyle;
+    /** The reload indicator's "SUMMONING!" for tomes (off by default: summoning isn't a reload). */
+    summonText: boolean;
     cooldownStyle: IndicatorStyle;
     /** Rarities of looted gear to salvage the moment it drops (Equipment → Auto Salvage, from the Restless Graveyard). */
     autoSalvage: Rarity[];
@@ -247,7 +249,7 @@ export function newGame(now = Date.now()): GameState {
     equipment: { main: [1, 2, null] },
     nextGearUid: 4,
     lastSeen: now,
-    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', dps: true, dpsCorner: 'tr', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', cooldownStyle: 'fancy', autoSalvage: [], fx: allFx(), aoeStyle: 'fancy' },
+    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', dps: true, dpsCorner: 'tr', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', autoSalvage: [], fx: allFx(), aoeStyle: 'fancy' },
     flags: { eventsIntro: false, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false },
     events: Object.fromEntries(EVENTS.map((e) => [e.id, { cooldown: 0, runs: 0, completed: 0 }])),
     buyAmount: 1,
@@ -448,6 +450,7 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
       reloads: (data.settings as { reloads?: unknown } | undefined)?.reloads !== false,
       reloadPos: pick(RELOAD_POSITIONS, (data.settings as { reloadPos?: unknown } | undefined)?.reloadPos, 'above'),
       reloadStyle: pick(INDICATOR_STYLES, (data.settings as { reloadStyle?: unknown } | undefined)?.reloadStyle, 'fancy'),
+      summonText: (data.settings as { summonText?: unknown } | undefined)?.summonText === true,
       cooldownStyle: pick(INDICATOR_STYLES, (data.settings as { cooldownStyle?: unknown } | undefined)?.cooldownStyle, 'fancy'),
       autoSalvage: (() => {
         const a = (data.settings as { autoSalvage?: unknown } | undefined)?.autoSalvage;

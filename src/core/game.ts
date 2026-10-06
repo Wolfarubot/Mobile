@@ -447,7 +447,7 @@ export class Game {
   }
 
   private critFactor(shooter: Shooter): number {
-    return 1 + this.critChanceOf(shooter) * (CRIT_MULT - 1);
+    return 1 + this.critChanceOf(shooter) * (this.critMultOf(shooter) - 1);
   }
 
   /** Extra enemies each shot passes through (Frost Lance + gear). */
@@ -543,16 +543,19 @@ export class Game {
     // Refined knockback and magazine size change the class's own numbers for this piece.
     let knock = 0;
     let mag = 0;
+    let reload = 0;
     // (Accessories can carry these for whatever weapon their wearer holds.)
     for (const it of [item!, ...this.wornNonWeapons(who)])
       for (const m of it.mods ?? [])
-        if (m?.kind === 'refine' && (m.stat === 'knock' || m.stat === 'mag')) {
+        if (m?.kind === 'refine' && (m.stat === 'knock' || m.stat === 'mag' || m.stat === 'reload')) {
           const v = modValue(m, gearDef(it.base));
           if (m.stat === 'knock') knock += v;
-          else mag += v;
+          else if (m.stat === 'mag') mag += v;
+          else reload += v;
         }
-    if (!knock && !mag) return cls;
-    return { ...cls, knock: cls.knock && cls.knock * (1 + knock), mag: cls.mag && Math.round(cls.mag * (1 + mag)) };
+    if (!knock && !mag && !reload) return cls;
+    // Quick Reload shortens reloads (and a staff's recharge), down to 40% at most.
+    return { ...cls, knock: cls.knock && cls.knock * (1 + knock), mag: cls.mag && Math.round(cls.mag * (1 + mag)), reload: cls.reload && cls.reload * Math.max(0.4, 1 - reload) };
   }
 
   /**
@@ -747,9 +750,38 @@ export class Game {
       if (!item || (slots[i].role && slots[i].role !== mode)) return;
       for (const [k, v] of Object.entries(gearTotals(gearDef(item.base), item.stars)) as [GearStat, number][]) total[k] += v;
       // Refined stats add to the piece's own (knockback and magazine size change its weapon class instead).
-      for (const m of item.mods ?? []) if (m?.kind === 'refine' && m.stat !== 'knock' && m.stat !== 'mag') total[m.stat] += modValue(m, gearDef(item.base));
+      for (const m of item.mods ?? []) if (m?.kind === 'refine' && m.stat in total) total[m.stat as GearStat] += modValue(m, gearDef(item.base));
     });
     return total;
+  }
+
+  // ---- Refinements that aren't plain gear stats: summed over everything a Hunter wears ----
+
+  /** The total of one Refine stat across a Hunter's gear (accessories carry them for any weapon). */
+  modStat(who: Shooter, stat: RefineStat): number {
+    let v = 0;
+    for (const it of this.equipped(who)) if (it) for (const m of it.mods ?? []) if (m?.kind === 'refine' && m.stat === stat) v += modValue(m, gearDef(it.base));
+    return v;
+  }
+
+  /** A Hunter's crit damage multiplier (Brutal raises it). */
+  critMultOf(who: Shooter): number {
+    return CRIT_MULT * (1 + this.modStat(who, 'critDmg'));
+  }
+
+  /** How much stronger a Hunter's status effects are: more damage, or longer / stronger for ones that deal none (Virulence). */
+  statusStrength(who: Shooter): number {
+    return 1 + this.modStat(who, 'status');
+  }
+
+  /** Multiplier on how long a Hunter's summons last (Binding). */
+  summonDurationMult(who: Shooter): number {
+    return 1 + this.modStat(who, 'summonDur');
+  }
+
+  /** Multiplier on a Hunter's gear ability cooldowns (Haste), never below 40%. */
+  cooldownMult(who: Shooter): number {
+    return Math.max(0.4, 1 - this.modStat(who, 'cooldown'));
   }
 
   // ---- Modify: Refine (Kargesh) and Enchant (Marceline) roll random modifiers into a piece's slots ----

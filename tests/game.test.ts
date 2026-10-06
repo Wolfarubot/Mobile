@@ -7,6 +7,7 @@ import {
   enemyDrops,
   modRoll,
   MOD_METALS,
+  CRIT_MULT,
   modCost,
   modGold,
   MOD_GEMS,
@@ -2186,6 +2187,44 @@ describe('Equipment', () => {
     expect(g.procFor('main', 'void')).toBeCloseTo(modRoll(ENCHANTS.infuseVoid.range, false, 'veryRare', 5));
   });
 
+  it('Quick Reload, Brutal, Virulence, Binding and Haste refinements', () => {
+    const g = stocked();
+    const top = (stat: string) => [{ kind: 'refine' as const, stat: stat as 'reload', q: MOD_QUALITY_STEPS }];
+    // Which pieces they fit: reload on guns and staffs, summon duration on summoners, Haste on cooldown abilities.
+    expect(REFINES.reload.fits(gearDef('frostRifle'))).toBe(true);
+    expect(REFINES.reload.fits(gearDef('frostbiteBlade'))).toBe(false);
+    expect(REFINES.summonDur.fits(gearDef('wolfTome'))).toBe(true);
+    expect(REFINES.summonDur.fits(gearDef('puppetDoll'))).toBe(true);
+    expect(REFINES.summonDur.fits(gearDef('frostRifle'))).toBe(false);
+    expect(REFINES.cooldown.fits(gearDef('wolfTome'))).toBe(true); // the wolves' lunge
+    expect(REFINES.cooldown.fits(gearDef('emberRobe'))).toBe(true); // its pulse
+    expect(REFINES.cooldown.fits(gearDef('frostRifle'))).toBe(false);
+    // Quick Reload shortens a gun's reload.
+    const rifle = g.craftGear('frostRifle')!;
+    g.equip('main', 0, rifle.uid);
+    rifle.mods = top('reload');
+    expect(g.weaponClassOf('main')!.reload).toBeCloseTo(WEAPON_CLASSES.rifle.reload! * (1 - modRoll(REFINES.reload.range, false, 'legendary', MOD_QUALITY_STEPS)));
+    // Brutal raises crit damage.
+    rifle.mods = [...top('critDmg'), null];
+    expect(g.critMultOf('main')).toBeCloseTo(CRIT_MULT * (1 + modRoll(REFINES.critDmg.range, false, 'legendary', MOD_QUALITY_STEPS)));
+    // Virulence: damaging effects hit harder; others (a chill) last longer.
+    rifle.mods = top('status');
+    const k = 1 + modRoll(REFINES.status.range, false, 'legendary', MOD_QUALITY_STEPS);
+    expect(g.statusStrength('main')).toBeCloseTo(k);
+    const f = new Field(g);
+    const e = enemy({ id: 1, type: 'bat', x: 0, y: -100, hp: 1e9, maxHp: 1e9 });
+    f.enemies = [e];
+    (f as unknown as { applyStatus: (...a: unknown[]) => void }).applyStatus(e, 'frost', 100, 'main');
+    expect(e.slow).toBeCloseTo(STATUS.chill.duration * k);
+    // Binding: summons last longer; Haste: shorter cooldowns.
+    rifle.mods = top('summonDur');
+    expect(g.summonDurationMult('main')).toBeCloseTo(1 + modRoll(REFINES.summonDur.range, false, 'legendary', MOD_QUALITY_STEPS));
+    rifle.mods = top('cooldown');
+    expect(g.cooldownMult('main')).toBeCloseTo(1 - modRoll(REFINES.cooldown.range, false, 'legendary', MOD_QUALITY_STEPS));
+    // The SUMMONING! text is off by default.
+    expect(startingGame(0).settings.summonText).toBe(false);
+  });
+
   it("salvage returns half of what the piece's current modifiers cost (replaced ones are gone)", () => {
     const g = stocked();
     g.state.gold = 1e30;
@@ -2874,12 +2913,12 @@ describe('Saves', () => {
     s.settings.name = 'Wolfa';
     s.flags.eventsIntro = true;
     const back = deserialize(serialize(s))!;
-    expect(back.settings).toEqual({ leftHanded: true, name: 'Wolfa', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal', dps: true, dpsCorner: 'tr', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', cooldownStyle: 'fancy', autoSalvage: [], fx: Object.fromEntries(FX_KEYS.map((k) => [k, true])), aoeStyle: 'fancy' });
+    expect(back.settings).toEqual({ leftHanded: true, name: 'Wolfa', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal', dps: true, dpsCorner: 'tr', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', autoSalvage: [], fx: Object.fromEntries(FX_KEYS.map((k) => [k, true])), aoeStyle: 'fancy' });
     expect(back.flags).toEqual({ eventsIntro: true, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false });
     const old = JSON.parse(serialize(newGame(0)));
     delete old.settings;
     delete old.flags;
-    expect(deserialize(JSON.stringify(old))!.settings).toEqual({ leftHanded: false, name: '', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal', dps: true, dpsCorner: 'tr', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', cooldownStyle: 'fancy', autoSalvage: [], fx: Object.fromEntries(FX_KEYS.map((k) => [k, true])), aoeStyle: 'fancy' });
+    expect(deserialize(JSON.stringify(old))!.settings).toEqual({ leftHanded: false, name: '', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal', dps: true, dpsCorner: 'tr', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', autoSalvage: [], fx: Object.fromEntries(FX_KEYS.map((k) => [k, true])), aoeStyle: 'fancy' });
     // A hidden DPS meter stays hidden.
     const noDps = newGame(0);
     noDps.settings.dps = false;
