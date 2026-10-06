@@ -3906,3 +3906,56 @@ body.left-handed .hd-float-close {
   color: #111;
   border-color: transparent;
 }
+
+/* What Refine or Enchant can roll on a piece. */
+.mod-options {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 8px;
+  max-height: 32vh;
+  overflow-y: auto;
+}
+.mod-option {
+  display: grid;
+  gap: 1px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.05);
+  text-align: left;
+  font-size: 13px;
+}
+.mod-option small {
+  font-size: 11px;
+  opacity: 0.8;
+}
+/* A perfect roll (the top of its range): a shimmering rainbow border. */
+.refine-slot.perfect,
+.mod-slot.perfect,
+.gc-mod.perfect {
+  border: 3px solid transparent !important;
+  background:
+    linear-gradient(var(--card), var(--card)) padding-box,
+    linear-gradient(90deg, #ff7a2a, #ffe36e, #6fdc5a, #8fdcff, #c08cff, #ff5fd7, #ff7a2a) border-box !important;
+  background-size: 100% 100%, 200% 100% !important;
+  animation: perfect-shine 3s linear infinite;
+  opacity: 1;
+}
+.gc-mod.perfect {
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+@keyframes perfect-shine {
+  to {
+    background-position: 0 0, 200% 0;
+  }
+}
+.perfect-tag {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 800;
+  color: #c08000;
+  margin-left: 4px;
+}
+.refine-slot.fresh {
+  box-shadow: 0 0 0 3px var(--gold);
+}

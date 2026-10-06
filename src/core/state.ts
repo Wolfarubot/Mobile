@@ -12,6 +12,7 @@ import {
   itemLevels,
   MAX_STARS,
   MOD_SLOTS,
+  MOD_QUALITY_STEPS,
   REFINES,
   ENCHANTS,
   type EnchantId,
@@ -95,7 +96,8 @@ export interface GearItem {
 }
 
 /** A modifier on a piece of gear: a Refine stat (Kargesh) or an Enchantment (Marceline). */
-export type GearMod = { kind: 'refine'; stat: RefineStat } | { kind: 'enchant'; id: EnchantId };
+/** `q` is its rolled quality step (0 to MOD_QUALITY_STEPS; the top step is a perfect roll). */
+export type GearMod = { kind: 'refine'; stat: RefineStat; q: number } | { kind: 'enchant'; id: EnchantId; q: number };
 
 /** Who can wear gear: your Hunter ('main') or a recruited Hunter. */
 export type Wearer = 'main' | HunterId;
@@ -509,8 +511,10 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
             if (Array.isArray(g.mods) && slots > 0)
               item.mods = Array.from({ length: slots }, (_, i) => {
                 const m = g.mods![i] as GearMod | null | undefined;
-                if (m && m.kind === 'refine' && m.stat in REFINES) return { kind: 'refine' as const, stat: m.stat };
-                if (m && m.kind === 'enchant' && m.id in ENCHANTS) return { kind: 'enchant' as const, id: m.id };
+                // Modifiers from before rolls (v21) count as middling ones.
+                const q = typeof m?.q === 'number' ? Math.max(0, Math.min(MOD_QUALITY_STEPS, Math.round(m.q))) : Math.round(MOD_QUALITY_STEPS / 2);
+                if (m && m.kind === 'refine' && m.stat in REFINES) return { kind: 'refine' as const, stat: m.stat, q };
+                if (m && m.kind === 'enchant' && m.id in ENCHANTS) return { kind: 'enchant' as const, id: m.id, q };
                 return null;
               });
             return item;

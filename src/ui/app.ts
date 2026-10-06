@@ -67,11 +67,13 @@ import {
   type EventDef,
   RARITIES,
   REFINES,
-  REFINE_POWER,
   ENCHANTS,
   enchantTierHit,
   type EnchantId,
-  refineValue,
+  modValue,
+  modRoll,
+  modPerfect,
+  MOD_QUALITY_STEPS,
   type RefineStat,
   STATION_CAPACITY,
   STATION_EFFICIENCY,
@@ -1067,69 +1069,61 @@ export class AppUI {
   }
 
   /**
-   * Modify a piece, in steps: choose Refine (Kargesh) or Enchant (Marceline); the slots light up (empty ones
-   * highlighted) and you pick one, confirming first if it already holds a modifier, which will be replaced;
-   * then pick the modifier and pay its gold. Stars never change a modifier.
+   * Modify a piece. The slots come first, then what can roll, then the Refine and Enchant buttons. Choosing
+   * one lights up the empty slots; picking a slot (confirming first if it already holds a modifier, which
+   * will be replaced) brings up the Roll button: the modifier, and how strong it is, are random. A roll at the
+   * top of its range is perfect and gets a special border.
    */
   private openModify(uid: number): void {
     const g = this.game;
     const item = g.gearItem(uid);
     if (!item) return;
     const gd = gearDef(item.base);
+    const t = enchantTierHit(gd);
     let action: 'refine' | 'enchant' | null = null;
     let slot: number | null = null;
-    let pick: string | null = null;
+    let last: number | null = null; // the slot just rolled, to show its result
     this.showSheet(`🛠️ Modify ${gd.icon} ${gd.name}`, (body) => {
       const draw = () => {
         const slots = g.modSlots(uid);
-        const cur = slot === null ? null : slots[slot];
+        const options =
+          action === 'refine'
+            ? g.refinesFor(uid).map((st) => `<div class="mod-option"><b>${REFINES[st].icon} ${REFINES[st].name}</b><small>${refineRangeText(st, gd)}</small></div>`)
+            : action === 'enchant'
+              ? g.enchantsFor(uid, slot ?? -1).map((id) => `<div class="mod-option"><b>${ENCHANTS[id].icon} ${ENCHANTS[id].name}</b><small>${enchantRangeText(id, gd, t)}</small></div>`)
+              : [];
         body.innerHTML = `
           <p><b class="rarity-tag" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${gearKindName(gd)} · ${slots.length} modifier slot${slots.length === 1 ? '' : 's'}</p>
-          <div class="mod-actions">
-            ${g.refineOpen ? `<button class="mod-action${action === 'refine' ? ' on' : ''}" data-action="refine"><b>⚒️ Refine</b><small>A stat bonus · 🪙 ${fmt(g.refineCostOf(uid))}</small></button>` : ''}
-            ${g.enchantOpen ? `<button class="mod-action${action === 'enchant' ? ' on' : ''}" data-action="enchant"><b>✨ Enchant</b><small>Types, effects, abilities · 🪙 ${fmt(g.enchantCostOf(uid))}</small></button>` : ''}
-          </div>
-          ${!g.refineOpen ? '<p class="refine-note">Recruit Kargesh the Blacksmith (Ember Mines) to Refine.</p>' : ''}
-          ${!g.enchantOpen ? '<p class="refine-note">Recruit Marceline the Enchantress (Venom Caverns) to Enchant.</p>' : ''}
-          <div class="filter-label">${action ? (slot === null ? 'Choose a slot' : 'Slot') : 'Slots'}</div>
+          <div class="filter-label">${action && slot === null ? 'Choose a slot' : 'Slots'}</div>
           <div class="refine-slots">${slots
             .map((m, i) => {
-              const cls = ['refine-slot', action && !m ? 'open' : '', i === slot ? 'on' : '', !action ? 'idle' : ''].filter(Boolean).join(' ');
-              return `<button class="${cls}" data-slot="${i}"${action ? '' : ' disabled'}>${m ? modText(m, gd) : '<i>Empty slot</i>'}</button>`;
+              const cls = ['refine-slot', action && !m ? 'open' : '', i === slot ? 'on' : '', m && modPerfect(m) ? 'perfect' : '', i === last ? 'fresh' : ''].filter(Boolean).join(' ');
+              return `<button class="${cls}" data-slot="${i}"${action ? '' : ' disabled'}>${m ? `${modText(m, gd)}${modPerfect(m) ? ' <em class="perfect-tag">Perfect</em>' : ''}` : '<i>Empty slot</i>'}</button>`;
             })
             .join('')}</div>
-          ${action ? '' : '<p class="refine-note">Choose Refine or Enchant to pick a slot.</p>'}`;
+          ${
+            action
+              ? `<div class="filter-label">${action === 'refine' ? 'Refine can roll' : 'Enchant can roll'} (random, stronger on rarer gear)</div><div class="mod-options">${options.join('') || '<p class="refine-note">Nothing left that fits this piece.</p>'}</div>`
+              : '<p class="refine-note">Choose Refine or Enchant: the empty slots light up. What you get, and how strong, is rolled at random; a roll at the top of its range is perfect.</p>'
+          }
+          <div class="mod-actions">
+            ${g.refineOpen ? `<button class="mod-action${action === 'refine' ? ' on' : ''}" data-action="refine"><b>⚒️ Refine</b><small>A random stat · 🪙 ${fmt(g.refineCostOf(uid))}</small></button>` : ''}
+            ${g.enchantOpen ? `<button class="mod-action${action === 'enchant' ? ' on' : ''}" data-action="enchant"><b>✨ Enchant</b><small>A random enchantment · 🪙 ${fmt(g.enchantCostOf(uid))}</small></button>` : ''}
+          </div>
+          ${!g.refineOpen ? '<p class="refine-note">Recruit Kargesh the Blacksmith (Ember Mines) to Refine.</p>' : ''}
+          ${!g.enchantOpen ? '<p class="refine-note">Recruit Marceline the Enchantress (Venom Caverns) to Enchant.</p>' : ''}`;
         if (action && slot !== null) {
-          const options =
-            action === 'refine'
-              ? (Object.keys(REFINES) as RefineStat[])
-                  .filter((st) => REFINES[st].fits(gd))
-                  .map((st) => ({ id: st as string, icon: REFINES[st].icon, name: REFINES[st].name, text: REFINES[st].text(refineValue(st, gd.rarity)), here: cur?.kind === 'refine' && cur.stat === st, blocked: false }))
-              : g.enchantsFor(uid).map((id) => ({
-                  id: id as string,
-                  icon: ENCHANTS[id].icon,
-                  name: ENCHANTS[id].name,
-                  text: enchantText(id, gd),
-                  here: cur?.kind === 'enchant' && cur.id === id,
-                  blocked: slots.some((m, i) => i !== slot && m?.kind === 'enchant' && m.id === id),
-                }));
-          const list = el('div', 'refine-stats');
-          list.innerHTML = `<div class="filter-label">${action === 'refine' ? 'Refine with' : 'Enchant with'}</div>${options
-            .map((o) => `<button class="refine-stat${pick === o.id ? ' on' : ''}" data-pick="${o.id}"${o.here || o.blocked ? ' disabled' : ''}><b>${o.icon} ${o.name}</b><small>${o.text}${o.here ? ' · in this slot' : o.blocked ? ' · already on this piece' : ''}</small></button>`)
-            .join('')}`;
-          body.appendChild(list);
+          const cost = action === 'refine' ? g.refineCostOf(uid) : g.enchantCostOf(uid);
           const go = el('button', 'buy refine-go') as HTMLButtonElement;
-          go.innerHTML = `${action === 'refine' ? 'Refine' : 'Enchant'} <span class="refine-cost">🪙 ${fmt(action === 'refine' ? g.refineCostOf(uid) : g.enchantCostOf(uid))}</span>`;
-          go.disabled = !pick || !(action === 'refine' ? g.canRefine(uid, slot, pick as RefineStat) : g.canEnchant(uid, slot, pick as EnchantId));
+          go.innerHTML = `🎲 ${slots[slot] ? 'Reroll' : 'Roll'} ${action === 'refine' ? 'a Refinement' : 'an Enchantment'} <span class="refine-cost">🪙 ${fmt(cost)}</span>`;
+          go.disabled = !(action === 'refine' ? g.canRefine(uid, slot) : g.canEnchant(uid, slot));
           go.addEventListener('click', () => {
-            if (!pick || slot === null) return;
-            const ok = action === 'refine' ? g.refine(uid, slot, pick as RefineStat) : g.enchant(uid, slot, pick as EnchantId);
-            if (!ok) return;
-            this.toast(`${action === 'refine' ? '⚒️' : '✨'} ${gd.name}: ${modText(g.modSlots(uid)[slot]!, gd)}`);
+            if (slot === null || !action) return;
+            const m = action === 'refine' ? g.refine(uid, slot) : g.enchant(uid, slot);
+            if (!m) return;
+            this.toast(`${modPerfect(m) ? '🌟 Perfect! ' : action === 'refine' ? '⚒️ ' : '✨ '}${gd.name}: ${modText(m, gd)}`);
             this.hooks.save();
-            action = null;
-            slot = null;
-            pick = null;
+            last = slot;
             draw();
           });
           body.appendChild(go);
@@ -1138,7 +1132,7 @@ export class AppUI {
           b.addEventListener('click', () => {
             action = b.dataset.action as 'refine' | 'enchant';
             slot = null;
-            pick = null;
+            last = null;
             draw();
           }),
         );
@@ -1148,7 +1142,7 @@ export class AppUI {
             const held = g.modSlots(uid)[i];
             const choose = () => {
               slot = i;
-              pick = null;
+              last = null;
               draw();
             };
             if (!held || slot === i) return choose();
@@ -1161,12 +1155,6 @@ export class AppUI {
               choose();
             });
             this.modal.appendChild(wrap);
-          }),
-        );
-        body.querySelectorAll<HTMLButtonElement>('.refine-stat').forEach((b) =>
-          b.addEventListener('click', () => {
-            pick = b.dataset.pick!;
-            draw();
           }),
         );
       };
@@ -2253,7 +2241,7 @@ export class AppUI {
         const tile = el('button', 'inv-tile rar') as HTMLButtonElement;
         tile.style.setProperty('--rc', gearColor(gd.id));
         const slots = g.modSlots(it.uid);
-        tile.innerHTML = `<i>${gd.icon}</i><span>${gd.name}</span><small class="stars">${starsHtml(it.stars)}</small>${worn ? `<em>${wearerIcon(worn.who)}</em>` : ''}${slots.length ? `<b class="mod-pips">${slots.map((m) => (m ? '◆' : '◇')).join('')}</b>` : ''}`;
+        tile.innerHTML = `<i>${gd.icon}</i><span>${gd.name}</span><small class="stars">${starsHtml(it.stars)}</small>${worn ? `<em>${wearerIcon(worn.who)}</em>` : ''}${slots.length ? `<b class="mod-pips">${slots.map((m) => (m ? (modPerfect(m) ? '★' : '◆') : '◇')).join('')}</b>` : ''}`;
         tile.addEventListener('click', () => (refining ? this.openModify(it.uid) : this.openGearDetail(it.uid)));
         inv.appendChild(tile);
       }
@@ -3379,7 +3367,7 @@ function gearCardHtml(it: GearItem, vs: GearItem | null = null): string {
       .map((t) => `<li class="gc-effect">${DAMAGE_TYPES[t].icon} ${Math.round(gd.proc! * 100)}% chance · ${DAMAGE_TYPES[t].effect}</li>`)
       .join('') +
     (gd.typeBonus ? `<li class="gc-effect">${DAMAGE_TYPES[gd.typeBonus.type].icon} +${Math.round(gd.typeBonus.bonus * GEAR_STAR_POWER[it.stars] * 100)}% ${DAMAGE_TYPES[gd.typeBonus.type].name} damage</li>` : '') +
-    (it.mods ?? []).filter(Boolean).map((m) => `<li class="gc-mod">${modText(m!, gd)}</li>`).join('') +
+    (it.mods ?? []).filter(Boolean).map((m) => `<li class="gc-mod${modPerfect(m!) ? ' perfect' : ''}">${modText(m!, gd)}</li>`).join('') +
     (gd.effect ? `<li class="gc-effect">✨ ${describeEffect(gd.effect, it.stars)}</li>` : '') +
     (gd.bane ? `<li class="gc-effect">${ARCHETYPES[gd.bane.archetype].icon} +${Math.round(gd.bane.bonus * GEAR_STAR_POWER[it.stars] * 100)}% damage vs ${ARCHETYPES[gd.bane.archetype].name}s</li>` : '') +
     (gd.findDrop ? `<li class="gc-effect">💎 ${it.stars >= gd.findDrop.stars ? '' : `At ${gd.findDrop.stars}★: `}${gd.findDrop.chance * 100}% chance for ${materialDef(gd.findDrop.material).name} from ${ARCHETYPES[gd.findDrop.archetype].name.toLowerCase()} kills</li>` : '');
@@ -3517,22 +3505,38 @@ function modSlotsHtml(g: Game, uid: number): string {
   if (!item || !slots.length) return '';
   const gd = gearDef(item.base);
   return `<div class="mod-slots"><div class="filter-label">Modifiers</div>${slots
-    .map((m) => `<div class="mod-slot${m ? ' full' : ''}">${m ? modText(m, gd) : '<i>Empty slot</i>'}</div>`)
+    .map((m) => `<div class="mod-slot${m ? ' full' : ''}${m && modPerfect(m) ? ' perfect' : ''}">${m ? `${modText(m, gd)}${modPerfect(m) ? ' <em class="perfect-tag">Perfect</em>' : ''}` : '<i>Empty slot</i>'}</div>`)
     .join('')}${g.refineOpen || g.enchantOpen ? '' : '<p class="refine-note">Recruit Kargesh the Blacksmith (Ember Mines) to Refine, or Marceline the Enchantress (Venom Caverns) to Enchant.</p>'}</div>`;
 }
 
-/** A modifier in words, with its icon (its value on this piece). */
+/** A modifier in words, with its icon (its rolled value on this piece). */
 function modText(m: GearMod, gd: GearDef): string {
-  return m.kind === 'refine' ? `${REFINES[m.stat].icon} ${REFINES[m.stat].text(refineValue(m.stat, gd.rarity))}` : `${ENCHANTS[m.id].icon} ${ENCHANTS[m.id].name}: ${enchantText(m.id, gd)}`;
+  const v = modValue(m, gd);
+  return m.kind === 'refine' ? `${REFINES[m.stat].icon} ${REFINES[m.stat].text(v)}` : `${ENCHANTS[m.id].icon} ${ENCHANTS[m.id].name}: ${ENCHANTS[m.id].text(v, enchantTierHit(gd))}`;
 }
 
-/** What an enchantment does on this piece (its numbers come from the piece's area and rarity). */
-function enchantText(id: EnchantId, gd: GearDef): string {
+/** What a Refine stat can roll on this piece, lowest to highest. */
+function refineRangeText(st: RefineStat, gd: GearDef): string {
+  const r = REFINES[st];
+  return `${r.text(modRoll(r.range, r.int, gd.rarity, 0))} to ${r.text(modRoll(r.range, r.int, gd.rarity, MOD_QUALITY_STEPS))}`;
+}
+
+/** What an enchantment can roll on this piece: its effect, with its lowest to highest number. */
+function enchantRangeText(id: EnchantId, gd: GearDef, tierHit: number): string {
   const en = ENCHANTS[id];
-  if (en.potency) return `+${Math.round(en.potency * REFINE_POWER[gd.rarity] * 100)}% status effect chance`;
-  if (en.onKill) return `${en.describe} (${fmt(en.onKill.base * enchantTierHit(gd))} base damage)`;
-  if (en.effect && 'base' in en.effect) return `${en.describe} (${fmt(en.effect.base * enchantTierHit(gd))} base damage)`;
-  return en.describe;
+  const lo = modRoll(en.range, false, gd.rarity, 0);
+  const hi = modRoll(en.range, false, gd.rarity, MOD_QUALITY_STEPS);
+  const damage = !!en.onKill || (!!en.effect && 'base' in en.effect);
+  const num = (v: number) => (damage ? fmt(Math.round(v * tierHit * 10) / 10) : `${Math.round(v * 1000) / 10}%`);
+  // What it does, without its number (the range follows).
+  const what = en.infuse
+    ? `adds ${DAMAGE_TYPES[en.infuse].name} damage (hits split between the weapon's types), plus a ${DAMAGE_TYPES[en.infuse].name} damage bonus of`
+    : en.potency
+      ? 'more status effect chance:'
+      : en.effect?.kind === 'evade'
+        ? 'a chance to slip a monster entirely:'
+        : `${en.text(hi, tierHit).replace(/\s*\([^)]*\)$/, '')} ·`;
+  return `${what} ${num(lo)} to ${num(hi)}${damage ? ' base damage' : ''}`;
 }
 
 /** A weapon's damage type as a small coloured tag ('' for gear without one). */

@@ -5,7 +5,12 @@ import {
   AREAS,
   enemyDef,
   enemyDrops,
-  refineValue,
+  modRoll,
+  modPerfect,
+  MOD_QUALITY_STEPS,
+  REFINES,
+  ENCHANTS,
+  type EnchantId,
   enemyExtraDrops,
   dropRarity,
   areaEnemies,
@@ -957,77 +962,104 @@ describe('Equipment', () => {
     expect(host.well).toBe(0);
   });
 
-  it('Refine (Kargesh the Blacksmith): stat modifiers in the slots of Very Rare and rarer gear, for gold', () => {
+  it('Refine (Kargesh): a random stat that fits the piece, rolled within a range that grows with rarity', () => {
+    let roll = 0;
     const g = stocked();
+    (g as unknown as { rng: () => number }).rng = () => roll;
     g.state.gold = 1e30;
     const bow = g.craftGear('emberLongbow')!; // Very Rare: 1 slot
     const rifle = g.craftGear('frostRifle')!; // Legendary: 2 slots
-    const plain = g.craftGear('slimeSword')!; // Common: none
+    const plate = g.craftGear('voidPlate')!; // Exalted armor: 3 slots
     expect(g.modSlots(bow.uid)).toEqual([null]);
     expect(g.modSlots(rifle.uid)).toEqual([null, null]);
-    expect(g.modSlots(plain.uid)).toEqual([]);
-    // Closed until Kargesh joins.
-    expect(g.refineOpen).toBe(false);
-    expect(g.refine(bow.uid, 0, 'damage')).toBe(false);
+    expect(g.modSlots(plate.uid)).toEqual([null, null, null]);
+    expect(g.modSlots(g.craftGear('slimeSword')!.uid)).toEqual([]);
+    expect(g.refine(bow.uid, 0)).toBeNull(); // closed until Kargesh joins
     g.state.hunters.blacksmith.recruited = true;
-    expect(g.refinable(bow.uid)).toBe(true);
-    expect(g.refinable(plain.uid)).toBe(false);
-    // Only modifiers that fit: no magazine on a bow, no knockback on a rifle.
-    expect(g.canRefine(bow.uid, 0, 'mag')).toBe(false);
-    expect(g.canRefine(rifle.uid, 0, 'knock')).toBe(false);
-    // Damage and attack speed add to the wearer's stats; the cost is gold.
+    // Only stats that fit: no magazine on a bow; shields and stun time on armor, no knockback there.
+    expect(g.refinesFor(bow.uid)).not.toContain('mag');
+    expect(g.refinesFor(plate.uid)).toEqual(expect.arrayContaining(['guard', 'stun', 'rate', 'damage']));
+    expect(g.refinesFor(plate.uid)).not.toContain('knock');
+    expect(g.refinesFor(g.craftGear('emberOrb')!.uid)).toEqual(expect.arrayContaining(['gold', 'drops', 'range', 'radius']));
+    // Legendary attack speed rolls 5% to 10%; rarer gear rolls higher.
+    expect(modRoll(REFINES.rate.range, false, 'legendary', 0)).toBeCloseTo(0.05);
+    expect(modRoll(REFINES.rate.range, false, 'legendary', MOD_QUALITY_STEPS)).toBeCloseTo(0.1);
+    expect(modRoll(REFINES.rate.range, false, 'exalted', MOD_QUALITY_STEPS)).toBeGreaterThan(0.1);
+    // A roll: the stat and its strength both come from the dice (0: the first stat, at its lowest).
     g.equip('main', 0, bow.uid);
     const before = g.gear('main');
     const gold = g.state.gold;
-    expect(g.refine(bow.uid, 0, 'damage')).toBe(true);
+    roll = 0;
+    const low = g.refine(bow.uid, 0)!;
+    expect(low).toEqual({ kind: 'refine', stat: 'rate', q: 0 });
+    expect(modPerfect(low)).toBe(false);
     expect(g.state.gold).toBe(gold - g.refineCostOf(bow.uid));
-    expect(g.gear('main').damage).toBeCloseTo(before.damage + refineValue('damage', 'veryRare'));
-    // Replacing a slot's modifier; stars don't change it.
-    expect(g.refine(bow.uid, 0, 'rate')).toBe(true);
-    expect(g.gear('main').damage).toBeCloseTo(before.damage);
-    expect(g.gear('main').rate).toBeCloseTo(before.rate + refineValue('rate', 'veryRare'));
+    expect(g.gear('main').rate).toBeCloseTo(before.rate + modRoll(REFINES.rate.range, false, 'veryRare', 0));
+    // The top roll is perfect.
+    roll = 0.9999;
+    const top = g.refine(bow.uid, 0)!;
+    expect(top.q).toBe(MOD_QUALITY_STEPS);
+    expect(modPerfect(top)).toBe(true);
+    // Stars don't change modifiers, and they survive a save.
     g.upgradeGear(bow.uid);
-    expect(g.modSlots(bow.uid)).toEqual([{ kind: 'refine', stat: 'rate' }]);
-    // A rifle's magazine grows with a Magazine Size refine, and rarer pieces get more from a modifier.
-    expect(g.refine(rifle.uid, 1, 'mag')).toBe(true);
+    expect(g.modSlots(bow.uid)).toEqual([top]);
+    expect(deserialize(serialize(g.state))!.inventory.find((it) => it.uid === bow.uid)!.mods).toEqual([top]);
+    // A rifle's Magazine Size refine grows its magazine.
+    const pool = g.refinesFor(rifle.uid);
+    roll = (pool.indexOf('mag') + 0.5) / pool.length;
+    expect((g.refine(rifle.uid, 1) as { stat: string }).stat).toBe('mag');
     g.equip('main', 0, rifle.uid);
-    expect(g.weaponClassOf('main')!.mag).toBe(Math.round(WEAPON_CLASSES.rifle.mag! * (1 + refineValue('mag', 'legendary'))));
-    expect(refineValue('damage', 'legendary')).toBeGreaterThan(refineValue('damage', 'veryRare'));
-    // Modifiers survive a save.
-    const back = deserialize(serialize(g.state))!;
-    expect(back.inventory.find((it) => it.uid === rifle.uid)!.mods).toEqual([null, { kind: 'refine', stat: 'mag' }]);
+    const q = (g.modSlots(rifle.uid)[1] as { q: number }).q;
+    expect(g.weaponClassOf('main')!.mag).toBe(Math.round(WEAPON_CLASSES.rifle.mag! * (1 + modRoll(REFINES.mag.range, false, 'legendary', q))));
   });
 
-  it('Enchant (Marceline the Enchantress): infusions add a damage type, Potency raises status chance, Fireburst and abilities', () => {
+  it('Enchant (Marceline): a random enchantment that fits (one of each per piece), rolled; infusions, Potency, Fireburst, armor specials', () => {
+    let roll = 0;
     const g = stocked();
+    (g as unknown as { rng: () => number }).rng = () => roll;
     g.state.gold = 1e30;
     const bow = g.craftGear('emberLongbow')!; // Fire, Very Rare: 1 slot
     const rifle = g.craftGear('frostRifle')!; // Frost, Legendary: 2 slots
-    const robe = g.craftGear('emberRobe')!;
+    const plate = g.craftGear('voidPlate')!; // Exalted heavy armor: 3 slots
     expect(hunterDef('enchantress')).toMatchObject({ name: 'Marceline', area: 'mines', unlock: { event: 'guardian-mines', times: 1 } });
-    expect(g.enchant(bow.uid, 0, 'infuseFrost')).toBe(false); // closed until she joins
+    expect(g.enchant(bow.uid, 0)).toBeNull(); // closed until she joins
     g.state.hunters.enchantress.recruited = true;
-    expect(g.modifiable(bow.uid)).toBe(true);
-    // No infusing a type the weapon already deals; weapon-only enchantments stay off armor.
+    // What fits: no infusing a type the weapon deals; armor gets armor specials, not weapon enchantments.
     expect(g.enchantsFor(bow.uid)).not.toContain('infuseFire');
-    expect(g.enchantsFor(robe.uid)).toEqual(['thunderCall', 'frostPulse']);
-    // An infusion: the weapon's hits split between Fire and Frost.
+    expect(g.enchantsFor(plate.uid)).toEqual(expect.arrayContaining(['thorns', 'evasion', 'shieldBurst', 'emberPulse']));
+    expect(g.enchantsFor(plate.uid)).not.toContain('potency');
+    // Picks the dice roll that lands on an enchantment (they're weighted).
+    const rollFor = (uid: number, slot: number, id: EnchantId) => {
+      const pool = g.enchantsFor(uid, slot);
+      const total = pool.reduce((sum, x) => sum + ENCHANTS[x].weight, 0);
+      let acc = 0;
+      for (const x of pool) {
+        if (x === id) return (acc + ENCHANTS[x].weight / 2) / total;
+        acc += ENCHANTS[x].weight;
+      }
+      throw new Error(id);
+    };
+    // A Frost infusion on the Fire bow: hits split Fire/Frost, plus its rolled Frost bonus.
     g.equip('main', 0, bow.uid);
     const gold = g.state.gold;
-    expect(g.enchant(bow.uid, 0, 'infuseFrost')).toBe(true);
+    roll = rollFor(bow.uid, 0, 'infuseFrost');
+    const m = g.enchant(bow.uid, 0)! as { id: string; q: number };
+    expect(m.id).toBe('infuseFrost');
     expect(g.state.gold).toBe(gold - g.enchantCostOf(bow.uid));
     expect(g.enchantCostOf(bow.uid)).toBe(g.refineCostOf(bow.uid) * 2);
     expect(g.damageTypesOf('main')).toEqual(['fire', 'frost']);
-    // Potency adds status chance; one of each enchantment per piece.
+    expect(g.typeBonus('main', 'frost')).toBeCloseTo(1 + modRoll(ENCHANTS.infuseFrost.range, false, 'veryRare', m.q));
+    // Potency on the rifle: more status chance; what one slot holds can't roll into another.
     g.equip('main', 0, rifle.uid);
     const proc = g.procOf('main');
-    expect(g.enchant(rifle.uid, 0, 'potency')).toBe(true);
-    expect(g.procOf('main')).toBeCloseTo(proc + 0.1 * 1.25);
-    expect(g.canEnchant(rifle.uid, 1, 'potency')).toBe(false);
+    roll = rollFor(rifle.uid, 0, 'potency');
+    expect((g.enchant(rifle.uid, 0) as { id: string }).id).toBe('potency');
+    expect(g.enchantsFor(rifle.uid, 1)).not.toContain('potency');
+    const pq = (g.modSlots(rifle.uid)[0] as { q: number }).q;
+    expect(g.procOf('main')).toBeCloseTo(proc + modRoll(ENCHANTS.potency.range, false, 'legendary', pq));
     // Fireburst: kills by the weapon burst around the monster.
-    expect(g.killBurst('main')).toBeNull();
-    expect(g.enchant(rifle.uid, 1, 'fireburst')).toBe(true);
-    expect(g.killBurst('main')!.base).toBeCloseTo(0.8 * TIER_HIT[gearArea(gearDef('frostRifle')) - 1]);
+    roll = rollFor(rifle.uid, 1, 'fireburst');
+    expect((g.enchant(rifle.uid, 1) as { id: string }).id).toBe('fireburst');
     const f = new Field(g);
     const victim = enemy({ id: 1, x: 0, y: -100, hp: 1, maxHp: 1 });
     const bystander = enemy({ id: 2, x: 30, y: -100, hp: 1e9, maxHp: 1e9 });
@@ -1035,14 +1067,12 @@ describe('Equipment', () => {
     (f as unknown as { hitWith: (...a: unknown[]) => void }).hitWith('main', victim, 1, 0, 0, false);
     expect(victim.hp).toBeLessThanOrEqual(0);
     expect(bystander.hp).toBeLessThan(1e9);
-    // Ability enchantments run like gear abilities, with their own cooldown icon.
-    g.equip('main', 1, robe.uid);
-    expect(g.enchant(robe.uid, 0, 'thunderCall')).toBe(true);
-    expect(g.gearEffects('main').some((e) => e.effect.kind === 'strike')).toBe(true);
-    expect(new Field(g).cooldowns().some((c) => c.name.startsWith('Thunder Call'))).toBe(true);
-    // Saved and loaded.
-    const back = deserialize(serialize(g.state))!;
-    expect(back.inventory.find((it) => it.uid === rifle.uid)!.mods).toEqual([{ kind: 'enchant', id: 'potency' }, { kind: 'enchant', id: 'fireburst' }]);
+    // Armor specials run like gear effects (Evasion's chance is its roll).
+    g.equip('main', 1, plate.uid);
+    roll = rollFor(plate.uid, 0, 'evasion');
+    expect((g.enchant(plate.uid, 0) as { id: string }).id).toBe('evasion');
+    const ev = g.gearEffects('main').find((e) => e.effect.kind === 'evade')!;
+    expect((ev.effect as { chance: number }).chance).toBeCloseTo(modRoll(ENCHANTS.evasion.range, false, 'exalted', (g.modSlots(plate.uid)[0] as { q: number }).q));
   });
 
   it('Kargesh the Blacksmith replaces Sera; old saves move her over', () => {

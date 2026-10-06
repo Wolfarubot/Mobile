@@ -1897,39 +1897,58 @@ export function gearSummary(def: GearDef, stars: number): string {
 // ---- Stars: gear and Upgrades go from 1★ (crafted) to 5★ ----
 export const MAX_STARS = 5;
 
-// ---- Gear modifiers: Refine (Kargesh the Blacksmith) adds stat modifiers to Very Rare and rarer gear ----
+// ---- Gear modifiers: Refine (Kargesh the Blacksmith) and Enchant (Marceline the Enchantress) ----
 
-/** Modifier slots on a piece by its rarity (Refine now; Enchant later). Stars don't change them. */
+/** Modifier slots on a piece by its rarity (weapons, armor and accessories alike). Stars don't change them. */
 export const MOD_SLOTS: Record<Rarity, number> = { common: 0, uncommon: 0, rare: 0, veryRare: 1, legendary: 2, exotic: 2, relic: 3, artifact: 3, exalted: 3 };
 
-export type RefineStat = 'rate' | 'damage' | 'knock' | 'pierce' | 'mag';
-
 /**
- * Refine modifiers: basic stat bonuses. `value` is at Very Rare; rarer pieces get more (REFINE_POWER).
- * `fits` says which pieces can take it (knockback on weapons that knock back, magazine size on guns...).
+ * Modifiers are rolled: which one you get is random (from those that fit the piece), and so is its strength,
+ * within a range that grows with the piece's rarity. Ranges are written for Legendary gear (what you'd have
+ * when Refine opens in the Ember Mines) and scaled by MOD_POWER. A roll is a quality step from 0 to
+ * MOD_QUALITY_STEPS; the top step is a **perfect** roll (it gets a special border).
  */
-export const REFINES: Record<RefineStat, { name: string; icon: string; value: number; text: (v: number) => string; fits: (def: GearDef) => boolean }> = {
-  rate: { name: 'Attack Speed', icon: '⚡', value: 0.06, text: (v) => `+${Math.round(v * 100)}% attack speed`, fits: () => true },
-  damage: { name: 'Damage', icon: '💥', value: 0.08, text: (v) => `+${Math.round(v * 100)}% damage`, fits: () => true },
-  knock: { name: 'Knockback', icon: '🥊', value: 0.3, text: (v) => `+${Math.round(v * 100)}% knockback`, fits: (d) => !!d.weaponClass && (WEAPON_CLASSES[d.weaponClass].knock ?? 0) > 0 },
-  pierce: { name: 'Piercing', icon: '🎯', value: 1, text: (v) => `+${v} pierce`, fits: (d) => !!d.weaponClass && WEAPON_CLASSES[d.weaponClass].attack === 'shot' },
-  mag: { name: 'Magazine Size', icon: '🔋', value: 0.25, text: (v) => `+${Math.round(v * 100)}% magazine size`, fits: (d) => !!d.weaponClass && !!WEAPON_CLASSES[d.weaponClass].mag },
+export const MOD_QUALITY_STEPS = 10;
+export const MOD_POWER: Record<Rarity, number> = { common: 1, uncommon: 1, rare: 1, veryRare: 0.8, legendary: 1, exotic: 1.2, relic: 1.45, artifact: 1.75, exalted: 2.1 };
+
+/** Where a piece of gear goes, for which modifiers fit it. */
+const isWeapon = (d: GearDef) => !!d.weaponClass;
+const isArmor = (d: GearDef) => d.kind === 'armor';
+const isAccessory = (d: GearDef) => d.kind === 'accessory';
+
+/** A modifier's value at a quality step on a piece of a rarity (whole numbers for `int` ones). */
+export function modRoll(range: [number, number], int: boolean | undefined, rarity: Rarity, q: number): number {
+  const p = MOD_POWER[rarity];
+  const v = (range[0] + ((range[1] - range[0]) * Math.max(0, Math.min(MOD_QUALITY_STEPS, q))) / MOD_QUALITY_STEPS) * p;
+  return int ? Math.max(1, Math.round(v)) : Math.round(v * 1000) / 1000;
+}
+
+export type RefineStat = 'rate' | 'damage' | 'crit' | 'knock' | 'pierce' | 'mag' | 'guard' | 'stun' | 'radius' | 'range' | 'gold' | 'drops';
+
+/** Refine modifiers: stat bonuses. `range` is at Legendary (see MOD_POWER); `fits` says which pieces take it. */
+export const REFINES: Record<RefineStat, { name: string; icon: string; range: [number, number]; int?: boolean; text: (v: number) => string; fits: (def: GearDef) => boolean }> = {
+  rate: { name: 'Attack Speed', icon: '⚡', range: [0.05, 0.1], text: (v) => `+${pct(v)} attack speed`, fits: () => true },
+  damage: { name: 'Damage', icon: '💥', range: [0.06, 0.12], text: (v) => `+${pct(v)} damage`, fits: () => true },
+  crit: { name: 'Critical', icon: '🎯', range: [0.02, 0.04], text: (v) => `+${pct(v)} crit chance`, fits: (d) => !isArmor(d) },
+  knock: { name: 'Knockback', icon: '🥊', range: [0.2, 0.4], text: (v) => `+${pct(v)} knockback`, fits: (d) => isWeapon(d) && (WEAPON_CLASSES[d.weaponClass!].knock ?? 0) > 0 },
+  pierce: { name: 'Piercing', icon: '🏹', range: [1, 2], int: true, text: (v) => `+${v} pierce`, fits: (d) => isWeapon(d) && WEAPON_CLASSES[d.weaponClass!].attack === 'shot' },
+  mag: { name: 'Magazine Size', icon: '🔋', range: [0.15, 0.3], text: (v) => `+${pct(v)} magazine size`, fits: (d) => isWeapon(d) && !!WEAPON_CLASSES[d.weaponClass!].mag },
+  guard: { name: 'Bulwark', icon: '🛡️', range: [1, 2], int: true, text: (v) => `+${v} shield charge${v === 1 ? '' : 's'}`, fits: isArmor },
+  stun: { name: 'Steadfast', icon: '🪨', range: [0.05, 0.1], text: (v) => `−${pct(v)} stun time`, fits: isArmor },
+  radius: { name: 'Expanse', icon: '🌐', range: [0.05, 0.1], text: (v) => `+${pct(v)} area size`, fits: (d) => isAccessory(d) || d.armorType === 'robe' },
+  range: { name: 'Reach', icon: '📏', range: [10, 20], int: true, text: (v) => `+${v} range`, fits: isAccessory },
+  gold: { name: 'Fortune', icon: '🪙', range: [0.06, 0.12], text: (v) => `+${pct(v)} gold`, fits: isAccessory },
+  drops: { name: 'Plunder', icon: '💎', range: [0.06, 0.12], text: (v) => `+${pct(v)} materials`, fits: isAccessory },
 };
 
-/** Rarer pieces take stronger modifiers. */
-export const REFINE_POWER: Record<Rarity, number> = { common: 1, uncommon: 1, rare: 1, veryRare: 1, legendary: 1.25, exotic: 1.5, relic: 1.75, artifact: 2, exalted: 2.5 };
-
-/** A Refine modifier's value on a piece of a rarity (pierce in whole enemies). */
-export const refineValue = (stat: RefineStat, rarity: Rarity): number => {
-  const v = REFINES[stat].value * REFINE_POWER[rarity];
-  return stat === 'pierce' ? Math.max(1, Math.round(v)) : Math.round(v * 1000) / 1000;
-};
+/** A percentage, to one decimal place when it isn't whole. */
+const pct = (v: number): string => `${Math.round(v * 1000) / 10}%`;
 
 /**
- * Enchantments (Marceline the Enchantress): the involved modifiers. An **infusion** adds a damage type to a
- * weapon (its hits split evenly between its types, like any multi-type weapon); **Potency** raises its status
- * chance; the rest are abilities with their own base damage (from the piece's area, like gear abilities), which
- * stars don't change.
+ * Enchantments: the involved modifiers. An **infusion** adds a damage type to a weapon (its hits split evenly
+ * between its types) with a bonus to that type; **Potency** raises status chance; the rest are abilities and
+ * armor specials whose damage is `v` × the piece's area TIER_HIT (like gear abilities). `range` is at
+ * Legendary, like Refine's. `weight` makes some likelier to roll (each infusion is one of nine).
  */
 export type EnchantId =
   | 'infuseFire'
@@ -1944,30 +1963,39 @@ export type EnchantId =
   | 'potency'
   | 'fireburst'
   | 'thunderCall'
-  | 'frostPulse';
+  | 'frostPulse'
+  | 'emberPulse'
+  | 'thorns'
+  | 'evasion'
+  | 'shieldBurst';
 
 export interface EnchantDef {
   name: string;
   icon: string;
-  /** Infusions: the damage type they add. */
+  range: [number, number];
+  weight: number;
+  /** Infusions: the damage type they add (their roll is a bonus to it). */
   infuse?: DamageType;
-  /** Potency: added status effect chance (at Very Rare; ×REFINE_POWER for rarer pieces). */
-  potency?: number;
-  /** Fireburst: monsters this weapon kills burst for `base` × the area's TIER_HIT, within `radius`. */
-  onKill?: { base: number; radius: number; damageType: DamageType };
-  /** Abilities that run on their own, like gear abilities; `base` is × the piece's area TIER_HIT. */
+  /** Potency: its roll is added status chance. */
+  potency?: boolean;
+  /** Fireburst: monsters the weapon kills burst within `radius` (roll × TIER_HIT damage). */
+  onKill?: { radius: number; damageType: DamageType };
+  /** An ability or armor special; its `base` (or evade `chance`) comes from the roll. */
   effect?: GearEffect;
-  /** Weapons only (infusions, Potency, Fireburst), or any piece. */
-  weaponOnly: boolean;
-  describe: string;
+  fits: (def: GearDef) => boolean;
+  /** In words, given the rolled value (and the piece's TIER_HIT for damage). */
+  text: (v: number, tierHit: number) => string;
 }
 
+const dmg = (v: number, t: number) => `${Math.round(v * t * 10) / 10} base damage`;
 const infusion = (t: DamageType, icon: string): EnchantDef => ({
   name: `${DAMAGE_TYPES[t].name} Infusion`,
   icon,
+  range: [0.05, 0.15],
+  weight: 0.4,
   infuse: t,
-  weaponOnly: true,
-  describe: `Adds ${DAMAGE_TYPES[t].name} damage: hits split evenly between the weapon's types, and can ${DAMAGE_TYPES[t].effect ? DAMAGE_TYPES[t].effect!.split(':')[0].toLowerCase() : 'deal it'}`,
+  fits: isWeapon,
+  text: (v) => `adds ${DAMAGE_TYPES[t].name} damage (hits split between the weapon's types) and +${pct(v)} ${DAMAGE_TYPES[t].name} damage`,
 });
 
 export const ENCHANTS: Record<EnchantId, EnchantDef> = {
@@ -1980,11 +2008,24 @@ export const ENCHANTS: Record<EnchantId, EnchantDef> = {
   infuseArcane: infusion('arcane', '🔮'),
   infuseDecay: infusion('decay', '🍂'),
   infuseVoid: infusion('void', '🌀'),
-  potency: { name: 'Potency', icon: '🧫', potency: 0.1, weaponOnly: true, describe: "Raises the weapon's chance to inflict its status effects" },
-  fireburst: { name: 'Fireburst', icon: '💥', onKill: { base: 0.8, radius: 70, damageType: 'fire' }, weaponOnly: true, describe: 'Monsters this weapon kills burst into flame, blasting everything around them' },
-  thunderCall: { name: 'Thunder Call', icon: '🌩️', effect: { kind: 'strike', base: 0.6, damageType: 'lightning', targets: 2, cooldown: 4, range: 300 }, weaponOnly: false, describe: 'Every 4s, lightning strikes 2 monsters nearby' },
-  frostPulse: { name: 'Frost Pulse', icon: '🧊', effect: { kind: 'pulse', base: 0.7, damageType: 'frost', radius: 90, cooldown: 5 }, weaponOnly: false, describe: 'Every 5s, a burst of frost around the wearer' },
+  potency: { name: 'Potency', icon: '🧫', range: [0.08, 0.15], weight: 1, potency: true, fits: isWeapon, text: (v) => `+${pct(v)} status effect chance` },
+  fireburst: { name: 'Fireburst', icon: '💥', range: [0.6, 1], weight: 1, onKill: { radius: 70, damageType: 'fire' }, fits: isWeapon, text: (v, t) => `monsters this weapon kills burst into flame around them (${dmg(v, t)})` },
+  thunderCall: { name: 'Thunder Call', icon: '🌩️', range: [0.5, 0.8], weight: 1, effect: { kind: 'strike', base: 1, damageType: 'lightning', targets: 2, cooldown: 4, range: 300 }, fits: () => true, text: (v, t) => `every 4s, lightning strikes 2 monsters nearby (${dmg(v, t)})` },
+  frostPulse: { name: 'Frost Pulse', icon: '🧊', range: [0.6, 0.9], weight: 1, effect: { kind: 'pulse', base: 1, damageType: 'frost', radius: 90, cooldown: 5 }, fits: () => true, text: (v, t) => `every 5s, a burst of frost around the wearer (${dmg(v, t)})` },
+  emberPulse: { name: 'Ember Pulse', icon: '🔥', range: [0.6, 0.9], weight: 1, effect: { kind: 'pulse', base: 1, damageType: 'fire', radius: 90, cooldown: 5 }, fits: (d) => !isWeapon(d), text: (v, t) => `every 5s, a burst of fire around the wearer (${dmg(v, t)})` },
+  thorns: { name: 'Thorns', icon: '🌵', range: [0.8, 1.2], weight: 1, effect: { kind: 'thorns', base: 1, damageType: 'physical' }, fits: isArmor, text: (v, t) => `monsters that reach the wearer take damage (${dmg(v, t)})` },
+  evasion: { name: 'Evasion', icon: '💨', range: [0.05, 0.1], weight: 1, effect: { kind: 'evade', chance: 1 }, fits: isArmor, text: (v) => `${pct(v)} chance to slip a monster entirely` },
+  shieldBurst: { name: 'Shield Burst', icon: '🛡️', range: [0.8, 1.2], weight: 1, effect: { kind: 'block', base: 1, damageType: 'radiant', radius: 80 }, fits: isArmor, text: (v, t) => `each blocked hit blasts everything nearby (${dmg(v, t)})` },
 };
+
+/** A rolled modifier's value on a piece (its quality step within its range for the piece's rarity). */
+export function modValue(m: { kind: 'refine'; stat: RefineStat; q: number } | { kind: 'enchant'; id: EnchantId; q: number }, def: GearDef): number {
+  const d = m.kind === 'refine' ? REFINES[m.stat] : ENCHANTS[m.id];
+  return modRoll(d.range, 'int' in d ? d.int : false, def.rarity, m.q);
+}
+
+/** A perfect roll: the top of its range (shown with a special border). */
+export const modPerfect = (m: { q: number }): boolean => m.q >= MOD_QUALITY_STEPS;
 
 /** The TIER_HIT an enchantment's damage is a multiple of: the piece's area's. */
 export const enchantTierHit = (def: GearDef): number => TIER_HIT[Math.max(1, Math.min(TIER_HIT.length, gearArea(def))) - 1];
