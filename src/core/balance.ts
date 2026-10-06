@@ -2094,6 +2094,15 @@ export const enchantTierHit = (def: GearDef): number => TIER_HIT[Math.max(1, Mat
  * plus golem metals for Refine or golem gems for Enchant, rarer ones for rarer pieces.
  */
 export const MOD_RECIPE_SHARE = 0.5;
+
+/** Gold a piece's area pays per kill (Forest gear: the Forest's), for pricing upgrades and modifiers in gold. */
+const gearAreaGold = (def: GearDef): number => areaDef(AREAS[Math.max(1, Math.min(AREAS.length, gearArea(def))) - 1].id).gold;
+/** Upgrading also costs gold: this many kills' worth in the piece's area for 1★ → 2★, doubling each star. */
+export const UPGRADE_GOLD_KILLS = 300;
+export const gearUpgradeGold = (def: GearDef, stars: number): number => Math.ceil(gearAreaGold(def) * UPGRADE_GOLD_KILLS * 2 ** (stars - 1));
+/** Refining also costs this many kills' worth of gold in the piece's area; enchanting twice as much. */
+export const MOD_GOLD_KILLS = 2_000;
+export const modGold = (def: GearDef, kind: 'refine' | 'enchant'): number => Math.ceil(gearAreaGold(def) * MOD_GOLD_KILLS * (kind === 'enchant' ? 2 : 1));
 export const MOD_METALS: Partial<Record<Rarity, Partial<Record<MaterialId, number>>>> = {
   veryRare: { ironOre: 4 },
   legendary: { silverOre: 4, cobaltOre: 3 },

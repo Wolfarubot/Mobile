@@ -75,6 +75,8 @@ import {
   type EnchantDef,
   type EnchantId,
   modCost,
+  modGold,
+  gearUpgradeGold,
   modValue,
   modPower,
   type RefineStat,
@@ -799,12 +801,18 @@ export class Game {
     return item ? modCost(gearDef(item.base), 'enchant') : {};
   }
 
+  /** Gold a Refine or Enchant roll of this piece also costs. */
+  modGoldOf(uid: number, kind: 'refine' | 'enchant'): number {
+    const item = this.gearItem(uid);
+    return item ? modGold(gearDef(item.base), kind) : Infinity;
+  }
+
   canRefine(uid: number, slot: number): boolean {
-    return this.refinable(uid) && slot >= 0 && slot < this.modSlots(uid).length && this.refinesFor(uid).length > 0 && this.hasMaterials(this.refineCostOf(uid));
+    return this.refinable(uid) && slot >= 0 && slot < this.modSlots(uid).length && this.refinesFor(uid).length > 0 && this.hasMaterials(this.refineCostOf(uid)) && this.state.gold >= this.modGoldOf(uid, 'refine');
   }
 
   canEnchant(uid: number, slot: number): boolean {
-    return this.enchantOpen && slot >= 0 && slot < this.modSlots(uid).length && this.enchantsFor(uid, slot).length > 0 && this.hasMaterials(this.enchantCostOf(uid));
+    return this.enchantOpen && slot >= 0 && slot < this.modSlots(uid).length && this.enchantsFor(uid, slot).length > 0 && this.hasMaterials(this.enchantCostOf(uid)) && this.state.gold >= this.modGoldOf(uid, 'enchant');
   }
 
   /** A random quality step (0 to MOD_QUALITY_STEPS, the top one a perfect roll). */
@@ -857,6 +865,7 @@ export class Game {
       }
     }
     this.spend(kind === 'refine' ? this.refineCostOf(uid) : this.enchantCostOf(uid));
+    this.state.gold -= this.modGoldOf(uid, kind);
     item.pending = { slot, kind, options };
     return options;
   }
@@ -904,10 +913,22 @@ export class Game {
     return gearCost(gearDef(item.base), item.stars);
   }
 
-  upgradeGear(uid: number): boolean {
+  /** Gold to upgrade a piece to its next star (null when it can't be upgraded). */
+  gearUpgradeGold(uid: number): number | null {
+    const item = this.gearItem(uid);
+    return item && this.gearUpgradeCost(uid) ? gearUpgradeGold(gearDef(item.base), item.stars) : null;
+  }
+
+  /** Upgrading costs materials and gold. */
+  canUpgradeGear(uid: number): boolean {
     const cost = this.gearUpgradeCost(uid);
-    if (!cost || !this.hasMaterials(cost)) return false;
-    this.spend(cost);
+    return !!cost && this.hasMaterials(cost) && this.state.gold >= (this.gearUpgradeGold(uid) ?? Infinity);
+  }
+
+  upgradeGear(uid: number): boolean {
+    if (!this.canUpgradeGear(uid)) return false;
+    this.state.gold -= this.gearUpgradeGold(uid)!;
+    this.spend(this.gearUpgradeCost(uid)!);
     this.gearItem(uid)!.stars++;
     return true;
   }

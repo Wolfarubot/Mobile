@@ -1030,7 +1030,7 @@ export class AppUI {
         ${gd.special ? `<p class="weapon-line">${specialText(gd)}</p>` : ''}
         <p class="gear-now">${gearSummary(gd, item.stars) || (gd.effect ? '' : 'No bonuses: plain everyday wear.')}</p>
         ${modSlotsHtml(g, uid)}
-        ${cost ? `<p class="gear-next">Next: <b>${[gearSummary(gd, item.stars + 1), gd.effect && 'base' in gd.effect ? describeEffect(gd.effect, item.stars + 1) : ''].filter(Boolean).join(' ')}</b></p><div class="cost">${costHtml(g, cost)}</div>` : Object.keys(gd.stats).length || gd.effect ? '<p>Fully upgraded.</p>' : '<p>Nothing to upgrade.</p>'}`;
+        ${cost ? `<p class="gear-next">Next: <b>${[gearSummary(gd, item.stars + 1), gd.effect && 'base' in gd.effect ? describeEffect(gd.effect, item.stars + 1) : ''].filter(Boolean).join(' ')}</b></p><div class="cost">${costHtml(g, cost)}${goldHtml(g, g.gearUpgradeGold(uid) ?? 0)}</div>` : Object.keys(gd.stats).length || gd.effect ? '<p>Fully upgraded.</p>' : '<p>Nothing to upgrade.</p>'}`;
       // Under the modifier slots: Modify (once Kargesh or Marceline has joined).
       if (g.modifiable(uid)) {
         const rb = el('button', 'buy refine-open', '🛠️ Modify') as HTMLButtonElement;
@@ -1043,7 +1043,7 @@ export class AppUI {
       const actions = el('div', 'actions');
       if (cost) {
         const up = el('button', 'buy', `Upgrade to ${item.stars + 1}★`) as HTMLButtonElement;
-        up.disabled = !(Object.entries(cost) as [MaterialId, number][]).every(([m, n]) => g.state.materials[m] >= n);
+        up.disabled = !g.canUpgradeGear(uid);
         up.addEventListener('click', () => {
           g.upgradeGear(uid);
           close();
@@ -1124,7 +1124,7 @@ export class AppUI {
           go.disabled = !(action === 'refine' ? g.canRefine(uid, slot) : g.canEnchant(uid, slot));
           // Its cost: some of the piece's recipe, plus golem metals (Refine) or gems (Enchant).
           const costRow = el('div', 'cost mod-cost');
-          costRow.innerHTML = costHtml(g, cost);
+          costRow.innerHTML = costHtml(g, cost) + goldHtml(g, g.modGoldOf(uid, action));
           body.appendChild(costRow);
           go.addEventListener('click', () => {
             if (slot === null || !action || anim) return;
@@ -3618,6 +3618,11 @@ function recipeHtml(g: Game, cost: Partial<Record<MaterialId, number>>): string 
   return (Object.entries(cost) as [MaterialId, number][])
     .map(([m, n]) => `<div class="fc-mat${g.state.materials[m] < n ? ' short' : ''}">${gemHtml(m)}<span>${materialDef(m).name}</span><b>${fmt(g.state.materials[m])} / ${fmt(n)}</b></div>`)
     .join('');
+}
+
+/** A gold cost beside material costs: what you have of what it takes (red when short). */
+function goldHtml(g: Game, n: number): string {
+  return n > 0 ? `<span class="${g.state.gold < n ? 'short' : ''}">🪙 ${fmt(n)}</span>` : '';
 }
 
 function costHtml(g: Game, cost: Partial<Record<MaterialId, number>>, check = true): string {

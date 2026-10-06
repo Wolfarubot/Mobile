@@ -998,8 +998,8 @@ describe('Equipment', () => {
     const low = g.refine(bow.uid, 0)!;
     expect(low).toEqual({ kind: 'refine', stat: 'rate', q: 0 });
     expect(modPerfect(low)).toBe(false);
-    // It costs some of the bow's recipe plus golem metal (Iron Ore, for Very Rare), not gold.
-    expect(g.state.gold).toBe(gold);
+    // It costs gold, plus some of the bow's recipe and golem metal (Iron Ore, for Very Rare).
+    expect(g.state.gold).toBe(gold - g.modGoldOf(bow.uid, 'refine'));
     expect(g.refineCostOf(bow.uid)).toMatchObject({ ironOre: 4 });
     expect(g.state.materials.ironOre).toBe(1e6 - 4);
     expect(g.gear('main').rate).toBeCloseTo(before.rate + modRoll(REFINES.rate.range, false, 'veryRare', 0));
@@ -1053,7 +1053,8 @@ describe('Equipment', () => {
     roll = rollFor(bow.uid, 0, 'infuseFrost');
     const m = g.enchant(bow.uid, 0)! as { id: string; q: number; p: number };
     expect(m.id).toBe('infuseFrost');
-    expect(g.state.gold).toBe(gold);
+    expect(g.state.gold).toBe(gold - g.modGoldOf(bow.uid, 'enchant'));
+    expect(g.modGoldOf(bow.uid, 'enchant')).toBe(g.modGoldOf(bow.uid, 'refine') * 2);
     // Enchanting costs golem gems (Quartz, for Very Rare) instead of metals, plus the same share of the recipe.
     expect(g.enchantCostOf(bow.uid)).toMatchObject({ quartz: 4 });
     expect(g.enchantCostOf(bow.uid).ironOre).toBeUndefined();
@@ -1101,7 +1102,7 @@ describe('Equipment', () => {
     const options = g.rollMod(rifle.uid, 1, 'refine')!;
     expect(options).toHaveLength(2);
     expect((options[0] as { stat: string }).stat).not.toBe((options[1] as { stat: string }).stat);
-    expect(g.state.gold).toBe(gold);
+    expect(g.state.gold).toBe(gold - g.modGoldOf(rifle.uid, 'refine'));
     // A Legendary piece needs rarer metals: Silver Ore and the Venom Caverns' Cobalt Ore.
     expect(g.refineCostOf(rifle.uid)).toMatchObject({ silverOre: 4, cobaltOre: 3 });
     // Nothing goes in until you pick, and no second roll meanwhile.
@@ -2158,6 +2159,20 @@ describe('Equipment', () => {
   it('every piece of gear has a rarity, and all nine rarities are used', () => {
     for (const gd of GEAR) expect(Object.keys(RARITIES)).toContain(gd.rarity);
     expect(new Set(GEAR.map((gd) => gd.rarity)).size).toBe(Object.keys(RARITIES).length);
+  });
+
+  it('upgrading costs materials and gold (doubling each star)', () => {
+    const g = stocked();
+    const bow = g.craftGear('forestBow')!;
+    const gold = g.state.gold;
+    const price = g.gearUpgradeGold(bow.uid)!;
+    expect(price).toBeGreaterThan(0);
+    expect(g.upgradeGear(bow.uid)).toBe(true);
+    expect(g.state.gold).toBe(gold - price);
+    expect(g.gearUpgradeGold(bow.uid)).toBe(price * 2);
+    g.state.gold = 0;
+    expect(g.canUpgradeGear(bow.uid)).toBe(false);
+    expect(g.upgradeGear(bow.uid)).toBe(false);
   });
 
   it("salvaging refunds half the materials spent; worn gear can't be salvaged", () => {
