@@ -1083,6 +1083,8 @@ export class AppUI {
     let action: 'refine' | 'enchant' | null = null;
     let slot: number | null = null;
     let last: number | null = null; // the slot just rolled, to show its result
+    // A roll's animation: the slot shakes for a second, then the result is revealed left to right.
+    let rolling: { slot: number; step: 'shake' | 'reveal'; kind: 'refine' | 'enchant' } | null = null;
     this.showSheet(`🛠️ Modify ${gd.icon} ${gd.name}`, (body) => {
       const draw = () => {
         const slots = g.modSlots(uid);
@@ -1097,8 +1099,11 @@ export class AppUI {
           <div class="filter-label">${action && slot === null ? 'Choose a slot' : 'Slots'}</div>
           <div class="refine-slots">${slots
             .map((m, i) => {
-              const cls = ['refine-slot', action && !m ? 'open' : '', i === slot ? 'on' : '', m && modPerfect(m) ? 'perfect' : '', i === last ? 'fresh' : ''].filter(Boolean).join(' ');
-              return `<button class="${cls}" data-slot="${i}"${action ? '' : ' disabled'}>${m ? `${modText(m, gd)}${modPerfect(m) ? ' <em class="perfect-tag">Perfect</em>' : ''}` : '<i>Empty slot</i>'}</button>`;
+              const r = rolling?.slot === i ? rolling : null;
+              const perfect = !!m && modPerfect(m) && !r;
+              const cls = ['refine-slot', action && !m && !r ? 'open' : '', i === slot ? 'on' : '', perfect ? 'perfect' : '', i === last && !r ? 'fresh' : '', r?.step === 'shake' ? 'shaking' : ''].filter(Boolean).join(' ');
+              const inner = r?.step === 'shake' ? `<span class="roll-dice">🎲 ${r.kind === 'refine' ? 'Refining' : 'Enchanting'}…</span>` : m ? `${r ? '<span class="reveal">' : ''}${modText(m, gd)}${r ? '</span>' : ''}${perfect ? ' <em class="perfect-tag">Perfect</em>' : ''}` : '<i>Empty slot</i>';
+              return `<button class="${cls}" data-slot="${i}"${action && !rolling ? '' : ' disabled'}>${inner}</button>`;
             })
             .join('')}</div>
           ${
@@ -1116,15 +1121,32 @@ export class AppUI {
           const cost = action === 'refine' ? g.refineCostOf(uid) : g.enchantCostOf(uid);
           const go = el('button', 'buy refine-go') as HTMLButtonElement;
           go.innerHTML = `🎲 ${slots[slot] ? 'Reroll' : 'Roll'} ${action === 'refine' ? 'a Refinement' : 'an Enchantment'} <span class="refine-cost">🪙 ${fmt(cost)}</span>`;
-          go.disabled = !(action === 'refine' ? g.canRefine(uid, slot) : g.canEnchant(uid, slot));
+          go.disabled = !!rolling || !(action === 'refine' ? g.canRefine(uid, slot) : g.canEnchant(uid, slot));
           go.addEventListener('click', () => {
-            if (slot === null || !action) return;
-            const m = action === 'refine' ? g.refine(uid, slot) : g.enchant(uid, slot);
+            if (slot === null || !action || rolling) return;
+            const kind = action;
+            const at = slot;
+            const m = kind === 'refine' ? g.refine(uid, at) : g.enchant(uid, at);
             if (!m) return;
-            this.toast(`${modPerfect(m) ? '🌟 Perfect! ' : action === 'refine' ? '⚒️ ' : '✨ '}${gd.name}: ${modText(m, gd)}`);
             this.hooks.save();
-            last = slot;
+            last = at;
+            // Shake for a second, then reveal it; a perfect roll gets its border once it's in.
+            rolling = { slot: at, step: 'shake', kind };
             draw();
+            setTimeout(() => {
+              if (!body.isConnected) return;
+              rolling = { slot: at, step: 'reveal', kind };
+              draw();
+              const reveal = body.querySelector<HTMLElement>(`.refine-slot[data-slot="${at}"] .reveal`);
+              const done = () => {
+                if (!body.isConnected) return;
+                rolling = null;
+                draw();
+                this.toast(`${modPerfect(m) ? '🌟 Perfect! ' : kind === 'refine' ? '⚒️ ' : '✨ '}${gd.name}: ${modText(m, gd)}`);
+              };
+              if (reveal) revealWithPixels(reveal, kind === 'refine' ? REVEAL_PIXELS.refine : REVEAL_PIXELS.enchant, kind === 'refine' ? 1 : -1, done);
+              else done();
+            }, 1000);
           });
           body.appendChild(go);
         }
@@ -3507,6 +3529,43 @@ function modSlotsHtml(g: Game, uid: number): string {
   return `<div class="mod-slots"><div class="filter-label">Modifiers</div>${slots
     .map((m) => `<div class="mod-slot${m ? ' full' : ''}${m && modPerfect(m) ? ' perfect' : ''}">${m ? `${modText(m, gd)}${modPerfect(m) ? ' <em class="perfect-tag">Perfect</em>' : ''}` : '<i>Empty slot</i>'}</div>`)
     .join('')}${g.refineOpen || g.enchantOpen ? '' : '<p class="refine-note">Recruit Kargesh the Blacksmith (Ember Mines) to Refine, or Marceline the Enchantress (Venom Caverns) to Enchant.</p>'}</div>`;
+}
+
+/**
+ * A roll's reveal, like the battlefield's RELOADING! / RECHARGING! text in reverse: the text appears from left to
+ * right over 0.8s, and its edge sheds pixels (metal and sparks falling for Refine, magic rising for Enchant).
+ */
+const REVEAL_PIXELS = {
+  refine: ['#8a8f96', '#c4c8cc', '#5a5f66', '#ff3a2a', '#ff7a3a'],
+  enchant: ['#ffffff', '#ffd34d', '#e8a800', '#5ab0ff', '#9fd8ff'],
+};
+function revealWithPixels(text: HTMLElement, palette: string[], fall: 1 | -1, done: () => void): void {
+  const host = text.closest<HTMLElement>('.refine-slot') ?? text;
+  const start = performance.now();
+  const ms = 800;
+  const step = (now: number) => {
+    if (!text.isConnected) return;
+    const p = Math.min(1, (now - start) / ms);
+    text.style.clipPath = `inset(-4px ${(1 - p) * 100}% -4px 0)`;
+    // Pixels break off the moving edge.
+    const hb = host.getBoundingClientRect();
+    const tb = text.getBoundingClientRect();
+    const edge = tb.left - hb.left + tb.width * p;
+    for (let i = 0; i < 3 && p < 1; i++) {
+      const px = document.createElement('i');
+      px.className = 'roll-px';
+      const size = 2 + Math.random() * 3;
+      Object.assign(px.style, { left: `${edge - Math.random() * 6}px`, top: `${tb.top - hb.top + Math.random() * tb.height}px`, width: `${size}px`, height: `${size}px`, background: palette[(Math.random() * palette.length) | 0] });
+      host.appendChild(px);
+      const dx = (Math.random() - 0.5) * 30;
+      const dy = fall * (14 + Math.random() * 26);
+      px.animate([{ transform: 'translate(0,0)', opacity: 1 }, { transform: `translate(${dx}px, ${dy}px)`, opacity: 0 }], { duration: 450 + Math.random() * 300, easing: fall > 0 ? 'cubic-bezier(.4,0,1,1)' : 'ease-out' }).onfinish = () => px.remove();
+    }
+    if (p < 1) requestAnimationFrame(step);
+    else setTimeout(done, 250);
+  };
+  text.style.clipPath = 'inset(-4px 100% -4px 0)';
+  requestAnimationFrame(step);
 }
 
 /** A modifier in words, with its icon (its rolled value on this piece). */
