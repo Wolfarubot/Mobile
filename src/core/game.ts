@@ -34,7 +34,7 @@ import {
   MAX_EMPOWER_SESSIONS,
   monsterLevel,
   empowerBaseCost,
-  EVO_TREES,
+  MONSTER_EVO_TREES,
   evoNode,
   type EvoNode,
   type EvoStat,
@@ -1371,6 +1371,8 @@ export class Game {
     this.gainMaterial(e.material, amount);
     // More drops (a Forest Wolf's Beast Bone, a golem's rarer stones), each at its share of the chance.
     for (const d of enemyExtraDrops(enemyDef(type))) this.gainMaterial(d.material, dropsFrom(chance * d.share, this.rng()));
+    // Legacies of fully evolved monsters of its archetype (every slime's chance at Royal Slime).
+    for (const d of this.legacyDrops(enemyDef(type).archetype)) this.gainMaterial(d.material, dropsFrom(chance * d.share, this.rng()));
     s.areas[enemyDef(type).area].kills++;
     // Gear that finds extra materials (the Slime Vial at 5★: Royal Slime from slimes).
     for (const item of this.equipped(shooter)) {
@@ -1492,7 +1494,7 @@ export class Game {
       out.killsTotal += k;
       out.gold += k * e.gold * goldPerk;
       out.materials[e.material] = (out.materials[e.material] ?? 0) + k * e.dropChance * dropPerk;
-      for (const d of enemyExtraDrops(enemyDef(e.id))) out.materials[d.material] = (out.materials[d.material] ?? 0) + k * e.dropChance * dropPerk * d.share;
+      for (const d of [...enemyExtraDrops(enemyDef(e.id)), ...this.legacyDrops(e.archetype)]) out.materials[d.material] = (out.materials[d.material] ?? 0) + k * e.dropChance * dropPerk * d.share;
     }
     for (const h of hunters) {
       out.stuns[h.sh] = h.stunRate * efficiency;
@@ -1805,9 +1807,20 @@ export class Game {
     return monsterLevel(this.state.bestiary[id].empower);
   }
 
-  /** The evolution tree a monster grows along (its archetype's). */
+  /** A monster's own evolution tree (its archetype's nodes, ending in its own Legacy). */
   evoTree(id: EnemyId): EvoNode[] {
-    return EVO_TREES[enemyDef(id).archetype];
+    return MONSTER_EVO_TREES[id];
+  }
+
+  /** The drops every monster of an archetype gains from the Legacies of its fully evolved monsters. */
+  legacyDrops(archetype: Archetype): Array<{ material: MaterialId; share: number }> {
+    const out: Array<{ material: MaterialId; share: number }> = [];
+    for (const e of ENEMIES) {
+      if (e.archetype !== archetype || e.guardianOnly) continue;
+      const cap = MONSTER_EVO_TREES[e.id].find((n) => n.legacy);
+      if (cap?.legacy && this.evoRank(e.id, cap.id) > 0) out.push(cap.legacy);
+    }
+    return out;
   }
 
   evoRank(id: EnemyId, node: string): number {
@@ -1822,18 +1835,18 @@ export class Game {
   }
 
   evoReachable(id: EnemyId, node: string): boolean {
-    const n = evoNode(enemyDef(id).archetype, node);
+    const n = evoNode(id, node);
     return !!n && (n.requires.length === 0 || n.requires.some((r) => this.evoRank(id, r) > 0));
   }
 
   /** Kills of this monster still needed before an evolution node opens (0 = open). */
   evoKillsLeft(id: EnemyId, node: string): number {
-    const n = evoNode(enemyDef(id).archetype, node);
+    const n = evoNode(id, node);
     return n ? Math.max(0, evoKillsNeeded(enemyDef(id), n) - this.state.bestiary[id].kills) : 0;
   }
 
   canEvolve(id: EnemyId, node: string): boolean {
-    const n = evoNode(enemyDef(id).archetype, node);
+    const n = evoNode(id, node);
     return (
       !!n &&
       this.isUnlocked(id) &&

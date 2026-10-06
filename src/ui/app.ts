@@ -2081,6 +2081,8 @@ export class AppUI {
         ['Pack size', lo === hi ? String(lo) : `${lo}–${hi}`],
         ['Speed', `${Math.round(st.speed)}${evo.speed ? ` (+${Math.round(evo.speed * 100)}%)` : ''}`],
       ];
+      const legacies = g.legacyDrops(def.archetype);
+      if (legacies.length) cells.push(['Legacy drops', legacies.map((d) => `${gemHtml(d.material)}<small>${materialDef(d.material).name}</small>`).join('')]);
       stats.innerHTML = cells.map(([k, v]) => `<div><b>${v}</b>${k}</div>`).join('');
     });
 

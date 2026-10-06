@@ -90,6 +90,11 @@ import {
   EMPOWER_UNLOCK_KILLS,
   evoKillsNeeded,
   EVO_TREES,
+  MONSTER_EVO_TREES,
+  evoLegacy,
+  LEGACY_GUARDIAN_SHARE,
+  LEGACY_EXTRA_SHARE,
+  LEGACY_OWN_SHARE,
   RESIST_MULT,
   STATUS,
   FROST_TAP_CHILL,
@@ -308,7 +313,7 @@ describe('Enemies & archetypes', () => {
     expect(g.empower('zombie')).toBe(false);
   });
 
-  it('evolution trees: one per archetype, root first; slimes get HP and gold, then bigger hordes', () => {
+  it('evolution trees: one per monster (its archetype\'s nodes), root first; slimes get HP and gold, then bigger hordes', () => {
     const g = rich();
     g.state.bestiary.greenSlime.empower = 30; // plenty of points
     // Evolutions open as you slay more of that monster.
@@ -318,7 +323,7 @@ describe('Enemies & archetypes', () => {
     expect(g.canEvolve('greenSlime', 'root')).toBe(true);
     expect(g.evoKillsLeft('greenSlime', 'capstone')).toBeGreaterThan(0);
     g.state.bestiary.greenSlime.kills = 1e6;
-    expect(g.evoTree('greenSlime')).toBe(EVO_TREES.slime);
+    expect(g.evoTree('greenSlime')).toBe(MONSTER_EVO_TREES.greenSlime);
     expect(g.canEvolve('greenSlime', 'horde')).toBe(false); // needs the root first
     const base = g.enemyStats('greenSlime');
     expect(g.evolve('greenSlime', 'root')).toBe(true);
@@ -331,10 +336,33 @@ describe('Enemies & archetypes', () => {
     expect(g.packOf('greenSlime')).toEqual([enemyDef('greenSlime').pack[0] + 1, enemyDef('greenSlime').pack[1] + 1]);
     const points = g.evoPoints('greenSlime');
     expect(points).toBe(g.monsterLevelInfo('greenSlime').level - 1 - 3);
-    // Every archetype has a tree of the same shape.
+    // Every archetype has a tree of the same shape, and every monster its own copy.
     for (const a of Object.keys(ARCHETYPES) as Array<keyof typeof ARCHETYPES>) {
       expect(EVO_TREES[a].map((n) => n.id)).toEqual(['root', 'wealth', 'horde', 'harvest', 'wealth2', 'horde2', 'harvest2', 'capstone']);
     }
+    for (const e of ENEMIES) expect(MONSTER_EVO_TREES[e.id].map((n) => n.id)).toEqual(EVO_TREES[e.archetype].map((n) => n.id));
+  });
+
+  it('Legacies: a fully evolved monster gives every monster of its archetype a small chance at a material', () => {
+    const g = rich();
+    // Green Slime passes on the King of Slimes' Royal Slime; others their rarest drop, or their only one.
+    expect(evoLegacy(enemyDef('greenSlime'))).toEqual({ material: 'royalSlime', share: LEGACY_GUARDIAN_SHARE });
+    expect(evoLegacy(enemyDef('geodeGolem'))).toEqual({ material: 'diamond', share: 0.03 * LEGACY_EXTRA_SHARE });
+    expect(evoLegacy(enemyDef('twiggling'))).toEqual({ material: 'twig', share: LEGACY_OWN_SHARE });
+    const cap = MONSTER_EVO_TREES.greenSlime.find((n) => n.id === 'capstone')!;
+    expect(cap.name).toBe('Green Slime Legacy');
+    expect(cap.desc).toContain('Royal Slime');
+    expect(cap.effect).toEqual(EVO_TREES.slime[7].effect); // its own bonus stays
+    expect(g.legacyDrops('slime')).toEqual([]);
+    g.state.bestiary.greenSlime.evo.capstone = 1;
+    expect(g.legacyDrops('slime')).toEqual([{ material: 'royalSlime', share: LEGACY_GUARDIAN_SHARE }]);
+    expect(g.legacyDrops('beast')).toEqual([]);
+    // Every slime now has the chance: a Magma Slime kill with the dice at 0 drops Royal Slime.
+    (g as unknown as { rng: () => number }).rng = () => 0;
+    const before = g.state.materials.royalSlime;
+    g.state.bestiary.magmaSlime.unlocked = true;
+    g.registerKill('magmaSlime', false);
+    expect(g.state.materials.royalSlime).toBeGreaterThan(before);
   });
 
   it('v10 -> v11: Swarm and Bounty levels carry over as Empower sessions', () => {
@@ -1360,7 +1388,7 @@ describe('Equipment', () => {
     expect(run('exalted', false)).toBeCloseTo(1e6 * STATUS.poison.maxHp.exalted, 0);
     expect(run('common', true)).toBeCloseTo(1e6 * STATUS.poison.maxHp.common * STATUS.poison.guardian, 0);
     // Rarer monsters need fewer kills to evolve.
-    expect(evoKillsNeeded(enemyDef('behemoth'), EVO_TREES.beast[7])).toBeLessThan(evoKillsNeeded(enemyDef('wolf'), EVO_TREES.beast[7]));
+    expect(evoKillsNeeded(enemyDef('behemoth'), MONSTER_EVO_TREES.behemoth[7])).toBeLessThan(evoKillsNeeded(enemyDef('wolf'), MONSTER_EVO_TREES.wolf[7]));
   });
 
   it('effects proc at the weapon\'s chance; Physical weapons never proc', () => {
@@ -2837,7 +2865,7 @@ describe('Field', () => {
 describe('Saves', () => {
   it('every evolution tree completes exactly at Lv 30 (the capstone takes the points left over)', () => {
     expect(MAX_MONSTER_LEVEL).toBe(30);
-    for (const tree of Object.values(EVO_TREES)) expect(tree.reduce((a, n) => a + n.maxRank * (n.cost ?? 1), 0)).toBe(MAX_MONSTER_LEVEL - 1);
+    for (const tree of [...Object.values(EVO_TREES), ...Object.values(MONSTER_EVO_TREES)]) expect(tree.reduce((a, n) => a + n.maxRank * (n.cost ?? 1), 0)).toBe(MAX_MONSTER_LEVEL - 1);
   });
 
   it('v13 saves keep each monster\'s Empower level under the 5-sessions-a-level curve', () => {

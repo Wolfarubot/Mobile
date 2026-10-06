@@ -4,7 +4,7 @@ import {
   AREAS,
   ENEMIES,
   EVENTS,
-  EVO_TREES,
+  MONSTER_EVO_TREES,
   GEAR,
   GEAR_COST_GROWTH,
   GEAR_STAR_POWER,
@@ -571,7 +571,7 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
     delete b.bounty;
     const evo = b.evo && typeof b.evo === 'object' ? b.evo : {};
     b.evo = Object.fromEntries(
-      EVO_TREES[e.archetype].flatMap((node) => {
+      MONSTER_EVO_TREES[e.id].flatMap((node) => {
         const r = Math.min(node.maxRank, n((evo as Record<string, unknown>)[node.id]));
         return r > 0 ? [[node.id, r]] : [];
       }),

@@ -129,6 +129,8 @@ export interface TreeNode<S extends string = string> {
   row: number;
   /** Your Hunter: the tap ability this node unlocks (equip it in the Abilities tab). */
   ability?: TapAbilityId;
+  /** A monster's capstone: every monster of its archetype gains this drop (a share of its drop chance). */
+  legacy?: { material: MaterialId; share: number };
 }
 export type SkillNode = TreeNode<TreeStat>;
 
@@ -1204,7 +1206,7 @@ function evoTree(root: EvoSpec, branches: [EvoSpec, EvoSpec, EvoSpec], capstone:
   return [...nodes, { id: 'capstone', ...capstone, cost: MAX_MONSTER_LEVEL - 1 - spent, requires: ids.map((x) => `${x}2`), col: 1, row: 3 }];
 }
 
-/** Each archetype's evolution tree; every monster of that archetype evolves along it. */
+/** Each archetype's evolution template: every monster of that archetype grows its own copy (MONSTER_EVO_TREES), ending in its own Legacy. */
 export const EVO_TREES: Record<Archetype, EvoNode[]> = {
   slime: evoTree(
     { name: 'Gelatinous Bulk', icon: '🟢', desc: '+25% HP and +25% gold.', maxRank: 1, effect: { hp: 0.25, gold: 0.25 } },
@@ -1289,7 +1291,56 @@ export const EVO_TREES: Record<Archetype, EvoNode[]> = {
   ),
 };
 
-export const evoNode = (archetype: Archetype, id: string): EvoNode | undefined => EVO_TREES[archetype].find((n) => n.id === id);
+/**
+ * Legacies: a monster's capstone passes something on to every monster of its archetype, a small chance to
+ * drop a material. A monster whose boss version is its area's Guardian passes on the Guardian's material (fully
+ * evolved Green Slimes: every slime can drop Royal Slime); the rest pass on their rarest drop.
+ */
+const LEGACY_GUARDIAN: Partial<Record<EnemyId, EnemyId>> = {
+  greenSlime: 'kingSlime',
+  pixie: 'pixieQueen',
+  skeleton: 'skeletonKing',
+  mummy: 'awokenLich',
+  gazingEye: 'beholdenWatcher',
+  imp: 'demonLord',
+};
+/** A Legacy's share of each monster's drop chance: a Guardian's material, a monster's only drop, or half of its rarest extra drop's share. */
+export const LEGACY_GUARDIAN_SHARE = 0.1;
+export const LEGACY_OWN_SHARE = 0.25;
+export const LEGACY_EXTRA_SHARE = 0.5;
+
+/** What a monster's Legacy passes on to every monster of its archetype. */
+export function evoLegacy(def: EnemyDef): { material: MaterialId; share: number } {
+  const boss = LEGACY_GUARDIAN[def.id];
+  if (boss) return { material: enemyDef(boss).material, share: LEGACY_GUARDIAN_SHARE };
+  const extras = enemyExtraDrops(def);
+  if (!extras.length) return { material: def.material, share: LEGACY_OWN_SHARE };
+  const rarest = extras.reduce((a, b) => (b.share < a.share ? b : a));
+  return { material: rarest.material, share: rarest.share * LEGACY_EXTRA_SHARE };
+}
+
+/**
+ * Every monster's own evolution tree: its archetype's eight nodes, with the capstone as the monster's Legacy
+ * (its archetype's capstone bonus for itself, plus a drop for every monster of its archetype).
+ */
+function monsterEvoTree(def: EnemyDef): EvoNode[] {
+  const legacy = evoLegacy(def);
+  const kind = ARCHETYPES[def.archetype].name;
+  return EVO_TREES[def.archetype].map((n) =>
+    n.id === 'capstone'
+      ? {
+          ...n,
+          name: `${def.name} Legacy`,
+          desc: `${n.desc} Legacy: every ${kind} (wherever it's hunted) has a small chance to also drop ${materialDef(legacy.material).name}.`,
+          legacy,
+        }
+      : n,
+  );
+}
+
+export const MONSTER_EVO_TREES = Object.fromEntries(ENEMIES.map((e) => [e.id, monsterEvoTree(e)])) as Record<EnemyId, EvoNode[]>;
+
+export const evoNode = (id: EnemyId, node: string): EvoNode | undefined => MONSTER_EVO_TREES[id].find((n) => n.id === node);
 
 /** Kills of a monster needed before each row of its evolution tree opens (root, branches, signature nodes, capstone). */
 export const EVO_KILLS = [100, 1_000, 5_000, 20_000];
