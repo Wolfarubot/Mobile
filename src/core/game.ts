@@ -785,8 +785,8 @@ export class Game {
     return 1 + this.enchantBoost(who, 'summonDur');
   }
 
-  /** The total of Virulence or Binding across a Hunter's gear (Enchantments). */
-  private enchantBoost(who: Shooter, boost: 'status' | 'summonDur'): number {
+  /** The total of Virulence, Binding or Haste across a Hunter's gear (Enchantments). */
+  private enchantBoost(who: Shooter, boost: 'status' | 'summonDur' | 'cooldown'): number {
     let v = 0;
     for (const it of this.equipped(who)) if (it) for (const e of this.enchantsOf(it)) if (e.en.boost === boost) v += e.v;
     return v;
@@ -794,7 +794,7 @@ export class Game {
 
   /** Multiplier on a Hunter's gear ability cooldowns (Haste), never below 40%. */
   cooldownMult(who: Shooter): number {
-    return Math.max(0.4, 1 - this.modStat(who, 'cooldown'));
+    return Math.max(0.4, 1 - this.enchantBoost(who, 'cooldown'));
   }
 
   // ---- Modify: Refine (Kargesh) and Enchant (Marceline) roll random modifiers into a piece's slots ----

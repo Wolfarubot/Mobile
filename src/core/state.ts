@@ -354,8 +354,8 @@ function parseMod(m: unknown): GearMod | null {
   if (!x) return null;
   const step = (v: unknown) => (typeof v === 'number' ? Math.max(0, Math.min(MOD_QUALITY_STEPS, Math.round(v))) : Math.round(MOD_QUALITY_STEPS / 2));
   const q = step(x.q);
-  // Virulence and Binding moved from Refine to Enchant: kept, with their rolls.
-  if (x.kind === 'refine' && (x.stat === 'status' || x.stat === 'summonDur')) return { kind: 'enchant', id: x.stat === 'status' ? 'virulence' : 'binding', q, p: q };
+  // Virulence, Binding and Haste moved from Refine to Enchant: kept, with their rolls.
+  if (x.kind === 'refine' && (x.stat === 'status' || x.stat === 'summonDur' || x.stat === 'cooldown')) return { kind: 'enchant', id: x.stat === 'status' ? 'virulence' : x.stat === 'cooldown' ? 'haste' : 'binding', q, p: q };
   if (x.kind === 'refine' && x.stat && x.stat in REFINES) return { kind: 'refine', stat: x.stat as RefineStat, q };
   if (x.kind === 'enchant' && x.id && x.id in ENCHANTS) return { kind: 'enchant', id: x.id as EnchantId, q, p: step(x.p) };
   return null;
