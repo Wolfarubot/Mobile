@@ -71,11 +71,10 @@ import {
   MOD_CHOICES,
   REFINES,
   ENCHANTS,
-  ENCHANT_COST_MULT,
   enchantTierHit,
   type EnchantDef,
   type EnchantId,
-  refineCost,
+  modCost,
   modValue,
   modPower,
   type RefineStat,
@@ -788,22 +787,24 @@ export class Game {
     });
   }
 
-  /** Gold to refine a slot of this piece. */
-  refineCostOf(uid: number): number {
+  /** Materials to refine a slot of this piece: some of its recipe, plus golem metals. */
+  refineCostOf(uid: number): Partial<Record<MaterialId, number>> {
     const item = this.gearItem(uid);
-    return item ? refineCost(gearDef(item.base)) : Infinity;
+    return item ? modCost(gearDef(item.base), 'refine') : {};
   }
 
-  enchantCostOf(uid: number): number {
-    return this.refineCostOf(uid) * ENCHANT_COST_MULT;
+  /** Materials to enchant a slot of this piece: some of its recipe, plus golem gems. */
+  enchantCostOf(uid: number): Partial<Record<MaterialId, number>> {
+    const item = this.gearItem(uid);
+    return item ? modCost(gearDef(item.base), 'enchant') : {};
   }
 
   canRefine(uid: number, slot: number): boolean {
-    return this.refinable(uid) && slot >= 0 && slot < this.modSlots(uid).length && this.refinesFor(uid).length > 0 && this.state.gold >= this.refineCostOf(uid);
+    return this.refinable(uid) && slot >= 0 && slot < this.modSlots(uid).length && this.refinesFor(uid).length > 0 && this.hasMaterials(this.refineCostOf(uid));
   }
 
   canEnchant(uid: number, slot: number): boolean {
-    return this.enchantOpen && slot >= 0 && slot < this.modSlots(uid).length && this.enchantsFor(uid, slot).length > 0 && this.state.gold >= this.enchantCostOf(uid);
+    return this.enchantOpen && slot >= 0 && slot < this.modSlots(uid).length && this.enchantsFor(uid, slot).length > 0 && this.hasMaterials(this.enchantCostOf(uid));
   }
 
   /** A random quality step (0 to MOD_QUALITY_STEPS, the top one a perfect roll). */
@@ -855,7 +856,7 @@ export class Game {
         options.push({ kind: 'enchant', id, q, p });
       }
     }
-    this.state.gold -= kind === 'refine' ? this.refineCostOf(uid) : this.enchantCostOf(uid);
+    this.spend(kind === 'refine' ? this.refineCostOf(uid) : this.enchantCostOf(uid));
     item.pending = { slot, kind, options };
     return options;
   }
@@ -923,12 +924,10 @@ export class Game {
     return out;
   }
 
-  /** Destroys a piece for some of its materials (it's unequipped first). */
+  /** Destroys a piece for some of its materials. Worn gear can't be salvaged: take it off first. */
   salvageGear(uid: number): boolean {
-    if (!this.gearItem(uid)) return false;
+    if (!this.gearItem(uid) || this.wearerOf(uid)) return false;
     const refund = this.salvageValue(uid);
-    const worn = this.wearerOf(uid);
-    if (worn) this.state.equipment[worn.who]![worn.slot] = null;
     for (const [m, n] of Object.entries(refund) as [MaterialId, number][]) this.state.materials[m] += n;
     this.state.inventory = this.state.inventory.filter((g) => g.uid !== uid);
     return true;

@@ -6,6 +6,8 @@ import {
   enemyDef,
   enemyDrops,
   modRoll,
+  MOD_METALS,
+  MOD_GEMS,
   modValue,
   modPower,
   modPerfect,
@@ -89,6 +91,7 @@ import {
   STATUS,
   FROST_TAP_CHILL,
   type DamageType,
+  type MaterialId,
   typeMult,
   WEAK_MULT,
 } from '../src/core/balance';
@@ -995,7 +998,10 @@ describe('Equipment', () => {
     const low = g.refine(bow.uid, 0)!;
     expect(low).toEqual({ kind: 'refine', stat: 'rate', q: 0 });
     expect(modPerfect(low)).toBe(false);
-    expect(g.state.gold).toBe(gold - g.refineCostOf(bow.uid));
+    // It costs some of the bow's recipe plus golem metal (Iron Ore, for Very Rare), not gold.
+    expect(g.state.gold).toBe(gold);
+    expect(g.refineCostOf(bow.uid)).toMatchObject({ ironOre: 4 });
+    expect(g.state.materials.ironOre).toBe(1e6 - 4);
     expect(g.gear('main').rate).toBeCloseTo(before.rate + modRoll(REFINES.rate.range, false, 'veryRare', 0));
     // The top roll is perfect.
     roll = 0.9999;
@@ -1047,8 +1053,11 @@ describe('Equipment', () => {
     roll = rollFor(bow.uid, 0, 'infuseFrost');
     const m = g.enchant(bow.uid, 0)! as { id: string; q: number; p: number };
     expect(m.id).toBe('infuseFrost');
-    expect(g.state.gold).toBe(gold - g.enchantCostOf(bow.uid));
-    expect(g.enchantCostOf(bow.uid)).toBe(g.refineCostOf(bow.uid) * 2);
+    expect(g.state.gold).toBe(gold);
+    // Enchanting costs golem gems (Quartz, for Very Rare) instead of metals, plus the same share of the recipe.
+    expect(g.enchantCostOf(bow.uid)).toMatchObject({ quartz: 4 });
+    expect(g.enchantCostOf(bow.uid).ironOre).toBeUndefined();
+    expect(g.state.materials.quartz).toBe(1e6 - 4);
     expect(g.damageTypesOf('main')).toEqual(['fire', 'frost']);
     // Two rolls: its Frost bonus (power) and its chance to chill (the one that decides Perfect).
     expect(g.typeBonus('main', 'frost')).toBeCloseTo(1 + modRoll(ENCHANTS.infuseFrost.power!, false, 'veryRare', m.p));
@@ -1092,7 +1101,9 @@ describe('Equipment', () => {
     const options = g.rollMod(rifle.uid, 1, 'refine')!;
     expect(options).toHaveLength(2);
     expect((options[0] as { stat: string }).stat).not.toBe((options[1] as { stat: string }).stat);
-    expect(g.state.gold).toBe(gold - g.refineCostOf(rifle.uid));
+    expect(g.state.gold).toBe(gold);
+    // A Legendary piece needs rarer metals: Silver Ore and the Venom Caverns' Cobalt Ore.
+    expect(g.refineCostOf(rifle.uid)).toMatchObject({ silverOre: 4, cobaltOre: 3 });
     // Nothing goes in until you pick, and no second roll meanwhile.
     expect(g.modSlots(rifle.uid)).toEqual([null, null]);
     expect(g.rollMod(rifle.uid, 0, 'refine')).toBeNull();
@@ -1385,6 +1396,22 @@ describe('Equipment', () => {
     expect(AREAS.filter((a) => s.areas[a.id].unlocked).map((a) => a.id)).toEqual(['forest', 'glade', 'graveyard', 'crypt', 'depths', 'caves']);
   });
 
+  it('golem metals and gems for Modify: each rarity needs ones from golems that live in areas you can have reached by then', () => {
+    const golems = ['venomGolem', 'glacialGolem', 'crystalGolem', 'skyGolem', 'stormGolem', 'meteorGolem', 'voidGolem'] as const;
+    expect(golems.map((id) => enemyDef(id).area)).toEqual(['mines', 'peaks', 'peaks', 'cliffs', 'fortress', 'meteors', 'rift']);
+    for (const id of golems) expect(enemyDef(id).archetype).toBe('construct');
+    // Every metal and gem a rarity needs drops from some golem, no later than that rarity's gear.
+    for (const table of [MOD_METALS, MOD_GEMS])
+      for (const [rarity, mats] of Object.entries(table))
+        for (const m of Object.keys(mats!)) {
+          const from = ENEMIES.filter((e) => enemyDrops(e).includes(m as MaterialId));
+          expect(from.length, m).toBeGreaterThan(0);
+          const earliest = Math.min(...from.map((e) => AREAS.findIndex((a) => a.id === e.area) + 1));
+          const gearAreas = GEAR.filter((gd) => gd.rarity === rarity).map(gearArea);
+          if (gearAreas.length) expect(earliest, `${m} for ${rarity}`).toBeLessThanOrEqual(Math.min(...gearAreas));
+        }
+  });
+
   it("golems are Constructs with tiered drops: each rarer material rolls on its own at a smaller share", () => {
     expect(areaEnemies('glade').map((e) => e.id)).toContain('stoneGolem');
     expect(areaEnemies('caves').map((e) => e.id)).toEqual(expect.arrayContaining(['oreGolem', 'geodeGolem']));
@@ -1406,9 +1433,9 @@ describe('Equipment', () => {
     expect(m.ironOre / m.obsidian).toBeCloseTo(1 / 3, 0);
   });
 
-  it('70 monsters, plus 7 Guardian-only bosses (the first six areas\' and the Time Eater); each with a weakness', () => {
-    expect(ENEMIES).toHaveLength(77);
-    expect(new Set(ENEMIES.map((e) => e.id)).size).toBe(77);
+  it('77 monsters, plus 7 Guardian-only bosses (the first six areas\' and the Time Eater); each with a weakness', () => {
+    expect(ENEMIES).toHaveLength(84);
+    expect(new Set(ENEMIES.map((e) => e.id)).size).toBe(84);
     // The Time Eater is only ever the Void Rift's Guardian: not in its horde or unlockable.
     expect(areaEnemies('rift').map((e) => e.id)).not.toContain('timeEater');
     expect(enemyUnlockCost(enemyDef('timeEater'))).toBe(Infinity);
@@ -2133,7 +2160,7 @@ describe('Equipment', () => {
     expect(new Set(GEAR.map((gd) => gd.rarity)).size).toBe(Object.keys(RARITIES).length);
   });
 
-  it('salvaging refunds half the materials spent and unequips it', () => {
+  it("salvaging refunds half the materials spent; worn gear can't be salvaged", () => {
     const g = stocked();
     const bow = g.craftGear('forestBow')!;
     g.upgradeGear(bow.uid);
@@ -2141,10 +2168,12 @@ describe('Equipment', () => {
     const twig = g.state.materials.twig;
     const refund = g.salvageValue(bow.uid).twig!;
     expect(refund).toBe(Math.floor((gearCost(gearDef('forestBow'), 0).twig! + gearCost(gearDef('forestBow'), 1).twig!) * 0.5));
+    expect(g.salvageGear(bow.uid)).toBe(false); // worn: take it off first
+    expect(g.state.inventory).toHaveLength(1);
+    g.equip('main', 0, null);
     expect(g.salvageGear(bow.uid)).toBe(true);
     expect(g.state.materials.twig).toBe(twig + refund);
     expect(g.state.inventory).toHaveLength(0);
-    expect(g.equipped('main')[0]).toBeNull();
   });
 
   it('inventory and equipment survive a save round-trip; dangling references are dropped', () => {

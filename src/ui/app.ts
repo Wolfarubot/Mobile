@@ -1051,7 +1051,8 @@ export class AppUI {
         });
         actions.appendChild(up);
       }
-      const salvage = el('button', 'buy danger-btn', 'Salvage') as HTMLButtonElement;
+      const salvage = el('button', 'buy danger-btn', worn ? 'Worn: unequip to salvage' : 'Salvage') as HTMLButtonElement;
+      salvage.disabled = !!worn;
       salvage.addEventListener('click', () => {
         const refund = g.salvageValue(uid);
         close();
@@ -1111,16 +1112,20 @@ export class AppUI {
             .join('')}</div>
           ${choices}
           <div class="mod-actions">
-            ${g.refineOpen ? `<button class="mod-action${action === 'refine' ? ' on' : ''}" data-action="refine"${busy ? ' disabled' : ''}><b>⚒️ Refine</b><small>A random stat · 🪙 ${fmt(g.refineCostOf(uid))}</small></button>` : ''}
-            ${g.enchantOpen ? `<button class="mod-action${action === 'enchant' ? ' on' : ''}" data-action="enchant"${busy ? ' disabled' : ''}><b>✨ Enchant</b><small>A random enchantment · 🪙 ${fmt(g.enchantCostOf(uid))}</small></button>` : ''}
+            ${g.refineOpen ? `<button class="mod-action${action === 'refine' ? ' on' : ''}" data-action="refine"${busy ? ' disabled' : ''}><b>⚒️ Refine</b><small>A random stat · golem metals</small></button>` : ''}
+            ${g.enchantOpen ? `<button class="mod-action${action === 'enchant' ? ' on' : ''}" data-action="enchant"${busy ? ' disabled' : ''}><b>✨ Enchant</b><small>A random enchantment · golem gems</small></button>` : ''}
           </div>
           ${!g.refineOpen ? '<p class="refine-note">Recruit Kargesh the Blacksmith (Ember Mines) to Refine.</p>' : ''}
           ${!g.enchantOpen ? '<p class="refine-note">Recruit Marceline the Enchantress (Venom Caverns) to Enchant.</p>' : ''}`;
         if (action && slot !== null && !pending) {
           const cost = action === 'refine' ? g.refineCostOf(uid) : g.enchantCostOf(uid);
           const go = el('button', 'buy refine-go') as HTMLButtonElement;
-          go.innerHTML = `🎲 Roll ${g.modChoices} ${action === 'refine' ? 'Refinements' : 'Enchantments'} <span class="refine-cost">🪙 ${fmt(cost)}</span>`;
+          go.innerHTML = `🎲 Roll ${g.modChoices} ${action === 'refine' ? 'Refinements' : 'Enchantments'}`;
           go.disabled = !(action === 'refine' ? g.canRefine(uid, slot) : g.canEnchant(uid, slot));
+          // Its cost: some of the piece's recipe, plus golem metals (Refine) or gems (Enchant).
+          const costRow = el('div', 'cost mod-cost');
+          costRow.innerHTML = costHtml(g, cost);
+          body.appendChild(costRow);
           go.addEventListener('click', () => {
             if (slot === null || !action || anim) return;
             const kind = action;

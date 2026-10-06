@@ -4033,3 +4033,8 @@ body.left-handed .hd-float-close {
 .mod-choice.perfect {
   animation: perfect-shine 3s linear infinite, perfect-pop 0.4s ease-out;
 }
+
+.mod-cost {
+  justify-content: center;
+  margin: 2px 0 6px;
+}
