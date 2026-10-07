@@ -1,9 +1,9 @@
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { weaponHit, AREAS, areaEnemies, ENEMIES, GEAR, gearDef, gearStats, slotAccepts, typeMult, type GearId, enemyUnlockCost, HUNTERS, ITEMS, STATION_EFFICIENCY, type AreaId, type ItemId } from '../src/core/balance';
 import { Field } from '../src/core/field';
 import { Game } from '../src/core/game';
-import { newGame, serialize, type Wearer } from '../src/core/state';
+import { deserialize, newGame, serialize, type Wearer } from '../src/core/state';
 
 /** Small deterministic PRNG so pacing results are reproducible. */
 function mulberry(seed: number) {
@@ -78,7 +78,7 @@ function botMonsters(game: Game): void {
 }
 
 /** The bot's decisions, run once per simulated second while it's playing (and on each return from offline). */
-function botShop(game: Game, t: number, memo: { lastChallenge: number }): void {
+function botShop(game: Game, t: number, memo: { lastChallenge: number; lastHeavy?: number }): void {
   const s = game.state;
   // Guardian: challenge when ready (retry every 60s); after winning, move to the newest area.
   if (game.guardianReady && !game.eventRunning && t - memo.lastChallenge > 60) {
@@ -106,6 +106,10 @@ function botShop(game: Game, t: number, memo: { lastChallenge: number }): void {
   botMonsters(game);
   // Area Upgrades (e.g. the Forest Idol) only pay off where you farm, so the bot leaves them.
   for (const it of ITEMS) if (!it.area) while (game.craft(it.id as ItemId));
+  // Crafting gear and re-stationing Hunters are slow to work out, and a player does them now and then:
+  // once a minute while playing (and on every return).
+  if (memo.lastHeavy !== undefined && t - memo.lastHeavy < 60 && t >= memo.lastHeavy) return;
+  memo.lastHeavy = t;
   botGear(game);
 
   // Station Hunters: greedily give each other area the Hunter that earns most there.
@@ -128,7 +132,7 @@ function botShop(game: Game, t: number, memo: { lastChallenge: number }): void {
  * A bot playing the real battlefield headless for `seconds`, tapping `tapsPerSec` and shopping
  * once a second. Records when areas unlock (at clock time `clock + elapsed`).
  */
-function play(game: Game, field: Field, seconds: number, clock: number, tapsPerSec: number, memo: { lastChallenge: number }, unlockedAt: Partial<Record<AreaId, number>>, onShop?: () => void): void {
+function play(game: Game, field: Field, seconds: number, clock: number, tapsPerSec: number, memo: { lastChallenge: number; lastHeavy?: number }, unlockedAt: Partial<Record<AreaId, number>>, onShop?: () => void): void {
   const dt = 0.05;
   let tapAcc = 0;
   for (let t = 0; t < seconds; t += dt) {
@@ -274,6 +278,14 @@ it.runIf(!!process.env.SIM_FULL)('full game: a typical player beats the Time Eat
   const out = process.env.SIM_FULL!;
   const log = (line: string) => writeFileSync(out, line + '\n', { flag: 'a' });
   const bot = newBot();
+  // SIM_FROM=checkpoint.json resumes from a checkpoint written by SIM_SNAP=dir (one per area, as it opens).
+  const from = process.env.SIM_FROM ? (JSON.parse(readFileSync(process.env.SIM_FROM, 'utf8')) as { clock: number; save: string; unlockedAt: Partial<Record<AreaId, number>> }) : null;
+  if (from) {
+    bot.game = new Game(deserialize(from.save, from.clock * 1000)!, mulberry(42));
+    bot.field = new Field(bot.game);
+    bot.field.setView(390, 420);
+    bot.unlockedAt = from.unlockedAt;
+  }
   const g = bot.game;
   let beaten: number | null = null;
   let now = 0;
@@ -283,11 +295,12 @@ it.runIf(!!process.env.SIM_FULL)('full game: a typical player beats the Time Eat
   const days = Number(process.env.SIM_DAYS ?? 150);
   const sessions: Array<[number, number]> = [[0, 40 * 60]];
   for (let d = 0; d < days; d++) sessions.push([d * 24 * H + 14 * H, 15 * 60], [d * 24 * H + 19 * H, 10 * 60], [d * 24 * H + 24 * H, 20 * 60]);
-  const seen = new Set<string>(['forest']);
+  const seen = new Set<string>(Object.keys(bot.unlockedAt));
   let lastStatus = 0;
   const started = Date.now();
   for (const [start, length] of sessions) {
     if (beaten !== null) break;
+    if (from && start + length <= from.clock) continue;
     now = start;
     g.applyOffline(start * 1000);
     botShop(g, start, bot.memo);
@@ -296,6 +309,7 @@ it.runIf(!!process.env.SIM_FULL)('full game: a typical player beats the Time Eat
     for (const a of AREAS) if (a.id in bot.unlockedAt && !seen.has(a.id)) {
       seen.add(a.id);
       log(`${a.name}: day ${(bot.unlockedAt[a.id]! / 86400).toFixed(1)}`);
+      if (process.env.SIM_SNAP) writeFileSync(`${process.env.SIM_SNAP}/${a.id}.json`, JSON.stringify({ clock: start + length, save: serialize(g.state), unlockedAt: bot.unlockedAt }));
     }
     if (start - lastStatus >= 5 * 86400) {
       lastStatus = start;
