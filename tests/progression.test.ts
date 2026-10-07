@@ -264,3 +264,45 @@ it.runIf(!!process.env.PRESETS_OUT)('dev progress presets', () => {
   }
   expect(Object.keys(presets)).toHaveLength(AREAS.length * 2);
 }, 0);
+
+/**
+ * The whole game, start to Time Eater, as the typical player (same check-ins as simulatePlayer). Slow: hours.
+ * `SIM_FULL=log.txt npx vitest run tests/progression.test.ts -t "full game"` appends a line as each area opens,
+ * a status line every few days, and the day the Time Eater falls.
+ */
+it.runIf(!!process.env.SIM_FULL)('full game: a typical player beats the Time Eater', () => {
+  const out = process.env.SIM_FULL!;
+  const log = (line: string) => writeFileSync(out, line + '\n', { flag: 'a' });
+  const bot = newBot();
+  const g = bot.game;
+  let beaten: number | null = null;
+  let now = 0;
+  g.on((e) => {
+    if (e.type === 'finalGuardian' && beaten === null) beaten = now;
+  });
+  const days = Number(process.env.SIM_DAYS ?? 150);
+  const sessions: Array<[number, number]> = [[0, 40 * 60]];
+  for (let d = 0; d < days; d++) sessions.push([d * 24 * H + 14 * H, 15 * 60], [d * 24 * H + 19 * H, 10 * 60], [d * 24 * H + 24 * H, 20 * 60]);
+  const seen = new Set<string>(['forest']);
+  let lastStatus = 0;
+  const started = Date.now();
+  for (const [start, length] of sessions) {
+    if (beaten !== null) break;
+    now = start;
+    g.applyOffline(start * 1000);
+    botShop(g, start, bot.memo);
+    play(g, bot.field, length, start, 1, bot.memo, bot.unlockedAt, () => (now = start));
+    g.state.lastSeen = (start + length) * 1000;
+    for (const a of AREAS) if (a.id in bot.unlockedAt && !seen.has(a.id)) {
+      seen.add(a.id);
+      log(`${a.name}: day ${(bot.unlockedAt[a.id]! / 86400).toFixed(1)}`);
+    }
+    if (start - lastStatus >= 5 * 86400) {
+      lastStatus = start;
+      const s = g.state;
+      const hunters = HUNTERS.filter((h) => s.hunters[h.id].recruited).map((h) => `${h.id}:${g.levelOf(h.id)}`).join(' ');
+      log(`  [day ${(start / 86400).toFixed(0)}] area ${s.area} · you Lv ${g.levelOf('main')} · gold ${s.gold.toExponential(2)} · ${hunters} · wall ${((Date.now() - started) / 60000).toFixed(0)}m`);
+    }
+  }
+  log(beaten !== null ? `TIME EATER BEATEN: day ${(beaten / 86400).toFixed(1)}` : `Time Eater not beaten in ${days} days`);
+}, 0);
