@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { weaponHit, AREAS, areaEnemies, ENEMIES, GEAR, gearDef, gearStats, slotAccepts, typeMult, type GearId, enemyUnlockCost, HUNTERS, ITEMS, STATION_EFFICIENCY, type AreaId, type ItemId } from '../src/core/balance';
+import { weaponHit, EVENTS, AREAS, areaEnemies, ENEMIES, GEAR, gearDef, gearStats, slotAccepts, typeMult, type GearId, enemyUnlockCost, HUNTERS, ITEMS, STATION_EFFICIENCY, type AreaId, type ItemId } from '../src/core/balance';
 import { Field } from '../src/core/field';
 import { Game } from '../src/core/game';
 import { deserialize, newGame, serialize, type Wearer } from '../src/core/state';
@@ -315,7 +315,9 @@ it.runIf(!!process.env.SIM_FULL)('full game: a typical player beats the Time Eat
       lastStatus = start;
       const s = g.state;
       const hunters = HUNTERS.filter((h) => s.hunters[h.id].recruited).map((h) => `${h.id}:${g.levelOf(h.id)}`).join(' ');
-      log(`  [day ${(start / 86400).toFixed(0)}] area ${s.area} · you Lv ${g.levelOf('main')} · gold ${s.gold.toExponential(2)} · ${hunters} · wall ${((Date.now() - started) / 60000).toFixed(0)}m`);
+      const ev = EVENTS.find((e) => e.id === `guardian-${s.area}`);
+      const prog = ev ? ` (${Math.min(100, Math.round((g.eventProgress(ev.id) / ev.unlockKills) * 100))}% to its Guardian)` : '';
+      log(`  [day ${(start / 86400).toFixed(0)}] area ${s.area}${prog} · you Lv ${g.levelOf('main')} · gold ${s.gold.toExponential(2)} · ${hunters} · wall ${((Date.now() - started) / 60000).toFixed(0)}m`);
     }
   }
   log(beaten !== null ? `TIME EATER BEATEN: day ${(beaten / 86400).toFixed(1)}` : `Time Eater not beaten in ${days} days`);
