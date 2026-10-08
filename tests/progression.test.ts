@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { weaponHit, gearArea, EVENTS, AREAS, areaEnemies, ENEMIES, GEAR, gearDef, gearStats, slotAccepts, typeMult, type GearId, enemyUnlockCost, HUNTERS, ITEMS, STATION_CAPACITY, STATION_EFFICIENCY, type AreaId, type ItemId } from '../src/core/balance';
+import { weaponHit, gearArea, EVENTS, AREAS, areaEnemies, ENEMIES, GEAR, gearDef, gearStats, slotAccepts, typeMult, type GearId, enemyUnlockCost, HUNTERS, ITEMS, STATION_EFFICIENCY, type AreaId, type ItemId } from '../src/core/balance';
 import { Field } from '../src/core/field';
 import { Game } from '../src/core/game';
 import { deserialize, newGame, serialize, type Wearer } from '../src/core/state';
@@ -149,31 +149,15 @@ function botShop(game: Game, t: number, memo: { lastChallenge: number; lastHeavy
   memo.lastHeavy = t;
   botGear(game);
 
-  // Station Hunters: the strongest fight beside you (they push the area you're mastering), then each
-  // other area, newest first, gets whoever of the rest earns most there.
-  const free = new Set(HUNTERS.filter((h) => s.hunters[h.id].recruited).map((h) => h.id));
-  const here = [...free]
-    .map((id) => ({ id, kills: game.farmRates(game.area, [id], 1).killsTotal }))
-    .sort((a, b) => b.kills - a.kills)
-    .slice(0, STATION_CAPACITY);
+  // Station Hunters where each earns the most gold (up to 3 per area, your own area included): strong
+  // Hunters end up beside you in the newest area, which pays the most when they can handle it, and
+  // the rest farm older areas they can still clear.
+  const free = HUNTERS.filter((h) => s.hunters[h.id].recruited).map((h) => h.id);
   for (const id of free) game.station(id, null);
-  for (const { id } of here) {
-    game.station(id, game.area);
-    free.delete(id);
-  }
-  for (const area of game.unlockedAreas.filter((a) => a !== game.area).reverse()) {
-    let best: { id: (typeof HUNTERS)[number]['id']; gold: number } | null = null;
-    for (const id of free) {
-      const gold = game.farmRates(area, [id], STATION_EFFICIENCY).gold;
-      if (!best || gold > best.gold) best = { id, gold };
-    }
-    if (best) {
-      game.station(best.id, area);
-      free.delete(best.id);
-    }
-  }
-  // Any left over rest in the newest areas with room.
-  for (const id of free) for (const area of [...game.unlockedAreas].reverse()) if (game.station(id, area)) break;
+  const pairs = free.flatMap((id) => game.unlockedAreas.map((area) => ({ id, area, gold: game.farmRates(area, [id], area === game.area ? 1 : STATION_EFFICIENCY).gold })));
+  pairs.sort((x, y) => y.gold - x.gold);
+  const placed = new Set<string>();
+  for (const { id, area } of pairs) if (!placed.has(id) && game.station(id, area)) placed.add(id);
 }
 
 /**
