@@ -1,0 +1,275 @@
+[
+ {
+  "id": "weapons",
+  "name": "Weapons 1",
+  "group": "Weapons",
+  "count": 100,
+  "size": 32
+ },
+ {
+  "id": "weapons2",
+  "name": "Weapons 2",
+  "group": "Weapons",
+  "count": 100,
+  "size": 32
+ },
+ {
+  "id": "weapons3",
+  "name": "Weapons 3",
+  "group": "Weapons",
+  "count": 100,
+  "size": 32
+ },
+ {
+  "id": "weapons4",
+  "name": "Weapons 4",
+  "group": "Weapons",
+  "count": 100,
+  "size": 32
+ },
+ {
+  "id": "weapons5",
+  "name": "Weapons 5",
+  "group": "Weapons",
+  "count": 100,
+  "size": 32
+ },
+ {
+  "id": "weapons-free",
+  "name": "Weapons (free set)",
+  "group": "Weapons",
+  "count": 70,
+  "size": 32
+ },
+ {
+  "id": "weapons-medieval",
+  "name": "Medieval weapons",
+  "group": "Weapons",
+  "count": 100,
+  "size": 32
+ },
+ {
+  "id": "wands-books",
+  "name": "Wands & books",
+  "group": "Weapons",
+  "count": 100,
+  "size": 32
+ },
+ {
+  "id": "shields",
+  "name": "Shields",
+  "group": "Armor",
+  "count": 100,
+  "size": 32
+ },
+ {
+  "id": "armor6",
+  "name": "Armor 6",
+  "group": "Armor",
+  "count": 100,
+  "size": 32
+ },
+ {
+  "id": "armor7",
+  "name": "Armor 7",
+  "group": "Armor",
+  "count": 100,
+  "size": 32
+ },
+ {
+  "id": "armor-rpg",
+  "name": "RPG armor",
+  "group": "Armor",
+  "count": 100,
+  "size": 32
+ },
+ {
+  "id": "armor-knight",
+  "name": "Knight armor",
+  "group": "Armor",
+  "count": 100,
+  "size": 32
+ },
+ {
+  "id": "clothing",
+  "name": "Clothing",
+  "group": "Armor",
+  "count": 100,
+  "size": 32
+ },
+ {
+  "id": "cloaks-belts",
+  "name": "Cloaks & belts",
+  "group": "Armor",
+  "count": 100,
+  "size": 32
+ },
+ {
+  "id": "jewelry",
+  "name": "Rings & amulets",
+  "group": "Accessories",
+  "count": 100,
+  "size": 32
+ },
+ {
+  "id": "rpg-items",
+  "name": "RPG items & potions",
+  "group": "Items",
+  "count": 320,
+  "size": 32
+ },
+ {
+  "id": "things",
+  "name": "RPG things",
+  "group": "Items",
+  "count": 100,
+  "size": 32
+ },
+ {
+  "id": "instruments",
+  "name": "Instruments",
+  "group": "Items",
+  "count": 100,
+  "size": 32
+ },
+ {
+  "id": "fishing",
+  "name": "Fishing",
+  "group": "Items",
+  "count": 100,
+  "size": 32
+ },
+ {
+  "id": "nature",
+  "name": "Nature",
+  "group": "Resources",
+  "count": 100,
+  "size": 32
+ },
+ {
+  "id": "resources1",
+  "name": "Resources 1",
+  "group": "Resources",
+  "count": 100,
+  "size": 32
+ },
+ {
+  "id": "resources2",
+  "name": "Resources 2",
+  "group": "Resources",
+  "count": 100,
+  "size": 32
+ },
+ {
+  "id": "resources3",
+  "name": "Resources 3",
+  "group": "Resources",
+  "count": 100,
+  "size": 32
+ },
+ {
+  "id": "ab-hunter-warrior",
+  "name": "Hunter & Warrior",
+  "group": "Abilities",
+  "count": 100,
+  "size": 32
+ },
+ {
+  "id": "ab-pyro-hydro",
+  "name": "Pyromancer & Hydrosophist",
+  "group": "Abilities",
+  "count": 100,
+  "size": 32
+ },
+ {
+  "id": "ab-rogue-warlock",
+  "name": "Rogue & Warlock",
+  "group": "Abilities",
+  "count": 100,
+  "size": 32
+ },
+ {
+  "id": "ab-geo-aero",
+  "name": "Geomancer & Aerotheurge",
+  "group": "Abilities",
+  "count": 100,
+  "size": 32
+ },
+ {
+  "id": "ab-priest-bard",
+  "name": "Priest & Bard",
+  "group": "Abilities",
+  "count": 100,
+  "size": 32
+ },
+ {
+  "id": "ab-gunslinger-druid",
+  "name": "Gunslinger & Druid",
+  "group": "Abilities",
+  "count": 100,
+  "size": 32
+ },
+ {
+  "id": "ab-cavalier-monk",
+  "name": "Cavalier & Monk",
+  "group": "Abilities",
+  "count": 100,
+  "size": 32
+ },
+ {
+  "id": "ab-paladin-dk",
+  "name": "Paladin & Death Knight",
+  "group": "Abilities",
+  "count": 100,
+  "size": 32
+ },
+ {
+  "id": "ab-alchemist-shaman",
+  "name": "Alchemist & Shaman",
+  "group": "Abilities",
+  "count": 100,
+  "size": 32
+ },
+ {
+  "id": "ab-engineer-psionic",
+  "name": "Engineer & Psionic",
+  "group": "Abilities",
+  "count": 100,
+  "size": 32
+ },
+ {
+  "id": "status1",
+  "name": "Status effects 1",
+  "group": "Status",
+  "count": 100,
+  "size": 16
+ },
+ {
+  "id": "status2",
+  "name": "Buffs & debuffs 2",
+  "group": "Status",
+  "count": 100,
+  "size": 16
+ },
+ {
+  "id": "status3",
+  "name": "Buffs & debuffs 3",
+  "group": "Status",
+  "count": 100,
+  "size": 16
+ },
+ {
+  "id": "status4",
+  "name": "Buffs & curses 4",
+  "group": "Status",
+  "count": 100,
+  "size": 16
+ },
+ {
+  "id": "status5",
+  "name": "Buffs & debuffs 5",
+  "group": "Status",
+  "count": 100,
+  "size": 16
+ }
+]

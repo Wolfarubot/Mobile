@@ -25,18 +25,13 @@ export function spriteUrl(key: string): string | null {
   return urls.get(key) ?? null;
 }
 
-// Gear icons (src/assets/gear-icons/<pack>/<name>.png), keyed "<pack>/<name>" as in GEAR_SPRITES.
-const gearFiles = import.meta.glob('../assets/gear-icons/**/*.png', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
-const gearUrls = new Map<string, string>();
+// Icons (public/icons/<pack>/<NNN>.png, listed in public/icons/packs.json), keyed "<pack>/<NNN>" as in GEAR_SPRITES.
+// They're served as plain files rather than bundled, so thousands of them cost nothing until one is shown.
 const gearImages = new Map<string, HTMLImageElement>();
-for (const [path, url] of Object.entries(gearFiles)) {
-  const key = path.replace(/^.*\/gear-icons\//, '').replace(/\.png$/, '');
-  gearUrls.set(key, url);
-}
 
-/** URL of a gear icon for the DOM, or null. */
+/** URL of an icon for the DOM, or null. */
 export function gearIconUrl(key: string | undefined): string | null {
-  return key ? (gearUrls.get(key) ?? null) : null;
+  return key ? `${import.meta.env.BASE_URL}icons/${key}.png` : null;
 }
 
 /** A loaded gear icon for the battlefield (loaded on first use), or null until it's ready. */
@@ -44,10 +39,8 @@ export function gearImage(key: string | undefined): HTMLImageElement | null {
   if (!key) return null;
   let img = gearImages.get(key);
   if (!img) {
-    const url = gearUrls.get(key);
-    if (!url) return null;
     img = new Image();
-    img.src = url;
+    img.src = gearIconUrl(key)!;
     gearImages.set(key, img);
   }
   return img.complete && img.naturalWidth > 0 ? img : null;

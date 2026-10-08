@@ -91,6 +91,7 @@ import { COOLDOWN_POSITIONS, deserialize, TAB_IDS, type GameState, type GearMod,
 import { drawEnemyPortrait } from '../render/battle';
 import { gearIconUrl, spriteUrl } from '../render/sprites';
 import { GEAR_SPRITES } from '../core/gearSprites';
+import { NODE_SPRITES } from '../core/nodeSprites';
 import { applyAreaTheme } from './theme';
 import { playCutscene, TIME_EATER_CUTSCENE } from './cutscene';
 import { applyFont, fontDef, FONTS } from './fonts';
@@ -99,6 +100,8 @@ type Tab = TabId;
 /** What treeView needs to draw and drive a skill or evolution tree. */
 interface TreeAdapter {
   nodes: TreeNode[];
+  /** Which tree this is in NODE_SPRITES ("main", a Hunter id, + "+" for Ascended, or "evo:<monster>"). */
+  spriteTree: string;
   rank: (id: string) => number;
   points: () => number;
   active: () => boolean;
@@ -165,6 +168,11 @@ const upgradeReach = (it: ItemDef): string => (it.area ? `affects the ${areaDef(
 /** A star rank for inside a `.stars` element: filled stars, then the rest dimmed. */
 const starsHtml = (n: number): string => `${'★'.repeat(n)}<span class="off">${'★'.repeat(Math.max(0, MAX_STARS - n))}</span>`;
 /** A piece of gear's icon: its pixel art when it has some (GEAR_SPRITES), otherwise its emoji. */
+/** A tree node's pixel icon (see NODE_SPRITES), or its emoji. */
+const nodeIcon = (t: { spriteTree: string }, n: TreeNode, cls = 'gi'): string => {
+  const url = gearIconUrl(NODE_SPRITES[`${t.spriteTree}/${n.id}`]);
+  return url ? `<img class="${cls}" src="${url}" alt="">` : n.icon;
+};
 const gearIcon = (gd: GearDef): string => {
   const url = gearIconUrl(GEAR_SPRITES[gd.id]);
   return url ? `<img class="gi" src="${url}" alt="">` : gd.icon;
@@ -641,6 +649,7 @@ export class AppUI {
     const g = this.game;
     return {
       nodes: g.skillTree(who, which),
+      spriteTree: which === 'base' ? who : `${who}+`,
       rank: (id) => g.skill(who, id, which),
       points: () => g.skillPoints(who),
       active: () => who === 'main' || g.state.hunters[who].recruited,
@@ -681,6 +690,7 @@ export class AppUI {
     const g = this.game;
     return {
       nodes: g.evoTree(id),
+      spriteTree: `evo:${id}`,
       rank: (n) => g.evoRank(id, n),
       points: () => g.evoPoints(id),
       active: () => g.isUnlocked(id),
@@ -723,7 +733,7 @@ export class AppUI {
       const p = pos(n);
       b.style.left = `${(p.x / 300) * 100}%`;
       b.style.top = `${p.y}px`;
-      b.innerHTML = `<span class="tn-icon">${n.icon}<em></em></span><span class="tn-name">${n.name}</span>${(n.cost ?? 1) > 1 ? `<span class="tn-cost">${n.cost} pts</span>` : ''}`;
+      b.innerHTML = `<span class="tn-icon">${nodeIcon(t, n, 'ni')}<em></em></span><span class="tn-name">${n.name}</span>${(n.cost ?? 1) > 1 ? `<span class="tn-cost">${n.cost} pts</span>` : ''}`;
       if (n.id === ASCEND_NODE.id) b.classList.add('ascend');
       b.addEventListener('click', () => this.openTreeNode(t, n));
       tree.appendChild(b);
@@ -760,7 +770,7 @@ export class AppUI {
    * and a big button to spend the points ("Acquire" a skill, "Evolve" a monster).
    */
   private openTreeNode(t: TreeAdapter, n: TreeNode): void {
-    this.showSheet(`${n.icon} ${n.name}`, (body, close) => {
+    this.showSheet(`${nodeIcon(t, n)} ${n.name}`, (body, close) => {
       const rank = t.rank(n.id);
       const needs = n.requires.map((r) => t.nodes.find((x) => x.id === r)!.name);
       const cost = n.cost ?? 1;

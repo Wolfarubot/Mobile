@@ -1,0 +1,44 @@
+Pixel-art icon packs by CraftPix.net, used under the CraftPix license: https://craftpix.net/file-licenses/
+Each folder is one pack (see packs.json), with its icons renumbered 001.png, 002.png ... in the pack's own order.
+Game icons are referenced as "<pack>/<NNN>" (src/core/gearSprites.ts, skill tree node icons).
+
+Source packs:
+  100-pixel-art-armor-icons
+  100-pixel-art-armor-icons-pack-6
+  100-pixel-art-status-effect-icons-pack
+  100-pixel-art-weapon-icon-pack-4
+  100-pixel-art-weapon-icons
+  100-pixel-art-weapon-icons-pack-2
+  100-pixel-art-weapon-icons-pack-3
+  100-pixel-art-weapon-icons-pack-5
+  100-rpg-armor-icons-pixel-art
+  16x16-rpg-pixel-art-buff-debuff-icons
+  32x32-pixel-art-weapons-free-collection
+  alchemist-and-shaman-pixel-art-ability-icons
+  cavalier-and-monk-pixel-art-icon-set
+  cloak-and-belt-pixel-art-32x32-icon-pack
+  engineer-and-psionic-pixel-art-ability-icon-set
+  fantasy-rpg-buff-debuff-16x16-icons
+  fantasy-rpg-pixel-musical-instrument-32x32-icons
+  geomancer-and-aerotheurge-ability-icons-pixel-art
+  gunslinger-and-druid-pixel-art-ability-icons
+  hunter-and-warrior-ability-icons-pixel-art
+  magic-wand-and-book-icon-pack
+  medieval-clothing-icons-pixel-art
+  medieval-weapons-pixel-art-32x32-icon-pack
+  nature-things-pixel-art-32x32-icons
+  paladin-and-death-knight-pixel-art-ability-icon-set
+  pixel-art-knight-armor-32x32-icons
+  pixel-art-medieval-fishing-32x32-icon-pack
+  pixel-art-rpg-items-32x32-for-games
+  pixel-magic-buff-curse-16x16-icons-for-rpgs
+  pixel-resource-icons-32x32-for-rpg
+  priest-and-bard-ability-icons
+  pyromancer-and-hydrosophist-ability-icons-pixel-art
+  resource-32x32-icons-pixel-art-assets
+  resource-rpg-icons-32x32-pixel-art
+  ring-earring-and-amulet-pixel-art-icons
+  rogue-and-warlock-ability-icons-pixel-art
+  rpg-pixel-magic-buff-debuff-16x16-icons
+  shield-rpg-icons-32x32-pixel-art
+  things-for-rpg-game-32x32-pixel-art

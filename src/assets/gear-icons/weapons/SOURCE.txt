@@ -1,5 +1,0 @@
-100 Pixel Art Weapon Icons by CraftPix.net (craftpix-net-204068).
-License: https://craftpix.net/file-licenses/
-Files renamed weapon_001.png ... weapon_100.png (icon_01 ... icon_100). Rows of ten: swords (1-20), crossbows (21-30),
-bows (31-40), spears (41-50), hammers (51-60), shields (61-70), flails (71-80), axes (81-90), staves (91-100);
-each row runs wood, stone, iron, dark steel, gold, fire, flame, teal, nature, crimson.
