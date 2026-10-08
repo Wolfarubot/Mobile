@@ -56,6 +56,9 @@ function weaponWorth(game: Game, who: Wearer, slot: number, base: GearId, stars 
   return dps * typeFit(game, base);
 }
 
+/** How much better a new piece must be before the bot crafts it to replace what's worn. */
+const SWAP_MARGIN = 1.3;
+
 /** Fill every slot with the best gear it can craft, then upgrade what's worn. Weapons are judged by damage per second. */
 function botGear(game: Game): void {
   const wearers: Wearer[] = ['main', ...HUNTERS.filter((h) => game.state.hunters[h.id].recruited).map((h) => h.id)];
@@ -67,7 +70,8 @@ function botGear(game: Game): void {
       const weapons = options.some((gd) => gd.weaponClass) && (!current || gearDef(current.base).weaponClass);
       const worth = (base: GearId, stars = 1, uid?: number) => (weapons && gearDef(base).weaponClass ? weaponWorth(game, who, i, base, stars, uid) : gearScore(game, base, stars));
       const best = options.map((gd) => ({ gd, v: worth(gd.id) })).sort((a, b) => b.v - a.v)[0];
-      if (best && (!current || best.v > worth(current.base, current.stars, current.uid))) {
+      // Swap only for a real step up: every new piece has to be upgraded again (materials and gold).
+      if (best && (!current || best.v > SWAP_MARGIN * worth(current.base, current.stars, current.uid))) {
         const item = game.craftGear(best.gd.id)!;
         game.equip(who, i, item.uid);
         if (current) game.salvageGear(current.uid);
