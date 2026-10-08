@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs';
+import { GEAR_CATALOG } from '../src/core/gearCatalog';
 import { describe, expect, it } from 'vitest';
 import {
   areaDef,
@@ -23,6 +24,7 @@ import {
   areaEnemies,
   enemyUnlockCost,
   GEAR,
+  MATERIALS,
   GUARDIAN_TIME,
   hunterDef,
   HUNTERS,
@@ -831,6 +833,28 @@ describe('Shops', () => {
 });
 
 describe('Equipment', () => {
+  it('gear progression: more items each area; magic opens in the Grove, accessories in the Graveyard, firearms in the Depths', () => {
+    const inArea = (i: number) => GEAR.filter((g) => !g.starter && gearArea(g) === i);
+    const counts = AREAS.map((_, i) => inArea(i + 1).length);
+    expect(counts[0]).toBeGreaterThanOrEqual(15);
+    expect(counts[0]).toBeLessThanOrEqual(20);
+    // Each area has at least as many items as the one before (players stay longer in later areas).
+    for (let i = 1; i < counts.length; i++) expect(counts[i]).toBeGreaterThanOrEqual(counts[i - 1]);
+    // The Woods: melee, bows, two wands and armor; no robes or deeper magic, no accessories, no firearms.
+    const woods = inArea(1);
+    expect(woods.filter((g) => g.kind === 'magic').map((g) => g.weaponClass)).toEqual(['wand', 'wand']);
+    expect(woods.some((g) => g.armorType === 'robe')).toBe(false);
+    // Accessories start in the Restless Graveyard (3), firearms in the Shadowy Depths (5).
+    expect(Math.min(...GEAR.filter((g) => g.kind === 'accessory').map(gearArea))).toBe(3);
+    expect(Math.min(...GEAR.filter((g) => ['pistol', 'rifle', 'repeater'].includes(g.weaponClass ?? '')).map(gearArea))).toBe(5);
+    // Catalog items land in the area they're listed under, with materials that exist, and ids are unique.
+    for (const c of GEAR_CATALOG) {
+      expect(AREAS[gearArea(gearDef(c.id)) - 1].id, c.id).toBe(c.area);
+      for (const m of Object.keys(c.recipe)) expect(MATERIALS.some((x) => x.id === m), `${c.id}: ${m}`).toBe(true);
+    }
+    expect(new Set(GEAR.map((g) => g.id)).size).toBe(GEAR.length);
+  });
+
   /** A game with plenty of materials and some Hunters recruited. */
   const stocked = () => {
     const s = newGame(0);

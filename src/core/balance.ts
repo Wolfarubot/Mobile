@@ -1,3 +1,5 @@
+import { GEAR_CATALOG, type CatalogGearId, type CatalogSpec } from './gearCatalog';
+
 // All tunable numbers, content tables and pure formulas live here so balancing never touches game flow code.
 
 // ---- Player & combat ----
@@ -1884,7 +1886,8 @@ export type GearId =
   | 'satchel'
   | 'emberOrb'
   | 'hawkeyeLens'
-  | 'soulRing';
+  | 'soulRing'
+  | CatalogGearId;
 
 /** Item rarity, lowest to highest. Shown as the item's colour everywhere gear appears. */
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'veryRare' | 'legendary' | 'exotic' | 'relic' | 'artifact' | 'exalted';
@@ -2310,6 +2313,71 @@ export const WEAPON_CLASSES: Record<WeaponClass, WeaponClassDef> = {
   tome: { name: 'Tome', attack: 'summon', range: 1, rate: 0.12, damage: 0.7, summon: { duration: 8, bites: 1.5, speed: 150, name: 'spirit' }, farm: 1, describe: 'Summons a spirit that hunts monsters across the field for 8s, then fades; a new one comes after a cooldown.' },
 };
 
+// ---- The gear catalog (gearCatalog.ts): one line per item, filled out here ----
+
+/** Each area's usual rarity (Wandering Woods … Void Rift). */
+const AREA_RARITY: Rarity[] = ['common', 'uncommon', 'uncommon', 'rare', 'rare', 'veryRare', 'veryRare', 'legendary', 'exotic', 'relic', 'artifact', 'exalted'];
+/**
+ * Catalog items made with an area's rarest material (`top`) get this rarity: one higher, except where that
+ * rarity's Modify metals and gems only drop from golems in later areas (the Crypt and Depths stay Rare, as Very
+ * Rare gems start in the Ember Mines; the Ember Mines, Cloud Fortress and Meteor Field keep their usual rarity).
+ */
+const AREA_TOP_RARITY: Rarity[] = ['uncommon', 'rare', 'rare', 'rare', 'rare', 'veryRare', 'legendary', 'exotic', 'relic', 'relic', 'artifact', 'exalted'];
+const RARITY_ORDER: Rarity[] = ['common', 'uncommon', 'rare', 'veryRare', 'legendary', 'exotic', 'relic', 'artifact', 'exalted'];
+const MELEE_CLASSES: WeaponClass[] = ['dagger', 'sword', 'glaive', 'spear', 'hammer'];
+const MAGIC_CLASSES: WeaponClass[] = ['wand', 'staff', 'focus', 'scepter', 'tome'];
+/** A catalog accessory's stats at the Restless Graveyard (tier 3); they grow 30% per area after. */
+const CATALOG_ACC_STATS: Record<string, number> = { damage: 0.06, rate: 0.05, crit: 0.02, gold: 0.15, drops: 0.15, range: 12, radius: 0.08, stun: 0.04 };
+
+/** The element of each area's armor specials (Ember Mines on; earlier armor is below Very Rare and has none). */
+const AREA_ELEMENT: DamageType[] = ['physical', 'physical', 'physical', 'physical', 'physical', 'fire', 'acid', 'frost', 'lightning', 'lightning', 'radiant', 'void'];
+
+/**
+ * From Very Rare up, armor has a special, by kind: Heavy armor Thorns, Light armor Evasion, Robes a Pulse and
+ * Shields a Shield burst, with the area's base damage (the same scale as the hand-made ones, e.g. Chitin Carapace).
+ */
+function catalogArmorEffect(armor: ArmorType, rarity: Rarity, area: number): { effect?: GearEffect } {
+  if (RARITY_ORDER.indexOf(rarity) < RARITY_ORDER.indexOf('veryRare')) return {};
+  const base = TIER_HIT[Math.min(TIER_HIT.length, area) - 1];
+  const damageType = AREA_ELEMENT[area - 1];
+  switch (armor) {
+    case 'heavy':
+      return { effect: { kind: 'thorns', base, damageType } };
+    case 'light':
+      return { effect: { kind: 'evade', chance: Math.min(0.4, Math.round((0.05 * area - 0.2) * 100) / 100) } };
+    case 'robe':
+      return { effect: { kind: 'pulse', base, damageType, radius: 90 + 5 * (area - 6), cooldown: 5 } };
+    case 'shield':
+      return { effect: { kind: 'block', base, damageType, radius: 80 + 5 * (area - 6) } };
+  }
+}
+
+function catalogGear(spec: CatalogSpec): GearDef {
+  const recipe = spec.recipe as Partial<Record<MaterialId, number>>;
+  const tier = gearTier({ recipe } as GearDef);
+  const areaIdx = AREAS.findIndex((a) => a.id === spec.area);
+  const rarity = spec.top ? AREA_TOP_RARITY[areaIdx] : AREA_RARITY[areaIdx];
+  const common = { id: spec.id as GearId, name: spec.name, icon: spec.icon, rarity, recipe };
+  if (spec.type === 'armor') return { ...common, kind: 'armor', armorType: spec.armor, stats: armorStats(spec.armor, tier), ...catalogArmorEffect(spec.armor, rarity, areaIdx + 1) };
+  if (spec.type === 'accessory') {
+    const m = 1 + 0.3 * (tier - 3);
+    const stats: Partial<Record<GearStat, number>> = {};
+    for (const st of spec.stats) stats[st] = st === 'range' ? Math.round(CATALOG_ACC_STATS[st] * m) : Math.round(CATALOG_ACC_STATS[st] * m * 1000) / 1000;
+    return { ...common, kind: 'accessory', stats, ...(spec.bane ? { bane: { archetype: spec.bane, bonus: Math.round(0.06 * m * 1000) / 1000 } } : {}) };
+  }
+  const cls = spec.cls as WeaponClass;
+  // Elemental weapons inflict their effect more often in later areas; among Physical weapons only blades bleed.
+  const proc = spec.dmg !== 'physical' ? Math.min(0.3, 0.15 + 0.01 * (areaIdx - 1)) : cls === 'dagger' ? 0.15 : cls === 'sword' || cls === 'spear' ? 0.1 : 0;
+  return {
+    ...common,
+    kind: MELEE_CLASSES.includes(cls) ? 'melee' : MAGIC_CLASSES.includes(cls) ? 'magic' : 'weapon',
+    weaponClass: cls,
+    damageType: spec.dmg,
+    ...(proc ? { proc } : {}),
+    stats: {},
+  };
+}
+
 export const GEAR: GearDef[] = [
   // Starting gear (not craftable): your Hunter begins with the Short Sword and Common Clothes on, and a Short Bow spare.
   { id: 'shortSword', name: 'Short Sword', icon: '🗡️', kind: 'melee', rarity: 'common', weaponClass: 'sword', damageType: 'physical', hit: 1, stats: {}, recipe: { goo: 6 }, starter: true },
@@ -2325,10 +2393,10 @@ export const GEAR: GearDef[] = [
   { id: 'forestLongbow', name: 'Longbow', icon: '🏹', kind: 'weapon', rarity: 'common', weaponClass: 'longbow', damageType: 'physical', stats: {}, recipe: { scrap: 6, twig: 8 } },
   { id: 'forestGlaive', name: 'Glaive', icon: '🪓', kind: 'melee', rarity: 'common', weaponClass: 'glaive', damageType: 'physical', stats: {}, recipe: { scrap: 8, twig: 6 } },
   { id: 'beastBlade', name: 'Beast Blade', icon: '🔪', kind: 'melee', rarity: 'uncommon', weaponClass: 'dagger', damageType: 'physical', proc: 0.25, stats: {}, recipe: { bearClaw: 5, beastBone: 6 } },
-  { id: 'fangTalisman', name: 'Fang Talisman', icon: '🦷', kind: 'accessory', rarity: 'uncommon', stats: { rate: 0.05 }, bane: { archetype: 'beast', bonus: 0.05 }, recipe: { bearClaw: 4, beastBone: 4, pelt: 6 } },
+  { id: 'fangTalisman', name: 'Fang Talisman', icon: '🦷', kind: 'accessory', rarity: 'uncommon', stats: { rate: 0.05 }, bane: { archetype: 'beast', bonus: 0.05 }, recipe: { bearClaw: 4, beastBone: 4, pelt: 6, bone: 6 } },
   { id: 'forestBlade', name: 'Forest Blade', icon: '🗡️', kind: 'melee', rarity: 'uncommon', weaponClass: 'sword', damageType: 'physical', stats: {}, recipe: { scrap: 8, beastBone: 6, bearClaw: 4 } },
   { id: 'natureBow', name: 'Nature Bow', icon: '🏹', kind: 'weapon', rarity: 'uncommon', weaponClass: 'shortbow', damageType: 'physical', stats: {}, recipe: { bearClaw: 4, twig: 10, scrap: 5 } },
-  { id: 'slimeVial', name: 'Slime Vial', icon: '🧪', kind: 'accessory', rarity: 'uncommon', stats: {}, bane: { archetype: 'slime', bonus: 0.1 }, findDrop: { archetype: 'slime', material: 'royalSlime', chance: 0.01, stars: 5 }, recipe: { goo: 15, royalSlime: 2 } },
+  { id: 'slimeVial', name: 'Slime Vial', icon: '🧪', kind: 'accessory', rarity: 'uncommon', stats: {}, bane: { archetype: 'slime', bonus: 0.1 }, findDrop: { archetype: 'slime', material: 'royalSlime', chance: 0.01, stars: 5 }, recipe: { goo: 15, royalSlime: 2, vampEssence: 3 } },
   { id: 'forestCrossbow', name: 'Crossbow', icon: '🎯', kind: 'weapon', rarity: 'uncommon', weaponClass: 'crossbow', damageType: 'physical', stats: {}, recipe: { royalSlime: 2, twig: 12 } },
   { id: 'forestShield', name: 'Shield', icon: '🛡️', kind: 'armor', armorType: 'shield', rarity: 'uncommon', stats: armorStats('shield', gearTier({ recipe: { royalSlime: 2, scrap: 10 } } as GearDef)), recipe: { royalSlime: 2, scrap: 10 } },
   { id: 'royalGlaive', name: 'Royal Glaive', icon: '🪓', kind: 'melee', rarity: 'uncommon', weaponClass: 'glaive', damageType: 'physical', stats: {}, recipe: { scrap: 10, royalSlime: 2, beastBone: 6 } },
@@ -2339,7 +2407,7 @@ export const GEAR: GearDef[] = [
   // Later areas
   { id: 'boneCrossbow', name: 'Bone Crossbow', icon: '🎯', kind: 'weapon', rarity: 'uncommon', weaponClass: 'crossbow', tier: 3, damageType: 'physical', stats: { range: 8 }, recipe: { bone: 10, wing: 5 } },
   { id: 'emberLongbow', name: 'Ember Longbow', icon: '🔥', kind: 'weapon', rarity: 'veryRare', weaponClass: 'longbow', tier: 6, damageType: 'fire', proc: 0.3, stats: { rate: 0.12 }, recipe: { ember: 10, chitin: 5 } },
-  { id: 'bonePistol', name: 'Bone Pistol', icon: '🔫', kind: 'weapon', rarity: 'uncommon', weaponClass: 'pistol', tier: 3, damageType: 'physical', stats: {}, recipe: { bone: 8, vampEssence: 4 } },
+  { id: 'bonePistol', name: 'Bone Pistol', icon: '🔫', kind: 'weapon', rarity: 'rare', weaponClass: 'pistol', tier: 5, damageType: 'physical', stats: {}, recipe: { darkClaw: 6, bone: 8 } },
   { id: 'frostRifle', name: 'Frost Rifle', icon: '🔫', kind: 'weapon', rarity: 'legendary', weaponClass: 'rifle', tier: 8, damageType: 'frost', proc: 0.35, stats: { range: 15 }, recipe: { fur: 10, frost: 5 } },
   // Its volleys start with Arcane and cycle through every element, one per bolt (shown as Special).
   { id: 'elementalCataclysm', name: 'Elemental Cataclysm', icon: '🌈', kind: 'weapon', rarity: 'exalted', weaponClass: 'repeater', tier: 12, damageType: 'arcane', extraTypes: ['fire', 'frost', 'acid', 'poison', 'lightning', 'radiant', 'decay', 'void'], perShot: true, special: true, proc: 0.25, stats: { rate: 0.2 }, recipe: { soul: 10, void: 8, shade: 8 } },
@@ -2424,6 +2492,7 @@ export const GEAR: GearDef[] = [
   { id: 'flameBrand', name: 'Flame Brand', icon: '🔥', kind: 'accessory', rarity: 'veryRare', tier: 6, stats: {}, recipe: { demonTooth: 8, ember: 6, forsakenSoul: 2 }, effect: { kind: 'wave', base: 45, damageType: 'fire', radius: 100, chance: 0.3 } },
   { id: 'frostCharm', name: 'Frostbite Charm', icon: '❄️', kind: 'accessory', rarity: 'legendary', tier: 8, stats: {}, recipe: { frost: 10, ecto: 6 }, effect: { kind: 'chill', radius: 110 } },
   { id: 'thunderTotem', name: 'Thunder Totem', icon: '🗿', kind: 'accessory', rarity: 'relic', tier: 10, stats: {}, recipe: { thunder: 10, feather: 6 }, effect: { kind: 'strike', base: 230, damageType: 'lightning', targets: 3, cooldown: 3, range: 320 } },
+  ...GEAR_CATALOG.map(catalogGear),
 ];
 
 export const gearDef = (id: GearId): GearDef => GEAR.find((g) => g.id === id)!;
