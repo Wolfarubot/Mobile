@@ -49,6 +49,8 @@ export const GEAR_CATALOG = [
   a('capRobe', 'Mushroom-Cap Robe', '🥻', 'robe', { spore: 12, sap: 4 }),
   a('barkPlate', 'Bark Plate', '🪵', 'heavy', { sap: 10, enchantedBone: 5 }),
   a('regalGown', 'Regal Gown', '👗', 'robe', { regalEssence: 2, dust: 8, unicornHorn: 4 }, true),
+  w('fungalScepter', 'Fungal Scepter', '🍄', 'scepter', 'poison', { spore: 10, sap: 4 }),
+  w('pixieLongbow', 'Pixie Longbow', '🏹', 'longbow', 'arcane', { dust: 8, twig: 8 }),
 
   // ---- Restless Graveyard: accessories start here, and hammers ----
   ...at('graveyard'),
@@ -62,6 +64,10 @@ export const GEAR_CATALOG = [
   a('calciumPlate', 'Calcium Plate', '🛡️', 'heavy', { calciumCrystal: 2, bone: 12, flesh: 4 }, true),
   x('boneCharm', 'Bone Charm', '🦴', ['crit'], { bone: 10, wing: 4 }),
   x('bloodPendant', 'Blood Pendant', '🩸', ['rate'], { vampEssence: 8, bone: 4 }),
+  w('nightmareLongbow', 'Nightmare Longbow', '🏹', 'longbow', 'decay', { nightmareWisp: 8, wing: 6 }),
+  w('cultistTome', 'Cultist Tome', '📕', 'tome', 'decay', { sacredText: 10, robePiece: 5 }),
+  a('vampireCape', 'Vampire Cape', '🧛', 'light', { vampEssence: 8, wing: 6 }),
+  x('graveLantern', 'Grave Lantern', '🏮', ['radius'], { nightmareWisp: 8, bone: 4 }),
 
   // ---- Forbidden Crypt: more of everything ----
   ...at('crypt'),
@@ -83,6 +89,9 @@ export const GEAR_CATALOG = [
   x('cryptKey', 'Crypt Key', '🗝️', ['drops'], { enchantedScrap: 8, grave: 4 }),
   x('deathMask', 'Death Mask', '🎭', ['crit'], { wrap: 8, undeadFeather: 5 }),
   x('wardstone', 'Wardstone', '🪬', [], { grave: 6, enchantedScrap: 6 }, 'undead'),
+  w('mummyGlaive', 'Mummy Glaive', '🪓', 'glaive', 'decay', { wrap: 10, enchantedScrap: 6 }),
+  w('ravenWand', 'Raven Wand', '🪶', 'wand', 'arcane', { undeadFeather: 8, grave: 4 }),
+  a('boneKnightPlate', 'Bone Knight Plate', '🛡️', 'heavy', { enchantedScrap: 12, undeadFeather: 4 }),
 
   // ---- Shadowy Depths: firearms start here, with Wilhelm ----
   ...at('depths'),
@@ -107,6 +116,9 @@ export const GEAR_CATALOG = [
   x('eyeAmulet', 'Eye Amulet', '🧿', ['range'], { umbralEye: 8, gloom: 4 }),
   x('bandolier', 'Bandolier', '🎒', ['rate'], { gloom: 8, darkClaw: 6 }),
   x('abyssPearl', 'Abyssal Pearl', '🦪', ['gold'], { umbra: 6, umbralSlime: 6 }),
+  w('gazingStaff', 'Gazing Staff', '👁️', 'staff', 'arcane', { umbralEye: 10, gloom: 4 }),
+  w('crawlerCrossbow', 'Crawler Crossbow', '🎯', 'crossbow', 'physical', { darkClaw: 10, umbralSlime: 4 }),
+  x('gloomsilkGloves', 'Gloomsilk Gloves', '🧤', ['crit'], { gloom: 8, shadowWisp: 4 }),
 
   // ---- Ember Mines ----
   ...at('caves'),
@@ -130,6 +142,10 @@ export const GEAR_CATALOG = [
   x('cinderRing', 'Cinder Ring', '💍', ['damage'], { ember: 8, demonTooth: 4 }),
   x('demonHorn', 'Demon Horn', '📯', [], { demonBone: 8, demonTooth: 4 }, 'demon'),
   x('minersLamp', "Miner's Lamp", '🪔', ['drops'], { chitin: 8, ember: 5 }),
+  w('hellhoundGlaive', 'Hellhound Glaive', '🪓', 'glaive', 'fire', { demonTooth: 10, ember: 5 }),
+  w('impFocus', 'Imp Focus', '👿', 'focus', 'fire', { demonWing: 8, magma: 5 }),
+  a('cinderShroud', 'Cinder Shroud', '👘', 'robe', { ember: 10, demonWing: 5 }),
+  x('chitinBracer', 'Chitin Bracer', '🛡️', ['stun'], { chitin: 8, demonBone: 4 }),
 
   // ---- Venom Caverns ----
   ...at('mines'),
@@ -157,6 +173,13 @@ export const GEAR_CATALOG = [
   x('mithrilBand', 'Mithril Band', '💍', ['crit'], { ore: 8, scale: 4 }),
   x('dragonscaleCharm', 'Dragonscale Charm', '🐉', [], { scale: 10, ore: 4 }, 'dragon'),
   x('prospectorPick', "Prospector's Pick", '⛏️', ['gold'], { ore: 10, chitin: 4 }),
+  w('koboldLongbow', 'Kobold Longbow', '🏹', 'longbow', 'physical', { ore: 10, scale: 4 }),
+  w('trollMaul', 'Cave Troll Maul', '🔨', 'hammer', 'physical', { ore: 16, scale: 6 }, true),
+  w('lavaPistol', 'Lava Pistol', '🔫', 'pistol', 'fire', { scale: 8, magma: 6 }),
+  w('basiliskCrossbow', 'Basilisk Crossbow', '🎯', 'crossbow', 'poison', { scale: 10, ore: 5 }),
+  a('basiliskShield', 'Basilisk Shield', '🛡️', 'shield', { scale: 10, ore: 6 }),
+  a('koboldVest', 'Kobold Vest', '🧥', 'light', { ore: 10, chitin: 4 }),
+  x('venomNecklace', 'Venom Fang Necklace', '📿', ['damage'], { scale: 8, ore: 6 }),
 
   // ---- Frost Peaks ----
   ...at('peaks'),
@@ -185,6 +208,13 @@ export const GEAR_CATALOG = [
   x('furGloves', 'Wolf-Fur Gloves', '🧤', ['rate'], { fur: 8, frost: 4 }),
   x('ectoLantern', 'Ecto Lantern', '🏮', ['radius'], { ecto: 8, frost: 4 }),
   x('spiritWard', 'Spirit Ward', '🪬', [], { ecto: 10, fur: 4 }, 'undead'),
+  w('frostTome', 'Tome of Frost', '📘', 'tome', 'frost', { frost: 12, fur: 4 }),
+  w('yetiSpear', 'Yeti Spear', '🔱', 'spear', 'frost', { fur: 12, frost: 6 }),
+  w('ectoFocus', 'Ectoplasm Focus', '🫧', 'focus', 'decay', { ecto: 10, frost: 4 }),
+  w('frostWand', 'Frost Wand', '❄️', 'wand', 'frost', { frost: 8, fur: 4 }),
+  w('glacierBlade', 'Glacier Blade', '⚔️', 'sword', 'frost', { frost: 12, fur: 6 }),
+  a('iceWolfCoat', 'Ice Wolf Coat', '🧥', 'light', { fur: 12, ecto: 4 }),
+  x('frostRing', 'Frost Ring', '💍', ['crit'], { frost: 8, fur: 4 }),
 
   // ---- Ascendant Steps ----
   ...at('cliffs'),
@@ -214,6 +244,14 @@ export const GEAR_CATALOG = [
   x('skystoneRing', 'Skystone Ring', '💍', ['damage'], { skystone: 8, plume: 4 }),
   x('eagleEye', 'Eagle Eye', '🦅', ['range'], { plume: 8, skystone: 6 }),
   x('dragonTooth', "Dragon's Tooth", '🦷', [], { skystone: 10, plume: 6 }, 'dragon'),
+  w('harpyClaw', 'Harpy Claw', '🗡️', 'dagger', 'lightning', { plume: 8, skystone: 6 }),
+  w('owlWand', 'Owl Wand', '🦉', 'wand', 'frost', { plume: 8, skystone: 5 }),
+  w('griffinTome', 'Tome of the Griffin', '📗', 'tome', 'physical', { plume: 12, skystone: 6 }),
+  w('giantRifle', "Giant's Rifle", '🎯', 'rifle', 'physical', { skystone: 12, plume: 6 }),
+  w('summitScepter', 'Summit Scepter', '✨', 'scepter', 'lightning', { skystone: 10, plume: 5 }),
+  a('harpyRobe', 'Harpy Robe', '👘', 'robe', { plume: 12, skystone: 4 }),
+  a('giantShield', "Giant's Shield", '🛡️', 'shield', { skystone: 12, plume: 6 }),
+  x('summitCharm', 'Summit Charm', '🏔️', ['gold'], { skystone: 8, plume: 6 }),
 
   // ---- Cloud Fortress ----
   ...at('fortress'),
@@ -243,6 +281,14 @@ export const GEAR_CATALOG = [
   x('cloudPurse', 'Cloud Purse', '👛', ['gold'], { feather: 8, thunder: 6 }),
   x('skyWard', 'Skyward Ward', '🪬', [], { thunder: 10, feather: 6 }, 'elemental'),
   x('lightningRod', 'Lightning Rod', '🗼', ['range'], { thunder: 10, feather: 4 }),
+  w('valkyrieBow', 'Valkyrie Bow', '🏹', 'shortbow', 'radiant', { feather: 10, thunder: 4 }),
+  w('knightHammer', 'Sky Knight Hammer', '🔨', 'hammer', 'lightning', { thunder: 14, feather: 6 }),
+  w('thunderbirdTome', 'Thunderbird Tome', '📘', 'tome', 'lightning', { feather: 12, thunder: 5 }),
+  w('stormPistol', 'Storm Pistol', '🔫', 'pistol', 'lightning', { thunder: 10, feather: 5 }),
+  w('cloudlingWand', 'Cloudling Wand', '☁️', 'wand', 'radiant', { feather: 8, thunder: 6 }),
+  a('valkyrieRobe', 'Valkyrie Robe', '👘', 'robe', { feather: 12, thunder: 4 }),
+  a('stormShield', 'Storm Shield', '🛡️', 'shield', { thunder: 12, feather: 6 }),
+  x('titanBelt', 'Titan Belt', '🎗️', ['damage'], { thunder: 10, feather: 6 }),
 
   // ---- Meteor Field ----
   ...at('meteors'),
@@ -273,6 +319,15 @@ export const GEAR_CATALOG = [
   x('astrolabe', 'Astrolabe', '🧭', ['range'], { meteor: 8, stardust: 6 }),
   x('stardustPouch', 'Stardust Pouch', '👝', ['drops'], { stardust: 10, meteor: 4 }),
   x('constellationCharm', 'Constellation Charm', '✨', ['crit'], { stardust: 10, meteor: 6 }),
+  w('cometDagger', 'Comet Dagger', '🗡️', 'dagger', 'fire', { meteor: 8, stardust: 6 }),
+  w('astralSword', 'Astral Sword', '⚔️', 'sword', 'radiant', { stardust: 12, meteor: 6 }),
+  w('sentinelRifle', 'Sentinel Rifle', '🎯', 'rifle', 'radiant', { stardust: 12, meteor: 6 }),
+  w('eaterRepeater', 'Star Eater Repeater', '🔫', 'repeater', 'void', { stardust: 14, meteor: 8 }),
+  w('meteorStaff', 'Meteor Staff', '☄️', 'staff', 'fire', { meteor: 12, stardust: 6 }),
+  w('stardustWand', 'Stardust Wand', '✨', 'wand', 'radiant', { stardust: 10, meteor: 4 }),
+  a('sentinelPlate', 'Sentinel Plate', '🛡️', 'heavy', { meteor: 14, stardust: 6 }),
+  a('starlitCloak', 'Starlit Cloak', '🧥', 'light', { stardust: 12, meteor: 6 }),
+  x('mitePouch', 'Rock Mite Pouch', '👝', ['gold'], { meteor: 10, stardust: 4 }),
 
   // ---- Void Rift: the long final stretch, the biggest armory ----
   ...at('rift'),
@@ -304,6 +359,13 @@ export const GEAR_CATALOG = [
   x('riftCompass', 'Rift Compass', '🧭', ['range'], { void: 8, shade: 6 }),
   x('chimeraHeart', 'Chimera Heart', '❤️‍🔥', ['rate'], { soul: 10, shade: 6 }),
   x('brokenHourglass', 'Broken Hourglass', '⌛', ['gold'], { void: 10, soul: 6 }),
+  w('succubusWand', 'Succubus Wand', '💋', 'wand', 'arcane', { soul: 8, shade: 6 }),
+  w('lichTome', 'Lich Tome', '📓', 'tome', 'decay', { soul: 12, void: 6 }),
+  w('watcherFocus', 'Watcher Focus', '👁️', 'focus', 'void', { void: 12, shade: 6 }),
+  w('chimeraBow', 'Chimera Bow', '🏹', 'shortbow', 'fire', { soul: 10, shade: 6 }),
+  w('behemothSpear', 'Behemoth Spear', '🔱', 'spear', 'physical', { soul: 14, void: 6 }),
+  a('succubusRobe', 'Succubus Robe', '👘', 'robe', { soul: 12, shade: 6 }),
+  x('horrorEye', 'Eye of Horror', '👁️', ['range'], { void: 10, shade: 6 }),
 ] as const;
 
 export type CatalogGearId = (typeof GEAR_CATALOG)[number]['id'];
