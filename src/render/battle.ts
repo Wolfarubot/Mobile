@@ -1,10 +1,11 @@
-import { areaDef, DAMAGE_TYPES, STATUS, enemyDef, eventDef, fieldZoom, GUARDIAN_TIME, hunterDef, materialDef, type EnemyId, type EnemyShape } from '../core/balance';
+import { areaDef, DAMAGE_TYPES, gearDef, WEAPON_CLASSES, STATUS, enemyDef, eventDef, fieldZoom, GUARDIAN_TIME, hunterDef, materialDef, type EnemyId, type EnemyShape } from '../core/balance';
 import { PLAYER_RADIUS, SUMMON_RADIUS, type Summon, type Bullet, type Enemy, type Field, type Helper } from '../core/field';
 import { fmt } from '../core/format';
 import type { Game, Shooter } from '../core/game';
 import type { FxKey } from '../core/state';
 import { canvasFont, fitCanvas, Fx } from './fx';
-import { sprite } from './sprites';
+import { gearImage, sprite } from './sprites';
+import { GEAR_SPRITES } from '../core/gearSprites';
 
 interface Pickup {
   x: number;
@@ -65,6 +66,8 @@ export class BattleView {
   /** Ability cooldown icons, overlaid on the battlefield. */
   private cooldownBar: CooldownBar;
   /** Melee sweeps and swipes: a fading arc in front of the attacker. */
+  /** Each Hunter's last weapon attack (seconds since, and the angle), for the held-weapon animation. */
+  private swings = new Map<Shooter, { t: number; a: number }>();
   private sweeps: Array<{ x: number; y: number; a: number; arc: number; r: number; color: string; t: number }> = [];
   private time = 0;
   private shake = 0;
@@ -174,6 +177,9 @@ export class BattleView {
           this.sweeps.push({ ...e, t: 0 });
           if (e.heavy) this.shake = Math.max(this.shake, 0.12); // a hammer's smash
           break;
+        case 'attack':
+          this.swings.set(e.who, { t: 0, a: e.a });
+          break;
         case 'reload':
           break; // drawn each frame as "RELOADING!" (drawReloads)
         case 'dodge':
@@ -233,6 +239,7 @@ export class BattleView {
     this.rings = this.rings.filter((r) => r.t < r.max);
     for (const b of this.beams) b.t += dt;
     this.beams = this.beams.filter((b) => b.t < 0.25);
+    for (const sw of this.swings.values()) sw.t += dt;
     for (const w of this.sweeps) w.t += dt;
     this.sweeps = this.sweeps.filter((w) => w.t < 0.2);
     this.fx.update(dt);
@@ -651,6 +658,7 @@ export class BattleView {
     } else {
       g.save();
       g.rotate(f.stunned ? Math.PI / 2 : f.aim); // gun droops while stunned
+      if (this.weaponImage('main')) g.globalAlpha = 0; // the weapon's own icon is drawn instead
       g.fillStyle = '#6b5a7a';
       g.strokeStyle = OUTLINE;
       g.lineWidth = 2;
@@ -694,6 +702,7 @@ export class BattleView {
       }
     }
     g.restore();
+    this.drawHeldWeapon(g, 'main', 0, 0, f.aim, R, f.stunned);
 
     drawShieldPips(g, 0, R + (f.stunned ? 17 : 9), f.guard, this.game.guardOf('main'));
     if (f.stunned) {
@@ -704,6 +713,82 @@ export class BattleView {
       g.fillStyle = '#ffe066';
       g.fillRect(-bw / 2, R + 8, bw * (f.stun / Math.max(0.01, f.stunTotal)), 5);
     }
+  }
+
+  /** The weapon a Hunter is holding (Wilhelm's short-range one when something's close) and its icon, if it has one. */
+  private heldWeapon(who: Shooter, close = false): { cls: string; img: HTMLImageElement } | null {
+    const weapons = this.game.equipped(who).filter((it) => it && gearDef(it.base).weaponClass);
+    const it = (close && weapons[1]) || weapons[0];
+    if (!it) return null;
+    const img = gearImage(GEAR_SPRITES[it.base]);
+    return img ? { cls: gearDef(it.base).weaponClass!, img } : null;
+  }
+
+  private weaponImage(who: Shooter, close = false): HTMLImageElement | null {
+    return this.heldWeapon(who, close)?.img ?? null;
+  }
+
+  /**
+   * A Hunter's weapon in hand, drawn from its icon (which points up-right, grip at the bottom-left): swords and
+   * glaives swing across their arc, hammers come down overhead, spears and daggers thrust, bows and guns aim
+   * with a little recoil, and staffs, wands, focuses and tomes are held up and raised as they cast.
+   */
+  private drawHeldWeapon(g: CanvasRenderingContext2D, who: Shooter, x: number, y: number, aim: number, R: number, stunned: boolean, close = false): void {
+    const held = this.heldWeapon(who, close);
+    if (!held) return;
+    const cls = WEAPON_CLASSES[held.cls as keyof typeof WEAPON_CLASSES];
+    const sw = this.swings.get(who);
+    const SWING = 0.22;
+    const p = sw && sw.t < SWING ? sw.t / SWING : -1; // 0..1 during an attack
+    const a = sw && p >= 0 ? sw.a : aim;
+    const size = R * 2.6;
+    let angle = a;
+    let reach = R * 0.55;
+    let lift = 0;
+    let grip = 0.2; // where along the icon the hand holds it (0 = the very end)
+    switch (cls.attack) {
+      case 'sweep': {
+        const arc = cls.arc ?? 2;
+        angle = p >= 0 ? a - arc / 2 + arc * p : a - 0.9;
+        break;
+      }
+      case 'slam':
+        angle = p >= 0 ? a - 2.2 + 2.4 * Math.min(1, p * 1.4) : a - 1.2;
+        break;
+      case 'stab':
+      case 'dagger':
+        reach += p >= 0 ? Math.sin(Math.PI * p) * R * 0.9 : 0;
+        angle = p >= 0 ? a : a - 0.5;
+        break;
+      case 'shot':
+        grip = 0.5;
+        reach = R * 1.1 - (p >= 0 ? Math.sin(Math.PI * p) * 3 : 0);
+        if (cls.spell !== undefined || ['wand', 'scepter', 'staff'].includes(held.cls)) {
+          // Magic: held upright on the aiming side, raised as the spell goes off.
+          grip = 0.2;
+          angle = -Math.PI / 2 + Math.cos(a) * 0.35;
+          lift = p >= 0 ? Math.sin(Math.PI * p) * 5 : 0;
+          reach = 0;
+        }
+        break;
+      default:
+        // Focuses, tomes and anything else: held up beside the Hunter, raised when it goes off.
+        grip = 0.2;
+        angle = -Math.PI / 2 + Math.cos(a) * 0.35;
+        lift = p >= 0 ? Math.sin(Math.PI * p) * 5 : 0;
+        reach = 0;
+    }
+    if (stunned) angle = Math.PI / 2 + 0.4; // droops while dazed
+    const side = Math.cos(a) < 0 ? -1 : 1;
+    g.save();
+    // Held out to the side the Hunter faces (aimed weapons out in front), clear of their face.
+    const upright = reach === 0;
+    const aimed = cls.attack === 'shot' && !upright;
+    g.translate(x + (aimed ? Math.cos(a) * reach : side * R * (upright ? 0.95 : 0.7) + Math.cos(a) * reach * 0.6), y + (aimed ? Math.sin(a) * reach : Math.sin(a) * reach * 0.6) - lift + (upright ? R * 0.2 : 0));
+    g.rotate(angle + Math.PI / 4);
+    g.imageSmoothingEnabled = false;
+    g.drawImage(held.img, -size * grip, -size * (1 - grip), size, size);
+    g.restore();
   }
 
   /** A stationed Hunter: sprite if provided, otherwise a colored circle with their icon. */
@@ -724,6 +809,7 @@ export class BattleView {
     } else {
       g.save();
       g.rotate(h.aim);
+      if (this.weaponImage(h.id, h.close)) g.globalAlpha = 0; // the weapon's own icon is drawn instead
       g.fillStyle = '#6b5a7a';
       g.strokeStyle = OUTLINE;
       g.lineWidth = 2;
@@ -743,6 +829,7 @@ export class BattleView {
       g.fillText(def.icon, 0, 1);
     }
     g.restore();
+    this.drawHeldWeapon(g, h.id, h.x, h.y, h.aim, R, h.stun > 0, h.close);
     drawShieldPips(g, h.x, h.y + R + (h.stun > 0 ? 17 : 9), h.guard, this.game.guardOf(h.id));
     g.save();
     g.translate(h.x, h.y);

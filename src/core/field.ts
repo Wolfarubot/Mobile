@@ -230,6 +230,8 @@ export type FieldEvent =
   | { type: 'wave'; x: number; y: number; r: number; time: number; color: string }
   /** A hammer's ground slam: a shockwave ring of radius `r`. */
   | { type: 'slam'; x: number; y: number; r: number }
+  /** A Hunter attacked with their weapon (the renderer swings, thrusts or raises it). */
+  | { type: 'attack'; who: Shooter; a: number }
   | { type: 'reload'; who: Shooter; x: number; y: number };
 
 /**
@@ -642,6 +644,7 @@ export class Field {
   private weaponAttack(who: Shooter, x: number, y: number, aim: number, target: Enemy, cls: WeaponClassDef | null, gun: GunState, range: number, mode: GearMode = 'long'): void {
     const g = this.game;
     const m = mode === 'short' ? 'short' : undefined;
+    this.events.push({ type: 'attack', who, a: aim });
     if (cls?.attack === 'dagger') {
       // A burst of stabs (or throws, if it's out of reach) at this monster, a moment apart.
       const n = cls.thrusts ?? 1;

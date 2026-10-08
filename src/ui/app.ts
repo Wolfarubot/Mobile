@@ -89,7 +89,8 @@ import { Game, type FarmRates, type TreeKind } from '../core/game';
 import type { OfflineResult } from '../core/offline';
 import { COOLDOWN_POSITIONS, deserialize, TAB_IDS, type GameState, type GearMod, type BuyAmount, type CooldownPos, type DpsCorner, type FxKey, type IndicatorStyle, type GearItem, type TabId, type Wearer } from '../core/state';
 import { drawEnemyPortrait } from '../render/battle';
-import { spriteUrl } from '../render/sprites';
+import { gearIconUrl, spriteUrl } from '../render/sprites';
+import { GEAR_SPRITES } from '../core/gearSprites';
 import { applyAreaTheme } from './theme';
 import { playCutscene, TIME_EATER_CUTSCENE } from './cutscene';
 import { applyFont, fontDef, FONTS } from './fonts';
@@ -163,6 +164,12 @@ const upgradeReach = (it: ItemDef): string => (it.area ? `affects the ${areaDef(
 
 /** A star rank for inside a `.stars` element: filled stars, then the rest dimmed. */
 const starsHtml = (n: number): string => `${'★'.repeat(n)}<span class="off">${'★'.repeat(Math.max(0, MAX_STARS - n))}</span>`;
+/** A piece of gear's icon: its pixel art when it has some (GEAR_SPRITES), otherwise its emoji. */
+const gearIcon = (gd: GearDef): string => {
+  const url = gearIconUrl(GEAR_SPRITES[gd.id]);
+  return url ? `<img class="gi" src="${url}" alt="">` : gd.icon;
+};
+
 const gemHtml = (m: MaterialId, size = '') => `<i class="gem ${size}" style="background:${materialDef(m).color}"></i>`;
 
 /** DOM layer: top bar, area controls, tabbed panels and modals. Refreshes numbers on a timer. */
@@ -408,7 +415,7 @@ export class AppUI {
         .map((slot, i) => {
           const it = items[i];
           return it
-            ? `<span class="gear-chip rar" style="--rc:${gearColor(it.base)}">${gearDef(it.base).icon} ${gearDef(it.base).name}</span>`
+            ? `<span class="gear-chip rar" style="--rc:${gearColor(it.base)}">${gearIcon(gearDef(it.base))} ${gearDef(it.base).name}</span>`
             : `<span class="gear-chip empty">${GEAR_KINDS[slot.kind].icon} ${slot.label}</span>`;
         })
         .join('');
@@ -901,7 +908,7 @@ export class AppUI {
         b.classList.toggle('empty', !it);
         b.classList.toggle('rar', !!it);
         b.style.setProperty('--rc', gd ? gearColor(gd.id) : '');
-        b.innerHTML = `<i>${gd ? gd.icon : GEAR_KINDS[slot.kind].icon}</i><div><small>${slot.label}</small><b>${gd ? gd.name : 'Empty'}</b><span class="sub">${
+        b.innerHTML = `<i>${gd ? gearIcon(gd) : GEAR_KINDS[slot.kind].icon}</i><div><small>${slot.label}</small><b>${gd ? gd.name : 'Empty'}</b><span class="sub">${
           gd && it ? `${dtypeTag(gd)}${RARITIES[gd.rarity].name} · <span class="stars">${starsHtml(it.stars)}</span> · ${gearSummary(gd, it.stars)}` : 'Tap to equip'
         }</span></div><span class="chev">›</span>`;
       });
@@ -994,7 +1001,7 @@ export class AppUI {
         const worn = g.wearerOf(it.uid);
         const tile = el('button', `inv-tile rar${fits(it) ? '' : ' misfit'}${it.uid === selected ? ' selected' : ''}`) as HTMLButtonElement;
         tile.style.setProperty('--rc', gearColor(gd.id));
-        tile.innerHTML = `<i>${gd.icon}</i><span>${gd.name}</span><small class="stars">${starsHtml(it.stars)}</small>${worn ? `<em>${wearerIcon(worn.who)}</em>` : ''}`;
+        tile.innerHTML = `<i>${gearIcon(gd)}</i><span>${gd.name}</span><small class="stars">${starsHtml(it.stars)}</small>${worn ? `<em>${wearerIcon(worn.who)}</em>` : ''}`;
         tile.addEventListener('click', () => {
           selected = it.uid;
           render();
@@ -1021,7 +1028,7 @@ export class AppUI {
     const item = g.gearItem(uid);
     if (!item) return;
     const gd = gearDef(item.base);
-    this.showSheet(`${gd.icon} ${gd.name}`, (body, close) => {
+    this.showSheet(`${gearIcon(gd)} ${gd.name}`, (body, close) => {
       const worn = g.wearerOf(uid);
       const cost = g.gearUpgradeCost(uid);
       body.innerHTML = `
@@ -1085,7 +1092,7 @@ export class AppUI {
     let slot: number | null = waiting?.slot ?? null;
     let last: number | null = null; // the slot just filled
     let anim: 'shake' | 'reveal' | null = null;
-    this.showSheet(`🛠️ Modify ${gd.icon} ${gd.name}`, (body) => {
+    this.showSheet(`🛠️ Modify ${gearIcon(gd)} ${gd.name}`, (body) => {
       const draw = () => {
         const slots = g.modSlots(uid);
         const pending = g.pendingMod(uid);
@@ -2281,7 +2288,7 @@ export class AppUI {
         const tile = el('button', 'inv-tile rar') as HTMLButtonElement;
         tile.style.setProperty('--rc', gearColor(gd.id));
         const slots = g.modSlots(it.uid);
-        tile.innerHTML = `<i>${gd.icon}</i><span>${gd.name}</span><small class="stars">${starsHtml(it.stars)}</small>${worn ? `<em>${wearerIcon(worn.who)}</em>` : ''}${slots.length ? `<b class="mod-pips">${slots.map((m) => (m ? (modPerfect(m) ? '★' : '◆') : '◇')).join('')}</b>` : ''}`;
+        tile.innerHTML = `<i>${gearIcon(gd)}</i><span>${gd.name}</span><small class="stars">${starsHtml(it.stars)}</small>${worn ? `<em>${wearerIcon(worn.who)}</em>` : ''}${slots.length ? `<b class="mod-pips">${slots.map((m) => (m ? (modPerfect(m) ? '★' : '◆') : '◇')).join('')}</b>` : ''}`;
         tile.addEventListener('click', () => (refining ? this.openModify(it.uid) : this.openGearDetail(it.uid)));
         inv.appendChild(tile);
       }
@@ -2381,7 +2388,7 @@ export class AppUI {
     pane.appendChild(gearGrid);
     for (const gd of GEAR.filter((x) => !x.starter && this.gearKnown(x))) {
       const tile = el('button', 'craft-tile') as HTMLButtonElement;
-      tile.innerHTML = `<i>${gd.icon}</i><em></em>`;
+      tile.innerHTML = `<i>${gearIcon(gd)}</i><em></em>`;
       tile.title = gd.name;
       tile.addEventListener('click', () => this.openCraftCard({ gear: gd }));
       gearGrid.appendChild(tile);
@@ -2446,7 +2453,7 @@ export class AppUI {
     const name = gd ? gd.name : it!.name;
     card.innerHTML = `
       <button class="fc-close" aria-label="Close">✕</button>
-      <div class="fc-head"><i class="fc-icon" style="--rc:${gd ? gearColor(gd.id) : RARITIES[it!.rarity].color}">${gd ? gd.icon : it!.icon}</i><div>
+      <div class="fc-head"><i class="fc-icon" style="--rc:${gd ? gearColor(gd.id) : RARITIES[it!.rarity].color}">${gd ? gearIcon(gd) : it!.icon}</i><div>
         <h3>${name}</h3>
         <small>${gd ? `<b class="fc-rarity" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${gearKindName(gd).toLowerCase()} ${dtypeTag(gd)}` : `<b class="fc-rarity" style="--rc:${RARITIES[it!.rarity].color}">${RARITIES[it!.rarity].name}</b> upgrade · ${upgradeReach(it!)}`}</small>
       </div></div>
@@ -2828,7 +2835,7 @@ export class AppUI {
         const card = el('div', 'card setting tut-card');
         card.innerHTML = `<div class="setting-name">${CLASS_ICONS[id]} ${c.name}</div><p>${c.describe}</p><div class="tut-traits">${weaponTraits(c)
           .map((t) => `<span class="tut-trait">${t}</span>`)
-          .join('')}</div>${known.length ? `<p class="tut-examples">${known.map((gd) => `${gd.icon} ${gd.name}`).join(' · ')}</p>` : ''}`;
+          .join('')}</div>${known.length ? `<p class="tut-examples">${known.map((gd) => `${gearIcon(gd)} ${gd.name}`).join(' · ')}</p>` : ''}`;
         body.appendChild(card);
       }
     }
@@ -3311,7 +3318,7 @@ export class AppUI {
           .filter(([, n]) => n > 0)
           .map(([m, n]) => `${gemHtml(m)}${fmt(n)}`)
           .join(' ');
-        const loot = a.loot.length ? `<div>🎁 ${a.loot.map((l) => `${gearDef(l.gear).icon}${l.salvaged ? '♻️' : ''}`).join(' ')}</div>` : '';
+        const loot = a.loot.length ? `<div>🎁 ${a.loot.map((l) => `${gearIcon(gearDef(l.gear))}${l.salvaged ? '♻️' : ''}`).join(' ')}</div>` : '';
         return `<div class="offline-area"><div><b>${areaDef(a.area).icon} ${areaDef(a.area).name}</b> <small>${who}</small></div><div>⚔️ ${fmt(a.kills)} monsters slain · 🪙 ${fmt(a.gold)}</div>${am ? `<div>${am}</div>` : ''}${loot}${
           kos ? `<div class="knockouts">💫 Knocked out: ${kos}</div>` : ''
         }</div>`;
@@ -3412,7 +3419,7 @@ function gearCardHtml(it: GearItem, vs: GearItem | null = null): string {
     (gd.effect ? `<li class="gc-effect">✨ ${describeEffect(gd.effect, it.stars)}</li>` : '') +
     (gd.bane ? `<li class="gc-effect">${ARCHETYPES[gd.bane.archetype].icon} +${Math.round(gd.bane.bonus * GEAR_STAR_POWER[it.stars] * 100)}% damage vs ${ARCHETYPES[gd.bane.archetype].name}s</li>` : '') +
     (gd.findDrop ? `<li class="gc-effect">💎 ${it.stars >= gd.findDrop.stars ? '' : `At ${gd.findDrop.stars}★: `}${gd.findDrop.chance * 100}% chance for ${materialDef(gd.findDrop.material).name} from ${ARCHETYPES[gd.findDrop.archetype].name.toLowerCase()} kills</li>` : '');
-  return `<div class="gear-card rar" style="--rc:${gearColor(gd.id)}"><div class="gc-head"><i>${gd.icon}</i><div><b>${gd.name}</b><small>${RARITIES[gd.rarity].name} ${gearKindName(gd).toLowerCase()} · <span class="stars">${starsHtml(it.stars)}</span></small>${dtypeTag(gd)}</div></div><ul class="gc-stats">${all}</ul></div>`;
+  return `<div class="gear-card rar" style="--rc:${gearColor(gd.id)}"><div class="gc-head"><i>${gearIcon(gd)}</i><div><b>${gd.name}</b><small>${RARITIES[gd.rarity].name} ${gearKindName(gd).toLowerCase()} · <span class="stars">${starsHtml(it.stars)}</span></small>${dtypeTag(gd)}</div></div><ul class="gc-stats">${all}</ul></div>`;
 }
 
 /** Your Hunter's name (Settings), shown on their card and wherever they're named. */

@@ -4038,3 +4038,12 @@ body.left-handed .hd-float-close {
   justify-content: center;
   margin: 2px 0 6px;
 }
+
+/* Pixel-art gear icons (in place of emoji): crisp at any size, the height of the text they sit in. */
+img.gi {
+  width: 1.25em;
+  height: 1.25em;
+  image-rendering: pixelated;
+  vertical-align: -0.25em;
+  object-fit: contain;
+}
