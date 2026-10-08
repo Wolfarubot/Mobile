@@ -29,15 +29,46 @@ function gearScore(game: Game, base: GearId, level = 1): number {
   return (1 + raw) * fit - 1;
 }
 
-/** Fill every slot with the best gear it can craft, then upgrade what's worn. */
+/** How well a damage type suits the current area's monsters (their average weakness/resistance to it). */
+function typeFit(game: Game, base: GearId): number {
+  const gd = gearDef(base);
+  if (!gd.damageType) return 1;
+  const here = areaEnemies(game.area);
+  return here.reduce((sum, e) => sum + typeMult(gd.damageType!, e.id), 0) / here.length;
+}
+
+/**
+ * A weapon's worth to this Hunter in this slot: the game's own damage per second with it equipped (so slow,
+ * heavy hammers don't win on damage per hit alone, and bows get the Hunter's multishot), times how well its
+ * type suits the area. Tried by slipping a 1★ copy into the slot for a moment.
+ */
+function weaponWorth(game: Game, who: Wearer, slot: number, base: GearId, stars = 1, uid?: number): number {
+  const s = game.state;
+  const eq = (s.equipment[who] ??= []);
+  const prev = eq[slot] ?? null;
+  const temp = uid === undefined;
+  const id = temp ? -999 : uid;
+  if (temp) s.inventory.push({ uid: id, base, stars });
+  eq[slot] = id;
+  const dps = game.dpsOf(who as never);
+  eq[slot] = prev;
+  if (temp) s.inventory.pop();
+  return dps * typeFit(game, base);
+}
+
+/** Fill every slot with the best gear it can craft, then upgrade what's worn. Weapons are judged by damage per second. */
 function botGear(game: Game): void {
   const wearers: Wearer[] = ['main', ...HUNTERS.filter((h) => game.state.hunters[h.id].recruited).map((h) => h.id)];
   for (const who of wearers) {
     game.slotsOf(who).forEach((slot, i) => {
       const current = game.equipped(who)[i];
-      const best = GEAR.filter((gd) => slotAccepts(slot, gd) && game.canCraftGear(gd.id)).sort((a, b) => gearScore(game, b.id) - gearScore(game, a.id))[0];
-      if (best && (!current || gearScore(game, best.id) > gearScore(game, current.base, current.stars))) {
-        const item = game.craftGear(best.id)!;
+      const options = GEAR.filter((gd) => slotAccepts(slot, gd) && game.canCraftGear(gd.id));
+      if (!options.length) return;
+      const weapons = options.some((gd) => gd.weaponClass) && (!current || gearDef(current.base).weaponClass);
+      const worth = (base: GearId, stars = 1, uid?: number) => (weapons && gearDef(base).weaponClass ? weaponWorth(game, who, i, base, stars, uid) : gearScore(game, base, stars));
+      const best = options.map((gd) => ({ gd, v: worth(gd.id) })).sort((a, b) => b.v - a.v)[0];
+      if (best && (!current || best.v > worth(current.base, current.stars, current.uid))) {
+        const item = game.craftGear(best.gd.id)!;
         game.equip(who, i, item.uid);
         if (current) game.salvageGear(current.uid);
       }
