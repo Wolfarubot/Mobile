@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { weaponHit, gearArea, EVENTS, AREAS, areaEnemies, ENEMIES, GEAR, gearDef, gearStats, slotAccepts, typeMult, type GearId, enemyUnlockCost, HUNTERS, ITEMS, STATION_EFFICIENCY, type AreaId, type ItemId } from '../src/core/balance';
+import { weaponHit, gearArea, EVENTS, AREAS, areaEnemies, ENEMIES, GEAR, gearDef, gearStats, slotAccepts, typeMult, type GearId, enemyUnlockCost, HUNTERS, ITEMS, STATION_CAPACITY, STATION_EFFICIENCY, type AreaId, type ItemId } from '../src/core/balance';
 import { Field } from '../src/core/field';
 import { Game } from '../src/core/game';
 import { deserialize, newGame, serialize, type Wearer } from '../src/core/state';
@@ -149,8 +149,18 @@ function botShop(game: Game, t: number, memo: { lastChallenge: number; lastHeavy
   memo.lastHeavy = t;
   botGear(game);
 
-  // Station Hunters: greedily give each other area the Hunter that earns most there.
+  // Station Hunters: the strongest fight beside you (they push the area you're mastering), then each
+  // other area, newest first, gets whoever of the rest earns most there.
   const free = new Set(HUNTERS.filter((h) => s.hunters[h.id].recruited).map((h) => h.id));
+  const here = [...free]
+    .map((id) => ({ id, kills: game.farmRates(game.area, [id], 1).killsTotal }))
+    .sort((a, b) => b.kills - a.kills)
+    .slice(0, STATION_CAPACITY);
+  for (const id of free) game.station(id, null);
+  for (const { id } of here) {
+    game.station(id, game.area);
+    free.delete(id);
+  }
   for (const area of game.unlockedAreas.filter((a) => a !== game.area).reverse()) {
     let best: { id: (typeof HUNTERS)[number]['id']; gold: number } | null = null;
     for (const id of free) {
@@ -162,7 +172,8 @@ function botShop(game: Game, t: number, memo: { lastChallenge: number; lastHeavy
       free.delete(best.id);
     }
   }
-  for (const id of free) game.station(id, game.area); // leftovers fight beside you (one fits)
+  // Any left over rest in the newest areas with room.
+  for (const id of free) for (const area of [...game.unlockedAreas].reverse()) if (game.station(id, area)) break;
 }
 
 /**
