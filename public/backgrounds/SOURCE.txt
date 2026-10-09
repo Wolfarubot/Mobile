@@ -1,0 +1,2 @@
+Wandering Woods decor from "Grassland Top-Down Tileset Pixel Art" by CraftPix.net (license: https://craftpix.net/file-licenses/), PNG/Objects_separated.
+Scattered at runtime by src/render/backgrounds.ts.

@@ -6,6 +6,7 @@ import type { FxKey } from '../core/state';
 import { canvasFont, fitCanvas, Fx } from './fx';
 import { effectImage, gearImage, monsterSheetImage, sprite } from './sprites';
 import { EFFECTS, type EffectKey } from './effectSheets';
+import { areaBackground } from './backgrounds';
 import { MONSTER_SHEETS, SHEETS, type MonsterSheet } from './monsterSheets';
 import { GEAR_SPRITES } from '../core/gearSprites';
 import { emojiIconKey } from '../ui/emojiIcons';
@@ -289,11 +290,15 @@ export class BattleView {
     this.fx.textScale = 1 / Z;
     this.field.setView(w, h);
     const g = this.g;
-    const [ground, speck] = areaDef(this.game.area).ground;
-    g.fillStyle = ground;
-    g.fillRect(0, 0, w, h);
-    g.fillStyle = speck;
-    for (const s of this.specks) g.fillRect(Math.round(s.x * w), Math.round(s.y * h), Math.ceil(s.r), Math.ceil(s.r));
+    const painted = areaBackground(this.game.area, w, h);
+    if (painted) g.drawImage(painted, 0, 0);
+    else {
+      const [ground, speck] = areaDef(this.game.area).ground;
+      g.fillStyle = ground;
+      g.fillRect(0, 0, w, h);
+      g.fillStyle = speck;
+      for (const s of this.specks) g.fillRect(Math.round(s.x * w), Math.round(s.y * h), Math.ceil(s.r), Math.ceil(s.r));
+    }
 
     g.save();
     g.translate(w / 2, h / 2);
