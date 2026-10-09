@@ -4062,3 +4062,110 @@ img.ei {
   vertical-align: -0.22em;
   display: inline-block;
 }
+
+/* ===== Parchment & wood (default menu style; Settings → Menu style) =====
+   CraftPix's RPG UI look, recoloured from the area palette: wood planks behind, parchment cards in
+   wooden frames, bevelled buttons. Frame art comes from --img-panel / --img-btn / --img-btnhi, repainted
+   per area by ui/theme.ts. */
+body.ui-parchment {
+  --wood: color-mix(in srgb, var(--c0) 55%, var(--c1));
+  --wood-hi: color-mix(in srgb, var(--c1) 70%, var(--c2));
+  --ink: color-mix(in srgb, var(--c0) 80%, #000);
+  --parch: color-mix(in srgb, var(--c3) 75%, #e5d6a1);
+  --well: color-mix(in srgb, var(--c2) 45%, var(--parch));
+  --well-lo: color-mix(in srgb, var(--c1) 40%, var(--well));
+}
+body.ui-parchment .panel,
+body.ui-parchment .hunter-detail {
+  background: var(--wood) repeating-linear-gradient(180deg, var(--wood) 0 22px, color-mix(in srgb, var(--wood) 85%, #000) 22px 24px) !important;
+}
+body.ui-parchment .topbar,
+body.ui-parchment .tabs,
+body.ui-parchment .hd-top {
+  background: var(--wood-hi) !important;
+  background-image: none !important;
+  border-color: var(--ink) !important;
+  box-shadow: inset 0 -3px 0 var(--ink), inset 0 3px 0 color-mix(in srgb, var(--wood-hi) 70%, #fff);
+}
+body.ui-parchment .tabs button {
+  color: var(--parch);
+  text-shadow: 1px 1px 0 var(--ink);
+}
+body.ui-parchment .tabs button.active {
+  background: var(--c2) !important;
+  color: var(--ink) !important;
+  box-shadow: inset 0 3px 0 color-mix(in srgb, var(--c2) 60%, #fff), inset 0 -3px 0 var(--c0);
+  text-shadow: none;
+}
+body.ui-parchment .card,
+body.ui-parchment .hunter-card,
+body.ui-parchment .beast,
+body.ui-parchment .event-card,
+body.ui-parchment .modal-box,
+body.ui-parchment .ability-card,
+body.ui-parchment .offline-area {
+  background: var(--parch) padding-box !important;
+  border-radius: 0 !important;
+  border: 15px solid var(--wood) !important;
+  border-image: var(--img-panel) 5 fill / 15px / 0 stretch !important;
+  image-rendering: pixelated;
+  padding: 2px !important;
+  color: var(--ink) !important;
+  box-shadow: none !important;
+}
+body.ui-parchment .section-title {
+  background: var(--c1);
+  border: 3px solid var(--c0);
+  box-shadow: inset 0 3px 0 var(--c2);
+  padding: 4px 10px;
+  color: var(--c3);
+  text-shadow: 1px 1px 0 var(--c0);
+}
+body.ui-parchment .buy,
+body.ui-parchment .secondary-btn,
+body.ui-parchment .amounts button,
+body.ui-parchment .subtabs button,
+body.ui-parchment .segmented button,
+body.ui-parchment .filter-btn {
+  background: var(--c1) padding-box !important;
+  border-radius: 0 !important;
+  border: 9px solid var(--c0) !important;
+  border-image: var(--img-btn) 3 fill / 9px / 0 stretch !important;
+  image-rendering: pixelated;
+  color: var(--c3) !important;
+  text-shadow: 1px 1px 0 var(--c0) !important;
+  padding: 2px 6px !important;
+  box-shadow: none !important;
+}
+body.ui-parchment .buy:disabled {
+  filter: grayscale(0.7) brightness(0.9);
+}
+body.ui-parchment .amounts button.active,
+body.ui-parchment .subtabs button.on,
+body.ui-parchment .segmented button.on {
+  border-image: var(--img-btnhi) 3 fill / 9px / 0 stretch !important;
+  color: var(--ink) !important;
+  text-shadow: none !important;
+}
+body.ui-parchment .equip-row > *,
+body.ui-parchment .gear-chip,
+body.ui-parchment .inv-tile,
+body.ui-parchment .craft-tile,
+body.ui-parchment .hunter-art,
+body.ui-parchment .monster-icon {
+  background: var(--well) !important;
+  border-radius: 0 !important;
+  border-width: 3px !important;
+  box-shadow: inset 2px 2px 0 var(--well-lo), inset -2px -2px 0 color-mix(in srgb, var(--well) 70%, #fff) !important;
+}
+body.ui-parchment .train-bar {
+  background: var(--well) !important;
+  border: 3px solid var(--ink) !important;
+  border-radius: 0 !important;
+}
+body.ui-parchment .mat {
+  background: var(--parch) !important;
+  border-radius: 0 !important;
+  box-shadow: inset 0 0 0 2px var(--wood), inset 0 -4px 0 var(--well) !important;
+  color: var(--ink);
+}

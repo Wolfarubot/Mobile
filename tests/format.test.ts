@@ -16,13 +16,14 @@ describe('fmt', () => {
 });
 
 describe('fmtDps', () => {
-  it('shows at most five digits, abbreviated', () => {
+  it('shows three digits, abbreviated', () => {
     expect(fmtDps(5.5)).toBe('5.50');
+    expect(fmtDps(52.34)).toBe('52.3');
     expect(fmtDps(523.4)).toBe('523');
-    expect(fmtDps(1_524_300)).toBe('1.5243M');
-    expect(fmtDps(15_243_000_000)).toBe('15.243B');
-    expect(fmtDps(152_430_000_000_000)).toBe('152.43T');
-    expect(fmtDps(999_999_990)).toBe('1.0000B');
+    expect(fmtDps(1_524_300)).toBe('1.52M');
+    expect(fmtDps(15_243_000_000)).toBe('15.2B');
+    expect(fmtDps(152_430_000_000_000)).toBe('152T');
+    expect(fmtDps(999_600_000)).toBe('1.00B');
   });
 });
 

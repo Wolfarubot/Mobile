@@ -42,3 +42,4 @@ Source packs:
   rpg-pixel-magic-buff-debuff-16x16-icons
   shield-rpg-icons-32x32-pixel-art
   things-for-rpg-game-32x32-pixel-art
+custom/001.png: the Green Slime's front walk frame (public/monsters/slime-green.png), used as the Bestiary icon.

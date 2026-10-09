@@ -97,7 +97,7 @@ export const EMOJI_ICONS: Record<string, string> = {
   "👤": 'ab-rogue-warlock/017',
   "👥": 'ab-rogue-warlock/036',
   "👻": 'ab-alchemist-shaman/079',
-  "👾": 'ab-alchemist-shaman/060',
+  "👾": 'custom/001',
   "💀": 'status1/091',
   "💍": 'jewelry/001',
   "💎": 'resources3/081',

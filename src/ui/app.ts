@@ -92,7 +92,7 @@ import { drawEnemyPortrait } from '../render/battle';
 import { gearIconUrl, spriteUrl } from '../render/sprites';
 import { GEAR_SPRITES } from '../core/gearSprites';
 import { NODE_SPRITES } from '../core/nodeSprites';
-import { applyAreaTheme } from './theme';
+import { applyAreaTheme, applyUiStyle } from './theme';
 import { playCutscene, TIME_EATER_CUTSCENE } from './cutscene';
 import { applyFont, fontDef, FONTS } from './fonts';
 
@@ -2873,6 +2873,7 @@ export class AppUI {
     document.body.classList.toggle('left-handed', this.game.state.settings.leftHanded);
     mainHunterName = this.game.state.settings.name.trim();
     applyFont(this.game.state.settings.font);
+    applyUiStyle(this.game.state.settings.uiStyle);
     requestAnimationFrame(refitAffinities);
     void document.fonts?.ready.then(refitAffinities);
     const nav = $('.tabs');
@@ -3197,6 +3198,16 @@ export class AppUI {
     const syncFont = () => fontButtons.forEach(({ f, b }) => b.classList.toggle('on', fontDef(g.state.settings.font).id === f.id));
     syncFont();
     body.appendChild(fontCard);
+    choices(
+      'Menu style',
+      'Parchment frames menus in wood and parchment, recoloured to match each area; Classic keeps the original flat cards.',
+      [['parchment', '📜 Parchment'], ['classic', 'Classic']],
+      () => st.uiStyle,
+      (v) => {
+        st.uiStyle = v;
+        this.applySettings();
+      },
+    );
 
     body.appendChild(sectionTitle('Save'));
     const wipe = el('div', 'card setting');

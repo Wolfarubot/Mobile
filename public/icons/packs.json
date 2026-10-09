@@ -271,5 +271,12 @@
   "group": "Status",
   "count": 100,
   "size": 16
+ },
+ {
+  "id": "custom",
+  "name": "Game art",
+  "group": "Custom",
+  "count": 1,
+  "size": 32
  }
 ]

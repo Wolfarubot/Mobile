@@ -1,0 +1,2 @@
+Frame art cut from "Free Basic Pixel Art UI for RPG" by CraftPix.net (license: https://craftpix.net/file-licenses/):
+panel.png (Main_tiles), btn.png and btn-hi.png (Buttons). Recoloured per area at runtime (src/ui/theme.ts).

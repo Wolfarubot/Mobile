@@ -177,6 +177,8 @@ export interface GameState {
     fx: Record<FxKey, boolean>;
     /** Area effects (puddles, explosions, fireballs, bursts, auras): pixel squares ('fancy') or plain circles ('basic'). */
     aoeStyle: IndicatorStyle;
+    /** Menu look: parchment & wood tinted by the area (default), or the original flat cards. */
+    uiStyle: UiStyle;
   };
   /** One-time tutorial moments already shown. */
   flags: {
@@ -249,7 +251,7 @@ export function newGame(now = Date.now()): GameState {
     equipment: { main: [1, 2, null] },
     nextGearUid: 4,
     lastSeen: now,
-    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', dps: true, dpsCorner: 'tr', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', autoSalvage: [], fx: allFx(), aoeStyle: 'fancy' },
+    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', dps: true, dpsCorner: 'tr', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', autoSalvage: [], fx: allFx(), aoeStyle: 'fancy', uiStyle: 'parchment' },
     flags: { eventsIntro: false, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false },
     events: Object.fromEntries(EVENTS.map((e) => [e.id, { cooldown: 0, runs: 0, completed: 0 }])),
     buyAmount: 1,
@@ -266,6 +268,8 @@ export type CooldownPos = (typeof COOLDOWN_POSITIONS)[number];
 export const RELOAD_POSITIONS = ['above', 'below'] as const;
 export const INDICATOR_STYLES = ['fancy', 'basic'] as const;
 export type IndicatorStyle = (typeof INDICATOR_STYLES)[number];
+export const UI_STYLES = ['parchment', 'classic'] as const;
+export type UiStyle = (typeof UI_STYLES)[number];
 export type ReloadPos = (typeof RELOAD_POSITIONS)[number];
 
 /** Effect switches in Settings: the damage numbers and status effect groups, and each kind within them. */
@@ -463,6 +467,7 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
         return Object.fromEntries(FX_KEYS.map((k) => [k, saved[k] !== false])) as Record<FxKey, boolean>;
       })(),
       aoeStyle: pick(INDICATOR_STYLES, (data.settings as { aoeStyle?: unknown } | undefined)?.aoeStyle, 'fancy'),
+      uiStyle: pick(UI_STYLES, (data.settings as { uiStyle?: unknown } | undefined)?.uiStyle, 'parchment'),
     },
     flags: {
       eventsIntro: !!(data.flags as { eventsIntro?: unknown } | undefined)?.eventsIntro,
