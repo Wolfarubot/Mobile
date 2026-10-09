@@ -28,12 +28,22 @@ interface Scene {
   specks: Array<[string, number]>;
   bands: Band[];
   /** A flagstone floor instead of plain ground: slab size, slab colours (picked at random) and the grout between. */
-  slabs?: { size: number; colors: string[]; grout: string; light: string };
+  slabs?: {
+    size: number;
+    colors: string[];
+    grout: string;
+    light: string;
+    /** Only a platform this far in from the edges (a fraction of the view) is paved, with `side` below it. */
+    inset?: number;
+    side?: string;
+  };
   /**
    * Pools (lava, acid, water, the void): pixel blobs placed like a band, with a rim, a fill and, optionally,
    * detail pieces (lava streaks, glints) scattered inside them.
    */
-  pools?: { density: number; from: number; size: [number, number]; rim: string; crust?: string; fill: string; inner?: string; details?: string[] };
+  pools?: { density: number; from: number; size: [number, number]; rim: string; crust?: string; fill: string; inner?: string; details?: string[]; /** Filled with this picture instead (holes into the void). */ pattern?: string };
+  /** A full picture (960×540 space art) behind everything, scaled by whole pixels to cover the view. */
+  backdrop?: string;
   /** A vertical gradient (top, bottom) instead of the flat base colour: open sky. */
   sky?: [string, string];
   /**
@@ -131,7 +141,7 @@ const SCENES: Partial<Record<AreaId, Scene>> = {
       { pieces: [...p('small_mushrooms_white1 small_mushrooms_white2 small_mushrooms_white3 small_mushrooms_gray1 small_mushrooms_gray2 small_mushrooms_gray3 small_mushrooms1 small_mushrooms2 small_mushrooms3', 2), ...p('c_Bones_7 c_Bones_8 c_Bones_9 c_Bones_10 c_Bones_11 c_Rock1_4 c_Rock1_5 c_Rock_eyes_4 c_Rock_eyes_5 c_Eyes_2 c_Tubular_plant_2 c_Tubular_plant_3 c_Fetus_3 c_Pustules_3 c_Webbed_1 c_Webbed_2 c_Mushrooms_3 Black_stone4 Blue_stone4 black_stalagmites5 gray_stalagmites5 Black_crystal4 Violet_crystal4')], density: 2.6, from: 0 },
       { pieces: [...p('c_Rock1_3 c_Rock3_4 c_Rock3_5 c_Rock3_6 c_Rock_eyes_2 c_Rock_eyes_3 c_Eye_plant_1 c_Eye_plant_2 c_Eye_plant_3 c_Many_eyes_plant_2 c_Many_eyes_plant_3 c_Tentacles_1 c_Tentacles_2 c_Tentacles_3 c_Bones_2 c_Bones_3 c_Bones_4 c_Bones_5 c_Bones_6 c_Tubular_plant_1 c_Spike_plant_4 c_Tentacle_plant_3 c_Pustules_2 c_Fetus_2 c_Meat_flower_3 c_Jaws_plant_3 c_Rune_stone_4'), ...p('Black_stone2 Black_stone3 Blue_stone2 Blue_stone3 Long_mushrooms2 Long_mushrooms3 gray_stalagmites2 gray_stalagmites4 black_stalagmites2 black_stalagmites3 Slime_musroom2 Slime_musroom3 Black_crystal3 Violet_crystal3 Blue_crystal3', 1.5)], density: 1, from: 0.4 },
       { pieces: [...p('c_Rock1_1 c_Rock1_2 c_Rock3_2 c_Rock3_3 c_Rock_eyes_1 c_Claw_eggs_2 c_Claw_eggs_3 c_Claw_eggs_4 c_Eggs_1 c_Eggs_2 c_Eggs_3 c_Tentacle_plant_1 c_Tentacle_plant_2 c_Spike_plant_2 c_Spike_plant_3 c_Neuro_monster_1 c_Neuro_monster_2 c_Tooth_mouth_3 c_Tooth_mouth_5 c_Ruins_3 c_Ruins_4 c_Ruins_5 c_Tentacles_4 c_Jaws_plant_2 c_Star_monster_3 c_Rune_stone_3 c_Meat_flower_2 c_Pustules_1'), ...p('gray_stalagmites3 gray_stalagmites1 Long_mushrooms1 Black_stone1 Blue_stone1 black_stalagmites1 Slime_musroom1 spider_element2 spider_element3 web1 web2 Black_crystal1 Black_crystal2 Violet_crystal1 Violet_crystal2', 1.5)], density: 0.4, from: 0.7 },
-      { pieces: [...p('c_Claw_monster_1 c_Claw_monster_2 c_Claw_monster_3 c_Spike_plant_1 c_Veins_1 c_Veins_2 c_Veins_3 c_Veins_4 c_Tentacle_monster_1 c_Tentacle_monster_2 c_Rune_stone_1 c_Rune_stone_2 c_Tooth_monster_1 c_Tooth_monster_2 c_Wing_monster c_Bones_1 c_Rock3_1 c_Tooth_mouth_1 c_Jaws_plant_1'), ...p('the_spider spider_element1 gray_stalagmites3 web2')], density: 0.13, from: 0.9 },
+      { pieces: [...p('c_Claw_monster_1 c_Claw_monster_2 c_Claw_monster_3 c_Spike_plant_1 c_Veins_1 c_Veins_2 c_Veins_3 c_Veins_4 c_Tentacle_monster_1 c_Tentacle_monster_2 c_Rune_stone_1 c_Rune_stone_2 c_Tooth_monster_1 c_Tooth_monster_2 c_Wing_monster c_Bones_1 c_Tooth_mouth_1 c_Jaws_plant_1'), ...p('the_spider spider_element1 gray_stalagmites3 web2')], density: 0.13, from: 0.9 },
     ],
     vignette: 'rgba(0,0,0,0.75)',
   },
@@ -216,6 +226,56 @@ const SCENES: Partial<Record<AreaId, Scene>> = {
       { pieces: [...p('Cloud_color2_2 Cloud_color2_3 Cloud_color3_1 Cloud_color3_2 Cloud_color3_3', 3), ...p('Dragon_small')], density: 0.06, from: 0.92 },
     ],
   },
+  // CraftPix's dungeon set in the sky: a paved marble court on a cloud bank, ghost-flame candles, praying
+  // statues, white tombs and treasure, columns and blue-fire braziers toward its rim, clouds rolling over the
+  // edges and a dragon circling below.
+  fortress: {
+    base: '#a9c8e6',
+    sky: ['#d3e6f4', '#8ab4dc'],
+    specks: [],
+    slabs: { size: 20, colors: ['#b9c0cf', '#b3bac9', '#bfc6d4', '#adb4c4', '#b6bdcc'], grout: '#7d8496', light: '#d0d6e1', inset: 0.07, side: '#6b7284' },
+    bands: [
+      { pieces: [...p('Cloud_color1_1 Cloud_color1_2 Cloud_color1_3 Cloud_color2_1 Cloud_color2_2 Cloud_color3_1 Cloud_color3_2', 3), ...p('Dragon_big Dragon_small', 0.4)], density: 0.5, from: 0.9, under: true },
+      { pieces: [...p('puff1 puff2 puff3 puff4 puff5 puff6 puff7 puff8 puff9 puff11 puff13', 2), ...p('candle3 candle6 candle9 medal1 medal2')], density: 1.2, from: 0.15 },
+      { pieces: [...p('candle1 candle2 candle4 candle5 candle7 candle8', 2), ...p('statue1 statue2 statue3 statue4 statue5 statue6 chest7 chest8 chest9 tomb4 tomb10 tomb21', 1.5)], density: 0.5, from: 0.45 },
+      { pieces: [...p('colA colB colC', 4), ...p('torch2 torch3 torch4 torch6 statue_fire tomb1 tomb2 tomb16 tomb20 tomb25', 1.5)], density: 0.4, from: 0.72 },
+      { pieces: [...p('torch1 torch11 torch16 torch21 statue_fire')], density: 0.06, from: 0.86 },
+      { pieces: p('Cloud_color1_1 Cloud_color1_2 Cloud_color1_3 Cloud_color1_4 Cloud_color2_1 Cloud_color2_2 Cloud_color2_3 Cloud_color2_4 Cloud_color3_1 Cloud_color3_2 Cloud_color3_3 Cloud_color3_4'), density: 0.35, from: 0.93 },
+    ],
+  },
+  // CraftPix's space backgrounds, merged: a nebula band and starfield behind, shooting stars streaking across,
+  // red and grey meteors tumbling past and cratered moons drifting at the edges.
+  meteors: {
+    base: '#141a20',
+    backdrop: 'space',
+    specks: [],
+    bands: [
+      { pieces: p(run('shoot', 1, 18)), density: 0.35, from: 0 },
+      { pieces: [...p('red1 red2 red4 red7 red8 red10 red12 red13 red14 red16 red20 red21 red22 red23 red24 red25 red26 red28 red30 red32 red35 red36 red37', 2), ...p('rock1 rock3 rock5 rock8 rock13 rock15')], density: 1.1, from: 0.35 },
+      { pieces: [...p('red3 red5 red6 red9 red11 red15 red17 red18 red19 red27 red29 red31 red33 red34'), ...p('rock2 rock4 rock6 rock7 rock9 rock10 rock11 rock12 rock14', 1.5), ...p('moonb1 moonb2 moonb5')], density: 0.4, from: 0.65 },
+      { pieces: p('moon1 moon2 moon3 moon4 moon5 moon6 moon7 moonb3 moonb4 moonb6 moonb7'), density: 0.12, from: 0.9 },
+    ],
+    vignette: 'rgba(0,0,0,0.5)',
+  },
+  // Where the world comes apart: the glowing cave's dark rock torn open onto a violet starfield, cursed growths
+  // gone purple (eyes, claws, teeth and tentacles), glowing fungi and crystals, and pale moons hanging at the edges.
+  rift: {
+    base: '#26202e',
+    specks: [
+      ['#2c2736', 24],
+      ['#1c171f', 18],
+      ['#3c3a51', 8],
+      ['#b48cff', 0.8],
+    ],
+    pools: { density: 0.09, from: 0.25, size: [36, 84], rim: '#0f0c10', crust: '#9a6bff', fill: '#1a1030', pattern: 'void' },
+    bands: [
+      { pieces: [...p(run('gd', 58, 81), 2), ...p(run('gd', 35, 57)), ...p('gd12 gd13 gd18 gd22 gd25 gd27 gd28 gd30 gd31 gd32 gd33 c_Bones_7 c_Bones_8 c_Bones_9 c_Bones_10 c_Bones_11 c_Eyes_2 c_Fetus_3 c_Pustules_3 c_Mushrooms_3 c_Rock1_4 c_Rock1_5 g_Crystal3_4 g_Crystal1_4 g_Mushroom4_3 Violet_crystal4 Pink_crystal4')], density: 3, from: 0 },
+      { pieces: [...p('gd10 gd11 gd14 gd15 gd16 gd19 gd20 gd23 gd24 g_Crystal1_3 g_Crystal3_2 g_Crystal3_3 g_Mushroom1_3 g_Mushroom4_2 g_Mushroom6_3 g_Plant5_3 g_Plant2_3 Violet_crystal3 Black_crystal3 Pink_crystal3', 1.5), ...p('c_Eye_plant_1 c_Eye_plant_2 c_Eye_plant_3 c_Many_eyes_plant_2 c_Many_eyes_plant_3 c_Tentacles_1 c_Tentacles_2 c_Tentacles_3 c_Rock3_4 c_Rock3_5 c_Rock3_6 c_Rock_eyes_2 c_Rock_eyes_3 c_Bones_2 c_Bones_3 c_Bones_4 c_Pustules_2 c_Fetus_2 c_Meat_flower_3 c_Jaws_plant_3 c_Rune_stone_4 c_Tooth_mouth_3')], density: 1, from: 0.4 },
+      { pieces: [...p('g_Crystal1_1 g_Crystal1_2 g_Crystal3_1 g_Mushroom1_1 g_Mushroom1_2 g_Mushroom4_1 g_Mushroom6_1 g_Mushroom6_2 g_Plant5_1 g_Plant5_2 g_Rock_crystal_1 g_Rock_crystal_2 g_lizard_1 gd17 gd21 Violet_crystal1 Violet_crystal2 Black_crystal1 Pink_crystal1', 1.5), ...p('c_Claw_eggs_1 c_Claw_eggs_2 c_Eggs_1 c_Eggs_2 c_Tentacle_plant_1 c_Tentacle_plant_2 c_Spike_plant_2 c_Neuro_monster_1 c_Neuro_monster_2 c_Tooth_mouth_1 c_Tooth_mouth_4 c_Ruins_3 c_Ruins_4 c_Tentacles_4 c_Jaws_plant_2 c_Star_monster_1 c_Rune_stone_2 c_Rune_stone_3 c_Meat_flower_1 c_Rock3_2 c_Rock_eyes_1 c_Fetus_1')], density: 0.4, from: 0.7 },
+      { pieces: [...p('c_Bones_1 c_Claw_monster_1 c_Claw_monster_2 c_Tentacle_monster_1 c_Tentacle_monster_2 c_Wing_monster c_Veins_1 c_Veins_2 c_Veins_3 c_Spike_plant_1 c_Rune_stone_1 c_Tooth_monster_1 c_Jaws_plant_1 gd1 gd3 gd5 gd7 gd9'), ...p('moon1 moon2 moon3 moon4 moon5 moon6 moon7')], density: 0.14, from: 0.9 },
+    ],
+    vignette: 'rgba(10,0,25,0.65)',
+  },
 };
 
 const images = new Map<string, HTMLImageElement>();
@@ -227,7 +287,7 @@ const ready = new Set<AreaId>();
 function load(area: AreaId, scene: Scene): void {
   if (loading.has(area)) return;
   loading.add(area);
-  const files = [...new Set([...scene.bands.flatMap((b) => b.pieces.map((x) => x.file)), ...(scene.pools?.details ?? []), ...(scene.islands ? [scene.islands.file] : [])])];
+  const files = [...new Set([...scene.bands.flatMap((b) => b.pieces.map((x) => x.file)), ...(scene.pools?.details ?? []), ...(scene.islands ? [scene.islands.file] : []), ...(scene.backdrop ? [scene.backdrop] : []), ...(scene.pools?.pattern ? [scene.pools.pattern] : [])])];
   void Promise.all(
     files.map((f) => {
       const img = new Image();
@@ -274,8 +334,9 @@ function drawPools(g: CanvasRenderingContext2D, pools: NonNullable<Scene['pools'
     const y1 = Math.ceil(cy + size);
     // Two-pixel cells keep the edge chunky, like the tilesets.
     const layers: Array<[string, number]> = [[pools.rim, 4], ...(pools.crust ? [[pools.crust, 2] as [string, number]] : []), [pools.fill, 0], ...(pools.inner ? [[pools.inner, -size * 0.1] as [string, number]] : [])];
+    const pat = pools.pattern && images.get(`${area}/${pools.pattern}`);
     for (const [color, grow] of layers) {
-      g.fillStyle = color;
+      g.fillStyle = color === pools.fill && pat && pat.naturalWidth ? g.createPattern(pat, 'repeat')! : color;
       for (let y = y0; y < y1; y += 2) for (let x = x0; x < x1; x += 2) if (inside(x + 1, y + 1, grow)) g.fillRect(x, y, 2, 2);
     }
     if (pools.details) {
@@ -333,14 +394,36 @@ export function areaBackground(area: AreaId, w: number, h: number): HTMLCanvasEl
     g.fillStyle = sky;
   } else g.fillStyle = scene.base;
   g.fillRect(0, 0, w, h);
+  const back = scene.backdrop && images.get(`${area}/${scene.backdrop}`);
+  if (back && back.naturalWidth) {
+    const k = Math.max(1, Math.ceil(Math.max(w / back.naturalWidth, h / back.naturalHeight)));
+    g.drawImage(back, Math.round((w - back.naturalWidth * k) / 2), Math.round((h - back.naturalHeight * k) / 2), back.naturalWidth * k, back.naturalHeight * k);
+  }
   const r = rng(w * 7919 + h * 104729);
   const area10k = (w * h) / 10_000;
   if (scene.slabs) {
     // Staggered rows of stone slabs, each a little different, with a lit top edge and dark grout.
-    const { size, colors, grout, light } = scene.slabs;
-    for (let row = 0, y = 0; y < h; row++, y += size) {
+    const { size, colors, grout, light, inset = 0, side } = scene.slabs;
+    // A paved platform: whole slabs only, centred, with its underside showing below.
+    const cols = Math.floor((w * (1 - 2 * inset)) / size);
+    const rows = Math.floor((h * (1 - 2 * inset)) / size);
+    const px = inset ? Math.round((w - cols * size) / 2) : 0;
+    const py = inset ? Math.round((h - rows * size) / 2) : 0;
+    const pw = inset ? cols * size : w;
+    const ph = inset ? rows * size : h;
+    if (side) {
+      g.fillStyle = side;
+      g.fillRect(px, py + ph, pw, Math.round(size * 0.75));
+      g.fillStyle = grout;
+      g.fillRect(px, py + ph + Math.round(size * 0.75), pw, 2);
+    }
+    g.save();
+    g.beginPath();
+    g.rect(px, py, pw, ph);
+    g.clip();
+    for (let row = 0, y = py; y < py + ph; row++, y += size) {
       const off = row % 2 ? Math.floor(size / 2) : 0;
-      for (let x = -off; x < w; x += size) {
+      for (let x = px - off; x < px + pw; x += size) {
         g.fillStyle = colors[Math.floor(r() * colors.length)];
         g.fillRect(x, y, size, size);
         g.fillStyle = light;
@@ -349,6 +432,12 @@ export function areaBackground(area: AreaId, w: number, h: number): HTMLCanvasEl
         g.fillRect(x, y, 1, size);
         g.fillRect(x, y + size - 1, size, 1);
       }
+    }
+    g.restore();
+    if (inset) {
+      g.strokeStyle = grout;
+      g.lineWidth = 2;
+      g.strokeRect(px - 1, py - 1, pw + 2, ph + 2);
     }
   }
   for (const [color, per] of scene.specks) {

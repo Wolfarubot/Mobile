@@ -16,3 +16,10 @@ All from CraftPix.net (license: https://craftpix.net/file-licenses/), cut out, t
   ruins).
 - cliffs/ (Ascendant Steps): "Flying Islands Pixel Art Top Down Tileset" (island.png is its round island, stretched
   by the game into the staircase of islands).
+- fortress/ (Cloud Fortress): "Top Down Dungeon Pixel Tileset" (columns and tombs recoloured to marble, statues,
+  braziers, candles, chests) with clouds and dragons from "Flying Islands"; the marble court is drawn by the game.
+- meteors/: "Pixel Art Space 2D Game Backgrounds" — space.png merges Space3's nebula band and stars (dimmed);
+  meteors, moons and shooting stars are cut from Space2, Space3, Space4 and Space5.
+- rift/ (Void Rift): "Glowing Cave Top Down Tileset", "Cursed Land Objects" (shifted to violet), "Top Down Crystals"
+  and moons from the space backgrounds; void.png (Space6's sky and Space2/3's stars, shifted to violet) shows
+  through the holes the game tears in the ground.
