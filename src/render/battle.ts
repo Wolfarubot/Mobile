@@ -4,7 +4,8 @@ import { fmt } from '../core/format';
 import type { Game, Shooter } from '../core/game';
 import type { FxKey } from '../core/state';
 import { canvasFont, fitCanvas, Fx } from './fx';
-import { effectImage, gearImage, monsterSheetImage, sprite } from './sprites';
+import { effectImage, gearImage, hunterSheetImage, monsterSheetImage, sprite } from './sprites';
+import { HUNTER_SHEETS } from './hunterSheets';
 import { EFFECTS, type EffectKey } from './effectSheets';
 import { areaBackground } from './backgrounds';
 import { MONSTER_SHEETS, SHEETS, type MonsterSheet } from './monsterSheets';
@@ -737,7 +738,9 @@ export class BattleView {
     g.save();
     g.rotate(sway);
     const img = sprite('hunter');
-    if (img) {
+    if (this.drawHunterSheet(g, 'main', f.aim, R)) {
+      // Animated idle from the hunter sheet.
+    } else if (img) {
       const size = R * SPRITE_SCALE * 1.2;
       g.save();
       g.scale(Math.cos(f.aim) < 0 ? -1 : 1, 1);
@@ -801,6 +804,27 @@ export class BattleView {
       g.fillStyle = '#ffe066';
       g.fillRect(-bw / 2, R + 8, bw * (f.stun / Math.max(0.01, f.stunTotal)), 5);
     }
+  }
+
+  /**
+   * A Hunter's animated idle from their sheet, facing where they aim (rows: down, left, right, up), standing on
+   * their shadow. False if they have no sheet or it hasn't loaded.
+   */
+  private drawHunterSheet(g: CanvasRenderingContext2D, who: Shooter, aim: number, R: number, phase = 0): boolean {
+    const sh = HUNTER_SHEETS[who];
+    const img = sh && hunterSheetImage(who);
+    if (!sh || !img) return false;
+    const c = Math.cos(aim);
+    const s = Math.sin(aim);
+    const row = Math.abs(c) >= Math.abs(s) ? (c < 0 ? 1 : 2) : s > 0 ? 0 : 3;
+    const col = Math.floor((this.time + phase) * 8) % sh.frames[row];
+    const [bx, by, bw, bh] = sh.box;
+    const k = (R * 2.7) / Math.max(bw, bh);
+    const F = sh.frame;
+    g.imageSmoothingEnabled = false;
+    // Feet (the box's bottom) on the shadow.
+    g.drawImage(img, col * F, row * F, F, F, -(bx + bw / 2) * k, R * 1.05 - (by + bh) * k, F * k, F * k);
+    return true;
   }
 
   /** The weapon a Hunter is holding (Wilhelm's short-range one when something's close) and its icon, if it has one. */
@@ -890,7 +914,9 @@ export class BattleView {
     g.ellipse(0, R * 0.9, R, R * 0.35, 0, 0, Math.PI * 2);
     g.fill();
     const img = sprite(`hunters/${h.id}`);
-    if (img) {
+    if (this.drawHunterSheet(g, h.id, h.aim, R, h.id.length * 0.37)) {
+      // Animated idle from the hunter sheet.
+    } else if (img) {
       const size = R * SPRITE_SCALE * 1.2;
       g.scale(Math.cos(h.aim) < 0 ? -1 : 1, 1);
       g.drawImage(img, -size / 2, -size / 2, size, size);

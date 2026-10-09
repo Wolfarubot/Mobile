@@ -73,3 +73,17 @@ export function effectImage(key: string): HTMLImageElement | null {
   }
   return img.complete && img.naturalWidth > 0 ? img : null;
 }
+
+// Hunter idle sheets (public/hunters/<id>.png, see hunterSheets.ts). Loaded on first use.
+const hunterImages = new Map<string, HTMLImageElement>();
+
+/** A Hunter's idle sheet, or null until it has loaded (starts loading on first call). */
+export function hunterSheetImage(id: string): HTMLImageElement | null {
+  let img = hunterImages.get(id);
+  if (!img) {
+    img = new Image();
+    img.src = `${import.meta.env.BASE_URL}hunters/${id}.png`;
+    hunterImages.set(id, img);
+  }
+  return img.complete && img.naturalWidth > 0 ? img : null;
+}

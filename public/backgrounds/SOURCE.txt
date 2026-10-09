@@ -1,2 +1,18 @@
 Wandering Woods decor from "Grassland Top-Down Tileset Pixel Art" by CraftPix.net (license: https://craftpix.net/file-licenses/), PNG/Objects_separated.
 Scattered at runtime by src/render/backgrounds.ts.
+Fey Grove decor from CraftPix.net's forest top-down tileset (license: https://craftpix.net/file-licenses/), PNG/Objects_separated,
+with greens shifted to pinks and purples (trunks, stones and ruins keep their colours).
+All from CraftPix.net (license: https://craftpix.net/file-licenses/), cut out, trimmed and in places recoloured:
+- graveyard/: "Free Undead Tileset Top Down Pixel Art" and "The Top Down Undead Land Objects".
+- crypt/: "Top Down Dungeon Pixel Tileset" (coffins, candles, torches, statues, bones) with bones and skull piles
+  from the undead sets; the flagstone floor is drawn by the game.
+- depths/: "Free Cursed Land Top Down Pixel Art Tileset" and "Cursed Land Objects" (darkened), "Cave Tileset Top Down"
+  stones, stalagmites, webs and mushrooms, and "Top Down Crystals".
+- caves/ (Ember Mines): "Cave Tileset Top Down" (stones, volcano vents, rock walls, demon skull and gates, floor
+  spots, lava streaks) and "Top Down Crystals"; the lava pools are drawn by the game.
+- mines/ (Venom Caverns): "Glowing Cave Top Down Tileset", "Free Top Down Pixel Art Cave Objects" and "Desert Objects
+  Top Down", with blues and purples shifted to greens and warm tones to yellow-green.
+- peaks/: "Winter Top Down Pixel Art Tileset", "Top Down Winter Objects" and "Rocky Top Down Tileset" (stones, pines,
+  ruins).
+- cliffs/ (Ascendant Steps): "Flying Islands Pixel Art Top Down Tileset" (island.png is its round island, stretched
+  by the game into the staircase of islands).
