@@ -38,3 +38,5 @@ Side-view and animal packs (walk or flight strips, one row facing right, mirrore
   free-top-down-hunt-animals-pixel-sprite-pack (deer, black grouse; 4-direction)
   golem-character-sprite-sheets-pixel-art, hellhound-character-sprite-sheets-pixel-art,
   dragon-pixel-art-character-sprite-sheets-pack, free-yokai-pixel-art-character-sprites
+  swamp-enemies (bat), ruin-enemy (raven, bug), animal-sprite-sheets (white bear, horse), desert-bosses (manticore),
+  ruin-bosses (wild boar), mine-bosses (elemental), mega-boss-for-pixel-platformer (Time Eater)
