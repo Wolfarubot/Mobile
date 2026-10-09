@@ -443,6 +443,12 @@ button {
   padding: 10px;
   margin-bottom: 10px;
 }
+/* Long lists (84 monster cards, every Hunter): cards off screen skip layout and painting until scrolled to. */
+.beast,
+.hunter-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 180px;
+}
 .beast[role='button'] {
   cursor: pointer;
 }
@@ -803,6 +809,11 @@ button {
   grid-template-columns: repeat(4, 1fr);
   gap: 6px;
   margin-bottom: 8px;
+}
+/* Marks the end of the tiles drawn so far; scrolling near it draws the next page. */
+.inv-more {
+  grid-column: 1 / -1;
+  height: 1px;
 }
 .inv-tile {
   position: relative;

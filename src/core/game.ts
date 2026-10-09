@@ -743,8 +743,16 @@ export class Game {
   }
 
   gearItem(uid: number): GearItem | undefined {
-    return this.state.inventory.find((g) => g.uid === uid);
+    // An index from uid to position, rebuilt whenever it no longer matches the inventory (late saves hold thousands).
+    const inv = this.state.inventory;
+    let at = this.gearIndex.get(uid);
+    if (at === undefined || inv[at]?.uid !== uid) {
+      this.gearIndex = new Map(inv.map((g, i) => [g.uid, i]));
+      at = this.gearIndex.get(uid);
+    }
+    return at === undefined ? undefined : inv[at];
   }
+  private gearIndex = new Map<number, number>();
 
   /** The gear in each of a Hunter's slots (null = empty). */
   equipped(who: Wearer): Array<GearItem | null> {

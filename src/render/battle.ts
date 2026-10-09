@@ -1160,9 +1160,25 @@ export function roundRect(g: CanvasRenderingContext2D, x: number, y: number, w: 
 }
 
 /** Draws an enemy's portrait (sprite if available, placeholder shape otherwise) into a small canvas. */
-export function drawEnemyPortrait(canvas: HTMLCanvasElement, id: EnemyId): void {
+const portraitQueue: Array<[HTMLCanvasElement, EnemyId]> = [];
+
+/**
+ * Draws a monster's portrait on the next frame. Portraits queued together (a whole Bestiary of them) are all
+ * measured first and then all drawn, so the page is laid out once rather than once per portrait.
+ */
+export function queuePortrait(canvas: HTMLCanvasElement, id: EnemyId): void {
+  portraitQueue.push([canvas, id]);
+  if (portraitQueue.length === 1)
+    requestAnimationFrame(() => {
+      const batch = portraitQueue.splice(0);
+      const sizes = batch.map(([c]) => [c.clientWidth, c.clientHeight] as [number, number]);
+      batch.forEach(([c, e], i) => drawEnemyPortrait(c, e, sizes[i]));
+    });
+}
+
+export function drawEnemyPortrait(canvas: HTMLCanvasElement, id: EnemyId, size?: [number, number]): void {
   const g = canvas.getContext('2d')!;
-  const { w, h } = fitCanvas(canvas, g);
+  const { w, h } = fitCanvas(canvas, g, undefined, size);
   g.clearRect(0, 0, w, h);
   const def = enemyDef(id);
   const r = Math.min(w, h) * 0.32;

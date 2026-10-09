@@ -88,7 +88,7 @@ import { fmt, fmtDps, fmtTime } from '../core/format';
 import { Game, type FarmRates, type TreeKind } from '../core/game';
 import type { OfflineResult } from '../core/offline';
 import { COOLDOWN_POSITIONS, deserialize, TAB_IDS, type GameState, type GearMod, type BuyAmount, type CooldownPos, type DpsCorner, type FxKey, type IndicatorStyle, type GearItem, type TabId, type Wearer } from '../core/state';
-import { drawEnemyPortrait } from '../render/battle';
+import { queuePortrait } from '../render/battle';
 import { gearIconUrl, spriteUrl } from '../render/sprites';
 import { MATERIAL_SPRITES } from '../core/materialSprites';
 import { GEAR_SPRITES } from '../core/gearSprites';
@@ -179,6 +179,17 @@ const gearIcon = (gd: GearDef): string => {
   return url ? `<img class="gi" src="${url}" alt="">` : gd.icon;
 };
 
+/**
+ * Sets an element's HTML only when it changed: refreshes run several times a second, and rewriting identical
+ * HTML still costs a restyle and an emoji-to-icon pass every time.
+ */
+const htmlCache = new WeakMap<Element, string>();
+function setHtml(e: Element, html: string): void {
+  if (htmlCache.get(e) === html) return;
+  htmlCache.set(e, html);
+  e.innerHTML = html;
+}
+
 /** A material's icon (its pixel art, or its coloured gem if it has none); size '' inline or 'big'. */
 const gemHtml = (m: MaterialId, size = ''): string => {
   const url = gearIconUrl(MATERIAL_SPRITES[m]);
@@ -188,6 +199,25 @@ const gemHtml = (m: MaterialId, size = ''): string => {
 /** DOM layer: top bar, area controls, tabbed panels and modals. Refreshes numbers on a timer. */
 export class AppUI {
   private refreshers: Array<() => void> = [];
+  /**
+   * Farming rates and DPS for display, computed at most once a second each: they change slowly, and late games
+   * show many of them (every Hunter card), so recomputing them on every refresh made the menus stutter.
+   */
+  private shownCache = new Map<string, { t: number; v: unknown }>();
+  private cached<T>(key: string, f: () => T): T {
+    const now = performance.now();
+    const hit = this.shownCache.get(key);
+    if (hit && now - hit.t < 1000) return hit.v as T;
+    const v = f();
+    this.shownCache.set(key, { t: now, v });
+    return v;
+  }
+  private rates(area: AreaId, hunters: HunterId[], eff: number): FarmRates {
+    return this.cached(`r:${area}:${hunters.join(',')}:${eff}`, () => this.game.farmRates(area, hunters, eff));
+  }
+  private dpsOf(who: Wearer): number {
+    return this.cached(`d:${who}`, () => this.game.dpsOf(who));
+  }
   private panel = $('#panel');
   private modal = $('#modal');
   private modalClose: (() => void) | null = null;
@@ -235,6 +265,8 @@ export class AppUI {
       }),
     );
     $('#settingsBtn').addEventListener('click', () => this.openSettings());
+    // Any tap may change what the cached rates and DPS show (training, stationing, equipping): recompute them.
+    document.addEventListener('pointerdown', () => this.shownCache.clear(), true);
     this.menuGestures();
     this.applySettings();
     // Panels that depend on which areas/enemies/Hunters exist are rebuilt when those change.
@@ -362,14 +394,13 @@ export class AppUI {
       const p = g.trainPurchase(who);
       const { level, into, need } = g.levelInfo(who);
       if (!g.trainUnlocked) {
-        btn.innerHTML = `🔒 Train<small>Slay ${fmt(Math.min(g.slimeKills, TRAIN_UNLOCK_KILLS))} / ${TRAIN_UNLOCK_KILLS} slimes</small>`;
+        setHtml(btn, `🔒 Train<small>Slay ${fmt(Math.min(g.slimeKills, TRAIN_UNLOCK_KILLS))} / ${TRAIN_UNLOCK_KILLS} slimes</small>`);
         btn.disabled = true;
         $('i', bar).style.width = '0%';
         $('span', bar).textContent = compact ? '' : `Lv ${level}`;
         return;
       }
-      if (p.count === 0) btn.innerHTML = g.ascended(who) ? 'Max level' : `Lv ${level} cap<small>Ascend in Skills</small>`;
-      else btn.innerHTML = `Train${p.count > 1 ? ` ×${p.count}` : ''}<small>🪙 ${fmt(p.cost)}</small>`;
+      setHtml(btn, p.count === 0 ? (g.ascended(who) ? 'Max level' : `Lv ${level} cap<small>Ascend in Skills</small>`) : `Train${p.count > 1 ? ` ×${p.count}` : ''}<small>🪙 ${fmt(p.cost)}</small>`);
       btn.disabled = p.count === 0 || g.state.gold < p.cost;
       $('i', bar).style.width = `${(into / need) * 100}%`;
       // The card's bar is just the bar; the numbers are in the full view.
@@ -447,8 +478,8 @@ export class AppUI {
         $('.hc-ability', card).textContent = open ? def.ability : def.story;
         status.textContent = open ? 'Available to recruit' : '';
         status.classList.toggle('hidden', !open);
-        mid.innerHTML = open ? 'Recruit to start training' : `🔒 ${unlockText(g, def)}`;
-        recruitBtn.innerHTML = open ? `Recruit<small>🪙 ${fmt(def.recruitCost)}</small>` : '🔒<small>Locked</small>';
+        setHtml(mid, open ? 'Recruit to start training' : `🔒 ${unlockText(g, def)}`);
+        setHtml(recruitBtn, open ? `Recruit<small>🪙 ${fmt(def.recruitCost)}</small>` : '🔒<small>Locked</small>');
         recruitBtn.disabled = !g.canRecruit(def.id);
       });
       return card;
@@ -463,8 +494,8 @@ export class AppUI {
       dot.textContent = String(points);
       dot.classList.toggle('hidden', points <= 0);
       const station = def ? g.state.hunters[def.id].station : g.area;
-      const down = def && station && station !== g.area ? (g.farmRates(station, g.stationedIn(station), STATION_EFFICIENCY).stunned[def.id] ?? 0) : 0;
-      status.innerHTML = `${station ? `📍 ${areaDef(station).name}` : '💤 Resting'} · ⚔️ ${fmt(g.dpsOf(who))} DPS${down >= 0.05 ? ' · <b class="warn">💫 overwhelmed</b>' : ''}`;
+      const down = def && station && station !== g.area ? (this.rates(station, g.stationedIn(station), STATION_EFFICIENCY).stunned[def.id] ?? 0) : 0;
+      setHtml(status, `${station ? `📍 ${areaDef(station).name}` : '💤 Resting'} · ⚔️ ${fmt(this.dpsOf(who))} DPS${down >= 0.05 ? ' · <b class="warn">💫 overwhelmed</b>' : ''}`);
       const items = g.equipped(who);
       const k = items.map((it) => (it ? `${it.uid}:${it.stars}` : '-')).join('|');
       if (k !== gearKey) {
@@ -606,7 +637,7 @@ export class AppUI {
       ].join('');
       // Only redrawn when it changes, so a tap on the location button isn't lost mid-press.
       if (html !== subHtml) subLine.innerHTML = subHtml = html;
-      headline.innerHTML = `<div><b>${fmt(g.dpsOf(who))}</b>DPS</div>${recruited ? `<div><b>${fmt(g.killsBy(who))}</b>Enemies slain</div>` : ''}`;
+      headline.innerHTML = `<div><b>${fmt(this.dpsOf(who))}</b>DPS</div>${recruited ? `<div><b>${fmt(g.killsBy(who))}</b>Enemies slain</div>` : ''}`;
       const cells: Array<[string, string]> = [
         ['Damage', fmt(g.shotDamage(who))],
         ['Attack rate', `${g.shooterRate(who).toFixed(2)}/s${who === 'main' && g.projectiles > 1 ? ` ×${g.projectiles}` : ''}`],
@@ -891,7 +922,7 @@ export class AppUI {
       else if (st.station === g.area) yieldEl.textContent = `Fighting beside you in ${areaDef(st.station).name}.`;
       else {
         const group = g.stationedIn(st.station);
-        yieldEl.innerHTML = yieldHtml(g.farmRates(st.station, group, STATION_EFFICIENCY), `${areaDef(st.station).name}${group.length > 1 ? ` (with ${group.length - 1} other${group.length > 2 ? 's' : ''})` : ''}`);
+        yieldEl.innerHTML = yieldHtml(this.rates(st.station, group, STATION_EFFICIENCY), `${areaDef(st.station).name}${group.length > 1 ? ` (with ${group.length - 1} other${group.length > 2 ? 's' : ''})` : ''}`);
       }
     });
     return wrap;
@@ -1296,7 +1327,7 @@ export class AppUI {
       const m = el('div', `monster-icon${known ? '' : ' unknown'}`);
       m.innerHTML = `<canvas></canvas><small>${known ? e.name : '???'}</small>`;
       icons.appendChild(m);
-      requestAnimationFrame(() => drawEnemyPortrait($<HTMLCanvasElement>('canvas', m), e.id));
+      queuePortrait($<HTMLCanvasElement>('canvas', m), e.id);
     }
     $('.details', bar).addEventListener('click', () => this.openAreaDetail(a.id));
     const travel = $<HTMLButtonElement>('.travel', bar);
@@ -1384,7 +1415,7 @@ export class AppUI {
       const row = el('div', `row${known ? '' : ' locked'}`);
       row.innerHTML = `<canvas class="portrait"></canvas><div class="info"><div class="name">${known ? e.name : '???'} <small>${ARCHETYPES[e.archetype].icon} ${ARCHETYPES[e.archetype].name}</small></div><div class="drop">${known ? dropsText(e) : `${gemHtml(e.material)} Drops <b>???</b>`}</div><div class="sub">${known ? e.blurb : 'Unlock it in the Bestiary.'}</div>${known ? affinityHtml(e, true) : ''}</div>`;
       monsters.appendChild(row);
-      requestAnimationFrame(() => drawEnemyPortrait($<HTMLCanvasElement>('canvas', row), e.id));
+      queuePortrait($<HTMLCanvasElement>('canvas', row), e.id);
     }
 
     this.refreshers.push(() => {
@@ -1440,7 +1471,7 @@ export class AppUI {
           row.appendChild(slot);
         }
       }
-      yieldEl.innerHTML = here.length && g.area !== id ? yieldHtml(g.farmRates(id, here, STATION_EFFICIENCY), 'Together they earn') : '';
+      yieldEl.innerHTML = here.length && g.area !== id ? yieldHtml(this.rates(id, here, STATION_EFFICIENCY), 'Together they earn') : '';
     });
     return wrap;
   }
@@ -1923,10 +1954,31 @@ export class AppUI {
     if (g.empowerUnlocked) this.panel.appendChild(this.amountsBar('sticky-amounts', 'Empower'));
     // Current area first, then the rest in order.
     const order = [g.area, ...g.unlockedAreas.filter((a) => a !== g.area)];
-    for (const areaId of order) {
+    // The current area's monsters now; each other area's when you scroll near it (a late game lists 80+ cards).
+    const lazy = new IntersectionObserver(
+      (es) =>
+        es.forEach((e) => {
+          if (!e.isIntersecting) return;
+          lazy.unobserve(e.target);
+          const box = e.target as HTMLElement;
+          box.classList.remove('beast-pending');
+          for (const def of areaEnemies(box.dataset.area as AreaId)) this.buildBeast(def, box);
+          this.refresh();
+        }),
+      { root: this.panel, rootMargin: '800px 0px' },
+    );
+    order.forEach((areaId, i) => {
       this.panel.appendChild(sectionTitle(`${areaDef(areaId).name}${areaId === g.area ? ' · here' : ''}`));
-      for (const def of areaEnemies(areaId)) this.buildBeast(def);
-    }
+      const box = el('div', 'beast-area');
+      this.panel.appendChild(box);
+      if (i === 0) for (const def of areaEnemies(areaId)) this.buildBeast(def, box);
+      else {
+        box.dataset.area = areaId;
+        box.classList.add('beast-pending');
+        box.style.minHeight = `${areaEnemies(areaId).length * 150}px`;
+        lazy.observe(box);
+      }
+    });
     const next = nextAreaOf(g.unlockedAreas[g.unlockedAreas.length - 1]);
     if (next) {
       const teaser = el('div', 'card');
@@ -1935,7 +1987,7 @@ export class AppUI {
     }
   }
 
-  private buildBeast(def: EnemyDef): void {
+  private buildBeast(def: EnemyDef, parent: HTMLElement): void {
     const g = this.game;
     const card = el('div', 'beast');
     card.innerHTML = `
@@ -1945,8 +1997,8 @@ export class AppUI {
       </div>
       ${affinityHtml(def, true)}
       <div class="beast-actions"></div>`;
-    this.panel.appendChild(card);
-    requestAnimationFrame(() => drawEnemyPortrait($<HTMLCanvasElement>('canvas', card), def.id));
+    parent.appendChild(card);
+    queuePortrait($<HTMLCanvasElement>('canvas', card), def.id);
 
     const actions = $('.beast-actions', card);
     const unlockBtn = el('button', 'buy') as HTMLButtonElement;
@@ -1974,10 +2026,10 @@ export class AppUI {
     this.refreshers.push(() => {
       const b = g.state.bestiary[def.id];
       card.classList.toggle('locked', !b.unlocked);
-      $('.name', card).innerHTML = `${def.name}<span class="archetype">${arch.icon} ${arch.name}</span>${b.unlocked ? '' : ' <small style="color:var(--muted)">locked</small>'}`;
+      setHtml($('.name', card), `${def.name}<span class="archetype">${arch.icon} ${arch.name}</span>${b.unlocked ? '' : ' <small style="color:var(--muted)">locked</small>'}`);
       if (!b.unlocked) {
         const cost = enemyUnlockCost(def);
-        unlockBtn.innerHTML = `Unlock · drops ${enemyDrops(def).map((m) => `${gemHtml(m)} ${materialDef(m).name}`).join(' + ')}<small>🪙 ${fmt(cost)}</small>`;
+        setHtml(unlockBtn, `Unlock · drops ${enemyDrops(def).map((m) => `${gemHtml(m)} ${materialDef(m).name}`).join(' + ')}<small>🪙 ${fmt(cost)}</small>`);
         unlockBtn.disabled = g.state.gold < cost;
         return;
       }
@@ -2005,9 +2057,14 @@ export class AppUI {
       const p = g.empowerPurchase(id);
       const { level, into, need } = g.monsterLevelInfo(id);
       const maxed = level >= MAX_MONSTER_LEVEL;
-      if (maxed) btn.innerHTML = 'Max level<small>fully evolved</small>';
-      else if (g.empowerUnlocked) btn.innerHTML = `Empower${p.count > 1 ? ` ×${p.count}` : ''}<small>🪙 ${fmt(p.cost)}</small>`;
-      else btn.innerHTML = `🔒 Empower<small>${fmt(g.slimeKills)}/${EMPOWER_UNLOCK_KILLS} slimes</small>`;
+      setHtml(
+        btn,
+        maxed
+          ? 'Max level<small>fully evolved</small>'
+          : g.empowerUnlocked
+            ? `Empower${p.count > 1 ? ` ×${p.count}` : ''}<small>🪙 ${fmt(p.cost)}</small>`
+            : `🔒 Empower<small>${fmt(g.slimeKills)}/${EMPOWER_UNLOCK_KILLS} slimes</small>`,
+      );
       btn.disabled = maxed || !g.empowerUnlocked || g.state.gold < p.cost || !g.isUnlocked(id);
       $('i', bar).style.width = `${(into / need) * 100}%`;
       $('span', bar).textContent = compact ? '' : maxed ? `Lv ${level} · max level` : `Lv ${level} · ${into}/${need} to Lv ${level + 1}`;
@@ -2037,7 +2094,7 @@ export class AppUI {
       </div>
       <button class="hd-close hd-float-close" aria-label="Close">✕</button>`;
     document.body.appendChild(view);
-    requestAnimationFrame(() => drawEnemyPortrait($<HTMLCanvasElement>('canvas', view), id));
+    queuePortrait($<HTMLCanvasElement>('canvas', view), id);
     $('.hd-close', view).addEventListener('click', () => this.closeHunterDetail());
     this.detail = { el: view, refreshers: [] };
     const scroll = $('.hd-scroll', view);
@@ -2119,27 +2176,22 @@ export class AppUI {
     const bar = el('div', 'subtabs inv-subtabs');
     bar.innerHTML = `<button data-sub="equipment">🛡️ Equipment</button><button data-sub="crafting">🔨 Crafting <span class="badge dot hidden craft-dot"></span></button><button data-sub="materials">💎 Materials</button>`;
     this.panel.appendChild(bar);
-    const panes = {} as Record<InvSub, HTMLElement>;
-    for (const sub of INV_SUBS) {
-      panes[sub] = el('div', 'inv-pane');
-      this.panel.appendChild(panes[sub]);
-    }
-    const show = (sub: InvSub) => {
-      this.invSub = sub;
-      bar.querySelectorAll<HTMLElement>('button').forEach((b) => b.classList.toggle('on', b.dataset.sub === sub));
-      for (const k of INV_SUBS) panes[k].classList.toggle('hidden', k !== sub);
-    };
+    // Only the open sub-tab is built (late games hold thousands of pieces and hundreds of recipes); switching
+    // rebuilds the tab with the other one.
+    const pane = el('div', 'inv-pane');
+    this.panel.appendChild(pane);
+    bar.querySelectorAll<HTMLElement>('button').forEach((b) => b.classList.toggle('on', b.dataset.sub === this.invSub));
     bar.querySelectorAll<HTMLButtonElement>('button').forEach((b) =>
       b.addEventListener('click', () => {
-        show(b.dataset.sub as InvSub);
+        if (b.dataset.sub === this.invSub) return;
+        this.invSub = b.dataset.sub as InvSub;
         if (this.invSub !== 'crafting') this.closeFieldCard();
-        this.panel.scrollTop = 0;
+        this.setTab('inventory');
       }),
     );
-    this.buildMaterials(panes.materials);
-    this.buildGearList(panes.equipment);
-    this.buildCrafting(panes.crafting);
-    show(this.invSub);
+    if (this.invSub === 'materials') this.buildMaterials(pane);
+    else if (this.invSub === 'equipment') this.buildGearList(pane);
+    else this.buildCrafting(pane);
   }
 
   /** Every material, with how many you hold (hidden until you've met a monster that drops it); tap one for details. */
@@ -2192,7 +2244,7 @@ export class AppUI {
         b.innerHTML = `<canvas class="portrait"></canvas><span><b>${seen ? e.name : '???'}</b><small>${seen ? `${areaDef(e.area).name}${g.isUnlocked(e.id) ? '' : ' · locked'}` : 'Somewhere further on'}</small></span>`;
         b.disabled = !seen;
         if (seen) {
-          requestAnimationFrame(() => drawEnemyPortrait($<HTMLCanvasElement>('canvas', b), e.id));
+          queuePortrait($<HTMLCanvasElement>('canvas', b), e.id);
           b.addEventListener('click', () => {
             close();
             this.openMonsterDetail(e.id);
@@ -2229,6 +2281,7 @@ export class AppUI {
     const inv = el('div', 'inventory');
     pane.appendChild(inv);
     let invKey: string | null = null;
+    let invPager: IntersectionObserver | null = null;
     this.refreshers.push(() => {
       const f = this.invFilter;
       const lv = LEVEL_FILTERS.find((l) => l.id === f.level)!;
@@ -2297,22 +2350,57 @@ export class AppUI {
         inv.innerHTML = refining
           ? '<p class="empty-inv">Nothing to modify yet: Very Rare and rarer gear has modifier slots.</p>'
           : '<p class="empty-inv">Nothing matches these filters.</p>';
-      for (const it of gear) {
-        const gd = gearDef(it.base);
-        const worn = g.wearerOf(it.uid);
-        const tile = el('button', 'inv-tile rar') as HTMLButtonElement;
-        tile.style.setProperty('--rc', gearColor(gd.id));
-        const slots = g.modSlots(it.uid);
-        tile.innerHTML = `<i>${gearIcon(gd)}</i><span>${gd.name}</span><small class="stars">${starsHtml(it.stars)}</small>${worn ? `<em>${wearerIcon(worn.who)}</em>` : ''}${slots.length ? `<b class="mod-pips">${slots.map((m) => (m ? (modPerfect(m) ? '★' : '◆') : '◇')).join('')}</b>` : ''}`;
-        tile.addEventListener('click', () => (refining ? this.openModify(it.uid) : this.openGearDetail(it.uid)));
-        inv.appendChild(tile);
-      }
-      for (const it of upgrades) {
-        const tile = el('button', 'inv-tile upgrade rar') as HTMLButtonElement;
-        tile.style.setProperty('--rc', RARITIES[it.rarity].color);
-        tile.innerHTML = `<i>${it.icon}</i><span>${it.name}</span><small class="stars">${starsHtml(g.state.items[it.id])}</small><em>⛺</em>`;
-        tile.addEventListener('click', () => this.openUpgradeDetail(it));
-        inv.appendChild(tile);
+      const makers: Array<() => HTMLElement> = [
+        ...gear.map((it) => () => {
+          const gd = gearDef(it.base);
+          const worn = g.wearerOf(it.uid);
+          const tile = el('button', 'inv-tile rar') as HTMLButtonElement;
+          tile.style.setProperty('--rc', gearColor(gd.id));
+          const slots = g.modSlots(it.uid);
+          tile.innerHTML = `<i>${gearIcon(gd)}</i><span>${gd.name}</span><small class="stars">${starsHtml(it.stars)}</small>${worn ? `<em>${wearerIcon(worn.who)}</em>` : ''}${slots.length ? `<b class="mod-pips">${slots.map((m) => (m ? (modPerfect(m) ? '★' : '◆') : '◇')).join('')}</b>` : ''}`;
+          tile.addEventListener('click', () => (refining ? this.openModify(it.uid) : this.openGearDetail(it.uid)));
+          return tile;
+        }),
+        ...upgrades.map((it) => () => {
+          const tile = el('button', 'inv-tile upgrade rar') as HTMLButtonElement;
+          tile.style.setProperty('--rc', RARITIES[it.rarity].color);
+          tile.innerHTML = `<i>${it.icon}</i><span>${it.name}</span><small class="stars">${starsHtml(g.state.items[it.id])}</small><em>⛺</em>`;
+          tile.addEventListener('click', () => this.openUpgradeDetail(it));
+          return tile;
+        }),
+      ];
+      // Late games hold thousands of pieces: draw a page of tiles now and the next page as you scroll near the
+      // end, so opening the tab never builds them all at once.
+      invPager?.disconnect();
+      let next = 0;
+      const sentinel = el('div', 'inv-more');
+      const page = () => {
+        const frag = document.createDocumentFragment();
+        for (const end = Math.min(makers.length, next + INV_PAGE); next < end; next++) frag.appendChild(makers[next]());
+        inv.insertBefore(frag, sentinel);
+        if (next >= makers.length) {
+          invPager?.disconnect();
+          sentinel.remove();
+        }
+      };
+      inv.appendChild(sentinel);
+      page();
+      if (next < makers.length) {
+        const pager = new IntersectionObserver(
+          (es) => {
+            if (!es.some((e) => e.isIntersecting)) return;
+            page();
+            // Still in range after a page (a short page, or scrolled right to the end)? Observing it afresh
+            // reports it again, so the next page follows.
+            if (next < makers.length) {
+              pager.unobserve(sentinel);
+              pager.observe(sentinel);
+            }
+          },
+          { root: this.panel, rootMargin: '600px 0px' },
+        );
+        invPager = pager;
+        pager.observe(sentinel);
       }
     });
   }
@@ -3394,6 +3482,9 @@ export class AppUI {
   }
 }
 
+/** Equipment tiles drawn at a time (more follow as you scroll). */
+const INV_PAGE = 48;
+
 /** "≈ 🪙 1.2K/min · <gem>3 /min" for a stationed Hunter. */
 function yieldHtml(r: FarmRates, where: string): string {
   const mats = (Object.entries(r.materials) as [MaterialId, number][])
@@ -3582,15 +3673,20 @@ function damageTypeChip(t: DamageType): string {
 }
 
 /** Shows a compact affinity row with names if it fits on one line, else icons only. */
-function fitAffinities(row: HTMLElement): void {
-  row.classList.remove('icons');
-  if (row.clientWidth > 0 && row.scrollWidth > row.clientWidth + 1) row.classList.add('icons');
+function fitAffinities(rows: HTMLElement[]): void {
+  // All the writes, then all the reads, then the writes again: one layout for the lot, not one per row.
+  for (const row of rows) row.classList.remove('icons');
+  const over = rows.map((row) => row.clientWidth > 0 && row.scrollWidth > row.clientWidth + 1);
+  rows.forEach((row, i) => over[i] && row.classList.add('icons'));
 }
 
-/** Keeps every compact affinity row fitted: when it appears, when its width changes, and when the font changes. */
-const affinityResize = typeof ResizeObserver !== 'undefined' ? new ResizeObserver((entries) => entries.forEach((e) => fitAffinities(e.target as HTMLElement))) : null;
+/**
+ * Keeps every compact affinity row fitted: when it appears and whenever its width changes (the observer reports
+ * new rows once laid out, all in one batch), and when the font changes.
+ */
+const affinityResize = typeof ResizeObserver !== 'undefined' ? new ResizeObserver((entries) => fitAffinities(entries.map((e) => e.target as HTMLElement))) : null;
 function refitAffinities(): void {
-  document.querySelectorAll<HTMLElement>('.affinities.compact').forEach(fitAffinities);
+  fitAffinities(Array.from(document.querySelectorAll<HTMLElement>('.affinities.compact')));
 }
 if (typeof MutationObserver !== 'undefined' && typeof document !== 'undefined')
   new MutationObserver((muts) => {
@@ -3598,10 +3694,8 @@ if (typeof MutationObserver !== 'undefined' && typeof document !== 'undefined')
       m.addedNodes.forEach((n) => {
         if (!(n instanceof HTMLElement)) return;
         const rows = n.matches('.affinities.compact') ? [n] : Array.from(n.querySelectorAll<HTMLElement>('.affinities.compact'));
-        for (const row of rows) {
-          affinityResize?.observe(row);
-          fitAffinities(row);
-        }
+        if (affinityResize) rows.forEach((row) => affinityResize.observe(row));
+        else fitAffinities(rows);
       });
   }).observe(document.body, { childList: true, subtree: true });
 

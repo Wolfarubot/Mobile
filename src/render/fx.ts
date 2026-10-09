@@ -151,10 +151,11 @@ export function canvasFont(px: number, weight = 400): string {
 }
 
 /** Sizes a canvas to its CSS box at `scale` canvas pixels per CSS pixel (defaults to the device pixel ratio). */
-export function fitCanvas(canvas: HTMLCanvasElement, g: CanvasRenderingContext2D, scale?: number): { w: number; h: number } {
+export function fitCanvas(canvas: HTMLCanvasElement, g: CanvasRenderingContext2D, scale?: number, size?: [number, number]): { w: number; h: number } {
   const dpr = scale ?? Math.min(window.devicePixelRatio || 1, 2.5);
-  const w = canvas.clientWidth;
-  const h = canvas.clientHeight;
+  // The CSS size, measured here unless the caller already measured it (measuring after resizing another canvas
+  // forces a fresh layout each time).
+  const [w, h] = size ?? [canvas.clientWidth, canvas.clientHeight];
   if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
     canvas.width = Math.round(w * dpr);
     canvas.height = Math.round(h * dpr);
