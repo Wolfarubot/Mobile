@@ -62,7 +62,7 @@ export const EMOJI_ICONS: Record<string, string> = {
   "🍖": 'resources1/055',
   "🎁": 'things/010',
   "🎇": 'status5/062',
-  "🎉": 'ab-priest-bard/043',
+  "🎉": 'armor7/068',
   "🎎": 'ab-rogue-warlock/085',
   "🎒": 'things/024',
   "🎤": 'ab-priest-bard/060',
