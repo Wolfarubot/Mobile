@@ -168,6 +168,8 @@ button {
 .panel {
   flex: 1 1 54%;
   overflow-y: auto;
+  /* Menus only ever scroll up and down. */
+  overflow-x: hidden;
   padding: 10px 10px calc(10px + var(--safe-bottom));
   -webkit-overflow-scrolling: touch;
 }
@@ -2333,7 +2335,8 @@ canvas {
 }
 .monster-icons {
   display: flex;
-  gap: 10px;
+  flex-wrap: wrap;
+  gap: 8px 6px;
   margin: 6px 0 10px;
 }
 .monster-icon {
@@ -2341,7 +2344,7 @@ canvas {
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  width: 64px;
+  width: 60px;
 }
 .monster-icon canvas {
   width: 48px;

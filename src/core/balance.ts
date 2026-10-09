@@ -850,6 +850,10 @@ export type EnemyId =
   | 'starEater';
 export type EnemyShape = 'circle' | 'square' | 'triangle' | 'diamond' | 'ghost' | 'hexagon';
 
+/** How big a monster is drawn, as a size class (set per monster; the Skill Trees editor shows it on its evolution tree). */
+export type MonsterSize = 'tiny' | 'small' | 'medium' | 'large' | 'huge' | 'colossal';
+export const SIZE_SCALE: Record<MonsterSize, number> = { tiny: 0.7, small: 0.85, medium: 1, large: 1.25, huge: 1.6, colossal: 2 };
+
 export interface EnemyDef {
   id: EnemyId;
   name: string;
@@ -881,6 +885,8 @@ export interface EnemyDef {
   /** Placeholder look until real art is added (see src/assets/sprites/README.md). */
   color: string;
   shape: EnemyShape;
+  /** Size class: scales its art on the battlefield (not its hit size, which is `radius`). Medium if unset. */
+  size?: MonsterSize;
   blurb: string;
   /** Damage types that hit it harder (×WEAK_MULT) or softer (×RESIST_MULT). */
   weak: DamageType[];
@@ -962,7 +968,7 @@ export const ENEMIES: EnemyDef[] = [
   { id: 'kobold', name: 'Kobold', area: 'mines', archetype: 'humanoid', hp: 1, speed: 1.2, gold: 1.4, spawn: 1.4, pack: [3, 5], radius: 9, material: 'ore', unlock: 0, color: '#c07a3a', shape: 'square', blurb: 'Digs tunnels, sets traps, yips a lot.', weak: ['frost', 'physical'], resist: ['fire'] },
   { id: 'basilisk', name: 'Basilisk', area: 'mines', archetype: 'beast', hp: 3, speed: 1, gold: 3.8, spawn: 0.3, pack: [1, 2], radius: 13, material: 'scale', unlock: 120, color: '#5aa05a', shape: 'triangle', blurb: 'Whatever you do, don\'t meet its eyes.', weak: ['radiant', 'frost'], resist: ['poison', 'acid'] },
   { id: 'lavaGolem', name: 'Lava Golem', area: 'mines', archetype: 'elemental', hp: 5, speed: 0.5, gold: 5.5, spawn: 0.2, pack: [1, 1], radius: 16, material: 'magma', unlock: 900, color: '#d8401a', shape: 'diamond', blurb: 'Molten rock with a bad temper.', weak: ['frost'], resist: ['fire', 'physical', 'poison'] },
-  { id: 'fireDrake', name: 'Fire Drake', area: 'mines', archetype: 'dragon', hp: 3.5, speed: 1.2, gold: 4.2, spawn: 0.25, pack: [1, 2], radius: 14, material: 'scale', unlock: 4_000, color: '#ff5a2a', shape: 'hexagon', blurb: 'A young dragon, already cranky.', weak: ['frost', 'void'], resist: ['fire', 'physical'] },
+  { id: 'fireDrake', name: 'Fire Drake', area: 'mines', archetype: 'dragon', hp: 3.5, speed: 1.2, gold: 4.2, spawn: 0.25, pack: [1, 2], radius: 14, material: 'scale', unlock: 4_000, color: '#ff5a2a', shape: 'hexagon', size: 'huge', blurb: 'A young dragon, already cranky.', weak: ['frost', 'void'], resist: ['fire', 'physical'] },
   { id: 'caveTroll', name: 'Cave Troll', area: 'mines', archetype: 'humanoid', hp: 6, speed: 0.6, gold: 6.5, spawn: 0.15, pack: [1, 1], radius: 17, material: 'ore', unlock: 15_000, color: '#7a6a5a', shape: 'square', blurb: 'Shrugs off blades. Hates fire.', weak: ['fire', 'acid'], resist: ['physical', 'frost'] },
   { id: 'venomGolem', name: 'Venomite Golem', area: 'mines', archetype: 'construct', hp: 6, speed: 0.45, gold: 7, spawn: 0.15, pack: [1, 1], radius: 18, material: 'cobaltOre', drops: [{ material: 'venomite', share: 0.3 }, { material: 'ore', share: 0.1 }], unlock: 40_000, color: '#4a7a3a', shape: 'square', blurb: 'Stone and ore, soaked through with venom.', weak: ['acid', 'radiant'], resist: ['physical', 'poison'] },
 
@@ -981,7 +987,7 @@ export const ENEMIES: EnemyDef[] = [
   { id: 'harpy', name: 'Harpy', area: 'cliffs', archetype: 'beast', hp: 1, speed: 1.8, gold: 1.8, spawn: 1.4, pack: [2, 4], radius: 10, material: 'plume', unlock: 0, color: '#a08ac0', shape: 'triangle', blurb: 'Screeches down from the heights.', weak: ['physical', 'acid'], resist: ['frost'] },
   { id: 'snowOwl', name: 'Snow Owl', area: 'cliffs', archetype: 'beast', hp: 1, speed: 1.9, gold: 1.6, spawn: 0.6, pack: [2, 4], radius: 9, material: 'plume', unlock: 120, color: '#e8e8f0', shape: 'triangle', blurb: 'Silent wings, sharp talons.', weak: ['fire', 'acid'], resist: ['frost'] },
   { id: 'griffin', name: 'Griffin', area: 'cliffs', archetype: 'beast', hp: 3, speed: 1.6, gold: 3.8, spawn: 0.3, pack: [1, 2], radius: 14, material: 'plume', unlock: 900, color: '#d8b060', shape: 'triangle', blurb: 'Half eagle, half lion, all trouble.', weak: ['acid', 'void'], resist: ['frost'] },
-  { id: 'iceWyvern', name: 'Ice Wyvern', area: 'cliffs', archetype: 'dragon', hp: 5, speed: 1.2, gold: 6, spawn: 0.18, pack: [1, 1], radius: 16, material: 'skystone', unlock: 4_000, color: '#6ac8f0', shape: 'hexagon', blurb: 'Breathes blizzards.', weak: ['fire', 'radiant'], resist: ['frost', 'poison'] },
+  { id: 'iceWyvern', name: 'Ice Wyvern', area: 'cliffs', archetype: 'dragon', hp: 5, speed: 1.2, gold: 6, spawn: 0.18, pack: [1, 1], radius: 16, material: 'skystone', unlock: 4_000, color: '#6ac8f0', shape: 'hexagon', size: 'huge', blurb: 'Breathes blizzards.', weak: ['fire', 'radiant'], resist: ['frost', 'poison'] },
   { id: 'frostGiant', name: 'Frost Giant', area: 'cliffs', archetype: 'humanoid', hp: 7, speed: 0.5, gold: 8, spawn: 0.12, pack: [1, 1], radius: 18, material: 'skystone', unlock: 15_000, color: '#8ab8e8', shape: 'square', blurb: 'Throws boulders like snowballs.', weak: ['fire', 'radiant'], resist: ['frost', 'physical'] },
   { id: 'skyGolem', name: 'Sky Golem', area: 'cliffs', archetype: 'construct', hp: 6, speed: 0.45, gold: 7, spawn: 0.15, pack: [1, 1], radius: 18, material: 'skysteel', drops: [{ material: 'adamantite', share: 0.25 }], unlock: 40_000, color: '#b8c4e8', shape: 'square', blurb: 'Carved to guard the stairs to the sky, and still guarding.', weak: ['acid', 'lightning'], resist: ['physical', 'frost'] },
 
@@ -999,7 +1005,7 @@ export const ENEMIES: EnemyDef[] = [
   { id: 'cometWisp', name: 'Comet Wisp', area: 'meteors', archetype: 'elemental', hp: 0.8, speed: 2, gold: 1.6, spawn: 0.7, pack: [3, 5], radius: 9, material: 'stardust', unlock: 120, color: '#9ad8ff', shape: 'ghost', blurb: 'A streak of ice and light with a long, bright tail.', weak: ['fire', 'void'], resist: ['frost', 'physical'] },
   { id: 'rockMite', name: 'Rock Mite', area: 'meteors', archetype: 'beast', hp: 2.2, speed: 1.2, gold: 2.6, spawn: 0.45, pack: [2, 4], radius: 11, material: 'meteor', unlock: 900, color: '#8a7a6a', shape: 'triangle', blurb: 'Burrows into asteroids and eats its way out.', weak: ['acid', 'radiant'], resist: ['physical', 'fire'] },
   { id: 'astralSentinel', name: 'Astral Sentinel', area: 'meteors', archetype: 'humanoid', hp: 4, speed: 0.8, gold: 4.8, spawn: 0.25, pack: [1, 2], radius: 14, material: 'stardust', unlock: 4_000, color: '#b8a8ff', shape: 'diamond', blurb: 'An ancient watcher, carved from starlight.', weak: ['void', 'decay'], resist: ['arcane', 'radiant'] },
-  { id: 'starEater', name: 'Star Eater', area: 'meteors', archetype: 'dragon', hp: 8, speed: 0.9, gold: 9.5, spawn: 0.1, pack: [1, 1], radius: 19, material: 'stardust', unlock: 15_000, color: '#5a3a9a', shape: 'hexagon', blurb: 'Swallows falling stars whole. The way down to the Rift lies past it.', weak: ['radiant', 'frost'], resist: ['fire', 'physical', 'arcane'] },
+  { id: 'starEater', name: 'Star Eater', area: 'meteors', archetype: 'dragon', hp: 8, speed: 0.9, gold: 9.5, spawn: 0.1, pack: [1, 1], radius: 19, material: 'stardust', unlock: 15_000, color: '#5a3a9a', shape: 'hexagon', size: 'huge', blurb: 'Swallows falling stars whole. The way down to the Rift lies past it.', weak: ['radiant', 'frost'], resist: ['fire', 'physical', 'arcane'] },
   { id: 'meteorGolem', name: 'Meteor Golem', area: 'meteors', archetype: 'construct', hp: 6, speed: 0.45, gold: 7, spawn: 0.15, pack: [1, 1], radius: 18, material: 'starIron', drops: [{ material: 'orichalcum', share: 0.25 }], unlock: 40_000, color: '#c08050', shape: 'square', blurb: 'A fallen star that picked itself up.', weak: ['frost', 'acid'], resist: ['physical', 'fire'] },
 
   // Void Rift
@@ -1011,8 +1017,8 @@ export const ENEMIES: EnemyDef[] = [
   { id: 'darkKnight', name: 'Dark Knight', area: 'rift', archetype: 'humanoid', hp: 4, speed: 0.9, gold: 4.6, spawn: 0.25, pack: [1, 2], radius: 13, material: 'soul', unlock: 40_000, color: '#3a2a4a', shape: 'square', blurb: 'Traded his soul for better armor.', weak: ['radiant', 'arcane'], resist: ['physical', 'decay'] },
   { id: 'succubus', name: 'Succubus', area: 'rift', archetype: 'demon', hp: 2, speed: 1.5, gold: 2.8, spawn: 0.4, pack: [1, 3], radius: 11, material: 'soul', unlock: 100_000, color: '#ff6ab0', shape: 'diamond', blurb: 'Charming. Deadly. Mostly deadly.', weak: ['radiant', 'frost'], resist: ['fire', 'arcane'] },
   { id: 'chimera', name: 'Chimera', area: 'rift', archetype: 'beast', hp: 5, speed: 1.2, gold: 6, spawn: 0.18, pack: [1, 1], radius: 16, material: 'void', unlock: 250_000, color: '#c08a4a', shape: 'hexagon', blurb: 'Three heads, zero manners.', weak: ['frost', 'acid'], resist: ['fire', 'poison'] },
-  { id: 'voidWyrm', name: 'Void Wyrm', area: 'rift', archetype: 'dragon', hp: 8, speed: 0.9, gold: 9.5, spawn: 0.1, pack: [1, 1], radius: 18, material: 'void', unlock: 600_000, color: '#8a3ae0', shape: 'hexagon', blurb: 'Swims through the dark between stars.', weak: ['radiant'], resist: ['void', 'physical', 'frost'] },
-  { id: 'behemoth', name: 'Behemoth', area: 'rift', archetype: 'beast', hp: 10, speed: 0.6, gold: 12, spawn: 0.08, pack: [1, 1], radius: 20, material: 'soul', unlock: 1_500_000, color: '#6a4a8a', shape: 'hexagon', blurb: 'The ground shakes when it walks.', weak: ['arcane', 'acid'], resist: ['physical', 'fire'] },
+  { id: 'voidWyrm', name: 'Void Wyrm', area: 'rift', archetype: 'dragon', hp: 8, speed: 0.9, gold: 9.5, spawn: 0.1, pack: [1, 1], radius: 18, material: 'void', unlock: 600_000, color: '#8a3ae0', shape: 'hexagon', size: 'huge', blurb: 'Swims through the dark between stars.', weak: ['radiant'], resist: ['void', 'physical', 'frost'] },
+  { id: 'behemoth', name: 'Behemoth', area: 'rift', archetype: 'beast', hp: 10, speed: 0.6, gold: 12, spawn: 0.08, pack: [1, 1], radius: 20, material: 'soul', unlock: 1_500_000, color: '#6a4a8a', shape: 'hexagon', size: 'large', blurb: 'The ground shakes when it walks.', weak: ['arcane', 'acid'], resist: ['physical', 'fire'] },
   { id: 'voidGolem', name: 'Void Golem', area: 'rift', archetype: 'construct', hp: 8, speed: 0.4, gold: 9, spawn: 0.12, pack: [1, 1], radius: 19, material: 'voidsteel', drops: [{ material: 'voidPrism', share: 0.3 }], unlock: 3_000_000, color: '#5a3a8a', shape: 'hexagon', blurb: 'Ore and gem from beyond the Rift, walking.', weak: ['radiant', 'acid'], resist: ['void', 'physical'] },
   // The Void Rift's Guardian: it only ever appears as the final Guardian.
   // Guardians: boss versions of each area's monsters, only ever met in its Guardian Challenge

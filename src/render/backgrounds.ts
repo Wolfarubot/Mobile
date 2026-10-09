@@ -21,6 +21,8 @@ interface Band {
   under?: boolean;
   /** Placed only on the islands' grass. */
   onIslands?: boolean;
+  /** May overlap other pieces (drifting clouds); everything else is placed only where there's room. */
+  overlap?: boolean;
 }
 interface Scene {
   base: string;
@@ -209,21 +211,19 @@ const SCENES: Partial<Record<AreaId, Scene>> = {
     islands: {
       file: 'island',
       steps: [
-        [0.95, 0.05, 0.16, 0.07],
-        [0.84, 0.14, 0.2, 0.08],
-        [0.7, 0.25, 0.24, 0.09],
-        [0.5, 0.5, 0.7, 0.36],
-        [0.26, 0.79, 0.26, 0.09],
-        [0.12, 0.92, 0.22, 0.08],
-        [0.02, 1.04, 0.2, 0.08],
+        [1.0, -0.04, 0.14, 0.06],
+        [0.9, 0.15, 0.18, 0.07],
+        [0.5, 0.48, 0.6, 0.32],
+        [0.12, 0.87, 0.2, 0.07],
+        [-0.05, 1.05, 0.18, 0.07],
       ],
     },
     bands: [
-      { pieces: [...p('Cloud_color1_1 Cloud_color1_2 Cloud_color1_3 Cloud_color1_4 Cloud_color2_1 Cloud_color2_2 Cloud_color2_3 Cloud_color2_4 Cloud_color3_1 Cloud_color3_2 Cloud_color3_3 Cloud_color3_4', 2), ...p(run('fr', 7, 62), 0.3), ...p('fr1 fr2 fr3 fr4 fr5 fr6')], density: 0.6, from: 0, under: true },
+      { pieces: [...p('Cloud_color1_1 Cloud_color1_2 Cloud_color1_3 Cloud_color1_4 Cloud_color2_1 Cloud_color2_2 Cloud_color2_3 Cloud_color2_4 Cloud_color3_1 Cloud_color3_2 Cloud_color3_3 Cloud_color3_4', 2), ...p(run('fr', 7, 62), 0.3), ...p('fr1 fr2 fr3 fr4 fr5 fr6')], density: 0.6, from: 0, under: true, overlap: true },
       { pieces: [...p(run('id', 1, 52), 1)], density: 22, from: 0, onIslands: true },
       { pieces: [...p('Bush1_1 Bush1_2 Bush1_3 Bush2_1 Bush2_2 Bush2_3 Plant1_2 Plant1_3 Plant2_1 Plant2_2 Plant2_3 Plant3_2 Plant3_3 Crystael3 Crystael4 Crystael7 Crystael8 Crystael9 Small_rock1 Small_rock2 Small_rock3 Rock3 Rock4 Ruins5')], density: 4, from: 0.35, onIslands: true },
       { pieces: [...p('Tree1_1 Tree1_2 Tree1_3 Tree2_1 Tree2_2 Tree2_3 Trees3_1 Trees3_2 Trees3_3 Trees3_4 Plant1_1 Plant3_1 Crystael1 Crystael2 Crystael5 Crystael6 Rock1 Rock2 Ruins1 Ruins2 Ruins3 Ruins4')], density: 1.2, from: 0.55, onIslands: true },
-      { pieces: [...p('Cloud_color2_2 Cloud_color2_3 Cloud_color3_1 Cloud_color3_2 Cloud_color3_3', 3), ...p('Dragon_small')], density: 0.06, from: 0.92 },
+      { pieces: [...p('Cloud_color2_2 Cloud_color2_3 Cloud_color3_1 Cloud_color3_2 Cloud_color3_3', 3), ...p('Dragon_small')], density: 0.06, from: 0.92, overlap: true },
     ],
   },
   // CraftPix's dungeon set in the sky: a paved marble court on a cloud bank, ghost-flame candles, praying
@@ -235,12 +235,12 @@ const SCENES: Partial<Record<AreaId, Scene>> = {
     specks: [],
     slabs: { size: 20, colors: ['#b9c0cf', '#b3bac9', '#bfc6d4', '#adb4c4', '#b6bdcc'], grout: '#7d8496', light: '#d0d6e1', inset: 0.07, side: '#6b7284' },
     bands: [
-      { pieces: [...p('Cloud_color1_1 Cloud_color1_2 Cloud_color1_3 Cloud_color2_1 Cloud_color2_2 Cloud_color3_1 Cloud_color3_2', 3), ...p('Dragon_big Dragon_small', 0.4)], density: 0.5, from: 0.9, under: true },
+      { pieces: [...p('Cloud_color1_1 Cloud_color1_2 Cloud_color1_3 Cloud_color2_1 Cloud_color2_2 Cloud_color3_1 Cloud_color3_2', 3), ...p('Dragon_big Dragon_small', 0.4)], density: 0.5, from: 0.9, under: true, overlap: true },
       { pieces: [...p('puff1 puff2 puff3 puff4 puff5 puff6 puff7 puff8 puff9 puff11 puff13', 2), ...p('candle3 candle6 candle9 medal1 medal2')], density: 1.2, from: 0.15 },
       { pieces: [...p('candle1 candle2 candle4 candle5 candle7 candle8', 2), ...p('statue1 statue2 statue3 statue4 statue5 statue6 chest7 chest8 chest9 tomb4 tomb10 tomb21', 1.5)], density: 0.5, from: 0.45 },
       { pieces: [...p('colA colB colC', 4), ...p('torch2 torch3 torch4 torch6 statue_fire tomb1 tomb2 tomb16 tomb20 tomb25', 1.5)], density: 0.4, from: 0.72 },
       { pieces: [...p('torch1 torch11 torch16 torch21 statue_fire')], density: 0.06, from: 0.86 },
-      { pieces: p('Cloud_color1_1 Cloud_color1_2 Cloud_color1_3 Cloud_color1_4 Cloud_color2_1 Cloud_color2_2 Cloud_color2_3 Cloud_color2_4 Cloud_color3_1 Cloud_color3_2 Cloud_color3_3 Cloud_color3_4'), density: 0.35, from: 0.93 },
+      { pieces: p('Cloud_color1_1 Cloud_color1_2 Cloud_color1_3 Cloud_color1_4 Cloud_color2_1 Cloud_color2_2 Cloud_color2_3 Cloud_color2_4 Cloud_color3_1 Cloud_color3_2 Cloud_color3_3 Cloud_color3_4'), density: 0.35, from: 0.93, overlap: true },
     ],
   },
   // CraftPix's space backgrounds, merged: a nebula band and starfield behind, shooting stars streaking across,
@@ -309,18 +309,29 @@ function rng(seed: number): () => number {
   };
 }
 
+type Rect = [number, number, number, number];
+/** Whether two rectangles [x, y, w, h] overlap, each shrunk by `inset` of its size (shadows and soft edges may touch). */
+function overlaps(a: Rect, b: Rect, inset = 0.12): boolean {
+  const ax = a[2] * inset, ay = a[3] * inset, bx = b[2] * inset, by = b[3] * inset;
+  return a[0] + ax < b[0] + b[2] - bx && b[0] + bx < a[0] + a[2] - ax && a[1] + ay < b[1] + b[3] - by && b[1] + by < a[1] + a[3] - ay;
+}
+
 /** How far out a point is: 0 at the centre, 1 at the nearest edge. */
 const outness = (x: number, y: number, w: number, h: number): number => Math.max(Math.abs(x - w / 2) / (w / 2), Math.abs(y - h / 2) / (h / 2));
 
 /** Pixel blobs (a few overlapping ellipses each), drawn as rim, fill and an inner shade, with details inside. */
-function drawPools(g: CanvasRenderingContext2D, pools: NonNullable<Scene['pools']>, area: AreaId, w: number, h: number, r: () => number): void {
+function drawPools(g: CanvasRenderingContext2D, pools: NonNullable<Scene['pools']>, area: AreaId, w: number, h: number, r: () => number, taken: Rect[]): void {
   const want = Math.round((pools.density * w * h) / 10_000);
   for (let i = 0, tries = 0; i < want && tries < want * 30; tries++) {
     const cx = r() * w;
     const cy = r() * h;
     if (outness(cx, cy, w, h) < pools.from) continue;
-    i++;
     const size = pools.size[0] + r() * (pools.size[1] - pools.size[0]);
+    // Its footprint (blobs reach about this far, rim included); pools keep apart from each other.
+    const foot: Rect = [cx - size * 1.1, cy - size * 0.8, size * 2.2, size * 1.6];
+    if (taken.some((t) => overlaps(foot, t, 0))) continue;
+    taken.push(foot);
+    i++;
     const blobs = Array.from({ length: 3 + Math.floor(r() * 3) }, (_, k) => ({
       x: cx + (k ? (r() - 0.5) * size : 0),
       y: cy + (k ? (r() - 0.5) * size * 0.6 : 0),
@@ -447,9 +458,12 @@ export function areaBackground(area: AreaId, w: number, h: number): HTMLCanvasEl
 
   // Place every band's pieces, then draw them top to bottom so nearer ones overlap farther ones.
   const tops: Array<[number, number, number, number]> = [];
+  // Everything placed so far (pools and pieces), so nothing lands on top of anything else.
+  const taken: Rect[] = [];
   const scatter = (bands: Band[]): void => {
     const placed: Array<{ img: HTMLImageElement; x: number; y: number }> = [];
-    for (const band of bands) {
+    // Biggest pieces first (the outer bands), then smaller ones fill the room that's left.
+    for (const band of [...bands].sort((a, b) => b.from - a.from)) {
       const total = band.pieces.reduce((s, x) => s + x.weight, 0);
       const want = Math.round(band.density * (band.onIslands ? tops.reduce((s, t) => s + t[2] * t[3], 0) / 10_000 : area10k));
       for (let i = 0, tries = 0; i < want && tries < want * 30; tries++) {
@@ -468,7 +482,14 @@ export function areaBackground(area: AreaId, w: number, h: number): HTMLCanvasEl
         const img = images.get(`${area}/${piece.file}`);
         if (!img || !img.naturalWidth) continue;
         // Island decor stands on its spot; everything else is centred on it.
-        placed.push({ img, x: Math.round(x - img.naturalWidth / 2), y: Math.round(band.onIslands ? y - img.naturalHeight : y - img.naturalHeight / 2) });
+        const px = Math.round(x - img.naturalWidth / 2);
+        const py = Math.round(band.onIslands ? y - img.naturalHeight : y - img.naturalHeight / 2);
+        const rect: Rect = [px, py, img.naturalWidth, img.naturalHeight];
+        if (!band.overlap) {
+          if (taken.some((t) => overlaps(rect, t))) continue;
+          taken.push(rect);
+        }
+        placed.push({ img, x: px, y: py });
         i++;
       }
     }
@@ -480,7 +501,7 @@ export function areaBackground(area: AreaId, w: number, h: number): HTMLCanvasEl
     const img = images.get(`${area}/${scene.islands.file}`);
     if (img && img.naturalWidth) for (const step of scene.islands.steps) tops.push(drawIsland(g, img, step, w, h));
   }
-  if (scene.pools) drawPools(g, scene.pools, area, w, h, r);
+  if (scene.pools) drawPools(g, scene.pools, area, w, h, r, taken);
   scatter(scene.bands.filter((b) => !b.under));
   if (scene.vignette) {
     const v = g.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.3, w / 2, h / 2, Math.hypot(w, h) / 2);

@@ -1,4 +1,4 @@
-import { areaDef, DAMAGE_TYPES, gearDef, WEAPON_CLASSES, STATUS, enemyDef, eventDef, fieldZoom, GUARDIAN_TIME, hunterDef, materialDef, type EnemyId, type EnemyShape } from '../core/balance';
+import { areaDef, DAMAGE_TYPES, gearDef, WEAPON_CLASSES, STATUS, enemyDef, eventDef, fieldZoom, GUARDIAN_TIME, hunterDef, materialDef, SIZE_SCALE, type EnemyId, type EnemyShape } from '../core/balance';
 import { PLAYER_RADIUS, SUMMON_RADIUS, type Summon, type Bullet, type Enemy, type Field, type Helper } from '../core/field';
 import { fmt } from '../core/format';
 import type { Game, Shooter } from '../core/game';
@@ -8,7 +8,7 @@ import { effectImage, gearImage, hunterSheetImage, monsterSheetImage, sprite } f
 import { HUNTER_SHEETS } from './hunterSheets';
 import { EFFECTS, type EffectKey } from './effectSheets';
 import { areaBackground } from './backgrounds';
-import { MONSTER_SHEETS, SHEETS, sheetRow, type MonsterSheet } from './monsterSheets';
+import { MONSTER_SHEETS, SHEETS, sheetRow, sideFlip, type MonsterSheet } from './monsterSheets';
 import { GEAR_SPRITES } from '../core/gearSprites';
 import { emojiIconKey } from '../ui/emojiIcons';
 
@@ -635,6 +635,8 @@ export class BattleView {
   private drawEnemy(g: CanvasRenderingContext2D, e: Enemy): void {
     const def = enemyDef(e.type);
     const r = e.r;
+    // Its art's size: the hit radius scaled by the monster's size class (dragons are drawn huge).
+    const ra = r * SIZE_SCALE[def.size ?? 'medium'];
     // Walking away from the Hunter while fleeing, toward them otherwise.
     const dirX = e.fleeing ? e.x : -e.x;
     g.save();
@@ -653,21 +655,22 @@ export class BattleView {
       const src = e.slow && this.fxOn('chill') ? frostTint(sheet) : sheet;
       g.fillStyle = 'rgba(0,0,0,0.25)';
       g.beginPath();
-      g.ellipse(0, r * 1.1, r * 0.9, r * 0.32, 0, 0, Math.PI * 2);
+      g.ellipse(0, ra * 1.1, ra * 0.9, ra * 0.32, 0, 0, Math.PI * 2);
       g.fill();
-      // Side-view art faces right: mirror it when heading left.
-      if (sh.order === 'SIDE' && dirX < 0) g.scale(-1, 1);
-      drawSheetFrame(g, src, sh, sheetRow(sh, dir), col, r * SHEET_SCALE);
+      // Side-view art faces one way: mirror it when heading the other.
+      const flip = sideFlip(sh, dirX);
+      if (flip) g.scale(-1, 1);
+      drawSheetFrame(g, src, sh, sheetRow(sh, dir), col, ra * SHEET_SCALE);
       if (e.flash > 0.5) {
         g.globalAlpha = 0.5;
         g.globalCompositeOperation = 'lighter';
-        drawSheetFrame(g, sheet, sh, sheetRow(sh, dir), col, r * SHEET_SCALE);
+        drawSheetFrame(g, sheet, sh, sheetRow(sh, dir), col, ra * SHEET_SCALE);
         g.globalCompositeOperation = 'source-over';
         g.globalAlpha = e.fleeing ? 0.8 : 1;
       }
-      if (sh.order === 'SIDE' && dirX < 0) g.scale(-1, 1);
+      if (flip) g.scale(-1, 1);
     } else if (img) {
-      const size = r * SPRITE_SCALE;
+      const size = ra * SPRITE_SCALE;
       const bob = Math.sin(e.phase * 10) * r * 0.06;
       g.scale(dirX < 0 ? -1 : 1, 1);
       // Chilled by Frost: drawn with a blue tint.
@@ -712,8 +715,8 @@ export class BattleView {
       g.restore();
     }
 
-    if (e.boss) drawCrown(g, r);
-    if (e.fleeing) drawDizzy(g, r, this.time + e.phase, 0.6);
+    if (e.boss) drawCrown(g, ra);
+    if (e.fleeing) drawDizzy(g, ra, this.time + e.phase, 0.6);
     drawStatus(g, e, this.time, (k) => this.fxOn(k), this.game.state.settings.aoeStyle === 'basic');
     g.restore();
   }

@@ -3,7 +3,7 @@ import type { EnemyId } from '../core/balance';
 /**
  * Animated monster art: walk sheets in public/monsters/<key>.png (CraftPix packs, see SOURCE.txt there), of
  * `cols` square frames of `frame` px. Top-down sheets have 4 rows, running down, up, left, right ('DULR') or
- * down, left, right, up ('DLRU'); side-view sheets ('SIDE') are one row facing right, mirrored to face left.
+ * down, left, right, up ('DLRU'); side-view sheets ('SIDE') are one row facing right (or left, `faces: 'L'`), mirrored to face the other way.
  * `box` is the character's bounding box within a frame [x, y, w, h], used to size and centre it whatever
  * padding the pack leaves.
  */
@@ -11,6 +11,8 @@ export interface MonsterSheet {
   frame: number;
   cols: number;
   order: 'DULR' | 'DLRU' | 'SIDE';
+  /** Which way a side-view sheet's art faces ('R' unless set); it's mirrored to face the other way. */
+  faces?: 'L' | 'R';
   box: [number, number, number, number];
 }
 
@@ -67,33 +69,33 @@ export const SHEETS: Record<string, MonsterSheet> = {
   'demon-red': { frame: 128, cols: 6, order: 'DULR', box: [34, 34, 59, 61] },
   'demon-purple': { frame: 128, cols: 6, order: 'DULR', box: [34, 34, 59, 61] },
   'vampire-red': { frame: 64, cols: 6, order: 'DULR', box: [12, 16, 40, 29] },
-  'wolf-grey': { frame: 48, cols: 6, order: 'SIDE', box: [0, 22, 48, 26] },
-  'wolf-ice': { frame: 48, cols: 6, order: 'SIDE', box: [0, 22, 48, 26] },
+  'wolf-grey': { frame: 48, cols: 6, order: 'SIDE', faces: 'L', box: [0, 22, 48, 26] },
+  'wolf-ice': { frame: 48, cols: 6, order: 'SIDE', faces: 'L', box: [0, 22, 48, 26] },
   'bear-brown': { frame: 48, cols: 6, order: 'SIDE', box: [5, 24, 43, 24] },
   'yeti': { frame: 72, cols: 6, order: 'SIDE', box: [5, 42, 51, 30] },
   'pixie': { frame: 48, cols: 4, order: 'SIDE', box: [18, 17, 25, 20] },
   'pixie-queen': { frame: 48, cols: 4, order: 'SIDE', box: [18, 17, 25, 20] },
   'unicorn': { frame: 72, cols: 6, order: 'SIDE', box: [0, 37, 61, 35] },
-  'bat': { frame: 48, cols: 4, order: 'SIDE', box: [10, 21, 36, 22] },
-  'crow': { frame: 48, cols: 4, order: 'SIDE', box: [17, 23, 30, 24] },
+  'bat': { frame: 48, cols: 4, order: 'SIDE', faces: 'L', box: [10, 21, 36, 22] },
+  'crow': { frame: 48, cols: 4, order: 'SIDE', faces: 'L', box: [17, 23, 30, 24] },
   'puppet': { frame: 48, cols: 6, order: 'SIDE', box: [17, 10, 28, 38] },
-  'duskmoth': { frame: 48, cols: 4, order: 'SIDE', box: [5, 8, 43, 33] },
-  'fire-beetle': { frame: 48, cols: 4, order: 'SIDE', box: [8, 31, 38, 17] },
+  'duskmoth': { frame: 48, cols: 4, order: 'SIDE', faces: 'L', box: [5, 8, 43, 33] },
+  'fire-beetle': { frame: 48, cols: 4, order: 'SIDE', faces: 'L', box: [8, 31, 38, 17] },
   'hellhound': { frame: 128, cols: 9, order: 'SIDE', box: [15, 75, 93, 53] },
-  'chimera': { frame: 72, cols: 6, order: 'SIDE', box: [21, 30, 50, 42] },
+  'chimera': { frame: 72, cols: 6, order: 'SIDE', faces: 'L', box: [21, 30, 50, 42] },
   'drake-fire': { frame: 256, cols: 12, order: 'SIDE', box: [14, 172, 213, 84] },
   'wyvern-ice': { frame: 256, cols: 12, order: 'SIDE', box: [1, 0, 240, 256] },
   'star-eater': { frame: 256, cols: 12, order: 'SIDE', box: [0, 0, 256, 256] },
   'void-wyrm': { frame: 256, cols: 12, order: 'SIDE', box: [7, 0, 240, 256] },
   'harpy': { frame: 128, cols: 8, order: 'SIDE', box: [18, 38, 73, 90] },
   'snow-owl': { frame: 32, cols: 6, order: 'DULR', box: [0, 1, 31, 27] },
-  'griffin': { frame: 48, cols: 4, order: 'SIDE', box: [10, 17, 38, 29] },
-  'thunderbird': { frame: 48, cols: 4, order: 'SIDE', box: [10, 17, 38, 29] },
+  'griffin': { frame: 48, cols: 4, order: 'SIDE', faces: 'L', box: [10, 17, 38, 29] },
+  'thunderbird': { frame: 48, cols: 4, order: 'SIDE', faces: 'L', box: [10, 17, 38, 29] },
   'golem-sky': { frame: 128, cols: 7, order: 'SIDE', box: [47, 50, 37, 78] },
   'golem-storm': { frame: 128, cols: 8, order: 'SIDE', box: [25, 71, 56, 57] },
   'storm-titan': { frame: 128, cols: 8, order: 'SIDE', box: [24, 54, 56, 74] },
   'meteorite': { frame: 72, cols: 4, order: 'SIDE', box: [25, 20, 47, 51] },
-  'behemoth': { frame: 72, cols: 6, order: 'SIDE', box: [12, 29, 59, 43] },
+  'behemoth': { frame: 72, cols: 6, order: 'SIDE', faces: 'L', box: [12, 29, 59, 43] },
   'time-eater': { frame: 256, cols: 8, order: 'SIDE', box: [82, 132, 122, 124] },
 };
 
@@ -188,4 +190,9 @@ export const MONSTER_SHEETS: Partial<Record<EnemyId, string>> = {
 /** The row of a sheet that faces a direction (a side-view sheet has only one; it's mirrored to face left). */
 export function sheetRow(sh: MonsterSheet, dir: 'D' | 'U' | 'L' | 'R'): number {
   return sh.order === 'SIDE' ? 0 : sh.order.indexOf(dir);
+}
+
+/** Whether a side-view sheet must be mirrored to face a heading (dx < 0 = moving left). */
+export function sideFlip(sh: MonsterSheet, dx: number): boolean {
+  return sh.order === 'SIDE' && (sh.faces === 'L' ? dx > 0 : dx < 0);
 }
