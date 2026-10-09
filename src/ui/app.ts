@@ -90,6 +90,7 @@ import type { OfflineResult } from '../core/offline';
 import { COOLDOWN_POSITIONS, deserialize, TAB_IDS, type GameState, type GearMod, type BuyAmount, type CooldownPos, type DpsCorner, type FxKey, type IndicatorStyle, type GearItem, type TabId, type Wearer } from '../core/state';
 import { drawEnemyPortrait } from '../render/battle';
 import { gearIconUrl, spriteUrl } from '../render/sprites';
+import { MATERIAL_SPRITES } from '../core/materialSprites';
 import { GEAR_SPRITES } from '../core/gearSprites';
 import { NODE_SPRITES } from '../core/nodeSprites';
 import { applyAreaTheme, applyUiStyle } from './theme';
@@ -178,7 +179,11 @@ const gearIcon = (gd: GearDef): string => {
   return url ? `<img class="gi" src="${url}" alt="">` : gd.icon;
 };
 
-const gemHtml = (m: MaterialId, size = '') => `<i class="gem ${size}" style="background:${materialDef(m).color}"></i>`;
+/** A material's icon (its pixel art, or its coloured gem if it has none); size '' inline or 'big'. */
+const gemHtml = (m: MaterialId, size = ''): string => {
+  const url = gearIconUrl(MATERIAL_SPRITES[m]);
+  return url ? `<img class="gem-ic ${size}" src="${url}" alt="">` : `<i class="gem ${size}" style="background:${materialDef(m).color}"></i>`;
+};
 
 /** DOM layer: top bar, area controls, tabbed panels and modals. Refreshes numbers on a timer. */
 export class AppUI {
@@ -3313,19 +3318,39 @@ export class AppUI {
   }
 
   /**
-   * Welcome back: the gold and materials gained while away. "Details" opens the breakdown by area: who hunted
-   * there, the monsters they slew, and what each area paid out.
+   * Welcome back: the gold gained while away and the materials from the furthest area hunted (up to six, with
+   * dots when there's more). "Details" opens a full page with everything: all the materials and, area by
+   * area, who hunted there, the monsters they slew and what it paid out.
    */
   showOffline(r: OfflineResult): void {
     const capped = r.away > r.seconds;
-    const mats = (Object.entries(r.materials) as [MaterialId, number][]).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]);
-    // A few materials get their names; more than fit are icons and counts, two columns going down.
-    const compact = mats.length > 6;
-    const matsHtml = mats.length
-      ? `<div class="offline-mats${compact ? ' compact' : ''}">${mats
-          .map(([m, n]) => `<div class="offline-mat" title="${materialDef(m).name}">${gemHtml(m)}${compact ? '' : `<span>${materialDef(m).name}</span>`}<b>+${fmt(n)}</b></div>`)
-          .join('')}</div>`
+    const gained = (m: Partial<Record<MaterialId, number>>) => (Object.entries(m) as [MaterialId, number][]).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]);
+    const all = gained(r.materials);
+    // The furthest area that brought anything back (its materials are the newest and rarest).
+    const order = (id: AreaId) => AREAS.findIndex((a) => a.id === id);
+    const furthest = [...r.areas].filter((a) => gained(a.materials).length).sort((a, b) => order(b.area) - order(a.area))[0];
+    const shown = (furthest ? gained(furthest.materials) : all).slice(0, 6);
+    const matsHtml = shown.length
+      ? `<div class="offline-mats">${shown
+          .map(([m, n]) => `<div class="offline-mat" title="${materialDef(m).name}">${gemHtml(m)}<span>${materialDef(m).name}</span><b>+${fmt(n)}</b></div>`)
+          .join('')}</div>${all.length > shown.length ? '<div class="offline-more" aria-label="More materials in Details">• • •</div>' : ''}`
       : '';
+    this.showModal(
+      `<h2>Welcome back!</h2>
+       <p>You were away for ${fmtTime(r.away)}.${capped ? ` (Hunters rest after ${fmtTime(r.seconds)}.)` : ''}</p>
+       <div class="reward">+🪙 ${fmt(r.gold)}</div>
+       ${matsHtml}
+       ${r.loot.length ? `<p class="offline-loot">🎁 ${r.loot.length} piece${r.loot.length === 1 ? '' : 's'} of loot${r.loot.some((l) => l.salvaged) ? ` (${r.loot.filter((l) => l.salvaged).length} auto-salvaged)` : ''}</p>` : ''}
+       ${r.knockouts > 0 ? '<p class="ko-tip">💫 Some Hunters were knocked out while you were away. See Details.</p>' : ''}
+       <button class="buy offline-details-btn">Details</button>`,
+      [{ label: 'Collect' }],
+    );
+    $('.offline-details-btn', this.modal).addEventListener('click', () => this.showOfflineDetails(r));
+  }
+
+  /** The full away report, on its own scrolling page: every material gained, then each area's breakdown. */
+  private showOfflineDetails(r: OfflineResult): void {
+    const gained = (m: Partial<Record<MaterialId, number>>) => (Object.entries(m) as [MaterialId, number][]).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]);
     const rows = r.areas
       .map((a) => {
         const name = (h: (typeof a.hunters)[number]) => (h === 'main' ? esc(mainName()) : `${hunterDef(h).icon} ${hunterDef(h).name}`);
@@ -3335,36 +3360,37 @@ export class AppUI {
           .filter((h) => (a.knockouts[h] ?? 0) > 0)
           .map((h) => `${name(h)} ×${fmt(a.knockouts[h]!)}`)
           .join(', ');
-        const am = (Object.entries(a.materials) as [MaterialId, number][])
-          .filter(([, n]) => n > 0)
-          .map(([m, n]) => `${gemHtml(m)}${fmt(n)}`)
+        const am = gained(a.materials)
+          .map(([m, n]) => `<span class="am">${gemHtml(m)}${fmt(n)}</span>`)
           .join(' ');
         const loot = a.loot.length ? `<div>🎁 ${a.loot.map((l) => `${gearIcon(gearDef(l.gear))}${l.salvaged ? '♻️' : ''}`).join(' ')}</div>` : '';
-        return `<div class="offline-area"><div><b>${areaDef(a.area).icon} ${areaDef(a.area).name}</b> <small>${who}</small></div><div>⚔️ ${fmt(a.kills)} monsters slain · 🪙 ${fmt(a.gold)}</div>${am ? `<div>${am}</div>` : ''}${loot}${
+        return `<div class="offline-area"><div><b>${areaDef(a.area).icon} ${areaDef(a.area).name}</b> <small>${who}</small></div><div>⚔️ ${fmt(a.kills)} monsters slain · 🪙 ${fmt(a.gold)}</div>${am ? `<div class="offline-area-mats">${am}</div>` : ''}${loot}${
           kos ? `<div class="knockouts">💫 Knocked out: ${kos}</div>` : ''
         }</div>`;
       })
       .join('');
-    this.showModal(
-      `<h2>Welcome back!</h2>
-       <p>You were away for ${fmtTime(r.away)}.${capped ? ` (Hunters rest after ${fmtTime(r.seconds)}.)` : ''}</p>
-       <div class="reward">+🪙 ${fmt(r.gold)}</div>
-       ${matsHtml}
-       ${r.loot.length ? `<p class="offline-loot">🎁 ${r.loot.length} piece${r.loot.length === 1 ? '' : 's'} of loot${r.loot.some((l) => l.salvaged) ? ` (${r.loot.filter((l) => l.salvaged).length} auto-salvaged)` : ''}</p>` : ''}
-       ${r.knockouts > 0 ? '<p class="ko-tip">💫 Some Hunters were knocked out while you were away. See Details.</p>' : ''}
-       <button class="secondary offline-details-btn">Details ▾</button>
-       <div class="offline-details hidden">
-         <p class="offline-total">⚔️ ${fmt(r.kills)} monsters slain in all</p>
-         <div class="offline-areas">${rows}</div>
-         ${r.knockouts > 0 ? '<p class="ko-tip">Knocked-out Hunters stop fighting. Get stronger (or pick an easier area) to keep monsters from slipping through.</p>' : ''}
-       </div>`,
-      [{ label: 'Collect' }],
-    );
-    const btn = $('.offline-details-btn', this.modal);
-    btn.addEventListener('click', () => {
-      const open = $('.offline-details', this.modal).classList.toggle('hidden') === false;
-      btn.textContent = open ? 'Hide details ▴' : 'Details ▾';
-    });
+    const mats = gained(r.materials)
+      .map(([m, n]) => `<div class="offline-mat" title="${materialDef(m).name}">${gemHtml(m)}<span>${materialDef(m).name}</span><b>+${fmt(n)}</b></div>`)
+      .join('');
+    this.modal.innerHTML = `<div class="modal-box fullpage"><h2>While you were away</h2><div class="sheet-body">
+      <p class="offline-total">${fmtTime(r.away)} away · 🪙 ${fmt(r.gold)} · ⚔️ ${fmt(r.kills)} monsters slain</p>
+      ${mats ? `<h3>Materials</h3><div class="offline-mats all">${mats}</div>` : ''}
+      <h3>By area</h3><div class="offline-areas">${rows}</div>
+      ${r.knockouts > 0 ? '<p class="ko-tip">Knocked-out Hunters stop fighting. Get stronger (or pick an easier area) to keep monsters from slipping through.</p>' : ''}
+    </div><div class="buttons"></div></div>`;
+    const close = () => {
+      this.modal.classList.add('hidden');
+      this.modalClose = null;
+      this.lastPopup = performance.now();
+      this.refresh();
+    };
+    const back = el('button', 'secondary', 'Back');
+    back.addEventListener('click', () => this.showOffline(r));
+    const collect = el('button', '', 'Collect');
+    collect.addEventListener('click', close);
+    $('.buttons', this.modal).append(back, collect);
+    this.modalClose = close;
+    this.modal.classList.remove('hidden');
   }
 }
 

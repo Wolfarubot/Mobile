@@ -314,6 +314,8 @@ button {
 }
 .modal-box {
   width: min(360px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 18px;
@@ -359,25 +361,44 @@ button {
 
 .mats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  /* Always three columns, however long the names or big the counts. */
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
   margin-bottom: 10px;
 }
 .mat {
   background: var(--card);
   border-radius: 10px;
-  padding: 6px 8px;
-  font-size: 12px;
-  display: flex;
+  padding: 6px;
+  font-size: 11px;
+  /* Icon on the left; name over the count beside it. */
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
   align-items: center;
-  gap: 6px;
+  column-gap: 5px;
+  min-width: 0;
+}
+.mat > .gem,
+.mat > .gem-ic {
+  grid-row: 1 / 3;
+}
+.mat > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.2;
 }
 .mat.unknown {
   opacity: 0.35;
 }
 .mat b {
-  margin-left: auto;
-  font-size: 13px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
 }
 .gem {
   display: inline-block;
@@ -650,14 +671,54 @@ button {
 .offline-mats.compact .offline-mat {
   justify-content: center;
 }
-.offline-details-btn {
-  margin-top: 8px;
-  padding: 6px 14px;
-  font-size: 13px;
+.offline-more {
+  text-align: center;
+  letter-spacing: 3px;
+  font-weight: 700;
+  opacity: 0.7;
+  margin: -2px 0 4px;
 }
-.offline-details {
-  max-height: 42vh;
-  overflow-y: auto;
+.modal-box .offline-details-btn {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px 14px;
+  font-size: 16px;
+}
+/* The full away report: the whole screen, scrolling. */
+.modal-box.fullpage {
+  width: 100%;
+  height: 100%;
+  max-width: 520px;
+  max-height: none;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+}
+.modal-box.fullpage .sheet-body {
+  flex: 1;
+  min-height: 0;
+  align-content: start;
+}
+.modal-box.fullpage h3 {
+  margin: 8px 0 2px;
+}
+.offline-mats.all {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.offline-mats.all .offline-mat span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.offline-area-mats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+}
+.offline-area-mats .am {
+  white-space: nowrap;
 }
 .offline-total {
   margin: 8px 0 0;
@@ -781,12 +842,18 @@ button {
 }
 .filter-bar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   margin-bottom: 8px;
 }
+/* The buttons share the row (never wider than the screen); active filters wrap onto their own line. */
 .filter-btn {
-  flex: none;
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   padding: 7px 12px;
   border-radius: 9px;
   background: var(--card);
@@ -802,6 +869,11 @@ button {
   flex-wrap: wrap;
   gap: 4px;
   min-width: 0;
+  order: 10;
+  flex-basis: 100%;
+}
+.filter-chips:empty {
+  display: none;
 }
 .filter-chip,
 .filter-clear {
@@ -2650,6 +2722,26 @@ button.mat {
 }
 button.mat:not(:disabled):active {
   transform: translate(2px, 2px);
+}
+/* A material's pixel-art icon (in place of its coloured gem). */
+.gem-ic {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  vertical-align: -4px;
+  margin: 0 2px;
+  image-rendering: pixelated;
+  flex: none;
+}
+.gem-ic.big {
+  width: 34px;
+  height: 34px;
+  margin: 0 10px 0 2px;
+  vertical-align: -10px;
+}
+.mat > .gem-ic {
+  width: 26px;
+  height: 26px;
 }
 .gem.big {
   width: 22px;
