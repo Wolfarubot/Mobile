@@ -4053,3 +4053,12 @@ img.ni {
   border-radius: 50%;
   image-rendering: pixelated;
 }
+/* Emoji drawn as pixel icons (see src/ui/emojiIcons.ts). */
+img.ei {
+  width: 1.2em;
+  height: 1.2em;
+  object-fit: contain;
+  image-rendering: pixelated;
+  vertical-align: -0.22em;
+  display: inline-block;
+}

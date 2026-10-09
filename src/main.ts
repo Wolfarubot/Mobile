@@ -2,6 +2,7 @@ import '@fontsource/pixelify-sans/400.css';
 import '@fontsource/pixelify-sans/700.css';
 import './ui/fonts';
 import './style.css';
+import { installEmojiIcons } from './ui/emojiIcons';
 import { App as CapApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { OFFLINE_POPUP_SEC } from './core/balance';
@@ -10,6 +11,9 @@ import { Game } from './core/game';
 import { hasDevBackup, loadDevPhase, loadGame, restoreDevBackup, saveGame, wipeSave } from './core/save';
 import { newGame, type GameState } from './core/state';
 import { BattleView } from './render/battle';
+
+// Emoji anywhere in the UI are drawn as pixel-art icons.
+installEmojiIcons();
 import { AppUI } from './ui/app';
 
 const AUTOSAVE_SEC = 10;

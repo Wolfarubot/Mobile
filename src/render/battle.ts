@@ -7,6 +7,7 @@ import { canvasFont, fitCanvas, Fx } from './fx';
 import { gearImage, monsterSheetImage, sprite } from './sprites';
 import { MONSTER_SHEETS, SHEETS, type MonsterSheet } from './monsterSheets';
 import { GEAR_SPRITES } from '../core/gearSprites';
+import { emojiIconKey } from '../ui/emojiIcons';
 
 interface Pickup {
   x: number;
@@ -850,7 +851,11 @@ export class BattleView {
       g.font = canvasFont(R * 1.1);
       g.textAlign = 'center';
       g.textBaseline = 'middle';
-      g.fillText(def.icon, 0, 1);
+      const ic = gearImage(emojiIconKey(def.icon));
+      if (ic) {
+        g.imageSmoothingEnabled = false;
+        g.drawImage(ic, -R * 0.7, -R * 0.7, R * 1.4, R * 1.4);
+      } else g.fillText(def.icon, 0, 1);
     }
     g.restore();
     this.drawHeldWeapon(g, h.id, h.x, h.y, h.aim, R, h.stun > 0, h.close);
@@ -906,7 +911,16 @@ export class BattleView {
       const def = eventDef(ev.id);
       g.font = canvasFont(13, 700);
       g.fillStyle = '#9ff0a8';
-      g.fillText(`${def.icon} ${def.name.toUpperCase()} · ${Math.ceil(ev.left)}s`, w / 2, y0 + 10);
+      const label = `${def.name.toUpperCase()} · ${Math.ceil(ev.left)}s`;
+      const ic = gearImage(emojiIconKey(def.icon));
+      if (ic) {
+        // The event's icon, then its name and time, centred together.
+        const tw = g.measureText(label).width;
+        const left = w / 2 - (tw + 18) / 2;
+        g.imageSmoothingEnabled = false;
+        g.drawImage(ic, left, y0 + 3, 14, 14);
+        g.fillText(label, left + 18 + tw / 2, y0 + 10);
+      } else g.fillText(`${def.icon} ${label}`, w / 2, y0 + 10);
       g.fillStyle = 'rgba(0,0,0,0.55)';
       g.fillRect(x, y0 + 20, bw, 6);
       g.fillStyle = '#3fcf6a';
