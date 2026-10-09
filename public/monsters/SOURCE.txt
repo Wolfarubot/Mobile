@@ -27,3 +27,5 @@ Source packs:
   top-down-pixel-mushroom-sprite-pack
   top-down-pixel-skeletons-character-sprite-pack
   zombie-4-direction-pixel-character-sprite-pack
+  free-slime-mobs-pixel-art-top-down-sprite-pack
+  free-top-down-orc-game-character-pixel-art

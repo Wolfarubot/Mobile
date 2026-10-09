@@ -14,7 +14,10 @@ export interface MonsterSheet {
 }
 
 export const SHEETS: Record<string, MonsterSheet> = {
-  'slime-green': { frame: 64, cols: 8, order: 'DULR', box: [15, 15, 34, 25] },
+  'slime-green': { frame: 64, cols: 8, order: 'DULR', box: [15, 17, 34, 23] },
+  'slime-lava': { frame: 64, cols: 8, order: 'DULR', box: [15, 4, 34, 36] },
+  'orc-green': { frame: 64, cols: 6, order: 'DULR', box: [10, 13, 44, 31] },
+  'orc-teal': { frame: 64, cols: 6, order: 'DULR', box: [10, 11, 44, 33] },
   'slime-king': { frame: 128, cols: 8, order: 'DULR', box: [35, 37, 58, 40] },
   'slime-magma': { frame: 64, cols: 8, order: 'DULR', box: [8, 8, 48, 32] },
   'slime-shadow': { frame: 64, cols: 8, order: 'DULR', box: [14, 17, 35, 23] },
@@ -92,7 +95,8 @@ export const MONSTER_SHEETS: Partial<Record<EnemyId, string>> = {
   deepLurker: 'gnoll-dark',
   beholdenWatcher: 'beholder-dark',
   imp: 'imp-red',
-  magmaSlime: 'slime-magma',
+  magmaSlime: 'slime-lava',
+  cometWisp: 'slime-magma',
   salamander: 'lizard-red',
   oreGolem: 'golem-ore',
   geodeGolem: 'golem-crystal',
@@ -101,6 +105,8 @@ export const MONSTER_SHEETS: Partial<Record<EnemyId, string>> = {
   basilisk: 'lizard-green',
   lavaGolem: 'golem-lava',
   venomGolem: 'golem-venom',
+  caveTroll: 'orc-green',
+  frostGiant: 'orc-teal',
   golem: 'golem-ice',
   wraith: 'ghost-pale',
   frostSprite: 'slime-frost',
