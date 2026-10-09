@@ -8,7 +8,7 @@ import { effectImage, gearImage, hunterSheetImage, monsterSheetImage, sprite } f
 import { HUNTER_SHEETS } from './hunterSheets';
 import { EFFECTS, type EffectKey } from './effectSheets';
 import { areaBackground } from './backgrounds';
-import { MONSTER_SHEETS, SHEETS, type MonsterSheet } from './monsterSheets';
+import { MONSTER_SHEETS, SHEETS, sheetRow, type MonsterSheet } from './monsterSheets';
 import { GEAR_SPRITES } from '../core/gearSprites';
 import { emojiIconKey } from '../ui/emojiIcons';
 
@@ -655,14 +655,17 @@ export class BattleView {
       g.beginPath();
       g.ellipse(0, r * 1.1, r * 0.9, r * 0.32, 0, 0, Math.PI * 2);
       g.fill();
-      drawSheetFrame(g, src, sh, sh.order.indexOf(dir), col, r * SHEET_SCALE);
+      // Side-view art faces right: mirror it when heading left.
+      if (sh.order === 'SIDE' && dirX < 0) g.scale(-1, 1);
+      drawSheetFrame(g, src, sh, sheetRow(sh, dir), col, r * SHEET_SCALE);
       if (e.flash > 0.5) {
         g.globalAlpha = 0.5;
         g.globalCompositeOperation = 'lighter';
-        drawSheetFrame(g, sheet, sh, sh.order.indexOf(dir), col, r * SHEET_SCALE);
+        drawSheetFrame(g, sheet, sh, sheetRow(sh, dir), col, r * SHEET_SCALE);
         g.globalCompositeOperation = 'source-over';
         g.globalAlpha = e.fleeing ? 0.8 : 1;
       }
+      if (sh.order === 'SIDE' && dirX < 0) g.scale(-1, 1);
     } else if (img) {
       const size = r * SPRITE_SCALE;
       const bob = Math.sin(e.phase * 10) * r * 0.06;
@@ -807,8 +810,8 @@ export class BattleView {
   }
 
   /**
-   * A Hunter's animated idle from their sheet, facing where they aim (rows: down, left, right, up), standing on
-   * their shadow. False if they have no sheet or it hasn't loaded.
+   * A Hunter's animated idle from their sheet, facing where they aim (rows: down, left, right, up; side-view
+   * sheets are mirrored), standing on their shadow. False if they have no sheet or it hasn't loaded.
    */
   private drawHunterSheet(g: CanvasRenderingContext2D, who: Shooter, aim: number, R: number, phase = 0): boolean {
     const sh = HUNTER_SHEETS[who];
@@ -816,14 +819,17 @@ export class BattleView {
     if (!sh || !img) return false;
     const c = Math.cos(aim);
     const s = Math.sin(aim);
-    const row = Math.abs(c) >= Math.abs(s) ? (c < 0 ? 1 : 2) : s > 0 ? 0 : 3;
+    const row = sh.side ? 0 : Math.abs(c) >= Math.abs(s) ? (c < 0 ? 1 : 2) : s > 0 ? 0 : 3;
     const col = Math.floor((this.time + phase) * 8) % sh.frames[row];
     const [bx, by, bw, bh] = sh.box;
     const k = (R * 2.7) / Math.max(bw, bh);
     const F = sh.frame;
     g.imageSmoothingEnabled = false;
     // Feet (the box's bottom) on the shadow.
+    g.save();
+    if (sh.side && c < 0) g.scale(-1, 1);
     g.drawImage(img, col * F, row * F, F, F, -(bx + bw / 2) * k, R * 1.05 - (by + bh) * k, F * k, F * k);
+    g.restore();
     return true;
   }
 
@@ -1165,7 +1171,7 @@ export function drawEnemyPortrait(canvas: HTMLCanvasElement, id: EnemyId): void 
   if (sheetKey && sheet && !(sheet.complete && sheet.naturalWidth > 0)) sheet.addEventListener('load', () => drawEnemyPortrait(canvas, id), { once: true });
   if (sheetKey && sheet && sheet.complete && sheet.naturalWidth > 0) {
     const sh = SHEETS[sheetKey];
-    drawSheetFrame(g, sheet, sh, sh.order.indexOf('D'), 0, r * 2.8);
+    drawSheetFrame(g, sheet, sh, sheetRow(sh, 'D'), 0, r * 2.8);
   } else if (img) g.drawImage(img, -r * 1.3, -r * 1.3, r * 2.6, r * 2.6);
   else {
     g.fillStyle = def.color;

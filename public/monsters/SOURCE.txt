@@ -29,3 +29,12 @@ Source packs:
   zombie-4-direction-pixel-character-sprite-pack
   free-slime-mobs-pixel-art-top-down-sprite-pack
   free-top-down-orc-game-character-pixel-art
+
+Side-view and animal packs (walk or flight strips, one row facing right, mirrored in game; some recoloured):
+  underground-mine-character-spritesheets-pixel-art (wisp, bear, spider, toadman voodoo)
+  field-enemies-game-sprite-sheets-pixel-art (wolf, wasp)
+  free-desert-enemy-sprite-sheets-pixel-art (vulture, scorpio)
+  free-top-down-animals-farm-pixel-art-sprites (bull; 4-direction)
+  free-top-down-hunt-animals-pixel-sprite-pack (deer, black grouse; 4-direction)
+  golem-character-sprite-sheets-pixel-art, hellhound-character-sprite-sheets-pixel-art,
+  dragon-pixel-art-character-sprite-sheets-pack, free-yokai-pixel-art-character-sprites
