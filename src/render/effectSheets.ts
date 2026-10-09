@@ -17,6 +17,11 @@ export const EFFECTS = {
   shield: { frame: 72, frames: 8, box: [14, 14, 49, 49] },
   puff: { frame: 72, frames: 8, box: [1, 19, 68, 53] },
   ice: { frame: 72, frames: 8, box: [24, 0, 27, 72] },
+  spikes: { frame: 72, frames: 10, box: [11, 46, 42, 26] },
+  poison: { frame: 72, frames: 10, box: [18, 18, 38, 50] },
+  cloudStart: { frame: 72, frames: 10, box: [0, 15, 72, 57] },
+  cloudCycle: { frame: 72, frames: 10, box: [0, 7, 72, 65] },
+  cloudFinish: { frame: 72, frames: 10, box: [0, 7, 72, 65] },
 } satisfies Record<string, EffectSheet>;
 
 export type EffectKey = keyof typeof EFFECTS;

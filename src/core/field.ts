@@ -221,6 +221,8 @@ export type FieldEvent =
   | { type: 'boss' }
   | { type: 'stun'; x: number; y: number; boss: boolean; who: Shooter }
   | { type: 'guard'; x: number; y: number }
+  /** Thorns armor stabbed a monster that reached a Hunter. */
+  | { type: 'thorns'; x: number; y: number; r: number }
   | { type: 'escape'; x: number; y: number }
   | { type: 'explode'; x: number; y: number; r: number; color: string }
   | { type: 'nova'; x: number; y: number; r: number; color?: string }
@@ -505,7 +507,11 @@ export class Field {
     const hy = helper?.y ?? 0;
     const effects = this.game.gearEffects(who);
     // Thorns: whatever reaches you gets hurt, blocked or not.
-    for (const { effect: ef, stars } of effects) if (ef.kind === 'thorns' && (ef.chance === undefined || this.game.rng() < ef.chance)) this.abilityHit(who, e, effectBase(ef, stars), ef.damageType, false);
+    for (const { effect: ef, stars } of effects)
+      if (ef.kind === 'thorns' && (ef.chance === undefined || this.game.rng() < ef.chance)) {
+        this.abilityHit(who, e, effectBase(ef, stars), ef.damageType, false);
+        this.events.push({ type: 'thorns', x: e.x, y: e.y, r: e.r });
+      }
     // Evasion (light armor): slip it entirely, no stun and no shield used.
     if (!e.boss && effects.some(({ effect: ef }) => ef.kind === 'evade' && this.game.rng() < ef.chance)) {
       e.fleeing = true;

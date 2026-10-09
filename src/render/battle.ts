@@ -65,6 +65,8 @@ export class BattleView {
   private rings: Ring[] = [];
   /** Each puddle's squares, generated once. */
   private puddleCells = new WeakMap<object, Cell[]>();
+  /** When each puddle first appeared (for its cloud's animation). */
+  private puddleBorn = new WeakMap<object, number>();
   /** Explosions (fireballs, staff spells): a burst of fiery squares that spreads and fades. */
   private blasts: Array<{ x: number; y: number; r: number; t: number; cells: Cell[]; colors: string[] }> = [];
   private beams: Beam[] = [];
@@ -203,6 +205,9 @@ export class BattleView {
         case 'dodge':
           this.fx.text(e.x, e.y - 30, 'DODGE', '#c8f0ff', 12, 0.6);
           break;
+        case 'thorns':
+          if (this.fancy) this.playEffect('spikes', e.x, e.y + e.r, Math.max(30, e.r * 2.6), 'bottom', 24);
+          break;
         case 'guard':
           if (this.fancy) this.playEffect('shield', e.x, e.y, (PLAYER_RADIUS + 12) * 2, 'center', 24);
           else this.rings.push({ x: e.x, y: e.y, t: 0, r: PLAYER_RADIUS + 10, color: '255,232,163', max: 0.3 });
@@ -309,6 +314,26 @@ export class BattleView {
         g.fill();
         g.stroke();
         continue;
+      }
+      if (!p.dtype) {
+        // Reginald's potion puddle: a poison cloud that billows up, churns while it lasts, then thins away.
+        let born = this.puddleBorn.get(p);
+        if (born === undefined) this.puddleBorn.set(p, (born = this.time));
+        const age = this.time - born;
+        const fps = 14;
+        const startLen = EFFECTS.cloudStart.frames / fps;
+        const endLen = EFFECTS.cloudFinish.frames / fps;
+        const [key, frame] =
+          age < startLen ? (['cloudStart', Math.floor(age * fps)] as const)
+          : p.life < endLen ? (['cloudFinish', Math.floor((endLen - p.life) * fps)] as const)
+          : (['cloudCycle', Math.floor((age - startLen) * fps)] as const);
+        const img = effectImage(key);
+        if (img) {
+          g.globalAlpha = 0.85;
+          drawEffectFrame(g, img, key, frame, p.x, p.y + p.r * 0.45, p.r * 2.3, 'bottom', key === 'cloudCycle', 'cloudCycle');
+          g.globalAlpha = 1;
+          continue;
+        }
       }
       let cells = this.puddleCells.get(p);
       if (!cells) {
@@ -1149,7 +1174,13 @@ function drawStatus(g: CanvasRenderingContext2D, e: Enemy, t: number, on: (k: Fx
     g.globalAlpha = 1;
   };
   if (e.burn && on('burn')) specks(['#ffd23a', '#ff8a2a', '#e8321e'], 6, r * 1.7, 1.8); // embers: yellow, orange and red
-  if (e.poison && on('poison')) specks('#6fdc5a', 3, r * 1.3, 0.9);
+  const bubbles = !basic && e.poison && on('poison') ? effectImage('poison') : null;
+  if (bubbles) {
+    // Poisoned: a bubbling green blob over the monster.
+    g.globalAlpha = 0.7;
+    drawEffectFrame(g, bubbles, 'poison', Math.floor(t * 12 + e.phase * 10), 0, r * 0.4, r * 1.9, 'bottom', true);
+    g.globalAlpha = 1;
+  } else if (e.poison && on('poison')) specks('#6fdc5a', 3, r * 1.3, 0.9);
   if (e.bleeds?.length && on('bleed')) {
     // Bleeding: crimson and dark red pixels drip down off it, more with each stacked bleed.
     const n = Math.min(8, 1 + e.bleeds.length);
@@ -1548,12 +1579,13 @@ interface Anim {
 
 /**
  * One frame of a magic effect: its box's longer side `size` across, centred on (x, y), or with its bottom
- * edge there ('bottom'). `loop` wraps the frame number (projectiles, wells); otherwise it's clamped.
+ * edge there ('bottom'). `loop` wraps the frame number (projectiles, wells); otherwise it's clamped. `sizeBy`
+ * sizes it by another sheet's box (the phases of one effect, so it doesn't jump between them).
  */
-function drawEffectFrame(g: CanvasRenderingContext2D, img: HTMLImageElement, key: EffectKey, frame: number, x: number, y: number, size: number, anchor: 'center' | 'bottom', loop = false): void {
+function drawEffectFrame(g: CanvasRenderingContext2D, img: HTMLImageElement, key: EffectKey, frame: number, x: number, y: number, size: number, anchor: 'center' | 'bottom', loop = false, sizeBy: EffectKey = key): void {
   const sh = EFFECTS[key];
-  const f = loop ? ((frame % sh.frames) + sh.frames) % sh.frames : Math.min(sh.frames - 1, frame);
-  const [bx, by, bw, bh] = sh.box;
+  const f = loop ? ((frame % sh.frames) + sh.frames) % sh.frames : Math.max(0, Math.min(sh.frames - 1, frame));
+  const [bx, by, bw, bh] = EFFECTS[sizeBy].box;
   const k = size / Math.max(bw, bh);
   const dx = x - (bx + bw / 2) * k;
   const dy = anchor === 'bottom' ? y - (by + bh) * k : y - (by + bh / 2) * k;

@@ -2,3 +2,5 @@ Magic effect sheets from CraftPix.net packs (license: https://craftpix.net/file-
   10 Magic Sprite Sheet Effects: explosion, fireball, lightning, sunstrike, blackhole, shield
   Free Pixel Magic Sprite Effects: puff (Magic/9)
   Magic Spells Pixel Art Sprite Pack: ice (Magic/5)
+  10 Magic Sprite Sheet Effects: spikes
+  Magic Effects Pixel Art Asset Pack 4: poison (Magic/9), cloudStart/cloudCycle/cloudFinish (Magic/3)
