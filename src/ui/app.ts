@@ -3103,7 +3103,7 @@ export class AppUI {
       ['arcane', '🔮 Arcane sparks'],
       ['void', '🌀 Void gravity wells'],
     ]);
-    choices('Area effect style', 'Fancy draws puddles, fireballs, explosions, bursts and auras as clusters of coloured pixel squares; Basic draws them as plain circles.', styles, () => st.aoeStyle, (v) => (st.aoeStyle = v));
+    choices('Area effect style', 'Fancy draws spells as animated pixel art (explosions, fireballs, lightning strikes, sun strikes, black holes, shield flashes, puffs as monsters fall) and puddles, bursts and auras as clusters of coloured pixel squares; Basic draws them as plain circles.', styles, () => st.aoeStyle, (v) => (st.aoeStyle = v));
 
     const tabsCard = el('div', 'card setting');
     tabsCard.innerHTML = `<div class="setting-name">Tab order</div><p>The order of the tabs along the bottom of the screen, left to right. Drag a row or use the arrows.</p><div class="tab-order"></div><button class="secondary tab-order-reset">Reset to default</button>`;

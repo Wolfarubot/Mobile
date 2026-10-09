@@ -4,7 +4,8 @@ import { fmt } from '../core/format';
 import type { Game, Shooter } from '../core/game';
 import type { FxKey } from '../core/state';
 import { canvasFont, fitCanvas, Fx } from './fx';
-import { gearImage, monsterSheetImage, sprite } from './sprites';
+import { effectImage, gearImage, monsterSheetImage, sprite } from './sprites';
+import { EFFECTS, type EffectKey } from './effectSheets';
 import { MONSTER_SHEETS, SHEETS, type MonsterSheet } from './monsterSheets';
 import { GEAR_SPRITES } from '../core/gearSprites';
 import { emojiIconKey } from '../ui/emojiIcons';
@@ -67,6 +68,8 @@ export class BattleView {
   /** Explosions (fireballs, staff spells): a burst of fiery squares that spreads and fades. */
   private blasts: Array<{ x: number; y: number; r: number; t: number; cells: Cell[]; colors: string[] }> = [];
   private beams: Beam[] = [];
+  /** Animated magic effects playing once (explosions, strikes, puffs): see effectSheets.ts. */
+  private anims: Anim[] = [];
   /** Ability cooldown icons, overlaid on the battlefield. */
   private cooldownBar: CooldownBar;
   /** Melee sweeps and swipes: a fading arc in front of the attacker. */
@@ -139,6 +142,7 @@ export class BattleView {
           break;
         case 'kill': {
           const color = e.boss ? '#ffd34d' : enemyDef(e.enemy).color;
+          if (this.fancy) this.playEffect('puff', e.x, e.y, e.boss ? 90 : 26, 'center', 22);
           this.fx.burst(e.x, e.y, color, e.boss ? 40 : 8, e.boss ? 260 : 140, e.boss ? 5 : 3, 0);
           this.dropPickup(e.x, e.y, '#ffd34d', false, e.boss ? 12 : 1);
           if (e.reward.material) this.dropPickup(e.x, e.y, materialDef(e.reward.material).color, true, Math.min(8, e.reward.amount));
@@ -146,6 +150,10 @@ export class BattleView {
           break;
         }
         case 'blast':
+          // An elemental tap ability gets its spell: a fire explosion, a lightning strike or a falling ice shard.
+          if (this.fancy && e.color === DAMAGE_TYPES.fire.color) this.playEffect('explosion', e.x, e.y, this.game.tapRadius * 2);
+          else if (this.fancy && e.color === DAMAGE_TYPES.lightning.color) this.playEffect('lightning', e.x, e.y + 6, this.game.tapRadius * 2.4, 'bottom', 22);
+          else if (this.fancy && e.color === DAMAGE_TYPES.frost.color) this.playEffect('ice', e.x, e.y + 6, this.game.tapRadius * 1.8, 'bottom', 20);
           this.rings.push({ x: e.x, y: e.y, t: 0, r: this.game.tapRadius, color: e.color ? hexRgb(e.color) : '255,255,255', max: 0.25 });
           if (e.color) this.fx.burst(e.x, e.y, e.color, 10, 160, 3, 0);
           break;
@@ -155,7 +163,8 @@ export class BattleView {
           if (this.game.state.settings.aoeStyle === 'basic') {
             this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: radiant ? '255,227,110' : '255,138,61', max: 0.3, fill: true });
             this.fx.burst(e.x, e.y, '#ffb04d', 8, 160, 3, 0);
-          } else this.blasts.push({ x: e.x, y: e.y, r: e.r, t: 0, cells: squareCluster(e.r, Math.max(5, e.r / 5), Math.random() * 1e6), colors: radiant ? RADIANT_COLORS : FIRE_COLORS });
+          } else if (radiant) this.playEffect('sunstrike', e.x, e.y + e.r * 0.3, e.r * 2.2, 'bottom', 22);
+          else this.playEffect('explosion', e.x, e.y, e.r * 2.3);
           break;
         }
         case 'nova':
@@ -163,6 +172,11 @@ export class BattleView {
           else this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: hexRgb(e.color ?? '#fff0be'), max: 0.4, pixel: true, scatter: sparseCells(e.r, Math.random() * 1e6) });
           break;
         case 'beam':
+          // Lightning called down from the sky (Thunder Totem, Thunder Call) strikes as a bolt.
+          if (this.fancy && e.zigzag && e.y2 - e.y1 > 150) {
+            this.playEffect('lightning', e.x2, e.y2 + 4, 70, 'bottom', 22);
+            break;
+          }
           this.beams.push({ ...e, t: 0, kinks: e.zigzag ? Array.from({ length: 6 }, () => (Math.random() - 0.5) * 16) : undefined });
           break;
         case 'wave':
@@ -190,7 +204,8 @@ export class BattleView {
           this.fx.text(e.x, e.y - 30, 'DODGE', '#c8f0ff', 12, 0.6);
           break;
         case 'guard':
-          this.rings.push({ x: e.x, y: e.y, t: 0, r: PLAYER_RADIUS + 10, color: '255,232,163', max: 0.3 });
+          if (this.fancy) this.playEffect('shield', e.x, e.y, (PLAYER_RADIUS + 12) * 2, 'center', 24);
+          else this.rings.push({ x: e.x, y: e.y, t: 0, r: PLAYER_RADIUS + 10, color: '255,232,163', max: 0.3 });
           this.fx.text(e.x, e.y - 30, 'BLOCK', '#ffe8a3', 12, 0.6);
           break;
         case 'boss':
@@ -240,6 +255,8 @@ export class BattleView {
     for (const r of this.rings) r.t += dt;
     for (const b of this.blasts) b.t += dt;
     this.blasts = this.blasts.filter((b) => b.t < BLAST_TIME);
+    for (const a of this.anims) a.t += dt;
+    this.anims = this.anims.filter((a) => a.t * a.fps < EFFECTS[a.key].frames);
     this.rings = this.rings.filter((r) => r.t < r.max);
     for (const b of this.beams) b.t += dt;
     this.beams = this.beams.filter((b) => b.t < 0.25);
@@ -411,6 +428,11 @@ export class BattleView {
       g.globalAlpha = 1;
     }
 
+    for (const a of this.anims) {
+      const img = effectImage(a.key);
+      if (img) drawEffectFrame(g, img, a.key, Math.floor(a.t * a.fps), a.x, a.y, a.size, a.anchor);
+    }
+
     for (const r of this.rings) {
       const k = r.t / r.max;
       const rad = r.r * (r.grow ? k : 0.4 + k * 0.6);
@@ -566,6 +588,17 @@ export class BattleView {
         if (Math.random() < 0.35) this.fx.burst(edge, y - half + Math.random() * half * 2, palette[(Math.random() * palette.length) | 0], 1, 40 / Z, 2.5 / Z, text === 'RELOADING!' ? 300 : -60, true);
       }
     }
+  }
+
+  /** Effect art is the Fancy area effect style (Settings); Basic keeps plain shapes. */
+  private get fancy(): boolean {
+    return this.game.state.settings.aoeStyle !== 'basic';
+  }
+
+  /** Plays a magic effect once: `size` is its longer side; 'bottom' anchors strikes that come down from above. */
+  private playEffect(key: EffectKey, x: number, y: number, size: number, anchor: 'center' | 'bottom' = 'center', fps = 18): void {
+    if (this.anims.length > 120) return; // keep the busiest moments cheap
+    this.anims.push({ key, x, y, size, anchor, fps, t: 0 });
   }
 
   private drawEnemy(g: CanvasRenderingContext2D, e: Enemy): void {
@@ -1159,6 +1192,11 @@ function drawStatus(g: CanvasRenderingContext2D, e: Enemy, t: number, on: (k: Fx
       g.beginPath();
       g.arc(0, 0, r + (R - r) * (1 - ((t * 1.5 + e.phase) % 1)), 0, Math.PI * 2);
       g.stroke();
+    } else if (effectImage('blackhole')) {
+      // A swirling black hole under the monster, as wide as the well's pull.
+      g.globalAlpha = fade * 0.85;
+      drawEffectFrame(g, effectImage('blackhole')!, 'blackhole', Math.floor(t * 12 + e.phase * 8), 0, 0, Math.max(r * 2.6, R * 0.9), 'center', true);
+      g.globalAlpha = 1;
     } else {
       const n = 14;
       for (let i = 0; i < n; i++) {
@@ -1199,6 +1237,13 @@ function drawBullet(g: CanvasRenderingContext2D, b: Bullet, t: number, basic = f
         g.beginPath();
         g.arc(0, 0, 5.5, 0, Math.PI * 2);
         g.fill();
+        break;
+      }
+      const fb = effectImage('fireball');
+      if (fb) {
+        // The fireball sprite, flying the way it's going (it's drawn heading right).
+        g.rotate(a);
+        drawEffectFrame(g, fb, 'fireball', Math.floor(t * 16), 0, 0, 26, 'center', true);
         break;
       }
       // A flickering ball of fire squares: a big one at the core, small ones around it.
@@ -1438,7 +1483,6 @@ const PIXEL = 4;
 const BLAST_TIME = 0.35;
 const PUDDLE_GREENS = ['#b4f04a', '#4caf3a', '#2a6e26'];
 const FIRE_COLORS = ['#ffd23a', '#ff8a2a', '#e8321e'];
-const RADIANT_COLORS = ['#fffbe0', '#ffe36e', '#ffc830'];
 
 /**
  * A round patch of squares in two sizes (`big` and half that) filling radius `r`, laid out on a grid with a
@@ -1490,6 +1534,33 @@ function drawSheetFrame(g: CanvasRenderingContext2D, img: CanvasImageSource, sh:
   const k = size / Math.max(bw, bh);
   const F = sh.frame;
   g.drawImage(img, col * F, row * F, F, F, -(bx + bw / 2) * k, -(by + bh / 2) * k, F * k, F * k);
+}
+
+interface Anim {
+  key: EffectKey;
+  x: number;
+  y: number;
+  size: number;
+  anchor: 'center' | 'bottom';
+  fps: number;
+  t: number;
+}
+
+/**
+ * One frame of a magic effect: its box's longer side `size` across, centred on (x, y), or with its bottom
+ * edge there ('bottom'). `loop` wraps the frame number (projectiles, wells); otherwise it's clamped.
+ */
+function drawEffectFrame(g: CanvasRenderingContext2D, img: HTMLImageElement, key: EffectKey, frame: number, x: number, y: number, size: number, anchor: 'center' | 'bottom', loop = false): void {
+  const sh = EFFECTS[key];
+  const f = loop ? ((frame % sh.frames) + sh.frames) % sh.frames : Math.min(sh.frames - 1, frame);
+  const [bx, by, bw, bh] = sh.box;
+  const k = size / Math.max(bw, bh);
+  const dx = x - (bx + bw / 2) * k;
+  const dy = anchor === 'bottom' ? y - (by + bh) * k : y - (by + bh / 2) * k;
+  const smooth = g.imageSmoothingEnabled;
+  g.imageSmoothingEnabled = false;
+  g.drawImage(img, f * sh.frame, 0, sh.frame, sh.frame, dx, dy, sh.frame * k, sh.frame * k);
+  g.imageSmoothingEnabled = smooth;
 }
 
 function frostTint(img: HTMLImageElement | HTMLCanvasElement): HTMLCanvasElement {

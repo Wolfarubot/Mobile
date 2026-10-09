@@ -59,3 +59,17 @@ export function monsterSheetImage(key: string): HTMLImageElement {
   }
   return img;
 }
+
+// Magic effect sheets (public/effects/<key>.png, see effectSheets.ts). Loaded on first use.
+const effectImages = new Map<string, HTMLImageElement>();
+
+/** A magic effect sheet's image, or null until it has loaded (starts loading on first call). */
+export function effectImage(key: string): HTMLImageElement | null {
+  let img = effectImages.get(key);
+  if (!img) {
+    img = new Image();
+    img.src = `${import.meta.env.BASE_URL}effects/${key}.png`;
+    effectImages.set(key, img);
+  }
+  return img.complete && img.naturalWidth > 0 ? img : null;
+}
