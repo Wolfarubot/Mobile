@@ -1,0 +1,29 @@
+Monster walk sheets baked from CraftPix.net character packs (license: https://craftpix.net/file-licenses/).
+Generated from each pack's PNG/<Character>/Without_shadow/*Walk* sheet; some are recoloured (see src/render/monsterSheets.ts).
+
+Source packs:
+  archer-1-3-level-pixel-top-down-sprite-character
+  beholder-monsters-top-down-pixel-art-sprites
+  demons-4-direction-pixel-character-sprite-pack
+  free-predator-plant-mobs-pixel-art-pack
+  free-swordsman-1-3-level-pixel-top-down-sprite-character
+  free-vampire-4-direction-pixel-character-sprite-pack
+  giant-rat-4-direction-pixel-character-sprite-pack
+  goblin-pixel-art-character-sprite-pack
+  golem-pixel-art-top-down-sprite-pack
+  imp-mobs-pixel-art-character-sprite-pack
+  lizardmen-pixel-art-character-sprite-pack
+  mage-1-3-level-pixel-top-down-sprite-character
+  mage-4-6-level-pixel-top-down-sprite-characters
+  pixel-art-slime-enemies-top-down-sprite-pack
+  slime-boss-pixel-art-2d-sprite-for-roguelike-games
+  swordsman-7-9-level-pixel-top-down-sprite-character-pack
+  swordsman-level-4-6-pixel-character-top-down-sprite-pack
+  top-down-pixel-art-slime-monsters-sprite-pack
+  top-down-pixel-ent-character-sprites
+  top-down-pixel-ghost-character-sprite-pack
+  top-down-pixel-gnolls-character-pack
+  top-down-pixel-lich-character-sprites
+  top-down-pixel-mushroom-sprite-pack
+  top-down-pixel-skeletons-character-sprite-pack
+  zombie-4-direction-pixel-character-sprite-pack

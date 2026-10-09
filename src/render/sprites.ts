@@ -45,3 +45,17 @@ export function gearImage(key: string | undefined): HTMLImageElement | null {
   }
   return img.complete && img.naturalWidth > 0 ? img : null;
 }
+
+// Monster walk sheets (public/monsters/<key>.png, see monsterSheets.ts). Loaded on first use.
+const sheetImages = new Map<string, HTMLImageElement>();
+
+/** A monster walk sheet's image (started loading on first call); check `complete` before drawing. */
+export function monsterSheetImage(key: string): HTMLImageElement {
+  let img = sheetImages.get(key);
+  if (!img) {
+    img = new Image();
+    img.src = `${import.meta.env.BASE_URL}monsters/${key}.png`;
+    sheetImages.set(key, img);
+  }
+  return img;
+}

@@ -4,7 +4,8 @@ import { fmt } from '../core/format';
 import type { Game, Shooter } from '../core/game';
 import type { FxKey } from '../core/state';
 import { canvasFont, fitCanvas, Fx } from './fx';
-import { gearImage, sprite } from './sprites';
+import { gearImage, monsterSheetImage, sprite } from './sprites';
+import { MONSTER_SHEETS, SHEETS, type MonsterSheet } from './monsterSheets';
 import { GEAR_SPRITES } from '../core/gearSprites';
 
 interface Pickup {
@@ -51,6 +52,8 @@ let Z = 0.6;
 
 const OUTLINE = '#120c1c';
 const SPRITE_SCALE = 2.4;
+/** Animated walk sheets: the character's longer side, × the monster's radius (detailed art needs room). */
+const SHEET_SCALE = 3.3;
 
 /** Draws the survivor-style battlefield: the Hunter in the middle, the horde closing in. */
 export class BattleView {
@@ -573,8 +576,29 @@ export class BattleView {
     g.translate(e.x, e.y);
     if (e.fleeing) g.globalAlpha = 0.8;
 
+    const sheetKey = MONSTER_SHEETS[e.type];
+    const sheet = sheetKey ? monsterSheetImage(sheetKey) : null;
     const img = (e.boss && sprite(`bosses/${e.type}`)) || sprite(`enemies/${e.type}`);
-    if (img) {
+    if (sheetKey && sheet && sheet.complete && sheet.naturalWidth > 0) {
+      // Animated walk: the row that faces where it's heading, stepping through frames as it goes.
+      const sh = SHEETS[sheetKey];
+      const hy = e.fleeing ? e.y : -e.y;
+      const dir = Math.abs(dirX) > Math.abs(hy) ? (dirX < 0 ? 'L' : 'R') : hy > 0 ? 'D' : 'U';
+      const col = Math.floor(e.phase * (e.fleeing ? 12 : 8)) % sh.cols;
+      const src = e.slow && this.fxOn('chill') ? frostTint(sheet) : sheet;
+      g.fillStyle = 'rgba(0,0,0,0.25)';
+      g.beginPath();
+      g.ellipse(0, r * 1.1, r * 0.9, r * 0.32, 0, 0, Math.PI * 2);
+      g.fill();
+      drawSheetFrame(g, src, sh, sh.order.indexOf(dir), col, r * SHEET_SCALE);
+      if (e.flash > 0.5) {
+        g.globalAlpha = 0.5;
+        g.globalCompositeOperation = 'lighter';
+        drawSheetFrame(g, sheet, sh, sh.order.indexOf(dir), col, r * SHEET_SCALE);
+        g.globalCompositeOperation = 'source-over';
+        g.globalAlpha = e.fleeing ? 0.8 : 1;
+      }
+    } else if (img) {
       const size = r * SPRITE_SCALE;
       const bob = Math.sin(e.phase * 10) * r * 0.06;
       g.scale(dirX < 0 ? -1 : 1, 1);
@@ -1033,7 +1057,13 @@ export function drawEnemyPortrait(canvas: HTMLCanvasElement, id: EnemyId): void 
   g.save();
   g.translate(w / 2, h / 2);
   const img = sprite(`enemies/${id}`);
-  if (img) g.drawImage(img, -r * 1.3, -r * 1.3, r * 2.6, r * 2.6);
+  const sheetKey = MONSTER_SHEETS[id];
+  const sheet = sheetKey ? monsterSheetImage(sheetKey) : null;
+  if (sheetKey && sheet && !(sheet.complete && sheet.naturalWidth > 0)) sheet.addEventListener('load', () => drawEnemyPortrait(canvas, id), { once: true });
+  if (sheetKey && sheet && sheet.complete && sheet.naturalWidth > 0) {
+    const sh = SHEETS[sheetKey];
+    drawSheetFrame(g, sheet, sh, sh.order.indexOf('D'), 0, r * 2.8);
+  } else if (img) g.drawImage(img, -r * 1.3, -r * 1.3, r * 2.6, r * 2.6);
   else {
     g.fillStyle = def.color;
     g.strokeStyle = OUTLINE;
@@ -1440,6 +1470,14 @@ function mixHex(a: string, b: string, k: number): string {
 
 /** A blue-tinted copy of a sprite, for monsters chilled by Frost (made once per sprite). */
 const frostCache = new WeakMap<CanvasImageSource, HTMLCanvasElement>();
+/** One frame of a monster walk sheet, centred on the origin, with the character's longer side `size` across. */
+function drawSheetFrame(g: CanvasRenderingContext2D, img: CanvasImageSource, sh: MonsterSheet, row: number, col: number, size: number): void {
+  const [bx, by, bw, bh] = sh.box;
+  const k = size / Math.max(bw, bh);
+  const F = sh.frame;
+  g.drawImage(img, col * F, row * F, F, F, -(bx + bw / 2) * k, -(by + bh / 2) * k, F * k, F * k);
+}
+
 function frostTint(img: HTMLImageElement | HTMLCanvasElement): HTMLCanvasElement {
   const hit = frostCache.get(img);
   if (hit) return hit;
