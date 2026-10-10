@@ -744,8 +744,8 @@ describe('Shops', () => {
     expect(g.learn('main', 'power2')).toBe(false); // Tap Power hangs from Attack Power
     for (const k of ['power', 'speed', 'recovery', 'power2', 'recovery2']) expect(g.learn('main', k)).toBe(true);
     expect(g.skillPoints('main')).toBe(pts - 6);
-    expect(g.damage).toBeCloseTo(dmg * 1.2);
-    expect(g.fireRate).toBeCloseTo(rate * 1.05);
+    expect(g.damage).toBeCloseTo(dmg * 1.4);
+    expect(g.fireRate).toBeCloseTo(rate * 1.1);
     expect(g.stunTime()).toBeLessThan(stun);
     expect(g.tapDamage).toBeGreaterThan(tap * 1.1);
     expect(g.tapRadius).toBeGreaterThan(radius);
@@ -773,7 +773,7 @@ describe('Shops', () => {
     g.state.main.trains = 5000;
     g.learn('main', 'root');
     for (let i = 0; i < 30; i++) g.learn('main', 'speed');
-    expect(g.skill('main', 'speed')).toBe(10);
+    expect(g.skill('main', 'speed')).toBe(5);
   });
 
   it('Upgrades have rarities; the Forest Idol doubles Wandering Woods HP and gold, and nowhere else', () => {
@@ -3130,6 +3130,20 @@ describe('Saves', () => {
     expect(s.inventory.map((it) => it.stars)).toEqual([3, 5]);
     expect(s.materials.twig).toBe(old.materials.twig + Math.ceil(6 * 1.8 ** 4));
     expect(s.items.gloves).toBe(MAX_STARS);
+  });
+
+  it("your Hunter's trees are five wide; older saves get their points back but keep their tap abilities", () => {
+    for (const tree of [SKILL_TREES.main, SLAYER_TREE]) {
+      expect(Math.max(...tree.map((n) => n.col))).toBe(4);
+      expect(new Set(tree.map((n) => `${n.row}/${n.col}`)).size).toBe(tree.length);
+    }
+    const old = JSON.parse(serialize(newGame(0)));
+    old.version = 22;
+    old.main.skills = { root: 1, power: 5, flameTap: 1 };
+    old.main.tapAbility = 'flame';
+    const s = deserialize(JSON.stringify(old))!;
+    expect(s.main.skills).toEqual({ flameTap: 1 });
+    expect(s.main.tapAbility).toBe('flame');
   });
 
   it('refunds the old Fire Drake evolutions now that it is the Broodmother (a Beast), and keeps the rest', () => {

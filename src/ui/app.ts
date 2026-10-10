@@ -755,7 +755,10 @@ export class AppUI {
     wrap.appendChild(head);
     const tree = el('div', 'tree');
     tree.style.height = `${H}px`;
-    const pos = (n: TreeNode) => ({ x: ((n.col + 0.5) / 3) * 300, y: n.row * ROW + ROW / 2 - 8 });
+    // Three columns, or five for your Hunter's wider trees.
+    const cols = Math.max(3, ...nodes.map((n) => n.col + 1));
+    tree.classList.toggle('wide', cols > 3);
+    const pos = (n: TreeNode) => ({ x: ((n.col + 0.5) / cols) * 300, y: n.row * ROW + ROW / 2 - 8 });
     const lines = nodes.flatMap((n) =>
       n.requires.map((r) => {
         const a = pos(nodes.find((x) => x.id === r)!);

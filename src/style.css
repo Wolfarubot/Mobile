@@ -4275,3 +4275,26 @@ body.ui-parchment .mat {
   box-shadow: inset 0 0 0 2px var(--wood), inset 0 -4px 0 var(--well) !important;
   color: var(--ink);
 }
+/* Your Hunter's five-wide trees: smaller nodes so five fit across a phone. */
+.tree.wide .tnode {
+  width: 20%;
+}
+.tree.wide .tn-icon {
+  width: 44px;
+  height: 44px;
+  font-size: 20px;
+}
+.tree.wide img.ni {
+  width: 38px;
+  height: 38px;
+}
+.tree.wide .tn-icon em {
+  right: -12px;
+  font-size: 9px;
+  padding: 1px 4px;
+}
+.tree.wide .tn-name {
+  font-size: 10px;
+  padding: 1px 2px;
+  overflow-wrap: anywhere;
+}

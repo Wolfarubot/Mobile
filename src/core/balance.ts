@@ -126,7 +126,7 @@ export interface TreeNode<S extends string = string> {
   requires: string[];
   /** Skill points each rank costs (default 1). */
   cost?: number;
-  /** Grid position in the tree: column 0–2, row from the top. */
+  /** Grid position in the tree: column 0–2 (0–4 in your Hunter's trees), row from the top. */
   col: number;
   row: number;
   /** Your Hunter: the tap ability this node unlocks (equip it in the Abilities tab). */
@@ -186,7 +186,7 @@ export const tapAbilityDef = (id: TapAbilityId): TapAbilityDef => TAP_ABILITIES.
 /** How long Frost Nova chills. */
 export const FROST_TAP_CHILL = 3;
 
-/** Your Hunter's ability nodes: one point each, under the three signature nodes, above Apex Hunter. */
+/** Your Hunter's ability nodes: one point each, under the first three signature nodes, above Apex Hunter. */
 const MAIN_ABILITY_NODES: SkillNode[] = [
   { id: 'flameTap', name: 'Flame Burst', icon: '🔥', desc: 'Unlocks the Flame Burst tap ability: taps deal Fire damage and set monsters ablaze. Equip it in the Abilities tab.', maxRank: 1, effect: {}, ability: 'flame', requires: ['power2'], col: 0, row: 3 },
   { id: 'thunderTap', name: 'Thunderclap', icon: '⚡', desc: 'Unlocks the Thunderclap tap ability: taps deal Lightning damage and arc to monsters nearby. Equip it in the Abilities tab.', maxRank: 1, effect: {}, ability: 'thunder', requires: ['speed2'], col: 1, row: 3 },
@@ -195,15 +195,19 @@ const MAIN_ABILITY_NODES: SkillNode[] = [
 
 // ---- Your Hunter: a longer first tree (Lv 90), Ascend at Lv 100 to become the Slayer, then on to Lv 200 ----
 
-/** Rows below your first tree's capstone: 47 more points, finishing with Legend (so the whole tree is done at Lv 90). */
+/** Rows below your first tree's capstone: 45 more points, finishing with Legend (so the whole tree is done at Lv 90). */
 const MAIN_VETERAN_NODES: SkillNode[] = [
-  { id: 'might', name: "Hunter's Might", icon: '🗡️', desc: '+5% damage per rank.', maxRank: 9, effect: { damage: 0.05 }, requires: ['capstone'], col: 0, row: 5 },
-  { id: 'haste', name: "Hunter's Haste", icon: '💨', desc: '+3% attack rate per rank.', maxRank: 9, effect: { rate: 0.03 }, requires: ['capstone'], col: 1, row: 5 },
-  { id: 'will', name: 'Iron Will', icon: '🪨', desc: 'Stuns wear off 8% faster per rank.', maxRank: 5, effect: { recovery: 1 }, requires: ['capstone'], col: 2, row: 5 },
-  { id: 'deadlyTaps', name: 'Deadly Taps', icon: '👊', desc: '+25% tap blast damage per rank.', maxRank: 5, effect: { tapPower: 0.25 }, requires: ['might'], col: 0, row: 6 },
+  { id: 'might', name: "Hunter's Might", icon: '🗡️', desc: '+9% damage per rank.', maxRank: 5, effect: { damage: 0.09 }, requires: ['capstone'], col: 0, row: 5 },
+  { id: 'haste', name: "Hunter's Haste", icon: '💨', desc: '+5.5% attack rate per rank.', maxRank: 5, effect: { rate: 0.055 }, requires: ['capstone'], col: 1, row: 5 },
+  { id: 'will', name: 'Iron Will', icon: '🪨', desc: 'Stuns wear off 13% faster per rank.', maxRank: 3, effect: { recovery: 5 / 3 }, requires: ['capstone'], col: 2, row: 5 },
+  { id: 'longShot', name: 'Long Shot', icon: '🔭', desc: '+10 range per rank.', maxRank: 3, effect: { range: 10 }, requires: ['capstone'], col: 3, row: 5 },
+  { id: 'prosperity', name: 'Prosperity', icon: '🪙', desc: '+15% gold from your kills per rank.', maxRank: 3, effect: { gold: 0.15 }, requires: ['capstone'], col: 4, row: 5 },
+  { id: 'deadlyTaps', name: 'Deadly Taps', icon: '👊', desc: '+30% tap blast damage per rank.', maxRank: 4, effect: { tapPower: 0.3 }, requires: ['might'], col: 0, row: 6 },
   { id: 'keenEye', name: 'Keen Eye', icon: '🦅', desc: '+1% crit chance per rank.', maxRank: 4, effect: { crit: 0.01 }, requires: ['haste'], col: 1, row: 6 },
-  { id: 'wideTaps', name: 'Wide Taps', icon: '🌀', desc: '+8% tap blast area per rank.', maxRank: 5, effect: { tapSize: 0.08 }, requires: ['will'], col: 2, row: 6 },
-  { id: 'legend', name: 'Legend', icon: '🏆', desc: '+50% damage and +20% attack rate.', maxRank: 1, cost: 10, effect: { damage: 0.5, rate: 0.2 }, requires: ['deadlyTaps', 'keenEye', 'wideTaps'], col: 1, row: 7 },
+  { id: 'wideTaps', name: 'Wide Taps', icon: '🌀', desc: '+10% tap blast area per rank.', maxRank: 4, effect: { tapSize: 0.1 }, requires: ['will'], col: 2, row: 6 },
+  { id: 'shieldWall', name: 'Shield Wall', icon: '🛡️', desc: '+1 shield charge.', maxRank: 1, effect: { guard: 1 }, requires: ['longShot'], col: 3, row: 6 },
+  { id: 'bounty', name: 'Bounty', icon: '💰', desc: '+15% materials from your kills per rank.', maxRank: 3, effect: { drops: 0.15 }, requires: ['prosperity'], col: 4, row: 6 },
+  { id: 'legend', name: 'Legend', icon: '🏆', desc: '+50% damage and +20% attack rate.', maxRank: 1, cost: 10, effect: { damage: 0.5, rate: 0.2 }, requires: ['deadlyTaps', 'keenEye', 'wideTaps', 'shieldWall', 'bounty'], col: 2, row: 7 },
 ];
 
 /** Your Hunter's gold Ascend node, below Legend: 10 points, so Lv 100. */
@@ -216,7 +220,7 @@ export const MAIN_ASCEND_NODE: SkillNode = {
   cost: 10,
   effect: {},
   requires: ['legend'],
-  col: 1,
+  col: 2,
   row: 8,
 };
 
@@ -259,24 +263,21 @@ export function affordableCount(cost: (count: number) => number, gold: number, l
   return lo;
 }
 
-/** The Slayer's tree (100 points: Lv 101–200), its capstone the last 21 points. */
-export const SLAYER_TREE: SkillNode[] = skillTree(
-  { name: "Slayer's Oath", icon: '⚔️', desc: '+30% damage and +10% attack rate.', maxRank: 1, cost: 4, effect: { damage: 0.3, rate: 0.1 } },
-  [
-    { name: 'Precision', icon: '🎯', desc: '+1% crit chance per rank.', maxRank: 10, effect: { crit: 0.01 } },
-    { name: 'Tap Fury', icon: '💥', desc: '+30% tap blast damage per rank.', maxRank: 10, effect: { tapPower: 0.3 } },
-    { name: 'Tap Reach', icon: '🌊', desc: '+8% tap blast area per rank.', maxRank: 10, effect: { tapSize: 0.08 } },
-  ],
-  { name: 'Godslayer', icon: '👑', desc: '+100% damage, +25% attack rate and +5% crit chance.', maxRank: 1, cost: 21, effect: { damage: 1, rate: 0.25, crit: 0.05 } },
-).map((n) =>
-  n.id === 'power'
-    ? { ...n, name: 'Carnage', icon: '🩸', desc: '+5% damage per rank.', maxRank: 20, effect: { damage: 0.05 } }
-    : n.id === 'speed'
-      ? { ...n, name: 'Frenzy', icon: '⚡', desc: '+5% attack rate per rank.', maxRank: 20, effect: { rate: 0.05 } }
-      : n.id === 'recovery'
-        ? { ...n, name: 'Unbreakable', icon: '🗿' }
-        : n,
-);
+/** The Slayer's tree (100 points: Lv 101–200), five wide like your first tree; its capstone the last 21 points. */
+export const SLAYER_TREE: SkillNode[] = [
+  { id: 'root', name: "Slayer's Oath", icon: '⚔️', desc: '+30% damage and +10% attack rate.', maxRank: 1, cost: 4, effect: { damage: 0.3, rate: 0.1 }, requires: [], col: 2, row: 0 },
+  { id: 'power', name: 'Carnage', icon: '🩸', desc: '+7% damage per rank.', maxRank: 15, effect: { damage: 0.07 }, requires: ['root'], col: 0, row: 1 },
+  { id: 'speed', name: 'Frenzy', icon: '⚡', desc: '+7% attack rate per rank.', maxRank: 15, effect: { rate: 0.07 }, requires: ['root'], col: 1, row: 1 },
+  { id: 'recovery', name: 'Unbreakable', icon: '🗿', desc: 'Stuns wear off 8% faster per rank.', maxRank: 5, effect: { recovery: 1 }, requires: ['root'], col: 2, row: 1 },
+  { id: 'farSight', name: 'Far Sight', icon: '🔭', desc: '+10 range per rank.', maxRank: 5, effect: { range: 10 }, requires: ['root'], col: 3, row: 1 },
+  { id: 'plunder', name: 'Plunder', icon: '🪙', desc: '+10% gold and materials from your kills per rank.', maxRank: 5, effect: { gold: 0.1, drops: 0.1 }, requires: ['root'], col: 4, row: 1 },
+  { id: 'power2', name: 'Precision', icon: '🎯', desc: '+1.25% crit chance per rank.', maxRank: 8, effect: { crit: 0.0125 }, requires: ['power'], col: 0, row: 2 },
+  { id: 'speed2', name: 'Tap Fury', icon: '💥', desc: '+40% tap blast damage per rank.', maxRank: 8, effect: { tapPower: 0.4 }, requires: ['speed'], col: 1, row: 2 },
+  { id: 'recovery2', name: 'Tap Reach', icon: '🌊', desc: '+9% tap blast area per rank.', maxRank: 9, effect: { tapSize: 0.09 }, requires: ['recovery'], col: 2, row: 2 },
+  { id: 'ironSkin', name: 'Iron Skin', icon: '🛡️', desc: '+1 shield charge per rank.', maxRank: 2, effect: { guard: 1 }, requires: ['farSight'], col: 3, row: 2 },
+  { id: 'spoils', name: 'Spoils', icon: '💰', desc: '+15% materials from your kills per rank.', maxRank: 3, effect: { drops: 0.15 }, requires: ['plunder'], col: 4, row: 2 },
+  { id: 'capstone', name: 'Godslayer', icon: '👑', desc: '+100% damage, +25% attack rate and +5% crit chance.', maxRank: 1, cost: 21, effect: { damage: 1, rate: 0.25, crit: 0.05 }, requires: ['power2', 'speed2', 'recovery2', 'ironSkin', 'spoils'], col: 2, row: 3 },
+];
 
 // ---- Ascension (Guild Hunters) ----
 // A Guild Hunter's first tree costs 39 points: it's complete at Lv 40. Then a gold Ascend node appears
@@ -365,17 +366,23 @@ export const ASCENDED_TREES: Record<HunterId, SkillNode[]> = {
 
 /** Each Hunter's skill tree ('main' is yours). */
 export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
+  // Yours is five wide (the Guild Hunters' are three): more branches, and room for more abilities.
   main: [
-    ...skillTree(
-      { name: "Hunter's Instinct", icon: '👁️', desc: '+5% crit chance.', maxRank: 1, effect: { crit: 0.05 } },
-      [
-        { name: 'Tap Power', icon: '👆', desc: '+50% tap blast damage per rank.', maxRank: 5, effect: { tapPower: 0.5 } },
-        { name: 'Split Shot', icon: '🔱', desc: 'Shots pierce 1 more enemy per rank.', maxRank: 2, effect: { pierce: 1 } },
-        { name: 'Tap Size', icon: '💥', desc: '+15% tap blast area per rank.', maxRank: 5, effect: { tapSize: 0.15 } },
-      ],
-      { name: 'Apex Hunter', icon: '👑', desc: '+25% damage and +10% attack rate.', maxRank: 1, effect: { damage: 0.25, rate: 0.1 } },
-    ).map((n) => (n.id === 'capstone' ? { ...n, row: 4, requires: MAIN_ABILITY_NODES.map((a) => a.id) } : n)),
+    { id: 'root', name: "Hunter's Instinct", icon: '👁️', desc: '+5% crit chance.', maxRank: 1, effect: { crit: 0.05 }, requires: [], col: 2, row: 0 },
+    { id: 'power', name: 'Attack Power', icon: '💪', desc: '+40% damage per rank.', maxRank: 5, effect: { damage: 0.4 }, requires: ['root'], col: 0, row: 1 },
+    { id: 'speed', name: 'Attack Speed', icon: '⚡', desc: '+10% attack rate per rank.', maxRank: 5, effect: { rate: 0.1 }, requires: ['root'], col: 1, row: 1 },
+    { id: 'recovery', name: 'Recovery Speed', icon: '🧘', desc: 'Stuns wear off 13% faster per rank.', maxRank: 3, effect: { recovery: 5 / 3 }, requires: ['root'], col: 2, row: 1 },
+    { id: 'reach', name: 'Reach', icon: '📏', desc: '+15 range per rank.', maxRank: 3, effect: { range: 15 }, requires: ['root'], col: 3, row: 1 },
+    { id: 'fortune', name: 'Fortune', icon: '🍀', desc: '+10% gold and materials from your kills per rank.', maxRank: 3, effect: { gold: 0.1, drops: 0.1 }, requires: ['root'], col: 4, row: 1 },
+    { id: 'power2', name: 'Tap Power', icon: '👆', desc: '+50% tap blast damage per rank.', maxRank: 5, effect: { tapPower: 0.5 }, requires: ['power'], col: 0, row: 2 },
+    { id: 'speed2', name: 'Split Shot', icon: '🔱', desc: 'Shots pierce 1 more enemy per rank.', maxRank: 2, effect: { pierce: 1 }, requires: ['speed'], col: 1, row: 2 },
+    { id: 'recovery2', name: 'Tap Size', icon: '💥', desc: '+20% tap blast area per rank.', maxRank: 4, effect: { tapSize: 0.2 }, requires: ['recovery'], col: 2, row: 2 },
+    { id: 'bulwark', name: 'Bulwark', icon: '🛡️', desc: '+1 shield charge per rank.', maxRank: 2, effect: { guard: 1 }, requires: ['reach'], col: 3, row: 2 },
+    { id: 'treasure', name: 'Treasure Sense', icon: '💎', desc: '+15% materials from your kills per rank.', maxRank: 3, effect: { drops: 0.15 }, requires: ['fortune'], col: 4, row: 2 },
     ...MAIN_ABILITY_NODES,
+    { id: 'eagleEye', name: 'Eagle Eye', icon: '🎯', desc: '+2% crit chance per rank.', maxRank: 2, effect: { crit: 0.02 }, requires: ['bulwark'], col: 3, row: 3 },
+    { id: 'goldTouch', name: 'Golden Touch', icon: '✨', desc: '+20% gold from your kills per rank.', maxRank: 2, effect: { gold: 0.2 }, requires: ['treasure'], col: 4, row: 3 },
+    { id: 'capstone', name: 'Apex Hunter', icon: '👑', desc: '+25% damage and +10% attack rate.', maxRank: 1, effect: { damage: 0.25, rate: 0.1 }, requires: [...MAIN_ABILITY_NODES.map((a) => a.id), 'eagleEye', 'goldTouch'], col: 2, row: 4 },
     ...MAIN_VETERAN_NODES,
   ],
   alchemist: skillTree(
