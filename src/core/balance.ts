@@ -126,7 +126,7 @@ export interface TreeNode<S extends string = string> {
   requires: string[];
   /** Skill points each rank costs (default 1). */
   cost?: number;
-  /** Grid position in the tree: column 0–2 (0–4 in your Hunter's trees), row from the top. */
+  /** Grid position in the tree: column 0–2 (0–4 in your Hunter's trees; halves like 1.5 stagger a row), row from the top. */
   col: number;
   row: number;
   /** Your Hunter: the tap ability this node unlocks (equip it in the Abilities tab). */
