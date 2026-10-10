@@ -3132,6 +3132,17 @@ describe('Saves', () => {
     expect(s.items.gloves).toBe(MAX_STARS);
   });
 
+  it('refunds the old Fire Drake evolutions now that it is the Broodmother (a Beast), and keeps the rest', () => {
+    const old = JSON.parse(serialize(newGame(0)));
+    old.version = 21;
+    old.bestiary.fireDrake.evo = { root: 1, horde: 6, horde2: 3 };
+    old.bestiary.lavaGolem.evo = { root: 1 };
+    const s = deserialize(JSON.stringify(old))!;
+    expect(s.bestiary.fireDrake.evo).toEqual({});
+    expect(s.bestiary.lavaGolem.evo).toEqual({ root: 1 });
+    expect(enemyDef('fireDrake').archetype).toBe('beast');
+  });
+
   it('migrates a stage-based save: keeps items and surviving materials', () => {
     const v3 = { version: 3, gold: 1e9, stage: 40, maxStage: 40, items: { whetstone: 4 }, materials: { goo: 50, bone: 20, ember: 5 }, stars: 7, stats: { totalKills: 123, deaths: 2 } };
     const s = deserialize(JSON.stringify(v3))!;

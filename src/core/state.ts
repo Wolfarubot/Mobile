@@ -212,7 +212,7 @@ export interface GameState {
   };
 }
 
-export const SAVE_VERSION = 21;
+export const SAVE_VERSION = 22;
 
 /** Gear that was replaced, and what saves holding it get instead. */
 const RENAMED_GEAR: Record<string, GearItem['base']> = {
@@ -571,6 +571,8 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
     // v14 -> v15: monsters top out at Lv 30 and the evolution trees were resized, so points are refunded.
     b.empower = Math.min(MAX_EMPOWER_SESSIONS, b.empower);
     if (((data.version as number) ?? 1) < 15) b.evo = {};
+    // v21 -> v22: the Fire Drake became the Broodmother, a Beast, so its Dragon evolutions are refunded.
+    if (((data.version as number) ?? 1) < 22 && e.id === 'fireDrake') b.evo = {};
     b.kills = n(b.kills);
     delete b.swarm;
     delete b.bounty;
