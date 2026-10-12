@@ -1,206 +1,126 @@
 /**
- * The battlefield's framed bars, from CraftPix's "HP, Mana, Stamina and Scroll Bar" pack (public/ui/):
- * the gold-winged Guardian bar (its health across both tiers of wing slots and the seconds left in the medallion)
- * and the simple silver-edged bar for the time left (the Guardian's, under its wings, and an event's). The frames' empty slots are found by colour when
- * they load, and filled pixel by pixel, keeping each slot pixel's shading.
+ * The battlefield's framed bars (event timers, a Guardian's health and time), built from the simple
+ * silver-edged bar in CraftPix's "HP, Mana, Stamina and Scroll Bar" pack (public/ui/timer-bar.png). The frame is
+ * nine-sliced to any width and thickness (its ends and edges kept, its middle stretched), and its empty slot is found by
+ * colour and filled pixel by pixel in any colour, keeping the slot's shading.
  */
 
-interface Slot {
-  /** Pixel indices (y * width + x) and each one's shade: 0 dark, 1 mid, 2 light. */
-  px: number[];
-  shade: number[];
-  x0: number;
-  x1: number;
-  y0: number;
-  y1: number;
-}
+const SOURCE = 'timer-bar.png';
+/** Pixels kept at each end, and along the top and bottom, when the frame is stretched. */
+const END = 6;
+const EDGE = 3;
+/** The slot's empty colours, dark to light: a filled pixel takes the matching shade of the fill. */
+const SLOT_SHADES = [0x6b6955, 0x717158, 0x7a7c5e];
 
-interface Frame {
-  img: HTMLImageElement;
-  w: number;
-  h: number;
-  base: ImageData;
-  /** Slot components found in the frame, by colour family. */
-  lavender: Slot[];
-  blue: Slot[];
-  olive: Slot[];
-  canvas: HTMLCanvasElement;
-  key: string;
-}
+let source: ImageData | null = null;
+let loading = false;
 
-/** The frame's slot colours: [hex, family, shade]. */
-type Family = 'lavender' | 'blue' | 'olive';
-const SLOT_COLOURS: Array<[number, Family, number]> = [
-  [0x787b8e, 'lavender', 0],
-  [0x787fa6, 'lavender', 1],
-  [0x7882ba, 'lavender', 2],
-  [0x698bc1, 'blue', 0],
-  [0x78a3d9, 'blue', 1],
-  [0x87c0ec, 'blue', 2],
-  [0x6b6955, 'olive', 0],
-  [0x717158, 'olive', 1],
-  [0x7a7c5e, 'olive', 2],
-];
-
-const frames = new Map<string, Frame | null>();
-
-function load(file: string): Frame | null {
-  if (frames.has(file)) return frames.get(file)!;
-  frames.set(file, null);
+function load(): ImageData | null {
+  if (source || loading) return source;
+  loading = true;
   const img = new Image();
-  img.src = `${import.meta.env.BASE_URL}ui/${file}`;
+  img.src = `${import.meta.env.BASE_URL}ui/${SOURCE}`;
   void img
     .decode()
-    .then(() => frames.set(file, analyse(img)))
+    .then(() => {
+      const c = document.createElement('canvas');
+      c.width = img.naturalWidth;
+      c.height = img.naturalHeight;
+      const g = c.getContext('2d')!;
+      g.drawImage(img, 0, 0);
+      source = g.getImageData(0, 0, c.width, c.height);
+    })
     .catch(() => undefined);
   return null;
 }
 
-/** Finds the slots: connected runs of slot-coloured pixels, one list per colour family. */
-function analyse(img: HTMLImageElement): Frame {
-  const w = img.naturalWidth;
-  const h = img.naturalHeight;
+interface Built {
+  w: number;
+  h: number;
+  base: ImageData;
+  /** Slot pixels (y * w + x) and each one's shade (an index into SLOT_SHADES). */
+  slot: number[];
+  shade: number[];
+  x0: number;
+  x1: number;
+  canvas: HTMLCanvasElement;
+  key: string;
+}
+
+const built = new Map<string, Built>();
+
+/** The frame at w × h pixels: ends and top/bottom edges as drawn, the middle stretched from the source's. */
+function build(src: ImageData, w: number, h: number): Built {
+  const key = `${w}x${h}`;
+  const hit = built.get(key);
+  if (hit) return hit;
+  const sw = src.width;
+  const sh = src.height;
+  // Nearest source pixel, sampling from each stretched pixel's centre (so a one-row slot takes the middle shade).
+  const map = (v: number, n: number, sn: number, e: number) => (v < e ? v : v >= n - e ? v - (n - sn) : e + Math.floor(((v - e + 0.5) * (sn - 2 * e)) / (n - 2 * e)));
+  const base = new ImageData(w, h);
+  const slot: number[] = [];
+  const shade: number[] = [];
+  let x0 = w;
+  let x1 = 0;
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      const si = (map(y, h, sh, EDGE) * sw + map(x, w, sw, END)) * 4;
+      const di = (y * w + x) * 4;
+      for (let k = 0; k < 4; k++) base.data[di + k] = src.data[si + k];
+      const rgb = (src.data[si] << 16) | (src.data[si + 1] << 8) | src.data[si + 2];
+      const s = src.data[si + 3] === 255 ? SLOT_SHADES.indexOf(rgb) : -1;
+      if (s >= 0) {
+        slot.push(y * w + x);
+        shade.push(s);
+        x0 = Math.min(x0, x);
+        x1 = Math.max(x1, x);
+      }
+    }
   const canvas = document.createElement('canvas');
   canvas.width = w;
   canvas.height = h;
-  const g = canvas.getContext('2d')!;
-  g.drawImage(img, 0, 0);
-  const base = g.getImageData(0, 0, w, h);
-  const d = base.data;
-  const family: Array<Family | null> = new Array(w * h).fill(null);
-  const shade = new Array<number>(w * h).fill(0);
-  for (let i = 0; i < w * h; i++) {
-    if (d[i * 4 + 3] < 255) continue;
-    const rgb = (d[i * 4] << 16) | (d[i * 4 + 1] << 8) | d[i * 4 + 2];
-    const hit = SLOT_COLOURS.find((c) => c[0] === rgb);
-    if (hit) {
-      family[i] = hit[1];
-      shade[i] = hit[2];
-    }
-  }
-  const seen = new Uint8Array(w * h);
-  const out: Record<Family, Slot[]> = { lavender: [], blue: [], olive: [] };
-  for (let s = 0; s < w * h; s++) {
-    const f = family[s];
-    if (!f || seen[s]) continue;
-    const slot: Slot = { px: [], shade: [], x0: w, x1: 0, y0: h, y1: 0 };
-    const stack = [s];
-    seen[s] = 1;
-    while (stack.length) {
-      const q = stack.pop()!;
-      const x = q % w;
-      const y = Math.floor(q / w);
-      slot.px.push(q);
-      slot.shade.push(shade[q]);
-      slot.x0 = Math.min(slot.x0, x);
-      slot.x1 = Math.max(slot.x1, x);
-      slot.y0 = Math.min(slot.y0, y);
-      slot.y1 = Math.max(slot.y1, y);
-      for (const [dx, dy] of [
-        [1, 0],
-        [-1, 0],
-        [0, 1],
-        [0, -1],
-      ]) {
-        const nx = x + dx;
-        const ny = y + dy;
-        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
-        const k = ny * w + nx;
-        if (!seen[k] && family[k] === f) {
-          seen[k] = 1;
-          stack.push(k);
-        }
-      }
-    }
-    out[f].push(slot);
-  }
-  return { img, w, h, base, lavender: out.lavender, blue: out.blue, olive: out.olive, canvas, key: '' };
+  const b: Built = { w, h, base, slot, shade, x0, x1: x1 + 1, canvas, key: '' };
+  built.set(key, b);
+  return b;
 }
 
 type Rgb = [number, number, number];
-const hex = (c: number): Rgb => [(c >> 16) & 255, (c >> 8) & 255, c & 255];
 
-/** A fill colour in three shades (dark, mid, light). */
-export const FILLS = {
-  hp: [0x9a2630, 0xd23a46, 0xf0646a].map(hex),
-  time: [0xc97a22, 0xf2a03d, 0xffc865].map(hex),
-  timeLow: [0xa82a2a, 0xe24444, 0xff7272].map(hex),
-  event: [0x2a8a46, 0x3fcf6a, 0x7deb95].map(hex),
-};
+/** A colour's three shades for filling the slot: darker, itself, lighter. */
+function shades(color: string): Rgb[] {
+  const n = parseInt(color.replace('#', ''), 16);
+  const c: Rgb = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  return [c.map((v) => Math.round(v * 0.68)) as Rgb, c, c.map((v) => Math.round(v + (255 - v) * 0.35)) as Rgb];
+}
+
+/** The light orange every timer fills with. */
+export const TIMER_COLOR = '#ffb866';
 
 /**
- * Paints `slots` left to right up to `frac` of their combined width, in `fill`'s shades; the rest stay as the
- * frame's empty slot colours.
+ * A framed bar at (x, y): `w` × `h` frame pixels, drawn `s` times their size, its slot filled from the left to
+ * `frac` in `color`. False until the frame has loaded.
  */
-function paint(f: Frame, d: Uint8ClampedArray, slots: Slot[], frac: number, fill: Rgb[]): void {
-  if (!slots.length) return;
-  const x0 = Math.min(...slots.map((s) => s.x0));
-  const x1 = Math.max(...slots.map((s) => s.x1));
-  const edge = x0 + (x1 - x0 + 1) * Math.max(0, Math.min(1, frac));
-  for (const s of slots)
-    s.px.forEach((q, i) => {
-      if (q % f.w >= edge) return;
-      const c = fill[s.shade[i]];
-      d[q * 4] = c[0];
-      d[q * 4 + 1] = c[1];
-      d[q * 4 + 2] = c[2];
+export function drawFramedBar(g: CanvasRenderingContext2D, x: number, y: number, s: number, w: number, h: number, frac: number, color: string): boolean {
+  const src = load();
+  if (!src) return false;
+  const b = build(src, Math.max(2 * END + 1, Math.round(w)), Math.max(2 * EDGE + 1, Math.round(h)));
+  const edge = Math.round(b.x0 + (b.x1 - b.x0) * Math.max(0, Math.min(1, frac)));
+  const key = `${edge}:${color}`;
+  if (b.key !== key) {
+    b.key = key;
+    const img = new ImageData(new Uint8ClampedArray(b.base.data), b.w, b.h);
+    const fill = shades(color);
+    b.slot.forEach((q, i) => {
+      if (q % b.w >= edge) return;
+      const c = fill[b.shade[i]];
+      img.data[q * 4] = c[0];
+      img.data[q * 4 + 1] = c[1];
+      img.data[q * 4 + 2] = c[2];
     });
-}
-
-/** Redraws the frame's canvas with these fills (only when the filled columns change). */
-function render(f: Frame, key: string, fills: Array<[Slot[], number, Rgb[]]>): void {
-  if (f.key === key) return;
-  f.key = key;
-  const img = new ImageData(new Uint8ClampedArray(f.base.data), f.w, f.h);
-  for (const [slots, frac, fill] of fills) paint(f, img.data, slots, frac, fill);
-  f.canvas.getContext('2d')!.putImageData(img, 0, 0);
-}
-
-export const GUARDIAN_BAR = { w: 248, h: 43 };
-export const TIMER_BAR = { w: 104, h: 9 };
-
-/**
- * The Guardian bar at (x, y), `s` times its pixel size: health across both tiers of wing slots (a tick at
- * `winAt` if it's won before 0) and the seconds left in the medallion (red when `low`). False until the frame
- * has loaded.
- */
-export function drawGuardianBar(g: CanvasRenderingContext2D, x: number, y: number, s: number, hp: number, winAt: number, seconds: number, low: boolean, font: string): boolean {
-  const f = load('guardian-bar.png');
-  if (!f) return false;
-  // The medallion is the biggest lavender slot; the wing slots are the wide ones.
-  const medal = f.lavender.reduce((a, b) => (b.px.length > a.px.length ? b : a));
-  const wings = [...f.lavender.filter((sl) => sl !== medal), ...f.blue].filter((sl) => sl.x1 - sl.x0 > 30);
-  const hx0 = Math.min(...wings.map((a) => a.x0));
-  const hx1 = Math.max(...wings.map((a) => a.x1)) + 1;
-  render(f, `${Math.round(hx0 + (hx1 - hx0) * Math.max(0, Math.min(1, hp)))}`, [[wings, hp, FILLS.hp]]);
-  g.imageSmoothingEnabled = false;
-  g.drawImage(f.canvas, x, y, f.w * s, f.h * s);
-  if (winAt > 0) {
-    g.fillStyle = '#ffe36e';
-    const wx = x + (hx0 + (hx1 - hx0) * winAt) * s;
-    g.fillRect(Math.round(wx) - 1, y + (Math.min(...wings.map((a) => a.y0)) - 2) * s, 2, (Math.max(...wings.map((a) => a.y1)) - Math.min(...wings.map((a) => a.y0)) + 5) * s);
+    b.canvas.getContext('2d')!.putImageData(img, 0, 0);
   }
-  // Seconds left, in the medallion.
-  g.font = font;
-  g.textAlign = 'center';
-  g.textBaseline = 'middle';
-  const mx = x + ((medal.x0 + medal.x1 + 1) / 2) * s;
-  const my = y + ((medal.y0 + medal.y1 + 1) / 2) * s;
-  g.lineWidth = 3;
-  g.strokeStyle = 'rgba(0,0,0,0.7)';
-  g.strokeText(`${Math.ceil(seconds)}`, mx, my + 1);
-  g.fillStyle = low ? '#ff8a8a' : '#fff4c8';
-  g.fillText(`${Math.ceil(seconds)}`, mx, my + 1);
-  return true;
-}
-
-/** The time-left bar at (x, y), `s` times its pixel size, filled to `frac` in `fill`. False until it has loaded. */
-export function drawTimerBar(g: CanvasRenderingContext2D, x: number, y: number, s: number, frac: number, fill: Rgb[]): boolean {
-  const f = load('timer-bar.png');
-  if (!f) return false;
-  const [a, b] = [Math.min(...f.olive.map((sl) => sl.x0)), Math.max(...f.olive.map((sl) => sl.x1)) + 1];
-  render(f, `${Math.round(a + (b - a) * Math.max(0, Math.min(1, frac)))}:${fill[1].join()}`, [[f.olive, frac, fill]]);
   g.imageSmoothingEnabled = false;
-  g.drawImage(f.canvas, x, y, f.w * s, f.h * s);
+  g.drawImage(b.canvas, x, y, b.w * s, b.h * s);
   return true;
 }

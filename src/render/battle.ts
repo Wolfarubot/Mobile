@@ -12,7 +12,12 @@ import { MONSTER_SHEETS, SHEETS, sheetRow, sideFlip, type MonsterSheet } from '.
 import { GEAR_SPRITES } from '../core/gearSprites';
 import { emojiIconKey } from '../ui/emojiIcons';
 import { HUNTER_ICONS, hunterIconHtml } from '../ui/hunterIcons';
-import { drawGuardianBar, drawTimerBar, FILLS, GUARDIAN_BAR, TIMER_BAR } from './hudBars';
+import { drawFramedBar, TIMER_COLOR } from './hudBars';
+
+/** Frame heights (in its pixels) of an event's timer, a Guardian's health bar and the Guardian's timer. */
+const EVENT_BAR_H = 9;
+const HP_BAR_H = 15;
+const TIME_BAR_H = 9;
 
 interface Pickup {
   x: number;
@@ -1057,59 +1062,69 @@ export class BattleView {
     g.textAlign = 'center';
     g.textBaseline = 'middle';
     const ev = this.game.activeEvent;
-    // The framed bars, scaled by half-pixel steps so they stay crisp.
-    const gs = Math.max(1, Math.floor((Math.min(w * 0.85, 520) / GUARDIAN_BAR.w) * 2) / 2);
-    const es = Math.max(1, Math.floor((Math.min(w * 0.6, 280) / TIMER_BAR.w) * 2) / 2);
-    const bw = boss ? GUARDIAN_BAR.w * gs : ev ? TIMER_BAR.w * es : 0;
-    const x = (w - bw) / 2;
-    const y0 = ev || boss ? this.hudTop(x, x + bw, boss ? 22 + (GUARDIAN_BAR.h + TIMER_BAR.h * 2) * gs : 22 + TIMER_BAR.h * es) : 0;
+    // Framed bars at 2× their pixels: an event's timer, or a Guardian's thick health bar over a thin timer.
+    const S = 2;
+    const nw = Math.floor(Math.min(w * 0.8, 360) / S);
+    const bw = nw * S;
+    const x = Math.round((w - bw) / 2);
+    const y0 = ev || boss ? this.hudTop(x, x + bw, boss ? 20 + (HP_BAR_H + TIME_BAR_H) * S + 2 : 20 + EVENT_BAR_H * S) : 0;
+    /** A label with a black outline, so it reads over the battlefield. */
+    const label = (text: string, cx: number, color: string) => {
+      g.lineWidth = 3;
+      g.lineJoin = 'round';
+      g.strokeStyle = '#000';
+      g.strokeText(text, cx, y0 + 10);
+      g.fillStyle = color;
+      g.fillText(text, cx, y0 + 10);
+    };
     if (ev && !boss) {
       const def = eventDef(ev.id);
       g.font = canvasFont(13, 700);
-      g.fillStyle = '#9ff0a8';
-      const label = `${def.name.toUpperCase()} · ${Math.ceil(ev.left)}s`;
+      const text = `${def.name.toUpperCase()} · ${Math.ceil(ev.left)}s`;
       const ic = gearImage(emojiIconKey(def.icon));
       if (ic) {
         // The event's icon, then its name and time, centred together.
-        const tw = g.measureText(label).width;
+        const tw = g.measureText(text).width;
         const left = w / 2 - (tw + 18) / 2;
         g.imageSmoothingEnabled = false;
         g.drawImage(ic, left, y0 + 3, 14, 14);
-        g.fillText(label, left + 18 + tw / 2, y0 + 10);
-      } else g.fillText(`${def.icon} ${label}`, w / 2, y0 + 10);
-      if (!drawTimerBar(g, x, y0 + 20, es, ev.left / def.duration, FILLS.event)) {
+        label(text, left + 18 + tw / 2, '#9ff0a8');
+      } else label(`${def.icon} ${text}`, w / 2, '#9ff0a8');
+      // The timer takes the colour of the monster the event is about (green for the Slime Swarm).
+      const star = Object.keys(def.minSpawn ?? {})[0] as EnemyId | undefined;
+      const frac = ev.left / def.duration;
+      if (!drawFramedBar(g, x, y0 + 20, S, nw, EVENT_BAR_H, frac, star ? enemyDef(star).color : TIMER_COLOR)) {
         g.fillStyle = 'rgba(0,0,0,0.55)';
         g.fillRect(x, y0 + 20, bw, 6);
         g.fillStyle = '#3fcf6a';
-        g.fillRect(x, y0 + 20, bw * Math.max(0, ev.left / def.duration), 6);
+        g.fillRect(x, y0 + 20, bw * Math.max(0, frac), 6);
       }
     }
     if (boss) {
       g.font = canvasFont(13, 700);
-      g.fillStyle = '#ff9aa6';
       const bossDef = enemyDef(boss.type);
-      g.fillText(`${bossDef.guardianOnly ? bossDef.name.toUpperCase() : `${areaDef(this.game.area).name.toUpperCase()} GUARDIAN`} · ${fmt(Math.max(0, boss.hp))}`, w / 2, y0 + 10);
+      label(`${bossDef.guardianOnly ? bossDef.name.toUpperCase() : `${areaDef(this.game.area).name.toUpperCase()} GUARDIAN`} · ${fmt(Math.max(0, boss.hp))}`, w / 2, '#ff9aa6');
       const winAt = bossDef.winAt ?? 0;
       const t = Math.max(0, this.game.bossTimer / GUARDIAN_TIME);
-      // The winged health bar, and the time left in the simple bar under it.
-      const ts = gs * 2;
-      if (drawGuardianBar(g, x, y0 + 18, gs, Math.max(0, boss.hp / boss.maxHp), winAt, this.game.bossTimer, t < 0.3, canvasFont(Math.round(11 * gs), 700))) {
-        drawTimerBar(g, (w - TIMER_BAR.w * ts) / 2, y0 + 20 + GUARDIAN_BAR.h * gs, ts, t, t < 0.3 ? FILLS.timeLow : FILLS.time);
-        return this.drawBanner(g);
+      const hp = Math.max(0, boss.hp / boss.maxHp);
+      // Health in the Guardian's own colour, the time left in light orange under it.
+      const hy = y0 + 20;
+      const ty = hy + HP_BAR_H * S + 2;
+      const framed = drawFramedBar(g, x, hy, S, nw, HP_BAR_H, hp, bossDef.color) && drawFramedBar(g, x, ty, S, nw, TIME_BAR_H, t, TIMER_COLOR);
+      if (!framed) {
+        g.fillStyle = 'rgba(0,0,0,0.55)';
+        g.fillRect(x, hy, bw, HP_BAR_H * S);
+        g.fillRect(x, ty, bw, TIME_BAR_H * S);
+        g.fillStyle = bossDef.color;
+        g.fillRect(x, hy, bw * hp, HP_BAR_H * S);
+        g.fillStyle = TIMER_COLOR;
+        g.fillRect(x, ty, bw * t, TIME_BAR_H * S);
       }
-      g.fillStyle = 'rgba(0,0,0,0.55)';
-      g.fillRect(x, y0 + 20, bw, 10);
-      g.fillStyle = '#ff4d6d';
-      g.fillRect(x, y0 + 20, bw * Math.max(0, boss.hp / boss.maxHp), 10);
       // A Guardian beaten before 0 HP (the Time Eater) shows where the win is.
       if (winAt > 0) {
         g.fillStyle = '#ffe36e';
-        g.fillRect(Math.round(x + bw * winAt) - 1, y0 + 17, 2, 16);
+        g.fillRect(Math.round(x + bw * winAt) - 1, hy - 2, 2, HP_BAR_H * S + 4);
       }
-      g.fillStyle = 'rgba(0,0,0,0.55)';
-      g.fillRect(x, y0 + 33, bw, 5);
-      g.fillStyle = t < 0.3 ? '#ff4d4d' : '#ffb04d';
-      g.fillRect(x, y0 + 33, bw * t, 5);
     }
     this.drawBanner(g);
   }
