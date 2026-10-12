@@ -41,7 +41,17 @@ export const OFFLINE_POPUP_SEC = 15 * 60;
 export type EventKind = 'guardian' | 'swarm' | 'minigame';
 
 /** Minigames: hands-on events played on their own screen, one per area with a Hunter from that area. */
-export type MinigameId = 'huntingPractice';
+export type MinigameId = 'huntingPractice' | 'pixieSerenade' | 'graveRobbing' | 'puppetShow' | 'shootingGallery' | 'forgeStrike' | 'runeMatch' | 'icebreaker';
+
+/**
+ * A blessing from a smithing minigame: your next Refine (Kargesh) or Enchant (Marceline) rolls every option's
+ * quality this many extra times and keeps the best, so a perfect roll is likelier. Earned by score (the tiers).
+ */
+export interface Blessing {
+  kind: 'refine' | 'enchant';
+  /** Scores that earn 1, 2 and 3 extra rolls. */
+  tiers: number[];
+}
 
 export interface EventDef {
   id: string;
@@ -75,6 +85,8 @@ export interface EventDef {
    * of each material, `per` points earn one.
    */
   rewards?: { gold: number; materials: Array<{ material: MaterialId; per: number }> };
+  /** Minigame: a blessing on your next Refine or Enchant, by score. */
+  blessing?: Blessing;
 }
 
 export const GUARDIAN_COOLDOWN = 5 * 60;
@@ -2812,16 +2824,95 @@ const AREA_SWARMS: Record<AreaId, { id: string; name: string; icon: string; arch
 };
 
 /** Minigames by area (more to come): the third event, opened by recruiting the Hunter who stars in it. */
-const AREA_MINIGAMES: Partial<Record<AreaId, Omit<EventDef, 'area' | 'kind' | 'unlockKills' | 'duration'>>> = {
+/** The third event in each area: a minigame starring one of its Hunters, opened by recruiting them. */
+const MINIGAME_GOLD = 0.2;
+const MINIGAME_COOLDOWN = 20 * 60;
+const AREA_MINIGAMES: Partial<Record<AreaId, Omit<EventDef, 'area' | 'kind' | 'unlockKills' | 'duration' | 'cooldown'>>> = {
   forest: {
     id: 'huntingPractice',
     name: "Galladair's Hunting Practice",
     icon: '🏹',
-    blurb: 'Slimes hop across the clearing, faster and faster. Tap to aim Galladair\'s arrows; three slimes that get across end it. Every 10 points pays 2 Guardian bounties of gold (from the furthest area you\'ve reached), and every 4 a Royal Slime.',
+    blurb: 'Slimes hop across the clearing, faster and faster: tap to aim Galladair\'s arrows. Three that get across end it.',
     minigame: 'huntingPractice',
     hunter: 'ranger',
-    cooldown: 20 * 60,
-    rewards: { gold: 0.2, materials: [{ material: 'royalSlime', per: 4 }, { material: 'goo', per: 1 }] },
+    rewards: { gold: MINIGAME_GOLD, materials: [{ material: 'royalSlime', per: 4 }, { material: 'goo', per: 1 }] },
+  },
+  glade: {
+    id: 'pixieSerenade',
+    name: "Ba'al's Pixie Serenade",
+    icon: '🪕',
+    blurb: 'Notes fall down three lanes: tap each as it crosses the line. Missed notes and empty taps cost a heart.',
+    minigame: 'pixieSerenade',
+    hunter: 'bard',
+    rewards: { gold: MINIGAME_GOLD, materials: [{ material: 'regalEssence', per: 4 }, { material: 'unicornHorn', per: 5 }, { material: 'dust', per: 1 }] },
+  },
+  graveyard: {
+    id: 'graveRobbing',
+    name: "Alias's Grave Robbing",
+    icon: '🦹',
+    blurb: 'Graves open for a moment: grab the loot before they shut, but never the skeleton hands. Sixty seconds.',
+    minigame: 'graveRobbing',
+    hunter: 'thief',
+    rewards: { gold: MINIGAME_GOLD, materials: [{ material: 'calciumCrystal', per: 4 }, { material: 'vampEssence', per: 3 }, { material: 'bone', per: 1 }] },
+  },
+  crypt: {
+    id: 'puppetShow',
+    name: "Theon's Puppet Show",
+    icon: '🎎',
+    blurb: 'Watch the puppets dance, then repeat the sequence. One move longer each round.',
+    minigame: 'puppetShow',
+    hunter: 'puppeteer',
+    rewards: { gold: MINIGAME_GOLD, materials: [{ material: 'eldritchText', per: 4 }, { material: 'wrap', per: 3 }, { material: 'string', per: 1 }] },
+  },
+  depths: {
+    id: 'shootingGallery',
+    name: "Wilhelm's Shooting Gallery",
+    icon: '🎯',
+    blurb: 'Eyes open in the dark: shoot them before they blink shut, and leave the lanterns be.',
+    minigame: 'shootingGallery',
+    hunter: 'wilhelm',
+    rewards: { gold: MINIGAME_GOLD, materials: [{ material: 'everwatchingEye', per: 4 }, { material: 'umbra', per: 3 }, { material: 'umbralEye', per: 1 }] },
+  },
+  caves: {
+    id: 'forgeStrike',
+    name: "Kargesh's Forge Strike",
+    icon: '⚒️',
+    blurb: 'Strike the metal when the marker is in the sweet spot. Pays in ores and gems, and a good score blesses your next Refine.',
+    minigame: 'forgeStrike',
+    hunter: 'blacksmith',
+    rewards: {
+      gold: MINIGAME_GOLD,
+      materials: [
+        { material: 'ironOre', per: 1 },
+        { material: 'quartz', per: 2 },
+        { material: 'silverOre', per: 3 },
+        { material: 'amethyst', per: 5 },
+        { material: 'goldOre', per: 6 },
+        { material: 'topaz', per: 8 },
+        { material: 'emerald', per: 12 },
+        { material: 'diamond', per: 20 },
+      ],
+    },
+    blessing: { kind: 'refine', tiers: [35, 60, 90] },
+  },
+  mines: {
+    id: 'runeMatch',
+    name: "Marceline's Rune Match",
+    icon: '✨',
+    blurb: 'Remember where the runes are, then find the pairs once they\'re turned over. A good score blesses your next Enchant.',
+    minigame: 'runeMatch',
+    hunter: 'enchantress',
+    rewards: { gold: MINIGAME_GOLD, materials: [{ material: 'venomite', per: 3 }, { material: 'cobaltOre', per: 1 }, { material: 'ore', per: 1 }] },
+    blessing: { kind: 'enchant', tiers: [20, 33, 48] },
+  },
+  peaks: {
+    id: 'icebreaker',
+    name: "Okrin's Icebreaker",
+    icon: '🔨',
+    blurb: 'Smash the falling icicles before they reach the camp. Big ones take two blows.',
+    minigame: 'icebreaker',
+    hunter: 'frostbreaker',
+    rewards: { gold: MINIGAME_GOLD, materials: [{ material: 'ecto', per: 4 }, { material: 'coldsteel', per: 5 }, { material: 'frostIron', per: 2 }, { material: 'frost', per: 1 }] },
   },
 };
 
@@ -2862,7 +2953,7 @@ export const EVENTS: EventDef[] = AREAS.flatMap((a): EventDef[] => {
       requires: { event: sw.id, times: 1 },
     });
   const mg = AREA_MINIGAMES[a.id];
-  if (mg) out.push({ ...mg, area: a.id, kind: 'minigame', unlockKills: 0, duration: 0 });
+  if (mg) out.push({ ...mg, area: a.id, kind: 'minigame', unlockKills: 0, duration: 0, cooldown: MINIGAME_COOLDOWN });
   return out;
 });
 

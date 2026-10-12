@@ -4421,6 +4421,10 @@ body.ui-parchment .mat {
   margin-left: auto;
   pointer-events: auto;
   padding: 6px 12px;
+  background: var(--c3);
+  color: var(--c0);
+  border: 2px solid var(--c0);
+  opacity: 1;
 }
 .mg-intro {
   position: absolute;
@@ -4455,4 +4459,8 @@ body.ui-parchment .mat {
 .mg-best {
   color: var(--gold);
   font-weight: 800;
+}
+.mg-bless {
+  color: var(--good);
+  font-weight: 700;
 }

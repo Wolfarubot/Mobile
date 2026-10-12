@@ -199,6 +199,8 @@ export interface GameState {
   };
   /** Per event: seconds of cooldown left, times started and times completed (a Guardian beaten, a swarm survived). */
   events: Record<string, EventState>;
+  /** Blessings from Kargesh's and Marceline's minigames: extra quality rolls for your next Refine / Enchant. */
+  blessings: { refine: number; enchant: number };
   buyAmount: BuyAmount;
   stats: {
     totalKills: number;
@@ -256,6 +258,7 @@ export function newGame(now = Date.now()): GameState {
     lastSeen: now,
     settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', dps: true, dpsCorner: 'tr', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', autoSalvage: [], fx: allFx(), aoeStyle: 'fancy', uiStyle: 'parchment' },
     flags: { eventsIntro: false, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false },
+    blessings: { refine: 0, enchant: 0 },
     events: Object.fromEntries(EVENTS.map((e) => [e.id, { cooldown: 0, runs: 0, completed: 0 }])),
     buyAmount: 1,
     stats: { totalKills: 0, totalGold: 0, taps: 0, escaped: 0, guardians: 0, hunterKills: {}, matGained: {} },
@@ -484,6 +487,11 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
       // Saves from before this tip already had the wolf within reach.
       wolfIntro: (data.flags as { wolfIntro?: unknown } | undefined)?.wolfIntro !== false,
     },
+    blessings: (() => {
+      const b = (data.blessings ?? {}) as Partial<Record<'refine' | 'enchant', unknown>>;
+      const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.min(3, Math.floor(v))) : 0);
+      return { refine: n(b.refine), enchant: n(b.enchant) };
+    })(),
     events: Object.fromEntries(
       EVENTS.map((e) => {
         const saved = (data.events as Record<string, Partial<Record<keyof EventState, unknown>>> | undefined)?.[e.id];

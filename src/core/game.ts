@@ -902,9 +902,19 @@ export class Game {
     return this.enchantOpen && slot >= 0 && slot < this.modSlots(uid).length && this.enchantsFor(uid, slot).length > 0 && this.hasMaterials(this.enchantCostOf(uid)) && this.state.gold >= this.modGoldOf(uid, 'enchant');
   }
 
-  /** A random quality step (0 to MOD_QUALITY_STEPS, the top one a perfect roll). */
-  private rollQuality(): number {
-    return Math.min(MOD_QUALITY_STEPS, Math.floor(this.rng() * (MOD_QUALITY_STEPS + 1)));
+  /**
+   * A random quality step (0 to MOD_QUALITY_STEPS, the top one a perfect roll). A blessing rolls it `extra` more
+   * times and keeps the best, so a perfect roll is likelier.
+   */
+  private rollQuality(extra = 0): number {
+    let q = 0;
+    for (let i = 0; i <= extra && q < MOD_QUALITY_STEPS; i++) q = Math.max(q, Math.min(MOD_QUALITY_STEPS, Math.floor(this.rng() * (MOD_QUALITY_STEPS + 1))));
+    return q;
+  }
+
+  /** Chance one option of a roll comes out perfect, with `extra` blessed rolls. */
+  perfectChance(extra = 0): number {
+    return 1 - (MOD_QUALITY_STEPS / (MOD_QUALITY_STEPS + 1)) ** (extra + 1);
   }
 
   /**
@@ -928,13 +938,16 @@ export class Game {
     const item = this.gearItem(uid);
     if (!item || item.pending || !(kind === 'refine' ? this.canRefine(uid, slot) : this.canEnchant(uid, slot))) return null;
     const options: GearMod[] = [];
+    // A blessing from Kargesh's or Marceline's minigame: this roll's qualities get extra tries (used up now).
+    const extra = this.state.blessings[kind];
+    this.state.blessings[kind] = 0;
     if (kind === 'refine') {
       let pool = this.refinesFor(uid);
       for (let i = 0; i < this.modChoices; i++) {
         if (!pool.length) pool = this.refinesFor(uid);
         const stat = pool[Math.min(pool.length - 1, Math.floor(this.rng() * pool.length))];
         pool = pool.filter((x) => x !== stat);
-        options.push({ kind: 'refine', stat, q: this.rollQuality() });
+        options.push({ kind: 'refine', stat, q: this.rollQuality(extra) });
       }
     } else {
       let pool = this.enchantsFor(uid, slot);
@@ -945,8 +958,8 @@ export class Game {
         const id = pool.find((x) => (r -= ENCHANTS[x].weight) < 0) ?? pool[pool.length - 1];
         pool = pool.filter((x) => x !== id);
         // A perfect chance rolls its power twice and keeps the better one.
-        const q = this.rollQuality();
-        let p = this.rollQuality();
+        const q = this.rollQuality(extra);
+        let p = this.rollQuality(extra);
         if (q >= MOD_QUALITY_STEPS && ENCHANTS[id].power) p = Math.max(p, this.rollQuality());
         options.push({ kind: 'enchant', id, q, p });
       }
@@ -1227,6 +1240,12 @@ export class Game {
     return { gold, materials };
   }
 
+  /** Extra quality rolls a minigame score earns (0 to 3), for the ones that bless Refine or Enchant. */
+  blessingFor(id: string, score: number): number {
+    const b = eventDef(id).blessing;
+    return b ? b.tiers.filter((t) => score >= t).length : 0;
+  }
+
   /** A minigame ended with `score`: pays out its rewards and counts as completed. */
   finishMinigame(id: string, score: number): { gold: number; materials: Partial<Record<MaterialId, number>> } {
     const reward = this.minigameReward(id, score);
@@ -1235,6 +1254,9 @@ export class Game {
     s.stats.totalGold += reward.gold;
     for (const [m, n] of Object.entries(reward.materials)) this.gainMaterial(m as MaterialId, n!);
     if (score > 0) this.completeEvent(id);
+    // Kargesh's and Marceline's minigames: a blessing on the next Refine / Enchant, by score (the better one stays).
+    const def = eventDef(id);
+    if (def.blessing) s.blessings[def.blessing.kind] = Math.max(s.blessings[def.blessing.kind], this.blessingFor(id, score));
     const st = s.events[id];
     if (st) st.best = Math.max(st.best ?? 0, score);
     return reward;

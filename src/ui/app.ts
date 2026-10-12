@@ -95,7 +95,7 @@ import { MATERIAL_SPRITES } from '../core/materialSprites';
 import { GEAR_SPRITES } from '../core/gearSprites';
 import { NODE_SPRITES } from '../core/nodeSprites';
 import { hunterIconHtml } from './hunterIcons';
-import { playHuntingPractice } from './minigames/huntingPractice';
+import { MINIGAMES, runMinigame } from './minigames';
 import { applyAreaTheme, applyUiStyle } from './theme';
 import { playCutscene, TIME_EATER_CUTSCENE } from './cutscene';
 import { applyFont, fontDef, FONTS } from './fonts';
@@ -1210,7 +1210,11 @@ export class AppUI {
               })
               .join('')}</div>`
           : action
-            ? `<p class="refine-note">${slot === null ? 'Pick a slot.' : `🎲 Roll draws ${g.modChoices} random ${action === 'refine' ? 'refinements' : 'enchantments'} (stronger on rarer gear); pick one for the slot. A roll at the top of its range is perfect.`}</p>`
+            ? `<p class="refine-note">${slot === null ? 'Pick a slot.' : `🎲 Roll draws ${g.modChoices} random ${action === 'refine' ? 'refinements' : 'enchantments'} (stronger on rarer gear); pick one for the slot. A roll at the top of its range is perfect.`}</p>${
+                g.state.blessings[action] > 0
+                  ? `<p class="refine-note mg-bless">✨ Blessed by ${action === 'refine' ? "Kargesh's Forge Strike" : "Marceline's Rune Match"}: this roll tries ${g.state.blessings[action]} extra time${g.state.blessings[action] > 1 ? 's' : ''} for each choice (${Math.round(g.perfectChance(g.state.blessings[action]) * 100)}% perfect instead of ${Math.round(g.perfectChance(0) * 100)}%).</p>`
+                  : ''
+              }`
             : '<p class="refine-note">Choose Refine or Enchant: the empty slots light up. Rolling draws random choices to pick from.</p>';
         body.innerHTML = `
           <p><b class="rarity-tag" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${gearKindName(gd)} · ${slots.length} modifier slot${slots.length === 1 ? '' : 's'}</p>
@@ -2806,19 +2810,27 @@ export class AppUI {
   /** Starts a minigame on its own screen; at the end it pays out and shows what you earned. */
   private playMinigame(ev: EventDef): void {
     const g = this.game;
-    if (!g.startEvent(ev.id)) return;
+    const mg = ev.minigame && MINIGAMES[ev.minigame];
+    if (!mg || !g.startEvent(ev.id)) return;
     this.refresh();
     const best = g.state.events[ev.id]?.best ?? 0;
-    if (ev.minigame === 'huntingPractice')
-      playHuntingPractice({
-        best,
-        onEnd: (score) => {
-          const r = g.finishMinigame(ev.id, score);
-          const record = score > best && best > 0 ? '<p class="mg-best">New best!</p>' : '';
-          return `${record}<p>${score > 0 ? rewardText(r) : 'No rewards this time.'}</p>`;
-        },
-        onClose: () => this.refresh(),
-      });
+    const bless = ev.blessing;
+    runMinigame({
+      title: mg.title,
+      intro: mg.intro + (bless ? `<p class="mg-bless">${blessingIntro(g, ev)}</p>` : ''),
+      area: ev.area,
+      lives: mg.lives,
+      best,
+      create: mg.create,
+      onEnd: (score) => {
+        const r = g.finishMinigame(ev.id, score);
+        const record = score > best && best > 0 ? '<p class="mg-best">New best!</p>' : '';
+        const tier = g.blessingFor(ev.id, score);
+        const blessed = bless && tier > 0 ? `<p class="mg-bless">✨ Blessed: your next ${bless.kind === 'refine' ? 'Refine' : 'Enchant'} rolls ${tier} extra time${tier > 1 ? 's' : ''} (${Math.round(g.perfectChance(tier) * 100)}% perfect a roll)</p>` : '';
+        return `${record}<p>${score > 0 ? rewardText(r) : 'No rewards this time.'}</p>${blessed}`;
+      },
+      onClose: () => this.refresh(),
+    });
   }
 
   /** The first time the Time Eater falls: the Hunters' attempt to kill it, then the Void Rift is conquered. */
@@ -3685,6 +3697,13 @@ const weaponLine = (gd: GearDef, stars = 1): string =>
   (gd.effect ? `<p class="weapon-line gear-effect">✨ ${describeEffect(gd.effect, stars)}${'base' in gd.effect ? ' <small>(own damage, raised by your bonuses, not your weapon)</small>' : ''}</p>` : '');
 
 /** What counts toward unlocking an event: its archetype ("slimes") or any monster. */
+/** The intro line for a minigame that blesses Refine or Enchant: its score tiers and what they do. */
+function blessingIntro(g: Game, ev: EventDef): string {
+  const b = ev.blessing!;
+  const what = b.kind === 'refine' ? 'Refine' : 'Enchant';
+  return `✨ Score ${b.tiers.join(' / ')} to bless your next ${what} with 1 / 2 / 3 extra rolls: ${b.tiers.map((_, i) => `${Math.round(g.perfectChance(i + 1) * 100)}%`).join(' / ')} perfect a roll instead of ${Math.round(g.perfectChance(0) * 100)}%.`;
+}
+
 /** A minigame's rewards in words: gold, then each material. */
 function rewardText(r: { gold: number; materials: Partial<Record<MaterialId, number>> }): string {
   return [`🪙 ${fmt(r.gold)}`, ...Object.entries(r.materials).map(([m, n]) => `${gemHtml(m as MaterialId)} ${fmt(n!)} ${materialDef(m as MaterialId).name}`)].join(' · ');
