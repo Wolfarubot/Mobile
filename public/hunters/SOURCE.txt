@@ -3,5 +3,5 @@ and Vampire packs (license: https://craftpix.net/file-licenses/): the idle anima
 weapon; the game draws each Hunter's equipped weapon), rows in the order down, left, right, up. Every Hunter uses
 the same style; no level 1 outfits. You: Swordsman 3. Galladair: Mage 3 (skin recoloured light blue). Ba'al: Archer 3 (skin recoloured copper). Reginald: Swordsman 2. Deku: Mage 6. Alias:
 Archer 4. Lance: Swordsman 7. Glimmer: Mage 2 (warmed to fiery tones). Theon: Archer 6. Wilhelm: Archer 5. Celeste:
-Mage 4. Kargesh: Swordsman 4. Sciirj: Archer 2 (tinted to a monk's orange). Marceline: Mage 5. Gideon: Vampire 1
+Mage 5 (white hair, purple eyes). Kargesh: Swordsman 4. Sciirj: Archer 2 (tinted to a monk's orange). Marceline: Mage 4 (black hair). Gideon: Vampire 1
 (greyed toward bone). Okrin: Swordsman 5. Themus: Vampire 3.
