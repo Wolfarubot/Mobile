@@ -213,8 +213,8 @@ export class BattleView {
           this.shake = Math.max(this.shake, 0.16);
           break;
         case 'punch':
-          // A giant fist punches down out of a portal onto where Sciirj's blow lands.
-          if (this.fancy) this.playEffect('fist', e.x, e.y + e.r * 0.15, e.r * 1.5, 'bottom', 24);
+          // A golden fist shoots out of a portal on Sciirj toward the monster.
+          if (this.fancy) this.strikes.push({ key: 'fist', x: e.x, y: e.y, a: e.a, len: e.r * 0.75, thick: 0, t: 0 });
           this.shake = Math.max(this.shake, 0.14);
           break;
         case 'sweep':
@@ -287,7 +287,7 @@ export class BattleView {
     for (const a of this.anims) a.t += dt;
     this.anims = this.anims.filter((a) => a.t * a.fps < EFFECTS[a.key].frames);
     for (const st of this.strikes) st.t += dt;
-    this.strikes = this.strikes.filter((st) => st.t * STRIKE_FPS < EFFECTS[st.key].frames);
+    this.strikes = this.strikes.filter((st) => st.t * STRIKE_FPS[st.key] < EFFECTS[st.key].frames);
     this.rings = this.rings.filter((r) => r.t < r.max);
     for (const b of this.beams) b.t += dt;
     this.beams = this.beams.filter((b) => b.t < 0.25);
@@ -1782,12 +1782,29 @@ function drawSheetFrame(g: CanvasRenderingContext2D, img: CanvasImageSource, sh:
   g.drawImage(img, col * F, row * F, F, F, -(bx + bw / 2) * k, -(by + bh / 2) * k, F * k, F * k);
 }
 
-/** Frames a second for melee strike effects (a quick slash or thrust). */
-const STRIKE_FPS = 36;
+/** Frames a second for strike effects: a quick thrust, a heavier punch. */
+const STRIKE_FPS = { thrust: 36, fist: 24 };
 
-/** A spear's thrust: the streak runs `len` along angle `a` from (x, y), `thick` across. */
+/** The fist sheet tinted from purple to gold, once. */
+let fistGold: HTMLCanvasElement | null = null;
+function goldFist(src: HTMLImageElement): HTMLCanvasElement {
+  if (fistGold) return fistGold;
+  const c = document.createElement('canvas');
+  c.width = src.naturalWidth;
+  c.height = src.naturalHeight;
+  const x = c.getContext('2d')!;
+  x.filter = 'hue-rotate(125deg) saturate(0.9) brightness(1.4)';
+  x.drawImage(src, 0, 0);
+  fistGold = c;
+  return c;
+}
+
+/**
+ * A strike effect turned to its attack, starting at (x, y) and running `len` along angle `a`: a spear's thrust
+ * (its streak `thick` across) or Sciirj's fist (out of its portal, tinted gold).
+ */
 interface Strike {
-  key: 'thrust';
+  key: 'thrust' | 'fist';
   x: number;
   y: number;
   a: number;
@@ -1798,12 +1815,21 @@ interface Strike {
 
 function drawStrike(g: CanvasRenderingContext2D, img: HTMLImageElement, st: Strike): void {
   const sh = EFFECTS[st.key];
-  const f = Math.min(sh.frames - 1, Math.floor(st.t * STRIKE_FPS));
+  const f = Math.min(sh.frames - 1, Math.floor(st.t * STRIKE_FPS[st.key]));
   const [bx, by, bw, bh] = sh.box;
   g.save();
   g.translate(st.x, st.y);
-  g.rotate(st.a);
   g.imageSmoothingEnabled = false;
+  if (st.key === 'fist') {
+    // The sheet's portal is at the top with the fist reaching down: turn "down" toward the monster, with the
+    // portal on Sciirj.
+    g.rotate(st.a - Math.PI / 2);
+    const k = st.len / bh;
+    g.drawImage(goldFist(img), f * sh.frame, 0, sh.frame, sh.frame, -(bx + bw / 2) * k, -by * k, sh.frame * k, sh.frame * k);
+    g.restore();
+    return;
+  }
+  g.rotate(st.a);
   const kx = st.len / bw;
   const ky = st.thick / bh;
   g.drawImage(img, f * sh.frame, 0, sh.frame, sh.frame, -bx * kx, -(by + bh / 2) * ky, sh.frame * kx, sh.frame * ky);
