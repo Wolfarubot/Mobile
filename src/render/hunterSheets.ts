@@ -29,7 +29,7 @@ export const HUNTER_SHEETS: Partial<Record<Wearer, HunterSheet>> = {
   wilhelm: { frame: 48, frames: [4], box: [21, 15, 25, 33], side: true },
   celeste: { frame: 128, frames: [7], box: [35, 65, 30, 63], side: true },
   blacksmith: { frame: 48, frames: [4], box: [7, 11, 19, 37], side: true },
-  scavenger: { frame: 96, frames: [6], box: [27, 28, 35, 68], side: true },
+  scavenger: { frame: 128, frames: [6], box: [18, 33, 81, 95], side: true },
   enchantress: { frame: 128, frames: [8], box: [24, 49, 53, 79], side: true },
   frostbreaker: { frame: 128, frames: [4], box: [12, 64, 43, 64], side: true },
 };

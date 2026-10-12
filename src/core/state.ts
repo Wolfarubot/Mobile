@@ -213,7 +213,7 @@ export interface GameState {
   };
 }
 
-export const SAVE_VERSION = 23;
+export const SAVE_VERSION = 24;
 
 /** Gear that was replaced, and what saves holding it get instead. */
 const RENAMED_GEAR: Record<string, GearItem['base']> = {
@@ -566,6 +566,13 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
   if (data.equipment && typeof data.equipment === 'object')
     for (const [who, slots] of Object.entries(data.equipment as Record<string, unknown>))
       if (Array.isArray(slots)) state.equipment[who as Wearer] = slots.map((u) => (typeof u === 'number' && uids.has(u) ? u : null));
+  // v23 -> v24: Pip the Scavenger became Sciirj the Monk, who fights with melee weapons: anything else he held
+  // goes back to the inventory.
+  const monk = state.equipment.scavenger;
+  if (monk?.[0] != null) {
+    const held = state.inventory.find((g) => g.uid === monk[0]);
+    if (!held || gearDef(held.base).kind !== 'melee') monk[0] = null;
+  }
   // v10 -> v11: Swarm and Bounty became Empower; each level bought carries over as an Empower session.
   // Evolution ranks are kept only for nodes that exist.
   for (const e of ENEMIES) {

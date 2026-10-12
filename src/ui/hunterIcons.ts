@@ -20,7 +20,7 @@ export const HUNTER_ICONS: Record<Wearer, string> = {
   wilhelm: 'ab-gunslinger-druid/013',
   celeste: 'ab-engineer-psionic/081',
   blacksmith: 'ab-engineer-psionic/006',
-  scavenger: 'ab-cavalier-monk/074',
+  scavenger: 'ab-cavalier-monk/089',
   enchantress: 'ab-alchemist-shaman/069',
   frostbreaker: 'ab-pyro-hydro/058',
 };

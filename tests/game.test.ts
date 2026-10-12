@@ -2760,6 +2760,26 @@ describe('Field', () => {
     expect(f.enemies.every((e) => e.hp < 1e12)).toBe(true);
   });
 
+  it("Sciirj's Mountain Fist waits for a monster in reach, then hits it hard and knocks it far back", () => {
+    const { f, g } = withHelper('scavenger');
+    expect(hunterDef('scavenger')).toMatchObject({ name: 'Sciirj', title: 'Monk' });
+    f.update(1 / 30);
+    const h = f.helpers[0];
+    h.specialCd = 0;
+    // Out of reach: no punch, and it stays ready.
+    f.enemies.push(tough({ id: 1, x: h.x + g.specialRadius('scavenger') + 120, y: h.y }));
+    f.update(1 / 30);
+    expect(h.specialCd).toBe(0);
+    // In reach: one punch, then the cooldown.
+    f.enemies[0].x = h.x + 40;
+    f.enemies[0].y = h.y;
+    f.update(1 / 30);
+    expect(h.specialCd).toBeCloseTo(hunterDef('scavenger').special!.cooldown, 1);
+    expect(f.enemies[0].hp).toBeLessThan(1e12);
+    expect(Math.hypot(f.enemies[0].kx, f.enemies[0].ky)).toBeGreaterThan(300);
+    expect(f.drainEvents().some((e) => e.type === 'sweep' && e.heavy)).toBe(true);
+  });
+
   it('a brand-new Hunter handles the opening slimes without being stunned', () => {
     let seed = 7;
     const rng = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
@@ -3144,6 +3164,16 @@ describe('Saves', () => {
     const s = deserialize(JSON.stringify(old))!;
     expect(s.main.skills).toEqual({ flameTap: 1 });
     expect(s.main.tapAbility).toBe('flame');
+  });
+
+  it('Sciirj (who replaced Pip) keeps melee weapons from an old save and hands anything else back', () => {
+    const old = JSON.parse(serialize(newGame(0)));
+    old.version = 23;
+    old.inventory = [{ uid: 1, base: 'forestBow', stars: 1 }, { uid: 2, base: 'slimeSword', stars: 1 }];
+    old.equipment = { scavenger: [1, null, null] };
+    expect(deserialize(JSON.stringify(old))!.equipment.scavenger).toEqual([null, null, null]);
+    old.equipment = { scavenger: [2, null, null] };
+    expect(deserialize(JSON.stringify(old))!.equipment.scavenger).toEqual([2, null, null]);
   });
 
   it('refunds the old Fire Drake evolutions now that it is the Broodmother (a Beast), and keeps the rest', () => {

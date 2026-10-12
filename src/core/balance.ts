@@ -360,7 +360,7 @@ export const ASCENDED_TREES: Record<HunterId, SkillNode[]> = {
   wilhelm: ascendedTree({ name: 'One Shot', icon: '🎯', desc: '+100% damage and +10% crit chance.', maxRank: 1, effect: { damage: 1, crit: 0.1 } }),
   celeste: ascendedTree({ name: 'Omniscience', icon: '🧠', desc: '+100% damage and +10% crit chance.', maxRank: 1, effect: { damage: 1, crit: 0.1 } }),
   enchantress: ascendedTree({ name: 'Grand Enchantment', icon: '✨', desc: '+100% damage and +10% crit chance.', maxRank: 1, effect: { damage: 1, crit: 0.1 } }),
-  scavenger: ascendedTree({ name: 'Hoard', icon: '💎', desc: '+100% damage and +50% materials from their kills.', maxRank: 1, effect: { damage: 1, drops: 0.5 } }),
+  scavenger: ascendedTree({ name: 'Mountain Breaker', icon: '🏔️', desc: '+100% damage and punches reach 30% further.', maxRank: 1, effect: { damage: 1, radius: 0.3 } }),
   frostbreaker: ascendedTree({ name: 'Eternal Winter', icon: '❄️', desc: '+100% damage and +1× extra damage to Elementals.', maxRank: 1, effect: { damage: 1, bane: 1 } }),
 };
 
@@ -485,13 +485,13 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
     { name: 'Transcendence', icon: '👑', desc: '+30% damage and +15% attack rate.', maxRank: 1, cost: 4, effect: { damage: 0.3, rate: 0.15 } },
   ),
   scavenger: skillTree(
-    { name: 'Magpie', icon: '🐦', desc: '+20% materials from his kills.', maxRank: 1, effect: { drops: 0.2 } },
+    { name: 'Inner Focus', icon: '🧘', desc: 'Punches reach 10% further.', maxRank: 1, effect: { radius: 0.1 } },
     [
-      { name: 'Hard Stones', icon: '🪨', desc: '+15% damage per rank.', maxRank: 3, effect: { damage: 0.15 } },
-      { name: 'Keen Nose', icon: '👃', desc: '+20% materials per rank.', maxRank: 3, effect: { drops: 0.2 } },
-      { name: 'Long Sling', icon: '🎯', desc: '+20 range per rank.', maxRank: 3, effect: { range: 20 } },
+      { name: 'Iron Knuckles', icon: '👊', desc: '+15% damage per rank.', maxRank: 3, effect: { damage: 0.15 } },
+      { name: 'Wide Stance', icon: '🌀', desc: 'Punches reach 10% further per rank.', maxRank: 3, effect: { radius: 0.1 } },
+      { name: 'Flurry', icon: '💨', desc: '+7% attack rate per rank.', maxRank: 3, effect: { rate: 0.07 } },
     ],
-    { name: 'Treasure Trove', icon: '💎', desc: '+40% materials and +20% gold.', maxRank: 1, cost: 4, effect: { drops: 0.4, gold: 0.2 } },
+    { name: 'Thousand Fists', icon: '💥', desc: '+25% damage and punches reach 15% further.', maxRank: 1, cost: 4, effect: { damage: 0.25, radius: 0.15 } },
   ),
   enchantress: skillTree(
     { name: 'Glyphwork', icon: '🔯', desc: '+5% crit chance.', maxRank: 1, effect: { crit: 0.05 } },
@@ -1452,7 +1452,7 @@ export const DAMAGE_TYPES: Record<DamageType, { name: string; icon: string; colo
  * the background model. Summons copy the weapon's damage type and status effects; the others keep their own.
  */
 export interface HunterSpecial {
-  kind: 'potion' | 'fireball' | 'summon';
+  kind: 'potion' | 'fireball' | 'summon' | 'punch';
   /** What it's called on the Hunter's card ("Potions", "Wolves"...). */
   name: string;
   damageType: DamageType;
@@ -1464,6 +1464,9 @@ export interface HunterSpecial {
   ticks: number;
   crowd: number;
   summon?: { look: 'wolf' | 'puppet'; type: SummonType };
+  /** Punches: how hard they knock monsters back (Guardians hold their ground) and how wide the blow is, in radians. */
+  knock?: number;
+  arc?: number;
   describe: string;
 }
 
@@ -1618,11 +1621,14 @@ export const HUNTERS: HunterDef[] = [
     slots: [{ kind: 'melee', label: 'Melee' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
   },
   {
-    id: 'scavenger', name: 'Pip', title: 'Scavenger', icon: '🎒', color: '#3fb0a0', area: 'caves', recruitCost: 1.2e16, drops: 2,
+    // Sciirj replaced Pip the Scavenger; the id stays 'scavenger' so saves keep his recruit, levels and gear.
+    id: 'scavenger', name: 'Sciirj', title: 'Monk', icon: '👊', color: '#e0703a', area: 'caves', recruitCost: 1.2e16,
     unlock: { event: 'guardian-caves', times: 2 },
-    ascendedTitle: 'Treasure Hunter',
-    story: 'Pip scavenges the Ember Mines for anything shiny. Beat its Guardian twice, and Pip will tag along for the loot.',
-    ability: 'Doubles material drops from his kills.',
+    ascendedTitle: 'Grandmaster',
+    story: 'Sciirj trains in the heat of the Ember Mines, punching stone until the stone gives first. Beat its Guardian twice, and he\'ll lend you his fists.',
+    ability: 'Every 5s, throws a massive punch that hits every monster in front of him and sends them flying. Fights with melee weapons.',
+    special: { kind: 'punch', name: 'Mountain Fist', damageType: 'physical', cooldown: 5, damage: 3, radius: 95, ticks: 1, crowd: 2.5, knock: 700, arc: 1.6, describe: 'Every 5s, when a monster is close, throws a massive punch that hits everything in front of him and knocks it far back: his weapon\'s damage powers the blow, its attack rate lengthens his reach.' },
+    slots: [{ kind: 'melee', label: 'Melee' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
   },
   {
     id: 'enchantress', name: 'Marceline', title: 'Enchantress', icon: '✨', color: '#c47cff', area: 'mines', recruitCost: 6e17,

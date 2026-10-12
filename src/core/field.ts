@@ -704,10 +704,20 @@ export class Field {
     const range = Math.max(g.shooterRange(h.id), MAIN_RANGE);
     const target = this.nearest(h.x, h.y, range);
     if (!target) return;
-    h.specialCd = sp.cooldown;
     const a = Math.atan2(target.y - h.y, target.x - h.x);
     const radius = g.specialRadius(h.id);
     const dmg = g.specialDamageMult(h.id);
+    if (sp.kind === 'punch') {
+      // Sciirj's Mountain Fist: waits until a monster is within reach, then one huge blow at everything in front
+      // of him, knocking the survivors far back.
+      if (Math.hypot(target.x - h.x, target.y - h.y) > radius + target.r) return;
+      h.specialCd = sp.cooldown;
+      h.aim = a;
+      this.strikeArc(h.id, h.x, h.y, a, radius, sp.arc ?? 1.6, dmg, sp.knock ?? 0);
+      this.events.push({ type: 'nova', x: h.x + Math.cos(a) * radius * 0.6, y: h.y + Math.sin(a) * radius * 0.6, r: radius * 0.55, color: '#ffb060' });
+      return;
+    }
+    h.specialCd = sp.cooldown;
     if (sp.summon) {
       // Two creatures (Deku's spirit wolves, Theon's puppets): each hunts for 6s, biting 1.5 times a second for
       // the special's damage (their "radius" skills make them fiercer).

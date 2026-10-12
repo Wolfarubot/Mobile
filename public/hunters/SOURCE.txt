@@ -3,5 +3,5 @@ Hunter idle sheets from CraftPix.net's top-down Swordsman (lvl 1-6), Mage (lvl 1
 each Hunter's equipped weapon), recoloured per Hunter. Rows: down, left, right, up.
 Side-view Hunters (idle strips facing right, mirrored in game): Reginald from "Alchemy Game Assets", Wilhelm from "Ruin
 Enemy Sprite Sheets" (shooter), Kargesh from "Engineering Game Assets", Lance and Bjorn from "Free Knight Character
-Sprites" (Bjorn recoloured), Glimmer, Celeste and Theon from "Free Wizard Sprite Sheets", Alias, Pip and Deku from "Free
-Ninja Sprite Sheets", Marceline from "Free Yokai Pixel Art Character Sprites" (Kitsune).
+Sprites" (Okrin recoloured), Glimmer, Celeste and Theon from "Free Wizard Sprite Sheets", Alias and Deku from "Free
+Ninja Sprite Sheets", Marceline and Sciirj from "Free Yokai Pixel Art Character Sprites" (Kitsune, Yamabushi tengu).
