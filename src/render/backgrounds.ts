@@ -23,6 +23,11 @@ interface Band {
   onIslands?: boolean;
   /** May overlap other pieces (drifting clouds); everything else is placed only where there's room. */
   overlap?: boolean;
+  /**
+   * A wall of these along all four edges (trees crowding round the clearing), half off the view: they overlap
+   * one another, other pieces keep clear of them, and monsters walk through them (in front or behind).
+   */
+  edge?: boolean;
 }
 interface Scene {
   base: string;
@@ -70,14 +75,14 @@ const SCENES: Partial<Record<AreaId, Scene>> = {
       ['#839f53', 10],
     ],
     bands: [
-      // Small details anywhere: flowers, grass tufts, pebbles.
-      { pieces: [...p('Flower1 Flower2 Flower3 Flower4 Flower5 Flower6 Flower7 Flower8 Flower9 Flower10 Flower11'), ...p('grass_element1 grass_element2 grass_element3', 3), ...p('Bush9 Bush16 Bush19 Rock_grass_element11 Rock_grass_element12 Rock_grass_element14 Stone5_grass_shadow ground_element22 ground_element23')], density: 4, from: 0 },
-      // Bushes, stones and broken trunks outside the middle.
-      { pieces: [...p('Bush7 Bush8 Bush10 Bush11 Bush12 Bush13 Bush15 Bush18', 2), ...p('Rock_grass_element13 Rpck_grass5 Stone3_grass_shadow Stone4_grass_shadow Broken_tree1 Broken_tree2 Broken_tree4 Broken_tree5')], density: 0.9, from: 0.45 },
-      // Big bushes, boulders, a small tree and ruins nearer the edges.
-      { pieces: [...p('Bush1 Bush2 Bush3 Bush4 Bush5 Bush6 Bush14 Bush17', 2), ...p('Rpck_grass1 Rpck_grass2 Rpck_grass3 Rpck_grass4 Stone1_grass_shadow Stone2_grass_shadow Tree5 Ruin3_grass_shadow Ruin4_grass_shadow')], density: 0.35, from: 0.7 },
-      // Great trees and the old ruins right on the border, partly off the field.
-      { pieces: [...p('Tree1 Tree2 Tree3 Tree4', 4), ...p('Ruin1_grass_shadow Ruin2_grass_shadow')], density: 0.12, from: 0.92 },
+      // Small details around the clearing: flowers, grass tufts, pebbles (sparse, so the middle stays open).
+      { pieces: [...p('Flower1 Flower2 Flower3 Flower4 Flower5 Flower6 Flower7 Flower8 Flower9 Flower10 Flower11'), ...p('grass_element1 grass_element2 grass_element3', 3), ...p('Bush9 Bush16 Bush19 Rock_grass_element11 Rock_grass_element12 Rock_grass_element14 Stone5_grass_shadow ground_element20 ground_element21 ground_element22 ground_element23 ground_element24')], density: 2.6, from: 0 },
+      // A few small bushes, stones and broken trunks further out.
+      { pieces: [...p('Bush7 Bush8 Bush10 Bush15 Bush18', 2), ...p('Rock_grass_element13 Rpck_grass5 Stone3_grass_shadow Stone4_grass_shadow Broken_tree4 Broken_tree5')], density: 0.45, from: 0.5 },
+      // Trees, flowering bushes, boulders, stumps and the odd ruin toward the edges (monsters walk around them).
+      { pieces: [...p('Tree1 Tree2 Tree3 Tree4 Tree5', 2), ...p('Bush1 Bush2 Bush3 Bush4 Bush5 Bush6 Bush11 Bush12 Bush13 Bush14 Bush17', 2), ...p('Rpck_grass1 Rpck_grass2 Rpck_grass3 Rpck_grass4 Stone1_grass_shadow Stone2_grass_shadow Broken_tree1 Broken_tree2'), ...p('Ruin3_grass_shadow Ruin4_grass_shadow Ruin5_grass_shadow', 0.5)], density: 0.3, from: 0.68 },
+      // A wall of trees all round the border, crowding together (monsters walk through it, behind or in front).
+      { pieces: [...p('Tree1 Tree2 Tree3 Tree4', 3), ...p('Tree5')], density: 0, from: 0.95, edge: true },
     ],
   },
   // The forest tileset with its greens turned to fey pinks and purples (trunks, stones and ruins unchanged).
@@ -559,10 +564,41 @@ export function areaBackground(area: AreaId, w: number, h: number, decor?: Decor
   // Everything placed so far (pools and pieces), so nothing lands on top of anything else.
   const taken: Rect[] = [];
   const scatter = (bands: Band[]): void => {
-    const placed: Array<{ img: HTMLImageElement; x: number; y: number; prop: boolean }> = [];
+    const placed: Array<{ img: HTMLImageElement; x: number; y: number; prop: boolean; wall?: boolean }> = [];
     // Biggest pieces first (the outer bands), then smaller ones fill the room that's left.
     for (const band of [...bands].sort((a, b) => b.from - a.from)) {
       const total = band.pieces.reduce((s, x) => s + x.weight, 0);
+      if (band.edge) {
+        // Spots along the edges (each is where a piece's trunk stands): along the top, trunks just inside with
+        // the crowns half off the view; along the bottom, trunks well below so only the crowns show; down the
+        // sides, half off. Then a few more just inside, so the wall looks deep rather than a single row.
+        const spots: Array<[number, number]> = [];
+        const step = () => 30 + r() * 20;
+        for (let x = -30; x < w + 30; x += step()) {
+          spots.push([x, 44 + r() * 26]);
+          spots.push([x, h + 62 + r() * 26]);
+        }
+        for (let y = 30; y < h + 70; y += step()) {
+          spots.push([-14 + r() * 22, y]);
+          spots.push([w + 14 - r() * 22, y]);
+        }
+        for (let n = Math.round(spots.length * 0.25); n > 0; n--) {
+          const [sx, sy] = spots[Math.floor(r() * spots.length)];
+          spots.push([sx + (sx < 40 ? 22 : sx > w - 40 ? -22 : (r() - 0.5) * 30), sy + (sy < 60 ? 18 : sy > h ? -16 : 0)]);
+        }
+        for (const [sx, sy] of spots) {
+          let pick = r() * total;
+          const piece = band.pieces.find((x) => (pick -= x.weight) <= 0) ?? band.pieces[0];
+          const img = images.get(`${area}/${piece.file}`);
+          if (!img || !img.naturalWidth) continue;
+          const px = Math.round(sx - img.naturalWidth / 2);
+          const py = Math.round(sy - img.naturalHeight);
+          // Other pieces keep clear of the wall (most of each crown counts).
+          taken.push([px + img.naturalWidth * 0.12, py + img.naturalHeight * 0.1, img.naturalWidth * 0.76, img.naturalHeight * 0.85]);
+          placed.push({ img, x: px, y: py, prop: split, wall: true });
+        }
+        continue;
+      }
       const want = Math.round((decor?.density ?? 1) * band.density * (band.onIslands ? tops.reduce((s, t) => s + t[2] * t[3], 0) / 10_000 : area10k));
       for (let i = 0, tries = 0; i < want && tries < want * 30; tries++) {
         let x = r() * w;
@@ -595,7 +631,8 @@ export function areaBackground(area: AreaId, w: number, h: number, decor?: Decor
     }
     placed.sort((a, b) => a.y + a.img.naturalHeight - (b.y + b.img.naturalHeight));
     for (const it of placed) {
-      if (it.prop) props.push(sceneProp(it.img, it.x, it.y));
+      // The wall stands among the monsters but doesn't stop them.
+      if (it.prop) props.push(it.wall ? { ...sceneProp(it.img, it.x, it.y), base: null } : sceneProp(it.img, it.x, it.y));
       else g.drawImage(it.img, it.x, it.y);
     }
   };

@@ -167,11 +167,11 @@ export interface CooldownView {
   progress: number;
 }
 
-/** Where stationed Hunters stand, relative to your Hunter. */
+/** Where stationed Hunters stand, relative to your Hunter (room for them all at their drawn size). */
 const HELPER_SPOTS = [
-  { x: -55, y: 32 },
-  { x: 55, y: 32 },
-  { x: 0, y: -62 },
+  { x: -72, y: 42 },
+  { x: 72, y: 42 },
+  { x: 0, y: -80 },
 ];
 
 export type BulletKind = 'blood' | 'bolt' | 'spark' | 'arrow' | 'fireball' | 'potion' | 'pellet' | 'dagger' | 'pistol' | 'ricochet' | 'hammer';

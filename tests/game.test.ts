@@ -3051,13 +3051,13 @@ describe('Field', () => {
 
   it('Wilhelm fights with his long-range weapon, and switches to his short-range one up close', () => {
     const { f } = withHelper('wilhelm');
-    f.enemies.push(tough({ id: 1, x: -55, y: -200 }));
+    f.enemies.push(tough({ id: 1, x: -72, y: -190 }));
     for (let i = 0; i < 90; i++) f.update(1 / 30);
     expect(f.helpers[0].close).toBe(false);
     expect(f.enemies[0].hp).toBeLessThan(1e12);
 
     f.bullets = [];
-    f.enemies = [tough({ id: 2, x: -55, y: -30 })];
+    f.enemies = [tough({ id: 2, x: -72, y: -20 })];
     for (let i = 0; i < 30; i++) f.update(1 / 30);
     expect(f.helpers[0].close).toBe(true);
   });

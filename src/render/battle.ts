@@ -1,4 +1,4 @@
-import { areaDef, DAMAGE_TYPES, FLYING, gearDef, WEAPON_CLASSES, STATUS, enemyDef, eventDef, fieldZoom, GUARDIAN_TIME, hunterDef, materialDef, SIZE_SCALE, type DamageType, type EnemyId, type EnemyShape } from '../core/balance';
+import { areaDef, DAMAGE_TYPES, FIELD_ZOOM, FLYING, gearDef, WEAPON_CLASSES, STATUS, enemyDef, eventDef, fieldZoom, GUARDIAN_TIME, hunterDef, materialDef, SIZE_SCALE, type DamageType, type EnemyId, type EnemyShape } from '../core/balance';
 import { PLAYER_RADIUS, SUMMON_RADIUS, type Summon, type Bullet, type BulletKind, type Enemy, type Field, type Helper } from '../core/field';
 import { fmt } from '../core/format';
 import type { Game, Shooter } from '../core/game';
@@ -63,6 +63,11 @@ let Z = 0.6;
 
 const OUTLINE = '#120c1c';
 const SPRITE_SCALE = 2.4;
+/**
+ * Hunters, monsters and their summons are drawn this much bigger than their world size: the Woods' Hunters at
+ * a zoom of 1 (later areas still zoom out from there) while the view, ranges and hit areas stay as they are.
+ */
+const CHAR_SCALE = 1 / FIELD_ZOOM;
 /** Animated walk sheets: the character's longer side, × the monster's radius (detailed art needs room). */
 const SHEET_SCALE = 3.3;
 
@@ -236,8 +241,8 @@ export class BattleView {
           if (this.fancy) this.playEffect('spikes', e.x, e.y + e.r, Math.max(30, e.r * 2.6), 'bottom', 24);
           break;
         case 'guard':
-          if (this.fancy) this.playEffect('shield', e.x, e.y, (PLAYER_RADIUS + 12) * 2, 'center', 24);
-          else this.rings.push({ x: e.x, y: e.y, t: 0, r: PLAYER_RADIUS + 10, color: '255,232,163', max: 0.3 });
+          if (this.fancy) this.playEffect('shield', e.x, e.y, (PLAYER_RADIUS * CHAR_SCALE + 12) * 2, 'center', 24);
+          else this.rings.push({ x: e.x, y: e.y, t: 0, r: PLAYER_RADIUS * CHAR_SCALE + 10, color: '255,232,163', max: 0.3 });
           this.fx.text(e.x, e.y - 30, 'BLOCK', '#ffe8a3', 12, 0.6);
           break;
         case 'boss':
@@ -248,11 +253,11 @@ export class BattleView {
           this.shake = Math.max(this.shake, e.boss ? 0.35 : 0.15);
           this.fx.burst(e.x, e.y, '#ffe066', 6, 120, 2, 0);
           if (e.who === 'main' && this.stunTextCooldown <= 0) {
-            this.fx.text(0, -PLAYER_RADIUS - 26, 'STUNNED!', '#ffe066', 16, 0.8);
+            this.fx.text(0, -PLAYER_RADIUS * CHAR_SCALE - 26, 'STUNNED!', '#ffe066', 16, 0.8);
             this.stunTextCooldown = 1;
           } else if (e.who !== 'main') {
             const h = this.field.helpers.find((x) => x.id === e.who);
-            if (h) this.fx.text(h.x, h.y - PLAYER_RADIUS - 22, 'STUNNED!', '#ffe066', 14, 0.8);
+            if (h) this.fx.text(h.x, h.y - PLAYER_RADIUS * CHAR_SCALE - 22, 'STUNNED!', '#ffe066', 14, 0.8);
           }
           break;
         case 'escape': {
@@ -420,21 +425,21 @@ export class BattleView {
     // hidden by it; fliers pass over everything.
     const props = this.sceneProps ?? [];
     const layered: Array<{ y: number; e?: Enemy; p?: SceneProp }> = [];
-    for (const e of this.field.enemies) if (!FLYING.has(e.type)) layered.push({ y: e.y + e.r, e });
+    for (const e of this.field.enemies) if (!FLYING.has(e.type)) layered.push({ y: e.y + e.r * CHAR_SCALE, e });
     for (const p of props) layered.push({ y: (p.foot - h / 2) / Z, p });
     layered.sort((a, b) => a.y - b.y);
     g.imageSmoothingEnabled = false;
     for (const it of layered) {
-      if (it.e) this.drawEnemy(g, it.e);
+      if (it.e) this.scaledAt(g, it.e.x, it.e.y, () => this.drawEnemy(g, it.e!));
       else {
         const p = it.p!;
         g.drawImage(p.img, (p.x - w / 2) / Z, (p.y - h / 2) / Z, p.img.naturalWidth / Z, p.img.naturalHeight / Z);
       }
     }
-    for (const e of this.field.enemies) if (FLYING.has(e.type)) this.drawEnemy(g, e);
+    for (const e of this.field.enemies) if (FLYING.has(e.type)) this.scaledAt(g, e.x, e.y, () => this.drawEnemy(g, e));
     this.drawHeld(g);
-    for (const h of this.field.helpers) this.drawHelper(g, h);
-    this.drawHunter(g);
+    for (const h of this.field.helpers) this.scaledAt(g, h.x, h.y, () => this.drawHelper(g, h));
+    this.scaledAt(g, 0, 0, () => this.drawHunter(g));
     this.drawBoneWall(g);
 
     for (const b of this.field.bullets) drawBullet(g, b, this.time, this.game.state.settings.aoeStyle === 'basic');
@@ -442,11 +447,11 @@ export class BattleView {
     // Tome spirits: a glowing wisp with a trailing tail, fading as their time runs out.
     for (const sm of this.field.summons) {
       if (sm.look === 'wolf') {
-        this.drawWolf(g, sm);
+        this.scaledAt(g, sm.x, sm.y, () => this.drawWolf(g, sm));
         continue;
       }
       if (sm.look === 'puppet') {
-        this.drawPuppet(g, sm);
+        this.scaledAt(g, sm.x, sm.y, () => this.drawPuppet(g, sm));
         continue;
       }
       const fade = Math.min(1, sm.life / 1.2);
@@ -758,7 +763,7 @@ export class BattleView {
       if (text === 'SUMMONING!' && !st.summonText) continue;
       const w = g.measureText(text).width;
       const x = s.x - w / 2;
-      const y = s.y + (st.reloadPos === 'below' ? 1 : -1) * (PLAYER_RADIUS + 14 / Z);
+      const y = s.y + (st.reloadPos === 'below' ? 1 : -1) * (PLAYER_RADIUS * CHAR_SCALE + 14 / Z);
       // What's left of the wait: the text from the left edge, shrinking toward it as the wait runs.
       const edge = x - 4 + (w + 8) * (1 - p);
       g.save();
@@ -805,6 +810,16 @@ export class BattleView {
         this.fx.trail(b.x - b.vx * back + (Math.random() - 0.5) * 4, b.y - b.vy * back + (Math.random() - 0.5) * 4, j(), j() - st.rise, st.colors[Math.floor(Math.random() * st.colors.length)], st.size * TRAIL_SIZE * (0.7 + Math.random() * 0.6), st.life * (0.7 + Math.random() * 0.6), st.gravity, st.square);
       }
     }
+  }
+
+  /** Draws a character (`draw` works in world units) CHAR_SCALE times bigger around its spot (x, y). */
+  private scaledAt(g: CanvasRenderingContext2D, x: number, y: number, draw: () => void): void {
+    g.save();
+    g.translate(x, y);
+    g.scale(CHAR_SCALE, CHAR_SCALE);
+    g.translate(-x, -y);
+    draw();
+    g.restore();
   }
 
   /** Effect art is the Fancy area effect style (Settings); Basic keeps plain shapes. */
