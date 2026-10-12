@@ -128,7 +128,7 @@ export function huntingPractice(api: MinigameApi): MinigameGame {
     const { speed } = hpDifficulty(api.t);
     const fromLeft = Math.random() < 0.5;
     const golden = Math.random() < GOLDEN_CHANCE;
-    const r = (golden ? 21 : 25) * api.k;
+    const r = (golden ? 27 : 32) * api.k;
     const top = 90;
     const bottom = api.H - 190;
     slimes.push({
