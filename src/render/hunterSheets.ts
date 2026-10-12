@@ -20,7 +20,7 @@ export const HUNTER_SHEETS: Partial<Record<Wearer, HunterSheet>> = {
   main: { frame: 64, frames: [12, 12, 12, 4], box: [23, 19, 18, 25] },
   ranger: { frame: 64, frames: [12, 12, 12, 4], box: [20, 19, 24, 25] },
   bard: { frame: 64, frames: [12, 12, 12, 4], box: [20, 20, 24, 24] },
-  alchemist: { frame: 64, frames: [12, 12, 12, 4], box: [20, 17, 24, 27] },
+  alchemist: { frame: 64, frames: [12, 12, 12, 4], box: [23, 19, 18, 25] },
   druid: { frame: 64, frames: [12, 12, 12, 4], box: [22, 19, 18, 25] },
   thief: { frame: 64, frames: [12, 12, 12, 4], box: [20, 20, 24, 24] },
   lance: { frame: 64, frames: [12, 12, 12, 4], box: [20, 17, 23, 28] },
