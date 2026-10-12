@@ -204,7 +204,8 @@ export class BattleView {
         case 'slam':
           // A hammer's ground slam: an impact that bursts into a shockwave ring (a plain ring in Basic), dust
           // kicked up all around, and a jolt.
-          if (this.fancy) this.playEffect('smash', e.x, e.y, e.r * 2.1, 'center', 26);
+          // The sheet's first frames gather energy before it bursts: a hammer just bursts, so start there.
+          if (this.fancy) this.playEffect('smash', e.x, e.y, e.r * 2.1, 'center', 26, SMASH_START, 0.55);
           else this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: '232,216,176', max: 0.35 });
           for (let i = 0; i < 10; i++) {
             const a = (i / 10) * Math.PI * 2;
@@ -285,7 +286,7 @@ export class BattleView {
     for (const b of this.blasts) b.t += dt;
     this.blasts = this.blasts.filter((b) => b.t < BLAST_TIME);
     for (const a of this.anims) a.t += dt;
-    this.anims = this.anims.filter((a) => a.t * a.fps < EFFECTS[a.key].frames);
+    this.anims = this.anims.filter((a) => a.start + a.t * a.fps < EFFECTS[a.key].frames);
     for (const st of this.strikes) st.t += dt;
     this.strikes = this.strikes.filter((st) => st.t * STRIKE_FPS[st.key] < EFFECTS[st.key].frames);
     this.rings = this.rings.filter((r) => r.t < r.max);
@@ -544,7 +545,10 @@ export class BattleView {
 
     for (const a of this.anims) {
       const img = effectImage(a.key);
-      if (img) drawEffectFrame(g, img, a.key, Math.floor(a.t * a.fps), a.x, a.y, a.size, a.anchor);
+      if (!img) continue;
+      g.globalAlpha = a.alpha;
+      drawEffectFrame(g, img, a.key, a.start + Math.floor(a.t * a.fps), a.x, a.y, a.size, a.anchor);
+      g.globalAlpha = 1;
     }
     for (const st of this.strikes) {
       const img = effectImage(st.key);
@@ -765,9 +769,9 @@ export class BattleView {
   }
 
   /** Plays a magic effect once: `size` is its longer side; 'bottom' anchors strikes that come down from above. */
-  private playEffect(key: EffectKey, x: number, y: number, size: number, anchor: 'center' | 'bottom' = 'center', fps = 18): void {
+  private playEffect(key: EffectKey, x: number, y: number, size: number, anchor: 'center' | 'bottom' = 'center', fps = 18, start = 0, alpha = 1): void {
     if (this.anims.length > 120) return; // keep the busiest moments cheap
-    this.anims.push({ key, x, y, size, anchor, fps, t: 0 });
+    this.anims.push({ key, x, y, size, anchor, fps, t: 0, start, alpha });
   }
 
   private drawEnemy(g: CanvasRenderingContext2D, e: Enemy): void {
@@ -1801,6 +1805,9 @@ function drawSheetFrame(g: CanvasRenderingContext2D, img: CanvasImageSource, sh:
   g.drawImage(img, col * F, row * F, F, F, -(bx + bw / 2) * k, -(by + bh / 2) * k, F * k, F * k);
 }
 
+/** The smash sheet's first frame of its outward burst (before it, sparks gather). */
+const SMASH_START = 4;
+
 /** Frames a second for strike effects: a quick thrust, a heavier punch. */
 const STRIKE_FPS = { thrust: 36, fist: 24 };
 
@@ -1907,6 +1914,9 @@ interface Anim {
   anchor: 'center' | 'bottom';
   fps: number;
   t: number;
+  /** Frame to start from (skipping a wind-up), and opacity. */
+  start: number;
+  alpha: number;
 }
 
 /**
