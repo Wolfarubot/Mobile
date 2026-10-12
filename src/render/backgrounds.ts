@@ -402,12 +402,91 @@ export function scenePiece(area: AreaId, file: string): HTMLImageElement | null 
   return ready.has(area) && img && img.naturalWidth ? img : null;
 }
 
-export function areaBackground(area: AreaId, w: number, h: number, decor?: DecorOpts): HTMLCanvasElement | null {
+/** Nothing is placed this close to the middle (a fraction of the way to the nearest edge): the Hunters' clearing. */
+const CLEAR = 0.35;
+/** Bands this far out hold the big objects: on the battlefield they're props, drawn among the monsters. */
+const PROP_FROM = 0.7;
+/** Pieces that lie flat on the ground (craters, holes, veins, circles), baked in even out among the props. */
+const FLAT = /^(c_Veins|o_magic_circle|moon\d|skull_chasm|excavated_grave|gd\d|d_Roots|Cloud)/;
+
+/**
+ * A big object standing on the battlefield: its picture's top-left corner and where it stands (`foot`, its
+ * lowest solid row), in view pixels, and the circle its base fills (monsters walk around it), if it has one.
+ */
+export interface SceneProp {
+  img: HTMLImageElement;
+  x: number;
+  y: number;
+  foot: number;
+  base: { x: number; y: number; r: number } | null;
+}
+
+/** Where a piece's solid pixels end, and how wide they are near the bottom (its base): once per picture. */
+const bases = new Map<HTMLImageElement, { foot: number; left: number; right: number } | null>();
+function baseOf(img: HTMLImageElement): { foot: number; left: number; right: number } | null {
+  if (bases.has(img)) return bases.get(img)!;
+  const w = img.naturalWidth;
+  const h = img.naturalHeight;
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  const x = c.getContext('2d')!;
+  x.drawImage(img, 0, 0);
+  const d = x.getImageData(0, 0, w, h).data;
+  const solid = (px: number, py: number) => d[(py * w + px) * 4 + 3] > 200;
+  let foot = -1;
+  for (let py = h - 1; py >= 0 && foot < 0; py--) for (let px = 0; px < w; px++) if (solid(px, py)) foot = py;
+  let out: { foot: number; left: number; right: number } | null = null;
+  if (foot >= 0) {
+    // The base: the bottom fifth of it (at least 4 rows), so a tree's trunk rather than its canopy.
+    let left = w;
+    let right = -1;
+    for (let py = Math.max(0, foot - Math.max(4, Math.round(h * 0.2))); py <= foot; py++)
+      for (let px = 0; px < w; px++)
+        if (solid(px, py)) {
+          left = Math.min(left, px);
+          right = Math.max(right, px);
+        }
+    out = { foot: foot + 1, left, right: right + 1 };
+  }
+  bases.set(img, out);
+  return out;
+}
+
+function sceneProp(img: HTMLImageElement, x: number, y: number): SceneProp {
+  const b = baseOf(img);
+  if (!b) return { img, x, y, foot: y + img.naturalHeight, base: null };
+  const r = ((b.right - b.left) / 2) * 0.85;
+  return { img, x, y, foot: y + b.foot, base: r >= 3 ? { x: x + (b.left + b.right) / 2, y: y + b.foot - r * 0.6, r } : null };
+}
+
+const sceneProps = new Map<string, SceneProp[]>();
+
+/**
+ * The battlefield's scene: the painted ground (the clearing, small details and anything flat) and the big
+ * objects of the outer ring as props, to draw among the monsters (who go behind them) and to walk around.
+ */
+export function areaScene(area: AreaId, w: number, h: number): { ground: HTMLCanvasElement; props: SceneProp[]; vignette?: string } | null {
+  const ground = areaBackground(area, w, h, undefined, true);
+  return ground ? { ground, props: sceneProps.get(`${area}:${w}x${h}:split`) ?? [], vignette: SCENES[area]?.vignette } : null;
+}
+
+/** Darkens the view toward its edges (drawn over the props and monsters, as it was over the painted ground). */
+export function drawVignette(g: CanvasRenderingContext2D, w: number, h: number, color: string): void {
+  const v = g.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.3, w / 2, h / 2, Math.hypot(w, h) / 2);
+  v.addColorStop(0, 'rgba(0,0,0,0)');
+  v.addColorStop(1, color);
+  g.fillStyle = v;
+  g.fillRect(0, 0, w, h);
+}
+
+/** The area's painted background, everything baked in; `split` leaves the outer ring's big objects out (see areaScene). */
+export function areaBackground(area: AreaId, w: number, h: number, decor?: DecorOpts, split = false): HTMLCanvasElement | null {
   const scene = SCENES[area];
   if (!scene) return null;
   load(area, scene);
   if (!ready.has(area)) return null;
-  const key = `${area}:${w}x${h}${decor ? `:${decor.bands}:${decor.density}` : ''}`;
+  const key = `${area}:${w}x${h}${decor ? `:${decor.bands}:${decor.density}` : ''}${split ? ':split' : ''}`;
   const hit = cache.get(key);
   if (hit) return hit;
 
@@ -474,12 +553,13 @@ export function areaBackground(area: AreaId, w: number, h: number, decor?: Decor
     for (let i = 0; i < per * area10k; i++) g.fillRect(Math.floor(r() * w), Math.floor(r() * h), 1 + Math.floor(r() * 2), 1 + Math.floor(r() * 2));
   }
 
+  const props: SceneProp[] = [];
   // Place every band's pieces, then draw them top to bottom so nearer ones overlap farther ones.
   const tops: Array<[number, number, number, number]> = [];
   // Everything placed so far (pools and pieces), so nothing lands on top of anything else.
   const taken: Rect[] = [];
   const scatter = (bands: Band[]): void => {
-    const placed: Array<{ img: HTMLImageElement; x: number; y: number }> = [];
+    const placed: Array<{ img: HTMLImageElement; x: number; y: number; prop: boolean }> = [];
     // Biggest pieces first (the outer bands), then smaller ones fill the room that's left.
     for (const band of [...bands].sort((a, b) => b.from - a.from)) {
       const total = band.pieces.reduce((s, x) => s + x.weight, 0);
@@ -494,7 +574,8 @@ export function areaBackground(area: AreaId, w: number, h: number, decor?: Decor
           x = t[0] + 10 + r() * Math.max(0, t[2] - 20);
           y = t[1] + 10 + r() * Math.max(0, t[3] - 20);
         }
-        if (outness(x, y, w, h) < band.from) continue;
+        // The Hunters' clearing stays empty (clouds drifting under the islands aside).
+        if (outness(x, y, w, h) < (band.under ? band.from : Math.max(band.from, CLEAR))) continue;
         let pick = r() * total;
         const piece = band.pieces.find((x) => (pick -= x.weight) <= 0) ?? band.pieces[0];
         const img = images.get(`${area}/${piece.file}`);
@@ -507,12 +588,16 @@ export function areaBackground(area: AreaId, w: number, h: number, decor?: Decor
           if (taken.some((t) => overlaps(rect, t))) continue;
           taken.push(rect);
         }
-        placed.push({ img, x: px, y: py });
+        const prop = split && band.from >= PROP_FROM && !band.under && !band.overlap && !band.onIslands && !FLAT.test(piece.file);
+        placed.push({ img, x: px, y: py, prop });
         i++;
       }
     }
     placed.sort((a, b) => a.y + a.img.naturalHeight - (b.y + b.img.naturalHeight));
-    for (const it of placed) g.drawImage(it.img, it.x, it.y);
+    for (const it of placed) {
+      if (it.prop) props.push(sceneProp(it.img, it.x, it.y));
+      else g.drawImage(it.img, it.x, it.y);
+    }
   };
   const bands = decor ? scene.bands.slice(0, decor.bands) : scene.bands;
   scatter(bands.filter((b) => b.under));
@@ -522,7 +607,7 @@ export function areaBackground(area: AreaId, w: number, h: number, decor?: Decor
   }
   if (scene.pools) drawPools(g, scene.pools, area, w, h, r, taken);
   scatter(bands.filter((b) => !b.under));
-  if (scene.vignette) {
+  if (scene.vignette && !split) {
     const v = g.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.3, w / 2, h / 2, Math.hypot(w, h) / 2);
     v.addColorStop(0, 'rgba(0,0,0,0)');
     v.addColorStop(1, scene.vignette);
@@ -530,5 +615,6 @@ export function areaBackground(area: AreaId, w: number, h: number, decor?: Decor
     g.fillRect(0, 0, w, h);
   }
   cache.set(key, c);
+  if (split) sceneProps.set(key, props);
   return c;
 }

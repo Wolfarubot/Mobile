@@ -3,6 +3,7 @@ import {
   type Rarity,
   type WeaponClassDef,
   DAMAGE_TYPES,
+  FLYING,
   STATUS,
   affinity,
   typeMult,
@@ -309,6 +310,12 @@ export class Field {
     });
   }
 
+  /**
+   * The battlefield's big objects (rocks, trees, coffins), as circles at their bases: walking monsters go around
+   * them (fliers pass over), projectiles fly over them. Set by the renderer for the current view.
+   */
+  obstacles: Array<{ x: number; y: number; r: number }> = [];
+
   /** Screen size in CSS pixels; the visible world is larger by 1 / the area's zoom. */
   setView(w: number, h: number): void {
     const z = fieldZoom(this.game.area);
@@ -513,16 +520,68 @@ export class Field {
         const walled = this.boneWall > 0;
         const reach = walled ? this.boneWallR + e.r : e.r + PLAYER_RADIUS;
         const step = Math.min(speed * dt, Math.max(0, d - reach));
-        e.x += (-dx / d) * step + e.kx * dt;
-        e.y += (-dy / d) * step + e.ky * dt;
+        const [ux, uy] = this.steer(e, -dx / d, -dy / d);
+        e.x += ux * step + e.kx * dt;
+        e.y += uy * step + e.ky * dt;
         if (walled && d < reach) {
           // Pushed back out to the wall (a knockback toward a Hunter can't carry it through).
           e.x = t.x + (dx / d) * reach;
           e.y = t.y + (dy / d) * reach;
         } else if (!walled && d <= reach + 1) this.contact(e, t.who, dx / d, dy / d);
       }
+      this.keepOut(e);
       e.kx *= decay;
       e.ky *= decay;
+    }
+  }
+
+  /** How close (beyond touching) a walking monster starts to turn aside from an obstacle. */
+  private static readonly STEER_RANGE = 28;
+
+  /**
+   * A walking monster's heading (ux, uy) turned to slip around any obstacle it's closing on: it veers along the
+   * obstacle's edge, on whichever side it was already going (or by its id if dead-on), more the closer it gets.
+   */
+  private steer(e: Enemy, ux: number, uy: number): [number, number] {
+    if (!this.obstacles.length || FLYING.has(e.type)) return [ux, uy];
+    let sx = ux;
+    let sy = uy;
+    for (const o of this.obstacles) {
+      const ox = e.x - o.x;
+      const oy = e.y - o.y;
+      const dist = Math.hypot(ox, oy) || 1;
+      const R = o.r + e.r * 0.6;
+      if (dist > R + Field.STEER_RANGE) continue;
+      const nx = ox / dist;
+      const ny = oy / dist;
+      if (ux * nx + uy * ny >= 0) continue; // already heading away from it
+      let tx = -ny;
+      let ty = nx;
+      const side = tx * ux + ty * uy;
+      if (side < 0 || (Math.abs(side) < 0.05 && e.id % 2)) {
+        tx = -tx;
+        ty = -ty;
+      }
+      const w = 1 - Math.max(0, dist - R) / Field.STEER_RANGE;
+      sx += tx * w * 1.6;
+      sy += ty * w * 1.6;
+    }
+    const m = Math.hypot(sx, sy) || 1;
+    return [sx / m, sy / m];
+  }
+
+  /** A walking monster (knocked back or not) never ends up inside an obstacle: it's put back at the edge. */
+  private keepOut(e: Enemy): void {
+    if (!this.obstacles.length || FLYING.has(e.type)) return;
+    for (const o of this.obstacles) {
+      const ox = e.x - o.x;
+      const oy = e.y - o.y;
+      const R = o.r + e.r * 0.6;
+      const dist = Math.hypot(ox, oy);
+      if (dist >= R) continue;
+      const k = dist > 0.001 ? R / dist : 0;
+      e.x = dist > 0.001 ? o.x + ox * k : o.x + R;
+      e.y = dist > 0.001 ? o.y + oy * k : o.y;
     }
   }
 

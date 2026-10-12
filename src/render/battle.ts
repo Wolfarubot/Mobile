@@ -1,4 +1,4 @@
-import { areaDef, DAMAGE_TYPES, gearDef, WEAPON_CLASSES, STATUS, enemyDef, eventDef, fieldZoom, GUARDIAN_TIME, hunterDef, materialDef, SIZE_SCALE, type DamageType, type EnemyId, type EnemyShape } from '../core/balance';
+import { areaDef, DAMAGE_TYPES, FLYING, gearDef, WEAPON_CLASSES, STATUS, enemyDef, eventDef, fieldZoom, GUARDIAN_TIME, hunterDef, materialDef, SIZE_SCALE, type DamageType, type EnemyId, type EnemyShape } from '../core/balance';
 import { PLAYER_RADIUS, SUMMON_RADIUS, type Summon, type Bullet, type BulletKind, type Enemy, type Field, type Helper } from '../core/field';
 import { fmt } from '../core/format';
 import type { Game, Shooter } from '../core/game';
@@ -7,7 +7,7 @@ import { canvasFont, fitCanvas, Fx } from './fx';
 import { effectImage, gearImage, hunterSheetImage, monsterSheetImage, sprite } from './sprites';
 import { HUNTER_SHEETS } from './hunterSheets';
 import { EFFECTS, type EffectKey } from './effectSheets';
-import { areaBackground } from './backgrounds';
+import { areaScene, drawVignette, type SceneProp } from './backgrounds';
 import { MONSTER_SHEETS, SHEETS, sheetRow, sideFlip, type MonsterSheet } from './monsterSheets';
 import { GEAR_SPRITES } from '../core/gearSprites';
 import { emojiIconKey } from '../ui/emojiIcons';
@@ -88,6 +88,8 @@ export class BattleView {
   /** Melee sweeps and swipes: a fading arc in front of the attacker. */
   /** Each Hunter's last weapon attack (seconds since, and the angle), for the held-weapon animation. */
   private swings = new Map<Shooter, { t: number; a: number }>();
+  /** The current scene's big objects (null until its pictures load), and the obstacles made from them. */
+  private sceneProps: SceneProp[] | null = null;
   private sweeps: Array<{ x: number; y: number; a: number; arc: number; r: number; color: string; t: number; blade?: boolean }> = [];
   private time = 0;
   private shake = 0;
@@ -317,8 +319,13 @@ export class BattleView {
     this.fx.textScale = 1 / Z;
     this.field.setView(w, h);
     const g = this.g;
-    const painted = areaBackground(this.game.area, w, h);
-    if (painted) g.drawImage(painted, 0, 0);
+    const scene = areaScene(this.game.area, w, h);
+    // The scene's big objects stand on the field: monsters walk around their bases (in world units).
+    if ((scene?.props ?? null) !== this.sceneProps) {
+      this.sceneProps = scene?.props ?? null;
+      this.field.obstacles = (this.sceneProps ?? []).flatMap((p) => (p.base ? [{ x: (p.base.x - w / 2) / Z, y: (p.base.y - h / 2) / Z, r: p.base.r / Z }] : []));
+    }
+    if (scene) g.drawImage(scene.ground, 0, 0);
     else {
       const [ground, speck] = areaDef(this.game.area).ground;
       g.fillStyle = ground;
@@ -409,7 +416,22 @@ export class BattleView {
       g.fill();
     }
 
-    for (const e of this.field.enemies) this.drawEnemy(g, e);
+    // Walking monsters and the scene's big objects, farthest first, so a monster behind a tree or a coffin is
+    // hidden by it; fliers pass over everything.
+    const props = this.sceneProps ?? [];
+    const layered: Array<{ y: number; e?: Enemy; p?: SceneProp }> = [];
+    for (const e of this.field.enemies) if (!FLYING.has(e.type)) layered.push({ y: e.y + e.r, e });
+    for (const p of props) layered.push({ y: (p.foot - h / 2) / Z, p });
+    layered.sort((a, b) => a.y - b.y);
+    g.imageSmoothingEnabled = false;
+    for (const it of layered) {
+      if (it.e) this.drawEnemy(g, it.e);
+      else {
+        const p = it.p!;
+        g.drawImage(p.img, (p.x - w / 2) / Z, (p.y - h / 2) / Z, p.img.naturalWidth / Z, p.img.naturalHeight / Z);
+      }
+    }
+    for (const e of this.field.enemies) if (FLYING.has(e.type)) this.drawEnemy(g, e);
     this.drawHeld(g);
     for (const h of this.field.helpers) this.drawHelper(g, h);
     this.drawHunter(g);
@@ -587,6 +609,7 @@ export class BattleView {
     this.drawReloads(g);
     this.fx.draw(g);
     g.restore();
+    if (scene?.vignette) drawVignette(g, w, h, scene.vignette);
     this.drawHud(g);
     this.cooldownBar.update();
   }

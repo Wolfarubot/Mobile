@@ -1480,6 +1480,12 @@ export const STATUS = {
 /** Rough extra damage each type's effect adds when it always procs, for the background model (scaled by proc chance). */
 export const STATUS_MODEL: Partial<Record<DamageType, number>> = { physical: 1.25, fire: 1.4, poison: 1.5, acid: 1.4, radiant: 1.5, decay: 1.4, arcane: 1.1, lightning: 1.5, void: 1.15 };
 
+/** Monsters that fly (or float): they pass over the battlefield's rocks, trees and coffins instead of going around. */
+export const FLYING: ReadonlySet<EnemyId> = new Set<EnemyId>([
+  'pixie', 'bat', 'graveWraith', 'crow', 'duskmoth', 'shadowWisp', 'gazingEye', 'frostSprite', 'wraith', 'harpy', 'snowOwl', 'griffin',
+  'iceWyvern', 'cloudling', 'thunderbird', 'valkyrie', 'cometWisp', 'starEater', 'shade', 'watcher', 'voidWyrm', 'pixieQueen', 'beholdenWatcher',
+]);
+
 export const DAMAGE_TYPES: Record<DamageType, { name: string; icon: string; color: string; effect?: string }> = {
   physical: { name: 'Physical', icon: '🗡️', color: '#e8e8e8', effect: `Bleeds: ${STATUS.bleed.share * 100}% of the hit again over ${STATUS.bleed.duration}s; bleeds stack (up to ${STATUS.bleed.maxStacks})` },
   fire: { name: 'Fire', icon: '🔥', color: '#ff7a2a', effect: `Burns: ${STATUS.burn.share * 100}% of the hit again over ${STATUS.burn.duration}s, and can spread to monsters right next to it` },

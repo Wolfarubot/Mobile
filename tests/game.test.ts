@@ -41,6 +41,7 @@ import {
   gearArea,
   gearTypes,
   DAMAGE_TYPES,
+  FLYING,
   lootChance,
   tomeSummonType,
   ARMOR_TYPES,
@@ -2324,6 +2325,33 @@ describe('Equipment', () => {
     expect(g.cooldownMult('main')).toBeCloseTo(1 - modRoll(ENCHANTS.haste.range, false, 'legendary', MOD_QUALITY_STEPS));
     // The SUMMONING! text is off by default.
     expect(startingGame(0).settings.summonText).toBe(false);
+  });
+
+  it('walking monsters go around the scene\'s big objects (never through them); fliers pass straight over', () => {
+    const run = (type: 'greenSlime' | 'bat') => {
+      const g = new Game(newGame(0), noCrit);
+      const f = new Field(g);
+      f.setView(390, 420);
+      // A rock right in the way, between the monster and the Hunter.
+      f.obstacles = [{ x: 0, y: -120, r: 30 }];
+      const e = enemy({ id: 7, type, x: 0, y: -260, hp: 1e9, maxHp: 1e9, speed: 60 });
+      f.enemies = [e];
+      let inside = false;
+      let closest = Infinity;
+      for (let t = 0; t < 8; t += 0.02) {
+        (f as unknown as { moveEnemies: (dt: number) => void }).moveEnemies(0.02);
+        if (Math.hypot(e.x, e.y + 120) < 30 + e.r * 0.6 - 0.01) inside = true;
+        closest = Math.min(closest, Math.hypot(e.x, e.y));
+      }
+      return { inside, closest, wentAround: Math.abs(e.x) > 1 || closest < 40 };
+    };
+    const walker = run('greenSlime');
+    expect(walker.inside).toBe(false);
+    expect(walker.closest).toBeLessThan(40); // it still gets to the Hunter, around the rock
+    const flier = run('bat');
+    expect(flier.inside).toBe(true); // straight over it
+    expect(FLYING.has('bat')).toBe(true);
+    expect(FLYING.has('greenSlime')).toBe(false);
   });
 
   it('hammers slam the ground out in front (the Hunter at its edge): every monster in it is hit and thrown far back; Size, Range and Expanse', () => {
