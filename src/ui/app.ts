@@ -93,6 +93,7 @@ import { gearIconUrl, spriteUrl } from '../render/sprites';
 import { MATERIAL_SPRITES } from '../core/materialSprites';
 import { GEAR_SPRITES } from '../core/gearSprites';
 import { NODE_SPRITES } from '../core/nodeSprites';
+import { hunterIconHtml } from './hunterIcons';
 import { applyAreaTheme, applyUiStyle } from './theme';
 import { playCutscene, TIME_EATER_CUTSCENE } from './cutscene';
 import { applyFont, fontDef, FONTS } from './fonts';
@@ -1305,7 +1306,7 @@ export class AppUI {
         const here = open ? g.stationedIn(a.id) : [];
         slots.innerHTML = Array.from({ length: STATION_CAPACITY }, (_, i) => {
           const h = here[i];
-          return h ? `<span class="mini-hunter" style="--hc:${hunterDef(h).color}" title="${hunterDef(h).name}">${hunterDef(h).icon}</span>` : '<span class="mini-hunter empty"></span>';
+          return h ? `<span class="mini-hunter" style="--hc:${hunterDef(h).color}" title="${hunterDef(h).name}">${wearerIcon(h)}</span>` : '<span class="mini-hunter empty"></span>';
         }).join('');
       }
     });
@@ -2714,7 +2715,7 @@ export class AppUI {
       const next = nextAreaOf(ev.area);
       const rewards: string[] = [];
       if (ev.kind === 'guardian') rewards.push(next && !g.isAreaUnlocked(next.id) ? `unlocks ${next.name}` : 'a Guardian bounty of gold and materials');
-      for (const h of g.huntersUnlockedBy(ev.id)) rewards.push(`${hunterDef(h).icon} ${hunterDef(h).name} the ${hunterDef(h).title} joins`);
+      for (const h of g.huntersUnlockedBy(ev.id)) rewards.push(`${wearerIcon(h)} ${hunterDef(h).name} the ${hunterDef(h).title} joins`);
       const extra = rewards.length ? `Reward: ${rewards.join(' · ')}` : '';
       if (!unlocked) {
         status.innerHTML = `<div class="mastery"><i style="width:${Math.min(1, kills / ev.unlockKills) * 100}%"></i><span>🔒 Slay ${fmt(kills)} / ${fmt(ev.unlockKills)} ${unlockNoun(ev)} here</span></div>`;
@@ -3445,7 +3446,7 @@ export class AppUI {
     const gained = (m: Partial<Record<MaterialId, number>>) => (Object.entries(m) as [MaterialId, number][]).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]);
     const rows = r.areas
       .map((a) => {
-        const name = (h: (typeof a.hunters)[number]) => (h === 'main' ? esc(mainName()) : `${hunterDef(h).icon} ${hunterDef(h).name}`);
+        const name = (h: (typeof a.hunters)[number]) => (h === 'main' ? esc(mainName()) : `${wearerIcon(h)} ${hunterDef(h).name}`);
         const who = a.hunters.map(name).join(' + ');
         // Only Hunters that were actually knocked out get a count.
         const kos = a.hunters
@@ -3627,7 +3628,7 @@ function wearerName(who: Wearer): string {
 }
 
 function wearerIcon(who: Wearer): string {
-  return who === 'main' ? '🧑' : hunterDef(who).icon;
+  return hunterIconHtml(who);
 }
 
 /** Material cost list; with `check`, amounts you can't afford are highlighted. */

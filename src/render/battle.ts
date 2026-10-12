@@ -11,6 +11,7 @@ import { areaBackground } from './backgrounds';
 import { MONSTER_SHEETS, SHEETS, sheetRow, sideFlip, type MonsterSheet } from './monsterSheets';
 import { GEAR_SPRITES } from '../core/gearSprites';
 import { emojiIconKey } from '../ui/emojiIcons';
+import { HUNTER_ICONS, hunterIconHtml } from '../ui/hunterIcons';
 
 interface Pickup {
   x: number;
@@ -949,7 +950,7 @@ export class BattleView {
       g.font = canvasFont(R * 1.1);
       g.textAlign = 'center';
       g.textBaseline = 'middle';
-      const ic = gearImage(emojiIconKey(def.icon));
+      const ic = gearImage(HUNTER_ICONS[h.id]);
       if (ic) {
         g.imageSmoothingEnabled = false;
         g.drawImage(ic, -R * 0.7, -R * 0.7, R * 1.4, R * 1.4);
@@ -1506,7 +1507,9 @@ class CooldownBar {
         const el = document.createElement('div');
         el.className = 'cd-icon';
         el.title = c.name;
-        el.innerHTML = `<span class="cd-gray">${c.icon}</span><span class="cd-color">${c.icon}</span><i class="cd-line"></i>`;
+        // A Hunter's special shows that Hunter's own icon; gear shows its emoji's icon.
+        const icon = c.key in HUNTER_ICONS ? hunterIconHtml(c.key as keyof typeof HUNTER_ICONS) : c.icon;
+        el.innerHTML = `<span class="cd-gray">${icon}</span><span class="cd-color">${icon}</span><i class="cd-line"></i>`;
         ic = { el, color: el.querySelector('.cd-color') as HTMLSpanElement, line: el.querySelector('.cd-line') as HTMLElement, ready: c.progress >= 1 };
         this.icons.set(c.key, ic);
       }
