@@ -4523,3 +4523,29 @@ body.ui-parchment .hunter-dock .buy {
   color: var(--good);
   font-weight: 700;
 }
+
+/* ---- Menu tabs: bigger icons with the label overlapping their bottom edge, outlined in black so both stay
+   legible (shorter than an icon stacked over a label). ---- */
+.tabs button {
+  padding: 4px 2px 5px;
+  line-height: 1.15;
+}
+.tabs button i {
+  font-size: 24px;
+  line-height: 1;
+  margin-bottom: -9px;
+}
+.tabs button,
+body.ui-parchment .tabs button,
+body.ui-parchment .tabs button.active {
+  color: #fff8e6 !important;
+  text-shadow:
+    -1px -1px 0 #000,
+    0 -1px 0 #000,
+    1px -1px 0 #000,
+    -1px 0 0 #000,
+    1px 0 0 #000,
+    -1px 1px 0 #000,
+    0 1px 0 #000,
+    1px 1px 0 #000 !important;
+}
