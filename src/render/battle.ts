@@ -63,6 +63,8 @@ let Z = 0.6;
 
 const OUTLINE = '#120c1c';
 const SPRITE_SCALE = 2.4;
+/** Pixels from head to toe of a top-down Hunter sprite (your Hunter's), drawn at the Hunter's size. */
+const TOPDOWN_HEIGHT = 25;
 /**
  * Hunters, monsters and their summons are drawn this much bigger than their world size: the Woods' Hunters at
  * a zoom of 1 (later areas still zoom out from there) while the view, ranges and hit areas stay as they are.
@@ -1026,7 +1028,9 @@ export class BattleView {
     const row = sh.side ? 0 : Math.abs(c) >= Math.abs(s) ? (c < 0 ? 1 : 2) : s > 0 ? 0 : 3;
     const col = Math.floor((this.time + phase) * 8) % sh.frames[row];
     const [bx, by, bw, bh] = sh.box;
-    const k = (R * 2.7) / Math.max(bw, bh);
+    // Top-down characters share one pixel scale (your Hunter's height sets it), so they keep the packs' relative
+    // sizes: a plume or a cape adds to a Hunter rather than shrinking them. Side-view art is fitted to its box.
+    const k = (R * 2.7) / (sh.side ? Math.max(bw, bh) : TOPDOWN_HEIGHT);
     const F = sh.frame;
     g.imageSmoothingEnabled = false;
     // Feet (the box's bottom) on the shadow.

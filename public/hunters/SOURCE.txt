@@ -1,9 +1,7 @@
-Hunter idle sheets from CraftPix.net's top-down Swordsman (lvl 1-6), Mage (lvl 1-6) and Archer (lvl 1-3) packs
-(license: https://craftpix.net/file-licenses/): the idle animation's body and head layers (no weapon; the game draws
-each Hunter's equipped weapon), recoloured per Hunter. Rows: down, left, right, up.
-Side-view Hunters (idle strips facing right, mirrored in game): Reginald from "Alchemy Game Assets", Wilhelm from "Ruin
-Enemy Sprite Sheets" (shooter), Kargesh from "Engineering Game Assets", Lance and Bjorn from "Free Knight Character
-Sprites" (Okrin recoloured), Glimmer, Celeste and Theon from "Free Wizard Sprite Sheets", Alias and Deku from "Free
-Ninja Sprite Sheets", Marceline and Sciirj from "Free Yokai Pixel Art Character Sprites" (Kitsune, Yamabushi tengu).
-Gideon from "Demon" event boss pack (Summoner idle, recoloured to bone and violet).
-Themus from "Free Knight Character Sprites" (Knight_3 idle, recoloured crimson).
+Hunter idle sheets from CraftPix.net's top-down 4-direction Swordsman (lvl 1-9), Mage (lvl 1-6), Archer (lvl 1-6)
+and Vampire packs (license: https://craftpix.net/file-licenses/): the idle animation's body and head layers (no
+weapon; the game draws each Hunter's equipped weapon), rows in the order down, left, right, up. Every Hunter uses
+the same style. You: Swordsman 1. Galladair: Archer 3. Ba'al: Mage 3. Reginald: Archer 2. Deku: Mage 6. Alias:
+Archer 4. Lance: Swordsman 7. Glimmer: Mage 1 (warmed to fiery tones). Theon: Archer 6. Wilhelm: Archer 5. Celeste:
+Mage 4. Kargesh: Swordsman 4. Sciirj: Archer 1 (tinted to a monk's orange). Marceline: Mage 5. Gideon: Vampire 1
+(greyed toward bone). Okrin: Swordsman 5. Themus: Vampire 3.

@@ -2,10 +2,10 @@ import type { Wearer } from '../core/state';
 
 /**
  * Hunters on the battlefield: weapon-free idle animations (public/hunters/<id>.png), composed from CraftPix's
- * swordsman, mage and archer packs and recoloured per Hunter (the game draws each Hunter's real weapon in
+ * swordsman, mage, archer and vampire packs and recoloured per Hunter (the game draws each Hunter's real weapon in
  * their hands). 4 rows (down, left, right, up) of square frames; `box` is the character's bounding
- * box within a frame [x, y, w, h]. Some Hunters use side-view knights, wizards, ninjas and yokai instead
- * (one idle row facing right, mirrored when they aim left; drawn at the same height).
+ * box within a frame [x, y, w, h]. Every Hunter is a top-down 4-direction character in the same style
+ * (the `side` option, one idle row mirrored to face left, remains for side-view art).
  */
 export interface HunterSheet {
   frame: number;
@@ -19,19 +19,19 @@ export interface HunterSheet {
 export const HUNTER_SHEETS: Partial<Record<Wearer, HunterSheet>> = {
   main: { frame: 64, frames: [12, 12, 12, 4], box: [23, 19, 18, 25] },
   ranger: { frame: 64, frames: [12, 12, 12, 4], box: [20, 19, 24, 25] },
-  alchemist: { frame: 48, frames: [4], box: [6, 13, 17, 35], side: true },
   bard: { frame: 64, frames: [12, 12, 12, 4], box: [20, 20, 24, 24] },
-  druid: { frame: 96, frames: [7], box: [31, 25, 36, 71], side: true },
-  thief: { frame: 128, frames: [9], box: [47, 64, 25, 64], side: true },
-  lance: { frame: 128, frames: [4], box: [12, 64, 43, 64], side: true },
-  glimmer: { frame: 128, frames: [7], box: [33, 62, 33, 66], side: true },
-  puppeteer: { frame: 128, frames: [8], box: [29, 62, 52, 66], side: true },
-  wilhelm: { frame: 48, frames: [4], box: [21, 15, 25, 33], side: true },
-  celeste: { frame: 128, frames: [7], box: [35, 65, 30, 63], side: true },
-  blacksmith: { frame: 48, frames: [4], box: [7, 11, 19, 37], side: true },
-  scavenger: { frame: 128, frames: [6], box: [18, 33, 81, 95], side: true },
-  enchantress: { frame: 128, frames: [8], box: [24, 49, 53, 79], side: true },
-  osteomancer: { frame: 48, frames: [4], box: [3, 6, 20, 42], side: true },
-  bloodblade: { frame: 128, frames: [4], box: [12, 64, 43, 64], side: true },
-  frostbreaker: { frame: 128, frames: [4], box: [12, 64, 43, 64], side: true },
+  alchemist: { frame: 64, frames: [12, 12, 12, 4], box: [20, 17, 24, 27] },
+  druid: { frame: 64, frames: [12, 12, 12, 4], box: [22, 19, 18, 25] },
+  thief: { frame: 64, frames: [12, 12, 12, 4], box: [20, 20, 24, 24] },
+  lance: { frame: 64, frames: [12, 12, 12, 4], box: [20, 17, 23, 28] },
+  glimmer: { frame: 64, frames: [12, 12, 12, 4], box: [20, 20, 24, 24] },
+  puppeteer: { frame: 64, frames: [12, 12, 12, 4], box: [20, 18, 23, 26] },
+  wilhelm: { frame: 64, frames: [12, 12, 12, 4], box: [20, 17, 24, 28] },
+  celeste: { frame: 64, frames: [12, 12, 12, 4], box: [20, 20, 24, 24] },
+  blacksmith: { frame: 64, frames: [12, 12, 12, 4], box: [23, 20, 18, 24] },
+  scavenger: { frame: 64, frames: [12, 12, 12, 4], box: [20, 17, 24, 27] },
+  enchantress: { frame: 64, frames: [12, 12, 12, 4], box: [21, 20, 22, 25] },
+  osteomancer: { frame: 64, frames: [4, 4, 4, 4], box: [20, 17, 23, 27] },
+  frostbreaker: { frame: 64, frames: [12, 12, 12, 4], box: [23, 20, 18, 24] },
+  bloodblade: { frame: 64, frames: [4, 4, 4, 4], box: [12, 16, 39, 28] },
 };
