@@ -4382,43 +4382,48 @@ body.ui-parchment .mat {
   margin: 0;
   content-visibility: visible;
 }
-/* The pinned card is a little more compact than a full card, leaving more of the grid in view. */
+/* The pinned card: about a full card's size, a little tighter, so two rows of the grid stay in view. */
 .hunter-dock .hunter-card {
   padding: 8px 10px;
 }
 .hunter-dock .hc-art .hunter-art,
 .hunter-dock .hc-lv {
-  width: 44px;
+  width: 56px;
 }
 .hunter-dock .hc-art .hunter-art {
-  height: 44px;
-  font-size: 22px;
+  height: 56px;
+  font-size: 28px;
 }
-.hunter-dock .hc-train {
-  margin-top: 6px;
+.hunter-dock .hc-name {
+  font-size: 16px;
 }
-.hunter-dock .hc-action .buy {
-  padding: 3px 6px;
+.hunter-dock .hc-ability {
   font-size: 13px;
 }
-.hunter-dock .hc-action .buy small {
-  font-size: 11px;
-}
+.hunter-dock .hc-train,
 .hunter-dock .hc-gear {
-  margin-top: 6px;
+  margin-top: 9px;
+}
+.hunter-dock .hc-action .buy {
+  padding: 4px 6px !important;
+  font-size: 14px;
+}
+.hunter-dock .hc-action .buy small {
+  font-size: 12px;
 }
 .hunter-dock .gear-chip {
-  padding: 3px 4px;
+  padding: 5px 4px;
+  font-size: 12px;
 }
-/* Parchment frames on the pinned card: thinner (still whole pixels of the frame art). */
+/* Parchment frames on the pinned card: a little thinner than a full card's. */
 body.ui-parchment .hunter-dock .hunter-card,
 body.ui-parchment .hunter-dock .beast {
-  border-width: 10px !important;
-  border-image: var(--img-panel) 5 fill / 10px / 0 stretch !important;
+  border-width: 13px !important;
+  border-image: var(--img-panel) 5 fill / 13px / 0 stretch !important;
 }
 body.ui-parchment .hunter-dock .buy {
-  border-width: 6px !important;
-  border-image: var(--img-btn) 3 fill / 6px / 0 stretch !important;
+  border-width: 8px !important;
+  border-image: var(--img-btn) 3 fill / 8px / 0 stretch !important;
 }
 /* The pinned monster card leaves its weaknesses to the full view. */
 .hunter-dock .beast .affinities {
