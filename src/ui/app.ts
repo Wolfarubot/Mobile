@@ -412,7 +412,7 @@ export class AppUI {
           dot.classList.toggle('hidden', points <= 0);
         } else {
           ready = g.canRecruit(def!.id);
-          lv.textContent = open ? 'Recruit' : '🔒';
+          lv.textContent = open ? 'Recruit' : 'Locked';
         }
         tile.classList.toggle('ready', ready);
       }
