@@ -1,5 +1,5 @@
-import { areaDef, DAMAGE_TYPES, gearDef, WEAPON_CLASSES, STATUS, enemyDef, eventDef, fieldZoom, GUARDIAN_TIME, hunterDef, materialDef, SIZE_SCALE, type EnemyId, type EnemyShape } from '../core/balance';
-import { PLAYER_RADIUS, SUMMON_RADIUS, type Summon, type Bullet, type Enemy, type Field, type Helper } from '../core/field';
+import { areaDef, DAMAGE_TYPES, gearDef, WEAPON_CLASSES, STATUS, enemyDef, eventDef, fieldZoom, GUARDIAN_TIME, hunterDef, materialDef, SIZE_SCALE, type DamageType, type EnemyId, type EnemyShape } from '../core/balance';
+import { PLAYER_RADIUS, SUMMON_RADIUS, type Summon, type Bullet, type BulletKind, type Enemy, type Field, type Helper } from '../core/field';
 import { fmt } from '../core/format';
 import type { Game, Shooter } from '../core/game';
 import type { FxKey } from '../core/state';
@@ -188,7 +188,7 @@ export class BattleView {
           // A spear's thrust: a white streak shooting out along the stab.
           if (this.fancy && e.thrust) {
             const len = Math.hypot(e.x2 - e.x1, e.y2 - e.y1);
-            this.strikes.push({ key: 'thrust', x: e.x1, y: e.y1, a: Math.atan2(e.y2 - e.y1, e.x2 - e.x1), len, thick: Math.max(10, e.width * 1.5), t: 0 });
+            this.strikes.push({ key: 'thrust', x: e.x1, y: e.y1, a: Math.atan2(e.y2 - e.y1, e.x2 - e.x1), len, thick: Math.max(10, e.width * 1.5), t: 0, color: e.color });
             break;
           }
           // Lightning called down from the sky (Thunder Totem, Thunder Call) strikes as a bolt.
@@ -205,8 +205,8 @@ export class BattleView {
           // A hammer's ground slam: an impact that bursts into a shockwave ring (a plain ring in Basic), dust
           // kicked up all around, and a jolt.
           // The sheet's first frames gather energy before it bursts: a hammer just bursts, so start there.
-          if (this.fancy) this.playEffect('smash', e.x, e.y, e.r * 2.1, 'center', 26, SMASH_START, 0.55);
-          else this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: '232,216,176', max: 0.35 });
+          if (this.fancy) this.playEffect('smash', e.x, e.y, e.r * 2.1, 'center', 26, SMASH_START, 0.55, e.color);
+          else this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: e.color === PHYSICAL_COLOR ? '232,216,176' : hexRgb(e.color), max: 0.35 });
           for (let i = 0; i < 10; i++) {
             const a = (i / 10) * Math.PI * 2;
             this.fx.burst(e.x + Math.cos(a) * e.r * 0.6, e.y + Math.sin(a) * e.r * 0.6, i % 2 ? '#c8b48a' : '#8a7a5a', 2, 90, 4, 300, true);
@@ -287,6 +287,7 @@ export class BattleView {
     this.blasts = this.blasts.filter((b) => b.t < BLAST_TIME);
     for (const a of this.anims) a.t += dt;
     this.anims = this.anims.filter((a) => a.start + a.t * a.fps < EFFECTS[a.key].frames);
+    this.emitTrails(dt);
     for (const st of this.strikes) st.t += dt;
     this.strikes = this.strikes.filter((st) => st.t * STRIKE_FPS[st.key] < EFFECTS[st.key].frames);
     this.rings = this.rings.filter((r) => r.t < r.max);
@@ -486,7 +487,7 @@ export class BattleView {
         x.setTransform(px, 0, 0, px, k2.width / 2, k2.height / 2);
         x.clearRect(-size / 2, -size / 2, size, size);
         x.imageSmoothingEnabled = false;
-        const ring = bladeRingOf(hole);
+        const ring = tinted(bladeRingOf(hole), w.color);
         const sh = EFFECTS.blackhole;
         const [bx, by, bw] = sh.box;
         const f = Math.floor(w.t * 40) % sh.frames;
@@ -547,7 +548,7 @@ export class BattleView {
       const img = effectImage(a.key);
       if (!img) continue;
       g.globalAlpha = a.alpha;
-      drawEffectFrame(g, img, a.key, a.start + Math.floor(a.t * a.fps), a.x, a.y, a.size, a.anchor);
+      drawEffectFrame(g, tinted(img, a.color), a.key, a.start + Math.floor(a.t * a.fps), a.x, a.y, a.size, a.anchor);
       g.globalAlpha = 1;
     }
     for (const st of this.strikes) {
@@ -763,15 +764,35 @@ export class BattleView {
     }
   }
 
+  /** Ranged weapons' projectiles shed particles of the damage they deal (see TRAILS). */
+  private emitTrails(dt: number): void {
+    const types = new Map<string, DamageType>();
+    for (const b of this.field.bullets) {
+      if (!TRAIL_KINDS.has(b.kind)) continue;
+      const key = `${b.shooter}:${b.mode ?? 'long'}`;
+      let type = b.dtype ?? types.get(key);
+      if (!type) types.set(key, (type = this.game.damageTypeOf(b.shooter, b.mode ?? 'long')));
+      const st = TRAILS[type];
+      if (!st) continue;
+      for (let n = st.rate * dt * TRAIL_DENSITY; n > 0; n--) {
+        if (n < 1 && Math.random() >= n) break;
+        const j = () => (Math.random() - 0.5) * st.drift;
+        // Anywhere along the stretch it just flew, so fast shots leave an unbroken streak.
+        const back = Math.random() * dt;
+        this.fx.trail(b.x - b.vx * back + (Math.random() - 0.5) * 4, b.y - b.vy * back + (Math.random() - 0.5) * 4, j(), j() - st.rise, st.colors[Math.floor(Math.random() * st.colors.length)], st.size * TRAIL_SIZE * (0.7 + Math.random() * 0.6), st.life * (0.7 + Math.random() * 0.6), st.gravity, st.square);
+      }
+    }
+  }
+
   /** Effect art is the Fancy area effect style (Settings); Basic keeps plain shapes. */
   private get fancy(): boolean {
     return this.game.state.settings.aoeStyle !== 'basic';
   }
 
   /** Plays a magic effect once: `size` is its longer side; 'bottom' anchors strikes that come down from above. */
-  private playEffect(key: EffectKey, x: number, y: number, size: number, anchor: 'center' | 'bottom' = 'center', fps = 18, start = 0, alpha = 1): void {
+  private playEffect(key: EffectKey, x: number, y: number, size: number, anchor: 'center' | 'bottom' = 'center', fps = 18, start = 0, alpha = 1, color?: string): void {
     if (this.anims.length > 120) return; // keep the busiest moments cheap
-    this.anims.push({ key, x, y, size, anchor, fps, t: 0, start, alpha });
+    this.anims.push({ key, x, y, size, anchor, fps, t: 0, start, alpha, color });
   }
 
   private drawEnemy(g: CanvasRenderingContext2D, e: Enemy): void {
@@ -1831,6 +1852,8 @@ function goldFist(src: HTMLImageElement): HTMLCanvasElement {
  */
 interface Strike {
   key: 'thrust' | 'fist';
+  /** The thrust's damage-type colour. */
+  color?: string;
   x: number;
   y: number;
   a: number;
@@ -1859,8 +1882,72 @@ function drawStrike(g: CanvasRenderingContext2D, img: HTMLImageElement, st: Stri
   g.rotate(st.a);
   const kx = st.len / bw;
   const ky = st.thick / bh;
-  g.drawImage(img, f * sh.frame, 0, sh.frame, sh.frame, -bx * kx, -(by + bh / 2) * ky, sh.frame * kx, sh.frame * ky);
+  g.drawImage(tinted(img, st.color), f * sh.frame, 0, sh.frame, sh.frame, -bx * kx, -(by + bh / 2) * ky, sh.frame * kx, sh.frame * ky);
   g.restore();
+}
+
+/** Overall trail density and particle size (on top of each type's own). */
+const TRAIL_DENSITY = 2.5;
+const TRAIL_SIZE = 1.7;
+
+/** Ranged weapons' projectiles, which leave a trail (spells, fireballs, potions and blood bolts have their own looks). */
+const TRAIL_KINDS = new Set<BulletKind>(['arrow', 'bolt', 'pellet', 'pistol', 'ricochet', 'dagger', 'hammer']);
+
+/**
+ * Each damage type's trail: particles a second, colours, size, how long they last, gravity (+ falls, − rises),
+ * how much they scatter, how fast they rise, and square pixels or round dots. Physical leaves none.
+ */
+const TRAILS: Partial<Record<DamageType, { rate: number; colors: string[]; size: number; life: number; gravity: number; drift: number; rise: number; square: boolean }>> = {
+  // Embers that flicker up.
+  fire: { rate: 45, colors: ['#ffd34d', '#ff7a2a', '#ff4a1a'], size: 2.4, life: 0.35, gravity: -60, drift: 30, rise: 20, square: true },
+  // Glittering ice crystals that hang in the air.
+  frost: { rate: 35, colors: ['#ffffff', '#c8f0ff', '#8fdcff'], size: 1.8, life: 0.5, gravity: 0, drift: 14, rise: 0, square: true },
+  // Drips that fall away.
+  acid: { rate: 28, colors: ['#e2ff6a', '#c6f03a', '#8ab820'], size: 1.9, life: 0.45, gravity: 280, drift: 12, rise: 0, square: false },
+  // Bubbles that rise.
+  poison: { rate: 24, colors: ['#a8f08a', '#6fdc5a', '#3a9a3a'], size: 2.2, life: 0.55, gravity: -30, drift: 16, rise: 15, square: false },
+  // Golden sparkles.
+  radiant: { rate: 40, colors: ['#ffffff', '#fff4b0', '#ffe36e'], size: 1.7, life: 0.35, gravity: 0, drift: 40, rise: 0, square: true },
+  // Violet motes scattering.
+  arcane: { rate: 32, colors: ['#e6ccff', '#c08cff', '#8a5ad8'], size: 1.9, life: 0.45, gravity: 0, drift: 70, rise: 0, square: false },
+  // Ash and dead leaves that drift down.
+  decay: { rate: 26, colors: ['#8a7448', '#5a4a30', '#2e2418'], size: 2.4, life: 0.55, gravity: 110, drift: 22, rise: 0, square: true },
+  // Crackling sparks that jump off it.
+  lightning: { rate: 50, colors: ['#ffffff', '#d0e0ff', '#8fb4ff'], size: 1.5, life: 0.16, gravity: 0, drift: 220, rise: 0, square: true },
+  // Dark-pink motes.
+  void: { rate: 30, colors: ['#ff9ae8', '#ff5fd7', '#7a2a8a'], size: 2.1, life: 0.45, gravity: 0, drift: 26, rise: 0, square: false },
+};
+
+/** Physical damage's colour: its attacks keep the effects' own white. */
+const PHYSICAL_COLOR = DAMAGE_TYPES.physical.color;
+const tints = new WeakMap<object, Map<string, HTMLCanvasElement>>();
+
+/**
+ * A white effect sheet tinted toward a damage type's colour (light parts take the colour, keeping their shading
+ * and transparency); Physical, or a colour it doesn't know, leaves the sheet as it is. Cached per sheet and colour.
+ */
+function tinted<T extends HTMLImageElement | HTMLCanvasElement>(src: T, color: string | undefined): T | HTMLCanvasElement {
+  if (!color || color === PHYSICAL_COLOR || !/^#[0-9a-f]{6}$/i.test(color)) return src;
+  let byColor = tints.get(src);
+  if (!byColor) tints.set(src, (byColor = new Map()));
+  const hit = byColor.get(color);
+  if (hit) return hit;
+  const w = src instanceof HTMLImageElement ? src.naturalWidth : src.width;
+  const h = src instanceof HTMLImageElement ? src.naturalHeight : src.height;
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  const x = c.getContext('2d')!;
+  x.drawImage(src, 0, 0);
+  // Multiply by the colour lifted a little toward white (so it stays bright), then restore the sheet's alpha.
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(color.slice(i, i + 2), 16));
+  x.globalCompositeOperation = 'multiply';
+  x.fillStyle = `rgb(${Math.round(r + (255 - r) * 0.2)},${Math.round(g + (255 - g) * 0.2)},${Math.round(b + (255 - b) * 0.2)})`;
+  x.fillRect(0, 0, w, h);
+  x.globalCompositeOperation = 'destination-in';
+  x.drawImage(src, 0, 0);
+  byColor.set(color, c);
+  return c;
 }
 
 /** A scratch canvas for drawing one sword swing at the battlefield's resolution (reused swing to swing). */
@@ -1917,6 +2004,8 @@ interface Anim {
   /** Frame to start from (skipping a wind-up), and opacity. */
   start: number;
   alpha: number;
+  /** A damage type's colour to tint it (a hammer's smash). */
+  color?: string;
 }
 
 /**
@@ -1924,7 +2013,7 @@ interface Anim {
  * edge there ('bottom'). `loop` wraps the frame number (projectiles, wells); otherwise it's clamped. `sizeBy`
  * sizes it by another sheet's box (the phases of one effect, so it doesn't jump between them).
  */
-function drawEffectFrame(g: CanvasRenderingContext2D, img: HTMLImageElement, key: EffectKey, frame: number, x: number, y: number, size: number, anchor: 'center' | 'bottom', loop = false, sizeBy: EffectKey = key): void {
+function drawEffectFrame(g: CanvasRenderingContext2D, img: HTMLImageElement | HTMLCanvasElement, key: EffectKey, frame: number, x: number, y: number, size: number, anchor: 'center' | 'bottom', loop = false, sizeBy: EffectKey = key): void {
   const sh = EFFECTS[key];
   const f = loop ? ((frame % sh.frames) + sh.frames) % sh.frames : Math.max(0, Math.min(sh.frames - 1, frame));
   const [bx, by, bw, bh] = EFFECTS[sizeBy].box;

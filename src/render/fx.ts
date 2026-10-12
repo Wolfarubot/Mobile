@@ -36,6 +36,8 @@ export class Fx {
   /** Multiplier on floating text size and rise speed (to stay readable in a zoomed-out view). */
   textScale = 1;
   particles: Particle[] = [];
+  /** Projectile trails: their own pool, so a busy volley never crowds out hit bursts. */
+  trails: Particle[] = [];
   floaters: Floater[] = [];
   slashes: Slash[] = [];
 
@@ -60,6 +62,12 @@ export class Fx {
     }
   }
 
+  /** One trail particle left behind a projectile (dropped when the pool is full). */
+  trail(x: number, y: number, vx: number, vy: number, color: string, size: number, max: number, gravity = 0, square = false): void {
+    if (this.trails.length > 300) return;
+    this.trails.push({ x, y, vx, vy, life: 0, max, size, color, gravity, square });
+  }
+
   text(x: number, y: number, text: string, color = '#fff', size = 22, max = 0.9): void {
     if (this.floaters.length > 45) this.floaters.shift();
     this.floaters.push({ x: x + (Math.random() - 0.5) * 60, y: y + (Math.random() - 0.5) * 24, text, color, size, life: 0, max });
@@ -70,6 +78,13 @@ export class Fx {
   }
 
   update(dt: number): void {
+    for (const p of this.trails) {
+      p.life += dt;
+      p.vy += p.gravity * dt;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+    }
+    this.trails = this.trails.filter((p) => p.life < p.max);
     for (const p of this.particles) {
       p.life += dt;
       p.vy += p.gravity * dt;
@@ -92,7 +107,7 @@ export class Fx {
   }
 
   draw(g: CanvasRenderingContext2D): void {
-    for (const p of this.particles) {
+    for (const p of [...this.trails, ...this.particles]) {
       g.globalAlpha = 1 - p.life / p.max;
       g.fillStyle = p.color;
       if (p.square) {

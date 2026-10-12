@@ -243,7 +243,7 @@ export type FieldEvent =
   /** A focus's wave: a ring growing to `r` over `time` seconds. */
   | { type: 'wave'; x: number; y: number; r: number; time: number; color: string }
   /** A hammer's ground slam: a shockwave ring of radius `r`. */
-  | { type: 'slam'; x: number; y: number; r: number }
+  | { type: 'slam'; x: number; y: number; r: number; color: string }
   /** Sciirj's Mountain Fist thrown from (x, y) at angle `a`; `r` is its reach. */
   | { type: 'punch'; x: number; y: number; a: number; r: number }
   /** A Hunter attacked with their weapon (the renderer swings, thrusts or raises it). */
@@ -712,10 +712,10 @@ export class Field {
       const r = cls.reach! * g.radiusMult(who);
       const cx = x + Math.cos(aim) * r * SLAM_OFFSET;
       const cy = y + Math.sin(aim) * r * SLAM_OFFSET;
-      this.events.push({ type: 'slam', x: cx, y: cy, r });
+      this.events.push({ type: 'slam', x: cx, y: cy, r, color: this.typeColor(who, mode) });
       for (const e of [...this.enemies]) if (e.hp > 0 && Math.hypot(e.x - cx, e.y - cy) <= r + e.r) this.meleeHit(who, e, 1, cx, cy, cls.knock ?? 0);
-    } else if (cls?.attack === 'sweep') this.strikeArc(who, x, y, aim, cls.reach!, cls.arc!, 1, cls.knock ?? 0, true);
-    else if (cls?.attack === 'stab') this.strikeLine(who, x, y, aim, range, cls.width ?? 10, Infinity, 1, '#f4f4f4', (cls.width ?? 10) / 2, cls.knock ?? 0);
+    } else if (cls?.attack === 'sweep') this.strikeArc(who, x, y, aim, cls.reach!, cls.arc!, 1, cls.knock ?? 0, true, this.typeColor(who, mode));
+    else if (cls?.attack === 'stab') this.strikeLine(who, x, y, aim, range, cls.width ?? 10, Infinity, 1, this.typeColor(who, mode), (cls.width ?? 10) / 2, cls.knock ?? 0);
     else if (cls?.volley) {
       // A fan: each bolt at a random angle within it. Bolts of one volley stack on the same monster.
       const volley = this.nextVolley++;
@@ -1002,10 +1002,15 @@ export class Field {
       else this.aim = a;
       const d = Math.hypot(e.x - ox, e.y - oy);
       if (d <= cls.reach! + e.r) {
-        this.events.push({ type: 'beam', x1: ox, y1: oy, x2: ox + Math.cos(a) * (d - e.r * 0.3), y2: oy + Math.sin(a) * (d - e.r * 0.3), color: '#f4f4f4', width: 3 });
+        this.events.push({ type: 'beam', x1: ox, y1: oy, x2: ox + Math.cos(a) * (d - e.r * 0.3), y2: oy + Math.sin(a) * (d - e.r * 0.3), color: this.typeColor(s.who), width: 3 });
         this.meleeHit(s.who, e, 1, ox, oy, s.last ? (cls.knock ?? 0) : 0);
       } else this.shoot(s.who, 'dagger', ox, oy, a, BULLET_SPEED, range, { pierce: this.game.pierceOf(s.who) });
     }
+  }
+
+  /** The colour of the damage a Hunter's weapon deals (its first type), for tinting its attack effects. */
+  private typeColor(who: Shooter, mode: GearMode = 'long'): string {
+    return DAMAGE_TYPES[this.game.damageTypeOf(who, mode)].color;
   }
 
   // ---- Gear abilities (accessories and rarer armor): their own base damage, the wearer's bonuses ----
@@ -1187,9 +1192,9 @@ export class Field {
   }
 
   /** Instant strike in an arc in front (sword sweep, glaive cleave): hits every enemy within `reach` and `arc`. */
-  /** A strike across an arc (a blade's sweep, Sciirj's punch); `blade` draws it as a slash. */
-  private strikeArc(shooter: Shooter, ox: number, oy: number, a: number, reach: number, arc: number, dmg: number, knock = 0, blade = false): void {
-    this.events.push({ type: 'sweep', x: ox, y: oy, a, arc, r: reach, color: '#f4f4f4', heavy: knock >= 300, blade });
+  /** A strike across an arc (a blade's sweep, Sciirj's punch); `blade` draws it as a blade's swing, in `color`. */
+  private strikeArc(shooter: Shooter, ox: number, oy: number, a: number, reach: number, arc: number, dmg: number, knock = 0, blade = false, color = '#f4f4f4'): void {
+    this.events.push({ type: 'sweep', x: ox, y: oy, a, arc, r: reach, color, heavy: knock >= 300, blade });
     for (const e of this.enemies) {
       if (e.hp <= 0) continue;
       const dx = e.x - ox;
