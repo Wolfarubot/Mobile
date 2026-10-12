@@ -4377,9 +4377,57 @@ body.ui-parchment .mat {
   background: var(--c0);
   box-shadow: 0 -4px 10px -4px rgba(0, 0, 0, 0.6);
 }
-.hunter-dock .hunter-card {
+.hunter-dock .hunter-card,
+.hunter-dock .beast {
   margin: 0;
   content-visibility: visible;
+}
+/* The pinned card is a little more compact than a full card, leaving more of the grid in view. */
+.hunter-dock .hunter-card {
+  padding: 8px 10px;
+}
+.hunter-dock .hc-art .hunter-art,
+.hunter-dock .hc-lv {
+  width: 44px;
+}
+.hunter-dock .hc-art .hunter-art {
+  height: 44px;
+  font-size: 22px;
+}
+.hunter-dock .hc-train {
+  margin-top: 6px;
+}
+.hunter-dock .hc-action .buy {
+  padding: 3px 6px;
+  font-size: 13px;
+}
+.hunter-dock .hc-action .buy small {
+  font-size: 11px;
+}
+.hunter-dock .hc-gear {
+  margin-top: 6px;
+}
+.hunter-dock .gear-chip {
+  padding: 3px 4px;
+}
+/* Parchment frames on the pinned card: thinner (still whole pixels of the frame art). */
+body.ui-parchment .hunter-dock .hunter-card,
+body.ui-parchment .hunter-dock .beast {
+  border-width: 10px !important;
+  border-image: var(--img-panel) 5 fill / 10px / 0 stretch !important;
+}
+body.ui-parchment .hunter-dock .buy {
+  border-width: 6px !important;
+  border-image: var(--img-btn) 3 fill / 6px / 0 stretch !important;
+}
+/* The pinned monster card leaves its weaknesses to the full view. */
+.hunter-dock .beast .affinities {
+  display: none;
+}
+/* Bestiary tiles: the monster's portrait in place of an icon. */
+.beast-tile .bt-portrait {
+  width: 44px;
+  height: 40px;
 }
 
 /* ---- Minigames: full-screen, over everything ---- */

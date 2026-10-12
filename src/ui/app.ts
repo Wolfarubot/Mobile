@@ -245,6 +245,8 @@ export class AppUI {
   private selectedArea: AreaId | null = null;
   /** The Hunter whose card is shown under the Hunters grid. */
   private selectedHunter: Wearer = 'main';
+  /** The monster whose card is pinned under the Bestiary's grid. */
+  private selectedBeast: EnemyId | null = null;
   /** The last area tile tapped, for double-taps (tiles are rebuilt on each tap). */
   private areaTap: { id: AreaId | null; at: number } = { id: null, at: 0 };
   /** The menu raised to full screen over the battlefield. */
@@ -2009,34 +2011,51 @@ export class AppUI {
 
   // ---- Bestiary tab (enemy roster, per area) ----
 
+  /**
+   * Bestiary tab, like the Hunters tab: each area's monsters as a 4-wide grid of portraits (the current area
+   * first), a border glowing when you can afford to Empower (or unlock) one and unspent evolution points on the
+   * corner. Selecting one pins its card to the bottom of the menu; tap the card for its full view.
+   */
   private buildBestiary(): void {
     const g = this.game;
-    if (g.empowerUnlocked) this.panel.appendChild(this.amountsBar('sticky-amounts', 'Empower'));
-    // Current area first, then the rest in order.
     const order = [g.area, ...g.unlockedAreas.filter((a) => a !== g.area)];
-    // The current area's monsters now; each other area's when you scroll near it (a late game lists 80+ cards).
-    const lazy = new IntersectionObserver(
-      (es) =>
-        es.forEach((e) => {
-          if (!e.isIntersecting) return;
-          lazy.unobserve(e.target);
-          const box = e.target as HTMLElement;
-          box.classList.remove('beast-pending');
-          for (const def of areaEnemies(box.dataset.area as AreaId)) this.buildBeast(def, box);
-          this.refresh();
-        }),
-      { root: this.panel, rootMargin: '800px 0px' },
-    );
-    order.forEach((areaId, i) => {
+    const all = order.flatMap((a) => areaEnemies(a));
+    // The current area's first monster until you pick one.
+    if (!all.some((d) => d.id === this.selectedBeast)) this.selectedBeast = all[0].id;
+    const tiles: Array<{ def: EnemyDef; tile: HTMLElement; lv: HTMLElement; dot: HTMLElement }> = [];
+    for (const areaId of order) {
       this.panel.appendChild(sectionTitle(`${areaDef(areaId).name}${areaId === g.area ? ' · here' : ''}`));
-      const box = el('div', 'beast-area');
-      this.panel.appendChild(box);
-      if (i === 0) for (const def of areaEnemies(areaId)) this.buildBeast(def, box);
-      else {
-        box.dataset.area = areaId;
-        box.classList.add('beast-pending');
-        box.style.minHeight = `${areaEnemies(areaId).length * 150}px`;
-        lazy.observe(box);
+      const grid = el('div', 'hunter-grid');
+      for (const def of areaEnemies(areaId)) {
+        const tile = el('button', 'hunter-tile beast-tile') as HTMLButtonElement;
+        tile.innerHTML = `<canvas class="bt-portrait"></canvas><span class="ht-name">${def.name}</span><small class="ht-lv"></small><b class="sp-dot hidden" title="Unspent evolution points"></b>`;
+        tile.classList.toggle('selected', def.id === this.selectedBeast);
+        tile.addEventListener('click', () => {
+          if (this.selectedBeast === def.id) return;
+          this.selectedBeast = def.id;
+          this.setTab('beasts', true);
+        });
+        grid.appendChild(tile);
+        queuePortrait($<HTMLCanvasElement>('canvas', tile), def.id);
+        tiles.push({ def, tile, lv: $('.ht-lv', tile), dot: $('.sp-dot', tile) });
+      }
+      this.panel.appendChild(grid);
+    }
+    this.refreshers.push(() => {
+      for (const { def, tile, lv, dot } of tiles) {
+        let ready: boolean;
+        if (g.state.bestiary[def.id].unlocked) {
+          const level = g.monsterLevelInfo(def.id).level;
+          lv.textContent = `Lv ${level}`;
+          ready = g.empowerUnlocked && level < MAX_MONSTER_LEVEL && g.state.gold >= g.empowerPurchase(def.id).cost;
+          const points = g.evoPoints(def.id);
+          dot.textContent = String(points);
+          dot.classList.toggle('hidden', points <= 0);
+        } else {
+          lv.textContent = 'Unlock';
+          ready = g.state.gold >= enemyUnlockCost(def);
+        }
+        tile.classList.toggle('ready', ready);
       }
     });
     const next = nextAreaOf(g.unlockedAreas[g.unlockedAreas.length - 1]);
@@ -2045,6 +2064,10 @@ export class AppUI {
       teaser.innerHTML = `<p style="margin:0">🔒 More monsters await in <b>${next.name}</b>.</p>`;
       this.panel.appendChild(teaser);
     }
+    // The selected monster's card, pinned to the bottom so it's in reach wherever the grid is scrolled.
+    const dock = el('div', 'hunter-dock');
+    this.buildBeast(enemyDef(this.selectedBeast!), dock);
+    this.panel.appendChild(dock);
   }
 
   private buildBeast(def: EnemyDef, parent: HTMLElement): void {
