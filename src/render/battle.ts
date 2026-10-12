@@ -72,15 +72,19 @@ export class BattleView {
   private fx = new Fx();
   private pickups: Pickup[] = [];
   private rings: Ring[] = [];
-  /** Each puddle's squares, generated once. */
+  /** Each puddle's squares (or where its bubbles rise), generated once. */
   private puddleCells = new WeakMap<object, Cell[]>();
-  /** When each puddle first appeared (for its cloud's animation). */
+  /** When each puddle first appeared (for its bubbles' animation). */
   private puddleBorn = new WeakMap<object, number>();
   /** Explosions (fireballs, staff spells): a burst of fiery squares that spreads and fades. */
   private blasts: Array<{ x: number; y: number; r: number; t: number; cells: Cell[]; colors: string[] }> = [];
   private beams: Beam[] = [];
   /** Animated magic effects playing once (explosions, strikes, puffs): see effectSheets.ts. */
   private anims: Anim[] = [];
+  /** Melee strike effects, turned to the attack: a sword's slash, a spear's thrust. */
+  private strikes: Strike[] = [];
+  /** Alternates each slash's direction, so a run of sword swings criss-crosses. */
+  private slashFlip = 1;
   /** Ability cooldown icons, overlaid on the battlefield. */
   private cooldownBar: CooldownBar;
   /** Melee sweeps and swipes: a fading arc in front of the attacker. */
@@ -183,6 +187,12 @@ export class BattleView {
           else this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: hexRgb(e.color ?? '#fff0be'), max: 0.4, pixel: true, scatter: sparseCells(e.r, Math.random() * 1e6) });
           break;
         case 'beam':
+          // A spear's thrust: a white streak shooting out along the stab.
+          if (this.fancy && e.thrust) {
+            const len = Math.hypot(e.x2 - e.x1, e.y2 - e.y1);
+            this.strikes.push({ key: 'thrust', x: e.x1, y: e.y1, a: Math.atan2(e.y2 - e.y1, e.x2 - e.x1), len, thick: Math.max(10, e.width * 1.5), flip: 1, from: 'start', t: 0 });
+            break;
+          }
           // Lightning called down from the sky (Thunder Totem, Thunder Call) strikes as a bolt.
           if (this.fancy && e.zigzag && e.y2 - e.y1 > 150) {
             this.playEffect('lightning', e.x2, e.y2 + 4, 70, 'bottom', 22);
@@ -194,8 +204,10 @@ export class BattleView {
           this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: hexRgb(e.color), max: e.time + 0.1, grow: true });
           break;
         case 'slam':
-          // A hammer's ground slam: a shockwave ring, dust kicked up all around, and a jolt.
-          this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: '232,216,176', max: 0.35 });
+          // A hammer's ground slam: an impact that bursts into a shockwave ring (a plain ring in Basic), dust
+          // kicked up all around, and a jolt.
+          if (this.fancy) this.playEffect('smash', e.x, e.y, e.r * 2.1, 'center', 26);
+          else this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: '232,216,176', max: 0.35 });
           for (let i = 0; i < 10; i++) {
             const a = (i / 10) * Math.PI * 2;
             this.fx.burst(e.x + Math.cos(a) * e.r * 0.6, e.y + Math.sin(a) * e.r * 0.6, i % 2 ? '#c8b48a' : '#8a7a5a', 2, 90, 4, 300, true);
@@ -203,6 +215,14 @@ export class BattleView {
           this.shake = Math.max(this.shake, 0.16);
           break;
         case 'sweep':
+          if (this.fancy && e.blade) {
+            // A blade's slash across the swing: centred out in front, as long as the arc's chord, each one
+            // crossing the last.
+            const chord = 2 * e.r * Math.sin(Math.min(e.arc, Math.PI) / 2);
+            this.slashFlip = -this.slashFlip;
+            this.strikes.push({ key: 'slash', x: e.x + Math.cos(e.a) * e.r * 0.62, y: e.y + Math.sin(e.a) * e.r * 0.62, a: e.a + Math.PI / 2, len: chord * 0.95, thick: 0, flip: this.slashFlip, from: 'center', t: 0 });
+            break;
+          }
           this.sweeps.push({ ...e, t: 0 });
           if (e.heavy) this.shake = Math.max(this.shake, 0.12); // a hammer's smash
           break;
@@ -271,6 +291,8 @@ export class BattleView {
     this.blasts = this.blasts.filter((b) => b.t < BLAST_TIME);
     for (const a of this.anims) a.t += dt;
     this.anims = this.anims.filter((a) => a.t * a.fps < EFFECTS[a.key].frames);
+    for (const st of this.strikes) st.t += dt;
+    this.strikes = this.strikes.filter((st) => st.t * STRIKE_FPS < EFFECTS[st.key].frames);
     this.rings = this.rings.filter((r) => r.t < r.max);
     for (const b of this.beams) b.t += dt;
     this.beams = this.beams.filter((b) => b.t < 0.25);
@@ -313,7 +335,7 @@ export class BattleView {
     if (this.shake > 0) g.translate((Math.random() - 0.5) * 24 * this.shake, (Math.random() - 0.5) * 24 * this.shake);
     g.scale(Z, Z);
 
-    // Poison and acid puddles: a cluster of green squares (acid's are simply smaller puddles).
+    // Potion and acid puddles: bubbling pools (acid's are simply smaller and yellower).
     const basic = this.game.state.settings.aoeStyle === 'basic';
     for (const p of this.field.puddles) {
       if (p.dtype === 'acid' && !this.fxOn('acid')) continue;
@@ -328,25 +350,40 @@ export class BattleView {
         g.stroke();
         continue;
       }
-      if (!p.dtype) {
-        // Reginald's potion puddle: a poison cloud that billows up, churns while it lasts, then thins away.
+      // A bubbling pool: a translucent spill with blobs of the potion (or acid) bubbling up across it, fading as
+      // it dries up.
+      const bubbles = effectImage('poison');
+      if (bubbles) {
         let born = this.puddleBorn.get(p);
         if (born === undefined) this.puddleBorn.set(p, (born = this.time));
         const age = this.time - born;
-        const fps = 14;
-        const startLen = EFFECTS.cloudStart.frames / fps;
-        const endLen = EFFECTS.cloudFinish.frames / fps;
-        const [key, frame] =
-          age < startLen ? (['cloudStart', Math.floor(age * fps)] as const)
-          : p.life < endLen ? (['cloudFinish', Math.floor((endLen - p.life) * fps)] as const)
-          : (['cloudCycle', Math.floor((age - startLen) * fps)] as const);
-        const img = effectImage(key);
-        if (img) {
-          g.globalAlpha = 0.85;
-          drawEffectFrame(g, img, key, frame, p.x, p.y + p.r * 0.45, p.r * 2.3, 'bottom', key === 'cloudCycle', 'cloudCycle');
-          g.globalAlpha = 1;
-          continue;
+        const fade = Math.min(1, p.life / 0.6, age / 0.2);
+        // A darker pool under a bright rim, so the light bubbles stand out on it.
+        const [pool, rim] = p.dtype === 'acid' ? ['104,128,20', '198,240,58'] : ['38,104,46', '123,224,123'];
+        g.fillStyle = `rgba(${pool},${0.5 * fade})`;
+        g.strokeStyle = `rgba(${rim},${0.7 * fade})`;
+        g.lineWidth = 2;
+        g.beginPath();
+        g.ellipse(p.x, p.y, p.r, p.r * 0.8, 0, 0, Math.PI * 2);
+        g.fill();
+        g.stroke();
+        let spots = this.puddleCells.get(p);
+        if (!spots) {
+          // Where the bubbles rise: spread across the pool, one more for every 14 of radius.
+          const n = Math.max(2, Math.min(7, Math.round(p.r / 14)));
+          spots = Array.from({ length: n }, (_, i) => {
+            const ang = i * 2.4 + p.x * 0.1;
+            const d = p.r * 0.55 * Math.sqrt((i + 0.5) / n);
+            return { x: Math.cos(ang) * d, y: Math.sin(ang) * d * 0.8, s: 0, color: i };
+          });
+          this.puddleCells.set(p, spots);
         }
+        g.globalAlpha = 0.9 * fade;
+        if (p.dtype === 'acid') g.filter = 'hue-rotate(-35deg) saturate(1.4)';
+        for (const c of spots) drawEffectFrame(g, bubbles, 'poison', Math.floor(age * 12) + c.color * 3, p.x + c.x, p.y + c.y + p.r * 0.2, p.r * 0.6, 'bottom', true);
+        g.filter = 'none';
+        g.globalAlpha = 1;
+        continue;
       }
       let cells = this.puddleCells.get(p);
       if (!cells) {
@@ -471,6 +508,10 @@ export class BattleView {
     for (const a of this.anims) {
       const img = effectImage(a.key);
       if (img) drawEffectFrame(g, img, a.key, Math.floor(a.t * a.fps), a.x, a.y, a.size, a.anchor);
+    }
+    for (const st of this.strikes) {
+      const img = effectImage(st.key);
+      if (img) drawStrike(g, img, st);
     }
 
     for (const r of this.rings) {
@@ -1721,6 +1762,52 @@ function drawSheetFrame(g: CanvasRenderingContext2D, img: CanvasImageSource, sh:
   const k = size / Math.max(bw, bh);
   const F = sh.frame;
   g.drawImage(img, col * F, row * F, F, F, -(bx + bw / 2) * k, -(by + bh / 2) * k, F * k, F * k);
+}
+
+/** Frames a second for melee strike effects (a quick slash or thrust). */
+const STRIKE_FPS = 36;
+
+/**
+ * A melee strike effect turned to its attack. The thrust's streak runs `len` along angle `a` from (x, y), `thick`
+ * across; the slash (drawn corner to corner in its sheet) is centred on (x, y), `len` long along `a`, `flip`
+ * mirroring which way it cuts.
+ */
+interface Strike {
+  key: 'slash' | 'thrust';
+  x: number;
+  y: number;
+  a: number;
+  len: number;
+  thick: number;
+  flip: number;
+  from: 'start' | 'center';
+  t: number;
+}
+
+function drawStrike(g: CanvasRenderingContext2D, img: HTMLImageElement, st: Strike): void {
+  const sh = EFFECTS[st.key];
+  const f = Math.min(sh.frames - 1, Math.floor(st.t * STRIKE_FPS));
+  const [bx, by, bw, bh] = sh.box;
+  g.save();
+  g.translate(st.x, st.y);
+  g.imageSmoothingEnabled = false;
+  if (st.key === 'slash') {
+    // The sheet's slash runs down its diagonal (45°): turn that onto `a`.
+    g.rotate(st.a - Math.PI / 4);
+    // Mirrored across that diagonal: the same line, cut the other way.
+    if (st.flip < 0) {
+      g.rotate(-Math.PI / 2);
+      g.scale(-1, 1);
+    }
+    const k = st.len / Math.hypot(bw, bh);
+    g.drawImage(img, f * sh.frame, 0, sh.frame, sh.frame, -(bx + bw / 2) * k, -(by + bh / 2) * k, sh.frame * k, sh.frame * k);
+  } else {
+    g.rotate(st.a);
+    const kx = st.len / bw;
+    const ky = st.thick / bh;
+    g.drawImage(img, f * sh.frame, 0, sh.frame, sh.frame, -bx * kx, -(by + bh / 2) * ky, sh.frame * kx, sh.frame * ky);
+  }
+  g.restore();
 }
 
 interface Anim {

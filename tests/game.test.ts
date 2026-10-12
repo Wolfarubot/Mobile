@@ -106,7 +106,7 @@ import {
   typeMult,
   WEAK_MULT,
 } from '../src/core/balance';
-import { Field, type Enemy } from '../src/core/field';
+import { Field, SLAM_OFFSET, type Enemy } from '../src/core/field';
 import { Game } from '../src/core/game';
 import { deserialize, FX_KEYS, newGame as startingGame, SAVE_VERSION, serialize, type GameState } from '../src/core/state';
 
@@ -2326,22 +2326,27 @@ describe('Equipment', () => {
     expect(startingGame(0).settings.summonText).toBe(false);
   });
 
-  it('hammers slam the ground: every monster close around (behind too) is hit and thrown far back; Size, Range and Expanse', () => {
+  it('hammers slam the ground out in front (the Hunter at its edge): every monster in it is hit and thrown far back; Size, Range and Expanse', () => {
     const g = stocked();
     const maul = g.craftGear('boneMaul')!;
     g.equip('main', 0, maul.uid);
     expect(WEAPON_CLASSES.hammer.attack).toBe('slam');
     const f = new Field(g);
+    const r = g.weaponClassOf('main')!.reach! * g.radiusMult('main');
     const front = enemy({ id: 1, x: 0, y: -50, hp: 1e9, maxHp: 1e9 });
-    const behind = enemy({ id: 2, x: 0, y: 50, hp: 1e9, maxHp: 1e9 });
-    const far = enemy({ id: 3, x: 0, y: -300, hp: 1e9, maxHp: 1e9 });
-    f.enemies = [front, behind, far];
+    const beyond = enemy({ id: 2, x: 0, y: -r * 1.6, hp: 1e9, maxHp: 1e9 }); // past the Hunter's reach, inside the blast
+    const behind = enemy({ id: 3, x: 0, y: 60, hp: 1e9, maxHp: 1e9 });
+    const far = enemy({ id: 4, x: 0, y: -300, hp: 1e9, maxHp: 1e9 });
+    f.enemies = [front, beyond, behind, far];
     (f as unknown as { weaponAttack: (...a: unknown[]) => void }).weaponAttack('main', 0, 0, -Math.PI / 2, front, g.weaponClassOf('main'), { cls: null, ammo: 0, reload: 0 }, g.shooterRange('main'));
     expect(front.hp).toBeLessThan(1e9);
-    expect(behind.hp).toBeLessThan(1e9);
+    expect(beyond.hp).toBeLessThan(1e9);
+    expect(behind.hp).toBe(1e9); // the smash lands in front, so behind the Hunter is clear
     expect(far.hp).toBe(1e9);
-    expect(behind.ky).toBeGreaterThan(0); // knocked away from the Hunter
-    expect(f.drainEvents().some((e) => e.type === 'slam')).toBe(true);
+    expect(beyond.ky).toBeLessThan(0); // thrown away from where it landed
+    const slam = f.drainEvents().find((e) => e.type === 'slam') as { x: number; y: number; r: number };
+    expect(slam.y).toBeCloseTo(-r * SLAM_OFFSET); // out in front, by a share of its size
+    expect(slam.r).toBeCloseTo(r);
     // Which weapons take Size, Range and Expanse.
     expect(REFINES.size.fits(gearDef('boneMaul'))).toBe(true);
     expect(REFINES.size.fits(gearDef('frostRifle'))).toBe(false);

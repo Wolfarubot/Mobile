@@ -40,6 +40,8 @@ const WAVE_SPEED = 420;
 const DAGGER_GAP = 0.09;
 const BOSS_BOUNCE = 260;
 const GUARD_BOUNCE = 220;
+/** How far out a hammer's smash lands, as a fraction of its radius (the Hunter stands near its edge). */
+export const SLAM_OFFSET = 0.85;
 /** Seconds between puddle ticks; a puddle lasts its special's `ticks` of these. */
 const PUDDLE_TICK = 0.5;
 const RICOCHET_RANGE = 160;
@@ -236,8 +238,8 @@ export type FieldEvent =
   | { type: 'escape'; x: number; y: number }
   | { type: 'explode'; x: number; y: number; r: number; color: string }
   | { type: 'nova'; x: number; y: number; r: number; color?: string }
-  | { type: 'beam'; x1: number; y1: number; x2: number; y2: number; color: string; width: number; zigzag?: boolean }
-  | { type: 'sweep'; x: number; y: number; a: number; arc: number; r: number; color: string; heavy?: boolean }
+  | { type: 'beam'; x1: number; y1: number; x2: number; y2: number; color: string; width: number; zigzag?: boolean; thrust?: boolean }
+  | { type: 'sweep'; x: number; y: number; a: number; arc: number; r: number; color: string; heavy?: boolean; blade?: boolean }
   /** A focus's wave: a ring growing to `r` over `time` seconds. */
   | { type: 'wave'; x: number; y: number; r: number; time: number; color: string }
   /** A hammer's ground slam: a shockwave ring of radius `r`. */
@@ -703,11 +705,14 @@ export class Field {
       // A staff's big spell: the last round of each cast.
       this.shoot(who, 'fireball', x, y, aim, 380, range, { radius: cls.spell.radius, dmg: cls.spell.damage, mode: m });
     } else if (cls?.attack === 'slam') {
-      // A hammer smashes the ground: everything close around is hit and thrown far back.
+      // A hammer smashes the ground out in front: the Hunter stands at the edge of the blast, so its centre is
+      // further out the bigger it is. Everything in it is hit and thrown far back from where it landed.
       const r = cls.reach! * g.radiusMult(who);
-      this.events.push({ type: 'slam', x, y, r });
-      for (const e of [...this.enemies]) if (e.hp > 0 && Math.hypot(e.x - x, e.y - y) <= r + e.r) this.meleeHit(who, e, 1, x, y, cls.knock ?? 0);
-    } else if (cls?.attack === 'sweep') this.strikeArc(who, x, y, aim, cls.reach!, cls.arc!, 1, cls.knock ?? 0);
+      const cx = x + Math.cos(aim) * r * SLAM_OFFSET;
+      const cy = y + Math.sin(aim) * r * SLAM_OFFSET;
+      this.events.push({ type: 'slam', x: cx, y: cy, r });
+      for (const e of [...this.enemies]) if (e.hp > 0 && Math.hypot(e.x - cx, e.y - cy) <= r + e.r) this.meleeHit(who, e, 1, cx, cy, cls.knock ?? 0);
+    } else if (cls?.attack === 'sweep') this.strikeArc(who, x, y, aim, cls.reach!, cls.arc!, 1, cls.knock ?? 0, true);
     else if (cls?.attack === 'stab') this.strikeLine(who, x, y, aim, range, cls.width ?? 10, Infinity, 1, '#f4f4f4', (cls.width ?? 10) / 2, cls.knock ?? 0);
     else if (cls?.volley) {
       // A fan: each bolt at a random angle within it. Bolts of one volley stack on the same monster.
@@ -960,7 +965,8 @@ export class Field {
       .sort((p, q) => p.t - q.t)
       .slice(0, maxHits);
     const end = Number.isFinite(maxHits) && hits.length ? hits[hits.length - 1].t : len;
-    this.events.push({ type: 'beam', x1: ox, y1: oy, x2: ox + cx * end, y2: oy + cy * end, color, width: beamWidth });
+    // Drawn as a spear's thrust.
+    this.events.push({ type: 'beam', x1: ox, y1: oy, x2: ox + cx * end, y2: oy + cy * end, color, width: beamWidth, thrust: true });
     for (const { e } of hits) this.meleeHit(shooter, e, dmg, ox, oy, knock);
   }
 
@@ -1176,8 +1182,9 @@ export class Field {
   }
 
   /** Instant strike in an arc in front (sword sweep, glaive cleave): hits every enemy within `reach` and `arc`. */
-  private strikeArc(shooter: Shooter, ox: number, oy: number, a: number, reach: number, arc: number, dmg: number, knock = 0): void {
-    this.events.push({ type: 'sweep', x: ox, y: oy, a, arc, r: reach, color: '#f4f4f4', heavy: knock >= 300 });
+  /** A strike across an arc (a blade's sweep, Sciirj's punch); `blade` draws it as a slash. */
+  private strikeArc(shooter: Shooter, ox: number, oy: number, a: number, reach: number, arc: number, dmg: number, knock = 0, blade = false): void {
+    this.events.push({ type: 'sweep', x: ox, y: oy, a, arc, r: reach, color: '#f4f4f4', heavy: knock >= 300, blade });
     for (const e of this.enemies) {
       if (e.hp <= 0) continue;
       const dx = e.x - ox;
