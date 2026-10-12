@@ -81,16 +81,14 @@ export class BattleView {
   private beams: Beam[] = [];
   /** Animated magic effects playing once (explosions, strikes, puffs): see effectSheets.ts. */
   private anims: Anim[] = [];
-  /** Melee strike effects, turned to the attack: a sword's slash, a spear's thrust. */
+  /** Spear thrusts: a streak turned along the stab. */
   private strikes: Strike[] = [];
-  /** Alternates each slash's direction, so a run of sword swings criss-crosses. */
-  private slashFlip = 1;
   /** Ability cooldown icons, overlaid on the battlefield. */
   private cooldownBar: CooldownBar;
   /** Melee sweeps and swipes: a fading arc in front of the attacker. */
   /** Each Hunter's last weapon attack (seconds since, and the angle), for the held-weapon animation. */
   private swings = new Map<Shooter, { t: number; a: number }>();
-  private sweeps: Array<{ x: number; y: number; a: number; arc: number; r: number; color: string; t: number }> = [];
+  private sweeps: Array<{ x: number; y: number; a: number; arc: number; r: number; color: string; t: number; blade?: boolean }> = [];
   private time = 0;
   private shake = 0;
   private stunTextCooldown = 0;
@@ -190,7 +188,7 @@ export class BattleView {
           // A spear's thrust: a white streak shooting out along the stab.
           if (this.fancy && e.thrust) {
             const len = Math.hypot(e.x2 - e.x1, e.y2 - e.y1);
-            this.strikes.push({ key: 'thrust', x: e.x1, y: e.y1, a: Math.atan2(e.y2 - e.y1, e.x2 - e.x1), len, thick: Math.max(10, e.width * 1.5), flip: 1, from: 'start', t: 0 });
+            this.strikes.push({ key: 'thrust', x: e.x1, y: e.y1, a: Math.atan2(e.y2 - e.y1, e.x2 - e.x1), len, thick: Math.max(10, e.width * 1.5), t: 0 });
             break;
           }
           // Lightning called down from the sky (Thunder Totem, Thunder Call) strikes as a bolt.
@@ -214,15 +212,12 @@ export class BattleView {
           }
           this.shake = Math.max(this.shake, 0.16);
           break;
+        case 'punch':
+          // A giant fist punches down out of a portal onto where Sciirj's blow lands.
+          if (this.fancy) this.playEffect('fist', e.x, e.y + e.r * 0.15, e.r * 1.5, 'bottom', 24);
+          this.shake = Math.max(this.shake, 0.14);
+          break;
         case 'sweep':
-          if (this.fancy && e.blade) {
-            // A blade's slash across the swing: centred out in front, as long as the arc's chord, each one
-            // crossing the last.
-            const chord = 2 * e.r * Math.sin(Math.min(e.arc, Math.PI) / 2);
-            this.slashFlip = -this.slashFlip;
-            this.strikes.push({ key: 'slash', x: e.x + Math.cos(e.a) * e.r * 0.62, y: e.y + Math.sin(e.a) * e.r * 0.62, a: e.a + Math.PI / 2, len: chord * 0.95, thick: 0, flip: this.slashFlip, from: 'center', t: 0 });
-            break;
-          }
           this.sweeps.push({ ...e, t: 0 });
           if (e.heavy) this.shake = Math.max(this.shake, 0.12); // a hammer's smash
           break;
@@ -474,11 +469,34 @@ export class BattleView {
       g.globalAlpha = 1;
     }
 
+    const hole = this.fancy ? effectImage('blackhole') : null;
     for (const w of this.sweeps) {
       // The blade's arc sweeps across (a trailing crescent), fading out.
       const k = w.t / 0.2;
       const from = w.a - w.arc / 2;
       const to = from + w.arc * Math.min(1, k * 2.5);
+      if (w.blade && hole) {
+        // A sword or glaive: a wedge of the black hole's swirling rim, silver-white, as wide as the reach and
+        // revealed across the swing; the swirls turn with it.
+        const ring = bladeRingOf(hole);
+        const sh = EFFECTS.blackhole;
+        const [bx, by, bw] = sh.box;
+        const sc = (w.r * 2) / bw;
+        const f = Math.floor(w.t * 40) % sh.frames;
+        g.save();
+        g.globalAlpha = 1 - k * k;
+        g.beginPath();
+        g.moveTo(w.x, w.y);
+        g.arc(w.x, w.y, w.r * 1.3, from, to);
+        g.closePath();
+        g.clip();
+        g.translate(w.x, w.y);
+        g.rotate(to);
+        g.imageSmoothingEnabled = false;
+        g.drawImage(ring, f * sh.frame, 0, sh.frame, sh.frame, -(bx + bw / 2) * sc, -(by + bw / 2) * sc, sh.frame * sc, sh.frame * sc);
+        g.restore();
+        continue;
+      }
       g.globalAlpha = 0.85 * (1 - k);
       g.strokeStyle = w.color;
       g.lineCap = 'round';
@@ -1767,20 +1785,14 @@ function drawSheetFrame(g: CanvasRenderingContext2D, img: CanvasImageSource, sh:
 /** Frames a second for melee strike effects (a quick slash or thrust). */
 const STRIKE_FPS = 36;
 
-/**
- * A melee strike effect turned to its attack. The thrust's streak runs `len` along angle `a` from (x, y), `thick`
- * across; the slash (drawn corner to corner in its sheet) is centred on (x, y), `len` long along `a`, `flip`
- * mirroring which way it cuts.
- */
+/** A spear's thrust: the streak runs `len` along angle `a` from (x, y), `thick` across. */
 interface Strike {
-  key: 'slash' | 'thrust';
+  key: 'thrust';
   x: number;
   y: number;
   a: number;
   len: number;
   thick: number;
-  flip: number;
-  from: 'start' | 'center';
   t: number;
 }
 
@@ -1790,24 +1802,42 @@ function drawStrike(g: CanvasRenderingContext2D, img: HTMLImageElement, st: Stri
   const [bx, by, bw, bh] = sh.box;
   g.save();
   g.translate(st.x, st.y);
+  g.rotate(st.a);
   g.imageSmoothingEnabled = false;
-  if (st.key === 'slash') {
-    // The sheet's slash runs down its diagonal (45°): turn that onto `a`.
-    g.rotate(st.a - Math.PI / 4);
-    // Mirrored across that diagonal: the same line, cut the other way.
-    if (st.flip < 0) {
-      g.rotate(-Math.PI / 2);
-      g.scale(-1, 1);
-    }
-    const k = st.len / Math.hypot(bw, bh);
-    g.drawImage(img, f * sh.frame, 0, sh.frame, sh.frame, -(bx + bw / 2) * k, -(by + bh / 2) * k, sh.frame * k, sh.frame * k);
-  } else {
-    g.rotate(st.a);
-    const kx = st.len / bw;
-    const ky = st.thick / bh;
-    g.drawImage(img, f * sh.frame, 0, sh.frame, sh.frame, -bx * kx, -(by + bh / 2) * ky, sh.frame * kx, sh.frame * ky);
-  }
+  const kx = st.len / bw;
+  const ky = st.thick / bh;
+  g.drawImage(img, f * sh.frame, 0, sh.frame, sh.frame, -bx * kx, -(by + bh / 2) * ky, sh.frame * kx, sh.frame * ky);
   g.restore();
+}
+
+/**
+ * The swirling rim of the black hole, silver-white, without its dark core: a blade's swing is a wedge of it
+ * (see the sweeps). Built once the black hole sheet has loaded.
+ */
+let bladeRing: HTMLCanvasElement | null = null;
+function bladeRingOf(src: HTMLImageElement): HTMLCanvasElement {
+  if (bladeRing) return bladeRing;
+  const c = document.createElement('canvas');
+  c.width = src.naturalWidth;
+  c.height = src.naturalHeight;
+  const x = c.getContext('2d')!;
+  x.drawImage(src, 0, 0);
+  const img = x.getImageData(0, 0, c.width, c.height);
+  const d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const lum = 0.3 * d[i] + 0.55 * d[i + 1] + 0.15 * d[i + 2];
+    // The dark core and its thin inner rings go; the white rim and pink swirls turn silver-white.
+    if (lum < 120) d[i + 3] = 0;
+    else {
+      const v = Math.min(255, 150 + lum * 0.45);
+      d[i] = v;
+      d[i + 1] = v;
+      d[i + 2] = Math.min(255, v + 12);
+    }
+  }
+  x.putImageData(img, 0, 0);
+  bladeRing = c;
+  return c;
 }
 
 interface Anim {

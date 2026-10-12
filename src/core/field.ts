@@ -244,6 +244,8 @@ export type FieldEvent =
   | { type: 'wave'; x: number; y: number; r: number; time: number; color: string }
   /** A hammer's ground slam: a shockwave ring of radius `r`. */
   | { type: 'slam'; x: number; y: number; r: number }
+  /** Sciirj's Mountain Fist landing at (x, y); `r` is its reach. */
+  | { type: 'punch'; x: number; y: number; r: number }
   /** A Hunter attacked with their weapon (the renderer swings, thrusts or raises it). */
   | { type: 'attack'; who: Shooter; a: number }
   | { type: 'reload'; who: Shooter; x: number; y: number };
@@ -797,7 +799,10 @@ export class Field {
       h.specialCd = sp.cooldown;
       h.aim = a;
       this.strikeArc(h.id, h.x, h.y, a, radius, sp.arc ?? 1.6, dmg, sp.knock ?? 0);
-      this.events.push({ type: 'nova', x: h.x + Math.cos(a) * radius * 0.6, y: h.y + Math.sin(a) * radius * 0.6, r: radius * 0.55, color: '#ffb060' });
+      const px = h.x + Math.cos(a) * radius * 0.6;
+      const py = h.y + Math.sin(a) * radius * 0.6;
+      this.events.push({ type: 'punch', x: px, y: py, r: radius });
+      this.events.push({ type: 'nova', x: px, y: py, r: radius * 0.55, color: '#ffb060' });
       return;
     }
     h.specialCd = sp.cooldown;
