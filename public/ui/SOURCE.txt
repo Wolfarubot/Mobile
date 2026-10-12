@@ -2,6 +2,6 @@ Frame art cut from "Free Basic Pixel Art UI for RPG" by CraftPix.net (license: h
 panel.png (Main_tiles), btn.png and btn-hi.png (Buttons). Recoloured per area at runtime (src/ui/theme.ts).
 heart.png and heart-empty.png (minigame lives) from "Pixel Game User Interface for Platformer" by CraftPix.net
 (4 Bars/13.png and 16.png; same license).
-guardian-bar.png (the gold-winged bar) and event-bar.png (the slim gold bar), cut from Bars.png in
+guardian-bar.png (the gold-winged bar) and timer-bar.png (the simple silver-edged bar at the top), cut from Bars.png in
 "HP, Mana, Stamina and Scroll Bar Pixel RPG Asset Pack" by CraftPix.net (same license). Their slots are
 filled at runtime (src/render/hudBars.ts).

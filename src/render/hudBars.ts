@@ -1,7 +1,7 @@
 /**
  * The battlefield's framed bars, from CraftPix's "HP, Mana, Stamina and Scroll Bar" pack (public/ui/):
- * the gold-winged Guardian bar (its health in the upper wing slots, the time left in the lower ones and the
- * seconds in the medallion) and the slim gold event-timer bar. The frames' empty slots are found by colour when
+ * the gold-winged Guardian bar (its health across both tiers of wing slots and the seconds left in the medallion)
+ * and the simple silver-edged bar for the time left (the Guardian's, under its wings, and an event's). The frames' empty slots are found by colour when
  * they load, and filled pixel by pixel, keeping each slot pixel's shading.
  */
 
@@ -23,18 +23,23 @@ interface Frame {
   /** Slot components found in the frame, by colour family. */
   lavender: Slot[];
   blue: Slot[];
+  olive: Slot[];
   canvas: HTMLCanvasElement;
   key: string;
 }
 
 /** The frame's slot colours: [hex, family, shade]. */
-const SLOT_COLOURS: Array<[number, 'lavender' | 'blue', number]> = [
+type Family = 'lavender' | 'blue' | 'olive';
+const SLOT_COLOURS: Array<[number, Family, number]> = [
   [0x787b8e, 'lavender', 0],
   [0x787fa6, 'lavender', 1],
   [0x7882ba, 'lavender', 2],
   [0x698bc1, 'blue', 0],
   [0x78a3d9, 'blue', 1],
   [0x87c0ec, 'blue', 2],
+  [0x6b6955, 'olive', 0],
+  [0x717158, 'olive', 1],
+  [0x7a7c5e, 'olive', 2],
 ];
 
 const frames = new Map<string, Frame | null>();
@@ -62,7 +67,7 @@ function analyse(img: HTMLImageElement): Frame {
   g.drawImage(img, 0, 0);
   const base = g.getImageData(0, 0, w, h);
   const d = base.data;
-  const family: Array<'lavender' | 'blue' | null> = new Array(w * h).fill(null);
+  const family: Array<Family | null> = new Array(w * h).fill(null);
   const shade = new Array<number>(w * h).fill(0);
   for (let i = 0; i < w * h; i++) {
     if (d[i * 4 + 3] < 255) continue;
@@ -74,7 +79,7 @@ function analyse(img: HTMLImageElement): Frame {
     }
   }
   const seen = new Uint8Array(w * h);
-  const out: Record<'lavender' | 'blue', Slot[]> = { lavender: [], blue: [] };
+  const out: Record<Family, Slot[]> = { lavender: [], blue: [], olive: [] };
   for (let s = 0; s < w * h; s++) {
     const f = family[s];
     if (!f || seen[s]) continue;
@@ -109,7 +114,7 @@ function analyse(img: HTMLImageElement): Frame {
     }
     out[f].push(slot);
   }
-  return { img, w, h, base, lavender: out.lavender, blue: out.blue, canvas, key: '' };
+  return { img, w, h, base, lavender: out.lavender, blue: out.blue, olive: out.olive, canvas, key: '' };
 }
 
 type Rgb = [number, number, number];
@@ -152,29 +157,22 @@ function render(f: Frame, key: string, fills: Array<[Slot[], number, Rgb[]]>): v
 }
 
 export const GUARDIAN_BAR = { w: 248, h: 43 };
-export const EVENT_BAR = { w: 108, h: 12 };
+export const TIMER_BAR = { w: 104, h: 9 };
 
 /**
- * The Guardian bar at (x, y), `s` times its pixel size: health across the upper wing slots (a tick at `winAt`
- * if it's won before 0), time left across the lower ones, and the seconds left in the medallion. False until
- * the frame has loaded.
+ * The Guardian bar at (x, y), `s` times its pixel size: health across both tiers of wing slots (a tick at
+ * `winAt` if it's won before 0) and the seconds left in the medallion (red when `low`). False until the frame
+ * has loaded.
  */
-export function drawGuardianBar(g: CanvasRenderingContext2D, x: number, y: number, s: number, hp: number, time: number, winAt: number, seconds: number, font: string): boolean {
+export function drawGuardianBar(g: CanvasRenderingContext2D, x: number, y: number, s: number, hp: number, winAt: number, seconds: number, low: boolean, font: string): boolean {
   const f = load('guardian-bar.png');
   if (!f) return false;
   // The medallion is the biggest lavender slot; the wing slots are the wide ones.
   const medal = f.lavender.reduce((a, b) => (b.px.length > a.px.length ? b : a));
-  const wings = f.lavender.filter((sl) => sl !== medal && sl.x1 - sl.x0 > 30);
-  const lower = f.blue.filter((sl) => sl.x1 - sl.x0 > 30);
-  const low = time < 0.3;
-  const span = (sl: Slot[]) => [Math.min(...sl.map((a) => a.x0)), Math.max(...sl.map((a) => a.x1)) + 1];
-  const [hx0, hx1] = span(wings);
-  const [tx0, tx1] = span(lower);
-  const col = (frac: number, a: number, b: number) => Math.round(a + (b - a) * Math.max(0, Math.min(1, frac)));
-  render(f, `${col(hp, hx0, hx1)}:${col(time, tx0, tx1)}:${low}`, [
-    [wings, hp, FILLS.hp],
-    [lower, time, low ? FILLS.timeLow : FILLS.time],
-  ]);
+  const wings = [...f.lavender.filter((sl) => sl !== medal), ...f.blue].filter((sl) => sl.x1 - sl.x0 > 30);
+  const hx0 = Math.min(...wings.map((a) => a.x0));
+  const hx1 = Math.max(...wings.map((a) => a.x1)) + 1;
+  render(f, `${Math.round(hx0 + (hx1 - hx0) * Math.max(0, Math.min(1, hp)))}`, [[wings, hp, FILLS.hp]]);
   g.imageSmoothingEnabled = false;
   g.drawImage(f.canvas, x, y, f.w * s, f.h * s);
   if (winAt > 0) {
@@ -196,12 +194,12 @@ export function drawGuardianBar(g: CanvasRenderingContext2D, x: number, y: numbe
   return true;
 }
 
-/** The event timer bar at (x, y), `s` times its pixel size, filled to `frac`. False until it has loaded. */
-export function drawEventBar(g: CanvasRenderingContext2D, x: number, y: number, s: number, frac: number): boolean {
-  const f = load('event-bar.png');
+/** The time-left bar at (x, y), `s` times its pixel size, filled to `frac` in `fill`. False until it has loaded. */
+export function drawTimerBar(g: CanvasRenderingContext2D, x: number, y: number, s: number, frac: number, fill: Rgb[]): boolean {
+  const f = load('timer-bar.png');
   if (!f) return false;
-  const [a, b] = [Math.min(...f.lavender.map((sl) => sl.x0)), Math.max(...f.lavender.map((sl) => sl.x1)) + 1];
-  render(f, `${Math.round(a + (b - a) * Math.max(0, Math.min(1, frac)))}`, [[f.lavender, frac, FILLS.event]]);
+  const [a, b] = [Math.min(...f.olive.map((sl) => sl.x0)), Math.max(...f.olive.map((sl) => sl.x1)) + 1];
+  render(f, `${Math.round(a + (b - a) * Math.max(0, Math.min(1, frac)))}:${fill[1].join()}`, [[f.olive, frac, fill]]);
   g.imageSmoothingEnabled = false;
   g.drawImage(f.canvas, x, y, f.w * s, f.h * s);
   return true;

@@ -12,7 +12,7 @@ import { MONSTER_SHEETS, SHEETS, sheetRow, sideFlip, type MonsterSheet } from '.
 import { GEAR_SPRITES } from '../core/gearSprites';
 import { emojiIconKey } from '../ui/emojiIcons';
 import { HUNTER_ICONS, hunterIconHtml } from '../ui/hunterIcons';
-import { drawEventBar, drawGuardianBar, EVENT_BAR, GUARDIAN_BAR } from './hudBars';
+import { drawGuardianBar, drawTimerBar, FILLS, GUARDIAN_BAR, TIMER_BAR } from './hudBars';
 
 interface Pickup {
   x: number;
@@ -1059,10 +1059,10 @@ export class BattleView {
     const ev = this.game.activeEvent;
     // The framed bars, scaled by half-pixel steps so they stay crisp.
     const gs = Math.max(1, Math.floor((Math.min(w * 0.85, 520) / GUARDIAN_BAR.w) * 2) / 2);
-    const es = Math.max(1, Math.floor((Math.min(w * 0.6, 280) / EVENT_BAR.w) * 2) / 2);
-    const bw = boss ? GUARDIAN_BAR.w * gs : ev ? EVENT_BAR.w * es : 0;
+    const es = Math.max(1, Math.floor((Math.min(w * 0.6, 280) / TIMER_BAR.w) * 2) / 2);
+    const bw = boss ? GUARDIAN_BAR.w * gs : ev ? TIMER_BAR.w * es : 0;
     const x = (w - bw) / 2;
-    const y0 = ev || boss ? this.hudTop(x, x + bw, boss ? 20 + GUARDIAN_BAR.h * gs : 22 + EVENT_BAR.h * es) : 0;
+    const y0 = ev || boss ? this.hudTop(x, x + bw, boss ? 22 + (GUARDIAN_BAR.h + TIMER_BAR.h * 2) * gs : 22 + TIMER_BAR.h * es) : 0;
     if (ev && !boss) {
       const def = eventDef(ev.id);
       g.font = canvasFont(13, 700);
@@ -1077,7 +1077,7 @@ export class BattleView {
         g.drawImage(ic, left, y0 + 3, 14, 14);
         g.fillText(label, left + 18 + tw / 2, y0 + 10);
       } else g.fillText(`${def.icon} ${label}`, w / 2, y0 + 10);
-      if (!drawEventBar(g, x, y0 + 20, es, ev.left / def.duration)) {
+      if (!drawTimerBar(g, x, y0 + 20, es, ev.left / def.duration, FILLS.event)) {
         g.fillStyle = 'rgba(0,0,0,0.55)';
         g.fillRect(x, y0 + 20, bw, 6);
         g.fillStyle = '#3fcf6a';
@@ -1091,7 +1091,12 @@ export class BattleView {
       g.fillText(`${bossDef.guardianOnly ? bossDef.name.toUpperCase() : `${areaDef(this.game.area).name.toUpperCase()} GUARDIAN`} · ${fmt(Math.max(0, boss.hp))}`, w / 2, y0 + 10);
       const winAt = bossDef.winAt ?? 0;
       const t = Math.max(0, this.game.bossTimer / GUARDIAN_TIME);
-      if (drawGuardianBar(g, x, y0 + 18, gs, Math.max(0, boss.hp / boss.maxHp), t, winAt, this.game.bossTimer, canvasFont(Math.round(11 * gs), 700))) return this.drawBanner(g);
+      // The winged health bar, and the time left in the simple bar under it.
+      const ts = gs * 2;
+      if (drawGuardianBar(g, x, y0 + 18, gs, Math.max(0, boss.hp / boss.maxHp), winAt, this.game.bossTimer, t < 0.3, canvasFont(Math.round(11 * gs), 700))) {
+        drawTimerBar(g, (w - TIMER_BAR.w * ts) / 2, y0 + 20 + GUARDIAN_BAR.h * gs, ts, t, t < 0.3 ? FILLS.timeLow : FILLS.time);
+        return this.drawBanner(g);
+      }
       g.fillStyle = 'rgba(0,0,0,0.55)';
       g.fillRect(x, y0 + 20, bw, 10);
       g.fillStyle = '#ff4d6d';
