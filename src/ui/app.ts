@@ -377,8 +377,6 @@ export class AppUI {
    */
   private buildHunters(): void {
     const g = this.game;
-    // Stays pinned to the top of the panel while the grid scrolls under it.
-    this.panel.appendChild(this.amountsBar('sticky-amounts'));
     const recruited = HUNTERS.filter((h) => g.state.hunters[h.id].recruited);
     const upcoming = HUNTERS.filter((h) => !g.state.hunters[h.id].recruited).slice(0, NEXT_HUNTERS_SHOWN);
     const list: Wearer[] = ['main', ...recruited.map((h) => h.id), ...upcoming.map((h) => h.id)];
@@ -2951,7 +2949,8 @@ export class AppUI {
       `<h2>💪 Time to train!</h2>
        <p>You have enough gold to <b>Train</b> your Hunter! Tap <b>Train</b> in the Hunters tab to increase your strength!</p>
        <p>After training enough, your Hunter will level up, granting <b>Skill Points</b> that can unlock more power and abilities.</p>
-       <p>Open the Hunter's card to see more details, upgrade their abilities, and change their equipment!</p>`,
+       <p>Open the Hunter's card to see more details, upgrade their abilities, and change their equipment!</p>
+       <p>In the full card, the <b>×1 / ×10 / ×100 / MAX</b> switch under Training sets how many levels each tap of Train buys; MAX buys as many as you can afford. Your choice applies to every Hunter's Train button.</p>`,
       [
         { label: 'Later', secondary: true },
         { label: 'Go to Hunters', action: () => this.goTo('hunters') },
