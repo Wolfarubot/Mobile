@@ -55,6 +55,7 @@ import {
   hunterDef,
   hunterPerk,
   MAIN_ABILITY,
+  MAIN_SHORT,
   TAP_ABILITIES,
   type TapAbilityId,
   itemCost,
@@ -481,7 +482,7 @@ export class AppUI {
         <div class="hc-info">
           <div class="card-corner"><b class="sp-dot hidden" title="Unspent skill points"></b><span class="expand-tag">Expand ›</span></div>
           <div class="hc-name">${def ? `${def.name} <small>the ${g.titleOf(def.id)}</small>` : `${esc(mainName())} <small>the ${g.titleOf('main')}</small>`}</div>
-          <div class="hc-ability">${def ? def.ability : MAIN_ABILITY}</div>
+          <div class="hc-ability">${def ? def.short : MAIN_SHORT}</div>
           <div class="hc-status"></div>
         </div>
       </div>
@@ -491,8 +492,14 @@ export class AppUI {
     const recruitedNow = () => !def || g.state.hunters[def.id].recruited;
     card.addEventListener('click', () => {
       if (recruitedNow()) this.openHunterDetail(who);
+      // Not recruited yet: their story and what they do, in full.
+      else if (def)
+        this.showSheet(`${wearerIcon(def.id)} ${def.name} the ${def.title}`, (body) => {
+          body.innerHTML = `<p>${def.story}</p><p>${def.ability}</p><p class="hint">${g.hunterAvailable(def.id) ? `Recruit for 🪙 ${fmt(def.recruitCost)}` : `🔒 ${unlockText(g, def)}`}</p>`;
+        });
     });
     this.refreshers.push(() => card.classList.toggle('no-expand', !recruitedNow()));
+    if (def && !recruitedNow()) $('.expand-tag', card).textContent = 'Story ›';
     const mid = $('.hc-mid', card);
     const action = $('.hc-action', card);
     const lv = $('.hc-lv', card);
@@ -521,7 +528,7 @@ export class AppUI {
         const open = g.hunterAvailable(def.id);
         card.classList.toggle('locked', !open);
         // Locked: a short story of how to win them over replaces their ability and location.
-        $('.hc-ability', card).textContent = open ? def.ability : def.story;
+        $('.hc-ability', card).textContent = def.short;
         status.textContent = open ? 'Available to recruit' : '';
         status.classList.toggle('hidden', !open);
         setHtml(mid, open ? 'Recruit to start training' : `🔒 ${unlockText(g, def)}`);

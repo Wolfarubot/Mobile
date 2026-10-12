@@ -3602,12 +3602,6 @@ body.left-handed .hd-float-close {
   padding: 4px 6px;
   font-size: 12px;
 }
-.hunter-card.no-expand {
-  cursor: default;
-}
-.hunter-card.no-expand .expand-tag {
-  display: none;
-}
 .pk-title {
   margin: 0 0 8px;
   font-size: 18px;
@@ -4302,25 +4296,24 @@ body.ui-parchment .mat {
 /* ---- Hunters tab: grid of Hunter icons, the selected one's card pinned below ---- */
 .hunter-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
   margin-bottom: 12px;
 }
 .hunter-tile {
   --hc: var(--c2);
   position: relative;
-  aspect-ratio: 4 / 3;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 2px;
   background: var(--card);
   background-image: linear-gradient(180deg, color-mix(in srgb, var(--hc) 35%, transparent), transparent 70%);
   border: 2px solid var(--c0);
   box-shadow: 3px 3px 0 var(--c0);
   color: var(--text);
-  padding: 6px 4px;
+  padding: 5px 2px 4px;
   min-width: 0;
 }
 .hunter-tile i {
@@ -4329,12 +4322,12 @@ body.ui-parchment .mat {
   line-height: 1;
 }
 .hunter-tile i img.ei {
-  width: 38px;
-  height: 38px;
+  width: 36px;
+  height: 36px;
   vertical-align: middle;
 }
 .hunter-tile .ht-name {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
   line-height: 1.1;
   max-width: 100%;

@@ -1521,6 +1521,8 @@ export interface HunterDef {
   /** Multipliers on gold / material drops from their kills. */
   gold?: number;
   drops?: number;
+  /** One line for their card in the Hunters tab; `ability` is the full text in their expanded view. */
+  short: string;
   /** Short description of what makes them special, shown on their card. */
   ability: string;
   /** Their summons of this type hit this much harder (Deku's Beasts, Theon's Constructs), whatever summoned them. */
@@ -1558,6 +1560,7 @@ export const GUARD_RECHARGE = 4;
 export const HUNTERS: HunterDef[] = [
   {
     id: 'alchemist', name: 'Reginald', title: 'Alchemist', icon: '⚗️', color: '#7be07b', area: 'forest', recruitCost: 150, bane: { archetype: 'slime', mult: 3 },
+    short: 'Lobs poison potions; slays Slimes.',
     unlock: { event: 'slimeSwarm', times: 1 },
     ascendedTitle: 'Archalchemist',
     story: "Reginald is in the Wandering Woods doing research on Slimes, with an idea for a new potion, but he needs far more test subjects than he can catch. Survive a Slime Swarm, and Reginald will help you hunt monsters.",
@@ -1567,6 +1570,7 @@ export const HUNTERS: HunterDef[] = [
   },
   {
     id: 'ranger', name: 'Galladair', title: 'Ranger', icon: '🏹', color: '#c09060', area: 'forest', recruitCost: 2_000, bane: { archetype: 'beast', mult: 3 },
+    short: 'Triple damage to Beasts.',
     unlock: { event: 'guardian-forest', times: 1 },
     ascendedTitle: 'Pathfinder',
     story: 'Galladair\'s home on the edge of the Wandering Woods is being threatened by monsters. Help her defeat the Woods\' Guardian, and she will fight by your side.',
@@ -1574,6 +1578,7 @@ export const HUNTERS: HunterDef[] = [
   },
   {
     id: 'bard', name: "Ba'al", title: 'Bard', icon: '🪕', color: '#e0a0ff', area: 'glade', recruitCost: 40_000, bane: { archetype: 'humanoid', mult: 3 },
+    short: 'His song speeds up nearby Hunters.',
     unlock: { event: 'guardian-glade', times: 1 },
     ascendedTitle: 'Maestro',
     inspire: 0.15,
@@ -1582,6 +1587,7 @@ export const HUNTERS: HunterDef[] = [
   },
   {
     id: 'druid', name: 'Deku', title: 'Druid', icon: '🌿', color: '#6abf5a', area: 'glade', recruitCost: 250_000, bane: { archetype: 'plant', mult: 3 }, summonBonus: { type: 'beast', mult: 1.5 },
+    short: 'Summons wolves to fight for him.',
     unlock: { event: 'guardian-glade', times: 2 },
     ascendedTitle: 'Archdruid',
     story: 'Deku tends the oldest trees of the Fey Grove, and the Guardian keeps trampling his saplings. Beat it twice, and he\'ll lend you the spirits of the wild.',
@@ -1591,6 +1597,7 @@ export const HUNTERS: HunterDef[] = [
   },
   {
     id: 'thief', name: 'Alias', title: 'Thief', icon: '🦹', color: '#8a8aa8', area: 'graveyard', recruitCost: 60_000_000,
+    short: 'More gold and loot where he hunts.',
     unlock: { event: 'guardian-graveyard', times: 1 },
     ascendedTitle: 'Master Thief',
     areaGold: 0.3,
@@ -1600,6 +1607,7 @@ export const HUNTERS: HunterDef[] = [
   },
   {
     id: 'lance', name: 'Lance', title: 'Paladin', icon: '🛡️', color: '#ffe8a3', area: 'graveyard', recruitCost: 200_000_000,
+    short: 'Takes extra hits and shields allies.',
     unlock: { event: 'guardian-graveyard', times: 2 },
     ascendedTitle: 'Crusader',
     story: 'Lance swore to guard the Restless Graveyard\'s gates until its Guardian falls twice. Help him keep his oath, and his shield is yours.',
@@ -1608,6 +1616,7 @@ export const HUNTERS: HunterDef[] = [
   },
   {
     id: 'glimmer', name: 'Glimmer', title: 'Wizard', icon: '🧙', color: '#b07cff', area: 'crypt', recruitCost: 300_000_000_000,
+    short: 'Hurls exploding fireballs.',
     unlock: { event: 'guardian-crypt', times: 1 },
     ascendedTitle: 'Archmage',
     story: 'Glimmer came to the Forbidden Crypt to study the old magic sealed inside, but its Guardian won\'t let anyone near. Put it to rest, and Glimmer will lend you a fireball or two.',
@@ -1616,6 +1625,7 @@ export const HUNTERS: HunterDef[] = [
     special: { kind: 'fireball', name: 'Fireballs', damageType: 'fire', proc: 1, cooldown: 4, damage: 1.75, radius: 55, ticks: 1, crowd: 3, describe: 'Every 4s hurls a fireball that explodes: his weapon\'s damage powers the blast, its attack rate widens it.' },
   },  {
     id: 'puppeteer', name: 'Theon', title: 'Puppeteer', icon: '🎎', color: '#c89a6a', area: 'crypt', recruitCost: 1_000_000_000_000, summonBonus: { type: 'construct', mult: 1.5 },
+    short: 'Summons puppets to fight for her.',
     unlock: { event: 'guardian-crypt', times: 2 },
     ascendedTitle: 'Grand Puppeteer',
     story: "Theon pulls the strings of the Forbidden Crypt's Possessed Puppets, or tries to: something in the dark keeps cutting them. Beat the Crypt's Guardian twice, and her puppets will dance for you.",
@@ -1626,6 +1636,7 @@ export const HUNTERS: HunterDef[] = [
 
   {
     id: 'wilhelm', name: 'Wilhelm', title: 'Sniper', icon: '🎯', color: '#9aa7b8', area: 'depths', recruitCost: 100_000_000_000_000,
+    short: 'Swaps guns when monsters get close.',
     unlock: { event: 'guardian-depths', times: 1 },
     ascendedTitle: 'Deadeye',
     story: '“I was hunting a creature with a hundred eyes, but after shooting 99 of them, it got away. Help me track it down in the Shadowy Depths.”',
@@ -1639,6 +1650,7 @@ export const HUNTERS: HunterDef[] = [
   },
   {
     id: 'celeste', name: 'Celeste', title: 'Psion', icon: '🔮', color: '#c9a8ff', area: 'depths', recruitCost: 200_000_000_000_000, bane: { archetype: 'dragon', mult: 3 },
+    short: 'Triple damage to Dragons.',
     unlock: { event: 'guardian-depths', times: 2 },
     ascendedTitle: 'Oracle',
     story: 'Celeste, a Psion who hears the thoughts of monsters, followed a whisper into the Shadowy Depths and got lost in the noise. Beat the Depths\' Guardian twice to quiet it, and Celeste will lend you that mind.',
@@ -1646,6 +1658,7 @@ export const HUNTERS: HunterDef[] = [
   },
   {
     id: 'blacksmith', name: 'Kargesh', title: 'Blacksmith', icon: '⚒️', color: '#d07a3a', area: 'caves', recruitCost: 3e15,
+    short: 'Refines gear with new stats.',
     unlock: { event: 'guardian-caves', times: 1 },
     ascendedTitle: 'Master Smith',
     story: "Kargesh keeps a forge deep in the Ember Mines, fed by the heat of the Demon Lord's lair. Beat the Mines' Guardian, and he'll bring his anvil to the guild.",
@@ -1655,6 +1668,7 @@ export const HUNTERS: HunterDef[] = [
   {
     // Sciirj replaced Pip the Scavenger; the id stays 'scavenger' so saves keep his recruit, levels and gear.
     id: 'scavenger', name: 'Sciirj', title: 'Monk', icon: '👊', color: '#e0703a', area: 'caves', recruitCost: 1.2e16,
+    short: 'Punches monsters across the field.',
     unlock: { event: 'guardian-caves', times: 2 },
     ascendedTitle: 'Grandmaster',
     story: 'Sciirj trains in the heat of the Ember Mines, punching stone until the stone gives first. Beat its Guardian twice, and he\'ll lend you his fists.',
@@ -1664,6 +1678,7 @@ export const HUNTERS: HunterDef[] = [
   },
   {
     id: 'enchantress', name: 'Marceline', title: 'Enchantress', icon: '✨', color: '#c47cff', area: 'mines', recruitCost: 6e17,
+    short: 'Enchants gear with new powers.',
     unlock: { event: 'guardian-mines', times: 1 },
     ascendedTitle: 'Archenchantress',
     story: "Marceline came to the Venom Caverns for the venom-bright crystals that hold an enchantment best, and the Caverns' Guardian has kept her pinned in the dark ever since. Beat it, and she'll put her runes on your gear.",
@@ -1672,6 +1687,7 @@ export const HUNTERS: HunterDef[] = [
   },
   {
     id: 'osteomancer', name: 'Gideon', title: 'Osteomancer', icon: '🦴', color: '#e8dcc0', area: 'mines', recruitCost: 4e18,
+    short: 'Raises bone spikes and bone walls.',
     unlock: { event: 'guardian-mines', times: 2 },
     ascendedTitle: 'Bonelord',
     story: "Gideon came to the Venom Caverns for the bones of the things that died there, and there are a great many. Beat the Caverns' Guardian twice, and he'll raise them for you.",
@@ -1682,6 +1698,7 @@ export const HUNTERS: HunterDef[] = [
   },
   {
     id: 'frostbreaker', name: 'Okrin', title: 'Frostbreaker', icon: '🔨', color: '#8fdcff', area: 'peaks', recruitCost: 2.5e19, bane: { archetype: 'elemental', mult: 3 },
+    short: 'Triple damage to Elementals.',
     unlock: { event: 'guardian-peaks', times: 1 },
     ascendedTitle: 'Winterking',
     story: 'Okrin climbed the Frost Peaks to hunt the thing that rules them. Defeat the Peaks\' Guardian, and he\'ll bring his hammer to your side.',
@@ -1689,6 +1706,7 @@ export const HUNTERS: HunterDef[] = [
   },
   {
     id: 'bloodblade', name: 'Themus', title: 'Blood Blade', icon: '🩸', color: '#c0242c', area: 'peaks', recruitCost: 1.5e20,
+    short: 'Waves of blood that make monsters bleed.',
     unlock: { event: 'guardian-peaks', times: 2 },
     ascendedTitle: 'Crimson Lord',
     story: "Themus walks the Frost Peaks, where blood freezes before it can fall. Beat the Peaks' Guardian twice, and his blade is yours.",
@@ -1714,6 +1732,8 @@ export function hunterPerk(h: HunterDef): string {
 
 /** Your own Hunter's card blurb. */
 export const MAIN_ABILITY = 'Tap the Battle Field to damage Monsters!';
+/** Your Hunter's one line on their card. */
+export const MAIN_SHORT = 'Tap the field to blast monsters.';
 
 /** Hunters fire a little slower than you and train with gold. */
 export const HELPER_FIRE_RATE = 1.2;
