@@ -12,6 +12,7 @@ import { MONSTER_SHEETS, SHEETS, sheetRow, sideFlip, type MonsterSheet } from '.
 import { GEAR_SPRITES } from '../core/gearSprites';
 import { emojiIconKey } from '../ui/emojiIcons';
 import { HUNTER_ICONS, hunterIconHtml } from '../ui/hunterIcons';
+import { drawEventBar, drawGuardianBar, EVENT_BAR, GUARDIAN_BAR } from './hudBars';
 
 interface Pickup {
   x: number;
@@ -1056,9 +1057,12 @@ export class BattleView {
     g.textAlign = 'center';
     g.textBaseline = 'middle';
     const ev = this.game.activeEvent;
-    const bw = Math.min(w * 0.7, 300);
+    // The framed bars, scaled by half-pixel steps so they stay crisp.
+    const gs = Math.max(1, Math.floor((Math.min(w * 0.85, 520) / GUARDIAN_BAR.w) * 2) / 2);
+    const es = Math.max(1, Math.floor((Math.min(w * 0.6, 280) / EVENT_BAR.w) * 2) / 2);
+    const bw = boss ? GUARDIAN_BAR.w * gs : ev ? EVENT_BAR.w * es : 0;
     const x = (w - bw) / 2;
-    const y0 = ev || boss ? this.hudTop(x, x + bw, boss ? 38 : 26) : 0;
+    const y0 = ev || boss ? this.hudTop(x, x + bw, boss ? 20 + GUARDIAN_BAR.h * gs : 22 + EVENT_BAR.h * es) : 0;
     if (ev && !boss) {
       const def = eventDef(ev.id);
       g.font = canvasFont(13, 700);
@@ -1073,33 +1077,40 @@ export class BattleView {
         g.drawImage(ic, left, y0 + 3, 14, 14);
         g.fillText(label, left + 18 + tw / 2, y0 + 10);
       } else g.fillText(`${def.icon} ${label}`, w / 2, y0 + 10);
-      g.fillStyle = 'rgba(0,0,0,0.55)';
-      g.fillRect(x, y0 + 20, bw, 6);
-      g.fillStyle = '#3fcf6a';
-      g.fillRect(x, y0 + 20, bw * Math.max(0, ev.left / def.duration), 6);
+      if (!drawEventBar(g, x, y0 + 20, es, ev.left / def.duration)) {
+        g.fillStyle = 'rgba(0,0,0,0.55)';
+        g.fillRect(x, y0 + 20, bw, 6);
+        g.fillStyle = '#3fcf6a';
+        g.fillRect(x, y0 + 20, bw * Math.max(0, ev.left / def.duration), 6);
+      }
     }
     if (boss) {
       g.font = canvasFont(13, 700);
       g.fillStyle = '#ff9aa6';
       const bossDef = enemyDef(boss.type);
       g.fillText(`${bossDef.guardianOnly ? bossDef.name.toUpperCase() : `${areaDef(this.game.area).name.toUpperCase()} GUARDIAN`} · ${fmt(Math.max(0, boss.hp))}`, w / 2, y0 + 10);
+      const winAt = bossDef.winAt ?? 0;
+      const t = Math.max(0, this.game.bossTimer / GUARDIAN_TIME);
+      if (drawGuardianBar(g, x, y0 + 18, gs, Math.max(0, boss.hp / boss.maxHp), t, winAt, this.game.bossTimer, canvasFont(Math.round(11 * gs), 700))) return this.drawBanner(g);
       g.fillStyle = 'rgba(0,0,0,0.55)';
       g.fillRect(x, y0 + 20, bw, 10);
       g.fillStyle = '#ff4d6d';
       g.fillRect(x, y0 + 20, bw * Math.max(0, boss.hp / boss.maxHp), 10);
       // A Guardian beaten before 0 HP (the Time Eater) shows where the win is.
-      const winAt = bossDef.winAt ?? 0;
       if (winAt > 0) {
         g.fillStyle = '#ffe36e';
         g.fillRect(Math.round(x + bw * winAt) - 1, y0 + 17, 2, 16);
       }
-      const t = Math.max(0, this.game.bossTimer / GUARDIAN_TIME);
       g.fillStyle = 'rgba(0,0,0,0.55)';
       g.fillRect(x, y0 + 33, bw, 5);
       g.fillStyle = t < 0.3 ? '#ff4d4d' : '#ffb04d';
       g.fillRect(x, y0 + 33, bw * t, 5);
     }
+    this.drawBanner(g);
+  }
 
+  private drawBanner(g: CanvasRenderingContext2D): void {
+    const w = this.w;
     if (this.banner) {
       const k = this.banner.life;
       g.globalAlpha = k < 0.2 ? k / 0.2 : k > 1.6 ? Math.max(0, 1 - (k - 1.6) / 0.4) : 1;
