@@ -44,6 +44,9 @@ const GUARD_BOUNCE = 220;
 const PUDDLE_TICK = 0.5;
 const RICOCHET_RANGE = 160;
 
+/** How far a blood bolt flies looking for its next monster. */
+const BLOOD_BOLT_RANGE = 220;
+
 export interface Enemy {
   id: number;
   type: EnemyId;
@@ -168,7 +171,7 @@ const HELPER_SPOTS = [
   { x: 0, y: -62 },
 ];
 
-export type BulletKind = 'bolt' | 'spark' | 'arrow' | 'fireball' | 'potion' | 'pellet' | 'dagger' | 'pistol' | 'ricochet' | 'hammer';
+export type BulletKind = 'blood' | 'bolt' | 'spark' | 'arrow' | 'fireball' | 'potion' | 'pellet' | 'dagger' | 'pistol' | 'ricochet' | 'hammer';
 
 export interface Bullet {
   shooter: Shooter;
@@ -199,6 +202,8 @@ export interface Bullet {
   ty?: number;
   /** A special attack (potion, fireball): deals the Hunter's own damage type. */
   special?: boolean;
+  /** Themus's blood bolts: always make what they hit bleed. */
+  bleed?: boolean;
   /** A multi-type weapon firing one type per projectile: the one this projectile deals (at full damage). */
   dtype?: DamageType;
 }
@@ -734,6 +739,35 @@ export class Field {
     const a = Math.atan2(target.y - h.y, target.x - h.x);
     const radius = g.specialRadius(h.id);
     const dmg = g.specialDamageMult(h.id);
+    if (sp.kind === 'wave') {
+      // Themus's Crimson Wave: a surge of blood along a band toward the nearest monster, hurting and bleeding
+      // everything in it. With Blood Rain, each monster it kills bursts into blood bolts at others nearby.
+      h.specialCd = sp.cooldown;
+      h.aim = a;
+      const cx = Math.cos(a);
+      const cy = Math.sin(a);
+      const width = sp.width ?? 24;
+      this.events.push({ type: 'beam', x1: h.x, y1: h.y, x2: h.x + cx * radius, y2: h.y + cy * radius, color: '#c0242c', width: width * 1.4 });
+      const bolts = Math.round(g.tree(h.id).bolts);
+      for (const o of [...this.enemies]) {
+        if (o.hp <= 0) continue;
+        const t = (o.x - h.x) * cx + (o.y - h.y) * cy;
+        const perp = Math.abs((o.x - h.x) * cy - (o.y - h.y) * cx);
+        if (t <= 0 || t > radius + o.r || perp > width + o.r) continue;
+        this.hitWith(h.id, o, dmg, h.x, h.y, undefined, undefined, true, true);
+        this.bleed(o, h.id, dmg);
+        if (o.hp <= 0 && bolts > 0) {
+          const taken: number[] = [o.id];
+          for (let i = 0; i < bolts; i++) {
+            const next = this.nearest(o.x, o.y, BLOOD_BOLT_RANGE, taken);
+            if (!next) break;
+            taken.push(next.id);
+            this.shoot(h.id, 'blood', o.x, o.y, Math.atan2(next.y - o.y, next.x - o.x), 420, BLOOD_BOLT_RANGE, { dmg: dmg * 0.5, special: true, bleed: true });
+          }
+        }
+      }
+      return;
+    }
     if (sp.kind === 'spikes') {
       // Gideon's Bone Spikes burst up under the nearest monster, hurting everything around it and holding it in
       // place. They wait while his Bone Wall stands.
@@ -869,7 +903,7 @@ export class Field {
     angle: number,
     speed: number,
     range: number,
-    o: { pierce?: number; spread?: boolean; dmg?: number; radius?: number; bounces?: number; slow?: number; tx?: number; ty?: number; mode?: GearMode; special?: boolean; followThrough?: number; volley?: number; stack?: number },
+    o: { pierce?: number; spread?: boolean; dmg?: number; radius?: number; bounces?: number; slow?: number; tx?: number; ty?: number; mode?: GearMode; special?: boolean; followThrough?: number; volley?: number; stack?: number; bleed?: boolean },
   ): void {
     const g = this.game;
     const n = o.spread ? g.projectiles : 1;
@@ -901,6 +935,7 @@ export class Field {
         tx: o.tx,
         ty: o.ty,
         special: o.special,
+        bleed: o.bleed,
         mode: o.mode,
         followThrough: o.followThrough,
         volley: o.volley,
@@ -1204,6 +1239,14 @@ export class Field {
     return this.typeMultOn(dtype, e) < 1;
   }
 
+  /**
+   * A guaranteed bleed (Themus's Crimson Wave and blood bolts), unless the monster is immune to Physical: sized,
+   * like any bleed, from the hit that caused it (`mult` × the Hunter's shot damage on this monster).
+   */
+  private bleed(e: Enemy, by: Shooter, mult: number): void {
+    this.applyStatus(e, 'physical', this.game.shotDamage(by, enemyDef(e.type).archetype) * mult, by);
+  }
+
   private applyStatus(e: Enemy, dtype: DamageType, dmg: number, by: Shooter, rarity: Rarity = 'common'): void {
     // Virulence: damaging effects hit harder; the others last longer (or pull harder).
     const k = this.game.statusStrength(by);
@@ -1404,6 +1447,13 @@ export class Field {
   }
 
   private bulletHit(b: Bullet, e: Enemy): void {
+    if (b.kind === 'blood') {
+      // A blood bolt: Themus's special damage, and a bleed.
+      this.hitWith(b.shooter, e, b.dmg, b.x - b.vx, b.y - b.vy, b.crit, b.mode, true, true);
+      this.bleed(e, b.shooter, b.dmg);
+      b.life = 0;
+      return;
+    }
     if (b.kind === 'fireball') {
       const r = b.radius ?? 50;
       this.events.push({ type: 'explode', x: b.x, y: b.y, r, color: '#ff8a3d' });

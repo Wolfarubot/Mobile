@@ -1368,6 +1368,19 @@ function drawBullet(g: CanvasRenderingContext2D, b: Bullet, t: number, basic = f
   g.save();
   g.translate(b.x, b.y);
   switch (b.kind) {
+    case 'blood': {
+      // A blood bolt: a dark-red drop with a short trail behind it.
+      g.rotate(a);
+      g.fillStyle = 'rgba(160,20,30,0.45)';
+      g.fillRect(-12, -2, 10, 4);
+      g.fillStyle = '#c0242c';
+      g.beginPath();
+      g.arc(0, 0, 4.5, 0, Math.PI * 2);
+      g.fill();
+      g.fillStyle = '#ff6a6a';
+      g.fillRect(0, -2, 2, 2);
+      break;
+    }
     case 'fireball': {
       if (basic) {
         g.fillStyle = 'rgba(255,120,40,0.35)';

@@ -106,6 +106,7 @@ export type TreeStat =
   | 'pierce' // +x enemies each shot passes through
   | 'radius' // +x area-effect size (multiplier)
   | 'bane' // +x to their archetype damage multiplier
+  | 'bolts' // Themus: blood bolts burst from each monster his Crimson Wave kills
   | 'guard' // shield charges before being stunned
   | 'rally' // shield charges granted to every other Hunter
   | 'gold' // +x gold from their kills
@@ -362,6 +363,7 @@ export const ASCENDED_TREES: Record<HunterId, SkillNode[]> = {
   enchantress: ascendedTree({ name: 'Grand Enchantment', icon: '✨', desc: '+100% damage and +10% crit chance.', maxRank: 1, effect: { damage: 1, crit: 0.1 } }),
   scavenger: ascendedTree({ name: 'Mountain Breaker', icon: '🏔️', desc: '+100% damage and punches reach 30% further.', maxRank: 1, effect: { damage: 1, radius: 0.3 } }),
   osteomancer: ascendedTree({ name: 'Ossuary', icon: '💀', desc: '+100% damage and spikes 30% wider.', maxRank: 1, effect: { damage: 1, radius: 0.3 } }),
+  bloodblade: ascendedTree({ name: 'Crimson Tide', icon: '🌊', desc: '+100% damage and 2 more blood bolts from each Crimson Wave kill.', maxRank: 1, effect: { damage: 1, bolts: 2 } }),
   frostbreaker: ascendedTree({ name: 'Eternal Winter', icon: '❄️', desc: '+100% damage and +1× extra damage to Elementals.', maxRank: 1, effect: { damage: 1, bane: 1 } }),
 };
 
@@ -502,6 +504,15 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
       { name: 'Calcified Skin', icon: '🛡️', desc: '+1 shield charge per rank.', maxRank: 3, effect: { guard: 1 } },
     ],
     { name: 'Boneyard', icon: '💀', desc: '+25% damage and spikes 15% wider.', maxRank: 1, cost: 4, effect: { damage: 0.25, radius: 0.15 } },
+  ),
+  bloodblade: skillTree(
+    { name: 'First Blood', icon: '🩸', desc: 'The Crimson Wave runs 10% further.', maxRank: 1, effect: { radius: 0.1 } },
+    [
+      { name: 'Keen Edge', icon: '🗡️', desc: '+15% damage per rank.', maxRank: 3, effect: { damage: 0.15 } },
+      { name: 'Surge', icon: '🌊', desc: 'The Crimson Wave runs 10% further per rank.', maxRank: 3, effect: { radius: 0.1 } },
+      { name: 'Bloodlust', icon: '💢', desc: '+7% attack rate per rank.', maxRank: 3, effect: { rate: 0.07 } },
+    ],
+    { name: 'Blood Rain', icon: '🌧️', desc: '+20% damage; monsters the Crimson Wave kills burst into 3 blood bolts.', maxRank: 1, cost: 4, effect: { damage: 0.2, bolts: 3 } },
   ),
   enchantress: skillTree(
     { name: 'Glyphwork', icon: '🔯', desc: '+5% crit chance.', maxRank: 1, effect: { crit: 0.05 } },
@@ -1394,7 +1405,8 @@ export type HunterId =
   | 'scavenger'
   | 'enchantress'
   | 'osteomancer'
-  | 'frostbreaker';
+  | 'frostbreaker'
+  | 'bloodblade';
 
 // ---- Damage types: every attack deals one. Weapons carry a type; without one, a Hunter uses their own. ----
 export type DamageType = 'physical' | 'fire' | 'acid' | 'frost' | 'radiant' | 'poison' | 'arcane' | 'decay' | 'lightning' | 'void';
@@ -1463,7 +1475,7 @@ export const DAMAGE_TYPES: Record<DamageType, { name: string; icon: string; colo
  * the background model. Summons copy the weapon's damage type and status effects; the others keep their own.
  */
 export interface HunterSpecial {
-  kind: 'potion' | 'fireball' | 'summon' | 'punch' | 'spikes';
+  kind: 'potion' | 'fireball' | 'summon' | 'punch' | 'spikes' | 'wave';
   /** What it's called on the Hunter's card ("Potions", "Wolves"...). */
   name: string;
   damageType: DamageType;
@@ -1480,6 +1492,8 @@ export interface HunterSpecial {
   arc?: number;
   /** Bone spikes: seconds the monsters they hit are held in place (Guardians a quarter as long). */
   hold?: number;
+  /** Crimson Wave: how wide the surge is (it runs `radius` long). */
+  width?: number;
   describe: string;
 }
 
@@ -1672,6 +1686,15 @@ export const HUNTERS: HunterDef[] = [
     ascendedTitle: 'Winterking',
     story: 'Okrin climbed the Frost Peaks to hunt the thing that rules them. Defeat the Peaks\' Guardian, and he\'ll bring his hammer to your side.',
     ability: 'Deals triple damage to Elementals.',
+  },
+  {
+    id: 'bloodblade', name: 'Themus', title: 'Blood Blade', icon: '🩸', color: '#c0242c', area: 'peaks', recruitCost: 1.5e20,
+    unlock: { event: 'guardian-peaks', times: 2 },
+    ascendedTitle: 'Crimson Lord',
+    story: "Themus walks the Frost Peaks, where blood freezes before it can fall. Beat the Peaks' Guardian twice, and his blade is yours.",
+    ability: 'Every 5s, sends a Crimson Wave of blood surging toward the monsters, hurting everything it passes and making it bleed. Once his tree is complete, monsters it kills burst into blood bolts. Fights with melee weapons.',
+    special: { kind: 'wave', name: 'Crimson Wave', damageType: 'physical', cooldown: 5, damage: 1.4, radius: 200, width: 26, ticks: 1, crowd: 3, describe: 'Every 5s, a surge of blood rushes out toward the nearest monster, hurting everything in its path and making it bleed: his weapon\'s damage powers it, its attack rate lengthens it. With Blood Rain (his capstone), monsters it kills burst into blood bolts that seek out others and make them bleed too.' },
+    slots: [{ kind: 'melee', label: 'Melee' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
   },
 ];
 

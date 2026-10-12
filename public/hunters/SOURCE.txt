@@ -6,3 +6,4 @@ Enemy Sprite Sheets" (shooter), Kargesh from "Engineering Game Assets", Lance an
 Sprites" (Okrin recoloured), Glimmer, Celeste and Theon from "Free Wizard Sprite Sheets", Alias and Deku from "Free
 Ninja Sprite Sheets", Marceline and Sciirj from "Free Yokai Pixel Art Character Sprites" (Kitsune, Yamabushi tengu).
 Gideon from "Demon" event boss pack (Summoner idle, recoloured to bone and violet).
+Themus from "Free Knight Character Sprites" (Knight_3 idle, recoloured crimson).

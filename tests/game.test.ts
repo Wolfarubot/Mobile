@@ -2697,6 +2697,8 @@ describe('Field', () => {
     const g = rich();
     g.state.areas.graveyard.unlocked = true;
     g.state.areas.caves.unlocked = true;
+    g.state.areas[hunterDef(id).area].unlocked = true;
+    g.state.gold = Math.max(g.state.gold, hunterDef(id).recruitCost);
     g.recruit(id);
     g.state.hunters[id].trains = 10;
     g.state.hunters[id].skills = { root: 1 }; // e.g. Lance's Zone of Protection
@@ -2823,6 +2825,35 @@ describe('Field', () => {
     h.stun = 0;
     f.update(1 / 30);
     expect(h.specialCd).toBeGreaterThan(0);
+  });
+
+  it("Themus's Crimson Wave hurts and bleeds everything in its path; with Blood Rain its kills burst into blood bolts", () => {
+    const { f, g } = withHelper('bloodblade');
+    expect(hunterDef('bloodblade')).toMatchObject({ name: 'Themus', title: 'Blood Blade', area: 'peaks' });
+    f.update(1 / 30);
+    const h = f.helpers[0];
+    h.specialCd = 0;
+    // Two in a line toward the left, one well off to the side.
+    f.enemies.push(tough({ id: 1, x: h.x - 60, y: h.y }), tough({ id: 2, x: h.x - 120, y: h.y + 5 }), tough({ id: 3, x: h.x, y: h.y - 150 }));
+    f.update(1 / 30);
+    expect(h.specialCd).toBeGreaterThan(4);
+    const [a, b, c] = f.enemies;
+    for (const e of [a, b]) {
+      expect(e.hp).toBeLessThan(1e12);
+      expect(e.bleeds?.length).toBeGreaterThan(0);
+      expect(e.bleeds![0].dps).toBeGreaterThan(0);
+    }
+    expect(c.bleeds ?? []).toHaveLength(0);
+    expect(f.bullets.some((x) => x.kind === 'blood')).toBe(false); // no kills, and no Blood Rain yet
+
+    // Blood Rain: a monster the wave kills bursts into blood bolts that seek others and make them bleed.
+    g.state.hunters.bloodblade.skills = { capstone: 1 };
+    f.enemies = [{ ...tough({ id: 4, x: h.x - 60, y: h.y }), hp: 1, maxHp: 1 }, tough({ id: 5, x: h.x - 60, y: h.y - 150 })];
+    h.specialCd = 0;
+    f.update(1 / 30);
+    expect(f.bullets.filter((x) => x.kind === 'blood').length).toBe(1); // one other monster to aim at
+    for (let i = 0; i < 30; i++) f.update(1 / 30);
+    expect(f.enemies.find((e) => e.id === 5)!.bleeds?.length).toBeGreaterThan(0);
   });
 
   it('a brand-new Hunter handles the opening slimes without being stunned', () => {
