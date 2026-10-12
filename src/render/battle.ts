@@ -476,25 +476,44 @@ export class BattleView {
       const from = w.a - w.arc / 2;
       const to = from + w.arc * Math.min(1, k * 2.5);
       if (w.blade && hole) {
-        // A sword or glaive: a wedge of the black hole's swirling rim, silver-white, as wide as the reach and
-        // revealed across the swing; the swirls turn with it.
+        // A sword or glaive: wedges of the black hole's swirling rim, silver-white, revealed across the swing
+        // (an outer ring at the blade's reach and a fainter inner one), fading in and out at both ends.
+        const size = w.r * 2.6;
+        const k2 = sweepCanvas(g, size);
+        const x = k2.getContext('2d')!;
+        const px = k2.width / size; // canvas pixels per world unit
+        x.setTransform(px, 0, 0, px, k2.width / 2, k2.height / 2);
+        x.clearRect(-size / 2, -size / 2, size, size);
+        x.imageSmoothingEnabled = false;
         const ring = bladeRingOf(hole);
         const sh = EFFECTS.blackhole;
         const [bx, by, bw] = sh.box;
-        const sc = (w.r * 2) / bw;
         const f = Math.floor(w.t * 40) % sh.frames;
-        g.save();
+        for (const [rad, alpha, spin] of [[w.r, 1, 0], [w.r * 0.6, 0.7, 3]] as const) {
+          const sc = (rad * 2) / bw;
+          x.save();
+          x.globalAlpha = alpha;
+          x.rotate(to + spin);
+          x.drawImage(ring, ((f + spin) % sh.frames) * sh.frame, 0, sh.frame, sh.frame, -(bx + bw / 2) * sc, -(by + bw / 2) * sc, sh.frame * sc, sh.frame * sc);
+          x.restore();
+        }
+        // Keep only the swept wedge, fading to nothing at its trailing and leading edges.
+        const span = Math.max(0.001, to - from);
+        const fade = Math.min(0.45, span / 2.5) / (Math.PI * 2);
+        const cone = x.createConicGradient(from, 0, 0);
+        const end = span / (Math.PI * 2);
+        cone.addColorStop(0, 'rgba(0,0,0,0)');
+        cone.addColorStop(Math.min(fade, end / 2), 'rgba(0,0,0,1)');
+        cone.addColorStop(Math.max(end - fade, end / 2), 'rgba(0,0,0,1)');
+        cone.addColorStop(end, 'rgba(0,0,0,0)');
+        cone.addColorStop(1, 'rgba(0,0,0,0)');
+        x.globalCompositeOperation = 'destination-in';
+        x.fillStyle = cone;
+        x.fillRect(-size / 2, -size / 2, size, size);
+        x.globalCompositeOperation = 'source-over';
         g.globalAlpha = 1 - k * k;
-        g.beginPath();
-        g.moveTo(w.x, w.y);
-        g.arc(w.x, w.y, w.r * 1.3, from, to);
-        g.closePath();
-        g.clip();
-        g.translate(w.x, w.y);
-        g.rotate(to);
-        g.imageSmoothingEnabled = false;
-        g.drawImage(ring, f * sh.frame, 0, sh.frame, sh.frame, -(bx + bw / 2) * sc, -(by + bw / 2) * sc, sh.frame * sc, sh.frame * sc);
-        g.restore();
+        g.drawImage(k2, w.x - size / 2, w.y - size / 2, size, size);
+        g.globalAlpha = 1;
         continue;
       }
       g.globalAlpha = 0.85 * (1 - k);
@@ -1824,6 +1843,7 @@ function drawStrike(g: CanvasRenderingContext2D, img: HTMLImageElement, st: Stri
     // The sheet's portal is at the top with the fist reaching down: turn "down" toward the monster, with the
     // portal on Sciirj.
     g.rotate(st.a - Math.PI / 2);
+    g.globalAlpha = 0.6; // ethereal
     const k = st.len / bh;
     g.drawImage(goldFist(img), f * sh.frame, 0, sh.frame, sh.frame, -(bx + bw / 2) * k, -by * k, sh.frame * k, sh.frame * k);
     g.restore();
@@ -1834,6 +1854,19 @@ function drawStrike(g: CanvasRenderingContext2D, img: HTMLImageElement, st: Stri
   const ky = st.thick / bh;
   g.drawImage(img, f * sh.frame, 0, sh.frame, sh.frame, -bx * kx, -(by + bh / 2) * ky, sh.frame * kx, sh.frame * ky);
   g.restore();
+}
+
+/** A scratch canvas for drawing one sword swing at the battlefield's resolution (reused swing to swing). */
+let sweepScratch: HTMLCanvasElement | null = null;
+function sweepCanvas(g: CanvasRenderingContext2D, size: number): HTMLCanvasElement {
+  const m = g.getTransform();
+  const n = Math.max(8, Math.min(1024, Math.ceil(size * Math.hypot(m.a, m.b))));
+  if (!sweepScratch) sweepScratch = document.createElement('canvas');
+  if (sweepScratch.width !== n) {
+    sweepScratch.width = n;
+    sweepScratch.height = n;
+  }
+  return sweepScratch;
 }
 
 /**
