@@ -4414,8 +4414,19 @@ body.ui-parchment .mat {
   min-width: 2ch;
 }
 .mg-lives {
-  font-size: 18px;
-  letter-spacing: 2px;
+  display: flex;
+  gap: 4px;
+}
+/* Pixel hearts (CraftPix platformer UI), drawn at 3× their 10×8 pixels. */
+.mg-heart {
+  width: 30px;
+  height: 24px;
+  background: url('/ui/heart.png') center / contain no-repeat;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.6));
+}
+.mg-heart.lost {
+  background-image: url('/ui/heart-empty.png');
 }
 .mg-quit {
   margin-left: auto;

@@ -96,7 +96,7 @@ export function runMinigame(spec: MinigameSpec): void {
   const pops: Pop[] = [];
   const setHud = () => {
     scoreEl.textContent = String(score);
-    livesEl.textContent = spec.lives > 0 ? '❤️'.repeat(Math.max(0, lives)) + '🖤'.repeat(Math.max(0, spec.lives - lives)) : '';
+    livesEl.innerHTML = spec.lives > 0 ? '<i class="mg-heart"></i>'.repeat(Math.max(0, lives)) + '<i class="mg-heart lost"></i>'.repeat(Math.max(0, spec.lives - lives)) : '';
   };
   setHud();
 
