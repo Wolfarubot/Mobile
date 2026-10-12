@@ -1,18 +1,72 @@
 import { SHEETS, sheetRow } from '../../render/monsterSheets';
 import { HUNTER_SHEETS } from '../../render/hunterSheets';
+import { scenePiece } from '../../render/backgrounds';
 import { hunterSheetImage, monsterSheetImage } from '../../render/sprites';
 import type { MinigameApi, MinigameGame } from './shell';
 
 /**
  * Galladair's Hunting Practice (the Wandering Woods): slimes hop across the clearing from either side, faster and
  * faster. Tap to aim Galladair's arrows from the bottom of the screen. A green slime is 1 point, a rare golden one
- * 3. Three slimes that make it across end the round.
+ * 3. Three slimes that make it across end the round. A few great trees and boulders stand in the clearing: they
+ * stop arrows, and a slime hopping behind one is hidden by it.
  */
 
 export const HP_LIVES = 3;
 const SHOT_COOLDOWN = 0.22;
 const ARROW_SPEED = 950;
 const GOLDEN_CHANCE = 0.12;
+
+/** Only the Woods' small ground details, and fewer of them: the clearing's trees, rocks and bushes are the game's. */
+export const HP_DECOR = { bands: 1, density: 0.5 };
+/** The clearing's objects: [pieces, how many, drawn scale, whether they stop arrows]. */
+const PROPS: Array<[string[], number, number, boolean]> = [
+  [['Tree1', 'Tree2', 'Tree3', 'Tree4'], 2, 1.4, true],
+  [['Rpck_grass1', 'Rpck_grass2', 'Rpck_grass3', 'Rpck_grass4', 'Stone1_grass_shadow', 'Stone2_grass_shadow'], 2, 1.1, true],
+  [['Bush1', 'Bush2', 'Bush3', 'Bush4', 'Bush5', 'Bush6'], 3, 1, false],
+];
+
+interface Prop {
+  img: HTMLImageElement;
+  x: number;
+  y: number;
+  scale: number;
+  solid: boolean;
+  /** Where it stands (its lowest solid pixel), for drawing nearer things over farther ones. */
+  foot: number;
+  mask: Uint8ClampedArray;
+}
+
+/** A piece's alpha channel and the lowest row that's solid (its shadow doesn't count). */
+const masks = new Map<HTMLImageElement, { alpha: Uint8ClampedArray; foot: number }>();
+function maskOf(img: HTMLImageElement): { alpha: Uint8ClampedArray; foot: number } {
+  let m = masks.get(img);
+  if (!m) {
+    const c = document.createElement('canvas');
+    c.width = img.naturalWidth;
+    c.height = img.naturalHeight;
+    const g = c.getContext('2d')!;
+    g.drawImage(img, 0, 0);
+    const data = g.getImageData(0, 0, c.width, c.height).data;
+    const alpha = new Uint8ClampedArray(c.width * c.height);
+    let foot = 0;
+    for (let i = 0; i < alpha.length; i++) {
+      alpha[i] = data[i * 4 + 3];
+      if (alpha[i] > 200) foot = Math.floor(i / c.width);
+    }
+    m = { alpha, foot: foot + 1 };
+    masks.set(img, m);
+  }
+  return m;
+}
+
+/** Whether (x, y) is on a solid pixel of the prop. */
+function propHit(p: Prop, x: number, y: number): boolean {
+  const ix = Math.floor((x - p.x) / p.scale);
+  const iy = Math.floor((y - p.y) / p.scale);
+  const w = p.img.naturalWidth;
+  if (ix < 0 || iy < 0 || ix >= w || iy >= p.img.naturalHeight) return false;
+  return p.mask[iy * w + ix] > 200;
+}
 
 export const HP_INTRO = `<p>Slimes hop across the clearing, faster and faster. <b>Tap</b> to send Galladair's arrows at them.</p><p>Green slimes are 1 point, golden ones 3. Let ${HP_LIVES} get across and practice is over.</p>`;
 
@@ -34,7 +88,35 @@ interface Slime {
 
 export function huntingPractice(api: MinigameApi): MinigameGame {
   const slimes: Slime[] = [];
-  const arrows: Array<{ x: number; y: number; vx: number; vy: number }> = [];
+  const arrows: Array<{ x: number; y: number; vx: number; vy: number; stuck: number }> = [];
+  let props: Prop[] | null = null;
+  /** Lays out the clearing once its pieces are in: trees toward the sides, rocks and bushes anywhere, none touching. */
+  const layout = (): Prop[] | null => {
+    const want = PROPS.flatMap(([files, n, scale, solid]) => Array.from({ length: n }, (_, i) => ({ files, scale, solid, i })));
+    const imgs = want.map((w) => scenePiece('forest', w.files[Math.floor(Math.random() * w.files.length)]));
+    if (imgs.some((x) => !x)) return null;
+    const out: Prop[] = [];
+    const boxes: Array<[number, number, number, number]> = [];
+    want.forEach((w, n) => {
+      const img = imgs[n]!;
+      const scale = w.scale * api.k;
+      const pw = img.naturalWidth * scale;
+      const ph = img.naturalHeight * scale;
+      for (let tries = 0; tries < 60; tries++) {
+        // Trees lean over the sides (one each side); the rest keep inside the field, all above Galladair.
+        const cx = w.files[0] === 'Tree1' ? (w.i % 2 ? 0.8 : 0.2) * api.W + (Math.random() - 0.5) * api.W * 0.2 : 40 + Math.random() * (api.W - 80);
+        const bottom = 150 + Math.random() * Math.max(10, api.H - 220 - 150);
+        const box: [number, number, number, number] = [cx - pw / 2, bottom - ph, pw, ph];
+        const pad = 12;
+        if (tries < 59 && boxes.some((b) => box[0] < b[0] + b[2] + pad && b[0] < box[0] + box[2] + pad && box[1] < b[1] + b[3] + pad && b[1] < box[1] + box[3] + pad)) continue;
+        boxes.push(box);
+        const m = maskOf(img);
+        out.push({ img, x: box[0], y: box[1], scale, solid: w.solid, foot: box[1] + m.foot * scale, mask: m.alpha });
+        break;
+      }
+    });
+    return out;
+  };
   let spawnIn = 0.6;
   let shotCd = 0;
   let aim = -Math.PI / 2;
@@ -61,16 +143,20 @@ export function huntingPractice(api: MinigameApi): MinigameGame {
     });
   };
 
+  /** Where a slime stands: its shadow's line, whatever the height of its hop. */
+  const slimeFoot = (s: Slime) => s.base + s.r * 0.6;
+
   return {
     tap(x, y) {
       if (shotCd > 0) return;
       const a = archer();
       aim = Math.max(-Math.PI + 0.08, Math.min(-0.08, Math.atan2(y - a.y, x - a.x)));
-      arrows.push({ x: a.x, y: a.y - 20, vx: Math.cos(aim) * ARROW_SPEED, vy: Math.sin(aim) * ARROW_SPEED });
+      arrows.push({ x: a.x, y: a.y - 20, vx: Math.cos(aim) * ARROW_SPEED, vy: Math.sin(aim) * ARROW_SPEED, stuck: 0 });
       shotCd = SHOT_COOLDOWN;
     },
     step(dt) {
       shotCd = Math.max(0, shotCd - dt);
+      if (!props) props = layout();
       spawnIn -= dt;
       if (spawnIn <= 0) {
         spawn();
@@ -84,27 +170,44 @@ export function huntingPractice(api: MinigameApi): MinigameGame {
           api.loseLife(s.vx > 0 ? api.W - 30 : 30, s.base);
         }
       }
+      // Arrows fly in short steps so none slips through a trunk. Whatever's drawn in front at the tip takes the
+      // arrow: a slime ahead of a tree is hit, one behind it is shielded and the arrow sticks in the bark.
       for (const a of arrows) {
-        a.x += a.vx * dt;
-        a.y += a.vy * dt;
-        for (const s of slimes) {
-          if (s.dead) continue;
-          const sy = s.base - Math.abs(Math.sin(s.phase)) * s.hop;
-          if (Math.hypot(a.x - s.x, a.y - sy) < s.r + 6) {
-            s.dead = true;
+        if (a.stuck) {
+          a.stuck += dt;
+          continue;
+        }
+        const steps = Math.ceil((Math.hypot(a.vx, a.vy) * dt) / 4);
+        for (let n = 0; n < steps && !a.stuck && a.y > -40; n++) {
+          a.x += (a.vx * dt) / steps;
+          a.y += (a.vy * dt) / steps;
+          let slime: Slime | null = null;
+          let sy = 0;
+          for (const s of slimes) {
+            if (s.dead) continue;
+            const y = s.base - Math.abs(Math.sin(s.phase)) * s.hop;
+            if (Math.hypot(a.x - s.x, a.y - y) < s.r + 6 && (!slime || s.base > slime.base)) {
+              slime = s;
+              sy = y;
+            }
+          }
+          let prop: Prop | null = null;
+          for (const p of props ?? []) if (p.solid && propHit(p, a.x, a.y) && (!prop || p.foot > prop.foot)) prop = p;
+          if (prop && (!slime || prop.foot > slimeFoot(slime))) a.stuck = 1e-6;
+          else if (slime) {
+            slime.dead = true;
             a.y = -9999;
-            api.addScore(s.golden ? 3 : 1, s.x, sy);
-            break;
+            api.addScore(slime.golden ? 3 : 1, slime.x, sy);
           }
         }
       }
-      for (let i = arrows.length - 1; i >= 0; i--) if (arrows[i].y < -40 || arrows[i].x < -40 || arrows[i].x > api.W + 40) arrows.splice(i, 1);
+      for (let i = arrows.length - 1; i >= 0; i--) if (arrows[i].stuck > 1.2 || arrows[i].y < -40 || arrows[i].x < -40 || arrows[i].x > api.W + 40) arrows.splice(i, 1);
       for (let i = slimes.length - 1; i >= 0; i--) if (slimes[i].dead) slimes.splice(i, 1);
     },
     draw(g) {
       g.imageSmoothingEnabled = false;
       const sImg = monsterSheetImage('slime-green');
-      for (const s of slimes) {
+      const drawSlime = (s: Slime) => {
         const lift = Math.abs(Math.sin(s.phase)) * s.hop;
         const y = s.base - lift;
         g.fillStyle = 'rgba(0,0,0,0.25)';
@@ -126,7 +229,13 @@ export function huntingPractice(api: MinigameApi): MinigameGame {
           g.arc(s.x, y, s.r, 0, Math.PI * 2);
           g.fill();
         }
-      }
+      };
+      // Slimes and the clearing's objects, farthest first, so a slime behind a tree is hidden by it.
+      const scene: Array<{ foot: number; draw: () => void }> = [
+        ...(props ?? []).map((p) => ({ foot: p.foot, draw: () => g.drawImage(p.img, p.x, p.y, p.img.naturalWidth * p.scale, p.img.naturalHeight * p.scale) })),
+        ...slimes.map((s) => ({ foot: slimeFoot(s), draw: () => drawSlime(s) })),
+      ].sort((a, b) => a.foot - b.foot);
+      for (const it of scene) it.draw();
       g.strokeStyle = '#f4e2b8';
       g.lineWidth = 3;
       for (const a of arrows) {

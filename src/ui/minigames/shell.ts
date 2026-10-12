@@ -1,5 +1,5 @@
 import type { AreaId } from '../../core/balance';
-import { areaBackground } from '../../render/backgrounds';
+import { areaBackground, type DecorOpts } from '../../render/backgrounds';
 import { gearImage } from '../../render/sprites';
 
 /**
@@ -37,6 +37,8 @@ export interface MinigameSpec {
   /** The intro card's text (HTML). */
   intro: string;
   area: AreaId;
+  /** A lighter background: only some of the area's decor (the game draws its own big objects). */
+  decor?: DecorOpts;
   /** Lives to start with (0: none shown; the game ends itself). */
   lives: number;
   best: number;
@@ -185,7 +187,7 @@ export function runMinigame(spec: MinigameSpec): void {
       t += dt;
       game.step(dt);
     }
-    if (!bg) bg = areaBackground(spec.area, Math.round(W), Math.round(H));
+    if (!bg) bg = areaBackground(spec.area, Math.round(W), Math.round(H), spec.decor);
     if (bg) g.drawImage(bg, 0, 0, W, H);
     else {
       g.fillStyle = '#2a3a2a';

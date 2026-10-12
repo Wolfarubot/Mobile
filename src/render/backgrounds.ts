@@ -384,12 +384,30 @@ function drawIsland(g: CanvasRenderingContext2D, img: HTMLImageElement, [fx, fy,
 }
 
 /** The painted background for an area at a view size, or null if it has none (or it's still loading). */
-export function areaBackground(area: AreaId, w: number, h: number): HTMLCanvasElement | null {
+/**
+ * Only the area's first `bands` decor bands, at `density` times as many pieces (a minigame that places its own
+ * big objects, so they can be layered and collide).
+ */
+export interface DecorOpts {
+  bands: number;
+  density: number;
+}
+
+/** A piece of an area's decor, once its scene has loaded (null before then or if it isn't one of the area's). */
+export function scenePiece(area: AreaId, file: string): HTMLImageElement | null {
+  const scene = SCENES[area];
+  if (!scene) return null;
+  load(area, scene);
+  const img = images.get(`${area}/${file}`);
+  return ready.has(area) && img && img.naturalWidth ? img : null;
+}
+
+export function areaBackground(area: AreaId, w: number, h: number, decor?: DecorOpts): HTMLCanvasElement | null {
   const scene = SCENES[area];
   if (!scene) return null;
   load(area, scene);
   if (!ready.has(area)) return null;
-  const key = `${area}:${w}x${h}`;
+  const key = `${area}:${w}x${h}${decor ? `:${decor.bands}:${decor.density}` : ''}`;
   const hit = cache.get(key);
   if (hit) return hit;
 
@@ -465,7 +483,7 @@ export function areaBackground(area: AreaId, w: number, h: number): HTMLCanvasEl
     // Biggest pieces first (the outer bands), then smaller ones fill the room that's left.
     for (const band of [...bands].sort((a, b) => b.from - a.from)) {
       const total = band.pieces.reduce((s, x) => s + x.weight, 0);
-      const want = Math.round(band.density * (band.onIslands ? tops.reduce((s, t) => s + t[2] * t[3], 0) / 10_000 : area10k));
+      const want = Math.round((decor?.density ?? 1) * band.density * (band.onIslands ? tops.reduce((s, t) => s + t[2] * t[3], 0) / 10_000 : area10k));
       for (let i = 0, tries = 0; i < want && tries < want * 30; tries++) {
         let x = r() * w;
         let y = r() * h;
@@ -496,13 +514,14 @@ export function areaBackground(area: AreaId, w: number, h: number): HTMLCanvasEl
     placed.sort((a, b) => a.y + a.img.naturalHeight - (b.y + b.img.naturalHeight));
     for (const it of placed) g.drawImage(it.img, it.x, it.y);
   };
-  scatter(scene.bands.filter((b) => b.under));
+  const bands = decor ? scene.bands.slice(0, decor.bands) : scene.bands;
+  scatter(bands.filter((b) => b.under));
   if (scene.islands) {
     const img = images.get(`${area}/${scene.islands.file}`);
     if (img && img.naturalWidth) for (const step of scene.islands.steps) tops.push(drawIsland(g, img, step, w, h));
   }
   if (scene.pools) drawPools(g, scene.pools, area, w, h, r, taken);
-  scatter(scene.bands.filter((b) => !b.under));
+  scatter(bands.filter((b) => !b.under));
   if (scene.vignette) {
     const v = g.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.3, w / 2, h / 2, Math.hypot(w, h) / 2);
     v.addColorStop(0, 'rgba(0,0,0,0)');

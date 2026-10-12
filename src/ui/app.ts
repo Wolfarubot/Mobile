@@ -2817,6 +2817,7 @@ export class AppUI {
       title: mg.title,
       intro: mg.intro + (bless ? `<p class="mg-bless">${blessingIntro(g, ev)}</p>` : ''),
       area: ev.area,
+      decor: mg.decor,
       lives: mg.lives,
       best,
       create: mg.create,
