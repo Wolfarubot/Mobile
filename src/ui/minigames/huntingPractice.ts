@@ -18,7 +18,7 @@ export const HP_INTRO = `<p>Slimes hop across the clearing, faster and faster. <
 
 /** The round's difficulty after `t` seconds: slime speed (px/s at a 400px-wide screen) and seconds between slimes. */
 export function hpDifficulty(t: number): { speed: number; gap: number } {
-  return { speed: Math.min(430, 70 + 6.5 * t), gap: Math.max(0.42, 1.5 - 0.022 * t) };
+  return { speed: Math.min(430, 40 + 6 * t), gap: Math.max(0.42, 1.7 - 0.022 * t) };
 }
 
 interface Slime {
@@ -46,7 +46,7 @@ export function huntingPractice(api: MinigameApi): MinigameGame {
     const { speed } = hpDifficulty(api.t);
     const fromLeft = Math.random() < 0.5;
     const golden = Math.random() < GOLDEN_CHANCE;
-    const r = (golden ? 15 : 18) * api.k;
+    const r = (golden ? 21 : 25) * api.k;
     const top = 90;
     const bottom = api.H - 190;
     slimes.push({
@@ -147,22 +147,23 @@ export function huntingPractice(api: MinigameApi): MinigameGame {
       const ar = archer();
       g.fillStyle = 'rgba(0,0,0,0.3)';
       g.beginPath();
-      g.ellipse(ar.x, ar.y + 30, 26, 9, 0, 0, Math.PI * 2);
+      g.ellipse(ar.x, ar.y + 30, 20, 7, 0, 0, Math.PI * 2);
       g.fill();
+      // The bow first, so Galladair stands in front of it.
+      g.save();
+      g.translate(ar.x, ar.y - 4);
+      g.rotate(aim + Math.PI / 4);
+      api.icon('weapons/031', 0, 0, 58);
+      g.restore();
       const hImg = hunterSheetImage('ranger');
       if (hImg && archerSheet) {
         const F = archerSheet.frame;
         const row = 3; // facing up
         const col = Math.floor(api.t * 8) % archerSheet.frames[row];
         const [bx, by, bw, bh] = archerSheet.box;
-        const k = 72 / Math.max(bw, bh);
+        const k = 52 / Math.max(bw, bh);
         g.drawImage(hImg, col * F, row * F, F, F, ar.x - (bx + bw / 2) * k, ar.y + 32 - (by + bh) * k, F * k, F * k);
       }
-      g.save();
-      g.translate(ar.x, ar.y - 10);
-      g.rotate(aim + Math.PI / 4);
-      api.icon('weapons/031', 0, 0, 36);
-      g.restore();
     },
   };
 }
