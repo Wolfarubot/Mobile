@@ -1633,10 +1633,10 @@ export const HUNTERS: HunterDef[] = [
     slots: [{ kind: 'magic', label: 'Magic weapon' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
   },
   {
-    id: 'frostbreaker', name: 'Bjorn', title: 'Frostbreaker', icon: '🔨', color: '#8fdcff', area: 'peaks', recruitCost: 2.5e19, bane: { archetype: 'elemental', mult: 3 },
+    id: 'frostbreaker', name: 'Okrin', title: 'Frostbreaker', icon: '🔨', color: '#8fdcff', area: 'peaks', recruitCost: 2.5e19, bane: { archetype: 'elemental', mult: 3 },
     unlock: { event: 'guardian-peaks', times: 1 },
     ascendedTitle: 'Winterking',
-    story: 'Bjorn climbed the Frost Peaks to hunt the thing that rules them. Defeat the Peaks\' Guardian, and he\'ll bring his hammer to your side.',
+    story: 'Okrin climbed the Frost Peaks to hunt the thing that rules them. Defeat the Peaks\' Guardian, and he\'ll bring his hammer to your side.',
     ability: 'Deals triple damage to Elementals.',
   },
 ];
