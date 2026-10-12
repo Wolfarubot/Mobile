@@ -22,7 +22,7 @@ An incremental (idle) survivor game for Android, with iOS to follow. Your Hunter
 
 ### The Hunter Guild
 
-Hunters become available through their home area's events, then cost gold to recruit. A new recruit joins you in your current area (if it has room). The Hunters tab shows your Hunter, everyone you've recruited, and only the next 3 still to come.
+Hunters become available through their home area's events, then cost gold to recruit. A new recruit joins you in your current area (if it has room). The Hunters tab is a **3-wide grid** of Hunter icons: your Hunter, everyone you've recruited, and only the next 3 still to come. A tile's border glows gold when you have the gold to train that Hunter (or to recruit one who's available), and unspent skill points show on its corner. Tap a tile to pin that Hunter's card to the bottom of the menu; tap the card for their full view.
 
 **Guild Hunters fight with their weapons**, exactly as your Hunter does: a dagger stabs in bursts, a sword sweeps, a spear thrusts, a bow fires arrows, a tome summons, and so on (unarmed, they fire a basic bolt). Their weapon sets their attack, damage type and status effects. What sets each one apart is their **signature ability** below, used alongside their weapon's attacks.
 

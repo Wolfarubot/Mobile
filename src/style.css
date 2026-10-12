@@ -4298,3 +4298,93 @@ body.ui-parchment .mat {
   padding: 1px 2px;
   overflow-wrap: anywhere;
 }
+
+/* ---- Hunters tab: grid of Hunter icons, the selected one's card pinned below ---- */
+.hunter-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.hunter-tile {
+  --hc: var(--c2);
+  position: relative;
+  aspect-ratio: 4 / 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  background: var(--card);
+  background-image: linear-gradient(180deg, color-mix(in srgb, var(--hc) 35%, transparent), transparent 70%);
+  border: 2px solid var(--c0);
+  box-shadow: 3px 3px 0 var(--c0);
+  color: var(--text);
+  padding: 6px 4px;
+  min-width: 0;
+}
+.hunter-tile i {
+  font-style: normal;
+  font-size: 34px;
+  line-height: 1;
+}
+.hunter-tile i img.ei {
+  width: 38px;
+  height: 38px;
+  vertical-align: middle;
+}
+.hunter-tile .ht-name {
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.1;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hunter-tile .ht-lv {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.hunter-tile .sp-dot {
+  top: -7px;
+  right: -7px;
+}
+.hunter-tile.selected {
+  outline: 3px solid var(--c3);
+  outline-offset: 2px;
+}
+.hunter-tile.locked {
+  opacity: 0.55;
+}
+.hunter-tile.locked i {
+  filter: grayscale(1);
+}
+/* Enough gold to train (or recruit): the border glows. */
+.hunter-tile.ready {
+  border-color: var(--gold);
+  animation: train-glow 1.4s ease-in-out infinite;
+}
+@keyframes train-glow {
+  0%,
+  100% {
+    box-shadow: 3px 3px 0 var(--c0), 0 0 4px 1px color-mix(in srgb, var(--gold) 55%, transparent);
+  }
+  50% {
+    box-shadow: 3px 3px 0 var(--c0), 0 0 12px 4px var(--gold);
+  }
+}
+.hunter-dock {
+  position: sticky;
+  bottom: calc(-10px - var(--safe-bottom));
+  z-index: 3;
+  margin: 0 -10px calc(-10px - var(--safe-bottom));
+  padding: 8px 10px calc(8px + var(--safe-bottom));
+  background: var(--c0);
+  box-shadow: 0 -4px 10px -4px rgba(0, 0, 0, 0.6);
+}
+.hunter-dock .hunter-card {
+  margin: 0;
+  content-visibility: visible;
+}

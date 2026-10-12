@@ -241,6 +241,8 @@ export class AppUI {
   private monsterSub: 'stats' | 'evolution' = 'stats';
   /** The area selected in the Areas tab. */
   private selectedArea: AreaId | null = null;
+  /** The Hunter whose card is shown under the Hunters grid. */
+  private selectedHunter: Wearer = 'main';
   /** The last area tile tapped, for double-taps (tiles are rebuilt on each tap). */
   private areaTap: { id: AreaId | null; at: number } = { id: null, at: 0 };
   /** The menu raised to full screen over the battlefield. */
@@ -366,16 +368,59 @@ export class AppUI {
     return amounts;
   }
 
+  /**
+   * Hunters tab: a 3-wide grid of Hunter icons (you, your recruits, then the next few to come). A border glows
+   * when you can afford to train (or recruit) them, and unspent skill points show on the corner. Selecting one
+   * pins their card to the bottom of the menu; tap the card for their full view.
+   */
   private buildHunters(): void {
     const g = this.game;
-    // Stays pinned to the top of the panel while the cards scroll under it.
+    // Stays pinned to the top of the panel while the grid scrolls under it.
     this.panel.appendChild(this.amountsBar('sticky-amounts'));
-
-    this.panel.appendChild(this.hunterCard('main'));
-    // Recruited Hunters, then only the next few still to come (unlocked by their area's events).
     const recruited = HUNTERS.filter((h) => g.state.hunters[h.id].recruited);
     const upcoming = HUNTERS.filter((h) => !g.state.hunters[h.id].recruited).slice(0, NEXT_HUNTERS_SHOWN);
-    for (const h of [...recruited, ...upcoming]) this.panel.appendChild(this.hunterCard(h.id));
+    const list: Wearer[] = ['main', ...recruited.map((h) => h.id), ...upcoming.map((h) => h.id)];
+    if (!list.includes(this.selectedHunter)) this.selectedHunter = 'main';
+    const grid = el('div', 'hunter-grid');
+    const tiles = list.map((who) => {
+      const def = who === 'main' ? null : hunterDef(who);
+      const tile = el('button', 'hunter-tile') as HTMLButtonElement;
+      tile.style.setProperty('--hc', def ? def.color : '#7c5cff');
+      tile.innerHTML = `<i>${wearerIcon(who)}</i><span class="ht-name">${def ? def.name : esc(mainName())}</span><small class="ht-lv"></small><b class="sp-dot hidden" title="Unspent skill points"></b>`;
+      tile.classList.toggle('selected', who === this.selectedHunter);
+      tile.addEventListener('click', () => {
+        if (this.selectedHunter === who) return;
+        this.selectedHunter = who;
+        this.setTab('hunters', true);
+      });
+      grid.appendChild(tile);
+      return { who, def, tile, lv: $('.ht-lv', tile), dot: $('.sp-dot', tile) };
+    });
+    this.refreshers.push(() => {
+      for (const { who, def, tile, lv, dot } of tiles) {
+        const joined = !def || g.state.hunters[def.id].recruited;
+        const open = joined || g.hunterAvailable(def!.id);
+        tile.classList.toggle('locked', !open);
+        let ready = false;
+        if (joined) {
+          const p = g.trainPurchase(who);
+          ready = g.trainUnlocked && p.count > 0 && g.state.gold >= p.cost;
+          lv.textContent = `Lv ${g.levelOf(who)}`;
+          const points = g.skillPoints(who);
+          dot.textContent = String(points);
+          dot.classList.toggle('hidden', points <= 0);
+        } else {
+          ready = g.canRecruit(def!.id);
+          lv.textContent = open ? 'Recruit' : '🔒';
+        }
+        tile.classList.toggle('ready', ready);
+      }
+    });
+    this.panel.appendChild(grid);
+    // The selected Hunter's card, pinned to the bottom so it's in reach wherever the grid is scrolled.
+    const dock = el('div', 'hunter-dock');
+    dock.appendChild(this.hunterCard(this.selectedHunter));
+    this.panel.appendChild(dock);
   }
 
   /** A Train button and a progress bar toward the next level, kept up to date. `compact` is the card's version. */
