@@ -4549,3 +4549,9 @@ body.ui-parchment .tabs button.active {
     0 1px 0 #000,
     1px 1px 0 #000 !important;
 }
+/* The backpack art fills more of its icon than the others: draw it a little smaller (inside the same box, so
+   the label still overlaps it the same way), clear of the bar's top. */
+.tabs button[data-tab='inventory'] i img.ei {
+  box-sizing: border-box;
+  padding: 0.2em 0.11em 0.02em;
+}
