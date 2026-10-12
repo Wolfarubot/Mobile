@@ -95,6 +95,7 @@ import { MATERIAL_SPRITES } from '../core/materialSprites';
 import { GEAR_SPRITES } from '../core/gearSprites';
 import { NODE_SPRITES } from '../core/nodeSprites';
 import { hunterIconHtml } from './hunterIcons';
+import { playHuntingPractice } from './minigames/huntingPractice';
 import { applyAreaTheme, applyUiStyle } from './theme';
 import { playCutscene, TIME_EATER_CUTSCENE } from './cutscene';
 import { applyFont, fontDef, FONTS } from './fonts';
@@ -2753,7 +2754,8 @@ export class AppUI {
     const btn = $<HTMLButtonElement>('.buy', card);
     const status = $('.ev-status', card);
     btn.addEventListener('click', () => {
-      if (g.startEvent(ev.id)) this.refresh();
+      if (ev.kind === 'minigame') this.playMinigame(ev);
+      else if (g.startEvent(ev.id)) this.refresh();
     });
     this.panel.appendChild(card);
     this.refreshers.push(() => {
@@ -2768,8 +2770,19 @@ export class AppUI {
       const rewards: string[] = [];
       if (ev.kind === 'guardian') rewards.push(next && !g.isAreaUnlocked(next.id) ? `unlocks ${next.name}` : 'a Guardian bounty of gold and materials');
       for (const h of g.huntersUnlockedBy(ev.id)) rewards.push(`${wearerIcon(h)} ${hunterDef(h).name} the ${hunterDef(h).title} joins`);
+      if (ev.kind === 'minigame') rewards.push(`per 10 points: ${rewardText(g.minigameReward(ev.id, 10))}${g.state.events[ev.id]?.best ? ` · best ${g.state.events[ev.id].best}` : ''}`);
       const extra = rewards.length ? `Reward: ${rewards.join(' · ')}` : '';
-      if (!unlocked) {
+      if (!unlocked && ev.kind === 'minigame') {
+        const h = hunterDef(ev.hunter!);
+        status.innerHTML = `<small>🔒 Recruit ${wearerIcon(h.id)} ${h.name} the ${h.title} to play</small>`;
+        btn.innerHTML = '🔒';
+        btn.disabled = true;
+      } else if (!unlocked && g.eventWaitingOn(ev.id) && kills >= ev.unlockKills) {
+        const w = g.eventWaitingOn(ev.id)!;
+        status.innerHTML = `<small>🔒 Survive the ${w.icon} ${w.name} first</small>`;
+        btn.innerHTML = '🔒';
+        btn.disabled = true;
+      } else if (!unlocked) {
         status.innerHTML = `<div class="mastery"><i style="width:${Math.min(1, kills / ev.unlockKills) * 100}%"></i><span>🔒 Slay ${fmt(kills)} / ${fmt(ev.unlockKills)} ${unlockNoun(ev)} here</span></div>`;
         btn.innerHTML = '🔒';
         btn.disabled = true;
@@ -2784,10 +2797,28 @@ export class AppUI {
         btn.disabled = true;
       } else {
         status.innerHTML = extra ? `<small>${extra}</small>` : '';
-        btn.innerHTML = g.eventRunning ? 'Busy<small>another event</small>' : 'Start';
+        btn.innerHTML = ev.kind === 'minigame' ? 'Play' : g.eventRunning ? 'Busy<small>another event</small>' : 'Start';
         btn.disabled = !g.eventReady(ev.id);
       }
     });
+  }
+
+  /** Starts a minigame on its own screen; at the end it pays out and shows what you earned. */
+  private playMinigame(ev: EventDef): void {
+    const g = this.game;
+    if (!g.startEvent(ev.id)) return;
+    this.refresh();
+    const best = g.state.events[ev.id]?.best ?? 0;
+    if (ev.minigame === 'huntingPractice')
+      playHuntingPractice({
+        best,
+        onEnd: (score) => {
+          const r = g.finishMinigame(ev.id, score);
+          const record = score > best && best > 0 ? '<p class="mg-best">New best!</p>' : '';
+          return `${record}<p>${score > 0 ? rewardText(r) : 'No rewards this time.'}</p>`;
+        },
+        onClose: () => this.refresh(),
+      });
   }
 
   /** The first time the Time Eater falls: the Hunters' attempt to kill it, then the Void Rift is conquered. */
@@ -2811,7 +2842,7 @@ export class AppUI {
   /** Tapping the greyed-out Areas tab explains how to open it. */
   private showAreasLocked(): void {
     this.showModal(
-      `<h2>🔒 Areas</h2><p>Beat the <b>${areaDef('forest').name} Guardian</b> to unlock the ${areaDef('glade').name}, and the Areas tab with it.</p><p>The Guardian Challenge opens in Events once you've slain ${fmt(areaDef('forest').mastery)} monsters in the ${areaDef('forest').name}.</p>`,
+      `<h2>🔒 Areas</h2><p>Beat the <b>${areaDef('forest').name} Guardian</b> to unlock the ${areaDef('glade').name}, and the Areas tab with it.</p><p>The Guardian Challenge opens in Events once you've slain ${fmt(areaDef('forest').mastery)} monsters in the ${areaDef('forest').name} and survived its Slime Swarm.</p>`,
       [{ label: 'OK' }],
     );
   }
@@ -3654,6 +3685,11 @@ const weaponLine = (gd: GearDef, stars = 1): string =>
   (gd.effect ? `<p class="weapon-line gear-effect">✨ ${describeEffect(gd.effect, stars)}${'base' in gd.effect ? ' <small>(own damage, raised by your bonuses, not your weapon)</small>' : ''}</p>` : '');
 
 /** What counts toward unlocking an event: its archetype ("slimes") or any monster. */
+/** A minigame's rewards in words: gold, then each material. */
+function rewardText(r: { gold: number; materials: Partial<Record<MaterialId, number>> }): string {
+  return [`🪙 ${fmt(r.gold)}`, ...Object.entries(r.materials).map(([m, n]) => `${gemHtml(m as MaterialId)} ${fmt(n!)} ${materialDef(m as MaterialId).name}`)].join(' · ');
+}
+
 const unlockNoun = (ev: EventDef): string => (ev.unlockArchetype ? `${ARCHETYPES[ev.unlockArchetype].name.toLowerCase()}s` : 'monsters');
 
 /** How many not-yet-recruited Hunters the Hunters tab shows. */

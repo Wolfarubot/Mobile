@@ -4381,3 +4381,78 @@ body.ui-parchment .mat {
   margin: 0;
   content-visibility: visible;
 }
+
+/* ---- Minigames: full-screen, over everything ---- */
+.minigame {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: #1d2a1a;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.minigame canvas {
+  display: block;
+  touch-action: none;
+}
+.mg-hud {
+  position: absolute;
+  top: calc(8px + var(--safe-top, 0px));
+  left: 10px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  pointer-events: none;
+  color: #fff;
+  font-weight: 900;
+  text-shadow: 0 2px 0 #000;
+}
+.mg-score {
+  font-size: 28px;
+  min-width: 2ch;
+}
+.mg-lives {
+  font-size: 18px;
+  letter-spacing: 2px;
+}
+.mg-quit {
+  margin-left: auto;
+  pointer-events: auto;
+  padding: 6px 12px;
+}
+.mg-intro {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.45);
+  padding: 16px;
+}
+.mg-card {
+  max-width: 340px;
+  width: 100%;
+  background: var(--card);
+  color: var(--text);
+  border: 3px solid var(--c0);
+  box-shadow: 4px 4px 0 var(--c0);
+  padding: 16px;
+  text-align: center;
+  display: grid;
+  gap: 8px;
+}
+.mg-card h2 {
+  margin: 0;
+}
+.mg-card p {
+  margin: 0;
+}
+.mg-final {
+  font-size: 28px;
+  font-weight: 900;
+}
+.mg-best {
+  color: var(--gold);
+  font-weight: 800;
+}

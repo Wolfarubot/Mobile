@@ -59,6 +59,7 @@ import {
   CRIT_MULT,
   enemyDef,
   eventDef,
+  type EventDef,
   EVENTS,
   enemyUnlockCost,
   MAX_STARS,
@@ -1133,10 +1134,24 @@ export class Game {
 
   // ---- Events ----
 
-  /** Unlocked once enough monsters have been slain in its area (and the area is open). */
+  /**
+   * Unlocked once enough monsters have been slain in its area (and the area is open). A Guardian Challenge also
+   * waits for its area's first event to be survived once (unless that Guardian has been beaten before), and a
+   * minigame opens once the Hunter who stars in it has been recruited.
+   */
   eventUnlocked(id: string): boolean {
     const def = EVENTS.find((e) => e.id === id); // e.g. the final area has no Guardian Challenge
-    return !!def && this.isAreaUnlocked(def.area) && this.eventProgress(id) >= def.unlockKills;
+    if (!def || !this.isAreaUnlocked(def.area)) return false;
+    if (def.kind === 'minigame') return !!def.hunter && this.state.hunters[def.hunter].recruited;
+    if (def.requires && this.eventCompletions(def.requires.event) < def.requires.times && this.eventCompletions(id) === 0) return false;
+    return this.eventProgress(id) >= def.unlockKills;
+  }
+
+  /** What still stands between an event and unlocking: the event it waits on, if its kills are done. */
+  eventWaitingOn(id: string): EventDef | null {
+    const def = EVENTS.find((e) => e.id === id);
+    if (!def?.requires || this.eventCompletions(id) > 0 || this.eventCompletions(def.requires.event) >= def.requires.times) return null;
+    return eventDef(def.requires.event);
   }
 
   /** Kills counting toward unlocking an event: every kill in its area, or only its archetype's (e.g. slimes). */
@@ -1157,15 +1172,24 @@ export class Game {
   }
 
   eventReady(id: string): boolean {
-    return this.eventUnlocked(id) && this.eventCooldown(id) <= 0 && !this.eventRunning;
+    // Minigames are played on their own screen, so they don't wait for (or block) the battlefield's events.
+    const mini = eventDef(id).kind === 'minigame';
+    return this.eventUnlocked(id) && this.eventCooldown(id) <= 0 && (mini || !this.eventRunning);
   }
 
   /** Starts an event, travelling to its area first. Its cooldown starts now. */
   startEvent(id: string): boolean {
     if (!this.eventReady(id)) return false;
     const def = eventDef(id);
-    if (def.area !== this.state.area) this.travel(def.area);
     const st = this.state.events[id];
+    if (def.kind === 'minigame') {
+      // Played on its own screen; its rewards come from finishMinigame.
+      st.cooldown = def.cooldown;
+      st.runs++;
+      this.emit({ type: 'eventStart', event: id });
+      return true;
+    }
+    if (def.area !== this.state.area) this.travel(def.area);
     st.cooldown = def.cooldown;
     st.runs++;
     if (def.kind === 'guardian') {
@@ -1185,6 +1209,35 @@ export class Game {
     this.activeEvent = null;
     if (completed) this.completeEvent(id);
     this.emit({ type: 'eventEnd', event: id });
+  }
+
+  /** A minigame's rewards for a score: gold (Guardian bounties of the furthest area you've reached) and materials. */
+  minigameReward(id: string, score: number): { gold: number; materials: Partial<Record<MaterialId, number>> } {
+    const def = eventDef(id);
+    const r = def.rewards;
+    if (!r || score <= 0) return { gold: 0, materials: {} };
+    // Gold scales with the furthest area you've reached, so an early area's minigame stays worth playing.
+    const top = this.unlockedAreas[this.unlockedAreas.length - 1];
+    const gold = Math.max(areaDef(def.area).gold, areaDef(top).gold) * GUARDIAN_GOLD_MULT * this.goldMult * r.gold * score;
+    const materials: Partial<Record<MaterialId, number>> = {};
+    for (const m of r.materials) {
+      const n = Math.floor(score / m.per);
+      if (n > 0) materials[m.material] = n;
+    }
+    return { gold, materials };
+  }
+
+  /** A minigame ended with `score`: pays out its rewards and counts as completed. */
+  finishMinigame(id: string, score: number): { gold: number; materials: Partial<Record<MaterialId, number>> } {
+    const reward = this.minigameReward(id, score);
+    const s = this.state;
+    s.gold += reward.gold;
+    s.stats.totalGold += reward.gold;
+    for (const [m, n] of Object.entries(reward.materials)) this.gainMaterial(m as MaterialId, n!);
+    if (score > 0) this.completeEvent(id);
+    const st = s.events[id];
+    if (st) st.best = Math.max(st.best ?? 0, score);
+    return reward;
   }
 
   private completeEvent(id: string): void {

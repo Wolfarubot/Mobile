@@ -26,6 +26,7 @@ import {
   GEAR,
   MATERIALS,
   GUARDIAN_TIME,
+  GUARDIAN_GOLD_MULT,
   hunterDef,
   HUNTERS,
   MAIN_RANGE,
@@ -166,6 +167,11 @@ describe('Areas', () => {
     const g = new Game(newGame(0), noCrit);
     expect(g.guardianReady).toBe(false);
     for (let i = 0; i < areaDef('forest').mastery; i++) g.registerKill('greenSlime', false);
+    // The Guardian waits for the area's first event (the Slime Swarm) to be survived once.
+    expect(g.guardianReady).toBe(false);
+    expect(g.eventWaitingOn('guardian-forest')?.id).toBe('slimeSwarm');
+    expect(g.startEvent('slimeSwarm')).toBe(true);
+    g.tick(eventDef('slimeSwarm').duration + 0.1);
     expect(g.guardianReady).toBe(true);
     expect(g.challengeGuardian()).toBe(true);
     g.bossSpawned();
@@ -184,6 +190,7 @@ describe('Areas', () => {
   it('a Guardian that times out just leaves; you can try again after the cooldown', () => {
     const s = newGame(0);
     s.areas.forest.kills = areaDef('forest').mastery;
+    s.events.slimeSwarm.completed = 1;
     const g = new Game(s, noCrit);
     g.challengeGuardian();
     g.bossSpawned();
@@ -218,6 +225,7 @@ describe('Areas', () => {
     const events: string[] = [];
     g.on((e) => events.push(e.type));
     g.state.areas.rift.kills = AREAS[AREAS.length - 1].mastery;
+    g.state.events.shadowTide.completed = 1;
     expect(g.challengeGuardian()).toBe(true);
     g.bossSpawned();
     g.registerKill('timeEater', true);
@@ -230,6 +238,7 @@ describe('Areas', () => {
     for (const a of AREAS) g.state.areas[a.id].unlocked = true;
     g.travel('rift');
     g.state.areas.rift.kills = AREAS[AREAS.length - 1].mastery;
+    g.state.events.shadowTide.completed = 1;
     g.challengeGuardian();
     g.bossSpawned();
     const events: string[] = [];
@@ -2520,13 +2529,57 @@ describe('Offline', () => {
 });
 
 describe('Events', () => {
-  it('the Events tab opens once the first Guardian Challenge unlocks, and stays open', () => {
+  it('every area: first a swarm of its own monsters, then its Guardian (waiting on that swarm), then its minigame', () => {
+    for (const a of AREAS) {
+      const evs = EVENTS.filter((e) => e.area === a.id);
+      expect(evs[0].kind, a.id).toBe('swarm');
+      // The swarm's monsters live in this area, and its first one is there from the start.
+      expect(ENEMIES.some((e) => e.area === a.id && e.archetype === evs[0].archetype && e.unlock === 0), a.id).toBe(true);
+      expect(evs[1].kind, a.id).toBe('guardian');
+      expect(evs[1].requires, a.id).toEqual({ event: evs[0].id, times: 1 });
+      expect(evs[0].unlockKills, a.id).toBeLessThan(evs[1].unlockKills);
+      if (evs[2]) expect(evs[2].kind, a.id).toBe('minigame');
+    }
+  });
+
+  it("Galladair's Hunting Practice opens with Galladair, pays Guardian bounties of gold and Royal Slime, and keeps a best score", () => {
+    const g = new Game(newGame(0), noCrit);
+    const ev = eventDef('huntingPractice');
+    expect(ev).toMatchObject({ area: 'forest', kind: 'minigame', hunter: 'ranger' });
+    expect(g.eventUnlocked('huntingPractice')).toBe(false);
+    g.state.hunters.ranger.recruited = true;
+    expect(g.eventUnlocked('huntingPractice')).toBe(true);
+    // 10 points: two Guardian bounties of gold (from the furthest area reached); Royal Slime every 4 points.
+    const r = g.minigameReward('huntingPractice', 10);
+    expect(r.gold).toBeCloseTo(2 * areaDef('forest').gold * GUARDIAN_GOLD_MULT * g.goldMult);
+    g.state.areas.graveyard.unlocked = true;
+    expect(g.minigameReward('huntingPractice', 10).gold).toBeCloseTo(2 * areaDef('graveyard').gold * GUARDIAN_GOLD_MULT * g.goldMult);
+    g.state.areas.graveyard.unlocked = false;
+    expect(r.materials.royalSlime).toBe(2);
+    expect(g.minigameReward('huntingPractice', 40).materials.royalSlime).toBe(10); // a whole Guardian's worth
+    // Played on its own screen: it doesn't need (or block) the battlefield's events.
+    g.state.bestiary.greenSlime.kills = 1000;
+    expect(g.startEvent('slimeSwarm')).toBe(true);
+    expect(g.startEvent('huntingPractice')).toBe(true);
+    expect(g.activeEvent?.id).toBe('slimeSwarm');
+    const gold = g.state.gold;
+    const royal = g.state.materials.royalSlime;
+    g.finishMinigame('huntingPractice', 23);
+    expect(g.state.gold - gold).toBeCloseTo(r.gold * 2.3);
+    expect(g.state.materials.royalSlime - royal).toBe(5);
+    expect(g.state.events.huntingPractice).toMatchObject({ completed: 1, best: 23 });
+    expect(g.eventReady('huntingPractice')).toBe(false); // on its cooldown
+    g.finishMinigame('huntingPractice', 9);
+    expect(g.state.events.huntingPractice.best).toBe(23);
+  });
+
+  it('the Events tab opens once the first event (the Slime Swarm) unlocks, and stays open', () => {
     const g = new Game(newGame(0), noCrit);
     expect(g.eventsOpen).toBe(false);
-    g.state.areas.forest.kills = areaDef('forest').mastery;
+    g.state.bestiary.greenSlime.kills = eventDef('slimeSwarm').unlockKills;
     expect(g.eventsOpen).toBe(true);
     g.state.flags.eventsIntro = true;
-    g.state.areas.forest.kills = 0;
+    g.state.bestiary.greenSlime.kills = 0;
     expect(g.eventsOpen).toBe(true);
   });
 
@@ -2539,6 +2592,8 @@ describe('Events', () => {
     const g = new Game(newGame(0), noCrit);
     expect(g.eventUnlocked('guardian-forest')).toBe(false);
     g.state.areas.forest.kills = areaDef('forest').mastery;
+    expect(g.eventUnlocked('guardian-forest')).toBe(false); // the Slime Swarm comes first
+    g.state.events.slimeSwarm.completed = 1;
     expect(g.eventUnlocked('guardian-forest')).toBe(true);
     expect(g.eventReady('guardian-graveyard')).toBe(false); // graveyard still locked
     // The final area has no Guardian.
@@ -2551,6 +2606,7 @@ describe('Events', () => {
   it('starting an event puts it on cooldown, which also runs down while away', () => {
     const s = newGame(0);
     s.areas.forest.kills = areaDef('forest').mastery;
+    s.events.slimeSwarm.completed = 1;
     const g = new Game(s, noCrit);
     expect(g.startEvent('guardian-forest')).toBe(true);
     expect(g.guardianActive).toBe(true);
@@ -2580,7 +2636,7 @@ describe('Events', () => {
     const def = eventDef('slimeSwarm');
     expect(def.area).toBe('forest');
     // It unlocks at 1,000 slimes slain in the Forest (other monsters don't count), before the Guardian.
-    expect(EVENTS.filter((e) => e.area === 'forest').map((e) => e.id)).toEqual(['slimeSwarm', 'guardian-forest']);
+    expect(EVENTS.filter((e) => e.area === 'forest').map((e) => e.id)).toEqual(['slimeSwarm', 'guardian-forest', 'huntingPractice']);
     expect(def.unlockKills).toBe(1000);
     g.state.areas.forest.kills = 1e6;
     g.state.bestiary.greenSlime.kills = def.unlockKills - 1;

@@ -42,6 +42,8 @@ export interface EventState {
   cooldown: number;
   runs: number;
   completed: number;
+  /** A minigame's best score. */
+  best?: number;
 }
 
 export type BuyAmount = 1 | 10 | 100 | 'max';
@@ -490,7 +492,7 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
         const at = AREAS.findIndex((a) => a.id === e.area);
         const beaten = e.kind === 'guardian' && AREAS.some((a, i) => i > at && (data.areas as Record<string, { unlocked?: boolean }> | undefined)?.[a.id]?.unlocked);
         const completed = typeof saved?.completed === 'number' ? num(saved.completed) : beaten ? 1 : 0;
-        return [e.id, { cooldown: num(saved?.cooldown), runs: num(saved?.runs), completed }];
+        return [e.id, { cooldown: num(saved?.cooldown), runs: num(saved?.runs), completed, ...(num(saved?.best) > 0 ? { best: num(saved?.best) } : {}) }];
       }),
     ),
     version: SAVE_VERSION,

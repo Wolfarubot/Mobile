@@ -38,7 +38,10 @@ export const OFFLINE_EFFICIENCY = 0.5;
 export const OFFLINE_POPUP_SEC = 15 * 60;
 
 // ---- Events: timed challenges per area, unlocked by slaying monsters there, then on a cooldown ----
-export type EventKind = 'guardian' | 'swarm';
+export type EventKind = 'guardian' | 'swarm' | 'minigame';
+
+/** Minigames: hands-on events played on their own screen, one per area with a Hunter from that area. */
+export type MinigameId = 'huntingPractice';
 
 export interface EventDef {
   id: string;
@@ -61,6 +64,17 @@ export interface EventDef {
   speedMult?: number;
   /** Swarm: spawns per second a monster gets at least, if its multiplied rate is lower. */
   minSpawn?: Partial<Record<EnemyId, number>>;
+  /** Also needs another event completed this many times first (a Guardian waits on its area's first event). */
+  requires?: { event: string; times: number };
+  /** Minigame: which one, and the Hunter who stars in it (it opens once they're recruited). */
+  minigame?: MinigameId;
+  hunter?: HunterId;
+  /**
+   * Minigame rewards for a score: `gold` Guardian bounties per point (the furthest area reached's gold ×
+   * GUARDIAN_GOLD_MULT), and
+   * of each material, `per` points earn one.
+   */
+  rewards?: { gold: number; materials: Array<{ material: MaterialId; per: number }> };
 }
 
 export const GUARDIAN_COOLDOWN = 5 * 60;
@@ -2777,26 +2791,63 @@ export function starsFromLevel(levels: number[], level: number, recipe: Partial<
   return { stars, refund: level > levels[stars] ? stepsCost(recipe, growth, levels[stars], level) : {} };
 }
 
-export const EVENTS: EventDef[] = [
-  // Listed in the order they unlock: the Slime Swarm comes first in the Woods.
-  {
-    id: 'slimeSwarm',
-    area: 'forest',
-    kind: 'swarm',
-    name: 'Slime Swarm',
-    icon: '🟢',
-    blurb: 'Slimes flood the forest for 60s: twice as many (at least 10 Green Slimes a second), twice as fast.',
-    unlockKills: 1000,
-    unlockArchetype: 'slime',
-    cooldown: 15 * 60,
-    duration: 60,
-    archetype: 'slime',
-    spawnMult: 2,
-    speedMult: 2,
-    minSpawn: { greenSlime: 10 },
+/**
+ * Each area's first event: a swarm of its signature monsters. Only monsters of that archetype spawn, twice as
+ * many and twice as fast (at least 10 a second of its first monster). It unlocks after slaying that many of
+ * them there, and its Guardian Challenge waits until it has been survived once.
+ */
+const AREA_SWARMS: Record<AreaId, { id: string; name: string; icon: string; archetype: Archetype; blurb: string; unlockKills: number }> = {
+  forest: { id: 'slimeSwarm', name: 'Slime Swarm', icon: '🟢', archetype: 'slime', blurb: 'Slimes flood the forest for 60s', unlockKills: 1000 },
+  glade: { id: 'sporeBloom', name: 'Spore Bloom', icon: '🍄', archetype: 'plant', blurb: 'The grove blooms: walking mushrooms and man traps pour in for 60s', unlockKills: 15_000 },
+  graveyard: { id: 'nightOfTheDead', name: 'Night of the Dead', icon: '💀', archetype: 'undead', blurb: 'The graves empty for 60s: skeletons, zombies and wraiths', unlockKills: 70_000 },
+  crypt: { id: 'carrionFlock', name: 'Carrion Flock', icon: '🐦', archetype: 'beast', blurb: 'A black cloud of carrion crows descends for 60s', unlockKills: 52_000 },
+  depths: { id: 'gloomSwarm', name: 'Gloom Swarm', icon: '🌑', archetype: 'beast', blurb: 'Gloomcrawlers and duskmoths boil up from the dark for 60s', unlockKills: 100_000 },
+  caves: { id: 'demonSurge', name: 'Demon Surge', icon: '😈', archetype: 'demon', blurb: 'The mines open onto the pit for 60s: imps and hellhounds', unlockKills: 140_000 },
+  mines: { id: 'koboldRaid', name: 'Kobold Raid', icon: '⛏️', archetype: 'humanoid', blurb: 'Every kobold in the Caverns comes yipping out at once, for 60s', unlockKills: 125_000 },
+  peaks: { id: 'wolfBlizzard', name: 'Wolf Blizzard', icon: '🐺', archetype: 'beast', blurb: 'The pack howls down the mountain in a blizzard for 60s: ice wolves and yetis', unlockKills: 265_000 },
+  cliffs: { id: 'harpyStorm', name: 'Harpy Storm', icon: '🪶', archetype: 'beast', blurb: 'Harpies, owls and griffins dive from the sky for 60s', unlockKills: 68_000 },
+  fortress: { id: 'cloudburst', name: 'Cloudburst', icon: '☁️', archetype: 'slime', blurb: 'The clouds break open for 60s and cloudlings rain down', unlockKills: 125_000 },
+  meteors: { id: 'meteorShower', name: 'Meteor Shower', icon: '☄️', archetype: 'elemental', blurb: 'A meteor shower for 60s: meteorites and comet wisps crash in', unlockKills: 115_000 },
+  rift: { id: 'shadowTide', name: 'Shadow Tide', icon: '🌀', archetype: 'slime', blurb: 'The Rift spills over with shadow slimes for 60s', unlockKills: 480_000 },
+};
+
+/** Minigames by area (more to come): the third event, opened by recruiting the Hunter who stars in it. */
+const AREA_MINIGAMES: Partial<Record<AreaId, Omit<EventDef, 'area' | 'kind' | 'unlockKills' | 'duration'>>> = {
+  forest: {
+    id: 'huntingPractice',
+    name: "Galladair's Hunting Practice",
+    icon: '🏹',
+    blurb: 'Slimes hop across the clearing, faster and faster. Tap to aim Galladair\'s arrows; three slimes that get across end it. Every 10 points pays 2 Guardian bounties of gold (from the furthest area you\'ve reached), and every 4 a Royal Slime.',
+    minigame: 'huntingPractice',
+    hunter: 'ranger',
+    cooldown: 20 * 60,
+    rewards: { gold: 0.2, materials: [{ material: 'royalSlime', per: 4 }, { material: 'goo', per: 1 }] },
   },
-  ...AREAS.filter((a) => Number.isFinite(a.mastery)).map(
-    (a): EventDef => ({
+};
+
+export const EVENTS: EventDef[] = AREAS.flatMap((a): EventDef[] => {
+  const sw = AREA_SWARMS[a.id];
+  const first = ENEMIES.find((e) => e.area === a.id && e.archetype === sw.archetype && e.unlock === 0) ?? ENEMIES.find((e) => e.area === a.id && e.archetype === sw.archetype)!;
+  const out: EventDef[] = [
+    {
+      id: sw.id,
+      area: a.id,
+      kind: 'swarm',
+      name: sw.name,
+      icon: sw.icon,
+      blurb: `${sw.blurb}: twice as many (at least 10 ${first.name}s a second), twice as fast.`,
+      unlockKills: sw.unlockKills,
+      unlockArchetype: sw.archetype,
+      cooldown: 15 * 60,
+      duration: 60,
+      archetype: sw.archetype,
+      spawnMult: 2,
+      speedMult: 2,
+      minSpawn: { [first.id]: 10 },
+    },
+  ];
+  if (Number.isFinite(a.mastery))
+    out.push({
       id: `guardian-${a.id}`,
       area: a.id,
       kind: 'guardian',
@@ -2808,9 +2859,12 @@ export const EVENTS: EventDef[] = [
       unlockKills: a.mastery,
       cooldown: GUARDIAN_COOLDOWN,
       duration: GUARDIAN_TIME,
-    }),
-  ),
-];
+      requires: { event: sw.id, times: 1 },
+    });
+  const mg = AREA_MINIGAMES[a.id];
+  if (mg) out.push({ ...mg, area: a.id, kind: 'minigame', unlockKills: 0, duration: 0 });
+  return out;
+});
 
 export const eventDef = (id: string): EventDef => EVENTS.find((e) => e.id === id)!;
 

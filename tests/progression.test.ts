@@ -117,6 +117,12 @@ function botMonsters(game: Game): void {
 /** The bot's decisions, run once per simulated second while it's playing (and on each return from offline). */
 function botShop(game: Game, t: number, memo: { lastChallenge: number; lastHeavy?: number }): void {
   const s = game.state;
+  // An area's Guardian waits on its first event (a swarm of its monsters): run that once when it's ready.
+  const first = EVENTS.find((e) => e.area === game.area && e.kind === 'swarm');
+  if (first && game.eventCompletions(first.id) === 0 && game.eventReady(first.id) && t - memo.lastChallenge > 60) {
+    game.startEvent(first.id);
+    memo.lastChallenge = t;
+  }
   // Guardian: challenge when ready (retry every 60s); after winning, move to the newest area.
   if (game.guardianReady && !game.eventRunning && t - memo.lastChallenge > 60) {
     game.challengeGuardian();
