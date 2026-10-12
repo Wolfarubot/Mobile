@@ -5,3 +5,4 @@ Side-view Hunters (idle strips facing right, mirrored in game): Reginald from "A
 Enemy Sprite Sheets" (shooter), Kargesh from "Engineering Game Assets", Lance and Bjorn from "Free Knight Character
 Sprites" (Okrin recoloured), Glimmer, Celeste and Theon from "Free Wizard Sprite Sheets", Alias and Deku from "Free
 Ninja Sprite Sheets", Marceline and Sciirj from "Free Yokai Pixel Art Character Sprites" (Kitsune, Yamabushi tengu).
+Gideon from "Demon" event boss pack (Summoner idle, recoloured to bone and violet).

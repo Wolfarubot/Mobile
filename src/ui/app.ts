@@ -578,7 +578,7 @@ export class AppUI {
     overview.appendChild(headline);
     const stats = el('div', 'hd-stats');
     overview.appendChild(stats);
-    overview.appendChild(el('p', 'hd-style', `${g.weaponClassOf(who) ? `⚔️ Attacks with their weapon: ${g.weaponClassOf(who)!.describe}` : '⚔️ Unarmed: fires a basic bolt. Equip a weapon to fight with its attacks.'}${def?.special ? ` ✨ ${def.special.describe}` : ''}`));
+    overview.appendChild(el('p', 'hd-style', `${g.weaponClassOf(who) ? `⚔️ Attacks with their weapon: ${g.weaponClassOf(who)!.describe}` : '⚔️ Unarmed: fires a basic bolt. Equip a weapon to fight with its attacks.'}${def?.special ? ` ✨ ${def.special.describe}` : ''}${def?.wall ? ` 🦴 ${def.wall.name}: ${def.wall.describe}` : ''}`));
     const effectNote = el('p', 'hd-style hd-effect');
     overview.appendChild(effectNote);
     this.refreshers.push(() => {

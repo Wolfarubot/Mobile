@@ -65,6 +65,8 @@ export interface Enemy {
   phase: number;
   /** Seconds of half-speed left (frost hammers, Frost chill). */
   slow?: number;
+  /** Seconds left pinned in place by Gideon's bone spikes (it can't move, though hits still knock it). */
+  held?: number;
   /** Damage over time from Fire and Poison. */
   burn?: Dot;
   poison?: Dot;
@@ -138,6 +140,8 @@ export interface Helper {
   gun: GunState;
   /** Seconds until their tome's lunge is ready (a Wolf Spirit tome). */
   dashCd: number;
+  /** Seconds until their Bone Wall can rise again (Gideon). */
+  wallCd: number;
 }
 
 /** Ammo for a gun-class weapon: shots left in the magazine, and seconds until the reload finishes. */
@@ -223,6 +227,7 @@ export type FieldEvent =
   | { type: 'guard'; x: number; y: number }
   /** Thorns armor stabbed a monster that reached a Hunter. */
   | { type: 'thorns'; x: number; y: number; r: number }
+  | { type: 'boneWall'; r: number }
   | { type: 'escape'; x: number; y: number }
   | { type: 'explode'; x: number; y: number; r: number; color: string }
   | { type: 'nova'; x: number; y: number; r: number; color?: string }
@@ -251,6 +256,9 @@ export class Field {
   waves: Array<{ who: Shooter; x: number; y: number; r: number; max: number; hit: Set<number> }> = [];
   /** Seconds of stun left on your Hunter (can't shoot while > 0). */
   stun = 0;
+  /** Seconds left of Gideon's Bone Wall, and how far out it stands around each Hunter. */
+  boneWall = 0;
+  boneWallR = 0;
   /** Length of the current stun, for drawing its bar. */
   stunTotal = 0;
   /** Seconds of post-stun immunity left. */
@@ -378,7 +386,9 @@ export class Field {
       if (this.stun === 0) this.immune = STUN_IMMUNITY;
     } else this.immune = Math.max(0, this.immune - dt);
     this.syncHelpers();
+    this.boneWall = Math.max(0, this.boneWall - dt);
     for (const h of this.helpers) {
+      h.wallCd = Math.max(0, h.wallCd - dt);
       if (h.stun > 0) {
         h.stun = Math.max(0, h.stun - dt);
         if (h.stun === 0) h.immune = STUN_IMMUNITY;
@@ -473,7 +483,9 @@ export class Field {
       e.phase += dt;
       if (e.slow) e.slow = Math.max(0, e.slow - dt);
       if (e.burn || e.poison || e.aura || e.exposed || e.well) this.tickStatus(e, dt);
-      const speed = e.speed * (e.slow ? 0.5 : 1);
+      if (e.held) e.held = Math.max(0, e.held - dt);
+      // Held by bone spikes: it can't walk, though hits still knock it about.
+      const speed = e.held ? 0 : e.speed * (e.slow ? 0.5 : 1);
       if (e.fleeing) {
         const d = Math.hypot(e.x, e.y) || 1;
         e.x += (e.x / d) * speed * FLEE_SPEED_MULT * dt + e.kx * dt;
@@ -488,11 +500,17 @@ export class Field {
         const dx = e.x - t.x;
         const dy = e.y - t.y;
         const d = Math.hypot(dx, dy) || 1;
-        const reach = e.r + PLAYER_RADIUS;
+        // A Bone Wall keeps every monster at its edge: nothing reaches a Hunter while it stands.
+        const walled = this.boneWall > 0;
+        const reach = walled ? this.boneWallR + e.r : e.r + PLAYER_RADIUS;
         const step = Math.min(speed * dt, Math.max(0, d - reach));
         e.x += (-dx / d) * step + e.kx * dt;
         e.y += (-dy / d) * step + e.ky * dt;
-        if (d <= reach + 1) this.contact(e, t.who, dx / d, dy / d);
+        if (walled && d < reach) {
+          // Pushed back out to the wall (a knockback toward a Hunter can't carry it through).
+          e.x = t.x + (dx / d) * reach;
+          e.y = t.y + (dy / d) * reach;
+        } else if (!walled && d <= reach + 1) this.contact(e, t.who, dx / d, dy / d);
       }
       e.kx *= decay;
       e.ky *= decay;
@@ -536,6 +554,14 @@ export class Field {
       state.stunTotal = t;
       this.game.registerKnockout();
       this.events.push({ type: 'stun', x: e.x, y: e.y, boss: e.boss, who });
+      // Gideon's Bone Wall: his stun raises a wall of bone around every Hunter.
+      const wall = helper && hunterDef(helper.id).wall;
+      if (helper && wall && helper.wallCd <= 0) {
+        helper.wallCd = wall.cooldown;
+        this.boneWall = wall.duration;
+        this.boneWallR = wall.radius;
+        this.events.push({ type: 'boneWall', r: wall.radius });
+      }
     }
     if (e.boss) {
       e.kx += ux * BOSS_BOUNCE;
@@ -605,6 +631,7 @@ export class Field {
       specialCd: 1,
       gun: { cls: null, ammo: 0, reload: 0 },
       dashCd: 0,
+      wallCd: 0,
     }));
   }
 
@@ -707,6 +734,23 @@ export class Field {
     const a = Math.atan2(target.y - h.y, target.x - h.x);
     const radius = g.specialRadius(h.id);
     const dmg = g.specialDamageMult(h.id);
+    if (sp.kind === 'spikes') {
+      // Gideon's Bone Spikes burst up under the nearest monster, hurting everything around it and holding it in
+      // place. They wait while his Bone Wall stands.
+      if (this.boneWall > 0) return;
+      h.specialCd = sp.cooldown;
+      h.aim = a;
+      const x = target.x;
+      const y = target.y;
+      this.events.push({ type: 'nova', x, y, r: radius, color: '#efe4c8' });
+      for (const o of this.enemies)
+        if (o.hp > 0 && Math.hypot(o.x - x, o.y - y) <= radius + o.r) {
+          this.hitWith(h.id, o, dmg, x, y, undefined, undefined, true, true);
+          o.held = Math.max(o.held ?? 0, (sp.hold ?? 1) * (o.boss ? 0.25 : 1));
+          this.events.push({ type: 'thorns', x: o.x, y: o.y, r: o.r });
+        }
+      return;
+    }
     if (sp.kind === 'punch') {
       // Sciirj's Mountain Fist: waits until a monster is within reach, then one huge blow at everything in front
       // of him, knocking the survivors far back.
@@ -758,6 +802,9 @@ export class Field {
       if (hw && hd && this.game.weaponClassOf(h.id)?.summon) out.push({ key: `item:${h.id}:${hw.id}`, icon: hw.icon, name: `${hunterDef(h.id).name}'s ${hw.name}`, progress: 1 - h.dashCd / (hd.cooldown * this.game.cooldownMult(h.id)) });
       const sp = hunterDef(h.id).special;
       if (sp) out.push({ key: h.id, icon: hunterDef(h.id).icon, name: hunterDef(h.id).name, progress: 1 - Math.max(0, h.specialCd) / sp.cooldown });
+      // Gideon's Bone Wall has its own cooldown (it rises when he's stunned).
+      const wall = hunterDef(h.id).wall;
+      if (wall) out.push({ key: `wall:${h.id}`, icon: '🦴', name: `${hunterDef(h.id).name}'s ${wall.name}`, progress: 1 - h.wallCd / wall.cooldown });
     }
     return out;
   }

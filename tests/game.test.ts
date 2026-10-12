@@ -2780,6 +2780,51 @@ describe('Field', () => {
     expect(f.drainEvents().some((e) => e.type === 'sweep' && e.heavy)).toBe(true);
   });
 
+  it("Gideon's Bone Spikes hurt the monsters around their target and hold them in place", () => {
+    const { f } = withHelper('osteomancer');
+    expect(hunterDef('osteomancer')).toMatchObject({ name: 'Gideon', title: 'Osteomancer', area: 'mines' });
+    f.update(1 / 30);
+    const h = f.helpers[0];
+    h.specialCd = 0;
+    f.enemies.push(tough({ id: 1, x: h.x - 150, y: h.y }), tough({ id: 2, x: h.x - 160, y: h.y + 10 }));
+    f.update(1 / 30);
+    expect(h.specialCd).toBeGreaterThan(4);
+    for (const e of f.enemies) {
+      expect(e.hp).toBeLessThan(1e12);
+      expect(e.held).toBeGreaterThan(1);
+    }
+    // Held: they don't walk toward the Hunters.
+    const x = f.enemies[0].x;
+    f.update(0.5);
+    expect(f.enemies[0].x).toBeCloseTo(x, 0);
+  });
+
+  it("Gideon's stun raises a Bone Wall around every Hunter; monsters can't get through, and his spikes wait for it", () => {
+    const { f } = withHelper('osteomancer');
+    f.update(1 / 30);
+    const h = f.helpers[0];
+    const wall = hunterDef('osteomancer').wall!;
+    // A monster reaches him: he's stunned and the wall goes up, on its own cooldown.
+    f.enemies.push(tough({ id: 1, x: h.x + 10, y: h.y }));
+    f.update(1 / 30);
+    expect(h.stun).toBeGreaterThan(0);
+    expect(f.boneWall).toBeCloseTo(wall.duration, 1);
+    expect(h.wallCd).toBeCloseTo(wall.cooldown, 1);
+    // While it stands, nothing reaches you (no stun) and monsters stop at the wall.
+    f.enemies = [tough({ id: 2, x: 120, y: 0 })];
+    h.specialCd = 0;
+    for (let i = 0; i < 30; i++) f.update(1 / 30);
+    expect(f.stun).toBe(0);
+    expect(Math.hypot(f.enemies[0].x, f.enemies[0].y)).toBeGreaterThanOrEqual(wall.radius);
+    expect(h.specialCd).toBe(0); // the spikes wait while the wall stands
+    expect(f.enemies[0].held ?? 0).toBe(0);
+    // Once it falls (and he's back on his feet), the spikes fire again.
+    f.boneWall = 0;
+    h.stun = 0;
+    f.update(1 / 30);
+    expect(h.specialCd).toBeGreaterThan(0);
+  });
+
   it('a brand-new Hunter handles the opening slimes without being stunned', () => {
     let seed = 7;
     const rng = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);

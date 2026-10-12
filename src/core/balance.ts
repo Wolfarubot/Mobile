@@ -361,6 +361,7 @@ export const ASCENDED_TREES: Record<HunterId, SkillNode[]> = {
   celeste: ascendedTree({ name: 'Omniscience', icon: '🧠', desc: '+100% damage and +10% crit chance.', maxRank: 1, effect: { damage: 1, crit: 0.1 } }),
   enchantress: ascendedTree({ name: 'Grand Enchantment', icon: '✨', desc: '+100% damage and +10% crit chance.', maxRank: 1, effect: { damage: 1, crit: 0.1 } }),
   scavenger: ascendedTree({ name: 'Mountain Breaker', icon: '🏔️', desc: '+100% damage and punches reach 30% further.', maxRank: 1, effect: { damage: 1, radius: 0.3 } }),
+  osteomancer: ascendedTree({ name: 'Ossuary', icon: '💀', desc: '+100% damage and spikes 30% wider.', maxRank: 1, effect: { damage: 1, radius: 0.3 } }),
   frostbreaker: ascendedTree({ name: 'Eternal Winter', icon: '❄️', desc: '+100% damage and +1× extra damage to Elementals.', maxRank: 1, effect: { damage: 1, bane: 1 } }),
 };
 
@@ -492,6 +493,15 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
       { name: 'Flurry', icon: '💨', desc: '+7% attack rate per rank.', maxRank: 3, effect: { rate: 0.07 } },
     ],
     { name: 'Thousand Fists', icon: '💥', desc: '+25% damage and punches reach 15% further.', maxRank: 1, cost: 4, effect: { damage: 0.25, radius: 0.15 } },
+  ),
+  osteomancer: skillTree(
+    { name: 'Marrow Sense', icon: '🦴', desc: 'Bone spikes reach 10% wider.', maxRank: 1, effect: { radius: 0.1 } },
+    [
+      { name: 'Sharpened Bone', icon: '🗡️', desc: '+15% damage per rank.', maxRank: 3, effect: { damage: 0.15 } },
+      { name: 'Ossuary Field', icon: '🌀', desc: 'Spikes reach 10% wider per rank.', maxRank: 3, effect: { radius: 0.1 } },
+      { name: 'Calcified Skin', icon: '🛡️', desc: '+1 shield charge per rank.', maxRank: 3, effect: { guard: 1 } },
+    ],
+    { name: 'Boneyard', icon: '💀', desc: '+25% damage and spikes 15% wider.', maxRank: 1, cost: 4, effect: { damage: 0.25, radius: 0.15 } },
   ),
   enchantress: skillTree(
     { name: 'Glyphwork', icon: '🔯', desc: '+5% crit chance.', maxRank: 1, effect: { crit: 0.05 } },
@@ -1383,6 +1393,7 @@ export type HunterId =
   | 'celeste'
   | 'scavenger'
   | 'enchantress'
+  | 'osteomancer'
   | 'frostbreaker';
 
 // ---- Damage types: every attack deals one. Weapons carry a type; without one, a Hunter uses their own. ----
@@ -1452,7 +1463,7 @@ export const DAMAGE_TYPES: Record<DamageType, { name: string; icon: string; colo
  * the background model. Summons copy the weapon's damage type and status effects; the others keep their own.
  */
 export interface HunterSpecial {
-  kind: 'potion' | 'fireball' | 'summon' | 'punch';
+  kind: 'potion' | 'fireball' | 'summon' | 'punch' | 'spikes';
   /** What it's called on the Hunter's card ("Potions", "Wolves"...). */
   name: string;
   damageType: DamageType;
@@ -1467,6 +1478,8 @@ export interface HunterSpecial {
   /** Punches: how hard they knock monsters back (Guardians hold their ground) and how wide the blow is, in radians. */
   knock?: number;
   arc?: number;
+  /** Bone spikes: seconds the monsters they hit are held in place (Guardians a quarter as long). */
+  hold?: number;
   describe: string;
 }
 
@@ -1505,6 +1518,11 @@ export interface HunterDef {
   areaLoot?: number;
   /** Equipment slots (defaults to Weapon, Armor, Accessory). */
   slots?: SlotDef[];
+  /**
+   * Gideon's Bone Wall: when he's stunned, a ring of bone rises around every Hunter for `duration` seconds and no
+   * monster can get through it (they crowd at the wall). Its own cooldown; his spikes wait while it stands.
+   */
+  wall?: { name: string; cooldown: number; duration: number; radius: number; describe: string };
 }
 
 /** Every Hunter's base range with a shooting weapon (scaled by its class), in world units. */
@@ -1636,6 +1654,16 @@ export const HUNTERS: HunterDef[] = [
     ascendedTitle: 'Archenchantress',
     story: "Marceline came to the Venom Caverns for the venom-bright crystals that hold an enchantment best, and the Caverns' Guardian has kept her pinned in the dark ever since. Beat it, and she'll put her runes on your gear.",
     ability: 'Unlocks Enchant in Equipment: add damage types, stronger status effects and abilities to Very Rare and rarer gear. Fights with magic weapons.',
+    slots: [{ kind: 'magic', label: 'Magic weapon' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
+  },
+  {
+    id: 'osteomancer', name: 'Gideon', title: 'Osteomancer', icon: '🦴', color: '#e8dcc0', area: 'mines', recruitCost: 4e18,
+    unlock: { event: 'guardian-mines', times: 2 },
+    ascendedTitle: 'Bonelord',
+    story: "Gideon came to the Venom Caverns for the bones of the things that died there, and there are a great many. Beat the Caverns' Guardian twice, and he'll raise them for you.",
+    ability: 'Every 5s, bone spikes burst from the ground under a group of monsters, hurting them and holding them in place. When he is stunned, a Bone Wall rises around every Hunter for a few seconds. Uses magic weapons.',
+    special: { kind: 'spikes', name: 'Bone Spikes', damageType: 'physical', cooldown: 5, damage: 1.6, radius: 60, ticks: 1, crowd: 3, hold: 1.5, describe: 'Every 5s, bone spikes burst up under the nearest monster, hurting everything around it and holding it in place for 1.5s: his weapon\'s damage powers them, its attack rate widens them. Not while his Bone Wall stands.' },
+    wall: { name: 'Bone Wall', cooldown: 25, duration: 4, radius: 70, describe: 'When he is stunned, a wall of bone rises around every Hunter for 4s: no monster can reach them. Ready again 25s later.' },
     slots: [{ kind: 'magic', label: 'Magic weapon' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
   },
   {

@@ -370,8 +370,10 @@ export class BattleView {
     }
 
     for (const e of this.field.enemies) this.drawEnemy(g, e);
+    this.drawHeld(g);
     for (const h of this.field.helpers) this.drawHelper(g, h);
     this.drawHunter(g);
+    this.drawBoneWall(g);
 
     for (const b of this.field.bullets) drawBullet(g, b, this.time, this.game.state.settings.aoeStyle === 'basic');
 
@@ -509,6 +511,57 @@ export class BattleView {
 
   /** A wolf spirit: a pale blue-grey wolf head with ears, streaking when it lunges. */
   /** A Puppeteer's Doll puppet: a little wooden marionette, jerking along on strings that fade upward. */
+  /** A bone spike: a pale fang pointing along `a`, `h` tall, from (x, y). */
+  private boneSpike(g: CanvasRenderingContext2D, x: number, y: number, a: number, h: number, w: number): void {
+    const px = -Math.sin(a) * w;
+    const py = Math.cos(a) * w;
+    g.beginPath();
+    g.moveTo(x + px, y + py);
+    g.lineTo(x + Math.cos(a) * h, y + Math.sin(a) * h);
+    g.lineTo(x - px, y - py);
+    g.closePath();
+    g.fill();
+    g.stroke();
+  }
+
+  /** Monsters pinned by Gideon's bone spikes: a few spikes jutting up around their feet. */
+  private drawHeld(g: CanvasRenderingContext2D): void {
+    g.save();
+    g.fillStyle = '#efe4c8';
+    g.strokeStyle = '#4a3a2a';
+    g.lineWidth = 1.5;
+    for (const e of this.field.enemies) {
+      if (!e.held) continue;
+      const k = Math.min(1, e.held * 4); // sink back into the ground as it ends
+      for (let i = 0; i < 4; i++) {
+        const side = (i - 1.5) / 1.5;
+        this.boneSpike(g, e.x + side * e.r * 0.9, e.y + e.r * 0.6, -Math.PI / 2 + side * 0.35, e.r * 1.1 * k, 3);
+      }
+    }
+    g.restore();
+  }
+
+  /** Gideon's Bone Wall: a ring of bone spikes around every Hunter while it stands. */
+  private drawBoneWall(g: CanvasRenderingContext2D): void {
+    const f = this.field;
+    if (f.boneWall <= 0) return;
+    const R = f.boneWallR;
+    const k = Math.min(1, f.boneWall * 3); // sinks back into the ground in its last moments
+    g.save();
+    g.fillStyle = '#efe4c8';
+    g.strokeStyle = '#4a3a2a';
+    g.lineWidth = 2;
+    const spots = [{ x: 0, y: 0 }, ...f.helpers.map((h) => ({ x: h.x, y: h.y }))];
+    const n = 18;
+    for (const p of spots)
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2;
+        const h = (i % 2 ? 18 : 26) * k;
+        this.boneSpike(g, p.x + Math.cos(a) * (R - 6), p.y + Math.sin(a) * (R - 6), a, h, 6);
+      }
+    g.restore();
+  }
+
   private drawPuppet(g: CanvasRenderingContext2D, sm: Summon): void {
     const fade = Math.min(1, sm.life / 1.2);
     const r = SUMMON_RADIUS;

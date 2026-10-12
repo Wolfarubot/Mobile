@@ -31,5 +31,6 @@ export const HUNTER_SHEETS: Partial<Record<Wearer, HunterSheet>> = {
   blacksmith: { frame: 48, frames: [4], box: [7, 11, 19, 37], side: true },
   scavenger: { frame: 128, frames: [6], box: [18, 33, 81, 95], side: true },
   enchantress: { frame: 128, frames: [8], box: [24, 49, 53, 79], side: true },
+  osteomancer: { frame: 48, frames: [4], box: [3, 6, 20, 42], side: true },
   frostbreaker: { frame: 128, frames: [4], box: [12, 64, 43, 64], side: true },
 };
