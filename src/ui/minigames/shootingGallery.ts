@@ -8,12 +8,15 @@ import { drawFramedBar, TIMER_COLOR } from '../../render/hudBars';
  * Wilhelm's Shooting Gallery (the Shadowy Depths): the creature with a hundred eyes, from his story. Its eyes open
  * among the growths one after another, quicker and quicker, and close again: shoot them while they're open. There
  * are exactly 100, so the round lasts as long as they do and the best score is all of them: 1 point an eye, 3 for a
- * red one (quicker to shut). Shooting one of the ghost-flame lanterns costs 3. Wilhelm stands in the bottom-left
- * corner and turns his rifle on each shot (a flash at the barrel, a tracer to the crosshair, a puff where it lands).
+ * red one (quicker to shut). Shooting one of the ghost-flame lanterns costs 3. Wilhelm stands on a ledge in the
+ * bottom-left corner, over the nest far below (drawn at half size), and turns his rifle on each shot (a flash at the barrel, a tracer to the crosshair, a puff where it lands).
  */
 
 export const SG_EYES = 100;
 export const SG_INTRO = `<p>The creature with a hundred eyes is here. Its eyes open in the dark: <b>tap them</b> before they shut. 1 point an eye, 3 for a <b>red</b> one.</p><p>Leave the ghost-flame <b>lanterns</b> be: shooting one costs 3 points. The hunt ends after all ${SG_EYES} eyes.</p>`;
+
+/** The nest far below Wilhelm's ledge: all of it, drawn at half size (further off). */
+export const SG_DECOR = { bands: 4, density: 1, scale: 0.5 };
 
 /** What a lantern costs to shoot. */
 const LANTERN_COST = 3;
@@ -79,8 +82,20 @@ export function shootingGallery(api: MinigameApi): MinigameGame {
   const puffs: Array<{ x: number; y: number; vx: number; vy: number; t: number; color: string }> = [];
   /** The eye's pixel scale. */
   const S = () => (api.k > 1.3 ? 3 : 2);
-  /** Wilhelm, in the bottom-left corner. */
-  const wilhelm = () => ({ x: Math.max(44 * api.k, api.W * 0.14), y: api.H - 26 });
+  /**
+   * The ledge Wilhelm stands on, in the bottom-left corner (a chunk of the cave's earth, its roots hanging off the
+   * bottom of the screen): its pixel scale and top-left corner. Wilhelm stands in the middle of its flat top.
+   */
+  const LEDGE_W = 41;
+  const LEDGE_TOP = 36;
+  const ledge = () => {
+    const L = Math.max(3, Math.round(4 * api.k));
+    return { L, x: -4 * L, y: Math.round(api.H - 52 * L) };
+  };
+  const wilhelm = () => {
+    const l = ledge();
+    return { x: l.x + (LEDGE_W * l.L) / 2 + 2 * l.L, y: l.y + 24 * l.L };
+  };
   /** Where the rifle is held (his right shoulder, so it shows past his head), and its muzzle along the aim. */
   const shoulder = () => ({ x: wilhelm().x + 14 * api.k, y: wilhelm().y - 62 * api.k });
   const muzzle = () => {
@@ -91,11 +106,14 @@ export function shootingGallery(api: MinigameApi): MinigameGame {
   /** Somewhere open between the title bar and Wilhelm. */
   const place = (): { x: number; y: number } => {
     const top = TITLE_Y + 60;
-    const bottom = api.H - 240 * api.k;
+    const bottom = api.H - 60 * api.k;
+    const l = ledge();
     for (let tries = 0; tries < 30; tries++) {
       const x = 36 + Math.random() * (api.W - 72);
       const y = top + Math.random() * Math.max(40, bottom - top);
-      if (targets.every((o) => Math.hypot(o.x - x, o.y - y) > 26 * S() + 10)) return { x, y };
+      // Down below: not on (or just above) the ledge, nor behind Wilhelm.
+      const onLedge = x < l.x + (LEDGE_W + 8) * l.L && y > l.y - 110 * api.k;
+      if (!onLedge && targets.every((o) => Math.hypot(o.x - x, o.y - y) > 26 * S() + 10)) return { x, y };
     }
     return { x: api.W / 2, y: (top + bottom) / 2 };
   };
@@ -184,6 +202,20 @@ export function shootingGallery(api: MinigameApi): MinigameGame {
         g.fillRect(bx, TITLE_Y + 16, nw * BS * left, 10);
       }
 
+      // The ledge, with the drop's shadow round it on the ground below.
+      const l = ledge();
+      const ledgeImg = mgArt('ledge');
+      if (ledgeImg) {
+        const cx = l.x + (LEDGE_W * l.L) / 2;
+        const cy = l.y + (LEDGE_TOP * l.L) / 2;
+        const sh = g.createRadialGradient(cx, cy, LEDGE_W * l.L * 0.35, cx, cy, LEDGE_W * l.L * 0.95);
+        sh.addColorStop(0, 'rgba(0,0,0,0.55)');
+        sh.addColorStop(1, 'rgba(0,0,0,0)');
+        g.fillStyle = sh;
+        g.fillRect(0, l.y - LEDGE_W * l.L, (LEDGE_W + 30) * l.L, api.H);
+        g.drawImage(ledgeImg, l.x, l.y, ledgeImg.naturalWidth * l.L, ledgeImg.naturalHeight * l.L);
+      }
+
       const s = S();
       const eye = mgArt('eye');
       for (const o of targets) {
@@ -238,7 +270,7 @@ export function shootingGallery(api: MinigameApi): MinigameGame {
       }
       g.globalAlpha = 1;
 
-      // Wilhelm, his back to you, rifle turned on his last shot (it's behind him when he faces up).
+      // Wilhelm on the ledge, his back to you, rifle turned on his last shot (behind him when he faces up).
       const wl = wilhelm();
       const sheet = HUNTER_SHEETS.wilhelm;
       const himg = hunterSheetImage('wilhelm');

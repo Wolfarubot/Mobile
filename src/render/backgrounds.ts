@@ -513,6 +513,8 @@ export interface DecorOpts {
   density: number;
   /** Keep a column down the middle clear of every piece (trees included): its width as a fraction of the view's. */
   clear?: number;
+  /** Drawn this much smaller (laid out over a view 1 / scale as big, then shrunk to fit): a scene seen from far off. */
+  scale?: number;
 }
 
 /** A piece of an area's decor, once its scene has loaded (null before then or if it isn't one of the area's). */

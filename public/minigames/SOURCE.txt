@@ -14,3 +14,5 @@ Minigame art, all from CraftPix.net (license: https://craftpix.net/file-licenses
   its six frames): the Shooting Gallery's lanterns.
 - crosshair.png: icon 9 (a ring) from the "Free Pixel Art Platformer UI" pack with four ticks and a centre dot added:
   the Shooting Gallery's crosshair.
+- ledge.png: a chunk of raised earth (flat top, roots hanging below) from CraftPix's "Free Cave Tileset" ground
+  tiles (Ground.png, at 612,20): the ledge Wilhelm stands on in the Shooting Gallery.

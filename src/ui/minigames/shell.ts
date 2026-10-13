@@ -193,7 +193,9 @@ export function runMinigame(spec: MinigameSpec): void {
       t += dt;
       game.step(dt);
     }
-    if (!bg) bg = areaBackground(spec.area, Math.round(W), Math.round(H), spec.decor);
+    // A scaled background is laid out bigger, then drawn shrunk to fit (everything in it smaller, further off).
+    const bgScale = spec.decor?.scale ?? 1;
+    if (!bg) bg = areaBackground(spec.area, Math.round(W / bgScale), Math.round(H / bgScale), spec.decor);
     if (bg) g.drawImage(bg, 0, 0, W, H);
     else {
       g.fillStyle = '#2a3a2a';
