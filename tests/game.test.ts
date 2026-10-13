@@ -43,6 +43,8 @@ import {
   DAMAGE_TYPES,
   FLYING,
   fieldZoom,
+  areaScale,
+  DEEP_ZOOM_OUT,
   SHIELD_DEFLECT_PAUSE,
   lootChance,
   tomeSummonType,
@@ -2415,6 +2417,12 @@ describe('Equipment', () => {
     const necro = enemyDef('necromancer').ranged!;
     expect(necro).toBeDefined();
     expect(enemyDef('greenSlime').ranged).toBeUndefined();
+    // In the Shadowy Depths, the Gazing Eye and the Shadow Haunt keep their distance and shoot too, and the view
+    // zooms out a step further from there on (more open ground for them to stand in).
+    expect(enemyDef('gazingEye').ranged).toBeDefined();
+    expect(enemyDef('shadowWisp').ranged).toBeDefined();
+    expect(fieldZoom('crypt') / fieldZoom('depths')).toBeCloseTo((areaScale('depths') + DEEP_ZOOM_OUT) / areaScale('crypt'));
+    expect(fieldZoom('rift')).toBeLessThan(fieldZoom('meteors'));
     const step = (f: Field, secs: number) => {
       for (let t = 0; t < secs; t += 0.02) {
         (f as unknown as { moveEnemies: (dt: number) => void }).moveEnemies(0.02);

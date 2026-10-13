@@ -75,6 +75,8 @@ interface Scene {
    * from the right or bottom). They stand among the monsters like the wall, and the wall makes room for them.
    */
   landmarks?: Array<{ file: string; at: [number, number]; /** Monsters walk around it rather than through it. */ solid?: boolean }>;
+  /** How big the empty clearing round the Hunters is, as a fraction of the way to the edge (CLEAR if unset). */
+  clear?: number;
   /** A gated area's corner walls (gates.ts): the wall face tile (32 wide, tiled along every face). */
   wallFace?: string;
 }
@@ -185,23 +187,28 @@ const SCENES: Partial<Record<AreaId, Scene>> = {
     landmarks: [{ file: 'Pile_sculls', at: [-WALL_SIDE - 42, -WALL_ROOF - 6] }],
     vignette: 'rgba(8,6,12,0.5)',
   },
-  // CraftPix's cursed land, darkened almost to black and mixed with cave stone: eyes and pustules in the dark,
-  // stalagmites, webs and pale glowing mushrooms, and claws, veins and things with teeth around the edges.
+  // CraftPix's cursed land on dark cave rock, as an eldritch nest: veins crawling over the floor, eyes and pustules
+  // watching from the dark, tentacles, eggs and eye-plants further out, and a wall of clawed and toothed things
+  // closing in round the edge. The view is zoomed out further here (DEEP_ZOOM_OUT), and the pieces keep well out of
+  // a wide clearing, for the monsters that stop at a distance and shoot.
   depths: {
-    base: '#1d1a20',
+    base: '#1e1a20',
     specks: [
-      ['#252029', 24],
-      ['#15131a', 20],
-      ['#2c2531', 8],
+      ['#2a2026', 24],
+      ['#15121a', 20],
+      ['#33242c', 8],
     ],
+    clear: 0.5,
     bands: [
-      { pieces: [...p('small_mushrooms_white1 small_mushrooms_white2 small_mushrooms_white3 small_mushrooms_gray1 small_mushrooms_gray2 small_mushrooms_gray3 small_mushrooms1 small_mushrooms2 small_mushrooms3', 2), ...p('c_Bones_7 c_Bones_8 c_Bones_9 c_Bones_10 c_Bones_11 c_Rock1_4 c_Rock1_5 c_Rock_eyes_4 c_Rock_eyes_5 c_Eyes_2 c_Tubular_plant_2 c_Tubular_plant_3 c_Fetus_3 c_Pustules_3 c_Webbed_1 c_Webbed_2 c_Mushrooms_3 Black_stone4 Blue_stone4 black_stalagmites5 gray_stalagmites5 Black_crystal4 Violet_crystal4')], density: 2.6, from: 0 },
-      { pieces: [...p('c_Rock1_3 c_Rock3_4 c_Rock3_5 c_Rock3_6 c_Rock_eyes_2 c_Rock_eyes_3 c_Eye_plant_1 c_Eye_plant_2 c_Eye_plant_3 c_Many_eyes_plant_2 c_Many_eyes_plant_3 c_Tentacles_1 c_Tentacles_2 c_Tentacles_3 c_Bones_2 c_Bones_3 c_Bones_4 c_Bones_5 c_Bones_6 c_Tubular_plant_1 c_Spike_plant_4 c_Tentacle_plant_3 c_Pustules_2 c_Fetus_2 c_Meat_flower_3 c_Jaws_plant_3 c_Rune_stone_4'), ...p('Black_stone2 Black_stone3 Blue_stone2 Blue_stone3 Long_mushrooms2 Long_mushrooms3 gray_stalagmites2 gray_stalagmites4 black_stalagmites2 black_stalagmites3 Slime_musroom2 Slime_musroom3 Black_crystal3 Violet_crystal3 Blue_crystal3', 1.5)], density: 1, from: 0.4 },
-      { pieces: [...p('c_Rock1_1 c_Rock1_2 c_Rock3_2 c_Rock3_3 c_Rock_eyes_1 c_Claw_eggs_2 c_Claw_eggs_3 c_Claw_eggs_4 c_Eggs_1 c_Eggs_2 c_Eggs_3 c_Tentacle_plant_1 c_Tentacle_plant_2 c_Spike_plant_2 c_Spike_plant_3 c_Neuro_monster_1 c_Neuro_monster_2 c_Tooth_mouth_3 c_Tooth_mouth_5 c_Ruins_3 c_Ruins_4 c_Ruins_5 c_Tentacles_4 c_Jaws_plant_2 c_Star_monster_3 c_Rune_stone_3 c_Meat_flower_2 c_Pustules_1'), ...p('gray_stalagmites3 gray_stalagmites1 Long_mushrooms1 Black_stone1 Blue_stone1 black_stalagmites1 Slime_musroom1 spider_element2 spider_element3 web1 web2 Black_crystal1 Black_crystal2 Violet_crystal1 Violet_crystal2', 1.5)], density: 0.4, from: 0.7 },
-      { pieces: [...p('c_Claw_monster_1 c_Claw_monster_2 c_Claw_monster_3 c_Spike_plant_1 c_Veins_1 c_Veins_2 c_Veins_3 c_Veins_4 c_Tentacle_monster_1 c_Tentacle_monster_2 c_Rune_stone_1 c_Rune_stone_2 c_Tooth_monster_1 c_Tooth_monster_2 c_Wing_monster c_Bones_1 c_Tooth_mouth_1 c_Jaws_plant_1'), ...p('the_spider spider_element1 gray_stalagmites3 web2')], density: 0.13, from: 0.9 },
+      { pieces: [...p('c_Veins_1 c_Veins_2 c_Veins_3 c_Veins_4', 1.5), ...p('c_Eyes_2 c_Pustules_3 c_Fetus_3 c_Rock_eyes_4 c_Rock_eyes_5 c_Bones_7 c_Bones_8 c_Bones_9 c_Webbed_1 small_mushrooms1 small_mushrooms2', 1.5)], density: 0.8, from: 0 },
+      { pieces: p('c_Eye_plant_1 c_Eye_plant_2 c_Eye_plant_3 c_Many_eyes_plant_2 c_Many_eyes_plant_3 c_Tentacles_1 c_Tentacles_2 c_Tentacles_3 c_Pustules_2 c_Fetus_2 c_Meat_flower_3 c_Jaws_plant_3 c_Eggs_1 c_Eggs_2 c_Eggs_3 c_Claw_eggs_2 c_Claw_eggs_3'), density: 0.35, from: 0.6 },
+      { pieces: p('c_Tentacle_plant_1 c_Tentacle_plant_2 c_Spike_plant_2 c_Spike_plant_3 c_Neuro_monster_1 c_Neuro_monster_2 c_Tooth_mouth_3 c_Tooth_mouth_5 c_Jaws_plant_2 c_Meat_flower_2 c_Claw_eggs_4 c_Tentacles_4 c_Star_monster_3'), density: 0.18, from: 0.78 },
+      // A wall of clawed and toothed things and spiked plants all round the border (monsters walk through it).
+      { pieces: p('c_Claw_monster_1 c_Claw_monster_2 c_Claw_monster_3 c_Tentacle_monster_1 c_Tentacle_monster_2 c_Tooth_monster_1 c_Tooth_monster_2 c_Tooth_mouth_1 c_Jaws_plant_1 c_Spike_plant_1'), density: 0, from: 0.95, edge: true },
     ],
-    vignette: 'rgba(0,0,0,0.75)',
+    vignette: 'rgba(10,0,6,0.75)',
   },
+
   // CraftPix's cave with lava: brown rock floor and pebbles, pools of molten lava, orange, red and yellow stone,
   // fire crystals and smoking vents, rock walls and stalagmites, and the great demon skull and its gates at the edges.
   caves: {
@@ -773,7 +780,7 @@ export function areaBackground(area: AreaId, w: number, h: number, decor?: Decor
         }
         // The Hunters' clearing stays empty (clouds drifting under the islands aside).
         const out = outness(x, y, w, h);
-        if (out < (band.under ? band.from : Math.max(band.from, CLEAR)) || (band.to !== undefined && out > band.to)) continue;
+        if (out < (band.under ? band.from : Math.max(band.from, scene.clear ?? CLEAR)) || (band.to !== undefined && out > band.to)) continue;
         let pick = r() * total;
         const piece = band.pieces.find((x) => (pick -= x.weight) <= 0) ?? band.pieces[0];
         const img = images.get(`${area}/${piece.file}`);

@@ -1007,8 +1007,8 @@ export const ENEMIES: EnemyDef[] = [
   // Shadowy Depths
   { id: 'gloomcrawler', name: 'Gloomcrawler', area: 'depths', archetype: 'beast', hp: 1, speed: 1.3, gold: 1.1, spawn: 1.4, pack: [3, 5], radius: 9, material: 'darkClaw', unlock: 0, color: '#4a4058', shape: 'triangle', blurb: 'Too many legs, all of them quiet.', weak: ['fire', 'radiant'], resist: ['poison'] },
   { id: 'duskmoth', name: 'Duskmoth', area: 'depths', archetype: 'beast', hp: 0.8, speed: 1.8, gold: 1.2, spawn: 0.6, pack: [2, 4], radius: 8, material: 'gloom', unlock: 120, color: '#8a7a9a', shape: 'diamond', blurb: 'Drawn to light. Especially yours.', weak: ['fire', 'frost'], resist: ['decay'] },
-  { id: 'shadowWisp', name: 'Shadow Haunt', area: 'depths', archetype: 'elemental', hp: 1, speed: 1.5, gold: 1.8, spawn: 0.5, pack: [2, 3], radius: 9, material: 'shadowWisp', unlock: 900, color: '#6a5a8a', shape: 'ghost', blurb: 'A shadow that follows you even where there is no light.', weak: ['radiant', 'arcane'], resist: ['physical', 'decay'] },
-  { id: 'gazingEye', name: 'Gazing Eye', area: 'depths', archetype: 'demon', hp: 1.8, speed: 0.9, gold: 2.2, spawn: 0.45, pack: [1, 3], radius: 11, material: 'umbralEye', unlock: 4_000, color: '#b8a0d8', shape: 'circle', blurb: 'It never blinks. It never stops watching.', weak: ['radiant', 'physical'], resist: ['arcane', 'void'] },
+  { id: 'shadowWisp', name: 'Shadow Haunt', area: 'depths', archetype: 'elemental', hp: 1, speed: 1.5, gold: 1.8, spawn: 0.5, pack: [2, 3], radius: 9, material: 'shadowWisp', unlock: 900, color: '#6a5a8a', shape: 'ghost', blurb: 'A shadow that follows you even where there is no light, flinging shards of darkness from afar.', weak: ['radiant', 'arcane'], resist: ['physical', 'decay'], ranged: { range: 190, cooldown: 2.2, speed: 140 } },
+  { id: 'gazingEye', name: 'Gazing Eye', area: 'depths', archetype: 'demon', hp: 1.8, speed: 0.9, gold: 2.2, spawn: 0.45, pack: [1, 3], radius: 11, material: 'umbralEye', unlock: 4_000, color: '#b8a0d8', shape: 'circle', blurb: 'It never blinks. It never stops watching, and it keeps its distance while it fires bolts from its gaze.', weak: ['radiant', 'physical'], resist: ['arcane', 'void'], ranged: { range: 230, cooldown: 3, speed: 125 } },
   { id: 'umbralOoze', name: 'Umbral Ooze', area: 'depths', archetype: 'slime', hp: 2.2, speed: 0.8, gold: 2.6, spawn: 0.4, pack: [2, 3], radius: 12, material: 'umbralSlime', unlock: 8_000, color: '#3a2e4a', shape: 'circle', blurb: 'A slime that soaked up the dark.', weak: ['fire', 'radiant'], resist: ['poison', 'void'] },
   { id: 'deepLurker', name: 'Abyssal Lurker', area: 'depths', archetype: 'demon', hp: 3, speed: 0.7, gold: 3.5, spawn: 0.35, pack: [1, 2], radius: 13, material: 'umbra', unlock: 15_000, color: '#2a2036', shape: 'hexagon', blurb: 'All eyes and teeth, somewhere in the abyss.', weak: ['radiant'], resist: ['physical', 'void'] },
 
@@ -1592,8 +1592,15 @@ export const AREA_GROWTH = 0.1;
  * the Meteor Field 200%). The view zooms out to fit it, so Hunters and monsters are drawn smaller.
  */
 export const areaScale = (area: AreaId): number => 1 + AREA_GROWTH * Math.max(0, AREAS.findIndex((a) => a.id === area));
+/**
+ * From the Shadowy Depths on, the view zooms out this much further (on top of each area's growth): the Hunters
+ * are drawn smaller, with open ground round them for the monsters that keep their distance and shoot.
+ */
+export const DEEP_ZOOM_OUT = 0.25;
+/** How much more of the field an area's view shows than the Woods' (its size, and the Depths' extra step on). */
+export const viewScale = (area: AreaId): number => areaScale(area) + (AREAS.findIndex((a) => a.id === area) >= AREAS.findIndex((a) => a.id === 'depths') ? DEEP_ZOOM_OUT : 0);
 /** The battlefield's zoom in an area. */
-export const fieldZoom = (area: AreaId): number => FIELD_ZOOM / areaScale(area);
+export const fieldZoom = (area: AreaId): number => FIELD_ZOOM / viewScale(area);
 /** Seconds for a Paladin-style guard to regain one charge. */
 export const GUARD_RECHARGE = 4;
 
