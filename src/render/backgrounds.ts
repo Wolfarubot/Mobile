@@ -419,6 +419,8 @@ function drawIsland(g: CanvasRenderingContext2D, img: HTMLImageElement, [fx, fy,
 export interface DecorOpts {
   bands: number;
   density: number;
+  /** Keep a column down the middle clear of every piece (trees included): its width as a fraction of the view's. */
+  clear?: number;
 }
 
 /** A piece of an area's decor, once its scene has loaded (null before then or if it isn't one of the area's). */
@@ -514,7 +516,7 @@ export function areaBackground(area: AreaId, w: number, h: number, decor?: Decor
   if (!scene) return null;
   load(area, scene);
   if (!ready.has(area)) return null;
-  const key = `${area}:${w}x${h}${decor ? `:${decor.bands}:${decor.density}` : ''}${split ? ':split' : ''}`;
+  const key = `${area}:${w}x${h}${decor ? `:${decor.bands}:${decor.density}:${decor.clear ?? 0}` : ''}${split ? ':split' : ''}`;
   const hit = cache.get(key);
   if (hit) return hit;
 
@@ -586,6 +588,9 @@ export function areaBackground(area: AreaId, w: number, h: number, decor?: Decor
   const tops: Array<[number, number, number, number]> = [];
   // Everything placed so far (pools and pieces), so nothing lands on top of anything else.
   const taken: Rect[] = [];
+  // A clear column down the middle (minigames that play there): nothing may reach into it.
+  const clearHalf = ((decor?.clear ?? 0) * w) / 2;
+  const inClear = (x: number, width: number): boolean => clearHalf > 0 && x < w / 2 + clearHalf && x + width > w / 2 - clearHalf;
   const scatter = (bands: Band[], marks: Scene['landmarks'] = []): void => {
     const placed: Array<{ img: HTMLImageElement; x: number; y: number; prop: boolean; wall?: boolean }> = [];
     // Landmarks first: everything else keeps clear of them (the wall included).
@@ -630,6 +635,7 @@ export function areaBackground(area: AreaId, w: number, h: number, decor?: Decor
           if (!img || !img.naturalWidth) continue;
           const px = Math.round(sx - img.naturalWidth / 2);
           const py = Math.round(sy - img.naturalHeight);
+          if (inClear(px, img.naturalWidth)) continue;
           // Other pieces keep clear of the wall (most of each crown counts).
           taken.push([px + img.naturalWidth * 0.12, py + img.naturalHeight * 0.1, img.naturalWidth * 0.76, img.naturalHeight * 0.85]);
           placed.push({ img, x: px, y: py, prop: split, wall: true });
@@ -658,6 +664,7 @@ export function areaBackground(area: AreaId, w: number, h: number, decor?: Decor
         const px = Math.round(x - img.naturalWidth / 2);
         const py = Math.round(band.onIslands ? y - img.naturalHeight : y - img.naturalHeight / 2);
         const rect: Rect = [px, py, img.naturalWidth, img.naturalHeight];
+        if (inClear(px, img.naturalWidth)) continue;
         if (!band.overlap) {
           if (taken.some((t) => overlaps(rect, t))) continue;
           taken.push(rect);

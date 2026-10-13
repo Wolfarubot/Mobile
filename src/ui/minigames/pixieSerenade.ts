@@ -1,17 +1,22 @@
-import { TITLE_Y, type MinigameApi, type MinigameGame } from './shell';
+import type { MinigameApi, MinigameGame } from './shell';
 import { mgArt } from './dpad';
 import { HUNTER_SHEETS } from '../../render/hunterSheets';
 import { SHEETS } from '../../render/monsterSheets';
 import { hunterSheetImage, monsterSheetImage } from '../../render/sprites';
+import { drawFramedBar } from '../../render/hudBars';
 
 /**
  * Ba'al's Pixie Serenade (the Fey Grove): pixies fly down three cobbled paths, faster and faster. Tap a path as its
- * pixie reaches the purple ribbon: 1 point anywhere on the blue cobbles round it, 2 right on the ribbon. A pixie
- * that slips past, or a tap with no pixie there, costs a heart. Everything on screen is from the asset packs: the
- * paths (CraftPix's path & road tileset), the ribbon and the music notes (the UI packs), the Grove's pixies and Ba'al.
+ * pixie reaches the small bar across it: 1 point anywhere on the blue cobbles round it, 2 right on the bar. A pixie
+ * that slips past, or a tap on a path with no pixie there, costs a heart. Everything on screen is from the asset
+ * packs: the paths (CraftPix's path & road tileset), the bars (the event timers' framed bar) and the music notes (the
+ * UI packs), the Grove's pixies and Ba'al, who plays from the corner. The Grove's trees and scenery keep to the sides.
  */
 
-export const PS_INTRO = '<p>Pixies fly down three paths. <b>Tap a path</b> as its pixie reaches the <b>ribbon</b>: 1 point anywhere on the blue cobbles, 2 right on the ribbon.</p><p>A pixie that slips past, or a tap on an empty path, costs a heart.</p>';
+export const PS_INTRO = '<p>Pixies fly down three paths. <b>Tap a path</b> as its pixie reaches the <b>bar</b> across it: 1 point anywhere on the blue cobbles, 2 right on the bar.</p><p>A pixie that slips past, or a tap on an empty path, costs a heart.</p>';
+
+/** The Grove behind it, with a clear column down the middle for the paths (trees and scenery at the sides only). */
+export const PS_DECOR = { bands: 9, density: 1, clear: 0.7 };
 
 /** Each path's colour, for the music notes a hit sends up from Ba'al's guitar. */
 const COLORS = ['#ff8ad8', '#8ad8ff', '#c8ff8a'];
@@ -44,23 +49,22 @@ export function pixieSerenade(api: MinigameApi): MinigameGame {
   /** Notes floating up out of Ba'al's guitar after each hit. */
   const floaters: Array<{ x: number; y: number; vx: number; vy: number; t: number; color: string; sway: number }> = [];
   let strum = 0;
-  const baal = () => ({ x: api.W / 2, y: api.H - 28 });
+  /** Ba'al plays from the bottom-left corner, beside the paths. */
+  const baal = () => ({ x: Math.max(34 * api.k, api.W * 0.12), y: api.H - 24 });
   const guitarAt = () => ({ x: baal().x + 6 * api.k, y: baal().y - 28 * api.k });
   let spawnIn = 0.8;
   const lineY = () => api.H - 150;
-  const laneX = (i: number) => (api.W / 3) * (i + 0.5);
+  /** The paths' pixel scale (the tiles are 48px wide), and how far apart they run (close together, in the middle). */
+  const pathScale = () => Math.max(1, Math.round(Math.min(api.W, 480) / 200));
+  const spacing = () => Math.round(40 * pathScale());
+  const laneX = (i: number) => Math.round(api.W / 2 + (i - 1) * spacing());
   const speed = () => Math.min(620, 200 + 5 * api.t) * api.k;
   /** The okay range either side of the ribbon (the blue cobbles)… */
   const window = () => 46 * api.k;
-  /** …and the ribbon: whole pixels, about the screen's width across; a pixie on it is perfect. */
-  const ribbon = () => {
-    const img = mgArt('perfect-ribbon');
-    const s = Math.max(1, Math.round((api.W * 0.96) / (img?.naturalWidth ?? 123)));
-    return { s, w: (img?.naturalWidth ?? 123) * s, h: (img?.naturalHeight ?? 13) * s };
-  };
-  const perfect = () => ribbon().h * 0.5;
-  /** The paths' pixel scale (the tiles are 48px wide). */
-  const pathScale = () => Math.max(1, Math.round((api.W / 3) * 0.62 / 48));
+  /** …and the small framed bar across each path (twice its pixels): a pixie on it is perfect. */
+  const BAR_S = 2;
+  const bar = () => ({ w: Math.round((spacing() * 0.82) / BAR_S), h: 12 });
+  const perfect = () => (bar().h * BAR_S) / 2;
 
   /** Ba'al at the bottom, facing you, with the guitar across them (rocking as they strum). */
   const drawBaal = (g: CanvasRenderingContext2D) => {
@@ -85,18 +89,17 @@ export function pixieSerenade(api: MinigameApi): MinigameGame {
   };
 
   /**
-   * One path: the pale cobbles from the top down past the ribbon, the blue cobbles over the okay range, and the
-   * path's rounded end below. Tiled in whole pixels (brighter for a moment when tapped).
+   * One path, top to bottom of the screen: the pale cobbles, with blue cobbles over the okay range. Tiled in whole
+   * pixels (brighter for a moment when tapped).
    */
   const drawPath = (g: CanvasRenderingContext2D, i: number) => {
     const lane = mgArt('path-lane');
     const ok = mgArt('path-lane-ok');
-    const end = mgArt('path-lane-end');
-    if (!lane || !ok || !end) return;
+    if (!lane || !ok) return;
     const s = pathScale();
     const tw = 48 * s;
     const x = Math.round(laneX(i) - tw / 2);
-    const top = TITLE_Y + 22;
+    const top = 0;
     const y0 = Math.round(lineY() - window());
     const y1 = Math.round(lineY() + window());
     if (flash[i] > 0) g.filter = 'brightness(1.25)';
@@ -109,13 +112,17 @@ export function pixieSerenade(api: MinigameApi): MinigameGame {
       const h = Math.min(tw, y1 - y);
       g.drawImage(ok, 0, 0, 48, h / s, x, y, tw, h);
     }
-    g.drawImage(end, x + Math.round((tw - end.naturalWidth * s) / 2), y1, end.naturalWidth * s, end.naturalHeight * s);
+    // On past the bottom of the screen.
+    for (let y = y1; y < api.H; y += tw) g.drawImage(lane, x, y, tw, tw);
     g.filter = 'none';
   };
 
   return {
     tap(x) {
-      const lane = Math.max(0, Math.min(2, Math.floor((x / api.W) * 3)));
+      // The nearest path (a tap well off to the side of them all does nothing).
+      let lane = 0;
+      for (let i = 1; i < 3; i++) if (Math.abs(x - laneX(i)) < Math.abs(x - laneX(lane))) lane = i;
+      if (Math.abs(x - laneX(lane)) > spacing() * 0.9) return;
       flash[lane] = 0.15;
       let best: (typeof notes)[number] | null = null;
       for (const n of notes) if (!n.hit && n.lane === lane && Math.abs(n.y - lineY()) <= window() && (!best || Math.abs(n.y - lineY()) < Math.abs(best.y - lineY()))) best = n;
@@ -126,13 +133,12 @@ export function pixieSerenade(api: MinigameApi): MinigameGame {
       best.hit = true;
       const dead = Math.abs(best.y - lineY()) <= perfect();
       api.addScore(dead ? 2 : 1, laneX(lane), lineY());
-      // Ba'al strums, and notes drift up out of the guitar (more for a perfect hit), out to either side of Ba'al
-      // (leaning toward the path that was hit).
+      // Ba'al strums, and notes drift up out of the guitar (more for a perfect hit), to either side of Ba'al.
       strum = 0.25;
       const at = guitarAt();
       for (let i = 0; i < (dead ? 3 : 2); i++) {
-        const side = lane === 1 ? (i % 2 ? 1 : -1) : lane === 0 ? -1 : 1;
-        floaters.push({ x: at.x + side * 26 * api.k, y: at.y + 6 * api.k, vx: side * (30 + Math.random() * 50) * api.k, vy: -(70 + Math.random() * 50) * api.k, t: 0, color: COLORS[lane], sway: Math.random() * 6 });
+        const side = i % 2 ? 1 : -1;
+        floaters.push({ x: at.x + side * 22 * api.k, y: at.y + 6 * api.k, vx: side * (10 + Math.random() * 25) * api.k, vy: -(70 + Math.random() * 50) * api.k, t: 0, color: COLORS[lane], sway: Math.random() * 6 });
       }
     },
     step(dt) {
@@ -165,12 +171,9 @@ export function pixieSerenade(api: MinigameApi): MinigameGame {
     draw(g) {
       g.imageSmoothingEnabled = false;
       for (let i = 0; i < 3; i++) drawPath(g, i);
-      // The ribbon across the paths: the perfect spot.
-      const rib = mgArt('perfect-ribbon');
-      if (rib) {
-        const r = ribbon();
-        g.drawImage(rib, Math.round(api.W / 2 - r.w / 2), Math.round(lineY() - r.h / 2), r.w, r.h);
-      }
+      // A small framed bar across each path, in its colour: the perfect spot.
+      const b = bar();
+      for (let i = 0; i < 3; i++) drawFramedBar(g, Math.round(laneX(i) - (b.w * BAR_S) / 2), Math.round(lineY() - (b.h * BAR_S) / 2), BAR_S, b.w, b.h, 1, COLORS[i]);
       // The pixies, fluttering down their paths (the Grove's pixie; facing alternate ways by path).
       const sheet = SHEETS.pixie;
       const img = monsterSheetImage('pixie');
