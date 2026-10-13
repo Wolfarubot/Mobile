@@ -62,6 +62,11 @@ interface Scene {
   islands?: { file: string; steps: Array<[number, number, number, number]> };
   /** Darkens toward the edges (a colour at full strength in the corners). */
   vignette?: string;
+  /**
+   * Set pieces at fixed spots, each standing (bottom middle) at `at` pixels from the top-left corner (negative:
+   * from the right or bottom). They stand among the monsters like the wall, and the wall makes room for them.
+   */
+  landmarks?: Array<{ file: string; at: [number, number] }>;
 }
 
 const p = (files: string, weight = 1): Piece[] => files.split(' ').map((file) => ({ file, weight }));
@@ -96,15 +101,17 @@ const SCENES: Partial<Record<AreaId, Scene>> = {
       ['#94698a', 10],
     ],
     bands: [
-      // Small details anywhere: reeds, little bushes, pebbles and mushrooms.
-      { pieces: [...p('reeds1 reeds2 reeds3', 3), ...p('Bush6 Bush8 Bush10 Beige_stone_grass6 Beige_stone_grass9 Beige_stone_ground5 Beige_stone_ground7 Brown_stone_grass5 Light_stone_ground4 Red_mushroom3 Brown_mushroom')], density: 3, from: 0 },
-      // Bushes, mushroom clumps, stones and stumps outside the middle.
-      { pieces: [...p('Bush2 Bush3 Bush4 Bush5 Bush7 Bush9 Bush12 Bush13', 2), ...p('Red_mushroom1 Red_mushroom2 Brown_mushroom1 Brown_mushroom2', 2), ...p('Beige_stone_grass1 Beige_stone_grass5 Brown_stone_grass2 Brown_stone_grass4 Light_stone_grass4 Broken_tree4 Broken_tree5 Broken_tree6')], density: 0.9, from: 0.45 },
-      // Big bushes, small trees, boulders and statues nearer the edges.
-      { pieces: [...p('Bush1 Bush11 Tree4 Tree7 Tree8 Tree9 Tree10 Tree12 Tree14', 2), ...p('Light_stone_grass2 Light_stone_grass3 Brown_stone_grass1 Ruin_grass4 Ruin_grass5 Ruin_orange3 Ruin_orange4 Broken_tree2 Broken_tree3')], density: 0.35, from: 0.7 },
-      // Great trees and overgrown ruins on the border, partly off the field.
-      { pieces: [...p('Tree1 Tree2 Tree3 Tree5 Tree6 Tree11 Tree13', 4), ...p('Ruin_grass1 Ruin_grass2 Ruin_grass3 Ruin_orange1 Ruin_orange2 Broken_tree1')], density: 0.12, from: 0.92 },
+      // Small details around the clearing: reeds, pebbles, little bushes and mushrooms (sparse, so the middle stays open).
+      { pieces: [...p('reeds1 reeds2 reeds3', 3), ...p('Bush6 Bush8 Bush10 Beige_stone_grass6 Beige_stone_grass9 Beige_stone_ground5 Beige_stone_ground7 Brown_stone_grass5 Light_stone_ground4 Red_mushroom3 Brown_mushroom')], density: 2.2, from: 0 },
+      // A few small bushes, mushroom clumps, stones and stumps further out.
+      { pieces: [...p('Bush5 Bush6 Bush7 Bush10 Bush12', 2), ...p('Red_mushroom1 Brown_mushroom2 Beige_stone_grass5 Brown_stone_grass4 Broken_tree5 Broken_tree6')], density: 0.45, from: 0.5 },
+      // Small trees, round bushes, boulders and fallen trunks toward the edges (monsters walk around them).
+      { pieces: [...p('Tree4 Tree10 Tree12 Tree14', 2), ...p('Bush1 Bush2 Bush3 Bush4 Bush9 Bush11 Bush13', 2), ...p('Light_stone_grass2 Light_stone_grass3 Brown_stone_grass1 Brown_stone_grass2 Broken_tree2 Broken_tree3 Broken_tree4')], density: 0.3, from: 0.68 },
+      // A wall of great pink and purple trees all round the border (monsters walk through it, behind or in front).
+      { pieces: p('Tree1 Tree2 Tree3 Tree5 Tree6 Tree7 Tree8 Tree9 Tree11 Tree13'), density: 0, from: 0.95, edge: true },
     ],
+    // One overgrown ruin in the top-left corner, half off the view, in place of the wall there.
+    landmarks: [{ file: 'Ruin_grass1', at: [50, 106] }],
   },
   // CraftPix's undead land: grey-green earth, cracks, pebbles and dead weeds, rows of headstones, open graves,
   // coffins and dead arms reaching out, and gnarled trees, ruins and the bones of great beasts at the edges.
@@ -294,7 +301,7 @@ const ready = new Set<AreaId>();
 function load(area: AreaId, scene: Scene): void {
   if (loading.has(area)) return;
   loading.add(area);
-  const files = [...new Set([...scene.bands.flatMap((b) => b.pieces.map((x) => x.file)), ...(scene.pools?.details ?? []), ...(scene.islands ? [scene.islands.file] : []), ...(scene.backdrop ? [scene.backdrop] : []), ...(scene.pools?.pattern ? [scene.pools.pattern] : [])])];
+  const files = [...new Set([...scene.bands.flatMap((b) => b.pieces.map((x) => x.file)), ...(scene.pools?.details ?? []), ...(scene.islands ? [scene.islands.file] : []), ...(scene.backdrop ? [scene.backdrop] : []), ...(scene.pools?.pattern ? [scene.pools.pattern] : []), ...(scene.landmarks ?? []).map((m) => m.file)])];
   void Promise.all(
     files.map((f) => {
       const img = new Image();
@@ -565,8 +572,20 @@ export function areaBackground(area: AreaId, w: number, h: number, decor?: Decor
   const tops: Array<[number, number, number, number]> = [];
   // Everything placed so far (pools and pieces), so nothing lands on top of anything else.
   const taken: Rect[] = [];
-  const scatter = (bands: Band[]): void => {
+  const scatter = (bands: Band[], marks: Scene['landmarks'] = []): void => {
     const placed: Array<{ img: HTMLImageElement; x: number; y: number; prop: boolean; wall?: boolean }> = [];
+    // Landmarks first: everything else keeps clear of them (the wall included).
+    const markRects: Rect[] = [];
+    for (const m of marks) {
+      const img = images.get(`${area}/${m.file}`);
+      if (!img || !img.naturalWidth) continue;
+      const px = Math.round((m.at[0] < 0 ? w + m.at[0] : m.at[0]) - img.naturalWidth / 2);
+      const py = Math.round((m.at[1] < 0 ? h + m.at[1] : m.at[1]) - img.naturalHeight);
+      const rect: Rect = [px, py, img.naturalWidth, img.naturalHeight];
+      markRects.push(rect);
+      taken.push(rect);
+      placed.push({ img, x: px, y: py, prop: split, wall: true });
+    }
     // Biggest pieces first (the outer bands), then smaller ones fill the room that's left.
     for (const band of [...bands].sort((a, b) => b.from - a.from)) {
       const total = band.pieces.reduce((s, x) => s + x.weight, 0);
@@ -589,6 +608,8 @@ export function areaBackground(area: AreaId, w: number, h: number, decor?: Decor
           spots.push([sx + (sx < 40 ? 22 : sx > w - 40 ? -22 : (r() - 0.5) * 30), sy + (sy < 60 ? 18 : sy > h ? -16 : 0)]);
         }
         for (const [sx, sy] of spots) {
+          // Not where a landmark stands (a trunk inside it, or a crown over its middle).
+          if (markRects.some(([mx, my, mw, mh]) => sx > mx - 6 && sx < mx + mw + 6 && sy - 40 < my + mh && sy > my)) continue;
           let pick = r() * total;
           const piece = band.pieces.find((x) => (pick -= x.weight) <= 0) ?? band.pieces[0];
           const img = images.get(`${area}/${piece.file}`);
@@ -646,7 +667,7 @@ export function areaBackground(area: AreaId, w: number, h: number, decor?: Decor
     if (img && img.naturalWidth) for (const step of scene.islands.steps) tops.push(drawIsland(g, img, step, w, h));
   }
   if (scene.pools) drawPools(g, scene.pools, area, w, h, r, taken);
-  scatter(bands.filter((b) => !b.under));
+  scatter(bands.filter((b) => !b.under), decor ? [] : scene.landmarks);
   if (scene.vignette && !split) {
     const v = g.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.3, w / 2, h / 2, Math.hypot(w, h) / 2);
     v.addColorStop(0, 'rgba(0,0,0,0)');
