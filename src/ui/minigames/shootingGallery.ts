@@ -3,14 +3,13 @@ import { mgArt } from './dpad';
 import { HUNTER_SHEETS } from '../../render/hunterSheets';
 import { hunterSheetImage } from '../../render/sprites';
 import { drawFramedBar, TIMER_COLOR } from '../../render/hudBars';
-import { outlineOf } from '../../render/outline';
 
 /**
  * Wilhelm's Shooting Gallery (the Shadowy Depths): the creature with a hundred eyes, from his story. Its eyes open
  * among the growths one after another, quicker and quicker, and close again: shoot them while they're open. There
  * are exactly 100, so the round lasts as long as they do and the best score is all of them: 1 point an eye, 3 for a
- * red one (quicker to shut). Shooting one of the ghost-flame lanterns costs 3. Wilhelm stands at the bottom and
- * turns his rifle on each shot (a flash at the barrel, a tracer to the crosshair, a puff where it lands).
+ * red one (quicker to shut). Shooting one of the ghost-flame lanterns costs 3. Wilhelm stands in the bottom-left
+ * corner and turns his rifle on each shot (a flash at the barrel, a tracer to the crosshair, a puff where it lands).
  */
 
 export const SG_EYES = 100;
@@ -33,19 +32,39 @@ interface Target {
   t: number;
 }
 
-/** The red eye: the eye with its greens turned red, and a red border (made once). */
-let redEye: HTMLCanvasElement | null = null;
-function redEyeOf(img: HTMLImageElement): HTMLCanvasElement {
-  if (!redEye) {
-    const c = document.createElement('canvas');
-    c.width = img.naturalWidth;
-    c.height = img.naturalHeight;
+/**
+ * The eye, its edges faded out (an oval falloff round its middle) so it seems to open up out of the ground; and
+ * the red eye, its greens turned red. Made once each.
+ */
+const eyes = new Map<string, HTMLCanvasElement>();
+function eyeOf(img: HTMLImageElement, red: boolean): HTMLCanvasElement {
+  const key = red ? 'red' : 'eye';
+  let c = eyes.get(key);
+  if (!c) {
+    c = document.createElement('canvas');
+    const w = (c.width = img.naturalWidth);
+    const h = (c.height = img.naturalHeight);
     const x = c.getContext('2d')!;
-    x.filter = 'hue-rotate(-95deg) saturate(2.4)';
     x.drawImage(img, 0, 0);
-    redEye = c;
+    if (red) {
+      // Every colour turned red (the iris bright, the rim a dark red), keeping the eye's shading.
+      x.globalCompositeOperation = 'color';
+      x.fillStyle = '#ff2626';
+      x.fillRect(0, 0, w, h);
+      x.globalCompositeOperation = 'destination-in';
+      x.drawImage(img, 0, 0);
+    }
+    x.globalCompositeOperation = 'destination-in';
+    x.translate(w / 2, h / 2);
+    x.scale(1, 0.72);
+    const fade = x.createRadialGradient(0, 0, w * 0.22, 0, 0, w * 0.5);
+    fade.addColorStop(0, 'rgba(0,0,0,1)');
+    fade.addColorStop(1, 'rgba(0,0,0,0)');
+    x.fillStyle = fade;
+    x.fillRect(-w, -h * 2, w * 2, h * 4);
+    eyes.set(key, c);
   }
-  return redEye;
+  return c;
 }
 
 export function shootingGallery(api: MinigameApi): MinigameGame {
@@ -60,7 +79,8 @@ export function shootingGallery(api: MinigameApi): MinigameGame {
   const puffs: Array<{ x: number; y: number; vx: number; vy: number; t: number; color: string }> = [];
   /** The eye's pixel scale. */
   const S = () => (api.k > 1.3 ? 3 : 2);
-  const wilhelm = () => ({ x: api.W / 2, y: api.H - 26 });
+  /** Wilhelm, in the bottom-left corner. */
+  const wilhelm = () => ({ x: Math.max(44 * api.k, api.W * 0.14), y: api.H - 26 });
   /** Where the rifle is held (his right shoulder, so it shows past his head), and its muzzle along the aim. */
   const shoulder = () => ({ x: wilhelm().x + 14 * api.k, y: wilhelm().y - 62 * api.k });
   const muzzle = () => {
@@ -178,7 +198,7 @@ export function shootingGallery(api: MinigameApi): MinigameGame {
         if (!eye) continue;
         // Opens quickly, stays open, then shuts over its last third (squashed shut top and bottom).
         const open = Math.max(0.06, Math.min(1, o.t / 0.12, o.life / (o.max / 3)));
-        const img = o.kind === 'red' ? outlineOf(redEyeOf(eye), '#ff3030', 1) : eye;
+        const img = eyeOf(eye, o.kind === 'red');
         const w = img.width * s;
         const h = img.height * s;
         g.save();
@@ -222,7 +242,7 @@ export function shootingGallery(api: MinigameApi): MinigameGame {
       const wl = wilhelm();
       const sheet = HUNTER_SHEETS.wilhelm;
       const himg = hunterSheetImage('wilhelm');
-      const side = Math.abs(Math.cos(aim)) > 0.8;
+      const side = Math.abs(Math.cos(aim)) > 0.75;
       const row = side ? (Math.cos(aim) < 0 ? 1 : 2) : 3;
       const drawRifle = () => {
         const sp = shoulder();
