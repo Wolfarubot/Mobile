@@ -2864,7 +2864,7 @@ const AREA_MINIGAMES: Partial<Record<AreaId, Omit<EventDef, 'area' | 'kind' | 'u
     id: 'graveRobbing',
     name: "Alias's Grave Robbing",
     icon: '🦹',
-    blurb: 'Graves open for a moment: grab the loot before they shut, but never the skeleton hands. Sixty seconds.',
+    blurb: 'Move Alias between the graves with the arrows to grab loot, and dodge the skeletons bursting out of the ground. Sixty seconds.',
     minigame: 'graveRobbing',
     hunter: 'thief',
     rewards: { gold: MINIGAME_GOLD, materials: [{ material: 'calciumCrystal', per: 4 }, { material: 'vampEssence', per: 3 }, { material: 'bone', per: 1 }] },
