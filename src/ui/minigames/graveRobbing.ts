@@ -4,6 +4,7 @@ import { SHEETS, sheetRow } from '../../render/monsterSheets';
 import { gearImage, hunterSheetImage, monsterSheetImage } from '../../render/sprites';
 import { drawFramedBar, TIMER_COLOR } from '../../render/hudBars';
 import { outlineOf } from '../../render/outline';
+import { dpadAt, dpadHit, dpadTop, drawDpad, mgArt, DIRS, type Dir } from './dpad';
 
 /**
  * Alias's Grave Robbing (the Restless Graveyard): Alias creeps between nine headstones in a 3×3 grid, moved one
@@ -16,19 +17,6 @@ export const GR_TIME = 60;
 /** Just the ground's small details (weeds, cracks, little bones): the graves are the game's own. */
 export const GR_DECOR = { bands: 1, density: 0.6 };
 export const GR_INTRO = `<p>Move Alias between the graves with the <b>arrows</b>. Step onto loot to grab it: 1 point, a golden urn 3.</p><p>Where the ground <b>cracks and shakes</b>, a skeleton is about to burst out: be standing there and it costs a heart. You have ${GR_TIME} seconds.</p>`;
-
-/** Art in public/minigames: the patch of cobblestones each spot stands on (from the Graveyard's ground tileset), and
- * the D-pad's stone buttons and arrows (from the platformer UI pack). */
-const artImgs = new Map<string, HTMLImageElement>();
-function art(name: string): HTMLImageElement | null {
-  let img = artImgs.get(name);
-  if (!img) {
-    img = new Image();
-    img.src = `${import.meta.env.BASE_URL}minigames/${name}.png`;
-    artImgs.set(name, img);
-  }
-  return img.complete && img.naturalWidth ? img : null;
-}
 
 /** Loot: a ring or a necklace from the jewellery pack, picked at random for each find. */
 const JEWELS = ['010', '015', '017', '019', '021', '025', '026', '028', '029', '035', '036', '052', '056', '060', '062', '066', '069', '070', '076', '079', '084', '087', '090', '091', '093', '095', '099'].map((n) => `jewelry/${n}`);
@@ -78,8 +66,6 @@ interface Dirt {
   color: string;
 }
 
-type Dir = 'up' | 'down' | 'left' | 'right';
-const DIRS: Record<Dir, [number, number]> = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
 
 export function graveRobbing(api: MinigameApi): MinigameGame {
   let at = 4;
@@ -96,7 +82,7 @@ export function graveRobbing(api: MinigameApi): MinigameGame {
 
   const grid = () => {
     const top = TITLE_Y + 46;
-    const bottom = api.H - 250 * api.k;
+    const bottom = dpadTop(api);
     const size = Math.min(api.W / 3.2, (bottom - top) / 3);
     return { size, x0: (api.W - size * 3) / 2, y0: top + (bottom - top - size * 3) / 2 };
   };
@@ -105,12 +91,7 @@ export function graveRobbing(api: MinigameApi): MinigameGame {
     const c = grid();
     return { x: c.x0 + (i % 3) * c.size + c.size / 2, y: c.y0 + Math.floor(i / 3) * c.size + c.size * 0.78 };
   };
-  const pad = () => ({ x: api.W / 2, y: api.H - 122 * api.k, b: 68 * api.k });
-  const buttonAt = (d: Dir) => {
-    const p = pad();
-    const [dx, dy] = DIRS[d];
-    return { x: p.x + dx * p.b * 1.08, y: p.y + dy * p.b * 1.08 };
-  };
+  const pad = () => dpadAt(api);
 
   const kickDirt = (x: number, y: number, n: number) => {
     for (let i = 0; i < n; i++) {
@@ -145,18 +126,8 @@ export function graveRobbing(api: MinigameApi): MinigameGame {
   return {
     titleSuffix: () => `${Math.ceil(Math.max(0, GR_TIME - api.t))}s`,
     tap(x, y) {
-      const p = pad();
-      let best: Dir | null = null;
-      let bestD = p.b * 0.75;
-      for (const d of Object.keys(DIRS) as Dir[]) {
-        const b = buttonAt(d);
-        const dist = Math.hypot(x - b.x, y - b.y);
-        if (dist < bestD) {
-          bestD = dist;
-          best = d;
-        }
-      }
-      if (best) move(best);
+      const d = dpadHit(pad(), x, y);
+      if (d) move(d);
     },
     step(dt) {
       if (api.t >= GR_TIME) {
@@ -255,7 +226,7 @@ export function graveRobbing(api: MinigameApi): MinigameGame {
         const warning = b && b.t < 0 ? 1 - -b.t / b.warn : 0;
         const shake = warning > 0 ? Math.sin(api.t * 60 + i) * warning * 3 * api.k : 0;
         // A round patch of cobblestones to stand on (whole pixels).
-        const patch = art('grave-patch');
+        const patch = mgArt('grave-patch');
         if (patch) {
           const sp = Math.max(1, Math.round((c.size * 0.6) / patch.naturalWidth));
           const pw = patch.naturalWidth * sp;
@@ -378,27 +349,7 @@ export function graveRobbing(api: MinigameApi): MinigameGame {
       }
       g.globalAlpha = 1;
 
-      // The D-pad: stone buttons with white arrows (pressed buttons sink).
-      const p = pad();
-      g.imageSmoothingEnabled = false;
-      for (const d of Object.keys(DIRS) as Dir[]) {
-        const b = buttonAt(d);
-        const down = pressed[d] > 0;
-        const btn = art(down ? 'stone-btn-down' : 'stone-btn');
-        const s = p.b;
-        if (btn) g.drawImage(btn, Math.round(b.x - s / 2), Math.round(b.y - s / 2), s, s);
-        const arrow = art(`arrow-${d}`);
-        if (arrow) {
-          // The arrow sits on the button's face (lower when pressed), with a dark drop shadow.
-          const as = s * 0.62;
-          const ax = Math.round(b.x - as / 2);
-          const ay = Math.round(b.y - as / 2 - s * (down ? 0 : 0.06));
-          g.filter = 'brightness(0) opacity(0.55)';
-          g.drawImage(arrow, ax + 2, ay + 2, as, as);
-          g.filter = 'none';
-          g.drawImage(arrow, ax, ay, as, as);
-        }
-      }
+      drawDpad(g, pad(), pressed);
     },
   };
 }

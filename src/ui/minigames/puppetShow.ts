@@ -1,97 +1,212 @@
-import type { MinigameApi, MinigameGame } from './shell';
-import { roundRect } from './shell';
+import { TITLE_Y, type MinigameApi, type MinigameGame } from './shell';
+import { DIRS, dpadAt, dpadHit, dpadTop, drawDpad, type Dir, DIR_LIST } from './dpad';
+import { HUNTER_SHEETS } from '../../render/hunterSheets';
+import { SHEETS } from '../../render/monsterSheets';
+import { hunterSheetImage, monsterSheetImage } from '../../render/sprites';
+import { canvasFont } from '../../render/fx';
 
 /**
- * Theon's Puppet Show (the Forbidden Crypt): four puppets dance a sequence, one move longer each round. Repeat it
- * by tapping them in order: 1 point a move. A wrong move costs a heart and the round plays again.
+ * Theon's Puppet Show (the Forbidden Crypt): on a stage at the top, Theon's puppet dances a sequence of moves
+ * (a hop up, down, left or right), one move longer each round, while the D-pad presses itself to show each one.
+ * Repeat the dance on the D-pad, and Theon dances it with you, tugging the puppet along on its strings: 1 point
+ * a move. A wrong move costs a heart and the round plays again.
  */
 
-export const PU_INTRO = '<p>Theon\'s four puppets dance a sequence. <b>Watch</b>, then <b>tap them in the same order</b>: 1 point a move.</p><p>Each round adds a move. A wrong one costs a heart, and the round plays again.</p>';
+export const PU_INTRO = '<p>Theon\'s puppet dances a sequence of moves, and the <b>arrows press themselves</b> to show each one. Then <b>press the same arrows in order</b> and Theon dances it with you: 1 point a move.</p><p>Each round adds a move. A wrong one costs a heart, and the round plays again.</p>';
 
-const PADS = [
-  { color: '#d85a5a', icon: 'ab-rogue-warlock/085' },
-  { color: '#5a8ad8', icon: 'ab-engineer-psionic/054' },
-  { color: '#d8b45a', icon: 'ab-rogue-warlock/061' },
-  { color: '#6ab86a', icon: 'ab-rogue-warlock/025' },
-];
+/** A hop in progress: which way, and how far through it (seconds). */
+interface Hop {
+  d: Dir;
+  t: number;
+  len: number;
+}
 
 export function puppetShow(api: MinigameApi): MinigameGame {
-  const seq: number[] = [Math.floor(Math.random() * 4), Math.floor(Math.random() * 4), Math.floor(Math.random() * 4)];
+  const rand = () => DIR_LIST[Math.floor(Math.random() * 4)];
+  const seq: Dir[] = [rand(), rand(), rand()];
   let phase: 'show' | 'input' | 'pause' = 'pause';
   let timer = 0.8;
   let shown = 0;
   let input = 0;
-  const lit = [0, 0, 0, 0];
+  const pressed: Record<Dir, number> = { up: 0, down: 0, left: 0, right: 0 };
+  let puppetHop: Hop | null = null;
+  let theonHop: Hop | null = null;
+  /** Which way each faces: Theon the way he last moved (toward the puppet at rest), the puppet likewise. */
+  let theonFacing: Dir = 'right';
+  let puppetFacing: Dir = 'left';
+  /** A wrong move: Theon slumps and the strings tangle for a moment. */
+  let oops = 0;
   /** Seconds each move is shown: quicker as the dance gets longer. */
-  const beat = () => Math.max(0.32, 0.65 - seq.length * 0.025);
-  const pad = (i: number) => {
-    const size = Math.min(api.W * 0.42, (api.H - 300) * 0.42);
-    const gap = 14;
-    const x0 = api.W / 2 - size - gap / 2;
-    const y0 = 150 + (api.H - 300 - size * 2 - gap) / 2;
-    return { x: x0 + (i % 2) * (size + gap), y: y0 + Math.floor(i / 2) * (size + gap), size };
+  const beat = () => Math.max(0.34, 0.68 - seq.length * 0.025);
+
+  const pad = () => dpadAt(api);
+  /** The stage: from under the title down to above the status line. */
+  const stage = () => {
+    const top = TITLE_Y + 30;
+    const bottom = dpadTop(api) - 40 * api.k;
+    return { top, bottom, floor: Math.min(top + 230 * api.k, bottom - 20 * api.k) };
   };
+  const theonAt = () => ({ x: api.W * 0.3, y: stage().floor });
+  const puppetAt = () => ({ x: api.W * 0.68, y: stage().floor });
+  /** Where a hop has carried someone: out and back along its direction (an arc for up). */
+  const hopOffset = (h: Hop | null): [number, number] => {
+    if (!h) return [0, 0];
+    const p = Math.min(1, h.t / h.len);
+    const s = Math.sin(Math.PI * p);
+    const [dx, dy] = DIRS[h.d];
+    const far = 32 * api.k;
+    return [dx * s * far, dy < 0 ? -s * far * 1.3 : dy > 0 ? s * far * 0.35 : -s * far * 0.35];
+  };
+
   const startShow = () => {
     phase = 'show';
     shown = 0;
     input = 0;
-    timer = 0.35;
+    timer = 0.4;
   };
+
   return {
+    titleSuffix: () => (phase === 'input' ? `${input} / ${seq.length}` : `${seq.length} moves`),
     tap(x, y) {
       if (phase !== 'input') return;
-      for (let i = 0; i < 4; i++) {
-        const p = pad(i);
-        if (x < p.x || x > p.x + p.size || y < p.y || y > p.y + p.size) continue;
-        lit[i] = 0.2;
-        if (seq[input] === i) {
-          input++;
-          api.addScore(1, p.x + p.size / 2, p.y + p.size / 2);
-          if (input >= seq.length) {
-            seq.push(Math.floor(Math.random() * 4));
-            phase = 'pause';
-            timer = 0.8;
-          }
-        } else {
-          api.loseLife(p.x + p.size / 2, p.y + p.size / 2);
+      const d = dpadHit(pad(), x, y);
+      if (!d) return;
+      pressed[d] = 0.15;
+      theonFacing = d;
+      theonHop = { d, t: 0, len: 0.3 };
+      const t = theonAt();
+      if (seq[input] === d) {
+        input++;
+        // Theon's tug moves the puppet too, a beat behind.
+        puppetFacing = d;
+        puppetHop = { d, t: -0.06, len: 0.3 };
+        api.addScore(1, t.x, t.y - 70 * api.k);
+        if (input >= seq.length) {
+          seq.push(rand());
           phase = 'pause';
-          timer = 1;
+          timer = 0.9;
         }
-        return;
+      } else {
+        api.loseLife(t.x, t.y - 70 * api.k);
+        oops = 0.6;
+        phase = 'pause';
+        timer = 1.1;
       }
     },
     step(dt) {
-      for (let i = 0; i < 4; i++) lit[i] = Math.max(0, lit[i] - dt);
+      for (const d of DIR_LIST) pressed[d] = Math.max(0, pressed[d] - dt);
+      oops = Math.max(0, oops - dt);
+      for (const h of [puppetHop, theonHop]) if (h) h.t += dt;
+      if (puppetHop && puppetHop.t >= puppetHop.len) puppetHop = null;
+      if (theonHop && theonHop.t >= theonHop.len) theonHop = null;
       timer -= dt;
-      if (phase === 'pause' && timer <= 0) startShow();
-      else if (phase === 'show' && timer <= 0) {
+      if (phase === 'pause' && timer <= 0) {
+        theonFacing = 'right';
+        puppetFacing = 'left';
+        startShow();
+      } else if (phase === 'show' && timer <= 0) {
         if (shown >= seq.length) {
           phase = 'input';
+          theonFacing = 'right';
+          puppetFacing = 'left';
           return;
         }
-        lit[seq[shown]] = beat() * 0.8;
+        // The puppet dances the next move, and its button presses itself.
+        const d = seq[shown];
+        puppetFacing = d;
+        puppetHop = { d, t: 0, len: beat() * 0.8 };
+        pressed[d] = beat() * 0.7;
         shown++;
         timer = beat();
       }
     },
     draw(g) {
-      g.font = `bold ${Math.round(20 * api.k)}px monospace`;
-      g.textAlign = 'center';
-      g.fillStyle = '#fff';
-      g.fillText(phase === 'input' ? `Your turn: ${input} / ${seq.length}` : `Watch… (${seq.length} moves)`, api.W / 2, 110);
-      for (let i = 0; i < 4; i++) {
-        const p = pad(i);
-        roundRect(g, p.x, p.y, p.size, p.size, 16);
-        g.fillStyle = lit[i] > 0 ? '#fff6d8' : PADS[i].color;
-        g.shadowColor = PADS[i].color;
-        g.shadowBlur = lit[i] > 0 ? 30 : 0;
-        g.fill();
-        g.shadowBlur = 0;
-        g.strokeStyle = 'rgba(0,0,0,0.6)';
-        g.lineWidth = 4;
-        g.stroke();
-        api.icon(PADS[i].icon, p.x + p.size / 2, p.y + p.size / 2, p.size * 0.55);
+      const st = stage();
+      g.imageSmoothingEnabled = false;
+      // The stage boards.
+      g.fillStyle = 'rgba(40,24,14,0.55)';
+      g.fillRect(api.W * 0.06, st.floor - 6 * api.k, api.W * 0.88, 18 * api.k);
+      g.fillStyle = 'rgba(120,80,44,0.65)';
+      g.fillRect(api.W * 0.06, st.floor - 6 * api.k, api.W * 0.88, 4 * api.k);
+
+      // Theon.
+      const t = theonAt();
+      const [tx, ty] = hopOffset(theonHop);
+      const tSheet = HUNTER_SHEETS.puppeteer;
+      const tImg = hunterSheetImage('puppeteer');
+      const tH = 120 * api.k;
+      let hand = { x: t.x + 16 * api.k, y: t.y - tH * 0.55 };
+      shadow(g, t.x, t.y, 26 * api.k);
+      if (tSheet && tImg && tImg.complete && tImg.naturalWidth) {
+        const row = { down: 0, left: 1, right: 2, up: 3 }[theonFacing];
+        const F = tSheet.frame;
+        const col = Math.floor(api.t * 8) % tSheet.frames[row];
+        const [bx, by, bw, bh] = tSheet.box;
+        const k = tH / bh;
+        const slump = oops > 0 ? Math.sin(oops * 30) * 3 * api.k : 0;
+        const x = t.x + tx + slump;
+        const y = t.y + ty;
+        g.drawImage(tImg, col * F, row * F, F, F, x - (bx + bw / 2) * k, y - (by + bh) * k, F * k, F * k);
+        hand = { x: x + 14 * api.k, y: y - tH * 0.62 };
       }
+
+      // The puppet (its sheet faces right: mirrored to face left).
+      const p = puppetAt();
+      const [px, py] = hopOffset(puppetHop);
+      const pSheet = SHEETS.puppet;
+      const pImg = monsterSheetImage('puppet');
+      const pH = 104 * api.k;
+      let head = { x: p.x, y: p.y - pH };
+      shadow(g, p.x, p.y, 22 * api.k);
+      if (pSheet && pImg.complete && pImg.naturalWidth) {
+        const F = pSheet.frame;
+        const col = puppetHop || theonHop ? Math.floor(api.t * 12) % pSheet.cols : 0;
+        const [bx, by, bw, bh] = pSheet.box;
+        const k = pH / bh;
+        const x = p.x + px;
+        const y = p.y + py;
+        const flip = puppetFacing !== 'right';
+        g.save();
+        g.translate(x, y);
+        if (flip) g.scale(-1, 1);
+        g.drawImage(pImg, col * F, 0, F, F, -(bx + bw / 2) * k, -(by + bh) * k, F * k, F * k);
+        g.restore();
+        head = { x, y: y - pH * 0.92 };
+      }
+
+      // The strings, from Theon's hand up over the stage and down to the puppet (tangled after a slip).
+      g.strokeStyle = 'rgba(240,232,210,0.75)';
+      g.lineWidth = Math.max(1, 1.2 * api.k);
+      const peak = { x: (hand.x + head.x) / 2, y: Math.min(hand.y, head.y) - 40 * api.k };
+      for (const off of [-8, 0, 8]) {
+        const wob = oops > 0 ? Math.sin(api.t * 40 + off) * 10 * api.k : 0;
+        g.beginPath();
+        g.moveTo(hand.x, hand.y);
+        g.quadraticCurveTo(peak.x + wob, peak.y + off * 0.5, head.x + off * api.k, head.y);
+        g.stroke();
+      }
+
+      // What's going on, under the stage.
+      g.font = canvasFont(Math.round(15 * api.k), 700);
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.lineWidth = 3;
+      g.lineJoin = 'round';
+      g.strokeStyle = '#000';
+      const text = phase === 'input' ? 'Your turn!' : phase === 'show' ? 'Watch the puppet…' : oops > 0 ? 'Tangled! Again…' : 'Get ready…';
+      g.strokeText(text, api.W / 2, st.floor + 44 * api.k);
+      g.fillStyle = phase === 'input' ? '#ffe8a3' : '#e8dcc0';
+      g.fillText(text, api.W / 2, st.floor + 44 * api.k);
+      g.textBaseline = 'alphabetic';
+
+      drawDpad(g, pad(), pressed);
     },
   };
+}
+
+function shadow(g: CanvasRenderingContext2D, x: number, y: number, r: number): void {
+  g.fillStyle = 'rgba(0,0,0,0.35)';
+  g.beginPath();
+  g.ellipse(x, y, r, r * 0.3, 0, 0, Math.PI * 2);
+  g.fill();
 }
