@@ -1,18 +1,22 @@
 import { TITLE_Y, type MinigameApi, type MinigameGame } from './shell';
 import { DIRS, dpadAt, dpadHit, dpadTop, drawDpad, type Dir, DIR_LIST } from './dpad';
 import { HUNTER_SHEETS } from '../../render/hunterSheets';
-import { SHEETS } from '../../render/monsterSheets';
+import { SHEETS, sheetRow } from '../../render/monsterSheets';
 import { hunterSheetImage, monsterSheetImage } from '../../render/sprites';
 import { canvasFont } from '../../render/fx';
 
 /**
- * Theon's Puppet Show (the Forbidden Crypt): on a stage at the top, Theon's puppet dances a sequence of moves
- * (a hop up, down, left or right), one move longer each round, while the D-pad presses itself to show each one.
- * Repeat the dance on the D-pad, and Theon dances it with you, tugging the puppet along on its strings: 1 point
- * a move. A wrong move costs a heart and the round plays again.
+ * Theon's Puppet Show (the Forbidden Crypt): on a stage at the top, Theon's puppet (a little steel knight on
+ * strings) dances a sequence of moves (a hop up, down, left or right), one move longer each round, while the big
+ * D-pad presses itself to show each one. Repeat the dance on the D-pad, and Theon dances it with you, the puppet
+ * following: 1 point a move. A wrong move costs a heart and the round plays again.
  */
 
 export const PU_INTRO = '<p>Theon\'s puppet dances a sequence of moves, and the <b>arrows press themselves</b> to show each one. Then <b>press the same arrows in order</b> and Theon dances it with you: 1 point a move.</p><p>Each round adds a move. A wrong one costs a heart, and the round plays again.</p>';
+
+/** The puppet's sheet (a four-direction walk) and the D-pad's size here (much bigger than Grave Robbing's). */
+const PUPPET = 'knight-steel';
+const PAD_SIZE = 1.5;
 
 /** A hop in progress: which way, and how far through it (seconds). */
 interface Hop {
@@ -39,12 +43,12 @@ export function puppetShow(api: MinigameApi): MinigameGame {
   /** Seconds each move is shown: quicker as the dance gets longer. */
   const beat = () => Math.max(0.34, 0.68 - seq.length * 0.025);
 
-  const pad = () => dpadAt(api);
+  const pad = () => dpadAt(api, PAD_SIZE);
   /** The stage: from under the title down to above the status line. */
   const stage = () => {
     const top = TITLE_Y + 30;
-    const bottom = dpadTop(api) - 40 * api.k;
-    return { top, bottom, floor: Math.min(top + 230 * api.k, bottom - 20 * api.k) };
+    const bottom = dpadTop(api, PAD_SIZE);
+    return { top, bottom, floor: Math.min(top + 170 * api.k, bottom - 50 * api.k) };
   };
   const theonAt = () => ({ x: api.W * 0.3, y: stage().floor });
   const puppetAt = () => ({ x: api.W * 0.68, y: stage().floor });
@@ -135,7 +139,6 @@ export function puppetShow(api: MinigameApi): MinigameGame {
       const tSheet = HUNTER_SHEETS.puppeteer;
       const tImg = hunterSheetImage('puppeteer');
       const tH = 120 * api.k;
-      let hand = { x: t.x + 16 * api.k, y: t.y - tH * 0.55 };
       shadow(g, t.x, t.y, 26 * api.k);
       if (tSheet && tImg && tImg.complete && tImg.naturalWidth) {
         const row = { down: 0, left: 1, right: 2, up: 3 }[theonFacing];
@@ -147,43 +150,40 @@ export function puppetShow(api: MinigameApi): MinigameGame {
         const x = t.x + tx + slump;
         const y = t.y + ty;
         g.drawImage(tImg, col * F, row * F, F, F, x - (bx + bw / 2) * k, y - (by + bh) * k, F * k, F * k);
-        hand = { x: x + 14 * api.k, y: y - tH * 0.62 };
       }
 
-      // The puppet (its sheet faces right: mirrored to face left).
+      // The puppet: a little knight facing the way it moves, its two strings rising out of sight above it.
       const p = puppetAt();
       const [px, py] = hopOffset(puppetHop);
-      const pSheet = SHEETS.puppet;
-      const pImg = monsterSheetImage('puppet');
-      const pH = 104 * api.k;
-      let head = { x: p.x, y: p.y - pH };
+      const pSheet = SHEETS[PUPPET];
+      const pImg = monsterSheetImage(PUPPET);
+      const pH = 96 * api.k;
       shadow(g, p.x, p.y, 22 * api.k);
       if (pSheet && pImg.complete && pImg.naturalWidth) {
         const F = pSheet.frame;
+        const dir = ({ up: 'U', down: 'D', left: 'L', right: 'R' } as const)[puppetFacing];
         const col = puppetHop || theonHop ? Math.floor(api.t * 12) % pSheet.cols : 0;
         const [bx, by, bw, bh] = pSheet.box;
         const k = pH / bh;
         const x = p.x + px;
         const y = p.y + py;
-        const flip = puppetFacing !== 'right';
-        g.save();
-        g.translate(x, y);
-        if (flip) g.scale(-1, 1);
-        g.drawImage(pImg, col * F, 0, F, F, -(bx + bw / 2) * k, -(by + bh) * k, F * k, F * k);
-        g.restore();
-        head = { x, y: y - pH * 0.92 };
-      }
-
-      // The strings, from Theon's hand up over the stage and down to the puppet (tangled after a slip).
-      g.strokeStyle = 'rgba(240,232,210,0.75)';
-      g.lineWidth = Math.max(1, 1.2 * api.k);
-      const peak = { x: (hand.x + head.x) / 2, y: Math.min(hand.y, head.y) - 40 * api.k };
-      for (const off of [-8, 0, 8]) {
-        const wob = oops > 0 ? Math.sin(api.t * 40 + off) * 10 * api.k : 0;
-        g.beginPath();
-        g.moveTo(hand.x, hand.y);
-        g.quadraticCurveTo(peak.x + wob, peak.y + off * 0.5, head.x + off * api.k, head.y);
-        g.stroke();
+        // The strings: from its hands, fading out as they rise (wobbling after a slip).
+        const top = y - pH * 1.9;
+        for (const side of [-1, 1]) {
+          const hx = x + side * bw * k * 0.32;
+          const hy = y - pH * 0.62;
+          const wob = oops > 0 ? Math.sin(api.t * 40 + side) * 8 * api.k : 0;
+          const grad = g.createLinearGradient(0, hy, 0, top);
+          grad.addColorStop(0, 'rgba(255,255,255,0.85)');
+          grad.addColorStop(1, 'rgba(255,255,255,0)');
+          g.strokeStyle = grad;
+          g.lineWidth = Math.max(2, 2.5 * api.k);
+          g.beginPath();
+          g.moveTo(hx, hy);
+          g.quadraticCurveTo(hx + wob, (hy + top) / 2, hx + side * 4 * api.k, top);
+          g.stroke();
+        }
+        g.drawImage(pImg, col * F, sheetRow(pSheet, dir) * F, F, F, x - (bx + bw / 2) * k, y - (by + bh) * k, F * k, F * k);
       }
 
       // What's going on, under the stage.

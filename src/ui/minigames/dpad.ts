@@ -20,6 +20,8 @@ export function mgArt(name: string): HTMLImageElement | null {
   return img.complete && img.naturalWidth ? img : null;
 }
 
+const DPAD_ART = ['stone-btn', 'stone-btn-down', ...DIR_LIST.map((d) => `arrow-${d}`)];
+
 export interface Dpad {
   /** Centre and button size. */
   x: number;
@@ -27,11 +29,17 @@ export interface Dpad {
   b: number;
 }
 
-/** The D-pad near the bottom of the screen. */
-export const dpadAt = (api: MinigameApi): Dpad => ({ x: api.W / 2, y: api.H - 122 * api.k, b: 68 * api.k });
+/** The D-pad near the bottom of the screen; `size` scales its buttons (1: 68px at a 400px-wide phone). */
+export function dpadAt(api: MinigameApi, size = 1): Dpad {
+  const b = Math.min(68 * size * api.k, api.W * 0.29);
+  return { x: api.W / 2, y: api.H - b * 1.62 - 8 * api.k, b };
+}
 
-/** How far the D-pad reaches above its centre (so games can keep their art clear of it). */
-export const dpadTop = (api: MinigameApi): number => api.H - 250 * api.k;
+/** The top of the D-pad (so games can keep their art clear of it). */
+export function dpadTop(api: MinigameApi, size = 1): number {
+  const p = dpadAt(api, size);
+  return p.y - p.b * 1.62 - 14 * api.k;
+}
 
 export function buttonAt(p: Dpad, d: Dir): { x: number; y: number } {
   const [dx, dy] = DIRS[d];
@@ -55,6 +63,8 @@ export function dpadHit(p: Dpad, x: number, y: number): Dir | null {
 
 /** The four buttons; a button with `pressed[d] > 0` is drawn pushed in. */
 export function drawDpad(g: CanvasRenderingContext2D, p: Dpad, pressed: Record<Dir, number>): void {
+  // Every button state and arrow starts loading at once, so a press never shows a missing picture.
+  for (const name of DPAD_ART) mgArt(name);
   g.imageSmoothingEnabled = false;
   for (const d of DIR_LIST) {
     const b = buttonAt(p, d);
