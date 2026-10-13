@@ -212,8 +212,9 @@ const SCENES: Partial<Record<AreaId, Scene>> = {
     vignette: 'rgba(10,0,6,0.75)',
   },
 
-  // CraftPix's cave with lava: brown rock floor and pebbles, pools of molten lava, orange, red and yellow stone,
-  // fire crystals and smoking vents, rock walls and stalagmites, and the great demon skull and its gates at the edges.
+  // The Ember Mines: brown rock floor and pebbles, ore veins of yellow and red crystal and gems (blue, green, pink)
+  // among boulders and magma rocks, a few smoking vents and small lava pools, and rock walls and great boulders
+  // crowding the edge. Kept well back from a wide clearing (the view is zoomed out from the Depths on).
   caves: {
     base: '#4a3934',
     specks: [
@@ -221,15 +222,22 @@ const SCENES: Partial<Record<AreaId, Scene>> = {
       ['#3e302c', 22],
       ['#685243', 8],
     ],
-    pools: { density: 0.06, from: 0.35, size: [40, 80], rim: '#140e11', crust: '#5c2316', fill: '#c9562a', inner: '#d98d37', details: run('lava', 1, 89).split(' ') },
+    clear: 0.55,
+    edgeOut: 10,
+    pools: { density: 0.025, from: 0.62, size: [36, 60], rim: '#140e11', crust: '#5c2316', fill: '#c9562a', inner: '#d98d37', details: run('lava', 1, 89).split(' ') },
     bands: [
-      { pieces: [...p(run('spot', 1, 72), 1), ...p('Orange_stone4 Yellow_stone4 Black_stone4 Yellow_crystal4 black_stalagmites5 gray_stalagmites5', 0.6)], density: 3, from: 0 },
-      { pieces: [...p(run('spot', 73, 107)), ...p('Orange_stone2 Orange_stone3 Red_stone2 Red_stone3 Yellow_stone2 Yellow_stone3 Black_stone2 Black_stone3 Red_crystal3 Yellow_crystal3 Dark_red_crystal3 Volcano3 Volcano4 Volcano5 gray_stalagmites4 black_stalagmites3 black_stalagmites4', 1.5)], density: 1.1, from: 0.4 },
-      { pieces: [...p('Orange_stone1 Red_stone1 Yellow_stone1 Black_stone1 Red_crystal1 Red_crystal2 Yellow_crystal1 Yellow_crystal2 Dark_red_crystal1 Dark_red_crystal2 Volcano1 Volcano2 Water_rocks1 Water_rocks2 Water_rocks3 gray_stalagmites2 gray_stalagmites1 black_stalagmites1 black_stalagmites2', 1.5), ...p(run('Walls_elements', 1, 20))], density: 0.45, from: 0.7 },
-      { pieces: [...p('Demon_head Demon_hand Demon_tail gates1 gates2 gray_stalagmites3'), ...p(run('Walls_elements', 1, 20), 0.5)], density: 0.13, from: 0.92 },
+      // Floor spots, pebbles and chips of ore.
+      { pieces: [...p(run('spot', 1, 72), 1), ...p('r_Rock2_5 r_Rock6_5 r_Rock7_5 r_Rock8_5 Yellow_crystal4 Yellow_stone4 Orange_stone4 g_Blue_crystal4 g_Green_crystal4 g_Pink_crystal4 Water_rocks3', 0.5)], density: 2.2, from: 0 },
+      // Small rocks and ore veins.
+      { pieces: [...p('r_Rock2_3 r_Rock2_4 r_Rock6_3 r_Rock6_4 r_Rock7_3 r_Rock7_4 r_Rock8_3 r_Rock8_4', 1.5), ...p('Yellow_crystal3 Yellow_stone3 Red_crystal3 Dark_red_crystal3 g_Blue_crystal3 g_Green_crystal3 g_Pink_crystal3 g_Yellow_green_crystal3', 1.5), ...p('Volcano4 Volcano5')], density: 0.75, from: 0.6 },
+      // Boulders, magma rocks and big crystal clusters.
+      { pieces: [...p('r_Rock2_1 r_Rock2_2 r_Rock6_1 r_Rock6_2 r_Rock7_1 r_Rock7_2 r_Rock8_1 r_Rock8_2', 1.5), ...p('Yellow_crystal1 Yellow_crystal2 Yellow_stone1 Yellow_stone2 Red_crystal1 Red_crystal2 Dark_red_crystal1 g_Blue_crystal1 g_Blue_crystal2 g_Green_crystal1 g_Green_crystal2 g_Pink_crystal1 g_Pink_crystal2', 1.2), ...p('Volcano2 Volcano3', 0.6)], density: 0.4, from: 0.78 },
+      // Rock walls and great boulders crowding the border (monsters walk through them).
+      { pieces: [...p(run('Walls_elements', 1, 20), 3), ...p('r_Rock2_1 r_Rock7_1 r_Rock6_1 r_Rock8_1', 2), ...p('gray_stalagmites1 gray_stalagmites2 black_stalagmites1')], density: 0, from: 0.95, edge: true },
     ],
     vignette: 'rgba(30,8,0,0.5)',
   },
+
   // CraftPix's glowing cave, cave objects and desert worms, recoloured to toxic greens: glowing fungi and
   // crystals, curling roots and great worms, pools of bubbling acid, and totems and the bones of old beasts.
   mines: {

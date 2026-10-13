@@ -9,7 +9,9 @@ All from CraftPix.net (license: https://craftpix.net/file-licenses/), cut out, t
 - depths/: "Free Cursed Land Top Down Pixel Art Tileset" and "Cursed Land Objects" (darkened), "Cave Tileset Top Down"
   stones, stalagmites, webs and mushrooms, and "Top Down Crystals".
 - caves/ (Ember Mines): "Cave Tileset Top Down" (stones, volcano vents, rock walls, demon skull and gates, floor
-  spots, lava streaks) and "Top Down Crystals"; the lava pools are drawn by the game.
+  spots, lava streaks) and "Top Down Crystals"; r_*: "Free Rocks and Stones Top-Down Pixel Art" (Rock2, 6, 7 and 8);
+  g_*: the blue, green, pink and yellow-green crystals from "Top Down Crystals Pixel Art" (Assets_texture_shadow).
+  The lava pools are drawn by the game.
 - mines/ (Venom Caverns): "Glowing Cave Top Down Tileset", "Free Top Down Pixel Art Cave Objects" and "Desert Objects
   Top Down", with blues and purples shifted to greens and warm tones to yellow-green.
 - peaks/: "Winter Top Down Pixel Art Tileset", "Top Down Winter Objects" and "Rocky Top Down Tileset" (stones, pines,
