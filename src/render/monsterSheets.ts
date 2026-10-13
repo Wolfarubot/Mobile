@@ -79,6 +79,9 @@ export const SHEETS: Record<string, MonsterSheet> = {
   'bat': { frame: 48, cols: 4, order: 'SIDE', faces: 'L', box: [10, 21, 36, 22] },
   'crow': { frame: 48, cols: 4, order: 'SIDE', faces: 'L', box: [17, 23, 30, 24] },
   'puppet': { frame: 48, cols: 6, order: 'SIDE', box: [17, 10, 28, 38] },
+  // The zombie recoloured (white skin, black clothes, brown hair) and hung on two white strings, in 96px frames
+  // (room above for the strings): behind it facing down, left or right, over its back facing up.
+  'puppet-marionette': { frame: 96, cols: 6, order: 'DULR', box: [35, 47, 26, 27] },
   'duskmoth': { frame: 48, cols: 4, order: 'SIDE', faces: 'L', box: [5, 8, 43, 33] },
   'fire-beetle': { frame: 48, cols: 4, order: 'SIDE', faces: 'L', box: [8, 31, 38, 17] },
   'hellhound': { frame: 128, cols: 9, order: 'SIDE', box: [15, 75, 93, 53] },
@@ -165,7 +168,7 @@ export const MONSTER_SHEETS: Partial<Record<EnemyId, string>> = {
   unicorn: 'unicorn',
   bat: 'bat',
   crow: 'crow',
-  puppet: 'puppet',
+  puppet: 'puppet-marionette',
   duskmoth: 'duskmoth',
   beetle: 'fire-beetle',
   hellhound: 'hellhound',

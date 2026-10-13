@@ -3,5 +3,3 @@ Minigame art, all from CraftPix.net (license: https://craftpix.net/file-licenses
   at 387,177), the ground each spot in Alias's Grave Robbing stands on.
 - stone-btn.png, stone-btn-down.png (buttons 7 and 10) and arrow-up/down/left/right.png (icons 26, 27, 25, 24)
   from the "Free Pixel Art Platformer UI" pack: Grave Robbing's D-pad.
-- puppet-zombie.png: the game's zombie walk sheet (CraftPix's top-down zombie, public/monsters/zombie.png) recoloured
-  to white skin, black clothes and brown hair: the puppet in Theon's Puppet Show.

@@ -40,3 +40,5 @@ Side-view and animal packs (walk or flight strips, one row facing right, mirrore
   dragon-pixel-art-character-sprite-sheets-pack, free-yokai-pixel-art-character-sprites
   swamp-enemies (bat), swamp-bosses (big bloated -> Toxic Bloat, recoloured), ruin-enemy (raven, bug), animal-sprite-sheets (white bear, horse), desert-bosses (manticore),
   ruin-bosses (wild boar), mine-bosses (elemental; arachnid -> Broodmother, recoloured), mega-boss-for-pixel-platformer (Time Eater)
+  puppet-marionette.png (the Possessed Puppet, also Theon's puppet in the Puppet Show): zombie.png recoloured to white
+  skin, black clothes and brown hair, set into 96px frames with two white strings rising from its shoulders.

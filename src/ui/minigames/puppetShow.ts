@@ -1,8 +1,8 @@
 import { TITLE_Y, type MinigameApi, type MinigameGame } from './shell';
-import { DIRS, dpadAt, dpadHit, dpadTop, drawDpad, mgArt, type Dir, DIR_LIST } from './dpad';
+import { DIRS, dpadAt, dpadHit, dpadTop, drawDpad, type Dir, DIR_LIST } from './dpad';
 import { HUNTER_SHEETS } from '../../render/hunterSheets';
 import { SHEETS, sheetRow } from '../../render/monsterSheets';
-import { hunterSheetImage } from '../../render/sprites';
+import { hunterSheetImage, monsterSheetImage } from '../../render/sprites';
 import { canvasFont } from '../../render/fx';
 
 /**
@@ -15,11 +15,10 @@ import { canvasFont } from '../../render/fx';
 export const PU_INTRO = '<p>Theon\'s puppet dances a sequence of moves, and the <b>arrows press themselves</b> to show each one. Then <b>press the same arrows in order</b> and Theon dances it with you: 1 point a move.</p><p>Each round adds a move. A wrong one costs a heart, and the round plays again.</p>';
 
 /**
- * The puppet: the zombie's four-direction walk (its frame layout from the zombie sheet), recoloured to white skin,
- * black clothes and brown hair (public/minigames/puppet-zombie.png). And the D-pad's size here (bigger than Grave
- * Robbing's).
+ * The puppet: the Crypt's Possessed Puppet (a recoloured zombie on two white strings, baked into its sheet). And
+ * the D-pad's size here (bigger than Grave Robbing's).
  */
-const PUPPET = 'zombie';
+const PUPPET = 'puppet-marionette';
 const PAD_SIZE = 1.5;
 
 /** A hop in progress: which way, and how far through it (seconds). */
@@ -156,14 +155,14 @@ export function puppetShow(api: MinigameApi): MinigameGame {
         g.drawImage(tImg, col * F, row * F, F, F, x - (bx + bw / 2) * k, y - (by + bh) * k, F * k, F * k);
       }
 
-      // The puppet: a little knight facing the way it moves, its two strings rising out of sight above it.
+      // The puppet, facing the way it moves (its strings are part of its sheet).
       const p = puppetAt();
       const [px, py] = hopOffset(puppetHop);
       const pSheet = SHEETS[PUPPET];
-      const pImg = mgArt('puppet-zombie');
+      const pImg = monsterSheetImage(PUPPET);
       const pH = 96 * api.k;
       shadow(g, p.x, p.y, 22 * api.k);
-      if (pSheet && pImg) {
+      if (pSheet && pImg.complete && pImg.naturalWidth) {
         const F = pSheet.frame;
         const dir = ({ up: 'U', down: 'D', left: 'L', right: 'R' } as const)[puppetFacing];
         const col = puppetHop || theonHop ? Math.floor(api.t * 12) % pSheet.cols : 0;
@@ -171,22 +170,6 @@ export function puppetShow(api: MinigameApi): MinigameGame {
         const k = pH / bh;
         const x = p.x + px;
         const y = p.y + py;
-        // The strings: from its hands, fading out as they rise (wobbling after a slip).
-        const top = y - pH * 1.9;
-        for (const side of [-1, 1]) {
-          const hx = x + side * bw * k * 0.32;
-          const hy = y - pH * 0.62;
-          const wob = oops > 0 ? Math.sin(api.t * 40 + side) * 8 * api.k : 0;
-          const grad = g.createLinearGradient(0, hy, 0, top);
-          grad.addColorStop(0, 'rgba(255,255,255,0.85)');
-          grad.addColorStop(1, 'rgba(255,255,255,0)');
-          g.strokeStyle = grad;
-          g.lineWidth = Math.max(2, 2.5 * api.k);
-          g.beginPath();
-          g.moveTo(hx, hy);
-          g.quadraticCurveTo(hx + wob, (hy + top) / 2, hx + side * 4 * api.k, top);
-          g.stroke();
-        }
         g.drawImage(pImg, col * F, sheetRow(pSheet, dir) * F, F, F, x - (bx + bw / 2) * k, y - (by + bh) * k, F * k, F * k);
       }
 
