@@ -113,6 +113,7 @@ import {
 } from '../src/core/balance';
 import { Field, SLAM_OFFSET, type Enemy } from '../src/core/field';
 import { GATED } from '../src/core/gates';
+import { boardCells, RM_BOARDS } from '../src/ui/minigames/runeMatch';
 import { Game } from '../src/core/game';
 import { deserialize, FX_KEYS, newGame as startingGame, SAVE_VERSION, serialize, type GameState } from '../src/core/state';
 
@@ -1160,6 +1161,13 @@ describe('Equipment', () => {
     expect((g.enchant(plate.uid, 0) as { id: string }).id).toBe('evasion');
     const ev = g.gearEffects('main').find((e) => e.effect.kind === 'evade')!;
     expect((ev.effect as { chance: number }).chance).toBeCloseTo(modRoll(ENCHANTS.evasion.range, false, 'exalted', (g.modSlots(plate.uid)[0] as { q: number }).q));
+  });
+
+  it("Marceline's Rune Match boards grow 2x2, 3x3 (no middle), 4x4 ... 8x8, always an even number of cards", () => {
+    expect(RM_BOARDS).toEqual([2, 3, 4, 5, 6, 7, 8]);
+    expect(RM_BOARDS.map((n) => boardCells(n).length)).toEqual([4, 8, 16, 24, 36, 48, 64]);
+    expect(boardCells(3)).not.toContain(4); // the middle of the 3x3
+    expect(boardCells(7)).not.toContain(24);
   });
 
   it("Kargesh's and Marceline's minigames bless the next Refine / Enchant: extra quality rolls by score, used up by that roll", () => {
