@@ -2,6 +2,8 @@ import type { MinigameApi, MinigameGame } from './shell';
 import { HUNTER_SHEETS } from '../../render/hunterSheets';
 import { SHEETS, sheetRow } from '../../render/monsterSheets';
 import { hunterSheetImage, monsterSheetImage } from '../../render/sprites';
+import { drawFramedBar, TIMER_COLOR } from '../../render/hudBars';
+import { canvasFont } from '../../render/fx';
 
 /**
  * Alias's Grave Robbing (the Restless Graveyard): Alias creeps between nine headstones in a 3×3 grid, moved one
@@ -93,7 +95,7 @@ export function graveRobbing(api: MinigameApi): MinigameGame {
   let lootIn = 0.4;
 
   const grid = () => {
-    const top = 96;
+    const top = 112;
     const bottom = api.H - 250 * api.k;
     const size = Math.min(api.W / 3.2, (bottom - top) / 3);
     return { size, x0: (api.W - size * 3) / 2, y0: top + (bottom - top - size * 3) / 2 };
@@ -227,12 +229,27 @@ export function graveRobbing(api: MinigameApi): MinigameGame {
     draw(g) {
       const c = grid();
       g.imageSmoothingEnabled = false;
-      // The clock
+      // The game's title and the time left over the clock: the battlefield's framed event timer.
       const left = Math.max(0, GR_TIME - api.t);
-      g.fillStyle = 'rgba(0,0,0,0.45)';
-      g.fillRect(16, 64, api.W - 32, 10);
-      g.fillStyle = left < 10 ? '#ff6a6a' : '#e8dcc0';
-      g.fillRect(16, 64, (api.W - 32) * (left / GR_TIME), 10);
+      g.font = canvasFont(13, 700);
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.lineWidth = 3;
+      g.lineJoin = 'round';
+      g.strokeStyle = '#000';
+      const title = `GRAVE ROBBING · ${Math.ceil(left)}s`;
+      g.strokeText(title, api.W / 2, 72);
+      g.fillStyle = '#9ff0a8';
+      g.fillText(title, api.W / 2, 72);
+      const S = 2;
+      const nw = Math.floor(Math.min(api.W * 0.8, 360) / S);
+      const bx = Math.round((api.W - nw * S) / 2);
+      if (!drawFramedBar(g, bx, 82, S, nw, 9, left / GR_TIME, left < 10 ? '#ff6a6a' : TIMER_COLOR)) {
+        g.fillStyle = 'rgba(0,0,0,0.45)';
+        g.fillRect(bx, 82, nw * S, 10);
+        g.fillStyle = TIMER_COLOR;
+        g.fillRect(bx, 82, nw * S * (left / GR_TIME), 10);
+      }
 
       // Each grave, back row first: a patch of dug earth and its headstone behind it.
       const draws: Array<{ y: number; draw: () => void }> = [];
