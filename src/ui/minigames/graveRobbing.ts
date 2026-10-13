@@ -16,7 +16,7 @@ export const GR_TIME = 60;
 export const GR_DECOR = { bands: 1, density: 0.6 };
 export const GR_INTRO = `<p>Move Alias between the graves with the <b>arrows</b>. Step onto loot to grab it: 1 point, a golden urn 3.</p><p>Where the ground <b>cracks and shakes</b>, a skeleton is about to burst out: be standing there and it costs a heart. You have ${GR_TIME} seconds.</p>`;
 
-/** Art in public/minigames: the cobblestone slab each spot stands on (from the Graveyard's ground tileset), and
+/** Art in public/minigames: the patch of cobblestones each spot stands on (from the Graveyard's ground tileset), and
  * the D-pad's stone buttons and arrows (from the platformer UI pack). */
 const artImgs = new Map<string, HTMLImageElement>();
 function art(name: string): HTMLImageElement | null {
@@ -243,16 +243,13 @@ export function graveRobbing(api: MinigameApi): MinigameGame {
         // Warning: the earth shakes and cracks, more as the burst nears.
         const warning = b && b.t < 0 ? 1 - -b.t / b.warn : 0;
         const shake = warning > 0 ? Math.sin(api.t * 60 + i) * warning * 3 * api.k : 0;
-        // A cobblestone slab to stand on (whole pixels), with a dark edge.
-        const slab = art('grave-slab');
-        if (slab) {
-          const sp = Math.max(1, Math.round((c.size * 0.55) / 32));
-          const sw = 32 * sp;
-          const sx = Math.round(p.x + shake - sw / 2);
-          const sy = Math.round(p.y - c.size * 0.04 - sw / 2);
-          g.fillStyle = 'rgba(20,16,12,0.7)';
-          g.fillRect(sx - 2, sy - 2, sw + 4, sw + 4);
-          g.drawImage(slab, 8, 8, 32, 32, sx, sy, sw, sw);
+        // A round patch of cobblestones to stand on (whole pixels).
+        const patch = art('grave-patch');
+        if (patch) {
+          const sp = Math.max(1, Math.round((c.size * 0.6) / patch.naturalWidth));
+          const pw = patch.naturalWidth * sp;
+          const ph = patch.naturalHeight * sp;
+          g.drawImage(patch, Math.round(p.x + shake - pw / 2), Math.round(p.y - c.size * 0.04 - ph / 2), pw, ph);
         }
         if (warning > 0) {
           g.strokeStyle = `rgba(20,12,6,${0.4 + warning * 0.6})`;
