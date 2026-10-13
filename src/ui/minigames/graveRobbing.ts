@@ -292,12 +292,12 @@ export function graveRobbing(api: MinigameApi): MinigameGame {
           draw: () => {
             const size = c.size * 0.36;
             const cy = p.y - c.size * 0.12 + bob;
-            // The golden urn wears a gold border.
-            const img = l.gold ? gearImage(l.icon) : null;
+            // A border so it stands out from the graves: gold round the golden urn, silver round the jewellery.
+            const img = gearImage(l.icon);
             if (img) {
               g.globalAlpha = fade;
               g.imageSmoothingEnabled = false;
-              g.drawImage(outlineOf(img, '#ffd34d', 2), p.x - size / 2, cy - size / 2, size, size);
+              g.drawImage(outlineOf(img, l.gold ? '#ffd34d' : '#d8dde6', 2), p.x - size / 2, cy - size / 2, size, size);
             }
             api.icon(l.icon, p.x, cy, size, fade);
             g.globalAlpha = 1;
