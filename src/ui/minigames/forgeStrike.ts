@@ -8,14 +8,23 @@ import { drawFramedBar, drawFramedSegments, framedSlot } from '../../render/hudB
 
 /**
  * Kargesh's Forge Strike (the Ember Mines): Kargesh at his anvil beside a vent of the mine's fire, a glowing ingot
- * before him. A marker swings along the strike bar; tap while it's in the sweet spot and his hammer lands: 1 point,
- * 2 dead centre. Five strikes hammer the ingot into a finished weapon, set on the rack (3 more if no strike on it
- * missed). The metal cools as he works (the bar under the title): forge it before it goes cold, or it's spoiled and a
- * heart is lost; a strike outside the sweet spot costs a heart too. The swing quickens, the spot shrinks and the
- * metal cools faster with every piece.
+ * before him. A marker swings along the strike bar, slowly at first; tap while it's in the sweet spot and his hammer
+ * lands: 1 point, 2 dead centre, times the multiplier. Every hit quickens the swing a little, and every 3 hits in a
+ * row raise the multiplier; a miss resets the multiplier, halves the swing (never below where it started) and costs a
+ * heart. Five strikes hammer the ingot into a finished weapon, set on the rack (3 more, times the multiplier, if none
+ * missed). The metal cools as he works (the bar under the title), quicker the faster the swing: forge it before it
+ * goes cold, or it's spoiled and a heart is lost. The sweet spot shrinks as the strikes add up.
  */
 
-export const FS_INTRO = '<p>Kargesh is at the anvil. <b>Tap</b> when the marker is in the bright sweet spot: 1 point, 2 dead centre. Five strikes forge a weapon (3 more if none missed).</p><p>The metal <b>cools</b> as you work: forge it before it goes cold. A cold piece or a missed strike costs a heart.</p>';
+export const FS_INTRO = '<p>Kargesh is at the anvil. <b>Tap</b> when the marker is in the bright sweet spot: 1 point, 2 dead centre. Every hit speeds the swing up, and hits in a row raise your <b>multiplier</b>. Five strikes forge a weapon (3 more if none missed).</p><p>A miss resets the multiplier, slows the swing by half and costs a heart. The metal <b>cools</b> as you work: forge it before it goes cold, or that costs a heart too.</p>';
+
+/** The swing's starting speed (bar widths a second), how much each hit quickens it, and its top speed. */
+export const FS_START_SPEED = 0.45;
+export const FS_HIT_SPEEDUP = 1.07;
+export const FS_MAX_SPEED = 2.4;
+/** Hits in a row for each step of the multiplier (×1, then ×2 after 3, ×3 after 6...), up to ×8. */
+export const FS_STREAK_STEP = 3;
+export const FS_MAX_MULT = 8;
 
 /** The mine far behind the forge, at half size and shaded (the forge stands out in front). */
 export const FS_DECOR = { bands: 4, density: 1, scale: 0.5 };
@@ -69,6 +78,10 @@ export function forgeStrike(api: MinigameApi): MinigameGame {
   let dir = 1;
   let zone = { c: 0.5, w: 0.24 };
   let strikes = 0;
+  /** The swing's speed, and hits in a row (the multiplier). */
+  let spd = FS_START_SPEED;
+  let streak = 0;
+  const mult = () => Math.min(FS_MAX_MULT, 1 + Math.floor(streak / FS_STREAK_STEP));
   /** This piece: strikes on it, whether any missed, and its heat (1 → 0). */
   let hits = 0;
   let clean = true;
@@ -85,8 +98,9 @@ export function forgeStrike(api: MinigameApi): MinigameGame {
   const sparks: Array<{ x: number; y: number; vx: number; vy: number; t: number; color: string }> = [];
 
   /** Swing speed (bar widths a second), sweet-spot width, and seconds a piece stays hot, by progress. */
-  const speed = () => Math.min(1.8, 0.7 + strikes * 0.03);
-  const coolTime = () => Math.max(3.6, 7.5 - pieces * 0.35);
+  const speed = () => spd;
+  /** A piece stays hot long enough for its five strikes at the current swing (shorter as the swing quickens). */
+  const coolTime = () => 2 + 3.2 / spd;
   const newZone = () => {
     const w = Math.max(0.1, 0.24 - strikes * 0.004);
     zone = { c: w / 2 + Math.random() * (1 - w), w };
@@ -124,7 +138,7 @@ export function forgeStrike(api: MinigameApi): MinigameGame {
   };
 
   return {
-    titleSuffix: () => `${pieces} forged`,
+    titleSuffix: () => `${pieces} forged · ×${mult()}`,
     tap() {
       if (fresh > 0) return;
       swing = 0;
@@ -134,7 +148,11 @@ export function forgeStrike(api: MinigameApi): MinigameGame {
         swingHit = true;
         strikes++;
         hits++;
-        api.addScore(off <= zone.w * 0.15 ? 2 : 1, it.x, it.y - 30 * api.k);
+        const before = mult();
+        streak++;
+        spd = Math.min(FS_MAX_SPEED, spd * FS_HIT_SPEEDUP);
+        api.addScore((off <= zone.w * 0.15 ? 2 : 1) * mult(), it.x, it.y - 30 * api.k);
+        if (mult() > before) api.pop(it.x + 40 * api.k, it.y - 80 * api.k, `×${mult()}!`, '#ffd34d');
         burst(it.x, it.y, 16, ['#ffd34d', '#fff2b0', '#ff8a2a'], 420);
         newZone();
         if (hits >= STRIKES) {
@@ -143,8 +161,8 @@ export function forgeStrike(api: MinigameApi): MinigameGame {
           flying = { icon: icons[Math.floor(Math.random() * icons.length)], t: 0 };
           pieces++;
           if (clean) {
-            api.addScore(3);
-            api.pop(it.x, it.y - 56 * api.k, 'Flawless! +3', '#ffd34d');
+            api.addScore(3 * mult());
+            api.pop(it.x, it.y - 56 * api.k, `Flawless! +${3 * mult()}`, '#ffd34d');
           } else api.pop(it.x, it.y - 56 * api.k, 'Forged!', '#ffb866');
           hits = 0;
           clean = true;
@@ -154,6 +172,9 @@ export function forgeStrike(api: MinigameApi): MinigameGame {
         // A dull clang off the side of the anvil.
         swingHit = false;
         clean = false;
+        if (streak >= FS_STREAK_STEP) api.pop(it.x + 40 * api.k, it.y - 80 * api.k, 'Streak lost', '#ff8a6a');
+        streak = 0;
+        spd = Math.max(FS_START_SPEED, spd / 2);
         burst(it.x, it.y, 6, ['#8a8494', '#5d5866'], 160);
         api.loseLife(it.x, it.y - 30 * api.k);
       }

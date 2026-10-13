@@ -1167,17 +1167,17 @@ describe('Equipment', () => {
     g.state.gold = 1e30;
     g.state.hunters.blacksmith.recruited = true;
     g.state.hunters.enchantress.recruited = true;
-    expect(eventDef('forgeStrike').blessing).toEqual({ kind: 'refine', tiers: [35, 60, 90] });
+    expect(eventDef('forgeStrike').blessing).toEqual({ kind: 'refine', tiers: [140, 240, 360] });
     expect(eventDef('runeMatch').blessing?.kind).toBe('enchant');
-    expect([0, 34, 35, 59, 60, 89, 90, 200].map((s) => g.blessingFor('forgeStrike', s))).toEqual([0, 0, 1, 1, 2, 2, 3, 3]);
+    expect([0, 139, 140, 239, 240, 359, 360, 800].map((s) => g.blessingFor('forgeStrike', s))).toEqual([0, 0, 1, 1, 2, 2, 3, 3]);
     expect(g.blessingFor('huntingPractice', 999)).toBe(0); // only the smithing games bless
     // Each extra roll keeps the best: a perfect roll goes from 1 in 11 to about 17%, 25% and 32%.
     expect(g.perfectChance(0)).toBeCloseTo(1 / 11);
     expect([1, 2, 3].map((k) => Math.round(g.perfectChance(k) * 100))).toEqual([17, 25, 32]);
-    // A score of 62 blesses the next Refine twice over; a weaker game later doesn't take it away.
-    g.finishMinigame('forgeStrike', 62);
+    // A score of 250 blesses the next Refine twice over; a weaker game later doesn't take it away.
+    g.finishMinigame('forgeStrike', 250);
     expect(g.state.blessings).toEqual({ refine: 2, enchant: 0 });
-    g.finishMinigame('forgeStrike', 36);
+    g.finishMinigame('forgeStrike', 150);
     expect(g.state.blessings.refine).toBe(2);
     // The blessed roll: each choice's quality is the best of 3 draws (here 0, 0, then a perfect 0.99).
     const rifle = g.craftGear('frostRifle')!;
