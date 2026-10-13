@@ -16,6 +16,22 @@ export const GR_TIME = 60;
 export const GR_DECOR = { bands: 1, density: 0.6 };
 export const GR_INTRO = `<p>Move Alias between the graves with the <b>arrows</b>. Step onto loot to grab it: 1 point, a golden urn 3.</p><p>Where the ground <b>cracks and shakes</b>, a skeleton is about to burst out: be standing there and it costs a heart. You have ${GR_TIME} seconds.</p>`;
 
+/** Art in public/minigames: the cobblestone slab each spot stands on (from the Graveyard's ground tileset), and
+ * the D-pad's stone buttons and arrows (from the platformer UI pack). */
+const artImgs = new Map<string, HTMLImageElement>();
+function art(name: string): HTMLImageElement | null {
+  let img = artImgs.get(name);
+  if (!img) {
+    img = new Image();
+    img.src = `${import.meta.env.BASE_URL}minigames/${name}.png`;
+    artImgs.set(name, img);
+  }
+  return img.complete && img.naturalWidth ? img : null;
+}
+
+/** Loot: a ring or a necklace from the jewellery pack, picked at random for each find. */
+const JEWELS = ['010', '015', '017', '019', '021', '025', '026', '028', '029', '035', '036', '052', '056', '060', '062', '066', '069', '070', '076', '079', '084', '087', '090', '091', '093', '095', '099'].map((n) => `jewelry/${n}`);
+
 /** The Graveyard's headstones, one per spot. */
 const STONES = ['grave1', 'grave3', 'grave4', 'grave2', 'grave5', 'grave6', 'grave4', 'grave1', 'grave3'];
 const stoneImgs = new Map<string, HTMLImageElement>();
@@ -47,6 +63,8 @@ interface Loot {
   spot: number;
   gold: boolean;
   life: number;
+  /** Its icon (a ring or a necklace; a golden urn when `gold`). */
+  icon: string;
 }
 
 interface Dirt {
@@ -188,7 +206,10 @@ export function graveRobbing(api: MinigameApi): MinigameGame {
       if (lootIn <= 0 && loot.length < 2) {
         const taken = new Set([at, ...loot.map((l) => l.spot), ...bursts.map((b) => b.spot)]);
         const free = [...Array(9).keys()].filter((i) => !taken.has(i));
-        if (free.length) loot.push({ spot: free[Math.floor(Math.random() * free.length)], gold: Math.random() < 0.18, life: Math.max(2, 3.6 - api.t * 0.025) });
+        if (free.length) {
+          const gold = Math.random() < 0.18;
+          loot.push({ spot: free[Math.floor(Math.random() * free.length)], gold, life: Math.max(2, 3.6 - api.t * 0.025), icon: gold ? 'things/057' : JEWELS[Math.floor(Math.random() * JEWELS.length)] });
+        }
         lootIn = 0.5 + Math.random() * 0.7;
       }
       for (let i = loot.length - 1; i >= 0; i--) {
@@ -222,10 +243,17 @@ export function graveRobbing(api: MinigameApi): MinigameGame {
         // Warning: the earth shakes and cracks, more as the burst nears.
         const warning = b && b.t < 0 ? 1 - -b.t / b.warn : 0;
         const shake = warning > 0 ? Math.sin(api.t * 60 + i) * warning * 3 * api.k : 0;
-        g.fillStyle = 'rgba(30,22,14,0.55)';
-        g.beginPath();
-        g.ellipse(p.x + shake, p.y, c.size * 0.32, c.size * 0.12, 0, 0, Math.PI * 2);
-        g.fill();
+        // A cobblestone slab to stand on (whole pixels), with a dark edge.
+        const slab = art('grave-slab');
+        if (slab) {
+          const sp = Math.max(1, Math.round((c.size * 0.55) / 32));
+          const sw = 32 * sp;
+          const sx = Math.round(p.x + shake - sw / 2);
+          const sy = Math.round(p.y - c.size * 0.04 - sw / 2);
+          g.fillStyle = 'rgba(20,16,12,0.7)';
+          g.fillRect(sx - 2, sy - 2, sw + 4, sw + 4);
+          g.drawImage(slab, 8, 8, 32, 32, sx, sy, sw, sw);
+        }
         if (warning > 0) {
           g.strokeStyle = `rgba(20,12,6,${0.4 + warning * 0.6})`;
           g.lineWidth = Math.max(1.5, 2 * api.k);
@@ -261,7 +289,7 @@ export function graveRobbing(api: MinigameApi): MinigameGame {
               g.arc(p.x, p.y - c.size * 0.12 + bob, c.size * 0.2, 0, Math.PI * 2);
               g.fill();
             }
-            api.icon(l.gold ? 'things/057' : 'resources1/012', p.x, p.y - c.size * 0.12 + bob, c.size * 0.36, fade);
+            api.icon(l.icon, p.x, p.y - c.size * 0.12 + bob, c.size * 0.36, fade);
             g.globalAlpha = 1;
           },
         });
@@ -336,29 +364,29 @@ export function graveRobbing(api: MinigameApi): MinigameGame {
       }
       g.globalAlpha = 1;
 
-      // The D-pad.
+      // The D-pad: stone buttons with white arrows (pressed buttons sink).
       const p = pad();
       roundRect(g, p.x - p.b * 1.7, p.y - p.b * 1.7, p.b * 3.4, p.b * 3.4, p.b * 0.6);
       g.fillStyle = 'rgba(0,0,0,0.25)';
       g.fill();
+      g.imageSmoothingEnabled = false;
       for (const d of Object.keys(DIRS) as Dir[]) {
         const b = buttonAt(d);
-        const s = p.b * (pressed[d] > 0 ? 0.92 : 1);
-        roundRect(g, b.x - s / 2, b.y - s / 2, s, s, s * 0.22);
-        g.fillStyle = pressed[d] > 0 ? '#c8bca0' : '#e8dcc0';
-        g.fill();
-        g.strokeStyle = '#3a2c1e';
-        g.lineWidth = 3;
-        g.stroke();
-        const [dx, dy] = DIRS[d];
-        const r = s * 0.24;
-        g.fillStyle = '#3a2c1e';
-        g.beginPath();
-        g.moveTo(b.x + dx * r, b.y + dy * r);
-        g.lineTo(b.x - dx * r * 0.6 - dy * r, b.y - dy * r * 0.6 + dx * r);
-        g.lineTo(b.x - dx * r * 0.6 + dy * r, b.y - dy * r * 0.6 - dx * r);
-        g.closePath();
-        g.fill();
+        const down = pressed[d] > 0;
+        const btn = art(down ? 'stone-btn-down' : 'stone-btn');
+        const s = p.b;
+        if (btn) g.drawImage(btn, Math.round(b.x - s / 2), Math.round(b.y - s / 2), s, s);
+        const arrow = art(`arrow-${d}`);
+        if (arrow) {
+          // The arrow sits on the button's face (lower when pressed), with a dark drop shadow.
+          const as = s * 0.62;
+          const ax = Math.round(b.x - as / 2);
+          const ay = Math.round(b.y - as / 2 - s * (down ? 0 : 0.06));
+          g.filter = 'brightness(0) opacity(0.55)';
+          g.drawImage(arrow, ax + 2, ay + 2, as, as);
+          g.filter = 'none';
+          g.drawImage(arrow, ax, ay, as, as);
+        }
       }
     },
   };

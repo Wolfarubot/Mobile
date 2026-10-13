@@ -1,0 +1,5 @@
+Minigame art, all from CraftPix.net (license: https://craftpix.net/file-licenses/):
+- grave-slab.png: a 3×3 patch of cobblestone fill tiles from "Free Undead Tileset Top Down Pixel Art"
+  (Ground_rocks.png), the slab each spot in Alias's Grave Robbing stands on.
+- stone-btn.png, stone-btn-down.png (buttons 7 and 10) and arrow-up/down/left/right.png (icons 26, 27, 25, 24)
+  from the "Free Pixel Art Platformer UI" pack: Grave Robbing's D-pad.
