@@ -77,6 +77,8 @@ interface Scene {
   landmarks?: Array<{ file: string; at: [number, number]; /** Monsters walk around it rather than through it. */ solid?: boolean }>;
   /** How big the empty clearing round the Hunters is, as a fraction of the way to the edge (CLEAR if unset). */
   clear?: number;
+  /** The edge wall stands this many pixels further out (more of it off the view), for a bigger clearing. */
+  edgeOut?: number;
   /** A gated area's corner walls (gates.ts): the wall face tile (32 wide, tiled along every face). */
   wallFace?: string;
 }
@@ -198,11 +200,12 @@ const SCENES: Partial<Record<AreaId, Scene>> = {
       ['#15121a', 20],
       ['#33242c', 8],
     ],
-    clear: 0.5,
+    clear: 0.62,
+    edgeOut: 14,
     bands: [
       { pieces: [...p('c_Veins_1 c_Veins_2 c_Veins_3 c_Veins_4', 1.5), ...p('c_Eyes_2 c_Pustules_3 c_Fetus_3 c_Rock_eyes_4 c_Rock_eyes_5 c_Bones_7 c_Bones_8 c_Bones_9 c_Webbed_1 small_mushrooms1 small_mushrooms2', 1.5)], density: 0.8, from: 0 },
-      { pieces: p('c_Eye_plant_1 c_Eye_plant_2 c_Eye_plant_3 c_Many_eyes_plant_2 c_Many_eyes_plant_3 c_Tentacles_1 c_Tentacles_2 c_Tentacles_3 c_Pustules_2 c_Fetus_2 c_Meat_flower_3 c_Jaws_plant_3 c_Eggs_1 c_Eggs_2 c_Eggs_3 c_Claw_eggs_2 c_Claw_eggs_3'), density: 0.35, from: 0.6 },
-      { pieces: p('c_Tentacle_plant_1 c_Tentacle_plant_2 c_Spike_plant_2 c_Spike_plant_3 c_Neuro_monster_1 c_Neuro_monster_2 c_Tooth_mouth_3 c_Tooth_mouth_5 c_Jaws_plant_2 c_Meat_flower_2 c_Claw_eggs_4 c_Tentacles_4 c_Star_monster_3'), density: 0.18, from: 0.78 },
+      { pieces: p('c_Eye_plant_1 c_Eye_plant_2 c_Eye_plant_3 c_Many_eyes_plant_2 c_Many_eyes_plant_3 c_Tentacles_1 c_Tentacles_2 c_Tentacles_3 c_Pustules_2 c_Fetus_2 c_Meat_flower_3 c_Jaws_plant_3 c_Eggs_1 c_Eggs_2 c_Eggs_3 c_Claw_eggs_2 c_Claw_eggs_3'), density: 0.55, from: 0.68 },
+      { pieces: p('c_Tentacle_plant_1 c_Tentacle_plant_2 c_Spike_plant_2 c_Spike_plant_3 c_Neuro_monster_1 c_Neuro_monster_2 c_Tooth_mouth_3 c_Tooth_mouth_5 c_Jaws_plant_2 c_Meat_flower_2 c_Claw_eggs_4 c_Tentacles_4 c_Star_monster_3'), density: 0.3, from: 0.84 },
       // A wall of clawed and toothed things and spiked plants all round the border (monsters walk through it).
       { pieces: p('c_Claw_monster_1 c_Claw_monster_2 c_Claw_monster_3 c_Tentacle_monster_1 c_Tentacle_monster_2 c_Tooth_monster_1 c_Tooth_monster_2 c_Tooth_mouth_1 c_Jaws_plant_1 c_Spike_plant_1'), density: 0, from: 0.95, edge: true },
     ],
@@ -739,17 +742,18 @@ export function areaBackground(area: AreaId, w: number, h: number, decor?: Decor
         // sides, half off. Then a few more just inside, so the wall looks deep rather than a single row.
         const spots: Array<[number, number]> = [];
         const step = () => 30 + r() * 20;
+        const out = scene.edgeOut ?? 0;
         for (let x = -30; x < w + 30; x += step()) {
-          spots.push([x, 44 + r() * 26]);
-          spots.push([x, h + 62 + r() * 26]);
+          spots.push([x, 44 - out + r() * 26]);
+          spots.push([x, h + 62 + out + r() * 26]);
         }
         for (let y = 30; y < h + 70; y += step()) {
-          spots.push([-14 + r() * 22, y]);
-          spots.push([w + 14 - r() * 22, y]);
+          spots.push([-14 - out + r() * 22, y]);
+          spots.push([w + 14 + out - r() * 22, y]);
         }
         for (let n = Math.round(spots.length * 0.25); n > 0; n--) {
           const [sx, sy] = spots[Math.floor(r() * spots.length)];
-          spots.push([sx + (sx < 40 ? 22 : sx > w - 40 ? -22 : (r() - 0.5) * 30), sy + (sy < 60 ? 18 : sy > h ? -16 : 0)]);
+          spots.push([sx + (sx < 40 - out ? 22 : sx > w - 40 + out ? -22 : (r() - 0.5) * 30), sy + (sy < 60 - out ? 18 : sy > h + out ? -16 : 0)]);
         }
         for (const [sx, sy] of spots) {
           // Not where a landmark stands (a trunk inside it, or a crown over its middle).

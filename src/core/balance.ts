@@ -1596,7 +1596,7 @@ export const areaScale = (area: AreaId): number => 1 + AREA_GROWTH * Math.max(0,
  * From the Shadowy Depths on, the view zooms out this much further (on top of each area's growth): the Hunters
  * are drawn smaller, with open ground round them for the monsters that keep their distance and shoot.
  */
-export const DEEP_ZOOM_OUT = 0.25;
+export const DEEP_ZOOM_OUT = 0.6;
 /** How much more of the field an area's view shows than the Woods' (its size, and the Depths' extra step on). */
 export const viewScale = (area: AreaId): number => areaScale(area) + (AREAS.findIndex((a) => a.id === area) >= AREAS.findIndex((a) => a.id === 'depths') ? DEEP_ZOOM_OUT : 0);
 /** The battlefield's zoom in an area. */
