@@ -113,8 +113,8 @@ const SCENES: Partial<Record<AreaId, Scene>> = {
     // One overgrown ruin in the top-left corner, half off the view, in place of the wall there.
     landmarks: [{ file: 'Ruin_grass1', at: [50, 106] }],
   },
-  // CraftPix's undead land: grey-green earth, cracks, pebbles and dead weeds, rows of headstones, open graves,
-  // coffins and dead arms reaching out, and gnarled trees, ruins and the bones of great beasts at the edges.
+  // CraftPix's undead land: grey-green earth, cracks, pebbles and dead weeds, headstones scattered round the
+  // clearing, the odd coffin or open grave, and a wall of dead and gnarled trees round the border.
   graveyard: {
     base: '#6f736a',
     specks: [
@@ -123,10 +123,16 @@ const SCENES: Partial<Record<AreaId, Scene>> = {
       ['#5d6157', 10],
     ],
     bands: [
-      { pieces: [...p('det7 det8 det9 det10 det11 det12 det13 det14 det15 det16 det17 det18 det19 det20 det21 det22 det23 det24', 2), ...p('det26 det28'), ...p('det31 det33 det35 det37 det39 det41 det43 det47 det49 det51 det53 det55 det57 det59 det61 det62'), ...p('det107 det109 det112 det116'), ...p('Bones_1 Bones_2 Bones_3 Bones_5 Bones_15 Bones_16 Bones_17 Bones_18 Plant_4 Plant_5 mushroom2_1 undead_plant2')], density: 5, from: 0 },
-      { pieces: [...p('Grave_1 Grave_2 Grave_3 Grave_4 Grave_5 Grave_6 Grave_7 Grave_8 Grave_9 Grave_10 Grave_11 Grave_12 Grave_13 Grave_14 Grave_15 Grave_16 Grave_17', 3), ...p('grave1 grave2 grave3 grave4 grave5 grave6', 3), ...p('Broken_tree_2 Broken_tree_3 Broken_tree_6 Rock_2 Rock_3 Rock_4 Bones_4 Bones_6 Bones_13 Dead_arm_1 Dead_arm_2 Dead_arm_3 Dead_arm_4 Plant_3 mushroom2_2 mushroom2_3 undead_plant1 undead_plant3 Thorn_plant_3 Thorn_plant_6')], density: 1.1, from: 0.4 },
-      { pieces: [...p('excavated_grave1 excavated_grave2 excavated_grave3 excavated_grave4 excavated_grave5 excavated_grave6', 2), ...p('coffin1 coffin2 coffin3 Dead_tree_3 Tree_2 Tree_3 Ruin_3 Ruin_4 Rock_1 skull_pile bone_chest bone_pelvis Scull_door web_rock1 web_rock2 web_rock3 monster_tree2 monster_tree3 web_tree3 mushroom1_2 mushroom1_3 Thorn_plant_4 Thorn_plant_5 Broken_tree_4 Broken_tree_5 Plant_2')], density: 0.4, from: 0.7 },
-      { pieces: [...p('Dead_tree_1 Dead_tree_2 Tree_1 monster_tree1 web_tree1 web_tree2', 3), ...p('Ruin_1 Ruin_2 Pile_sculls bone_monster1 bone_claws bone_monster_head Broken_tree_1 Thorn_plant_1 Thorn_plant_2 mushroom1_1 skull_chasm')], density: 0.13, from: 0.92 },
+      // Small details round the clearing: weeds, cracks, pebbles and little bones.
+      { pieces: [...p('det7 det8 det9 det10 det11 det12 det13 det14 det15 det16 det17 det18 det19 det20 det21 det22 det23 det24', 2), ...p('det26 det28'), ...p('det31 det33 det35 det37 det39 det41 det43 det47 det49 det51 det53 det55 det57 det59 det61 det62'), ...p('Bones_1 Bones_2 Bones_3 Bones_5 Bones_16 Bones_18 Plant_4 Plant_5')], density: 2.6, from: 0 },
+      // Headstones scattered all around the clearing (the big pale and dark ones, with a few small ones).
+      { pieces: [...p('grave1 grave2 grave3 grave4 grave5 grave6', 3), ...p('Grave_2 Grave_4 Grave_7 Grave_12 Grave_16')], density: 1.05, from: 0.42 },
+      // A few rocks, bones, weeds and a dead arm between them.
+      { pieces: p('Rock_3 Rock_4 Bones_4 Plant_3 undead_plant2 Thorn_plant_6 Dead_arm_4'), density: 0.3, from: 0.5 },
+      // The odd small dead tree, coffin, open grave or skull pile toward the edges.
+      { pieces: [...p('Tree_3 Dead_tree_3', 2), ...p('coffin1 coffin2 excavated_grave1 excavated_grave3 Rock_2 skull_pile mushroom1_3')], density: 0.12, from: 0.72 },
+      // A wall of dead and gnarled trees all round the border (monsters walk through it, behind or in front).
+      { pieces: [...p('Dead_tree_1 Dead_tree_2 Tree_1 Tree_2', 2), ...p('web_tree1 web_tree2')], density: 0, from: 0.95, edge: true },
     ],
     vignette: 'rgba(20,24,30,0.45)',
   },
