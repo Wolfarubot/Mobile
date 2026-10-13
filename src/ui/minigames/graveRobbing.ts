@@ -1,5 +1,4 @@
 import type { MinigameApi, MinigameGame } from './shell';
-import { roundRect } from './shell';
 import { HUNTER_SHEETS } from '../../render/hunterSheets';
 import { SHEETS, sheetRow } from '../../render/monsterSheets';
 import { hunterSheetImage, monsterSheetImage } from '../../render/sprites';
@@ -95,7 +94,7 @@ export function graveRobbing(api: MinigameApi): MinigameGame {
 
   const grid = () => {
     const top = 96;
-    const bottom = api.H - 210 * api.k;
+    const bottom = api.H - 250 * api.k;
     const size = Math.min(api.W / 3.2, (bottom - top) / 3);
     return { size, x0: (api.W - size * 3) / 2, y0: top + (bottom - top - size * 3) / 2 };
   };
@@ -104,7 +103,7 @@ export function graveRobbing(api: MinigameApi): MinigameGame {
     const c = grid();
     return { x: c.x0 + (i % 3) * c.size + c.size / 2, y: c.y0 + Math.floor(i / 3) * c.size + c.size * 0.78 };
   };
-  const pad = () => ({ x: api.W / 2, y: api.H - 105 * api.k, b: 52 * api.k });
+  const pad = () => ({ x: api.W / 2, y: api.H - 122 * api.k, b: 68 * api.k });
   const buttonAt = (d: Dir) => {
     const p = pad();
     const [dx, dy] = DIRS[d];
@@ -363,9 +362,6 @@ export function graveRobbing(api: MinigameApi): MinigameGame {
 
       // The D-pad: stone buttons with white arrows (pressed buttons sink).
       const p = pad();
-      roundRect(g, p.x - p.b * 1.7, p.y - p.b * 1.7, p.b * 3.4, p.b * 3.4, p.b * 0.6);
-      g.fillStyle = 'rgba(0,0,0,0.25)';
-      g.fill();
       g.imageSmoothingEnabled = false;
       for (const d of Object.keys(DIRS) as Dir[]) {
         const b = buttonAt(d);
