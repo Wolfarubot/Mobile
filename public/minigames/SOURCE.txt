@@ -16,3 +16,6 @@ Minigame art, all from CraftPix.net (license: https://craftpix.net/file-licenses
   the Shooting Gallery's crosshair.
 - ledge.png: a chunk of raised earth (flat top, roots hanging below) from CraftPix's "Free Cave Tileset" ground
   tiles (Ground.png, at 612,20): the ledge Wilhelm stands on in the Shooting Gallery.
+- forge-vent.png: Volcano1 from CraftPix's "Cave Tileset Top Down" objects (as in public/backgrounds/caves): the fire
+  vent beside Kargesh's anvil in Forge Strike. The anvil, ingot, hammer and finished weapons are icons from the icon
+  packs, and the strike bar is the event timers' framed bar with the platformer UI's down arrow as its marker.

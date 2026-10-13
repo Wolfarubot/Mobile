@@ -102,18 +102,28 @@ export const TIMER_COLOR = '#ffb866';
  * `frac` in `color`. False until the frame has loaded.
  */
 export function drawFramedBar(g: CanvasRenderingContext2D, x: number, y: number, s: number, w: number, h: number, frac: number, color: string): boolean {
+  return drawFramedSegments(g, x, y, s, w, h, [[0, frac, color]]);
+}
+
+/**
+ * A framed bar whose slot is filled in segments: each [from, to, colour] (fractions of the slot, left to right),
+ * later ones over earlier ones; the rest of the slot left empty. False until the frame has loaded.
+ */
+export function drawFramedSegments(g: CanvasRenderingContext2D, x: number, y: number, s: number, w: number, h: number, segs: Array<[number, number, string]>): boolean {
   const src = load();
   if (!src) return false;
   const b = build(src, Math.max(2 * END + 1, Math.round(w)), Math.max(2 * EDGE + 1, Math.round(h)));
-  const edge = Math.round(b.x0 + (b.x1 - b.x0) * Math.max(0, Math.min(1, frac)));
-  const key = `${edge}:${color}`;
+  const at = (f: number) => Math.round(b.x0 + (b.x1 - b.x0) * Math.max(0, Math.min(1, f)));
+  const spans = segs.map(([from, to, color]) => ({ a: at(from), z: at(to), fill: shades(color), color }));
+  const key = spans.map((sp) => `${sp.a}-${sp.z}:${sp.color}`).join('|');
   if (b.key !== key) {
     b.key = key;
     const img = new ImageData(new Uint8ClampedArray(b.base.data), b.w, b.h);
-    const fill = shades(color);
     b.slot.forEach((q, i) => {
-      if (q % b.w >= edge) return;
-      const c = fill[b.shade[i]];
+      const px = q % b.w;
+      let c: Rgb | null = null;
+      for (const sp of spans) if (px >= sp.a && px < sp.z) c = sp.fill[b.shade[i]];
+      if (!c) return;
       img.data[q * 4] = c[0];
       img.data[q * 4 + 1] = c[1];
       img.data[q * 4 + 2] = c[2];
@@ -123,4 +133,12 @@ export function drawFramedBar(g: CanvasRenderingContext2D, x: number, y: number,
   g.imageSmoothingEnabled = false;
   g.drawImage(b.canvas, x, y, b.w * s, b.h * s);
   return true;
+}
+
+/** Where a framed bar's slot runs, as fractions of the frame's width (for placing things along it). */
+export function framedSlot(w: number, h: number): [number, number] | null {
+  const src = load();
+  if (!src) return null;
+  const b = build(src, Math.max(2 * END + 1, Math.round(w)), Math.max(2 * EDGE + 1, Math.round(h)));
+  return [b.x0 / b.w, b.x1 / b.w];
 }

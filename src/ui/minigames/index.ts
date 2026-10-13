@@ -1,5 +1,5 @@
 import type { MinigameId } from '../../core/balance';
-import { forgeStrike, FS_INTRO } from './forgeStrike';
+import { forgeStrike, FS_DECOR, FS_INTRO } from './forgeStrike';
 import { graveRobbing, GR_DECOR, GR_INTRO } from './graveRobbing';
 import { huntingPractice, HP_DECOR, HP_INTRO, HP_LIVES } from './huntingPractice';
 import { icebreaker, IB_INTRO } from './icebreaker';
@@ -19,7 +19,7 @@ export const MINIGAMES: Record<MinigameId, { title: string; intro: string; lives
   graveRobbing: { title: '🦹 Grave Robbing', intro: GR_INTRO, lives: 3, decor: GR_DECOR, create: graveRobbing },
   puppetShow: { title: '🎎 Puppet Show', intro: PU_INTRO, lives: 3, create: puppetShow },
   shootingGallery: { title: '🎯 Shooting Gallery', intro: SG_INTRO, lives: 0, decor: SG_DECOR, create: shootingGallery },
-  forgeStrike: { title: '⚒️ Forge Strike', intro: FS_INTRO, lives: 3, create: forgeStrike },
+  forgeStrike: { title: '⚒️ Forge Strike', intro: FS_INTRO, lives: 3, decor: FS_DECOR, create: forgeStrike },
   runeMatch: { title: '✨ Rune Match', intro: RM_INTRO, lives: 6, create: runeMatch },
   icebreaker: { title: '🔨 Icebreaker', intro: IB_INTRO, lives: 3, create: icebreaker },
 };
