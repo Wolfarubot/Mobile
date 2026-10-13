@@ -3,3 +3,9 @@ Minigame art, all from CraftPix.net (license: https://craftpix.net/file-licenses
   at 387,177), the ground each spot in Alias's Grave Robbing stands on.
 - stone-btn.png, stone-btn-down.png (buttons 7 and 10) and arrow-up/down/left/right.png (icons 26, 27, 25, 24)
   from the "Free Pixel Art Platformer UI" pack: Grave Robbing's D-pad.
+- path-lane.png, path-lane-ok.png, path-lane-end.png: the vertical path from CraftPix's "Free Path and Road Top Down
+  Pixel Tileset" (Road5_grass.png and Road1_grass.png, x 184, y 208 and 256): Pixie Serenade's paths (pale cobbles,
+  and blue cobbles over the okay range).
+- perfect-ribbon.png: the small purple ribbon from CraftPix's "HP, Mana, Stamina and Scroll Bar" pack (Bars.png,
+  at 3,753): Pixie Serenade's perfect line.
+- note.png: icon 50 (a music note) from the "Free Pixel Art Platformer UI" pack, tinted per path in Pixie Serenade.

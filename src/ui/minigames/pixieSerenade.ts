@@ -1,30 +1,48 @@
-import type { MinigameApi, MinigameGame } from './shell';
+import { TITLE_Y, type MinigameApi, type MinigameGame } from './shell';
+import { mgArt } from './dpad';
 import { HUNTER_SHEETS } from '../../render/hunterSheets';
-import { hunterSheetImage } from '../../render/sprites';
+import { SHEETS } from '../../render/monsterSheets';
+import { hunterSheetImage, monsterSheetImage } from '../../render/sprites';
 
 /**
- * Ba'al's Pixie Serenade (the Fey Grove): notes fall down three lanes, faster and faster. Tap a lane as its note
- * crosses the line: 1 point, 2 when it's dead on. A note that slips past, or a tap with no note there, costs a heart.
+ * Ba'al's Pixie Serenade (the Fey Grove): pixies fly down three cobbled paths, faster and faster. Tap a path as its
+ * pixie reaches the purple ribbon: 1 point anywhere on the blue cobbles round it, 2 right on the ribbon. A pixie
+ * that slips past, or a tap with no pixie there, costs a heart. Everything on screen is from the asset packs: the
+ * paths (CraftPix's path & road tileset), the ribbon and the music notes (the UI packs), the Grove's pixies and Ba'al.
  */
 
-export const PS_INTRO = '<p>Notes fall down three lanes. <b>Tap a lane</b> as its note crosses the glowing line: 1 point, 2 if it\'s dead on.</p><p>A note that slips past, or a tap on an empty lane, costs a heart.</p>';
+export const PS_INTRO = '<p>Pixies fly down three paths. <b>Tap a path</b> as its pixie reaches the <b>ribbon</b>: 1 point anywhere on the blue cobbles, 2 right on the ribbon.</p><p>A pixie that slips past, or a tap on an empty path, costs a heart.</p>';
 
+/** Each path's colour, for the music notes a hit sends up from Ba'al's guitar. */
 const COLORS = ['#ff8ad8', '#8ad8ff', '#c8ff8a'];
-/** Each lane's falling note: the bard pack's treble clef, notes and note in a circle. */
-const LANE_ICONS = ['ab-priest-bard/067', 'ab-priest-bard/081', 'ab-priest-bard/095'];
 /** Ba'al's guitar. */
 const GUITAR = 'instruments/092';
-/** Little pixel notes (♪ and ♫), drawn a pixel at a time: '#' is the note, rows top to bottom. */
-const NOTE_GLYPHS = [
-  ['..##.', '..#.#', '..#..', '..#..', '###..', '###..', '.#...'],
-  ['.####', '.#..#', '.#..#', '.#..#', '##.##', '##.##'],
-];
+
+/** The white music note (the platformer UI pack's), tinted a path's colour, made once per colour. */
+const tinted = new Map<string, HTMLCanvasElement>();
+function noteIn(color: string): HTMLCanvasElement | null {
+  const img = mgArt('note');
+  if (!img) return null;
+  let c = tinted.get(color);
+  if (!c) {
+    c = document.createElement('canvas');
+    c.width = img.naturalWidth;
+    c.height = img.naturalHeight;
+    const x = c.getContext('2d')!;
+    x.drawImage(img, 0, 0);
+    x.globalCompositeOperation = 'source-in';
+    x.fillStyle = color;
+    x.fillRect(0, 0, c.width, c.height);
+    tinted.set(color, c);
+  }
+  return c;
+}
 
 export function pixieSerenade(api: MinigameApi): MinigameGame {
-  const notes: Array<{ lane: number; y: number; hit: boolean }> = [];
+  const notes: Array<{ lane: number; y: number; hit: boolean; phase: number }> = [];
   const flash = [0, 0, 0];
   /** Notes floating up out of Ba'al's guitar after each hit. */
-  const floaters: Array<{ x: number; y: number; vx: number; vy: number; t: number; color: string; glyph: number; sway: number }> = [];
+  const floaters: Array<{ x: number; y: number; vx: number; vy: number; t: number; color: string; sway: number }> = [];
   let strum = 0;
   const baal = () => ({ x: api.W / 2, y: api.H - 28 });
   const guitarAt = () => ({ x: baal().x + 6 * api.k, y: baal().y - 28 * api.k });
@@ -32,14 +50,21 @@ export function pixieSerenade(api: MinigameApi): MinigameGame {
   const lineY = () => api.H - 150;
   const laneX = (i: number) => (api.W / 3) * (i + 0.5);
   const speed = () => Math.min(620, 200 + 5 * api.t) * api.k;
-  const window = () => 40 * api.k;
+  /** The okay range either side of the ribbon (the blue cobbles)… */
+  const window = () => 46 * api.k;
+  /** …and the ribbon: whole pixels, about the screen's width across; a pixie on it is perfect. */
+  const ribbon = () => {
+    const img = mgArt('perfect-ribbon');
+    const s = Math.max(1, Math.round((api.W * 0.96) / (img?.naturalWidth ?? 123)));
+    return { s, w: (img?.naturalWidth ?? 123) * s, h: (img?.naturalHeight ?? 13) * s };
+  };
+  const perfect = () => ribbon().h * 0.5;
+  /** The paths' pixel scale (the tiles are 48px wide). */
+  const pathScale = () => Math.max(1, Math.round((api.W / 3) * 0.62 / 48));
+
   /** Ba'al at the bottom, facing you, with the guitar across them (rocking as they strum). */
   const drawBaal = (g: CanvasRenderingContext2D) => {
     const b = baal();
-    g.fillStyle = 'rgba(0,0,0,0.35)';
-    g.beginPath();
-    g.ellipse(b.x, b.y + 4, 30 * api.k, 9 * api.k, 0, 0, Math.PI * 2);
-    g.fill();
     const sheet = HUNTER_SHEETS.bard;
     const img = hunterSheetImage('bard');
     g.imageSmoothingEnabled = false;
@@ -59,6 +84,35 @@ export function pixieSerenade(api: MinigameApi): MinigameGame {
     g.restore();
   };
 
+  /**
+   * One path: the pale cobbles from the top down past the ribbon, the blue cobbles over the okay range, and the
+   * path's rounded end below. Tiled in whole pixels (brighter for a moment when tapped).
+   */
+  const drawPath = (g: CanvasRenderingContext2D, i: number) => {
+    const lane = mgArt('path-lane');
+    const ok = mgArt('path-lane-ok');
+    const end = mgArt('path-lane-end');
+    if (!lane || !ok || !end) return;
+    const s = pathScale();
+    const tw = 48 * s;
+    const x = Math.round(laneX(i) - tw / 2);
+    const top = TITLE_Y + 22;
+    const y0 = Math.round(lineY() - window());
+    const y1 = Math.round(lineY() + window());
+    if (flash[i] > 0) g.filter = 'brightness(1.25)';
+    // Tiles run up from the okay range, so it always meets the pale path on a tile edge.
+    for (let y = y0 - tw; y > top - tw; y -= tw) {
+      const h = Math.min(tw, y + tw - top);
+      g.drawImage(lane, 0, 48 - h / s, 48, h / s, x, y + tw - h, tw, h);
+    }
+    for (let y = y0; y < y1; y += tw) {
+      const h = Math.min(tw, y1 - y);
+      g.drawImage(ok, 0, 0, 48, h / s, x, y, tw, h);
+    }
+    g.drawImage(end, x + Math.round((tw - end.naturalWidth * s) / 2), y1, end.naturalWidth * s, end.naturalHeight * s);
+    g.filter = 'none';
+  };
+
   return {
     tap(x) {
       const lane = Math.max(0, Math.min(2, Math.floor((x / api.W) * 3)));
@@ -70,24 +124,27 @@ export function pixieSerenade(api: MinigameApi): MinigameGame {
         return;
       }
       best.hit = true;
-      const dead = Math.abs(best.y - lineY()) <= window() * 0.35;
+      const dead = Math.abs(best.y - lineY()) <= perfect();
       api.addScore(dead ? 2 : 1, laneX(lane), lineY());
-      // Ba'al strums, and notes drift up out of the guitar (more for a perfect hit).
+      // Ba'al strums, and notes drift up out of the guitar (more for a perfect hit), out to either side of Ba'al
+      // (leaning toward the path that was hit).
       strum = 0.25;
-      // They spring from the guitar's body, out to either side of Ba'al (leaning toward the lane that was hit).
       const at = guitarAt();
       for (let i = 0; i < (dead ? 3 : 2); i++) {
         const side = lane === 1 ? (i % 2 ? 1 : -1) : lane === 0 ? -1 : 1;
-        floaters.push({ x: at.x + side * 26 * api.k, y: at.y + 6 * api.k, vx: side * (30 + Math.random() * 50) * api.k, vy: -(70 + Math.random() * 50) * api.k, t: 0, color: COLORS[lane], glyph: Math.random() < 0.5 ? 0 : 1, sway: Math.random() * 6 });
+        floaters.push({ x: at.x + side * 26 * api.k, y: at.y + 6 * api.k, vx: side * (30 + Math.random() * 50) * api.k, vy: -(70 + Math.random() * 50) * api.k, t: 0, color: COLORS[lane], sway: Math.random() * 6 });
       }
     },
     step(dt) {
       spawnIn -= dt;
       if (spawnIn <= 0) {
-        notes.push({ lane: Math.floor(Math.random() * 3), y: -20, hit: false });
+        notes.push({ lane: Math.floor(Math.random() * 3), y: -20, hit: false, phase: Math.random() * 10 });
         spawnIn = Math.max(0.3, 0.95 - 0.012 * api.t) * (0.75 + Math.random() * 0.5);
       }
-      for (const n of notes) n.y += speed() * dt;
+      for (const n of notes) {
+        n.y += speed() * dt;
+        n.phase += dt;
+      }
       for (let i = notes.length - 1; i >= 0; i--) {
         const n = notes[i];
         if (!n.hit && n.y > lineY() + window()) {
@@ -106,53 +163,40 @@ export function pixieSerenade(api: MinigameApi): MinigameGame {
       for (let i = floaters.length - 1; i >= 0; i--) if (floaters[i].t > 1.4) floaters.splice(i, 1);
     },
     draw(g) {
-      const w = api.W / 3;
-      for (let i = 0; i < 3; i++) {
-        g.fillStyle = flash[i] > 0 ? 'rgba(255,255,255,0.25)' : 'rgba(20,10,40,0.35)';
-        g.fillRect(i * w + 4, 0, w - 8, api.H);
+      g.imageSmoothingEnabled = false;
+      for (let i = 0; i < 3; i++) drawPath(g, i);
+      // The ribbon across the paths: the perfect spot.
+      const rib = mgArt('perfect-ribbon');
+      if (rib) {
+        const r = ribbon();
+        g.drawImage(rib, Math.round(api.W / 2 - r.w / 2), Math.round(lineY() - r.h / 2), r.w, r.h);
       }
-      // The line notes must be tapped on.
-      g.fillStyle = 'rgba(255,240,160,0.9)';
-      g.fillRect(0, lineY() - 3, api.W, 6);
-      g.strokeStyle = 'rgba(255,240,160,0.35)';
-      g.lineWidth = window() * 2;
-      g.beginPath();
-      g.moveTo(0, lineY());
-      g.lineTo(api.W, lineY());
-      g.stroke();
-      for (const n of notes) {
-        const x = laneX(n.lane);
-        const size = 44 * api.k;
-        // A glow in the lane's colour behind the note's icon.
-        g.fillStyle = COLORS[n.lane];
-        g.globalAlpha = 0.45;
-        g.shadowColor = COLORS[n.lane];
-        g.shadowBlur = 16;
-        g.fillRect(x - size / 2 - 3, n.y - size / 2 - 3, size + 6, size + 6);
-        g.shadowBlur = 0;
-        g.globalAlpha = 1;
-        g.imageSmoothingEnabled = false;
-        api.icon(LANE_ICONS[n.lane], x, n.y, size);
+      // The pixies, fluttering down their paths (the Grove's pixie; facing alternate ways by path).
+      const sheet = SHEETS.pixie;
+      const img = monsterSheetImage('pixie');
+      if (sheet && img.complete && img.naturalWidth) {
+        const F = sheet.frame;
+        const [bx, by, bw, bh] = sheet.box;
+        const k = (56 * api.k) / Math.max(bw, bh);
+        for (const n of notes) {
+          const col = Math.floor(n.phase * 10) % sheet.cols;
+          g.save();
+          g.translate(laneX(n.lane) + Math.sin(n.phase * 4) * 4 * api.k, n.y);
+          if (n.lane === 0) g.scale(-1, 1);
+          g.drawImage(img, col * F, 0, F, F, -(bx + bw / 2) * k, -(by + bh / 2) * k, F * k, F * k);
+          g.restore();
+        }
       }
       drawBaal(g);
-      // Notes drifting up from the guitar.
-      for (const f of floaters) drawGlyph(g, NOTE_GLYPHS[f.glyph], f.x, f.y, Math.max(3, Math.round(4 * api.k)), f.color, Math.min(1, (1.4 - f.t) / 0.5));
+      // Music notes drifting up from the guitar, in the path's colour.
+      const ns = Math.max(2, Math.round(3 * api.k));
+      for (const f of floaters) {
+        const c = noteIn(f.color);
+        if (!c) continue;
+        g.globalAlpha = Math.max(0, Math.min(1, (1.4 - f.t) / 0.5));
+        g.drawImage(c, Math.round(f.x - (c.width * ns) / 2), Math.round(f.y - (c.height * ns) / 2), c.width * ns, c.height * ns);
+      }
+      g.globalAlpha = 1;
     },
   };
-}
-
-/** A pixel glyph (rows of '#'), `px` screen pixels per pixel, centred at (x, y), with a dark outline. */
-function drawGlyph(g: CanvasRenderingContext2D, rows: string[], x: number, y: number, px: number, color: string, alpha: number): void {
-  const w = rows[0].length * px;
-  const h = rows.length * px;
-  const x0 = Math.round(x - w / 2);
-  const y0 = Math.round(y - h / 2);
-  g.globalAlpha = Math.max(0, alpha);
-  for (const [dx, dy, c] of [[-1, 0, '#2a1640'], [1, 0, '#2a1640'], [0, -1, '#2a1640'], [0, 1, '#2a1640'], [0, 0, color]] as Array<[number, number, string]>) {
-    g.fillStyle = c;
-    rows.forEach((row, j) => {
-      for (let i = 0; i < row.length; i++) if (row[i] === '#') g.fillRect(x0 + i * px + dx * px * 0.5, y0 + j * px + dy * px * 0.5, px, px);
-    });
-  }
-  g.globalAlpha = 1;
 }
