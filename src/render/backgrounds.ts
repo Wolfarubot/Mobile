@@ -230,9 +230,10 @@ const SCENES: Partial<Record<AreaId, Scene>> = {
     vignette: 'rgba(30,8,0,0.5)',
   },
 
-
-  // CraftPix's glowing cave, cave objects and desert worms, recoloured to toxic greens: glowing fungi and
-  // crystals, curling roots and great worms, pools of bubbling acid, and totems and the bones of old beasts.
+  // CraftPix's glowing cave, cave objects and desert worms, recoloured to toxic greens: a poisoned fungal nest.
+  // Glowing toadstools, spore mushrooms and mushroom houses grow among bubbling pools of acid, insects and great
+  // worms coil through roots, bones and webbed cocoons, and fungi, worms and centipedes crowd the edge. Kept back
+  // from a wide clearing (the view is zoomed out from the Depths on).
   mines: {
     base: '#33432f',
     specks: [
@@ -240,15 +241,22 @@ const SCENES: Partial<Record<AreaId, Scene>> = {
       ['#3d5038', 20],
       ['#9ad43a', 1.2],
     ],
-    pools: { density: 0.05, from: 0.35, size: [34, 70], rim: '#0f1a0c', crust: '#24451a', fill: '#4a8424', inner: '#5f9e26', details: run('gd', 35, 57).split(' ') },
+    clear: 0.55,
+    edgeOut: 10,
+    pools: { density: 0.06, from: 0.6, size: [40, 80], rim: '#0f1a0c', crust: '#24451a', fill: '#4a8424', inner: '#5f9e26', details: run('gd', 35, 57).split(' ') },
     bands: [
-      { pieces: [...p(run('gd', 58, 75), 2), ...p('gd76 gd77 gd78 gd79 gd80 gd81 gd12 gd13 gd18 gd22 gd25 gd27 gd28 gd30 gd31 gd32 gd33'), ...p('g_Crystal1_4 g_Crystal2_4 g_Crystal3_4 g_Crystal4_4 g_Mushroom1_4 g_Mushroom3_4 g_Mushroom5_4 g_Plant1_2 g_Plant1_3 g_Plant3_4 o_Blue_green_crystal4 o_crystal_blue_green_vertical4 o_Human_skeleton d_Roots6 d_Roots7')], density: 3, from: 0 },
-      { pieces: [...p('g_Crystal1_3 g_Crystal2_3 g_Crystal3_3 g_Crystal4_3 g_Mushroom1_3 g_Mushroom2_3 g_Mushroom3_3 g_Mushroom4_3 g_Mushroom5_3 g_Mushroom6_3 g_Plant2_3 g_Plant3_3 g_Plant4_1 g_Plant5_3 g_shell_3 gd10 gd11 gd14 gd15 gd16 gd19 gd20 gd23 gd24 gd26 gd29 gd34', 1.5), ...p('o_Blue_green_crystal3 o_crystal_blue_green_vertical2 o_mushroom13 o_mushroom23 o_mushroom33 o_mushroom42 o_mushroom43 o_Beige_rpck3 o_Bonefire d_Roots5 d_The_beast5 d_The_beast7 d_Plant2')], density: 1.1, from: 0.4 },
-      { pieces: [...p('g_Crystal1_1 g_Crystal1_2 g_Crystal2_1 g_Crystal2_2 g_Crystal3_1 g_Crystal3_2 g_Crystal4_1 g_Crystal4_2 g_Mushroom1_1 g_Mushroom1_2 g_Mushroom2_1 g_Mushroom2_2 g_Mushroom3_2 g_Mushroom4_1 g_Mushroom4_2 g_Mushroom5_1 g_Mushroom5_2 g_Mushroom6_2 g_Plant2_1 g_Plant3_1 g_Plant4_3 g_Plant5_2 g_Rock_crystal_1 g_shell_2 g_lizard_2 gd17 gd21', 1.5), ...p('o_Blue_green_crystal1 o_Blue_green_crystal2 o_crystal_blue_green_vertical1 o_crystal_blue_green_vertical3 o_mushroom11 o_mushroom12 o_mushroom21 o_mushroom22 o_mushroom31 o_mushroom32 o_mushroom41 o_caveman_statue1 o_caveman_statue2 o_Beige_rpck1 o_Beige_rpck2 o_white_crystal4 o_white_crystal5 o_Dinosaur_skeleton_part1 d_Arthropods2 d_Bones2 d_Bones3 d_Plant1 d_Roots3 d_Roots4 d_Roots8 d_The_beast4 d_The_beast6')], density: 0.45, from: 0.7 },
-      { pieces: [...p('g_Mushroom3_1 g_Mushroom6_1 g_Plant5_1 g_Rock_crystal_2 g_shell_1 g_lizard_1 gd1 gd2 gd3 gd4 gd5 gd6 gd7 gd8 gd9', 1.5), ...p('o_centipede1 o_centipede2 o_cocoon_web o_white_crystal1 o_white_crystal2 o_white_crystal3 o_Dark_totem1 o_Demon_scull o_Dinosaur_skeleton_full o_Dinosaur_skeleton_part2 o_magic_circle o_Gates1 d_Arthropods1 d_Bones1 d_Roots1 d_Roots2 d_The_beast1 d_The_beast2 d_The_beast3')], density: 0.14, from: 0.9 },
+      // Moss, spores and little mushrooms, roots and bones.
+      { pieces: [...p(run('gd', 58, 75), 2), ...p('gd76 gd77 gd78 gd79 gd80 gd81 gd12 gd13 gd18 gd22 gd25 gd27 gd28 gd30 gd31 gd32 gd33'), ...p('g_Mushroom1_4 g_Mushroom3_4 g_Mushroom5_4 o_mushroom13 o_mushroom42 o_mushroom43 d_Roots6 d_Roots7 d_The_beast7 o_Human_skeleton g_Plant1_3', 1)], density: 2.2, from: 0 },
+      // Mushroom clumps, small worms, beetles and shells.
+      { pieces: [...p('g_Mushroom1_3 g_Mushroom2_3 g_Mushroom3_3 g_Mushroom4_3 g_Mushroom5_3 g_Mushroom6_3 o_mushroom12 o_mushroom22 o_mushroom41', 2), ...p('d_The_beast5 d_The_beast7 d_Arthropods2 g_shell_2 g_shell_3 d_Roots5 d_Bones2 g_Plant3_3', 1.5)], density: 0.8, from: 0.6 },
+      // Big toadstools and mushroom houses, worms, arthropods and webbed cocoons.
+      { pieces: [...p('g_Mushroom1_1 g_Mushroom1_2 g_Mushroom2_1 g_Mushroom2_2 g_Mushroom3_2 g_Mushroom4_1 g_Mushroom5_1 g_Mushroom6_2 o_mushroom11 o_mushroom21 o_mushroom31', 2), ...p('d_The_beast4 d_The_beast6 d_Arthropods1 o_cocoon_web g_shell_1 g_lizard_1 d_Roots3 d_Roots4 d_Bones3', 1.5)], density: 0.42, from: 0.78 },
+      // Giant fungi, great worms and centipedes crowding the border (monsters walk through them).
+      { pieces: [...p('g_Mushroom1_1 g_Mushroom2_1 g_Mushroom3_1 g_Mushroom6_1 o_mushroom21 o_mushroom31', 2), ...p('d_The_beast1 d_The_beast2 d_The_beast3 o_centipede1 o_centipede2', 1.5), ...p('d_Roots1 d_Roots2 o_cocoon_web'), ...p('d_Bones1', 0.25)], density: 0, from: 0.95, edge: true },
     ],
     vignette: 'rgba(4,12,2,0.6)',
   },
+
   // CraftPix's winter and rocky tilesets: wind-packed snow with patches of bare rock, drifts and pebbles,
   // frosted stones, ice crystals and snowy pines, and frozen beasts, rune stones, ruins and peaks at the edges.
   peaks: {
