@@ -26,6 +26,7 @@ import {
   areaScale,
   MULTISHOT_SPREAD,
   STUN_IMMUNITY,
+  SHIELD_DEFLECT_PAUSE,
   type EnemyId,
   type HunterId,
 } from './balance';
@@ -90,7 +91,21 @@ export interface Enemy {
   /** The last repeater volley that hit it, and how many of its bolts have (each extra hits harder). */
   volley?: number;
   volleyHits?: number;
+  /** A ranged monster's seconds until its next shot. */
+  shotCd?: number;
 }
+
+/** A ranged monster's projectile, flying at a Hunter (over the scenery). */
+export interface EnemyShot {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  life: number;
+  from: EnemyId;
+}
+/** How big a monster's projectile is (for hitting a Hunter). */
+export const SHOT_RADIUS = 5;
 
 /** A creature summoned by a Hunter's tome: roams to the nearest monster and bites it until it fades. */
 export interface Summon {
@@ -249,7 +264,13 @@ export type FieldEvent =
   | { type: 'punch'; x: number; y: number; a: number; r: number }
   /** A Hunter attacked with their weapon (the renderer swings, thrusts or raises it). */
   | { type: 'attack'; who: Shooter; a: number }
-  | { type: 'reload'; who: Shooter; x: number; y: number };
+  | { type: 'reload'; who: Shooter; x: number; y: number }
+  /** A ranged monster shot at a Hunter. */
+  | { type: 'enemyShot'; x: number; y: number; a: number }
+  /** A melee Hunter broke a projectile in the air (at x, y). */
+  | { type: 'parry'; who: Shooter; x: number; y: number; a: number }
+  /** A Hunter's shield deflected a projectile (at x, y), sending it off at angle `a`. */
+  | { type: 'deflect'; who: Shooter; x: number; y: number; a: number };
 
 /**
  * The survivor-style battlefield in world coordinates centered on your Hunter.
@@ -261,6 +282,8 @@ export type FieldEvent =
 export class Field {
   enemies: Enemy[] = [];
   bullets: Bullet[] = [];
+  /** Ranged monsters' projectiles in flight. */
+  shots: EnemyShot[] = [];
   puddles: Puddle[] = [];
   /** A focus's waves: rings expanding from where they were sent, hitting each monster once as they pass. */
   waves: Array<{ who: Shooter; x: number; y: number; r: number; max: number; hit: Set<number> }> = [];
@@ -285,7 +308,8 @@ export class Field {
   private spawnAcc = 0;
   /** Enemies arrive in packs; this is the next pack's type and size. */
   private nextPack: { type: EnemyId; size: number } | null = null;
-  private fireAcc = 0;
+  /** Your Hunter's attack charge (an attack at 1; below 0 while a shield deflection pauses them). */
+  fireAcc = 0;
   /** Your Hunter's gun magazine (when their weapon is a pistol, rifle or repeater). */
   gunState: GunState = { cls: null, ammo: 0, reload: 0 };
   /** Daggers' bursts in progress (anyone's): stabs (or throws) still to come, at a monster. */
@@ -330,6 +354,7 @@ export class Field {
   clear(): void {
     this.enemies = [];
     this.bullets = [];
+    this.shots = [];
     this.puddles = [];
     this.stun = 0;
     this.immune = 0;
@@ -440,6 +465,7 @@ export class Field {
 
     this.moveEnemies(dt);
     this.separate();
+    this.moveShots(dt);
 
     // Your Hunter (not while stunned): attacks the way their weapon's class does.
     this.fireAcc = Math.min(this.fireAcc + dt * g.shooterRate('main'), 3);
@@ -518,7 +544,10 @@ export class Field {
         const d = Math.hypot(dx, dy) || 1;
         // A Bone Wall keeps every monster at its edge: nothing reaches a Hunter while it stands.
         const walled = this.boneWall > 0;
-        const reach = walled ? this.boneWallR + e.r : e.r + PLAYER_RADIUS;
+        const ranged = e.boss ? undefined : enemyDef(e.type).ranged;
+        // A ranged monster stops within its range and shoots instead.
+        const reach = ranged ? Math.max(ranged.range * 0.9, walled ? this.boneWallR + e.r : 0) : walled ? this.boneWallR + e.r : e.r + PLAYER_RADIUS;
+        if (ranged) this.rangedAttack(e, ranged, t, d, dt);
         const step = Math.min(speed * dt, Math.max(0, d - reach));
         const [ux, uy] = this.steer(e, -dx / d, -dy / d);
         e.x += ux * step + e.kx * dt;
@@ -527,7 +556,7 @@ export class Field {
           // Pushed back out to the wall (a knockback toward a Hunter can't carry it through).
           e.x = t.x + (dx / d) * reach;
           e.y = t.y + (dy / d) * reach;
-        } else if (!walled && d <= reach + 1) this.contact(e, t.who, dx / d, dy / d);
+        } else if (!walled && !ranged && d <= reach + 1) this.contact(e, t.who, dx / d, dy / d);
       }
       this.keepOut(e);
       e.kx *= decay;
@@ -615,26 +644,122 @@ export class Field {
         if (ef.kind === 'block' && (ef.chance === undefined || this.game.rng() < ef.chance)) this.abilityBurst(who, hx, hy, ef.radius, effectBase(ef, stars), ef.damageType);
       return;
     }
-    // A stun runs its course: hits while stunned or immune don't extend it (no stun loops).
-    if (state.immune <= 0 && state.stun <= 0) {
-      const t = this.game.stunTime(e.boss, who);
-      state.stun = t;
-      state.stunTotal = t;
-      this.game.registerKnockout();
-      this.events.push({ type: 'stun', x: e.x, y: e.y, boss: e.boss, who });
-      // Gideon's Bone Wall: his stun raises a wall of bone around every Hunter.
-      const wall = helper && hunterDef(helper.id).wall;
-      if (helper && wall && helper.wallCd <= 0) {
-        helper.wallCd = wall.cooldown;
-        this.boneWall = wall.duration;
-        this.boneWallR = wall.radius;
-        this.events.push({ type: 'boneWall', r: wall.radius });
-      }
-    }
+    this.knockOut(who, e.boss, e.x, e.y);
     if (e.boss) {
       e.kx += ux * BOSS_BOUNCE;
       e.ky += uy * BOSS_BOUNCE;
     } else e.fleeing = true;
+  }
+
+  /** A Hunter is stunned (unless already stunned or immune: a stun runs its course, so no stun loops). */
+  private knockOut(who: Shooter, boss: boolean, x: number, y: number): void {
+    const helper = who === 'main' ? null : this.helpers.find((h) => h.id === who)!;
+    const state = helper ?? this;
+    if (state.immune > 0 || state.stun > 0) return;
+    const t = this.game.stunTime(boss, who);
+    state.stun = t;
+    state.stunTotal = t;
+    this.game.registerKnockout();
+    this.events.push({ type: 'stun', x, y, boss, who });
+    // Gideon's Bone Wall: his stun raises a wall of bone around every Hunter.
+    const wall = helper && hunterDef(helper.id).wall;
+    if (helper && wall && helper.wallCd <= 0) {
+      helper.wallCd = wall.cooldown;
+      this.boneWall = wall.duration;
+      this.boneWallR = wall.radius;
+      this.events.push({ type: 'boneWall', r: wall.radius });
+    }
+  }
+
+  /** A ranged monster within range of its Hunter counts down and shoots a projectile at them. */
+  private rangedAttack(e: Enemy, ranged: { range: number; cooldown: number; speed: number }, t: { x: number; y: number }, d: number, dt: number): void {
+    e.shotCd ??= ranged.cooldown * (0.3 + this.game.rng() * 0.5);
+    if (d > ranged.range + e.r) return;
+    e.shotCd -= dt;
+    if (e.shotCd > 0) return;
+    e.shotCd = ranged.cooldown * (0.85 + this.game.rng() * 0.3);
+    const a = Math.atan2(t.y - e.y, t.x - e.x);
+    const x = e.x + Math.cos(a) * e.r;
+    const y = e.y + Math.sin(a) * e.r;
+    this.shots.push({ x, y, vx: Math.cos(a) * ranged.speed, vy: Math.sin(a) * ranged.speed, life: (ranged.range * 1.6) / ranged.speed, from: e.type });
+    this.events.push({ type: 'enemyShot', x, y, a });
+  }
+
+  /** Every Hunter on the field: where they stand, their state, and whether they can act (not stunned). */
+  private hunters(): Array<{ who: Shooter; x: number; y: number; state: { fireAcc: number; stun: number; immune: number; guard: number; guardAcc: number } }> {
+    return [{ who: 'main' as Shooter, x: 0, y: 0, state: this }, ...this.helpers.map((h) => ({ who: h.id as Shooter, x: h.x, y: h.y, state: h }))];
+  }
+
+  /** Whether a Hunter is wearing a shield (armor). */
+  private hasShield(who: Shooter): boolean {
+    return this.game.equipped(who).some((it) => !!it && gearDef(it.base).armorType === 'shield');
+  }
+
+  /**
+   * Monsters' projectiles fly straight (over the scenery). A melee Hunter breaks one that comes within reach
+   * (spending their next attack); one that reaches a Hunter is deflected by a shield (pausing their attacks a
+   * moment), dodged by light armor, blocked by a shield charge, or stuns them. A Bone Wall stops them.
+   */
+  private moveShots(dt: number): void {
+    if (!this.shots.length) return;
+    const hunters = this.hunters();
+    for (const s of this.shots) {
+      s.x += s.vx * dt;
+      s.y += s.vy * dt;
+      s.life -= dt;
+      if (s.life <= 0) continue;
+      for (const h of hunters) {
+        const d = Math.hypot(s.x - h.x, s.y - h.y);
+        if (this.boneWall > 0 && d <= this.boneWallR) {
+          s.life = 0;
+          this.events.push({ type: 'parry', who: h.who, x: s.x, y: s.y, a: Math.atan2(s.y - h.y, s.x - h.x) });
+          break;
+        }
+        const up = h.state.stun <= 0;
+        // A melee weapon swats it out of the air as it comes within reach.
+        if (up && this.isMelee(h.who) && d <= Math.min(this.game.shooterRange(h.who), 90) + SHOT_RADIUS) {
+          s.life = 0;
+          h.state.fireAcc = Math.min(h.state.fireAcc, 0);
+          const a = Math.atan2(s.y - h.y, s.x - h.x);
+          if (h.who === 'main') this.aim = a;
+          else (h.state as Helper).aim = a;
+          this.events.push({ type: 'attack', who: h.who, a });
+          this.events.push({ type: 'parry', who: h.who, x: s.x, y: s.y, a });
+          break;
+        }
+        if (d > PLAYER_RADIUS + SHOT_RADIUS) continue;
+        s.life = 0;
+        this.shotHit(h.who, h.x, h.y, s, up);
+        break;
+      }
+    }
+    this.shots = this.shots.filter((s) => s.life > 0);
+  }
+
+  /** A projectile reached a Hunter. */
+  private shotHit(who: Shooter, hx: number, hy: number, s: EnemyShot, up: boolean): void {
+    const state = who === 'main' ? this : this.helpers.find((h) => h.id === who)!;
+    // A shield deflects it (if they're up to raise it), but their attacks stop for a moment.
+    if (up && this.hasShield(who)) {
+      const a = Math.atan2(s.y - hy, s.x - hx) + (this.game.rng() - 0.5) * 1.2;
+      state.fireAcc = Math.min(state.fireAcc, 0) - SHIELD_DEFLECT_PAUSE * this.game.shooterRate(who);
+      this.events.push({ type: 'deflect', who, x: s.x, y: s.y, a });
+      return;
+    }
+    const effects = this.game.gearEffects(who);
+    if (effects.some(({ effect: ef }) => ef.kind === 'evade' && this.game.rng() < ef.chance)) {
+      this.events.push({ type: 'dodge', x: hx, y: hy });
+      return;
+    }
+    if (state.guard > 0) {
+      state.guard--;
+      state.guardAcc = 0;
+      this.events.push({ type: 'guard', x: hx, y: hy });
+      for (const { effect: ef, stars } of effects)
+        if (ef.kind === 'block' && (ef.chance === undefined || this.game.rng() < ef.chance)) this.abilityBurst(who, hx, hy, ef.radius, effectBase(ef, stars), ef.damageType);
+      return;
+    }
+    this.knockOut(who, false, hx, hy);
   }
 
   /** Cheap pairwise push-apart so the horde spreads into a crowd instead of a single dot. */

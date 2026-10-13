@@ -42,6 +42,7 @@ import {
   gearTypes,
   DAMAGE_TYPES,
   FLYING,
+  SHIELD_DEFLECT_PAUSE,
   lootChance,
   tomeSummonType,
   ARMOR_TYPES,
@@ -2352,6 +2353,58 @@ describe('Equipment', () => {
     expect(flier.inside).toBe(true); // straight over it
     expect(FLYING.has('bat')).toBe(true);
     expect(FLYING.has('greenSlime')).toBe(false);
+  });
+
+  it('ranged monsters stop at range and shoot; melee weapons break projectiles, shields deflect them (pausing attacks), otherwise they stun', () => {
+    const necro = enemyDef('necromancer').ranged!;
+    expect(necro).toBeDefined();
+    expect(enemyDef('greenSlime').ranged).toBeUndefined();
+    const step = (f: Field, secs: number) => {
+      for (let t = 0; t < secs; t += 0.02) {
+        (f as unknown as { moveEnemies: (dt: number) => void }).moveEnemies(0.02);
+        (f as unknown as { moveShots: (dt: number) => void }).moveShots(0.02);
+      }
+    };
+    // A bare Hunter: the Necromancer walks in to its range, stops, and its bolt stuns them; it never runs off.
+    const bare = new Game(newGame(0), noCrit);
+    const f = new Field(bare);
+    f.setView(390, 420);
+    f.guard = 0;
+    const e = enemy({ id: 3, type: 'necromancer', x: 0, y: -400, hp: 1e9, maxHp: 1e9, speed: 60 });
+    f.enemies = [e];
+    step(f, 12);
+    expect(Math.hypot(e.x, e.y)).toBeGreaterThan(necro.range * 0.85);
+    expect(Math.hypot(e.x, e.y)).toBeLessThan(necro.range + e.r);
+    expect(e.fleeing).toBe(false);
+    expect(f.stun).toBeGreaterThan(0);
+
+    // A shot heading straight at a Hunter, from just outside a sword's reach.
+    const shotAt = (g: Game) => {
+      const fx = new Field(g);
+      fx.guard = 0;
+      fx.fireAcc = 0.8;
+      fx.shots = [{ x: 0, y: -120, vx: 0, vy: necro.speed, life: 5, from: 'necromancer' }];
+      step(fx, 1.5);
+      return fx;
+    };
+    const g = stocked();
+    // A sword swats it out of the air: no stun, but the swing is spent.
+    g.equip('main', 0, g.craftGear('slimeSword')!.uid);
+    let fx = shotAt(g);
+    expect(fx.shots.length).toBe(0);
+    expect(fx.stun).toBe(0);
+    expect(fx.fireAcc).toBeLessThanOrEqual(0);
+    // A shield (with a bow, so nothing breaks it first) deflects it, pausing attacks for a moment.
+    g.equip('main', 0, g.craftGear('forestBow')!.uid);
+    g.equip('main', 1, g.craftGear('forestShield')!.uid);
+    fx = shotAt(g);
+    expect(fx.stun).toBe(0);
+    expect(fx.fireAcc).toBeLessThan(0);
+    expect(fx.fireAcc).toBeCloseTo(-SHIELD_DEFLECT_PAUSE * g.shooterRate('main'), 5);
+    // Without either, it stuns.
+    g.equip('main', 1, null);
+    fx = shotAt(g);
+    expect(fx.stun).toBeGreaterThan(0);
   });
 
   it('hammers slam the ground out in front (the Hunter at its edge): every monster in it is hit and thrown far back; Size, Range and Expanse', () => {

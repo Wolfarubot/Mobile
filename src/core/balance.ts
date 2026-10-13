@@ -945,6 +945,11 @@ export interface EnemyDef {
   /** Damage types that hit it harder (×WEAK_MULT) or softer (×RESIST_MULT). */
   weak: DamageType[];
   resist: DamageType[];
+  /**
+   * A ranged attacker: it stops `range` from the nearest Hunter and shoots a projectile at them every `cooldown`
+   * seconds, flying at `speed` (it never reaches them, so never runs off with its loot). Otherwise it's melee.
+   */
+  ranged?: { range: number; cooldown: number; speed: number };
 }
 
 /** Damage multiplier for a type the enemy is vulnerable to. */
@@ -996,7 +1001,7 @@ export const ENEMIES: EnemyDef[] = [
   { id: 'boneKnight', name: 'Bone Knight', area: 'crypt', archetype: 'undead', hp: 4, speed: 0.8, gold: 4.5, spawn: 0.3, pack: [1, 2], radius: 13, material: 'enchantedBone', unlock: 900, color: '#c8c0a8', shape: 'hexagon', blurb: 'A skeleton that kept its armor, and its sword.', weak: ['radiant'], resist: ['physical', 'poison', 'decay'] },
   { id: 'possessedArmor', name: 'Possessed Armor', area: 'crypt', archetype: 'construct', hp: 4.5, speed: 0.7, gold: 5, spawn: 0.25, pack: [1, 2], radius: 13, material: 'enchantedScrap', unlock: 4_000, color: '#8890b0', shape: 'square', blurb: 'An empty suit of armor that never stopped standing guard.', weak: ['arcane', 'lightning'], resist: ['physical', 'poison', 'decay'] },
   { id: 'mummy', name: 'Mummy', area: 'crypt', archetype: 'undead', hp: 3, speed: 0.6, gold: 3.2, spawn: 0.35, pack: [1, 3], radius: 12, material: 'wrap', unlock: 8_000, color: '#d8c89a', shape: 'square', blurb: 'Wrapped tight and very flammable.', weak: ['fire'], resist: ['poison', 'decay', 'frost'] },
-  { id: 'necromancer', name: 'Necromancer', area: 'crypt', archetype: 'humanoid', hp: 3, speed: 0.9, gold: 4, spawn: 0.25, pack: [1, 2], radius: 12, material: 'grave', unlock: 15_000, color: '#5a3a7a', shape: 'diamond', blurb: 'Raises the dead for fun.', weak: ['radiant', 'physical'], resist: ['decay', 'void'] },
+  { id: 'necromancer', name: 'Necromancer', area: 'crypt', archetype: 'humanoid', hp: 3, speed: 0.9, gold: 4, spawn: 0.25, pack: [1, 2], radius: 12, material: 'grave', unlock: 15_000, color: '#5a3a7a', shape: 'diamond', blurb: 'Raises the dead for fun, and hurls bolts of grave-magic from afar.', weak: ['radiant', 'physical'], resist: ['decay', 'void'], ranged: { range: 165, cooldown: 2.6, speed: 115 } },
 
 
   // Shadowy Depths
@@ -1479,6 +1484,9 @@ export const STATUS = {
 };
 /** Rough extra damage each type's effect adds when it always procs, for the background model (scaled by proc chance). */
 export const STATUS_MODEL: Partial<Record<DamageType, number>> = { physical: 1.25, fire: 1.4, poison: 1.5, acid: 1.4, radiant: 1.5, decay: 1.4, arcane: 1.1, lightning: 1.5, void: 1.15 };
+
+/** How long a Hunter's attacks pause after their shield deflects a projectile (seconds). */
+export const SHIELD_DEFLECT_PAUSE = 1;
 
 /** Monsters that fly (or float): they pass over the battlefield's rocks, trees and coffins instead of going around. */
 export const FLYING: ReadonlySet<EnemyId> = new Set<EnemyId>([

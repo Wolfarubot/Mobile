@@ -4560,3 +4560,32 @@ body.ui-parchment .tabs button.active {
   box-sizing: border-box;
   padding: 0.2em 0.11em 0.02em;
 }
+
+/* A monster's Flying / Ranged tags (Bestiary card and monster view). */
+.beast-tag {
+  display: inline-block;
+  margin-left: 5px;
+  padding: 0 5px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 15px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  vertical-align: 1px;
+  color: #fff;
+  -webkit-text-stroke: 0;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
+}
+.beast-tag.flying {
+  background: #4f86b8;
+}
+.beast-tag.ranged {
+  background: #8a4fb8;
+}
+.beast-tags:empty {
+  display: none;
+}
+.beast-tags .beast-tag:first-child {
+  margin-left: 0;
+}

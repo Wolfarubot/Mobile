@@ -1,5 +1,5 @@
 import { areaDef, DAMAGE_TYPES, FIELD_ZOOM, FLYING, gearDef, WEAPON_CLASSES, STATUS, enemyDef, eventDef, fieldZoom, GUARDIAN_TIME, hunterDef, materialDef, SIZE_SCALE, type DamageType, type EnemyId, type EnemyShape } from '../core/balance';
-import { PLAYER_RADIUS, SUMMON_RADIUS, type Summon, type Bullet, type BulletKind, type Enemy, type Field, type Helper } from '../core/field';
+import { PLAYER_RADIUS, SHOT_RADIUS, SUMMON_RADIUS, type EnemyShot, type Summon, type Bullet, type BulletKind, type Enemy, type Field, type Helper } from '../core/field';
 import { fmt } from '../core/format';
 import type { Game, Shooter } from '../core/game';
 import type { FxKey } from '../core/state';
@@ -239,6 +239,24 @@ export class BattleView {
         case 'dodge':
           this.fx.text(e.x, e.y - 30, 'DODGE', '#c8f0ff', 12, 0.6);
           break;
+        case 'enemyShot':
+          this.fx.burst(e.x, e.y, '#b07ce0', 4, 50, 2, 0);
+          break;
+        case 'parry':
+          // Smashed out of the air: a spray of sparks and shards.
+          this.fx.burst(e.x, e.y, '#fff4d0', 8, 150, 2, 0, true);
+          this.fx.burst(e.x, e.y, '#b07ce0', 6, 90, 3, 0, true);
+          this.fx.text(e.x, e.y - 14, 'BREAK', '#fff4d0', 10, 0.5);
+          break;
+        case 'deflect': {
+          // Glances off the shield: a flash of the shield and the bolt's sparks thrown off to the side.
+          const h = e.who === 'main' ? { x: 0, y: 0 } : (this.field.helpers.find((x) => x.id === e.who) ?? { x: 0, y: 0 });
+          if (this.fancy) this.playEffect('shield', h.x, h.y, (PLAYER_RADIUS * CHAR_SCALE + 12) * 2, 'center', 24);
+          else this.rings.push({ x: h.x, y: h.y, t: 0, r: PLAYER_RADIUS * CHAR_SCALE + 10, color: '200,220,255', max: 0.3 });
+          for (let i = 0; i < 6; i++) this.fx.burst(e.x + Math.cos(e.a) * i * 5, e.y + Math.sin(e.a) * i * 5, i % 2 ? '#d8e8ff' : '#b07ce0', 1, 60, 2.5, 0, true);
+          this.fx.text(h.x, h.y - PLAYER_RADIUS * CHAR_SCALE - 22, 'DEFLECT', '#d8e8ff', 12, 0.6);
+          break;
+        }
         case 'thorns':
           if (this.fancy) this.playEffect('spikes', e.x, e.y + e.r, Math.max(30, e.r * 2.6), 'bottom', 24);
           break;
@@ -445,6 +463,7 @@ export class BattleView {
     this.drawBoneWall(g);
 
     for (const b of this.field.bullets) drawBullet(g, b, this.time, this.game.state.settings.aoeStyle === 'basic');
+    for (const s of this.field.shots) drawEnemyShot(g, s, this.time, CHAR_SCALE);
 
     // Tome spirits: a glowing wisp with a trailing tail, fading as their time runs out.
     for (const sm of this.field.summons) {
@@ -1556,6 +1575,42 @@ function drawStatus(g: CanvasRenderingContext2D, e: Enemy, t: number, on: (k: Fx
 }
 
 /** Each attack style gets its own simple look. */
+/** A ranged monster's bolt: a glowing orb of its colour with a fading tail, `k` times its size (like the characters). */
+function drawEnemyShot(g: CanvasRenderingContext2D, s: EnemyShot, t: number, k: number): void {
+  const color = enemyDef(s.from).color;
+  const sp = Math.hypot(s.vx, s.vy) || 1;
+  const ux = s.vx / sp;
+  const uy = s.vy / sp;
+  const r = SHOT_RADIUS * k;
+  g.save();
+  for (let i = 4; i >= 1; i--) {
+    g.globalAlpha = 0.14 * (5 - i);
+    g.fillStyle = color;
+    g.beginPath();
+    g.arc(s.x - ux * i * r, s.y - uy * i * r, r * (1 - i * 0.14), 0, Math.PI * 2);
+    g.fill();
+  }
+  const pulse = 1 + Math.sin(t * 18) * 0.12;
+  g.globalAlpha = 0.35;
+  g.fillStyle = '#c99cff';
+  g.beginPath();
+  g.arc(s.x, s.y, r * 1.9 * pulse, 0, Math.PI * 2);
+  g.fill();
+  g.globalAlpha = 1;
+  g.fillStyle = color;
+  g.strokeStyle = '#1a0f24';
+  g.lineWidth = 1.5;
+  g.beginPath();
+  g.arc(s.x, s.y, r, 0, Math.PI * 2);
+  g.fill();
+  g.stroke();
+  g.fillStyle = '#f0e0ff';
+  g.beginPath();
+  g.arc(s.x - r * 0.25, s.y - r * 0.25, r * 0.4, 0, Math.PI * 2);
+  g.fill();
+  g.restore();
+}
+
 function drawBullet(g: CanvasRenderingContext2D, b: Bullet, t: number, basic = false): void {
   const a = Math.atan2(b.vy, b.vx);
   g.save();

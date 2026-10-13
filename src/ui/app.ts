@@ -10,6 +10,7 @@ import {
   EMPOWER_UNLOCK_KILLS,
   TRAIN_UNLOCK_KILLS,
   enemyDef,
+  FLYING,
   GUARDIAN_ENEMY,
   EMPOWER,
   type EnemyId,
@@ -2109,7 +2110,7 @@ export class AppUI {
     this.refreshers.push(() => {
       const b = g.state.bestiary[def.id];
       card.classList.toggle('locked', !b.unlocked);
-      setHtml($('.name', card), `${def.name}<span class="archetype">${arch.icon} ${arch.name}</span>${b.unlocked ? '' : ' <small style="color:var(--muted)">locked</small>'}`);
+      setHtml($('.name', card), `${def.name}<span class="archetype">${arch.icon} ${arch.name}</span>${beastTags(def)}${b.unlocked ? '' : ' <small style="color:var(--muted)">locked</small>'}`);
       if (!b.unlocked) {
         const cost = enemyUnlockCost(def);
         setHtml(unlockBtn, `Unlock · drops ${enemyDrops(def).map((m) => `${gemHtml(m)} ${materialDef(m).name}`).join(' + ')}<small>🪙 ${fmt(cost)}</small>`);
@@ -2168,6 +2169,7 @@ export class AppUI {
           <canvas class="portrait big-portrait"></canvas>
           <div class="hd-title">
             <h2>${def.name}</h2>
+            <div class="beast-tags">${beastTags(def)}</div>
             <div class="hd-sub"></div>
           </div>
         </div>
@@ -3782,6 +3784,12 @@ function dropsText(e: EnemyDef): string {
   const all = [`${gemHtml(e.material)} <b>${materialDef(e.material).name}</b>`, ...extra];
   const mats = all.length > 2 ? `${all.slice(0, -1).join(', ')} and ${all[all.length - 1]}` : all.join(' and ');
   return `Drops ${mats}${lootChance(e.id) > 0 ? ' · 🎁 can carry gear' : ''}`;
+}
+
+/** A monster's tags: Flying (passes over the scenery) and Ranged (shoots from afar). */
+function beastTags(def: EnemyDef): string {
+  const tags = [FLYING.has(def.id) ? '<span class="beast-tag flying" title="Flies over rocks, trees and graves">Flying</span>' : '', def.ranged ? '<span class="beast-tag ranged" title="Shoots projectiles from afar">Ranged</span>' : ''];
+  return tags.join('');
 }
 
 function dropHtml(e: EnemyDef): string {
