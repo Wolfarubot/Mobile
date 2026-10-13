@@ -1,6 +1,7 @@
 import type { AreaId } from '../../core/balance';
 import { areaBackground, type DecorOpts } from '../../render/backgrounds';
 import { gearImage } from '../../render/sprites';
+import { canvasFont } from '../../render/fx';
 
 /**
  * The frame every minigame runs in: a full-screen canvas over its area's painted background, a HUD (score, lives,
@@ -30,7 +31,12 @@ export interface MinigameGame {
   step(dt: number): void;
   draw(g: CanvasRenderingContext2D): void;
   tap(x: number, y: number): void;
+  /** Shown after the game's title at the top (e.g. the time left). */
+  titleSuffix?(): string;
 }
+
+/** Where the game's title sits, near the top; games keep their own art below `TITLE_Y + 14`. */
+export const TITLE_Y = 72;
 
 export interface MinigameSpec {
   title: string;
@@ -193,7 +199,22 @@ export function runMinigame(spec: MinigameSpec): void {
       g.fillStyle = '#2a3a2a';
       g.fillRect(0, 0, W, H);
     }
-    if (game) game.draw(g);
+    if (game) {
+      game.draw(g);
+      // The game's title (its name, without the emoji), outlined so it reads over anything.
+      const suffix = game.titleSuffix?.();
+      const title = spec.title.replace(/^[^\p{L}]+/u, '').toUpperCase() + (suffix ? ` · ${suffix}` : '');
+      g.font = canvasFont(Math.round(18 * api.k), 700);
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.lineWidth = 4;
+      g.lineJoin = 'round';
+      g.strokeStyle = '#000';
+      g.strokeText(title, W / 2, TITLE_Y);
+      g.fillStyle = '#9ff0a8';
+      g.fillText(title, W / 2, TITLE_Y);
+      g.textBaseline = 'alphabetic';
+    }
     g.font = `bold ${Math.round(18 * api.k)}px monospace`;
     g.textAlign = 'center';
     for (let i = pops.length - 1; i >= 0; i--) {

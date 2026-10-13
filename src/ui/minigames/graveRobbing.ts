@@ -1,9 +1,9 @@
-import type { MinigameApi, MinigameGame } from './shell';
+import { TITLE_Y, type MinigameApi, type MinigameGame } from './shell';
 import { HUNTER_SHEETS } from '../../render/hunterSheets';
 import { SHEETS, sheetRow } from '../../render/monsterSheets';
-import { hunterSheetImage, monsterSheetImage } from '../../render/sprites';
+import { gearImage, hunterSheetImage, monsterSheetImage } from '../../render/sprites';
 import { drawFramedBar, TIMER_COLOR } from '../../render/hudBars';
-import { canvasFont } from '../../render/fx';
+import { outlineOf } from '../../render/outline';
 
 /**
  * Alias's Grave Robbing (the Restless Graveyard): Alias creeps between nine headstones in a 3×3 grid, moved one
@@ -95,7 +95,7 @@ export function graveRobbing(api: MinigameApi): MinigameGame {
   let lootIn = 0.4;
 
   const grid = () => {
-    const top = 112;
+    const top = TITLE_Y + 46;
     const bottom = api.H - 250 * api.k;
     const size = Math.min(api.W / 3.2, (bottom - top) / 3);
     return { size, x0: (api.W - size * 3) / 2, y0: top + (bottom - top - size * 3) / 2 };
@@ -143,6 +143,7 @@ export function graveRobbing(api: MinigameApi): MinigameGame {
   const upAt = (spot: number) => bursts.find((b) => b.spot === spot && b.t >= 0 && b.t < RISE + UP);
 
   return {
+    titleSuffix: () => `${Math.ceil(Math.max(0, GR_TIME - api.t))}s`,
     tap(x, y) {
       const p = pad();
       let best: Dir | null = null;
@@ -198,6 +199,10 @@ export function graveRobbing(api: MinigameApi): MinigameGame {
           b.hit = true;
           const p = spotAt(b.spot);
           api.loseLife(p.x, p.y - grid().size * 0.4);
+          // It's spent: it crumbles back into the ground in a puff of dirt.
+          kickDirt(p.x, p.y - grid().size * 0.2, 18);
+          bursts.splice(i, 1);
+          continue;
         }
         if (b.t >= RISE + UP + SINK) bursts.splice(i, 1);
       }
@@ -229,26 +234,16 @@ export function graveRobbing(api: MinigameApi): MinigameGame {
     draw(g) {
       const c = grid();
       g.imageSmoothingEnabled = false;
-      // The game's title and the time left over the clock: the battlefield's framed event timer.
+      // The clock under the title (which shows the time left): the battlefield's framed event timer.
       const left = Math.max(0, GR_TIME - api.t);
-      g.font = canvasFont(13, 700);
-      g.textAlign = 'center';
-      g.textBaseline = 'middle';
-      g.lineWidth = 3;
-      g.lineJoin = 'round';
-      g.strokeStyle = '#000';
-      const title = `GRAVE ROBBING · ${Math.ceil(left)}s`;
-      g.strokeText(title, api.W / 2, 72);
-      g.fillStyle = '#9ff0a8';
-      g.fillText(title, api.W / 2, 72);
       const S = 2;
       const nw = Math.floor(Math.min(api.W * 0.8, 360) / S);
       const bx = Math.round((api.W - nw * S) / 2);
-      if (!drawFramedBar(g, bx, 82, S, nw, 9, left / GR_TIME, left < 10 ? '#ff6a6a' : TIMER_COLOR)) {
+      if (!drawFramedBar(g, bx, TITLE_Y + 16, S, nw, 9, left / GR_TIME, left < 10 ? '#ff6a6a' : TIMER_COLOR)) {
         g.fillStyle = 'rgba(0,0,0,0.45)';
-        g.fillRect(bx, 82, nw * S, 10);
+        g.fillRect(bx, TITLE_Y + 16, nw * S, 10);
         g.fillStyle = TIMER_COLOR;
-        g.fillRect(bx, 82, nw * S * (left / GR_TIME), 10);
+        g.fillRect(bx, TITLE_Y + 16, nw * S * (left / GR_TIME), 10);
       }
 
       // Each grave, back row first: a patch of dug earth and its headstone behind it.
@@ -295,14 +290,16 @@ export function graveRobbing(api: MinigameApi): MinigameGame {
         draws.push({
           y: p.y - 1,
           draw: () => {
-            if (l.gold) {
-              g.globalAlpha = 0.5 * fade;
-              g.fillStyle = '#ffd34d';
-              g.beginPath();
-              g.arc(p.x, p.y - c.size * 0.12 + bob, c.size * 0.2, 0, Math.PI * 2);
-              g.fill();
+            const size = c.size * 0.36;
+            const cy = p.y - c.size * 0.12 + bob;
+            // The golden urn wears a gold border.
+            const img = l.gold ? gearImage(l.icon) : null;
+            if (img) {
+              g.globalAlpha = fade;
+              g.imageSmoothingEnabled = false;
+              g.drawImage(outlineOf(img, '#ffd34d', 2), p.x - size / 2, cy - size / 2, size, size);
             }
-            api.icon(l.icon, p.x, p.y - c.size * 0.12 + bob, c.size * 0.36, fade);
+            api.icon(l.icon, p.x, cy, size, fade);
             g.globalAlpha = 1;
           },
         });
@@ -330,7 +327,11 @@ export function graveRobbing(api: MinigameApi): MinigameGame {
             g.rect(p.x - c.size, p.y - c.size * 2, c.size * 2, c.size * 2);
             g.clip();
             g.imageSmoothingEnabled = false;
-            g.drawImage(skImg, col * F, sheetRow(skSheet, 'D') * F, F, F, p.x - (bx + bw / 2) * k, feetY - (by + bh) * k, F * k, F * k);
+            // A red border marks it as the thing to avoid.
+            const dx = p.x - (bx + bw / 2) * k;
+            const dy = feetY - (by + bh) * k;
+            g.drawImage(outlineOf(skImg, '#ff3a3a'), col * F, sheetRow(skSheet, 'D') * F, F, F, dx, dy, F * k, F * k);
+            g.drawImage(skImg, col * F, sheetRow(skSheet, 'D') * F, F, F, dx, dy, F * k, F * k);
             g.restore();
             // A lip of dirt round it.
             g.fillStyle = '#3a2c1e';

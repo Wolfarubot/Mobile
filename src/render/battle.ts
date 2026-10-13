@@ -13,6 +13,7 @@ import { GEAR_SPRITES } from '../core/gearSprites';
 import { emojiIconKey } from '../ui/emojiIcons';
 import { HUNTER_ICONS, hunterIconHtml } from '../ui/hunterIcons';
 import { drawFramedBar, TIMER_COLOR } from './hudBars';
+import { outlineOf } from './outline';
 
 /** Frame heights (in its pixels) of an event's timer, a Guardian's health bar and the Guardian's timer. */
 const EVENT_BAR_H = 9;
@@ -1957,36 +1958,6 @@ const frostCache = new WeakMap<CanvasImageSource, HTMLCanvasElement>();
 /** How opaque the Clarity Border (a white outline round characters and projectiles) is at each setting. */
 const CLARITY_ALPHA: Record<ClarityLevel, number> = { off: 0, low: 0.3, moderate: 0.6, strong: 0.95 };
 
-/**
- * A sheet's outline: white wherever a pixel is empty but touches the art (one sheet pixel out, all round), made
- * once per sheet. Drawn under a frame with the same source and destination rectangles, it rings the character.
- */
-const outlineCache = new WeakMap<HTMLImageElement, HTMLCanvasElement>();
-function outlineOf(img: HTMLImageElement): HTMLCanvasElement {
-  const hit = outlineCache.get(img);
-  if (hit) return hit;
-  const w = img.naturalWidth;
-  const h = img.naturalHeight;
-  const c = document.createElement('canvas');
-  c.width = w;
-  c.height = h;
-  const x = c.getContext('2d')!;
-  x.drawImage(img, 0, 0);
-  const src = x.getImageData(0, 0, w, h).data;
-  const out = x.createImageData(w, h);
-  const solid = (px: number, py: number) => px >= 0 && py >= 0 && px < w && py < h && src[(py * w + px) * 4 + 3] > 40;
-  for (let py = 0; py < h; py++)
-    for (let px = 0; px < w; px++) {
-      if (solid(px, py)) continue;
-      if (solid(px - 1, py) || solid(px + 1, py) || solid(px, py - 1) || solid(px, py + 1) || solid(px - 1, py - 1) || solid(px + 1, py - 1) || solid(px - 1, py + 1) || solid(px + 1, py + 1)) {
-        const i = (py * w + px) * 4;
-        out.data[i] = out.data[i + 1] = out.data[i + 2] = out.data[i + 3] = 255;
-      }
-    }
-  x.putImageData(out, 0, 0);
-  outlineCache.set(img, c);
-  return c;
-}
 /** One frame of a monster walk sheet, centred on the origin, with the character's longer side `size` across. */
 function drawSheetFrame(g: CanvasRenderingContext2D, img: CanvasImageSource, sh: MonsterSheet, row: number, col: number, size: number, outline?: { of: HTMLImageElement; alpha: number }): void {
   const [bx, by, bw, bh] = sh.box;
