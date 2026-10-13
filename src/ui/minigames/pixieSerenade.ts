@@ -23,6 +23,33 @@ const COLORS = ['#ff8ad8', '#8ad8ff', '#c8ff8a'];
 /** Ba'al's guitar. */
 const GUITAR = 'instruments/092';
 
+/** How wide the paths' cobbled road is, in their tiles' pixels (the tiles are widened to it). */
+const ROAD = 30;
+
+/** A path tile tinted toward a path's colour (its cobbles take on the bar's colour), made once per tile and colour. */
+const tintedPaths = new Map<string, HTMLCanvasElement>();
+function pathIn(name: string, color: string): HTMLCanvasElement | null {
+  const img = mgArt(name);
+  if (!img) return null;
+  const key = `${name}:${color}`;
+  let c = tintedPaths.get(key);
+  if (!c) {
+    c = document.createElement('canvas');
+    c.width = img.naturalWidth;
+    c.height = img.naturalHeight;
+    const x = c.getContext('2d')!;
+    x.drawImage(img, 0, 0);
+    x.globalCompositeOperation = 'multiply';
+    x.fillStyle = color;
+    x.fillRect(0, 0, c.width, c.height);
+    // Keep the tile's own shape (multiply fills the transparent margin too).
+    x.globalCompositeOperation = 'destination-in';
+    x.drawImage(img, 0, 0);
+    tintedPaths.set(key, c);
+  }
+  return c;
+}
+
 /** The white music note (the platformer UI pack's), tinted a path's colour, made once per colour. */
 const tinted = new Map<string, HTMLCanvasElement>();
 function noteIn(color: string): HTMLCanvasElement | null {
@@ -56,14 +83,14 @@ export function pixieSerenade(api: MinigameApi): MinigameGame {
   const lineY = () => api.H - 150;
   /** The paths' pixel scale (the tiles are 48px wide), and how far apart they run (close together, in the middle). */
   const pathScale = () => Math.max(1, Math.round(Math.min(api.W, 480) / 200));
-  const spacing = () => Math.round(40 * pathScale());
+  const spacing = () => Math.round((ROAD + 10) * pathScale());
   const laneX = (i: number) => Math.round(api.W / 2 + (i - 1) * spacing());
   const speed = () => Math.min(620, 200 + 5 * api.t) * api.k;
   /** The okay range either side of the ribbon (the blue cobbles)… */
   const window = () => 46 * api.k;
   /** …and the small framed bar across each path (twice its pixels): a pixie on it is perfect. */
   const BAR_S = 2;
-  const bar = () => ({ w: Math.round((spacing() * 0.82) / BAR_S), h: 12 });
+  const bar = () => ({ w: Math.round((ROAD * pathScale()) / BAR_S), h: 12 });
   const perfect = () => (bar().h * BAR_S) / 2;
 
   /** Ba'al at the bottom, facing you, with the guitar across them (rocking as they strum). */
@@ -89,31 +116,27 @@ export function pixieSerenade(api: MinigameApi): MinigameGame {
   };
 
   /**
-   * One path, top to bottom of the screen: the pale cobbles, with blue cobbles over the okay range. Tiled in whole
-   * pixels (brighter for a moment when tapped).
+   * One path, top to bottom of the screen, tinted its colour: the pale cobbles, with the darker blue cobbles over
+   * the okay range. Tiled in whole pixels (brighter for a moment when tapped).
    */
   const drawPath = (g: CanvasRenderingContext2D, i: number) => {
-    const lane = mgArt('path-lane');
-    const ok = mgArt('path-lane-ok');
+    const lane = pathIn('path-lane', COLORS[i]);
+    const ok = pathIn('path-lane-ok', COLORS[i]);
     if (!lane || !ok) return;
     const s = pathScale();
-    const tw = 48 * s;
-    const x = Math.round(laneX(i) - tw / 2);
-    const top = 0;
+    const th = 48 * s;
     const y0 = Math.round(lineY() - window());
     const y1 = Math.round(lineY() + window());
+    const at = (img: HTMLCanvasElement) => Math.round(laneX(i) - (img.width * s) / 2);
     if (flash[i] > 0) g.filter = 'brightness(1.25)';
-    // Tiles run up from the okay range, so it always meets the pale path on a tile edge.
-    for (let y = y0 - tw; y > top - tw; y -= tw) {
-      const h = Math.min(tw, y + tw - top);
-      g.drawImage(lane, 0, 48 - h / s, 48, h / s, x, y + tw - h, tw, h);
-    }
-    for (let y = y0; y < y1; y += tw) {
-      const h = Math.min(tw, y1 - y);
-      g.drawImage(ok, 0, 0, 48, h / s, x, y, tw, h);
+    // Tiles run up from the okay range, so it always meets the pale path on a tile edge, and on off the top.
+    for (let y = y0 - th; y > -th; y -= th) g.drawImage(lane, at(lane), y, lane.width * s, th);
+    for (let y = y0; y < y1; y += th) {
+      const h = Math.min(th, y1 - y);
+      g.drawImage(ok, 0, 0, ok.width, h / s, at(ok), y, ok.width * s, h);
     }
     // On past the bottom of the screen.
-    for (let y = y1; y < api.H; y += tw) g.drawImage(lane, x, y, tw, tw);
+    for (let y = y1; y < api.H; y += th) g.drawImage(lane, at(lane), y, lane.width * s, th);
     g.filter = 'none';
   };
 

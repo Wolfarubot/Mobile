@@ -4,6 +4,7 @@ Minigame art, all from CraftPix.net (license: https://craftpix.net/file-licenses
 - stone-btn.png, stone-btn-down.png (buttons 7 and 10) and arrow-up/down/left/right.png (icons 26, 27, 25, 24)
   from the "Free Pixel Art Platformer UI" pack: Grave Robbing's D-pad.
 - path-lane.png, path-lane-ok.png: the vertical path from CraftPix's "Free Path and Road Top Down Pixel Tileset"
-  (Road5_grass.png and Road1_grass.png, at 184,208): Pixie Serenade's paths (pale cobbles, and blue cobbles over the
-  okay range). Its perfect-spot bars are the event timers' framed bar (public/ui/timer-bar.png).
+  (Road5_grass.png and Road1_grass.png, at 184,208), trimmed and widened (12 columns from inside the road repeated,
+  so the road is 30px): Pixie Serenade's paths (pale cobbles, and blue cobbles over the okay range), tinted per path
+  in the game. Its perfect-spot bars are the event timers' framed bar (public/ui/timer-bar.png).
 - note.png: icon 50 (a music note) from the "Free Pixel Art Platformer UI" pack, tinted per path in Pixie Serenade.
