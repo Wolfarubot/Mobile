@@ -134,6 +134,15 @@ const SCENES: Partial<Record<AreaId, Scene>> = {
       // A wall of dead and gnarled trees all round the border (monsters walk through it, behind or in front).
       { pieces: [...p('Dead_tree_1 Dead_tree_2 Tree_1 Tree_2', 2), ...p('web_tree1 web_tree2')], density: 0, from: 0.95, edge: true },
     ],
+    // A few more headstones in the top corners, just inside the trees.
+    landmarks: [
+      { file: 'grave3', at: [54, 100] },
+      { file: 'grave4', at: [88, 92] },
+      { file: 'grave1', at: [72, 128] },
+      { file: 'grave6', at: [-54, 100] },
+      { file: 'grave2', at: [-88, 92] },
+      { file: 'grave5', at: [-72, 128] },
+    ],
     vignette: 'rgba(20,24,30,0.45)',
   },
   // CraftPix's dungeon on a flagstone floor: cracks and scattered bones, ghost-flame candles, coffins and
