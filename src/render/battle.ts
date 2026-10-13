@@ -2,7 +2,7 @@ import { areaDef, DAMAGE_TYPES, FIELD_ZOOM, FLYING, gearDef, WEAPON_CLASSES, STA
 import { PLAYER_RADIUS, SHOT_RADIUS, SUMMON_RADIUS, type EnemyShot, type Summon, type Bullet, type BulletKind, type Enemy, type Field, type Helper } from '../core/field';
 import { fmt } from '../core/format';
 import type { Game, Shooter } from '../core/game';
-import type { FxKey } from '../core/state';
+import type { ClarityLevel, FxKey } from '../core/state';
 import { canvasFont, fitCanvas, Fx } from './fx';
 import { effectImage, gearImage, hunterSheetImage, monsterSheetImage, sprite } from './sprites';
 import { HUNTER_SHEETS } from './hunterSheets';
@@ -463,7 +463,7 @@ export class BattleView {
     this.drawBoneWall(g);
 
     for (const b of this.field.bullets) drawBullet(g, b, this.time, this.game.state.settings.aoeStyle === 'basic');
-    for (const s of this.field.shots) drawEnemyShot(g, s, this.time, CHAR_SCALE);
+    for (const s of this.field.shots) drawEnemyShot(g, s, this.time, CHAR_SCALE, this.clarity);
 
     // Tome spirits: a glowing wisp with a trailing tail, fading as their time runs out.
     for (const sm of this.field.summons) {
@@ -844,6 +844,11 @@ export class BattleView {
   }
 
   /** Effect art is the Fancy area effect style (Settings); Basic keeps plain shapes. */
+  /** The Clarity Border's opacity (0 when it's off). */
+  private get clarity(): number {
+    return CLARITY_ALPHA[this.game.state.settings.clarity] ?? 0;
+  }
+
   private get fancy(): boolean {
     return this.game.state.settings.aoeStyle !== 'basic';
   }
@@ -882,7 +887,7 @@ export class BattleView {
       // Side-view art faces one way: mirror it when heading the other.
       const flip = sideFlip(sh, dirX);
       if (flip) g.scale(-1, 1);
-      drawSheetFrame(g, src, sh, sheetRow(sh, dir), col, ra * SHEET_SCALE);
+      drawSheetFrame(g, src, sh, sheetRow(sh, dir), col, ra * SHEET_SCALE, { of: sheet, alpha: this.clarity });
       if (e.flash > 0.5) {
         g.globalAlpha = 0.5;
         g.globalCompositeOperation = 'lighter';
@@ -1058,6 +1063,12 @@ export class BattleView {
     // Feet (the box's bottom) on the shadow.
     g.save();
     if (sh.side && c < 0) g.scale(-1, 1);
+    if (this.clarity > 0) {
+      const a = g.globalAlpha;
+      g.globalAlpha = a * this.clarity;
+      g.drawImage(outlineOf(img), col * F, row * F, F, F, -(bx + bw / 2) * k, R * 1.05 - (by + bh) * k, F * k, F * k);
+      g.globalAlpha = a;
+    }
     g.drawImage(img, col * F, row * F, F, F, -(bx + bw / 2) * k, R * 1.05 - (by + bh) * k, F * k, F * k);
     g.restore();
     return true;
@@ -1576,7 +1587,7 @@ function drawStatus(g: CanvasRenderingContext2D, e: Enemy, t: number, on: (k: Fx
 
 /** Each attack style gets its own simple look. */
 /** A ranged monster's bolt: a glowing orb of its colour with a fading tail, `k` times its size (like the characters). */
-function drawEnemyShot(g: CanvasRenderingContext2D, s: EnemyShot, t: number, k: number): void {
+function drawEnemyShot(g: CanvasRenderingContext2D, s: EnemyShot, t: number, k: number, clarity = 0): void {
   const color = enemyDef(s.from).color;
   const sp = Math.hypot(s.vx, s.vy) || 1;
   const ux = s.vx / sp;
@@ -1604,6 +1615,16 @@ function drawEnemyShot(g: CanvasRenderingContext2D, s: EnemyShot, t: number, k: 
   g.arc(s.x, s.y, r, 0, Math.PI * 2);
   g.fill();
   g.stroke();
+  if (clarity > 0) {
+    // The Clarity Border: a white ring just outside the dark rim.
+    g.globalAlpha = clarity;
+    g.strokeStyle = '#ffffff';
+    g.lineWidth = 1.2;
+    g.beginPath();
+    g.arc(s.x, s.y, r + 1.4, 0, Math.PI * 2);
+    g.stroke();
+    g.globalAlpha = 1;
+  }
   g.fillStyle = '#f0e0ff';
   g.beginPath();
   g.arc(s.x - r * 0.25, s.y - r * 0.25, r * 0.4, 0, Math.PI * 2);
@@ -1932,11 +1953,51 @@ function mixHex(a: string, b: string, k: number): string {
 
 /** A blue-tinted copy of a sprite, for monsters chilled by Frost (made once per sprite). */
 const frostCache = new WeakMap<CanvasImageSource, HTMLCanvasElement>();
+
+/** How opaque the Clarity Border (a white outline round characters and projectiles) is at each setting. */
+const CLARITY_ALPHA: Record<ClarityLevel, number> = { off: 0, low: 0.3, moderate: 0.6, strong: 0.95 };
+
+/**
+ * A sheet's outline: white wherever a pixel is empty but touches the art (one sheet pixel out, all round), made
+ * once per sheet. Drawn under a frame with the same source and destination rectangles, it rings the character.
+ */
+const outlineCache = new WeakMap<HTMLImageElement, HTMLCanvasElement>();
+function outlineOf(img: HTMLImageElement): HTMLCanvasElement {
+  const hit = outlineCache.get(img);
+  if (hit) return hit;
+  const w = img.naturalWidth;
+  const h = img.naturalHeight;
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  const x = c.getContext('2d')!;
+  x.drawImage(img, 0, 0);
+  const src = x.getImageData(0, 0, w, h).data;
+  const out = x.createImageData(w, h);
+  const solid = (px: number, py: number) => px >= 0 && py >= 0 && px < w && py < h && src[(py * w + px) * 4 + 3] > 40;
+  for (let py = 0; py < h; py++)
+    for (let px = 0; px < w; px++) {
+      if (solid(px, py)) continue;
+      if (solid(px - 1, py) || solid(px + 1, py) || solid(px, py - 1) || solid(px, py + 1) || solid(px - 1, py - 1) || solid(px + 1, py - 1) || solid(px - 1, py + 1) || solid(px + 1, py + 1)) {
+        const i = (py * w + px) * 4;
+        out.data[i] = out.data[i + 1] = out.data[i + 2] = out.data[i + 3] = 255;
+      }
+    }
+  x.putImageData(out, 0, 0);
+  outlineCache.set(img, c);
+  return c;
+}
 /** One frame of a monster walk sheet, centred on the origin, with the character's longer side `size` across. */
-function drawSheetFrame(g: CanvasRenderingContext2D, img: CanvasImageSource, sh: MonsterSheet, row: number, col: number, size: number): void {
+function drawSheetFrame(g: CanvasRenderingContext2D, img: CanvasImageSource, sh: MonsterSheet, row: number, col: number, size: number, outline?: { of: HTMLImageElement; alpha: number }): void {
   const [bx, by, bw, bh] = sh.box;
   const k = size / Math.max(bw, bh);
   const F = sh.frame;
+  if (outline && outline.alpha > 0) {
+    const a = g.globalAlpha;
+    g.globalAlpha = a * outline.alpha;
+    g.drawImage(outlineOf(outline.of), col * F, row * F, F, F, -(bx + bw / 2) * k, -(by + bh / 2) * k, F * k, F * k);
+    g.globalAlpha = a;
+  }
   g.drawImage(img, col * F, row * F, F, F, -(bx + bw / 2) * k, -(by + bh / 2) * k, F * k, F * k);
 }
 

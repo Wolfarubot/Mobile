@@ -2326,6 +2326,13 @@ describe('Equipment', () => {
     expect(g.cooldownMult('main')).toBeCloseTo(1 - modRoll(ENCHANTS.haste.range, false, 'legendary', MOD_QUALITY_STEPS));
     // The SUMMONING! text is off by default.
     expect(startingGame(0).settings.summonText).toBe(false);
+    // The Clarity Border is Low by default; saves from before it (or with a bad value) get Low, and a choice sticks.
+    expect(startingGame(0).settings.clarity).toBe('low');
+    const noClarity = JSON.parse(serialize(startingGame(0)));
+    delete noClarity.settings.clarity;
+    expect(deserialize(JSON.stringify(noClarity))!.settings.clarity).toBe('low');
+    expect(deserialize(JSON.stringify({ ...noClarity, settings: { ...noClarity.settings, clarity: 'blinding' } }))!.settings.clarity).toBe('low');
+    expect(deserialize(JSON.stringify({ ...noClarity, settings: { ...noClarity.settings, clarity: 'strong' } }))!.settings.clarity).toBe('strong');
   });
 
   it('walking monsters go around the scene\'s big objects (never through them); fliers pass straight over', () => {
@@ -3307,12 +3314,12 @@ describe('Saves', () => {
     s.settings.name = 'Wolfa';
     s.flags.eventsIntro = true;
     const back = deserialize(serialize(s))!;
-    expect(back.settings).toEqual({ leftHanded: true, name: 'Wolfa', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal', dps: true, dpsCorner: 'tr', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', autoSalvage: [], fx: Object.fromEntries(FX_KEYS.map((k) => [k, true])), aoeStyle: 'fancy', uiStyle: 'parchment' });
+    expect(back.settings).toEqual({ leftHanded: true, name: 'Wolfa', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal', dps: true, dpsCorner: 'tr', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', autoSalvage: [], fx: Object.fromEntries(FX_KEYS.map((k) => [k, true])), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low' });
     expect(back.flags).toEqual({ eventsIntro: true, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false });
     const old = JSON.parse(serialize(newGame(0)));
     delete old.settings;
     delete old.flags;
-    expect(deserialize(JSON.stringify(old))!.settings).toEqual({ leftHanded: false, name: '', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal', dps: true, dpsCorner: 'tr', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', autoSalvage: [], fx: Object.fromEntries(FX_KEYS.map((k) => [k, true])), aoeStyle: 'fancy', uiStyle: 'parchment' });
+    expect(deserialize(JSON.stringify(old))!.settings).toEqual({ leftHanded: false, name: '', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal', dps: true, dpsCorner: 'tr', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', autoSalvage: [], fx: Object.fromEntries(FX_KEYS.map((k) => [k, true])), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low' });
     // A hidden DPS meter stays hidden.
     const noDps = newGame(0);
     noDps.settings.dps = false;
