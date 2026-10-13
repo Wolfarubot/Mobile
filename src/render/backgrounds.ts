@@ -137,9 +137,6 @@ const SCENES: Partial<Record<AreaId, Scene>> = {
     // A few more headstones in the top corners, just inside the trees.
     landmarks: [
       { file: 'grave3', at: [54, 100] },
-      { file: 'grave4', at: [88, 92] },
-      { file: 'grave1', at: [72, 128] },
-      { file: 'grave6', at: [-54, 100] },
       { file: 'grave2', at: [-88, 92] },
       { file: 'grave5', at: [-72, 128] },
     ],
