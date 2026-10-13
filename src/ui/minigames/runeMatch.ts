@@ -1,5 +1,7 @@
 import { TITLE_Y, type MinigameApi, type MinigameGame } from './shell';
 import { drawFramedBar, TIMER_COLOR } from '../../render/hudBars';
+import { HUNTER_SHEETS } from '../../render/hunterSheets';
+import { hunterSheetImage } from '../../render/sprites';
 
 /**
  * Marceline's Rune Match (the Venom Caverns): tarot-like cards are dealt face up for a moment, then turned over;
@@ -7,7 +9,8 @@ import { drawFramedBar, TIMER_COLOR } from '../../render/hudBars';
  * the cards pair up), 4×4, 5×5, 6×6, 7×7 (middle out again) and 8×8, which then repeats. It's timed, with no hearts:
  * a wrong pair shakes and turns back over, and the cards can't be touched while it does (the penalty is the time
  * lost). 1 point a pair, and a cleared board adds a point for each of its pairs. The clock stops while a board is
- * being shown.
+ * being shown. Marceline stands below the board channelling the magic, her violet aura growing the further you get;
+ * a wrong pair snuffs it for a moment while she shakes her head, then it returns as it was.
  */
 
 export const RM_TIME = 90;
@@ -33,6 +36,10 @@ const BACK = 'rpg-items/261';
 const FLIP = 0.16;
 const SHAKE = 0.55;
 const showTime = (pairs: number) => 1.2 + pairs * 0.11;
+/** Seconds Marceline's aura is out after a wrong pair (she shakes her head meanwhile). */
+const NO = 1;
+/** Room kept at the bottom for Marceline. */
+const MARCELINE_ROOM = 130;
 
 interface Card {
   face: string;
@@ -56,6 +63,9 @@ export function runeMatch(api: MinigameApi): MinigameGame {
   /** Seconds of play used (the clock stops while a board is shown or being dealt). */
   let used = 0;
   let over = false;
+  /** Pairs found in all, and seconds left of Marceline shaking her head (her aura out). */
+  let found = 0;
+  let no = 0;
   const size = () => RM_BOARDS[Math.min(board, RM_BOARDS.length - 1)];
 
   const deal = () => {
@@ -73,7 +83,7 @@ export function runeMatch(api: MinigameApi): MinigameGame {
     const n = size();
     const gap = Math.max(4, Math.round(10 * api.k - n));
     const top = TITLE_Y + 46;
-    const availH = api.H - top - 24;
+    const availH = api.H - top - MARCELINE_ROOM * api.k;
     const availW = api.W - 24;
     const cw = Math.floor(Math.min((availW - gap * (n - 1)) / n, ((availH - gap * (n - 1)) / n) * (2 / 3), 110 * api.k));
     const ch = Math.floor(cw * 1.5);
@@ -89,6 +99,51 @@ export function runeMatch(api: MinigameApi): MinigameGame {
   const turn = (c: Card, up: boolean) => {
     c.up = up;
     c.turn = FLIP;
+  };
+
+  /**
+   * Marceline at the bottom, facing you, channelling: a violet aura round her that grows with the boards cleared and
+   * the pairs found (it's out while she shakes her head at a wrong pair: looking left, right, left, right).
+   */
+  const drawMarceline = (g: CanvasRenderingContext2D) => {
+    const x = api.W / 2;
+    const feet = api.H - 18 * api.k;
+    const H = 84 * api.k;
+    const cy = feet - H * 0.45;
+    if (no <= 0) {
+      // Grows with every pair found, quickest early on (all seven boards' 100 pairs fill it).
+      const progress = Math.min(1, Math.sqrt(found / 100));
+      const R = (44 + 66 * progress) * api.k * (1 + Math.sin(api.t * 3) * 0.04);
+      const glow = g.createRadialGradient(x, cy, R * 0.15, x, cy, R);
+      glow.addColorStop(0, 'rgba(214,170,255,0.7)');
+      glow.addColorStop(0.55, 'rgba(160,90,240,0.38)');
+      glow.addColorStop(1, 'rgba(120,50,200,0)');
+      g.fillStyle = glow;
+      g.beginPath();
+      g.arc(x, cy, R, 0, Math.PI * 2);
+      g.fill();
+      // Motes circling her, more of them as the aura grows.
+      const motes = 4 + Math.round(progress * 10);
+      g.fillStyle = '#ead6ff';
+      for (let i = 0; i < motes; i++) {
+        const a = api.t * (1.2 + (i % 3) * 0.3) + (i * Math.PI * 2) / motes;
+        const r = R * (0.55 + 0.3 * Math.sin(api.t * 2 + i));
+        const ps = Math.max(2, Math.round(2 * api.k));
+        g.globalAlpha = 0.6 + 0.4 * Math.sin(api.t * 4 + i);
+        g.fillRect(Math.round(x + Math.cos(a) * r), Math.round(cy + Math.sin(a) * r * 0.75), ps, ps);
+      }
+      g.globalAlpha = 1;
+    }
+    const sheet = HUNTER_SHEETS.enchantress;
+    const img = hunterSheetImage('enchantress');
+    if (!sheet || !img || !img.complete || !img.naturalWidth) return;
+    // Facing you (down); shaking her head: left, right, left, right.
+    const row = no > 0 ? (Math.floor((NO - no) / (NO / 4)) % 2 ? 2 : 1) : 0;
+    const F = sheet.frame;
+    const col = no > 0 ? 0 : Math.floor(api.t * 6) % sheet.frames[row];
+    const [bx, by, bw, bh] = sheet.box;
+    const k = H / bh;
+    g.drawImage(img, col * F, row * F, F, F, x - (bx + bw / 2) * k, feet - (by + bh) * k, F * k, F * k);
   };
 
   deal();
@@ -107,6 +162,7 @@ export function runeMatch(api: MinigameApi): MinigameGame {
           if (a.face === b.face) {
             a.matched = b.matched = true;
             picked = [];
+            found++;
             api.addScore(1, r.x + r.w / 2, r.y);
             if (cards.every((k) => k.matched)) {
               const pairs = cards.length / 2;
@@ -118,12 +174,14 @@ export function runeMatch(api: MinigameApi): MinigameGame {
             // They shake, then turn back over; nothing can be touched until they have.
             a.shake = b.shake = SHAKE;
             wrong = SHAKE + FLIP;
+            no = NO;
           }
         }
         return;
       }
     },
     step(dt) {
+      no = Math.max(0, no - dt);
       for (const c of cards) {
         c.turn = Math.max(0, c.turn - dt);
         c.shake = Math.max(0, c.shake - dt);
@@ -185,6 +243,8 @@ export function runeMatch(api: MinigameApi): MinigameGame {
         drawCard(g, api, r.w, r.h, showUp || c.matched ? c.face : null, c.matched, c.shake > 0);
         g.restore();
       }
+
+      drawMarceline(g);
 
       if (preview > 0) {
         g.font = `bold ${Math.round(15 * api.k)}px monospace`;
