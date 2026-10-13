@@ -944,6 +944,9 @@ export class BattleView {
 
     // Wobble while dazed
     const sway = f.stunned ? Math.sin(this.time * 14) * 0.18 : 0;
+    // Facing away, the weapon is behind them; otherwise it's drawn over them.
+    const behind = this.facesAway('main', f.aim);
+    if (behind) this.drawHeldWeapon(g, 'main', 0, 0, f.aim, R, f.stunned);
     g.save();
     g.rotate(sway);
     const img = sprite('hunter');
@@ -1002,7 +1005,7 @@ export class BattleView {
       }
     }
     g.restore();
-    this.drawHeldWeapon(g, 'main', 0, 0, f.aim, R, f.stunned);
+    if (!behind) this.drawHeldWeapon(g, 'main', 0, 0, f.aim, R, f.stunned);
 
     drawShieldPips(g, 0, R + (f.stunned ? 17 : 9), f.guard, this.game.guardOf('main'));
     if (f.stunned) {
@@ -1039,6 +1042,13 @@ export class BattleView {
     g.drawImage(img, col * F, row * F, F, F, -(bx + bw / 2) * k, R * 1.05 - (by + bh) * k, F * k, F * k);
     g.restore();
     return true;
+  }
+
+  /** Whether a Hunter is facing away (their sheet's up row), so the weapon in their hands is hidden behind them. */
+  private facesAway(who: Shooter, aim: number): boolean {
+    const sh = HUNTER_SHEETS[who];
+    if (!sh || sh.side || !hunterSheetImage(who)) return false;
+    return Math.abs(Math.sin(aim)) > Math.abs(Math.cos(aim)) && Math.sin(aim) < 0;
   }
 
   /** The weapon a Hunter is holding (Wilhelm's short-range one when something's close) and its icon, if it has one. */
@@ -1128,6 +1138,13 @@ export class BattleView {
     g.ellipse(0, R * 0.9, R, R * 0.35, 0, 0, Math.PI * 2);
     g.fill();
     const img = sprite(`hunters/${h.id}`);
+    const behind = this.facesAway(h.id, h.aim);
+    if (behind) {
+      g.save();
+      g.translate(-h.x, -h.y);
+      this.drawHeldWeapon(g, h.id, h.x, h.y, h.aim, R, h.stun > 0, h.close);
+      g.restore();
+    }
     if (this.drawHunterSheet(g, h.id, h.aim, R, h.id.length * 0.37)) {
       // Animated idle from the hunter sheet.
     } else if (img) {
@@ -1161,7 +1178,7 @@ export class BattleView {
       } else g.fillText(def.icon, 0, 1);
     }
     g.restore();
-    this.drawHeldWeapon(g, h.id, h.x, h.y, h.aim, R, h.stun > 0, h.close);
+    if (!behind) this.drawHeldWeapon(g, h.id, h.x, h.y, h.aim, R, h.stun > 0, h.close);
     drawShieldPips(g, h.x, h.y + R + (h.stun > 0 ? 17 : 9), h.guard, this.game.guardOf(h.id));
     g.save();
     g.translate(h.x, h.y);
