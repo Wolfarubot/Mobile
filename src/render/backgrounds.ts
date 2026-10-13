@@ -699,7 +699,7 @@ export function areaBackground(area: AreaId, w: number, h: number, decor?: Decor
   const clearHalf = ((decor?.clear ?? 0) * w) / 2;
   const inClear = (x: number, width: number): boolean => clearHalf > 0 && x < w / 2 + clearHalf && x + width > w / 2 - clearHalf;
   const scatter = (bands: Band[], marks: Scene['landmarks'] = []): void => {
-    const placed: Array<{ img: HTMLImageElement; x: number; y: number; prop: boolean; wall?: boolean }> = [];
+    const placed: Array<{ img: HTMLImageElement; x: number; y: number; prop: boolean; wall?: boolean; file: string }> = [];
     // Landmarks first: everything else keeps clear of them (the wall included).
     const markRects: Rect[] = [];
     for (const m of marks) {
@@ -710,7 +710,7 @@ export function areaBackground(area: AreaId, w: number, h: number, decor?: Decor
       const rect: Rect = [px, py, img.naturalWidth, img.naturalHeight];
       markRects.push(rect);
       taken.push(rect);
-      placed.push({ img, x: px, y: py, prop: split, wall: !m.solid });
+      placed.push({ img, x: px, y: py, prop: split, wall: !m.solid, file: m.file });
     }
     // Biggest pieces first (the outer bands), then smaller ones fill the room that's left.
     for (const band of [...bands].sort((a, b) => b.from - a.from)) {
@@ -741,7 +741,7 @@ export function areaBackground(area: AreaId, w: number, h: number, decor?: Decor
             continue;
           }
           taken.push(rect);
-          placed.push({ img, x: px, y: py, prop: split, wall: true });
+          placed.push({ img, x: px, y: py, prop: split, wall: true, file: piece.file });
           at += (across ? iw : ih) + gap + Math.floor(r() * 3);
         }
         continue;
@@ -777,7 +777,7 @@ export function areaBackground(area: AreaId, w: number, h: number, decor?: Decor
           if (inClear(px, img.naturalWidth)) continue;
           // Other pieces keep clear of the wall (most of each crown counts).
           taken.push([px + img.naturalWidth * 0.12, py + img.naturalHeight * 0.1, img.naturalWidth * 0.76, img.naturalHeight * 0.85]);
-          placed.push({ img, x: px, y: py, prop: split, wall: true });
+          placed.push({ img, x: px, y: py, prop: split, wall: true, file: piece.file });
         }
         continue;
       }
@@ -813,11 +813,28 @@ export function areaBackground(area: AreaId, w: number, h: number, decor?: Decor
           taken.push(rect);
         }
         const prop = split && (band.from >= PROP_FROM || !!band.solid) && !band.under && !band.overlap && !band.onIslands && !FLAT.test(piece.file);
-        placed.push({ img, x: px, y: py, prop });
+        placed.push({ img, x: px, y: py, prop, file: piece.file });
         i++;
       }
     }
-    placed.sort((a, b) => a.y + a.img.naturalHeight - (b.y + b.img.naturalHeight));
+    // Nearer (lower) pieces in front of further ones, by where each stands (its lowest solid row, not the bottom of
+    // its picture, which may be empty).
+    const foot = (it: (typeof placed)[number]) => it.y + (baseOf(it.img)?.foot ?? it.img.naturalHeight);
+    placed.sort((a, b) => foot(a) - foot(b));
+    if (split) {
+      // A piece baked into the ground would be drawn under every prop, even one standing behind it: one that
+      // overlaps a prop stands among them too (walked through, like the wall), so it's layered with them.
+      const rect = (it: (typeof placed)[number]): Rect => [it.x, it.y, it.img.naturalWidth, it.img.naturalHeight];
+      for (let changed = true; changed; ) {
+        changed = false;
+        for (const it of placed)
+          if (!it.prop && !FLAT.test(it.file) && placed.some((o) => o.prop && o !== it && overlaps(rect(it), rect(o), 0))) {
+            it.prop = true;
+            it.wall = true;
+            changed = true;
+          }
+      }
+    }
     for (const it of placed) {
       // The wall stands among the monsters but doesn't stop them.
       if (it.prop) props.push(it.wall ? { ...sceneProp(it.img, it.x, it.y), base: null } : sceneProp(it.img, it.x, it.y));
