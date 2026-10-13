@@ -1,5 +1,5 @@
 import type { AreaId } from '../core/balance';
-import { GATED, gateWalls, inGatePassage, WALL_FACE, WALL_ROOF, WALL_SIDE } from '../core/gates';
+import { GATED, gateWalls, onGatePath, WALL_FACE, WALL_ROOF, WALL_SIDE } from '../core/gates';
 
 /**
  * Painted battlefield backgrounds, built from tileset decor (public/backgrounds/<area>/, CraftPix tilesets):
@@ -154,8 +154,8 @@ const SCENES: Partial<Record<AreaId, Scene>> = {
   },
   // CraftPix's dungeon on a flagstone floor, walled: the corners are closed off by the dungeon's stone walls, and
   // monsters come in only through the gates in the middle of each side (gates.ts). Coffins stand side by side
-  // against the top-left walls and bones line the bottom-right ones; two great bone heaps, small bones everywhere
-  // and a ring of ghost-flame candles round the clearing.
+  // against the top-left walls and bones line the bottom-right ones, with a great skull heap in that corner; small
+  // bones and ghost-flame candles fill the corners, and the paths from the gates in to the Hunters stay clear.
   crypt: {
     base: '#3f3d42',
     specks: [],
@@ -178,11 +178,8 @@ const SCENES: Partial<Record<AreaId, Scene>> = {
       // The odd coffin laid flat, bone heap or chest further out.
       { pieces: [...p('coffin_4 coffin_5 coffin_6 coffin_7 coffin_8 coffin_9 coffin_10 coffin_11 coffin_12 coffin_13 coffin_14 coffin_15 coffin_34 coffin_35 coffin_36 coffin_37'), ...p('Bones_4 Bones_6 Bones_13 obj_30 obj_33 obj_37 obj_38 skull_pile obj_7 obj_8')], density: 0.18, from: 0.62 },
     ],
-    // Two of the great bone structures, in the bottom corners.
-    landmarks: [
-      { file: 'Pile_sculls', at: [-96, -48] },
-      { file: 'bone_chest', at: [96, -48] },
-    ],
+    // A great heap of skulls in the bottom-right corner.
+    landmarks: [{ file: 'Pile_sculls', at: [-WALL_SIDE - 40, -WALL_ROOF + 2] }],
     vignette: 'rgba(8,6,12,0.5)',
   },
   // CraftPix's cursed land, darkened almost to black and mixed with cave stone: eyes and pustules in the dark,
@@ -778,8 +775,8 @@ export function areaBackground(area: AreaId, w: number, h: number, decor?: Decor
         const py = Math.round(band.onIslands ? y - img.naturalHeight : y - img.naturalHeight / 2);
         const rect: Rect = [px, py, img.naturalWidth, img.naturalHeight];
         if (inClear(px, img.naturalWidth)) continue;
-        // A gated area's gates stay open: nothing big in their passages.
-        if (gated && band.from >= 0.5 && [px, px + img.naturalWidth].some((ex) => inGatePassage(ex, y, w, h, 0.3))) continue;
+        // A gated area's paths from the gates in to the Hunters stay clear.
+        if (gated && onGatePath(px, py, img.naturalWidth, img.naturalHeight, w, h)) continue;
         if (!band.overlap) {
           if (taken.some((t) => overlaps(rect, t))) continue;
           taken.push(rect);

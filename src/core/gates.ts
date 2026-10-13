@@ -35,9 +35,10 @@ export function gateWalls(w: number, h: number): WallRect[] {
   ];
 }
 
-/** Whether a w×h view's point (x, y) lies in one of the gates' passages, from the edge in to `depth` (0–0.5) of the way. */
-export function inGatePassage(x: number, y: number, w: number, h: number, depth: number): boolean {
-  const across = (v: number, len: number) => v > len / 3 && v < (len * 2) / 3;
-  const near = (v: number, len: number) => v < len * depth || v > len * (1 - depth);
-  return (across(x, w) && near(y, h)) || (across(y, h) && near(x, w));
+/**
+ * Whether a w×h view's rect [x, y, rw, rh] reaches into the paths from the gates in to the Hunters: the middle
+ * third of the view, top to bottom and side to side.
+ */
+export function onGatePath(x: number, y: number, rw: number, rh: number, w: number, h: number): boolean {
+  return (x + rw > w / 3 && x < (w * 2) / 3) || (y + rh > h / 3 && y < (h * 2) / 3);
 }
