@@ -37,7 +37,7 @@ interface Band {
    * Lined up along one wall, side by side (a gap of `gap` pixels, never overlapping anything), from `from` to `to`
    * of the way along it (left to right, or top to bottom). They stand among the monsters like the wall.
    */
-  line?: { side: 'top' | 'bottom' | 'left' | 'right'; from: number; to: number; gap?: number; /** Stood this many pixels in from the edge (in front of a wall). */ inset?: number };
+  line?: { side: 'top' | 'bottom' | 'left' | 'right'; from: number; to: number; gap?: number; /** Stood this many pixels in from the edge (in front of a wall). */ inset?: number; /** Instead, down the left or right edge of a gated area's top or bottom gate, beside its wall's end. */ jamb?: 'top' | 'bottom' };
 }
 interface Scene {
   base: string;
@@ -154,8 +154,9 @@ const SCENES: Partial<Record<AreaId, Scene>> = {
   },
   // CraftPix's dungeon on a flagstone floor, walled: the corners are closed off by the dungeon's stone walls, and
   // monsters come in only through the gates in the middle of each side (gates.ts). Coffins stand side by side
-  // against the top-left walls and bones line the bottom-right ones, with a great skull heap in that corner; small
-  // bones and ghost-flame candles fill the corners, and the paths from the gates in to the Hunters stay clear.
+  // against the top-left walls and bones line the bottom-right ones, with a great skull heap in that corner; little
+  // bones and candles edge the top and bottom gates, small bones and ghost-flame candles fill the corners, and the
+  // paths from the gates in to the Hunters stay clear.
   crypt: {
     base: '#3f3d42',
     specks: [],
@@ -171,6 +172,8 @@ const SCENES: Partial<Record<AreaId, Scene>> = {
       // ...and bones lining the bottom-right ones.
       { pieces: [...p('Bones_1 Bones_2 Bones_3 Bones_4 Bones_5 Bones_13 Bones_15 Bones_16 Bones_17 Bones_18', 2), ...p('obj_27 obj_28 obj_29 obj_30 obj_31 obj_32 obj_33 obj_34 obj_35 obj_36 obj_37 obj_38 obj_39', 1.5), ...p('obj_46 obj_47 obj_48 obj_49 obj_50 obj_51 obj_52 obj_53 Bones_6 skull_pile bone_pelvis')], density: 0, from: 1, line: { side: 'bottom', from: 0.67, to: 1, gap: 1, inset: WALL_ROOF + 1 } },
       { pieces: [...p('Bones_1 Bones_2 Bones_3 Bones_4 Bones_5 Bones_13 Bones_15 Bones_16 Bones_17 Bones_18', 2), ...p('obj_27 obj_28 obj_29 obj_30 obj_31 obj_32 obj_33 obj_34 obj_35 obj_36 obj_37 obj_38 obj_39', 1.5), ...p('obj_46 obj_47 obj_48 obj_49 obj_50 obj_51 obj_52 obj_53 Bones_6 skull_pile bone_pelvis')], density: 0, from: 1, line: { side: 'right', from: 0.66, to: 1, gap: 1, inset: WALL_SIDE + 1 } },
+      // Little bones, skulls and candles down both edges of the top and bottom gates, beside the walls' ends.
+      ...(['top', 'bottom'] as const).flatMap((jamb) => (['left', 'right'] as const).map((side): Band => ({ pieces: [...p('obj_12 obj_13 obj_14 obj_17 obj_42 obj_46 obj_47 obj_48 obj_49 obj_50 obj_51 obj_52 obj_53', 2), ...p('candle_9 Bones_2', 1)], density: 0, from: 1, line: { side, from: 0, to: 1, gap: 2, jamb } }))),
       // Small bones, skulls and cracks scattered everywhere.
       { pieces: [...p('det25 det26 det27 det28 det29 det30', 1.5), ...p('Bones_1 Bones_2 Bones_3 Bones_5 Bones_15 Bones_16 Bones_17 Bones_18 obj_42 obj_46 obj_47 obj_48 obj_49 obj_50 obj_51 obj_52 obj_53 obj_12 obj_13 obj_14 obj_17 obj_19', 2)], density: 3, from: 0 },
       // A ring of ghost-flame candles round the clearing.
@@ -694,9 +697,13 @@ export function areaBackground(area: AreaId, w: number, h: number, decor?: Decor
       if (band.line) {
         // Side by side along a wall: each piece against it, the next one just past it (skipping any that would
         // overlap something already there, such as the line along the neighbouring wall).
-        const { side, from, to, gap = 2, inset = 2 } = band.line;
+        const { side, gap = 2, inset = 2, jamb } = band.line;
         const across = side === 'top' || side === 'bottom';
         const len = across ? w : h;
+        // A gate's edge runs the depth of the wall beside it.
+        const jambY = jamb === 'top' ? [1, WALL_ROOF + WALL_FACE] : jamb === 'bottom' ? [h - WALL_ROOF + 1, h - 1] : null;
+        const from = jambY ? jambY[0] / len : band.line.from;
+        const to = jambY ? jambY[1] / len : band.line.to;
         for (let at = from * len, tries = 0; at < to * len && tries < 200; tries++) {
           let pick = r() * total;
           const piece = band.pieces.find((x) => (pick -= x.weight) <= 0) ?? band.pieces[0];
@@ -705,7 +712,7 @@ export function areaBackground(area: AreaId, w: number, h: number, decor?: Decor
           const iw = img.naturalWidth;
           const ih = img.naturalHeight;
           if (at + (across ? iw : ih) > to * len) break;
-          const px = Math.round(across ? at : side === 'left' ? inset : w - inset - iw);
+          const px = Math.round(jamb ? (side === 'left' ? Math.round(w / 3) + 1 : Math.round((w * 2) / 3) - 1 - iw) : across ? at : side === 'left' ? inset : w - inset - iw);
           const py = Math.round(across ? (side === 'top' ? inset : h - inset - ih) : at);
           const rect: Rect = [px, py, iw, ih];
           if (taken.some((t) => overlaps(rect, t, 0)) || inClear(px, iw)) {
