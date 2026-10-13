@@ -673,7 +673,8 @@ export function areaBackground(area: AreaId, w: number, h: number, decor?: Decor
   // A gated area's walls, in the corners (everything else keeps clear of them).
   const gated = GATED.has(area);
   const face = scene.wallFace && gated ? images.get(`${area}/${scene.wallFace}`) : undefined;
-  if (face && face.naturalWidth) taken.push(...drawGateWalls(g, face, w, h));
+  const walls = face && face.naturalWidth ? drawGateWalls(g, face, w, h) : [];
+  taken.push(...walls);
   // A clear column down the middle (minigames that play there): nothing may reach into it.
   const clearHalf = ((decor?.clear ?? 0) * w) / 2;
   const inClear = (x: number, width: number): boolean => clearHalf > 0 && x < w / 2 + clearHalf && x + width > w / 2 - clearHalf;
@@ -784,6 +785,8 @@ export function areaBackground(area: AreaId, w: number, h: number, decor?: Decor
         if (inClear(px, img.naturalWidth)) continue;
         // A gated area's paths from the gates in to the Hunters stay clear.
         if (gated && onGatePath(px, py, img.naturalWidth, img.naturalHeight, w, h)) continue;
+        // Nothing on top of the walls, not even a little way.
+        if (walls.some((t) => overlaps(rect, t, 0))) continue;
         if (!band.overlap) {
           if (taken.some((t) => overlaps(rect, t))) continue;
           taken.push(rect);
