@@ -1,21 +1,25 @@
 import { TITLE_Y, type MinigameApi, type MinigameGame } from './shell';
-import { DIRS, dpadAt, dpadHit, dpadTop, drawDpad, type Dir, DIR_LIST } from './dpad';
+import { DIRS, dpadAt, dpadHit, dpadTop, drawDpad, mgArt, type Dir, DIR_LIST } from './dpad';
 import { HUNTER_SHEETS } from '../../render/hunterSheets';
 import { SHEETS, sheetRow } from '../../render/monsterSheets';
-import { hunterSheetImage, monsterSheetImage } from '../../render/sprites';
+import { hunterSheetImage } from '../../render/sprites';
 import { canvasFont } from '../../render/fx';
 
 /**
- * Theon's Puppet Show (the Forbidden Crypt): on a stage at the top, Theon's puppet (a little steel knight on
- * strings) dances a sequence of moves (a hop up, down, left or right), one move longer each round, while the big
+ * Theon's Puppet Show (the Forbidden Crypt): on a stage at the top, Theon's puppet (a pale little figure in
+ * black, on strings) dances a sequence of moves (a hop up, down, left or right), one move longer each round, while the big
  * D-pad presses itself to show each one. Repeat the dance on the D-pad, and Theon dances it with you, the puppet
  * following: 1 point a move. A wrong move costs a heart and the round plays again.
  */
 
 export const PU_INTRO = '<p>Theon\'s puppet dances a sequence of moves, and the <b>arrows press themselves</b> to show each one. Then <b>press the same arrows in order</b> and Theon dances it with you: 1 point a move.</p><p>Each round adds a move. A wrong one costs a heart, and the round plays again.</p>';
 
-/** The puppet's sheet (a four-direction walk) and the D-pad's size here (much bigger than Grave Robbing's). */
-const PUPPET = 'knight-steel';
+/**
+ * The puppet: the zombie's four-direction walk (its frame layout from the zombie sheet), recoloured to white skin,
+ * black clothes and brown hair (public/minigames/puppet-zombie.png). And the D-pad's size here (bigger than Grave
+ * Robbing's).
+ */
+const PUPPET = 'zombie';
 const PAD_SIZE = 1.5;
 
 /** A hop in progress: which way, and how far through it (seconds). */
@@ -156,10 +160,10 @@ export function puppetShow(api: MinigameApi): MinigameGame {
       const p = puppetAt();
       const [px, py] = hopOffset(puppetHop);
       const pSheet = SHEETS[PUPPET];
-      const pImg = monsterSheetImage(PUPPET);
+      const pImg = mgArt('puppet-zombie');
       const pH = 96 * api.k;
       shadow(g, p.x, p.y, 22 * api.k);
-      if (pSheet && pImg.complete && pImg.naturalWidth) {
+      if (pSheet && pImg) {
         const F = pSheet.frame;
         const dir = ({ up: 'U', down: 'D', left: 'L', right: 'R' } as const)[puppetFacing];
         const col = puppetHop || theonHop ? Math.floor(api.t * 12) % pSheet.cols : 0;
