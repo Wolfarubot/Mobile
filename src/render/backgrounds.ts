@@ -1,4 +1,5 @@
 import type { AreaId } from '../core/balance';
+import { GATED, gateWalls, inGatePassage, WALL_FACE, WALL_ROOF, WALL_SIDE } from '../core/gates';
 
 /**
  * Painted battlefield backgrounds, built from tileset decor (public/backgrounds/<area>/, CraftPix tilesets):
@@ -36,7 +37,7 @@ interface Band {
    * Lined up along one wall, side by side (a gap of `gap` pixels, never overlapping anything), from `from` to `to`
    * of the way along it (left to right, or top to bottom). They stand among the monsters like the wall.
    */
-  line?: { side: 'top' | 'bottom' | 'left' | 'right'; from: number; to: number; gap?: number };
+  line?: { side: 'top' | 'bottom' | 'left' | 'right'; from: number; to: number; gap?: number; /** Stood this many pixels in from the edge (in front of a wall). */ inset?: number };
 }
 interface Scene {
   base: string;
@@ -74,6 +75,8 @@ interface Scene {
    * from the right or bottom). They stand among the monsters like the wall, and the wall makes room for them.
    */
   landmarks?: Array<{ file: string; at: [number, number]; /** Monsters walk around it rather than through it. */ solid?: boolean }>;
+  /** A gated area's corner walls (gates.ts): the wall face tile (32 wide, tiled along every face). */
+  wallFace?: string;
 }
 
 const p = (files: string, weight = 1): Piece[] => files.split(' ').map((file) => ({ file, weight }));
@@ -149,25 +152,25 @@ const SCENES: Partial<Record<AreaId, Scene>> = {
     ],
     vignette: 'rgba(20,24,30,0.45)',
   },
-  // CraftPix's dungeon on a flagstone floor: coffins stood side by side in the top-left corner, statues, torches and
-  // chests along the walls, bones lining the bottom-right corner, two great bone heaps, small bones everywhere and a
-  // ring of ghost-flame candles round the clearing.
+  // CraftPix's dungeon on a flagstone floor, walled: the corners are closed off by the dungeon's stone walls, and
+  // monsters come in only through the gates in the middle of each side (gates.ts). Coffins stand side by side
+  // against the top-left walls and bones line the bottom-right ones; two great bone heaps, small bones everywhere
+  // and a ring of ghost-flame candles round the clearing.
   crypt: {
     base: '#3f3d42',
     specks: [],
     slabs: { size: 22, colors: ['#3f3d42', '#3c3a3f', '#434046', '#3a383c', '#413e44'], grout: '#2b292d', light: '#47444a' },
+    wallFace: 'wall_face',
     bands: [
-      // Coffins stood side by side in the top-left corner, along both walls.
-      { pieces: p('coffin_1 coffin_16 coffin_17 coffin_18 coffin_19 coffin_2 coffin_20 coffin_22 coffin_23 coffin_24 coffin_25 coffin_27 coffin_28 coffin_29 coffin_3 coffin_30 coffin_31 coffin_32 coffin_33'), density: 0, from: 1, line: { side: 'top', from: 0, to: 0.44, gap: 1 } },
-      { pieces: p('coffin_1 coffin_16 coffin_17 coffin_18 coffin_19 coffin_2 coffin_20 coffin_22 coffin_23 coffin_24 coffin_25 coffin_27 coffin_28 coffin_29 coffin_3 coffin_30 coffin_31 coffin_32 coffin_33'), density: 0, from: 1, line: { side: 'left', from: 0, to: 0.46, gap: 1 } },
-      // Statues, blue-fire torches, chests and rubble along the rest of the walls...
-      { pieces: [...p('obj_1 obj_2 obj_3 obj_4 obj_5 obj_6', 2), ...p('torch_1 torch_2 torch_3 torch_4 torch_6 torch_11 torch_16 torch_21', 1.5), ...p('obj_7 obj_8 obj_9 obj_21 obj_22 web_rock2 web_rock3')], density: 0, from: 1, line: { side: 'top', from: 0.46, to: 1, gap: 4 } },
-      { pieces: [...p('obj_1 obj_2 obj_3 obj_4 obj_5 obj_6', 2), ...p('torch_1 torch_2 torch_3 torch_4 torch_6 torch_11 torch_16 torch_21', 1.5), ...p('obj_7 obj_8 obj_9 obj_21 obj_22 web_rock2 web_rock3')], density: 0, from: 1, line: { side: 'right', from: 0, to: 0.5, gap: 4 } },
-      { pieces: [...p('obj_1 obj_2 obj_3 obj_4 obj_5 obj_6', 2), ...p('torch_1 torch_2 torch_3 torch_4 torch_6 torch_11 torch_16 torch_21', 1.5), ...p('obj_7 obj_8 obj_9 obj_21 obj_22 web_rock2 web_rock3')], density: 0, from: 1, line: { side: 'left', from: 0.48, to: 1, gap: 4 } },
-      { pieces: [...p('obj_1 obj_2 obj_3 obj_4 obj_5 obj_6', 2), ...p('torch_1 torch_2 torch_3 torch_4 torch_6 torch_11 torch_16 torch_21', 1.5), ...p('obj_7 obj_8 obj_9 obj_21 obj_22 web_rock2 web_rock3')], density: 0, from: 1, line: { side: 'bottom', from: 0, to: 0.48, gap: 4 } },
-      // ...and bones lining the bottom-right corner, along both walls.
-      { pieces: [...p('Bones_1 Bones_2 Bones_3 Bones_4 Bones_5 Bones_13 Bones_15 Bones_16 Bones_17 Bones_18', 2), ...p('obj_27 obj_28 obj_29 obj_30 obj_31 obj_32 obj_33 obj_34 obj_35 obj_36 obj_37 obj_38 obj_39', 1.5), ...p('obj_46 obj_47 obj_48 obj_49 obj_50 obj_51 obj_52 obj_53 Bones_6 skull_pile bone_pelvis')], density: 0, from: 1, line: { side: 'bottom', from: 0.5, to: 1, gap: 1 } },
-      { pieces: [...p('Bones_1 Bones_2 Bones_3 Bones_4 Bones_5 Bones_13 Bones_15 Bones_16 Bones_17 Bones_18', 2), ...p('obj_27 obj_28 obj_29 obj_30 obj_31 obj_32 obj_33 obj_34 obj_35 obj_36 obj_37 obj_38 obj_39', 1.5), ...p('obj_46 obj_47 obj_48 obj_49 obj_50 obj_51 obj_52 obj_53 Bones_6 skull_pile bone_pelvis')], density: 0, from: 1, line: { side: 'right', from: 0.52, to: 1, gap: 1 } },
+      // Coffins stood side by side against the top-left walls...
+      { pieces: p('coffin_1 coffin_16 coffin_17 coffin_18 coffin_19 coffin_2 coffin_20 coffin_22 coffin_23 coffin_24 coffin_25 coffin_27 coffin_28 coffin_29 coffin_3 coffin_30 coffin_31 coffin_32 coffin_33'), density: 0, from: 1, line: { side: 'top', from: 0, to: 0.33, gap: 1, inset: WALL_ROOF + WALL_FACE + 1 } },
+      { pieces: p('coffin_1 coffin_16 coffin_17 coffin_18 coffin_19 coffin_2 coffin_20 coffin_22 coffin_23 coffin_24 coffin_25 coffin_27 coffin_28 coffin_29 coffin_3 coffin_30 coffin_31 coffin_32 coffin_33'), density: 0, from: 1, line: { side: 'left', from: 0, to: 0.31, gap: 1, inset: WALL_SIDE + 1 } },
+      // ...statues, blue-fire torches and chests against the top-right ones and the bottom-left...
+      { pieces: [...p('obj_1 obj_2 obj_3 obj_4 obj_5 obj_6', 2), ...p('torch_1 torch_2 torch_3 torch_4 torch_6 torch_11 torch_16 torch_21', 1.5), ...p('obj_7 obj_8 obj_9 obj_21 obj_22 web_rock2 web_rock3')], density: 0, from: 1, line: { side: 'top', from: 0.67, to: 1, gap: 4, inset: WALL_ROOF + WALL_FACE + 1 } },
+      { pieces: [...p('obj_1 obj_2 obj_3 obj_4 obj_5 obj_6', 2), ...p('torch_1 torch_2 torch_3 torch_4 torch_6 torch_11 torch_16 torch_21', 1.5), ...p('obj_7 obj_8 obj_9 obj_21 obj_22 web_rock2 web_rock3')], density: 0, from: 1, line: { side: 'bottom', from: 0, to: 0.33, gap: 4, inset: WALL_ROOF + 1 } },
+      // ...and bones lining the bottom-right ones.
+      { pieces: [...p('Bones_1 Bones_2 Bones_3 Bones_4 Bones_5 Bones_13 Bones_15 Bones_16 Bones_17 Bones_18', 2), ...p('obj_27 obj_28 obj_29 obj_30 obj_31 obj_32 obj_33 obj_34 obj_35 obj_36 obj_37 obj_38 obj_39', 1.5), ...p('obj_46 obj_47 obj_48 obj_49 obj_50 obj_51 obj_52 obj_53 Bones_6 skull_pile bone_pelvis')], density: 0, from: 1, line: { side: 'bottom', from: 0.67, to: 1, gap: 1, inset: WALL_ROOF + 1 } },
+      { pieces: [...p('Bones_1 Bones_2 Bones_3 Bones_4 Bones_5 Bones_13 Bones_15 Bones_16 Bones_17 Bones_18', 2), ...p('obj_27 obj_28 obj_29 obj_30 obj_31 obj_32 obj_33 obj_34 obj_35 obj_36 obj_37 obj_38 obj_39', 1.5), ...p('obj_46 obj_47 obj_48 obj_49 obj_50 obj_51 obj_52 obj_53 Bones_6 skull_pile bone_pelvis')], density: 0, from: 1, line: { side: 'right', from: 0.66, to: 1, gap: 1, inset: WALL_SIDE + 1 } },
       // Small bones, skulls and cracks scattered everywhere.
       { pieces: [...p('det25 det26 det27 det28 det29 det30', 1.5), ...p('Bones_1 Bones_2 Bones_3 Bones_5 Bones_15 Bones_16 Bones_17 Bones_18 obj_42 obj_46 obj_47 obj_48 obj_49 obj_50 obj_51 obj_52 obj_53 obj_12 obj_13 obj_14 obj_17 obj_19', 2)], density: 3, from: 0 },
       // A ring of ghost-flame candles round the clearing.
@@ -175,12 +178,12 @@ const SCENES: Partial<Record<AreaId, Scene>> = {
       // The odd coffin laid flat, bone heap or chest further out.
       { pieces: [...p('coffin_4 coffin_5 coffin_6 coffin_7 coffin_8 coffin_9 coffin_10 coffin_11 coffin_12 coffin_13 coffin_14 coffin_15 coffin_34 coffin_35 coffin_36 coffin_37'), ...p('Bones_4 Bones_6 Bones_13 obj_30 obj_33 obj_37 obj_38 skull_pile obj_7 obj_8')], density: 0.18, from: 0.62 },
     ],
-    // One or two of the great bone structures.
+    // Two of the great bone structures, in the bottom corners.
     landmarks: [
-      { file: 'Pile_sculls', at: [-92, -44] },
-      { file: 'bone_chest', at: [98, -52] },
+      { file: 'Pile_sculls', at: [-96, -48] },
+      { file: 'bone_chest', at: [96, -48] },
     ],
-    vignette: 'rgba(8,6,12,0.7)',
+    vignette: 'rgba(8,6,12,0.5)',
   },
   // CraftPix's cursed land, darkened almost to black and mixed with cave stone: eyes and pustules in the dark,
   // stalagmites, webs and pale glowing mushrooms, and claws, veins and things with teeth around the edges.
@@ -339,7 +342,7 @@ const ready = new Set<AreaId>();
 function load(area: AreaId, scene: Scene): void {
   if (loading.has(area)) return;
   loading.add(area);
-  const files = [...new Set([...scene.bands.flatMap((b) => b.pieces.map((x) => x.file)), ...(scene.pools?.details ?? []), ...(scene.islands ? [scene.islands.file] : []), ...(scene.backdrop ? [scene.backdrop] : []), ...(scene.pools?.pattern ? [scene.pools.pattern] : []), ...(scene.landmarks ?? []).map((m) => m.file)])];
+  const files = [...new Set([...scene.bands.flatMap((b) => b.pieces.map((x) => x.file)), ...(scene.pools?.details ?? []), ...(scene.islands ? [scene.islands.file] : []), ...(scene.backdrop ? [scene.backdrop] : []), ...(scene.pools?.pattern ? [scene.pools.pattern] : []), ...(scene.landmarks ?? []).map((m) => m.file), ...(scene.wallFace ? [scene.wallFace] : [])])];
   void Promise.all(
     files.map((f) => {
       const img = new Image();
@@ -348,6 +351,61 @@ function load(area: AreaId, scene: Scene): void {
       return img.decode().catch(() => undefined);
     }),
   ).then(() => ready.add(area));
+}
+
+/** The roof's colours, from its rim inward (the dungeon tileset's wall tops): a dark outline, a lit edge, then darker. */
+const ROOF = ['#1c191d', '#342c32', '#292429', '#292429', '#252125', '#252125', '#1f1c20', '#1f1c20', '#1c191d'];
+const ROOF_IN = '#181619';
+
+/**
+ * A gated area's corner walls (gates.ts): dark wall tops shaded in from their edges, and the cobbled face (`face`,
+ * tiled) hanging below every edge of a top that faces down into the room. Returns the rects they cover.
+ */
+function drawGateWalls(g: CanvasRenderingContext2D, face: HTMLImageElement, w: number, h: number): Rect[] {
+  const rects = gateWalls(w, h);
+  // The tops: each wall less the face below it (a top wall, or a side wall's end in a top corner).
+  const roof = new Uint8Array(w * h);
+  for (const [x, y, rw, rh] of rects) {
+    const bottom = y + rh < h ? y + rh - WALL_FACE : y + rh;
+    for (let py = Math.max(0, y); py < Math.min(h, bottom); py++) roof.fill(1, py * w + Math.max(0, x), py * w + Math.min(w, x + rw));
+  }
+  // How far each top pixel is from the floor (off the view counts as more wall), up to the rim's width.
+  const R = ROOF.length;
+  const dist = new Uint8Array(w * h);
+  const isRoof = (x: number, y: number) => x < 0 || y < 0 || x >= w || y >= h || roof[y * w + x] === 1;
+  const img = g.getImageData(0, 0, w, h);
+  const hex = (c: string) => [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)];
+  const cols = ROOF.map(hex);
+  const inner = hex(ROOF_IN);
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      const i = y * w + x;
+      if (!roof[i]) continue;
+      let d = R + 1;
+      for (let k = 1; k <= R && d > R; k++)
+        for (let j = -k; j <= k && d > R; j++) if (!isRoof(x + j, y - k) || !isRoof(x + j, y + k) || !isRoof(x - k, y + j) || !isRoof(x + k, y + j)) d = k;
+      dist[i] = d;
+      // A little unevenness in the shading, as in the tiles.
+      const c = d <= R ? cols[Math.min(R - 1, Math.max(0, d - 1 + (d > 2 && (x * 7 + y * 13) % 11 === 0 ? 1 : 0)))] : inner;
+      img.data.set(c, i * 4);
+    }
+  g.putImageData(img, 0, 0);
+  // The faces: below every bottom edge of a top, down to the floor (or the next top).
+  const fw = face.naturalWidth;
+  for (let x = 0; x < w; x++)
+    for (let y = 0; y < h - 1; y++) {
+      if (!roof[y * w + x] || roof[(y + 1) * w + x]) continue;
+      let fh = 0;
+      while (fh < WALL_FACE && y + 1 + fh < h && !roof[(y + 1 + fh) * w + x]) fh++;
+      g.drawImage(face, x % fw, 0, 1, fh, x, y + 1, 1, fh);
+      // Its ends, where the wall meets a gate: outlined like the tiles.
+      const end = (x > 0 && !roof[(y + 1) * w + x - 1] && !roof[y * w + x - 1]) || (x < w - 1 && !roof[(y + 1) * w + x + 1] && !roof[y * w + x + 1]);
+      if (end) {
+        g.fillStyle = ROOF[0];
+        g.fillRect(x, y + 1, 1, fh - 2);
+      }
+    }
+  return rects;
 }
 
 /** A seeded random number generator (the same layout every time for a view size). */
@@ -612,6 +670,10 @@ export function areaBackground(area: AreaId, w: number, h: number, decor?: Decor
   const tops: Array<[number, number, number, number]> = [];
   // Everything placed so far (pools and pieces), so nothing lands on top of anything else.
   const taken: Rect[] = [];
+  // A gated area's walls, in the corners (everything else keeps clear of them).
+  const gated = GATED.has(area);
+  const face = scene.wallFace && gated ? images.get(`${area}/${scene.wallFace}`) : undefined;
+  if (face && face.naturalWidth) taken.push(...drawGateWalls(g, face, w, h));
   // A clear column down the middle (minigames that play there): nothing may reach into it.
   const clearHalf = ((decor?.clear ?? 0) * w) / 2;
   const inClear = (x: number, width: number): boolean => clearHalf > 0 && x < w / 2 + clearHalf && x + width > w / 2 - clearHalf;
@@ -635,7 +697,7 @@ export function areaBackground(area: AreaId, w: number, h: number, decor?: Decor
       if (band.line) {
         // Side by side along a wall: each piece against it, the next one just past it (skipping any that would
         // overlap something already there, such as the line along the neighbouring wall).
-        const { side, from, to, gap = 2 } = band.line;
+        const { side, from, to, gap = 2, inset = 2 } = band.line;
         const across = side === 'top' || side === 'bottom';
         const len = across ? w : h;
         for (let at = from * len, tries = 0; at < to * len && tries < 200; tries++) {
@@ -646,8 +708,8 @@ export function areaBackground(area: AreaId, w: number, h: number, decor?: Decor
           const iw = img.naturalWidth;
           const ih = img.naturalHeight;
           if (at + (across ? iw : ih) > to * len) break;
-          const px = Math.round(across ? at : side === 'left' ? 2 : w - 2 - iw);
-          const py = Math.round(across ? (side === 'top' ? 2 : h - 2 - ih) : at);
+          const px = Math.round(across ? at : side === 'left' ? inset : w - inset - iw);
+          const py = Math.round(across ? (side === 'top' ? inset : h - inset - ih) : at);
           const rect: Rect = [px, py, iw, ih];
           if (taken.some((t) => overlaps(rect, t, 0)) || inClear(px, iw)) {
             at += 4;
@@ -716,6 +778,8 @@ export function areaBackground(area: AreaId, w: number, h: number, decor?: Decor
         const py = Math.round(band.onIslands ? y - img.naturalHeight : y - img.naturalHeight / 2);
         const rect: Rect = [px, py, img.naturalWidth, img.naturalHeight];
         if (inClear(px, img.naturalWidth)) continue;
+        // A gated area's gates stay open: nothing big in their passages.
+        if (gated && band.from >= 0.5 && [px, px + img.naturalWidth].some((ex) => inGatePassage(ex, y, w, h, 0.3))) continue;
         if (!band.overlap) {
           if (taken.some((t) => overlaps(rect, t))) continue;
           taken.push(rect);

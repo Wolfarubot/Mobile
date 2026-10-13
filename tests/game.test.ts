@@ -42,6 +42,7 @@ import {
   gearTypes,
   DAMAGE_TYPES,
   FLYING,
+  fieldZoom,
   SHIELD_DEFLECT_PAUSE,
   lootChance,
   tomeSummonType,
@@ -109,6 +110,7 @@ import {
   WEAK_MULT,
 } from '../src/core/balance';
 import { Field, SLAM_OFFSET, type Enemy } from '../src/core/field';
+import { GATED } from '../src/core/gates';
 import { Game } from '../src/core/game';
 import { deserialize, FX_KEYS, newGame as startingGame, SAVE_VERSION, serialize, type GameState } from '../src/core/state';
 
@@ -2360,6 +2362,53 @@ describe('Equipment', () => {
     expect(flier.inside).toBe(true); // straight over it
     expect(FLYING.has('bat')).toBe(true);
     expect(FLYING.has('greenSlime')).toBe(false);
+  });
+
+  it('the Forbidden Crypt is gated: monsters come in only through the middle third of each side, and walkers are kept out of its corner walls', () => {
+    expect(GATED.has('crypt')).toBe(true);
+    expect(GATED.has('graveyard')).toBe(false);
+    const s = newGame(0);
+    s.areas.crypt.unlocked = true;
+    s.area = 'crypt';
+    let seed = 7;
+    const g = new Game(s, () => ((seed = (seed * 16807) % 2147483647) / 2147483647));
+    const f = new Field(g);
+    f.setView(390, 420);
+    expect(f.walls).toHaveLength(8);
+    const z = fieldZoom('crypt');
+    const halfW = 195 / z;
+    const halfH = 210 / z;
+    const seen = new Set<number>();
+    const sides = new Set<string>();
+    for (let t = 0; t < 60; t += 0.05) {
+      f.update(0.05);
+      for (const e of f.enemies) {
+        if (!seen.has(e.id)) {
+          seen.add(e.id);
+          // Just outside a gate: across the middle third of that side.
+          if (Math.abs(e.y) / halfH > Math.abs(e.x) / halfW) expect(Math.abs(e.x)).toBeLessThan(halfW / 3);
+          else expect(Math.abs(e.y)).toBeLessThan(halfH / 3);
+        }
+        if (!FLYING.has(e.type)) for (const w of f.walls) expect(e.x > w.x0 + 0.01 && e.x < w.x1 - 0.01 && e.y > w.y0 + 0.01 && e.y < w.y1 - 0.01).toBe(false);
+      }
+    }
+    expect(seen.size).toBeGreaterThan(0);
+    // Every spawn point is outside a gate, and all four are used.
+    for (let i = 0; i < 400; i++) {
+      const at = (f as unknown as { edgePoint: () => { x: number; y: number } }).edgePoint();
+      if (Math.abs(at.y) > halfH) expect(Math.abs(at.x)).toBeLessThanOrEqual(halfW / 3);
+      else expect(Math.abs(at.y)).toBeLessThanOrEqual(halfH / 3);
+      sides.add(Math.abs(at.y) > halfH ? (at.y < 0 ? 'top' : 'bottom') : at.x < 0 ? 'left' : 'right');
+    }
+    expect(sides.size).toBe(4);
+    // A walker knocked into a corner wall is put back out of it, into the room or a gate.
+    const e = enemy({ id: 999, type: 'mummy', x: -halfW + 5, y: -halfH + 5, hp: 1e9, maxHp: 1e9 });
+    (f as unknown as { keepOut: (e: Enemy) => void }).keepOut(e);
+    for (const w of f.walls) expect(e.x > w.x0 && e.x < w.x1 && e.y > w.y0 && e.y < w.y1).toBe(false);
+    // Elsewhere, monsters still come from anywhere round the edge (no walls).
+    const f2 = new Field(new Game(newGame(0), noCrit));
+    f2.setView(390, 420);
+    expect(f2.walls).toHaveLength(0);
   });
 
   it('ranged monsters stop at range and shoot; melee weapons break projectiles, shields deflect them (pausing attacks), otherwise they stun', () => {

@@ -1,3 +1,4 @@
+import { GATED, gateWalls } from './gates';
 import {
   MAIN_RANGE,
   type Rarity,
@@ -340,11 +341,20 @@ export class Field {
    */
   obstacles: Array<{ x: number; y: number; r: number }> = [];
 
+  /** A gated area's corner walls (see gates.ts), in world units: walking monsters are kept out of them. */
+  walls: Array<{ x0: number; y0: number; x1: number; y1: number }> = [];
+
   /** Screen size in CSS pixels; the visible world is larger by 1 / the area's zoom. */
   setView(w: number, h: number): void {
     const z = fieldZoom(this.game.area);
     this.halfW = w / 2 / z;
     this.halfH = h / 2 / z;
+    this.walls = GATED.has(this.game.area) ? gateWalls(w, h).map(([x, y, rw, rh]) => ({ x0: (x - w / 2) / z, y0: (y - h / 2) / z, x1: (x + rw - w / 2) / z, y1: (y + rh - h / 2) / z })) : [];
+  }
+
+  /** Whether monsters only come in through the gates (the middle third of each side). */
+  private get gated(): boolean {
+    return GATED.has(this.game.area);
   }
 
   get stunned(): boolean {
@@ -375,11 +385,18 @@ export class Field {
     return Math.hypot(this.halfW, this.halfH) + 24;
   }
 
-  /** A random point just outside the visible rectangle. */
+  /** A random point just outside the visible rectangle (in a gated area, outside one of the four gates). */
   private edgePoint(): { x: number; y: number } {
     const rng = this.game.rng;
     const w = this.halfW + 24;
     const h = this.halfH + 24;
+    if (this.gated) {
+      // Any of the four gates, somewhere across its middle half (a pack spreads out from there).
+      const side = Math.floor(rng() * 4);
+      const along = (rng() - 0.5) / 3;
+      if (side < 2) return { x: along * 2 * this.halfW, y: side ? h : -h };
+      return { x: side === 2 ? -w : w, y: along * 2 * this.halfH };
+    }
     let t = rng() * (4 * w + 4 * h);
     if (t < 2 * w) return { x: t - w, y: -h };
     t -= 2 * w;
@@ -397,8 +414,8 @@ export class Field {
     this.enemies.push({
       id: this.nextId++,
       type,
-      x: at.x + (boss ? 0 : (g.rng() - 0.5) * 50),
-      y: at.y + (boss ? 0 : (g.rng() - 0.5) * 50),
+      x: this.inGate(at.x + (boss ? 0 : (g.rng() - 0.5) * 50), this.halfW, Math.abs(at.y) > this.halfH),
+      y: this.inGate(at.y + (boss ? 0 : (g.rng() - 0.5) * 50), this.halfH, Math.abs(at.x) > this.halfW),
       hp,
       maxHp: hp,
       r: boss ? def.radius * 2.6 : def.radius * (0.9 + g.rng() * 0.2),
@@ -410,6 +427,13 @@ export class Field {
       ky: 0,
       phase: g.rng() * 10,
     });
+  }
+
+  /** In a gated area, a coordinate across a gate kept within its opening (`across`: this is the gate's width). */
+  private inGate(v: number, half: number, across: boolean): number {
+    if (!this.gated || !across) return v;
+    const max = half / 3 - 14;
+    return Math.max(-max, Math.min(max, v));
   }
 
   private rollPack(): { type: EnemyId; size: number } {
@@ -530,8 +554,10 @@ export class Field {
       const speed = e.held ? 0 : e.speed * (e.slow ? 0.5 : 1);
       if (e.fleeing) {
         const d = Math.hypot(e.x, e.y) || 1;
-        e.x += (e.x / d) * speed * FLEE_SPEED_MULT * dt + e.kx * dt;
-        e.y += (e.y / d) * speed * FLEE_SPEED_MULT * dt + e.ky * dt;
+        // Straight out, or (walking, in a gated area) out through the nearest gate.
+        const [ox, oy] = this.walls.length && !FLYING.has(e.type) ? this.gateOut(e, escapeR) : [e.x / d, e.y / d];
+        e.x += ox * speed * FLEE_SPEED_MULT * dt + e.kx * dt;
+        e.y += oy * speed * FLEE_SPEED_MULT * dt + e.ky * dt;
         if (d > escapeR) {
           e.hp = 0;
           g.registerEscape();
@@ -599,9 +625,30 @@ export class Field {
     return [sx / m, sy / m];
   }
 
-  /** A walking monster (knocked back or not) never ends up inside an obstacle: it's put back at the edge. */
+  /** Which way a monster fleeing a gated area runs: toward the gate nearest it, and on out past the edge. */
+  private gateOut(e: Enemy, far: number): [number, number] {
+    const top = Math.abs(e.y) / this.halfH >= Math.abs(e.x) / this.halfW;
+    const tx = top ? 0 : Math.sign(e.x || 1) * (far + 20);
+    const ty = top ? Math.sign(e.y || 1) * (far + 20) : 0;
+    const d = Math.hypot(tx - e.x, ty - e.y) || 1;
+    return [(tx - e.x) / d, (ty - e.y) / d];
+  }
+
+  /** A walking monster (knocked back or not) never ends up inside an obstacle or a wall: it's put back at the edge. */
   private keepOut(e: Enemy): void {
-    if (!this.obstacles.length || FLYING.has(e.type)) return;
+    if (FLYING.has(e.type)) return;
+    for (const w of this.walls) {
+      if (e.x <= w.x0 || e.x >= w.x1 || e.y <= w.y0 || e.y >= w.y1) continue;
+      // Out the nearest side that isn't the view's own edge.
+      const outs: Array<[number, number, number]> = [];
+      if (w.x0 > -this.halfW + 1) outs.push([e.x - w.x0, w.x0, e.y]);
+      if (w.x1 < this.halfW - 1) outs.push([w.x1 - e.x, w.x1, e.y]);
+      if (w.y0 > -this.halfH + 1) outs.push([e.y - w.y0, e.x, w.y0]);
+      if (w.y1 < this.halfH - 1) outs.push([w.y1 - e.y, e.x, w.y1]);
+      const best = outs.sort((a, b) => a[0] - b[0])[0];
+      if (best) [, e.x, e.y] = best;
+    }
+    if (!this.obstacles.length) return;
     for (const o of this.obstacles) {
       const ox = e.x - o.x;
       const oy = e.y - o.y;

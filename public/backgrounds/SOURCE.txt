@@ -4,7 +4,7 @@ Fey Grove decor from CraftPix.net's forest top-down tileset (license: https://cr
 with greens shifted to pinks and purples (trunks, stones and ruins keep their colours).
 All from CraftPix.net (license: https://craftpix.net/file-licenses/), cut out, trimmed and in places recoloured:
 - graveyard/: "Free Undead Tileset Top Down Pixel Art" and "The Top Down Undead Land Objects".
-- crypt/: "Top Down Dungeon Pixel Tileset" (coffins, candles, torches, statues, bones) with bones and skull piles
+- crypt/: "Top Down Dungeon Pixel Tileset" (coffins, candles, torches, statues, bones; wall_face is its cobbled wall face, cropped from walls_floor) with bones and skull piles
   from the undead sets; the flagstone floor is drawn by the game.
 - depths/: "Free Cursed Land Top Down Pixel Art Tileset" and "Cursed Land Objects" (darkened), "Cave Tileset Top Down"
   stones, stalagmites, webs and mushrooms, and "Top Down Crystals".
