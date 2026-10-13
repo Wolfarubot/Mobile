@@ -17,6 +17,8 @@ interface Band {
   density: number;
   /** Where they may go, as a fraction of the way from the centre to the nearest edge (0 centre, 1 edge). */
   from: number;
+  /** And no further out than this (a ring round the clearing); anywhere beyond `from` if unset. */
+  to?: number;
   /** Drawn beneath the islands (clouds below the steps). */
   under?: boolean;
   /** Placed only on the islands' grass. */
@@ -611,7 +613,8 @@ export function areaBackground(area: AreaId, w: number, h: number, decor?: Decor
           y = t[1] + 10 + r() * Math.max(0, t[3] - 20);
         }
         // The Hunters' clearing stays empty (clouds drifting under the islands aside).
-        if (outness(x, y, w, h) < (band.under ? band.from : Math.max(band.from, CLEAR))) continue;
+        const out = outness(x, y, w, h);
+        if (out < (band.under ? band.from : Math.max(band.from, CLEAR)) || (band.to !== undefined && out > band.to)) continue;
         let pick = r() * total;
         const piece = band.pieces.find((x) => (pick -= x.weight) <= 0) ?? band.pieces[0];
         const img = images.get(`${area}/${piece.file}`);
