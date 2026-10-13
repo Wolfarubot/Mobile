@@ -18,7 +18,7 @@ export const MINIGAMES: Record<MinigameId, { title: string; intro: string; lives
   pixieSerenade: { title: '🪕 Pixie Serenade', intro: PS_INTRO, lives: 3, decor: PS_DECOR, create: pixieSerenade },
   graveRobbing: { title: '🦹 Grave Robbing', intro: GR_INTRO, lives: 3, decor: GR_DECOR, create: graveRobbing },
   puppetShow: { title: '🎎 Puppet Show', intro: PU_INTRO, lives: 3, create: puppetShow },
-  shootingGallery: { title: '🎯 Shooting Gallery', intro: SG_INTRO, lives: 3, create: shootingGallery },
+  shootingGallery: { title: '🎯 Shooting Gallery', intro: SG_INTRO, lives: 0, create: shootingGallery },
   forgeStrike: { title: '⚒️ Forge Strike', intro: FS_INTRO, lives: 3, create: forgeStrike },
   runeMatch: { title: '✨ Rune Match', intro: RM_INTRO, lives: 6, create: runeMatch },
   icebreaker: { title: '🔨 Icebreaker', intro: IB_INTRO, lives: 3, create: icebreaker },

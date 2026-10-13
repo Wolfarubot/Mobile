@@ -8,3 +8,9 @@ Minigame art, all from CraftPix.net (license: https://craftpix.net/file-licenses
   so the road is 30px): Pixie Serenade's paths (pale cobbles, and blue cobbles over the okay range), tinted per path
   in the game. Its perfect-spot bars are the event timers' framed bar (public/ui/timer-bar.png).
 - note.png: icon 50 (a music note) from the "Free Pixel Art Platformer UI" pack, tinted per path in Pixie Serenade.
+- eye.png: Eyes_shadow2_2 from CraftPix's "Free Cursed Land Top Down Pixel Art" objects: the eyes in Wilhelm's
+  Shooting Gallery (recoloured red in the game for the red eyes).
+- lantern-1..6.png: torches_1, 6, 11, 16, 21 and 26 from the "Top Down Dungeon Pixel Tileset" (a ghost-flame brazier,
+  its six frames): the Shooting Gallery's lanterns.
+- crosshair.png: icon 9 (a ring) from the "Free Pixel Art Platformer UI" pack with four ticks and a centre dot added:
+  the Shooting Gallery's crosshair.
