@@ -19,6 +19,8 @@ interface Band {
   from: number;
   /** And no further out than this (a ring round the clearing); anywhere beyond `from` if unset. */
   to?: number;
+  /** Stands among the monsters, who walk around it, however close in (otherwise only the outer bands do). */
+  solid?: boolean;
   /** Drawn beneath the islands (clouds below the steps). */
   under?: boolean;
   /** Placed only on the islands' grass. */
@@ -66,7 +68,7 @@ interface Scene {
    * Set pieces at fixed spots, each standing (bottom middle) at `at` pixels from the top-left corner (negative:
    * from the right or bottom). They stand among the monsters like the wall, and the wall makes room for them.
    */
-  landmarks?: Array<{ file: string; at: [number, number] }>;
+  landmarks?: Array<{ file: string; at: [number, number]; /** Monsters walk around it rather than through it. */ solid?: boolean }>;
 }
 
 const p = (files: string, weight = 1): Piece[] => files.split(' ').map((file) => ({ file, weight }));
@@ -125,8 +127,8 @@ const SCENES: Partial<Record<AreaId, Scene>> = {
     bands: [
       // Small details round the clearing: weeds, cracks, pebbles and little bones.
       { pieces: [...p('det7 det8 det9 det10 det11 det12 det13 det14 det15 det16 det17 det18 det19 det20 det21 det22 det23 det24', 2), ...p('det26 det28'), ...p('det31 det33 det35 det37 det39 det41 det43 det47 det49 det51 det53 det55 det57 det59 det61 det62'), ...p('Bones_1 Bones_2 Bones_3 Bones_5 Bones_16 Bones_18 Plant_4 Plant_5')], density: 2.6, from: 0 },
-      // Headstones scattered all around the clearing (the big pale and dark ones, with a few small ones).
-      { pieces: [...p('grave1 grave2 grave3 grave4 grave5 grave6', 3), ...p('Grave_2 Grave_4 Grave_7 Grave_12 Grave_16')], density: 1.05, from: 0.42 },
+      // Headstones scattered all around the clearing (the big pale and dark ones, with a few small ones): monsters walk around them.
+      { pieces: [...p('grave1 grave2 grave3 grave4 grave5 grave6', 3), ...p('Grave_2 Grave_4 Grave_7 Grave_12 Grave_16')], density: 1.05, from: 0.42, solid: true },
       // A few rocks, bones, weeds and a dead arm between them.
       { pieces: p('Rock_3 Rock_4 Bones_4 Plant_3 undead_plant2 Thorn_plant_6 Dead_arm_4'), density: 0.3, from: 0.5 },
       // The odd small dead tree, coffin, open grave or skull pile toward the edges.
@@ -136,9 +138,9 @@ const SCENES: Partial<Record<AreaId, Scene>> = {
     ],
     // A few more headstones in the top corners, just inside the trees.
     landmarks: [
-      { file: 'grave3', at: [54, 100] },
-      { file: 'grave2', at: [-88, 92] },
-      { file: 'grave5', at: [-72, 128] },
+      { file: 'grave3', at: [54, 100], solid: true },
+      { file: 'grave2', at: [-88, 92], solid: true },
+      { file: 'grave5', at: [-72, 128], solid: true },
     ],
     vignette: 'rgba(20,24,30,0.45)',
   },
@@ -596,7 +598,7 @@ export function areaBackground(area: AreaId, w: number, h: number, decor?: Decor
       const rect: Rect = [px, py, img.naturalWidth, img.naturalHeight];
       markRects.push(rect);
       taken.push(rect);
-      placed.push({ img, x: px, y: py, prop: split, wall: true });
+      placed.push({ img, x: px, y: py, prop: split, wall: !m.solid });
     }
     // Biggest pieces first (the outer bands), then smaller ones fill the room that's left.
     for (const band of [...bands].sort((a, b) => b.from - a.from)) {
@@ -660,7 +662,7 @@ export function areaBackground(area: AreaId, w: number, h: number, decor?: Decor
           if (taken.some((t) => overlaps(rect, t))) continue;
           taken.push(rect);
         }
-        const prop = split && band.from >= PROP_FROM && !band.under && !band.overlap && !band.onIslands && !FLAT.test(piece.file);
+        const prop = split && (band.from >= PROP_FROM || !!band.solid) && !band.under && !band.overlap && !band.onIslands && !FLAT.test(piece.file);
         placed.push({ img, x: px, y: py, prop });
         i++;
       }
