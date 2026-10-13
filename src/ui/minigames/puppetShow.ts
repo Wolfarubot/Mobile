@@ -36,6 +36,8 @@ export function puppetShow(api: MinigameApi): MinigameGame {
   let shown = 0;
   let input = 0;
   const pressed: Record<Dir, number> = { up: 0, down: 0, left: 0, right: 0 };
+  /** Buttons pressing themselves to show the dance (drawn lighter). */
+  const lit: Record<Dir, number> = { up: 0, down: 0, left: 0, right: 0 };
   let puppetHop: Hop | null = null;
   let theonHop: Hop | null = null;
   /** Which way each faces: Theon the way he last moved (toward the puppet at rest), the puppet likewise. */
@@ -101,7 +103,10 @@ export function puppetShow(api: MinigameApi): MinigameGame {
       }
     },
     step(dt) {
-      for (const d of DIR_LIST) pressed[d] = Math.max(0, pressed[d] - dt);
+      for (const d of DIR_LIST) {
+        pressed[d] = Math.max(0, pressed[d] - dt);
+        lit[d] = Math.max(0, lit[d] - dt);
+      }
       oops = Math.max(0, oops - dt);
       for (const h of [puppetHop, theonHop]) if (h) h.t += dt;
       if (puppetHop && puppetHop.t >= puppetHop.len) puppetHop = null;
@@ -123,6 +128,7 @@ export function puppetShow(api: MinigameApi): MinigameGame {
         puppetFacing = d;
         puppetHop = { d, t: 0, len: beat() * 0.8 };
         pressed[d] = beat() * 0.7;
+        lit[d] = beat() * 0.7;
         shown++;
         timer = beat();
       }
@@ -186,7 +192,7 @@ export function puppetShow(api: MinigameApi): MinigameGame {
       g.fillText(text, api.W / 2, st.floor + 44 * api.k);
       g.textBaseline = 'alphabetic';
 
-      drawDpad(g, pad(), pressed);
+      drawDpad(g, pad(), pressed, lit);
     },
   };
 }

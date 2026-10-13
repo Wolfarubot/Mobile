@@ -61,8 +61,11 @@ export function dpadHit(p: Dpad, x: number, y: number): Dir | null {
   return best;
 }
 
-/** The four buttons; a button with `pressed[d] > 0` is drawn pushed in. */
-export function drawDpad(g: CanvasRenderingContext2D, p: Dpad, pressed: Record<Dir, number>): void {
+/**
+ * The four buttons; a button with `pressed[d] > 0` is drawn pushed in, and one in `lit` (pressing itself to show
+ * a pattern) also glows a lighter shade.
+ */
+export function drawDpad(g: CanvasRenderingContext2D, p: Dpad, pressed: Record<Dir, number>, lit?: Partial<Record<Dir, number>>): void {
   // Every button state and arrow starts loading at once, so a press never shows a missing picture.
   for (const name of DPAD_ART) mgArt(name);
   g.imageSmoothingEnabled = false;
@@ -71,7 +74,15 @@ export function drawDpad(g: CanvasRenderingContext2D, p: Dpad, pressed: Record<D
     const down = pressed[d] > 0;
     const btn = mgArt(down ? 'stone-btn-down' : 'stone-btn');
     const s = p.b;
-    if (btn) g.drawImage(btn, Math.round(b.x - s / 2), Math.round(b.y - s / 2), s, s);
+    if (btn) {
+      g.drawImage(btn, Math.round(b.x - s / 2), Math.round(b.y - s / 2), s, s);
+      if ((lit?.[d] ?? 0) > 0) {
+        // Lighter: the same button brightened.
+        g.filter = 'brightness(1.32) saturate(0.85)';
+        g.drawImage(btn, Math.round(b.x - s / 2), Math.round(b.y - s / 2), s, s);
+        g.filter = 'none';
+      }
+    }
     const arrow = mgArt(`arrow-${d}`);
     if (arrow) {
       // The arrow sits on the button's face (lower when pressed), with a dark drop shadow.
