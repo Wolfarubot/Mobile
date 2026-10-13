@@ -32,6 +32,11 @@ interface Band {
    * one another, other pieces keep clear of them, and monsters walk through them (in front or behind).
    */
   edge?: boolean;
+  /**
+   * Lined up along one wall, side by side (a gap of `gap` pixels, never overlapping anything), from `from` to `to`
+   * of the way along it (left to right, or top to bottom). They stand among the monsters like the wall.
+   */
+  line?: { side: 'top' | 'bottom' | 'left' | 'right'; from: number; to: number; gap?: number };
 }
 interface Scene {
   base: string;
@@ -144,17 +149,36 @@ const SCENES: Partial<Record<AreaId, Scene>> = {
     ],
     vignette: 'rgba(20,24,30,0.45)',
   },
-  // CraftPix's dungeon on a flagstone floor: cracks and scattered bones, ghost-flame candles, coffins and
-  // sarcophagi, chained skeletons and rubble, and blue-fire torches and the flaming statue in the dark corners.
+  // CraftPix's dungeon on a flagstone floor: coffins stood side by side in the top-left corner, statues, torches and
+  // chests along the walls, bones lining the bottom-right corner, two great bone heaps, small bones everywhere and a
+  // ring of ghost-flame candles round the clearing.
   crypt: {
     base: '#3f3d42',
     specks: [],
     slabs: { size: 22, colors: ['#3f3d42', '#3c3a3f', '#434046', '#3a383c', '#413e44'], grout: '#2b292d', light: '#47444a' },
     bands: [
-      { pieces: [...p('det25 det26 det27 det28 det29 det30', 2), ...p('Bones_1 Bones_2 Bones_3 Bones_5 Bones_15 Bones_16 Bones_17 Bones_18 obj_42 obj_46 obj_47 obj_48 obj_49 obj_50 obj_51 obj_52 obj_53 obj_12 obj_13 obj_14 obj_17 obj_19', 2)], density: 1.6, from: 0 },
-      { pieces: [...p('candle_1 candle_2 candle_3 candle_4 candle_5 candle_6 candle_7 candle_8 candle_9', 2), ...p('obj_10 obj_11 obj_15 obj_16 obj_18 obj_27 obj_28 obj_29 obj_30 obj_31 obj_32 obj_33 obj_34 obj_35 obj_36 obj_37 obj_38 obj_39 obj_40 obj_41 Bones_4 Bones_6 Bones_13 coffin_34 coffin_35 coffin_36 coffin_37')], density: 0.9, from: 0.4 },
-      { pieces: [...p('coffin_1 coffin_2 coffin_3 coffin_4 coffin_5 coffin_6 coffin_7 coffin_8 coffin_9 coffin_10 coffin_11 coffin_12 coffin_13 coffin_14 coffin_15 coffin_16 coffin_17 coffin_18 coffin_19 coffin_20 coffin_21 coffin_22 coffin_23 coffin_24 coffin_25 coffin_26 coffin_27 coffin_28 coffin_29 coffin_30 coffin_31 coffin_32 coffin_33'), ...p('obj_1 obj_2 obj_3 obj_4 obj_5 obj_6 obj_7 obj_8 obj_9 obj_20 obj_21 obj_22 obj_23 obj_24 obj_25 obj_26 skull_pile bone_chest bone_pelvis web_rock2 web_rock3', 1.5), ...p('torch_2 torch_3 torch_4 torch_6', 2)], density: 0.5, from: 0.68 },
-      { pieces: [...p('statue_fire torch_1 torch_11 torch_16 torch_21', 2), ...p('Pile_sculls skull_chasm bone_arm_sword bone_monster_head web_rock1 coffin_21 coffin_26 coffin_1')], density: 0.14, from: 0.9 },
+      // Coffins stood side by side in the top-left corner, along both walls.
+      { pieces: p('coffin_1 coffin_16 coffin_17 coffin_18 coffin_19 coffin_2 coffin_20 coffin_22 coffin_23 coffin_24 coffin_25 coffin_27 coffin_28 coffin_29 coffin_3 coffin_30 coffin_31 coffin_32 coffin_33'), density: 0, from: 1, line: { side: 'top', from: 0, to: 0.44, gap: 1 } },
+      { pieces: p('coffin_1 coffin_16 coffin_17 coffin_18 coffin_19 coffin_2 coffin_20 coffin_22 coffin_23 coffin_24 coffin_25 coffin_27 coffin_28 coffin_29 coffin_3 coffin_30 coffin_31 coffin_32 coffin_33'), density: 0, from: 1, line: { side: 'left', from: 0, to: 0.46, gap: 1 } },
+      // Statues, blue-fire torches, chests and rubble along the rest of the walls...
+      { pieces: [...p('obj_1 obj_2 obj_3 obj_4 obj_5 obj_6', 2), ...p('torch_1 torch_2 torch_3 torch_4 torch_6 torch_11 torch_16 torch_21', 1.5), ...p('obj_7 obj_8 obj_9 obj_21 obj_22 web_rock2 web_rock3')], density: 0, from: 1, line: { side: 'top', from: 0.46, to: 1, gap: 4 } },
+      { pieces: [...p('obj_1 obj_2 obj_3 obj_4 obj_5 obj_6', 2), ...p('torch_1 torch_2 torch_3 torch_4 torch_6 torch_11 torch_16 torch_21', 1.5), ...p('obj_7 obj_8 obj_9 obj_21 obj_22 web_rock2 web_rock3')], density: 0, from: 1, line: { side: 'right', from: 0, to: 0.5, gap: 4 } },
+      { pieces: [...p('obj_1 obj_2 obj_3 obj_4 obj_5 obj_6', 2), ...p('torch_1 torch_2 torch_3 torch_4 torch_6 torch_11 torch_16 torch_21', 1.5), ...p('obj_7 obj_8 obj_9 obj_21 obj_22 web_rock2 web_rock3')], density: 0, from: 1, line: { side: 'left', from: 0.48, to: 1, gap: 4 } },
+      { pieces: [...p('obj_1 obj_2 obj_3 obj_4 obj_5 obj_6', 2), ...p('torch_1 torch_2 torch_3 torch_4 torch_6 torch_11 torch_16 torch_21', 1.5), ...p('obj_7 obj_8 obj_9 obj_21 obj_22 web_rock2 web_rock3')], density: 0, from: 1, line: { side: 'bottom', from: 0, to: 0.48, gap: 4 } },
+      // ...and bones lining the bottom-right corner, along both walls.
+      { pieces: [...p('Bones_1 Bones_2 Bones_3 Bones_4 Bones_5 Bones_13 Bones_15 Bones_16 Bones_17 Bones_18', 2), ...p('obj_27 obj_28 obj_29 obj_30 obj_31 obj_32 obj_33 obj_34 obj_35 obj_36 obj_37 obj_38 obj_39', 1.5), ...p('obj_46 obj_47 obj_48 obj_49 obj_50 obj_51 obj_52 obj_53 Bones_6 skull_pile bone_pelvis')], density: 0, from: 1, line: { side: 'bottom', from: 0.5, to: 1, gap: 1 } },
+      { pieces: [...p('Bones_1 Bones_2 Bones_3 Bones_4 Bones_5 Bones_13 Bones_15 Bones_16 Bones_17 Bones_18', 2), ...p('obj_27 obj_28 obj_29 obj_30 obj_31 obj_32 obj_33 obj_34 obj_35 obj_36 obj_37 obj_38 obj_39', 1.5), ...p('obj_46 obj_47 obj_48 obj_49 obj_50 obj_51 obj_52 obj_53 Bones_6 skull_pile bone_pelvis')], density: 0, from: 1, line: { side: 'right', from: 0.52, to: 1, gap: 1 } },
+      // Small bones, skulls and cracks scattered everywhere.
+      { pieces: [...p('det25 det26 det27 det28 det29 det30', 1.5), ...p('Bones_1 Bones_2 Bones_3 Bones_5 Bones_15 Bones_16 Bones_17 Bones_18 obj_42 obj_46 obj_47 obj_48 obj_49 obj_50 obj_51 obj_52 obj_53 obj_12 obj_13 obj_14 obj_17 obj_19', 2)], density: 3, from: 0 },
+      // A ring of ghost-flame candles round the clearing.
+      { pieces: p('candle_1 candle_2 candle_3 candle_4 candle_5 candle_6 candle_7 candle_8 candle_9'), density: 3, from: 0.38, to: 0.5 },
+      // The odd coffin laid flat, bone heap or chest further out.
+      { pieces: [...p('coffin_4 coffin_5 coffin_6 coffin_7 coffin_8 coffin_9 coffin_10 coffin_11 coffin_12 coffin_13 coffin_14 coffin_15 coffin_34 coffin_35 coffin_36 coffin_37'), ...p('Bones_4 Bones_6 Bones_13 obj_30 obj_33 obj_37 obj_38 skull_pile obj_7 obj_8')], density: 0.18, from: 0.62 },
+    ],
+    // One or two of the great bone structures.
+    landmarks: [
+      { file: 'Pile_sculls', at: [-92, -44] },
+      { file: 'bone_chest', at: [98, -52] },
     ],
     vignette: 'rgba(8,6,12,0.7)',
   },
@@ -608,6 +632,33 @@ export function areaBackground(area: AreaId, w: number, h: number, decor?: Decor
     // Biggest pieces first (the outer bands), then smaller ones fill the room that's left.
     for (const band of [...bands].sort((a, b) => b.from - a.from)) {
       const total = band.pieces.reduce((s, x) => s + x.weight, 0);
+      if (band.line) {
+        // Side by side along a wall: each piece against it, the next one just past it (skipping any that would
+        // overlap something already there, such as the line along the neighbouring wall).
+        const { side, from, to, gap = 2 } = band.line;
+        const across = side === 'top' || side === 'bottom';
+        const len = across ? w : h;
+        for (let at = from * len, tries = 0; at < to * len && tries < 200; tries++) {
+          let pick = r() * total;
+          const piece = band.pieces.find((x) => (pick -= x.weight) <= 0) ?? band.pieces[0];
+          const img = images.get(`${area}/${piece.file}`);
+          if (!img || !img.naturalWidth) continue;
+          const iw = img.naturalWidth;
+          const ih = img.naturalHeight;
+          if (at + (across ? iw : ih) > to * len) break;
+          const px = Math.round(across ? at : side === 'left' ? 2 : w - 2 - iw);
+          const py = Math.round(across ? (side === 'top' ? 2 : h - 2 - ih) : at);
+          const rect: Rect = [px, py, iw, ih];
+          if (taken.some((t) => overlaps(rect, t, 0)) || inClear(px, iw)) {
+            at += 4;
+            continue;
+          }
+          taken.push(rect);
+          placed.push({ img, x: px, y: py, prop: split, wall: true });
+          at += (across ? iw : ih) + gap + Math.floor(r() * 3);
+        }
+        continue;
+      }
       if (band.edge) {
         // Spots along the edges (each is where a piece's trunk stands): along the top, trunks just inside with
         // the crowns half off the view; along the bottom, trunks well below so only the crowns show; down the
