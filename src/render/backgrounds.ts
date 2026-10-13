@@ -182,7 +182,7 @@ const SCENES: Partial<Record<AreaId, Scene>> = {
       { pieces: [...p('coffin_4 coffin_5 coffin_6 coffin_7 coffin_8 coffin_9 coffin_10 coffin_11 coffin_12 coffin_13 coffin_14 coffin_15 coffin_34 coffin_35 coffin_36 coffin_37'), ...p('Bones_4 Bones_6 Bones_13 obj_30 obj_33 obj_37 obj_38 skull_pile obj_7 obj_8')], density: 0.18, from: 0.62 },
     ],
     // A great heap of skulls in the bottom-right corner.
-    landmarks: [{ file: 'Pile_sculls', at: [-WALL_SIDE - 40, -WALL_ROOF + 2] }],
+    landmarks: [{ file: 'Pile_sculls', at: [-WALL_SIDE - 42, -WALL_ROOF - 6] }],
     vignette: 'rgba(8,6,12,0.5)',
   },
   // CraftPix's cursed land, darkened almost to black and mixed with cave stone: eyes and pustules in the dark,
