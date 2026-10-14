@@ -43,6 +43,7 @@ import {
   GEAR_KINDS,
   MAX_STARS,
   itemLevel,
+  itemMaxStars,
   gearCost,
   gearColor,
   gearDef,
@@ -168,7 +169,7 @@ const POPUP_GAP_MS = 30_000;
 /** Holding a tab this long raises (or drops) the full-screen menu. */
 const MENU_HOLD_MS = 450;
 
-const upgradeReach = (it: ItemDef): string => (it.area ? `affects the ${areaDef(it.area.id).name}` : 'boosts every Hunter');
+const upgradeReach = (it: ItemDef): string => (it.area ? `affects the ${areaDef(it.area.id).name}` : it.once ? 'crafted once' : 'boosts every Hunter');
 
 /** A star rank for inside a `.stars` element: filled stars, then the rest dimmed. */
 const starsHtml = (n: number): string => `${'★'.repeat(n)}<span class="off">${'★'.repeat(Math.max(0, MAX_STARS - n))}</span>`;
@@ -2449,7 +2450,7 @@ export class AppUI {
         ...upgrades.map((it) => () => {
           const tile = el('button', 'inv-tile upgrade rar') as HTMLButtonElement;
           tile.style.setProperty('--rc', RARITIES[it.rarity].color);
-          tile.innerHTML = `<i>${it.icon}</i><span>${it.name}</span><small class="stars">${starsHtml(g.state.items[it.id])}</small><em>⛺</em>`;
+          tile.innerHTML = `<i>${it.icon}</i><span>${it.name}</span><small class="stars">${it.once ? 'Crafted' : starsHtml(g.state.items[it.id])}</small><em>⛺</em>`;
           tile.addEventListener('click', () => this.openUpgradeDetail(it));
           return tile;
         }),
@@ -2547,11 +2548,12 @@ export class AppUI {
     const g = this.game;
     this.showSheet(`${it.icon} ${it.name}`, (body, close) => {
       const lv = g.state.items[it.id];
-      const maxed = lv >= MAX_STARS;
-      body.innerHTML = `<p class="gear-now"><b class="rarity-tag" style="--rc:${RARITIES[it.rarity].color}">${RARITIES[it.rarity].name}</b> upgrade · ${upgradeReach(it)} · <span class="stars">${starsHtml(lv)}</span></p><p><b>${it.describe(itemLevel(it, lv))}</b>${maxed ? '' : ` → ${it.describe(itemLevel(it, lv + 1))}`}</p>${
+      const maxed = lv >= itemMaxStars(it);
+      const owned = it.once ? (lv ? 'Crafted' : 'Not crafted yet') : `<span class="stars">${starsHtml(lv)}</span>`;
+      body.innerHTML = `<p class="gear-now"><b class="rarity-tag" style="--rc:${RARITIES[it.rarity].color}">${RARITIES[it.rarity].name}</b> upgrade · ${upgradeReach(it)} · ${owned}</p><p><b>${it.describe(itemLevel(it, it.once ? 1 : lv))}</b>${maxed || it.once ? '' : ` → ${it.describe(itemLevel(it, lv + 1))}`}</p>${
         maxed ? '' : `<div class="cost">${costHtml(g, itemCost(it, lv))}</div>`
       }`;
-      const btn = el('button', 'buy', maxed ? 'MAX' : 'Upgrade') as HTMLButtonElement;
+      const btn = el('button', 'buy', maxed ? (it.once ? 'Crafted' : 'MAX') : it.once || !lv ? 'Craft' : 'Upgrade') as HTMLButtonElement;
       btn.style.width = '100%';
       btn.disabled = !g.canCraft(it.id);
       btn.addEventListener('click', () => {
@@ -2594,8 +2596,8 @@ export class AppUI {
       upgrades.innerHTML = '';
       upTiles = [];
       for (const [title, list] of [
-        ['Available Upgrades', ITEMS.filter((it) => g.state.items[it.id] < MAX_STARS)],
-        ['Completed Upgrades', ITEMS.filter((it) => g.state.items[it.id] >= MAX_STARS)],
+        ['Available Upgrades', ITEMS.filter((it) => g.state.items[it.id] < itemMaxStars(it))],
+        ['Completed Upgrades', ITEMS.filter((it) => g.state.items[it.id] >= itemMaxStars(it))],
       ] as const) {
         if (!list.length) continue;
         upgrades.appendChild(sectionTitle(title));
@@ -2609,14 +2611,14 @@ export class AppUI {
           grid.appendChild(tile);
           upTiles.push({
             tile,
-            ready: () => g.canCraft(it.id) || g.state.items[it.id] >= MAX_STARS,
-            badge: () => (g.state.items[it.id] ? `${g.state.items[it.id]}★` : ''),
+            ready: () => g.canCraft(it.id) || g.state.items[it.id] >= itemMaxStars(it),
+            badge: () => (g.state.items[it.id] ? (it.once ? '✓' : `${g.state.items[it.id]}★`) : ''),
           });
         }
       }
     };
     this.refreshers.push(() => {
-      const k = ITEMS.map((it) => (g.state.items[it.id] >= MAX_STARS ? 1 : 0)).join('');
+      const k = ITEMS.map((it) => (g.state.items[it.id] >= itemMaxStars(it) ? 1 : 0)).join('');
       if (k !== crafted) {
         crafted = k;
         buildUpgrades();
@@ -2671,12 +2673,12 @@ export class AppUI {
       } else {
         const item = it!;
         const lv = g.state.items[item.id];
-        const maxed = lv >= MAX_STARS;
+        const maxed = lv >= itemMaxStars(item);
         const at = (stars: number) => item.describe(itemLevel(item, stars));
-        $('.fc-effect', card).innerHTML = lv ? `${at(lv)}${maxed ? '' : ` → <b>${at(lv + 1)}</b>`}` : `<b>${at(1)}</b>`;
-        $('.fc-owned', card).innerHTML = lv ? `Owned: <b class="stars">${starsHtml(lv)}</b>${maxed ? ' · MAX' : ''}` : 'Owned: <b>not crafted yet</b>';
-        $('.fc-cost', card).innerHTML = maxed ? '<p>Fully upgraded.</p>' : recipeHtml(g, itemCost(item, lv));
-        btn.textContent = maxed ? 'MAX' : lv ? 'Upgrade' : 'Craft';
+        $('.fc-effect', card).innerHTML = lv && !item.once ? `${at(lv)}${maxed ? '' : ` → <b>${at(lv + 1)}</b>`}` : `<b>${at(1)}</b>`;
+        $('.fc-owned', card).innerHTML = item.once ? (lv ? 'Owned: <b>crafted</b>' : 'Owned: <b>not crafted yet</b>') : lv ? `Owned: <b class="stars">${starsHtml(lv)}</b>${maxed ? ' · MAX' : ''}` : 'Owned: <b>not crafted yet</b>';
+        $('.fc-cost', card).innerHTML = maxed ? (item.once ? '<p>Crafted.</p>' : '<p>Fully upgraded.</p>') : recipeHtml(g, itemCost(item, lv));
+        btn.textContent = maxed ? (item.once ? 'Crafted' : 'MAX') : lv ? 'Upgrade' : 'Craft';
         btn.disabled = !g.canCraft(item.id);
       }
     };
@@ -3551,7 +3553,7 @@ export class AppUI {
       : '';
     this.showModal(
       `<h2>Welcome back!</h2>
-       <p>You were away for ${fmtTime(r.away)}.${capped ? ` (Hunters rest after ${fmtTime(r.seconds)}: craft ⏳ Hourglass Upgrades to stay away longer.)` : ''}</p>
+       <p>You were away for ${fmtTime(r.away)}.${capped ? ` (Hunters rest after ${fmtTime(r.seconds)}: craft ⏳ Hourglasses (Upgrades) to stay away longer.)` : ''}</p>
        <div class="reward">+🪙 ${fmt(r.gold)}</div>
        ${matsHtml}
        ${r.loot.length ? `<p class="offline-loot">🎁 ${r.loot.length} piece${r.loot.length === 1 ? '' : 's'} of loot${r.loot.some((l) => l.salvaged) ? ` (${r.loot.filter((l) => l.salvaged).length} auto-salvaged)` : ''}</p>` : ''}

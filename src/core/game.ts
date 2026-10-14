@@ -64,6 +64,7 @@ import {
   enemyUnlockCost,
   MAX_STARS,
   itemLevel,
+  itemMaxStars,
   GEAR_STUN_CAP,
   gearCost,
   GEAR_STAR_POWER,
@@ -107,6 +108,7 @@ import {
   OFFLINE_BASE_SEC,
   OFFLINE_EFFICIENCY,
   OFFLINE_HOURGLASSES,
+  OFFLINE_HOURGLASS_SEC,
   powerDamage,
   UNARMED_HIT,
   weaponHit,
@@ -246,9 +248,9 @@ export class Game {
     return itemLevel(itemDef(id), this.state.items[id]);
   }
 
-  /** Seconds away that count toward offline progress: 4 hours, plus an hour for each hourglass star. */
+  /** Seconds away that count toward offline progress: 4 hours, plus 2 for each Hourglass crafted. */
   offlineCapSec(): number {
-    return OFFLINE_BASE_SEC + OFFLINE_HOURGLASSES.reduce((s, id) => s + this.item(id), 0) * 3600;
+    return OFFLINE_BASE_SEC + OFFLINE_HOURGLASSES.filter((id) => this.state.items[id] > 0).length * OFFLINE_HOURGLASS_SEC;
   }
 
   // ---- Combat stats (read by Field every frame) ----
@@ -1977,7 +1979,7 @@ export class Game {
   canCraft(id: ItemId): boolean {
     const def = itemDef(id);
     const stars = this.state.items[id];
-    if (stars >= MAX_STARS) return false;
+    if (stars >= itemMaxStars(def)) return false;
     const cost = itemCost(def, stars);
     return (Object.entries(cost) as [MaterialId, number][]).every(([m, n]) => this.state.materials[m] >= n);
   }

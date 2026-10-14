@@ -32,11 +32,13 @@ export const GUARDIAN_GOLD_MULT = 50;
 
 // ---- Offline ----
 /**
- * Hours away that count toward offline progress, to start with. The four hourglass Upgrades (Graveyard, Ember
- * Mines, Frost Peaks and Meteor Field materials) each add an hour a star, 5 hours at 5★: 24 hours with all four.
+ * Hours away that count toward offline progress, to start with. Ten Hourglasses (crafted once each, from a
+ * Guardian's spoils and the rare ores and gems along the way, one an area from the Woods to the Meteor Field)
+ * add 2 hours each: 24 hours with all ten.
  */
 export const OFFLINE_BASE_SEC = 4 * 3600;
-export const OFFLINE_HOURGLASSES = ['boneHourglass', 'emberHourglass', 'frostHourglass', 'starHourglass'] as const;
+export const OFFLINE_HOURGLASS_SEC = 2 * 3600;
+export const OFFLINE_HOURGLASSES = ['slimeHourglass', 'pixieHourglass', 'boneHourglass', 'lichHourglass', 'watcherHourglass', 'demonHourglass', 'venomHourglass', 'glacialHourglass', 'stormHourglass', 'starHourglass'] as const;
 /** Fraction of the online kill rate earned while away. */
 export const OFFLINE_EFFICIENCY = 0.5;
 /** Shorter absences are granted silently (no Welcome Back popup), e.g. when switching apps. */
@@ -2748,9 +2750,15 @@ export type ItemId =
   | 'forestIdol'
   | 'graveWhetstone'
   | 'batwingGloves'
+  | 'slimeHourglass'
+  | 'pixieHourglass'
   | 'boneHourglass'
-  | 'emberHourglass'
-  | 'frostHourglass'
+  | 'lichHourglass'
+  | 'watcherHourglass'
+  | 'demonHourglass'
+  | 'venomHourglass'
+  | 'glacialHourglass'
+  | 'stormHourglass'
   | 'starHourglass';
 
 export interface ItemDef {
@@ -2768,6 +2776,8 @@ export interface ItemDef {
   recipe: Partial<Record<MaterialId, number>>;
   /** Material cost multiplier per step already owned. */
   growth: number;
+  /** Crafted once, no stars (an Hourglass): done at 1★. */
+  once?: boolean;
   /** What it does at a strength (in steps; see itemLevel). */
   describe: (level: number) => string;
 }
@@ -2797,11 +2807,19 @@ export const ITEMS: ItemDef[] = [
     describe: (l) => `Wandering Woods monsters: ×2 HP, ×${2 + 0.25 * (l - 1)} gold`,
   },
   { id: 'engine', name: 'Void Engine', icon: '🌀', rarity: 'artifact', maxLevel: 20, recipe: { shade: 10, void: 5, soul: 3 }, growth: 1.7, describe: (l) => `+${l * 10}% damage, +${l * 3}% attack rate` },
-  // Hourglasses: each star lets you be away an hour longer (offline progress starts at 4 hours, 24 with all four at 5★).
-  { id: 'boneHourglass', name: 'Bone Hourglass', icon: '⏳', rarity: 'rare', maxLevel: 5, recipe: { bone: 12, flesh: 8 }, growth: 1.6, describe: (l) => `+${l}h offline time` },
-  { id: 'emberHourglass', name: 'Ember Hourglass', icon: '⌛', rarity: 'veryRare', maxLevel: 5, recipe: { magma: 10, chitin: 6 }, growth: 1.6, describe: (l) => `+${l}h offline time` },
-  { id: 'frostHourglass', name: 'Frost Hourglass', icon: '🧊', rarity: 'exotic', maxLevel: 5, recipe: { frost: 10, fur: 6 }, growth: 1.6, describe: (l) => `+${l}h offline time` },
-  { id: 'starHourglass', name: 'Star Hourglass', icon: '🌠', rarity: 'artifact', maxLevel: 5, recipe: { meteor: 10, stardust: 6 }, growth: 1.6, describe: (l) => `+${l}h offline time` },
+  // Hourglasses: crafted once each, 2 more hours of offline time apiece (4 hours to start, 24 with all ten).
+  // One an area from the Woods to the Meteor Field: a Guardian's spoils early on, rare ores and gems later; each costs
+  // a good share of what you'd hold of them on reaching the next area.
+  { id: 'slimeHourglass', name: 'Slime Hourglass', icon: '⏳', rarity: 'uncommon', once: true, maxLevel: 1, recipe: { royalSlime: 6, goo: 400, bearClaw: 15 }, growth: 1, describe: () => '+2h offline time' },
+  { id: 'pixieHourglass', name: 'Pixie Hourglass', icon: '⌛', rarity: 'uncommon', once: true, maxLevel: 1, recipe: { regalEssence: 4, obsidian: 10, dust: 400 }, growth: 1, describe: () => '+2h offline time' },
+  { id: 'boneHourglass', name: 'Bone Hourglass', icon: '⏳', rarity: 'rare', once: true, maxLevel: 1, recipe: { calciumCrystal: 4, bone: 50_000, sacredText: 5_000 }, growth: 1, describe: () => '+2h offline time' },
+  { id: 'lichHourglass', name: 'Lich Hourglass', icon: '⌛', rarity: 'rare', once: true, maxLevel: 1, recipe: { eldritchText: 4, grave: 4_000, enchantedBone: 25_000 }, growth: 1, describe: () => '+2h offline time' },
+  { id: 'watcherHourglass', name: 'Watcher Hourglass', icon: '⏳', rarity: 'veryRare', once: true, maxLevel: 1, recipe: { everwatchingEye: 8, umbra: 6_000, umbralEye: 12_000 }, growth: 1, describe: () => '+2h offline time' },
+  { id: 'demonHourglass', name: 'Demon Hourglass', icon: '⌛', rarity: 'veryRare', once: true, maxLevel: 1, recipe: { forsakenSoul: 8, goldOre: 300, topaz: 300 }, growth: 1, describe: () => '+2h offline time' },
+  { id: 'venomHourglass', name: 'Venom Hourglass', icon: '⏳', rarity: 'legendary', once: true, maxLevel: 1, recipe: { cobaltOre: 2_500, ore: 150_000, emerald: 150 }, growth: 1, describe: () => '+2h offline time' },
+  { id: 'glacialHourglass', name: 'Glacial Hourglass', icon: '⌛', rarity: 'exotic', once: true, maxLevel: 1, recipe: { coldsteel: 1_500, sapphire: 800, diamond: 60 }, growth: 1, describe: () => '+2h offline time' },
+  { id: 'stormHourglass', name: 'Storm Hourglass', icon: '⏳', rarity: 'exotic', once: true, maxLevel: 1, recipe: { adamantite: 1_200, opal: 3_000, stormstone: 800 }, growth: 1, describe: () => '+2h offline time' },
+  { id: 'starHourglass', name: 'Star Hourglass', icon: '⌛', rarity: 'artifact', once: true, maxLevel: 1, recipe: { orichalcum: 1_000, starIron: 4_000, diamond: 200 }, growth: 1, describe: () => '+2h offline time' },
 ];
 
 export const itemDef = (id: ItemId): ItemDef => ITEMS.find((i) => i.id === id)!;
@@ -2817,6 +2835,9 @@ export function itemLevels(item: ItemDef): number[] {
   itemLevelCache.set(item.id, out);
   return out;
 }
+
+/** The stars an Upgrade goes up to: 5, or 1 for one crafted once. */
+export const itemMaxStars = (item: ItemDef): number => (item.once ? 1 : MAX_STARS);
 
 /** An Upgrade's strength at a star count. */
 export const itemLevel = (item: ItemDef, stars: number): number => itemLevels(item)[Math.max(0, Math.min(MAX_STARS, stars))];
