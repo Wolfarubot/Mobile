@@ -4591,3 +4591,55 @@ body.ui-parchment .tabs button.active {
 .beast-tags .beast-tag:first-child {
   margin-left: 0;
 }
+
+/* Pick-up pop-ups: the materials just gained, bottom left of the battlefield (placed clear of the HUD by the renderer). */
+.gain-pops {
+  position: absolute;
+  z-index: 3;
+  left: 8px;
+  bottom: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  pointer-events: none;
+}
+.gain-pop {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 7px 1px 3px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 2px solid var(--c0);
+  color: var(--c3);
+  animation: gain-in 0.18s ease-out;
+}
+.gain-pop .gem-ic,
+.gain-pop .gem {
+  margin: 0;
+  vertical-align: 0;
+}
+.gain-pop b {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.gain-pop.rare {
+  border-color: #ffd86e;
+}
+.gain-pop.rare b {
+  color: #ffe9a6;
+}
+.gain-pop b.bump {
+  animation: gain-bump 0.2s ease-out;
+}
+@keyframes gain-in {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+}
+@keyframes gain-bump {
+  50% {
+    transform: scale(1.25);
+  }
+}

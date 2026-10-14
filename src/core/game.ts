@@ -149,7 +149,9 @@ export type GameEvent =
   /** The last area's Guardian (the Time Eater) fell: the Void Rift is conquered. */
   | { type: 'finalGuardian' }
   /** A monster dropped a piece of gear (auto-salvaged into materials if its rarity is set to). */
-  | { type: 'loot'; gear: GearId; stars: number; salvaged: boolean };
+  | { type: 'loot'; gear: GearId; stars: number; salvaged: boolean }
+  /** Materials a kill on the field dropped (for the battlefield's pick-up pop-ups). */
+  | { type: 'gains'; materials: Partial<Record<MaterialId, number>> };
 
 /** Wilhelm's two weapon slots: 'long' is his usual weapon, 'short' the one he switches to up close. */
 /** Which of a Hunter's skill trees: their first, or the one they grow after ascending. */
@@ -1434,6 +1436,16 @@ export class Game {
   registerKill(type: EnemyId, boss: boolean, shooter: Shooter = 'main'): KillReward {
     const s = this.state;
     const e = this.enemyStats(type);
+    // The kill's drops, gathered up for one 'gains' event (not the auto-salvaged gear's refunds).
+    const got: Partial<Record<MaterialId, number>> = {};
+    const gain = (m: MaterialId, n: number): void => {
+      if (n <= 0) return;
+      this.gainMaterial(m, n);
+      got[m] = (got[m] ?? 0) + n;
+    };
+    const told = (): void => {
+      if (Object.keys(got).length) this.emit({ type: 'gains', materials: got });
+    };
     s.stats.totalKills++;
     s.stats.hunterKills[shooter] = (s.stats.hunterKills[shooter] ?? 0) + 1;
     if (boss) {
@@ -1441,7 +1453,8 @@ export class Game {
       s.gold += gold;
       s.stats.totalGold += gold;
       s.areas[s.area].gold += gold;
-      this.gainMaterial(e.material, BOSS_MATERIAL_DROP);
+      gain(e.material, BOSS_MATERIAL_DROP);
+      told();
       this.dropLoot(s.area); // every Guardian carries a piece
       s.stats.guardians++;
       const next = this.lockedNext;
@@ -1460,17 +1473,18 @@ export class Game {
     s.bestiary[type].kills++;
     const chance = e.dropChance * this.shooterDrops(shooter);
     const amount = dropsFrom(chance, this.rng());
-    this.gainMaterial(e.material, amount);
+    gain(e.material, amount);
     // More drops (a Forest Wolf's Beast Bone, a golem's rarer stones), each at its share of the chance.
-    for (const d of enemyExtraDrops(enemyDef(type))) this.gainMaterial(d.material, dropsFrom(chance * d.share, this.rng()));
+    for (const d of enemyExtraDrops(enemyDef(type))) gain(d.material, dropsFrom(chance * d.share, this.rng()));
     // Legacies of fully evolved monsters of its archetype (every slime's chance at Royal Slime).
-    for (const d of this.legacyDrops(enemyDef(type).archetype)) this.gainMaterial(d.material, dropsFrom(chance * d.share, this.rng()));
+    for (const d of this.legacyDrops(enemyDef(type).archetype)) gain(d.material, dropsFrom(chance * d.share, this.rng()));
     s.areas[enemyDef(type).area].kills++;
     // Gear that finds extra materials (the Slime Vial at 5★: Royal Slime from slimes).
     for (const item of this.equipped(shooter)) {
       const fd = item ? gearDef(item.base).findDrop : undefined;
-      if (item && fd && item.stars >= fd.stars && enemyDef(type).archetype === fd.archetype && this.rng() < fd.chance) this.gainMaterial(fd.material, 1);
+      if (item && fd && item.stars >= fd.stars && enemyDef(type).archetype === fd.archetype && this.rng() < fd.chance) gain(fd.material, 1);
     }
+    told();
     const loot = lootChance(type) * this.areaPerk(enemyDef(type).area).loot;
     if (loot > 0 && this.rng() < loot) this.dropLoot(enemyDef(type).area);
     return { gold, material: amount > 0 ? e.material : null, amount };

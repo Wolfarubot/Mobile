@@ -281,6 +281,19 @@ describe('Enemies & archetypes', () => {
     expect(g.state.areas.forest.kills).toBe(1);
   });
 
+  it("a kill reports its drops in one 'gains' event, for the battlefield's pick-up pop-ups", () => {
+    const g = new Game(newGame(0), () => 0);
+    const gains: Array<Partial<Record<string, number>>> = [];
+    g.on((e) => {
+      if (e.type === 'gains') gains.push(e.materials);
+    });
+    const before = { ...g.state.materials };
+    g.registerKill('wolf', false);
+    expect(gains).toHaveLength(1);
+    for (const [m, n] of Object.entries(gains[0])) expect(g.state.materials[m as keyof typeof before] - before[m as keyof typeof before]).toBe(n);
+    expect(gains[0].pelt).toBe(1);
+  });
+
   it('bestiary: unlock enemies in unlocked areas; Empower makes them tougher but richer and levels them up', () => {
     const g = rich();
     expect(g.unlockEnemy('zombie')).toBe(false); // graveyard still locked

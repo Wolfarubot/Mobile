@@ -101,6 +101,7 @@ import { MINIGAMES, runMinigame } from './minigames';
 import { applyAreaTheme, applyUiStyle } from './theme';
 import { playCutscene, TIME_EATER_CUTSCENE } from './cutscene';
 import { applyFont, fontDef, FONTS } from './fonts';
+import { GainPops } from './gainPops';
 
 type Tab = TabId;
 /** What treeView needs to draw and drive a skill or evolution tree. */
@@ -285,7 +286,11 @@ export class AppUI {
     this.menuGestures();
     this.applySettings();
     // Panels that depend on which areas/enemies/Hunters exist are rebuilt when those change.
+    // Materials picked up on the battlefield pop up in its bottom left.
+    const pops = new GainPops($('#gainPops'), (m) => gemHtml(m), fmt);
     game.on((e) => {
+      if (e.type === 'gains') for (const [m, n] of Object.entries(e.materials) as [MaterialId, number][]) pops.add(m, n);
+      if (e.type === 'travel') pops.clear();
       if (e.type === 'areaUnlocked' || e.type === 'travel' || e.type === 'unlock' || e.type === 'recruit') this.setTab(this.tab, true);
       else if (e.type === 'eventComplete') this.setTab(this.tab, true); // may have made Hunters available
       else if (e.type === 'finalGuardian' && this.game.state.events['guardian-rift'].completed === 1) this.showRiftConquered();

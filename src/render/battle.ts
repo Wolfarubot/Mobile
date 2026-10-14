@@ -19,6 +19,8 @@ import { outlineOf } from './outline';
 const EVENT_BAR_H = 9;
 const HP_BAR_H = 15;
 const TIME_BAR_H = 9;
+/** About how wide the pick-up pop-ups (bottom left) get, for keeping them clear of the rest of the HUD. */
+const GAIN_POPS_W = 90;
 
 interface Pickup {
   x: number;
@@ -1249,6 +1251,31 @@ export class BattleView {
     return inWay.filter((b) => b.bottom > this.h / 2).reduce((y, b) => Math.min(y, b.top - 4), this.h - 4) - height;
   }
 
+  /**
+   * Keeps the pick-up pop-ups (bottom left) clear of the rest of the HUD: right of cooldown icons down the left
+   * edge, and above the DPS meter, cooldown icons along the bottom, and the event or Guardian bar there.
+   */
+  private placeGainPops(bar: { top: number; bottom: number; left: number; right: number } | null): void {
+    const wrap = this.cooldownBar.el.parentElement;
+    const pops = wrap?.querySelector<HTMLElement>('#gainPops');
+    if (!pops) return;
+    const boxes: Array<{ top: number; bottom: number; left: number; right: number }> = [];
+    const cd = this.cooldownBar.rect();
+    if (cd) boxes.push(cd);
+    const meter = wrap?.querySelector<HTMLElement>('#dpsMeter');
+    if (meter && !meter.classList.contains('hidden'))
+      boxes.push({ top: meter.offsetTop, bottom: meter.offsetTop + meter.offsetHeight, left: meter.offsetLeft, right: meter.offsetLeft + meter.offsetWidth });
+    if (bar) boxes.push(bar);
+    // Cooldown icons down the left edge: start right of them.
+    const left = cd && this.game.state.settings.cooldownPos === 'left' ? cd.right + 6 : 8;
+    const right = left + GAIN_POPS_W;
+    const bottom = boxes.filter((b) => b.right > left && b.left < right && b.bottom > this.h / 2).reduce((y, b) => Math.min(y, b.top - 4), this.h - 6);
+    const l = `${Math.round(left)}px`;
+    const bt = `${Math.round(this.h - bottom)}px`;
+    if (pops.style.left !== l) pops.style.left = l;
+    if (pops.style.bottom !== bt) pops.style.bottom = bt;
+  }
+
   private drawHud(g: CanvasRenderingContext2D): void {
     const w = this.w;
     const boss = this.field.enemies.find((e) => e.boss);
@@ -1260,7 +1287,9 @@ export class BattleView {
     const nw = Math.floor(Math.min(w * 0.8, 360) / S);
     const bw = nw * S;
     const x = Math.round((w - bw) / 2);
-    const y0 = ev || boss ? this.hudTop(x, x + bw, boss ? 20 + (HP_BAR_H + TIME_BAR_H) * S + 2 : 20 + EVENT_BAR_H * S) : 0;
+    const hh = boss ? 20 + (HP_BAR_H + TIME_BAR_H) * S + 2 : 20 + EVENT_BAR_H * S;
+    const y0 = ev || boss ? this.hudTop(x, x + bw, hh) : 0;
+    this.placeGainPops(ev || boss ? { top: y0, bottom: y0 + hh, left: x, right: x + bw } : null);
     /** A label with a black outline, so it reads over the battlefield. */
     const label = (text: string, cx: number, color: string) => {
       g.lineWidth = 3;

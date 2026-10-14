@@ -667,6 +667,16 @@ export type MaterialId =
   | 'void'
   | 'soul';
 
+/**
+ * The golems' ores and gems (and their stones), the rarer materials: on the battlefield's pick-up pop-ups they
+ * push out the common drops' rows.
+ */
+export const RARE_MATERIALS: ReadonlySet<MaterialId> = new Set<MaterialId>([
+  'awokenRock', 'obsidian', 'ironOre', 'silverOre', 'goldOre', 'quartz', 'amethyst', 'topaz', 'emerald', 'diamond', 'cobaltOre', 'venomite',
+  'frostIron', 'coldsteel', 'aquamarine', 'sapphire', 'skysteel', 'adamantite', 'opal', 'stormstone', 'starIron', 'orichalcum', 'voidsteel',
+  'voidPrism', 'ore',
+]);
+
 export interface MaterialDef {
   id: MaterialId;
   name: string;
