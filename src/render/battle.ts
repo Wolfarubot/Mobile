@@ -1253,7 +1253,8 @@ export class BattleView {
 
   /**
    * Keeps the pick-up pop-ups (bottom left) clear of the rest of the HUD: right of cooldown icons down the left
-   * edge, and above the DPS meter, cooldown icons along the bottom, and the event or Guardian bar there.
+   * edge, and above the DPS meter and cooldown icons along the bottom. During an event (a rush) with its bar at the
+   * bottom, they always sit above the bar, however wide the battlefield. (A Guardian fight hides them.)
    */
   private placeGainPops(bar: { top: number; bottom: number; left: number; right: number } | null): void {
     const wrap = this.cooldownBar.el.parentElement;
@@ -1265,11 +1266,11 @@ export class BattleView {
     const meter = wrap?.querySelector<HTMLElement>('#dpsMeter');
     if (meter && !meter.classList.contains('hidden'))
       boxes.push({ top: meter.offsetTop, bottom: meter.offsetTop + meter.offsetHeight, left: meter.offsetLeft, right: meter.offsetLeft + meter.offsetWidth });
-    if (bar) boxes.push(bar);
     // Cooldown icons down the left edge: start right of them.
     const left = cd && this.game.state.settings.cooldownPos === 'left' ? cd.right + 6 : 8;
     const right = left + GAIN_POPS_W;
-    const bottom = boxes.filter((b) => b.right > left && b.left < right && b.bottom > this.h / 2).reduce((y, b) => Math.min(y, b.top - 4), this.h - 6);
+    const lift = bar && bar.bottom > this.h / 2 ? bar.top - 4 : this.h - 6;
+    const bottom = boxes.filter((b) => b.right > left && b.left < right && b.bottom > this.h / 2).reduce((y, b) => Math.min(y, b.top - 4), lift);
     const l = `${Math.round(left)}px`;
     const bt = `${Math.round(this.h - bottom)}px`;
     if (pops.style.left !== l) pops.style.left = l;
@@ -1289,7 +1290,7 @@ export class BattleView {
     const x = Math.round((w - bw) / 2);
     const hh = boss ? 20 + (HP_BAR_H + TIME_BAR_H) * S + 2 : 20 + EVENT_BAR_H * S;
     const y0 = ev || boss ? this.hudTop(x, x + bw, hh) : 0;
-    this.placeGainPops(ev || boss ? { top: y0, bottom: y0 + hh, left: x, right: x + bw } : null);
+    this.placeGainPops(ev && !boss ? { top: y0, bottom: y0 + hh, left: x, right: x + bw } : null);
     /** A label with a black outline, so it reads over the battlefield. */
     const label = (text: string, cx: number, color: string) => {
       g.lineWidth = 3;

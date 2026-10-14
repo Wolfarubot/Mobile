@@ -289,8 +289,9 @@ export class AppUI {
     // Materials picked up on the battlefield pop up in its bottom left.
     const pops = new GainPops($('#gainPops'), (m) => gemHtml(m), fmt);
     game.on((e) => {
-      if (e.type === 'gains') for (const [m, n] of Object.entries(e.materials) as [MaterialId, number][]) pops.add(m, n);
-      if (e.type === 'travel') pops.clear();
+      // Not during a Guardian fight: the fight matters more than its drops.
+      if (e.type === 'gains' && !game.guardianActive) for (const [m, n] of Object.entries(e.materials) as [MaterialId, number][]) pops.add(m, n);
+      if (e.type === 'travel' || e.type === 'guardianChallenge') pops.clear();
       if (e.type === 'areaUnlocked' || e.type === 'travel' || e.type === 'unlock' || e.type === 'recruit') this.setTab(this.tab, true);
       else if (e.type === 'eventComplete') this.setTab(this.tab, true); // may have made Hunters available
       else if (e.type === 'finalGuardian' && this.game.state.events['guardian-rift'].completed === 1) this.showRiftConquered();
