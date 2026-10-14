@@ -294,6 +294,17 @@ describe('Enemies & archetypes', () => {
     expect(gains[0].pelt).toBe(1);
   });
 
+  it("a Guardian's drops are reported once its fight is over, for the pick-up pop-ups", () => {
+    const g = rich();
+    let during: boolean | null = null;
+    g.on((e) => {
+      if (e.type === 'gains') during = g.guardianActive;
+    });
+    g.guardianActive = true;
+    g.registerKill(g.guardianType, true);
+    expect(during).toBe(false);
+  });
+
   it('bestiary: unlock enemies in unlocked areas; Empower makes them tougher but richer and levels them up', () => {
     const g = rich();
     expect(g.unlockEnemy('zombie')).toBe(false); // graveyard still locked
