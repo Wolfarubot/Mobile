@@ -1,5 +1,5 @@
 import { areaDef, DAMAGE_TYPES, FIELD_ZOOM, FLYING, gearDef, WEAPON_CLASSES, STATUS, enemyDef, eventDef, fieldZoom, GUARDIAN_TIME, hunterDef, materialDef, SIZE_SCALE, type DamageType, type EnemyId, type EnemyShape } from '../core/balance';
-import { PLAYER_RADIUS, SHOT_RADIUS, SUMMON_RADIUS, type EnemyShot, type Summon, type Bullet, type BulletKind, type Enemy, type Field, type Helper } from '../core/field';
+import { PLAYER_RADIUS, SHOT_RADIUS, SUMMON_RADIUS, TOME_LIFE, TOME_OPEN, type EnemyShot, type Summon, type Bullet, type BulletKind, type Enemy, type Field, type Helper } from '../core/field';
 import { fmt } from '../core/format';
 import type { Game, Shooter } from '../core/game';
 import type { ClarityLevel, FxKey } from '../core/state';
@@ -466,6 +466,7 @@ export class BattleView {
     this.drawBoneWall(g);
 
     for (const b of this.field.bullets) drawBullet(g, b, this.time, this.game.state.settings.aoeStyle === 'basic');
+    this.drawTomes(g);
     for (const s of this.field.shots) drawEnemyShot(g, s, this.time, CHAR_SCALE, this.clarity);
 
     // Tome spirits: a glowing wisp with a trailing tail, fading as their time runs out.
@@ -1286,6 +1287,43 @@ export class BattleView {
     set(onLeft ? 'right' : 'left', '');
     set(top ? 'top' : 'bottom', px(edge));
     set(top ? 'bottom' : 'top', '');
+  }
+
+  /**
+   * Thomas's tomes: an open book glowing over the field, the icon of the Hunter whose special it recalls above it,
+   * fading in as it opens and out once its copy is cast.
+   */
+  private drawTomes(g: CanvasRenderingContext2D): void {
+    if (!this.field.tomes.length) return;
+    const book = gearImage('wands-books/062');
+    for (const t of this.field.tomes) {
+      const a = Math.min(1, t.age / TOME_OPEN, (TOME_LIFE - t.age) / 0.35);
+      if (a <= 0) continue;
+      const bob = Math.sin(t.age * 6) * 2;
+      this.scaledAt(g, t.x, t.y, () => {
+        g.save();
+        g.globalAlpha = a * 0.45;
+        g.fillStyle = '#c9b8ff';
+        g.beginPath();
+        g.ellipse(t.x, t.y + 9, 22, 9, 0, 0, Math.PI * 2);
+        g.fill();
+        g.globalAlpha = a;
+        g.imageSmoothingEnabled = false;
+        if (book?.complete && book.naturalWidth) g.drawImage(book, t.x - 16, t.y - 20 + bob, 32, 32);
+        else {
+          g.fillStyle = '#f2e6c8';
+          g.fillRect(t.x - 13, t.y - 14 + bob, 26, 18);
+        }
+        const ic = gearImage(HUNTER_ICONS[t.source]);
+        if (ic?.complete && ic.naturalWidth) {
+          g.strokeStyle = '#000';
+          g.lineWidth = 2;
+          g.strokeRect(t.x - 8, t.y - 40 + bob, 16, 16);
+          g.drawImage(ic, t.x - 8, t.y - 40 + bob, 16, 16);
+        }
+        g.restore();
+      });
+    }
   }
 
   private drawHud(g: CanvasRenderingContext2D): void {

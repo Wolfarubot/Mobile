@@ -30,6 +30,8 @@ import {
   SHIELD_DEFLECT_PAUSE,
   type EnemyId,
   type HunterId,
+  type HunterSpecial,
+  HUNTERS,
 } from './balance';
 import type { Game, GearMode, KillReward, Shooter } from './game';
 
@@ -225,7 +227,29 @@ export interface Bullet {
   bleed?: boolean;
   /** A multi-type weapon firing one type per projectile: the one this projectile deals (at full damage). */
   dtype?: DamageType;
+  /** A copied potion's puddle length, in ticks (Thomas's tome; otherwise the thrower's own special's). */
+  ticks?: number;
 }
+
+/** Who can cast a special: a Guild Hunter on the field, or the Hunter in the middle when that's one of them. */
+type SpecialCaster = { id: HunterId; x: number; y: number; specialCd: number; aim: number };
+
+/** One of Thomas's tomes: where it opened, whose special it copies, and how long it's been open. */
+export interface Tome {
+  by: HunterId;
+  source: HunterId;
+  special: HunterSpecial;
+  x: number;
+  y: number;
+  age: number;
+  cast: boolean;
+}
+
+/** Seconds a tome takes to open before its copy bursts out, and how long it stays before fading. */
+export const TOME_OPEN = 0.5;
+export const TOME_LIFE = 1.6;
+/** Chance Thomas's tome copies a Hunter fighting here (rather than any other Hunter you've recruited). */
+export const RECALL_HERE_CHANCE = 0.85;
 
 export interface Puddle {
   shooter: Shooter;
@@ -286,6 +310,10 @@ export class Field {
   /** Ranged monsters' projectiles in flight. */
   shots: EnemyShot[] = [];
   puddles: Puddle[] = [];
+  /** Thomas's tomes, open on the field (see recall). */
+  tomes: Tome[] = [];
+  /** The Hunter in the middle's special cooldown, when that's a Guild Hunter (see update). */
+  private leadCaster: SpecialCaster = { id: 'alchemist', x: 0, y: 0, specialCd: 1, aim: 0 };
   /** A focus's waves: rings expanding from where they were sent, hitting each monster once as they pass. */
   waves: Array<{ who: Shooter; x: number; y: number; r: number; max: number; hit: Set<number> }> = [];
   /** Seconds of stun left on your Hunter (can't shoot while > 0). */
@@ -336,6 +364,7 @@ export class Field {
     private game: Game,
     readonly lead: Shooter = 'main',
   ) {
+    if (lead !== 'main') this.leadCaster.id = lead;
     game.on((e) => {
       if (e.type === 'travel') this.clear();
       if (e.type === 'guardianFail') this.enemies = this.enemies.filter((en) => !en.boss);
@@ -383,6 +412,7 @@ export class Field {
     this.bullets = [];
     this.shots = [];
     this.puddles = [];
+    this.tomes = [];
     this.stun = 0;
     this.immune = 0;
     this.guard = this.game.guardOf(this.lead);
@@ -529,6 +559,14 @@ export class Field {
         break;
       }
     }
+    // The Hunter in the middle's special, when that's a Guild Hunter (a stationed group's background sample).
+    if (this.lead !== 'main' && hunterDef(this.lead).special && !this.stunned) {
+      this.leadCaster.x = 0;
+      this.leadCaster.y = 0;
+      this.helperSpecial(this.leadCaster, dt);
+      this.aim = this.leadCaster.aim;
+    }
+    this.runTomes(dt);
     this.runStabs(dt);
     this.runSummons(dt);
     this.runGearEffects(dt);
@@ -981,90 +1019,164 @@ export class Field {
     for (const { effect, chance } of g.attackEnchants(who)) if (g.rng() < chance) this.fireGear(who, x, y, effect, 1, 0);
   }
 
-  /** Andrejz's potion / Glimmer's fireball: cast at the nearest monster in range whenever the cooldown is up. */
-  private helperSpecial(h: Helper, dt: number): void {
+  /** A Guild Hunter's special (Andrejz's potion, Glimmer's fireball…): cast at the nearest monster in range when it's up. */
+  private helperSpecial(h: SpecialCaster, dt: number): void {
     const g = this.game;
     const sp = hunterDef(h.id).special!;
     h.specialCd = Math.max(0, h.specialCd - dt);
     if (h.specialCd > 0) return;
+    if (sp.kind === 'recall') {
+      this.recall(h);
+      return;
+    }
     // Specials reach at least as far as a bow would, even for a Hunter holding a melee weapon.
     const range = Math.max(g.shooterRange(h.id), MAIN_RANGE);
     const target = this.nearest(h.x, h.y, range);
     if (!target) return;
-    const a = Math.atan2(target.y - h.y, target.x - h.x);
-    const radius = g.specialRadius(h.id);
-    const dmg = g.specialDamageMult(h.id);
+    if (!this.castSpecial(h.id, sp, h.x, h.y, target, range, g.specialRadius(h.id), g.specialDamageMult(h.id))) return;
+    h.specialCd = sp.cooldown;
+    h.aim = Math.atan2(target.y - h.y, target.x - h.x);
+  }
+
+  /**
+   * Casts a special from (x, y) at `target`, as `by` (their damage and gear power it): its own Hunter's, or a
+   * copy from Thomas's tome (`only` then keeps the copied special's damage type). False if it can't go yet.
+   */
+  private castSpecial(by: Shooter, sp: HunterSpecial, x: number, y: number, target: Enemy, range: number, radius: number, dmg: number, only?: DamageType): boolean {
+    const g = this.game;
+    const a = Math.atan2(target.y - y, target.x - x);
     if (sp.kind === 'wave') {
       // Themus's Crimson Wave: a surge of blood along a band toward the nearest monster, hurting and bleeding
       // everything in it. With Blood Rain, each monster it kills bursts into blood bolts at others nearby.
-      h.specialCd = sp.cooldown;
-      h.aim = a;
       const cx = Math.cos(a);
       const cy = Math.sin(a);
       const width = sp.width ?? 24;
-      this.events.push({ type: 'beam', x1: h.x, y1: h.y, x2: h.x + cx * radius, y2: h.y + cy * radius, color: '#c0242c', width: width * 1.4 });
-      const bolts = Math.round(g.tree(h.id).bolts);
+      this.events.push({ type: 'beam', x1: x, y1: y, x2: x + cx * radius, y2: y + cy * radius, color: '#c0242c', width: width * 1.4 });
+      const bolts = Math.round(g.tree(by).bolts);
       for (const o of [...this.enemies]) {
         if (o.hp <= 0) continue;
-        const t = (o.x - h.x) * cx + (o.y - h.y) * cy;
-        const perp = Math.abs((o.x - h.x) * cy - (o.y - h.y) * cx);
+        const t = (o.x - x) * cx + (o.y - y) * cy;
+        const perp = Math.abs((o.x - x) * cy - (o.y - y) * cx);
         if (t <= 0 || t > radius + o.r || perp > width + o.r) continue;
-        this.hitWith(h.id, o, dmg, h.x, h.y, undefined, undefined, true, true);
-        this.bleed(o, h.id, dmg);
+        this.hitWith(by, o, dmg, x, y, undefined, undefined, true, true, only);
+        this.bleed(o, by, dmg);
         if (o.hp <= 0 && bolts > 0) {
           const taken: number[] = [o.id];
           for (let i = 0; i < bolts; i++) {
             const next = this.nearest(o.x, o.y, BLOOD_BOLT_RANGE, taken);
             if (!next) break;
             taken.push(next.id);
-            this.shoot(h.id, 'blood', o.x, o.y, Math.atan2(next.y - o.y, next.x - o.x), 420, BLOOD_BOLT_RANGE, { dmg: dmg * 0.5, special: true, bleed: true });
+            this.shoot(by, 'blood', o.x, o.y, Math.atan2(next.y - o.y, next.x - o.x), 420, BLOOD_BOLT_RANGE, { dmg: dmg * 0.5, special: true, bleed: true });
           }
         }
       }
-      return;
+      return true;
     }
     if (sp.kind === 'spikes') {
       // Gideon's Bone Spikes burst up under the nearest monster, hurting everything around it and holding it in
       // place. They wait while his Bone Wall stands.
-      if (this.boneWall > 0) return;
-      h.specialCd = sp.cooldown;
-      h.aim = a;
-      const x = target.x;
-      const y = target.y;
-      this.events.push({ type: 'nova', x, y, r: radius, color: '#efe4c8' });
+      if (this.boneWall > 0 && !only) return false;
+      const tx = target.x;
+      const ty = target.y;
+      this.events.push({ type: 'nova', x: tx, y: ty, r: radius, color: '#efe4c8' });
       for (const o of this.enemies)
-        if (o.hp > 0 && Math.hypot(o.x - x, o.y - y) <= radius + o.r) {
-          this.hitWith(h.id, o, dmg, x, y, undefined, undefined, true, true);
+        if (o.hp > 0 && Math.hypot(o.x - tx, o.y - ty) <= radius + o.r) {
+          this.hitWith(by, o, dmg, tx, ty, undefined, undefined, true, true, only);
           o.held = Math.max(o.held ?? 0, (sp.hold ?? 1) * (o.boss ? 0.25 : 1));
           this.events.push({ type: 'thorns', x: o.x, y: o.y, r: o.r });
         }
-      return;
+      return true;
     }
     if (sp.kind === 'punch') {
       // Sciirj's Mountain Fist: waits until a monster is within reach, then one huge blow at everything in front
       // of him, knocking the survivors far back.
-      if (Math.hypot(target.x - h.x, target.y - h.y) > radius + target.r) return;
-      h.specialCd = sp.cooldown;
-      h.aim = a;
-      this.strikeArc(h.id, h.x, h.y, a, radius, sp.arc ?? 1.6, dmg, sp.knock ?? 0);
-      const px = h.x + Math.cos(a) * radius * 0.6;
-      const py = h.y + Math.sin(a) * radius * 0.6;
-      this.events.push({ type: 'punch', x: h.x, y: h.y, a, r: radius });
+      if (Math.hypot(target.x - x, target.y - y) > radius + target.r) return false;
+      this.strikeArc(by, x, y, a, radius, sp.arc ?? 1.6, dmg, sp.knock ?? 0);
+      const px = x + Math.cos(a) * radius * 0.6;
+      const py = y + Math.sin(a) * radius * 0.6;
+      this.events.push({ type: 'punch', x, y, a, r: radius });
       this.events.push({ type: 'nova', x: px, y: py, r: radius * 0.55, color: '#ffb060' });
-      return;
+      return true;
     }
-    h.specialCd = sp.cooldown;
     if (sp.summon) {
       // Two creatures (Deku's spirit wolves, Theon's puppets): each hunts for 6s, biting 1.5 times a second for
       // the special's damage (their "radius" skills make them fiercer).
       const mult = dmg * (radius / sp.radius);
+      const life = 6 * g.summonDurationMult(by);
       for (const side of [-1, 1])
-        this.summons.push({ who: h.id, type: sp.summon.type, x: h.x + side * 18, y: h.y, life: 6 * g.summonDurationMult(h.id), maxLife: 6 * g.summonDurationMult(h.id), bite: 0, look: sp.summon.look, dash: 0, dashHit: false, own: { bites: 1.5, speed: sp.summon.look === 'wolf' ? 170 : 140, mult } });
-      this.events.push({ type: 'nova', x: h.x, y: h.y, r: 30, color: sp.summon.look === 'wolf' ? '#8fdc7a' : '#d8a878' });
+        this.summons.push({ who: by, type: sp.summon.type, x: x + side * 18, y, life, maxLife: life, bite: 0, look: sp.summon.look, dash: 0, dashHit: false, own: { bites: 1.5, speed: sp.summon.look === 'wolf' ? 170 : 140, mult } });
+      this.events.push({ type: 'nova', x, y, r: 30, color: sp.summon.look === 'wolf' ? '#8fdc7a' : '#d8a878' });
     } else if (sp.kind === 'potion') {
-      const d = Math.hypot(target.x - h.x, target.y - h.y);
-      this.shoot(h.id, 'potion', h.x, h.y, a, 300, d, { radius, dmg, tx: target.x, ty: target.y, special: true });
-    } else this.shoot(h.id, 'fireball', h.x, h.y, a, 380, range, { radius, dmg, special: true });
+      const d = Math.hypot(target.x - x, target.y - y);
+      this.shoot(by, 'potion', x, y, a, 300, d, { radius, dmg, tx: target.x, ty: target.y, special: true, dtype: only, ticks: sp.ticks });
+    } else this.shoot(by, 'fireball', x, y, a, 380, range, { radius, dmg, special: true, dtype: only });
+    return true;
+  }
+
+  /**
+   * Thomas's Recall: a tome opens somewhere on the field, and a moment later another Hunter's special bursts from
+   * it. Mostly the special of a Hunter fighting here; now and then that of any other Hunter you've recruited.
+   */
+  private recall(h: SpecialCaster): void {
+    const g = this.game;
+    const pick = this.recallPick(h.id);
+    if (!pick) return;
+    const sp = pick.special;
+    // Somewhere on the field with a monster within reach of it (a punch needs one right beside it).
+    let spot: { x: number; y: number } | null = null;
+    for (let i = 0; i < 6 && !spot; i++) {
+      const x = (g.rng() * 2 - 1) * this.halfW * 0.85;
+      const y = (g.rng() * 2 - 1) * this.halfH * 0.85;
+      const t = this.nearest(x, y, sp.kind === 'punch' ? MAIN_RANGE * 0.6 : MAIN_RANGE);
+      if (!t) continue;
+      if (sp.kind === 'punch') {
+        // Opens right beside it, so the blow lands.
+        const a = g.rng() * Math.PI * 2;
+        spot = { x: t.x + Math.cos(a) * (t.r + 20), y: t.y + Math.sin(a) * (t.r + 20) };
+      } else spot = { x, y };
+    }
+    if (!spot) return; // nothing on the field yet: try again next moment
+    h.specialCd = hunterDef(h.id).special!.cooldown;
+    this.tomes.push({ by: h.id, source: pick.id, special: sp, x: spot.x, y: spot.y, age: 0, cast: false });
+    this.events.push({ type: 'nova', x: spot.x, y: spot.y, r: 26, color: '#c9b8ff' });
+  }
+
+  /** Which Hunter's special Thomas's tome copies (null if no recruited Hunter has an active one). */
+  private recallPick(by: HunterId): { id: HunterId; special: HunterSpecial } | null {
+    const g = this.game;
+    const active = (id: HunterId) => id !== by && !!hunterDef(id).special && hunterDef(id).special!.kind !== 'recall';
+    const here = [this.lead, ...this.helpers.map((x) => x.id)].filter((id): id is HunterId => id !== 'main' && active(id as HunterId));
+    const others = HUNTERS.filter((d) => active(d.id) && g.state.hunters[d.id].recruited && !here.includes(d.id)).map((d) => d.id);
+    const pool = here.length && (!others.length || g.rng() < RECALL_HERE_CHANCE) ? here : others;
+    if (!pool.length) return null;
+    const id = pool[Math.floor(g.rng() * pool.length)];
+    return { id, special: hunterDef(id).special! };
+  }
+
+  /** Thomas's open tomes: each casts its copied special once it has opened, then fades. */
+  private runTomes(dt: number): void {
+    if (!this.tomes.length) return;
+    const g = this.game;
+    for (const t of this.tomes) {
+      t.age += dt;
+      if (t.cast || t.age < TOME_OPEN) continue;
+      const on = t.by === this.lead || this.helpers.some((x) => x.id === t.by);
+      if (!on) {
+        t.age = TOME_LIFE;
+        continue;
+      }
+      const range = Math.max(g.shooterRange(t.by), MAIN_RANGE);
+      const target = this.nearest(t.x, t.y, range);
+      if (!target) {
+        if (t.age > TOME_LIFE - 0.2) t.cast = true; // nothing came near: it closes unused
+        continue;
+      }
+      // The copy: the special's own shape and power, driven by Thomas's damage, attack rate (its size) and skills.
+      const radius = t.special.radius * (1 + (g.weaponStats(t.by).rate ?? 0)) * g.radiusMult(t.by);
+      const dmg = t.special.damage * g.specialDamageMult(t.by);
+      t.cast = this.castSpecial(t.by, t.special, t.x, t.y, target, range, radius, dmg, t.special.summon ? undefined : t.special.damageType) || t.age > TOME_LIFE - 0.2;
+    }
+    this.tomes = this.tomes.filter((t) => t.age < TOME_LIFE);
   }
 
   // ---- Cooldowns (for the battlefield's cooldown icons) ----
@@ -1161,7 +1273,7 @@ export class Field {
     angle: number,
     speed: number,
     range: number,
-    o: { pierce?: number; spread?: boolean; dmg?: number; radius?: number; bounces?: number; slow?: number; tx?: number; ty?: number; mode?: GearMode; special?: boolean; followThrough?: number; volley?: number; stack?: number; bleed?: boolean },
+    o: { pierce?: number; spread?: boolean; dmg?: number; radius?: number; bounces?: number; slow?: number; tx?: number; ty?: number; mode?: GearMode; special?: boolean; followThrough?: number; volley?: number; stack?: number; bleed?: boolean; dtype?: DamageType; ticks?: number },
   ): void {
     const g = this.game;
     const n = o.spread ? g.projectiles : 1;
@@ -1169,7 +1281,7 @@ export class Field {
     const types = !o.special && g.perShotOf(shooter, o.mode) ? g.damageTypesOf(shooter, o.mode) : null;
     for (let i = 0; i < n; i++) {
       const a = angle + (i - (n - 1) / 2) * MULTISHOT_SPREAD;
-      let dtype: DamageType | undefined;
+      let dtype: DamageType | undefined = o.dtype;
       if (types) {
         const turn = this.typeTurn.get(shooter) ?? 0;
         this.typeTurn.set(shooter, turn + 1);
@@ -1199,6 +1311,7 @@ export class Field {
         volley: o.volley,
         stack: o.stack,
         dtype,
+        ticks: o.ticks,
       });
     }
   }
@@ -1688,8 +1801,8 @@ export class Field {
         // Flies to its target point, then shatters into a puddle.
         if (b.life <= 0 || (b.tx !== undefined && (b.tx - b.x) * b.vx + (b.ty! - b.y) * b.vy <= 0)) {
           b.life = 0;
-          const ticks = hunterDef(b.shooter as HunterId).special?.ticks ?? 6;
-          this.puddles.push({ shooter: b.shooter, x: b.tx ?? b.x, y: b.ty ?? b.y, r: b.radius ?? 40, life: ticks * PUDDLE_TICK, tick: 0, dmg: b.dmg });
+          const ticks = b.ticks ?? (b.shooter === 'main' ? undefined : hunterDef(b.shooter).special?.ticks) ?? 6;
+          this.puddles.push({ shooter: b.shooter, x: b.tx ?? b.x, y: b.ty ?? b.y, r: b.radius ?? 40, life: ticks * PUDDLE_TICK, tick: 0, dmg: b.dmg, dtype: b.dtype });
         }
         continue;
       }
@@ -1756,7 +1869,7 @@ export class Field {
       if (p.tick > 0) continue;
       p.tick = PUDDLE_TICK;
       if (p.abs !== undefined) this.hitArea(p.x, p.y, p.r, p.abs, p.dtype ?? 'acid', p.shooter);
-      else for (const e of this.enemies) if (e.hp > 0 && Math.hypot(e.x - p.x, e.y - p.y) <= p.r + e.r) this.hitWith(p.shooter, e, p.dmg, p.x, p.y, undefined, undefined, true, false);
+      else for (const e of this.enemies) if (e.hp > 0 && Math.hypot(e.x - p.x, e.y - p.y) <= p.r + e.r) this.hitWith(p.shooter, e, p.dmg, p.x, p.y, undefined, undefined, true, false, p.dtype);
     }
     this.puddles = this.puddles.filter((p) => p.life > 0);
   }

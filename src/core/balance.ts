@@ -399,6 +399,7 @@ export const ASCENDED_TREES: Record<HunterId, SkillNode[]> = {
   scavenger: ascendedTree({ name: 'Mountain Breaker', icon: '🏔️', desc: '+100% damage and punches reach 30% further.', maxRank: 1, effect: { damage: 1, radius: 0.3 } }),
   osteomancer: ascendedTree({ name: 'Ossuary', icon: '💀', desc: '+100% damage and spikes 30% wider.', maxRank: 1, effect: { damage: 1, radius: 0.3 } }),
   bloodblade: ascendedTree({ name: 'Crimson Tide', icon: '🌊', desc: '+100% damage and 2 more blood bolts from each Crimson Wave kill.', maxRank: 1, effect: { damage: 1, bolts: 2 } }),
+  archivist: ascendedTree({ name: 'Great Library', icon: '📚', desc: '+100% damage and recalled specials 30% bigger.', maxRank: 1, effect: { damage: 1, radius: 0.3 } }),
   artificer: ascendedTree({ name: 'Grand Design', icon: '⚙️', desc: '+100% damage and +20% attack rate.', maxRank: 1, effect: { damage: 1, rate: 0.2 } }),
   frostbreaker: ascendedTree({ name: 'Eternal Winter', icon: '❄️', desc: '+100% damage and +1× extra damage to Elementals.', maxRank: 1, effect: { damage: 1, bane: 1 } }),
 };
@@ -558,6 +559,15 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
       { name: 'Wide Wards', icon: '🌀', desc: '+10% area size per rank.', maxRank: 3, effect: { radius: 0.1 } },
     ],
     { name: 'Spellbinder', icon: '📜', desc: '+30% damage.', maxRank: 1, cost: 4, effect: { damage: 0.3 } },
+  ),
+  archivist: skillTree(
+    { name: 'Marginalia', icon: '📖', desc: '+10% damage.', maxRank: 1, effect: { damage: 0.1 } },
+    [
+      { name: 'Annotated Volumes', icon: '📜', desc: '+15% damage per rank.', maxRank: 3, effect: { damage: 0.15 } },
+      { name: 'Speed Reading', icon: '📑', desc: '+5% attack rate per rank.', maxRank: 3, effect: { rate: 0.05 } },
+      { name: 'Quiet Study', icon: '🕯️', desc: 'Stuns wear off 8% faster per rank.', maxRank: 3, effect: { recovery: 1 } },
+    ],
+    { name: 'Encyclopedia', icon: '📚', desc: '+30% damage and recalled specials 20% bigger.', maxRank: 1, cost: 4, effect: { damage: 0.3, radius: 0.2 } },
   ),
   artificer: skillTree(
     { name: 'Spare Parts', icon: '⚙️', desc: '+10% damage.', maxRank: 1, effect: { damage: 0.1 } },
@@ -1467,7 +1477,8 @@ export type HunterId =
   | 'osteomancer'
   | 'frostbreaker'
   | 'bloodblade'
-  | 'artificer';
+  | 'artificer'
+  | 'archivist';
 
 // ---- Damage types: every attack deals one. Weapons carry a type; without one, a Hunter uses their own. ----
 export type DamageType = 'physical' | 'fire' | 'acid' | 'frost' | 'radiant' | 'poison' | 'arcane' | 'decay' | 'lightning' | 'void';
@@ -1545,7 +1556,7 @@ export const DAMAGE_TYPES: Record<DamageType, { name: string; icon: string; colo
  * the background model. Summons copy the weapon's damage type and status effects; the others keep their own.
  */
 export interface HunterSpecial {
-  kind: 'potion' | 'fireball' | 'summon' | 'punch' | 'spikes' | 'wave';
+  kind: 'potion' | 'fireball' | 'summon' | 'punch' | 'spikes' | 'wave' | 'recall';
   /** What it's called on the Hunter's card ("Potions", "Wolves"...). */
   name: string;
   damageType: DamageType;
@@ -1805,6 +1816,26 @@ export const HUNTERS: HunterDef[] = [
     story: "Reginald climbed the Ascendant Steps to study the Sky Golems' clockwork, and the harpies won't leave his instruments alone. Drive off a Harpy Storm, and he'll tune your gear in return.",
     ability: "Every Hunter in his area, him included, uses their gear as if it had one more star; gear already at 5★ gets the bonus a 6th star would give. Uses any weapon.",
     slots: [{ kind: 'weapon', label: 'Weapon', accepts: ['weapon', 'magic', 'melee'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
+  },
+  {
+    id: 'archivist', name: 'Thomas', title: 'Archivist', icon: '📖', color: '#c9b8ff', area: 'cliffs', recruitCost: 1.6e22,
+    short: "His tome recalls other Hunters' specials.",
+    unlock: { event: 'harpyStorm', times: 2 },
+    ascendedTitle: 'Loremaster',
+    story: "Thomas came to the Ascendant Steps to copy the sky-script carved into its stairs, but the harpies keep scattering his pages. Drive off two Harpy Storms, and his library is yours.",
+    ability: "Every 6s, his tome opens somewhere on the field and another Hunter's special bursts from it: usually one of the Hunters fighting beside him, sometimes any Hunter you've recruited. Wields only magic weapons.",
+    slots: [{ kind: 'magic', label: 'Magic weapon' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
+    special: {
+      kind: 'recall',
+      name: 'Recall',
+      damageType: 'arcane',
+      cooldown: 6,
+      damage: 1,
+      radius: 1,
+      ticks: 2,
+      crowd: 2.5,
+      describe: "Every 6s a tome opens somewhere on the field and casts a copy of another Hunter's special at the monsters near it, powered by his weapon (its attack rate makes the copy bigger). 85% of the time it's the special of a Hunter fighting in his area; otherwise any recruited Hunter's. Only active specials (no passives like Reginald's or Alias's).",
+    },
   },
 ];
 

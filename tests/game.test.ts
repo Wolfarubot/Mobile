@@ -3095,6 +3095,73 @@ describe('Field', () => {
   };
   const tough = (over: Partial<Enemy>) => enemy({ hp: 1e12, maxHp: 1e12, ...over });
 
+  /** A field in the Woods with Guild Hunters stationed there, recruited by hand, and tough monsters scattered about. */
+  const thomasField = (here: Array<Parameters<Game['recruit']>[0]>, elsewhere: Array<Parameters<Game['recruit']>[0]> = []) => {
+    const g = rich();
+    // A seeded generator (the default never-crit one is constant, so every roll would come out the same).
+    let seed = 12345;
+    g.rng = () => ((seed = (seed * 1103515245 + 12345) % 2 ** 31) / 2 ** 31);
+    for (const id of [...here, ...elsewhere]) {
+      g.state.hunters[id].recruited = true;
+      g.state.hunters[id].trains = 10;
+    }
+    for (const id of here) g.state.hunters[id].station = 'forest';
+    g.state.bestiary.greenSlime.unlocked = false;
+    const f = new Field(g);
+    f.setView(390, 420);
+    for (let i = 0; i < 40; i++) f.enemies.push(tough({ id: i + 1, x: ((i % 8) - 3.5) * 60, y: (Math.floor(i / 8) - 2) * 60, speed: 0 }));
+    return { g, f };
+  };
+
+  it("Thomas's Recall: a tome opens on the field and casts a copy of another Hunter's special, mostly one fighting beside him", () => {
+    expect(hunterDef('archivist')).toMatchObject({ name: 'Thomas', title: 'Archivist', area: 'cliffs' });
+    expect(hunterDef('archivist').special?.kind).toBe('recall');
+    const { g, f } = thomasField(['archivist', 'glimmer'], ['alchemist', 'thief']);
+    expect(g.slotsOf('archivist')[0].kind).toBe('magic');
+    const sources: string[] = [];
+    let copiedFire = false;
+    for (let t = 0; t < 600; t += 1 / 30) {
+      const before = f.tomes.length;
+      f.update(1 / 30);
+      for (const tome of f.tomes.slice(before)) sources.push(tome.source);
+      // A copied fireball flies as Thomas's, but keeps Glimmer's Fire.
+      if (f.bullets.some((b) => b.shooter === 'archivist' && b.kind === 'fireball' && b.dtype === 'fire')) copiedFire = true;
+      for (const e of f.enemies) e.hp = e.maxHp; // keep them all standing
+    }
+    expect(sources.length).toBeGreaterThan(50);
+    // Glimmer is here; Andrejz is recruited elsewhere; Alias has no active special; Thomas never copies himself.
+    expect(new Set(sources)).toEqual(new Set(['glimmer', 'alchemist']));
+    const nearby = sources.filter((x) => x === 'glimmer').length / sources.length;
+    expect(nearby).toBeGreaterThan(0.7);
+    expect(nearby).toBeLessThan(0.97);
+    expect(copiedFire).toBe(true);
+    // Tomes open somewhere on the field, not at Thomas.
+    expect(f.tomes.every((t) => Math.abs(t.x) <= 390 && Math.abs(t.y) <= 420)).toBe(true);
+  });
+
+  it("Thomas's tome copies any recruited Hunter's special when nobody beside him has one", () => {
+    const { f } = thomasField(['archivist'], ['druid']);
+    let wolves = 0;
+    for (let t = 0; t < 30; t += 1 / 30) {
+      f.update(1 / 30);
+      wolves = Math.max(wolves, f.summons.filter((s) => s.who === 'archivist' && s.look === 'wolf').length);
+    }
+    expect(wolves).toBeGreaterThanOrEqual(2); // Deku's wolves, called from the tome
+  });
+
+  it("the Hunter in the middle of a stationed group's background field uses their special too", () => {
+    const { g } = thomasField(['glimmer']);
+    const f = new Field(g, 'glimmer');
+    f.setView(390, 420);
+    f.enemies.push(tough({ id: 1, x: 120, y: 0 }));
+    let fireballs = 0;
+    for (let t = 0; t < 10; t += 1 / 30) {
+      f.update(1 / 30);
+      fireballs = Math.max(fireballs, f.bullets.filter((b) => b.shooter === 'glimmer' && b.kind === 'fireball').length);
+    }
+    expect(fireballs).toBeGreaterThan(0);
+  });
+
   it('the view is zoomed out: enemies spawn far away and walk in', () => {
     const g = new Game(newGame(0), noCrit);
     const f = new Field(g);
