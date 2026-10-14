@@ -15,6 +15,7 @@ import { BattleView } from './render/battle';
 // Emoji anywhere in the UI are drawn as pixel-art icons.
 installEmojiIcons();
 import { AppUI } from './ui/app';
+import { SamplerHost } from './ui/samplerHost';
 
 const AUTOSAVE_SEC = 10;
 const UI_REFRESH_SEC = 0.15;
@@ -48,6 +49,8 @@ async function boot(): Promise<void> {
   const field = new Field(game);
   const battle = new BattleView(document.getElementById('battle') as HTMLCanvasElement, game, field);
   const ui = new AppUI(game, { save, wipe, devPhase, devRestore, hasDevBackup });
+  // Measures each farming group on a hidden copy of its battlefield, for offline gains and stationed Hunters.
+  new SamplerHost(game, () => field.view);
   if (!game.state.flags.welcome) ui.showWelcome();
   else if (offline && offline.away >= OFFLINE_POPUP_SEC) ui.showOffline(offline);
 

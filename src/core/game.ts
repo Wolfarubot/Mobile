@@ -107,6 +107,7 @@ import {
   nextAreaOf,
   OFFLINE_BASE_SEC,
   OFFLINE_EFFICIENCY,
+  SAMPLE_MIN_SECONDS,
   OFFLINE_POTIONS,
   OFFLINE_POTION_SEC,
   powerDamage,
@@ -1381,7 +1382,7 @@ export class Game {
       const key = group.join(',');
       let cached = this.stationRates.get(area.id);
       if (!cached || cached.key !== key || cached.age >= 1) {
-        cached = { key, rates: this.farmRates(area.id, group, STATION_EFFICIENCY), age: 0 };
+        cached = { key, rates: this.ratesFor(area.id, group, STATION_EFFICIENCY), age: 0 };
         this.stationRates.set(area.id, cached);
       }
       cached.age += dt;
@@ -1608,6 +1609,52 @@ export class Game {
       out.share[h.sh] = (this.dpsOf(h.sh) * (1 - h.down)) / hunters.reduce((sum, x) => sum + this.dpsOf(x.sh) * (1 - x.down), 0) || 1 / hunters.length;
     }
     return out;
+  }
+
+  /**
+   * What a group's background battlefield sample (sampler.ts) depends on: who's in it, their strength and gear,
+   * and the area's monsters, rounded so small steps (one training session) don't throw the sample away.
+   */
+  sampleSig(area: AreaId, group: Shooter[]): string {
+    const r = (n: number) => (Number.isFinite(n) && n !== 0 ? Number(n.toPrecision(2)) : n);
+    const hunters = group.map((sh) => [
+      sh,
+      r(this.dpsOf(sh)),
+      r(this.shooterRange(sh)),
+      r(this.shooterRate(sh)),
+      this.guardOf(sh),
+      this.equipped(sh).map((it) => (it ? `${it.base}${it.stars}` : '')),
+    ]);
+    const monsters = this.roster(area).map((e) => [e.id, r(e.hp), r(e.speed), r(e.spawnRate), r(e.gold), r(e.dropChance)]);
+    return JSON.stringify([hunters, monsters, r(this.goldMult), r(this.areaPerk(area).gold)]);
+  }
+
+  /**
+   * Rates measured on an area's background battlefield for this group (whatever strength it was measured at),
+   * scaled by `efficiency`; null if there's no sample of this group there yet.
+   */
+  measuredRates(area: AreaId, group: Shooter[], efficiency = 1): FarmRates | null {
+    const smp = this.state.samples[area];
+    if (!smp || smp.seconds < SAMPLE_MIN_SECONDS || smp.group.length !== group.length || !group.every((sh) => smp.group.includes(sh))) return null;
+    const per = efficiency / smp.seconds;
+    const out: FarmRates = { kills: {}, killsTotal: 0, gold: smp.gold * per, materials: {}, stuns: {}, stunned: {}, share: {} };
+    for (const [id, n] of Object.entries(smp.kills) as [EnemyId, number][]) {
+      out.kills[id] = n * per;
+      out.killsTotal += n * per;
+    }
+    for (const [m, n] of Object.entries(smp.materials) as [MaterialId, number][]) out.materials[m] = n * per;
+    const hk = group.reduce((sum, sh) => sum + (smp.hunterKills[sh] ?? 0), 0);
+    for (const sh of group) {
+      out.stuns[sh] = (smp.stuns[sh] ?? 0) * per;
+      out.stunned[sh] = Math.min(1, (smp.down[sh] ?? 0) / smp.seconds);
+      out.share[sh] = hk > 0 ? (smp.hunterKills[sh] ?? 0) / hk : 1 / group.length;
+    }
+    return out;
+  }
+
+  /** A group's farming rates in an area: measured on its background battlefield if it has been, else estimated. */
+  ratesFor(area: AreaId, group: Shooter[], efficiency = 1): FarmRates {
+    return this.measuredRates(area, group, efficiency) ?? this.farmRates(area, group, efficiency);
   }
 
   /** Applies `seconds` of farming yield, carrying fractions so slow trickles still pay out. */
@@ -2023,11 +2070,11 @@ export class Game {
       result.loot.push(...r.loot);
     };
     const withYou: Shooter[] = ['main', ...this.helpersHere];
-    add(s.area, withYou, this.accrue(s.area, this.farmRates(s.area, withYou, OFFLINE_EFFICIENCY), seconds, true));
+    add(s.area, withYou, this.accrue(s.area, this.ratesFor(s.area, withYou, OFFLINE_EFFICIENCY), seconds, true));
     for (const area of AREAS) {
       const group = this.stationedIn(area.id);
       if (area.id === s.area || !group.length) continue;
-      add(area.id, group, this.accrue(area.id, this.farmRates(area.id, group, STATION_EFFICIENCY * OFFLINE_EFFICIENCY), seconds, true));
+      add(area.id, group, this.accrue(area.id, this.ratesFor(area.id, group, STATION_EFFICIENCY * OFFLINE_EFFICIENCY), seconds, true));
     }
     s.lastSeen = now;
     return result;

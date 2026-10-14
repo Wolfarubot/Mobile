@@ -225,7 +225,7 @@ export class AppUI {
     return v;
   }
   private rates(area: AreaId, hunters: HunterId[], eff: number): FarmRates {
-    return this.cached(`r:${area}:${hunters.join(',')}:${eff}`, () => this.game.farmRates(area, hunters, eff));
+    return this.cached(`r:${area}:${hunters.join(',')}:${eff}`, () => this.game.ratesFor(area, hunters, eff));
   }
   private dpsOf(who: Wearer): number {
     return this.cached(`d:${who}`, () => this.game.dpsOf(who));

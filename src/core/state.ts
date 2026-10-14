@@ -115,6 +115,22 @@ export interface PendingMod {
 /** Who can wear gear: your Hunter ('main') or a recruited Hunter. */
 export type Wearer = 'main' | HunterId;
 
+/** Totals from simulated time on an area's battlefield, for one group of Hunters at one strength (`sig`). */
+export interface FieldSample {
+  group: Wearer[];
+  /** The group's strength and the area's monsters when it was measured (Game.sampleSig). */
+  sig: string;
+  /** Seconds of battle measured. */
+  seconds: number;
+  kills: Partial<Record<EnemyId, number>>;
+  gold: number;
+  materials: Partial<Record<MaterialId, number>>;
+  /** Knockouts, seconds spent knocked out, and kills, per Hunter. */
+  stuns: Partial<Record<Wearer, number>>;
+  down: Partial<Record<Wearer, number>>;
+  hunterKills: Partial<Record<Wearer, number>>;
+}
+
 /** The main menu tabs, in their default order. */
 export const TAB_IDS = ['hunters', 'inventory', 'beasts', 'events', 'areas'] as const;
 export type TabId = (typeof TAB_IDS)[number];
@@ -149,6 +165,11 @@ export interface GameState {
   nextGearUid: number;
   /** Epoch ms of the last save; used to compute offline progress. */
   lastSeen: number;
+  /**
+   * What a background copy of the battlefield measured for the group farming each area (see sampler.ts): offline
+   * gains and stationed Hunters earn at these rates instead of the estimate in Game.farmRates.
+   */
+  samples: Partial<Record<AreaId, FieldSample>>;
   /** Player preferences (Settings page). */
   settings: {
     leftHanded: boolean;
@@ -261,6 +282,7 @@ export function newGame(now = Date.now()): GameState {
     equipment: { main: [1, 2, null] },
     nextGearUid: 4,
     lastSeen: now,
+    samples: {},
     settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', autoSalvage: [], fx: allFx(), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low' },
     flags: { eventsIntro: false, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false },
     blessings: { refine: 0, enchant: 0 },
@@ -628,5 +650,39 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
   state.nextGearUid = Math.max(typeof data.nextGearUid === 'number' ? data.nextGearUid : 1, ...state.inventory.map((g) => g.uid + 1));
   if (!Number.isFinite(state.gold) || state.gold < 0) state.gold = 0;
   if (!(state.area in state.areas) || !state.areas[state.area].unlocked) state.area = 'forest';
+  state.samples = cleanSamples(data.samples);
   return state;
+}
+
+/** Keeps well-formed samples of areas and Hunters that exist (they're only measurements: anything odd is dropped). */
+function cleanSamples(saved: unknown): Partial<Record<AreaId, FieldSample>> {
+  const out: Partial<Record<AreaId, FieldSample>> = {};
+  if (!saved || typeof saved !== 'object') return out;
+  const wearers = new Set<string>(['main', ...HUNTERS.map((h) => h.id)]);
+  const counts = <K extends string>(v: unknown, ok: (k: string) => boolean): Partial<Record<K, number>> => {
+    const r: Partial<Record<K, number>> = {};
+    if (v && typeof v === 'object') for (const [k, n] of Object.entries(v)) if (ok(k) && typeof n === 'number' && Number.isFinite(n) && n >= 0) r[k as K] = n;
+    return r;
+  };
+  const enemies = new Set<string>(ENEMIES.map((e) => e.id));
+  const mats = new Set<string>(MATERIALS.map((m) => m.id));
+  for (const a of AREAS) {
+    const v = (saved as Record<string, Partial<FieldSample>>)[a.id];
+    if (!v || typeof v !== 'object' || !Array.isArray(v.group) || typeof v.sig !== 'string') continue;
+    if (typeof v.seconds !== 'number' || !(v.seconds > 0) || typeof v.gold !== 'number' || !Number.isFinite(v.gold)) continue;
+    const group = v.group.filter((w): w is Wearer => typeof w === 'string' && wearers.has(w));
+    if (!group.length || group.length !== v.group.length) continue;
+    out[a.id] = {
+      group,
+      sig: v.sig,
+      seconds: v.seconds,
+      kills: counts<EnemyId>(v.kills, (k) => enemies.has(k)),
+      gold: Math.max(0, v.gold),
+      materials: counts<MaterialId>(v.materials, (k) => mats.has(k)),
+      stuns: counts<Wearer>(v.stuns, (k) => wearers.has(k)),
+      down: counts<Wearer>(v.down, (k) => wearers.has(k)),
+      hunterKills: counts<Wearer>(v.hunterKills, (k) => wearers.has(k)),
+    };
+  }
+  return out;
 }

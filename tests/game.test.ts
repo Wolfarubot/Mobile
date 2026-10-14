@@ -56,6 +56,7 @@ import {
   RARITIES,
   ITEMS,
   STATION_EFFICIENCY,
+  OFFLINE_EFFICIENCY,
   STUN_IMMUNITY,
   GUARDIAN_COOLDOWN,
   eventDef,
@@ -113,6 +114,7 @@ import {
   WEAK_MULT,
 } from '../src/core/balance';
 import { Field, SLAM_OFFSET, type Enemy } from '../src/core/field';
+import { mergeSample, runSample, SAMPLE_KEEP } from '../src/core/sampler';
 import { GATED } from '../src/core/gates';
 import { boardCells, RM_BOARDS } from '../src/ui/minigames/runeMatch';
 import { Game } from '../src/core/game';
@@ -516,6 +518,61 @@ describe('Hunters', () => {
     g.state.lastSeen = 0;
     const r = g.applyOffline(3600 * 1000);
     expect(r.areas.find((a) => a.area === 'graveyard')?.hunters).toEqual(['alchemist', 'ranger']);
+  });
+
+  it('background battlefield samples: a hidden copy of the field measures a group, even one without you', () => {
+    const g = rich();
+    for (const id of ['alchemist', 'ranger'] as const) g.recruit(id);
+    g.station('alchemist', 'forest');
+    g.station('ranger', 'forest');
+    const run = runSample({ save: serialize(g.state), area: 'forest', group: ['alchemist', 'ranger'], seconds: 20, view: { w: 390, h: 420 } }, () => 0.5);
+    expect(run.seconds).toBeGreaterThanOrEqual(20);
+    const kills = Object.values(run.kills).reduce((a, b) => a + (b ?? 0), 0);
+    expect(kills).toBeGreaterThan(0);
+    expect(run.gold).toBeGreaterThan(0);
+    // Only the group fought: your Hunter wasn't on that field.
+    expect(run.hunterKills.main).toBeUndefined();
+    expect((run.hunterKills.alchemist ?? 0) + (run.hunterKills.ranger ?? 0)).toBe(kills);
+  });
+
+  it('samples add up for the same group and strength, and start over when either changes', () => {
+    const run = { seconds: 30, kills: { greenSlime: 30 }, gold: 300, materials: { goo: 6 }, stuns: { main: 1 }, down: { main: 2 }, hunterKills: { main: 30 } };
+    const a = mergeSample(undefined, ['main'], 'x', run);
+    const b = mergeSample(a, ['main'], 'x', run);
+    expect(b.seconds).toBe(60);
+    expect(b.kills.greenSlime).toBe(60);
+    expect(mergeSample(b, ['main'], 'y', run).seconds).toBe(30); // stronger now: measured afresh
+    expect(mergeSample(b, ['main', 'alchemist'], 'x', run).seconds).toBe(30);
+    // Past SAMPLE_KEEP seconds, older runs count for less (a rolling average).
+    let c = a;
+    for (let i = 0; i < 40; i++) c = mergeSample(c, ['main'], 'x', run);
+    expect(c.seconds).toBeCloseTo(SAMPLE_KEEP);
+    expect(c.kills.greenSlime! / c.seconds).toBeCloseTo(1);
+  });
+
+  it('offline gains and stationed Hunters use the measured rates once a group has been sampled', () => {
+    const g = rich();
+    g.state.lastSeen = 0;
+    // Measured: 2 kills a second, no knockouts at all (the estimate may well have expected some).
+    g.state.samples.forest = { group: ['main'], sig: g.sampleSig('forest', ['main']), seconds: 100, kills: { greenSlime: 200 }, gold: 1000, materials: { goo: 50 }, stuns: {}, down: {}, hunterKills: { main: 200 } };
+    const rates = g.ratesFor('forest', ['main'], 1);
+    expect(rates.killsTotal).toBeCloseTo(2);
+    expect(rates.stuns.main).toBe(0);
+    const r = g.applyOffline(3600 * 1000);
+    expect(r.kills).toBe(Math.floor(2 * 3600 * OFFLINE_EFFICIENCY));
+    expect(r.knockouts).toBe(0);
+    expect(r.gold).toBeCloseTo(10 * 3600 * OFFLINE_EFFICIENCY);
+    // Another group in the same area isn't this sample: the estimate stands in.
+    expect(g.measuredRates('forest', ['main', 'alchemist'])).toBeNull();
+  });
+
+  it('samples survive a save and load; malformed ones are dropped', () => {
+    const g = rich();
+    g.state.samples.forest = { group: ['main'], sig: 's', seconds: 60, kills: { greenSlime: 10 }, gold: 5, materials: { goo: 2 }, stuns: { main: 1 }, down: { main: 3 }, hunterKills: { main: 10 } };
+    (g.state.samples as Record<string, unknown>).glade = { group: ['nobody'], sig: 's', seconds: 60, gold: 1 };
+    const back = deserialize(serialize(g.state))!;
+    expect(back.samples.forest).toEqual(g.state.samples.forest);
+    expect(back.samples.glade).toBeUndefined();
   });
 
   it('a Hunter stationed where you are fights on the field instead of farming twice', () => {

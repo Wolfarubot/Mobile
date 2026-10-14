@@ -328,7 +328,14 @@ export class Field {
   private halfW = 320;
   private halfH = 350;
 
-  constructor(private game: Game) {
+  /**
+   * @param lead Who stands in the middle: your Hunter on the real battlefield, or (sampling a stationed group in
+   * the background, see sampler.ts) one of the Guild Hunters stationed there.
+   */
+  constructor(
+    private game: Game,
+    readonly lead: Shooter = 'main',
+  ) {
     game.on((e) => {
       if (e.type === 'travel') this.clear();
       if (e.type === 'guardianFail') this.enemies = this.enemies.filter((en) => !en.boss);
@@ -344,8 +351,12 @@ export class Field {
   /** A gated area's corner walls (see gates.ts), in world units: walking monsters are kept out of them. */
   walls: Array<{ x0: number; y0: number; x1: number; y1: number }> = [];
 
+  /** The last screen size set (the background battlefield samples use the same view). */
+  view = { w: 390, h: 420 };
+
   /** Screen size in CSS pixels; the visible world is larger by 1 / the area's zoom. */
   setView(w: number, h: number): void {
+    this.view = { w, h };
     const z = fieldZoom(this.game.area);
     this.halfW = w / 2 / z;
     this.halfH = h / 2 / z;
@@ -361,6 +372,12 @@ export class Field {
     return this.stun > 0;
   }
 
+  /** Whether a Hunter on the field is knocked out right now. */
+  isDown(who: Shooter): boolean {
+    if (who === this.lead) return this.stunned;
+    return (this.helpers.find((h) => h.id === who)?.stun ?? 0) > 0;
+  }
+
   clear(): void {
     this.enemies = [];
     this.bullets = [];
@@ -368,7 +385,7 @@ export class Field {
     this.puddles = [];
     this.stun = 0;
     this.immune = 0;
-    this.guard = this.game.guardOf('main');
+    this.guard = this.game.guardOf(this.lead);
     this.spawnAcc = 0;
     this.nextPack = null;
     for (const h of this.helpers) Object.assign(h, { stun: 0, immune: 0, guard: this.game.guardOf(h.id) });
@@ -459,7 +476,7 @@ export class Field {
         if (h.stun === 0) h.immune = STUN_IMMUNITY;
       } else h.immune = Math.max(0, h.immune - dt);
     }
-    for (const [who, h] of [['main', this], ...this.helpers.map((x) => [x.id, x])] as Array<[Shooter, { guard: number; guardAcc: number }]>) {
+    for (const [who, h] of [[this.lead, this], ...this.helpers.map((x) => [x.id, x])] as Array<[Shooter, { guard: number; guardAcc: number }]>) {
       const max = g.guardOf(who);
       if (h.guard > max) h.guard = max;
       else if (h.guard < max) {
@@ -492,10 +509,10 @@ export class Field {
     this.moveShots(dt);
 
     // Your Hunter (not while stunned): attacks the way their weapon's class does.
-    this.fireAcc = Math.min(this.fireAcc + dt * g.shooterRate('main'), 3);
+    this.fireAcc = Math.min(this.fireAcc + dt * g.shooterRate(this.lead), 3);
     if (this.stunned) this.fireAcc = 0;
-    const cls = g.weaponClassOf('main');
-    const range = g.shooterRange('main');
+    const cls = g.weaponClassOf(this.lead);
+    const range = g.shooterRange(this.lead);
     if (!this.gunReady(this.gunState, cls, dt)) this.fireAcc = 0;
     while (this.fireAcc >= 1) {
       const target = this.nearest(0, 0, range);
@@ -505,9 +522,9 @@ export class Field {
       }
       this.fireAcc -= 1;
       this.aim = Math.atan2(target.y, target.x);
-      this.weaponAttack('main', 0, 0, this.aim, target, cls, this.gunState, range);
-      if (this.spendShot(this.gunState, cls, g.shooterRate('main'))) {
-        this.events.push({ type: 'reload', who: 'main', x: 0, y: 0 });
+      this.weaponAttack(this.lead, 0, 0, this.aim, target, cls, this.gunState, range);
+      if (this.spendShot(this.gunState, cls, g.shooterRate(this.lead))) {
+        this.events.push({ type: 'reload', who: this.lead, x: 0, y: 0 });
         this.fireAcc = 0;
         break;
       }
@@ -528,7 +545,7 @@ export class Field {
 
   /** The Hunter (you or a helper) closest to a point. */
   private nearestHunter(x: number, y: number): { who: Shooter; x: number; y: number } {
-    let best: { who: Shooter; x: number; y: number } = { who: 'main', x: 0, y: 0 };
+    let best: { who: Shooter; x: number; y: number } = { who: this.lead, x: 0, y: 0 };
     let bestD = x * x + y * y;
     for (const h of this.helpers) {
       const d = (x - h.x) ** 2 + (y - h.y) ** 2;
@@ -663,7 +680,7 @@ export class Field {
 
   /** An enemy reached a Hunter: shields block it, otherwise the Hunter is stunned (unless immune) and the enemy runs. */
   private contact(e: Enemy, who: Shooter, ux: number, uy: number): void {
-    const helper = who === 'main' ? null : this.helpers.find((h) => h.id === who)!;
+    const helper = who === this.lead ? null : this.helpers.find((h) => h.id === who)!;
     const state = helper ?? this;
     const hx = helper?.x ?? 0;
     const hy = helper?.y ?? 0;
@@ -700,7 +717,7 @@ export class Field {
 
   /** A Hunter is stunned (unless already stunned or immune: a stun runs its course, so no stun loops). */
   private knockOut(who: Shooter, boss: boolean, x: number, y: number): void {
-    const helper = who === 'main' ? null : this.helpers.find((h) => h.id === who)!;
+    const helper = who === this.lead ? null : this.helpers.find((h) => h.id === who)!;
     const state = helper ?? this;
     if (state.immune > 0 || state.stun > 0) return;
     const t = this.game.stunTime(boss, who);
@@ -734,7 +751,7 @@ export class Field {
 
   /** Every Hunter on the field: where they stand, their state, and whether they can act (not stunned). */
   private hunters(): Array<{ who: Shooter; x: number; y: number; state: { fireAcc: number; stun: number; immune: number; guard: number; guardAcc: number } }> {
-    return [{ who: 'main' as Shooter, x: 0, y: 0, state: this }, ...this.helpers.map((h) => ({ who: h.id as Shooter, x: h.x, y: h.y, state: h }))];
+    return [{ who: this.lead, x: 0, y: 0, state: this }, ...this.helpers.map((h) => ({ who: h.id as Shooter, x: h.x, y: h.y, state: h }))];
   }
 
   /** Whether a Hunter is wearing a shield (armor). */
@@ -768,7 +785,7 @@ export class Field {
           s.life = 0;
           h.state.fireAcc = Math.min(h.state.fireAcc, 0);
           const a = Math.atan2(s.y - h.y, s.x - h.x);
-          if (h.who === 'main') this.aim = a;
+          if (h.who === this.lead) this.aim = a;
           else (h.state as Helper).aim = a;
           this.events.push({ type: 'attack', who: h.who, a });
           this.events.push({ type: 'parry', who: h.who, x: s.x, y: s.y, a });
@@ -785,7 +802,7 @@ export class Field {
 
   /** A projectile reached a Hunter. */
   private shotHit(who: Shooter, hx: number, hy: number, s: EnemyShot, up: boolean): void {
-    const state = who === 'main' ? this : this.helpers.find((h) => h.id === who)!;
+    const state = who === this.lead ? this : this.helpers.find((h) => h.id === who)!;
     // A shield deflects it (if they're up to raise it), but their attacks stop for a moment.
     if (up && this.hasShield(who)) {
       const a = Math.atan2(s.y - hy, s.x - hx) + (this.game.rng() - 0.5) * 1.2;
@@ -855,7 +872,7 @@ export class Field {
 
   /** Keep the on-field Hunters in sync with who's stationed here. */
   private syncHelpers(): void {
-    const ids = this.game.helpersHere;
+    const ids = this.game.helpersHere.filter((id) => id !== this.lead);
     if (ids.length === this.helpers.length && ids.every((id, i) => this.helpers[i].id === id)) return;
     this.helpers = ids.map((id, i) => ({
       id,
@@ -1060,10 +1077,10 @@ export class Field {
   cooldowns(): CooldownView[] {
     const out: CooldownView[] = [];
     // Items' own abilities (not the weapon's basic cooldown): e.g. the Wolf Spirit tome's lunge.
-    const w = this.weaponDef('main');
+    const w = this.weaponDef(this.lead);
     const dash = w?.summon?.dash;
-    if (w && dash && this.game.weaponClassOf('main')?.summon) out.push({ key: `item:${w.id}`, icon: w.icon, name: w.name, progress: 1 - this.dashCd / (dash.cooldown * this.game.cooldownMult('main')) });
-    for (const who of ['main' as Shooter, ...this.helpers.map((h) => h.id)]) {
+    if (w && dash && this.game.weaponClassOf(this.lead)?.summon) out.push({ key: `item:${w.id}`, icon: w.icon, name: w.name, progress: 1 - this.dashCd / (dash.cooldown * this.game.cooldownMult(this.lead)) });
+    for (const who of [this.lead, ...this.helpers.map((h) => h.id)]) {
       for (const { uid, def, effect } of this.game.gearEffects(who)) {
         const cd = effectCooldown(effect);
         if (cd === null) continue;
@@ -1095,11 +1112,11 @@ export class Field {
    * "RELOADING!", a staff "RECHARGING!" its spell, or your tome "SUMMONING!" its next creature. Null otherwise.
    */
   weaponStatus(who: Shooter): { text: string; progress: number } | null {
-    const gun = who === 'main' ? this.gunState : this.helpers.find((h) => h.id === who)?.gun;
+    const gun = who === this.lead ? this.gunState : this.helpers.find((h) => h.id === who)?.gun;
     const cls = this.game.weaponClassOf(who);
     if (!gun || !cls) return null;
     if (cls.summon) {
-      const h = who === 'main' ? null : this.helpers.find((x) => x.id === who);
+      const h = who === this.lead ? null : this.helpers.find((x) => x.id === who);
       const acc = h ? h.fireAcc : this.fireAcc;
       const stunned = h ? h.stun > 0 : this.stunned;
       return acc < 1 && !stunned ? { text: 'SUMMONING!', progress: Math.max(0, acc) } : null;
@@ -1216,8 +1233,8 @@ export class Field {
     const due = this.stabs.filter((s) => s.t <= 0);
     this.stabs = this.stabs.filter((s) => s.t > 0);
     for (const s of due) {
-      const h = s.who === 'main' ? null : this.helpers.find((x) => x.id === s.who);
-      if (s.who !== 'main' && !h) continue;
+      const h = s.who === this.lead ? null : this.helpers.find((x) => x.id === s.who);
+      if (s.who !== this.lead && !h) continue;
       const cls = this.game.weaponClassOf(s.who);
       if (cls?.attack !== 'dagger' || (h ? h.stun > 0 : this.stunned)) {
         this.stabs = this.stabs.filter((x) => x.who !== s.who);
@@ -1278,7 +1295,7 @@ export class Field {
    */
   private runGearEffects(dt: number): void {
     const wearers: Array<{ who: Shooter; x: number; y: number; stunned: boolean }> = [
-      { who: 'main', x: 0, y: 0, stunned: this.stunned },
+      { who: this.lead, x: 0, y: 0, stunned: this.stunned },
       ...this.helpers.map((h) => ({ who: h.id as Shooter, x: h.x, y: h.y, stunned: h.stun > 0 })),
     ];
     for (const w of wearers) {
@@ -1358,12 +1375,12 @@ export class Field {
     // A creature fades at once if its Hunter put the tome (or the piece that made it) away, or left the area.
     this.summons = this.summons.filter(
       (s) =>
-        (s.who === 'main' || this.helpers.some((h) => h.id === s.who)) &&
+        (s.who === this.lead || this.helpers.some((h) => h.id === s.who)) &&
         (s.own || (s.gear ? this.game.equipped(s.who).some((it) => it?.uid === s.gear!.uid) : this.game.weaponClassOf(s.who)?.summon)),
     );
     for (const who of new Set(this.summons.filter((s) => !s.gear && !s.own).map((s) => s.who))) {
       const dash = this.weaponDef(who)?.summon?.dash;
-      const owner: { dashCd: number } = who === 'main' ? this : this.helpers.find((h) => h.id === who)!;
+      const owner: { dashCd: number } = who === this.lead ? this : this.helpers.find((h) => h.id === who)!;
       if (!dash || owner.dashCd > 0) continue;
       let lunged = false;
       for (const s of this.summons) {

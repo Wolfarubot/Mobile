@@ -41,6 +41,8 @@ export const OFFLINE_POTION_SEC = 2 * 3600;
 export const OFFLINE_POTIONS = ['pixiePotion', 'bonePotion', 'lichPotion', 'watcherPotion', 'demonPotion', 'venomPotion', 'glacialPotion', 'skyPotion', 'stormPotion', 'starPotion'] as const;
 /** Fraction of the online kill rate earned while away. */
 export const OFFLINE_EFFICIENCY = 0.5;
+/** A background battlefield sample (sampler.ts) is used once it has measured this many seconds. */
+export const SAMPLE_MIN_SECONDS = 20;
 /** Shorter absences are granted silently (no Welcome Back popup), e.g. when switching apps. */
 export const OFFLINE_POPUP_SEC = 15 * 60;
 
