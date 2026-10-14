@@ -3545,7 +3545,6 @@ export class AppUI {
    * area, who hunted there, the monsters they slew and what it paid out.
    */
   showOffline(r: OfflineResult): void {
-    const capped = r.away > r.seconds;
     const gained = (m: Partial<Record<MaterialId, number>>) => (Object.entries(m) as [MaterialId, number][]).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]);
     const all = gained(r.materials);
     // The furthest area that brought anything back (its materials are the newest and rarest).
@@ -3559,7 +3558,7 @@ export class AppUI {
       : '';
     this.showModal(
       `<h2>Welcome back!</h2>
-       <p>You were away for ${fmtTime(r.away)}.${capped ? ` (Hunters rest after ${fmtTime(r.seconds)}: craft 🧪 Energy Potions (Upgrades) to stay away longer.)` : ''}</p>
+       <p class="offline-times">Offline time: <b>${fmtTime(r.away)}</b><br>Max offline gains time: <b>${fmtTime(this.game.offlineCapSec())}</b></p>
        <div class="reward">+🪙 ${fmt(r.gold)}</div>
        ${matsHtml}
        ${r.loot.length ? `<p class="offline-loot">🎁 ${r.loot.length} piece${r.loot.length === 1 ? '' : 's'} of loot${r.loot.some((l) => l.salvaged) ? ` (${r.loot.filter((l) => l.salvaged).length} auto-salvaged)` : ''}</p>` : ''}
