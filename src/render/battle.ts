@@ -116,7 +116,7 @@ export class BattleView {
   ) {
     this.g = canvas.getContext('2d')!;
     this.cooldownBar = new CooldownBar(canvas.parentElement!, game, field);
-    this.fx.textScale = 1 / Z;
+    this.fx.textScale = CHAR_SCALE;
     // Static ground detail in normalized coords, so it scales with the view.
     for (let i = 0; i < 70; i++) this.specks.push({ x: Math.random(), y: Math.random(), r: 1 + Math.random() * 3 });
 
@@ -160,10 +160,10 @@ export class BattleView {
           // Weak spots get bigger numbers (and show more often); resisted hits smaller ones. Each kind can be
           // switched off in Settings.
           if (!this.fxOn(e.crit ? 'dmgCrit' : e.affinity === 'weak' ? 'dmgWeak' : e.affinity === 'resist' ? 'dmgResist' : 'dmgNormal')) break;
-          if (e.crit) this.fx.text(e.x, e.y, fmt(e.dmg), '#ff5a5a', e.affinity === 'weak' ? 19 : 16, 0.6);
+          if (e.crit) this.fx.text(e.x, e.y, fmt(e.dmg), '#ff5a5a', e.affinity === 'weak' ? 14 : 12, 0.6);
           else if (e.affinity === 'weak') {
-            if (Math.random() < 0.5) this.fx.text(e.x, e.y, `${fmt(e.dmg)}!`, DAMAGE_TYPES[e.dtype].color, 14, 0.55);
-          } else if (Math.random() < 0.25) this.fx.text(e.x, e.y, fmt(e.dmg), DAMAGE_TYPES[e.dtype].color, e.affinity === 'resist' ? 9 : 11, 0.5);
+            if (Math.random() < 0.5) this.fx.text(e.x, e.y, `${fmt(e.dmg)}!`, DAMAGE_TYPES[e.dtype].color, 10.5, 0.55);
+          } else if (Math.random() < 0.25) this.fx.text(e.x, e.y, fmt(e.dmg), DAMAGE_TYPES[e.dtype].color, e.affinity === 'resist' ? 7 : 8.5, 0.5);
           break;
         case 'kill': {
           const color = e.boss ? '#ffd34d' : enemyDef(e.enemy).color;
@@ -344,7 +344,9 @@ export class BattleView {
     this.w = w;
     this.h = h;
     Z = fieldZoom(this.game.area);
-    this.fx.textScale = 1 / Z;
+    // Floating text scales with the characters (CHAR_SCALE in world units, so smaller as areas zoom out).
+    this.fx.textScale = CHAR_SCALE;
+    this.fx.zoom = Z;
     this.field.setView(w, h);
     const g = this.g;
     const scene = areaScene(this.game.area, w, h);
@@ -1302,24 +1304,24 @@ export class BattleView {
       const bob = Math.sin(t.age * 6) * 2;
       this.scaledAt(g, t.x, t.y, () => {
         g.save();
-        g.globalAlpha = a * 0.45;
+        g.globalAlpha = a * 0.55;
         g.fillStyle = '#c9b8ff';
         g.beginPath();
-        g.ellipse(t.x, t.y + 9, 22, 9, 0, 0, Math.PI * 2);
+        g.ellipse(t.x, t.y + 14, 34 + Math.sin(t.age * 8) * 3, 13, 0, 0, Math.PI * 2);
         g.fill();
         g.globalAlpha = a;
         g.imageSmoothingEnabled = false;
-        if (book?.complete && book.naturalWidth) g.drawImage(book, t.x - 16, t.y - 20 + bob, 32, 32);
+        if (book?.complete && book.naturalWidth) g.drawImage(book, t.x - 26, t.y - 32 + bob, 52, 52);
         else {
           g.fillStyle = '#f2e6c8';
-          g.fillRect(t.x - 13, t.y - 14 + bob, 26, 18);
+          g.fillRect(t.x - 21, t.y - 22 + bob, 42, 28);
         }
         const ic = gearImage(HUNTER_ICONS[t.source]);
         if (ic?.complete && ic.naturalWidth) {
           g.strokeStyle = '#000';
           g.lineWidth = 2;
-          g.strokeRect(t.x - 8, t.y - 40 + bob, 16, 16);
-          g.drawImage(ic, t.x - 8, t.y - 40 + bob, 16, 16);
+          g.strokeRect(t.x - 12, t.y - 60 + bob, 24, 24);
+          g.drawImage(ic, t.x - 12, t.y - 60 + bob, 24, 24);
         }
         g.restore();
       });

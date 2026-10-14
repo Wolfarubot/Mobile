@@ -33,8 +33,14 @@ interface Slash {
 }
 
 export class Fx {
-  /** Multiplier on floating text size and rise speed (to stay readable in a zoomed-out view). */
+  /**
+   * Multiplier on floating text size and rise speed, in world units: the characters' scale, so text grows and
+   * shrinks with the Hunters as areas zoom out.
+   */
   textScale = 1;
+  /** The view's zoom (world to screen), and the smallest text drawn on screen, in CSS pixels, so it stays legible. */
+  zoom = 1;
+  minTextPx = 7;
   particles: Particle[] = [];
   /** Projectile trails: their own pool, so a busy volley never crowds out hit bursts. */
   trails: Particle[] = [];
@@ -139,8 +145,10 @@ export class Fx {
       const k = f.life / f.max;
       const pop = k < 0.15 ? 0.6 + (k / 0.15) * 0.4 : 1;
       g.globalAlpha = k > 0.6 ? 1 - (k - 0.6) / 0.4 : 1;
-      g.font = canvasFont(f.size * pop * this.textScale, 700);
-      g.lineWidth = 4 * this.textScale;
+      // Its size on screen follows the Hunters' scale, but never below minTextPx.
+      const px = Math.max(this.minTextPx, f.size * this.textScale * this.zoom) * pop;
+      g.font = canvasFont(px / this.zoom, 700);
+      g.lineWidth = Math.max(2, px / 4) / this.zoom;
       g.strokeStyle = 'rgba(0,0,0,0.75)';
       g.strokeText(f.text, f.x, f.y);
       g.fillStyle = f.color;
