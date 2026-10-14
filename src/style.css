@@ -2453,7 +2453,8 @@ canvas {
   align-items: center;
   gap: 8px;
   margin: 8px -10px calc(-10px - var(--safe-bottom));
-  padding: 8px 10px calc(8px + var(--safe-bottom));
+  /* Only part of the system bar's inset below it: sat lower, nearer the phone's own buttons. */
+  padding: 8px 10px calc(4px + var(--safe-bottom) * 0.5);
   background: var(--c0);
   box-shadow: 0 -4px 8px -4px rgba(0, 0, 0, 0.6);
 }
@@ -4373,7 +4374,8 @@ body.ui-parchment .mat {
   bottom: calc(-10px - var(--safe-bottom));
   z-index: 3;
   margin: 0 -10px calc(-10px - var(--safe-bottom));
-  padding: 8px 10px calc(8px + var(--safe-bottom));
+  /* Only part of the system bar's inset below it: sat lower, nearer the phone's own buttons. */
+  padding: 8px 10px calc(4px + var(--safe-bottom) * 0.5);
   background: var(--c0);
   box-shadow: 0 -4px 10px -4px rgba(0, 0, 0, 0.6);
 }

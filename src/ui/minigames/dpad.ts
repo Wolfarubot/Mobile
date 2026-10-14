@@ -30,9 +30,12 @@ export interface Dpad {
 }
 
 /** The D-pad near the bottom of the screen; `size` scales its buttons (1: 68px at a 400px-wide phone). */
+/** Room kept clear under the D-pad, so its down button isn't right against the phone's own (home, back) buttons. */
+const DPAD_LIFT = 48;
+
 export function dpadAt(api: MinigameApi, size = 1): Dpad {
   const b = Math.min(68 * size * api.k, api.W * 0.29);
-  return { x: api.W / 2, y: api.H - b * 1.62 - 8 * api.k, b };
+  return { x: api.W / 2, y: api.H - b * 1.62 - DPAD_LIFT * api.k, b };
 }
 
 /** The top of the D-pad (so games can keep their art clear of it). */
