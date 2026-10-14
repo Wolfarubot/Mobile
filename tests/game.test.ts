@@ -51,7 +51,8 @@ import {
   ARMOR_TYPES,
   effectBase,
   MAX_STARS,
-  OFFLINE_CAP_SEC,
+  OFFLINE_BASE_SEC,
+  OFFLINE_HOURGLASSES,
   RARITIES,
   ITEMS,
   STATION_EFFICIENCY,
@@ -2708,11 +2709,27 @@ describe('Offline', () => {
     g.station('thief', 'graveyard');
     const gold = g.state.gold;
     const r = g.applyOffline(24 * 3600 * 1000);
-    expect(r.seconds).toBe(OFFLINE_CAP_SEC);
+    expect(r.seconds).toBe(OFFLINE_BASE_SEC); // 4 hours to start with
     expect(r.gold).toBeGreaterThan(0);
     expect(g.state.gold).toBeCloseTo(gold + r.gold);
     expect(r.materials.goo).toBeGreaterThan(0); // you, in the forest
     expect(r.materials.bone).toBeGreaterThan(0); // Alias, in the graveyard
+  });
+
+  it('starts at 4 hours; each hourglass star adds an hour, 24 hours with all four at 5 stars', () => {
+    const g = new Game(newGame(0), noCrit);
+    expect(OFFLINE_BASE_SEC).toBe(4 * 3600);
+    expect(g.offlineCapSec()).toBe(4 * 3600);
+    g.state.items.boneHourglass = 1;
+    expect(g.offlineCapSec()).toBe(5 * 3600);
+    for (const id of OFFLINE_HOURGLASSES) g.state.items[id] = MAX_STARS;
+    expect(g.offlineCapSec()).toBe(24 * 3600);
+    const r = g.applyOffline(Date.now() + 48 * 3600 * 1000);
+    expect(r.seconds).toBe(24 * 3600);
+    // Old saves pick the new Upgrades up at 0 stars.
+    const old = JSON.parse(serialize(newGame(0)));
+    for (const id of OFFLINE_HOURGLASSES) delete old.items[id];
+    expect(new Game(deserialize(JSON.stringify(old))!, noCrit).offlineCapSec()).toBe(4 * 3600);
   });
 });
 

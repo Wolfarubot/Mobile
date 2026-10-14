@@ -31,7 +31,12 @@ export const GUARDIAN_TIME = 45;
 export const GUARDIAN_GOLD_MULT = 50;
 
 // ---- Offline ----
-export const OFFLINE_CAP_SEC = 8 * 3600;
+/**
+ * Hours away that count toward offline progress, to start with. The four hourglass Upgrades (Graveyard, Ember
+ * Mines, Frost Peaks and Meteor Field materials) each add an hour a star, 5 hours at 5★: 24 hours with all four.
+ */
+export const OFFLINE_BASE_SEC = 4 * 3600;
+export const OFFLINE_HOURGLASSES = ['boneHourglass', 'emberHourglass', 'frostHourglass', 'starHourglass'] as const;
 /** Fraction of the online kill rate earned while away. */
 export const OFFLINE_EFFICIENCY = 0.5;
 /** Shorter absences are granted silently (no Welcome Back popup), e.g. when switching apps. */
@@ -2742,7 +2747,11 @@ export type ItemId =
   | 'engine'
   | 'forestIdol'
   | 'graveWhetstone'
-  | 'batwingGloves';
+  | 'batwingGloves'
+  | 'boneHourglass'
+  | 'emberHourglass'
+  | 'frostHourglass'
+  | 'starHourglass';
 
 export interface ItemDef {
   id: ItemId;
@@ -2788,6 +2797,11 @@ export const ITEMS: ItemDef[] = [
     describe: (l) => `Wandering Woods monsters: ×2 HP, ×${2 + 0.25 * (l - 1)} gold`,
   },
   { id: 'engine', name: 'Void Engine', icon: '🌀', rarity: 'artifact', maxLevel: 20, recipe: { shade: 10, void: 5, soul: 3 }, growth: 1.7, describe: (l) => `+${l * 10}% damage, +${l * 3}% attack rate` },
+  // Hourglasses: each star lets you be away an hour longer (offline progress starts at 4 hours, 24 with all four at 5★).
+  { id: 'boneHourglass', name: 'Bone Hourglass', icon: '⏳', rarity: 'rare', maxLevel: 5, recipe: { bone: 12, flesh: 8 }, growth: 1.6, describe: (l) => `+${l}h offline time` },
+  { id: 'emberHourglass', name: 'Ember Hourglass', icon: '⌛', rarity: 'veryRare', maxLevel: 5, recipe: { magma: 10, chitin: 6 }, growth: 1.6, describe: (l) => `+${l}h offline time` },
+  { id: 'frostHourglass', name: 'Frost Hourglass', icon: '🧊', rarity: 'exotic', maxLevel: 5, recipe: { frost: 10, fur: 6 }, growth: 1.6, describe: (l) => `+${l}h offline time` },
+  { id: 'starHourglass', name: 'Star Hourglass', icon: '🌠', rarity: 'artifact', maxLevel: 5, recipe: { meteor: 10, stardust: 6 }, growth: 1.6, describe: (l) => `+${l}h offline time` },
 ];
 
 export const itemDef = (id: ItemId): ItemDef => ITEMS.find((i) => i.id === id)!;

@@ -104,7 +104,9 @@ import {
   MAIN_RANGE,
   maxAffordable,
   nextAreaOf,
+  OFFLINE_BASE_SEC,
   OFFLINE_EFFICIENCY,
+  OFFLINE_HOURGLASSES,
   powerDamage,
   UNARMED_HIT,
   weaponHit,
@@ -242,6 +244,11 @@ export class Game {
   /** An Upgrade's strength (in steps) at its current stars. */
   private item(id: ItemId): number {
     return itemLevel(itemDef(id), this.state.items[id]);
+  }
+
+  /** Seconds away that count toward offline progress: 4 hours, plus an hour for each hourglass star. */
+  offlineCapSec(): number {
+    return OFFLINE_BASE_SEC + OFFLINE_HOURGLASSES.reduce((s, id) => s + this.item(id), 0) * 3600;
   }
 
   // ---- Combat stats (read by Field every frame) ----
@@ -1988,7 +1995,7 @@ export class Game {
   /** Applies progress for time spent away: you (plus anyone stationed with you) and every stationed Hunter. */
   applyOffline(now = Date.now()): OfflineResult {
     const s = this.state;
-    const { away, seconds } = capAway((now - s.lastSeen) / 1000);
+    const { away, seconds } = capAway((now - s.lastSeen) / 1000, this.offlineCapSec());
     this.coolEvents(away);
     const result: OfflineResult = { away, seconds, kills: 0, gold: 0, materials: {}, areas: [], knockouts: 0, loot: [] };
     const add = (area: AreaId, hunters: Shooter[], r: ReturnType<Game['accrue']>) => {

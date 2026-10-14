@@ -3551,7 +3551,7 @@ export class AppUI {
       : '';
     this.showModal(
       `<h2>Welcome back!</h2>
-       <p>You were away for ${fmtTime(r.away)}.${capped ? ` (Hunters rest after ${fmtTime(r.seconds)}.)` : ''}</p>
+       <p>You were away for ${fmtTime(r.away)}.${capped ? ` (Hunters rest after ${fmtTime(r.seconds)}: craft ⏳ Hourglass Upgrades to stay away longer.)` : ''}</p>
        <div class="reward">+🪙 ${fmt(r.gold)}</div>
        ${matsHtml}
        ${r.loot.length ? `<p class="offline-loot">🎁 ${r.loot.length} piece${r.loot.length === 1 ? '' : 's'} of loot${r.loot.some((l) => l.salvaged) ? ` (${r.loot.filter((l) => l.salvaged).length} auto-salvaged)` : ''}</p>` : ''}
