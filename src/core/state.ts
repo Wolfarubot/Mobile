@@ -161,6 +161,9 @@ export interface GameState {
     /** The DPS meter on the battlefield, and which corner it sits in. */
     dps: boolean;
     dpsCorner: DpsCorner;
+    /** The pick-up pop-ups (materials just gained) on the battlefield, and which corner they sit in. */
+    pickups: boolean;
+    pickupCorner: DpsCorner;
     /** Where the event timer and Guardian health bar go: the battlefield's top or bottom edge. */
     hudPos: HudPos;
     /** Cooldown icons on the battlefield (abilities recharging), and which edge they sit on. */
@@ -258,7 +261,7 @@ export function newGame(now = Date.now()): GameState {
     equipment: { main: [1, 2, null] },
     nextGearUid: 4,
     lastSeen: now,
-    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', dps: true, dpsCorner: 'tr', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', autoSalvage: [], fx: allFx(), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low' },
+    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', autoSalvage: [], fx: allFx(), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low' },
     flags: { eventsIntro: false, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false },
     blessings: { refine: 0, enchant: 0 },
     events: Object.fromEntries(EVENTS.map((e) => [e.id, { cooldown: 0, runs: 0, completed: 0 }])),
@@ -461,6 +464,8 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
       })(),
       dps: (data.settings as { dps?: unknown } | undefined)?.dps !== false,
       dpsCorner: pick(DPS_CORNERS, (data.settings as { dpsCorner?: unknown } | undefined)?.dpsCorner, 'tr'),
+      pickups: (data.settings as { pickups?: unknown } | undefined)?.pickups !== false,
+      pickupCorner: pick(DPS_CORNERS, (data.settings as { pickupCorner?: unknown } | undefined)?.pickupCorner, 'bl'),
       hudPos: pick(HUD_POSITIONS, (data.settings as { hudPos?: unknown } | undefined)?.hudPos, 'bottom'),
       cooldowns: (data.settings as { cooldowns?: unknown } | undefined)?.cooldowns !== false,
       cooldownPos: pick(COOLDOWN_POSITIONS, (data.settings as { cooldownPos?: unknown } | undefined)?.cooldownPos, 'top'),

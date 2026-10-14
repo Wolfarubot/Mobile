@@ -3416,19 +3416,19 @@ describe('Saves', () => {
     s.settings.name = 'Wolfa';
     s.flags.eventsIntro = true;
     const back = deserialize(serialize(s))!;
-    expect(back.settings).toEqual({ leftHanded: true, name: 'Wolfa', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal', dps: true, dpsCorner: 'tr', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', autoSalvage: [], fx: Object.fromEntries(FX_KEYS.map((k) => [k, true])), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low' });
+    expect(back.settings).toEqual({ leftHanded: true, name: 'Wolfa', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', autoSalvage: [], fx: Object.fromEntries(FX_KEYS.map((k) => [k, true])), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low' });
     expect(back.flags).toEqual({ eventsIntro: true, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false });
     const old = JSON.parse(serialize(newGame(0)));
     delete old.settings;
     delete old.flags;
-    expect(deserialize(JSON.stringify(old))!.settings).toEqual({ leftHanded: false, name: '', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal', dps: true, dpsCorner: 'tr', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', autoSalvage: [], fx: Object.fromEntries(FX_KEYS.map((k) => [k, true])), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low' });
+    expect(deserialize(JSON.stringify(old))!.settings).toEqual({ leftHanded: false, name: '', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', autoSalvage: [], fx: Object.fromEntries(FX_KEYS.map((k) => [k, true])), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low' });
     // A hidden DPS meter stays hidden.
     const noDps = newGame(0);
     noDps.settings.dps = false;
     expect(deserialize(serialize(noDps))!.settings.dps).toBe(false);
     const moved = newGame(0);
-    Object.assign(moved.settings, { dpsCorner: 'bl', hudPos: 'top' });
-    expect(deserialize(serialize(moved))!.settings).toMatchObject({ dpsCorner: 'bl', hudPos: 'top' });
+    Object.assign(moved.settings, { dpsCorner: 'bl', hudPos: 'top', pickups: false, pickupCorner: 'tr' });
+    expect(deserialize(serialize(moved))!.settings).toMatchObject({ dpsCorner: 'bl', hudPos: 'top', pickups: false, pickupCorner: 'tr' });
     // A saved tab order survives; junk is dropped and missing tabs are appended.
     const custom = newGame(0);
     custom.settings.tabOrder = ['areas', 'events', 'hunters', 'beasts', 'inventory'];

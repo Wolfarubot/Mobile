@@ -4592,42 +4592,58 @@ body.ui-parchment .tabs button.active {
   margin-left: 0;
 }
 
-/* Pick-up pop-ups: the materials just gained, bottom left of the battlefield (placed clear of the HUD by the renderer). */
+/* Pick-up pop-ups: the materials just gained, in a corner of the battlefield (Settings; placed clear of the HUD by
+   the renderer). No box: the icon and count get a black outline so they read over any ground. */
 .gain-pops {
   position: absolute;
   z-index: 3;
-  left: 8px;
-  bottom: 6px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 3px;
+  gap: 2px;
   pointer-events: none;
+}
+/* The newest line sits nearest the corner. */
+.gp-tl,
+.gp-tr {
+  flex-direction: column-reverse;
+}
+.gp-tr,
+.gp-br {
+  align-items: flex-end;
 }
 .gain-pop {
   display: flex;
   align-items: center;
-  gap: 3px;
-  padding: 1px 7px 1px 3px;
-  background: rgba(0, 0, 0, 0.45);
-  border: 2px solid var(--c0);
-  color: var(--c3);
+  gap: 4px;
+  color: #fff;
   animation: gain-in 0.18s ease-out;
+}
+.gp-tr .gain-pop,
+.gp-br .gain-pop {
+  --gain-from: 10px;
 }
 .gain-pop .gem-ic,
 .gain-pop .gem {
   margin: 0;
   vertical-align: 0;
+  filter: drop-shadow(1px 0 0 #000) drop-shadow(-1px 0 0 #000) drop-shadow(0 1px 0 #000) drop-shadow(0 -1px 0 #000);
 }
 .gain-pop b {
-  font-size: 13px;
+  font-size: 14px;
   font-variant-numeric: tabular-nums;
-}
-.gain-pop.rare {
-  border-color: #ffd86e;
+  text-shadow:
+    -1px -1px 0 #000,
+    1px -1px 0 #000,
+    -1px 1px 0 #000,
+    1px 1px 0 #000,
+    0 -2px 0 #000,
+    0 2px 0 #000,
+    -2px 0 0 #000,
+    2px 0 0 #000;
 }
 .gain-pop.rare b {
-  color: #ffe9a6;
+  color: #ffd86e;
 }
 .gain-pop b.bump {
   animation: gain-bump 0.2s ease-out;
@@ -4635,7 +4651,7 @@ body.ui-parchment .tabs button.active {
 @keyframes gain-in {
   from {
     opacity: 0;
-    transform: translateX(-10px);
+    transform: translateX(var(--gain-from, -10px));
   }
 }
 @keyframes gain-bump {

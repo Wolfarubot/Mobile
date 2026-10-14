@@ -290,7 +290,7 @@ export class AppUI {
     const pops = new GainPops($('#gainPops'), (m) => gemHtml(m), fmt);
     game.on((e) => {
       // Not during a Guardian fight: the fight matters more than its drops.
-      if (e.type === 'gains' && !game.guardianActive) for (const [m, n] of Object.entries(e.materials) as [MaterialId, number][]) pops.add(m, n);
+      if (e.type === 'gains' && !game.guardianActive && game.state.settings.pickups) for (const [m, n] of Object.entries(e.materials) as [MaterialId, number][]) pops.add(m, n);
       if (e.type === 'travel' || e.type === 'guardianChallenge') pops.clear();
       if (e.type === 'areaUnlocked' || e.type === 'travel' || e.type === 'unlock' || e.type === 'recruit') this.setTab(this.tab, true);
       else if (e.type === 'eventComplete') this.setTab(this.tab, true); // may have made Hunters available
@@ -329,6 +329,7 @@ export class AppUI {
     $('#gold').textContent = fmt(s.gold);
     $('#dps').textContent = fmtDps(g.dps);
     $('#dpsMeter').className = `dps-meter dps-${s.settings.dpsCorner}${s.settings.dps ? '' : ' hidden'}`;
+    $('#gainPops').className = `gain-pops gp-${s.settings.pickupCorner}${s.settings.pickups ? '' : ' hidden'}`;
     $('#areaName').textContent = area.name;
     $('#areaLabel').classList.toggle('hidden', !this.menuFull);
     applyAreaTheme(g.area);
@@ -3252,6 +3253,26 @@ export class AppUI {
           get: () => st.dpsCorner,
           set: (v) => {
             st.dpsCorner = v as DpsCorner;
+            this.refresh();
+          },
+        },
+      ],
+    );
+    group(
+      'Pick-up pop-ups',
+      "Materials you've just gained, in a corner of the battlefield: a line per material counting up while more comes in. Ores and gems push out the rest. Hidden during Guardian fights.",
+      () => st.pickups,
+      (on) => {
+        st.pickups = on;
+        this.refresh();
+      },
+      [
+        {
+          label: 'Corner',
+          opts: [['tl', '↖ Top left'], ['tr', '↗ Top right'], ['bl', '↙ Bottom left'], ['br', '↘ Bottom right']],
+          get: () => st.pickupCorner,
+          set: (v) => {
+            st.pickupCorner = v as DpsCorner;
             this.refresh();
           },
         },

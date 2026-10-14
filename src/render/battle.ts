@@ -19,7 +19,7 @@ import { outlineOf } from './outline';
 const EVENT_BAR_H = 9;
 const HP_BAR_H = 15;
 const TIME_BAR_H = 9;
-/** About how wide the pick-up pop-ups (bottom left) get, for keeping them clear of the rest of the HUD. */
+/** About how wide the pick-up pop-ups get, for keeping them clear of the rest of the HUD. */
 const GAIN_POPS_W = 90;
 
 interface Pickup {
@@ -1252,29 +1252,40 @@ export class BattleView {
   }
 
   /**
-   * Keeps the pick-up pop-ups (bottom left) clear of the rest of the HUD: right of cooldown icons down the left
-   * edge, and above the DPS meter and cooldown icons along the bottom. During an event (a rush) with its bar at the
-   * bottom, they always sit above the bar, however wide the battlefield. (A Guardian fight hides them.)
+   * Keeps the pick-up pop-ups (in their corner, Settings) clear of the rest of the HUD: in from cooldown icons down
+   * their side, and past the DPS meter and cooldown icons along their edge. During an event (a rush) with its bar on
+   * their edge, they always sit past the bar, however wide the battlefield. (A Guardian fight hides them.)
    */
   private placeGainPops(bar: { top: number; bottom: number; left: number; right: number } | null): void {
     const wrap = this.cooldownBar.el.parentElement;
     const pops = wrap?.querySelector<HTMLElement>('#gainPops');
-    if (!pops) return;
+    if (!pops || pops.classList.contains('hidden')) return;
+    const st = this.game.state.settings;
+    const top = st.pickupCorner[0] === 't';
+    const onLeft = st.pickupCorner[1] === 'l';
     const boxes: Array<{ top: number; bottom: number; left: number; right: number }> = [];
     const cd = this.cooldownBar.rect();
     if (cd) boxes.push(cd);
     const meter = wrap?.querySelector<HTMLElement>('#dpsMeter');
     if (meter && !meter.classList.contains('hidden'))
       boxes.push({ top: meter.offsetTop, bottom: meter.offsetTop + meter.offsetHeight, left: meter.offsetLeft, right: meter.offsetLeft + meter.offsetWidth });
-    // Cooldown icons down the left edge: start right of them.
-    const left = cd && this.game.state.settings.cooldownPos === 'left' ? cd.right + 6 : 8;
-    const right = left + GAIN_POPS_W;
-    const lift = bar && bar.bottom > this.h / 2 ? bar.top - 4 : this.h - 6;
-    const bottom = boxes.filter((b) => b.right > left && b.left < right && b.bottom > this.h / 2).reduce((y, b) => Math.min(y, b.top - 4), lift);
-    const l = `${Math.round(left)}px`;
-    const bt = `${Math.round(this.h - bottom)}px`;
-    if (pops.style.left !== l) pops.style.left = l;
-    if (pops.style.bottom !== bt) pops.style.bottom = bt;
+    // Cooldown icons down their side: start in from them.
+    const side = cd && st.cooldownPos === (onLeft ? 'left' : 'right') ? (onLeft ? cd.right : this.w - cd.left) + 6 : 8;
+    const x1 = onLeft ? side : this.w - side - GAIN_POPS_W;
+    const x2 = x1 + GAIN_POPS_W;
+    const near = (b: { top: number; bottom: number }) => (top ? b.top < this.h / 2 : b.bottom > this.h / 2);
+    const inWay = boxes.filter((b) => b.right > x1 && b.left < x2 && near(b));
+    if (bar && near(bar)) inWay.push(bar);
+    // How far in from their edge (top or bottom) they start.
+    const edge = top ? inWay.reduce((y, b) => Math.max(y, b.bottom + 4), 6) : this.h - inWay.reduce((y, b) => Math.min(y, b.top - 4), this.h - 6);
+    const px = (n: number) => `${Math.round(n)}px`;
+    const set = (k: 'left' | 'right' | 'top' | 'bottom', v: string) => {
+      if (pops.style[k] !== v) pops.style[k] = v;
+    };
+    set(onLeft ? 'left' : 'right', px(side));
+    set(onLeft ? 'right' : 'left', '');
+    set(top ? 'top' : 'bottom', px(edge));
+    set(top ? 'bottom' : 'top', '');
   }
 
   private drawHud(g: CanvasRenderingContext2D): void {
