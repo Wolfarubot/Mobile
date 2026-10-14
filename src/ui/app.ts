@@ -1018,7 +1018,9 @@ export class AppUI {
     let key = '';
     this.refreshers.push(() => {
       const items = g.equipped(who);
-      const k = items.map((it) => (it ? `${it.uid}:${it.stars}` : '-')).join('|');
+      // Reginald the Artificer in their area: the gear works a star better (shown as +1★, and its stats at that).
+      const tuned = g.tinkerFor(who);
+      const k = `${tuned};` + items.map((it) => (it ? `${it.uid}:${it.stars}` : '-')).join('|');
       if (k === key) return;
       key = k;
       rows.forEach(({ slot, b }, i) => {
@@ -1028,7 +1030,9 @@ export class AppUI {
         b.classList.toggle('rar', !!it);
         b.style.setProperty('--rc', gd ? gearColor(gd.id) : '');
         b.innerHTML = `<i>${gd ? gearIcon(gd) : GEAR_KINDS[slot.kind].icon}</i><div><small>${slot.label}</small><b>${gd ? gd.name : 'Empty'}</b><span class="sub">${
-          gd && it ? `${dtypeTag(gd)}${RARITIES[gd.rarity].name} · <span class="stars">${starsHtml(it.stars)}</span> · ${gearSummary(gd, it.stars)}` : 'Tap to equip'
+          gd && it
+            ? `${dtypeTag(gd)}${RARITIES[gd.rarity].name} · <span class="stars">${starsHtml(it.stars)}</span>${tuned ? `<span class="tuned" title="Tuned by Reginald the Artificer">+${tuned}★</span>` : ''} · ${gearSummary(gd, g.effStars(it, who))}`
+            : 'Tap to equip'
         }</span></div><span class="chev">›</span>`;
       });
       const stats = describeGear(g.gear(who));
@@ -3280,7 +3284,7 @@ export class AppUI {
     );
     group(
       'Cooldown icons',
-      "Icons for abilities that recharge (like Reginald's potions, Glimmer's fireballs and item abilities). They grey out when used and refill from the top down.",
+      "Icons for abilities that recharge (like Andrejz's potions, Glimmer's fireballs and item abilities). They grey out when used and refill from the top down.",
       () => st.cooldowns,
       (on) => (st.cooldowns = on),
       [

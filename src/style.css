@@ -4659,3 +4659,10 @@ body.ui-parchment .tabs button.active {
     transform: scale(1.25);
   }
 }
+
+/* Gear tuned by Reginald the Artificer (he's in the wearer's area): the extra star it works at. */
+.tuned {
+  margin-left: 3px;
+  color: #b86e00;
+  font-weight: 700;
+}

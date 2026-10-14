@@ -234,7 +234,7 @@ export interface Puddle {
   r: number;
   life: number;
   tick: number;
-  /** Multiplier on the thrower's shot damage per tick (Reginald's potions). */
+  /** Multiplier on the thrower's shot damage per tick (Andrejz's potions). */
   dmg: number;
   /** An acid puddle from an Acid proc: fixed damage per tick, of this type. */
   abs?: number;
@@ -981,7 +981,7 @@ export class Field {
     for (const { effect, chance } of g.attackEnchants(who)) if (g.rng() < chance) this.fireGear(who, x, y, effect, 1, 0);
   }
 
-  /** Reginald's potion / Glimmer's fireball: cast at the nearest monster in range whenever the cooldown is up. */
+  /** Andrejz's potion / Glimmer's fireball: cast at the nearest monster in range whenever the cooldown is up. */
   private helperSpecial(h: Helper, dt: number): void {
     const g = this.game;
     const sp = hunterDef(h.id).special!;
@@ -1070,7 +1070,7 @@ export class Field {
   // ---- Cooldowns (for the battlefield's cooldown icons) ----
 
   /**
-   * Every ability on the field that recharges, with how far along it is: Guild Hunters' specials (Reginald's
+   * Every ability on the field that recharges, with how far along it is: Guild Hunters' specials (Andrejz's
    * potions, Glimmer's fireballs). Weapons waiting (guns reloading, staffs recharging, tomes summoning) show
    * text over the Hunter instead (see weaponStatus).
    */

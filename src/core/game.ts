@@ -68,6 +68,7 @@ import {
   GEAR_STUN_CAP,
   gearCost,
   GEAR_STAR_POWER,
+  MAX_EFFECTIVE_STARS,
   MOD_SLOTS,
   MOD_QUALITY_STEPS,
   MOD_CHOICES,
@@ -281,7 +282,7 @@ export class Game {
     const i = slots.findIndex((sl) => WEAPON_KINDS.includes(sl.kind) && (!sl.role || sl.role === mode));
     const item = i >= 0 ? this.equipped(who)[i] : null;
     const def = item ? gearDef(item.base) : null;
-    return def?.weaponClass ? weaponHit(def, item!.stars) : UNARMED_HIT;
+    return def?.weaponClass ? weaponHit(def, this.effStars(item!, who)) : UNARMED_HIT;
   }
 
   get fireRate(): number {
@@ -317,12 +318,31 @@ export class Game {
   }
 
   /** The pieces a Hunter wears that have a special effect, with their stars. */
+  /** Where a Hunter is fighting: your Hunter in your area, a Guild Hunter where they're stationed (null: nowhere). */
+  areaOfHunter(who: Shooter): AreaId | null {
+    return who === 'main' ? this.state.area : this.state.hunters[who].recruited ? this.state.hunters[who].station : null;
+  }
+
+  /** Extra stars on a Hunter's gear from an Artificer (Reginald) fighting in the same area. */
+  tinkerFor(who: Shooter): number {
+    const at = this.areaOfHunter(who);
+    if (!at) return 0;
+    let n = 0;
+    for (const h of HUNTERS) if (h.tinker && this.state.hunters[h.id].recruited && this.state.hunters[h.id].station === at) n += h.tinker;
+    return n;
+  }
+
+  /** The stars a piece works at for this wearer: its own, plus an Artificer's touch (up to one past 5★). */
+  effStars(item: GearItem, who: Shooter): number {
+    return Math.min(MAX_EFFECTIVE_STARS, item.stars + this.tinkerFor(who));
+  }
+
   gearEffects(who: Shooter): Array<{ uid: number; def: GearDef; effect: GearEffect; stars: number }> {
     const out: Array<{ uid: number; def: GearDef; effect: GearEffect; stars: number }> = [];
     for (const item of this.equipped(who)) {
       const def = item ? gearDef(item.base) : null;
       if (!item || !def) continue;
-      if (def.effect) out.push({ uid: item.uid, def, effect: def.effect, stars: item.stars });
+      if (def.effect) out.push({ uid: item.uid, def, effect: def.effect, stars: this.effStars(item, who) });
       // Enchanted armor specials (Thorns, Evasion, Shield Burst): their rolled chance, and damage from their
       // rolled power × the piece's area.
       (item.mods ?? []).forEach((m, slot) => {
@@ -522,7 +542,7 @@ export class Game {
     let b = 0;
     for (const item of this.equipped(who)) {
       const d = item ? gearDef(item.base) : null;
-      if (item && d?.bane?.archetype === archetype) b += d.bane.bonus * GEAR_STAR_POWER[item.stars];
+      if (item && d?.bane?.archetype === archetype) b += d.bane.bonus * GEAR_STAR_POWER[this.effStars(item, who)];
     }
     return b;
   }
@@ -641,7 +661,7 @@ export class Game {
     let b = 0;
     for (const item of this.equipped(who)) {
       const d = item ? gearDef(item.base) : null;
-      if (item && d?.typeBonus?.type === t) b += d.typeBonus.bonus * GEAR_STAR_POWER[item.stars];
+      if (item && d?.typeBonus?.type === t) b += d.typeBonus.bonus * GEAR_STAR_POWER[this.effStars(item, who)];
       // An infusion's rolled bonus to its own type.
       for (const { en, p } of this.enchantsOf(item)) if (en.infuse === t) b += p;
     }
@@ -698,14 +718,14 @@ export class Game {
     return i >= 0 ? this.equipped(who)[i] : null;
   }
 
-  // ---- Special attacks (Reginald's potions, Glimmer's fireballs) ----
+  // ---- Special attacks (Andrejz's potions, Glimmer's fireballs) ----
 
   /** Stats of the piece in a Hunter's weapon slot (zeros when empty). Its damage and attack rate power their special. */
   weaponStats(who: Shooter): Partial<Record<GearStat, number>> {
     const slots = this.slotsOf(who);
     const i = slots.findIndex((sl) => WEAPON_KINDS.includes(sl.kind));
     const item = i >= 0 ? this.equipped(who)[i] : null;
-    return item ? gearStats(gearDef(item.base), item.stars) : {};
+    return item ? gearStats(gearDef(item.base), this.effStars(item, who)) : {};
   }
 
   /** Seconds between special attacks, or null if the Hunter has none. */
@@ -791,7 +811,7 @@ export class Game {
     const slots = this.slotsOf(who);
     this.equipped(who).forEach((item, i) => {
       if (!item || (slots[i].role && slots[i].role !== mode)) return;
-      for (const [k, v] of Object.entries(gearTotals(gearDef(item.base), item.stars)) as [GearStat, number][]) total[k] += v;
+      for (const [k, v] of Object.entries(gearTotals(gearDef(item.base), this.effStars(item, who))) as [GearStat, number][]) total[k] += v;
       // Refined stats add to the piece's own (knockback and magazine size change its weapon class instead).
       for (const m of item.mods ?? []) if (m?.kind === 'refine' && m.stat in total) total[m.stat as GearStat] += modValue(m, gearDef(item.base));
     });

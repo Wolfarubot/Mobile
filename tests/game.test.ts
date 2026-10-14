@@ -69,6 +69,7 @@ import {
   TIER_HIT,
   weaponHit,
   WEAPON_HIT_POWER,
+  GEAR_STAR_POWER,
   HELPER_TAPER_LEVEL,
   HELPER_TAPER_SESSIONS,
   helperBulkCost,
@@ -434,7 +435,7 @@ describe('Enemies & archetypes', () => {
 });
 
 describe('Hunters', () => {
-  it("Hunters become available through their area's events: Reginald after a Slime Swarm", () => {
+  it("Hunters become available through their area's events: Andrejz after a Slime Swarm", () => {
     const s = newGame(0);
     s.gold = 1e9;
     s.areas.forest.kills = 1e6;
@@ -988,6 +989,41 @@ describe('Equipment', () => {
     for (const h of ['main', 'glimmer', 'lance', 'wilhelm', 'ranger'] as const) expect(kinds(h)).toContain('armor');
   });
 
+  it('Reginald the Artificer: every Hunter in his area uses their gear a star better, a 5★ piece as if 6★', () => {
+    expect(hunterDef('alchemist')).toMatchObject({ name: 'Andrejz', title: 'Alchemist' });
+    expect(hunterDef('artificer')).toMatchObject({ name: 'Reginald', title: 'Artificer', area: 'cliffs', tinker: 1 });
+    const g = stocked();
+    // He takes any weapon.
+    expect(g.slotsOf('artificer')[0].accepts).toEqual(['weapon', 'magic', 'melee']);
+    const bow = g.craftGear('forestBow')!;
+    bow.stars = MAX_STARS;
+    g.equip('main', 0, bow.uid);
+    const hit = g.weaponHitOf('main');
+    const rate = g.gear('main').rate;
+    expect(g.tinkerFor('main')).toBe(0);
+    // Recruited, but stationed somewhere else: no help here.
+    g.state.hunters.artificer.recruited = true;
+    g.state.areas.glade.unlocked = true;
+    g.state.hunters.artificer.station = 'glade';
+    expect(g.tinkerFor('main')).toBe(0);
+    // Stationed with you: your 5★ bow works as a 6★ one.
+    g.state.hunters.artificer.station = g.area;
+    expect(g.tinkerFor('main')).toBe(1);
+    expect(g.effStars(bow, 'main')).toBe(MAX_STARS + 1);
+    expect(g.weaponHitOf('main')).toBeCloseTo((hit * WEAPON_HIT_POWER[MAX_STARS + 1]) / WEAPON_HIT_POWER[MAX_STARS]);
+    expect(WEAPON_HIT_POWER[MAX_STARS + 1]).toBeGreaterThan(WEAPON_HIT_POWER[MAX_STARS]);
+    if (rate) expect(g.gear('main').rate).toBeCloseTo((rate * GEAR_STAR_POWER[MAX_STARS + 1]) / GEAR_STAR_POWER[MAX_STARS]);
+    // A lower piece just counts one star higher; the piece itself doesn't change.
+    bow.stars = 2;
+    expect(g.effStars(bow, 'main')).toBe(3);
+    expect(bow.stars).toBe(2);
+    // Guild Hunters stationed with him are tuned too, and so is he.
+    g.state.hunters.ranger.recruited = true;
+    g.state.hunters.ranger.station = g.area;
+    expect(g.tinkerFor('ranger')).toBe(1);
+    expect(g.tinkerFor('artificer')).toBe(1);
+  });
+
   it('gear only fits matching slots, and moves between Hunters instead of being shared', () => {
     const g = stocked();
     const bow = g.craftGear('forestBow')!;
@@ -1019,7 +1055,7 @@ describe('Equipment', () => {
     expect(g.shooterRange('main')).toBe(range + 20);
   });
 
-  it('magic weapons: Glimmer takes only magic, Reginald takes ranged or magic, nobody else takes magic', () => {
+  it('magic weapons: Glimmer takes only magic, Andrejz takes ranged or magic, nobody else takes magic', () => {
     const g = stocked();
     g.recruit('alchemist');
     const wand = g.craftGear('slimeWand')!;
@@ -2138,7 +2174,7 @@ describe('Equipment', () => {
     expect(tomeSummonType(gearDef('wispTome'))).toBe('spirit');
     expect(tomeSummonType(gearDef('necroTome'))).toBe('undead');
     expect((gearDef('puppetDoll').effect as { type: string }).type).toBe('construct');
-    // Deku with the Wolf Spirit tome: his tome wolves bite 1.5× what the same tome's wolves bite for Reginald.
+    // Deku with the Wolf Spirit tome: his tome wolves bite 1.5× what the same tome's wolves bite for Andrejz.
     g.state.gold = 1e30;
     for (const m of Object.keys(g.state.materials) as Array<keyof typeof g.state.materials>) g.state.materials[m] = 1e6;
     const bite = (who: 'druid' | 'puppeteer', tome: 'wolfTome' | 'wispTome') => {
@@ -3081,7 +3117,7 @@ describe('Field', () => {
     expect(f.bullets.length).toBeGreaterThan(0);
   });
 
-  it('Reginald attacks with his weapon (a plain bolt unarmed) and lobs a potion that leaves a damaging puddle on a cooldown', () => {
+  it('Andrejz attacks with his weapon (a plain bolt unarmed) and lobs a potion that leaves a damaging puddle on a cooldown', () => {
     const { f } = withHelper('alchemist');
     f.enemies.push(tough({ id: 1, x: -150, y: 150 }));
     let puddle = false;

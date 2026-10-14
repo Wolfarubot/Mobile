@@ -399,6 +399,7 @@ export const ASCENDED_TREES: Record<HunterId, SkillNode[]> = {
   scavenger: ascendedTree({ name: 'Mountain Breaker', icon: '🏔️', desc: '+100% damage and punches reach 30% further.', maxRank: 1, effect: { damage: 1, radius: 0.3 } }),
   osteomancer: ascendedTree({ name: 'Ossuary', icon: '💀', desc: '+100% damage and spikes 30% wider.', maxRank: 1, effect: { damage: 1, radius: 0.3 } }),
   bloodblade: ascendedTree({ name: 'Crimson Tide', icon: '🌊', desc: '+100% damage and 2 more blood bolts from each Crimson Wave kill.', maxRank: 1, effect: { damage: 1, bolts: 2 } }),
+  artificer: ascendedTree({ name: 'Grand Design', icon: '⚙️', desc: '+100% damage and +20% attack rate.', maxRank: 1, effect: { damage: 1, rate: 0.2 } }),
   frostbreaker: ascendedTree({ name: 'Eternal Winter', icon: '❄️', desc: '+100% damage and +1× extra damage to Elementals.', maxRank: 1, effect: { damage: 1, bane: 1 } }),
 };
 
@@ -557,6 +558,15 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
       { name: 'Wide Wards', icon: '🌀', desc: '+10% area size per rank.', maxRank: 3, effect: { radius: 0.1 } },
     ],
     { name: 'Spellbinder', icon: '📜', desc: '+30% damage.', maxRank: 1, cost: 4, effect: { damage: 0.3 } },
+  ),
+  artificer: skillTree(
+    { name: 'Spare Parts', icon: '⚙️', desc: '+10% damage.', maxRank: 1, effect: { damage: 0.1 } },
+    [
+      { name: 'Fine Tuning', icon: '🔧', desc: '+15% damage per rank.', maxRank: 3, effect: { damage: 0.15 } },
+      { name: 'Oiled Gears', icon: '🔩', desc: '+5% attack rate per rank.', maxRank: 3, effect: { rate: 0.05 } },
+      { name: 'Sturdy Frame', icon: '🛠️', desc: 'Stuns wear off 8% faster per rank.', maxRank: 3, effect: { recovery: 1 } },
+    ],
+    { name: 'Masterwork', icon: '🧰', desc: '+30% damage and +10% attack rate.', maxRank: 1, cost: 4, effect: { damage: 0.3, rate: 0.1 } },
   ),
   frostbreaker: skillTree(
     { name: 'Permafrost', icon: '❄️', desc: '+10% damage.', maxRank: 1, effect: { damage: 0.1 } },
@@ -1456,7 +1466,8 @@ export type HunterId =
   | 'enchantress'
   | 'osteomancer'
   | 'frostbreaker'
-  | 'bloodblade';
+  | 'bloodblade'
+  | 'artificer';
 
 // ---- Damage types: every attack deals one. Weapons carry a type; without one, a Hunter uses their own. ----
 export type DamageType = 'physical' | 'fire' | 'acid' | 'frost' | 'radiant' | 'poison' | 'arcane' | 'decay' | 'lightning' | 'void';
@@ -1528,7 +1539,7 @@ export const DAMAGE_TYPES: Record<DamageType, { name: string; icon: string; colo
 
 /**
  * A Guild Hunter's signature ability, used on a cooldown alongside the attacks of the weapon they hold:
- * Reginald's potions, Glimmer's fireballs, Deku's wolves, Theon's puppets. Its damage per hit is `damage` ×
+ * Andrejz's potions, Glimmer's fireballs, Deku's wolves, Theon's puppets. Its damage per hit is `damage` ×
  * their shot damage (so their weapon powers it); its radius is `radius` × (1 + their weapon's attack rate).
  * `ticks` is how many times it hits (a puddle ticks), and `crowd` how many monsters it typically catches, for
  * the background model. Summons copy the weapon's damage type and status effects; the others keep their own.
@@ -1591,6 +1602,11 @@ export interface HunterDef {
   /** Wherever they're stationed, every kill there pays this much more gold, and loot drops this much more often (Alias). */
   areaGold?: number;
   areaLoot?: number;
+  /**
+   * Reginald the Artificer: every Hunter in his area (him included) uses their gear as if it had this many more
+   * stars; a piece already at 5★ gets what the stars past it would give (see the 6★ entries of the star tables).
+   */
+  tinker?: number;
   /** Equipment slots (defaults to Weapon, Armor, Accessory). */
   slots?: SlotDef[];
   /**
@@ -1625,11 +1641,11 @@ export const GUARD_RECHARGE = 4;
 
 export const HUNTERS: HunterDef[] = [
   {
-    id: 'alchemist', name: 'Reginald', title: 'Alchemist', icon: '⚗️', color: '#7be07b', area: 'forest', recruitCost: 150, bane: { archetype: 'slime', mult: 3 },
+    id: 'alchemist', name: 'Andrejz', title: 'Alchemist', icon: '⚗️', color: '#7be07b', area: 'forest', recruitCost: 150, bane: { archetype: 'slime', mult: 3 },
     short: 'Lobs poison potions; slays Slimes.',
     unlock: { event: 'slimeSwarm', times: 1 },
     ascendedTitle: 'Archalchemist',
-    story: "Reginald is in the Wandering Woods doing research on Slimes, with an idea for a new potion, but he needs far more test subjects than he can catch. Survive a Slime Swarm, and Reginald will help you hunt monsters.",
+    story: "Andrejz is in the Wandering Woods doing research on Slimes, with an idea for a new potion, but he needs far more test subjects than he can catch. Survive a Slime Swarm, and Andrejz will help you hunt monsters.",
     ability: 'Every 4s, lobs a potion that leaves a poison puddle. Deals triple damage to Slimes. Uses ranged or magic weapons.',
     slots: [{ kind: 'weapon', label: 'Weapon', accepts: ['weapon', 'magic'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
     special: { kind: 'potion', name: 'Potions', damageType: 'poison', cooldown: 4, damage: 0.35, radius: 45, ticks: 6, crowd: 2.5, describe: 'Every 4s, lobs a potion whose poison puddle keeps hurting: his weapon\'s damage powers it, its attack rate widens the puddle.' },
@@ -1780,6 +1796,16 @@ export const HUNTERS: HunterDef[] = [
     special: { kind: 'wave', name: 'Crimson Wave', damageType: 'physical', cooldown: 5, damage: 1.4, radius: 200, width: 26, ticks: 1, crowd: 3, describe: 'Every 5s, a surge of blood rushes out toward the nearest monster, hurting everything in its path and making it bleed: his weapon\'s damage powers it, its attack rate lengthens it. With Blood Rain (his capstone), monsters it kills burst into blood bolts that seek out others and make them bleed too.' },
     slots: [{ kind: 'melee', label: 'Melee' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
   },
+  {
+    id: 'artificer', name: 'Reginald', title: 'Artificer', icon: '⚙️', color: '#d8b060', area: 'cliffs', recruitCost: 4e21,
+    short: "Every Hunter's gear works a star better beside him.",
+    unlock: { event: 'harpyStorm', times: 1 },
+    ascendedTitle: 'Grand Artificer',
+    tinker: 1,
+    story: "Reginald climbed the Ascendant Steps to study the Sky Golems' clockwork, and the harpies won't leave his instruments alone. Drive off a Harpy Storm, and he'll tune your gear in return.",
+    ability: "Every Hunter in his area, him included, uses their gear as if it had one more star; gear already at 5★ gets the bonus a 6th star would give. Uses any weapon.",
+    slots: [{ kind: 'weapon', label: 'Weapon', accepts: ['weapon', 'magic', 'melee'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
+  },
 ];
 
 export const hunterDef = (id: HunterId): HunterDef => HUNTERS.find((h) => h.id === id)!;
@@ -1793,6 +1819,7 @@ export function hunterPerk(h: HunterDef): string {
   if (h.inspire) parts.push(`+${Math.round(h.inspire * 100)}% attack rate to Hunters beside him`);
   if (h.areaGold) parts.push(`+${Math.round(h.areaGold * 100)}% gold in his area`);
   if (h.areaLoot) parts.push(`×${1 + h.areaLoot} loot in his area`);
+  if (h.tinker) parts.push(`+${h.tinker}★ to the gear of every Hunter in his area`);
   return parts.join(', ');
 }
 
@@ -1847,7 +1874,7 @@ export interface SlotDef {
   label: string;
   /** Wilhelm's weapon slots: 'long' is his usual weapon, 'short' the one he switches to up close. */
   role?: 'long' | 'short';
-  /** Kinds the slot takes, when more than its own `kind` (Reginald's weapon slot takes ranged or magic). */
+  /** Kinds the slot takes, when more than its own `kind` (Andrejz's weapon slot takes ranged or magic). */
   accepts?: GearKind[];
   /** Armor slots that only take some kinds of armor (Glimmer wears robes). */
   armorTypes?: ArmorType[];
@@ -1920,7 +1947,7 @@ export type GearEffect =
 export const effectCooldown = (e: GearEffect): number | null => ('cooldown' in e ? e.cooldown : null);
 
 /** A piece's ability base damage at its stars. */
-export const effectBase = (e: GearEffect, stars: number): number => ('base' in e ? e.base * WEAPON_HIT_POWER[Math.max(1, Math.min(MAX_STARS, stars))] : 0);
+export const effectBase = (e: GearEffect, stars: number): number => ('base' in e ? e.base * WEAPON_HIT_POWER[Math.max(1, Math.min(MAX_EFFECTIVE_STARS, stars))] : 0);
 
 /** Weapon kinds: a Hunter's weapon slot powers their special attack. */
 export const WEAPON_KINDS: GearKind[] = ['weapon', 'melee', 'magic'];
@@ -2130,7 +2157,7 @@ export interface GearDef {
  */
 export const TIER_HIT = [2, 4, 8, 15, 27, 45, 72, 110, 160, 230, 320, 440];
 /** A weapon's base damage at each star, as a multiple of 1★. */
-export const WEAPON_HIT_POWER = [0, 1, 1.3, 1.65, 2.1, 2.6];
+export const WEAPON_HIT_POWER = [0, 1, 1.3, 1.65, 2.1, 2.6, 3.2];
 /** Base damage per hit with no weapon equipped. */
 export const UNARMED_HIT = 1;
 /** A weapon's base damage per hit at a star count (0 for gear that isn't a weapon). */
@@ -2142,7 +2169,7 @@ export function weaponHit(def: GearDef, stars: number): number {
   const tierHit = lo >= TIER_HIT.length ? TIER_HIT[TIER_HIT.length - 1] : TIER_HIT[lo - 1] * (TIER_HIT[lo] / TIER_HIT[lo - 1]) ** (t - lo);
   const raw = tierHit * WEAPON_CLASSES[def.weaponClass].damage;
   const base = def.hit ?? (raw >= 10 ? Math.round(raw) : Math.round(raw * 10) / 10);
-  return base * WEAPON_HIT_POWER[Math.max(0, Math.min(MAX_STARS, stars))];
+  return base * WEAPON_HIT_POWER[Math.max(0, Math.min(MAX_EFFECTIVE_STARS, stars))];
 }
 /** A weapon's damage for display (e.g. "1.3 damage"). */
 export const hitText = (v: number): string => `${Number(v.toFixed(v < 10 ? 2 : 1))} damage`;
@@ -2154,6 +2181,11 @@ export function gearSummary(def: GearDef, stars: number): string {
 
 // ---- Stars: gear and Upgrades go from 1★ (crafted) to 5★ ----
 export const MAX_STARS = 5;
+/**
+ * Stars a piece can work at: one past MAX_STARS, reached only with Reginald the Artificer's touch (the star
+ * tables' last entry is that extra star, continuing their steps).
+ */
+export const MAX_EFFECTIVE_STARS = MAX_STARS + 1;
 
 // ---- Gear modifiers: Refine (Kargesh the Blacksmith) and Enchant (Marceline the Enchantress) ----
 
@@ -2358,7 +2390,7 @@ export function modCost(def: GearDef, kind: 'refine' | 'enchant'): Partial<Recor
   return out;
 }
 /** Gear stats at each star, as a multiple of 1★ (0★ = not crafted). */
-export const GEAR_STAR_POWER = [0, 1, 2, 4, 7, 10];
+export const GEAR_STAR_POWER = [0, 1, 2, 4, 7, 10, 13];
 /** Gear costs grow this much per step of power (so a star costs the sum of the steps it skips). */
 export const GEAR_COST_GROWTH = 1.8;
 /** The ★★★☆☆ display of a star count. */
@@ -2574,7 +2606,7 @@ export const GEAR: GearDef[] = [
   { id: 'ironSpear', name: 'Bone Spear', icon: '🔱', kind: 'melee', rarity: 'uncommon', weaponClass: 'spear', tier: 3, damageType: 'physical', proc: 0.2, stats: {}, recipe: { bone: 10, flesh: 5 } },
   { id: 'magmaGlaive', name: 'Magma Glaive', icon: '🪓', kind: 'melee', rarity: 'veryRare', weaponClass: 'glaive', tier: 6, damageType: 'fire', proc: 0.4, stats: { range: 6 }, recipe: { demonTooth: 8, magma: 6 } },
   { id: 'soulLance', name: 'Soulreaver Lance', icon: '⚜️', kind: 'melee', rarity: 'exalted', weaponClass: 'spear', tier: 12, damageType: 'decay', proc: 0.2, stats: { pierce: 0.2 }, recipe: { soul: 8, void: 4 } },
-  // Magic (Reginald and Glimmer)
+  // Magic (Andrejz and Glimmer)
   { id: 'gravewoodStaff', name: 'Gravewood Staff', icon: '🪵', kind: 'magic', rarity: 'uncommon', weaponClass: 'staff', tier: 3, damageType: 'decay', proc: 0.15, stats: { rate: 0.06 }, recipe: { sacredText: 8, vampEssence: 5 } },
   { id: 'emberFocus', name: 'Ember Focus', icon: '🕯️', kind: 'magic', rarity: 'veryRare', weaponClass: 'focus', tier: 6, damageType: 'fire', proc: 0.3, stats: { rate: 0.15 }, tweak: { wave: true }, recipe: { ember: 10, demonBone: 5 } },
   { id: 'crystalFocus', name: 'Crystal Focus', icon: '💎', kind: 'magic', rarity: 'legendary', weaponClass: 'focus', tier: 8, damageType: 'frost', proc: 0.3, stats: { rate: 0.1 }, recipe: { frost: 8, ecto: 6 } },
@@ -2666,14 +2698,14 @@ export const gearColor = (id: GearId): string => RARITIES[gearDef(id).rarity].co
 /** A piece's stats at a star count. */
 export function gearStats(def: GearDef, stars: number): Partial<Record<GearStat, number>> {
   const out: Partial<Record<GearStat, number>> = {};
-  const st = Math.max(0, Math.min(MAX_STARS, stars));
+  const st = Math.max(0, Math.min(MAX_EFFECTIVE_STARS, stars));
   // Shield charges grow slowly with stars (a 5★ piece has twice its 1★ charges); everything else ×GEAR_STAR_POWER.
   for (const [k, v] of Object.entries(def.stats) as [GearStat, number][]) out[k] = v * (k === 'guard' ? GUARD_STAR_POWER[st] : GEAR_STAR_POWER[st]);
   return out;
 }
 
 /** Shield charges at each star, as a multiple of 1★. */
-export const GUARD_STAR_POWER = [0, 1, 1.25, 1.5, 1.75, 2];
+export const GUARD_STAR_POWER = [0, 1, 1.25, 1.5, 1.75, 2, 2.25];
 
 /** A piece's stats at its stars, plus its armor kind's fixed penalty. */
 export function gearTotals(def: GearDef, stars: number): Partial<Record<GearStat, number>> {

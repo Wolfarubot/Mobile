@@ -25,6 +25,7 @@ export const HUNTER_ICONS: Record<Wearer, string> = {
   osteomancer: 'ab-paladin-dk/095',
   frostbreaker: 'ab-pyro-hydro/058',
   bloodblade: 'ab-hunter-warrior/060',
+  artificer: 'ab-engineer-psionic/028',
 };
 
 /** A Hunter's icon as HTML (an <img>), falling back to their emoji. */
