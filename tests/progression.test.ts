@@ -2,7 +2,8 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { weaponHit, gearArea, EVENTS, AREAS, areaEnemies, ENEMIES, GEAR, gearDef, gearStats, slotAccepts, typeMult, type GearId, enemyUnlockCost, HUNTERS, ITEMS, STATION_EFFICIENCY, type AreaId, type ItemId } from '../src/core/balance';
 import { Field } from '../src/core/field';
-import { Game } from '../src/core/game';
+import { Game, type Shooter } from '../src/core/game';
+import { mergeSample, runSample, sameGroup, SAMPLE_SETTLED } from '../src/core/sampler';
 import { deserialize, newGame, serialize, type Wearer } from '../src/core/state';
 
 /** Small deterministic PRNG so pacing results are reproducible. */
@@ -191,6 +192,24 @@ function play(game: Game, field: Field, seconds: number, clock: number, tapsPerS
   }
 }
 
+/**
+ * What the game's background sampler (ui/samplerHost.ts) does while you play: measure each farming group on a
+ * hidden copy of its battlefield, so offline gains and stationed Hunters earn at measured rates. The bot does it
+ * as a session ends, one 60s run per group whose sample is missing, stale (another group or strength) or short.
+ */
+function sampleGroups(game: Game, rng: () => number): void {
+  const groups: Array<{ area: AreaId; group: Shooter[] }> = [{ area: game.area, group: ['main', ...game.helpersHere] }];
+  for (const area of game.unlockedAreas) if (area !== game.area && game.stationedIn(area).length) groups.push({ area, group: game.stationedIn(area) });
+  for (const { area, group } of groups) {
+    const sig = game.sampleSig(area, group);
+    const smp = game.state.samples[area];
+    if (smp && smp.sig === sig && sameGroup(smp.group, group) && smp.seconds >= SAMPLE_SETTLED) continue;
+    const run = runSample({ save: serialize(game.state), area, group, seconds: 60, view: { w: 390, h: 420 } }, rng);
+    game.state.samples[area] = mergeSample(game.state.samples[area], group, sig, run);
+  }
+}
+const sampleRng = mulberry(7);
+
 function newBot() {
   const game = new Game(newGame(0), mulberry(42));
   const field = new Field(game);
@@ -226,6 +245,7 @@ export function simulatePlayer(days: number) {
     play(bot.game, bot.field, length, start, 1, bot.memo, bot.unlockedAt);
     for (const a of AREAS) if (a.id in bot.unlockedAt && !before.has(a.id)) activeAt[a.id] = activeSec + (bot.unlockedAt[a.id]! - start);
     activeSec += length;
+    sampleGroups(bot.game, sampleRng);
     bot.game.state.lastSeen = (start + length) * 1000;
   }
   return { unlockedAt: bot.unlockedAt, activeAt, game: bot.game };
@@ -266,7 +286,7 @@ it.runIf(!!process.env.SIM_SWEEP)('pacing sweep', () => {
   const nonstop = simulate(12 * H);
   console.log('Nonstop optimal play:', AREAS.map((a) => `${a.name}: ${fmtT(nonstop.unlockedAt[a.id])}`).join(' | '));
   console.log(`(sim took ${((Date.now() - started) / 1000).toFixed(1)}s)`);
-}, 900_000);
+}, 0);
 
 /**
  * The Dev menu's progress phases (Settings → Dev → Progress), recorded from a typical player's bot run:
@@ -301,6 +321,7 @@ it.runIf(!!process.env.PRESETS_OUT)('dev progress presets', () => {
     botShop(g, start, bot.memo);
     onShop();
     play(g, bot.field, length, start, 1, bot.memo, bot.unlockedAt, onShop);
+    sampleGroups(g, sampleRng);
     g.state.lastSeen = (start + length) * 1000;
     writeFileSync(process.env.PRESETS_OUT!, JSON.stringify(Object.fromEntries(AREAS.flatMap((a) => [`${a.id}-start`, `${a.id}-end`]).filter((k) => presets[k]).map((k) => [k, JSON.parse(presets[k])]))));
   }
@@ -343,6 +364,7 @@ it.runIf(!!process.env.SIM_FULL)('full game: a typical player beats the Time Eat
     g.applyOffline(start * 1000);
     botShop(g, start, bot.memo);
     play(g, bot.field, length, start, 1, bot.memo, bot.unlockedAt, () => (now = start));
+    sampleGroups(g, sampleRng);
     g.state.lastSeen = (start + length) * 1000;
     for (const a of AREAS) if (a.id in bot.unlockedAt && !seen.has(a.id)) {
       seen.add(a.id);
