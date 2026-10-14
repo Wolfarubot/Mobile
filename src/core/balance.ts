@@ -32,13 +32,13 @@ export const GUARDIAN_GOLD_MULT = 50;
 
 // ---- Offline ----
 /**
- * Hours away that count toward offline progress, to start with. Ten Hourglasses (crafted once each, from a
+ * Hours away that count toward offline progress, to start with. Ten Energy Potions (crafted once each, from a
  * Guardian's spoils and the rare ores and gems along the way, one an area from the Fey Grove to the Meteor Field)
  * add 2 hours each: 24 hours with all ten.
  */
 export const OFFLINE_BASE_SEC = 4 * 3600;
-export const OFFLINE_HOURGLASS_SEC = 2 * 3600;
-export const OFFLINE_HOURGLASSES = ['pixieHourglass', 'boneHourglass', 'lichHourglass', 'watcherHourglass', 'demonHourglass', 'venomHourglass', 'glacialHourglass', 'skyHourglass', 'stormHourglass', 'starHourglass'] as const;
+export const OFFLINE_POTION_SEC = 2 * 3600;
+export const OFFLINE_POTIONS = ['pixiePotion', 'bonePotion', 'lichPotion', 'watcherPotion', 'demonPotion', 'venomPotion', 'glacialPotion', 'skyPotion', 'stormPotion', 'starPotion'] as const;
 /** Fraction of the online kill rate earned while away. */
 export const OFFLINE_EFFICIENCY = 0.5;
 /** Shorter absences are granted silently (no Welcome Back popup), e.g. when switching apps. */
@@ -2750,16 +2750,16 @@ export type ItemId =
   | 'forestIdol'
   | 'graveWhetstone'
   | 'batwingGloves'
-  | 'pixieHourglass'
-  | 'boneHourglass'
-  | 'lichHourglass'
-  | 'watcherHourglass'
-  | 'demonHourglass'
-  | 'venomHourglass'
-  | 'glacialHourglass'
-  | 'skyHourglass'
-  | 'stormHourglass'
-  | 'starHourglass';
+  | 'pixiePotion'
+  | 'bonePotion'
+  | 'lichPotion'
+  | 'watcherPotion'
+  | 'demonPotion'
+  | 'venomPotion'
+  | 'glacialPotion'
+  | 'skyPotion'
+  | 'stormPotion'
+  | 'starPotion';
 
 export interface ItemDef {
   id: ItemId;
@@ -2776,8 +2776,10 @@ export interface ItemDef {
   recipe: Partial<Record<MaterialId, number>>;
   /** Material cost multiplier per step already owned. */
   growth: number;
-  /** Crafted once, no stars (an Hourglass): done at 1★. */
+  /** Crafted once, no stars (an Energy Potion): done at 1★. */
   once?: boolean;
+  /** Its pixel icon (a key into public/icons), drawn instead of the emoji. */
+  sprite?: string;
   /** What it does at a strength (in steps; see itemLevel). */
   describe: (level: number) => string;
 }
@@ -2807,20 +2809,20 @@ export const ITEMS: ItemDef[] = [
     describe: (l) => `Wandering Woods monsters: ×2 HP, ×${2 + 0.25 * (l - 1)} gold`,
   },
   { id: 'engine', name: 'Void Engine', icon: '🌀', rarity: 'artifact', maxLevel: 20, recipe: { shade: 10, void: 5, soul: 3 }, growth: 1.7, describe: (l) => `+${l * 10}% damage, +${l * 3}% attack rate` },
-  // Hourglasses: crafted once each, 2 more hours of offline time apiece (4 hours to start, 24 with all ten).
+  // Energy Potions: crafted once each, 2 more hours of offline time apiece (4 hours to start, 24 with all ten).
   // One an area from the Fey Grove to the Meteor Field (not the Woods or the Rift): a Guardian's spoils early on, rare
   // ores and gems later (Guardian spoils to come for the later areas once they have their own Guardians); each costs
   // a good share of what you'd hold of them on reaching the next area.
-  { id: 'pixieHourglass', name: 'Pixie Hourglass', icon: '⏳', rarity: 'uncommon', once: true, maxLevel: 1, recipe: { regalEssence: 4, obsidian: 10, dust: 400 }, growth: 1, describe: () => '+2h offline time' },
-  { id: 'boneHourglass', name: 'Bone Hourglass', icon: '⌛', rarity: 'rare', once: true, maxLevel: 1, recipe: { calciumCrystal: 4, bone: 50_000, sacredText: 5_000 }, growth: 1, describe: () => '+2h offline time' },
-  { id: 'lichHourglass', name: 'Lich Hourglass', icon: '⏳', rarity: 'rare', once: true, maxLevel: 1, recipe: { eldritchText: 4, grave: 4_000, enchantedBone: 25_000 }, growth: 1, describe: () => '+2h offline time' },
-  { id: 'watcherHourglass', name: 'Watcher Hourglass', icon: '⌛', rarity: 'veryRare', once: true, maxLevel: 1, recipe: { everwatchingEye: 8, umbra: 6_000, umbralEye: 12_000 }, growth: 1, describe: () => '+2h offline time' },
-  { id: 'demonHourglass', name: 'Demon Hourglass', icon: '⏳', rarity: 'veryRare', once: true, maxLevel: 1, recipe: { forsakenSoul: 8, goldOre: 300, topaz: 300 }, growth: 1, describe: () => '+2h offline time' },
-  { id: 'venomHourglass', name: 'Venom Hourglass', icon: '⌛', rarity: 'legendary', once: true, maxLevel: 1, recipe: { cobaltOre: 2_500, ore: 150_000, emerald: 150 }, growth: 1, describe: () => '+2h offline time' },
-  { id: 'glacialHourglass', name: 'Glacial Hourglass', icon: '⏳', rarity: 'exotic', once: true, maxLevel: 1, recipe: { coldsteel: 1_500, sapphire: 800, diamond: 60 }, growth: 1, describe: () => '+2h offline time' },
-  { id: 'skyHourglass', name: 'Sky Hourglass', icon: '⌛', rarity: 'exotic', once: true, maxLevel: 1, recipe: { adamantite: 900, skysteel: 4_000, skystone: 12_000 }, growth: 1, describe: () => '+2h offline time' },
-  { id: 'stormHourglass', name: 'Storm Hourglass', icon: '⏳', rarity: 'artifact', once: true, maxLevel: 1, recipe: { opal: 3_000, stormstone: 800, thunder: 30_000 }, growth: 1, describe: () => '+2h offline time' },
-  { id: 'starHourglass', name: 'Star Hourglass', icon: '⌛', rarity: 'artifact', once: true, maxLevel: 1, recipe: { orichalcum: 1_000, starIron: 4_000, diamond: 200 }, growth: 1, describe: () => '+2h offline time' },
+  { id: 'pixiePotion', name: 'Pixie Energy Potion', icon: '🧪', sprite: 'rpg-items/230', rarity: 'uncommon', once: true, maxLevel: 1, recipe: { regalEssence: 4, obsidian: 10, dust: 400 }, growth: 1, describe: () => '+2h offline time' },
+  { id: 'bonePotion', name: 'Bone Energy Potion', icon: '🧪', sprite: 'rpg-items/110', rarity: 'rare', once: true, maxLevel: 1, recipe: { calciumCrystal: 4, bone: 50_000, sacredText: 5_000 }, growth: 1, describe: () => '+2h offline time' },
+  { id: 'lichPotion', name: 'Lich Energy Potion', icon: '🧪', sprite: 'rpg-items/170', rarity: 'rare', once: true, maxLevel: 1, recipe: { eldritchText: 4, grave: 4_000, enchantedBone: 25_000 }, growth: 1, describe: () => '+2h offline time' },
+  { id: 'watcherPotion', name: 'Watcher Energy Potion', icon: '🧪', sprite: 'rpg-items/190', rarity: 'veryRare', once: true, maxLevel: 1, recipe: { everwatchingEye: 8, umbra: 6_000, umbralEye: 12_000 }, growth: 1, describe: () => '+2h offline time' },
+  { id: 'demonPotion', name: 'Demon Energy Potion', icon: '🧪', sprite: 'rpg-items/130', rarity: 'veryRare', once: true, maxLevel: 1, recipe: { forsakenSoul: 8, goldOre: 300, topaz: 300 }, growth: 1, describe: () => '+2h offline time' },
+  { id: 'venomPotion', name: 'Venom Energy Potion', icon: '🧪', sprite: 'rpg-items/050', rarity: 'legendary', once: true, maxLevel: 1, recipe: { cobaltOre: 2_500, ore: 150_000, emerald: 150 }, growth: 1, describe: () => '+2h offline time' },
+  { id: 'glacialPotion', name: 'Glacial Energy Potion', icon: '🧪', sprite: 'rpg-items/030', rarity: 'exotic', once: true, maxLevel: 1, recipe: { coldsteel: 1_500, sapphire: 800, diamond: 60 }, growth: 1, describe: () => '+2h offline time' },
+  { id: 'skyPotion', name: 'Sky Energy Potion', icon: '🧪', sprite: 'rpg-items/250', rarity: 'exotic', once: true, maxLevel: 1, recipe: { adamantite: 900, skysteel: 4_000, skystone: 12_000 }, growth: 1, describe: () => '+2h offline time' },
+  { id: 'stormPotion', name: 'Storm Energy Potion', icon: '🧪', sprite: 'rpg-items/070', rarity: 'artifact', once: true, maxLevel: 1, recipe: { opal: 3_000, stormstone: 800, thunder: 30_000 }, growth: 1, describe: () => '+2h offline time' },
+  { id: 'starPotion', name: 'Star Energy Potion', icon: '🧪', sprite: 'rpg-items/010', rarity: 'artifact', once: true, maxLevel: 1, recipe: { orichalcum: 1_000, starIron: 4_000, diamond: 200 }, growth: 1, describe: () => '+2h offline time' },
 ];
 
 export const itemDef = (id: ItemId): ItemDef => ITEMS.find((i) => i.id === id)!;

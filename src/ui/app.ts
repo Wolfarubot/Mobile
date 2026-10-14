@@ -179,6 +179,12 @@ const nodeIcon = (t: { spriteTree: string }, n: TreeNode, cls = 'gi'): string =>
   const url = gearIconUrl(NODE_SPRITES[`${t.spriteTree}/${n.id}`]);
   return url ? `<img class="${cls}" src="${url}" alt="">` : n.icon;
 };
+/** An Upgrade's icon: its pixel sprite if it has one (the Energy Potions), otherwise its emoji. */
+const upgradeIcon = (it: ItemDef): string => {
+  const url = it.sprite ? gearIconUrl(it.sprite) : null;
+  return url ? `<img class="gi" src="${url}" alt="">` : it.icon;
+};
+
 const gearIcon = (gd: GearDef): string => {
   const url = gearIconUrl(GEAR_SPRITES[gd.id]);
   return url ? `<img class="gi" src="${url}" alt="">` : gd.icon;
@@ -2450,7 +2456,7 @@ export class AppUI {
         ...upgrades.map((it) => () => {
           const tile = el('button', 'inv-tile upgrade rar') as HTMLButtonElement;
           tile.style.setProperty('--rc', RARITIES[it.rarity].color);
-          tile.innerHTML = `<i>${it.icon}</i><span>${it.name}</span><small class="stars">${it.once ? 'Crafted' : starsHtml(g.state.items[it.id])}</small><em>⛺</em>`;
+          tile.innerHTML = `<i>${upgradeIcon(it)}</i><span>${it.name}</span><small class="stars">${it.once ? 'Crafted' : starsHtml(g.state.items[it.id])}</small><em>⛺</em>`;
           tile.addEventListener('click', () => this.openUpgradeDetail(it));
           return tile;
         }),
@@ -2546,7 +2552,7 @@ export class AppUI {
   /** An Upgrade's current and next effect, with a button to upgrade it. */
   private openUpgradeDetail(it: ItemDef): void {
     const g = this.game;
-    this.showSheet(`${it.icon} ${it.name}`, (body, close) => {
+    this.showSheet(`${upgradeIcon(it)} ${it.name}`, (body, close) => {
       const lv = g.state.items[it.id];
       const maxed = lv >= itemMaxStars(it);
       const owned = it.once ? (lv ? 'Crafted' : 'Not crafted yet') : `<span class="stars">${starsHtml(lv)}</span>`;
@@ -2605,7 +2611,7 @@ export class AppUI {
         upgrades.appendChild(grid);
         for (const it of list) {
           const tile = el('button', 'craft-tile') as HTMLButtonElement;
-          tile.innerHTML = `<i>${it.icon}</i><em></em>`;
+          tile.innerHTML = `<i>${upgradeIcon(it)}</i><em></em>`;
           tile.title = it.name;
           tile.addEventListener('click', () => this.openCraftCard({ item: it }));
           grid.appendChild(tile);
@@ -2643,7 +2649,7 @@ export class AppUI {
     const name = gd ? gd.name : it!.name;
     card.innerHTML = `
       <button class="fc-close" aria-label="Close">✕</button>
-      <div class="fc-head"><i class="fc-icon" style="--rc:${gd ? gearColor(gd.id) : RARITIES[it!.rarity].color}">${gd ? gearIcon(gd) : it!.icon}</i><div>
+      <div class="fc-head"><i class="fc-icon" style="--rc:${gd ? gearColor(gd.id) : RARITIES[it!.rarity].color}">${gd ? gearIcon(gd) : upgradeIcon(it!)}</i><div>
         <h3>${name}</h3>
         <small>${gd ? `<b class="fc-rarity" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${gearKindName(gd).toLowerCase()} ${dtypeTag(gd)}` : `<b class="fc-rarity" style="--rc:${RARITIES[it!.rarity].color}">${RARITIES[it!.rarity].name}</b> upgrade · ${upgradeReach(it!)}`}</small>
       </div></div>
@@ -3553,7 +3559,7 @@ export class AppUI {
       : '';
     this.showModal(
       `<h2>Welcome back!</h2>
-       <p>You were away for ${fmtTime(r.away)}.${capped ? ` (Hunters rest after ${fmtTime(r.seconds)}: craft ⏳ Hourglasses (Upgrades) to stay away longer.)` : ''}</p>
+       <p>You were away for ${fmtTime(r.away)}.${capped ? ` (Hunters rest after ${fmtTime(r.seconds)}: craft 🧪 Energy Potions (Upgrades) to stay away longer.)` : ''}</p>
        <div class="reward">+🪙 ${fmt(r.gold)}</div>
        ${matsHtml}
        ${r.loot.length ? `<p class="offline-loot">🎁 ${r.loot.length} piece${r.loot.length === 1 ? '' : 's'} of loot${r.loot.some((l) => l.salvaged) ? ` (${r.loot.filter((l) => l.salvaged).length} auto-salvaged)` : ''}</p>` : ''}

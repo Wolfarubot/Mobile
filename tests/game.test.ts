@@ -52,7 +52,7 @@ import {
   effectBase,
   MAX_STARS,
   OFFLINE_BASE_SEC,
-  OFFLINE_HOURGLASSES,
+  OFFLINE_POTIONS,
   RARITIES,
   ITEMS,
   STATION_EFFICIENCY,
@@ -2716,26 +2716,26 @@ describe('Offline', () => {
     expect(r.materials.bone).toBeGreaterThan(0); // Alias, in the graveyard
   });
 
-  it('starts at 4 hours; ten Hourglasses, crafted once each, add 2 hours apiece: 24 hours with all ten', () => {
+  it('starts at 4 hours; ten Energy Potions, crafted once each, add 2 hours apiece: 24 hours with all ten', () => {
     const g = new Game(newGame(0), noCrit);
     expect(OFFLINE_BASE_SEC).toBe(4 * 3600);
-    expect(OFFLINE_HOURGLASSES).toHaveLength(10);
+    expect(OFFLINE_POTIONS).toHaveLength(10);
     expect(g.offlineCapSec()).toBe(4 * 3600);
     // Crafted once: then it can't be crafted again.
-    const first = itemDef(OFFLINE_HOURGLASSES[0]);
+    const first = itemDef(OFFLINE_POTIONS[0]);
     expect(first.once).toBe(true);
     for (const [m, n] of Object.entries(first.recipe)) g.state.materials[m as keyof typeof g.state.materials] = n! * 3;
     expect(g.craft(first.id)).toBe(true);
     expect(g.offlineCapSec()).toBe(6 * 3600);
     expect(g.canCraft(first.id)).toBe(false);
     expect(g.craft(first.id)).toBe(false);
-    for (const id of OFFLINE_HOURGLASSES) g.state.items[id] = 1;
+    for (const id of OFFLINE_POTIONS) g.state.items[id] = 1;
     expect(g.offlineCapSec()).toBe(24 * 3600);
     const r = g.applyOffline(Date.now() + 48 * 3600 * 1000);
     expect(r.seconds).toBe(24 * 3600);
-    // Old saves pick the Hourglasses up uncrafted.
+    // Old saves pick the Energy Potions up uncrafted.
     const old = JSON.parse(serialize(newGame(0)));
-    for (const id of OFFLINE_HOURGLASSES) delete old.items[id];
+    for (const id of OFFLINE_POTIONS) delete old.items[id];
     expect(new Game(deserialize(JSON.stringify(old))!, noCrit).offlineCapSec()).toBe(4 * 3600);
   });
 });

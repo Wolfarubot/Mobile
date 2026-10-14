@@ -107,8 +107,8 @@ import {
   nextAreaOf,
   OFFLINE_BASE_SEC,
   OFFLINE_EFFICIENCY,
-  OFFLINE_HOURGLASSES,
-  OFFLINE_HOURGLASS_SEC,
+  OFFLINE_POTIONS,
+  OFFLINE_POTION_SEC,
   powerDamage,
   UNARMED_HIT,
   weaponHit,
@@ -248,9 +248,9 @@ export class Game {
     return itemLevel(itemDef(id), this.state.items[id]);
   }
 
-  /** Seconds away that count toward offline progress: 4 hours, plus 2 for each Hourglass crafted. */
+  /** Seconds away that count toward offline progress: 4 hours, plus 2 for each Energy Potion crafted. */
   offlineCapSec(): number {
-    return OFFLINE_BASE_SEC + OFFLINE_HOURGLASSES.filter((id) => this.state.items[id] > 0).length * OFFLINE_HOURGLASS_SEC;
+    return OFFLINE_BASE_SEC + OFFLINE_POTIONS.filter((id) => this.state.items[id] > 0).length * OFFLINE_POTION_SEC;
   }
 
   // ---- Combat stats (read by Field every frame) ----
