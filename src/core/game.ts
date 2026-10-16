@@ -173,6 +173,8 @@ export interface KillReward {
   gold: number;
   material: MaterialId | null;
   amount: number;
+  /** Ted's Double or Nothing, when it came up on this kill. */
+  luck?: 'double' | 'bust';
 }
 
 /** Live stats for one enemy type. */
@@ -1453,6 +1455,18 @@ export class Game {
     return this.state.areas.graveyard.unlocked;
   }
 
+  /** Ted the Gambler's odds in an area (where he's stationed, your area included): double, bust. */
+  gambleIn(area: AreaId): { double: number; bust: number } | null {
+    for (const h of HUNTERS) if (h.gamble && this.state.hunters[h.id].recruited && this.state.hunters[h.id].station === area) return h.gamble;
+    return null;
+  }
+
+  /** What Double or Nothing pays on average in an area (1 without Ted there), for the estimated farm rates. */
+  gambleMult(area: AreaId): number {
+    const g = this.gambleIn(area);
+    return g ? 1 + g.double - g.bust : 1;
+  }
+
   /** Field calls this for every enemy killed. */
   registerKill(type: EnemyId, boss: boolean, shooter: Shooter = 'main'): KillReward {
     const s = this.state;
@@ -1487,18 +1501,23 @@ export class Game {
       } else if (!nextAreaOf(s.area)) this.emit({ type: 'finalGuardian' });
       return { gold, material: e.material, amount: BOSS_MATERIAL_DROP };
     }
-    const gold = e.gold * this.shooterGold(shooter);
+    // Double or Nothing (Ted in this area): the kill pays twice, or nothing at all.
+    const odds = this.gambleIn(enemyDef(type).area);
+    const roll = odds ? this.rng() : 1;
+    const luck = odds && roll < odds.double ? 'double' : odds && roll < odds.double + odds.bust ? 'bust' : undefined;
+    const lm = luck === 'double' ? 2 : luck === 'bust' ? 0 : 1;
+    const gold = e.gold * this.shooterGold(shooter) * lm;
     s.gold += gold;
     s.stats.totalGold += gold;
     s.areas[enemyDef(type).area].gold += gold;
     s.bestiary[type].kills++;
     const chance = e.dropChance * this.shooterDrops(shooter);
-    const amount = dropsFrom(chance, this.rng());
+    const amount = dropsFrom(chance, this.rng()) * lm;
     gain(e.material, amount);
     // More drops (a Forest Wolf's Beast Bone, a golem's rarer stones), each at its share of the chance.
-    for (const d of enemyExtraDrops(enemyDef(type))) gain(d.material, dropsFrom(chance * d.share, this.rng()));
+    for (const d of enemyExtraDrops(enemyDef(type))) gain(d.material, dropsFrom(chance * d.share, this.rng()) * lm);
     // Legacies of fully evolved monsters of its archetype (every slime's chance at Royal Slime).
-    for (const d of this.legacyDrops(enemyDef(type).archetype)) gain(d.material, dropsFrom(chance * d.share, this.rng()));
+    for (const d of this.legacyDrops(enemyDef(type).archetype)) gain(d.material, dropsFrom(chance * d.share, this.rng()) * lm);
     s.areas[enemyDef(type).area].kills++;
     // Gear that finds extra materials (the Slime Vial at 5★: Royal Slime from slimes).
     for (const item of this.equipped(shooter)) {
@@ -1508,7 +1527,7 @@ export class Game {
     told();
     const loot = lootChance(type) * this.areaPerk(enemyDef(type).area).loot;
     if (loot > 0 && this.rng() < loot) this.dropLoot(enemyDef(type).area);
-    return { gold, material: amount > 0 ? e.material : null, amount };
+    return { gold, material: amount > 0 ? e.material : null, amount, luck };
   }
 
   /** Field calls this when a fleeing enemy leaves the screen with its loot. */
@@ -1615,13 +1634,14 @@ export class Game {
     const total = shooters.reduce((sum, sh) => sum + this.dpsOf(sh), 0) || 1;
     const goldPerk = shooters.reduce((sum, sh) => sum + (this.dpsOf(sh) / total) * this.shooterGold(sh), 0);
     const dropPerk = shooters.reduce((sum, sh) => sum + (this.dpsOf(sh) / total) * this.shooterDrops(sh), 0);
+    const luck = this.gambleMult(area);
     for (const e of roster) {
       const k = e.spawnRate * killFrac.get(e.id)! * efficiency;
       out.kills[e.id] = k;
       out.killsTotal += k;
-      out.gold += k * e.gold * goldPerk;
-      out.materials[e.material] = (out.materials[e.material] ?? 0) + k * e.dropChance * dropPerk;
-      for (const d of [...enemyExtraDrops(enemyDef(e.id)), ...this.legacyDrops(e.archetype)]) out.materials[d.material] = (out.materials[d.material] ?? 0) + k * e.dropChance * dropPerk * d.share;
+      out.gold += k * e.gold * goldPerk * luck;
+      out.materials[e.material] = (out.materials[e.material] ?? 0) + k * e.dropChance * dropPerk * luck;
+      for (const d of [...enemyExtraDrops(enemyDef(e.id)), ...this.legacyDrops(e.archetype)]) out.materials[d.material] = (out.materials[d.material] ?? 0) + k * e.dropChance * dropPerk * d.share * luck;
     }
     for (const h of hunters) {
       out.stuns[h.sh] = h.stunRate * efficiency;

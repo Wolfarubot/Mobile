@@ -1,5 +1,5 @@
 import { areaDef, DAMAGE_TYPES, FIELD_ZOOM, FLYING, gearDef, WEAPON_CLASSES, STATUS, enemyDef, eventDef, fieldZoom, GUARDIAN_TIME, hunterDef, materialDef, SIZE_SCALE, type DamageType, type EnemyId, type EnemyShape } from '../core/balance';
-import { PLAYER_RADIUS, SHOT_RADIUS, SUMMON_RADIUS, TOME_LIFE, TOME_OPEN, type EnemyShot, type Summon, type Bullet, type BulletKind, type Enemy, type Field, type Helper } from '../core/field';
+import { DICE_FLIGHT, DICE_REST, PLAYER_RADIUS, SHOT_RADIUS, SUMMON_RADIUS, TOME_LIFE, TOME_OPEN, type EnemyShot, type Summon, type Bullet, type BulletKind, type Enemy, type Field, type Helper } from '../core/field';
 import { fmt } from '../core/format';
 import type { Game, Shooter } from '../core/game';
 import type { ClarityLevel, FxKey } from '../core/state';
@@ -164,6 +164,9 @@ export class BattleView {
           else if (e.affinity === 'weak') {
             if (Math.random() < 0.5) this.fx.text(e.x, e.y, `${fmt(e.dmg)}!`, DAMAGE_TYPES[e.dtype].color, 10.5, 0.55);
           } else if (Math.random() < 0.25) this.fx.text(e.x, e.y, fmt(e.dmg), DAMAGE_TYPES[e.dtype].color, e.affinity === 'resist' ? 7 : 8.5, 0.5);
+          break;
+        case 'say':
+          this.fx.text(e.x, e.y, e.text, e.color, e.size, 0.8);
           break;
         case 'kill': {
           const color = e.boss ? '#ffd34d' : enemyDef(e.enemy).color;
@@ -469,6 +472,7 @@ export class BattleView {
 
     for (const b of this.field.bullets) drawBullet(g, b, this.time, this.game.state.settings.aoeStyle === 'basic');
     this.drawTomes(g);
+    this.drawDice(g);
     for (const s of this.field.shots) drawEnemyShot(g, s, this.time, CHAR_SCALE, this.clarity);
 
     // Tome spirits: a glowing wisp with a trailing tail, fading as their time runs out.
@@ -1325,6 +1329,46 @@ export class BattleView {
         }
         g.restore();
       });
+    }
+  }
+
+  /**
+   * Ted's dice (public/effects/dice.png: 4 turns × 6 top faces of 32px frames): they arc out tumbling (a new frame
+   * every few hundredths of a second), bounce once, and settle on the faces rolled, then fade.
+   */
+  private drawDice(g: CanvasRenderingContext2D): void {
+    if (!this.field.dice.length) return;
+    const sheet = effectImage('dice');
+    if (!sheet) return;
+    const F = 32;
+    const S = 28;
+    for (const d of this.field.dice) {
+      const p = Math.min(1, d.age / DICE_FLIGHT);
+      const h = p < 0.75 ? Math.sin((Math.PI * p) / 0.75) * 46 : Math.sin((Math.PI * (p - 0.75)) / 0.25) * 10;
+      const fade = Math.min(1, (DICE_FLIGHT + DICE_REST - d.age) / 0.3);
+      const dx = d.x1 - d.x0;
+      const dy = d.y1 - d.y0;
+      const len = Math.hypot(dx, dy) || 1;
+      for (let i = 0; i < 2; i++) {
+        // The two dice fly side by side, a little apart.
+        const off = (i ? 1 : -1) * 14;
+        const x = d.x0 + dx * p + (-dy / len) * off;
+        const y = d.y0 + dy * p + (dx / len) * off;
+        const settled = d.age >= DICE_FLIGHT;
+        const frame = settled ? (d.faces[i] - 1) * 4 + d.turns[i] : (Math.floor(d.age * 18) * 7 + d.id * 5 + i * 11) % 24;
+        this.scaledAt(g, x, y, () => {
+          g.save();
+          g.globalAlpha = Math.max(0, fade) * 0.35;
+          g.fillStyle = '#000';
+          g.beginPath();
+          g.ellipse(x, y + S / 2 - 1, S * 0.42 * (1 - h / 80), S * 0.18, 0, 0, Math.PI * 2);
+          g.fill();
+          g.globalAlpha = Math.max(0, fade);
+          g.imageSmoothingEnabled = false;
+          g.drawImage(sheet, (frame % 4) * F, Math.floor(frame / 4) * F, F, F, x - S / 2, y - S / 2 - h, S, S);
+          g.restore();
+        });
+      }
     }
   }
 

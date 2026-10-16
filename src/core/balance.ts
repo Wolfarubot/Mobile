@@ -399,6 +399,7 @@ export const ASCENDED_TREES: Record<HunterId, SkillNode[]> = {
   scavenger: ascendedTree({ name: 'Mountain Breaker', icon: '🏔️', desc: '+100% damage and punches reach 30% further.', maxRank: 1, effect: { damage: 1, radius: 0.3 } }),
   osteomancer: ascendedTree({ name: 'Ossuary', icon: '💀', desc: '+100% damage and spikes 30% wider.', maxRank: 1, effect: { damage: 1, radius: 0.3 } }),
   bloodblade: ascendedTree({ name: 'Crimson Tide', icon: '🌊', desc: '+100% damage and 2 more blood bolts from each Crimson Wave kill.', maxRank: 1, effect: { damage: 1, bolts: 2 } }),
+  gambler: ascendedTree({ name: 'High Roller', icon: '🎲', desc: '+100% damage and dice blasts 30% wider.', maxRank: 1, effect: { damage: 1, radius: 0.3 } }),
   archivist: ascendedTree({ name: 'Great Library', icon: '📚', desc: '+100% damage and recalled specials 30% bigger.', maxRank: 1, effect: { damage: 1, radius: 0.3 } }),
   artificer: ascendedTree({ name: 'Grand Design', icon: '⚙️', desc: '+100% damage and +20% attack rate.', maxRank: 1, effect: { damage: 1, rate: 0.2 } }),
   frostbreaker: ascendedTree({ name: 'Eternal Winter', icon: '❄️', desc: '+100% damage and +1× extra damage to Elementals.', maxRank: 1, effect: { damage: 1, bane: 1 } }),
@@ -559,6 +560,15 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
       { name: 'Wide Wards', icon: '🌀', desc: '+10% area size per rank.', maxRank: 3, effect: { radius: 0.1 } },
     ],
     { name: 'Spellbinder', icon: '📜', desc: '+30% damage.', maxRank: 1, cost: 4, effect: { damage: 0.3 } },
+  ),
+  gambler: skillTree(
+    { name: 'Lucky Coin', icon: '🪙', desc: '+10% damage.', maxRank: 1, effect: { damage: 0.1 } },
+    [
+      { name: 'Raise the Stakes', icon: '💰', desc: '+15% damage per rank.', maxRank: 3, effect: { damage: 0.15 } },
+      { name: 'Quick Hands', icon: '🃏', desc: '+5% attack rate per rank.', maxRank: 3, effect: { rate: 0.05 } },
+      { name: 'Poker Face', icon: '🎭', desc: 'Stuns wear off 8% faster per rank.', maxRank: 3, effect: { recovery: 1 } },
+    ],
+    { name: 'All In', icon: '🎰', desc: '+30% damage and dice blasts 20% wider.', maxRank: 1, cost: 4, effect: { damage: 0.3, radius: 0.2 } },
   ),
   archivist: skillTree(
     { name: 'Marginalia', icon: '📖', desc: '+10% damage.', maxRank: 1, effect: { damage: 0.1 } },
@@ -1478,7 +1488,8 @@ export type HunterId =
   | 'frostbreaker'
   | 'bloodblade'
   | 'artificer'
-  | 'archivist';
+  | 'archivist'
+  | 'gambler';
 
 // ---- Damage types: every attack deals one. Weapons carry a type; without one, a Hunter uses their own. ----
 export type DamageType = 'physical' | 'fire' | 'acid' | 'frost' | 'radiant' | 'poison' | 'arcane' | 'decay' | 'lightning' | 'void';
@@ -1556,7 +1567,7 @@ export const DAMAGE_TYPES: Record<DamageType, { name: string; icon: string; colo
  * the background model. Summons copy the weapon's damage type and status effects; the others keep their own.
  */
 export interface HunterSpecial {
-  kind: 'potion' | 'fireball' | 'summon' | 'punch' | 'spikes' | 'wave' | 'recall';
+  kind: 'potion' | 'fireball' | 'summon' | 'punch' | 'spikes' | 'wave' | 'recall' | 'dice';
   /** What it's called on the Hunter's card ("Potions", "Wolves"...). */
   name: string;
   damageType: DamageType;
@@ -1618,6 +1629,11 @@ export interface HunterDef {
    * stars; a piece already at 5★ gets what the stars past it would give (see the 6★ entries of the star tables).
    */
   tinker?: number;
+  /**
+   * Ted the Gambler's Double or Nothing: every kill in his area has a `double` chance to pay twice the gold and
+   * materials, and a `bust` chance to pay nothing (Guardians excepted).
+   */
+  gamble?: { double: number; bust: number };
   /** Equipment slots (defaults to Weapon, Armor, Accessory). */
   slots?: SlotDef[];
   /**
@@ -1837,6 +1853,27 @@ export const HUNTERS: HunterDef[] = [
       describe: "Every 6s a tome opens somewhere on the field and casts a copy of another Hunter's special at the monsters near it, powered by his weapon (its attack rate makes the copy bigger). 85% of the time it's the special of a Hunter fighting in his area; otherwise any recruited Hunter's. Only active specials (no passives like Reginald's or Alias's).",
     },
   },
+  {
+    id: 'gambler', name: 'Ted', title: 'Gambler', icon: '🎲', color: '#e0c060', area: 'fortress', recruitCost: 8e22,
+    short: 'Rolls dice for big blasts; kills near him pay double or nothing.',
+    unlock: { event: 'cloudburst', times: 1 },
+    ascendedTitle: 'High Roller',
+    gamble: { double: 0.25, bust: 0.1 },
+    story: "Ted runs the only card table in the Cloud Fortress, and the storm keeps blowing his chips off it. Weather a Cloudburst, and he'll bet on you instead.",
+    ability: 'Every 5s, rolls two dice at the monsters: the higher the total, the bigger the blast; doubles hit twice as hard, double 6s hit the whole field, and snake eyes leave him dazed. Kills in his area pay double (25%) or nothing (10%). Uses any weapon.',
+    slots: [{ kind: 'weapon', label: 'Weapon', accepts: ['weapon', 'magic', 'melee'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
+    special: {
+      kind: 'dice',
+      name: 'Roll the Dice',
+      damageType: 'physical',
+      cooldown: 5,
+      damage: 1.2,
+      radius: 60,
+      ticks: 1,
+      crowd: 3,
+      describe: "Every 5s, throws two dice at the monsters, powered by his weapon (its attack rate widens the blasts). 2 (snake eyes): nothing, and he's dazed for a moment. 3-4: one monster takes a hit. 5-9: a blast. 10-11: a bigger blast. 12 (double 6s): the whole field. Other doubles hit twice as hard, and his crit chance can re-roll his lower die.",
+    },
+  },
 ];
 
 export const hunterDef = (id: HunterId): HunterDef => HUNTERS.find((h) => h.id === id)!;
@@ -1850,6 +1887,7 @@ export function hunterPerk(h: HunterDef): string {
   if (h.inspire) parts.push(`+${Math.round(h.inspire * 100)}% attack rate to Hunters beside him`);
   if (h.areaGold) parts.push(`+${Math.round(h.areaGold * 100)}% gold in his area`);
   if (h.areaLoot) parts.push(`×${1 + h.areaLoot} loot in his area`);
+  if (h.gamble) parts.push(`kills in his area pay double (${Math.round(h.gamble.double * 100)}%) or nothing (${Math.round(h.gamble.bust * 100)}%)`);
   if (h.tinker) parts.push(`+${h.tinker}★ to the gear of every Hunter in his area`);
   return parts.join(', ');
 }

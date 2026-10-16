@@ -114,7 +114,7 @@ import {
   typeMult,
   WEAK_MULT,
 } from '../src/core/balance';
-import { Field, SLAM_OFFSET, type Enemy } from '../src/core/field';
+import { DICE_FLIGHT, Field, SLAM_OFFSET, type Enemy } from '../src/core/field';
 import { mergeSample, runSample, SAMPLE_KEEP } from '../src/core/sampler';
 import { GATED } from '../src/core/gates';
 import { boardCells, RM_BOARDS } from '../src/ui/minigames/runeMatch';
@@ -3147,6 +3147,79 @@ describe('Field', () => {
       wolves = Math.max(wolves, f.summons.filter((s) => s.who === 'archivist' && s.look === 'wolf').length);
     }
     expect(wolves).toBeGreaterThanOrEqual(2); // Deku's wolves, called from the tome
+  });
+
+  it("Ted the Gambler throws dice at the monsters every few seconds", () => {
+    expect(hunterDef('gambler')).toMatchObject({ name: 'Ted', title: 'Gambler', area: 'fortress', unlock: { event: 'cloudburst', times: 1 } });
+    const { f } = thomasField(['gambler']);
+    let thrown = 0;
+    let landed = 0;
+    for (let t = 0; t < 12; t += 1 / 30) {
+      f.update(1 / 30);
+      thrown = Math.max(thrown, f.dice.length);
+      landed += f.dice.filter((d) => d.landed).length > 0 ? 1 : 0;
+      for (const d of f.dice) for (const v of d.faces) expect(v >= 1 && v <= 6).toBe(true);
+    }
+    expect(thrown).toBeGreaterThan(0);
+    expect(landed).toBeGreaterThan(0);
+  });
+
+  it("Ted's roll decides it: double 6s hit the whole field, snake eyes daze him, other doubles hit twice as hard", () => {
+    const setup = () => {
+      const { g, f } = thomasField(['gambler']);
+      g.rng = () => 0.99; // no crits, procs or Double or Nothing in the way
+      f.enemies = [tough({ id: 1, x: 100, y: 0 }), tough({ id: 2, x: -300, y: 300 })];
+      f.update(1 / 30); // Ted takes his place
+      f.dice = [];
+      return { g, f };
+    };
+    const throwAt = (f: Field, faces: [number, number]) => {
+      f.dice.push({ by: 'gambler', special: hunterDef('gambler').special!, x0: 0, y0: 0, x1: 100, y1: 0, faces, turns: [0, 0], age: DICE_FLIGHT, landed: false, radius: 60, dmg: 1, id: 99 });
+      const before = f.enemies.map((e) => e.hp);
+      (f as unknown as { runDice(dt: number): void }).runDice(0);
+      return f.enemies.map((e, i) => before[i] - e.hp);
+    };
+    // Double 6s: everything on the field, near or far.
+    const jackpot = throwAt(setup().f, [6, 6]);
+    expect(jackpot[0]).toBeGreaterThan(0);
+    expect(jackpot[1]).toBeGreaterThan(0);
+    // 3 + 3 hits twice what 2 + 4 does (same total), and only near where they land.
+    const doubles = throwAt(setup().f, [3, 3]);
+    const plain = throwAt(setup().f, [2, 4]);
+    expect(plain[1]).toBe(0);
+    expect(doubles[0]).toBeCloseTo(plain[0] * 2);
+    // Snake eyes: nothing hit, and Ted is dazed.
+    const s = setup();
+    expect(throwAt(s.f, [1, 1])).toEqual([0, 0]);
+    expect(s.f.isDown('gambler')).toBe(true);
+  });
+
+  it("Double or Nothing: with Ted in the area, a kill can pay twice the gold and drops, or nothing", () => {
+    const pay = (rng: number, ted: boolean) => {
+      const g = new Game(newGame(0), () => rng);
+      if (ted) {
+        g.state.hunters.gambler.recruited = true;
+        g.state.hunters.gambler.station = 'forest';
+      }
+      const r = g.registerKill('wolf', false);
+      return { gold: r.gold, pelt: g.state.materials.pelt, luck: r.luck };
+    };
+    const normal = pay(0.1, false);
+    expect(normal.luck).toBeUndefined();
+    const double = pay(0.1, true); // under 25%: double
+    expect(double.luck).toBe('double');
+    expect(double.gold).toBeCloseTo(normal.gold * 2);
+    expect(double.pelt).toBe(normal.pelt * 2);
+    const bust = pay(0.3, true); // 25-35%: nothing
+    expect(bust.luck).toBe('bust');
+    expect(bust.gold).toBe(0);
+    expect(bust.pelt).toBe(0);
+    // Ted's odds pay more on average, and the estimated farm rates count that.
+    const g = new Game(newGame(0), () => 0.5);
+    expect(g.gambleMult('forest')).toBe(1);
+    g.state.hunters.gambler.recruited = true;
+    g.state.hunters.gambler.station = 'forest';
+    expect(g.gambleMult('forest')).toBeCloseTo(1.15);
   });
 
   it("the Hunter in the middle of a stationed group's background field uses their special too", () => {

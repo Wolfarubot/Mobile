@@ -245,6 +245,31 @@ export interface Tome {
   cast: boolean;
 }
 
+/** A pair of Ted's dice in the air or settling: thrown from (x0, y0) to land at (x1, y1), showing `faces`. */
+export interface DiceThrow {
+  by: Shooter;
+  special: HunterSpecial;
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+  faces: [number, number];
+  /** Which of the four turns of each landed face the sheet shows. */
+  turns: [number, number];
+  age: number;
+  landed: boolean;
+  radius: number;
+  dmg: number;
+  only?: DamageType;
+  id: number;
+}
+
+/** Seconds Ted's dice fly before landing (they bounce in the last part), and how long they lie there after. */
+export const DICE_FLIGHT = 0.7;
+export const DICE_REST = 0.8;
+/** Seconds snake eyes leave Ted dazed. */
+export const SNAKE_EYES_DAZE = 1.5;
+
 /** Seconds a tome takes to open before its copy bursts out, and how long it stays before fading. */
 export const TOME_OPEN = 0.5;
 export const TOME_LIFE = 1.6;
@@ -295,7 +320,9 @@ export type FieldEvent =
   /** A melee Hunter broke a projectile in the air (at x, y). */
   | { type: 'parry'; who: Shooter; x: number; y: number; a: number }
   /** A Hunter's shield deflected a projectile (at x, y), sending it off at angle `a`. */
-  | { type: 'deflect'; who: Shooter; x: number; y: number; a: number };
+  | { type: 'deflect'; who: Shooter; x: number; y: number; a: number }
+  /** Floating words on the field: a dice roll's call, Double or Nothing's ×2 / BUST. */
+  | { type: 'say'; x: number; y: number; text: string; color: string; size: number };
 
 /**
  * The survivor-style battlefield in world coordinates centered on your Hunter.
@@ -312,6 +339,8 @@ export class Field {
   puddles: Puddle[] = [];
   /** Thomas's tomes, open on the field (see recall). */
   tomes: Tome[] = [];
+  /** Ted's dice, in the air or lying where they landed (see rollDice). */
+  dice: DiceThrow[] = [];
   /** The Hunter in the middle's special cooldown, when that's a Guild Hunter (see update). */
   private leadCaster: SpecialCaster = { id: 'alchemist', x: 0, y: 0, specialCd: 1, aim: 0 };
   /** A focus's waves: rings expanding from where they were sent, hitting each monster once as they pass. */
@@ -413,6 +442,7 @@ export class Field {
     this.shots = [];
     this.puddles = [];
     this.tomes = [];
+    this.dice = [];
     this.stun = 0;
     this.immune = 0;
     this.guard = this.game.guardOf(this.lead);
@@ -567,6 +597,7 @@ export class Field {
       this.aim = this.leadCaster.aim;
     }
     this.runTomes(dt);
+    this.runDice(dt);
     this.runStabs(dt);
     this.runSummons(dt);
     this.runGearEffects(dt);
@@ -1098,6 +1129,36 @@ export class Field {
       this.events.push({ type: 'nova', x: px, y: py, r: radius * 0.55, color: '#ffb060' });
       return true;
     }
+    if (sp.kind === 'dice') {
+      // Ted's dice: thrown at the monsters, they land a moment later and the roll decides what happens there.
+      const rng = g.rng;
+      const roll = (): number => 1 + Math.floor(rng() * 6);
+      const faces: [number, number] = [roll(), roll()];
+      // Loaded dice: his crit chance can re-roll the lower die (keeping the better of the two).
+      if (rng() < g.critChanceOf(by)) {
+        const lo = faces[0] <= faces[1] ? 0 : 1;
+        faces[lo] = Math.max(faces[lo], roll());
+      }
+      const land = Math.min(Math.hypot(target.x - x, target.y - y), range);
+      const ang = a + (rng() - 0.5) * 0.4;
+      this.dice.push({
+        by,
+        special: sp,
+        x0: x,
+        y0: y,
+        x1: x + Math.cos(ang) * land,
+        y1: y + Math.sin(ang) * land,
+        faces,
+        turns: [Math.floor(rng() * 4), Math.floor(rng() * 4)],
+        age: 0,
+        landed: false,
+        radius,
+        dmg,
+        only,
+        id: this.nextId++,
+      });
+      return true;
+    }
     if (sp.summon) {
       // Two creatures (Deku's spirit wolves, Theon's puppets): each hunts for 6s, biting 1.5 times a second for
       // the special's damage (their "radius" skills make them fiercer).
@@ -1151,6 +1212,58 @@ export class Field {
     if (!pool.length) return null;
     const id = pool[Math.floor(g.rng() * pool.length)];
     return { id, special: hunterDef(id).special! };
+  }
+
+  /**
+   * Ted's dice: once they land, the roll plays out where they lie. 2 (snake eyes) fizzles and dazes the thrower;
+   * 3-4 hits one monster; 5-9 a blast; 10-11 a bigger blast; 12 (double 6s) the whole field. Other doubles hit
+   * twice as hard. Damage grows with the total (7 is par).
+   */
+  private runDice(dt: number): void {
+    if (!this.dice.length) return;
+    for (const d of this.dice) {
+      d.age += dt;
+      if (d.landed || d.age < DICE_FLIGHT) continue;
+      d.landed = true;
+      const [a, b] = d.faces;
+      const total = a + b;
+      const doubles = a === b && total !== 2 && total !== 12;
+      const mult = d.dmg * (total / 7) * (doubles ? 2 : 1);
+      const { x1: x, y1: y } = d;
+      const hit = (o: Enemy, m: number) => this.hitWith(d.by, o, m, x, y, undefined, undefined, true, true, d.only);
+      if (total === 2) {
+        this.say(x, y, 'SNAKE EYES', '#b8b8c8', 12);
+        const who = d.by;
+        const caster = who === this.lead ? this : this.helpers.find((h) => h.id === who);
+        // Dazed, as if knocked out briefly (not through immunity: it's his own bad luck).
+        if (caster && caster.stun <= 0) {
+          caster.stun = SNAKE_EYES_DAZE;
+          caster.stunTotal = SNAKE_EYES_DAZE;
+        }
+        continue;
+      }
+      if (total === 12) {
+        this.say(x, y, 'JACKPOT!', '#ffd84a', 16);
+        this.events.push({ type: 'explode', x, y, r: d.radius * 2.5, color: '#ffd84a' });
+        for (const o of [...this.enemies]) if (o.hp > 0) hit(o, d.dmg * 3);
+        continue;
+      }
+      this.say(x, y, doubles ? `${total}! DOUBLES` : `${total}!`, total >= 10 ? '#ffd84a' : '#f4f4f4', total >= 10 || doubles ? 13 : 11);
+      if (total <= 4) {
+        const t = this.nearest(x, y, d.radius * 1.5);
+        if (t) hit(t, mult);
+        this.events.push({ type: 'blast', x, y, color: '#f4f4f4' });
+        continue;
+      }
+      const r = total >= 10 ? d.radius * 1.6 : d.radius;
+      this.events.push({ type: total >= 10 ? 'explode' : 'nova', x, y, r, color: total >= 10 ? '#ffb040' : '#f0e6c8' });
+      for (const o of [...this.enemies]) if (o.hp > 0 && Math.hypot(o.x - x, o.y - y) <= r + o.r) hit(o, mult);
+    }
+    this.dice = this.dice.filter((d) => d.age < DICE_FLIGHT + DICE_REST);
+  }
+
+  private say(x: number, y: number, text: string, color: string, size: number): void {
+    this.events.push({ type: 'say', x, y, text, color, size });
   }
 
   /** Thomas's open tomes: each casts its copied special once it has opened, then fades. */
@@ -1891,6 +2004,9 @@ export class Field {
       const burst = this.game.killBurst(shooter);
       if (burst && this.game.rng() < burst.chance) this.abilityBurst(shooter, e.x, e.y, burst.radius, burst.base, burst.damageType);
       this.events.push({ type: 'kill', x: e.x, y: e.y, enemy: e.type, boss: e.boss, reward });
+      // Double or Nothing (Ted in this area).
+      if (reward.luck === 'double') this.say(e.x, e.y - 14, '×2!', '#ffd84a', 11);
+      else if (reward.luck === 'bust') this.say(e.x, e.y - 14, 'BUST', '#9a9aa8', 9);
     }
   }
 

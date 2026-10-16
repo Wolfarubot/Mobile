@@ -36,4 +36,5 @@ export const HUNTER_SHEETS: Partial<Record<Wearer, HunterSheet>> = {
   bloodblade: { frame: 64, frames: [4, 4, 4, 4], box: [12, 16, 39, 28] },
   artificer: { frame: 64, frames: [12, 12, 12, 4], box: [20, 16, 24, 28] },
   archivist: { frame: 64, frames: [12, 12, 12, 4], box: [20, 20, 24, 24] },
+  gambler: { frame: 64, frames: [12, 12, 12, 4], box: [20, 18, 23, 26] },
 };
