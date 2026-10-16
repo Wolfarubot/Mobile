@@ -356,12 +356,25 @@ it.runIf(!!process.env.SIM_FULL)('full game: a typical player beats the Time Eat
   for (let d = 0; d < days; d++) sessions.push([d * 24 * H + 14 * H, 15 * 60], [d * 24 * H + 19 * H, 10 * 60], [d * 24 * H + 24 * H, 20 * 60]);
   const seen = new Set<string>(Object.keys(bot.unlockedAt));
   let lastStatus = 0;
+  // SIM_PACE={"glade":1.5,...} finds masteries for a schedule: each listed area's Guardian Challenge stays locked
+  // until the day given (when the next area should open, less a little for the fight), then its mastery is set to
+  // the kills made there by then, so it unlocks on time. Logs each mastery found.
+  const pace = process.env.SIM_PACE ? (JSON.parse(process.env.SIM_PACE) as Partial<Record<AreaId, number>>) : null;
+  const paced = new Set<AreaId>();
+  if (pace) for (const a of Object.keys(pace) as AreaId[]) EVENTS.find((e) => e.id === `guardian-${a}`)!.unlockKills = Infinity;
   const started = Date.now();
   for (const [start, length] of sessions) {
     if (beaten !== null) break;
     if (from && start + length <= from.clock) continue;
     now = start;
     g.applyOffline(start * 1000);
+    const day = pace?.[g.state.area];
+    if (day !== undefined && !paced.has(g.state.area) && start / 86400 >= day - 0.25) {
+      paced.add(g.state.area);
+      const ev = EVENTS.find((e) => e.id === `guardian-${g.state.area}`)!;
+      ev.unlockKills = Math.max(1, g.eventProgress(ev.id));
+      log(`  mastery ${g.state.area}: ${Math.round(ev.unlockKills)} (day ${(start / 86400).toFixed(2)})`);
+    }
     botShop(g, start, bot.memo);
     play(g, bot.field, length, start, 1, bot.memo, bot.unlockedAt, () => (now = start));
     sampleGroups(g, sampleRng);
