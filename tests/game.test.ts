@@ -69,7 +69,7 @@ import {
   TIER_HIT,
   weaponHit,
   WEAPON_HIT_POWER,
-  viewScale,
+  AOE_PER_LEVEL,
   GEAR_STAR_POWER,
   HELPER_TAPER_LEVEL,
   HELPER_TAPER_SESSIONS,
@@ -3150,20 +3150,24 @@ describe('Field', () => {
     expect(wolves).toBeGreaterThanOrEqual(2); // Deku's wolves, called from the tome
   });
 
-  it('area effects grow with how much field an area shows, on top of area-size upgrades', () => {
+  it('area effects grow with a Hunter level, wherever they fight, and with Expanse and Amplify', () => {
     const g = rich();
     g.state.hunters.glimmer.recruited = true;
     g.state.hunters.glimmer.station = 'forest';
-    const woods = g.specialRadius('glimmer');
+    g.state.hunters.glimmer.trains = 0;
     expect(g.aoeScale('glimmer')).toBe(1);
-    // Stationed in the Void Rift: its fireballs are as much bigger as the Rift's view is wider.
+    const lv1 = g.specialRadius('glimmer');
+    // Levelled up: bigger, by AOE_PER_LEVEL a level, whichever area they're in.
+    g.state.hunters.glimmer.trains = 400;
+    const lv = g.levelOf('glimmer');
+    expect(lv).toBeGreaterThan(20);
+    expect(g.aoeScale('glimmer')).toBeCloseTo(1 + AOE_PER_LEVEL * (lv - 1));
+    expect(g.specialRadius('glimmer')).toBeCloseTo(lv1 * (1 + AOE_PER_LEVEL * (lv - 1)));
     g.state.hunters.glimmer.station = 'rift';
-    expect(g.aoeScale('glimmer')).toBeCloseTo(viewScale('rift'));
-    expect(g.specialRadius('glimmer')).toBeCloseTo(woods * viewScale('rift'));
-    expect(viewScale('rift')).toBeGreaterThan(2.5);
-    // Your Hunter's area effects follow your area.
-    g.state.area = 'depths';
-    expect(g.aoeScale('main')).toBeCloseTo(viewScale('depths'));
+    expect(g.aoeScale('glimmer')).toBeCloseTo(1 + AOE_PER_LEVEL * (lv - 1));
+    // The size modifiers are worth chasing: Expanse rolls +15-30%, the Amplify enchantment +20-40%.
+    expect(REFINES.radius.range).toEqual([0.15, 0.3]);
+    expect(ENCHANTS.amplify).toMatchObject({ boost: 'radius', range: [0.2, 0.4] });
   });
 
   it("Ted the Gambler throws dice at the monsters every few seconds", () => {

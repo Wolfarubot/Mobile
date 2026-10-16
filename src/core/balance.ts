@@ -1643,6 +1643,12 @@ export interface HunterDef {
   wall?: { name: string; cooldown: number; duration: number; radius: number; describe: string };
 }
 
+/**
+ * Area effects grow with a Hunter's level: +3% per level (×1.75 at Lv 26, ×2.5 at Lv 51, ×7 at Lv 200), which keeps
+ * pace with the later areas' wider views as a typical player levels, and keeps growing past them.
+ */
+export const AOE_PER_LEVEL = 0.03;
+
 /** Every Hunter's base range with a shooting weapon (scaled by its class), in world units. */
 export const MAIN_RANGE = 250;
 /** How far the battlefield is zoomed out: 0.6 = everything drawn at 60% size, so you see more of the field. */
@@ -2301,7 +2307,7 @@ export const REFINES: Record<RefineStat, { name: string; icon: string; range: [n
   mag: { name: 'Magazine Size', icon: '🔋', range: [0.15, 0.3], text: (v) => `+${pct(v)} magazine size`, fits: (d) => isWeapon(d) && !!WEAPON_CLASSES[d.weaponClass!].mag },
   guard: { name: 'Bulwark', icon: '🛡️', range: [1, 2], int: true, text: (v) => `+${v} shield charge${v === 1 ? '' : 's'}`, fits: isArmor },
   stun: { name: 'Steadfast', icon: '🪨', range: [0.05, 0.1], text: (v) => `−${pct(v)} stun time`, fits: isArmor },
-  radius: { name: 'Expanse', icon: '🌐', range: [0.05, 0.1], text: (v) => `+${pct(v)} area size`, fits: (d) => isAccessory(d) || d.armorType === 'robe' || d.weaponClass === 'hammer' },
+  radius: { name: 'Expanse', icon: '🌐', range: [0.15, 0.3], text: (v) => `+${pct(v)} area size`, fits: (d) => isAccessory(d) || d.armorType === 'robe' || d.weaponClass === 'hammer' || (isWeapon(d) && !!WEAPON_CLASSES[d.weaponClass!].spell) },
   range: { name: 'Reach', icon: '📏', range: [10, 20], int: true, text: (v) => `+${v} range`, fits: (d) => isAccessory(d) || (isWeapon(d) && d.kind !== 'melee') },
   size: { name: 'Size', icon: '📐', range: [0.1, 0.2], text: (v) => `+${pct(v)} melee reach`, fits: (d) => d.kind === 'melee' },
   gold: { name: 'Fortune', icon: '🪙', range: [0.06, 0.12], text: (v) => `+${pct(v)} gold`, fits: isAccessory },
@@ -2339,7 +2345,8 @@ export type EnchantId =
   | 'shieldBurst'
   | 'virulence'
   | 'binding'
-  | 'haste';
+  | 'haste'
+  | 'amplify';
 
 export interface EnchantDef {
   name: string;
@@ -2354,7 +2361,7 @@ export interface EnchantDef {
   /** Potency: its chance is added to the weapon's status chance. */
   potency?: boolean;
   /** Virulence / Binding: their roll is a strength, not a chance: status effect strength, or summon duration. */
-  boost?: 'status' | 'summonDur' | 'cooldown';
+  boost?: 'status' | 'summonDur' | 'cooldown' | 'radius';
   /** Fireburst: each kill by the weapon has its chance to burst within `radius`. */
   onKill?: { radius: number; damageType: DamageType };
   /** Thunder Call and the pulses: each of the wearer's attacks has its chance to set this off. */
@@ -2397,6 +2404,7 @@ export const ENCHANTS: Record<EnchantId, EnchantDef> = {
   evasion: { name: 'Evasion', icon: '💨', range: [0.05, 0.1], weight: 1, effect: { kind: 'evade', chance: 1 }, fits: isArmor, text: (c) => `${pct(c)} chance to slip a monster entirely` },
   virulence: { name: 'Virulence', icon: '🧫', range: [0.1, 0.25], weight: 1, boost: 'status', fits: isWeapon, text: (v) => `+${pct(v)} status effect strength (damaging effects hit harder; the others last longer or pull harder)` },
   haste: { name: 'Haste', icon: '⏱️', range: [0.08, 0.16], weight: 1, boost: 'cooldown', fits: hasCooldown, text: (v) => `−${pct(v)} ability cooldowns` },
+  amplify: { name: 'Amplify', icon: '🌀', range: [0.2, 0.4], weight: 1, boost: 'radius', fits: () => true, text: (v) => `+${pct(v)} area size (every area effect: specials, blasts, puddles, slams, auras)` },
   binding: { name: 'Binding', icon: '⏳', range: [0.15, 0.3], weight: 1, boost: 'summonDur', fits: summons, text: (v) => `+${pct(v)} summon duration` },
   shieldBurst: { name: 'Shield Burst', icon: '🛡️', range: [0.4, 0.8], power: [0.8, 1.2], weight: 1, effect: { kind: 'block', base: 1, damageType: 'radiant', radius: 80 }, fits: isArmor, text: (c, p, t) => `${pct(c)} chance a blocked hit blasts everything nearby (${dmg(p, t)})` },
 };

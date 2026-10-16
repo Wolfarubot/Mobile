@@ -68,7 +68,7 @@ import {
   GEAR_STUN_CAP,
   gearCost,
   GEAR_STAR_POWER,
-  viewScale,
+  AOE_PER_LEVEL,
   MAX_EFFECTIVE_STARS,
   MOD_SLOTS,
   MOD_QUALITY_STEPS,
@@ -221,6 +221,7 @@ export class Game {
   /** Fractional kills/drops accumulated by stationed Hunters, per area+enemy. */
   private farmAcc = new Map<string, number>();
   /** Stationed Hunters' farm rates, refreshed about once a second (the model iterates, so don't redo it every frame). */
+  private aoeCache = new Map<Shooter, { key: string; v: number }>();
   private stationRates = new Map<AreaId, { key: string; rates: FarmRates; age: number }>();
   private listeners: Array<(e: GameEvent) => void> = [];
   rng: () => number;
@@ -493,15 +494,17 @@ export class Game {
 
   /** Multiplier on a Hunter's area effects (fireballs, puddles, novas). */
   radiusMult(shooter: Shooter): number {
-    return (1 + this.gear(shooter).radius + this.tree(shooter).radius) * this.aoeScale(shooter);
+    return (1 + this.gear(shooter).radius + this.tree(shooter).radius + this.enchantBoost(shooter, 'radius')) * this.aoeScale(shooter);
   }
 
-  /**
-   * Every area effect grows with how much of the field its area shows (viewScale: ×1.1 in the Fey Grove, ×2.7 in
-   * the Void Rift), so a fireball or a dice blast covers the same share of a zoomed-out screen, and of its horde.
-   */
+  /** Every area effect grows with the Hunter's level (AOE_PER_LEVEL), wherever they fight. */
   aoeScale(shooter: Shooter): number {
-    return viewScale(this.areaOfHunter(shooter) ?? this.state.area);
+    // Called for every area hit: remember each Hunter's level until their training changes.
+    const t = this.training(shooter);
+    const key = `${t.trains}:${t.ascendAt ?? ''}`;
+    let c = this.aoeCache.get(shooter);
+    if (!c || c.key !== key) this.aoeCache.set(shooter, (c = { key, v: 1 + AOE_PER_LEVEL * (this.levelOf(shooter) - 1) }));
+    return c.v;
   }
 
   /** Shield charges before a Hunter is stunned (skill tree, e.g. Lance's Zone of Protection + gear + rallies). */
@@ -854,7 +857,7 @@ export class Game {
   }
 
   /** The total of Virulence, Binding or Haste across a Hunter's gear (Enchantments). */
-  private enchantBoost(who: Shooter, boost: 'status' | 'summonDur' | 'cooldown'): number {
+  private enchantBoost(who: Shooter, boost: 'status' | 'summonDur' | 'cooldown' | 'radius'): number {
     let v = 0;
     for (const it of this.equipped(who)) if (it) for (const e of this.enchantsOf(it)) if (e.en.boost === boost) v += e.v;
     return v;
