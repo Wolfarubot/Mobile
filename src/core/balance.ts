@@ -399,6 +399,7 @@ export const ASCENDED_TREES: Record<HunterId, SkillNode[]> = {
   scavenger: ascendedTree({ name: 'Mountain Breaker', icon: '🏔️', desc: '+100% damage and punches reach 30% further.', maxRank: 1, effect: { damage: 1, radius: 0.3 } }),
   osteomancer: ascendedTree({ name: 'Ossuary', icon: '💀', desc: '+100% damage and spikes 30% wider.', maxRank: 1, effect: { damage: 1, radius: 0.3 } }),
   bloodblade: ascendedTree({ name: 'Crimson Tide', icon: '🌊', desc: '+100% damage and 2 more blood bolts from each Crimson Wave kill.', maxRank: 1, effect: { damage: 1, bolts: 2 } }),
+  spaceslime: ascendedTree({ name: 'Silver Tongue', icon: '💬', desc: '+100% damage and his charm reaches 30% further.', maxRank: 1, effect: { damage: 1, radius: 0.3 } }),
   gambler: ascendedTree({ name: 'High Roller', icon: '🎲', desc: '+100% damage and dice blasts 30% wider.', maxRank: 1, effect: { damage: 1, radius: 0.3 } }),
   archivist: ascendedTree({ name: 'Great Library', icon: '📚', desc: '+100% damage and recalled specials 30% bigger.', maxRank: 1, effect: { damage: 1, radius: 0.3 } }),
   artificer: ascendedTree({ name: 'Grand Design', icon: '⚙️', desc: '+100% damage and +20% attack rate.', maxRank: 1, effect: { damage: 1, rate: 0.2 } }),
@@ -560,6 +561,15 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
       { name: 'Wide Wards', icon: '🌀', desc: '+10% area size per rank.', maxRank: 3, effect: { radius: 0.1 } },
     ],
     { name: 'Spellbinder', icon: '📜', desc: '+30% damage.', maxRank: 1, cost: 4, effect: { damage: 0.3 } },
+  ),
+  spaceslime: skillTree(
+    { name: 'Cosmic Goo', icon: '🌌', desc: '+10% damage.', maxRank: 1, effect: { damage: 0.1 } },
+    [
+      { name: 'Sweet Nothings', icon: '💬', desc: '+15% damage per rank.', maxRank: 3, effect: { damage: 0.15 } },
+      { name: 'Quick Wit', icon: '⚡', desc: '+5% attack rate per rank.', maxRank: 3, effect: { rate: 0.05 } },
+      { name: 'Unflappable', icon: '🫧', desc: 'Stuns wear off 8% faster per rank.', maxRank: 3, effect: { recovery: 1 } },
+    ],
+    { name: 'Magnetic Personality', icon: '🧲', desc: '+30% damage and his charm reaches 20% further.', maxRank: 1, cost: 4, effect: { damage: 0.3, radius: 0.2 } },
   ),
   gambler: skillTree(
     { name: 'Lucky Coin', icon: '🪙', desc: '+10% damage.', maxRank: 1, effect: { damage: 0.1 } },
@@ -1489,7 +1499,8 @@ export type HunterId =
   | 'bloodblade'
   | 'artificer'
   | 'archivist'
-  | 'gambler';
+  | 'gambler'
+  | 'spaceslime';
 
 // ---- Damage types: every attack deals one. Weapons carry a type; without one, a Hunter uses their own. ----
 export type DamageType = 'physical' | 'fire' | 'acid' | 'frost' | 'radiant' | 'poison' | 'arcane' | 'decay' | 'lightning' | 'void';
@@ -1567,7 +1578,7 @@ export const DAMAGE_TYPES: Record<DamageType, { name: string; icon: string; colo
  * the background model. Summons copy the weapon's damage type and status effects; the others keep their own.
  */
 export interface HunterSpecial {
-  kind: 'potion' | 'fireball' | 'summon' | 'punch' | 'spikes' | 'wave' | 'recall' | 'dice';
+  kind: 'potion' | 'fireball' | 'summon' | 'punch' | 'spikes' | 'wave' | 'recall' | 'dice' | 'charm';
   /** What it's called on the Hunter's card ("Potions", "Wolves"...). */
   name: string;
   damageType: DamageType;
@@ -1878,6 +1889,26 @@ export const HUNTERS: HunterDef[] = [
       ticks: 1,
       crowd: 3,
       describe: "Every 5s, throws two dice at the monsters, powered by his weapon (its attack rate widens the blasts). 2 (snake eyes): nothing, and he's dazed for a moment. 3-4: one monster takes a hit. 5-9: a blast. 10-11: a bigger blast. 12 (double 6s): the whole field. Other doubles hit twice as hard, and his crit chance can re-roll his lower die.",
+    },
+  },
+  {
+    id: 'spaceslime', name: 'Norm', title: 'Space Slime', icon: '🌌', color: '#c88aff', area: 'meteors', recruitCost: 1.6e24,
+    short: 'Charms monsters into fighting each other.',
+    unlock: { event: 'meteorShower', times: 1 },
+    ascendedTitle: 'Cosmic Charmer',
+    story: "Norm fell to the Meteor Field inside a meteorite and has been talking his way out of trouble ever since. Ride out a Meteor Shower with him, and he'll talk the monsters into fighting for you.",
+    ability: "Every 6s, sweet-talks up to 5 monsters near him (Guardians aren't fooled): they turn pink and, for 6s, hunt the nearest other monster instead of your Hunters, biting it for a quarter of their own health every second. Uses ranged or magic weapons.",
+    slots: [{ kind: 'weapon', label: 'Weapon', accepts: ['weapon', 'magic'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
+    special: {
+      kind: 'charm',
+      name: 'Smooth Talk',
+      damageType: 'physical',
+      cooldown: 6,
+      damage: 0.25,
+      radius: 110,
+      ticks: 6,
+      crowd: 4,
+      describe: "Every 6s, charms up to 5 monsters within reach of him (his weapon's attack rate and area size widen it; Guardians are immune). For 6s each one turns on the nearest other monster, biting it every second for 25% of its own max health, and your Hunters leave it be.",
     },
   },
 ];

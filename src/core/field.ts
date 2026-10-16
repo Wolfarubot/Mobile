@@ -75,6 +75,11 @@ export interface Enemy {
   phase: number;
   /** Seconds of half-speed left (frost hammers, Frost chill). */
   slow?: number;
+  /**
+   * Charmed by Norm (or a copy of his Smooth Talk): for `left` seconds it hunts the nearest other monster instead
+   * of the Hunters, biting it every CHARM_BITE seconds for `frac` of its own max health, credited to `by`.
+   */
+  charm?: { left: number; by: Shooter; frac: number; bite: number };
   /** Seconds left pinned in place by Gideon's bone spikes (it can't move, though hits still knock it). */
   held?: number;
   /** Damage over time from Fire and Poison. */
@@ -269,6 +274,11 @@ export const DICE_FLIGHT = 0.7;
 export const DICE_REST = 0.8;
 /** Seconds snake eyes leave Ted dazed. */
 export const SNAKE_EYES_DAZE = 1.5;
+
+/** Norm's Smooth Talk: how many monsters one cast charms, for how long, and how often each bites. */
+export const CHARM_MAX = 5;
+export const CHARM_TIME = 6;
+export const CHARM_BITE = 1;
 
 /** Seconds a tome takes to open before its copy bursts out, and how long it stays before fading. */
 export const TOME_OPEN = 0.5;
@@ -649,6 +659,8 @@ export class Field {
           g.registerEscape();
           this.events.push({ type: 'escape', x: e.x, y: e.y });
         }
+      } else if (e.charm) {
+        this.charmed(e, speed, dt);
       } else {
         const t = this.nearestHunter(e.x, e.y);
         const dx = e.x - t.x;
@@ -925,7 +937,8 @@ export class Field {
     let best: Enemy | null = null;
     let bestD = Infinity;
     for (const e of this.enemies) {
-      if (e.hp <= 0 || exclude?.includes(e.id)) continue;
+      // Charmed monsters are on the Hunters' side for now: nobody aims at them.
+      if (e.hp <= 0 || e.charm || exclude?.includes(e.id)) continue;
       const d2 = (e.x - ox) ** 2 + (e.y - oy) ** 2;
       if (d2 > (range + e.r) ** 2) continue;
       const d = d2 + (e.fleeing ? 1e12 : 0);
@@ -1129,6 +1142,20 @@ export class Field {
       this.events.push({ type: 'nova', x: px, y: py, r: radius * 0.55, color: '#ffb060' });
       return true;
     }
+    if (sp.kind === 'charm') {
+      // Norm's Smooth Talk: the monsters nearest him (within reach) turn on their own for a while.
+      const near = this.enemies
+        .filter((o) => o.hp > 0 && !o.boss && !o.charm && !o.fleeing && Math.hypot(o.x - x, o.y - y) <= radius + o.r)
+        .sort((p, q) => Math.hypot(p.x - x, p.y - y) - Math.hypot(q.x - x, q.y - y))
+        .slice(0, CHARM_MAX);
+      if (!near.length) return false;
+      this.events.push({ type: 'nova', x, y, r: radius, color: '#ff8ad0' });
+      for (const o of near) {
+        o.charm = { left: CHARM_TIME, by, frac: dmg, bite: CHARM_BITE * 0.5 };
+        this.events.push({ type: 'nova', x: o.x, y: o.y, r: o.r + 6, color: '#ff8ad0' });
+      }
+      return true;
+    }
     if (sp.kind === 'dice') {
       // Ted's dice: thrown at the monsters, they land a moment later and the roll decides what happens there.
       const rng = g.rng;
@@ -1212,6 +1239,40 @@ export class Field {
     if (!pool.length) return null;
     const id = pool[Math.floor(g.rng() * pool.length)];
     return { id, special: hunterDef(id).special! };
+  }
+
+  /** A charmed monster: it goes for the nearest monster that isn't charmed and bites it, until the charm wears off. */
+  private charmed(e: Enemy, speed: number, dt: number): void {
+    const c = e.charm!;
+    c.left -= dt;
+    if (c.left <= 0) {
+      e.charm = undefined;
+      return;
+    }
+    let t: Enemy | null = null;
+    let best = Infinity;
+    for (const o of this.enemies) {
+      if (o === e || o.hp <= 0 || o.charm) continue;
+      const d = (o.x - e.x) ** 2 + (o.y - e.y) ** 2;
+      if (d < best) {
+        best = d;
+        t = o;
+      }
+    }
+    c.bite = Math.max(0, c.bite - dt);
+    if (!t) return;
+    const dx = t.x - e.x;
+    const dy = t.y - e.y;
+    const d = Math.hypot(dx, dy) || 1;
+    const reach = e.r + t.r + 2;
+    if (d > reach) {
+      const step = Math.min(speed * 1.2 * dt, d - reach);
+      e.x += (dx / d) * step + e.kx * dt;
+      e.y += (dy / d) * step + e.ky * dt;
+    } else if (c.bite <= 0) {
+      c.bite = CHARM_BITE;
+      this.damage(t, e.maxHp * c.frac, false, dx / d, dy / d, c.by, 'physical');
+    }
   }
 
   /**

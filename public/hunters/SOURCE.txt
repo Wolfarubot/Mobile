@@ -5,3 +5,4 @@ the same style; no level 1 outfits. You: Swordsman 3. Galladair: Mage 3 (skin re
 Archer 4. Lance: Swordsman 7. Glimmer: Mage 2 (warmed to fiery tones). Theon: Archer 6. Wilhelm: Archer 5. Celeste:
 Mage 5 (white hair, purple eyes, dark brown cloak and leather-brown shirt). Kargesh: Swordsman 4. Sciirj: Archer 2 (tinted to a monk's orange). Marceline: Mage 4 (black hair). Gideon: Vampire 1
 (greyed toward bone). Okrin: Swordsman 5. Themus: Vampire 3 (pale red skin, dark brown hair). Reginald (Artificer): Swordsman 8. Thomas: Mage 4 (sepia-toned: brown hair, grey robe). Ted: Archer 6 (sepia-toned: dark hat, white shirt).
+Norm the Space Slime is a slime, not a person: the Shadow Slime's walk sheet from the monster packs (public/monsters/slime-shadow.png), its rows reordered to down, left, right, up, shifted to a cosmic purple-pink (hue-rotate 30deg, saturate 1.6, brightness 1.3) and sprinkled with star pixels.

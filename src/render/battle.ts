@@ -889,7 +889,8 @@ export class BattleView {
       const hy = e.fleeing ? e.y : -e.y;
       const dir = Math.abs(dirX) > Math.abs(hy) ? (dirX < 0 ? 'L' : 'R') : hy > 0 ? 'D' : 'U';
       const col = Math.floor(e.phase * (e.fleeing ? 12 : 8)) % sh.cols;
-      const src = e.slow && this.fxOn('chill') ? frostTint(sheet) : sheet;
+      // Charmed by Norm: pink; chilled by Frost: blue.
+      const src = e.charm ? charmTint(sheet) : e.slow && this.fxOn('chill') ? frostTint(sheet) : sheet;
       g.fillStyle = 'rgba(0,0,0,0.25)';
       g.beginPath();
       g.ellipse(0, ra * 1.1, ra * 0.9, ra * 0.32, 0, 0, Math.PI * 2);
@@ -911,7 +912,7 @@ export class BattleView {
       const bob = Math.sin(e.phase * 10) * r * 0.06;
       g.scale(dirX < 0 ? -1 : 1, 1);
       // Chilled by Frost: drawn with a blue tint.
-      g.drawImage(e.slow && this.fxOn('chill') ? frostTint(img) : img, -size / 2, -size / 2 + bob, size, size);
+      g.drawImage(e.charm ? charmTint(img) : e.slow && this.fxOn('chill') ? frostTint(img) : img, -size / 2, -size / 2 + bob, size, size);
       if (e.flash > 0.5) {
         // Brief white flash on hit without needing a tinted copy of the sprite.
         g.globalAlpha = 0.5;
@@ -925,7 +926,7 @@ export class BattleView {
       g.save();
       g.scale(1 + wob, 1 - wob);
       const body = e.boss ? shade(def.color, -0.15) : def.color;
-      g.fillStyle = e.flash > 0.5 ? '#ffffff' : e.slow && this.fxOn('chill') ? mixHex(body, '#8fdcff', 0.55) : body;
+      g.fillStyle = e.flash > 0.5 ? '#ffffff' : e.charm ? mixHex(body, '#ff8ad0', 0.55) : e.slow && this.fxOn('chill') ? mixHex(body, '#8fdcff', 0.55) : body;
       g.strokeStyle = OUTLINE;
       g.lineWidth = e.boss ? 4 : 2;
       shapePath(g, def.shape, r);
@@ -2295,6 +2296,23 @@ function drawEffectFrame(g: CanvasRenderingContext2D, img: HTMLImageElement | HT
   g.imageSmoothingEnabled = false;
   g.drawImage(img, f * sh.frame, 0, sh.frame, sh.frame, dx, dy, sh.frame * k, sh.frame * k);
   g.imageSmoothingEnabled = smooth;
+}
+
+/** A pink copy of a monster's art, for one charmed by Norm (cached per image). */
+const charmCache = new WeakMap<HTMLImageElement | HTMLCanvasElement, HTMLCanvasElement>();
+function charmTint(img: HTMLImageElement | HTMLCanvasElement): HTMLCanvasElement {
+  const hit = charmCache.get(img);
+  if (hit) return hit;
+  const c = document.createElement('canvas');
+  c.width = img.width;
+  c.height = img.height;
+  const x = c.getContext('2d')!;
+  x.drawImage(img, 0, 0);
+  x.globalCompositeOperation = 'source-atop';
+  x.fillStyle = 'rgba(255,110,200,0.55)';
+  x.fillRect(0, 0, c.width, c.height);
+  charmCache.set(img, c);
+  return c;
 }
 
 function frostTint(img: HTMLImageElement | HTMLCanvasElement): HTMLCanvasElement {

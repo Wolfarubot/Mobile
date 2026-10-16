@@ -115,7 +115,7 @@ import {
   typeMult,
   WEAK_MULT,
 } from '../src/core/balance';
-import { DICE_FLIGHT, Field, SLAM_OFFSET, type Enemy } from '../src/core/field';
+import { CHARM_MAX, CHARM_TIME, DICE_FLIGHT, Field, SLAM_OFFSET, type Enemy } from '../src/core/field';
 import { mergeSample, runSample, SAMPLE_KEEP } from '../src/core/sampler';
 import { GATED } from '../src/core/gates';
 import { boardCells, RM_BOARDS } from '../src/ui/minigames/runeMatch';
@@ -3168,6 +3168,46 @@ describe('Field', () => {
     // The size modifiers are worth chasing: Expanse rolls +15-30%, the Amplify enchantment +20-40%.
     expect(REFINES.radius.range).toEqual([0.15, 0.3]);
     expect(ENCHANTS.amplify).toMatchObject({ boost: 'radius', range: [0.2, 0.4] });
+  });
+
+  it("Norm's Smooth Talk: monsters near him turn on each other for a while (never the Guardian)", () => {
+    expect(hunterDef('spaceslime')).toMatchObject({ name: 'Norm', title: 'Space Slime', area: 'meteors', unlock: { event: 'meteorShower', times: 1 } });
+    const { g, f } = thomasField(['spaceslime']);
+    g.rng = () => 0.99;
+    // A pack right around Norm (the first stationed Hunter stands at -72, 42), a Guardian among them, and a
+    // monster far off for the charmed ones to go after.
+    f.enemies = [
+      ...Array.from({ length: 7 }, (_, i) => tough({ id: i + 1, x: -72 + (i - 3) * 14, y: 42 + 55, speed: 0 })),
+      tough({ id: 20, x: -72, y: 135, boss: true, speed: 0 }),
+      tough({ id: 30, x: 200, y: 150, speed: 0, hp: 1e15, maxHp: 1e15 }),
+    ];
+    for (let t = 0; t < 1.5; t += 1 / 30) f.update(1 / 30);
+    const charmed = f.enemies.filter((e) => e.charm);
+    expect(charmed.length).toBeGreaterThan(0);
+    expect(charmed.length).toBeLessThanOrEqual(CHARM_MAX);
+    expect(f.enemies.find((e) => e.id === 20)!.charm).toBeUndefined();
+    expect(charmed.every((e) => e.charm!.by === 'spaceslime')).toBe(true);
+    // The charm wears off.
+    for (let t = 0; t < CHARM_TIME + 0.5; t += 1 / 30) {
+      f.update(1 / 30);
+      if (t > CHARM_TIME - 1.4) for (const e of f.enemies) if (e.charm) e.charm.left = Math.min(e.charm.left, 0.05);
+    }
+    expect(charmed.every((e) => !e.charm || e.charm.left > CHARM_TIME - 1)).toBe(true);
+  });
+
+  it('a charmed monster bites the nearest other monster for a quarter of its own health, credited to Norm', () => {
+    const { g, f } = thomasField(['spaceslime']);
+    g.rng = () => 0.99;
+    const ally = tough({ id: 1, x: -150, y: 150, speed: 40, hp: 1000, maxHp: 1000 });
+    ally.charm = { left: 5, by: 'spaceslime', frac: 0.25, bite: 0 };
+    const victim = tough({ id: 2, x: -150, y: 170, speed: 0, hp: 600, maxHp: 600 });
+    f.enemies = [ally, victim];
+    const kills = g.state.stats.hunterKills.spaceslime ?? 0;
+    for (let t = 0; t < 1.2; t += 1 / 30) f.update(1 / 30);
+    expect(victim.hp).toBeLessThanOrEqual(600 - 250 + 1e-6); // at least one bite of 250 (a quarter of 1,000)
+    for (let t = 0; t < 3; t += 1 / 30) f.update(1 / 30);
+    expect(victim.hp).toBeLessThanOrEqual(0);
+    expect(g.state.stats.hunterKills.spaceslime ?? 0).toBeGreaterThan(kills);
   });
 
   it("Ted the Gambler throws dice at the monsters every few seconds", () => {
