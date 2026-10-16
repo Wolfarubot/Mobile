@@ -3183,8 +3183,8 @@ describe('Field', () => {
     ];
     for (let t = 0; t < 1.5; t += 1 / 30) f.update(1 / 30);
     const charmed = f.enemies.filter((e) => e.charm);
-    expect(charmed.length).toBeGreaterThan(0);
-    expect(charmed.length).toBeLessThanOrEqual(CHARM_MAX);
+    expect(CHARM_MAX).toBe(1); // one monster a cast (a skill node will raise it)
+    expect(charmed.length).toBe(1);
     expect(f.enemies.find((e) => e.id === 20)!.charm).toBeUndefined();
     expect(charmed.every((e) => e.charm!.by === 'spaceslime')).toBe(true);
     // The charm wears off.

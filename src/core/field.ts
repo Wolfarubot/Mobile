@@ -276,7 +276,7 @@ export const DICE_REST = 0.8;
 export const SNAKE_EYES_DAZE = 1.5;
 
 /** Norm's Smooth Talk: how many monsters one cast charms, for how long, and how often each bites. */
-export const CHARM_MAX = 5;
+export const CHARM_MAX = 1;
 export const CHARM_TIME = 6;
 export const CHARM_BITE = 1;
 

@@ -1897,7 +1897,7 @@ export const HUNTERS: HunterDef[] = [
     unlock: { event: 'meteorShower', times: 1 },
     ascendedTitle: 'Cosmic Charmer',
     story: "Norm fell to the Meteor Field inside a meteorite and has been talking his way out of trouble ever since. Ride out a Meteor Shower with him, and he'll talk the monsters into fighting for you.",
-    ability: "Every 6s, sweet-talks up to 5 monsters near him (Guardians aren't fooled): they turn pink and, for 6s, hunt the nearest other monster instead of your Hunters, biting it for a quarter of their own health every second. Uses ranged or magic weapons.",
+    ability: "Every 6s, sweet-talks the monster nearest him (Guardians aren't fooled): it turns pink and, for 6s, hunts the nearest other monster instead of your Hunters, biting it for a quarter of its own health every second. Uses ranged or magic weapons.",
     slots: [{ kind: 'weapon', label: 'Weapon', accepts: ['weapon', 'magic'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
     special: {
       kind: 'charm',
@@ -1908,7 +1908,7 @@ export const HUNTERS: HunterDef[] = [
       radius: 110,
       ticks: 6,
       crowd: 4,
-      describe: "Every 6s, charms up to 5 monsters within reach of him (his weapon's attack rate and area size widen it; Guardians are immune). For 6s each one turns on the nearest other monster, biting it every second for 25% of its own max health, and your Hunters leave it be.",
+      describe: "Every 6s, charms the monster nearest him within reach (his weapon's attack rate and area size widen it; Guardians are immune). For 6s it turns on the nearest other monster, biting it every second for 25% of its own max health, and your Hunters leave it be.",
     },
   },
 ];
