@@ -69,6 +69,7 @@ import {
   TIER_HIT,
   weaponHit,
   WEAPON_HIT_POWER,
+  viewScale,
   GEAR_STAR_POWER,
   HELPER_TAPER_LEVEL,
   HELPER_TAPER_SESSIONS,
@@ -3147,6 +3148,22 @@ describe('Field', () => {
       wolves = Math.max(wolves, f.summons.filter((s) => s.who === 'archivist' && s.look === 'wolf').length);
     }
     expect(wolves).toBeGreaterThanOrEqual(2); // Deku's wolves, called from the tome
+  });
+
+  it('area effects grow with how much field an area shows, on top of area-size upgrades', () => {
+    const g = rich();
+    g.state.hunters.glimmer.recruited = true;
+    g.state.hunters.glimmer.station = 'forest';
+    const woods = g.specialRadius('glimmer');
+    expect(g.aoeScale('glimmer')).toBe(1);
+    // Stationed in the Void Rift: its fireballs are as much bigger as the Rift's view is wider.
+    g.state.hunters.glimmer.station = 'rift';
+    expect(g.aoeScale('glimmer')).toBeCloseTo(viewScale('rift'));
+    expect(g.specialRadius('glimmer')).toBeCloseTo(woods * viewScale('rift'));
+    expect(viewScale('rift')).toBeGreaterThan(2.5);
+    // Your Hunter's area effects follow your area.
+    g.state.area = 'depths';
+    expect(g.aoeScale('main')).toBeCloseTo(viewScale('depths'));
   });
 
   it("Ted the Gambler throws dice at the monsters every few seconds", () => {

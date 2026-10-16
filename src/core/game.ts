@@ -68,6 +68,7 @@ import {
   GEAR_STUN_CAP,
   gearCost,
   GEAR_STAR_POWER,
+  viewScale,
   MAX_EFFECTIVE_STARS,
   MOD_SLOTS,
   MOD_QUALITY_STEPS,
@@ -492,7 +493,15 @@ export class Game {
 
   /** Multiplier on a Hunter's area effects (fireballs, puddles, novas). */
   radiusMult(shooter: Shooter): number {
-    return 1 + this.gear(shooter).radius + this.tree(shooter).radius;
+    return (1 + this.gear(shooter).radius + this.tree(shooter).radius) * this.aoeScale(shooter);
+  }
+
+  /**
+   * Every area effect grows with how much of the field its area shows (viewScale: ×1.1 in the Fey Grove, ×2.7 in
+   * the Void Rift), so a fireball or a dice blast covers the same share of a zoomed-out screen, and of its horde.
+   */
+  aoeScale(shooter: Shooter): number {
+    return viewScale(this.areaOfHunter(shooter) ?? this.state.area);
   }
 
   /** Shield charges before a Hunter is stunned (skill tree, e.g. Lance's Zone of Protection + gear + rallies). */

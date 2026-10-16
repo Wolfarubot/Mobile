@@ -1022,7 +1022,7 @@ export class Field {
       this.summon(who, x, y, aim, cls);
     } else if (cls?.spell && gun.ammo === 1) {
       // A staff's big spell: the last round of each cast.
-      this.shoot(who, 'fireball', x, y, aim, 380, range, { radius: cls.spell.radius, dmg: cls.spell.damage, mode: m });
+      this.shoot(who, 'fireball', x, y, aim, 380, range, { radius: cls.spell.radius * g.radiusMult(who), dmg: cls.spell.damage, mode: m });
     } else if (cls?.attack === 'slam') {
       // A hammer smashes the ground out in front: the Hunter stands at the edge of the blast, so its centre is
       // further out the bigger it is. Everything in it is hit and thrown far back from where it landed.
@@ -1505,6 +1505,8 @@ export class Field {
 
   /** A gear burst around a point: every monster within `r` is hit (and gets its type's effect). */
   private abilityBurst(who: Shooter, x: number, y: number, r: number, base: number, dtype: DamageType): void {
+    // Area-size upgrades (gear, skills) and the area's own scale widen it, as they do every area effect.
+    r *= this.game.radiusMult(who);
     this.events.push({ type: 'nova', x, y, r, color: DAMAGE_TYPES[dtype].color });
     for (const e of [...this.enemies]) if (e.hp > 0 && Math.hypot(e.x - x, e.y - y) <= r + e.r) this.abilityHit(who, e, base, dtype, true);
   }
@@ -1527,7 +1529,7 @@ export class Field {
     for (const w of wearers) {
       for (const { uid, effect: ef, stars } of this.game.gearEffects(w.who)) {
         if (ef.kind === 'chill') {
-          for (const e of this.enemies) if (!e.boss && !this.immuneTo(e, 'frost') && Math.hypot(e.x - w.x, e.y - w.y) <= ef.radius + e.r) e.slow = Math.max(e.slow ?? 0, 0.2);
+          for (const e of this.enemies) if (!e.boss && !this.immuneTo(e, 'frost') && Math.hypot(e.x - w.x, e.y - w.y) <= ef.radius * this.game.radiusMult(w.who) + e.r) e.slow = Math.max(e.slow ?? 0, 0.2);
           continue;
         }
         const cd = effectCooldown(ef);
@@ -1546,7 +1548,7 @@ export class Field {
     const base = effectBase(ef, stars);
     switch (ef.kind) {
       case 'pulse':
-        if (!this.nearest(x, y, ef.radius)) return false;
+        if (!this.nearest(x, y, ef.radius * this.game.radiusMult(who))) return false;
         this.abilityBurst(who, x, y, ef.radius, base, ef.damageType);
         return true;
       case 'summon': {
