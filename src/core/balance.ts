@@ -2891,6 +2891,16 @@ export type ItemId =
   | 'pouch'
   | 'idol'
   | 'forestIdol'
+  | 'groveIdol'
+  | 'graveIdol'
+  | 'cryptIdol'
+  | 'depthsIdol'
+  | 'emberIdol'
+  | 'venomIdol'
+  | 'frostIdol'
+  | 'skyIdol'
+  | 'cloudIdol'
+  | 'starIdol'
   | 'pixiePotion'
   | 'bonePotion'
   | 'lichPotion'
@@ -2925,21 +2935,41 @@ export interface ItemDef {
   describe: (level: number) => string;
 }
 
+/**
+ * An area Idol: that area's monsters have ×2 HP and ×2 gold (up to ×3 gold at 5★), so an area you've outgrown
+ * pays better. Each star costs twice the last.
+ */
+function areaIdol(id: ItemId, name: string, area: AreaId, rarity: Rarity, recipe: Partial<Record<MaterialId, number>>): ItemDef {
+  const areaName = AREAS.find((a) => a.id === area)!.name;
+  return {
+    id,
+    name,
+    icon: AREAS.find((a) => a.id === area)!.icon,
+    rarity,
+    area: { id: area, hp: () => 2, gold: (l) => 2 + 0.25 * (l - 1) },
+    maxLevel: 5,
+    recipe,
+    growth: 2,
+    describe: (l) => `${areaName} monsters: ×2 HP, ×${2 + 0.25 * (l - 1)} gold`,
+  };
+}
+
 export const ITEMS: ItemDef[] = [
   { id: 'lure', name: 'Monster Lure', icon: '🍖', rarity: 'uncommon', maxLevel: 15, recipe: { beastBone: 5, pelt: 3 }, growth: 1.6, describe: (l) => `+${l * 20}% enemy spawns` },
   { id: 'pouch', name: "Scavenger's Pouch", icon: '👝', rarity: 'uncommon', maxLevel: 15, recipe: { pelt: 6, scrap: 3 }, growth: 1.5, describe: (l) => `+${l * 25}% material drops` },
   { id: 'idol', name: 'Golden Idol', icon: '🗿', rarity: 'veryRare', maxLevel: 30, recipe: { ember: 6, magma: 3 }, growth: 1.5, describe: (l) => `+${l * 25}% gold` },
-  {
-    id: 'forestIdol',
-    name: 'Forest Idol',
-    icon: '🌳',
-    rarity: 'uncommon',
-    area: { id: 'forest', hp: () => 2, gold: (l) => 2 + 0.25 * (l - 1) },
-    maxLevel: 5,
-    recipe: { goo: 30, twig: 15, bearClaw: 6 },
-    growth: 2,
-    describe: (l) => `Wandering Woods monsters: ×2 HP, ×${2 + 0.25 * (l - 1)} gold`,
-  },
+  areaIdol('forestIdol', 'Forest Idol', 'forest', 'uncommon', { goo: 30, twig: 15, bearClaw: 6 }),
+  // The other areas' Idols: huge amounts of the area's own drops, plus ores and gems from a golem a few areas on.
+  areaIdol('groveIdol', 'Fey Grove Idol', 'glade', 'veryRare', { spore: 500_000, dust: 150_000, goldOre: 1_500, topaz: 500 }),
+  areaIdol('graveIdol', 'Graveyard Idol', 'graveyard', 'veryRare', { bone: 1_500_000, flesh: 800_000, silverOre: 4_000, amethyst: 1_500 }),
+  areaIdol('cryptIdol', 'Crypt Idol', 'crypt', 'legendary', { undeadFeather: 4_000_000, string: 800_000, cobaltOre: 10_000, venomite: 3_000 }),
+  areaIdol('depthsIdol', 'Shadowy Depths Idol', 'depths', 'legendary', { darkClaw: 5_000_000, gloom: 3_000_000, frostIron: 8_000, aquamarine: 5_000 }),
+  areaIdol('emberIdol', 'Ember Mines Idol', 'caves', 'legendary', { demonBone: 5_000_000, chitin: 2_000_000, coldsteel: 1_500, sapphire: 1_000 }),
+  areaIdol('venomIdol', 'Venom Caverns Idol', 'mines', 'exotic', { ore: 6_000_000, scale: 600_000, skysteel: 8_000, adamantite: 1_500 }),
+  areaIdol('frostIdol', 'Frost Peaks Idol', 'peaks', 'relic', { fur: 4_000_000, frost: 1_000_000, opal: 8_000, stormstone: 1_500 }),
+  areaIdol('skyIdol', 'Ascendant Steps Idol', 'cliffs', 'artifact', { plume: 4_000_000, skystone: 1_000_000, starIron: 8_000, orichalcum: 1_500 }),
+  areaIdol('cloudIdol', 'Cloud Fortress Idol', 'fortress', 'exalted', { feather: 5_000_000, thunder: 1_500_000, voidsteel: 6_000, voidPrism: 1_000 }),
+  areaIdol('starIdol', 'Meteor Field Idol', 'meteors', 'exalted', { stardust: 5_000_000, meteor: 2_000_000, voidPrism: 2_000, diamond: 400 }),
   // Energy Potions: crafted once each, 2 more hours of offline time apiece (4 hours to start, 24 with all ten).
   // One an area from the Fey Grove to the Meteor Field (not the Woods or the Rift): a Guardian's spoils early on, rare
   // ores and gems later (Guardian spoils to come for the later areas once they have their own Guardians); each costs

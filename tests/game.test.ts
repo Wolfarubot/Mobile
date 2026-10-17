@@ -61,6 +61,7 @@ import {
   GUARDIAN_COOLDOWN,
   eventDef,
   ENEMIES,
+  RARE_MATERIALS,
   ARCHETYPES,
   helperTrainCost,
   HELPER_TRAIN_GROWTH,
@@ -887,6 +888,27 @@ describe('Shops', () => {
     expect(g.enemyStats('skeleton').hp).toBeCloseTo(elsewhere.hp);
     g.state.items.forestIdol = MAX_STARS;
     expect(g.enemyStats('greenSlime').gold / before.gold).toBeCloseTo(3);
+  });
+
+  it('every area from the Woods to the Meteor Field has an Idol: its own drops in bulk, plus ores and gems from further on', () => {
+    const idols = ITEMS.filter((it) => it.area);
+    expect(idols.map((it) => it.area!.id)).toEqual(AREAS.filter((a) => a.id !== 'rift').map((a) => a.id));
+    for (const idol of idols.slice(1)) {
+      const area = idol.area!.id;
+      const mats = Object.keys(idol.recipe) as MaterialId[];
+      expect(mats.some((m) => RARE_MATERIALS.has(m))).toBe(true);
+      expect(mats.some((m) => ENEMIES.some((e) => e.area === area && e.material === m))).toBe(true);
+      const g = rich();
+      const mob = ENEMIES.find((e) => e.area === area && e.unlock === 0)!;
+      const other = ENEMIES.find((e) => e.area !== area && e.unlock === 0)!;
+      const before = g.enemyStats(mob.id);
+      const elsewhere = g.enemyStats(other.id);
+      for (const [m, n] of Object.entries(itemCost(idol, 0))) g.state.materials[m as MaterialId] = n!;
+      expect(g.craft(idol.id)).toBe(true);
+      expect(g.enemyStats(mob.id).hp / before.hp).toBeCloseTo(2);
+      expect(g.enemyStats(mob.id).gold / before.gold).toBeCloseTo(2);
+      expect(g.enemyStats(other.id).hp).toBeCloseTo(elsewhere.hp);
+    }
   });
 
   it('drop chances past 100% drop several: each 100% is guaranteed, the rest is a chance of one more', () => {
