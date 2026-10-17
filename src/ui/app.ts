@@ -28,6 +28,7 @@ import {
   ARCHETYPES,
   describeGear,
   describeEffect,
+  effectBase,
   ARMOR_TYPES,
   GEAR_STAR_POWER,
   enemyDrops,
@@ -1157,7 +1158,7 @@ export class AppUI {
       body.innerHTML = `
         <p>${dtypeTag(gd)}<b class="rarity-tag" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${gearKindName(gd)} · <span class="stars">${starsHtml(item.stars)}</span>${worn ? ` · worn by ${wearerName(worn.who)}` : ''}</p>
         ${weaponLine(gd, item.stars)}
-        ${gd.special ? `<p class="weapon-line">${specialText(gd)}</p>` : ''}
+        ${gearTypeLines(gd, item.stars)}
         <p class="gear-now">${gearSummary(gd, item.stars) || (gd.effect ? '' : 'No bonuses: plain everyday wear.')}</p>
         ${modSlotsHtml(g, uid)}
         ${cost ? `<p class="gear-next">Next: <b>${[gearSummary(gd, item.stars + 1), gd.effect && 'base' in gd.effect ? describeEffect(gd.effect, item.stars + 1) : ''].filter(Boolean).join(' ')}</b></p><div class="cost">${costHtml(g, cost)}${goldHtml(g, g.gearUpgradeGold(uid) ?? 0)}</div>` : Object.keys(gd.stats).length || gd.effect ? '<p>Fully upgraded.</p>' : '<p>Nothing to upgrade.</p>'}`;
@@ -2664,7 +2665,7 @@ export class AppUI {
         <h3>${name}</h3>
         <small>${gd ? `<b class="fc-rarity" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${gearKindName(gd).toLowerCase()} ${dtypeTag(gd)}` : `<b class="fc-rarity" style="--rc:${RARITIES[it!.rarity].color}">${RARITIES[it!.rarity].name}</b> upgrade · ${upgradeReach(it!)}`}</small>
       </div></div>
-      ${gd ? weaponLine(gd) : ''}
+      ${gd ? weaponLine(gd) + gearTypeLines(gd, 1) : ''}
       <p class="fc-effect"></p>
       <div class="fc-owned"></div>
       <div class="fc-label">Recipe</div>
@@ -2682,7 +2683,8 @@ export class AppUI {
     const update = () => {
       if (gd) {
         const owned = g.state.inventory.filter((x) => x.base === gd.id).length;
-        $('.fc-effect', card).innerHTML = `${gd.armorType ? `${ARMOR_TYPES[gd.armorType].icon} ${ARMOR_TYPES[gd.armorType].name}. ` : ''}${gearSummary(gd, 1) ? `1★: <b>${gearSummary(gd, 1)}</b> · 5★: <b>${gearSummary(gd, MAX_STARS)}</b>` : ''}`;
+        const ability = gd.effect && 'base' in gd.effect ? ` ${gd.effect.kind === 'summon' ? 'Summon' : 'Ability'} damage: 1★ <b>${fmt(effectBase(gd.effect, 1))}</b> · 5★ <b>${fmt(effectBase(gd.effect, MAX_STARS))}</b>.` : '';
+        $('.fc-effect', card).innerHTML = `${gd.armorType ? `${ARMOR_TYPES[gd.armorType].icon} ${ARMOR_TYPES[gd.armorType].name}. ` : ''}${gearSummary(gd, 1) ? `1★: <b>${gearSummary(gd, 1)}</b> · 5★: <b>${gearSummary(gd, MAX_STARS)}</b>` : ''}${ability}`;
         $('.fc-owned', card).innerHTML = `In your equipment: <b>${owned}</b>`;
         $('.fc-cost', card).innerHTML = recipeHtml(g, gearCost(gd, 0));
         btn.textContent = 'Craft';
@@ -2692,7 +2694,12 @@ export class AppUI {
         const lv = g.state.items[item.id];
         const maxed = lv >= itemMaxStars(item);
         const at = (stars: number) => item.describe(itemLevel(item, stars));
-        $('.fc-effect', card).innerHTML = lv && !item.once ? `${at(lv)}${maxed ? '' : ` → <b>${at(lv + 1)}</b>`}` : `<b>${at(1)}</b>`;
+        const top = itemMaxStars(item);
+        $('.fc-effect', card).innerHTML = item.once
+          ? `<b>${at(1)}</b>`
+          : lv
+            ? `${lv}★: ${at(lv)}${maxed ? '' : ` → ${lv + 1}★: <b>${at(lv + 1)}</b>${lv + 1 < top ? ` · ${top}★: <b>${at(top)}</b>` : ''}`}`
+            : `1★: <b>${at(1)}</b> · ${top}★: <b>${at(top)}</b>`;
         $('.fc-owned', card).innerHTML = item.once ? (lv ? 'Owned: <b>crafted</b>' : 'Owned: <b>not crafted yet</b>') : lv ? `Owned: <b class="stars">${starsHtml(lv)}</b>${maxed ? ' · MAX' : ''}` : 'Owned: <b>not crafted yet</b>';
         $('.fc-cost', card).innerHTML = maxed ? (item.once ? '<p>Crafted.</p>' : '<p>Fully upgraded.</p>') : recipeHtml(g, itemCost(item, lv));
         btn.textContent = maxed ? (item.once ? 'Crafted' : 'MAX') : lv ? 'Upgrade' : 'Craft';
@@ -3947,6 +3954,28 @@ function dtypeTag(gd: GearDef): string {
 function specialText(gd: GearDef): string {
   const types = gearTypes(gd);
   return `${SPECIAL_TYPE.icon} Special: ${gd.perShot ? 'each projectile deals the next element in turn' : 'its hits split between its elements'} (${types.map((t) => DAMAGE_TYPES[t].icon).join('')}), starting with ${DAMAGE_TYPES[types[0]].name}${gd.proc ? `; each can trigger its status effect (${Math.round(gd.proc * 100)}% chance)` : ''}`;
+}
+
+/**
+ * What a piece does with its damage types, as lines for its cards (the forge's recipe card, its details): a
+ * weapon's Special (changing elements), how a multi-type weapon splits its hits, each type's status effect and the
+ * chance it triggers, and a bonus to one type's damage (at `stars`).
+ */
+function gearTypeLines(gd: GearDef, stars: number): string {
+  const line = (html: string) => `<p class="weapon-line">${html}</p>`;
+  const types = gearTypes(gd);
+  let out = '';
+  if (gd.special) out += line(specialText(gd));
+  else {
+    if (types.length === 1) out += line(`${DAMAGE_TYPES[types[0]].icon} Deals <b>${DAMAGE_TYPES[types[0]].name}</b> damage`);
+    if (types.length > 1)
+      out += line(
+        `${types.map((t) => DAMAGE_TYPES[t].icon).join('')} ${gd.perShot ? 'Each projectile deals one of its types in turn, at full damage' : `Each hit is split evenly between its ${types.length} types`}: ${types.map((t) => DAMAGE_TYPES[t].name).join(', ')}`,
+      );
+    if (gd.proc) for (const t of types) if (DAMAGE_TYPES[t].effect) out += line(`${DAMAGE_TYPES[t].icon} <b>${Math.round(gd.proc * 100)}%</b> chance per hit · ${DAMAGE_TYPES[t].effect}`);
+  }
+  if (gd.typeBonus) out += line(`${DAMAGE_TYPES[gd.typeBonus.type].icon} +${Math.round(gd.typeBonus.bonus * GEAR_STAR_POWER[stars] * 100)}% ${DAMAGE_TYPES[gd.typeBonus.type].name} damage, whatever deals it`);
+  return out;
 }
 
 /** The Special damage type's tag (weapons that change elements, or deal too many to list). */
