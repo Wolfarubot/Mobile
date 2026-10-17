@@ -718,6 +718,9 @@ export const RARE_MATERIALS: ReadonlySet<MaterialId> = new Set<MaterialId>([
   'voidPrism', 'ore',
 ]);
 
+/** A golem: a construct dropping ores and gems. They spawn rarely, and an area's Idol doesn't bring more of them. */
+export const isGolem = (e: { archetype: string; material: string }): boolean => e.archetype === 'construct' && RARE_MATERIALS.has(e.material as MaterialId);
+
 export interface MaterialDef {
   id: MaterialId;
   name: string;
@@ -1042,7 +1045,7 @@ export const ENEMIES: EnemyDef[] = [
   { id: 'unicorn', name: 'Unicorn', area: 'glade', archetype: 'beast', hp: 2.5, speed: 1.6, gold: 3, spawn: 0.35, pack: [1, 2], radius: 13, material: 'enchantedBone', extra: 'unicornHorn', unlock: 900, color: '#f4f0ff', shape: 'triangle', blurb: 'Beautiful, magical, and it will absolutely stab you.', weak: ['void', 'decay'], resist: ['radiant', 'arcane'] },
   { id: 'manTrap', name: 'Walking Man Trap', area: 'glade', archetype: 'plant', hp: 2.4, speed: 0.7, gold: 2.8, spawn: 0.4, pack: [1, 3], radius: 12, material: 'thorn', unlock: 4_000, color: '#6ab04a', shape: 'diamond', blurb: 'A giant flytrap on legs. It is not picky about flies.', weak: ['fire', 'frost'], resist: ['poison', 'acid'] },
   { id: 'treant', name: 'Treant', area: 'glade', archetype: 'plant', hp: 5, speed: 0.5, gold: 6, spawn: 0.2, pack: [1, 1], radius: 17, material: 'sap', unlock: 15_000, color: '#5a7a3a', shape: 'hexagon', blurb: 'An old tree that has had enough.', weak: ['fire', 'acid'], resist: ['physical', 'poison'] },
-  { id: 'stoneGolem', name: 'Stone Golem', area: 'glade', archetype: 'construct', hp: 6, speed: 0.45, gold: 7, spawn: 0.15, pack: [1, 1], radius: 18, material: 'awokenRock', drops: [{ material: 'obsidian', share: 0.3 }, { material: 'ironOre', share: 0.1 }], unlock: 40_000, color: '#8a8478', shape: 'square', blurb: 'A hillside that woke up and started walking.', weak: ['acid', 'lightning'], resist: ['physical', 'fire'] },
+  { id: 'stoneGolem', name: 'Stone Golem', area: 'glade', archetype: 'construct', hp: 6, speed: 0.45, gold: 7, spawn: 0.04, pack: [1, 1], radius: 18, material: 'awokenRock', drops: [{ material: 'obsidian', share: 0.3 }, { material: 'ironOre', share: 0.1 }], unlock: 40_000, color: '#8a8478', shape: 'square', blurb: 'A hillside that woke up and started walking.', weak: ['acid', 'lightning'], resist: ['physical', 'fire'] },
 
 
   // Restless Graveyard
@@ -1077,8 +1080,8 @@ export const ENEMIES: EnemyDef[] = [
   { id: 'beetle', name: 'Fire Beetle', area: 'caves', archetype: 'beast', hp: 1.8, speed: 1.1, gold: 1.8, spawn: 0.7, pack: [2, 4], radius: 11, material: 'chitin', unlock: 900, color: '#3fb0a0', shape: 'triangle', blurb: 'Armored and quick to scuttle.', weak: ['acid', 'frost'], resist: ['physical', 'fire'] },
   { id: 'salamander', name: 'Salamander', area: 'caves', archetype: 'beast', hp: 1.8, speed: 1.3, gold: 2, spawn: 0.5, pack: [2, 3], radius: 11, material: 'ember', unlock: 4_000, color: '#ff9a3a', shape: 'triangle', blurb: 'A lizard that swims in lava.', weak: ['frost'], resist: ['fire', 'poison'] },
   { id: 'hellhound', name: 'Hellhound', area: 'caves', archetype: 'demon', hp: 2, speed: 1.8, gold: 2.6, spawn: 0.4, pack: [2, 3], radius: 11, material: 'demonTooth', extra: 'demonBone', unlock: 15_000, color: '#b02a1a', shape: 'triangle', blurb: 'Its bark is fire. So is its bite.', weak: ['frost', 'radiant'], resist: ['fire', 'decay'] },
-  { id: 'oreGolem', name: 'Ore Golem', area: 'caves', archetype: 'construct', hp: 6, speed: 0.45, gold: 7, spawn: 0.18, pack: [1, 1], radius: 18, material: 'ironOre', drops: [{ material: 'silverOre', share: 0.3 }, { material: 'goldOre', share: 0.1 }], unlock: 40_000, color: '#7a6250', shape: 'square', blurb: 'Rock threaded with metal veins, guarding the richest seams.', weak: ['acid', 'lightning'], resist: ['physical', 'frost'] },
-  { id: 'geodeGolem', name: 'Geode Golem', area: 'caves', archetype: 'construct', hp: 8, speed: 0.4, gold: 9, spawn: 0.12, pack: [1, 1], radius: 19, material: 'quartz', drops: [{ material: 'amethyst', share: 0.4 }, { material: 'topaz', share: 0.2 }, { material: 'emerald', share: 0.08 }, { material: 'diamond', share: 0.03 }], unlock: 120_000, color: '#9a70d0', shape: 'hexagon', blurb: 'Plain grey rock outside; a glittering crystal heart inside.', weak: ['acid', 'void'], resist: ['physical', 'arcane'] },
+  { id: 'oreGolem', name: 'Ore Golem', area: 'caves', archetype: 'construct', hp: 6, speed: 0.45, gold: 7, spawn: 0.045, pack: [1, 1], radius: 18, material: 'ironOre', drops: [{ material: 'silverOre', share: 0.3 }, { material: 'goldOre', share: 0.1 }], unlock: 40_000, color: '#7a6250', shape: 'square', blurb: 'Rock threaded with metal veins, guarding the richest seams.', weak: ['acid', 'lightning'], resist: ['physical', 'frost'] },
+  { id: 'geodeGolem', name: 'Geode Golem', area: 'caves', archetype: 'construct', hp: 8, speed: 0.4, gold: 9, spawn: 0.03, pack: [1, 1], radius: 19, material: 'quartz', drops: [{ material: 'amethyst', share: 0.4 }, { material: 'topaz', share: 0.2 }, { material: 'emerald', share: 0.08 }, { material: 'diamond', share: 0.03 }], unlock: 120_000, color: '#9a70d0', shape: 'hexagon', blurb: 'Plain grey rock outside; a glittering crystal heart inside.', weak: ['acid', 'void'], resist: ['physical', 'arcane'] },
 
 
   // Venom Caverns
@@ -1088,7 +1091,7 @@ export const ENEMIES: EnemyDef[] = [
   { id: 'lavaGolem', name: 'Toxic Bloat', area: 'mines', archetype: 'elemental', hp: 5, speed: 0.5, gold: 5.5, spawn: 0.2, pack: [1, 1], radius: 16, material: 'magma', unlock: 900, color: '#7a5aa0', shape: 'diamond', size: 'large', blurb: 'A walking sack of cave gas. Best popped from a distance.', weak: ['fire', 'radiant'], resist: ['poison', 'acid', 'physical'] },
   { id: 'fireDrake', name: 'Broodmother', area: 'mines', archetype: 'beast', hp: 3.5, speed: 1.2, gold: 4.2, spawn: 0.25, pack: [1, 2], radius: 14, material: 'scale', unlock: 4_000, color: '#5a9a3a', shape: 'hexagon', size: 'large', blurb: 'Mother of every spider in the Caverns. Her bite burns for days.', weak: ['fire', 'radiant'], resist: ['poison', 'physical'] },
   { id: 'caveTroll', name: 'Cave Troll', area: 'mines', archetype: 'humanoid', hp: 6, speed: 0.6, gold: 6.5, spawn: 0.15, pack: [1, 1], radius: 17, material: 'ore', unlock: 15_000, color: '#7a6a5a', shape: 'square', blurb: 'Shrugs off blades. Hates fire.', weak: ['fire', 'acid'], resist: ['physical', 'frost'] },
-  { id: 'venomGolem', name: 'Venomite Golem', area: 'mines', archetype: 'construct', hp: 6, speed: 0.45, gold: 7, spawn: 0.15, pack: [1, 1], radius: 18, material: 'cobaltOre', drops: [{ material: 'venomite', share: 0.3 }, { material: 'ore', share: 0.1 }], unlock: 40_000, color: '#4a7a3a', shape: 'square', blurb: 'Stone and ore, soaked through with venom.', weak: ['acid', 'radiant'], resist: ['physical', 'poison'] },
+  { id: 'venomGolem', name: 'Venomite Golem', area: 'mines', archetype: 'construct', hp: 6, speed: 0.45, gold: 7, spawn: 0.04, pack: [1, 1], radius: 18, material: 'cobaltOre', drops: [{ material: 'venomite', share: 0.3 }, { material: 'ore', share: 0.1 }], unlock: 40_000, color: '#4a7a3a', shape: 'square', blurb: 'Stone and ore, soaked through with venom.', weak: ['acid', 'radiant'], resist: ['physical', 'poison'] },
 
 
   // Frost Peaks
@@ -1097,8 +1100,8 @@ export const ENEMIES: EnemyDef[] = [
   { id: 'wraith', name: 'Snow Wraith', area: 'peaks', archetype: 'undead', hp: 1.4, speed: 1.3, gold: 1.8, spawn: 0.6, pack: [2, 4], radius: 11, material: 'ecto', unlock: 900, color: '#c49bff', shape: 'ghost', blurb: 'Drifts in quickly from the storm.', weak: ['radiant', 'arcane'], resist: ['physical'] },
   { id: 'yeti', name: 'Yeti', area: 'peaks', archetype: 'beast', hp: 3.5, speed: 1, gold: 4, spawn: 0.3, pack: [1, 2], radius: 15, material: 'fur', unlock: 4_000, color: '#f0f4ff', shape: 'hexagon', blurb: 'Big, shaggy and surprisingly quick.', weak: ['fire'], resist: ['frost'] },
   { id: 'frostSprite', name: 'Frost Sprite', area: 'peaks', archetype: 'elemental', hp: 0.8, speed: 1.6, gold: 1.5, spawn: 0.8, pack: [3, 5], radius: 8, material: 'frost', unlock: 15_000, color: '#bfefff', shape: 'diamond', blurb: 'A snowflake with a grudge.', weak: ['fire', 'physical'], resist: ['frost', 'poison'] },
-  { id: 'glacialGolem', name: 'Glacial Golem', area: 'peaks', archetype: 'construct', hp: 6, speed: 0.45, gold: 7, spawn: 0.15, pack: [1, 1], radius: 18, material: 'frostIron', drops: [{ material: 'coldsteel', share: 0.25 }], unlock: 40_000, color: '#a8c8e0', shape: 'square', blurb: 'An iron giant frozen into the mountain, now thawed and angry.', weak: ['fire', 'acid'], resist: ['physical', 'frost'] },
-  { id: 'crystalGolem', name: 'Crystal Golem', area: 'peaks', archetype: 'construct', hp: 7, speed: 0.4, gold: 8, spawn: 0.12, pack: [1, 1], radius: 18, material: 'aquamarine', drops: [{ material: 'sapphire', share: 0.25 }], unlock: 120_000, color: '#6fd0e8', shape: 'hexagon', blurb: 'Ice and gemstone, glittering in the snow.', weak: ['fire', 'physical'], resist: ['frost', 'arcane'] },
+  { id: 'glacialGolem', name: 'Glacial Golem', area: 'peaks', archetype: 'construct', hp: 6, speed: 0.45, gold: 7, spawn: 0.04, pack: [1, 1], radius: 18, material: 'frostIron', drops: [{ material: 'coldsteel', share: 0.25 }], unlock: 40_000, color: '#a8c8e0', shape: 'square', blurb: 'An iron giant frozen into the mountain, now thawed and angry.', weak: ['fire', 'acid'], resist: ['physical', 'frost'] },
+  { id: 'crystalGolem', name: 'Crystal Golem', area: 'peaks', archetype: 'construct', hp: 7, speed: 0.4, gold: 8, spawn: 0.03, pack: [1, 1], radius: 18, material: 'aquamarine', drops: [{ material: 'sapphire', share: 0.25 }], unlock: 120_000, color: '#6fd0e8', shape: 'hexagon', blurb: 'Ice and gemstone, glittering in the snow.', weak: ['fire', 'physical'], resist: ['frost', 'arcane'] },
 
 
   // Ascendant Steps
@@ -1107,7 +1110,7 @@ export const ENEMIES: EnemyDef[] = [
   { id: 'griffin', name: 'Griffin', area: 'cliffs', archetype: 'beast', hp: 3, speed: 1.6, gold: 3.8, spawn: 0.3, pack: [1, 2], radius: 14, material: 'plume', unlock: 900, color: '#d8b060', shape: 'triangle', blurb: 'Half eagle, half lion, all trouble.', weak: ['acid', 'void'], resist: ['frost'] },
   { id: 'iceWyvern', name: 'Ice Wyvern', area: 'cliffs', archetype: 'dragon', hp: 5, speed: 1.2, gold: 6, spawn: 0.18, pack: [1, 1], radius: 16, material: 'skystone', unlock: 4_000, color: '#6ac8f0', shape: 'hexagon', size: 'huge', blurb: 'Breathes blizzards.', weak: ['fire', 'radiant'], resist: ['frost', 'poison'] },
   { id: 'frostGiant', name: 'Frost Giant', area: 'cliffs', archetype: 'humanoid', hp: 7, speed: 0.5, gold: 8, spawn: 0.12, pack: [1, 1], radius: 18, material: 'skystone', unlock: 15_000, color: '#8ab8e8', shape: 'square', blurb: 'Throws boulders like snowballs.', weak: ['fire', 'radiant'], resist: ['frost', 'physical'] },
-  { id: 'skyGolem', name: 'Sky Golem', area: 'cliffs', archetype: 'construct', hp: 6, speed: 0.45, gold: 7, spawn: 0.15, pack: [1, 1], radius: 18, material: 'skysteel', drops: [{ material: 'adamantite', share: 0.25 }], unlock: 40_000, color: '#b8c4e8', shape: 'square', blurb: 'Carved to guard the stairs to the sky, and still guarding.', weak: ['acid', 'lightning'], resist: ['physical', 'frost'] },
+  { id: 'skyGolem', name: 'Sky Golem', area: 'cliffs', archetype: 'construct', hp: 6, speed: 0.45, gold: 7, spawn: 0.04, pack: [1, 1], radius: 18, material: 'skysteel', drops: [{ material: 'adamantite', share: 0.25 }], unlock: 40_000, color: '#b8c4e8', shape: 'square', blurb: 'Carved to guard the stairs to the sky, and still guarding.', weak: ['acid', 'lightning'], resist: ['physical', 'frost'] },
 
 
   // Cloud Fortress
@@ -1116,7 +1119,7 @@ export const ENEMIES: EnemyDef[] = [
   { id: 'skyKnight', name: 'Sky Knight', area: 'fortress', archetype: 'humanoid', hp: 3, speed: 1, gold: 3.6, spawn: 0.35, pack: [1, 2], radius: 13, material: 'thunder', unlock: 900, color: '#a8c0e0', shape: 'square', blurb: 'Guards the gates in armour of polished cloud-steel.', weak: ['acid', 'decay'], resist: ['physical', 'radiant'] },
   { id: 'valkyrie', name: 'Valkyrie', area: 'fortress', archetype: 'humanoid', hp: 2.5, speed: 1.6, gold: 3.2, spawn: 0.3, pack: [1, 2], radius: 12, material: 'feather', unlock: 4_000, color: '#ffe8b0', shape: 'diamond', blurb: 'Dives from the battlements, spear first.', weak: ['decay', 'void'], resist: ['radiant', 'frost'] },
   { id: 'stormTitan', name: 'Storm Titan', area: 'fortress', archetype: 'elemental', hp: 7, speed: 0.5, gold: 8, spawn: 0.12, pack: [1, 1], radius: 19, material: 'thunder', unlock: 15_000, color: '#6a80c0', shape: 'hexagon', blurb: 'A thundercloud that learned to walk.', weak: ['acid', 'poison'], resist: ['arcane', 'frost', 'physical'] },
-  { id: 'stormGolem', name: 'Storm Golem', area: 'fortress', archetype: 'construct', hp: 7, speed: 0.4, gold: 8, spawn: 0.12, pack: [1, 1], radius: 18, material: 'opal', drops: [{ material: 'stormstone', share: 0.25 }], unlock: 40_000, color: '#d8c8ff', shape: 'hexagon', blurb: 'A golem of cloud-stone and gems, crackling with the storm.', weak: ['acid', 'void'], resist: ['lightning', 'physical'] },
+  { id: 'stormGolem', name: 'Storm Golem', area: 'fortress', archetype: 'construct', hp: 7, speed: 0.4, gold: 8, spawn: 0.03, pack: [1, 1], radius: 18, material: 'opal', drops: [{ material: 'stormstone', share: 0.25 }], unlock: 40_000, color: '#d8c8ff', shape: 'hexagon', blurb: 'A golem of cloud-stone and gems, crackling with the storm.', weak: ['acid', 'void'], resist: ['lightning', 'physical'] },
 
   // Meteor Field
   { id: 'meteorite', name: 'Meteorite', area: 'meteors', archetype: 'elemental', hp: 1, speed: 1.4, gold: 1.2, spawn: 1.4, pack: [3, 5], radius: 11, material: 'meteor', unlock: 0, color: '#c07048', shape: 'circle', blurb: 'A burning rock that never stopped falling.', weak: ['frost', 'physical'], resist: ['fire'] },
@@ -1124,7 +1127,7 @@ export const ENEMIES: EnemyDef[] = [
   { id: 'rockMite', name: 'Rock Mite', area: 'meteors', archetype: 'beast', hp: 2.2, speed: 1.2, gold: 2.6, spawn: 0.45, pack: [2, 4], radius: 11, material: 'meteor', unlock: 900, color: '#8a7a6a', shape: 'triangle', blurb: 'Burrows into asteroids and eats its way out.', weak: ['acid', 'radiant'], resist: ['physical', 'fire'] },
   { id: 'astralSentinel', name: 'Astral Sentinel', area: 'meteors', archetype: 'humanoid', hp: 4, speed: 0.8, gold: 4.8, spawn: 0.25, pack: [1, 2], radius: 14, material: 'stardust', unlock: 4_000, color: '#b8a8ff', shape: 'diamond', blurb: 'An ancient watcher, carved from starlight.', weak: ['void', 'decay'], resist: ['arcane', 'radiant'] },
   { id: 'starEater', name: 'Star Eater', area: 'meteors', archetype: 'dragon', hp: 8, speed: 0.9, gold: 9.5, spawn: 0.1, pack: [1, 1], radius: 19, material: 'stardust', unlock: 15_000, color: '#5a3a9a', shape: 'hexagon', size: 'huge', blurb: 'Swallows falling stars whole. The way down to the Rift lies past it.', weak: ['radiant', 'frost'], resist: ['fire', 'physical', 'arcane'] },
-  { id: 'meteorGolem', name: 'Meteor Golem', area: 'meteors', archetype: 'construct', hp: 6, speed: 0.45, gold: 7, spawn: 0.15, pack: [1, 1], radius: 18, material: 'starIron', drops: [{ material: 'orichalcum', share: 0.25 }], unlock: 40_000, color: '#c08050', shape: 'square', blurb: 'A fallen star that picked itself up.', weak: ['frost', 'acid'], resist: ['physical', 'fire'] },
+  { id: 'meteorGolem', name: 'Meteor Golem', area: 'meteors', archetype: 'construct', hp: 6, speed: 0.45, gold: 7, spawn: 0.04, pack: [1, 1], radius: 18, material: 'starIron', drops: [{ material: 'orichalcum', share: 0.25 }], unlock: 40_000, color: '#c08050', shape: 'square', blurb: 'A fallen star that picked itself up.', weak: ['frost', 'acid'], resist: ['physical', 'fire'] },
 
   // Void Rift
   { id: 'shadowSlime', name: 'Shadow Slime', area: 'rift', archetype: 'slime', hp: 1, speed: 1, gold: 1, spawn: 1.5, pack: [3, 5], radius: 11, material: 'shade', unlock: 0, color: '#7a5cc0', shape: 'circle', blurb: 'A slime made of the dark itself.', weak: ['radiant', 'acid'], resist: ['void'] },
@@ -1137,7 +1140,7 @@ export const ENEMIES: EnemyDef[] = [
   { id: 'chimera', name: 'Chimera', area: 'rift', archetype: 'beast', hp: 5, speed: 1.2, gold: 6, spawn: 0.18, pack: [1, 1], radius: 16, material: 'void', unlock: 250_000, color: '#c08a4a', shape: 'hexagon', blurb: 'Three heads, zero manners.', weak: ['frost', 'acid'], resist: ['fire', 'poison'] },
   { id: 'voidWyrm', name: 'Void Wyrm', area: 'rift', archetype: 'dragon', hp: 8, speed: 0.9, gold: 9.5, spawn: 0.1, pack: [1, 1], radius: 18, material: 'void', unlock: 600_000, color: '#8a3ae0', shape: 'hexagon', size: 'huge', blurb: 'Swims through the dark between stars.', weak: ['radiant'], resist: ['void', 'physical', 'frost'] },
   { id: 'behemoth', name: 'Behemoth', area: 'rift', archetype: 'beast', hp: 10, speed: 0.6, gold: 12, spawn: 0.08, pack: [1, 1], radius: 20, material: 'soul', unlock: 1_500_000, color: '#6a4a8a', shape: 'hexagon', size: 'large', blurb: 'The ground shakes when it walks.', weak: ['arcane', 'acid'], resist: ['physical', 'fire'] },
-  { id: 'voidGolem', name: 'Void Golem', area: 'rift', archetype: 'construct', hp: 8, speed: 0.4, gold: 9, spawn: 0.12, pack: [1, 1], radius: 19, material: 'voidsteel', drops: [{ material: 'voidPrism', share: 0.3 }], unlock: 3_000_000, color: '#5a3a8a', shape: 'hexagon', blurb: 'Ore and gem from beyond the Rift, walking.', weak: ['radiant', 'acid'], resist: ['void', 'physical'] },
+  { id: 'voidGolem', name: 'Void Golem', area: 'rift', archetype: 'construct', hp: 8, speed: 0.4, gold: 9, spawn: 0.03, pack: [1, 1], radius: 19, material: 'voidsteel', drops: [{ material: 'voidPrism', share: 0.3 }], unlock: 3_000_000, color: '#5a3a8a', shape: 'hexagon', blurb: 'Ore and gem from beyond the Rift, walking.', weak: ['radiant', 'acid'], resist: ['void', 'physical'] },
   // The Void Rift's Guardian: it only ever appears as the final Guardian.
   // Guardians: boss versions of each area's monsters, only ever met in its Guardian Challenge
   { id: 'kingSlime', name: 'King of Slimes', area: 'forest', archetype: 'slime', guardianOnly: true, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 20, material: 'royalSlime', unlock: Infinity, color: '#4ad04a', shape: 'circle', blurb: "The biggest, oldest slime in the forest, crowned in its own goo.", weak: ['fire', 'acid'], resist: ['poison'] },
@@ -2917,8 +2920,8 @@ export interface ItemDef {
   name: string;
   icon: string;
   rarity: Rarity;
-  /** Area Upgrades change one area's monsters (multipliers at a strength, in steps). */
-  area?: { id: AreaId; hp: (level: number) => number; gold: (level: number) => number };
+  /** Area Upgrades (Idols) change one area: its monsters' spawn rate at a strength, in steps. */
+  area?: { id: AreaId; spawn: (level: number) => number };
   /**
    * Its strength at 5★, in steps (1★ is 1 step). Uncommon Upgrades stop at 15, since rarer gear
    * and Upgrades take over from there. The stars between are spread out geometrically.
@@ -2927,6 +2930,8 @@ export interface ItemDef {
   recipe: Partial<Record<MaterialId, number>>;
   /** Material cost multiplier per step already owned. */
   growth: number;
+  /** Materials for each star (index 0 = crafting it), instead of `recipe` × `growth` per step. */
+  starCosts?: Partial<Record<MaterialId, number>>[];
   /** Crafted once, no stars (an Energy Potion): done at 1★. */
   once?: boolean;
   /** Its pixel icon (a key into public/icons), drawn instead of the emoji. */
@@ -2935,22 +2940,31 @@ export interface ItemDef {
   describe: (level: number) => string;
 }
 
+/** An area Idol's spawn rate multiplier per star (golems excepted): ×2 at 1★ up to ×10 at 5★. */
+export const IDOL_SPAWN_PER_STAR = 2;
+/** How many times its 1★ cost each star of an Idol takes: drastically more of the area's drops, a few more ores. */
+export const IDOL_DROP_STEPS = [1, 4, 12, 30, 80];
+export const IDOL_ORE_STEPS = [1, 2, 3, 4, 5];
+
 /**
- * An area Idol: that area's monsters have ×2 HP and ×2 gold (up to ×3 gold at 5★), so an area you've outgrown
- * pays better. Each star costs twice the last.
+ * An area Idol: that area's monsters (all but its golems) spawn ×2 as fast at 1★, up to ×10 at 5★. Each star costs
+ * far more of the area's own drops (`drops`), and a little more of the ores and gems (`ores`) from further on.
  */
-function areaIdol(id: ItemId, name: string, area: AreaId, rarity: Rarity, recipe: Partial<Record<MaterialId, number>>): ItemDef {
+function areaIdol(id: ItemId, name: string, area: AreaId, rarity: Rarity, drops: Partial<Record<MaterialId, number>>, ores: Partial<Record<MaterialId, number>> = {}): ItemDef {
   const areaName = AREAS.find((a) => a.id === area)!.name;
+  const scale = (r: Partial<Record<MaterialId, number>>, k: number) => Object.fromEntries(Object.entries(r).map(([m, n]) => [m, n! * k]));
+  const starCosts = IDOL_DROP_STEPS.map((k, i) => ({ ...scale(drops, k), ...scale(ores, IDOL_ORE_STEPS[i]) }));
   return {
     id,
     name,
     icon: AREAS.find((a) => a.id === area)!.icon,
     rarity,
-    area: { id: area, hp: () => 2, gold: (l) => 2 + 0.25 * (l - 1) },
+    area: { id: area, spawn: (l) => IDOL_SPAWN_PER_STAR * l },
     maxLevel: 5,
-    recipe,
-    growth: 2,
-    describe: (l) => `${areaName} monsters: ×2 HP, ×${2 + 0.25 * (l - 1)} gold`,
+    recipe: starCosts[0],
+    starCosts,
+    growth: 1,
+    describe: (l) => `${areaName} monsters spawn ×${IDOL_SPAWN_PER_STAR * l} (not its golems)`,
   };
 }
 
@@ -2958,32 +2972,32 @@ export const ITEMS: ItemDef[] = [
   { id: 'lure', name: 'Monster Lure', icon: '🍖', rarity: 'uncommon', maxLevel: 15, recipe: { beastBone: 5, pelt: 3 }, growth: 1.6, describe: (l) => `+${l * 20}% enemy spawns` },
   { id: 'pouch', name: "Scavenger's Pouch", icon: '👝', rarity: 'uncommon', maxLevel: 15, recipe: { pelt: 6, scrap: 3 }, growth: 1.5, describe: (l) => `+${l * 25}% material drops` },
   { id: 'idol', name: 'Golden Idol', icon: '🗿', rarity: 'veryRare', maxLevel: 30, recipe: { ember: 6, magma: 3 }, growth: 1.5, describe: (l) => `+${l * 25}% gold` },
-  areaIdol('forestIdol', 'Forest Idol', 'forest', 'uncommon', { goo: 30, twig: 15, bearClaw: 6 }),
+  areaIdol('forestIdol', 'Forest Idol', 'forest', 'uncommon', { goo: 500, twig: 250, bearClaw: 50 }),
   // The other areas' Idols: huge amounts of the area's own drops, plus ores and gems from a golem a few areas on.
-  areaIdol('groveIdol', 'Fey Grove Idol', 'glade', 'veryRare', { spore: 500_000, dust: 150_000, goldOre: 1_500, topaz: 500 }),
-  areaIdol('graveIdol', 'Graveyard Idol', 'graveyard', 'veryRare', { bone: 1_500_000, flesh: 800_000, silverOre: 4_000, amethyst: 1_500 }),
-  areaIdol('cryptIdol', 'Crypt Idol', 'crypt', 'legendary', { undeadFeather: 4_000_000, string: 800_000, cobaltOre: 10_000, venomite: 3_000 }),
-  areaIdol('depthsIdol', 'Shadowy Depths Idol', 'depths', 'legendary', { darkClaw: 5_000_000, gloom: 3_000_000, frostIron: 8_000, aquamarine: 5_000 }),
-  areaIdol('emberIdol', 'Ember Mines Idol', 'caves', 'legendary', { demonBone: 5_000_000, chitin: 2_000_000, coldsteel: 1_500, sapphire: 1_000 }),
-  areaIdol('venomIdol', 'Venom Caverns Idol', 'mines', 'exotic', { ore: 6_000_000, scale: 600_000, skysteel: 8_000, adamantite: 1_500 }),
-  areaIdol('frostIdol', 'Frost Peaks Idol', 'peaks', 'relic', { fur: 4_000_000, frost: 1_000_000, opal: 8_000, stormstone: 1_500 }),
-  areaIdol('skyIdol', 'Ascendant Steps Idol', 'cliffs', 'artifact', { plume: 4_000_000, skystone: 1_000_000, starIron: 8_000, orichalcum: 1_500 }),
-  areaIdol('cloudIdol', 'Cloud Fortress Idol', 'fortress', 'exalted', { feather: 5_000_000, thunder: 1_500_000, voidsteel: 6_000, voidPrism: 1_000 }),
-  areaIdol('starIdol', 'Meteor Field Idol', 'meteors', 'exalted', { stardust: 5_000_000, meteor: 2_000_000, voidPrism: 2_000, diamond: 400 }),
+  areaIdol('groveIdol', 'Fey Grove Idol', 'glade', 'veryRare', { spore: 500_000, dust: 150_000 }, { goldOre: 400, topaz: 120 }),
+  areaIdol('graveIdol', 'Graveyard Idol', 'graveyard', 'veryRare', { bone: 1_500_000, flesh: 800_000 }, { silverOre: 1_000, amethyst: 400 }),
+  areaIdol('cryptIdol', 'Crypt Idol', 'crypt', 'legendary', { undeadFeather: 4_000_000, string: 800_000 }, { cobaltOre: 2_500, venomite: 750 }),
+  areaIdol('depthsIdol', 'Shadowy Depths Idol', 'depths', 'legendary', { darkClaw: 5_000_000, gloom: 3_000_000 }, { frostIron: 2_000, aquamarine: 1_200 }),
+  areaIdol('emberIdol', 'Ember Mines Idol', 'caves', 'legendary', { demonBone: 5_000_000, chitin: 2_000_000 }, { coldsteel: 400, sapphire: 250 }),
+  areaIdol('venomIdol', 'Venom Caverns Idol', 'mines', 'exotic', { ore: 6_000_000, scale: 600_000 }, { skysteel: 2_000, adamantite: 400 }),
+  areaIdol('frostIdol', 'Frost Peaks Idol', 'peaks', 'relic', { fur: 4_000_000, frost: 1_000_000 }, { opal: 2_000, stormstone: 400 }),
+  areaIdol('skyIdol', 'Ascendant Steps Idol', 'cliffs', 'artifact', { plume: 4_000_000, skystone: 1_000_000 }, { starIron: 2_000, orichalcum: 400 }),
+  areaIdol('cloudIdol', 'Cloud Fortress Idol', 'fortress', 'exalted', { feather: 5_000_000, thunder: 1_500_000 }, { voidsteel: 1_500, voidPrism: 250 }),
+  areaIdol('starIdol', 'Meteor Field Idol', 'meteors', 'exalted', { stardust: 5_000_000, meteor: 2_000_000 }, { voidPrism: 500, diamond: 100 }),
   // Energy Potions: crafted once each, 2 more hours of offline time apiece (4 hours to start, 24 with all ten).
   // One an area from the Fey Grove to the Meteor Field (not the Woods or the Rift): a Guardian's spoils early on, rare
   // ores and gems later (Guardian spoils to come for the later areas once they have their own Guardians); each costs
   // a good share of what you'd hold of them on reaching the next area.
-  { id: 'pixiePotion', name: 'Pixie Energy Potion', icon: '🧪', sprite: 'rpg-items/230', rarity: 'uncommon', once: true, maxLevel: 1, recipe: { regalEssence: 4, obsidian: 10, dust: 400 }, growth: 1, describe: () => '+2h offline time' },
+  { id: 'pixiePotion', name: 'Pixie Energy Potion', icon: '🧪', sprite: 'rpg-items/230', rarity: 'uncommon', once: true, maxLevel: 1, recipe: { regalEssence: 4, obsidian: 3, dust: 400 }, growth: 1, describe: () => '+2h offline time' },
   { id: 'bonePotion', name: 'Bone Energy Potion', icon: '🧪', sprite: 'rpg-items/110', rarity: 'rare', once: true, maxLevel: 1, recipe: { calciumCrystal: 4, bone: 50_000, sacredText: 5_000 }, growth: 1, describe: () => '+2h offline time' },
   { id: 'lichPotion', name: 'Lich Energy Potion', icon: '🧪', sprite: 'rpg-items/170', rarity: 'rare', once: true, maxLevel: 1, recipe: { eldritchText: 4, grave: 4_000, enchantedBone: 25_000 }, growth: 1, describe: () => '+2h offline time' },
   { id: 'watcherPotion', name: 'Watcher Energy Potion', icon: '🧪', sprite: 'rpg-items/190', rarity: 'veryRare', once: true, maxLevel: 1, recipe: { everwatchingEye: 8, umbra: 6_000, umbralEye: 12_000 }, growth: 1, describe: () => '+2h offline time' },
-  { id: 'demonPotion', name: 'Demon Energy Potion', icon: '🧪', sprite: 'rpg-items/130', rarity: 'veryRare', once: true, maxLevel: 1, recipe: { forsakenSoul: 8, goldOre: 300, topaz: 300 }, growth: 1, describe: () => '+2h offline time' },
-  { id: 'venomPotion', name: 'Venom Energy Potion', icon: '🧪', sprite: 'rpg-items/050', rarity: 'legendary', once: true, maxLevel: 1, recipe: { cobaltOre: 2_500, ore: 150_000, emerald: 150 }, growth: 1, describe: () => '+2h offline time' },
-  { id: 'glacialPotion', name: 'Glacial Energy Potion', icon: '🧪', sprite: 'rpg-items/030', rarity: 'exotic', once: true, maxLevel: 1, recipe: { coldsteel: 1_500, sapphire: 800, diamond: 60 }, growth: 1, describe: () => '+2h offline time' },
-  { id: 'skyPotion', name: 'Sky Energy Potion', icon: '🧪', sprite: 'rpg-items/250', rarity: 'exotic', once: true, maxLevel: 1, recipe: { adamantite: 900, skysteel: 4_000, skystone: 12_000 }, growth: 1, describe: () => '+2h offline time' },
-  { id: 'stormPotion', name: 'Storm Energy Potion', icon: '🧪', sprite: 'rpg-items/070', rarity: 'artifact', once: true, maxLevel: 1, recipe: { opal: 3_000, stormstone: 800, thunder: 30_000 }, growth: 1, describe: () => '+2h offline time' },
-  { id: 'starPotion', name: 'Star Energy Potion', icon: '🧪', sprite: 'rpg-items/010', rarity: 'artifact', once: true, maxLevel: 1, recipe: { orichalcum: 1_000, starIron: 4_000, diamond: 200 }, growth: 1, describe: () => '+2h offline time' },
+  { id: 'demonPotion', name: 'Demon Energy Potion', icon: '🧪', sprite: 'rpg-items/130', rarity: 'veryRare', once: true, maxLevel: 1, recipe: { forsakenSoul: 8, goldOre: 75, topaz: 75 }, growth: 1, describe: () => '+2h offline time' },
+  { id: 'venomPotion', name: 'Venom Energy Potion', icon: '🧪', sprite: 'rpg-items/050', rarity: 'legendary', once: true, maxLevel: 1, recipe: { cobaltOre: 600, ore: 150_000, emerald: 40 }, growth: 1, describe: () => '+2h offline time' },
+  { id: 'glacialPotion', name: 'Glacial Energy Potion', icon: '🧪', sprite: 'rpg-items/030', rarity: 'exotic', once: true, maxLevel: 1, recipe: { coldsteel: 400, sapphire: 200, diamond: 15 }, growth: 1, describe: () => '+2h offline time' },
+  { id: 'skyPotion', name: 'Sky Energy Potion', icon: '🧪', sprite: 'rpg-items/250', rarity: 'exotic', once: true, maxLevel: 1, recipe: { adamantite: 225, skysteel: 1_000, skystone: 12_000 }, growth: 1, describe: () => '+2h offline time' },
+  { id: 'stormPotion', name: 'Storm Energy Potion', icon: '🧪', sprite: 'rpg-items/070', rarity: 'artifact', once: true, maxLevel: 1, recipe: { opal: 750, stormstone: 200, thunder: 30_000 }, growth: 1, describe: () => '+2h offline time' },
+  { id: 'starPotion', name: 'Star Energy Potion', icon: '🧪', sprite: 'rpg-items/010', rarity: 'artifact', once: true, maxLevel: 1, recipe: { orichalcum: 250, starIron: 1_000, diamond: 50 }, growth: 1, describe: () => '+2h offline time' },
 ];
 
 export const itemDef = (id: ItemId): ItemDef => ITEMS.find((i) => i.id === id)!;
@@ -3008,6 +3022,7 @@ export const itemLevel = (item: ItemDef, stars: number): number => itemLevels(it
 
 /** Materials to go from `stars` to `stars + 1` (0 = crafting it). */
 export function itemCost(item: ItemDef, stars: number): Partial<Record<MaterialId, number>> {
+  if (item.starCosts) return { ...item.starCosts[stars] };
   const levels = itemLevels(item);
   const step = starStep(levels[stars], levels[stars + 1]);
   return stepsCost(item.recipe, item.growth, step, step + 1);

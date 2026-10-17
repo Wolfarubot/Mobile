@@ -62,6 +62,9 @@ import {
   eventDef,
   ENEMIES,
   RARE_MATERIALS,
+  IDOL_DROP_STEPS,
+  IDOL_ORE_STEPS,
+  isGolem,
   ARCHETYPES,
   helperTrainCost,
   HELPER_TRAIN_GROWTH,
@@ -876,39 +879,56 @@ describe('Shops', () => {
     expect(g.skill('main', 'speed')).toBe(5);
   });
 
-  it('Upgrades have rarities; the Forest Idol doubles Wandering Woods HP and gold, and nowhere else', () => {
+  it('Upgrades have rarities; the Forest Idol speeds up Wandering Woods spawns (×2 at 1★ to ×10 at 5★), and nowhere else', () => {
     for (const it of ITEMS) expect(Object.keys(RARITIES)).toContain(it.rarity);
     const g = rich();
+    for (const b of Object.values(g.state.bestiary)) b.unlocked = true;
     const before = g.enemyStats('greenSlime');
     const elsewhere = g.enemyStats('skeleton');
     for (const [m, n] of Object.entries(itemCost(itemDef('forestIdol'), 0))) g.state.materials[m as keyof typeof g.state.materials] = n!;
     expect(g.craft('forestIdol')).toBe(true);
-    expect(g.enemyStats('greenSlime').hp / before.hp).toBeCloseTo(2);
-    expect(g.enemyStats('greenSlime').gold / before.gold).toBeCloseTo(2);
-    expect(g.enemyStats('skeleton').hp).toBeCloseTo(elsewhere.hp);
+    expect(g.enemyStats('greenSlime').spawnRate / before.spawnRate).toBeCloseTo(2);
+    expect(g.enemyStats('greenSlime').hp).toBeCloseTo(before.hp);
+    expect(g.enemyStats('greenSlime').gold).toBeCloseTo(before.gold);
+    expect(g.enemyStats('skeleton').spawnRate).toBeCloseTo(elsewhere.spawnRate);
     g.state.items.forestIdol = MAX_STARS;
-    expect(g.enemyStats('greenSlime').gold / before.gold).toBeCloseTo(3);
+    expect(g.enemyStats('greenSlime').spawnRate / before.spawnRate).toBeCloseTo(10);
   });
 
   it('every area from the Woods to the Meteor Field has an Idol: its own drops in bulk, plus ores and gems from further on', () => {
     const idols = ITEMS.filter((it) => it.area);
     expect(idols.map((it) => it.area!.id)).toEqual(AREAS.filter((a) => a.id !== 'rift').map((a) => a.id));
-    for (const idol of idols.slice(1)) {
+    for (const idol of idols) {
+      // Each star takes drastically more of the area's drops, while the ores only climb a little.
       const area = idol.area!.id;
       const mats = Object.keys(idol.recipe) as MaterialId[];
-      expect(mats.some((m) => RARE_MATERIALS.has(m))).toBe(true);
-      expect(mats.some((m) => ENEMIES.some((e) => e.area === area && e.material === m))).toBe(true);
+      const isDrop = (m: MaterialId) => ENEMIES.some((e) => e.area === area && !isGolem(e) && e.material === m);
+      const drop = mats.find(isDrop)!;
+      expect(itemCost(idol, MAX_STARS - 1)[drop]).toBe(idol.recipe[drop]! * IDOL_DROP_STEPS[MAX_STARS - 1]);
+      if (idol.id === 'forestIdol') continue;
+      const ore = mats.find((m) => !isDrop(m))!;
+      expect(RARE_MATERIALS.has(ore)).toBe(true);
+      expect(itemCost(idol, MAX_STARS - 1)[ore]).toBe(idol.recipe[ore]! * IDOL_ORE_STEPS[MAX_STARS - 1]);
       const g = rich();
+      for (const b of Object.values(g.state.bestiary)) b.unlocked = true;
       const mob = ENEMIES.find((e) => e.area === area && e.unlock === 0)!;
+      const golem = ENEMIES.find((e) => e.area === area && isGolem(e));
       const other = ENEMIES.find((e) => e.area !== area && e.unlock === 0)!;
-      const before = g.enemyStats(mob.id);
-      const elsewhere = g.enemyStats(other.id);
+      const before = g.enemyStats(mob.id).spawnRate;
+      const golemBefore = golem && g.enemyStats(golem.id).spawnRate;
+      const elsewhere = g.enemyStats(other.id).spawnRate;
       for (const [m, n] of Object.entries(itemCost(idol, 0))) g.state.materials[m as MaterialId] = n!;
       expect(g.craft(idol.id)).toBe(true);
-      expect(g.enemyStats(mob.id).hp / before.hp).toBeCloseTo(2);
-      expect(g.enemyStats(mob.id).gold / before.gold).toBeCloseTo(2);
-      expect(g.enemyStats(other.id).hp).toBeCloseTo(elsewhere.hp);
+      expect(g.enemyStats(mob.id).spawnRate / before).toBeCloseTo(2);
+      if (golem) expect(g.enemyStats(golem.id).spawnRate).toBeCloseTo(golemBefore!); // golems stay rare
+      expect(g.enemyStats(other.id).spawnRate).toBeCloseTo(elsewhere);
     }
+  });
+
+  it('golems are rare: each spawns far less often than its area\'s first monster', () => {
+    const golems = ENEMIES.filter(isGolem);
+    expect(golems.length).toBe(10);
+    for (const gd of golems) expect(gd.spawn).toBeLessThanOrEqual(0.05);
   });
 
   it('drop chances past 100% drop several: each 100% is guaranteed, the rest is a chance of one more', () => {

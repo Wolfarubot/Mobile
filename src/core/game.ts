@@ -104,6 +104,7 @@ import {
   itemCost,
   itemDef,
   ITEMS,
+  isGolem,
   MAIN_RANGE,
   maxAffordable,
   nextAreaOf,
@@ -239,15 +240,10 @@ export class Game {
     for (const fn of this.listeners) fn(e);
   }
 
-  /** What crafted area Upgrades (e.g. the Forest Idol) do to an area's monsters. */
-  areaUpgrades(area: AreaId): { hp: number; gold: number } {
-    const out = { hp: 1, gold: 1 };
-    for (const it of ITEMS)
-      if (it.area?.id === area && this.state.items[it.id] > 0) {
-        const l = this.item(it.id);
-        out.hp *= it.area.hp(l);
-        out.gold *= it.area.gold(l);
-      }
+  /** What crafted area Upgrades (the Idols) do to an area's monsters: their spawn rate (golems excepted). */
+  areaUpgrades(area: AreaId): { spawn: number } {
+    const out = { spawn: 1 };
+    for (const it of ITEMS) if (it.area?.id === area && this.state.items[it.id] > 0) out.spawn *= it.area.spawn(this.item(it.id));
     return out;
   }
 
@@ -1339,10 +1335,10 @@ export class Game {
     return {
       id,
       archetype: def.archetype,
-      hp: area.hp * def.hp * emp('hp') * (1 + evo.hp) * idol.hp,
+      hp: area.hp * def.hp * emp('hp') * (1 + evo.hp),
       speed: area.speed * def.speed * (1 + evo.speed) * swarm.speed,
-      gold: area.gold * def.gold * emp('gold') * (1 + evo.gold) * this.goldMult * idol.gold * this.areaPerk(def.area).gold,
-      spawnRate: b.unlocked ? Math.max(def.spawn * emp('spawn') * (1 + evo.spawn) * (1 + 0.2 * this.item('lure')) * swarm.spawn, swarm.spawn ? (ev?.minSpawn?.[id] ?? 0) : 0) : 0,
+      gold: area.gold * def.gold * emp('gold') * (1 + evo.gold) * this.goldMult * this.areaPerk(def.area).gold,
+      spawnRate: b.unlocked ? Math.max(def.spawn * emp('spawn') * (1 + evo.spawn) * (1 + 0.2 * this.item('lure')) * (isGolem(def) ? 1 : idol.spawn) * swarm.spawn, swarm.spawn ? (ev?.minSpawn?.[id] ?? 0) : 0) : 0,
       dropChance: BASE_DROP_CHANCE * (1 + 0.25 * this.item('pouch')) * emp('drops') * (1 + evo.drops),
       material: def.material,
     };
