@@ -711,7 +711,7 @@ export class AppUI {
       headline.innerHTML = `<div><b>${fmt(this.dpsOf(who))}</b>DPS</div>${recruited ? `<div><b>${fmt(g.killsBy(who))}</b>Enemies slain</div>` : ''}`;
       const cells: Array<[string, string]> = [
         ['Damage', fmt(g.shotDamage(who))],
-        ['Attack rate', `${g.shooterRate(who).toFixed(2)}/s${who === 'main' && g.projectiles > 1 ? ` ×${g.projectiles}` : ''}`],
+        ['Attack rate', `${g.shooterRate(who).toFixed(2)}/s`],
         ['Range', fmt(g.shooterRange(who))],
         ['Stun time', `${g.stunTime(false, who).toFixed(2)}s`],
         ['Shield', g.guardOf(who) ? `${g.guardOf(who)} hit${g.guardOf(who) > 1 ? 's' : ''}` : '—'],

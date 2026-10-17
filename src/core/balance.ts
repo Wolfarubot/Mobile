@@ -7,7 +7,6 @@ export const BASE_FIRE_RATE = 1.6; // volleys per second
 /** Monsters on the Wandering Woods' battlefield at most; bigger areas hold more (× areaScale). */
 export const MAX_ENEMIES = 160;
 export const BULLET_SPEED = 520;
-export const MULTISHOT_SPREAD = 0.2; // radians between projectiles in a volley
 export const BASE_CRIT_CHANCE = 0.05;
 export const CRIT_MULT = 3;
 export const TAP_DAMAGE_MULT = 2; // a tap blast deals this many shots of damage
@@ -2886,22 +2885,12 @@ export function stepsCost(recipe: Partial<Record<MaterialId, number>>, growth: n
   return cost;
 }
 
-// ---- Camp upgrades (the original Forge items): permanent, boost every Hunter ----
-// ---- Forge items: crafted from materials, permanent, boost every Hunter ----
+// ---- Upgrades: crafted from materials, permanent, for the whole camp (spawns, drops, gold, an area, offline time) ----
 export type ItemId =
-  | 'whetstone'
-  | 'gloves'
   | 'lure'
   | 'pouch'
-  | 'splitbow'
-  | 'bonemail'
   | 'idol'
-  | 'lance'
-  | 'lantern'
-  | 'engine'
   | 'forestIdol'
-  | 'graveWhetstone'
-  | 'batwingGloves'
   | 'pixiePotion'
   | 'bonePotion'
   | 'lichPotion'
@@ -2921,7 +2910,7 @@ export interface ItemDef {
   /** Area Upgrades change one area's monsters (multipliers at a strength, in steps). */
   area?: { id: AreaId; hp: (level: number) => number; gold: (level: number) => number };
   /**
-   * Its strength at 5★, in steps (1★ is 1 step). Common and Uncommon Upgrades stop at 15, since rarer gear
+   * Its strength at 5★, in steps (1★ is 1 step). Uncommon Upgrades stop at 15, since rarer gear
    * and Upgrades take over from there. The stars between are spread out geometrically.
    */
   maxLevel: number;
@@ -2937,18 +2926,9 @@ export interface ItemDef {
 }
 
 export const ITEMS: ItemDef[] = [
-  { id: 'whetstone', name: 'Whetstone', icon: '🪨', rarity: 'common', maxLevel: 15, recipe: { goo: 4 }, growth: 1.45, describe: (l) => `+${l * 20}% damage` },
-  { id: 'gloves', name: 'Quickdraw Gloves', icon: '🧤', rarity: 'common', maxLevel: 15, recipe: { goo: 6, pelt: 2 }, growth: 1.5, describe: (l) => `+${l * 4}% attack rate` },
   { id: 'lure', name: 'Monster Lure', icon: '🍖', rarity: 'uncommon', maxLevel: 15, recipe: { beastBone: 5, pelt: 3 }, growth: 1.6, describe: (l) => `+${l * 20}% enemy spawns` },
   { id: 'pouch', name: "Scavenger's Pouch", icon: '👝', rarity: 'uncommon', maxLevel: 15, recipe: { pelt: 6, scrap: 3 }, growth: 1.5, describe: (l) => `+${l * 25}% material drops` },
-  { id: 'bonemail', name: 'Bone Mail', icon: '🦴', rarity: 'rare', maxLevel: 10, recipe: { bone: 8, flesh: 4 }, growth: 1.6, describe: (l) => `−${Math.round((1 - 0.88 ** l) * 100)}% stun time` },
-  { id: 'splitbow', name: 'Split Bow', icon: '🔱', rarity: 'rare', maxLevel: 5, recipe: { bone: 10, wing: 6 }, growth: 3, describe: (l) => `+${l} projectile${l === 1 ? '' : 's'} per volley` },
   { id: 'idol', name: 'Golden Idol', icon: '🗿', rarity: 'veryRare', maxLevel: 30, recipe: { ember: 6, magma: 3 }, growth: 1.5, describe: (l) => `+${l * 25}% gold` },
-  { id: 'lance', name: 'Frost Lance', icon: '❄️', rarity: 'legendary', maxLevel: 5, recipe: { chitin: 8, frost: 4 }, growth: 2.2, describe: (l) => `shots pierce ${l} more enem${l === 1 ? 'y' : 'ies'}` },
-  { id: 'lantern', name: 'Soul Lantern', icon: '🏮', rarity: 'exotic', maxLevel: 10, recipe: { ecto: 8, fur: 6 }, growth: 1.8, describe: (l) => `+${l * 4}% crit chance` },
-  // Rare successors: they pick up where the Common Whetstone and Gloves stop, from Graveyard and Crypt materials.
-  { id: 'graveWhetstone', name: 'Grave Whetstone', icon: '⚱️', rarity: 'rare', maxLevel: 8, recipe: { bone: 12, flesh: 8 }, growth: 1.6, describe: (l) => `+${l * 8}% damage (on top of the Whetstone)` },
-  { id: 'batwingGloves', name: 'Batwing Gloves', icon: '🦇', rarity: 'rare', maxLevel: 8, recipe: { wing: 10, bone: 6 }, growth: 1.65, describe: (l) => `+${l * 3}% attack rate (on top of the Quickdraw Gloves)` },
   {
     id: 'forestIdol',
     name: 'Forest Idol',
@@ -2960,7 +2940,6 @@ export const ITEMS: ItemDef[] = [
     growth: 2,
     describe: (l) => `Wandering Woods monsters: ×2 HP, ×${2 + 0.25 * (l - 1)} gold`,
   },
-  { id: 'engine', name: 'Void Engine', icon: '🌀', rarity: 'artifact', maxLevel: 20, recipe: { shade: 10, void: 5, soul: 3 }, growth: 1.7, describe: (l) => `+${l * 10}% damage, +${l * 3}% attack rate` },
   // Energy Potions: crafted once each, 2 more hours of offline time apiece (4 hours to start, 24 with all ten).
   // One an area from the Fey Grove to the Meteor Field (not the Woods or the Rift): a Guardian's spoils early on, rare
   // ores and gems later (Guardian spoils to come for the later areas once they have their own Guardians); each costs

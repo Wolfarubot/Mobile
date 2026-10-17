@@ -263,21 +263,12 @@ export class Game {
 
   // ---- Combat stats (read by Field every frame) ----
 
-  /** Upgrades boost every Hunter. */
-  get itemDamageMult(): number {
-    return (1 + 0.2 * this.item('whetstone')) * (1 + 0.08 * this.item('graveWhetstone')) * (1 + 0.1 * this.item('engine'));
-  }
-
-  get itemRateMult(): number {
-    return (1 + 0.04 * this.item('gloves')) * (1 + 0.03 * this.item('batwingGloves')) * (1 + 0.03 * this.item('engine'));
-  }
-
   /**
    * Your main Hunter's damage per hit: their weapon's base damage (the starting Short Sword: 1), multiplied
-   * by training, skills, Upgrades and the % damage on their armor and accessory.
+   * by training, skills and the % damage on their armor and accessory.
    */
   get damage(): number {
-    return this.weaponHitOf('main') * powerDamage(this.state.main.trains) * this.skillDamageMult('main') * this.itemDamageMult * (1 + this.gear('main').damage);
+    return this.weaponHitOf('main') * powerDamage(this.state.main.trains) * this.skillDamageMult('main') * (1 + this.gear('main').damage);
   }
 
   /** Base damage per hit of the weapon a Hunter holds (UNARMED_HIT without one). */
@@ -290,7 +281,7 @@ export class Game {
   }
 
   get fireRate(): number {
-    return BASE_FIRE_RATE * this.skillRateMult('main') * this.itemRateMult * (1 + this.gear('main').rate) * this.inspireFor('main');
+    return BASE_FIRE_RATE * this.skillRateMult('main') * (1 + this.gear('main').rate) * this.inspireFor('main');
   }
 
   /**
@@ -466,30 +457,18 @@ export class Game {
     return out;
   }
 
-  get projectiles(): number {
-    return 1 + this.item('splitbow');
-  }
-
-  get pierce(): number {
-    return this.item('lance');
-  }
-
-  /** Camp-wide crit chance (Soul Lantern); gear adds per Hunter via critChanceOf. */
-  get critChance(): number {
-    return BASE_CRIT_CHANCE + 0.04 * this.item('lantern');
-  }
-
+  /** Crit chance: a base chance, plus what a Hunter's gear and skills add. */
   critChanceOf(shooter: Shooter): number {
-    return this.critChance + this.gear(shooter).crit + this.tree(shooter).crit;
+    return BASE_CRIT_CHANCE + this.gear(shooter).crit + this.tree(shooter).crit;
   }
 
   private critFactor(shooter: Shooter): number {
     return 1 + this.critChanceOf(shooter) * (this.critMultOf(shooter) - 1);
   }
 
-  /** Extra enemies each shot passes through (Frost Lance + gear). */
+  /** Extra enemies each shot passes through (gear, skills and the weapon class). */
   pierceOf(shooter: Shooter, mode?: GearMode): number {
-    return this.pierce + Math.floor(this.gear(shooter, mode).pierce) + this.tree(shooter).pierce + (this.weaponClassOf(shooter, mode)?.pierce ?? 0);
+    return Math.floor(this.gear(shooter, mode).pierce) + this.tree(shooter).pierce + (this.weaponClassOf(shooter, mode)?.pierce ?? 0);
   }
 
   /** Multiplier on a Hunter's area effects (fireballs, puddles, novas). */
@@ -526,12 +505,12 @@ export class Game {
 
   /**
    * Seconds a Hunter is stunned when an enemy reaches them. Their Recovery Speed skill and armor and other
-   * gear reduce it per Hunter; Bone Mail helps everyone.
+   * gear reduce it per Hunter.
    */
   stunTime(boss = false, shooter: Shooter = 'main'): number {
     const recovery = SKILL_RECOVERY ** this.tree(shooter).recovery;
     const gear = 1 - Math.min(GEAR_STUN_CAP, this.gear(shooter).stun);
-    return (boss ? BOSS_STUN_TIME : STUN_TIME) * recovery * 0.88 ** this.item('bonemail') * gear;
+    return (boss ? BOSS_STUN_TIME : STUN_TIME) * recovery * gear;
   }
 
   get goldMult(): number {
@@ -547,7 +526,7 @@ export class Game {
     if (shooter === 'main') return this.damage * (1 + this.gearBane('main', archetype));
     const def = hunterDef(shooter);
     const bane = def.bane && def.bane.archetype === archetype ? def.bane.mult + this.tree(shooter).bane : 1;
-    return this.weaponHitOf(shooter, mode) * powerDamage(this.state.hunters[shooter].trains) * this.skillDamageMult(shooter) * this.itemDamageMult * bane * (1 + this.gear(shooter, mode).damage) * (1 + this.gearBane(shooter, archetype));
+    return this.weaponHitOf(shooter, mode) * powerDamage(this.state.hunters[shooter].trains) * this.skillDamageMult(shooter) * bane * (1 + this.gear(shooter, mode).damage) * (1 + this.gearBane(shooter, archetype));
   }
 
   /** Extra damage from a Hunter's gear against an archetype (the Fang Talisman vs Beasts, the Slime Vial vs Slimes). */
@@ -565,7 +544,7 @@ export class Game {
   shooterRate(shooter: Shooter, mode?: GearMode): number {
     const cls = this.weaponClassOf(shooter, mode)?.rate ?? 1;
     if (shooter === 'main') return this.fireRate * cls;
-    return HELPER_FIRE_RATE * this.skillRateMult(shooter) * this.itemRateMult * (1 + this.gear(shooter, mode).rate) * cls * this.inspireFor(shooter);
+    return HELPER_FIRE_RATE * this.skillRateMult(shooter) * (1 + this.gear(shooter, mode).rate) * cls * this.inspireFor(shooter);
   }
 
   /**
@@ -633,8 +612,7 @@ export class Game {
    */
   dpsOf(shooter: Shooter, archetype?: Archetype): number {
     const cls = this.weaponClassOf(shooter);
-    const shots = !cls || cls.attack === 'shot' || cls.attack === 'dagger' ? this.projectiles : 1;
-    const perAttack = shots * (cls?.farm ?? 1);
+    const perAttack = cls?.farm ?? 1;
     // Guns spend part of their time reloading.
     const uptime = weaponUptime(cls) * weaponHitsPerAttack(cls);
     return this.shotDamage(shooter, archetype) * (this.shooterRate(shooter) * perAttack * uptime + this.specialHitRate(shooter)) * this.critFactor(shooter);
@@ -694,7 +672,7 @@ export class Game {
     const normal = vs(this.damageTypesOf(shooter), this.procOf(shooter));
     const sp = this.specialHitRate(shooter);
     if (!sp) return normal;
-    const shots = this.shooterRate(shooter) * this.projectiles;
+    const shots = this.shooterRate(shooter);
     return (shots * normal + sp * vs(this.damageTypesOf(shooter, 'long', true), this.procOf(shooter, 'long', true))) / (shots + sp);
   }
 
@@ -1587,8 +1565,8 @@ export class Game {
         stunTime: this.stunTime(false, sh),
         // A shield regains one charge every GUARD_RECHARGE seconds, however many it holds.
         guardRate: this.guardOf(sh) > 0 ? 1 / GUARD_RECHARGE : 0,
-        /** Effective hits per second, counting pellets, Split Bow and how many monsters each attack reaches. */
-        shots: this.shooterRate(sh) * this.projectiles + this.specialHitRate(sh),
+        /** Effective hits per second, counting pellets and how many monsters each attack reaches. */
+        shots: this.shooterRate(sh) + this.specialHitRate(sh),
         down: 0, // fraction of time stunned
         stunRate: 0,
       };

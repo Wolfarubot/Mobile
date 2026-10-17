@@ -9,6 +9,7 @@ import {
   GEAR_COST_GROWTH,
   GEAR_STAR_POWER,
   gearDef,
+  itemCost,
   itemLevels,
   MAX_STARS,
   MOD_SLOTS,
@@ -28,6 +29,7 @@ import {
   type EnemyId,
   type GearId,
   type HunterId,
+  type ItemDef,
   type ItemId,
   type MaterialId,
   TAP_ABILITIES,
@@ -379,6 +381,39 @@ function convertItems(state: GameState, oldLevels: boolean): void {
   }
 }
 
+/**
+ * Upgrades since removed (they boosted every Hunter's combat stats; gear, skills and abilities do that now), as
+ * they were: a save that crafted one gets back every material it cost.
+ */
+const REMOVED_UPGRADES: Record<string, Pick<ItemDef, 'maxLevel' | 'recipe' | 'growth'>> = {
+  whetstone: { maxLevel: 15, recipe: { goo: 4 }, growth: 1.45 },
+  gloves: { maxLevel: 15, recipe: { goo: 6, pelt: 2 }, growth: 1.5 },
+  bonemail: { maxLevel: 10, recipe: { bone: 8, flesh: 4 }, growth: 1.6 },
+  splitbow: { maxLevel: 5, recipe: { bone: 10, wing: 6 }, growth: 3 },
+  lance: { maxLevel: 5, recipe: { chitin: 8, frost: 4 }, growth: 2.2 },
+  lantern: { maxLevel: 10, recipe: { ecto: 8, fur: 6 }, growth: 1.8 },
+  graveWhetstone: { maxLevel: 8, recipe: { bone: 12, flesh: 8 }, growth: 1.6 },
+  batwingGloves: { maxLevel: 8, recipe: { wing: 10, bone: 6 }, growth: 1.65 },
+  engine: { maxLevel: 20, recipe: { shade: 10, void: 5, soul: 3 }, growth: 1.7 },
+};
+
+/** Refunds the removed Upgrades a save holds (old saves hold levels, newer ones stars). */
+function refundRemovedUpgrades(state: GameState, saved: unknown, oldLevels: boolean): void {
+  if (!saved || typeof saved !== 'object') return;
+  for (const [id, old] of Object.entries(REMOVED_UPGRADES)) {
+    const v = Math.max(0, Math.floor(Number((saved as Record<string, unknown>)[id]) || 0));
+    if (!v) continue;
+    const def = { id: `removed:${id}`, ...old } as unknown as ItemDef;
+    let stars = Math.min(MAX_STARS, v);
+    if (oldLevels) {
+      const conv = starsFromLevel(itemLevels(def), v, def.recipe, def.growth);
+      stars = conv.stars;
+      addMaterials(state, conv.refund);
+    }
+    for (let s = 0; s < stars; s++) addMaterials(state, itemCost(def, s));
+  }
+}
+
 function addMaterials(state: GameState, add: Partial<Record<MaterialId, number>>): void {
   for (const [m, n] of Object.entries(add) as [MaterialId, number][]) if (m in state.materials) state.materials[m] += n;
 }
@@ -462,6 +497,7 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
     base.lastSeen = typeof data.lastSeen === 'number' ? data.lastSeen : now;
     base.stats = stats;
     convertItems(base, true);
+    refundRemovedUpgrades(base, data.items, true);
     return base;
   }
 
@@ -604,6 +640,7 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
         })
     : [];
   convertItems(state, oldLevels);
+  refundRemovedUpgrades(state, data.items, oldLevels);
   const uids = new Set(state.inventory.map((g) => g.uid));
   state.equipment = {};
   if (data.equipment && typeof data.equipment === 'object')

@@ -594,7 +594,6 @@ describe('Hunters', () => {
     const strong = g.farmRates('forest', ['alchemist'], STATION_EFFICIENCY);
     expect(strong.killsTotal).toBeCloseTo(g.spawnRate * STATION_EFFICIENCY);
     g.state.hunters.alchemist.trains = 0;
-    g.state.items.whetstone = 0;
     const s = newGame(0);
     s.gold = 1e15;
     const weakGame = new Game(veteran(s), noCrit);
@@ -910,22 +909,28 @@ describe('Shops', () => {
     expect(g.state.hunters.alchemist.station).toBe('graveyard');
   });
 
-  it('crafting spends materials and items boost every Hunter', () => {
+  it('crafting spends materials; Upgrades boost the camp, not Hunters\' combat stats', () => {
     const g = rich();
     g.recruit('alchemist');
-    const cost = itemCost(itemDef('whetstone'), 0).goo!;
-    g.state.materials.goo = cost;
+    const cost = itemCost(itemDef('idol'), 0);
+    g.state.materials.ember = cost.ember!;
+    g.state.materials.magma = cost.magma!;
     const helperDmg = g.shotDamage('alchemist');
-    expect(g.craft('whetstone')).toBe(true);
-    expect(g.state.materials.goo).toBe(0);
-    expect(g.shotDamage('alchemist')).toBeGreaterThan(helperDmg);
+    const rate = g.shooterRate('alchemist');
+    const gold = g.goldMult;
+    expect(g.craft('idol')).toBe(true);
+    expect(g.state.materials.ember).toBe(0);
+    expect(g.goldMult).toBeGreaterThan(gold);
+    expect(g.shotDamage('alchemist')).toBe(helperDmg);
+    expect(g.shooterRate('alchemist')).toBe(rate);
+    for (const id of ['whetstone', 'gloves', 'splitbow', 'bonemail', 'lance', 'lantern', 'graveWhetstone', 'batwingGloves', 'engine'])
+      expect(ITEMS.some((it) => it.id === id)).toBe(false);
   });
 
-  it('Recovery Speed and Bone Mail shorten stuns', () => {
+  it('Recovery Speed shortens stuns', () => {
     const g = new Game(veteran(newGame(0)), noCrit);
     const base = g.stunTime();
     g.state.main.skills.recovery = 10;
-    g.state.items.bonemail = 2;
     expect(g.stunTime()).toBeLessThan(base * 0.6);
     expect(g.stunTime(true)).toBeGreaterThan(g.stunTime());
   });
@@ -1771,7 +1776,6 @@ describe('Equipment', () => {
     const fresh = (gear: Parameters<Game['craftGear']>[0]) => {
       const g = stocked();
       g.state.hunters = Object.fromEntries(Object.entries(g.state.hunters).map(([k, h]) => [k, { ...h, station: null }])) as typeof g.state.hunters;
-      g.state.items.splitbow = 0;
       g.equip('main', 0, g.craftGear(gear)!.uid);
       const f = new Field(g);
       f.setView(390, 420);
@@ -2301,7 +2305,6 @@ describe('Equipment', () => {
   it('a repeater sprays a fan; extra bolts of one volley on the same monster hit harder (×1.5, ×2)', () => {
     const g = stocked();
     g.state.hunters = Object.fromEntries(Object.entries(g.state.hunters).map(([k, h]) => [k, { ...h, station: null }])) as typeof g.state.hunters;
-    g.state.items.splitbow = 0;
     g.equip('main', 0, g.craftGear('voidRepeater')!.uid);
     const f = new Field(g);
     f.setView(390, 420);
@@ -2321,7 +2324,6 @@ describe('Equipment', () => {
     const g = stocked();
     const pistol = g.craftGear('bonePistol')!;
     g.equip('main', 0, pistol.uid);
-    g.state.items.splitbow = 0; // one bullet per shot
     const f = new Field(g);
     f.setView(390, 420);
     f.enemies.push(enemy({ id: 1, x: 120, hp: 1e12, maxHp: 1e12 }));
@@ -3599,12 +3601,15 @@ describe('Saves', () => {
   it('round-trips and tolerates garbage', () => {
     const s = newGame(0);
     s.gold = 42;
-    s.items.gloves = 3;
+    s.items.lure = 3;
+    (s.items as Record<string, number>).whetstone = 2; // a removed Upgrade: refunded
     s.hunters.ranger = { recruited: true, trains: 4, skills: { root: 1, speed: 1 }, station: 'forest' };
     s.main = { trains: 9, skills: { root: 1, power: 2, nope: 3 } };
     const back = deserialize(serialize(s));
     expect(back?.gold).toBe(42);
-    expect(back?.items.gloves).toBe(3);
+    expect(back?.items.lure).toBe(3);
+    expect('whetstone' in back!.items).toBe(false);
+    expect(back?.materials.goo).toBe(s.materials.goo + 4 + Math.ceil(4 * 1.45)); // its 1★ and 2★
     expect(back?.hunters.ranger).toEqual({ recruited: true, trains: 4, skills: { root: 1, speed: 1 }, station: 'forest' });
     expect(back?.main).toEqual({ trains: 9, skills: { root: 1, power: 2 } }); // unknown nodes dropped
     expect(deserialize('not json')).toBeNull();
@@ -3791,27 +3796,31 @@ describe('Saves', () => {
     expect(gearStats(ring, MAX_STARS).damage).toBeCloseTo(2.5);
     const bow = gearDef('forestBow'); // a weapon's base damage grows with its stars too
     expect(weaponHit(bow, MAX_STARS)).toBeCloseTo(weaponHit(bow, 1) * WEAPON_HIT_POWER[MAX_STARS]);
-    const whet = itemDef('whetstone');
-    expect(itemLevels(whet)).toEqual([0, 1, 2, 4, 8, 15]); // Common: stops at its old Lv 15
+    const lure = itemDef('lure');
+    expect(itemLevels(lure)).toEqual([0, 1, 2, 4, 8, 15]); // Uncommon: stops at its old Lv 15
     for (const it of ITEMS) if (it.rarity === 'common' || it.rarity === 'uncommon') expect(itemLevels(it)[MAX_STARS]).toBeLessThanOrEqual(15);
     // A star costs the price of the step two thirds of the way (geometrically) through the ones it covers.
-    expect(itemCost(whet, 0).goo).toBe(4);
-    expect(itemCost(whet, 1).goo).toBe(Math.ceil(4 * 1.45 ** 1)); // Lv 1 → 2: step 1
-    expect(itemCost(whet, 4).goo).toBe(Math.ceil(4 * 1.45 ** 11)); // Lv 8 → 15: 8^⅓·15^⅔ ≈ 12 → step 11
+    expect(itemCost(lure, 0).beastBone).toBe(5);
+    expect(itemCost(lure, 1).beastBone).toBe(Math.ceil(5 * 1.6 ** 1)); // Lv 1 → 2: step 1
+    expect(itemCost(lure, 4).beastBone).toBe(Math.ceil(5 * 1.6 ** 11)); // Lv 8 → 15: 8^⅓·15^⅔ ≈ 12 → step 11
     const g = rich();
-    g.state.materials.goo = 1e12;
-    for (let i = 0; i < MAX_STARS; i++) expect(g.craft('whetstone')).toBe(true);
-    expect(g.craft('whetstone')).toBe(false);
-    expect(g.state.items.whetstone).toBe(MAX_STARS);
+    g.state.materials.beastBone = 1e12;
+    g.state.materials.pelt = 1e12;
+    for (let i = 0; i < MAX_STARS; i++) expect(g.craft('lure')).toBe(true);
+    expect(g.craft('lure')).toBe(false);
+    expect(g.state.items.lure).toBe(MAX_STARS);
     // An old save: a Lv 5 bow becomes 3★ (Lv 4) + a refund; a Lv 10 one is 5★.
     const old = JSON.parse(serialize(newGame(0)));
     old.version = 12;
     old.inventory = [{ uid: 1, base: 'forestBow', level: 5 }, { uid: 2, base: 'forestBow', level: 10 }];
-    old.items.gloves = 15;
+    old.items.lure = 15;
+    old.items.gloves = 15; // removed since: refunded
     const s = deserialize(JSON.stringify(old))!;
     expect(s.inventory.map((it) => it.stars)).toEqual([3, 5]);
     expect(s.materials.twig).toBe(old.materials.twig + Math.ceil(6 * 1.8 ** 4));
-    expect(s.items.gloves).toBe(MAX_STARS);
+    expect(s.items.lure).toBe(MAX_STARS);
+    expect('gloves' in s.items).toBe(false);
+    expect(s.materials.goo).toBeGreaterThan(old.materials.goo);
   });
 
   it("your Hunter's trees are five wide; older saves get their points back but keep their tap abilities", () => {
@@ -3850,14 +3859,14 @@ describe('Saves', () => {
   });
 
   it('migrates a stage-based save: keeps items and surviving materials', () => {
-    const v3 = { version: 3, gold: 1e9, stage: 40, maxStage: 40, items: { whetstone: 4 }, materials: { goo: 50, bone: 20, ember: 5 }, stars: 7, stats: { totalKills: 123, deaths: 2 } };
+    const v3 = { version: 3, gold: 1e9, stage: 40, maxStage: 40, items: { lure: 4, whetstone: 4 }, materials: { goo: 50, bone: 20, ember: 5 }, stars: 7, stats: { totalKills: 123, deaths: 2 } };
     const s = deserialize(JSON.stringify(v3))!;
     expect(s.version).toBe(SAVE_VERSION);
     expect(s.area).toBe('forest');
     expect(s.gold).toBe(0);
-    // Whetstone Lv 4 became 3★ (exactly Lv 4), so nothing is refunded.
-    expect(s.items.whetstone).toBe(3);
-    expect(s.materials.goo).toBe(50);
+    // Monster Lure Lv 4 became 3★ (exactly Lv 4); the Whetstone is gone, and what it cost is refunded.
+    expect(s.items.lure).toBe(3);
+    expect(s.materials.goo).toBeGreaterThan(50);
     expect(s.materials.bone).toBe(20);
     expect('stars' in s).toBe(false);
     expect(s.stats.totalKills).toBe(123);

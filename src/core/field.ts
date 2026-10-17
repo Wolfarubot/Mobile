@@ -25,7 +25,6 @@ import {
   effectCooldown,
   MAX_ENEMIES,
   areaScale,
-  MULTISHOT_SPREAD,
   STUN_IMMUNITY,
   SHIELD_DEFLECT_PAUSE,
   type EnemyId,
@@ -1056,7 +1055,7 @@ export class Field {
     } else {
       // A longbow's follow-through grows with the Hunter's range.
       const follow = cls?.followThrough ? cls.followThrough * (range / (MAIN_RANGE * cls.range)) : undefined;
-      this.shoot(who, cls?.projectile ?? 'bolt', x, y, aim, BULLET_SPEED, range, { pierce: g.pierceOf(who, mode), spread: true, followThrough: follow, bounces: cls?.bounces, mode: m });
+      this.shoot(who, cls?.projectile ?? 'bolt', x, y, aim, BULLET_SPEED, range, { pierce: g.pierceOf(who, mode), followThrough: follow, bounces: cls?.bounces, mode: m });
     }
     if (this.isMelee(who)) this.meleeWave(who, x, y);
     // Enchantments set off by attacks (Thunder Call, the pulses), each at its rolled chance.
@@ -1438,7 +1437,7 @@ export class Field {
     return true;
   }
 
-  /** Fires a projectile (and extra Split Bow projectiles when `spread`). Damage is priced on hit, per target. */
+  /** Fires a projectile. Damage is priced on hit, per target. */
   private shoot(
     shooter: Shooter,
     kind: BulletKind,
@@ -1447,47 +1446,43 @@ export class Field {
     angle: number,
     speed: number,
     range: number,
-    o: { pierce?: number; spread?: boolean; dmg?: number; radius?: number; bounces?: number; slow?: number; tx?: number; ty?: number; mode?: GearMode; special?: boolean; followThrough?: number; volley?: number; stack?: number; bleed?: boolean; dtype?: DamageType; ticks?: number },
+    o: { pierce?: number; dmg?: number; radius?: number; bounces?: number; slow?: number; tx?: number; ty?: number; mode?: GearMode; special?: boolean; followThrough?: number; volley?: number; stack?: number; bleed?: boolean; dtype?: DamageType; ticks?: number },
   ): void {
     const g = this.game;
-    const n = o.spread ? g.projectiles : 1;
     // A weapon firing one type per projectile hands them out in turn.
     const types = !o.special && g.perShotOf(shooter, o.mode) ? g.damageTypesOf(shooter, o.mode) : null;
-    for (let i = 0; i < n; i++) {
-      const a = angle + (i - (n - 1) / 2) * MULTISHOT_SPREAD;
-      let dtype: DamageType | undefined = o.dtype;
-      if (types) {
-        const turn = this.typeTurn.get(shooter) ?? 0;
-        this.typeTurn.set(shooter, turn + 1);
-        dtype = types[turn % types.length];
-      }
-      this.bullets.push({
-        shooter,
-        kind,
-        x: ox + Math.cos(a) * PLAYER_RADIUS,
-        y: oy + Math.sin(a) * PLAYER_RADIUS,
-        vx: Math.cos(a) * speed,
-        vy: Math.sin(a) * speed,
-        crit: g.rng() < g.critChanceOf(shooter),
-        pierce: o.pierce ?? 0,
-        life: Math.max(0.05, (range + 20) / speed),
-        hits: [],
-        dmg: o.dmg ?? 1,
-        radius: o.radius,
-        bounces: o.bounces,
-        slow: o.slow,
-        tx: o.tx,
-        ty: o.ty,
-        special: o.special,
-        bleed: o.bleed,
-        mode: o.mode,
-        followThrough: o.followThrough,
-        volley: o.volley,
-        stack: o.stack,
-        dtype,
-        ticks: o.ticks,
-      });
+    let dtype: DamageType | undefined = o.dtype;
+    if (types) {
+      const turn = this.typeTurn.get(shooter) ?? 0;
+      this.typeTurn.set(shooter, turn + 1);
+      dtype = types[turn % types.length];
     }
+    this.bullets.push({
+      shooter,
+      kind,
+      x: ox + Math.cos(angle) * PLAYER_RADIUS,
+      y: oy + Math.sin(angle) * PLAYER_RADIUS,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      crit: g.rng() < g.critChanceOf(shooter),
+      pierce: o.pierce ?? 0,
+      life: Math.max(0.05, (range + 20) / speed),
+      hits: [],
+      dmg: o.dmg ?? 1,
+      radius: o.radius,
+      bounces: o.bounces,
+      slow: o.slow,
+      tx: o.tx,
+      ty: o.ty,
+      special: o.special,
+      bleed: o.bleed,
+      mode: o.mode,
+      followThrough: o.followThrough,
+      volley: o.volley,
+      stack: o.stack,
+      dtype,
+      ticks: o.ticks,
+    });
   }
 
   /** Instant strike along a line (lance thrust, sniper shot): hits up to `maxHits` enemies within `width`. */
