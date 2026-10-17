@@ -51,6 +51,7 @@ import {
   gearTypes,
   SPECIAL_TYPE,
   gearTotals,
+  GEAR_STATS,
   gearSummary,
   hitText,
   weaponHit,
@@ -1216,6 +1217,18 @@ export class AppUI {
     let slot: number | null = waiting?.slot ?? null;
     let last: number | null = null; // the slot just filled
     let anim: 'shake' | 'reveal' | null = null;
+    /**
+     * What the piece does now: its hit, its stats with the refinements it holds added in, how it deals its damage
+     * types and their status effects, and its own abilities (at its stars), so you can see what a roll would add to.
+     */
+    const pieceHtml = (): string => {
+      const now = g.gearItem(uid) ?? item;
+      const total = gearTotals(gd, now.stars);
+      for (const m of now.mods ?? []) if (m?.kind === 'refine' && m.stat in GEAR_STATS) total[m.stat as GearStat] = (total[m.stat as GearStat] ?? 0) + modValue(m, gd);
+      const hit = weaponHit(gd, now.stars);
+      const stats = [hit ? hitText(hit) : '', describeGear(total)].filter(Boolean).join(', ');
+      return `${stats ? `<p class="gear-now"><b>${stats}</b></p>` : ''}${weaponLine(gd, now.stars)}${gearTypeLines(gd, now.stars)}`;
+    };
     this.showSheet(`🛠️ Modify ${gearIcon(gd)} ${gd.name}`, (body) => {
       const draw = () => {
         const slots = g.modSlots(uid);
@@ -1237,7 +1250,9 @@ export class AppUI {
               }`
             : '<p class="refine-note">Choose Refine or Enchant: the empty slots light up. Rolling draws random choices to pick from.</p>';
         body.innerHTML = `
-          <p><b class="rarity-tag" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${gearKindName(gd)} · ${slots.length} modifier slot${slots.length === 1 ? '' : 's'}</p>
+          <p><b class="rarity-tag" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${gearKindName(gd)} · <span class="stars">${starsHtml(item.stars)}</span> · ${slots.length} modifier slot${slots.length === 1 ? '' : 's'}</p>
+          <div class="filter-label">This piece</div>
+          <div class="mod-piece">${pieceHtml()}</div>
           <div class="filter-label">${action && slot === null ? 'Choose a slot' : 'Slots'}</div>
           <div class="refine-slots">${slots
             .map((m, i) => {
