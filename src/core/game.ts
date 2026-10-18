@@ -295,7 +295,7 @@ export class Game {
 
   /**
    * Gear abilities (accessories, rarer armor) have their own base damage: this is what a Hunter's bonuses
-   * multiply it by (training, skills, Upgrades, % damage, Guild Hunters' bane), everything their
+   * multiply it by (training, skills, % damage, Guild Hunters' bane), everything their
    * weapon's own damage would get except the weapon itself.
    */
   abilityMult(who: Shooter, archetype?: Archetype): number {
