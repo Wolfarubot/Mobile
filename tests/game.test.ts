@@ -2811,7 +2811,7 @@ describe('Stuns in background & offline farming', () => {
   it("going offline in an area you can't handle pays less than farming one you can", () => {
     const setup = (area: 'forest' | 'graveyard') => {
       const s = newGame(0);
-      s.main.trains = 20;
+      s.main.trains = 12;
       s.areas.graveyard.unlocked = true;
       s.area = area;
       return new Game(s, noCrit).applyOffline(8 * 3600 * 1000);
