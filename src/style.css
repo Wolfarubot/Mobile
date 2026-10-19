@@ -3026,6 +3026,30 @@ button.mat:not(:disabled):active {
     transform: translate(-50%, -24px);
   }
 }
+/* Stats one per row: the stat's name, then a column per star count (1★ and 5★, or Now and Next). */
+.stat-table {
+  margin: 4px 0 6px;
+  font-size: 13px;
+}
+.st-row {
+  display: grid;
+  grid-template-columns: 1fr repeat(var(--cols), minmax(56px, auto));
+  gap: 8px;
+  align-items: baseline;
+  padding: 3px 0;
+  border-bottom: 1px dashed var(--c2);
+}
+.st-row > b {
+  text-align: right;
+}
+.st-row.st-head {
+  font-size: 11px;
+  color: var(--c1);
+  border-bottom-style: solid;
+}
+.stat-table[style*='--cols:1'] .st-row > b {
+  text-align: left;
+}
 .fc-mat {
   display: flex;
   align-items: center;

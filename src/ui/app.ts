@@ -1238,9 +1238,9 @@ export class AppUI {
         <p>${dtypeTag(gd)}<b class="rarity-tag" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${gearKindName(gd)} · <span class="stars">${starsHtml(item.stars)}</span>${worn ? ` · worn by ${wearerName(worn.who)}` : ''}</p>
         ${weaponLine(gd, item.stars)}
         ${gearTypeLines(gd, item.stars)}
-        <p class="gear-now">${gearSummary(gd, item.stars) || (gd.effect ? '' : 'No bonuses: plain everyday wear.')}</p>
+        ${statTable(gd, cost ? [{ label: `Now ${item.stars}★`, stars: item.stars }, { label: `Next ${item.stars + 1}★`, stars: item.stars + 1 }] : [{ label: `${item.stars}★`, stars: item.stars }]) || (gd.effect ? '' : '<p class="gear-now">No bonuses: plain everyday wear.</p>')}
         ${modSlotsHtml(g, uid)}
-        ${cost ? `<p class="gear-next">Next: <b>${[gearSummary(gd, item.stars + 1), gd.effect && 'base' in gd.effect ? describeEffect(gd.effect, item.stars + 1) : ''].filter(Boolean).join(' ')}</b></p><div class="cost">${costHtml(g, cost)}${goldHtml(g, g.gearUpgradeGold(uid) ?? 0)}</div>` : Object.keys(gd.stats).length || gd.effect ? '<p>Fully upgraded.</p>' : '<p>Nothing to upgrade.</p>'}`;
+        ${cost ? `<div class="fc-label">Upgrade cost</div><div class="fc-cost">${recipeHtml(g, cost, g.gearUpgradeGold(uid) ?? 0)}</div>` : Object.keys(gd.stats).length || gd.effect ? '<p>Fully upgraded.</p>' : '<p>Nothing to upgrade.</p>'}`;
       // Under the modifier slots: Modify (once Kargesh or Marceline has joined).
       if (g.modifiable(uid)) {
         const rb = el('button', 'buy refine-open', '🛠️ Modify') as HTMLButtonElement;
@@ -1352,8 +1352,8 @@ export class AppUI {
           go.innerHTML = `🎲 Roll ${g.modChoices} ${action === 'refine' ? 'Refinements' : 'Enchantments'}`;
           go.disabled = !(action === 'refine' ? g.canRefine(uid, slot) : g.canEnchant(uid, slot));
           // Its cost: some of the piece's recipe, plus golem metals (Refine) or gems (Enchant).
-          const costRow = el('div', 'cost mod-cost');
-          costRow.innerHTML = costHtml(g, cost) + goldHtml(g, g.modGoldOf(uid, action));
+          const costRow = el('div', 'fc-cost mod-cost');
+          costRow.innerHTML = recipeHtml(g, cost, g.modGoldOf(uid, action));
           body.appendChild(costRow);
           go.addEventListener('click', () => {
             if (slot === null || !action || anim) return;
@@ -2655,7 +2655,7 @@ export class AppUI {
       const maxed = lv >= itemMaxStars(it);
       const owned = it.once ? (lv ? 'Crafted' : 'Not crafted yet') : `<span class="stars">${starsHtml(lv)}</span>`;
       body.innerHTML = `<p class="gear-now"><b class="rarity-tag" style="--rc:${RARITIES[it.rarity].color}">${RARITIES[it.rarity].name}</b> upgrade · ${upgradeReach(it)} · ${owned}</p><p><b>${it.describe(itemLevel(it, it.once ? 1 : lv))}</b>${maxed || it.once ? '' : ` → ${it.describe(itemLevel(it, lv + 1))}`}</p>${
-        maxed ? '' : `<div class="cost">${costHtml(g, itemCost(it, lv))}</div>`
+        maxed ? '' : `<div class="fc-label">${lv ? 'Upgrade cost' : 'Recipe'}</div><div class="fc-cost">${recipeHtml(g, itemCost(it, lv))}</div>`
       }`;
       const btn = el('button', 'buy', maxed ? (it.once ? 'Crafted' : 'MAX') : it.once || !lv ? 'Craft' : 'Upgrade') as HTMLButtonElement;
       btn.style.width = '100%';
@@ -2800,8 +2800,10 @@ export class AppUI {
     const update = () => {
       if (gd) {
         const owned = g.state.inventory.filter((x) => x.base === gd.id).length;
-        const ability = gd.effect && 'base' in gd.effect ? ` ${gd.effect.kind === 'summon' ? 'Summon' : 'Ability'} damage: 1★ <b>${fmt(effectBase(gd.effect, 1))}</b> · 5★ <b>${fmt(effectBase(gd.effect, MAX_STARS))}</b>.` : '';
-        $('.fc-effect', card).innerHTML = `${gd.armorType ? `${ARMOR_TYPES[gd.armorType].icon} ${ARMOR_TYPES[gd.armorType].name}. ` : ''}${gearSummary(gd, 1) ? `1★: <b>${gearSummary(gd, 1)}</b> · 5★: <b>${gearSummary(gd, MAX_STARS)}</b>` : ''}${ability}`;
+        $('.fc-effect', card).innerHTML = `${gd.armorType ? `${ARMOR_TYPES[gd.armorType].icon} ${ARMOR_TYPES[gd.armorType].name}` : ''}${statTable(gd, [
+          { label: '1★', stars: 1 },
+          { label: `${MAX_STARS}★`, stars: MAX_STARS },
+        ])}`;
         $('.fc-owned', card).innerHTML = `In your equipment: <b>${owned}</b>`;
         $('.fc-cost', card).innerHTML = recipeHtml(g, gearCost(gd, 0));
         btn.textContent = 'Craft';
@@ -2814,9 +2816,14 @@ export class AppUI {
         const top = itemMaxStars(item);
         $('.fc-effect', card).innerHTML = item.once
           ? `<b>${at(1)}</b>`
-          : lv
-            ? `${lv}★: ${at(lv)}${maxed ? '' : ` → ${lv + 1}★: <b>${at(lv + 1)}</b>${lv + 1 < top ? ` · ${top}★: <b>${at(top)}</b>` : ''}`}`
-            : `1★: <b>${at(1)}</b> · ${top}★: <b>${at(top)}</b>`;
+          : lineTable(
+              lv
+                ? [[`Now ${lv}★`, at(lv)], ...(maxed ? [] : ([[`Next ${lv + 1}★`, at(lv + 1)]] as Array<[string, string]>)), ...(lv + 1 < top ? ([[`Max ${top}★`, at(top)]] as Array<[string, string]>) : [])]
+                : [
+                    ['1★', at(1)],
+                    [`${top}★`, at(top)],
+                  ],
+            );
         $('.fc-owned', card).innerHTML = item.once ? (lv ? 'Owned: <b>crafted</b>' : 'Owned: <b>not crafted yet</b>') : lv ? `Owned: <b class="stars">${starsHtml(lv)}</b>${maxed ? ' · MAX' : ''}` : 'Owned: <b>not crafted yet</b>';
         $('.fc-cost', card).innerHTML = maxed ? (item.once ? '<p>Crafted.</p>' : '<p>Fully upgraded.</p>') : recipeHtml(g, itemCost(item, lv));
         btn.textContent = maxed ? (item.once ? 'Crafted' : 'MAX') : lv ? 'Upgrade' : 'Craft';
@@ -4105,16 +4112,50 @@ function damageTypeHtml(t: DamageType): string {
   return `<span class="dtype-tag" style="--dc:${d.color}">${d.icon} ${d.name}</span>`;
 }
 
-/** A recipe as one line per material: its gem and name, and how many you hold of how many it takes. */
-function recipeHtml(g: Game, cost: Partial<Record<MaterialId, number>>): string {
-  return (Object.entries(cost) as [MaterialId, number][])
-    .map(([m, n]) => `<div class="fc-mat${g.state.materials[m] < n ? ' short' : ''}">${gemHtml(m)}<span>${materialDef(m).name}</span><b>${fmt(g.state.materials[m])} / ${fmt(n)}</b></div>`)
-    .join('');
+/** A recipe as one line per material: its gem and name, and how many you hold of how many it takes; gold last. */
+function recipeHtml(g: Game, cost: Partial<Record<MaterialId, number>>, gold = 0): string {
+  return (
+    (Object.entries(cost) as [MaterialId, number][])
+      .map(([m, n]) => `<div class="fc-mat${g.state.materials[m] < n ? ' short' : ''}">${gemHtml(m)}<span>${materialDef(m).name}</span><b>${fmt(g.state.materials[m])} / ${fmt(n)}</b></div>`)
+      .join('') + (gold > 0 ? `<div class="fc-mat${g.state.gold < gold ? ' short' : ''}"><span class="gem">🪙</span><span>Gold</span><b>${fmt(g.state.gold)} / ${fmt(gold)}</b></div>` : '')
+  );
 }
 
-/** A gold cost beside material costs: what you have of what it takes (red when short). */
-function goldHtml(g: Game, n: number): string {
-  return n > 0 ? `<span class="${g.state.gold < n ? 'short' : ''}">🪙 ${fmt(n)}</span>` : '';
+/** One gear stat's value on its own (the stat's name goes in its row's label): "+20%", "−9%", "+2". */
+function statValue(k: GearStat, v: number): string {
+  const sign = (x: number) => (x < 0 ? '−' : '+');
+  switch (k) {
+    case 'range':
+      return `${sign(v)}${Math.round(Math.abs(v))}`;
+    case 'guard':
+    case 'pierce':
+      return `${sign(v)}${Math.floor(Math.abs(v))}`;
+    case 'stun':
+      return `${v > 0 ? '−' : '+'}${Math.round(Math.abs(v) * 100)}%`;
+    default:
+      return `${sign(v)}${Math.round(Math.abs(v) * 100)}%`;
+  }
+}
+
+/**
+ * A piece's stats as a table, one stat per row and one column per star count (e.g. 1★ and 5★, or Now and Next),
+ * its ability's own damage last. Empty when the piece raises nothing.
+ */
+function statTable(gd: GearDef, cols: Array<{ label: string; stars: number }>): string {
+  const totals = cols.map((c) => gearTotals(gd, c.stars));
+  const keys = BONUS_FILTERS.map((b) => b.id).filter((k) => totals.some((t) => (t[k] ?? 0) !== 0));
+  const rows = keys.map((k) => `<div class="st-row"><span>${BONUS_FILTERS.find((b) => b.id === k)!.name}</span>${totals.map((t) => `<b>${statValue(k, t[k] ?? 0)}</b>`).join('')}</div>`);
+  // A weapon's own hit damage grows with its stars too.
+  if (gd.weaponClass) rows.unshift(`<div class="st-row"><span>Hit damage</span>${cols.map((c) => `<b>${fmt(weaponHit(gd, c.stars))}</b>`).join('')}</div>`);
+  if (gd.effect && 'base' in gd.effect)
+    rows.push(`<div class="st-row"><span>${gd.effect.kind === 'summon' ? 'Summon' : 'Ability'} damage</span>${cols.map((c) => `<b>${fmt(effectBase(gd.effect!, c.stars))}</b>`).join('')}</div>`);
+  if (!rows.length) return '';
+  return `<div class="stat-table" style="--cols:${cols.length}"><div class="st-row st-head"><span></span>${cols.map((c) => `<b>${c.label}</b>`).join('')}</div>${rows.join('')}</div>`;
+}
+
+/** Lines that read top to bottom: a label on the left, its text on the right. */
+function lineTable(rows: Array<[string, string]>): string {
+  return `<div class="stat-table" style="--cols:1">${rows.map(([k, v]) => `<div class="st-row"><span>${k}</span><b>${v}</b></div>`).join('')}</div>`;
 }
 
 function costHtml(g: Game, cost: Partial<Record<MaterialId, number>>, check = true): string {
