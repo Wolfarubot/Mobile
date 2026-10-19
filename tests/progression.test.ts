@@ -158,8 +158,8 @@ function botShop(game: Game, t: number, memo: { lastChallenge: number; lastHeavy
   botGear(game);
 
   // Station Hunters the way players do: three Guild Hunters beside you in the newest area (to take on its
-  // difficulty bump), then two in every older area, newest first, each area taking the remaining pair that
-  // earns the most there; anyone left over fills a third spot wherever they earn the most.
+  // difficulty bump), then two in every older area but the Woods (one there), newest first, each area taking the
+  // remaining Hunters that earn the most there; anyone left over fills a third spot wherever they earn the most.
   const free = HUNTERS.filter((h) => s.hunters[h.id].recruited).map((h) => h.id);
   for (const id of free) game.station(id, null);
   const left = new Set(free);
@@ -169,7 +169,7 @@ function botShop(game: Game, t: number, memo: { lastChallenge: number; lastHeavy
     const best = [...left].sort((x, y) => earns(y, area) - earns(x, area));
     let n = 0;
     for (const id of best) {
-      if (n >= (area === game.area ? 3 : 2)) break;
+      if (n >= (area === game.area ? 3 : area === 'forest' ? 1 : 2)) break;
       if (game.station(id, area)) {
         left.delete(id);
         n++;
@@ -177,7 +177,7 @@ function botShop(game: Game, t: number, memo: { lastChallenge: number; lastHeavy
     }
   }
   const extra = [...left].flatMap((id) => areas.map((area) => ({ id, area, gold: earns(id, area) }))).sort((x, y) => y.gold - x.gold);
-  for (const { id, area } of extra) if (left.has(id) && game.station(id, area)) left.delete(id);
+  for (const { id, area } of extra) if (left.has(id) && (area !== 'forest' || area === game.area) && game.station(id, area)) left.delete(id);
 }
 
 /**
