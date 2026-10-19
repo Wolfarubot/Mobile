@@ -3932,7 +3932,7 @@ const EFFECT_TAG: Record<NonNullable<GearDef['effect']>['kind'], string> = { tho
 
 /** A tag naming one of a piece's features; tapping it opens a popup with `tip` (HTML) in full. */
 function featTag(icon: string, name: string, tip: string, color = 'var(--gold)', cls = ''): string {
-  return `<button type="button" class="dtype-tag feat-tag${cls}" style="--dc:${color}" data-tip="${esc(tip)}">${icon} ${name}</button>`;
+  return `<button type="button" class="dtype-tag feat-tag${cls}" style="--dc:${color}" data-tip="${esc(tip)}"><span class="ic">${icon}</span>${name}</button>`;
 }
 
 /** The short name for how a weapon differs from the rest of its class. */
@@ -4113,7 +4113,7 @@ function affinityHtml(e: EnemyDef, compact = false): string {
 /** A damage type tag whose name can be hidden (icon only) when its row runs out of room. */
 function damageTypeChip(t: DamageType): string {
   const d = DAMAGE_TYPES[t];
-  return `<span class="dtype-tag" style="--dc:${d.color}" title="${d.name}">${d.icon}<span class="dt-name"> ${d.name}</span></span>`;
+  return `<span class="dtype-tag" style="--dc:${d.color}" title="${d.name}"><span class="ic">${d.icon}</span><span class="dt-name">${d.name}</span></span>`;
 }
 
 /** Shows a compact affinity row with names if it fits on one line, else icons only. */
@@ -4213,12 +4213,12 @@ function specialText(gd: GearDef): string {
 
 /** The Special damage type's tag (weapons that change elements, or deal too many to list). */
 function specialTypeHtml(): string {
-  return `<span class="dtype-tag special-type" style="--dc:${SPECIAL_TYPE.color}">${SPECIAL_TYPE.icon} ${SPECIAL_TYPE.name}</span>`;
+  return `<span class="dtype-tag special-type" style="--dc:${SPECIAL_TYPE.color}"><span class="ic">${SPECIAL_TYPE.icon}</span>${SPECIAL_TYPE.name}</span>`;
 }
 
 function damageTypeHtml(t: DamageType): string {
   const d = DAMAGE_TYPES[t];
-  return `<span class="dtype-tag" style="--dc:${d.color}">${d.icon} ${d.name}</span>`;
+  return `<span class="dtype-tag" style="--dc:${d.color}"><span class="ic">${d.icon}</span>${d.name}</span>`;
 }
 
 /** A recipe as one line per material: its gem and name, and how many you hold of how many it takes; gold last. */
