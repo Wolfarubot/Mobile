@@ -4766,3 +4766,60 @@ body.ui-parchment .tabs button.active {
 .offline-mats.offline-loot-list {
   grid-template-columns: 1fr;
 }
+
+/* ---- Buttons with an icon and text: the icon sits on the left in its own bordered box; the text is centred in the rest ---- */
+.subtabs button:has(> img.ei:first-child),
+.filter-btn:has(> img.ei:first-child),
+.ab-equip:has(> img.ei:first-child),
+.mod-action {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 42px;
+  padding-left: 46px;
+  padding-right: 10px;
+}
+.subtabs button > img.ei:first-child,
+.filter-btn > img.ei:first-child,
+.ab-equip > img.ei:first-child,
+.mod-action > b > img.ei:first-child {
+  position: absolute;
+  left: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  margin: 0;
+  padding: 3px;
+  box-sizing: border-box;
+  background: var(--c3);
+  border: 2px solid var(--c0);
+  box-shadow: inset -2px -2px 0 rgba(0, 0, 0, 0.18);
+  image-rendering: pixelated;
+}
+.mod-action {
+  flex-direction: column;
+  gap: 2px;
+}
+/* Sub-tabs are narrow: a smaller icon box, and the label keeps the rest. */
+.subtabs button:has(> img.ei:first-child) {
+  padding-left: 34px;
+  padding-right: 4px;
+  white-space: nowrap;
+  font-size: 12px;
+}
+.subtabs button > img.ei:first-child {
+  left: 4px;
+  width: 26px;
+  height: 26px;
+  padding: 2px;
+}
+body.ui-parchment .subtabs button:has(> img.ei:first-child) {
+  padding: 2px 4px 2px 32px !important;
+}
+body.ui-parchment .filter-btn:has(> img.ei:first-child),
+body.ui-parchment .buy.ab-equip:has(> img.ei:first-child) {
+  padding: 2px 8px 2px 40px !important;
+}
