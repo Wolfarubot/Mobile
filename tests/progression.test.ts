@@ -103,13 +103,13 @@ function botSkills(game: Game): void {
   }
 }
 
-/** Empower unlocked monsters while it's cheap, and evolve them: root, then gold, then materials. */
+/** Empower unlocked monsters while it's cheap, and evolve them: root, then gold, then materials, then everything else (capstone included). */
 function botMonsters(game: Game): void {
   for (const e of ENEMIES) {
     if (!game.isUnlocked(e.id)) continue;
     for (let guard = 0; guard < 50 && game.empowerPurchase(e.id, 1).cost < game.state.gold * 0.01; guard++) game.empower(e.id, 1);
     for (let guard = 0; guard < 50 && game.evoPoints(e.id) > 0; guard++) {
-      const pick = ['root', 'wealth2', 'wealth', 'harvest', 'harvest2', 'capstone', 'horde'].find((n) => game.canEvolve(e.id, n));
+      const pick = ['root', 'wealth2', 'wealth', 'harvest', 'harvest2', 'horde', 'horde2', 'capstone'].find((n) => game.canEvolve(e.id, n)) ?? game.evoTree(e.id).find((n) => game.canEvolve(e.id, n.id))?.id;
       if (!pick || !game.evolve(e.id, pick)) break;
     }
   }
