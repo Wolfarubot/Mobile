@@ -83,6 +83,7 @@ import {
   type EnemyDef,
   type GearDef,
   type GearStat,
+  type GearId,
   type HunterDef,
   type HunterId,
   type ItemDef,
@@ -1341,8 +1342,8 @@ export class AppUI {
             .join('')}</div>
           ${choices}
           <div class="mod-actions">
-            ${g.refineOpen ? `<button class="mod-action${action === 'refine' ? ' on' : ''}" data-action="refine"${busy ? ' disabled' : ''}><b>⚒️ Refine</b><small>A random stat · golem metals</small></button>` : ''}
-            ${g.enchantOpen ? `<button class="mod-action${action === 'enchant' ? ' on' : ''}" data-action="enchant"${busy ? ' disabled' : ''}><b>✨ Enchant</b><small>A random enchantment · golem gems</small></button>` : ''}
+            ${g.refineOpen ? `<button class="mod-action${action === 'refine' ? ' on' : ''}" data-action="refine"${busy ? ' disabled' : ''}><b>⚒️ Refine</b><small>Equipment Stat Bonuses</small></button>` : ''}
+            ${g.enchantOpen ? `<button class="mod-action${action === 'enchant' ? ' on' : ''}" data-action="enchant"${busy ? ' disabled' : ''}><b>✨ Enchant</b><small>Elemental and Magical Bonuses</small></button>` : ''}
           </div>
           ${!g.refineOpen ? '<p class="refine-note">Recruit Kargesh the Blacksmith (Ember Mines) to Refine.</p>' : ''}
           ${!g.enchantOpen ? '<p class="refine-note">Recruit Marceline the Enchantress (Venom Caverns) to Enchant.</p>' : ''}`;
@@ -2723,7 +2724,8 @@ export class AppUI {
       gearGrid.innerHTML = '';
       tiles = [];
       for (const gd of list) {
-        const tile = el('button', 'craft-tile') as HTMLButtonElement;
+        const tile = el('button', 'craft-tile rar') as HTMLButtonElement;
+        tile.style.setProperty('--rc', gearColor(gd.id));
         tile.innerHTML = `<i>${gearIcon(gd)}</i><em></em>`;
         tile.title = gd.name;
         tile.addEventListener('click', () => this.openCraftCard({ gear: gd }));
@@ -2756,7 +2758,8 @@ export class AppUI {
         const grid = el('div', 'craft-grid');
         upgrades.appendChild(grid);
         for (const it of list) {
-          const tile = el('button', 'craft-tile') as HTMLButtonElement;
+          const tile = el('button', 'craft-tile rar') as HTMLButtonElement;
+          tile.style.setProperty('--rc', RARITIES[it.rarity].color);
           tile.innerHTML = `<i>${upgradeIcon(it)}</i><em></em>`;
           tile.title = it.name;
           tile.addEventListener('click', () => this.openCraftCard({ item: it }));
@@ -3773,9 +3776,26 @@ export class AppUI {
     const mats = gained(r.materials)
       .map(([m, n]) => `<div class="offline-mat" title="${materialDef(m).name}">${gemHtml(m)}<span>${materialDef(m).name}</span><b>+${fmt(n)}</b></div>`)
       .join('');
+    const RARITY_KEYS = Object.keys(RARITIES) as Rarity[];
+    // Loot drops by piece: how many came in, and how many of those Auto Salvage turned into materials.
+    const pieces = new Map<GearId, { n: number; salvaged: number }>();
+    for (const l of r.loot) {
+      const e = pieces.get(l.gear) ?? { n: 0, salvaged: 0 };
+      e.n++;
+      if (l.salvaged) e.salvaged++;
+      pieces.set(l.gear, e);
+    }
+    const loot = [...pieces.entries()]
+      .sort((a, b) => RARITY_KEYS.indexOf(gearDef(b[0]).rarity) - RARITY_KEYS.indexOf(gearDef(a[0]).rarity))
+      .map(([id, e]) => {
+        const gd = gearDef(id);
+        return `<div class="offline-mat" style="--rc:${gearColor(id)}">${gearIcon(gd)}<span style="color:var(--rc)">${gd.name}</span><b>×${e.n}${e.salvaged ? ` <small>· ${e.salvaged === e.n ? 'salvaged' : `${e.salvaged} salvaged`}</small>` : ''}</b></div>`;
+      })
+      .join('');
     this.modal.innerHTML = `<div class="modal-box fullpage"><h2>While you were away</h2><div class="sheet-body">
       <p class="offline-total">${fmtTime(r.away)} away · 🪙 ${fmt(r.gold)} · ⚔️ ${fmt(r.kills)} monsters slain</p>
       ${mats ? `<h3>Materials</h3><div class="offline-mats all">${mats}</div>` : ''}
+      ${loot ? `<h3>Loot drops</h3><div class="offline-mats all offline-loot-list">${loot}</div>` : ''}
       <h3>By area</h3><div class="offline-areas">${rows}</div>
       ${r.knockouts > 0 ? '<p class="ko-tip">Knocked-out Hunters stop fighting. Get stronger (or pick an easier area) to keep monsters from slipping through.</p>' : ''}
     </div><div class="buttons"></div></div>`;

@@ -1171,6 +1171,18 @@ button {
   object-fit: contain;
   image-rendering: pixelated;
 }
+/* A Hunter's icon fills their whole portrait square. */
+.hunter-art > span {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+}
+.hunter-art > span img.ei {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 .hunter-art.big {
   width: 104px;
   height: 104px;
@@ -2244,9 +2256,13 @@ canvas {
 .inv-tile.rar,
 .pick-row.rar,
 .equip-row.rar,
-.gear-card.rar {
+.gear-card.rar,
+.craft-tile.rar {
   border: 3px solid var(--rc) !important;
   background: color-mix(in srgb, var(--rc) 22%, var(--c3));
+}
+.craft-tile.rar.short {
+  background: color-mix(in srgb, var(--rc) 12%, color-mix(in srgb, var(--c3) 55%, var(--c0)));
 }
 .gear-chip.rar,
 .slot.rar span,
@@ -4375,8 +4391,8 @@ body.ui-parchment .mat {
   line-height: 1;
 }
 .hunter-tile i img.ei {
-  width: 36px;
-  height: 36px;
+  width: 52px;
+  height: 52px;
   vertical-align: middle;
 }
 .hunter-tile .ht-name {
@@ -4744,4 +4760,9 @@ body.ui-parchment .tabs button.active {
   margin-left: 3px;
   color: #b86e00;
   font-weight: 700;
+}
+
+/* Offline Details: loot drops one piece per line (names are long, and salvaged pieces say so). */
+.offline-mats.offline-loot-list {
+  grid-template-columns: 1fr;
 }
