@@ -1400,6 +1400,30 @@ describe('Equipment', () => {
     expect(deserialize(serialize(g.state))!.blessings).toEqual({ refine: 0, enchant: 3 });
   });
 
+  it('Reroll swaps the waiting choices for a new roll of the same slot, for the same cost', () => {
+    const g = stocked();
+    g.state.gold = 1e30;
+    g.state.hunters.blacksmith.recruited = true;
+    const rifle = g.craftGear('frostRifle')!;
+    expect(g.canReroll(rifle.uid)).toBe(false); // nothing waiting
+    g.rollMod(rifle.uid, 1, 'refine');
+    g.state.gold = 3 * g.modGoldOf(rifle.uid, 'refine');
+    const gold = g.state.gold;
+    const mats = { ...g.state.materials };
+    let k = 0;
+    (g as unknown as { rng: () => number }).rng = () => (k++ * 0.37) % 1;
+    const again = g.rerollMod(rifle.uid)!;
+    expect(again.length).toBe(g.modChoices);
+    expect(g.pendingMod(rifle.uid)).toMatchObject({ slot: 1, kind: 'refine', options: again });
+    expect(gold - g.state.gold).toBe(g.modGoldOf(rifle.uid, 'refine'));
+    for (const [m, n] of Object.entries(g.refineCostOf(rifle.uid))) expect(mats[m as MaterialId] - g.state.materials[m as MaterialId]).toBe(n);
+    // Can't pay: the choices stay as they were.
+    g.state.gold = 0;
+    expect(g.canReroll(rifle.uid)).toBe(false);
+    expect(g.rerollMod(rifle.uid)).toBeNull();
+    expect(g.pendingMod(rifle.uid)?.options).toEqual(again);
+  });
+
   it('a roll draws 2 choices (different ones), paid up front; picking one fills the slot; unpicked choices survive a save', () => {
     const g = stocked();
     g.state.gold = 1e30;

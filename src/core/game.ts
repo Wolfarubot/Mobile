@@ -1003,6 +1003,23 @@ export class Game {
     return mod;
   }
 
+  /** The waiting choices can be swapped for a fresh roll (it costs what a roll does). */
+  canReroll(uid: number): boolean {
+    const p = this.pendingMod(uid);
+    return !!p && (p.kind === 'refine' ? this.canRefine(uid, p.slot) : this.canEnchant(uid, p.slot));
+  }
+
+  /** Rolls the waiting slot again, for the same cost as a roll: its choices are replaced by new ones. */
+  rerollMod(uid: number): GearMod[] | null {
+    const item = this.gearItem(uid);
+    const p = item?.pending;
+    if (!item || !p || !this.canReroll(uid)) return null;
+    item.pending = undefined;
+    const options = this.rollMod(uid, p.slot, p.kind);
+    if (!options) item.pending = p;
+    return options;
+  }
+
   /** Refines a slot and takes the first choice (a quick roll; the Modify window lets you pick). */
   refine(uid: number, slot: number): GearMod | null {
     return this.rollMod(uid, slot, 'refine') ? this.chooseMod(uid, 0) : null;

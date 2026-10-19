@@ -1346,40 +1346,58 @@ export class AppUI {
           </div>
           ${!g.refineOpen ? '<p class="refine-note">Recruit Kargesh the Blacksmith (Ember Mines) to Refine.</p>' : ''}
           ${!g.enchantOpen ? '<p class="refine-note">Recruit Marceline the Enchantress (Venom Caverns) to Enchant.</p>' : ''}`;
+        // The choice boxes shake for a second, then each is revealed in turn.
+        const reveal = (kind: 'refine' | 'enchant') => {
+          this.hooks.save();
+          last = null;
+          anim = 'shake';
+          draw();
+          setTimeout(() => {
+            if (!body.isConnected) return;
+            anim = 'reveal';
+            draw();
+            const boxes = Array.from(body.querySelectorAll<HTMLElement>('.mod-choice'));
+            let left = boxes.length;
+            const done = () => {
+              if (--left > 0 || !body.isConnected) return;
+              anim = null;
+              draw();
+            };
+            boxes.forEach((box, i) => setTimeout(() => revealWithPixels(box, REVEAL_PIXELS[kind], kind === 'refine' ? 1 : -1, done), i * 220));
+            if (!boxes.length) done();
+          }, 1000);
+        };
+        // Its cost: some of the piece's recipe, plus golem metals (Refine) or gems (Enchant); a reroll costs the same.
+        const costOf = (kind: 'refine' | 'enchant') => {
+          const row = el('div', 'fc-cost mod-cost');
+          row.innerHTML = recipeHtml(g, kind === 'refine' ? g.refineCostOf(uid) : g.enchantCostOf(uid), g.modGoldOf(uid, kind));
+          return row;
+        };
         if (action && slot !== null && !pending) {
-          const cost = action === 'refine' ? g.refineCostOf(uid) : g.enchantCostOf(uid);
           const go = el('button', 'buy refine-go') as HTMLButtonElement;
           go.innerHTML = `🎲 Roll ${g.modChoices} ${action === 'refine' ? 'Refinements' : 'Enchantments'}`;
           go.disabled = !(action === 'refine' ? g.canRefine(uid, slot) : g.canEnchant(uid, slot));
-          // Its cost: some of the piece's recipe, plus golem metals (Refine) or gems (Enchant).
-          const costRow = el('div', 'fc-cost mod-cost');
-          costRow.innerHTML = recipeHtml(g, cost, g.modGoldOf(uid, action));
-          body.appendChild(costRow);
+          body.appendChild(costOf(action));
           go.addEventListener('click', () => {
             if (slot === null || !action || anim) return;
             const kind = action;
             if (!g.rollMod(uid, slot, kind)) return;
-            this.hooks.save();
-            last = null;
-            // The choice boxes shake for a second, then each is revealed in turn.
-            anim = 'shake';
-            draw();
-            setTimeout(() => {
-              if (!body.isConnected) return;
-              anim = 'reveal';
-              draw();
-              const boxes = Array.from(body.querySelectorAll<HTMLElement>('.mod-choice'));
-              let left = boxes.length;
-              const done = () => {
-                if (--left > 0 || !body.isConnected) return;
-                anim = null;
-                draw();
-              };
-              boxes.forEach((box, i) => setTimeout(() => revealWithPixels(box, REVEAL_PIXELS[kind], kind === 'refine' ? 1 : -1, done), i * 220));
-              if (!boxes.length) done();
-            }, 1000);
+            reveal(kind);
           });
           body.appendChild(go);
+        }
+        // Waiting choices: Reroll swaps them all for a fresh roll, for the same cost, without leaving the window.
+        if (pending && !anim) {
+          const kind = pending.kind;
+          const again = el('button', 'buy refine-go reroll') as HTMLButtonElement;
+          again.innerHTML = `🎲 Reroll ${g.modChoices} ${kind === 'refine' ? 'Refinements' : 'Enchantments'}`;
+          again.disabled = !g.canReroll(uid);
+          again.addEventListener('click', () => {
+            if (anim || !g.rerollMod(uid)) return;
+            reveal(kind);
+          });
+          // Right under the choices it replaces.
+          $('.mod-choices', body).after(costOf(kind), again);
         }
         body.querySelectorAll<HTMLButtonElement>('.mod-choice').forEach((b) =>
           b.addEventListener('click', () => {
