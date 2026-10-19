@@ -5100,3 +5100,105 @@ button.feat-tag {
   justify-content: center;
   line-height: 1;
 }
+
+/*
+ * Equipment in a Hunter's full view (option A): a framed card per slot, the item's icon in a box framed in its
+ * rarity colour, then the slot, name, rarity and stars, and its damage types and stats as chips.
+ */
+.equip-list .eq-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin: 0;
+  padding: 10px;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.eq-ic {
+  width: 56px;
+  height: 56px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--card) !important;
+  border: 3px solid var(--rc, var(--c1));
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--rc, var(--c1)) 35%, transparent);
+  font-size: 26px;
+}
+.eq-ic img {
+  width: 44px;
+  height: 44px;
+  image-rendering: pixelated;
+}
+.eq-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+}
+.eq-slot {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--c1);
+}
+.eq-name {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--c0);
+}
+.eq-rar {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+}
+.eq-rar em {
+  font-style: normal;
+  font-weight: 800;
+  color: color-mix(in srgb, var(--rc) 60%, var(--c0));
+}
+.eq-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+.eq-chips .dtype-tag {
+  margin: 0;
+}
+/* A stat chip: its text centred both ways in the box. */
+.eq-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 22px;
+  padding: 0 7px;
+  border: 2px solid var(--c0);
+  background: var(--c3);
+  color: var(--c0);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+.eq-chev {
+  flex: none;
+  font-size: 22px;
+  color: var(--c1);
+}
+.eq-empty {
+  font-size: 12px;
+  color: var(--c1);
+}
+.eq-card.empty .eq-ic {
+  border-style: dashed;
+  opacity: 0.7;
+}

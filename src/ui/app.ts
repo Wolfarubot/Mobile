@@ -1099,7 +1099,7 @@ export class AppUI {
     const g = this.game;
     const wrap = el('div', 'equip-list');
     const rows = g.slotsOf(who).map((slot, i) => {
-      const b = el('button', 'equip-row') as HTMLButtonElement;
+      const b = el('button', 'card eq-card') as HTMLButtonElement;
       b.addEventListener('click', () => this.openSlotPicker(who, i));
       wrap.appendChild(b);
       return { slot, b };
@@ -1120,11 +1120,14 @@ export class AppUI {
         b.classList.toggle('empty', !it);
         b.classList.toggle('rar', !!it);
         b.style.setProperty('--rc', gd ? gearColor(gd.id) : '');
-        b.innerHTML = `<i>${gd ? gearIcon(gd) : GEAR_KINDS[slot.kind].icon}</i><div><small>${slot.label}</small><b>${gd ? gd.name : 'Empty'}</b><span class="sub">${
+        // Option A: the icon in a rarity-framed box; the slot, name, rarity and stars beside it, then its damage
+        // types and stats as chips.
+        const chips = gd && it ? gearSummary(gd, g.effStars(it, who)).split(', ').filter(Boolean).map((t) => `<span class="eq-chip">${t}</span>`) : [];
+        b.innerHTML = `<span class="eq-ic">${gd ? gearIcon(gd) : GEAR_KINDS[slot.kind].icon}</span><div class="eq-info"><small class="eq-slot">${slot.label}</small><b class="eq-name">${gd ? gd.name : 'Empty'}</b>${
           gd && it
-            ? `${dtypeTag(gd)}${RARITIES[gd.rarity].name} · <span class="stars">${starsHtml(it.stars)}</span>${tuned ? `<span class="tuned" title="Tuned by Reginald the Artificer">+${tuned}★</span>` : ''} · ${gearSummary(gd, g.effStars(it, who))}`
-            : 'Tap to equip'
-        }</span></div><span class="chev">›</span>`;
+            ? `<span class="eq-rar"><em>${RARITIES[gd.rarity].name}</em><span class="stars">${starsHtml(it.stars)}</span>${tuned ? `<span class="tuned" title="Tuned by Reginald the Artificer">+${tuned}★</span>` : ''}</span><div class="eq-chips">${dtypeTag(gd)}${chips.join('')}</div>`
+            : '<span class="eq-empty">Tap to equip</span>'
+        }</div><span class="eq-chev">›</span>`;
       });
       const stats = describeGear(g.gear(who));
       const short = g.slotsOf(who).some((sl) => sl.role === 'short') ? describeGear(g.gear(who, 'short')) : '';
