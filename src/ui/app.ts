@@ -106,6 +106,7 @@ import { applyAreaTheme, applyUiStyle } from './theme';
 import { playCutscene, TIME_EATER_CUTSCENE } from './cutscene';
 import { applyFont, fontDef, FONTS } from './fonts';
 import { GainPops } from './gainPops';
+import { ARCHETYPE_TAG_ICONS, ARMOR_TAG_ICONS, DAMAGE_TAG_ICONS, EFFECT_TAG_ICONS, FEATURE_TAG_ICONS, SPECIAL_TAG_ICON, SUMMON_TAG_ICONS, tagIconHtml } from './tagIcons';
 
 type Tab = TabId;
 /** What treeView needs to draw and drive a skill or evolution tree. */
@@ -518,7 +519,7 @@ export class AppUI {
         setHtml(btn, `🔒 Train<small>Slay ${fmt(Math.min(g.slimeKills, TRAIN_UNLOCK_KILLS))} / ${TRAIN_UNLOCK_KILLS} slimes</small>`);
         btn.disabled = true;
         $('i', bar).style.width = '0%';
-        $('span', bar).textContent = compact ? '' : `Lv ${level}`;
+        $('span', bar).textContent = compact ? '' : `${into}/${need}`;
         return;
       }
       setHtml(btn, p.count === 0 ? (g.ascended(who) ? 'Max level' : `Lv ${level} cap<small>Ascend in Skills</small>`) : `Train${p.count > 1 ? ` ×${p.count}` : ''}<small>🪙 ${fmt(p.cost)}</small>`);
@@ -527,7 +528,7 @@ export class AppUI {
       // The card's bar is just the bar; the numbers are in the full view.
       const capped = p.count === 0;
       $('i', bar).style.width = capped ? '100%' : `${(into / need) * 100}%`;
-      $('span', bar).textContent = compact ? '' : capped ? (g.ascended(who) ? `Lv ${level} · max level` : `Lv ${level} · ascend to go on`) : `Lv ${level} · ${into}/${need} to Lv ${level + 1}`;
+      $('span', bar).textContent = compact ? '' : capped ? (g.ascended(who) ? 'Max' : 'Ascend') : `${into}/${need}`;
     });
     return { btn, bar };
   }
@@ -2294,7 +2295,7 @@ export class AppUI {
       );
       btn.disabled = maxed || !g.empowerUnlocked || g.state.gold < p.cost || !g.isUnlocked(id);
       $('i', bar).style.width = `${(into / need) * 100}%`;
-      $('span', bar).textContent = compact ? '' : maxed ? `Lv ${level} · max level` : `Lv ${level} · ${into}/${need} to Lv ${level + 1}`;
+      $('span', bar).textContent = compact ? '' : maxed ? 'Max' : `${into}/${need}`;
     });
     return { btn, bar };
   }
@@ -2308,7 +2309,7 @@ export class AppUI {
     const view = el('div', 'hunter-detail floating-close');
     view.innerHTML = `
       <div class="hd-scroll">
-        <div class="hd-hero">
+        <div class="hd-hero beast-hero">
           <canvas class="portrait big-portrait"></canvas>
           <div class="hd-title">
             <h2>${def.name}</h2>
@@ -2402,7 +2403,7 @@ export class AppUI {
 
   private buildInventory(): void {
     const bar = el('div', 'subtabs inv-subtabs');
-    bar.innerHTML = `<button data-sub="equipment">🛡️ Equipment</button><button data-sub="crafting">🔨 Crafting <span class="badge dot hidden craft-dot"></span></button><button data-sub="materials">💎 Materials</button>`;
+    bar.innerHTML = `<button data-sub="equipment"><img class="ei" src="${gearIconUrl('shields/057')}" alt="">Equipment</button><button data-sub="crafting">🔨 Crafting <span class="badge dot hidden craft-dot"></span></button><button data-sub="materials">💎 Materials</button>`;
     this.panel.appendChild(bar);
     // Only the open sub-tab is built (late games hold thousands of pieces and hundreds of recipes); switching
     // rebuilds the tab with the other one.
@@ -3930,9 +3931,9 @@ function tweakText(gd: GearDef): string {
 /** Short names for gear effects, for their tags (the full text is in the tag's popup). */
 const EFFECT_TAG: Record<NonNullable<GearDef['effect']>['kind'], string> = { thorns: 'Thorns', block: 'Shield Burst', evade: 'Evasion', pulse: 'Pulse', summon: 'Summoner', wave: 'Wave', strike: 'Lightning Strike', chill: 'Chill Aura' };
 
-/** A tag naming one of a piece's features; tapping it opens a popup with `tip` (HTML) in full. */
+/** A tag naming one of a piece's features (`icon`: a tag icon key); tapping it opens a popup with `tip` (HTML) in full. */
 function featTag(icon: string, name: string, tip: string, color = 'var(--gold)', cls = ''): string {
-  return `<button type="button" class="dtype-tag feat-tag${cls}" style="--dc:${color}" data-tip="${esc(tip)}"><span class="ic">${icon}</span>${name}</button>`;
+  return `<button type="button" class="dtype-tag feat-tag${cls}" style="--dc:${color}" data-tip="${esc(tip)}"><span class="ic">${tagIconHtml(icon)}</span>${name}</button>`;
 }
 
 /** The short name for how a weapon differs from the rest of its class. */
@@ -3949,7 +3950,7 @@ function tweakName(gd: GearDef): string {
 function featureTags(gd: GearDef, stars = 1): string {
   const tags: string[] = [];
   const types = gearTypes(gd);
-  if (gd.special) tags.push(featTag(SPECIAL_TYPE.icon, SPECIAL_TYPE.name, specialText(gd), SPECIAL_TYPE.color, ' special-type'));
+  if (gd.special) tags.push(featTag(SPECIAL_TAG_ICON, SPECIAL_TYPE.name, specialText(gd), SPECIAL_TYPE.color, ' special-type'));
   else
     for (const t of types) {
       const d = DAMAGE_TYPES[t];
@@ -3960,30 +3961,30 @@ function featureTags(gd: GearDef, stars = 1): string {
             ? `Each projectile deals one of its types in turn, at full damage: ${types.map((x) => DAMAGE_TYPES[x].name).join(', ')}.`
             : `Each hit is split evenly between its ${types.length} types: ${types.map((x) => DAMAGE_TYPES[x].name).join(', ')}.`;
       const proc = gd.proc && d.effect ? `<br><b>${Math.round(gd.proc * 100)}%</b> chance per hit · ${d.effect}` : '';
-      tags.push(featTag(d.icon, d.name, how + proc, d.color));
+      tags.push(featTag(DAMAGE_TAG_ICONS[t], d.name, how + proc, d.color));
     }
   if (gd.typeBonus) {
     const d = DAMAGE_TYPES[gd.typeBonus.type];
     const pct = Math.round(gd.typeBonus.bonus * GEAR_STAR_POWER[stars] * 100);
-    tags.push(featTag(d.icon, `+${pct}% ${d.name}`, `+${pct}% ${d.name} damage, whatever deals it.`, d.color));
+    tags.push(featTag(DAMAGE_TAG_ICONS[gd.typeBonus.type], `+${pct}% ${d.name}`, `+${pct}% ${d.name} damage, whatever deals it.`, d.color));
   }
-  if (gd.weaponClass) tags.push(featTag('⚔️', WEAPON_CLASSES[gd.weaponClass].name, WEAPON_CLASSES[gd.weaponClass].describe));
-  if (gd.tweak) tags.push(featTag('🔧', tweakName(gd), tweakText(gd)));
+  if (gd.weaponClass) tags.push(featTag(FEATURE_TAG_ICONS.weapon, WEAPON_CLASSES[gd.weaponClass].name, WEAPON_CLASSES[gd.weaponClass].describe));
+  if (gd.tweak) tags.push(featTag(FEATURE_TAG_ICONS.tweak, tweakName(gd), tweakText(gd)));
   if (gd.weaponClass === 'tome') {
     const st = SUMMON_TYPES[tomeSummonType(gd)];
-    tags.push(featTag(st.icon, st.name, `Summon type: <b>${st.name}</b>. Bonuses to ${st.name} summons make its creatures hit harder.`));
+    tags.push(featTag(SUMMON_TAG_ICONS[tomeSummonType(gd)], st.name, `Summon type: <b>${st.name}</b>. Bonuses to ${st.name} summons make its creatures hit harder.`));
   }
-  if (gd.armorType) tags.push(featTag(ARMOR_TYPES[gd.armorType].icon, ARMOR_TYPES[gd.armorType].name, ARMOR_TYPES[gd.armorType].desc));
-  if (gd.ability) tags.push(featTag('✨', 'Ability', gd.ability));
+  if (gd.armorType) tags.push(featTag(ARMOR_TAG_ICONS[gd.armorType], ARMOR_TYPES[gd.armorType].name, ARMOR_TYPES[gd.armorType].desc));
+  if (gd.ability) tags.push(featTag(FEATURE_TAG_ICONS.ability, 'Ability', gd.ability));
   if (gd.effect)
-    tags.push(featTag('✨', gd.effect.kind === 'summon' ? `${gd.effect.name}s` : EFFECT_TAG[gd.effect.kind], `${describeEffect(gd.effect, stars)}${'base' in gd.effect ? '<br><small>Own damage, raised by your bonuses, not your weapon.</small>' : ''}`));
+    tags.push(featTag(gd.effect.kind === 'summon' ? SUMMON_TAG_ICONS[gd.effect.type] : EFFECT_TAG_ICONS[gd.effect.kind], gd.effect.kind === 'summon' ? `${gd.effect.name}s` : EFFECT_TAG[gd.effect.kind], `${describeEffect(gd.effect, stars)}${'base' in gd.effect ? '<br><small>Own damage, raised by your bonuses, not your weapon.</small>' : ''}`));
   if (gd.bane) {
     const a = ARCHETYPES[gd.bane.archetype];
-    tags.push(featTag(a.icon, `${a.name} Bane`, `+${Math.round(gd.bane.bonus * GEAR_STAR_POWER[stars] * 100)}% damage against ${a.name}s.`));
+    tags.push(featTag(ARCHETYPE_TAG_ICONS[gd.bane.archetype], `${a.name} Bane`, `+${Math.round(gd.bane.bonus * GEAR_STAR_POWER[stars] * 100)}% damage against ${a.name}s.`));
   }
   if (gd.findDrop) {
     const f = gd.findDrop;
-    tags.push(featTag('💎', 'Finder', `At ${f.stars}★: your ${ARCHETYPES[f.archetype].name.toLowerCase()} kills have a ${f.chance * 100}% chance to drop ${materialDef(f.material).name}${stars >= f.stars ? '.' : ` (now ${stars}★).`}`));
+    tags.push(featTag(FEATURE_TAG_ICONS.finder, 'Finder', `At ${f.stars}★: your ${ARCHETYPES[f.archetype].name.toLowerCase()} kills have a ${f.chance * 100}% chance to drop ${materialDef(f.material).name}${stars >= f.stars ? '.' : ` (now ${stars}★).`}`));
   }
   return tags.length ? `<div class="feat-tags">${tags.join('')}</div>` : '';
 }
@@ -4113,7 +4114,7 @@ function affinityHtml(e: EnemyDef, compact = false): string {
 /** A damage type tag whose name can be hidden (icon only) when its row runs out of room. */
 function damageTypeChip(t: DamageType): string {
   const d = DAMAGE_TYPES[t];
-  return `<span class="dtype-tag" style="--dc:${d.color}" title="${d.name}"><span class="ic">${d.icon}</span><span class="dt-name">${d.name}</span></span>`;
+  return `<span class="dtype-tag" style="--dc:${d.color}" title="${d.name}"><span class="ic">${tagIconHtml(DAMAGE_TAG_ICONS[t])}</span><span class="dt-name">${d.name}</span></span>`;
 }
 
 /** Shows a compact affinity row with names if it fits on one line, else icons only. */
@@ -4269,12 +4270,12 @@ function specialText(gd: GearDef): string {
 
 /** The Special damage type's tag (weapons that change elements, or deal too many to list). */
 function specialTypeHtml(): string {
-  return `<span class="dtype-tag special-type" style="--dc:${SPECIAL_TYPE.color}"><span class="ic">${SPECIAL_TYPE.icon}</span>${SPECIAL_TYPE.name}</span>`;
+  return `<span class="dtype-tag special-type" style="--dc:${SPECIAL_TYPE.color}"><span class="ic">${tagIconHtml(SPECIAL_TAG_ICON)}</span>${SPECIAL_TYPE.name}</span>`;
 }
 
 function damageTypeHtml(t: DamageType): string {
   const d = DAMAGE_TYPES[t];
-  return `<span class="dtype-tag" style="--dc:${d.color}"><span class="ic">${d.icon}</span>${d.name}</span>`;
+  return `<span class="dtype-tag" style="--dc:${d.color}"><span class="ic">${tagIconHtml(DAMAGE_TAG_ICONS[t])}</span>${d.name}</span>`;
 }
 
 /** A recipe as one line per material: its gem and name, and how many you hold of how many it takes; gold last. */
