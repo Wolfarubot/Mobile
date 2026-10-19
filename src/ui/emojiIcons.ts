@@ -162,7 +162,7 @@ export const EMOJI_ICONS: Record<string, string> = {
   "🦹": 'ab-rogue-warlock/009',
   "🦺": 'armor6/011',
   "🧊": 'ab-pyro-hydro/083',
-  "🧑": 'ab-hunter-warrior/026',
+  "🧑": 'ab-paladin-dk/013',
   "🧘": 'ab-priest-bard/024',
   "🧙": 'ab-pyro-hydro/003',
   "🧚": 'ab-priest-bard/020',

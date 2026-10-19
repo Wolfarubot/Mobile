@@ -8,7 +8,7 @@ import { hunterDef } from '../core/balance';
  * 🛡️ shields, 🎯 crit…), which keep their own icons.
  */
 export const HUNTER_ICONS: Record<Wearer, string> = {
-  main: 'ab-hunter-warrior/026',
+  main: 'ab-paladin-dk/013',
   alchemist: 'ab-alchemist-shaman/010',
   ranger: 'ab-hunter-warrior/004',
   bard: 'ab-priest-bard/086',
