@@ -95,6 +95,7 @@ import { Game, type FarmRates, type TreeKind } from '../core/game';
 import type { OfflineResult } from '../core/offline';
 import { COOLDOWN_POSITIONS, deserialize, TAB_IDS, type GameState, type GearMod, type BuyAmount, type CooldownPos, type DpsCorner, type FxKey, type IndicatorStyle, type GearItem, type TabId, type Wearer } from '../core/state';
 import { queuePortrait } from '../render/battle';
+import { drawFramedBar, TIMER_COLOR } from '../render/hudBars';
 import { gearIconUrl, spriteUrl } from '../render/sprites';
 import { MATERIAL_SPRITES } from '../core/materialSprites';
 import { GEAR_SPRITES } from '../core/gearSprites';
@@ -912,8 +913,8 @@ export class AppUI {
     const gates = [...new Set(nodes.map((n) => n.row))].flatMap((row) => {
       if (!t.rowGate?.(row)) return [];
       const bar = el('div', 'tree-gate');
-      bar.style.top = `${row * ROW - 18}px`;
-      bar.innerHTML = '<i></i><span></span>';
+      bar.style.top = `${row * ROW - 20}px`;
+      bar.innerHTML = '<canvas></canvas><span></span>';
       tree.appendChild(bar);
       return [{ row, bar }];
     });
@@ -923,7 +924,16 @@ export class AppUI {
         const gt = t.rowGate!(row)!;
         const open = gt.have >= gt.need;
         bar.classList.toggle('hidden', open || (t.hidden ? nodes.filter((n) => n.row === row).every((n) => t.hidden!(n.id)) : false));
-        ($('i', bar) as HTMLElement).style.width = `${Math.min(100, (gt.have / gt.need) * 100)}%`;
+        // The framed bar at 2× its pixels: 10 frame pixels tall, as wide as the row band.
+        const cv = $<HTMLCanvasElement>('canvas', bar);
+        const w = Math.max(30, Math.round(bar.clientWidth / 2));
+        if (cv.width !== w || cv.height !== 10) {
+          cv.width = w;
+          cv.height = 10;
+        }
+        const cg = cv.getContext('2d')!;
+        cg.clearRect(0, 0, w, 10);
+        drawFramedBar(cg, 0, 0, 1, w, 10, gt.have / gt.need, TIMER_COLOR);
         $('span', bar).textContent = `🔒 ${Math.min(gt.have, gt.need)}/${gt.need}`;
       }
       const points = t.points();

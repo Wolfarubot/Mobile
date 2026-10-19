@@ -4823,3 +4823,35 @@ body.ui-parchment .filter-btn:has(> img.ei:first-child),
 body.ui-parchment .buy.ab-equip:has(> img.ei:first-child) {
   padding: 2px 8px 2px 40px !important;
 }
+
+/* Skill tree node names: a framed name plate, not just a coloured square. */
+.tn-name {
+  border: 2px solid var(--c0);
+  border-radius: 0;
+  box-shadow: inset -1px -1px 0 rgba(0, 0, 0, 0.2), inset 1px 1px 0 rgba(255, 255, 255, 0.35), 1px 1px 0 var(--c0);
+  padding: 1px 5px;
+}
+.tree.wide .tn-name {
+  padding: 1px 3px;
+}
+/* Locked rows: the battlefield's framed timer bar, filling with points spent, the count over it. */
+.tree-gate {
+  height: 20px;
+  background: none !important;
+  border: none !important;
+  overflow: visible;
+}
+.tree-gate canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+.tree-gate span {
+  position: relative;
+  line-height: 20px;
+  font-size: 11px;
+  color: #fff;
+  text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
+}
