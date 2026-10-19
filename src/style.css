@@ -4855,3 +4855,37 @@ body.ui-parchment .buy.ab-equip:has(> img.ei:first-child) {
   color: #fff;
   text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
 }
+
+/* An item's features as tappable tags (the full description pops up). */
+.feat-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 6px 0;
+}
+button.feat-tag {
+  margin: 0;
+  border: 0;
+  font-family: inherit;
+  cursor: pointer;
+}
+.feat-tip {
+  position: fixed;
+  z-index: 1000;
+  max-width: min(300px, calc(100vw - 16px));
+  padding: 8px 10px;
+  border: 2px solid var(--dc, var(--gold));
+  background: var(--c0);
+  color: var(--c3);
+  font-size: 12px;
+  line-height: 1.4;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+.feat-tip > b {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--dc, var(--gold));
+}
+.feat-tip > p {
+  margin: 0;
+}

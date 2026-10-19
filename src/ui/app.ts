@@ -1245,9 +1245,8 @@ export class AppUI {
       const worn = g.wearerOf(uid);
       const cost = g.gearUpgradeCost(uid);
       body.innerHTML = `
-        <p>${dtypeTag(gd)}<b class="rarity-tag" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${gearKindName(gd)} · <span class="stars">${starsHtml(item.stars)}</span>${worn ? ` · worn by ${wearerName(worn.who)}` : ''}</p>
-        ${weaponLine(gd, item.stars)}
-        ${gearTypeLines(gd, item.stars)}
+        <p><b class="rarity-tag" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${gearKindName(gd)} · <span class="stars">${starsHtml(item.stars)}</span>${worn ? ` · worn by ${wearerName(worn.who)}` : ''}</p>
+        ${featureTags(gd, item.stars)}
         ${statTable(gd, cost ? [{ label: `Now ${item.stars}★`, stars: item.stars }, { label: `Next ${item.stars + 1}★`, stars: item.stars + 1 }] : [{ label: `${item.stars}★`, stars: item.stars }]) || (gd.effect ? '' : '<p class="gear-now">No bonuses: plain everyday wear.</p>')}
         ${modSlotsHtml(g, uid)}
         ${cost ? `<div class="fc-label">Upgrade cost</div><div class="fc-cost">${recipeHtml(g, cost, g.gearUpgradeGold(uid) ?? 0)}</div>` : Object.keys(gd.stats).length || gd.effect ? '<p>Fully upgraded.</p>' : '<p>Nothing to upgrade.</p>'}`;
@@ -1315,7 +1314,7 @@ export class AppUI {
       for (const m of now.mods ?? []) if (m?.kind === 'refine' && m.stat in GEAR_STATS) total[m.stat as GearStat] = (total[m.stat as GearStat] ?? 0) + modValue(m, gd);
       const hit = weaponHit(gd, now.stars);
       const stats = [hit ? hitText(hit) : '', describeGear(total)].filter(Boolean).join(', ');
-      return `${stats ? `<p class="gear-now"><b>${stats}</b></p>` : ''}${weaponLine(gd, now.stars)}${gearTypeLines(gd, now.stars)}`;
+      return `${stats ? `<p class="gear-now"><b>${stats}</b></p>` : ''}${featureTags(gd, now.stars)}`;
     };
     this.showSheet(`🛠️ Modify ${gearIcon(gd)} ${gd.name}`, (body) => {
       const draw = () => {
@@ -2810,9 +2809,9 @@ export class AppUI {
       <button class="fc-close" aria-label="Close">✕</button>
       <div class="fc-head"><i class="fc-icon" style="--rc:${gd ? gearColor(gd.id) : RARITIES[it!.rarity].color}">${gd ? gearIcon(gd) : upgradeIcon(it!)}</i><div>
         <h3>${name}</h3>
-        <small>${gd ? `<b class="fc-rarity" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${gearKindName(gd).toLowerCase()} ${dtypeTag(gd)}` : `<b class="fc-rarity" style="--rc:${RARITIES[it!.rarity].color}">${RARITIES[it!.rarity].name}</b> upgrade · ${upgradeReach(it!)}`}</small>
+        <small>${gd ? `<b class="fc-rarity" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${gearKindName(gd).toLowerCase()}` : `<b class="fc-rarity" style="--rc:${RARITIES[it!.rarity].color}">${RARITIES[it!.rarity].name}</b> upgrade · ${upgradeReach(it!)}`}</small>
       </div></div>
-      ${gd ? weaponLine(gd) + gearTypeLines(gd, 1) : ''}
+      ${gd ? featureTags(gd) : ''}
       <p class="fc-effect"></p>
       <div class="fc-owned"></div>
       <div class="fc-label">Recipe</div>
@@ -2830,7 +2829,7 @@ export class AppUI {
     const update = () => {
       if (gd) {
         const owned = g.state.inventory.filter((x) => x.base === gd.id).length;
-        $('.fc-effect', card).innerHTML = `${gd.armorType ? `${ARMOR_TYPES[gd.armorType].icon} ${ARMOR_TYPES[gd.armorType].name}` : ''}${statTable(gd, [
+        $('.fc-effect', card).innerHTML = `${statTable(gd, [
           { label: '1★', stars: 1 },
           { label: `${MAX_STARS}★`, stars: MAX_STARS },
         ])}`;
@@ -3928,15 +3927,100 @@ function tweakText(gd: GearDef): string {
   return parts.join('; ');
 }
 
-const weaponLine = (gd: GearDef, stars = 1): string =>
-  (gd.weaponClass ? `<p class="weapon-line">⚔️ ${WEAPON_CLASSES[gd.weaponClass].describe}</p>` : '') +
-  (gd.tweak ? `<p class="weapon-line">🔧 ${tweakText(gd)}</p>` : '') +
-  (gd.weaponClass === 'tome' ? `<p class="weapon-line">${SUMMON_TYPES[tomeSummonType(gd)].icon} Summon type: <b>${SUMMON_TYPES[tomeSummonType(gd)].name}</b></p>` : '') +
-  (gd.armorType ? `<p class="weapon-line">${ARMOR_TYPES[gd.armorType].icon} ${ARMOR_TYPES[gd.armorType].desc}</p>` : '') +
-  (gd.ability ? `<p class="weapon-line">✨ ${gd.ability}</p>` : '') +
-  (gd.bane ? `<p class="weapon-line">${ARCHETYPES[gd.bane.archetype].icon} +${Math.round(gd.bane.bonus * GEAR_STAR_POWER[stars] * 100)}% damage against ${ARCHETYPES[gd.bane.archetype].name}s</p>` : '') +
-  (gd.findDrop ? `<p class="weapon-line">💎 At ${gd.findDrop.stars}★: your ${ARCHETYPES[gd.findDrop.archetype].name.toLowerCase()} kills have a ${gd.findDrop.chance * 100}% chance to drop ${materialDef(gd.findDrop.material).name}${stars >= gd.findDrop.stars ? '' : ` (now ${stars}★)`}</p>` : '') +
-  (gd.effect ? `<p class="weapon-line gear-effect">✨ ${describeEffect(gd.effect, stars)}${'base' in gd.effect ? ' <small>(own damage, raised by your bonuses, not your weapon)</small>' : ''}</p>` : '');
+/** Short names for gear effects, for their tags (the full text is in the tag's popup). */
+const EFFECT_TAG: Record<NonNullable<GearDef['effect']>['kind'], string> = { thorns: 'Thorns', block: 'Shield Burst', evade: 'Evasion', pulse: 'Pulse', summon: 'Summoner', wave: 'Wave', strike: 'Lightning Strike', chill: 'Chill Aura' };
+
+/** A tag naming one of a piece's features; tapping it opens a popup with `tip` (HTML) in full. */
+function featTag(icon: string, name: string, tip: string, color = 'var(--gold)', cls = ''): string {
+  return `<button type="button" class="dtype-tag feat-tag${cls}" style="--dc:${color}" data-tip="${esc(tip)}">${icon} ${name}</button>`;
+}
+
+/** The short name for how a weapon differs from the rest of its class. */
+function tweakName(gd: GearDef): string {
+  const t = gd.tweak!;
+  return t.thrusts ? 'Flurry' : t.bolts ? 'Bolts' : t.wave ? 'Wave Focus' : t.rate && t.rate < 1 ? 'Slow' : 'Quick';
+}
+
+/**
+ * Everything a piece does beyond its stats, as tappable tags (like a monster's elements): its damage types (how it
+ * splits them, their status effects), its weapon class and tweaks, armor kind, own abilities, bane and finds (at
+ * `stars`). Each tag's popup has the full description.
+ */
+function featureTags(gd: GearDef, stars = 1): string {
+  const tags: string[] = [];
+  const types = gearTypes(gd);
+  if (gd.special) tags.push(featTag(SPECIAL_TYPE.icon, SPECIAL_TYPE.name, specialText(gd), SPECIAL_TYPE.color, ' special-type'));
+  else
+    for (const t of types) {
+      const d = DAMAGE_TYPES[t];
+      const how =
+        types.length === 1
+          ? `Deals <b>${d.name}</b> damage.`
+          : gd.perShot
+            ? `Each projectile deals one of its types in turn, at full damage: ${types.map((x) => DAMAGE_TYPES[x].name).join(', ')}.`
+            : `Each hit is split evenly between its ${types.length} types: ${types.map((x) => DAMAGE_TYPES[x].name).join(', ')}.`;
+      const proc = gd.proc && d.effect ? `<br><b>${Math.round(gd.proc * 100)}%</b> chance per hit · ${d.effect}` : '';
+      tags.push(featTag(d.icon, d.name, how + proc, d.color));
+    }
+  if (gd.typeBonus) {
+    const d = DAMAGE_TYPES[gd.typeBonus.type];
+    const pct = Math.round(gd.typeBonus.bonus * GEAR_STAR_POWER[stars] * 100);
+    tags.push(featTag(d.icon, `+${pct}% ${d.name}`, `+${pct}% ${d.name} damage, whatever deals it.`, d.color));
+  }
+  if (gd.weaponClass) tags.push(featTag('⚔️', WEAPON_CLASSES[gd.weaponClass].name, WEAPON_CLASSES[gd.weaponClass].describe));
+  if (gd.tweak) tags.push(featTag('🔧', tweakName(gd), tweakText(gd)));
+  if (gd.weaponClass === 'tome') {
+    const st = SUMMON_TYPES[tomeSummonType(gd)];
+    tags.push(featTag(st.icon, st.name, `Summon type: <b>${st.name}</b>. Bonuses to ${st.name} summons make its creatures hit harder.`));
+  }
+  if (gd.armorType) tags.push(featTag(ARMOR_TYPES[gd.armorType].icon, ARMOR_TYPES[gd.armorType].name, ARMOR_TYPES[gd.armorType].desc));
+  if (gd.ability) tags.push(featTag('✨', 'Ability', gd.ability));
+  if (gd.effect)
+    tags.push(featTag('✨', gd.effect.kind === 'summon' ? `${gd.effect.name}s` : EFFECT_TAG[gd.effect.kind], `${describeEffect(gd.effect, stars)}${'base' in gd.effect ? '<br><small>Own damage, raised by your bonuses, not your weapon.</small>' : ''}`));
+  if (gd.bane) {
+    const a = ARCHETYPES[gd.bane.archetype];
+    tags.push(featTag(a.icon, `${a.name} Bane`, `+${Math.round(gd.bane.bonus * GEAR_STAR_POWER[stars] * 100)}% damage against ${a.name}s.`));
+  }
+  if (gd.findDrop) {
+    const f = gd.findDrop;
+    tags.push(featTag('💎', 'Finder', `At ${f.stars}★: your ${ARCHETYPES[f.archetype].name.toLowerCase()} kills have a ${f.chance * 100}% chance to drop ${materialDef(f.material).name}${stars >= f.stars ? '.' : ` (now ${stars}★).`}`));
+  }
+  return tags.length ? `<div class="feat-tags">${tags.join('')}</div>` : '';
+}
+
+/** Tapping a feature tag opens its popup just under it; the next tap anywhere closes it. */
+if (typeof document !== 'undefined')
+  document.addEventListener(
+    'click',
+    (e) => {
+      const old = document.querySelector<HTMLElement>('.feat-tip');
+      const tag = (e.target as HTMLElement).closest?.<HTMLElement>('.feat-tag');
+      if (old) {
+        old.remove();
+        if (!tag || old.dataset.for === tag.dataset.tip) {
+          e.stopPropagation();
+          e.preventDefault();
+          return;
+        }
+      }
+      if (!tag) return;
+      e.stopPropagation();
+      e.preventDefault();
+      const tip = document.createElement('div');
+      tip.className = 'feat-tip';
+      tip.dataset.for = tag.dataset.tip ?? '';
+      tip.style.setProperty('--dc', tag.style.getPropertyValue('--dc'));
+      tip.innerHTML = `<b>${tag.innerHTML}</b><p>${tag.dataset.tip ?? ''}</p>`;
+      document.body.appendChild(tip);
+      const r = tag.getBoundingClientRect();
+      const w = tip.offsetWidth;
+      const h = tip.offsetHeight;
+      const left = Math.max(8, Math.min(window.innerWidth - w - 8, r.left + r.width / 2 - w / 2));
+      const top = r.bottom + 6 + h > window.innerHeight - 8 ? r.top - h - 6 : r.bottom + 6;
+      Object.assign(tip.style, { left: `${left}px`, top: `${top}px` });
+    },
+    true,
+  );
 
 /** What counts toward unlocking an event: its archetype ("slimes") or any monster. */
 /** The intro line for a minigame that blesses Refine or Enchant: its score tiers and what they do. */
@@ -4125,28 +4209,6 @@ function dtypeTag(gd: GearDef): string {
 function specialText(gd: GearDef): string {
   const types = gearTypes(gd);
   return `${SPECIAL_TYPE.icon} Special: ${gd.perShot ? 'each projectile deals the next element in turn' : 'its hits split between its elements'} (${types.map((t) => DAMAGE_TYPES[t].icon).join('')}), starting with ${DAMAGE_TYPES[types[0]].name}${gd.proc ? `; each can trigger its status effect (${Math.round(gd.proc * 100)}% chance)` : ''}`;
-}
-
-/**
- * What a piece does with its damage types, as lines for its cards (the forge's recipe card, its details): a
- * weapon's Special (changing elements), how a multi-type weapon splits its hits, each type's status effect and the
- * chance it triggers, and a bonus to one type's damage (at `stars`).
- */
-function gearTypeLines(gd: GearDef, stars: number): string {
-  const line = (html: string) => `<p class="weapon-line">${html}</p>`;
-  const types = gearTypes(gd);
-  let out = '';
-  if (gd.special) out += line(specialText(gd));
-  else {
-    if (types.length === 1) out += line(`${DAMAGE_TYPES[types[0]].icon} Deals <b>${DAMAGE_TYPES[types[0]].name}</b> damage`);
-    if (types.length > 1)
-      out += line(
-        `${types.map((t) => DAMAGE_TYPES[t].icon).join('')} ${gd.perShot ? 'Each projectile deals one of its types in turn, at full damage' : `Each hit is split evenly between its ${types.length} types`}: ${types.map((t) => DAMAGE_TYPES[t].name).join(', ')}`,
-      );
-    if (gd.proc) for (const t of types) if (DAMAGE_TYPES[t].effect) out += line(`${DAMAGE_TYPES[t].icon} <b>${Math.round(gd.proc * 100)}%</b> chance per hit · ${DAMAGE_TYPES[t].effect}`);
-  }
-  if (gd.typeBonus) out += line(`${DAMAGE_TYPES[gd.typeBonus.type].icon} +${Math.round(gd.typeBonus.bonus * GEAR_STAR_POWER[stars] * 100)}% ${DAMAGE_TYPES[gd.typeBonus.type].name} damage, whatever deals it`);
-  return out;
 }
 
 /** The Special damage type's tag (weapons that change elements, or deal too many to list). */
