@@ -18,6 +18,20 @@ import { AppUI } from './ui/app';
 import { SamplerHost } from './ui/samplerHost';
 
 const AUTOSAVE_SEC = 10;
+/** The loading screen stays at least this long from launch, and until everything has loaded. */
+const SPLASH_MIN_MS = 3000;
+
+/** Fades out the loading screen (index.html) once fonts and images are in and the game has drawn its first frames. */
+async function hideSplash(): Promise<void> {
+  const splash = document.getElementById('splash');
+  if (!splash) return;
+  const loaded = document.readyState === 'complete' ? Promise.resolve() : new Promise<void>((r) => window.addEventListener('load', () => r(), { once: true }));
+  const frames = new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+  await Promise.all([loaded, document.fonts?.ready, frames]);
+  await new Promise((r) => setTimeout(r, Math.max(0, SPLASH_MIN_MS - performance.now())));
+  splash.classList.add('gone');
+  setTimeout(() => splash.remove(), 500);
+}
 const UI_REFRESH_SEC = 0.15;
 
 async function boot(): Promise<void> {
@@ -83,6 +97,7 @@ async function boot(): Promise<void> {
     requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);
+  void hideSplash();
 
   // Leaving/returning: save on the way out, grant offline progress on the way back.
   let away = false;

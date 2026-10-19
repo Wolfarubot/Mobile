@@ -5,8 +5,68 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#14101f" />
     <title>Pocket Hunter</title>
+    <style>
+      /* The loading screen: inline so it shows before anything else loads; boot removes it (main.ts). */
+      #splash {
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 18px;
+        background: radial-gradient(circle at 50% 40%, #2a2140, #14101f 70%);
+        color: #f4ecd8;
+        font-family: 'Pixelify Sans', 'Courier New', monospace;
+        transition: opacity 0.45s ease-out;
+        padding: env(safe-area-inset-top, 0px) 16px env(safe-area-inset-bottom, 0px);
+      }
+      #splash.gone {
+        opacity: 0;
+        pointer-events: none;
+      }
+      #splash .sp-title {
+        font-size: 44px;
+        font-weight: 700;
+        letter-spacing: 1px;
+        text-shadow: 3px 3px 0 #000;
+        text-align: center;
+      }
+      #splash .sp-sword {
+        width: 96px;
+        height: 96px;
+        image-rendering: pixelated;
+        filter: drop-shadow(3px 3px 0 #000);
+        animation: sp-bob 1.6s ease-in-out infinite;
+      }
+      #splash .sp-by {
+        position: absolute;
+        bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+        left: 0;
+        right: 0;
+        text-align: center;
+        font-size: 15px;
+        color: #c9bfa8;
+        letter-spacing: 0.5px;
+      }
+      @keyframes sp-bob {
+        0%,
+        100% {
+          transform: translateY(0);
+        }
+        50% {
+          transform: translateY(-6px);
+        }
+      }
+    </style>
   </head>
   <body>
+    <div id="splash" aria-label="Loading">
+      <div class="sp-title">Pocket Hunter</div>
+      <img class="sp-sword" src="./icons/weapons/015.png" alt="" />
+      <div class="sp-by">By Variette Studios</div>
+    </div>
     <div id="app">
       <header class="topbar">
         <div class="stat gold"><span>🪙</span><b id="gold">0</b></div>
