@@ -5202,3 +5202,64 @@ button.feat-tag {
   border-style: dashed;
   opacity: 0.7;
 }
+/* Modifier tiles on an equipment card: Refines framed grey, Enchants violet; "…" when more than fit. */
+.eq-chip.mod-refine {
+  border-color: #8a8f96;
+  background: color-mix(in srgb, #8a8f96 22%, var(--c3));
+  box-shadow: inset 0 0 0 1px #c4c8cc;
+}
+.eq-chip.mod-enchant {
+  border-color: #8b5cf6;
+  background: color-mix(in srgb, #8b5cf6 18%, var(--c3));
+  box-shadow: inset 0 0 0 1px #c4a8ff;
+  color: #3b1f7a;
+}
+.eq-chip.eq-more {
+  min-width: 26px;
+  font-size: 13px;
+  letter-spacing: 0.05em;
+}
+
+/* The equipped tap ability on your Hunter's Overview, and the list behind Change. */
+.ability-card .ab-face {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.sheet-body .ability-card + .ability-card {
+  margin-top: 8px;
+}
+/* Modifier tiles on an equipment card: Refines framed grey, Enchants violet; "…" when more than fit. */
+.eq-chip.mod-refine {
+  border-color: #8a8f96;
+  background: color-mix(in srgb, #8a8f96 22%, var(--c3));
+  box-shadow: inset 0 0 0 1px #c4c8cc;
+}
+.eq-chip.mod-enchant {
+  border-color: #8b5cf6;
+  background: color-mix(in srgb, #8b5cf6 18%, var(--c3));
+  box-shadow: inset 0 0 0 1px #c4a8ff;
+  color: #3b1f7a;
+}
+.eq-chip.eq-more {
+  min-width: 26px;
+  font-size: 13px;
+  letter-spacing: 0.05em;
+}
+
+/* The equipped tap ability on your Hunter's Overview, and the list behind Change. */
+.ability-card .ab-face {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.sheet-body .ability-card + .ability-card {
+  margin-top: 8px;
+}
+.eq-chips > .folded {
+  display: none !important;
+}

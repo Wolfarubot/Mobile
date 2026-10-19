@@ -996,42 +996,54 @@ export class AppUI {
     });
   }
 
-  /** Your Hunter's tap abilities: the plain blast, then each elemental one (locked until learned in the tree). */
+  /**
+   * Your Hunter's tap ability: just the one equipped, with a Change button that opens the list of those unlocked
+   * (the plain blast, then each elemental one learned in the tree).
+   */
   private abilitiesList(): HTMLElement {
     const g = this.game;
     const wrap = el('div', 'abilities');
     wrap.appendChild(sectionTitle('Tap Abilities'));
-    wrap.appendChild(el('p', 'hd-note', 'Tapping the battlefield sets off a blast. Equip an ability to change its element and effect. Unlock more in the Skills tab.'));
-    const rows: Array<{ id: TapAbilityId | null; btn: HTMLButtonElement; card: HTMLElement }> = [];
-    const add = (id: TapAbilityId | null, icon: string, name: string, desc: string) => {
-      const card = el('div', 'card ability-card');
-      card.innerHTML = `<div class="ab-icon">${icon}</div><div class="ab-info"><div class="ab-name">${name}</div><p>${desc}</p></div>`;
-      const btn = el('button', 'buy ab-equip') as HTMLButtonElement;
-      btn.addEventListener('click', () => {
-        if (g.setTapAbility(id)) {
-          this.hooks.save();
-          this.refresh();
-        }
-      });
-      card.appendChild(btn);
-      wrap.appendChild(card);
-      rows.push({ id, btn, card });
-    };
-    add(null, '💥', 'Blast', "A plain blast in your weapon's damage type.");
-    for (const a of TAP_ABILITIES) {
+    const info = (id: TapAbilityId | null): { icon: string; name: string; desc: string } => {
+      const a = id && TAP_ABILITIES.find((t) => t.id === id);
+      if (!a) return { icon: '💥', name: 'Blast', desc: "A plain blast in your weapon's damage type." };
       const dt = DAMAGE_TYPES[a.damageType];
-      add(a.id, a.icon, a.name, `${a.desc} <span style="color:${dt.color}">${dt.icon} ${dt.name}</span>`);
-    }
+      return { icon: a.icon, name: a.name, desc: `${a.desc} <span style="color:${dt.color}">${dt.icon} ${dt.name}</span>` };
+    };
+    const cardHtml = (id: TapAbilityId | null) => {
+      const i = info(id);
+      return `<div class="ab-icon">${i.icon}</div><div class="ab-info"><div class="ab-name">${i.name}</div><p>${i.desc}</p></div>`;
+    };
+    const card = el('div', 'card ability-card');
+    const face = el('div', 'ab-face');
+    const change = el('button', 'buy ab-equip', 'Change') as HTMLButtonElement;
+    card.append(face, change);
+    wrap.appendChild(card);
+    change.addEventListener('click', () =>
+      this.showSheet('Tap Abilities', (body, close) => {
+        for (const id of [null, ...TAP_ABILITIES.map((t) => t.id)] as Array<TapAbilityId | null>) {
+          if (id !== null && !g.tapAbilityUnlocked(id)) continue;
+          const row = el('div', `card ability-card${id === g.tapAbility ? ' equipped' : ''}`);
+          row.innerHTML = cardHtml(id);
+          const btn = el('button', 'buy ab-equip', id === g.tapAbility ? 'Equipped' : 'Equip') as HTMLButtonElement;
+          btn.disabled = id === g.tapAbility;
+          btn.addEventListener('click', () => {
+            if (!g.setTapAbility(id)) return;
+            this.hooks.save();
+            this.refresh();
+            close();
+          });
+          row.appendChild(btn);
+          body.appendChild(row);
+        }
+        body.appendChild(el('p', 'hd-note', 'Unlock more in the Skills tab.'));
+      }),
+    );
+    let shown: TapAbilityId | null | undefined;
     this.refreshers.push(() => {
-      const on = g.tapAbility;
-      for (const r of rows) {
-        const unlocked = r.id === null || g.tapAbilityUnlocked(r.id);
-        const equipped = r.id === on;
-        r.card.classList.toggle('equipped', equipped);
-        r.card.classList.toggle('locked', !unlocked);
-        r.btn.textContent = equipped ? 'Equipped' : unlocked ? 'Equip' : '🔒 Skill tree';
-        r.btn.disabled = equipped || !unlocked;
-      }
+      if (shown === g.tapAbility) return;
+      shown = g.tapAbility;
+      face.innerHTML = cardHtml(shown);
     });
     return wrap;
   }
@@ -1111,7 +1123,7 @@ export class AppUI {
       const items = g.equipped(who);
       // Reginald the Artificer in their area: the gear works a star better (shown as +1★, and its stats at that).
       const tuned = g.tinkerFor(who);
-      const k = `${tuned};` + items.map((it) => (it ? `${it.uid}:${it.stars}` : '-')).join('|');
+      const k = `${tuned};` + items.map((it) => (it ? `${it.uid}:${it.stars}:${JSON.stringify(it.mods ?? [])}` : '-')).join('|');
       if (k === key) return;
       key = k;
       rows.forEach(({ slot, b }, i) => {
@@ -1123,12 +1135,18 @@ export class AppUI {
         // Option A: the icon in a rarity-framed box; the slot, name, rarity and stars beside it, then its damage
         // types and stats as chips.
         const chips = gd && it ? gearSummary(gd, g.effStars(it, who)).split(', ').filter(Boolean).map((t) => `<span class="eq-chip">${t}</span>`) : [];
+        // Its modifiers after its stats: Refines on grey tiles, Enchants on violet ones.
+        if (gd && it)
+          for (const m of it.mods ?? [])
+            if (m) chips.push(m.kind === 'refine' ? `<span class="eq-chip mod-refine">${REFINES[m.stat].text(modValue(m, gd))}</span>` : `<span class="eq-chip mod-enchant">${ENCHANTS[m.id].name}</span>`);
         b.innerHTML = `<span class="eq-ic">${gd ? gearIcon(gd) : GEAR_KINDS[slot.kind].icon}</span><div class="eq-info"><small class="eq-slot">${slot.label}</small><b class="eq-name">${gd ? gd.name : 'Empty'}</b>${
           gd && it
             ? `<span class="eq-rar"><em>${RARITIES[gd.rarity].name}</em><span class="stars">${starsHtml(it.stars)}</span>${tuned ? `<span class="tuned" title="Tuned by Reginald the Artificer">+${tuned}★</span>` : ''}</span><div class="eq-chips">${dtypeTag(gd)}${chips.join('')}</div>`
             : '<span class="eq-empty">Tap to equip</span>'
         }</div><span class="eq-chev">›</span>`;
       });
+      // Tiles past two rows fold into a "…" tile (the rest are in the item's details).
+      requestAnimationFrame(() => rows.forEach(({ b }) => foldChips(b.querySelector<HTMLElement>('.eq-chips'))));
       const stats = describeGear(g.gear(who));
       const short = g.slotsOf(who).some((sl) => sl.role === 'short') ? describeGear(g.gear(who, 'short')) : '';
       summary.textContent = stats || short ? `Total: ${stats || 'nothing yet'}${short ? ` · pistols: ${short}` : ''}` : '';
@@ -3935,6 +3953,26 @@ function tweakText(gd: GearDef): string {
 
 /** Short names for gear effects, for their tags (the full text is in the tag's popup). */
 const EFFECT_TAG: Record<NonNullable<GearDef['effect']>['kind'], string> = { thorns: 'Thorns', block: 'Shield Burst', evade: 'Evasion', pulse: 'Pulse', summon: 'Summoner', wave: 'Wave', strike: 'Lightning Strike', chill: 'Chill Aura' };
+
+/** Keeps a row of tiles to two lines: the tiles past them are hidden and the last one shown becomes "...". */
+function foldChips(box: HTMLElement | null): void {
+  if (!box) return;
+  const tiles = Array.from(box.children) as HTMLElement[];
+  tiles.forEach((t) => t.classList.remove('folded'));
+  box.querySelector('.eq-more')?.remove();
+  // Which line a tile sits on, by its middle (tiles on one line differ in height, so their tops differ too).
+  const mid = (t: HTMLElement) => t.offsetTop + t.offsetHeight / 2;
+  const lines: number[] = [];
+  for (const m of tiles.map(mid).sort((a, b) => a - b)) if (!lines.length || m - lines[lines.length - 1] > 8) lines.push(m);
+  if (lines.length <= 2) return;
+  const limit = lines[1] + 8;
+  const shown = tiles.filter((t) => mid(t) <= limit);
+  tiles.filter((t) => mid(t) > limit).forEach((t) => t.classList.add('folded'));
+  const more = el('span', 'eq-chip eq-more', '...');
+  box.appendChild(more);
+  // Make room for it on the second line.
+  for (let i = shown.length - 1; i > 0 && mid(more) > limit; i--) shown[i].classList.add('folded');
+}
 
 /** A tag naming one of a piece's features (`icon`: a tag icon key); tapping it opens a popup with `tip` (HTML) in full. */
 function featTag(icon: string, name: string, tip: string, color = 'var(--gold)', cls = ''): string {
