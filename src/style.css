@@ -4464,6 +4464,33 @@ body.ui-parchment .hunter-dock .buy {
   width: 44px;
   height: 40px;
 }
+/* A monster you haven't unlocked yet: a grey square, its portrait in greyscale. */
+.beast-tile.beast-locked {
+  background: #5a5a5a;
+  background-image: none;
+  border-color: #8a8a8a;
+  color: #d8d8d8;
+}
+.beast-tile.beast-locked .bt-portrait {
+  filter: grayscale(1) brightness(0.8);
+}
+.beast-tile.beast-locked .ht-lv {
+  color: #e8e8e8;
+}
+/* Enough gold to unlock it: a silver outline that pulses (the gold one means it can be Empowered). */
+.beast-tile.unlockable {
+  border-color: #e8eef4;
+  animation: unlock-glow 1.4s ease-in-out infinite;
+}
+@keyframes unlock-glow {
+  0%,
+  100% {
+    box-shadow: 3px 3px 0 var(--c0), 0 0 4px 1px rgba(232, 238, 244, 0.5);
+  }
+  50% {
+    box-shadow: 3px 3px 0 var(--c0), 0 0 12px 4px #e8eef4;
+  }
+}
 
 /* ---- Minigames: full-screen, over everything ---- */
 .minigame {

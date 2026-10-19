@@ -2114,8 +2114,12 @@ export class AppUI {
           dot.classList.toggle('hidden', points <= 0);
         } else {
           lv.textContent = 'Unlock';
-          ready = g.state.gold >= enemyUnlockCost(def);
+          ready = false;
         }
+        // Still locked: a greyed-out square, with a silver (not gold) outline once you can afford to unlock it.
+        const locked = !g.state.bestiary[def.id].unlocked;
+        tile.classList.toggle('beast-locked', locked);
+        tile.classList.toggle('unlockable', locked && g.state.gold >= enemyUnlockCost(def));
         tile.classList.toggle('ready', ready);
       }
     });
