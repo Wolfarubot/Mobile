@@ -3785,25 +3785,25 @@ export class AppUI {
       .map(([m, n]) => `<div class="offline-mat" title="${materialDef(m).name}">${gemHtml(m)}<span>${materialDef(m).name}</span><b>+${fmt(n)}</b></div>`)
       .join('');
     const RARITY_KEYS = Object.keys(RARITIES) as Rarity[];
-    // Loot drops by piece: how many came in, and how many of those Auto Salvage turned into materials.
-    const pieces = new Map<GearId, { n: number; salvaged: number }>();
-    for (const l of r.loot) {
-      const e = pieces.get(l.gear) ?? { n: 0, salvaged: 0 };
-      e.n++;
-      if (l.salvaged) e.salvaged++;
-      pieces.set(l.gear, e);
-    }
-    const loot = [...pieces.entries()]
-      .sort((a, b) => RARITY_KEYS.indexOf(gearDef(b[0]).rarity) - RARITY_KEYS.indexOf(gearDef(a[0]).rarity))
-      .map(([id, e]) => {
-        const gd = gearDef(id);
-        return `<div class="offline-mat" style="--rc:${gearColor(id)}">${gearIcon(gd)}<span style="color:var(--rc)">${gd.name}</span><b>×${e.n}${e.salvaged ? ` <small>· ${e.salvaged === e.n ? 'salvaged' : `${e.salvaged} salvaged`}</small>` : ''}</b></div>`;
-      })
-      .join('');
+    // Loot drops by piece, rarest first: the pieces kept, and apart from them the ones Auto Salvage turned into materials.
+    const lootTiles = (salvaged: boolean): string => {
+      const pieces = new Map<GearId, number>();
+      for (const l of r.loot) if (l.salvaged === salvaged) pieces.set(l.gear, (pieces.get(l.gear) ?? 0) + 1);
+      return [...pieces.entries()]
+        .sort((a, b) => RARITY_KEYS.indexOf(gearDef(b[0]).rarity) - RARITY_KEYS.indexOf(gearDef(a[0]).rarity))
+        .map(([id, n]) => {
+          const gd = gearDef(id);
+          return `<div class="offline-mat" style="--rc:${gearColor(id)}" title="${gd.name}">${gearIcon(gd)}<span style="color:var(--rc)">${gd.name}</span><b>×${n}</b></div>`;
+        })
+        .join('');
+    };
+    const loot = lootTiles(false);
+    const salvaged = lootTiles(true);
     this.modal.innerHTML = `<div class="modal-box fullpage"><h2>While you were away</h2><div class="sheet-body">
       <p class="offline-total">${fmtTime(r.away)} away · 🪙 ${fmt(r.gold)} · ⚔️ ${fmt(r.kills)} monsters slain</p>
       ${mats ? `<h3>Materials</h3><div class="offline-mats all">${mats}</div>` : ''}
-      ${loot ? `<h3>Loot drops</h3><div class="offline-mats all offline-loot-list">${loot}</div>` : ''}
+      ${loot ? `<h3>Loot drops</h3><div class="offline-mats all">${loot}</div>` : ''}
+      ${salvaged ? `<h3>Salvaged equipment</h3><div class="offline-mats all">${salvaged}</div>` : ''}
       <h3>By area</h3><div class="offline-areas">${rows}</div>
       ${r.knockouts > 0 ? '<p class="ko-tip">Knocked-out Hunters stop fighting. Get stronger (or pick an easier area) to keep monsters from slipping through.</p>' : ''}
     </div><div class="buttons"></div></div>`;

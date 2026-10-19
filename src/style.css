@@ -4763,10 +4763,6 @@ body.ui-parchment .tabs button.active {
 }
 
 /* Offline Details: loot drops one piece per line (names are long, and salvaged pieces say so). */
-.offline-mats.offline-loot-list {
-  grid-template-columns: 1fr;
-}
-
 /* ---- Buttons with an icon and text: the icon sits on the left in its own bordered box; the text is centred in the rest ---- */
 .subtabs button:has(> img.ei:first-child),
 .filter-btn:has(> img.ei:first-child),
