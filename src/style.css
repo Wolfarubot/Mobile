@@ -4965,42 +4965,119 @@ button.feat-tag {
   vertical-align: -3px;
 }
 
-/* A monster's full view: a header with its portrait framed and its name, tags and location on a panel of their own. */
-.beast-hero {
+/*
+ * The header of a monster's or Hunter's full view: the portrait in a frame of its own (a monster stands on its
+ * area's ground), and beside it a plate with the name centred, a rule under it, then level and location.
+ */
+.hero-head {
   align-items: stretch;
   gap: 10px;
-  margin-bottom: 4px;
 }
-.beast-hero .big-portrait {
+.hero-head .big-portrait,
+.hero-head .hunter-art.big {
   width: 96px;
   height: 96px;
+  flex: none;
   border: 3px solid var(--c0);
   border-radius: 0;
   background: var(--card);
-  box-shadow: inset 0 0 0 2px var(--c2), 2px 2px 0 rgba(0, 0, 0, 0.35);
+  box-shadow: 0 0 0 2px var(--c2), 3px 3px 0 2px rgba(0, 0, 0, 0.35);
+  margin: 2px;
 }
-.beast-hero .hd-title {
+.hero-plate {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 3px;
-  padding: 6px 10px;
+  align-items: center;
+  text-align: center;
+  padding: 8px 10px;
+  margin: 2px;
   border: 3px solid var(--c0);
   background: var(--card);
-  box-shadow: inset 0 0 0 2px var(--c2), 2px 2px 0 rgba(0, 0, 0, 0.35);
+  box-shadow: 0 0 0 2px var(--c2), 3px 3px 0 2px rgba(0, 0, 0, 0.35);
 }
-.beast-hero .hd-title h2 {
+.hero-plate h2 {
+  align-self: stretch;
+  margin: 0 0 6px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid color-mix(in srgb, var(--c0) 30%, transparent);
   font-size: 22px;
+  line-height: 1.1;
   color: var(--c0) !important;
 }
-.beast-hero .hd-sub,
-.beast-hero .beast-tags {
+.hero-plate .hd-sub {
+  align-items: center;
+  gap: 3px;
+  margin: 0;
   color: var(--c1) !important;
 }
-.beast-hero .hd-sub .where {
+.hero-plate .hd-sub .where,
+.hero-plate .hd-sub span {
   color: var(--c1) !important;
+}
+.hero-plate .hd-sub .perk {
+  color: color-mix(in srgb, var(--gold) 55%, var(--c0)) !important;
+}
+.hero-plate .hd-sub .where-btn {
+  color: var(--c3) !important;
+}
+.hero-plate .beast-tags {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 5px;
+}
+.hero-plate .beast-tag {
+  margin: 0;
+}
+
+/*
+ * Under the header: the description and (for monsters) the drops, each on its own quiet panel (a dark wash with
+ * an accent down the left, no frame), so they read as two notes rather than more boxes.
+ */
+.hero-lore {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0 8px;
+}
+.lore-text,
+.lore-drops {
+  margin: 0;
+  padding: 8px 12px;
+  background: color-mix(in srgb, var(--c0) 55%, transparent);
+  border-left: 4px solid var(--gold);
+  color: var(--on-bg, var(--c3));
+  font-size: 14px;
+  line-height: 1.4;
+}
+.lore-drops {
+  border-left-color: var(--c2);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 13px;
+}
+.lore-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--c2);
+}
+.lore-drop {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.lore-drop small {
+  font-weight: 700;
+}
+.lore-gear {
+  color: color-mix(in srgb, var(--on-bg, var(--c3)) 75%, transparent);
+  font-style: italic;
 }
 
 /* Training and Empower bars: the progress ("5/6") centred both ways, whatever the bar's height and border. */

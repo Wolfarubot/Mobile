@@ -646,14 +646,14 @@ export class AppUI {
     const view = el('div', 'hunter-detail floating-close');
     view.innerHTML = `
       <div class="hd-scroll">
-        <div class="hd-hero">
+        <div class="hd-hero hero-head">
           ${portraitHtml(who, 'big')}
-          <div class="hd-title">
+          <div class="hd-title hero-plate">
             <h2>${def ? def.name : esc(mainName())}</h2>
             <div class="hd-sub"></div>
           </div>
         </div>
-        <p class="hd-ability">${def ? def.ability : MAIN_ABILITY}</p>
+        <div class="hero-lore"><p class="lore-text">${def ? def.ability : MAIN_ABILITY}</p></div>
         <div class="subtabs">
           <button data-sub="overview">📊 Overview</button>
           <button data-sub="skills">🌳 Skills <b class="sp-count hidden"></b></button>
@@ -2309,21 +2309,23 @@ export class AppUI {
     const view = el('div', 'hunter-detail floating-close');
     view.innerHTML = `
       <div class="hd-scroll">
-        <div class="hd-hero beast-hero">
+        <div class="hd-hero hero-head">
           <canvas class="portrait big-portrait"></canvas>
-          <div class="hd-title">
+          <div class="hd-title hero-plate">
             <h2>${def.name}</h2>
-            <div class="beast-tags">${beastTags(def)}</div>
             <div class="hd-sub"></div>
+            ${beastTags(def) ? `<div class="beast-tags">${beastTags(def)}</div>` : ''}
           </div>
         </div>
-        <p class="hd-ability">${def.blurb}</p>
-        ${dropHtml(def)}
+        <div class="hero-lore">
+          <p class="lore-text">${def.blurb}</p>
+          <div class="lore-drops"><div class="lore-label">Drops</div>${dropListHtml(def)}</div>
+        </div>
         ${affinityHtml(def)}
       </div>
       <button class="hd-close hd-float-close" aria-label="Close">✕</button>`;
     document.body.appendChild(view);
-    queuePortrait($<HTMLCanvasElement>('canvas', view), id);
+    queuePortrait($<HTMLCanvasElement>('canvas', view), id, def.area);
     $('.hd-close', view).addEventListener('click', () => this.closeHunterDetail());
     this.detail = { el: view, refreshers: [] };
     const scroll = $('.hd-scroll', view);
@@ -2379,7 +2381,7 @@ export class AppUI {
       const st = g.enemyStats(id);
       const evo = g.evo(id);
       const [lo, hi] = g.packOf(id);
-      $('.hd-sub', view).innerHTML = `<span>${arch.icon} ${arch.name} · Lv ${g.monsterLevelInfo(id).level}</span><span class="where">📍 ${areaDef(def.area).name}</span>`;
+      $('.hd-sub', view).innerHTML = `<span>${arch.name} · Lv ${g.monsterLevelInfo(id).level}</span><span class="where">${areaDef(def.area).name}</span>`;
       const cells: Array<[string, string]> = [
         ['Slain', fmt(g.state.bestiary[id].kills)],
         ['HP', fmt(st.hp)],
@@ -4092,6 +4094,17 @@ function dropsText(e: EnemyDef): string {
 function beastTags(def: EnemyDef): string {
   const tags = [FLYING.has(def.id) ? '<span class="beast-tag flying" title="Flies over rocks, trees and graves">Flying</span>' : '', def.ranged ? '<span class="beast-tag ranged" title="Shoots projectiles from afar">Ranged</span>' : ''];
   return tags.join('');
+}
+
+/** A monster's drops, one per line (rarer ones tagged with how rare), and whether it can carry gear. */
+function dropListHtml(e: EnemyDef): string {
+  const rows = [`<div class="lore-drop">${gemHtml(e.material)}<b>${materialDef(e.material).name}</b></div>`];
+  for (const d of enemyExtraDrops(e)) {
+    const r = dropRarity(d.share);
+    rows.push(`<div class="lore-drop">${gemHtml(d.material)}<b>${materialDef(d.material).name}</b>${r === 'common' ? '' : `<small style="color:${RARITIES[r].color}">${RARITIES[r].name}</small>`}</div>`);
+  }
+  if (lootChance(e.id) > 0) rows.push('<div class="lore-drop lore-gear">Can also carry gear</div>');
+  return rows.join('');
 }
 
 function dropHtml(e: EnemyDef): string {
