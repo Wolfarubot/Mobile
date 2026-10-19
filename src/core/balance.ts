@@ -164,7 +164,7 @@ export interface TreeNode<S extends string = string> {
   /** Grid position in the tree: column 0–2 (0–4 in your Hunter's trees; halves like 1.5 stagger a row), row from the top. */
   col: number;
   row: number;
-  /** Your Hunter: the tap ability this node unlocks (equip it in the Abilities tab). */
+  /** Your Hunter: the tap ability this node unlocks (equip it under Tap Abilities on the Overview). */
   ability?: TapAbilityId;
   /** A monster's capstone: every monster of its archetype gains this drop (a share of its drop chance). */
   legacy?: { material: MaterialId; share: number };
@@ -195,7 +195,7 @@ function skillTree(root: NodeSpec, branches: [NodeSpec, NodeSpec, NodeSpec], cap
   ];
 }
 
-// ---- Your Hunter: tap abilities, unlocked in the skill tree and swapped in the Abilities tab ----
+// ---- Your Hunter: tap abilities, unlocked in the skill tree and swapped under Tap Abilities on the Overview ----
 
 export type TapAbilityId = 'flame' | 'thunder' | 'frost';
 
@@ -223,9 +223,9 @@ export const FROST_TAP_CHILL = 3;
 
 /** Your Hunter's ability nodes: one point each, under the first three signature nodes, above Apex Hunter. */
 const MAIN_ABILITY_NODES: SkillNode[] = [
-  { id: 'flameTap', name: 'Flame Burst', icon: '🔥', desc: 'Unlocks the Flame Burst tap ability: taps deal Fire damage and set monsters ablaze. Equip it in the Abilities tab.', maxRank: 1, effect: {}, ability: 'flame', requires: ['power2'], col: 0, row: 3 },
-  { id: 'thunderTap', name: 'Thunderclap', icon: '⚡', desc: 'Unlocks the Thunderclap tap ability: taps deal Lightning damage and arc to monsters nearby. Equip it in the Abilities tab.', maxRank: 1, effect: {}, ability: 'thunder', requires: ['speed2'], col: 1, row: 3 },
-  { id: 'frostTap', name: 'Frost Nova', icon: '❄️', desc: 'Unlocks the Frost Nova tap ability: taps deal Frost damage and chill monsters. Equip it in the Abilities tab.', maxRank: 1, effect: {}, ability: 'frost', requires: ['recovery2'], col: 2, row: 3 },
+  { id: 'flameTap', name: 'Flame Burst', icon: '🔥', desc: 'Unlocks the Flame Burst tap ability: taps deal Fire damage and set monsters ablaze. Equip it under Tap Abilities on your Overview.', maxRank: 1, effect: {}, ability: 'flame', requires: ['power2'], col: 0, row: 3 },
+  { id: 'thunderTap', name: 'Thunderclap', icon: '⚡', desc: 'Unlocks the Thunderclap tap ability: taps deal Lightning damage and arc to monsters nearby. Equip it under Tap Abilities on your Overview.', maxRank: 1, effect: {}, ability: 'thunder', requires: ['speed2'], col: 1, row: 3 },
+  { id: 'frostTap', name: 'Frost Nova', icon: '❄️', desc: 'Unlocks the Frost Nova tap ability: taps deal Frost damage and chill monsters. Equip it under Tap Abilities on your Overview.', maxRank: 1, effect: {}, ability: 'frost', requires: ['recovery2'], col: 2, row: 3 },
 ];
 
 // ---- Your Hunter: a longer first tree (Lv 90), Ascend at Lv 100 to become the Slayer, then on to Lv 200 ----

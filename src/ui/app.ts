@@ -637,7 +637,7 @@ export class AppUI {
    * branching skill tree) and, for your Hunter, Abilities (tap abilities unlocked in the tree, swapped here).
    * Closing returns to the battlefield.
    */
-  private openHunterDetail(who: Wearer, sub: 'overview' | 'skills' | 'abilities' = 'overview'): void {
+  private openHunterDetail(who: Wearer, sub: 'overview' | 'skills' = 'overview'): void {
     if (this.detail) this.dropDetail();
     const g = this.game;
     const def = who === 'main' ? null : hunterDef(who);
@@ -655,11 +655,9 @@ export class AppUI {
         <div class="subtabs">
           <button data-sub="overview">📊 Overview</button>
           <button data-sub="skills">🌳 Skills <b class="sp-count hidden"></b></button>
-          ${def ? '' : '<button data-sub="abilities">✨ Abilities</button>'}
         </div>
         <div class="hd-body" data-sub="overview"></div>
         <div class="hd-body" data-sub="skills"></div>
-        ${def ? '' : '<div class="hd-body" data-sub="abilities"></div>'}
       </div>
       <button class="hd-close hd-float-close" aria-label="Close">✕</button>`;
     document.body.appendChild(view);
@@ -698,6 +696,8 @@ export class AppUI {
     overview.appendChild(sectionTitle('Equipment'));
     if (recruited) overview.appendChild(this.equipmentList(who));
     else overview.appendChild(el('p', 'hd-note', `Slots: ${g.slotsOf(who).map((sl) => `${GEAR_KINDS[sl.kind].icon} ${sl.label}`).join(' · ')}. Recruit them to equip gear.`));
+    // Your Hunter: their tap abilities, right under their equipment.
+    if (!def) overview.appendChild(this.abilitiesList());
     overview.appendChild(sectionTitle(recruited ? 'Stats' : 'Stats when recruited'));
     const headline = el('div', 'hd-stats hd-headline');
     overview.appendChild(headline);
@@ -724,7 +724,6 @@ export class AppUI {
     }
 
     // Abilities (your Hunter): tap abilities unlocked in the skill tree; one is equipped at a time.
-    if (!def) pane('abilities').appendChild(this.abilitiesList());
 
     // Skills: once they've ascended, a switch at the top flips between the new tree and the first one.
     const skills = pane('skills');
@@ -990,7 +989,7 @@ export class AppUI {
   private abilitiesList(): HTMLElement {
     const g = this.game;
     const wrap = el('div', 'abilities');
-    wrap.appendChild(sectionTitle('Tap ability'));
+    wrap.appendChild(sectionTitle('Tap Abilities'));
     wrap.appendChild(el('p', 'hd-note', 'Tapping the battlefield sets off a blast. Equip an ability to change its element and effect. Unlock more in the Skills tab.'));
     const rows: Array<{ id: TapAbilityId | null; btn: HTMLButtonElement; card: HTMLElement }> = [];
     const add = (id: TapAbilityId | null, icon: string, name: string, desc: string) => {
