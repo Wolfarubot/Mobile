@@ -5003,24 +5003,30 @@ button.feat-tag {
   margin: 0 0 6px;
   padding-bottom: 6px;
   border-bottom: 2px solid color-mix(in srgb, var(--c0) 30%, transparent);
-  font-size: 22px;
+  font-size: 27px;
   line-height: 1.1;
   color: var(--c0) !important;
 }
 .hero-plate .hd-sub {
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   margin: 0;
-  color: var(--c1) !important;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--c0) !important;
 }
 .hero-plate .hd-sub .where,
 .hero-plate .hd-sub span {
-  color: var(--c1) !important;
+  color: var(--c0) !important;
+}
+.hero-plate .hd-sub .where-btn {
+  font-size: 15px;
 }
 .hero-plate .hd-sub .perk {
   color: color-mix(in srgb, var(--gold) 55%, var(--c0)) !important;
 }
-.hero-plate .hd-sub .where-btn {
+.hero-plate .hd-sub .where-btn,
+.hero-plate .hd-sub .where-btn span {
   color: var(--c3) !important;
 }
 .hero-plate .beast-tags {
@@ -5034,50 +5040,54 @@ button.feat-tag {
 }
 
 /*
- * Under the header: the description and (for monsters) the drops, each on its own quiet panel (a dark wash with
- * an accent down the left, no frame), so they read as two notes rather than more boxes.
+ * Under the header: the description and (for monsters) the drops, each on a framed card like the header's plate
+ * and the stat cells (light card, dark frame, drop shadow), the drops with a small caption over one line each.
  */
 .hero-lore {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin: 12px 0 8px;
+  gap: 10px;
+  margin: 14px 2px 10px;
 }
 .lore-text,
 .lore-drops {
   margin: 0;
-  padding: 8px 12px;
-  background: color-mix(in srgb, var(--c0) 55%, transparent);
-  border-left: 4px solid var(--gold);
-  color: var(--on-bg, var(--c3));
-  font-size: 14px;
-  line-height: 1.4;
+  padding: 10px 12px;
+  border: 3px solid var(--c0);
+  background: var(--card);
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.35);
+  color: var(--c0) !important;
+  font-size: 15px;
+  line-height: 1.45;
 }
 .lore-drops {
-  border-left-color: var(--c2);
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  font-size: 13px;
+  gap: 4px;
+  font-size: 15px;
 }
 .lore-label {
-  font-size: 11px;
+  margin-bottom: 2px;
+  padding-bottom: 4px;
+  border-bottom: 2px solid color-mix(in srgb, var(--c0) 25%, transparent);
+  font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--c2);
+  color: var(--c1);
 }
 .lore-drop {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 .lore-drop small {
   font-weight: 700;
+  font-size: 13px;
 }
 .lore-gear {
-  color: color-mix(in srgb, var(--on-bg, var(--c3)) 75%, transparent);
-  font-style: italic;
+  color: var(--c1);
+  font-size: 13px;
 }
 
 /* Training and Empower bars: the progress ("5/6") centred both ways, whatever the bar's height and border. */
