@@ -158,13 +158,16 @@ function botShop(game: Game, t: number, memo: { lastChallenge: number; lastHeavy
   botGear(game);
 
   // Station Hunters the way players do: three Guild Hunters beside you in the newest area (to take on its
-  // difficulty bump), then two in every older area but the Woods (one there), newest first, each area taking the
+  // difficulty bump), one in the Woods, then two in every other older area, newest first, each area taking the
   // remaining Hunters that earn the most there; anyone left over fills a third spot wherever they earn the most.
   const free = HUNTERS.filter((h) => s.hunters[h.id].recruited).map((h) => h.id);
   for (const id of free) game.station(id, null);
   const left = new Set(free);
   const earns = (id: HunterId, area: AreaId) => game.farmRates(area, [id], area === game.area ? 1 : STATION_EFFICIENCY).gold;
-  const areas = [game.area, ...[...game.unlockedAreas].reverse().filter((a) => a !== game.area)];
+  // The Woods' one Hunter is placed right after your own area: when there aren't Hunters enough for every area yet,
+  // the oldest other areas go short instead.
+  const older = [...game.unlockedAreas].reverse().filter((a) => a !== game.area && a !== 'forest');
+  const areas = [game.area, ...(game.area !== 'forest' ? (['forest'] as AreaId[]) : []), ...older];
   for (const area of areas) {
     const best = [...left].sort((x, y) => earns(y, area) - earns(x, area));
     let n = 0;
