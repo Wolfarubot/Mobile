@@ -4132,6 +4132,62 @@ const affinityResize = typeof ResizeObserver !== 'undefined' ? new ResizeObserve
 function refitAffinities(): void {
   fitAffinities(Array.from(document.querySelectorAll<HTMLElement>('.affinities.compact')));
 }
+/**
+ * The square of an icon that holds its visible pixels (icons carry transparent margins), as fractions of its size,
+ * found once per image.
+ */
+const iconCrops = new Map<string, Promise<{ x: number; y: number; side: number } | null>>();
+function iconCrop(img: HTMLImageElement): Promise<{ x: number; y: number; side: number } | null> {
+  let crop = iconCrops.get(img.src);
+  if (!crop) {
+    crop = (img.complete ? Promise.resolve() : new Promise<void>((done) => img.addEventListener('load', () => done(), { once: true })))
+      .then(() => {
+        const w = img.naturalWidth;
+        const h = img.naturalHeight;
+        if (!w || !h) return null;
+        const cv = document.createElement('canvas');
+        cv.width = w;
+        cv.height = h;
+        const cx = cv.getContext('2d', { willReadFrequently: true })!;
+        cx.drawImage(img, 0, 0);
+        const px = cx.getImageData(0, 0, w, h).data;
+        let x0 = w, y0 = h, x1 = -1, y1 = -1;
+        for (let y = 0; y < h; y++)
+          for (let x = 0; x < w; x++)
+            if (px[(y * w + x) * 4 + 3] > 16) {
+              if (x < x0) x0 = x;
+              if (x > x1) x1 = x;
+              if (y < y0) y0 = y;
+              if (y > y1) y1 = y;
+            }
+        if (x1 < 0) return null;
+        const side = Math.max(x1 - x0 + 1, y1 - y0 + 1);
+        return { x: ((x0 + x1 + 1) / 2 - side / 2) / w, y: ((y0 + y1 + 1) / 2 - side / 2) / h, side: side / Math.max(w, h) };
+      })
+      .catch(() => null);
+    iconCrops.set(img.src, crop);
+  }
+  return crop;
+}
+
+/** Fills a tag's icon box with the icon's visible pixels, edge to edge. */
+function fillTagIcon(img: HTMLImageElement): void {
+  void iconCrop(img).then((c) => {
+    if (!c) return;
+    const scale = 100 / c.side;
+    Object.assign(img.style, { position: 'absolute', width: `${scale}%`, height: `${scale}%`, left: `${-c.x * scale}%`, top: `${-c.y * scale}%`, maxWidth: 'none' });
+  });
+}
+if (typeof MutationObserver !== 'undefined' && typeof document !== 'undefined')
+  new MutationObserver((muts) => {
+    for (const m of muts)
+      m.addedNodes.forEach((n) => {
+        if (!(n instanceof HTMLElement)) return;
+        if (n.matches('.ic > img.ei')) fillTagIcon(n as HTMLImageElement);
+        else n.querySelectorAll<HTMLImageElement>('.ic > img.ei').forEach(fillTagIcon);
+      });
+  }).observe(document.body, { childList: true, subtree: true });
+
 if (typeof MutationObserver !== 'undefined' && typeof document !== 'undefined')
   new MutationObserver((muts) => {
     for (const m of muts)
