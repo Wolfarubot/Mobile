@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { weaponHit, gearArea, EVENTS, AREAS, areaEnemies, ENEMIES, GEAR, gearDef, gearStats, slotAccepts, typeMult, type GearId, enemyUnlockCost, HUNTERS, ITEMS, STATION_EFFICIENCY, type AreaId, type ItemId } from '../src/core/balance';
+import { weaponHit, gearArea, EVENTS, AREAS, areaEnemies, ENEMIES, GEAR, gearDef, gearStats, slotAccepts, typeMult, type GearId, enemyUnlockCost, HUNTERS, ITEMS, STATION_EFFICIENCY, type AreaId, type HunterId, type ItemId } from '../src/core/balance';
 import { Field } from '../src/core/field';
 import { Game, type Shooter } from '../src/core/game';
 import { mergeSample, runSample, sameGroup, SAMPLE_SETTLED } from '../src/core/sampler';
@@ -129,20 +129,21 @@ function botShop(game: Game, t: number, memo: { lastChallenge: number; lastHeavy
     game.challengeGuardian();
     memo.lastChallenge = t;
   }
-  // Run the events that make the next Hunters available (back in older areas if need be).
+  // Run the events that make new Hunters available (back in older areas if need be), every one as soon as it's ready:
+  // players unlock their recruits as soon as they can.
   for (const h of HUNTERS) {
     if (s.hunters[h.id].recruited || game.hunterAvailable(h.id)) continue;
     if (!game.eventRunning && game.eventReady(h.unlock.event) && t - memo.lastChallenge > 60) {
       game.startEvent(h.unlock.event);
       memo.lastChallenge = t;
     }
-    break;
   }
   const newest = game.unlockedAreas[game.unlockedAreas.length - 1];
   if (newest !== game.area && !game.eventRunning) game.travel(newest);
 
   for (const e of ENEMIES) if (game.isAreaUnlocked(e.area) && !s.bestiary[e.id].unlocked && enemyUnlockCost(e) < s.gold * 0.1) game.unlockEnemy(e.id);
-  for (const h of HUNTERS) if (game.canRecruit(h.id) && h.recruitCost < s.gold * 0.25) game.recruit(h.id);
+  // Recruit every Hunter the moment they can be afforded.
+  for (const h of HUNTERS) if (game.canRecruit(h.id)) game.recruit(h.id);
   s.buyAmount = 1;
   for (const h of HUNTERS) while (s.hunters[h.id].recruited && game.trainPurchase(h.id, 1).cost < s.gold * 0.03) game.train(h.id);
   for (let guard = 0; guard < 400 && game.train('main'); guard++);
@@ -156,15 +157,27 @@ function botShop(game: Game, t: number, memo: { lastChallenge: number; lastHeavy
   memo.lastHeavy = t;
   botGear(game);
 
-  // Station Hunters where each earns the most gold (up to 3 per area, your own area included): strong
-  // Hunters end up beside you in the newest area, which pays the most when they can handle it, and
-  // the rest farm older areas they can still clear.
+  // Station Hunters the way players do: three Guild Hunters beside you in the newest area (to take on its
+  // difficulty bump), then two in every older area, newest first, each area taking the remaining pair that
+  // earns the most there; anyone left over fills a third spot wherever they earn the most.
   const free = HUNTERS.filter((h) => s.hunters[h.id].recruited).map((h) => h.id);
   for (const id of free) game.station(id, null);
-  const pairs = free.flatMap((id) => game.unlockedAreas.map((area) => ({ id, area, gold: game.farmRates(area, [id], area === game.area ? 1 : STATION_EFFICIENCY).gold })));
-  pairs.sort((x, y) => y.gold - x.gold);
-  const placed = new Set<string>();
-  for (const { id, area } of pairs) if (!placed.has(id) && game.station(id, area)) placed.add(id);
+  const left = new Set(free);
+  const earns = (id: HunterId, area: AreaId) => game.farmRates(area, [id], area === game.area ? 1 : STATION_EFFICIENCY).gold;
+  const areas = [game.area, ...[...game.unlockedAreas].reverse().filter((a) => a !== game.area)];
+  for (const area of areas) {
+    const best = [...left].sort((x, y) => earns(y, area) - earns(x, area));
+    let n = 0;
+    for (const id of best) {
+      if (n >= (area === game.area ? 3 : 2)) break;
+      if (game.station(id, area)) {
+        left.delete(id);
+        n++;
+      }
+    }
+  }
+  const extra = [...left].flatMap((id) => areas.map((area) => ({ id, area, gold: earns(id, area) }))).sort((x, y) => y.gold - x.gold);
+  for (const { id, area } of extra) if (left.has(id) && game.station(id, area)) left.delete(id);
 }
 
 /**
