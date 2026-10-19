@@ -1830,6 +1830,34 @@ button {
 .tree line.on {
   stroke: var(--gold);
 }
+.tree-gate {
+  position: absolute;
+  left: 4%;
+  right: 4%;
+  height: 14px;
+  border-radius: 7px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  overflow: hidden;
+  z-index: 1;
+}
+.tree-gate.hidden {
+  display: none;
+}
+.tree-gate i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--gold);
+  opacity: 0.45;
+}
+.tree-gate span {
+  position: relative;
+  display: block;
+  text-align: center;
+  font-size: 10px;
+  line-height: 12px;
+  font-weight: 700;
+}
 .tnode {
   position: absolute;
   transform: translate(-50%, -50%);

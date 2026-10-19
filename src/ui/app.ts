@@ -125,6 +125,8 @@ interface TreeAdapter {
   gate?: (id: string) => string | null;
   /** Nodes not shown yet (the Ascend node until the first tree is complete). */
   hidden?: (id: string) => boolean;
+  /** Points spent in the tree and needed before a row opens (null if the row has no gate). */
+  rowGate?: (row: number) => { have: number; need: number } | null;
   /** Called after a node is learned. */
   after?: (id: string) => void;
 }
@@ -767,6 +769,10 @@ export class AppUI {
           : `Next skill point at Lv ${g.levelOf(who) + 1}. Train to level up.`,
       pointName: 'skill point',
       reachable: (id) => g.nodeReachable(who, id, which),
+      rowGate: (row) => {
+        const need = g.rowGate(who, row, which);
+        return need > 0 ? { have: g.pointsIn(who, which), need } : null;
+      },
       canLearn: (id) => g.canLearn(who, id, which),
       learn: (id) => g.learn(who, id, which),
       verb: 'Acquire',
@@ -850,8 +856,24 @@ export class AppUI {
       tree.appendChild(b);
       return { n, b };
     });
+    // A locked row has a bar across its top: points spent in this tree out of what opens the row ("3/5").
+    const gates = [...new Set(nodes.map((n) => n.row))].flatMap((row) => {
+      if (!t.rowGate?.(row)) return [];
+      const bar = el('div', 'tree-gate');
+      bar.style.top = `${row * ROW - 18}px`;
+      bar.innerHTML = '<i></i><span></span>';
+      tree.appendChild(bar);
+      return [{ row, bar }];
+    });
     wrap.appendChild(tree);
     this.refreshers.push(() => {
+      for (const { row, bar } of gates) {
+        const gt = t.rowGate!(row)!;
+        const open = gt.have >= gt.need;
+        bar.classList.toggle('hidden', open || (t.hidden ? nodes.filter((n) => n.row === row).every((n) => t.hidden!(n.id)) : false));
+        ($('i', bar) as HTMLElement).style.width = `${Math.min(100, (gt.have / gt.need) * 100)}%`;
+        $('span', bar).textContent = `🔒 ${Math.min(gt.have, gt.need)}/${gt.need}`;
+      }
       const points = t.points();
       const active = t.active();
       if (!active) head.textContent = t.inactiveText;
@@ -892,7 +914,11 @@ export class AppUI {
           ? '<div>Fully learned</div>'
           : `<div>Points required <b>${cost}</b></div><div class="${have >= cost ? 'ok' : 'short'}">Points available <b>${have}</b></div>`
       }</div><p class="gear-now">${n.desc}</p><p>Rank ${rank} / ${n.maxRank}</p>${
-        !t.reachable(n.id) ? `<p>🔒 Needs a point in ${needs.join(' or ')} first.</p>` : ''
+        t.rowGate?.(n.row) && t.rowGate(n.row)!.have < t.rowGate(n.row)!.need
+          ? `<p>🔒 Spend ${t.rowGate(n.row)!.need} points in this tree to open this row (${t.rowGate(n.row)!.have}/${t.rowGate(n.row)!.need}).</p>`
+          : !t.reachable(n.id)
+            ? `<p>🔒 Needs a point in ${needs.join(' or ')} first.</p>`
+            : ''
       }${t.gate?.(n.id) ? `<p>🔒 ${t.gate(n.id)} to open this evolution.</p>` : ''}`;
       const btn = el('button', 'buy node-buy', maxed ? 'Maxed' : n.id === ASCEND_NODE.id ? 'Ascend' : t.verb) as HTMLButtonElement;
       btn.disabled = !t.canLearn(n.id);

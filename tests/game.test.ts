@@ -629,7 +629,7 @@ describe('Hunters', () => {
     expect(g.learn('lance', 'root')).toBe(true); // Zone of Protection
     expect(g.guardOf('lance')).toBe(3);
     expect(g.guardOf('main')).toBe(0);
-    g.learn('lance', 'recovery');
+    for (let i = 0; i < 4; i++) g.learn('lance', 'recovery'); // 5 points in: his third row opens
     expect(g.learn('lance', 'recovery2')).toBe(true); // Rallying Oath
     expect(g.guardOf('main')).toBe(1);
     expect(g.guardOf('ranger')).toBe(1);
@@ -671,6 +671,34 @@ describe('Hunters', () => {
     expect(g.killsBy('main')).toBeGreaterThan(before.main);
     expect(g.killsBy('ranger')).toBeGreaterThan(before.ranger);
     expect(Math.abs(gained - r.kills)).toBeLessThanOrEqual(2); // rounding
+  });
+});
+
+describe('Skill tree row gates', () => {
+  it('a row stays shut until enough points are spent in its tree: your third row takes 5', () => {
+    const g = new Game(veteran(newGame(0)), noCrit);
+    g.state.main.trains = 60;
+    expect(g.rowGate('main', 2)).toBe(5);
+    expect(g.learn('main', 'root')).toBe(true);
+    expect(g.learn('main', 'power')).toBe(true);
+    expect(g.pointsIn('main')).toBe(2);
+    expect(g.nodeReachable('main', 'power2')).toBe(false); // 2/5: its row is still shut
+    expect(g.learn('main', 'power2')).toBe(false);
+    for (let i = 0; i < 3; i++) g.learn('main', 'power');
+    expect(g.pointsIn('main')).toBe(5);
+    expect(g.learn('main', 'power2')).toBe(true);
+  });
+
+  it("every tree's gates can be met from the rows above them", () => {
+    const g = new Game(newGame(0));
+    for (const who of ['main', ...HUNTERS.map((h) => h.id)] as const)
+      for (const which of ['base', 'ascended'] as const) {
+        const nodes = g.skillTree(who, which).filter((n) => n.id !== 'ascend');
+        for (const row of new Set(nodes.map((n) => n.row))) {
+          const above = nodes.filter((n) => n.row < row).reduce((a, n) => a + n.maxRank * (n.cost ?? 1), 0);
+          expect(g.rowGate(who, row, which), `${who} ${which} row ${row}`).toBeLessThanOrEqual(above);
+        }
+      }
   });
 });
 
@@ -836,7 +864,7 @@ describe('Shops', () => {
   it('skill trees: the root first, then branches; each node needs a point in the one it hangs from', () => {
     const g = rich();
     g.recruit('ranger');
-    g.state.main.trains = 100;
+    g.state.main.trains = 300;
     g.state.hunters.ranger.trains = 100;
     const pts = g.skillPoints('main');
     expect(pts).toBeGreaterThan(5);
@@ -845,22 +873,28 @@ describe('Shops', () => {
     expect(g.learn('main', 'root')).toBe(true); // Hunter's Instinct: +5% crit
     expect(g.critChanceOf('main')).toBeCloseTo(crit + 0.05);
     expect(g.learn('main', 'power2')).toBe(false); // Tap Power hangs from Attack Power
-    for (const k of ['power', 'speed', 'recovery', 'power2', 'recovery2']) expect(g.learn('main', k)).toBe(true);
-    expect(g.skillPoints('main')).toBe(pts - 6);
+    expect(g.learn('main', 'power')).toBe(true);
+    expect(g.learn('main', 'power2')).toBe(false); // 2 points in: the third row opens at 5
+    for (const k of ['speed', 'recovery', 'recovery', 'power2', 'recovery2']) expect(g.learn('main', k)).toBe(true);
+    expect(g.skillPoints('main')).toBe(pts - 7);
     expect(g.damage).toBeCloseTo(dmg * 1.4);
     expect(g.fireRate).toBeCloseTo(rate * 1.1);
     expect(g.stunTime()).toBeLessThan(stun);
     expect(g.tapDamage).toBeGreaterThan(tap * 1.1);
     expect(g.tapRadius).toBeGreaterThan(radius);
     expect(g.learn('main', 'capstone')).toBe(false); // your Hunter's capstone hangs from the ability nodes
+    expect(g.learn('main', 'flameTap')).toBe(false); // its row opens at 12 points
+    for (const k of ['power', 'power', 'power', 'power', 'speed']) g.learn('main', k);
     expect(g.learn('main', 'flameTap')).toBe(true);
+    expect(g.learn('main', 'capstone')).toBe(false); // its row opens at 20 points
+    for (const k of ['reach', 'reach', 'reach', 'fortune', 'fortune', 'fortune', 'speed']) g.learn('main', k);
     expect(g.learn('main', 'capstone')).toBe(true); // reachable from any one of them
     // Every Hunter has their own tree of the same shape.
     expect(g.skillTree('ranger').map((n) => n.id)).toEqual(['root', 'power', 'speed', 'recovery', 'power2', 'speed2', 'recovery2', 'capstone', 'ascend']);
     expect(g.skillTree('ranger')[4].name).toBe('Beast Bane');
     const vsBeast = g.shotDamage('ranger', 'beast');
     g.learn('ranger', 'root');
-    g.learn('ranger', 'power');
+    for (let i = 0; i < 4; i++) g.learn('ranger', 'power');
     g.learn('ranger', 'power2');
     expect(g.shotDamage('ranger', 'beast')).toBeGreaterThan(vsBeast * 1.1);
     // Out of points: nothing more to learn.
@@ -1919,10 +1953,11 @@ describe('Equipment', () => {
   it('tap abilities: unlocked in the skill tree, equipped one at a time; each sets off its element on everything the blast hits', () => {
     let seed = 7;
     const g = new Game(newGame(0), () => ((seed = (seed * 16807) % 2147483647) / 2147483647));
-    g.state.main.trains = 200;
+    g.state.main.trains = 300;
     expect(g.setTapAbility('flame')).toBe(false); // locked
     expect(g.tapAbility).toBeNull();
-    for (const k of ['root', 'power', 'power2', 'flameTap', 'speed', 'speed2', 'thunderTap', 'recovery', 'recovery2', 'frostTap']) expect(g.learn('main', k)).toBe(true);
+    for (const k of ['root', 'power', 'power', 'power', 'power', 'power', 'speed', 'speed', 'speed', 'speed', 'speed', 'recovery', 'power2', 'flameTap', 'speed2', 'thunderTap', 'recovery2', 'frostTap'])
+      expect(g.learn('main', k), k).toBe(true);
     const f = new Field(g);
     f.setView(390, 420);
     const hp = 1e12;

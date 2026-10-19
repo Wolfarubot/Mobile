@@ -104,6 +104,7 @@ import {
   itemCost,
   itemDef,
   ITEMS,
+  rowGates,
   isGolem,
   MAIN_RANGE,
   maxAffordable,
@@ -1814,11 +1815,28 @@ export class Game {
     return SKILL_TREES[who].every((n) => this.skill(who, n.id) >= n.maxRank);
   }
 
-  /** A node is reachable once any node it hangs from has a rank (the root always is). Ascend needs the whole first tree. */
+  /**
+   * A node is reachable once any node it hangs from has a rank (the root always is) and its row is open: enough
+   * points spent in this tree (see rowGates). Ascend needs the whole first tree.
+   */
   nodeReachable(who: Wearer, id: string, which: TreeKind = 'base'): boolean {
     if (which === 'base' && id === 'ascend') return this.baseTreeComplete(who);
     const node = this.treeNode(who, id, which);
-    return !!node && (node.requires.length === 0 || node.requires.some((r) => this.skill(who, r, which) > 0));
+    return !!node && this.rowOpen(who, node.row, which) && (node.requires.length === 0 || node.requires.some((r) => this.skill(who, r, which) > 0));
+  }
+
+  /** Points spent in one of a Hunter's trees. */
+  pointsIn(who: Wearer, which: TreeKind = 'base'): number {
+    return this.skillTree(who, which).reduce((a, n) => a + this.skill(who, n.id, which) * (n.cost ?? 1), 0);
+  }
+
+  /** Points needed in a tree before a row of it opens (0 if it's open from the start). */
+  rowGate(who: Wearer, row: number, which: TreeKind = 'base'): number {
+    return rowGates(which === 'base' ? who : `${who}+`)[row] ?? 0;
+  }
+
+  rowOpen(who: Wearer, row: number, which: TreeKind = 'base'): boolean {
+    return this.pointsIn(who, which) >= this.rowGate(who, row, which);
   }
 
   canLearn(who: Wearer, id: string, which: TreeKind = 'base'): boolean {

@@ -245,6 +245,24 @@ const MAIN_VETERAN_NODES: SkillNode[] = [
   { id: 'legend', name: 'Legend', icon: '🏆', desc: '+50% damage and +20% attack rate.', maxRank: 1, cost: 10, effect: { damage: 0.5, rate: 0.2 }, requires: ['deadlyTaps', 'keenEye', 'wideTaps', 'shieldWall', 'bounty'], col: 2, row: 7 },
 ];
 
+/**
+ * Row gates: points a Hunter must have spent in a tree before a row of it opens (rows count from 0, the root's, so
+ * `{ 2: 5 }` keeps the third row shut until 5 points are in). Keyed like NODE_SPRITES: "main", a Hunter's id, or
+ * either with "+" for their Ascended tree; trees without their own entry use the defaults below. Rows not listed
+ * are open. The Skill Trees editor sets these per tree.
+ */
+export type RowGates = Partial<Record<number, number>>;
+export const DEFAULT_ROW_GATES: { main: RowGates; mainAscended: RowGates; hunter: RowGates; hunterAscended: RowGates } = {
+  main: { 2: 5, 3: 12, 4: 20, 5: 25, 6: 40, 7: 60 },
+  mainAscended: { 2: 15, 3: 40 },
+  hunter: { 2: 5, 3: 20 },
+  hunterAscended: { 2: 10, 3: 25 },
+};
+export const ROW_GATES: Record<string, RowGates> = {};
+export function rowGates(tree: string): RowGates {
+  return ROW_GATES[tree] ?? (tree === 'main' ? DEFAULT_ROW_GATES.main : tree === 'main+' ? DEFAULT_ROW_GATES.mainAscended : tree.endsWith('+') ? DEFAULT_ROW_GATES.hunterAscended : DEFAULT_ROW_GATES.hunter);
+}
+
 /** Your Hunter's gold Ascend node, below Legend: 10 points, so Lv 100. */
 export const MAIN_ASCEND_NODE: SkillNode = {
   id: 'ascend',
