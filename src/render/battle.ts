@@ -83,8 +83,6 @@ export class BattleView {
   private fx = new Fx();
   private pickups: Pickup[] = [];
   private rings: Ring[] = [];
-  /** Each puddle's squares (or where its bubbles rise), generated once. */
-  private puddleCells = new WeakMap<object, Cell[]>();
   /** When each puddle first appeared (for its bubbles' animation). */
   private puddleBorn = new WeakMap<object, number>();
   /** Explosions (fireballs, staff spells): a burst of fiery squares that spreads and fades. */
@@ -392,52 +390,11 @@ export class BattleView {
         g.stroke();
         continue;
       }
-      // A bubbling pool: a translucent spill with blobs of the potion (or acid) bubbling up across it, fading as
-      // it dries up.
-      const bubbles = effectImage('poison');
-      if (bubbles) {
-        let born = this.puddleBorn.get(p);
-        if (born === undefined) this.puddleBorn.set(p, (born = this.time));
-        const age = this.time - born;
-        const fade = Math.min(1, p.life / 0.6, age / 0.2);
-        // A darker pool under a bright rim, so the light bubbles stand out on it.
-        const [pool, rim] = p.dtype === 'acid' ? ['104,128,20', '198,240,58'] : ['38,104,46', '123,224,123'];
-        g.fillStyle = `rgba(${pool},${0.5 * fade})`;
-        g.strokeStyle = `rgba(${rim},${0.7 * fade})`;
-        g.lineWidth = 2;
-        g.beginPath();
-        g.ellipse(p.x, p.y, p.r, p.r * 0.8, 0, 0, Math.PI * 2);
-        g.fill();
-        g.stroke();
-        let spots = this.puddleCells.get(p);
-        if (!spots) {
-          // Where the bubbles rise: spread across the pool, one more for every 14 of radius.
-          const n = Math.max(2, Math.min(7, Math.round(p.r / 14)));
-          spots = Array.from({ length: n }, (_, i) => {
-            const ang = i * 2.4 + p.x * 0.1;
-            const d = p.r * 0.55 * Math.sqrt((i + 0.5) / n);
-            return { x: Math.cos(ang) * d, y: Math.sin(ang) * d * 0.8, s: 0, color: i };
-          });
-          this.puddleCells.set(p, spots);
-        }
-        g.globalAlpha = 0.9 * fade;
-        if (p.dtype === 'acid') g.filter = 'hue-rotate(-35deg) saturate(1.4)';
-        for (const c of spots) drawEffectFrame(g, bubbles, 'poison', Math.floor(age * 12) + c.color * 3, p.x + c.x, p.y + c.y + p.r * 0.2, p.r * 0.6, 'bottom', true);
-        g.filter = 'none';
-        g.globalAlpha = 1;
-        continue;
-      }
-      let cells = this.puddleCells.get(p);
-      if (!cells) {
-        cells = squareCluster(p.r, Math.max(4, p.r / 6), p.x * 7 + p.y * 13);
-        this.puddleCells.set(p, cells);
-      }
-      g.globalAlpha = 0.75 * Math.min(1, p.life);
-      for (const c of cells) {
-        g.fillStyle = PUDDLE_GREENS[c.color];
-        g.fillRect(p.x + c.x - c.s / 2, p.y + c.y - c.s / 2, c.s, c.s);
-      }
-      g.globalAlpha = 1;
+      // A bubbling pool: it spills out where the flask breaks, its edge rippling, with bubbles rising and popping
+      // across it, then shrinks and fades as it dries up.
+      let born = this.puddleBorn.get(p);
+      if (born === undefined) this.puddleBorn.set(p, (born = this.time));
+      drawPotionPool(g, p, this.time - born, p.dtype === 'acid');
     }
 
     // Pickups under everything else
@@ -2228,15 +2185,22 @@ function drawBullet(g: CanvasRenderingContext2D, b: Bullet, t: number, basic = f
       break;
     }
     case 'potion':
+      // A tumbling round flask: green glass with a shine, a neck and a cork.
       g.rotate(t * 12);
-      g.fillStyle = '#7be07b';
       g.strokeStyle = OUTLINE;
       g.lineWidth = 1.5;
+      g.fillStyle = '#d8e8e0';
+      g.fillRect(-2, -8, 4, 5);
+      g.strokeRect(-2, -8, 4, 5);
+      g.fillStyle = '#9a6a3a';
+      g.fillRect(-2.5, -10, 5, 3);
+      g.fillStyle = '#5ccf5c';
       g.beginPath();
-      g.arc(0, 2, 5, 0, Math.PI * 2);
+      g.arc(0, 2, 5.5, 0, Math.PI * 2);
       g.fill();
       g.stroke();
-      g.fillRect(-1.5, -6, 3, 5);
+      g.fillStyle = '#b8f5a8';
+      g.fillRect(-3, -1, 2, 2);
       break;
     case 'arrow':
       g.rotate(a);
@@ -2607,30 +2571,91 @@ interface Cell {
 /** Size of one "pixel" in pixel-circle effects, in world units. */
 const PIXEL = 4;
 const BLAST_TIME = 0.35;
-const PUDDLE_GREENS = ['#b4f04a', '#4caf3a', '#2a6e26'];
-const FIRE_COLORS = ['#ffd23a', '#ff8a2a', '#e8321e'];
+
+/** A potion (or acid) pool's colours: [deep, body, rim, shine] as "r,g,b". */
+const POOL_COLORS = { potion: ['26,78,34', '52,140,58', '140,232,120', '214,255,190'], acid: ['86,104,14', '150,186,30', '214,246,80', '248,255,190'] };
 
 /**
- * A round patch of squares in two sizes (`big` and half that) filling radius `r`, laid out on a grid with a
- * little jitter so it reads as a cluster rather than a checkerboard. Deterministic for a given `seed`.
+ * A pool of Andrejz's potion (or an acid puddle): it spills out over the first moments, its edge rippling gently,
+ * a darker middle under a bright rim and a glint of shine; bubbles swell up across it and pop in little rings; and
+ * it shrinks a little and fades as it dries. Drawn from its age and remaining life alone, so nothing is stored.
  */
-function squareCluster(r: number, big: number, seed: number): Cell[] {
-  let x = Math.abs(Math.floor(seed)) % 2147483646 || 1;
-  const rand = () => (x = (x * 48271) % 2147483647) / 2147483647;
-  const out: Cell[] = [];
-  const step = big * 0.9;
-  for (let gy = -r; gy <= r; gy += step)
-    for (let gx = -r; gx <= r; gx += step) {
-      const d = Math.hypot(gx, gy);
-      if (d > r - step * 0.3) continue;
-      // Thinner towards the rim, so the edge is ragged.
-      if (d > r * 0.6 && rand() < (d / r - 0.6) * 1.6) continue;
-      const small = rand() < 0.45;
-      const s = small ? big / 2 : big;
-      out.push({ x: gx + (rand() - 0.5) * step * 0.6, y: gy + (rand() - 0.5) * step * 0.6, s, color: Math.floor(rand() * 3) });
+function drawPotionPool(g: CanvasRenderingContext2D, p: { x: number; y: number; r: number; life: number }, age: number, acid: boolean): void {
+  const [deep, body, rim, shine] = POOL_COLORS[acid ? 'acid' : 'potion'];
+  const spill = 1 - Math.pow(1 - Math.min(1, age / 0.3), 3); // eases out as it spreads
+  const dry = Math.min(1, p.life / 0.8);
+  const fade = Math.min(1, age / 0.12) * dry;
+  const r = p.r * spill * (0.85 + 0.15 * dry);
+  if (r < 1) return;
+  const seed = Math.abs(p.x * 0.37 + p.y * 0.61);
+  // The edge: a ring of points pushed in and out by two slow ripples.
+  const edge = (k: number, wob: number) => {
+    g.beginPath();
+    const n = 18;
+    for (let i = 0; i <= n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      const rr = r * k * (1 + wob * (Math.sin(a * 3 + seed + age * 2.2) * 0.6 + Math.sin(a * 5 - seed * 1.3 - age * 1.7) * 0.4));
+      const x = p.x + Math.cos(a) * rr;
+      const y = p.y + Math.sin(a) * rr * 0.72;
+      if (i) g.lineTo(x, y);
+      else g.moveTo(x, y);
     }
-  return out;
+    g.closePath();
+  };
+  g.save();
+  // Splash ring as it lands.
+  if (age < 0.35) {
+    const t = age / 0.35;
+    g.strokeStyle = `rgba(${rim},${0.7 * (1 - t)})`;
+    g.lineWidth = 2.5 * (1 - t) + 0.5;
+    g.beginPath();
+    g.ellipse(p.x, p.y, p.r * (0.4 + 0.8 * t), p.r * (0.4 + 0.8 * t) * 0.72, 0, 0, Math.PI * 2);
+    g.stroke();
+  }
+  edge(1, 0.07);
+  g.fillStyle = `rgba(${body},${0.55 * fade})`;
+  g.fill();
+  g.lineWidth = 2;
+  g.strokeStyle = `rgba(${rim},${0.75 * fade})`;
+  g.stroke();
+  edge(0.62, 0.1);
+  g.fillStyle = `rgba(${deep},${0.45 * fade})`;
+  g.fill();
+  // A glint of shine toward the top-left.
+  g.fillStyle = `rgba(${shine},${0.35 * fade})`;
+  g.beginPath();
+  g.ellipse(p.x - r * 0.32, p.y - r * 0.26, r * 0.22, r * 0.08, -0.35, 0, Math.PI * 2);
+  g.fill();
+  // Bubbles: each swells over its cycle, then pops in a ring, at its own spot and phase.
+  const n = Math.max(3, Math.min(9, Math.round(p.r / 9)));
+  for (let i = 0; i < n; i++) {
+    const cycle = 0.9 + ((i * 0.37) % 0.6);
+    const t = ((((age + i * 0.29 + seed) % cycle) + cycle) % cycle) / cycle;
+    const a = i * 2.4 + seed;
+    const d = r * 0.7 * Math.sqrt((i + 0.5) / n);
+    const bx = p.x + Math.cos(a + Math.floor((age + i * 0.29) / cycle) * 1.3) * d;
+    const by = p.y + Math.sin(a + Math.floor((age + i * 0.29) / cycle) * 1.3) * d * 0.72;
+    const big = Math.max(1.6, p.r * 0.07);
+    if (t < 0.8) {
+      const s = big * (0.3 + t);
+      g.fillStyle = `rgba(${rim},${0.85 * fade})`;
+      g.beginPath();
+      g.arc(bx, by - s * 0.3, s, 0, Math.PI * 2);
+      g.fill();
+      g.fillStyle = `rgba(${shine},${0.8 * fade})`;
+      g.fillRect(bx - s * 0.45, by - s * 0.95, Math.max(1, s * 0.4), Math.max(1, s * 0.4));
+    } else {
+      const k = (t - 0.8) / 0.2;
+      g.strokeStyle = `rgba(${shine},${0.7 * (1 - k) * fade})`;
+      g.lineWidth = 1;
+      g.beginPath();
+      g.ellipse(bx, by, big * (1 + k * 1.4), big * (1 + k * 1.4) * 0.6, 0, 0, Math.PI * 2);
+      g.stroke();
+    }
+  }
+  g.restore();
 }
+const FIRE_COLORS = ['#ffd23a', '#ff8a2a', '#e8321e'];
 
 /**
  * A circle of radius `r` drawn as square pixels (like a circle in a block game), `thick` pixels wide, in the
