@@ -1,4 +1,6 @@
 import {
+  staffSpell,
+  type SpellId,
   ASCEND_LEVEL,
   ASCEND_NODE,
   ASCENDED_TREES,
@@ -701,6 +703,12 @@ export class Game {
   }
 
   /** The piece in a Hunter's weapon slot for a mode, if any. */
+  /** The spell a Hunter's staff casts after its bolts (null for other weapons, or a Physical staff). */
+  spellOf(who: Shooter, mode: GearMode = 'long'): SpellId | null {
+    const item = this.weaponItem(who, mode);
+    return item ? staffSpell(gearDef(item.base)) : null;
+  }
+
   weaponItem(who: Shooter, mode: GearMode = 'long'): GearItem | null {
     const slots = this.slotsOf(who);
     const i = slots.findIndex((sl) => WEAPON_KINDS.includes(sl.kind) && (!sl.role || sl.role === mode));

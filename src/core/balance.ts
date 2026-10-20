@@ -2086,7 +2086,9 @@ export type GearEffect =
   | { kind: 'summon'; base: number; damageType: DamageType; look: 'puppet'; type: SummonType; name: string; count: number; duration: number; cooldown: number; bites: number; speed: number }
   | { kind: 'wave'; base: number; damageType: DamageType; radius: number; chance: number }
   | { kind: 'strike'; base: number; damageType: DamageType; targets: number; cooldown: number; range: number }
-  | { kind: 'chill'; radius: number };
+  | { kind: 'chill'; radius: number }
+  /** A spell (SPELLS) cast at the nearest monster: a Spell enchantment's, at its own base damage. */
+  | { kind: 'spell'; spell: SpellId; base: number; damageType: DamageType };
 
 /** Effects that recharge (and get a cooldown icon on the battlefield). */
 export const effectCooldown = (e: GearEffect): number | null => ('cooldown' in e ? e.cooldown : null);
@@ -2386,6 +2388,83 @@ export const REFINES: Record<RefineStat, { name: string; icon: string; range: [n
   critDmg: { name: 'Brutal', icon: '💢', range: [0.15, 0.3], text: (v) => `+${pct(v)} crit damage`, fits: (d) => !isArmor(d) },
 };
 
+// ---- Spells: each element's magic, cast by staffs and by Spell enchantments ----
+
+export type SpellId =
+  | 'fireVolley'
+  | 'fireball'
+  | 'acidPool'
+  | 'acidRain'
+  | 'iceSpikes'
+  | 'frostFan'
+  | 'radiantBeam'
+  | 'sunbeam'
+  | 'poisonMist'
+  | 'plague'
+  | 'arcaneBolts'
+  | 'raiseDead'
+  | 'chainLightning'
+  | 'thunderstorm'
+  | 'gravityAnchor';
+
+/**
+ * A spell. `k` is the share of the cast's damage each of its hits deals (a staff's cast is its spell multiple ×
+ * the Hunter's shot; an enchantment's its rolled base damage); the rest of its numbers shape it.
+ */
+export interface SpellDef {
+  name: string;
+  icon: string;
+  damageType: DamageType;
+  desc: string;
+  k: number;
+  /** How many projectiles, spikes, strikes or jumps. */
+  count?: number;
+  /** Area radius (× area size), or a cone's or line's reach. */
+  r?: number;
+  /** Seconds it lingers (zones, puddles), and seconds between its ticks. */
+  life?: number;
+  tick?: number;
+  /** A fan's spread or a cone's half-angle, in radians. */
+  spread?: number;
+}
+
+export const SPELLS: Record<SpellId, SpellDef> = {
+  fireVolley: { name: 'Fire Volley', icon: '🔥', damageType: 'fire', k: 0.6, count: 5, spread: 0.7, desc: 'A fan of five fire bolts.' },
+  fireball: { name: 'Fireball', icon: '☄️', damageType: 'fire', k: 1, r: 70, desc: 'A fireball lobbed at the monsters that explodes where it lands.' },
+  acidPool: { name: 'Acid Pool', icon: '🧪', damageType: 'acid', k: 0.35, r: 60, life: 3, desc: 'A flask of acid that leaves a burning pool.' },
+  acidRain: { name: 'Acid Rain', icon: '🌧️', damageType: 'acid', k: 0.4, r: 90, life: 3, tick: 0.15, desc: 'A cloud that rains acid drops on the monsters under it.' },
+  iceSpikes: { name: 'Ice Spikes', icon: '🧊', damageType: 'frost', k: 1, count: 6, r: 24, desc: 'A line of ice spikes erupting from the ground toward the monsters, chilling them.' },
+  frostFan: { name: 'Frost Fan', icon: '❄️', damageType: 'frost', k: 1, r: 160, spread: 0.55, desc: 'A fan of ice blasting out in front, chilling everything in it.' },
+  radiantBeam: { name: 'Radiant Beam', icon: '✨', damageType: 'radiant', k: 1, r: 26, desc: 'A beam of light from the Hunter, through everything in its path.' },
+  sunbeam: { name: 'Sunbeam', icon: '☀️', damageType: 'radiant', k: 0.6, count: 4, r: 50, tick: 0.2, desc: 'A beam of sunlight from the sky that burns the ground under it.' },
+  poisonMist: { name: 'Poison Mist', icon: '🌫️', damageType: 'poison', k: 0.25, r: 55, life: 5, tick: 0.5, desc: 'A cloud of poison drifting across the field, poisoning every monster it touches.' },
+  plague: { name: 'Plague', icon: '🦠', damageType: 'poison', k: 1, r: 40, life: 6, desc: 'Infects the monsters: they poison every monster they touch, which then spread it too.' },
+  arcaneBolts: { name: 'Arcane Bolts', icon: '🔮', damageType: 'arcane', k: 0.8, count: 3, spread: 0.25, desc: 'Three bolts that pierce every monster in their path until they leave the field.' },
+  raiseDead: { name: 'Raise Dead', icon: '💀', damageType: 'decay', k: 0.15, r: 80, life: 6, tick: 0.5, desc: 'Curses the ground: monsters that die on it rise again to fight for the Hunter.' },
+  chainLightning: { name: 'Chain Lightning', icon: '⚡', damageType: 'lightning', k: 1, count: 5, r: 130, desc: 'A bolt from the Hunter that jumps from monster to monster.' },
+  thunderstorm: { name: 'Thunderstorm', icon: '🌩️', damageType: 'lightning', k: 0.8, count: 5, r: 150, tick: 0.2, desc: 'Lightning strikes down from the sky on the monsters around the target.' },
+  gravityAnchor: { name: 'Gravity Anchor', icon: '🌀', damageType: 'void', k: 0.15, r: 110, life: 3, tick: 0.5, desc: 'An anchor thrown into the thick of them that pulls every monster in, then collapses.' },
+};
+/** Each element's spells (a staff of that type casts one of them). Physical has none: its staffs blast. */
+export const TYPE_SPELLS: Record<DamageType, SpellId[]> = {
+  physical: [],
+  fire: ['fireball', 'fireVolley'],
+  acid: ['acidPool', 'acidRain'],
+  frost: ['iceSpikes', 'frostFan'],
+  radiant: ['radiantBeam', 'sunbeam'],
+  poison: ['poisonMist', 'plague'],
+  arcane: ['arcaneBolts'],
+  decay: ['raiseDead'],
+  lightning: ['chainLightning', 'thunderstorm'],
+  void: ['gravityAnchor'],
+};
+/** Raise Dead: how long a risen monster fights, and how often it bites (each bite: the spell's cast × `k`). */
+export const RISEN = { life: 6, bites: 1, k: 0.5 };
+/** Gravity Anchor's collapse: a last hit for this × the spell's cast, within this share of its radius. */
+export const ANCHOR_COLLAPSE = { k: 1, r: 0.6 };
+/** Plague: each spread poisons for this share of what infected the spreader. */
+export const PLAGUE_SPREAD = 0.8;
+
 /** A percentage, to one decimal place when it isn't whole. */
 const pct = (v: number): string => `${Math.round(v * 1000) / 10}%`;
 
@@ -2416,7 +2495,10 @@ export type EnchantId =
   | 'virulence'
   | 'binding'
   | 'haste'
-  | 'amplify';
+  | 'amplify'
+  | SpellEnchantId;
+/** A Spell enchantment: one per spell, e.g. 'spellFireball'. */
+export type SpellEnchantId = `spell${Capitalize<SpellId>}`;
 
 export interface EnchantDef {
   name: string;
@@ -2455,6 +2537,20 @@ const infusion = (t: DamageType, icon: string): EnchantDef => ({
   text: (c, p) => `adds ${DAMAGE_TYPES[t].name} damage (+${pct(p)}; hits split between the weapon's types)${DAMAGE_TYPES[t].effect ? `, ${pct(c)} chance to ${DAMAGE_TYPES[t].effect!.split(':')[0].toLowerCase()}` : ''}`,
 });
 
+/** Ranged and magic weapons (and accessories) take Spell enchantments; melee weapons don't. */
+const castsSpells = (d: GearDef) => !isArmor(d) && d.kind !== 'melee';
+const spellEnchant = (id: SpellId): EnchantDef => ({
+  name: SPELLS[id].name,
+  icon: SPELLS[id].icon,
+  range: [0.04, 0.08],
+  power: [0.8, 1.2],
+  weight: 0.3,
+  onAttack: { kind: 'spell', spell: id, base: 1, damageType: SPELLS[id].damageType },
+  fits: castsSpells,
+  text: (c, p, t) => `${pct(c)} chance on attack to cast ${SPELLS[id].name}: ${SPELLS[id].desc.charAt(0).toLowerCase()}${SPELLS[id].desc.slice(1, -1)} (${dmg(p, t)})`,
+});
+export const spellEnchantId = (id: SpellId): SpellEnchantId => `spell${id.charAt(0).toUpperCase()}${id.slice(1)}` as SpellEnchantId;
+
 export const ENCHANTS: Record<EnchantId, EnchantDef> = {
   infuseFire: infusion('fire', '🔥'),
   infuseFrost: infusion('frost', '❄️'),
@@ -2476,6 +2572,7 @@ export const ENCHANTS: Record<EnchantId, EnchantDef> = {
   haste: { name: 'Haste', icon: '⏱️', range: [0.08, 0.16], weight: 1, boost: 'cooldown', fits: hasCooldown, text: (v) => `−${pct(v)} ability cooldowns` },
   amplify: { name: 'Amplify', icon: '🌀', range: [0.2, 0.4], weight: 1, boost: 'radius', fits: () => true, text: (v) => `+${pct(v)} area size (every area effect: specials, blasts, puddles, slams, auras)` },
   binding: { name: 'Binding', icon: '⏳', range: [0.15, 0.3], weight: 1, boost: 'summonDur', fits: summons, text: (v) => `+${pct(v)} summon duration` },
+  ...(Object.fromEntries((Object.keys(SPELLS) as SpellId[]).map((id) => [spellEnchantId(id), spellEnchant(id)])) as Record<SpellEnchantId, EnchantDef>),
   shieldBurst: { name: 'Shield Burst', icon: '🛡️', range: [0.4, 0.8], power: [0.8, 1.2], weight: 1, effect: { kind: 'block', base: 1, damageType: 'radiant', radius: 80 }, fits: isArmor, text: (c, p, t) => `${pct(c)} chance a blocked hit blasts everything nearby (${dmg(p, t)})` },
 };
 
@@ -2644,7 +2741,7 @@ export const WEAPON_CLASSES: Record<WeaponClass, WeaponClassDef> = {
   repeater: { name: 'Repeater', attack: 'shot', projectile: 'bolt', range: 0.9, rate: 1.2, damage: 0.32, volley: 3, fan: 0.5, stack: 0.5, mag: 6, reload: 3, farm: 1, describe: 'Sprays volleys of 3 bolts in a random fan; each extra bolt of a volley on the same monster hits 50% harder. 6 volleys, then a reload.' },
   wand: { name: 'Wand', attack: 'shot', projectile: 'spark', range: 0.85, rate: 1.35, damage: 0.75, farm: 1, describe: 'The basic magic weapon: quick, light bolts at shorter range.' },
   scepter: { name: 'Scepter', attack: 'shot', projectile: 'spark', range: 1.25, rate: 0.75, damage: 1.3, bounces: 2, farm: 1.5, describe: 'Slower, longer-range bolts that bounce on to 2 more monsters nearby.' },
-  staff: { name: 'Staff', attack: 'shot', projectile: 'spark', range: 1.1, rate: 0.8, damage: 1.25, spell: { every: 5, radius: 70, damage: 3 }, mag: 6, reload: 2, farm: 1.4, describe: 'Casts 5 bolts, then a big spell that blasts everything around its target, then a short cooldown.' },
+  staff: { name: 'Staff', attack: 'shot', projectile: 'spark', range: 1.1, rate: 0.8, damage: 1.25, spell: { every: 5, radius: 70, damage: 3 }, mag: 6, reload: 2, farm: 1.4, describe: "Casts 5 bolts, then its element's spell (a Fire staff's Fireball or Fire Volley, a Frost staff's Ice Spikes or Frost Fan, and so on), then a short cooldown." },
   focus: { name: 'Focus', attack: 'nova', range: 1, reach: 110, rate: 0.8, damage: 1.2, farm: 2, describe: 'When monsters come close, bursts with power that hits every monster around the Hunter.' },
   tome: { name: 'Tome', attack: 'summon', range: 1, rate: 0.12, damage: 0.7, summon: { duration: 8, bites: 1.5, speed: 150, name: 'spirit' }, farm: 1, describe: 'Summons a spirit that hunts monsters across the field for 8s, then fades; a new one comes after a cooldown.' },
 };
@@ -2891,7 +2988,21 @@ export function describeEffect(e: GearEffect, stars: number): string {
       return `Every ${e.cooldown}s, lightning strikes ${e.targets} monsters for ${dmg} damage.`;
     case 'chill':
       return 'Chill aura: monsters near you move at half speed.';
+    case 'spell':
+      return `${SPELLS[e.spell].name}: ${SPELLS[e.spell].desc} (${dmg} damage)`;
   }
+}
+
+/**
+ * The spell a staff casts after its bolts: one of its type's (TYPE_SPELLS), taking turns between that type's
+ * staffs by tier so neighbouring staffs of one element cast different spells. None for Physical staffs.
+ */
+export function staffSpell(def: GearDef): SpellId | null {
+  if (def.weaponClass !== 'staff' || !def.damageType) return null;
+  const spells = TYPE_SPELLS[def.damageType];
+  if (!spells.length) return null;
+  const peers = GEAR.filter((d) => d.weaponClass === 'staff' && d.damageType === def.damageType).sort((a, b) => (a.tier ?? 0) - (b.tier ?? 0));
+  return spells[Math.max(0, peers.indexOf(def)) % spells.length];
 }
 
 /** Compact number for item cards (no formatter import here). */

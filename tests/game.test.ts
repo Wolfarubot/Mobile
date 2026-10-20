@@ -18,6 +18,11 @@ import {
   MOD_QUALITY_STEPS,
   REFINES,
   ENCHANTS,
+  SPELLS,
+  TYPE_SPELLS,
+  staffSpell,
+  spellEnchantId,
+  type SpellId,
   type EnchantId,
   enemyExtraDrops,
   dropRarity,
@@ -1915,12 +1920,13 @@ describe('Equipment', () => {
       run(f, 1 / g.shooterRate('main') + 0.6);
       expect(f.enemies.filter((e) => e.hp < hp)).toHaveLength(3);
     }
-    // Staff: 5 bolts, then an explosion.
+    // Staff: 5 bolts, then its element's spell (the Gravewood Staff's: Raise Dead, cursing the ground).
     {
       const { g, f } = fresh('gravewoodStaff');
       f.enemies.push(enemy({ id: 1, x: 150, r: 20, hp, maxHp: hp }));
       const ev = run(f, 6 / g.shooterRate('main') + 0.6);
-      expect(ev.filter((e) => e.type === 'explode')).toHaveLength(1);
+      expect(staffSpell(gearDef('gravewoodStaff'))).toBe('raiseDead');
+      expect(f.zones.filter((z) => z.kind === 'raiseDead')).toHaveLength(1);
       expect(f.weaponStatus('main')?.text).toBe('RECHARGING!'); // the staff's cooldown after its spell
       expect(ev.filter((e) => e.type === 'hit').length).toBeGreaterThanOrEqual(6);
     }
@@ -2101,6 +2107,54 @@ describe('Equipment', () => {
     // Glimmer's Quick Incantation: fireballs come 5% sooner per rank.
     g.state.hunters.glimmer.skills = { quickCast: 4 };
     expect(g.cooldownMult('glimmer')).toBeCloseTo(0.8);
+  });
+
+  it('spells: every element has one; each spell hits, staffs cast their element\'s, and ranged and magic weapons can be enchanted with them', () => {
+    const g = new Game(newGame(0), () => 0.5);
+    g.state.main.trains = 50;
+    for (const t of Object.keys(TYPE_SPELLS) as Array<keyof typeof TYPE_SPELLS>) if (t !== 'physical') expect(TYPE_SPELLS[t].length).toBeGreaterThan(0);
+    for (const id of Object.keys(SPELLS) as SpellId[]) {
+      const f = new Field(g);
+      f.setView(390, 420);
+      // A pack of tough wolves in front of the Hunter, close together.
+      f.enemies = Array.from({ length: 6 }, (_, i) => enemy({ id: i + 1, type: 'wolf', x: (i % 3) * 18 - 18, y: -120 - Math.floor(i / 3) * 18, hp: 1e9, maxHp: 1e9 }));
+      const api = f as unknown as { castSpell: (...a: unknown[]) => void };
+      api.castSpell('main', 0, 0, id, f.enemies[0], { base: 100 });
+      for (let i = 0; i < 7 * 30; i++) f.update(1 / 30);
+      const dealt = f.enemies.reduce((a, e) => a + (1e9 - e.hp), 0);
+      expect(dealt, id).toBeGreaterThan(0);
+    }
+    // Plague spreads by touch.
+    {
+      const f = new Field(g);
+      f.setView(390, 420);
+      f.enemies = [enemy({ id: 1, type: 'wolf', x: 0, y: -150, hp: 1e9, maxHp: 1e9 }), enemy({ id: 2, type: 'wolf', x: 200, y: -150, hp: 1e9, maxHp: 1e9 })];
+      (f as unknown as { castSpell: (...a: unknown[]) => void }).castSpell('main', 0, 0, 'plague', f.enemies[0], { base: 100 });
+      expect(f.enemies[0].plague).toBeTruthy();
+      expect(f.enemies[1].plague).toBeFalsy();
+      f.enemies[1].x = 15; // walks into it
+      f.update(1 / 30);
+      expect(f.enemies[1].plague).toBeTruthy();
+    }
+    // Raise Dead: a monster dying on cursed ground gets back up for the Hunter.
+    {
+      const f = new Field(g);
+      f.setView(390, 420);
+      f.enemies = [enemy({ id: 1, type: 'wolf', x: 0, y: -150, hp: 1e9, maxHp: 1e9 }), enemy({ id: 2, type: 'wolf', x: 10, y: -150, hp: 1, maxHp: 1 })];
+      (f as unknown as { castSpell: (...a: unknown[]) => void }).castSpell('main', 0, 0, 'raiseDead', f.enemies[0], { base: 100 });
+      f.update(0.6);
+      expect(f.summons.some((s) => s.risen?.enemy === 'wolf')).toBe(true);
+    }
+    // Staffs cast their element's spell, neighbouring staffs of one element taking turns.
+    const staffs = GEAR.filter((d) => d.weaponClass === 'staff');
+    for (const d of staffs) if (d.damageType !== 'physical') expect(TYPE_SPELLS[d.damageType!]).toContain(staffSpell(d));
+    expect(new Set(staffs.filter((d) => d.damageType === 'fire').map(staffSpell)).size).toBe(2);
+    // Spell enchantments fit bows and staffs, not swords or armor.
+    const ench = ENCHANTS[spellEnchantId('fireball')];
+    expect(ench.fits(gearDef('emberLongbow'))).toBe(true);
+    expect(ench.fits(staffs[0])).toBe(true);
+    expect(ench.fits(GEAR.find((d) => d.weaponClass === 'sword')!)).toBe(false);
+    expect(ench.fits(gearDef('bonePlate'))).toBe(false);
   });
 
   it('armor kinds: Light is quick, Heavy and Shields add shield charges (Heavy slows you, Shields cost damage), Robes add damage', () => {

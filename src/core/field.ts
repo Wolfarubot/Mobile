@@ -14,6 +14,11 @@ import {
   fieldZoom,
   FROST_TAP_CHILL,
   MIASMA_PUDDLE,
+  SPELLS,
+  RISEN,
+  ANCHOR_COLLAPSE,
+  PLAGUE_SPREAD,
+  type SpellId,
   FLAME_BURST_COOLDOWN,
   FLEE_SPEED_MULT,
   GUARD_RECHARGE,
@@ -97,6 +102,8 @@ export interface Enemy {
   /** Seconds left of Void's gravity well around it, pulling nearby monsters in (`wellPull` × as hard). */
   well?: number;
   wellPull?: number;
+  /** Plague (a spell): for `left` seconds it poisons every monster it touches for `amount` × PLAGUE_SPREAD. */
+  plague?: { left: number; by: Shooter; amount: number };
   /** Bleeds (Physical): the only status that stacks, each its own instance. */
   bleeds?: Dot[];
   /** Its acid puddle, if one is still on the ground (one per monster; a new proc refreshes it). */
@@ -134,6 +141,8 @@ export interface Summon {
   type: SummonType;
   /** A gear ability's creature (a Puppeteer's Doll's puppets): the piece that made it and its own bite. */
   gear?: { uid: number; base: number; damageType: DamageType; bites: number; speed: number };
+  /** Raised by Raise Dead: bites for the spell's cast × RISEN.k; `enemy` is what it was. */
+  risen?: { c: SpellCast; enemy: EnemyId };
   /** A Hunter's own creature (Deku's spirit wolves): it bites for their special's damage. */
   own?: { bites: number; speed: number; mult: number };
   /** Seconds left in a lunge (their tome's ability), and whether this lunge has landed yet. */
@@ -202,7 +211,7 @@ const HELPER_SPOTS = [
   { x: 0, y: -80 },
 ];
 
-export type BulletKind = 'blood' | 'bolt' | 'spark' | 'arrow' | 'fireball' | 'potion' | 'pellet' | 'dagger' | 'pistol' | 'ricochet' | 'hammer';
+export type BulletKind = 'spell' | 'blood' | 'bolt' | 'spark' | 'arrow' | 'fireball' | 'potion' | 'pellet' | 'dagger' | 'pistol' | 'ricochet' | 'hammer';
 
 export interface Bullet {
   shooter: Shooter;
@@ -239,6 +248,46 @@ export interface Bullet {
   dtype?: DamageType;
   /** A copied potion's puddle length, in ticks (Thomas's tome; otherwise the thrower's own special's). */
   ticks?: number;
+  /** A spell's projectile: its cast, and the share of it each hit deals. */
+  cast?: SpellCast;
+  k?: number;
+}
+
+/** A spell being cast: by whom, of what element, and how hard (a staff's shot multiple, or an enchantment's base damage). */
+export interface SpellCast {
+  who: Shooter;
+  dtype: DamageType;
+  mult?: number;
+  base?: number;
+  mode?: GearMode;
+}
+
+/** A spell's hit a moment from now (an ice spike, a sunbeam pulse, a lightning strike from the sky). */
+export interface SpellHit {
+  c: SpellCast;
+  t: number;
+  x: number;
+  y: number;
+  r: number;
+  k: number;
+  fx?: 'spike' | 'sun' | 'storm';
+}
+
+/** A spell that lingers: an acid cloud, a drifting poison mist, cursed ground, a gravity anchor. */
+export interface SpellZone {
+  kind: SpellId;
+  c: SpellCast;
+  x: number;
+  y: number;
+  r: number;
+  vx: number;
+  vy: number;
+  life: number;
+  max: number;
+  tick: number;
+  k: number;
+  /** Poison Mist: when (by its life) it last poisoned each monster. */
+  touched: Map<number, number>;
 }
 
 /** Who can cast a special: a Guild Hunter on the field, or the Hunter in the middle when that's one of them. */
@@ -303,6 +352,9 @@ export interface Puddle {
   /** An acid puddle from an Acid proc: fixed damage per tick, of this type. */
   abs?: number;
   dtype?: DamageType;
+  /** A spell's puddle (Acid Pool): each tick is `k` of its cast. */
+  cast?: SpellCast;
+  k?: number;
 }
 
 export type FieldEvent =
@@ -337,7 +389,9 @@ export type FieldEvent =
   /** A Hunter's shield deflected a projectile (at x, y), sending it off at angle `a`. */
   | { type: 'deflect'; who: Shooter; x: number; y: number; a: number }
   /** Floating words on the field: a dice roll's call, Double or Nothing's ×2 / BUST. */
-  | { type: 'say'; x: number; y: number; text: string; color: string; size: number };
+  | { type: 'say'; x: number; y: number; text: string; color: string; size: number }
+  /** A spell's moment: an ice spike, a fan of frost, a sunbeam, an acid drop, an anchor landing, the dead rising. */
+  | { type: 'spell'; fx: 'spike' | 'cone' | 'sun' | 'drop' | 'anchor' | 'rise'; x: number; y: number; r: number; color: string; a?: number; arc?: number };
 
 /**
  * The survivor-style battlefield in world coordinates centered on your Hunter.
@@ -393,6 +447,9 @@ export class Field {
   private gearCd = new Map<string, number>();
   /** Creatures your Hunter's tome has summoned. */
   summons: Summon[] = [];
+  /** Spells' hits still to land, and the spells lingering on the field. */
+  spellHits: SpellHit[] = [];
+  zones: SpellZone[] = [];
   /** Seconds until your tome's creatures can lunge again (a tome with a lunge ability, e.g. the Wolf Spirit). */
   dashCd = 0;
   /** Seconds until a tap with Melting Miasma equipped can leave another poison puddle. */
@@ -461,6 +518,8 @@ export class Field {
     this.bullets = [];
     this.shots = [];
     this.puddles = [];
+    this.spellHits = [];
+    this.zones = [];
     this.tomes = [];
     this.dice = [];
     this.stun = 0;
@@ -620,6 +679,7 @@ export class Field {
     this.runDice(dt);
     this.runStabs(dt);
     this.runEncores(dt);
+    this.runSpells(dt);
     this.runSummons(dt);
     this.runGearEffects(dt);
     for (const h of this.helpers) this.helperAttack(h, dt);
@@ -1055,8 +1115,10 @@ export class Field {
     } else if (cls?.summon) {
       this.summon(who, x, y, aim, cls);
     } else if (cls?.spell && gun.ammo === 1) {
-      // A staff's big spell: the last round of each cast.
-      fan((a) => this.shoot(who, 'fireball', x, y, a, 380, range, { radius: cls.spell!.radius * g.radiusMult(who), dmg: cls.spell!.damage, mode: m }));
+      // A staff's big spell: the last round of each cast, its element's spell (a Physical staff's a blast).
+      const spell = g.spellOf(who, mode);
+      if (spell) this.castSpell(who, x, y, spell, target, { mult: cls.spell.damage, mode: m });
+      else fan((a) => this.shoot(who, 'fireball', x, y, a, 380, range, { radius: cls.spell!.radius * g.radiusMult(who), dmg: cls.spell!.damage, mode: m }));
     } else if (cls?.attack === 'slam') {
       // A hammer smashes the ground out in front: the Hunter stands at the edge of the blast, so its centre is
       // further out the bigger it is. Everything in it is hit and thrown far back from where it landed.
@@ -1471,11 +1533,11 @@ export class Field {
     angle: number,
     speed: number,
     range: number,
-    o: { pierce?: number; dmg?: number; radius?: number; bounces?: number; slow?: number; tx?: number; ty?: number; mode?: GearMode; special?: boolean; followThrough?: number; volley?: number; stack?: number; bleed?: boolean; dtype?: DamageType; ticks?: number },
+    o: { pierce?: number; dmg?: number; radius?: number; bounces?: number; slow?: number; tx?: number; ty?: number; mode?: GearMode; special?: boolean; followThrough?: number; volley?: number; stack?: number; bleed?: boolean; dtype?: DamageType; ticks?: number; cast?: SpellCast; k?: number },
   ): void {
     const g = this.game;
     // A weapon firing one type per projectile hands them out in turn.
-    const types = !o.special && g.perShotOf(shooter, o.mode) ? g.damageTypesOf(shooter, o.mode) : null;
+    const types = !o.special && !o.cast && g.perShotOf(shooter, o.mode) ? g.damageTypesOf(shooter, o.mode) : null;
     let dtype: DamageType | undefined = o.dtype;
     if (types) {
       const turn = this.typeTurn.get(shooter) ?? 0;
@@ -1507,6 +1569,8 @@ export class Field {
       stack: o.stack,
       dtype,
       ticks: o.ticks,
+      cast: o.cast,
+      k: o.k,
     });
   }
 
@@ -1671,9 +1735,241 @@ export class Field {
         }
         return true;
       }
+      case 'spell': {
+        const target = this.nearest(x, y, Math.max(this.game.shooterRange(who), MAIN_RANGE));
+        if (!target) return false;
+        this.castSpell(who, x, y, ef.spell, target, { base });
+        return true;
+      }
       default:
         return false;
     }
+  }
+
+  // ---- Spells: a staff's cast after its bolts, or a Spell enchantment going off ----
+
+  /**
+   * Casts a spell from (x, y) at `target`. A staff's cast (`mult`) hits like its shots, × `mult`; an enchantment's
+   * (`base`) deals its own base damage, like gear abilities. Every hit sets off the spell's element's effect.
+   */
+  private castSpell(who: Shooter, x: number, y: number, spell: SpellId, target: Enemy, power: { mult?: number; base?: number; mode?: GearMode }): void {
+    const g = this.game;
+    const sp = SPELLS[spell];
+    const c: SpellCast = { who, dtype: sp.damageType, mult: power.mult, base: power.base, mode: power.mode };
+    const aim = Math.atan2(target.y - y, target.x - x);
+    const area = g.radiusMult(who);
+    const color = DAMAGE_TYPES[sp.damageType].color;
+    const range = Math.max(g.shooterRange(who, power.mode), MAIN_RANGE);
+    // Projectiles carry the cast with them: a staff's as a shot multiple, an enchantment's as fixed damage.
+    const shot = (kind: BulletKind, a: number, o: { pierce?: number; radius?: number; tx?: number; ty?: number; reach?: number; ticks?: number }) =>
+      this.shoot(who, kind, x, y, a, kind === 'potion' ? 380 : BULLET_SPEED, o.reach ?? range, { ...o, dtype: sp.damageType, mode: power.mode, cast: c, k: sp.k });
+    switch (spell) {
+      case 'fireVolley':
+        for (let i = 0; i < sp.count!; i++) shot('spell', aim + (i / (sp.count! - 1) - 0.5) * sp.spread!, {});
+        break;
+      case 'fireball':
+        shot('fireball', aim, { radius: sp.r! * area });
+        break;
+      case 'acidPool':
+        shot('potion', aim, { radius: sp.r! * area, tx: target.x, ty: target.y, ticks: Math.round(sp.life! / PUDDLE_TICK) });
+        break;
+      case 'arcaneBolts':
+        // Out to the edge of the field, through everything.
+        for (let i = 0; i < sp.count!; i++) shot('spell', aim + (i - (sp.count! - 1) / 2) * sp.spread!, { pierce: Infinity, reach: Math.hypot(this.halfW, this.halfH) * 2 });
+        break;
+      case 'iceSpikes': {
+        // A line of spikes from the Hunter toward the monster, each erupting a moment after the last.
+        const step = sp.r! * 1.5;
+        const d0 = Math.max(step, Math.hypot(target.x - x, target.y - y) - (sp.count! / 2) * step);
+        for (let i = 0; i < sp.count!; i++) {
+          const d = d0 + i * step;
+          this.spellHits.push({ c, t: i * 0.06, x: x + Math.cos(aim) * d, y: y + Math.sin(aim) * d, r: sp.r! * area, k: sp.k, fx: 'spike' });
+        }
+        break;
+      }
+      case 'frostFan': {
+        const reach = sp.r! * area;
+        this.events.push({ type: 'spell', fx: 'cone', x, y, r: reach, a: aim, arc: sp.spread! * 2, color });
+        for (const e of [...this.enemies]) {
+          const d = Math.hypot(e.x - x, e.y - y);
+          if (e.hp <= 0 || d > reach + e.r) continue;
+          const off = Math.abs(Math.atan2(Math.sin(Math.atan2(e.y - y, e.x - x) - aim), Math.cos(Math.atan2(e.y - y, e.x - x) - aim)));
+          if (off <= sp.spread! + Math.atan2(e.r, Math.max(1, d))) this.spellHit(c, e, sp.k, x, y);
+        }
+        break;
+      }
+      case 'radiantBeam': {
+        const len = range * 1.2;
+        const w = sp.r! * area;
+        this.events.push({ type: 'beam', x1: x, y1: y, x2: x + Math.cos(aim) * len, y2: y + Math.sin(aim) * len, color, width: w * 0.5 });
+        for (const e of [...this.enemies]) {
+          const t = (e.x - x) * Math.cos(aim) + (e.y - y) * Math.sin(aim);
+          if (e.hp <= 0 || t < 0 || t > len) continue;
+          if (Math.abs(-(e.x - x) * Math.sin(aim) + (e.y - y) * Math.cos(aim)) <= w / 2 + e.r) this.spellHit(c, e, sp.k, x, y);
+        }
+        break;
+      }
+      case 'sunbeam':
+        for (let i = 0; i < sp.count!; i++) this.spellHits.push({ c, t: i * sp.tick!, x: target.x, y: target.y, r: sp.r! * area, k: sp.k, fx: i === 0 ? 'sun' : undefined });
+        break;
+      case 'thunderstorm':
+        for (let i = 0; i < sp.count!; i++) this.spellHits.push({ c, t: i * sp.tick!, x: target.x, y: target.y, r: sp.r! * area, k: sp.k, fx: 'storm' });
+        break;
+      case 'chainLightning': {
+        // From the Hunter to the monster, then on to the nearest one not yet struck, each jump a little weaker.
+        const struck: number[] = [];
+        let from = { x, y };
+        let e: Enemy | null = target;
+        for (let i = 0; i < sp.count! && e; i++) {
+          this.events.push({ type: 'beam', x1: from.x, y1: from.y, x2: e.x, y2: e.y, color, width: 3, zigzag: true });
+          struck.push(e.id);
+          this.spellHit(c, e, sp.k * 0.85 ** i, from.x, from.y);
+          from = { x: e.x, y: e.y };
+          e = this.nearest(from.x, from.y, sp.r! * area, struck);
+        }
+        break;
+      }
+      case 'acidRain':
+      case 'raiseDead':
+      case 'gravityAnchor': {
+        // Where the monsters are thickest around the target.
+        const near = this.enemies.filter((o) => o.hp > 0 && Math.hypot(o.x - target.x, o.y - target.y) <= sp.r! * area);
+        const cx = near.reduce((a, o) => a + o.x, 0) / near.length;
+        const cy = near.reduce((a, o) => a + o.y, 0) / near.length;
+        this.zones.push({ kind: spell, c, x: cx, y: cy, r: sp.r! * area, vx: 0, vy: 0, life: sp.life!, max: sp.life!, tick: 0, k: sp.k, touched: new Map() });
+        if (spell === 'gravityAnchor') this.events.push({ type: 'spell', fx: 'anchor', x: cx, y: cy, r: sp.r! * area, color });
+        break;
+      }
+      case 'poisonMist': {
+        // A cloud rolling out from the Hunter, through the target and on across the field.
+        const speed = 70;
+        this.zones.push({ kind: spell, c, x: x + Math.cos(aim) * 30, y: y + Math.sin(aim) * 30, r: sp.r! * area, vx: Math.cos(aim) * speed, vy: Math.sin(aim) * speed, life: sp.life!, max: sp.life!, tick: 0, k: sp.k, touched: new Map() });
+        break;
+      }
+      case 'plague': {
+        this.events.push({ type: 'nova', x: target.x, y: target.y, r: sp.r! * area, color });
+        for (const e of [...this.enemies]) if (e.hp > 0 && Math.hypot(e.x - target.x, e.y - target.y) <= sp.r! * area + e.r) this.infect(e, c, this.spellAmount(c, e) * sp.k);
+        break;
+      }
+    }
+  }
+
+  /** What one hit of a cast deals to `e` before its weaknesses (for the effects a spell sets off). */
+  private spellAmount(c: SpellCast, e: Enemy): number {
+    const g = this.game;
+    return c.base !== undefined ? c.base * g.abilityMult(c.who, enemyDef(e.type).archetype) : g.shotDamage(c.who, enemyDef(e.type).archetype, c.mode) * (c.mult ?? 1);
+  }
+
+  /** One hit of a spell, `k` of its cast, always setting off its element's effect. */
+  private spellHit(c: SpellCast, e: Enemy, k: number, fx: number, fy: number): void {
+    if (e.hp <= 0) return;
+    if (c.base !== undefined) this.abilityHit(c.who, e, c.base * k, c.dtype, true);
+    else {
+      this.hitWith(c.who, e, (c.mult ?? 1) * k, fx, fy, undefined, c.mode, false, false, c.dtype);
+      if (e.hp > 0) this.applyStatus(e, c.dtype, this.spellAmount(c, e) * k * this.typeMultOn(c.dtype, e), c.who, this.game.procRarity(c.who, c.mode));
+    }
+  }
+
+  /** Plague: poisons the monster and leaves it infectious (it passes the plague on to monsters it touches). */
+  private infect(e: Enemy, c: SpellCast, amount: number): void {
+    if (e.hp <= 0 || e.plague || this.immuneTo(e, 'poison')) return;
+    e.plague = { left: SPELLS.plague.life!, by: c.who, amount };
+    this.applyStatus(e, 'poison', amount * this.typeMultOn('poison', e), c.who, this.game.procRarity(c.who, c.mode));
+  }
+
+  /** Spells' delayed hits (spikes, sunbeams, lightning from the sky), lingering zones and the plague. */
+  private runSpells(dt: number): void {
+    for (const h of this.spellHits) {
+      h.t -= dt;
+      if (h.t > 0) continue;
+      const color = DAMAGE_TYPES[h.c.dtype].color;
+      if (h.fx === 'storm') {
+        // Lightning from the sky on a monster near the spot.
+        const near = this.enemies.filter((e) => e.hp > 0 && Math.hypot(e.x - h.x, e.y - h.y) <= h.r + e.r);
+        if (near.length) {
+          const e = near[Math.floor(this.game.rng() * near.length)];
+          this.events.push({ type: 'beam', x1: e.x + (this.game.rng() - 0.5) * 60, y1: e.y - 220, x2: e.x, y2: e.y, color, width: 3, zigzag: true });
+          this.spellHit(h.c, e, h.k, e.x, e.y - 50);
+        }
+        continue;
+      }
+      if (h.fx) this.events.push({ type: 'spell', fx: h.fx, x: h.x, y: h.y, r: h.r, color });
+      for (const e of [...this.enemies]) if (e.hp > 0 && Math.hypot(e.x - h.x, e.y - h.y) <= h.r + e.r) this.spellHit(h.c, e, h.k, h.x, h.y);
+    }
+    this.spellHits = this.spellHits.filter((h) => h.t > 0);
+
+    for (const z of this.zones) {
+      z.life -= dt;
+      z.x += z.vx * dt;
+      z.y += z.vy * dt;
+      z.tick -= dt;
+      const sp = SPELLS[z.kind];
+      if (z.kind === 'gravityAnchor') {
+        // Pulls everything in reach toward the anchor (not Guardians, nor monsters that resist Void).
+        for (const o of this.enemies) {
+          if (o.hp <= 0 || o.boss || this.immuneTo(o, 'void')) continue;
+          const dx = z.x - o.x;
+          const dy = z.y - o.y;
+          const d = Math.hypot(dx, dy);
+          if (d > z.r + o.r || d < 4) continue;
+          const step = Math.min(d - 4, STATUS.well.pull * dt);
+          o.x += (dx / d) * step;
+          o.y += (dy / d) * step;
+        }
+        if (z.life <= 0) {
+          this.events.push({ type: 'explode', x: z.x, y: z.y, r: z.r * ANCHOR_COLLAPSE.r, color: DAMAGE_TYPES.void.color });
+          for (const e of [...this.enemies]) if (e.hp > 0 && Math.hypot(e.x - z.x, e.y - z.y) <= z.r * ANCHOR_COLLAPSE.r + e.r) this.spellHit(z.c, e, ANCHOR_COLLAPSE.k, z.x, z.y);
+        }
+      }
+      if (z.tick > 0 || z.life <= 0) continue;
+      if (z.kind === 'acidRain') {
+        // A drop lands somewhere under the cloud.
+        z.tick = sp.tick!;
+        const a = this.game.rng() * Math.PI * 2;
+        const d = Math.sqrt(this.game.rng()) * z.r;
+        const px = z.x + Math.cos(a) * d;
+        const py = z.y + Math.sin(a) * d;
+        this.events.push({ type: 'spell', fx: 'drop', x: px, y: py, r: 22, color: DAMAGE_TYPES.acid.color });
+        for (const e of [...this.enemies]) if (e.hp > 0 && Math.hypot(e.x - px, e.y - py) <= 22 + e.r) this.spellHit(z.c, e, z.k, px, py - 30);
+        continue;
+      }
+      z.tick = sp.tick ?? 0.5;
+      for (const e of [...this.enemies]) {
+        if (e.hp <= 0 || Math.hypot(e.x - z.x, e.y - z.y) > z.r + e.r) continue;
+        if (z.kind === 'poisonMist') {
+          // Each monster the cloud touches is poisoned (again, if it's still in it a second later).
+          if ((z.touched.get(e.id) ?? -Infinity) > z.life + 1) continue;
+          z.touched.set(e.id, z.life);
+        }
+        this.spellHit(z.c, e, z.k, z.x, z.y);
+      }
+    }
+    this.zones = this.zones.filter((z) => z.life > 0 && Math.hypot(z.x, z.y) < Math.hypot(this.halfW, this.halfH) + z.r * 2);
+
+    // The plague spreads by touch.
+    for (const e of this.enemies) {
+      const p = e.plague;
+      if (!p) continue;
+      p.left -= dt;
+      if (p.left <= 0 || e.hp <= 0) {
+        e.plague = undefined;
+        continue;
+      }
+      for (const o of this.enemies)
+        if (o !== e && !o.plague && o.hp > 0 && Math.hypot(o.x - e.x, o.y - e.y) <= e.r + o.r + 4) {
+          this.infect(o, { who: p.by, dtype: 'poison' }, p.amount * PLAGUE_SPREAD);
+          if (o.plague) this.events.push({ type: 'nova', x: o.x, y: o.y, r: o.r + 6, color: DAMAGE_TYPES.poison.color });
+        }
+    }
+  }
+
+  /** Raise Dead: a monster dying on cursed ground rises to fight for whoever cursed it. */
+  private raiseFallen(e: Enemy): void {
+    const z = this.zones.find((z) => z.kind === 'raiseDead' && Math.hypot(e.x - z.x, e.y - z.y) <= z.r + e.r);
+    if (!z || e.boss) return;
+    const look = enemyDef(e.type);
+    this.summons.push({ who: z.c.who, type: 'undead', x: e.x, y: e.y, life: RISEN.life, maxLife: RISEN.life, bite: 0, look: 'wisp', dash: 0, dashHit: false, risen: { c: z.c, enemy: look.id } });
+    this.events.push({ type: 'spell', fx: 'rise', x: e.x, y: e.y, r: e.r + 8, color: DAMAGE_TYPES.decay.color });
   }
 
   /** The gear in a Hunter's weapon slot, if any. */
@@ -1704,15 +2000,15 @@ export class Field {
     this.summons = this.summons.filter(
       (s) =>
         (s.who === this.lead || this.helpers.some((h) => h.id === s.who)) &&
-        (s.own || (s.gear ? this.game.equipped(s.who).some((it) => it?.uid === s.gear!.uid) : this.game.weaponClassOf(s.who)?.summon)),
+        (s.own || s.risen || (s.gear ? this.game.equipped(s.who).some((it) => it?.uid === s.gear!.uid) : this.game.weaponClassOf(s.who)?.summon)),
     );
-    for (const who of new Set(this.summons.filter((s) => !s.gear && !s.own).map((s) => s.who))) {
+    for (const who of new Set(this.summons.filter((s) => !s.gear && !s.own && !s.risen).map((s) => s.who))) {
       const dash = this.weaponDef(who)?.summon?.dash;
       const owner: { dashCd: number } = who === this.lead ? this : this.helpers.find((h) => h.id === who)!;
       if (!dash || owner.dashCd > 0) continue;
       let lunged = false;
       for (const s of this.summons) {
-        if (s.who !== who || s.gear || s.own) continue;
+        if (s.who !== who || s.gear || s.own || s.risen) continue;
         const e = this.nearest(s.x, s.y, dash.range);
         if (!e || s.dash > 0) continue;
         s.dash = dash.range / dash.speed + 0.05;
@@ -1722,8 +2018,8 @@ export class Field {
       if (lunged) owner.dashCd = dash.cooldown * this.game.cooldownMult(who);
     }
     for (const s of this.summons) {
-      const sm = s.gear ?? s.own ?? this.game.weaponClassOf(s.who)!.summon!;
-      const dash = s.gear || s.own ? undefined : this.weaponDef(s.who)?.summon?.dash;
+      const sm = s.gear ?? s.own ?? (s.risen ? { bites: RISEN.bites, speed: enemyDef(s.risen.enemy).speed * 1.2 } : this.game.weaponClassOf(s.who)!.summon!);
+      const dash = s.gear || s.own || s.risen ? undefined : this.weaponDef(s.who)?.summon?.dash;
       s.life -= dt;
       s.dash = Math.max(0, s.dash - dt);
       const e = this.nearest(s.x, s.y, 2000);
@@ -1748,7 +2044,8 @@ export class Field {
         while (s.bite >= 1 && e.hp > 0) {
           s.bite -= 1;
           const m = this.game.summonMult(s.who, s.type);
-          if (s.gear) this.abilityHit(s.who, e, s.gear.base * m, s.gear.damageType, false);
+          if (s.risen) this.spellHit(s.risen.c, e, RISEN.k, s.x, s.y);
+          else if (s.gear) this.abilityHit(s.who, e, s.gear.base * m, s.gear.damageType, false);
           // A Hunter's own creatures bite with their weapon's type, and can inflict its status effect.
           else if (s.own) this.hitWith(s.who, e, s.own.mult * m, s.x, s.y, undefined, undefined, true);
           else this.hitWith(s.who, e, m, s.x, s.y);
@@ -2021,7 +2318,7 @@ export class Field {
         if (b.life <= 0 || (b.tx !== undefined && (b.tx - b.x) * b.vx + (b.ty! - b.y) * b.vy <= 0)) {
           b.life = 0;
           const ticks = b.ticks ?? (b.shooter === 'main' ? undefined : hunterDef(b.shooter).special?.ticks) ?? 6;
-          this.puddles.push({ shooter: b.shooter, x: b.tx ?? b.x, y: b.ty ?? b.y, r: b.radius ?? 40, life: ticks * PUDDLE_TICK, tick: 0, dmg: b.dmg, dtype: b.dtype });
+          this.puddles.push({ shooter: b.shooter, x: b.tx ?? b.x, y: b.ty ?? b.y, r: b.radius ?? 40, life: ticks * PUDDLE_TICK, tick: 0, dmg: b.dmg, dtype: b.dtype, cast: b.cast, k: b.k });
         }
         continue;
       }
@@ -2044,6 +2341,16 @@ export class Field {
   }
 
   private bulletHit(b: Bullet, e: Enemy): void {
+    if (b.cast) {
+      // A spell's projectile: a fireball bursts, the rest strike what they hit.
+      if (b.kind === 'fireball') {
+        const r = b.radius ?? 50;
+        this.events.push({ type: 'explode', x: b.x, y: b.y, r, color: DAMAGE_TYPES[b.cast.dtype].color });
+        for (const o of [...this.enemies]) if (o.hp > 0 && Math.hypot(o.x - b.x, o.y - b.y) <= r + o.r) this.spellHit(b.cast, o, b.k ?? 1, b.x, b.y);
+        b.life = 0;
+      } else this.spellHit(b.cast, e, b.k ?? 1, b.x - b.vx, b.y - b.vy);
+      return;
+    }
     if (b.kind === 'blood') {
       // A blood bolt: Themus's special damage, and a bleed.
       this.hitWith(b.shooter, e, b.dmg, b.x - b.vx, b.y - b.vy, b.crit, b.mode, true, true);
@@ -2087,7 +2394,9 @@ export class Field {
       p.tick -= dt;
       if (p.tick > 0) continue;
       p.tick = PUDDLE_TICK;
-      if (p.abs !== undefined) this.hitArea(p.x, p.y, p.r, p.abs, p.dtype ?? 'acid', p.shooter);
+      if (p.cast) {
+        for (const e of [...this.enemies]) if (e.hp > 0 && Math.hypot(e.x - p.x, e.y - p.y) <= p.r + e.r) this.spellHit(p.cast, e, p.k ?? 1, p.x, p.y);
+      } else if (p.abs !== undefined) this.hitArea(p.x, p.y, p.r, p.abs, p.dtype ?? 'acid', p.shooter);
       else for (const e of this.enemies) if (e.hp > 0 && Math.hypot(e.x - p.x, e.y - p.y) <= p.r + e.r) this.hitWith(p.shooter, e, p.dmg, p.x, p.y, undefined, undefined, true, false, p.dtype);
     }
     this.puddles = this.puddles.filter((p) => p.life > 0);
@@ -2106,6 +2415,7 @@ export class Field {
     if (e.boss && e.hp > 0 && e.hp <= e.maxHp * (enemyDef(e.type).winAt ?? 0)) e.hp = 0;
     if (e.hp <= 0) {
       const reward = this.game.registerKill(e.type, e.boss, shooter);
+      if (this.zones.length) this.raiseFallen(e);
       // Fireburst (an enchantment): monsters the weapon kills burst, hurting everything around them.
       const burst = this.game.killBurst(shooter);
       if (burst && this.game.rng() < burst.chance) this.abilityBurst(shooter, e.x, e.y, burst.radius, burst.base, burst.damageType);

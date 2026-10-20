@@ -1,5 +1,5 @@
 import { areaDef, DAMAGE_TYPES, FIELD_ZOOM, FLYING, gearDef, WEAPON_CLASSES, STATUS, enemyDef, eventDef, fieldZoom, GUARDIAN_TIME, hunterDef, materialDef, SIZE_SCALE, type AreaId, type DamageType, type EnemyId, type EnemyShape } from '../core/balance';
-import { DICE_FLIGHT, DICE_REST, PLAYER_RADIUS, SHOT_RADIUS, SUMMON_RADIUS, TOME_LIFE, TOME_OPEN, type EnemyShot, type Summon, type Bullet, type BulletKind, type Enemy, type Field, type Helper } from '../core/field';
+import { DICE_FLIGHT, DICE_REST, PLAYER_RADIUS, SHOT_RADIUS, SUMMON_RADIUS, TOME_LIFE, TOME_OPEN, type EnemyShot, type Summon, type SpellZone, type FieldEvent, type Bullet, type BulletKind, type Enemy, type Field, type Helper } from '../core/field';
 import { fmt } from '../core/format';
 import type { Game, Shooter } from '../core/game';
 import type { ClarityLevel, FxKey } from '../core/state';
@@ -286,6 +286,9 @@ export class BattleView {
             if (h) this.fx.text(h.x, h.y - PLAYER_RADIUS * CHAR_SCALE - 22, 'STUNNED!', '#ffe066', 14, 0.8);
           }
           break;
+        case 'spell':
+          this.spellEvent(e);
+          break;
         case 'escape': {
           // A puff at the screen edge where the loot got away.
           const hw = this.w / 2 / Z;
@@ -470,6 +473,7 @@ export class BattleView {
     this.scaledAt(g, 0, 0, () => this.drawHunter(g));
     this.drawBoneWall(g);
 
+    for (const z of this.field.zones) this.drawZone(g, z);
     for (const b of this.field.bullets) drawBullet(g, b, this.time, this.game.state.settings.aoeStyle === 'basic');
     this.drawTomes(g);
     this.drawDice(g);
@@ -477,6 +481,10 @@ export class BattleView {
 
     // Tome spirits: a glowing wisp with a trailing tail, fading as their time runs out.
     for (const sm of this.field.summons) {
+      if (sm.risen) {
+        this.drawRisen(g, sm);
+        continue;
+      }
       if (sm.look === 'wolf') {
         this.scaledAt(g, sm.x, sm.y, () => this.drawWolf(g, sm));
         continue;
@@ -864,6 +872,159 @@ export class BattleView {
   }
 
   /** Plays a magic effect once: `size` is its longer side; 'bottom' anchors strikes that come down from above. */
+  /** A spell's moment on the field (see FieldEvent 'spell'). */
+  private spellEvent(e: Extract<FieldEvent, { type: 'spell' }>): void {
+    const rgb = hexRgb(e.color);
+    switch (e.fx) {
+      case 'spike':
+        // An ice spike bursting up out of the ground.
+        if (this.fancy) this.playEffect('spikes', e.x, e.y + e.r * 0.6, e.r * 2.6, 'bottom', 26, 0, 1, e.color);
+        else this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: rgb, max: 0.25, fill: true });
+        this.fx.burst(e.x, e.y, '#e8f8ff', 4, 90, 2.5, 0, true);
+        break;
+      case 'cone':
+        // A fan of frost: a pale sweep across the cone and shards flying out along it.
+        this.sweeps.push({ x: e.x, y: e.y, a: e.a!, arc: e.arc!, r: e.r, color: e.color, t: 0 });
+        for (let i = 0; i < 14; i++) {
+          const a = e.a! + (Math.random() - 0.5) * e.arc!;
+          const d = e.r * (0.3 + Math.random() * 0.7);
+          this.fx.burst(e.x + Math.cos(a) * d, e.y + Math.sin(a) * d, i % 2 ? '#e8f8ff' : e.color, 1, 70, 3, 0, true);
+        }
+        break;
+      case 'sun':
+        if (this.fancy) this.playEffect('sunstrike', e.x, e.y + e.r * 0.3, e.r * 2.4, 'bottom', 16);
+        this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: rgb, max: 0.8, fill: true });
+        break;
+      case 'drop':
+        // An acid drop splashing down.
+        this.beams.push({ x1: e.x + 6, y1: e.y - 70, x2: e.x, y2: e.y, color: e.color, width: 2, t: 0 });
+        this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: rgb, max: 0.3 });
+        this.fx.burst(e.x, e.y, e.color, 3, 70, 2, 0, true);
+        break;
+      case 'anchor':
+        this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: rgb, max: 0.4 });
+        this.fx.burst(e.x, e.y, e.color, 10, 120, 3, 0, true);
+        break;
+      case 'rise':
+        // The dead getting back up: a puff of grave dust and violet motes.
+        if (this.fancy) this.playEffect('puff', e.x, e.y, e.r * 2.4, 'center', 20, 0, 0.8, e.color);
+        this.fx.burst(e.x, e.y, '#c8a0ff', 8, 80, 2.5, 0, true);
+        break;
+    }
+  }
+
+  /** A spell lingering on the field: an acid cloud, a poison mist, cursed ground, a gravity anchor. */
+  private drawZone(g: CanvasRenderingContext2D, z: SpellZone): void {
+    const fade = Math.min(1, z.life / 0.5, (z.max - z.life) / 0.25 + 0.2);
+    const t = this.time;
+    g.save();
+    switch (z.kind) {
+      case 'acidRain': {
+        // A dark cloud hanging over the spot, rain streaking down out of it.
+        g.globalAlpha = 0.18 * fade;
+        g.fillStyle = '#c6f03a';
+        g.beginPath();
+        g.ellipse(z.x, z.y, z.r, z.r * 0.6, 0, 0, Math.PI * 2);
+        g.fill();
+        g.globalAlpha = 0.75 * fade;
+        g.fillStyle = '#3a4a20';
+        for (let i = 0; i < 7; i++) {
+          const a = (i / 7) * Math.PI * 2 + t * 0.4;
+          g.beginPath();
+          g.arc(z.x + Math.cos(a) * z.r * 0.55, z.y - 70 + Math.sin(a) * 10, z.r * 0.32, 0, Math.PI * 2);
+          g.fill();
+        }
+        g.strokeStyle = '#c6f03a';
+        g.lineWidth = 1.5;
+        g.globalAlpha = 0.6 * fade;
+        for (let i = 0; i < 12; i++) {
+          const px = z.x + (((i * 37) % 100) / 100 - 0.5) * z.r * 1.6;
+          const py = z.y - 60 + ((t * 260 + i * 23) % 70);
+          g.beginPath();
+          g.moveTo(px, py);
+          g.lineTo(px - 2, py + 8);
+          g.stroke();
+        }
+        break;
+      }
+      case 'poisonMist': {
+        // Rolling green fog: soft blobs drifting around its centre.
+        for (let i = 0; i < 8; i++) {
+          const a = (i / 8) * Math.PI * 2 + t * 0.7 + i;
+          const d = z.r * (0.25 + 0.35 * Math.abs(Math.sin(t + i)));
+          g.globalAlpha = 0.22 * fade;
+          g.fillStyle = i % 2 ? '#6fdc5a' : '#3a8a3a';
+          g.beginPath();
+          g.arc(z.x + Math.cos(a) * d, z.y + Math.sin(a) * d * 0.7, z.r * 0.55, 0, Math.PI * 2);
+          g.fill();
+        }
+        break;
+      }
+      case 'raiseDead': {
+        // Cursed ground: a dark violet circle, its rim pulsing, motes rising off it.
+        g.globalAlpha = 0.3 * fade;
+        g.fillStyle = '#3a1a4a';
+        g.beginPath();
+        g.ellipse(z.x, z.y, z.r, z.r * 0.75, 0, 0, Math.PI * 2);
+        g.fill();
+        g.globalAlpha = (0.5 + 0.3 * Math.sin(t * 5)) * fade;
+        g.strokeStyle = '#b09a60';
+        g.setLineDash([6, 5]);
+        g.lineWidth = 2;
+        g.stroke();
+        g.setLineDash([]);
+        g.fillStyle = '#c8a0ff';
+        for (let i = 0; i < 8; i++) {
+          const p = (t * 0.6 + i / 8) % 1;
+          const a = i * 2.4;
+          g.globalAlpha = (1 - p) * fade;
+          g.fillRect(z.x + Math.cos(a) * z.r * 0.7 * ((i % 3) / 3 + 0.3) - 1.5, z.y + Math.sin(a) * z.r * 0.5 - p * 40, 3, 3);
+        }
+        break;
+      }
+      case 'gravityAnchor': {
+        // A black hole at the anchor, pulling a ring of pixels in from its reach.
+        const img = effectImage('blackhole');
+        g.globalAlpha = 0.9 * fade;
+        if (img) drawEffectFrame(g, img, 'blackhole', Math.floor(t * 12), z.x, z.y, z.r * 0.7, 'center', true);
+        g.strokeStyle = '#ff5fd7';
+        g.lineWidth = 2;
+        g.globalAlpha = 0.5 * fade;
+        g.beginPath();
+        g.arc(z.x, z.y, z.r * (1 - ((t * 1.5) % 1)), 0, Math.PI * 2);
+        g.stroke();
+        break;
+      }
+    }
+    g.restore();
+  }
+
+  /** A monster raised by Raise Dead: its own art, ghostly violet, fading as its time runs out. */
+  private drawRisen(g: CanvasRenderingContext2D, sm: Summon): void {
+    const id = sm.risen!.enemy;
+    const def = enemyDef(id);
+    const ra = def.radius * SIZE_SCALE[def.size ?? 'medium'];
+    const img = sprite(`enemies/${id}`);
+    const sheetKey = MONSTER_SHEETS[id];
+    const sheet = sheetKey ? monsterSheetImage(sheetKey) : null;
+    g.save();
+    g.translate(sm.x, sm.y + Math.sin(this.time * 6 + sm.maxLife) * 2);
+    g.globalAlpha = 0.75 * Math.min(1, sm.life / 1);
+    if (sheetKey && sheet && sheet.complete && sheet.naturalWidth > 0) {
+      const sh = SHEETS[sheetKey];
+      drawSheetFrame(g, tinted(sheet, '#b48cff'), sh, sheetRow(sh, 'D'), Math.floor(this.time * 8) % sh.cols, ra * SHEET_SCALE);
+    } else if (img) {
+      const size = ra * SPRITE_SCALE;
+      g.drawImage(tinted(img, '#b48cff'), -size / 2, -size / 2, size, size);
+    } else {
+      g.fillStyle = '#b48cff';
+      g.beginPath();
+      g.arc(0, 0, SUMMON_RADIUS, 0, Math.PI * 2);
+      g.fill();
+    }
+    g.restore();
+  }
+
   private playEffect(key: EffectKey, x: number, y: number, size: number, anchor: 'center' | 'bottom' = 'center', fps = 18, start = 0, alpha = 1, color?: string): void {
     if (this.anims.length > 120) return; // keep the busiest moments cheap
     this.anims.push({ key, x, y, size, anchor, fps, t: 0, start, alpha, color });
@@ -1750,6 +1911,16 @@ function drawStatus(g: CanvasRenderingContext2D, e: Enemy, t: number, on: (k: Fx
       g.globalAlpha = 1;
     }
   }
+  if (e.plague && on('poison')) {
+    // Plague: sickly green bubbles rising off it.
+    g.fillStyle = '#6fdc5a';
+    for (let i = 0; i < 4; i++) {
+      const p = (t * 0.8 + i / 4 + e.phase) % 1;
+      g.globalAlpha = 1 - p;
+      g.fillRect(Math.sin(i * 2.1 + t * 3) * r * 0.6 - 1.5, -r - p * 16, 3, 3);
+    }
+    g.globalAlpha = 1;
+  }
   if (e.exposed && on('arcane')) {
     // Arcane: resistances stripped. Orbiting violet sparks.
     g.fillStyle = '#c08cff';
@@ -1919,6 +2090,24 @@ function drawBullet(g: CanvasRenderingContext2D, b: Bullet, t: number, basic = f
       g.fillRect(-2.5, -2.5, 5, 5);
       g.fillStyle = '#ffffff';
       g.fillRect(-1, -1, 2, 2);
+      break;
+    }
+    case 'spell': {
+      // A spell's bolt: a glowing orb of its element with a short tail.
+      const c = b.dtype ? DAMAGE_TYPES[b.dtype].color : '#fff6c2';
+      g.rotate(a);
+      g.fillStyle = c;
+      g.globalAlpha = 0.3;
+      g.fillRect(-14, -2.5, 12, 5);
+      g.beginPath();
+      g.arc(0, 0, 8, 0, Math.PI * 2);
+      g.fill();
+      g.globalAlpha = 1;
+      g.beginPath();
+      g.arc(0, 0, 4.5, 0, Math.PI * 2);
+      g.fill();
+      g.fillStyle = '#ffffff';
+      g.fillRect(-1.5, -1.5, 3, 3);
       break;
     }
     case 'pellet':

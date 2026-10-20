@@ -1,4 +1,6 @@
 import {
+  SPELLS,
+  staffSpell,
   ASCEND_LEVEL,
   ASCEND_NODE,
   WEAPON_CLASSES,
@@ -3952,7 +3954,7 @@ function tweakText(gd: GearDef): string {
 }
 
 /** Short names for gear effects, for their tags (the full text is in the tag's popup). */
-const EFFECT_TAG: Record<NonNullable<GearDef['effect']>['kind'], string> = { thorns: 'Thorns', block: 'Shield Burst', evade: 'Evasion', pulse: 'Pulse', summon: 'Summoner', wave: 'Wave', strike: 'Lightning Strike', chill: 'Chill Aura' };
+const EFFECT_TAG: Record<NonNullable<GearDef['effect']>['kind'], string> = { thorns: 'Thorns', block: 'Shield Burst', evade: 'Evasion', pulse: 'Pulse', summon: 'Summoner', wave: 'Wave', strike: 'Lightning Strike', chill: 'Chill Aura', spell: 'Spell' };
 
 /** Keeps a row of tiles to two lines: the tiles past them are hidden and the last one shown becomes "...". */
 function foldChips(box: HTMLElement | null): void {
@@ -4013,6 +4015,8 @@ function featureTags(gd: GearDef, stars = 1): string {
   }
   if (gd.weaponClass) tags.push(featTag(FEATURE_TAG_ICONS.weapon, WEAPON_CLASSES[gd.weaponClass].name, WEAPON_CLASSES[gd.weaponClass].describe));
   if (gd.tweak) tags.push(featTag(FEATURE_TAG_ICONS.tweak, tweakName(gd), tweakText(gd)));
+  const spell = staffSpell(gd);
+  if (spell) tags.push(featTag(FEATURE_TAG_ICONS.spell, SPELLS[spell].name, `After its bolts, this staff casts <b>${SPELLS[spell].name}</b>: ${SPELLS[spell].desc}`));
   if (gd.weaponClass === 'tome') {
     const st = SUMMON_TYPES[tomeSummonType(gd)];
     tags.push(featTag(SUMMON_TAG_ICONS[tomeSummonType(gd)], st.name, `Summon type: <b>${st.name}</b>. Bonuses to ${st.name} summons make its creatures hit harder.`));
