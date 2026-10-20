@@ -5282,3 +5282,9 @@ button.feat-tag {
 .eq-chips > .folded {
   display: none !important;
 }
+/* An icon painted edge to edge sits inside the well's frame rather than under it. */
+.btn-ic.full > img {
+  inset: 4px;
+  width: calc(100% - 8px);
+  height: calc(100% - 8px);
+}

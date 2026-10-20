@@ -4191,8 +4191,8 @@ function refitAffinities(): void {
  * The square of an icon that holds its visible pixels (icons carry transparent margins), as fractions of its size,
  * found once per image.
  */
-const iconCrops = new Map<string, Promise<{ x: number; y: number; side: number } | null>>();
-function iconCrop(img: HTMLImageElement): Promise<{ x: number; y: number; side: number } | null> {
+const iconCrops = new Map<string, Promise<{ x: number; y: number; side: number; solid: number } | null>>();
+function iconCrop(img: HTMLImageElement): Promise<{ x: number; y: number; side: number; solid: number } | null> {
   let crop = iconCrops.get(img.src);
   if (!crop) {
     crop = (img.complete ? Promise.resolve() : new Promise<void>((done) => img.addEventListener('load', () => done(), { once: true })))
@@ -4206,10 +4206,11 @@ function iconCrop(img: HTMLImageElement): Promise<{ x: number; y: number; side: 
         const cx = cv.getContext('2d', { willReadFrequently: true })!;
         cx.drawImage(img, 0, 0);
         const px = cx.getImageData(0, 0, w, h).data;
-        let x0 = w, y0 = h, x1 = -1, y1 = -1;
+        let x0 = w, y0 = h, x1 = -1, y1 = -1, filled = 0;
         for (let y = 0; y < h; y++)
           for (let x = 0; x < w; x++)
             if (px[(y * w + x) * 4 + 3] > 16) {
+              filled++;
               if (x < x0) x0 = x;
               if (x > x1) x1 = x;
               if (y < y0) y0 = y;
@@ -4217,7 +4218,8 @@ function iconCrop(img: HTMLImageElement): Promise<{ x: number; y: number; side: 
             }
         if (x1 < 0) return null;
         const side = Math.max(x1 - x0 + 1, y1 - y0 + 1);
-        return { x: ((x0 + x1 + 1) / 2 - side / 2) / w, y: ((y0 + y1 + 1) / 2 - side / 2) / h, side: side / Math.max(w, h) };
+        // `solid`: how much of its visible box is painted (a framed icon fills it; a sprite has gaps).
+        return { x: ((x0 + x1 + 1) / 2 - side / 2) / w, y: ((y0 + y1 + 1) / 2 - side / 2) / h, side: side / Math.max(w, h), solid: filled / ((x1 - x0 + 1) * (y1 - y0 + 1)) };
       })
       .catch(() => null);
     iconCrops.set(img.src, crop);
@@ -4238,7 +4240,13 @@ function wellIcon(img: HTMLImageElement): void {
   well.className = 'ic btn-ic';
   host.insertBefore(well, img);
   well.appendChild(img);
-  fillTagIcon(img);
+  // A sprite with empty margins is cropped to fill the well; an icon painted edge to edge (its own square, like
+  // the Filter gears) sits just inside the frame instead, so the frame doesn't cover its edges.
+  void iconCrop(img).then((c) => {
+    if (!c) return;
+    if (c.solid < 0.9) fillTagIcon(img);
+    else well.classList.add('full');
+  });
 }
 if (typeof MutationObserver !== 'undefined' && typeof document !== 'undefined')
   new MutationObserver((muts) => {
@@ -4263,8 +4271,9 @@ if (typeof MutationObserver !== 'undefined' && typeof document !== 'undefined')
     for (const m of muts)
       m.addedNodes.forEach((n) => {
         if (!(n instanceof HTMLElement)) return;
-        if (n.matches('.ic > img.ei')) fillTagIcon(n as HTMLImageElement);
-        else n.querySelectorAll<HTMLImageElement>('.ic > img.ei').forEach(fillTagIcon);
+        // Tags only: icon buttons' wells decide for themselves (see wellIcon).
+        if (n.matches('.ic:not(.btn-ic) > img.ei')) fillTagIcon(n as HTMLImageElement);
+        else n.querySelectorAll<HTMLImageElement>('.ic:not(.btn-ic) > img.ei').forEach(fillTagIcon);
       });
   }).observe(document.body, { childList: true, subtree: true });
 
