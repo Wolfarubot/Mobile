@@ -656,7 +656,7 @@ export class AppUI {
             <div class="hd-sub"></div>
           </div>
         </div>
-        <div class="hero-lore"><p class="lore-text">${def ? def.ability : MAIN_ABILITY}</p></div>
+        <div class="hero-lore"><p class="lore-text hunter-desc">${def ? def.ability : MAIN_ABILITY}</p></div>
         <div class="subtabs">
           <button data-sub="overview">📊 Overview</button>
           <button data-sub="skills">🌳 Skills <b class="sp-count hidden"></b></button>

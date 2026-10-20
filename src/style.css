@@ -20,6 +20,8 @@
   /* Game text: white with a black outline, so it reads on any background (tags keep their own colours). */
   --fg: #fff;
   --outline: -1px 0 #000, 1px 0 #000, 0 -1px #000, 0 1px #000, -1px -1px #000, 1px -1px #000, -1px 1px #000, 1px 1px #000;
+  /* A thicker one, for big headings. */
+  --outline-thick: -2px 0 #000, 2px 0 #000, 0 -2px #000, 0 2px #000, -2px -2px #000, 2px -2px #000, -2px 2px #000, 2px 2px #000, -1px -2px #000, 1px -2px #000, -2px -1px #000, 2px -1px #000, -2px 1px #000, 2px 1px #000, -1px 2px #000, 1px 2px #000;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
@@ -5376,4 +5378,20 @@ textarea {
 .feat-tag,
 .feat-tag * {
   text-shadow: none;
+}
+
+/* The header plate of a Hunter's or monster's full view: a thicker outline. */
+.hero-plate h2,
+.hero-plate .hd-sub {
+  text-shadow: var(--outline-thick);
+}
+/* Materials sit on light tiles: their text stays dark, without an outline. */
+.mat,
+.mat * {
+  color: var(--text);
+  text-shadow: none;
+}
+/* A Hunter's description in their full view: a slightly darker panel. */
+.lore-text.hunter-desc {
+  background: color-mix(in srgb, var(--card) 72%, #000);
 }
