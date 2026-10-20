@@ -149,7 +149,7 @@ export class Fx {
       const px = Math.max(this.minTextPx, f.size * this.textScale * this.zoom) * pop;
       g.font = canvasFont(px / this.zoom, 700);
       g.lineWidth = Math.max(2, px / 4) / this.zoom;
-      g.strokeStyle = 'rgba(0,0,0,0.75)';
+      g.strokeStyle = '#000';
       g.strokeText(f.text, f.x, f.y);
       g.fillStyle = f.color;
       g.fillText(f.text, f.x, f.y);

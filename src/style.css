@@ -17,6 +17,9 @@
   --info: var(--c1);
   --sunk: var(--c2);
   --line: var(--c1);
+  /* Game text: white with a black outline, so it reads on any background (tags keep their own colours). */
+  --fg: #fff;
+  --outline: -1px 0 #000, 1px 0 #000, 0 -1px #000, 0 1px #000, -1px -1px #000, 1px -1px #000, -1px 1px #000, 1px 1px #000;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
@@ -31,7 +34,7 @@ body {
   margin: 0;
   height: 100%;
   background: var(--bg);
-  color: var(--text);
+  color: var(--fg);
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   overflow: hidden;
   overscroll-behavior: none;
@@ -82,7 +85,7 @@ button {
   justify-content: flex-end;
 }
 .stat small {
-  color: var(--muted);
+  color: var(--fg);
   font-size: 11px;
 }
 .stage {
@@ -100,7 +103,7 @@ button {
 }
 .stage #areaNum {
   font-size: 11px;
-  color: var(--muted);
+  color: var(--fg);
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
@@ -127,7 +130,7 @@ button {
   flex: 1;
   padding: 7px 2px 8px;
   background: none;
-  color: var(--muted);
+  color: var(--fg);
   font-weight: 700;
   font-size: 11px;
   border-bottom: 3px solid transparent;
@@ -145,7 +148,7 @@ button {
   right: 18%;
 }
 .tabs button.active {
-  color: var(--text);
+  color: var(--fg);
   border-bottom-color: var(--accent);
 }
 .badge.dot {
@@ -160,7 +163,7 @@ button {
   padding: 0 5px;
   border-radius: 9px;
   background: var(--danger);
-  color: var(--c3);
+  color: var(--fg);
   font-size: 11px;
   line-height: 18px;
 }
@@ -205,17 +208,17 @@ button {
   font-size: 15px;
 }
 .row .name small {
-  color: var(--muted);
+  color: var(--fg);
   font-weight: 600;
   margin-left: 4px;
 }
 .row .sub {
-  color: var(--muted);
+  color: var(--fg);
   font-size: 12px;
   margin-top: 2px;
 }
 .row .sub b {
-  color: var(--info);
+  color: var(--fg);
 }
 .buy {
   flex: none;
@@ -223,7 +226,7 @@ button {
   padding: 7px 8px;
   border-radius: 10px;
   background: var(--good);
-  color: var(--c3);
+  color: var(--fg);
   font-weight: 800;
   font-size: 13px;
   line-height: 1.15;
@@ -236,7 +239,7 @@ button {
 }
 .buy:disabled {
   background: var(--c1);
-  color: var(--c1);
+  color: var(--fg);
 }
 .buy:not(:disabled):active {
   transform: scale(0.96);
@@ -252,13 +255,13 @@ button {
   padding: 6px;
   border-radius: 8px;
   background: var(--card);
-  color: var(--muted);
+  color: var(--fg);
   font-weight: 800;
   font-size: 13px;
 }
 .amounts button.active {
   background: var(--accent);
-  color: var(--c3);
+  color: var(--fg);
 }
 /* Hunters tab: the switch stays at the top while scrolling (top: -10px covers the panel's padding). */
 .sticky-amounts {
@@ -283,7 +286,7 @@ button {
 }
 .card p {
   margin: 0 0 8px;
-  color: var(--muted);
+  color: var(--fg);
   font-size: 13px;
 }
 .danger-link {
@@ -300,7 +303,7 @@ button {
   font-size: 13px;
 }
 .stats span:nth-child(odd) {
-  color: var(--muted);
+  color: var(--fg);
 }
 
 .modal {
@@ -327,7 +330,7 @@ button {
   margin: 0 0 6px;
 }
 .modal-box p {
-  color: var(--muted);
+  color: var(--fg);
   margin: 6px 0;
 }
 .modal-box .reward {
@@ -347,7 +350,7 @@ button {
   border-radius: 12px;
   font-weight: 800;
   background: var(--accent);
-  color: var(--c3);
+  color: var(--fg);
 }
 .modal-box .buttons button.secondary {
   background: var(--card-hi);
@@ -429,7 +432,7 @@ button {
   margin: 14px 2px 8px;
   font-size: 13px;
   font-weight: 800;
-  color: var(--muted);
+  color: var(--fg);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   display: flex;
@@ -464,10 +467,10 @@ button {
 .drop-line {
   margin-top: 3px;
   font-size: 12px;
-  color: var(--muted);
+  color: var(--fg);
 }
 .hunter-detail .drop-line {
-  color: var(--on-bg, var(--c3));
+  color: var(--fg);
   margin: 0 0 6px;
 }
 .beast .hc-mid .train-bar span {
@@ -481,7 +484,7 @@ button {
 }
 .tnode.ascend .tn-name {
   background: var(--gold) !important;
-  color: var(--c0) !important;
+  color: var(--fg) !important;
 }
 .tn-cost {
   font-size: 10px;
@@ -544,7 +547,7 @@ button {
   font-size: 15px;
 }
 .beast-head .blurb {
-  color: var(--muted);
+  color: var(--fg);
   font-size: 12px;
 }
 .beast-stats {
@@ -553,12 +556,12 @@ button {
   gap: 4px;
   margin: 8px 0;
   font-size: 10px;
-  color: var(--muted);
+  color: var(--fg);
   text-align: center;
 }
 .beast-stats b {
   display: block;
-  color: var(--text);
+  color: var(--fg);
   font-size: 13px;
 }
 .beast-actions {
@@ -585,13 +588,13 @@ button {
   padding: 5px 9px;
   border-radius: 999px;
   background: var(--sunk);
-  color: var(--muted);
+  color: var(--fg);
   font-size: 12px;
   font-weight: 700;
 }
 .chip.on {
   background: var(--accent);
-  color: var(--c3);
+  color: var(--fg);
 }
 .chip:disabled {
   opacity: 0.35;
@@ -599,7 +602,7 @@ button {
 .yield {
   margin-top: 6px;
   font-size: 12px;
-  color: var(--info);
+  color: var(--fg);
 }
 .area-card h3 {
   display: flex;
@@ -607,7 +610,7 @@ button {
   align-items: baseline;
 }
 .area-card h3 small {
-  color: var(--muted);
+  color: var(--fg);
   font-size: 12px;
   font-weight: 600;
 }
@@ -642,7 +645,7 @@ button {
 }
 .archetype {
   font-size: 11px;
-  color: var(--muted);
+  color: var(--fg);
   margin-left: 4px;
 }
 .card .actions {
@@ -743,17 +746,17 @@ button {
   font-size: 13px;
 }
 .offline-area small {
-  color: var(--muted);
+  color: var(--fg);
 }
 .offline-area > div + div {
   margin-top: 2px;
-  color: var(--info);
+  color: var(--fg);
 }
 
 .knockouts {
   margin-top: 2px;
   font-size: 12px;
-  color: var(--c0) !important;
+  color: var(--fg) !important;
 }
 .ko-tip {
   font-size: 12px;
@@ -797,12 +800,12 @@ button {
 }
 .slot small {
   font-size: 10px;
-  color: var(--muted);
+  color: var(--fg);
 }
 .gear-summary {
   margin-top: 4px;
   font-size: 11px;
-  color: var(--info);
+  color: var(--fg);
 }
 .inventory {
   display: grid;
@@ -839,7 +842,7 @@ button {
 }
 .inv-tile small {
   font-size: 10px;
-  color: var(--muted);
+  color: var(--fg);
 }
 .inv-tile em {
   position: absolute;
@@ -868,12 +871,12 @@ button {
   padding: 7px 12px;
   border-radius: 9px;
   background: var(--card);
-  color: var(--text);
+  color: var(--fg);
   font-weight: 800;
 }
 .filter-btn.on {
   background: var(--gold);
-  color: var(--c0);
+  color: var(--fg);
 }
 .filter-chips {
   display: flex;
@@ -891,13 +894,13 @@ button {
   padding: 3px 7px;
   border-radius: 7px;
   background: var(--c0);
-  color: var(--c3);
+  color: var(--fg);
   font-size: 11px;
   font-weight: 800;
 }
 .filter-clear {
   background: none;
-  color: var(--on-bg, var(--text));
+  color: var(--fg);
   text-decoration: underline;
 }
 .filter-label {
@@ -934,7 +937,7 @@ button {
   padding: 7px 9px;
   border-radius: 8px;
   background: var(--sunk);
-  color: var(--text);
+  color: var(--fg);
   font-size: 12px;
   font-weight: 800;
 }
@@ -943,7 +946,7 @@ button {
 }
 .filter-options button.on {
   background: var(--c0);
-  color: var(--c3);
+  color: var(--fg);
   outline: 2px solid var(--gold);
 }
 .filter-reset {
@@ -952,7 +955,7 @@ button {
 }
 .empty-inv {
   grid-column: 1 / -1;
-  color: var(--muted);
+  color: var(--fg);
   font-size: 13px;
   margin: 0;
 }
@@ -989,22 +992,22 @@ button {
 }
 .pick-row .sub {
   font-size: 12px;
-  color: var(--info);
+  color: var(--fg);
 }
 .pick-row .worn {
   font-size: 11px;
   color: var(--gold);
 }
 .gear-now {
-  color: var(--info) !important;
+  color: var(--fg) !important;
 }
 .buy.danger-btn {
   background: var(--danger);
-  color: var(--c3);
+  color: var(--fg);
 }
 .buy.secondary-btn {
   background: var(--card-hi);
-  color: var(--text);
+  color: var(--fg);
 }
 .sheet-body .actions {
   display: flex;
@@ -1065,7 +1068,7 @@ button {
 .expand-tag {
   font-size: 11px;
   font-weight: 800;
-  color: var(--muted);
+  color: var(--fg);
   white-space: nowrap;
 }
 .hunter-card.locked .expand-tag {
@@ -1073,14 +1076,14 @@ button {
 }
 .hc-ability {
   font-size: 12px;
-  color: var(--muted);
+  color: var(--fg);
   margin-top: 1px;
   line-height: 1.25;
 }
 .hc-status {
   margin-top: 3px;
   font-size: 12px;
-  color: var(--info);
+  color: var(--fg);
 }
 .hc-train {
   display: flex;
@@ -1099,13 +1102,13 @@ button {
   flex: 1;
   min-width: 0;
   font-size: 12px;
-  color: var(--muted);
+  color: var(--fg);
 }
 .hc-mid .train-bar {
   height: 22px;
 }
 .hc-mid .train-bar span {
-  color: var(--text);
+  color: var(--fg);
   font-size: 12px;
   line-height: 22px;
 }
@@ -1145,7 +1148,7 @@ button {
 }
 .gear-chip.empty {
   border-style: dashed;
-  color: var(--muted);
+  color: var(--fg);
   opacity: 0.6;
 }
 .hunter-card.locked .hunter-art {
@@ -1198,7 +1201,7 @@ button {
   padding: 0 5px;
   border-radius: 10px;
   background: var(--gold);
-  color: var(--c3);
+  color: var(--fg);
   font-size: 11px;
   font-weight: 900;
   line-height: 20px;
@@ -1207,17 +1210,17 @@ button {
   box-shadow: 0 0 8px transparent;
 }
 .hc-name small {
-  color: var(--muted);
+  color: var(--fg);
   font-weight: 600;
   font-size: 12px;
 }
 .gear-chip small {
-  color: var(--muted);
+  color: var(--fg);
   font-size: 10px;
 }
 .gear-chip.empty {
   border-style: dashed;
-  color: var(--muted);
+  color: var(--fg);
   opacity: 0.6;
 }
 .train {
@@ -1256,7 +1259,7 @@ button {
 }
 .skills-head {
   font-size: 13px;
-  color: var(--muted);
+  color: var(--fg);
   margin-bottom: 6px;
 }
 .skills-head.has {
@@ -1270,13 +1273,13 @@ button {
   align-self: center;
   font-size: 12px;
   font-weight: 800;
-  color: var(--muted);
+  color: var(--fg);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   margin-right: 2px;
 }
 .hc-status .warn {
-  color: var(--c0);
+  color: var(--fg);
 }
 
 /* ---- Full-screen Hunter view ---- */
@@ -1302,7 +1305,7 @@ button {
   padding: calc(10px + var(--safe-top)) 12px 10px;
   background: var(--panel);
   font-weight: 800;
-  color: var(--muted);
+  color: var(--fg);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   font-size: 12px;
@@ -1334,11 +1337,11 @@ button {
   flex-direction: column;
   gap: 2px;
   font-size: 13px;
-  color: var(--muted);
+  color: var(--fg);
   margin-top: 2px;
 }
 .hd-sub .where {
-  color: var(--info);
+  color: var(--fg);
 }
 .hd-sub .perk {
   color: var(--gold);
@@ -1361,14 +1364,14 @@ button {
 .hd-style {
   margin: 0 0 4px;
   font-size: 13px;
-  color: var(--muted);
+  color: var(--fg);
 }
 .hd-stats {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 6px;
   font-size: 11px;
-  color: var(--muted);
+  color: var(--fg);
   text-align: center;
 }
 .hd-stats div {
@@ -1378,7 +1381,7 @@ button {
 }
 .hd-stats b {
   display: block;
-  color: var(--text);
+  color: var(--fg);
   font-size: 15px;
 }
 .hd-recruit {
@@ -1387,7 +1390,7 @@ button {
 }
 .hd-note {
   font-size: 13px;
-  color: var(--muted);
+  color: var(--fg);
 }
 
 /* ---- Item rarity: --rc is the rarity colour ---- */
@@ -1490,7 +1493,7 @@ button {
 }
 .gc-effect {
   font-size: 12px;
-  color: var(--muted);
+  color: var(--fg);
 }
 .rarity-tag {
   color: var(--rc);
@@ -1500,7 +1503,7 @@ button {
 /* ---- Areas tab: per-area stats ---- */
 .here-line {
   margin: 0 0 6px !important;
-  color: var(--info) !important;
+  color: var(--fg) !important;
 }
 .mastery {
   position: relative;
@@ -1532,7 +1535,7 @@ button {
   gap: 6px;
   margin-top: 8px;
   font-size: 11px;
-  color: var(--muted);
+  color: var(--fg);
   text-align: center;
 }
 .area-stats div {
@@ -1546,7 +1549,7 @@ button {
 }
 .area-stats b {
   display: block;
-  color: var(--text);
+  color: var(--fg);
   font-size: 14px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1568,7 +1571,7 @@ button {
 .ev-status {
   margin-top: 4px;
   font-size: 12px;
-  color: var(--info);
+  color: var(--fg);
 }
 .ev-status small {
   font-size: 12px;
@@ -1602,12 +1605,12 @@ button {
   padding: 10px 6px;
   border-radius: 9px;
   background: none;
-  color: var(--muted);
+  color: var(--fg);
   font-weight: 800;
 }
 .segmented button.on {
   background: var(--accent);
-  color: var(--c3);
+  color: var(--fg);
 }
 .setting .danger-btn {
   width: 100%;
@@ -1625,7 +1628,7 @@ button {
   padding: 8px 10px;
   border-radius: 10px;
   background: var(--sunk);
-  color: var(--text);
+  color: var(--fg);
   text-align: left;
 }
 .font-option b {
@@ -1633,7 +1636,7 @@ button {
 }
 .font-option small {
   font-size: 12px;
-  color: var(--muted);
+  color: var(--fg);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1642,10 +1645,10 @@ button {
 .font-option.on {
   outline: 3px solid var(--gold);
   background: var(--c0);
-  color: var(--c3);
+  color: var(--fg);
 }
 .font-option.on small {
-  color: var(--c2);
+  color: var(--fg);
 }
 .tab-order {
   display: flex;
@@ -1674,13 +1677,13 @@ button {
   box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
 }
 .tab-order-row .tor-grip {
-  color: var(--muted);
+  color: var(--fg);
   font-size: 18px;
   line-height: 1;
 }
 .tab-order-row .tor-num {
   width: 14px;
-  color: var(--muted);
+  color: var(--fg);
   font-weight: 800;
 }
 .tab-order-row i {
@@ -1734,13 +1737,13 @@ button {
   padding: 9px 4px;
   border-radius: 9px;
   background: none;
-  color: var(--muted);
+  color: var(--fg);
   font-weight: 800;
   font-size: 13px;
 }
 .subtabs button.on {
   background: var(--card-hi);
-  color: var(--text);
+  color: var(--fg);
 }
 .inv-subtabs {
   position: sticky;
@@ -1760,7 +1763,7 @@ button {
   padding: 0 5px;
   border-radius: 9px;
   background: var(--gold);
-  color: var(--c3);
+  color: var(--fg);
   font-size: 11px;
   line-height: 18px;
 }
@@ -1801,7 +1804,7 @@ button {
   flex-direction: column;
 }
 .equip-row small {
-  color: var(--muted);
+  color: var(--fg);
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -1814,14 +1817,14 @@ button {
 }
 .equip-row .sub {
   font-size: 12px;
-  color: var(--muted);
+  color: var(--fg);
 }
 .equip-row .chev {
-  color: var(--muted);
+  color: var(--fg);
   font-size: 22px;
 }
 .picker-current {
-  color: var(--text) !important;
+  color: var(--fg) !important;
 }
 
 /* ---- Skills sub-tab: the tree ---- */
@@ -1903,14 +1906,14 @@ button {
   border-radius: 8px;
   background: var(--c0);
   border: 1px solid var(--line);
-  color: var(--muted);
+  color: var(--fg);
 }
 .tn-name {
   font-size: 11px;
   font-weight: 700;
   line-height: 1.15;
   text-align: center;
-  color: var(--muted);
+  color: var(--fg);
   background: var(--bg);
   border-radius: 6px;
   padding: 1px 4px;
@@ -1927,7 +1930,7 @@ button {
   background: var(--c2);
 }
 .tnode.learned .tn-name {
-  color: var(--text);
+  color: var(--fg);
 }
 .tnode.maxed .tn-icon {
   border-color: var(--gold);
@@ -1982,7 +1985,7 @@ button {
   color: var(--rc);
 }
 .gc-head small {
-  color: var(--muted);
+  color: var(--fg);
   font-size: 12px;
 }
 .gc-stats {
@@ -1999,7 +2002,7 @@ button {
   gap: 8px;
 }
 .gc-stats s {
-  color: var(--muted);
+  color: var(--fg);
 }
 .gc-stats .up {
   color: var(--good);
@@ -2058,17 +2061,17 @@ canvas {
 
 .topbar {
   background: var(--c0);
-  color: var(--c3);
+  color: var(--fg);
   border-bottom: 3px solid var(--c1);
 }
 .stage #areaName {
-  color: var(--c3);
+  color: var(--fg);
 }
 .stat.gold b {
   color: #ffd84a;
 }
 .stat small {
-  color: var(--c2);
+  color: var(--fg);
 }
 .stage {
   max-width: 48vw;
@@ -2082,10 +2085,10 @@ canvas {
   border-top: 3px solid var(--c1);
 }
 .tabs button {
-  color: var(--c2);
+  color: var(--fg);
 }
 .tabs button.active {
-  color: var(--c3);
+  color: var(--fg);
   background: var(--c1);
   border-bottom-color: var(--c3);
 }
@@ -2095,17 +2098,17 @@ canvas {
 }
 .hd-top {
   background: var(--c0);
-  color: var(--c3);
+  color: var(--fg);
   border-bottom: 3px solid var(--c1);
 }
 .hd-close,
 .settings-btn {
   background: var(--c1);
-  color: var(--c3);
+  color: var(--fg);
   border: 2px solid var(--c3);
 }
 .section-title {
-  color: var(--c0);
+  color: var(--fg);
 }
 
 /* Boxes: light "text window" panels with a dark frame and a hard shadow. */
@@ -2154,7 +2157,7 @@ canvas {
 }
 .buy:disabled {
   background: var(--c2);
-  color: var(--c1);
+  color: var(--fg);
   box-shadow: none;
 }
 .buy:not(:disabled):active,
@@ -2169,34 +2172,34 @@ canvas {
 }
 .chip {
   background: var(--c3);
-  color: var(--c0);
+  color: var(--fg);
 }
 .chip.on,
 .amounts button.active,
 .segmented button.on,
 .subtabs button.on {
   background: var(--c1);
-  color: var(--c3);
+  color: var(--fg);
 }
 .amounts button {
   background: var(--c3);
-  color: var(--c1);
+  color: var(--fg);
 }
 .badge {
   background: var(--c3);
-  color: var(--c0);
+  color: var(--fg);
   border: 2px solid var(--c0);
 }
 .sp-dot,
 .sp-count {
   background: var(--gold);
-  color: var(--c0);
+  color: var(--fg);
   box-shadow: none;
   border-color: var(--c0);
 }
 .hc-lv,
 .hd-stats.hd-headline b {
-  color: var(--c1);
+  color: var(--fg);
 }
 .badge {
   background: var(--danger) !important;
@@ -2209,20 +2212,20 @@ canvas {
 }
 .modal-box {
   background: var(--c3);
-  color: var(--c0);
+  color: var(--fg);
   border: 3px solid var(--c0);
   box-shadow: 5px 5px 0 var(--c0);
 }
 .modal-box .buttons button {
   background: var(--c1);
-  color: var(--c3);
+  color: var(--fg);
 }
 .modal-box .buttons button.secondary {
   background: var(--c2);
-  color: var(--c0);
+  color: var(--fg);
 }
 .modal-box .reward {
-  color: var(--c0);
+  color: var(--fg);
 }
 
 /* Progress bars: light track, mid fill, dark text. */
@@ -2239,14 +2242,14 @@ canvas {
 .train-bar span,
 .mastery span,
 .hc-mid .train-bar span {
-  color: var(--c0);
+  color: var(--fg);
   text-shadow: 1px 1px 0 var(--c3);
 }
 .mastery.done {
   background: var(--good);
 }
 .mastery.done span {
-  color: var(--c3);
+  color: var(--fg);
   text-shadow: none;
 }
 
@@ -2270,7 +2273,7 @@ canvas {
 .pick-row.rar b,
 .equip-row.rar b,
 .gear-card.rar .gc-head b {
-  color: var(--c0);
+  color: var(--fg);
 }
 
 /* Skill tree */
@@ -2305,11 +2308,11 @@ canvas {
 }
 .tn-name {
   background: var(--c2);
-  color: var(--c0);
+  color: var(--fg);
 }
 .tn-icon em {
   background: var(--c3);
-  color: var(--c0);
+  color: var(--fg);
   border-color: var(--c0);
 }
 
@@ -2347,14 +2350,14 @@ canvas {
 .hd-sub,
 .picker-current,
 .panel > .inv-pane .empty-inv {
-  color: var(--on-bg) !important;
+  color: var(--fg) !important;
 }
 .skills-head.has,
 .skills-head b {
   color: var(--gold) !important;
 }
 .hd-sub .where {
-  color: var(--c2) !important;
+  color: var(--fg) !important;
 }
 .tabs button.active {
   background: color-mix(in srgb, var(--c1) 70%, var(--c0));
@@ -2365,7 +2368,7 @@ canvas {
   padding: 10px 12px;
   font: inherit;
   font-size: 16px;
-  color: var(--c0);
+  color: var(--fg);
   background: #fff;
   border: 2px solid var(--c0);
   box-shadow: inset 2px 2px 0 color-mix(in srgb, var(--c0) 25%, transparent);
@@ -2402,7 +2405,7 @@ canvas {
   background-image: linear-gradient(180deg, #ffffff55, #ffffff00 60%);
   border: 2px solid var(--c0);
   box-shadow: 3px 3px 0 var(--c0);
-  color: var(--c0);
+  color: var(--fg);
   padding: 6px 4px;
 }
 .area-tile i {
@@ -2418,7 +2421,7 @@ canvas {
 }
 .area-tile.locked {
   background: var(--c1);
-  color: var(--c2);
+  color: var(--fg);
   opacity: 0.7;
 }
 .area-tile.selected {
@@ -2482,7 +2485,7 @@ canvas {
 .monster-icon small {
   font-size: 10px;
   text-align: center;
-  color: var(--c0);
+  color: var(--fg);
   line-height: 1.1;
 }
 .monster-icon.unknown canvas {
@@ -2505,7 +2508,7 @@ canvas {
 .area-actions .aa-name {
   flex: 0 1 auto;
   min-width: 0;
-  color: var(--c3);
+  color: var(--fg);
   font-weight: 800;
   font-size: 13px;
   white-space: nowrap;
@@ -2529,13 +2532,13 @@ canvas {
 }
 .buy.secondary-btn {
   background: var(--c2);
-  color: var(--c0);
+  color: var(--fg);
   text-shadow: none;
 }
 
 /* Area detail */
 .area-detail .hd-sub span {
-  color: var(--on-bg);
+  color: var(--fg);
 }
 .mastery-wrap {
   margin-bottom: 8px;
@@ -2551,7 +2554,7 @@ canvas {
   filter: brightness(0) opacity(0.5);
 }
 .area-monsters .name small {
-  color: var(--muted);
+  color: var(--fg);
   font-size: 12px;
   margin-left: 4px;
 }
@@ -2568,7 +2571,7 @@ canvas {
 }
 .hunter-detail .yield,
 .hunter-detail .knockouts {
-  color: var(--on-bg) !important;
+  color: var(--fg) !important;
 }
 
 /* ---- Active Hunters (area card) and the assign screen ---- */
@@ -2585,7 +2588,7 @@ canvas {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  color: var(--on-bg);
+  color: var(--fg);
   font-size: 14px;
 }
 .hunter-art.mini {
@@ -2606,7 +2609,7 @@ canvas {
   gap: 4px;
   padding: 10px 4px;
   background: var(--c3);
-  color: var(--c0);
+  color: var(--fg);
   border: 2px solid var(--c0);
   box-shadow: 3px 3px 0 var(--c0);
   min-width: 0;
@@ -2621,18 +2624,18 @@ canvas {
 }
 .active-slot small {
   font-size: 11px;
-  color: var(--muted);
+  color: var(--fg);
 }
 .active-slot.empty {
   background: transparent;
-  color: var(--on-bg);
+  color: var(--fg);
   border: 2px dashed color-mix(in srgb, var(--c3) 60%, transparent);
   box-shadow: none;
   justify-content: center;
   min-height: 108px;
 }
 .active-slot.empty small {
-  color: var(--on-bg);
+  color: var(--fg);
   opacity: 0.8;
 }
 .active-slot .plus {
@@ -2644,7 +2647,7 @@ canvas {
 }
 .active-yield .yield,
 .active-yield .knockouts {
-  color: var(--on-bg) !important;
+  color: var(--fg) !important;
 }
 
 .assign-tip {
@@ -2673,7 +2676,7 @@ canvas {
   gap: 3px;
   padding: 8px 4px;
   background: var(--c3);
-  color: var(--c0);
+  color: var(--fg);
   border: 2px solid var(--c0);
   box-shadow: 3px 3px 0 var(--c0);
 }
@@ -2687,7 +2690,7 @@ canvas {
 }
 .assign-tile small {
   font-size: 10px;
-  color: var(--muted);
+  color: var(--fg);
 }
 .assign-tile.here {
   background: var(--c2);
@@ -2728,7 +2731,7 @@ canvas {
   margin: 12px 0 4px;
   padding: 8px 10px;
   background: var(--c3);
-  color: var(--c0);
+  color: var(--fg);
   border: 2px solid var(--c0);
   box-shadow: 3px 3px 0 var(--c0);
 }
@@ -2771,7 +2774,7 @@ canvas {
 
 /* ---- Materials: tappable tiles and the details sheet ---- */
 button.mat {
-  color: var(--text);
+  color: var(--fg);
   text-align: left;
   font-family: inherit;
   cursor: pointer;
@@ -2826,7 +2829,7 @@ button.mat:not(:disabled):active {
   padding: 6px 8px;
   background: var(--card);
   border: 2px solid var(--c0);
-  color: var(--text);
+  color: var(--fg);
   text-align: left;
   font-family: inherit;
 }
@@ -2845,14 +2848,14 @@ button.mat:not(:disabled):active {
   flex-direction: column;
 }
 .dropper small {
-  color: var(--muted);
+  color: var(--fg);
   font-size: 11px;
 }
 .dropper::after {
   content: '›';
   margin-left: auto;
   font-size: 20px;
-  color: var(--muted);
+  color: var(--fg);
 }
 .dropper.unknown {
   opacity: 0.45;
@@ -2905,7 +2908,7 @@ button.mat:not(:disabled):active {
   font-style: normal;
   font-size: 11px;
   font-weight: 800;
-  color: var(--c0);
+  color: var(--fg);
 }
 /* Star ranks: a sans-serif glyph (pixel fonts draw ★ tiny), sized up so the rank reads at a glance. */
 .stars {
@@ -2919,7 +2922,7 @@ button.mat:not(:disabled):active {
   vertical-align: -1px;
 }
 .stars .off {
-  color: var(--c2);
+  color: var(--fg);
   text-shadow: none;
   opacity: 0.7;
 }
@@ -2941,7 +2944,7 @@ button.mat:not(:disabled):active {
   overflow-y: auto;
   z-index: 5;
   background: var(--c3);
-  color: var(--c0);
+  color: var(--fg);
   border: 2px solid var(--c0);
   box-shadow: 3px 3px 0 var(--c0);
   padding: 12px 14px;
@@ -2954,7 +2957,7 @@ button.mat:not(:disabled):active {
   width: 30px;
   height: 30px;
   background: var(--c0);
-  color: var(--c3);
+  color: var(--fg);
   font-weight: 800;
 }
 .fc-head {
@@ -2979,7 +2982,7 @@ button.mat:not(:disabled):active {
   font-size: 17px;
 }
 .fc-head small {
-  color: var(--c1);
+  color: var(--fg);
   font-size: 12px;
 }
 .fc-effect {
@@ -2988,10 +2991,10 @@ button.mat:not(:disabled):active {
 }
 .fc-owned {
   font-size: 13px;
-  color: var(--c1);
+  color: var(--fg);
 }
 .fc-owned b {
-  color: var(--c0);
+  color: var(--fg);
 }
 .fc-label {
   margin-top: 8px;
@@ -2999,7 +3002,7 @@ button.mat:not(:disabled):active {
   font-weight: 800;
   letter-spacing: 1px;
   text-transform: uppercase;
-  color: var(--c1);
+  color: var(--fg);
 }
 .fc-cost {
   margin: 4px 0 10px;
@@ -3060,7 +3063,7 @@ button.mat:not(:disabled):active {
 }
 .st-row.st-head {
   font-size: 11px;
-  color: var(--c1);
+  color: var(--fg);
   border-bottom-style: solid;
 }
 .stat-table[style*='--cols:1'] .st-row > b {
@@ -3245,7 +3248,7 @@ button.mat:not(:disabled):active {
   padding: 1px 6px;
   border-radius: 5px;
   background: var(--c0);
-  color: var(--c3);
+  color: var(--fg);
   font-size: 11px;
   font-weight: 700;
 }
@@ -3267,7 +3270,7 @@ button.mat:not(:disabled):active {
   padding: 2px 7px;
   background: rgba(0, 0, 0, 0.45);
   border: 2px solid var(--c0);
-  color: var(--c3);
+  color: var(--fg);
   pointer-events: none;
 }
 .dps-meter b {
@@ -3466,7 +3469,7 @@ body.left-handed .hd-float-close {
 .world-foot {
   flex: none;
   background: var(--c0);
-  color: var(--c3);
+  color: var(--fg);
   padding: 8px 10px calc(8px + var(--safe-bottom));
   box-shadow: 0 -4px 8px -4px rgba(0, 0, 0, 0.6);
 }
@@ -3568,7 +3571,7 @@ body.left-handed .hd-float-close {
   opacity: 0.55;
 }
 .swap-preview b {
-  color: var(--info);
+  color: var(--fg);
   font-size: 18px;
   line-height: 1;
 }
@@ -3630,7 +3633,7 @@ body.left-handed .hd-float-close {
   margin: -10px -10px 10px;
   padding: 8px 12px;
   background: var(--c1);
-  color: var(--c3);
+  color: var(--fg);
   font-weight: 800;
   font-size: 15px;
   text-align: center;
@@ -3674,7 +3677,7 @@ body.left-handed .hd-float-close {
 .pk-title {
   margin: 0 0 8px;
   font-size: 18px;
-  color: var(--on-bg, var(--c3));
+  color: var(--fg);
 }
 
 /* Empty equipment slots: a dashed outline, like an area's empty Hunter slot. */
@@ -3683,7 +3686,7 @@ body.left-handed .hd-float-close {
   background: transparent !important;
   border: 2px dashed color-mix(in srgb, var(--c3) 45%, transparent) !important;
   box-shadow: none !important;
-  color: color-mix(in srgb, var(--c3) 70%, transparent) !important;
+  color: var(--fg) !important;
   opacity: 1;
 }
 .gear-chip.empty {
@@ -3695,7 +3698,7 @@ body.left-handed .hd-float-close {
 /* On the light Hunter cards the empty slot's outline is dark. */
 .hunter-card .gear-chip.empty {
   border-color: color-mix(in srgb, var(--c0) 45%, transparent) !important;
-  color: color-mix(in srgb, var(--c0) 60%, transparent) !important;
+  color: var(--fg) !important;
 }
 
 /* ---- Story cutscenes (the Time Eater) ---- */
@@ -3876,7 +3879,7 @@ body.left-handed .hd-float-close {
 }
 .as-chip.on {
   background: var(--rc) !important;
-  color: #111 !important;
+  color: var(--fg) !important;
 }
 .as-now {
   width: 100%;
@@ -3952,7 +3955,7 @@ body.left-handed .hd-float-close {
   padding: 10px 8px;
   border-radius: 10px;
   background: var(--card);
-  color: var(--text);
+  color: var(--fg);
   border: 2px solid rgba(0, 0, 0, 0.18);
 }
 .mod-action b {
@@ -3964,7 +3967,7 @@ body.left-handed .hd-float-close {
 }
 .mod-action.on {
   background: var(--gold);
-  color: var(--c0);
+  color: var(--fg);
 }
 /* With Refine or Enchant chosen, open slots light up. */
 .refine-slot.open {
@@ -4043,12 +4046,12 @@ body.left-handed .hd-float-close {
   text-align: left;
   border-radius: 9px;
   background: var(--card);
-  color: var(--text);
+  color: var(--fg);
 }
 .refine-slot.on,
 .refine-stat.on {
   background: var(--gold);
-  color: var(--c0);
+  color: var(--fg);
 }
 .refine-stat small {
   font-size: 12px;
@@ -4081,7 +4084,7 @@ body.left-handed .hd-float-close {
 }
 .gear-card .gc-head .gc-typeline .gc-dmg {
   font-size: 15px;
-  color: var(--ink, #2a2018);
+  color: var(--fg);
 }
 .gc-head .gc-typeline .dtype-tag {
   margin-top: 0;
@@ -4236,7 +4239,7 @@ body.left-handed .hd-float-close {
   text-align: left;
   font-weight: 700;
   background: var(--card);
-  color: var(--text);
+  color: var(--fg);
   border: 2px solid rgba(0, 0, 0, 0.2);
 }
 .mod-choice.refine {
@@ -4311,12 +4314,12 @@ body.ui-parchment .hd-top {
   box-shadow: inset 0 -3px 0 var(--ink), inset 0 3px 0 color-mix(in srgb, var(--wood-hi) 70%, #fff);
 }
 body.ui-parchment .tabs button {
-  color: var(--parch);
+  color: var(--fg);
   text-shadow: 1px 1px 0 var(--ink);
 }
 body.ui-parchment .tabs button.active {
   background: var(--c2) !important;
-  color: var(--ink) !important;
+  color: var(--fg) !important;
   box-shadow: inset 0 3px 0 color-mix(in srgb, var(--c2) 60%, #fff), inset 0 -3px 0 var(--c0);
   text-shadow: none;
 }
@@ -4333,7 +4336,7 @@ body.ui-parchment .offline-area {
   border-image: var(--img-panel) 5 fill / 15px / 0 stretch !important;
   image-rendering: pixelated;
   padding: 2px !important;
-  color: var(--ink) !important;
+  color: var(--fg) !important;
   box-shadow: none !important;
 }
 body.ui-parchment .section-title {
@@ -4341,7 +4344,7 @@ body.ui-parchment .section-title {
   border: 3px solid var(--c0);
   box-shadow: inset 0 3px 0 var(--c2);
   padding: 4px 10px;
-  color: var(--c3);
+  color: var(--fg);
   text-shadow: 1px 1px 0 var(--c0);
 }
 body.ui-parchment .buy,
@@ -4355,7 +4358,7 @@ body.ui-parchment .filter-btn {
   border: 9px solid var(--c0) !important;
   border-image: var(--img-btn) 3 fill / 9px / 0 stretch !important;
   image-rendering: pixelated;
-  color: var(--c3) !important;
+  color: var(--fg) !important;
   text-shadow: 1px 1px 0 var(--c0) !important;
   padding: 2px 6px !important;
   box-shadow: none !important;
@@ -4367,7 +4370,7 @@ body.ui-parchment .amounts button.active,
 body.ui-parchment .subtabs button.on,
 body.ui-parchment .segmented button.on {
   border-image: var(--img-btnhi) 3 fill / 9px / 0 stretch !important;
-  color: var(--ink) !important;
+  color: var(--fg) !important;
   text-shadow: none !important;
 }
 body.ui-parchment .equip-row > *,
@@ -4390,7 +4393,7 @@ body.ui-parchment .mat {
   background: var(--parch) !important;
   border-radius: 0 !important;
   box-shadow: inset 0 0 0 2px var(--wood), inset 0 -4px 0 var(--well) !important;
-  color: var(--ink);
+  color: var(--fg);
 }
 /* Your Hunter's five-wide trees: smaller nodes so five fit across a phone. */
 .tree.wide .tnode {
@@ -4435,7 +4438,7 @@ body.ui-parchment .mat {
   background-image: linear-gradient(180deg, color-mix(in srgb, var(--hc) 35%, transparent), transparent 70%);
   border: 2px solid var(--c0);
   box-shadow: 3px 3px 0 var(--c0);
-  color: var(--text);
+  color: var(--fg);
   padding: 5px 2px 4px;
   min-width: 0;
 }
@@ -4461,7 +4464,7 @@ body.ui-parchment .mat {
 .hunter-tile .ht-lv {
   font-size: 10px;
   font-weight: 700;
-  color: var(--muted);
+  color: var(--fg);
 }
 .hunter-tile .sp-dot {
   top: -7px;
@@ -4637,7 +4640,7 @@ body.ui-parchment .hunter-dock .buy {
   pointer-events: auto;
   padding: 6px 12px;
   background: var(--c3);
-  color: var(--c0);
+  color: var(--fg);
   border: 2px solid var(--c0);
   opacity: 1;
 }
@@ -4653,7 +4656,7 @@ body.ui-parchment .hunter-dock .buy {
   max-width: 340px;
   width: 100%;
   background: var(--card);
-  color: var(--text);
+  color: var(--fg);
   border: 3px solid var(--c0);
   box-shadow: 4px 4px 0 var(--c0);
   padding: 16px;
@@ -5078,7 +5081,7 @@ button.feat-tag {
   border-bottom: 2px solid color-mix(in srgb, var(--c0) 30%, transparent);
   font-size: 27px;
   line-height: 1.1;
-  color: var(--c0) !important;
+  color: var(--fg) !important;
 }
 .hero-plate .hd-sub {
   align-items: center;
@@ -5086,11 +5089,11 @@ button.feat-tag {
   margin: 0;
   font-size: 16px;
   font-weight: 700;
-  color: var(--c0) !important;
+  color: var(--fg) !important;
 }
 .hero-plate .hd-sub .where,
 .hero-plate .hd-sub span {
-  color: var(--c0) !important;
+  color: var(--fg) !important;
 }
 .hero-plate .hd-sub .where-btn {
   font-size: 15px;
@@ -5100,7 +5103,7 @@ button.feat-tag {
 }
 .hero-plate .hd-sub .where-btn,
 .hero-plate .hd-sub .where-btn span {
-  color: var(--c3) !important;
+  color: var(--fg) !important;
 }
 .hero-plate .beast-tags {
   display: flex;
@@ -5129,7 +5132,7 @@ button.feat-tag {
   border: 3px solid var(--c0);
   background: var(--card);
   box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.35);
-  color: var(--c0) !important;
+  color: var(--fg) !important;
   font-size: 15px;
   line-height: 1.45;
 }
@@ -5147,7 +5150,7 @@ button.feat-tag {
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--c1);
+  color: var(--fg);
 }
 .lore-drop {
   display: flex;
@@ -5159,7 +5162,7 @@ button.feat-tag {
   font-size: 13px;
 }
 .lore-gear {
-  color: var(--c1);
+  color: var(--fg);
   font-size: 13px;
 }
 
@@ -5219,12 +5222,12 @@ button.feat-tag {
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--c1);
+  color: var(--fg);
 }
 .eq-name {
   font-size: 15px;
   font-weight: 800;
-  color: var(--c0);
+  color: var(--fg);
 }
 .eq-rar {
   display: flex;
@@ -5235,7 +5238,7 @@ button.feat-tag {
 .eq-rar em {
   font-style: normal;
   font-weight: 800;
-  color: color-mix(in srgb, var(--rc) 60%, var(--c0));
+  color: var(--fg);
 }
 .eq-chips {
   display: flex;
@@ -5256,7 +5259,7 @@ button.feat-tag {
   padding: 0 7px;
   border: 2px solid var(--c0);
   background: var(--c3);
-  color: var(--c0);
+  color: var(--fg);
   font-size: 11px;
   font-weight: 700;
   line-height: 1;
@@ -5265,11 +5268,11 @@ button.feat-tag {
 .eq-chev {
   flex: none;
   font-size: 22px;
-  color: var(--c1);
+  color: var(--fg);
 }
 .eq-empty {
   font-size: 12px;
-  color: var(--c1);
+  color: var(--fg);
 }
 .eq-card.empty .eq-ic {
   border-style: dashed;
@@ -5285,7 +5288,7 @@ button.feat-tag {
   border-color: #8b5cf6;
   background: color-mix(in srgb, #8b5cf6 18%, var(--c3));
   box-shadow: inset 0 0 0 1px #c4a8ff;
-  color: #3b1f7a;
+  color: var(--fg);
 }
 .eq-chip.eq-more {
   min-width: 26px;
@@ -5297,13 +5300,13 @@ button.feat-tag {
   border-color: #c89a2a;
   background: color-mix(in srgb, #ffd34d 26%, var(--c3));
   box-shadow: inset 0 0 0 1px #ffe8a3;
-  color: #5a3a00;
+  color: var(--fg);
 }
 .eq-chip.mod-builtin.unique {
   border-color: #c04a9a;
   background: color-mix(in srgb, #ff8ad0 26%, var(--c3));
   box-shadow: inset 0 0 0 1px #ffd0ec;
-  color: #5a0a3a;
+  color: var(--fg);
 }
 
 /* The equipped tap ability on your Hunter's Overview, and the list behind Change. */
@@ -5327,7 +5330,7 @@ button.feat-tag {
   border-color: #8b5cf6;
   background: color-mix(in srgb, #8b5cf6 18%, var(--c3));
   box-shadow: inset 0 0 0 1px #c4a8ff;
-  color: #3b1f7a;
+  color: var(--fg);
 }
 .eq-chip.eq-more {
   min-width: 26px;
@@ -5358,4 +5361,19 @@ button.feat-tag {
 /* Filter buttons clip their label; the well overlaps their wooden border, so let it show whole. */
 .filter-btn:has(> .btn-ic) {
   overflow: visible;
+}
+
+/* Every bit of game text is outlined in black (text-shadow is inherited), except the damage-type and ability tags. */
+body,
+button,
+input,
+select,
+textarea {
+  text-shadow: var(--outline);
+}
+.dtype-tag,
+.dtype-tag *,
+.feat-tag,
+.feat-tag * {
+  text-shadow: none;
 }

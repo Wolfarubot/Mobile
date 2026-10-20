@@ -865,7 +865,7 @@ export class BattleView {
       g.rect(x - 4, y - 20, edge - (x - 4), 40);
       g.clip();
       g.lineWidth = 3 / Z;
-      g.strokeStyle = 'rgba(0,0,0,0.75)';
+      g.strokeStyle = '#000';
       g.strokeText(text, x, y);
       g.fillStyle = '#ffe066';
       g.fillText(text, x, y);
@@ -1721,7 +1721,7 @@ export class BattleView {
       g.globalAlpha = k < 0.2 ? k / 0.2 : k > 1.6 ? Math.max(0, 1 - (k - 1.6) / 0.4) : 1;
       g.font = canvasFont(26, 700);
       g.lineWidth = 5;
-      g.strokeStyle = 'rgba(0,0,0,0.7)';
+      g.strokeStyle = '#000';
       const by = this.h * 0.24;
       g.strokeText(this.banner.text, w / 2, by);
       g.fillStyle = this.banner.color;

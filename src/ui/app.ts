@@ -2279,7 +2279,7 @@ export class AppUI {
     this.refreshers.push(() => {
       const b = g.state.bestiary[def.id];
       card.classList.toggle('locked', !b.unlocked);
-      setHtml($('.name', card), `${def.name}<span class="archetype">${arch.icon} ${arch.name}</span>${beastTags(def)}${b.unlocked ? '' : ' <small style="color:var(--muted)">locked</small>'}`);
+      setHtml($('.name', card), `${def.name}<span class="archetype">${arch.icon} ${arch.name}</span>${beastTags(def)}${b.unlocked ? '' : ' <small>locked</small>'}`);
       if (!b.unlocked) {
         const cost = enemyUnlockCost(def);
         setHtml(unlockBtn, `Unlock · drops ${enemyDrops(def).map((m) => `${gemHtml(m)} ${materialDef(m).name}`).join(' + ')}<small>🪙 ${fmt(cost)}</small>`);
