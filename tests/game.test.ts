@@ -2157,6 +2157,40 @@ describe('Equipment', () => {
     expect(ench.fits(gearDef('bonePlate'))).toBe(false);
   });
 
+  it('stone magic: Physical magic weapons hurl rocks, stone tomes raise golems, and a boulder rolls until the monsters stop it', () => {
+    const g = new Game(newGame(0), () => 0.5);
+    g.state.main.trains = 50;
+    // A boulder crushes each monster in its path once, slowing each time, then stops and breaks.
+    const f = new Field(g);
+    f.setView(390, 420);
+    f.enemies = Array.from({ length: 7 }, (_, i) => enemy({ id: i + 1, type: 'wolf', x: 0, y: -60 - i * 40, hp: 1e9, maxHp: 1e9 }));
+    (f as unknown as { castSpell: (...a: unknown[]) => void }).castSpell('main', 0, 0, 'boulder', f.enemies[0], { base: 100 });
+    const ev: ReturnType<Field['drainEvents']> = [];
+    for (let i = 0; i < 6 * 30; i++) {
+      f.update(1 / 30);
+      ev.push(...f.drainEvents());
+    }
+    expect(f.enemies.filter((e) => e.hp < 1e9).length).toBeGreaterThanOrEqual(3);
+    expect(ev.some((e) => e.type === 'spell' && e.fx === 'break')).toBe(true);
+    expect(f.zones.some((z) => z.kind === 'boulder')).toBe(false);
+    // Physical staffs cast stone spells; stone tomes summon stone golems (Constructs).
+    expect(TYPE_SPELLS.physical).toEqual(['boulder', 'rockfall']);
+    expect(staffSpell(gearDef('boulderStaff'))).toBe('boulder');
+    expect(gearDef('boulderStaff').damageType).toBe('physical');
+    expect(gearDef('golemTome').summon?.look).toBe('rock');
+    expect(gearDef('golemTome').summonType).toBe('construct');
+    expect(gearDef('featherTome').summon?.look).toBeUndefined(); // other Physical tomes keep their spirits
+    // A Pebble Wand's bolts are rocks.
+    const s = g.state;
+    s.inventory.push({ uid: 900, base: 'pebbleWand', stars: 1 } as (typeof s.inventory)[number]);
+    g.equip('main', 0, 900);
+    const f2 = new Field(g);
+    f2.setView(390, 420);
+    f2.enemies = [enemy({ id: 1, x: 0, y: -150, hp: 1e9, maxHp: 1e9 })];
+    for (let i = 0; i < 30 && !f2.bullets.length; i++) f2.update(1 / 30);
+    expect(f2.bullets[0]?.kind).toBe('rock');
+  });
+
   it('armor kinds: Light is quick, Heavy and Shields add shield charges (Heavy slows you, Shields cost damage), Robes add damage', () => {
     const light = gearTotals(gearDef('gloomLeathers'), 1);
     const heavy = gearTotals(gearDef('bonePlate'), 1);

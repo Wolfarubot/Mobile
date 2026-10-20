@@ -489,6 +489,27 @@ export class BattleView {
         this.scaledAt(g, sm.x, sm.y, () => this.drawWolf(g, sm));
         continue;
       }
+      if (sm.look === 'rock') {
+        // A stone golem: a stack of boulders with glowing eyes, stomping along.
+        const fade = Math.min(1, sm.life / 1.2);
+        const step = Math.abs(Math.sin(this.time * 8 + sm.maxLife)) * 2;
+        g.save();
+        g.globalAlpha = fade;
+        g.translate(sm.x, sm.y - step);
+        g.scale(CHAR_SCALE * 1.3, CHAR_SCALE * 1.3);
+        g.fillStyle = 'rgba(0,0,0,0.25)';
+        g.beginPath();
+        g.ellipse(0, SUMMON_RADIUS + step, SUMMON_RADIUS, SUMMON_RADIUS * 0.35, 0, 0, Math.PI * 2);
+        g.fill();
+        drawRock(g, SUMMON_RADIUS, '#8a8478');
+        g.translate(0, -SUMMON_RADIUS * 0.9);
+        drawRock(g, SUMMON_RADIUS * 0.6, '#9a9488');
+        g.fillStyle = '#ffd34d';
+        g.fillRect(-4, -2, 3, 3);
+        g.fillRect(1, -2, 3, 3);
+        g.restore();
+        continue;
+      }
       if (sm.look === 'puppet') {
         this.scaledAt(g, sm.x, sm.y, () => this.drawPuppet(g, sm));
         continue;
@@ -905,6 +926,20 @@ export class BattleView {
         this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: rgb, max: 0.4 });
         this.fx.burst(e.x, e.y, e.color, 10, 120, 3, 0, true);
         break;
+      case 'rock':
+        // A rock crashing down out of the sky: a streak, then a puff of dust and chips.
+        this.beams.push({ x1: e.x + 14, y1: e.y - 110, x2: e.x, y2: e.y, color: '#8a8478', width: 6, t: 0 });
+        this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: '200,190,170', max: 0.3, fill: true });
+        this.fx.burst(e.x, e.y, '#9a9488', 6, 110, 3, 300, true);
+        this.shake = Math.max(this.shake, 0.06);
+        break;
+      case 'break':
+        // The boulder breaks apart: chunks of rock flying everywhere.
+        this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: '200,190,170', max: 0.35 });
+        this.fx.burst(e.x, e.y, '#9a9488', 10, 160, 4, 300, true);
+        this.fx.burst(e.x, e.y, '#6a6458', 8, 120, 3, 300, true);
+        this.shake = Math.max(this.shake, 0.1);
+        break;
       case 'rise':
         // The dead getting back up: a puff of grave dust and violet motes.
         if (this.fancy) this.playEffect('puff', e.x, e.y, e.r * 2.4, 'center', 20, 0, 0.8, e.color);
@@ -980,6 +1015,18 @@ export class BattleView {
           g.globalAlpha = (1 - p) * fade;
           g.fillRect(z.x + Math.cos(a) * z.r * 0.7 * ((i % 3) / 3 + 0.3) - 1.5, z.y + Math.sin(a) * z.r * 0.5 - p * 40, 3, 3);
         }
+        break;
+      }
+      case 'boulder': {
+        // A big rolling boulder: its shadow, then the rock turning the way it rolls.
+        const v = Math.hypot(z.vx, z.vy);
+        g.fillStyle = 'rgba(0,0,0,0.25)';
+        g.beginPath();
+        g.ellipse(z.x, z.y + z.r * 0.8, z.r * 0.95, z.r * 0.3, 0, 0, Math.PI * 2);
+        g.fill();
+        g.translate(z.x, z.y);
+        g.rotate(((z.max - z.life) * v) / z.r * (z.vx < 0 ? -1 : 1) * 0.6);
+        drawRock(g, z.r, '#8a8478');
         break;
       }
       case 'gravityAnchor': {
@@ -2092,6 +2139,14 @@ function drawBullet(g: CanvasRenderingContext2D, b: Bullet, t: number, basic = f
       g.fillRect(-1, -1, 2, 2);
       break;
     }
+    case 'rock': {
+      // Stone magic: a tumbling chunk of rock with a little dust behind it.
+      g.fillStyle = 'rgba(160,150,130,0.35)';
+      g.fillRect(-Math.cos(a) * 10 - 2, -Math.sin(a) * 10 - 2, 4, 4);
+      g.rotate(t * 14);
+      drawRock(g, 5, '#9a9488');
+      break;
+    }
     case 'spell': {
       // A spell's bolt: a glowing orb of its element with a short tail.
       const c = b.dtype ? DAMAGE_TYPES[b.dtype].color : '#fff6c2';
@@ -2125,6 +2180,28 @@ function drawBullet(g: CanvasRenderingContext2D, b: Bullet, t: number, basic = f
       g.fill();
   }
   g.restore();
+}
+
+/** A chunky pixel rock of radius `r` around the origin: a dark outline, its colour, a lighter top and a crack. */
+function drawRock(g: CanvasRenderingContext2D, r: number, color: string): void {
+  const pts = [1, 0.85, 1, 0.9, 0.95, 0.8, 1, 0.9].map((k, i) => [Math.cos((i / 8) * Math.PI * 2) * r * k, Math.sin((i / 8) * Math.PI * 2) * r * k]);
+  g.beginPath();
+  pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
+  g.closePath();
+  g.fillStyle = color;
+  g.fill();
+  g.lineWidth = Math.max(1.5, r * 0.12);
+  g.strokeStyle = OUTLINE;
+  g.stroke();
+  g.fillStyle = 'rgba(255,255,255,0.22)';
+  g.fillRect(-r * 0.5, -r * 0.6, r * 0.6, r * 0.3);
+  g.strokeStyle = 'rgba(40,36,30,0.6)';
+  g.lineWidth = Math.max(1, r * 0.08);
+  g.beginPath();
+  g.moveTo(r * 0.1, -r * 0.2);
+  g.lineTo(r * 0.35, r * 0.15);
+  g.lineTo(r * 0.2, r * 0.45);
+  g.stroke();
 }
 
 /** Shield charges under a Hunter: lit while charged, faint while recharging. */

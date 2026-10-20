@@ -2270,7 +2270,7 @@ export interface GearDef {
    * `cooldown` seconds they lunge `range` at a monster, and a lunge that lands deals `damage` × a bite. Its
    * cooldown shows as the item's icon on the battlefield.
    */
-  summon?: { look: 'wisp' | 'wolf'; name: string; dash?: { cooldown: number; range: number; speed: number; damage: number } };
+  summon?: { look: 'wisp' | 'wolf' | 'rock'; name: string; dash?: { cooldown: number; range: number; speed: number; damage: number } };
   /** Tomes: the type of creature they summon (default: Spirit, or Beast for wolves). */
   summonType?: SummonType;
   /** A line about the item's own ability, shown on its card. */
@@ -2405,7 +2405,9 @@ export type SpellId =
   | 'raiseDead'
   | 'chainLightning'
   | 'thunderstorm'
-  | 'gravityAnchor';
+  | 'gravityAnchor'
+  | 'boulder'
+  | 'rockfall';
 
 /**
  * A spell. `k` is the share of the cast's damage each of its hits deals (a staff's cast is its spell multiple ×
@@ -2443,11 +2445,13 @@ export const SPELLS: Record<SpellId, SpellDef> = {
   raiseDead: { name: 'Raise Dead', icon: '💀', damageType: 'decay', k: 0.15, r: 80, life: 6, tick: 0.5, desc: 'Curses the ground: monsters that die on it rise again to fight for the Hunter.' },
   chainLightning: { name: 'Chain Lightning', icon: '⚡', damageType: 'lightning', k: 1, count: 5, r: 130, desc: 'A bolt from the Hunter that jumps from monster to monster.' },
   thunderstorm: { name: 'Thunderstorm', icon: '🌩️', damageType: 'lightning', k: 0.8, count: 5, r: 150, tick: 0.2, desc: 'Lightning strikes down from the sky on the monsters around the target.' },
+  boulder: { name: 'Boulder', icon: '🪨', damageType: 'physical', k: 1.2, r: 20, desc: 'A boulder that rolls across the field, crushing every monster in its path and slowing with each one, until it stops and breaks apart.' },
+  rockfall: { name: 'Rockfall', icon: '☄️', damageType: 'physical', k: 0.7, count: 6, r: 30, tick: 0.15, desc: 'Rocks crashing down from above on the monsters around the target.' },
   gravityAnchor: { name: 'Gravity Anchor', icon: '🌀', damageType: 'void', k: 0.15, r: 110, life: 3, tick: 0.5, desc: 'An anchor thrown into the thick of them that pulls every monster in, then collapses.' },
 };
-/** Each element's spells (a staff of that type casts one of them). Physical has none: its staffs blast. */
+/** Each element's spells (a staff of that type casts one of them). Physical's are stone magic. */
 export const TYPE_SPELLS: Record<DamageType, SpellId[]> = {
-  physical: [],
+  physical: ['boulder', 'rockfall'],
   fire: ['fireball', 'fireVolley'],
   acid: ['acidPool', 'acidRain'],
   frost: ['iceSpikes', 'frostFan'],
@@ -2460,6 +2464,12 @@ export const TYPE_SPELLS: Record<DamageType, SpellId[]> = {
 };
 /** Raise Dead: how long a risen monster fights, and how often it bites (each bite: the spell's cast × `k`). */
 export const RISEN = { life: 6, bites: 1, k: 0.5 };
+/**
+ * Boulder: how fast it starts rolling, how much each monster it crushes slows it (×), how much speed it loses each
+ * second on its own, the speed it stops and
+ * breaks at, and its break: a last hit for `breakK` × the cast within `breakR` × its radius.
+ */
+export const BOULDER = { speed: 300, slow: 0.72, friction: 20, stop: 45, breakK: 0.6, breakR: 2.5 };
 /** Gravity Anchor's collapse: a last hit for this × the spell's cast, within this share of its radius. */
 export const ANCHOR_COLLAPSE = { k: 1, r: 0.6 };
 /** Plague: each spread poisons for this share of what infected the spreader. */
@@ -2807,6 +2817,8 @@ function catalogGear(spec: CatalogSpec): GearDef {
     weaponClass: cls,
     damageType: spec.dmg,
     ...(proc ? { proc } : {}),
+    // Stone tomes call up stone golems.
+    ...('stone' in spec && spec.stone && cls === 'tome' ? { summon: { look: 'rock' as const, name: 'stone golem' }, summonType: 'construct' as const } : {}),
     stats: {},
   };
 }

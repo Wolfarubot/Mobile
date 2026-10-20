@@ -18,6 +18,7 @@ import {
   RISEN,
   ANCHOR_COLLAPSE,
   PLAGUE_SPREAD,
+  BOULDER,
   type SpellId,
   FLAME_BURST_COOLDOWN,
   FLEE_SPEED_MULT,
@@ -136,7 +137,7 @@ export interface Summon {
   life: number;
   maxLife: number;
   bite: number;
-  look: 'wisp' | 'wolf' | 'puppet';
+  look: 'wisp' | 'wolf' | 'puppet' | 'rock';
   /** What kind of creature it is (some Hunters' summons of a type hit harder). */
   type: SummonType;
   /** A gear ability's creature (a Puppeteer's Doll's puppets): the piece that made it and its own bite. */
@@ -211,7 +212,7 @@ const HELPER_SPOTS = [
   { x: 0, y: -80 },
 ];
 
-export type BulletKind = 'spell' | 'blood' | 'bolt' | 'spark' | 'arrow' | 'fireball' | 'potion' | 'pellet' | 'dagger' | 'pistol' | 'ricochet' | 'hammer';
+export type BulletKind = 'rock' | 'spell' | 'blood' | 'bolt' | 'spark' | 'arrow' | 'fireball' | 'potion' | 'pellet' | 'dagger' | 'pistol' | 'ricochet' | 'hammer';
 
 export interface Bullet {
   shooter: Shooter;
@@ -270,7 +271,7 @@ export interface SpellHit {
   y: number;
   r: number;
   k: number;
-  fx?: 'spike' | 'sun' | 'storm';
+  fx?: 'spike' | 'sun' | 'storm' | 'rock';
 }
 
 /** A spell that lingers: an acid cloud, a drifting poison mist, cursed ground, a gravity anchor. */
@@ -391,7 +392,7 @@ export type FieldEvent =
   /** Floating words on the field: a dice roll's call, Double or Nothing's ×2 / BUST. */
   | { type: 'say'; x: number; y: number; text: string; color: string; size: number }
   /** A spell's moment: an ice spike, a fan of frost, a sunbeam, an acid drop, an anchor landing, the dead rising. */
-  | { type: 'spell'; fx: 'spike' | 'cone' | 'sun' | 'drop' | 'anchor' | 'rise'; x: number; y: number; r: number; color: string; a?: number; arc?: number };
+  | { type: 'spell'; fx: 'spike' | 'cone' | 'sun' | 'drop' | 'anchor' | 'rise' | 'rock' | 'break'; x: number; y: number; r: number; color: string; a?: number; arc?: number };
 
 /**
  * The survivor-style battlefield in world coordinates centered on your Hunter.
@@ -1536,6 +1537,8 @@ export class Field {
     o: { pierce?: number; dmg?: number; radius?: number; bounces?: number; slow?: number; tx?: number; ty?: number; mode?: GearMode; special?: boolean; followThrough?: number; volley?: number; stack?: number; bleed?: boolean; dtype?: DamageType; ticks?: number; cast?: SpellCast; k?: number },
   ): void {
     const g = this.game;
+    // Stone magic (a Physical magic weapon) hurls rocks instead of sparks.
+    if (kind === 'spark' && !o.special && !o.cast && g.damageTypeOf(shooter, o.mode) === 'physical' && g.weaponItem(shooter, o.mode)) kind = 'rock';
     // A weapon firing one type per projectile hands them out in turn.
     const types = !o.special && !o.cast && g.perShotOf(shooter, o.mode) ? g.damageTypesOf(shooter, o.mode) : null;
     let dtype: DamageType | undefined = o.dtype;
@@ -1840,6 +1843,19 @@ export class Field {
         if (spell === 'gravityAnchor') this.events.push({ type: 'spell', fx: 'anchor', x: cx, y: cy, r: sp.r! * area, color });
         break;
       }
+      case 'boulder': {
+        // Rolls out from the Hunter toward the monster and on, until the monsters it crushes stop it.
+        this.zones.push({ kind: spell, c, x: x + Math.cos(aim) * 24, y: y + Math.sin(aim) * 24, r: sp.r! * area, vx: Math.cos(aim) * BOULDER.speed, vy: Math.sin(aim) * BOULDER.speed, life: 12, max: 12, tick: 0, k: sp.k, touched: new Map() });
+        break;
+      }
+      case 'rockfall':
+        // Rocks land around the target, one after another.
+        for (let i = 0; i < sp.count!; i++) {
+          const a = this.game.rng() * Math.PI * 2;
+          const d = i === 0 ? 0 : Math.sqrt(this.game.rng()) * sp.r! * 2.5 * area;
+          this.spellHits.push({ c, t: i * sp.tick!, x: target.x + Math.cos(a) * d, y: target.y + Math.sin(a) * d, r: sp.r! * area, k: sp.k, fx: 'rock' });
+        }
+        break;
       case 'poisonMist': {
         // A cloud rolling out from the Hunter, through the target and on across the field.
         const speed = 70;
@@ -1863,10 +1879,12 @@ export class Field {
   /** One hit of a spell, `k` of its cast, always setting off its element's effect. */
   private spellHit(c: SpellCast, e: Enemy, k: number, fx: number, fy: number): void {
     if (e.hp <= 0) return;
-    if (c.base !== undefined) this.abilityHit(c.who, e, c.base * k, c.dtype, true);
+    // Stone (Physical) spells crush rather than cut: no bleeding.
+    const effect = c.dtype !== 'physical';
+    if (c.base !== undefined) this.abilityHit(c.who, e, c.base * k, c.dtype, effect);
     else {
       this.hitWith(c.who, e, (c.mult ?? 1) * k, fx, fy, undefined, c.mode, false, false, c.dtype);
-      if (e.hp > 0) this.applyStatus(e, c.dtype, this.spellAmount(c, e) * k * this.typeMultOn(c.dtype, e), c.who, this.game.procRarity(c.who, c.mode));
+      if (effect && e.hp > 0) this.applyStatus(e, c.dtype, this.spellAmount(c, e) * k * this.typeMultOn(c.dtype, e), c.who, this.game.procRarity(c.who, c.mode));
     }
   }
 
@@ -1904,6 +1922,35 @@ export class Field {
       z.y += z.vy * dt;
       z.tick -= dt;
       const sp = SPELLS[z.kind];
+      if (z.kind === 'boulder') {
+        // Crushes each monster it rolls into once, knocking it aside and losing speed, until it stops and breaks.
+        for (const e of [...this.enemies]) {
+          if (e.hp <= 0 || z.touched.has(e.id) || Math.hypot(e.x - z.x, e.y - z.y) > z.r + e.r) continue;
+          z.touched.set(e.id, z.life);
+          this.spellHit(z.c, e, z.k, z.x, z.y);
+          if (!e.boss) {
+            const sx = Math.sign((e.x - z.x) * -z.vy + (e.y - z.y) * z.vx) || 1;
+            const v = Math.hypot(z.vx, z.vy) || 1;
+            e.kx += (-z.vy / v) * sx * 160;
+            e.ky += (z.vx / v) * sx * 160;
+          }
+          z.vx *= BOULDER.slow;
+          z.vy *= BOULDER.slow;
+        }
+        const v = Math.hypot(z.vx, z.vy);
+        if (v > 0) {
+          const k = Math.max(0, v - BOULDER.friction * dt) / v;
+          z.vx *= k;
+          z.vy *= k;
+        }
+        if (Math.hypot(z.vx, z.vy) < BOULDER.stop && z.life > 0) {
+          z.life = 0;
+          const r = z.r * BOULDER.breakR;
+          this.events.push({ type: 'spell', fx: 'break', x: z.x, y: z.y, r, color: DAMAGE_TYPES.physical.color });
+          for (const e of [...this.enemies]) if (e.hp > 0 && Math.hypot(e.x - z.x, e.y - z.y) <= r + e.r) this.spellHit(z.c, e, BOULDER.breakK, z.x, z.y);
+        }
+        continue;
+      }
       if (z.kind === 'gravityAnchor') {
         // Pulls everything in reach toward the anchor (not Guardians, nor monsters that resist Void).
         for (const o of this.enemies) {

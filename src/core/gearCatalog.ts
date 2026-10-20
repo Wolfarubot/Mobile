@@ -19,13 +19,19 @@ export type CatalogAccStat = 'damage' | 'rate' | 'crit' | 'gold' | 'drops' | 'ra
 export type CatalogArchetype = 'slime' | 'beast' | 'undead' | 'demon' | 'elemental' | 'humanoid' | 'plant' | 'dragon' | 'construct';
 
 export type CatalogSpec<I extends string = string> =
-  | { id: I; name: string; icon: string; area: string; type: 'weapon'; cls: CatalogWeapon; dmg: CatalogDamage; recipe: Record<string, number>; top?: boolean }
+  | { id: I; name: string; icon: string; area: string; type: 'weapon'; cls: CatalogWeapon; dmg: CatalogDamage; recipe: Record<string, number>; top?: boolean; stone?: boolean }
   | { id: I; name: string; icon: string; area: string; type: 'armor'; armor: CatalogArmor; recipe: Record<string, number>; top?: boolean }
   | { id: I; name: string; icon: string; area: string; type: 'accessory'; stats: CatalogAccStat[]; bane?: CatalogArchetype; recipe: Record<string, number>; top?: boolean };
 
 let area = '';
 const w = <I extends string>(id: I, name: string, icon: string, cls: CatalogWeapon, dmg: CatalogDamage, recipe: Record<string, number>, top = false) =>
   ({ id, name, icon, area, type: 'weapon', cls, dmg, recipe, top }) as const;
+/**
+ * Stone magic: Physical magic weapons that hurl rocks instead of sparks (its tomes summon stone golems; its staffs
+ * cast Boulder or Rockfall). There's no Earth element: it's all Physical damage, made of golems' stone.
+ */
+const stone = <I extends string>(id: I, name: string, icon: string, cls: CatalogWeapon, recipe: Record<string, number>, top = false) =>
+  ({ id, name, icon, area, type: 'weapon', cls, dmg: 'physical', recipe, top, stone: true }) as const;
 const a = <I extends string>(id: I, name: string, icon: string, armor: CatalogArmor, recipe: Record<string, number>, top = false) =>
   ({ id, name, icon, area, type: 'armor', armor, recipe, top }) as const;
 const x = <I extends string>(id: I, name: string, icon: string, stats: CatalogAccStat[], recipe: Record<string, number>, bane?: CatalogArchetype, top = false) =>
@@ -38,6 +44,8 @@ export const GEAR_CATALOG = [
   w('sporeWand', 'Spore Wand', '🍄', 'wand', 'poison', { spore: 10, twig: 6 }),
   w('pixieWand', 'Pixie Wand', '✨', 'wand', 'arcane', { dust: 10, spore: 4 }),
   w('mossStaff', 'Mossy Staff', '🌿', 'staff', 'poison', { sap: 8, spore: 6 }),
+  stone('pebbleWand', 'Pebble Wand', '🪨', 'wand', { awokenRock: 3, sap: 8 }),
+  stone('boulderStaff', 'Boulder Staff', '🪨', 'staff', { awokenRock: 4, thorn: 8 }),
   w('unicornStaff', 'Unicorn Staff', '🦄', 'staff', 'radiant', { unicornHorn: 6, sap: 6 }),
   w('dewFocus', 'Dewdrop Focus', '💧', 'focus', 'arcane', { dust: 8, sap: 5 }),
   w('bloomTome', 'Tome of Blooms', '📗', 'tome', 'poison', { thorn: 8, spore: 8 }),
@@ -125,6 +133,8 @@ export const GEAR_CATALOG = [
   w('impPistol', 'Imp Pistol', '🔫', 'pistol', 'fire', { demonBone: 8, demonWing: 4 }),
   w('magmaRifle', 'Magma Rifle', '🌋', 'rifle', 'fire', { magma: 10, chitin: 5 }),
   w('beetleRepeater', 'Beetle Repeater', '🪲', 'repeater', 'acid', { chitin: 10, ember: 4 }),
+  stone('golemTome', 'Tome of the Golem', '📙', 'tome', { ironOre: 4, chitin: 10 }),
+  stone('geodeFocus', 'Geode Focus', '💎', 'focus', { quartz: 5, demonBone: 8 }),
   w('hellfangDagger', 'Hellfang Dagger', '🗡️', 'dagger', 'fire', { demonTooth: 8, demonBone: 5 }),
   w('infernoBlade', 'Inferno Blade', '⚔️', 'sword', 'fire', { ember: 10, demonBone: 5 }),
   w('houndSpear', 'Hellhound Spear', '🔱', 'spear', 'fire', { demonTooth: 10, chitin: 4 }),
@@ -151,6 +161,7 @@ export const GEAR_CATALOG = [
   ...at('mines'),
   w('mithrilPistol', 'Mithril Pistol', '🔫', 'pistol', 'physical', { ore: 8, chitin: 4 }),
   w('drakeRifle', 'Drakeslayer Rifle', '🎯', 'rifle', 'fire', { scale: 10, ore: 5 }),
+  stone('cobaltScepter', 'Cobalt Scepter', '🔷', 'scepter', { cobaltOre: 5, ore: 10 }),
   w('venomRepeater', 'Venom Repeater', '🐍', 'repeater', 'poison', { scale: 8, ore: 6 }),
   w('mithrilDagger', 'Mithril Dagger', '🗡️', 'dagger', 'physical', { ore: 8, scale: 4 }),
   w('basiliskFang', 'Basilisk Fang', '🐍', 'dagger', 'poison', { scale: 8, demonTooth: 4 }),
@@ -220,6 +231,7 @@ export const GEAR_CATALOG = [
   ...at('cliffs'),
   w('harpyBow', 'Harpy Bow', '🏹', 'shortbow', 'physical', { plume: 8, skystone: 4 }),
   w('owlLongbow', 'Snow Owl Longbow', '🦉', 'longbow', 'physical', { plume: 10, skystone: 5 }),
+  stone('skystoneStaff', 'Skystone Staff', '🪨', 'staff', { skysteel: 5, skystone: 12 }),
   w('griffinCrossbow', 'Griffin Crossbow', '🎯', 'crossbow', 'physical', { plume: 10, skystone: 6 }),
   w('skyPistol', 'Sky Pistol', '🔫', 'pistol', 'lightning', { skystone: 8, plume: 4 }),
   w('wyvernRifle', 'Wyvern Rifle', '🎯', 'rifle', 'frost', { skystone: 10, plume: 5 }),
@@ -294,6 +306,7 @@ export const GEAR_CATALOG = [
   ...at('meteors'),
   w('cometBow', 'Comet Bow', '🏹', 'shortbow', 'radiant', { stardust: 8, meteor: 4 }),
   w('starfallLongbow', 'Starfall Longbow', '🌠', 'longbow', 'radiant', { stardust: 10, meteor: 5 }),
+  stone('meteoriteTome', 'Meteorite Tome', '📙', 'tome', { starIron: 5, meteor: 12 }),
   w('meteorCrossbow', 'Meteor Crossbow', '🎯', 'crossbow', 'fire', { meteor: 10, stardust: 5 }),
   w('starPistol', 'Star Pistol', '🔫', 'pistol', 'radiant', { stardust: 8, meteor: 4 }),
   w('meteorRepeater', 'Meteor Repeater', '🔫', 'repeater', 'fire', { meteor: 10, stardust: 6 }),
@@ -333,6 +346,7 @@ export const GEAR_CATALOG = [
   ...at('rift'),
   w('shadeBow', 'Shade Bow', '🏹', 'shortbow', 'void', { shade: 8, void: 4 }),
   w('riftLongbow', 'Riftwalker Longbow', '🏹', 'longbow', 'void', { void: 10, shade: 5 }),
+  stone('voidstoneStaff', 'Voidstone Staff', '🪨', 'staff', { voidsteel: 5, void: 14 }, true),
   w('soulCrossbow', 'Soul Crossbow', '🎯', 'crossbow', 'decay', { soul: 8, shade: 6 }),
   w('voidPistol', 'Void Pistol', '🔫', 'pistol', 'void', { void: 8, shade: 4 }),
   w('lichRifle', 'Lich Rifle', '🎯', 'rifle', 'decay', { soul: 10, void: 5 }),
