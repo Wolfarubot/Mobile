@@ -5288,3 +5288,7 @@ button.feat-tag {
   width: calc(100% - 8px);
   height: calc(100% - 8px);
 }
+/* Filter buttons clip their label; the well overlaps their wooden border, so let it show whole. */
+.filter-btn:has(> .btn-ic) {
+  overflow: visible;
+}
