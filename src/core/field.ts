@@ -44,6 +44,9 @@ import {
   type HunterId,
   type HunterSpecial,
   HUNTERS,
+  artScale,
+  GOLDEN_GOLD,
+  GOLDEN_ODDS,
 } from './balance';
 import type { Game, GearMode, KillReward, Shooter } from './game';
 
@@ -91,6 +94,10 @@ export interface Enemy {
   phase: number;
   /** Seconds of half-speed left (frost hammers, Frost chill). */
   slow?: number;
+  /** How big its art is drawn (artScale: 0.5 to 1.5, mostly near 1); its hit size doesn't change. */
+  scale?: number;
+  /** A gold monster (1 in GOLDEN_ODDS): GOLDEN_GOLD × the gold and GOLDEN_DROPS × the drop chance. */
+  golden?: boolean;
   /**
    * Charmed by Norm (or a copy of his Smooth Talk): for `left` seconds it hunts the nearest other monster instead
    * of the Hunters, biting it every CHARM_BITE seconds for `frac` of its own max health, credited to `by`.
@@ -645,6 +652,7 @@ export class Field {
       kx: 0,
       ky: 0,
       phase: g.rng() * 10,
+      ...(boss ? {} : { scale: artScale(g.rng(), g.rng(), g.rng()), ...(g.rng() >= 1 - 1 / GOLDEN_ODDS ? { golden: true } : {}) }),
     });
   }
 
@@ -2928,7 +2936,8 @@ export class Field {
     // Some Guardians are beaten before their HP runs out (the Time Eater: at half).
     if (e.boss && e.hp > 0 && e.hp <= e.maxHp * (enemyDef(e.type).winAt ?? 0)) e.hp = 0;
     if (e.hp <= 0) {
-      const reward = this.game.registerKill(e.type, e.boss, shooter);
+      const reward = this.game.registerKill(e.type, e.boss, shooter, !!e.golden);
+      if (e.golden) this.say(e.x, e.y - 18, `×${GOLDEN_GOLD} GOLD!`, '#ffd84a', 12);
       if (this.zones.length) this.raiseFallen(e);
       this.bloodthirst(shooter);
       this.quickDrawKill(shooter);

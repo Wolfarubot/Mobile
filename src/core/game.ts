@@ -14,6 +14,8 @@ import {
   weaponHitsPerAttack,
   type WeaponClassDef,
   dropsFrom,
+  GOLDEN_DROPS,
+  GOLDEN_GOLD,
   rollLoot,
   enemyExtraDrops,
   lootChance,
@@ -1503,7 +1505,7 @@ export class Game {
   }
 
   /** Field calls this for every enemy killed. */
-  registerKill(type: EnemyId, boss: boolean, shooter: Shooter = 'main'): KillReward {
+  registerKill(type: EnemyId, boss: boolean, shooter: Shooter = 'main', golden = false): KillReward {
     const s = this.state;
     const e = this.enemyStats(type);
     // The kill's drops, gathered up for one 'gains' event (not the auto-salvaged gear's refunds).
@@ -1541,12 +1543,13 @@ export class Game {
     const roll = odds ? this.rng() : 1;
     const luck = odds && roll < odds.double ? 'double' : odds && roll < odds.double + odds.bust ? 'bust' : undefined;
     const lm = luck === 'double' ? 2 : luck === 'bust' ? 0 : 1;
-    const gold = e.gold * this.shooterGold(shooter) * lm;
+    const gold = e.gold * this.shooterGold(shooter) * lm * (golden ? GOLDEN_GOLD : 1);
     s.gold += gold;
     s.stats.totalGold += gold;
     s.areas[enemyDef(type).area].gold += gold;
     s.bestiary[type].kills++;
-    const chance = e.dropChance * this.shooterDrops(shooter);
+    // Past 100% a kill drops several: each full 100% is a sure drop, the rest the chance of one more.
+    const chance = e.dropChance * this.shooterDrops(shooter) * (golden ? GOLDEN_DROPS : 1);
     const amount = dropsFrom(chance, this.rng()) * lm;
     gain(e.material, amount);
     // More drops (a Forest Wolf's Beast Bone, a golem's rarer stones), each at its share of the chance.

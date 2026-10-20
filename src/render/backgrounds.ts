@@ -540,6 +540,12 @@ const CLEAR = 0.35;
 /** Bands this far out hold the big objects: on the battlefield they're props, drawn among the monsters. */
 const PROP_FROM = 0.7;
 /** Pieces that lie flat on the ground (craters, holes, veins, circles), baked in even out among the props. */
+/**
+ * Rocks, stones and stumps big enough to trip over: wherever they lie, they stand among the monsters as solid props
+ * (walked around). Smaller ones (pebbles), and flowers, grass and the like, stay part of the ground and are walked over.
+ */
+const SOLIDISH = /(Rock|Rpck|rock|Stone|stone|Broken_tree|[Ss]tump|[Bb]oulder)/;
+const SOLIDISH_MIN = 24;
 const FLAT = /^(c_Veins|o_magic_circle|moon\d|skull_chasm|excavated_grave|gd\d|d_Roots|Cloud)/;
 
 /**
@@ -813,7 +819,8 @@ export function areaBackground(area: AreaId, w: number, h: number, decor?: Decor
           if (taken.some((t) => overlaps(rect, t))) continue;
           taken.push(rect);
         }
-        const prop = split && (band.from >= PROP_FROM || !!band.solid) && !band.under && !band.overlap && !band.onIslands && !FLAT.test(piece.file);
+        const solidish = SOLIDISH.test(piece.file) && Math.max(img.naturalWidth, img.naturalHeight) >= SOLIDISH_MIN;
+        const prop = split && (band.from >= PROP_FROM || !!band.solid || solidish) && !band.under && !band.overlap && !band.onIslands && !FLAT.test(piece.file);
         placed.push({ img, x: px, y: py, prop, file: piece.file });
         i++;
       }

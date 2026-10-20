@@ -4414,12 +4414,12 @@ describe('Saves', () => {
     s.settings.name = 'Wolfa';
     s.flags.eventsIntro = true;
     const back = deserialize(serialize(s))!;
-    expect(back.settings).toEqual({ leftHanded: true, name: 'Wolfa', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', autoSalvage: [], fx: Object.fromEntries(FX_KEYS.map((k) => [k, true])), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low' });
+    expect(back.settings).toEqual({ leftHanded: true, name: 'Wolfa', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', autoSalvage: [], fx: Object.fromEntries(FX_KEYS.map((k) => [k, true])), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium' });
     expect(back.flags).toEqual({ eventsIntro: true, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false });
     const old = JSON.parse(serialize(newGame(0)));
     delete old.settings;
     delete old.flags;
-    expect(deserialize(JSON.stringify(old))!.settings).toEqual({ leftHanded: false, name: '', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', autoSalvage: [], fx: Object.fromEntries(FX_KEYS.map((k) => [k, true])), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low' });
+    expect(deserialize(JSON.stringify(old))!.settings).toEqual({ leftHanded: false, name: '', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', autoSalvage: [], fx: Object.fromEntries(FX_KEYS.map((k) => [k, true])), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium' });
     // A hidden DPS meter stays hidden.
     const noDps = newGame(0);
     noDps.settings.dps = false;
@@ -4619,5 +4619,21 @@ describe('journal', () => {
     expect(ids(g.unreadJournal())).toEqual(['slimeScience', 'feyGrove']);
     // Every entry's unlock names something that exists.
     for (const e of JOURNAL) expect(() => g.journalUnlocked(e)).not.toThrow();
+  });
+});
+
+describe('gold monsters and size variety', () => {
+  it('a gold monster pays 100x the gold and 100x the drop chance', async () => {
+    const { GOLDEN_GOLD, GOLDEN_DROPS, artScale } = await import('../src/core/balance');
+    const g = new Game(newGame(0), () => 0.5);
+    const plain = g.registerKill('greenSlime', false, 'main', false);
+    const gold = g.registerKill('greenSlime', false, 'main', true);
+    expect(gold.gold).toBeCloseTo(plain.gold * GOLDEN_GOLD);
+    // The slime's base chance is under 100%; ×100 it's guaranteed several.
+    const chance = g.enemyStats('greenSlime').dropChance * GOLDEN_DROPS;
+    expect(gold.amount).toBe(Math.floor(chance) + (0.5 < chance % 1 ? 1 : 0));
+    expect(artScale(0, 0, 0)).toBe(0.5);
+    expect(artScale(1, 1, 1)).toBe(1.5);
+    expect(artScale(0.5, 0.5, 0.5)).toBe(1);
   });
 });

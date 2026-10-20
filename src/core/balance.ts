@@ -28,6 +28,15 @@ export const BOSS_MATERIAL_DROP = 10;
 export const GUARDIAN_TIME = 45;
 /** Gold for slaying a Guardian, in kills' worth of the area's basic enemy. */
 export const GUARDIAN_GOLD_MULT = 50;
+/** A gold monster: 1 in GOLDEN_ODDS ordinary monsters, paying GOLDEN_GOLD × the gold and GOLDEN_DROPS × the drop chance. */
+export const GOLDEN_ODDS = 10_000;
+export const GOLDEN_GOLD = 100;
+export const GOLDEN_DROPS = 100;
+/**
+ * How big a monster is drawn, for some variety among the same monsters: 0.5× to 1.5×, mostly near 1× (the mean of
+ * three rolls, so the extremes are rare). Only its art changes, not its hit size.
+ */
+export const artScale = (a: number, b: number, c: number): number => 0.5 + (a + b + c) / 3;
 
 // ---- Offline ----
 /**

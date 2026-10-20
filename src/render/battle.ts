@@ -1,5 +1,5 @@
 import { buzz } from '../ui/haptics';
-import { areaDef, DAMAGE_TYPES, FIELD_ZOOM, FLYING, gearDef, WEAPON_CLASSES, STATUS, enemyDef, eventDef, fieldZoom, GUARDIAN_TIME, hunterDef, materialDef, SIZE_SCALE, type AreaId, type DamageType, type EnemyId, type EnemyShape } from '../core/balance';
+import { areaDef, DAMAGE_TYPES, FIELD_ZOOM, FLYING, gearDef, WEAPON_CLASSES, STATUS, enemyDef, eventDef, fieldZoom, GUARDIAN_TIME, hunterDef, materialDef, SIZE_SCALE, type AreaId, type DamageType, type EnemyId, type EnemyShape, type SummonType } from '../core/balance';
 import { DICE_FLIGHT, DICE_REST, PLAYER_RADIUS, SHOT_RADIUS, SUMMON_RADIUS, TOME_LIFE, TOME_OPEN, type EnemyShot, type Summon, type SpellZone, type FieldEvent, type Bullet, type BulletKind, type Enemy, type Field, type Helper } from '../core/field';
 import { fmt } from '../core/format';
 import type { Game, Shooter } from '../core/game';
@@ -521,6 +521,9 @@ export class BattleView {
         this.drawRisen(g, sm);
         continue;
       }
+      // A creature with a monster's art: that monster, tinted toward the summon's element (Physical ones keep
+      // their colours and get a purple outline instead), so it reads as yours.
+      if (this.drawSummonSprite(g, sm)) continue;
       if (sm.look === 'wolf') {
         this.scaledAt(g, sm.x, sm.y, () => this.drawWolf(g, sm));
         continue;
@@ -1107,6 +1110,70 @@ export class BattleView {
   }
 
   /** A monster raised by Raise Dead: its own art, ghostly violet, fading as its time runs out. */
+  /** The monster whose art a summon wears, by its look (and, for wisps, its kind). */
+  private summonArt(sm: Summon): EnemyId {
+    if (sm.look === 'wolf') return 'wolf';
+    if (sm.look === 'puppet') return 'puppet';
+    if (sm.look === 'rock') return 'stoneGolem';
+    return SUMMON_ART[sm.type] ?? 'wraith';
+  }
+
+  /** A summon's damage type: its gear ability's, else its Hunter's weapon's. */
+  private summonType(sm: Summon): DamageType {
+    return sm.gear?.damageType ?? this.game.damageTypesOf(sm.who)[0] ?? 'physical';
+  }
+
+  /** Draws a summon as its monster's art. False if the art isn't loaded yet (the old shapes stand in). */
+  private drawSummonSprite(g: CanvasRenderingContext2D, sm: Summon): boolean {
+    const id = this.summonArt(sm);
+    const def = enemyDef(id);
+    const img = sprite(`enemies/${id}`);
+    const sheetKey = MONSTER_SHEETS[id];
+    const sheet = sheetKey ? monsterSheetImage(sheetKey) : null;
+    const hasSheet = !!(sheetKey && sheet && sheet.complete && sheet.naturalWidth > 0);
+    if (!hasSheet && !img) return false;
+    const type = this.summonType(sm);
+    const color = DAMAGE_TYPES[type].color;
+    const physical = type === 'physical';
+    const ring = physical ? SUMMON_PHYSICAL_RING : color;
+    // Summons are a little smaller than the monster they look like, whatever its size.
+    const ra = SUMMON_RADIUS * 1.25 * (sm.look === 'rock' ? 1.3 : 1) * Math.min(1.25, SIZE_SCALE[def.size ?? 'medium']);
+    const fade = Math.min(1, sm.life / 1.2);
+    const bob = sm.look === 'wisp' ? Math.sin(this.time * 8 + sm.maxLife) * 2 : 0;
+    // Facing the way it's heading (toward the monsters): mirrored when that's left.
+    const left = sm.x > 0;
+    g.save();
+    g.translate(sm.x, sm.y + bob);
+    g.scale(CHAR_SCALE, CHAR_SCALE);
+    g.globalAlpha = 0.95 * fade;
+    if (sm.look === 'wolf' && sm.dash > 0) {
+      g.globalAlpha = 0.35 * fade;
+      g.fillStyle = color;
+      g.beginPath();
+      g.arc(0, 0, ra + 6, 0, Math.PI * 2);
+      g.fill();
+      g.globalAlpha = 0.95 * fade;
+    }
+    g.imageSmoothingEnabled = false;
+    if (hasSheet) {
+      const sh = SHEETS[sheetKey!];
+      const art = tinted(sheet!, physical ? undefined : color);
+      const frame = Math.floor(this.time * 8 + sm.maxLife) % sh.cols;
+      const row = sheetRow(sh, left ? 'L' : 'R');
+      if (sideFlip(sh, left ? -1 : 1)) g.scale(-1, 1);
+      drawSheetFrame(g, outlineOf(art, ring, 1), sh, row, frame, ra * SHEET_SCALE);
+      drawSheetFrame(g, art, sh, row, frame, ra * SHEET_SCALE);
+    } else if (img) {
+      const art = tinted(img, physical ? undefined : color);
+      const size = ra * SPRITE_SCALE;
+      if (left) g.scale(-1, 1);
+      g.drawImage(outlineOf(art, ring, 1), -size / 2, -size / 2, size, size);
+      g.drawImage(art, -size / 2, -size / 2, size, size);
+    }
+    g.restore();
+    return true;
+  }
+
   private drawRisen(g: CanvasRenderingContext2D, sm: Summon): void {
     const id = sm.risen!.enemy;
     const def = enemyDef(id);
@@ -1140,8 +1207,9 @@ export class BattleView {
   private drawEnemy(g: CanvasRenderingContext2D, e: Enemy): void {
     const def = enemyDef(e.type);
     const r = e.r;
-    // Its art's size: the hit radius scaled by the monster's size class (dragons are drawn huge).
-    const ra = r * SIZE_SCALE[def.size ?? 'medium'];
+    // Its art's size: the hit radius scaled by the monster's size class (dragons are drawn huge), and by its own
+    // size roll (some of the same monster are smaller or bigger).
+    const ra = r * SIZE_SCALE[def.size ?? 'medium'] * (e.scale ?? 1);
     // Walking away from the Hunter while fleeing, toward them otherwise.
     const dirX = e.fleeing ? e.x : -e.x;
     g.save();
@@ -1157,8 +1225,8 @@ export class BattleView {
       const hy = e.fleeing ? e.y : -e.y;
       const dir = Math.abs(dirX) > Math.abs(hy) ? (dirX < 0 ? 'L' : 'R') : hy > 0 ? 'D' : 'U';
       const col = Math.floor(e.phase * (e.fleeing ? 12 : 8)) % sh.cols;
-      // Charmed by Norm: pink; chilled by Frost: blue.
-      const src = e.charm ? charmTint(sheet) : e.slow && this.fxOn('chill') ? frostTint(sheet) : sheet;
+      // Charmed by Norm: pink; chilled by Frost: blue; a gold monster: gold.
+      const src = e.charm ? charmTint(sheet) : e.slow && this.fxOn('chill') ? frostTint(sheet) : e.golden ? goldTint(sheet) : sheet;
       g.fillStyle = 'rgba(0,0,0,0.25)';
       g.beginPath();
       g.ellipse(0, ra * 1.1, ra * 0.9, ra * 0.32, 0, 0, Math.PI * 2);
@@ -1180,7 +1248,7 @@ export class BattleView {
       const bob = Math.sin(e.phase * 10) * r * 0.06;
       g.scale(dirX < 0 ? -1 : 1, 1);
       // Chilled by Frost: drawn with a blue tint.
-      g.drawImage(e.charm ? charmTint(img) : e.slow && this.fxOn('chill') ? frostTint(img) : img, -size / 2, -size / 2 + bob, size, size);
+      g.drawImage(e.charm ? charmTint(img) : e.slow && this.fxOn('chill') ? frostTint(img) : e.golden ? goldTint(img) : img, -size / 2, -size / 2 + bob, size, size);
       if (e.flash > 0.5) {
         // Brief white flash on hit without needing a tinted copy of the sprite.
         g.globalAlpha = 0.5;
@@ -1222,6 +1290,7 @@ export class BattleView {
     }
 
     if (e.boss) drawCrown(g, ra);
+    if (e.golden) drawGoldSparkle(g, ra, this.time + e.phase);
     if (e.fleeing) drawDizzy(g, ra, this.time + e.phase, 0.6);
     drawStatus(g, e, this.time, (k) => this.fxOn(k), this.game.state.settings.aoeStyle === 'basic');
     g.restore();
@@ -1310,15 +1379,8 @@ export class BattleView {
     g.restore();
     if (!behind) this.drawHeldWeapon(g, 'main', 0, 0, f.aim, R, f.stunned);
 
-    drawShieldPips(g, 0, R + (f.stunned ? 17 : 9), f.guard, this.game.guardOf('main'));
-    if (f.stunned) {
-      drawDizzy(g, R, this.time, 1);
-      const bw = 34;
-      g.fillStyle = 'rgba(0,0,0,0.55)';
-      g.fillRect(-bw / 2, R + 8, bw, 5);
-      g.fillStyle = '#ffe066';
-      g.fillRect(-bw / 2, R + 8, bw * (f.stun / Math.max(0.01, f.stunTotal)), 5);
-    }
+    drawShieldPips(g, 0, R + (f.stunned ? 19 : 10), f.guard);
+    if (f.stunned) drawStunBar(g, 0, R + 8, 34, f.stun / Math.max(0.01, f.stunTotal));
   }
 
   /**
@@ -1426,6 +1488,12 @@ export class BattleView {
     if (stunned) angle = Math.PI / 2 + 0.4; // droops while dazed
     const side = Math.cos(a) < 0 ? -1 : 1;
     g.save();
+    // Dazed: it wobbles with the Hunter, about the same point.
+    if (stunned) {
+      g.translate(x, y);
+      g.rotate(Math.sin(this.time * 14) * 0.18);
+      g.translate(-x, -y);
+    }
     // Held out to the side the Hunter faces (aimed weapons out in front), clear of their face.
     const upright = reach === 0;
     const aimed = cls.attack === 'shot' && !upright;
@@ -1454,6 +1522,9 @@ export class BattleView {
       this.drawHeldWeapon(g, h.id, h.x, h.y, h.aim, R, h.stun > 0, h.close);
       g.restore();
     }
+    g.save();
+    // Wobble while dazed, like your Hunter.
+    if (h.stun > 0) g.rotate(Math.sin(this.time * 14) * 0.18);
     if (this.drawHunterSheet(g, h.id, h.aim, R, h.id.length * 0.37)) {
       // Animated idle from the hunter sheet.
     } else if (img) {
@@ -1487,8 +1558,9 @@ export class BattleView {
       } else g.fillText(def.icon, 0, 1);
     }
     g.restore();
+    g.restore();
     if (!behind) this.drawHeldWeapon(g, h.id, h.x, h.y, h.aim, R, h.stun > 0, h.close);
-    drawShieldPips(g, h.x, h.y + R + (h.stun > 0 ? 17 : 9), h.guard, this.game.guardOf(h.id));
+    drawShieldPips(g, h.x, h.y + R + (h.stun > 0 ? 19 : 10), h.guard);
     g.save();
     g.translate(h.x, h.y);
     // Post-stun immunity ring
@@ -1499,14 +1571,7 @@ export class BattleView {
       g.arc(0, 0, R + 4, 0, Math.PI * 2);
       g.stroke();
     }
-    if (h.stun > 0) {
-      drawDizzy(g, R, this.time, 0.9);
-      const bw = 30;
-      g.fillStyle = 'rgba(0,0,0,0.55)';
-      g.fillRect(-bw / 2, R + 8, bw, 5);
-      g.fillStyle = '#ffe066';
-      g.fillRect(-bw / 2, R + 8, bw * (h.stun / Math.max(0.01, h.stunTotal)), 5);
-    }
+    if (h.stun > 0) drawStunBar(g, 0, R + 8, 30, h.stun / Math.max(0.01, h.stunTotal));
     g.restore();
   }
 
@@ -1755,7 +1820,17 @@ function star(g: CanvasRenderingContext2D, x: number, y: number, s: number): voi
   g.fill();
 }
 
+/** The Guardian's crown: the same pixel crown as the Events tab's icon (a drawn one until it has loaded). */
+const CROWN_ICON = 'armor7/068';
+
 function drawCrown(g: CanvasRenderingContext2D, r: number): void {
+  const img = gearImage(CROWN_ICON);
+  if (img) {
+    const size = Math.max(14, r * 0.95);
+    g.imageSmoothingEnabled = false;
+    g.drawImage(img, -size / 2, -r - size * 0.85, size, size);
+    return;
+  }
   g.fillStyle = '#ffd34d';
   g.strokeStyle = OUTLINE;
   g.lineWidth = 2;
@@ -2349,13 +2424,54 @@ function drawRock(g: CanvasRenderingContext2D, r: number, color: string): void {
 }
 
 /** Shield charges under a Hunter: lit while charged, faint while recharging. */
-function drawShieldPips(g: CanvasRenderingContext2D, x: number, y: number, guard: number, max: number): void {
-  for (let i = 0; i < max; i++) {
-    g.fillStyle = i < guard ? '#ffe8a3' : 'rgba(255,255,255,0.2)';
-    g.beginPath();
-    g.arc(x + (i - (max - 1) / 2) * 7, y, 2.6, 0, Math.PI * 2);
-    g.fill();
-  }
+/**
+ * A Hunter's shield charges as little shields under them: the charges left, centred (one sits dead centre when
+ * there's an odd number), spreading out from the middle as there are more.
+ */
+function drawShieldPips(g: CanvasRenderingContext2D, x: number, y: number, guard: number): void {
+  const gap = 9;
+  for (let i = 0; i < guard; i++) drawMiniShield(g, x + (i - (guard - 1) / 2) * gap, y);
+}
+
+/** A tiny heater shield (about 7×8), silver with a gold boss and a black edge. */
+function drawMiniShield(g: CanvasRenderingContext2D, x: number, y: number): void {
+  g.save();
+  g.translate(Math.round(x), Math.round(y));
+  g.beginPath();
+  g.moveTo(-3.5, -4);
+  g.lineTo(3.5, -4);
+  g.lineTo(3.5, 0.5);
+  g.quadraticCurveTo(3.2, 3.2, 0, 4.6);
+  g.quadraticCurveTo(-3.2, 3.2, -3.5, 0.5);
+  g.closePath();
+  g.fillStyle = '#c9d4e0';
+  g.fill();
+  g.lineWidth = 1.4;
+  g.strokeStyle = '#000';
+  g.stroke();
+  g.fillStyle = '#8fa2b8';
+  g.fillRect(0, -3.3, 3, 3.3);
+  g.fillStyle = '#ffd34d';
+  g.fillRect(-1, -1.2, 2, 2);
+  g.restore();
+}
+
+/** The stun timer under a dazed Hunter: a framed bar that empties as they come round. */
+function drawStunBar(g: CanvasRenderingContext2D, x: number, y: number, w: number, frac: number): void {
+  const h = 5;
+  const l = Math.round(x - w / 2);
+  g.fillStyle = 'rgba(0,0,0,0.6)';
+  g.fillRect(l, y, w, h);
+  g.fillStyle = '#ffe066';
+  g.fillRect(l, y, Math.round(w * Math.max(0, Math.min(1, frac))), h);
+  g.fillStyle = 'rgba(255,255,255,0.45)';
+  g.fillRect(l, y, Math.round(w * Math.max(0, Math.min(1, frac))), 1);
+  g.lineWidth = 2;
+  g.strokeStyle = '#000';
+  g.strokeRect(l - 1, y - 1, w + 2, h + 2);
+  g.lineWidth = 1;
+  g.strokeStyle = '#d8d8d8';
+  g.strokeRect(l - 2.5, y - 2.5, w + 5, h + 5);
 }
 
 /** Pixel colours where a weapon's waiting text breaks up: sparks and metal, magic, or a summoning haze. */
@@ -2650,6 +2766,10 @@ const TRAILS: Partial<Record<DamageType, { rate: number; colors: string[]; size:
 
 /** Physical damage's colour: its attacks keep the effects' own white. */
 const PHYSICAL_COLOR = DAMAGE_TYPES.physical.color;
+/** The outline round a Physical summon (an elemental one is outlined in its element's colour). */
+const SUMMON_PHYSICAL_RING = '#a24dff';
+/** The monster a wisp-type summon looks like, by its kind of creature. */
+const SUMMON_ART: Partial<Record<SummonType, EnemyId>> = { spirit: 'wraith', undead: 'skeleton', elemental: 'frostSprite', beast: 'wolf', construct: 'puppet' };
 const tints = new WeakMap<object, Map<string, HTMLCanvasElement>>();
 
 /**
@@ -2771,6 +2891,38 @@ function charmTint(img: HTMLImageElement | HTMLCanvasElement): HTMLCanvasElement
   x.fillRect(0, 0, c.width, c.height);
   charmCache.set(img, c);
   return c;
+}
+
+/** A gold copy of a monster's art, for a gold monster (cached per image). */
+const goldCache = new WeakMap<HTMLImageElement | HTMLCanvasElement, HTMLCanvasElement>();
+function goldTint(img: HTMLImageElement | HTMLCanvasElement): HTMLCanvasElement {
+  const hit = goldCache.get(img);
+  if (hit) return hit;
+  const c = document.createElement('canvas');
+  c.width = img.width;
+  c.height = img.height;
+  const x = c.getContext('2d')!;
+  x.drawImage(img, 0, 0);
+  x.globalCompositeOperation = 'source-atop';
+  x.fillStyle = 'rgba(255,200,40,0.6)';
+  x.fillRect(0, 0, c.width, c.height);
+  goldCache.set(img, c);
+  return c;
+}
+
+/** Glints winking on and off round a gold monster. */
+function drawGoldSparkle(g: CanvasRenderingContext2D, r: number, t: number): void {
+  for (let i = 0; i < 4; i++) {
+    const a = i * 1.7 + t * 0.6;
+    const life = (t * 1.6 + i * 0.37) % 1;
+    const s = Math.sin(Math.PI * life) * 3;
+    if (s < 0.4) continue;
+    const x = Math.cos(a) * r * 0.9;
+    const y = Math.sin(a) * r * 0.8 - r * 0.2;
+    g.fillStyle = '#fff6c8';
+    g.fillRect(x - s, y - 0.75, s * 2, 1.5);
+    g.fillRect(x - 0.75, y - s, 1.5, s * 2);
+  }
 }
 
 function frostTint(img: HTMLImageElement | HTMLCanvasElement): HTMLCanvasElement {
