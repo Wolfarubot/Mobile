@@ -2601,8 +2601,13 @@ const infusion = (t: DamageType, icon: string): EnchantDef => ({
   text: (c, p) => `adds ${DAMAGE_TYPES[t].name} damage (+${pct(p)}; hits split between the weapon's types)${DAMAGE_TYPES[t].effect ? `, ${pct(c)} chance to ${DAMAGE_TYPES[t].effect!.split(':')[0].toLowerCase()}` : ''}`,
 });
 
-/** Ranged and magic weapons (and accessories) take Spell enchantments; melee weapons don't. */
-const castsSpells = (d: GearDef) => !isArmor(d) && d.kind !== 'melee';
+/**
+ * Spells are for ranged and magic weapons only, and melee arts for melee weapons only: neither goes on
+ * accessories, so the two pools never mix.
+ */
+const castsSpells = (d: GearDef) => isWeapon(d) && d.kind !== 'melee';
+/** Spell enchantments and melee arts: weapon-only enchantments that accessories don't take. */
+export const weaponOnlyEnchant = (en: EnchantDef): boolean => !!en.melee || en.onAttack?.kind === 'spell';
 const spellEnchant = (id: SpellId): EnchantDef => ({
   name: SPELLS[id].name,
   icon: SPELLS[id].icon,

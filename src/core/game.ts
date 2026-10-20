@@ -1,4 +1,5 @@
 import {
+  weaponOnlyEnchant,
   type MeleeArt,
   staffSpell,
   type SpellId,
@@ -903,8 +904,9 @@ export class Game {
   }
 
   /**
-   * Enchantments that can roll into a slot of this piece: ones that fit it, minus an infusion of a type it
-   * already deals and anything another slot already holds (one of each per piece).
+   * Enchantments that can roll into a slot of this piece: ones that fit it (an accessory takes any but spells and
+   * melee arts), minus an infusion of a type it already deals and anything another slot already holds (one of
+   * each per piece).
    */
   enchantsFor(uid: number, slot = -1): EnchantId[] {
     const item = this.gearItem(uid);
@@ -914,7 +916,8 @@ export class Game {
     const others = this.modSlots(uid).filter((m, i) => i !== slot && m?.kind === 'enchant') as Array<{ kind: 'enchant'; id: EnchantId }>;
     return (Object.keys(ENCHANTS) as EnchantId[]).filter((id) => {
       const en = ENCHANTS[id];
-      return (en.fits(def) || def.kind === 'accessory') && !(en.infuse && own.includes(en.infuse)) && !others.some((m) => m.id === id);
+      // Accessories take most enchantments, but not spells or melee arts (those belong to their weapons).
+      return (en.fits(def) || (def.kind === 'accessory' && !weaponOnlyEnchant(en))) && !(en.infuse && own.includes(en.infuse)) && !others.some((m) => m.id === id);
     });
   }
 

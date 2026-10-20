@@ -2263,6 +2263,25 @@ describe('Equipment', () => {
     }
   });
 
+  it('enchantment pools: spells only on magic and ranged weapons, melee arts only on melee weapons, neither on accessories', () => {
+    const g = stocked();
+    const pool = (base: Parameters<Game['craftGear']>[0]) => g.enchantsFor(g.craftGear(base)!.uid);
+    const spells = (ids: string[]) => ids.filter((i) => i.startsWith('spell'));
+    const arts = (ids: string[]) => ids.filter((i) => i.startsWith('art'));
+    for (const base of ['emberLongbow', 'gravewoodStaff'] as const) {
+      expect(spells(pool(base)).length, base).toBeGreaterThan(0);
+      expect(arts(pool(base)), base).toEqual([]);
+    }
+    for (const base of ['slimeSword', 'boneSpear'] as const) {
+      expect(spells(pool(base)), base).toEqual([]);
+      expect(arts(pool(base)).length, base).toBeGreaterThan(0);
+    }
+    const acc = pool('fangTalisman');
+    expect(spells(acc)).toEqual([]);
+    expect(arts(acc)).toEqual([]);
+    expect(acc).toContain('thunderCall'); // accessories still take the rest
+  });
+
   it('more melee arts: Whirlwind, Riposte, Executioner, Earthshatter, Momentum and Bloodthirst', () => {
     const setup = (base: Parameters<Game['craftGear']>[0], id: keyof typeof ENCHANTS, roll = 0) => {
       const g = new Game(newGame(0), () => roll);
@@ -2818,14 +2837,14 @@ describe('Equipment', () => {
     expect(new Set(GEAR.map((gd) => gd.rarity)).size).toBe(Object.keys(RARITIES).length);
   });
 
-  it('accessories take every refinement and enchantment, acting on whatever weapon the wearer holds (or doing nothing)', () => {
+  it('accessories take every refinement and every enchantment but spells and melee arts, acting on whatever weapon the wearer holds (or doing nothing)', () => {
     const g = stocked();
     g.state.gold = 1e30;
     g.state.hunters.blacksmith.recruited = true;
     g.state.hunters.enchantress.recruited = true;
     const orb = g.craftGear('emberOrb')!; // a Very Rare accessory
     expect(g.refinesFor(orb.uid).sort()).toEqual((Object.keys(REFINES) as string[]).sort());
-    expect(g.enchantsFor(orb.uid).sort()).toEqual((Object.keys(ENCHANTS) as string[]).sort());
+    expect(g.enchantsFor(orb.uid).sort()).toEqual((Object.keys(ENCHANTS) as string[]).filter((id) => !id.startsWith('spell') && !id.startsWith('art')).sort());
     // A Magazine Size refine on the accessory grows the wearer's gun magazine...
     orb.mods = [{ kind: 'refine', stat: 'mag', q: MOD_QUALITY_STEPS }];
     const rifle = g.craftGear('frostRifle')!;
