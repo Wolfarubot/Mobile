@@ -4225,6 +4225,31 @@ function iconCrop(img: HTMLImageElement): Promise<{ x: number; y: number; side: 
   return crop;
 }
 
+/**
+ * Icon buttons (sub-tabs, Filter, Tap Ability and Modify buttons): their leading icon goes in a well of its own,
+ * which it fills edge to edge (cropped like a tag's), with the button art's outline lying over it and rounding its
+ * corners. The well is added as the icon appears, whichever code drew the button.
+ */
+const ICON_BUTTONS = '.subtabs button, .filter-btn, .ab-equip, .mod-action > b';
+function wellIcon(img: HTMLImageElement): void {
+  const host = img.parentElement;
+  if (!host || !host.matches(ICON_BUTTONS) || host.firstElementChild !== img || (img.previousSibling && img.previousSibling.textContent?.trim())) return;
+  const well = document.createElement('span');
+  well.className = 'ic btn-ic';
+  host.insertBefore(well, img);
+  well.appendChild(img);
+  fillTagIcon(img);
+}
+if (typeof MutationObserver !== 'undefined' && typeof document !== 'undefined')
+  new MutationObserver((muts) => {
+    for (const m of muts)
+      m.addedNodes.forEach((n) => {
+        if (!(n instanceof HTMLElement)) return;
+        if (n.matches('img.ei')) wellIcon(n as HTMLImageElement);
+        else n.querySelectorAll<HTMLImageElement>('img.ei').forEach(wellIcon);
+      });
+  }).observe(document.body, { childList: true, subtree: true });
+
 /** Fills a tag's icon box with the icon's visible pixels, edge to edge. */
 function fillTagIcon(img: HTMLImageElement): void {
   void iconCrop(img).then((c) => {
