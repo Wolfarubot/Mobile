@@ -1,4 +1,5 @@
 import {
+  modSlotCount,
   SPELLS,
   staffSpell,
   ASCEND_LEVEL,
@@ -3921,7 +3922,16 @@ function gearCardHtml(it: GearItem, vs: GearItem | null = null): string {
       .map((t) => `<li class="gc-effect">${DAMAGE_TYPES[t].icon} ${Math.round(gd.proc! * 100)}% chance · ${DAMAGE_TYPES[t].effect}</li>`)
       .join('') +
     (gd.typeBonus ? `<li class="gc-effect">${DAMAGE_TYPES[gd.typeBonus.type].icon} +${Math.round(gd.typeBonus.bonus * GEAR_STAR_POWER[it.stars] * 100)}% ${DAMAGE_TYPES[gd.typeBonus.type].name} damage</li>` : '') +
+    // Built-in effects (always there), then the modifier slots: filled ones, then the empty ones.
+    (gd.builtIn ?? [])
+      .map((bi) => {
+        const en = ENCHANTS[bi.id];
+        const m: GearMod = { kind: 'enchant', id: bi.id, q: bi.q, p: bi.p };
+        return `<li class="gc-builtin${en.builtInOnly ? ' unique' : ''}">${en.icon} <span><em>${en.builtInOnly ? 'Unique' : 'Built-in'}</em> ${en.name}: ${en.text(modValue(m, gd), modPower(m, gd), enchantTierHit(gd))}</span></li>`;
+      })
+      .join('') +
     (it.mods ?? []).filter(Boolean).map((m) => `<li class="gc-mod${modPerfect(m!) ? ' perfect' : ''}">${modText(m!, gd)}</li>`).join('') +
+    `<li class="gc-slot">◇ Empty modifier slot</li>`.repeat(Math.max(0, modSlotCount(gd) - (it.mods ?? []).filter(Boolean).length)) +
     (gd.effect ? `<li class="gc-effect">✨ ${describeEffect(gd.effect, it.stars)}</li>` : '') +
     (gd.bane ? `<li class="gc-effect">${ARCHETYPES[gd.bane.archetype].icon} +${Math.round(gd.bane.bonus * GEAR_STAR_POWER[it.stars] * 100)}% damage vs ${ARCHETYPES[gd.bane.archetype].name}s</li>` : '') +
     (gd.findDrop ? `<li class="gc-effect">💎 ${it.stars >= gd.findDrop.stars ? '' : `At ${gd.findDrop.stars}★: `}${gd.findDrop.chance * 100}% chance for ${materialDef(gd.findDrop.material).name} from ${ARCHETYPES[gd.findDrop.archetype].name.toLowerCase()} kills</li>` : '');

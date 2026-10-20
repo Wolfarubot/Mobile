@@ -4068,6 +4068,27 @@ body.left-handed .hd-float-close {
   color: var(--gold);
   font-weight: 700;
 }
+/* Built-in effects on a piece's details: a small gold label (a unique's pink); empty slots dimmed. */
+.gc-builtin em,
+.gc-builtin.unique em {
+  display: inline;
+  white-space: nowrap;
+  font-style: normal;
+  font-size: 0.85em;
+  padding: 0 4px;
+  margin-right: 2px;
+  border: 1px solid #c89a2a;
+  background: color-mix(in srgb, #ffd34d 30%, transparent);
+  color: #5a3a00;
+}
+.gc-builtin.unique em {
+  border-color: #c04a9a;
+  background: color-mix(in srgb, #ff8ad0 30%, transparent);
+  color: #5a0a3a;
+}
+.gc-slot {
+  opacity: 0.55;
+}
 
 /* The Special damage type (Elemental Cataclysm): a rainbow tag. */
 .dtype-tag.special-type {
