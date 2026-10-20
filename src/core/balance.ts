@@ -2523,6 +2523,18 @@ export type EnchantId =
   | 'artExplodingAmmo'
   | 'artElementalArrows'
   | 'artExplodingArrows'
+  | 'artFanHammer'
+  | 'artPointBlank'
+  | 'artOverpenetration'
+  | 'artSteadyAim'
+  | 'artRicochet'
+  | 'artSuppressing'
+  | 'artDoubleNock'
+  | 'artQuickDraw'
+  | 'artArrowRain'
+  | 'artHuntersMark'
+  | 'artPinningBolt'
+  | 'artHarpoon'
   | SpellEnchantId;
 
 /**
@@ -2548,12 +2560,24 @@ export type MeleeArt =
   | 'closingShot'
   | 'explodingAmmo'
   | 'elementalArrows'
-  | 'explodingArrows';
+  | 'explodingArrows'
+  | 'fanHammer'
+  | 'pointBlank'
+  | 'overpenetration'
+  | 'steadyAim'
+  | 'ricochet'
+  | 'suppressing'
+  | 'doubleNock'
+  | 'quickDraw'
+  | 'arrowRain'
+  | 'huntersMark'
+  | 'pinningBolt'
+  | 'harpoon';
 /**
  * Arts that don't go off on an attack: they act when a dagger is thrown (Blast Daggers), a monster reaches the
  * Hunter (Riposte), a hit lands (Executioner, Momentum) or a monster dies (Bloodthirst).
  */
-export const PASSIVE_ARTS: ReadonlySet<MeleeArt> = new Set(['blastDaggers', 'riposte', 'executioner', 'momentum', 'bloodthirst', 'openingShot', 'closingShot', 'explodingAmmo', 'elementalArrows', 'explodingArrows']);
+export const PASSIVE_ARTS: ReadonlySet<MeleeArt> = new Set(['blastDaggers', 'riposte', 'executioner', 'momentum', 'bloodthirst', 'openingShot', 'closingShot', 'explodingAmmo', 'elementalArrows', 'explodingArrows', 'fanHammer', 'pointBlank', 'overpenetration', 'steadyAim', 'ricochet', 'suppressing', 'doubleNock', 'quickDraw', 'arrowRain', 'huntersMark', 'pinningBolt', 'harpoon']);
 /** How the arts are shaped: a wave's speed and reach (× the weapon's reach), a phantom's reach and width, a blast's radius. */
 export const MELEE_ARTS = {
   waveSpeed: 420,
@@ -2580,6 +2604,23 @@ export const MELEE_ARTS = {
   momentumMax: 5,
   /** Exploding Ammo and Arrows: how wide the blast is. */
   shotBlastRadius: 40,
+  /** Fan the Hammer: how wide the spray of the rest of the magazine is (radians). */
+  fanSpread: 0.6,
+  /** Steady Aim: most crit chance it builds. */
+  steadyCap: 0.3,
+  /** Ricochet Rounds: how far a bolt that missed looks for a monster to bounce to. */
+  ricochetRange: 220,
+  /** Quick Draw: most stacks, and seconds without a kill before they fade. */
+  quickDrawMax: 5,
+  quickDrawTime: 3,
+  /** Volley of Rain: arrows in the rain, how far around the target they land, and how wide each hits. */
+  rainArrows: 6,
+  rainSpread: 60,
+  rainRadius: 18,
+  /** Hunter's Mark: seconds a mark lasts. */
+  markTime: 4,
+  /** Harpoon: share of the way to the Hunter a monster is dragged. */
+  harpoonPull: 0.4,
   /** Bloodthirst: seconds of faster attacks, and seconds a kill takes off a stun. */
   frenzyTime: 3,
   stunCut: 0.5,
@@ -2688,6 +2729,18 @@ export const ENCHANTS: Record<EnchantId, EnchantDef> = {
   artExplodingAmmo: { name: 'Exploding Ammo', icon: '💣', range: [0.15, 0.3], power: [0.4, 0.8], weight: 1, melee: 'explodingAmmo', fits: gun, text: (c, p) => `${pct(c)} chance each shot explodes where it hits (${hits(p)} to everything around)` },
   artElementalArrows: { name: 'Elemental Arrows', icon: '🏹', range: [0.15, 0.3], power: [0.6, 1], weight: 1, melee: 'elementalArrows', fits: bow, text: (c, p) => `${pct(c)} chance an arrow is charged with the bow's element, bursting with its own effect where it hits (${hits(p)}): Fire explodes, Frost shatters into shards, Acid pools, Poison spreads a plague, Lightning chains, Radiant flares, Arcane splits, Decay raises the dead, Void pulls them in, Physical barbs make them bleed` },
   artExplodingArrows: { name: 'Exploding Arrows', icon: '💥', range: [0.15, 0.3], power: [0.5, 0.9], weight: 1, melee: 'explodingArrows', fits: bow, text: (c, p) => `${pct(c)} chance an arrow explodes where it hits (${hits(p)} to everything around)` },
+  artFanHammer: { name: 'Fan the Hammer', icon: '🔫', range: [0.08, 0.15], weight: 1, melee: 'fanHammer', fits: melee('pistol'), text: (c) => `${pct(c)} chance a shot empties the rest of the magazine at once, in a quick spray` },
+  artPointBlank: { name: 'Point Blank', icon: '💢', range: [1, 1], power: [0.5, 1], weight: 1, melee: 'pointBlank', fits: melee('pistol'), text: (_c, p) => `shots deal more damage the closer the monster is (up to +${pct(p)} right up close)` },
+  artOverpenetration: { name: 'Overpenetration', icon: '➶', range: [1, 1], weight: 1, melee: 'overpenetration', fits: melee('rifle'), text: () => 'a shot pierces one more monster for every monster it kills' },
+  artSteadyAim: { name: 'Steady Aim', icon: '🎯', range: [1, 1], power: [0.03, 0.06], weight: 1, melee: 'steadyAim', fits: melee('rifle'), text: (_c, p) => `+${pct(p)} crit chance for every second since the last reload (up to +${pct(MELEE_ARTS.steadyCap)})` },
+  artRicochet: { name: 'Ricochet Rounds', icon: '↩️', range: [0.3, 0.6], weight: 1, melee: 'ricochet', fits: melee('repeater'), text: (c) => `${pct(c)} chance a bolt that misses bounces once toward the nearest monster` },
+  artSuppressing: { name: 'Suppressing Fire', icon: '🧊', range: [0.2, 0.4], power: [0.5, 1], weight: 1, melee: 'suppressing', fits: melee('repeater'), text: (c, p) => `${pct(c)} chance a bolt slows the monster it hits to half speed for ${Math.round(p * 10) / 10}s` },
+  artDoubleNock: { name: 'Double Nock', icon: '🏹', range: [0.15, 0.3], weight: 1, melee: 'doubleNock', fits: melee('shortbow'), text: (c) => `${pct(c)} chance to loose a second arrow at another monster nearby` },
+  artQuickDraw: { name: 'Quick Draw', icon: '⚡', range: [1, 1], power: [0.06, 0.12], weight: 1, melee: 'quickDraw', fits: melee('shortbow'), text: (_c, p) => `each kill gives +${pct(p)} attack speed (up to ${MELEE_ARTS.quickDrawMax} times), fading ${MELEE_ARTS.quickDrawTime}s after the last kill` },
+  artArrowRain: { name: 'Volley of Rain', icon: '🌧️', range: [0.08, 0.15], power: [0.3, 0.5], weight: 1, melee: 'arrowRain', fits: melee('longbow'), text: (c, p) => `${pct(c)} chance an arrow arcs up and comes down as a rain of ${MELEE_ARTS.rainArrows} arrows around its target (${hits(p)} each)` },
+  artHuntersMark: { name: "Hunter's Mark", icon: '🎯', range: [0.15, 0.3], power: [0.2, 0.4], weight: 1, melee: 'huntersMark', fits: melee('longbow'), text: (c, p) => `${pct(c)} chance an arrow marks the monster: every Hunter deals +${pct(p)} damage to it for ${MELEE_ARTS.markTime}s` },
+  artPinningBolt: { name: 'Pinning Bolt', icon: '📌', range: [0.15, 0.3], power: [0.8, 1.5], weight: 1, melee: 'pinningBolt', fits: melee('crossbow'), text: (c, p) => `${pct(c)} chance a bolt pins the monster in place for ${Math.round(p * 10) / 10}s (not Guardians)` },
+  artHarpoon: { name: 'Harpoon', icon: '🪝', range: [0.1, 0.2], weight: 1, melee: 'harpoon', fits: melee('crossbow'), text: (c) => `${pct(c)} chance a bolt drags the monster part of the way back toward the Hunter, away from the others (not Guardians)` },
   shieldBurst: { name: 'Shield Burst', icon: '🛡️', range: [0.4, 0.8], power: [0.8, 1.2], weight: 1, effect: { kind: 'block', base: 1, damageType: 'radiant', radius: 80 }, fits: isArmor, text: (c, p, t) => `${pct(c)} chance a blocked hit blasts everything nearby (${dmg(p, t)})` },
 };
 

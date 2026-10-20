@@ -2325,6 +2325,125 @@ describe('Equipment', () => {
     }
   });
 
+  it('more ranged arts: one pair per gun and bow', () => {
+    const setup = (base: Parameters<Game['craftGear']>[0], id: keyof typeof ENCHANTS) => {
+      const g = new Game(newGame(0), () => 0);
+      g.state.main.trains = 50;
+      g.state.inventory.push({ uid: 900, base, stars: 1, mods: [{ kind: 'enchant', id, q: 5, p: 5 }] } as (typeof g.state.inventory)[number]);
+      g.equip('main', 0, 900);
+      const f = new Field(g);
+      f.setView(390, 420);
+      return { g, f, api: f as unknown as Record<string, (...a: unknown[]) => unknown> };
+    };
+    const wolf = (id: number, x: number, y: number, hp = 1e9) => enemy({ id, type: 'wolf', x, y, hp, maxHp: 1e9 });
+    const run = (f: Field, n: number) => {
+      for (let i = 0; i < n; i++) f.update(1 / 30);
+    };
+    // Each fits its one weapon type.
+    expect(ENCHANTS.artFanHammer.fits(gearDef('bonePistol'))).toBe(true);
+    expect(ENCHANTS.artFanHammer.fits(gearDef('frostRifle'))).toBe(false);
+    expect(ENCHANTS.artHarpoon.fits(gearDef('stringCrossbow'))).toBe(true);
+    expect(ENCHANTS.artHarpoon.fits(gearDef('forestBow'))).toBe(false);
+    // Pistol: Fan the Hammer empties the magazine at once; Point Blank hits harder up close.
+    {
+      const { f } = setup('bonePistol', 'artFanHammer');
+      f.enemies = [wolf(1, 0, -100)];
+      // One attack fans the whole magazine: a reload follows straight after the first shot.
+      for (let i = 0; i < 30 && !f.bullets.length; i++) f.update(1 / 30);
+      expect(f.bullets.length).toBeGreaterThan(1);
+      expect(f.weaponStatus('main')?.text).toBe('RELOADING!');
+    }
+    {
+      const { g, api } = setup('bonePistol', 'artPointBlank');
+      const cls = g.weaponClassOf('main')!;
+      const gun = { cls: cls.name, ammo: 3, reload: 0 };
+      const near = (api.shotArts('main', cls, gun, 'long', 10, 200) as () => { dmg?: number })().dmg ?? 1;
+      const far = (api.shotArts('main', cls, gun, 'long', 190, 200) as () => { dmg?: number })().dmg ?? 1;
+      expect(near).toBeGreaterThan(far);
+    }
+    // Rifle: Overpenetration pierces one more per kill; Steady Aim builds crit chance until a reload.
+    {
+      const { f } = setup('frostRifle', 'artOverpenetration');
+      f.enemies = [wolf(1, 0, -60, 1), wolf(2, 0, -100, 1), wolf(3, 0, -140, 1), wolf(4, 0, -180)];
+      run(f, 75);
+      expect(f.enemies.some((e) => e.id === 4 && e.hp < 1e9)).toBe(true);
+    }
+    {
+      const { g, api } = setup('frostRifle', 'artSteadyAim');
+      const cls = g.weaponClassOf('main')!;
+      const fresh = (api.shotArts('main', cls, { cls: cls.name, ammo: 2, reload: 0, steady: 0 }, 'long') as () => { critBonus?: number })().critBonus ?? 0;
+      const steady = (api.shotArts('main', cls, { cls: cls.name, ammo: 2, reload: 0, steady: 4 }, 'long') as () => { critBonus?: number })().critBonus ?? 0;
+      expect(steady).toBeGreaterThan(fresh);
+      expect((api.shotArts('main', cls, { cls: cls.name, ammo: 2, reload: 0, steady: 1e3 }, 'long') as () => { critBonus?: number })().critBonus).toBeCloseTo(MELEE_ARTS.steadyCap);
+    }
+    // Repeater: a bolt that misses ricochets to a monster; Suppressing Fire slows.
+    {
+      const { f, api } = setup('voidRepeater', 'artRicochet');
+      // Fired off to the left, away from the monster: it misses, then bounces back toward it.
+      f.enemies = [wolf(1, -160, -150)];
+      api.shoot('main', 'bolt', 0, 0, Math.PI, 400, 100, { arts: { ricochet: true } });
+      run(f, 40);
+      expect(f.enemies[0].hp).toBeLessThan(1e9);
+    }
+    {
+      const { f } = setup('voidRepeater', 'artSuppressing');
+      // (With every roll 0 the volley goes out at the edge of its fan: a second monster stands there.)
+      f.enemies = [wolf(1, 0, -120), wolf(2, Math.cos(-Math.PI / 2 - 0.25) * 120, Math.sin(-Math.PI / 2 - 0.25) * 120)];
+      run(f, 45);
+      expect(f.enemies.some((e) => (e.slow ?? 0) > 0)).toBe(true);
+    }
+    // Shortbow: Double Nock looses a second arrow at another monster; Quick Draw stacks attack speed on kills.
+    {
+      const { f } = setup('forestBow', 'artDoubleNock');
+      f.enemies = [wolf(1, 0, -100), wolf(2, 120, -40)];
+      run(f, 30);
+      expect(f.enemies.every((e) => e.hp < 1e9)).toBe(true);
+    }
+    {
+      const { f, api } = setup('forestBow', 'artQuickDraw');
+      const e = wolf(1, 0, -100, 1);
+      f.enemies = [e];
+      api.hitWith('main', e, 1, 0, 0);
+      expect(api.frenzyMult('main')).toBeGreaterThan(1);
+    }
+    // Longbow: Volley of Rain brings arrows down around the target; Hunter's Mark makes it take more.
+    {
+      const { f, api } = setup('forestLongbow', 'artArrowRain');
+      f.enemies = [wolf(1, 0, -150), wolf(2, 30, -150)];
+      api.shoot('main', 'arrow', 0, 0, -Math.PI / 2, 400, 300, { arts: { rain: 0.5 } });
+      run(f, 45);
+      expect(f.enemies[1].hp).toBeLessThan(1e9);
+    }
+    {
+      const { f, api } = setup('forestLongbow', 'artHuntersMark');
+      const e = wolf(1, 0, -150);
+      f.enemies = [e];
+      api.shoot('main', 'arrow', 0, 0, -Math.PI / 2, 400, 300, { arts: { mark: 0.3 } });
+      run(f, 30);
+      expect(e.mark?.bonus).toBe(0.3);
+      const before = e.hp;
+      api.damage(e, 100, false, 0, 0);
+      expect(before - e.hp).toBeCloseTo(130);
+    }
+    // Crossbow: Pinning Bolt holds it in place; Harpoon drags it back toward the Hunter.
+    {
+      const { f, api } = setup('stringCrossbow', 'artPinningBolt');
+      const e = wolf(1, 0, -150);
+      f.enemies = [e];
+      api.shoot('main', 'arrow', 0, 0, -Math.PI / 2, 400, 300, { arts: { pin: 1 } });
+      run(f, 15);
+      expect(e.held).toBeGreaterThan(0);
+    }
+    {
+      const { f, api } = setup('stringCrossbow', 'artHarpoon');
+      const e = wolf(1, 0, -200);
+      f.enemies = [e];
+      api.shoot('main', 'arrow', 0, 0, -Math.PI / 2, 400, 300, { arts: { harpoon: true } });
+      run(f, 20);
+      expect(Math.abs(e.y)).toBeLessThan(170);
+    }
+  });
+
   it('enchantment pools: spells only on magic and ranged weapons, melee arts only on melee weapons, ranged arts only on guns and bows, none of them on accessories', () => {
     const g = stocked();
     const pool = (base: Parameters<Game['craftGear']>[0]) => g.enchantsFor(g.craftGear(base)!.uid);
@@ -2333,7 +2452,7 @@ describe('Equipment', () => {
     for (const base of ['emberLongbow', 'gravewoodStaff'] as const) expect(spells(pool(base)).length, base).toBeGreaterThan(0);
     // Staffs have no arts; bows only ranged ones.
     expect(arts(pool('gravewoodStaff'))).toEqual([]);
-    expect(arts(pool('emberLongbow')).sort()).toEqual(['artElementalArrows', 'artExplodingArrows']);
+    expect(arts(pool('emberLongbow')).sort()).toEqual(['artArrowRain', 'artElementalArrows', 'artExplodingArrows', 'artHuntersMark']);
     for (const base of ['slimeSword', 'boneSpear'] as const) {
       expect(spells(pool(base)), base).toEqual([]);
       expect(arts(pool(base)).length, base).toBeGreaterThan(0);

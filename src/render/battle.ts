@@ -967,6 +967,11 @@ export class BattleView {
         this.fx.burst(e.x, e.y, '#9a9488', 6, 110, 3, 300, true);
         this.shake = Math.max(this.shake, 0.06);
         break;
+      case 'arrows':
+        // Volley of Rain: an arrow dropping out of the sky.
+        this.beams.push({ x1: e.x - 8, y1: e.y - 120, x2: e.x, y2: e.y, color: '#e8d2a8', width: 2, t: 0 });
+        this.fx.burst(e.x, e.y, '#c8b48a', 3, 60, 2, 300, true);
+        break;
       case 'shock':
         // A hammer's Aftershock: a second impact in its element.
         if (this.fancy) this.playEffect('smash', e.x, e.y, e.r * 2.1, 'center', 26, SMASH_START, 0.55, e.color);
@@ -1997,6 +2002,25 @@ function drawStatus(g: CanvasRenderingContext2D, e: Enemy, t: number, on: (k: Fx
       }
       g.globalAlpha = 1;
     }
+  }
+  if (e.mark) {
+    // Hunter's Mark: a red reticle over it.
+    g.strokeStyle = '#ff5a5a';
+    g.lineWidth = 2;
+    g.globalAlpha = 0.8;
+    const m = r + 6;
+    g.beginPath();
+    g.arc(0, 0, m, 0, Math.PI * 2);
+    g.moveTo(-m - 4, 0);
+    g.lineTo(-m + 4, 0);
+    g.moveTo(m - 4, 0);
+    g.lineTo(m + 4, 0);
+    g.moveTo(0, -m - 4);
+    g.lineTo(0, -m + 4);
+    g.moveTo(0, m - 4);
+    g.lineTo(0, m + 4);
+    g.stroke();
+    g.globalAlpha = 1;
   }
   if (e.plague && on('poison')) {
     // Plague: sickly green bubbles rising off it.

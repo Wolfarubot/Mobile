@@ -96,6 +96,8 @@ export interface Enemy {
   charm?: { left: number; by: Shooter; frac: number; bite: number };
   /** Seconds left pinned in place by Gideon's bone spikes (it can't move, though hits still knock it). */
   held?: number;
+  /** Hunter's Mark: for `left` seconds every Hunter deals +`bonus` damage to it. */
+  mark?: { left: number; bonus: number };
   /** Damage over time from Fire and Poison. */
   burn?: Dot;
   poison?: Dot;
@@ -198,6 +200,8 @@ export interface GunState {
   reload: number;
   /** Length of the current reload, for how far along it is. */
   total?: number;
+  /** Seconds since the last reload finished (Steady Aim). */
+  steady?: number;
 }
 
 /** An ability recharging, for the cooldown icons: who or what it belongs to, and 0..1 recharged. */
@@ -261,6 +265,26 @@ export interface Bullet {
   blast?: { r: number; k: number };
   /** Elemental Arrows: bursts with its element's effect where it hits, at this × a hit. */
   elem?: number;
+  /** Other ranged arts riding on it (see MeleeArt): what it does when it hits, or misses. */
+  arts?: ShotArts;
+}
+
+/** Ranged arts a projectile carries. */
+/** What shotArts hands each projectile. */
+type ShotOptions = { dmg?: number; blast?: { r: number; k: number }; elem?: number; arts?: ShotArts; critBonus?: number };
+
+export interface ShotArts {
+  overpen?: boolean;
+  ricochet?: boolean;
+  /** Suppressing Fire: seconds of half speed. */
+  slowHit?: number;
+  /** Volley of Rain: × a hit per arrow of the rain. */
+  rain?: number;
+  /** Hunter's Mark: the bonus the mark gives. */
+  mark?: number;
+  /** Pinning Bolt: seconds pinned. */
+  pin?: number;
+  harpoon?: boolean;
 }
 
 /** A spell being cast: by whom, of what element, and how hard (a staff's shot multiple, or an enchantment's base damage). */
@@ -280,7 +304,7 @@ export interface SpellHit {
   y: number;
   r: number;
   k: number;
-  fx?: 'spike' | 'sun' | 'storm' | 'rock' | 'shock';
+  fx?: 'spike' | 'sun' | 'storm' | 'rock' | 'shock' | 'arrows';
 }
 
 /** Earthshatter: a crack in the ground from (x1, y1) to (x2, y2), hurting monsters on it each tick for `power` × a hit. */
@@ -416,7 +440,7 @@ export type FieldEvent =
   /** Floating words on the field: a dice roll's call, Double or Nothing's ×2 / BUST. */
   | { type: 'say'; x: number; y: number; text: string; color: string; size: number }
   /** A spell's moment: an ice spike, a fan of frost, a sunbeam, an acid drop, an anchor landing, the dead rising. */
-  | { type: 'spell'; fx: 'spike' | 'cone' | 'sun' | 'drop' | 'anchor' | 'rise' | 'rock' | 'break' | 'shock'; x: number; y: number; r: number; color: string; a?: number; arc?: number };
+  | { type: 'spell'; fx: 'spike' | 'cone' | 'sun' | 'drop' | 'anchor' | 'rise' | 'rock' | 'break' | 'shock' | 'arrows'; x: number; y: number; r: number; color: string; a?: number; arc?: number };
 
 /**
  * The survivor-style battlefield in world coordinates centered on your Hunter.
@@ -480,6 +504,8 @@ export class Field {
   /** Bloodthirst: seconds of faster attacks left, and how much faster, per Hunter. */
   private frenzy = new Map<Shooter, number>();
   private frenzyBonus = new Map<Shooter, number>();
+  /** Quick Draw: each Hunter's kill streak stacks and seconds left on it. */
+  private quickDraw = new Map<Shooter, { stacks: number; left: number; per: number }>();
   /** Momentum: each Hunter's current spear target and stacks on it. */
   private momentum = new Map<Shooter, { target: number; stacks: number }>();
   /** Each Hunter's melee arts this frame (looked up on every hit, so kept for the frame). */
@@ -638,6 +664,7 @@ export class Field {
     this.artCache.clear();
     for (const [who, t] of this.frenzy) if (t - dt > 0) this.frenzy.set(who, t - dt);
     else this.frenzy.delete(who);
+    for (const [who, q] of this.quickDraw) if ((q.left -= dt) <= 0) this.quickDraw.delete(who);
 
     // Stuns, immunity and shields
     if (this.stun > 0) {
@@ -757,6 +784,7 @@ export class Field {
       if (e.slow) e.slow = Math.max(0, e.slow - dt);
       if (e.burn || e.poison || e.aura || e.exposed || e.well) this.tickStatus(e, dt);
       if (e.held) e.held = Math.max(0, e.held - dt);
+      if (e.mark && (e.mark.left -= dt) <= 0) e.mark = undefined;
       // Held by bone spikes: it can't walk, though hits still knock it about.
       const speed = e.held ? 0 : e.speed * (e.slow ? 0.5 : 1);
       if (e.fleeing) {
@@ -1178,7 +1206,7 @@ export class Field {
     else if (cls?.volley) {
       // A fan: each bolt at a random angle within it. Bolts of one volley stack on the same monster.
       const volley = this.nextVolley++;
-      const arts = this.shotArts(who, cls, gun, mode);
+      const arts = this.shotArts(who, cls, gun, mode, Math.hypot(target.x - x, target.y - y), range);
       for (let i = 0; i < cls.volley + extra; i++) {
         const a = aim + (g.rng() - 0.5) * (cls.fan ?? 0);
         this.shoot(who, cls.projectile ?? 'bolt', x, y, a, BULLET_SPEED, range, { pierce: g.pierceOf(who, mode), volley, stack: cls.stack, mode: m, ...arts() });
@@ -1186,8 +1214,9 @@ export class Field {
     } else {
       // A longbow's follow-through grows with the Hunter's range.
       const follow = cls?.followThrough ? cls.followThrough * (range / (MAIN_RANGE * cls.range)) : undefined;
-      const arts = this.shotArts(who, cls, gun, mode);
+      const arts = this.shotArts(who, cls, gun, mode, Math.hypot(target.x - x, target.y - y), range);
       fan((a) => this.shoot(who, cls?.projectile ?? 'bolt', x, y, a, BULLET_SPEED, range, { pierce: g.pierceOf(who, mode), followThrough: follow, bounces: cls?.bounces, mode: m, ...arts() }));
+      if (cls && !encore) this.extraShots(who, x, y, aim, target, cls, gun, range, mode, arts);
     }
     if (this.isMelee(who)) {
       this.meleeWave(who, x, y);
@@ -1562,7 +1591,9 @@ export class Field {
       gun.reload -= dt;
       if (gun.reload > 0) return false;
       gun.ammo = cls.mag;
+      gun.steady = 0;
     }
+    gun.steady = (gun.steady ?? 0) + dt;
     return true;
   }
 
@@ -1572,6 +1603,7 @@ export class Field {
     if (--gun.ammo > 0) return false;
     gun.reload = (cls.reload ?? 0) / Math.max(rate, 1e-6);
     gun.total = gun.reload;
+    gun.steady = 0;
     return true;
   }
 
@@ -1584,7 +1616,7 @@ export class Field {
     angle: number,
     speed: number,
     range: number,
-    o: { pierce?: number; dmg?: number; radius?: number; bounces?: number; slow?: number; tx?: number; ty?: number; mode?: GearMode; special?: boolean; followThrough?: number; volley?: number; stack?: number; bleed?: boolean; dtype?: DamageType; ticks?: number; cast?: SpellCast; k?: number; size?: number; blast?: { r: number; k: number }; elem?: number },
+    o: { pierce?: number; dmg?: number; radius?: number; bounces?: number; slow?: number; tx?: number; ty?: number; mode?: GearMode; special?: boolean; followThrough?: number; volley?: number; stack?: number; bleed?: boolean; dtype?: DamageType; ticks?: number; cast?: SpellCast; k?: number; size?: number; blast?: { r: number; k: number }; elem?: number; arts?: ShotArts; critBonus?: number },
   ): void {
     const g = this.game;
     // Stone magic (a Physical magic weapon) hurls rocks instead of sparks.
@@ -1605,7 +1637,7 @@ export class Field {
       y: oy + Math.sin(angle) * PLAYER_RADIUS,
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed,
-      crit: g.rng() < g.critChanceOf(shooter),
+      crit: g.rng() < g.critChanceOf(shooter) + (o.critBonus ?? 0),
       pierce: o.pierce ?? 0,
       life: Math.max(0.05, (range + 20) / speed),
       hits: [],
@@ -1628,6 +1660,7 @@ export class Field {
       size: o.size,
       blast: o.blast,
       elem: o.elem,
+      arts: o.arts,
     });
   }
 
@@ -1707,21 +1740,93 @@ export class Field {
    * Ranged arts on a shot: Opening Shot (a full magazine's first round) and Closing Shot (its last) hit harder;
    * Exploding Ammo and Arrows and Elemental Arrows roll for each projectile. Returns each projectile's options.
    */
-  private shotArts(who: Shooter, cls: WeaponClassDef | null, gun: GunState, mode: GearMode): () => { dmg?: number; blast?: { r: number; k: number }; elem?: number } {
+  private shotArts(who: Shooter, cls: WeaponClassDef | null, gun: GunState, mode: GearMode, dist = Infinity, range = Infinity): () => ShotOptions {
     const arts = this.arts(who, mode);
     if (!arts.length) return () => ({});
     let dmg = 1;
-    for (const a of arts)
+    let critBonus = 0;
+    for (const a of arts) {
       if ((a.art === 'openingShot' && cls?.mag && gun.ammo >= cls.mag) || (a.art === 'closingShot' && cls?.mag && gun.ammo === 1)) dmg *= 1 + a.power;
+      // Point Blank: the closer the monster, the harder the shot.
+      else if (a.art === 'pointBlank' && Number.isFinite(dist)) dmg *= 1 + a.power * Math.max(0, 1 - dist / Math.max(1, range));
+      else if (a.art === 'steadyAim') critBonus += Math.min(MELEE_ARTS.steadyCap, a.power * (gun.steady ?? 0));
+    }
     const g = this.game;
     return () => {
-      const o: { dmg?: number; blast?: { r: number; k: number }; elem?: number } = dmg > 1 ? { dmg } : {};
+      const o: ShotOptions = {};
+      if (dmg > 1) o.dmg = dmg;
+      if (critBonus > 0) o.critBonus = critBonus;
+      const x: ShotArts = {};
       for (const a of arts) {
         if ((a.art === 'explodingAmmo' || a.art === 'explodingArrows') && g.rng() < a.chance) o.blast = { r: MELEE_ARTS.shotBlastRadius * g.radiusMult(who), k: a.power };
         else if (a.art === 'elementalArrows' && g.rng() < a.chance) o.elem = a.power;
+        else if (a.art === 'overpenetration') x.overpen = true;
+        else if (a.art === 'ricochet' && g.rng() < a.chance) x.ricochet = true;
+        else if (a.art === 'suppressing' && g.rng() < a.chance) x.slowHit = a.power;
+        else if (a.art === 'arrowRain' && g.rng() < a.chance) x.rain = a.power;
+        else if (a.art === 'huntersMark' && g.rng() < a.chance) x.mark = a.power;
+        else if (a.art === 'pinningBolt' && g.rng() < a.chance) x.pin = a.power;
+        else if (a.art === 'harpoon' && g.rng() < a.chance) x.harpoon = true;
       }
+      if (Object.keys(x).length) o.arts = x;
       return o;
     };
+  }
+
+  /** Arts that loose extra shots: Fan the Hammer (the rest of the magazine at once) and Double Nock (an arrow at another monster). */
+  private extraShots(who: Shooter, x: number, y: number, aim: number, target: Enemy, cls: WeaponClassDef, gun: GunState, range: number, mode: GearMode, opts: () => ShotOptions): void {
+    const g = this.game;
+    const m = mode === 'short' ? 'short' : undefined;
+    for (const a of this.arts(who, mode)) {
+      if (a.art === 'fanHammer' && cls.mag && gun.ammo > 1 && g.rng() < a.chance) {
+        // The rest of the magazine, all at once, sprayed around the aim; the reload follows.
+        for (let i = 1; i < gun.ammo; i++) this.shoot(who, cls.projectile ?? 'bolt', x, y, aim + (g.rng() - 0.5) * MELEE_ARTS.fanSpread, BULLET_SPEED, range, { pierce: g.pierceOf(who, mode), mode: m, ...opts() });
+        gun.ammo = 1;
+        this.say(x, y - 34, 'FAN!', '#ffe9a0', 10);
+      } else if (a.art === 'doubleNock' && g.rng() < a.chance) {
+        const other = this.nearest(x, y, range, [target.id]);
+        if (other) this.shoot(who, cls.projectile ?? 'bolt', x, y, Math.atan2(other.y - y, other.x - x), BULLET_SPEED, range, { pierce: g.pierceOf(who, mode), mode: m, ...opts() });
+      }
+    }
+  }
+
+  /** Ranged arts a projectile carries, when it hits. */
+  private shotArtsHit(b: Bullet, e: Enemy): void {
+    const a = b.arts!;
+    if (a.slowHit && !e.boss) e.slow = Math.max(e.slow ?? 0, a.slowHit);
+    if (a.mark) {
+      e.mark = { left: MELEE_ARTS.markTime, bonus: Math.max(e.mark?.bonus ?? 0, a.mark) };
+      this.events.push({ type: 'nova', x: e.x, y: e.y, r: e.r + 8, color: '#ff5a5a' });
+    }
+    if (e.hp <= 0 || e.boss) {
+      if (a.rain) this.arrowRain(b, e, a.rain);
+      return;
+    }
+    if (a.pin) {
+      e.held = Math.max(e.held ?? 0, a.pin);
+      this.events.push({ type: 'spell', fx: 'spike', x: e.x, y: e.y, r: e.r, color: '#c8b48a' });
+    }
+    if (a.harpoon) {
+      // Dragged part of the way back toward whoever shot it.
+      const h = b.shooter === this.lead ? { x: 0, y: 0 } : (this.helpers.find((x) => x.id === b.shooter) ?? { x: 0, y: 0 });
+      const d = Math.hypot(e.x - h.x, e.y - h.y);
+      const k = Math.min(MELEE_ARTS.harpoonPull, Math.max(0, (d - e.r - 50) / Math.max(1, d)));
+      this.events.push({ type: 'beam', x1: h.x, y1: h.y, x2: e.x, y2: e.y, color: '#c8b48a', width: 1.5 });
+      e.x += (h.x - e.x) * k;
+      e.y += (h.y - e.y) * k;
+    }
+    if (a.rain) this.arrowRain(b, e, a.rain);
+  }
+
+  /** Volley of Rain: arrows come down around where it hit, a moment later. */
+  private arrowRain(b: Bullet, e: Enemy, k: number): void {
+    const g = this.game;
+    const c: SpellCast = { who: b.shooter, dtype: b.dtype ?? g.damageTypeOf(b.shooter, b.mode), mult: k, mode: b.mode };
+    for (let i = 0; i < MELEE_ARTS.rainArrows; i++) {
+      const a = g.rng() * Math.PI * 2;
+      const d = Math.sqrt(g.rng()) * MELEE_ARTS.rainSpread;
+      this.spellHits.push({ c, t: 0.3 + i * 0.07, x: e.x + Math.cos(a) * d, y: e.y + Math.sin(a) * d, r: MELEE_ARTS.rainRadius, k: 1, fx: 'arrows' });
+    }
   }
 
   /** Elemental Arrows: an arrow charged with its element bursts with that element's effect where it hits. */
@@ -1792,9 +1897,18 @@ export class Field {
     return a;
   }
 
-  /** Bloodthirst: how much faster a Hunter is attacking right now. */
+  /** Bloodthirst and Quick Draw: how much faster a Hunter is attacking right now. */
   private frenzyMult(who: Shooter): number {
-    return this.frenzy.has(who) ? 1 + (this.frenzyBonus.get(who) ?? 0) : 1;
+    const q = this.quickDraw.get(who);
+    return (this.frenzy.has(who) ? 1 + (this.frenzyBonus.get(who) ?? 0) : 1) * (q ? 1 + q.stacks * q.per : 1);
+  }
+
+  /** Quick Draw: each kill stacks a little attack speed, until a few seconds pass without one. */
+  private quickDrawKill(who: Shooter): void {
+    const art = this.arts(who).find((a) => a.art === 'quickDraw');
+    if (!art) return;
+    const q = this.quickDraw.get(who);
+    this.quickDraw.set(who, { stacks: Math.min(MELEE_ARTS.quickDrawMax, (q?.stacks ?? 0) + 1), left: MELEE_ARTS.quickDrawTime, per: art.power });
   }
 
   /** Momentum: a spear's thrust at the same monster as last time stacks; at a new one it starts over. */
@@ -2626,6 +2740,18 @@ export class Field {
       b.x += b.vx * dt;
       b.y += b.vy * dt;
       b.life -= dt;
+      if (b.life <= 0 && b.arts?.ricochet && !b.hits.length) {
+        // Ricochet Rounds: a bolt that missed bounces once toward the nearest monster.
+        b.arts.ricochet = false;
+        const next = this.nearest(b.x, b.y, MELEE_ARTS.ricochetRange);
+        if (next) {
+          const speed = Math.hypot(b.vx, b.vy);
+          const a = Math.atan2(next.y - b.y, next.x - b.x);
+          b.vx = Math.cos(a) * speed;
+          b.vy = Math.sin(a) * speed;
+          b.life = (MELEE_ARTS.ricochetRange + 20) / speed;
+        }
+      }
       if (b.kind === 'potion') {
         // Flies to its target point, then shatters into a puddle.
         if (b.life <= 0 || (b.tx !== undefined && (b.tx - b.x) * b.vx + (b.ty! - b.y) * b.vy <= 0)) {
@@ -2643,6 +2769,8 @@ export class Field {
         if (dx * dx + dy * dy > rr * rr) continue;
         b.hits.push(e.id);
         this.bulletHit(b, e);
+        // Overpenetration: each kill lets it pierce one more.
+        if (b.arts?.overpen && e.hp <= 0) b.pierce++;
         if (b.followThrough) {
           // A longbow arrow drives on through its target a short way, hitting anything just behind.
           b.life = b.followThrough / Math.hypot(b.vx, b.vy);
@@ -2687,6 +2815,7 @@ export class Field {
     }
     this.hitWith(b.shooter, e, mult, b.x - b.vx, b.y - b.vy, b.crit, b.mode, false, true, b.dtype);
     if (b.elem) this.elementalArrow(b, e);
+    if (b.arts) this.shotArtsHit(b, e);
     if (b.blast) {
       // A Blast Dagger (or exploding round or arrow) goes off: everything around (the monster it struck included) takes the blast.
       this.events.push({ type: 'explode', x: e.x, y: e.y, r: b.blast.r, color: this.typeColor(b.shooter, b.mode) });
@@ -2725,6 +2854,7 @@ export class Field {
 
   private damage(e: Enemy, dmg: number, crit: boolean, dirX: number, dirY: number, shooter: Shooter = 'main', dtype: DamageType = 'physical'): void {
     if (e.hp <= 0) return;
+    if (e.mark) dmg *= 1 + e.mark.bonus;
     e.hp -= dmg;
     e.flash = 1;
     if (!e.boss) {
@@ -2738,6 +2868,7 @@ export class Field {
       const reward = this.game.registerKill(e.type, e.boss, shooter);
       if (this.zones.length) this.raiseFallen(e);
       this.bloodthirst(shooter);
+      this.quickDrawKill(shooter);
       // Fireburst (an enchantment): monsters the weapon kills burst, hurting everything around them.
       const burst = this.game.killBurst(shooter);
       if (burst && this.game.rng() < burst.chance) this.abilityBurst(shooter, e.x, e.y, burst.radius, burst.base, burst.damageType);
