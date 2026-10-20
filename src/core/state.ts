@@ -249,12 +249,15 @@ export interface GameState {
 
 export const SAVE_VERSION = 27;
 
-/** Things already looked at: Journal entries read, recipes and monsters seen, gear (by uid) seen. */
+/** Things already looked at: Journal entries read, recipes, monsters and events seen, and gear up to a uid. */
 export interface SeenState {
   journal: string[];
   recipes: string[];
   beasts: string[];
-  gear: number[];
+  /** Ready events already seen in the Events tab (an event leaves this list when it next runs or cools down). */
+  events: string[];
+  /** Gear with a uid up to this has been seen in the Equipment list. */
+  gearUid: number;
   /** Set once the lists above have been filled for a save from before they existed (everything counts as seen). */
   init: boolean;
 }
@@ -301,7 +304,7 @@ export function newGame(now = Date.now()): GameState {
     flags: { eventsIntro: false, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false },
     blessings: { refine: 0, enchant: 0 },
     events: Object.fromEntries(EVENTS.map((e) => [e.id, { cooldown: 0, runs: 0, completed: 0 }])),
-    seen: { journal: [], recipes: [], beasts: [], gear: [1, 2, 3], init: true },
+    seen: { journal: [], recipes: [], beasts: [], events: [], gearUid: 3, init: true },
     buyAmount: 1,
     stats: { totalKills: 0, totalGold: 0, taps: 0, escaped: 0, guardians: 0, hunterKills: {}, matGained: {} },
   };
@@ -572,7 +575,14 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
     seen: (() => {
       const s = (data.seen ?? {}) as Partial<Record<keyof SeenState, unknown>>;
       const strs = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
-      return { journal: strs(s.journal), recipes: strs(s.recipes), beasts: strs(s.beasts), gear: Array.isArray(s.gear) ? s.gear.filter((x): x is number => typeof x === 'number') : [], init: s.init === true };
+      return {
+        journal: strs(s.journal),
+        recipes: strs(s.recipes),
+        beasts: strs(s.beasts),
+        events: strs(s.events),
+        gearUid: typeof s.gearUid === 'number' && Number.isFinite(s.gearUid) ? s.gearUid : 0,
+        init: s.init === true,
+      };
     })(),
     blessings: (() => {
       const b = (data.blessings ?? {}) as Partial<Record<'refine' | 'enchant', unknown>>;

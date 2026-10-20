@@ -305,6 +305,7 @@ export class AppUI {
   /** The full-screen gear picker, above the Hunter view. */
   private picker: HTMLElement | null = null;
   private equipScreen: HTMLElement | null = null;
+  private gearListOpen = false;
   private equipRefresh: (() => void) | null = null;
   private tab: Tab = 'hunters';
   /** The open sub-tab of the Inventory tab. */
@@ -391,6 +392,9 @@ export class AppUI {
 
   setTab(tab: Tab, keepScroll = false): void {
     if (tab !== this.tab || this.invSub !== 'crafting') this.closeFieldCard();
+    // Gear shown in the Equipment list counts as seen once you leave it (its "!" stays up while you look).
+    if (this.gearListOpen && !(tab === 'inventory' && this.invSub === 'equipment')) this.game.state.seen.gearUid = this.game.state.nextGearUid - 1;
+    this.gearListOpen = false;
     this.tab = tab;
     document.querySelectorAll<HTMLButtonElement>('.tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
     const scroll = keepScroll ? this.panel.scrollTop : 0;
@@ -431,17 +435,15 @@ export class AppUI {
       else if (!s.flags.empowerIntro && g.empowerUnlocked) this.showEmpowerIntro();
     }
     $('#menuBtn .alert-mark').classList.toggle('hidden', !g.unreadJournal().length);
-    const ready = EVENTS.filter((e) => e.area === g.area && g.eventReady(e.id)).length;
-    const badge = $('#eventsBadge');
-    badge.textContent = String(ready);
-    badge.classList.toggle('hidden', ready <= 0);
-    const craftable = ITEMS.some((it) => g.canCraft(it.id));
-    $('#forgeBadge').classList.toggle('hidden', !craftable);
-    this.panel.querySelector('.craft-dot')?.classList.toggle('hidden', !craftable);
-    $('#beastBadge').classList.toggle(
-      'hidden',
-      !ENEMIES.some((e) => (!s.bestiary[e.id].unlocked && g.isAreaUnlocked(e.area) && s.gold >= enemyUnlockCost(e)) || (g.isUnlocked(e.id) && g.evoPoints(e.id) > 0)),
-    );
+    // "!" marks: red on tabs and sub-tabs, white on the new things themselves.
+    this.syncSeen();
+    $('#eventsBadge').classList.toggle('hidden', !EVENTS.some((e) => e.area === g.area && this.newEvent(e.id)));
+    const newRecipes = GEAR.some((gd) => this.newRecipe(gd));
+    const newGear = s.inventory.some((it) => it.uid > s.seen.gearUid);
+    $('#forgeBadge').classList.toggle('hidden', !newRecipes && !newGear);
+    this.panel.querySelector('.craft-dot')?.classList.toggle('hidden', !newRecipes);
+    this.panel.querySelector('.gear-dot')?.classList.toggle('hidden', !newGear);
+    $('#beastBadge').classList.toggle('hidden', !ENEMIES.some((e) => this.newBeast(e) || (g.isUnlocked(e.id) && g.evoPoints(e.id) > 0)));
     $('#huntersBadge').classList.toggle(
       'hidden',
       !HUNTERS.some((h) => g.canRecruit(h.id) || (s.hunters[h.id].recruited && g.skillPoints(h.id) > 0)) && g.skillPoints('main') <= 0,
@@ -2300,14 +2302,18 @@ export class AppUI {
     const all = order.flatMap((a) => areaEnemies(a));
     // The current area's first monster until you pick one.
     if (!all.some((d) => d.id === this.selectedBeast)) this.selectedBeast = all[0].id;
+    // The monster on the pinned card has been looked at.
+    if (this.selectedBeast && this.newBeast(enemyDef(this.selectedBeast))) this.markSeen('beasts', this.selectedBeast);
     const tiles: Array<{ def: EnemyDef; tile: HTMLElement; lv: HTMLElement; dot: HTMLElement }> = [];
     for (const areaId of order) {
       this.panel.appendChild(sectionTitle(`${areaDef(areaId).name}${areaId === g.area ? ' · here' : ''}`));
       const grid = el('div', 'hunter-grid');
       for (const def of areaEnemies(areaId)) {
         const tile = el('button', 'hunter-tile beast-tile') as HTMLButtonElement;
-        tile.innerHTML = `<canvas class="bt-portrait"></canvas><span class="ht-name">${def.name}</span><small class="ht-lv"></small><b class="sp-dot hidden" title="Unspent evolution points"></b>`;
+        tile.innerHTML = `<canvas class="bt-portrait"></canvas><span class="ht-name">${def.name}</span><small class="ht-lv"></small><b class="sp-dot hidden" title="Unspent evolution points"></b><span class="alert-mark white tile-new hidden"></span>`;
         tile.classList.toggle('selected', def.id === this.selectedBeast);
+        const mark = $('.tile-new', tile);
+        this.refreshers.push(() => mark.classList.toggle('hidden', def.id === this.selectedBeast || !this.newBeast(def)));
         tile.addEventListener('click', () => {
           if (this.selectedBeast === def.id) return;
           this.selectedBeast = def.id;
@@ -2542,7 +2548,7 @@ export class AppUI {
 
   private buildInventory(): void {
     const bar = el('div', 'subtabs inv-subtabs');
-    bar.innerHTML = `<button data-sub="equipment"><img class="ei" src="${gearIconUrl('weapons/015')}" alt="">Equipment</button><button data-sub="crafting">🔨 Crafting <span class="badge dot hidden craft-dot"></span></button><button data-sub="materials">💎 Materials</button>`;
+    bar.innerHTML = `<button data-sub="equipment"><img class="ei" src="${gearIconUrl('weapons/015')}" alt="">Equipment<span class="alert-mark corner hidden gear-dot"></span></button><button data-sub="crafting">🔨 Crafting<span class="alert-mark corner hidden craft-dot"></span></button><button data-sub="materials">💎 Materials</button>`;
     this.panel.appendChild(bar);
     // Only the open sub-tab is built (late games hold thousands of pieces and hundreds of recipes); switching
     // rebuilds the tab with the other one.
@@ -2626,6 +2632,7 @@ export class AppUI {
   /** Every crafted piece and Upgrade, narrowed by the Filter sheet; tap one for details. */
   private buildGearList(pane: HTMLElement): void {
     const g = this.game;
+    this.gearListOpen = true;
     const invTitle = sectionTitle('Equipment');
     pane.appendChild(invTitle);
     const bar = el('div', 'filter-bar');
@@ -2700,7 +2707,7 @@ export class AppUI {
           const tile = el('button', 'inv-tile rar') as HTMLButtonElement;
           tile.style.setProperty('--rc', gearColor(gd.id));
           const slots = g.modSlots(it.uid);
-          tile.innerHTML = `<i>${gearIcon(gd)}</i><span>${gd.name}</span><small class="stars">${starsHtml(it.stars)}</small>${worn ? `<em>${wearerIcon(worn.who)}</em>` : ''}${slots.length ? `<b class="mod-pips">${slots.map((m) => (m ? (modPerfect(m) ? '★' : '◆') : '◇')).join('')}</b>` : ''}`;
+          tile.innerHTML = `<i>${gearIcon(gd)}</i><span>${gd.name}</span><small class="stars">${starsHtml(it.stars)}</small>${worn ? `<em>${wearerIcon(worn.who)}</em>` : ''}${slots.length ? `<b class="mod-pips">${slots.map((m) => (m ? (modPerfect(m) ? '★' : '◆') : '◇')).join('')}</b>` : ''}${it.uid > g.state.seen.gearUid ? '<span class="alert-mark white tile-new"></span>' : ''}`;
           tile.addEventListener('click', () => (refining ? this.openModify(it.uid) : this.openGearDetail(it.uid)));
           return tile;
         }),
@@ -2878,9 +2885,15 @@ export class AppUI {
       for (const gd of list) {
         const tile = el('button', 'craft-tile rar') as HTMLButtonElement;
         tile.style.setProperty('--rc', gearColor(gd.id));
-        tile.innerHTML = `<i>${gearIcon(gd)}</i><em></em>`;
+        tile.innerHTML = `<i>${gearIcon(gd)}</i><em></em><span class="alert-mark white tile-new hidden"></span>`;
         tile.title = gd.name;
-        tile.addEventListener('click', () => this.openCraftCard({ gear: gd }));
+        tile.addEventListener('click', () => {
+          this.markSeen('recipes', gd.id);
+          this.openCraftCard({ gear: gd });
+          this.refresh();
+        });
+        const mark = $('.tile-new', tile);
+        this.refreshers.push(() => mark.classList.toggle('hidden', !this.newRecipe(gd)));
         gearGrid.appendChild(tile);
         tiles.push({ tile, ready: () => g.canCraftGear(gd.id), badge: () => String(g.state.inventory.filter((it) => it.base === gd.id).length || '') });
       }
@@ -3107,6 +3120,10 @@ export class AppUI {
 
   private buildEvents(): void {
     const g = this.game;
+    // Looking at the Events tab: what's ready now has been seen (until it next runs).
+    this.refreshers.push(() => {
+      for (const e of EVENTS) if (e.area === g.area && this.newEvent(e.id)) this.markSeen('events', e.id);
+    });
     this.panel.appendChild(sectionTitle(areaDef(g.area).name));
     const here = EVENTS.filter((e) => e.area === g.area);
     for (const ev of here) this.buildEventCard(ev);
@@ -3335,6 +3352,55 @@ export class AppUI {
         { label: 'Go to Events', action: () => (this.game.eventsOpen ? this.goTo('events') : this.showEventsLocked()) },
       ],
     );
+  }
+
+  // ---- "New" marks: what the player hasn't looked at yet ----
+
+  private seenCache = new Map<string, { arr: string[]; len: number; set: Set<string> }>();
+
+  private seenSet(kind: 'recipes' | 'beasts' | 'events'): Set<string> {
+    const arr = this.game.state.seen[kind];
+    let c = this.seenCache.get(kind);
+    if (!c || c.arr !== arr || c.len !== arr.length) this.seenCache.set(kind, (c = { arr, len: arr.length, set: new Set(arr) }));
+    return c.set;
+  }
+
+  private markSeen(kind: 'recipes' | 'beasts' | 'events', id: string): void {
+    if (this.seenSet(kind).has(id)) return;
+    this.game.state.seen[kind].push(id);
+  }
+
+  /** A recipe you can now see but haven't opened. */
+  private newRecipe(gd: GearDef): boolean {
+    return !gd.starter && !this.seenSet('recipes').has(gd.id) && this.gearKnown(gd);
+  }
+
+  /** A monster you've unlocked, or can afford to, that you haven't looked at. */
+  private newBeast(def: EnemyDef): boolean {
+    const g = this.game;
+    if (this.seenSet('beasts').has(def.id)) return false;
+    return g.state.bestiary[def.id].unlocked || (g.isAreaUnlocked(def.area) && g.state.gold >= enemyUnlockCost(def));
+  }
+
+  /** An event that's ready to start and hasn't been seen in the Events tab since it became ready. */
+  private newEvent(id: string): boolean {
+    return this.game.eventReady(id) && !this.seenSet('events').has(id);
+  }
+
+  /**
+   * Keeps the seen lists in step: a save from before them counts everything it already had as seen, and an event
+   * that's running or cooling down drops out so it's new again when it's next ready.
+   */
+  private syncSeen(): void {
+    const g = this.game;
+    const seen = g.state.seen;
+    if (!seen.init) {
+      seen.init = true;
+      seen.recipes = GEAR.filter((gd) => !gd.starter && this.gearKnown(gd)).map((gd) => gd.id);
+      seen.beasts = ENEMIES.filter((e) => g.state.bestiary[e.id].unlocked).map((e) => e.id);
+      seen.gearUid = g.state.nextGearUid - 1;
+    }
+    if (seen.events.some((id) => !g.eventReady(id))) seen.events = seen.events.filter((id) => g.eventReady(id));
   }
 
   /** Switches tab from anywhere, closing a full-screen view (e.g. Tutorials) on the way. */

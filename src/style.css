@@ -5790,3 +5790,48 @@ body.left-handed .equip-prompt {
   width: 20px;
   height: 20px;
 }
+
+/* ---- "!" marks: red on tabs and sub-tabs, white on new cards and tiles. ---- */
+.tabs button .tab-alert {
+  position: absolute;
+  top: 0;
+  right: 14%;
+  width: 24px;
+  height: 24px;
+}
+.subtabs button {
+  position: relative;
+  overflow: visible;
+}
+.alert-mark.corner {
+  position: absolute;
+  top: -9px;
+  right: -7px;
+  width: 22px;
+  height: 22px;
+  z-index: 2;
+}
+.inv-tile,
+.craft-tile,
+.beast-tile {
+  position: relative;
+}
+.tile-new {
+  position: absolute;
+  z-index: 2;
+  width: 22px;
+  height: 22px;
+  pointer-events: none;
+}
+.inv-tile .tile-new {
+  right: 2px;
+  bottom: 2px;
+}
+.craft-tile .tile-new {
+  right: 2px;
+  top: 2px;
+}
+.beast-tile .tile-new {
+  left: 2px;
+  top: 2px;
+}
