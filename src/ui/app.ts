@@ -2426,7 +2426,7 @@ export class AppUI {
 
   private buildInventory(): void {
     const bar = el('div', 'subtabs inv-subtabs');
-    bar.innerHTML = `<button data-sub="equipment"><img class="ei" src="${gearIconUrl('shields/057')}" alt="">Equipment</button><button data-sub="crafting">🔨 Crafting <span class="badge dot hidden craft-dot"></span></button><button data-sub="materials">💎 Materials</button>`;
+    bar.innerHTML = `<button data-sub="equipment"><img class="ei" src="${gearIconUrl('weapons/015')}" alt="">Equipment</button><button data-sub="crafting">🔨 Crafting <span class="badge dot hidden craft-dot"></span></button><button data-sub="materials">💎 Materials</button>`;
     this.panel.appendChild(bar);
     // Only the open sub-tab is built (late games hold thousands of pieces and hundreds of recipes); switching
     // rebuilds the tab with the other one.
