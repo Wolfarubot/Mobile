@@ -19,6 +19,10 @@ import {
   REFINES,
   ENCHANTS,
   SPELLS,
+  GEAR_VARIANTS,
+  UNIQUE_EFFECTS,
+  BUILT_IN_FROM_TIER,
+  modSlotCount,
   MELEE_ARTS,
   TYPE_SPELLS,
   staffSpell,
@@ -1267,7 +1271,7 @@ describe('Equipment', () => {
     const g = stocked();
     (g as unknown as { rng: () => number }).rng = () => roll;
     g.state.gold = 1e30;
-    const bow = g.craftGear('emberLongbow')!; // Very Rare: 1 slot
+    const bow = g.craftGear('cinderBow')!; // Very Rare: 1 slot
     const rifle = g.craftGear('frostRifle')!; // Legendary: 2 slots
     const plate = g.craftGear('voidPlate')!; // Exalted armor: 3 slots
     expect(g.modSlots(bow.uid)).toEqual([null]);
@@ -1280,7 +1284,7 @@ describe('Equipment', () => {
     expect(g.refinesFor(bow.uid)).not.toContain('mag');
     expect(g.refinesFor(plate.uid)).toEqual(expect.arrayContaining(['guard', 'stun', 'rate', 'damage']));
     expect(g.refinesFor(plate.uid)).not.toContain('knock');
-    expect(g.refinesFor(g.craftGear('emberOrb')!.uid)).toEqual(expect.arrayContaining(['gold', 'drops', 'range', 'radius']));
+    expect(g.refinesFor(g.craftGear('cinderRing')!.uid)).toEqual(expect.arrayContaining(['gold', 'drops', 'range', 'radius']));
     // Legendary attack speed rolls 5% to 10%; rarer gear rolls higher.
     expect(modRoll(REFINES.rate.range, false, 'legendary', 0)).toBeCloseTo(0.05);
     expect(modRoll(REFINES.rate.range, false, 'legendary', MOD_QUALITY_STEPS)).toBeCloseTo(0.1);
@@ -1321,7 +1325,7 @@ describe('Equipment', () => {
     const g = stocked();
     (g as unknown as { rng: () => number }).rng = () => roll;
     g.state.gold = 1e30;
-    const bow = g.craftGear('emberLongbow')!; // Fire, Very Rare: 1 slot
+    const bow = g.craftGear('cinderBow')!; // Fire, Very Rare: 1 slot
     const rifle = g.craftGear('frostRifle')!; // Frost, Legendary: 2 slots
     const plate = g.craftGear('voidPlate')!; // Exalted heavy armor: 3 slots
     expect(hunterDef('enchantress')).toMatchObject({ name: 'Marceline', area: 'mines', unlock: { event: 'guardian-mines', times: 1 } });
@@ -1478,7 +1482,7 @@ describe('Equipment', () => {
     (g as unknown as { rng: () => number }).rng = () => roll;
     g.state.gold = 1e30;
     g.state.hunters.enchantress.recruited = true;
-    const orb = g.craftGear('emberOrb')!; // Very Rare accessory
+    const orb = g.craftGear('cinderRing')!; // Very Rare accessory
     const pool = g.enchantsFor(orb.uid, 0);
     const total = pool.reduce((sum, x) => sum + ENCHANTS[x].weight, 0);
     roll = (pool.slice(0, pool.indexOf('thunderCall')).reduce((sum, x) => sum + ENCHANTS[x].weight, 0) + 0.5) / total;
@@ -1489,8 +1493,8 @@ describe('Equipment', () => {
     expect(modPerfect({ q: MOD_QUALITY_STEPS })).toBe(true);
     g.equip('main', 2, orb.uid);
     const [atk] = g.attackEnchants('main');
-    expect(atk.chance).toBeCloseTo(modValue(m, gearDef('emberOrb')));
-    expect((atk.effect as { base: number }).base).toBeCloseTo(modPower(m, gearDef('emberOrb')) * TIER_HIT[gearArea(gearDef('emberOrb')) - 1]);
+    expect(atk.chance).toBeCloseTo(modValue(m, gearDef('cinderRing')));
+    expect((atk.effect as { base: number }).base).toBeCloseTo(modPower(m, gearDef('cinderRing')) * TIER_HIT[gearArea(gearDef('cinderRing')) - 1]);
     // An attack sets it off when its chance comes up: lightning strikes.
     const f = new Field(g);
     const e = enemy({ id: 1, x: 0, y: -120, hp: 1e9, maxHp: 1e9 });
@@ -1506,7 +1510,7 @@ describe('Equipment', () => {
     (g as unknown as { rng: () => number }).rng = () => rolls.shift() ?? 0;
     g.state.gold = 1e30;
     g.state.hunters.enchantress.recruited = true;
-    const orb = g.craftGear('emberOrb')!;
+    const orb = g.craftGear('cinderRing')!;
     const pool = g.enchantsFor(orb.uid, 0);
     const total = pool.reduce((sum, x) => sum + ENCHANTS[x].weight, 0);
     const pick = (pool.slice(0, pool.indexOf('thunderCall')).reduce((sum, x) => sum + ENCHANTS[x].weight, 0) + 0.5) / total;
@@ -2444,15 +2448,71 @@ describe('Equipment', () => {
     }
   });
 
+  it('gear variants: built-in effects and modifier slots follow each rarity\'s variants; Artifact and Exalted can be unique', () => {
+    for (const d of GEAR) {
+      if (d.starter) continue;
+      const fx = (d.builtIn?.length ?? 0) + (d.effect ? 1 : 0);
+      const unique = d.builtIn?.some((b) => ENCHANTS[b.id].builtInOnly) ?? false;
+      const variants = GEAR_VARIANTS[d.rarity];
+      if (!variants) {
+        expect(fx === (d.effect ? 1 : 0) && modSlotCount(d) === 0, d.id).toBe(true);
+        continue;
+      }
+      const ok = variants.some((v) => v.slots === modSlotCount(d) && (v.fx === 'unique' ? unique && d.builtIn!.length === 1 : !unique && (v.fx === fx || (v.fx === 0 && fx === (d.effect ? 1 : 0) && d.rarity === 'rare'))));
+      expect(ok, `${d.id} (${d.rarity}): ${fx} effects, ${modSlotCount(d)} slots`).toBe(true);
+      // Rare gear before the middle of the Rare areas has none built in.
+      if (d.rarity === 'rare' && gearTier(d) < BUILT_IN_FROM_TIER) expect(d.builtIn, d.id).toBeUndefined();
+      // Built-in effects never repeat on a piece, and are ones that fit it.
+      if (d.builtIn) {
+        expect(new Set(d.builtIn.map((b) => b.id)).size).toBe(d.builtIn.length);
+        for (const b of d.builtIn) expect(ENCHANTS[b.id].builtInOnly || ENCHANTS[b.id].fits(d), `${d.id}: ${b.id}`).toBe(true);
+      }
+    }
+    // The Elemental Cataclysm has the unique of its name.
+    expect(gearDef('elementalCataclysm').builtIn).toEqual([expect.objectContaining({ id: 'cataclysm' })]);
+    // Both kinds of Very Rare exist: a built-in effect, or a slot.
+    const vr = GEAR.filter((d) => d.rarity === 'veryRare');
+    expect(vr.some((d) => d.builtIn && modSlotCount(d) === 0)).toBe(true);
+    expect(vr.some((d) => !d.builtIn && modSlotCount(d) === 1)).toBe(true);
+    // A built-in effect works like an enchantment, and Enchant never rolls it again (or a unique) on the piece.
+    const g = stocked();
+    g.state.hunters.enchantress.recruited = true;
+    const legend = GEAR.find((d) => d.rarity === 'legendary' && d.weaponClass && d.builtIn && modSlotCount(d) === 1)!;
+    const item = g.craftGear(legend.id)!;
+    expect(g.enchantsFor(item.uid)).not.toContain(legend.builtIn![0].id);
+    expect(g.enchantsFor(item.uid).some((id) => ENCHANTS[id].builtInOnly)).toBe(false);
+  });
+
+  it('unique effects: each goes off and hurts (or raises) the monsters', () => {
+    const g = new Game(newGame(0), () => 0.5);
+    g.state.main.trains = 50;
+    for (const id of Object.keys(UNIQUE_EFFECTS) as Array<keyof typeof UNIQUE_EFFECTS>) {
+      const f = new Field(g);
+      f.setView(390, 420);
+      f.enemies = Array.from({ length: 6 }, (_, i) => enemy({ id: i + 1, type: 'wolf', x: (i % 3) * 20 - 20, y: -120 - Math.floor(i / 3) * 20, hp: 1e9, maxHp: 1e9 }));
+      expect((f as unknown as { unique: (...a: unknown[]) => boolean }).unique('main', 0, 0, id, 100), id).toBe(true);
+      if (id === 'eternalLegion') {
+        // Nothing hurt: the dead rise anywhere on the field.
+        const e = f.enemies[0];
+        e.hp = 1;
+        (f as unknown as { hitWith: (...a: unknown[]) => void }).hitWith('main', e, 10, 0, 0);
+        expect(f.summons.some((s) => s.risen)).toBe(true);
+        continue;
+      }
+      for (let i = 0; i < 4 * 30; i++) f.update(1 / 30);
+      expect(f.enemies.some((e) => e.hp < 1e9), id).toBe(true);
+    }
+  });
+
   it('enchantment pools: spells only on magic and ranged weapons, melee arts only on melee weapons, ranged arts only on guns and bows, none of them on accessories', () => {
     const g = stocked();
     const pool = (base: Parameters<Game['craftGear']>[0]) => g.enchantsFor(g.craftGear(base)!.uid);
     const spells = (ids: string[]) => ids.filter((i) => i.startsWith('spell'));
     const arts = (ids: string[]) => ids.filter((i) => i.startsWith('art'));
-    for (const base of ['emberLongbow', 'gravewoodStaff'] as const) expect(spells(pool(base)).length, base).toBeGreaterThan(0);
+    for (const base of ['koboldLongbow', 'gravewoodStaff'] as const) expect(spells(pool(base)).length, base).toBeGreaterThan(0);
     // Staffs have no arts; bows only ranged ones.
     expect(arts(pool('gravewoodStaff'))).toEqual([]);
-    expect(arts(pool('emberLongbow')).sort()).toEqual(['artArrowRain', 'artElementalArrows', 'artExplodingArrows', 'artHuntersMark']);
+    expect(arts(pool('koboldLongbow')).sort()).toEqual(['artArrowRain', 'artElementalArrows', 'artExplodingArrows', 'artHuntersMark']);
     for (const base of ['slimeSword', 'boneSpear'] as const) {
       expect(spells(pool(base)), base).toEqual([]);
       expect(arts(pool(base)).length, base).toBeGreaterThan(0);
@@ -3023,9 +3083,9 @@ describe('Equipment', () => {
     g.state.gold = 1e30;
     g.state.hunters.blacksmith.recruited = true;
     g.state.hunters.enchantress.recruited = true;
-    const orb = g.craftGear('emberOrb')!; // a Very Rare accessory
+    const orb = g.craftGear('cinderRing')!; // a Very Rare accessory
     expect(g.refinesFor(orb.uid).sort()).toEqual((Object.keys(REFINES) as string[]).sort());
-    expect(g.enchantsFor(orb.uid).sort()).toEqual((Object.keys(ENCHANTS) as string[]).filter((id) => !id.startsWith('spell') && !id.startsWith('art')).sort());
+    expect(g.enchantsFor(orb.uid).sort()).toEqual((Object.keys(ENCHANTS) as Array<keyof typeof ENCHANTS>).filter((id) => !id.startsWith('spell') && !id.startsWith('art') && !ENCHANTS[id].builtInOnly).sort());
     // A Magazine Size refine on the accessory grows the wearer's gun magazine...
     orb.mods = [{ kind: 'refine', stat: 'mag', q: MOD_QUALITY_STEPS }];
     const rifle = g.craftGear('frostRifle')!;

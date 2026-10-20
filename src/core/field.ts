@@ -22,6 +22,8 @@ import {
   MELEE_ARTS,
   PASSIVE_ARTS,
   type SpellId,
+  type UniqueId,
+  TYPE_SPELLS,
   type MeleeArt,
   FLAME_BURST_COOLDOWN,
   FLEE_SPEED_MULT,
@@ -1889,6 +1891,65 @@ export class Field {
     }
   }
 
+  /** An Artifact's or Exalted piece's unique effect (UNIQUE_EFFECTS). Returns false when there's nothing to use it on. */
+  private unique(who: Shooter, x: number, y: number, id: UniqueId, base: number): boolean {
+    const g = this.game;
+    const live = this.enemies.filter((e) => e.hp > 0 && !e.fleeing);
+    if (!live.length) return false;
+    const target = this.nearest(x, y, 2000) ?? live[0];
+    const any = () => live[Math.floor(g.rng() * live.length)];
+    const ids = Object.keys(SPELLS) as SpellId[];
+    switch (id) {
+      case 'stormcaller':
+        this.castSpell(who, x, y, 'thunderstorm', target, { base });
+        break;
+      case 'spellweaver':
+        this.castSpell(who, x, y, ids[Math.floor(g.rng() * ids.length)], target, { base });
+        break;
+      case 'gravewarden':
+        this.castSpell(who, x, y, 'raiseDead', target, { base });
+        break;
+      case 'meteorCaller':
+        this.castSpell(who, x, y, 'fireball', target, { base });
+        this.castSpell(who, x, y, 'rockfall', target, { base });
+        break;
+      case 'cataclysm':
+        // One spell of every element at once, each at a monster of its own.
+        this.events.push({ type: 'nova', x, y, r: 120, color: '#ffffff' });
+        for (const t of Object.keys(TYPE_SPELLS) as DamageType[]) {
+          const spells = TYPE_SPELLS[t];
+          if (spells.length) this.castSpell(who, x, y, spells[Math.floor(g.rng() * spells.length)], any(), { base });
+        }
+        break;
+      case 'meteorStorm': {
+        // Meteors crash down all over the field, a moment apart.
+        const c: SpellCast = { who, dtype: 'fire', base };
+        for (let i = 0; i < 14; i++) {
+          const e = i % 2 ? any() : null;
+          const px = e ? e.x : (g.rng() * 2 - 1) * this.halfW * 0.9;
+          const py = e ? e.y : (g.rng() * 2 - 1) * this.halfH * 0.9;
+          this.spellHits.push({ c, t: i * 0.12, x: px, y: py, r: 45 * g.radiusMult(who), k: 1, fx: 'rock' });
+        }
+        break;
+      }
+      case 'singularity': {
+        // A vast well at the heart of the crowd.
+        const cx = live.reduce((a, e) => a + e.x, 0) / live.length;
+        const cy = live.reduce((a, e) => a + e.y, 0) / live.length;
+        const r = 260 * g.radiusMult(who);
+        this.zones.push({ kind: 'gravityAnchor', c: { who, dtype: 'void', base }, x: cx, y: cy, r, vx: 0, vy: 0, life: 3, max: 3, tick: 0, k: 0.25, touched: new Map() });
+        this.events.push({ type: 'spell', fx: 'anchor', x: cx, y: cy, r, color: DAMAGE_TYPES.void.color });
+        break;
+      }
+      case 'eternalLegion':
+        // Cursed ground under the whole field: everything that dies rises (it deals no damage of its own).
+        this.zones.push({ kind: 'raiseDead', c: { who, dtype: 'decay', base }, x: 0, y: 0, r: Math.hypot(this.halfW, this.halfH) * 2, vx: 0, vy: 0, life: 8, max: 8, tick: 0, k: 0, touched: new Map() });
+        this.events.push({ type: 'nova', x, y, r: 200, color: DAMAGE_TYPES.decay.color });
+        break;
+    }
+    return true;
+  }
+
   /** A Hunter's melee arts (cached for the frame). */
   private arts(who: Shooter, mode: GearMode = 'long'): Array<{ art: MeleeArt; chance: number; power: number }> {
     const key = `${who}:${mode}`;
@@ -2112,6 +2173,8 @@ export class Field {
         this.castSpell(who, x, y, ef.spell, target, { base });
         return true;
       }
+      case 'unique':
+        return this.unique(who, x, y, ef.id, base);
       default:
         return false;
     }

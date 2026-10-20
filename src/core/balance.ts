@@ -2088,7 +2088,9 @@ export type GearEffect =
   | { kind: 'strike'; base: number; damageType: DamageType; targets: number; cooldown: number; range: number }
   | { kind: 'chill'; radius: number }
   /** A spell (SPELLS) cast at the nearest monster: a Spell enchantment's, at its own base damage. */
-  | { kind: 'spell'; spell: SpellId; base: number; damageType: DamageType };
+  | { kind: 'spell'; spell: SpellId; base: number; damageType: DamageType }
+  /** An Artifact's or Exalted piece's unique built-in effect (UNIQUE_EFFECTS), on its own cooldown. */
+  | { kind: 'unique'; id: UniqueId; base: number; damageType: DamageType; cooldown: number };
 
 /** Effects that recharge (and get a cooldown icon on the battlefield). */
 export const effectCooldown = (e: GearEffect): number | null => ('cooldown' in e ? e.cooldown : null);
@@ -2291,6 +2293,13 @@ export interface GearDef {
   recipe: Partial<Record<MaterialId, number>>;
   /** Starting gear: every new game begins with it; it can't be crafted (its recipe prices its stars). */
   starter?: boolean;
+  /**
+   * Built-in effects: enchantments the piece always has, at fixed rolls (from Rare gear past the middle of
+   * the Rare areas; see GEAR_VARIANTS). They don't take a modifier slot; pieces with them usually have fewer.
+   */
+  builtIn?: Array<{ id: EnchantId; q: number; p: number }>;
+  /** Its modifier slots (set for every piece by GEAR_VARIANTS; MOD_SLOTS is the most its rarity allows). */
+  slots?: number;
   /** Weapons: the area tier they belong to (1 = Wandering Woods … 12 = Void Rift), which sets their base damage. */
   tier?: number;
   /** Weapons: base damage per hit at 1★, overriding the tier's (the starting weapons deal 1). */
@@ -2535,7 +2544,8 @@ export type EnchantId =
   | 'artHuntersMark'
   | 'artPinningBolt'
   | 'artHarpoon'
-  | SpellEnchantId;
+  | SpellEnchantId
+  | UniqueId;
 
 /**
  * Melee arts: a melee weapon's enchanted moves, each in the weapon's own element. A sword sends out a wave; a
@@ -2642,6 +2652,8 @@ export interface EnchantDef {
   potency?: boolean;
   /** Virulence / Binding: their roll is a strength, not a chance: status effect strength, or summon duration. */
   boost?: 'status' | 'summonDur' | 'cooldown' | 'radius';
+  /** Only ever built in (Artifact and Exalted uniques): never rolled by Enchant. */
+  builtInOnly?: boolean;
   /** A melee art (MELEE_ARTS): each attack has its chance to set it off, at its power × a hit. */
   melee?: MeleeArt;
   /** Fireburst: each kill by the weapon has its chance to burst within `radius`. */
@@ -2690,7 +2702,38 @@ const bow = (d: GearDef) => d.weaponClass === 'shortbow' || d.weaponClass === 'l
 const hits = (p: number) => `${Math.round(p * 100) / 100}× a hit`;
 export const spellEnchantId = (id: SpellId): SpellEnchantId => `spell${id.charAt(0).toUpperCase()}${id.slice(1)}` as SpellEnchantId;
 
+/**
+ * Unique built-in effects: Artifact pieces' (strong abilities of their own) and Exalted pieces' (field-wide
+ * cataclysms), each on its own cooldown, dealing the piece's own damage (its power × its area's TIER_HIT).
+ */
+export type UniqueId = 'stormcaller' | 'spellweaver' | 'gravewarden' | 'meteorCaller' | 'cataclysm' | 'meteorStorm' | 'singularity' | 'eternalLegion';
+export const UNIQUE_EFFECTS: Record<UniqueId, { name: string; icon: string; rarity: 'artifact' | 'exalted'; cooldown: number; damageType: DamageType; desc: string }> = {
+  stormcaller: { name: 'Stormcaller', icon: '🌩️', rarity: 'artifact', cooldown: 5, damageType: 'lightning', desc: 'calls a Thunderstorm down on the monsters' },
+  spellweaver: { name: 'Spellweaver', icon: '🔮', rarity: 'artifact', cooldown: 4, damageType: 'arcane', desc: 'casts a random spell of any element at the monsters' },
+  gravewarden: { name: 'Gravewarden', icon: '💀', rarity: 'artifact', cooldown: 8, damageType: 'decay', desc: 'curses the ground under the thickest crowd: whatever dies there rises to fight for the wearer' },
+  meteorCaller: { name: 'Meteor Caller', icon: '☄️', rarity: 'artifact', cooldown: 6, damageType: 'fire', desc: 'drops a Fireball and a Rockfall on the monsters' },
+  cataclysm: { name: 'Elemental Cataclysm', icon: '🌈', rarity: 'exalted', cooldown: 10, damageType: 'arcane', desc: 'unleashes a spell of every element at once, each at a different monster' },
+  meteorStorm: { name: 'Meteor Storm', icon: '🌠', rarity: 'exalted', cooldown: 12, damageType: 'fire', desc: 'rains meteors down across the whole field' },
+  singularity: { name: 'Singularity', icon: '🕳️', rarity: 'exalted', cooldown: 12, damageType: 'void', desc: 'opens a vast gravity well that drags the whole crowd together, then collapses' },
+  eternalLegion: { name: 'Eternal Legion', icon: '⚰️', rarity: 'exalted', cooldown: 20, damageType: 'decay', desc: 'for 8s, every monster that dies anywhere rises to fight for the wearer' },
+};
+const uniqueEnchant = (id: UniqueId): EnchantDef => {
+  const u = UNIQUE_EFFECTS[id];
+  return {
+    name: u.name,
+    icon: u.icon,
+    range: [1, 1],
+    power: [1.5, 2.5],
+    weight: 0,
+    builtInOnly: true,
+    effect: { kind: 'unique', id, base: 1, damageType: u.damageType, cooldown: u.cooldown },
+    fits: () => true,
+    text: (_c, p, t) => `${u.rarity === 'exalted' ? 'Exalted' : 'Artifact'} unique: every ${u.cooldown}s, ${u.desc} (${dmg(p, t)})`,
+  };
+};
+
 export const ENCHANTS: Record<EnchantId, EnchantDef> = {
+  ...(Object.fromEntries((Object.keys(UNIQUE_EFFECTS) as UniqueId[]).map((id) => [id, uniqueEnchant(id)])) as Record<UniqueId, EnchantDef>),
   infuseFire: infusion('fire', '🔥'),
   infuseFrost: infusion('frost', '❄️'),
   infuseAcid: infusion('acid', '🧪'),
@@ -3098,6 +3141,72 @@ export const GEAR: GearDef[] = [
   ...GEAR_CATALOG.map(catalogGear),
 ];
 
+/**
+ * Gear variants: what built-in effects (`fx`, or a unique) and how many modifier slots a piece of each rarity
+ * can have. Each piece gets one of its rarity's variants, picked from its id, so the same item is always the
+ * same. Rare gear past the middle of the Rare areas (tier 5 and up) is the first to have built-in effects.
+ */
+export const GEAR_VARIANTS: Partial<Record<Rarity, Array<{ fx: number | 'unique'; slots: number }>>> = {
+  rare: [{ fx: 1, slots: 0 }, { fx: 0, slots: 0 }],
+  veryRare: [{ fx: 1, slots: 0 }, { fx: 0, slots: 1 }],
+  legendary: [{ fx: 1, slots: 1 }, { fx: 0, slots: 2 }],
+  exotic: [{ fx: 0, slots: 2 }, { fx: 1, slots: 1 }, { fx: 1, slots: 2 }],
+  relic: [{ fx: 1, slots: 2 }, { fx: 0, slots: 3 }],
+  artifact: [{ fx: 2, slots: 3 }, { fx: 'unique', slots: 3 }],
+  exalted: [{ fx: 2, slots: 3 }, { fx: 'unique', slots: 3 }],
+};
+/** Rare gear only has built-in effects from this tier on (the middle of the Rare areas). */
+export const BUILT_IN_FROM_TIER = 5;
+/** Enchantments too plain to be a piece's built-in effect (it should do something you can see). */
+const PLAIN_ENCHANTS: ReadonlySet<EnchantId> = new Set(['potency', 'virulence', 'haste', 'amplify', 'binding']);
+
+/** A piece's seeded random numbers (the same every game), from its id. */
+function gearRng(id: string): () => number {
+  let h = 2166136261;
+  for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 16777619);
+  return () => {
+    h = Math.imul(h ^ (h >>> 15), 2246822507);
+    h = Math.imul(h ^ (h >>> 13), 3266489909);
+    h ^= h >>> 16;
+    return (h >>> 0) / 4294967296;
+  };
+}
+
+/** Gives every piece its variant: its built-in effects and its modifier slots. */
+function assignVariants(): void {
+  for (const d of GEAR) {
+    const variants = GEAR_VARIANTS[d.rarity];
+    d.slots = 0;
+    if (!variants || d.starter) continue;
+    const rng = gearRng(d.id);
+    // A piece with an ability of its own (armor's Thorns, a Puppeteer's Doll) already has one built-in effect.
+    const own = d.effect ? 1 : 0;
+    const eligible = d.rarity !== 'rare' || gearTier(d) >= BUILT_IN_FROM_TIER;
+    // A hand-made special (the Elemental Cataclysm) is always a unique piece, with the unique of its own name.
+    const options = d.special ? variants.filter((v) => v.fx === 'unique') : variants.filter((v) => (own ? v.fx === 'unique' || v.fx >= 1 : true) && (eligible || v.fx === 0));
+    if (!options.length) continue;
+    const v = options[Math.floor(rng() * options.length)];
+    d.slots = v.slots;
+    const pool = (Object.keys(ENCHANTS) as EnchantId[]).filter((id) => {
+      const en = ENCHANTS[id];
+      return !en.builtInOnly && !PLAIN_ENCHANTS.has(id) && !en.infuse && en.fits(d);
+    });
+    const pick = <T,>(ids: T[]) => ids.splice(Math.floor(rng() * ids.length), 1)[0];
+    const roll = () => 5 + Math.floor(rng() * 5); // a good roll: 5–9 of 10
+    const builtIn: Array<{ id: EnchantId; q: number; p: number }> = [];
+    if (v.fx === 'unique') {
+      const uniques = (Object.keys(UNIQUE_EFFECTS) as UniqueId[]).filter((u) => UNIQUE_EFFECTS[u].rarity === d.rarity);
+      const named = uniques.find((u) => UNIQUE_EFFECTS[u].name === d.name);
+      builtIn.push({ id: named ?? pick(uniques), q: MOD_QUALITY_STEPS, p: roll() });
+    } else for (let i = own; i < v.fx && pool.length; i++) builtIn.push({ id: pick(pool), q: roll(), p: roll() });
+    if (builtIn.length) d.builtIn = builtIn;
+  }
+}
+assignVariants();
+
+/** A piece's modifier slots. */
+export const modSlotCount = (def: GearDef): number => def.slots ?? MOD_SLOTS[def.rarity];
+
 export const gearDef = (id: GearId): GearDef => GEAR.find((g) => g.id === id)!;
 
 /** The Special damage type's look (weapons with `special`: they change elements, or deal too many to list). */
@@ -3160,6 +3269,8 @@ export function describeEffect(e: GearEffect, stars: number): string {
       return 'Chill aura: monsters near you move at half speed.';
     case 'spell':
       return `${SPELLS[e.spell].name}: ${SPELLS[e.spell].desc} (${dmg} damage)`;
+    case 'unique':
+      return `${UNIQUE_EFFECTS[e.id].name}: every ${e.cooldown}s, ${UNIQUE_EFFECTS[e.id].desc} (${dmg} damage).`;
   }
 }
 

@@ -12,7 +12,7 @@ import {
   itemCost,
   itemLevels,
   MAX_STARS,
-  MOD_SLOTS,
+  modSlotCount,
   MOD_QUALITY_STEPS,
   REFINES,
   ENCHANTS,
@@ -631,7 +631,7 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
           if (!oldLevels) {
             const item: GearItem = { uid: g.uid, base: g.base, stars: Math.max(1, Math.min(MAX_STARS, Math.floor(g.stars))) };
             // Modifiers: only well-formed ones, in the slots the piece has.
-            const slots = MOD_SLOTS[gearDef(g.base).rarity];
+            const slots = modSlotCount(gearDef(g.base));
             if (slots > 0 && g.pending && Array.isArray(g.pending.options) && typeof g.pending.slot === 'number' && g.pending.slot < slots) {
               const options = g.pending.options.map((m) => parseMod(m)).filter((m): m is GearMod => !!m);
               if (options.length) item.pending = { slot: g.pending.slot, kind: g.pending.kind === 'enchant' ? 'enchant' : 'refine', options };

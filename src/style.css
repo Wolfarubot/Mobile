@@ -5238,6 +5238,19 @@ button.feat-tag {
   font-size: 13px;
   letter-spacing: 0.05em;
 }
+/* Built-in effects: gold tiles (a unique effect's pink). */
+.eq-chip.mod-builtin {
+  border-color: #c89a2a;
+  background: color-mix(in srgb, #ffd34d 26%, var(--c3));
+  box-shadow: inset 0 0 0 1px #ffe8a3;
+  color: #5a3a00;
+}
+.eq-chip.mod-builtin.unique {
+  border-color: #c04a9a;
+  background: color-mix(in srgb, #ff8ad0 26%, var(--c3));
+  box-shadow: inset 0 0 0 1px #ffd0ec;
+  color: #5a0a3a;
+}
 
 /* The equipped tap ability on your Hunter's Overview, and the list behind Change. */
 .ability-card .ab-face {

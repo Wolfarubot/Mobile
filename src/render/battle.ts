@@ -1041,6 +1041,19 @@ export class BattleView {
         break;
       }
       case 'raiseDead': {
+        if (z.r > 600) {
+          // Eternal Legion: the whole field is cursed: a faint violet haze, motes rising everywhere.
+          g.globalAlpha = 0.12 * fade;
+          g.fillStyle = '#3a1a4a';
+          g.fillRect(-this.w, -this.h, this.w * 2, this.h * 2);
+          g.fillStyle = '#c8a0ff';
+          for (let i = 0; i < 30; i++) {
+            const p = (t * 0.5 + i / 30) % 1;
+            g.globalAlpha = (1 - p) * fade * 0.8;
+            g.fillRect(((i * 73) % 100) * 6 - 300, ((i * 37) % 100) * 6 - 300 - p * 50, 3, 3);
+          }
+          break;
+        }
         // Cursed ground: a dark violet circle, its rim pulsing, motes rising off it.
         g.globalAlpha = 0.3 * fade;
         g.fillStyle = '#3a1a4a';

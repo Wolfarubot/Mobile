@@ -1137,7 +1137,8 @@ export class AppUI {
         // Option A: the icon in a rarity-framed box; the slot, name, rarity and stars beside it, then its damage
         // types and stats as chips.
         const chips = gd && it ? gearSummary(gd, g.effStars(it, who)).split(', ').filter(Boolean).map((t) => `<span class="eq-chip">${t}</span>`) : [];
-        // Its modifiers after its stats: Refines on grey tiles, Enchants on violet ones.
+        // Its built-in effects on gold tiles, then its modifiers: Refines on grey tiles, Enchants on violet ones.
+        if (gd) for (const bi of gd.builtIn ?? []) chips.push(`<span class="eq-chip mod-builtin${ENCHANTS[bi.id].builtInOnly ? ' unique' : ''}">${ENCHANTS[bi.id].name}</span>`);
         if (gd && it)
           for (const m of it.mods ?? [])
             if (m) chips.push(m.kind === 'refine' ? `<span class="eq-chip mod-refine">${REFINES[m.stat].text(modValue(m, gd))}</span>` : `<span class="eq-chip mod-enchant">${ENCHANTS[m.id].name}</span>`);
@@ -3954,7 +3955,7 @@ function tweakText(gd: GearDef): string {
 }
 
 /** Short names for gear effects, for their tags (the full text is in the tag's popup). */
-const EFFECT_TAG: Record<NonNullable<GearDef['effect']>['kind'], string> = { thorns: 'Thorns', block: 'Shield Burst', evade: 'Evasion', pulse: 'Pulse', summon: 'Summoner', wave: 'Wave', strike: 'Lightning Strike', chill: 'Chill Aura', spell: 'Spell' };
+const EFFECT_TAG: Record<NonNullable<GearDef['effect']>['kind'], string> = { thorns: 'Thorns', block: 'Shield Burst', evade: 'Evasion', pulse: 'Pulse', summon: 'Summoner', wave: 'Wave', strike: 'Lightning Strike', chill: 'Chill Aura', spell: 'Spell', unique: 'Unique' };
 
 /** Keeps a row of tiles to two lines: the tiles past them are hidden and the last one shown becomes "...". */
 function foldChips(box: HTMLElement | null): void {
@@ -4014,6 +4015,13 @@ function featureTags(gd: GearDef, stars = 1): string {
     tags.push(featTag(DAMAGE_TAG_ICONS[gd.typeBonus.type], `+${pct}% ${d.name}`, `+${pct}% ${d.name} damage, whatever deals it.`, d.color));
   }
   if (gd.weaponClass) tags.push(featTag(FEATURE_TAG_ICONS.weapon, WEAPON_CLASSES[gd.weaponClass].name, WEAPON_CLASSES[gd.weaponClass].describe));
+  // Built-in effects: always on the piece, at fixed rolls (a unique one on Artifact and Exalted gear).
+  for (const bi of gd.builtIn ?? []) {
+    const en = ENCHANTS[bi.id];
+    const m = { kind: 'enchant' as const, id: bi.id, q: bi.q, p: bi.p };
+    const text = en.text(modValue(m, gd), modPower(m, gd), enchantTierHit(gd));
+    tags.push(featTag(en.builtInOnly ? EFFECT_TAG_ICONS.unique : FEATURE_TAG_ICONS.builtIn, en.name, `<b>${en.builtInOnly ? 'Unique' : 'Built-in'}</b>: ${text.charAt(0).toUpperCase()}${text.slice(1)}.`, en.builtInOnly ? '#ff8ad0' : 'var(--gold)'));
+  }
   if (gd.tweak) tags.push(featTag(FEATURE_TAG_ICONS.tweak, tweakName(gd), tweakText(gd)));
   const spell = staffSpell(gd);
   if (spell) tags.push(featTag(FEATURE_TAG_ICONS.spell, SPELLS[spell].name, `After its bolts, this staff casts <b>${SPELLS[spell].name}</b>: ${SPELLS[spell].desc}`));

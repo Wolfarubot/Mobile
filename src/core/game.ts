@@ -1,4 +1,5 @@
 import {
+  modSlotCount,
   weaponOnlyEnchant,
   type MeleeArt,
   staffSpell,
@@ -74,7 +75,6 @@ import {
   GEAR_STAR_POWER,
   AOE_PER_LEVEL,
   MAX_EFFECTIVE_STARS,
-  MOD_SLOTS,
   MOD_QUALITY_STEPS,
   MOD_CHOICES,
   REFINES,
@@ -144,6 +144,12 @@ import {
 } from './balance';
 import { capAway, type OfflineResult } from './offline';
 import { type BuyAmount, type GameState, type GearItem, type GearMod, type PendingMod, type Training, type Wearer } from './state';
+
+/** A piece's enchantments and refinements: its built-in effects first, then what's in its modifier slots. */
+export function allMods(item: GearItem): Array<GearMod | null> {
+  const def = gearDef(item.base);
+  return [...(def.builtIn ?? []).map((b): GearMod => ({ kind: 'enchant', id: b.id, q: b.q, p: b.p })), ...(item.mods ?? [])];
+}
 
 export type GameEvent =
   | { type: 'travel' }
@@ -341,12 +347,12 @@ export class Game {
       if (def.effect) out.push({ uid: item.uid, def, effect: def.effect, stars: this.effStars(item, who) });
       // Enchanted armor specials (Thorns, Evasion, Shield Burst): their rolled chance, and damage from their
       // rolled power × the piece's area.
-      (item.mods ?? []).forEach((m, slot) => {
+      allMods(item).forEach((m, slot) => {
         const en = m?.kind === 'enchant' ? ENCHANTS[m.id] : null;
         if (!m || !en?.effect) return;
         const chance = modValue(m, def);
         const effect = (en.effect.kind === 'evade' ? { ...en.effect, chance } : 'base' in en.effect ? { ...en.effect, chance, base: modPower(m, def) * enchantTierHit(def) } : en.effect) as GearEffect;
-        out.push({ uid: -(item.uid * 4 + slot + 1), def: { ...def, icon: en.icon, name: `${en.name} (${def.name})` }, effect, stars: 1 });
+        out.push({ uid: -(item.uid * 8 + slot + 1), def: { ...def, icon: en.icon, name: `${en.name} (${def.name})` }, effect, stars: 1 });
       });
     }
     return out;
@@ -356,7 +362,7 @@ export class Game {
   private enchantsOf(item: GearItem | null): Array<{ en: EnchantDef; v: number; p: number; def: GearDef }> {
     if (!item) return [];
     const def = gearDef(item.base);
-    return (item.mods ?? []).flatMap((m) => (m?.kind === 'enchant' ? [{ en: ENCHANTS[m.id], v: modValue(m, def), p: modPower(m, def), def }] : []));
+    return allMods(item).flatMap((m) => (m?.kind === 'enchant' ? [{ en: ENCHANTS[m.id], v: modValue(m, def), p: modPower(m, def), def }] : []));
   }
 
   /** Pieces a Hunter wears that aren't weapons (their armor and accessories). */
@@ -881,7 +887,7 @@ export class Game {
   modSlots(uid: number): Array<GearMod | null> {
     const item = this.gearItem(uid);
     if (!item) return [];
-    const n = MOD_SLOTS[gearDef(item.base).rarity];
+    const n = modSlotCount(gearDef(item.base));
     return Array.from({ length: n }, (_, i) => item.mods?.[i] ?? null);
   }
 
@@ -917,7 +923,7 @@ export class Game {
     return (Object.keys(ENCHANTS) as EnchantId[]).filter((id) => {
       const en = ENCHANTS[id];
       // Accessories take most enchantments, but not spells or melee arts (those belong to their weapons).
-      return (en.fits(def) || (def.kind === 'accessory' && !weaponOnlyEnchant(en))) && !(en.infuse && own.includes(en.infuse)) && !others.some((m) => m.id === id);
+      return !en.builtInOnly && (en.fits(def) || (def.kind === 'accessory' && !weaponOnlyEnchant(en))) && !(en.infuse && own.includes(en.infuse)) && !others.some((m) => m.id === id) && !def.builtIn?.some((b) => b.id === id);
     });
   }
 
