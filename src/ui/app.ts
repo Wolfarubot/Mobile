@@ -674,11 +674,11 @@ export class AppUI {
   }
 
   /**
-   * Full-screen Hunter view with sub-tabs: Overview (training, abilities, equipment, stats, station), Skills (the
+   * Full-screen Hunter view with sub-tabs: Overview (training, abilities, stats, station), Equipment, Skills (the
    * branching skill tree) and, for your Hunter, Abilities (tap abilities unlocked in the tree, swapped here).
    * Closing returns to the battlefield.
    */
-  private openHunterDetail(who: Wearer, sub: 'overview' | 'skills' = 'overview'): void {
+  private openHunterDetail(who: Wearer, sub: 'overview' | 'equipment' | 'skills' = 'overview'): void {
     if (this.detail) this.dropDetail();
     const g = this.game;
     const def = who === 'main' ? null : hunterDef(who);
@@ -694,9 +694,11 @@ export class AppUI {
         </div>
         <div class="subtabs">
           <button data-sub="overview">📊 Overview</button>
+          <button data-sub="equipment">🛡️ Equipment</button>
           <button data-sub="skills">🌳 Skills <b class="sp-count hidden"></b></button>
         </div>
         <div class="hd-body" data-sub="overview"></div>
+        <div class="hd-body" data-sub="equipment"></div>
         <div class="hd-body" data-sub="skills"></div>
       </div>
       <button class="hd-close hd-float-close" aria-label="Close">✕</button>`;
@@ -735,12 +737,13 @@ export class AppUI {
     // Abilities: their passives and actives, then the weapons they can use.
     overview.appendChild(sectionTitle('Abilities'));
     overview.insertAdjacentHTML('beforeend', abilitiesHtml(def));
-    // Equipment, right under Training: tap a slot to pick from unequipped gear that fits.
-    overview.appendChild(sectionTitle('Equipment'));
-    if (recruited) overview.appendChild(this.equipmentList(who));
-    else overview.appendChild(el('p', 'hd-note', `Slots: ${g.slotsOf(who).map((sl) => `${GEAR_KINDS[sl.kind].icon} ${sl.label}`).join(' · ')}. Recruit them to equip gear.`));
-    // Your Hunter: their tap abilities, right under their equipment.
+    // Your Hunter: their tap abilities, right under their abilities.
     if (!def) overview.appendChild(this.abilitiesList());
+    // Equipment: tap a slot to pick from unequipped gear that fits.
+    const equipment = pane('equipment');
+    equipment.appendChild(sectionTitle('Equipment'));
+    if (recruited) equipment.appendChild(this.equipmentList(who));
+    else equipment.appendChild(el('p', 'hd-note', `Slots: ${g.slotsOf(who).map((sl) => `${GEAR_KINDS[sl.kind].icon} ${sl.label}`).join(' · ')}. Recruit them to equip gear.`));
     overview.appendChild(sectionTitle(recruited ? 'Stats' : 'Stats when recruited'));
     const headline = el('div', 'hd-stats hd-headline');
     overview.appendChild(headline);
