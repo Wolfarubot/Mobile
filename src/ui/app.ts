@@ -347,6 +347,24 @@ export class AppUI {
     $('#menuBtn').addEventListener('click', () => this.openMenu());
     // Any tap may change what the cached rates and DPS show (training, stationing, equipping): recompute them.
     document.addEventListener('pointerdown', () => this.shownCache.clear(), true);
+    // Button press feedback: a quick squeeze, held long enough to see even on a fast tap.
+    document.addEventListener(
+      'pointerdown',
+      (e) => {
+        const btn = (e.target as HTMLElement).closest?.('button');
+        if (!btn || (btn as HTMLButtonElement).disabled) return;
+        btn.classList.add('pressing');
+        const t0 = performance.now();
+        const release = () => {
+          window.removeEventListener('pointerup', release, true);
+          window.removeEventListener('pointercancel', release, true);
+          setTimeout(() => btn.classList.remove('pressing'), Math.max(0, 90 - (performance.now() - t0)));
+        };
+        window.addEventListener('pointerup', release, true);
+        window.addEventListener('pointercancel', release, true);
+      },
+      true,
+    );
     this.menuGestures();
     this.applySettings();
     // Panels that depend on which areas/enemies/Hunters exist are rebuilt when those change.
@@ -659,6 +677,7 @@ export class AppUI {
             <div class="hd-sub"></div>
           </div>
         </div>
+        ${def && hunterPerk(def) ? `<div class="hero-perk"><span class="perk">${hunterPerk(def)}</span></div>` : ''}
         <div class="hero-lore"><p class="lore-text">${def ? def.ability : MAIN_ABILITY}</p></div>
         <div class="subtabs">
           <button data-sub="overview">📊 Overview</button>
@@ -766,7 +785,6 @@ export class AppUI {
       const html = [
         `<span>the ${g.titleOf(who)}${recruited ? ` · Lv ${g.levelOf(who)}` : ''}</span>`,
         recruited ? `<button class="where where-btn">${station ? `📍 ${areaDef(station).name}` : '💤 Resting'} <b>›</b></button>` : '',
-        def && hunterPerk(def) ? `<span class="perk">${hunterPerk(def)}</span>` : '',
       ].join('');
       // Only redrawn when it changes, so a tap on the location button isn't lost mid-press.
       if (html !== subHtml) subLine.innerHTML = subHtml = html;
