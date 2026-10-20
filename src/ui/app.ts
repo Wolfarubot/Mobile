@@ -3905,11 +3905,11 @@ function gearCardHtml(it: GearItem, vs: GearItem | null = null): string {
   // A weapon's base damage per hit comes first (compared with the weapon it would replace).
   const hit = weaponHit(gd, it.stars);
   const otherHit = vs ? weaponHit(gearDef(vs.base), vs.stars) : 0;
-  const hitLine = hit
-    ? `<li><b>${hitText(hit)}</b>${vs && otherHit && Math.abs(hit - otherHit) > 1e-9 ? `<span class="${hit > otherHit ? 'up' : 'down'}">${hit > otherHit ? '▲' : '▼'} ${Number(Math.abs(hit - otherHit).toFixed(2))}</span>` : ''}</li>`
+  // It sits beside the damage-type tags in the card's head.
+  const hitHtml = hit
+    ? `<b class="gc-dmg">${hitText(hit)}</b>${vs && otherHit && Math.abs(hit - otherHit) > 1e-9 ? `<span class="${hit > otherHit ? 'up' : 'down'}">${hit > otherHit ? '▲' : '▼'} ${Number(Math.abs(hit - otherHit).toFixed(2))}</span>` : ''}`
     : '';
   const all =
-    hitLine +
     lines +
     (gd.special
       ? `<li class="gc-effect">${specialText(gd)}</li>`
@@ -3917,25 +3917,21 @@ function gearCardHtml(it: GearItem, vs: GearItem | null = null): string {
     (!gd.special && gearTypes(gd).length > 1
       ? `<li class="gc-effect">${gd.perShot ? `Each projectile deals one of its types in turn, at full damage` : `Each hit is split evenly between its ${gearTypes(gd).length} types`}</li>`
       : '') +
-    gearTypes(gd)
-      .filter((t) => !gd.special && gd.proc && DAMAGE_TYPES[t].effect)
-      .map((t) => `<li class="gc-effect">${DAMAGE_TYPES[t].icon} ${Math.round(gd.proc! * 100)}% chance · ${DAMAGE_TYPES[t].effect}</li>`)
-      .join('') +
     (gd.typeBonus ? `<li class="gc-effect">${DAMAGE_TYPES[gd.typeBonus.type].icon} +${Math.round(gd.typeBonus.bonus * GEAR_STAR_POWER[it.stars] * 100)}% ${DAMAGE_TYPES[gd.typeBonus.type].name} damage</li>` : '') +
     // Built-in effects (always there), then the modifier slots: filled ones, then the empty ones.
     (gd.builtIn ?? [])
       .map((bi) => {
         const en = ENCHANTS[bi.id];
         const m: GearMod = { kind: 'enchant', id: bi.id, q: bi.q, p: bi.p };
-        return `<li class="gc-builtin${en.builtInOnly ? ' unique' : ''}">${en.icon} <span><em>${en.builtInOnly ? 'Unique' : 'Built-in'}</em> ${en.name}: ${en.text(modValue(m, gd), modPower(m, gd), enchantTierHit(gd))}</span></li>`;
+        return `<li class="gc-builtin${en.builtInOnly ? ' unique' : ''}">${en.icon} ${en.name}: ${en.text(modValue(m, gd), modPower(m, gd), enchantTierHit(gd))}</li>`;
       })
       .join('') +
-    (it.mods ?? []).filter(Boolean).map((m) => `<li class="gc-mod${modPerfect(m!) ? ' perfect' : ''}">${modText(m!, gd)}</li>`).join('') +
-    `<li class="gc-slot">◇ Empty modifier slot</li>`.repeat(Math.max(0, modSlotCount(gd) - (it.mods ?? []).filter(Boolean).length)) +
+    (it.mods ?? []).filter(Boolean).map((m) => `<li class="gc-mod ${m!.kind}${modPerfect(m!) ? ' perfect' : ''}">${modText(m!, gd)}</li>`).join('') +
+    `<li class="gc-mod gc-slot">◇ Empty modifier slot</li>`.repeat(Math.max(0, modSlotCount(gd) - (it.mods ?? []).filter(Boolean).length)) +
     (gd.effect ? `<li class="gc-effect">✨ ${describeEffect(gd.effect, it.stars)}</li>` : '') +
     (gd.bane ? `<li class="gc-effect">${ARCHETYPES[gd.bane.archetype].icon} +${Math.round(gd.bane.bonus * GEAR_STAR_POWER[it.stars] * 100)}% damage vs ${ARCHETYPES[gd.bane.archetype].name}s</li>` : '') +
     (gd.findDrop ? `<li class="gc-effect">💎 ${it.stars >= gd.findDrop.stars ? '' : `At ${gd.findDrop.stars}★: `}${gd.findDrop.chance * 100}% chance for ${materialDef(gd.findDrop.material).name} from ${ARCHETYPES[gd.findDrop.archetype].name.toLowerCase()} kills</li>` : '');
-  return `<div class="gear-card rar" style="--rc:${gearColor(gd.id)}"><div class="gc-head"><i>${gearIcon(gd)}</i><div><b>${gd.name}</b><small>${RARITIES[gd.rarity].name} ${gearKindName(gd).toLowerCase()} · <span class="stars">${starsHtml(it.stars)}</span></small>${dtypeTag(gd)}</div></div><ul class="gc-stats">${all}</ul></div>`;
+  return `<div class="gear-card rar" style="--rc:${gearColor(gd.id)}"><div class="gc-head"><i>${gearIcon(gd)}</i><div><b>${gd.name}</b><small>${RARITIES[gd.rarity].name} ${gearKindName(gd).toLowerCase()} · <span class="stars">${starsHtml(it.stars)}</span></small><div class="gc-typeline">${procTypeTags(gd)}${hitHtml}</div></div></div><ul class="gc-stats">${all}</ul></div>`;
 }
 
 /** Your Hunter's name (Settings), shown on their card and wherever they're named. */
@@ -4365,6 +4361,22 @@ function revealWithPixels(box: HTMLElement, palette: string[], fall: 1 | -1, don
 function modText(m: GearMod, gd: GearDef): string {
   const v = modValue(m, gd);
   return m.kind === 'refine' ? `${REFINES[m.stat].icon} ${REFINES[m.stat].text(v)}` : `${ENCHANTS[m.id].icon} ${ENCHANTS[m.id].name}: ${ENCHANTS[m.id].text(v, modPower(m, gd), enchantTierHit(gd))}`;
+}
+
+/**
+ * A weapon's damage types as tags with the chance each sets off its status effect ("Decay 21%"); tapping one
+ * explains the effect. The Elemental Cataclysm's Special tag stays as it is.
+ */
+function procTypeTags(gd: GearDef): string {
+  if (gd.special) return specialTypeHtml();
+  return gearTypes(gd)
+    .map((t) => {
+      const d = DAMAGE_TYPES[t];
+      const pct = gd.proc && d.effect ? Math.round(gd.proc * 100) : 0;
+      const tip = d.effect ? `${pct ? `${pct}% chance each hit to set off its effect` : "This weapon doesn't set off its effect"}: <b>${d.effect}</b>.` : `${d.name} damage.`;
+      return `<button type="button" class="dtype-tag feat-tag" style="--dc:${d.color}" data-tip="${esc(tip)}"><span class="ic">${tagIconHtml(DAMAGE_TAG_ICONS[t])}</span>${d.name}${pct ? `<span class="pct">${pct}%</span>` : ''}</button>`;
+    })
+    .join('');
 }
 
 /** A weapon's damage type as a small coloured tag ('' for gear without one). */

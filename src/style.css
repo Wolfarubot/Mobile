@@ -4068,26 +4068,59 @@ body.left-handed .hd-float-close {
   color: var(--gold);
   font-weight: 700;
 }
-/* Built-in effects on a piece's details: a small gold label (a unique's pink); empty slots dimmed. */
-.gc-builtin em,
-.gc-builtin.unique em {
-  display: inline;
-  white-space: nowrap;
-  font-style: normal;
-  font-size: 0.85em;
-  padding: 0 4px;
-  margin-right: 2px;
-  border: 1px solid #c89a2a;
-  background: color-mix(in srgb, #ffd34d 30%, transparent);
-  color: #5a3a00;
+/* The card's head: damage-type tags (with their status chance) and the damage per hit on one line. */
+.gc-head .gc-typeline {
+  flex-direction: row;
 }
-.gc-builtin.unique em {
-  border-color: #c04a9a;
-  background: color-mix(in srgb, #ff8ad0 30%, transparent);
-  color: #5a0a3a;
+.gc-typeline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
 }
-.gc-slot {
-  opacity: 0.55;
+.gear-card .gc-head .gc-typeline .gc-dmg {
+  font-size: 15px;
+  color: var(--ink, #2a2018);
+}
+.gc-head .gc-typeline .dtype-tag {
+  margin-top: 0;
+}
+.gc-typeline .up,
+.gc-typeline .down {
+  font-size: 0.9em;
+}
+.feat-tip .pct {
+  display: none;
+}
+.dtype-tag .pct {
+  margin-left: 6px;
+  padding-left: 6px;
+  border-left: 2px solid rgba(0, 0, 0, 0.35);
+}
+/* Modifiers in slots: each in its own bordered box (Refines grey, Enchants violet), to show they're added on. */
+.gear-card .gc-mod {
+  list-style: none;
+  margin: 4px 0;
+  padding: 4px 8px;
+  border: 2px solid #8b5cf6;
+  background: color-mix(in srgb, #8b5cf6 14%, transparent);
+  box-shadow: inset 0 0 0 1px #c4a8ff;
+  color: #3b1f7a;
+}
+.gear-card .gc-mod.refine {
+  border-color: #8a8f96;
+  background: color-mix(in srgb, #8a8f96 18%, transparent);
+  box-shadow: inset 0 0 0 1px #c4c8cc;
+  color: #2a2e34;
+}
+.gear-card .gc-mod.gc-slot {
+  opacity: 0.6;
+  border-style: dashed;
+  border-color: #8a8f96;
+  background: transparent;
+  box-shadow: none;
+  font-weight: 400;
 }
 
 /* The Special damage type (Elemental Cataclysm): a rainbow tag. */
