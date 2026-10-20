@@ -2886,7 +2886,7 @@ export class AppUI {
       }
       if (!list.length && known.length) gearGrid.innerHTML = '<p class="empty-inv">No recipes match these filters.</p>';
       const lockedGear = GEAR.filter((gd) => !gd.starter && !this.gearKnown(gd)).length;
-      note.textContent = lockedGear ? `🔒 ${lockedGear} more recipes need materials from monsters you haven't met yet.` : '';
+      note.textContent = lockedGear ? `🔒 ${lockedGear} more recipes show up once you've found their materials.` : '';
       note.classList.toggle('hidden', !lockedGear);
     };
 
@@ -2950,8 +2950,8 @@ export class AppUI {
     const it = 'item' in what ? what.item : null;
     const name = gd ? gd.name : it!.name;
     card.innerHTML = `
-      <button class="fc-close" aria-label="Close">✕</button>
-      <div class="fc-head"><i class="fc-icon" style="--rc:${gd ? gearColor(gd.id) : RARITIES[it!.rarity].color}">${gd ? gearIcon(gd) : upgradeIcon(it!)}</i><div>
+      <button class="fc-close" aria-label="Close"><span class="close-x"></span></button>
+      <div class="fc-scroll"><div class="fc-head"><i class="fc-icon" style="--rc:${gd ? gearColor(gd.id) : RARITIES[it!.rarity].color}">${gd ? gearIcon(gd) : upgradeIcon(it!)}</i><div>
         <h3>${name}</h3>
         <small>${gd ? `<b class="fc-rarity" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${gearKindName(gd).toLowerCase()}` : `<b class="fc-rarity" style="--rc:${RARITIES[it!.rarity].color}">${RARITIES[it!.rarity].name}</b> upgrade · ${upgradeReach(it!)}`}</small>
       </div></div>
@@ -2959,9 +2959,23 @@ export class AppUI {
       <p class="fc-effect"></p>
       <div class="fc-owned"></div>
       <div class="fc-label">Recipe</div>
-      <div class="fc-cost"></div>
+      <div class="fc-cost"></div></div>
       <button class="buy fc-craft"></button>`;
     $('.fc-close', card).addEventListener('click', () => this.closeFieldCard());
+    // The details scroll between the pinned close button and Craft button; the last line fades while there's more.
+    const scroller = $('.fc-scroll', card);
+    const fade = () => scroller.classList.toggle('more', scroller.scrollTop + scroller.clientHeight < scroller.scrollHeight - 2);
+    scroller.addEventListener('scroll', fade, { passive: true });
+    requestAnimationFrame(fade);
+    // Tapping anywhere off the card closes it (a recipe tile opens its own card instead).
+    const offTap = (e: Event) => {
+      if (!card.isConnected) return document.removeEventListener('click', offTap, true);
+      const t = e.target as HTMLElement;
+      if (card.contains(t) || t.closest('.craft-tile, .equip-prompt')) return;
+      this.closeFieldCard();
+      document.removeEventListener('click', offTap, true);
+    };
+    setTimeout(() => document.addEventListener('click', offTap, true));
     const btn = $<HTMLButtonElement>('.fc-craft', card);
     btn.addEventListener('click', () => {
       const ok = gd ? g.craftGear(gd.id) : g.craft(it!.id);
@@ -3083,9 +3097,10 @@ export class AppUI {
   }
 
   /** Recipes are shown once every material in them comes from a monster you've unlocked (or you hold some). */
+  /** A recipe shows once you've found at least one of every material it needs. */
   private gearKnown(gd: GearDef): boolean {
     const g = this.game;
-    return (Object.keys(gd.recipe) as MaterialId[]).every((m) => g.state.materials[m] > 0 || ENEMIES.some((e) => enemyDrops(e).includes(m) && g.isUnlocked(e.id)));
+    return (Object.keys(gd.recipe) as MaterialId[]).every((m) => g.state.materials[m] > 0 || (g.state.stats.matGained[m] ?? 0) > 0);
   }
 
   // ---- Events tab: each area's events, unlocked by slaying monsters there, then on a cooldown ----

@@ -5755,3 +5755,38 @@ body.left-handed .equip-prompt {
     transform: translateY(8px);
   }
 }
+
+/* ---- Recipe card: close (top corner) and Craft (bottom) stay put; the details scroll between them. ---- */
+.field-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 12px 14px;
+}
+.field-card .fc-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.field-card .fc-scroll.more {
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 34px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 34px), transparent);
+}
+.field-card .fc-craft {
+  flex: none;
+  margin-top: 6px;
+}
+.field-card .fc-close {
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  background: #c8352f;
+  border: 2px solid #000;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.45);
+}
+.field-card .fc-close .close-x {
+  width: 20px;
+  height: 20px;
+}
