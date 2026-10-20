@@ -60,8 +60,9 @@ import {
   weaponHit,
   HUNTERS,
   hunterDef,
-  hunterPerk,
-  MAIN_ABILITY,
+  hunterAbilities,
+  hunterWeaponsNote,
+  MAIN_ABILITIES,
   MAIN_SHORT,
   TAP_ABILITIES,
   type TapAbilityId,
@@ -691,8 +692,7 @@ export class AppUI {
             <div class="hd-sub"></div>
           </div>
         </div>
-        ${def && hunterPerk(def) ? `<div class="hero-perk"><span class="perk">${hunterPerk(def)}</span></div>` : ''}
-        <div class="hero-lore"><p class="lore-text">${def ? def.ability : MAIN_ABILITY}</p></div>
+        <div class="hero-lore">${abilitiesHtml(def)}</div>
         <div class="subtabs">
           <button data-sub="overview">📊 Overview</button>
           <button data-sub="skills">🌳 Skills <b class="sp-count hidden"></b></button>
@@ -4243,6 +4243,18 @@ export const MAX_NAME_LENGTH = 16;
 function journalIcon(e: JournalEntry): string {
   const url = /^[\w-]+\/\d+$/.test(e.icon) ? gearIconUrl(e.icon) : null;
   return url ? `<img class="px-icon" src="${url}" alt="">` : esc(e.icon);
+}
+
+/**
+ * A Hunter's abilities in their full view: a framed box with each one on its own line (its name, whether it's
+ * Active or Passive, and what it does), then the weapons they can use.
+ */
+function abilitiesHtml(def: HunterDef | null): string {
+  const list = def ? hunterAbilities(def) : MAIN_ABILITIES;
+  const uses = def ? hunterWeaponsNote(def) : '';
+  return `<div class="hero-abilities"><div class="ha-title">Abilities</div>${list
+    .map((a) => `<div class="ha-row"><span class="ha-kind ${a.kind}">${a.kind === 'active' ? 'Active' : 'Passive'}</span><p><b class="ha-name">${a.name}:</b> ${a.text}</p></div>`)
+    .join('')}${uses ? `<div class="ha-uses">${uses}</div>` : ''}</div>`;
 }
 
 function esc(text: string): string {

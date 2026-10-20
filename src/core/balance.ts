@@ -1977,6 +1977,82 @@ export function hunterPerk(h: HunterDef): string {
   return parts.join(', ');
 }
 
+/** A named ability in a Hunter's full view: passive (always on) or active (goes off on its own timer or trigger). */
+export interface HunterAbility {
+  name: string;
+  kind: 'passive' | 'active';
+  text: string;
+}
+
+/** Each archetype's bane, by name: a Hunter who deals extra damage to that kind of monster. */
+const BANE_NAMES: Record<Archetype, string> = {
+  slime: 'Slime Scholar',
+  beast: 'Primal Hunter',
+  humanoid: 'Showstopper',
+  plant: 'Root Ripper',
+  dragon: 'Dragonslayer',
+  elemental: 'Elementbreaker',
+  undead: 'Gravewarden',
+  demon: 'Demonbane',
+  construct: 'Scrapper',
+};
+
+/** A Hunter's abilities, active first then passive, for their full view. */
+export function hunterAbilities(h: HunterDef): HunterAbility[] {
+  const out: HunterAbility[] = [];
+  const own = HUNTER_ABILITIES[h.id] ?? [];
+  out.push(...own.filter((a) => a.kind === 'active'));
+  if (h.bane) out.push({ name: BANE_NAMES[h.bane.archetype], kind: 'passive', text: `Deal ×${h.bane.mult} bonus damage to ${ARCHETYPES[h.bane.archetype].name} type monsters.` });
+  out.push(...own.filter((a) => a.kind === 'passive'));
+  return out;
+}
+
+/** The weapons a Hunter can use, as their ability text puts it ("Uses ranged or magic weapons."), if it says. */
+export function hunterWeaponsNote(h: HunterDef): string {
+  return /(?:Uses|Wields|Fights with)[^.]*\./.exec(h.ability)?.[0] ?? '';
+}
+
+/** Every Guild Hunter's named abilities besides their bane (which hunterAbilities adds from `bane`). */
+const HUNTER_ABILITIES: Partial<Record<HunterId, HunterAbility[]>> = {
+  alchemist: [{ name: 'Potions', kind: 'active', text: 'Every 4s, lobs a potion that leaves a poison puddle, hurting every monster in it.' }],
+  bard: [{ name: 'Battle Hymn', kind: 'passive', text: 'His song makes every other Hunter in his area attack 15% faster.' }],
+  druid: [
+    { name: 'Spirit Wolves', kind: 'active', text: 'Every 6s, calls two spirit wolves that hunt for 6s.' },
+    { name: 'Pack Leader', kind: 'passive', text: 'Beast summons (wolves from any source) hit 50% harder.' },
+  ],
+  thief: [{ name: "Thieves' Luck", kind: 'passive', text: 'Wherever he is, monsters pay 30% more gold and drop loot twice as often.' }],
+  lance: [
+    { name: 'Zone of Protection', kind: 'passive', text: 'Takes several hits before he is knocked out.' },
+    { name: 'Rallying Oath', kind: 'passive', text: 'Every other Hunter can take an extra hit before they are knocked out.' },
+  ],
+  glimmer: [{ name: 'Fireballs', kind: 'active', text: 'Every 4s, hurls a fireball that explodes for area damage.' }],
+  puppeteer: [
+    { name: 'Puppets', kind: 'active', text: 'Every 6s, calls two puppets that hunt across the field.' },
+    { name: 'Master of Strings', kind: 'passive', text: 'Construct summons (puppets from any source) hit 50% harder.' },
+  ],
+  wilhelm: [{ name: 'Quick Draw', kind: 'passive', text: 'Carries a long-range weapon and a short-range one, and switches to the short-range one when monsters get close.' }],
+  blacksmith: [{ name: 'Refine', kind: 'passive', text: 'Unlocks Refine in Equipment: add stat modifiers (attack speed, damage, knockback, piercing, magazine size) to Very Rare and rarer gear.' }],
+  enchantress: [{ name: 'Enchant', kind: 'passive', text: 'Unlocks Enchant in Equipment: add damage types, stronger status effects and abilities to Very Rare and rarer gear.' }],
+  osteomancer: [
+    { name: 'Bone Spikes', kind: 'active', text: 'Every 5s, bone spikes burst from the ground under a group of monsters, hurting them and holding them in place.' },
+    { name: 'Bone Wall', kind: 'active', text: 'When he is stunned, a wall of bone rises around every Hunter for a few seconds and no monster can reach them.' },
+  ],
+  bloodblade: [
+    { name: 'Crimson Wave', kind: 'active', text: 'Every 5s, sends a wave of blood surging toward the monsters, hurting everything it passes and making it bleed.' },
+    { name: 'Blood Bolts', kind: 'passive', text: 'Once his tree is complete, monsters the wave kills burst into blood bolts.' },
+  ],
+  artificer: [{ name: 'Master Tinker', kind: 'passive', text: 'Every Hunter in his area, him included, uses their gear as if it had one more star; gear already at 5★ gets the bonus a 6th star would give.' }],
+  archivist: [{ name: 'Recall', kind: 'active', text: "Every 6s, his tome opens somewhere on the field and another Hunter's special bursts from it: usually one fighting beside him, sometimes any Hunter you've recruited." }],
+  gambler: [
+    { name: 'Roll the Dice', kind: 'active', text: 'Every 5s, rolls two dice at the monsters: the higher the total, the bigger the blast; doubles hit twice as hard, double 6s hit the whole field, and snake eyes leave him dazed.' },
+    { name: 'Double or Nothing', kind: 'passive', text: 'Kills in his area pay double (25%) or nothing (10%).' },
+  ],
+  spaceslime: [{ name: 'Smooth Talk', kind: 'active', text: "Every 6s, sweet-talks the monster nearest him (Guardians aren't fooled): for 6s it hunts the nearest other monster instead of your Hunters, biting it for a quarter of its own health every second." }],
+};
+
+/** Your Hunter's abilities in their full view. */
+export const MAIN_ABILITIES: HunterAbility[] = [{ name: 'Tap Blast', kind: 'active', text: 'Tap the Battle Field to damage Monsters!' }];
+
 /** Your own Hunter's card blurb. */
 export const MAIN_ABILITY = 'Tap the Battle Field to damage Monsters!';
 /** Your Hunter's one line on their card. */
