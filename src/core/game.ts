@@ -53,6 +53,8 @@ import {
   type TapAbilityId,
   tapAbilityDef,
   slotAccepts,
+  gearTier,
+  GEAR,
   WEAPON_KINDS,
   areaDef,
   areaEnemies,
@@ -1997,10 +1999,37 @@ export class Game {
     if (!this.canRecruit(id)) return false;
     this.state.gold -= hunterDef(id).recruitCost;
     this.state.hunters[id].recruited = true;
+    this.outfitRecruit(id);
     // New recruits join you where you are, if there's room.
     this.station(id, this.state.area);
     this.emit({ type: 'recruit', hunter: id });
     return true;
+  }
+
+  /**
+   * A new recruit comes with gear of their own, about as good as yours: for each of their slots, a new 1★ piece
+   * that fits it, from the recipes whose materials you've found, as close as possible to (but not above) the tier
+   * of what your Hunter wears in that kind of slot (or your best piece if you've nothing of that kind on).
+   */
+  private outfitRecruit(id: HunterId): void {
+    const s = this.state;
+    const mine = this.equipped('main').filter((it): it is GearItem => !!it).map((it) => gearDef(it.base));
+    if (!mine.length) return;
+    const best = Math.max(...mine.map(gearTier));
+    const found = (gd: GearDef) => (Object.keys(gd.recipe) as MaterialId[]).every((m) => s.materials[m] > 0 || (s.stats.matGained[m] ?? 0) > 0);
+    const pool = GEAR.filter((gd) => !gd.starter && !gd.special && found(gd));
+    this.slotsOf(id).forEach((slot, i) => {
+      if (this.equipped(id)[i]) return;
+      const fits = pool.filter((gd) => slotAccepts(slot, gd));
+      if (!fits.length) return;
+      const like = mine.find((gd) => slotAccepts(slot, gd));
+      const target = like ? gearTier(like) : best;
+      const under = fits.filter((gd) => gearTier(gd) <= target + 1e-9);
+      const pick = (under.length ? under : fits).reduce((a, b) => (under.length ? gearTier(b) > gearTier(a) : gearTier(b) < gearTier(a)) ? b : a);
+      const item: GearItem = { uid: s.nextGearUid++, base: pick.id, stars: 1 };
+      s.inventory.push(item);
+      this.equip(id, i, item.uid);
+    });
   }
 
   /** Hunters stationed in an area (up to STATION_CAPACITY). */

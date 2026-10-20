@@ -4637,3 +4637,29 @@ describe('gold monsters and size variety', () => {
     expect(artScale(0.5, 0.5, 0.5)).toBe(1);
   });
 });
+
+describe('recruit gear', () => {
+  it('a new recruit comes with gear that fits them, no better than yours', async () => {
+    const { gearTier, slotAccepts } = await import('../src/core/balance');
+    const g = rich();
+    for (const m of Object.keys(g.state.materials) as Array<keyof typeof g.state.materials>) g.state.stats.matGained[m] = 1;
+    g.state.events['guardian-forest'].completed = 5;
+    g.state.events.slimeSwarm.completed = 5;
+    // You wear a Forest Bow and a Fur Coat.
+    g.state.inventory.push({ uid: 900, base: 'forestBow', stars: 1 }, { uid: 901, base: 'furCoat', stars: 1 });
+    g.equip('main', 0, 900);
+    g.equip('main', 1, 901);
+    const before = g.state.inventory.length;
+    expect(g.recruit('ranger')).toBe(true);
+    const worn = g.equipped('ranger');
+    const mine = Math.max(...g.equipped('main').filter(Boolean).map((it) => gearTier(gearDef(it!.base))));
+    expect(worn.filter(Boolean).length).toBe(g.slotsOf('ranger').length);
+    worn.forEach((it, i) => {
+      expect(slotAccepts(g.slotsOf('ranger')[i], gearDef(it!.base))).toBe(true);
+      // Weapon and armor match yours; with no accessory on, theirs is the lowest-tier one there is.
+      if (i < 2) expect(gearTier(gearDef(it!.base))).toBeLessThanOrEqual(mine + 1e-9);
+      expect(it!.stars).toBe(1);
+    });
+    expect(g.state.inventory.length).toBe(before + worn.length);
+  });
+});

@@ -2341,7 +2341,7 @@ export class AppUI {
         if (g.state.bestiary[def.id].unlocked) {
           const level = g.monsterLevelInfo(def.id).level;
           lv.textContent = `Lv ${level}`;
-          ready = g.empowerUnlocked && level < MAX_MONSTER_LEVEL && g.state.gold >= g.empowerPurchase(def.id).cost;
+          ready = g.empowerUnlocked && level < MAX_MONSTER_LEVEL && g.state.gold >= g.empowerPurchase(def.id, 1).cost;
           const points = g.evoPoints(def.id);
           dot.textContent = String(points);
           dot.classList.toggle('hidden', points <= 0);
@@ -2421,21 +2421,25 @@ export class AppUI {
     });
   }
 
-  /** An Empower button and a progress bar toward the monster's next level. `compact` is the card's version. */
+  /**
+   * An Empower button and a progress bar toward the monster's next level. `compact` is the Bestiary tab's card,
+   * whose button always empowers once (the ×1/×10/×100/MAX switch is for the full view).
+   */
   private empowerParts(id: EnemyId, compact = false): { btn: HTMLButtonElement; bar: HTMLElement } {
     const g = this.game;
+    const amount = (): BuyAmount => (compact ? 1 : g.state.buyAmount);
     const btn = el('button', 'buy') as HTMLButtonElement;
     const bar = el('div', 'train-bar');
     bar.innerHTML = '<i></i><span></span>';
     btn.addEventListener('click', (ev) => {
       ev.stopPropagation();
-      if (g.empower(id)) {
+      if (g.empower(id, amount())) {
         bumpCard(btn);
         this.refresh();
       }
     });
     this.refreshers.push(() => {
-      const p = g.empowerPurchase(id);
+      const p = g.empowerPurchase(id, amount());
       const { level, into, need } = g.monsterLevelInfo(id);
       const maxed = level >= MAX_MONSTER_LEVEL;
       setHtml(
