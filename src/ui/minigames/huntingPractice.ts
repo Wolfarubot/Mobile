@@ -15,6 +15,26 @@ export const HP_LIVES = 3;
 const SHOT_COOLDOWN = 0.22;
 const ARROW_SPEED = 950;
 const GOLDEN_CHANCE = 0.12;
+/**
+ * The slime sheet's frames through one hop, as [up to this far through it, frame]: flat on the ground at both ends
+ * (the squashed frames only while it's low), round in the air, highest in the middle.
+ */
+const HOP_FRAMES: Array<[number, number]> = [
+  [0.07, 6],
+  [0.15, 7],
+  [0.3, 0],
+  [0.5, 1],
+  [0.7, 2],
+  [0.85, 3],
+  [0.93, 4],
+];
+/** Sunlit patches on the clearing's grass: [x, y, radius] as fractions of the screen. */
+const SUN_PATCHES: Array<[number, number, number]> = [
+  [0.3, 0.3, 0.28],
+  [0.72, 0.48, 0.32],
+  [0.38, 0.68, 0.26],
+  [0.82, 0.18, 0.2],
+];
 
 /** Only the Woods' small ground details, and fewer of them: the clearing's trees, rocks and bushes are the game's. */
 export const HP_DECOR = { bands: 1, density: 0.5 };
@@ -210,14 +230,19 @@ export function huntingPractice(api: MinigameApi): MinigameGame {
       const drawSlime = (s: Slime) => {
         const lift = Math.abs(Math.sin(s.phase)) * s.hop;
         const y = s.base - lift;
-        g.fillStyle = 'rgba(0,0,0,0.25)';
+        // Its shadow: as wide as the slime's body where it lands, shrinking and fading as it hops up.
+        const up = lift / Math.max(1, s.hop);
+        g.fillStyle = `rgba(20,40,10,${0.34 - 0.16 * up})`;
         g.beginPath();
-        g.ellipse(s.x, s.base + s.r * 0.55, s.r * (0.9 - lift / (s.hop * 3)), s.r * 0.3, 0, 0, Math.PI * 2);
+        g.ellipse(s.x, s.base + s.r * 0.6, s.r * (1.02 - 0.32 * up), s.r * (0.3 - 0.08 * up), 0, 0, Math.PI * 2);
         g.fill();
         if (sImg.complete && sImg.naturalWidth) {
           const F = slimeSheet.frame;
           const row = sheetRow(slimeSheet, s.vx > 0 ? 'R' : 'L');
-          const col = Math.floor(s.phase * 2) % slimeSheet.cols;
+          // Its frame follows its hop: squashed flat on the ground, gathering up as it rises, round at the top,
+          // stretching out to land.
+          const hopT = (s.phase % Math.PI) / Math.PI;
+          const col = HOP_FRAMES.find(([until]) => hopT < until)?.[1] ?? 5;
           const k = (s.r * 2.2) / slimeSheet.box[2];
           g.save();
           if (s.golden) g.filter = 'hue-rotate(-70deg) saturate(2.2) brightness(1.25)';
@@ -230,6 +255,20 @@ export function huntingPractice(api: MinigameApi): MinigameGame {
           g.fill();
         }
       };
+      // Dappled light through the canopy: soft bright patches on the grass (fixed for the round).
+      g.save();
+      g.globalCompositeOperation = 'soft-light';
+      for (const [fx, fy, fr] of SUN_PATCHES) {
+        const x = fx * api.W;
+        const y = fy * api.H;
+        const r = fr * Math.min(api.W, api.H);
+        const grad = g.createRadialGradient(x, y, 0, x, y, r);
+        grad.addColorStop(0, 'rgba(255,248,200,0.55)');
+        grad.addColorStop(1, 'rgba(255,248,200,0)');
+        g.fillStyle = grad;
+        g.fillRect(x - r, y - r, r * 2, r * 2);
+      }
+      g.restore();
       // Slimes and the clearing's objects, farthest first, so a slime behind a tree is hidden by it.
       const scene: Array<{ foot: number; draw: () => void }> = [
         ...(props ?? []).map((p) => ({ foot: p.foot, draw: () => g.drawImage(p.img, p.x, p.y, p.img.naturalWidth * p.scale, p.img.naturalHeight * p.scale) })),
@@ -273,6 +312,12 @@ export function huntingPractice(api: MinigameApi): MinigameGame {
         const k = 52 / Math.max(bw, bh);
         g.drawImage(hImg, col * F, row * F, F, F, ar.x - (bx + bw / 2) * k, ar.y + 32 - (by + bh) * k, F * k, F * k);
       }
+      // Shade under the trees at the edges, darker toward the corners.
+      const v = g.createRadialGradient(api.W / 2, api.H * 0.55, Math.min(api.W, api.H) * 0.35, api.W / 2, api.H * 0.55, Math.hypot(api.W, api.H) * 0.62);
+      v.addColorStop(0, 'rgba(10,30,10,0)');
+      v.addColorStop(1, 'rgba(10,30,10,0.45)');
+      g.fillStyle = v;
+      g.fillRect(0, 0, api.W, api.H);
     },
   };
 }

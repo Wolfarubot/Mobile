@@ -5882,3 +5882,11 @@ body.left-handed .equip-prompt {
   height: 36px;
   image-rendering: pixelated;
 }
+
+/* Minigame lives: centred just under the game's title, clear of the score however big it gets. */
+.mg-lives {
+  position: absolute;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+}
