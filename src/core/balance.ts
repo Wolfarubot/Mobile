@@ -1604,7 +1604,7 @@ export const DAMAGE_TYPES: Record<DamageType, { name: string; icon: string; colo
   radiant: { name: 'Radiant', icon: '✨', color: '#ffe36e', effect: `Radiant burst: ${STATUS.burst.share * 100}% of the hit to everything nearby` },
   poison: { name: 'Poison', icon: '☠️', color: '#6fdc5a', effect: `Poisons: ${STATUS.poison.share * 100}% of the hit again over ${STATUS.poison.duration}s, plus a share of its max HP (more from rarer weapons, less on Guardians)` },
   arcane: { name: 'Arcane', icon: '🔮', color: '#c08cff', effect: `Exposes: removes its resistances for ${STATUS.expose.duration}s` },
-  decay: { name: 'Decay', icon: '🍂', color: '#b09a60', effect: `Dark aura: it hurts the monsters around it for ${STATUS.aura.duration}s` },
+  decay: { name: 'Decay', icon: '🥀', color: '#b09a60', effect: `Dark aura: it hurts the monsters around it for ${STATUS.aura.duration}s` },
   lightning: { name: 'Lightning', icon: '⚡', color: '#8fb4ff', effect: `Arcs: ${STATUS.arc.share * 100}% of the hit jumps to another creature nearby, striking everything it passes through` },
   void: { name: 'Void', icon: '🌀', color: '#ff5fd7', effect: `Gravity well: for ${STATUS.well.duration}s it pulls the monsters around it in toward itself` },
 };
@@ -2741,7 +2741,7 @@ export const ENCHANTS: Record<EnchantId, EnchantDef> = {
   infuseLightning: infusion('lightning', '⚡'),
   infuseRadiant: infusion('radiant', '✨'),
   infuseArcane: infusion('arcane', '🔮'),
-  infuseDecay: infusion('decay', '🍂'),
+  infuseDecay: infusion('decay', '🥀'),
   infuseVoid: infusion('void', '🌀'),
   potency: { name: 'Potency', icon: '🧫', range: [0.08, 0.15], weight: 1, potency: true, fits: isWeapon, text: (c) => `+${pct(c)} status effect chance` },
   fireburst: { name: 'Fireburst', icon: '💥', range: [0.25, 0.5], power: [0.6, 1], weight: 1, onKill: { radius: 70, damageType: 'fire' }, fits: isWeapon, text: (c, p, t) => `${pct(c)} chance a monster this weapon kills bursts into flame (${dmg(p, t)})` },

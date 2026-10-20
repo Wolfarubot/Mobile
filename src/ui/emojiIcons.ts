@@ -59,6 +59,8 @@ export const EMOJI_ICONS: Record<string, string> = {
   "🌿": 'nature/013',
   "🍀": 'nature/020',
   "🍂": 'nature/023',
+  // Decay (the damage type): the same crumbling skull as its tag.
+  "🥀": 'ab-paladin-dk/073',
   "🍃": 'nature/018',
   "🍄": 'nature/081',
   "🍖": 'resources1/055',

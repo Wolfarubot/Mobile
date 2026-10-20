@@ -104,6 +104,7 @@ import { MATERIAL_SPRITES } from '../core/materialSprites';
 import { GEAR_SPRITES } from '../core/gearSprites';
 import { NODE_SPRITES } from '../core/nodeSprites';
 import { hunterIconHtml } from './hunterIcons';
+import { buzz, setHaptics } from './haptics';
 import { JOURNAL, type JournalEntry } from '../core/journal';
 import { App as CapApp } from '@capacitor/app';
 import { MINIGAMES, runMinigame } from './minigames';
@@ -350,6 +351,15 @@ export class AppUI {
     $('#menuBtn').addEventListener('click', () => this.openMenu());
     // Any tap may change what the cached rates and DPS show (training, stationing, equipping): recompute them.
     document.addEventListener('pointerdown', () => this.shownCache.clear(), true);
+    // A buzz when a button is pressed (on click, so a scroll that starts on a button doesn't buzz).
+    document.addEventListener(
+      'click',
+      (e) => {
+        const btn = (e.target as HTMLElement).closest?.('button');
+        if (btn && !(btn as HTMLButtonElement).disabled) buzz();
+      },
+      true,
+    );
     // Button press feedback: a quick squeeze, held long enough to see even on a fast tap.
     document.addEventListener(
       'pointerdown',
@@ -3577,6 +3587,7 @@ export class AppUI {
   private applySettings(): void {
     document.body.classList.toggle('left-handed', this.game.state.settings.leftHanded);
     mainHunterName = this.game.state.settings.name.trim();
+    setHaptics(this.game.state.settings.haptics);
     applyFont(this.game.state.settings.font);
     applyUiStyle(this.game.state.settings.uiStyle);
     requestAnimationFrame(refitAffinities);
@@ -3813,17 +3824,22 @@ export class AppUI {
       ['dmgWeak', 'Weak-spot hits'],
     ]);
     fxGroup('Status effect particles', 'What monsters show while affected by a status effect.', 'status', [
-      ['burn', '🔥 Burning embers'],
-      ['poison', '☠️ Poison bubbles'],
-      ['bleed', '🩸 Bleeding drips'],
-      ['chill', '❄️ Frost tint'],
-      ['acid', '🧪 Acid puddles'],
-      ['radiant', '✨ Radiant bursts'],
-      ['decay', '🍂 Decay aura'],
-      ['arcane', '🔮 Arcane sparks'],
-      ['void', '🌀 Void gravity wells'],
+      ['burn', `${fxIcon('fire')} Burning embers`],
+      ['poison', `${fxIcon('poison')} Poison bubbles`],
+      ['bleed', `${fxIcon('physical')} Bleeding drips`],
+      ['chill', `${fxIcon('frost')} Frost tint`],
+      ['acid', `${fxIcon('acid')} Acid puddles`],
+      ['radiant', `${fxIcon('radiant')} Radiant bursts`],
+      ['decay', `${fxIcon('decay')} Decay aura`],
+      ['arcane', `${fxIcon('arcane')} Arcane sparks`],
+      ['void', `${fxIcon('void')} Void gravity wells`],
     ]);
     choices('Area effect style', 'Fancy draws spells as animated pixel art (explosions, fireballs, lightning strikes, sun strikes, black holes, shield flashes, puffs as monsters fall) and puddles, bursts and auras as clusters of coloured pixel squares; Basic draws them as plain circles.', styles, () => st.aoeStyle, (v) => (st.aoeStyle = v));
+    choices('Haptics', 'A short vibration when you press a button or tap the battlefield (not when you swipe or scroll).', [['off', 'Off'], ['light', 'Light'], ['medium', 'Medium'], ['strong', 'Strong']], () => st.haptics, (v) => {
+      st.haptics = v;
+      setHaptics(v);
+      buzz();
+    });
     choices('Clarity Border', 'A white outline round Hunters, monsters and their projectiles, so they stand out from the ground and the scenery. Low is a faint edge; Strong a bright one.', [['off', 'Off'], ['low', 'Low'], ['moderate', 'Moderate'], ['strong', 'Strong']], () => st.clarity, (v) => (st.clarity = v));
 
     const tabsCard = el('div', 'card setting');
@@ -4680,6 +4696,11 @@ function specialText(gd: GearDef): string {
 /** The Special damage type's tag (weapons that change elements, or deal too many to list). */
 function specialTypeHtml(): string {
   return `<span class="dtype-tag special-type" style="--dc:${SPECIAL_TYPE.color}"><span class="ic">${tagIconHtml(SPECIAL_TAG_ICON)}</span>${SPECIAL_TYPE.name}</span>`;
+}
+
+/** A damage type's tag icon on its own, in its colour's frame (the status effect rows in Settings). */
+function fxIcon(t: DamageType): string {
+  return `<span class="fx-ic" style="--dc:${DAMAGE_TYPES[t].color}">${tagIconHtml(DAMAGE_TAG_ICONS[t])}</span>`;
 }
 
 function damageTypeHtml(t: DamageType): string {

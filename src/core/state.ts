@@ -210,6 +210,8 @@ export interface GameState {
     uiStyle: UiStyle;
     /** A white outline round Hunters, monsters and their projectiles, for legibility: how strong (Low by default). */
     clarity: ClarityLevel;
+    /** Vibration on button presses and battlefield taps (Medium by default). */
+    haptics: HapticLevel;
   };
   /** One-time tutorial moments already shown. */
   flags: {
@@ -300,7 +302,7 @@ export function newGame(now = Date.now()): GameState {
     nextGearUid: 4,
     lastSeen: now,
     samples: {},
-    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', autoSalvage: [], fx: allFx(), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low' },
+    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', autoSalvage: [], fx: allFx(), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium' },
     flags: { eventsIntro: false, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false },
     blessings: { refine: 0, enchant: 0 },
     events: Object.fromEntries(EVENTS.map((e) => [e.id, { cooldown: 0, runs: 0, completed: 0 }])),
@@ -324,6 +326,9 @@ export type UiStyle = (typeof UI_STYLES)[number];
 /** The Clarity Border's strengths: how opaque the white outline round characters and projectiles is. */
 export const CLARITY_LEVELS = ['off', 'low', 'moderate', 'strong'] as const;
 export type ClarityLevel = (typeof CLARITY_LEVELS)[number];
+/** Haptic feedback on presses and taps: off, or how strong. */
+export const HAPTIC_LEVELS = ['off', 'light', 'medium', 'strong'] as const;
+export type HapticLevel = (typeof HAPTIC_LEVELS)[number];
 export type ReloadPos = (typeof RELOAD_POSITIONS)[number];
 
 /** Effect switches in Settings: the damage numbers and status effect groups, and each kind within them. */
@@ -559,6 +564,7 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
       aoeStyle: pick(INDICATOR_STYLES, (data.settings as { aoeStyle?: unknown } | undefined)?.aoeStyle, 'fancy'),
       uiStyle: pick(UI_STYLES, (data.settings as { uiStyle?: unknown } | undefined)?.uiStyle, 'parchment'),
       clarity: pick(CLARITY_LEVELS, (data.settings as { clarity?: unknown } | undefined)?.clarity, 'low'),
+      haptics: pick(HAPTIC_LEVELS, (data.settings as { haptics?: unknown } | undefined)?.haptics, 'medium'),
     },
     flags: {
       eventsIntro: !!(data.flags as { eventsIntro?: unknown } | undefined)?.eventsIntro,
