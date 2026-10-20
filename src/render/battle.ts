@@ -474,6 +474,40 @@ export class BattleView {
     this.drawBoneWall(g);
 
     for (const z of this.field.zones) this.drawZone(g, z);
+    for (const f of this.field.fissures) {
+      // Earthshatter: a jagged crack glowing with the hammer's element, fading as it closes.
+      const fade = Math.min(1, f.life / 0.5);
+      const n = 8;
+      const dx = (f.x2 - f.x1) / n;
+      const dy = (f.y2 - f.y1) / n;
+      const len = Math.hypot(dx, dy) || 1;
+      const px = -dy / len;
+      const py = dx / len;
+      const path = () => {
+        g.beginPath();
+        for (let i = 0; i <= n; i++) {
+          const j = i === 0 || i === n ? 0 : ((i * 7) % 5) - 2;
+          const x = f.x1 + dx * i + px * j * 3;
+          const y = f.y1 + dy * i + py * j * 3;
+          if (i) g.lineTo(x, y);
+          else g.moveTo(x, y);
+        }
+      };
+      g.save();
+      g.lineCap = 'round';
+      g.lineJoin = 'round';
+      g.globalAlpha = 0.35 * fade;
+      g.strokeStyle = f.color === DAMAGE_TYPES.physical.color ? '#c8a878' : f.color;
+      g.lineWidth = f.width;
+      path();
+      g.stroke();
+      g.globalAlpha = 0.9 * fade;
+      g.strokeStyle = '#2a2018';
+      g.lineWidth = 4;
+      path();
+      g.stroke();
+      g.restore();
+    }
     for (const b of this.field.bullets) drawBullet(g, b, this.time, this.game.state.settings.aoeStyle === 'basic');
     this.drawTomes(g);
     this.drawDice(g);

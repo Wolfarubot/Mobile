@@ -19,6 +19,7 @@ import {
   REFINES,
   ENCHANTS,
   SPELLS,
+  MELEE_ARTS,
   TYPE_SPELLS,
   staffSpell,
   spellEnchantId,
@@ -2259,6 +2260,89 @@ describe('Equipment', () => {
       f.enemies = [enemy({ id: 1, type: 'wolf', x: 0, y: -200, hp: 1e9, maxHp: 1e9 }), enemy({ id: 2, type: 'wolf', x: 25, y: -215, hp: 1e9, maxHp: 1e9 })];
       for (let i = 0; i < 60; i++) f.update(1 / 30);
       expect(f.enemies[1].hp).toBeLessThan(1e9);
+    }
+  });
+
+  it('more melee arts: Whirlwind, Riposte, Executioner, Earthshatter, Momentum and Bloodthirst', () => {
+    const setup = (base: Parameters<Game['craftGear']>[0], id: keyof typeof ENCHANTS, roll = 0) => {
+      const g = new Game(newGame(0), () => roll);
+      g.state.main.trains = 50;
+      g.state.inventory.push({ uid: 900, base, stars: 1, mods: [{ kind: 'enchant', id, q: 5, p: 5 }] } as (typeof g.state.inventory)[number]);
+      g.equip('main', 0, 900);
+      const f = new Field(g);
+      f.setView(390, 420);
+      return { g, f, api: f as unknown as Record<string, (...a: unknown[]) => unknown> };
+    };
+    const wolf = (id: number, x: number, y: number, hp = 1e9) => enemy({ id, type: 'wolf', x, y, hp, maxHp: 1e9 });
+    // Whirlwind: hits behind the Hunter too, and draws in monsters further out.
+    {
+      const { g, f, api } = setup('slimeSword', 'artWhirlwind');
+      f.enemies = [wolf(1, 0, 60), wolf(2, 0, -150)];
+      api.meleeArt('main', 0, 0, -Math.PI / 2, 'whirlwind', 1, g.weaponClassOf('main'), 'long');
+      expect(f.enemies[0].hp).toBeLessThan(1e9);
+      expect(Math.abs(f.enemies[1].y)).toBeLessThan(150);
+    }
+    // Riposte: a monster reaching the Hunter is struck first; if that kills it, no stun.
+    {
+      const { f, api } = setup('slimeSword', 'artRiposte');
+      const e = wolf(1, 0, -10, 1);
+      e.maxHp = 1;
+      f.enemies = [e];
+      api.contact(e, 'main', 0, -1);
+      expect(e.hp).toBeLessThanOrEqual(0);
+      expect(f.stunned).toBe(false);
+    }
+    // Executioner: near death, a hit finishes it off.
+    {
+      const { f, api } = setup('beastBlade', 'artExecutioner');
+      const e = wolf(1, 0, -50, 1e9 * 0.2);
+      f.enemies = [e];
+      api.hitWith('main', e, 1e-9, 0, 0);
+      expect(e.hp).toBeLessThanOrEqual(0);
+      // Not a Guardian.
+      const b = wolf(2, 0, -50, 1e9 * 0.2);
+      b.boss = true;
+      f.enemies = [b];
+      api.hitWith('main', b, 1e-9, 0, 0);
+      expect(b.hp).toBeGreaterThan(0);
+    }
+    // Earthshatter: a fissure that keeps hurting monsters on it.
+    {
+      const { g, f, api } = setup('kingsMaul', 'artEarthshatter');
+      f.enemies = [wolf(1, 0, -150)];
+      api.meleeArt('main', 0, 0, -Math.PI / 2, 'earthshatter', 0.3, g.weaponClassOf('main'), 'long');
+      expect(f.fissures).toHaveLength(1);
+      for (let i = 0; i < 30; i++) f.update(1 / 30);
+      expect(f.enemies[0].hp).toBeLessThan(1e9);
+    }
+    // Momentum: thrusts at the same monster stack; a new one starts over.
+    {
+      const { api } = setup('boneSpear', 'artMomentum');
+      const a = wolf(1, 0, -50);
+      const b = wolf(2, 50, 0);
+      const m1 = api.momentumOn('main', a, 'long') as number;
+      const m2 = api.momentumOn('main', a, 'long') as number;
+      const m3 = api.momentumOn('main', a, 'long') as number;
+      expect(m1).toBe(1);
+      expect(m3).toBeGreaterThan(m2);
+      expect(m2).toBeGreaterThan(1);
+      expect(api.momentumOn('main', b, 'long')).toBe(1);
+      for (let i = 0; i < 20; i++) api.momentumOn('main', b, 'long');
+      const per = (api.arts('main') as Array<{ chance: number }>)[0].chance;
+      expect(api.momentumOn('main', b, 'long')).toBeCloseTo(1 + MELEE_ARTS.momentumMax * per);
+    }
+    // Bloodthirst: a kill speeds up attacks; while stunned it cuts the stun.
+    {
+      const { f, api } = setup('slimeSword', 'artBloodthirst');
+      const e = wolf(1, 0, -50, 1);
+      f.enemies = [e];
+      api.hitWith('main', e, 1, 0, 0);
+      expect(api.frenzyMult('main')).toBeGreaterThan(1);
+      f.stun = 2;
+      const e2 = wolf(2, 0, -50, 1);
+      f.enemies = [e2];
+      api.hitWith('main', e2, 1, 0, 0);
+      expect(f.stun).toBeCloseTo(2 - MELEE_ARTS.stunCut);
     }
   });
 

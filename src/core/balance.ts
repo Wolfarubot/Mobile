@@ -2512,6 +2512,12 @@ export type EnchantId =
   | 'artAftershock'
   | 'artBigDagger'
   | 'artBlastDaggers'
+  | 'artWhirlwind'
+  | 'artRiposte'
+  | 'artExecutioner'
+  | 'artEarthshatter'
+  | 'artMomentum'
+  | 'artBloodthirst'
   | SpellEnchantId;
 
 /**
@@ -2519,9 +2525,40 @@ export type EnchantId =
  * spear or glaive a giant phantom of itself; a hammer a second, elemental slam; a dagger a big spectral dagger,
  * or thrown daggers that explode.
  */
-export type MeleeArt = 'wave' | 'spear' | 'glaive' | 'aftershock' | 'bigDagger' | 'blastDaggers';
+export type MeleeArt = 'wave' | 'spear' | 'glaive' | 'aftershock' | 'bigDagger' | 'blastDaggers' | 'whirlwind' | 'riposte' | 'executioner' | 'earthshatter' | 'momentum' | 'bloodthirst';
+/**
+ * Arts that don't go off on an attack: they act when a dagger is thrown (Blast Daggers), a monster reaches the
+ * Hunter (Riposte), a hit lands (Executioner, Momentum) or a monster dies (Bloodthirst).
+ */
+export const PASSIVE_ARTS: ReadonlySet<MeleeArt> = new Set(['blastDaggers', 'riposte', 'executioner', 'momentum', 'bloodthirst']);
 /** How the arts are shaped: a wave's speed and reach (× the weapon's reach), a phantom's reach and width, a blast's radius. */
-export const MELEE_ARTS = { waveSpeed: 420, waveReach: 3.5, waveSize: 0.45, spearReach: 2.2, spearWidth: 2, glaiveReach: 1.8, aftershockDelay: 0.18, bigDaggerSize: 12, blastRadius: 45 };
+export const MELEE_ARTS = {
+  waveSpeed: 420,
+  waveReach: 3.5,
+  waveSize: 0.45,
+  spearReach: 2.2,
+  spearWidth: 2,
+  glaiveReach: 1.8,
+  aftershockDelay: 0.18,
+  bigDaggerSize: 12,
+  blastRadius: 45,
+  /** Whirlwind: a full spin this much wider than the weapon's reach, drawing in monsters within `pullReach` × reach by `pull` of the way. */
+  whirlReach: 1.3,
+  pullReach: 2.2,
+  pull: 0.35,
+  /** Executioner: below this share of their HP, monsters take its bonus and can be finished outright. */
+  executeAt: 0.25,
+  /** Earthshatter: a fissure `fissureLength` × reach long and `fissureWidth` wide, hurting every `fissureTick`s for `fissureLife`s. */
+  fissureLength: 3,
+  fissureWidth: 18,
+  fissureTick: 0.5,
+  fissureLife: 3,
+  /** Momentum: most stacks on one monster. */
+  momentumMax: 5,
+  /** Bloodthirst: seconds of faster attacks, and seconds a kill takes off a stun. */
+  frenzyTime: 3,
+  stunCut: 0.5,
+};
 /** A Spell enchantment: one per spell, e.g. 'spellFireball'. */
 export type SpellEnchantId = `spell${Capitalize<SpellId>}`;
 
@@ -2608,6 +2645,12 @@ export const ENCHANTS: Record<EnchantId, EnchantDef> = {
   artAftershock: { name: 'Aftershock', icon: '💥', range: [0.15, 0.3], power: [0.6, 1], weight: 1, melee: 'aftershock', fits: melee('hammer'), text: (c, p) => `${pct(c)} chance a slam is followed at once by a second slam of the hammer's element (${hits(p)})` },
   artBigDagger: { name: 'Spectral Dagger', icon: '🗡️', range: [0.1, 0.2], power: [1.5, 2.5], weight: 1, melee: 'bigDagger', fits: melee('dagger'), text: (c, p) => `${pct(c)} chance on attack to throw a big dagger of its element that pierces everything in its path (${hits(p)})` },
   artBlastDaggers: { name: 'Blast Daggers', icon: '💣', range: [0.25, 0.5], power: [0.5, 0.9], weight: 1, melee: 'blastDaggers', fits: melee('dagger'), text: (c, p) => `${pct(c)} chance each thrown dagger explodes where it hits, in its element (${hits(p)} to everything around)` },
+  artWhirlwind: { name: 'Whirlwind', icon: '🌪️', range: [0.08, 0.15], power: [1, 1.4], weight: 1, melee: 'whirlwind', fits: (d) => d.weaponClass === 'sword' || d.weaponClass === 'glaive', text: (c, p) => `${pct(c)} chance on attack to spin, hitting everything all the way around and drawing monsters in (${hits(p)})` },
+  artRiposte: { name: 'Riposte', icon: '🤺', range: [0.2, 0.4], power: [1, 1.5], weight: 1, melee: 'riposte', fits: (d) => d.kind === 'melee', text: (c, p) => `${pct(c)} chance to strike a monster that reaches the wearer with a critical hit first (${hits(p)}); if it dies, no stun` },
+  artExecutioner: { name: 'Executioner', icon: '🪓', range: [0.04, 0.08], power: [0.5, 1], weight: 1, melee: 'executioner', fits: (d) => d.weaponClass === 'dagger' || d.weaponClass === 'sword', text: (c, p) => `+${pct(p)} damage to monsters below ${MELEE_ARTS.executeAt * 100}% HP, and each hit has ${pct(c)} chance to finish one off (not Guardians)` },
+  artEarthshatter: { name: 'Earthshatter', icon: '⛰️', range: [0.15, 0.3], power: [0.2, 0.35], weight: 1, melee: 'earthshatter', fits: melee('hammer'), text: (c, p) => `${pct(c)} chance a slam cracks the ground in a line, the fissure hurting monsters on it every ${MELEE_ARTS.fissureTick}s for ${MELEE_ARTS.fissureLife}s (${hits(p)})` },
+  artMomentum: { name: 'Momentum', icon: '📈', range: [0.08, 0.15], weight: 1, melee: 'momentum', fits: melee('spear'), text: (c) => `each thrust in a row at the same monster hits +${pct(c)} harder (up to ${MELEE_ARTS.momentumMax} times); a new target starts over` },
+  artBloodthirst: { name: 'Bloodthirst', icon: '🩸', range: [0.15, 0.3], power: [0.3, 0.6], weight: 1, melee: 'bloodthirst', fits: (d) => d.kind === 'melee', text: (c, p) => `${pct(c)} chance a kill gives +${pct(p)} attack speed for ${MELEE_ARTS.frenzyTime}s (or, while stunned, takes ${MELEE_ARTS.stunCut}s off the stun)` },
   shieldBurst: { name: 'Shield Burst', icon: '🛡️', range: [0.4, 0.8], power: [0.8, 1.2], weight: 1, effect: { kind: 'block', base: 1, damageType: 'radiant', radius: 80 }, fits: isArmor, text: (c, p, t) => `${pct(c)} chance a blocked hit blasts everything nearby (${dmg(p, t)})` },
 };
 

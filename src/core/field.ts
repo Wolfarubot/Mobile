@@ -20,6 +20,7 @@ import {
   PLAGUE_SPREAD,
   BOULDER,
   MELEE_ARTS,
+  PASSIVE_ARTS,
   type SpellId,
   type MeleeArt,
   FLAME_BURST_COOLDOWN,
@@ -280,6 +281,21 @@ export interface SpellHit {
   fx?: 'spike' | 'sun' | 'storm' | 'rock' | 'shock';
 }
 
+/** Earthshatter: a crack in the ground from (x1, y1) to (x2, y2), hurting monsters on it each tick for `power` × a hit. */
+export interface Fissure {
+  who: Shooter;
+  mode?: GearMode;
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  width: number;
+  life: number;
+  tick: number;
+  power: number;
+  color: string;
+}
+
 /** A spell that lingers: an acid cloud, a drifting poison mist, cursed ground, a gravity anchor. */
 export interface SpellZone {
   kind: SpellId;
@@ -457,6 +473,15 @@ export class Field {
   /** Spells' hits still to land, and the spells lingering on the field. */
   spellHits: SpellHit[] = [];
   zones: SpellZone[] = [];
+  /** Earthshatter's fissures: cracks in the ground hurting the monsters on them. */
+  fissures: Fissure[] = [];
+  /** Bloodthirst: seconds of faster attacks left, and how much faster, per Hunter. */
+  private frenzy = new Map<Shooter, number>();
+  private frenzyBonus = new Map<Shooter, number>();
+  /** Momentum: each Hunter's current spear target and stacks on it. */
+  private momentum = new Map<Shooter, { target: number; stacks: number }>();
+  /** Each Hunter's melee arts this frame (looked up on every hit, so kept for the frame). */
+  private artCache = new Map<string, Array<{ art: MeleeArt; chance: number; power: number }>>();
   /** Seconds until your tome's creatures can lunge again (a tome with a lunge ability, e.g. the Wolf Spirit). */
   dashCd = 0;
   /** Seconds until a tap with Melting Miasma equipped can leave another poison puddle. */
@@ -527,6 +552,7 @@ export class Field {
     this.puddles = [];
     this.spellHits = [];
     this.zones = [];
+    this.fissures = [];
     this.tomes = [];
     this.dice = [];
     this.stun = 0;
@@ -607,6 +633,9 @@ export class Field {
 
   update(dt: number): void {
     const g = this.game;
+    this.artCache.clear();
+    for (const [who, t] of this.frenzy) if (t - dt > 0) this.frenzy.set(who, t - dt);
+    else this.frenzy.delete(who);
 
     // Stuns, immunity and shields
     if (this.stun > 0) {
@@ -655,7 +684,7 @@ export class Field {
     this.moveShots(dt);
 
     // Your Hunter (not while stunned): attacks the way their weapon's class does.
-    this.fireAcc = Math.min(this.fireAcc + dt * g.shooterRate(this.lead), 3);
+    this.fireAcc = Math.min(this.fireAcc + dt * g.shooterRate(this.lead) * this.frenzyMult(this.lead), 3);
     if (this.stunned) this.fireAcc = 0;
     const cls = g.weaponClassOf(this.lead);
     const range = g.shooterRange(this.lead);
@@ -852,6 +881,14 @@ export class Field {
         this.abilityHit(who, e, effectBase(ef, stars), ef.damageType, false);
         this.events.push({ type: 'thorns', x: e.x, y: e.y, r: e.r });
       }
+    // Riposte: a melee Hunter may strike first, with a critical hit; if that kills it, it never lands its blow.
+    const riposte = this.arts(who).find((a) => a.art === 'riposte');
+    if (riposte && !(helper ? helper.stun > 0 : this.stunned) && this.game.rng() < riposte.chance) {
+      this.events.push({ type: 'attack', who, a: Math.atan2(e.y - hy, e.x - hx) });
+      this.events.push({ type: 'say', x: hx, y: hy - 30, text: 'RIPOSTE', color: '#fff4d0', size: 11 });
+      this.hitWith(who, e, riposte.power, hx, hy, true);
+      if (e.hp <= 0) return;
+    }
     // Evasion (light armor): slip it entirely, no stun and no shield used.
     if (!e.boss && effects.some(({ effect: ef }) => ef.kind === 'evade' && this.game.rng() < ef.chance)) {
       e.fleeing = true;
@@ -1067,7 +1104,7 @@ export class Field {
     const mode: GearMode = h.close ? 'short' : 'long';
     const rate = g.shooterRate(h.id, mode);
     if (def.special) this.helperSpecial(h, dt);
-    h.fireAcc = Math.min(h.fireAcc + dt * rate, 3);
+    h.fireAcc = Math.min(h.fireAcc + dt * rate * this.frenzyMult(h.id), 3);
     const cls = g.weaponClassOf(h.id, mode);
     if (!this.gunReady(h.gun, cls, dt)) h.fireAcc = 0;
     const range = g.shooterRange(h.id, mode);
@@ -1135,7 +1172,7 @@ export class Field {
       this.events.push({ type: 'slam', x: cx, y: cy, r, color: this.typeColor(who, mode) });
       for (const e of [...this.enemies]) if (e.hp > 0 && Math.hypot(e.x - cx, e.y - cy) <= r + e.r) this.meleeHit(who, e, 1, cx, cy, cls.knock ?? 0);
     } else if (cls?.attack === 'sweep') this.strikeArc(who, x, y, aim, cls.reach!, cls.arc!, 1, cls.knock ?? 0, true, this.typeColor(who, mode));
-    else if (cls?.attack === 'stab') this.strikeLine(who, x, y, aim, range, cls.width ?? 10, Infinity, 1, this.typeColor(who, mode), (cls.width ?? 10) / 2, cls.knock ?? 0);
+    else if (cls?.attack === 'stab') this.strikeLine(who, x, y, aim, range, cls.width ?? 10, Infinity, this.momentumOn(who, target, mode), this.typeColor(who, mode), (cls.width ?? 10) / 2, cls.knock ?? 0);
     else if (cls?.volley) {
       // A fan: each bolt at a random angle within it. Bolts of one volley stack on the same monster.
       const volley = this.nextVolley++;
@@ -1150,7 +1187,7 @@ export class Field {
     }
     if (this.isMelee(who)) {
       this.meleeWave(who, x, y);
-      if (!encore) for (const art of g.meleeArts(who, mode)) if (art.art !== 'blastDaggers' && g.rng() < art.chance) this.meleeArt(who, x, y, aim, art.art, art.power, cls!, mode);
+      if (!encore) for (const art of this.arts(who, mode)) if (!PASSIVE_ARTS.has(art.art) && g.rng() < art.chance) this.meleeArt(who, x, y, aim, art.art, art.power, cls!, mode);
     }
     // Enchantments set off by attacks (Thunder Call, the pulses), each at its rolled chance.
     for (const { effect, chance } of g.attackEnchants(who)) if (g.rng() < chance) this.fireGear(who, x, y, effect, 1, 0);
@@ -1617,9 +1654,89 @@ export class Field {
       case 'bigDagger':
         this.shoot(who, 'bigDagger', x, y, aim, BULLET_SPEED * 0.8, g.shooterRange(who, mode) * 1.5, { pierce: Infinity, dmg: power, size: MELEE_ARTS.bigDaggerSize, mode: m });
         break;
-      case 'blastDaggers':
-        break; // goes off on thrown daggers (runStabs)
+      case 'whirlwind': {
+        // A full spin: everything all the way around is hit, and monsters further out are drawn in.
+        const r = reach * MELEE_ARTS.whirlReach * g.radiusMult(who);
+        for (const e of this.enemies) {
+          const d = Math.hypot(e.x - x, e.y - y);
+          if (e.boss || e.hp <= 0 || d <= r || d > reach * MELEE_ARTS.pullReach * g.radiusMult(who)) continue;
+          e.x += (x - e.x) * MELEE_ARTS.pull;
+          e.y += (y - e.y) * MELEE_ARTS.pull;
+        }
+        this.strikeArc(who, x, y, aim, r, Math.PI * 2, power, 0, true, color);
+        this.events.push({ type: 'wave', x, y, r, time: 0.25, color });
+        break;
+      }
+      case 'earthshatter': {
+        // The ground cracks out in a line from where the slam landed.
+        const r = reach * g.radiusMult(who);
+        const cx = x + Math.cos(aim) * r * SLAM_OFFSET;
+        const cy = y + Math.sin(aim) * r * SLAM_OFFSET;
+        const len = reach * MELEE_ARTS.fissureLength;
+        this.fissures.push({ who, mode: m, x1: cx, y1: cy, x2: cx + Math.cos(aim) * len, y2: cy + Math.sin(aim) * len, width: MELEE_ARTS.fissureWidth * g.radiusMult(who), life: MELEE_ARTS.fissureLife, tick: 0, power, color });
+        break;
+      }
+      default:
+        break; // passive arts act elsewhere (PASSIVE_ARTS)
     }
+  }
+
+  /** Bloodthirst: a kill may speed up the killer's attacks for a while, or take some time off their stun. */
+  private bloodthirst(who: Shooter): void {
+    const art = this.arts(who).find((a) => a.art === 'bloodthirst');
+    if (!art || this.game.rng() >= art.chance) return;
+    const h = who === this.lead ? null : this.helpers.find((x) => x.id === who);
+    if (who !== this.lead && !h) return;
+    if (h ? h.stun > 0 : this.stun > 0) {
+      if (h) h.stun = Math.max(0, h.stun - MELEE_ARTS.stunCut);
+      else this.stun = Math.max(0, this.stun - MELEE_ARTS.stunCut);
+      return;
+    }
+    if (!this.frenzy.has(who)) this.say(h?.x ?? 0, (h?.y ?? 0) - 34, 'FRENZY', '#ff6a6a', 10);
+    this.frenzy.set(who, MELEE_ARTS.frenzyTime);
+    this.frenzyBonus.set(who, art.power);
+  }
+
+  /** A Hunter's melee arts (cached for the frame). */
+  private arts(who: Shooter, mode: GearMode = 'long'): Array<{ art: MeleeArt; chance: number; power: number }> {
+    const key = `${who}:${mode}`;
+    let a = this.artCache.get(key);
+    if (!a) this.artCache.set(key, (a = this.game.meleeArts(who, mode)));
+    return a;
+  }
+
+  /** Bloodthirst: how much faster a Hunter is attacking right now. */
+  private frenzyMult(who: Shooter): number {
+    return this.frenzy.has(who) ? 1 + (this.frenzyBonus.get(who) ?? 0) : 1;
+  }
+
+  /** Momentum: a spear's thrust at the same monster as last time stacks; at a new one it starts over. */
+  private momentumOn(who: Shooter, target: Enemy, mode: GearMode): number {
+    const art = this.arts(who, mode).find((a) => a.art === 'momentum');
+    if (!art) return 1;
+    const m = this.momentum.get(who);
+    const stacks = m && m.target === target.id ? Math.min(MELEE_ARTS.momentumMax, m.stacks + 1) : 0;
+    this.momentum.set(who, { target: target.id, stacks });
+    return 1 + stacks * art.chance;
+  }
+
+  /** Earthshatter's fissures hurt the monsters standing on them every tick. */
+  private runFissures(dt: number): void {
+    for (const f of this.fissures) {
+      f.life -= dt;
+      f.tick -= dt;
+      if (f.tick > 0) continue;
+      f.tick = MELEE_ARTS.fissureTick;
+      const dx = f.x2 - f.x1;
+      const dy = f.y2 - f.y1;
+      const len2 = dx * dx + dy * dy || 1;
+      for (const e of [...this.enemies]) {
+        if (e.hp <= 0 || FLYING.has(e.type)) continue;
+        const t = Math.max(0, Math.min(1, ((e.x - f.x1) * dx + (e.y - f.y1) * dy) / len2));
+        if (Math.hypot(f.x1 + dx * t - e.x, f.y1 + dy * t - e.y) <= f.width / 2 + e.r) this.hitWith(f.who, e, f.power, e.x, e.y + 20, undefined, f.mode);
+      }
+    }
+    this.fissures = this.fissures.filter((f) => f.life > 0);
   }
 
   /** Instant strike along a line (lance thrust, sniper shot): hits up to `maxHits` enemies within `width`. */
@@ -1692,7 +1809,7 @@ export class Field {
         this.meleeHit(s.who, e, 1, ox, oy, s.last ? (cls.knock ?? 0) : 0);
       } else {
         // Blast Daggers: some thrown daggers explode where they hit.
-        const blast = this.game.meleeArts(s.who).find((x) => x.art === 'blastDaggers');
+        const blast = this.arts(s.who).find((x) => x.art === 'blastDaggers');
         const boom = blast && this.game.rng() < blast.chance ? { r: MELEE_ARTS.blastRadius * this.game.radiusMult(s.who), k: blast.power } : undefined;
         this.shoot(s.who, 'dagger', ox, oy, a, BULLET_SPEED, range, { pierce: this.game.pierceOf(s.who), blast: boom });
       }
@@ -1965,6 +2082,7 @@ export class Field {
       for (const e of [...this.enemies]) if (e.hp > 0 && Math.hypot(e.x - h.x, e.y - h.y) <= h.r + e.r) this.spellHit(h.c, e, h.k, h.x, h.y);
     }
     this.spellHits = this.spellHits.filter((h) => h.t > 0);
+    if (this.fissures.length) this.runFissures(dt);
 
     for (const z of this.zones) {
       z.life -= dt;
@@ -2196,6 +2314,9 @@ export class Field {
   ): void {
     const g = this.game;
     const types = only ? [only] : g.damageTypesOf(shooter, mode, special);
+    // Executioner: monsters near death take extra.
+    const exec = e.hp < e.maxHp * MELEE_ARTS.executeAt ? this.arts(shooter, mode ?? 'long').find((a) => a.art === 'executioner') : undefined;
+    if (exec) mult *= 1 + exec.power;
     const base = (g.shotDamage(shooter, enemyDef(e.type).archetype, mode) * mult * (crit ? g.critMultOf(shooter) : 1)) / types.length;
     const d = Math.hypot(e.x - fromX, e.y - fromY) || 1;
     for (const t of types) {
@@ -2203,6 +2324,14 @@ export class Field {
       this.damage(e, dmg, crit, (e.x - fromX) / d, (e.y - fromY) / d, shooter, t);
       // Each type rolls its own effect (an infused type at its infusion's chance).
       if (status && g.rng() < g.procFor(shooter, t, mode, special)) this.applyStatus(e, t, dmg, shooter, g.procRarity(shooter, mode, special));
+    }
+    // Executioner: a monster left near death may be finished off outright (never a Guardian).
+    if (e.hp > 0 && !e.boss && e.hp < e.maxHp * MELEE_ARTS.executeAt) {
+      const ex = this.arts(shooter, mode ?? 'long').find((a) => a.art === 'executioner');
+      if (ex && g.rng() < ex.chance) {
+        this.say(e.x, e.y - e.r - 10, 'EXECUTE', '#ff5a5a', 10);
+        this.damage(e, e.hp, true, 0, 0, shooter, types[0]);
+      }
     }
   }
 
@@ -2520,6 +2649,7 @@ export class Field {
     if (e.hp <= 0) {
       const reward = this.game.registerKill(e.type, e.boss, shooter);
       if (this.zones.length) this.raiseFallen(e);
+      this.bloodthirst(shooter);
       // Fireburst (an enchantment): monsters the weapon kills burst, hurting everything around them.
       const burst = this.game.killBurst(shooter);
       if (burst && this.game.rng() < burst.chance) this.abilityBurst(shooter, e.x, e.y, burst.radius, burst.base, burst.damageType);
