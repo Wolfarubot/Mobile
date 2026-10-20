@@ -1583,12 +1583,14 @@ button {
 }
 
 /* ---- Settings ---- */
-.settings-btn {
+.menu-btn {
+  position: relative;
   margin-left: 6px;
-  padding: 2px 4px;
+  padding: 3px 5px;
   background: none;
-  font-size: 18px;
   align-self: center;
+  display: grid;
+  place-items: center;
 }
 .setting-name {
   font-weight: 800;
@@ -2104,7 +2106,7 @@ canvas {
   border-bottom: 3px solid var(--c1);
 }
 .hd-close,
-.settings-btn {
+.menu-btn {
   background: var(--c1);
   color: var(--fg);
   border: 2px solid var(--c3);
@@ -5408,4 +5410,101 @@ textarea {
   height: 14px;
   margin: 0 8px;
   outline: 2px solid #000;
+}
+
+/*
+ * Pixel icons from the UI pack (white on transparent), tinted with a mask so one file serves every colour. The
+ * mask sits on ::before so the black outline (a filter on the element itself) isn't masked away with it.
+ */
+.menu-lines,
+.alert-mark,
+.close-x {
+  display: inline-block;
+  position: relative;
+  flex: none;
+  filter: drop-shadow(1px 0 0 #000) drop-shadow(-1px 0 0 #000) drop-shadow(0 1px 0 #000) drop-shadow(0 -1px 0 #000);
+}
+.menu-lines::before,
+.alert-mark::before,
+.close-x::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--icc, #fff);
+  -webkit-mask: var(--ic) center / contain no-repeat;
+  mask: var(--ic) center / contain no-repeat;
+}
+.menu-lines {
+  --ic: url(/ui/icon-menu.png);
+  --icc: var(--fg);
+  width: 28px;
+  height: 28px;
+}
+.close-x {
+  --ic: url(/ui/icon-close.png);
+  width: 22px;
+  height: 22px;
+}
+/* "!" notification: red on tabs and buttons, white on cards (monsters, gear, recipes, entries). */
+.alert-mark {
+  --ic: url(/ui/icon-alert.png);
+  --icc: #ff3030;
+  width: 26px;
+  height: 26px;
+}
+.alert-mark.white {
+  --icc: #fff;
+}
+.menu-btn .alert-mark {
+  position: absolute;
+  top: -8px;
+  right: -12px;
+}
+
+/* The main menu popup. */
+.menu-list {
+  display: grid;
+  gap: 8px;
+  margin: 6px 0 4px;
+}
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  font-size: 17px;
+  font-weight: 800;
+  text-align: left;
+}
+.menu-item .mi-icon {
+  width: 28px;
+  font-size: 22px;
+  text-align: center;
+}
+.menu-item .mi-name {
+  flex: 1;
+}
+
+/* Journal. */
+.journal .tut-row .alert-mark {
+  align-self: center;
+}
+.journal-page {
+  font-size: 16px;
+  line-height: 1.5;
+}
+.journal-page .jp-icon {
+  font-size: 34px;
+  text-align: center;
+}
+.journal-page .jp-icon .px-icon,
+.journal .tut-icon .px-icon {
+  width: 34px;
+  height: 34px;
+  image-rendering: pixelated;
+}
+.journal-more {
+  text-align: center;
+  opacity: 0.8;
+  margin: 14px 0;
 }

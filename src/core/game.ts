@@ -1,3 +1,4 @@
+import { JOURNAL, type JournalEntry } from './journal';
 import {
   modSlotCount,
   weaponOnlyEnchant,
@@ -1946,6 +1947,32 @@ export class Game {
   }
 
   // ---- Hunters ----
+
+  /** Whether a Journal entry's unlock condition has been met. */
+  journalUnlocked(e: JournalEntry): boolean {
+    const u = e.unlock;
+    switch (u.kind) {
+      case 'start':
+        return true;
+      case 'kills':
+        return (this.state.bestiary[u.enemy]?.kills ?? 0) >= u.count;
+      case 'monster':
+        return !!this.state.bestiary[u.enemy]?.unlocked;
+      case 'area':
+        return !!this.state.areas[u.area]?.unlocked;
+      case 'event':
+        return this.eventCompletions(u.event) >= u.times;
+      case 'hunter':
+        return !!this.state.hunters[u.hunter]?.recruited;
+      case 'level':
+        return this.levelOf('main') >= u.level;
+    }
+  }
+
+  /** Journal entries unlocked but not yet read. */
+  unreadJournal(): JournalEntry[] {
+    return JOURNAL.filter((e) => this.journalUnlocked(e) && !this.state.seen.journal.includes(e.id));
+  }
 
   /** Completed their unlocking event enough times to be recruited. */
   hunterAvailable(id: HunterId): boolean {

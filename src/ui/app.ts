@@ -104,6 +104,8 @@ import { MATERIAL_SPRITES } from '../core/materialSprites';
 import { GEAR_SPRITES } from '../core/gearSprites';
 import { NODE_SPRITES } from '../core/nodeSprites';
 import { hunterIconHtml } from './hunterIcons';
+import { JOURNAL, type JournalEntry } from '../core/journal';
+import { App as CapApp } from '@capacitor/app';
 import { MINIGAMES, runMinigame } from './minigames';
 import { applyAreaTheme, applyUiStyle } from './theme';
 import { playCutscene, TIME_EATER_CUTSCENE } from './cutscene';
@@ -342,7 +344,7 @@ export class AppUI {
         else this.setTab(b.dataset.tab as Tab);
       }),
     );
-    $('#settingsBtn').addEventListener('click', () => this.openSettings());
+    $('#menuBtn').addEventListener('click', () => this.openMenu());
     // Any tap may change what the cached rates and DPS show (training, stationing, equipping): recompute them.
     document.addEventListener('pointerdown', () => this.shownCache.clear(), true);
     this.menuGestures();
@@ -408,6 +410,7 @@ export class AppUI {
       else if (!s.flags.craftIntro && this.firstCraftable()) this.showCraftIntro();
       else if (!s.flags.empowerIntro && g.empowerUnlocked) this.showEmpowerIntro();
     }
+    $('#menuBtn .alert-mark').classList.toggle('hidden', !g.unreadJournal().length);
     const ready = EVENTS.filter((e) => e.area === g.area && g.eventReady(e.id)).length;
     const badge = $('#eventsBadge');
     badge.textContent = String(ready);
@@ -3211,19 +3214,101 @@ export class AppUI {
     this.setTab(tab);
   }
 
+  // ---- Menu (top right): Tutorials, Journal, Settings, Quit ----
+
+  private openMenu(): void {
+    const unread = this.game.unreadJournal().length;
+    const item = (id: string, icon: string, name: string, extra = '') => `<button type="button" class="menu-item" data-menu="${id}"><span class="mi-icon">${icon}</span><span class="mi-name">${name}</span>${extra}</button>`;
+    this.showModal(
+      `<h2>Menu</h2><div class="menu-list">
+        ${item('tutorials', '📖', 'Tutorials')}
+        ${item('journal', '📔', 'Journal Entries', unread ? `<span class="alert-mark" title="${unread} new"></span>` : '')}
+        ${item('settings', '⚙️', 'Settings')}
+        ${item('quit', '🚪', 'Quit')}
+      </div>`,
+      [{ label: 'Close', secondary: true }],
+    );
+    const open: Record<string, () => void> = {
+      tutorials: () => this.openTutorials(),
+      journal: () => this.openJournal(),
+      settings: () => this.openSettings(),
+      quit: () => this.confirmQuit(),
+    };
+    this.modal.querySelectorAll<HTMLElement>('[data-menu]').forEach((b) =>
+      b.addEventListener('click', () => {
+        this.modalClose?.();
+        open[b.dataset.menu!]();
+      }),
+    );
+  }
+
+  private confirmQuit(): void {
+    this.showModal(`<h2>Quit</h2><p>Close the game? Your progress is saved, and your Hunters keep hunting while you're away.</p>`, [
+      { label: 'No', secondary: true },
+      {
+        label: 'Yes',
+        action: () => {
+          this.hooks.save();
+          void CapApp.exitApp().catch(() => window.close());
+        },
+      },
+    ]);
+  }
+
+  // ---- Journal ----
+
+  /** The Journal: entries unlocked so far (new ones flagged until opened), and how many are still hidden. */
+  private openJournal(entry?: JournalEntry): void {
+    if (this.detail) this.dropDetail();
+    const g = this.game;
+    const view = el('div', 'hunter-detail settings journal');
+    view.innerHTML = `
+      <div class="hd-top"><button class="hd-close" aria-label="${entry ? 'Back' : 'Close'}">${entry ? '‹' : '✕'}</button><span>${entry ? esc(entry.title) : 'Journal'}</span></div>
+      <div class="hd-scroll"></div>`;
+    document.body.appendChild(view);
+    $('.hd-close', view).addEventListener('click', () => (entry ? this.openJournal() : this.closeHunterDetail()));
+    this.detail = { el: view, refreshers: [] };
+    const body = $('.hd-scroll', view);
+    if (entry) {
+      if (!g.state.seen.journal.includes(entry.id)) {
+        g.state.seen.journal.push(entry.id);
+        this.hooks.save();
+        this.refresh();
+      }
+      const page = el('div', 'card journal-page');
+      page.innerHTML = `<div class="jp-icon">${journalIcon(entry)}</div>${entry.body
+        .split(/\n\s*\n/)
+        .map((p) => `<p>${esc(p).replace(/\n/g, '<br>')}</p>`)
+        .join('')}`;
+      body.appendChild(page);
+      return;
+    }
+    const open = JOURNAL.filter((e) => g.journalUnlocked(e));
+    if (!open.length) body.appendChild(el('p', 'empty', 'No entries yet.'));
+    for (const e of open) {
+      const b = el('button', 'card tut-row');
+      const isNew = !g.state.seen.journal.includes(e.id);
+      b.innerHTML = `<span class="tut-icon">${journalIcon(e)}</span><span class="tut-text"><b>${esc(e.title)}</b><small>${esc(e.body.split('\n')[0].slice(0, 80))}${e.body.length > 80 ? '…' : ''}</small></span>${isNew ? '<span class="alert-mark white"></span>' : ''}<span class="tut-go">›</span>`;
+      b.addEventListener('click', () => this.openJournal(e));
+      body.appendChild(b);
+    }
+    const hidden = JOURNAL.length - open.length;
+    if (hidden) body.appendChild(el('p', 'journal-more', `${hidden} more ${hidden === 1 ? 'entry' : 'entries'} still to find.`));
+  }
+
   // ---- Tutorials ----
 
-  /** Full-screen Tutorials menu (opened from the top of Settings): replay the tips, and pages on weapon types and damage types. */
+  /** Full-screen Tutorials menu (opened from the main menu): replay the tips, and pages on weapon types and damage types. */
   private openTutorials(page: 'menu' | 'weapons' | 'damage' = 'menu'): void {
     if (this.detail) this.dropDetail();
     const title = page === 'menu' ? 'Tutorials' : page === 'weapons' ? 'Weapon types' : 'Damage types';
     const view = el('div', 'hunter-detail settings tutorials');
     view.innerHTML = `
-      <div class="hd-top"><button class="hd-close" aria-label="Back">‹</button><span>${title}</span></div>
+      <div class="hd-top"><button class="hd-close" aria-label="${page === 'menu' ? 'Close' : 'Back'}">${page === 'menu' ? '✕' : '‹'}</button><span>${title}</span></div>
       <div class="hd-scroll"></div>`;
     document.body.appendChild(view);
-    // Back goes up a level: a guide to the Tutorials menu, the menu to Settings.
-    $('.hd-close', view).addEventListener('click', () => (page === 'menu' ? this.openSettings() : this.openTutorials()));
+    // Back goes up a level: a guide to the Tutorials menu; the menu itself closes.
+    $('.hd-close', view).addEventListener('click', () => (page === 'menu' ? this.closeHunterDetail() : this.openTutorials()));
     this.detail = { el: view, refreshers: [] };
     const body = $('.hd-scroll', view);
     if (page === 'weapons') this.buildWeaponGuide(body);
@@ -3317,11 +3402,6 @@ export class AppUI {
     $('.hd-close', view).addEventListener('click', () => this.closeHunterDetail());
     this.detail = { el: view, refreshers: [] };
     const body = $('.hd-scroll', view);
-
-    const tutorials = el('button', 'card tut-row');
-    tutorials.innerHTML = `<span class="tut-icon">📖</span><span class="tut-text"><b>Tutorials</b><small>Replay the tips, and guides to weapon types, damage types and status effects.</small></span><span class="tut-go">›</span>`;
-    tutorials.addEventListener('click', () => this.openTutorials());
-    body.appendChild(tutorials);
 
     body.appendChild(sectionTitle('Your Hunter'));
     const nameCard = el('div', 'card setting');
@@ -3940,6 +4020,12 @@ const mainName = () => mainHunterName || 'You';
 export const MAX_NAME_LENGTH = 16;
 
 /** Escapes text typed by the player before it goes into HTML. */
+/** A Journal entry's icon: a pixel icon ("<pack>/<NNN>") or an emoji. */
+function journalIcon(e: JournalEntry): string {
+  const url = /^[\w-]+\/\d+$/.test(e.icon) ? gearIconUrl(e.icon) : null;
+  return url ? `<img class="px-icon" src="${url}" alt="">` : esc(e.icon);
+}
+
 function esc(text: string): string {
   return text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 }

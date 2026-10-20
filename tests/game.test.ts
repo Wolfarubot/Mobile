@@ -4605,3 +4605,19 @@ describe('Dev progress phases (public/dev-presets.json)', () => {
     }
   });
 });
+
+describe('journal', () => {
+  it('unlocks entries by their condition and tracks which are unread', async () => {
+    const { JOURNAL } = await import('../src/core/journal');
+    const g = new Game(newGame(0));
+    const ids = (list: { id: string }[]) => list.map((e) => e.id);
+    expect(ids(g.unreadJournal())).toEqual(['firstPage']);
+    g.state.bestiary.greenSlime.kills = 100;
+    g.state.areas.glade.unlocked = true;
+    expect(ids(g.unreadJournal())).toEqual(['firstPage', 'slimeScience', 'feyGrove']);
+    g.state.seen.journal.push('firstPage');
+    expect(ids(g.unreadJournal())).toEqual(['slimeScience', 'feyGrove']);
+    // Every entry's unlock names something that exists.
+    for (const e of JOURNAL) expect(() => g.journalUnlocked(e)).not.toThrow();
+  });
+});

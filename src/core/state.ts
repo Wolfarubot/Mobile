@@ -227,6 +227,8 @@ export interface GameState {
   };
   /** Per event: seconds of cooldown left, times started and times completed (a Guardian beaten, a swarm survived). */
   events: Record<string, EventState>;
+  /** What the player has already looked at, so new things can be flagged with a "!". */
+  seen: SeenState;
   /** Blessings from Kargesh's and Marceline's minigames: extra quality rolls for your next Refine / Enchant. */
   blessings: { refine: number; enchant: number };
   buyAmount: BuyAmount;
@@ -246,6 +248,16 @@ export interface GameState {
 }
 
 export const SAVE_VERSION = 27;
+
+/** Things already looked at: Journal entries read, recipes and monsters seen, gear (by uid) seen. */
+export interface SeenState {
+  journal: string[];
+  recipes: string[];
+  beasts: string[];
+  gear: number[];
+  /** Set once the lists above have been filled for a save from before they existed (everything counts as seen). */
+  init: boolean;
+}
 
 /** Gear that was replaced, and what saves holding it get instead. */
 const RENAMED_GEAR: Record<string, GearItem['base']> = {
@@ -289,6 +301,7 @@ export function newGame(now = Date.now()): GameState {
     flags: { eventsIntro: false, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false },
     blessings: { refine: 0, enchant: 0 },
     events: Object.fromEntries(EVENTS.map((e) => [e.id, { cooldown: 0, runs: 0, completed: 0 }])),
+    seen: { journal: [], recipes: [], beasts: [], gear: [1, 2, 3], init: true },
     buyAmount: 1,
     stats: { totalKills: 0, totalGold: 0, taps: 0, escaped: 0, guardians: 0, hunterKills: {}, matGained: {} },
   };
@@ -556,6 +569,11 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
       // Saves from before this tip already had the wolf within reach.
       wolfIntro: (data.flags as { wolfIntro?: unknown } | undefined)?.wolfIntro !== false,
     },
+    seen: (() => {
+      const s = (data.seen ?? {}) as Partial<Record<keyof SeenState, unknown>>;
+      const strs = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
+      return { journal: strs(s.journal), recipes: strs(s.recipes), beasts: strs(s.beasts), gear: Array.isArray(s.gear) ? s.gear.filter((x): x is number => typeof x === 'number') : [], init: s.init === true };
+    })(),
     blessings: (() => {
       const b = (data.blessings ?? {}) as Partial<Record<'refine' | 'enchant', unknown>>;
       const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.min(3, Math.floor(v))) : 0);
