@@ -732,7 +732,7 @@ export type MaterialId =
  */
 export const RARE_MATERIALS: ReadonlySet<MaterialId> = new Set<MaterialId>([
   'awokenRock', 'obsidian', 'ironOre', 'silverOre', 'goldOre', 'quartz', 'amethyst', 'topaz', 'emerald', 'diamond', 'cobaltOre', 'venomite',
-  'frostIron', 'coldsteel', 'aquamarine', 'sapphire', 'skysteel', 'adamantite', 'opal', 'stormstone', 'starIron', 'orichalcum', 'voidsteel',
+  'frostIron', 'coldsteel', 'aquamarine', 'sapphire', 'skysteel', 'orichalcum', 'opal', 'stormstone', 'starIron', 'adamantite', 'voidsteel',
   'voidPrism', 'ore',
 ]);
 
@@ -758,7 +758,7 @@ export const MATERIALS: MaterialDef[] = [
   // Fey Grove
   { id: 'spore', name: 'Mushroom Cap', color: '#d0584a', desc: 'The spotted cap of a Toadstool. It sneezes spores if you squeeze it.' },
   { id: 'dust', name: 'Pixie Dust', color: '#ffb8f0', desc: 'Sparkling dust shaken off a pixie. Things sprinkled with it feel a little lighter.' },
-  { id: 'enchantedBone', name: 'Enchanted Bone', color: '#f0e8ff', desc: 'A unicorn bone that hums with old magic. It is warm to the touch.' },
+  { id: 'enchantedBone', name: 'Enchanted Bone', color: '#f0e8ff', desc: 'A bone that hums with old magic. It is warm to the touch.' },
   { id: 'unicornHorn', name: 'Unicorn Horn', color: '#ffe0f8', desc: 'A spiralled horn that glows faintly. Wands made from it never miss.' },
   { id: 'thorn', name: 'Enchanted Thorn', color: '#6ab04a', desc: 'A thorn from a Walking Man Trap. It keeps trying to bite.' },
   { id: 'sap', name: 'Sentient Sap', color: '#d8a040', desc: 'Golden sap from a Treant. It slowly crawls back toward the nearest tree.' },
@@ -817,11 +817,11 @@ export const MATERIALS: MaterialDef[] = [
   { id: 'aquamarine', name: 'Aquamarine', color: '#6fe0e0', desc: "A sea-green gem from the Frost Peaks' Crystal Golems." },
   { id: 'sapphire', name: 'Sapphire', color: '#3a5ae0', desc: "A deep blue gem, rarely found whole in a Crystal Golem." },
   { id: 'skysteel', name: 'Skysteel', color: '#c8d4f0', desc: "Metal from the Ascendant Steps, light as a feather and twice as strong as steel." },
-  { id: 'adamantite', name: 'Adamantite', color: '#8a7ac8', desc: "The hardest metal there is, found deep in a Sky Golem." },
+  { id: 'orichalcum', name: 'Orichalcum', color: '#ffb040', desc: "A legendary red-gold metal from the heart of a Sky Golem." },
   { id: 'opal', name: 'Opal', color: '#f4e8ff', desc: "A milky gem flickering with every colour, from the Cloud Fortress' Storm Golems." },
   { id: 'stormstone', name: 'Stormstone', color: '#8fb4ff', desc: "A gem with a thunderstorm trapped inside. It crackles." },
   { id: 'starIron', name: 'Star Iron', color: '#d0a070', desc: "Iron that fell from the sky in the Meteor Field." },
-  { id: 'orichalcum', name: 'Orichalcum', color: '#ffb040', desc: "A legendary red-gold metal from the heart of a Meteor Golem." },
+  { id: 'adamantite', name: 'Adamantite', color: '#8a7ac8', desc: "The hardest metal there is, found deep in a Meteor Golem." },
   { id: 'voidsteel', name: 'Voidsteel', color: '#5a3a8a', desc: "Metal from beyond the Rift. It drinks the light." },
   { id: 'voidPrism', name: 'Void Prism', color: '#ff5fd7', desc: "A gem from beyond the Rift that bends light the wrong way." },
   { id: 'ore', name: 'Mithril Ore', color: '#b8c8d8', desc: 'A silvery ore from the Venom Caverns, light and harder than steel.' },
@@ -1131,7 +1131,7 @@ export const ENEMIES: EnemyDef[] = [
   { id: 'griffin', name: 'Griffin', area: 'cliffs', archetype: 'beast', hp: 3, speed: 1.6, gold: 3.8, spawn: 0.3, pack: [1, 2], radius: 14, material: 'plume', unlock: 900, color: '#d8b060', shape: 'triangle', blurb: 'Half eagle, half lion, all trouble.', weak: ['acid', 'void'], resist: ['frost'] },
   { id: 'iceWyvern', name: 'Ice Wyvern', area: 'cliffs', archetype: 'dragon', hp: 5, speed: 1.2, gold: 6, spawn: 0.18, pack: [1, 1], radius: 16, material: 'skystone', unlock: 4_000, color: '#6ac8f0', shape: 'hexagon', size: 'huge', blurb: 'Breathes blizzards.', weak: ['fire', 'radiant'], resist: ['frost', 'poison'] },
   { id: 'frostGiant', name: 'Frost Giant', area: 'cliffs', archetype: 'humanoid', hp: 7, speed: 0.5, gold: 8, spawn: 0.12, pack: [1, 1], radius: 18, material: 'skystone', unlock: 15_000, color: '#8ab8e8', shape: 'square', blurb: 'Throws boulders like snowballs.', weak: ['fire', 'radiant'], resist: ['frost', 'physical'] },
-  { id: 'skyGolem', name: 'Sky Golem', area: 'cliffs', archetype: 'construct', hp: 6, speed: 0.45, gold: 7, spawn: 0.04, pack: [1, 1], radius: 18, material: 'skysteel', drops: [{ material: 'adamantite', share: 0.25 }], unlock: 40_000, color: '#b8c4e8', shape: 'square', blurb: 'Carved to guard the stairs to the sky, and still guarding.', weak: ['acid', 'lightning'], resist: ['physical', 'frost'] },
+  { id: 'skyGolem', name: 'Sky Golem', area: 'cliffs', archetype: 'construct', hp: 6, speed: 0.45, gold: 7, spawn: 0.04, pack: [1, 1], radius: 18, material: 'skysteel', drops: [{ material: 'orichalcum', share: 0.25 }], unlock: 40_000, color: '#b8c4e8', shape: 'square', blurb: 'Carved to guard the stairs to the sky, and still guarding.', weak: ['acid', 'lightning'], resist: ['physical', 'frost'] },
 
 
   // Cloud Fortress
@@ -1148,7 +1148,7 @@ export const ENEMIES: EnemyDef[] = [
   { id: 'rockMite', name: 'Rock Mite', area: 'meteors', archetype: 'beast', hp: 2.2, speed: 1.2, gold: 2.6, spawn: 0.45, pack: [2, 4], radius: 11, material: 'meteor', unlock: 900, color: '#8a7a6a', shape: 'triangle', blurb: 'Burrows into asteroids and eats its way out.', weak: ['acid', 'radiant'], resist: ['physical', 'fire'] },
   { id: 'astralSentinel', name: 'Astral Sentinel', area: 'meteors', archetype: 'humanoid', hp: 4, speed: 0.8, gold: 4.8, spawn: 0.25, pack: [1, 2], radius: 14, material: 'stardust', unlock: 4_000, color: '#b8a8ff', shape: 'diamond', blurb: 'An ancient watcher, carved from starlight.', weak: ['void', 'decay'], resist: ['arcane', 'radiant'] },
   { id: 'starEater', name: 'Star Eater', area: 'meteors', archetype: 'dragon', hp: 8, speed: 0.9, gold: 9.5, spawn: 0.1, pack: [1, 1], radius: 19, material: 'stardust', unlock: 15_000, color: '#5a3a9a', shape: 'hexagon', size: 'huge', blurb: 'Swallows falling stars whole. The way down to the Rift lies past it.', weak: ['radiant', 'frost'], resist: ['fire', 'physical', 'arcane'] },
-  { id: 'meteorGolem', name: 'Meteor Golem', area: 'meteors', archetype: 'construct', hp: 6, speed: 0.45, gold: 7, spawn: 0.04, pack: [1, 1], radius: 18, material: 'starIron', drops: [{ material: 'orichalcum', share: 0.25 }], unlock: 40_000, color: '#c08050', shape: 'square', blurb: 'A fallen star that picked itself up.', weak: ['frost', 'acid'], resist: ['physical', 'fire'] },
+  { id: 'meteorGolem', name: 'Meteor Golem', area: 'meteors', archetype: 'construct', hp: 6, speed: 0.45, gold: 7, spawn: 0.04, pack: [1, 1], radius: 18, material: 'starIron', drops: [{ material: 'adamantite', share: 0.25 }], unlock: 40_000, color: '#c08050', shape: 'square', blurb: 'A fallen star that picked itself up.', weak: ['frost', 'acid'], resist: ['physical', 'fire'] },
 
   // Void Rift
   { id: 'shadowSlime', name: 'Shadow Slime', area: 'rift', archetype: 'slime', hp: 1, speed: 1, gold: 1, spawn: 1.5, pack: [3, 5], radius: 11, material: 'shade', unlock: 0, color: '#7a5cc0', shape: 'circle', blurb: 'A slime made of the dark itself.', weak: ['radiant', 'acid'], resist: ['void'] },
@@ -2503,8 +2503,8 @@ export const MOD_METALS: Partial<Record<Rarity, Partial<Record<MaterialId, numbe
   legendary: { silverOre: 4, cobaltOre: 3 },
   exotic: { goldOre: 3, venomite: 2, frostIron: 2 },
   relic: { frostIron: 4, skysteel: 3 },
-  artifact: { coldsteel: 2, adamantite: 2, starIron: 3 },
-  exalted: { orichalcum: 2, voidsteel: 3 },
+  artifact: { coldsteel: 2, orichalcum: 2, starIron: 3 },
+  exalted: { adamantite: 2, voidsteel: 3 },
 };
 export const MOD_GEMS: Partial<Record<Rarity, Partial<Record<MaterialId, number>>>> = {
   veryRare: { quartz: 4 },
@@ -3000,9 +3000,9 @@ export const ITEMS: ItemDef[] = [
   areaIdol('cryptIdol', 'Crypt Idol', 'crypt', 'legendary', { undeadFeather: 4_000_000, string: 800_000 }, { cobaltOre: 2_500, venomite: 750 }),
   areaIdol('depthsIdol', 'Shadowy Depths Idol', 'depths', 'legendary', { darkClaw: 5_000_000, gloom: 3_000_000 }, { frostIron: 2_000, aquamarine: 1_200 }),
   areaIdol('emberIdol', 'Ember Mines Idol', 'caves', 'legendary', { demonBone: 5_000_000, chitin: 2_000_000 }, { coldsteel: 400, sapphire: 250 }),
-  areaIdol('venomIdol', 'Venom Caverns Idol', 'mines', 'exotic', { ore: 6_000_000, scale: 600_000 }, { skysteel: 2_000, adamantite: 400 }),
+  areaIdol('venomIdol', 'Venom Caverns Idol', 'mines', 'exotic', { ore: 6_000_000, scale: 600_000 }, { skysteel: 2_000, orichalcum: 400 }),
   areaIdol('frostIdol', 'Frost Peaks Idol', 'peaks', 'relic', { fur: 4_000_000, frost: 1_000_000 }, { opal: 2_000, stormstone: 400 }),
-  areaIdol('skyIdol', 'Ascendant Steps Idol', 'cliffs', 'artifact', { plume: 4_000_000, skystone: 1_000_000 }, { starIron: 2_000, orichalcum: 400 }),
+  areaIdol('skyIdol', 'Ascendant Steps Idol', 'cliffs', 'artifact', { plume: 4_000_000, skystone: 1_000_000 }, { starIron: 2_000, adamantite: 400 }),
   areaIdol('cloudIdol', 'Cloud Fortress Idol', 'fortress', 'exalted', { feather: 5_000_000, thunder: 1_500_000 }, { voidsteel: 1_500, voidPrism: 250 }),
   areaIdol('starIdol', 'Meteor Field Idol', 'meteors', 'exalted', { stardust: 5_000_000, meteor: 2_000_000 }, { voidPrism: 500, diamond: 100 }),
   // Energy Potions: crafted once each, 2 more hours of offline time apiece (4 hours to start, 24 with all ten).
@@ -3016,9 +3016,9 @@ export const ITEMS: ItemDef[] = [
   { id: 'demonPotion', name: 'Demon Energy Potion', icon: '🧪', sprite: 'rpg-items/130', rarity: 'veryRare', once: true, maxLevel: 1, recipe: { forsakenSoul: 8, goldOre: 75, topaz: 75 }, growth: 1, describe: () => '+2h offline time' },
   { id: 'venomPotion', name: 'Venom Energy Potion', icon: '🧪', sprite: 'rpg-items/050', rarity: 'legendary', once: true, maxLevel: 1, recipe: { cobaltOre: 600, ore: 150_000, emerald: 40 }, growth: 1, describe: () => '+2h offline time' },
   { id: 'glacialPotion', name: 'Glacial Energy Potion', icon: '🧪', sprite: 'rpg-items/030', rarity: 'exotic', once: true, maxLevel: 1, recipe: { coldsteel: 400, sapphire: 200, diamond: 15 }, growth: 1, describe: () => '+2h offline time' },
-  { id: 'skyPotion', name: 'Sky Energy Potion', icon: '🧪', sprite: 'rpg-items/250', rarity: 'exotic', once: true, maxLevel: 1, recipe: { adamantite: 225, skysteel: 1_000, skystone: 12_000 }, growth: 1, describe: () => '+2h offline time' },
+  { id: 'skyPotion', name: 'Sky Energy Potion', icon: '🧪', sprite: 'rpg-items/250', rarity: 'exotic', once: true, maxLevel: 1, recipe: { orichalcum: 225, skysteel: 1_000, skystone: 12_000 }, growth: 1, describe: () => '+2h offline time' },
   { id: 'stormPotion', name: 'Storm Energy Potion', icon: '🧪', sprite: 'rpg-items/070', rarity: 'artifact', once: true, maxLevel: 1, recipe: { opal: 750, stormstone: 200, thunder: 30_000 }, growth: 1, describe: () => '+2h offline time' },
-  { id: 'starPotion', name: 'Star Energy Potion', icon: '🧪', sprite: 'rpg-items/010', rarity: 'artifact', once: true, maxLevel: 1, recipe: { orichalcum: 250, starIron: 1_000, diamond: 50 }, growth: 1, describe: () => '+2h offline time' },
+  { id: 'starPotion', name: 'Star Energy Potion', icon: '🧪', sprite: 'rpg-items/010', rarity: 'artifact', once: true, maxLevel: 1, recipe: { adamantite: 250, starIron: 1_000, diamond: 50 }, growth: 1, describe: () => '+2h offline time' },
 ];
 
 export const itemDef = (id: ItemId): ItemDef => ITEMS.find((i) => i.id === id)!;

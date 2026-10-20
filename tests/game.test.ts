@@ -3948,6 +3948,20 @@ describe('Saves', () => {
     expect(deserialize(JSON.stringify(old))!.equipment.scavenger).toEqual([2, null, null]);
   });
 
+  it('swaps held Adamantite and Orichalcum from saves before they traded places', () => {
+    const old = JSON.parse(serialize(newGame(0)));
+    old.version = 24;
+    old.materials.adamantite = 50;
+    old.materials.orichalcum = 7;
+    const s = deserialize(JSON.stringify(old))!;
+    expect(s.materials.orichalcum).toBe(50);
+    expect(s.materials.adamantite).toBe(7);
+    // A current save keeps them as they are.
+    expect(deserialize(serialize(s))!.materials.orichalcum).toBe(50);
+    expect(enemyDef('skyGolem').drops?.[0].material).toBe('orichalcum');
+    expect(enemyDef('meteorGolem').drops?.[0].material).toBe('adamantite');
+  });
+
   it('refunds the old Fire Drake evolutions now that it is the Broodmother (a Beast), and keeps the rest', () => {
     const old = JSON.parse(serialize(newGame(0)));
     old.version = 21;

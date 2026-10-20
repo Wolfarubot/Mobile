@@ -245,7 +245,7 @@ export interface GameState {
   };
 }
 
-export const SAVE_VERSION = 24;
+export const SAVE_VERSION = 25;
 
 /** Gear that was replaced, and what saves holding it get instead. */
 const RENAMED_GEAR: Record<string, GearItem['base']> = {
@@ -641,6 +641,9 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
     : [];
   convertItems(state, oldLevels);
   refundRemovedUpgrades(state, data.items, oldLevels);
+  // v24 -> v25: Adamantite and Orichalcum traded places (Orichalcum now drops in the Ascendant Steps, Adamantite in
+  // the Meteor Field, and recipes swapped with them), so what you held swaps too and keeps its place in the climb.
+  if (((data.version as number) ?? 1) < 25) [state.materials.adamantite, state.materials.orichalcum] = [state.materials.orichalcum, state.materials.adamantite];
   const uids = new Set(state.inventory.map((g) => g.uid));
   state.equipment = {};
   if (data.equipment && typeof data.equipment === 'object')
