@@ -2325,15 +2325,15 @@ describe('Equipment', () => {
     }
   });
 
-  it('enchantment pools: spells only on magic and ranged weapons, melee arts only on melee weapons, neither on accessories', () => {
+  it('enchantment pools: spells only on magic and ranged weapons, melee arts only on melee weapons, ranged arts only on guns and bows, none of them on accessories', () => {
     const g = stocked();
     const pool = (base: Parameters<Game['craftGear']>[0]) => g.enchantsFor(g.craftGear(base)!.uid);
     const spells = (ids: string[]) => ids.filter((i) => i.startsWith('spell'));
     const arts = (ids: string[]) => ids.filter((i) => i.startsWith('art'));
-    for (const base of ['emberLongbow', 'gravewoodStaff'] as const) {
-      expect(spells(pool(base)).length, base).toBeGreaterThan(0);
-      expect(arts(pool(base)), base).toEqual([]);
-    }
+    for (const base of ['emberLongbow', 'gravewoodStaff'] as const) expect(spells(pool(base)).length, base).toBeGreaterThan(0);
+    // Staffs have no arts; bows only ranged ones.
+    expect(arts(pool('gravewoodStaff'))).toEqual([]);
+    expect(arts(pool('emberLongbow')).sort()).toEqual(['artElementalArrows', 'artExplodingArrows']);
     for (const base of ['slimeSword', 'boneSpear'] as const) {
       expect(spells(pool(base)), base).toEqual([]);
       expect(arts(pool(base)).length, base).toBeGreaterThan(0);
