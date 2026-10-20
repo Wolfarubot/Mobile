@@ -5901,14 +5901,6 @@ body.left-handed .equip-prompt {
   background: color-mix(in srgb, var(--card) 72%, #000);
   box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.35);
 }
-.ha-title {
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding-bottom: 4px;
-  border-bottom: 2px solid color-mix(in srgb, var(--c0) 25%, transparent);
-}
 .ha-row {
   display: flex;
   align-items: flex-start;

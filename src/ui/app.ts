@@ -674,7 +674,7 @@ export class AppUI {
   }
 
   /**
-   * Full-screen Hunter view with sub-tabs: Overview (training, equipment, stats, station), Skills (the
+   * Full-screen Hunter view with sub-tabs: Overview (training, abilities, equipment, stats, station), Skills (the
    * branching skill tree) and, for your Hunter, Abilities (tap abilities unlocked in the tree, swapped here).
    * Closing returns to the battlefield.
    */
@@ -692,7 +692,6 @@ export class AppUI {
             <div class="hd-sub"></div>
           </div>
         </div>
-        <div class="hero-lore">${abilitiesHtml(def)}</div>
         <div class="subtabs">
           <button data-sub="overview">📊 Overview</button>
           <button data-sub="skills">🌳 Skills <b class="sp-count hidden"></b></button>
@@ -733,6 +732,9 @@ export class AppUI {
       overview.appendChild(this.amountsBar());
       overview.appendChild(this.trainButton(who));
     }
+    // Abilities: their passives and actives, then the weapons they can use.
+    overview.appendChild(sectionTitle('Abilities'));
+    overview.insertAdjacentHTML('beforeend', abilitiesHtml(def));
     // Equipment, right under Training: tap a slot to pick from unequipped gear that fits.
     overview.appendChild(sectionTitle('Equipment'));
     if (recruited) overview.appendChild(this.equipmentList(who));
@@ -4246,13 +4248,13 @@ function journalIcon(e: JournalEntry): string {
 }
 
 /**
- * A Hunter's abilities in their full view: a framed box with each one on its own line (its name, whether it's
+ * A Hunter's abilities (the Abilities section of their Overview): a framed box with each one on its own line (its name, whether it's
  * Active or Passive, and what it does), then the weapons they can use.
  */
 function abilitiesHtml(def: HunterDef | null): string {
   const list = def ? hunterAbilities(def) : MAIN_ABILITIES;
   const uses = def ? hunterWeaponsNote(def) : '';
-  return `<div class="hero-abilities"><div class="ha-title">Abilities</div>${list
+  return `<div class="hero-abilities">${list
     .map((a) => `<div class="ha-row"><span class="ha-kind ${a.kind}">${a.kind === 'active' ? 'Active' : 'Passive'}</span><p><b class="ha-name">${a.name}:</b> ${a.text}</p></div>`)
     .join('')}${uses ? `<div class="ha-uses">${uses}</div>` : ''}</div>`;
 }
