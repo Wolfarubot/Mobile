@@ -864,7 +864,7 @@ describe('Shops', () => {
   it('skill trees: the root first, then branches; each node needs a point in the one it hangs from', () => {
     const g = rich();
     g.recruit('ranger');
-    g.state.main.trains = 300;
+    g.state.main.trains = 2000;
     g.state.hunters.ranger.trains = 100;
     const pts = g.skillPoints('main');
     expect(pts).toBeGreaterThan(5);
@@ -877,18 +877,22 @@ describe('Shops', () => {
     expect(g.learn('main', 'power2')).toBe(false); // 2 points in: the third row opens at 5
     for (const k of ['speed', 'recovery', 'recovery', 'power2', 'recovery2']) expect(g.learn('main', k)).toBe(true);
     expect(g.skillPoints('main')).toBe(pts - 7);
-    expect(g.damage).toBeCloseTo(dmg * 1.4);
-    expect(g.fireRate).toBeCloseTo(rate * 1.1);
+    expect(g.damage).toBeCloseTo(dmg * 1.2);
+    expect(g.fireRate).toBeCloseTo(rate * 1.05);
     expect(g.stunTime()).toBeLessThan(stun);
     expect(g.tapDamage).toBeGreaterThan(tap * 1.1);
     expect(g.tapRadius).toBeGreaterThan(radius);
-    expect(g.learn('main', 'capstone')).toBe(false); // your Hunter's capstone hangs from the ability nodes
-    expect(g.learn('main', 'flameTap')).toBe(false); // its row opens at 12 points
-    for (const k of ['power', 'power', 'power', 'power', 'speed']) g.learn('main', k);
+    expect(g.learn('main', 'capstone')).toBe(false); // Apex Hunter closes the first diamond
+    expect(g.learn('main', 'flameTap')).toBe(false); // its row opens at 10 points
+    for (const k of ['power', 'power', 'power']) g.learn('main', k);
     expect(g.learn('main', 'flameTap')).toBe(true);
-    expect(g.learn('main', 'capstone')).toBe(false); // its row opens at 20 points
-    for (const k of ['reach', 'reach', 'reach', 'fortune', 'fortune', 'fortune', 'speed']) g.learn('main', k);
-    expect(g.learn('main', 'capstone')).toBe(true); // reachable from any one of them
+    expect(g.learn('main', 'wideTaps')).toBe(false); // its row opens at 15 points
+    for (const k of ['speed', 'speed', 'speed', 'speed']) g.learn('main', k);
+    for (let i = 0; i < 4; i++) expect(g.learn('main', 'wideTaps')).toBe(true); // hangs from Flame Burst
+    expect(g.learn('main', 'capstone')).toBe(false); // 19 points: its row opens at 20
+    expect(g.learn('main', 'eagleEye')).toBe(true);
+    expect(g.learn('main', 'capstone')).toBe(true); // reachable from any one of the row above, at 20 points
+    expect(g.learn('main', 'thunderTap')).toBe(false); // the second diamond's wings come later
     // Every Hunter has their own tree of the same shape.
     expect(g.skillTree('ranger').map((n) => n.id)).toEqual(['root', 'power', 'speed', 'recovery', 'power2', 'speed2', 'recovery2', 'capstone', 'ascend']);
     expect(g.skillTree('ranger')[4].name).toBe('Beast Bane');
@@ -901,6 +905,7 @@ describe('Shops', () => {
     g.state.main.skills.speed = 10;
     g.state.main.skills.power = 10;
     g.state.main.skills.recovery = 5;
+    g.state.main.skills.might = 100;
     expect(g.skillPoints('main')).toBeLessThanOrEqual(0);
     expect(g.learn('main', 'speed2')).toBe(false);
   });
@@ -1977,11 +1982,17 @@ describe('Equipment', () => {
   it('tap abilities: unlocked in the skill tree, equipped one at a time; each sets off its element on everything the blast hits', () => {
     let seed = 7;
     const g = new Game(newGame(0), () => ((seed = (seed * 16807) % 2147483647) / 2147483647));
-    g.state.main.trains = 300;
+    g.state.main.trains = 2000;
     expect(g.setTapAbility('flame')).toBe(false); // locked
     expect(g.tapAbility).toBeNull();
-    for (const k of ['root', 'power', 'power', 'power', 'power', 'power', 'speed', 'speed', 'speed', 'speed', 'speed', 'recovery', 'power2', 'flameTap', 'speed2', 'thunderTap', 'recovery2', 'frostTap'])
-      expect(g.learn('main', k), k).toBe(true);
+    // Flame Burst and Frost Nova sit on the first diamond's wings; Thunderclap and Melting Miasma on the second's.
+    const path = [
+      ...['root', 'power', 'power', 'power', 'power', 'power', 'speed', 'speed', 'speed', 'speed', 'speed', 'recovery', 'recovery', 'recovery'],
+      ...['power2', 'recovery2', 'eagleEye', 'flameTap', 'frostTap', 'speed2', 'wideTaps', 'wideTaps', 'wideTaps', 'wideTaps', 'capstone'],
+      ...['power2', 'power2', 'power2', 'power2', 'recovery2', 'recovery2', 'recovery2', 'eagleEye', 'prosperity', 'prosperity'],
+      ...['reach', 'reach', 'reach', 'deadlyTaps', 'thunderTap', 'longShot', 'extendedEffects', 'meltingMiasma'],
+    ];
+    for (const k of path) expect(g.learn('main', k), k).toBe(true);
     const f = new Field(g);
     f.setView(390, 420);
     const hp = 1e12;
@@ -2004,7 +2015,7 @@ describe('Equipment', () => {
     g.setTapAbility('frost');
     fresh();
     f.tap(0, 0);
-    expect(f.enemies[0].slow).toBe(FROST_TAP_CHILL);
+    expect(f.enemies[0].slow).toBeCloseTo(FROST_TAP_CHILL * g.effectDurationMult('main')); // longer with Extended Effects
     // Thunderclap: each monster hit arcs to another one nearby.
     g.setTapAbility('thunder');
     fresh();
@@ -2012,11 +2023,47 @@ describe('Equipment', () => {
     expect(f.drainEvents().some((e) => e.type === 'beam')).toBe(false);
     f.tap(0, 0);
     expect(f.drainEvents().some((e) => e.type === 'beam' && e.zigzag)).toBe(true);
+    // Melting Miasma: everything hit is poisoned, and a poison puddle is left behind, at most once per cooldown.
+    g.setTapAbility('miasma');
+    expect(g.tapDamageType).toBe('poison');
+    fresh();
+    f.enemies[0].type = 'wolf'; // Green Slimes shrug off poison
+    f.puddles = [];
+    f.miasmaCd = 0;
+    f.tap(0, 0);
+    expect(f.enemies[0].poison).toBeDefined();
+    expect(f.puddles.filter((p) => p.dtype === 'poison')).toHaveLength(1);
+    f.tap(0, 0);
+    expect(f.puddles.filter((p) => p.dtype === 'poison')).toHaveLength(1); // still recharging
+    expect(f.cooldowns().some((c) => c.key === 'tap:miasma')).toBe(true);
     // Unequip: back to a plain blast; and a save keeps the equipped one.
     g.setTapAbility('frost');
     expect(deserialize(serialize(g.state))!.main.tapAbility).toBe('frost');
     g.setTapAbility(null);
     expect(g.tapAbility).toBeNull();
+  });
+
+  it('your Hunter: Quick Casting shortens cooldowns, Extended Effects lengthens effects, Apex Hunter adds a shot', () => {
+    const g = new Game(newGame(0), () => 0.5);
+    g.state.main.trains = 300;
+    const sk = g.state.main.skills;
+    expect(g.cooldownMult('main')).toBe(1);
+    expect(g.effectDurationMult('main')).toBe(1);
+    Object.assign(sk, { will: 3, extendedEffects: 3 });
+    expect(g.cooldownMult('main')).toBeCloseTo(0.7);
+    expect(g.effectDurationMult('main')).toBeCloseTo(1.3);
+    // Frost Nova's chill lasts 30% longer.
+    Object.assign(sk, { frostTap: 1 });
+    g.setTapAbility('frost');
+    const f = new Field(g);
+    f.setView(390, 420);
+    f.enemies = [enemy({ id: 1, x: 0, y: 0, hp: 1e12, maxHp: 1e12 })];
+    f.tap(0, 0);
+    expect(f.enemies[0].slow).toBeCloseTo(FROST_TAP_CHILL * 1.3);
+    // Apex Hunter: one more projectile per shot.
+    expect(g.tree('main').multishot).toBe(0);
+    sk.capstone = 1;
+    expect(g.tree('main').multishot).toBe(1);
   });
 
   it('armor kinds: Light is quick, Heavy and Shields add shield charges (Heavy slows you, Shields cost damage), Robes add damage', () => {

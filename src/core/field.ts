@@ -13,6 +13,7 @@ import {
   enemyDef,
   fieldZoom,
   FROST_TAP_CHILL,
+  MIASMA_PUDDLE,
   FLEE_SPEED_MULT,
   GUARD_RECHARGE,
   hunterDef,
@@ -42,6 +43,10 @@ export const SUMMON_RADIUS = 9;
 const WAVE_SPEED = 420;
 /** Seconds between a dagger's stabs in one burst. */
 const DAGGER_GAP = 0.09;
+/** Apex Hunter: how soon a melee attack's follow-up strike comes after it (seconds). */
+const ENCORE_GAP = 0.12;
+/** Apex Hunter: how far apart (radians) a shot's extra projectiles fan out. */
+const EXTRA_SHOT_SPREAD = 0.12;
 const BOSS_BOUNCE = 260;
 const GUARD_BOUNCE = 220;
 /** How far out a hammer's smash lands, as a fraction of its radius (the Hunter stands near its edge). */
@@ -381,12 +386,16 @@ export class Field {
   gunState: GunState = { cls: null, ammo: 0, reload: 0 };
   /** Daggers' bursts in progress (anyone's): stabs (or throws) still to come, at a monster. */
   private stabs: Array<{ who: Shooter; t: number; target: number; last: boolean }> = [];
+  /** Apex Hunter's follow-up strikes, due in `t` seconds. */
+  private encores: Array<{ who: Shooter; t: number; target: number; mode: GearMode }> = [];
   /** Seconds until each worn piece's ability is ready again, by `${who}:${uid}`. */
   private gearCd = new Map<string, number>();
   /** Creatures your Hunter's tome has summoned. */
   summons: Summon[] = [];
   /** Seconds until your tome's creatures can lunge again (a tome with a lunge ability, e.g. the Wolf Spirit). */
   dashCd = 0;
+  /** Seconds until a tap with Melting Miasma equipped can leave another poison puddle. */
+  miasmaCd = 0;
   private nextVolley = 1;
   /** Each Hunter's turn through their weapon's types, for weapons that fire one type per projectile. */
   private typeTurn = new Map<Shooter, number>();
@@ -608,12 +617,14 @@ export class Field {
     this.runTomes(dt);
     this.runDice(dt);
     this.runStabs(dt);
+    this.runEncores(dt);
     this.runSummons(dt);
     this.runGearEffects(dt);
     for (const h of this.helpers) this.helperAttack(h, dt);
 
     this.moveBullets(dt);
     this.tickPuddles(dt);
+    this.miasmaCd = Math.max(0, this.miasmaCd - dt);
     this.runWaves(dt);
     this.bullets = this.bullets.filter((b) => b.life > 0);
     this.enemies = this.enemies.filter((e) => e.hp > 0);
@@ -1012,13 +1023,21 @@ export class Field {
    * stabs, a sword's sweep, a spear's thrust, a focus's burst, a tome's summon, a staff's spell, a bow's or
    * gun's shots. Unarmed, a basic bolt.
    */
-  private weaponAttack(who: Shooter, x: number, y: number, aim: number, target: Enemy, cls: WeaponClassDef | null, gun: GunState, range: number, mode: GearMode = 'long'): void {
+  private weaponAttack(who: Shooter, x: number, y: number, aim: number, target: Enemy, cls: WeaponClassDef | null, gun: GunState, range: number, mode: GearMode = 'long', encore = false): void {
     const g = this.game;
     const m = mode === 'short' ? 'short' : undefined;
     this.events.push({ type: 'attack', who, a: aim });
+    // Apex Hunter: extra projectiles on shots, one more dagger in a burst, a follow-up strike for other melee.
+    const extra = encore ? 0 : g.tree(who).multishot;
+    /** A shot plus its extra projectiles, fanned out around the aim. */
+    const fan = (shot: (a: number) => void) => {
+      shot(aim);
+      for (let i = 1; i <= extra; i++) shot(aim + (i % 2 ? 1 : -1) * Math.ceil(i / 2) * EXTRA_SHOT_SPREAD);
+    };
+    if (extra > 0 && cls && (cls.attack === 'sweep' || cls.attack === 'stab' || cls.attack === 'slam' || cls.attack === 'nova')) this.encores.push({ who, t: ENCORE_GAP, target: target.id, mode });
     if (cls?.attack === 'dagger') {
       // A burst of stabs (or throws, if it's out of reach) at this monster, a moment apart.
-      const n = cls.thrusts ?? 1;
+      const n = (cls.thrusts ?? 1) + extra;
       for (let i = 0; i < n; i++) this.stabs.push({ who, t: i * DAGGER_GAP, target: target.id, last: i === n - 1 });
     } else if (cls?.attack === 'nova' && cls.wave) {
       // A focus's wave: a ring expanding out to its reach (× area size), hitting monsters as it passes.
@@ -1034,7 +1053,7 @@ export class Field {
       this.summon(who, x, y, aim, cls);
     } else if (cls?.spell && gun.ammo === 1) {
       // A staff's big spell: the last round of each cast.
-      this.shoot(who, 'fireball', x, y, aim, 380, range, { radius: cls.spell.radius * g.radiusMult(who), dmg: cls.spell.damage, mode: m });
+      fan((a) => this.shoot(who, 'fireball', x, y, a, 380, range, { radius: cls.spell!.radius * g.radiusMult(who), dmg: cls.spell!.damage, mode: m }));
     } else if (cls?.attack === 'slam') {
       // A hammer smashes the ground out in front: the Hunter stands at the edge of the blast, so its centre is
       // further out the bigger it is. Everything in it is hit and thrown far back from where it landed.
@@ -1048,14 +1067,14 @@ export class Field {
     else if (cls?.volley) {
       // A fan: each bolt at a random angle within it. Bolts of one volley stack on the same monster.
       const volley = this.nextVolley++;
-      for (let i = 0; i < cls.volley; i++) {
+      for (let i = 0; i < cls.volley + extra; i++) {
         const a = aim + (g.rng() - 0.5) * (cls.fan ?? 0);
         this.shoot(who, cls.projectile ?? 'bolt', x, y, a, BULLET_SPEED, range, { pierce: g.pierceOf(who, mode), volley, stack: cls.stack, mode: m });
       }
     } else {
       // A longbow's follow-through grows with the Hunter's range.
       const follow = cls?.followThrough ? cls.followThrough * (range / (MAIN_RANGE * cls.range)) : undefined;
-      this.shoot(who, cls?.projectile ?? 'bolt', x, y, aim, BULLET_SPEED, range, { pierce: g.pierceOf(who, mode), followThrough: follow, bounces: cls?.bounces, mode: m });
+      fan((a) => this.shoot(who, cls?.projectile ?? 'bolt', x, y, a, BULLET_SPEED, range, { pierce: g.pierceOf(who, mode), followThrough: follow, bounces: cls?.bounces, mode: m }));
     }
     if (this.isMelee(who)) this.meleeWave(who, x, y);
     // Enchantments set off by attacks (Thunder Call, the pulses), each at its rolled chance.
@@ -1365,6 +1384,8 @@ export class Field {
     const w = this.weaponDef(this.lead);
     const dash = w?.summon?.dash;
     if (w && dash && this.game.weaponClassOf(this.lead)?.summon) out.push({ key: `item:${w.id}`, icon: w.icon, name: w.name, progress: 1 - this.dashCd / (dash.cooldown * this.game.cooldownMult(this.lead)) });
+    // Melting Miasma's puddle (your tap ability).
+    if (this.game.tapAbility === 'miasma') out.push({ key: 'tap:miasma', icon: '☠️', name: 'Melting Miasma', progress: 1 - this.miasmaCd / (MIASMA_PUDDLE.cooldown * this.game.cooldownMult('main')) });
     for (const who of [this.lead, ...this.helpers.map((h) => h.id)]) {
       for (const { uid, def, effect } of this.game.gearEffects(who)) {
         const cd = effectCooldown(effect);
@@ -1509,6 +1530,25 @@ export class Field {
    * Dagger bursts: each stab lands in turn on its monster if it's within reach (else a dagger is thrown at it);
    * the last stab knocks it back. A burst stops if its Hunter is stunned or no longer holds a dagger.
    */
+  /** Apex Hunter's follow-up strikes: the same attack again, at the same monster if it's still there. */
+  private runEncores(dt: number): void {
+    if (!this.encores.length) return;
+    for (const c of this.encores) c.t -= dt;
+    const due = this.encores.filter((c) => c.t <= 0);
+    this.encores = this.encores.filter((c) => c.t > 0);
+    for (const c of due) {
+      const h = c.who === this.lead ? null : this.helpers.find((x) => x.id === c.who);
+      if ((c.who !== this.lead && !h) || (h ? h.stun > 0 : this.stunned)) continue;
+      const ox = h?.x ?? 0;
+      const oy = h?.y ?? 0;
+      const range = this.game.shooterRange(c.who);
+      const e = this.enemies.find((x) => x.id === c.target && x.hp > 0) ?? this.nearest(ox, oy, range);
+      if (!e) continue;
+      const a = Math.atan2(e.y - oy, e.x - ox);
+      this.weaponAttack(c.who, ox, oy, a, e, this.game.weaponClassOf(c.who, c.mode), h ? h.gun : this.gunState, range, c.mode, true);
+    }
+  }
+
   private runStabs(dt: number): void {
     if (!this.stabs.length) return;
     for (const s of this.stabs) s.t -= dt;
@@ -1801,10 +1841,13 @@ export class Field {
     const k = this.game.statusStrength(by);
     dmg *= k;
     if (this.immuneTo(e, dtype)) return;
+    // Extended Effects: everything lasts longer at the same strength per second (so damage over time deals more).
+    const ext = this.game.effectDurationMult(by);
     const dot = (cur: Dot | undefined, share: number, duration: number): Dot => {
       const dps = (dmg * share) / duration;
-      const ticks = Math.round(duration / STATUS.tick);
-      return cur && cur.left > 0 && cur.dps > dps ? { ...cur, left: duration, ticks } : { dps, left: duration, by, acc: cur?.acc ?? 0, ticks };
+      const left = duration * ext;
+      const ticks = Math.round(left / STATUS.tick);
+      return cur && cur.left > 0 && cur.dps > dps ? { ...cur, left, ticks } : { dps, left, by, acc: cur?.acc ?? 0, ticks };
     };
     // Every effect but bleeding is one instance per monster: a new proc refreshes it (keeping the stronger).
     switch (dtype) {
@@ -1822,18 +1865,18 @@ export class Field {
           const p = STATUS.poison;
           e.poison = dot(e.poison, p.share, p.duration);
           const pct = p.maxHp[rarity] * (e.boss ? p.guardian : 1) * k;
-          e.poison.maxHpPerTick = Math.max(e.poison.maxHpPerTick ?? 0, pct / e.poison.ticks);
+          e.poison.maxHpPerTick = Math.max(e.poison.maxHpPerTick ?? 0, pct / Math.round(p.duration / STATUS.tick));
         }
         break;
       case 'frost':
-        e.slow = Math.max(e.slow ?? 0, STATUS.chill.duration * k);
+        e.slow = Math.max(e.slow ?? 0, STATUS.chill.duration * k * ext);
         break;
       case 'acid':
         if (e.acidPuddle && e.acidPuddle.life > 0) {
           // Its puddle is still there: refresh it where the monster is now, at the stronger strength.
-          Object.assign(e.acidPuddle, { x: e.x, y: e.y, life: STATUS.acid.duration, shooter: by, abs: Math.max(e.acidPuddle.abs ?? 0, dmg * STATUS.acid.share) });
+          Object.assign(e.acidPuddle, { x: e.x, y: e.y, life: STATUS.acid.duration * ext, shooter: by, abs: Math.max(e.acidPuddle.abs ?? 0, dmg * STATUS.acid.share) });
         } else {
-          e.acidPuddle = { shooter: by, x: e.x, y: e.y, r: STATUS.acid.radius, life: STATUS.acid.duration, tick: 0, dmg: 0, abs: dmg * STATUS.acid.share, dtype: 'acid' };
+          e.acidPuddle = { shooter: by, x: e.x, y: e.y, r: STATUS.acid.radius, life: STATUS.acid.duration * ext, tick: 0, dmg: 0, abs: dmg * STATUS.acid.share, dtype: 'acid' };
           this.puddles.push(e.acidPuddle);
         }
         break;
@@ -1845,19 +1888,20 @@ export class Field {
         // Per tick, `share` of the hit to everything around it: stored as damage per second.
         if (e.hp > 0) {
           const dps = (dmg * STATUS.aura.share) / STATUS.tick;
-          const ticks = Math.round(STATUS.aura.duration / STATUS.tick);
-          e.aura = e.aura && e.aura.dps > dps ? { ...e.aura, left: STATUS.aura.duration, ticks } : { dps, left: STATUS.aura.duration, by, acc: e.aura?.acc ?? 0, ticks };
+          const left = STATUS.aura.duration * ext;
+          const ticks = Math.round(left / STATUS.tick);
+          e.aura = e.aura && e.aura.dps > dps ? { ...e.aura, left, ticks } : { dps, left, by, acc: e.aura?.acc ?? 0, ticks };
         }
         break;
       case 'arcane':
-        e.exposed = STATUS.expose.duration * k;
+        e.exposed = STATUS.expose.duration * k * ext;
         break;
       case 'lightning':
         this.arc(e, dmg * STATUS.arc.share, by);
         break;
       case 'void':
         if (e.hp > 0) {
-          e.well = STATUS.well.duration * k;
+          e.well = STATUS.well.duration * k * ext;
           e.wellPull = k;
         }
         break;
@@ -2091,8 +2135,15 @@ export class Field {
     // An elemental tap ability sets off its effect on everything the blast hit.
     for (const { e, dmg: amount } of hit) {
       if (ability === 'flame' && e.hp > 0) this.applyStatus(e, 'fire', amount, 'main');
-      else if (ability === 'frost' && e.hp > 0 && !this.immuneTo(e, 'frost')) e.slow = Math.max(e.slow ?? 0, FROST_TAP_CHILL);
+      else if (ability === 'frost' && e.hp > 0 && !this.immuneTo(e, 'frost')) e.slow = Math.max(e.slow ?? 0, FROST_TAP_CHILL * g.effectDurationMult('main'));
       else if (ability === 'thunder' && !this.immuneTo(e, 'lightning')) this.arc(e, amount * STATUS.arc.share, 'main');
+      else if (ability === 'miasma' && e.hp > 0) this.applyStatus(e, 'poison', amount, 'main', g.procRarity('main'));
+    }
+    // Melting Miasma: when it's ready, the tap also leaves a poison puddle the size of the blast.
+    if (ability === 'miasma' && this.miasmaCd <= 0) {
+      this.miasmaCd = MIASMA_PUDDLE.cooldown * g.cooldownMult('main');
+      const life = MIASMA_PUDDLE.ticks * PUDDLE_TICK * g.effectDurationMult('main');
+      this.puddles.push({ shooter: 'main', x, y, r: g.tapRadius, life, tick: 0, dmg: 0, abs: g.tapDamage * MIASMA_PUDDLE.share, dtype: 'poison' });
     }
     this.enemies = this.enemies.filter((e) => e.hp > 0);
   }

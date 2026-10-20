@@ -245,7 +245,7 @@ export interface GameState {
   };
 }
 
-export const SAVE_VERSION = 25;
+export const SAVE_VERSION = 26;
 
 /** Gear that was replaced, and what saves holding it get instead. */
 const RENAMED_GEAR: Record<string, GearItem['base']> = {
@@ -590,6 +590,10 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
     state.main.skills = Object.fromEntries(Object.entries(state.main.skills).filter(([id]) => id === 'ascend' || skillNode('main', id)?.ability));
     if (main?.skills2) main.skills2 = {};
   }
+  // v25 -> v26: your Hunter's first tree was rebuilt from the Skill Trees editor (new layout, links and values),
+  // so its points are refunded again; tap abilities already unlocked, and Ascend, stay.
+  else if (((data.version as number) ?? 1) < 26)
+    state.main.skills = Object.fromEntries(Object.entries(state.main.skills).filter(([id]) => id === 'ascend' || skillNode('main', id)?.ability));
   if (TAP_ABILITIES.some((t) => t.id === main?.tapAbility)) state.main.tapAbility = main!.tapAbility;
   // Becoming the Slayer: keep a sane point where it happened, and only ranks in the Slayer's tree.
   if (typeof main?.ascendAt === 'number' && Number.isFinite(main.ascendAt) && main.ascendAt >= 0 && main.ascendAt <= state.main.trains) {

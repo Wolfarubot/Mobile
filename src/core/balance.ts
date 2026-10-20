@@ -146,7 +146,10 @@ export type TreeStat =
   | 'gold' // +x gold from their kills
   | 'drops' // +x materials from their kills
   | 'tapPower' // +x tap blast damage
-  | 'tapSize'; // +x tap blast area
+  | 'tapSize' // +x tap blast area
+  | 'cooldown' // -x cooldowns of their gear's abilities and their tap ability (Quick Casting)
+  | 'duration' // +x how long the status effects they set off last (Extended Effects)
+  | 'multishot'; // extra projectiles per shot, or an extra strike per melee attack (Apex Hunter)
 
 /** A node in a branching tree: a Hunter's skill tree or a monster's evolution tree. */
 export interface TreeNode<S extends string = string> {
@@ -197,7 +200,7 @@ function skillTree(root: NodeSpec, branches: [NodeSpec, NodeSpec, NodeSpec], cap
 
 // ---- Your Hunter: tap abilities, unlocked in the skill tree and swapped under Tap Abilities on the Overview ----
 
-export type TapAbilityId = 'flame' | 'thunder' | 'frost';
+export type TapAbilityId = 'flame' | 'thunder' | 'frost' | 'miasma';
 
 /**
  * Elemental tap abilities: with one equipped, a tap blast deals its element's damage (instead of your weapon's)
@@ -216,33 +219,70 @@ export const TAP_ABILITIES: TapAbilityDef[] = [
   { id: 'flame', name: 'Flame Burst', icon: '🔥', damageType: 'fire', damage: 1, desc: 'Your taps erupt in fire, setting everything they hit ablaze.' },
   { id: 'thunder', name: 'Thunderclap', icon: '⚡', damageType: 'lightning', damage: 1, desc: 'Your taps crack with lightning: every monster hit arcs a bolt to another one nearby.' },
   { id: 'frost', name: 'Frost Nova', icon: '❄️', damageType: 'frost', damage: 1, desc: 'Your taps freeze: everything hit is chilled (half speed) for 3s.' },
+  { id: 'miasma', name: 'Melting Miasma', icon: '☠️', damageType: 'poison', damage: 1, desc: 'Your taps poison everything they hit, and every 4s a tap leaves a poison puddle that hurts monsters walking through it.' },
 ];
 export const tapAbilityDef = (id: TapAbilityId): TapAbilityDef => TAP_ABILITIES.find((a) => a.id === id)!;
 /** How long Frost Nova chills. */
 export const FROST_TAP_CHILL = 3;
+/**
+ * Melting Miasma's puddle: at most one per `cooldown` seconds (shortened by Quick Casting), as wide as the tap
+ * blast, lasting `ticks` puddle ticks, each hurting everything in it for `share` of the tap's damage.
+ */
+export const MIASMA_PUDDLE = { cooldown: 4, ticks: 6, share: 0.15 };
 
-/** Your Hunter's ability nodes: one point each, under the first three signature nodes, above Apex Hunter. */
-const MAIN_ABILITY_NODES: SkillNode[] = [
-  { id: 'flameTap', name: 'Flame Burst', icon: '🔥', desc: 'Unlocks the Flame Burst tap ability: taps deal Fire damage and set monsters ablaze. Equip it under Tap Abilities on your Overview.', maxRank: 1, effect: {}, ability: 'flame', requires: ['power2'], col: 0, row: 3 },
-  { id: 'thunderTap', name: 'Thunderclap', icon: '⚡', desc: 'Unlocks the Thunderclap tap ability: taps deal Lightning damage and arc to monsters nearby. Equip it under Tap Abilities on your Overview.', maxRank: 1, effect: {}, ability: 'thunder', requires: ['speed2'], col: 1, row: 3 },
-  { id: 'frostTap', name: 'Frost Nova', icon: '❄️', desc: 'Unlocks the Frost Nova tap ability: taps deal Frost damage and chill monsters. Equip it under Tap Abilities on your Overview.', maxRank: 1, effect: {}, ability: 'frost', requires: ['recovery2'], col: 2, row: 3 },
-];
-
-// ---- Your Hunter: a longer first tree (Lv 90), Ascend at Lv 100 to become the Slayer, then on to Lv 200 ----
-
-/** Rows below your first tree's capstone: 45 more points, finishing with Legend (so the whole tree is done at Lv 90). */
-const MAIN_VETERAN_NODES: SkillNode[] = [
-  { id: 'might', name: "Hunter's Might", icon: '🗡️', desc: '+9% damage per rank.', maxRank: 5, effect: { damage: 0.09 }, requires: ['capstone'], col: 0, row: 5 },
-  { id: 'haste', name: "Hunter's Haste", icon: '💨', desc: '+5.5% attack rate per rank.', maxRank: 5, effect: { rate: 0.055 }, requires: ['capstone'], col: 1, row: 5 },
-  { id: 'will', name: 'Iron Will', icon: '🪨', desc: 'Stuns wear off 13% faster per rank.', maxRank: 3, effect: { recovery: 5 / 3 }, requires: ['capstone'], col: 2, row: 5 },
-  { id: 'longShot', name: 'Long Shot', icon: '🔭', desc: '+10 range per rank.', maxRank: 3, effect: { range: 10 }, requires: ['capstone'], col: 3, row: 5 },
-  { id: 'prosperity', name: 'Prosperity', icon: '🪙', desc: '+15% gold from your kills per rank.', maxRank: 3, effect: { gold: 0.15 }, requires: ['capstone'], col: 4, row: 5 },
-  { id: 'deadlyTaps', name: 'Deadly Taps', icon: '👊', desc: '+30% tap blast damage per rank.', maxRank: 4, effect: { tapPower: 0.3 }, requires: ['might'], col: 0, row: 6 },
-  { id: 'keenEye', name: 'Keen Eye', icon: '🦅', desc: '+1% crit chance per rank.', maxRank: 4, effect: { crit: 0.01 }, requires: ['haste'], col: 1, row: 6 },
-  { id: 'wideTaps', name: 'Wide Taps', icon: '🌀', desc: '+10% tap blast area per rank.', maxRank: 4, effect: { tapSize: 0.1 }, requires: ['will'], col: 2, row: 6 },
-  { id: 'shieldWall', name: 'Shield Wall', icon: '🛡️', desc: '+1 shield charge.', maxRank: 1, effect: { guard: 1 }, requires: ['longShot'], col: 3, row: 6 },
-  { id: 'bounty', name: 'Bounty', icon: '💰', desc: '+15% materials from your kills per rank.', maxRank: 3, effect: { drops: 0.15 }, requires: ['prosperity'], col: 4, row: 6 },
-  { id: 'legend', name: 'Legend', icon: '🏆', desc: '+50% damage and +20% attack rate.', maxRank: 1, cost: 10, effect: { damage: 0.5, rate: 0.2 }, requires: ['deadlyTaps', 'keenEye', 'wideTaps', 'shieldWall', 'bounty'], col: 2, row: 7 },
+/**
+ * Your Hunter's first tree, as laid out in the Skill Trees editor: two diamonds. The root opens three branches
+ * (power, speed, recovery); their wings lead to Flame Burst and Frost Nova and meet again at Apex Hunter. Below
+ * it, three more branches lead out to Thunderclap and Melting Miasma on the wings and come back together at
+ * Legend, then Ascend. Each node needs the one above it in its column; row gates pace the rest.
+ */
+const TAP_HINT = 'Equip it under Tap Abilities on your Overview.';
+/** Ranks of SKILL_RECOVERY that make stuns wear off 10% faster. */
+const RECOVERY_10 = Math.log(0.9) / Math.log(SKILL_RECOVERY);
+const MAIN_FIRST_TREE: SkillNode[] = [
+  { id: 'root', name: "Hunter's Instinct", icon: '👁️', desc: '+5% crit chance.', maxRank: 1, effect: { crit: 0.05 }, requires: [], col: 2, row: 0 },
+  // First diamond
+  { id: 'power', name: 'Attack Power', icon: '💪', desc: '+20% damage per rank.', maxRank: 5, effect: { damage: 0.2 }, requires: ['root'], col: 1, row: 1 },
+  { id: 'speed', name: 'Attack Speed', icon: '⚡', desc: '+5% attack rate per rank.', maxRank: 5, effect: { rate: 0.05 }, requires: ['root'], col: 2, row: 1 },
+  { id: 'recovery', name: 'Recovery Speed', icon: '🧘', desc: 'Stuns wear off 10% faster per rank.', maxRank: 3, effect: { recovery: RECOVERY_10 }, requires: ['root'], col: 3, row: 1 },
+  { id: 'power2', name: 'Tap Power', icon: '👆', desc: '+50% tap blast damage per rank.', maxRank: 5, effect: { tapPower: 0.5 }, requires: ['power'], col: 0, row: 2 },
+  { id: 'eagleEye', name: 'Eagle Eye', icon: '🎯', desc: '+2% crit chance per rank.', maxRank: 2, effect: { crit: 0.02 }, requires: ['speed'], col: 2, row: 2 },
+  { id: 'recovery2', name: 'Tap Size', icon: '💥', desc: '+20% tap blast area per rank.', maxRank: 4, effect: { tapSize: 0.2 }, requires: ['recovery'], col: 4, row: 2 },
+  { id: 'flameTap', name: 'Flame Burst', icon: '🔥', desc: `Unlocks the Flame Burst tap ability: taps deal Fire damage and set monsters ablaze. ${TAP_HINT}`, maxRank: 1, effect: {}, ability: 'flame', requires: ['power2'], col: 0, row: 3 },
+  { id: 'speed2', name: 'Split Shot', icon: '🔱', desc: 'Shots pierce 1 more enemy.', maxRank: 1, effect: { pierce: 1 }, requires: ['eagleEye'], col: 2, row: 3 },
+  { id: 'frostTap', name: 'Frost Nova', icon: '❄️', desc: `Unlocks the Frost Nova tap ability: taps deal Frost damage and chill monsters. ${TAP_HINT}`, maxRank: 1, effect: {}, ability: 'frost', requires: ['recovery2'], col: 4, row: 3 },
+  { id: 'wideTaps', name: 'Wide Taps', icon: '🌀', desc: '+10% tap blast area per rank.', maxRank: 4, effect: { tapSize: 0.1 }, requires: ['flameTap'], col: 1, row: 4 },
+  { id: 'prosperity', name: 'Prosperity', icon: '🪙', desc: '+15% gold from your kills per rank.', maxRank: 3, effect: { gold: 0.15 }, requires: ['speed2'], col: 2, row: 4 },
+  { id: 'bulwark', name: 'Bulwark', icon: '🛡️', desc: '+1 shield charge per rank.', maxRank: 2, effect: { guard: 1 }, requires: ['frostTap'], col: 3, row: 4 },
+  {
+    id: 'capstone',
+    name: 'Apex Hunter',
+    icon: '👑',
+    desc: 'Ranged and Magic attacks fire an extra projectile; melee attacks follow up with another strike, and dagger bursts throw one more dagger.',
+    maxRank: 1,
+    effect: { multishot: 1 },
+    requires: ['wideTaps', 'prosperity', 'bulwark'],
+    col: 2,
+    row: 5,
+  },
+  // Second diamond
+  { id: 'reach', name: 'Reach', icon: '📏', desc: '+15 range per rank.', maxRank: 3, effect: { range: 15 }, requires: ['capstone'], col: 1, row: 6 },
+  { id: 'will', name: 'Quick Casting', icon: '⏱️', desc: "Your gear's abilities and your tap ability recharge 10% faster per rank.", maxRank: 3, effect: { cooldown: 0.1 }, requires: ['capstone'], col: 2, row: 6 },
+  { id: 'longShot', name: 'Long Shot', icon: '🔭', desc: '+10 range per rank.', maxRank: 3, effect: { range: 10 }, requires: ['capstone'], col: 3, row: 6 },
+  { id: 'deadlyTaps', name: 'Deadly Taps', icon: '👊', desc: '+30% tap blast damage per rank.', maxRank: 4, effect: { tapPower: 0.3 }, requires: ['reach'], col: 0, row: 7 },
+  { id: 'fortune', name: 'Fortune', icon: '🍀', desc: '+10% gold from your kills per rank.', maxRank: 3, effect: { gold: 0.1 }, requires: ['will'], col: 2, row: 7 },
+  { id: 'extendedEffects', name: 'Extended Effects', icon: '⏳', desc: 'The status effects you set off last 10% longer per rank.', maxRank: 3, effect: { duration: 0.1 }, requires: ['longShot'], col: 4, row: 7 },
+  { id: 'thunderTap', name: 'Thunderclap', icon: '⚡', desc: `Unlocks the Thunderclap tap ability: taps deal Lightning damage and arc to monsters nearby. ${TAP_HINT}`, maxRank: 1, effect: {}, ability: 'thunder', requires: ['deadlyTaps'], col: 0, row: 8 },
+  { id: 'goldTouch', name: 'Golden Touch', icon: '✨', desc: '+20% gold from your kills per rank.', maxRank: 2, effect: { gold: 0.2 }, requires: ['fortune'], col: 2, row: 8 },
+  { id: 'meltingMiasma', name: 'Melting Miasma', icon: '☠️', desc: `Unlocks the Melting Miasma tap ability: taps deal Poison damage and poison monsters, and every 4s a tap leaves a poison puddle that hurts monsters walking through it. ${TAP_HINT}`, maxRank: 1, effect: {}, ability: 'miasma', requires: ['extendedEffects'], col: 4, row: 8 },
+  { id: 'haste', name: "Hunter's Haste", icon: '💨', desc: '+5.5% attack rate per rank.', maxRank: 5, effect: { rate: 0.055 }, requires: ['thunderTap'], col: 1, row: 9 },
+  { id: 'shieldWall', name: 'Shield Wall', icon: '🛡️', desc: '+1 shield charge.', maxRank: 1, effect: { guard: 1 }, requires: ['goldTouch'], col: 2, row: 9 },
+  { id: 'treasure', name: 'Treasure Sense', icon: '💎', desc: '+5% materials from your kills per rank.', maxRank: 3, effect: { drops: 0.05 }, requires: ['meltingMiasma'], col: 3, row: 9 },
+  { id: 'keenEye', name: 'Keen Eye', icon: '🦅', desc: '+1% crit chance per rank.', maxRank: 4, effect: { crit: 0.01 }, requires: ['haste'], col: 1, row: 10 },
+  { id: 'might', name: "Hunter's Might", icon: '🗡️', desc: '+9% damage per rank.', maxRank: 5, effect: { damage: 0.09 }, requires: ['shieldWall'], col: 2, row: 10 },
+  { id: 'bounty', name: 'Bounty', icon: '💰', desc: '+15% materials from your kills per rank.', maxRank: 3, effect: { drops: 0.15 }, requires: ['treasure'], col: 3, row: 10 },
+  // 7 points (not the editor's 10) so the whole tree, then Ascend, fits in the 99 points earned by Lv 100.
+  { id: 'legend', name: 'Legend', icon: '🏆', desc: '+50% damage and +20% attack rate.', maxRank: 1, cost: 7, effect: { damage: 0.5, rate: 0.2 }, requires: ['keenEye', 'might', 'bounty'], col: 2, row: 11 },
 ];
 
 /**
@@ -253,7 +293,7 @@ const MAIN_VETERAN_NODES: SkillNode[] = [
  */
 export type RowGates = Partial<Record<number, number>>;
 export const DEFAULT_ROW_GATES: { main: RowGates; mainAscended: RowGates; hunter: RowGates; hunterAscended: RowGates } = {
-  main: { 2: 5, 3: 12, 4: 20, 5: 25, 6: 40, 7: 60 },
+  main: { 2: 5, 3: 10, 4: 15, 5: 20, 6: 35, 9: 55 },
   mainAscended: { 2: 15, 3: 40 },
   hunter: { 2: 5, 3: 20 },
   hunterAscended: { 2: 10, 3: 25 },
@@ -274,7 +314,7 @@ export const MAIN_ASCEND_NODE: SkillNode = {
   effect: {},
   requires: ['legend'],
   col: 2,
-  row: 8,
+  row: 12,
 };
 
 /** Your Hunter's level cap before ascending, and after (as the Slayer). */
@@ -426,24 +466,7 @@ export const ASCENDED_TREES: Record<HunterId, SkillNode[]> = {
 /** Each Hunter's skill tree ('main' is yours). */
 export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
   // Yours is five wide (the Guild Hunters' are three): more branches, and room for more abilities.
-  main: [
-    { id: 'root', name: "Hunter's Instinct", icon: '👁️', desc: '+5% crit chance.', maxRank: 1, effect: { crit: 0.05 }, requires: [], col: 2, row: 0 },
-    { id: 'power', name: 'Attack Power', icon: '💪', desc: '+40% damage per rank.', maxRank: 5, effect: { damage: 0.4 }, requires: ['root'], col: 0, row: 1 },
-    { id: 'speed', name: 'Attack Speed', icon: '⚡', desc: '+10% attack rate per rank.', maxRank: 5, effect: { rate: 0.1 }, requires: ['root'], col: 1, row: 1 },
-    { id: 'recovery', name: 'Recovery Speed', icon: '🧘', desc: 'Stuns wear off 13% faster per rank.', maxRank: 3, effect: { recovery: 5 / 3 }, requires: ['root'], col: 2, row: 1 },
-    { id: 'reach', name: 'Reach', icon: '📏', desc: '+15 range per rank.', maxRank: 3, effect: { range: 15 }, requires: ['root'], col: 3, row: 1 },
-    { id: 'fortune', name: 'Fortune', icon: '🍀', desc: '+10% gold and materials from your kills per rank.', maxRank: 3, effect: { gold: 0.1, drops: 0.1 }, requires: ['root'], col: 4, row: 1 },
-    { id: 'power2', name: 'Tap Power', icon: '👆', desc: '+50% tap blast damage per rank.', maxRank: 5, effect: { tapPower: 0.5 }, requires: ['power'], col: 0, row: 2 },
-    { id: 'speed2', name: 'Split Shot', icon: '🔱', desc: 'Shots pierce 1 more enemy per rank.', maxRank: 2, effect: { pierce: 1 }, requires: ['speed'], col: 1, row: 2 },
-    { id: 'recovery2', name: 'Tap Size', icon: '💥', desc: '+20% tap blast area per rank.', maxRank: 4, effect: { tapSize: 0.2 }, requires: ['recovery'], col: 2, row: 2 },
-    { id: 'bulwark', name: 'Bulwark', icon: '🛡️', desc: '+1 shield charge per rank.', maxRank: 2, effect: { guard: 1 }, requires: ['reach'], col: 3, row: 2 },
-    { id: 'treasure', name: 'Treasure Sense', icon: '💎', desc: '+15% materials from your kills per rank.', maxRank: 3, effect: { drops: 0.15 }, requires: ['fortune'], col: 4, row: 2 },
-    ...MAIN_ABILITY_NODES,
-    { id: 'eagleEye', name: 'Eagle Eye', icon: '🎯', desc: '+2% crit chance per rank.', maxRank: 2, effect: { crit: 0.02 }, requires: ['bulwark'], col: 3, row: 3 },
-    { id: 'goldTouch', name: 'Golden Touch', icon: '✨', desc: '+20% gold from your kills per rank.', maxRank: 2, effect: { gold: 0.2 }, requires: ['treasure'], col: 4, row: 3 },
-    { id: 'capstone', name: 'Apex Hunter', icon: '👑', desc: '+25% damage and +10% attack rate.', maxRank: 1, effect: { damage: 0.25, rate: 0.1 }, requires: [...MAIN_ABILITY_NODES.map((a) => a.id), 'eagleEye', 'goldTouch'], col: 2, row: 4 },
-    ...MAIN_VETERAN_NODES,
-  ],
+  main: MAIN_FIRST_TREE,
   alchemist: skillTree(
     { name: 'Toxic Brew', icon: '🧪', desc: 'Poison puddles spread 15% wider.', maxRank: 1, effect: { radius: 0.15 } },
     [
