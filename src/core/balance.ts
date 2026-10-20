@@ -206,7 +206,14 @@ const cdr = (maxRank: number, name: string, icon: string, what = 'Their special 
 const dur = (maxRank: number, name: string, icon: string, v = 0.1): NodeSpec => ({ name, icon, desc: `The status effects they set off last ${pctOf(v)} longer per rank.`, maxRank, effect: { duration: v } });
 const prc = (maxRank: number, name: string, icon: string, cost?: number): NodeSpec => ({ name, icon, desc: 'Shots pierce 1 more enemy per rank.', maxRank, effect: { pierce: 1 }, cost });
 const grd = (maxRank: number, name: string, icon: string, cost?: number): NodeSpec => ({ name, icon, desc: '+1 shield charge per rank.', maxRank, effect: { guard: 1 }, cost });
-const ban = (maxRank: number, name: string, icon: string, foes: string, v = 0.25): NodeSpec => ({ name, icon, desc: `+${v}× extra damage to ${foes} per rank.`, maxRank, effect: { bane: v } });
+/**
+ * A Guild Hunter's bane passive starts at +50% damage to their archetype (BANE_BASE); each tree's bane node adds up
+ * to BANE_PER_TREE more in total (+100% after the first tree, +150% after the Ascended one), however many ranks it has.
+ */
+export const BANE_BASE = 1.5;
+export const BANE_PER_TREE = 0.5;
+const banePct = (v: number): string => `${Math.round(v * 10000) / 100}%`;
+const ban = (maxRank: number, name: string, icon: string, foes: string): NodeSpec => ({ name, icon, desc: `+${banePct(BANE_PER_TREE / maxRank)} bonus damage to ${foes} per rank.`, maxRank, effect: { bane: BANE_PER_TREE / maxRank } });
 const gld = (maxRank: number, name: string, icon: string, v = 0.1): NodeSpec => ({ name, icon, desc: `+${pctOf(v)} gold from their kills per rank.`, maxRank, effect: { gold: v } });
 const drp = (maxRank: number, name: string, icon: string, v = 0.05): NodeSpec => ({ name, icon, desc: `+${pctOf(v)} materials from their kills per rank.`, maxRank, effect: { drops: v } });
 const multi = (name: string, icon: string, cost: number): NodeSpec => ({ name, icon, desc: 'Ranged and Magic attacks fire an extra projectile; melee attacks follow up with another strike.', maxRank: 1, effect: { multishot: 1 }, cost });
@@ -485,7 +492,7 @@ export const ASCENDED_TREES: Record<HunterId, SkillNode[]> = {
   gambler: ascendedTree([crd(8, 'Double Down', '🎲'), area(6, 'Boxcars', '💥', 'Dice blasts grow'), gld(6, 'House Money', '🪙')], { name: 'High Roller', icon: '🎲', desc: '+50% damage and dice blasts 30% wider.', maxRank: 1, effect: { damage: 0.5, radius: 0.3 } }),
   archivist: ascendedTree([area(8, 'Grand Index', '📜', 'Recalled specials grow'), cdr(6, 'Speed Archive', '📑', 'The tome opens'), dur(6, 'Long Memory', '🕯️')], { name: 'Great Library', icon: '📚', desc: '+50% damage and recalled specials 30% bigger.', maxRank: 1, effect: { damage: 0.5, radius: 0.3 } }),
   artificer: ascendedTree([spd(8, 'Perpetual Motion', '⚙️', 0.03), rng(6, 'Long Barrels', '🔭'), crt(6, 'Calibration', '📐')], { name: 'Grand Design', icon: '⚙️', desc: '+50% damage and +20% attack rate.', maxRank: 1, effect: { damage: 0.5, rate: 0.2 } }),
-  frostbreaker: ascendedTree([ban(8, 'Glacier Bane', '🔷', 'Elementals'), dur(6, 'Endless Winter', '🥶'), crd(6, 'Ice Shatter', '💎')], { name: 'Eternal Winter', icon: '❄️', desc: '+50% damage and +1× extra damage to Elementals.', maxRank: 1, effect: { damage: 0.5, bane: 1 } }),
+  frostbreaker: ascendedTree([ban(8, 'Glacier Bane', '🔷', 'Elementals'), dur(6, 'Endless Winter', '🥶'), crd(6, 'Ice Shatter', '💎')], { name: 'Eternal Winter', icon: '❄️', desc: '+50% damage, and status effects last 25% longer.', maxRank: 1, effect: { damage: 0.5, duration: 0.25 } }),
 };
 
 /** Each Hunter's skill tree ('main' is yours). Every Guild Hunter's costs 39 points: complete at Lv 40. */
@@ -577,7 +584,7 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
     [at('power', atk(4)), at('farReach', rng(3, 'Far Reach', '🧠')), at('recovery', rec(3))],
     [at('dragonBane', ban(4, 'Dragon Bane', '🐉', 'Dragons')), at('insight', crt(4, 'Insight', '💡')), at('psionicWave', area(3, 'Psionic Wave', '🌀', 'Their blasts grow')), at('speed', spd(4))],
     [at('overload', crd(3, 'Overload', '⚡')), at('clarity', atk(4, 'Clarity', '🔮', 0.1)), at('telekinesis', prc(1, 'Telekinesis', '🪄', 2))],
-    [at('capstone', { name: 'Transcendence', icon: '👑', desc: 'Shots pierce 1 more enemy, and +0.5× extra damage to Dragons.', maxRank: 1, cost: 4, effect: { pierce: 1, bane: 0.5 } })],
+    [at('capstone', { name: 'Transcendence', icon: '👑', desc: 'Shots pierce 1 more enemy, and +25% damage.', maxRank: 1, cost: 4, effect: { pierce: 1, damage: 0.25 } })],
   ]),
   // Sciirj: longer reach, more punches.
   scavenger: gridTree([
@@ -649,7 +656,7 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
     [at('power', atk(4, 'Heavy Hammer', '🔨')), at('recovery', rec(3, 'Glacial Hide', '🧊')), at('speed', spd(3))],
     [at('elementalBane', ban(4, 'Elemental Bane', '🔷', 'Elementals')), at('deepFreeze', dur(4, 'Deep Freeze', '🥶')), at('shatter', crd(3, 'Shatter', '💎')), at('glacier', grd(2, 'Glacier', '🏔️'))],
     [at('avalanche', area(3, 'Avalanche', '🌨️', 'Swings and blasts grow')), at('frostbite', crt(3, 'Frostbite', '🌬️')), at('might', atk(5, 'Frost Might', '💪', 0.1))],
-    [at('capstone', { name: 'Eternal Winter', icon: '❄️', desc: '+0.5× extra damage to Elementals, and status effects last 25% longer.', maxRank: 1, cost: 4, effect: { bane: 0.5, duration: 0.25 } })],
+    [at('capstone', { name: 'Eternal Winter', icon: '❄️', desc: '+25% damage, and status effects last 25% longer.', maxRank: 1, cost: 4, effect: { damage: 0.25, duration: 0.25 } })],
   ]),
 };
 
@@ -1733,39 +1740,39 @@ export const GUARD_RECHARGE = 4;
 
 export const HUNTERS: HunterDef[] = [
   {
-    id: 'alchemist', name: 'Andrejz', title: 'Alchemist', icon: '⚗️', color: '#7be07b', area: 'forest', recruitCost: 150, bane: { archetype: 'slime', mult: 3 },
+    id: 'alchemist', name: 'Andrejz', title: 'Alchemist', icon: '⚗️', color: '#7be07b', area: 'forest', recruitCost: 150, bane: { archetype: 'slime', mult: BANE_BASE },
     short: 'Lobs poison potions; slays Slimes.',
     unlock: { event: 'slimeSwarm', times: 1 },
     ascendedTitle: 'Archalchemist',
     story: "Andrejz is in the Wandering Woods doing research on Slimes, with an idea for a new potion, but he needs far more test subjects than he can catch. Survive a Slime Swarm, and Andrejz will help you hunt monsters.",
-    ability: 'Every 4s, lobs a potion that leaves a poison puddle. Deals triple damage to Slimes. Uses ranged or magic weapons.',
+    ability: 'Every 4s, lobs a potion that leaves a poison puddle. Deals 50% bonus damage to Slimes. Uses ranged or magic weapons.',
     slots: [{ kind: 'weapon', label: 'Weapon', accepts: ['weapon', 'magic'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
     special: { kind: 'potion', name: 'Potions', damageType: 'poison', cooldown: 4, damage: 0.35, radius: 45, ticks: 6, crowd: 2.5, describe: 'Every 4s, lobs a potion whose poison puddle keeps hurting: his weapon\'s damage powers it, its attack rate widens the puddle.' },
   },
   {
-    id: 'ranger', name: 'Galladair', title: 'Ranger', icon: '🏹', color: '#c09060', area: 'forest', recruitCost: 2_000, bane: { archetype: 'beast', mult: 3 },
-    short: 'Triple damage to Beasts.',
+    id: 'ranger', name: 'Galladair', title: 'Ranger', icon: '🏹', color: '#c09060', area: 'forest', recruitCost: 2_000, bane: { archetype: 'beast', mult: BANE_BASE },
+    short: '+50% damage to Beasts.',
     unlock: { event: 'guardian-forest', times: 1 },
     ascendedTitle: 'Pathfinder',
     story: 'Galladair\'s home on the edge of the Wandering Woods is being threatened by monsters. Help her defeat the Woods\' Guardian, and she will fight by your side.',
-    ability: 'Deals triple damage to Beasts.',
+    ability: 'Deals 50% bonus damage to Beasts.',
   },
   {
-    id: 'bard', name: "Ba'al", title: 'Bard', icon: '🪕', color: '#e0a0ff', area: 'glade', recruitCost: 40_000, bane: { archetype: 'humanoid', mult: 3 },
+    id: 'bard', name: "Ba'al", title: 'Bard', icon: '🪕', color: '#e0a0ff', area: 'glade', recruitCost: 40_000, bane: { archetype: 'humanoid', mult: BANE_BASE },
     short: 'His song speeds up nearby Hunters.',
     unlock: { event: 'guardian-glade', times: 1 },
     ascendedTitle: 'Maestro',
     inspire: 0.15,
     story: "Ba'al wandered into the Fey Grove chasing a melody only the pixies hum, and the Grove's Guardian won't let him leave. Beat it, and his songs are yours.",
-    ability: 'His song makes every other Hunter in his area attack 15% faster. Deals triple damage to Humanoids.',
+    ability: 'His song makes every other Hunter in his area attack 15% faster. Deals 50% bonus damage to Humanoids.',
   },
   {
-    id: 'druid', name: 'Deku', title: 'Druid', icon: '🌿', color: '#6abf5a', area: 'glade', recruitCost: 250_000, bane: { archetype: 'plant', mult: 3 }, summonBonus: { type: 'beast', mult: 1.5 },
+    id: 'druid', name: 'Deku', title: 'Druid', icon: '🌿', color: '#6abf5a', area: 'glade', recruitCost: 250_000, bane: { archetype: 'plant', mult: BANE_BASE }, summonBonus: { type: 'beast', mult: 1.5 },
     short: 'Summons wolves to fight for him.',
     unlock: { event: 'guardian-glade', times: 2 },
     ascendedTitle: 'Archdruid',
     story: 'Deku tends the oldest trees of the Fey Grove, and the Guardian keeps trampling his saplings. Beat it twice, and he\'ll lend you the spirits of the wild.',
-    ability: 'Every 6s calls two spirit wolves to hunt. Deals triple damage to Plants, and his Beast summons (wolves from any source) hit 50% harder. Uses ranged or magic weapons.',
+    ability: 'Every 6s calls two spirit wolves to hunt. Deals 50% bonus damage to Plants, and his Beast summons (wolves from any source) hit 50% harder. Uses ranged or magic weapons.',
     slots: [{ kind: 'weapon', label: 'Weapon', accepts: ['weapon', 'magic'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
     special: { kind: 'summon', name: 'Wolves', damageType: 'physical', cooldown: 6, damage: 0.7, radius: 1, ticks: 18, crowd: 1, summon: { look: 'wolf', type: 'beast' }, describe: 'Every 6s calls two spirit wolves that hunt for 6s, biting for his damage: his weapon powers them, and they share its damage type and status effects.' },
   },
@@ -1823,12 +1830,12 @@ export const HUNTERS: HunterDef[] = [
     swapRange: 90,
   },
   {
-    id: 'celeste', name: 'Celeste', title: 'Psion', icon: '🔮', color: '#c9a8ff', area: 'depths', recruitCost: 200_000_000_000_000, bane: { archetype: 'dragon', mult: 3 },
-    short: 'Triple damage to Dragons.',
+    id: 'celeste', name: 'Celeste', title: 'Psion', icon: '🔮', color: '#c9a8ff', area: 'depths', recruitCost: 200_000_000_000_000, bane: { archetype: 'dragon', mult: BANE_BASE },
+    short: '+50% damage to Dragons.',
     unlock: { event: 'guardian-depths', times: 2 },
     ascendedTitle: 'Oracle',
     story: 'Celeste, a Psion who hears the thoughts of monsters, followed a whisper into the Shadowy Depths and got lost in the noise. Beat the Depths\' Guardian twice to quiet it, and Celeste will lend you that mind.',
-    ability: 'Deals triple damage to Dragons.',
+    ability: 'Deals 50% bonus damage to Dragons.',
   },
   {
     id: 'blacksmith', name: 'Kargesh', title: 'Blacksmith', icon: '⚒️', color: '#d07a3a', area: 'caves', recruitCost: 3e15,
@@ -1871,12 +1878,12 @@ export const HUNTERS: HunterDef[] = [
     slots: [{ kind: 'magic', label: 'Magic weapon' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
   },
   {
-    id: 'frostbreaker', name: 'Okrin', title: 'Frostbreaker', icon: '🔨', color: '#8fdcff', area: 'peaks', recruitCost: 2.5e19, bane: { archetype: 'elemental', mult: 3 },
-    short: 'Triple damage to Elementals.',
+    id: 'frostbreaker', name: 'Okrin', title: 'Frostbreaker', icon: '🔨', color: '#8fdcff', area: 'peaks', recruitCost: 2.5e19, bane: { archetype: 'elemental', mult: BANE_BASE },
+    short: '+50% damage to Elementals.',
     unlock: { event: 'guardian-peaks', times: 1 },
     ascendedTitle: 'Winterking',
     story: 'Okrin climbed the Frost Peaks to hunt the thing that rules them. Defeat the Peaks\' Guardian, and he\'ll bring his hammer to your side.',
-    ability: 'Deals triple damage to Elementals.',
+    ability: 'Deals 50% bonus damage to Elementals.',
   },
   {
     id: 'bloodblade', name: 'Themus', title: 'Blood Blade', icon: '🩸', color: '#c0242c', area: 'peaks', recruitCost: 1.5e20,
@@ -1965,7 +1972,7 @@ export const hunterDef = (id: HunterId): HunterDef => HUNTERS.find((h) => h.id =
 
 export function hunterPerk(h: HunterDef): string {
   const parts: string[] = [];
-  if (h.bane) parts.push(`×${h.bane.mult} damage vs ${ARCHETYPES[h.bane.archetype].name}`);
+  if (h.bane) parts.push(`+${Math.round((h.bane.mult - 1) * 100)}% damage vs ${ARCHETYPES[h.bane.archetype].name}`);
   if (h.gold) parts.push(`+${Math.round((h.gold - 1) * 100)}% gold`);
   if (h.drops) parts.push(`+${Math.round((h.drops - 1) * 100)}% drops`);
   if (h.summonBonus) parts.push(`×${h.summonBonus.mult} damage from ${SUMMON_TYPES[h.summonBonus.type].name} summons`);
@@ -1988,7 +1995,7 @@ export interface HunterAbility {
 const BANE_NAMES: Record<Archetype, string> = {
   slime: 'Slime Scholar',
   beast: 'Primal Hunter',
-  humanoid: 'Showstopper',
+  humanoid: 'Crowd Pleaser',
   plant: 'Root Ripper',
   dragon: 'Dragonslayer',
   elemental: 'Elementbreaker',
@@ -2002,7 +2009,7 @@ export function hunterAbilities(h: HunterDef): HunterAbility[] {
   const out: HunterAbility[] = [];
   const own = HUNTER_ABILITIES[h.id] ?? [];
   out.push(...own.filter((a) => a.kind === 'active'));
-  if (h.bane) out.push({ name: BANE_NAMES[h.bane.archetype], kind: 'passive', text: `Deal ×${h.bane.mult} bonus damage to ${ARCHETYPES[h.bane.archetype].name} type monsters.` });
+  if (h.bane) out.push({ name: BANE_NAMES[h.bane.archetype], kind: 'passive', text: `Deal ${Math.round((h.bane.mult - 1) * 100)}% bonus damage to ${ARCHETYPES[h.bane.archetype].name} type monsters (more through their skill trees).` });
   out.push(...own.filter((a) => a.kind === 'passive'));
   return out;
 }

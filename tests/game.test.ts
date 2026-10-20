@@ -490,7 +490,7 @@ describe('Hunters', () => {
     const c = hunterDef('celeste');
     expect([c.name, c.title, c.area]).toEqual(['Celeste', 'Psion', 'depths']);
     expect(c.unlock).toEqual({ event: 'guardian-depths', times: 2 });
-    expect(c.bane).toEqual({ archetype: 'dragon', mult: 3 });
+    expect(c.bane).toEqual({ archetype: 'dragon', mult: 1.5 });
   });
 
   it('every Hunter is unlocked by an event in their home area, in order', () => {
@@ -502,7 +502,13 @@ describe('Hunters', () => {
     const g = rich();
     g.recruit('alchemist');
     g.state.hunters.alchemist.trains = 10;
-    expect(g.shotDamage('alchemist', 'slime')).toBeCloseTo(g.shotDamage('alchemist', 'beast') * 3);
+    // +50% to start, +100% with the first tree's bane node maxed, +150% with the Ascended one's too.
+    const ratio = () => g.shotDamage('alchemist', 'slime') / g.shotDamage('alchemist', 'beast');
+    expect(ratio()).toBeCloseTo(1.5);
+    g.state.hunters.alchemist.skills.slimeBane = 4;
+    expect(ratio()).toBeCloseTo(2);
+    g.state.hunters.alchemist.skills2 = { ...(g.state.hunters.alchemist.skills2 ?? {}), recovery2: 6 };
+    expect(ratio()).toBeCloseTo(2.5);
   });
 
   it('up to 3 Hunters per area; stationed Hunters farm in the background, together', () => {
