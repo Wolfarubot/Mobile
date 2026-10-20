@@ -5391,7 +5391,21 @@ textarea {
   color: var(--text);
   text-shadow: none;
 }
-/* A Hunter's description in their full view: a slightly darker panel. */
-.lore-text.hunter-desc {
+/* Descriptions and drops in a Hunter's or Monster's full view: a slightly darker panel. */
+.lore-text,
+.lore-drops {
   background: color-mix(in srgb, var(--card) 72%, #000);
+}
+/* A Monster's drop icons: larger, with a black outline around the sprite. */
+.lore-drop > .gem-ic {
+  width: 30px;
+  height: 30px;
+  margin: 0 2px;
+  filter: drop-shadow(1px 0 0 #000) drop-shadow(-1px 0 0 #000) drop-shadow(0 1px 0 #000) drop-shadow(0 -1px 0 #000);
+}
+.lore-drop > .gem {
+  width: 14px;
+  height: 14px;
+  margin: 0 8px;
+  outline: 2px solid #000;
 }
