@@ -59,6 +59,9 @@ export const EMOJI_ICONS: Record<string, string> = {
   "🌿": 'nature/013',
   "🍀": 'nature/020',
   "🍂": 'nature/023',
+  // Area icons: all framed ability icons, like the rest of the areas'.
+  "🦂": 'ab-alchemist-shaman/058',
+  "♾️": 'ab-rogue-warlock/090',
   // Decay (the damage type): the same crumbling skull as its tag.
   "🥀": 'ab-paladin-dk/073',
   "🍃": 'nature/018',

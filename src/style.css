@@ -5865,3 +5865,20 @@ body.left-handed .equip-prompt {
   font-size: 13px;
   line-height: 19px;
 }
+
+/* Events: each event's icon in a framed box (the crown for Guardians, the swarming monster for swarms). */
+.event-card .ev-icon {
+  border: 2px solid #000;
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--fg) 35%, transparent);
+  overflow: hidden;
+}
+.event-card .ev-icon img.ei {
+  width: 34px;
+  height: 34px;
+}
+.event-card .ev-portrait {
+  width: 40px;
+  height: 36px;
+  image-rendering: pixelated;
+}

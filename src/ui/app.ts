@@ -3147,7 +3147,11 @@ export class AppUI {
   private buildEventCard(ev: EventDef): void {
     const g = this.game;
     const card = el('div', 'row event-card');
-    card.innerHTML = `<div class="icon">${ev.icon}</div><div class="info"><div class="name">${ev.name}</div><div class="sub">${ev.blurb}</div><div class="ev-status"></div></div><button class="buy"></button>`;
+    // Guardian Challenges wear the crown; a swarm shows the monster that swarms; minigames keep their own icon.
+    const swarmer = ev.kind === 'swarm' ? (ENEMIES.find((e) => e.area === ev.area && e.archetype === ev.archetype && e.unlock === 0) ?? ENEMIES.find((e) => e.area === ev.area && e.archetype === ev.archetype)) : undefined;
+    const icon = ev.kind === 'guardian' ? '👑' : swarmer ? '<canvas class="ev-portrait"></canvas>' : ev.icon;
+    card.innerHTML = `<div class="icon ev-icon">${icon}</div><div class="info"><div class="name">${ev.name}</div><div class="sub">${ev.blurb}</div><div class="ev-status"></div></div><button class="buy"></button>`;
+    if (swarmer) queuePortrait($<HTMLCanvasElement>('.ev-portrait', card), swarmer.id);
     const btn = $<HTMLButtonElement>('.buy', card);
     const status = $('.ev-status', card);
     btn.addEventListener('click', () => {
