@@ -19,7 +19,9 @@ import {
   ANCHOR_COLLAPSE,
   PLAGUE_SPREAD,
   BOULDER,
+  MELEE_ARTS,
   type SpellId,
+  type MeleeArt,
   FLAME_BURST_COOLDOWN,
   FLEE_SPEED_MULT,
   GUARD_RECHARGE,
@@ -212,7 +214,7 @@ const HELPER_SPOTS = [
   { x: 0, y: -80 },
 ];
 
-export type BulletKind = 'rock' | 'spell' | 'blood' | 'bolt' | 'spark' | 'arrow' | 'fireball' | 'potion' | 'pellet' | 'dagger' | 'pistol' | 'ricochet' | 'hammer';
+export type BulletKind = 'slash' | 'bigDagger' | 'rock' | 'spell' | 'blood' | 'bolt' | 'spark' | 'arrow' | 'fireball' | 'potion' | 'pellet' | 'dagger' | 'pistol' | 'ricochet' | 'hammer';
 
 export interface Bullet {
   shooter: Shooter;
@@ -252,6 +254,10 @@ export interface Bullet {
   /** A spell's projectile: its cast, and the share of it each hit deals. */
   cast?: SpellCast;
   k?: number;
+  /** A big projectile (a sword's wave, a spectral dagger): how far from its centre it hits. */
+  size?: number;
+  /** Blast Daggers: explodes where it hits, for `k` × a hit within `r`. */
+  blast?: { r: number; k: number };
 }
 
 /** A spell being cast: by whom, of what element, and how hard (a staff's shot multiple, or an enchantment's base damage). */
@@ -271,7 +277,7 @@ export interface SpellHit {
   y: number;
   r: number;
   k: number;
-  fx?: 'spike' | 'sun' | 'storm' | 'rock';
+  fx?: 'spike' | 'sun' | 'storm' | 'rock' | 'shock';
 }
 
 /** A spell that lingers: an acid cloud, a drifting poison mist, cursed ground, a gravity anchor. */
@@ -392,7 +398,7 @@ export type FieldEvent =
   /** Floating words on the field: a dice roll's call, Double or Nothing's ×2 / BUST. */
   | { type: 'say'; x: number; y: number; text: string; color: string; size: number }
   /** A spell's moment: an ice spike, a fan of frost, a sunbeam, an acid drop, an anchor landing, the dead rising. */
-  | { type: 'spell'; fx: 'spike' | 'cone' | 'sun' | 'drop' | 'anchor' | 'rise' | 'rock' | 'break'; x: number; y: number; r: number; color: string; a?: number; arc?: number };
+  | { type: 'spell'; fx: 'spike' | 'cone' | 'sun' | 'drop' | 'anchor' | 'rise' | 'rock' | 'break' | 'shock'; x: number; y: number; r: number; color: string; a?: number; arc?: number };
 
 /**
  * The survivor-style battlefield in world coordinates centered on your Hunter.
@@ -1142,7 +1148,10 @@ export class Field {
       const follow = cls?.followThrough ? cls.followThrough * (range / (MAIN_RANGE * cls.range)) : undefined;
       fan((a) => this.shoot(who, cls?.projectile ?? 'bolt', x, y, a, BULLET_SPEED, range, { pierce: g.pierceOf(who, mode), followThrough: follow, bounces: cls?.bounces, mode: m }));
     }
-    if (this.isMelee(who)) this.meleeWave(who, x, y);
+    if (this.isMelee(who)) {
+      this.meleeWave(who, x, y);
+      if (!encore) for (const art of g.meleeArts(who, mode)) if (art.art !== 'blastDaggers' && g.rng() < art.chance) this.meleeArt(who, x, y, aim, art.art, art.power, cls!, mode);
+    }
     // Enchantments set off by attacks (Thunder Call, the pulses), each at its rolled chance.
     for (const { effect, chance } of g.attackEnchants(who)) if (g.rng() < chance) this.fireGear(who, x, y, effect, 1, 0);
   }
@@ -1534,7 +1543,7 @@ export class Field {
     angle: number,
     speed: number,
     range: number,
-    o: { pierce?: number; dmg?: number; radius?: number; bounces?: number; slow?: number; tx?: number; ty?: number; mode?: GearMode; special?: boolean; followThrough?: number; volley?: number; stack?: number; bleed?: boolean; dtype?: DamageType; ticks?: number; cast?: SpellCast; k?: number },
+    o: { pierce?: number; dmg?: number; radius?: number; bounces?: number; slow?: number; tx?: number; ty?: number; mode?: GearMode; special?: boolean; followThrough?: number; volley?: number; stack?: number; bleed?: boolean; dtype?: DamageType; ticks?: number; cast?: SpellCast; k?: number; size?: number; blast?: { r: number; k: number } },
   ): void {
     const g = this.game;
     // Stone magic (a Physical magic weapon) hurls rocks instead of sparks.
@@ -1574,7 +1583,43 @@ export class Field {
       ticks: o.ticks,
       cast: o.cast,
       k: o.k,
+      size: o.size,
+      blast: o.blast,
     });
+  }
+
+  /** A melee art going off (see MeleeArt): in the weapon's element, `power` × a hit. */
+  private meleeArt(who: Shooter, x: number, y: number, aim: number, art: MeleeArt, power: number, cls: WeaponClassDef, mode: GearMode): void {
+    const g = this.game;
+    const m = mode === 'short' ? 'short' : undefined;
+    const color = this.typeColor(who, mode);
+    const reach = cls.reach ?? 80;
+    switch (art) {
+      case 'wave':
+        // A crescent of the sword's element flying out through everything in its path.
+        this.shoot(who, 'slash', x, y, aim, MELEE_ARTS.waveSpeed, reach * MELEE_ARTS.waveReach, { pierce: Infinity, dmg: power, size: reach * MELEE_ARTS.waveSize * g.radiusMult(who), mode: m });
+        break;
+      case 'spear':
+        // A giant phantom spear stabbing out twice as far and wide.
+        this.strikeLine(who, x, y, aim, reach * MELEE_ARTS.spearReach, (cls.width ?? 24) * MELEE_ARTS.spearWidth, Infinity, power, color, (cls.width ?? 24) * MELEE_ARTS.spearWidth, cls.knock ?? 0);
+        break;
+      case 'glaive':
+        this.strikeArc(who, x, y, aim, reach * MELEE_ARTS.glaiveReach, cls.arc ?? 3, power, cls.knock ?? 0, true, color);
+        break;
+      case 'aftershock': {
+        // A second slam a moment later, where the first landed, in the hammer's element.
+        const r = reach * g.radiusMult(who);
+        const cx = x + Math.cos(aim) * r * SLAM_OFFSET;
+        const cy = y + Math.sin(aim) * r * SLAM_OFFSET;
+        this.spellHits.push({ c: { who, dtype: g.damageTypeOf(who, mode), mult: power, mode: m }, t: MELEE_ARTS.aftershockDelay, x: cx, y: cy, r, k: 1, fx: 'shock' });
+        break;
+      }
+      case 'bigDagger':
+        this.shoot(who, 'bigDagger', x, y, aim, BULLET_SPEED * 0.8, g.shooterRange(who, mode) * 1.5, { pierce: Infinity, dmg: power, size: MELEE_ARTS.bigDaggerSize, mode: m });
+        break;
+      case 'blastDaggers':
+        break; // goes off on thrown daggers (runStabs)
+    }
   }
 
   /** Instant strike along a line (lance thrust, sniper shot): hits up to `maxHits` enemies within `width`. */
@@ -1645,7 +1690,12 @@ export class Field {
       if (d <= cls.reach! + e.r) {
         this.events.push({ type: 'beam', x1: ox, y1: oy, x2: ox + Math.cos(a) * (d - e.r * 0.3), y2: oy + Math.sin(a) * (d - e.r * 0.3), color: this.typeColor(s.who), width: 3 });
         this.meleeHit(s.who, e, 1, ox, oy, s.last ? (cls.knock ?? 0) : 0);
-      } else this.shoot(s.who, 'dagger', ox, oy, a, BULLET_SPEED, range, { pierce: this.game.pierceOf(s.who) });
+      } else {
+        // Blast Daggers: some thrown daggers explode where they hit.
+        const blast = this.game.meleeArts(s.who).find((x) => x.art === 'blastDaggers');
+        const boom = blast && this.game.rng() < blast.chance ? { r: MELEE_ARTS.blastRadius * this.game.radiusMult(s.who), k: blast.power } : undefined;
+        this.shoot(s.who, 'dagger', ox, oy, a, BULLET_SPEED, range, { pierce: this.game.pierceOf(s.who), blast: boom });
+      }
     }
   }
 
@@ -2371,7 +2421,7 @@ export class Field {
       }
       for (const e of this.enemies) {
         if (e.hp <= 0 || b.life <= 0 || b.hits.includes(e.id)) continue;
-        const rr = e.r + BULLET_RADIUS;
+        const rr = e.r + (b.size ?? BULLET_RADIUS);
         const dx = e.x - b.x;
         const dy = e.y - b.y;
         if (dx * dx + dy * dy > rr * rr) continue;
@@ -2420,6 +2470,13 @@ export class Field {
       mult *= 1 + (b.stack ?? 0) * e.volleyHits;
     }
     this.hitWith(b.shooter, e, mult, b.x - b.vx, b.y - b.vy, b.crit, b.mode, false, true, b.dtype);
+    if (b.blast) {
+      // A Blast Dagger goes off: everything around (the monster it struck included) takes the blast.
+      this.events.push({ type: 'explode', x: e.x, y: e.y, r: b.blast.r, color: this.typeColor(b.shooter, b.mode) });
+      for (const o of [...this.enemies]) if (o.hp > 0 && Math.hypot(o.x - e.x, o.y - e.y) <= b.blast.r + o.r) this.hitWith(b.shooter, o, b.blast.k, e.x, e.y, undefined, b.mode);
+      b.blast = undefined;
+      b.life = 0;
+    }
     if (b.kind === 'hammer' && b.slow) e.slow = Math.max(e.slow ?? 0, b.slow);
     if ((b.bounces ?? 0) > 0) {
       const next = this.nearest(e.x, e.y, RICOCHET_RANGE, b.hits);

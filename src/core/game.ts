@@ -1,4 +1,5 @@
 import {
+  type MeleeArt,
   staffSpell,
   type SpellId,
   ASCEND_LEVEL,
@@ -374,6 +375,13 @@ export class Game {
   killBurst(who: Shooter): { base: number; radius: number; damageType: DamageType; chance: number } | null {
     const e = this.weaponEnchants(who).find(({ en }) => en.onKill);
     return e?.en.onKill ? { ...e.en.onKill, chance: e.v, base: e.p * enchantTierHit(e.def) } : null;
+  }
+
+  /** A Hunter's melee arts (enchantments on their melee weapon): each with its chance and power (× a hit). */
+  meleeArts(who: Shooter, mode: GearMode = 'long'): Array<{ art: MeleeArt; chance: number; power: number }> {
+    const item = this.weaponItem(who, mode);
+    if (!item) return [];
+    return this.enchantsOf(item).flatMap(({ en, v, p }) => (en.melee ? [{ art: en.melee, chance: v, power: p }] : []));
   }
 
   /** Enchantments set off by a Hunter's attacks (Thunder Call, the pulses), from anything they wear. */

@@ -2506,7 +2506,22 @@ export type EnchantId =
   | 'binding'
   | 'haste'
   | 'amplify'
+  | 'artWave'
+  | 'artSpear'
+  | 'artGlaive'
+  | 'artAftershock'
+  | 'artBigDagger'
+  | 'artBlastDaggers'
   | SpellEnchantId;
+
+/**
+ * Melee arts: a melee weapon's enchanted moves, each in the weapon's own element. A sword sends out a wave; a
+ * spear or glaive a giant phantom of itself; a hammer a second, elemental slam; a dagger a big spectral dagger,
+ * or thrown daggers that explode.
+ */
+export type MeleeArt = 'wave' | 'spear' | 'glaive' | 'aftershock' | 'bigDagger' | 'blastDaggers';
+/** How the arts are shaped: a wave's speed and reach (× the weapon's reach), a phantom's reach and width, a blast's radius. */
+export const MELEE_ARTS = { waveSpeed: 420, waveReach: 3.5, waveSize: 0.45, spearReach: 2.2, spearWidth: 2, glaiveReach: 1.8, aftershockDelay: 0.18, bigDaggerSize: 12, blastRadius: 45 };
 /** A Spell enchantment: one per spell, e.g. 'spellFireball'. */
 export type SpellEnchantId = `spell${Capitalize<SpellId>}`;
 
@@ -2524,6 +2539,8 @@ export interface EnchantDef {
   potency?: boolean;
   /** Virulence / Binding: their roll is a strength, not a chance: status effect strength, or summon duration. */
   boost?: 'status' | 'summonDur' | 'cooldown' | 'radius';
+  /** A melee art (MELEE_ARTS): each attack has its chance to set it off, at its power × a hit. */
+  melee?: MeleeArt;
   /** Fireburst: each kill by the weapon has its chance to burst within `radius`. */
   onKill?: { radius: number; damageType: DamageType };
   /** Thunder Call and the pulses: each of the wearer's attacks has its chance to set this off. */
@@ -2559,6 +2576,8 @@ const spellEnchant = (id: SpellId): EnchantDef => ({
   fits: castsSpells,
   text: (c, p, t) => `${pct(c)} chance on attack to cast ${SPELLS[id].name}: ${SPELLS[id].desc.charAt(0).toLowerCase()}${SPELLS[id].desc.slice(1, -1)} (${dmg(p, t)})`,
 });
+const melee = (cls: WeaponClass) => (d: GearDef) => d.weaponClass === cls;
+const hits = (p: number) => `${Math.round(p * 100) / 100}× a hit`;
 export const spellEnchantId = (id: SpellId): SpellEnchantId => `spell${id.charAt(0).toUpperCase()}${id.slice(1)}` as SpellEnchantId;
 
 export const ENCHANTS: Record<EnchantId, EnchantDef> = {
@@ -2583,6 +2602,12 @@ export const ENCHANTS: Record<EnchantId, EnchantDef> = {
   amplify: { name: 'Amplify', icon: '🌀', range: [0.2, 0.4], weight: 1, boost: 'radius', fits: () => true, text: (v) => `+${pct(v)} area size (every area effect: specials, blasts, puddles, slams, auras)` },
   binding: { name: 'Binding', icon: '⏳', range: [0.15, 0.3], weight: 1, boost: 'summonDur', fits: summons, text: (v) => `+${pct(v)} summon duration` },
   ...(Object.fromEntries((Object.keys(SPELLS) as SpellId[]).map((id) => [spellEnchantId(id), spellEnchant(id)])) as Record<SpellEnchantId, EnchantDef>),
+  artWave: { name: 'Elemental Wave', icon: '🌊', range: [0.1, 0.2], power: [0.8, 1.2], weight: 1, melee: 'wave', fits: melee('sword'), text: (c, p) => `${pct(c)} chance on attack to send out a wave of the sword's element, through every monster in its path (${hits(p)})` },
+  artSpear: { name: 'Phantom Spear', icon: '🔱', range: [0.1, 0.2], power: [1.2, 1.8], weight: 1, melee: 'spear', fits: melee('spear'), text: (c, p) => `${pct(c)} chance on attack for a giant spear of its element to stab out twice as far and wide (${hits(p)})` },
+  artGlaive: { name: 'Phantom Glaive', icon: '🪓', range: [0.1, 0.2], power: [1, 1.5], weight: 1, melee: 'glaive', fits: melee('glaive'), text: (c, p) => `${pct(c)} chance on attack for a giant glaive of its element to cleave much further out (${hits(p)})` },
+  artAftershock: { name: 'Aftershock', icon: '💥', range: [0.15, 0.3], power: [0.6, 1], weight: 1, melee: 'aftershock', fits: melee('hammer'), text: (c, p) => `${pct(c)} chance a slam is followed at once by a second slam of the hammer's element (${hits(p)})` },
+  artBigDagger: { name: 'Spectral Dagger', icon: '🗡️', range: [0.1, 0.2], power: [1.5, 2.5], weight: 1, melee: 'bigDagger', fits: melee('dagger'), text: (c, p) => `${pct(c)} chance on attack to throw a big dagger of its element that pierces everything in its path (${hits(p)})` },
+  artBlastDaggers: { name: 'Blast Daggers', icon: '💣', range: [0.25, 0.5], power: [0.5, 0.9], weight: 1, melee: 'blastDaggers', fits: melee('dagger'), text: (c, p) => `${pct(c)} chance each thrown dagger explodes where it hits, in its element (${hits(p)} to everything around)` },
   shieldBurst: { name: 'Shield Burst', icon: '🛡️', range: [0.4, 0.8], power: [0.8, 1.2], weight: 1, effect: { kind: 'block', base: 1, damageType: 'radiant', radius: 80 }, fits: isArmor, text: (c, p, t) => `${pct(c)} chance a blocked hit blasts everything nearby (${dmg(p, t)})` },
 };
 

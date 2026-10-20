@@ -933,6 +933,12 @@ export class BattleView {
         this.fx.burst(e.x, e.y, '#9a9488', 6, 110, 3, 300, true);
         this.shake = Math.max(this.shake, 0.06);
         break;
+      case 'shock':
+        // A hammer's Aftershock: a second impact in its element.
+        if (this.fancy) this.playEffect('smash', e.x, e.y, e.r * 2.1, 'center', 26, SMASH_START, 0.55, e.color);
+        else this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: hexRgb(e.color), max: 0.35 });
+        this.shake = Math.max(this.shake, 0.12);
+        break;
       case 'break':
         // The boulder breaks apart: chunks of rock flying everywhere.
         this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: '200,190,170', max: 0.35 });
@@ -2137,6 +2143,55 @@ function drawBullet(g: CanvasRenderingContext2D, b: Bullet, t: number, basic = f
       g.fillRect(-2.5, -2.5, 5, 5);
       g.fillStyle = '#ffffff';
       g.fillRect(-1, -1, 2, 2);
+      break;
+    }
+    case 'slash': {
+      // A sword's Elemental Wave: a crescent of its element, as wide as it hits, flying edge-first.
+      const c = DAMAGE_TYPES[b.dtype ?? 'physical'].color;
+      const r = b.size ?? 30;
+      g.rotate(a);
+      g.globalAlpha = 0.35;
+      g.fillStyle = c;
+      g.beginPath();
+      g.arc(-r * 0.55, 0, r, -1.1, 1.1);
+      g.arc(-r * 0.85, 0, r * 0.95, 1.1, -1.1, true);
+      g.closePath();
+      g.fill();
+      g.globalAlpha = 0.9;
+      g.strokeStyle = c;
+      g.lineWidth = 3;
+      g.beginPath();
+      g.arc(-r * 0.55, 0, r, -1, 1);
+      g.stroke();
+      g.strokeStyle = '#ffffff';
+      g.lineWidth = 1.2;
+      g.beginPath();
+      g.arc(-r * 0.55, 0, r, -0.6, 0.6);
+      g.stroke();
+      g.globalAlpha = 1;
+      break;
+    }
+    case 'bigDagger': {
+      // A Spectral Dagger: a big glowing blade of its element.
+      const c = DAMAGE_TYPES[b.dtype ?? 'physical'].color;
+      g.rotate(a);
+      g.fillStyle = c;
+      g.globalAlpha = 0.35;
+      g.fillRect(-26, -5, 18, 10);
+      g.globalAlpha = 1;
+      g.beginPath();
+      g.moveTo(16, 0);
+      g.lineTo(-6, -6);
+      g.lineTo(-6, 6);
+      g.closePath();
+      g.fill();
+      g.strokeStyle = OUTLINE;
+      g.lineWidth = 1.5;
+      g.stroke();
+      g.fillStyle = '#ffffff';
+      g.fillRect(-4, -1, 14, 2);
+      g.fillStyle = '#6a5040';
+      g.fillRect(-12, -2.5, 7, 5);
       break;
     }
     case 'rock': {

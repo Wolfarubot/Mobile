@@ -2191,6 +2191,77 @@ describe('Equipment', () => {
     expect(f2.bullets[0]?.kind).toBe('rock');
   });
 
+  it('melee arts: enchanted melee weapons send out waves, phantom spears and glaives, aftershocks, spectral and blast daggers in their element', () => {
+    const setup = (base: Parameters<Game['craftGear']>[0], id: keyof typeof ENCHANTS) => {
+      const g = new Game(newGame(0), () => 0); // every chance goes off
+      g.state.main.trains = 50;
+      g.state.inventory.push({ uid: 900, base, stars: 1, mods: [{ kind: 'enchant', id, q: 5, p: 5 }] } as (typeof g.state.inventory)[number]);
+      g.equip('main', 0, 900);
+      const f = new Field(g);
+      f.setView(390, 420);
+      return { g, f };
+    };
+    // Each art only fits its own kind of weapon.
+    expect(ENCHANTS.artWave.fits(gearDef('slimeSword'))).toBe(true);
+    expect(ENCHANTS.artWave.fits(gearDef('boneSpear'))).toBe(false);
+    expect(ENCHANTS.artBlastDaggers.fits(gearDef('beastBlade'))).toBe(true);
+    expect(ENCHANTS.artAftershock.fits(gearDef('emberLongbow'))).toBe(false);
+    const fire = (g: Game, f: Field) => {
+      const art = g.meleeArts('main')[0];
+      (f as unknown as { meleeArt: (...a: unknown[]) => void }).meleeArt('main', 0, 0, -Math.PI / 2, art.art, art.power, g.weaponClassOf('main'), 'long');
+    };
+    const line = (n: number, gap: number) => Array.from({ length: n }, (_, i) => enemy({ id: i + 1, type: 'wolf', x: 0, y: -60 - i * gap, hp: 1e9, maxHp: 1e9 }));
+    // Sword: a wave that flies out through every monster in its path.
+    {
+      const { g, f } = setup('slimeSword', 'artWave');
+      f.enemies = line(3, 50);
+      fire(g, f);
+      expect(f.bullets.some((b) => b.kind === 'slash')).toBe(true);
+      for (let i = 0; i < 30; i++) f.update(1 / 30);
+      expect(f.enemies.filter((e) => e.hp < 1e9)).toHaveLength(3);
+    }
+    // Spear: a phantom spear stabbing out twice as far as the spear reaches.
+    {
+      const { g, f } = setup('boneSpear', 'artSpear');
+      f.enemies = [enemy({ id: 1, type: 'wolf', x: 0, y: -300, hp: 1e9, maxHp: 1e9 })];
+      expect(300).toBeGreaterThan(WEAPON_CLASSES.spear.reach! + 20);
+      fire(g, f);
+      expect(f.enemies[0].hp).toBeLessThan(1e9);
+    }
+    // Glaive: a phantom cleave far beyond the glaive's reach.
+    {
+      const { g, f } = setup('forestGlaive', 'artGlaive');
+      f.enemies = [enemy({ id: 1, type: 'wolf', x: 0, y: -160, hp: 1e9, maxHp: 1e9 })];
+      fire(g, f);
+      expect(f.enemies[0].hp).toBeLessThan(1e9);
+    }
+    // Hammer: a second slam a moment later.
+    {
+      const { g, f } = setup('kingsMaul', 'artAftershock');
+      f.enemies = [enemy({ id: 1, type: 'wolf', x: 0, y: -50, hp: 1e9, maxHp: 1e9 })];
+      fire(g, f);
+      expect(f.enemies[0].hp).toBe(1e9);
+      for (let i = 0; i < 10; i++) f.update(1 / 30);
+      expect(f.enemies[0].hp).toBeLessThan(1e9);
+    }
+    // Dagger: a spectral dagger through everything in its path.
+    {
+      const { g, f } = setup('beastBlade', 'artBigDagger');
+      f.enemies = line(3, 60);
+      fire(g, f);
+      expect(f.bullets.some((b) => b.kind === 'bigDagger')).toBe(true);
+      for (let i = 0; i < 30; i++) f.update(1 / 30);
+      expect(f.enemies.filter((e) => e.hp < 1e9)).toHaveLength(3);
+    }
+    // Blast Daggers: a thrown dagger explodes, hurting the monsters around the one it hit.
+    {
+      const { f } = setup('beastBlade', 'artBlastDaggers');
+      f.enemies = [enemy({ id: 1, type: 'wolf', x: 0, y: -200, hp: 1e9, maxHp: 1e9 }), enemy({ id: 2, type: 'wolf', x: 25, y: -215, hp: 1e9, maxHp: 1e9 })];
+      for (let i = 0; i < 60; i++) f.update(1 / 30);
+      expect(f.enemies[1].hp).toBeLessThan(1e9);
+    }
+  });
+
   it('armor kinds: Light is quick, Heavy and Shields add shield charges (Heavy slows you, Shields cost damage), Robes add damage', () => {
     const light = gearTotals(gearDef('gloomLeathers'), 1);
     const heavy = gearTotals(gearDef('bonePlate'), 1);
