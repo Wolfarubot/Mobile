@@ -5638,3 +5638,120 @@ button.pressing:not(:disabled) {
   margin: 0;
   vertical-align: top;
 }
+
+/* ---- Equip screen: every Hunter with their gear, tap one to equip the piece. ---- */
+.equip-screen .es-item .gear-card {
+  margin-bottom: 6px;
+}
+.es-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 8px;
+  margin: 6px 0 20px;
+}
+.es-hunter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 4px 6px;
+  min-width: 0;
+}
+.es-hunter .hunter-art {
+  width: 52px;
+  height: 52px;
+}
+.es-hunter .es-name {
+  font-size: 13px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+.es-hunter .es-note {
+  font-size: 11px;
+  opacity: 0.85;
+}
+.es-hunter.misfit {
+  opacity: 0.5;
+}
+.es-hunter.wearing {
+  outline: 3px solid var(--gold);
+  outline-offset: -3px;
+}
+.es-gear {
+  display: flex;
+  gap: 3px;
+  margin-top: 2px;
+}
+.es-slot {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: 2px dashed color-mix(in srgb, var(--fg) 40%, transparent);
+  background: rgba(0, 0, 0, 0.18);
+  font-size: 15px;
+}
+.es-slot.rar {
+  border: 2px solid var(--rc);
+  background: color-mix(in srgb, var(--rc) 22%, #fff);
+}
+.es-slot img {
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+.es-slot.this {
+  box-shadow: 0 0 0 2px #fff, 0 0 6px 2px var(--gold);
+}
+.worn-by {
+  font-weight: 800;
+}
+
+/* The "Equip?" button after crafting: in the Train buttons' corner, draining from right to left. */
+.equip-prompt {
+  position: fixed;
+  right: 14px;
+  bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  z-index: 60;
+  min-width: 110px;
+  padding: 10px 16px 14px !important;
+  font-size: 17px;
+  overflow: hidden;
+  animation: ep-in 0.2s ease-out, ep-out 0.4s ease-in calc(var(--ep-time) - 0.4s) forwards;
+}
+body.left-handed .equip-prompt {
+  right: auto;
+  left: 14px;
+}
+.equip-prompt .ep-timer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 5px;
+  background: var(--gold);
+  box-shadow: 0 -1px 0 #000;
+  transform-origin: left center;
+  animation: ep-drain var(--ep-time) linear forwards;
+}
+@keyframes ep-drain {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+@keyframes ep-in {
+  from {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+}
+@keyframes ep-out {
+  to {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}

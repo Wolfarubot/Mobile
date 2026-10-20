@@ -304,6 +304,8 @@ export class AppUI {
   private treePick = new Map<Wearer, TreeKind>();
   /** The full-screen gear picker, above the Hunter view. */
   private picker: HTMLElement | null = null;
+  private equipScreen: HTMLElement | null = null;
+  private equipRefresh: (() => void) | null = null;
   private tab: Tab = 'hunters';
   /** The open sub-tab of the Inventory tab. */
   private invSub: InvSub = 'equipment';
@@ -1183,7 +1185,7 @@ export class AppUI {
    * Full-screen gear picker for one slot: the equipped item's card on top, the item you're inspecting
    * below it (with what changes if you swap), and your whole inventory as a grid at the bottom.
    */
-  private openSlotPicker(who: Wearer, slot: number): void {
+  private openSlotPicker(who: Wearer, slot: number, preselect?: number): void {
     this.closePicker();
     const g = this.game;
     const def = g.slotsOf(who)[slot];
@@ -1205,7 +1207,7 @@ export class AppUI {
     const fits = (it: GearItem) => slotAccepts(def, gearDef(it.base));
     // Start on the best piece that fits and nobody is wearing.
     let selected: number | null =
-      g.state.inventory.filter((it) => fits(it) && !g.wearerOf(it.uid)).sort((a, b) => b.stars - a.stars)[0]?.uid ?? null;
+      preselect ?? g.state.inventory.filter((it) => fits(it) && !g.wearerOf(it.uid)).sort((a, b) => b.stars - a.stars)[0]?.uid ?? null;
 
     const render = () => {
       const current = g.equipped(who)[slot];
@@ -1238,8 +1240,8 @@ export class AppUI {
           btn.textContent = `Doesn't fit the ${def.label} slot`;
           btn.disabled = true;
         } else if (worn) {
-          btn.textContent = `Worn by ${wearerName(worn.who)}`;
-          btn.disabled = true;
+          // Equipping takes it off whoever has it on.
+          btn.textContent = `Take from ${wearerName(worn.who)}`;
         } else {
           btn.textContent = current ? 'Equip (swap)' : 'Equip';
         }
@@ -1253,7 +1255,8 @@ export class AppUI {
       // Inventory grid: everything, with what fits this slot first.
       const grid = $('.pk-grid', view);
       grid.innerHTML = '';
-      const inv = [...g.state.inventory].sort((a, b) => Number(fits(b)) - Number(fits(a)) || b.stars - a.stars);
+      const rank = (it: GearItem) => RARITY_ORDER.indexOf(gearDef(it.base).rarity);
+      const inv = [...g.state.inventory].sort((a, b) => Number(fits(b)) - Number(fits(a)) || rank(b) - rank(a) || b.uid - a.uid);
       $('.pk-count', view).textContent = `${inv.length} item${inv.length === 1 ? '' : 's'}`;
       if (!inv.length) grid.innerHTML = '<p class="empty-inv">Empty. Craft gear in Inventory → Crafting.</p>';
       for (const it of inv) {
@@ -1278,8 +1281,89 @@ export class AppUI {
     if (!this.picker) return false;
     this.picker.remove();
     this.picker = null;
+    this.equipRefresh?.();
     this.refresh();
     return true;
+  }
+
+  /**
+   * Equip screen for one piece: every Hunter (you and the Guild Hunters you've recruited) with the gear they're
+   * wearing below their icon, each in a frame of its rarity. Tapping a Hunter opens their gear picker for the
+   * slot the piece fits, with the piece already picked, ready to swap in.
+   */
+  private openEquipScreen(uid: number): void {
+    this.closeEquipScreen();
+    const g = this.game;
+    const item = g.gearItem(uid);
+    if (!item) return;
+    const gd = gearDef(item.base);
+    const view = el('div', 'hunter-detail equip-screen floating-close');
+    view.innerHTML = `
+      <div class="hd-scroll">
+        <h2 class="pk-title">Equip ${gd.name}</h2>
+        <div class="es-item"></div>
+        <div class="section-title"><span>Choose a Hunter</span></div>
+        <div class="es-grid"></div>
+      </div>
+      <button class="hd-close hd-float-close" aria-label="Close">✕</button>`;
+    document.body.appendChild(view);
+    this.equipScreen = view;
+    $('.hd-close', view).addEventListener('click', () => this.closeEquipScreen());
+    const who: Wearer[] = ['main', ...HUNTERS.filter((h) => g.state.hunters[h.id].recruited).map((h) => h.id)];
+    const render = () => {
+      if (!g.gearItem(uid)) return this.closeEquipScreen();
+      $('.es-item', view).innerHTML = gearCardHtml(g.gearItem(uid)!);
+      const worn = g.wearerOf(uid);
+      const grid = $('.es-grid', view);
+      grid.innerHTML = '';
+      for (const w of who) {
+        const slots = g.slotsOf(w);
+        const fit = slots.findIndex((sl) => slotAccepts(sl, gd));
+        const b = el('button', `card es-hunter${fit < 0 ? ' misfit' : ''}${worn?.who === w ? ' wearing' : ''}`) as HTMLButtonElement;
+        const gear = g
+          .equipped(w)
+          .map((it, i) => {
+            const d = it ? gearDef(it.base) : null;
+            return `<span class="es-slot${d ? ' rar' : ''}${it?.uid === uid ? ' this' : ''}" style="${d ? `--rc:${gearColor(d.id)}` : ''}" title="${d ? d.name : slots[i].label}">${d ? gearIcon(d) : ''}</span>`;
+          })
+          .join('');
+        b.innerHTML = `${portraitHtml(w)}<b class="es-name">${wearerName(w)}</b><small class="es-note">${worn?.who === w ? 'Wearing it' : fit < 0 ? "Can't use it" : `Lv ${g.levelOf(w)}`}</small><div class="es-gear">${gear}</div>`;
+        b.disabled = fit < 0;
+        b.addEventListener('click', () => this.openSlotPicker(w, fit, uid));
+        grid.appendChild(b);
+      }
+    };
+    render();
+    this.equipRefresh = render;
+  }
+
+  /** Closes the Equip screen. Returns false if it wasn't open. */
+  private closeEquipScreen(): boolean {
+    if (!this.equipScreen) return false;
+    this.equipScreen.remove();
+    this.equipScreen = null;
+    this.equipRefresh = null;
+    this.refresh();
+    return true;
+  }
+
+  /**
+   * After crafting a piece: an "Equip?" button in the corner (the Train buttons' side, so by handedness) that drains
+   * from right to left and goes once it's empty. Tapping it opens the Equip screen for the new piece.
+   */
+  private showEquipPrompt(uid: number): void {
+    document.querySelector('.equip-prompt')?.remove();
+    const btn = el('button', 'equip-prompt buy') as HTMLButtonElement;
+    btn.innerHTML = `<span>Equip?</span><i class="ep-timer"></i>`;
+    btn.style.setProperty('--ep-time', `${EQUIP_PROMPT_SECONDS}s`);
+    document.body.appendChild(btn);
+    const done = setTimeout(() => btn.remove(), EQUIP_PROMPT_SECONDS * 1000);
+    btn.addEventListener('click', () => {
+      clearTimeout(done);
+      btn.remove();
+      this.closeFieldCard();
+      this.openEquipScreen(uid);
+    });
   }
 
   /** Details for one inventory piece: upgrade or salvage. */
@@ -1292,7 +1376,8 @@ export class AppUI {
       const worn = g.wearerOf(uid);
       const cost = g.gearUpgradeCost(uid);
       body.innerHTML = `
-        <p><b class="rarity-tag" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${gearKindName(gd)} · <span class="stars">${starsHtml(item.stars)}</span>${worn ? ` · worn by ${wearerName(worn.who)}` : ''}</p>
+        <p><b class="rarity-tag" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${gearKindName(gd)} · <span class="stars">${starsHtml(item.stars)}</span></p>
+        ${worn ? `<p class="worn-by">${wearerIcon(worn.who)} Worn by <b>${wearerName(worn.who)}</b></p>` : ''}
         ${featureTags(gd, item.stars)}
         ${statTable(gd, cost ? [{ label: `Now ${item.stars}★`, stars: item.stars }, { label: `Next ${item.stars + 1}★`, stars: item.stars + 1 }] : [{ label: `${item.stars}★`, stars: item.stars }]) || (gd.effect ? '' : '<p class="gear-now">No bonuses: plain everyday wear.</p>')}
         ${modSlotsHtml(g, uid)}
@@ -1307,6 +1392,12 @@ export class AppUI {
         body.querySelector('.mod-slots')?.after(rb);
       }
       const actions = el('div', 'actions');
+      const equip = el('button', 'buy', '🎽 Equip') as HTMLButtonElement;
+      equip.addEventListener('click', () => {
+        close();
+        this.openEquipScreen(uid);
+      });
+      actions.appendChild(equip);
       if (cost) {
         const up = el('button', 'buy', `Upgrade to ${item.stars + 1}★`) as HTMLButtonElement;
         up.disabled = !g.canUpgradeGear(uid);
@@ -2564,10 +2655,14 @@ export class AppUI {
       const lv = LEVEL_FILTERS.find((l) => l.id === f.level)!;
       const refining = this.modifyMode && modifyOpen;
       modBtn?.classList.toggle('on', refining);
-      const gear = g.state.inventory.filter((it) => {
-        if (refining && !g.modifiable(it.uid)) return false;
-        return gearMatches(gearDef(it.base), f) && it.stars >= lv.min && it.stars <= lv.max;
-      });
+      const rank = (it: GearItem) => RARITY_ORDER.indexOf(gearDef(it.base).rarity);
+      const gear = g.state.inventory
+        .filter((it) => {
+          if (refining && !g.modifiable(it.uid)) return false;
+          return gearMatches(gearDef(it.base), f) && it.stars >= lv.min && it.stars <= lv.max;
+        })
+        // Rarest first; within a rarity, newest first.
+        .sort((a, b) => rank(b) - rank(a) || b.uid - a.uid);
       // Upgrades have no rarity, damage type or gear bonus, so those filters hide them.
       const upgrades =
         !refining && (f.type === 'all' || f.type === 'upgrades') && f.rarity === 'any' && f.dtype === 'any' && f.bonus === 'any'
@@ -2871,6 +2966,7 @@ export class AppUI {
     btn.addEventListener('click', () => {
       const ok = gd ? g.craftGear(gd.id) : g.craft(it!.id);
       if (!ok) return;
+      if (typeof ok === 'object') this.showEquipPrompt(ok.uid);
       this.toast(gd ? `Crafted ${gd.name}!` : g.state.items[it!.id] > 1 ? `Upgraded ${it!.name} to ${g.state.items[it!.id]}★!` : `Crafted ${it!.name}!`);
       bumpCard(btn);
       this.refresh();
@@ -3851,7 +3947,7 @@ export class AppUI {
 
   /** Closes the open modal, else the Hunter view (Android back button). Returns false if neither was open. */
   closeModal(): boolean {
-    if (!this.modalClose) return this.closePicker() || this.closeHunterDetail() || this.setMenuFull(false);
+    if (!this.modalClose) return this.closePicker() || this.closeEquipScreen() || this.closeHunterDetail() || this.setMenuFull(false);
     this.modalClose();
     return true;
   }
@@ -4221,6 +4317,12 @@ function portraitHtml(who: Wearer, size = ''): string {
   const color = who === 'main' ? '#7c5cff' : hunterDef(who).color;
   return `<div class="hunter-art ${size}" style="--hc:${color}">${url ? `<img src="${url}" alt="">` : `<span>${wearerIcon(who)}</span>`}</div>`;
 }
+
+/** Rarities from commonest to rarest. */
+const RARITY_ORDER = Object.keys(RARITIES) as Rarity[];
+
+/** How long the "Equip?" button stays up after crafting a piece. */
+const EQUIP_PROMPT_SECONDS = 6;
 
 function wearerName(who: Wearer): string {
   return who === 'main' ? esc(mainName()) : hunterDef(who).name;
