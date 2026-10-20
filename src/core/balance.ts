@@ -2518,6 +2518,11 @@ export type EnchantId =
   | 'artEarthshatter'
   | 'artMomentum'
   | 'artBloodthirst'
+  | 'artOpeningShot'
+  | 'artClosingShot'
+  | 'artExplodingAmmo'
+  | 'artElementalArrows'
+  | 'artExplodingArrows'
   | SpellEnchantId;
 
 /**
@@ -2525,12 +2530,30 @@ export type EnchantId =
  * spear or glaive a giant phantom of itself; a hammer a second, elemental slam; a dagger a big spectral dagger,
  * or thrown daggers that explode.
  */
-export type MeleeArt = 'wave' | 'spear' | 'glaive' | 'aftershock' | 'bigDagger' | 'blastDaggers' | 'whirlwind' | 'riposte' | 'executioner' | 'earthshatter' | 'momentum' | 'bloodthirst';
+export type MeleeArt =
+  | 'wave'
+  | 'spear'
+  | 'glaive'
+  | 'aftershock'
+  | 'bigDagger'
+  | 'blastDaggers'
+  | 'whirlwind'
+  | 'riposte'
+  | 'executioner'
+  | 'earthshatter'
+  | 'momentum'
+  | 'bloodthirst'
+  // Ranged arts (guns and bows): they act on the shots themselves.
+  | 'openingShot'
+  | 'closingShot'
+  | 'explodingAmmo'
+  | 'elementalArrows'
+  | 'explodingArrows';
 /**
  * Arts that don't go off on an attack: they act when a dagger is thrown (Blast Daggers), a monster reaches the
  * Hunter (Riposte), a hit lands (Executioner, Momentum) or a monster dies (Bloodthirst).
  */
-export const PASSIVE_ARTS: ReadonlySet<MeleeArt> = new Set(['blastDaggers', 'riposte', 'executioner', 'momentum', 'bloodthirst']);
+export const PASSIVE_ARTS: ReadonlySet<MeleeArt> = new Set(['blastDaggers', 'riposte', 'executioner', 'momentum', 'bloodthirst', 'openingShot', 'closingShot', 'explodingAmmo', 'elementalArrows', 'explodingArrows']);
 /** How the arts are shaped: a wave's speed and reach (× the weapon's reach), a phantom's reach and width, a blast's radius. */
 export const MELEE_ARTS = {
   waveSpeed: 420,
@@ -2555,6 +2578,8 @@ export const MELEE_ARTS = {
   fissureLife: 3,
   /** Momentum: most stacks on one monster. */
   momentumMax: 5,
+  /** Exploding Ammo and Arrows: how wide the blast is. */
+  shotBlastRadius: 40,
   /** Bloodthirst: seconds of faster attacks, and seconds a kill takes off a stun. */
   frenzyTime: 3,
   stunCut: 0.5,
@@ -2619,6 +2644,8 @@ const spellEnchant = (id: SpellId): EnchantDef => ({
   text: (c, p, t) => `${pct(c)} chance on attack to cast ${SPELLS[id].name}: ${SPELLS[id].desc.charAt(0).toLowerCase()}${SPELLS[id].desc.slice(1, -1)} (${dmg(p, t)})`,
 });
 const melee = (cls: WeaponClass) => (d: GearDef) => d.weaponClass === cls;
+const gun = (d: GearDef) => d.weaponClass === 'pistol' || d.weaponClass === 'rifle' || d.weaponClass === 'repeater';
+const bow = (d: GearDef) => d.weaponClass === 'shortbow' || d.weaponClass === 'longbow' || d.weaponClass === 'crossbow';
 const hits = (p: number) => `${Math.round(p * 100) / 100}× a hit`;
 export const spellEnchantId = (id: SpellId): SpellEnchantId => `spell${id.charAt(0).toUpperCase()}${id.slice(1)}` as SpellEnchantId;
 
@@ -2656,6 +2683,11 @@ export const ENCHANTS: Record<EnchantId, EnchantDef> = {
   artEarthshatter: { name: 'Earthshatter', icon: '⛰️', range: [0.15, 0.3], power: [0.2, 0.35], weight: 1, melee: 'earthshatter', fits: melee('hammer'), text: (c, p) => `${pct(c)} chance a slam cracks the ground in a line, the fissure hurting monsters on it every ${MELEE_ARTS.fissureTick}s for ${MELEE_ARTS.fissureLife}s (${hits(p)})` },
   artMomentum: { name: 'Momentum', icon: '📈', range: [0.08, 0.15], weight: 1, melee: 'momentum', fits: melee('spear'), text: (c) => `each thrust in a row at the same monster hits +${pct(c)} harder (up to ${MELEE_ARTS.momentumMax} times); a new target starts over` },
   artBloodthirst: { name: 'Bloodthirst', icon: '🩸', range: [0.15, 0.3], power: [0.3, 0.6], weight: 1, melee: 'bloodthirst', fits: (d) => d.kind === 'melee', text: (c, p) => `${pct(c)} chance a kill gives +${pct(p)} attack speed for ${MELEE_ARTS.frenzyTime}s (or, while stunned, takes ${MELEE_ARTS.stunCut}s off the stun)` },
+  artOpeningShot: { name: 'Opening Shot', icon: '🎯', range: [1, 1], power: [1, 2], weight: 1, melee: 'openingShot', fits: gun, text: (_c, p) => `the first shot of each magazine deals +${pct(p)} damage` },
+  artClosingShot: { name: 'Closing Shot', icon: '🔚', range: [1, 1], power: [1, 2], weight: 1, melee: 'closingShot', fits: gun, text: (_c, p) => `the last shot of each magazine deals +${pct(p)} damage` },
+  artExplodingAmmo: { name: 'Exploding Ammo', icon: '💣', range: [0.15, 0.3], power: [0.4, 0.8], weight: 1, melee: 'explodingAmmo', fits: gun, text: (c, p) => `${pct(c)} chance each shot explodes where it hits (${hits(p)} to everything around)` },
+  artElementalArrows: { name: 'Elemental Arrows', icon: '🏹', range: [0.15, 0.3], power: [0.6, 1], weight: 1, melee: 'elementalArrows', fits: bow, text: (c, p) => `${pct(c)} chance an arrow is charged with the bow's element, bursting with its own effect where it hits (${hits(p)}): Fire explodes, Frost shatters into shards, Acid pools, Poison spreads a plague, Lightning chains, Radiant flares, Arcane splits, Decay raises the dead, Void pulls them in, Physical barbs make them bleed` },
+  artExplodingArrows: { name: 'Exploding Arrows', icon: '💥', range: [0.15, 0.3], power: [0.5, 0.9], weight: 1, melee: 'explodingArrows', fits: bow, text: (c, p) => `${pct(c)} chance an arrow explodes where it hits (${hits(p)} to everything around)` },
   shieldBurst: { name: 'Shield Burst', icon: '🛡️', range: [0.4, 0.8], power: [0.8, 1.2], weight: 1, effect: { kind: 'block', base: 1, damageType: 'radiant', radius: 80 }, fits: isArmor, text: (c, p, t) => `${pct(c)} chance a blocked hit blasts everything nearby (${dmg(p, t)})` },
 };
 

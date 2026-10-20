@@ -2126,6 +2126,15 @@ function drawBullet(g: CanvasRenderingContext2D, b: Bullet, t: number, basic = f
       break;
     case 'arrow':
       g.rotate(a);
+      // An Elemental Arrow glows with its element; an exploding one trails sparks.
+      if (b.elem || b.blast) {
+        g.fillStyle = b.elem ? DAMAGE_TYPES[b.dtype ?? 'physical'].color : '#ff8a3d';
+        g.globalAlpha = 0.45;
+        g.beginPath();
+        g.arc(4, 0, 6, 0, Math.PI * 2);
+        g.fill();
+        g.globalAlpha = 1;
+      }
       g.strokeStyle = '#e8d2a8';
       g.lineWidth = 2;
       g.beginPath();
@@ -2256,9 +2265,16 @@ function drawBullet(g: CanvasRenderingContext2D, b: Bullet, t: number, basic = f
     }
     case 'pellet':
     case 'pistol':
-      g.fillStyle = '#ffe9a0';
+      // An Opening or Closing Shot (a round that hits harder) is bigger, with a gold glow.
+      if (b.dmg > 1.5) {
+        g.fillStyle = 'rgba(255,211,77,0.4)';
+        g.beginPath();
+        g.arc(0, 0, 6, 0, Math.PI * 2);
+        g.fill();
+      }
+      g.fillStyle = b.blast ? '#ff8a3d' : '#ffe9a0';
       g.beginPath();
-      g.arc(0, 0, 2.2, 0, Math.PI * 2);
+      g.arc(0, 0, b.dmg > 1.5 ? 3.5 : 2.2, 0, Math.PI * 2);
       g.fill();
       break;
     default:

@@ -2263,6 +2263,68 @@ describe('Equipment', () => {
     }
   });
 
+  it('ranged arts: Opening and Closing Shot hit harder, ammo and arrows explode, and Elemental Arrows burst with their element', () => {
+    const setup = (base: Parameters<Game['craftGear']>[0], id: keyof typeof ENCHANTS) => {
+      const g = new Game(newGame(0), () => 0); // every chance goes off
+      g.state.main.trains = 50;
+      g.state.inventory.push({ uid: 900, base, stars: 1, mods: [{ kind: 'enchant', id, q: 5, p: 5 }] } as (typeof g.state.inventory)[number]);
+      g.equip('main', 0, 900);
+      const f = new Field(g);
+      f.setView(390, 420);
+      return { g, f, api: f as unknown as Record<string, (...a: unknown[]) => unknown> };
+    };
+    // They fit guns or bows only.
+    expect(ENCHANTS.artOpeningShot.fits(gearDef('bonePistol'))).toBe(true);
+    expect(ENCHANTS.artOpeningShot.fits(gearDef('emberLongbow'))).toBe(false);
+    expect(ENCHANTS.artElementalArrows.fits(gearDef('emberLongbow'))).toBe(true);
+    expect(ENCHANTS.artElementalArrows.fits(gearDef('bonePistol'))).toBe(false);
+    // Opening Shot: only the first round of a full magazine.
+    {
+      const { g, api } = setup('bonePistol', 'artOpeningShot');
+      const cls = g.weaponClassOf('main')!;
+      const full = (api.shotArts('main', cls, { cls: cls.name, ammo: cls.mag, reload: 0 }, 'long') as () => { dmg?: number })();
+      const mid = (api.shotArts('main', cls, { cls: cls.name, ammo: cls.mag! - 1, reload: 0 }, 'long') as () => { dmg?: number })();
+      expect(full.dmg).toBeGreaterThan(1.5);
+      expect(mid.dmg).toBeUndefined();
+    }
+    // Closing Shot: only the last round.
+    {
+      const { g, api } = setup('frostRifle', 'artClosingShot');
+      const cls = g.weaponClassOf('main')!;
+      expect((api.shotArts('main', cls, { cls: cls.name, ammo: 1, reload: 0 }, 'long') as () => { dmg?: number })().dmg).toBeGreaterThan(1.5);
+      expect((api.shotArts('main', cls, { cls: cls.name, ammo: cls.mag, reload: 0 }, 'long') as () => { dmg?: number })().dmg).toBeUndefined();
+    }
+    // Exploding Ammo: a round that hits blasts the monsters around.
+    {
+      const { f } = setup('bonePistol', 'artExplodingAmmo');
+      f.enemies = [enemy({ id: 1, type: 'wolf', x: 0, y: -150, hp: 1e9, maxHp: 1e9 }), enemy({ id: 2, type: 'wolf', x: 25, y: -160, hp: 1e9, maxHp: 1e9 })];
+      for (let i = 0; i < 45; i++) f.update(1 / 30);
+      expect(f.enemies[1].hp).toBeLessThan(1e9);
+    }
+    // Elemental Arrows: a Fire bow's arrows explode in flame.
+    {
+      const { f } = setup('emberLongbow', 'artElementalArrows');
+      f.enemies = [enemy({ id: 1, type: 'wolf', x: 0, y: -150, hp: 1e9, maxHp: 1e9 }), enemy({ id: 2, type: 'wolf', x: 30, y: -150, hp: 1e9, maxHp: 1e9 })];
+      const ev: ReturnType<Field['drainEvents']> = [];
+      for (let i = 0; i < 60; i++) {
+        f.update(1 / 30);
+        ev.push(...f.drainEvents());
+      }
+      expect(ev.some((e) => e.type === 'explode')).toBe(true);
+      expect(f.enemies[1].hp).toBeLessThan(1e9);
+    }
+    // Every element's burst works (straight through the helper, an arrow of each type).
+    {
+      const { f, api } = setup('emberLongbow', 'artElementalArrows');
+      for (const t of Object.keys(DAMAGE_TYPES) as Array<keyof typeof DAMAGE_TYPES>) {
+        f.enemies = [enemy({ id: 1, type: 'wolf', x: 0, y: -150, hp: 1e9, maxHp: 1e9 }), enemy({ id: 2, type: 'wolf', x: 30, y: -150, hp: 1e9, maxHp: 1e9 })];
+        api.elementalArrow({ shooter: 'main', kind: 'arrow', x: 0, y: -140, vx: 0, vy: -400, crit: false, pierce: 0, life: 1, hits: [], dmg: 1, dtype: t, elem: 1 }, f.enemies[0]);
+        for (let i = 0; i < 30; i++) f.update(1 / 30);
+        expect(f.enemies.some((e) => e.hp < 1e9) || f.enemies.some((e) => e.bleeds?.length), t).toBe(true);
+      }
+    }
+  });
+
   it('enchantment pools: spells only on magic and ranged weapons, melee arts only on melee weapons, neither on accessories', () => {
     const g = stocked();
     const pool = (base: Parameters<Game['craftGear']>[0]) => g.enchantsFor(g.craftGear(base)!.uid);

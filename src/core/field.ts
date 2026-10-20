@@ -257,8 +257,10 @@ export interface Bullet {
   k?: number;
   /** A big projectile (a sword's wave, a spectral dagger): how far from its centre it hits. */
   size?: number;
-  /** Blast Daggers: explodes where it hits, for `k` × a hit within `r`. */
+  /** Blast Daggers, Exploding Ammo and Arrows: explodes where it hits, for `k` × a hit within `r`. */
   blast?: { r: number; k: number };
+  /** Elemental Arrows: bursts with its element's effect where it hits, at this × a hit. */
+  elem?: number;
 }
 
 /** A spell being cast: by whom, of what element, and how hard (a staff's shot multiple, or an enchantment's base damage). */
@@ -1176,14 +1178,16 @@ export class Field {
     else if (cls?.volley) {
       // A fan: each bolt at a random angle within it. Bolts of one volley stack on the same monster.
       const volley = this.nextVolley++;
+      const arts = this.shotArts(who, cls, gun, mode);
       for (let i = 0; i < cls.volley + extra; i++) {
         const a = aim + (g.rng() - 0.5) * (cls.fan ?? 0);
-        this.shoot(who, cls.projectile ?? 'bolt', x, y, a, BULLET_SPEED, range, { pierce: g.pierceOf(who, mode), volley, stack: cls.stack, mode: m });
+        this.shoot(who, cls.projectile ?? 'bolt', x, y, a, BULLET_SPEED, range, { pierce: g.pierceOf(who, mode), volley, stack: cls.stack, mode: m, ...arts() });
       }
     } else {
       // A longbow's follow-through grows with the Hunter's range.
       const follow = cls?.followThrough ? cls.followThrough * (range / (MAIN_RANGE * cls.range)) : undefined;
-      fan((a) => this.shoot(who, cls?.projectile ?? 'bolt', x, y, a, BULLET_SPEED, range, { pierce: g.pierceOf(who, mode), followThrough: follow, bounces: cls?.bounces, mode: m }));
+      const arts = this.shotArts(who, cls, gun, mode);
+      fan((a) => this.shoot(who, cls?.projectile ?? 'bolt', x, y, a, BULLET_SPEED, range, { pierce: g.pierceOf(who, mode), followThrough: follow, bounces: cls?.bounces, mode: m, ...arts() }));
     }
     if (this.isMelee(who)) {
       this.meleeWave(who, x, y);
@@ -1580,14 +1584,15 @@ export class Field {
     angle: number,
     speed: number,
     range: number,
-    o: { pierce?: number; dmg?: number; radius?: number; bounces?: number; slow?: number; tx?: number; ty?: number; mode?: GearMode; special?: boolean; followThrough?: number; volley?: number; stack?: number; bleed?: boolean; dtype?: DamageType; ticks?: number; cast?: SpellCast; k?: number; size?: number; blast?: { r: number; k: number } },
+    o: { pierce?: number; dmg?: number; radius?: number; bounces?: number; slow?: number; tx?: number; ty?: number; mode?: GearMode; special?: boolean; followThrough?: number; volley?: number; stack?: number; bleed?: boolean; dtype?: DamageType; ticks?: number; cast?: SpellCast; k?: number; size?: number; blast?: { r: number; k: number }; elem?: number },
   ): void {
     const g = this.game;
     // Stone magic (a Physical magic weapon) hurls rocks instead of sparks.
     if (kind === 'spark' && !o.special && !o.cast && g.damageTypeOf(shooter, o.mode) === 'physical' && g.weaponItem(shooter, o.mode)) kind = 'rock';
     // A weapon firing one type per projectile hands them out in turn.
     const types = !o.special && !o.cast && g.perShotOf(shooter, o.mode) ? g.damageTypesOf(shooter, o.mode) : null;
-    let dtype: DamageType | undefined = o.dtype;
+    // An Elemental Arrow carries its bow's element (for its colour, and for its burst).
+    let dtype: DamageType | undefined = o.dtype ?? (o.elem ? g.damageTypeOf(shooter, o.mode) : undefined);
     if (types) {
       const turn = this.typeTurn.get(shooter) ?? 0;
       this.typeTurn.set(shooter, turn + 1);
@@ -1622,6 +1627,7 @@ export class Field {
       k: o.k,
       size: o.size,
       blast: o.blast,
+      elem: o.elem,
     });
   }
 
@@ -1695,6 +1701,87 @@ export class Field {
     if (!this.frenzy.has(who)) this.say(h?.x ?? 0, (h?.y ?? 0) - 34, 'FRENZY', '#ff6a6a', 10);
     this.frenzy.set(who, MELEE_ARTS.frenzyTime);
     this.frenzyBonus.set(who, art.power);
+  }
+
+  /**
+   * Ranged arts on a shot: Opening Shot (a full magazine's first round) and Closing Shot (its last) hit harder;
+   * Exploding Ammo and Arrows and Elemental Arrows roll for each projectile. Returns each projectile's options.
+   */
+  private shotArts(who: Shooter, cls: WeaponClassDef | null, gun: GunState, mode: GearMode): () => { dmg?: number; blast?: { r: number; k: number }; elem?: number } {
+    const arts = this.arts(who, mode);
+    if (!arts.length) return () => ({});
+    let dmg = 1;
+    for (const a of arts)
+      if ((a.art === 'openingShot' && cls?.mag && gun.ammo >= cls.mag) || (a.art === 'closingShot' && cls?.mag && gun.ammo === 1)) dmg *= 1 + a.power;
+    const g = this.game;
+    return () => {
+      const o: { dmg?: number; blast?: { r: number; k: number }; elem?: number } = dmg > 1 ? { dmg } : {};
+      for (const a of arts) {
+        if ((a.art === 'explodingAmmo' || a.art === 'explodingArrows') && g.rng() < a.chance) o.blast = { r: MELEE_ARTS.shotBlastRadius * g.radiusMult(who), k: a.power };
+        else if (a.art === 'elementalArrows' && g.rng() < a.chance) o.elem = a.power;
+      }
+      return o;
+    };
+  }
+
+  /** Elemental Arrows: an arrow charged with its element bursts with that element's effect where it hits. */
+  private elementalArrow(b: Bullet, e: Enemy): void {
+    const g = this.game;
+    const dtype = b.dtype ?? g.damageTypeOf(b.shooter, b.mode);
+    const c: SpellCast = { who: b.shooter, dtype, mult: b.elem!, mode: b.mode };
+    const area = g.radiusMult(b.shooter);
+    const color = DAMAGE_TYPES[dtype].color;
+    const aim = Math.atan2(b.vy, b.vx);
+    const around = (r: number, k: number) => {
+      for (const o of [...this.enemies]) if (o.hp > 0 && Math.hypot(o.x - e.x, o.y - e.y) <= r + o.r) this.spellHit(c, o, k, e.x, e.y);
+    };
+    switch (dtype) {
+      case 'fire':
+        this.events.push({ type: 'explode', x: e.x, y: e.y, r: 45 * area, color });
+        around(45 * area, 1);
+        break;
+      case 'frost':
+        // Shatters into shards flying on past it.
+        for (const da of [-0.4, 0, 0.4]) this.shoot(b.shooter, 'spell', e.x, e.y, aim + da, BULLET_SPEED, 120, { dtype, cast: c, k: 0.5, mode: b.mode });
+        break;
+      case 'acid':
+        this.puddles.push({ shooter: b.shooter, x: e.x, y: e.y, r: 40 * area, life: 4 * PUDDLE_TICK, tick: 0, dmg: 0, dtype, cast: c, k: 0.3 });
+        break;
+      case 'poison':
+        this.infect(e, c, this.spellAmount(c, e));
+        break;
+      case 'lightning': {
+        const struck = [e.id];
+        let from: Enemy = e;
+        for (let i = 0; i < 3; i++) {
+          const next = this.nearest(from.x, from.y, 120 * area, struck);
+          if (!next) break;
+          this.events.push({ type: 'beam', x1: from.x, y1: from.y, x2: next.x, y2: next.y, color, width: 2.5, zigzag: true });
+          struck.push(next.id);
+          this.spellHit(c, next, 0.8, from.x, from.y);
+          from = next;
+        }
+        break;
+      }
+      case 'radiant':
+        this.events.push({ type: 'explode', x: e.x, y: e.y, r: 50 * area, color });
+        around(50 * area, 0.8);
+        break;
+      case 'arcane':
+        // Splits into two bolts that pierce everything on past it.
+        for (const da of [-0.3, 0.3]) this.shoot(b.shooter, 'spell', e.x, e.y, aim + da, BULLET_SPEED, 400, { pierce: Infinity, dtype, cast: c, k: 0.6, mode: b.mode });
+        break;
+      case 'decay':
+        this.zones.push({ kind: 'raiseDead', c, x: e.x, y: e.y, r: 50 * area, vx: 0, vy: 0, life: 3, max: 3, tick: 0, k: 0.1, touched: new Map() });
+        break;
+      case 'void':
+        this.zones.push({ kind: 'gravityAnchor', c, x: e.x, y: e.y, r: 70 * area, vx: 0, vy: 0, life: 1.5, max: 1.5, tick: 0, k: 0.1, touched: new Map() });
+        break;
+      default:
+        // Physical: barbed, it leaves two more bleeds.
+        this.bleed(e, b.shooter, b.elem!);
+        this.bleed(e, b.shooter, b.elem!);
+    }
   }
 
   /** A Hunter's melee arts (cached for the frame). */
@@ -2599,8 +2686,9 @@ export class Field {
       mult *= 1 + (b.stack ?? 0) * e.volleyHits;
     }
     this.hitWith(b.shooter, e, mult, b.x - b.vx, b.y - b.vy, b.crit, b.mode, false, true, b.dtype);
+    if (b.elem) this.elementalArrow(b, e);
     if (b.blast) {
-      // A Blast Dagger goes off: everything around (the monster it struck included) takes the blast.
+      // A Blast Dagger (or exploding round or arrow) goes off: everything around (the monster it struck included) takes the blast.
       this.events.push({ type: 'explode', x: e.x, y: e.y, r: b.blast.r, color: this.typeColor(b.shooter, b.mode) });
       for (const o of [...this.enemies]) if (o.hp > 0 && Math.hypot(o.x - e.x, o.y - e.y) <= b.blast.r + o.r) this.hitWith(b.shooter, o, b.blast.k, e.x, e.y, undefined, b.mode);
       b.blast = undefined;
