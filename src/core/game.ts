@@ -445,7 +445,7 @@ export class Game {
 
   /** Everything a Hunter's learned skill-tree nodes add up to. */
   tree(who: Wearer): Record<TreeStat, number> {
-    const out: Record<TreeStat, number> = { damage: 0, rate: 0, recovery: 0, crit: 0, range: 0, pierce: 0, radius: 0, bane: 0, guard: 0, rally: 0, gold: 0, drops: 0, tapPower: 0, tapSize: 0, bolts: 0, cooldown: 0, duration: 0, multishot: 0 };
+    const out: Record<TreeStat, number> = { damage: 0, rate: 0, recovery: 0, crit: 0, range: 0, pierce: 0, radius: 0, bane: 0, guard: 0, rally: 0, gold: 0, drops: 0, tapPower: 0, tapSize: 0, bolts: 0, cooldown: 0, duration: 0, critDamage: 0, multishot: 0 };
     for (const which of ['base', 'ascended'] as const)
       for (const node of this.skillTree(who, which)) {
         const rank = this.skill(who, node.id, which);
@@ -741,7 +741,7 @@ export class Game {
     if (!sp) return 0;
     // Wider specials catch more of the crowd.
     const reach = this.specialRadius(shooter) / sp.radius;
-    return (sp.ticks * sp.crowd * reach * this.specialDamageMult(shooter)) / sp.cooldown;
+    return (sp.ticks * sp.crowd * reach * this.specialDamageMult(shooter)) / (sp.cooldown * this.cooldownMult(shooter));
   }
 
   /** Your main Hunter's DPS. */
@@ -816,9 +816,9 @@ export class Game {
     return v;
   }
 
-  /** A Hunter's crit damage multiplier (Brutal raises it). */
+  /** A Hunter's crit damage multiplier (the Brutal refine and Brutal Criticals raise it). */
   critMultOf(who: Shooter): number {
-    return CRIT_MULT * (1 + this.modStat(who, 'critDmg'));
+    return CRIT_MULT * (1 + this.modStat(who, 'critDmg') + this.tree(who).critDamage);
   }
 
   /** How much stronger a Hunter's status effects are: more damage, or longer / stronger for ones that deal none (Virulence). */

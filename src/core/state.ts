@@ -245,7 +245,7 @@ export interface GameState {
   };
 }
 
-export const SAVE_VERSION = 26;
+export const SAVE_VERSION = 27;
 
 /** Gear that was replaced, and what saves holding it get instead. */
 const RENAMED_GEAR: Record<string, GearItem['base']> = {
@@ -590,9 +590,9 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
     state.main.skills = Object.fromEntries(Object.entries(state.main.skills).filter(([id]) => id === 'ascend' || skillNode('main', id)?.ability));
     if (main?.skills2) main.skills2 = {};
   }
-  // v25 -> v26: your Hunter's first tree was rebuilt from the Skill Trees editor (new layout, links and values),
-  // so its points are refunded again; tap abilities already unlocked, and Ascend, stay.
-  else if (((data.version as number) ?? 1) < 26)
+  // v25 -> v26, v26 -> v27: your Hunter's first tree was rebuilt from the Skill Trees editor (new layout, links and
+  // values), so its points are refunded again; tap abilities already unlocked, and Ascend, stay.
+  else if (((data.version as number) ?? 1) < 27)
     state.main.skills = Object.fromEntries(Object.entries(state.main.skills).filter(([id]) => id === 'ascend' || skillNode('main', id)?.ability));
   if (TAP_ABILITIES.some((t) => t.id === main?.tapAbility)) state.main.tapAbility = main!.tapAbility;
   // Becoming the Slayer: keep a sane point where it happened, and only ranks in the Slayer's tree.
@@ -607,10 +607,13 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
     const saved = savedHunters[id] ?? {};
     h.trains = typeof saved.trains === 'number' ? saved.trains : typeof saved.level === 'number' ? saved.level : 0;
     h.skills = trees ? cleanSkills(id as HunterId, h.skills) : {};
+    // v26 -> v27: every Guild Hunter's trees were redesigned around what they do best, so their points are refunded.
+    const redesigned = ((data.version as number) ?? 1) < 27;
+    if (redesigned) h.skills = {};
     delete h.level;
     // Ascension: keep a sane point where it happened, and only ranks in nodes that exist.
     if (typeof h.ascendAt === 'number' && Number.isFinite(h.ascendAt) && h.ascendAt >= 0 && h.ascendAt <= h.trains) {
-      h.skills2 = cleanRanks(ASCENDED_TREES[id as HunterId], h.skills2);
+      h.skills2 = redesigned ? {} : cleanRanks(ASCENDED_TREES[id as HunterId], h.skills2);
     } else {
       delete h.ascendAt;
       delete h.skills2;
@@ -674,6 +677,8 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
     if (((data.version as number) ?? 1) < 15) b.evo = {};
     // v21 -> v22: the Fire Drake became the Broodmother, a Beast, so its Dragon evolutions are refunded.
     if (((data.version as number) ?? 1) < 22 && e.id === 'fireDrake') b.evo = {};
+    // v26 -> v27: every archetype's evolution tree got its own shape, so evolution points are refunded.
+    if (((data.version as number) ?? 1) < 27) b.evo = {};
     b.kills = n(b.kills);
     delete b.swarm;
     delete b.bounty;

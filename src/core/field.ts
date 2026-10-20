@@ -14,6 +14,7 @@ import {
   fieldZoom,
   FROST_TAP_CHILL,
   MIASMA_PUDDLE,
+  FLAME_BURST_COOLDOWN,
   FLEE_SPEED_MULT,
   GUARD_RECHARGE,
   hunterDef,
@@ -396,6 +397,7 @@ export class Field {
   dashCd = 0;
   /** Seconds until a tap with Melting Miasma equipped can leave another poison puddle. */
   miasmaCd = 0;
+  flameCd = 0;
   private nextVolley = 1;
   /** Each Hunter's turn through their weapon's types, for weapons that fire one type per projectile. */
   private typeTurn = new Map<Shooter, number>();
@@ -625,6 +627,7 @@ export class Field {
     this.moveBullets(dt);
     this.tickPuddles(dt);
     this.miasmaCd = Math.max(0, this.miasmaCd - dt);
+    this.flameCd = Math.max(0, this.flameCd - dt);
     this.runWaves(dt);
     this.bullets = this.bullets.filter((b) => b.life > 0);
     this.enemies = this.enemies.filter((e) => e.hp > 0);
@@ -1096,7 +1099,7 @@ export class Field {
     const target = this.nearest(h.x, h.y, range);
     if (!target) return;
     if (!this.castSpecial(h.id, sp, h.x, h.y, target, range, g.specialRadius(h.id), g.specialDamageMult(h.id))) return;
-    h.specialCd = sp.cooldown;
+    h.specialCd = sp.cooldown * g.cooldownMult(h.id);
     h.aim = Math.atan2(target.y - h.y, target.x - h.x);
   }
 
@@ -1242,7 +1245,7 @@ export class Field {
       } else spot = { x, y };
     }
     if (!spot) return; // nothing on the field yet: try again next moment
-    h.specialCd = hunterDef(h.id).special!.cooldown;
+    h.specialCd = hunterDef(h.id).special!.cooldown * this.game.cooldownMult(h.id);
     this.tomes.push({ by: h.id, source: pick.id, special: sp, x: spot.x, y: spot.y, age: 0, cast: false });
     this.events.push({ type: 'nova', x: spot.x, y: spot.y, r: 26, color: '#c9b8ff' });
   }
@@ -1384,7 +1387,8 @@ export class Field {
     const w = this.weaponDef(this.lead);
     const dash = w?.summon?.dash;
     if (w && dash && this.game.weaponClassOf(this.lead)?.summon) out.push({ key: `item:${w.id}`, icon: w.icon, name: w.name, progress: 1 - this.dashCd / (dash.cooldown * this.game.cooldownMult(this.lead)) });
-    // Melting Miasma's puddle (your tap ability).
+    // Flame Burst's ignite and Melting Miasma's puddle (your tap ability).
+    if (this.game.tapAbility === 'flame') out.push({ key: 'tap:flame', icon: '🔥', name: 'Flame Burst', progress: 1 - this.flameCd / (FLAME_BURST_COOLDOWN * this.game.cooldownMult('main')) });
     if (this.game.tapAbility === 'miasma') out.push({ key: 'tap:miasma', icon: '☠️', name: 'Melting Miasma', progress: 1 - this.miasmaCd / (MIASMA_PUDDLE.cooldown * this.game.cooldownMult('main')) });
     for (const who of [this.lead, ...this.helpers.map((h) => h.id)]) {
       for (const { uid, def, effect } of this.game.gearEffects(who)) {
@@ -1399,7 +1403,7 @@ export class Field {
       const hd = hw?.summon?.dash;
       if (hw && hd && this.game.weaponClassOf(h.id)?.summon) out.push({ key: `item:${h.id}:${hw.id}`, icon: hw.icon, name: `${hunterDef(h.id).name}'s ${hw.name}`, progress: 1 - h.dashCd / (hd.cooldown * this.game.cooldownMult(h.id)) });
       const sp = hunterDef(h.id).special;
-      if (sp) out.push({ key: h.id, icon: hunterDef(h.id).icon, name: hunterDef(h.id).name, progress: 1 - Math.max(0, h.specialCd) / sp.cooldown });
+      if (sp) out.push({ key: h.id, icon: hunterDef(h.id).icon, name: hunterDef(h.id).name, progress: 1 - Math.max(0, h.specialCd) / (sp.cooldown * this.game.cooldownMult(h.id)) });
       // Gideon's Bone Wall has its own cooldown (it rises when he's stunned).
       const wall = hunterDef(h.id).wall;
       if (wall) out.push({ key: `wall:${h.id}`, icon: '🦴', name: `${hunterDef(h.id).name}'s ${wall.name}`, progress: 1 - h.wallCd / wall.cooldown });
@@ -2132,10 +2136,13 @@ export class Field {
       this.damage(e, amount, crit, dx / (d || 1), dy / (d || 1), 'main', dtype);
       hit.push({ e, dmg: amount });
     }
-    // An elemental tap ability sets off its effect on everything the blast hit.
+    // An elemental tap ability sets off its effect on everything the blast hit (Flame Burst's only when it's ready).
+    const ignite = ability === 'flame' && this.flameCd <= 0 && hit.length > 0;
+    if (ignite) this.flameCd = FLAME_BURST_COOLDOWN * g.cooldownMult('main');
     for (const { e, dmg: amount } of hit) {
-      if (ability === 'flame' && e.hp > 0) this.applyStatus(e, 'fire', amount, 'main');
-      else if (ability === 'frost' && e.hp > 0 && !this.immuneTo(e, 'frost')) e.slow = Math.max(e.slow ?? 0, FROST_TAP_CHILL * g.effectDurationMult('main'));
+      if (ability === 'flame') {
+        if (ignite && e.hp > 0) this.applyStatus(e, 'fire', amount, 'main');
+      } else if (ability === 'frost' && e.hp > 0 && !this.immuneTo(e, 'frost')) e.slow = Math.max(e.slow ?? 0, FROST_TAP_CHILL * g.effectDurationMult('main'));
       else if (ability === 'thunder' && !this.immuneTo(e, 'lightning')) this.arc(e, amount * STATUS.arc.share, 'main');
       else if (ability === 'miasma' && e.hp > 0) this.applyStatus(e, 'poison', amount, 'main', g.procRarity('main'));
     }

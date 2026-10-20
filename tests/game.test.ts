@@ -387,10 +387,17 @@ describe('Enemies & archetypes', () => {
     expect(g.packOf('greenSlime')).toEqual([enemyDef('greenSlime').pack[0] + 1, enemyDef('greenSlime').pack[1] + 1]);
     const points = g.evoPoints('greenSlime');
     expect(points).toBe(g.monsterLevelInfo('greenSlime').level - 1 - 3);
-    // Every archetype has a tree of the same shape, and every monster its own copy.
+    // Every archetype has a tree of its own shape (root first, capstone last, the same points in all), and every
+    // monster its own copy.
+    const pointsIn = (t: typeof EVO_TREES.slime) => t.reduce((a, n) => a + n.maxRank * (n.cost ?? 1), 0);
     for (const a of Object.keys(ARCHETYPES) as Array<keyof typeof ARCHETYPES>) {
-      expect(EVO_TREES[a].map((n) => n.id)).toEqual(['root', 'wealth', 'horde', 'harvest', 'wealth2', 'horde2', 'harvest2', 'capstone']);
+      const ids = EVO_TREES[a].map((n) => n.id);
+      expect(ids[0]).toBe('root');
+      expect(ids[ids.length - 1]).toBe('capstone');
+      expect(pointsIn(EVO_TREES[a])).toBe(pointsIn(EVO_TREES.slime));
+      for (const n of EVO_TREES[a].slice(1)) expect(n.requires.length).toBeGreaterThan(0);
     }
+    expect(new Set(Object.values(EVO_TREES).map((t) => t.map((n) => `${n.id}${n.maxRank}`).join())).size).toBe(Object.keys(EVO_TREES).length);
     for (const e of ENEMIES) expect(MONSTER_EVO_TREES[e.id].map((n) => n.id)).toEqual(EVO_TREES[e.archetype].map((n) => n.id));
   });
 
@@ -629,8 +636,9 @@ describe('Hunters', () => {
     expect(g.learn('lance', 'root')).toBe(true); // Zone of Protection
     expect(g.guardOf('lance')).toBe(3);
     expect(g.guardOf('main')).toBe(0);
-    for (let i = 0; i < 4; i++) g.learn('lance', 'recovery'); // 5 points in: his third row opens
-    expect(g.learn('lance', 'recovery2')).toBe(true); // Rallying Oath
+    for (let i = 0; i < 3; i++) g.learn('lance', 'recovery');
+    g.learn('lance', 'power'); // 5 points in: his third row opens
+    expect(g.learn('lance', 'rally')).toBe(true); // Rallying Oath
     expect(g.guardOf('main')).toBe(1);
     expect(g.guardOf('ranger')).toBe(1);
     expect(g.guardOf('lance')).toBe(3); // his own shield isn't rallied
@@ -893,13 +901,18 @@ describe('Shops', () => {
     expect(g.learn('main', 'eagleEye')).toBe(true);
     expect(g.learn('main', 'capstone')).toBe(true); // reachable from any one of the row above, at 20 points
     expect(g.learn('main', 'thunderTap')).toBe(false); // the second diamond's wings come later
-    // Every Hunter has their own tree of the same shape.
-    expect(g.skillTree('ranger').map((n) => n.id)).toEqual(['root', 'power', 'speed', 'recovery', 'power2', 'speed2', 'recovery2', 'capstone', 'ascend']);
-    expect(g.skillTree('ranger')[4].name).toBe('Beast Bane');
+    // Every Hunter has their own tree, shaped around what they do: Galladair's pierces and splits his arrows.
+    const ranger = g.skillTree('ranger').map((n) => n.id);
+    expect(ranger[0]).toBe('root');
+    expect(ranger.slice(-2)).toEqual(['capstone', 'ascend']);
+    expect(ranger).toContain('splitShot');
+    expect(ranger).toContain('piercing');
+    expect(g.skillTree('glimmer').map((n) => n.id)).toContain('quickCast');
+    expect(g.skillTree('ranger').find((n) => n.id === 'beastBane')!.name).toBe('Beast Bane');
     const vsBeast = g.shotDamage('ranger', 'beast');
     g.learn('ranger', 'root');
     for (let i = 0; i < 4; i++) g.learn('ranger', 'power');
-    g.learn('ranger', 'power2');
+    expect(g.learn('ranger', 'beastBane')).toBe(true);
     expect(g.shotDamage('ranger', 'beast')).toBeGreaterThan(vsBeast * 1.1);
     // Out of points: nothing more to learn.
     g.state.main.skills.speed = 10;
@@ -1694,7 +1707,7 @@ describe('Equipment', () => {
     expect(run('exalted', false)).toBeCloseTo(1e6 * STATUS.poison.maxHp.exalted, 0);
     expect(run('common', true)).toBeCloseTo(1e6 * STATUS.poison.maxHp.common * STATUS.poison.guardian, 0);
     // Rarer monsters need fewer kills to evolve.
-    expect(evoKillsNeeded(enemyDef('behemoth'), MONSTER_EVO_TREES.behemoth[7])).toBeLessThan(evoKillsNeeded(enemyDef('wolf'), MONSTER_EVO_TREES.wolf[7]));
+    expect(evoKillsNeeded(enemyDef('behemoth'), MONSTER_EVO_TREES.behemoth[MONSTER_EVO_TREES.behemoth.length - 1])).toBeLessThan(evoKillsNeeded(enemyDef('wolf'), MONSTER_EVO_TREES.wolf[MONSTER_EVO_TREES.wolf.length - 1]));
   });
 
   it('effects proc at the weapon\'s chance; Physical weapons never proc', () => {
@@ -2064,6 +2077,30 @@ describe('Equipment', () => {
     expect(g.tree('main').multishot).toBe(0);
     sk.capstone = 1;
     expect(g.tree('main').multishot).toBe(1);
+  });
+
+  it('Brutal Criticals raise crit damage; Flame Burst ignites on a cooldown; Guild Hunters\' cooldown nodes speed up their specials', () => {
+    const g = new Game(newGame(0), () => 0.99); // no crits
+    g.state.main.trains = 300;
+    const sk = g.state.main.skills;
+    expect(g.critMultOf('main')).toBeCloseTo(CRIT_MULT);
+    sk.brutalCriticals = 1;
+    expect(g.critMultOf('main')).toBeCloseTo(CRIT_MULT * 1.5);
+    // Flame Burst: every tap deals Fire damage, but only a ready one sets monsters ablaze.
+    Object.assign(sk, { flameTap: 1 });
+    g.setTapAbility('flame');
+    const f = new Field(g);
+    f.setView(390, 420);
+    f.enemies = [enemy({ id: 1, x: 0, y: 0, hp: 1e12, maxHp: 1e12, type: 'wolf' })];
+    f.tap(0, 0);
+    expect(f.enemies[0].burn).toBeTruthy();
+    f.enemies[0].burn = undefined;
+    f.tap(0, 0);
+    expect(f.enemies[0].burn).toBeFalsy();
+    expect(f.cooldowns().some((c) => c.key === 'tap:flame')).toBe(true);
+    // Glimmer's Quick Incantation: fireballs come 5% sooner per rank.
+    g.state.hunters.glimmer.skills = { quickCast: 4 };
+    expect(g.cooldownMult('glimmer')).toBeCloseTo(0.8);
   });
 
   it('armor kinds: Light is quick, Heavy and Shields add shield charges (Heavy slows you, Shields cost damage), Robes add damage', () => {
@@ -3654,7 +3691,7 @@ describe('Field', () => {
 
   it("with Lance's Rallying Oath, your Hunter's rally shield blocks a hit before you're stunned", () => {
     const { g, f } = withHelper('lance');
-    g.state.hunters.lance.skills = { root: 1, recovery: 1, recovery2: 1 };
+    g.state.hunters.lance.skills = { root: 1, recovery: 1, rally: 1 };
     for (let i = 0; i < 5 * 30; i++) f.update(1 / 30);
     expect(f.guard).toBe(1);
     f.enemies = [tough({ id: 30, x: 20, y: -5, speed: 40 })];
@@ -3973,7 +4010,7 @@ describe('Saves', () => {
 
   it("your Hunter's trees are five wide; older saves get their points back but keep their tap abilities", () => {
     for (const tree of [SKILL_TREES.main, SLAYER_TREE]) {
-      expect(Math.max(...tree.map((n) => n.col))).toBe(4);
+      expect(Math.max(...tree.map((n) => n.col)) - Math.min(...tree.map((n) => n.col))).toBeGreaterThanOrEqual(3);
       expect(new Set(tree.map((n) => `${n.row}/${n.col}`)).size).toBe(tree.length);
     }
     const old = JSON.parse(serialize(newGame(0)));
@@ -4009,14 +4046,18 @@ describe('Saves', () => {
     expect(enemyDef('meteorGolem').drops?.[0].material).toBe('adamantite');
   });
 
-  it('refunds the old Fire Drake evolutions now that it is the Broodmother (a Beast), and keeps the rest', () => {
+  it('refunds evolutions and Guild Hunter skills from before the trees were redesigned, and keeps newer ones', () => {
     const old = JSON.parse(serialize(newGame(0)));
-    old.version = 21;
-    old.bestiary.fireDrake.evo = { root: 1, horde: 6, horde2: 3 };
+    old.version = 26;
     old.bestiary.lavaGolem.evo = { root: 1 };
-    const s = deserialize(JSON.stringify(old))!;
-    expect(s.bestiary.fireDrake.evo).toEqual({});
+    old.hunters.alchemist.skills = { root: 1, power: 3 };
+    let s = deserialize(JSON.stringify(old))!;
+    expect(s.bestiary.lavaGolem.evo).toEqual({});
+    expect(s.hunters.alchemist.skills).toEqual({});
+    old.version = 27;
+    s = deserialize(JSON.stringify(old))!;
     expect(s.bestiary.lavaGolem.evo).toEqual({ root: 1 });
+    expect(s.hunters.alchemist.skills).toEqual({ root: 1, power: 3 });
     expect(enemyDef('fireDrake').archetype).toBe('beast');
   });
 

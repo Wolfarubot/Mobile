@@ -149,6 +149,7 @@ export type TreeStat =
   | 'tapSize' // +x tap blast area
   | 'cooldown' // -x cooldowns of their gear's abilities and their tap ability (Quick Casting)
   | 'duration' // +x how long the status effects they set off last (Extended Effects)
+  | 'critDamage' // +x crit damage (Brutal Criticals)
   | 'multishot'; // extra projectiles per shot, or an extra strike per melee attack (Apex Hunter)
 
 /** A node in a branching tree: a Hunter's skill tree or a monster's evolution tree. */
@@ -179,24 +180,45 @@ export const SKILL_RECOVERY = 0.92;
 
 type NodeSpec = Pick<SkillNode, 'name' | 'icon' | 'desc' | 'maxRank' | 'effect' | 'cost'>;
 
+// ---- Guild Hunters' trees: small steady steps like your own tree, each Hunter's shaped around what they do ----
+
+const pctOf = (v: number): string => `${+(v * 100).toFixed(1)}%`;
+/** Ranks of SKILL_RECOVERY that make stuns wear off 5% faster (Guild Hunters use the same step as you). */
+const REC_STEP = Math.log(0.95) / Math.log(SKILL_RECOVERY);
+// Stock nodes: the per-rank numbers every tree shares, under each Hunter's own names.
+const atk = (maxRank: number, name = 'Attack Power', icon = '💪', v = 0.2): NodeSpec => ({ name, icon, desc: `+${pctOf(v)} damage per rank.`, maxRank, effect: { damage: v } });
+const spd = (maxRank: number, name = 'Attack Speed', icon = '⚡', v = 0.05): NodeSpec => ({ name, icon, desc: `+${pctOf(v)} attack rate per rank.`, maxRank, effect: { rate: v } });
+const rec = (maxRank: number, name = 'Recovery Speed', icon = '🧘'): NodeSpec => ({ name, icon, desc: 'Stuns wear off 5% faster per rank.', maxRank, effect: { recovery: REC_STEP } });
+const crt = (maxRank: number, name: string, icon: string, v = 0.025): NodeSpec => ({ name, icon, desc: `+${pctOf(v)} crit chance per rank.`, maxRank, effect: { crit: v } });
+const crd = (maxRank: number, name: string, icon: string, v = 0.1): NodeSpec => ({ name, icon, desc: `Critical hits deal +${pctOf(v)} more damage per rank.`, maxRank, effect: { critDamage: v } });
+const rng = (maxRank: number, name: string, icon: string, v = 10): NodeSpec => ({ name, icon, desc: `+${v} range per rank.`, maxRank, effect: { range: v } });
+const area = (maxRank: number, name: string, icon: string, what: string, v = 0.1): NodeSpec => ({ name, icon, desc: `${what} ${pctOf(v)} per rank.`, maxRank, effect: { radius: v } });
+const cdr = (maxRank: number, name: string, icon: string, what = 'Their special recharges', v = 0.05): NodeSpec => ({ name, icon, desc: `${what} ${pctOf(v)} faster per rank.`, maxRank, effect: { cooldown: v } });
+const dur = (maxRank: number, name: string, icon: string, v = 0.1): NodeSpec => ({ name, icon, desc: `The status effects they set off last ${pctOf(v)} longer per rank.`, maxRank, effect: { duration: v } });
+const prc = (maxRank: number, name: string, icon: string, cost?: number): NodeSpec => ({ name, icon, desc: 'Shots pierce 1 more enemy per rank.', maxRank, effect: { pierce: 1 }, cost });
+const grd = (maxRank: number, name: string, icon: string, cost?: number): NodeSpec => ({ name, icon, desc: '+1 shield charge per rank.', maxRank, effect: { guard: 1 }, cost });
+const ban = (maxRank: number, name: string, icon: string, foes: string, v = 0.25): NodeSpec => ({ name, icon, desc: `+${v}× extra damage to ${foes} per rank.`, maxRank, effect: { bane: v } });
+const gld = (maxRank: number, name: string, icon: string, v = 0.1): NodeSpec => ({ name, icon, desc: `+${pctOf(v)} gold from their kills per rank.`, maxRank, effect: { gold: v } });
+const drp = (maxRank: number, name: string, icon: string, v = 0.05): NodeSpec => ({ name, icon, desc: `+${pctOf(v)} materials from their kills per rank.`, maxRank, effect: { drops: v } });
+const multi = (name: string, icon: string, cost: number): NodeSpec => ({ name, icon, desc: 'Ranged and Magic attacks fire an extra projectile; melee attacks follow up with another strike.', maxRank: 1, effect: { multishot: 1 }, cost });
+
+type GridNode = NodeSpec & { id: string };
 /**
- * Every tree has the same shape: a signature root; three branches of Attack Power, Attack Speed and
- * Recovery Speed; one signature node under each branch; and a capstone reached from any of them.
+ * Lays a tree out row by row, centred on column 2 of five (the same grid as your tree): a row of n nodes sits
+ * at columns 2 - (n-1)/2, +1, ... Each node needs any node touching it in the row above (a column or less away).
  */
-function skillTree(root: NodeSpec, branches: [NodeSpec, NodeSpec, NodeSpec], capstone: NodeSpec): SkillNode[] {
-  const core: [NodeSpec, NodeSpec, NodeSpec] = [
-    { name: 'Attack Power', icon: '💪', desc: '+20% damage per rank.', maxRank: 10, effect: { damage: 0.2 } },
-    { name: 'Attack Speed', icon: '⚡', desc: '+5% attack rate per rank.', maxRank: 10, effect: { rate: 0.05 } },
-    { name: 'Recovery Speed', icon: '🧘', desc: 'Stuns wear off 8% faster per rank.', maxRank: 5, effect: { recovery: 1 } },
-  ];
-  const ids = ['power', 'speed', 'recovery'];
-  return [
-    { id: 'root', ...root, requires: [], col: 1, row: 0 },
-    ...core.map((n, i) => ({ id: ids[i], ...n, requires: ['root'], col: i, row: 1 })),
-    ...branches.map((n, i) => ({ id: `${ids[i]}2`, ...n, requires: [ids[i]], col: i, row: 2 })),
-    { id: 'capstone', ...capstone, requires: ids.map((x) => `${x}2`), col: 1, row: 3 },
-  ];
+function gridTree(rows: GridNode[][]): SkillNode[] {
+  const out: SkillNode[] = [];
+  rows.forEach((row, r) => {
+    const above = out.filter((n) => n.row === r - 1);
+    row.forEach((spec, i) => {
+      const col = 2 - (row.length - 1) / 2 + i;
+      out.push({ ...spec, requires: above.filter((p) => Math.abs(p.col - col) <= 1).map((p) => p.id), col, row: r });
+    });
+  });
+  return out;
 }
+const at = (id: string, spec: NodeSpec): GridNode => ({ id, ...spec });
 
 // ---- Your Hunter: tap abilities, unlocked in the skill tree and swapped under Tap Abilities on the Overview ----
 
@@ -216,7 +238,7 @@ export interface TapAbilityDef {
   desc: string;
 }
 export const TAP_ABILITIES: TapAbilityDef[] = [
-  { id: 'flame', name: 'Flame Burst', icon: '🔥', damageType: 'fire', damage: 1, desc: 'Your taps erupt in fire, setting everything they hit ablaze.' },
+  { id: 'flame', name: 'Flame Burst', icon: '🔥', damageType: 'fire', damage: 1, desc: 'Your taps deal Fire damage, and every 3s a tap erupts, setting everything it hits ablaze.' },
   { id: 'thunder', name: 'Thunderclap', icon: '⚡', damageType: 'lightning', damage: 1, desc: 'Your taps crack with lightning: every monster hit arcs a bolt to another one nearby.' },
   { id: 'frost', name: 'Frost Nova', icon: '❄️', damageType: 'frost', damage: 1, desc: 'Your taps freeze: everything hit is chilled (half speed) for 3s.' },
   { id: 'miasma', name: 'Melting Miasma', icon: '☠️', damageType: 'poison', damage: 1, desc: 'Your taps poison everything they hit, and every 4s a tap leaves a poison puddle that hurts monsters walking through it.' },
@@ -228,29 +250,31 @@ export const FROST_TAP_CHILL = 3;
  * Melting Miasma's puddle: at most one per `cooldown` seconds (shortened by Quick Casting), as wide as the tap
  * blast, lasting `ticks` puddle ticks, each hurting everything in it for `share` of the tap's damage.
  */
+/** Flame Burst sets monsters ablaze at most once per this many seconds (shortened by Quick Casting). */
+export const FLAME_BURST_COOLDOWN = 3;
 export const MIASMA_PUDDLE = { cooldown: 4, ticks: 6, share: 0.15 };
 
 /**
  * Your Hunter's first tree, as laid out in the Skill Trees editor: two diamonds. The root opens three branches
  * (power, speed, recovery); their wings lead to Flame Burst and Frost Nova and meet again at Apex Hunter. Below
- * it, three more branches lead out to Thunderclap and Melting Miasma on the wings and come back together at
- * Legend, then Ascend. Each node needs the one above it in its column; row gates pace the rest.
+ * it, four more branches lead out to Thunderclap and Melting Miasma on the wings and come back together at
+ * Legend, then Ascend. Each node needs one of the nodes touching it in the row above; row gates pace the rest.
  */
 const TAP_HINT = 'Equip it under Tap Abilities on your Overview.';
-/** Ranks of SKILL_RECOVERY that make stuns wear off 10% faster. */
-const RECOVERY_10 = Math.log(0.9) / Math.log(SKILL_RECOVERY);
+/** Ranks of SKILL_RECOVERY that make stuns wear off 5% faster. */
+const RECOVERY_5 = Math.log(0.95) / Math.log(SKILL_RECOVERY);
 const MAIN_FIRST_TREE: SkillNode[] = [
   { id: 'root', name: "Hunter's Instinct", icon: '👁️', desc: '+5% crit chance.', maxRank: 1, effect: { crit: 0.05 }, requires: [], col: 2, row: 0 },
   // First diamond
   { id: 'power', name: 'Attack Power', icon: '💪', desc: '+20% damage per rank.', maxRank: 5, effect: { damage: 0.2 }, requires: ['root'], col: 1, row: 1 },
   { id: 'speed', name: 'Attack Speed', icon: '⚡', desc: '+5% attack rate per rank.', maxRank: 5, effect: { rate: 0.05 }, requires: ['root'], col: 2, row: 1 },
-  { id: 'recovery', name: 'Recovery Speed', icon: '🧘', desc: 'Stuns wear off 10% faster per rank.', maxRank: 3, effect: { recovery: RECOVERY_10 }, requires: ['root'], col: 3, row: 1 },
-  { id: 'power2', name: 'Tap Power', icon: '👆', desc: '+50% tap blast damage per rank.', maxRank: 5, effect: { tapPower: 0.5 }, requires: ['power'], col: 0, row: 2 },
-  { id: 'eagleEye', name: 'Eagle Eye', icon: '🎯', desc: '+2% crit chance per rank.', maxRank: 2, effect: { crit: 0.02 }, requires: ['speed'], col: 2, row: 2 },
-  { id: 'recovery2', name: 'Tap Size', icon: '💥', desc: '+20% tap blast area per rank.', maxRank: 4, effect: { tapSize: 0.2 }, requires: ['recovery'], col: 4, row: 2 },
-  { id: 'flameTap', name: 'Flame Burst', icon: '🔥', desc: `Unlocks the Flame Burst tap ability: taps deal Fire damage and set monsters ablaze. ${TAP_HINT}`, maxRank: 1, effect: {}, ability: 'flame', requires: ['power2'], col: 0, row: 3 },
-  { id: 'speed2', name: 'Split Shot', icon: '🔱', desc: 'Shots pierce 1 more enemy.', maxRank: 1, effect: { pierce: 1 }, requires: ['eagleEye'], col: 2, row: 3 },
-  { id: 'frostTap', name: 'Frost Nova', icon: '❄️', desc: `Unlocks the Frost Nova tap ability: taps deal Frost damage and chill monsters. ${TAP_HINT}`, maxRank: 1, effect: {}, ability: 'frost', requires: ['recovery2'], col: 4, row: 3 },
+  { id: 'recovery', name: 'Recovery Speed', icon: '🧘', desc: 'Stuns wear off 5% faster per rank.', maxRank: 3, effect: { recovery: RECOVERY_5 }, requires: ['root'], col: 3, row: 1 },
+  { id: 'power2', name: 'Tap Power', icon: '👆', desc: '+25% tap blast damage per rank.', maxRank: 5, effect: { tapPower: 0.25 }, requires: ['power'], col: 0.5, row: 2 },
+  { id: 'eagleEye', name: 'Eagle Eye', icon: '🎯', desc: '+2.5% crit chance per rank.', maxRank: 2, effect: { crit: 0.025 }, requires: ['speed'], col: 2, row: 2 },
+  { id: 'recovery2', name: 'Tap Size', icon: '💥', desc: '+20% tap blast area per rank.', maxRank: 4, effect: { tapSize: 0.2 }, requires: ['recovery'], col: 3.5, row: 2 },
+  { id: 'flameTap', name: 'Flame Burst', icon: '🔥', desc: `Unlocks the Flame Burst tap ability: taps deal Fire damage, and every ${FLAME_BURST_COOLDOWN}s a tap sets everything it hits ablaze. ${TAP_HINT}`, maxRank: 1, effect: {}, ability: 'flame', requires: ['power2'], col: 0.5, row: 3 },
+  { id: 'speed2', name: 'Piercing Shot', icon: '🔱', desc: 'Shots pierce 1 more enemy.', maxRank: 1, effect: { pierce: 1 }, requires: ['eagleEye'], col: 2, row: 3 },
+  { id: 'frostTap', name: 'Frost Nova', icon: '❄️', desc: `Unlocks the Frost Nova tap ability: taps deal Frost damage and chill monsters. ${TAP_HINT}`, maxRank: 1, effect: {}, ability: 'frost', requires: ['recovery2'], col: 3.5, row: 3 },
   { id: 'wideTaps', name: 'Wide Taps', icon: '🌀', desc: '+10% tap blast area per rank.', maxRank: 4, effect: { tapSize: 0.1 }, requires: ['flameTap'], col: 1, row: 4 },
   { id: 'prosperity', name: 'Prosperity', icon: '🪙', desc: '+15% gold from your kills per rank.', maxRank: 3, effect: { gold: 0.15 }, requires: ['speed2'], col: 2, row: 4 },
   { id: 'bulwark', name: 'Bulwark', icon: '🛡️', desc: '+1 shield charge per rank.', maxRank: 2, effect: { guard: 1 }, requires: ['frostTap'], col: 3, row: 4 },
@@ -269,20 +293,21 @@ const MAIN_FIRST_TREE: SkillNode[] = [
   { id: 'reach', name: 'Reach', icon: '📏', desc: '+15 range per rank.', maxRank: 3, effect: { range: 15 }, requires: ['capstone'], col: 1, row: 6 },
   { id: 'will', name: 'Quick Casting', icon: '⏱️', desc: "Your gear's abilities and your tap ability recharge 10% faster per rank.", maxRank: 3, effect: { cooldown: 0.1 }, requires: ['capstone'], col: 2, row: 6 },
   { id: 'longShot', name: 'Long Shot', icon: '🔭', desc: '+10 range per rank.', maxRank: 3, effect: { range: 10 }, requires: ['capstone'], col: 3, row: 6 },
-  { id: 'deadlyTaps', name: 'Deadly Taps', icon: '👊', desc: '+30% tap blast damage per rank.', maxRank: 4, effect: { tapPower: 0.3 }, requires: ['reach'], col: 0, row: 7 },
-  { id: 'fortune', name: 'Fortune', icon: '🍀', desc: '+10% gold from your kills per rank.', maxRank: 3, effect: { gold: 0.1 }, requires: ['will'], col: 2, row: 7 },
-  { id: 'extendedEffects', name: 'Extended Effects', icon: '⏳', desc: 'The status effects you set off last 10% longer per rank.', maxRank: 3, effect: { duration: 0.1 }, requires: ['longShot'], col: 4, row: 7 },
-  { id: 'thunderTap', name: 'Thunderclap', icon: '⚡', desc: `Unlocks the Thunderclap tap ability: taps deal Lightning damage and arc to monsters nearby. ${TAP_HINT}`, maxRank: 1, effect: {}, ability: 'thunder', requires: ['deadlyTaps'], col: 0, row: 8 },
-  { id: 'goldTouch', name: 'Golden Touch', icon: '✨', desc: '+20% gold from your kills per rank.', maxRank: 2, effect: { gold: 0.2 }, requires: ['fortune'], col: 2, row: 8 },
-  { id: 'meltingMiasma', name: 'Melting Miasma', icon: '☠️', desc: `Unlocks the Melting Miasma tap ability: taps deal Poison damage and poison monsters, and every 4s a tap leaves a poison puddle that hurts monsters walking through it. ${TAP_HINT}`, maxRank: 1, effect: {}, ability: 'miasma', requires: ['extendedEffects'], col: 4, row: 8 },
-  { id: 'haste', name: "Hunter's Haste", icon: '💨', desc: '+5.5% attack rate per rank.', maxRank: 5, effect: { rate: 0.055 }, requires: ['thunderTap'], col: 1, row: 9 },
-  { id: 'shieldWall', name: 'Shield Wall', icon: '🛡️', desc: '+1 shield charge.', maxRank: 1, effect: { guard: 1 }, requires: ['goldTouch'], col: 2, row: 9 },
-  { id: 'treasure', name: 'Treasure Sense', icon: '💎', desc: '+5% materials from your kills per rank.', maxRank: 3, effect: { drops: 0.05 }, requires: ['meltingMiasma'], col: 3, row: 9 },
-  { id: 'keenEye', name: 'Keen Eye', icon: '🦅', desc: '+1% crit chance per rank.', maxRank: 4, effect: { crit: 0.01 }, requires: ['haste'], col: 1, row: 10 },
-  { id: 'might', name: "Hunter's Might", icon: '🗡️', desc: '+9% damage per rank.', maxRank: 5, effect: { damage: 0.09 }, requires: ['shieldWall'], col: 2, row: 10 },
-  { id: 'bounty', name: 'Bounty', icon: '💰', desc: '+15% materials from your kills per rank.', maxRank: 3, effect: { drops: 0.15 }, requires: ['treasure'], col: 3, row: 10 },
+  { id: 'deadlyTaps', name: 'Deadly Taps', icon: '👊', desc: '+30% tap blast damage per rank.', maxRank: 4, effect: { tapPower: 0.3 }, requires: ['reach'], col: 0.5, row: 7 },
+  { id: 'fortune', name: 'Fortune', icon: '🍀', desc: '+10% gold from your kills per rank.', maxRank: 3, effect: { gold: 0.1 }, requires: ['reach', 'will'], col: 1.5, row: 7 },
+  { id: 'treasure', name: 'Treasure Sense', icon: '💎', desc: '+5% materials from your kills per rank.', maxRank: 3, effect: { drops: 0.05 }, requires: ['will', 'longShot'], col: 2.5, row: 7 },
+  { id: 'extendedEffects', name: 'Extended Effects', icon: '⏳', desc: 'The status effects you set off last 10% longer per rank.', maxRank: 3, effect: { duration: 0.1 }, requires: ['longShot'], col: 3.5, row: 7 },
+  { id: 'thunderTap', name: 'Thunderclap', icon: '⚡', desc: `Unlocks the Thunderclap tap ability: taps deal Lightning damage and arc to monsters nearby. ${TAP_HINT}`, maxRank: 1, effect: {}, ability: 'thunder', requires: ['deadlyTaps'], col: 0.5, row: 8 },
+  { id: 'haste', name: "Hunter's Haste", icon: '💨', desc: '+5.5% attack rate per rank.', maxRank: 5, effect: { rate: 0.055 }, requires: ['fortune'], col: 1.5, row: 8 },
+  { id: 'brutalCriticals', name: 'Brutal Criticals', icon: '💢', desc: 'Your critical hits deal +50% more damage.', maxRank: 1, effect: { critDamage: 0.5 }, requires: ['treasure'], col: 2.5, row: 8 },
+  { id: 'meltingMiasma', name: 'Melting Miasma', icon: '☠️', desc: `Unlocks the Melting Miasma tap ability: taps deal Poison damage and poison monsters, and every 4s a tap leaves a poison puddle that hurts monsters walking through it. ${TAP_HINT}`, maxRank: 1, effect: {}, ability: 'miasma', requires: ['extendedEffects'], col: 3.5, row: 8 },
+  { id: 'goldTouch', name: 'Golden Touch', icon: '✨', desc: '+20% gold from your kills per rank.', maxRank: 2, effect: { gold: 0.2 }, requires: ['thunderTap', 'haste'], col: 1, row: 9 },
+  { id: 'shieldWall', name: 'Shield Wall', icon: '🛡️', desc: '+1 shield charge.', maxRank: 1, effect: { guard: 1 }, requires: ['haste', 'brutalCriticals'], col: 2, row: 9 },
+  { id: 'bounty', name: 'Bounty', icon: '💰', desc: '+15% materials from your kills per rank.', maxRank: 3, effect: { drops: 0.15 }, requires: ['brutalCriticals', 'meltingMiasma'], col: 3, row: 9 },
+  { id: 'keenEye', name: 'Keen Eye', icon: '🦅', desc: '+5% crit chance per rank.', maxRank: 3, effect: { crit: 0.05 }, requires: ['goldTouch', 'shieldWall'], col: 1.5, row: 10 },
+  { id: 'might', name: "Hunter's Might", icon: '🗡️', desc: '+10% damage per rank.', maxRank: 5, effect: { damage: 0.1 }, requires: ['shieldWall', 'bounty'], col: 2.5, row: 10 },
   // 7 points (not the editor's 10) so the whole tree, then Ascend, fits in the 99 points earned by Lv 100.
-  { id: 'legend', name: 'Legend', icon: '🏆', desc: '+50% damage and +20% attack rate.', maxRank: 1, cost: 7, effect: { damage: 0.5, rate: 0.2 }, requires: ['keenEye', 'might', 'bounty'], col: 2, row: 11 },
+  { id: 'legend', name: 'Legend', icon: '🏆', desc: '+50% damage and +20% attack rate.', maxRank: 1, cost: 7, effect: { damage: 0.5, rate: 0.2 }, requires: ['keenEye', 'might'], col: 2, row: 11 },
 ];
 
 /**
@@ -295,8 +320,8 @@ export type RowGates = Partial<Record<number, number>>;
 export const DEFAULT_ROW_GATES: { main: RowGates; mainAscended: RowGates; hunter: RowGates; hunterAscended: RowGates } = {
   main: { 2: 5, 3: 10, 4: 15, 5: 20, 6: 35, 9: 55 },
   mainAscended: { 2: 15, 3: 40 },
-  hunter: { 2: 5, 3: 20 },
-  hunterAscended: { 2: 10, 3: 25 },
+  hunter: { 2: 5, 3: 15, 4: 30 },
+  hunterAscended: { 2: 10, 3: 25, 4: 40 },
 };
 export const ROW_GATES: Record<string, RowGates> = {};
 export function rowGates(tree: string): RowGates {
@@ -416,237 +441,207 @@ export const SESSIONS_TO_ASCEND = Array.from({ length: ASCEND_LEVEL - 1 }, (_, i
 export const SESSIONS_AFTER_ASCEND = Array.from({ length: MAX_LEVEL - ASCEND_LEVEL }, (_, i) => i + 1).reduce((a, b) => a + b, 0);
 
 /**
- * The tree a Hunter grows after ascending (50 points: Lv 51–100). The same shape as the first tree; its
- * capstone is theirs alone and is the last 8 points, so it opens at Lv 100.
+ * The tree a Hunter grows after ascending (50 points: Lv 51–100). Mastery, Fervor and Resolve for everyone; then
+ * three deep nodes in what that Hunter does best (20 points between them), Precision and Fortune, and their own
+ * capstone: the last 8 points, so it opens at Lv 100.
  */
-function ascendedTree(capstone: NodeSpec): SkillNode[] {
-  return skillTree(
-    { name: 'Awakening', icon: '🌅', desc: '+20% damage and +10% attack rate.', maxRank: 1, cost: 2, effect: { damage: 0.2, rate: 0.1 } },
-    [
-      { name: 'Precision', icon: '🎯', desc: '+2% crit chance per rank.', maxRank: 5, effect: { crit: 0.02 } },
-      { name: 'Reach', icon: '📏', desc: '+15 range per rank.', maxRank: 5, effect: { range: 15 } },
-      { name: 'Fortune', icon: '🍀', desc: '+10% gold and materials from their kills per rank.', maxRank: 5, effect: { gold: 0.1, drops: 0.1 } },
-    ],
-    { cost: 8, ...capstone },
-  ).map((n) =>
-    n.id === 'power'
-      ? { ...n, name: 'Mastery', icon: '⚔️', desc: '+8% damage per rank.', effect: { damage: 0.08 } }
-      : n.id === 'speed'
-        ? { ...n, name: 'Fervor', icon: '🔥', desc: '+8% attack rate per rank.', effect: { rate: 0.08 } }
-        : n.id === 'recovery'
-          ? { ...n, name: 'Resolve', icon: '🗿' }
-          : n,
-  );
+function ascendedTree(focus: [NodeSpec, NodeSpec, NodeSpec], capstone: NodeSpec): SkillNode[] {
+  return gridTree([
+    [at('root', { name: 'Awakening', icon: '🌅', desc: '+20% damage and +5% attack rate.', maxRank: 1, cost: 2, effect: { damage: 0.2, rate: 0.05 } })],
+    [at('power', atk(5, 'Mastery', '⚔️', 0.1)), at('speed', spd(5, 'Fervor', '🔥')), at('recovery', rec(3, 'Resolve', '🗿'))],
+    [at('power2', focus[0]), at('speed2', focus[1]), at('recovery2', focus[2])],
+    [at('precision', crt(4, 'Precision', '🎯')), at('fortune', { name: 'Fortune', icon: '🍀', desc: '+10% gold and +5% materials from their kills per rank.', maxRank: 3, effect: { gold: 0.1, drops: 0.05 } })],
+    [at('capstone', { cost: 8, ...capstone })],
+  ]);
 }
 
 /** Each Guild Hunter's ascended tree. */
 export const ASCENDED_TREES: Record<HunterId, SkillNode[]> = {
-  alchemist: ascendedTree({ name: "Philosopher's Stone", icon: '💠', desc: '+100% damage and puddles 20% wider.', maxRank: 1, effect: { damage: 1, radius: 0.2 } }),
-  bard: ascendedTree({ name: 'Symphony', icon: '🎼', desc: '+100% damage and +15% attack rate.', maxRank: 1, effect: { damage: 1, rate: 0.15 } }),
-  druid: ascendedTree({ name: 'Wild Hunt', icon: '🐺', desc: '+100% damage and wolves 30% fiercer.', maxRank: 1, effect: { damage: 1, radius: 0.3 } }),
-  ranger: ascendedTree({ name: 'Hundred Arrows', icon: '🏹', desc: '+100% damage; arrows pierce 2 more enemies.', maxRank: 1, effect: { damage: 1, pierce: 2 } }),
-  glimmer: ascendedTree({ name: 'Starfire', icon: '☄️', desc: '+100% damage and explosions 30% wider.', maxRank: 1, effect: { damage: 1, radius: 0.3 } }),
-  thief: ascendedTree({ name: 'Grand Heist', icon: '💎', desc: '+100% damage and +50% gold from his kills.', maxRank: 1, effect: { damage: 1, gold: 0.5 } }),
-  lance: ascendedTree({ name: 'Aegis', icon: '🛡️', desc: '+100% damage and 2 more shield charges.', maxRank: 1, effect: { damage: 1, guard: 2 } }),
-  puppeteer: ascendedTree({ name: 'Theater of Puppets', icon: '🎭', desc: '+100% damage and puppets 30% fiercer.', maxRank: 1, effect: { damage: 1, radius: 0.3 } }),
-  blacksmith: ascendedTree({ name: 'Masterwork', icon: '⚒️', desc: '+100% damage and +20% attack rate.', maxRank: 1, effect: { damage: 1, rate: 0.2 } }),
-  wilhelm: ascendedTree({ name: 'One Shot', icon: '🎯', desc: '+100% damage and +10% crit chance.', maxRank: 1, effect: { damage: 1, crit: 0.1 } }),
-  celeste: ascendedTree({ name: 'Omniscience', icon: '🧠', desc: '+100% damage and +10% crit chance.', maxRank: 1, effect: { damage: 1, crit: 0.1 } }),
-  enchantress: ascendedTree({ name: 'Grand Enchantment', icon: '✨', desc: '+100% damage and +10% crit chance.', maxRank: 1, effect: { damage: 1, crit: 0.1 } }),
-  scavenger: ascendedTree({ name: 'Mountain Breaker', icon: '🏔️', desc: '+100% damage and punches reach 30% further.', maxRank: 1, effect: { damage: 1, radius: 0.3 } }),
-  osteomancer: ascendedTree({ name: 'Ossuary', icon: '💀', desc: '+100% damage and spikes 30% wider.', maxRank: 1, effect: { damage: 1, radius: 0.3 } }),
-  bloodblade: ascendedTree({ name: 'Crimson Tide', icon: '🌊', desc: '+100% damage and 2 more blood bolts from each Crimson Wave kill.', maxRank: 1, effect: { damage: 1, bolts: 2 } }),
-  spaceslime: ascendedTree({ name: 'Silver Tongue', icon: '💬', desc: '+100% damage and his charm reaches 30% further.', maxRank: 1, effect: { damage: 1, radius: 0.3 } }),
-  gambler: ascendedTree({ name: 'High Roller', icon: '🎲', desc: '+100% damage and dice blasts 30% wider.', maxRank: 1, effect: { damage: 1, radius: 0.3 } }),
-  archivist: ascendedTree({ name: 'Great Library', icon: '📚', desc: '+100% damage and recalled specials 30% bigger.', maxRank: 1, effect: { damage: 1, radius: 0.3 } }),
-  artificer: ascendedTree({ name: 'Grand Design', icon: '⚙️', desc: '+100% damage and +20% attack rate.', maxRank: 1, effect: { damage: 1, rate: 0.2 } }),
-  frostbreaker: ascendedTree({ name: 'Eternal Winter', icon: '❄️', desc: '+100% damage and +1× extra damage to Elementals.', maxRank: 1, effect: { damage: 1, bane: 1 } }),
+  alchemist: ascendedTree([area(8, 'Vast Splash', '💦', 'Puddles spread', 0.05), dur(6, 'Slow Rot', '☠️'), ban(6, 'Slime Scourge', '🟢', 'Slimes')], { name: "Philosopher's Stone", icon: '💠', desc: '+50% damage and puddles 20% wider.', maxRank: 1, effect: { damage: 0.5, radius: 0.2 } }),
+  bard: ascendedTree([spd(8, 'Virtuoso', '🎻', 0.03), area(6, 'Amplify', '🔊', 'Sound waves reach'), ban(6, 'Showstopper', '👤', 'Humanoids')], { name: 'Symphony', icon: '🎼', desc: '+50% damage and +15% attack rate.', maxRank: 1, effect: { damage: 0.5, rate: 0.15 } }),
+  druid: ascendedTree([area(8, 'Alpha Pack', '🐺', 'Wolves bite harder:'), cdr(6, 'Howl', '🌕', 'Wolves come'), ban(6, 'Overgrowth Bane', '🌱', 'Plants')], { name: 'Wild Hunt', icon: '🐺', desc: '+50% damage and wolves 30% fiercer.', maxRank: 1, effect: { damage: 0.5, radius: 0.3 } }),
+  ranger: ascendedTree([rng(8, 'Hawk Eye', '🦅'), crd(6, 'Barbed Arrows', '🏹'), ban(6, 'Beast Slayer', '🐾', 'Beasts')], { name: 'Hundred Arrows', icon: '🏹', desc: '+50% damage; one more arrow per shot, and arrows pierce 2 more enemies.', maxRank: 1, effect: { damage: 0.5, multishot: 1, pierce: 2 } }),
+  glimmer: ascendedTree([area(8, 'Cataclysm', '💥', 'Explosions grow'), cdr(6, 'Arcane Haste', '⏱️', 'Fireballs come'), dur(6, 'Everburn', '🔥')], { name: 'Starfire', icon: '☄️', desc: '+50% damage and explosions 30% wider.', maxRank: 1, effect: { damage: 0.5, radius: 0.3 } }),
+  thief: ascendedTree([gld(8, 'Golden Hands', '👛'), drp(6, 'Fine Loot', '🗝️'), crd(6, 'Assassinate', '🔪')], { name: 'Grand Heist', icon: '💎', desc: '+50% damage and +50% gold from his kills.', maxRank: 1, effect: { damage: 0.5, gold: 0.5 } }),
+  lance: ascendedTree([atk(8, 'Righteous Fury', '☀️', 0.05), grd(3, 'Bastion', '🧱', 2), area(6, 'Consecration', '✨', 'Their strikes reach wider:')], { name: 'Aegis', icon: '🛡️', desc: '+50% damage and 2 more shield charges.', maxRank: 1, effect: { damage: 0.5, guard: 2 } }),
+  puppeteer: ascendedTree([area(8, 'Puppet Army', '🪆', 'Puppets bite harder:'), cdr(6, 'Curtain Call', '🎪', 'Puppets come'), crt(6, 'Stage Presence', '🌟')], { name: 'Theater of Puppets', icon: '🎭', desc: '+50% damage and puppets 30% fiercer.', maxRank: 1, effect: { damage: 0.5, radius: 0.3 } }),
+  blacksmith: ascendedTree([atk(8, 'Hammer and Tongs', '🔨', 0.05), crd(6, 'Crushing Blows', '💢'), spd(6, 'Hot Iron', '🔥', 0.03)], { name: 'Masterwork', icon: '⚒️', desc: '+50% damage and +20% attack rate.', maxRank: 1, effect: { damage: 0.5, rate: 0.2 } }),
+  wilhelm: ascendedTree([crd(8, 'Executioner', '💀'), rng(6, 'Scope', '🔭'), prc(3, 'Armor Piercing', '🔩', 2)], { name: 'One Shot', icon: '🎯', desc: '+50% damage and +10% crit chance.', maxRank: 1, effect: { damage: 0.5, crit: 0.1 } }),
+  celeste: ascendedTree([ban(8, 'Wyrmbane', '🐉', 'Dragons'), rng(6, 'Astral Reach', '🧠'), crd(6, 'Mind Break', '⚡')], { name: 'Omniscience', icon: '🧠', desc: '+50% damage and +10% crit chance.', maxRank: 1, effect: { damage: 0.5, crit: 0.1 } }),
+  enchantress: ascendedTree([dur(8, 'Everlasting Hex', '⏳'), cdr(6, 'Swift Glyphs', '🪄', "Their gear's abilities recharge"), crt(6, 'Runic Insight', '✴️')], { name: 'Grand Enchantment', icon: '✨', desc: '+50% damage and +10% crit chance.', maxRank: 1, effect: { damage: 0.5, crit: 0.1 } }),
+  scavenger: ascendedTree([area(8, 'Mountain Stance', '🏔️', 'Punches reach further:'), cdr(6, 'Still Mind', '🧘', 'Mountain Fist comes'), atk(6, 'Stone Fists', '👊', 0.05)], { name: 'Mountain Breaker', icon: '🏔️', desc: '+50% damage and punches reach 30% further.', maxRank: 1, effect: { damage: 0.5, radius: 0.3 } }),
+  osteomancer: ascendedTree([area(8, 'Bone Forest', '🦴', 'Bone spikes reach wider:'), cdr(6, 'Grave Haste', '⏱️', 'Bone spikes come'), grd(3, 'Ribcage', '🛡️', 2)], { name: 'Ossuary', icon: '💀', desc: '+50% damage and spikes 30% wider.', maxRank: 1, effect: { damage: 0.5, radius: 0.3 } }),
+  bloodblade: ascendedTree([area(8, 'Red Tide', '🌊', 'The Crimson Wave runs further:'), dur(6, 'Open Wounds', '🩸'), crd(6, 'Bloodletting', '🔪')], { name: 'Crimson Tide', icon: '🌊', desc: '+50% damage and 2 more blood bolts from each Crimson Wave kill.', maxRank: 1, effect: { damage: 0.5, bolts: 2 } }),
+  spaceslime: ascendedTree([area(8, 'Galactic Charm', '🌌', 'His charm reaches further:'), cdr(6, 'Pickup Lines', '💬', 'His charm comes'), gld(6, 'Comet Dust', '☄️')], { name: 'Silver Tongue', icon: '💬', desc: '+50% damage and his charm reaches 30% further.', maxRank: 1, effect: { damage: 0.5, radius: 0.3 } }),
+  gambler: ascendedTree([crd(8, 'Double Down', '🎲'), area(6, 'Boxcars', '💥', 'Dice blasts grow'), gld(6, 'House Money', '🪙')], { name: 'High Roller', icon: '🎲', desc: '+50% damage and dice blasts 30% wider.', maxRank: 1, effect: { damage: 0.5, radius: 0.3 } }),
+  archivist: ascendedTree([area(8, 'Grand Index', '📜', 'Recalled specials grow'), cdr(6, 'Speed Archive', '📑', 'The tome opens'), dur(6, 'Long Memory', '🕯️')], { name: 'Great Library', icon: '📚', desc: '+50% damage and recalled specials 30% bigger.', maxRank: 1, effect: { damage: 0.5, radius: 0.3 } }),
+  artificer: ascendedTree([spd(8, 'Perpetual Motion', '⚙️', 0.03), rng(6, 'Long Barrels', '🔭'), crt(6, 'Calibration', '📐')], { name: 'Grand Design', icon: '⚙️', desc: '+50% damage and +20% attack rate.', maxRank: 1, effect: { damage: 0.5, rate: 0.2 } }),
+  frostbreaker: ascendedTree([ban(8, 'Glacier Bane', '🔷', 'Elementals'), dur(6, 'Endless Winter', '🥶'), crd(6, 'Ice Shatter', '💎')], { name: 'Eternal Winter', icon: '❄️', desc: '+50% damage and +1× extra damage to Elementals.', maxRank: 1, effect: { damage: 0.5, bane: 1 } }),
 };
 
-/** Each Hunter's skill tree ('main' is yours). */
+/** Each Hunter's skill tree ('main' is yours). Every Guild Hunter's costs 39 points: complete at Lv 40. */
 export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
-  // Yours is five wide (the Guild Hunters' are three): more branches, and room for more abilities.
   main: MAIN_FIRST_TREE,
-  alchemist: skillTree(
-    { name: 'Toxic Brew', icon: '🧪', desc: 'Poison puddles spread 15% wider.', maxRank: 1, effect: { radius: 0.15 } },
-    [
-      { name: 'Slime Bane', icon: '🟢', desc: '+0.5× extra damage to Slimes per rank.', maxRank: 3, effect: { bane: 0.5 } },
-      { name: 'Wide Splash', icon: '💦', desc: 'Puddles 15% wider per rank.', maxRank: 3, effect: { radius: 0.15 } },
-      { name: 'Lucky Finds', icon: '🍀', desc: '+15% materials from her kills per rank.', maxRank: 3, effect: { drops: 0.15 } },
-    ],
-    { name: 'Grand Alchemy', icon: '⚗️', desc: '+25% damage, puddles 15% wider.', maxRank: 1, cost: 4, effect: { damage: 0.25, radius: 0.15 } },
-  ),
-  bard: skillTree(
-    { name: 'Opening Chord', icon: '🎵', desc: 'Sound waves reach 10% further.', maxRank: 1, effect: { radius: 0.1 } },
-    [
-      { name: 'Silver Tongue', icon: '👤', desc: '+0.5× extra damage to Humanoids per rank.', maxRank: 3, effect: { bane: 0.5 } },
-      { name: 'Crescendo', icon: '🔊', desc: 'Sound waves reach 10% further per rank.', maxRank: 3, effect: { radius: 0.1 } },
-      { name: 'Encore', icon: '🎤', desc: '+10% attack rate per rank.', maxRank: 2, effect: { rate: 0.1 } },
-    ],
-    { name: 'Ballad of Heroes', icon: '🎶', desc: '+20% damage and +15% attack rate.', maxRank: 1, cost: 5, effect: { damage: 0.2, rate: 0.15 } },
-  ),
-  druid: skillTree(
-    { name: 'Thornskin', icon: '🌵', desc: '+1 shield.', maxRank: 1, effect: { guard: 1 } },
-    [
-      { name: 'Weedkiller', icon: '🌱', desc: '+0.5× extra damage to Plants per rank.', maxRank: 3, effect: { bane: 0.5 } },
-      { name: 'Pack Bond', icon: '🐺', desc: 'Wolves bite 10% harder per rank.', maxRank: 3, effect: { radius: 0.1 } },
-      { name: "Nature's Gift", icon: '🍃', desc: '+15% materials from his kills per rank.', maxRank: 2, effect: { drops: 0.15 } },
-    ],
-    { name: 'Call of the Wild', icon: '🌳', desc: '+25% damage, wolves 20% fiercer.', maxRank: 1, cost: 5, effect: { damage: 0.25, radius: 0.2 } },
-  ),
-  ranger: skillTree(
-    { name: 'Trueshot', icon: '🎯', desc: '+20 range.', maxRank: 1, effect: { range: 20 } },
-    [
-      { name: 'Beast Bane', icon: '🐾', desc: '+0.5× extra damage to Beasts per rank.', maxRank: 3, effect: { bane: 0.5 } },
-      { name: 'Longshot', icon: '🏹', desc: '+25 range per rank.', maxRank: 3, effect: { range: 25 } },
-      { name: 'Piercing Arrows', icon: '➶', desc: 'Arrows pierce 1 more enemy per rank.', maxRank: 2, effect: { pierce: 1 } },
-    ],
-    { name: 'Volley', icon: '🌧️', desc: '+20% attack rate and +10% damage.', maxRank: 1, cost: 5, effect: { rate: 0.2, damage: 0.1 } },
-  ),
-  glimmer: skillTree(
-    { name: 'Kindling', icon: '🔥', desc: 'Fireball explosions 10% wider.', maxRank: 1, effect: { radius: 0.1 } },
-    [
-      { name: 'Inferno', icon: '🌋', desc: '+15% damage per rank.', maxRank: 5, effect: { damage: 0.15 } },
-      { name: 'Wildfire', icon: '💥', desc: 'Explosions 15% wider per rank.', maxRank: 3, effect: { radius: 0.15 } },
-      { name: 'Arcane Focus', icon: '🔮', desc: '+3% crit chance per rank.', maxRank: 3, effect: { crit: 0.03 } },
-    ],
-    { name: 'Meteor', icon: '☄️', desc: '+30% damage, explosions 20% wider.', maxRank: 1, cost: 2, effect: { damage: 0.3, radius: 0.2 } },
-  ),
-  thief: skillTree(
-    { name: 'Sticky Fingers', icon: '🤏', desc: '+10% gold from his kills.', maxRank: 1, effect: { gold: 0.1 } },
-    [
-      { name: 'Pickpocket', icon: '👛', desc: '+15% gold from his kills per rank.', maxRank: 3, effect: { gold: 0.15 } },
-      { name: 'Treasure Sense', icon: '🗝️', desc: '+15% materials from his kills per rank.', maxRank: 3, effect: { drops: 0.15 } },
-      { name: 'Shadowstep', icon: '👣', desc: 'Stuns wear off 8% faster per rank.', maxRank: 2, effect: { recovery: 1 } },
-    ],
-    { name: 'Master Thief', icon: '🎭', desc: '+25% damage and +25% gold from his kills.', maxRank: 1, cost: 5, effect: { damage: 0.25, gold: 0.25 } },
-  ),
-  lance: skillTree(
-    { name: 'Zone of Protection', icon: '🛡️', desc: 'His shield: blocks 3 hits before he is stunned, regaining a charge every few seconds.', maxRank: 1, effect: { guard: 3 } },
-    [
-      { name: 'Piercing Thrust', icon: '🔱', desc: '+10 reach per rank.', maxRank: 3, cost: 2, effect: { range: 10 } },
-      { name: 'Bulwark', icon: '🧱', desc: 'His shield blocks 1 more hit per rank.', maxRank: 2, effect: { guard: 1 } },
-      { name: 'Rallying Oath', icon: '📯', desc: 'Every other Hunter (you too) gets a 1-hit shield.', maxRank: 1, effect: { rally: 1 } },
-    ],
-    { name: 'Holy Lance', icon: '⚜️', desc: '+30% damage and 1 more shield charge.', maxRank: 1, cost: 4, effect: { damage: 0.3, guard: 1 } },
-  ),
-  puppeteer: skillTree(
-    { name: 'Strings Attached', icon: '🧵', desc: 'Puppets bite 10% harder.', maxRank: 1, effect: { radius: 0.1 } },
-    [
-      { name: 'Marionette Master', icon: '🪆', desc: 'Puppets bite 10% harder per rank.', maxRank: 3, effect: { radius: 0.1 } },
-      { name: 'Twin Threads', icon: '🪡', desc: '+10% damage per rank.', maxRank: 3, effect: { damage: 0.1 } },
-      { name: 'Cut the Strings', icon: '✂️', desc: 'Stuns wear off 8% faster per rank.', maxRank: 2, effect: { recovery: 1 } },
-    ],
-    { name: 'Grand Performance', icon: '🎭', desc: '+25% damage and puppets 20% fiercer.', maxRank: 1, cost: 5, effect: { damage: 0.25, radius: 0.2 } },
-  ),
-  blacksmith: skillTree(
-    { name: 'Forge-Hardened', icon: '🔥', desc: 'Stuns wear off 8% faster.', maxRank: 1, effect: { recovery: 1 } },
-    [
-      { name: 'Heavy Blows', icon: '🔨', desc: '+10% damage per rank.', maxRank: 3, effect: { damage: 0.1 } },
-      { name: 'Quench', icon: '💧', desc: '+10% attack rate per rank.', maxRank: 3, effect: { rate: 0.1 } },
-      { name: 'Whetstone Eye', icon: '🪨', desc: '+3% crit chance per rank.', maxRank: 3, effect: { crit: 0.03 } },
-    ],
-    { name: 'Master Smith', icon: '⚒️', desc: '+30% damage.', maxRank: 1, cost: 4, effect: { damage: 0.3 } },
-  ),
-  wilhelm: skillTree(
-    { name: 'Steady Aim', icon: '🎯', desc: '+30 range.', maxRank: 1, effect: { range: 30 } },
-    [
-      { name: 'Deadeye', icon: '👁️', desc: '+4% crit chance per rank.', maxRank: 3, effect: { crit: 0.04 } },
-      { name: 'Hollow Point', icon: '🔩', desc: 'Shots pierce 1 more enemy per rank.', maxRank: 2, effect: { pierce: 1 } },
-      { name: 'Quickdraw', icon: '🔫', desc: '+10% attack rate per rank.', maxRank: 3, effect: { rate: 0.1 } },
-    ],
-    { name: 'Marksman', icon: '🏅', desc: '+30% damage and +30 range.', maxRank: 1, cost: 5, effect: { damage: 0.3, range: 30 } },
-  ),
-  celeste: skillTree(
-    { name: 'Mind\'s Eye', icon: '👁️', desc: '+10% damage and +20 range.', maxRank: 1, effect: { damage: 0.1, range: 20 } },
-    [
-      { name: 'Dragon Bane', icon: '🐉', desc: '+0.5× extra damage to Dragons per rank.', maxRank: 3, effect: { bane: 0.5 } },
-      { name: 'Far Reach', icon: '🧠', desc: '+25 range per rank.', maxRank: 3, effect: { range: 25 } },
-      { name: 'Insight', icon: '💡', desc: '+3% crit chance per rank.', maxRank: 3, effect: { crit: 0.03 } },
-    ],
-    { name: 'Transcendence', icon: '👑', desc: '+30% damage and +15% attack rate.', maxRank: 1, cost: 4, effect: { damage: 0.3, rate: 0.15 } },
-  ),
-  scavenger: skillTree(
-    { name: 'Inner Focus', icon: '🧘', desc: 'Punches reach 10% further.', maxRank: 1, effect: { radius: 0.1 } },
-    [
-      { name: 'Iron Knuckles', icon: '👊', desc: '+15% damage per rank.', maxRank: 3, effect: { damage: 0.15 } },
-      { name: 'Wide Stance', icon: '🌀', desc: 'Punches reach 10% further per rank.', maxRank: 3, effect: { radius: 0.1 } },
-      { name: 'Flurry', icon: '💨', desc: '+7% attack rate per rank.', maxRank: 3, effect: { rate: 0.07 } },
-    ],
-    { name: 'Thousand Fists', icon: '💥', desc: '+25% damage and punches reach 15% further.', maxRank: 1, cost: 4, effect: { damage: 0.25, radius: 0.15 } },
-  ),
-  osteomancer: skillTree(
-    { name: 'Marrow Sense', icon: '🦴', desc: 'Bone spikes reach 10% wider.', maxRank: 1, effect: { radius: 0.1 } },
-    [
-      { name: 'Sharpened Bone', icon: '🗡️', desc: '+15% damage per rank.', maxRank: 3, effect: { damage: 0.15 } },
-      { name: 'Ossuary Field', icon: '🌀', desc: 'Spikes reach 10% wider per rank.', maxRank: 3, effect: { radius: 0.1 } },
-      { name: 'Calcified Skin', icon: '🛡️', desc: '+1 shield charge per rank.', maxRank: 3, effect: { guard: 1 } },
-    ],
-    { name: 'Boneyard', icon: '💀', desc: '+25% damage and spikes 15% wider.', maxRank: 1, cost: 4, effect: { damage: 0.25, radius: 0.15 } },
-  ),
-  bloodblade: skillTree(
-    { name: 'First Blood', icon: '🩸', desc: 'The Crimson Wave runs 10% further.', maxRank: 1, effect: { radius: 0.1 } },
-    [
-      { name: 'Keen Edge', icon: '🗡️', desc: '+15% damage per rank.', maxRank: 3, effect: { damage: 0.15 } },
-      { name: 'Surge', icon: '🌊', desc: 'The Crimson Wave runs 10% further per rank.', maxRank: 3, effect: { radius: 0.1 } },
-      { name: 'Bloodlust', icon: '💢', desc: '+7% attack rate per rank.', maxRank: 3, effect: { rate: 0.07 } },
-    ],
-    { name: 'Blood Rain', icon: '🌧️', desc: '+20% damage; monsters the Crimson Wave kills burst into 3 blood bolts.', maxRank: 1, cost: 4, effect: { damage: 0.2, bolts: 3 } },
-  ),
-  enchantress: skillTree(
-    { name: 'Glyphwork', icon: '🔯', desc: '+5% crit chance.', maxRank: 1, effect: { crit: 0.05 } },
-    [
-      { name: 'Runed Bolts', icon: '✴️', desc: '+10% damage per rank.', maxRank: 3, effect: { damage: 0.1 } },
-      { name: 'Quickened Words', icon: '💬', desc: '+10% attack rate per rank.', maxRank: 3, effect: { rate: 0.1 } },
-      { name: 'Wide Wards', icon: '🌀', desc: '+10% area size per rank.', maxRank: 3, effect: { radius: 0.1 } },
-    ],
-    { name: 'Spellbinder', icon: '📜', desc: '+30% damage.', maxRank: 1, cost: 4, effect: { damage: 0.3 } },
-  ),
-  spaceslime: skillTree(
-    { name: 'Cosmic Goo', icon: '🌌', desc: '+10% damage.', maxRank: 1, effect: { damage: 0.1 } },
-    [
-      { name: 'Sweet Nothings', icon: '💬', desc: '+15% damage per rank.', maxRank: 3, effect: { damage: 0.15 } },
-      { name: 'Quick Wit', icon: '⚡', desc: '+5% attack rate per rank.', maxRank: 3, effect: { rate: 0.05 } },
-      { name: 'Unflappable', icon: '🫧', desc: 'Stuns wear off 8% faster per rank.', maxRank: 3, effect: { recovery: 1 } },
-    ],
-    { name: 'Magnetic Personality', icon: '🧲', desc: '+30% damage and his charm reaches 20% further.', maxRank: 1, cost: 4, effect: { damage: 0.3, radius: 0.2 } },
-  ),
-  gambler: skillTree(
-    { name: 'Lucky Coin', icon: '🪙', desc: '+10% damage.', maxRank: 1, effect: { damage: 0.1 } },
-    [
-      { name: 'Raise the Stakes', icon: '💰', desc: '+15% damage per rank.', maxRank: 3, effect: { damage: 0.15 } },
-      { name: 'Quick Hands', icon: '🃏', desc: '+5% attack rate per rank.', maxRank: 3, effect: { rate: 0.05 } },
-      { name: 'Poker Face', icon: '🎭', desc: 'Stuns wear off 8% faster per rank.', maxRank: 3, effect: { recovery: 1 } },
-    ],
-    { name: 'All In', icon: '🎰', desc: '+30% damage and dice blasts 20% wider.', maxRank: 1, cost: 4, effect: { damage: 0.3, radius: 0.2 } },
-  ),
-  archivist: skillTree(
-    { name: 'Marginalia', icon: '📖', desc: '+10% damage.', maxRank: 1, effect: { damage: 0.1 } },
-    [
-      { name: 'Annotated Volumes', icon: '📜', desc: '+15% damage per rank.', maxRank: 3, effect: { damage: 0.15 } },
-      { name: 'Speed Reading', icon: '📑', desc: '+5% attack rate per rank.', maxRank: 3, effect: { rate: 0.05 } },
-      { name: 'Quiet Study', icon: '🕯️', desc: 'Stuns wear off 8% faster per rank.', maxRank: 3, effect: { recovery: 1 } },
-    ],
-    { name: 'Encyclopedia', icon: '📚', desc: '+30% damage and recalled specials 20% bigger.', maxRank: 1, cost: 4, effect: { damage: 0.3, radius: 0.2 } },
-  ),
-  artificer: skillTree(
-    { name: 'Spare Parts', icon: '⚙️', desc: '+10% damage.', maxRank: 1, effect: { damage: 0.1 } },
-    [
-      { name: 'Fine Tuning', icon: '🔧', desc: '+15% damage per rank.', maxRank: 3, effect: { damage: 0.15 } },
-      { name: 'Oiled Gears', icon: '🔩', desc: '+5% attack rate per rank.', maxRank: 3, effect: { rate: 0.05 } },
-      { name: 'Sturdy Frame', icon: '🛠️', desc: 'Stuns wear off 8% faster per rank.', maxRank: 3, effect: { recovery: 1 } },
-    ],
-    { name: 'Masterwork', icon: '🧰', desc: '+30% damage and +10% attack rate.', maxRank: 1, cost: 4, effect: { damage: 0.3, rate: 0.1 } },
-  ),
-  frostbreaker: skillTree(
-    { name: 'Permafrost', icon: '❄️', desc: '+10% damage.', maxRank: 1, effect: { damage: 0.1 } },
-    [
-      { name: 'Elemental Bane', icon: '🔷', desc: '+0.5× extra damage to Elementals per rank.', maxRank: 3, effect: { bane: 0.5 } },
-      { name: 'Heavy Hammer', icon: '🔨', desc: '+15% damage per rank.', maxRank: 3, effect: { damage: 0.15 } },
-      { name: 'Glacial Hide', icon: '🧊', desc: 'Stuns wear off 8% faster per rank.', maxRank: 3, effect: { recovery: 1 } },
-    ],
-    { name: 'Avalanche', icon: '🏔️', desc: '+30% damage and +10% attack rate.', maxRank: 1, cost: 4, effect: { damage: 0.3, rate: 0.1 } },
-  ),
+  // Andrejz: wider, longer-lasting poison puddles, sooner.
+  alchemist: gridTree([
+    [at('root', area(1, 'Toxic Brew', '🧪', 'Poison puddles spread'))],
+    [at('power', atk(3)), at('quickBrew', cdr(4, 'Quick Brew', '⏱️', 'Potions come')), at('recovery', rec(3))],
+    [at('slimeBane', ban(4, 'Slime Bane', '🟢', 'Slimes')), at('wideSplash', area(4, 'Wide Splash', '💦', 'Puddles spread')), at('lingering', dur(4, 'Lingering Fumes', '☁️')), at('luckyFinds', drp(3, 'Lucky Finds', '🍀'))],
+    [at('speed', spd(4)), at('potency', atk(4, 'Potent Toxins', '☠️', 0.1)), at('thickBrew', dur(2, 'Thick Brew', '🫧'))],
+    [at('capstone', { name: 'Grand Alchemy', icon: '⚗️', desc: '+20% damage; puddles 20% wider; poison lasts 20% longer.', maxRank: 1, cost: 3, effect: { damage: 0.2, radius: 0.2, duration: 0.2 } })],
+  ]),
+  // Galladair: arrows that pierce, and more of them.
+  ranger: gridTree([
+    [at('root', prc(1, 'Trueshot', '🎯'))],
+    [at('power', atk(4)), at('speed', spd(4)), at('longshot', rng(3, 'Longshot', '🔭'))],
+    [at('beastBane', ban(4, 'Beast Bane', '🐾', 'Beasts')), at('piercing', prc(2, 'Piercing Arrows', '➶')), at('eagleEye', crt(3, 'Eagle Eye', '🦅')), at('deepQuiver', spd(3, 'Deep Quiver', '🏹'))],
+    [at('splitShot', multi('Split Shot', '🔱', 4)), at('broadheads', atk(4, 'Broadheads', '🗡️', 0.1)), at('recovery', rec(3, 'Fleet Foot', '👣'))],
+    [at('capstone', { name: 'Volley', icon: '🌧️', desc: 'One more arrow per shot, and arrows pierce 1 more enemy.', maxRank: 1, cost: 4, effect: { multishot: 1, pierce: 1 } })],
+  ]),
+  // Ba'al: faster playing, wider sound waves.
+  bard: gridTree([
+    [at('root', area(1, 'Opening Chord', '🎵', 'Sound waves reach'))],
+    [at('power', atk(3)), at('speed', spd(5, 'Tempo', '🥁')), at('recovery', rec(3))],
+    [at('crescendo', area(4, 'Crescendo', '🔊', 'Sound waves reach')), at('silverTongue', ban(4, 'Silver Tongue', '👤', 'Humanoids')), at('encore', spd(4, 'Encore', '🎤'))],
+    [at('rhythm', crt(3, 'Rhythm', '🎼')), at('drumbeat', atk(5, 'Drumbeat', '🪘', 0.1)), at('echo', area(3, 'Echo', '📣', 'Sound waves reach'))],
+    [at('capstone', { name: 'Ballad of Heroes', icon: '🎶', desc: '+15% attack rate and sound waves reach 20% further.', maxRank: 1, cost: 4, effect: { rate: 0.15, radius: 0.2 } })],
+  ]),
+  // Deku: fiercer wolves, called sooner.
+  druid: gridTree([
+    [at('root', grd(1, 'Thornskin', '🌵'))],
+    [at('packBond', area(4, 'Pack Bond', '🐺', 'Wolves bite harder:')), at('power', atk(3)), at('recovery', rec(3))],
+    [at('weedkiller', ban(4, 'Weedkiller', '🌱', 'Plants')), at('callPack', cdr(4, 'Call of the Pack', '📯', 'Wolves come')), at('alpha', area(3, 'Alpha', '🐾', 'Wolves bite harder:')), at('naturesGift', drp(3, "Nature's Gift", '🍃'))],
+    [at('barkskin', grd(2, 'Barkskin', '🪵')), at('savage', dur(3, 'Savage Bites', '🦷')), at('speed', spd(5))],
+    [at('capstone', { name: 'Call of the Wild', icon: '🌳', desc: '+20% damage and wolves 30% fiercer.', maxRank: 1, cost: 4, effect: { damage: 0.2, radius: 0.3 } })],
+  ]),
+  // Glimmer: bigger explosions, more often.
+  glimmer: gridTree([
+    [at('root', area(1, 'Kindling', '🔥', 'Explosions grow'))],
+    [at('power', atk(3)), at('quickCast', cdr(4, 'Quick Incantation', '⏱️', 'Fireballs come')), at('wildfire', area(4, 'Wildfire', '💥', 'Explosions grow'))],
+    [at('inferno', dur(3, 'Inferno', '🌋')), at('arcane', crt(3, 'Arcane Focus', '🔮')), at('blastWave', area(4, 'Blast Wave', '🌀', 'Explosions grow')), at('channel', cdr(4, 'Channeling', '✨', 'Fireballs come'))],
+    [at('speed', spd(3)), at('heat', atk(3, 'Searing Heat', '♨️', 0.1)), at('recovery', rec(2))],
+    [at('capstone', { name: 'Meteor', icon: '☄️', desc: 'Explosions 30% wider, and fireballs come 15% faster.', maxRank: 1, cost: 5, effect: { radius: 0.3, cooldown: 0.15 } })],
+  ]),
+  // Alias: gold, loot and dirty tricks.
+  thief: gridTree([
+    [at('root', gld(1, 'Sticky Fingers', '🤏'))],
+    [at('power', atk(3)), at('pickpocket', gld(4, 'Pickpocket', '👛')), at('speed', spd(3))],
+    [at('treasureSense', drp(4, 'Treasure Sense', '🗝️')), at('backstab', crt(4, 'Backstab', '🔪')), at('recovery', rec(3, 'Shadowstep', '👣')), at('fence', gld(3, 'Fence', '⚖️'))],
+    [at('cheapShot', crd(4, 'Cheap Shot', '💢')), at('looter', drp(3, 'Looter', '🎒')), at('luckyBreak', gld(2, 'Lucky Break', '🍀'))],
+    [at('capstone', { name: 'Master Thief', icon: '🎭', desc: '+40% gold and +20% materials from their kills.', maxRank: 1, cost: 5, effect: { gold: 0.4, drops: 0.2 } })],
+  ]),
+  // Lance: a bigger shield, for everyone.
+  lance: gridTree([
+    [at('root', { name: 'Zone of Protection', icon: '🛡️', desc: 'His shield: blocks 3 hits before he is stunned, regaining a charge every few seconds.', maxRank: 1, effect: { guard: 3 } })],
+    [at('power', atk(5)), at('bulwark', grd(2, 'Bulwark', '🧱')), at('recovery', rec(3))],
+    [at('piercingThrust', rng(3, 'Piercing Thrust', '🔱')), at('rally', { name: 'Rallying Oath', icon: '📯', desc: 'Every other Hunter (you too) gets a 1-hit shield.', maxRank: 1, cost: 3, effect: { rally: 1 } }), at('holyLight', atk(5, 'Holy Light', '☀️', 0.1)), at('vigil', spd(4, 'Vigil', '🕯️'))],
+    [at('aegis', grd(2, 'Aegis', '🔰')), at('crusader', crt(4, 'Crusader', '⚔️')), at('speed', spd(3))],
+    [at('capstone', { name: 'Holy Lance', icon: '⚜️', desc: '1 more shield charge, and every other Hunter gets 1 more shield charge too.', maxRank: 1, cost: 4, effect: { guard: 1, rally: 1 } })],
+  ]),
+  // Theon: fiercer puppets, sooner.
+  puppeteer: gridTree([
+    [at('root', area(1, 'Strings Attached', '🧵', 'Puppets bite harder:'))],
+    [at('marionette', area(4, 'Marionette Master', '🪆', 'Puppets bite harder:')), at('power', atk(3)), at('recovery', rec(3, 'Cut the Strings', '✂️'))],
+    [at('quickStrings', cdr(4, 'Quick Strings', '🪡', 'Puppets come')), at('tangle', dur(3, 'Tangled Threads', '🕸️')), at('puppetShow', area(3, 'Puppet Show', '🎪', 'Puppets bite harder:')), at('speed', spd(4))],
+    [at('showstopper', crt(3, 'Showstopper', '🌟')), at('sharpWires', atk(5, 'Sharp Wires', '🪝', 0.1)), at('woodenGuard', grd(2, 'Wooden Guard', '🪵'))],
+    [at('capstone', { name: 'Grand Performance', icon: '🎭', desc: 'Puppets 30% fiercer, and they come 10% faster.', maxRank: 1, cost: 4, effect: { radius: 0.3, cooldown: 0.1 } })],
+  ]),
+  // Kargesh: heavy, telling blows.
+  blacksmith: gridTree([
+    [at('root', grd(1, 'Forge-Hardened', '🔥'))],
+    [at('power', atk(5)), at('heavyBlows', crd(3, 'Heavy Blows', '🔨')), at('recovery', rec(3))],
+    [at('speed', spd(4, 'Quench', '💧')), at('whetstone', crt(4, 'Whetstone Eye', '🪨')), at('tempered', grd(2, 'Tempered Steel', '🛡️')), at('anvil', atk(4, 'Anvil Strike', '⚒️', 0.1))],
+    [at('foldedSteel', atk(3, 'Folded Steel', '🗡️', 0.1)), at('bellows', spd(3, 'Bellows', '🌬️')), at('longHaft', rng(2, 'Long Haft', '📏'))],
+    [at('capstone', { name: 'Master Smith', icon: '⚒️', desc: '+40% damage and critical hits deal +20% more damage.', maxRank: 1, cost: 5, effect: { damage: 0.4, critDamage: 0.2 } })],
+  ]),
+  // Wilhelm: crits from afar.
+  wilhelm: gridTree([
+    [at('root', rng(1, 'Steady Aim', '🎯', 15))],
+    [at('power', atk(4)), at('deadeye', crt(4, 'Deadeye', '👁️')), at('speed', spd(3, 'Quickdraw', '🔫'))],
+    [at('hollowPoint', prc(2, 'Hollow Point', '🔩')), at('longBarrel', rng(3, 'Long Barrel', '🔭')), at('headshot', crd(4, 'Headshot', '💥')), at('recovery', rec(3))],
+    [at('buckshot', multi('Buckshot', '💨', 4)), at('steadyHands', crt(3, 'Steady Hands', '🤲')), at('caliber', atk(3, 'Heavy Caliber', '🧨', 0.1))],
+    [at('capstone', { name: 'Marksman', icon: '🏅', desc: '+10% crit chance, and critical hits deal +30% more damage.', maxRank: 1, cost: 5, effect: { crit: 0.1, critDamage: 0.3 } })],
+  ]),
+  // Celeste: reach and dragon-slaying focus.
+  celeste: gridTree([
+    [at('root', { name: "Mind's Eye", icon: '👁️', desc: '+10% damage and +10 range.', maxRank: 1, effect: { damage: 0.1, range: 10 } })],
+    [at('power', atk(4)), at('farReach', rng(3, 'Far Reach', '🧠')), at('recovery', rec(3))],
+    [at('dragonBane', ban(4, 'Dragon Bane', '🐉', 'Dragons')), at('insight', crt(4, 'Insight', '💡')), at('psionicWave', area(3, 'Psionic Wave', '🌀', 'Their blasts grow')), at('speed', spd(4))],
+    [at('overload', crd(3, 'Overload', '⚡')), at('clarity', atk(4, 'Clarity', '🔮', 0.1)), at('telekinesis', prc(1, 'Telekinesis', '🪄', 2))],
+    [at('capstone', { name: 'Transcendence', icon: '👑', desc: 'Shots pierce 1 more enemy, and +0.5× extra damage to Dragons.', maxRank: 1, cost: 4, effect: { pierce: 1, bane: 0.5 } })],
+  ]),
+  // Sciirj: longer reach, more punches.
+  scavenger: gridTree([
+    [at('root', area(1, 'Inner Focus', '🧘', 'Punches reach further:'))],
+    [at('power', atk(4, 'Iron Knuckles', '👊')), at('speed', spd(4, 'Flurry', '💨')), at('recovery', rec(3))],
+    [at('wideStance', area(4, 'Wide Stance', '🌀', 'Punches reach further:')), at('breath', cdr(4, 'Centered Breath', '🌬️', 'Mountain Fist comes')), at('pressure', crt(3, 'Pressure Points', '🎯')), at('combo', multi('Combo', '🥊', 3))],
+    [at('thousandFists', atk(5, 'Hundred Blows', '💥', 0.1)), at('ironBody', grd(2, 'Iron Body', '🗿')), at('fleetSteps', rng(2, 'Fleet Steps', '👣'))],
+    [at('capstone', { name: 'Thousand Fists', icon: '💥', desc: 'Punches reach 25% further, and Mountain Fist comes 15% faster.', maxRank: 1, cost: 4, effect: { radius: 0.25, cooldown: 0.15 } })],
+  ]),
+  // Gideon: wider spikes, sooner, behind walls of bone.
+  osteomancer: gridTree([
+    [at('root', area(1, 'Marrow Sense', '🦴', 'Bone spikes reach wider:'))],
+    [at('power', atk(5)), at('ossuary', area(4, 'Ossuary Field', '🌀', 'Bone spikes reach wider:')), at('calcified', grd(2, 'Calcified Skin', '🛡️'))],
+    [at('sharpened', atk(4, 'Sharpened Bone', '🗡️', 0.1)), at('restless', cdr(4, 'Restless Dead', '⏱️', 'Bone spikes come')), at('grasping', dur(3, 'Grasping Bones', '🖐️')), at('recovery', rec(3))],
+    [at('speed', spd(4)), at('marrow', crt(3, 'Marrow Strike', '💀')), at('boneArmor', grd(2, 'Bone Armor', '🦴'))],
+    [at('capstone', { name: 'Boneyard', icon: '💀', desc: 'Bone spikes 25% wider, and they come 10% faster.', maxRank: 1, cost: 4, effect: { radius: 0.25, cooldown: 0.1 } })],
+  ]),
+  // Themus: longer waves, deeper bleeding.
+  bloodblade: gridTree([
+    [at('root', area(1, 'First Blood', '🩸', 'The Crimson Wave runs further:'))],
+    [at('power', atk(4, 'Keen Edge', '🗡️')), at('speed', spd(4, 'Bloodlust', '💢')), at('recovery', rec(2))],
+    [at('surge', area(4, 'Surge', '🌊', 'The Crimson Wave runs further:')), at('hemorrhage', dur(4, 'Hemorrhage', '🩸')), at('tide', cdr(3, 'Rising Tide', '⏱️', 'The Crimson Wave comes')), at('sanguine', crt(3, 'Sanguine Eye', '👁️'))],
+    [at('crimsonEdge', atk(5, 'Crimson Edge', '🔪', 0.1)), at('thirst', crd(4, 'Thirst', '🧛')), at('vitae', grd(1, 'Vitae', '❤️'))],
+    [at('capstone', { name: 'Blood Rain', icon: '🌧️', desc: '+10% damage; monsters the Crimson Wave kills burst into 3 blood bolts.', maxRank: 1, cost: 4, effect: { damage: 0.1, bolts: 3 } })],
+  ]),
+  // Marceline: long-lasting hexes and quick spells.
+  enchantress: gridTree([
+    [at('root', crt(1, 'Glyphwork', '🔯'))],
+    [at('power', atk(4)), at('speed', spd(4, 'Quickened Words', '💬')), at('recovery', rec(3))],
+    [at('runedBolts', crt(3, 'Runed Bolts', '✴️')), at('lastingHexes', dur(4, 'Lasting Hexes', '⏳')), at('wideWards', area(3, 'Wide Wards', '🌀', 'Their spells grow')), at('spellweave', cdr(4, 'Spellweave', '🪄', "Their gear's abilities recharge"))],
+    [at('arcanePower', atk(4, 'Arcane Power', '🔮', 0.1)), at('hex', crd(3, 'Hex', '💢')), at('manaShield', grd(1, 'Mana Shield', '🛡️'))],
+    [at('capstone', { name: 'Spellbinder', icon: '📜', desc: 'Status effects last 30% longer, and abilities recharge 15% faster.', maxRank: 1, cost: 5, effect: { duration: 0.3, cooldown: 0.15 } })],
+  ]),
+  // Norm: a wider, quicker charm.
+  spaceslime: gridTree([
+    [at('root', area(1, 'Cosmic Goo', '🌌', 'His charm reaches further:'))],
+    [at('power', atk(3)), at('speed', spd(4, 'Quick Wit', '⚡')), at('recovery', rec(3, 'Unflappable', '🫧'))],
+    [at('smoothTalker', cdr(4, 'Smooth Talker', '💬', 'His charm comes')), at('magnetism', area(4, 'Magnetism', '🧲', 'His charm reaches further:')), at('goo', grd(2, 'Gooey Body', '🟣')), at('stardust', gld(3, 'Stardust', '✨'))],
+    [at('gravity', atk(5, 'Gravity Well', '🌑', 0.1)), at('orbit', crt(3, 'Orbit', '🪐')), at('spaceJunk', drp(3, 'Space Junk', '🛰️'))],
+    [at('capstone', { name: 'Magnetic Personality', icon: '🧲', desc: 'His charm reaches 30% further and comes 10% faster.', maxRank: 1, cost: 4, effect: { radius: 0.3, cooldown: 0.1 } })],
+  ]),
+  // Ted: big crits, bigger blasts.
+  gambler: gridTree([
+    [at('root', crt(1, 'Lucky Coin', '🪙'))],
+    [at('power', atk(3)), at('speed', spd(3, 'Quick Hands', '🃏')), at('recovery', rec(3, 'Poker Face', '🎭'))],
+    [at('raiseStakes', crd(4, 'Raise the Stakes', '💰')), at('loadedDice', crt(4, 'Loaded Dice', '🎲')), at('bigBlast', area(4, 'Big Blast', '💥', 'Dice blasts grow')), at('highStakes', gld(3, 'High Stakes', '🪙'))],
+    [at('hotStreak', cdr(4, 'Hot Streak', '🔥', 'Dice come')), at('jackpot', atk(3, 'Jackpot', '🎰', 0.1)), at('winnings', drp(2, 'Winnings', '💎'))],
+    [at('capstone', { name: 'All In', icon: '🎰', desc: '+10% crit chance and dice blasts 25% wider.', maxRank: 1, cost: 5, effect: { crit: 0.1, radius: 0.25 } })],
+  ]),
+  // Thomas: bigger recalled specials, more often.
+  archivist: gridTree([
+    [at('root', area(1, 'Marginalia', '📖', 'Recalled specials grow'))],
+    [at('power', atk(3)), at('speedReading', cdr(4, 'Speed Reading', '📑', 'The tome opens')), at('recovery', rec(3, 'Quiet Study', '🕯️'))],
+    [at('annotated', area(4, 'Annotated Volumes', '📜', 'Recalled specials grow')), at('footnotes', dur(3, 'Footnotes', '🖋️')), at('crossRef', crt(3, 'Cross-Reference', '🔖')), at('speed', spd(4))],
+    [at('indexing', cdr(3, 'Indexing', '🗂️', 'The tome opens')), at('tomes', atk(4, 'Weighty Tomes', '📚', 0.1)), at('bookmark', rng(2, 'Bookmark', '🔖'))],
+    [at('capstone', { name: 'Encyclopedia', icon: '📚', desc: 'Recalled specials 30% bigger, and the tome opens 10% faster.', maxRank: 1, cost: 5, effect: { radius: 0.3, cooldown: 0.1 } })],
+  ]),
+  // Reginald: gadgets that fire faster and further.
+  artificer: gridTree([
+    [at('root', spd(1, 'Spare Parts', '⚙️'))],
+    [at('power', atk(4)), at('speed', spd(4, 'Oiled Gears', '🔩')), at('sturdyFrame', grd(2, 'Sturdy Frame', '🛠️'))],
+    [at('fineTuning', crt(3, 'Fine Tuning', '🔧')), at('clockwork', cdr(4, 'Clockwork', '⏱️', "Their gear's abilities recharge")), at('servo', rng(4, 'Servo Arm', '🦾')), at('recovery', rec(3))],
+    [at('overclock', spd(5, 'Overclock', '🔋')), at('precision', atk(5, 'Precision Parts', '📐', 0.1))],
+    [at('capstone', { name: 'Grand Design', icon: '🧰', desc: 'Ranged and Magic attacks fire an extra projectile; melee attacks follow up with another strike.', maxRank: 1, cost: 4, effect: { multishot: 1 } })],
+  ]),
+  // Okrin: long chills and shattering blows on Elementals.
+  frostbreaker: gridTree([
+    [at('root', atk(1, 'Permafrost', '❄️', 0.1))],
+    [at('power', atk(4, 'Heavy Hammer', '🔨')), at('recovery', rec(3, 'Glacial Hide', '🧊')), at('speed', spd(3))],
+    [at('elementalBane', ban(4, 'Elemental Bane', '🔷', 'Elementals')), at('deepFreeze', dur(4, 'Deep Freeze', '🥶')), at('shatter', crd(3, 'Shatter', '💎')), at('glacier', grd(2, 'Glacier', '🏔️'))],
+    [at('avalanche', area(3, 'Avalanche', '🌨️', 'Swings and blasts grow')), at('frostbite', crt(3, 'Frostbite', '🌬️')), at('might', atk(5, 'Frost Might', '💪', 0.1))],
+    [at('capstone', { name: 'Eternal Winter', icon: '❄️', desc: '+0.5× extra damage to Elementals, and status effects last 25% longer.', maxRank: 1, cost: 4, effect: { bane: 0.5, duration: 0.25 } })],
+  ]),
 };
 
 export const skillNode = (who: 'main' | HunterId, id: string): SkillNode | undefined => SKILL_TREES[who].find((n) => n.id === id);
@@ -1356,109 +1351,107 @@ export type EvoStat =
   | 'pack' // +x monsters per pack (they arrive in bigger hordes)
   | 'speed'; // +x move speed (multiplier): riskier, usually paired with a bigger reward
 export type EvoNode = TreeNode<EvoStat>;
-type EvoSpec = Pick<EvoNode, 'name' | 'icon' | 'desc' | 'maxRank' | 'effect'>;
+type EvoSpec = Pick<EvoNode, 'name' | 'icon' | 'desc' | 'maxRank' | 'effect'> & { id: string };
+const ev = (id: string, name: string, icon: string, desc: string, maxRank: number, effect: EvoNode['effect']): EvoSpec => ({ id, name, icon, desc, maxRank, effect });
 
 /**
- * Every evolution tree has the same shape as a Hunter's skill tree: a signature root; three branches,
- * Wealth (gold), Horde (spawns) and Harvest (materials); a signature node under each; and a capstone.
+ * Lays out an evolution tree: four rows (one per EVO_KILLS step), centred on column 1 of three, each node needing
+ * any node touching it in the row above. Every archetype's has its own shape and leanings; the capstone takes
+ * whatever points are left, so every tree completes exactly at the top level.
  */
-function evoTree(root: EvoSpec, branches: [EvoSpec, EvoSpec, EvoSpec], capstone: EvoSpec): EvoNode[] {
-  const core: [EvoSpec, EvoSpec, EvoSpec] = [
-    { name: 'Wealth', icon: '💰', desc: '+15% gold per rank.', maxRank: 6, effect: { gold: 0.15 } },
-    { name: 'Horde', icon: '👥', desc: '+12% spawns per rank.', maxRank: 6, effect: { spawn: 0.12 } },
-    { name: 'Harvest', icon: '💎', desc: '+15% material drops per rank.', maxRank: 6, effect: { drops: 0.15 } },
-  ];
-  const ids = ['wealth', 'horde', 'harvest'];
-  const nodes: EvoNode[] = [
-    { id: 'root', ...root, requires: [], col: 1, row: 0 },
-    ...core.map((n, i) => ({ id: ids[i], ...n, requires: ['root'], col: i, row: 1 })),
-    ...branches.map((n, i) => ({ id: `${ids[i]}2`, ...n, requires: [ids[i]], col: i, row: 2 })),
-  ];
-  // The capstone takes whatever points are left, so every tree completes exactly at the top level.
+function evoTree(rows: [EvoSpec, EvoSpec[], EvoSpec[]], capstone: Omit<EvoSpec, 'id'>): EvoNode[] {
+  const nodes: EvoNode[] = [];
+  [[rows[0]], rows[1], rows[2]].forEach((row, r) => {
+    const above = nodes.filter((n) => n.row === r - 1);
+    row.forEach((spec, i) => {
+      const col = 1 - (row.length - 1) / 2 + i;
+      nodes.push({ ...spec, requires: above.filter((p) => Math.abs(p.col - col) <= 1).map((p) => p.id), col, row: r });
+    });
+  });
   const spent = nodes.reduce((a, n) => a + n.maxRank * (n.cost ?? 1), 0);
-  return [...nodes, { id: 'capstone', ...capstone, cost: MAX_MONSTER_LEVEL - 1 - spent, requires: ids.map((x) => `${x}2`), col: 1, row: 3 }];
+  return [...nodes, { id: 'capstone', ...capstone, cost: MAX_MONSTER_LEVEL - 1 - spent, requires: nodes.filter((n) => n.row === 2).map((n) => n.id), col: 1, row: 3 }];
 }
 
 /** Each archetype's evolution template: every monster of that archetype grows its own copy (MONSTER_EVO_TREES), ending in its own Legacy. */
 export const EVO_TREES: Record<Archetype, EvoNode[]> = {
+  // Slimes: gold, and bigger blobs of them.
   slime: evoTree(
-    { name: 'Gelatinous Bulk', icon: '🟢', desc: '+25% HP and +25% gold.', maxRank: 1, effect: { hp: 0.25, gold: 0.25 } },
     [
-      { name: 'Treasure Gel', icon: '🪙', desc: '+30% gold per rank.', maxRank: 3, effect: { gold: 0.3 } },
-      { name: 'Small Hordes', icon: '🫧', desc: 'Packs of 1 more and +10% spawns per rank.', maxRank: 2, effect: { pack: 1, spawn: 0.1 } },
-      { name: 'Rich Ooze', icon: '💧', desc: '+25% material drops per rank.', maxRank: 3, effect: { drops: 0.25 } },
+      ev('root', 'Gelatinous Bulk', '🟢', '+25% HP and +25% gold.', 1, { hp: 0.25, gold: 0.25 }),
+      [ev('wealth', 'Wealth', '💰', '+15% gold per rank.', 7, { gold: 0.15 }), ev('ooze', 'Ooze Trail', '🫧', 'Packs of 1 more per rank.', 2, { pack: 1 }), ev('horde', 'Horde', '👥', '+12% spawns per rank.', 5, { spawn: 0.12 })],
+      [ev('wealth2', 'Treasure Gel', '🪙', '+30% gold per rank.', 3, { gold: 0.3 }), ev('horde2', 'Small Hordes', '🫧', 'Packs of 1 more and +10% spawns per rank.', 2, { pack: 1, spawn: 0.1 }), ev('harvest2', 'Rich Ooze', '💧', '+25% material drops per rank.', 3, { drops: 0.25 })],
     ],
-    { name: "Slime King's Court", icon: '👑', desc: '+50% gold, +50% drops, packs of 1 more.', maxRank: 1, effect: { gold: 0.5, drops: 0.5, pack: 1 } },
+    { name: "Slime King's Court", icon: '👑', desc: '+50% gold, +30% drops, packs of 1 more.', maxRank: 1, effect: { gold: 0.5, drops: 0.3, pack: 1 } },
   ),
+  // Beasts: fine pelts and fast, dangerous packs.
   beast: evoTree(
-    { name: 'Thick Hide', icon: '🐾', desc: '+20% HP and +20% material drops.', maxRank: 1, effect: { hp: 0.2, drops: 0.2 } },
     [
-      { name: 'Prized Pelts', icon: '🪙', desc: '+40% gold but 8% faster per rank.', maxRank: 3, effect: { gold: 0.4, speed: 0.08 } },
-      { name: 'Pack Hunters', icon: '🐺', desc: 'Packs of 1 more and +10% spawns per rank.', maxRank: 2, effect: { pack: 1, spawn: 0.1 } },
-      { name: 'Alpha Stock', icon: '🦴', desc: '+25% material drops per rank.', maxRank: 3, effect: { drops: 0.25 } },
+      ev('root', 'Thick Hide', '🐾', '+20% HP and +20% material drops.', 1, { hp: 0.2, drops: 0.2 }),
+      [ev('wealth', 'Hunting Grounds', '💰', '+15% gold per rank.', 7, { gold: 0.15 }), ev('harvest', 'Pelts', '💎', '+15% material drops per rank.', 7, { drops: 0.15 })],
+      [ev('wealth2', 'Prized Pelts', '🪙', '+40% gold but 8% faster per rank.', 3, { gold: 0.4, speed: 0.08 }), ev('horde2', 'Pack Hunters', '🐺', 'Packs of 1 more and +10% spawns per rank.', 3, { pack: 1, spawn: 0.1 }), ev('harvest2', 'Alpha Stock', '🦴', '+25% material drops per rank.', 3, { drops: 0.25 })],
     ],
     { name: 'Apex Herd', icon: '👑', desc: '+40% gold and +25% spawns.', maxRank: 1, effect: { gold: 0.4, spawn: 0.25 } },
   ),
+  // Undead: endless hordes, each worth little.
   undead: evoTree(
-    { name: 'Restless Dead', icon: '💀', desc: '+20% HP and +20% spawns.', maxRank: 1, effect: { hp: 0.2, spawn: 0.2 } },
     [
-      { name: 'Grave Goods', icon: '🪙', desc: '+30% gold per rank.', maxRank: 3, effect: { gold: 0.3 } },
-      { name: 'Rising Horde', icon: '🧟', desc: 'Packs of 1 more and +12% spawns per rank.', maxRank: 2, effect: { pack: 1, spawn: 0.12 } },
-      { name: 'Bone Harvest', icon: '🦴', desc: '+25% material drops per rank.', maxRank: 3, effect: { drops: 0.25 } },
+      ev('root', 'Restless Dead', '💀', '+20% HP and +20% spawns.', 1, { hp: 0.2, spawn: 0.2 }),
+      [ev('wealth', 'Grave Goods', '💰', '+10% gold per rank.', 4, { gold: 0.1 }), ev('horde', 'Horde', '👥', '+12% spawns per rank.', 6, { spawn: 0.12 }), ev('harvest', 'Bone Harvest', '💎', '+15% material drops per rank.', 4, { drops: 0.15 })],
+      [ev('wealth2', 'Tithe', '🪙', '+20% gold per rank.', 3, { gold: 0.2 }), ev('horde2', 'Rising Horde', '🧟', 'Packs of 1 more and +12% spawns per rank.', 3, { pack: 1, spawn: 0.12 }), ev('graves', 'Mass Grave', '⚰️', 'Packs of 1 more per rank.', 2, { pack: 1 })],
     ],
-    { name: 'Endless Legion', icon: '👑', desc: '+30% spawns, packs of 1 more, +30% gold.', maxRank: 1, effect: { spawn: 0.3, pack: 1, gold: 0.3 } },
+    { name: 'Endless Legion', icon: '👑', desc: '+30% spawns, packs of 2 more, +30% gold.', maxRank: 1, effect: { spawn: 0.3, pack: 2, gold: 0.3 } },
   ),
+  // Demons: rich, but faster and tougher for it.
   demon: evoTree(
-    { name: 'Infernal Pact', icon: '😈', desc: '+20% HP and +30% gold.', maxRank: 1, effect: { hp: 0.2, gold: 0.3 } },
     [
-      { name: 'Hoarded Souls', icon: '🪙', desc: '+45% gold but 8% faster per rank.', maxRank: 3, effect: { gold: 0.45, speed: 0.08 } },
-      { name: 'Summoning Circle', icon: '🔥', desc: '+15% spawns per rank.', maxRank: 3, effect: { spawn: 0.15 } },
-      { name: 'Brimstone', icon: '🪨', desc: '+25% material drops per rank.', maxRank: 3, effect: { drops: 0.25 } },
+      ev('root', 'Infernal Pact', '😈', '+20% HP and +30% gold.', 1, { hp: 0.2, gold: 0.3 }),
+      [ev('wealth', 'Wealth', '💰', '+20% gold per rank.', 6, { gold: 0.2 }), ev('frenzy', 'Bloodlust', '🔥', '+30% gold but 10% faster per rank.', 3, { gold: 0.3, speed: 0.1 }), ev('horde', 'Summoning Circle', '👥', '+15% spawns per rank.', 5, { spawn: 0.15 })],
+      [ev('wealth2', 'Hoarded Souls', '🪙', '+45% gold but 8% faster per rank.', 4, { gold: 0.45, speed: 0.08 }), ev('harvest2', 'Brimstone', '🪨', '+25% material drops per rank.', 4, { drops: 0.25 })],
     ],
-    { name: 'Hellgate', icon: '👑', desc: '+60% gold and packs of 1 more.', maxRank: 1, effect: { gold: 0.6, pack: 1 } },
+    { name: 'Hellgate', icon: '👑', desc: '+60% gold and packs of 1 more, but +20% HP.', maxRank: 1, effect: { gold: 0.6, pack: 1, hp: 0.2 } },
   ),
+  // Elementals: shards and cores.
   elemental: evoTree(
-    { name: 'Condensed Core', icon: '🔷', desc: '+25% HP and +25% material drops.', maxRank: 1, effect: { hp: 0.25, drops: 0.25 } },
     [
-      { name: 'Crystal Heart', icon: '🪙', desc: '+30% gold per rank.', maxRank: 3, effect: { gold: 0.3 } },
-      { name: 'Surge', icon: '🌪️', desc: '+15% spawns per rank.', maxRank: 3, effect: { spawn: 0.15 } },
-      { name: 'Shard Shedding', icon: '💠', desc: '+35% material drops per rank.', maxRank: 3, effect: { drops: 0.35 } },
+      ev('root', 'Condensed Core', '🔷', '+25% HP and +25% material drops.', 1, { hp: 0.25, drops: 0.25 }),
+      [ev('harvest', 'Harvest', '💎', '+15% material drops per rank.', 7, { drops: 0.15 }), ev('wealth', 'Crystal Heart', '💰', '+15% gold per rank.', 6, { gold: 0.15 })],
+      [ev('harvest2', 'Shard Shedding', '💠', '+35% material drops per rank.', 3, { drops: 0.35 }), ev('volatile', 'Volatile', '⚡', '+20% material drops but 10% faster per rank.', 3, { drops: 0.2, speed: 0.1 }), ev('horde2', 'Surge', '🌪️', '+15% spawns per rank.', 3, { spawn: 0.15 })],
     ],
     { name: 'Primordial', icon: '👑', desc: '+60% material drops and +30% gold.', maxRank: 1, effect: { drops: 0.6, gold: 0.3 } },
   ),
+  // Constructs: tough frames full of parts.
   construct: evoTree(
-    { name: 'Reinforced Frame', icon: '🪆', desc: '+25% HP and +20% material drops.', maxRank: 1, effect: { hp: 0.25, drops: 0.2 } },
     [
-      { name: 'Salvage Value', icon: '🪙', desc: '+30% gold per rank.', maxRank: 3, effect: { gold: 0.3 } },
-      { name: 'Assembly Line', icon: '⚙️', desc: 'Packs of 1 more and +10% spawns per rank.', maxRank: 2, effect: { pack: 1, spawn: 0.1 } },
-      { name: 'Spare Parts', icon: '🔩', desc: '+25% material drops per rank.', maxRank: 3, effect: { drops: 0.25 } },
+      ev('root', 'Reinforced Frame', '🪆', '+25% HP and +20% material drops.', 1, { hp: 0.25, drops: 0.2 }),
+      [ev('harvest', 'Plating', '💎', '+20% material drops but +10% HP per rank.', 5, { drops: 0.2, hp: 0.1 }), ev('wealth', 'Salvage Value', '💰', '+15% gold per rank.', 5, { gold: 0.15 }), ev('horde', 'Assembly Line', '👥', '+12% spawns per rank.', 4, { spawn: 0.12 })],
+      [ev('harvest2', 'Spare Parts', '🔩', '+25% material drops per rank.', 3, { drops: 0.25 }), ev('wealth2', 'Scrap Value', '🪙', '+30% gold per rank.', 3, { gold: 0.3 }), ev('horde2', 'Production Run', '⚙️', 'Packs of 1 more and +10% spawns per rank.', 2, { pack: 1, spawn: 0.1 })],
     ],
     { name: 'Animated Legion', icon: '👑', desc: '+40% gold and +30% spawns.', maxRank: 1, effect: { gold: 0.4, spawn: 0.3 } },
   ),
+  // Humanoids: war chests and warbands.
   humanoid: evoTree(
-    { name: 'Loot Sacks', icon: '👤', desc: '+10% HP and +30% gold.', maxRank: 1, effect: { hp: 0.1, gold: 0.3 } },
     [
-      { name: 'War Chest', icon: '🪙', desc: '+35% gold per rank.', maxRank: 3, effect: { gold: 0.35 } },
-      { name: 'Warbands', icon: '⚔️', desc: 'Packs of 1 more and +10% spawns per rank.', maxRank: 2, effect: { pack: 1, spawn: 0.1 } },
-      { name: 'Supply Lines', icon: '🎒', desc: '+25% material drops per rank.', maxRank: 3, effect: { drops: 0.25 } },
+      ev('root', 'Loot Sacks', '👤', '+10% HP and +30% gold.', 1, { hp: 0.1, gold: 0.3 }),
+      [ev('wealth', 'Wealth', '💰', '+20% gold per rank.', 6, { gold: 0.2 }), ev('horde', 'Horde', '👥', '+12% spawns per rank.', 4, { spawn: 0.12 }), ev('harvest', 'Supply Lines', '💎', '+10% material drops per rank.', 3, { drops: 0.1 })],
+      [ev('wealth2', 'War Chest', '🪙', '+35% gold per rank.', 3, { gold: 0.35 }), ev('bounties', 'Bounties', '📜', '+10% gold and +10% material drops per rank.', 4, { gold: 0.1, drops: 0.1 }), ev('horde2', 'Warbands', '⚔️', 'Packs of 1 more and +10% spawns per rank.', 2, { pack: 1, spawn: 0.1 })],
     ],
     { name: 'Warlord', icon: '👑', desc: '+50% gold and +20% spawns.', maxRank: 1, effect: { gold: 0.5, spawn: 0.2 } },
   ),
+  // Plants: they spread, slowly, and bloom.
   plant: evoTree(
-    { name: 'Deep Roots', icon: '🌿', desc: '+30% HP and +20% material drops.', maxRank: 1, effect: { hp: 0.3, drops: 0.2 } },
     [
-      { name: 'Golden Sap', icon: '🪙', desc: '+30% gold per rank.', maxRank: 3, effect: { gold: 0.3 } },
-      { name: 'Spreading Spores', icon: '🍄', desc: '+15% spawns per rank.', maxRank: 3, effect: { spawn: 0.15 } },
-      { name: 'Bountiful Bloom', icon: '🌸', desc: '+30% material drops per rank.', maxRank: 3, effect: { drops: 0.3 } },
+      ev('root', 'Deep Roots', '🌿', '+30% HP and +20% material drops.', 1, { hp: 0.3, drops: 0.2 }),
+      [ev('harvest', 'Harvest', '💎', '+15% material drops per rank.', 7, { drops: 0.15 }), ev('horde', 'Spreading Spores', '👥', '+15% spawns per rank.', 6, { spawn: 0.15 })],
+      [ev('harvest2', 'Bountiful Bloom', '🌸', '+30% material drops per rank.', 3, { drops: 0.3 }), ev('rooted', 'Golden Sap', '🪙', '+20% gold and 10% slower per rank.', 3, { gold: 0.2, speed: -0.1 }), ev('horde2', 'Seed Pods', '🍄', 'Packs of 1 more per rank.', 2, { pack: 1 })],
     ],
     { name: 'World Tree', icon: '👑', desc: '+50% material drops and +40% gold.', maxRank: 1, effect: { drops: 0.5, gold: 0.4 } },
   ),
+  // Dragons: few, tough, and sitting on a hoard.
   dragon: evoTree(
-    { name: 'Dragon Hoard', icon: '🐉', desc: '+30% HP and +40% gold.', maxRank: 1, effect: { hp: 0.3, gold: 0.4 } },
     [
-      { name: 'Golden Scales', icon: '🪙', desc: '+50% gold but 8% faster per rank.', maxRank: 3, effect: { gold: 0.5, speed: 0.08 } },
-      { name: 'Clutch', icon: '🥚', desc: '+15% spawns per rank.', maxRank: 3, effect: { spawn: 0.15 } },
-      { name: 'Shed Scales', icon: '💎', desc: '+30% material drops per rank.', maxRank: 3, effect: { drops: 0.3 } },
+      ev('root', 'Dragon Hoard', '🐉', '+30% HP and +40% gold.', 1, { hp: 0.3, gold: 0.4 }),
+      [ev('wealth', 'Wealth', '💰', '+20% gold per rank.', 7, { gold: 0.2 }), ev('harvest', 'Shed Scales', '💎', '+15% material drops per rank.', 5, { drops: 0.15 })],
+      [ev('wealth2', 'Golden Scales', '🪙', '+50% gold but 8% faster per rank.', 3, { gold: 0.5, speed: 0.08 }), ev('ancient', 'Ancient Hide', '🛡️', '+30% gold but +20% HP per rank.', 2, { gold: 0.3, hp: 0.2 }), ev('horde2', 'Clutch', '🥚', '+15% spawns per rank.', 3, { spawn: 0.15 })],
     ],
     { name: 'Elder Wyrm', icon: '👑', desc: '+75% gold and +40% material drops.', maxRank: 1, effect: { gold: 0.75, drops: 0.4 } },
   ),
