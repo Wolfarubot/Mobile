@@ -54,7 +54,7 @@ export const SAMPLE_MIN_SECONDS = 20;
 /** Shorter absences are granted silently (no Welcome Back popup), e.g. when switching apps. */
 export const OFFLINE_POPUP_SEC = 15 * 60;
 
-// ---- Events: timed challenges per area, unlocked by slaying monsters there, then on a cooldown ----
+// ---- Events: timed challenges per area, unlocked by slaying monsters there, each costing event energy ----
 export type EventKind = 'guardian' | 'swarm' | 'minigame';
 
 /** Minigames: hands-on events played on their own screen, one per area with a Hunter from that area. */
@@ -81,8 +81,6 @@ export interface EventDef {
   unlockKills: number;
   /** Count only this archetype's kills in the area toward unlocking it (e.g. slimes for the Slime Swarm). */
   unlockArchetype?: Archetype;
-  /** Seconds after starting before it can run again. */
-  cooldown: number;
   /** Seconds it lasts (a Guardian gives you GUARDIAN_TIME once it appears). */
   duration: number;
   /** Swarm: only this archetype spawns, with spawn rate and speed multiplied. */
@@ -97,16 +95,30 @@ export interface EventDef {
   minigame?: MinigameId;
   hunter?: HunterId;
   /**
-   * Minigame rewards for a score: `gold` Guardian bounties per point (the furthest area reached's gold ×
-   * GUARDIAN_GOLD_MULT), and
-   * of each material, `per` points earn one.
+   * Minigame rewards for a score: gold (see Game.minigameReward: minutes of your income per `par` points, and at
+   * least `gold` Guardian bounties of the furthest area reached per point), and of each material, `per` points
+   * earn one.
    */
-  rewards?: { gold: number; materials: Array<{ material: MaterialId; per: number }> };
+  rewards?: { gold: number; par: number; materials: Array<{ material: MaterialId; per: number }> };
   /** Minigame: a blessing on your next Refine or Enchant, by score. */
   blessing?: Blessing;
 }
 
-export const GUARDIAN_COOLDOWN = 5 * 60;
+/**
+ * Event energy: one pool every event draws on instead of cooldowns. A swarm costs 1, a Guardian Challenge 1 in the
+ * first four areas, 2 in the next four and 3 in the last four, and a minigame 3. It refills one point at a time,
+ * also while you're away.
+ */
+export const ENERGY_MAX = 5;
+/** Seconds for one point of energy to come back. */
+export const ENERGY_REGEN = 20 * 60;
+
+export function eventEnergyCost(def: EventDef): number {
+  if (def.kind === 'minigame') return 3;
+  if (def.kind === 'swarm') return 1;
+  const i = AREAS.findIndex((a) => a.id === def.area);
+  return i < 4 ? 1 : i < 8 ? 2 : 3;
+}
 
 // EVENTS is built at the end of this file, once AREAS exists.
 
@@ -3809,8 +3821,14 @@ const AREA_SWARMS: Record<AreaId, { id: string; name: string; icon: string; arch
 /** Minigames by area (more to come): the third event, opened by recruiting the Hunter who stars in it. */
 /** The third event in each area: a minigame starring one of its Hunters, opened by recruiting them. */
 const MINIGAME_GOLD = 0.2;
-const MINIGAME_COOLDOWN = 20 * 60;
-const AREA_MINIGAMES: Partial<Record<AreaId, Omit<EventDef, 'area' | 'kind' | 'unlockKills' | 'duration' | 'cooldown'>>> = {
+/**
+ * A minigame's gold for a par score, in seconds of your gold income: an hour's worth while its area is the furthest
+ * you've reached (so a newly opened minigame pays a lot for where you are), 20 minutes' once you've moved on (still
+ * worth playing, since your income keeps growing).
+ */
+export const MINIGAME_INCOME_NEW = 60 * 60;
+export const MINIGAME_INCOME = 20 * 60;
+const AREA_MINIGAMES: Partial<Record<AreaId, Omit<EventDef, 'area' | 'kind' | 'unlockKills' | 'duration'>>> = {
   forest: {
     id: 'huntingPractice',
     name: "Galladair's Hunting Practice",
@@ -3818,7 +3836,7 @@ const AREA_MINIGAMES: Partial<Record<AreaId, Omit<EventDef, 'area' | 'kind' | 'u
     blurb: 'Slimes hop across the clearing, faster and faster: tap to aim Galladair\'s arrows. Three that get across end it.',
     minigame: 'huntingPractice',
     hunter: 'ranger',
-    rewards: { gold: MINIGAME_GOLD, materials: [{ material: 'royalSlime', per: 4 }, { material: 'goo', per: 1 }] },
+    rewards: { gold: MINIGAME_GOLD, par: 30, materials: [{ material: 'royalSlime', per: 4 }, { material: 'goo', per: 1 }] },
   },
   glade: {
     id: 'pixieSerenade',
@@ -3827,7 +3845,7 @@ const AREA_MINIGAMES: Partial<Record<AreaId, Omit<EventDef, 'area' | 'kind' | 'u
     blurb: 'Notes fall down three lanes: tap each as it crosses the line. Missed notes and empty taps cost a heart.',
     minigame: 'pixieSerenade',
     hunter: 'bard',
-    rewards: { gold: MINIGAME_GOLD, materials: [{ material: 'regalEssence', per: 4 }, { material: 'unicornHorn', per: 5 }, { material: 'dust', per: 1 }] },
+    rewards: { gold: MINIGAME_GOLD, par: 60, materials: [{ material: 'regalEssence', per: 4 }, { material: 'unicornHorn', per: 5 }, { material: 'dust', per: 1 }] },
   },
   graveyard: {
     id: 'graveRobbing',
@@ -3836,7 +3854,7 @@ const AREA_MINIGAMES: Partial<Record<AreaId, Omit<EventDef, 'area' | 'kind' | 'u
     blurb: 'Move Alias between the graves with the arrows to grab loot, and dodge the skeletons bursting out of the ground. Sixty seconds.',
     minigame: 'graveRobbing',
     hunter: 'thief',
-    rewards: { gold: MINIGAME_GOLD, materials: [{ material: 'calciumCrystal', per: 4 }, { material: 'vampEssence', per: 3 }, { material: 'bone', per: 1 }] },
+    rewards: { gold: MINIGAME_GOLD, par: 40, materials: [{ material: 'calciumCrystal', per: 4 }, { material: 'vampEssence', per: 3 }, { material: 'bone', per: 1 }] },
   },
   crypt: {
     id: 'puppetShow',
@@ -3845,7 +3863,7 @@ const AREA_MINIGAMES: Partial<Record<AreaId, Omit<EventDef, 'area' | 'kind' | 'u
     blurb: 'Watch the puppets dance, then repeat the sequence. One move longer each round.',
     minigame: 'puppetShow',
     hunter: 'puppeteer',
-    rewards: { gold: MINIGAME_GOLD, materials: [{ material: 'eldritchText', per: 4 }, { material: 'wrap', per: 3 }, { material: 'string', per: 1 }] },
+    rewards: { gold: MINIGAME_GOLD, par: 15, materials: [{ material: 'eldritchText', per: 4 }, { material: 'wrap', per: 3 }, { material: 'string', per: 1 }] },
   },
   depths: {
     id: 'shootingGallery',
@@ -3854,7 +3872,7 @@ const AREA_MINIGAMES: Partial<Record<AreaId, Omit<EventDef, 'area' | 'kind' | 'u
     blurb: 'Eyes open in the dark: shoot them before they blink shut, and leave the lanterns be.',
     minigame: 'shootingGallery',
     hunter: 'wilhelm',
-    rewards: { gold: MINIGAME_GOLD, materials: [{ material: 'everwatchingEye', per: 4 }, { material: 'umbra', per: 3 }, { material: 'umbralEye', per: 1 }] },
+    rewards: { gold: MINIGAME_GOLD, par: 40, materials: [{ material: 'everwatchingEye', per: 4 }, { material: 'umbra', per: 3 }, { material: 'umbralEye', per: 1 }] },
   },
   caves: {
     id: 'forgeStrike',
@@ -3865,6 +3883,7 @@ const AREA_MINIGAMES: Partial<Record<AreaId, Omit<EventDef, 'area' | 'kind' | 'u
     hunter: 'blacksmith',
     rewards: {
       gold: MINIGAME_GOLD,
+      par: 140,
       materials: [
         { material: 'ironOre', per: 4 },
         { material: 'quartz', per: 8 },
@@ -3885,7 +3904,7 @@ const AREA_MINIGAMES: Partial<Record<AreaId, Omit<EventDef, 'area' | 'kind' | 'u
     blurb: 'Remember the cards, then find the pairs once they\'re turned over: the board grows each time you clear it. A good score blesses your next Enchant.',
     minigame: 'runeMatch',
     hunter: 'enchantress',
-    rewards: { gold: MINIGAME_GOLD, materials: [{ material: 'venomite', per: 8 }, { material: 'cobaltOre', per: 3 }, { material: 'ore', per: 3 }] },
+    rewards: { gold: MINIGAME_GOLD, par: 50, materials: [{ material: 'venomite', per: 8 }, { material: 'cobaltOre', per: 3 }, { material: 'ore', per: 3 }] },
     blessing: { kind: 'enchant', tiers: [50, 85, 120] },
   },
   peaks: {
@@ -3895,7 +3914,7 @@ const AREA_MINIGAMES: Partial<Record<AreaId, Omit<EventDef, 'area' | 'kind' | 'u
     blurb: 'Smash the falling icicles before they reach the camp. Big ones take two blows.',
     minigame: 'icebreaker',
     hunter: 'frostbreaker',
-    rewards: { gold: MINIGAME_GOLD, materials: [{ material: 'ecto', per: 4 }, { material: 'coldsteel', per: 5 }, { material: 'frostIron', per: 2 }, { material: 'frost', per: 1 }] },
+    rewards: { gold: MINIGAME_GOLD, par: 40, materials: [{ material: 'ecto', per: 4 }, { material: 'coldsteel', per: 5 }, { material: 'frostIron', per: 2 }, { material: 'frost', per: 1 }] },
   },
 };
 
@@ -3912,7 +3931,6 @@ export const EVENTS: EventDef[] = AREAS.flatMap((a): EventDef[] => {
       blurb: `${sw.blurb}: twice as many (at least 10 ${first.name}s a second), twice as fast.`,
       unlockKills: sw.unlockKills,
       unlockArchetype: sw.archetype,
-      cooldown: 15 * 60,
       duration: 60,
       archetype: sw.archetype,
       spawnMult: 2,
@@ -3931,12 +3949,11 @@ export const EVENTS: EventDef[] = AREAS.flatMap((a): EventDef[] => {
         ? `Bring down the ${enemyDef(GUARDIAN_ENEMY[a.id]).name}, the ${a.name} Guardian, within ${GUARDIAN_TIME}s.`
         : `Bring down the ${a.name} Guardian within ${GUARDIAN_TIME}s.`,
       unlockKills: a.mastery,
-      cooldown: GUARDIAN_COOLDOWN,
       duration: GUARDIAN_TIME,
       requires: { event: sw.id, times: 1 },
     });
   const mg = AREA_MINIGAMES[a.id];
-  if (mg) out.push({ ...mg, area: a.id, kind: 'minigame', unlockKills: 0, duration: 0, cooldown: MINIGAME_COOLDOWN });
+  if (mg) out.push({ ...mg, area: a.id, kind: 'minigame', unlockKills: 0, duration: 0 });
   return out;
 });
 

@@ -37,6 +37,9 @@ import {
   type Rarity,
   evoKillsNeeded,
   ENEMIES,
+  ENERGY_MAX,
+  ENERGY_REGEN,
+  eventEnergyCost,
   EMPOWER_UNLOCK_KILLS,
   TRAIN_UNLOCK_KILLS,
   empowerMult,
@@ -104,6 +107,8 @@ import {
   type GearEffect,
   type SummonType,
   GUARDIAN_GOLD_MULT,
+  MINIGAME_INCOME,
+  MINIGAME_INCOME_NEW,
   GUARD_RECHARGE,
   GUARDIAN_TIME,
   HELPER_FIRE_RATE,
@@ -243,6 +248,9 @@ export class Game {
   /** Stationed Hunters' farm rates, refreshed about once a second (the model iterates, so don't redo it every frame). */
   private aoeCache = new Map<Shooter, { key: string; v: number }>();
   private stationRates = new Map<AreaId, { key: string; rates: FarmRates; age: number }>();
+  /** goldPerSecond's last measure, and seconds since. */
+  private goldRate: number | null = null;
+  private goldRateAge = 0;
   private listeners: Array<(e: GameEvent) => void> = [];
   rng: () => number;
 
@@ -1278,8 +1286,25 @@ export class Game {
     return ENEMIES.filter((e) => e.area === def.area && e.archetype === def.unlockArchetype).reduce((n, e) => n + this.state.bestiary[e.id].kills, 0);
   }
 
-  eventCooldown(id: string): number {
-    return Math.max(0, this.state.events[id]?.cooldown ?? 0);
+  /** Event energy now (fractional: the next point fills in over ENERGY_REGEN seconds). */
+  get energy(): number {
+    return this.state.energy;
+  }
+
+  /** Energy an event costs to start. */
+  energyCost(id: string): number {
+    return eventEnergyCost(eventDef(id));
+  }
+
+  /** Seconds until the next whole point of energy (0 when full). */
+  get energyNextIn(): number {
+    const e = this.state.energy;
+    return e >= ENERGY_MAX ? 0 : (Math.floor(e) + 1 - e) * ENERGY_REGEN;
+  }
+
+  /** Seconds until there's enough energy for an event (0 if there already is). */
+  energyWait(id: string): number {
+    return Math.max(0, (this.energyCost(id) - this.state.energy) * ENERGY_REGEN);
   }
 
   /** Something (a Guardian or a timed event) is running right now. */
@@ -1290,23 +1315,22 @@ export class Game {
   eventReady(id: string): boolean {
     // Minigames are played on their own screen, so they don't wait for (or block) the battlefield's events.
     const mini = eventDef(id).kind === 'minigame';
-    return this.eventUnlocked(id) && this.eventCooldown(id) <= 0 && (mini || !this.eventRunning);
+    return this.eventUnlocked(id) && this.energyWait(id) <= 0 && (mini || !this.eventRunning);
   }
 
-  /** Starts an event, travelling to its area first. Its cooldown starts now. */
+  /** Starts an event, travelling to its area first, and spends its energy. */
   startEvent(id: string): boolean {
     if (!this.eventReady(id)) return false;
     const def = eventDef(id);
     const st = this.state.events[id];
+    this.state.energy = Math.max(0, this.state.energy - this.energyCost(id));
     if (def.kind === 'minigame') {
       // Played on its own screen; its rewards come from finishMinigame.
-      st.cooldown = def.cooldown;
       st.runs++;
       this.emit({ type: 'eventStart', event: id });
       return true;
     }
     if (def.area !== this.state.area) this.travel(def.area);
-    st.cooldown = def.cooldown;
     st.runs++;
     if (def.kind === 'guardian') {
       this.guardianActive = true;
@@ -1327,20 +1351,43 @@ export class Game {
     this.emit({ type: 'eventEnd', event: id });
   }
 
-  /** A minigame's rewards for a score: gold (Guardian bounties of the furthest area you've reached) and materials. */
+  /**
+   * A minigame's rewards for a score. Gold: `par` points earn MINIGAME_INCOME_NEW seconds of your gold income while
+   * its area is the furthest you've reached, MINIGAME_INCOME seconds' after that (so it keeps up with your income),
+   * and never less than its old pay of Guardian bounties of the furthest area per point. Materials: one per `per` points.
+   */
   minigameReward(id: string, score: number): { gold: number; materials: Partial<Record<MaterialId, number>> } {
     const def = eventDef(id);
     const r = def.rewards;
     if (!r || score <= 0) return { gold: 0, materials: {} };
-    // Gold scales with the furthest area you've reached, so an early area's minigame stays worth playing.
     const top = this.unlockedAreas[this.unlockedAreas.length - 1];
-    const gold = Math.max(areaDef(def.area).gold, areaDef(top).gold) * GUARDIAN_GOLD_MULT * this.goldMult * r.gold * score;
+    const floor = Math.max(areaDef(def.area).gold, areaDef(top).gold) * GUARDIAN_GOLD_MULT * this.goldMult * r.gold * score;
+    const income = this.goldPerSecond() * (def.area === top ? MINIGAME_INCOME_NEW : MINIGAME_INCOME) * (score / r.par);
+    const gold = Math.max(floor, income);
     const materials: Partial<Record<MaterialId, number>> = {};
     for (const m of r.materials) {
       const n = Math.floor(score / m.per);
       if (n > 0) materials[m.material] = n;
     }
     return { gold, materials };
+  }
+
+  /**
+   * Your gold income per second: where you are (with the Hunters beside you) plus every stationed group. Measured
+   * from the farming rates, refreshed every few seconds.
+   */
+  goldPerSecond(): number {
+    if (this.goldRate === null || this.goldRateAge >= 5) {
+      const s = this.state;
+      let gold = this.ratesFor(s.area, ['main', ...this.helpersHere]).gold;
+      for (const area of AREAS) {
+        const group = area.id === s.area ? [] : this.stationedIn(area.id);
+        if (group.length) gold += this.ratesFor(area.id, group, STATION_EFFICIENCY).gold;
+      }
+      this.goldRate = gold;
+      this.goldRateAge = 0;
+    }
+    return this.goldRate;
   }
 
   /** Extra quality rolls a minigame score earns (0 to 3), for the ones that bless Refine or Enchant. */
@@ -1382,9 +1429,10 @@ export class Game {
     return this.state.events[id]?.completed ?? 0;
   }
 
-  /** Counts down every event's cooldown (also used for time away). */
+  /** Refills event energy (also used for time away). */
   private coolEvents(seconds: number): void {
-    for (const st of Object.values(this.state.events)) st.cooldown = Math.max(0, st.cooldown - seconds);
+    this.state.energy = Math.min(ENERGY_MAX, this.state.energy + seconds / ENERGY_REGEN);
+    this.goldRateAge += seconds;
   }
 
   /** Field calls this when it puts the Guardian on the field. */

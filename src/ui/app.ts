@@ -79,6 +79,7 @@ import {
   RARITIES,
   REFINES,
   ENCHANTS,
+  ENERGY_MAX,
   isUniqueEnchant,
   enchantTierHit,
   modValue,
@@ -330,6 +331,8 @@ export class AppUI {
   private selectedHunter: Wearer = 'main';
   /** The monster whose card is pinned under the Bestiary's grid. */
   private selectedBeast: EnemyId | null = null;
+  /** The event whose card is pinned under the Events tab's tiles. */
+  private selectedEvent: string | null = null;
   /** The last area tile tapped, for double-taps (tiles are rebuilt on each tap). */
   private areaTap: { id: AreaId | null; at: number } = { id: null, at: 0 };
   /** The menu raised to full screen over the battlefield. */
@@ -3165,40 +3168,114 @@ export class AppUI {
     return (Object.keys(gd.recipe) as MaterialId[]).every((m) => g.state.materials[m] > 0 || (g.state.stats.matGained[m] ?? 0) > 0);
   }
 
-  // ---- Events tab: each area's events, unlocked by slaying monsters there, then on a cooldown ----
+  // ---- Events tab: the energy bar, then each area's events as tiles; the selected one's card pinned below ----
 
   private buildEvents(): void {
     const g = this.game;
     // Looking at the Events tab: what's ready now has been seen (until it next runs).
     this.refreshers.push(() => {
-      for (const e of EVENTS) if (e.area === g.area && this.newEvent(e.id)) this.markSeen('events', e.id);
+      for (const e of EVENTS) if (this.newEvent(e.id)) this.markSeen('events', e.id);
     });
-    this.panel.appendChild(sectionTitle(areaDef(g.area).name));
-    const here = EVENTS.filter((e) => e.area === g.area);
-    for (const ev of here) this.buildEventCard(ev);
-    if (!here.length) this.panel.appendChild(el('p', 'hd-note', 'No events here yet.'));
+    this.panel.appendChild(this.energyBar());
+    const order = [g.area, ...g.unlockedAreas.filter((a) => a !== g.area)];
+    const shown = order.flatMap((a) => EVENTS.filter((e) => e.area === a));
+    // This area's first event that's ready (or its first) until you pick one.
+    if (!shown.some((e) => e.id === this.selectedEvent)) this.selectedEvent = (shown.find((e) => e.area === g.area && g.eventReady(e.id)) ?? shown[0])?.id ?? null;
+    for (const areaId of order) {
+      const here = EVENTS.filter((e) => e.area === areaId);
+      if (!here.length) continue;
+      this.panel.appendChild(sectionTitle(`${areaDef(areaId).name}${areaId === g.area ? ' · here' : ''}`));
+      const grid = el('div', 'hunter-grid event-grid');
+      for (const ev of here) grid.appendChild(this.eventTile(ev));
+      this.panel.appendChild(grid);
+    }
+    if (!shown.length) this.panel.appendChild(el('p', 'hd-note', 'No events here yet.'));
+    if (this.selectedEvent) {
+      const dock = el('div', 'hunter-dock');
+      dock.appendChild(this.eventCard(eventDef(this.selectedEvent)));
+      this.panel.appendChild(dock);
+    }
   }
 
-  private buildEventCard(ev: EventDef): void {
+  /** The energy bar: five gold segments, the last one filling as it recharges. */
+  private energyBar(): HTMLElement {
     const g = this.game;
-    const card = el('div', 'row event-card');
-    // Guardian Challenges wear the crown; a swarm shows the monster that swarms; minigames keep their own icon.
+    const bar = el('div', 'energy-bar');
+    bar.innerHTML = `<div class="en-head"><b>⚡ Energy</b><span class="en-text"></span></div><div class="en-segs">${'<span class="en-seg"><i></i></span>'.repeat(ENERGY_MAX)}</div>`;
+    const fills = [...bar.querySelectorAll<HTMLElement>('.en-seg i')];
+    const text = $('.en-text', bar);
+    this.refreshers.push(() => {
+      const e = g.energy;
+      fills.forEach((f, i) => (f.style.width = `${Math.max(0, Math.min(1, e - i)) * 100}%`));
+      const whole = Math.floor(e + 1e-9);
+      text.textContent = whole >= ENERGY_MAX ? `${ENERGY_MAX} / ${ENERGY_MAX} · full` : `${whole} / ${ENERGY_MAX} · +1 in ${fmtTime(g.energyNextIn)}`;
+    });
+    return bar;
+  }
+
+  /** The icon for an event: the crown for a Guardian, the swarming monster for a swarm, a minigame's own. */
+  private eventIcon(ev: EventDef, cls: string): { html: string; draw: (root: HTMLElement) => void } {
     const swarmer = ev.kind === 'swarm' ? (ENEMIES.find((e) => e.area === ev.area && e.archetype === ev.archetype && e.unlock === 0) ?? ENEMIES.find((e) => e.area === ev.area && e.archetype === ev.archetype)) : undefined;
-    const icon = ev.kind === 'guardian' ? '👑' : swarmer ? '<canvas class="ev-portrait"></canvas>' : ev.icon;
-    card.innerHTML = `<div class="icon ev-icon">${icon}</div><div class="info"><div class="name">${ev.name}</div><div class="sub">${ev.blurb}</div><div class="ev-status"></div></div><button class="buy"></button>`;
-    if (swarmer) queuePortrait($<HTMLCanvasElement>('.ev-portrait', card), swarmer.id);
+    if (swarmer) return { html: `<canvas class="${cls}"></canvas>`, draw: (root) => queuePortrait($<HTMLCanvasElement>(`canvas.${cls}`, root), swarmer.id) };
+    return { html: `<i class="${cls}">${ev.kind === 'guardian' ? '👑' : ev.icon}</i>`, draw: () => {} };
+  }
+
+  /** Energy cost as gold pips. */
+  private energyPips(ev: EventDef): string {
+    return `<span class="ev-pips" title="Energy cost">${'<b></b>'.repeat(this.game.energyCost(ev.id))}</span>`;
+  }
+
+  private eventTile(ev: EventDef): HTMLElement {
+    const g = this.game;
+    const tile = el('button', 'hunter-tile event-tile') as HTMLButtonElement;
+    const icon = this.eventIcon(ev, 'et-icon');
+    // Minigames go by the game's own name on a tile ("Hunting Practice", not "Galladair's Hunting Practice").
+    const short = ev.kind === 'guardian' ? 'Guardian' : ev.kind === 'minigame' ? ev.name.replace(/^.*?'s /, '') : ev.name;
+    tile.innerHTML = `${icon.html}<span class="ht-name">${short}</span>${this.energyPips(ev)}<small class="ht-lv"></small>`;
+    icon.draw(tile);
+    tile.classList.toggle('selected', ev.id === this.selectedEvent);
+    tile.addEventListener('click', () => {
+      if (this.selectedEvent === ev.id) return;
+      this.selectedEvent = ev.id;
+      this.setTab('events', true);
+    });
+    const lv = $('.ht-lv', tile);
+    this.refreshers.push(() => {
+      const unlocked = g.eventUnlocked(ev.id);
+      const running = this.eventLive(ev);
+      tile.classList.toggle('locked', !unlocked);
+      tile.classList.toggle('ready', g.eventReady(ev.id) && !running);
+      tile.classList.toggle('live', running);
+      lv.textContent = !unlocked ? '🔒 Locked' : running ? '● Live' : g.energyWait(ev.id) > 0 ? fmtTime(g.energyWait(ev.id)) : ev.kind !== 'minigame' && g.eventRunning ? 'Busy' : 'Ready';
+    });
+    return tile;
+  }
+
+  /** The event is on the battlefield right now. */
+  private eventLive(ev: EventDef): boolean {
+    const g = this.game;
+    return (ev.kind === 'guardian' && g.guardianActive && g.area === ev.area) || g.activeEvent?.id === ev.id;
+  }
+
+  /** The selected event's card: what it is, what it pays, its energy cost, and Start / Play. */
+  private eventCard(ev: EventDef): HTMLElement {
+    const g = this.game;
+    const card = el('div', 'beast event-card');
+    const icon = this.eventIcon(ev, 'ec-icon');
+    const cost = g.energyCost(ev.id);
+    card.innerHTML = `<div class="beast-head">${icon.html}<div class="info"><div class="name">${ev.name}</div><div class="blurb">${ev.blurb}</div></div></div><div class="ev-status"></div><div class="ev-foot"><span class="ev-cost">Cost ${this.energyPips(ev)} <b>${cost}</b> energy</span><button class="buy"></button></div>`;
+    icon.draw(card);
     const btn = $<HTMLButtonElement>('.buy', card);
     const status = $('.ev-status', card);
     btn.addEventListener('click', () => {
       if (ev.kind === 'minigame') this.playMinigame(ev);
       else if (g.startEvent(ev.id)) this.refresh();
     });
-    this.panel.appendChild(card);
     this.refreshers.push(() => {
       const kills = g.eventProgress(ev.id);
       const unlocked = g.eventUnlocked(ev.id);
-      const running = (ev.kind === 'guardian' && g.guardianActive && g.area === ev.area) || g.activeEvent?.id === ev.id;
-      const cd = g.eventCooldown(ev.id);
+      const running = this.eventLive(ev);
+      const wait = g.energyWait(ev.id);
       card.classList.toggle('locked', !unlocked);
       card.classList.toggle('running', running);
       card.classList.toggle('ready', g.eventReady(ev.id));
@@ -3206,8 +3283,8 @@ export class AppUI {
       const rewards: string[] = [];
       if (ev.kind === 'guardian') rewards.push(next && !g.isAreaUnlocked(next.id) ? `unlocks ${next.name}` : 'a Guardian bounty of gold and materials');
       for (const h of g.huntersUnlockedBy(ev.id)) rewards.push(`${wearerIcon(h)} ${hunterDef(h).name} the ${hunterDef(h).title} joins`);
-      if (ev.kind === 'minigame') rewards.push(`per 10 points: ${rewardText(g.minigameReward(ev.id, 10))}${g.state.events[ev.id]?.best ? ` · best ${g.state.events[ev.id].best}` : ''}`);
-      const extra = rewards.length ? `Reward: ${rewards.join(' · ')}` : '';
+      if (ev.kind === 'minigame') rewards.push(`for ${ev.rewards!.par} points: ${rewardText(g.minigameReward(ev.id, ev.rewards!.par))}${g.state.events[ev.id]?.best ? ` · best ${g.state.events[ev.id].best}` : ''}`);
+      const extra = rewards.length ? `<small>Reward: ${rewards.join(' · ')}</small>` : '';
       if (!unlocked && ev.kind === 'minigame') {
         const h = hunterDef(ev.hunter!);
         status.innerHTML = `<small>🔒 Recruit ${wearerIcon(h.id)} ${h.name} the ${h.title} to play</small>`;
@@ -3219,7 +3296,7 @@ export class AppUI {
         btn.innerHTML = '🔒';
         btn.disabled = true;
       } else if (!unlocked) {
-        status.innerHTML = `<div class="mastery"><i style="width:${Math.min(1, kills / ev.unlockKills) * 100}%"></i><span>🔒 Slay ${fmt(kills)} / ${fmt(ev.unlockKills)} ${unlockNoun(ev)} here</span></div>`;
+        status.innerHTML = `<div class="mastery"><i style="width:${Math.min(1, kills / ev.unlockKills) * 100}%"></i><span>🔒 Slay ${fmt(kills)} / ${fmt(ev.unlockKills)} ${unlockNoun(ev)} in ${areaDef(ev.area).name}</span></div>`;
         btn.innerHTML = '🔒';
         btn.disabled = true;
       } else if (running) {
@@ -3227,16 +3304,17 @@ export class AppUI {
         status.innerHTML = `<b class="ev-live">● Running · ${Math.ceil(left)}s left</b>`;
         btn.innerHTML = 'Live';
         btn.disabled = true;
-      } else if (cd > 0) {
-        status.innerHTML = extra ? `<small>${extra}</small>` : '';
-        btn.innerHTML = `Cooldown<small>${fmtTime(cd)}</small>`;
+      } else if (wait > 0) {
+        status.innerHTML = extra;
+        btn.innerHTML = `Need energy<small>${fmtTime(wait)}</small>`;
         btn.disabled = true;
       } else {
-        status.innerHTML = extra ? `<small>${extra}</small>` : '';
+        status.innerHTML = extra;
         btn.innerHTML = ev.kind === 'minigame' ? 'Play' : g.eventRunning ? 'Busy<small>another event</small>' : 'Start';
         btn.disabled = !g.eventReady(ev.id);
       }
     });
+    return card;
   }
 
   /** Starts a minigame on its own screen; at the end it pays out and shows what you earned. */
@@ -3399,7 +3477,7 @@ export class AppUI {
     this.showModal(
       `<h2>🎉 Events unlocked!</h2>
        <p>${this.game.eventUnlocked('guardian-forest') ? '<b>Guardian Challenge</b>' : `<b>${eventDef('slimeSwarm').name}</b>`} is ready in the ${areaDef('forest').name}.</p>
-       <p>The Events tab shows the events for the area you're in. Slay monsters there to unlock them. After you start one, it goes on cooldown before it can run again. Travel to another area to see its events.</p>`,
+       <p>The Events tab shows the events of every area you've opened. Slay monsters in an area to unlock its events. Each event costs ⚡ <b>energy</b> to start: a swarm 1, a Guardian 1 to 3 (more in later areas), a minigame 3. You hold up to 5, and one comes back every 20 minutes, even while you're away.</p>`,
       [
         { label: 'Later', secondary: true },
         { label: 'Go to Events', action: () => (this.game.eventsOpen ? this.goTo('events') : this.showEventsLocked()) },
@@ -3581,7 +3659,7 @@ export class AppUI {
     row(sprite(MENU_SPRITES.wolf), 'New monsters & the full-screen menu', 'Unlocking the wolf, and raising the menu over the battlefield.', () => this.showWolfIntro(true));
     row(sprite(MENU_SPRITES.empower), 'Empower', `Unlocking and empowering monsters (opens after ${EMPOWER_UNLOCK_KILLS} slimes).`, () => this.showEmpowerIntro(true));
     row(sprite(MENU_SPRITES.eventsLocked), 'Unlocking Events', 'How to open the Events tab.', () => this.showEventsLocked());
-    row(sprite(MENU_SPRITES.events), 'Events', 'Guardian Challenges, swarms and cooldowns.', () => this.showEventsIntro(true));
+    row(sprite(MENU_SPRITES.events), 'Events', 'Guardian Challenges, swarms, minigames and energy.', () => this.showEventsIntro(true));
     // The story so far, once you've seen it.
     if ((this.game.state.events['guardian-rift']?.completed ?? 0) > 0) row(sprite(MENU_SPRITES.timeEater), 'The Time Eater', 'Replay the cutscene from the Void Rift.', () => playCutscene(TIME_EATER_CUTSCENE));
   }

@@ -72,7 +72,11 @@ import {
   STATION_EFFICIENCY,
   OFFLINE_EFFICIENCY,
   STUN_IMMUNITY,
-  GUARDIAN_COOLDOWN,
+  ENERGY_MAX,
+  ENERGY_REGEN,
+  eventEnergyCost,
+  MINIGAME_INCOME,
+  MINIGAME_INCOME_NEW,
   eventDef,
   ENEMIES,
   RARE_MATERIALS,
@@ -114,6 +118,7 @@ import {
   SKILL_TREES,
   gearDef,
   type GearId,
+  type AreaId,
   EMPOWER,
   MAX_EMPOWER_SESSIONS,
   MAX_MONSTER_LEVEL,
@@ -220,7 +225,7 @@ describe('Areas', () => {
     expect(g.isAreaUnlocked('glade')).toBe(true);
   });
 
-  it('a Guardian that times out just leaves; you can try again after the cooldown', () => {
+  it('a Guardian that times out just leaves; you can try again while you have the energy', () => {
     const s = newGame(0);
     s.areas.forest.kills = areaDef('forest').mastery;
     s.events.slimeSwarm.completed = 1;
@@ -231,8 +236,9 @@ describe('Areas', () => {
     expect(g.guardianActive).toBe(false);
     expect(g.isAreaUnlocked('graveyard')).toBe(false);
     expect(g.area).toBe('forest');
+    g.state.energy = 0.5;
     expect(g.challengeGuardian()).toBe(false);
-    g.tick(GUARDIAN_COOLDOWN);
+    g.tick(ENERGY_REGEN / 2);
     expect(g.challengeGuardian()).toBe(true);
   });
 
@@ -3663,25 +3669,31 @@ describe('Events', () => {
     }
   });
 
-  it("Galladair's Hunting Practice opens with Galladair, pays Guardian bounties of gold and Royal Slime, and keeps a best score", () => {
+  it("Galladair's Hunting Practice opens with Galladair, pays gold by your income and Royal Slime, and keeps a best score", () => {
     const g = new Game(newGame(0), noCrit);
     const ev = eventDef('huntingPractice');
     expect(ev).toMatchObject({ area: 'forest', kind: 'minigame', hunter: 'ranger' });
     expect(g.eventUnlocked('huntingPractice')).toBe(false);
     g.state.hunters.ranger.recruited = true;
     expect(g.eventUnlocked('huntingPractice')).toBe(true);
-    // 10 points: two Guardian bounties of gold (from the furthest area reached); Royal Slime every 4 points.
+    // Gold: an hour of your income per par score while the Forest is your furthest area, 20 minutes' after,
+    // and never less than two Guardian bounties (of the furthest area) per 10 points. Royal Slime every 4 points.
+    const par = ev.rewards!.par;
     const r = g.minigameReward('huntingPractice', 10);
-    expect(r.gold).toBeCloseTo(2 * areaDef('forest').gold * GUARDIAN_GOLD_MULT * g.goldMult);
+    expect(g.goldPerSecond()).toBeGreaterThan(0);
+    const floor = (area: AreaId) => 2 * areaDef(area).gold * GUARDIAN_GOLD_MULT * g.goldMult;
+    expect(r.gold).toBeCloseTo(Math.max(floor('forest'), (g.goldPerSecond() * MINIGAME_INCOME_NEW * 10) / par));
+    expect(r.gold).toBeGreaterThan(floor('forest'));
     g.state.areas.graveyard.unlocked = true;
-    expect(g.minigameReward('huntingPractice', 10).gold).toBeCloseTo(2 * areaDef('graveyard').gold * GUARDIAN_GOLD_MULT * g.goldMult);
+    expect(g.minigameReward('huntingPractice', 10).gold).toBeCloseTo(Math.max(floor('graveyard'), (g.goldPerSecond() * MINIGAME_INCOME * 10) / par));
     g.state.areas.graveyard.unlocked = false;
     expect(r.materials.royalSlime).toBe(2);
     expect(g.minigameReward('huntingPractice', 40).materials.royalSlime).toBe(10); // a whole Guardian's worth
-    // Played on its own screen: it doesn't need (or block) the battlefield's events.
+    // Played on its own screen: it doesn't need (or block) the battlefield's events. Swarm 1 energy, minigame 3.
     g.state.bestiary.greenSlime.kills = 1000;
     expect(g.startEvent('slimeSwarm')).toBe(true);
     expect(g.startEvent('huntingPractice')).toBe(true);
+    expect(g.energy).toBeCloseTo(ENERGY_MAX - 4);
     expect(g.activeEvent?.id).toBe('slimeSwarm');
     const gold = g.state.gold;
     const royal = g.state.materials.royalSlime;
@@ -3689,7 +3701,7 @@ describe('Events', () => {
     expect(g.state.gold - gold).toBeCloseTo(r.gold * 2.3);
     expect(g.state.materials.royalSlime - royal).toBe(5);
     expect(g.state.events.huntingPractice).toMatchObject({ completed: 1, best: 23 });
-    expect(g.eventReady('huntingPractice')).toBe(false); // on its cooldown
+    expect(g.eventReady('huntingPractice')).toBe(false); // 1 energy left, it needs 3
     g.finishMinigame('huntingPractice', 9);
     expect(g.state.events.huntingPractice.best).toBe(23);
   });
@@ -3724,22 +3736,31 @@ describe('Events', () => {
     expect(g.challengeGuardian()).toBe(false);
   });
 
-  it('starting an event puts it on cooldown, which also runs down while away', () => {
+  it('events cost energy (swarms 1, Guardians 1 to 3 by area, minigames 3), which refills over time, also while away', () => {
+    expect(eventEnergyCost(eventDef('slimeSwarm'))).toBe(1);
+    expect(AREAS.map((a) => eventEnergyCost(eventDef(`guardian-${a.id}`)))).toEqual([1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3]);
+    for (const e of EVENTS.filter((x) => x.kind === 'minigame')) expect(eventEnergyCost(e)).toBe(3);
     const s = newGame(0);
     s.areas.forest.kills = areaDef('forest').mastery;
     s.events.slimeSwarm.completed = 1;
     const g = new Game(s, noCrit);
+    expect(g.energy).toBe(ENERGY_MAX);
     expect(g.startEvent('guardian-forest')).toBe(true);
     expect(g.guardianActive).toBe(true);
-    expect(g.eventCooldown('guardian-forest')).toBe(GUARDIAN_COOLDOWN);
+    expect(g.energy).toBe(ENERGY_MAX - 1);
     expect(g.startEvent('guardian-forest')).toBe(false); // already running
     g.bossSpawned();
     g.registerKill(g.guardianType, true); // win: the Fey Grove opens
     expect(g.isAreaUnlocked('glade')).toBe(true);
-    expect(g.eventReady('guardian-forest')).toBe(false); // cooling down
+    g.state.energy = 0.25;
+    expect(g.eventReady('guardian-forest')).toBe(false); // out of energy
+    expect(g.energyWait('guardian-forest')).toBeCloseTo(ENERGY_REGEN * 0.75);
     g.state.lastSeen = 0;
-    g.applyOffline(GUARDIAN_COOLDOWN * 1000);
+    g.applyOffline(ENERGY_REGEN * 0.75 * 1000);
     expect(g.eventReady('guardian-forest')).toBe(true);
+    // It never fills past the top.
+    g.tick(ENERGY_REGEN * 20);
+    expect(g.energy).toBe(ENERGY_MAX);
     // Repeat wins pay the bounty again.
     const gold = g.state.gold;
     g.startEvent('guardian-forest');
@@ -3774,9 +3795,7 @@ describe('Events', () => {
     g.tick(def.duration + 0.1);
     expect(g.activeEvent).toBeNull();
     expect(g.enemyStats('greenSlime').spawnRate).toBeCloseTo(slime.spawnRate);
-    expect(g.eventReady('slimeSwarm')).toBe(false);
-    g.tick(def.cooldown);
-    expect(g.eventReady('slimeSwarm')).toBe(true);
+    expect(g.eventReady('slimeSwarm')).toBe(true); // energy left for another
   });
 
   it('starting an event elsewhere travels there; leaving ends a swarm early', () => {
@@ -4418,15 +4437,22 @@ describe('Saves', () => {
     expect('upgrades' in s).toBe(false);
   });
 
-  it('keeps event cooldowns; v6 saves drop the old Arena (tickets, Stars, Frenzy)', () => {
+  it('keeps event counts and energy (old saves start full, old cooldowns are dropped); v6 saves drop the old Arena (tickets, Stars, Frenzy)', () => {
     const s = newGame(0);
-    s.events.slimeSwarm = { cooldown: 120, runs: 3, completed: 1 };
-    expect(deserialize(serialize(s))!.events.slimeSwarm).toEqual({ cooldown: 120, runs: 3, completed: 1 });
+    s.events.slimeSwarm = { runs: 3, completed: 1 };
+    s.energy = 2.5;
+    expect(deserialize(serialize(s))!.events.slimeSwarm).toEqual({ runs: 3, completed: 1 });
+    expect(deserialize(serialize(s))!.energy).toBe(2.5);
+    const old = JSON.parse(serialize(s));
+    delete old.energy;
+    old.events.slimeSwarm.cooldown = 120;
+    expect(deserialize(JSON.stringify(old))!.energy).toBe(ENERGY_MAX);
+    expect(deserialize(JSON.stringify(old))!.events.slimeSwarm).toEqual({ runs: 3, completed: 1 });
     const v6 = { ...JSON.parse(serialize(newGame(0))), version: 6, tickets: 2, ticketProgress: 30, frenzyTime: 40, stars: 9, bh: { shield: 1 } };
     delete v6.events;
     const back = deserialize(JSON.stringify(v6))! as unknown as Record<string, unknown>;
     for (const k of ['tickets', 'ticketProgress', 'frenzyTime', 'stars', 'bh']) expect(k in back).toBe(false);
-    expect((back.events as Record<string, unknown>)['guardian-forest']).toEqual({ cooldown: 0, runs: 0, completed: 0 });
+    expect((back.events as Record<string, unknown>)['guardian-forest']).toEqual({ runs: 0, completed: 0 });
   });
 
   it('older saves count a Guardian as beaten once when its next area is open', () => {

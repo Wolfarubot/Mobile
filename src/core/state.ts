@@ -3,6 +3,7 @@ import {
   SLAYER_TREE,
   AREAS,
   ENEMIES,
+  ENERGY_MAX,
   EVENTS,
   MONSTER_EVO_TREES,
   GEAR,
@@ -41,7 +42,6 @@ import {
 } from './balance';
 
 export interface EventState {
-  cooldown: number;
   runs: number;
   completed: number;
   /** A minigame's best score. */
@@ -232,6 +232,8 @@ export interface GameState {
   };
   /** Per event: seconds of cooldown left, times started and times completed (a Guardian beaten, a swarm survived). */
   events: Record<string, EventState>;
+  /** Event energy (0 to ENERGY_MAX, refilling over time): every event costs some to start. */
+  energy: number;
   /** What the player has already looked at, so new things can be flagged with a "!". */
   seen: SeenState;
   /** Blessings from Kargesh's and Marceline's minigames: extra quality rolls for your next Refine / Enchant. */
@@ -308,7 +310,8 @@ export function newGame(now = Date.now()): GameState {
     settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', autoSalvage: [], fx: allFx(), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium', audio: defaultAudio() },
     flags: { eventsIntro: false, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false },
     blessings: { refine: 0, enchant: 0 },
-    events: Object.fromEntries(EVENTS.map((e) => [e.id, { cooldown: 0, runs: 0, completed: 0 }])),
+    energy: ENERGY_MAX,
+    events: Object.fromEntries(EVENTS.map((e) => [e.id, { runs: 0, completed: 0 }])),
     seen: { journal: [], recipes: [], beasts: [], events: [], gearUid: 3, init: true },
     buyAmount: 1,
     stats: { totalKills: 0, totalGold: 0, taps: 0, escaped: 0, guardians: 0, hunterKills: {}, matGained: {} },
@@ -628,6 +631,8 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
       const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.min(3, Math.floor(v))) : 0);
       return { refine: n(b.refine), enchant: n(b.enchant) };
     })(),
+    // Saves from before event energy start with a full bar.
+    energy: typeof data.energy === 'number' && Number.isFinite(data.energy) ? Math.max(0, Math.min(ENERGY_MAX, data.energy)) : ENERGY_MAX,
     events: Object.fromEntries(
       EVENTS.map((e) => {
         const saved = (data.events as Record<string, Partial<Record<keyof EventState, unknown>>> | undefined)?.[e.id];
@@ -636,7 +641,7 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
         const at = AREAS.findIndex((a) => a.id === e.area);
         const beaten = e.kind === 'guardian' && AREAS.some((a, i) => i > at && (data.areas as Record<string, { unlocked?: boolean }> | undefined)?.[a.id]?.unlocked);
         const completed = typeof saved?.completed === 'number' ? num(saved.completed) : beaten ? 1 : 0;
-        return [e.id, { cooldown: num(saved?.cooldown), runs: num(saved?.runs), completed, ...(num(saved?.best) > 0 ? { best: num(saved?.best) } : {}) }];
+        return [e.id, { runs: num(saved?.runs), completed, ...(num(saved?.best) > 0 ? { best: num(saved?.best) } : {}) }];
       }),
     ),
     version: SAVE_VERSION,
