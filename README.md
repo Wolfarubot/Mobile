@@ -64,6 +64,8 @@ Short retro clips in `public/sfx/`, played through Web Audio by `src/ui/sound.ts
 - **Getting stronger**: a power-up for Train, Empower, a skill or evolution node, and crafting. A level up, a Hunter recruited, a monster or area unlocked, or an event won plays a fanfare instead.
 - **Battlefield**: a pop for each monster slain and a big explosion for a Guardian; a zap for your tap; an explosion for fireballs and other blasts; a knock when a shield blocks; a hurt sound when your Hunter (or, softer, a Guild Hunter) is stunned; a coin when gear drops; a defeat jingle when a Guardian gets away.
 
+Which clip plays for each of the 21 moments (and its volume, minimum gap and pitch spread) lives in `src/ui/sfxConfig.ts`, edited in the **Pocket Hunter Sound Board** (an Artifact: https://claude.ai/artifact/VMAwWuVkaSW8cH5DN6cgBW). To sync, its `events` collection is copied into `SFX`, and any uploaded clips (its `clips` collection, base64 MP3/WAV/OGG) are written to `public/sfx/<name>.mp3` and referenced by name. Two moments, Event starts and Guardian appears, have no clip yet.
+
 Kills and taps can fire many times a second, so each sound has a minimum gap between plays, a little random pitch, and at most 8 play at once. Sound pauses while the app is in the background.
 
 ### Music
