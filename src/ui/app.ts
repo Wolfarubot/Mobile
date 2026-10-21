@@ -97,7 +97,7 @@ import {
 import { fmt, fmtDps, fmtTime } from '../core/format';
 import { Game, type FarmRates, type TreeKind } from '../core/game';
 import type { OfflineResult } from '../core/offline';
-import { COOLDOWN_POSITIONS, deserialize, TAB_IDS, type GameState, type GearMod, type BuyAmount, type CooldownPos, type DpsCorner, type FxKey, type IndicatorStyle, type GearItem, type TabId, type Wearer } from '../core/state';
+import { COOLDOWN_POSITIONS, deserialize, TAB_IDS, type GameState, type GearMod, type AudioSettings, type BuyAmount, type CooldownPos, type DpsCorner, type FxKey, type IndicatorStyle, type GearItem, type TabId, type Wearer } from '../core/state';
 import { queuePortrait } from '../render/battle';
 import { drawFramedBar, TIMER_COLOR } from '../render/hudBars';
 import { gearIconUrl, spriteUrl } from '../render/sprites';
@@ -106,8 +106,8 @@ import { GEAR_SPRITES } from '../core/gearSprites';
 import { NODE_SPRITES } from '../core/nodeSprites';
 import { hunterIconHtml } from './hunterIcons';
 import { buzz, setHaptics } from './haptics';
-import { AREA_MUSIC, GUARDIAN_MUSIC, playMusic, setMusic, SWARM_MUSIC } from './music';
-import { pressSound, setSound, sfx } from './sound';
+import { AREA_MUSIC, GUARDIAN_MUSIC, playMusic, setMusicVolume, SWARM_MUSIC } from './music';
+import { pressSound, setSfxVolume, sfx } from './sound';
 import { JOURNAL, type JournalEntry } from '../core/journal';
 import { App as CapApp } from '@capacitor/app';
 import { MINIGAMES, runMinigame } from './minigames';
@@ -3618,13 +3618,66 @@ export class AppUI {
 
   // ---- Settings ----
 
+  /**
+   * Settings' Audio card: a switch and a volume slider for all audio, and under it the same for music and for sound
+   * effects (greyed out while all audio is off). Sliders apply as they move and save when let go.
+   */
+  private audioSettings(): HTMLElement {
+    const a = this.game.state.settings.audio;
+    const card = el('div', 'card setting audio-setting');
+    const row = (label: string, sw: 'on' | 'musicOn' | 'sfxOn', vol: 'master' | 'music' | 'sfx', sub: boolean) =>
+      `<div class="audio-row${sub ? ' sub-row' : ''}"><span class="ar-name">${label}</span><div class="segmented" data-sw="${sw}"><button data-v="on">On</button><button data-v="off">Off</button></div><div class="ar-vol"><input type="range" min="0" max="100" step="5" data-vol="${vol}" aria-label="${label} volume"><b></b></div></div>`;
+    card.innerHTML = `<div class="setting-name">Audio</div><p>Music and sound effects. Switch all audio off, or music and sound effects each on their own; the sliders set how loud.</p>${row('All audio', 'on', 'master', false)}<div class="fx-list sub-list audio-subs">${row('Music', 'musicOn', 'music', true)}${row('Sound effects', 'sfxOn', 'sfx', true)}</div>`;
+    const draw = () => {
+      $('.audio-subs', card).classList.toggle('disabled', !a.on);
+      card.querySelectorAll<HTMLElement>('[data-sw]').forEach((seg) => {
+        const key = seg.dataset.sw as 'on' | 'musicOn' | 'sfxOn';
+        seg.querySelectorAll<HTMLButtonElement>('button').forEach((b) => {
+          b.classList.toggle('on', (b.dataset.v === 'on') === a[key]);
+          b.disabled = key !== 'on' && !a.on;
+        });
+      });
+      card.querySelectorAll<HTMLInputElement>('[data-vol]').forEach((inp) => {
+        const key = inp.dataset.vol as 'master' | 'music' | 'sfx';
+        inp.value = String(a[key]);
+        inp.style.setProperty('--p', `${a[key]}%`);
+        inp.disabled = !a.on || (key === 'music' && !a.musicOn) || (key === 'sfx' && !a.sfxOn);
+        inp.nextElementSibling!.textContent = `${a[key]}%`;
+      });
+    };
+    card.querySelectorAll<HTMLElement>('[data-sw]').forEach((seg) =>
+      seg.querySelectorAll<HTMLButtonElement>('button').forEach((b) =>
+        b.addEventListener('click', () => {
+          a[seg.dataset.sw as 'on' | 'musicOn' | 'sfxOn'] = b.dataset.v === 'on';
+          applyAudio(a);
+          this.hooks.save();
+          draw();
+        }),
+      ),
+    );
+    card.querySelectorAll<HTMLInputElement>('[data-vol]').forEach((inp) => {
+      const key = inp.dataset.vol as 'master' | 'music' | 'sfx';
+      inp.addEventListener('input', () => {
+        a[key] = Number(inp.value);
+        applyAudio(a);
+        draw();
+      });
+      // Let go: save, and play a sample of the sound effects at their new volume.
+      inp.addEventListener('change', () => {
+        this.hooks.save();
+        if (key !== 'music') sfx('powerUp');
+      });
+    });
+    draw();
+    return card;
+  }
+
   /** Puts per-player preferences into effect (e.g. which side Train buttons sit on). */
   private applySettings(): void {
     document.body.classList.toggle('left-handed', this.game.state.settings.leftHanded);
     mainHunterName = this.game.state.settings.name.trim();
     setHaptics(this.game.state.settings.haptics);
-    setSound(this.game.state.settings.sound);
-    setMusic(this.game.state.settings.music);
+    applyAudio(this.game.state.settings.audio);
     applyFont(this.game.state.settings.font);
     applyUiStyle(this.game.state.settings.uiStyle);
     requestAnimationFrame(refitAffinities);
@@ -3877,15 +3930,7 @@ export class AppUI {
       setHaptics(v);
       buzz();
     });
-    choices('Sound effects', 'How loud the sound effects are: button presses, monsters falling, explosions, level ups and more.', [['off', 'Off'], ['low', 'Low'], ['medium', 'Medium'], ['high', 'High']], () => st.sound, (v) => {
-      st.sound = v;
-      setSound(v);
-      sfx('powerUp');
-    });
-    choices('Music', "How loud the background music is. Each area has its own track, and Guardians and swarms bring their own.", [['off', 'Off'], ['low', 'Low'], ['medium', 'Medium'], ['high', 'High']], () => st.music, (v) => {
-      st.music = v;
-      setMusic(v);
-    });
+    body.appendChild(this.audioSettings());
     choices('Clarity Border', 'A white outline round Hunters, monsters and their projectiles, so they stand out from the ground and the scenery. Low is a faint edge; Strong a bright one.', [['off', 'Off'], ['low', 'Low'], ['moderate', 'Moderate'], ['strong', 'Strong']], () => st.clarity, (v) => (st.clarity = v));
 
     const tabsCard = el('div', 'card setting');
@@ -4291,6 +4336,13 @@ const MENU_SPRITES = {
   events: 'instruments/033',
   timeEater: 'jewelry/042',
 };
+
+/** Sets the sound effect and music volumes from Settings' Audio card (a switched-off one plays at 0). */
+function applyAudio(a: AudioSettings): void {
+  const all = a.on ? a.master / 100 : 0;
+  setSfxVolume(a.sfxOn ? all * (a.sfx / 100) : 0);
+  setMusicVolume(a.musicOn ? all * (a.music / 100) : 0);
+}
 
 /** Your Hunter's name (Settings), shown on their card and wherever they're named. */
 let mainHunterName = '';

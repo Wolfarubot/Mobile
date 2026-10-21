@@ -1,5 +1,4 @@
 import type { AreaId } from '../core/balance';
-import type { SoundLevel } from '../core/state';
 import { whenAudioStarts } from './sound';
 
 /**
@@ -86,11 +85,12 @@ export const GUARDIAN_MUSIC: Record<AreaId, TrackId> = {
 /** A swarm event's track. */
 export const SWARM_MUSIC: TrackId = 'goofyMonster';
 
-/** Music sits under the sound effects. */
-const VOLUME: Record<SoundLevel, number> = { off: 0, low: 0.2, medium: 0.4, high: 0.7 };
+/** Music's gain at full volume: it sits under the sound effects. */
+const MAX_GAIN = 0.6;
 const FADE_SEC = 1.5;
 
-let level: SoundLevel = 'medium';
+/** Music volume, 0 (off) to 1 (Settings: Audio and Music together). */
+let volume = 0.56;
 let ctx: AudioContext | null = null;
 let bus: GainNode | null = null;
 /** The track that should be playing, and the one that is. */
@@ -101,11 +101,10 @@ const loading = new Set<TrackId>();
 /** Tracks fading out (kept until they've stopped). */
 const fading = new Set<TrackId>();
 
-export function setMusic(l: SoundLevel): void {
-  level = l;
-  if (bus && ctx) bus.gain.setTargetAtTime(VOLUME[l], ctx.currentTime, 0.1);
-  if (l === 'off') fadeOut();
-  else update();
+export function setMusicVolume(v: number): void {
+  volume = v;
+  if (bus && ctx) bus.gain.setTargetAtTime(v * MAX_GAIN, ctx.currentTime, 0.05);
+  update();
 }
 
 /** Asks for a track (or silence); it plays once audio has started and the track has loaded. */
@@ -118,14 +117,14 @@ export function playMusic(id: TrackId | null): void {
 whenAudioStarts((c) => {
   ctx = c;
   bus = c.createGain();
-  bus.gain.value = VOLUME[level];
+  bus.gain.value = volume * MAX_GAIN;
   bus.connect(c.destination);
   update();
 });
 
 function update(): void {
   if (!ctx || !bus) return;
-  const id = level === 'off' ? null : wanted;
+  const id = volume <= 0 ? null : wanted;
   if (playing?.id === id) return;
   if (!id) return fadeOut();
   const buf = buffers.get(id);

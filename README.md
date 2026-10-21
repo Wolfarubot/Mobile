@@ -58,7 +58,7 @@ The battlefield is drawn zoomed out (`FIELD_ZOOM` in `balance.ts`), so monsters 
 
 ## Sound
 
-Short retro clips in `public/sfx/`, played through Web Audio by `src/ui/sound.ts` once the player first touches the screen (browsers and phone web views block audio before that). **Settings → Sound effects** sets the volume: Off, Low, Medium (default) or High. What plays:
+Short retro clips in `public/sfx/`, played through Web Audio by `src/ui/sound.ts` once the player first touches the screen (browsers and phone web views block audio before that). **Settings → Audio** has an On/Off switch and a volume slider for all audio, and under it the same for music and for sound effects (switching one off keeps its slider where it was). The volumes multiply: a sound effect plays at All audio × Sound effects. What plays:
 
 - **Buttons**: a click; switching tabs or sub-tabs, a softer navigate blip. A button with its own sound plays only that one.
 - **Getting stronger**: a power-up for Train, Empower, a skill or evolution node, and crafting. A level up, a Hunter recruited, a monster or area unlocked, or an event won plays a fanfare instead.
@@ -68,7 +68,7 @@ Kills and taps can fire many times a second, so each sound has a minimum gap bet
 
 ### Music
 
-Looping tracks in `public/music/`, played by `src/ui/music.ts` (**Settings → Music**: Off, Low, Medium or High; it sits under the sound effects). Each area has its own track; a Guardian Challenge plays a battle theme that grows fiercer through the areas (the Time Eater has its own), and a swarm plays a goofy chase. Changing track crossfades over 1.5s. A decoded track takes about 20 MB, so only the one playing and the one fading out are kept.
+Looping tracks in `public/music/`, played by `src/ui/music.ts` (**Settings → Audio**: Music; at full volume it still sits under the sound effects). Each area has its own track; a Guardian Challenge plays a battle theme that grows fiercer through the areas (the Time Eater has its own), and a swarm plays a goofy chase. Changing track crossfades over 1.5s. A decoded track takes about 20 MB, so only the one playing and the one fading out are kept.
 
 | Area | Track | Guardian |
 |---|---|---|

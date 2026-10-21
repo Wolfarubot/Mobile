@@ -1,7 +1,5 @@
-import type { SoundLevel } from '../core/state';
-
 /**
- * Sound effects: short retro clips from public/sfx, played through Web Audio at the volume picked in Settings.
+ * Sound effects: short retro clips from public/sfx, played through Web Audio at the volume set in Settings.
  * Browsers (and phone web views) only allow audio after the player touches the screen, so the audio context is
  * started on the first press and the clips are loaded then; anything played before that is silently dropped.
  * Battlefield sounds can fire many times a second, so each sound has a minimum gap between plays, a little random
@@ -61,11 +59,11 @@ const SOUNDS: Record<SoundId, SoundSpec> = {
   defeat: { file: 'defeat', gain: 0.9, gap: 1000 },
 };
 
-const VOLUME: Record<SoundLevel, number> = { off: 0, low: 0.35, medium: 0.7, high: 1 };
 /** At most this many sounds at once. */
 const MAX_VOICES = 8;
 
-let level: SoundLevel = 'medium';
+/** Overall sound effect volume, 0 (off) to 1 (Settings: Audio and Sound effects together). */
+let volume = 0.64;
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
 const buffers = new Map<SoundId, AudioBuffer>();
@@ -76,9 +74,9 @@ const onStart: Array<(ctx: AudioContext) => void> = [];
 /** When a sound other than a button click last played (a button that plays its own sound skips the click). */
 let lastSpecial = -Infinity;
 
-export function setSound(l: SoundLevel): void {
-  level = l;
-  if (master) master.gain.value = VOLUME[l];
+export function setSfxVolume(v: number): void {
+  volume = v;
+  if (master) master.gain.value = v;
 }
 
 /** Starts audio on the first press (browsers need a gesture) and loads the clips. Call once at startup. */
@@ -89,7 +87,7 @@ export function initSound(): void {
       if (!AC) return;
       ctx = new AC();
       master = ctx.createGain();
-      master.gain.value = VOLUME[level];
+      master.gain.value = volume;
       master.connect(ctx.destination);
       for (const fn of onStart) fn(ctx);
       for (const [id, spec] of Object.entries(SOUNDS) as Array<[SoundId, SoundSpec]>) {
@@ -119,7 +117,7 @@ export function whenAudioStarts(fn: (ctx: AudioContext) => void): void {
 
 /** Plays a sound effect (or not: when sound is off, too soon after the last one, or too many are playing). */
 export function sfx(id: SoundId, volume = 1): void {
-  if (level === 'off' || !ctx || !master || ctx.state !== 'running' || document.hidden) return;
+  if (volume <= 0 || !ctx || !master || ctx.state !== 'running' || document.hidden) return;
   const buf = buffers.get(id);
   if (!buf || voices >= MAX_VOICES) return;
   const spec = SOUNDS[id];

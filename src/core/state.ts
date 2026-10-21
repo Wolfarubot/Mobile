@@ -213,9 +213,8 @@ export interface GameState {
     /** Vibration on button presses and battlefield taps (Medium by default). */
     haptics: HapticLevel;
     /** Sound effects: off, or how loud (Medium by default). */
-    sound: SoundLevel;
-    /** Background music: off, or how loud (Medium by default). */
-    music: SoundLevel;
+    /** Sound effects and music: switches and volumes. */
+    audio: AudioSettings;
   };
   /** One-time tutorial moments already shown. */
   flags: {
@@ -306,7 +305,7 @@ export function newGame(now = Date.now()): GameState {
     nextGearUid: 4,
     lastSeen: now,
     samples: {},
-    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', autoSalvage: [], fx: allFx(), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium', sound: 'medium', music: 'medium' },
+    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', autoSalvage: [], fx: allFx(), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium', audio: defaultAudio() },
     flags: { eventsIntro: false, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false },
     blessings: { refine: 0, enchant: 0 },
     events: Object.fromEntries(EVENTS.map((e) => [e.id, { cooldown: 0, runs: 0, completed: 0 }])),
@@ -334,8 +333,34 @@ export type ClarityLevel = (typeof CLARITY_LEVELS)[number];
 export const HAPTIC_LEVELS = ['off', 'light', 'medium', 'strong'] as const;
 export type HapticLevel = (typeof HAPTIC_LEVELS)[number];
 /** Sound effect volume: off, or how loud. */
-export const SOUND_LEVELS = ['off', 'low', 'medium', 'high'] as const;
-export type SoundLevel = (typeof SOUND_LEVELS)[number];
+/**
+ * Audio: a switch for all of it, and under it one each for music and sound effects; a volume (0-100) for all of it,
+ * for music and for sound effects. Switching one off keeps its volume for when it's switched back on.
+ */
+export interface AudioSettings {
+  on: boolean;
+  musicOn: boolean;
+  sfxOn: boolean;
+  master: number;
+  music: number;
+  sfx: number;
+}
+export const defaultAudio = (): AudioSettings => ({ on: true, musicOn: true, sfxOn: true, master: 80, music: 70, sfx: 80 });
+
+/** Reads saved audio settings, or the old Off / Low / Medium / High sound and music levels they replaced. */
+function readAudio(settings: Record<string, unknown> | undefined): AudioSettings {
+  const d = defaultAudio();
+  const a = settings?.audio as Partial<AudioSettings> | undefined;
+  const vol = (v: unknown, fallback: number) => (typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.min(100, Math.round(v))) : fallback);
+  const bool = (v: unknown, fallback: boolean) => (typeof v === 'boolean' ? v : fallback);
+  if (a && typeof a === 'object')
+    return { on: bool(a.on, d.on), musicOn: bool(a.musicOn, d.musicOn), sfxOn: bool(a.sfxOn, d.sfxOn), master: vol(a.master, d.master), music: vol(a.music, d.music), sfx: vol(a.sfx, d.sfx) };
+  const OLD: Record<string, number> = { low: 40, medium: 70, high: 100 };
+  const old = (v: unknown, fallback: number): [boolean, number] => (v === 'off' ? [false, fallback] : [true, OLD[v as string] ?? fallback]);
+  const [sfxOn, sfx] = old(settings?.sound, d.sfx);
+  const [musicOn, music] = old(settings?.music, d.music);
+  return { ...d, sfxOn, sfx, musicOn, music };
+}
 export type ReloadPos = (typeof RELOAD_POSITIONS)[number];
 
 /** Effect switches in Settings: the damage numbers and status effect groups, and each kind within them. */
@@ -572,8 +597,7 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
       uiStyle: pick(UI_STYLES, (data.settings as { uiStyle?: unknown } | undefined)?.uiStyle, 'parchment'),
       clarity: pick(CLARITY_LEVELS, (data.settings as { clarity?: unknown } | undefined)?.clarity, 'low'),
       haptics: pick(HAPTIC_LEVELS, (data.settings as { haptics?: unknown } | undefined)?.haptics, 'medium'),
-      sound: pick(SOUND_LEVELS, (data.settings as { sound?: unknown } | undefined)?.sound, 'medium'),
-      music: pick(SOUND_LEVELS, (data.settings as { music?: unknown } | undefined)?.music, 'medium'),
+      audio: readAudio(data.settings as Record<string, unknown> | undefined),
     },
     flags: {
       eventsIntro: !!(data.flags as { eventsIntro?: unknown } | undefined)?.eventsIntro,

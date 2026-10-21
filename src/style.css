@@ -5945,3 +5945,69 @@ body.left-handed .equip-prompt {
   opacity: 0.85;
   font-style: italic;
 }
+
+/* ---- Settings: Audio. Each row: its name and On/Off switch, then a volume slider with its percentage. ---- */
+.audio-row {
+  display: grid;
+  grid-template-columns: 1fr minmax(0, 150px);
+  align-items: center;
+  gap: 6px 10px;
+  margin-top: 10px;
+}
+.audio-row .segmented {
+  margin: 0;
+}
+.audio-row .ar-name {
+  font-weight: 700;
+}
+.audio-row.sub-row {
+  margin-top: 0;
+  padding-left: 12px;
+  border-left: 3px solid color-mix(in srgb, var(--fg) 25%, transparent);
+}
+.ar-vol {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ar-vol b {
+  flex: none;
+  width: 4ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+/* A pixel slider: a bordered bar filled gold up to the value (--p), and a square handle. */
+.audio-setting input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1;
+  min-width: 0;
+  height: 14px;
+  margin: 6px 0;
+  border: 2px solid #000;
+  border-radius: 0;
+  background: linear-gradient(to right, var(--gold) var(--p, 50%), color-mix(in srgb, var(--card) 45%, #000) var(--p, 50%));
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.35);
+}
+.audio-setting input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 24px;
+  border: 2px solid #000;
+  border-radius: 0;
+  background: #f4ecd8;
+  box-shadow: inset -2px -2px 0 #b8ab8c;
+}
+.audio-setting input[type='range']::-moz-range-thumb {
+  width: 12px;
+  height: 20px;
+  border: 2px solid #000;
+  border-radius: 0;
+  background: #f4ecd8;
+}
+.audio-setting input[type='range']:disabled {
+  filter: grayscale(1);
+  opacity: 0.5;
+}

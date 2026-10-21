@@ -4420,12 +4420,19 @@ describe('Saves', () => {
     s.settings.name = 'Wolfa';
     s.flags.eventsIntro = true;
     const back = deserialize(serialize(s))!;
-    expect(back.settings).toEqual({ leftHanded: true, name: 'Wolfa', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', autoSalvage: [], fx: Object.fromEntries(FX_KEYS.map((k) => [k, true])), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium', sound: 'medium', music: 'medium' });
+    expect(back.settings).toEqual({ leftHanded: true, name: 'Wolfa', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', autoSalvage: [], fx: Object.fromEntries(FX_KEYS.map((k) => [k, true])), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium', audio: { on: true, musicOn: true, sfxOn: true, master: 80, music: 70, sfx: 80 } });
     expect(back.flags).toEqual({ eventsIntro: true, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false });
     const old = JSON.parse(serialize(newGame(0)));
     delete old.settings;
     delete old.flags;
-    expect(deserialize(JSON.stringify(old))!.settings).toEqual({ leftHanded: false, name: '', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', autoSalvage: [], fx: Object.fromEntries(FX_KEYS.map((k) => [k, true])), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium', sound: 'medium', music: 'medium' });
+    expect(deserialize(JSON.stringify(old))!.settings).toEqual({ leftHanded: false, name: '', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', autoSalvage: [], fx: Object.fromEntries(FX_KEYS.map((k) => [k, true])), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium', audio: { on: true, musicOn: true, sfxOn: true, master: 80, music: 70, sfx: 80 } });
+    // The old Sound effects / Music levels become the Audio card's switches and sliders; bad volumes are clamped.
+    const oldAudio = JSON.parse(serialize(newGame(0)));
+    delete oldAudio.settings.audio;
+    Object.assign(oldAudio.settings, { sound: 'off', music: 'high' });
+    expect(deserialize(JSON.stringify(oldAudio))!.settings.audio).toEqual({ on: true, musicOn: true, sfxOn: false, master: 80, music: 100, sfx: 80 });
+    oldAudio.settings.audio = { on: false, musicOn: true, sfxOn: true, master: 250, music: -5, sfx: 'loud' };
+    expect(deserialize(JSON.stringify(oldAudio))!.settings.audio).toEqual({ on: false, musicOn: true, sfxOn: true, master: 100, music: 0, sfx: 80 });
     // A hidden DPS meter stays hidden.
     const noDps = newGame(0);
     noDps.settings.dps = false;
