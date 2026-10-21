@@ -71,6 +71,8 @@ let master: GainNode | null = null;
 const buffers = new Map<SoundId, AudioBuffer>();
 const lastPlayed = new Map<SoundId, number>();
 let voices = 0;
+/** Called once audio has started (the music player waits for it). */
+const onStart: Array<(ctx: AudioContext) => void> = [];
 /** When a sound other than a button click last played (a button that plays its own sound skips the click). */
 let lastSpecial = -Infinity;
 
@@ -89,6 +91,7 @@ export function initSound(): void {
       master = ctx.createGain();
       master.gain.value = VOLUME[level];
       master.connect(ctx.destination);
+      for (const fn of onStart) fn(ctx);
       for (const [id, spec] of Object.entries(SOUNDS) as Array<[SoundId, SoundSpec]>) {
         fetch(`${import.meta.env.BASE_URL}sfx/${spec.file}.mp3`)
           .then((r) => r.arrayBuffer())
@@ -106,6 +109,12 @@ export function initSound(): void {
     if (document.hidden) void ctx.suspend().catch(() => {});
     else void ctx.resume().catch(() => {});
   });
+}
+
+/** Runs `fn` with the audio context once audio has started (right away if it already has). */
+export function whenAudioStarts(fn: (ctx: AudioContext) => void): void {
+  if (ctx) fn(ctx);
+  else onStart.push(fn);
 }
 
 /** Plays a sound effect (or not: when sound is off, too soon after the last one, or too many are playing). */

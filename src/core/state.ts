@@ -214,6 +214,8 @@ export interface GameState {
     haptics: HapticLevel;
     /** Sound effects: off, or how loud (Medium by default). */
     sound: SoundLevel;
+    /** Background music: off, or how loud (Medium by default). */
+    music: SoundLevel;
   };
   /** One-time tutorial moments already shown. */
   flags: {
@@ -304,7 +306,7 @@ export function newGame(now = Date.now()): GameState {
     nextGearUid: 4,
     lastSeen: now,
     samples: {},
-    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', autoSalvage: [], fx: allFx(), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium', sound: 'medium' },
+    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', autoSalvage: [], fx: allFx(), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium', sound: 'medium', music: 'medium' },
     flags: { eventsIntro: false, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false },
     blessings: { refine: 0, enchant: 0 },
     events: Object.fromEntries(EVENTS.map((e) => [e.id, { cooldown: 0, runs: 0, completed: 0 }])),
@@ -571,6 +573,7 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
       clarity: pick(CLARITY_LEVELS, (data.settings as { clarity?: unknown } | undefined)?.clarity, 'low'),
       haptics: pick(HAPTIC_LEVELS, (data.settings as { haptics?: unknown } | undefined)?.haptics, 'medium'),
       sound: pick(SOUND_LEVELS, (data.settings as { sound?: unknown } | undefined)?.sound, 'medium'),
+      music: pick(SOUND_LEVELS, (data.settings as { music?: unknown } | undefined)?.music, 'medium'),
     },
     flags: {
       eventsIntro: !!(data.flags as { eventsIntro?: unknown } | undefined)?.eventsIntro,

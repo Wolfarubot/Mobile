@@ -106,6 +106,7 @@ import { GEAR_SPRITES } from '../core/gearSprites';
 import { NODE_SPRITES } from '../core/nodeSprites';
 import { hunterIconHtml } from './hunterIcons';
 import { buzz, setHaptics } from './haptics';
+import { AREA_MUSIC, GUARDIAN_MUSIC, playMusic, setMusic, SWARM_MUSIC } from './music';
 import { pressSound, setSound, sfx } from './sound';
 import { JOURNAL, type JournalEntry } from '../core/journal';
 import { App as CapApp } from '@capacitor/app';
@@ -406,6 +407,14 @@ export class AppUI {
       }
     });
     this.setTab('hunters');
+    // The music follows the battlefield: the area's track, or a Guardian's or swarm's while one is on.
+    const pickMusic = () => {
+      const area = game.state.area;
+      const ev = game.activeEvent && eventDef(game.activeEvent.id);
+      playMusic(game.guardianActive ? GUARDIAN_MUSIC[area] : ev?.kind === 'swarm' ? SWARM_MUSIC : AREA_MUSIC[area]);
+    };
+    pickMusic();
+    setInterval(pickMusic, 500);
   }
 
   setTab(tab: Tab, keepScroll = false): void {
@@ -3615,6 +3624,7 @@ export class AppUI {
     mainHunterName = this.game.state.settings.name.trim();
     setHaptics(this.game.state.settings.haptics);
     setSound(this.game.state.settings.sound);
+    setMusic(this.game.state.settings.music);
     applyFont(this.game.state.settings.font);
     applyUiStyle(this.game.state.settings.uiStyle);
     requestAnimationFrame(refitAffinities);
@@ -3871,6 +3881,10 @@ export class AppUI {
       st.sound = v;
       setSound(v);
       sfx('powerUp');
+    });
+    choices('Music', "How loud the background music is. Each area has its own track, and Guardians and swarms bring their own.", [['off', 'Off'], ['low', 'Low'], ['medium', 'Medium'], ['high', 'High']], () => st.music, (v) => {
+      st.music = v;
+      setMusic(v);
     });
     choices('Clarity Border', 'A white outline round Hunters, monsters and their projectiles, so they stand out from the ground and the scenery. Low is a faint edge; Strong a bright one.', [['off', 'Off'], ['low', 'Low'], ['moderate', 'Moderate'], ['strong', 'Strong']], () => st.clarity, (v) => (st.clarity = v));
 
