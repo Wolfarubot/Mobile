@@ -3854,7 +3854,7 @@ export class AppUI {
     }
     const now = g.premiumBonus(it.kind);
     this.showModal(
-      `<h2>${sprite(d.icon)} ${name}</h2><p><b>${d.text(it.value)}</b>.</p>${now ? `<p>With what you own: ${d.text(now + it.value)} (now ${d.text(now)}).</p>` : ''}<p>Costs ${gemIcon()} <b>${gemsText(it.cost)}</b> (you have ${gemsText(g.state.gems)}). It's permanent, and multiplies on top of everything else.</p>`,
+      `<h2>${sprite(it.icon)} ${name}</h2><p class="pm-rarity" style="color:${RARITIES[it.rarity].color}">${RARITIES[it.rarity].name}</p><p><b>${d.text(it.value)}</b>.</p>${now ? `<p>With what you own: ${d.text(now + it.value)} (now ${d.text(now)}).</p>` : ''}<p>Costs ${gemIcon()} <b>${gemsText(it.cost)}</b> (you have ${gemsText(g.state.gems)}). It's permanent, and multiplies on top of everything else.</p>`,
       [
         {
           label: 'Buy',
@@ -3929,7 +3929,7 @@ export class AppUI {
       for (const it of g.shopItems) {
         const d = PREMIUM_UPGRADES[it.kind];
         const cell = el('div', 'shop-cell');
-        cell.innerHTML = `<button class="craft-tile shop-tile"><i>${sprite(d.icon)}</i></button><span class="st-name">${premiumName(it)}</span><small class="st-what">${d.text(it.value)}</small><span class="st-price"></span>`;
+        cell.innerHTML = `<button class="craft-tile shop-tile" style="--rc:${RARITIES[it.rarity].color}"><i>${sprite(it.icon)}</i></button><span class="st-name">${premiumName(it)}</span><small class="st-rarity" style="color:${RARITIES[it.rarity].color}">${RARITIES[it.rarity].name}</small><small class="st-what">${d.text(it.value)}</small><span class="st-price"></span>`;
         const tile = $<HTMLButtonElement>('.shop-tile', cell);
         const price = $('.st-price', cell);
         tile.addEventListener('click', () => this.confirmPremium(it.id));
@@ -3949,7 +3949,7 @@ export class AppUI {
       refreshers.push(() => {
         const rows = PREMIUM_IDS.filter((k) => g.premiumBonus(k) > 0).map((k) => {
           const d = PREMIUM_UPGRADES[k];
-          const owned = PREMIUM_ITEMS.filter((it) => it.kind === k && g.ownsPremium(it.id)).map((it) => premiumName(it));
+          const owned = PREMIUM_ITEMS.filter((it) => it.kind === k && g.ownsPremium(it.id)).map((it) => `<span style="color:${RARITIES[it.rarity].color}">${premiumName(it)}</span>`);
           return `<div class="so-row">${sprite(d.icon)}<span><b>${d.text(g.premiumBonus(k))}</b><small>${owned.join(' · ')}</small></span></div>`;
         });
         const html = rows.length ? rows.join('') : '<p class="hd-note">None yet. Buy an upgrade above with Exalted Gems.</p>';

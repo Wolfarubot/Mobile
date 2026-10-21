@@ -125,7 +125,7 @@ export const GEMS_WEEKLY = 20;
 export const GEMS_CHECKIN = 5;
 
 /**
- * Permanent upgrades bought with Exalted Gems, each a separate item with its own name (the Sleeping Bag, the Dreamcatcher...): they work for
+ * Permanent upgrades bought with Exalted Gems, each a separate item with its own name and icon (the Lullaby Flute, the Dreamcatcher...): they work for
  * every Hunter in every area and are never lost (not even to Ascension). The items of a kind add up, and the total
  * multiplies on top of everything else (all four offline items, +250%, make offline gains ×3.5).
  */
@@ -133,9 +133,10 @@ export type PremiumId = 'offline' | 'gold' | 'drops' | 'damage' | 'buffTime' | '
 export interface PremiumDef {
   /** What the kind boosts (the Total bonuses list). */
   name: string;
-  /** Each item's own name, cheapest first. */
+  /** Each item's own name and pixel icon, cheapest first. */
   names: string[];
-  /** Its pixel icon (a pack/number key in public/icons). */
+  icons: string[];
+  /** The kind's pixel icon (a pack/number key in public/icons), for the Total bonuses list. */
   icon: string;
   /** Each item's bonus, and its price in gems. */
   values: number[];
@@ -144,13 +145,13 @@ export interface PremiumDef {
   text: (v: number) => string;
 }
 export const PREMIUM_UPGRADES: Record<PremiumId, PremiumDef> = {
-  offline: { name: 'Offline Gains', names: ['Sleeping Bag', 'Dreamcatcher', 'Moonlit Pillow', "Sandman's Hourglass"], icon: 'status5/084', values: [0.25, 0.5, 0.75, 1], costs: [100, 200, 350, 500], text: (v) => `+${pctOf(v)} offline gains` },
-  gold: { name: 'Kill Gold', names: ['Lucky Penny', "Merchant's Scales", 'Gilded Purse', 'Treasure Map', 'Midas Ring'], icon: 'things/004', values: [0.1, 0.2, 0.3, 0.4, 0.5], costs: [80, 150, 250, 400, 600], text: (v) => `+${pctOf(v)} gold from kills` },
-  drops: { name: 'Material Drops', names: ['Sturdy Satchel', 'Skinning Knife', "Scavenger's Pack", 'Bottomless Bag', "Collector's Crate"], icon: 'things/024', values: [0.1, 0.2, 0.3, 0.4, 0.5], costs: [80, 150, 250, 400, 600], text: (v) => `+${pctOf(v)} material drop chance` },
-  damage: { name: 'Damage', names: ['Sharpening Oil', "Hunter's Edge", 'War Banner', "Champion's Crest", 'Dragonbone Charm'], icon: 'status5/009', values: [0.1, 0.2, 0.3, 0.4, 0.5], costs: [100, 200, 350, 550, 800], text: (v) => `+${pctOf(v)} damage for every Hunter` },
-  buffTime: { name: 'Minigame Buff Time', names: ['Hourglass Charm', 'Lasting Candle', 'Eternal Flame', 'Timeless Tome'], icon: 'status2/004', values: [0.25, 0.5, 0.75, 1], costs: [60, 120, 200, 300], text: (v) => `Timed minigame buffs gain and hold ${pctOf(v)} more` },
-  charges: { name: 'Minigame Charges', names: ['Overflowing Flask', 'Bottomless Chalice'], icon: 'ab-gunslinger-druid/023', values: [1, 2], costs: [150, 300], text: (v) => `Charge minigame buffs gain ${v} more charge${v === 1 ? '' : 's'} a play and hold ${3 * v} more` },
-  energy: { name: 'Energy Recharge', names: ['Second Wind', 'Stamina Tonic', 'Phoenix Feather'], icon: 'status5/091', values: [0.1, 0.2, 0.3], costs: [150, 300, 500], text: (v) => `Energy comes back ${pctOf(v)} faster` },
+  offline: { name: 'Offline Gains', names: ['Lullaby Flute', 'Dreamcatcher', 'Moonstone Pendant', "Sandman's Pouch"], icons: ['instruments/023', 'jewelry/097', 'jewelry/095', 'things/013'], icon: 'status5/084', values: [0.25, 0.5, 0.75, 1], costs: [100, 200, 350, 500], text: (v) => `+${pctOf(v)} offline gains` },
+  gold: { name: 'Kill Gold', names: ['Lucky Coin', "Merchant's Purse", 'Gold Hoard', 'Treasure Map', 'Midas Ring'], icons: ['things/001', 'things/015', 'things/004', 'wands-books/088', 'jewelry/017'], icon: 'things/004', values: [0.1, 0.2, 0.3, 0.4, 0.5], costs: [80, 150, 250, 400, 600], text: (v) => `+${pctOf(v)} gold from kills` },
+  drops: { name: 'Material Drops', names: ['Sturdy Satchel', 'Skinning Knife', "Scavenger's Pack", 'Bottomless Bag', "Collector's Chest"], icons: ['things/034', 'nature/002', 'things/024', 'things/019', 'things/069'], icon: 'things/024', values: [0.1, 0.2, 0.3, 0.4, 0.5], costs: [80, 150, 250, 400, 600], text: (v) => `+${pctOf(v)} material drop chance` },
+  damage: { name: 'Damage', names: ['Sharpening Oil', 'War Drum', 'War Horn', "Champion's Crest", 'Dragonbone Charm'], icons: ['rpg-items/101', 'instruments/045', 'instruments/036', 'rpg-items/274', 'jewelry/041'], icon: 'status5/009', values: [0.1, 0.2, 0.3, 0.4, 0.5], costs: [100, 200, 350, 550, 800], text: (v) => `+${pctOf(v)} damage for every Hunter` },
+  buffTime: { name: 'Minigame Buff Time', names: ['Scroll of Patience', 'Tome of Patience', 'Eternal Flame', 'Timeless Tome'], icons: ['wands-books/085', 'wands-books/054', 'rpg-items/127', 'wands-books/058'], icon: 'status2/004', values: [0.25, 0.5, 0.75, 1], costs: [60, 120, 200, 300], text: (v) => `Timed minigame buffs gain and hold ${pctOf(v)} more` },
+  charges: { name: 'Minigame Charges', names: ['Overflowing Flask', 'Bottomless Vial'], icons: ['rpg-items/241', 'rpg-items/257'], icon: 'ab-gunslinger-druid/023', values: [1, 2], costs: [150, 300], text: (v) => `Charge minigame buffs gain ${v} more charge${v === 1 ? '' : 's'} a play and hold ${3 * v} more` },
+  energy: { name: 'Energy Recharge', names: ['Second Wind', 'Stamina Tonic', 'Phoenix Feather'], icons: ['resources1/073', 'rpg-items/041', 'resources1/088'], icon: 'status5/091', values: [0.1, 0.2, 0.3], costs: [150, 300, 500], text: (v) => `Energy comes back ${pctOf(v)} faster` },
 };
 export const PREMIUM_IDS = Object.keys(PREMIUM_UPGRADES) as PremiumId[];
 
@@ -162,8 +163,16 @@ export interface PremiumItem {
   tier: number;
   value: number;
   cost: number;
+  icon: string;
+  /** One of the top four rarities: a kind's best item is always Exalted, the ones below it a rarity lower each. */
+  rarity: Rarity;
 }
-export const PREMIUM_ITEMS: PremiumItem[] = PREMIUM_IDS.flatMap((kind) => PREMIUM_UPGRADES[kind].values.map((value, i) => ({ id: `${kind}${i + 1}`, kind, tier: i + 1, value, cost: PREMIUM_UPGRADES[kind].costs[i] })));
+const PREMIUM_RARITIES: Rarity[] = ['exotic', 'relic', 'artifact', 'exalted'];
+export const PREMIUM_ITEMS: PremiumItem[] = PREMIUM_IDS.flatMap((kind) => {
+  const d = PREMIUM_UPGRADES[kind];
+  const n = d.values.length;
+  return d.values.map((value, i) => ({ id: `${kind}${i + 1}`, kind, tier: i + 1, value, cost: d.costs[i], icon: d.icons[i], rarity: PREMIUM_RARITIES[Math.max(0, PREMIUM_RARITIES.length - n + i)] }));
+});
 export const premiumItem = (id: string): PremiumItem | undefined => PREMIUM_ITEMS.find((it) => it.id === id);
 export const premiumName = (it: PremiumItem): string => PREMIUM_UPGRADES[it.kind].names[it.tier - 1];
 /** Items on sale each day, picked afresh from those you don't own. */

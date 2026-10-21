@@ -74,6 +74,7 @@ import {
   STUN_IMMUNITY,
   ENERGY_AD,
   PREMIUM_ITEMS,
+  premiumName,
   SHOP_DAILY_ITEMS,
   ENERGY_ADS_PER_DAY,
   ENERGY_MAX_NO_ADS,
@@ -3848,6 +3849,12 @@ describe('Events', () => {
       [0.75, 350],
       [1, 500],
     ]);
+    // Each item has its own name and icon; a kind's best item is Exalted, the ones below a rarity lower each.
+    expect(new Set(PREMIUM_ITEMS.map((it) => premiumName(it))).size).toBe(PREMIUM_ITEMS.length);
+    for (const it of PREMIUM_ITEMS) expect(existsSync(`public/icons/${it.icon}.png`), it.id).toBe(true);
+    expect(PREMIUM_ITEMS.filter((it) => it.kind === 'offline').map((it) => it.rarity)).toEqual(['exotic', 'relic', 'artifact', 'exalted']);
+    expect(PREMIUM_ITEMS.filter((it) => it.kind === 'gold').map((it) => it.rarity)).toEqual(['exotic', 'exotic', 'relic', 'artifact', 'exalted']);
+    expect(PREMIUM_ITEMS.filter((it) => it.kind === 'charges').map((it) => it.rarity)).toEqual(['artifact', 'exalted']);
     // Six on sale, the same all day, none you own; a new six tomorrow.
     const today = g.shopItems.map((it) => it.id);
     expect(today).toHaveLength(SHOP_DAILY_ITEMS);

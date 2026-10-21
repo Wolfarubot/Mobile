@@ -6405,10 +6405,24 @@ img.ei.gem-ic {
   gap: 3px;
   min-width: 0;
 }
-.shop-tile {
+body .craft-tile.shop-tile,
+body.ui-parchment .craft-tile.shop-tile {
   width: 100%;
   max-width: 96px;
-  border-color: #ff2fd0 !important;
+  border: 3px solid #ff2fd0 !important;
+  /* The rarity inside the purple frame: a coloured inner ring and a glow behind the icon. */
+  background: radial-gradient(circle, color-mix(in srgb, var(--rc) 45%, var(--c3)) 0%, var(--c3) 75%) !important;
+  box-shadow: inset 0 0 0 3px var(--rc), 2px 2px 0 var(--c0) !important;
+}
+.st-rarity {
+  font-size: 10px;
+  font-weight: 800;
+  text-shadow: var(--outline);
+}
+.pm-rarity {
+  margin-top: -6px;
+  font-weight: 800;
+  text-shadow: var(--outline);
 }
 .shop-tile i img.ei {
   width: 44px;
