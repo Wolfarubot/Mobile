@@ -3461,10 +3461,10 @@ export class AppUI {
     const item = (id: string, icon: string, name: string, extra = '') => `<button type="button" class="menu-item" data-menu="${id}"><span class="mi-icon">${icon}</span><span class="mi-name">${name}</span>${extra}</button>`;
     this.showModal(
       `<h2>Menu</h2><div class="menu-list">
-        ${item('tutorials', '📖', 'Tutorials')}
-        ${item('journal', '📔', 'Journal Entries', unread ? `<span class="alert-mark" title="${unread} new"></span>` : '')}
-        ${item('settings', '⚙️', 'Settings')}
-        ${item('quit', '🚪', 'Quit')}
+        ${item('tutorials', sprite(MENU_SPRITES.tutorials), 'Tutorials')}
+        ${item('journal', sprite(MENU_SPRITES.journal), 'Journal Entries', unread ? `<span class="alert-mark" title="${unread} new"></span>` : '')}
+        ${item('settings', sprite(MENU_SPRITES.settings), 'Settings')}
+        ${item('quit', sprite(MENU_SPRITES.quit), 'Quit')}
       </div>`,
       [{ label: 'Close', secondary: true }],
     );
@@ -3564,18 +3564,18 @@ export class AppUI {
       body.appendChild(b);
     };
     body.appendChild(sectionTitle('Guides'));
-    row('⚔️', 'Weapon types', 'How each kind of weapon attacks: range, speed, reloads, knockback and more.', () => this.openTutorials('weapons'));
-    row('🔥', 'Damage types & status effects', 'What each damage type does, weaknesses and resistances.', () => this.openTutorials('damage'));
+    row(sprite(MENU_SPRITES.weapons), 'Weapon types', 'How each kind of weapon attacks: range, speed, reloads, knockback and more.', () => this.openTutorials('weapons'));
+    row(sprite(MENU_SPRITES.damage), 'Damage types & status effects', 'What each damage type does, weaknesses and resistances.', () => this.openTutorials('damage'));
     body.appendChild(sectionTitle('Tips'));
-    row('👋', 'Welcome', 'Getting started.', () => this.showWelcome(true));
-    row('💪', 'Training', `Making your Hunter stronger (opens after ${TRAIN_UNLOCK_KILLS} slimes).`, () => this.showTrainIntro(true));
-    row('🔨', 'Crafting', 'Materials, gear and Upgrades.', () => this.showCraftIntro(true));
-    row('🐺', 'New monsters & the full-screen menu', 'Unlocking the wolf, and raising the menu over the battlefield.', () => this.showWolfIntro(true));
-    row('👾', 'Empower', `Unlocking and empowering monsters (opens after ${EMPOWER_UNLOCK_KILLS} slimes).`, () => this.showEmpowerIntro(true));
-    row('🔒', 'Unlocking Events', 'How to open the Events tab.', () => this.showEventsLocked());
-    row('🎉', 'Events', 'Guardian Challenges, swarms and cooldowns.', () => this.showEventsIntro(true));
+    row(sprite(MENU_SPRITES.welcome), 'Welcome', 'Getting started.', () => this.showWelcome(true));
+    row(sprite(MENU_SPRITES.training), 'Training', `Making your Hunter stronger (opens after ${TRAIN_UNLOCK_KILLS} slimes).`, () => this.showTrainIntro(true));
+    row(sprite(MENU_SPRITES.crafting), 'Crafting', 'Materials, gear and Upgrades.', () => this.showCraftIntro(true));
+    row(sprite(MENU_SPRITES.wolf), 'New monsters & the full-screen menu', 'Unlocking the wolf, and raising the menu over the battlefield.', () => this.showWolfIntro(true));
+    row(sprite(MENU_SPRITES.empower), 'Empower', `Unlocking and empowering monsters (opens after ${EMPOWER_UNLOCK_KILLS} slimes).`, () => this.showEmpowerIntro(true));
+    row(sprite(MENU_SPRITES.eventsLocked), 'Unlocking Events', 'How to open the Events tab.', () => this.showEventsLocked());
+    row(sprite(MENU_SPRITES.events), 'Events', 'Guardian Challenges, swarms and cooldowns.', () => this.showEventsIntro(true));
     // The story so far, once you've seen it.
-    if ((this.game.state.events['guardian-rift']?.completed ?? 0) > 0) row('⏳', 'The Time Eater', 'Replay the cutscene from the Void Rift.', () => playCutscene(TIME_EATER_CUTSCENE));
+    if ((this.game.state.events['guardian-rift']?.completed ?? 0) > 0) row(sprite(MENU_SPRITES.timeEater), 'The Time Eater', 'Replay the cutscene from the Void Rift.', () => playCutscene(TIME_EATER_CUTSCENE));
   }
 
   private buildWeaponGuide(body: HTMLElement): void {
@@ -3661,7 +3661,7 @@ export class AppUI {
 
     body.appendChild(sectionTitle('Controls'));
     const hand = el('div', 'card setting');
-    hand.innerHTML = `<div class="setting-name">Handedness</div><p>Which side of the Hunter cards the Train button sits on.</p><div class="segmented"><button data-v="left">✋ Left-handed</button><button data-v="right">Right-handed 🤚</button></div>`;
+    hand.innerHTML = `<div class="setting-name">Handedness</div><p>Which side of the Hunter cards the Train button sits on.</p><div class="segmented"><button data-v="left">Left-handed</button><button data-v="right">Right-handed</button></div>`;
     const buttons = hand.querySelectorAll<HTMLButtonElement>('.segmented button');
     const sync = () => buttons.forEach((b) => b.classList.toggle('on', (b.dataset.v === 'left') === g.state.settings.leftHanded));
     buttons.forEach((b) =>
@@ -3704,7 +3704,7 @@ export class AppUI {
       body.appendChild(card);
     };
     const st = g.state.settings;
-    const styles: Array<[IndicatorStyle, string]> = [['fancy', '✨ Fancy'], ['basic', 'Basic']];
+    const styles: Array<[IndicatorStyle, string]> = [['fancy', 'Fancy'], ['basic', 'Basic']];
     choices(
       'Event timer & Guardian bar',
       "Where an event's timer and a Guardian's health bar go on the battlefield. They always sit clear of the cooldown icons and the DPS meter.",
@@ -3984,7 +3984,7 @@ export class AppUI {
     choices(
       'Menu style',
       'Parchment frames menus in wood and parchment, recoloured to match each area; Classic keeps the original flat cards.',
-      [['parchment', '📜 Parchment'], ['classic', 'Classic']],
+      [['parchment', 'Parchment'], ['classic', 'Classic']],
       () => st.uiStyle,
       (v) => {
         st.uiStyle = v;
@@ -4271,12 +4271,38 @@ function gearCardHtml(it: GearItem, vs: GearItem | null = null): string {
   return `<div class="gear-card rar" style="--rc:${gearColor(gd.id)}"><div class="gc-head"><i>${gearIcon(gd)}</i><div><b>${gd.name}</b><small>${RARITIES[gd.rarity].name} ${gearKindName(gd).toLowerCase()} · <span class="stars">${starsHtml(it.stars)}</span></small><div class="gc-typeline">${procTypeTags(gd)}${hitHtml}</div></div></div><ul class="gc-stats">${all}</ul></div>`;
 }
 
+/**
+ * The menu screens' icons (Menu, Tutorials): free-standing item sprites only, never the framed ability-style icons,
+ * so each screen keeps one look.
+ */
+const MENU_SPRITES = {
+  tutorials: 'wands-books/062',
+  journal: 'rpg-items/289',
+  settings: 'resources3/024',
+  quit: 'things/024',
+  weapons: 'weapons-free/001',
+  damage: 'rpg-items/297',
+  welcome: 'rpg-items/300',
+  training: 'rpg-items/001',
+  crafting: 'resources3/003',
+  wolf: 'resources1/032',
+  empower: 'custom/001',
+  eventsLocked: 'resources3/029',
+  events: 'instruments/033',
+  timeEater: 'jewelry/042',
+};
+
 /** Your Hunter's name (Settings), shown on their card and wherever they're named. */
 let mainHunterName = '';
 const mainName = () => mainHunterName || 'You';
 export const MAX_NAME_LENGTH = 16;
 
 /** Escapes text typed by the player before it goes into HTML. */
+/** A pixel sprite from public/icons ("<pack>/<NNN>"), drawn like an emoji's icon (the menu screens use these directly). */
+function sprite(key: string): string {
+  return `<img class="ei" src="${gearIconUrl(key)}" alt="" draggable="false">`;
+}
+
 /** A Journal entry's icon: a pixel icon ("<pack>/<NNN>") or an emoji. */
 function journalIcon(e: JournalEntry): string {
   const url = /^[\w-]+\/\d+$/.test(e.icon) ? gearIconUrl(e.icon) : null;

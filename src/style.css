@@ -1879,7 +1879,7 @@ button {
 }
 .tnode {
   position: absolute;
-  transform: translate(-50%, -50%);
+  translate: -50% -50%;
   width: 96px;
   display: flex;
   flex-direction: column;
@@ -5603,12 +5603,16 @@ body.ui-parchment .buy:disabled {
   opacity: 0.85;
 }
 
-/* Every button gives a little squeeze when pressed (held by .pressing a moment, so quick taps show it too). */
+/*
+ * Every button gives a little squeeze when pressed (held by .pressing a moment, so quick taps show it too). It uses
+ * the `scale` property, which stacks on a button's own transform (a skill tree node is centred with translate)
+ * instead of replacing it.
+ */
 button {
-  transition: transform 0.09s ease-out;
+  transition: scale 0.09s ease-out;
 }
 button.pressing:not(:disabled) {
-  transform: scale(0.93) !important;
+  scale: 0.93;
 }
 /* Long monster names (Walking Man Trap, Possessed Puppet…) wrap onto a second line instead of being cut off. */
 .hunter-tile .ht-name {
