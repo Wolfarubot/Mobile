@@ -345,14 +345,46 @@ it.runIf(!!process.env.PRESETS_OUT)('dev progress presets', () => {
 }, 0);
 
 /**
+ * Starting over (a "New Game+"): a fresh game that keeps every Hunter's training and skill nodes (yours and the
+ * Guild Hunters', ascensions included) from `save`, and nothing else: no gear, gold, materials, areas or monster
+ * levels. Guild Hunters still have to be unlocked and recruited again, and come back at their old levels.
+ */
+function newGamePlus(save: string) {
+  const old = deserialize(save)!;
+  const s = newGame(0);
+  const keep = <T extends { trains: number; skills: Record<string, number>; ascendAt?: number; skills2?: Record<string, number> }>(to: T, from: T) => {
+    to.trains = from.trains;
+    to.skills = { ...from.skills };
+    if (from.ascendAt !== undefined) to.ascendAt = from.ascendAt;
+    if (from.skills2) to.skills2 = { ...from.skills2 };
+  };
+  keep(s.main, old.main);
+  s.main.tapAbility = old.main.tapAbility;
+  for (const h of HUNTERS) keep(s.hunters[h.id], old.hunters[h.id]);
+  return s;
+}
+
+/**
  * The whole game, start to Time Eater, as the typical player (same check-ins as simulatePlayer). Slow: hours.
  * `SIM_FULL=log.txt npx vitest run tests/progression.test.ts -t "full game"` appends a line as each area opens,
- * a status line every few days, and the day the Time Eater falls.
+ * a status line every few days, and the day the Time Eater falls. The player never watches an ad, buys gems or
+ * spends any on the Shop: events wait on energy like a free player's (5, one back every 20 minutes).
+ * SIM_END=file.json saves the game when the Time Eater falls; SIM_NGP=that file starts over from it, keeping
+ * every Hunter's levels and skills but no gear (see newGamePlus).
  */
 it.runIf(!!process.env.SIM_FULL)('full game: a typical player beats the Time Eater', () => {
   const out = process.env.SIM_FULL!;
   const log = (line: string) => writeFileSync(out, line + '\n', { flag: 'a' });
   const bot = newBot();
+  if (process.env.SIM_NGP) {
+    const end = JSON.parse(readFileSync(process.env.SIM_NGP, 'utf8')) as { save: string };
+    bot.game = new Game(newGamePlus(end.save), mulberry(42));
+    bot.field = new Field(bot.game);
+    bot.field.setView(390, 420);
+    const s = bot.game.state;
+    log(`New Game+: you Lv ${bot.game.levelOf('main')}, Guild Hunters ${HUNTERS.map((h) => `${h.id}:${bot.game.levelOf(h.id)}`).join(' ')} (to recruit again), no gear but the starter kit, ${s.gold} gold`);
+  }
+  log('No ads watched, no gems bought or spent: events run on energy alone.');
   // SIM_FROM=checkpoint.json resumes from a checkpoint written by SIM_SNAP=dir (one per area, as it opens).
   const from = process.env.SIM_FROM ? (JSON.parse(readFileSync(process.env.SIM_FROM, 'utf8')) as { clock: number; save: string; unlockedAt: Partial<Record<AreaId, number>> }) : null;
   if (from) {
@@ -410,4 +442,8 @@ it.runIf(!!process.env.SIM_FULL)('full game: a typical player beats the Time Eat
     }
   }
   log(beaten !== null ? `TIME EATER BEATEN: day ${(beaten / 86400).toFixed(1)}` : `Time Eater not beaten in ${days} days`);
+  // A free player: no ads, no gems.
+  expect(g.state.noAds).toBe(false);
+  expect(g.state.premium).toEqual([]);
+  if (process.env.SIM_END) writeFileSync(process.env.SIM_END, JSON.stringify({ clock: now, save: serialize(g.state) }));
 }, 0);
