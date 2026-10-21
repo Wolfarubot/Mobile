@@ -107,18 +107,30 @@ export function drawFramedBar(g: CanvasRenderingContext2D, x: number, y: number,
 
 /**
  * A framed bar whose slot is filled in segments: each [from, to, colour] (fractions of the slot, left to right),
- * later ones over earlier ones; the rest of the slot left empty. False until the frame has loaded.
+ * later ones over earlier ones; the rest of the slot left empty. `frame` recolours the silver frame (its light and
+ * shade kept). False until the frame has loaded.
  */
-export function drawFramedSegments(g: CanvasRenderingContext2D, x: number, y: number, s: number, w: number, h: number, segs: Array<[number, number, string]>): boolean {
+export function drawFramedSegments(g: CanvasRenderingContext2D, x: number, y: number, s: number, w: number, h: number, segs: Array<[number, number, string]>, frame?: string): boolean {
   const src = load();
   if (!src) return false;
   const b = build(src, Math.max(2 * END + 1, Math.round(w)), Math.max(2 * EDGE + 1, Math.round(h)));
   const at = (f: number) => Math.round(b.x0 + (b.x1 - b.x0) * Math.max(0, Math.min(1, f)));
   const spans = segs.map(([from, to, color]) => ({ a: at(from), z: at(to), fill: shades(color), color }));
-  const key = spans.map((sp) => `${sp.a}-${sp.z}:${sp.color}`).join('|');
+  const key = `${frame ?? ''}#` + spans.map((sp) => `${sp.a}-${sp.z}:${sp.color}`).join('|');
   if (b.key !== key) {
     b.key = key;
     const img = new ImageData(new Uint8ClampedArray(b.base.data), b.w, b.h);
+    if (frame) {
+      // The frame's greys become the colour, by brightness: dark edges stay dark, highlights go pale.
+      const n = parseInt(frame.replace('#', ''), 16);
+      const c: Rgb = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+      const inSlot = new Set(b.slot);
+      for (let q = 0; q < b.w * b.h; q++) {
+        if (inSlot.has(q) || img.data[q * 4 + 3] === 0) continue;
+        const l = (img.data[q * 4] + img.data[q * 4 + 1] + img.data[q * 4 + 2]) / 765;
+        for (let k = 0; k < 3; k++) img.data[q * 4 + k] = l < 0.5 ? Math.round(c[k] * l * 2) : Math.round(c[k] + (255 - c[k]) * (l - 0.5) * 1.2);
+      }
+    }
     b.slot.forEach((q, i) => {
       const px = q % b.w;
       let c: Rgb | null = null;

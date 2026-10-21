@@ -112,6 +112,8 @@ export interface EventDef {
 export const ENERGY_MAX = 5;
 /** Seconds for one point of energy to come back. */
 export const ENERGY_REGEN = 20 * 60;
+/** Energy a rewarded ad gives. It can overcharge the bar past ENERGY_MAX (it only refills on its own up to the max). */
+export const ENERGY_AD = 5;
 
 export function eventEnergyCost(def: EventDef): number {
   if (def.kind === 'minigame') return 3;

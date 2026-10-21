@@ -37,6 +37,7 @@ import {
   type Rarity,
   evoKillsNeeded,
   ENEMIES,
+  ENERGY_AD,
   ENERGY_MAX,
   ENERGY_REGEN,
   eventEnergyCost,
@@ -1299,7 +1300,12 @@ export class Game {
   /** Seconds until the next whole point of energy (0 when full). */
   get energyNextIn(): number {
     const e = this.state.energy;
-    return e >= ENERGY_MAX ? 0 : (Math.floor(e) + 1 - e) * ENERGY_REGEN;
+    return e >= ENERGY_MAX ? 0 : (Math.floor(e + 1e-9) + 1 - e) * ENERGY_REGEN;
+  }
+
+  /** A rewarded ad was watched: ENERGY_AD more energy, past the max if need be. */
+  adEnergy(): void {
+    this.state.energy += ENERGY_AD;
   }
 
   /** Seconds until there's enough energy for an event (0 if there already is). */
@@ -1431,7 +1437,8 @@ export class Game {
 
   /** Refills event energy (also used for time away). */
   private coolEvents(seconds: number): void {
-    this.state.energy = Math.min(ENERGY_MAX, this.state.energy + seconds / ENERGY_REGEN);
+    // Refills up to the max; an overcharged bar (from an ad) just waits to be spent.
+    if (this.state.energy < ENERGY_MAX) this.state.energy = Math.min(ENERGY_MAX, this.state.energy + seconds / ENERGY_REGEN);
     this.goldRateAge += seconds;
   }
 

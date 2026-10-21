@@ -1573,25 +1573,16 @@ button {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
-.en-segs {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 4px;
-}
-.en-seg {
+.en-frame {
   position: relative;
-  height: 16px;
-  background: var(--sunk);
-  border: 2px solid var(--c0);
-  box-shadow: 2px 2px 0 var(--c0);
-  overflow: hidden;
+  height: 24px;
 }
-.en-seg i {
+.en-frame canvas {
   position: absolute;
-  inset: 0 auto 0 0;
-  width: 0;
-  background: linear-gradient(180deg, #ffe680, var(--gold) 60%, #b07c00);
-  transition: width 0.4s;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
 }
 .hunter-grid.event-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));

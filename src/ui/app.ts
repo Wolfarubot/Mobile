@@ -79,6 +79,7 @@ import {
   RARITIES,
   REFINES,
   ENCHANTS,
+  ENERGY_AD,
   ENERGY_MAX,
   isUniqueEnchant,
   enchantTierHit,
@@ -103,7 +104,8 @@ import { Game, type FarmRates, type TreeKind } from '../core/game';
 import type { OfflineResult } from '../core/offline';
 import { COOLDOWN_POSITIONS, deserialize, TAB_IDS, type GameState, type GearMod, type AudioSettings, type BuyAmount, type CooldownPos, type DpsCorner, type FxKey, type IndicatorStyle, type GearItem, type TabId, type Wearer } from '../core/state';
 import { queuePortrait } from '../render/battle';
-import { drawFramedBar, TIMER_COLOR } from '../render/hudBars';
+import { drawFramedBar, drawFramedSegments, TIMER_COLOR } from '../render/hudBars';
+import { showRewardedAd } from './ads';
 import { gearIconUrl, spriteUrl } from '../render/sprites';
 import { MATERIAL_SPRITES } from '../core/materialSprites';
 import { GEAR_SPRITES } from '../core/gearSprites';
@@ -3197,20 +3199,63 @@ export class AppUI {
     }
   }
 
-  /** The energy bar: five gold segments, the last one filling as it recharges. */
+  /**
+   * The energy bar: the battlefield's silver-framed timer bar split into five, a gold segment per whole point of
+   * energy. Overcharged (past the max, from an ad), all five are full and the frame turns gold.
+   */
   private energyBar(): HTMLElement {
     const g = this.game;
     const bar = el('div', 'energy-bar');
-    bar.innerHTML = `<div class="en-head"><b>⚡ Energy</b><span class="en-text"></span></div><div class="en-segs">${'<span class="en-seg"><i></i></span>'.repeat(ENERGY_MAX)}</div>`;
-    const fills = [...bar.querySelectorAll<HTMLElement>('.en-seg i')];
+    bar.innerHTML = `<div class="en-head"><b>⚡ Energy</b><span class="en-text"></span></div><div class="en-frame"><canvas></canvas></div>`;
+    const cv = $<HTMLCanvasElement>('canvas', bar);
     const text = $('.en-text', bar);
+    let drawn = '';
     this.refreshers.push(() => {
-      const e = g.energy;
-      fills.forEach((f, i) => (f.style.width = `${Math.max(0, Math.min(1, e - i)) * 100}%`));
-      const whole = Math.floor(e + 1e-9);
-      text.textContent = whole >= ENERGY_MAX ? `${ENERGY_MAX} / ${ENERGY_MAX} · full` : `${whole} / ${ENERGY_MAX} · +1 in ${fmtTime(g.energyNextIn)}`;
+      const whole = Math.floor(g.energy + 1e-9);
+      const over = whole > ENERGY_MAX;
+      text.textContent = over ? `${whole} / ${ENERGY_MAX} · overcharged` : whole >= ENERGY_MAX ? `${ENERGY_MAX} / ${ENERGY_MAX} · full` : `${whole} / ${ENERGY_MAX} · +1 in ${fmtTime(g.energyNextIn)}`;
+      // The frame at 2× its pixels, 12 tall, as wide as the bar.
+      const w = Math.max(40, Math.round(cv.parentElement!.clientWidth / 2));
+      const key = `${w}:${whole}`;
+      if (key === drawn) return;
+      if (cv.width !== w || cv.height !== 12) {
+        cv.width = w;
+        cv.height = 12;
+      }
+      const cg = cv.getContext('2d')!;
+      cg.clearRect(0, 0, w, 12);
+      const segs: Array<[number, number, string]> = [];
+      for (let i = 0; i < Math.min(whole, ENERGY_MAX); i++) segs.push([i / ENERGY_MAX, (i + 1) / ENERGY_MAX, '#f2b200']);
+      // A dark notch between segments.
+      const px = 1 / Math.max(1, w - 12);
+      for (let i = 1; i < ENERGY_MAX; i++) segs.push([i / ENERGY_MAX - px, i / ENERGY_MAX + px * 0.5, '#2e2a20']);
+      if (drawFramedSegments(cg, 0, 0, 1, w, 12, segs, over ? '#e8a800' : undefined)) drawn = key;
     });
     return bar;
+  }
+
+  /** Not enough energy for an event: offer an ad for ENERGY_AD more (past the max if need be). */
+  private showNoEnergy(ev: EventDef): void {
+    const g = this.game;
+    const have = Math.floor(g.energy + 1e-9);
+    this.showModal(
+      `<h2>⚡ Not enough energy</h2><p><b>${ev.name}</b> needs <b>${g.energyCost(ev.id)}</b> energy, and you have <b>${have}</b>.</p><p>Watch an ad to restore <b>${ENERGY_AD} energy</b>. Energy past ${ENERGY_MAX} overcharges your bar.</p>`,
+      [
+        {
+          label: "📺 Watch ad",
+          action: () => {
+            void showRewardedAd().then((ok) => {
+              if (!ok) return;
+              g.adEnergy();
+              this.toast(`⚡ +${ENERGY_AD} energy`);
+              this.hooks.save();
+              this.refresh();
+            });
+          },
+        },
+        { label: 'Not now', secondary: true },
+      ],
+    );
   }
 
   /** The icon for an event: the crown for a Guardian, the swarming monster for a swarm, a minigame's own. */
@@ -3268,7 +3313,8 @@ export class AppUI {
     const btn = $<HTMLButtonElement>('.buy', card);
     const status = $('.ev-status', card);
     btn.addEventListener('click', () => {
-      if (ev.kind === 'minigame') this.playMinigame(ev);
+      if (g.eventUnlocked(ev.id) && g.energyWait(ev.id) > 0) this.showNoEnergy(ev);
+      else if (ev.kind === 'minigame') this.playMinigame(ev);
       else if (g.startEvent(ev.id)) this.refresh();
     });
     this.refreshers.push(() => {
@@ -3304,10 +3350,11 @@ export class AppUI {
         status.innerHTML = `<b class="ev-live">● Running · ${Math.ceil(left)}s left</b>`;
         btn.innerHTML = 'Live';
         btn.disabled = true;
-      } else if (wait > 0) {
+      } else if (wait > 0 && (ev.kind === 'minigame' || !g.eventRunning)) {
+        // Tapping it offers an ad for more energy.
         status.innerHTML = extra;
-        btn.innerHTML = `Need energy<small>${fmtTime(wait)}</small>`;
-        btn.disabled = true;
+        btn.innerHTML = `${ev.kind === 'minigame' ? 'Play' : 'Start'}<small>need ${cost} ⚡</small>`;
+        btn.disabled = false;
       } else {
         status.innerHTML = extra;
         btn.innerHTML = ev.kind === 'minigame' ? 'Play' : g.eventRunning ? 'Busy<small>another event</small>' : 'Start';

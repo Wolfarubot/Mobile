@@ -72,6 +72,7 @@ import {
   STATION_EFFICIENCY,
   OFFLINE_EFFICIENCY,
   STUN_IMMUNITY,
+  ENERGY_AD,
   ENERGY_MAX,
   ENERGY_REGEN,
   eventEnergyCost,
@@ -3761,6 +3762,14 @@ describe('Events', () => {
     // It never fills past the top.
     g.tick(ENERGY_REGEN * 20);
     expect(g.energy).toBe(ENERGY_MAX);
+    // An ad gives 5 more, overcharging past the max: 2 energy and an ad make 7. It never refills past the max,
+    // and an overcharged bar doesn't drain on its own.
+    g.state.energy = 2;
+    g.adEnergy();
+    expect(g.energy).toBe(2 + ENERGY_AD);
+    g.tick(ENERGY_REGEN * 3);
+    expect(g.energy).toBe(2 + ENERGY_AD);
+    expect(deserialize(serialize(g.state))!.energy).toBe(2 + ENERGY_AD);
     // Repeat wins pay the bounty again.
     const gold = g.state.gold;
     g.startEvent('guardian-forest');

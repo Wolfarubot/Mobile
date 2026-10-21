@@ -232,7 +232,7 @@ export interface GameState {
   };
   /** Per event: seconds of cooldown left, times started and times completed (a Guardian beaten, a swarm survived). */
   events: Record<string, EventState>;
-  /** Event energy (0 to ENERGY_MAX, refilling over time): every event costs some to start. */
+  /** Event energy (refilling over time up to ENERGY_MAX; an ad can overcharge it past that): every event costs some. */
   energy: number;
   /** What the player has already looked at, so new things can be flagged with a "!". */
   seen: SeenState;
@@ -632,7 +632,7 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
       return { refine: n(b.refine), enchant: n(b.enchant) };
     })(),
     // Saves from before event energy start with a full bar.
-    energy: typeof data.energy === 'number' && Number.isFinite(data.energy) ? Math.max(0, Math.min(ENERGY_MAX, data.energy)) : ENERGY_MAX,
+    energy: typeof data.energy === 'number' && Number.isFinite(data.energy) ? Math.max(0, Math.min(ENERGY_MAX * 20, data.energy)) : ENERGY_MAX,
     events: Object.fromEntries(
       EVENTS.map((e) => {
         const saved = (data.events as Record<string, Partial<Record<keyof EventState, unknown>>> | undefined)?.[e.id];
