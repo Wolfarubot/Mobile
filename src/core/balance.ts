@@ -3479,6 +3479,16 @@ function gearRng(id: string): () => number {
   };
 }
 
+/**
+ * Shot effects placed by hand on a few pieces (in place of their last drawn built-in effect): ricochet and
+ * multishot on ranged weapons, piercing on a wand, besides those the draw itself gives.
+ */
+const SHOT_BUILT_INS: Partial<Record<string, EnchantId>> = {
+  harpyBow: 'shotMultishot', // a flurry of feathers
+  voltPistol: 'shotRicochet', // bolts that jump like lightning
+  cometWand: 'shotPierce', // comets punch straight through
+};
+
 /** Gives every piece its variant: its built-in effects and its modifier slots. */
 function assignVariants(): void {
   for (const d of GEAR) {
@@ -3506,6 +3516,8 @@ function assignVariants(): void {
       const named = uniques.find((u) => UNIQUE_EFFECTS[u].name === d.name);
       builtIn.push({ id: named ?? pick(uniques), q: MOD_QUALITY_STEPS, p: roll() });
     } else for (let i = own; i < v.fx && pool.length; i++) builtIn.push({ id: pick(pool), q: roll(), p: roll() });
+    const placed = SHOT_BUILT_INS[d.id];
+    if (placed && v.fx !== 'unique' && builtIn.length > own && !builtIn.some((b) => b.id === placed)) builtIn[builtIn.length - 1] = { id: placed, q: roll(), p: roll() };
     if (builtIn.length) d.builtIn = builtIn;
   }
 }

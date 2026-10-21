@@ -2519,6 +2519,10 @@ describe('Equipment', () => {
       expect([ENCHANTS[id].fits(bow), ENCHANTS[id].fits(staff), ENCHANTS[id].fits(sword)], id).toEqual([true, true, false]);
       expect(isUniqueEnchant(ENCHANTS[id]), id).toBe(false);
     }
+    // A few pieces have one placed on them: ranged ones that ricochet or multishot, a wand that pierces.
+    expect(gearDef('harpyBow').builtIn!.map((b) => b.id)).toContain('shotMultishot');
+    expect(gearDef('voltPistol').builtIn!.map((b) => b.id)).toContain('shotRicochet');
+    expect(gearDef('cometWand').builtIn!.map((b) => b.id)).toContain('shotPierce');
     // Enchanting never rolls them: they're only ever built in.
     const g = stocked();
     g.state.hunters = Object.fromEntries(Object.entries(g.state.hunters).map(([k, h]) => [k, { ...h, station: null }])) as typeof g.state.hunters;
