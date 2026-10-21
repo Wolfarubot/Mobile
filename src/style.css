@@ -6368,3 +6368,26 @@ img.ei.gem-ic {
 .shop-item.soon {
   opacity: 0.75;
 }
+
+.si-pips {
+  display: inline-flex;
+  gap: 3px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+.si-pips i {
+  width: 8px;
+  height: 8px;
+  border: 1px solid var(--c0);
+  background: var(--sunk);
+}
+.si-pips i.on {
+  background: #ff2fd0;
+}
+.shop-item .buy.short {
+  filter: grayscale(0.6) brightness(0.85);
+}
+.shop-item .buy img.ei {
+  width: 18px;
+  height: 18px;
+}

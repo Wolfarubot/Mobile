@@ -86,6 +86,9 @@ import {
   GEMS_DAILY,
   GEMS_WEEKLY,
   questText,
+  PREMIUM_IDS,
+  PREMIUM_UPGRADES,
+  type PremiumId,
   type Quest,
   MINIGAME_BUFFS,
   type MinigameId,
@@ -3255,7 +3258,8 @@ export class AppUI {
     const left = this.game.buffLeft(mg);
     if (b.kind === 'timed') return left > 0 ? fmtTime(left) : 'Empty';
     const n = Math.floor(left);
-    return `${n} / ${b.cap} charge${b.cap === 1 ? '' : 's'}`;
+    const cap = this.game.buffCap(mg);
+    return `${n} / ${cap} charge${cap === 1 ? '' : 's'}`;
   }
 
   /**
@@ -3277,8 +3281,9 @@ export class AppUI {
       text.textContent = !g.eventUnlocked(ev.id) && left <= 0 ? `🔒 Recruit ${hunterDef(ev.hunter!).name}` : this.buffAmount(mg);
       bar.classList.toggle('on', left > 0);
       const w = Math.max(40, Math.round(cv.parentElement!.clientWidth / 2));
-      const frac = Math.min(1, left / b.cap);
-      const key = `${w}:${Math.round(frac * w)}`;
+      const cap = g.buffCap(mg);
+      const frac = Math.min(1, left / cap);
+      const key = `${w}:${Math.round(frac * w)}:${cap}`;
       if (key === drawn) return;
       if (cv.width !== w || cv.height !== 12) {
         cv.width = w;
@@ -3290,9 +3295,9 @@ export class AppUI {
       if (b.kind === 'timed') segs.push([0, frac, TIMER_COLOR]);
       else {
         // One segment a charge, with a dark notch between.
-        for (let i = 0; i < Math.floor(left); i++) segs.push([i / b.cap, (i + 1) / b.cap, '#b07cff']);
+        for (let i = 0; i < Math.floor(left); i++) segs.push([i / cap, (i + 1) / cap, '#b07cff']);
         const px = 1 / Math.max(1, w - 12);
-        for (let i = 1; i < b.cap; i++) segs.push([i / b.cap - px, i / b.cap + px * 0.5, '#2e2a20']);
+        for (let i = 1; i < cap; i++) segs.push([i / cap - px, i / cap + px * 0.5, '#2e2a20']);
       }
       if (drawFramedSegments(cg, 0, 0, 1, w, 12, segs)) drawn = key;
     });
@@ -3308,10 +3313,10 @@ export class AppUI {
     const h = hunterDef(ev.hunter!);
     const fill =
       b.kind === 'timed'
-        ? `Each play adds ${span(b.per)} for a par score (${par} points), from ${span(b.per / 2)} to ${span(b.per * 1.5)} by score, up to ${span(b.cap)}. It only runs down while you're playing, not while you're away.`
+        ? `Each play adds ${span(b.per * g.premiumMult('buffTime'))} for a par score (${par} points), from ${span((b.per / 2) * g.premiumMult('buffTime'))} to ${span(b.per * 1.5 * g.premiumMult('buffTime'))} by score, up to ${span(g.buffCap(mg))}. It only runs down while you're playing, not while you're away.`
         : ev.blessing
-          ? `A score of ${ev.blessing.tiers[0]} or more adds ${b.per} charges, up to ${b.cap}. Each ${ev.blessing.kind === 'refine' ? 'Refine' : 'Enchant'} you roll spends one; your best tier while you hold charges is the one used.`
-          : `Each play adds ${b.per} charge (${Math.round(b.per * 1.5)} for a great score), up to ${b.cap}. Starting a Guardian Challenge spends one.`;
+          ? `A score of ${ev.blessing.tiers[0]} or more adds ${b.per + g.premiumLevel('charges')} charges, up to ${g.buffCap(mg)}. Each ${ev.blessing.kind === 'refine' ? 'Refine' : 'Enchant'} you roll spends one; your best tier while you hold charges is the one used.`
+          : `Each play adds ${b.per + g.premiumLevel('charges')} charge${b.per + g.premiumLevel('charges') > 1 ? 's' : ''} (${Math.round(b.per * 1.5) + g.premiumLevel('charges')} for a great score), up to ${g.buffCap(mg)}. Starting a Guardian Challenge spends one.`;
     const tier = ev.blessing && g.blessingCharges(ev.blessing.kind) > 0 ? g.state.blessings[ev.blessing.kind] : 0;
     this.showModal(
       `<h2>${ev.icon} ${b.name}</h2><p>${b.desc}</p><p class="buff-left">${b.kind === 'timed' ? 'Time left' : 'Charges'}: <b>${this.buffAmount(mg)}</b>${tier ? ` · ${tier} extra roll${tier > 1 ? 's' : ''} each` : ''}</p><p>From <b>${ev.name}</b> (${h.name} the ${h.title}). ${fill}</p>`,
@@ -3324,7 +3329,7 @@ export class AppUI {
     const g = this.game;
     const have = Math.floor(g.energy + 1e-9);
     const need = `<p><b>${ev.name}</b> needs <b>${g.energyCost(ev.id)}</b> energy, and you have <b>${have}</b>.</p>`;
-    const wait = `<p>Energy comes back 1 every 20 minutes: enough for this in <b>${fmtTime(g.energyWait(ev.id))}</b>.</p>`;
+    const wait = `<p>Energy comes back 1 every ${fmtTime(g.energyRegen)}: enough for this in <b>${fmtTime(g.energyWait(ev.id))}</b>.</p>`;
     if (g.adsLeft <= 0) {
       this.showModal(`<h2>⚡ Not enough energy</h2>${need}${wait}${g.state.noAds ? '' : `<p>You've watched today's ${ENERGY_ADS_PER_DAY} energy ads.</p>`}`, [{ label: 'OK' }]);
       return;
@@ -3830,6 +3835,34 @@ export class AppUI {
     for (const r of refreshers) r();
   }
 
+  /** Buying a permanent upgrade's next level: a confirmation, or a nudge to the gem packs if there aren't enough gems. */
+  private confirmPremium(id: PremiumId): void {
+    const g = this.game;
+    const d = PREMIUM_UPGRADES[id];
+    const cost = g.premiumCost(id);
+    if (cost === null) return;
+    const lv = g.premiumLevel(id);
+    if (g.state.gems < cost) {
+      this.showModal(`<h2>${gemIcon()} Not enough Exalted Gems</h2><p><b>${d.name}</b> level ${lv + 1} costs ${gemIcon()} <b>${gemsText(cost)}</b>; you have <b>${gemsText(g.state.gems)}</b>.</p><p>Earn more from daily and weekly quests in the Quest Log, or get some here.</p>`, [
+        { label: 'Get gems', action: () => this.openShop('gems') },
+        { label: 'Not now', secondary: true },
+      ]);
+      return;
+    }
+    this.showModal(`<h2>${d.icon} ${d.name}</h2><p>Level ${lv + 1} of ${d.costs.length}: <b>${d.text(lv + 1)}</b>${lv ? ` (now: ${d.text(lv)})` : ''}.</p><p>Costs ${gemIcon()} <b>${gemsText(cost)}</b> (you have ${gemsText(g.state.gems)}). It's permanent.</p>`, [
+      {
+        label: 'Buy',
+        action: () => {
+          if (!g.buyPremium(id)) return;
+          this.toast(`${d.icon} ${d.name} level ${lv + 1}`);
+          this.hooks.save();
+          this.refresh();
+        },
+      },
+      { label: 'Not now', secondary: true },
+    ]);
+  }
+
   /** The Shop: a market stall, then Remove Ads and permanent upgrades, or packs of Exalted Gems. */
   private openShop(page: 'shop' | 'gems' = 'shop'): void {
     if (this.detail) this.dropDetail();
@@ -3880,9 +3913,26 @@ export class AppUI {
         btn.disabled = g.state.noAds;
         btn.innerHTML = g.state.noAds ? 'Owned ✓' : REMOVE_ADS.price;
       });
-      const soon = el('div', 'card shop-item soon');
-      soon.innerHTML = `<div class="si-icon">${gemIcon()}</div><div class="si-info"><b>Permanent upgrades</b><small>Spend Exalted Gems on upgrades for every Hunter and area that last forever, through every Ascension. Coming soon.</small></div>`;
-      body.appendChild(soon);
+      body.appendChild(sectionTitle('Permanent upgrades'));
+      body.appendChild(el('p', 'hd-note', 'Bought with Exalted Gems, for every Hunter in every area, and kept forever, through every Ascension.'));
+      for (const id of PREMIUM_IDS) {
+        const d = PREMIUM_UPGRADES[id];
+        const btn = el('button', 'buy') as HTMLButtonElement;
+        const c = card(d.icon, d.name, '', btn);
+        const info = $('.si-info small', c);
+        const name = $('.si-info b', c);
+        btn.addEventListener('click', () => this.confirmPremium(id));
+        refreshers.push(() => {
+          const lv = g.premiumLevel(id);
+          const max = d.costs.length;
+          const cost = g.premiumCost(id);
+          name.innerHTML = `${d.name} <span class="si-pips">${'<i class="on"></i>'.repeat(lv)}${'<i></i>'.repeat(max - lv)}</span>`;
+          info.textContent = lv === 0 ? `Level 1: ${d.text(1)}` : cost === null ? `${d.text(lv)} (max)` : `Now: ${d.text(lv)}. Next: ${d.text(lv + 1)}`;
+          btn.disabled = cost === null;
+          btn.classList.toggle('short', cost !== null && g.state.gems < cost);
+          btn.innerHTML = cost === null ? 'Maxed' : `${gemIcon()} ${gemsText(cost)}`;
+        });
+      }
     } else {
       for (const p of GEM_PACKS) {
         const btn = el('button', 'buy', p.price) as HTMLButtonElement;

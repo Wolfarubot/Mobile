@@ -49,6 +49,8 @@ import {
   GEMS_WEEKLY,
   GEMS_CHECKIN,
   type Quest,
+  PREMIUM_UPGRADES,
+  type PremiumId,
   type QuestKind,
   BUFF_CRIT,
   BUFF_CRIT_DMG,
@@ -321,7 +323,7 @@ export class Game {
    * by training, skills and the % damage on their armor and accessory.
    */
   get damage(): number {
-    return this.weaponHitOf('main') * powerDamage(this.state.main.trains) * this.skillDamageMult('main') * (1 + this.gear('main').damage);
+    return this.weaponHitOf('main') * powerDamage(this.state.main.trains) * this.skillDamageMult('main') * (1 + this.gear('main').damage) * this.premiumMult('damage');
   }
 
   /** Base damage per hit of the weapon a Hunter holds (UNARMED_HIT without one). */
@@ -588,7 +590,7 @@ export class Game {
     if (shooter === 'main') return this.damage * (1 + this.gearBane('main', archetype));
     const def = hunterDef(shooter);
     const bane = def.bane && def.bane.archetype === archetype ? def.bane.mult + this.tree(shooter).bane : 1;
-    return this.weaponHitOf(shooter, mode) * powerDamage(this.state.hunters[shooter].trains) * this.skillDamageMult(shooter) * bane * (1 + this.gear(shooter, mode).damage) * (1 + this.gearBane(shooter, archetype));
+    return this.weaponHitOf(shooter, mode) * powerDamage(this.state.hunters[shooter].trains) * this.skillDamageMult(shooter) * bane * (1 + this.gear(shooter, mode).damage) * (1 + this.gearBane(shooter, archetype)) * this.premiumMult('damage');
   }
 
   /** Extra damage from a Hunter's gear against an archetype (the Fang Talisman vs Beasts, the Slime Vial vs Slimes). */
@@ -1330,7 +1332,7 @@ export class Game {
   /** Seconds until the next whole point of energy (0 when full). */
   get energyNextIn(): number {
     const e = this.state.energy;
-    return e >= this.energyMax ? 0 : (Math.floor(e + 1e-9) + 1 - e) * ENERGY_REGEN;
+    return e >= this.energyMax ? 0 : (Math.floor(e + 1e-9) + 1 - e) * this.energyRegen;
   }
 
   // ---- Minigame buffs ----
@@ -1356,15 +1358,51 @@ export class Game {
     const par = eventDef(id).rewards?.par ?? 1;
     if (score <= 0) return 0;
     const k = Math.max(0.5, Math.min(1.5, score / par));
-    if (b.kind === 'timed') return b.per * k;
+    if (b.kind === 'timed') return b.per * k * this.premiumMult('buffTime');
+    const extra = this.premiumLevel('charges');
     // Forge Strike and Rune Match: only a score that earns a blessing.
-    if (eventDef(id).blessing) return this.blessingFor(id, score) > 0 ? b.per : 0;
-    return Math.max(1, Math.round(b.per * k));
+    if (eventDef(id).blessing) return this.blessingFor(id, score) > 0 ? b.per + extra : 0;
+    return Math.max(1, Math.round(b.per * k)) + extra;
   }
 
   private fillBuff(mg: MinigameId, id: string, score: number): void {
     const add = this.buffGain(mg, id, score);
-    if (add > 0) this.state.buffs[mg] = Math.min(MINIGAME_BUFFS[mg].cap, this.buffLeft(mg) + add);
+    if (add > 0) this.state.buffs[mg] = Math.min(this.buffCap(mg), this.buffLeft(mg) + add);
+  }
+
+  /** The most a buff's tank holds (more with the Lasting Blessings and Overflowing Charges upgrades). */
+  buffCap(id: MinigameId): number {
+    const b = MINIGAME_BUFFS[id];
+    return b.kind === 'timed' ? b.cap * this.premiumMult('buffTime') : b.cap + 3 * this.premiumLevel('charges');
+  }
+
+  // ---- Permanent upgrades (Exalted Gems) ----
+
+  premiumLevel(id: PremiumId): number {
+    return this.state.premium[id] ?? 0;
+  }
+
+  /** 1 + what an upgrade's levels add. */
+  premiumMult(id: PremiumId): number {
+    return 1 + this.premiumLevel(id) * PREMIUM_UPGRADES[id].per;
+  }
+
+  /** Gems for an upgrade's next level, or null once it's maxed. */
+  premiumCost(id: PremiumId): number | null {
+    return PREMIUM_UPGRADES[id].costs[this.premiumLevel(id)] ?? null;
+  }
+
+  buyPremium(id: PremiumId): boolean {
+    const cost = this.premiumCost(id);
+    if (cost === null || this.state.gems < cost) return false;
+    this.state.gems -= cost;
+    this.state.premium[id] = this.premiumLevel(id) + 1;
+    return true;
+  }
+
+  /** Seconds for a point of energy (less with Second Wind). */
+  get energyRegen(): number {
+    return ENERGY_REGEN / this.premiumMult('energy');
   }
 
   /** Spends a charge of a charge buff; false if there was none. */
@@ -1515,7 +1553,7 @@ export class Game {
 
   /** Seconds until there's enough energy for an event (0 if there already is). */
   energyWait(id: string): number {
-    return Math.max(0, (this.energyCost(id) - this.state.energy) * ENERGY_REGEN);
+    return Math.max(0, (this.energyCost(id) - this.state.energy) * this.energyRegen);
   }
 
   /** Something (a Guardian or a timed event) is running right now. */
@@ -1651,7 +1689,7 @@ export class Game {
   /** Refills event energy (also used for time away). */
   private coolEvents(seconds: number): void {
     // Refills up to the max; an overcharged bar (from an ad) just waits to be spent.
-    if (this.state.energy < this.energyMax) this.state.energy = Math.min(this.energyMax, this.state.energy + seconds / ENERGY_REGEN);
+    if (this.state.energy < this.energyMax) this.state.energy = Math.min(this.energyMax, this.state.energy + seconds / this.energyRegen);
     this.goldRateAge += seconds;
   }
 
@@ -1689,9 +1727,9 @@ export class Game {
       archetype: def.archetype,
       hp: area.hp * def.hp * emp('hp') * (1 + evo.hp),
       speed: area.speed * def.speed * (1 + evo.speed) * swarm.speed,
-      gold: area.gold * def.gold * emp('gold') * (1 + evo.gold) * this.goldMult * this.areaPerk(def.area).gold * (this.buffOn('graveRobbing') ? 1 + BUFF_GOLD : 1),
+      gold: area.gold * def.gold * emp('gold') * (1 + evo.gold) * this.goldMult * this.areaPerk(def.area).gold * (this.buffOn('graveRobbing') ? 1 + BUFF_GOLD : 1) * this.premiumMult('gold'),
       spawnRate: b.unlocked ? Math.max(def.spawn * emp('spawn') * (1 + evo.spawn) * (1 + 0.2 * this.item('lure')) * (isGolem(def) ? 1 : idol.spawn) * swarm.spawn, swarm.spawn ? (ev?.minSpawn?.[id] ?? 0) : 0) : 0,
-      dropChance: BASE_DROP_CHANCE * (1 + 0.25 * this.item('pouch')) * emp('drops') * (1 + evo.drops) * (this.buffOn('huntingPractice') ? 1 + BUFF_KEEN_EYE : 1),
+      dropChance: BASE_DROP_CHANCE * (1 + 0.25 * this.item('pouch')) * emp('drops') * (1 + evo.drops) * (this.buffOn('huntingPractice') ? 1 + BUFF_KEEN_EYE : 1) * this.premiumMult('drops'),
       material: def.material,
     };
   }
@@ -2529,11 +2567,13 @@ export class Game {
       result.loot.push(...r.loot);
     };
     const withYou: Shooter[] = ['main', ...this.helpersHere];
-    add(s.area, withYou, this.accrue(s.area, this.ratesFor(s.area, withYou, OFFLINE_EFFICIENCY), seconds, true));
+    // The Dreamcatcher upgrade: more of everything earned while away.
+    const dream = this.premiumMult('offline');
+    add(s.area, withYou, this.accrue(s.area, this.ratesFor(s.area, withYou, OFFLINE_EFFICIENCY * dream), seconds, true));
     for (const area of AREAS) {
       const group = this.stationedIn(area.id);
       if (area.id === s.area || !group.length) continue;
-      add(area.id, group, this.accrue(area.id, this.ratesFor(area.id, group, STATION_EFFICIENCY * OFFLINE_EFFICIENCY), seconds, true));
+      add(area.id, group, this.accrue(area.id, this.ratesFor(area.id, group, STATION_EFFICIENCY * OFFLINE_EFFICIENCY * dream), seconds, true));
     }
     s.lastSeen = now;
     this.away = false;

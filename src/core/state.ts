@@ -8,6 +8,9 @@ import {
   MINIGAME_BUFFS,
   type MinigameId,
   type Quest,
+  PREMIUM_IDS,
+  PREMIUM_UPGRADES,
+  type PremiumId,
   MONSTER_EVO_TREES,
   GEAR,
   GEAR_COST_GROWTH,
@@ -255,6 +258,8 @@ export interface GameState {
   };
   /** Per event: seconds of cooldown left, times started and times completed (a Guardian beaten, a swarm survived). */
   events: Record<string, EventState>;
+  /** Permanent upgrades bought with Exalted Gems: each one's level. */
+  premium: Partial<Record<PremiumId, number>>;
   /** Exalted Gems: the premium currency. */
   gems: number;
   /** Ads have been removed (a purchase): no ad offers, a bigger energy bar, the check-in bonus without an ad. */
@@ -344,6 +349,7 @@ export function newGame(now = Date.now()): GameState {
     energy: ENERGY_MAX,
     buffs: {},
     gems: 0,
+    premium: {},
     noAds: false,
     quests: newQuests(),
     events: Object.fromEntries(EVENTS.map((e) => [e.id, { runs: 0, completed: 0 }])),
@@ -683,6 +689,15 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
     })(),
     gems: typeof data.gems === 'number' && Number.isFinite(data.gems) ? Math.max(0, Math.floor(data.gems)) : 0,
     noAds: data.noAds === true,
+    premium: (() => {
+      const p = (data.premium ?? {}) as Record<string, unknown>;
+      const out: Partial<Record<PremiumId, number>> = {};
+      for (const id of PREMIUM_IDS) {
+        const v = p[id];
+        if (typeof v === 'number' && v > 0) out[id] = Math.min(PREMIUM_UPGRADES[id].costs.length, Math.floor(v));
+      }
+      return out;
+    })(),
     quests: (() => {
       const q = { ...newQuests(), ...((data.quests ?? {}) as Partial<QuestState>) };
       const list = (v: unknown): Quest[] =>

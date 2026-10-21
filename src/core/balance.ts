@@ -124,6 +124,31 @@ export const GEMS_DAILY = 5;
 export const GEMS_WEEKLY = 20;
 export const GEMS_CHECKIN = 5;
 
+/**
+ * Permanent upgrades bought with Exalted Gems: they work for every Hunter in every area and are never lost (not even
+ * to Ascension). Each has levels, bought in order; `per` is what one level adds.
+ */
+export type PremiumId = 'offline' | 'gold' | 'drops' | 'damage' | 'buffTime' | 'charges' | 'energy';
+export interface PremiumDef {
+  name: string;
+  icon: string;
+  per: number;
+  /** Gems for each level in turn. */
+  costs: number[];
+  /** What it does at a level (0 = not bought). */
+  text: (level: number) => string;
+}
+export const PREMIUM_UPGRADES: Record<PremiumId, PremiumDef> = {
+  offline: { name: 'Dreamcatcher', icon: '💤', per: 0.25, costs: [100, 200, 350, 500], text: (l) => `+${pctOf(0.25 * l)} offline gains` },
+  gold: { name: 'Golden Touch', icon: '💰', per: 0.1, costs: [80, 150, 250, 400, 600], text: (l) => `+${pctOf(0.1 * l)} gold from kills` },
+  drops: { name: 'Scavenger\'s Pack', icon: '🎒', per: 0.1, costs: [80, 150, 250, 400, 600], text: (l) => `+${pctOf(0.1 * l)} material drop chance` },
+  damage: { name: 'Hunter\'s Edge', icon: '⚔️', per: 0.1, costs: [100, 200, 350, 550, 800], text: (l) => `+${pctOf(0.1 * l)} damage for every Hunter` },
+  buffTime: { name: 'Lasting Blessings', icon: '⏳', per: 0.25, costs: [60, 120, 200, 300], text: (l) => `Timed minigame buffs gain ${pctOf(0.25 * l)} more time a play and hold ${pctOf(0.25 * l)} more` },
+  charges: { name: 'Overflowing Charges', icon: '🔋', per: 1, costs: [150, 300], text: (l) => `Charge minigame buffs gain ${l} more charge${l === 1 ? '' : 's'} a play and hold ${3 * l} more` },
+  energy: { name: 'Second Wind', icon: '⚡', per: 0.1, costs: [150, 300, 500], text: (l) => `Energy comes back ${pctOf(0.1 * l)} faster` },
+};
+export const PREMIUM_IDS = Object.keys(PREMIUM_UPGRADES) as PremiumId[];
+
 /** What a quest counts: minigames played (for points), swarms survived, Guardians beaten, monsters slain, days of dailies done. */
 export type QuestKind = 'minigame' | 'swarm' | 'guardian' | 'kills' | 'dailies';
 
