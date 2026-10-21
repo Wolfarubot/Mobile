@@ -2145,19 +2145,30 @@ export const ARMOR_TYPES: Record<ArmorType, { name: string; icon: string; desc: 
   shield: { name: 'Shield', icon: '🛡️', desc: 'Blocks: the most shield charges, but a little less damage.', penalty: { damage: -0.08 } },
 };
 
-/** Armor stats at 1★ by kind and area tier (1 = Wandering Woods … 12 = Void Rift). */
-export function armorStats(type: ArmorType, tier: number): Partial<Record<GearStat, number>> {
+/**
+ * Armor stats at 1★ by kind and area tier (1 = Wandering Woods … 12 = Void Rift). Each kind has three mixes of
+ * about the same worth (`variant`), which take turns through the gear, so two pieces of the same kind differ:
+ *  Light:  0 attack speed, damage, shorter stuns · 1 all-out speed and stun · 2 crit, speed and damage
+ *  Heavy:  0 shorter stuns and damage · 1 much shorter stuns · 2 shorter stuns and crit
+ *  Robe:   0 damage and area · 1 a much bigger area · 2 damage, area and crit
+ *  Shield: 0 shorter stuns · 1 damage (offsetting its penalty) · 2 shorter stuns and attack speed
+ */
+export function armorStats(type: ArmorType, tier: number, variant: 0 | 1 | 2 = 0): Partial<Record<GearStat, number>> {
   const m = 1 + 0.25 * (tier - 1);
   const r = (v: number) => Math.round(v * m * 1000) / 1000;
   switch (type) {
     case 'light':
-      return { rate: r(0.02), damage: r(0.01), stun: r(0.02) };
-    case 'heavy':
-      return { guard: tier >= 6 ? 2 : 1, stun: r(0.04), damage: r(0.01) };
+      return [{ rate: r(0.02), damage: r(0.01), stun: r(0.02) }, { rate: r(0.03), stun: r(0.03) }, { crit: r(0.015), rate: r(0.015), damage: r(0.01) }][variant];
+    case 'heavy': {
+      const guard = tier >= 6 ? 2 : 1;
+      return [{ guard, stun: r(0.04), damage: r(0.01) }, { guard, stun: r(0.06) }, { guard, stun: r(0.03), crit: r(0.012) }][variant];
+    }
     case 'robe':
-      return { damage: r(0.03), radius: r(0.02) };
-    case 'shield':
-      return { guard: tier >= 6 ? 3 : 2, stun: r(0.02) };
+      return [{ damage: r(0.03), radius: r(0.02) }, { damage: r(0.02), radius: r(0.04) }, { damage: r(0.025), radius: r(0.015), crit: r(0.01) }][variant];
+    case 'shield': {
+      const guard = tier >= 6 ? 3 : 2;
+      return [{ guard, stun: r(0.02) }, { guard, damage: r(0.015) }, { guard, stun: r(0.01), rate: r(0.01) }][variant];
+    }
   }
 }
 
@@ -2359,6 +2370,8 @@ export interface GearDef {
   typeBonus?: { type: DamageType; bonus: number };
   /** Weapons only: what kind of weapon it is, which shapes how it attacks (see WEAPON_CLASSES). */
   weaponClass?: WeaponClass;
+  /** Weapons only: which of its class's three archetypes it is (WEAPON_ARCHETYPES; 0, the standard, if unset). */
+  archetype?: 0 | 1 | 2;
   /**
    * Tomes: what this one summons (a spirit by default). `dash` is the creatures' own ability: every
    * `cooldown` seconds they lunge `range` at a monster, and a lunge that lands deals `damage` × a bite. Its
@@ -2415,7 +2428,7 @@ export function weaponHit(def: GearDef, stars: number): number {
   const t = Math.max(1, Math.min(TIER_HIT.length, gearTier(def)));
   const lo = Math.floor(t);
   const tierHit = lo >= TIER_HIT.length ? TIER_HIT[TIER_HIT.length - 1] : TIER_HIT[lo - 1] * (TIER_HIT[lo] / TIER_HIT[lo - 1]) ** (t - lo);
-  const raw = tierHit * WEAPON_CLASSES[def.weaponClass].damage;
+  const raw = tierHit * WEAPON_CLASSES[def.weaponClass].damage * (weaponArchetype(def)?.damage ?? 1);
   const base = def.hit ?? (raw >= 10 ? Math.round(raw) : Math.round(raw * 10) / 10);
   return base * WEAPON_HIT_POWER[Math.max(0, Math.min(MAX_EFFECTIVE_STARS, stars))];
 }
@@ -3049,6 +3062,137 @@ export const WEAPON_CLASSES: Record<WeaponClass, WeaponClassDef> = {
   tome: { name: 'Tome', attack: 'summon', range: 1, rate: 0.12, damage: 0.7, summon: { duration: 8, bites: 1.5, speed: 150, name: 'spirit' }, farm: 1, describe: 'Summons a spirit that hunts monsters across the field for 8s, then fades; a new one comes after a cooldown.' },
 };
 
+/**
+ * A weapon archetype: one of three takes on a weapon class, so a new weapon is a new way to fight, not just
+ * bigger numbers. The first of each class is the class as it is; the other two trade one strength for another
+ * (multipliers on the class's numbers, `crit` added to crit chance, counts set outright). `farm` says how much
+ * more (or less) the change does against a crowd (a bigger slam hits more monsters), so damage-per-second
+ * estimates follow it. Each variant is tuned to land within about 12% of its standard's crowd DPS.
+ */
+export interface WeaponArchetype {
+  name: string;
+  /** What's different, for the item card ("Slower, much wider slams"). */
+  desc: string;
+  /** Item names that promise this archetype ("Titan Maul" is a Maul), which take it before the rotation. */
+  hint?: RegExp;
+  damage?: number;
+  rate?: number;
+  range?: number;
+  reach?: number;
+  arc?: number;
+  width?: number;
+  knock?: number;
+  crit?: number;
+  pierce?: number;
+  mag?: number;
+  reload?: number;
+  thrusts?: number;
+  volley?: number;
+  fan?: number;
+  bounces?: number;
+  followThrough?: number;
+  spellEvery?: number;
+  spellDamage?: number;
+  spellRadius?: number;
+  summonDuration?: number;
+  summonBites?: number;
+  summonSpeed?: number;
+  farm?: number;
+}
+
+const STANDARD = (name: string): WeaponArchetype => ({ name, desc: 'The standard form of its class.' });
+
+export const WEAPON_ARCHETYPES: Record<WeaponClass, [WeaponArchetype, WeaponArchetype, WeaponArchetype]> = {
+  dagger: [STANDARD('Dagger'),
+    { name: 'Stiletto', desc: '2 precise stabs instead of 3: harder hits and +15% crit chance.', thrusts: 2, damage: 1.25, crit: 0.15 },
+    { name: 'Throwing Knife', desc: 'Throws from further away, a little quicker, but 2 stabs or knives a go.', thrusts: 2, range: 1.35, rate: 1.3, damage: 1.1 }],
+  sword: [STANDARD('Sword'),
+    { name: 'Rapier', desc: 'Quick, narrow slashes: half again as fast, a tighter arc, +10% crit chance.', rate: 1.5, damage: 0.72, arc: 0.6, reach: 0.9, crit: 0.1, farm: 0.85 },
+    { name: 'Greatsword', desc: 'Slow, heavy, wide slashes that reach further and knock harder.', rate: 0.65, damage: 1.45, arc: 1.25, reach: 1.2, knock: 1.5, farm: 1.15 }],
+  glaive: [STANDARD('Glaive'),
+    { name: 'Scythe', desc: 'Sweeps almost all the way around, but slower.', arc: 1.45, reach: 1.05, rate: 0.8, damage: 1.05, farm: 1.2 },
+    { name: 'Halberd', desc: 'A narrower cleave that reaches much further and hits harder.', arc: 0.7, reach: 1.35, damage: 1.25, rate: 0.95, farm: 0.9 }],
+  spear: [STANDARD('Spear'),
+    { name: 'Pike', hint: /\b(pike|lance)\b/i, desc: 'A much longer, narrower thrust, slower but harder.', reach: 1.4, width: 0.7, rate: 0.75, damage: 1.35 },
+    { name: 'Trident', desc: 'A shorter thrust three times as wide, a little lighter.', reach: 0.8, width: 1.8, damage: 0.8, farm: 1.2 }],
+  hammer: [STANDARD('Hammer'),
+    { name: 'Maul', hint: /\bmaul\b/i, desc: 'Even slower slams over a much larger area.', rate: 0.65, reach: 1.6, damage: 1.2, knock: 1.3, farm: 1.35 },
+    { name: 'Mallet', hint: /\b(mallet|club)\b/i, desc: 'Quicker slams over a smaller area.', rate: 1.6, reach: 0.7, damage: 0.75, knock: 0.7, farm: 0.8 }],
+  shortbow: [STANDARD('Shortbow'),
+    { name: 'Hunting Bow', desc: 'Harder, longer shots, a little slower.', damage: 1.25, range: 1.15, rate: 0.85 },
+    { name: 'Quickbow', desc: 'Light shots, a third faster, at shorter range.', rate: 1.35, damage: 0.75, range: 0.9 }],
+  longbow: [STANDARD('Longbow'),
+    { name: 'Warbow', desc: 'Very heavy arrows that carry on twice as far through their target, but slower.', damage: 1.45, rate: 0.65, followThrough: 2, farm: 1.05 },
+    { name: 'Recurve Bow', desc: 'Quicker, lighter arrows at a little less range.', rate: 1.35, damage: 0.75, range: 0.85 }],
+  crossbow: [STANDARD('Crossbow'),
+    { name: 'Arbalest', desc: 'Huge bolts that pierce 2 more monsters, from further away, but slow.', damage: 1.5, rate: 0.6, pierce: 1, range: 1.15, farm: 1.1 },
+    { name: 'Hand Crossbow', desc: 'Half again as fast at closer range, but lighter bolts.', rate: 1.5, damage: 0.68, range: 0.8 }],
+  pistol: [STANDARD('Pistol'),
+    { name: 'Hand Cannon', desc: '4 very heavy shots, then a reload; +5% crit chance.', damage: 1.6, rate: 0.7, mag: 4, crit: 0.05 },
+    { name: 'Machine Pistol', desc: '12 rapid, lighter shots, then a reload, at shorter range.', rate: 1.6, damage: 0.55, mag: 12, range: 0.85 }],
+  rifle: [STANDARD('Rifle'),
+    { name: 'Carbine', desc: 'Shorter range and a little less damage, but quicker shots and 6 a magazine.', range: 0.8, damage: 0.8, rate: 1.15, mag: 6 },
+    { name: 'Marksman Rifle', desc: 'Much further range and much harder hits with +25% crit chance, but slower, with 2 shots a magazine.', range: 1.5, damage: 1.65, rate: 0.6, mag: 2, crit: 0.25 }],
+  repeater: [STANDARD('Repeater'),
+    { name: 'Volley Gun', desc: 'Volleys of 5 bolts in a wider fan, each lighter.', volley: 5, fan: 1.5, damage: 0.6, rate: 0.85 },
+    { name: 'Chain Repeater', desc: 'Volleys of 2 in a tight fan, much faster, with 10 a magazine.', volley: 2, fan: 0.5, rate: 1.6, mag: 10, damage: 0.95 }],
+  wand: [STANDARD('Wand'),
+    { name: 'Rod', desc: 'Heavier bolts that fly further, a little slower.', damage: 1.3, rate: 0.75, range: 1.15 },
+    { name: 'Sparkler', desc: 'A stream of light bolts, 40% faster, at shorter range.', rate: 1.4, damage: 0.7, range: 0.85 }],
+  scepter: [STANDARD('Scepter'),
+    { name: 'Chain Scepter', desc: 'Bolts bounce on to 4 more monsters, but each is lighter.', bounces: 4, damage: 0.75, rate: 0.9, farm: 1.5 },
+    { name: 'Orb Scepter', desc: 'Bolts don\'t bounce, but hit far harder and fly further.', bounces: 0, damage: 1.9, range: 1.1, rate: 0.85, farm: 0.6 }],
+  staff: [STANDARD('Staff'),
+    { name: 'Battle Staff', desc: 'Faster bolts, and its spell only every 8 bolts.', spellEvery: 8, rate: 1.3, damage: 0.8 },
+    { name: 'Archmage Staff', desc: 'Its spell every 3 bolts, a quarter wider and stronger, but slower bolts.', spellEvery: 3, spellDamage: 1.2, spellRadius: 1.25, rate: 0.75, farm: 1.2 }],
+  focus: [STANDARD('Focus'),
+    { name: 'Orb', desc: 'Bursts reach 40% further, but come slower.', reach: 1.4, rate: 0.7, damage: 1.1, farm: 1.3 },
+    { name: 'Pulse Focus', desc: 'Quick, small bursts close around the Hunter.', reach: 0.75, rate: 1.5, damage: 0.82, farm: 0.8 }],
+  tome: [STANDARD('Tome'),
+    { name: 'Grimoire', desc: 'Its creatures stay 60% longer and bite harder, but come less often.', summonDuration: 1.6, summonBites: 1.2, rate: 0.52 },
+    { name: 'Primer', desc: 'Creatures come half again as often and move faster, but fade sooner.', summonDuration: 0.65, summonSpeed: 1.3, rate: 1.5 }],
+};
+
+/** A weapon class as an archetype changes it. */
+export function withArchetype(cls: WeaponClassDef, a: WeaponArchetype | undefined): WeaponClassDef {
+  if (!a || a.desc === STANDARD('').desc) return cls;
+  const c: WeaponClassDef = { ...cls };
+  const mul = (v: number | undefined, m: number | undefined) => (v === undefined || m === undefined ? v : v * m);
+  c.rate = cls.rate * (a.rate ?? 1);
+  c.range = cls.range * (a.range ?? 1);
+  c.reach = mul(cls.reach, a.reach);
+  c.arc = mul(cls.arc, a.arc);
+  c.width = mul(cls.width, a.width);
+  c.knock = mul(cls.knock, a.knock);
+  c.fan = mul(cls.fan, a.fan);
+  c.followThrough = mul(cls.followThrough, a.followThrough);
+  c.reload = mul(cls.reload, a.reload);
+  if (a.pierce) c.pierce = (cls.pierce ?? 0) + a.pierce;
+  if (a.mag !== undefined) c.mag = a.mag;
+  if (a.thrusts !== undefined) c.thrusts = a.thrusts;
+  if (a.volley !== undefined) c.volley = a.volley;
+  if (a.bounces !== undefined) c.bounces = a.bounces;
+  if (cls.spell && (a.spellEvery || a.spellDamage || a.spellRadius)) {
+    c.spell = { every: a.spellEvery ?? cls.spell.every, damage: cls.spell.damage * (a.spellDamage ?? 1), radius: cls.spell.radius * (a.spellRadius ?? 1) };
+    if (a.spellEvery) c.mag = a.spellEvery + 1;
+  }
+  if (cls.summon && (a.summonDuration || a.summonBites || a.summonSpeed))
+    c.summon = { ...cls.summon, duration: cls.summon.duration * (a.summonDuration ?? 1), bites: cls.summon.bites * (a.summonBites ?? 1), speed: cls.summon.speed * (a.summonSpeed ?? 1) };
+  c.farm = cls.farm * (a.farm ?? 1);
+  return c;
+}
+
+/**
+ * How strong an archetype is against a crowd, relative to its standard: damage × rate × uptime × hits per attack ×
+ * crowd factor × crit factor (crit counts the class's base chance plus the archetype's). For tuning and tests.
+ */
+export function archetypeValue(cls: WeaponClass, i: 0 | 1 | 2): number {
+  const base = WEAPON_CLASSES[cls];
+  const a = WEAPON_ARCHETYPES[cls][i];
+  const score = (c: WeaponClassDef, dmg: number, crit: number) => dmg * c.rate * weaponUptime(c) * weaponHitsPerAttack(c) * c.farm * (1 + (BASE_CRIT_CHANCE + crit) * (CRIT_MULT - 1));
+  return score(withArchetype(base, a), base.damage * (a.damage ?? 1), a.crit ?? 0) / score(base, base.damage, 0);
+}
+
 // ---- The gear catalog (gearCatalog.ts): one line per item, filled out here ----
 
 /** Each area's usual rarity (Wandering Woods … Void Rift). */
@@ -3232,6 +3376,45 @@ export const GEAR: GearDef[] = [
   { id: 'thunderTotem', name: 'Thunder Totem', icon: '🗿', kind: 'accessory', rarity: 'relic', tier: 10, stats: {}, recipe: { thunder: 10, feather: 6 }, effect: { kind: 'strike', base: 230, damageType: 'lightning', targets: 3, cooldown: 3, range: 320 } },
   ...GEAR_CATALOG.map(catalogGear),
 ];
+
+/** A weapon's archetype (undefined for anything that isn't a weapon). */
+export function weaponArchetype(def: GearDef): WeaponArchetype | undefined {
+  return def.weaponClass ? WEAPON_ARCHETYPES[def.weaponClass][def.archetype ?? 0] : undefined;
+}
+
+/**
+ * Archetypes and armor stat mixes take turns through the gear, by class (or armor kind) from the earliest tier
+ * up: the first of each is the standard, then each variant in turn, so every area has a mix. Weapons with
+ * their own tweak (a dagger's 5 stabs, a focus's wave, a staff's bolt count) stay standard: that's their twist.
+ */
+(() => {
+  const byTier = (list: GearDef[]) => list.map((g, i) => ({ g, i })).sort((a, b) => gearTier(a.g) - gearTier(b.g) || a.i - b.i).map((x) => x.g);
+  for (const cls of Object.keys(WEAPON_CLASSES) as WeaponClass[]) {
+    const list = byTier(GEAR.filter((d) => d.weaponClass === cls && !d.tweak && d.archetype === undefined));
+    WEAPON_ARCHETYPES[cls].forEach((a, i) => {
+      for (const g of list) if (a.hint?.test(g.name)) g.archetype = i as 0 | 1 | 2;
+    });
+    // The rest go round in turn, each to whichever archetype has the fewest so far (so named ones don't pile up).
+    const count = [0, 1, 2].map((i) => list.filter((g) => g.archetype === i).length);
+    let prev = -1;
+    for (const g of list) {
+      if (g.archetype !== undefined) continue;
+      const i = [0, 1, 2].sort((x, y) => count[x] - count[y] || ((x - prev + 2) % 3) - ((y - prev + 2) % 3))[0];
+      g.archetype = i as 0 | 1 | 2;
+      count[i]++;
+      prev = i;
+    }
+  }
+  for (const type of Object.keys(ARMOR_TYPES) as ArmorType[]) {
+    let n = 0;
+    for (const g of byTier(GEAR.filter((d) => d.armorType === type))) {
+      const v = n++ % 3;
+      // Only armor still on its kind's standard stats takes a mix (hand-tuned stats stay as written).
+      const tier = [gearTier(g), Math.round(gearTier(g))].find((t) => JSON.stringify(g.stats) === JSON.stringify(armorStats(type, t)));
+      if (v && tier !== undefined) g.stats = armorStats(type, tier, v as 1 | 2);
+    }
+  }
+})();
 
 /**
  * Gear variants: what built-in effects (`fx`, or a unique) and how many modifier slots a piece of each rarity

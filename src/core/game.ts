@@ -1,5 +1,7 @@
 import { JOURNAL, type JournalEntry } from './journal';
 import {
+  weaponArchetype,
+  withArchetype,
   modSlotCount,
   weaponOnlyEnchant,
   type MeleeArt,
@@ -478,7 +480,9 @@ export class Game {
 
   /** Crit chance: a base chance, plus what a Hunter's gear and skills add. */
   critChanceOf(shooter: Shooter): number {
-    return BASE_CRIT_CHANCE + this.gear(shooter).crit + this.tree(shooter).crit;
+    const w = this.weaponItem(shooter);
+    const arch = w ? (weaponArchetype(gearDef(w.base))?.crit ?? 0) : 0;
+    return BASE_CRIT_CHANCE + this.gear(shooter).crit + this.tree(shooter).crit + arch;
   }
 
   private critFactor(shooter: Shooter): number {
@@ -586,7 +590,8 @@ export class Game {
     const item = i >= 0 ? this.equipped(who)[i] : null;
     const id = item ? gearDef(item.base).weaponClass : undefined;
     if (!id) return null;
-    let cls = WEAPON_CLASSES[id];
+    // Its archetype first (a Maul, a Carbine...), then its own tweaks.
+    let cls = withArchetype(WEAPON_CLASSES[id], weaponArchetype(gearDef(item!.base)));
     // The weapon's own tweaks to its class: more stabs (and slower), more or fewer bolts before a staff's spell,
     // a focus that sends out a wave (reaching twice as far).
     const tw = gearDef(item!.base).tweak;

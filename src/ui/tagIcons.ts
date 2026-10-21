@@ -53,7 +53,7 @@ export const EFFECT_TAG_ICONS = {
   unique: 'ab-paladin-dk/033',
 } as const;
 
-export const FEATURE_TAG_ICONS = { weapon: 'ab-hunter-warrior/053', tweak: 'ab-engineer-psionic/001', ability: 'ab-hunter-warrior/032', finder: 'ab-pyro-hydro/097', spell: 'ab-engineer-psionic/017', builtIn: 'ab-paladin-dk/040' } as const;
+export const FEATURE_TAG_ICONS = { weapon: 'ab-hunter-warrior/053', tweak: 'ab-engineer-psionic/001', archetype: 'ab-hunter-warrior/046', ability: 'ab-hunter-warrior/032', finder: 'ab-pyro-hydro/097', spell: 'ab-engineer-psionic/017', builtIn: 'ab-paladin-dk/040' } as const;
 
 /** A tag icon as an <img> (its box crops it to fill). */
 export function tagIconHtml(key: string): string {

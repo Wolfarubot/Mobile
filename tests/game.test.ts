@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { GEAR_CATALOG } from '../src/core/gearCatalog';
 import { describe, expect, it } from 'vitest';
+import { archetypeValue, armorStats, WEAPON_ARCHETYPES, weaponArchetype, withArchetype, type WeaponClass } from '../src/core/balance';
 import {
   areaDef,
   AREAS,
@@ -179,6 +180,9 @@ function rich(): Game {
   s.main.trains = 200;
   return new Game(s, noCrit);
 }
+
+/** A weapon's class as its archetype shapes it (a Carbine's magazine, a Maul's reach). */
+const shapedClass = (id: GearId) => withArchetype(WEAPON_CLASSES[gearDef(id).weaponClass!], weaponArchetype(gearDef(id)));
 
 describe('Areas', () => {
   it('starts in the forest with only its first enemy', () => {
@@ -1323,7 +1327,7 @@ describe('Equipment', () => {
     expect((g.refine(rifle.uid, 1) as { stat: string }).stat).toBe('mag');
     g.equip('main', 0, rifle.uid);
     const q = (g.modSlots(rifle.uid)[1] as { q: number }).q;
-    expect(g.weaponClassOf('main')!.mag).toBe(Math.round(WEAPON_CLASSES.rifle.mag! * (1 + modRoll(REFINES.mag.range, false, 'legendary', q))));
+    expect(g.weaponClassOf('main')!.mag).toBe(Math.round(shapedClass('frostRifle').mag! * (1 + modRoll(REFINES.mag.range, false, 'legendary', q))));
   });
 
   it('Enchant (Marceline): a random enchantment that fits (one of each per piece), rolled; infusions, Potency, Fireburst, armor specials', () => {
@@ -1833,8 +1837,55 @@ describe('Equipment', () => {
     expect(g.shotDamage('wilhelm', undefined, 'long')).toBeCloseTo(baseLong * weaponHit(gearDef('frostRifle'), 1));
     expect(g.shotDamage('wilhelm', undefined, 'short')).toBeCloseTo(baseShort * weaponHit(gearDef('forestBow'), 1));
     // A class's weight is part of its weapons' base damage: a rifle hits harder than a bow of the same rarity.
-    expect(weaponHit(gearDef('frostRifle'), 1) / TIER_HIT[7]).toBeCloseTo(WEAPON_CLASSES.rifle.damage, 1);
-    expect(g.shooterRange('wilhelm', 'long')).toBeCloseTo(MAIN_RANGE * WEAPON_CLASSES.rifle.range + 15);
+    expect(weaponHit(gearDef('frostRifle'), 1) / TIER_HIT[7]).toBeCloseTo(WEAPON_CLASSES.rifle.damage * (weaponArchetype(gearDef('frostRifle'))!.damage ?? 1), 1);
+    expect(g.shooterRange('wilhelm', 'long')).toBeCloseTo(MAIN_RANGE * shapedClass('frostRifle').range + 15);
+  });
+
+  it('weapon archetypes: three takes on each class, fair trades, in rotation, and they change how a weapon fights', () => {
+    for (const cls of Object.keys(WEAPON_ARCHETYPES) as WeaponClass[]) {
+      // Each variant lands within 12% of its standard's crowd DPS.
+      for (const i of [1, 2] as const) {
+        expect(archetypeValue(cls, i)).toBeGreaterThan(0.88);
+        expect(archetypeValue(cls, i)).toBeLessThan(1.12);
+      }
+      // Every class has all three in the game, about evenly (the hand-tweaked weapons are extra standards).
+      const list = GEAR.filter((g) => g.weaponClass === cls);
+      const counts = [0, 1, 2].map((i) => list.filter((g) => (g.archetype ?? 0) === i).length);
+      expect(Math.min(...counts)).toBeGreaterThan(0);
+      expect(Math.max(...counts) - Math.min(...counts)).toBeLessThanOrEqual(3);
+    }
+    // Names that promise an archetype get it.
+    for (const g of GEAR) {
+      if (/\bmaul\b/i.test(g.name) && g.weaponClass === 'hammer') expect(weaponArchetype(g)!.name).toBe('Maul');
+      if (/\b(pike|lance)\b/i.test(g.name) && g.weaponClass === 'spear') expect(weaponArchetype(g)!.name).toBe('Pike');
+    }
+    // A Marksman Rifle: 2 shots a magazine, +25% crit, much longer range and harder hits than its standard.
+    const g = stocked();
+    const marksman = GEAR.find((d) => d.weaponClass === 'rifle' && d.archetype === 2)!;
+    const crit0 = g.critChanceOf('main');
+    g.equip('main', 0, g.craftGear(marksman.id)!.uid);
+    expect(g.weaponClassOf('main')!.mag).toBe(2);
+    expect(g.critChanceOf('main')).toBeCloseTo(crit0 + 0.25);
+    expect(g.shooterRange('main')).toBeCloseTo(MAIN_RANGE * WEAPON_CLASSES.rifle.range * 1.5 + g.gear('main').range + g.tree('main').range);
+    expect(weaponHit(marksman, 1) / weaponHit({ ...marksman, archetype: 0 }, 1)).toBeCloseTo(1.65, 1);
+    // A Maul slams 1.6x as far as a standard hammer.
+    g.equip('main', 0, g.craftGear('boneMaul')!.uid);
+    expect(g.weaponClassOf('main')!.reach).toBeCloseTo(WEAPON_CLASSES.hammer.reach! * 1.6);
+  });
+
+  it('armor of one kind and area comes in three stat mixes of about the same worth', () => {
+    for (const type of ['light', 'heavy', 'robe', 'shield'] as const) {
+      const mixes = ([0, 1, 2] as const).map((v) => armorStats(type, 5, v));
+      expect(new Set(mixes.map((m) => JSON.stringify(m))).size).toBe(3);
+      // Worth: % stats count at face value, crit double (a crit hits for 3x), shield charges are the same in each.
+      const worth = (m: Partial<Record<string, number>>) => (m.damage ?? 0) + (m.rate ?? 0) + (m.stun ?? 0) + (m.radius ?? 0) + 2 * (m.crit ?? 0);
+      const w = mixes.map(worth);
+      expect(Math.max(...w) / Math.min(...w)).toBeLessThan(1.35);
+      expect(new Set(mixes.map((m) => m.guard)).size).toBe(1);
+      // Every mix shows up among the game's armor of that kind.
+      const used = new Set(GEAR.filter((d) => d.armorType === type).map((d) => ([0, 1, 2] as const).find((v) => [gearTier(d), Math.round(gearTier(d))].some((t) => JSON.stringify(d.stats) === JSON.stringify(armorStats(type, t, v))))));
+      expect(used.has(0) && used.has(1) && used.has(2)).toBe(true);
+    }
   });
 
   it('weapon classes: your Hunter attacks the way the weapon does; each class trades speed for weight', () => {
@@ -1851,12 +1902,12 @@ describe('Equipment', () => {
     g.equip('main', 0, long.uid);
     expect(g.shooterRate('main')).toBeLessThan(base.rate);
     expect(g.shooterRange('main')).toBeGreaterThan(base.range);
-    const short = g.craftGear('forestBow')!;
+    const short = g.craftGear('sapBow')!; // a standard shortbow (the Forest Bow is a Hunting Bow: slower, longer)
     g.equip('main', 0, short.uid);
     expect(g.shooterRate('main')).toBeGreaterThan(base.rate);
     expect(g.shooterRange('main')).toBeLessThan(base.range);
-    // A sword reaches only as far as the blade, but sweeps through several monsters.
-    const sword = g.craftGear('slimeSword')!;
+    // A sword reaches only as far as the blade, but sweeps through several monsters (the standard sword's arc).
+    const sword = g.craftGear('hornSword')!;
     g.equip('main', 0, sword.uid);
     expect(g.weaponClassOf('main')?.attack).toBe('sweep');
     expect(g.shooterRange('main')).toBeLessThan(120);
@@ -1958,7 +2009,7 @@ describe('Equipment', () => {
       run(f, 3);
       expect(f.enemies[0].hp).toBeLessThan(hp);
       f.enemies = [];
-      run(f, WEAPON_CLASSES.tome.summon!.duration);
+      run(f, shapedClass('wispTome').summon!.duration);
       expect(f.summons).toHaveLength(0);
     }
   });
@@ -2396,7 +2447,7 @@ describe('Equipment', () => {
       expect(f.enemies[0].hp).toBeLessThan(1e9);
     }
     {
-      const { f } = setup('voidRepeater', 'artSuppressing');
+      const { f } = setup('thunderRepeater', 'artSuppressing');
       // (With every roll 0 the volley goes out at the edge of its fan: a second monster stands there.)
       f.enemies = [wolf(1, 0, -120), wolf(2, Math.cos(-Math.PI / 2 - 0.25) * 120, Math.sin(-Math.PI / 2 - 0.25) * 120)];
       run(f, 45);
@@ -2999,7 +3050,7 @@ describe('Equipment', () => {
   it('a repeater sprays a fan; extra bolts of one volley on the same monster hit harder (×1.5, ×2)', () => {
     const g = stocked();
     g.state.hunters = Object.fromEntries(Object.entries(g.state.hunters).map(([k, h]) => [k, { ...h, station: null }])) as typeof g.state.hunters;
-    g.equip('main', 0, g.craftGear('voidRepeater')!.uid);
+    g.equip('main', 0, g.craftGear('thunderRepeater')!.uid);
     const f = new Field(g);
     f.setView(390, 420);
     // A huge monster right in front: the whole volley lands on it.
@@ -3097,7 +3148,7 @@ describe('Equipment', () => {
     const rifle = g.craftGear('frostRifle')!;
     g.equip('main', 0, rifle.uid);
     g.equip('main', 2, orb.uid);
-    expect(g.weaponClassOf('main')!.mag).toBe(Math.round(WEAPON_CLASSES.rifle.mag! * (1 + modRoll(REFINES.mag.range, false, 'veryRare', MOD_QUALITY_STEPS))));
+    expect(g.weaponClassOf('main')!.mag).toBe(Math.round(shapedClass('frostRifle').mag! * (1 + modRoll(REFINES.mag.range, false, 'veryRare', MOD_QUALITY_STEPS))));
     // ...and does nothing for a Hunter with no gun.
     g.equip('main', 0, g.craftGear('slimeSword')!.uid);
     expect(g.weaponClassOf('main')!.mag).toBeUndefined();
@@ -3325,7 +3376,7 @@ describe('Equipment', () => {
     expect(REFINES.radius.fits(gearDef('frostbiteBlade'))).toBe(false);
     // Size lengthens a melee weapon's reach.
     maul.mods = [{ kind: 'refine', stat: 'size', q: MOD_QUALITY_STEPS }];
-    expect(g.weaponClassOf('main')!.reach).toBeCloseTo(WEAPON_CLASSES.hammer.reach! * (1 + modRoll(REFINES.size.range, false, 'uncommon', MOD_QUALITY_STEPS)));
+    expect(g.weaponClassOf('main')!.reach).toBeCloseTo(shapedClass('boneMaul').reach! * (1 + modRoll(REFINES.size.range, false, 'uncommon', MOD_QUALITY_STEPS)));
   });
 
   it('weapon tweaks: more stabs (slower), staff bolts before the spell, focus waves; longbow follow-through grows with range; slam size', () => {

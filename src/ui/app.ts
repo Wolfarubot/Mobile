@@ -5,6 +5,8 @@ import {
   ASCEND_LEVEL,
   ASCEND_NODE,
   WEAPON_CLASSES,
+  WEAPON_ARCHETYPES,
+  weaponArchetype,
   MAX_LEVEL,
   MAIN_ASCEND_LEVEL,
   MAIN_MAX_LEVEL,
@@ -770,7 +772,9 @@ export class AppUI {
     overview.appendChild(headline);
     const stats = el('div', 'hd-stats');
     overview.appendChild(stats);
-    overview.appendChild(el('p', 'hd-style', `${g.weaponClassOf(who) ? `⚔️ Attacks with their weapon: ${g.weaponClassOf(who)!.describe}` : '⚔️ Unarmed: fires a basic bolt. Equip a weapon to fight with its attacks.'}${def?.special ? ` ✨ ${def.special.describe}` : ''}${def?.wall ? ` 🦴 ${def.wall.name}: ${def.wall.describe}` : ''}`));
+    const arch = g.weaponItem(who) ? gearDef(g.weaponItem(who)!.base) : null;
+    const archLine = arch?.archetype ? ` ${weaponArchetype(arch)!.name}: ${weaponArchetype(arch)!.desc}` : '';
+    overview.appendChild(el('p', 'hd-style', `${g.weaponClassOf(who) ? `⚔️ Attacks with their weapon: ${g.weaponClassOf(who)!.describe}${archLine}` : '⚔️ Unarmed: fires a basic bolt. Equip a weapon to fight with its attacks.'}${def?.special ? ` ✨ ${def.special.describe}` : ''}${def?.wall ? ` 🦴 ${def.wall.name}: ${def.wall.describe}` : ''}`));
     const effectNote = el('p', 'hd-style hd-effect');
     overview.appendChild(effectNote);
     this.refreshers.push(() => {
@@ -3583,7 +3587,7 @@ export class AppUI {
 
   private buildWeaponGuide(body: HTMLElement): void {
     const intro = el('div', 'card setting');
-    intro.innerHTML = `<p>Every hit starts from the weapon's own damage (the starting Short Sword and Short Bow: 1), which upgrading it raises; training, skills, Upgrades and armor or accessory bonuses multiply it. Heavier types have higher base damage for their rarity.</p><p>Your Hunter can wield any weapon and attacks the way it does. Guild Hunters keep their own signature attack; their weapon's type reshapes its speed, damage and range.</p><p>Every type trades speed, damage, reach and crowd hits, so none is simply best. Melee hits knock surviving monsters back.</p>`;
+    intro.innerHTML = `<p>Each type comes in three archetypes: its standard form and two takes that trade one strength for another (a Maul slams slower over a much larger area, a Mallet quicker over a smaller one), so a new weapon can change how a Hunter fights, not just how hard.</p><p>Every hit starts from the weapon's own damage (the starting Short Sword and Short Bow: 1), which upgrading it raises; training, skills, Upgrades and armor or accessory bonuses multiply it. Heavier types have higher base damage for their rarity.</p><p>Your Hunter can wield any weapon and attacks the way it does. Guild Hunters keep their own signature attack; their weapon's type reshapes its speed, damage and range.</p><p>Every type trades speed, damage, reach and crowd hits, so none is simply best. Melee hits knock surviving monsters back.</p>`;
     body.appendChild(intro);
     const groups: Array<[string, WeaponClass[]]> = [
       ['Ranged', ['shortbow', 'longbow', 'crossbow', 'pistol', 'rifle', 'repeater']],
@@ -3596,9 +3600,10 @@ export class AppUI {
         const c = WEAPON_CLASSES[id];
         const known = GEAR.filter((gd) => gd.weaponClass === id && this.gearKnown(gd));
         const card = el('div', 'card setting tut-card');
+        const [, a1, a2] = WEAPON_ARCHETYPES[id];
         card.innerHTML = `<div class="setting-name">${CLASS_ICONS[id]} ${c.name}</div><p>${c.describe}</p><div class="tut-traits">${weaponTraits(c)
           .map((t) => `<span class="tut-trait">${t}</span>`)
-          .join('')}</div>${known.length ? `<p class="tut-examples">${known.map((gd) => `${gearIcon(gd)} ${gd.name}`).join(' · ')}</p>` : ''}`;
+          .join('')}</div><p class="tut-archetypes">Also comes as a <b>${a1.name}</b> (${a1.desc.charAt(0).toLowerCase()}${a1.desc.slice(1, -1)}) or a <b>${a2.name}</b> (${a2.desc.charAt(0).toLowerCase()}${a2.desc.slice(1, -1)}).</p>${known.length ? `<p class="tut-examples">${known.map((gd) => `${gearIcon(gd)} ${gd.name}`).join(' · ')}</p>` : ''}`;
         body.appendChild(card);
       }
     }
@@ -4385,7 +4390,7 @@ function esc(text: string): string {
 
 
 /** A piece's kind for display: its weapon class ("Longbow") or its gear kind ("Armor"). */
-const gearKindName = (gd: GearDef): string => (gd.weaponClass ? WEAPON_CLASSES[gd.weaponClass].name : gd.armorType ? `${ARMOR_TYPES[gd.armorType].icon} ${ARMOR_TYPES[gd.armorType].name}` : GEAR_KINDS[gd.kind].name);
+const gearKindName = (gd: GearDef): string => (gd.weaponClass ? weaponArchetype(gd)!.name : gd.armorType ? `${ARMOR_TYPES[gd.armorType].icon} ${ARMOR_TYPES[gd.armorType].name}` : GEAR_KINDS[gd.kind].name);
 
 /** How a weapon attacks (for your Hunter), what an armor kind is good at, and any special effect (at `stars`). */
 /** How a weapon differs from the rest of its class (its stabs, a staff's bolts, a focus's wave). */
@@ -4460,6 +4465,11 @@ function featureTags(gd: GearDef, stars = 1): string {
     tags.push(featTag(DAMAGE_TAG_ICONS[gd.typeBonus.type], `+${pct}% ${d.name}`, `+${pct}% ${d.name} damage, whatever deals it.`, d.color));
   }
   if (gd.weaponClass) tags.push(featTag(FEATURE_TAG_ICONS.weapon, WEAPON_CLASSES[gd.weaponClass].name, WEAPON_CLASSES[gd.weaponClass].describe));
+  // Its archetype, when it isn't the standard one: what this take on the class trades.
+  if (gd.weaponClass && gd.archetype) {
+    const a = weaponArchetype(gd)!;
+    tags.push(featTag(FEATURE_TAG_ICONS.archetype, a.name, `<b>${a.name}</b>, a kind of ${WEAPON_CLASSES[gd.weaponClass].name.toLowerCase()}: ${a.desc}`));
+  }
   // Built-in effects: always on the piece, at fixed rolls (a unique one on Artifact and Exalted gear).
   for (const bi of gd.builtIn ?? []) {
     const en = ENCHANTS[bi.id];
