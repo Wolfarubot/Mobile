@@ -17,7 +17,7 @@ export const EMOJI_ICONS: Record<string, string> = {
   "⚒️": 'resources3/001',
   "⚔️": 'status5/009',
   "⚗️": 'ab-alchemist-shaman/010',
-  "⚙️": 'ab-engineer-psionic/004',
+  "⚙️": 'custom/002',
   "⚜️": 'ab-paladin-dk/041',
   "⚡": 'status5/091',
   "⚰️": 'ab-paladin-dk/083',
