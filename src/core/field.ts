@@ -427,7 +427,8 @@ export type FieldEvent =
   | { type: 'thorns'; x: number; y: number; r: number }
   | { type: 'boneWall'; r: number }
   | { type: 'escape'; x: number; y: number }
-  | { type: 'explode'; x: number; y: number; r: number; color: string }
+  /** `magic`: a spell's blast, which sounds like its element rather than a plain explosion. */
+  | { type: 'explode'; x: number; y: number; r: number; color: string; magic?: DamageType }
   | { type: 'nova'; x: number; y: number; r: number; color?: string }
   | { type: 'beam'; x1: number; y1: number; x2: number; y2: number; color: string; width: number; zigzag?: boolean; thrust?: boolean }
   | { type: 'sweep'; x: number; y: number; a: number; arc: number; r: number; color: string; heavy?: boolean; blade?: boolean }
@@ -2857,7 +2858,7 @@ export class Field {
       // A spell's projectile: a fireball bursts, the rest strike what they hit.
       if (b.kind === 'fireball') {
         const r = b.radius ?? 50;
-        this.events.push({ type: 'explode', x: b.x, y: b.y, r, color: DAMAGE_TYPES[b.cast.dtype].color });
+        this.events.push({ type: 'explode', x: b.x, y: b.y, r, color: DAMAGE_TYPES[b.cast.dtype].color, magic: b.cast.dtype });
         for (const o of [...this.enemies]) if (o.hp > 0 && Math.hypot(o.x - b.x, o.y - b.y) <= r + o.r) this.spellHit(b.cast, o, b.k ?? 1, b.x, b.y);
         b.life = 0;
       } else this.spellHit(b.cast, e, b.k ?? 1, b.x - b.vx, b.y - b.vy);

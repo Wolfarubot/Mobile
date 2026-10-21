@@ -1,5 +1,6 @@
 import { buzz } from '../ui/haptics';
 import { sfx } from '../ui/sound';
+import { MAGIC_SFX, SFX } from '../ui/sfxConfig';
 import { areaDef, DAMAGE_TYPES, FIELD_ZOOM, FLYING, gearDef, WEAPON_CLASSES, STATUS, enemyDef, eventDef, fieldZoom, GUARDIAN_TIME, hunterDef, materialDef, SIZE_SCALE, type AreaId, type DamageType, type EnemyId, type EnemyShape, type SummonType } from '../core/balance';
 import { DICE_FLIGHT, DICE_REST, PLAYER_RADIUS, SHOT_RADIUS, SUMMON_RADIUS, TOME_LIFE, TOME_OPEN, type EnemyShot, type Summon, type SpellZone, type FieldEvent, type Bullet, type BulletKind, type Enemy, type Field, type Helper } from '../core/field';
 import { fmt } from '../core/format';
@@ -181,6 +182,8 @@ export class BattleView {
         }
         case 'blast':
           sfx('tap');
+          // An elemental tap ability also sounds like its element.
+          if (e.color && e.color !== '#f4f4f4') sfx(MAGIC_SFX[elementOf(e.color)]);
           // An elemental tap ability gets its spell: a fire explosion, a lightning strike or a falling ice shard.
           if (this.fancy && e.color === DAMAGE_TYPES.fire.color) this.playEffect('explosion', e.x, e.y, this.game.tapRadius * 2);
           else if (this.fancy && e.color === DAMAGE_TYPES.lightning.color) this.playEffect('lightning', e.x, e.y + 6, this.game.tapRadius * 2.4, 'bottom', 22);
@@ -190,7 +193,9 @@ export class BattleView {
           break;
         case 'explode': {
           const radiant = e.color === DAMAGE_TYPES.radiant.color;
-          sfx('explosion');
+          // A spell's blast sounds like its element (if that has a sound); other blasts, a plain explosion.
+          if (e.magic && SFX[MAGIC_SFX[e.magic]].clip) sfx(MAGIC_SFX[e.magic]);
+          else sfx('explosion');
           if (radiant && !this.fxOn('radiant')) break;
           if (this.game.state.settings.aoeStyle === 'basic') {
             this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: radiant ? '255,227,110' : '255,138,61', max: 0.3, fill: true });
@@ -211,6 +216,7 @@ export class BattleView {
             break;
           }
           // Lightning called down from the sky (Thunder Totem, Thunder Call) strikes as a bolt.
+          if (e.zigzag && e.y2 - e.y1 > 150) sfx('magicLightning');
           if (this.fancy && e.zigzag && e.y2 - e.y1 > 150) {
             this.playEffect('lightning', e.x2, e.y2 + 4, 70, 'bottom', 22);
             break;
@@ -241,9 +247,14 @@ export class BattleView {
           this.sweeps.push({ ...e, t: 0 });
           if (e.heavy) this.shake = Math.max(this.shake, 0.12); // a hammer's smash
           break;
-        case 'attack':
+        case 'attack': {
           this.swings.set(e.who, { t: 0, a: e.a });
+          // A bow, a gun or a bare-handed bolt is a shot; a blade, spear or hammer a swing (a nova or a summon, neither).
+          const how = this.game.weaponClassOf(e.who)?.attack ?? 'shot';
+          if (how === 'shot') sfx('rangedShot');
+          else if (how !== 'nova' && how !== 'summon') sfx('meleeSwing');
           break;
+        }
         case 'reload':
           break; // drawn each frame as "RELOADING!" (drawReloads)
         case 'dodge':
@@ -294,6 +305,7 @@ export class BattleView {
           }
           break;
         case 'spell':
+          sfx(MAGIC_SFX[elementOf(e.color)]);
           this.spellEvent(e);
           break;
         case 'escape': {
@@ -2973,6 +2985,23 @@ function frostTint(img: HTMLImageElement | HTMLCanvasElement): HTMLCanvasElement
 }
 
 /** "#rrggbb" as "r,g,b" for rgba(). */
+/** The element whose colour is nearest `color` (magic on the battlefield carries its element's colour). */
+const elementCache = new Map<string, DamageType>();
+function elementOf(color: string): DamageType {
+  const known = elementCache.get(color);
+  if (known) return known;
+  const [r, g, b] = hexRgb(color).split(',').map(Number);
+  let best: DamageType = 'physical';
+  let bestD = Infinity;
+  for (const [t, d] of Object.entries(DAMAGE_TYPES) as Array<[DamageType, { color: string }]>) {
+    const [r2, g2, b2] = hexRgb(d.color).split(',').map(Number);
+    const dist = (r - r2) ** 2 + (g - g2) ** 2 + (b - b2) ** 2;
+    if (dist < bestD) [best, bestD] = [t, dist];
+  }
+  elementCache.set(color, best);
+  return best;
+}
+
 function hexRgb(hex: string): string {
   return [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(',');
 }
