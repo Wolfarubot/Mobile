@@ -689,8 +689,10 @@ button {
   opacity: 0.7;
   margin: -2px 0 4px;
 }
-.modal-box .offline-details-btn {
+.modal-box .offline-details-btn,
+.modal-box .offline-double-btn {
   display: block;
+  flex: 1;
   width: 100%;
   margin-top: 10px;
   padding: 10px 14px;
@@ -6490,4 +6492,16 @@ body.ui-parchment .craft-tile.shop-tile {
 .si-icon .si-gem img.ei {
   width: 16px;
   height: 16px;
+}
+
+.offline-actions {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.offline-doubled {
+  text-align: center;
+  font-weight: 800;
+  color: var(--gold);
 }

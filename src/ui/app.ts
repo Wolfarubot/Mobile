@@ -3915,7 +3915,7 @@ export class AppUI {
           this.toast('🚫 Ads removed. Thank you!');
         }),
       );
-      card(sprite('status2/013'), REMOVE_ADS.name, `No more ads. Your energy bar grows to ${ENERGY_MAX_NO_ADS} and refills all the way on its own, and the daily check-in bonus is yours without an ad.`, btn);
+      card(sprite('status2/013'), REMOVE_ADS.name, `No more ads. Your energy bar grows to ${ENERGY_MAX_NO_ADS} and refills all the way on its own, your offline gold and materials are always doubled, and the daily check-in bonus is yours without an ad.`, btn);
       refreshers.push(() => {
         btn.disabled = g.state.noAds;
         btn.innerHTML = g.state.noAds ? 'Owned ✓' : REMOVE_ADS.price;
@@ -4641,10 +4641,19 @@ export class AppUI {
        ${matsHtml}
        ${r.loot.length ? `<p class="offline-loot">🎁 ${r.loot.length} piece${r.loot.length === 1 ? '' : 's'} of loot${r.loot.some((l) => l.salvaged) ? ` (${r.loot.filter((l) => l.salvaged).length} auto-salvaged)` : ''}</p>` : ''}
        ${r.knockouts > 0 ? '<p class="ko-tip">💫 Some Hunters were knocked out while you were away. See Details.</p>' : ''}
-       <button class="buy offline-details-btn">Details</button>`,
+       ${r.doubled ? `<p class="offline-doubled">✨ ${this.game.state.noAds ? 'Ads removed: your gold and materials are doubled' : 'Doubled!'}</p>` : ''}
+       <div class="offline-actions"><button class="buy offline-details-btn">Details</button>${!r.doubled && r.gold > 0 ? '<button class="buy offline-double-btn">📺 Watch ad: ×2</button>' : ''}</div>`,
       [{ label: 'Collect' }],
     );
     $('.offline-details-btn', this.modal).addEventListener('click', () => this.showOfflineDetails(r));
+    this.modal.querySelector('.offline-double-btn')?.addEventListener('click', () => {
+      void showRewardedAd().then((ok) => {
+        if (!ok || !this.game.doubleOffline(r)) return;
+        this.hooks.save();
+        this.showOffline(r);
+        this.refresh();
+      });
+    });
   }
 
   /** The full away report, on its own scrolling page: every material gained, then each area's breakdown. */

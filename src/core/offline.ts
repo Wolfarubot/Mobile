@@ -33,4 +33,6 @@ export interface OfflineResult {
   knockouts: number;
   /** Every piece of gear looted while away. */
   loot: Array<{ gear: GearId; salvaged: boolean }>;
+  /** Gold and materials already doubled: by an ad, or automatically once ads are removed. */
+  doubled?: boolean;
 }

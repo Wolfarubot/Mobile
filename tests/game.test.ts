@@ -3901,6 +3901,30 @@ describe('Events', () => {
     expect(away(['offline1', 'offline2', 'offline3', 'offline4'])).toBeCloseTo(away([]) * 3.5, -1);
   });
 
+  it('offline gains: an ad doubles the gold and materials once; with ads removed they come doubled', () => {
+    const away = (noAds: boolean) => {
+      const g = new Game(newGame(0), noCrit);
+      g.state.noAds = noAds;
+      g.state.lastSeen = 0;
+      const r = g.applyOffline(2 * 3600 * 1000);
+      return { g, r };
+    };
+    const { g, r } = away(false);
+    expect(r.doubled).toBeFalsy();
+    const gold = g.state.gold;
+    const once = r.gold;
+    const mats = { ...r.materials };
+    expect(once).toBeGreaterThan(0);
+    expect(g.doubleOffline(r)).toBe(true);
+    expect(g.state.gold).toBeCloseTo(gold + once);
+    expect(r.gold).toBeCloseTo(once * 2);
+    for (const [m, n] of Object.entries(mats)) expect(r.materials[m as keyof typeof mats]).toBe(n! * 2);
+    expect(g.doubleOffline(r)).toBe(false); // once
+    const auto = away(true).r;
+    expect(auto.doubled).toBe(true);
+    expect(auto.gold).toBeCloseTo(once * 2, -1);
+  });
+
   it('three energy ads a day; Remove Ads ends them, and the bar holds and refills to 20', () => {
     const g = new Game(newGame(0), noCrit);
     let now = new Date(2026, 9, 21, 10).getTime();

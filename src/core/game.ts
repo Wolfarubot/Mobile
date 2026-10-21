@@ -2584,6 +2584,26 @@ export class Game {
 
   // ---- Offline ----
 
+  /**
+   * Doubles a time-away's gold and materials (after watching an ad), once. The report's numbers double with them.
+   */
+  doubleOffline(r: OfflineResult): boolean {
+    if (r.doubled || (r.gold <= 0 && !Object.keys(r.materials).length)) return false;
+    r.doubled = true;
+    this.state.gold += r.gold;
+    this.state.stats.totalGold += r.gold;
+    r.gold *= 2;
+    for (const [m, n] of Object.entries(r.materials) as [MaterialId, number][]) {
+      this.gainMaterial(m, n);
+      r.materials[m] = n * 2;
+    }
+    for (const a of r.areas) {
+      a.gold *= 2;
+      for (const m of Object.keys(a.materials) as MaterialId[]) a.materials[m]! *= 2;
+    }
+    return true;
+  }
+
   /** Applies progress for time spent away: you (plus anyone stationed with you) and every stationed Hunter. */
   applyOffline(now = Date.now()): OfflineResult {
     const s = this.state;
@@ -2601,7 +2621,7 @@ export class Game {
       result.loot.push(...r.loot);
     };
     const withYou: Shooter[] = ['main', ...this.helpersHere];
-    // The Dreamcatcher upgrade: more of everything earned while away.
+    // The Dreamcatcher upgrades: more of everything earned while away.
     const dream = this.premiumMult('offline');
     add(s.area, withYou, this.accrue(s.area, this.ratesFor(s.area, withYou, OFFLINE_EFFICIENCY * dream), seconds, true));
     for (const area of AREAS) {
@@ -2611,6 +2631,8 @@ export class Game {
     }
     s.lastSeen = now;
     this.away = false;
+    // With ads removed, the gold and materials come doubled (what watching the ad would do).
+    if (s.noAds) this.doubleOffline(result);
     return result;
   }
 }
