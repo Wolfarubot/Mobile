@@ -81,6 +81,8 @@ import {
   ENCHANTS,
   ENERGY_AD,
   ENERGY_MAX,
+  MINIGAME_BUFFS,
+  type MinigameId,
   isUniqueEnchant,
   enchantTierHit,
   modValue,
@@ -1518,8 +1520,8 @@ export class AppUI {
               .join('')}</div>`
           : action
             ? `<p class="refine-note">${slot === null ? 'Pick a slot.' : `🎲 Roll draws ${g.modChoices} random ${action === 'refine' ? 'refinements' : 'enchantments'} (stronger on rarer gear); pick one for the slot. A roll at the top of its range is perfect.`}</p>${
-                g.state.blessings[action] > 0
-                  ? `<p class="refine-note mg-bless">✨ Blessed by ${action === 'refine' ? "Kargesh's Forge Strike" : "Marceline's Rune Match"}: this roll tries ${g.state.blessings[action]} extra time${g.state.blessings[action] > 1 ? 's' : ''} for each choice (${Math.round(g.perfectChance(g.state.blessings[action]) * 100)}% perfect instead of ${Math.round(g.perfectChance(0) * 100)}%).</p>`
+                g.blessingCharges(action) > 0 && g.state.blessings[action] > 0
+                  ? `<p class="refine-note mg-bless">✨ Blessed by ${action === 'refine' ? "Kargesh's Forge Strike" : "Marceline's Rune Match"} (${g.blessingCharges(action)} charge${g.blessingCharges(action) > 1 ? 's' : ''} left): this roll tries ${g.state.blessings[action]} extra time${g.state.blessings[action] > 1 ? 's' : ''} for each choice (${Math.round(g.perfectChance(g.state.blessings[action]) * 100)}% perfect instead of ${Math.round(g.perfectChance(0) * 100)}%).</p>`
                   : ''
               }`
             : '<p class="refine-note">Choose Refine or Enchant: the empty slots light up. Rolling draws random choices to pick from.</p>';
@@ -3190,6 +3192,8 @@ export class AppUI {
       const grid = el('div', 'hunter-grid event-grid');
       for (const ev of here) grid.appendChild(this.eventTile(ev));
       this.panel.appendChild(grid);
+      const mini = here.find((e) => e.minigame);
+      if (mini) this.panel.appendChild(this.buffBar(mini));
     }
     if (!shown.length) this.panel.appendChild(el('p', 'hd-note', 'No events here yet.'));
     if (this.selectedEvent) {
@@ -3232,6 +3236,76 @@ export class AppUI {
       if (drawFramedSegments(cg, 0, 0, 1, w, 12, segs, over ? '#e8a800' : undefined)) drawn = key;
     });
     return bar;
+  }
+
+  /** A buff's tank in words: time left, or charges. */
+  private buffAmount(mg: MinigameId): string {
+    const b = MINIGAME_BUFFS[mg];
+    const left = this.game.buffLeft(mg);
+    if (b.kind === 'timed') return left > 0 ? fmtTime(left) : 'Empty';
+    const n = Math.floor(left);
+    return `${n} / ${b.cap} charge${b.cap === 1 ? '' : 's'}`;
+  }
+
+  /**
+   * An area's minigame buff under its event tiles: its name, then the battlefield's framed bar showing the time left
+   * (or the charges, one segment each). Tap it for the full story.
+   */
+  private buffBar(ev: EventDef): HTMLElement {
+    const g = this.game;
+    const mg = ev.minigame!;
+    const b = MINIGAME_BUFFS[mg];
+    const bar = el('button', 'buff-bar') as HTMLButtonElement;
+    bar.innerHTML = `<div class="bb-head"><b>${ev.icon} ${b.name}</b><span class="bb-hint">Tap for details</span></div><div class="bb-frame"><canvas></canvas><span class="bb-text"></span></div>`;
+    bar.addEventListener('click', () => this.showBuff(ev));
+    const cv = $<HTMLCanvasElement>('canvas', bar);
+    const text = $('.bb-text', bar);
+    let drawn = '';
+    this.refreshers.push(() => {
+      const left = g.buffLeft(mg);
+      text.textContent = !g.eventUnlocked(ev.id) && left <= 0 ? `🔒 Recruit ${hunterDef(ev.hunter!).name}` : this.buffAmount(mg);
+      bar.classList.toggle('on', left > 0);
+      const w = Math.max(40, Math.round(cv.parentElement!.clientWidth / 2));
+      const frac = Math.min(1, left / b.cap);
+      const key = `${w}:${Math.round(frac * w)}`;
+      if (key === drawn) return;
+      if (cv.width !== w || cv.height !== 12) {
+        cv.width = w;
+        cv.height = 12;
+      }
+      const cg = cv.getContext('2d')!;
+      cg.clearRect(0, 0, w, 12);
+      const segs: Array<[number, number, string]> = [];
+      if (b.kind === 'timed') segs.push([0, frac, TIMER_COLOR]);
+      else {
+        // One segment a charge, with a dark notch between.
+        for (let i = 0; i < Math.floor(left); i++) segs.push([i / b.cap, (i + 1) / b.cap, '#b07cff']);
+        const px = 1 / Math.max(1, w - 12);
+        for (let i = 1; i < b.cap; i++) segs.push([i / b.cap - px, i / b.cap + px * 0.5, '#2e2a20']);
+      }
+      if (drawFramedSegments(cg, 0, 0, 1, w, 12, segs)) drawn = key;
+    });
+    return bar;
+  }
+
+  /** A minigame buff's popup: what it does, what's left, and how to fill it. */
+  private showBuff(ev: EventDef): void {
+    const g = this.game;
+    const mg = ev.minigame!;
+    const b = MINIGAME_BUFFS[mg];
+    const par = ev.rewards!.par;
+    const h = hunterDef(ev.hunter!);
+    const fill =
+      b.kind === 'timed'
+        ? `Each play adds ${span(b.per)} for a par score (${par} points), from ${span(b.per / 2)} to ${span(b.per * 1.5)} by score, up to ${span(b.cap)}. It only runs down while you're playing, not while you're away.`
+        : ev.blessing
+          ? `A score of ${ev.blessing.tiers[0]} or more adds ${b.per} charges, up to ${b.cap}. Each ${ev.blessing.kind === 'refine' ? 'Refine' : 'Enchant'} you roll spends one; your best tier while you hold charges is the one used.`
+          : `Each play adds ${b.per} charge (${Math.round(b.per * 1.5)} for a great score), up to ${b.cap}. Starting a Guardian Challenge spends one.`;
+    const tier = ev.blessing && g.blessingCharges(ev.blessing.kind) > 0 ? g.state.blessings[ev.blessing.kind] : 0;
+    this.showModal(
+      `<h2>${ev.icon} ${b.name}</h2><p>${b.desc}</p><p class="buff-left">${b.kind === 'timed' ? 'Time left' : 'Charges'}: <b>${this.buffAmount(mg)}</b>${tier ? ` · ${tier} extra roll${tier > 1 ? 's' : ''} each` : ''}</p><p>From <b>${ev.name}</b> (${h.name} the ${h.title}). ${fill}</p>`,
+      [{ label: 'Close' }],
+    );
   }
 
   /** Not enough energy for an event: offer an ad for ENERGY_AD more (past the max if need be). */
@@ -3381,11 +3455,16 @@ export class AppUI {
       best,
       create: mg.create,
       onEnd: (score) => {
+        const before = g.buffLeft(ev.minigame!);
         const r = g.finishMinigame(ev.id, score);
+        const buff = MINIGAME_BUFFS[ev.minigame!];
+        const gained = g.buffLeft(ev.minigame!) - before;
+        const buffLine = gained > 0 ? `<p class="mg-bless">${ev.icon} ${buff.name} +${buff.kind === 'timed' ? fmtTime(gained) : `${Math.round(gained)} charge${Math.round(gained) > 1 ? 's' : ''}`} (now ${this.buffAmount(ev.minigame!)})</p>` : '';
         const record = score > best && best > 0 ? '<p class="mg-best">New best!</p>' : '';
         const tier = g.blessingFor(ev.id, score);
-        const blessed = bless && tier > 0 ? `<p class="mg-bless">✨ Blessed: your next ${bless.kind === 'refine' ? 'Refine' : 'Enchant'} rolls ${tier} extra time${tier > 1 ? 's' : ''} (${Math.round(g.perfectChance(tier) * 100)}% perfect a roll)</p>` : '';
-        return `${record}<p>${score > 0 ? rewardText(r) : 'No rewards this time.'}</p>${blessed}`;
+        const held = bless ? g.state.blessings[bless.kind] : 0;
+        const blessed = bless && tier > 0 ? `<p class="mg-bless">✨ Blessed: your ${bless.kind === 'refine' ? 'Refines' : 'Enchants'} roll ${held} extra time${held > 1 ? 's' : ''} (${Math.round(g.perfectChance(held) * 100)}% perfect a roll)</p>` : '';
+        return `${record}<p>${score > 0 ? rewardText(r) : 'No rewards this time.'}</p>${buffLine}${blessed}`;
       },
       onClose: () => this.refresh(),
     });
@@ -4664,7 +4743,14 @@ if (typeof document !== 'undefined')
 function blessingIntro(g: Game, ev: EventDef): string {
   const b = ev.blessing!;
   const what = b.kind === 'refine' ? 'Refine' : 'Enchant';
-  return `✨ Score ${b.tiers.join(' / ')} to bless your next ${what} with 1 / 2 / 3 extra rolls: ${b.tiers.map((_, i) => `${Math.round(g.perfectChance(i + 1) * 100)}%`).join(' / ')} perfect a roll instead of ${Math.round(g.perfectChance(0) * 100)}%.`;
+  return `✨ Score ${b.tiers.join(' / ')} for ${MINIGAME_BUFFS[ev.minigame!].per} charges of blessing on your ${what}s, with 1 / 2 / 3 extra rolls: ${b.tiers.map((_, i) => `${Math.round(g.perfectChance(i + 1) * 100)}%`).join(' / ')} perfect a roll instead of ${Math.round(g.perfectChance(0) * 100)}%.`;
+}
+
+/** A length of time in round words: "45 min", "2 h", "1 h 30 min". */
+function span(seconds: number): string {
+  const m = Math.round(seconds / 60);
+  const h = Math.floor(m / 60);
+  return h ? `${h} h${m % 60 ? ` ${m % 60} min` : ''}` : `${m} min`;
 }
 
 /** A minigame's rewards in words: gold, then each material. */

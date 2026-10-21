@@ -73,6 +73,15 @@ import {
   OFFLINE_EFFICIENCY,
   STUN_IMMUNITY,
   ENERGY_AD,
+  BUFF_CRIT,
+  BUFF_CRIT_DMG,
+  BUFF_ENCORE,
+  BUFF_GOLD,
+  BUFF_HYMN,
+  BUFF_KEEN_EYE,
+  BUFF_SLAYER,
+  BUFF_SLAYER_TIME,
+  MINIGAME_BUFFS,
   ENERGY_MAX,
   ENERGY_REGEN,
   eventEnergyCost,
@@ -1418,7 +1427,7 @@ describe('Equipment', () => {
     expect(boardCells(7)).not.toContain(24);
   });
 
-  it("Kargesh's and Marceline's minigames bless the next Refine / Enchant: extra quality rolls by score, used up by that roll", () => {
+  it("Kargesh's and Marceline's minigames bless Refines / Enchants: charges of extra quality rolls by score, one used by each roll", () => {
     const g = stocked();
     g.state.gold = 1e30;
     g.state.hunters.blacksmith.recruited = true;
@@ -1430,11 +1439,15 @@ describe('Equipment', () => {
     // Each extra roll keeps the best: a perfect roll goes from 1 in 11 to about 17%, 25% and 32%.
     expect(g.perfectChance(0)).toBeCloseTo(1 / 11);
     expect([1, 2, 3].map((k) => Math.round(g.perfectChance(k) * 100))).toEqual([17, 25, 32]);
-    // A score of 250 blesses the next Refine twice over; a weaker game later doesn't take it away.
+    // A score of 250 gives 2 charges of blessing at 2 extra rolls; a weaker game later adds charges but keeps the tier.
     g.finishMinigame('forgeStrike', 250);
     expect(g.state.blessings).toEqual({ refine: 2, enchant: 0 });
+    expect(g.blessingCharges('refine')).toBe(2);
     g.finishMinigame('forgeStrike', 150);
     expect(g.state.blessings.refine).toBe(2);
+    expect(g.blessingCharges('refine')).toBe(4);
+    g.finishMinigame('forgeStrike', 100); // no blessing, no charges
+    expect(g.blessingCharges('refine')).toBe(4);
     // The blessed roll: each choice's quality is the best of 3 draws (here 0, 0, then a perfect 0.99).
     const rifle = g.craftGear('frostRifle')!;
     const draws = [0.1, 0, 0, 0.99, 0.6, 0, 0, 0.99]; // per choice: its stat, then three quality draws
@@ -1442,10 +1455,21 @@ describe('Equipment', () => {
     (g as unknown as { rng: () => number }).rng = () => draws[i++ % draws.length];
     const options = g.rollMod(rifle.uid, 0, 'refine')!;
     expect(options.every((m) => (m as { q: number }).q === MOD_QUALITY_STEPS)).toBe(true);
-    expect(g.state.blessings.refine).toBe(0); // used up
-    // And it survives a save while it waits.
+    expect(g.blessingCharges('refine')).toBe(3); // one charge used
+    // The last charge used clears the blessing.
+    g.state.buffs.forgeStrike = 1;
+    rifle.pending = undefined;
+    g.rollMod(rifle.uid, 1, 'refine');
+    expect(g.blessingCharges('refine')).toBe(0);
+    expect(g.state.blessings.refine).toBe(0);
+    // It survives a save while it waits; a blessing from before charges becomes one charge.
     g.state.blessings.enchant = 3;
+    g.state.buffs.runeMatch = 2;
     expect(deserialize(serialize(g.state))!.blessings).toEqual({ refine: 0, enchant: 3 });
+    expect(deserialize(serialize(g.state))!.buffs.runeMatch).toBe(2);
+    const old = JSON.parse(serialize(g.state));
+    delete old.buffs;
+    expect(deserialize(JSON.stringify(old))!.buffs.runeMatch).toBe(1);
   });
 
   it('Reroll swaps the waiting choices for a new roll of the same slot, for the same cost', () => {
@@ -3705,6 +3729,55 @@ describe('Events', () => {
     expect(g.eventReady('huntingPractice')).toBe(false); // 1 energy left, it needs 3
     g.finishMinigame('huntingPractice', 9);
     expect(g.state.events.huntingPractice.best).toBe(23);
+  });
+
+  it('minigame buffs: plays fill a capped tank by score, timed ones run down only while you play, and each works', () => {
+    const g = new Game(newGame(0), noCrit);
+    g.state.hunters.ranger.recruited = true;
+    const par = eventDef('huntingPractice').rewards!.par;
+    const drop = g.enemyStats('greenSlime').dropChance;
+    expect(g.buffOn('huntingPractice')).toBe(false);
+    g.finishMinigame('huntingPractice', 0);
+    expect(g.buffLeft('huntingPractice')).toBe(0); // nothing for 0 points
+    g.finishMinigame('huntingPractice', par);
+    expect(g.buffLeft('huntingPractice')).toBe(MINIGAME_BUFFS.huntingPractice.per); // 30 min for par
+    g.finishMinigame('huntingPractice', par * 10); // at most 1.5× a play
+    expect(g.buffLeft('huntingPractice')).toBe(MINIGAME_BUFFS.huntingPractice.per * 2.5);
+    for (let i = 0; i < 5; i++) g.finishMinigame('huntingPractice', par);
+    expect(g.buffLeft('huntingPractice')).toBe(MINIGAME_BUFFS.huntingPractice.cap); // 2 h at most
+    expect(g.enemyStats('greenSlime').dropChance).toBeCloseTo(drop * (1 + BUFF_KEEN_EYE));
+    g.tick(100);
+    expect(g.buffLeft('huntingPractice')).toBeCloseTo(MINIGAME_BUFFS.huntingPractice.cap - 100);
+    g.state.lastSeen = 0;
+    g.applyOffline(3600 * 1000);
+    expect(g.buffLeft('huntingPractice')).toBeCloseTo(MINIGAME_BUFFS.huntingPractice.cap - 100); // not while away
+    g.tick(1e6);
+    expect(g.buffOn('huntingPractice')).toBe(false);
+    // The others: attack speed, kill gold, cooldowns, crits.
+    const rate = g.shooterRate('main');
+    const gold = g.enemyStats('greenSlime').gold;
+    const cd = g.cooldownMult('main');
+    const crit = g.critChanceOf('main');
+    const critMult = g.critMultOf('main');
+    Object.assign(g.state.buffs, { pixieSerenade: 60, graveRobbing: 60, puppetShow: 60, shootingGallery: 60 });
+    expect(g.shooterRate('main')).toBeCloseTo(rate * (1 + BUFF_HYMN));
+    expect(g.enemyStats('greenSlime').gold).toBeCloseTo(gold * (1 + BUFF_GOLD));
+    expect(g.cooldownMult('main')).toBeCloseTo(cd * (1 - BUFF_ENCORE));
+    expect(g.critChanceOf('main')).toBeCloseTo(crit + BUFF_CRIT);
+    expect(g.critMultOf('main')).toBeCloseTo(critMult + CRIT_MULT * BUFF_CRIT_DMG);
+    // Giant Slayer: a charge spent on the next Guardian Challenge, which has less health and more time.
+    g.state.hunters.frostbreaker.recruited = true;
+    g.state.areas.forest.kills = areaDef('forest').mastery;
+    g.state.events.slimeSwarm.completed = 1;
+    g.finishMinigame('icebreaker', eventDef('icebreaker').rewards!.par);
+    expect(g.buffLeft('icebreaker')).toBe(1);
+    expect(g.challengeGuardian()).toBe(true);
+    expect(g.buffLeft('icebreaker')).toBe(0);
+    expect(g.guardianHp).toBeCloseTo(areaDef('forest').guardian / (1 + BUFF_SLAYER));
+    g.bossSpawned();
+    expect(g.bossTimer).toBe(GUARDIAN_TIME + BUFF_SLAYER_TIME);
+    g.tick(GUARDIAN_TIME + BUFF_SLAYER_TIME + 1); // it leaves
+    expect(g.guardianHp).toBe(areaDef('forest').guardian);
   });
 
   it('the Events tab opens once the first event (the Slime Swarm) unlocks, and stays open', () => {

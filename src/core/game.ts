@@ -38,6 +38,16 @@ import {
   evoKillsNeeded,
   ENEMIES,
   ENERGY_AD,
+  BUFF_CRIT,
+  BUFF_CRIT_DMG,
+  BUFF_ENCORE,
+  BUFF_GOLD,
+  BUFF_HYMN,
+  BUFF_KEEN_EYE,
+  BUFF_SLAYER,
+  BUFF_SLAYER_TIME,
+  MINIGAME_BUFFS,
+  type MinigameId,
   ENERGY_MAX,
   ENERGY_REGEN,
   eventEnergyCost,
@@ -249,6 +259,10 @@ export class Game {
   /** Stationed Hunters' farm rates, refreshed about once a second (the model iterates, so don't redo it every frame). */
   private aoeCache = new Map<Shooter, { key: string; v: number }>();
   private stationRates = new Map<AreaId, { key: string; rates: FarmRates; age: number }>();
+  /** Okrin's Giant Slayer is working on the Guardian Challenge in progress. */
+  private slayer = false;
+  /** Offline gains are being worked out (timed buffs don't count). */
+  private away = false;
   /** goldPerSecond's last measure, and seconds since. */
   private goldRate: number | null = null;
   private goldRateAge = 0;
@@ -305,7 +319,7 @@ export class Game {
   }
 
   get fireRate(): number {
-    return BASE_FIRE_RATE * this.skillRateMult('main') * (1 + this.gear('main').rate) * this.inspireFor('main');
+    return BASE_FIRE_RATE * this.skillRateMult('main') * (1 + this.gear('main').rate) * this.inspireFor('main') * this.hymn;
   }
 
   /**
@@ -492,7 +506,7 @@ export class Game {
   critChanceOf(shooter: Shooter): number {
     const w = this.weaponItem(shooter);
     const arch = w ? (weaponArchetype(gearDef(w.base))?.crit ?? 0) : 0;
-    return BASE_CRIT_CHANCE + this.gear(shooter).crit + this.tree(shooter).crit + arch;
+    return BASE_CRIT_CHANCE + this.gear(shooter).crit + this.tree(shooter).crit + arch + (this.buffOn('shootingGallery') ? BUFF_CRIT : 0);
   }
 
   private critFactor(shooter: Shooter): number {
@@ -577,7 +591,7 @@ export class Game {
   shooterRate(shooter: Shooter, mode?: GearMode): number {
     const cls = this.weaponClassOf(shooter, mode)?.rate ?? 1;
     if (shooter === 'main') return this.fireRate * cls;
-    return HELPER_FIRE_RATE * this.skillRateMult(shooter) * (1 + this.gear(shooter, mode).rate) * cls * this.inspireFor(shooter);
+    return HELPER_FIRE_RATE * this.skillRateMult(shooter) * (1 + this.gear(shooter, mode).rate) * cls * this.inspireFor(shooter) * this.hymn;
   }
 
   /**
@@ -885,7 +899,7 @@ export class Game {
 
   /** A Hunter's crit damage multiplier (the Brutal refine and Brutal Criticals raise it). */
   critMultOf(who: Shooter): number {
-    return CRIT_MULT * (1 + this.modStat(who, 'critDmg') + this.tree(who).critDamage);
+    return CRIT_MULT * (1 + this.modStat(who, 'critDmg') + this.tree(who).critDamage + (this.buffOn('shootingGallery') ? BUFF_CRIT_DMG : 0));
   }
 
   /** How much stronger a Hunter's status effects are: more damage, or longer / stronger for ones that deal none (Virulence). */
@@ -907,7 +921,7 @@ export class Game {
 
   /** Multiplier on a Hunter's gear ability cooldowns (Haste), never below 40%. */
   cooldownMult(who: Shooter): number {
-    return Math.max(0.4, 1 - this.enchantBoost(who, 'cooldown') - this.tree(who).cooldown);
+    return Math.max(0.4, 1 - this.enchantBoost(who, 'cooldown') - this.tree(who).cooldown) * (this.buffOn('puppetShow') ? 1 - BUFF_ENCORE : 1);
   }
 
   /** How much longer the status effects a Hunter sets off last (Extended Effects). */
@@ -1033,9 +1047,9 @@ export class Game {
     const item = this.gearItem(uid);
     if (!item || item.pending || !(kind === 'refine' ? this.canRefine(uid, slot) : this.canEnchant(uid, slot))) return null;
     const options: GearMod[] = [];
-    // A blessing from Kargesh's or Marceline's minigame: this roll's qualities get extra tries (used up now).
-    const extra = this.state.blessings[kind];
-    this.state.blessings[kind] = 0;
+    // A blessing from Kargesh's or Marceline's minigame: this roll's qualities get extra tries (a charge used up now).
+    const extra = this.blessingCharges(kind) > 0 ? this.state.blessings[kind] : 0;
+    if (extra) this.spendBuff(kind === 'refine' ? 'forgeStrike' : 'runeMatch');
     if (kind === 'refine') {
       let pool = this.refinesFor(uid);
       for (let i = 0; i < this.modChoices; i++) {
@@ -1239,8 +1253,9 @@ export class Game {
     return GUARDIAN_ENEMY[this.state.area];
   }
 
+  /** The Guardian's health: less with a Giant Slayer charge spent on this challenge (as if hit harder). */
   get guardianHp(): number {
-    return areaDef(this.state.area).guardian;
+    return areaDef(this.state.area).guardian / (this.slayer ? 1 + BUFF_SLAYER : 1);
   }
 
   travel(id: AreaId): boolean {
@@ -1303,6 +1318,58 @@ export class Game {
     return e >= ENERGY_MAX ? 0 : (Math.floor(e + 1e-9) + 1 - e) * ENERGY_REGEN;
   }
 
+  // ---- Minigame buffs ----
+
+  /** A minigame buff's tank: seconds left (timed) or charges. */
+  buffLeft(id: MinigameId): number {
+    return this.state.buffs[id] ?? 0;
+  }
+
+  /** A buff is working: charges held, or time left (timed ones only while you play, not for time away). */
+  buffOn(id: MinigameId): boolean {
+    return this.buffLeft(id) > 0 && !(this.away && MINIGAME_BUFFS[id].kind === 'timed');
+  }
+
+  /** Battle Hymn's attack speed multiplier. */
+  private get hymn(): number {
+    return this.buffOn('pixieSerenade') ? 1 + BUFF_HYMN : 1;
+  }
+
+  /** What a play of a minigame adds to its buff for a score (nothing for a score of 0). */
+  buffGain(mg: MinigameId, id: string, score: number): number {
+    const b = MINIGAME_BUFFS[mg];
+    const par = eventDef(id).rewards?.par ?? 1;
+    if (score <= 0) return 0;
+    const k = Math.max(0.5, Math.min(1.5, score / par));
+    if (b.kind === 'timed') return b.per * k;
+    // Forge Strike and Rune Match: only a score that earns a blessing.
+    if (eventDef(id).blessing) return this.blessingFor(id, score) > 0 ? b.per : 0;
+    return Math.max(1, Math.round(b.per * k));
+  }
+
+  private fillBuff(mg: MinigameId, id: string, score: number): void {
+    const add = this.buffGain(mg, id, score);
+    if (add > 0) this.state.buffs[mg] = Math.min(MINIGAME_BUFFS[mg].cap, this.buffLeft(mg) + add);
+  }
+
+  /** Spends a charge of a charge buff; false if there was none. */
+  private spendBuff(id: MinigameId): boolean {
+    const n = this.buffLeft(id);
+    if (n < 1) return false;
+    this.state.buffs[id] = n - 1;
+    if (n - 1 <= 0) {
+      delete this.state.buffs[id];
+      if (id === 'forgeStrike') this.state.blessings.refine = 0;
+      if (id === 'runeMatch') this.state.blessings.enchant = 0;
+    }
+    return true;
+  }
+
+  /** Blessed Refines or Enchants left. */
+  blessingCharges(kind: 'refine' | 'enchant'): number {
+    return this.buffLeft(kind === 'refine' ? 'forgeStrike' : 'runeMatch');
+  }
+
   /** A rewarded ad was watched: ENERGY_AD more energy, past the max if need be. */
   adEnergy(): void {
     this.state.energy += ENERGY_AD;
@@ -1340,6 +1407,8 @@ export class Game {
     st.runs++;
     if (def.kind === 'guardian') {
       this.guardianActive = true;
+      // Okrin's Giant Slayer: a charge is spent on this challenge.
+      this.slayer = this.spendBuff('icebreaker');
       this.emit({ type: 'guardianChallenge' });
     } else {
       this.activeEvent = { id, left: def.duration };
@@ -1412,7 +1481,11 @@ export class Game {
     if (score > 0) this.completeEvent(id);
     // Kargesh's and Marceline's minigames: a blessing on the next Refine / Enchant, by score (the better one stays).
     const def = eventDef(id);
-    if (def.blessing) s.blessings[def.blessing.kind] = Math.max(s.blessings[def.blessing.kind], this.blessingFor(id, score));
+    if (def.blessing) {
+      const tier = this.blessingFor(id, score);
+      if (tier > 0) s.blessings[def.blessing.kind] = Math.max(this.blessingCharges(def.blessing.kind) > 0 ? s.blessings[def.blessing.kind] : 0, tier);
+    }
+    if (def.minigame) this.fillBuff(def.minigame, id, score);
     const st = s.events[id];
     if (st) st.best = Math.max(st.best ?? 0, score);
     return reward;
@@ -1445,11 +1518,12 @@ export class Game {
   /** Field calls this when it puts the Guardian on the field. */
   bossSpawned(): void {
     this.bossAlive = true;
-    this.bossTimer = GUARDIAN_TIME;
+    this.bossTimer = GUARDIAN_TIME + (this.slayer ? BUFF_SLAYER_TIME : 0);
   }
 
   private endGuardian(): void {
     this.guardianActive = false;
+    this.slayer = false;
     this.bossAlive = false;
     this.bossTimer = 0;
   }
@@ -1475,9 +1549,9 @@ export class Game {
       archetype: def.archetype,
       hp: area.hp * def.hp * emp('hp') * (1 + evo.hp),
       speed: area.speed * def.speed * (1 + evo.speed) * swarm.speed,
-      gold: area.gold * def.gold * emp('gold') * (1 + evo.gold) * this.goldMult * this.areaPerk(def.area).gold,
+      gold: area.gold * def.gold * emp('gold') * (1 + evo.gold) * this.goldMult * this.areaPerk(def.area).gold * (this.buffOn('graveRobbing') ? 1 + BUFF_GOLD : 1),
       spawnRate: b.unlocked ? Math.max(def.spawn * emp('spawn') * (1 + evo.spawn) * (1 + 0.2 * this.item('lure')) * (isGolem(def) ? 1 : idol.spawn) * swarm.spawn, swarm.spawn ? (ev?.minSpawn?.[id] ?? 0) : 0) : 0,
-      dropChance: BASE_DROP_CHANCE * (1 + 0.25 * this.item('pouch')) * emp('drops') * (1 + evo.drops),
+      dropChance: BASE_DROP_CHANCE * (1 + 0.25 * this.item('pouch')) * emp('drops') * (1 + evo.drops) * (this.buffOn('huntingPractice') ? 1 + BUFF_KEEN_EYE : 1),
       material: def.material,
     };
   }
@@ -1509,6 +1583,8 @@ export class Game {
   tick(dt: number): void {
     const s = this.state;
     this.coolEvents(dt);
+    // Timed minigame buffs run down while you play.
+    for (const id of Object.keys(s.buffs) as MinigameId[]) if (MINIGAME_BUFFS[id].kind === 'timed') s.buffs[id] = Math.max(0, s.buffs[id]! - dt);
     if (this.activeEvent) {
       this.activeEvent.left -= dt;
       if (this.activeEvent.left <= 0) this.endEvent(true);
@@ -2295,6 +2371,8 @@ export class Game {
     const s = this.state;
     const { away, seconds } = capAway((now - s.lastSeen) / 1000, this.offlineCapSec());
     this.coolEvents(away);
+    // Timed buffs only run while you play, so they don't count while you're away.
+    this.away = true;
     const result: OfflineResult = { away, seconds, kills: 0, gold: 0, materials: {}, areas: [], knockouts: 0, loot: [] };
     const add = (area: AreaId, hunters: Shooter[], r: ReturnType<Game['accrue']>) => {
       result.kills += r.kills;
@@ -2312,6 +2390,7 @@ export class Game {
       add(area.id, group, this.accrue(area.id, this.ratesFor(area.id, group, STATION_EFFICIENCY * OFFLINE_EFFICIENCY), seconds, true));
     }
     s.lastSeen = now;
+    this.away = false;
     return result;
   }
 }

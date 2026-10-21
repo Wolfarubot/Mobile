@@ -5,6 +5,8 @@ import {
   ENEMIES,
   ENERGY_MAX,
   EVENTS,
+  MINIGAME_BUFFS,
+  type MinigameId,
   MONSTER_EVO_TREES,
   GEAR,
   GEAR_COST_GROWTH,
@@ -232,6 +234,8 @@ export interface GameState {
   };
   /** Per event: seconds of cooldown left, times started and times completed (a Guardian beaten, a swarm survived). */
   events: Record<string, EventState>;
+  /** Minigame buffs: seconds left of a timed one, charges of a charge one. */
+  buffs: Partial<Record<MinigameId, number>>;
   /** Event energy (refilling over time up to ENERGY_MAX; an ad can overcharge it past that): every event costs some. */
   energy: number;
   /** What the player has already looked at, so new things can be flagged with a "!". */
@@ -311,6 +315,7 @@ export function newGame(now = Date.now()): GameState {
     flags: { eventsIntro: false, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false },
     blessings: { refine: 0, enchant: 0 },
     energy: ENERGY_MAX,
+    buffs: {},
     events: Object.fromEntries(EVENTS.map((e) => [e.id, { runs: 0, completed: 0 }])),
     seen: { journal: [], recipes: [], beasts: [], events: [], gearUid: 3, init: true },
     buyAmount: 1,
@@ -630,6 +635,21 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
       const b = (data.blessings ?? {}) as Partial<Record<'refine' | 'enchant', unknown>>;
       const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.min(3, Math.floor(v))) : 0);
       return { refine: n(b.refine), enchant: n(b.enchant) };
+    })(),
+    buffs: (() => {
+      const b = (data.buffs ?? {}) as Record<string, unknown>;
+      const out: Partial<Record<MinigameId, number>> = {};
+      for (const id of Object.keys(MINIGAME_BUFFS) as MinigameId[]) {
+        const v = b[id];
+        if (typeof v === 'number' && Number.isFinite(v) && v > 0) out[id] = Math.min(MINIGAME_BUFFS[id].cap, v);
+      }
+      // A blessing from before charges: one charge of it.
+      const old = (data.blessings ?? {}) as Partial<Record<'refine' | 'enchant', unknown>>;
+      if (!('buffs' in data)) {
+        if (typeof old.refine === 'number' && old.refine > 0) out.forgeStrike = 1;
+        if (typeof old.enchant === 'number' && old.enchant > 0) out.runeMatch = 1;
+      }
+      return out;
     })(),
     // Saves from before event energy start with a full bar.
     energy: typeof data.energy === 'number' && Number.isFinite(data.energy) ? Math.max(0, Math.min(ENERGY_MAX * 20, data.energy)) : ENERGY_MAX,

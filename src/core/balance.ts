@@ -3830,6 +3830,40 @@ const MINIGAME_GOLD = 0.2;
  */
 export const MINIGAME_INCOME_NEW = 60 * 60;
 export const MINIGAME_INCOME = 20 * 60;
+
+/**
+ * Each minigame's lasting buff, filled by playing it. A timed buff holds `per` seconds for a par score (more or less
+ * by score, from half to one and a half times), up to `cap`, and runs down only while the game is open. A charge
+ * buff gains `per` charges a play (Forge Strike and Rune Match only for a score that earns a blessing), up to `cap`,
+ * and each is spent on the next thing it helps.
+ */
+export interface MinigameBuff {
+  name: string;
+  kind: 'timed' | 'charges';
+  per: number;
+  cap: number;
+  desc: string;
+}
+export const BUFF_KEEN_EYE = 0.25;
+export const BUFF_HYMN = 0.15;
+export const BUFF_GOLD = 0.3;
+export const BUFF_ENCORE = 0.2;
+export const BUFF_CRIT = 0.05;
+export const BUFF_CRIT_DMG = 0.25;
+/** Giant Slayer: the Guardian has 1 / (1 + this) of its health (as if you hit it this much harder), and more time. */
+export const BUFF_SLAYER = 0.5;
+export const BUFF_SLAYER_TIME = 30;
+const TIMED = { kind: 'timed' as const, per: 30 * 60, cap: 2 * 60 * 60 };
+export const MINIGAME_BUFFS: Record<MinigameId, MinigameBuff> = {
+  huntingPractice: { name: 'Keen Eye', ...TIMED, desc: `+${BUFF_KEEN_EYE * 100}% material drop chance, in every area.` },
+  pixieSerenade: { name: 'Battle Hymn', ...TIMED, desc: `+${BUFF_HYMN * 100}% attack speed for every Hunter.` },
+  graveRobbing: { name: 'Sticky Fingers', ...TIMED, desc: `+${BUFF_GOLD * 100}% gold from every kill.` },
+  puppetShow: { name: 'Encore', ...TIMED, desc: `Every Hunter's abilities and specials recharge ${BUFF_ENCORE * 100}% faster.` },
+  shootingGallery: { name: 'Dead Eye', ...TIMED, desc: `+${BUFF_CRIT * 100}% crit chance and +${BUFF_CRIT_DMG * 100}% crit damage for every Hunter.` },
+  forgeStrike: { name: 'Forge Blessing', kind: 'charges', per: 2, cap: 6, desc: 'Each charge blesses one Refine: every choice rolls its quality 1 to 3 extra times (by your best score) and keeps the best.' },
+  runeMatch: { name: 'Rune Blessing', kind: 'charges', per: 2, cap: 6, desc: 'Each charge blesses one Enchant: every choice rolls its quality 1 to 3 extra times (by your best score) and keeps the best.' },
+  icebreaker: { name: 'Giant Slayer', kind: 'charges', per: 1, cap: 3, desc: `Each charge is spent on your next Guardian Challenge: you deal ${BUFF_SLAYER * 100}% more damage to the Guardian and have ${BUFF_SLAYER_TIME}s longer to beat it.` },
+};
 const AREA_MINIGAMES: Partial<Record<AreaId, Omit<EventDef, 'area' | 'kind' | 'unlockKills' | 'duration'>>> = {
   forest: {
     id: 'huntingPractice',
