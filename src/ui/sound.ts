@@ -7,6 +7,7 @@
  * pitch so repeats don't grate, and a cap on how many play at once.
  */
 import { SFX, type SfxEvent } from './sfxConfig';
+import { pitchRate, stretchFactor, timeStretch } from './stretch';
 
 /** At most this many sounds at once. */
 const MAX_VOICES = 8;
@@ -15,8 +16,8 @@ const MAX_VOICES = 8;
 let volume = 0.64;
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
-/** Decoded clips, by file name. */
-const buffers = new Map<string, AudioBuffer>();
+/** Each moment's clip, decoded, and stretched for its pitch shift and length where it has one. */
+const buffers = new Map<SfxEvent, AudioBuffer>();
 const lastPlayed = new Map<SfxEvent, number>();
 let voices = 0;
 /** Called once audio has started (the music player waits for it). */
@@ -45,7 +46,9 @@ export function initSound(): void {
         fetch(`${import.meta.env.BASE_URL}sfx/${clip}.mp3`)
           .then((r) => r.arrayBuffer())
           .then((data) => ctx!.decodeAudioData(data))
-          .then((buf) => buffers.set(clip, buf))
+          .then((buf) => {
+            for (const [id, spec] of Object.entries(SFX) as Array<[SfxEvent, (typeof SFX)[SfxEvent]]>) if (spec.clip === clip) buffers.set(id, shaped(buf, spec.pitch, spec.length));
+          })
           .catch(() => {});
       }
     }
@@ -73,7 +76,7 @@ export function whenAudioStarts(fn: (ctx: AudioContext) => void): void {
 export function sfx(id: SfxEvent): void {
   const spec = SFX[id];
   if (volume <= 0 || !spec.clip || !ctx || !master || ctx.state !== 'running' || document.hidden) return;
-  const buf = buffers.get(spec.clip);
+  const buf = buffers.get(id);
   if (!buf || voices >= MAX_VOICES) return;
   const now = performance.now();
   if (now - (lastPlayed.get(id) ?? -Infinity) < spec.gap) return;
@@ -81,7 +84,7 @@ export function sfx(id: SfxEvent): void {
   if (id !== 'button' && id !== 'tab') lastSpecial = now;
   const src = ctx.createBufferSource();
   src.buffer = buf;
-  if (spec.jitter) src.playbackRate.value = 1 + (Math.random() * 2 - 1) * spec.jitter;
+  src.playbackRate.value = pitchRate(spec.pitch) * (1 + (Math.random() * 2 - 1) * spec.jitter);
   const gain = ctx.createGain();
   gain.gain.value = spec.gain;
   src.connect(gain).connect(master);
@@ -91,6 +94,16 @@ export function sfx(id: SfxEvent): void {
     gain.disconnect();
   };
   src.start();
+}
+
+/** A clip stretched so that, played at its pitch shift's rate, it comes out at `length` times as long. */
+function shaped(buf: AudioBuffer, pitch: number, length: number): AudioBuffer {
+  const factor = stretchFactor(pitch, length);
+  if (Math.abs(factor - 1) < 1e-3 || !ctx) return buf;
+  const chans = timeStretch(Array.from({ length: buf.numberOfChannels }, (_, c) => buf.getChannelData(c)), factor, buf.sampleRate);
+  const out = ctx.createBuffer(chans.length, chans[0].length, buf.sampleRate);
+  chans.forEach((ch, c) => out.getChannelData(c).set(ch));
+  return out;
 }
 
 /**
