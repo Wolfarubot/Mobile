@@ -3305,7 +3305,7 @@ export class AppUI {
       `<h2>Welcome!</h2>
        <p>This is <b>Pocket Hunter</b>, an idle swarm slaying game!</p>
        <p>Start your journey by tapping on the monsters while your Hunter attacks.</p>
-       <p>You can change the name of your Hunter in the ⚙️ settings.</p>`,
+       <p>You can change the name of your Hunter in ${sprite(MENU_SPRITES.settings)} <b>Settings</b>, from the menu at the top right.</p>`,
       [
         { label: 'Name my Hunter', secondary: true, action: () => this.openSettings() },
         { label: "Let's hunt!" },
@@ -3630,7 +3630,7 @@ export class AppUI {
     const card = el('div', 'card setting audio-setting');
     const row = (label: string, sw: 'on' | 'musicOn' | 'sfxOn', vol: 'master' | 'music' | 'sfx', sub: boolean) =>
       `<div class="audio-row${sub ? ' sub-row' : ''}"><span class="ar-name">${label}</span><div class="segmented" data-sw="${sw}"><button data-v="on">On</button><button data-v="off">Off</button></div><div class="ar-vol"><input type="range" min="0" max="100" step="5" data-vol="${vol}" aria-label="${label} volume"><b></b></div></div>`;
-    card.innerHTML = `<div class="setting-name">Audio</div><p>Music and sound effects. Switch all audio off, or music and sound effects each on their own; the sliders set how loud.</p>${row('All audio', 'on', 'master', false)}<div class="fx-list sub-list audio-subs">${row('Music', 'musicOn', 'music', true)}${row('Sound effects', 'sfxOn', 'sfx', true)}</div>`;
+    card.innerHTML = `<div class="setting-name">Music &amp; sound effects</div><p>Switch all audio off, or music and sound effects each on their own; the sliders set how loud.</p>${row('All audio', 'on', 'master', false)}<div class="fx-list sub-list audio-subs">${row('Music', 'musicOn', 'music', true)}${row('Sound effects', 'sfxOn', 'sfx', true)}</div>`;
     const draw = () => {
       $('.audio-subs', card).classList.toggle('disabled', !a.on);
       card.querySelectorAll<HTMLElement>('[data-sw]').forEach((seg) => {
@@ -3701,6 +3701,10 @@ export class AppUI {
     $('.hd-close', view).addEventListener('click', () => this.closeHunterDetail());
     this.detail = { el: view, refreshers: [] };
     const body = $('.hd-scroll', view);
+
+    // Audio first: the setting most people look for.
+    body.appendChild(sectionTitle('Audio'));
+    body.appendChild(this.audioSettings());
 
     body.appendChild(sectionTitle('Your Hunter'));
     const nameCard = el('div', 'card setting');
@@ -3933,7 +3937,6 @@ export class AppUI {
       setHaptics(v);
       buzz();
     });
-    body.appendChild(this.audioSettings());
     choices('Clarity Border', 'A white outline round Hunters, monsters and their projectiles, so they stand out from the ground and the scenery. Low is a faint edge; Strong a bright one.', [['off', 'Off'], ['low', 'Low'], ['moderate', 'Moderate'], ['strong', 'Strong']], () => st.clarity, (v) => (st.clarity = v));
 
     const tabsCard = el('div', 'card setting');
