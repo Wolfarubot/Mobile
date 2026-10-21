@@ -85,6 +85,7 @@ import {
   MOD_QUALITY_STEPS,
   MOD_CHOICES,
   REFINES,
+  WEAPON_ONLY_REFINES,
   ENCHANTS,
   enchantTierHit,
   type EnchantDef,
@@ -623,11 +624,35 @@ export class Game {
           else if (m.stat === 'size') size += v;
           else reload += v;
         }
-    if (!knock && !mag && !reload && !size) return cls;
+    // Shot modifiers, from the weapon itself: Multishot and Ricochet refinements, and the built-in shot effects
+    // (Multishot, Piercing Shots, Ricochet Shots).
+    let multishot = 0;
+    let bounces = 0;
+    let pierce = 0;
+    for (const m of item!.mods ?? [])
+      if (m?.kind === 'refine' && (m.stat === 'multishot' || m.stat === 'ricochet')) {
+        const v = modValue(m, gearDef(item!.base));
+        if (m.stat === 'multishot') multishot += v;
+        else bounces += v;
+      }
+    for (const { en, v } of this.enchantsOf(item!))
+      if (en.shot === 'multishot') multishot += v;
+      else if (en.shot === 'ricochet') bounces += v;
+      else if (en.shot === 'pierce') pierce += v;
+    if (!knock && !mag && !reload && !size && !multishot && !bounces && !pierce) return cls;
     // Quick Reload shortens reloads (and a staff's recharge), down to 40% at most.
     // Size lengthens a melee weapon's reach (its sweep, thrust, stabs or slam).
     const reach = cls.reach && gearDef(item!.base).kind === 'melee' ? cls.reach * (1 + size) : cls.reach;
-    return { ...cls, knock: cls.knock && cls.knock * (1 + knock), mag: cls.mag && Math.round(cls.mag * (1 + mag)), reload: cls.reload && cls.reload * Math.max(0.4, 1 - reload), reach };
+    return {
+      ...cls,
+      knock: cls.knock && cls.knock * (1 + knock),
+      mag: cls.mag && Math.round(cls.mag * (1 + mag)),
+      reload: cls.reload && cls.reload * Math.max(0.4, 1 - reload),
+      reach,
+      multishot: multishot ? (cls.multishot ?? 0) + multishot : cls.multishot,
+      bounces: bounces ? (cls.bounces ?? 0) + bounces : cls.bounces,
+      pierce: pierce ? (cls.pierce ?? 0) + pierce : cls.pierce,
+    };
   }
 
   /**
@@ -916,7 +941,7 @@ export class Game {
     const item = this.gearItem(uid);
     // Accessories are flexible: they take every refinement (one with nothing to act on, like Magazine Size for a
     // Hunter without a gun, simply does nothing).
-    return item ? (Object.keys(REFINES) as RefineStat[]).filter((st) => REFINES[st].fits(gearDef(item.base)) || gearDef(item.base).kind === 'accessory') : [];
+    return item ? (Object.keys(REFINES) as RefineStat[]).filter((st) => REFINES[st].fits(gearDef(item.base)) || (gearDef(item.base).kind === 'accessory' && !WEAPON_ONLY_REFINES.has(st))) : [];
   }
 
   /**

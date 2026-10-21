@@ -2476,7 +2476,13 @@ export function modRoll(range: [number, number], int: boolean | undefined, rarit
   return int ? Math.max(1, Math.round(v)) : Math.round(v * 1000) / 1000;
 }
 
-export type RefineStat = 'rate' | 'damage' | 'crit' | 'knock' | 'pierce' | 'mag' | 'guard' | 'stun' | 'radius' | 'range' | 'gold' | 'drops' | 'reload' | 'critDmg' | 'size';
+/** Refinements only weapons roll (accessories, which roll every other one, never do): Multishot and Ricochet. */
+export const WEAPON_ONLY_REFINES: ReadonlySet<RefineStat> = new Set(['multishot', 'ricochet']);
+
+export type RefineStat = 'rate' | 'damage' | 'crit' | 'knock' | 'pierce' | 'mag' | 'guard' | 'stun' | 'radius' | 'range' | 'gold' | 'drops' | 'reload' | 'critDmg' | 'size' | 'multishot' | 'ricochet';
+
+/** Ranged and magic weapons that fire projectiles (bows, guns, wands, scepters, staffs), for shot modifiers. */
+export const firesShots = (d: GearDef): boolean => isWeapon(d) && d.kind !== 'melee' && WEAPON_CLASSES[d.weaponClass!].attack === 'shot';
 
 /** Gear that summons (a tome, a Puppeteer's Doll), for summon modifiers. */
 const summons = (d: GearDef) => (isWeapon(d) && !!WEAPON_CLASSES[d.weaponClass!].summon) || d.effect?.kind === 'summon';
@@ -2489,7 +2495,11 @@ export const REFINES: Record<RefineStat, { name: string; icon: string; range: [n
   damage: { name: 'Damage', icon: '💥', range: [0.06, 0.12], text: (v) => `+${pct(v)} damage`, fits: () => true },
   crit: { name: 'Critical', icon: '🎯', range: [0.02, 0.04], text: (v) => `+${pct(v)} crit chance`, fits: (d) => !isArmor(d) },
   knock: { name: 'Knockback', icon: '🥊', range: [0.2, 0.4], text: (v) => `+${pct(v)} knockback`, fits: (d) => isWeapon(d) && (WEAPON_CLASSES[d.weaponClass!].knock ?? 0) > 0 },
-  pierce: { name: 'Piercing', icon: '🏹', range: [1, 2], int: true, text: (v) => `+${v} pierce`, fits: (d) => isWeapon(d) && WEAPON_CLASSES[d.weaponClass!].attack === 'shot' },
+  // Ranged weapons pierce; magic weapons ricochet instead (either can have the other as a built-in effect).
+  pierce: { name: 'Piercing', icon: '🏹', range: [1, 2], int: true, text: (v) => `+${v} pierce`, fits: (d) => firesShots(d) && d.kind === 'weapon' },
+  ricochet: { name: 'Ricochet', icon: '💫', range: [1, 2], int: true, text: (v) => `projectiles bounce on to ${v} more monster${v === 1 ? '' : 's'} nearby`, fits: (d) => firesShots(d) && d.kind === 'magic' },
+  // One more projectile per shot, at a share of the shot's damage (a full-damage one would double it).
+  multishot: { name: 'Multishot', icon: '🔱', range: [0.3, 0.5], text: (v) => `+1 projectile per shot, at ${pct(v)} of its damage`, fits: firesShots },
   mag: { name: 'Magazine Size', icon: '🔋', range: [0.15, 0.3], text: (v) => `+${pct(v)} magazine size`, fits: (d) => isWeapon(d) && !!WEAPON_CLASSES[d.weaponClass!].mag },
   guard: { name: 'Bulwark', icon: '🛡️', range: [1, 2], int: true, text: (v) => `+${v} shield charge${v === 1 ? '' : 's'}`, fits: isArmor },
   stun: { name: 'Steadfast', icon: '🪨', range: [0.05, 0.1], text: (v) => `−${pct(v)} stun time`, fits: isArmor },
@@ -2649,6 +2659,9 @@ export type EnchantId =
   | 'artHuntersMark'
   | 'artPinningBolt'
   | 'artHarpoon'
+  | 'shotMultishot'
+  | 'shotPierce'
+  | 'shotRicochet'
   | SpellEnchantId
   | UniqueId;
 
@@ -2757,8 +2770,14 @@ export interface EnchantDef {
   potency?: boolean;
   /** Virulence / Binding: their roll is a strength, not a chance: status effect strength, or summon duration. */
   boost?: 'status' | 'summonDur' | 'cooldown' | 'radius';
-  /** Only ever built in (Artifact and Exalted uniques): never rolled by Enchant. */
+  /** Only ever built in (Artifact and Exalted uniques, and the shot effects below): never rolled by Enchant. */
   builtInOnly?: boolean;
+  /** Built in only, but among the effects a piece's built-in slots can draw (the shot effects). */
+  builtInPool?: boolean;
+  /** Shot effects: their roll is a bonus to the weapon's projectiles, not a chance (see `shotEffect`). */
+  shot?: 'multishot' | 'pierce' | 'ricochet';
+  /** Its roll is a whole number (pierce, bounces). */
+  int?: boolean;
   /** A melee art (MELEE_ARTS): each attack has its chance to set it off, at its power × a hit. */
   melee?: MeleeArt;
   /** Fireburst: each kill by the weapon has its chance to burst within `radius`. */
@@ -2837,6 +2856,9 @@ const uniqueEnchant = (id: UniqueId): EnchantDef => {
   };
 };
 
+/** A unique effect: only ever built in, and not one of the shot effects any piece can draw. */
+export const isUniqueEnchant = (en: EnchantDef): boolean => !!en.builtInOnly && !en.builtInPool;
+
 export const ENCHANTS: Record<EnchantId, EnchantDef> = {
   ...(Object.fromEntries((Object.keys(UNIQUE_EFFECTS) as UniqueId[]).map((id) => [id, uniqueEnchant(id)])) as Record<UniqueId, EnchantDef>),
   infuseFire: infusion('fire', '🔥'),
@@ -2848,6 +2870,11 @@ export const ENCHANTS: Record<EnchantId, EnchantDef> = {
   infuseArcane: infusion('arcane', '🔮'),
   infuseDecay: infusion('decay', '🥀'),
   infuseVoid: infusion('void', '🌀'),
+  // Shot effects: built in only, on ranged and magic weapons; Piercing on a magic weapon or Ricochet on a ranged
+  // one is the special case (their refinements are the other way round).
+  shotMultishot: { name: 'Multishot', icon: '🔱', range: [0.4, 0.6], weight: 0, builtInOnly: true, builtInPool: true, shot: 'multishot', fits: firesShots, text: (c) => `+1 projectile per shot, at ${pct(c)} of its damage` },
+  shotPierce: { name: 'Piercing Shots', icon: '🏹', range: [1, 2], int: true, weight: 0, builtInOnly: true, builtInPool: true, shot: 'pierce', fits: firesShots, text: (c) => `projectiles pierce ${c} more monster${c === 1 ? '' : 's'}` },
+  shotRicochet: { name: 'Ricochet Shots', icon: '💫', range: [1, 2], int: true, weight: 0, builtInOnly: true, builtInPool: true, shot: 'ricochet', fits: firesShots, text: (c) => `projectiles bounce on to ${c} more monster${c === 1 ? '' : 's'} nearby` },
   potency: { name: 'Potency', icon: '🧫', range: [0.08, 0.15], weight: 1, potency: true, fits: isWeapon, text: (c) => `+${pct(c)} status effect chance` },
   fireburst: { name: 'Fireburst', icon: '💥', range: [0.25, 0.5], power: [0.6, 1], weight: 1, onKill: { radius: 70, damageType: 'fire' }, fits: isWeapon, text: (c, p, t) => `${pct(c)} chance a monster this weapon kills bursts into flame (${dmg(p, t)})` },
   thunderCall: { name: 'Thunder Call', icon: '🌩️', range: [0.05, 0.12], power: [0.5, 0.8], weight: 1, onAttack: { kind: 'strike', base: 1, damageType: 'lightning', targets: 2, cooldown: 0, range: 300 }, fits: () => true, text: (c, p, t) => `${pct(c)} chance on attack to call lightning on 2 monsters (${dmg(p, t)})` },
@@ -3013,6 +3040,11 @@ export interface WeaponClassDef {
   /** Scepters: each bolt bounces on to this many more monsters nearby. */
   bounces?: number;
   /**
+   * Multishot from gear (refinements, built-in effects): extra projectiles per shot worth this many shots'
+   * damage in all (0.4: one more at 40%; over 1, split evenly over enough projectiles to stay at or under 1 each).
+   */
+  multishot?: number;
+  /**
    * Staffs: after `every` bolts, the next attack is a big spell (an explosion `radius` wide, dealing `damage` ×
    * a bolt to everything in it), then a short cooldown (the magazine's reload).
    */
@@ -3040,7 +3072,7 @@ export const weaponHitsPerAttack = (c: WeaponClassDef | null | undefined): numbe
   if (c.summon) return c.summon.duration * c.summon.bites;
   if (c.spell) return (c.spell.every + c.spell.damage) / (c.spell.every + 1);
   const v = c.volley ?? 1;
-  return v * (1 + ((c.stack ?? 0) * (v - 1)) / 4);
+  return v * (1 + ((c.stack ?? 0) * (v - 1)) / 4) + (c.multishot ?? 0);
 };
 
 export const WEAPON_CLASSES: Record<WeaponClass, WeaponClassDef> = {
@@ -3464,7 +3496,7 @@ function assignVariants(): void {
     d.slots = v.slots;
     const pool = (Object.keys(ENCHANTS) as EnchantId[]).filter((id) => {
       const en = ENCHANTS[id];
-      return !en.builtInOnly && !PLAIN_ENCHANTS.has(id) && !en.infuse && en.fits(d);
+      return (!en.builtInOnly || en.builtInPool) && !PLAIN_ENCHANTS.has(id) && !en.infuse && en.fits(d);
     });
     const pick = <T,>(ids: T[]) => ids.splice(Math.floor(rng() * ids.length), 1)[0];
     const roll = () => 5 + Math.floor(rng() * 5); // a good roll: 5–9 of 10

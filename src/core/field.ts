@@ -282,6 +282,9 @@ export interface Bullet {
 /** What shotArts hands each projectile. */
 type ShotOptions = { dmg?: number; blast?: { r: number; k: number }; elem?: number; arts?: ShotArts; critBonus?: number };
 
+/** A projectile's arts with its damage scaled by `k` (an extra projectile's share). */
+const withShare = (o: ShotOptions, k: number): ShotOptions => (k === 1 ? o : { ...o, dmg: (o.dmg ?? 1) * k });
+
 export interface ShotArts {
   overpen?: boolean;
   ricochet?: boolean;
@@ -1177,10 +1180,16 @@ export class Field {
     this.events.push({ type: 'attack', who, a: aim });
     // Apex Hunter: extra projectiles on shots, one more dagger in a burst, a follow-up strike for other melee.
     const extra = encore ? 0 : g.tree(who).multishot;
-    /** A shot plus its extra projectiles, fanned out around the aim. */
-    const fan = (shot: (a: number) => void) => {
-      shot(aim);
-      for (let i = 1; i <= extra; i++) shot(aim + (i % 2 ? 1 : -1) * Math.ceil(i / 2) * EXTRA_SHOT_SPREAD);
+    // Multishot from gear: more projectiles at a share of the damage (one at 40%, or two at 60% for 1.2 in all).
+    const share = encore ? 0 : (cls?.multishot ?? 0);
+    const gearShots = share > 0 ? Math.ceil(share) : 0;
+    const gearDmg = gearShots ? share / gearShots : 0;
+    /** A shot plus its extra projectiles, fanned out around the aim (each with its damage multiplier). */
+    const fan = (shot: (a: number, k: number) => void) => {
+      shot(aim, 1);
+      const spread = (i: number) => aim + (i % 2 ? 1 : -1) * Math.ceil(i / 2) * EXTRA_SHOT_SPREAD;
+      for (let i = 1; i <= extra; i++) shot(spread(i), 1);
+      for (let i = 1; i <= gearShots; i++) shot(spread(extra + i), gearDmg);
     };
     if (extra > 0 && cls && (cls.attack === 'sweep' || cls.attack === 'stab' || cls.attack === 'slam' || cls.attack === 'nova')) this.encores.push({ who, t: ENCORE_GAP, target: target.id, mode });
     if (cls?.attack === 'dagger') {
@@ -1203,7 +1212,7 @@ export class Field {
       // A staff's big spell: the last round of each cast, its element's spell (a Physical staff's a blast).
       const spell = g.spellOf(who, mode);
       if (spell) this.castSpell(who, x, y, spell, target, { mult: cls.spell.damage, mode: m });
-      else fan((a) => this.shoot(who, 'fireball', x, y, a, 380, range, { radius: cls.spell!.radius * g.radiusMult(who), dmg: cls.spell!.damage, mode: m }));
+      else fan((a, k) => this.shoot(who, 'fireball', x, y, a, 380, range, { radius: cls.spell!.radius * g.radiusMult(who), dmg: cls.spell!.damage * k, mode: m }));
     } else if (cls?.attack === 'slam') {
       // A hammer smashes the ground out in front: the Hunter stands at the edge of the blast, so its centre is
       // further out the bigger it is. Everything in it is hit and thrown far back from where it landed.
@@ -1218,15 +1227,16 @@ export class Field {
       // A fan: each bolt at a random angle within it. Bolts of one volley stack on the same monster.
       const volley = this.nextVolley++;
       const arts = this.shotArts(who, cls, gun, mode, Math.hypot(target.x - x, target.y - y), range);
-      for (let i = 0; i < cls.volley + extra; i++) {
+      for (let i = 0; i < cls.volley + extra + gearShots; i++) {
         const a = aim + (g.rng() - 0.5) * (cls.fan ?? 0);
-        this.shoot(who, cls.projectile ?? 'bolt', x, y, a, BULLET_SPEED, range, { pierce: g.pierceOf(who, mode), volley, stack: cls.stack, mode: m, ...arts() });
+        const k = i >= cls.volley + extra ? gearDmg : 1;
+        this.shoot(who, cls.projectile ?? 'bolt', x, y, a, BULLET_SPEED, range, { pierce: g.pierceOf(who, mode), volley, stack: cls.stack, mode: m, bounces: cls.bounces, ...withShare(arts(), k) });
       }
     } else {
       // A longbow's follow-through grows with the Hunter's range.
       const follow = cls?.followThrough ? cls.followThrough * (range / (MAIN_RANGE * cls.range)) : undefined;
       const arts = this.shotArts(who, cls, gun, mode, Math.hypot(target.x - x, target.y - y), range);
-      fan((a) => this.shoot(who, cls?.projectile ?? 'bolt', x, y, a, BULLET_SPEED, range, { pierce: g.pierceOf(who, mode), followThrough: follow, bounces: cls?.bounces, mode: m, ...arts() }));
+      fan((a, k) => this.shoot(who, cls?.projectile ?? 'bolt', x, y, a, BULLET_SPEED, range, { pierce: g.pierceOf(who, mode), followThrough: follow, bounces: cls?.bounces, mode: m, ...withShare(arts(), k) }));
       if (cls && !encore) this.extraShots(who, x, y, aim, target, cls, gun, range, mode, arts);
     }
     if (this.isMelee(who)) {

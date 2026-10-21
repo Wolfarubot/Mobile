@@ -18,7 +18,10 @@ import {
   modPerfect,
   MOD_QUALITY_STEPS,
   REFINES,
+  WEAPON_ONLY_REFINES,
+  type RefineStat,
   ENCHANTS,
+  isUniqueEnchant,
   SPELLS,
   GEAR_VARIANTS,
   UNIQUE_EFFECTS,
@@ -2505,11 +2508,48 @@ describe('Equipment', () => {
     }
   });
 
+  it('multishot on ranged and magic; Piercing refines only on ranged, Ricochet only on magic; shot built-ins on either', () => {
+    const bow = gearDef('sapBow');
+    const staff = gearDef('soulfireStaff');
+    const sword = gearDef('hornSword');
+    expect([REFINES.multishot.fits(bow), REFINES.multishot.fits(staff), REFINES.multishot.fits(sword)]).toEqual([true, true, false]);
+    expect([REFINES.pierce.fits(bow), REFINES.pierce.fits(staff)]).toEqual([true, false]);
+    expect([REFINES.ricochet.fits(bow), REFINES.ricochet.fits(staff)]).toEqual([false, true]);
+    for (const id of ['shotMultishot', 'shotPierce', 'shotRicochet'] as const) {
+      expect([ENCHANTS[id].fits(bow), ENCHANTS[id].fits(staff), ENCHANTS[id].fits(sword)], id).toEqual([true, true, false]);
+      expect(isUniqueEnchant(ENCHANTS[id]), id).toBe(false);
+    }
+    // Enchanting never rolls them: they're only ever built in.
+    const g = stocked();
+    g.state.hunters = Object.fromEntries(Object.entries(g.state.hunters).map(([k, h]) => [k, { ...h, station: null }])) as typeof g.state.hunters;
+    const item = g.craftGear('sapBow')!;
+    expect(g.enchantsFor(item.uid).some((id) => id.startsWith('shot'))).toBe(false);
+    // A Multishot refine: one more arrow per shot, at its share of the damage.
+    g.equip('main', 0, item.uid);
+    const share = modRoll(REFINES.multishot.range, false, bow.rarity, MOD_QUALITY_STEPS);
+    item.mods = [{ kind: 'refine', stat: 'multishot', q: MOD_QUALITY_STEPS }];
+    expect(g.weaponClassOf('main')!.multishot).toBeCloseTo(share);
+    const f = new Field(g);
+    f.setView(390, 420);
+    f.enemies = [enemy({ id: 1, x: 0, y: -120, hp: 1e12, maxHp: 1e12 })];
+    for (let t = 0; t < 3 && f.bullets.length < 2; t += 0.01) f.update(0.01);
+    expect(f.bullets.length).toBe(2);
+    expect(f.bullets.map((b) => b.dmg).sort()).toEqual([expect.closeTo(share), 1]);
+    // Ricochet on a staff, and the shot built-ins, raise its bounces and pierce.
+    const st = g.craftGear('soulfireStaff')!;
+    g.equip('main', 0, st.uid);
+    const before = g.weaponClassOf('main')!;
+    st.mods = [{ kind: 'refine', stat: 'ricochet', q: MOD_QUALITY_STEPS }, { kind: 'enchant', id: 'shotPierce', q: MOD_QUALITY_STEPS, p: 0 }];
+    const after = g.weaponClassOf('main')!;
+    expect((after.bounces ?? 0) - (before.bounces ?? 0)).toBe(modRoll(REFINES.ricochet.range, true, staff.rarity, MOD_QUALITY_STEPS));
+    expect((after.pierce ?? 0) - (before.pierce ?? 0)).toBe(modRoll(ENCHANTS.shotPierce.range, true, staff.rarity, MOD_QUALITY_STEPS));
+  });
+
   it('gear variants: built-in effects and modifier slots follow each rarity\'s variants; Artifact and Exalted can be unique', () => {
     for (const d of GEAR) {
       if (d.starter) continue;
       const fx = (d.builtIn?.length ?? 0) + (d.effect ? 1 : 0);
-      const unique = d.builtIn?.some((b) => ENCHANTS[b.id].builtInOnly) ?? false;
+      const unique = d.builtIn?.some((b) => isUniqueEnchant(ENCHANTS[b.id])) ?? false;
       const variants = GEAR_VARIANTS[d.rarity];
       if (!variants) {
         expect(fx === (d.effect ? 1 : 0) && modSlotCount(d) === 0, d.id).toBe(true);
@@ -3135,13 +3175,13 @@ describe('Equipment', () => {
     expect(new Set(GEAR.map((gd) => gd.rarity)).size).toBe(Object.keys(RARITIES).length);
   });
 
-  it('accessories take every refinement and every enchantment but spells and melee arts, acting on whatever weapon the wearer holds (or doing nothing)', () => {
+  it('accessories take every refinement and every enchantment but spells, melee arts, Multishot and Ricochet, acting on whatever weapon the wearer holds (or doing nothing)', () => {
     const g = stocked();
     g.state.gold = 1e30;
     g.state.hunters.blacksmith.recruited = true;
     g.state.hunters.enchantress.recruited = true;
     const orb = g.craftGear('cinderRing')!; // a Very Rare accessory
-    expect(g.refinesFor(orb.uid).sort()).toEqual((Object.keys(REFINES) as string[]).sort());
+    expect(g.refinesFor(orb.uid).sort()).toEqual((Object.keys(REFINES) as RefineStat[]).filter((st) => !WEAPON_ONLY_REFINES.has(st)).sort());
     expect(g.enchantsFor(orb.uid).sort()).toEqual((Object.keys(ENCHANTS) as Array<keyof typeof ENCHANTS>).filter((id) => !id.startsWith('spell') && !id.startsWith('art') && !ENCHANTS[id].builtInOnly).sort());
     // A Magazine Size refine on the accessory grows the wearer's gun magazine...
     orb.mods = [{ kind: 'refine', stat: 'mag', q: MOD_QUALITY_STEPS }];

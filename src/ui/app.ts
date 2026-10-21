@@ -79,6 +79,7 @@ import {
   RARITIES,
   REFINES,
   ENCHANTS,
+  isUniqueEnchant,
   enchantTierHit,
   modValue,
   modPower,
@@ -1205,7 +1206,7 @@ export class AppUI {
         // types and stats as chips.
         const chips = gd && it ? gearSummary(gd, g.effStars(it, who)).split(', ').filter(Boolean).map((t) => `<span class="eq-chip">${t}</span>`) : [];
         // Its built-in effects on gold tiles, then its modifiers: Refines on grey tiles, Enchants on violet ones.
-        if (gd) for (const bi of gd.builtIn ?? []) chips.push(`<span class="eq-chip mod-builtin${ENCHANTS[bi.id].builtInOnly ? ' unique' : ''}">${ENCHANTS[bi.id].name}</span>`);
+        if (gd) for (const bi of gd.builtIn ?? []) chips.push(`<span class="eq-chip mod-builtin${isUniqueEnchant(ENCHANTS[bi.id]) ? ' unique' : ''}">${ENCHANTS[bi.id].name}</span>`);
         if (gd && it)
           for (const m of it.mods ?? [])
             if (m) chips.push(m.kind === 'refine' ? `<span class="eq-chip mod-refine">${REFINES[m.stat].text(modValue(m, gd))}</span>` : `<span class="eq-chip mod-enchant">${ENCHANTS[m.id].name}</span>`);
@@ -4316,7 +4317,7 @@ function gearCardHtml(it: GearItem, vs: GearItem | null = null): string {
       .map((bi) => {
         const en = ENCHANTS[bi.id];
         const m: GearMod = { kind: 'enchant', id: bi.id, q: bi.q, p: bi.p };
-        return `<li class="gc-builtin${en.builtInOnly ? ' unique' : ''}">${en.icon} ${en.name}: ${en.text(modValue(m, gd), modPower(m, gd), enchantTierHit(gd))}</li>`;
+        return `<li class="gc-builtin${isUniqueEnchant(en) ? ' unique' : ''}">${en.icon} ${en.name}: ${en.text(modValue(m, gd), modPower(m, gd), enchantTierHit(gd))}</li>`;
       })
       .join('') +
     (it.mods ?? []).filter(Boolean).map((m) => `<li class="gc-mod ${m!.kind}${modPerfect(m!) ? ' perfect' : ''}">${modText(m!, gd)}</li>`).join('') +
@@ -4475,7 +4476,7 @@ function featureTags(gd: GearDef, stars = 1): string {
     const en = ENCHANTS[bi.id];
     const m = { kind: 'enchant' as const, id: bi.id, q: bi.q, p: bi.p };
     const text = en.text(modValue(m, gd), modPower(m, gd), enchantTierHit(gd));
-    tags.push(featTag(en.builtInOnly ? EFFECT_TAG_ICONS.unique : FEATURE_TAG_ICONS.builtIn, en.name, `<b>${en.builtInOnly ? 'Unique' : 'Built-in'}</b>: ${text.charAt(0).toUpperCase()}${text.slice(1)}.`, en.builtInOnly ? '#ff8ad0' : 'var(--gold)'));
+    tags.push(featTag(isUniqueEnchant(en) ? EFFECT_TAG_ICONS.unique : FEATURE_TAG_ICONS.builtIn, en.name, `<b>${isUniqueEnchant(en) ? 'Unique' : 'Built-in'}</b>: ${text.charAt(0).toUpperCase()}${text.slice(1)}.`, isUniqueEnchant(en) ? '#ff8ad0' : 'var(--gold)'));
   }
   if (gd.tweak) tags.push(featTag(FEATURE_TAG_ICONS.tweak, tweakName(gd), tweakText(gd)));
   const spell = staffSpell(gd);
