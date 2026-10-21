@@ -361,7 +361,7 @@ export class AppUI {
         const btn = (e.target as HTMLElement).closest?.('button');
         if (btn && !(btn as HTMLButtonElement).disabled) {
           buzz();
-          pressSound(btn.closest('.tabs, .subtabs') ? 'navigate' : 'click');
+          pressSound(btn.closest('.tabs, .subtabs') ? 'tab' : 'button');
         }
       },
       true,
@@ -393,9 +393,12 @@ export class AppUI {
       // Not during a Guardian fight: the fight matters more than its drops.
       if (e.type === 'gains' && !game.guardianActive && game.state.settings.pickups) for (const [m, n] of Object.entries(e.materials) as [MaterialId, number][]) pops.add(m, n);
       if (e.type === 'travel' || e.type === 'guardianChallenge') pops.clear();
-      if (e.type === 'areaUnlocked' || e.type === 'unlock' || e.type === 'recruit' || e.type === 'eventComplete' || e.type === 'finalGuardian') sfx('fanfare');
-      else if (e.type === 'guardianFail') sfx('defeat');
-      else if (e.type === 'loot' && !e.salvaged) sfx('coin');
+      if (e.type === 'areaUnlocked' || e.type === 'unlock') sfx('unlock');
+      else if (e.type === 'recruit') sfx('recruit');
+      else if (e.type === 'eventComplete' || e.type === 'finalGuardian') sfx('eventWon');
+      else if (e.type === 'eventStart') sfx('eventStart');
+      else if (e.type === 'guardianFail') sfx('guardianEscapes');
+      else if (e.type === 'loot' && !e.salvaged) sfx('gearDrop');
       if (e.type === 'areaUnlocked' || e.type === 'travel' || e.type === 'unlock' || e.type === 'recruit') this.setTab(this.tab, true);
       else if (e.type === 'eventComplete') this.setTab(this.tab, true); // may have made Hunters available
       else if (e.type === 'finalGuardian' && this.game.state.events['guardian-rift'].completed === 1) this.showRiftConquered();
@@ -564,7 +567,7 @@ export class AppUI {
       ev.stopPropagation();
       const level = g.levelOf(who);
       if (g.train(who)) {
-        sfx(g.levelOf(who) > level ? 'fanfare' : 'powerUp');
+        sfx(g.levelOf(who) > level ? 'levelUp' : 'train');
         bumpCard(btn);
         this.refresh();
       }
@@ -1048,7 +1051,7 @@ export class AppUI {
       btn.disabled = !t.canLearn(n.id);
       btn.addEventListener('click', () => {
         if (!t.learn(n.id)) return;
-        sfx('powerUp');
+        sfx('learn');
         close();
         // Maxed (or a one-rank node): done. Otherwise stay open for the next rank, even if it can't be afforded yet.
         if (t.rank(n.id) < n.maxRank) this.openTreeNode(t, n);
@@ -2458,7 +2461,7 @@ export class AppUI {
     btn.addEventListener('click', (ev) => {
       ev.stopPropagation();
       if (g.empower(id, amount())) {
-        sfx('powerUp');
+        sfx('empower');
         bumpCard(btn);
         this.refresh();
       }
@@ -2879,7 +2882,7 @@ export class AppUI {
       btn.disabled = !g.canCraft(it.id);
       btn.addEventListener('click', () => {
         if (!g.craft(it.id)) return;
-        sfx('powerUp');
+        sfx('craft');
         close();
         this.openUpgradeDetail(it);
       });
@@ -3033,7 +3036,7 @@ export class AppUI {
     btn.addEventListener('click', () => {
       const ok = gd ? g.craftGear(gd.id) : g.craft(it!.id);
       if (!ok) return;
-      sfx('powerUp');
+      sfx('craft');
       if (typeof ok === 'object') this.showEquipPrompt(ok.uid);
       this.toast(gd ? `Crafted ${gd.name}!` : g.state.items[it!.id] > 1 ? `Upgraded ${it!.name} to ${g.state.items[it!.id]}★!` : `Crafted ${it!.name}!`);
       bumpCard(btn);
@@ -3665,7 +3668,7 @@ export class AppUI {
       // Let go: save, and play a sample of the sound effects at their new volume.
       inp.addEventListener('change', () => {
         this.hooks.save();
-        if (key !== 'music') sfx('powerUp');
+        if (key !== 'music') sfx('train');
       });
     });
     draw();

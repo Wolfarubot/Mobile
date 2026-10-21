@@ -171,7 +171,7 @@ export class BattleView {
           break;
         case 'kill': {
           const color = e.boss ? '#ffd34d' : enemyDef(e.enemy).color;
-          sfx(e.boss ? 'bossKill' : 'kill');
+          sfx(e.boss ? 'guardianKill' : 'kill');
           if (this.fancy) this.playEffect('puff', e.x, e.y, e.boss ? 90 : 26, 'center', 22);
           this.fx.burst(e.x, e.y, color, e.boss ? 40 : 8, e.boss ? 260 : 140, e.boss ? 5 : 3, 0);
           this.dropPickup(e.x, e.y, '#ffd34d', false, e.boss ? 12 : 1);
@@ -180,7 +180,7 @@ export class BattleView {
           break;
         }
         case 'blast':
-          sfx('zap');
+          sfx('tap');
           // An elemental tap ability gets its spell: a fire explosion, a lightning strike or a falling ice shard.
           if (this.fancy && e.color === DAMAGE_TYPES.fire.color) this.playEffect('explosion', e.x, e.y, this.game.tapRadius * 2);
           else if (this.fancy && e.color === DAMAGE_TYPES.lightning.color) this.playEffect('lightning', e.x, e.y + 6, this.game.tapRadius * 2.4, 'bottom', 22);
@@ -277,11 +277,12 @@ export class BattleView {
           this.fx.text(e.x, e.y - 30, 'BLOCK', '#ffe8a3', 12, 0.6);
           break;
         case 'boss':
+          sfx('guardianAppears');
           this.shake = 0.3;
           this.showBanner('THE GUARDIAN APPEARS', '#ff5a6a');
           break;
         case 'stun':
-          sfx(e.who === 'main' ? 'hurt' : 'hurtAlly');
+          sfx(e.who === 'main' ? 'stunned' : 'allyStunned');
           this.shake = Math.max(this.shake, e.boss ? 0.35 : 0.15);
           this.fx.burst(e.x, e.y, '#ffe066', 6, 120, 2, 0);
           if (e.who === 'main' && this.stunTextCooldown <= 0) {
