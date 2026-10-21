@@ -4323,7 +4323,7 @@ function gearCardHtml(it: GearItem, vs: GearItem | null = null): string {
 const MENU_SPRITES = {
   tutorials: 'wands-books/062',
   journal: 'rpg-items/289',
-  settings: 'resources3/024',
+  settings: 'custom/002',
   quit: 'things/024',
   weapons: 'weapons-free/001',
   damage: 'rpg-items/297',

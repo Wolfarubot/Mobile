@@ -43,3 +43,4 @@ Source packs:
   shield-rpg-icons-32x32-pixel-art
   things-for-rpg-game-32x32-pixel-art
 custom/001.png: the Green Slime's front walk frame (public/monsters/slime-green.png), used as the Bestiary icon.
+custom/002.png: the Settings cog, drawn for the game in the item packs' palette and style by tools/icons/cog.py.
