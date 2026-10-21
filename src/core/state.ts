@@ -7,6 +7,7 @@ import {
   EVENTS,
   MINIGAME_BUFFS,
   type MinigameId,
+  type Quest,
   MONSTER_EVO_TREES,
   GEAR,
   GEAR_COST_GROWTH,
@@ -42,6 +43,26 @@ import {
   EMPOWER_SESSIONS_PER_LEVEL,
   skillNode,
 } from './balance';
+
+export interface QuestState {
+  day: string;
+  week: string;
+  daily: Quest[];
+  weekly: Quest[];
+  dailyClaimed: boolean;
+  weeklyClaimed: boolean;
+  /** Today's check-in bonus collected. */
+  checkIn: boolean;
+  /** Today's dailies all done (counted once toward the weekly quest). */
+  dailyDone: boolean;
+  /** Energy ads watched today. */
+  ads: number;
+  /** Total kills when the day / week began (kill quests count from there). */
+  dayKills: number;
+  weekKills: number;
+}
+
+export const newQuests = (): QuestState => ({ day: '', week: '', daily: [], weekly: [], dailyClaimed: false, weeklyClaimed: false, checkIn: false, dailyDone: false, ads: 0, dayKills: 0, weekKills: 0 });
 
 export interface EventState {
   runs: number;
@@ -234,6 +255,12 @@ export interface GameState {
   };
   /** Per event: seconds of cooldown left, times started and times completed (a Guardian beaten, a swarm survived). */
   events: Record<string, EventState>;
+  /** Exalted Gems: the premium currency. */
+  gems: number;
+  /** Ads have been removed (a purchase): no ad offers, a bigger energy bar, the check-in bonus without an ad. */
+  noAds: boolean;
+  /** Today's and this week's quests (keys are the local date, and the date of the week's Monday). */
+  quests: QuestState;
   /** Minigame buffs: seconds left of a timed one, charges of a charge one. */
   buffs: Partial<Record<MinigameId, number>>;
   /** Event energy (refilling over time up to ENERGY_MAX; an ad can overcharge it past that): every event costs some. */
@@ -316,6 +343,9 @@ export function newGame(now = Date.now()): GameState {
     blessings: { refine: 0, enchant: 0 },
     energy: ENERGY_MAX,
     buffs: {},
+    gems: 0,
+    noAds: false,
+    quests: newQuests(),
     events: Object.fromEntries(EVENTS.map((e) => [e.id, { runs: 0, completed: 0 }])),
     seen: { journal: [], recipes: [], beasts: [], events: [], gearUid: 3, init: true },
     buyAmount: 1,
@@ -650,6 +680,14 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
         if (typeof old.enchant === 'number' && old.enchant > 0) out.runeMatch = 1;
       }
       return out;
+    })(),
+    gems: typeof data.gems === 'number' && Number.isFinite(data.gems) ? Math.max(0, Math.floor(data.gems)) : 0,
+    noAds: data.noAds === true,
+    quests: (() => {
+      const q = { ...newQuests(), ...((data.quests ?? {}) as Partial<QuestState>) };
+      const list = (v: unknown): Quest[] =>
+        Array.isArray(v) ? v.filter((x) => x && typeof x.kind === 'string' && typeof x.need === 'number').map((x) => ({ kind: x.kind, need: x.need, have: typeof x.have === 'number' ? x.have : 0 })) : [];
+      return { ...q, daily: list(q.daily), weekly: list(q.weekly), day: String(q.day ?? ''), week: String(q.week ?? '') };
     })(),
     // Saves from before event energy start with a full bar.
     energy: typeof data.energy === 'number' && Number.isFinite(data.energy) ? Math.max(0, Math.min(ENERGY_MAX * 20, data.energy)) : ENERGY_MAX,

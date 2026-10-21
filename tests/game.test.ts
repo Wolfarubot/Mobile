@@ -73,6 +73,12 @@ import {
   OFFLINE_EFFICIENCY,
   STUN_IMMUNITY,
   ENERGY_AD,
+  ENERGY_ADS_PER_DAY,
+  ENERGY_MAX_NO_ADS,
+  DAILY_KILLS,
+  GEMS_DAILY,
+  GEMS_WEEKLY,
+  GEMS_CHECKIN,
   BUFF_CRIT,
   BUFF_CRIT_DMG,
   BUFF_ENCORE,
@@ -152,7 +158,7 @@ import { CHARM_MAX, CHARM_TIME, DICE_FLIGHT, Field, SLAM_OFFSET, type Enemy } fr
 import { mergeSample, runSample, SAMPLE_KEEP } from '../src/core/sampler';
 import { GATED } from '../src/core/gates';
 import { boardCells, RM_BOARDS } from '../src/ui/minigames/runeMatch';
-import { Game } from '../src/core/game';
+import { Game, questsDone } from '../src/core/game';
 import { deserialize, FX_KEYS, newGame as startingGame, SAVE_VERSION, serialize, type GameState } from '../src/core/state';
 
 /** A new game without the starting gear, so tests see a bare Hunter unless they add gear themselves. */
@@ -3778,6 +3784,73 @@ describe('Events', () => {
     expect(g.bossTimer).toBe(GUARDIAN_TIME + BUFF_SLAYER_TIME);
     g.tick(GUARDIAN_TIME + BUFF_SLAYER_TIME + 1); // it leaves
     expect(g.guardianHp).toBe(areaDef('forest').guardian);
+  });
+
+  it('daily and weekly quests pay Exalted Gems, reset by local day and week; the check-in bonus once a day', () => {
+    const g = new Game(newGame(0), noCrit);
+    let now = new Date(2026, 9, 21, 10).getTime(); // a Wednesday
+    g.clock = () => now;
+    // Nothing open yet: the dailies are monster slaying.
+    expect(g.dailyQuests.map((q) => q.kind)).toEqual(['kills']);
+    expect(g.weeklyQuests.map((q) => q.kind)).toEqual(['kills', 'dailies']);
+    g.state.stats.totalKills += DAILY_KILLS;
+    expect(questsDone(g.dailyQuests)).toBe(true);
+    expect(g.weeklyQuests.find((q) => q.kind === 'dailies')!.have).toBe(1); // a day of dailies done
+    expect(g.claimDaily()).toBe(true);
+    expect(g.state.gems).toBe(GEMS_DAILY);
+    expect(g.claimDaily()).toBe(false); // once a day
+    expect(g.claimCheckIn()).toBe(true);
+    expect(g.claimCheckIn()).toBe(false);
+    expect(g.state.gems).toBe(GEMS_DAILY + GEMS_CHECKIN);
+    // The next day: new dailies (now with the events you've opened), the check-in again; the week carries on.
+    g.state.hunters.ranger.recruited = true;
+    g.state.bestiary.greenSlime.kills = 1000;
+    g.state.areas.forest.kills = areaDef('forest').mastery;
+    g.state.events.slimeSwarm.completed = 1;
+    now += 24 * 3600 * 1000;
+    expect(g.dailyQuests.map((q) => [q.kind, q.need, q.have])).toEqual([
+      ['minigame', 2, 0],
+      ['swarm', 2, 0],
+      ['guardian', 1, 0],
+    ]);
+    expect(g.state.quests.checkIn).toBe(false);
+    g.state.energy = 20;
+    g.startEvent('slimeSwarm');
+    g.tick(eventDef('slimeSwarm').duration + 0.1);
+    g.finishMinigame('huntingPractice', 5);
+    g.finishMinigame('huntingPractice', 0); // no points: doesn't count
+    expect(g.dailyQuests.map((q) => q.have)).toEqual([1, 1, 0]);
+    expect(g.weeklyQuests.filter((q) => q.kind === 'minigame' || q.kind === 'swarm').map((q) => q.have)).toEqual([]); // last week's weekly had none open
+    // Monday: a new week, with the kinds now open.
+    now = new Date(2026, 9, 26, 9).getTime();
+    expect(g.weeklyQuests.map((q) => q.kind)).toEqual(['minigame', 'swarm', 'guardian', 'dailies']);
+    expect(g.state.quests.weeklyClaimed).toBe(false);
+    for (const q of g.state.quests.weekly) q.have = q.need;
+    expect(g.claimWeekly()).toBe(true);
+    expect(g.state.gems).toBe(GEMS_DAILY + GEMS_CHECKIN + GEMS_WEEKLY);
+    // It all survives a save.
+    const back = deserialize(serialize(g.state))!;
+    expect(back.gems).toBe(g.state.gems);
+    expect(back.quests).toEqual(g.state.quests);
+  });
+
+  it('three energy ads a day; Remove Ads ends them, and the bar holds and refills to 20', () => {
+    const g = new Game(newGame(0), noCrit);
+    let now = new Date(2026, 9, 21, 10).getTime();
+    g.clock = () => now;
+    g.state.energy = 0;
+    for (let i = 0; i < ENERGY_ADS_PER_DAY; i++) expect(g.adEnergy()).toBe(true);
+    expect(g.adEnergy()).toBe(false);
+    expect(g.energy).toBe(ENERGY_AD * ENERGY_ADS_PER_DAY);
+    now += 24 * 3600 * 1000;
+    expect(g.adsLeft).toBe(ENERGY_ADS_PER_DAY);
+    g.removeAds();
+    expect(g.adsLeft).toBe(0);
+    expect(g.energyMax).toBe(ENERGY_MAX_NO_ADS);
+    g.state.energy = 0;
+    g.tick(ENERGY_REGEN * 30);
+    expect(g.energy).toBe(ENERGY_MAX_NO_ADS);
+    expect(deserialize(serialize(g.state))!.noAds).toBe(true);
   });
 
   it('the Events tab opens once the first event (the Slime Swarm) unlocks, and stays open', () => {

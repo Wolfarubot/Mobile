@@ -38,6 +38,18 @@ import {
   evoKillsNeeded,
   ENEMIES,
   ENERGY_AD,
+  ENERGY_ADS_PER_DAY,
+  ENERGY_MAX_NO_ADS,
+  DAILY_QUESTS,
+  DAILY_KILLS,
+  WEEKLY_QUESTS,
+  WEEKLY_KILLS,
+  WEEKLY_DAILIES,
+  GEMS_DAILY,
+  GEMS_WEEKLY,
+  GEMS_CHECKIN,
+  type Quest,
+  type QuestKind,
   BUFF_CRIT,
   BUFF_CRIT_DMG,
   BUFF_ENCORE,
@@ -259,6 +271,9 @@ export class Game {
   /** Stationed Hunters' farm rates, refreshed about once a second (the model iterates, so don't redo it every frame). */
   private aoeCache = new Map<Shooter, { key: string; v: number }>();
   private stationRates = new Map<AreaId, { key: string; rates: FarmRates; age: number }>();
+  /** The wall clock (ms), for daily and weekly resets; tests set their own. */
+  clock: () => number = () => Date.now();
+  private questAge = 0;
   /** Okrin's Giant Slayer is working on the Guardian Challenge in progress. */
   private slayer = false;
   /** Offline gains are being worked out (timed buffs don't count). */
@@ -1315,7 +1330,7 @@ export class Game {
   /** Seconds until the next whole point of energy (0 when full). */
   get energyNextIn(): number {
     const e = this.state.energy;
-    return e >= ENERGY_MAX ? 0 : (Math.floor(e + 1e-9) + 1 - e) * ENERGY_REGEN;
+    return e >= this.energyMax ? 0 : (Math.floor(e + 1e-9) + 1 - e) * ENERGY_REGEN;
   }
 
   // ---- Minigame buffs ----
@@ -1370,9 +1385,132 @@ export class Game {
     return this.buffLeft(kind === 'refine' ? 'forgeStrike' : 'runeMatch');
   }
 
-  /** A rewarded ad was watched: ENERGY_AD more energy, past the max if need be. */
-  adEnergy(): void {
+  /** The most energy refills to on its own: 5, or 20 once ads are removed. */
+  get energyMax(): number {
+    return this.state.noAds ? ENERGY_MAX_NO_ADS : ENERGY_MAX;
+  }
+
+  /** Energy ads left today (none once ads are removed). */
+  get adsLeft(): number {
+    this.rollQuests();
+    return this.state.noAds ? 0 : Math.max(0, ENERGY_ADS_PER_DAY - this.state.quests.ads);
+  }
+
+  /** A rewarded ad was watched: ENERGY_AD more energy, past the max if need be (3 a day). */
+  adEnergy(): boolean {
+    if (this.adsLeft <= 0) return false;
     this.state.energy += ENERGY_AD;
+    this.state.quests.ads++;
+    return true;
+  }
+
+  /** Ads removed (a purchase): no more ad offers, and a bar of 20 that refills to 20. */
+  removeAds(): void {
+    this.state.noAds = true;
+  }
+
+  // ---- Exalted Gems and daily / weekly quests ----
+
+  /** Gems bought in the store. */
+  addGems(n: number): void {
+    this.state.gems += n;
+  }
+
+  /** Starts a new day's (and week's) quests when the local date moves on. */
+  rollQuests(): void {
+    const q = this.state.quests;
+    const now = this.clock();
+    const day = dayKey(now);
+    const week = weekKey(now);
+    if (q.week !== week) {
+      q.week = week;
+      q.weekly = this.makeQuests(WEEKLY_QUESTS, WEEKLY_KILLS, true);
+      q.weeklyClaimed = false;
+      q.weekKills = this.state.stats.totalKills;
+    }
+    if (q.day !== day) {
+      q.day = day;
+      q.daily = this.makeQuests(DAILY_QUESTS, DAILY_KILLS, false);
+      q.dailyClaimed = false;
+      q.checkIn = false;
+      q.dailyDone = false;
+      q.ads = 0;
+      q.dayKills = this.state.stats.totalKills;
+    }
+  }
+
+  /** Quests of the kinds you can do now, topped up with monster slaying to three; the week adds days of dailies. */
+  private makeQuests(defs: Array<{ kind: QuestKind; need: number }>, kills: number, weekly: boolean): Quest[] {
+    const open = (kind: QuestKind) => EVENTS.some((e) => e.kind === kind && this.eventUnlocked(e.id));
+    const out: Quest[] = defs.filter((d) => open(d.kind)).map((d) => ({ ...d, have: 0 }));
+    if (out.length < defs.length) out.push({ kind: 'kills', need: kills, have: 0 });
+    if (weekly) out.push({ kind: 'dailies', need: WEEKLY_DAILIES, have: 0 });
+    return out;
+  }
+
+  /** Counts progress toward today's and this week's quests of a kind. */
+  private questProgress(kind: QuestKind, n = 1): void {
+    this.rollQuests();
+    const q = this.state.quests;
+    for (const quest of [...q.daily, ...q.weekly]) if (quest.kind === kind) quest.have = Math.min(quest.need, quest.have + n);
+    this.checkQuests();
+  }
+
+  /** Kill quests catch up with your kills; finishing every daily counts a day toward the week's. */
+  private checkQuests(): void {
+    const q = this.state.quests;
+    const kills = this.state.stats.totalKills;
+    for (const quest of q.daily) if (quest.kind === 'kills') quest.have = Math.min(quest.need, Math.max(0, kills - q.dayKills));
+    for (const quest of q.weekly) if (quest.kind === 'kills') quest.have = Math.min(quest.need, Math.max(0, kills - q.weekKills));
+    if (!q.dailyDone && questsDone(q.daily)) {
+      q.dailyDone = true;
+      for (const quest of q.weekly) if (quest.kind === 'dailies') quest.have = Math.min(quest.need, quest.have + 1);
+    }
+  }
+
+  /** Today's quests (refreshed). */
+  get dailyQuests(): Quest[] {
+    this.rollQuests();
+    this.checkQuests();
+    return this.state.quests.daily;
+  }
+
+  get weeklyQuests(): Quest[] {
+    this.rollQuests();
+    this.checkQuests();
+    return this.state.quests.weekly;
+  }
+
+  /** Collects GEMS_DAILY once every daily quest is done (once a day). */
+  claimDaily(): boolean {
+    const q = this.state.quests;
+    if (q.dailyClaimed || !questsDone(this.dailyQuests)) return false;
+    q.dailyClaimed = true;
+    this.state.gems += GEMS_DAILY;
+    return true;
+  }
+
+  claimWeekly(): boolean {
+    const q = this.state.quests;
+    if (q.weeklyClaimed || !questsDone(this.weeklyQuests)) return false;
+    q.weeklyClaimed = true;
+    this.state.gems += GEMS_WEEKLY;
+    return true;
+  }
+
+  /** The daily check-in bonus (after an ad, or straight away once ads are removed), once a day. */
+  claimCheckIn(): boolean {
+    this.rollQuests();
+    if (this.state.quests.checkIn) return false;
+    this.state.quests.checkIn = true;
+    this.state.gems += GEMS_CHECKIN;
+    return true;
+  }
+
+  /** Something in the quest log waiting to be collected. */
+  get questsClaimable(): boolean {
+    const q = this.state.quests;
+    return (!q.checkIn && this.state.quests.day === dayKey(this.clock())) || (!q.dailyClaimed && questsDone(this.dailyQuests)) || (!q.weeklyClaimed && questsDone(this.weeklyQuests));
   }
 
   /** Seconds until there's enough energy for an event (0 if there already is). */
@@ -1495,6 +1633,8 @@ export class Game {
     const st = this.state.events[id];
     if (!st) return;
     st.completed++;
+    const kind = eventDef(id).kind;
+    this.questProgress(kind);
     this.emit({ type: 'eventComplete', event: id });
   }
 
@@ -1511,7 +1651,7 @@ export class Game {
   /** Refills event energy (also used for time away). */
   private coolEvents(seconds: number): void {
     // Refills up to the max; an overcharged bar (from an ad) just waits to be spent.
-    if (this.state.energy < ENERGY_MAX) this.state.energy = Math.min(ENERGY_MAX, this.state.energy + seconds / ENERGY_REGEN);
+    if (this.state.energy < this.energyMax) this.state.energy = Math.min(this.energyMax, this.state.energy + seconds / ENERGY_REGEN);
     this.goldRateAge += seconds;
   }
 
@@ -1583,6 +1723,12 @@ export class Game {
   tick(dt: number): void {
     const s = this.state;
     this.coolEvents(dt);
+    this.questAge += dt;
+    if (this.questAge >= 5) {
+      this.questAge = 0;
+      this.rollQuests();
+      this.checkQuests();
+    }
     // Timed minigame buffs run down while you play.
     for (const id of Object.keys(s.buffs) as MinigameId[]) if (MINIGAME_BUFFS[id].kind === 'timed') s.buffs[id] = Math.max(0, s.buffs[id]! - dt);
     if (this.activeEvent) {
@@ -2394,3 +2540,18 @@ export class Game {
     return result;
   }
 }
+
+/** The local date as YYYY-MM-DD (daily quests reset at local midnight). */
+export function dayKey(t: number): string {
+  const d = new Date(t);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** The local date of the week's Monday (weekly quests reset at midnight going into Monday). */
+export function weekKey(t: number): string {
+  const d = new Date(t);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return dayKey(d.getTime());
+}
+
+export const questsDone = (list: Quest[]): boolean => list.length > 0 && list.every((q) => q.have >= q.need);

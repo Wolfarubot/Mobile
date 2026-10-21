@@ -6131,3 +6131,240 @@ body.left-handed .equip-prompt {
   filter: grayscale(1);
   opacity: 0.5;
 }
+
+/* ---- Quest log: an open book (each page a tab), the quests on parchment ---- */
+.quest-btn {
+  margin-left: 0;
+  margin-right: 2px;
+}
+.quest-btn .qb-icon img.ei {
+  width: 26px;
+  height: 26px;
+  vertical-align: middle;
+}
+.stat.right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.quest-btn .alert-mark {
+  position: absolute;
+  top: -8px;
+  right: -10px;
+}
+.hd-top .gem-count {
+  margin-left: auto;
+  padding-right: 6px;
+  font-size: 15px;
+  white-space: nowrap;
+}
+img.ei.gem-ic {
+  image-rendering: pixelated;
+}
+.qbook {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  margin: 4px auto 8px;
+  aspect-ratio: 272 / 192;
+  background: url('/ui/book-spread.png') center / 100% 100% no-repeat;
+  image-rendering: pixelated;
+}
+.qb-page {
+  position: absolute;
+  top: 8%;
+  bottom: 14%;
+  width: 37%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 4px;
+  background: none;
+  border: none;
+  color: #4a3420;
+  text-shadow: none;
+  font-family: inherit;
+}
+.qb-page.left {
+  left: 10%;
+}
+.qb-page.right {
+  right: 9%;
+}
+.qb-page b {
+  font-size: 15px;
+}
+.qb-page small {
+  font-size: 11px;
+  opacity: 0.85;
+}
+.qb-page.on::before {
+  content: '';
+  position: absolute;
+  top: -10%;
+  right: 12%;
+  width: 14px;
+  height: 34px;
+  background: #b0302a;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 80%, 0 100%);
+}
+.qb-page:not(.on) {
+  opacity: 0.6;
+}
+.qpage {
+  border: 12px solid transparent;
+  border-image: url('/ui/book-page.png') 6 fill / 12px / 0 stretch;
+  image-rendering: pixelated;
+  color: #3e2c1a;
+  text-shadow: none;
+  padding: 2px;
+  margin-bottom: 10px;
+}
+.q-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.q-row,
+.q-claim,
+.q-checkin {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.q-orb {
+  width: 44px;
+  height: 25px;
+  flex: none;
+  image-rendering: pixelated;
+}
+.q-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 700;
+}
+.q-row.done .q-text span {
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+.q-bar {
+  height: 6px;
+  margin-top: 4px;
+  background: #c9b07c;
+  border: 1px solid #6a4a2a;
+}
+.q-bar i {
+  display: block;
+  height: 100%;
+  background: #3f8a3a;
+}
+.q-count {
+  font-size: 12px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.q-claim {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 2px dashed #b89a64;
+  font-size: 13px;
+}
+.q-claim span,
+.q-checkin span {
+  flex: 1;
+  min-width: 0;
+}
+.q-checkin span small {
+  display: block;
+  font-size: 11px;
+  opacity: 0.8;
+}
+.q-claim .buy,
+.q-checkin .buy {
+  flex: none;
+  min-width: 88px;
+}
+
+/* ---- Shop: a market stall with the magic trader, then the wares ---- */
+.shop-scene {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 232 / 132;
+  margin-bottom: 8px;
+  border: 3px solid var(--c0);
+  overflow: hidden;
+}
+.shop-scene img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+.shop-trader {
+  position: absolute;
+  left: 65.95%;
+  top: 48.5%;
+  width: 20.69%;
+  height: 36.36%;
+  background: url('/ui/shop-trader.png') 0 0 / 800% 100% no-repeat;
+  image-rendering: pixelated;
+  animation: shop-trader 1.2s steps(8) infinite;
+}
+@keyframes shop-trader {
+  to {
+    background-position-x: 114.2857%;
+  }
+}
+.shop-tabs {
+  margin-bottom: 8px;
+}
+.shop-test {
+  font-size: 11px;
+  opacity: 0.8;
+}
+.shop-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.shop-item .si-icon {
+  width: 48px;
+  height: 36px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  font-size: 26px;
+  background: url('/ui/shop-slot.png') center / 100% 100% no-repeat;
+  image-rendering: pixelated;
+}
+.shop-item .si-icon img.ei {
+  width: 24px;
+  height: 24px;
+}
+.shop-item .si-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.shop-item .si-info small {
+  font-size: 12px;
+}
+.si-bonus {
+  color: var(--gold);
+  font-style: normal;
+  font-weight: 800;
+}
+.shop-item .buy {
+  flex: none;
+  min-width: 80px;
+}
+.shop-item.soon {
+  opacity: 0.75;
+}

@@ -112,6 +112,62 @@ export interface EventDef {
 export const ENERGY_MAX = 5;
 /** Seconds for one point of energy to come back. */
 export const ENERGY_REGEN = 20 * 60;
+/** Rewarded ads for energy a day (none once ads are removed). */
+export const ENERGY_ADS_PER_DAY = 3;
+/** With ads removed the bar holds this much and refills to it on its own (the base 5 plus three ads' worth). */
+export const ENERGY_MAX_NO_ADS = 20;
+
+// ---- Exalted Gems (the premium currency) and daily / weekly quests ----
+
+/** Gems for finishing every daily quest, every weekly quest, and the daily check-in bonus. */
+export const GEMS_DAILY = 5;
+export const GEMS_WEEKLY = 20;
+export const GEMS_CHECKIN = 5;
+
+/** What a quest counts: minigames played (for points), swarms survived, Guardians beaten, monsters slain, days of dailies done. */
+export type QuestKind = 'minigame' | 'swarm' | 'guardian' | 'kills' | 'dailies';
+
+export interface Quest {
+  kind: QuestKind;
+  need: number;
+  have: number;
+}
+
+/**
+ * The day's and the week's quests, of the kinds you can do (a minigame quest once one is open, and so on), topped up
+ * with monster slaying so there are always three dailies. The week adds finishing your dailies on 5 days.
+ */
+export const DAILY_QUESTS: Array<{ kind: QuestKind; need: number }> = [
+  { kind: 'minigame', need: 2 },
+  { kind: 'swarm', need: 2 },
+  { kind: 'guardian', need: 1 },
+];
+export const WEEKLY_QUESTS: Array<{ kind: QuestKind; need: number }> = [
+  { kind: 'minigame', need: 10 },
+  { kind: 'swarm', need: 10 },
+  { kind: 'guardian', need: 5 },
+];
+export const DAILY_KILLS = 2000;
+export const WEEKLY_KILLS = 20_000;
+export const WEEKLY_DAILIES = 5;
+
+export function questText(q: { kind: QuestKind; need: number }): string {
+  const n = q.need;
+  const s = n === 1 ? '' : 's';
+  switch (q.kind) {
+    case 'minigame':
+      return `Play ${n} minigame${s} (score at least 1 point)`;
+    case 'swarm':
+      return `Survive ${n} swarm${s}`;
+    case 'guardian':
+      return `Beat ${n} Guardian Challenge${s}`;
+    case 'kills':
+      return `Slay ${n.toLocaleString('en-US')} monsters`;
+    case 'dailies':
+      return `Finish your daily quests on ${n} day${s}`;
+  }
+}
+
 /** Energy a rewarded ad gives. It can overcharge the bar past ENERGY_MAX (it only refills on its own up to the max). */
 export const ENERGY_AD = 5;
 

@@ -80,7 +80,13 @@ import {
   REFINES,
   ENCHANTS,
   ENERGY_AD,
-  ENERGY_MAX,
+  ENERGY_ADS_PER_DAY,
+  ENERGY_MAX_NO_ADS,
+  GEMS_CHECKIN,
+  GEMS_DAILY,
+  GEMS_WEEKLY,
+  questText,
+  type Quest,
   MINIGAME_BUFFS,
   type MinigameId,
   isUniqueEnchant,
@@ -108,6 +114,7 @@ import { COOLDOWN_POSITIONS, deserialize, TAB_IDS, type GameState, type GearMod,
 import { queuePortrait } from '../render/battle';
 import { drawFramedBar, drawFramedSegments, TIMER_COLOR } from '../render/hudBars';
 import { showRewardedAd } from './ads';
+import { GEM_PACKS, purchase, REMOVE_ADS, STORE_TEST_MODE, type Product } from './store';
 import { gearIconUrl, spriteUrl } from '../render/sprites';
 import { MATERIAL_SPRITES } from '../core/materialSprites';
 import { GEAR_SPRITES } from '../core/gearSprites';
@@ -362,6 +369,8 @@ export class AppUI {
       }),
     );
     $('#menuBtn').addEventListener('click', () => this.openMenu());
+    $('#questBtn .qb-icon').innerHTML = sprite(MENU_SPRITES.quests);
+    $('#questBtn').addEventListener('click', () => this.openQuests());
     // Any tap may change what the cached rates and DPS show (training, stationing, equipping): recompute them.
     document.addEventListener('pointerdown', () => this.shownCache.clear(), true);
     // A buzz when a button is pressed (on click, so a scroll that starts on a button doesn't buzz).
@@ -475,6 +484,7 @@ export class AppUI {
       else if (!s.flags.empowerIntro && g.empowerUnlocked) this.showEmpowerIntro();
     }
     $('#menuBtn .alert-mark').classList.toggle('hidden', !g.unreadJournal().length);
+    $('#questBtn .alert-mark').classList.toggle('hidden', !g.questsClaimable);
     // "!" marks: red on tabs and sub-tabs, white on the new things themselves.
     this.syncSeen();
     $('#eventsBadge').classList.toggle('hidden', !EVENTS.some((e) => e.area === g.area && this.newEvent(e.id)));
@@ -3216,11 +3226,12 @@ export class AppUI {
     let drawn = '';
     this.refreshers.push(() => {
       const whole = Math.floor(g.energy + 1e-9);
-      const over = whole > ENERGY_MAX;
-      text.textContent = over ? `${whole} / ${ENERGY_MAX} · overcharged` : whole >= ENERGY_MAX ? `${ENERGY_MAX} / ${ENERGY_MAX} · full` : `${whole} / ${ENERGY_MAX} · +1 in ${fmtTime(g.energyNextIn)}`;
+      const max = g.energyMax;
+      const over = whole > max;
+      text.textContent = over ? `${whole} / ${max} · overcharged` : whole >= max ? `${max} / ${max} · full` : `${whole} / ${max} · +1 in ${fmtTime(g.energyNextIn)}`;
       // The frame at 2× its pixels, 12 tall, as wide as the bar.
       const w = Math.max(40, Math.round(cv.parentElement!.clientWidth / 2));
-      const key = `${w}:${whole}`;
+      const key = `${w}:${whole}:${max}`;
       if (key === drawn) return;
       if (cv.width !== w || cv.height !== 12) {
         cv.width = w;
@@ -3229,10 +3240,10 @@ export class AppUI {
       const cg = cv.getContext('2d')!;
       cg.clearRect(0, 0, w, 12);
       const segs: Array<[number, number, string]> = [];
-      for (let i = 0; i < Math.min(whole, ENERGY_MAX); i++) segs.push([i / ENERGY_MAX, (i + 1) / ENERGY_MAX, '#f2b200']);
+      for (let i = 0; i < Math.min(whole, max); i++) segs.push([i / max, (i + 1) / max, '#f2b200']);
       // A dark notch between segments.
       const px = 1 / Math.max(1, w - 12);
-      for (let i = 1; i < ENERGY_MAX; i++) segs.push([i / ENERGY_MAX - px, i / ENERGY_MAX + px * 0.5, '#2e2a20']);
+      for (let i = 1; i < max; i++) segs.push([i / max - px, i / max + px * 0.5, '#2e2a20']);
       if (drawFramedSegments(cg, 0, 0, 1, w, 12, segs, over ? '#e8a800' : undefined)) drawn = key;
     });
     return bar;
@@ -3308,19 +3319,24 @@ export class AppUI {
     );
   }
 
-  /** Not enough energy for an event: offer an ad for ENERGY_AD more (past the max if need be). */
+  /** Not enough energy for an event: offer an ad for ENERGY_AD more (past the max if need be), 3 a day. */
   private showNoEnergy(ev: EventDef): void {
     const g = this.game;
     const have = Math.floor(g.energy + 1e-9);
+    const need = `<p><b>${ev.name}</b> needs <b>${g.energyCost(ev.id)}</b> energy, and you have <b>${have}</b>.</p>`;
+    const wait = `<p>Energy comes back 1 every 20 minutes: enough for this in <b>${fmtTime(g.energyWait(ev.id))}</b>.</p>`;
+    if (g.adsLeft <= 0) {
+      this.showModal(`<h2>⚡ Not enough energy</h2>${need}${wait}${g.state.noAds ? '' : `<p>You've watched today's ${ENERGY_ADS_PER_DAY} energy ads.</p>`}`, [{ label: 'OK' }]);
+      return;
+    }
     this.showModal(
-      `<h2>⚡ Not enough energy</h2><p><b>${ev.name}</b> needs <b>${g.energyCost(ev.id)}</b> energy, and you have <b>${have}</b>.</p><p>Watch an ad to restore <b>${ENERGY_AD} energy</b>. Energy past ${ENERGY_MAX} overcharges your bar.</p>`,
+      `<h2>⚡ Not enough energy</h2>${need}<p>Watch an ad to restore <b>${ENERGY_AD} energy</b> (${g.adsLeft} of ${ENERGY_ADS_PER_DAY} left today). Energy past ${g.energyMax} overcharges your bar.</p>`,
       [
         {
-          label: "📺 Watch ad",
+          label: '📺 Watch ad',
           action: () => {
             void showRewardedAd().then((ok) => {
-              if (!ok) return;
-              g.adEnergy();
+              if (!ok || !g.adEnergy()) return;
               this.toast(`⚡ +${ENERGY_AD} energy`);
               this.hooks.save();
               this.refresh();
@@ -3603,7 +3619,7 @@ export class AppUI {
     this.showModal(
       `<h2>🎉 Events unlocked!</h2>
        <p>${this.game.eventUnlocked('guardian-forest') ? '<b>Guardian Challenge</b>' : `<b>${eventDef('slimeSwarm').name}</b>`} is ready in the ${areaDef('forest').name}.</p>
-       <p>The Events tab shows the events of every area you've opened. Slay monsters in an area to unlock its events. Each event costs ⚡ <b>energy</b> to start: a swarm 1, a Guardian 1 to 3 (more in later areas), a minigame 3. You hold up to 5, and one comes back every 20 minutes, even while you're away.</p>`,
+       <p>The Events tab shows the events of every area you've opened. Slay monsters in an area to unlock its events. Each event costs ⚡ <b>energy</b> to start: a swarm 1, a Guardian 1 to 3 (more in later areas), a minigame 3. You hold up to 5 (20 with ads removed), and one comes back every 20 minutes, even while you're away. Out of energy, you can watch an ad for 5 more, 3 times a day.</p>`,
       [
         { label: 'Later', secondary: true },
         { label: 'Go to Events', action: () => (this.game.eventsOpen ? this.goTo('events') : this.showEventsLocked()) },
@@ -3675,6 +3691,7 @@ export class AppUI {
       `<h2>Menu</h2><div class="menu-list">
         ${item('tutorials', sprite(MENU_SPRITES.tutorials), 'Tutorials')}
         ${item('journal', sprite(MENU_SPRITES.journal), 'Journal Entries', unread ? `<span class="alert-mark" title="${unread} new"></span>` : '')}
+        ${item('shop', sprite(MENU_SPRITES.shop), 'Shop')}
         ${item('settings', sprite(MENU_SPRITES.settings), 'Settings')}
         ${item('quit', sprite(MENU_SPRITES.quit), 'Quit')}
       </div>`,
@@ -3684,6 +3701,7 @@ export class AppUI {
       tutorials: () => this.openTutorials(),
       journal: () => this.openJournal(),
       settings: () => this.openSettings(),
+      shop: () => this.openShop(),
       quit: () => this.confirmQuit(),
     };
     this.modal.querySelectorAll<HTMLElement>('[data-menu]').forEach((b) =>
@@ -3710,6 +3728,177 @@ export class AppUI {
   // ---- Journal ----
 
   /** The Journal: entries unlocked so far (new ones flagged until opened), and how many are still hidden. */
+  // ---- Quest log (daily and weekly quests, the daily check-in) and the Shop ----
+
+  /** The quest log: an open book whose left page is today's quests and right page the week's; tap a page to read it. */
+  private openQuests(page: 'daily' | 'weekly' = 'daily'): void {
+    if (this.detail) this.dropDetail();
+    const g = this.game;
+    const view = el('div', 'hunter-detail settings quests');
+    view.innerHTML = `
+      <div class="hd-top"><button class="hd-close" aria-label="Close">✕</button><span>Quest Log</span><b class="gem-count"></b></div>
+      <div class="hd-scroll"></div>`;
+    document.body.appendChild(view);
+    $('.hd-close', view).addEventListener('click', () => this.closeHunterDetail());
+    const refreshers: Array<() => void> = [];
+    this.detail = { el: view, refreshers };
+    const body = $('.hd-scroll', view);
+    const count = $('.gem-count', view);
+    refreshers.push(() => (count.innerHTML = `${gemIcon()} ${gemsText(g.state.gems)}`));
+
+    // The book: each page a tab, with its title, how much is done and when it resets.
+    const book = el('div', 'qbook');
+    book.innerHTML = `<button class="qb-page left" data-page="daily"><b>Daily Quests</b><small class="qb-done"></small><small class="qb-reset"></small></button><button class="qb-page right" data-page="weekly"><b>Weekly Quests</b><small class="qb-done"></small><small class="qb-reset"></small></button>`;
+    body.appendChild(book);
+    book.querySelectorAll<HTMLElement>('.qb-page').forEach((b) => {
+      b.classList.toggle('on', b.dataset.page === page);
+      b.addEventListener('click', () => b.dataset.page !== page && this.openQuests(b.dataset.page as 'daily' | 'weekly'));
+    });
+    refreshers.push(() => {
+      const now = g.clock();
+      const pages: Array<[string, Quest[], number]> = [
+        ['daily', g.dailyQuests, nextMidnight(now) - now],
+        ['weekly', g.weeklyQuests, nextMonday(now) - now],
+      ];
+      for (const [id, list, left] of pages) {
+        const pg = $(`.qb-page[data-page=${id}]`, book);
+        $('.qb-done', pg).textContent = `${list.filter((q) => q.have >= q.need).length} / ${list.length} done`;
+        $('.qb-reset', pg).textContent = `New in ${fmtWait(left)}`;
+      }
+    });
+
+    const sheet = el('div', 'qpage');
+    body.appendChild(sheet);
+    const list = page === 'daily' ? () => g.dailyQuests : () => g.weeklyQuests;
+    const rows = el('div', 'q-list');
+    sheet.appendChild(rows);
+    const claim = el('div', 'q-claim');
+    sheet.appendChild(claim);
+    const reward = page === 'daily' ? GEMS_DAILY : GEMS_WEEKLY;
+    let shown = '';
+    refreshers.push(() => {
+      const quests = list();
+      const key = JSON.stringify(quests);
+      if (key !== shown) {
+        shown = key;
+        rows.innerHTML = quests
+          .map((q) => {
+            const done = q.have >= q.need;
+            return `<div class="q-row${done ? ' done' : ''}"><img class="q-orb" src="${UI_URL}${done ? 'orb-done' : 'orb-empty'}.png" alt=""><div class="q-text"><span>${questText(q)}</span><div class="q-bar"><i style="width:${Math.min(1, q.have / q.need) * 100}%"></i></div></div><b class="q-count">${fmt(Math.min(q.have, q.need))} / ${fmt(q.need)}</b></div>`;
+          })
+          .join('');
+      }
+      const all = quests.length > 0 && quests.every((q) => q.have >= q.need);
+      const claimed = page === 'daily' ? g.state.quests.dailyClaimed : g.state.quests.weeklyClaimed;
+      const ck = `${all}:${claimed}`;
+      if (claim.dataset.k === ck) return;
+      claim.dataset.k = ck;
+      claim.innerHTML = `<img class="q-orb" src="${UI_URL}orb-gem.png" alt=""><span>${page === 'daily' ? 'Finish every daily quest' : 'Finish every weekly quest'}: ${gemIcon()} <b>${reward}</b> Exalted Gems</span><button class="buy"${!all || claimed ? ' disabled' : ''}>${claimed ? 'Collected ✓' : all ? 'Collect' : 'Not yet'}</button>`;
+      $('button', claim).addEventListener('click', () => {
+        if (!(page === 'daily' ? g.claimDaily() : g.claimWeekly())) return;
+        this.toast(`💎 +${reward} Exalted Gems`);
+        this.hooks.save();
+        this.refresh();
+      });
+    });
+
+    // The daily check-in bonus: an ad for 5 gems, or simply collected once ads are removed.
+    if (page === 'daily') {
+      const check = el('div', 'qpage q-checkin');
+      body.appendChild(check);
+      refreshers.push(() => {
+        const done = g.state.quests.checkIn;
+        const noAds = g.state.noAds;
+        const ck = `${done}:${noAds}`;
+        if (check.dataset.k === ck) return;
+        check.dataset.k = ck;
+        check.innerHTML = `<img class="q-orb" src="${UI_URL}orb-gem.png" alt=""><span><b>Daily check-in</b><small>${noAds ? 'Collect it once a day.' : 'Watch an ad, once a day.'}</small> ${gemIcon()} <b>${GEMS_CHECKIN}</b></span><button class="buy"${done ? ' disabled' : ''}>${done ? 'Collected ✓' : noAds ? 'Collect' : '📺 Watch ad'}</button>`;
+        $('button', check).addEventListener('click', () => {
+          const give = () => {
+            if (!g.claimCheckIn()) return;
+            this.toast(`💎 +${GEMS_CHECKIN} Exalted Gems`);
+            this.hooks.save();
+            this.refresh();
+          };
+          if (noAds) give();
+          else void showRewardedAd().then((ok) => ok && give());
+        });
+      });
+    }
+    const note = el('p', 'hd-note', page === 'daily' ? 'Daily quests reset at midnight. Exalted Gems buy permanent upgrades in the Shop (coming soon).' : 'Weekly quests reset at midnight going into Monday. Finishing your dailies on a day counts toward the week.');
+    body.appendChild(note);
+    for (const r of refreshers) r();
+  }
+
+  /** The Shop: a market stall, then Remove Ads and permanent upgrades, or packs of Exalted Gems. */
+  private openShop(page: 'shop' | 'gems' = 'shop'): void {
+    if (this.detail) this.dropDetail();
+    const g = this.game;
+    const view = el('div', 'hunter-detail settings shop');
+    view.innerHTML = `
+      <div class="hd-top"><button class="hd-close" aria-label="Close">✕</button><span>Shop</span><b class="gem-count"></b></div>
+      <div class="hd-scroll"></div>`;
+    document.body.appendChild(view);
+    $('.hd-close', view).addEventListener('click', () => this.closeHunterDetail());
+    const refreshers: Array<() => void> = [];
+    this.detail = { el: view, refreshers };
+    const body = $('.hd-scroll', view);
+    const count = $('.gem-count', view);
+    refreshers.push(() => (count.innerHTML = `${gemIcon()} ${gemsText(g.state.gems)}`));
+    const scene = el('div', 'shop-scene');
+    scene.innerHTML = `<img src="${UI_URL}shop-back.png" alt=""><div class="shop-trader"></div><img src="${UI_URL}shop-front.png" alt="">`;
+    body.appendChild(scene);
+    const tabs = el('div', 'subtabs shop-tabs');
+    tabs.innerHTML = `<button data-page="shop" class="${page === 'shop' ? 'on' : ''}">Shop</button><button data-page="gems" class="${page === 'gems' ? 'on' : ''}">${gemIcon()} Exalted Gems</button>`;
+    tabs.querySelectorAll<HTMLElement>('button').forEach((b) => b.addEventListener('click', () => b.dataset.page !== page && this.openShop(b.dataset.page as 'shop' | 'gems')));
+    body.appendChild(tabs);
+    if (STORE_TEST_MODE) body.appendChild(el('p', 'hd-note shop-test', 'Test mode: purchases go through without any payment until store billing is added.'));
+    const buy = (p: Product, done: () => void) =>
+      void purchase(p.id).then((ok) => {
+        if (!ok) return;
+        done();
+        this.hooks.save();
+        this.refresh();
+      });
+    const card = (icon: string, name: string, text: string, button: HTMLButtonElement) => {
+      const c = el('div', 'card shop-item');
+      c.innerHTML = `<div class="si-icon">${icon}</div><div class="si-info"><b>${name}</b><small>${text}</small></div>`;
+      c.appendChild(button);
+      body.appendChild(c);
+      return c;
+    };
+    if (page === 'shop') {
+      const btn = el('button', 'buy') as HTMLButtonElement;
+      btn.addEventListener('click', () =>
+        buy(REMOVE_ADS, () => {
+          g.removeAds();
+          this.toast('🚫 Ads removed. Thank you!');
+        }),
+      );
+      card('🚫', REMOVE_ADS.name, `No more ads. Your energy bar grows to ${ENERGY_MAX_NO_ADS} and refills all the way on its own, and the daily check-in bonus is yours without an ad.`, btn);
+      refreshers.push(() => {
+        btn.disabled = g.state.noAds;
+        btn.innerHTML = g.state.noAds ? 'Owned ✓' : REMOVE_ADS.price;
+      });
+      const soon = el('div', 'card shop-item soon');
+      soon.innerHTML = `<div class="si-icon">${gemIcon()}</div><div class="si-info"><b>Permanent upgrades</b><small>Spend Exalted Gems on upgrades for every Hunter and area that last forever, through every Ascension. Coming soon.</small></div>`;
+      body.appendChild(soon);
+    } else {
+      for (const p of GEM_PACKS) {
+        const btn = el('button', 'buy', p.price) as HTMLButtonElement;
+        const total = (p.gems ?? 0) + (p.bonus ?? 0);
+        btn.addEventListener('click', () =>
+          buy(p, () => {
+            g.addGems(total);
+            this.toast(`💎 +${gemsText(total)} Exalted Gems`);
+          }),
+        );
+        card(`<span class="si-slot">${gemIcon()}</span>`, p.name, `${gemsText(p.gems!)} Exalted Gems${p.bonus ? ` <em class="si-bonus">+${gemsText(p.bonus)} bonus</em>` : ''}`, btn);
+      }
+    }
+    for (const r of refreshers) r();
+  }
+
   private openJournal(entry?: JournalEntry): void {
     if (this.detail) this.dropDetail();
     const g = this.game;
@@ -4538,6 +4727,8 @@ function gearCardHtml(it: GearItem, vs: GearItem | null = null): string {
  */
 const MENU_SPRITES = {
   tutorials: 'wands-books/062',
+  quests: 'wands-books/054',
+  shop: 'custom/004',
   journal: 'rpg-items/289',
   settings: 'custom/002',
   quit: 'things/024',
@@ -4567,6 +4758,36 @@ export const MAX_NAME_LENGTH = 16;
 
 /** Escapes text typed by the player before it goes into HTML. */
 /** A pixel sprite from public/icons ("<pack>/<NNN>"), drawn like an emoji's icon (the menu screens use these directly). */
+/** Where the UI art lives (public/ui). */
+const UI_URL = `${import.meta.env.BASE_URL}ui/`;
+
+/** The Exalted Gem, the premium currency's icon. */
+function gemIcon(): string {
+  return `<img class="ei gem-ic" src="${gearIconUrl('custom/003')}" alt="Exalted Gems" draggable="false">`;
+}
+
+/** Local midnight after `t`, and midnight going into the next Monday (when dailies and weeklies reset). */
+/** A wait in days and hours (or hours and minutes under a day). */
+function fmtWait(ms: number): string {
+  const h = Math.floor(ms / 3600000);
+  return h >= 24 ? `${Math.floor(h / 24)}d ${h % 24}h` : fmtTime(ms / 1000);
+}
+
+/** A whole number with thousands separators (gem counts). */
+const gemsText = (n: number): string => Math.floor(n).toLocaleString('en-US');
+
+function nextMidnight(t: number): number {
+  const d = new Date(t);
+  d.setHours(24, 0, 0, 0);
+  return d.getTime();
+}
+function nextMonday(t: number): number {
+  const d = new Date(t);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + (((8 - d.getDay()) % 7) || 7));
+  return d.getTime();
+}
+
 function sprite(key: string): string {
   return `<img class="ei" src="${gearIconUrl(key)}" alt="" draggable="false">`;
 }
