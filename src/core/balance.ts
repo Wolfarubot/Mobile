@@ -125,29 +125,47 @@ export const GEMS_WEEKLY = 20;
 export const GEMS_CHECKIN = 5;
 
 /**
- * Permanent upgrades bought with Exalted Gems: they work for every Hunter in every area and are never lost (not even
- * to Ascension). Each has levels, bought in order; `per` is what one level adds.
+ * Permanent upgrades bought with Exalted Gems, each a separate item (Dreamcatcher I to IV, and so on): they work for
+ * every Hunter in every area and are never lost (not even to Ascension). The items of a kind add up, and the total
+ * multiplies on top of everything else (all four Dreamcatchers, +250%, make offline gains ×3.5).
  */
 export type PremiumId = 'offline' | 'gold' | 'drops' | 'damage' | 'buffTime' | 'charges' | 'energy';
 export interface PremiumDef {
   name: string;
+  /** Its pixel icon (a pack/number key in public/icons). */
   icon: string;
-  per: number;
-  /** Gems for each level in turn. */
+  /** Each item's bonus, and its price in gems. */
+  values: number[];
   costs: number[];
-  /** What it does at a level (0 = not bought). */
-  text: (level: number) => string;
+  /** What an item of this kind with bonus `v` does. */
+  text: (v: number) => string;
 }
 export const PREMIUM_UPGRADES: Record<PremiumId, PremiumDef> = {
-  offline: { name: 'Dreamcatcher', icon: '💤', per: 0.25, costs: [100, 200, 350, 500], text: (l) => `+${pctOf(0.25 * l)} offline gains` },
-  gold: { name: 'Golden Touch', icon: '💰', per: 0.1, costs: [80, 150, 250, 400, 600], text: (l) => `+${pctOf(0.1 * l)} gold from kills` },
-  drops: { name: 'Scavenger\'s Pack', icon: '🎒', per: 0.1, costs: [80, 150, 250, 400, 600], text: (l) => `+${pctOf(0.1 * l)} material drop chance` },
-  damage: { name: 'Hunter\'s Edge', icon: '⚔️', per: 0.1, costs: [100, 200, 350, 550, 800], text: (l) => `+${pctOf(0.1 * l)} damage for every Hunter` },
-  buffTime: { name: 'Lasting Blessings', icon: '⏳', per: 0.25, costs: [60, 120, 200, 300], text: (l) => `Timed minigame buffs gain ${pctOf(0.25 * l)} more time a play and hold ${pctOf(0.25 * l)} more` },
-  charges: { name: 'Overflowing Charges', icon: '🔋', per: 1, costs: [150, 300], text: (l) => `Charge minigame buffs gain ${l} more charge${l === 1 ? '' : 's'} a play and hold ${3 * l} more` },
-  energy: { name: 'Second Wind', icon: '⚡', per: 0.1, costs: [150, 300, 500], text: (l) => `Energy comes back ${pctOf(0.1 * l)} faster` },
+  offline: { name: 'Dreamcatcher', icon: 'status5/084', values: [0.25, 0.5, 0.75, 1], costs: [100, 200, 350, 500], text: (v) => `+${pctOf(v)} offline gains` },
+  gold: { name: 'Golden Touch', icon: 'things/004', values: [0.1, 0.2, 0.3, 0.4, 0.5], costs: [80, 150, 250, 400, 600], text: (v) => `+${pctOf(v)} gold from kills` },
+  drops: { name: "Scavenger's Pack", icon: 'things/024', values: [0.1, 0.2, 0.3, 0.4, 0.5], costs: [80, 150, 250, 400, 600], text: (v) => `+${pctOf(v)} material drop chance` },
+  damage: { name: "Hunter's Edge", icon: 'status5/009', values: [0.1, 0.2, 0.3, 0.4, 0.5], costs: [100, 200, 350, 550, 800], text: (v) => `+${pctOf(v)} damage for every Hunter` },
+  buffTime: { name: 'Lasting Blessings', icon: 'status2/004', values: [0.25, 0.5, 0.75, 1], costs: [60, 120, 200, 300], text: (v) => `Timed minigame buffs gain and hold ${pctOf(v)} more` },
+  charges: { name: 'Overflowing Charges', icon: 'ab-gunslinger-druid/023', values: [1, 2], costs: [150, 300], text: (v) => `Charge minigame buffs gain ${v} more charge${v === 1 ? '' : 's'} a play and hold ${3 * v} more` },
+  energy: { name: 'Second Wind', icon: 'status5/091', values: [0.1, 0.2, 0.3], costs: [150, 300, 500], text: (v) => `Energy comes back ${pctOf(v)} faster` },
 };
 export const PREMIUM_IDS = Object.keys(PREMIUM_UPGRADES) as PremiumId[];
+
+export interface PremiumItem {
+  /** e.g. "offline2". */
+  id: string;
+  kind: PremiumId;
+  /** 1-based (shown as I, II, III...). */
+  tier: number;
+  value: number;
+  cost: number;
+}
+export const PREMIUM_ITEMS: PremiumItem[] = PREMIUM_IDS.flatMap((kind) => PREMIUM_UPGRADES[kind].values.map((value, i) => ({ id: `${kind}${i + 1}`, kind, tier: i + 1, value, cost: PREMIUM_UPGRADES[kind].costs[i] })));
+export const premiumItem = (id: string): PremiumItem | undefined => PREMIUM_ITEMS.find((it) => it.id === id);
+export const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI'];
+export const premiumName = (it: PremiumItem): string => `${PREMIUM_UPGRADES[it.kind].name} ${ROMAN[it.tier - 1]}`;
+/** Items on sale each day, picked afresh from those you don't own. */
+export const SHOP_DAILY_ITEMS = 6;
 
 /** What a quest counts: minigames played (for points), swarms survived, Guardians beaten, monsters slain, days of dailies done. */
 export type QuestKind = 'minigame' | 'swarm' | 'guardian' | 'kills' | 'dailies';

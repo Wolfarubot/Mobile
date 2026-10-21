@@ -73,8 +73,8 @@ import {
   OFFLINE_EFFICIENCY,
   STUN_IMMUNITY,
   ENERGY_AD,
-  PREMIUM_IDS,
-  PREMIUM_UPGRADES,
+  PREMIUM_ITEMS,
+  SHOP_DAILY_ITEMS,
   ENERGY_ADS_PER_DAY,
   ENERGY_MAX_NO_ADS,
   DAILY_KILLS,
@@ -3836,44 +3836,62 @@ describe('Events', () => {
     expect(back.quests).toEqual(g.state.quests);
   });
 
-  it('permanent upgrades: bought with gems a level at a time, each working everywhere', () => {
+  it('permanent upgrades: separate items, six a day on sale, adding up into one multiplier on top of everything', () => {
     const g = new Game(newGame(0), noCrit);
+    let now = new Date(2026, 9, 21, 10).getTime();
+    g.clock = () => now;
     g.state.hunters.ranger.recruited = true;
     g.state.hunters.frostbreaker.recruited = true;
+    expect(PREMIUM_ITEMS.filter((it) => it.kind === 'offline').map((it) => [it.value, it.cost])).toEqual([
+      [0.25, 100],
+      [0.5, 200],
+      [0.75, 350],
+      [1, 500],
+    ]);
+    // Six on sale, the same all day, none you own; a new six tomorrow.
+    const today = g.shopItems.map((it) => it.id);
+    expect(today).toHaveLength(SHOP_DAILY_ITEMS);
+    expect(new Set(today).size).toBe(SHOP_DAILY_ITEMS);
+    expect(g.buyPremium(today[0])).toBe(false); // no gems
+    g.state.gems = 1e6;
+    expect(g.buyPremium(today[0])).toBe(true);
+    expect(g.buyPremium(today[0])).toBe(false); // owned
+    expect(g.shopItems.map((it) => it.id)).toEqual(today); // still on the stall, sold
+    const offStall = PREMIUM_ITEMS.find((it) => !today.includes(it.id))!;
+    expect(g.buyPremium(offStall.id)).toBe(false); // not on sale today
+    now += 24 * 3600 * 1000;
+    expect(g.shopItems.some((it) => it.id === today[0])).toBe(false); // owned items don't come back
+    // Every item owned: the bonuses add up, and multiply on top of the rest.
+    g.state.premium = [];
     const dmg = g.damage;
     const gold = g.enemyStats('greenSlime').gold;
     const drop = g.enemyStats('greenSlime').dropChance;
-    expect(g.buyPremium('damage')).toBe(false); // no gems
-    g.state.gems = 1e6;
-    const before = g.state.gems;
-    expect(g.buyPremium('damage')).toBe(true);
-    expect(g.state.gems).toBe(before - PREMIUM_UPGRADES.damage.costs[0]);
-    expect(g.premiumCost('damage')).toBe(PREMIUM_UPGRADES.damage.costs[1]);
-    expect(g.damage).toBeCloseTo(dmg * 1.1);
-    for (const id of PREMIUM_IDS) while (g.buyPremium(id));
-    expect(PREMIUM_IDS.map((id) => g.premiumCost(id))).toEqual(PREMIUM_IDS.map(() => null)); // all maxed
-    expect(g.premiumMult('offline')).toBe(2); // +25% up to +100%
-    expect(g.damage).toBeCloseTo(dmg * 1.5);
-    expect(g.enemyStats('greenSlime').gold).toBeCloseTo(gold * 1.5);
-    expect(g.enemyStats('greenSlime').dropChance).toBeCloseTo(drop * 1.5);
-    expect(g.energyRegen).toBeCloseTo(ENERGY_REGEN / 1.3);
-    // Lasting Blessings: timed buffs gain and hold twice as much; Overflowing Charges: +2 a play, +6 held.
+    g.state.premium = PREMIUM_ITEMS.map((it) => it.id);
+    expect(g.premiumMult('offline')).toBe(3.5); // +25% +50% +75% +100%
+    expect(g.damage).toBeCloseTo(dmg * 2.5); // +10..50% = +150%
+    expect(g.enemyStats('greenSlime').gold).toBeCloseTo(gold * 2.5);
+    expect(g.enemyStats('greenSlime').dropChance).toBeCloseTo(drop * 2.5);
+    expect(g.energyRegen).toBeCloseTo(ENERGY_REGEN / 1.6);
     const par = eventDef('huntingPractice').rewards!.par;
     g.finishMinigame('huntingPractice', par);
-    expect(g.buffLeft('huntingPractice')).toBe(MINIGAME_BUFFS.huntingPractice.per * 2);
-    expect(g.buffCap('huntingPractice')).toBe(MINIGAME_BUFFS.huntingPractice.cap * 2);
+    expect(g.buffLeft('huntingPractice')).toBe(MINIGAME_BUFFS.huntingPractice.per * 3.5);
+    expect(g.buffCap('huntingPractice')).toBe(MINIGAME_BUFFS.huntingPractice.cap * 3.5);
     g.finishMinigame('icebreaker', eventDef('icebreaker').rewards!.par);
-    expect(g.buffLeft('icebreaker')).toBe(3);
-    expect(g.buffCap('icebreaker')).toBe(MINIGAME_BUFFS.icebreaker.cap + 6);
+    expect(g.buffLeft('icebreaker')).toBe(4); // 1 + 3 extra
+    expect(g.buffCap('icebreaker')).toBe(MINIGAME_BUFFS.icebreaker.cap + 9);
     expect(deserialize(serialize(g.state))!.premium).toEqual(g.state.premium);
-    // Dreamcatcher: twice what's earned away at +100%.
-    const away = (level: number) => {
+    // Saves from when upgrades had levels keep the same bonuses as items.
+    const old = JSON.parse(serialize(g.state));
+    old.premium = { offline: 2, gold: 1 };
+    expect(deserialize(JSON.stringify(old))!.premium).toEqual(['offline1', 'offline2', 'gold1']);
+    // All four Dreamcatchers: offline gains ×3.5.
+    const away = (ids: string[]) => {
       const h = new Game(newGame(0), noCrit);
-      h.state.premium.offline = level;
+      h.state.premium = ids;
       h.state.lastSeen = 0;
       return h.applyOffline(2 * 3600 * 1000).gold;
     };
-    expect(away(4)).toBeCloseTo(away(0) * 2, -1);
+    expect(away(['offline1', 'offline2', 'offline3', 'offline4'])).toBeCloseTo(away([]) * 3.5, -1);
   });
 
   it('three energy ads a day; Remove Ads ends them, and the bar holds and refills to 20', () => {

@@ -6391,3 +6391,83 @@ img.ei.gem-ic {
   width: 18px;
   height: 18px;
 }
+
+.shop-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px 8px;
+  margin-bottom: 12px;
+}
+.shop-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+}
+.shop-tile {
+  width: 100%;
+  max-width: 96px;
+  border-color: #ff2fd0 !important;
+}
+.shop-tile i img.ei {
+  width: 44px;
+  height: 44px;
+}
+.shop-tile .st-tier {
+  position: absolute;
+  right: 4px;
+  bottom: 2px;
+  font-size: 12px;
+  color: #fff;
+  text-shadow: var(--outline);
+}
+.shop-tile.sold {
+  opacity: 0.45;
+}
+.st-name {
+  font-size: 11px;
+  font-weight: 800;
+  text-align: center;
+  line-height: 1.15;
+}
+.st-price {
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.st-price img.ei {
+  width: 16px;
+  height: 16px;
+}
+.shop-owned {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.so-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.so-row > img.ei {
+  width: 28px;
+  height: 28px;
+}
+.so-row small {
+  display: block;
+  font-size: 12px;
+}
+.si-icon {
+  position: relative;
+}
+.si-icon .si-gem {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+}
+.si-icon .si-gem img.ei {
+  width: 16px;
+  height: 16px;
+}

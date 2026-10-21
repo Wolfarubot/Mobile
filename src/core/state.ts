@@ -10,7 +10,7 @@ import {
   type Quest,
   PREMIUM_IDS,
   PREMIUM_UPGRADES,
-  type PremiumId,
+  premiumItem,
   MONSTER_EVO_TREES,
   GEAR,
   GEAR_COST_GROWTH,
@@ -258,8 +258,10 @@ export interface GameState {
   };
   /** Per event: seconds of cooldown left, times started and times completed (a Guardian beaten, a swarm survived). */
   events: Record<string, EventState>;
-  /** Permanent upgrades bought with Exalted Gems: each one's level. */
-  premium: Partial<Record<PremiumId, number>>;
+  /** Permanent upgrade items owned (PREMIUM_ITEMS ids). */
+  premium: string[];
+  /** Today's items on sale in the Shop. */
+  shop: { day: string; items: string[] };
   /** Exalted Gems: the premium currency. */
   gems: number;
   /** Ads have been removed (a purchase): no ad offers, a bigger energy bar, the check-in bonus without an ad. */
@@ -349,7 +351,8 @@ export function newGame(now = Date.now()): GameState {
     energy: ENERGY_MAX,
     buffs: {},
     gems: 0,
-    premium: {},
+    premium: [],
+    shop: { day: '', items: [] },
     noAds: false,
     quests: newQuests(),
     events: Object.fromEntries(EVENTS.map((e) => [e.id, { runs: 0, completed: 0 }])),
@@ -690,13 +693,19 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
     gems: typeof data.gems === 'number' && Number.isFinite(data.gems) ? Math.max(0, Math.floor(data.gems)) : 0,
     noAds: data.noAds === true,
     premium: (() => {
-      const p = (data.premium ?? {}) as Record<string, unknown>;
-      const out: Partial<Record<PremiumId, number>> = {};
+      const p = data.premium;
+      if (Array.isArray(p)) return p.filter((id): id is string => typeof id === 'string' && !!premiumItem(id));
+      // Saves from when they were levels: a level per item, lowest first.
+      const out: string[] = [];
       for (const id of PREMIUM_IDS) {
-        const v = p[id];
-        if (typeof v === 'number' && v > 0) out[id] = Math.min(PREMIUM_UPGRADES[id].costs.length, Math.floor(v));
+        const v = (p as Record<string, unknown> | undefined)?.[id];
+        for (let i = 1; typeof v === 'number' && i <= Math.min(v, PREMIUM_UPGRADES[id].values.length); i++) out.push(`${id}${i}`);
       }
       return out;
+    })(),
+    shop: (() => {
+      const sh = (data.shop ?? {}) as { day?: unknown; items?: unknown };
+      return { day: typeof sh.day === 'string' ? sh.day : '', items: Array.isArray(sh.items) ? sh.items.filter((id): id is string => typeof id === 'string' && !!premiumItem(id)) : [] };
     })(),
     quests: (() => {
       const q = { ...newQuests(), ...((data.quests ?? {}) as Partial<QuestState>) };

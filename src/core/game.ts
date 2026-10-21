@@ -49,8 +49,11 @@ import {
   GEMS_WEEKLY,
   GEMS_CHECKIN,
   type Quest,
-  PREMIUM_UPGRADES,
+  PREMIUM_ITEMS,
+  premiumItem,
+  SHOP_DAILY_ITEMS,
   type PremiumId,
+  type PremiumItem,
   type QuestKind,
   BUFF_CRIT,
   BUFF_CRIT_DMG,
@@ -1359,7 +1362,7 @@ export class Game {
     if (score <= 0) return 0;
     const k = Math.max(0.5, Math.min(1.5, score / par));
     if (b.kind === 'timed') return b.per * k * this.premiumMult('buffTime');
-    const extra = this.premiumLevel('charges');
+    const extra = this.premiumBonus('charges');
     // Forge Strike and Rune Match: only a score that earns a blessing.
     if (eventDef(id).blessing) return this.blessingFor(id, score) > 0 ? b.per + extra : 0;
     return Math.max(1, Math.round(b.per * k)) + extra;
@@ -1373,31 +1376,61 @@ export class Game {
   /** The most a buff's tank holds (more with the Lasting Blessings and Overflowing Charges upgrades). */
   buffCap(id: MinigameId): number {
     const b = MINIGAME_BUFFS[id];
-    return b.kind === 'timed' ? b.cap * this.premiumMult('buffTime') : b.cap + 3 * this.premiumLevel('charges');
+    return b.kind === 'timed' ? b.cap * this.premiumMult('buffTime') : b.cap + 3 * this.premiumBonus('charges');
   }
 
   // ---- Permanent upgrades (Exalted Gems) ----
 
-  premiumLevel(id: PremiumId): number {
-    return this.state.premium[id] ?? 0;
+  /** The items of a kind you own, added up (Overflowing Charges: extra charges a play). */
+  premiumBonus(kind: PremiumId): number {
+    let v = 0;
+    for (const id of this.state.premium) {
+      const it = premiumItem(id);
+      if (it?.kind === kind) v += it.value;
+    }
+    return v;
   }
 
-  /** 1 + what an upgrade's levels add. */
-  premiumMult(id: PremiumId): number {
-    return 1 + this.premiumLevel(id) * PREMIUM_UPGRADES[id].per;
+  /** A kind's multiplier, on top of everything else: 1 + its items' bonuses. */
+  premiumMult(kind: PremiumId): number {
+    return 1 + this.premiumBonus(kind);
   }
 
-  /** Gems for an upgrade's next level, or null once it's maxed. */
-  premiumCost(id: PremiumId): number | null {
-    return PREMIUM_UPGRADES[id].costs[this.premiumLevel(id)] ?? null;
+  ownsPremium(id: string): boolean {
+    return this.state.premium.includes(id);
   }
 
-  buyPremium(id: PremiumId): boolean {
-    const cost = this.premiumCost(id);
-    if (cost === null || this.state.gems < cost) return false;
-    this.state.gems -= cost;
-    this.state.premium[id] = this.premiumLevel(id) + 1;
+  /** Today's items on sale (picked when the day turns; bought ones stay on the stall, sold). */
+  get shopItems(): PremiumItem[] {
+    this.rollQuests();
+    return this.state.shop.items.map((id) => premiumItem(id)!).filter(Boolean);
+  }
+
+  /** Buys one of today's items. */
+  buyPremium(id: string): boolean {
+    const it = premiumItem(id);
+    if (!it || this.ownsPremium(id) || !this.state.shop.items.includes(id) || this.state.gems < it.cost) return false;
+    this.state.gems -= it.cost;
+    this.state.premium.push(id);
     return true;
+  }
+
+  /** A day's six items: a shuffle of the ones you don't own, seeded by the date so it holds all day. */
+  private stockShop(day: string): void {
+    let h = 2166136261;
+    for (let i = 0; i < day.length; i++) h = Math.imul(h ^ day.charCodeAt(i), 16777619);
+    const rand = () => {
+      h = Math.imul(h ^ (h >>> 15), 2246822507);
+      h = Math.imul(h ^ (h >>> 13), 3266489909);
+      h ^= h >>> 16;
+      return (h >>> 0) / 4294967296;
+    };
+    const pool = PREMIUM_ITEMS.filter((it) => !this.ownsPremium(it.id)).map((it) => it.id);
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    this.state.shop = { day, items: pool.slice(0, SHOP_DAILY_ITEMS) };
   }
 
   /** Seconds for a point of energy (less with Second Wind). */
@@ -1466,6 +1499,7 @@ export class Game {
       q.weeklyClaimed = false;
       q.weekKills = this.state.stats.totalKills;
     }
+    if (this.state.shop.day !== day) this.stockShop(day);
     if (q.day !== day) {
       q.day = day;
       q.daily = this.makeQuests(DAILY_QUESTS, DAILY_KILLS, false);

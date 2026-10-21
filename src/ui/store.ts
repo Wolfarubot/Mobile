@@ -14,16 +14,18 @@ export interface Product {
   gems?: number;
   /** Bonus gems, shown as "+N bonus". */
   bonus?: number;
+  /** Its pixel icon. */
+  icon?: string;
 }
 
 export const REMOVE_ADS: Product = { id: 'remove_ads', name: 'Remove Ads', price: '$4.99' };
 
 export const GEM_PACKS: Product[] = [
-  { id: 'gems_50', name: 'Pouch of Gems', price: '$0.99', gems: 50 },
-  { id: 'gems_275', name: 'Bag of Gems', price: '$4.99', gems: 250, bonus: 25 },
-  { id: 'gems_600', name: 'Chest of Gems', price: '$9.99', gems: 500, bonus: 100 },
-  { id: 'gems_1300', name: 'Trove of Gems', price: '$19.99', gems: 1000, bonus: 300 },
-  { id: 'gems_3500', name: 'Hoard of Gems', price: '$49.99', gems: 2500, bonus: 1000 },
+  { id: 'gems_50', name: 'Pouch of Gems', price: '$0.99', gems: 50, icon: 'things/011' },
+  { id: 'gems_275', name: 'Bag of Gems', price: '$4.99', gems: 250, bonus: 25, icon: 'things/014' },
+  { id: 'gems_600', name: 'Chest of Gems', price: '$9.99', gems: 500, bonus: 100, icon: 'things/066' },
+  { id: 'gems_1300', name: 'Trove of Gems', price: '$19.99', gems: 1000, bonus: 300, icon: 'things/069' },
+  { id: 'gems_3500', name: 'Hoard of Gems', price: '$49.99', gems: 2500, bonus: 1000, icon: 'things/070' },
 ];
 
 export function purchase(_id: string): Promise<boolean> {

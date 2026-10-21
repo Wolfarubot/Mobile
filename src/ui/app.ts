@@ -87,8 +87,12 @@ import {
   GEMS_WEEKLY,
   questText,
   PREMIUM_IDS,
+  PREMIUM_ITEMS,
   PREMIUM_UPGRADES,
-  type PremiumId,
+  premiumItem,
+  premiumName,
+  ROMAN,
+  SHOP_DAILY_ITEMS,
   type Quest,
   MINIGAME_BUFFS,
   type MinigameId,
@@ -3315,8 +3319,8 @@ export class AppUI {
       b.kind === 'timed'
         ? `Each play adds ${span(b.per * g.premiumMult('buffTime'))} for a par score (${par} points), from ${span((b.per / 2) * g.premiumMult('buffTime'))} to ${span(b.per * 1.5 * g.premiumMult('buffTime'))} by score, up to ${span(g.buffCap(mg))}. It only runs down while you're playing, not while you're away.`
         : ev.blessing
-          ? `A score of ${ev.blessing.tiers[0]} or more adds ${b.per + g.premiumLevel('charges')} charges, up to ${g.buffCap(mg)}. Each ${ev.blessing.kind === 'refine' ? 'Refine' : 'Enchant'} you roll spends one; your best tier while you hold charges is the one used.`
-          : `Each play adds ${b.per + g.premiumLevel('charges')} charge${b.per + g.premiumLevel('charges') > 1 ? 's' : ''} (${Math.round(b.per * 1.5) + g.premiumLevel('charges')} for a great score), up to ${g.buffCap(mg)}. Starting a Guardian Challenge spends one.`;
+          ? `A score of ${ev.blessing.tiers[0]} or more adds ${b.per + g.premiumBonus('charges')} charges, up to ${g.buffCap(mg)}. Each ${ev.blessing.kind === 'refine' ? 'Refine' : 'Enchant'} you roll spends one; your best tier while you hold charges is the one used.`
+          : `Each play adds ${b.per + g.premiumBonus('charges')} charge${b.per + g.premiumBonus('charges') > 1 ? 's' : ''} (${Math.round(b.per * 1.5) + g.premiumBonus('charges')} for a great score), up to ${g.buffCap(mg)}. Starting a Guardian Challenge spends one.`;
     const tier = ev.blessing && g.blessingCharges(ev.blessing.kind) > 0 ? g.state.blessings[ev.blessing.kind] : 0;
     this.showModal(
       `<h2>${ev.icon} ${b.name}</h2><p>${b.desc}</p><p class="buff-left">${b.kind === 'timed' ? 'Time left' : 'Charges'}: <b>${this.buffAmount(mg)}</b>${tier ? ` · ${tier} extra roll${tier > 1 ? 's' : ''} each` : ''}</p><p>From <b>${ev.name}</b> (${h.name} the ${h.title}). ${fill}</p>`,
@@ -3835,32 +3839,36 @@ export class AppUI {
     for (const r of refreshers) r();
   }
 
-  /** Buying a permanent upgrade's next level: a confirmation, or a nudge to the gem packs if there aren't enough gems. */
-  private confirmPremium(id: PremiumId): void {
+  /** Buying one of today's upgrades: a confirmation, or a nudge to the gem packs if there aren't enough gems. */
+  private confirmPremium(id: string): void {
     const g = this.game;
-    const d = PREMIUM_UPGRADES[id];
-    const cost = g.premiumCost(id);
-    if (cost === null) return;
-    const lv = g.premiumLevel(id);
-    if (g.state.gems < cost) {
-      this.showModal(`<h2>${gemIcon()} Not enough Exalted Gems</h2><p><b>${d.name}</b> level ${lv + 1} costs ${gemIcon()} <b>${gemsText(cost)}</b>; you have <b>${gemsText(g.state.gems)}</b>.</p><p>Earn more from daily and weekly quests in the Quest Log, or get some here.</p>`, [
+    const it = premiumItem(id)!;
+    const d = PREMIUM_UPGRADES[it.kind];
+    const name = premiumName(it);
+    if (g.ownsPremium(id)) return;
+    if (g.state.gems < it.cost) {
+      this.showModal(`<h2>${gemIcon()} Not enough Exalted Gems</h2><p><b>${name}</b> costs ${gemIcon()} <b>${gemsText(it.cost)}</b>; you have <b>${gemsText(g.state.gems)}</b>.</p><p>Earn more from daily and weekly quests in the Quest Log, or get some here.</p>`, [
         { label: 'Get gems', action: () => this.openShop('gems') },
         { label: 'Not now', secondary: true },
       ]);
       return;
     }
-    this.showModal(`<h2>${d.icon} ${d.name}</h2><p>Level ${lv + 1} of ${d.costs.length}: <b>${d.text(lv + 1)}</b>${lv ? ` (now: ${d.text(lv)})` : ''}.</p><p>Costs ${gemIcon()} <b>${gemsText(cost)}</b> (you have ${gemsText(g.state.gems)}). It's permanent.</p>`, [
-      {
-        label: 'Buy',
-        action: () => {
-          if (!g.buyPremium(id)) return;
-          this.toast(`${d.icon} ${d.name} level ${lv + 1}`);
-          this.hooks.save();
-          this.refresh();
+    const now = g.premiumBonus(it.kind);
+    this.showModal(
+      `<h2>${sprite(d.icon)} ${name}</h2><p><b>${d.text(it.value)}</b>.</p>${now ? `<p>With what you own: ${d.text(now + it.value)} (now ${d.text(now)}).</p>` : ''}<p>Costs ${gemIcon()} <b>${gemsText(it.cost)}</b> (you have ${gemsText(g.state.gems)}). It's permanent, and multiplies on top of everything else.</p>`,
+      [
+        {
+          label: 'Buy',
+          action: () => {
+            if (!g.buyPremium(id)) return;
+            this.toast(`${name} bought`);
+            this.hooks.save();
+            this.refresh();
+          },
         },
-      },
-      { label: 'Not now', secondary: true },
-    ]);
+        { label: 'Not now', secondary: true },
+      ],
+    );
   }
 
   /** The Shop: a market stall, then Remove Ads and permanent upgrades, or packs of Exalted Gems. */
@@ -3908,31 +3916,46 @@ export class AppUI {
           this.toast('🚫 Ads removed. Thank you!');
         }),
       );
-      card('🚫', REMOVE_ADS.name, `No more ads. Your energy bar grows to ${ENERGY_MAX_NO_ADS} and refills all the way on its own, and the daily check-in bonus is yours without an ad.`, btn);
+      card(sprite('status2/013'), REMOVE_ADS.name, `No more ads. Your energy bar grows to ${ENERGY_MAX_NO_ADS} and refills all the way on its own, and the daily check-in bonus is yours without an ad.`, btn);
       refreshers.push(() => {
         btn.disabled = g.state.noAds;
         btn.innerHTML = g.state.noAds ? 'Owned ✓' : REMOVE_ADS.price;
       });
-      body.appendChild(sectionTitle('Permanent upgrades'));
-      body.appendChild(el('p', 'hd-note', 'Bought with Exalted Gems, for every Hunter in every area, and kept forever, through every Ascension.'));
-      for (const id of PREMIUM_IDS) {
-        const d = PREMIUM_UPGRADES[id];
-        const btn = el('button', 'buy') as HTMLButtonElement;
-        const c = card(d.icon, d.name, '', btn);
-        const info = $('.si-info small', c);
-        const name = $('.si-info b', c);
-        btn.addEventListener('click', () => this.confirmPremium(id));
+      body.appendChild(sectionTitle("Today's upgrades"));
+      const stock = el('p', 'hd-note');
+      body.appendChild(stock);
+      refreshers.push(() => (stock.textContent = `Permanent, for every Hunter in every area, kept through every Ascension. ${SHOP_DAILY_ITEMS} new items in ${fmtWait(nextMidnight(g.clock()) - g.clock())}.`));
+      const grid = el('div', 'shop-grid');
+      body.appendChild(grid);
+      for (const it of g.shopItems) {
+        const d = PREMIUM_UPGRADES[it.kind];
+        const cell = el('div', 'shop-cell');
+        cell.innerHTML = `<button class="craft-tile shop-tile"><i>${sprite(d.icon)}</i><b class="st-tier">${ROMAN[it.tier - 1]}</b></button><span class="st-name">${d.name}</span><span class="st-price"></span>`;
+        const tile = $<HTMLButtonElement>('.shop-tile', cell);
+        const price = $('.st-price', cell);
+        tile.addEventListener('click', () => this.confirmPremium(it.id));
         refreshers.push(() => {
-          const lv = g.premiumLevel(id);
-          const max = d.costs.length;
-          const cost = g.premiumCost(id);
-          name.innerHTML = `${d.name} <span class="si-pips">${'<i class="on"></i>'.repeat(lv)}${'<i></i>'.repeat(max - lv)}</span>`;
-          info.textContent = lv === 0 ? `Level 1: ${d.text(1)}` : cost === null ? `${d.text(lv)} (max)` : `Now: ${d.text(lv)}. Next: ${d.text(lv + 1)}`;
-          btn.disabled = cost === null;
-          btn.classList.toggle('short', cost !== null && g.state.gems < cost);
-          btn.innerHTML = cost === null ? 'Maxed' : `${gemIcon()} ${gemsText(cost)}`;
+          const owned = g.ownsPremium(it.id);
+          tile.classList.toggle('sold', owned);
+          tile.classList.toggle('short', !owned && g.state.gems < it.cost);
+          price.innerHTML = owned ? 'Owned ✓' : `${gemIcon()} ${gemsText(it.cost)}`;
         });
+        grid.appendChild(cell);
       }
+      if (!g.shopItems.length) grid.appendChild(el('p', 'hd-note', "You own every upgrade. There's nothing left to sell!"));
+      // What you own so far, by kind.
+      body.appendChild(sectionTitle('Your upgrades'));
+      const mine = el('div', 'card shop-owned');
+      body.appendChild(mine);
+      refreshers.push(() => {
+        const rows = PREMIUM_IDS.filter((k) => g.premiumBonus(k) > 0).map((k) => {
+          const d = PREMIUM_UPGRADES[k];
+          const tiers = PREMIUM_ITEMS.filter((it) => it.kind === k && g.ownsPremium(it.id)).map((it) => ROMAN[it.tier - 1]);
+          return `<div class="so-row">${sprite(d.icon)}<span><b>${d.name}</b> ${tiers.join(', ')}<small>${d.text(g.premiumBonus(k))}</small></span></div>`;
+        });
+        const html = rows.length ? rows.join('') : '<p class="hd-note">None yet. Buy one above with Exalted Gems.</p>';
+        if (mine.innerHTML !== html) mine.innerHTML = html;
+      });
     } else {
       for (const p of GEM_PACKS) {
         const btn = el('button', 'buy', p.price) as HTMLButtonElement;
@@ -3943,7 +3966,7 @@ export class AppUI {
             this.toast(`💎 +${gemsText(total)} Exalted Gems`);
           }),
         );
-        card(`<span class="si-slot">${gemIcon()}</span>`, p.name, `${gemsText(p.gems!)} Exalted Gems${p.bonus ? ` <em class="si-bonus">+${gemsText(p.bonus)} bonus</em>` : ''}`, btn);
+        card(`${sprite(p.icon!)}<span class="si-gem">${gemIcon()}</span>`, p.name, `${gemsText(p.gems!)} Exalted Gems${p.bonus ? ` <em class="si-bonus">+${gemsText(p.bonus)} bonus</em>` : ''}`, btn);
       }
     }
     for (const r of refreshers) r();
