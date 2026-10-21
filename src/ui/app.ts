@@ -4642,7 +4642,7 @@ export class AppUI {
        ${r.loot.length ? `<p class="offline-loot">🎁 ${r.loot.length} piece${r.loot.length === 1 ? '' : 's'} of loot${r.loot.some((l) => l.salvaged) ? ` (${r.loot.filter((l) => l.salvaged).length} auto-salvaged)` : ''}</p>` : ''}
        ${r.knockouts > 0 ? '<p class="ko-tip">💫 Some Hunters were knocked out while you were away. See Details.</p>' : ''}
        ${r.doubled ? `<p class="offline-doubled">✨ ${this.game.state.noAds ? 'Ads removed: your gold and materials are doubled' : 'Doubled!'}</p>` : ''}
-       <div class="offline-actions"><button class="buy offline-details-btn">Details</button>${!r.doubled && r.gold > 0 ? '<button class="buy offline-double-btn">📺 Watch ad: ×2</button>' : ''}</div>`,
+       <div class="offline-actions"><button class="buy offline-details-btn">Details</button>${!r.doubled && r.gold > 0 ? `<button class="buy offline-double-btn">${sprite('things/004')} Watch ad: ×2</button>` : ''}</div>`,
       [{ label: 'Collect' }],
     );
     $('.offline-details-btn', this.modal).addEventListener('click', () => this.showOfflineDetails(r));
