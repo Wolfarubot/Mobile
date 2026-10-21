@@ -6431,6 +6431,12 @@ img.ei.gem-ic {
   text-align: center;
   line-height: 1.15;
 }
+.st-what {
+  font-size: 10px;
+  text-align: center;
+  line-height: 1.15;
+  opacity: 0.85;
+}
 .st-price {
   font-size: 13px;
   font-weight: 800;

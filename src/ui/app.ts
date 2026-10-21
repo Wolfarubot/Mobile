@@ -91,7 +91,6 @@ import {
   PREMIUM_UPGRADES,
   premiumItem,
   premiumName,
-  ROMAN,
   SHOP_DAILY_ITEMS,
   type Quest,
   MINIGAME_BUFFS,
@@ -3930,7 +3929,7 @@ export class AppUI {
       for (const it of g.shopItems) {
         const d = PREMIUM_UPGRADES[it.kind];
         const cell = el('div', 'shop-cell');
-        cell.innerHTML = `<button class="craft-tile shop-tile"><i>${sprite(d.icon)}</i><b class="st-tier">${ROMAN[it.tier - 1]}</b></button><span class="st-name">${d.name}</span><span class="st-price"></span>`;
+        cell.innerHTML = `<button class="craft-tile shop-tile"><i>${sprite(d.icon)}</i></button><span class="st-name">${premiumName(it)}</span><small class="st-what">${d.text(it.value)}</small><span class="st-price"></span>`;
         const tile = $<HTMLButtonElement>('.shop-tile', cell);
         const price = $('.st-price', cell);
         tile.addEventListener('click', () => this.confirmPremium(it.id));
@@ -3943,17 +3942,17 @@ export class AppUI {
         grid.appendChild(cell);
       }
       if (!g.shopItems.length) grid.appendChild(el('p', 'hd-note', "You own every upgrade. There's nothing left to sell!"));
-      // What you own so far, by kind.
-      body.appendChild(sectionTitle('Your upgrades'));
+      // Everything you own, combined by kind: two offline items of +25% and +50% show as +75% offline gains.
+      body.appendChild(sectionTitle('Total bonuses'));
       const mine = el('div', 'card shop-owned');
       body.appendChild(mine);
       refreshers.push(() => {
         const rows = PREMIUM_IDS.filter((k) => g.premiumBonus(k) > 0).map((k) => {
           const d = PREMIUM_UPGRADES[k];
-          const tiers = PREMIUM_ITEMS.filter((it) => it.kind === k && g.ownsPremium(it.id)).map((it) => ROMAN[it.tier - 1]);
-          return `<div class="so-row">${sprite(d.icon)}<span><b>${d.name}</b> ${tiers.join(', ')}<small>${d.text(g.premiumBonus(k))}</small></span></div>`;
+          const owned = PREMIUM_ITEMS.filter((it) => it.kind === k && g.ownsPremium(it.id)).map((it) => premiumName(it));
+          return `<div class="so-row">${sprite(d.icon)}<span><b>${d.text(g.premiumBonus(k))}</b><small>${owned.join(' · ')}</small></span></div>`;
         });
-        const html = rows.length ? rows.join('') : '<p class="hd-note">None yet. Buy one above with Exalted Gems.</p>';
+        const html = rows.length ? rows.join('') : '<p class="hd-note">None yet. Buy an upgrade above with Exalted Gems.</p>';
         if (mine.innerHTML !== html) mine.innerHTML = html;
       });
     } else {
