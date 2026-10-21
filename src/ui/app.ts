@@ -106,6 +106,7 @@ import { GEAR_SPRITES } from '../core/gearSprites';
 import { NODE_SPRITES } from '../core/nodeSprites';
 import { hunterIconHtml } from './hunterIcons';
 import { buzz, setHaptics } from './haptics';
+import { pressSound, setSound, sfx } from './sound';
 import { JOURNAL, type JournalEntry } from '../core/journal';
 import { App as CapApp } from '@capacitor/app';
 import { MINIGAMES, runMinigame } from './minigames';
@@ -357,7 +358,10 @@ export class AppUI {
       'click',
       (e) => {
         const btn = (e.target as HTMLElement).closest?.('button');
-        if (btn && !(btn as HTMLButtonElement).disabled) buzz();
+        if (btn && !(btn as HTMLButtonElement).disabled) {
+          buzz();
+          pressSound(btn.closest('.tabs, .subtabs') ? 'navigate' : 'click');
+        }
       },
       true,
     );
@@ -388,6 +392,9 @@ export class AppUI {
       // Not during a Guardian fight: the fight matters more than its drops.
       if (e.type === 'gains' && !game.guardianActive && game.state.settings.pickups) for (const [m, n] of Object.entries(e.materials) as [MaterialId, number][]) pops.add(m, n);
       if (e.type === 'travel' || e.type === 'guardianChallenge') pops.clear();
+      if (e.type === 'areaUnlocked' || e.type === 'unlock' || e.type === 'recruit' || e.type === 'eventComplete' || e.type === 'finalGuardian') sfx('fanfare');
+      else if (e.type === 'guardianFail') sfx('defeat');
+      else if (e.type === 'loot' && !e.salvaged) sfx('coin');
       if (e.type === 'areaUnlocked' || e.type === 'travel' || e.type === 'unlock' || e.type === 'recruit') this.setTab(this.tab, true);
       else if (e.type === 'eventComplete') this.setTab(this.tab, true); // may have made Hunters available
       else if (e.type === 'finalGuardian' && this.game.state.events['guardian-rift'].completed === 1) this.showRiftConquered();
@@ -546,7 +553,9 @@ export class AppUI {
     bar.innerHTML = '<i></i><span></span>';
     btn.addEventListener('click', (ev) => {
       ev.stopPropagation();
+      const level = g.levelOf(who);
       if (g.train(who)) {
+        sfx(g.levelOf(who) > level ? 'fanfare' : 'powerUp');
         bumpCard(btn);
         this.refresh();
       }
@@ -1030,6 +1039,7 @@ export class AppUI {
       btn.disabled = !t.canLearn(n.id);
       btn.addEventListener('click', () => {
         if (!t.learn(n.id)) return;
+        sfx('powerUp');
         close();
         // Maxed (or a one-rank node): done. Otherwise stay open for the next rank, even if it can't be afforded yet.
         if (t.rank(n.id) < n.maxRank) this.openTreeNode(t, n);
@@ -2439,6 +2449,7 @@ export class AppUI {
     btn.addEventListener('click', (ev) => {
       ev.stopPropagation();
       if (g.empower(id, amount())) {
+        sfx('powerUp');
         bumpCard(btn);
         this.refresh();
       }
@@ -2859,6 +2870,7 @@ export class AppUI {
       btn.disabled = !g.canCraft(it.id);
       btn.addEventListener('click', () => {
         if (!g.craft(it.id)) return;
+        sfx('powerUp');
         close();
         this.openUpgradeDetail(it);
       });
@@ -3012,6 +3024,7 @@ export class AppUI {
     btn.addEventListener('click', () => {
       const ok = gd ? g.craftGear(gd.id) : g.craft(it!.id);
       if (!ok) return;
+      sfx('powerUp');
       if (typeof ok === 'object') this.showEquipPrompt(ok.uid);
       this.toast(gd ? `Crafted ${gd.name}!` : g.state.items[it!.id] > 1 ? `Upgraded ${it!.name} to ${g.state.items[it!.id]}★!` : `Crafted ${it!.name}!`);
       bumpCard(btn);
@@ -3601,6 +3614,7 @@ export class AppUI {
     document.body.classList.toggle('left-handed', this.game.state.settings.leftHanded);
     mainHunterName = this.game.state.settings.name.trim();
     setHaptics(this.game.state.settings.haptics);
+    setSound(this.game.state.settings.sound);
     applyFont(this.game.state.settings.font);
     applyUiStyle(this.game.state.settings.uiStyle);
     requestAnimationFrame(refitAffinities);
@@ -3852,6 +3866,11 @@ export class AppUI {
       st.haptics = v;
       setHaptics(v);
       buzz();
+    });
+    choices('Sound effects', 'How loud the sound effects are: button presses, monsters falling, explosions, level ups and more.', [['off', 'Off'], ['low', 'Low'], ['medium', 'Medium'], ['high', 'High']], () => st.sound, (v) => {
+      st.sound = v;
+      setSound(v);
+      sfx('powerUp');
     });
     choices('Clarity Border', 'A white outline round Hunters, monsters and their projectiles, so they stand out from the ground and the scenery. Low is a faint edge; Strong a bright one.', [['off', 'Off'], ['low', 'Low'], ['moderate', 'Moderate'], ['strong', 'Strong']], () => st.clarity, (v) => (st.clarity = v));
 

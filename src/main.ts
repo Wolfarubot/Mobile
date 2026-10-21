@@ -14,8 +14,10 @@ import { BattleView } from './render/battle';
 
 // Emoji anywhere in the UI are drawn as pixel-art icons.
 installEmojiIcons();
+initSound();
 import { AppUI } from './ui/app';
 import { SamplerHost } from './ui/samplerHost';
+import { initSound } from './ui/sound';
 
 const AUTOSAVE_SEC = 10;
 /** The loading screen stays at least this long from launch, and until everything has loaded. */

@@ -56,6 +56,16 @@ Card descriptions are each Hunter's `ability`, and slot layouts are their `slots
 
 The battlefield is drawn zoomed out (`FIELD_ZOOM` in `balance.ts`), so monsters appear far off and walk in. Each Hunter only attacks within their range. Styles, ranges and damage multipliers live in `HUNTERS` in `src/core/balance.ts`.
 
+## Sound
+
+Short retro clips in `public/sfx/`, played through Web Audio by `src/ui/sound.ts` once the player first touches the screen (browsers and phone web views block audio before that). **Settings → Sound effects** sets the volume: Off, Low, Medium (default) or High. What plays:
+
+- **Buttons**: a click; switching tabs or sub-tabs, a softer navigate blip. A button with its own sound plays only that one.
+- **Getting stronger**: a power-up for Train, Empower, a skill or evolution node, and crafting. A level up, a Hunter recruited, a monster or area unlocked, or an event won plays a fanfare instead.
+- **Battlefield**: a pop for each monster slain and a big explosion for a Guardian; a zap for your tap; an explosion for fireballs and other blasts; a knock when a shield blocks; a hurt sound when your Hunter (or, softer, a Guild Hunter) is stunned; a coin when gear drops; a defeat jingle when a Guardian gets away.
+
+Kills and taps can fire many times a second, so each sound has a minimum gap between plays, a little random pitch, and at most 8 play at once. Sound pauses while the app is in the background.
+
 ## Adding your art
 
 Drop PNGs into `src/assets/sprites/` (`hunter.png`, `hunters/<id>.png`, `enemies/<id>.png`, optional `bosses/<id>.png`) and they replace the placeholder shapes on the next build. No code changes are needed. See [`src/assets/sprites/README.md`](src/assets/sprites/README.md) for all ids and sizes. Monster, area and Hunter stats live in `src/core/balance.ts`.

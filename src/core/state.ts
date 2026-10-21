@@ -212,6 +212,8 @@ export interface GameState {
     clarity: ClarityLevel;
     /** Vibration on button presses and battlefield taps (Medium by default). */
     haptics: HapticLevel;
+    /** Sound effects: off, or how loud (Medium by default). */
+    sound: SoundLevel;
   };
   /** One-time tutorial moments already shown. */
   flags: {
@@ -302,7 +304,7 @@ export function newGame(now = Date.now()): GameState {
     nextGearUid: 4,
     lastSeen: now,
     samples: {},
-    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', autoSalvage: [], fx: allFx(), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium' },
+    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', autoSalvage: [], fx: allFx(), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium', sound: 'medium' },
     flags: { eventsIntro: false, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false },
     blessings: { refine: 0, enchant: 0 },
     events: Object.fromEntries(EVENTS.map((e) => [e.id, { cooldown: 0, runs: 0, completed: 0 }])),
@@ -329,6 +331,9 @@ export type ClarityLevel = (typeof CLARITY_LEVELS)[number];
 /** Haptic feedback on presses and taps: off, or how strong. */
 export const HAPTIC_LEVELS = ['off', 'light', 'medium', 'strong'] as const;
 export type HapticLevel = (typeof HAPTIC_LEVELS)[number];
+/** Sound effect volume: off, or how loud. */
+export const SOUND_LEVELS = ['off', 'low', 'medium', 'high'] as const;
+export type SoundLevel = (typeof SOUND_LEVELS)[number];
 export type ReloadPos = (typeof RELOAD_POSITIONS)[number];
 
 /** Effect switches in Settings: the damage numbers and status effect groups, and each kind within them. */
@@ -565,6 +570,7 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
       uiStyle: pick(UI_STYLES, (data.settings as { uiStyle?: unknown } | undefined)?.uiStyle, 'parchment'),
       clarity: pick(CLARITY_LEVELS, (data.settings as { clarity?: unknown } | undefined)?.clarity, 'low'),
       haptics: pick(HAPTIC_LEVELS, (data.settings as { haptics?: unknown } | undefined)?.haptics, 'medium'),
+      sound: pick(SOUND_LEVELS, (data.settings as { sound?: unknown } | undefined)?.sound, 'medium'),
     },
     flags: {
       eventsIntro: !!(data.flags as { eventsIntro?: unknown } | undefined)?.eventsIntro,

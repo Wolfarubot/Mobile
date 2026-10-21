@@ -1,4 +1,5 @@
 import { buzz } from '../ui/haptics';
+import { sfx } from '../ui/sound';
 import { areaDef, DAMAGE_TYPES, FIELD_ZOOM, FLYING, gearDef, WEAPON_CLASSES, STATUS, enemyDef, eventDef, fieldZoom, GUARDIAN_TIME, hunterDef, materialDef, SIZE_SCALE, type AreaId, type DamageType, type EnemyId, type EnemyShape, type SummonType } from '../core/balance';
 import { DICE_FLIGHT, DICE_REST, PLAYER_RADIUS, SHOT_RADIUS, SUMMON_RADIUS, TOME_LIFE, TOME_OPEN, type EnemyShot, type Summon, type SpellZone, type FieldEvent, type Bullet, type BulletKind, type Enemy, type Field, type Helper } from '../core/field';
 import { fmt } from '../core/format';
@@ -170,6 +171,7 @@ export class BattleView {
           break;
         case 'kill': {
           const color = e.boss ? '#ffd34d' : enemyDef(e.enemy).color;
+          sfx(e.boss ? 'bossKill' : 'kill');
           if (this.fancy) this.playEffect('puff', e.x, e.y, e.boss ? 90 : 26, 'center', 22);
           this.fx.burst(e.x, e.y, color, e.boss ? 40 : 8, e.boss ? 260 : 140, e.boss ? 5 : 3, 0);
           this.dropPickup(e.x, e.y, '#ffd34d', false, e.boss ? 12 : 1);
@@ -178,6 +180,7 @@ export class BattleView {
           break;
         }
         case 'blast':
+          sfx('zap');
           // An elemental tap ability gets its spell: a fire explosion, a lightning strike or a falling ice shard.
           if (this.fancy && e.color === DAMAGE_TYPES.fire.color) this.playEffect('explosion', e.x, e.y, this.game.tapRadius * 2);
           else if (this.fancy && e.color === DAMAGE_TYPES.lightning.color) this.playEffect('lightning', e.x, e.y + 6, this.game.tapRadius * 2.4, 'bottom', 22);
@@ -187,6 +190,7 @@ export class BattleView {
           break;
         case 'explode': {
           const radiant = e.color === DAMAGE_TYPES.radiant.color;
+          sfx('explosion');
           if (radiant && !this.fxOn('radiant')) break;
           if (this.game.state.settings.aoeStyle === 'basic') {
             this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: radiant ? '255,227,110' : '255,138,61', max: 0.3, fill: true });
@@ -267,6 +271,7 @@ export class BattleView {
           if (this.fancy) this.playEffect('spikes', e.x, e.y + e.r, Math.max(30, e.r * 2.6), 'bottom', 24);
           break;
         case 'guard':
+          sfx('block');
           if (this.fancy) this.playEffect('shield', e.x, e.y, (PLAYER_RADIUS * CHAR_SCALE + 12) * 2, 'center', 24);
           else this.rings.push({ x: e.x, y: e.y, t: 0, r: PLAYER_RADIUS * CHAR_SCALE + 10, color: '255,232,163', max: 0.3 });
           this.fx.text(e.x, e.y - 30, 'BLOCK', '#ffe8a3', 12, 0.6);
@@ -276,6 +281,7 @@ export class BattleView {
           this.showBanner('THE GUARDIAN APPEARS', '#ff5a6a');
           break;
         case 'stun':
+          sfx(e.who === 'main' ? 'hurt' : 'hurtAlly');
           this.shake = Math.max(this.shake, e.boss ? 0.35 : 0.15);
           this.fx.burst(e.x, e.y, '#ffe066', 6, 120, 2, 0);
           if (e.who === 'main' && this.stunTextCooldown <= 0) {
