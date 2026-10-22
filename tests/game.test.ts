@@ -312,14 +312,16 @@ describe('Areas', () => {
 
   it('the Guardian is tuned to the next area and later areas are tougher and richer', () => {
     const g = new Game(newGame(0), noCrit);
-    // The Guardian is a wall: far tougher than anything in the next area.
-    expect(g.guardianHp).toBeGreaterThan(areaDef('glade').hp * 5);
-    // Each area is far tougher and far richer than the last, and HP and gold both grow exponentially.
+    // The Guardian is a wall: tougher than anything in the next area.
+    expect(g.guardianHp).toBeGreaterThan(areaDef('glade').hp * 3);
+    // Each area is tougher and far richer than the last (its monsters a wall when you arrive), HP and gold growing
+    // exponentially overall.
     for (let i = 1; i < AREAS.length; i++) {
-      expect(AREAS[i].hp).toBeGreaterThan(AREAS[i - 1].hp * 1.5);
+      expect(AREAS[i].hp).toBeGreaterThan(AREAS[i - 1].hp);
       expect(AREAS[i].gold).toBeGreaterThan(AREAS[i - 1].gold * 10);
-      if (i < AREAS.length - 1) expect(AREAS[i].guardian).toBeGreaterThan(AREAS[i + 1].hp * 2);
+      if (i < AREAS.length - 1) expect(AREAS[i].guardian).toBeGreaterThan(AREAS[i + 1].hp * 3);
     }
+    expect(AREAS[AREAS.length - 1].hp).toBeGreaterThan(AREAS[0].hp * 1e5);
   });
 });
 
@@ -3654,7 +3656,7 @@ describe('Offline', () => {
     const g = new Game(veteran(s), noCrit);
     g.state.areas.graveyard.unlocked = true;
     g.recruit('thief');
-    g.state.hunters.thief.trains = 8000; // strong enough for the Graveyard
+    g.state.hunters.thief.trains = 80_000; // strong enough for the Graveyard
     g.station('thief', 'graveyard');
     const gold = g.state.gold;
     const r = g.applyOffline(24 * 3600 * 1000);
