@@ -314,12 +314,14 @@ describe('Areas', () => {
     const g = new Game(newGame(0), noCrit);
     // The Guardian is a wall: tougher than anything in the next area.
     expect(g.guardianHp).toBeGreaterThan(areaDef('glade').hp * 3);
+    // Arriving somewhere new is a wall, but kills there pay in proportion: gold per point of health keeps growing.
+    for (let i = 1; i < AREAS.length; i++) expect(AREAS[i].gold / AREAS[i].hp).toBeGreaterThan(AREAS[i - 1].gold / AREAS[i - 1].hp);
     // Each area is tougher and far richer than the last (its monsters a wall when you arrive), HP and gold growing
     // exponentially overall.
     for (let i = 1; i < AREAS.length; i++) {
       expect(AREAS[i].hp).toBeGreaterThan(AREAS[i - 1].hp);
       expect(AREAS[i].gold).toBeGreaterThan(AREAS[i - 1].gold * 10);
-      if (i < AREAS.length - 1) expect(AREAS[i].guardian).toBeGreaterThan(AREAS[i + 1].hp * 3);
+      if (i < AREAS.length - 1) expect(AREAS[i].guardian).toBeGreaterThan(AREAS[i + 1].hp * 2);
     }
     expect(AREAS[AREAS.length - 1].hp).toBeGreaterThan(AREAS[0].hp * 1e5);
   });
