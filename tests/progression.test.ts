@@ -386,7 +386,7 @@ it.runIf(!!process.env.SIM_FULL)('full game: a typical player beats the Time Eat
   }
   log('No ads watched, no gems bought or spent: events run on energy alone.');
   // SIM_FROM=checkpoint.json resumes from a checkpoint written by SIM_SNAP=dir (one per area, as it opens).
-  const from = process.env.SIM_FROM ? (JSON.parse(readFileSync(process.env.SIM_FROM, 'utf8')) as { clock: number; save: string; unlockedAt: Partial<Record<AreaId, number>> }) : null;
+  const from = process.env.SIM_FROM ? (JSON.parse(readFileSync(process.env.SIM_FROM, 'utf8')) as { clock: number; save: string; unlockedAt: Partial<Record<AreaId, number>>; masteries?: Partial<Record<AreaId, number>> }) : null;
   if (from) {
     bot.game = new Game(deserialize(from.save, from.clock * 1000)!, mulberry(42));
     bot.field = new Field(bot.game);
@@ -410,6 +410,12 @@ it.runIf(!!process.env.SIM_FULL)('full game: a typical player beats the Time Eat
   const pace = process.env.SIM_PACE ? (JSON.parse(process.env.SIM_PACE) as Partial<Record<AreaId, number>>) : null;
   const paced = new Set<AreaId>();
   if (pace) for (const a of Object.keys(pace) as AreaId[]) EVENTS.find((e) => e.id === `guardian-${a}`)!.unlockKills = Infinity;
+  // Masteries already found before a checkpoint stay as found.
+  const found: Partial<Record<AreaId, number>> = { ...from?.masteries };
+  for (const [a, k] of Object.entries(found) as [AreaId, number][]) {
+    EVENTS.find((e) => e.id === `guardian-${a}`)!.unlockKills = k;
+    paced.add(a);
+  }
   const started = Date.now();
   for (const [start, length] of sessions) {
     if (beaten !== null) break;
@@ -421,16 +427,19 @@ it.runIf(!!process.env.SIM_FULL)('full game: a typical player beats the Time Eat
       paced.add(g.state.area);
       const ev = EVENTS.find((e) => e.id === `guardian-${g.state.area}`)!;
       ev.unlockKills = Math.max(1, g.eventProgress(ev.id));
+      found[g.state.area] = ev.unlockKills;
       log(`  mastery ${g.state.area}: ${Math.round(ev.unlockKills)} (day ${(start / 86400).toFixed(2)})`);
     }
     botShop(g, start, bot.memo);
     play(g, bot.field, length, start, 1, bot.memo, bot.unlockedAt, () => (now = start));
     sampleGroups(g, sampleRng);
     g.state.lastSeen = (start + length) * 1000;
+    // A checkpoint after every session (resume with SIM_FROM=<dir>/latest.json if the run is cut off).
+    if (process.env.SIM_SNAP) writeFileSync(`${process.env.SIM_SNAP}/latest.json`, JSON.stringify({ clock: start + length, save: serialize(g.state), unlockedAt: bot.unlockedAt, masteries: found }));
     for (const a of AREAS) if (a.id in bot.unlockedAt && !seen.has(a.id)) {
       seen.add(a.id);
       log(`${a.name}: day ${(bot.unlockedAt[a.id]! / 86400).toFixed(1)}`);
-      if (process.env.SIM_SNAP) writeFileSync(`${process.env.SIM_SNAP}/${a.id}.json`, JSON.stringify({ clock: start + length, save: serialize(g.state), unlockedAt: bot.unlockedAt }));
+      if (process.env.SIM_SNAP) writeFileSync(`${process.env.SIM_SNAP}/${a.id}.json`, JSON.stringify({ clock: start + length, save: serialize(g.state), unlockedAt: bot.unlockedAt, masteries: found }));
     }
     if (start - lastStatus >= 5 * 86400) {
       lastStatus = start;
