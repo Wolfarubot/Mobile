@@ -598,10 +598,6 @@ export class Game {
     return (boss ? BOSS_STUN_TIME : STUN_TIME) * recovery * gear;
   }
 
-  get goldMult(): number {
-    return 1 + 0.25 * this.item('idol');
-  }
-
   /**
    * Damage per shot of any Hunter against an archetype (archetype bonuses and gear included).
    * `mode` picks Wilhelm's weapon: 'long' (sniper, default) or 'short' (akimbo).
@@ -1690,7 +1686,7 @@ export class Game {
     const r = def.rewards;
     if (!r || score <= 0) return { gold: 0, materials: {} };
     const top = this.unlockedAreas[this.unlockedAreas.length - 1];
-    const floor = Math.max(areaDef(def.area).gold, areaDef(top).gold) * GUARDIAN_GOLD_MULT * this.goldMult * r.gold * score;
+    const floor = Math.max(areaDef(def.area).gold, areaDef(top).gold) * GUARDIAN_GOLD_MULT * r.gold * score;
     const income = this.goldPerSecond() * (def.area === top ? MINIGAME_INCOME_NEW : MINIGAME_INCOME) * (score / r.par);
     const gold = Math.max(floor, income);
     const materials: Partial<Record<MaterialId, number>> = {};
@@ -1805,9 +1801,9 @@ export class Game {
       archetype: def.archetype,
       hp: area.hp * def.hp * emp('hp') * (1 + evo.hp),
       speed: area.speed * def.speed * (1 + evo.speed) * swarm.speed,
-      gold: area.gold * def.gold * emp('gold') * (1 + evo.gold) * this.goldMult * this.areaPerk(def.area).gold * (this.buffOn('graveRobbing') ? 1 + BUFF_GOLD : 1) * this.premiumMult('gold'),
-      spawnRate: b.unlocked ? Math.max(def.spawn * emp('spawn') * (1 + evo.spawn) * (1 + 0.2 * this.item('lure')) * (isGolem(def) ? 1 : idol.spawn) * swarm.spawn, swarm.spawn ? (ev?.minSpawn?.[id] ?? 0) : 0) : 0,
-      dropChance: BASE_DROP_CHANCE * (1 + 0.25 * this.item('pouch')) * emp('drops') * (1 + evo.drops) * (this.buffOn('huntingPractice') ? 1 + BUFF_KEEN_EYE : 1) * this.premiumMult('drops'),
+      gold: area.gold * def.gold * emp('gold') * (1 + evo.gold) * this.areaPerk(def.area).gold * (this.buffOn('graveRobbing') ? 1 + BUFF_GOLD : 1) * this.premiumMult('gold'),
+      spawnRate: b.unlocked ? Math.max(def.spawn * emp('spawn') * (1 + evo.spawn) * (isGolem(def) ? 1 : idol.spawn) * swarm.spawn, swarm.spawn ? (ev?.minSpawn?.[id] ?? 0) : 0) : 0,
+      dropChance: BASE_DROP_CHANCE * emp('drops') * (1 + evo.drops) * (this.buffOn('huntingPractice') ? 1 + BUFF_KEEN_EYE : 1) * this.premiumMult('drops'),
       material: def.material,
       split: Math.min(1, evo.split),
       fireTrail: Math.min(1, evo.fireTrail),
@@ -1950,7 +1946,7 @@ export class Game {
     s.stats.totalKills++;
     s.stats.hunterKills[shooter] = (s.stats.hunterKills[shooter] ?? 0) + 1;
     if (boss) {
-      const gold = areaDef(s.area).gold * GUARDIAN_GOLD_MULT * this.goldMult;
+      const gold = areaDef(s.area).gold * GUARDIAN_GOLD_MULT;
       s.gold += gold;
       s.stats.totalGold += gold;
       s.areas[s.area].gold += gold;
@@ -2134,7 +2130,7 @@ export class Game {
       this.equipped(sh).map((it) => (it ? `${it.base}${it.stars}` : '')),
     ]);
     const monsters = this.roster(area).map((e) => [e.id, r(e.hp), r(e.speed), r(e.spawnRate), r(e.gold), r(e.dropChance)]);
-    return JSON.stringify([hunters, monsters, r(this.goldMult), r(this.areaPerk(area).gold)]);
+    return JSON.stringify([hunters, monsters, r(this.areaPerk(area).gold)]);
   }
 
   /**

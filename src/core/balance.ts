@@ -1172,7 +1172,7 @@ export interface EnemyDef {
   hp: number;
   speed: number;
   gold: number;
-  /** Enemies per second once unlocked (before Swarm and Lure). */
+  /** Enemies per second once unlocked (before Idols and Swarms). */
   spawn: number;
   /** Pack size range [min, max]. */
   pack: [number, number];
@@ -3862,9 +3862,6 @@ export function stepsCost(recipe: Partial<Record<MaterialId, number>>, growth: n
 
 // ---- Upgrades: crafted from materials, permanent, for the whole camp (spawns, drops, gold, an area, offline time) ----
 export type ItemId =
-  | 'lure'
-  | 'pouch'
-  | 'idol'
   | 'forestIdol'
   | 'groveIdol'
   | 'graveIdol'
@@ -3941,9 +3938,6 @@ function areaIdol(id: ItemId, name: string, area: AreaId, rarity: Rarity, drops:
 }
 
 export const ITEMS: ItemDef[] = [
-  { id: 'lure', name: 'Monster Lure', icon: '🍖', rarity: 'uncommon', maxLevel: 15, recipe: { beastBone: 5, pelt: 3 }, growth: 1.6, describe: (l) => `+${l * 20}% enemy spawns` },
-  { id: 'pouch', name: "Scavenger's Pouch", icon: '👝', rarity: 'uncommon', maxLevel: 15, recipe: { pelt: 6, scrap: 3 }, growth: 1.5, describe: (l) => `+${l * 25}% material drops` },
-  { id: 'idol', name: 'Golden Idol', icon: '🗿', rarity: 'veryRare', maxLevel: 30, recipe: { ember: 6, magma: 3 }, growth: 1.5, describe: (l) => `+${l * 25}% gold` },
   areaIdol('forestIdol', 'Forest Idol', 'forest', 'uncommon', { goo: 10_000, twig: 5_000, bearClaw: 1_000 }),
   // The other areas' Idols: huge amounts of the area's own drops, plus ores and gems from a golem a few areas on.
   areaIdol('groveIdol', 'Fey Grove Idol', 'glade', 'veryRare', { spore: 500_000, dust: 150_000 }, { goldOre: 400, topaz: 120 }),

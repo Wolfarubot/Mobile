@@ -385,7 +385,7 @@ describe('Enemies & archetypes', () => {
     expect(g.empowerPurchase('wolf').cost).toBeGreaterThan(cost);
     const after = g.enemyStats('wolf');
     expect(after.hp).toBeCloseTo(before.hp * (1 + EMPOWER.hp));
-    expect(after.gold / g.goldMult).toBeCloseTo((before.gold / g.goldMult) * (1 + EMPOWER.gold));
+    expect(after.gold).toBeCloseTo(before.gold * (1 + EMPOWER.gold));
     expect(after.dropChance).toBeCloseTo(before.dropChance * (1 + EMPOWER.drops));
     expect(after.spawnRate).toBeCloseTo(before.spawnRate * (1 + EMPOWER.spawn));
     expect(after.speed).toBe(before.speed);
@@ -398,7 +398,7 @@ describe('Enemies & archetypes', () => {
     expect(g.monsterLevelInfo('wolf').level).toBe(3);
     expect(g.evoPoints('wolf')).toBe(2);
     const lv3 = g.enemyStats('wolf');
-    expect(lv3.gold / g.goldMult).toBeCloseTo((before.gold / g.goldMult) * (1 + 11 * EMPOWER.gold));
+    expect(lv3.gold).toBeCloseTo(before.gold * (1 + 11 * EMPOWER.gold));
     // Lv 42 is the top (enough points for any evolution tree): Empower stops there.
     g.state.gold = 1e300;
     g.state.buyAmount = 'max';
@@ -1059,21 +1059,21 @@ describe('Shops', () => {
     expect(g.state.hunters.alchemist.station).toBe('graveyard');
   });
 
-  it('crafting spends materials; Upgrades boost the camp, not Hunters\' combat stats', () => {
+  it('crafting spends materials; the only Upgrades are area Idols and Energy Potions, never Hunters\' stats', () => {
     const g = rich();
     g.recruit('alchemist');
-    const cost = itemCost(itemDef('idol'), 0);
-    g.state.materials.ember = cost.ember!;
-    g.state.materials.magma = cost.magma!;
+    const cost = itemCost(itemDef('forestIdol'), 0);
+    for (const [m, n] of Object.entries(cost)) g.state.materials[m as keyof typeof g.state.materials] = n!;
     const helperDmg = g.shotDamage('alchemist');
     const rate = g.shooterRate('alchemist');
-    const gold = g.goldMult;
-    expect(g.craft('idol')).toBe(true);
-    expect(g.state.materials.ember).toBe(0);
-    expect(g.goldMult).toBeGreaterThan(gold);
+    const spawn = g.enemyStats('greenSlime').spawnRate;
+    expect(g.craft('forestIdol')).toBe(true);
+    expect(g.state.materials.goo).toBe(0);
+    expect(g.enemyStats('greenSlime').spawnRate).toBeGreaterThan(spawn);
     expect(g.shotDamage('alchemist')).toBe(helperDmg);
     expect(g.shooterRate('alchemist')).toBe(rate);
-    for (const id of ['whetstone', 'gloves', 'splitbow', 'bonemail', 'lance', 'lantern', 'graveWhetstone', 'batwingGloves', 'engine'])
+    expect(ITEMS.every((it) => it.area || it.once)).toBe(true);
+    for (const id of ['whetstone', 'gloves', 'splitbow', 'bonemail', 'lance', 'lantern', 'graveWhetstone', 'batwingGloves', 'engine', 'lure', 'pouch', 'idol'])
       expect(ITEMS.some((it) => it.id === id)).toBe(false);
   });
 
@@ -3804,7 +3804,7 @@ describe('Events', () => {
     const par = ev.rewards!.par;
     const r = g.minigameReward('huntingPractice', 10);
     expect(g.goldPerSecond()).toBeGreaterThan(0);
-    const floor = (area: AreaId) => 2 * areaDef(area).gold * GUARDIAN_GOLD_MULT * g.goldMult;
+    const floor = (area: AreaId) => 2 * areaDef(area).gold * GUARDIAN_GOLD_MULT;
     expect(r.gold).toBeCloseTo(Math.max(floor('forest'), (g.goldPerSecond() * MINIGAME_INCOME_NEW * 10) / par));
     expect(r.gold).toBeGreaterThan(floor('forest'));
     g.state.areas.graveyard.unlocked = true;
@@ -4744,13 +4744,13 @@ describe('Saves', () => {
   it('round-trips and tolerates garbage', () => {
     const s = newGame(0);
     s.gold = 42;
-    s.items.lure = 3;
+    s.items.forestIdol = 3;
     (s.items as Record<string, number>).whetstone = 2; // a removed Upgrade: refunded
     s.hunters.ranger = { recruited: true, trains: 4, skills: { root: 1, speed: 1 }, station: 'forest' };
     s.main = { trains: 9, skills: { root: 1, power: 2, nope: 3 } };
     const back = deserialize(serialize(s));
     expect(back?.gold).toBe(42);
-    expect(back?.items.lure).toBe(3);
+    expect(back?.items.forestIdol).toBe(3);
     expect('whetstone' in back!.items).toBe(false);
     expect(back?.materials.goo).toBe(s.materials.goo + 4 + Math.ceil(4 * 1.45)); // its 1★ and 2★
     expect(back?.hunters.ranger).toEqual({ recruited: true, trains: 4, skills: { root: 1, speed: 1 }, station: 'forest' });
@@ -4953,30 +4953,25 @@ describe('Saves', () => {
     expect(gearStats(ring, MAX_STARS).damage).toBeCloseTo(2.5);
     const bow = gearDef('forestBow'); // a weapon's base damage grows with its stars too
     expect(weaponHit(bow, MAX_STARS)).toBeCloseTo(weaponHit(bow, 1) * WEAPON_HIT_POWER[MAX_STARS]);
-    const lure = itemDef('lure');
-    expect(itemLevels(lure)).toEqual([0, 1, 2, 4, 8, 15]); // Uncommon: stops at its old Lv 15
-    for (const it of ITEMS) if (it.rarity === 'common' || it.rarity === 'uncommon') expect(itemLevels(it)[MAX_STARS]).toBeLessThanOrEqual(15);
-    // A star costs the price of the step two thirds of the way (geometrically) through the ones it covers.
-    expect(itemCost(lure, 0).beastBone).toBe(5);
-    expect(itemCost(lure, 1).beastBone).toBe(Math.ceil(5 * 1.6 ** 1)); // Lv 1 → 2: step 1
-    expect(itemCost(lure, 4).beastBone).toBe(Math.ceil(5 * 1.6 ** 11)); // Lv 8 → 15: 8^⅓·15^⅔ ≈ 12 → step 11
+    // A level-based Upgrade's stars: 1★ = Lv 1 and 5★ its max, geometric between.
+    expect(itemLevels({ ...itemDef('forestIdol'), id: 'testLevels' as never, maxLevel: 15 })).toEqual([0, 1, 2, 4, 8, 15]);
     const g = rich();
-    g.state.materials.beastBone = 1e12;
-    g.state.materials.pelt = 1e12;
-    for (let i = 0; i < MAX_STARS; i++) expect(g.craft('lure')).toBe(true);
-    expect(g.craft('lure')).toBe(false);
-    expect(g.state.items.lure).toBe(MAX_STARS);
+    for (const m of Object.keys(itemCost(itemDef('forestIdol'), MAX_STARS - 1))) g.state.materials[m as keyof typeof g.state.materials] = 1e12;
+    for (let i = 0; i < MAX_STARS; i++) expect(g.craft('forestIdol')).toBe(true);
+    expect(g.craft('forestIdol')).toBe(false);
+    expect(g.state.items.forestIdol).toBe(MAX_STARS);
     // An old save: a Lv 5 bow becomes 3★ (Lv 4) + a refund; a Lv 10 one is 5★.
     const old = JSON.parse(serialize(newGame(0)));
     old.version = 12;
     old.inventory = [{ uid: 1, base: 'forestBow', level: 5 }, { uid: 2, base: 'forestBow', level: 10 }];
-    old.items.lure = 15;
-    old.items.gloves = 15; // removed since: refunded
+    old.items.lure = 15; // removed since (like the gloves): refunded
+    old.items.gloves = 15;
     const s = deserialize(JSON.stringify(old))!;
     expect(s.inventory.map((it) => it.stars)).toEqual([3, 5]);
     expect(s.materials.twig).toBe(old.materials.twig + Math.ceil(6 * 1.8 ** 4));
-    expect(s.items.lure).toBe(MAX_STARS);
+    expect('lure' in s.items).toBe(false);
     expect('gloves' in s.items).toBe(false);
+    expect(s.materials.beastBone).toBeGreaterThan(old.materials.beastBone);
     expect(s.materials.goo).toBeGreaterThan(old.materials.goo);
   });
 
@@ -5039,8 +5034,8 @@ describe('Saves', () => {
     expect(s.version).toBe(SAVE_VERSION);
     expect(s.area).toBe('forest');
     expect(s.gold).toBe(0);
-    // Monster Lure Lv 4 became 3★ (exactly Lv 4); the Whetstone is gone, and what it cost is refunded.
-    expect(s.items.lure).toBe(3);
+    // The Monster Lure and the Whetstone are gone, and what they cost is refunded.
+    expect('lure' in s.items).toBe(false);
     expect(s.materials.goo).toBeGreaterThan(50);
     expect(s.materials.bone).toBe(20);
     expect('stars' in s).toBe(false);

@@ -499,6 +499,10 @@ const REMOVED_UPGRADES: Record<string, Pick<ItemDef, 'maxLevel' | 'recipe' | 'gr
   graveWhetstone: { maxLevel: 8, recipe: { bone: 12, flesh: 8 }, growth: 1.6 },
   batwingGloves: { maxLevel: 8, recipe: { wing: 10, bone: 6 }, growth: 1.65 },
   engine: { maxLevel: 20, recipe: { shade: 10, void: 5, soul: 3 }, growth: 1.7 },
+  // The camp-wide Upgrades went too: spawns, drops and gold come from the monsters and Hunters themselves.
+  lure: { maxLevel: 15, recipe: { beastBone: 5, pelt: 3 }, growth: 1.6 },
+  pouch: { maxLevel: 15, recipe: { pelt: 6, scrap: 3 }, growth: 1.5 },
+  idol: { maxLevel: 30, recipe: { ember: 6, magma: 3 }, growth: 1.5 },
 };
 
 /** Refunds the removed Upgrades a save holds (old saves hold levels, newer ones stars). */
