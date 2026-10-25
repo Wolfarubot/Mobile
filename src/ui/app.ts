@@ -1321,7 +1321,16 @@ export class AppUI {
     let selected: number | null =
       preselect ?? g.state.inventory.filter((it) => fits(it) && !g.wearerOf(it.uid)).sort((a, b) => b.stars - a.stars)[0]?.uid ?? null;
 
-    const render = () => {
+    // Tapping an item only redraws the cards up top and moves the highlight; the grid is rebuilt when what's
+    // worn changes (it holds hundreds of tiles late in the game).
+    const tiles = new Map<number, HTMLElement>();
+    const select = (uid: number) => {
+      tiles.get(selected ?? -1)?.classList.remove('selected');
+      selected = uid;
+      tiles.get(uid)?.classList.add('selected');
+      render(false);
+    };
+    const render = (grid = true) => {
       const current = g.equipped(who)[slot];
       // Equipped
       const eq = $('.pk-equipped', view);
@@ -1364,27 +1373,63 @@ export class AppUI {
         });
         insp.firstElementChild!.appendChild(btn);
       }
+      if (!grid) return;
       // Inventory grid: everything, with what fits this slot first.
-      const grid = $('.pk-grid', view);
-      grid.innerHTML = '';
+      const gridEl = $('.pk-grid', view);
+      gridEl.innerHTML = '';
+      tiles.clear();
+      // Who wears what, looked up once rather than per tile.
+      const wornBy = new Map<number, Wearer>();
+      for (const [w, uids] of Object.entries(g.state.equipment) as [Wearer, Array<number | null>][]) for (const u of uids) if (u !== null) wornBy.set(u, w);
       const rank = (it: GearItem) => RARITY_ORDER.indexOf(gearDef(it.base).rarity);
       const inv = [...g.state.inventory].sort((a, b) => Number(fits(b)) - Number(fits(a)) || rank(b) - rank(a) || b.uid - a.uid);
       $('.pk-count', view).textContent = `${inv.length} item${inv.length === 1 ? '' : 's'}`;
-      if (!inv.length) grid.innerHTML = '<p class="empty-inv">Empty. Craft gear in Inventory → Crafting.</p>';
-      for (const it of inv) {
+      if (!inv.length) gridEl.innerHTML = '<p class="empty-inv">Empty. Craft gear in Inventory → Crafting.</p>';
+      // A page of tiles now, the next as you scroll near the end (late games hold thousands of pieces).
+      const makeTile = (it: GearItem): HTMLElement => {
         const gd = gearDef(it.base);
-        const worn = g.wearerOf(it.uid);
+        const worn = wornBy.get(it.uid);
         const tile = el('button', `inv-tile rar${fits(it) ? '' : ' misfit'}${it.uid === selected ? ' selected' : ''}`) as HTMLButtonElement;
         tile.style.setProperty('--rc', gearColor(gd.id));
-        tile.innerHTML = `<i>${gearIcon(gd)}</i><span>${gd.name}</span><small class="stars">${starsHtml(it.stars)}</small>${worn ? `<em>${wearerIcon(worn.who)}</em>` : ''}`;
+        tile.innerHTML = `<i>${gearIcon(gd)}</i><span>${gd.name}</span><small class="stars">${starsHtml(it.stars)}</small>${worn ? `<em>${wearerIcon(worn)}</em>` : ''}`;
         tile.addEventListener('click', () => {
-          selected = it.uid;
-          render();
+          select(it.uid);
           $('.hd-scroll', view).scrollTo({ top: 0, behavior: 'smooth' });
         });
-        grid.appendChild(tile);
+        tiles.set(it.uid, tile);
+        return tile;
+      };
+      pager?.disconnect();
+      let next = 0;
+      const sentinel = el('div', 'inv-more');
+      gridEl.appendChild(sentinel);
+      const page = () => {
+        const frag = document.createDocumentFragment();
+        for (const end = Math.min(inv.length, next + INV_PAGE); next < end; next++) frag.appendChild(makeTile(inv[next]));
+        gridEl.insertBefore(frag, sentinel);
+        if (next >= inv.length) {
+          pager?.disconnect();
+          sentinel.remove();
+        }
+      };
+      page();
+      if (next < inv.length) {
+        const pg = new IntersectionObserver(
+          (es) => {
+            if (!es.some((e) => e.isIntersecting)) return;
+            page();
+            if (next < inv.length) {
+              pg.unobserve(sentinel);
+              pg.observe(sentinel);
+            }
+          },
+          { root: $('.hd-scroll', view), rootMargin: '600px 0px' },
+        );
+        pager = pg;
+        pg.observe(sentinel);
       }
     };
+    let pager: IntersectionObserver | null = null;
     render();
   }
 
@@ -2806,10 +2851,13 @@ export class AppUI {
         !refining && (f.type === 'all' || f.type === 'upgrades') && f.rarity === 'any' && f.dtype === 'any' && f.bonus === 'any'
           ? ITEMS.filter((it) => g.state.items[it.id] > 0 && g.state.items[it.id] >= lv.min && g.state.items[it.id] <= lv.max)
           : [];
+      // Who wears what, looked up once rather than per piece (this runs every refresh).
+      const wornBy = new Map<number, Wearer>();
+      for (const [w, uids] of Object.entries(g.state.equipment) as [Wearer, Array<number | null>][]) for (const u of uids) if (u !== null) wornBy.set(u, w);
       const k = [
         JSON.stringify(f),
         refining,
-        gear.map((it) => `${it.uid}:${it.stars}:${g.wearerOf(it.uid)?.who ?? ''}:${g.modSlots(it.uid).filter(Boolean).length}`).join('|'),
+        gear.map((it) => `${it.uid}:${it.stars}:${wornBy.get(it.uid) ?? ''}:${it.mods ? it.mods.filter(Boolean).length : 0}`).join('|'),
         upgrades.map((it) => `${it.id}:${g.state.items[it.id]}`).join('|'),
       ].join('/');
       if (k === invKey) return;
@@ -2834,7 +2882,7 @@ export class AppUI {
       const makers: Array<() => HTMLElement> = [
         ...gear.map((it) => () => {
           const gd = gearDef(it.base);
-          const worn = g.wearerOf(it.uid);
+          const worn = wornBy.has(it.uid) ? { who: wornBy.get(it.uid)! } : null;
           const tile = el('button', 'inv-tile rar') as HTMLButtonElement;
           tile.style.setProperty('--rc', gearColor(gd.id));
           const slots = g.modSlots(it.uid);
