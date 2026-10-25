@@ -257,99 +257,96 @@ const SCENES: Partial<Record<AreaId, Scene>> = {
     vignette: 'rgba(4,12,2,0.6)',
   },
 
-  // CraftPix's winter and rocky tilesets: wind-packed snow with patches of bare rock, drifts and pebbles,
-  // frosted stones, ice crystals and snowy pines, and frozen beasts, rune stones, ruins and peaks at the edges.
+  // CraftPix's winter and rocky tilesets: a snowy mountain pass. Patches of bare rock, boulders, rune stones and
+  // horned helmet rocks, a great horned statue, and snow-capped mountains and pines crowding the edge.
   peaks: {
     base: '#c5dadd',
-    specks: [
-      ['#d4e6e8', 30],
-      ['#b9cfd3', 22],
-      ['#e8f4f5', 10],
-    ],
-    pools: { density: 0.06, from: 0.3, size: [24, 56], rim: '#70665e', crust: '#8a7e71', fill: '#958978', inner: '#aa9e85', details: run('wd', 26, 41).split(' ') },
+    specks: [['#d4e6e8', 30], ['#b9cfd3', 22], ['#e8f4f5', 10]],
+    clear: 0.55,
+    edgeOut: 10,
+    pools: { density: 0.08, from: 0.45, size: [30, 70], rim: '#70665e', crust: '#8a7e71', fill: '#958978', inner: '#aa9e85', details: run('wd', 26, 41).split(' ') },
     bands: [
-      { pieces: [...p(run('wd', 1, 41), 0.4), ...p('w_Ice_flowers2 w_Ice_flowers3 w_Crystal_square1 w_Crystal_square2 w_Stones4 w_Stones5 w_Crystal_flower3 w_Mushroom13 r_Rock13 r_Rock23 r_Rock33 r_Conifer_tree_small2_3 o_Mushrooms3')], density: 3, from: 0 },
-      { pieces: [...p('w_Stones2 w_Stones3 w_Crystal_square3 w_Crystal_square4 w_Crystal_sharp2 w_Crystal_sharp3 w_Crystal_flower2 w_Ice_flowers1 w_Mushroom12 w_Mushroom22 w_Trees13 w_Trees23 w_Trees33 w_Ice_trees4 w_Ruins13 w_Ruins14 w_Ruins15 w_Ruins24', 1.5), ...p('r_Rock11 r_Rock12 r_Rock22 r_Rock24 r_Rock32 r_Rock34 r_Conifer_tree_small2_1 r_Conifer_tree_small2_2 r_Conifer_tree5_6 o_Ice_spikes2 o_Ice_spikes3 o_Mushrooms1 o_Mushrooms2 o_Crystals5 o_Rune_rocks3 o_Rune_rocks4 o_Mountains4 o_Mountains5 o_Helmet_rocks2 o_Bear_in_ice o_Boar_in_ice')], density: 1, from: 0.4 },
-      { pieces: [...p('w_Stones1 w_Trees11 w_Trees12 w_Trees21 w_Trees22 w_Trees31 w_Trees32 w_Ice_trees2 w_Ice_trees3 w_Crystal_sharp1 w_Crystal_flower1 w_Mushroom11 w_Mushroom21 w_Ruins11 w_Ruins12 w_Ruins21 w_Ruins22 w_Ruins23 w_Idols1 w_Idols2', 1.5), ...p('r_Rock14 r_Rock15 r_Rock25 r_Rock35 r_Rock2 r_Conifer_tree1_2 r_Conifer_tree1_3 r_Conifer_tree3_2 r_Conifer_tree3_3 r_Ruins2 r_Ruins3 r_Ruins4 o_Ice_spikes1 o_Ice_trees2 o_Ice_trees3 o_Crystals3 o_Crystals4 o_Rune_rocks2 o_Rune_rocks5 o_Mountains3 o_Helmet_rocks1 o_Statue_rocks1 o_Statue_rocks2 o_Ruins3')], density: 0.4, from: 0.7 },
-      { pieces: [...p('o_Mountains1 o_Mountains2 o_Mountains3', 3), ...p('w_Ice_trees1 o_Ice_trees1 o_Mammoth_in_ice o_Giant_in_ice o_Ice_palace o_Rune_rocks1 o_Crystals1 o_Crystals2 o_Ruins1 o_Ruins2 o_Ruins4 o_Octopus_head r_Conifer_tree1_1 r_Conifer_tree3_1 r_Ruins1')], density: 0.14, from: 0.9 },
+      { pieces: [...p(run('wd', 1, 41), 1), ...p('w_Stones4 w_Stones5 r_Rock13 r_Rock23 r_Rock33', 0.8)], density: 2.2, from: 0 },
+      { pieces: [...p('w_Stones2 w_Stones3 r_Rock11 r_Rock12 r_Rock22 r_Rock32 o_Rune_rocks4 o_Helmet_rocks2 o_Mountains5', 2), ...p('r_Conifer_tree_small2_1 r_Conifer_tree_small2_2')], density: 0.8, from: 0.6 },
+      { pieces: [...p('w_Stones1 r_Rock14 r_Rock15 r_Rock24 r_Rock25 r_Rock34 r_Rock35 o_Mountains4 o_Rune_rocks3 o_Helmet_rocks1', 2), ...p('r_Conifer_tree1_3 r_Conifer_tree3_3')], density: 0.42, from: 0.78 },
+      { pieces: [...p('o_Mountains1 o_Mountains2 o_Mountains3', 3), ...p('r_Rock14 r_Rock34 r_Rock35 o_Helmet_rocks1 r_Conifer_tree1_1')], density: 0, from: 0.95, edge: true },
     ],
+    landmarks: [{ file: 'o_Statue_rocks2', at: [-62, 140] }],
     vignette: 'rgba(60,90,120,0.3)',
   },
+
   // CraftPix's flying islands: a staircase of grassy islands climbing out of the clouds from the bottom-left
-  // to the top-right, the fight on the broad step in the middle, with crystals, trees and ruins on the steps
-  // and clouds, drifting rocks and a far-off dragon in the open sky around them.
+  // to the top-right, the fight on the broad island in the middle, big trees, crystals and ruins on the steps,
+  // and clouds and drifting rocks in the open sky below them.
   cliffs: {
-    base: '#7fb0d8',
+    base: '#6fa5d6',
     sky: ['#b7dcf2', '#6fa5d6'],
     specks: [],
-    islands: {
-      file: 'island',
-      steps: [
-        [1.0, -0.04, 0.14, 0.06],
-        [0.9, 0.15, 0.18, 0.07],
-        [0.5, 0.48, 0.6, 0.32],
-        [0.12, 0.87, 0.2, 0.07],
-        [-0.05, 1.05, 0.18, 0.07],
-      ],
-    },
+    clear: 0.5,
+    islands: { file: 'island', steps: [[1.0, -0.06, 0.24, 0.1], [0.84, 0.15, 0.26, 0.11], [0.5, 0.5, 0.6, 0.4], [0.16, 0.85, 0.26, 0.11], [0.0, 1.06, 0.24, 0.1]] },
     bands: [
-      { pieces: [...p('Cloud_color1_1 Cloud_color1_2 Cloud_color1_3 Cloud_color1_4 Cloud_color2_1 Cloud_color2_2 Cloud_color2_3 Cloud_color2_4 Cloud_color3_1 Cloud_color3_2 Cloud_color3_3 Cloud_color3_4', 2), ...p(run('fr', 7, 62), 0.3), ...p('fr1 fr2 fr3 fr4 fr5 fr6')], density: 0.6, from: 0, under: true, overlap: true },
+      { pieces: [...p('Cloud_color1_1 Cloud_color1_2 Cloud_color2_1 Cloud_color2_2 Cloud_color3_1 Cloud_color3_2', 3), ...p('fr1 fr2 fr3 fr4 fr5 fr6', 1.5), ...p(run('fr', 7, 62), 0.3)], density: 0.6, from: 0, under: true, overlap: true },
       { pieces: [...p(run('id', 1, 52), 1)], density: 22, from: 0, onIslands: true },
-      { pieces: [...p('Bush1_1 Bush1_2 Bush1_3 Bush2_1 Bush2_2 Bush2_3 Plant1_2 Plant1_3 Plant2_1 Plant2_2 Plant2_3 Plant3_2 Plant3_3 Crystael3 Crystael4 Crystael7 Crystael8 Crystael9 Small_rock1 Small_rock2 Small_rock3 Rock3 Rock4 Ruins5')], density: 4, from: 0.35, onIslands: true },
-      { pieces: [...p('Tree1_1 Tree1_2 Tree1_3 Tree2_1 Tree2_2 Tree2_3 Trees3_1 Trees3_2 Trees3_3 Trees3_4 Plant1_1 Plant3_1 Crystael1 Crystael2 Crystael5 Crystael6 Rock1 Rock2 Ruins1 Ruins2 Ruins3 Ruins4')], density: 1.2, from: 0.55, onIslands: true },
-      { pieces: [...p('Cloud_color2_2 Cloud_color2_3 Cloud_color3_1 Cloud_color3_2 Cloud_color3_3', 3), ...p('Dragon_small')], density: 0.06, from: 0.92, overlap: true },
+      { pieces: [...p('Bush1_2 Bush1_3 Bush2_2 Bush2_3 Plant1_3 Plant2_3 Plant3_3 Crystael3 Crystael4 Crystael9 Small_rock1 Small_rock2')], density: 4, from: 0.5, onIslands: true },
+      { pieces: [...p('Tree1_1 Tree1_2 Tree2_1 Tree2_2 Trees3_1 Trees3_2 Trees3_3 Plant1_1 Plant3_1', 2), ...p('Crystael1 Crystael5 Rock1 Rock2 Ruins2 Ruins3')], density: 4, from: 0.6, onIslands: true },
     ],
   },
-  // CraftPix's dungeon set in the sky: a paved marble court on a cloud bank, ghost-flame candles, praying
-  // statues, white tombs and treasure, columns and blue-fire braziers toward its rim, clouds rolling over the
-  // edges and a dragon circling below.
+
+  // CraftPix's dungeon set in the sky: a paved marble court on a cloud bank, fire-crowned statues, ghost-flame
+  // candles, praying statues and treasure, columns, tombs and blue-fire braziers toward its rim (every piece kept
+  // on the paving), and clouds and a dragon below.
   fortress: {
-    base: '#a9c8e6',
+    base: '#8ab4dc',
     sky: ['#d3e6f4', '#8ab4dc'],
     specks: [],
-    slabs: { size: 20, colors: ['#b9c0cf', '#b3bac9', '#bfc6d4', '#adb4c4', '#b6bdcc'], grout: '#7d8496', light: '#d0d6e1', inset: 0.07, side: '#6b7284' },
+    clear: 0.48,
+    slabs: { size: 20, colors: ['#b9c0cf', '#b3bac9', '#bfc6d4', '#adb4c4', '#b6bdcc'], grout: '#7d8496', light: '#d0d6e1', inset: 0.06, side: '#6b7284' },
     bands: [
-      { pieces: [...p('Cloud_color1_1 Cloud_color1_2 Cloud_color1_3 Cloud_color2_1 Cloud_color2_2 Cloud_color3_1 Cloud_color3_2', 3), ...p('Dragon_big Dragon_small', 0.4)], density: 0.5, from: 0.9, under: true, overlap: true },
-      { pieces: [...p('puff1 puff2 puff3 puff4 puff5 puff6 puff7 puff8 puff9 puff11 puff13', 2), ...p('candle3 candle6 candle9 medal1 medal2')], density: 1.2, from: 0.15 },
-      { pieces: [...p('candle1 candle2 candle4 candle5 candle7 candle8', 2), ...p('statue1 statue2 statue3 statue4 statue5 statue6 chest7 chest8 chest9 tomb4 tomb10 tomb21', 1.5)], density: 0.5, from: 0.45 },
-      { pieces: [...p('colA colB colC', 4), ...p('torch2 torch3 torch4 torch6 statue_fire tomb1 tomb2 tomb16 tomb20 tomb25', 1.5)], density: 0.4, from: 0.72 },
-      { pieces: [...p('torch1 torch11 torch16 torch21 statue_fire')], density: 0.06, from: 0.86 },
-      { pieces: p('Cloud_color1_1 Cloud_color1_2 Cloud_color1_3 Cloud_color1_4 Cloud_color2_1 Cloud_color2_2 Cloud_color2_3 Cloud_color2_4 Cloud_color3_1 Cloud_color3_2 Cloud_color3_3 Cloud_color3_4'), density: 0.35, from: 0.93, overlap: true },
+      { pieces: [...p('Cloud_color1_1 Cloud_color1_2 Cloud_color1_3 Cloud_color2_1 Cloud_color2_2 Cloud_color3_1 Cloud_color3_2', 3), ...p('Dragon_big Dragon_small', 0.3)], density: 0.6, from: 0.88, under: true, overlap: true },
+      { pieces: [...p('puff1 puff2 puff3 puff4 puff5 puff6 puff7 puff8 puff9 puff11 puff13', 2), ...p('candle3 candle6 candle9 medal1 medal2')], density: 1.6, from: 0, to: 0.8 },
+      { pieces: [...p('candle1 candle2 candle4 candle5 candle7 candle8', 2), ...p('statue1 statue2 statue3 statue4 statue5 statue6 chest7 chest8 chest9', 1.5)], density: 0.9, from: 0.55, to: 0.72 },
+      { pieces: [...p('colA colB colC', 3), ...p('torch2 torch3 torch4 torch6 tomb4 tomb10 tomb16 tomb25', 1.5)], density: 0.6, from: 0.66, to: 0.74 },
     ],
+    landmarks: [{ file: 'statue_fire', at: [80, 118] }, { file: 'statue_fire', at: [-80, 118] }],
   },
-  // CraftPix's space backgrounds, merged: a nebula band and starfield behind, shooting stars streaking across,
-  // red and grey meteors tumbling past and cratered moons drifting at the edges.
+
+  // On a meteor: its cratered surface, broken open at the edge onto space (the nebula band and starfield, with
+  // meteors and moons drifting in the gaps), shooting stars streaking over, and grey and red rocks crowding the edge.
   meteors: {
-    base: '#141a20',
-    backdrop: 'space',
-    specks: [],
+    base: '#3d3742',
+    specks: [['#47404d', 26], ['#332e38', 22], ['#57505e', 8], ['#e0573a', 0.4]],
+    clear: 0.55,
+    edgeOut: 34,
+    pools: { density: 0.24, from: 0.66, size: [70, 130], rim: '#1f1b23', crust: '#6a6273', fill: '#141a20', pattern: 'space', details: ['moonb2', 'moonb5', 'red2', 'red8', 'red12', 'red20', 'shoot8', 'shoot10'] },
     bands: [
-      { pieces: p(run('shoot', 1, 18)), density: 0.35, from: 0 },
-      { pieces: [...p('red1 red2 red4 red7 red8 red10 red12 red13 red14 red16 red20 red21 red22 red23 red24 red25 red26 red28 red30 red32 red35 red36 red37', 2), ...p('rock1 rock3 rock5 rock8 rock13 rock15')], density: 1.1, from: 0.35 },
-      { pieces: [...p('red3 red5 red6 red9 red11 red15 red17 red18 red19 red27 red29 red31 red33 red34'), ...p('rock2 rock4 rock6 rock7 rock9 rock10 rock11 rock12 rock14', 1.5), ...p('moonb1 moonb2 moonb5')], density: 0.4, from: 0.65 },
-      { pieces: p('moon1 moon2 moon3 moon4 moon5 moon6 moon7 moonb3 moonb4 moonb6 moonb7'), density: 0.12, from: 0.9 },
+      { pieces: [...p('rock15 rock8 rock5 red2 red8 red12 red20 red26 red37', 1)], density: 1, from: 0 },
+      { pieces: [...p(run('shoot', 1, 18), 1)], density: 0.6, from: 0.3, overlap: true },
+      { pieces: [...p('rock3 rock7 rock11 rock12 rock13', 2), ...p('red4 red7 red13 red16 red22')], density: 0.7, from: 0.6 },
+      { pieces: [...p('rock4 rock9 rock10', 2), ...p('red9 red11 red15 red17 red33')], density: 0.35, from: 0.78 },
+      { pieces: [...p('rock2 rock6 rock14', 2), ...p('red5 red19 red29 red31')], density: 0, from: 0.95, edge: true },
     ],
-    vignette: 'rgba(0,0,0,0.5)',
+    vignette: 'rgba(0,0,0,0.55)',
   },
-  // Where the world comes apart: the glowing cave's dark rock torn open onto a violet starfield, cursed growths
-  // gone purple (eyes, claws, teeth and tentacles), glowing fungi and crystals, and pale moons hanging at the edges.
+
+  // Where the world comes apart, an eldritch maw: veins, eyes, tooth-mouths and tentacles, a vast winged thing
+  // looming over the top, the ground torn open onto the violet void (moons showing through), and tentacled,
+  // clawed and toothed monsters crowding the edge.
   rift: {
-    base: '#26202e',
-    specks: [
-      ['#2c2736', 24],
-      ['#1c171f', 18],
-      ['#3c3a51', 8],
-      ['#b48cff', 0.8],
-    ],
-    pools: { density: 0.09, from: 0.25, size: [36, 84], rim: '#0f0c10', crust: '#9a6bff', fill: '#1a1030', pattern: 'void' },
+    base: '#221c26',
+    specks: [['#2a2030', 24], ['#18131c', 20], ['#3a2638', 8], ['#b48cff', 0.6]],
+    clear: 0.55,
+    edgeOut: 18,
+    pools: { density: 0.12, from: 0.72, size: [70, 130], rim: '#0f0c10', crust: '#9a6bff', fill: '#1a1030', pattern: 'void', details: ['moon2', 'moon5', 'moon1'] },
     bands: [
-      { pieces: [...p(run('gd', 58, 81), 2), ...p(run('gd', 35, 57)), ...p('gd12 gd13 gd18 gd22 gd25 gd27 gd28 gd30 gd31 gd32 gd33 c_Bones_7 c_Bones_8 c_Bones_9 c_Bones_10 c_Bones_11 c_Eyes_2 c_Fetus_3 c_Pustules_3 c_Mushrooms_3 c_Rock1_4 c_Rock1_5 g_Crystal3_4 g_Crystal1_4 g_Mushroom4_3 Violet_crystal4 Pink_crystal4')], density: 3, from: 0 },
-      { pieces: [...p('gd10 gd11 gd14 gd15 gd16 gd19 gd20 gd23 gd24 g_Crystal1_3 g_Crystal3_2 g_Crystal3_3 g_Mushroom1_3 g_Mushroom4_2 g_Mushroom6_3 g_Plant5_3 g_Plant2_3 Violet_crystal3 Black_crystal3 Pink_crystal3', 1.5), ...p('c_Eye_plant_1 c_Eye_plant_2 c_Eye_plant_3 c_Many_eyes_plant_2 c_Many_eyes_plant_3 c_Tentacles_1 c_Tentacles_2 c_Tentacles_3 c_Rock3_4 c_Rock3_5 c_Rock3_6 c_Rock_eyes_2 c_Rock_eyes_3 c_Bones_2 c_Bones_3 c_Bones_4 c_Pustules_2 c_Fetus_2 c_Meat_flower_3 c_Jaws_plant_3 c_Rune_stone_4 c_Tooth_mouth_3')], density: 1, from: 0.4 },
-      { pieces: [...p('g_Crystal1_1 g_Crystal1_2 g_Crystal3_1 g_Mushroom1_1 g_Mushroom1_2 g_Mushroom4_1 g_Mushroom6_1 g_Mushroom6_2 g_Plant5_1 g_Plant5_2 g_Rock_crystal_1 g_Rock_crystal_2 g_lizard_1 gd17 gd21 Violet_crystal1 Violet_crystal2 Black_crystal1 Pink_crystal1', 1.5), ...p('c_Claw_eggs_1 c_Claw_eggs_2 c_Eggs_1 c_Eggs_2 c_Tentacle_plant_1 c_Tentacle_plant_2 c_Spike_plant_2 c_Neuro_monster_1 c_Neuro_monster_2 c_Tooth_mouth_1 c_Tooth_mouth_4 c_Ruins_3 c_Ruins_4 c_Tentacles_4 c_Jaws_plant_2 c_Star_monster_1 c_Rune_stone_2 c_Rune_stone_3 c_Meat_flower_1 c_Rock3_2 c_Rock_eyes_1 c_Fetus_1')], density: 0.4, from: 0.7 },
-      { pieces: [...p('c_Bones_1 c_Claw_monster_1 c_Claw_monster_2 c_Tentacle_monster_1 c_Tentacle_monster_2 c_Wing_monster c_Veins_1 c_Veins_2 c_Veins_3 c_Spike_plant_1 c_Rune_stone_1 c_Tooth_monster_1 c_Jaws_plant_1 gd1 gd3 gd5 gd7 gd9'), ...p('moon1 moon2 moon3 moon4 moon5 moon6 moon7')], density: 0.14, from: 0.9 },
+      { pieces: [...p('c_Veins_1 c_Veins_2 c_Veins_3', 1.5), ...p('c_Eyes_2 c_Pustules_3 c_Fetus_3 c_Bones_7 c_Bones_8 c_Bones_9 c_Bones_10 c_Bones_11 c_Mushrooms_3 c_Tooth_mouth_3 c_Rock1_4 c_Rock1_5')], density: 0.9, from: 0 },
+      { pieces: [...p('c_Eye_plant_1 c_Eye_plant_2 c_Many_eyes_plant_2 c_Tentacles_1 c_Tentacles_2 c_Tentacles_3 c_Tooth_mouth_3 c_Tooth_mouth_4 c_Rock_eyes_2 c_Rock_eyes_3 c_Fetus_2 c_Pustules_2', 2), ...p('c_Rock3_4 c_Rock3_5 Violet_crystal3 Black_crystal3')], density: 0.6, from: 0.6 },
+      { pieces: [...p('c_Tooth_mouth_1 c_Rock_eyes_1 c_Tentacles_4 c_Star_monster_1 c_Neuro_monster_1 c_Neuro_monster_2 c_Eggs_1 c_Claw_eggs_1 c_Claw_eggs_2 c_Meat_flower_1 c_Bones_1', 1), ...p('Violet_crystal1 Black_crystal1 c_Rune_stone_2')], density: 0.35, from: 0.78 },
+      { pieces: [...p('c_Tentacle_monster_1 c_Tentacle_monster_2 c_Tooth_monster_1 c_Claw_monster_1 c_Claw_monster_2', 2), ...p('c_Jaws_plant_1 c_Spike_plant_1 c_Tentacle_plant_1')], density: 0, from: 0.95, edge: true },
     ],
-    vignette: 'rgba(10,0,25,0.65)',
+    landmarks: [{ file: 'c_Wing_monster', at: [234, 104] }],
+    vignette: 'rgba(15,0,10,0.75)',
   },
+
 };
 
 const images = new Map<string, HTMLImageElement>();
