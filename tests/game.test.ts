@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { GEAR_CATALOG } from '../src/core/gearCatalog';
 import { GEAR_SPRITES } from '../src/core/gearSprites';
 import { describe, expect, it } from 'vitest';
-import { archetypeValue, armorStats, WEAPON_ARCHETYPES, weaponArchetype, withArchetype, type WeaponClass } from '../src/core/balance';
+import { archetypeValue, armorStats, mirrorStats, WEAPON_ARCHETYPES, weaponArchetype, withArchetype, type WeaponClass } from '../src/core/balance';
 import {
   areaDef,
   AREAS,
@@ -63,7 +63,6 @@ import {
   SHIELD_DEFLECT_PAUSE,
   lootChance,
   tomeSummonType,
-  ARMOR_TYPES,
   effectBase,
   MAX_STARS,
   OFFLINE_BASE_SEC,
@@ -1093,14 +1092,14 @@ describe('Equipment', () => {
     const inArea = (i: number) => GEAR.filter((g) => !g.starter && gearArea(g) === i);
     const counts = AREAS.map((_, i) => inArea(i + 1).length);
     expect(counts[0]).toBeGreaterThanOrEqual(15);
-    expect(counts[0]).toBeLessThanOrEqual(24);
+    expect(counts[0]).toBeLessThanOrEqual(26);
     // Each area has at least as many items as the one before (players stay longer in later areas).
     for (let i = 1; i < counts.length; i++) expect(counts[i]).toBeGreaterThanOrEqual(counts[i - 1]);
-    // The Woods: melee, bows, two wands, armor and a few plain accessories (no abilities but one potion); no robes, no firearms.
+    // The Woods: melee, bows, two wands, armor and a few plain accessories (no abilities but one potion and the boots' dodge); no robes, no firearms.
     const woods = inArea(1);
     expect(woods.filter((g) => g.kind === 'magic').map((g) => g.weaponClass)).toEqual(['wand', 'wand']);
     expect(woods.some((g) => g.armorType === 'robe')).toBe(false);
-    expect(woods.filter((g) => g.kind === 'accessory' && g.effect && g.effect.kind !== 'potion')).toEqual([]);
+    expect(woods.filter((g) => g.kind === 'accessory' && g.effect && g.effect.kind !== 'potion' && g.accType !== 'boots')).toEqual([]);
     // Firearms start in the Shadowy Depths (5).
     expect(Math.min(...GEAR.filter((g) => ['pistol', 'rifle', 'repeater'].includes(g.weaponClass ?? '')).map(gearArea))).toBe(5);
     // Catalog items land in the area they're listed under, with materials that exist, and ids are unique.
@@ -1973,7 +1972,7 @@ describe('Equipment', () => {
   });
 
   it('armor of one kind and area comes in three stat mixes of about the same worth', () => {
-    for (const type of ['light', 'heavy', 'robe', 'shield'] as const) {
+    for (const type of ['light', 'heavy', 'robe'] as const) {
       const mixes = ([0, 1, 2] as const).map((v) => armorStats(type, 5, v));
       expect(new Set(mixes.map((m) => JSON.stringify(m))).size).toBe(3);
       // Worth: % stats count at face value, crit double (a crit hits for 3x), shield charges are the same in each.
@@ -1984,6 +1983,11 @@ describe('Equipment', () => {
       // Every mix shows up among the game's armor of that kind.
       const used = new Set(GEAR.filter((d) => d.armorType === type).map((d) => ([0, 1, 2] as const).find((v) => [gearTier(d), Math.round(gearTier(d))].some((t) => JSON.stringify(d.stats) === JSON.stringify(armorStats(type, t, v))))));
       expect(used.has(0) && used.has(1) && used.has(2)).toBe(true);
+    }
+    // So do the accessories that mirror armor (Shields, Boots, Hoods).
+    for (const type of ['shield', 'boots', 'hood'] as const) {
+      const used = new Set(GEAR.filter((d) => d.accType === type).map((d) => ([0, 1, 2] as const).find((v) => [gearTier(d), Math.round(gearTier(d))].some((t) => JSON.stringify(d.stats) === JSON.stringify(mirrorStats(type, t, v))))));
+      expect(used.has(0) && used.has(1) && used.has(2), type).toBe(true);
     }
   });
 
@@ -2803,39 +2807,82 @@ describe('Equipment', () => {
     }
   });
 
-  it('armor kinds: Light is quick, Heavy and Shields add shield charges (Heavy slows you, Shields cost damage), Robes add damage', () => {
+  it('armor kinds: Light is quick, Heavy adds shield charges (no penalty), Robes add damage; any Hunter wears any kind', () => {
     const light = gearTotals(gearDef('gloomLeathers'), 1);
     const heavy = gearTotals(gearDef('bonePlate'), 1);
     const robe = gearTotals(gearDef('wrapRobe'), 1);
-    const shield = gearTotals(gearDef('boneShield'), 1);
     expect(light.rate).toBeGreaterThan(0);
     expect(light.guard ?? 0).toBe(0);
     expect(heavy.guard).toBe(1);
-    expect(heavy.rate).toBeCloseTo(ARMOR_TYPES.heavy.penalty.rate!); // the fixed penalty
+    expect(heavy.rate ?? 0).toBe(0); // no attack speed penalty any more
     expect(robe.damage).toBeGreaterThan(light.damage!);
     expect(robe.guard ?? 0).toBe(0);
-    expect(shield.guard).toBe(2);
-    expect(shield.damage).toBeCloseTo(ARMOR_TYPES.shield.penalty.damage!);
-    // Shield charges grow slowly with stars (×2 at 5★); the penalty never grows.
-    expect(gearTotals(gearDef('boneShield'), MAX_STARS).guard).toBe(4);
-    expect(gearTotals(gearDef('bonePlate'), MAX_STARS).rate).toBeCloseTo(ARMOR_TYPES.heavy.penalty.rate!);
-    // Every armor piece has a kind; specials from Very Rare up.
+    // Every armor piece has a kind; specials from Very Rare up. No shields are armor any more.
     for (const d of GEAR.filter((x) => x.kind === 'armor' && !x.starter)) {
       expect(d.armorType).toBeDefined();
       expect(!!d.effect).toBe(['veryRare', 'legendary', 'exotic', 'relic', 'artifact', 'exalted'].includes(d.rarity));
     }
-    // Glimmer only wears robes.
+    // Glimmer wears any armor now.
     const g = new Game(newGame(0));
     g.state.gold = 1e30;
     for (const m of Object.keys(g.state.materials) as Array<keyof typeof g.state.materials>) g.state.materials[m] = 1e6;
     g.state.hunters.glimmer.recruited = true;
-    expect(g.equip('glimmer', 1, g.craftGear('bonePlate')!.uid)).toBe(false);
+    expect(g.equip('glimmer', 1, g.craftGear('bonePlate')!.uid)).toBe(true);
     expect(g.equip('glimmer', 1, g.craftGear('wrapRobe')!.uid)).toBe(true);
-    // Wearing heavy armor: more shield, slower attacks.
+    // Wearing heavy armor: more shield, and no slower.
     const rate = g.fireRate;
     g.equip('main', 1, g.craftGear('bonePlate')!.uid);
     expect(g.guardOf('main')).toBe(1);
-    expect(g.fireRate).toBeLessThan(rate);
+    expect(g.fireRate).toBeCloseTo(rate);
+  });
+
+  it('shields are accessories (charges, no damage cost, block bursts from Very Rare); Boots dodge, Hoods channel; old saves move shields over', () => {
+    const shield = gearTotals(gearDef('boneShield'), 1);
+    expect(gearDef('boneShield').kind).toBe('accessory');
+    expect(gearDef('boneShield').accType).toBe('shield');
+    expect(shield.guard).toBe(2);
+    expect(shield.damage ?? 0).toBeGreaterThanOrEqual(0);
+    expect(gearTotals(gearDef('boneShield'), MAX_STARS).guard).toBe(4);
+    for (const d of GEAR.filter((x) => x.accType === 'shield')) {
+      expect(d.stats.guard, d.id).toBeGreaterThanOrEqual(2);
+      expect(d.effect?.kind === 'block').toBe(['veryRare', 'legendary', 'exotic', 'relic', 'artifact', 'exalted'].includes(d.rarity));
+    }
+    // Boots: light armor's stats, smaller, and always a chance to dodge; Hoods: a robe's, smaller.
+    for (const d of GEAR.filter((x) => x.accType === 'boots')) expect(d.effect?.kind, d.id).toBe('evade');
+    const hood = gearDef('feyHood').stats;
+    expect(hood.damage ?? hood.radius).toBeGreaterThan(0);
+    expect(hood.damage ?? 0).toBeLessThan(armorStats('robe', gearTier(gearDef('feyHood')), 2).damage! + 1e-9);
+    // A save with a shield in the armor slot: it moves to the free accessory slot.
+    const s = newGame(0);
+    const uid = 9000;
+    s.inventory.push({ uid, base: 'boneShield', stars: 1 });
+    s.equipment.main = [s.equipment.main?.[0] ?? null, uid, null];
+    const g = new Game(s);
+    expect(g.state.equipment.main![1]).toBeNull();
+    expect(g.state.equipment.main![2]).toBe(uid);
+    expect(g.guardOf('main')).toBeGreaterThanOrEqual(2);
+  });
+
+  it('Quivers, Ammo Pouches, Gauntlets and Talismans boost only their weapon group, a bit more than plain damage', () => {
+    const g = new Game(newGame(0), noCrit);
+    g.state.gold = 1e30;
+    for (const m of Object.keys(g.state.materials) as Array<keyof typeof g.state.materials>) g.state.materials[m] = 1e6;
+    const quiver = gearDef('huntersQuiver');
+    expect(quiver.accType).toBe('quiver');
+    expect(quiver.stats.bowDamage).toBeGreaterThan(0);
+    // Same area: group damage beats a plain damage accessory's damage.
+    const plain = GEAR.find((d) => d.kind === 'accessory' && !d.accType && d.stats.damage && gearTier(d) === gearTier(quiver));
+    if (plain) expect(quiver.stats.bowDamage!).toBeGreaterThan(plain.stats.damage!);
+    g.equip('main', 2, g.craftGear('huntersQuiver')!.uid);
+    const bow = g.craftGear('forestBow')!;
+    g.equip('main', 0, bow.uid);
+    expect(g.gear('main').damage).toBeCloseTo(gearTotals(quiver, 1).bowDamage!);
+    g.equip('main', 0, g.craftGear('slimeSword')!.uid);
+    expect(g.gear('main').damage).toBeCloseTo(0);
+    g.equip('main', 2, g.craftGear('leatherGauntlets')!.uid);
+    expect(g.gear('main').damage).toBeCloseTo(gearTotals(gearDef('leatherGauntlets'), 1).meleeDamage!);
+    // Every group has its kind of accessory in each area it's around for.
+    for (const t of ['quiver', 'ammo', 'gauntlet', 'talisman', 'boots', 'hood'] as const) expect(GEAR.filter((d) => d.accType === t).length, t).toBeGreaterThanOrEqual(8);
   });
 
   it("gear abilities have their own base damage: the Puppeteer's Doll's puppets bite the same whatever the weapon, and Hunter bonuses raise them", () => {
@@ -3519,13 +3566,13 @@ describe('Equipment', () => {
     expect(fx.fireAcc).toBeLessThanOrEqual(0);
     // A shield (with a bow, so nothing breaks it first) deflects it, pausing attacks for a moment.
     g.equip('main', 0, g.craftGear('forestBow')!.uid);
-    g.equip('main', 1, g.craftGear('forestShield')!.uid);
+    g.equip('main', 2, g.craftGear('forestShield')!.uid); // shields are accessories
     fx = shotAt(g);
     expect(fx.stun).toBe(0);
     expect(fx.fireAcc).toBeLessThan(0);
     expect(fx.fireAcc).toBeCloseTo(-SHIELD_DEFLECT_PAUSE * g.shooterRate('main'), 5);
     // Without either, it stuns.
-    g.equip('main', 1, null);
+    g.equip('main', 2, null);
     fx = shotAt(g);
     expect(fx.stun).toBeGreaterThan(0);
   });

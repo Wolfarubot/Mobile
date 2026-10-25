@@ -13,9 +13,11 @@
 
 export type CatalogDamage = 'physical' | 'fire' | 'acid' | 'frost' | 'radiant' | 'poison' | 'arcane' | 'decay' | 'lightning' | 'void';
 export type CatalogWeapon = 'tome' | 'dagger' | 'sword' | 'glaive' | 'spear' | 'hammer' | 'shortbow' | 'longbow' | 'crossbow' | 'pistol' | 'rifle' | 'repeater' | 'wand' | 'staff' | 'focus' | 'scepter';
-export type CatalogArmor = 'light' | 'heavy' | 'robe' | 'shield';
+export type CatalogArmor = 'light' | 'heavy' | 'robe';
+/** Accessories with a role (balance.ts ACC_TYPES). */
+export type CatalogAcc = 'shield' | 'boots' | 'hood' | 'quiver' | 'ammo' | 'gauntlet' | 'talisman';
 /** Stats an accessory can carry (values come from the tier). */
-export type CatalogAccStat = 'damage' | 'rate' | 'crit' | 'gold' | 'drops' | 'range' | 'radius' | 'stun' | 'cooldown' | 'critDamage' | 'duration' | 'statusChance';
+export type CatalogAccStat = 'damage' | 'rate' | 'crit' | 'gold' | 'drops' | 'range' | 'radius' | 'stun' | 'cooldown' | 'critDamage' | 'duration' | 'statusChance' | 'bowDamage' | 'gunDamage' | 'meleeDamage' | 'magicDamage';
 /**
  * An accessory's ability. Potions are drunk on their cooldown in a fight, raising a stat by `value` for `duration`
  * seconds; damaging ones (pulse, strike, thorns) hit for their area's base damage, like armor specials.
@@ -32,7 +34,7 @@ export type CatalogArchetype = 'slime' | 'beast' | 'undead' | 'demon' | 'element
 export type CatalogSpec<I extends string = string> =
   | { id: I; name: string; icon: string; area: string; type: 'weapon'; cls: CatalogWeapon; dmg: CatalogDamage; recipe: Record<string, number>; top?: boolean; stone?: boolean }
   | { id: I; name: string; icon: string; area: string; type: 'armor'; armor: CatalogArmor; recipe: Record<string, number>; top?: boolean }
-  | { id: I; name: string; icon: string; area: string; type: 'accessory'; stats: CatalogAccStat[]; bane?: CatalogArchetype; effect?: CatalogAccEffect; recipe: Record<string, number>; top?: boolean };
+  | { id: I; name: string; icon: string; area: string; type: 'accessory'; stats: CatalogAccStat[]; bane?: CatalogArchetype; effect?: CatalogAccEffect; acc?: CatalogAcc; recipe: Record<string, number>; top?: boolean };
 
 let area = '';
 const w = <I extends string>(id: I, name: string, icon: string, cls: CatalogWeapon, dmg: CatalogDamage, recipe: Record<string, number>, top = false) =>
@@ -50,6 +52,13 @@ const x = <I extends string>(id: I, name: string, icon: string, stats: CatalogAc
 /** An accessory with an ability (or just stats). */
 const xa = <I extends string>(id: I, name: string, icon: string, stats: CatalogAccStat[], recipe: Record<string, number>, effect?: CatalogAccEffect, top = false) =>
   ({ id, name, icon, area, type: 'accessory', stats, effect, recipe, top }) as const;
+/**
+ * An accessory with a role: a Shield, Boots or a Hood (stats mirroring heavy armor, light armor or a robe, so
+ * `stats` is left empty) or a Quiver, Ammo Pouch, Gauntlets or Talisman (its weapon group's damage, and more).
+ */
+const ac = <I extends string>(id: I, name: string, icon: string, acc: CatalogAcc, stats: CatalogAccStat[], recipe: Record<string, number>, top = false) =>
+  ({ id, name, icon, area, type: 'accessory', stats, acc, recipe, top }) as const;
+const sh = <I extends string>(id: I, name: string, icon: string, recipe: Record<string, number>, top = false) => ac(id, name, icon, 'shield', [], recipe, top);
 const at = (id: string) => ((area = id), []);
 
 export const GEAR_CATALOG = [
@@ -59,6 +68,10 @@ export const GEAR_CATALOG = [
   xa('twigBracers', 'Twig Bracers', '🧤', ['rate'], { twig: 10, pelt: 4 }),
   xa('ropeBelt', 'Rope Belt', '🎗️', ['gold'], { twig: 8, scrap: 4 }),
   xa('slimeTonic', 'Slime Tonic', '🧪', ['drops'], { goo: 12, royalSlime: 1 }, { kind: 'potion', stat: 'rate', value: 0.3, duration: 5, cooldown: 22 }, true),
+  ac('leatherGauntlets', 'Leather Gauntlets', '🥊', 'gauntlet', ['meleeDamage', 'stun'], { goo: 8, twig: 4 }),
+  ac('huntersQuiver', "Hunter's Quiver", '🏹', 'quiver', ['bowDamage', 'range'], { twig: 8, pelt: 4 }),
+  ac('wornBoots', 'Worn Boots', '👢', 'boots', [], { scrap: 8, bearClaw: 4 }),
+  ac('woodsmansHood', "Woodsman's Hood", '🧙', 'hood', [], { bearClaw: 8, goo: 4 }),
 
   // ---- Fey Grove: magic opens up ----
   ...at('glade'),
@@ -86,6 +99,11 @@ export const GEAR_CATALOG = [
   xa('thornBracers', 'Thorn Bracers', '🧤', ['crit'], { thorn: 8, sap: 4 }, { kind: 'thorns', dmg: 'poison' }),
   xa('pixieDraught', 'Pixie Draught', '🧪', ['duration'], { dust: 10, spore: 6 }, { kind: 'potion', stat: 'statusChance', value: 0.2, duration: 6, cooldown: 20 }),
   xa('regalSash', 'Regal Sash', '🎗️', ['gold', 'drops'], { regalEssence: 2, dust: 8 }, undefined, true),
+  ac('thornwoodGauntlets', 'Thornwood Gauntlets', '🥊', 'gauntlet', ['meleeDamage', 'rate'], { spore: 10, enchantedBone: 6 }),
+  ac('sapwoodQuiver', 'Sapwood Quiver', '🏹', 'quiver', ['bowDamage', 'rate'], { dust: 10, unicornHorn: 6 }),
+  ac('groveTalisman', 'Grove Talisman', '🔯', 'talisman', ['magicDamage', 'cooldown'], { unicornHorn: 10, sap: 6 }),
+  ac('mossTreads', 'Moss Treads', '👢', 'boots', [], { thorn: 10, spore: 6 }),
+  ac('feyHood', 'Fey Hood', '🧙', 'hood', [], { sap: 10, dust: 6 }),
 
   // ---- Restless Graveyard: hammers start here ----
   ...at('graveyard'),
@@ -110,6 +128,11 @@ export const GEAR_CATALOG = [
   xa('bloodTonic', 'Blood Tonic', '🧪', ['damage'], { vampEssence: 6, flesh: 8 }, { kind: 'potion', stat: 'damage', value: 0.35, duration: 6, cooldown: 24 }),
   xa('wispLantern', 'Wisp Charm', '🔮', ['cooldown'], { nightmareWisp: 6, bone: 6 }),
   xa('calciumCirclet', 'Calcium Circlet', '👑', ['crit', 'critDamage'], { calciumCrystal: 2, bone: 10 }, undefined, true),
+  ac('bonegripGauntlets', 'Bonegrip Gauntlets', '🥊', 'gauntlet', ['meleeDamage', 'crit'], { bone: 12, wing: 4 }),
+  ac('boneArrowQuiver', 'Bone-Arrow Quiver', '🏹', 'quiver', ['bowDamage', 'crit'], { flesh: 12, sacredText: 4 }),
+  ac('boneTalisman', 'Bone Talisman', '🔯', 'talisman', ['magicDamage', 'duration'], { wing: 12, nightmareWisp: 4 }),
+  ac('gravewalkerBoots', 'Gravewalker Boots', '👢', 'boots', [], { sacredText: 12, bone: 4 }),
+  ac('gravekeeperCowl', "Gravekeeper's Cowl", '🧙', 'hood', [], { robePiece: 12, flesh: 4 }),
 
   // ---- Forbidden Crypt: more of everything ----
   ...at('crypt'),
@@ -125,7 +148,7 @@ export const GEAR_CATALOG = [
   w('phylactery', 'Phylactery Focus', '⚱️', 'focus', 'decay', { eldritchText: 2, grave: 8 }, true),
   w('eldritchScepter', 'Eldritch Scepter', '🔮', 'scepter', 'arcane', { eldritchText: 3, grave: 8, undeadFeather: 5 }, true),
   a('crowCloak', 'Crow-Feather Cloak', '🧥', 'light', { undeadFeather: 10, wrap: 5 }),
-  a('hauntedShield', 'Haunted Shield', '🛡️', 'shield', { enchantedScrap: 10, string: 5 }),
+  sh('hauntedShield', 'Haunted Shield', '🛡️', { enchantedScrap: 10, string: 5 }),
   a('lichRobe', 'Lich Robe', '🥻', 'robe', { eldritchText: 2, wrap: 10 }, true),
   x('marionetteRing', 'Marionette Ring', '💍', ['rate'], { string: 8, enchantedScrap: 4 }),
   x('cryptKey', 'Crypt Key', '🗝️', ['drops'], { enchantedScrap: 8, grave: 4 }),
@@ -141,6 +164,11 @@ export const GEAR_CATALOG = [
   xa('graveDust', 'Grave Dust Vial', '🧪', ['drops'], { grave: 6, wrap: 8 }, { kind: 'potion', stat: 'radius', value: 0.4, duration: 6, cooldown: 24 }),
   xa('embalmerTonic', 'Embalmer\'s Tonic', '🧪', ['duration'], { wrap: 8, undeadFeather: 6 }, { kind: 'potion', stat: 'duration', value: 0.6, duration: 8, cooldown: 26 }),
   xa('eldritchRing', 'Eldritch Ring', '💍', ['critDamage', 'cooldown'], { eldritchText: 2, enchantedScrap: 8 }, undefined, true),
+  ac('wrappedFists', 'Wrapped Fists', '🥊', 'gauntlet', ['meleeDamage', 'critDamage'], { undeadFeather: 8, grave: 6 }),
+  ac('wrappedQuiver', 'Wrapped Quiver', '🏹', 'quiver', ['bowDamage', 'range'], { string: 8, undeadFeather: 6 }),
+  ac('sarcophagusSeal', 'Sarcophagus Seal', '🔯', 'talisman', ['magicDamage', 'statusChance'], { wrap: 8, enchantedScrap: 6 }),
+  ac('wrappedBoots', 'Wrapped Boots', '👢', 'boots', [], { grave: 8, wrap: 6 }),
+  ac('mummersHood', "Mummer's Hood", '🧙', 'hood', [], { undeadFeather: 8, grave: 6 }),
 
   // ---- Shadowy Depths: firearms start here, with Wilhelm ----
   ...at('depths'),
@@ -161,7 +189,7 @@ export const GEAR_CATALOG = [
   w('everwatchRepeater', 'Everwatch Repeater', '🔫', 'repeater', 'arcane', { everwatchingEye: 2, umbra: 6, darkClaw: 8 }, true),
   a('mothRobe', 'Mothsilk Robe', '👘', 'robe', { gloom: 10, shadowWisp: 4 }),
   a('crawlerPlate', 'Crawler Plate', '🛡️', 'heavy', { darkClaw: 12, umbra: 4 }),
-  a('pearlShield', 'Pearl Shield', '🛡️', 'shield', { umbra: 8, umbralSlime: 6 }),
+  sh('pearlShield', 'Pearl Shield', '🛡️', { umbra: 8, umbralSlime: 6 }),
   x('eyeAmulet', 'Eye Amulet', '🧿', ['range'], { umbralEye: 8, gloom: 4 }),
   x('bandolier', 'Bandolier', '🎒', ['rate'], { gloom: 8, darkClaw: 6 }),
   x('abyssPearl', 'Abyssal Pearl', '🦪', ['gold'], { umbra: 6, umbralSlime: 6 }),
@@ -175,6 +203,12 @@ export const GEAR_CATALOG = [
   xa('eyeDrops', 'Eye Drops', '🧪', ['crit'], { umbralEye: 6, umbralSlime: 6 }, { kind: 'potion', stat: 'crit', value: 0.15, duration: 6, cooldown: 22 }),
   xa('nightTonic', 'Nightshade Tonic', '🧪', ['critDamage'], { gloom: 8, shadowWisp: 6 }, { kind: 'potion', stat: 'critDamage', value: 0.5, duration: 6, cooldown: 24 }),
   xa('watcherCirclet', 'Watcher\'s Circlet', '👑', ['crit', 'range'], { everwatchingEye: 2, umbralEye: 6 }, undefined, true),
+  ac('gloomgripGauntlets', 'Gloomgrip Gauntlets', '🥊', 'gauntlet', ['meleeDamage', 'stun'], { darkClaw: 10, umbra: 4 }),
+  ac('shadowfeatherQuiver', 'Shadowfeather Quiver', '🏹', 'quiver', ['bowDamage', 'rate'], { gloom: 10, darkClaw: 4 }),
+  ac('gloomPowder', 'Gloom Powder Pouch', '🎯', 'ammo', ['gunDamage', 'critDamage'], { shadowWisp: 10, gloom: 4 }),
+  ac('umbralSigil', 'Umbral Sigil', '🔯', 'talisman', ['magicDamage', 'radius'], { umbralEye: 10, shadowWisp: 4 }),
+  ac('shadowstepBoots', 'Shadowstep Boots', '👢', 'boots', [], { umbralSlime: 10, umbralEye: 4 }),
+  ac('gloomCowl', 'Gloom Cowl', '🧙', 'hood', [], { umbra: 10, umbralSlime: 4 }),
 
   // ---- Ember Mines ----
   ...at('caves'),
@@ -196,7 +230,7 @@ export const GEAR_CATALOG = [
   w('soulCleaver', 'Soul Cleaver', '🪓', 'glaive', 'decay', { forsakenSoul: 2, demonTooth: 10 }, true),
   a('impLeathers', 'Imp Leathers', '🧥', 'light', { demonWing: 10, chitin: 4 }),
   a('magmaPlate', 'Magma Plate', '🛡️', 'heavy', { magma: 10, demonBone: 6 }),
-  a('hellShield', 'Hellforged Shield', '🛡️', 'shield', { demonBone: 10, chitin: 6 }),
+  sh('hellShield', 'Hellforged Shield', '🛡️', { demonBone: 10, chitin: 6 }),
   x('cinderRing', 'Cinder Ring', '💍', ['damage'], { ember: 8, demonTooth: 4 }),
   x('demonHorn', 'Demon Horn', '📯', [], { demonBone: 8, demonTooth: 4 }, 'demon'),
   x('minersLamp', "Miner's Lamp", '🪔', ['drops'], { chitin: 8, ember: 5 }),
@@ -212,6 +246,12 @@ export const GEAR_CATALOG = [
   xa('quartzRing', 'Quartz Ring', '💍', ['statusChance', 'duration'], { quartz: 6, silverOre: 5 }),
   xa('topazAmulet', 'Topaz Amulet', '📿', ['cooldown', 'duration'], { topaz: 4, goldOre: 5 }),
   xa('soulforgedCrown', 'Soulforged Crown', '👑', ['damage', 'critDamage'], { forsakenSoul: 2, diamond: 2, demonBone: 8 }, undefined, true),
+  ac('emberforgedGauntlets', 'Emberforged Gauntlets', '🥊', 'gauntlet', ['meleeDamage', 'rate'], { demonBone: 12, magma: 6 }),
+  ac('emberfletchQuiver', 'Emberfletch Quiver', '🏹', 'quiver', ['bowDamage', 'crit'], { demonWing: 12, chitin: 6 }),
+  ac('emberShot', 'Ember Shot Pouch', '🎯', 'ammo', ['gunDamage', 'rate'], { magma: 12, ember: 6 }),
+  ac('emberSigil', 'Ember Sigil', '🔯', 'talisman', ['magicDamage', 'cooldown'], { chitin: 12, demonTooth: 6 }),
+  ac('cinderBoots', 'Cinder Boots', '👢', 'boots', [], { ember: 12, demonBone: 6 }),
+  ac('emberHood', 'Ember Hood', '🧙', 'hood', [], { demonTooth: 12, demonWing: 6 }),
 
   // ---- Venom Caverns ----
   ...at('mines'),
@@ -244,7 +284,7 @@ export const GEAR_CATALOG = [
   w('trollMaul', 'Cave Troll Maul', '🔨', 'hammer', 'physical', { ore: 16, scale: 6 }, true),
   w('lavaPistol', 'Lava Pistol', '🔫', 'pistol', 'fire', { scale: 8, magma: 6 }),
   w('basiliskCrossbow', 'Basilisk Crossbow', '🎯', 'crossbow', 'poison', { scale: 10, ore: 5 }),
-  a('basiliskShield', 'Basilisk Shield', '🛡️', 'shield', { scale: 10, ore: 6 }),
+  sh('basiliskShield', 'Basilisk Shield', '🛡️', { scale: 10, ore: 6 }),
   a('koboldVest', 'Kobold Vest', '🧥', 'light', { ore: 10, chitin: 4 }),
   x('venomNecklace', 'Venom Vial Necklace', '📿', ['damage'], { scale: 8, ore: 6 }),
   xa('scaleBracers', 'Scale Bracers', '🧤', ['rate', 'crit'], { scale: 8, ore: 6 }),
@@ -255,6 +295,12 @@ export const GEAR_CATALOG = [
   xa('miningDraught', 'Miner\'s Draught', '🧪', ['drops'], { ore: 10, cobaltOre: 4 }, { kind: 'potion', stat: 'drops', value: 0.8, duration: 8, cooldown: 25 }),
   xa('cobaltBand', 'Cobalt Band', '💍', ['statusChance', 'critDamage'], { cobaltOre: 6, scale: 5 }),
   xa('wyrmCrest', 'Wyrm Crest', '📿', ['damage', 'radius'], { venomite: 5, cobaltOre: 5, scale: 6 }, { kind: 'pulse', radius: 80, cooldown: 7, dmg: 'poison' }, true),
+  ac('venomscaleGauntlets', 'Venomscale Gauntlets', '🥊', 'gauntlet', ['meleeDamage', 'crit'], { ore: 8, scale: 4 }),
+  ac('venomtipQuiver', 'Venomtip Quiver', '🏹', 'quiver', ['bowDamage', 'range'], { scale: 8, ore: 4 }),
+  ac('venomHorn', 'Venom Powder Horn', '🎯', 'ammo', ['gunDamage', 'crit'], { ore: 8, scale: 4 }),
+  ac('venomSigil', 'Venom Sigil', '🔯', 'talisman', ['magicDamage', 'duration'], { scale: 8, ore: 4 }),
+  ac('venomhideBoots', 'Venomhide Boots', '👢', 'boots', [], { ore: 8, scale: 4 }),
+  ac('venomCowl', 'Venom Cowl', '🧙', 'hood', [], { scale: 8, ore: 4 }),
 
   // ---- Frost Peaks ----
   ...at('peaks'),
@@ -277,7 +323,7 @@ export const GEAR_CATALOG = [
   a('yetiPelt', 'Yeti Pelt', '🧥', 'light', { fur: 12, frost: 4 }),
   a('glacierPlate', 'Glacier Plate', '🛡️', 'heavy', { frost: 12, fur: 6 }),
   a('wraithShroud', 'Wraith Shroud', '👘', 'robe', { ecto: 10, fur: 5 }),
-  a('iceShield', 'Ice Shield', '🛡️', 'shield', { frost: 10, fur: 6 }),
+  sh('iceShield', 'Ice Shield', '🛡️', { frost: 10, fur: 6 }),
   a('spiritMail', 'Spirit Mail', '⛓️', 'heavy', { ecto: 12, frost: 8 }, true),
   x('snowflakeBrooch', 'Snowflake Brooch', '❄️', ['stun'], { frost: 8, ecto: 4 }),
   x('furGloves', 'Wolf-Fur Gloves', '🧤', ['rate'], { fur: 8, frost: 4 }),
@@ -299,6 +345,12 @@ export const GEAR_CATALOG = [
   xa('aquamarineRing', 'Aquamarine Ring', '💍', ['duration', 'cooldown'], { aquamarine: 4, frostIron: 5 }),
   xa('sapphireAmulet', 'Sapphire Amulet', '📿', ['critDamage', 'crit'], { sapphire: 3, coldsteel: 5 }),
   xa('winterCrown', 'Winter Crown', '👑', ['damage', 'duration'], { sapphire: 3, aquamarine: 3, coldsteel: 6 }, { kind: 'chill', radius: 90 }, true),
+  ac('frostironGauntlets', 'Frostiron Gauntlets', '🥊', 'gauntlet', ['meleeDamage', 'critDamage'], { fur: 10, ecto: 6 }),
+  ac('frostfletchQuiver', 'Frostfletch Quiver', '🏹', 'quiver', ['bowDamage', 'rate'], { frost: 10, fur: 6 }),
+  ac('frostShot', 'Frost Shot', '🎯', 'ammo', ['gunDamage', 'critDamage'], { ecto: 10, frost: 6 }),
+  ac('frostTalisman', 'Frost Talisman', '🔯', 'talisman', ['magicDamage', 'statusChance'], { fur: 10, ecto: 6 }),
+  ac('frostwalkerBoots', 'Frostwalker Boots', '👢', 'boots', [], { frost: 10, fur: 6 }),
+  ac('frostHood', 'Frost Hood', '🧙', 'hood', [], { ecto: 10, frost: 6 }),
 
   // ---- Ascendant Steps ----
   ...at('cliffs'),
@@ -323,7 +375,7 @@ export const GEAR_CATALOG = [
   a('owlCloak', 'Owl-Feather Cloak', '🧥', 'light', { plume: 10, skystone: 4 }),
   a('giantPlate', "Giant's Plate", '🛡️', 'heavy', { skystone: 12, plume: 4 }),
   a('windRobe', 'Windweave Robe', '👘', 'robe', { plume: 10, skystone: 5 }),
-  a('skystoneShield', 'Skystone Shield', '🛡️', 'shield', { skystone: 10, plume: 6 }),
+  sh('skystoneShield', 'Skystone Shield', '🛡️', { skystone: 10, plume: 6 }),
   a('ascendantRobe', 'Ascendant Vestments', '🥻', 'robe', { skystone: 12, plume: 10 }, true),
   x('featherCharm', 'Feather Charm', '🪶', ['rate'], { plume: 8, skystone: 4 }),
   x('skystoneRing', 'Skystone Ring', '💍', ['damage'], { skystone: 8, plume: 4 }),
@@ -335,7 +387,7 @@ export const GEAR_CATALOG = [
   w('giantRifle', "Giant's Rifle", '🎯', 'rifle', 'physical', { skystone: 12, plume: 6 }),
   w('summitScepter', 'Summit Scepter', '✨', 'scepter', 'lightning', { skystone: 10, plume: 5 }),
   a('harpyRobe', 'Harpy Robe', '👘', 'robe', { plume: 12, skystone: 4 }),
-  a('giantShield', "Giant's Shield", '🛡️', 'shield', { skystone: 12, plume: 6 }),
+  sh('giantShield', "Giant's Shield", '🛡️', { skystone: 12, plume: 6 }),
   x('summitCharm', 'Summit Charm', '🏔️', ['gold'], { skystone: 8, plume: 6 }),
   xa('plumedHelm', 'Plumed Helm', '🪖', ['stun', 'range'], { plume: 10, skystone: 4 }),
   xa('skystoneBracers', 'Skystone Bracers', '🧤', ['rate'], { skystone: 6, plume: 6 }),
@@ -346,6 +398,12 @@ export const GEAR_CATALOG = [
   xa('featherRing', 'Feather Ring', '💍', ['statusChance', 'duration'], { plume: 8, skysteel: 4 }),
   xa('orichalcumTorque', 'Orichalcum Torque', '📿', ['damage', 'cooldown'], { orichalcum: 3, skysteel: 5 }),
   xa('ascendantCirclet', 'Ascendant Circlet', '👑', ['critDamage', 'radius'], { orichalcum: 4, skysteel: 6 }, undefined, true),
+  ac('skysteelGauntlets', 'Skysteel Gauntlets', '🥊', 'gauntlet', ['meleeDamage', 'stun'], { plume: 12, skystone: 4 }),
+  ac('griffinQuiver', 'Griffin-Feather Quiver', '🏹', 'quiver', ['bowDamage', 'crit'], { skystone: 12, plume: 4 }),
+  ac('skystoneHorn', 'Skystone Powder Horn', '🎯', 'ammo', ['gunDamage', 'rate'], { plume: 12, skystone: 4 }),
+  ac('sunstoneTalisman', 'Sunstone Talisman', '🔯', 'talisman', ['magicDamage', 'radius'], { skystone: 12, plume: 4 }),
+  ac('cloudstriderBoots', 'Cloudstrider Boots', '👢', 'boots', [], { plume: 12, skystone: 4 }),
+  ac('pilgrimsHood', "Pilgrim's Hood", '🧙', 'hood', [], { skystone: 12, plume: 4 }),
 
   // ---- Cloud Fortress ----
   ...at('fortress'),
@@ -367,7 +425,7 @@ export const GEAR_CATALOG = [
   w('titanRepeater', 'Storm Titan Repeater', '🔫', 'repeater', 'lightning', { thunder: 14, feather: 10 }, true),
   a('valkyrieMail', 'Valkyrie Mail', '⛓️', 'heavy', { thunder: 12, feather: 6 }),
   a('stormhide', 'Stormhide Leathers', '🧥', 'light', { feather: 10, thunder: 5 }),
-  a('knightShield', 'Sky Knight Shield', '🛡️', 'shield', { thunder: 10, feather: 6 }),
+  sh('knightShield', 'Sky Knight Shield', '🛡️', { thunder: 10, feather: 6 }),
   a('titanPlate', 'Titan Plate', '🛡️', 'heavy', { thunder: 16, feather: 10 }, true),
   x('thunderRing', 'Thunder Ring', '💍', ['crit'], { thunder: 8, feather: 4 }),
   x('featherCrown', 'Feather Crown', '👑', ['damage'], { feather: 10, thunder: 4 }),
@@ -381,7 +439,7 @@ export const GEAR_CATALOG = [
   w('stormPistol', 'Storm Pistol', '🔫', 'pistol', 'lightning', { thunder: 10, feather: 5 }),
   w('cloudlingWand', 'Cloudling Wand', '☁️', 'wand', 'radiant', { feather: 8, thunder: 6 }),
   a('valkyrieRobe', 'Valkyrie Robe', '👘', 'robe', { feather: 12, thunder: 4 }),
-  a('stormShield', 'Storm Shield', '🛡️', 'shield', { thunder: 12, feather: 6 }),
+  sh('stormShield', 'Storm Shield', '🛡️', { thunder: 12, feather: 6 }),
   x('titanBelt', 'Titan Belt', '🎗️', ['damage'], { thunder: 10, feather: 6 }),
   xa('stormHelm', 'Storm Helm', '🪖', ['stun', 'crit'], { thunder: 6, feather: 6 }),
   xa('thunderBracers', 'Thunder Bracers', '🧤', ['rate', 'damage'], { thunder: 8, stormstone: 3 }, { kind: 'strike', targets: 2, cooldown: 9, range: 200, dmg: 'lightning' }),
@@ -392,6 +450,12 @@ export const GEAR_CATALOG = [
   xa('opalRing', 'Opal Ring', '💍', ['critDamage', 'statusChance'], { opal: 4, thunder: 6 }),
   xa('stormstoneAmulet', 'Stormstone Amulet', '📿', ['cooldown', 'damage'], { stormstone: 4, thunder: 6 }),
   xa('thunderlordCrown', 'Thunderlord Crown', '👑', ['damage', 'rate'], { stormstone: 5, opal: 4, thunder: 8 }, { kind: 'strike', targets: 3, cooldown: 7, range: 240, dmg: 'lightning' }, true),
+  ac('thunderfistGauntlets', 'Thunderfist Gauntlets', '🥊', 'gauntlet', ['meleeDamage', 'rate'], { feather: 6 }),
+  ac('stormfletchQuiver', 'Stormfletch Quiver', '🏹', 'quiver', ['bowDamage', 'range'], { thunder: 6 }),
+  ac('thunderRounds', 'Thunder Rounds', '🎯', 'ammo', ['gunDamage', 'crit'], { feather: 6 }),
+  ac('stormTalisman', 'Storm Talisman', '🔯', 'talisman', ['magicDamage', 'cooldown'], { thunder: 6 }),
+  ac('stormstrideBoots', 'Stormstride Boots', '👢', 'boots', [], { feather: 6 }),
+  ac('stormcallerHat', "Stormcaller's Hat", '🧙', 'hood', [], { thunder: 6 }),
 
   // ---- Meteor Field ----
   ...at('meteors'),
@@ -415,7 +479,7 @@ export const GEAR_CATALOG = [
   a('meteorPlate', 'Meteor Plate', '🛡️', 'heavy', { meteor: 12, stardust: 4 }),
   a('cometCloak', 'Comet Cloak', '🧥', 'light', { stardust: 10, meteor: 4 }),
   a('nebulaRobe', 'Nebula Robe', '👘', 'robe', { stardust: 12, meteor: 4 }),
-  a('sentinelShield', 'Sentinel Shield', '🛡️', 'shield', { meteor: 10, stardust: 6 }),
+  sh('sentinelShield', 'Sentinel Shield', '🛡️', { meteor: 10, stardust: 6 }),
   a('cosmicRobe', 'Cosmic Vestments', '🥻', 'robe', { stardust: 16, meteor: 8 }, true),
   x('starRing', 'Star Ring', '💍', ['damage'], { stardust: 8, meteor: 4 }),
   x('cometTail', 'Comet Tail', '🌠', ['rate'], { stardust: 8, meteor: 6 }),
@@ -441,6 +505,12 @@ export const GEAR_CATALOG = [
   xa('meteorRing', 'Meteorite Ring', '💍', ['statusChance', 'critDamage'], { meteor: 8, starIron: 4 }),
   xa('starAmulet', 'Starlight Amulet', '📿', ['duration', 'statusChance'], { stardust: 8, adamantite: 3 }),
   xa('cosmicCrown', 'Cosmic Crown', '👑', ['critDamage', 'cooldown'], { adamantite: 5, starIron: 6 }, { kind: 'pulse', radius: 110, cooldown: 5, dmg: 'radiant' }, true),
+  ac('meteorFists', 'Meteor Fists', '🥊', 'gauntlet', ['meleeDamage', 'crit'], { meteor: 10, stardust: 4 }),
+  ac('starfallArrows', 'Starfall Arrows', '🏹', 'quiver', ['bowDamage', 'rate'], { stardust: 10, meteor: 4 }),
+  ac('meteorSlugs', 'Meteor Slugs', '🎯', 'ammo', ['gunDamage', 'critDamage'], { meteor: 10, stardust: 4 }),
+  ac('moonstoneTalisman', 'Moonstone Talisman', '🔯', 'talisman', ['magicDamage', 'duration'], { stardust: 10, meteor: 4 }),
+  ac('cometBoots', 'Comet Boots', '👢', 'boots', [], { meteor: 10, stardust: 4 }),
+  ac('stargazerCap', "Stargazer's Cap", '🧙', 'hood', [], { stardust: 10, meteor: 4 }),
 
   // ---- Void Rift: the long final stretch, the biggest armory ----
   ...at('rift'),
@@ -466,7 +536,7 @@ export const GEAR_CATALOG = [
   a('shadeCloak', 'Shade Cloak', '🧥', 'light', { shade: 10, void: 4 }),
   a('darkKnightPlate', 'Dark Knight Plate', '🛡️', 'heavy', { soul: 12, void: 6 }),
   a('wyrmscaleArmor', 'Wyrmscale Armor', '🐉', 'heavy', { void: 14, soul: 8 }),
-  a('riftShield', 'Rift Shield', '🛡️', 'shield', { void: 12, shade: 6 }),
+  sh('riftShield', 'Rift Shield', '🛡️', { void: 12, shade: 6 }),
   a('lichShroud', 'Lich Shroud', '👘', 'robe', { soul: 10, shade: 6 }),
   x('voidRing', 'Void Ring', '💍', ['crit'], { void: 8, soul: 4 }),
   x('soulAmulet', 'Soul Amulet', '📿', ['damage'], { soul: 10, void: 6 }),
@@ -489,6 +559,12 @@ export const GEAR_CATALOG = [
   xa('prismRing', 'Prism Ring', '💍', ['statusChance', 'duration'], { voidPrism: 3, voidsteel: 4 }),
   xa('eclipseAmulet', 'Eclipse Amulet', '📿', ['damage', 'duration'], { voidsteel: 6, soul: 6 }),
   xa('timeEaterCrown', 'Crown of Lost Time', '👑', ['cooldown', 'critDamage', 'damage'], { voidPrism: 5, voidsteel: 8 }, { kind: 'potion', stat: 'rate', value: 0.8, duration: 8, cooldown: 20 }, true),
+  ac('voidgripGauntlets', 'Voidgrip Gauntlets', '🥊', 'gauntlet', ['meleeDamage', 'critDamage'], { shade: 12, soul: 6 }),
+  ac('voidArrows', 'Void-Tipped Arrows', '🏹', 'quiver', ['bowDamage', 'crit'], { void: 12, shade: 6 }),
+  ac('voidShot', 'Void Shot', '🎯', 'ammo', ['gunDamage', 'rate'], { soul: 12, void: 6 }),
+  ac('voidTalisman', 'Void Talisman', '🔯', 'talisman', ['magicDamage', 'statusChance'], { shade: 12, soul: 6 }),
+  ac('riftstepBoots', 'Riftstep Boots', '👢', 'boots', [], { void: 12, shade: 6 }),
+  ac('voidCowl', 'Void Cowl', '🧙', 'hood', [], { soul: 12, void: 6 }),
 ] as const;
 
 export type CatalogGearId = (typeof GEAR_CATALOG)[number]['id'];

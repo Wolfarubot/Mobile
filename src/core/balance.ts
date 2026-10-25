@@ -1994,7 +1994,7 @@ export const HUNTERS: HunterDef[] = [
     ascendedTitle: 'Archmage',
     story: 'Glimmer came to the Forbidden Crypt to study the old magic sealed inside, but its Guardian won\'t let anyone near. Put it to rest, and Glimmer will lend you a fireball or two.',
     ability: 'Every 4s, hurls a fireball that explodes for area damage. Wields only magic weapons.',
-    slots: [{ kind: 'magic', label: 'Magic weapon' }, { kind: 'armor', label: 'Robe', armorTypes: ['robe'] }, { kind: 'accessory', label: 'Accessory' }],
+    slots: [{ kind: 'magic', label: 'Magic weapon' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
     special: { kind: 'fireball', name: 'Fireballs', damageType: 'fire', proc: 1, cooldown: 4, damage: 1.75, radius: 55, ticks: 1, crowd: 3, describe: 'Every 4s hurls a fireball that explodes: his weapon\'s damage powers the blast, its attack rate widens it.' },
   },  {
     id: 'puppeteer', name: 'Theon', title: 'Puppeteer', icon: '🎎', color: '#c89a6a', area: 'crypt', recruitCost: 1_000_000_000_000, summonBonus: { type: 'construct', mult: 1.5 },
@@ -2323,19 +2323,42 @@ export const SUMMON_TYPES: Record<SummonType, { name: string; icon: string }> = 
   elemental: { name: 'Elemental', icon: '🌪️' },
 };
 
-// ---- Armor: four kinds, each trading attack speed, damage and shield charges differently ----
-export type ArmorType = 'light' | 'heavy' | 'robe' | 'shield';
+// ---- Armor: three kinds, each leaning toward attack speed, toughness or power; any Hunter wears any ----
+export type ArmorType = 'light' | 'heavy' | 'robe';
 
 /**
  * Each kind of armor has a stat profile (what its stats lean toward) and a fixed penalty that never grows
- * with stars: Light is quick, Heavy shrugs off hits but slows you, Robes channel power, Shields block.
+ * with stars (none at the moment): Light is quick, Heavy shrugs off hits, Robes channel power.
  */
 export const ARMOR_TYPES: Record<ArmorType, { name: string; icon: string; desc: string; penalty: Partial<Record<GearStat, number>> }> = {
   light: { name: 'Light armor', icon: '🥋', desc: 'Quick and free: more attack speed and a little damage.', penalty: {} },
-  heavy: { name: 'Heavy armor', icon: '🪖', desc: 'Shrugs off hits: shield charges and shorter stuns, but slower attacks.', penalty: { rate: -0.1 } },
+  heavy: { name: 'Heavy armor', icon: '🪖', desc: 'Shrugs off hits: shield charges and shorter stuns.', penalty: {} },
   robe: { name: 'Robe', icon: '👘', desc: 'Channels power: more damage and bigger area effects, but no shield.', penalty: {} },
-  shield: { name: 'Shield', icon: '🛡️', desc: 'Blocks: the most shield charges, but a little less damage.', penalty: { damage: -0.08 } },
 };
+
+/**
+ * Kinds of accessory with a role of their own (other accessories are just trinkets). Shields, Boots and Hoods
+ * mirror the armor kinds on a smaller scale: Shields block like Heavy armor, Boots dodge like Light armor and
+ * Hoods channel like Robes. Quivers, Ammo Pouches, Gauntlets and Talismans boost one group of weapons (bows,
+ * guns, melee, magic): a bit more than a plain damage bonus, but only with a weapon of that group in hand.
+ */
+export type AccType = 'shield' | 'boots' | 'hood' | 'quiver' | 'ammo' | 'gauntlet' | 'talisman';
+export const ACC_TYPES: Record<AccType, { name: string; icon: string; desc: string }> = {
+  shield: { name: 'Shield', icon: '🛡️', desc: 'Blocks like heavy armor: shield charges and shorter stuns; rarer ones burst out when they block.' },
+  boots: { name: 'Boots', icon: '👢', desc: 'Light on their feet like light armor: attack speed, shorter stuns and a chance to dodge a monster entirely.' },
+  hood: { name: 'Hood', icon: '🧙', desc: 'Channels power like a robe, to a smaller degree: damage and bigger area effects.' },
+  quiver: { name: 'Quiver', icon: '🏹', desc: 'Boosts bows and crossbows only.' },
+  ammo: { name: 'Ammo Pouch', icon: '🎯', desc: 'Boosts guns (pistols, rifles and repeaters) only.' },
+  gauntlet: { name: 'Gauntlets', icon: '🥊', desc: 'Boosts melee weapons only.' },
+  talisman: { name: 'Talisman', icon: '🔯', desc: 'Boosts magic weapons only.' },
+};
+
+/** The weapon group a class belongs to, for Quivers, Ammo Pouches, Gauntlets and Talismans. */
+export type WeaponGroup = 'bow' | 'gun' | 'melee' | 'magic';
+export const weaponGroup = (cls: WeaponClass): WeaponGroup =>
+  cls === 'shortbow' || cls === 'longbow' || cls === 'crossbow' ? 'bow' : cls === 'pistol' || cls === 'rifle' || cls === 'repeater' ? 'gun' : MELEE_CLASSES.includes(cls) ? 'melee' : 'magic';
+/** The gear stat that boosts each weapon group's damage. */
+export const GROUP_DAMAGE: Record<WeaponGroup, GearStat> = { bow: 'bowDamage', gun: 'gunDamage', melee: 'meleeDamage', magic: 'magicDamage' };
 
 /**
  * Armor stats at 1★ by kind and area tier (1 = Wandering Woods … 12 = Void Rift). Each kind has three mixes of
@@ -2343,7 +2366,6 @@ export const ARMOR_TYPES: Record<ArmorType, { name: string; icon: string; desc: 
  *  Light:  0 attack speed, damage, shorter stuns · 1 all-out speed and stun · 2 crit, speed and damage
  *  Heavy:  0 shorter stuns and damage · 1 much shorter stuns · 2 shorter stuns and crit
  *  Robe:   0 damage and area · 1 a much bigger area · 2 damage, area and crit
- *  Shield: 0 shorter stuns · 1 damage (offsetting its penalty) · 2 shorter stuns and attack speed
  */
 export function armorStats(type: ArmorType, tier: number, variant: 0 | 1 | 2 = 0): Partial<Record<GearStat, number>> {
   const m = 1 + 0.25 * (tier - 1);
@@ -2357,11 +2379,28 @@ export function armorStats(type: ArmorType, tier: number, variant: 0 | 1 | 2 = 0
     }
     case 'robe':
       return [{ damage: r(0.03), radius: r(0.02) }, { damage: r(0.02), radius: r(0.04) }, { damage: r(0.025), radius: r(0.015), crit: r(0.01) }][variant];
-    case 'shield': {
-      const guard = tier >= 6 ? 3 : 2;
-      return [{ guard, stun: r(0.02) }, { guard, damage: r(0.015) }, { guard, stun: r(0.01), rate: r(0.01) }][variant];
-    }
   }
+}
+
+/** Accessories that mirror an armor kind. */
+export type MirrorAcc = 'shield' | 'boots' | 'hood';
+/** Hoods and Boots give this share of their armor kind's stats. */
+export const MIRROR_SHARE = 0.6;
+
+/**
+ * Stats at 1★ of the accessories that mirror armor, by area tier, in three mixes like armor's:
+ *  Shield: 0 shorter stuns · 1 damage · 2 shorter stuns and attack speed (all with the most shield charges)
+ *  Boots:  Light armor's mixes × MIRROR_SHARE · Hood: a Robe's mixes × MIRROR_SHARE
+ */
+export function mirrorStats(type: MirrorAcc, tier: number, variant: 0 | 1 | 2 = 0): Partial<Record<GearStat, number>> {
+  const m = 1 + 0.25 * (tier - 1);
+  const r = (v: number) => Math.round(v * m * 1000) / 1000;
+  if (type === 'shield') {
+    const guard = tier >= 6 ? 3 : 2;
+    return [{ guard, stun: r(0.02) }, { guard, damage: r(0.015) }, { guard, stun: r(0.01), rate: r(0.01) }][variant];
+  }
+  const base = armorStats(type === 'boots' ? 'light' : 'robe', tier, variant);
+  return Object.fromEntries(Object.entries(base).map(([k, v]) => [k, Math.round(v! * MIRROR_SHARE * 1000) / 1000]));
 }
 
 /**
@@ -2412,7 +2451,7 @@ export const DEFAULT_SLOTS: SlotDef[] = [
 ];
 
 /** What a piece of gear can modify. Values are per gear level. */
-export type GearStat = 'damage' | 'rate' | 'range' | 'crit' | 'stun' | 'guard' | 'gold' | 'drops' | 'radius' | 'pierce' | 'cooldown' | 'critDamage' | 'duration' | 'statusChance';
+export type GearStat = 'damage' | 'rate' | 'range' | 'crit' | 'stun' | 'guard' | 'gold' | 'drops' | 'radius' | 'pierce' | 'cooldown' | 'critDamage' | 'duration' | 'statusChance' | 'bowDamage' | 'gunDamage' | 'meleeDamage' | 'magicDamage';
 
 export const GEAR_STATS: Record<GearStat, (v: number) => string> = {
   damage: (v) => `+${Math.round(v * 100)}% damage`,
@@ -2429,6 +2468,10 @@ export const GEAR_STATS: Record<GearStat, (v: number) => string> = {
   critDamage: (v) => `+${Math.round(v * 100)}% crit damage`,
   duration: (v) => `+${Math.round(v * 100)}% status duration`,
   statusChance: (v) => `+${Math.round(v * 100)}% status chance`,
+  bowDamage: (v) => `+${Math.round(v * 100)}% damage with bows`,
+  gunDamage: (v) => `+${Math.round(v * 100)}% damage with guns`,
+  meleeDamage: (v) => `+${Math.round(v * 100)}% damage with melee weapons`,
+  magicDamage: (v) => `+${Math.round(v * 100)}% damage with magic weapons`,
 };
 
 export type GearId =
@@ -2582,6 +2625,8 @@ export interface GearDef {
   ability?: string;
   /** Armor: which kind it is (sets its stat profile and penalty). */
   armorType?: ArmorType;
+  /** Accessories with a role: Shields, Boots, Hoods, Quivers, Ammo Pouches, Gauntlets, Talismans (ACC_TYPES). */
+  accType?: AccType;
   /** Rarer armor and accessories: a special effect (see GearEffect). */
   effect?: GearEffect;
   /** Extra damage against one archetype (+bonus at 1★, ×GEAR_STAR_POWER for stars), e.g. the Fang Talisman vs Beasts. */
@@ -3440,6 +3485,8 @@ const MAGIC_CLASSES: WeaponClass[] = ['wand', 'staff', 'focus', 'scepter', 'tome
 const CATALOG_ACC_STATS: Record<string, number> = {
   damage: 0.06, rate: 0.05, crit: 0.02, gold: 0.15, drops: 0.15, range: 12, radius: 0.08, stun: 0.04,
   cooldown: 0.015, critDamage: 0.06, duration: 0.06, statusChance: 0.01,
+  // One weapon group's damage: a quarter more than plain damage, since it only works with that group.
+  bowDamage: 0.075, gunDamage: 0.075, meleeDamage: 0.075, magicDamage: 0.075,
 };
 
 /** The element of each area's armor specials (Ember Mines on; earlier armor is below Very Rare and has none). */
@@ -3460,9 +3507,22 @@ function catalogArmorEffect(armor: ArmorType, rarity: Rarity, area: number): { e
       return { effect: { kind: 'evade', chance: Math.min(0.4, Math.round((0.05 * area - 0.2) * 100) / 100) } };
     case 'robe':
       return { effect: { kind: 'pulse', base, damageType, radius: 90 + 5 * (area - 6), cooldown: 5 } };
-    case 'shield':
-      return { effect: { kind: 'block', base, damageType, radius: 80 + 5 * (area - 6) } };
   }
+}
+
+/**
+ * Specials of the accessories that mirror armor: every pair of Boots has a chance to dodge (smaller than light
+ * armor's, but from the first area); from Very Rare up a Shield bursts out when it blocks and a Hood pulses
+ * (at half a robe's damage, a little slower).
+ */
+function mirrorEffect(acc: MirrorAcc, rarity: Rarity, area: number): { effect?: GearEffect } {
+  if (acc === 'boots') return { effect: { kind: 'evade', chance: Math.min(0.2, Math.round((0.02 + 0.012 * area) * 100) / 100) } };
+  if (RARITY_ORDER.indexOf(rarity) < RARITY_ORDER.indexOf('veryRare')) return {};
+  const base = TIER_HIT[Math.min(TIER_HIT.length, area) - 1];
+  const damageType = AREA_ELEMENT[area - 1];
+  return acc === 'shield'
+    ? { effect: { kind: 'block', base, damageType, radius: 80 + 5 * (area - 6) } }
+    : { effect: { kind: 'pulse', base: Math.round(base * 0.5), damageType, radius: 80 + 5 * (area - 6), cooldown: 6 } };
 }
 
 /** A catalog accessory's ability; damaging ones hit for their area's base damage (TIER_HIT), like armor specials. */
@@ -3490,11 +3550,13 @@ function catalogGear(spec: CatalogSpec): GearDef {
   const rarity = spec.top ? AREA_TOP_RARITY[areaIdx] : AREA_RARITY[areaIdx];
   const common = { id: spec.id as GearId, name: spec.name, icon: spec.icon, rarity, recipe };
   if (spec.type === 'armor') return { ...common, kind: 'armor', armorType: spec.armor, stats: armorStats(spec.armor, tier), ...catalogArmorEffect(spec.armor, rarity, areaIdx + 1) };
+  if (spec.type === 'accessory' && spec.acc && (spec.acc === 'shield' || spec.acc === 'boots' || spec.acc === 'hood'))
+    return { ...common, kind: 'accessory', accType: spec.acc, stats: mirrorStats(spec.acc, tier), ...mirrorEffect(spec.acc, rarity, areaIdx + 1) };
   if (spec.type === 'accessory') {
     const m = 1 + 0.3 * (tier - 3);
     const stats: Partial<Record<GearStat, number>> = {};
     for (const st of spec.stats) stats[st] = st === 'range' ? Math.round(CATALOG_ACC_STATS[st] * m) : Math.round(CATALOG_ACC_STATS[st] * m * 1000) / 1000;
-    return { ...common, kind: 'accessory', stats, ...(spec.bane ? { bane: { archetype: spec.bane, bonus: Math.round(0.06 * m * 1000) / 1000 } } : {}), ...catalogAccEffect(spec.effect, areaIdx + 1) };
+    return { ...common, kind: 'accessory', ...(spec.acc ? { accType: spec.acc } : {}), stats, ...(spec.bane ? { bane: { archetype: spec.bane, bonus: Math.round(0.06 * m * 1000) / 1000 } } : {}), ...catalogAccEffect(spec.effect, areaIdx + 1) };
   }
   const cls = spec.cls as WeaponClass;
   // Elemental weapons inflict their effect more often in later areas; among Physical weapons only blades bleed.
@@ -3531,7 +3593,7 @@ export const GEAR: GearDef[] = [
   { id: 'natureBow', name: 'Nature Bow', icon: '🏹', kind: 'weapon', rarity: 'uncommon', weaponClass: 'shortbow', damageType: 'physical', stats: {}, recipe: { bearClaw: 4, twig: 10, scrap: 5 } },
   { id: 'slimeVial', name: 'Slime Vial', icon: '🧪', kind: 'accessory', rarity: 'uncommon', stats: {}, bane: { archetype: 'slime', bonus: 0.1 }, findDrop: { archetype: 'slime', material: 'royalSlime', chance: 0.01, stars: 5 }, recipe: { goo: 15, royalSlime: 2, vampEssence: 3 } },
   { id: 'forestCrossbow', name: 'Crossbow', icon: '🎯', kind: 'weapon', rarity: 'uncommon', weaponClass: 'crossbow', damageType: 'physical', stats: {}, recipe: { royalSlime: 2, twig: 12 } },
-  { id: 'forestShield', name: 'Shield', icon: '🛡️', kind: 'armor', armorType: 'shield', rarity: 'uncommon', stats: armorStats('shield', gearTier({ recipe: { royalSlime: 2, scrap: 10 } } as GearDef)), recipe: { royalSlime: 2, scrap: 10 } },
+  { id: 'forestShield', name: 'Shield', icon: '🛡️', kind: 'accessory', accType: 'shield', rarity: 'uncommon', stats: mirrorStats('shield', gearTier({ recipe: { royalSlime: 2, scrap: 10 } } as GearDef)), recipe: { royalSlime: 2, scrap: 10 } },
   { id: 'royalGlaive', name: 'Royal Glaive', icon: '🪓', kind: 'melee', rarity: 'uncommon', weaponClass: 'glaive', damageType: 'physical', stats: {}, recipe: { scrap: 10, royalSlime: 2, beastBone: 6 } },
   { id: 'leatherArmor', name: 'Leather Armor', icon: '🦺', kind: 'armor', armorType: 'light', rarity: 'uncommon', stats: armorStats('light', gearTier({ recipe: { pelt: 12, royalSlime: 2 } } as GearDef)), recipe: { pelt: 12, royalSlime: 2 } },
   { id: 'plateArmor', name: 'Plate Armor', icon: '🪖', kind: 'armor', armorType: 'heavy', rarity: 'uncommon', stats: armorStats('heavy', gearTier({ recipe: { scrap: 12, royalSlime: 2 } } as GearDef)), recipe: { scrap: 12, royalSlime: 2 } },
@@ -3596,22 +3658,22 @@ export const GEAR: GearDef[] = [
   { id: 'starScepter', name: 'Star Scepter', icon: '🌟', kind: 'magic', rarity: 'artifact', weaponClass: 'scepter', tier: 11, damageType: 'radiant', proc: 0.25, stats: {}, recipe: { stardust: 10, meteor: 4 } },
   // Armor: Light, Heavy, Robes and Shields; stats from their kind and tier (armorStats), specials from Very Rare up
   { id: 'silkTunic', name: 'Ivy Mantle', icon: '👚', kind: 'armor', armorType: 'light', rarity: 'uncommon', tier: 2, stats: armorStats('light', 2), recipe: { dust: 8, spore: 5, thorn: 4 } },
-  { id: 'buckler', name: 'Wooden Buckler', icon: '🛡️', kind: 'armor', armorType: 'shield', rarity: 'uncommon', tier: 2, stats: armorStats('shield', 2), recipe: { sap: 6, enchantedBone: 6 } },
+  { id: 'buckler', name: 'Wooden Buckler', icon: '🛡️', kind: 'accessory', accType: 'shield', rarity: 'uncommon', tier: 2, stats: mirrorStats('shield', 2), recipe: { sap: 6, enchantedBone: 6 } },
   { id: 'cultistRobe', name: 'Cultist Robe', icon: '🥻', kind: 'armor', armorType: 'robe', rarity: 'uncommon', tier: 3, stats: armorStats('robe', 3), recipe: { robePiece: 10, sacredText: 5 } },
   { id: 'bonePlate', name: 'Bone Plate', icon: '🦴', kind: 'armor', armorType: 'heavy', rarity: 'uncommon', tier: 3, stats: armorStats('heavy', 3), recipe: { bone: 10, flesh: 6 } },
-  { id: 'boneShield', name: 'Bone Shield', icon: '🛡️', kind: 'armor', armorType: 'shield', rarity: 'uncommon', tier: 3, stats: armorStats('shield', 3), recipe: { bone: 8, wing: 6 } },
+  { id: 'boneShield', name: 'Bone Shield', icon: '🛡️', kind: 'accessory', accType: 'shield', rarity: 'uncommon', tier: 3, stats: mirrorStats('shield', 3), recipe: { bone: 8, wing: 6 } },
   { id: 'wrapRobe', name: 'Mummy-Wrap Robe', icon: '🧻', kind: 'armor', armorType: 'robe', rarity: 'rare', tier: 4, stats: armorStats('robe', 4), recipe: { wrap: 10, grave: 5 } },
   { id: 'hauntedPlate', name: 'Haunted Plate', icon: '🛡️', kind: 'armor', armorType: 'heavy', rarity: 'rare', tier: 4, stats: armorStats('heavy', 4), recipe: { enchantedScrap: 10, wrap: 5 } },
   { id: 'gloomLeathers', name: 'Gloom Leathers', icon: '🥋', kind: 'armor', armorType: 'light', rarity: 'rare', tier: 5, stats: armorStats('light', 5), recipe: { gloom: 10, umbralSlime: 5 } },
   { id: 'chitinCarapace', name: 'Chitin Carapace', icon: '🪲', kind: 'armor', armorType: 'heavy', rarity: 'veryRare', tier: 6, stats: armorStats('heavy', 6), recipe: { chitin: 10, magma: 5 }, effect: { kind: 'thorns', base: 45, damageType: 'physical' } },
   { id: 'emberRobe', name: 'Ember Robe', icon: '🔥', kind: 'armor', armorType: 'robe', rarity: 'veryRare', tier: 6, stats: armorStats('robe', 6), recipe: { demonWing: 10, ember: 5 }, effect: { kind: 'pulse', base: 45, damageType: 'fire', radius: 90, cooldown: 5 } },
-  { id: 'drakeShield', name: 'Drake Shield', icon: '🐉', kind: 'armor', armorType: 'shield', rarity: 'veryRare', tier: 7, stats: armorStats('shield', 7), recipe: { scale: 10, ore: 6 }, effect: { kind: 'block', base: 72, damageType: 'fire', radius: 80 } },
+  { id: 'drakeShield', name: 'Drake Shield', icon: '🐉', kind: 'accessory', accType: 'shield', rarity: 'veryRare', tier: 7, stats: mirrorStats('shield', 7), recipe: { scale: 10, ore: 6 }, effect: { kind: 'block', base: 72, damageType: 'fire', radius: 80 } },
   { id: 'frostMail', name: 'Frost Mail', icon: '🧥', kind: 'armor', armorType: 'heavy', rarity: 'legendary', tier: 8, stats: armorStats('heavy', 8), recipe: { fur: 10, frost: 6 }, effect: { kind: 'block', base: 110, damageType: 'frost', radius: 90 } },
   { id: 'griffinHide', name: 'Griffin Hide', icon: '🪶', kind: 'armor', armorType: 'light', rarity: 'exotic', tier: 9, stats: armorStats('light', 9), recipe: { plume: 10, skystone: 5 }, effect: { kind: 'evade', chance: 0.25 } },
   { id: 'stormplate', name: 'Stormplate', icon: '⚡', kind: 'armor', armorType: 'heavy', rarity: 'relic', tier: 10, stats: armorStats('heavy', 10), recipe: { thunder: 10, feather: 6 }, effect: { kind: 'block', base: 230, damageType: 'lightning', radius: 100 } },
   { id: 'cloudRobe', name: 'Cloudsilk Robe', icon: '☁️', kind: 'armor', armorType: 'robe', rarity: 'relic', tier: 10, stats: armorStats('robe', 10), recipe: { feather: 10, thunder: 5 }, effect: { kind: 'pulse', base: 230, damageType: 'lightning', radius: 110, cooldown: 5 } },
   { id: 'starweave', name: 'Starweave Jerkin', icon: '✨', kind: 'armor', armorType: 'light', rarity: 'artifact', tier: 11, stats: armorStats('light', 11), recipe: { stardust: 10, meteor: 5 }, effect: { kind: 'evade', chance: 0.35 } },
-  { id: 'starAegis', name: 'Star Aegis', icon: '🌟', kind: 'armor', armorType: 'shield', rarity: 'artifact', tier: 11, stats: armorStats('shield', 11), recipe: { meteor: 10, stardust: 6 }, effect: { kind: 'block', base: 320, damageType: 'radiant', radius: 110 } },
+  { id: 'starAegis', name: 'Star Aegis', icon: '🌟', kind: 'accessory', accType: 'shield', rarity: 'artifact', tier: 11, stats: mirrorStats('shield', 11), recipe: { meteor: 10, stardust: 6 }, effect: { kind: 'block', base: 320, damageType: 'radiant', radius: 110 } },
   { id: 'voidPlate', name: 'Void Plate', icon: '🌀', kind: 'armor', armorType: 'heavy', rarity: 'exalted', tier: 12, stats: armorStats('heavy', 12), recipe: { void: 10, shade: 6 }, effect: { kind: 'thorns', base: 440, damageType: 'void' } },
   { id: 'soulRobe', name: 'Soul Vestments', icon: '👻', kind: 'armor', armorType: 'robe', rarity: 'exalted', tier: 12, stats: armorStats('robe', 12), recipe: { soul: 10, shade: 5 }, effect: { kind: 'pulse', base: 440, damageType: 'void', radius: 120, cooldown: 5 } },
   // Accessories
@@ -3654,6 +3716,14 @@ export function weaponArchetype(def: GearDef): WeaponArchetype | undefined {
       g.archetype = i as 0 | 1 | 2;
       count[i]++;
       prev = i;
+    }
+  }
+  for (const type of ['shield', 'boots', 'hood'] as MirrorAcc[]) {
+    let n = 0;
+    for (const g of byTier(GEAR.filter((d) => d.accType === type))) {
+      const v = n++ % 3;
+      const tier = [gearTier(g), Math.round(gearTier(g))].find((t) => JSON.stringify(g.stats) === JSON.stringify(mirrorStats(type, t)));
+      if (v && tier !== undefined) g.stats = mirrorStats(type, tier, v as 1 | 2);
     }
   }
   for (const type of Object.keys(ARMOR_TYPES) as ArmorType[]) {

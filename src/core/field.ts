@@ -73,6 +73,7 @@ const PUDDLE_TICK = 0.5;
 const POTION_WORD: Record<GearStat, string> = {
   damage: 'MIGHT!', rate: 'HASTE!', range: 'FARSIGHT!', crit: 'KEEN!', stun: 'STEADY!', guard: 'SHIELDED!', gold: 'GREED!', drops: 'FORTUNE!', radius: 'SURGE!', pierce: 'PIERCE!',
   cooldown: 'QUICKEN!', critDamage: 'FURY!', duration: 'LINGER!', statusChance: 'AFFLICT!',
+  bowDamage: 'TRUE AIM!', gunDamage: 'HOT SHOT!', meleeDamage: 'BRAWN!', magicDamage: 'ARCANA!',
 };
 /** Splitting Slime: each half's share of the slain slime's health and size. */
 const SPLIT_HP = 0.5;
@@ -1061,9 +1062,9 @@ export class Field {
     return [{ who: this.lead, x: 0, y: 0, state: this }, ...this.helpers.map((h) => ({ who: h.id as Shooter, x: h.x, y: h.y, state: h }))];
   }
 
-  /** Whether a Hunter is wearing a shield (armor). */
+  /** Whether a Hunter is wearing a shield (an accessory). */
   private hasShield(who: Shooter): boolean {
-    return this.game.equipped(who).some((it) => !!it && gearDef(it.base).armorType === 'shield');
+    return this.game.equipped(who).some((it) => !!it && gearDef(it.base).accType === 'shield');
   }
 
   /**

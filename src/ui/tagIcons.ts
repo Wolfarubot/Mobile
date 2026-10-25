@@ -39,7 +39,18 @@ export const ARCHETYPE_TAG_ICONS: Record<Archetype, string> = {
   construct: 'ab-engineer-psionic/064',
 };
 
-export const ARMOR_TAG_ICONS = { light: 'ab-cavalier-monk/059', heavy: 'ab-paladin-dk/011', robe: 'ab-rogue-warlock/076', shield: 'ab-paladin-dk/020' } as const;
+export const ARMOR_TAG_ICONS = { light: 'ab-cavalier-monk/059', heavy: 'ab-paladin-dk/011', robe: 'ab-rogue-warlock/076' } as const;
+
+/** Tag icons for accessories with a role (ACC_TYPES). */
+export const ACC_TAG_ICONS = {
+  shield: 'ab-paladin-dk/020',
+  boots: 'ab-cavalier-monk/008',
+  hood: 'ab-cavalier-monk/074',
+  quiver: 'ab-hunter-warrior/033',
+  ammo: 'ab-hunter-warrior/057',
+  gauntlet: 'ab-cavalier-monk/063',
+  talisman: 'ab-cavalier-monk/097',
+} as const;
 
 export const EFFECT_TAG_ICONS = {
   thorns: 'ab-gunslinger-druid/062',

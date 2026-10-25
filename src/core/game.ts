@@ -90,6 +90,8 @@ import {
   gearTier,
   GEAR,
   WEAPON_KINDS,
+  GROUP_DAMAGE,
+  weaponGroup,
   areaDef,
   areaEnemies,
   AREAS,
@@ -309,6 +311,18 @@ export class Game {
         if (!n) delete b.evo[node];
         else if (rank > n.maxRank) b.evo[node] = n.maxRank;
       }
+    }
+    // Gear that no longer fits its slot (shields became accessories): moved to the wearer's free accessory slot,
+    // or taken off.
+    for (const [who, uids] of Object.entries(state.equipment) as [Wearer, Array<number | null>][]) {
+      const slots = this.slotsOf(who);
+      uids.forEach((uid, i) => {
+        const item = uid != null ? state.inventory.find((it) => it.uid === uid) : undefined;
+        if (!item || !slots[i] || slotAccepts(slots[i], gearDef(item.base))) return;
+        uids[i] = null;
+        const free = slots.findIndex((sl, j) => uids[j] == null && slotAccepts(sl, gearDef(item.base)));
+        if (free >= 0) uids[free] = uid;
+      });
     }
   }
 
@@ -911,7 +925,7 @@ export class Game {
    * their mode; with no mode given, the 'long' (default) weapon counts.
    */
   gear(who: Shooter, mode: GearMode = 'long'): Record<GearStat, number> {
-    const total: Record<GearStat, number> = { damage: 0, rate: 0, range: 0, crit: 0, stun: 0, guard: 0, gold: 0, drops: 0, radius: 0, pierce: 0, cooldown: 0, critDamage: 0, duration: 0, statusChance: 0 };
+    const total: Record<GearStat, number> = { damage: 0, rate: 0, range: 0, crit: 0, stun: 0, guard: 0, gold: 0, drops: 0, radius: 0, pierce: 0, cooldown: 0, critDamage: 0, duration: 0, statusChance: 0, bowDamage: 0, gunDamage: 0, meleeDamage: 0, magicDamage: 0 };
     const slots = this.slotsOf(who);
     this.equipped(who).forEach((item, i) => {
       if (!item || (slots[i].role && slots[i].role !== mode)) return;
@@ -921,6 +935,10 @@ export class Game {
     });
     // Potions being felt right now.
     for (const p of this.potions.get(who) ?? []) total[p.stat] += p.value;
+    // Quivers, Ammo Pouches, Gauntlets and Talismans: their group's damage counts only with a weapon of that group.
+    const weapon = this.weaponItem(who, mode);
+    const cls = weapon && gearDef(weapon.base).weaponClass;
+    if (cls) total.damage += total[GROUP_DAMAGE[weaponGroup(cls)]];
     return total;
   }
 

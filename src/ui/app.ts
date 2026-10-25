@@ -37,6 +37,7 @@ import {
   describeEffect,
   effectBase,
   ARMOR_TYPES,
+  ACC_TYPES,
   GEAR_STAR_POWER,
   enemyDrops,
   enemyExtraDrops,
@@ -139,7 +140,7 @@ import { applyAreaTheme, applyUiStyle } from './theme';
 import { playCutscene, TIME_EATER_CUTSCENE } from './cutscene';
 import { applyFont, fontDef, FONTS } from './fonts';
 import { GainPops } from './gainPops';
-import { ARCHETYPE_TAG_ICONS, ARMOR_TAG_ICONS, DAMAGE_TAG_ICONS, EFFECT_TAG_ICONS, FEATURE_TAG_ICONS, SPECIAL_TAG_ICON, SUMMON_TAG_ICONS, tagIconHtml } from './tagIcons';
+import { ACC_TAG_ICONS, ARCHETYPE_TAG_ICONS, ARMOR_TAG_ICONS, DAMAGE_TAG_ICONS, EFFECT_TAG_ICONS, FEATURE_TAG_ICONS, SPECIAL_TAG_ICON, SUMMON_TAG_ICONS, tagIconHtml } from './tagIcons';
 
 type Tab = TabId;
 /** What treeView needs to draw and drive a skill or evolution tree. */
@@ -4875,6 +4876,10 @@ const STAT_LABELS: Record<GearStat, string> = {
   critDamage: 'crit damage',
   duration: 'status duration',
   statusChance: 'status chance',
+  bowDamage: 'damage with bows',
+  gunDamage: 'damage with guns',
+  meleeDamage: 'damage with melee weapons',
+  magicDamage: 'damage with magic weapons',
 };
 
 /** A difference in one stat, e.g. "+20% damage" or "−3 range". */
@@ -5028,7 +5033,8 @@ function esc(text: string): string {
 
 
 /** A piece's kind for display: its weapon class ("Longbow") or its gear kind ("Armor"). */
-const gearKindName = (gd: GearDef): string => (gd.weaponClass ? weaponArchetype(gd)!.name : gd.armorType ? `${ARMOR_TYPES[gd.armorType].icon} ${ARMOR_TYPES[gd.armorType].name}` : GEAR_KINDS[gd.kind].name);
+const gearKindName = (gd: GearDef): string =>
+  gd.weaponClass ? weaponArchetype(gd)!.name : gd.armorType ? `${ARMOR_TYPES[gd.armorType].icon} ${ARMOR_TYPES[gd.armorType].name}` : gd.accType ? `${ACC_TYPES[gd.accType].icon} ${ACC_TYPES[gd.accType].name}` : GEAR_KINDS[gd.kind].name;
 
 /** How a weapon attacks (for your Hunter), what an armor kind is good at, and any special effect (at `stars`). */
 /** How a weapon differs from the rest of its class (its stabs, a staff's bolts, a focus's wave). */
@@ -5123,6 +5129,7 @@ function featureTags(gd: GearDef, stars = 1): string {
     tags.push(featTag(SUMMON_TAG_ICONS[tomeSummonType(gd)], st.name, `Summon type: <b>${st.name}</b>. Bonuses to ${st.name} summons make its creatures hit harder.`));
   }
   if (gd.armorType) tags.push(featTag(ARMOR_TAG_ICONS[gd.armorType], ARMOR_TYPES[gd.armorType].name, ARMOR_TYPES[gd.armorType].desc));
+  if (gd.accType) tags.push(featTag(ACC_TAG_ICONS[gd.accType], ACC_TYPES[gd.accType].name, ACC_TYPES[gd.accType].desc));
   if (gd.ability) tags.push(featTag(FEATURE_TAG_ICONS.ability, 'Ability', gd.ability));
   if (gd.effect)
     tags.push(featTag(gd.effect.kind === 'summon' ? SUMMON_TAG_ICONS[gd.effect.type] : EFFECT_TAG_ICONS[gd.effect.kind], gd.effect.kind === 'summon' ? `${gd.effect.name}s` : EFFECT_TAG[gd.effect.kind], `${describeEffect(gd.effect, stars)}${'base' in gd.effect ? '<br><small>Own damage, raised by your bonuses, not your weapon.</small>' : ''}`));
