@@ -20,6 +20,8 @@ export const EMOJI_ICONS: Record<string, string> = {
   "⚙️": 'custom/002',
   "⚜️": 'ab-paladin-dk/041',
   "⚡": 'status5/091',
+  // Energy (the Events tab): its bolt alone, in the energy bar's gold, with a black edge and a gold glow.
+  "🗲": 'custom/012',
   "⚰️": 'ab-paladin-dk/083',
   "⚱️": 'things/057',
   "⛏️": 'resources3/005',

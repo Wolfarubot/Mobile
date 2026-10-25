@@ -3238,7 +3238,7 @@ export class AppUI {
   private energyBar(): HTMLElement {
     const g = this.game;
     const bar = el('div', 'energy-bar');
-    bar.innerHTML = `<div class="en-head"><b>⚡ Energy</b><span class="en-text"></span></div><div class="en-frame"><canvas></canvas></div>`;
+    bar.innerHTML = `<div class="en-head"><b>🗲 Energy</b><span class="en-text"></span></div><div class="en-frame"><canvas></canvas></div>`;
     const cv = $<HTMLCanvasElement>('canvas', bar);
     const text = $('.en-text', bar);
     let drawn = '';
@@ -3346,18 +3346,18 @@ export class AppUI {
     const need = `<p><b>${ev.name}</b> needs <b>${g.energyCost(ev.id)}</b> energy, and you have <b>${have}</b>.</p>`;
     const wait = `<p>Energy comes back 1 every ${fmtTime(g.energyRegen)}: enough for this in <b>${fmtTime(g.energyWait(ev.id))}</b>.</p>`;
     if (g.adsLeft <= 0) {
-      this.showModal(`<h2>⚡ Not enough energy</h2>${need}${wait}${g.state.noAds ? '' : `<p>You've watched today's ${ENERGY_ADS_PER_DAY} energy ads.</p>`}`, [{ label: 'OK' }]);
+      this.showModal(`<h2>🗲 Not enough energy</h2>${need}${wait}${g.state.noAds ? '' : `<p>You've watched today's ${ENERGY_ADS_PER_DAY} energy ads.</p>`}`, [{ label: 'OK' }]);
       return;
     }
     this.showModal(
-      `<h2>⚡ Not enough energy</h2>${need}<p>Watch an ad to restore <b>${ENERGY_AD} energy</b> (${g.adsLeft} of ${ENERGY_ADS_PER_DAY} left today). Energy past ${g.energyMax} overcharges your bar.</p>`,
+      `<h2>🗲 Not enough energy</h2>${need}<p>Watch an ad to restore <b>${ENERGY_AD} energy</b> (${g.adsLeft} of ${ENERGY_ADS_PER_DAY} left today). Energy past ${g.energyMax} overcharges your bar.</p>`,
       [
         {
           label: '📺 Watch ad',
           action: () => {
             void showRewardedAd().then((ok) => {
               if (!ok || !g.adEnergy()) return;
-              this.toast(`⚡ +${ENERGY_AD} energy`);
+              this.toast(`🗲 +${ENERGY_AD} energy`);
               this.hooks.save();
               this.refresh();
             });
@@ -3463,7 +3463,7 @@ export class AppUI {
       } else if (wait > 0 && (ev.kind === 'minigame' || !g.eventRunning)) {
         // Tapping it offers an ad for more energy.
         status.innerHTML = extra;
-        btn.innerHTML = `${ev.kind === 'minigame' ? 'Play' : 'Start'}<small>need ${cost} ⚡</small>`;
+        btn.innerHTML = `${ev.kind === 'minigame' ? 'Play' : 'Start'}<small>need ${cost} 🗲</small>`;
         btn.disabled = false;
       } else {
         status.innerHTML = extra;
@@ -3639,7 +3639,7 @@ export class AppUI {
     this.showModal(
       `<h2>🎉 Events unlocked!</h2>
        <p>${this.game.eventUnlocked('guardian-forest') ? '<b>Guardian Challenge</b>' : `<b>${eventDef('slimeSwarm').name}</b>`} is ready in the ${areaDef('forest').name}.</p>
-       <p>The Events tab shows the events of every area you've opened. Slay monsters in an area to unlock its events. Each event costs ⚡ <b>energy</b> to start: a swarm 1, a Guardian 1 to 3 (more in later areas), a minigame 3. You hold up to 5 (20 with ads removed), and one comes back every 20 minutes, even while you're away. Out of energy, you can watch an ad for 5 more, 3 times a day.</p>`,
+       <p>The Events tab shows the events of every area you've opened. Slay monsters in an area to unlock its events. Each event costs 🗲 <b>energy</b> to start: a swarm 1, a Guardian 1 to 3 (more in later areas), a minigame 3. You hold up to 5 (20 with ads removed), and one comes back every 20 minutes, even while you're away. Out of energy, you can watch an ad for 5 more, 3 times a day.</p>`,
       [
         { label: 'Later', secondary: true },
         { label: 'Go to Events', action: () => (this.game.eventsOpen ? this.goTo('events') : this.showEventsLocked()) },
