@@ -8,3 +8,7 @@ Magic effect sheets from CraftPix.net packs (license: https://craftpix.net/file-
   Magic Effects Pixel Art Asset Pack 4: smash (Magic/10), fist (Magic/2, tinted gold at runtime)
   (Sword and glaive swings are cut from the black hole's swirling rim at runtime: src/render/battle.ts.)
   32x32 Pixel Dice (provided with the game's assets): dice (a 4x6 sheet of 32x32 frames; each row is one top face, 1 to 6, in four turns)
+  10 Magic Sprite Sheet Effects: arc (1 Lightning, faded out toward its far end so a stretched arc has no hard edge)
+  Magic Spells Pixel Art Sprite Pack: arrows (Magic/3), orb (Magic/8, tinted per element at runtime), frost (Magic/10)
+  Magic Effects Pixel Art Asset Pack 4: acid (Magic/3 Cycle)
+  Free Pixel Magic Sprite Effects: shards (Magic/4_2)

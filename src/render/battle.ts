@@ -610,25 +610,52 @@ export class BattleView {
     }
 
     for (const b of this.beams) {
-      g.strokeStyle = b.color;
-      g.globalAlpha = 1 - b.t / 0.25;
-      g.lineWidth = b.width;
-      g.lineCap = 'round';
-      g.beginPath();
-      g.moveTo(b.x1, b.y1);
+      const fade = 1 - b.t / 0.25;
+      const dx = b.x2 - b.x1;
+      const dy = b.y2 - b.y1;
+      const len = Math.hypot(dx, dy) || 1;
+      // Lightning arcs (Fancy): the pack's arc, stretched from end to end in its element's colour, fading out at
+      // the far end (baked into the sheet).
+      const arc = b.kinks && this.fancy ? effectImage('arc') : null;
+      if (arc) {
+        const sh = EFFECTS.arc;
+        const [bx, by, bw, bh] = sh.box;
+        const frame = ARC_FIRST + Math.min(sh.frames - 1 - ARC_FIRST, Math.floor((b.t / 0.25) * (sh.frames - ARC_FIRST)));
+        const thick = Math.max(16, b.width * 7);
+        g.save();
+        g.globalAlpha = Math.min(1, fade * 1.6);
+        g.translate(b.x1, b.y1);
+        g.rotate(Math.atan2(dy, dx));
+        g.imageSmoothingEnabled = false;
+        g.drawImage(tinted(arc, b.color), frame * sh.frame + bx, by, bw, bh, 0, -thick / 2, len, thick);
+        g.restore();
+        continue;
+      }
+      // Otherwise a line that thins and fades toward its far end, so it never stops on a hard edge.
+      const pts: Array<[number, number]> = [[b.x1, b.y1]];
       if (b.kinks) {
         // A jagged bolt: points along the line, each pushed sideways by its kink.
-        const dx = b.x2 - b.x1;
-        const dy = b.y2 - b.y1;
-        const len = Math.hypot(dx, dy) || 1;
         const n = b.kinks.length;
         for (let i = 0; i < n; i++) {
           const k = (i + 1) / (n + 1);
-          g.lineTo(b.x1 + dx * k - (dy / len) * b.kinks[i], b.y1 + dy * k + (dx / len) * b.kinks[i]);
+          pts.push([b.x1 + dx * k - (dy / len) * b.kinks[i], b.y1 + dy * k + (dx / len) * b.kinks[i]]);
         }
       }
-      g.lineTo(b.x2, b.y2);
-      g.stroke();
+      if (!b.kinks) for (let i = 1; i < 6; i++) pts.push([b.x1 + (dx * i) / 6, b.y1 + (dy * i) / 6]);
+      pts.push([b.x2, b.y2]);
+      g.strokeStyle = b.color;
+      g.lineCap = 'round';
+      const segs = pts.length - 1;
+      for (let i = 0; i < segs; i++) {
+        const t = (i + 0.5) / segs;
+        const taper = t < 0.5 ? 1 : 1 - (t - 0.5) / 0.5;
+        g.globalAlpha = fade * Math.max(0.05, taper);
+        g.lineWidth = Math.max(0.5, b.width * (0.35 + 0.65 * taper));
+        g.beginPath();
+        g.moveTo(pts[i][0], pts[i][1]);
+        g.lineTo(pts[i + 1][0], pts[i + 1][1]);
+        g.stroke();
+      }
       g.globalAlpha = 1;
     }
 
@@ -978,8 +1005,14 @@ export class BattleView {
         this.fx.burst(e.x, e.y, '#e8f8ff', 4, 90, 2.5, 0, true);
         break;
       case 'cone':
-        // A fan of frost: a pale sweep across the cone and shards flying out along it.
-        this.sweeps.push({ x: e.x, y: e.y, a: e.a!, arc: e.arc!, r: e.r, color: e.color, t: 0 });
+        // A fan of frost: frost sprays bursting across the cone (Fancy) or a pale sweep, and shards flying out.
+        if (this.fancy)
+          for (let i = 0; i < 5; i++) {
+            const a = e.a! + ((i - 2) / 4) * e.arc!;
+            const d = e.r * (0.45 + 0.4 * (i % 2));
+            this.playEffect('frost', e.x + Math.cos(a) * d, e.y + Math.sin(a) * d, e.r * 0.55, 'bottom', 20, 0, 1, e.color);
+          }
+        else this.sweeps.push({ x: e.x, y: e.y, a: e.a!, arc: e.arc!, r: e.r, color: e.color, t: 0 });
         for (let i = 0; i < 14; i++) {
           const a = e.a! + (Math.random() - 0.5) * e.arc!;
           const d = e.r * (0.3 + Math.random() * 0.7);
@@ -991,25 +1024,35 @@ export class BattleView {
         this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: rgb, max: 0.8, fill: true });
         break;
       case 'drop':
-        // An acid drop splashing down.
-        this.beams.push({ x1: e.x + 6, y1: e.y - 70, x2: e.x, y2: e.y, color: e.color, width: 2, t: 0 });
-        this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: rgb, max: 0.3 });
+        // An acid drop splashing down: the pack's bubbling splash (Fancy), or a streak and a ring.
+        if (this.fancy) this.playEffect('acid', e.x, e.y + e.r * 0.4, e.r * 2, 'bottom', 22, 2, 0.9, e.color);
+        else {
+          this.beams.push({ x1: e.x + 6, y1: e.y - 70, x2: e.x, y2: e.y, color: e.color, width: 2, t: 0 });
+          this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: rgb, max: 0.3 });
+        }
         this.fx.burst(e.x, e.y, e.color, 3, 70, 2, 0, true);
         break;
       case 'anchor':
-        this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: rgb, max: 0.4 });
+        if (this.fancy) this.playEffect('blackhole', e.x, e.y, e.r * 1.6, 'center', 16, 0, 0.85, e.color);
+        else this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: rgb, max: 0.4 });
         this.fx.burst(e.x, e.y, e.color, 10, 120, 3, 0, true);
         break;
       case 'rock':
-        // A rock crashing down out of the sky: a streak, then a puff of dust and chips.
-        this.beams.push({ x1: e.x + 14, y1: e.y - 110, x2: e.x, y2: e.y, color: '#8a8478', width: 6, t: 0 });
-        this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: '200,190,170', max: 0.3, fill: true });
+        // A rock crashing down out of the sky: an impact in stone (Fancy) or a streak and a ring, then dust and chips.
+        if (this.fancy) {
+          this.playEffect('smash', e.x, e.y, e.r * 2, 'center', 26, SMASH_START, 0.8, STONE_COLOR);
+          this.playEffect('shards', e.x, e.y, e.r * 1.2, 'center', 14, 0, 1, STONE_COLOR);
+        } else {
+          this.beams.push({ x1: e.x + 14, y1: e.y - 110, x2: e.x, y2: e.y, color: '#8a8478', width: 6, t: 0 });
+          this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: '200,190,170', max: 0.3, fill: true });
+        }
         this.fx.burst(e.x, e.y, '#9a9488', 6, 110, 3, 300, true);
         this.shake = Math.max(this.shake, 0.06);
         break;
       case 'arrows':
-        // Volley of Rain: an arrow dropping out of the sky.
-        this.beams.push({ x1: e.x - 8, y1: e.y - 120, x2: e.x, y2: e.y, color: '#e8d2a8', width: 2, t: 0 });
+        // Volley of Rain: arrows dropping out of the sky (the pack's volley in Fancy, a streak in Basic).
+        if (this.fancy) this.playEffect('arrows', e.x, e.y + 6, 46, 'bottom', 20);
+        else this.beams.push({ x1: e.x - 8, y1: e.y - 120, x2: e.x, y2: e.y, color: '#e8d2a8', width: 2, t: 0 });
         this.fx.burst(e.x, e.y, '#c8b48a', 3, 60, 2, 300, true);
         break;
       case 'shock':
@@ -1019,8 +1062,11 @@ export class BattleView {
         this.shake = Math.max(this.shake, 0.12);
         break;
       case 'break':
-        // The boulder breaks apart: chunks of rock flying everywhere.
-        this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: '200,190,170', max: 0.35 });
+        // The boulder breaks apart: shards and dust (Fancy) or a ring, and chunks of rock flying everywhere.
+        if (this.fancy) {
+          this.playEffect('shards', e.x, e.y, e.r * 1.6, 'center', 12, 0, 1, STONE_COLOR);
+          this.playEffect('puff', e.x, e.y, e.r * 2, 'center', 20, 0, 0.7, STONE_COLOR);
+        } else this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: '200,190,170', max: 0.35 });
         this.fx.burst(e.x, e.y, '#9a9488', 10, 160, 4, 300, true);
         this.fx.burst(e.x, e.y, '#6a6458', 8, 120, 3, 300, true);
         this.shake = Math.max(this.shake, 0.1);
@@ -1040,6 +1086,16 @@ export class BattleView {
     g.save();
     switch (z.kind) {
       case 'acidRain': {
+        // Fancy: the pack's acid bubbling up in splashes across the spot.
+        const acid = this.fancy ? effectImage('acid') : null;
+        if (acid) {
+          g.globalAlpha = 0.85 * fade;
+          for (let i = 0; i < 3; i++) {
+            const a = (i / 3) * Math.PI * 2 + 0.6;
+            drawEffectFrame(g, acid, 'acid', Math.floor(t * 14 + i * 3), z.x + Math.cos(a) * z.r * 0.45, z.y + Math.sin(a) * z.r * 0.3 + z.r * 0.3, z.r * 1.1, 'bottom', true);
+          }
+          break;
+        }
         // A dark cloud hanging over the spot, rain streaking down out of it.
         g.globalAlpha = 0.18 * fade;
         g.fillStyle = '#c6f03a';
@@ -1068,6 +1124,16 @@ export class BattleView {
         break;
       }
       case 'poisonMist': {
+        // Fancy: the pack's poison clouds rolling round the spot.
+        const mist = this.fancy ? effectImage('poison') : null;
+        if (mist) {
+          g.globalAlpha = 0.7 * fade;
+          for (let i = 0; i < 4; i++) {
+            const a = (i / 4) * Math.PI * 2 + t * 0.5;
+            drawEffectFrame(g, mist, 'poison', Math.floor(t * 10 + i * 2), z.x + Math.cos(a) * z.r * 0.4, z.y + Math.sin(a) * z.r * 0.3, z.r * 1.1, 'center', true);
+          }
+          break;
+        }
         // Rolling green fog: soft blobs drifting around its centre.
         for (let i = 0; i < 8; i++) {
           const a = (i / 8) * Math.PI * 2 + t * 0.7 + i;
@@ -1124,7 +1190,12 @@ export class BattleView {
         g.fill();
         g.translate(z.x, z.y);
         g.rotate(((z.max - z.life) * v) / z.r * (z.vx < 0 ? -1 : 1) * 0.6);
-        drawRock(g, z.r, '#8a8478');
+        // The pack's grey rock (shapes until it loads).
+        const rock = gearImage(ROCK_ICON);
+        if (rock) {
+          g.imageSmoothingEnabled = false;
+          g.drawImage(rock, -z.r * 1.15, -z.r * 1.15, z.r * 2.3, z.r * 2.3);
+        } else drawRock(g, z.r, '#8a8478');
         break;
       }
       case 'gravityAnchor': {
@@ -2428,12 +2499,22 @@ function drawBullet(g: CanvasRenderingContext2D, b: Bullet, t: number, basic = f
       g.fillStyle = 'rgba(160,150,130,0.35)';
       g.fillRect(-Math.cos(a) * 10 - 2, -Math.sin(a) * 10 - 2, 4, 4);
       g.rotate(t * 14);
-      drawRock(g, 5, '#9a9488');
+      // The pack's grey rock, tumbling (shapes in Basic, or until it loads).
+      const rock = basic ? null : gearImage(ROCK_ICON);
+      if (rock) {
+        g.imageSmoothingEnabled = false;
+        g.drawImage(rock, -7, -7, 14, 14);
+      } else drawRock(g, 5, '#9a9488');
       break;
     }
     case 'spell': {
-      // A spell's bolt: a glowing orb of its element with a short tail.
+      // A spell's bolt: the pack's crackling orb in its element's colour (Fancy), or a glowing orb with a tail.
       const c = b.dtype ? DAMAGE_TYPES[b.dtype].color : '#fff6c2';
+      const orb = !basic ? effectImage('orb') : null;
+      if (orb) {
+        drawEffectFrame(g, tinted(orb, c), 'orb', Math.floor(performance.now() / 70), 0, 0, 18, 'center', true);
+        break;
+      }
       g.rotate(a);
       g.fillStyle = c;
       g.globalAlpha = 0.3;
@@ -2804,6 +2885,15 @@ function drawSheetFrame(g: CanvasRenderingContext2D, img: CanvasImageSource, sh:
   }
   g.drawImage(img, col * F, row * F, F, F, -(bx + bw / 2) * k, -(by + bh / 2) * k, F * k, F * k);
 }
+
+/** The rolling boulder: a grey rock from the resources pack. */
+const ROCK_ICON = 'resources3/011';
+
+/** Rock and boulder spells tint the pack's effects to stone. */
+const STONE_COLOR = '#a89c86';
+
+/** The arc sheet's first frame with the bolt itself (before it, it charges up). */
+const ARC_FIRST = 4;
 
 /** The smash sheet's first frame of its outward burst (before it, sparks gather). */
 const SMASH_START = 4;

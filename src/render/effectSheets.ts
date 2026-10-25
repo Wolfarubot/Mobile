@@ -23,6 +23,14 @@ export const EFFECTS = {
   thrust: { frame: 72, frames: 8, box: [0, 22, 72, 28] },
   smash: { frame: 72, frames: 10, box: [0, 4, 72, 66] },
   fist: { frame: 72, frames: 10, box: [9, 1, 52, 71] },
+  // Spells: a lightning arc (drawn stretched between two points, fading out at its far end; frames 4-9 are the
+  // bolt), an arrow volley, an acid splash, an element orb (tinted), shards bursting apart and a frost spray.
+  arc: { frame: 72, frames: 10, box: [1, 28, 70, 31] },
+  arrows: { frame: 72, frames: 8, box: [4, 0, 57, 72] },
+  acid: { frame: 72, frames: 10, box: [0, 7, 72, 65] },
+  orb: { frame: 72, frames: 8, box: [20, 20, 31, 31] },
+  shards: { frame: 72, frames: 4, box: [26, 24, 20, 24] },
+  frost: { frame: 72, frames: 8, box: [17, 47, 36, 25] },
 } satisfies Record<string, EffectSheet>;
 
 export type EffectKey = keyof typeof EFFECTS;
