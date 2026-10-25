@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite --host",
     "build": "tsc --noEmit && vite build",
+    "build:release": "tsc --noEmit && vite build --mode release",
     "preview": "vite preview --host",
     "test": "vitest run",
     "presets": "PRESETS_OUT=public/dev-presets.json vitest run tests/progression.test.ts -t \"dev progress presets\"",

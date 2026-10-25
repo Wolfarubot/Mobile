@@ -238,6 +238,8 @@ export interface GameState {
     clarity: ClarityLevel;
     /** Vibration on button presses and battlefield taps (Medium by default). */
     haptics: HapticLevel;
+    /** Highest battlefield frame rate: 30 or 60 save battery; 'max' follows the screen (up to 120 on some phones). */
+    fps: FrameRate;
     /** Sound effects: off, or how loud (Medium by default). */
     /** Sound effects and music: switches and volumes. */
     audio: AudioSettings;
@@ -345,7 +347,7 @@ export function newGame(now = Date.now()): GameState {
     nextGearUid: 4,
     lastSeen: now,
     samples: {},
-    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', autoSalvage: [], fx: allFx(), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium', audio: defaultAudio() },
+    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', autoSalvage: [], fx: allFx(), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium', fps: '60', audio: defaultAudio() },
     flags: { eventsIntro: false, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false },
     blessings: { refine: 0, enchant: 0 },
     energy: ENERGY_MAX,
@@ -379,6 +381,8 @@ export type ClarityLevel = (typeof CLARITY_LEVELS)[number];
 /** Haptic feedback on presses and taps: off, or how strong. */
 export const HAPTIC_LEVELS = ['off', 'light', 'medium', 'strong'] as const;
 export type HapticLevel = (typeof HAPTIC_LEVELS)[number];
+export const FRAME_RATES = ['30', '60', 'max'] as const;
+export type FrameRate = (typeof FRAME_RATES)[number];
 /** Sound effect volume: off, or how loud. */
 /**
  * Audio: a switch for all of it, and under it one each for music and sound effects; a volume (0-100) for all of it,
@@ -644,6 +648,7 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
       uiStyle: pick(UI_STYLES, (data.settings as { uiStyle?: unknown } | undefined)?.uiStyle, 'parchment'),
       clarity: pick(CLARITY_LEVELS, (data.settings as { clarity?: unknown } | undefined)?.clarity, 'low'),
       haptics: pick(HAPTIC_LEVELS, (data.settings as { haptics?: unknown } | undefined)?.haptics, 'medium'),
+      fps: pick(FRAME_RATES, (data.settings as { fps?: unknown } | undefined)?.fps, '60'),
       audio: readAudio(data.settings as Record<string, unknown> | undefined),
     },
     flags: {

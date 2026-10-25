@@ -364,6 +364,17 @@ const at = (id: string, spec: NodeSpec): GridNode => ({ id, ...spec });
 
 export type TapAbilityId = 'flame' | 'thunder' | 'frost' | 'miasma';
 
+/** Lookup tables for the *Def(id) helpers (built on first use: called every frame, a list search added up). */
+const ID_MAPS = new WeakMap<readonly { id: string }[], Map<string, unknown>>();
+function byId<T extends { id: string }>(list: readonly T[], id: string): T {
+  let m = ID_MAPS.get(list) as Map<string, T> | undefined;
+  if (!m || m.size !== list.length) {
+    m = new Map(list.map((x) => [x.id, x]));
+    ID_MAPS.set(list, m);
+  }
+  return m.get(id)!;
+}
+
 /**
  * Elemental tap abilities: with one equipped, a tap blast deals its element's damage (instead of your weapon's)
  * and always sets off its effect on everything it hits.
@@ -383,7 +394,7 @@ export const TAP_ABILITIES: TapAbilityDef[] = [
   { id: 'frost', name: 'Frost Nova', icon: '❄️', damageType: 'frost', damage: 1, desc: 'Your taps freeze: everything hit is chilled (half speed) for 3s.' },
   { id: 'miasma', name: 'Melting Miasma', icon: '☠️', damageType: 'poison', damage: 1, desc: 'Your taps poison everything they hit, and every 4s a tap leaves a poison puddle that hurts monsters walking through it.' },
 ];
-export const tapAbilityDef = (id: TapAbilityId): TapAbilityDef => TAP_ABILITIES.find((a) => a.id === id)!;
+export const tapAbilityDef = (id: TapAbilityId): TapAbilityDef => byId(TAP_ABILITIES, id);
 /** How long Frost Nova chills. */
 export const FROST_TAP_CHILL = 3;
 /**
@@ -995,7 +1006,7 @@ export const MATERIALS: MaterialDef[] = [
   { id: 'soul', name: 'Soul Gem', color: '#6ff0e0', desc: 'A crystal holding a trapped soul. It whispers at night.' },
 ];
 
-export const materialDef = (id: MaterialId): MaterialDef => MATERIALS.find((m) => m.id === id)!;
+export const materialDef = (id: MaterialId): MaterialDef => byId(MATERIALS, id);
 
 // ---- Archetypes: enemy families that Hunters specialize against ----
 export type Archetype = 'slime' | 'beast' | 'undead' | 'demon' | 'elemental' | 'humanoid' | 'plant' | 'dragon' | 'construct';
@@ -1052,7 +1063,7 @@ export const AREAS: AreaDef[] = [
   { id: 'rift', name: 'Void Rift', icon: '♾️', hp: 300_000, gold: 2e22, speed: 56, mastery: 4_800_000, guardian: 54_000_000, palette: ['#1a0830', '#5a2098', '#b070e0', '#f2e4ff'], ground: ['#2a1440', '#3a1d58'], blurb: 'The end of the known world.' },
 ];
 
-export const areaDef = (id: AreaId): AreaDef => AREAS.find((a) => a.id === id)!;
+export const areaDef = (id: AreaId): AreaDef => byId(AREAS, id);
 export const areaIndex = (id: AreaId): number => AREAS.findIndex((a) => a.id === id);
 export const nextAreaOf = (id: AreaId): AreaDef | undefined => AREAS[areaIndex(id) + 1];
 
@@ -1331,7 +1342,7 @@ export const ENEMIES: EnemyDef[] = [
   { id: 'timeEater', name: 'Time Eater', area: 'rift', archetype: 'demon', guardianOnly: true, winAt: 0.5, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 22, material: 'void', unlock: Infinity, color: '#e0c060', shape: 'hexagon', blurb: 'It devours the hours of every world it finds. The Void Rift is its mouth.', weak: ['radiant', 'arcane'], resist: ['void', 'decay', 'physical'] },
 ];
 
-export const enemyDef = (id: EnemyId): EnemyDef => ENEMIES.find((e) => e.id === id)!;
+export const enemyDef = (id: EnemyId): EnemyDef => byId(ENEMIES, id);
 /** An area's horde (Guardian-only monsters like the Time Eater aren't part of it). */
 export const areaEnemies = (area: AreaId): EnemyDef[] => ENEMIES.filter((e) => e.area === area && !e.guardianOnly);
 /** Which monster each area's Guardian is a giant version of. */
@@ -2092,7 +2103,7 @@ export const HUNTERS: HunterDef[] = [
   },
 ];
 
-export const hunterDef = (id: HunterId): HunterDef => HUNTERS.find((h) => h.id === id)!;
+export const hunterDef = (id: HunterId): HunterDef => byId(HUNTERS, id);
 
 export function hunterPerk(h: HunterDef): string {
   const parts: string[] = [];
@@ -3650,7 +3661,7 @@ assignVariants();
 /** A piece's modifier slots. */
 export const modSlotCount = (def: GearDef): number => def.slots ?? MOD_SLOTS[def.rarity];
 
-export const gearDef = (id: GearId): GearDef => GEAR.find((g) => g.id === id)!;
+export const gearDef = (id: GearId): GearDef => byId(GEAR, id);
 
 /** The Special damage type's look (weapons with `special`: they change elements, or deal too many to list). */
 export const SPECIAL_TYPE = { name: 'Special', icon: '✴️', color: '#ffd84a' };
@@ -3872,7 +3883,7 @@ export const ITEMS: ItemDef[] = [
   { id: 'starPotion', name: 'Star Energy Potion', icon: '🧪', sprite: 'rpg-items/010', rarity: 'artifact', once: true, maxLevel: 1, recipe: { adamantite: 250, starIron: 1_000, diamond: 50 }, growth: 1, describe: () => '+2h offline time' },
 ];
 
-export const itemDef = (id: ItemId): ItemDef => ITEMS.find((i) => i.id === id)!;
+export const itemDef = (id: ItemId): ItemDef => byId(ITEMS, id);
 
 /** An Upgrade's strength (in steps) at each star: 1★ = 1, 5★ = maxLevel, geometric in between. */
 const itemLevelCache = new Map<ItemId, number[]>();
@@ -4103,7 +4114,7 @@ export const EVENTS: EventDef[] = AREAS.flatMap((a): EventDef[] => {
   return out;
 });
 
-export const eventDef = (id: string): EventDef => EVENTS.find((e) => e.id === id)!;
+export const eventDef = (id: string): EventDef => byId(EVENTS, id);
 
 /** Your Hunter's sessions from Lv 1 to 100, and from becoming the Slayer to Lv 200. */
 export const MAIN_SESSIONS_TO_ASCEND = sessionsToLevel(MAIN_ASCEND_LEVEL);

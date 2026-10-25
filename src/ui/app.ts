@@ -127,6 +127,7 @@ import { GEAR_SPRITES } from '../core/gearSprites';
 import { NODE_SPRITES } from '../core/nodeSprites';
 import { hunterIconHtml } from './hunterIcons';
 import { buzz, setHaptics } from './haptics';
+import { perfOn, setPerfOn } from './perfMeter';
 import { AREA_MUSIC, GUARDIAN_MUSIC, playMusic, setMusicVolume, SWARM_MUSIC } from './music';
 import { pressSound, setSfxVolume, sfx } from './sound';
 import { JOURNAL, type JournalEntry } from '../core/journal';
@@ -3171,6 +3172,11 @@ export class AppUI {
     return card;
   }
 
+  /** True while a full-screen menu or view covers the battlefield (main.ts skips drawing it). */
+  battleHidden(): boolean {
+    return this.menuFull || !!this.picker || !!this.detail;
+  }
+
   private toast(text: string): void {
     const t = el('div', 'toast', text);
     // Over the battlefield, or floating near the top while it's hidden (full-screen menu, open views).
@@ -4408,6 +4414,7 @@ export class AppUI {
       setHaptics(v);
       buzz();
     });
+    choices('Frame rate', 'The most times a second the battlefield is redrawn. 30 saves the most battery; Max follows your screen (up to 120 on some phones). The fight runs at the same speed either way.', [['30', '30'], ['60', '60'], ['max', 'Max']], () => st.fps, (v) => (st.fps = v));
     choices('Clarity Border', 'A white outline round Hunters, monsters and their projectiles, so they stand out from the ground and the scenery. Low is a faint edge; Strong a bright one.', [['off', 'Off'], ['low', 'Low'], ['moderate', 'Moderate'], ['strong', 'Strong']], () => st.clarity, (v) => (st.clarity = v));
 
     const tabsCard = el('div', 'card setting');
@@ -4525,8 +4532,19 @@ export class AppUI {
     );
     body.appendChild(wipe);
 
-    // Dev: jump to any point of the game to try an area's monsters and gear.
+    // Dev: jump to any point of the game to try an area's monsters and gear. Not in release builds.
+    if (import.meta.env.MODE === 'release') return;
     body.appendChild(sectionTitle('Dev'));
+    const perf = el('div', 'card setting');
+    perf.innerHTML = `<div class="setting-name">Frame times</div><p>A readout over the screen of frames per second and how many milliseconds each part of a frame takes (game, battlefield, drawing, menus; worst in brackets), refreshed every second. For finding what slows the game down on this phone.</p><button class="secondary perf-toggle"></button>`;
+    const perfBtn = $('.perf-toggle', perf);
+    const perfLabel = () => (perfBtn.textContent = perfOn() ? 'Hide frame times' : 'Show frame times');
+    perfLabel();
+    perfBtn.addEventListener('click', () => {
+      setPerfOn(!perfOn());
+      perfLabel();
+    });
+    body.appendChild(perf);
     const dev = el('div', 'card setting dev-progress');
     dev.innerHTML = `<div class="setting-name">Progress</div><p>Load a saved point in the game: the start of an area (gear made from the last Guardian's materials) or its end, just before its Guardian falls, with Hunters, gear and monsters where a typical player would have them. Your own save is kept, and comes back with Restore.</p><button class="buy dev-load">Load a phase…</button><button class="secondary dev-mats">Materials for every piece you can reach</button><button class="secondary dev-restore hidden">Restore my save</button>`;
     $('.dev-load', dev).addEventListener('click', () => void this.openDevPhases());

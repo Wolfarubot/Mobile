@@ -110,12 +110,17 @@ export class BattleView {
   private h = 0;
   private specks: Array<{ x: number; y: number; r: number }> = [];
 
+  private cssSize: [number, number] | null = null;
+
   constructor(
     private canvas: HTMLCanvasElement,
     private game: Game,
     private field: Field,
   ) {
     this.g = canvas.getContext('2d')!;
+    // The canvas's CSS size, kept up to date here: measuring it every frame forced the page to lay out again
+    // whenever the menus had changed.
+    new ResizeObserver(() => (this.cssSize = [canvas.clientWidth, canvas.clientHeight])).observe(canvas);
     this.cooldownBar = new CooldownBar(canvas.parentElement!, game, field);
     this.fx.textScale = CHAR_SCALE;
     // Static ground detail in normalized coords, so it scales with the view.
@@ -365,7 +370,8 @@ export class BattleView {
 
   render(): void {
     // One canvas pixel per CSS pixel (not per device pixel): drawn chunky, then scaled up crisply.
-    const { w, h } = fitCanvas(this.canvas, this.g, 1);
+    this.cssSize ??= [this.canvas.clientWidth, this.canvas.clientHeight];
+    const { w, h } = fitCanvas(this.canvas, this.g, 1, this.cssSize);
     this.w = w;
     this.h = h;
     Z = fieldZoom(this.game.area);

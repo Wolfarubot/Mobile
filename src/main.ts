@@ -9,13 +9,14 @@ import { OFFLINE_POPUP_SEC } from './core/balance';
 import { Field } from './core/field';
 import { Game } from './core/game';
 import { hasDevBackup, loadDevPhase, loadGame, restoreDevBackup, saveGame, wipeSave } from './core/save';
-import { newGame, type GameState } from './core/state';
+import { newGame, type FrameRate, type GameState } from './core/state';
 import { BattleView } from './render/battle';
 
 // Emoji anywhere in the UI are drawn as pixel-art icons.
 installEmojiIcons();
 initSound();
 import { AppUI } from './ui/app';
+import { perfFrame, perfOn } from './ui/perfMeter';
 import { SamplerHost } from './ui/samplerHost';
 import { initSound } from './ui/sound';
 
@@ -35,6 +36,8 @@ async function hideSplash(): Promise<void> {
   setTimeout(() => splash.remove(), 500);
 }
 const UI_REFRESH_SEC = 0.15;
+/** Settings → Frame rate: the most frames drawn per second (0: as many as the screen shows). */
+const FRAME_CAP: Record<FrameRate, number> = { '30': 30, '60': 60, max: 0 };
 
 async function boot(): Promise<void> {
   const saved = await loadGame();
@@ -75,28 +78,48 @@ async function boot(): Promise<void> {
   let uiAcc = 0;
   let saveAcc = 0;
   const frame = (now: number) => {
+    requestAnimationFrame(frame);
+    // Settings → Frame rate: skip screen refreshes past the cap (the next frame simulates the time skipped).
+    const cap = FRAME_CAP[game.state.settings.fps];
+    if (cap && now - last < 1000 / cap - 2) return;
+    const gap = now - last;
     // Clamp so a throttled/backgrounded tab doesn't simulate a huge jump (offline logic covers that).
-    const dt = Math.min(0.25, (now - last) / 1000);
+    const dt = Math.min(0.25, gap / 1000);
     last = now;
+    // Settings → Dev → Frame times: how long each part of the frame takes.
+    const timed = perfOn();
+    let t0 = timed ? performance.now() : 0;
+    const lap = () => {
+      const t = performance.now();
+      const ms = t - t0;
+      t0 = t;
+      return ms;
+    };
+    let tick = 0;
+    let fieldMs = 0;
     // Substep so fast bullets can't skip past enemies on a slow frame.
     const steps = Math.ceil(dt / (1 / 30));
     for (let i = 0; i < steps; i++) {
       game.tick(dt / steps);
+      if (timed) tick += lap();
       field.update(dt / steps);
+      if (timed) fieldMs += lap();
     }
     battle.update(dt);
-    battle.render();
+    // A full-screen view covers the battlefield: it keeps fighting, but isn't drawn.
+    if (!ui.battleHidden()) battle.render();
+    const render = timed ? lap() : 0;
     uiAcc += dt;
     if (uiAcc >= UI_REFRESH_SEC) {
       uiAcc = 0;
       ui.refresh();
     }
+    if (timed) perfFrame(now, gap, { tick, field: fieldMs, render, ui: lap() });
     saveAcc += dt;
     if (saveAcc >= AUTOSAVE_SEC) {
       saveAcc = 0;
       save();
     }
-    requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);
   void hideSplash();
