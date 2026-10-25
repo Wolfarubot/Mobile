@@ -32,6 +32,7 @@ import {
   gearDef,
   type GearDef,
   type GearEffect,
+  type GearStat,
   type SummonType,
   tomeSummonType,
   effectBase,
@@ -68,6 +69,11 @@ const GUARD_BOUNCE = 220;
 export const SLAM_OFFSET = 0.85;
 /** Seconds between puddle ticks; a puddle lasts its special's `ticks` of these. */
 const PUDDLE_TICK = 0.5;
+/** What a Hunter calls out when a potion kicks in. */
+const POTION_WORD: Record<GearStat, string> = {
+  damage: 'MIGHT!', rate: 'HASTE!', range: 'FARSIGHT!', crit: 'KEEN!', stun: 'STEADY!', guard: 'SHIELDED!', gold: 'GREED!', drops: 'FORTUNE!', radius: 'SURGE!', pierce: 'PIERCE!',
+  cooldown: 'QUICKEN!', critDamage: 'FURY!', duration: 'LINGER!', tapPower: 'POWER!', tapSize: 'BURST!',
+};
 /** Splitting Slime: each half's share of the slain slime's health and size. */
 const SPLIT_HP = 0.5;
 const SPLIT_SIZE = 0.75;
@@ -2249,6 +2255,14 @@ export class Field {
         const target = this.nearest(x, y, Math.max(this.game.shooterRange(who), MAIN_RANGE));
         if (!target) return false;
         this.castSpell(who, x, y, ef.spell, target, { base });
+        return true;
+      }
+      case 'potion': {
+        // Drunk when there's a fight on: the boost, and a word over the Hunter.
+        if (!this.nearest(x, y, Math.max(this.game.shooterRange(who), MAIN_RANGE) * 1.5)) return false;
+        const item = this.game.gearItem(uid);
+        this.game.drinkPotion(who, uid, ef, item ? this.game.effStars(item, who) : 1);
+        this.events.push({ type: 'say', x, y: y - 34, text: POTION_WORD[ef.stat], color: '#9fe8ff', size: 9 });
         return true;
       }
       case 'unique':

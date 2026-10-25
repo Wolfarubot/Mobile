@@ -1,4 +1,4 @@
-import { GEAR_CATALOG, type CatalogGearId, type CatalogSpec } from './gearCatalog';
+import { GEAR_CATALOG, type CatalogGearId, type CatalogSpec, type CatalogAccEffect } from './gearCatalog';
 
 // All tunable numbers, content tables and pure formulas live here so balancing never touches game flow code.
 
@@ -2385,7 +2385,9 @@ export type GearEffect =
   /** A spell (SPELLS) cast at the nearest monster: a Spell enchantment's, at its own base damage. */
   | { kind: 'spell'; spell: SpellId; base: number; damageType: DamageType }
   /** An Artifact's or Exalted piece's unique built-in effect (UNIQUE_EFFECTS), on its own cooldown. */
-  | { kind: 'unique'; id: UniqueId; base: number; damageType: DamageType; cooldown: number };
+  | { kind: 'unique'; id: UniqueId; base: number; damageType: DamageType; cooldown: number }
+  /** A potion: every `cooldown` seconds (with monsters about) it's drunk, giving `value` more of `stat` for `duration` seconds (+10% per star). */
+  | { kind: 'potion'; stat: GearStat; value: number; duration: number; cooldown: number };
 
 /** Effects that recharge (and get a cooldown icon on the battlefield). */
 export const effectCooldown = (e: GearEffect): number | null => ('cooldown' in e ? e.cooldown : null);
@@ -2410,7 +2412,7 @@ export const DEFAULT_SLOTS: SlotDef[] = [
 ];
 
 /** What a piece of gear can modify. Values are per gear level. */
-export type GearStat = 'damage' | 'rate' | 'range' | 'crit' | 'stun' | 'guard' | 'gold' | 'drops' | 'radius' | 'pierce';
+export type GearStat = 'damage' | 'rate' | 'range' | 'crit' | 'stun' | 'guard' | 'gold' | 'drops' | 'radius' | 'pierce' | 'cooldown' | 'critDamage' | 'duration' | 'tapPower' | 'tapSize';
 
 export const GEAR_STATS: Record<GearStat, (v: number) => string> = {
   damage: (v) => `+${Math.round(v * 100)}% damage`,
@@ -2423,6 +2425,11 @@ export const GEAR_STATS: Record<GearStat, (v: number) => string> = {
   drops: (v) => `+${Math.round(v * 100)}% drops`,
   radius: (v) => `+${Math.round(v * 100)}% area size`,
   pierce: (v) => `+${Math.floor(v)} pierce`,
+  cooldown: (v) => `−${Math.round(v * 100)}% ability cooldowns`,
+  critDamage: (v) => `+${Math.round(v * 100)}% crit damage`,
+  duration: (v) => `+${Math.round(v * 100)}% status duration`,
+  tapPower: (v) => `+${Math.round(v * 100)}% tap damage`,
+  tapSize: (v) => `+${Math.round(v * 100)}% tap size`,
 };
 
 export type GearId =
@@ -3431,7 +3438,10 @@ const RARITY_ORDER: Rarity[] = ['common', 'uncommon', 'rare', 'veryRare', 'legen
 const MELEE_CLASSES: WeaponClass[] = ['dagger', 'sword', 'glaive', 'spear', 'hammer'];
 const MAGIC_CLASSES: WeaponClass[] = ['wand', 'staff', 'focus', 'scepter', 'tome'];
 /** A catalog accessory's stats at the Restless Graveyard (tier 3); they grow 30% per area after. */
-const CATALOG_ACC_STATS: Record<string, number> = { damage: 0.06, rate: 0.05, crit: 0.02, gold: 0.15, drops: 0.15, range: 12, radius: 0.08, stun: 0.04 };
+const CATALOG_ACC_STATS: Record<string, number> = {
+  damage: 0.06, rate: 0.05, crit: 0.02, gold: 0.15, drops: 0.15, range: 12, radius: 0.08, stun: 0.04,
+  cooldown: 0.015, critDamage: 0.06, duration: 0.06, tapPower: 0.12, tapSize: 0.06,
+};
 
 /** The element of each area's armor specials (Ember Mines on; earlier armor is below Very Rare and has none). */
 const AREA_ELEMENT: DamageType[] = ['physical', 'physical', 'physical', 'physical', 'physical', 'fire', 'acid', 'frost', 'lightning', 'lightning', 'radiant', 'void'];
@@ -3456,6 +3466,24 @@ function catalogArmorEffect(armor: ArmorType, rarity: Rarity, area: number): { e
   }
 }
 
+/** A catalog accessory's ability; damaging ones hit for their area's base damage (TIER_HIT), like armor specials. */
+function catalogAccEffect(e: CatalogAccEffect | undefined, area: number): { effect?: GearEffect } {
+  if (!e) return {};
+  const base = TIER_HIT[Math.min(TIER_HIT.length, area) - 1];
+  switch (e.kind) {
+    case 'potion':
+    case 'evade':
+    case 'chill':
+      return { effect: e };
+    case 'pulse':
+      return { effect: { kind: 'pulse', base, damageType: e.dmg, radius: e.radius, cooldown: e.cooldown } };
+    case 'strike':
+      return { effect: { kind: 'strike', base, damageType: e.dmg, targets: e.targets, cooldown: e.cooldown, range: e.range } };
+    case 'thorns':
+      return { effect: { kind: 'thorns', base, damageType: e.dmg } };
+  }
+}
+
 function catalogGear(spec: CatalogSpec): GearDef {
   const recipe = spec.recipe as Partial<Record<MaterialId, number>>;
   const tier = gearTier({ recipe } as GearDef);
@@ -3467,7 +3495,7 @@ function catalogGear(spec: CatalogSpec): GearDef {
     const m = 1 + 0.3 * (tier - 3);
     const stats: Partial<Record<GearStat, number>> = {};
     for (const st of spec.stats) stats[st] = st === 'range' ? Math.round(CATALOG_ACC_STATS[st] * m) : Math.round(CATALOG_ACC_STATS[st] * m * 1000) / 1000;
-    return { ...common, kind: 'accessory', stats, ...(spec.bane ? { bane: { archetype: spec.bane, bonus: Math.round(0.06 * m * 1000) / 1000 } } : {}) };
+    return { ...common, kind: 'accessory', stats, ...(spec.bane ? { bane: { archetype: spec.bane, bonus: Math.round(0.06 * m * 1000) / 1000 } } : {}), ...catalogAccEffect(spec.effect, areaIdx + 1) };
   }
   const cls = spec.cls as WeaponClass;
   // Elemental weapons inflict their effect more often in later areas; among Physical weapons only blades bleed.
@@ -3782,8 +3810,13 @@ export function describeEffect(e: GearEffect, stars: number): string {
       return `${SPELLS[e.spell].name}: ${SPELLS[e.spell].desc} (${dmg} damage)`;
     case 'unique':
       return `${UNIQUE_EFFECTS[e.id].name}: every ${e.cooldown}s, ${UNIQUE_EFFECTS[e.id].desc} (${dmg} damage).`;
+    case 'potion':
+      return `Potion: every ${e.cooldown}s in a fight, drink it for ${GEAR_STATS[e.stat](potionValue(e, stars))} for ${e.duration}s.`;
   }
 }
+
+/** A potion's boost at a piece's stars: +10% per star past the first. */
+export const potionValue = (e: Extract<GearEffect, { kind: 'potion' }>, stars: number): number => e.value * (1 + 0.1 * (Math.max(1, Math.min(MAX_EFFECTIVE_STARS, stars)) - 1));
 
 /**
  * The spell a staff casts after its bolts: one of its type's (TYPE_SPELLS), taking turns between that type's

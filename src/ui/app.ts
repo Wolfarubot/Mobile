@@ -4871,6 +4871,11 @@ const STAT_LABELS: Record<GearStat, string> = {
   drops: 'drops',
   radius: 'area size',
   pierce: 'pierce',
+  cooldown: 'ability cooldowns',
+  critDamage: 'crit damage',
+  duration: 'status duration',
+  tapPower: 'tap damage',
+  tapSize: 'tap size',
 };
 
 /** A difference in one stat, e.g. "+20% damage" or "−3 range". */
@@ -5039,7 +5044,7 @@ function tweakText(gd: GearDef): string {
 }
 
 /** Short names for gear effects, for their tags (the full text is in the tag's popup). */
-const EFFECT_TAG: Record<NonNullable<GearDef['effect']>['kind'], string> = { thorns: 'Thorns', block: 'Shield Burst', evade: 'Evasion', pulse: 'Pulse', summon: 'Summoner', wave: 'Wave', strike: 'Lightning Strike', chill: 'Chill Aura', spell: 'Spell', unique: 'Unique' };
+const EFFECT_TAG: Record<NonNullable<GearDef['effect']>['kind'], string> = { thorns: 'Thorns', block: 'Shield Burst', evade: 'Evasion', pulse: 'Pulse', summon: 'Summoner', wave: 'Wave', strike: 'Lightning Strike', chill: 'Chill Aura', spell: 'Spell', unique: 'Unique', potion: 'Potion' };
 
 /** Keeps a row of tiles to two lines: the tiles past them are hidden and the last one shown becomes "...". */
 function foldChips(box: HTMLElement | null): void {

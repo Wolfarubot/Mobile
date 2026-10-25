@@ -1088,19 +1088,19 @@ describe('Shops', () => {
 });
 
 describe('Equipment', () => {
-  it('gear progression: more items each area; magic opens in the Grove, accessories in the Graveyard, firearms in the Depths', () => {
+  it('gear progression: more items each area; a few simple accessories in the Woods, firearms in the Depths', () => {
     const inArea = (i: number) => GEAR.filter((g) => !g.starter && gearArea(g) === i);
     const counts = AREAS.map((_, i) => inArea(i + 1).length);
     expect(counts[0]).toBeGreaterThanOrEqual(15);
-    expect(counts[0]).toBeLessThanOrEqual(20);
+    expect(counts[0]).toBeLessThanOrEqual(24);
     // Each area has at least as many items as the one before (players stay longer in later areas).
     for (let i = 1; i < counts.length; i++) expect(counts[i]).toBeGreaterThanOrEqual(counts[i - 1]);
-    // The Woods: melee, bows, two wands and armor; no robes or deeper magic, no accessories, no firearms.
+    // The Woods: melee, bows, two wands, armor and a few plain accessories (no abilities but one potion); no robes, no firearms.
     const woods = inArea(1);
     expect(woods.filter((g) => g.kind === 'magic').map((g) => g.weaponClass)).toEqual(['wand', 'wand']);
     expect(woods.some((g) => g.armorType === 'robe')).toBe(false);
-    // Accessories start in the Restless Graveyard (3), firearms in the Shadowy Depths (5).
-    expect(Math.min(...GEAR.filter((g) => g.kind === 'accessory').map(gearArea))).toBe(3);
+    expect(woods.filter((g) => g.kind === 'accessory' && g.effect && g.effect.kind !== 'potion')).toEqual([]);
+    // Firearms start in the Shadowy Depths (5).
     expect(Math.min(...GEAR.filter((g) => ['pistol', 'rifle', 'repeater'].includes(g.weaponClass ?? '')).map(gearArea))).toBe(5);
     // Catalog items land in the area they're listed under, with materials that exist, and ids are unique.
     for (const c of GEAR_CATALOG) {
@@ -3295,6 +3295,38 @@ describe('Equipment', () => {
     orb.mods = [{ kind: 'enchant', id: 'infuseVoid', q: 5, p: 5 }];
     expect(g.damageTypesOf('main')).toContain('void');
     expect(g.procFor('main', 'void')).toBeCloseTo(modRoll(ENCHANTS.infuseVoid.range, false, 'veryRare', 5));
+  });
+
+  it('accessory stats across the game, and potions: a timed boost on the wearer, drunk on their cooldown', () => {
+    const g = stocked();
+    g.state.gold = 1e30;
+    // New accessory stats: cooldown, crit damage, effect duration, tap power and size.
+    const cd0 = g.cooldownMult('main'), crit0 = g.critMultOf('main'), dur0 = g.effectDurationMult('main');
+    g.equip('main', 2, g.craftGear('timeEaterCrown')!.uid);
+    expect(g.cooldownMult('main')).toBeLessThan(cd0);
+    expect(g.critMultOf('main')).toBeGreaterThan(crit0);
+    g.equip('main', 2, g.craftGear('eclipseAmulet')!.uid);
+    expect(g.effectDurationMult('main')).toBeGreaterThan(dur0);
+    const tap0 = g.tapDamage;
+    g.equip('main', 2, g.craftGear('prismRing')!.uid);
+    expect(g.tapDamage).toBeGreaterThan(tap0);
+    // A potion raises its stat while it lasts, then wears off.
+    const tonic = g.craftGear('bloodTonic')!;
+    g.equip('main', 2, tonic.uid);
+    const ef = gearDef(tonic.base).effect!;
+    expect(ef.kind).toBe('potion');
+    if (ef.kind !== 'potion') return;
+    const before = g.gear('main').damage;
+    g.drinkPotion('main', tonic.uid, ef, 1);
+    expect(g.gear('main').damage).toBeCloseTo(before + ef.value);
+    expect(g.potionsOn('main')).toHaveLength(1);
+    g.tick(ef.duration * g.effectDurationMult('main') + 0.5);
+    expect(g.potionsOn('main')).toHaveLength(0);
+    expect(g.gear('main').damage).toBeCloseTo(before);
+    // Some ~150 accessories in all, with plenty of potions and other abilities.
+    const acc = GEAR.filter((d) => d.kind === 'accessory');
+    expect(acc.length).toBeGreaterThanOrEqual(140);
+    expect(acc.filter((d) => d.effect?.kind === 'potion').length).toBeGreaterThanOrEqual(15);
   });
 
   it('Quick Reload and Brutal refinements; Virulence, Binding and Haste enchantments', () => {

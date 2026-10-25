@@ -76,6 +76,7 @@ import {
   monsterLevel,
   empowerBaseCost,
   MONSTER_EVO_TREES,
+  potionValue,
   evoNode,
   type EvoNode,
   type EvoStat,
@@ -483,10 +484,10 @@ export class Game {
     return Math.min(1, inf.v + potency);
   }
 
-  /** Damage of a tap blast (Tap Power nodes, and the equipped tap ability). */
+  /** Damage of a tap blast (Tap Power nodes and accessories, and the equipped tap ability). */
   get tapDamage(): number {
     const ab = this.tapAbility;
-    return this.damage * TAP_DAMAGE_MULT * (1 + this.tree('main').tapPower) * (ab ? tapAbilityDef(ab).damage : 1);
+    return this.damage * TAP_DAMAGE_MULT * (1 + this.tree('main').tapPower + this.gear('main').tapPower) * (ab ? tapAbilityDef(ab).damage : 1);
   }
 
   /** The tap ability your Hunter has equipped, if it's still unlocked. */
@@ -515,9 +516,9 @@ export class Game {
     return ab ? tapAbilityDef(ab).damageType : this.damageTypeOf('main');
   }
 
-  /** Radius of a tap blast in world units (Tap Size nodes). */
+  /** Radius of a tap blast in world units (Tap Size nodes and accessories). */
   get tapRadius(): number {
-    return TAP_RADIUS * (1 + this.tree('main').tapSize);
+    return TAP_RADIUS * (1 + this.tree('main').tapSize + this.gear('main').tapSize);
   }
 
   private skillDamageMult(who: Wearer): number {
@@ -914,7 +915,7 @@ export class Game {
    * their mode; with no mode given, the 'long' (default) weapon counts.
    */
   gear(who: Shooter, mode: GearMode = 'long'): Record<GearStat, number> {
-    const total: Record<GearStat, number> = { damage: 0, rate: 0, range: 0, crit: 0, stun: 0, guard: 0, gold: 0, drops: 0, radius: 0, pierce: 0 };
+    const total: Record<GearStat, number> = { damage: 0, rate: 0, range: 0, crit: 0, stun: 0, guard: 0, gold: 0, drops: 0, radius: 0, pierce: 0, cooldown: 0, critDamage: 0, duration: 0, tapPower: 0, tapSize: 0 };
     const slots = this.slotsOf(who);
     this.equipped(who).forEach((item, i) => {
       if (!item || (slots[i].role && slots[i].role !== mode)) return;
@@ -922,6 +923,8 @@ export class Game {
       // Refined stats add to the piece's own (knockback and magazine size change its weapon class instead).
       for (const m of item.mods ?? []) if (m?.kind === 'refine' && m.stat in total) total[m.stat as GearStat] += modValue(m, gearDef(item.base));
     });
+    // Potions being felt right now.
+    for (const p of this.potions.get(who) ?? []) total[p.stat] += p.value;
     return total;
   }
 
@@ -936,7 +939,31 @@ export class Game {
 
   /** A Hunter's crit damage multiplier (the Brutal refine and Brutal Criticals raise it). */
   critMultOf(who: Shooter): number {
-    return CRIT_MULT * (1 + this.modStat(who, 'critDmg') + this.tree(who).critDamage + (this.buffOn('shootingGallery') ? BUFF_CRIT_DMG : 0));
+    return CRIT_MULT * (1 + this.modStat(who, 'critDmg') + this.tree(who).critDamage + this.gear(who).critDamage + (this.buffOn('shootingGallery') ? BUFF_CRIT_DMG : 0));
+  }
+
+  // ---- Potions (accessories): drunk on their cooldown in a fight, a boost for a while ----
+
+  private potions = new Map<Shooter, Array<{ uid: number; stat: GearStat; value: number; left: number }>>();
+
+  /** A Hunter drinks a potion: its boost (at the piece's stars) lasts its duration, longer with Extended Effects. */
+  drinkPotion(who: Shooter, uid: number, e: Extract<GearEffect, { kind: 'potion' }>, stars: number): void {
+    const list = (this.potions.get(who) ?? []).filter((p) => p.uid !== uid);
+    list.push({ uid, stat: e.stat, value: potionValue(e, stars), left: e.duration * this.effectDurationMult(who) });
+    this.potions.set(who, list);
+  }
+
+  /** Seconds left on each potion a Hunter is feeling, by the piece's uid. */
+  potionsOn(who: Shooter): Array<{ uid: number; stat: GearStat; left: number }> {
+    return this.potions.get(who) ?? [];
+  }
+
+  private tickPotions(dt: number): void {
+    for (const [who, list] of this.potions) {
+      const left = list.filter((p) => (p.left -= dt) > 0);
+      if (left.length) this.potions.set(who, left);
+      else this.potions.delete(who);
+    }
   }
 
   /** How much stronger a Hunter's status effects are: more damage, or longer / stronger for ones that deal none (Virulence). */
@@ -958,12 +985,12 @@ export class Game {
 
   /** Multiplier on a Hunter's gear ability cooldowns (Haste), never below 40%. */
   cooldownMult(who: Shooter): number {
-    return Math.max(0.4, 1 - this.enchantBoost(who, 'cooldown') - this.tree(who).cooldown) * (this.buffOn('puppetShow') ? 1 - BUFF_ENCORE : 1);
+    return Math.max(0.4, 1 - this.enchantBoost(who, 'cooldown') - this.tree(who).cooldown - this.gear(who).cooldown) * (this.buffOn('puppetShow') ? 1 - BUFF_ENCORE : 1);
   }
 
-  /** How much longer the status effects a Hunter sets off last (Extended Effects). */
+  /** How much longer the status effects a Hunter sets off last (Extended Effects, and gear). */
   effectDurationMult(who: Shooter): number {
-    return 1 + this.tree(who).duration;
+    return 1 + this.tree(who).duration + this.gear(who).duration;
   }
 
   // ---- Modify: Refine (Kargesh) and Enchant (Marceline) roll random modifiers into a piece's slots ----
@@ -1815,6 +1842,7 @@ export class Game {
   tick(dt: number): void {
     const s = this.state;
     this.coolEvents(dt);
+    this.tickPotions(dt);
     this.questAge += dt;
     if (this.questAge >= 5) {
       this.questAge = 0;

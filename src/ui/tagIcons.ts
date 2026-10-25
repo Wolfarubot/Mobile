@@ -51,6 +51,7 @@ export const EFFECT_TAG_ICONS = {
   chill: 'ab-pyro-hydro/078',
   spell: 'ab-geo-aero/049',
   unique: 'ab-paladin-dk/033',
+  potion: 'ab-alchemist-shaman/010',
 } as const;
 
 export const FEATURE_TAG_ICONS = { weapon: 'ab-hunter-warrior/053', tweak: 'ab-engineer-psionic/001', archetype: 'ab-hunter-warrior/046', ability: 'ab-hunter-warrior/032', finder: 'ab-pyro-hydro/097', spell: 'ab-engineer-psionic/017', builtIn: 'ab-paladin-dk/040' } as const;

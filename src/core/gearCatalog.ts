@@ -15,13 +15,24 @@ export type CatalogDamage = 'physical' | 'fire' | 'acid' | 'frost' | 'radiant' |
 export type CatalogWeapon = 'tome' | 'dagger' | 'sword' | 'glaive' | 'spear' | 'hammer' | 'shortbow' | 'longbow' | 'crossbow' | 'pistol' | 'rifle' | 'repeater' | 'wand' | 'staff' | 'focus' | 'scepter';
 export type CatalogArmor = 'light' | 'heavy' | 'robe' | 'shield';
 /** Stats an accessory can carry (values come from the tier). */
-export type CatalogAccStat = 'damage' | 'rate' | 'crit' | 'gold' | 'drops' | 'range' | 'radius' | 'stun';
+export type CatalogAccStat = 'damage' | 'rate' | 'crit' | 'gold' | 'drops' | 'range' | 'radius' | 'stun' | 'cooldown' | 'critDamage' | 'duration' | 'tapPower' | 'tapSize';
+/**
+ * An accessory's ability. Potions are drunk on their cooldown in a fight, raising a stat by `value` for `duration`
+ * seconds; damaging ones (pulse, strike, thorns) hit for their area's base damage, like armor specials.
+ */
+export type CatalogAccEffect =
+  | { kind: 'potion'; stat: CatalogAccStat; value: number; duration: number; cooldown: number }
+  | { kind: 'evade'; chance: number }
+  | { kind: 'pulse'; radius: number; cooldown: number; dmg: CatalogDamage }
+  | { kind: 'strike'; targets: number; cooldown: number; range: number; dmg: CatalogDamage }
+  | { kind: 'thorns'; dmg: CatalogDamage }
+  | { kind: 'chill'; radius: number };
 export type CatalogArchetype = 'slime' | 'beast' | 'undead' | 'demon' | 'elemental' | 'humanoid' | 'plant' | 'dragon' | 'construct';
 
 export type CatalogSpec<I extends string = string> =
   | { id: I; name: string; icon: string; area: string; type: 'weapon'; cls: CatalogWeapon; dmg: CatalogDamage; recipe: Record<string, number>; top?: boolean; stone?: boolean }
   | { id: I; name: string; icon: string; area: string; type: 'armor'; armor: CatalogArmor; recipe: Record<string, number>; top?: boolean }
-  | { id: I; name: string; icon: string; area: string; type: 'accessory'; stats: CatalogAccStat[]; bane?: CatalogArchetype; recipe: Record<string, number>; top?: boolean };
+  | { id: I; name: string; icon: string; area: string; type: 'accessory'; stats: CatalogAccStat[]; bane?: CatalogArchetype; effect?: CatalogAccEffect; recipe: Record<string, number>; top?: boolean };
 
 let area = '';
 const w = <I extends string>(id: I, name: string, icon: string, cls: CatalogWeapon, dmg: CatalogDamage, recipe: Record<string, number>, top = false) =>
@@ -36,10 +47,20 @@ const a = <I extends string>(id: I, name: string, icon: string, armor: CatalogAr
   ({ id, name, icon, area, type: 'armor', armor, recipe, top }) as const;
 const x = <I extends string>(id: I, name: string, icon: string, stats: CatalogAccStat[], recipe: Record<string, number>, bane?: CatalogArchetype, top = false) =>
   ({ id, name, icon, area, type: 'accessory', stats, bane, recipe, top }) as const;
+/** An accessory with an ability (or just stats). */
+const xa = <I extends string>(id: I, name: string, icon: string, stats: CatalogAccStat[], recipe: Record<string, number>, effect?: CatalogAccEffect, top = false) =>
+  ({ id, name, icon, area, type: 'accessory', stats, effect, recipe, top }) as const;
 const at = (id: string) => ((area = id), []);
 
 export const GEAR_CATALOG = [
-  // ---- Fey Grove: magic opens up (no accessories yet) ----
+  // ---- Wandering Woods: a few simple accessories ----
+  ...at('forest'),
+  xa('leatherCap', 'Leather Cap', '🪖', ['stun'], { pelt: 8, goo: 6 }),
+  xa('twigBracers', 'Twig Bracers', '🧤', ['rate'], { twig: 10, pelt: 4 }),
+  xa('ropeBelt', 'Rope Belt', '🎗️', ['gold'], { twig: 8, scrap: 4 }),
+  xa('slimeTonic', 'Slime Tonic', '🧪', ['drops'], { goo: 12, royalSlime: 1 }, { kind: 'potion', stat: 'rate', value: 0.3, duration: 5, cooldown: 22 }, true),
+
+  // ---- Fey Grove: magic opens up ----
   ...at('glade'),
   w('sporeWand', 'Spore Wand', '🍄', 'wand', 'poison', { spore: 10, twig: 6 }),
   w('pixieWand', 'Pixie Wand', '✨', 'wand', 'arcane', { dust: 10, spore: 4 }),
@@ -59,8 +80,14 @@ export const GEAR_CATALOG = [
   a('regalGown', 'Regal Gown', '👗', 'robe', { regalEssence: 2, dust: 8, unicornHorn: 4 }, true),
   w('fungalScepter', 'Fungal Scepter', '🍄', 'scepter', 'poison', { spore: 10, sap: 4 }),
   w('pixieLongbow', 'Pixie Longbow', '🏹', 'longbow', 'arcane', { dust: 8, twig: 8 }),
+  xa('dewdropRing', 'Dewdrop Ring', '💍', ['tapPower'], { dust: 8, sap: 5 }),
+  xa('mossCloak', 'Moss Cloak', '🧥', ['radius'], { spore: 10, sap: 5 }),
+  xa('hornedHelm', 'Horned Helm', '🪖', ['stun', 'damage'], { unicornHorn: 5, enchantedBone: 6 }),
+  xa('thornBracers', 'Thorn Bracers', '🧤', ['crit'], { thorn: 8, sap: 4 }, { kind: 'thorns', dmg: 'poison' }),
+  xa('pixieDraught', 'Pixie Draught', '🧪', ['tapSize'], { dust: 10, spore: 6 }, { kind: 'potion', stat: 'tapPower', value: 0.6, duration: 6, cooldown: 20 }),
+  xa('regalSash', 'Regal Sash', '🎗️', ['gold', 'drops'], { regalEssence: 2, dust: 8 }, undefined, true),
 
-  // ---- Restless Graveyard: accessories start here, and hammers ----
+  // ---- Restless Graveyard: hammers start here ----
   ...at('graveyard'),
   w('graveDagger', 'Grave Dagger', '🗡️', 'dagger', 'decay', { bone: 8, flesh: 6 }),
   w('batBow', 'Batwing Bow', '🦇', 'shortbow', 'physical', { wing: 10, bone: 4 }),
@@ -76,6 +103,13 @@ export const GEAR_CATALOG = [
   w('cultistTome', 'Cultist Tome', '📕', 'tome', 'decay', { sacredText: 10, robePiece: 5 }),
   a('vampireCape', 'Vampire Cape', '🧛', 'light', { vampEssence: 8, wing: 6 }),
   x('graveLantern', 'Grave Crest', '🏮', ['radius'], { nightmareWisp: 8, bone: 4 }),
+  xa('gravediggerBelt', 'Gravedigger Belt', '🎗️', ['drops'], { bone: 10, flesh: 5 }),
+  xa('boneHelm', 'Bone Helm', '🪖', ['stun', 'crit'], { bone: 10, wing: 4 }),
+  xa('mourningCloak', 'Mourning Cloak', '🧥', ['duration'], { robePiece: 8, sacredText: 4 }),
+  xa('batwingBracers', 'Batwing Bracers', '🧤', ['rate', 'crit'], { wing: 8, vampEssence: 4 }),
+  xa('bloodTonic', 'Blood Tonic', '🧪', ['damage'], { vampEssence: 6, flesh: 8 }, { kind: 'potion', stat: 'damage', value: 0.35, duration: 6, cooldown: 24 }),
+  xa('wispLantern', 'Wisp Charm', '🔮', ['cooldown'], { nightmareWisp: 6, bone: 6 }),
+  xa('calciumCirclet', 'Calcium Circlet', '👑', ['crit', 'critDamage'], { calciumCrystal: 2, bone: 10 }, undefined, true),
 
   // ---- Forbidden Crypt: more of everything ----
   ...at('crypt'),
@@ -100,6 +134,13 @@ export const GEAR_CATALOG = [
   w('mummyGlaive', 'Mummy Glaive', '🪓', 'glaive', 'decay', { wrap: 10, enchantedScrap: 6 }),
   w('ravenWand', 'Raven Wand', '🪶', 'wand', 'arcane', { undeadFeather: 8, grave: 4 }),
   a('boneKnightPlate', 'Bone Knight Plate', '🛡️', 'heavy', { enchantedScrap: 12, undeadFeather: 4 }),
+  xa('wrappedBracers', 'Wrapped Bracers', '🧤', ['rate'], { wrap: 10, string: 4 }),
+  xa('featherCowl', 'Feathered Cowl', '🧥', ['radius', 'duration'], { undeadFeather: 8, wrap: 5 }),
+  xa('cryptHelm', 'Crypt Helm', '🪖', ['stun', 'damage'], { enchantedScrap: 8, grave: 4 }),
+  xa('stringBelt', 'Puppeteer\'s Belt', '🎗️', ['cooldown'], { string: 10, enchantedScrap: 4 }),
+  xa('graveDust', 'Grave Dust Vial', '🧪', ['drops'], { grave: 6, wrap: 8 }, { kind: 'potion', stat: 'radius', value: 0.4, duration: 6, cooldown: 24 }),
+  xa('embalmerTonic', 'Embalmer\'s Tonic', '🧪', ['duration'], { wrap: 8, undeadFeather: 6 }, { kind: 'potion', stat: 'duration', value: 0.6, duration: 8, cooldown: 26 }),
+  xa('eldritchRing', 'Eldritch Ring', '💍', ['critDamage', 'cooldown'], { eldritchText: 2, enchantedScrap: 8 }, undefined, true),
 
   // ---- Shadowy Depths: firearms start here, with Wilhelm ----
   ...at('depths'),
@@ -127,6 +168,13 @@ export const GEAR_CATALOG = [
   w('gazingStaff', 'Gazing Staff', '👁️', 'staff', 'arcane', { umbralEye: 10, gloom: 4 }),
   w('crawlerCrossbow', 'Crawler Crossbow', '🎯', 'crossbow', 'physical', { darkClaw: 10, umbralSlime: 4 }),
   x('gloomsilkGloves', 'Gloomsilk Gloves', '🧤', ['crit'], { gloom: 8, shadowWisp: 4 }),
+  xa('gloomHood', 'Gloom Hood', '🧥', ['crit'], { gloom: 10, darkClaw: 4 }, { kind: 'evade', chance: 0.06 }),
+  xa('clawBracers', 'Clawed Bracers', '🧤', ['critDamage'], { darkClaw: 8, gloom: 5 }),
+  xa('umbralBelt', 'Umbral Belt', '🎗️', ['damage', 'gold'], { umbra: 6, gloom: 6 }),
+  xa('shadowVisor', 'Shadow Visor', '🪖', ['stun', 'range'], { shadowWisp: 8, umbralSlime: 4 }),
+  xa('eyeDrops', 'Eye Drops', '🧪', ['crit'], { umbralEye: 6, umbralSlime: 6 }, { kind: 'potion', stat: 'crit', value: 0.15, duration: 6, cooldown: 22 }),
+  xa('nightTonic', 'Nightshade Tonic', '🧪', ['critDamage'], { gloom: 8, shadowWisp: 6 }, { kind: 'potion', stat: 'critDamage', value: 0.5, duration: 6, cooldown: 24 }),
+  xa('watcherCirclet', 'Watcher\'s Circlet', '👑', ['crit', 'range'], { everwatchingEye: 2, umbralEye: 6 }, undefined, true),
 
   // ---- Ember Mines ----
   ...at('caves'),
@@ -156,6 +204,14 @@ export const GEAR_CATALOG = [
   w('impFocus', 'Imp Focus', '👿', 'focus', 'fire', { demonWing: 8, magma: 5 }),
   a('cinderShroud', 'Cinder Shroud', '👘', 'robe', { ember: 10, demonWing: 5 }),
   x('chitinBracer', 'Chitin Bracer', '🛡️', ['stun'], { chitin: 8, demonBone: 4 }),
+  xa('emberBracers', 'Ember Bracers', '🧤', ['rate', 'damage'], { ember: 8, chitin: 5 }, { kind: 'thorns', dmg: 'fire' }),
+  xa('demonHelm', 'Demon Helm', '🪖', ['stun', 'critDamage'], { demonBone: 8, demonTooth: 4 }),
+  xa('ashCloak', 'Ash Cloak', '🧥', ['radius'], { demonWing: 8, magma: 5 }, { kind: 'pulse', radius: 70, cooldown: 8, dmg: 'fire' }),
+  xa('minersBelt', 'Miner\'s Belt', '🎗️', ['drops', 'gold'], { silverOre: 6, goldOre: 4, chitin: 4 }),
+  xa('fireTonic', 'Firebrand Tonic', '🧪', ['damage'], { magma: 8, ember: 6 }, { kind: 'potion', stat: 'damage', value: 0.45, duration: 6, cooldown: 24 }),
+  xa('quartzRing', 'Quartz Ring', '💍', ['tapSize', 'tapPower'], { quartz: 6, silverOre: 5 }),
+  xa('topazAmulet', 'Topaz Amulet', '📿', ['cooldown', 'duration'], { topaz: 4, goldOre: 5 }),
+  xa('soulforgedCrown', 'Soulforged Crown', '👑', ['damage', 'critDamage'], { forsakenSoul: 2, diamond: 2, demonBone: 8 }, undefined, true),
 
   // ---- Venom Caverns ----
   ...at('mines'),
@@ -191,6 +247,14 @@ export const GEAR_CATALOG = [
   a('basiliskShield', 'Basilisk Shield', '🛡️', 'shield', { scale: 10, ore: 6 }),
   a('koboldVest', 'Kobold Vest', '🧥', 'light', { ore: 10, chitin: 4 }),
   x('venomNecklace', 'Venom Vial Necklace', '📿', ['damage'], { scale: 8, ore: 6 }),
+  xa('scaleBracers', 'Scale Bracers', '🧤', ['rate', 'crit'], { scale: 8, ore: 6 }),
+  xa('cobaltHelm', 'Cobalt Helm', '🪖', ['stun', 'damage'], { cobaltOre: 6, ore: 8 }),
+  xa('venomBelt', 'Venom Belt', '🎗️', ['damage', 'duration'], { venomite: 4, scale: 8 }),
+  xa('dragonhideCloak', 'Dragonhide Cloak', '🧥', ['radius', 'crit'], { scale: 10, magma: 4 }, { kind: 'evade', chance: 0.08 }),
+  xa('antivenom', 'Antivenom', '🧪', ['stun'], { venomite: 4, ore: 8 }, { kind: 'potion', stat: 'cooldown', value: 0.3, duration: 8, cooldown: 26 }),
+  xa('miningDraught', 'Miner\'s Draught', '🧪', ['drops'], { ore: 10, cobaltOre: 4 }, { kind: 'potion', stat: 'drops', value: 0.8, duration: 8, cooldown: 25 }),
+  xa('cobaltBand', 'Cobalt Band', '💍', ['tapPower', 'critDamage'], { cobaltOre: 6, scale: 5 }),
+  xa('wyrmCrest', 'Wyrm Crest', '📿', ['damage', 'radius'], { venomite: 5, cobaltOre: 5, scale: 6 }, { kind: 'pulse', radius: 80, cooldown: 7, dmg: 'poison' }, true),
 
   // ---- Frost Peaks ----
   ...at('peaks'),
@@ -226,6 +290,15 @@ export const GEAR_CATALOG = [
   w('glacierBlade', 'Glacier Blade', '⚔️', 'sword', 'frost', { frost: 12, fur: 6 }),
   a('iceWolfCoat', 'Ice Wolf Coat', '🧥', 'light', { fur: 12, ecto: 4 }),
   x('frostRing', 'Frost Ring', '💍', ['crit'], { frost: 8, fur: 4 }),
+  xa('furHood', 'Fur Hood', '🪖', ['stun'], { fur: 10, frost: 4 }),
+  xa('frostBracers', 'Frost Bracers', '🧤', ['rate', 'critDamage'], { frostIron: 6, fur: 6 }),
+  xa('glacierCloak', 'Glacier Cloak', '🧥', ['duration', 'radius'], { frost: 8, ecto: 5 }, { kind: 'chill', radius: 70 }),
+  xa('coldsteelBelt', 'Coldsteel Belt', '🎗️', ['damage', 'gold'], { coldsteel: 6, fur: 6 }),
+  xa('frostTonic', 'Frostbite Tonic', '🧪', ['duration'], { frost: 8, aquamarine: 3 }, { kind: 'potion', stat: 'rate', value: 0.5, duration: 6, cooldown: 22 }),
+  xa('ectoDraught', 'Ecto Draught', '🧪', ['cooldown'], { ecto: 8, frost: 5 }, { kind: 'potion', stat: 'cooldown', value: 0.35, duration: 8, cooldown: 25 }),
+  xa('aquamarineRing', 'Aquamarine Ring', '💍', ['tapSize', 'cooldown'], { aquamarine: 4, frostIron: 5 }),
+  xa('sapphireAmulet', 'Sapphire Amulet', '📿', ['critDamage', 'crit'], { sapphire: 3, coldsteel: 5 }),
+  xa('winterCrown', 'Winter Crown', '👑', ['damage', 'duration'], { sapphire: 3, aquamarine: 3, coldsteel: 6 }, { kind: 'chill', radius: 90 }, true),
 
   // ---- Ascendant Steps ----
   ...at('cliffs'),
@@ -264,6 +337,15 @@ export const GEAR_CATALOG = [
   a('harpyRobe', 'Harpy Robe', '👘', 'robe', { plume: 12, skystone: 4 }),
   a('giantShield', "Giant's Shield", '🛡️', 'shield', { skystone: 12, plume: 6 }),
   x('summitCharm', 'Summit Charm', '🏔️', ['gold'], { skystone: 8, plume: 6 }),
+  xa('plumedHelm', 'Plumed Helm', '🪖', ['stun', 'range'], { plume: 10, skystone: 4 }),
+  xa('skystoneBracers', 'Skystone Bracers', '🧤', ['rate'], { skystone: 6, plume: 6 }),
+  xa('windCloak', 'Windrunner Cloak', '🧥', ['radius', 'rate'], { plume: 10, skysteel: 3 }, { kind: 'evade', chance: 0.1 }),
+  xa('skysteelBelt', 'Skysteel Belt', '🎗️', ['damage', 'drops'], { skysteel: 5, skystone: 6 }),
+  xa('cloudTonic', 'Cloudwalker Tonic', '🧪', ['range'], { plume: 8, skystone: 5 }, { kind: 'potion', stat: 'range', value: 40, duration: 8, cooldown: 24 }),
+  xa('summitDraught', 'Summit Draught', '🧪', ['crit'], { skystone: 6, plume: 6 }, { kind: 'potion', stat: 'critDamage', value: 0.7, duration: 6, cooldown: 24 }),
+  xa('featherRing', 'Feather Ring', '💍', ['tapPower', 'tapSize'], { plume: 8, skysteel: 4 }),
+  xa('orichalcumTorque', 'Orichalcum Torque', '📿', ['damage', 'cooldown'], { orichalcum: 3, skysteel: 5 }),
+  xa('ascendantCirclet', 'Ascendant Circlet', '👑', ['critDamage', 'radius'], { orichalcum: 4, skysteel: 6 }, undefined, true),
 
   // ---- Cloud Fortress ----
   ...at('fortress'),
@@ -301,6 +383,15 @@ export const GEAR_CATALOG = [
   a('valkyrieRobe', 'Valkyrie Robe', '👘', 'robe', { feather: 12, thunder: 4 }),
   a('stormShield', 'Storm Shield', '🛡️', 'shield', { thunder: 12, feather: 6 }),
   x('titanBelt', 'Titan Belt', '🎗️', ['damage'], { thunder: 10, feather: 6 }),
+  xa('stormHelm', 'Storm Helm', '🪖', ['stun', 'crit'], { thunder: 6, feather: 6 }),
+  xa('thunderBracers', 'Thunder Bracers', '🧤', ['rate', 'damage'], { thunder: 8, stormstone: 3 }, { kind: 'strike', targets: 2, cooldown: 9, range: 200, dmg: 'lightning' }),
+  xa('stormCloak', 'Stormcloud Cloak', '🧥', ['radius', 'duration'], { feather: 10, opal: 3 }),
+  xa('opalBelt', 'Opal Belt', '🎗️', ['gold', 'drops'], { opal: 4, feather: 8 }),
+  xa('stormTonic', 'Bottled Storm', '🧪', ['rate'], { thunder: 8, stormstone: 3 }, { kind: 'potion', stat: 'rate', value: 0.6, duration: 6, cooldown: 22 }),
+  xa('galeDraught', 'Gale Draught', '🧪', ['tapSize'], { feather: 10, opal: 3 }, { kind: 'potion', stat: 'tapSize', value: 0.6, duration: 8, cooldown: 24 }),
+  xa('opalRing', 'Opal Ring', '💍', ['critDamage', 'tapPower'], { opal: 4, thunder: 6 }),
+  xa('stormstoneAmulet', 'Stormstone Amulet', '📿', ['cooldown', 'damage'], { stormstone: 4, thunder: 6 }),
+  xa('thunderlordCrown', 'Thunderlord Crown', '👑', ['damage', 'rate'], { stormstone: 5, opal: 4, thunder: 8 }, { kind: 'strike', targets: 3, cooldown: 7, range: 240, dmg: 'lightning' }, true),
 
   // ---- Meteor Field ----
   ...at('meteors'),
@@ -341,6 +432,15 @@ export const GEAR_CATALOG = [
   a('sentinelPlate', 'Sentinel Plate', '🛡️', 'heavy', { meteor: 14, stardust: 6 }),
   a('starlitCloak', 'Starlit Cloak', '🧥', 'light', { stardust: 12, meteor: 6 }),
   x('mitePouch', 'Rock Mite Pouch', '👝', ['gold'], { meteor: 10, stardust: 4 }),
+  xa('starHelm', 'Starforged Helm', '🪖', ['stun', 'damage'], { starIron: 6, meteor: 6 }),
+  xa('meteorBracers', 'Meteor Bracers', '🧤', ['critDamage', 'rate'], { meteor: 8, starIron: 4 }),
+  xa('nebulaCloak', 'Nebula Cloak', '🧥', ['radius', 'cooldown'], { stardust: 10, adamantite: 3 }, { kind: 'pulse', radius: 90, cooldown: 6, dmg: 'radiant' }),
+  xa('adamantBelt', 'Adamant Belt', '🎗️', ['damage', 'crit'], { adamantite: 4, starIron: 6 }),
+  xa('stardustTonic', 'Stardust Tonic', '🧪', ['drops'], { stardust: 10, meteor: 4 }, { kind: 'potion', stat: 'gold', value: 1, duration: 8, cooldown: 25 }),
+  xa('cometDraught', 'Comet Draught', '🧪', ['damage'], { meteor: 8, stardust: 6 }, { kind: 'potion', stat: 'damage', value: 0.6, duration: 6, cooldown: 22 }),
+  xa('meteorRing', 'Meteorite Ring', '💍', ['tapPower', 'critDamage'], { meteor: 8, starIron: 4 }),
+  xa('starAmulet', 'Starlight Amulet', '📿', ['duration', 'tapSize'], { stardust: 8, adamantite: 3 }),
+  xa('cosmicCrown', 'Cosmic Crown', '👑', ['critDamage', 'cooldown'], { adamantite: 5, starIron: 6 }, { kind: 'pulse', radius: 110, cooldown: 5, dmg: 'radiant' }, true),
 
   // ---- Void Rift: the long final stretch, the biggest armory ----
   ...at('rift'),
@@ -380,6 +480,15 @@ export const GEAR_CATALOG = [
   w('behemothSpear', 'Behemoth Spear', '🔱', 'spear', 'physical', { soul: 14, void: 6 }),
   a('succubusRobe', 'Succubus Robe', '👘', 'robe', { soul: 12, shade: 6 }),
   x('horrorEye', 'Eye of Horror', '👁️', ['range'], { void: 10, shade: 6 }),
+  xa('voidHelm', 'Voidsteel Helm', '🪖', ['stun', 'critDamage'], { voidsteel: 5, shade: 8 }),
+  xa('shadeBracers', 'Shade Bracers', '🧤', ['rate', 'crit'], { shade: 10, void: 4 }),
+  xa('riftCloak', 'Riftwalker Cloak', '🧥', ['radius', 'duration'], { void: 8, soul: 5 }, { kind: 'evade', chance: 0.12 }),
+  xa('soulBelt', 'Soulbound Belt', '🎗️', ['gold', 'drops', 'damage'], { soul: 6, voidsteel: 4 }),
+  xa('voidTonic', 'Void Tonic', '🧪', ['cooldown'], { void: 8, shade: 6 }, { kind: 'potion', stat: 'cooldown', value: 0.4, duration: 8, cooldown: 24 }),
+  xa('soulDraught', 'Soul Draught', '🧪', ['critDamage'], { soul: 8, voidPrism: 2 }, { kind: 'potion', stat: 'critDamage', value: 0.9, duration: 6, cooldown: 22 }),
+  xa('prismRing', 'Prism Ring', '💍', ['tapPower', 'tapSize'], { voidPrism: 3, voidsteel: 4 }),
+  xa('eclipseAmulet', 'Eclipse Amulet', '📿', ['damage', 'duration'], { voidsteel: 6, soul: 6 }),
+  xa('timeEaterCrown', 'Crown of Lost Time', '👑', ['cooldown', 'critDamage', 'damage'], { voidPrism: 5, voidsteel: 8 }, { kind: 'potion', stat: 'rate', value: 0.8, duration: 8, cooldown: 20 }, true),
 ] as const;
 
 export type CatalogGearId = (typeof GEAR_CATALOG)[number]['id'];
