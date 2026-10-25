@@ -241,6 +241,12 @@ export interface EnemyStats {
   spawnRate: number;
   dropChance: number;
   material: MaterialId;
+  /** Evolutions with their own behaviour on the battlefield (0: none). Chance a slain one splits in two. */
+  split: number;
+  /** Chance one that dies Burning leaves burning sticks behind. */
+  fireTrail: number;
+  /** Lunges at Hunters who come close. */
+  lunge: boolean;
 }
 
 /** Expected per-second yield of a group of Hunters farming an area. */
@@ -292,6 +298,17 @@ export class Game {
   constructor(state: GameState, rng: () => number = Math.random) {
     this.state = state;
     this.rng = rng;
+    // Evolution trees change (the Skill Trees editor): ranks past a node's new max, or in a node that's gone, are
+    // given back as points.
+    for (const [id, b] of Object.entries(state.bestiary) as [EnemyId, GameState['bestiary'][EnemyId]][]) {
+      const tree = MONSTER_EVO_TREES[id];
+      if (!tree) continue;
+      for (const [node, rank] of Object.entries(b.evo)) {
+        const n = tree.find((x) => x.id === node);
+        if (!n) delete b.evo[node];
+        else if (rank > n.maxRank) b.evo[node] = n.maxRank;
+      }
+    }
   }
 
   on(fn: (e: GameEvent) => void): void {
@@ -1765,6 +1782,9 @@ export class Game {
       spawnRate: b.unlocked ? Math.max(def.spawn * emp('spawn') * (1 + evo.spawn) * (1 + 0.2 * this.item('lure')) * (isGolem(def) ? 1 : idol.spawn) * swarm.spawn, swarm.spawn ? (ev?.minSpawn?.[id] ?? 0) : 0) : 0,
       dropChance: BASE_DROP_CHANCE * (1 + 0.25 * this.item('pouch')) * emp('drops') * (1 + evo.drops) * (this.buffOn('huntingPractice') ? 1 + BUFF_KEEN_EYE : 1) * this.premiumMult('drops'),
       material: def.material,
+      split: Math.min(1, evo.split),
+      fireTrail: Math.min(1, evo.fireTrail),
+      lunge: evo.lunge > 0,
     };
   }
 
@@ -1944,7 +1964,8 @@ export class Game {
       if (item && fd && item.stars >= fd.stars && enemyDef(type).archetype === fd.archetype && this.rng() < fd.chance) gain(fd.material, 1);
     }
     told();
-    const loot = lootChance(type) * this.areaPerk(enemyDef(type).area).loot;
+    // Scavenged Goods (a Goblin evolution): its own extra chance of a piece of loot from its area.
+    const loot = (lootChance(type) + this.evo(type).loot) * this.areaPerk(enemyDef(type).area).loot;
     if (loot > 0 && this.rng() < loot) this.dropLoot(enemyDef(type).area);
     return { gold, material: amount > 0 ? e.material : null, amount, luck };
   }
@@ -2136,7 +2157,7 @@ export class Game {
       const n = take(`${area}:k:${id}`, rate * seconds);
       kills += n;
       s.bestiary[id].kills += n;
-      lootRate += rate * lootChance(id);
+      lootRate += rate * (lootChance(id) + this.evo(id).loot);
     }
     const loot: Array<{ gear: GearId; salvaged: boolean }> = [];
     const pieces = take(`${area}:loot`, lootRate * this.areaPerk(area).loot * seconds);
@@ -2548,7 +2569,7 @@ export class Game {
 
   /** Summed evolution effects of a monster. */
   evo(id: EnemyId): Record<EvoStat, number> {
-    const total: Record<EvoStat, number> = { hp: 0, gold: 0, drops: 0, spawn: 0, pack: 0, speed: 0 };
+    const total: Record<EvoStat, number> = { hp: 0, gold: 0, drops: 0, spawn: 0, pack: 0, speed: 0, split: 0, fireTrail: 0, lunge: 0, loot: 0 };
     const ranks = this.state.bestiary[id].evo;
     for (const n of this.evoTree(id)) {
       const r = ranks[n.id] ?? 0;

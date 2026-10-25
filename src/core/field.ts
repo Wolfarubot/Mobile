@@ -68,6 +68,18 @@ const GUARD_BOUNCE = 220;
 export const SLAM_OFFSET = 0.85;
 /** Seconds between puddle ticks; a puddle lasts its special's `ticks` of these. */
 const PUDDLE_TICK = 0.5;
+/** Splitting Slime: each half's share of the slain slime's health and size. */
+const SPLIT_HP = 0.5;
+const SPLIT_SIZE = 0.75;
+/** Fire Starter's burning sticks: how long they burn, how far they reach, and each tick's damage (a share of the Twiggling's health). */
+const STICKS_LIFE = 4;
+const STICKS_RADIUS = 26;
+const STICKS_DAMAGE = 0.3;
+/** Hunter Hunter: a wolf this close to a Hunter lunges, this many times its speed for LUNGE_TIME seconds, then waits LUNGE_COOLDOWN. */
+const LUNGE_RANGE = 90;
+const LUNGE_SPEED = 3.5;
+const LUNGE_TIME = 0.35;
+const LUNGE_COOLDOWN = 2.5;
 const RICOCHET_RANGE = 160;
 
 /** How far a blood bolt flies looking for its next monster. */
@@ -98,6 +110,10 @@ export interface Enemy {
   scale?: number;
   /** A gold monster (1 in GOLDEN_ODDS): GOLDEN_GOLD × the gold and GOLDEN_DROPS × the drop chance. */
   golden?: boolean;
+  /** One of the two halves a Splitting Slime breaks into (they don't split again). */
+  half?: boolean;
+  /** Hunter Hunter (a Forest Wolf evolution): it lunges at Hunters who come close. `dash`: seconds of lunge left; `cd`: until the next. */
+  lunge?: { dash: number; cd: number };
   /**
    * Charmed by Norm (or a copy of his Smooth Talk): for `left` seconds it hunts the nearest other monster instead
    * of the Hunters, biting it every CHARM_BITE seconds for `frac` of its own max health, credited to `by`.
@@ -416,6 +432,8 @@ export interface Puddle {
   /** A spell's puddle (Acid Pool): each tick is `k` of its cast. */
   cast?: SpellCast;
   k?: number;
+  /** Burning sticks a Twiggling left behind (Fire Starter): drawn as smouldering twigs rather than a pool. */
+  sticks?: boolean;
 }
 
 export type FieldEvent =
@@ -657,7 +675,35 @@ export class Field {
       ky: 0,
       phase: g.rng() * 10,
       ...(boss ? {} : { scale: artScale(g.rng(), g.rng(), g.rng()), ...(g.rng() >= 1 - 1 / GOLDEN_ODDS ? { golden: true } : {}) }),
+      ...(!boss && stats.lunge ? { lunge: { dash: 0, cd: g.rng() * LUNGE_COOLDOWN } } : {}),
     });
+  }
+
+  /** Splitting Slime: a slain slime breaks into two smaller halves, thrown apart where it fell. */
+  private split(e: Enemy): void {
+    const g = this.game;
+    for (const side of [-1, 1]) {
+      const a = g.rng() * Math.PI * 2;
+      const hp = e.maxHp * SPLIT_HP;
+      this.enemies.push({
+        id: this.nextId++,
+        type: e.type,
+        x: e.x + side * e.r * 0.6,
+        y: e.y,
+        hp,
+        maxHp: hp,
+        r: e.r * SPLIT_SIZE,
+        speed: e.speed,
+        boss: false,
+        fleeing: false,
+        flash: 0,
+        kx: Math.cos(a) * 120 + side * 60,
+        ky: Math.sin(a) * 120,
+        phase: g.rng() * 10,
+        scale: (e.scale ?? 1) * SPLIT_SIZE,
+        half: true,
+      });
+    }
   }
 
   /** In a gated area, a coordinate across a gate kept within its opening (`across`: this is the gate's width). */
@@ -825,7 +871,20 @@ export class Field {
         // A ranged monster stops within its range and shoots instead.
         const reach = ranged ? Math.max(ranged.range * 0.9, walled ? this.boneWallR + e.r : 0) : walled ? this.boneWallR + e.r : e.r + PLAYER_RADIUS;
         if (ranged) this.rangedAttack(e, ranged, t, d, dt);
-        const step = Math.min(speed * dt, Math.max(0, d - reach));
+        // Hunter Hunter: close enough, it lunges.
+        let lunge = 1;
+        if (e.lunge && !walled) {
+          e.lunge.cd = Math.max(0, e.lunge.cd - dt);
+          if (e.lunge.dash > 0) {
+            e.lunge.dash = Math.max(0, e.lunge.dash - dt);
+            lunge = LUNGE_SPEED;
+          } else if (e.lunge.cd === 0 && d - reach < LUNGE_RANGE && !e.held) {
+            e.lunge.dash = LUNGE_TIME;
+            e.lunge.cd = LUNGE_COOLDOWN;
+            lunge = LUNGE_SPEED;
+          }
+        }
+        const step = Math.min(speed * lunge * dt, Math.max(0, d - reach));
         const [ux, uy] = this.steer(e, -dx / d, -dy / d);
         e.x += ux * step + e.kx * dt;
         e.y += uy * step + e.ky * dt;
@@ -2950,6 +3009,13 @@ export class Field {
       const reward = this.game.registerKill(e.type, e.boss, shooter, !!e.golden);
       if (e.golden) this.say(e.x, e.y - 18, `×${GOLDEN_GOLD} GOLD!`, '#ffd84a', 12);
       if (this.zones.length) this.raiseFallen(e);
+      if (!e.boss) {
+        const st = this.game.enemyStats(e.type);
+        // Splitting Slime and Fire Starter (evolutions).
+        if (st.split && !e.half && this.game.rng() < st.split) this.split(e);
+        if (st.fireTrail && e.burn && this.game.rng() < st.fireTrail)
+          this.puddles.push({ shooter, x: e.x, y: e.y, r: STICKS_RADIUS, life: STICKS_LIFE, tick: PUDDLE_TICK, dmg: 0, abs: e.maxHp * STICKS_DAMAGE, dtype: 'fire', sticks: true });
+      }
       this.bloodthirst(shooter);
       this.quickDrawKill(shooter);
       // Fireburst (an enchantment): monsters the weapon kills burst, hurting everything around them.

@@ -7,7 +7,7 @@ const dropDevFiles = (): Plugin => ({
   name: 'drop-dev-files',
   apply: 'build',
   closeBundle() {
-    rmSync(resolve(__dirname, 'dist/dev-presets.json'), { force: true });
+    rmSync(resolve(import.meta.dirname, 'dist/dev-presets.json'), { force: true });
   },
 });
 

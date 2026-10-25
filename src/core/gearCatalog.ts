@@ -75,16 +75,16 @@ export const GEAR_CATALOG = [
   w('nightmareLongbow', 'Nightmare Longbow', '🏹', 'longbow', 'decay', { nightmareWisp: 8, wing: 6 }),
   w('cultistTome', 'Cultist Tome', '📕', 'tome', 'decay', { sacredText: 10, robePiece: 5 }),
   a('vampireCape', 'Vampire Cape', '🧛', 'light', { vampEssence: 8, wing: 6 }),
-  x('graveLantern', 'Grave Lantern', '🏮', ['radius'], { nightmareWisp: 8, bone: 4 }),
+  x('graveLantern', 'Grave Crest', '🏮', ['radius'], { nightmareWisp: 8, bone: 4 }),
 
   // ---- Forbidden Crypt: more of everything ----
   ...at('crypt'),
   w('crowBow', 'Crowfeather Bow', '🪶', 'shortbow', 'physical', { undeadFeather: 10, string: 4 }),
   w('stringCrossbow', 'Puppet-String Crossbow', '🎯', 'crossbow', 'physical', { string: 10, enchantedScrap: 4 }),
   w('cryptBlade', 'Crypt Blade', '⚔️', 'sword', 'decay', { enchantedScrap: 10, wrap: 4 }),
-  w('cursedDagger', 'Cursed Dagger', '🗡️', 'dagger', 'decay', { enchantedScrap: 8, undeadFeather: 5 }),
+  w('cursedDagger', 'Cursed Shotel', '🗡️', 'dagger', 'decay', { enchantedScrap: 8, undeadFeather: 5 }),
   w('sarcophagusHammer', 'Sarcophagus Hammer', '🔨', 'hammer', 'physical', { enchantedScrap: 12, wrap: 6 }),
-  w('tombSpear', 'Tomb Spear', '🔱', 'spear', 'physical', { enchantedScrap: 10, string: 5 }),
+  w('tombSpear', 'Tomb Lance', '🔱', 'spear', 'physical', { enchantedScrap: 10, string: 5 }),
   w('forbiddenWand', 'Forbidden Wand', '📜', 'wand', 'decay', { grave: 8, wrap: 4 }),
   w('hexStaff', 'Hex Staff', '🪄', 'staff', 'arcane', { grave: 10, string: 5 }),
   w('wrappingTome', 'Tome of Wrappings', '📕', 'tome', 'decay', { wrap: 10, grave: 5 }),
@@ -190,7 +190,7 @@ export const GEAR_CATALOG = [
   w('basiliskCrossbow', 'Basilisk Crossbow', '🎯', 'crossbow', 'poison', { scale: 10, ore: 5 }),
   a('basiliskShield', 'Basilisk Shield', '🛡️', 'shield', { scale: 10, ore: 6 }),
   a('koboldVest', 'Kobold Vest', '🧥', 'light', { ore: 10, chitin: 4 }),
-  x('venomNecklace', 'Venom Fang Necklace', '📿', ['damage'], { scale: 8, ore: 6 }),
+  x('venomNecklace', 'Venom Vial Necklace', '📿', ['damage'], { scale: 8, ore: 6 }),
 
   // ---- Frost Peaks ----
   ...at('peaks'),
@@ -275,7 +275,7 @@ export const GEAR_CATALOG = [
   w('valkyrieSpear', 'Valkyrie Spear', '🔱', 'spear', 'radiant', { feather: 10, thunder: 5 }),
   w('skyKnightSword', 'Sky Knight Sword', '⚔️', 'sword', 'lightning', { thunder: 10, feather: 4 }),
   w('boltDagger', 'Bolt Dagger', '🗡️', 'dagger', 'lightning', { thunder: 8, feather: 4 }),
-  w('cloudcleaver', 'Cloudcleaver', '🪓', 'glaive', 'lightning', { thunder: 12, feather: 6 }),
+  w('cloudcleaver', 'Cloudripper', '🪓', 'glaive', 'lightning', { thunder: 12, feather: 6 }),
   w('stormcallWand', 'Stormcall Wand', '🪄', 'wand', 'lightning', { thunder: 8, feather: 4 }),
   w('tempestStaff', 'Tempest Staff', '⚡', 'staff', 'lightning', { thunder: 12, feather: 5 }),
   w('cloudheartFocus', 'Cloudheart Focus', '☁️', 'focus', 'lightning', { feather: 10, thunder: 6 }),

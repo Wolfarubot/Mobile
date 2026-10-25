@@ -1500,7 +1500,11 @@ export type EvoStat =
   | 'drops' // +x material drop chance (multiplier)
   | 'spawn' // +x spawn rate (multiplier)
   | 'pack' // +x monsters per pack (they arrive in bigger hordes)
-  | 'speed'; // +x move speed (multiplier): riskier, usually paired with a bigger reward
+  | 'speed' // +x move speed (multiplier): riskier, usually paired with a bigger reward
+  | 'split' // +x chance a slain one splits into two smaller ones (Green Slime's Splitting Slime)
+  | 'fireTrail' // +x chance one that dies Burning leaves burning sticks that hurt monsters (Twiggling's Fire Starter)
+  | 'lunge' // they lunge at Hunters who come close (Forest Wolf's Hunter Hunter)
+  | 'loot'; // +x chance a kill drops a piece of loot from its area (Goblin's Scavenged Goods)
 export type EvoNode = TreeNode<EvoStat>;
 type EvoSpec = Pick<EvoNode, 'name' | 'icon' | 'desc' | 'maxRank' | 'effect'> & { id: string };
 const ev = (id: string, name: string, icon: string, desc: string, maxRank: number, effect: EvoNode['effect']): EvoSpec => ({ id, name, icon, desc, maxRank, effect });
@@ -1608,6 +1612,55 @@ export const EVO_TREES: Record<Archetype, EvoNode[]> = {
   ),
 };
 
+/** A node placed by hand (a monster's own tree, from the Skill Trees editor). */
+const evn = (id: string, name: string, icon: string, desc: string, maxRank: number, effect: EvoNode['effect'], row: number, col: number, requires: string[], cost = 1): EvoNode => ({ id, name, icon, desc, maxRank, effect, row, col, requires, cost });
+
+/**
+ * Monsters with their own evolution tree instead of their archetype's (designed in the Skill Trees editor). The
+ * capstone's desc is used as written (it already names the Legacy's drop); each tree still totals the 29 points of
+ * levels 2–30.
+ */
+const EVO_OWN_TREES: Partial<Record<EnemyId, EvoNode[]>> = {
+  greenSlime: [
+    evn('root', 'Gelatinous Bulk', '🟢', '+25% HP and +25% gold.', 1, { hp: 0.25, gold: 0.25 }, 0, 1, []),
+    evn('wealth', 'Sticky Coins', '💰', '+15% gold per rank.', 5, { gold: 0.15 }, 1, 0, ['root']),
+    evn('ooze', 'Slime Squad', '🫧', 'Increase Horde size by 1 per rank.', 3, { pack: 1 }, 1, 1, ['root']),
+    evn('horde', 'Ooze Trail', '👥', '+12% spawns per rank.', 5, { spawn: 0.12 }, 1, 2, ['root']),
+    evn('wealth2', 'Treasure Gel', '🪙', '+20% gold per rank.', 5, { gold: 0.2 }, 2, 0, ['wealth', 'ooze']),
+    evn('horde2', 'Splitting Slime', '🫧', 'When slain, Green Slimes have a 25% chance per rank to split into 2 smaller slimes.', 4, { split: 0.25 }, 2, 1, ['wealth', 'ooze', 'horde']),
+    evn('harvest2', 'Bursting Ooze', '💧', '+15% material drops per rank.', 5, { drops: 0.15 }, 2, 2, ['ooze', 'horde']),
+    evn('capstone', "A Green Slime's Legacy", '👑', '+50% gold\n+30% drops.\nAll Slime type monsters have a small chance to drop Royal Slime.', 1, { gold: 0.5, drops: 0.3 }, 3, 1, ['wealth2', 'horde2', 'harvest2']),
+  ],
+  twiggling: [
+    evn('root', 'Deep Roots', '🌿', '+30% HP\n+20% Material Drops', 1, { hp: 0.3, drops: 0.2 }, 0, 1, []),
+    evn('harvest', 'Kindling Harvest', '💎', '+15% Material Drops per rank.', 6, { drops: 0.15 }, 1, 0, ['root']),
+    evn('horde2', 'Fire Starter', '🍄', 'Twigglings that die while Burning have a 10% chance per rank to leave burning sticks on the ground that damage Monsters that walk over them.', 4, { fireTrail: 0.1 }, 1, 1, ['root']),
+    evn('horde', 'Spreading Spores', '👥', '+15% spawns per rank.', 6, { spawn: 0.15 }, 1, 2, ['root']),
+    evn('harvest2', 'Bountiful Bundle', '🌸', '+30% material drops per rank.', 3, { drops: 0.3 }, 2, 0.5, ['harvest', 'horde2']),
+    evn('rooted', 'Golden Sap', '🪙', '+20% gold and 10% slower per rank.', 3, { gold: 0.2, speed: -0.1 }, 2, 1.5, ['horde2', 'horde']),
+    evn('capstone', "A Twiggling's Legacy", '👑', '+50% Material Drops\n+40% gold.\nAll Plant type Monsters have a small chance to drop Twigs.', 1, { drops: 0.5, gold: 0.4 }, 3, 1, ['horde2', 'harvest2', 'rooted'], 6),
+  ],
+  wolf: [
+    evn('root', 'Thick Hide', '🐾', '+20% HP and +20% material drops.', 1, { hp: 0.2, drops: 0.2 }, 0, 1, []),
+    evn('wealth', 'Hunting Grounds', '💰', '+15% gold per rank.', 7, { gold: 0.15 }, 1, 0, ['root']),
+    evn('horde2', 'Hunter Hunter', '🐺', '+50% Gold and Material Drops\nWolves now lunge at Hunters when they get close enough.', 1, { gold: 0.5, drops: 0.5, lunge: 1 }, 1, 1, ['wealth', 'harvest'], 3),
+    evn('harvest', 'Valuable Pelts', '💎', '+15% material drops per rank.', 7, { drops: 0.15 }, 1, 2, ['root']),
+    evn('wealth2', 'Prized Pelts', '🪙', '+40% gold but 8% faster per rank.', 3, { gold: 0.4, speed: 0.08 }, 2, 0.5, ['wealth']),
+    evn('harvest2', 'Alpha Stock', '🦴', '+25% material drops per rank.', 3, { drops: 0.25 }, 2, 1.5, ['harvest']),
+    evn('capstone', "A Forest Wolf's Legacy", '👑', '+40% gold\n+25% spawns\nAll Beast type Monsters have a small chance to drop Beast Bones.', 1, { gold: 0.4, spawn: 0.25 }, 3, 1, ['horde2', 'wealth2', 'harvest2'], 5),
+  ],
+  goblin: [
+    evn('root', 'Loot Sacks', '👤', '+10% HP and +30% gold.', 1, { hp: 0.1, gold: 0.3 }, 0, 1, []),
+    evn('wealth', 'Stolen Wealth', '💰', '+20% gold per rank.', 6, { gold: 0.2 }, 1, 0, ['root']),
+    evn('horde', 'Angry Horde', '👥', '+12% spawns per rank.', 4, { spawn: 0.12 }, 1, 1, ['root']),
+    evn('harvest', 'Supply Lines', '💎', '+10% material drops per rank.', 3, { drops: 0.1 }, 1, 2, ['root']),
+    evn('wealth2', 'War Chest', '🪙', '+35% gold per rank.', 3, { gold: 0.35 }, 2, 0, ['wealth', 'horde']),
+    evn('bounties', 'Scavenged Goods', '📜', '+2.5% chance per rank to drop Loot from the Wandering Woods.', 4, { loot: 0.025 }, 2, 1, ['wealth', 'horde', 'harvest']),
+    evn('horde2', 'Warbands', '⚔️', 'Packs of 1 more and +10% spawns per rank.', 3, { pack: 1, spawn: 0.1 }, 2, 2, ['horde', 'harvest']),
+    evn('capstone', "A Goblin's Legacy", '👑', '+50% gold and +20% spawns.\nAll Humanoid type Monsters have a small chance to drop Scrap.', 1, { gold: 0.5, spawn: 0.2 }, 3, 1, ['wealth2', 'bounties', 'horde2'], 5),
+  ],
+};
+
 /**
  * Legacies: a monster's capstone passes something on to every monster of its archetype, a small chance to
  * drop a material. A monster whose boss version is its area's Guardian passes on the Guardian's material (fully
@@ -1623,6 +1676,8 @@ const LEGACY_GUARDIAN: Partial<Record<EnemyId, EnemyId>> = {
 };
 /** A Legacy's share of each monster's drop chance: a Guardian's material, a monster's only drop, or half of its rarest extra drop's share. */
 export const LEGACY_GUARDIAN_SHARE = 0.1;
+/** Monsters whose Legacy passes on their own main drop rather than their rarest extra one (Brown Bear: Bear Claws). */
+const LEGACY_OWN = new Set<EnemyId>(['brownBear']);
 export const LEGACY_OWN_SHARE = 0.25;
 export const LEGACY_EXTRA_SHARE = 0.5;
 
@@ -1630,6 +1685,7 @@ export const LEGACY_EXTRA_SHARE = 0.5;
 export function evoLegacy(def: EnemyDef): { material: MaterialId; share: number } {
   const boss = LEGACY_GUARDIAN[def.id];
   if (boss) return { material: enemyDef(boss).material, share: LEGACY_GUARDIAN_SHARE };
+  if (LEGACY_OWN.has(def.id)) return { material: def.material, share: LEGACY_OWN_SHARE };
   const extras = enemyExtraDrops(def);
   if (!extras.length) return { material: def.material, share: LEGACY_OWN_SHARE };
   const rarest = extras.reduce((a, b) => (b.share < a.share ? b : a));
@@ -1643,12 +1699,13 @@ export function evoLegacy(def: EnemyDef): { material: MaterialId; share: number 
 function monsterEvoTree(def: EnemyDef): EvoNode[] {
   const legacy = evoLegacy(def);
   const kind = ARCHETYPES[def.archetype].name;
-  return EVO_TREES[def.archetype].map((n) =>
+  const own = EVO_OWN_TREES[def.id];
+  return (own ?? EVO_TREES[def.archetype]).map((n) =>
     n.id === 'capstone'
       ? {
           ...n,
-          name: `${def.name} Legacy`,
-          desc: `${n.desc} Legacy: every ${kind} (wherever it's hunted) has a small chance to also drop ${materialDef(legacy.material).name}.`,
+          name: `A ${def.name}'s Legacy`,
+          desc: own ? n.desc : `${n.desc}\nAll ${kind} type Monsters have a small chance to drop ${materialDef(legacy.material).name}.`,
           legacy,
         }
       : n,
@@ -3463,7 +3520,7 @@ export const GEAR: GearDef[] = [
   { id: 'voidRepeater', name: 'Void Repeater', icon: '🌀', kind: 'weapon', rarity: 'exalted', weaponClass: 'repeater', tier: 12, damageType: 'void', stats: { rate: 0.2 }, recipe: { shade: 10, void: 5 } },
   // Melee
   { id: 'boneMaul', name: 'Bone Maul', icon: '🔨', kind: 'melee', rarity: 'uncommon', weaponClass: 'hammer', tier: 3, damageType: 'physical', stats: {}, recipe: { bone: 12, flesh: 6 } },
-  { id: 'ironSpear', name: 'Bone Spear', icon: '🔱', kind: 'melee', rarity: 'uncommon', weaponClass: 'spear', tier: 3, damageType: 'physical', proc: 0.2, stats: {}, recipe: { bone: 10, flesh: 5 } },
+  { id: 'ironSpear', name: 'Undead Spear', icon: '🔱', kind: 'melee', rarity: 'uncommon', weaponClass: 'spear', tier: 3, damageType: 'physical', proc: 0.2, stats: {}, recipe: { bone: 10, flesh: 5 } },
   { id: 'magmaGlaive', name: 'Magma Glaive', icon: '🪓', kind: 'melee', rarity: 'veryRare', weaponClass: 'glaive', tier: 6, damageType: 'fire', proc: 0.4, stats: { range: 6 }, recipe: { demonTooth: 8, magma: 6 } },
   { id: 'soulLance', name: 'Soulreaver Lance', icon: '⚜️', kind: 'melee', rarity: 'exalted', weaponClass: 'spear', tier: 12, damageType: 'decay', proc: 0.2, stats: { pierce: 0.2 }, recipe: { soul: 8, void: 4 } },
   // Magic (Andrejz and Glimmer)
@@ -3482,7 +3539,7 @@ export const GEAR: GearDef[] = [
     tier: 2,
     damageType: 'physical',
     stats: {},
-    recipe: { pelt: 24 },
+    recipe: { pelt: 24, dust: 12 },
     summon: { look: 'wolf', name: 'wolf spirit', dash: { cooldown: 4, range: 150, speed: 520, damage: 2.5 } },
     ability: 'Its wolves lunge at a monster every 4s; a lunge that lands bites for ×2.5.',
   },
@@ -3511,7 +3568,7 @@ export const GEAR: GearDef[] = [
   { id: 'starsteelSword', name: 'Starsteel Sword', icon: '⚔️', kind: 'melee', rarity: 'artifact', weaponClass: 'sword', tier: 11, damageType: 'radiant', proc: 0.25, stats: {}, recipe: { meteor: 10, stardust: 6 } },
   { id: 'starScepter', name: 'Star Scepter', icon: '🌟', kind: 'magic', rarity: 'artifact', weaponClass: 'scepter', tier: 11, damageType: 'radiant', proc: 0.25, stats: {}, recipe: { stardust: 10, meteor: 4 } },
   // Armor: Light, Heavy, Robes and Shields; stats from their kind and tier (armorStats), specials from Very Rare up
-  { id: 'silkTunic', name: 'Pixie Silk Tunic', icon: '👚', kind: 'armor', armorType: 'light', rarity: 'uncommon', tier: 2, stats: armorStats('light', 2), recipe: { dust: 8, spore: 5 } },
+  { id: 'silkTunic', name: 'Ivy Mantle', icon: '👚', kind: 'armor', armorType: 'light', rarity: 'uncommon', tier: 2, stats: armorStats('light', 2), recipe: { dust: 8, spore: 5, thorn: 4 } },
   { id: 'buckler', name: 'Wooden Buckler', icon: '🛡️', kind: 'armor', armorType: 'shield', rarity: 'uncommon', tier: 2, stats: armorStats('shield', 2), recipe: { sap: 6, enchantedBone: 6 } },
   { id: 'cultistRobe', name: 'Cultist Robe', icon: '🥻', kind: 'armor', armorType: 'robe', rarity: 'uncommon', tier: 3, stats: armorStats('robe', 3), recipe: { robePiece: 10, sacredText: 5 } },
   { id: 'bonePlate', name: 'Bone Plate', icon: '🦴', kind: 'armor', armorType: 'heavy', rarity: 'uncommon', tier: 3, stats: armorStats('heavy', 3), recipe: { bone: 10, flesh: 6 } },
@@ -3531,13 +3588,13 @@ export const GEAR: GearDef[] = [
   { id: 'voidPlate', name: 'Void Plate', icon: '🌀', kind: 'armor', armorType: 'heavy', rarity: 'exalted', tier: 12, stats: armorStats('heavy', 12), recipe: { void: 10, shade: 6 }, effect: { kind: 'thorns', base: 440, damageType: 'void' } },
   { id: 'soulRobe', name: 'Soul Vestments', icon: '👻', kind: 'armor', armorType: 'robe', rarity: 'exalted', tier: 12, stats: armorStats('robe', 12), recipe: { soul: 10, shade: 5 }, effect: { kind: 'pulse', base: 440, damageType: 'void', radius: 120, cooldown: 5 } },
   // Accessories
-  { id: 'goldTooth', name: 'Gold Tooth', icon: '🦷', kind: 'accessory', rarity: 'uncommon', stats: { gold: 0.15 }, recipe: { scrap: 8, bone: 6 } },
+  { id: 'goldTooth', name: 'Gold Brooch', icon: '🦷', kind: 'accessory', rarity: 'uncommon', stats: { gold: 0.15 }, recipe: { scrap: 8, bone: 6 } },
   { id: 'satchel', name: "Scavenger's Satchel", icon: '👜', kind: 'accessory', rarity: 'uncommon', stats: { drops: 0.15 }, recipe: { robePiece: 6, flesh: 8 } },
   { id: 'emberOrb', name: 'Ember Orb', icon: '🔮', kind: 'accessory', rarity: 'veryRare', stats: { radius: 0.12, damage: 0.08 }, recipe: { ember: 8, magma: 4 } },
   { id: 'hawkeyeLens', name: 'Hawkeye Lens', icon: '🔭', kind: 'accessory', rarity: 'rare', stats: { range: 20 }, recipe: { chitin: 8, umbralEye: 4 } },
   { id: 'soulRing', name: 'Soul Ring', icon: '💍', kind: 'accessory', rarity: 'relic', stats: { damage: 0.25, crit: 0.02 }, recipe: { soul: 6, ecto: 6 } },
   // Accessories with abilities of their own (found on nothing else)
-  { id: 'puppetDoll', name: "Puppeteer's Doll", icon: '🪆', kind: 'accessory', rarity: 'rare', tier: 4, stats: {}, recipe: { string: 10, wrap: 5 }, effect: { kind: 'summon', base: 8, damageType: 'physical', look: 'puppet', type: 'construct', name: 'puppet', count: 2, duration: 6, cooldown: 8, bites: 1.5, speed: 140 } },
+  { id: 'puppetDoll', name: "Puppeteer's Brooch", icon: '🪆', kind: 'accessory', rarity: 'rare', tier: 4, stats: {}, recipe: { string: 10, wrap: 5 }, effect: { kind: 'summon', base: 8, damageType: 'physical', look: 'puppet', type: 'construct', name: 'puppet', count: 2, duration: 6, cooldown: 8, bites: 1.5, speed: 140 } },
   { id: 'flameBrand', name: 'Flame Brand', icon: '🔥', kind: 'accessory', rarity: 'veryRare', tier: 6, stats: {}, recipe: { demonTooth: 8, ember: 6, forsakenSoul: 2 }, effect: { kind: 'wave', base: 45, damageType: 'fire', radius: 100, chance: 0.3 } },
   { id: 'frostCharm', name: 'Frostbite Charm', icon: '❄️', kind: 'accessory', rarity: 'legendary', tier: 8, stats: {}, recipe: { frost: 10, ecto: 6 }, effect: { kind: 'chill', radius: 110 } },
   { id: 'thunderTotem', name: 'Thunder Totem', icon: '🗿', kind: 'accessory', rarity: 'relic', tier: 10, stats: {}, recipe: { thunder: 10, feather: 6 }, effect: { kind: 'strike', base: 230, damageType: 'lightning', targets: 3, cooldown: 3, range: 320 } },

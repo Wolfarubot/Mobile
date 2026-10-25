@@ -2,7 +2,8 @@ import { buzz } from '../ui/haptics';
 import { sfx } from '../ui/sound';
 import { MAGIC_SFX, SFX } from '../ui/sfxConfig';
 import { areaDef, DAMAGE_TYPES, FIELD_ZOOM, FLYING, gearDef, WEAPON_CLASSES, STATUS, enemyDef, eventDef, fieldZoom, GUARDIAN_TIME, hunterDef, materialDef, SIZE_SCALE, type AreaId, type DamageType, type EnemyId, type EnemyShape, type SummonType } from '../core/balance';
-import { DICE_FLIGHT, DICE_REST, PLAYER_RADIUS, SHOT_RADIUS, SUMMON_RADIUS, TOME_LIFE, TOME_OPEN, type EnemyShot, type Summon, type SpellZone, type FieldEvent, type Bullet, type BulletKind, type Enemy, type Field, type Helper } from '../core/field';
+import { DICE_FLIGHT, DICE_REST, PLAYER_RADIUS, SHOT_RADIUS, SUMMON_RADIUS, TOME_LIFE, TOME_OPEN, type EnemyShot, type Summon, type SpellZone, type FieldEvent, type Bullet, type BulletKind, type Enemy, type Field, type Helper, type Puddle } from '../core/field';
+import { MATERIAL_SPRITES } from '../core/materialSprites';
 import { fmt } from '../core/format';
 import type { Game, Shooter } from '../core/game';
 import type { ClarityLevel, FxKey } from '../core/state';
@@ -359,6 +360,35 @@ export class BattleView {
     this.fx.update(dt);
   }
 
+  /** Fire Starter's burning sticks: the Twigs icon smouldering, embers rising off it, fading as it burns out. */
+  private drawSticks(g: CanvasRenderingContext2D, p: Puddle): void {
+    const fade = Math.min(1, p.life / 0.8);
+    const img = gearImage(MATERIAL_SPRITES.twig);
+    const s = p.r * 1.1;
+    g.save();
+    g.globalAlpha = fade;
+    // A warm glow on the ground: as far as the sticks burn.
+    g.fillStyle = 'rgba(255,120,30,0.18)';
+    g.beginPath();
+    g.ellipse(p.x, p.y, p.r, p.r * 0.6, 0, 0, Math.PI * 2);
+    g.fill();
+    if (img) {
+      g.imageSmoothingEnabled = false;
+      g.drawImage(img, p.x - s / 2, p.y - s / 2, s, s);
+    }
+    if (this.fxOn('burn')) {
+      const colors = ['#ffd23a', '#ff8a2a', '#e8321e'];
+      for (let i = 0; i < 5; i++) {
+        const t = (this.time * 1.6 + i / 5) % 1;
+        const sx = p.x + Math.sin(i * 2.1 + this.time * 3) * p.r * 0.45;
+        g.fillStyle = colors[i % 3];
+        g.globalAlpha = fade * (1 - t);
+        g.fillRect(sx - 1, p.y - t * p.r * 0.9 - 1, 2, 2);
+      }
+    }
+    g.restore();
+  }
+
   private dropPickup(x: number, y: number, color: string, gem: boolean, count: number): void {
     if (this.pickups.length > 200) return;
     for (let i = 0; i < count; i++) {
@@ -403,6 +433,10 @@ export class BattleView {
     // Potion and acid puddles: bubbling pools (acid's are simply smaller and yellower).
     const basic = this.game.state.settings.aoeStyle === 'basic';
     for (const p of this.field.puddles) {
+      if (p.sticks) {
+        this.drawSticks(g, p);
+        continue;
+      }
       if (p.dtype === 'acid' && !this.fxOn('acid')) continue;
       if (basic) {
         const rgb = p.dtype === 'acid' ? '198,240,58' : '123,224,123';

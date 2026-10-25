@@ -429,7 +429,7 @@ describe('Enemies & archetypes', () => {
     expect(rooted.gold).toBeCloseTo(base.gold * 1.25);
     expect(g.evolve('greenSlime', 'root')).toBe(false); // maxed at 1 rank
     expect(g.evolve('greenSlime', 'horde')).toBe(true);
-    expect(g.evolve('greenSlime', 'horde2')).toBe(true); // Small Hordes
+    expect(g.evolve('greenSlime', 'ooze')).toBe(true); // Slime Squad
     expect(g.packOf('greenSlime')).toEqual([enemyDef('greenSlime').pack[0] + 1, enemyDef('greenSlime').pack[1] + 1]);
     const points = g.evoPoints('greenSlime');
     expect(points).toBe(g.monsterLevelInfo('greenSlime').level - 1 - 3);
@@ -444,7 +444,11 @@ describe('Enemies & archetypes', () => {
       for (const n of EVO_TREES[a].slice(1)) expect(n.requires.length).toBeGreaterThan(0);
     }
     expect(new Set(Object.values(EVO_TREES).map((t) => t.map((n) => `${n.id}${n.maxRank}`).join())).size).toBe(Object.keys(EVO_TREES).length);
-    for (const e of ENEMIES) expect(MONSTER_EVO_TREES[e.id].map((n) => n.id)).toEqual(EVO_TREES[e.archetype].map((n) => n.id));
+    // Monsters with a tree of their own (the Skill Trees editor) keep its 29 points; the rest copy their archetype's.
+    const own = ['greenSlime', 'twiggling', 'wolf', 'goblin'];
+    for (const e of ENEMIES)
+      if (own.includes(e.id)) expect(pointsIn(MONSTER_EVO_TREES[e.id])).toBe(pointsIn(EVO_TREES.slime));
+      else expect(MONSTER_EVO_TREES[e.id].map((n) => n.id)).toEqual(EVO_TREES[e.archetype].map((n) => n.id));
   });
 
   it('Legacies: a fully evolved monster gives every monster of its archetype a small chance at a material', () => {
@@ -454,9 +458,9 @@ describe('Enemies & archetypes', () => {
     expect(evoLegacy(enemyDef('geodeGolem'))).toEqual({ material: 'diamond', share: 0.03 * LEGACY_EXTRA_SHARE });
     expect(evoLegacy(enemyDef('twiggling'))).toEqual({ material: 'twig', share: LEGACY_OWN_SHARE });
     const cap = MONSTER_EVO_TREES.greenSlime.find((n) => n.id === 'capstone')!;
-    expect(cap.name).toBe('Green Slime Legacy');
+    expect(cap.name).toBe("A Green Slime's Legacy");
     expect(cap.desc).toContain('Royal Slime');
-    expect(cap.effect).toEqual(EVO_TREES.slime[7].effect); // its own bonus stays
+    expect(cap.effect).toEqual({ gold: 0.5, drops: 0.3 }); // its own bonus stays
     expect(g.legacyDrops('slime')).toEqual([]);
     g.state.bestiary.greenSlime.evo.capstone = 1;
     expect(g.legacyDrops('slime')).toEqual([{ material: 'royalSlime', share: LEGACY_GUARDIAN_SHARE }]);
@@ -1281,6 +1285,53 @@ describe('Equipment', () => {
     }
     expect(hits.map((h) => h.affinity)).toEqual(['weak', 'weak', 'resist']);
     expect(hits[0].dmg / hits[2].dmg).toBeCloseTo(WEAK_MULT / RESIST_MULT);
+  });
+
+  it('monster evolutions with their own behaviour: Splitting Slime, Fire Starter, Hunter Hunter, Scavenged Goods', () => {
+    const g = stocked();
+    const f = new Field(g);
+    const api = f as unknown as { damage: (e: Enemy, dmg: number, crit: boolean, dx: number, dy: number) => void; moveEnemies: (dt: number) => void };
+    (g as unknown as { rng: () => number }).rng = () => 0;
+    // Splitting Slime: a slain Green Slime breaks into two halves, which don't split again.
+    g.state.bestiary.greenSlime.evo.horde2 = 4;
+    expect(g.enemyStats('greenSlime').split).toBe(1);
+    const slime = enemy({ id: 1, type: 'greenSlime', x: 0, y: -200, hp: 10, maxHp: 10 });
+    f.enemies = [slime];
+    api.damage(slime, 100, false, 0, 0);
+    const halves = f.enemies.filter((e) => e.hp > 0);
+    expect(halves).toHaveLength(2);
+    expect(halves.every((e) => e.half && e.maxHp === 5)).toBe(true);
+    api.damage(halves[0], 100, false, 0, 0);
+    expect(f.enemies.filter((e) => e.hp > 0)).toHaveLength(1);
+    // Fire Starter: a Twiggling that dies Burning leaves burning sticks; one that isn't burning doesn't.
+    g.state.bestiary.twiggling.evo.horde2 = 4;
+    const twig = (id: number, burning: boolean) => enemy({ id, type: 'twiggling', x: 0, y: -200, hp: 10, maxHp: 10, ...(burning ? { burn: { dps: 1, left: 2, acc: 0 } as unknown as Enemy['burn'] } : {}) });
+    f.puddles = [];
+    const cold = twig(5, false);
+    f.enemies = [cold];
+    api.damage(cold, 100, false, 0, 0);
+    expect(f.puddles).toHaveLength(0);
+    const hot = twig(6, true);
+    f.enemies = [hot];
+    api.damage(hot, 100, false, 0, 0);
+    expect(f.puddles).toHaveLength(1);
+    expect(f.puddles[0]).toMatchObject({ sticks: true, dtype: 'fire', abs: 3 });
+    // Hunter Hunter: wolves lunge, covering more ground than walking when a Hunter is close.
+    const walk = (lunging: boolean) => {
+      g.state.bestiary.wolf.evo.horde2 = lunging ? 1 : 0;
+      const w = enemy({ id: 9, type: 'wolf', x: 0, y: -100, hp: 1e9, maxHp: 1e9, speed: 50, ...(lunging ? { lunge: { dash: 0, cd: 0 } } : {}) });
+      f.enemies = [w];
+      api.moveEnemies(0.1);
+      return 100 + w.y;
+    };
+    expect(walk(true)).toBeGreaterThan(walk(false) * 2);
+    // Scavenged Goods: Goblins get their own chance at loot from their area.
+    g.state.bestiary.goblin.evo.bounties = 4;
+    expect(g.evo('goblin').loot).toBeCloseTo(0.1);
+    const before = g.state.inventory.length;
+    g.state.bestiary.goblin.unlocked = true;
+    g.registerKill('goblin', false);
+    expect(g.state.inventory.length).toBeGreaterThan(before);
   });
 
   it("Void opens a gravity well: monsters around the one hit are pulled in to it (not Guardians or the Void-resistant)", () => {

@@ -1069,7 +1069,7 @@ export class AppUI {
         maxed
           ? '<div>Fully learned</div>'
           : `<div>Points required <b>${cost}</b></div><div class="${have >= cost ? 'ok' : 'short'}">Points available <b>${have}</b></div>`
-      }</div><p class="gear-now">${n.desc}</p><p>Rank ${rank} / ${n.maxRank}</p>${
+      }</div><p class="gear-now">${n.desc.replace(/\n/g, "<br>")}</p><p>Rank ${rank} / ${n.maxRank}</p>${
         t.rowGate?.(n.row) && t.rowGate(n.row)!.have < t.rowGate(n.row)!.need
           ? `<p>🔒 Spend ${t.rowGate(n.row)!.need} points in this tree to open this row (${t.rowGate(n.row)!.have}/${t.rowGate(n.row)!.need}).</p>`
           : !t.reachable(n.id)
