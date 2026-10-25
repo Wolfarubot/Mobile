@@ -9,7 +9,8 @@ import { OFFLINE_POPUP_SEC } from './core/balance';
 import { Field } from './core/field';
 import { Game } from './core/game';
 import { hasDevBackup, loadDevPhase, loadGame, restoreDevBackup, saveGame, wipeSave } from './core/save';
-import { newGame, type FrameRate, type GameState } from './core/state';
+import { deserialize, newGame, serialize, type FrameRate, type GameState } from './core/state';
+import type { AreaId, HunterId } from './core/balance';
 import { BattleView } from './render/battle';
 
 // Emoji anywhere in the UI are drawn as pixel-art icons.
@@ -66,8 +67,31 @@ async function boot(): Promise<void> {
   };
 
   const field = new Field(game);
-  const battle = new BattleView(document.getElementById('battle') as HTMLCanvasElement, game, field);
-  const ui = new AppUI(game, { save, wipe, devPhase, devRestore, hasDevBackup });
+  const canvas = document.getElementById('battle') as HTMLCanvasElement;
+  const battle = new BattleView(canvas, game, field);
+  // Areas → Details → Observe: another area's battlefield with just the Hunters stationed there, run on a copy of
+  // the save (what happens in it isn't kept; their real gains go on as usual) and drawn instead of yours.
+  let obs: { area: AreaId; game: Game; field: Field; battle: BattleView } | null = null;
+  const stopObserving = () => {
+    if (!obs) return;
+    obs.battle.dispose();
+    obs = null;
+    battle.setActive(true);
+  };
+  const observe = (area: AreaId): boolean => {
+    stopObserving();
+    const group = game.stationedIn(area);
+    if (!group.length || area === game.area) return false;
+    const state = deserialize(serialize(game.state))!;
+    state.area = area;
+    for (const [id, h] of Object.entries(state.hunters)) h.station = h.recruited && group.includes(id as HunterId) ? area : null;
+    const copy = new Game(state);
+    const f = new Field(copy, group[0]);
+    obs = { area, game: copy, field: f, battle: new BattleView(canvas, copy, f) };
+    battle.setActive(false);
+    return true;
+  };
+  const ui = new AppUI(game, { save, wipe, devPhase, devRestore, hasDevBackup, observe, stopObserving, observing: () => obs?.area ?? null });
   // Measures each farming group on a hidden copy of its battlefield, for offline gains and stationed Hunters.
   new SamplerHost(game, () => field.view);
   if (!game.state.flags.welcome) ui.showWelcome();
@@ -105,9 +129,24 @@ async function boot(): Promise<void> {
       field.update(dt / steps);
       if (timed) fieldMs += lap();
     }
-    battle.update(dt);
-    // A full-screen view covers the battlefield: it keeps fighting, but isn't drawn.
-    if (!ui.battleHidden()) battle.render();
+    if (obs) {
+      // Observing: your field keeps fighting unseen; the observed one runs and is drawn.
+      field.drainEvents();
+      if (!game.stationedIn(obs.area).length || game.area === obs.area) stopObserving();
+    }
+    if (obs) {
+      const steps2 = Math.ceil(dt / (1 / 30));
+      for (let i = 0; i < steps2; i++) {
+        obs.game.tick(dt / steps2);
+        obs.field.update(dt / steps2);
+      }
+      obs.battle.update(dt);
+      if (!ui.battleHidden()) obs.battle.render();
+    } else {
+      battle.update(dt);
+      // A full-screen view covers the battlefield: it keeps fighting, but isn't drawn.
+      if (!ui.battleHidden()) battle.render();
+    }
     const render = timed ? lap() : 0;
     uiAcc += dt;
     if (uiAcc >= UI_REFRESH_SEC) {

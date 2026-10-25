@@ -112,6 +112,9 @@ export class BattleView {
   private specks: Array<{ x: number; y: number; r: number }> = [];
 
   private cssSize: [number, number] | null = null;
+  private resize: ResizeObserver;
+  /** Drawn and tapped: false for your own view while another area is observed, and for a closed observer. */
+  active = true;
 
   constructor(
     private canvas: HTMLCanvasElement,
@@ -121,13 +124,16 @@ export class BattleView {
     this.g = canvas.getContext('2d')!;
     // The canvas's CSS size, kept up to date here: measuring it every frame forced the page to lay out again
     // whenever the menus had changed.
-    new ResizeObserver(() => (this.cssSize = [canvas.clientWidth, canvas.clientHeight])).observe(canvas);
+    this.resize = new ResizeObserver(() => (this.cssSize = [canvas.clientWidth, canvas.clientHeight]));
+    this.resize.observe(canvas);
     this.cooldownBar = new CooldownBar(canvas.parentElement!, game, field);
     this.fx.textScale = CHAR_SCALE;
     // Static ground detail in normalized coords, so it scales with the view.
     for (let i = 0; i < 70; i++) this.specks.push({ x: Math.random(), y: Math.random(), r: 1 + Math.random() * 3 });
 
     canvas.addEventListener('pointerdown', (e) => {
+      // Only the view being drawn takes taps (not yours while another area's field is observed).
+      if (!this.active) return;
       e.preventDefault();
       const r = canvas.getBoundingClientRect();
       // Screen -> world (the field is drawn zoomed out around the center).
@@ -147,6 +153,19 @@ export class BattleView {
       if (e.type === 'eventStart' && eventDef(e.event).kind !== 'guardian') this.showBanner(`${eventDef(e.event).name}!`, '#7be07b');
       if (e.type === 'eventEnd') this.showBanner(`${eventDef(e.event).name} is over`, '#c9c2dc');
     });
+  }
+
+  /** Shows or hides this view (its cooldown icons with it) while another one is drawn on the same canvas. */
+  setActive(on: boolean): void {
+    this.active = on;
+    this.cooldownBar.el.style.visibility = on ? '' : 'hidden';
+  }
+
+  /** An observer's view is closed: its overlay and listeners go. */
+  dispose(): void {
+    this.active = false;
+    this.resize.disconnect();
+    this.cooldownBar.el.remove();
   }
 
   showBanner(text: string, color: string): void {

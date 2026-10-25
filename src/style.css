@@ -6609,3 +6609,40 @@ body::after {
 img.ei[src$='custom/012.png'] {
   filter: none !important;
 }
+
+/* Areas → Details → Observe, and the bar over the battlefield while observing. */
+.observe-btn {
+  display: block;
+  margin: 10px auto 4px;
+  min-width: 200px;
+}
+.observe-btn small {
+  font-size: 11px;
+}
+.observe-bar {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 8px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: rgba(12, 10, 18, 0.82);
+  border: 2px solid #000;
+  box-shadow: 0 0 0 1px var(--gold);
+  font-size: 12px;
+  font-weight: 800;
+  color: #fff;
+  text-shadow: var(--outline);
+}
+.observe-bar span {
+  flex: 1;
+  min-width: 0;
+}
+.observe-bar button {
+  flex: none;
+  padding: 4px 10px;
+  font-size: 12px;
+}

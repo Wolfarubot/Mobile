@@ -370,6 +370,10 @@ export class AppUI {
       devPhase: (phase: GameState) => Promise<void>;
       devRestore: () => Promise<void>;
       hasDevBackup: () => Promise<boolean>;
+      /** Areas → Details → Observe: watch another area's stationed Hunters (false if nobody's there). */
+      observe: (area: AreaId) => boolean;
+      stopObserving: () => void;
+      observing: () => AreaId | null;
     },
   ) {
     document.querySelectorAll<HTMLButtonElement>('.tabs button').forEach((b) =>
@@ -479,6 +483,7 @@ export class AppUI {
     $('#dpsMeter').className = `dps-meter dps-${s.settings.dpsCorner}${s.settings.dps ? '' : ' hidden'}`;
     $('#gainPops').className = `gain-pops gp-${s.settings.pickupCorner}${s.settings.pickups ? '' : ' hidden'}`;
     $('#areaName').textContent = area.name;
+    this.observeBar();
     $('#areaLabel').classList.toggle('hidden', !this.menuFull);
     applyAreaTheme(g.area);
     this.fieldCard?.update();
@@ -1155,6 +1160,33 @@ export class AppUI {
   }
 
   /** Removes the full-screen view without rebuilding the panel. */
+  /** While observing another area: a bar over the battlefield naming it, with a button back to your own. */
+  private observeBar(): void {
+    const area = this.hooks.observing();
+    let bar = document.querySelector<HTMLElement>('.observe-bar');
+    if (!area) {
+      bar?.remove();
+      return;
+    }
+    if (!bar) {
+      bar = el('div', 'observe-bar');
+      bar.innerHTML = '<span></span><button class="buy secondary">Back to my Hunter</button>';
+      $('button', bar).addEventListener('click', () => {
+        this.hooks.stopObserving();
+        this.refresh();
+      });
+      $('.battle-wrap').appendChild(bar);
+    }
+    const a = areaDef(area);
+    const names = this.game.stationedIn(area).map((h) => hunterDef(h).name).join(', ');
+    const text = `👁️ Observing ${a.name}: ${names}`;
+    const span = $('span', bar);
+    if (span.dataset.text !== text) {
+      span.dataset.text = text;
+      span.textContent = text;
+    }
+  }
+
   private dropDetail(): void {
     this.detail?.el.remove();
     this.detail = null;
@@ -1832,6 +1864,16 @@ export class AppUI {
     activeTitle.classList.add('center');
     body.appendChild(activeTitle);
     body.appendChild(this.activeHunters(id));
+    // Observe: watch the Hunters stationed here fight on their own, without travelling.
+    const observeBtn = el('button', 'buy observe-btn') as HTMLButtonElement;
+    observeBtn.innerHTML = '👁️ Observe<small>Watch the Hunters here on their own</small>';
+    observeBtn.addEventListener('click', () => {
+      if (!this.hooks.observe(id)) return;
+      this.closeHunterDetail();
+      this.refresh();
+    });
+    body.appendChild(observeBtn);
+    this.refreshers.push(() => observeBtn.classList.toggle('hidden', id === g.area || !g.stationedIn(id).length));
 
     body.appendChild(sectionTitle('Monsters'));
     const monsters = el('div', 'area-monsters');
