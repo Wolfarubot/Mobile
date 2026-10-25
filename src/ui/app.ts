@@ -20,6 +20,8 @@ import {
   EMPOWER,
   type EnemyId,
   type TreeNode,
+  type TreeStat,
+  type EvoStat,
   RESIST_MULT,
   WEAK_MULT,
   DAMAGE_TYPES,
@@ -163,6 +165,8 @@ interface TreeAdapter {
   rowGate?: (row: number) => { have: number; need: number } | null;
   /** Called after a node is learned. */
   after?: (id: string) => void;
+  /** What a node's stats are now, and what they'd be with one more rank (null at max): real values, e.g. "Horde size 2–4". */
+  preview?: (n: TreeNode) => { current: string[]; next: string[] | null };
 }
 const INV_SUBS = ['equipment', 'crafting', 'materials'] as const;
 type InvSub = (typeof INV_SUBS)[number];
@@ -923,6 +927,11 @@ export class AppUI {
       canLearn: (id) => g.canLearn(who, id, which),
       learn: (id) => g.learn(who, id, which),
       verb: 'Acquire',
+      preview: (n) => {
+        const t = g.training(who);
+        const ranks = which === 'base' ? t.skills : (t.skills2 ??= {});
+        return previewRanks(ranks, n, () => skillStatLines(g, who, n, ranks[n.id] ?? 0));
+      },
       // The gold Ascend node only shows once the first tree is complete.
       hidden: (id) => which === 'base' && id === ASCEND_NODE.id && !g.baseTreeComplete(who),
       after: (id) => {
@@ -961,6 +970,7 @@ export class AppUI {
       canLearn: (n) => g.canEvolve(id, n),
       learn: (n) => g.evolve(id, n),
       verb: 'Evolve',
+      preview: (n) => previewRanks(g.state.bestiary[id].evo, n, () => evoStatLines(g, id, n)),
       gate: (n) => {
         const left = g.evoKillsLeft(id, n);
         return left > 0 ? `Slay ${fmt(left)} more ${enemyDef(id).name}${left === 1 ? '' : 's'}` : null;
@@ -1069,14 +1079,16 @@ export class AppUI {
         maxed
           ? '<div>Fully learned</div>'
           : `<div>Points required <b>${cost}</b></div><div class="${have >= cost ? 'ok' : 'short'}">Points available <b>${have}</b></div>`
-      }</div><p class="gear-now">${n.desc.replace(/\n/g, "<br>")}</p><p>Rank ${rank} / ${n.maxRank}</p>${
+      }</div><p class="gear-now">${n.desc.replace(/\n/g, "<br>")}</p>${previewHtml(t.preview?.(n))}<p>Rank ${rank} / ${n.maxRank}</p>${
         t.rowGate?.(n.row) && t.rowGate(n.row)!.have < t.rowGate(n.row)!.need
           ? `<p>🔒 Spend ${t.rowGate(n.row)!.need} points in this tree to open this row (${t.rowGate(n.row)!.have}/${t.rowGate(n.row)!.need}).</p>`
           : !t.reachable(n.id)
             ? `<p>🔒 Needs a point in ${needs.join(' or ')} first.</p>`
             : ''
       }${t.gate?.(n.id) ? `<p>🔒 ${t.gate(n.id)} to open this evolution.</p>` : ''}`;
-      const btn = el('button', 'buy node-buy', maxed ? 'Maxed' : n.id === ASCEND_NODE.id ? 'Ascend' : t.verb) as HTMLButtonElement;
+      // Like the Train button: what it does, and underneath what it costs.
+      const btn = el('button', 'buy node-buy') as HTMLButtonElement;
+      btn.innerHTML = maxed ? 'Maxed' : `${n.id === ASCEND_NODE.id ? 'Ascend' : t.verb}<small>${cost} ${t.pointName}${cost === 1 ? '' : 's'}</small>`;
       btn.disabled = !t.canLearn(n.id);
       btn.addEventListener('click', () => {
         if (!t.learn(n.id)) return;
@@ -5523,4 +5535,90 @@ function el(tag: string, cls = '', text = ''): HTMLElement {
   if (cls) e.className = cls;
   if (text) e.textContent = text;
   return e;
+}
+
+/**
+ * A tree node's stats now and with one more rank: `lines` reads the real values, and the rank is bumped for a
+ * moment to read the next ones (then put back). At max rank there's no next.
+ */
+function previewRanks(ranks: Record<string, number>, n: TreeNode, lines: () => string[]): { current: string[]; next: string[] | null } {
+  const had = ranks[n.id];
+  const rank = had ?? 0;
+  const current = lines();
+  if (rank >= n.maxRank) return { current, next: null };
+  ranks[n.id] = rank + 1;
+  try {
+    return { current, next: lines() };
+  } finally {
+    if (had === undefined) delete ranks[n.id];
+    else ranks[n.id] = had;
+  }
+}
+
+/** "Current:" and "Next Rank:" (or "Max") under a node's description. */
+function previewHtml(p: { current: string[]; next: string[] | null } | undefined): string {
+  if (!p || !p.current.length) return '';
+  return `<div class="node-preview"><div><span>Current:</span> ${p.current.join(' · ')}</div>${
+    p.next ? `<div><span>Next Rank:</span> ${p.next.join(' · ')}</div>` : '<div class="max"><span>Max</span></div>'
+  }</div>`;
+}
+
+const pctText = (v: number): string => `${+(v * 100).toFixed(1)}%`;
+const multText = (v: number): string => `×${+v.toFixed(2)}`;
+
+/** A Hunter's real stats behind a skill node's effects. */
+function skillStatLines(g: Game, who: Wearer, n: TreeNode, rank: number): string[] {
+  const out: string[] = [];
+  for (const stat of Object.keys(n.effect) as TreeStat[]) {
+    switch (stat) {
+      case 'damage': out.push(`Damage ${fmt(g.weaponHitOf(who))}`); break;
+      case 'rate': out.push(`Attack rate ${+g.shooterRate(who).toFixed(2)}/s`); break;
+      case 'recovery': out.push(`Stuns last ${+g.stunTime(false, who).toFixed(2)}s`); break;
+      case 'crit': out.push(`Crit chance ${pctText(g.critChanceOf(who))}`); break;
+      case 'critDamage': out.push(`Crit damage ${multText(g.critMultOf(who))}`); break;
+      case 'range': out.push(`Range ${Math.round(g.shooterRange(who))}`); break;
+      case 'pierce': out.push(`Pierces ${g.pierceOf(who)}`); break;
+      case 'radius': out.push(`Area size ${multText(g.radiusMult(who))}`); break;
+      case 'guard': out.push(`Shield charges ${g.guardOf(who)}`); break;
+      case 'rally': out.push(`Shields for others ${g.rallyFor(who)}`); break;
+      case 'gold': out.push(`Gold ${multText(g.shooterGold(who))}`); break;
+      case 'drops': out.push(`Drops ${multText(g.shooterDrops(who))}`); break;
+      case 'tapPower': out.push(`Tap damage ${fmt(g.tapDamage)}`); break;
+      case 'tapSize': out.push(`Tap size ${Math.round(g.tapRadius)}`); break;
+      case 'cooldown': out.push(`Cooldowns ${multText(g.cooldownMult(who))}`); break;
+      case 'duration': out.push(`Effects last ${multText(g.effectDurationMult(who))}`); break;
+      default: {
+        // Banes, blood bolts, multishot: what this node adds so far.
+        const v = (n.effect[stat] ?? 0) * rank;
+        out.push(stat === 'bane' ? `Bonus damage +${pctText(v)}` : stat === 'multishot' ? `Extra shots +${+v.toFixed(2)}` : `${stat} +${+v.toFixed(2)}`);
+      }
+    }
+  }
+  return out;
+}
+
+/** A monster's real stats behind an evolution node's effects. */
+function evoStatLines(g: Game, id: EnemyId, n: TreeNode): string[] {
+  const st = g.enemyStats(id);
+  const evo = g.evo(id);
+  const out: string[] = [];
+  for (const stat of Object.keys(n.effect) as EvoStat[]) {
+    switch (stat) {
+      case 'hp': out.push(`HP ${fmt(st.hp)}`); break;
+      case 'gold': out.push(`Gold ${fmt(st.gold)}`); break;
+      case 'drops': out.push(`Drop chance ${pctText(st.dropChance)}`); break;
+      case 'spawn': out.push(`Spawns ${+st.spawnRate.toFixed(2)}/s`); break;
+      case 'pack': {
+        const [lo, hi] = g.packOf(id);
+        out.push(`Horde size ${lo === hi ? lo : `${lo}–${hi}`}`);
+        break;
+      }
+      case 'speed': out.push(`Speed ${Math.round(st.speed)}`); break;
+      case 'split': out.push(`Split chance ${pctText(st.split)}`); break;
+      case 'fireTrail': out.push(`Burning sticks ${pctText(st.fireTrail)}`); break;
+      case 'lunge': out.push(st.lunge ? 'Lunges at Hunters' : 'No lunge'); break;
+      case 'loot': out.push(`Loot chance +${pctText(evo.loot)}`); break;
+    }
+  }
+  return out;
 }

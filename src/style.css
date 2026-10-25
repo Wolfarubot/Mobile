@@ -3951,10 +3951,31 @@ body.left-handed .hd-float-close {
 .node-points .short b {
   color: #e05a5a;
 }
+/* The tree's purchase button: the Train button's look (label, cost underneath), centred. */
 .node-buy {
-  width: 100%;
-  padding: 16px 12px !important;
-  font-size: 20px !important;
+  display: block;
+  min-width: 150px;
+  margin: 10px auto 0;
+  padding: 6px 14px;
+  font-size: 16px;
+  border-radius: 10px;
+}
+.node-buy small {
+  font-size: 12px;
+}
+/* Current / Next Rank under a node's description. */
+.node-preview {
+  display: grid;
+  gap: 2px;
+  margin: 4px 0 8px;
+  font-size: 13px;
+}
+.node-preview span {
+  font-weight: 800;
+  color: var(--gold);
+}
+.node-preview .max span {
+  color: var(--good);
 }
 
 /* ---- Your Hunter's Abilities tab ---- */

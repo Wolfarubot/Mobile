@@ -867,11 +867,11 @@ export class Game {
     return this.dpsOf('main');
   }
 
-  private shooterGold(shooter: Shooter): number {
+  shooterGold(shooter: Shooter): number {
     return (shooter === 'main' ? 1 : (hunterDef(shooter).gold ?? 1)) * (1 + this.gear(shooter).gold + this.tree(shooter).gold);
   }
 
-  private shooterDrops(shooter: Shooter): number {
+  shooterDrops(shooter: Shooter): number {
     return (shooter === 'main' ? 1 : (hunterDef(shooter).drops ?? 1)) * (1 + this.gear(shooter).drops + this.tree(shooter).drops);
   }
 
