@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { GEAR_CATALOG } from '../src/core/gearCatalog';
+import { GEAR_SPRITES } from '../src/core/gearSprites';
 import { describe, expect, it } from 'vitest';
 import { archetypeValue, armorStats, WEAPON_ARCHETYPES, weaponArchetype, withArchetype, type WeaponClass } from '../src/core/balance';
 import {
@@ -3295,6 +3296,17 @@ describe('Equipment', () => {
     orb.mods = [{ kind: 'enchant', id: 'infuseVoid', q: 5, p: 5 }];
     expect(g.damageTypesOf('main')).toContain('void');
     expect(g.procFor('main', 'void')).toBeCloseTo(modRoll(ENCHANTS.infuseVoid.range, false, 'veryRare', 5));
+  });
+
+  it('every piece of gear has its own pixel icon, and every icon exists', () => {
+    const seen = new Map<string, string>();
+    for (const g of GEAR) {
+      const key = GEAR_SPRITES[g.id];
+      expect(key, g.id).toBeTruthy();
+      expect(existsSync(`public/icons/${key}.png`), key).toBe(true);
+      expect(seen.get(key), `${g.id} shares ${key}`).toBeUndefined();
+      seen.set(key, g.id);
+    }
   });
 
   it('accessory stats across the game, and potions: a timed boost on the wearer, drunk on their cooldown', () => {

@@ -56,6 +56,20 @@
   "size": 32
  },
  {
+  "id": "bows",
+  "name": "Bows & crossbows",
+  "group": "Weapons",
+  "count": 48,
+  "size": 32
+ },
+ {
+  "id": "guns",
+  "name": "Blasters",
+  "group": "Weapons",
+  "count": 40,
+  "size": 32
+ },
+ {
   "id": "shields",
   "name": "Shields",
   "group": "Armor",
