@@ -72,7 +72,7 @@ const PUDDLE_TICK = 0.5;
 /** What a Hunter calls out when a potion kicks in. */
 const POTION_WORD: Record<GearStat, string> = {
   damage: 'MIGHT!', rate: 'HASTE!', range: 'FARSIGHT!', crit: 'KEEN!', stun: 'STEADY!', guard: 'SHIELDED!', gold: 'GREED!', drops: 'FORTUNE!', radius: 'SURGE!', pierce: 'PIERCE!',
-  cooldown: 'QUICKEN!', critDamage: 'FURY!', duration: 'LINGER!', tapPower: 'POWER!', tapSize: 'BURST!',
+  cooldown: 'QUICKEN!', critDamage: 'FURY!', duration: 'LINGER!', statusChance: 'AFFLICT!',
 };
 /** Splitting Slime: each half's share of the slain slime's health and size. */
 const SPLIT_HP = 0.5;

@@ -2412,7 +2412,7 @@ export const DEFAULT_SLOTS: SlotDef[] = [
 ];
 
 /** What a piece of gear can modify. Values are per gear level. */
-export type GearStat = 'damage' | 'rate' | 'range' | 'crit' | 'stun' | 'guard' | 'gold' | 'drops' | 'radius' | 'pierce' | 'cooldown' | 'critDamage' | 'duration' | 'tapPower' | 'tapSize';
+export type GearStat = 'damage' | 'rate' | 'range' | 'crit' | 'stun' | 'guard' | 'gold' | 'drops' | 'radius' | 'pierce' | 'cooldown' | 'critDamage' | 'duration' | 'statusChance';
 
 export const GEAR_STATS: Record<GearStat, (v: number) => string> = {
   damage: (v) => `+${Math.round(v * 100)}% damage`,
@@ -2428,8 +2428,7 @@ export const GEAR_STATS: Record<GearStat, (v: number) => string> = {
   cooldown: (v) => `−${Math.round(v * 100)}% ability cooldowns`,
   critDamage: (v) => `+${Math.round(v * 100)}% crit damage`,
   duration: (v) => `+${Math.round(v * 100)}% status duration`,
-  tapPower: (v) => `+${Math.round(v * 100)}% tap damage`,
-  tapSize: (v) => `+${Math.round(v * 100)}% tap size`,
+  statusChance: (v) => `+${Math.round(v * 100)}% status chance`,
 };
 
 export type GearId =
@@ -3440,7 +3439,7 @@ const MAGIC_CLASSES: WeaponClass[] = ['wand', 'staff', 'focus', 'scepter', 'tome
 /** A catalog accessory's stats at the Restless Graveyard (tier 3); they grow 30% per area after. */
 const CATALOG_ACC_STATS: Record<string, number> = {
   damage: 0.06, rate: 0.05, crit: 0.02, gold: 0.15, drops: 0.15, range: 12, radius: 0.08, stun: 0.04,
-  cooldown: 0.015, critDamage: 0.06, duration: 0.06, tapPower: 0.12, tapSize: 0.06,
+  cooldown: 0.015, critDamage: 0.06, duration: 0.06, statusChance: 0.01,
 };
 
 /** The element of each area's armor specials (Ember Mines on; earlier armor is below Very Rare and has none). */

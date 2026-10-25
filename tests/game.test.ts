@@ -3300,16 +3300,18 @@ describe('Equipment', () => {
   it('accessory stats across the game, and potions: a timed boost on the wearer, drunk on their cooldown', () => {
     const g = stocked();
     g.state.gold = 1e30;
-    // New accessory stats: cooldown, crit damage, effect duration, tap power and size.
+    // New accessory stats: cooldown, crit damage, status duration and status chance.
     const cd0 = g.cooldownMult('main'), crit0 = g.critMultOf('main'), dur0 = g.effectDurationMult('main');
     g.equip('main', 2, g.craftGear('timeEaterCrown')!.uid);
     expect(g.cooldownMult('main')).toBeLessThan(cd0);
     expect(g.critMultOf('main')).toBeGreaterThan(crit0);
     g.equip('main', 2, g.craftGear('eclipseAmulet')!.uid);
     expect(g.effectDurationMult('main')).toBeGreaterThan(dur0);
-    const tap0 = g.tapDamage;
+    g.equip('main', 0, g.craftGear('frostRifle')!.uid);
+    g.equip('main', 2, g.craftGear('eclipseAmulet')!.uid);
+    const proc0 = g.procOf('main');
     g.equip('main', 2, g.craftGear('prismRing')!.uid);
-    expect(g.tapDamage).toBeGreaterThan(tap0);
+    expect(g.procOf('main')).toBeGreaterThan(proc0);
     // A potion raises its stat while it lasts, then wears off.
     const tonic = g.craftGear('bloodTonic')!;
     g.equip('main', 2, tonic.uid);

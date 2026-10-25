@@ -481,13 +481,13 @@ export class Game {
     const inf = this.weaponEnchants(who, mode).find(({ en }) => en.infuse === t && !own.includes(t));
     if (!inf) return this.procOf(who, mode);
     const potency = item ? this.weaponEnchants(who, mode).reduce((sum, { en, v }) => sum + (en.potency ? v : 0), 0) : 0;
-    return Math.min(1, inf.v + potency);
+    return Math.min(1, inf.v + potency + this.gear(who).statusChance);
   }
 
-  /** Damage of a tap blast (Tap Power nodes and accessories, and the equipped tap ability). */
+  /** Damage of a tap blast (Tap Power nodes, and the equipped tap ability). */
   get tapDamage(): number {
     const ab = this.tapAbility;
-    return this.damage * TAP_DAMAGE_MULT * (1 + this.tree('main').tapPower + this.gear('main').tapPower) * (ab ? tapAbilityDef(ab).damage : 1);
+    return this.damage * TAP_DAMAGE_MULT * (1 + this.tree('main').tapPower) * (ab ? tapAbilityDef(ab).damage : 1);
   }
 
   /** The tap ability your Hunter has equipped, if it's still unlocked. */
@@ -516,9 +516,9 @@ export class Game {
     return ab ? tapAbilityDef(ab).damageType : this.damageTypeOf('main');
   }
 
-  /** Radius of a tap blast in world units (Tap Size nodes and accessories). */
+  /** Radius of a tap blast in world units (Tap Size nodes). */
   get tapRadius(): number {
-    return TAP_RADIUS * (1 + this.tree('main').tapSize + this.gear('main').tapSize);
+    return TAP_RADIUS * (1 + this.tree('main').tapSize);
   }
 
   private skillDamageMult(who: Wearer): number {
@@ -794,9 +794,9 @@ export class Game {
     if (special && who !== 'main' && !this.summonSpecial(who)) return hunterDef(who).special?.proc ?? 0;
     const item = this.weaponItem(who, mode);
     if (!item) return 0;
-    // Potency enchantments (on the weapon or an accessory) add to the weapon's own chance.
+    // Potency enchantments (on the weapon or an accessory) and accessories' status chance (potions too) add to the weapon's own chance.
     const potency = this.weaponEnchants(who, mode).reduce((sum, { en, v }) => sum + (en.potency ? v : 0), 0);
-    return Math.min(1, (gearDef(item.base).proc ?? 0) + potency);
+    return Math.min(1, (gearDef(item.base).proc ?? 0) + potency + this.gear(who).statusChance);
   }
 
   /** Rarity behind a Hunter's status effects: their weapon's, or Common for their own attacks and specials. */
@@ -915,7 +915,7 @@ export class Game {
    * their mode; with no mode given, the 'long' (default) weapon counts.
    */
   gear(who: Shooter, mode: GearMode = 'long'): Record<GearStat, number> {
-    const total: Record<GearStat, number> = { damage: 0, rate: 0, range: 0, crit: 0, stun: 0, guard: 0, gold: 0, drops: 0, radius: 0, pierce: 0, cooldown: 0, critDamage: 0, duration: 0, tapPower: 0, tapSize: 0 };
+    const total: Record<GearStat, number> = { damage: 0, rate: 0, range: 0, crit: 0, stun: 0, guard: 0, gold: 0, drops: 0, radius: 0, pierce: 0, cooldown: 0, critDamage: 0, duration: 0, statusChance: 0 };
     const slots = this.slotsOf(who);
     this.equipped(who).forEach((item, i) => {
       if (!item || (slots[i].role && slots[i].role !== mode)) return;

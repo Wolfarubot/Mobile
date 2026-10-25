@@ -4874,8 +4874,7 @@ const STAT_LABELS: Record<GearStat, string> = {
   cooldown: 'ability cooldowns',
   critDamage: 'crit damage',
   duration: 'status duration',
-  tapPower: 'tap damage',
-  tapSize: 'tap size',
+  statusChance: 'status chance',
 };
 
 /** A difference in one stat, e.g. "+20% damage" or "−3 range". */
