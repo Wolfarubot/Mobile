@@ -1504,112 +1504,177 @@ export type EvoStat =
   | 'split' // +x chance a slain one splits into two smaller ones (Green Slime's Splitting Slime)
   | 'fireTrail' // +x chance one that dies Burning leaves burning sticks that hurt monsters (Twiggling's Fire Starter)
   | 'lunge' // they lunge at Hunters who come close (Forest Wolf's Hunter Hunter)
-  | 'loot'; // +x chance a kill drops a piece of loot from its area (Goblin's Scavenged Goods)
+  | 'loot' // +x chance a kill drops a piece of loot from its area (Goblin's Scavenged Goods)
+  | 'rise' // +x chance a slain one rises again once, at half its HP (undead signatures, e.g. the Skeleton's Reassemble)
+  | 'burst'; // +x chance a slain one bursts, hurting the monsters around it (elemental signatures, e.g. the Toxic Bloat's)
 export type EvoNode = TreeNode<EvoStat>;
 type EvoSpec = Pick<EvoNode, 'name' | 'icon' | 'desc' | 'maxRank' | 'effect'> & { id: string };
 const ev = (id: string, name: string, icon: string, desc: string, maxRank: number, effect: EvoNode['effect']): EvoSpec => ({ id, name, icon, desc, maxRank, effect });
 
 /**
- * Lays out an evolution tree: four rows (one per EVO_KILLS step), centred on column 1 of three, each node needing
- * any node touching it in the row above. Every archetype's has its own shape and leanings; the capstone takes
- * whatever points are left, so every tree completes exactly at the top level.
+ * Lays out an evolution tree the way the Wandering Woods monsters' own trees are: a root; three branches (left,
+ * middle, right) that each need the root; three nodes above them, the left needing the left and middle branches,
+ * the centre (`sig`, the monster's signature) needing all three and the right needing the middle and right; then
+ * the capstone. The capstone takes whatever points are left, so every tree completes exactly at the top level.
  */
-function evoTree(rows: [EvoSpec, EvoSpec[], EvoSpec[]], capstone: Omit<EvoSpec, 'id'>): EvoNode[] {
-  const nodes: EvoNode[] = [];
-  [[rows[0]], rows[1], rows[2]].forEach((row, r) => {
-    const above = nodes.filter((n) => n.row === r - 1);
-    row.forEach((spec, i) => {
-      const col = 1 - (row.length - 1) / 2 + i;
-      nodes.push({ ...spec, requires: above.filter((p) => Math.abs(p.col - col) <= 1).map((p) => p.id), col, row: r });
-    });
-  });
+function evoTree(root: EvoSpec, branches: [EvoSpec, EvoSpec, EvoSpec], upper: [EvoSpec, EvoSpec, EvoSpec], capstone: Omit<EvoSpec, 'id'>): EvoNode[] {
+  const [l, m, r] = branches.map((b, col) => ({ ...b, row: 1, col, requires: ['root'] }));
+  const nodes: EvoNode[] = [
+    { ...root, row: 0, col: 1, requires: [] },
+    l,
+    m,
+    r,
+    { ...upper[0], row: 2, col: 0, requires: [l.id, m.id] },
+    { ...upper[1], row: 2, col: 1, requires: [l.id, m.id, r.id] },
+    { ...upper[2], row: 2, col: 2, requires: [m.id, r.id] },
+  ];
   const spent = nodes.reduce((a, n) => a + n.maxRank * (n.cost ?? 1), 0);
-  return [...nodes, { id: 'capstone', ...capstone, cost: MAX_MONSTER_LEVEL - 1 - spent, requires: nodes.filter((n) => n.row === 2).map((n) => n.id), col: 1, row: 3 }];
+  return [...nodes, { id: 'capstone', ...capstone, cost: MAX_MONSTER_LEVEL - 1 - spent, requires: upper.map((u) => u.id), col: 1, row: 3 }];
 }
 
-/** Each archetype's evolution template: every monster of that archetype grows its own copy (MONSTER_EVO_TREES), ending in its own Legacy. */
+/**
+ * Each archetype's evolution template, shaped and named like the Woods monster of that archetype (Green Slime,
+ * Twiggling, Forest Wolf, Goblin) and in the same spirit for the rest. Every monster grows its own copy
+ * (MONSTER_EVO_TREES), ending in its own Legacy; the centre node (`sig`) is a plain one here, and many monsters
+ * swap in a signature of their own (EVO_SIGNATURES).
+ */
 export const EVO_TREES: Record<Archetype, EvoNode[]> = {
-  // Slimes: gold, and bigger blobs of them.
+  // Slimes (the Green Slime's): gold, and bigger blobs of them.
   slime: evoTree(
-    [
-      ev('root', 'Gelatinous Bulk', '🟢', '+25% HP and +25% gold.', 1, { hp: 0.25, gold: 0.25 }),
-      [ev('wealth', 'Wealth', '💰', '+15% gold per rank.', 7, { gold: 0.15 }), ev('ooze', 'Ooze Trail', '🫧', 'Packs of 1 more per rank.', 2, { pack: 1 }), ev('horde', 'Horde', '👥', '+12% spawns per rank.', 5, { spawn: 0.12 })],
-      [ev('wealth2', 'Treasure Gel', '🪙', '+30% gold per rank.', 3, { gold: 0.3 }), ev('horde2', 'Small Hordes', '🫧', 'Packs of 1 more and +10% spawns per rank.', 2, { pack: 1, spawn: 0.1 }), ev('harvest2', 'Rich Ooze', '💧', '+25% material drops per rank.', 3, { drops: 0.25 })],
-    ],
-    { name: "Slime King's Court", icon: '👑', desc: '+50% gold, +30% drops, packs of 1 more.', maxRank: 1, effect: { gold: 0.5, drops: 0.3, pack: 1 } },
+    ev('root', 'Gelatinous Bulk', '🟢', '+25% HP and +25% gold.', 1, { hp: 0.25, gold: 0.25 }),
+    [ev('wealth', 'Sticky Coins', '💰', '+15% gold per rank.', 5, { gold: 0.15 }), ev('ooze', 'Slime Squad', '🫧', 'Packs of 1 more per rank.', 3, { pack: 1 }), ev('horde', 'Ooze Trail', '👥', '+12% spawns per rank.', 5, { spawn: 0.12 })],
+    [ev('wealth2', 'Treasure Gel', '🪙', '+20% gold per rank.', 5, { gold: 0.2 }), ev('sig', 'Wobbling Mass', '🟩', '+10% gold and +10% material drops per rank.', 4, { gold: 0.1, drops: 0.1 }), ev('harvest2', 'Bursting Ooze', '💧', '+15% material drops per rank.', 5, { drops: 0.15 })],
+    { name: 'Slime Court', icon: '👑', desc: '+50% gold and +30% material drops.', maxRank: 1, effect: { gold: 0.5, drops: 0.3 } },
   ),
-  // Beasts: fine pelts and fast, dangerous packs.
+  // Plants (the Twiggling's): they spread, slowly, and bloom.
+  plant: evoTree(
+    ev('root', 'Deep Roots', '🌿', '+30% HP and +20% material drops.', 1, { hp: 0.3, drops: 0.2 }),
+    [ev('harvest', 'Seed Harvest', '💎', '+15% material drops per rank.', 6, { drops: 0.15 }), ev('thicket', 'Tangled Thicket', '🌾', 'Packs of 1 more per rank.', 2, { pack: 1 }), ev('horde', 'Spreading Spores', '👥', '+15% spawns per rank.', 5, { spawn: 0.15 })],
+    [ev('harvest2', 'Bountiful Bloom', '🌸', '+30% material drops per rank.', 3, { drops: 0.3 }), ev('sig', 'Thorny Growth', '🌵', '+10% gold and +10% material drops per rank.', 4, { gold: 0.1, drops: 0.1 }), ev('rooted', 'Golden Sap', '🪙', '+20% gold and 10% slower per rank.', 3, { gold: 0.2, speed: -0.1 })],
+    { name: 'World Tree', icon: '👑', desc: '+50% material drops and +40% gold.', maxRank: 1, effect: { drops: 0.5, gold: 0.4 } },
+  ),
+  // Beasts (the Forest Wolf's): fine pelts and fast, dangerous packs.
   beast: evoTree(
-    [
-      ev('root', 'Thick Hide', '🐾', '+20% HP and +20% material drops.', 1, { hp: 0.2, drops: 0.2 }),
-      [ev('wealth', 'Hunting Grounds', '💰', '+15% gold per rank.', 7, { gold: 0.15 }), ev('harvest', 'Pelts', '💎', '+15% material drops per rank.', 7, { drops: 0.15 })],
-      [ev('wealth2', 'Prized Pelts', '🪙', '+40% gold but 8% faster per rank.', 3, { gold: 0.4, speed: 0.08 }), ev('horde2', 'Pack Hunters', '🐺', 'Packs of 1 more and +10% spawns per rank.', 3, { pack: 1, spawn: 0.1 }), ev('harvest2', 'Alpha Stock', '🦴', '+25% material drops per rank.', 3, { drops: 0.25 })],
-    ],
+    ev('root', 'Thick Hide', '🐾', '+20% HP and +20% material drops.', 1, { hp: 0.2, drops: 0.2 }),
+    [ev('wealth', 'Hunting Grounds', '💰', '+15% gold per rank.', 6, { gold: 0.15 }), ev('pack', 'Pack Hunters', '🐺', 'Packs of 1 more per rank.', 2, { pack: 1 }), ev('harvest', 'Valuable Pelts', '💎', '+15% material drops per rank.', 6, { drops: 0.15 })],
+    [ev('wealth2', 'Prized Pelts', '🪙', '+40% gold but 8% faster per rank.', 3, { gold: 0.4, speed: 0.08 }), ev('sig', 'Feral Instinct', '🐾', '+10% gold and +10% material drops per rank.', 4, { gold: 0.1, drops: 0.1 }), ev('harvest2', 'Alpha Stock', '🦴', '+25% material drops per rank.', 3, { drops: 0.25 })],
     { name: 'Apex Herd', icon: '👑', desc: '+40% gold and +25% spawns.', maxRank: 1, effect: { gold: 0.4, spawn: 0.25 } },
+  ),
+  // Humanoids (the Goblin's): war chests and warbands.
+  humanoid: evoTree(
+    ev('root', 'Loot Sacks', '👤', '+10% HP and +30% gold.', 1, { hp: 0.1, gold: 0.3 }),
+    [ev('wealth', 'Stolen Wealth', '💰', '+20% gold per rank.', 6, { gold: 0.2 }), ev('horde', 'Angry Horde', '👥', '+12% spawns per rank.', 4, { spawn: 0.12 }), ev('harvest', 'Supply Lines', '💎', '+10% material drops per rank.', 3, { drops: 0.1 })],
+    [ev('wealth2', 'War Chest', '🪙', '+35% gold per rank.', 3, { gold: 0.35 }), ev('sig', 'Bounties', '📜', '+10% gold and +10% material drops per rank.', 4, { gold: 0.1, drops: 0.1 }), ev('horde2', 'Warbands', '⚔️', 'Packs of 1 more and +10% spawns per rank.', 3, { pack: 1, spawn: 0.1 })],
+    { name: 'Warlord', icon: '👑', desc: '+50% gold and +20% spawns.', maxRank: 1, effect: { gold: 0.5, spawn: 0.2 } },
   ),
   // Undead: endless hordes, each worth little.
   undead: evoTree(
-    [
-      ev('root', 'Restless Dead', '💀', '+20% HP and +20% spawns.', 1, { hp: 0.2, spawn: 0.2 }),
-      [ev('wealth', 'Grave Goods', '💰', '+10% gold per rank.', 4, { gold: 0.1 }), ev('horde', 'Horde', '👥', '+12% spawns per rank.', 6, { spawn: 0.12 }), ev('harvest', 'Bone Harvest', '💎', '+15% material drops per rank.', 4, { drops: 0.15 })],
-      [ev('wealth2', 'Tithe', '🪙', '+20% gold per rank.', 3, { gold: 0.2 }), ev('horde2', 'Rising Horde', '🧟', 'Packs of 1 more and +12% spawns per rank.', 3, { pack: 1, spawn: 0.12 }), ev('graves', 'Mass Grave', '⚰️', 'Packs of 1 more per rank.', 2, { pack: 1 })],
-    ],
-    { name: 'Endless Legion', icon: '👑', desc: '+30% spawns, packs of 2 more, +30% gold.', maxRank: 1, effect: { spawn: 0.3, pack: 2, gold: 0.3 } },
+    ev('root', 'Restless Dead', '💀', '+20% HP and +20% spawns.', 1, { hp: 0.2, spawn: 0.2 }),
+    [ev('wealth', 'Grave Goods', '💰', '+12% gold per rank.', 5, { gold: 0.12 }), ev('graves', 'Mass Grave', '⚰️', 'Packs of 1 more per rank.', 3, { pack: 1 }), ev('horde', 'Shambling Horde', '👥', '+12% spawns per rank.', 5, { spawn: 0.12 })],
+    [ev('wealth2', 'Tithe', '🪙', '+20% gold per rank.', 4, { gold: 0.2 }), ev('sig', 'Bone Harvest', '🦴', '+10% gold and +10% material drops per rank.', 4, { gold: 0.1, drops: 0.1 }), ev('horde2', 'Rising Horde', '🧟', 'Packs of 1 more and +12% spawns per rank.', 2, { pack: 1, spawn: 0.12 })],
+    { name: 'Endless Legion', icon: '👑', desc: '+30% spawns, packs of 2 more and +30% gold.', maxRank: 1, effect: { spawn: 0.3, pack: 2, gold: 0.3 } },
   ),
   // Demons: rich, but faster and tougher for it.
   demon: evoTree(
-    [
-      ev('root', 'Infernal Pact', '😈', '+20% HP and +30% gold.', 1, { hp: 0.2, gold: 0.3 }),
-      [ev('wealth', 'Wealth', '💰', '+20% gold per rank.', 6, { gold: 0.2 }), ev('frenzy', 'Bloodlust', '🔥', '+30% gold but 10% faster per rank.', 3, { gold: 0.3, speed: 0.1 }), ev('horde', 'Summoning Circle', '👥', '+15% spawns per rank.', 5, { spawn: 0.15 })],
-      [ev('wealth2', 'Hoarded Souls', '🪙', '+45% gold but 8% faster per rank.', 4, { gold: 0.45, speed: 0.08 }), ev('harvest2', 'Brimstone', '🪨', '+25% material drops per rank.', 4, { drops: 0.25 })],
-    ],
+    ev('root', 'Infernal Pact', '😈', '+20% HP and +30% gold.', 1, { hp: 0.2, gold: 0.3 }),
+    [ev('wealth', 'Blood Money', '💰', '+20% gold per rank.', 5, { gold: 0.2 }), ev('horde', 'Summoning Circle', '👥', '+15% spawns per rank.', 4, { spawn: 0.15 }), ev('harvest', 'Brimstone', '💎', '+15% material drops per rank.', 4, { drops: 0.15 })],
+    [ev('wealth2', 'Hoarded Souls', '🪙', '+45% gold but 8% faster per rank.', 3, { gold: 0.45, speed: 0.08 }), ev('sig', 'Bloodlust', '🔥', '+15% gold and +10% material drops per rank.', 4, { gold: 0.15, drops: 0.1 }), ev('horde2', 'Hellspawn', '👹', 'Packs of 1 more per rank.', 2, { pack: 1 })],
     { name: 'Hellgate', icon: '👑', desc: '+60% gold and packs of 1 more, but +20% HP.', maxRank: 1, effect: { gold: 0.6, pack: 1, hp: 0.2 } },
   ),
   // Elementals: shards and cores.
   elemental: evoTree(
-    [
-      ev('root', 'Condensed Core', '🔷', '+25% HP and +25% material drops.', 1, { hp: 0.25, drops: 0.25 }),
-      [ev('harvest', 'Harvest', '💎', '+15% material drops per rank.', 7, { drops: 0.15 }), ev('wealth', 'Crystal Heart', '💰', '+15% gold per rank.', 6, { gold: 0.15 })],
-      [ev('harvest2', 'Shard Shedding', '💠', '+35% material drops per rank.', 3, { drops: 0.35 }), ev('volatile', 'Volatile', '⚡', '+20% material drops but 10% faster per rank.', 3, { drops: 0.2, speed: 0.1 }), ev('horde2', 'Surge', '🌪️', '+15% spawns per rank.', 3, { spawn: 0.15 })],
-    ],
+    ev('root', 'Condensed Core', '🔷', '+25% HP and +25% material drops.', 1, { hp: 0.25, drops: 0.25 }),
+    [ev('wealth', 'Crystal Heart', '💰', '+15% gold per rank.', 5, { gold: 0.15 }), ev('horde', 'Elemental Surge', '🌪️', '+15% spawns per rank.', 4, { spawn: 0.15 }), ev('harvest', 'Shard Harvest', '💎', '+15% material drops per rank.', 5, { drops: 0.15 })],
+    [ev('wealth2', 'Charged Core', '🪙', '+30% gold per rank.', 3, { gold: 0.3 }), ev('sig', 'Unstable Essence', '⚡', '+15% material drops and +5% gold per rank.', 4, { drops: 0.15, gold: 0.05 }), ev('harvest2', 'Shard Shedding', '💠', '+35% material drops per rank.', 3, { drops: 0.35 })],
     { name: 'Primordial', icon: '👑', desc: '+60% material drops and +30% gold.', maxRank: 1, effect: { drops: 0.6, gold: 0.3 } },
   ),
   // Constructs: tough frames full of parts.
   construct: evoTree(
-    [
-      ev('root', 'Reinforced Frame', '🪆', '+25% HP and +20% material drops.', 1, { hp: 0.25, drops: 0.2 }),
-      [ev('harvest', 'Plating', '💎', '+20% material drops but +10% HP per rank.', 5, { drops: 0.2, hp: 0.1 }), ev('wealth', 'Salvage Value', '💰', '+15% gold per rank.', 5, { gold: 0.15 }), ev('horde', 'Assembly Line', '👥', '+12% spawns per rank.', 4, { spawn: 0.12 })],
-      [ev('harvest2', 'Spare Parts', '🔩', '+25% material drops per rank.', 3, { drops: 0.25 }), ev('wealth2', 'Scrap Value', '🪙', '+30% gold per rank.', 3, { gold: 0.3 }), ev('horde2', 'Production Run', '⚙️', 'Packs of 1 more and +10% spawns per rank.', 2, { pack: 1, spawn: 0.1 })],
-    ],
+    ev('root', 'Reinforced Frame', '🪆', '+25% HP and +20% material drops.', 1, { hp: 0.25, drops: 0.2 }),
+    [ev('wealth', 'Salvage Value', '💰', '+15% gold per rank.', 5, { gold: 0.15 }), ev('horde', 'Assembly Line', '👥', '+12% spawns per rank.', 4, { spawn: 0.12 }), ev('harvest', 'Plating', '💎', '+20% material drops but +10% HP per rank.', 4, { drops: 0.2, hp: 0.1 })],
+    [ev('wealth2', 'Scrap Value', '🪙', '+30% gold per rank.', 3, { gold: 0.3 }), ev('sig', 'Spare Parts', '🔩', '+15% material drops and +5% gold per rank.', 4, { drops: 0.15, gold: 0.05 }), ev('horde2', 'Production Run', '⚙️', 'Packs of 1 more and +10% spawns per rank.', 2, { pack: 1, spawn: 0.1 })],
     { name: 'Animated Legion', icon: '👑', desc: '+40% gold and +30% spawns.', maxRank: 1, effect: { gold: 0.4, spawn: 0.3 } },
-  ),
-  // Humanoids: war chests and warbands.
-  humanoid: evoTree(
-    [
-      ev('root', 'Loot Sacks', '👤', '+10% HP and +30% gold.', 1, { hp: 0.1, gold: 0.3 }),
-      [ev('wealth', 'Wealth', '💰', '+20% gold per rank.', 6, { gold: 0.2 }), ev('horde', 'Horde', '👥', '+12% spawns per rank.', 4, { spawn: 0.12 }), ev('harvest', 'Supply Lines', '💎', '+10% material drops per rank.', 3, { drops: 0.1 })],
-      [ev('wealth2', 'War Chest', '🪙', '+35% gold per rank.', 3, { gold: 0.35 }), ev('bounties', 'Bounties', '📜', '+10% gold and +10% material drops per rank.', 4, { gold: 0.1, drops: 0.1 }), ev('horde2', 'Warbands', '⚔️', 'Packs of 1 more and +10% spawns per rank.', 2, { pack: 1, spawn: 0.1 })],
-    ],
-    { name: 'Warlord', icon: '👑', desc: '+50% gold and +20% spawns.', maxRank: 1, effect: { gold: 0.5, spawn: 0.2 } },
-  ),
-  // Plants: they spread, slowly, and bloom.
-  plant: evoTree(
-    [
-      ev('root', 'Deep Roots', '🌿', '+30% HP and +20% material drops.', 1, { hp: 0.3, drops: 0.2 }),
-      [ev('harvest', 'Harvest', '💎', '+15% material drops per rank.', 7, { drops: 0.15 }), ev('horde', 'Spreading Spores', '👥', '+15% spawns per rank.', 6, { spawn: 0.15 })],
-      [ev('harvest2', 'Bountiful Bloom', '🌸', '+30% material drops per rank.', 3, { drops: 0.3 }), ev('rooted', 'Golden Sap', '🪙', '+20% gold and 10% slower per rank.', 3, { gold: 0.2, speed: -0.1 }), ev('horde2', 'Seed Pods', '🍄', 'Packs of 1 more per rank.', 2, { pack: 1 })],
-    ],
-    { name: 'World Tree', icon: '👑', desc: '+50% material drops and +40% gold.', maxRank: 1, effect: { drops: 0.5, gold: 0.4 } },
   ),
   // Dragons: few, tough, and sitting on a hoard.
   dragon: evoTree(
-    [
-      ev('root', 'Dragon Hoard', '🐉', '+30% HP and +40% gold.', 1, { hp: 0.3, gold: 0.4 }),
-      [ev('wealth', 'Wealth', '💰', '+20% gold per rank.', 7, { gold: 0.2 }), ev('harvest', 'Shed Scales', '💎', '+15% material drops per rank.', 5, { drops: 0.15 })],
-      [ev('wealth2', 'Golden Scales', '🪙', '+50% gold but 8% faster per rank.', 3, { gold: 0.5, speed: 0.08 }), ev('ancient', 'Ancient Hide', '🛡️', '+30% gold but +20% HP per rank.', 2, { gold: 0.3, hp: 0.2 }), ev('horde2', 'Clutch', '🥚', '+15% spawns per rank.', 3, { spawn: 0.15 })],
-    ],
+    ev('root', 'Dragon Hoard', '🐉', '+30% HP and +40% gold.', 1, { hp: 0.3, gold: 0.4 }),
+    [ev('wealth', 'Gilded Lair', '💰', '+20% gold per rank.', 6, { gold: 0.2 }), ev('horde', 'Clutch', '🥚', '+15% spawns per rank.', 3, { spawn: 0.15 }), ev('harvest', 'Shed Scales', '💎', '+15% material drops per rank.', 5, { drops: 0.15 })],
+    [ev('wealth2', 'Golden Scales', '🪙', '+50% gold but 8% faster per rank.', 3, { gold: 0.5, speed: 0.08 }), ev('sig', 'Wyrmblood', '🩸', '+15% gold and +10% material drops per rank.', 4, { gold: 0.15, drops: 0.1 }), ev('harvest2', "Dragon's Bounty", '🦴', '+25% material drops per rank.', 3, { drops: 0.25 })],
     { name: 'Elder Wyrm', icon: '👑', desc: '+75% gold and +40% material drops.', maxRank: 1, effect: { gold: 0.75, drops: 0.4 } },
   ),
+};
+
+/** Signatures: each kind is worth the same 4 points as the plain centre node it replaces. */
+const sigSplit = (name: string, icon: string, them: string) =>
+  ev('sig', name, icon, `When slain, ${them} have a 25% chance per rank to split into 2 smaller ones.`, 4, { split: 0.25 });
+const sigFire = (name: string, icon: string, them: string) =>
+  ev('sig', name, icon, `${them} that die while Burning have a 10% chance per rank to leave burning debris on the ground that damages Monsters that walk over it.`, 4, { fireTrail: 0.1 });
+const sigLunge = (name: string, icon: string, them: string) =>
+  ({ ...ev('sig', name, icon, `+50% gold and material drops.\n${them} now lunge at Hunters when they get close enough.`, 1, { gold: 0.5, drops: 0.5, lunge: 1 }), cost: 4 });
+const sigLoot = (name: string, icon: string, area: string) =>
+  ev('sig', name, icon, `+2.5% chance per rank to drop Loot from the ${area}.`, 4, { loot: 0.025 });
+const sigRise = (name: string, icon: string, them: string) =>
+  ev('sig', name, icon, `When slain, ${them} have a 15% chance per rank to rise again once, at half their HP.`, 4, { rise: 0.15 });
+const sigBurst = (name: string, icon: string, them: string) =>
+  ev('sig', name, icon, `When slain, ${them} have a 15% chance per rank to burst, dealing half their max HP to every monster close by.`, 4, { burst: 0.15 });
+
+/** Monsters with a signature of their own in their tree's centre (the Woods monsters have whole trees of their own). */
+const EVO_SIGNATURES: Partial<Record<EnemyId, EvoSpec>> = {
+  // Slimes and swarms split.
+  umbralOoze: sigSplit('Splitting Ooze', '🫧', 'Umbral Oozes'),
+  magmaSlime: sigSplit('Molten Split', '🔥', 'Magma Slimes'),
+  cloudling: sigSplit('Cloudburst', '☁️', 'Cloudlings'),
+  shadowSlime: sigSplit('Shadow Split', '🌑', 'Shadow Slimes'),
+  fireDrake: sigSplit('Brood Hatch', '🥚', 'Broodmothers'),
+  rockMite: sigSplit('Mite Swarm', '🪨', 'Rock Mites'),
+  imp: sigSplit('Imp Swarm', '😈', 'Imps'),
+  puppet: sigSplit('Severed Strings', '🪆', 'Possessed Puppets'),
+  // Plants leave burning debris.
+  toadstool: sigFire('Smoldering Caps', '🍄', 'Toadstools'),
+  manTrap: sigFire('Burning Maw', '🔥', 'Walking Man Traps'),
+  treant: sigFire('Kindling Bark', '🪵', 'Treants'),
+  // Predators lunge.
+  brownBear: sigLunge('Bear Charge', '🐻', 'Brown Bears'),
+  bat: sigLunge('Blood Dive', '🦇', 'Vampire Bats'),
+  gloomcrawler: sigLunge('Skittering Ambush', '🕷️', 'Gloomcrawlers'),
+  deepLurker: sigLunge('From the Deep', '🦑', 'Abyssal Lurkers'),
+  hellhound: sigLunge('Hellfire Pounce', '🔥', 'Hellhounds'),
+  iceWolf: sigLunge('Pack Leader', '🐺', 'Ice Wolves'),
+  yeti: sigLunge('Avalanche Charge', '❄️', 'Yetis'),
+  griffin: sigLunge('Diving Talons', '🦅', 'Griffins'),
+  iceWyvern: sigLunge('Diving Strike', '🐉', 'Ice Wyverns'),
+  chimera: sigLunge('Three-Headed Pounce', '🦁', 'Chimeras'),
+  behemoth: sigLunge('Stampede', '🐘', 'Behemoths'),
+  // Hoarders drop loot.
+  cultist: sigLoot('Ritual Offerings', '🕯️', 'Restless Graveyard'),
+  necromancer: sigLoot('Grave Robbing', '⚰️', 'Forbidden Crypt'),
+  possessedArmor: sigLoot('Hollow Armory', '🛡️', 'Forbidden Crypt'),
+  kobold: sigLoot('Shiny Hoard', '💎', 'Venom Caverns'),
+  caveTroll: sigLoot('Bone Pile', '🦴', 'Venom Caverns'),
+  frostGiant: sigLoot('Frozen Treasure', '🧊', 'Ascendant Steps'),
+  skyKnight: sigLoot('Spoils of War', '⚔️', 'Cloud Fortress'),
+  succubus: sigLoot('Stolen Hearts', '💋', 'Void Rift'),
+  darkKnight: sigLoot('Fallen Arms', '🗡️', 'Void Rift'),
+  voidWyrm: sigLoot("Wyrm's Hoard", '💰', 'Void Rift'),
+  // The undead rise again.
+  skeleton: sigRise('Reassemble', '💀', 'Skeletons'),
+  zombie: sigRise('Undying', '🧟', 'Zombies'),
+  boneKnight: sigRise('Oath Unbroken', '🛡️', 'Bone Knights'),
+  mummy: sigRise('Unwrapped', '🧻', 'Mummies'),
+  wraith: sigRise('Restless Spirit', '👻', 'Snow Wraiths'),
+  lich: sigRise('Phylactery', '📿', 'Liches'),
+  // Elementals and volatile things burst.
+  pixie: sigBurst('Pixie Dust Burst', '✨', 'Pixies'),
+  shadowWisp: sigBurst('Gloom Burst', '🌑', 'Shadow Haunts'),
+  lavaGolem: sigBurst('Bloated Burst', '🤢', 'Toxic Bloats'),
+  frostSprite: sigBurst('Frost Nova', '❄️', 'Frost Sprites'),
+  glacialGolem: sigBurst('Shatter', '🧊', 'Glacial Golems'),
+  stormTitan: sigBurst('Overload', '⚡', 'Storm Titans'),
+  meteorite: sigBurst('Impact', '☄️', 'Meteorites'),
+  cometWisp: sigBurst('Starfall', '🌠', 'Comet Wisps'),
+  meteorGolem: sigBurst('Meteoric Core', '☄️', 'Meteor Golems'),
+  horror: sigBurst('Void Rupture', '🕳️', 'Void Horrors'),
+  starEater: sigBurst('Supernova', '🌟', 'Star Eaters'),
 };
 
 /** A node placed by hand (a monster's own tree, from the Skill Trees editor). */
@@ -1700,7 +1765,9 @@ function monsterEvoTree(def: EnemyDef): EvoNode[] {
   const legacy = evoLegacy(def);
   const kind = ARCHETYPES[def.archetype].name;
   const own = EVO_OWN_TREES[def.id];
+  const sig = EVO_SIGNATURES[def.id];
   return (own ?? EVO_TREES[def.archetype]).map((n) =>
+    n.id === 'sig' && sig ? { ...n, ...sig } :
     n.id === 'capstone'
       ? {
           ...n,

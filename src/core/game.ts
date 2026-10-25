@@ -250,6 +250,10 @@ export interface EnemyStats {
   fireTrail: number;
   /** Lunges at Hunters who come close. */
   lunge: boolean;
+  /** Chance a slain one rises again (once, at half HP). */
+  rise: number;
+  /** Chance a slain one bursts, hurting the monsters around it. */
+  burst: number;
 }
 
 /** Expected per-second yield of a group of Hunters farming an area. */
@@ -1826,6 +1830,8 @@ export class Game {
       split: Math.min(1, evo.split),
       fireTrail: Math.min(1, evo.fireTrail),
       lunge: evo.lunge > 0,
+      rise: Math.min(1, evo.rise),
+      burst: Math.min(1, evo.burst),
     };
   }
 
@@ -2611,7 +2617,7 @@ export class Game {
 
   /** Summed evolution effects of a monster. */
   evo(id: EnemyId): Record<EvoStat, number> {
-    const total: Record<EvoStat, number> = { hp: 0, gold: 0, drops: 0, spawn: 0, pack: 0, speed: 0, split: 0, fireTrail: 0, lunge: 0, loot: 0 };
+    const total: Record<EvoStat, number> = { hp: 0, gold: 0, drops: 0, spawn: 0, pack: 0, speed: 0, split: 0, fireTrail: 0, lunge: 0, loot: 0, rise: 0, burst: 0 };
     const ranks = this.state.bestiary[id].evo;
     for (const n of this.evoTree(id)) {
       const r = ranks[n.id] ?? 0;

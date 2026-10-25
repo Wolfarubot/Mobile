@@ -436,6 +436,7 @@ describe('Enemies & archetypes', () => {
     // Every archetype has a tree of its own shape (root first, capstone last, the same points in all), and every
     // monster its own copy.
     const pointsIn = (t: typeof EVO_TREES.slime) => t.reduce((a, n) => a + n.maxRank * (n.cost ?? 1), 0);
+    const own = ['greenSlime', 'twiggling', 'wolf', 'goblin'];
     for (const a of Object.keys(ARCHETYPES) as Array<keyof typeof ARCHETYPES>) {
       const ids = EVO_TREES[a].map((n) => n.id);
       expect(ids[0]).toBe('root');
@@ -443,9 +444,28 @@ describe('Enemies & archetypes', () => {
       expect(pointsIn(EVO_TREES[a])).toBe(pointsIn(EVO_TREES.slime));
       for (const n of EVO_TREES[a].slice(1)) expect(n.requires.length).toBeGreaterThan(0);
     }
-    expect(new Set(Object.values(EVO_TREES).map((t) => t.map((n) => `${n.id}${n.maxRank}`).join())).size).toBe(Object.keys(EVO_TREES).length);
+    // All laid out like the Woods trees: a root, three branches, an upper row whose centre (`sig`) needs all three
+    // branches, then the capstone; each archetype names its own nodes.
+    for (const t of Object.values(EVO_TREES)) {
+      expect(t.map((n) => [n.row, n.col])).toEqual([[0, 1], [1, 0], [1, 1], [1, 2], [2, 0], [2, 1], [2, 2], [3, 1]]);
+      expect(t[5].id).toBe('sig');
+      expect(t[5].requires).toEqual([t[1].id, t[2].id, t[3].id]);
+    }
+    const names = Object.values(EVO_TREES).flatMap((t) => t.slice(0, -1).map((n) => n.name));
+    expect(new Set(names).size).toBe(names.length);
+    // Many monsters swap a signature of their own into the centre, worth the same points: the undead rise again,
+    // elementals burst, predators lunge, hoarders drop loot, swarms split, plants leave burning debris.
+    const sig = (id: string) => MONSTER_EVO_TREES[id as keyof typeof MONSTER_EVO_TREES].find((n) => n.id === 'sig')!;
+    expect(sig('skeleton')).toMatchObject({ name: 'Reassemble', effect: { rise: 0.15 } });
+    expect(sig('pixie').effect).toEqual({ burst: 0.15 });
+    expect(sig('brownBear').effect).toMatchObject({ lunge: 1 });
+    expect(sig('kobold').effect).toEqual({ loot: 0.025 });
+    expect(sig('magmaSlime').effect).toEqual({ split: 0.25 });
+    expect(sig('treant').effect).toEqual({ fireTrail: 0.1 });
+    const signed = ENEMIES.filter((e) => !own.includes(e.id) && sig(e.id).name !== EVO_TREES[e.archetype][5].name);
+    expect(signed.length).toBeGreaterThanOrEqual(40);
+    for (const e of signed) expect(pointsIn(MONSTER_EVO_TREES[e.id])).toBe(pointsIn(EVO_TREES.slime));
     // Monsters with a tree of their own (the Skill Trees editor) keep its 29 points; the rest copy their archetype's.
-    const own = ['greenSlime', 'twiggling', 'wolf', 'goblin'];
     for (const e of ENEMIES)
       if (own.includes(e.id)) expect(pointsIn(MONSTER_EVO_TREES[e.id])).toBe(pointsIn(EVO_TREES.slime));
       else expect(MONSTER_EVO_TREES[e.id].map((n) => n.id)).toEqual(EVO_TREES[e.archetype].map((n) => n.id));
@@ -1287,7 +1307,7 @@ describe('Equipment', () => {
     expect(hits[0].dmg / hits[2].dmg).toBeCloseTo(WEAK_MULT / RESIST_MULT);
   });
 
-  it('monster evolutions with their own behaviour: Splitting Slime, Fire Starter, Hunter Hunter, Scavenged Goods', () => {
+  it('monster evolutions with their own behaviour: Splitting Slime, Fire Starter, Hunter Hunter, Scavenged Goods, Reassemble, Pixie Dust Burst', () => {
     const g = stocked();
     const f = new Field(g);
     const api = f as unknown as { damage: (e: Enemy, dmg: number, crit: boolean, dx: number, dy: number) => void; moveEnemies: (dt: number) => void };
@@ -1332,6 +1352,28 @@ describe('Equipment', () => {
     g.state.bestiary.goblin.unlocked = true;
     g.registerKill('goblin', false);
     expect(g.state.inventory.length).toBeGreaterThan(before);
+    // Reassemble: a slain Skeleton rises again once, at half its HP; the risen one stays down.
+    g.state.bestiary.skeleton.evo.sig = 4;
+    expect(g.enemyStats('skeleton').rise).toBeCloseTo(0.6);
+    const bones = enemy({ id: 20, type: 'skeleton', x: 0, y: -200, hp: 10, maxHp: 10 });
+    f.enemies = [bones];
+    api.damage(bones, 100, false, 0, 0);
+    const risen = f.enemies.filter((e) => e.hp > 0);
+    expect(risen).toHaveLength(1);
+    expect(risen[0]).toMatchObject({ type: 'skeleton', half: true, maxHp: 5 });
+    api.damage(risen[0], 100, false, 0, 0);
+    expect(f.enemies.filter((e) => e.hp > 0)).toHaveLength(0);
+    // Pixie Dust Burst: a slain Pixie hurts the monsters close by for half its max HP (not far ones or Guardians).
+    g.state.bestiary.pixie.evo.sig = 4;
+    const pix = enemy({ id: 30, type: 'pixie', x: 0, y: -200, hp: 100, maxHp: 100 });
+    const near = enemy({ id: 31, type: 'greenSlime', x: 20, y: -200, hp: 1e6, maxHp: 1e6 });
+    const far = enemy({ id: 32, type: 'greenSlime', x: 400, y: -200, hp: 1e6, maxHp: 1e6 });
+    const guard = enemy({ id: 33, type: 'greenSlime', x: -20, y: -200, hp: 1e6, maxHp: 1e6, boss: true });
+    f.enemies = [pix, near, far, guard];
+    api.damage(pix, 1000, false, 0, 0);
+    expect(1e6 - near.hp).toBeGreaterThan(0);
+    expect(far.hp).toBe(1e6);
+    expect(guard.hp).toBe(1e6);
   });
 
   it("Void opens a gravity well: monsters around the one hit are pulled in to it (not Guardians or the Void-resistant)", () => {
@@ -5080,10 +5122,16 @@ describe('Saves', () => {
     let s = deserialize(JSON.stringify(old))!;
     expect(s.bestiary.lavaGolem.evo).toEqual({});
     expect(s.hunters.alchemist.skills).toEqual({});
+    // v27 -> v28: the trees were rebuilt on the Woods monsters' ones, which keep their ranks.
     old.version = 27;
+    old.bestiary.greenSlime.evo = { root: 1 };
+    s = deserialize(JSON.stringify(old))!;
+    expect(s.bestiary.lavaGolem.evo).toEqual({});
+    expect(s.bestiary.greenSlime.evo).toEqual({ root: 1 });
+    expect(s.hunters.alchemist.skills).toEqual({ root: 1, power: 3 });
+    old.version = 28;
     s = deserialize(JSON.stringify(old))!;
     expect(s.bestiary.lavaGolem.evo).toEqual({ root: 1 });
-    expect(s.hunters.alchemist.skills).toEqual({ root: 1, power: 3 });
     expect(enemyDef('fireDrake').archetype).toBe('beast');
   });
 

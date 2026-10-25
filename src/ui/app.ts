@@ -5720,6 +5720,8 @@ function evoStatLines(g: Game, id: EnemyId, n: TreeNode): string[] {
       case 'fireTrail': out.push(`Burning sticks ${pctText(st.fireTrail)}`); break;
       case 'lunge': out.push(st.lunge ? 'Lunges at Hunters' : 'No lunge'); break;
       case 'loot': out.push(`Loot chance +${pctText(evo.loot)}`); break;
+      case 'rise': out.push(`Rise chance ${pctText(st.rise)}`); break;
+      case 'burst': out.push(`Burst chance ${pctText(st.burst)}`); break;
     }
   }
   return out;

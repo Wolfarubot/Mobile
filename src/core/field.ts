@@ -77,6 +77,11 @@ const POTION_WORD: Record<GearStat, string> = {
 };
 /** Splitting Slime: each half's share of the slain slime's health and size. */
 const SPLIT_HP = 0.5;
+/** Undead that rise again (an evolution) come back once at this share of their HP. */
+const RISE_HP = 0.5;
+/** Monsters that burst when slain (an evolution) hurt every monster this close for this share of their own max HP. */
+const BURST_RADIUS = 48;
+const BURST_DAMAGE = 0.5;
 const SPLIT_SIZE = 0.75;
 /** Fire Starter's burning sticks: how long they burn, how far they reach, and each tick's damage (a share of the Twiggling's health). */
 const STICKS_LIFE = 4;
@@ -684,6 +689,23 @@ export class Field {
       ...(boss ? {} : { scale: artScale(g.rng(), g.rng(), g.rng()), ...(g.rng() >= 1 - 1 / GOLDEN_ODDS ? { golden: true } : {}) }),
       ...(!boss && stats.lunge ? { lunge: { dash: 0, cd: g.rng() * LUNGE_COOLDOWN } } : {}),
     });
+  }
+
+  /** An undead that rises again where it fell, at half its HP (once: a risen one stays down). */
+  private rise(e: Enemy): void {
+    const hp = e.maxHp * RISE_HP;
+    this.enemies.push({ id: this.nextId++, type: e.type, x: e.x, y: e.y, hp, maxHp: hp, r: e.r, speed: e.speed, boss: false, fleeing: false, flash: 0, kx: 0, ky: 0, phase: this.game.rng() * 10, scale: e.scale, half: true });
+    this.say(e.x, e.y - e.r - 6, 'RISES!', '#b8f0c0', 9);
+  }
+
+  /** A monster that bursts as it dies: every other monster close by takes a share of its max HP. */
+  private burstAt(shooter: Shooter, e: Enemy): void {
+    this.events.push({ type: 'thorns', x: e.x, y: e.y, r: BURST_RADIUS });
+    for (const o of this.enemies)
+      if (o !== e && o.hp > 0 && !o.boss && Math.hypot(o.x - e.x, o.y - e.y) <= BURST_RADIUS + o.r) {
+        const d = Math.hypot(o.x - e.x, o.y - e.y) || 1;
+        this.damage(o, e.maxHp * BURST_DAMAGE, false, (o.x - e.x) / d, (o.y - e.y) / d, shooter, 'physical');
+      }
   }
 
   /** Splitting Slime: a slain slime breaks into two smaller halves, thrown apart where it fell. */
@@ -3030,6 +3052,9 @@ export class Field {
         if (st.split && !e.half && this.game.rng() < st.split) this.split(e);
         if (st.fireTrail && e.burn && this.game.rng() < st.fireTrail)
           this.puddles.push({ shooter, x: e.x, y: e.y, r: STICKS_RADIUS, life: STICKS_LIFE, tick: PUDDLE_TICK, dmg: 0, abs: e.maxHp * STICKS_DAMAGE, dtype: 'fire', sticks: true });
+        // Undead that rise again, and monsters that burst (evolutions).
+        if (st.rise && !e.half && this.game.rng() < st.rise) this.rise(e);
+        if (st.burst && this.game.rng() < st.burst) this.burstAt(shooter, e);
       }
       this.bloodthirst(shooter);
       this.quickDrawKill(shooter);
