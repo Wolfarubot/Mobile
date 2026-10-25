@@ -3050,7 +3050,7 @@ const uniqueEnchant = (id: UniqueId): EnchantDef => {
     builtInOnly: true,
     effect: { kind: 'unique', id, base: 1, damageType: u.damageType, cooldown: u.cooldown },
     fits: () => true,
-    text: (_c, p, t) => `${u.rarity === 'exalted' ? 'Exalted' : 'Artifact'} unique: every ${u.cooldown}s, ${u.desc} (${dmg(p, t)})`,
+    text: (_c, p, t) => `Every ${u.cooldown}s, ${u.desc} (${dmg(p, t)})`,
   };
 };
 
