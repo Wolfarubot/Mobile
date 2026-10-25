@@ -1797,17 +1797,23 @@ export class AppUI {
       body.appendChild(sectionTitle('Events'));
       const list = el('div', 'area-events');
       body.appendChild(list);
-      this.refreshers.push(() => {
-        list.innerHTML = events
-          .map((e) => {
-            const st = g.state.events[e.id];
-            const unlocked = g.eventUnlocked(e.id);
-            return `<div class="row"><div class="icon">${e.icon}</div><div class="info"><div class="name">${e.name}</div><div class="sub">${
-              unlocked ? `Run ${fmt(st.runs)} time${st.runs === 1 ? '' : 's'} · completed ${fmt(st.completed)}` : `🔒 Unlocks at ${fmt(e.unlockKills)} ${unlockNoun(e)} slain here`
-            }</div></div></div>`;
-          })
-          .join('');
-      });
+      // Each event's icon as on the Events tab (its swarm's monster, the Guardian's crown, a minigame's own art).
+      for (const e of events) {
+        const icon = this.eventIcon(e, 'ae-icon');
+        const row = el('div', 'row');
+        row.innerHTML = `<div class="icon">${icon.html}</div><div class="info"><div class="name">${e.name}</div><div class="sub"></div></div>`;
+        list.appendChild(row);
+        icon.draw(row);
+        const sub = $('.sub', row);
+        let last = '';
+        this.refreshers.push(() => {
+          const st = g.state.events[e.id];
+          const html = g.eventUnlocked(e.id)
+            ? `Run ${fmt(st.runs)} time${st.runs === 1 ? '' : 's'} · completed ${fmt(st.completed)}`
+            : `🔒 Unlocks at ${fmt(e.unlockKills)} ${unlockNoun(e)} slain here`;
+          if (html !== last) sub.innerHTML = last = html;
+        });
+      }
     }
 
     const activeTitle = sectionTitle('Active Hunters');

@@ -721,11 +721,19 @@ button {
 .offline-mats.all {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
+/* Names wrap rather than being cut off; on narrow phones it's one column. */
 .offline-mats.all .offline-mat span {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  line-height: 1.15;
+}
+.offline-mats.all .offline-mat b {
+  flex: none;
+}
+@media (max-width: 380px) {
+  .offline-mats.all {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 .offline-area-mats {
   display: flex;
@@ -5665,10 +5673,12 @@ textarea {
 
 /* ---- Hunter icons: a black frame wherever they appear as tiles or portraits. ---- */
 .hunter-tile i img.ei,
+.area-tile i img.ei,
 .hunter-art {
   box-shadow: 0 0 0 2px #000;
 }
-.hunter-tile i img.ei {
+.hunter-tile i img.ei,
+.area-tile i img.ei {
   border-radius: 2px;
 }
 .hunter-art {
@@ -6537,4 +6547,40 @@ body::after {
   border-top: min(2px, var(--safe-bottom)) solid #000;
   z-index: 9000;
   pointer-events: none;
+}
+
+/* Event tiles: their art stands on the card itself, so no frame round it. */
+.event-tile i img.ei {
+  box-shadow: none;
+}
+/* Area details: each event's icon (as on the Events tab) on its dark square, which gets a black frame. */
+.area-events .row .icon {
+  box-shadow: 0 0 0 2px #000;
+  border-radius: 2px;
+  overflow: hidden;
+}
+.area-events .ae-icon {
+  font-style: normal;
+}
+.area-events .ae-icon img.ei {
+  width: 34px;
+  height: 34px;
+  vertical-align: middle;
+}
+.area-events canvas.ae-icon {
+  width: 42px;
+  height: 38px;
+  image-rendering: pixelated;
+}
+
+/* Free-standing icons (not inside a tile, button or framed square) get a black edge, like icons in popups:
+   the energy and buff bar headings, the gold counter, "You are hunting here", stat cells. */
+.en-head img.ei,
+.bb-head img.ei,
+.topbar .stat img.ei,
+.you-here-line img.ei,
+.ev-foot img.ei,
+.stat-cell img.ei,
+.free-icon {
+  filter: drop-shadow(1px 0 0 #000) drop-shadow(-1px 0 0 #000) drop-shadow(0 1px 0 #000) drop-shadow(0 -1px 0 #000);
 }

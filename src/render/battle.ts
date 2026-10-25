@@ -1987,6 +1987,34 @@ export function drawEnemyPortrait(canvas: HTMLCanvasElement, id: EnemyId, size?:
   g.restore();
 }
 
+/**
+ * A sheet's portrait frame (column 0 of `row`) copied into a sheet-sized canvas, with every pixel that touches no
+ * other dropped: art sheets leave the odd stray speck that shows up on a big still portrait. Cached per sheet.
+ */
+const portraitFrames = new Map<string, HTMLCanvasElement>();
+function portraitFrame(key: string, img: HTMLImageElement, sh: MonsterSheet, row: number): HTMLCanvasElement {
+  let c = portraitFrames.get(key);
+  if (c) return c;
+  const F = sh.frame;
+  c = document.createElement('canvas');
+  c.width = F;
+  c.height = (row + 1) * F;
+  const x = c.getContext('2d', { willReadFrequently: true })!;
+  x.drawImage(img, 0, row * F, F, F, 0, row * F, F, F);
+  const data = x.getImageData(0, row * F, F, F);
+  const a = (px: number, py: number) => (px < 0 || py < 0 || px >= F || py >= F ? 0 : data.data[(py * F + px) * 4 + 3]);
+  for (let py = 0; py < F; py++)
+    for (let px = 0; px < F; px++) {
+      if (a(px, py) <= 16) continue;
+      let alone = true;
+      for (let dy = -1; dy <= 1 && alone; dy++) for (let dx = -1; dx <= 1; dx++) if ((dx || dy) && a(px + dx, py + dy) > 16) alone = false;
+      if (alone) data.data[(py * F + px) * 4 + 3] = 0;
+    }
+  x.putImageData(data, 0, row * F);
+  portraitFrames.set(key, c);
+  return c;
+}
+
 function drawPortraitSprite(canvas: HTMLCanvasElement, id: EnemyId, size?: [number, number], ground?: AreaId): void {
   const g = canvas.getContext('2d')!;
   const { w, h } = fitCanvas(canvas, g, undefined, size);
@@ -2001,7 +2029,9 @@ function drawPortraitSprite(canvas: HTMLCanvasElement, id: EnemyId, size?: [numb
   if (sheetKey && sheet && !(sheet.complete && sheet.naturalWidth > 0)) sheet.addEventListener('load', () => drawEnemyPortrait(canvas, id, size, ground), { once: true });
   if (sheetKey && sheet && sheet.complete && sheet.naturalWidth > 0) {
     const sh = SHEETS[sheetKey];
-    drawSheetFrame(g, sheet, sh, sheetRow(sh, 'D'), 0, r * 2.8);
+    // The frame with stray single pixels cleared (the Green Slime's has one floating above it).
+    const row = sheetRow(sh, 'D');
+    drawSheetFrame(g, portraitFrame(sheetKey, sheet, sh, row), sh, row, 0, r * 2.8);
   } else if (img) g.drawImage(img, -r * 1.3, -r * 1.3, r * 2.6, r * 2.6);
   else {
     g.fillStyle = def.color;

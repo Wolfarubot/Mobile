@@ -12,7 +12,7 @@ export const DAMAGE_TAG_ICONS: Record<DamageType, string> = {
   frost: 'ab-pyro-hydro/069',
   radiant: 'ab-priest-bard/047',
   poison: 'ab-hunter-warrior/043',
-  arcane: 'ab-rogue-warlock/065',
+  arcane: 'ab-rogue-warlock/094',
   decay: 'ab-paladin-dk/073',
   lightning: 'ab-geo-aero/052',
   void: 'ab-rogue-warlock/080',
