@@ -130,7 +130,7 @@ import { NODE_SPRITES } from '../core/nodeSprites';
 import { hunterIconHtml } from './hunterIcons';
 import { buzz, setHaptics } from './haptics';
 import { perfOn, setPerfOn } from './perfMeter';
-import { AREA_MUSIC, GUARDIAN_MUSIC, playMusic, setMusicVolume, SWARM_MUSIC } from './music';
+import { AREA_MUSIC, GUARDIAN_MUSIC, MINIGAME_MUSIC, playMusic, setMusicVolume, SWARM_MUSIC } from './music';
 import { pressSound, setSfxVolume, sfx } from './sound';
 import { JOURNAL, type JournalEntry } from '../core/journal';
 import { App as CapApp } from '@capacitor/app';
@@ -3544,6 +3544,7 @@ export class AppUI {
       lives: mg.lives,
       best,
       create: mg.create,
+      music: MINIGAME_MUSIC[ev.minigame!],
       onEnd: (score) => {
         const before = g.buffLeft(ev.minigame!);
         const r = g.finishMinigame(ev.id, score);

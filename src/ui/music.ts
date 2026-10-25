@@ -1,4 +1,4 @@
-import type { AreaId } from '../core/balance';
+import type { AreaId, MinigameId } from '../core/balance';
 import { whenAudioStarts } from './sound';
 
 /**
@@ -26,7 +26,15 @@ export type TrackId =
   | 'battleTheme3'
   | 'battleTheme4'
   | 'theEvilOne'
-  | 'goofyMonster';
+  | 'goofyMonster'
+  | 'peacefulVillage'
+  | 'magicTemple'
+  | 'oldMagician'
+  | 'livelyCity'
+  | 'militaryBase'
+  | 'eastTown'
+  | 'ancientLibrary'
+  | 'unknownIsland';
 
 /** Each track's file and loop length in seconds (from its MIDI: the last note, to the nearest half beat). */
 const TRACKS: Record<TrackId, { file: string; loop: number }> = {
@@ -48,6 +56,26 @@ const TRACKS: Record<TrackId, { file: string; loop: number }> = {
   battleTheme4: { file: 'battle-theme-4', loop: 85.2175 },
   theEvilOne: { file: 'the-evil-one', loop: 82.649 },
   goofyMonster: { file: 'goofy-monster', loop: 32 },
+  peacefulVillage: { file: 'peaceful-village', loop: 85.5445 },
+  magicTemple: { file: 'magic-temple', loop: 55.9223 },
+  oldMagician: { file: 'the-old-magician', loop: 47.5247 },
+  livelyCity: { file: 'lively-city', loop: 64.6154 },
+  militaryBase: { file: 'military-base', loop: 48.9796 },
+  eastTown: { file: 'east-town', loop: 58.7755 },
+  ancientLibrary: { file: 'ancient-library', loop: 70.3448 },
+  unknownIsland: { file: 'unknown-island', loop: 57.0297 },
+};
+
+/** Each minigame's own track, while it's open (the battlefield's music comes back after). */
+export const MINIGAME_MUSIC: Record<MinigameId, TrackId> = {
+  huntingPractice: 'peacefulVillage',
+  pixieSerenade: 'magicTemple',
+  graveRobbing: 'oldMagician',
+  puppetShow: 'livelyCity',
+  shootingGallery: 'militaryBase',
+  forgeStrike: 'eastTown',
+  runeMatch: 'ancientLibrary',
+  icebreaker: 'unknownIsland',
 };
 
 /** Each area's own track. */
@@ -109,9 +137,19 @@ export function setMusicVolume(v: number): void {
 
 /** Asks for a track (or silence); it plays once audio has started and the track has loaded. */
 export function playMusic(id: TrackId | null): void {
-  if (id === wanted) return;
-  wanted = id;
+  asked = id;
+  const next = override ?? id;
+  if (next === wanted) return;
+  wanted = next;
   update();
+}
+
+/** A track that plays over whatever the battlefield asks for (a minigame's), or null to give the battlefield's back. */
+let override: TrackId | null = null;
+let asked: TrackId | null = null;
+export function overrideMusic(id: TrackId | null): void {
+  override = id;
+  playMusic(asked);
 }
 
 whenAudioStarts((c) => {

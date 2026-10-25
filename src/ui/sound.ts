@@ -73,6 +73,15 @@ export function whenAudioStarts(fn: (ctx: AudioContext) => void): void {
  * Plays the sound for a moment in the game (or not: when sound effects are off, the moment has no clip, it's too
  * soon after the last one, or too many are playing).
  */
+/** The battlefield's sounds, muted while a minigame is open (it has its own). */
+let battleOn = true;
+export function setBattleSfx(on: boolean): void {
+  battleOn = on;
+}
+export function battleSfx(id: SfxEvent): void {
+  if (battleOn) sfx(id);
+}
+
 export function sfx(id: SfxEvent): void {
   const spec = SFX[id];
   if (volume <= 0 || !spec.clip || !ctx || !master || ctx.state !== 'running' || document.hidden) return;

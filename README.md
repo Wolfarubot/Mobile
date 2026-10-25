@@ -73,7 +73,7 @@ Kills and taps can fire many times a second, so each sound has a minimum gap bet
 
 ### Music
 
-Looping tracks in `public/music/`, played by `src/ui/music.ts` (**Settings → Audio**: Music; at full volume it still sits under the sound effects). Each area has its own track; a Guardian Challenge plays a battle theme that grows fiercer through the areas (the Time Eater has its own), and a swarm plays a goofy chase. Changing track crossfades over 1.5s. A decoded track takes about 20 MB, so only the one playing and the one fading out are kept.
+Looping tracks in `public/music/`, played by `src/ui/music.ts` (**Settings → Audio**: Music; at full volume it still sits under the sound effects). Each area has its own track; a Guardian Challenge plays a battle theme that grows fiercer through the areas (the Time Eater has its own), and a swarm plays a goofy chase. **Minigames have their own music** while they're open (Hunting Practice: Peaceful Village; Pixie Serenade: Magic Temple; Grave Robbing: The Old Magician; Puppet Show: Lively City; Shooting Gallery: Military Base; Forge Strike: East Town; Rune Match: Ancient Library; Icebreaker: Unknown Island), and the battlefield's sound effects are muted behind them. Changing track crossfades over 1.5s. A decoded track takes about 20 MB, so only the one playing and the one fading out are kept.
 
 | Area | Track | Guardian |
 |---|---|---|
@@ -90,7 +90,7 @@ Looping tracks in `public/music/`, played by `src/ui/music.ts` (**Settings → A
 | Meteor Field | Dark Factory | Battle Theme IV |
 | Void Rift | Demon King Castle | The Evil One |
 
-Swarms: Goofy Monster. The tracks come from a MIDI pack (`tools/music/midi`, 28 tracks; the other 10 are unused so far) rendered with FluidSynth and the FluidR3 GM soundfont (MIT licence) by `tools/music/render.sh`: each is cut to exactly one loop (its last note, to the nearest half beat) with its reverb tail folded back onto the start so it loops without a seam, evened out in loudness and encoded as 96 kbps MP3 (~15 MB for the 18 used).
+Swarms: Goofy Monster. The tracks come from a MIDI pack (`tools/music/midi`, 28 tracks; Pyramid and Holy Sanctuary are unused so far) rendered with FluidSynth and the FluidR3 GM soundfont (MIT licence) by `tools/music/render.sh`: each is cut to exactly one loop (its last note, to the nearest half beat) with its reverb tail folded back onto the start so it loops without a seam, evened out in loudness and encoded as 96 kbps MP3 (~21 MB for the 26 used).
 
 ## Adding your art
 

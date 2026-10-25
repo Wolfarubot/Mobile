@@ -1,3 +1,5 @@
+import { overrideMusic, type TrackId } from '../music';
+import { setBattleSfx } from '../sound';
 import type { AreaId } from '../../core/balance';
 import { areaBackground, type DecorOpts } from '../../render/backgrounds';
 import { gearImage } from '../../render/sprites';
@@ -53,6 +55,8 @@ export interface MinigameSpec {
   /** When it's over: pays out and returns the results text (HTML). */
   onEnd(score: number): string;
   onClose(): void;
+  /** Its own music while it's open. */
+  music?: TrackId;
 }
 
 interface Pop {
@@ -71,6 +75,9 @@ export function runMinigame(spec: MinigameSpec): void {
     <div class="mg-hud"><span class="mg-score">0</span><span class="mg-lives"></span><button class="mg-quit">Quit</button></div>
     <div class="mg-intro"><div class="mg-card"><h2>${spec.title}</h2>${spec.intro}<p class="mg-best">${spec.best > 0 ? `Best: ${spec.best}` : ''}</p><button class="buy mg-go">Start</button></div></div>`;
   document.body.appendChild(root);
+  // Its own music, and quiet from the battlefield behind it.
+  if (spec.music) overrideMusic(spec.music);
+  setBattleSfx(false);
   const canvas = root.querySelector('canvas')!;
   const g = canvas.getContext('2d')!;
   const scoreEl = root.querySelector<HTMLElement>('.mg-score')!;
@@ -170,6 +177,8 @@ export function runMinigame(spec: MinigameSpec): void {
     cancelAnimationFrame(frame);
     window.removeEventListener('resize', resize);
     root.remove();
+    overrideMusic(null);
+    setBattleSfx(true);
     spec.onClose();
   };
   // Quit mid-round ends it (and pays what you've scored); before starting, it just closes.

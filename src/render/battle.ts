@@ -1,5 +1,5 @@
 import { buzz } from '../ui/haptics';
-import { sfx } from '../ui/sound';
+import { battleSfx as sfx } from '../ui/sound';
 import { MAGIC_SFX, SFX } from '../ui/sfxConfig';
 import { areaDef, DAMAGE_TYPES, FIELD_ZOOM, FLYING, gearDef, WEAPON_CLASSES, STATUS, enemyDef, eventDef, fieldZoom, GUARDIAN_TIME, hunterDef, materialDef, SIZE_SCALE, type AreaId, type DamageType, type EnemyId, type EnemyShape, type SummonType } from '../core/balance';
 import { DICE_FLIGHT, DICE_REST, PLAYER_RADIUS, SHOT_RADIUS, SUMMON_RADIUS, TOME_LIFE, TOME_OPEN, type EnemyShot, type Summon, type SpellZone, type FieldEvent, type Bullet, type BulletKind, type Enemy, type Field, type Helper, type Puddle } from '../core/field';
