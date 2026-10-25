@@ -22,8 +22,10 @@
   --outline: -1px 0 #000, 1px 0 #000, 0 -1px #000, 0 1px #000, -1px -1px #000, 1px -1px #000, -1px 1px #000, 1px 1px #000;
   /* A thicker one, for big headings. */
   --outline-thick: -2px 0 #000, 2px 0 #000, 0 -2px #000, 0 2px #000, -2px -2px #000, 2px -2px #000, -2px 2px #000, 2px 2px #000, -1px -2px #000, 1px -2px #000, -2px -1px #000, 2px -1px #000, -2px 1px #000, 2px 1px #000, -1px 2px #000, 1px 2px #000;
-  --safe-top: env(safe-area-inset-top, 0px);
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  /* The phone's system bars (status bar, Android's navigation buttons). Android WebViews often report 0 for env(),
+     so Capacitor's own measurement (--safe-area-inset-*, set on <html> by its SystemBars plugin) is used when larger. */
+  --safe-top: max(env(safe-area-inset-top, 0px), var(--safe-area-inset-top, 0px));
+  --safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--safe-area-inset-bottom, 0px));
 }
 
 * {
@@ -2631,8 +2633,8 @@ canvas {
   align-items: center;
   gap: 8px;
   margin: 8px -10px calc(-10px - var(--safe-bottom));
-  /* Only part of the system bar's inset below it: sat lower, nearer the phone's own buttons. */
-  padding: 8px 10px calc(4px + var(--safe-bottom) * 0.5);
+  /* The whole system-bar inset below it, so Android's navigation buttons never cover it. */
+  padding: 8px 10px calc(4px + var(--safe-bottom));
   background: var(--c0);
   box-shadow: 0 -4px 8px -4px rgba(0, 0, 0, 0.6);
 }
@@ -4630,8 +4632,8 @@ body.ui-parchment .mat {
   bottom: calc(-10px - var(--safe-bottom));
   z-index: 3;
   margin: 0 -10px calc(-10px - var(--safe-bottom));
-  /* Only part of the system bar's inset below it: sat lower, nearer the phone's own buttons. */
-  padding: 8px 10px calc(4px + var(--safe-bottom) * 0.5);
+  /* The whole system-bar inset below it, so Android's navigation buttons never cover it. */
+  padding: 8px 10px calc(4px + var(--safe-bottom));
   background: var(--c0);
   box-shadow: 0 -4px 10px -4px rgba(0, 0, 0, 0.6);
 }
@@ -5843,7 +5845,7 @@ button.pressing:not(:disabled) {
 .equip-prompt {
   position: fixed;
   right: 14px;
-  bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(96px + var(--safe-bottom));
   z-index: 60;
   min-width: 110px;
   padding: 10px 16px 14px !important;
@@ -6510,7 +6512,7 @@ body.ui-parchment .craft-tile.shop-tile {
 .perf-meter {
   position: fixed;
   left: 4px;
-  top: calc(env(safe-area-inset-top, 0px) + 4px);
+  top: calc(var(--safe-top) + 4px);
   z-index: 9999;
   padding: 3px 6px;
   background: rgba(0, 0, 0, 0.72);
@@ -6519,4 +6521,20 @@ body.ui-parchment .craft-tile.shop-tile {
   white-space: pre;
   pointer-events: none;
   border-radius: 3px;
+}
+
+/* Under the phone's own bottom bar (Android's navigation buttons): a solid strip with a border on top, so the
+   game's UI visibly ends above it. Nothing is drawn there when the phone has no bottom inset. */
+body::after {
+  content: '';
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  box-sizing: border-box;
+  height: var(--safe-bottom);
+  background: #0c0a12;
+  border-top: min(2px, var(--safe-bottom)) solid #000;
+  z-index: 9000;
+  pointer-events: none;
 }
