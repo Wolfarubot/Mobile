@@ -4336,6 +4336,19 @@ export const EVENTS: EventDef[] = AREAS.flatMap((a): EventDef[] => {
 
 export const eventDef = (id: string): EventDef => byId(EVENTS, id);
 
+/** A minigame's star ranks, as a share of its par score: half par for 1 star, par for 2, half again for 3. */
+export const MINIGAME_STAR_PAR = [0.5, 1, 1.5];
+
+/**
+ * The scores that earn 1, 2 and 3 stars in a minigame: its blessing tiers for the ones that bless Refine or Enchant,
+ * otherwise a share of par (3 stars is where its timed buff stops growing).
+ */
+export function minigameStars(def: EventDef): number[] {
+  if (def.blessing) return def.blessing.tiers;
+  const par = def.rewards?.par ?? 1;
+  return MINIGAME_STAR_PAR.map((k) => Math.max(1, Math.round(par * k)));
+}
+
 /** Your Hunter's sessions from Lv 1 to 100, and from becoming the Slayer to Lv 200. */
 export const MAIN_SESSIONS_TO_ASCEND = sessionsToLevel(MAIN_ASCEND_LEVEL);
 export const MAIN_SESSIONS_AFTER_ASCEND = sessionsAfterAscending(MAIN_ASCEND_LEVEL, MAIN_MAX_LEVEL);

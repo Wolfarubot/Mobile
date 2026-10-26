@@ -64,6 +64,7 @@ import {
   BUFF_SLAYER,
   BUFF_SLAYER_TIME,
   MINIGAME_BUFFS,
+  minigameStars,
   type MinigameId,
   ENERGY_MAX,
   ENERGY_REGEN,
@@ -1735,6 +1736,11 @@ export class Game {
       this.goldRateAge = 0;
     }
     return this.goldRate;
+  }
+
+  /** Stars (0 to 3) a minigame score earns. */
+  starsFor(id: string, score: number): number {
+    return score > 0 ? minigameStars(eventDef(id)).filter((t) => score >= t).length : 0;
   }
 
   /** Extra quality rolls a minigame score earns (0 to 3), for the ones that bless Refine or Enchant. */

@@ -97,6 +97,12 @@ import {
   SHOP_DAILY_ITEMS,
   type Quest,
   MINIGAME_BUFFS,
+  minigameStars,
+  BOSS_MATERIAL_DROP,
+  GUARDIAN_GOLD_MULT,
+  GUARDIAN_TIME,
+  MINIGAME_INCOME,
+  MINIGAME_INCOME_NEW,
   type MinigameId,
   isUniqueEnchant,
   enchantTierHit,
@@ -500,6 +506,7 @@ export class AppUI {
       else if (!s.flags.wolfIntro && !s.bestiary.wolf.unlocked && s.gold >= enemyUnlockCost(enemyDef('wolf'))) this.showWolfIntro();
       else if (!s.flags.craftIntro && this.firstCraftable()) this.showCraftIntro();
       else if (!s.flags.empowerIntro && g.empowerUnlocked) this.showEmpowerIntro();
+      else if (!s.flags.minigameIntro && g.eventUnlocked('huntingPractice')) this.showMinigameIntro();
     }
     $('#menuBtn .alert-mark').classList.toggle('hidden', !g.unreadJournal().length);
     $('#questBtn .alert-mark').classList.toggle('hidden', !g.questsClaimable);
@@ -3520,35 +3527,60 @@ export class AppUI {
     return (ev.kind === 'guardian' && g.guardianActive && g.area === ev.area) || g.activeEvent?.id === ev.id;
   }
 
-  /** The selected event's card: what it is, what it pays, its energy cost, and Start / Play. */
+  /**
+   * The selected event's card: what it is in a line, its energy cost, and Start / Play. A minigame's card keeps to
+   * what it gives and your best stars; Details opens the full breakdown.
+   */
   private eventCard(ev: EventDef): HTMLElement {
     const g = this.game;
     const card = el('div', 'beast event-card');
     const icon = this.eventIcon(ev, 'ec-icon');
     const cost = g.energyCost(ev.id);
-    card.innerHTML = `<div class="beast-head">${icon.html}<div class="info"><div class="name">${ev.name}</div><div class="blurb">${ev.blurb}</div></div></div><div class="ev-status"></div><div class="ev-foot"><span class="ev-cost">Cost ${this.energyPips(ev)} <b>${cost}</b> energy</span><button class="buy"></button></div>`;
+    const blurb = ev.kind === 'minigame' ? `Play for gold, materials and ${MINIGAME_BUFFS[ev.minigame!].name}: ${lowerFirst(MINIGAME_BUFFS[ev.minigame!].desc)}` : ev.blurb;
+    card.innerHTML = `<div class="beast-head">${icon.html}<div class="info"><div class="name">${ev.name}</div><div class="blurb">${blurb}</div></div></div><div class="ev-status"></div><div class="ev-foot"><span class="ev-cost">Cost ${this.energyPips(ev)} <b>${cost}</b> energy</span><button class="ev-details">Details</button><button class="buy"></button></div>`;
     icon.draw(card);
-    const btn = $<HTMLButtonElement>('.buy', card);
-    const status = $('.ev-status', card);
+    $('.ev-details', card).addEventListener('click', () => this.openEventDetail(ev));
+    this.wireEventButton(ev, card, $<HTMLButtonElement>('.buy', card), $('.ev-status', card), this.refreshers, () => {
+      if (ev.kind !== 'minigame') return this.eventRewards(ev).join(' · ');
+      const best = g.state.events[ev.id]?.best ?? 0;
+      return best > 0 ? `Best ${best} ${rankStars(g.starsFor(ev.id, best))}` : `Not played yet ${rankStars(0)}`;
+    });
+    return card;
+  }
+
+  /** What finishing an event gives, in short (a Guardian's unlock or bounty, the Hunters it brings). */
+  private eventRewards(ev: EventDef): string[] {
+    const g = this.game;
+    const next = nextAreaOf(ev.area);
+    const rewards: string[] = [];
+    if (ev.kind === 'guardian') rewards.push(next && !g.isAreaUnlocked(next.id) ? `unlocks ${next.name}` : 'a Guardian bounty of gold and materials');
+    for (const h of g.huntersUnlockedBy(ev.id)) rewards.push(`${wearerIcon(h)} ${hunterDef(h).name} the ${hunterDef(h).title} joins`);
+    return rewards;
+  }
+
+  /**
+   * An event's Start / Play button and status line, kept up to date: locked (and why), running, short of energy
+   * (tapping offers an ad), or ready. `extra` is the line shown under it while it's ready.
+   */
+  private wireEventButton(ev: EventDef, card: HTMLElement | null, btn: HTMLButtonElement, status: HTMLElement, refreshers: Array<() => void>, extra: () => string, before?: () => void): void {
+    const g = this.game;
+    const cost = g.energyCost(ev.id);
     btn.addEventListener('click', () => {
-      if (g.eventUnlocked(ev.id) && g.energyWait(ev.id) > 0) this.showNoEnergy(ev);
-      else if (ev.kind === 'minigame') this.playMinigame(ev);
+      if (g.eventUnlocked(ev.id) && g.energyWait(ev.id) > 0) return this.showNoEnergy(ev);
+      before?.();
+      if (ev.kind === 'minigame') this.playMinigame(ev);
       else if (g.startEvent(ev.id)) this.refresh();
     });
-    this.refreshers.push(() => {
+    refreshers.push(() => {
       const kills = g.eventProgress(ev.id);
       const unlocked = g.eventUnlocked(ev.id);
       const running = this.eventLive(ev);
       const wait = g.energyWait(ev.id);
-      card.classList.toggle('locked', !unlocked);
-      card.classList.toggle('running', running);
-      card.classList.toggle('ready', g.eventReady(ev.id));
-      const next = nextAreaOf(ev.area);
-      const rewards: string[] = [];
-      if (ev.kind === 'guardian') rewards.push(next && !g.isAreaUnlocked(next.id) ? `unlocks ${next.name}` : 'a Guardian bounty of gold and materials');
-      for (const h of g.huntersUnlockedBy(ev.id)) rewards.push(`${wearerIcon(h)} ${hunterDef(h).name} the ${hunterDef(h).title} joins`);
-      if (ev.kind === 'minigame') rewards.push(`for ${ev.rewards!.par} points: ${rewardText(g.minigameReward(ev.id, ev.rewards!.par))}${g.state.events[ev.id]?.best ? ` · best ${g.state.events[ev.id].best}` : ''}`);
-      const extra = rewards.length ? `<small>Reward: ${rewards.join(' · ')}</small>` : '';
+      card?.classList.toggle('locked', !unlocked);
+      card?.classList.toggle('running', running);
+      card?.classList.toggle('ready', g.eventReady(ev.id));
+      const line = extra();
+      const note = line ? `<small>${ev.kind === 'minigame' ? '' : 'Reward: '}${line}</small>` : '';
       if (!unlocked && ev.kind === 'minigame') {
         const h = hunterDef(ev.hunter!);
         status.innerHTML = `<small>🔒 Recruit ${wearerIcon(h.id)} ${h.name} the ${h.title} to play</small>`;
@@ -3569,17 +3601,134 @@ export class AppUI {
         btn.innerHTML = 'Live';
         btn.disabled = true;
       } else if (wait > 0 && (ev.kind === 'minigame' || !g.eventRunning)) {
-        // Tapping it offers an ad for more energy.
-        status.innerHTML = extra;
+        status.innerHTML = note;
         btn.innerHTML = `${ev.kind === 'minigame' ? 'Play' : 'Start'}<small>need ${cost} 🗲</small>`;
         btn.disabled = false;
       } else {
-        status.innerHTML = extra;
+        status.innerHTML = note;
         btn.innerHTML = ev.kind === 'minigame' ? 'Play' : g.eventRunning ? 'Busy<small>another event</small>' : 'Start';
         btn.disabled = !g.eventReady(ev.id);
       }
     });
-    return card;
+  }
+
+  /**
+   * An event's full page: how it works, what it takes to open, and what it pays. For a minigame, the score each star
+   * rank needs and what a play at that score earns (its buff, gold and drops), your best, and the buff in full.
+   */
+  private openEventDetail(ev: EventDef): void {
+    if (this.detail) this.dropDetail();
+    const g = this.game;
+    const view = el('div', 'hunter-detail settings event-detail');
+    view.innerHTML = `
+      <div class="hd-top"><button class="hd-close" aria-label="Close">✕</button><span>${ev.name}</span></div>
+      <div class="hd-scroll"></div>`;
+    document.body.appendChild(view);
+    $('.hd-close', view).addEventListener('click', () => this.closeHunterDetail());
+    const refreshers: Array<() => void> = [];
+    this.detail = { el: view, refreshers };
+    const body = $('.hd-scroll', view);
+    const icon = this.eventIcon(ev, 'ec-icon');
+    const head = el('div', 'card ed-head');
+    const who = ev.hunter ? `<small>${wearerIcon(ev.hunter)} With ${hunterDef(ev.hunter).name} the ${hunterDef(ev.hunter).title} · ${areaDef(ev.area).name}</small>` : `<small>${areaDef(ev.area).name}</small>`;
+    head.innerHTML = `<div class="beast-head">${icon.html}<div class="info"><div class="name">${ev.name}</div>${who}</div></div><p>${ev.blurb}</p>`;
+    icon.draw(head);
+    body.appendChild(head);
+
+    if (ev.kind === 'minigame') this.buildMinigameDetail(ev, body, refreshers);
+    else {
+      body.appendChild(sectionTitle('Rewards'));
+      const box = el('div', 'card ed-text');
+      const lines: string[] = [];
+      if (ev.kind === 'guardian') {
+        const boss = enemyDef(GUARDIAN_ENEMY[ev.area]);
+        const next = nextAreaOf(ev.area);
+        if (next) lines.push(g.isAreaUnlocked(next.id) ? `Beating it the first time opened the <b>${next.name}</b>.` : `Beating it the first time opens the <b>${next.name}</b>.`);
+        lines.push(`Every win pays a Guardian bounty: 🪙 <b>${fmt(areaDef(ev.area).gold * GUARDIAN_GOLD_MULT)}</b>, ${gemHtml(boss.material)} <b>${BOSS_MATERIAL_DROP}</b> ${materialDef(boss.material).name}, and a piece of gear.`);
+        lines.push(`You have ${GUARDIAN_TIME}s to bring it down once it appears.`);
+      } else {
+        lines.push(`It lasts ${ev.duration}s. Everything slain drops as usual, so twice the monsters means twice the gold and materials.`);
+      }
+      for (const h of g.huntersUnlockedBy(ev.id)) lines.push(`${wearerIcon(h)} <b>${hunterDef(h).name} the ${hunterDef(h).title}</b> joins after ${unlockText(g, hunterDef(h)).replace(/^./, (c) => c.toLowerCase())}.`);
+      box.innerHTML = lines.map((l) => `<p>${l}</p>`).join('');
+      body.appendChild(box);
+      const done = g.eventCompletions(ev.id);
+      if (done > 0) body.appendChild(el('p', 'hd-note', `Completed ${fmt(done)} time${done === 1 ? '' : 's'}.`));
+    }
+
+    // Start / Play, with its cost, at the bottom.
+    const foot = el('div', 'card ed-foot');
+    foot.innerHTML = `<div class="ev-status"></div><div class="ev-foot"><span class="ev-cost">Cost ${this.energyPips(ev)} <b>${g.energyCost(ev.id)}</b> energy</span><button class="buy"></button></div>`;
+    body.appendChild(foot);
+    this.wireEventButton(ev, null, $<HTMLButtonElement>('.buy', foot), $('.ev-status', foot), refreshers, () => '', () => this.dropDetail());
+    this.refresh();
+  }
+
+  /** A minigame's details: your best, the star ranks and what each pays, and its buff. */
+  private buildMinigameDetail(ev: EventDef, body: HTMLElement, refreshers: Array<() => void>): void {
+    const g = this.game;
+    const mg = ev.minigame!;
+    const buff = MINIGAME_BUFFS[mg];
+    const best = el('div', 'card ed-best');
+    body.appendChild(best);
+    refreshers.push(() => {
+      const b = g.state.events[ev.id]?.best ?? 0;
+      best.innerHTML = b > 0 ? `<span>Your best</span><b>${fmt(b)}</b>${rankStars(g.starsFor(ev.id, b))}` : `<span>Your best</span><b>Not played yet</b>${rankStars(0)}`;
+    });
+
+    body.appendChild(sectionTitle('Star rankings'));
+    body.appendChild(el('p', 'hd-note', 'Rewards grow with every point you score. Here is what a play earns at each rank.'));
+    const stars = minigameStars(ev);
+    stars.forEach((score, i) => {
+      const rank = el('div', 'card ed-rank');
+      body.appendChild(rank);
+      refreshers.push(() => {
+        const r = g.minigameReward(ev.id, score);
+        const gain = g.buffGain(mg, ev.id, score);
+        const buffText =
+          buff.kind === 'timed'
+            ? `+${span(gain)} ${buff.name}`
+            : gain > 0
+              ? `+${Math.round(gain)} ${buff.name} charge${Math.round(gain) === 1 ? '' : 's'}`
+              : `No ${buff.name} charges`;
+        const tier = g.blessingFor(ev.id, score);
+        const bless = ev.blessing && tier > 0 ? `<li>✨ ${tier} extra roll${tier > 1 ? 's' : ''} a ${ev.blessing.kind === 'refine' ? 'Refine' : 'Enchant'} (${Math.round(g.perfectChance(tier) * 100)}% perfect, from ${Math.round(g.perfectChance(0) * 100)}%)</li>` : '';
+        const mats = Object.entries(r.materials).map(([m, n]) => `<li>${gemHtml(m as MaterialId)} ${fmt(n!)} ${materialDef(m as MaterialId).name}</li>`).join('');
+        const key = `${score}:${Math.round(r.gold)}:${gain}:${mats}`;
+        if (rank.dataset.key === key) return;
+        rank.dataset.key = key;
+        rank.innerHTML = `<div class="ed-rank-head">${rankStars(i + 1)}<b>${fmt(score)}+ points</b></div><ul><li>${ev.icon} ${buffText}</li>${bless}<li>🪙 ${fmt(r.gold)} gold</li>${mats}</ul>`;
+      });
+    });
+    const per = ev.rewards!.materials.map((m) => `${gemHtml(m.material)} 1 ${materialDef(m.material).name} every ${m.per} point${m.per === 1 ? '' : 's'}`).join(', ');
+    const how = el('div', 'card ed-text');
+    how.innerHTML = `<p>Gold is measured against your income, so it's always worth playing wherever you are: a par score (${ev.rewards!.par} points) pays ${span(MINIGAME_INCOME_NEW)} of your gold income while ${areaDef(ev.area).name} is the furthest area you've reached, and ${span(MINIGAME_INCOME)} after that.</p><p>Drops: ${per}.</p>`;
+    body.appendChild(how);
+
+    body.appendChild(sectionTitle(`${ev.icon} ${buff.name}`));
+    const bb = el('div', 'card ed-text');
+    body.appendChild(bb);
+    refreshers.push(() => {
+      const html = `<p>${buff.desc}</p><p>${buff.kind === 'timed' ? 'Time left' : 'Charges'}: <b>${this.buffAmount(mg)}</b> (holds up to ${buff.kind === 'timed' ? span(g.buffCap(mg)) : g.buffCap(mg)})</p><p>${buff.kind === 'timed' ? "It only runs down while you're playing, not while you're away." : ev.blessing ? `Each ${ev.blessing.kind === 'refine' ? 'Refine' : 'Enchant'} you roll spends one.` : 'Starting a Guardian Challenge spends one.'}</p>`;
+      if (bb.innerHTML !== html) bb.innerHTML = html;
+    });
+  }
+
+  /** Shown once, when the first minigame opens: what minigames are for. Play now opens Hunting Practice's page. */
+  private showMinigameIntro(replay = false): void {
+    if (!replay) this.game.state.flags.minigameIntro = true;
+    const first = eventDef('huntingPractice');
+    this.showModal(
+      `<h2>🎮 Minigames unlocked!</h2>
+       <p><b>${first.name}</b> is open in the Events tab.</p>
+       <p>Every area has a minigame starring one of its Hunters, opened by recruiting them. Each play costs 🗲 <b>3 energy</b>.</p>
+       <p>Minigames always pay <b>gold relative to where you are in the game</b>, measured against your income, so they never fall behind. They also drop materials and fill a <b>temporary buff</b>: more drops, faster attacks, more gold, and more, each helping you across the whole game while it lasts.</p>
+       <p>Your score earns up to <b>3 stars</b>, and the better you do, the more you get. Each minigame's details page shows exactly what every rank pays.</p>`,
+      [
+        { label: 'Later', secondary: true },
+        { label: 'Play now', action: () => this.openEventDetail(first) },
+      ],
+    );
   }
 
   /** Starts a minigame on its own screen; at the end it pays out and shows what you earned. */
@@ -3605,7 +3754,7 @@ export class AppUI {
         const buff = MINIGAME_BUFFS[ev.minigame!];
         const gained = g.buffLeft(ev.minigame!) - before;
         const buffLine = gained > 0 ? `<p class="mg-bless">${ev.icon} ${buff.name} +${buff.kind === 'timed' ? fmtTime(gained) : `${Math.round(gained)} charge${Math.round(gained) > 1 ? 's' : ''}`} (now ${this.buffAmount(ev.minigame!)})</p>` : '';
-        const record = score > best && best > 0 ? '<p class="mg-best">New best!</p>' : '';
+        const record = `<p class="mg-stars">${rankStars(g.starsFor(ev.id, score))}</p>${score > best && best > 0 ? '<p class="mg-best">New best!</p>' : ''}`;
         const tier = g.blessingFor(ev.id, score);
         const held = bless ? g.state.blessings[bless.kind] : 0;
         const blessed = bless && tier > 0 ? `<p class="mg-bless">✨ Blessed: your ${bless.kind === 'refine' ? 'Refines' : 'Enchants'} roll ${held} extra time${held > 1 ? 's' : ''} (${Math.round(g.perfectChance(held) * 100)}% perfect a roll)</p>` : '';
@@ -4168,6 +4317,7 @@ export class AppUI {
     row(sprite(MENU_SPRITES.empower), 'Empower', `Unlocking and empowering monsters (opens after ${EMPOWER_UNLOCK_KILLS} slimes).`, () => this.showEmpowerIntro(true));
     row(sprite(MENU_SPRITES.eventsLocked), 'Unlocking Events', 'How to open the Events tab.', () => this.showEventsLocked());
     row(sprite(MENU_SPRITES.events), 'Events', 'Guardian Challenges, swarms, minigames and energy.', () => this.showEventsIntro(true));
+    row(sprite(MENU_SPRITES.events), 'Minigames', 'What minigames pay, their buffs and star ranks.', () => this.showMinigameIntro(true));
     // The story so far, once you've seen it.
     if ((this.game.state.events['guardian-rift']?.completed ?? 0) > 0) row(sprite(MENU_SPRITES.timeEater), 'The Time Eater', 'Replay the cutscene from the Void Rift.', () => playCutscene(TIME_EATER_CUTSCENE));
   }
@@ -5198,6 +5348,13 @@ function span(seconds: number): string {
   const h = Math.floor(m / 60);
   return h ? `${h} h${m % 60 ? ` ${m % 60} min` : ''}` : `${m} min`;
 }
+
+/** Three stars, the first `n` lit. */
+function rankStars(n: number): string {
+  return `<span class="stars rank-stars">${'★'.repeat(n)}<span class="off">${'★'.repeat(3 - n)}</span></span>`;
+}
+
+const lowerFirst = (t: string): string => t.replace(/^[A-Z](?=[a-z])/, (c) => c.toLowerCase());
 
 /** A minigame's rewards in words: gold, then each material. */
 function rewardText(r: { gold: number; materials: Partial<Record<MaterialId, number>> }): string {

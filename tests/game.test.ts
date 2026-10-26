@@ -1542,6 +1542,9 @@ describe('Equipment', () => {
     expect(eventDef('runeMatch').blessing?.kind).toBe('enchant');
     expect([0, 139, 140, 239, 240, 359, 360, 800].map((s) => g.blessingFor('forgeStrike', s))).toEqual([0, 0, 1, 1, 2, 2, 3, 3]);
     expect(g.blessingFor('huntingPractice', 999)).toBe(0); // only the smithing games bless
+    // Star ranks: half par, par and one and a half par (Hunting Practice's par is 30); the smithing games use their tiers.
+    expect([0, 14, 15, 30, 44, 45, 99].map((s) => g.starsFor('huntingPractice', s))).toEqual([0, 0, 1, 2, 2, 3, 3]);
+    expect([139, 140, 240, 360].map((s) => g.starsFor('forgeStrike', s))).toEqual([0, 1, 2, 3]);
     // Each extra roll keeps the best: a perfect roll goes from 1 in 11 to about 17%, 25% and 32%.
     expect(g.perfectChance(0)).toBeCloseTo(1 / 11);
     expect([1, 2, 3].map((k) => Math.round(g.perfectChance(k) * 100))).toEqual([17, 25, 32]);
@@ -4978,7 +4981,7 @@ describe('Saves', () => {
     s.flags.eventsIntro = true;
     const back = deserialize(serialize(s))!;
     expect(back.settings).toEqual({ leftHanded: true, name: 'Wolfa', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', autoSalvage: [], fx: Object.fromEntries(FX_KEYS.map((k) => [k, true])), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium', fps: '60', audio: { on: true, musicOn: true, sfxOn: true, master: 80, music: 70, sfx: 80 } });
-    expect(back.flags).toEqual({ eventsIntro: true, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false });
+    expect(back.flags).toEqual({ eventsIntro: true, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false, minigameIntro: false });
     const old = JSON.parse(serialize(newGame(0)));
     delete old.settings;
     delete old.flags;

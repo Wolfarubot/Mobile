@@ -257,6 +257,8 @@ export interface GameState {
     craftIntro: boolean;
     /** The tip shown when you can first afford to unlock the wolf (also explains the full-screen menu). */
     wolfIntro: boolean;
+    /** The "how minigames work" tip, shown once the first minigame opens. */
+    minigameIntro: boolean;
   };
   /** Per event: seconds of cooldown left, times started and times completed (a Guardian beaten, a swarm survived). */
   events: Record<string, EventState>;
@@ -348,7 +350,7 @@ export function newGame(now = Date.now()): GameState {
     lastSeen: now,
     samples: {},
     settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', autoSalvage: [], fx: allFx(), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium', fps: '60', audio: defaultAudio() },
-    flags: { eventsIntro: false, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false },
+    flags: { eventsIntro: false, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false, minigameIntro: false },
     blessings: { refine: 0, enchant: 0 },
     energy: ENERGY_MAX,
     buffs: {},
@@ -666,6 +668,10 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
       craftIntro: (data.flags as { craftIntro?: unknown } | undefined)?.craftIntro !== false,
       // Saves from before this tip already had the wolf within reach.
       wolfIntro: (data.flags as { wolfIntro?: unknown } | undefined)?.wolfIntro !== false,
+      // Saves that have already played a minigame know how they work.
+      minigameIntro:
+        !!(data.flags as { minigameIntro?: unknown } | undefined)?.minigameIntro ||
+        Object.values((data.events ?? {}) as Record<string, { started?: number; best?: number }>).some((e) => (e?.best ?? 0) > 0),
     },
     seen: (() => {
       const s = (data.seen ?? {}) as Partial<Record<keyof SeenState, unknown>>;

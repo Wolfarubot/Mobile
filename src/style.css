@@ -1719,6 +1719,75 @@ button {
 .ev-foot .buy {
   min-width: 96px;
 }
+.ev-cost {
+  flex: 1;
+}
+.ev-foot .ev-details {
+  padding: 6px 10px;
+  font-size: 13px;
+}
+.ev-status .rank-stars {
+  margin-left: 4px;
+}
+
+/* ---- Event details page ---- */
+.event-detail .ed-head .beast-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.event-detail .ed-head .ec-icon {
+  width: 44px;
+  height: 44px;
+  font-size: 28px;
+  font-style: normal;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.event-detail .ed-head .name {
+  font-weight: 800;
+  font-size: 16px;
+}
+.event-detail .ed-head p,
+.event-detail .ed-text p {
+  margin: 6px 0 0;
+  line-height: 1.4;
+}
+.event-detail .ed-text p:first-child {
+  margin-top: 0;
+}
+.event-detail .ed-best {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.event-detail .ed-best span:first-child {
+  flex: 1;
+}
+.event-detail .ed-rank-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.event-detail .ed-rank-head .stars {
+  font-size: 22px !important;
+}
+.event-detail .ed-rank ul {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 3px;
+  font-size: 13px;
+}
+.event-detail .ed-foot .ev-status small {
+  font-size: 13px;
+}
+.mg-stars .stars {
+  font-size: 34px !important;
+}
 
 /* ---- Settings ---- */
 .menu-btn {
