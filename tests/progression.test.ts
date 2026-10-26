@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { weaponHit, gearArea, EVENTS, AREAS, areaEnemies, ENEMIES, GEAR, gearDef, gearStats, slotAccepts, typeMult, type GearId, enemyUnlockCost, HUNTERS, ITEMS, STATION_EFFICIENCY, type AreaId, type HunterId, type ItemId } from '../src/core/balance';
+import { weaponHit, gearArea, EVENTS, AREAS, areaEnemies, ENEMIES, GEAR, gearDef, gearStats, slotAccepts, typeMult, type GearId, enemyUnlockCost, HUNTERS, ITEMS, RARITIES, STATION_EFFICIENCY, type AreaId, type Rarity, type HunterId, type ItemId } from '../src/core/balance';
 import { Field } from '../src/core/field';
 import { Game, type Shooter } from '../src/core/game';
 import { mergeSample, runSample, sameGroup, SAMPLE_SETTLED } from '../src/core/sampler';
@@ -137,6 +137,11 @@ function botShop(game: Game, t: number, memo: { lastChallenge: number; lastHeavy
       game.startEvent(h.unlock.event);
       memo.lastChallenge = t;
     }
+  }
+  // Auto Salvage every rarity once it opens (the bot crafts what it wears), and clear what piled up before.
+  if (game.autoSalvageOpen && s.settings.autoSalvage.length === 0) {
+    s.settings.autoSalvage = Object.keys(RARITIES) as Rarity[];
+    game.salvageRarities(s.settings.autoSalvage);
   }
   const newest = game.unlockedAreas[game.unlockedAreas.length - 1];
   if (newest !== game.area && !game.eventRunning) game.travel(newest);

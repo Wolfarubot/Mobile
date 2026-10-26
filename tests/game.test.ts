@@ -5282,3 +5282,11 @@ describe('recruit gear', () => {
     expect(g.state.inventory.length).toBe(before + worn.length);
   });
 });
+
+it('a save with a huge inventory loads (no call-stack overflow)', () => {
+  const s = startingGame(0);
+  for (let i = 0; i < 200_000; i++) s.inventory.push({ uid: i + 10, base: s.inventory[0]?.base ?? 'shortBow', stars: 1 });
+  const back = deserialize(serialize(s))!;
+  expect(back.inventory).toHaveLength(s.inventory.length);
+  expect(back.nextGearUid).toBe(200_010);
+});
