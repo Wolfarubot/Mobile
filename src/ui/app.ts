@@ -1506,22 +1506,19 @@ export class AppUI {
   }
 
   /**
-   * After crafting a piece: an "Equip?" button in the corner (the Train buttons' side, so by handedness) that drains
-   * from right to left and goes once it's empty. Tapping it opens the Equip screen for the new piece.
+   * After crafting a piece of gear: the "Crafted …!" message with an Equip button in it, staying a few seconds. The
+   * button fades from right to left down to half opacity as the time to equip runs out; tapping it opens the Equip
+   * screen for the new piece.
    */
-  private showEquipPrompt(uid: number): void {
-    document.querySelector('.equip-prompt')?.remove();
-    const btn = el('button', 'equip-prompt buy') as HTMLButtonElement;
-    btn.innerHTML = `<span>Equip?</span><i class="ep-timer"></i>`;
-    btn.style.setProperty('--ep-time', `${EQUIP_PROMPT_SECONDS}s`);
-    // Just above the menu tabs (wherever they sit), so it never covers them.
-    const tabs = document.querySelector<HTMLElement>('.tabs')?.getBoundingClientRect();
-    if (tabs && tabs.height) btn.style.bottom = `${Math.round(window.innerHeight - tabs.top + 12)}px`;
-    document.body.appendChild(btn);
-    const done = setTimeout(() => btn.remove(), EQUIP_PROMPT_SECONDS * 1000);
+  private toastEquip(text: string, uid: number): void {
+    document.querySelector('.toast.with-equip')?.remove();
+    const t = this.toast(text);
+    t.classList.add('with-equip');
+    t.style.setProperty('--toast-time', `${EQUIP_PROMPT_SECONDS}s`);
+    const btn = el('button', 'buy toast-equip', 'Equip') as HTMLButtonElement;
+    t.appendChild(btn);
     btn.addEventListener('click', () => {
-      clearTimeout(done);
-      btn.remove();
+      t.remove();
       this.closeFieldCard();
       this.openEquipScreen(uid);
     });
@@ -3168,7 +3165,7 @@ export class AppUI {
     const offTap = (e: Event) => {
       if (!card.isConnected) return document.removeEventListener('click', offTap, true);
       const t = e.target as HTMLElement;
-      if (card.contains(t) || t.closest('.craft-tile, .equip-prompt')) return;
+      if (card.contains(t) || t.closest('.craft-tile, .toast-equip')) return;
       this.closeFieldCard();
       document.removeEventListener('click', offTap, true);
     };
@@ -3178,8 +3175,9 @@ export class AppUI {
       const ok = gd ? g.craftGear(gd.id) : g.craft(it!.id);
       if (!ok) return;
       sfx('craft');
-      if (typeof ok === 'object') this.showEquipPrompt(ok.uid);
-      this.toast(gd ? `Crafted ${gd.name}!` : g.state.items[it!.id] > 1 ? `Upgraded ${it!.name} to ${g.state.items[it!.id]}★!` : `Crafted ${it!.name}!`);
+      // Gear can be equipped straight away from the message; Upgrades (idols, potions) can't.
+      if (typeof ok === 'object' && gd) this.toastEquip(`Crafted ${gd.name}!`, ok.uid);
+      else this.toast(gd ? `Crafted ${gd.name}!` : g.state.items[it!.id] > 1 ? `Upgraded ${it!.name} to ${g.state.items[it!.id]}★!` : `Crafted ${it!.name}!`);
       bumpCard(btn);
       this.refresh();
     });
@@ -3289,14 +3287,17 @@ export class AppUI {
     return this.menuFull || !!this.picker || !!this.detail;
   }
 
-  private toast(text: string): void {
-    const t = el('div', 'toast', text);
+  private toast(text: string): HTMLElement {
+    const t = el('div', 'toast');
+    t.appendChild(el('span', '', text));
     // Over the battlefield, or floating near the top while it's hidden (full-screen menu, open views).
     if (this.menuFull || this.picker || this.detail) {
       t.classList.add('floating');
       document.body.appendChild(t);
     } else $('.battle-wrap').appendChild(t);
-    t.addEventListener('animationend', () => t.remove());
+    // Its own fade, not an Equip button's inside it.
+    t.addEventListener('animationend', (e) => e.target === t && t.remove());
+    return t;
   }
 
   /** Recipes are shown once every material in them comes from a monster you've unlocked (or you hold some). */

@@ -3168,11 +3168,34 @@ button.mat:not(:disabled):active {
   font-size: 16px;
   white-space: nowrap;
   pointer-events: none;
-  animation: toast 1.6s ease-out forwards;
+  animation: toast var(--toast-time, 1.6s) ease-out forwards;
 }
-/* While the Equip? button sits just above the tabs, a message goes above it instead. */
-body:has(.equip-prompt) .battle-wrap > .toast {
-  bottom: 66px;
+/* A crafted piece's message, with its Equip button beside the text (it stays a few seconds). */
+.toast.with-equip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.toast .toast-equip {
+  pointer-events: auto;
+  padding: 4px 12px;
+  font-size: 15px;
+  /* The time to equip running out: from the right, fading toward the left down to half opacity. */
+  -webkit-mask-image: linear-gradient(to right, #000 0 48%, rgba(0, 0, 0, 0.5) 52% 100%);
+  mask-image: linear-gradient(to right, #000 0 48%, rgba(0, 0, 0, 0.5) 52% 100%);
+  -webkit-mask-size: 200% 100%;
+  mask-size: 200% 100%;
+  animation: equip-drain calc(var(--toast-time, 6s) * 0.75) linear forwards;
+}
+@keyframes equip-drain {
+  from {
+    -webkit-mask-position: 0% 0;
+    mask-position: 0% 0;
+  }
+  to {
+    -webkit-mask-position: 100% 0;
+    mask-position: 100% 0;
+  }
 }
 /* The default look: a small parchment card in a wooden frame, like the game's other cards. */
 body.ui-parchment .toast {
@@ -5901,54 +5924,6 @@ button.pressing:not(:disabled) {
 }
 .worn-by {
   font-weight: 800;
-}
-
-/* The "Equip?" button after crafting: in the Train buttons' corner, draining from right to left. */
-.equip-prompt {
-  position: fixed;
-  right: 14px;
-  bottom: calc(96px + var(--safe-bottom));
-  z-index: 60;
-  min-width: 110px;
-  padding: 10px 16px 14px !important;
-  font-size: 17px;
-  overflow: hidden;
-  animation: ep-in 0.2s ease-out, ep-out 0.4s ease-in calc(var(--ep-time) - 0.4s) forwards;
-}
-body.left-handed .equip-prompt {
-  right: auto;
-  left: 14px;
-}
-.equip-prompt .ep-timer {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 5px;
-  background: var(--gold);
-  box-shadow: 0 -1px 0 #000;
-  transform-origin: left center;
-  animation: ep-drain var(--ep-time) linear forwards;
-}
-@keyframes ep-drain {
-  from {
-    transform: scaleX(1);
-  }
-  to {
-    transform: scaleX(0);
-  }
-}
-@keyframes ep-in {
-  from {
-    transform: scale(0.6);
-    opacity: 0;
-  }
-}
-@keyframes ep-out {
-  to {
-    opacity: 0;
-    transform: translateY(8px);
-  }
 }
 
 /* ---- Recipe card: close (top corner) and Craft (bottom) stay put; the details scroll between them. ---- */
