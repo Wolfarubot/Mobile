@@ -270,7 +270,7 @@ const GEAR_TYPE: Record<string, InvType> = { weapon: 'ranged', melee: 'melee', m
 const $ = <T extends HTMLElement = HTMLElement>(sel: string, root: ParentNode = document) => root.querySelector(sel) as T;
 
 /** Who an Upgrade affects: every Hunter, or one area's monsters. */
-/** Holding an area tile this long travels there; two taps this close together open its details. */
+/** Holding an area tile this long travels there; two taps this close together open its details (and a Hunter's or monster's tile). */
 const AREA_HOLD_MS = 550;
 const DOUBLE_TAP_MS = 350;
 /** One-time tips wait at least this long after the last popup opened or closed. */
@@ -579,6 +579,7 @@ export class AppUI {
         this.selectedHunter = who;
         this.setTab('hunters', true);
       });
+      this.onOpenGesture(tile, `hunter:${who}`, () => this.openHunterCard(who));
       grid.appendChild(tile);
       return { who, def, tile, lv: $('.ht-lv', tile), dot: $('.sp-dot', tile) };
     });
@@ -677,14 +678,7 @@ export class AppUI {
       <div class="hc-gear"></div>`;
     // Only recruited Hunters open their full view (a locked card's story and Recruit button are all there is).
     const recruitedNow = () => !def || g.state.hunters[def.id].recruited;
-    card.addEventListener('click', () => {
-      if (recruitedNow()) this.openHunterDetail(who);
-      // Not recruited yet: their story and what they do, in full.
-      else if (def)
-        this.showSheet(`${wearerIcon(def.id)} ${def.name} the ${def.title}`, (body) => {
-          body.innerHTML = `<p>${def.story}</p><p>${def.ability}</p><p class="hint">${g.hunterAvailable(def.id) ? `Recruit for 🪙 ${fmt(def.recruitCost)}` : `🔒 ${unlockText(g, def)}`}</p>`;
-        });
-    });
+    card.addEventListener('click', () => this.openHunterCard(who));
     this.refreshers.push(() => card.classList.toggle('no-expand', !recruitedNow()));
     if (def && !recruitedNow()) $('.expand-tag', card).textContent = 'Story ›';
     const mid = $('.hc-mid', card);
@@ -751,6 +745,61 @@ export class AppUI {
    * branching skill tree) and, for your Hunter, Abilities (tap abilities unlocked in the tree, swapped here).
    * Closing returns to the battlefield.
    */
+  /** A Hunter's expanded card: the full view once recruited; before that, their story and what they do. */
+  private openHunterCard(who: Wearer): void {
+    const g = this.game;
+    const def = who === 'main' ? null : hunterDef(who);
+    if (!def || g.state.hunters[def.id].recruited) this.openHunterDetail(who);
+    else
+      this.showSheet(`${wearerIcon(def.id)} ${def.name} the ${def.title}`, (body) => {
+        body.innerHTML = `<p>${def.story}</p><p>${def.ability}</p><p class="hint">${g.hunterAvailable(def.id) ? `Recruit for 🪙 ${fmt(def.recruitCost)}` : `🔒 ${unlockText(g, def)}`}</p>`;
+      });
+  }
+
+  /** The last tile tapped and when, for double taps (a tap rebuilds the grid, so it's kept by `key`, not element). */
+  private lastTap = { key: '', at: 0 };
+
+  /**
+   * Opens something on a double tap or a long press of `tile` (a single tap keeps its own job, e.g. selecting).
+   * The click that ends a long press is swallowed, so it doesn't land on whatever just opened.
+   */
+  private onOpenGesture(tile: HTMLElement, key: string, open: () => void): void {
+    tile.addEventListener('click', () => {
+      const now = performance.now();
+      if (this.lastTap.key === key && now - this.lastTap.at < DOUBLE_TAP_MS) {
+        this.lastTap = { key: '', at: 0 };
+        open();
+      } else this.lastTap = { key, at: now };
+    });
+    let timer = 0;
+    let start: { x: number; y: number } | null = null;
+    const cancel = () => {
+      clearTimeout(timer);
+      start = null;
+    };
+    tile.addEventListener('pointerdown', (e) => {
+      start = { x: e.clientX, y: e.clientY };
+      timer = window.setTimeout(() => {
+        start = null;
+        this.lastTap = { key: '', at: 0 };
+        buzz();
+        // Swallow the click the release would send.
+        const swallow = (ev: Event) => {
+          ev.stopPropagation();
+          ev.preventDefault();
+        };
+        window.addEventListener('click', swallow, { capture: true, once: true });
+        setTimeout(() => window.removeEventListener('click', swallow, { capture: true }), 600);
+        open();
+      }, MENU_HOLD_MS);
+    });
+    tile.addEventListener('pointermove', (e) => {
+      if (start && Math.hypot(e.clientX - start.x, e.clientY - start.y) > 10) cancel();
+    });
+    for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) tile.addEventListener(ev, cancel);
+    tile.addEventListener('contextmenu', (e) => e.preventDefault());
+  }
+
   private openHunterDetail(who: Wearer, sub: 'overview' | 'equipment' | 'skills' = 'overview'): void {
     if (this.detail) this.dropDetail();
     const g = this.game;
@@ -1938,6 +1987,12 @@ export class AppUI {
       const known = g.state.bestiary[e.id].unlocked;
       const row = el('div', `row${known ? '' : ' locked'}`);
       row.innerHTML = `<canvas class="portrait"></canvas><div class="info"><div class="name">${known ? e.name : '???'} <small>${ARCHETYPES[e.archetype].icon} ${ARCHETYPES[e.archetype].name}</small></div><div class="drop">${known ? dropsText(e) : `${gemHtml(e.material)} Drops <b>???</b>`}</div><div class="sub">${known ? e.blurb : 'Unlock it in the Bestiary.'}</div>${known ? affinityHtml(e, true) : ''}</div>`;
+      // A monster you've unlocked opens its full view.
+      if (known) {
+        row.classList.add('tappable');
+        row.setAttribute('role', 'button');
+        row.addEventListener('click', () => this.openMonsterDetail(e.id));
+      }
       monsters.appendChild(row);
       queuePortrait($<HTMLCanvasElement>('canvas', row), e.id);
     }
@@ -2501,6 +2556,8 @@ export class AppUI {
           this.selectedBeast = def.id;
           this.setTab('beasts', true);
         });
+        // Only unlocked monsters have a full view (as their card).
+        this.onOpenGesture(tile, `beast:${def.id}`, () => g.state.bestiary[def.id].unlocked && this.openMonsterDetail(def.id));
         grid.appendChild(tile);
         queuePortrait($<HTMLCanvasElement>('canvas', tile), def.id);
         tiles.push({ def, tile, lv: $('.ht-lv', tile), dot: $('.sp-dot', tile) });

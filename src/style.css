@@ -6765,3 +6765,16 @@ img.ei[src$='custom/012.png'] {
   color: #fff !important;
   text-shadow: var(--outline) !important;
 }
+
+/* Hunter and monster tiles open their full card on a long press: no text selection or callout getting in the way. */
+.hunter-tile {
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+/* Unlocked monsters in an area's details open their full view. */
+.area-monsters .row.tappable {
+  cursor: pointer;
+}
+.area-monsters .row.tappable:active {
+  filter: brightness(0.92);
+}
