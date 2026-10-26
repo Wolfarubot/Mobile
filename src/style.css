@@ -4751,11 +4751,12 @@ body.ui-parchment .hunter-dock .buy {
   }
 }
 
-/* ---- Minigames: full-screen, over everything but the phone's bottom bar (Android's navigation buttons): they end
-   above its inset, so their controls (drawn from the bottom of the canvas) are never under it. ---- */
+/* ---- Minigames: full-screen, over everything. Their background runs down under the phone's bottom bar (Android's
+   navigation buttons), but the game itself is laid out above it (shell.ts measures .mg-safe), so its controls are
+   never under it. ---- */
 .minigame {
   position: fixed;
-  inset: 0 0 var(--safe-bottom) 0;
+  inset: 0;
   z-index: 60;
   background: #1d2a1a;
   touch-action: none;
@@ -4765,6 +4766,14 @@ body.ui-parchment .hunter-dock .buy {
 .minigame canvas {
   display: block;
   touch-action: none;
+}
+/* The bottom bar's height, for the game to measure. */
+.mg-safe {
+  position: absolute;
+  bottom: 0;
+  width: 0;
+  height: var(--safe-bottom);
+  pointer-events: none;
 }
 .mg-hud {
   position: absolute;
@@ -6553,22 +6562,6 @@ body.ui-parchment .craft-tile.shop-tile {
   white-space: pre;
   pointer-events: none;
   border-radius: 3px;
-}
-
-/* Under the phone's own bottom bar (Android's navigation buttons): a solid strip with a border on top, so the
-   game's UI visibly ends above it. Nothing is drawn there when the phone has no bottom inset. */
-body::after {
-  content: '';
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  box-sizing: border-box;
-  height: var(--safe-bottom);
-  background: #0c0a12;
-  border-top: min(2px, var(--safe-bottom)) solid #000;
-  z-index: 9000;
-  pointer-events: none;
 }
 
 /* Event tiles: their art stands on the card itself, so no frame round it. */

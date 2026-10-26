@@ -42,3 +42,5 @@ Side-view and animal packs (walk or flight strips, one row facing right, mirrore
   ruin-bosses (wild boar), mine-bosses (elemental; arachnid -> Broodmother, recoloured), mega-boss-for-pixel-platformer (Time Eater)
   puppet-marionette.png (the Possessed Puppet, also Theon's puppet in the Puppet Show): zombie.png recoloured to white
   skin, black clothes and brown hair, set into 96px frames with two white strings rising from its shoulders.
+
+slime-green-death.png: Slime1's death (a splat into a puddle, 10 frames, the walk sheet's rows) from free-slime-mobs-pixel-art-top-down-sprite-pack, played in Galladair's Hunting Practice when an arrow strikes a slime.

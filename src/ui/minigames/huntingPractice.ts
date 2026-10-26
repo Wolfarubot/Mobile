@@ -104,7 +104,15 @@ interface Slime {
   r: number;
   golden: boolean;
   dead: boolean;
+  /** Seconds since an arrow struck it (it splats into a puddle, which then fades), or undefined while it hops. */
+  dying?: number;
 }
+
+/** The slime's death: its pack's 10-frame splat into a puddle, at this many frames a second, then the puddle fades. */
+const DEATH_FPS = 14;
+const DEATH_FRAMES = 10;
+const PUDDLE_FADE = 0.5;
+const DEATH_TIME = DEATH_FRAMES / DEATH_FPS + PUDDLE_FADE;
 
 export function huntingPractice(api: MinigameApi): MinigameGame {
   const slimes: Slime[] = [];
@@ -142,6 +150,8 @@ export function huntingPractice(api: MinigameApi): MinigameGame {
   let aim = -Math.PI / 2;
   const archer = () => ({ x: api.W / 2, y: api.H - 70 });
   const slimeSheet = SHEETS['slime-green'];
+  // Load the splat now, so the first slime struck has it.
+  monsterSheetImage('slime-green-death');
   const archerSheet = HUNTER_SHEETS.ranger;
 
   const spawn = () => {
@@ -183,6 +193,11 @@ export function huntingPractice(api: MinigameApi): MinigameGame {
         spawnIn = hpDifficulty(api.t).gap * (0.7 + Math.random() * 0.6);
       }
       for (const s of slimes) {
+        if (s.dying !== undefined) {
+          s.dying += dt;
+          if (s.dying > DEATH_TIME) s.dead = true;
+          continue;
+        }
         s.x += s.vx * dt;
         s.phase += dt * (s.golden ? 6 : 4.5);
         if (!s.dead && (s.vx > 0 ? s.x > api.W + s.r : s.x < -s.r)) {
@@ -204,7 +219,7 @@ export function huntingPractice(api: MinigameApi): MinigameGame {
           let slime: Slime | null = null;
           let sy = 0;
           for (const s of slimes) {
-            if (s.dead) continue;
+            if (s.dead || s.dying !== undefined) continue;
             const y = s.base - Math.abs(Math.sin(s.phase)) * s.hop;
             if (Math.hypot(a.x - s.x, a.y - y) < s.r + 6 && (!slime || s.base > slime.base)) {
               slime = s;
@@ -215,7 +230,7 @@ export function huntingPractice(api: MinigameApi): MinigameGame {
           for (const p of props ?? []) if (p.solid && propHit(p, a.x, a.y) && (!prop || p.foot > prop.foot)) prop = p;
           if (prop && (!slime || prop.foot > slimeFoot(slime))) a.stuck = 1e-6;
           else if (slime) {
-            slime.dead = true;
+            slime.dying = 0;
             a.y = -9999;
             api.addScore(slime.golden ? 3 : 1, slime.x, sy);
           }
@@ -227,7 +242,22 @@ export function huntingPractice(api: MinigameApi): MinigameGame {
     draw(g) {
       g.imageSmoothingEnabled = false;
       const sImg = monsterSheetImage('slime-green');
+      const dImg = monsterSheetImage('slime-green-death');
       const drawSlime = (s: Slime) => {
+        if (s.dying !== undefined) {
+          // Struck: it splats where it stands, into a puddle that fades away.
+          if (!dImg.complete || !dImg.naturalWidth) return;
+          const F = slimeSheet.frame;
+          const row = sheetRow(slimeSheet, s.vx > 0 ? 'R' : 'L');
+          const col = Math.min(DEATH_FRAMES - 1, Math.floor(s.dying * DEATH_FPS));
+          const k = (s.r * 2.2) / slimeSheet.box[2];
+          g.save();
+          g.globalAlpha = Math.max(0, Math.min(1, (DEATH_TIME - s.dying) / PUDDLE_FADE));
+          if (s.golden) g.filter = 'hue-rotate(-70deg) saturate(2.2) brightness(1.25)';
+          g.drawImage(dImg, col * F, row * F, F, F, s.x - (slimeSheet.box[0] + slimeSheet.box[2] / 2) * k, s.base + s.r * 0.6 - (slimeSheet.box[1] + slimeSheet.box[3]) * k, F * k, F * k);
+          g.restore();
+          return;
+        }
         const lift = Math.abs(Math.sin(s.phase)) * s.hop;
         const y = s.base - lift;
         // Its shadow: as wide as the slime's body where it lands, shrinking and fading as it hops up.

@@ -166,8 +166,8 @@ export function pixieSerenade(api: MinigameApi): MinigameGame {
       const h = Math.min(th, y1 - y);
       g.drawImage(ok, 0, 0, ok.width, h / s, at(ok), y, ok.width * s, h);
     }
-    // On past the bottom of the screen.
-    for (let y = y1; y < api.H; y += th) g.drawImage(lane, at(lane), y, lane.width * s, th);
+    // On past the bottom of the screen (under the phone's bottom bar too).
+    for (let y = y1; y < api.H + 160; y += th) g.drawImage(lane, at(lane), y, lane.width * s, th);
     g.filter = 'none';
   };
 

@@ -19,3 +19,6 @@ Minigame art, all from CraftPix.net (license: https://craftpix.net/file-licenses
 - forge-vent.png: Volcano1 from CraftPix's "Cave Tileset Top Down" objects (as in public/backgrounds/caves): the fire
   vent beside Kargesh's anvil in Forge Strike. The anvil, ingot, hammer and finished weapons are icons from the icon
   packs, and the strike bar is the event timers' framed bar with the platformer UI's down arrow as its marker.
+- crack1..3.png: three of the ice cracks from CraftPix's "Winter Top Down Pixel Art Tileset" (Tiled_files/cracks.png, at
+  272,16; 272,112 and 16,112), the cracks alone (the ice cut away) recoloured as dark earth: the ground splitting open
+  in Grave Robbing where a skeleton is about to burst out, small to gaping as it nears.

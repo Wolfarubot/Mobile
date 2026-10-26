@@ -1,5 +1,6 @@
 import { overrideMusic, setMusicRate, type TrackId } from '../music';
 import { setBattleSfx } from '../sound';
+import { buzz } from '../haptics';
 import type { AreaId } from '../../core/balance';
 import { areaBackground, type DecorOpts } from '../../render/backgrounds';
 import { gearImage } from '../../render/sprites';
@@ -72,6 +73,7 @@ export function runMinigame(spec: MinigameSpec): void {
   root.className = 'minigame';
   root.innerHTML = `
     <canvas></canvas>
+    <i class="mg-safe"></i>
     <div class="mg-hud"><span class="mg-score">0</span><span class="mg-lives"></span><button class="mg-quit">Quit</button></div>
     <div class="mg-intro"><div class="mg-card"><h2>${spec.title}</h2>${spec.intro}<p class="mg-best">${spec.best > 0 ? `Best: ${spec.best}` : ''}</p><button class="buy mg-go">Start</button></div></div>`;
   document.body.appendChild(root);
@@ -84,16 +86,21 @@ export function runMinigame(spec: MinigameSpec): void {
   const livesEl = root.querySelector<HTMLElement>('.mg-lives')!;
 
   let W = 0;
+  /** The game's height: the screen above the phone's bottom bar. The canvas (and the background) runs `full` tall,
+   * down under the bar. */
   let H = 0;
+  let full = 0;
   let bg: HTMLCanvasElement | null = null;
+  const safe = root.querySelector<HTMLElement>('.mg-safe')!;
   const resize = () => {
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     W = root.clientWidth;
-    H = root.clientHeight;
+    full = root.clientHeight;
+    H = full - safe.offsetHeight;
     canvas.width = Math.round(W * dpr);
-    canvas.height = Math.round(H * dpr);
+    canvas.height = Math.round(full * dpr);
     canvas.style.width = `${W}px`;
-    canvas.style.height = `${H}px`;
+    canvas.style.height = `${full}px`;
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     bg = null;
   };
@@ -191,6 +198,8 @@ export function runMinigame(spec: MinigameSpec): void {
   });
   canvas.addEventListener('pointerdown', (e) => {
     if (!running || !game) return;
+    // A buzz for every tap in play (Settings → Haptics), as on the battlefield.
+    buzz();
     const r = canvas.getBoundingClientRect();
     game.tap(e.clientX - r.left, e.clientY - r.top);
   });
@@ -205,11 +214,11 @@ export function runMinigame(spec: MinigameSpec): void {
     }
     // A scaled background is laid out bigger, then drawn shrunk to fit (everything in it smaller, further off).
     const bgScale = spec.decor?.scale ?? 1;
-    if (!bg) bg = areaBackground(spec.area, Math.round(W / bgScale), Math.round(H / bgScale), spec.decor);
-    if (bg) g.drawImage(bg, 0, 0, W, H);
+    if (!bg) bg = areaBackground(spec.area, Math.round(W / bgScale), Math.round(full / bgScale), spec.decor);
+    if (bg) g.drawImage(bg, 0, 0, W, full);
     else {
       g.fillStyle = '#2a3a2a';
-      g.fillRect(0, 0, W, H);
+      g.fillRect(0, 0, W, full);
     }
     if (game) {
       game.draw(g);

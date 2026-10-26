@@ -34,6 +34,9 @@ function stone(name: string): HTMLImageElement {
   return img;
 }
 
+/** The ground's cracks, growing as a skeleton nears the surface (from the winter tileset's cracks, recoloured as earth). */
+const CRACKS = ['crack1', 'crack2', 'crack3'];
+
 /** Seconds of warning (cracks and shaking ground) before a skeleton bursts, and how long it stays up. */
 const RISE = 0.12;
 const UP = 0.7;
@@ -78,6 +81,8 @@ export function graveRobbing(api: MinigameApi): MinigameGame {
   const loot: Loot[] = [];
   const dirt: Dirt[] = [];
   let burstIn = 1.2;
+  // Load the cracks now, so the first warning has them.
+  for (const k of CRACKS) mgArt(k);
   let lootIn = 0.4;
 
   const grid = () => {
@@ -234,16 +239,12 @@ export function graveRobbing(api: MinigameApi): MinigameGame {
           g.drawImage(patch, Math.round(p.x + shake - pw / 2), Math.round(p.y - c.size * 0.04 - ph / 2), pw, ph);
         }
         if (warning > 0) {
-          g.strokeStyle = `rgba(20,12,6,${0.4 + warning * 0.6})`;
-          g.lineWidth = Math.max(1.5, 2 * api.k);
-          g.beginPath();
-          for (let k = 0; k < 5; k++) {
-            const a = (k / 5) * Math.PI * 2 + i;
-            const len = c.size * (0.1 + warning * 0.18);
-            g.moveTo(p.x + shake, p.y);
-            g.lineTo(p.x + shake + Math.cos(a) * len, p.y + Math.sin(a) * len * 0.4);
+          // The ground splits open: a small crack, then a wider one, then a gaping one just before the burst.
+          const crack = mgArt(CRACKS[Math.min(2, Math.floor(warning * 3))]);
+          if (crack) {
+            const cs = Math.max(1, Math.round((c.size * 0.5) / 45));
+            g.drawImage(crack, Math.round(p.x + shake - (crack.naturalWidth * cs) / 2), Math.round(p.y - c.size * 0.02 - (crack.naturalHeight * cs) / 2), crack.naturalWidth * cs, crack.naturalHeight * cs);
           }
-          g.stroke();
         }
         const img = stone(STONES[i]);
         if (img.complete && img.naturalWidth) {
