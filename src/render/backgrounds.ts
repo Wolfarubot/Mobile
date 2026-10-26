@@ -74,7 +74,7 @@ interface Scene {
    * Set pieces at fixed spots, each standing (bottom middle) at `at` pixels from the top-left corner (negative:
    * from the right or bottom). They stand among the monsters like the wall, and the wall makes room for them.
    */
-  landmarks?: Array<{ file: string; at: [number, number]; /** Monsters walk around it rather than through it. */ solid?: boolean }>;
+  landmarks?: Array<{ file: string; at: [number, number]; /** Monsters walk around it rather than through it. */ solid?: boolean; /** Centred across the view instead (`at[0]` ignored). */ centre?: boolean }>;
   /** How big the empty clearing round the Hunters is, as a fraction of the way to the edge (CLEAR if unset). */
   clear?: number;
   /** The edge wall stands this many pixels further out (more of it off the view), for a bigger clearing. */
@@ -346,7 +346,7 @@ const SCENES: Partial<Record<AreaId, Scene>> = {
       { pieces: [...p('c_Tooth_mouth_1 c_Rock_eyes_1 c_Tentacles_4 c_Star_monster_1 c_Neuro_monster_1 c_Neuro_monster_2 c_Eggs_1 c_Claw_eggs_1 c_Claw_eggs_2 c_Meat_flower_1 c_Bones_1', 1), ...p('Violet_crystal1 Black_crystal1 c_Rune_stone_2')], density: 0.18, from: 0.78 },
       { pieces: [...p('c_Tentacle_monster_1 c_Tentacle_monster_2 c_Tooth_monster_1 c_Claw_monster_1 c_Claw_monster_2', 2), ...p('c_Jaws_plant_1 c_Spike_plant_1 c_Tentacle_plant_1')], density: 0, from: 0.95, edge: true },
     ],
-    landmarks: [{ file: 'c_Wing_monster', at: [234, 104] }],
+    landmarks: [{ file: 'c_Wing_monster', at: [0, 96], centre: true }],
     vignette: 'rgba(15,0,10,0.75)',
   },
 
@@ -712,7 +712,7 @@ export function areaBackground(area: AreaId, w: number, h: number, decor?: Decor
     for (const m of marks) {
       const img = images.get(`${area}/${m.file}`);
       if (!img || !img.naturalWidth) continue;
-      const px = Math.round((m.at[0] < 0 ? w + m.at[0] : m.at[0]) - img.naturalWidth / 2);
+      const px = Math.round((m.centre ? w / 2 : m.at[0] < 0 ? w + m.at[0] : m.at[0]) - img.naturalWidth / 2);
       const py = Math.round((m.at[1] < 0 ? h + m.at[1] : m.at[1]) - img.naturalHeight);
       const rect: Rect = [px, py, img.naturalWidth, img.naturalHeight];
       markRects.push(rect);
