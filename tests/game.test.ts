@@ -1844,9 +1844,9 @@ describe('Equipment', () => {
     expect(bearer.hp).toBe(1e6);
     expect(n2.hp).toBeLessThan(1e6);
     expect(f2.hp).toBe(1e6);
-    // Arcane strips resistances: a Wolf resists Frost until exposed (Okrin with a Frost Rifle deals frost).
+    // Arcane strips resistances: a Wolf resists Frost until exposed (Okrin with a Frostbite Blade deals frost).
     g.state.hunters.frostbreaker.recruited = true;
-    g.equip('frostbreaker', 0, g.craftGear('frostRifle')!.uid);
+    g.equip('frostbreaker', 0, g.craftGear('frostbiteBlade')!.uid);
     const w = mk(8);
     f.enemies = [w];
     api.hitWith('frostbreaker', w, 1, 0, 0, false);

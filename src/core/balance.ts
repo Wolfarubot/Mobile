@@ -2028,7 +2028,8 @@ export const HUNTERS: HunterDef[] = [
     ascendedTitle: 'Maestro',
     inspire: 0.15,
     story: "Ba'al wandered into the Fey Grove chasing a melody only the pixies hum, and the Grove's Guardian won't let him leave. Beat it, and his songs are yours.",
-    ability: 'His song makes every other Hunter in his area attack 15% faster. Deals 50% bonus damage to Humanoids.',
+    ability: 'His song makes every other Hunter in his area attack 15% faster. Deals 50% bonus damage to Humanoids. Uses ranged or magic weapons.',
+    slots: [{ kind: 'weapon', label: 'Weapon', accepts: ['weapon', 'magic'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
   },
   {
     id: 'druid', name: 'Deku', title: 'Druid', icon: '🌿', color: '#6abf5a', area: 'glade', recruitCost: 250_000, bane: { archetype: 'plant', mult: BANE_BASE }, summonBonus: { type: 'beast', mult: 1.5 },
@@ -2048,7 +2049,8 @@ export const HUNTERS: HunterDef[] = [
     areaGold: 0.3,
     areaLoot: 1,
     story: "Alias has been robbing the Restless Graveyard's tombs, but its Guardian guards the best of them. Beat it, and he'll share the take.",
-    ability: 'Wherever he is, monsters pay 30% more gold and drop loot twice as often.',
+    ability: 'Wherever he is, monsters pay 30% more gold and drop loot twice as often. Uses any weapon.',
+    slots: [{ kind: 'weapon', label: 'Weapon', accepts: ['weapon', 'magic', 'melee'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
   },
   {
     id: 'lance', name: 'Lance', title: 'Paladin', icon: '🛡️', color: '#ffe8a3', area: 'graveyard', recruitCost: 200_000_000,
@@ -2147,7 +2149,8 @@ export const HUNTERS: HunterDef[] = [
     unlock: { event: 'guardian-peaks', times: 1 },
     ascendedTitle: 'Winterking',
     story: 'Okrin climbed the Frost Peaks to hunt the thing that rules them. Defeat the Peaks\' Guardian, and he\'ll bring his hammer to your side.',
-    ability: 'Deals 50% bonus damage to Elementals.',
+    ability: 'Deals 50% bonus damage to Elementals. Fights with melee weapons.',
+    slots: [{ kind: 'melee', label: 'Melee' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
   },
   {
     id: 'bloodblade', name: 'Themus', title: 'Blood Blade', icon: '🩸', color: '#c0242c', area: 'peaks', recruitCost: 1.5e20,
