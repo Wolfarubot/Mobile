@@ -149,8 +149,8 @@ function botShop(game: Game, t: number, memo: { lastChallenge: number; lastHeavy
   for (let guard = 0; guard < 400 && game.train('main'); guard++);
   botSkills(game);
   botMonsters(game);
-  // Area Upgrades (e.g. the Forest Idol) only pay off where you farm, so the bot leaves them.
-  for (const it of ITEMS) if (!it.area) while (game.craft(it.id as ItemId));
+  // Every upgrade the moment its materials are in: global ones first, then Area Upgrades (e.g. the Forest Idol).
+  for (const it of [...ITEMS.filter((i) => !i.area), ...ITEMS.filter((i) => i.area)]) while (game.craft(it.id as ItemId));
   // Crafting gear and re-stationing Hunters are slow to work out, and a player does them now and then:
   // once a minute while playing (and on every return).
   if (memo.lastHeavy !== undefined && t - memo.lastHeavy < 60 && t >= memo.lastHeavy) return;
