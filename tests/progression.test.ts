@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { weaponHit, gearArea, EVENTS, AREAS, areaEnemies, ENEMIES, GEAR, gearDef, gearStats, slotAccepts, typeMult, type GearId, enemyUnlockCost, HUNTERS, ITEMS, RARITIES, STATION_EFFICIENCY, type AreaId, type Rarity, type HunterId, type ItemId } from '../src/core/balance';
 import { Field } from '../src/core/field';
@@ -404,6 +404,9 @@ it.runIf(!!process.env.SIM_FULL)('full game: a typical player beats the Time Eat
   // SIM_PRESETS=public/dev-presets.json records the Dev menu's progress phases from this run, as `npm run presets`
   // does (each area's start, and the save just before the Guardian challenge that wins), written after every session.
   const presets: Record<string, string> = {};
+  // A resumed run (SIM_FROM) keeps the phases already recorded.
+  if (from && process.env.SIM_PRESETS && existsSync(process.env.SIM_PRESETS))
+    for (const [k, v] of Object.entries(JSON.parse(readFileSync(process.env.SIM_PRESETS, 'utf8')) as Record<string, unknown>)) presets[k] = JSON.stringify(v);
   const takePreset = (key: string) => {
     if (process.env.SIM_PRESETS && !presets[key]) presets[key] = serialize(g.state);
   };
