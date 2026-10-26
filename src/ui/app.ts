@@ -1514,6 +1514,9 @@ export class AppUI {
     const btn = el('button', 'equip-prompt buy') as HTMLButtonElement;
     btn.innerHTML = `<span>Equip?</span><i class="ep-timer"></i>`;
     btn.style.setProperty('--ep-time', `${EQUIP_PROMPT_SECONDS}s`);
+    // Just above the menu tabs (wherever they sit), so it never covers them.
+    const tabs = document.querySelector<HTMLElement>('.tabs')?.getBoundingClientRect();
+    if (tabs && tabs.height) btn.style.bottom = `${Math.round(window.innerHeight - tabs.top + 12)}px`;
     document.body.appendChild(btn);
     const done = setTimeout(() => btn.remove(), EQUIP_PROMPT_SECONDS * 1000);
     btn.addEventListener('click', () => {
