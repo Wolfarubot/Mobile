@@ -3423,6 +3423,18 @@ describe('Equipment', () => {
     expect(g.summonMult('ranger', 'beast')).toBeCloseTo(hunterDef('ranger').bane!.mult + g.tree('ranger').bane);
   });
 
+  it('roll-choice Upgrades: the Codex of Choices (Ascendant Steps) and the Sigil of Fate (Void Rift) each add a roll choice', () => {
+    const g = stocked();
+    expect(g.modChoices).toBe(2);
+    expect(g.craft('choiceCodex')).toBeTruthy();
+    expect(g.modChoices).toBe(3);
+    expect(g.craft('fateSigil')).toBeTruthy();
+    expect(g.modChoices).toBe(4);
+    // Crafted once each: no stars to add.
+    expect(g.craft('choiceCodex')).toBeFalsy();
+    expect(g.modChoices).toBe(4);
+  });
+
   it('every piece of gear has its own pixel icon, and every icon exists', () => {
     const seen = new Map<string, string>();
     for (const g of GEAR) {

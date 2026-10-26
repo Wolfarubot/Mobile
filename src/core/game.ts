@@ -119,6 +119,7 @@ import {
   MAX_EFFECTIVE_STARS,
   MOD_QUALITY_STEPS,
   MOD_CHOICES,
+  CHOICE_UPGRADES,
   REFINES,
   WEAPON_ONLY_REFINES,
   ENCHANTS,
@@ -1130,8 +1131,9 @@ export class Game {
    * How many choices a roll offers (pick one). 2 to start; crafted items will raise it, up to 5 by the
    * Void Rift.
    */
+  /** Choices a Refine or Enchant roll draws: 2, plus one for each roll-choice Upgrade crafted (Codex, Sigil). */
   get modChoices(): number {
-    return MOD_CHOICES;
+    return MOD_CHOICES + CHOICE_UPGRADES.filter((id) => this.state.items[id] > 0).length;
   }
 
   /** The choices a piece is waiting on you to pick from (a roll you've paid for), if any. */

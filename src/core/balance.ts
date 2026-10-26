@@ -2782,6 +2782,8 @@ export const MOD_SLOTS: Record<Rarity, number> = { common: 0, uncommon: 0, rare:
 export const MOD_QUALITY_STEPS = 10;
 /** Choices a roll offers to pick from (crafted items will raise it, up to 5). */
 export const MOD_CHOICES = 2;
+/** Upgrades that each add one choice to every Refine and Enchant roll (the Ascendant Steps' and the Void Rift's). */
+export const CHOICE_UPGRADES = ['choiceCodex', 'fateSigil'] as const;
 export const MOD_POWER: Record<Rarity, number> = { common: 1, uncommon: 1, rare: 1, veryRare: 0.8, legendary: 1, exotic: 1.2, relic: 1.45, artifact: 1.75, exalted: 2.1 };
 
 /** Where a piece of gear goes, for which modifiers fit it. */
@@ -4052,7 +4054,9 @@ export type ItemId =
   | 'glacialPotion'
   | 'skyPotion'
   | 'stormPotion'
-  | 'starPotion';
+  | 'starPotion'
+  | 'choiceCodex'
+  | 'fateSigil';
 
 export interface ItemDef {
   id: ItemId;
@@ -4133,6 +4137,9 @@ export const ITEMS: ItemDef[] = [
   { id: 'glacialPotion', name: 'Glacial Energy Potion', icon: '🧪', sprite: 'rpg-items/030', rarity: 'exotic', once: true, maxLevel: 1, recipe: { coldsteel: 400, sapphire: 200, diamond: 15 }, growth: 1, describe: () => '+2h offline time' },
   { id: 'skyPotion', name: 'Sky Energy Potion', icon: '🧪', sprite: 'rpg-items/250', rarity: 'exotic', once: true, maxLevel: 1, recipe: { orichalcum: 225, skysteel: 1_000, skystone: 12_000 }, growth: 1, describe: () => '+2h offline time' },
   { id: 'stormPotion', name: 'Storm Energy Potion', icon: '🧪', sprite: 'rpg-items/070', rarity: 'artifact', once: true, maxLevel: 1, recipe: { opal: 750, stormstone: 200, thunder: 30_000 }, growth: 1, describe: () => '+2h offline time' },
+  // Roll choices: each adds one more choice to every Refine and Enchant roll (2, then 3 from the Steps, 4 from the Rift).
+  { id: 'choiceCodex', name: 'Codex of Choices', icon: '📘', sprite: 'rpg-items/292', rarity: 'exotic', once: true, maxLevel: 1, recipe: { orichalcum: 300, skysteel: 1_500, plume: 15_000 }, growth: 1, describe: () => '+1 choice on every Refine and Enchant roll' },
+  { id: 'fateSigil', name: 'Sigil of Fate', icon: '🔯', sprite: 'rpg-items/261', rarity: 'exalted', once: true, maxLevel: 1, recipe: { voidPrism: 40, voidsteel: 1_500, soul: 20_000 }, growth: 1, describe: () => '+1 choice on every Refine and Enchant roll' },
   { id: 'starPotion', name: 'Star Energy Potion', icon: '🧪', sprite: 'rpg-items/010', rarity: 'artifact', once: true, maxLevel: 1, recipe: { adamantite: 250, starIron: 1_000, diamond: 50 }, growth: 1, describe: () => '+2h offline time' },
 ];
 
