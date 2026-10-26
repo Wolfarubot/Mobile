@@ -1691,7 +1691,7 @@ export class AppUI {
         const note = pending
           ? ''
           : slot !== null && action
-            ? `🎲 Roll draws ${g.modChoices} random ${what}s (stronger on rarer gear); pick one for the slot. A roll at the top of its range is perfect.`
+            ? ''
             : slot !== null
               ? 'Now choose Refine or Enchant for this slot.'
               : action
@@ -3785,6 +3785,11 @@ export class AppUI {
     });
   }
 
+  /** Tutorials → Modifying gear: slots, Refine and Enchant, rolling and Perfect rolls. */
+  private showModifyGuide(): void {
+    this.showModal(`<h2>${tx('tut.modify.title')}</h2>${txp('tut.modify.body', { choices: this.game.modChoices })}`, [{ label: txt('tut.modify.ok') }]);
+  }
+
   /** Shown once, when the first minigame opens: what minigames are for. Play now opens Hunting Practice's page. */
   private showMinigameIntro(replay = false): void {
     if (!replay) this.game.state.flags.minigameIntro = true;
@@ -4341,6 +4346,7 @@ export class AppUI {
     body.appendChild(sectionTitle(txt('tut.menu.guides')));
     tut(sprite(MENU_SPRITES.weapons), 'weapons', () => this.openTutorials('weapons'));
     tut(sprite(MENU_SPRITES.damage), 'damage', () => this.openTutorials('damage'));
+    tut(sprite(MENU_SPRITES.modify), 'modify', () => this.showModifyGuide());
     body.appendChild(sectionTitle(txt('tut.menu.tips')));
     tut(sprite(MENU_SPRITES.welcome), 'welcome', () => this.showWelcome(true));
     tut(sprite(MENU_SPRITES.training), 'training', () => this.showTrainIntro(true));
@@ -5157,6 +5163,7 @@ const MENU_SPRITES = {
   quit: 'things/024',
   weapons: 'weapons-free/001',
   damage: 'rpg-items/297',
+  modify: 'resources3/010',
   welcome: 'rpg-items/300',
   training: 'rpg-items/001',
   crafting: 'resources3/003',

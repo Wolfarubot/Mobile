@@ -363,6 +363,8 @@ section(
     weaponsDesc: 'How each kind of weapon attacks: range, speed, reloads, knockback and more.',
     damage: 'Damage types & status effects',
     damageDesc: 'What each damage type does, weaknesses and resistances.',
+    modify: 'Modifying gear',
+    modifyDesc: 'Modifier slots, Refine and Enchant, rolling and Perfect rolls.',
     welcome: 'Welcome',
     welcomeDesc: 'Getting started.',
     training: 'Training',
@@ -386,7 +388,7 @@ section(
     note: 'Menu → Tutorials: the page title, two headings, and a name and a line for each tip.',
     vars: { train: 'slimes to open Training', empower: 'slimes to open Empower' },
     labels: Object.fromEntries(
-      ['title:Page title', 'guides:Heading', 'tips:Heading', 'weapons:Row', 'damage:Row', 'welcome:Row', 'training:Row', 'crafting:Row', 'wolf:Row', 'empower:Row', 'eventsLocked:Row', 'events:Row', 'minigames:Row', 'timeEater:Row']
+      ['title:Page title', 'guides:Heading', 'tips:Heading', 'weapons:Row', 'damage:Row', 'modify:Row', 'welcome:Row', 'training:Row', 'crafting:Row', 'wolf:Row', 'empower:Row', 'eventsLocked:Row', 'events:Row', 'minigames:Row', 'timeEater:Row']
         .map((s) => s.split(':'))
         .flatMap(([k, v]) => [
           [k, v],
@@ -414,6 +416,17 @@ section(
       "Every creature a tome calls up has a **summon type**: {types}. Any bonus your Hunter has against that kind of monster (a **bane**, from a Guild Hunter's passive, an accessory or a Bane enchantment) makes their summons of that kind hit that much harder too: +20% damage against Undead also means undead summons bite 20% harder. Spirits aren't a kind of monster, so banes don't help them.",
   },
   { note: 'Under the Tome on the Weapon types guide.', vars: { types: 'the summon types' }, labels: { tomeSummons: 'Summon types and banes' } },
+);
+section(
+  G,
+  'tut.modify',
+  'Modifying gear guide',
+  {
+    title: '🛠️ Modifying gear',
+    body: "Rarer gear has **modifier slots** (shown on its card). Open **Modify** from a piece's card, pick a slot, and choose **Refine** (equipment stat bonuses, once Kargesh the Blacksmith has joined) or **Enchant** (elemental and magical effects, once Marceline the Enchantress has joined), in either order.\n\n**Roll** pays the cost shown and draws {choices} random choices; pick one and it goes in the slot, replacing whatever was there. Not keen on any of them? **Reroll** draws a fresh set for the same cost.\n\nThe same modifier is stronger on rarer gear. A roll at the very top of its range is **Perfect**, and shows a rainbow border. Blessings from Kargesh's and Marceline's minigames give each choice extra tries at a Perfect roll.",
+    ok: 'Got it',
+  },
+  { note: 'Tutorials → Modifying gear (the Modify window keeps to its buttons).', vars: { choices: 'choices a roll draws' } },
 );
 section(
   G,
