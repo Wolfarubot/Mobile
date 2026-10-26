@@ -6354,13 +6354,33 @@ img.ei.gem-ic {
   z-index: 1;
   background: transparent !important;
 }
-/* Floating: no card or panel behind the wares, just white outlined text over the square. */
+/* No text floats free over the square: every block of it (notes, Remove Ads, each ware's details, the bonuses, the
+   gem packs) sits in the game's wooden-framed panel. */
 .hunter-detail.shop .card,
+.hunter-detail.shop .hd-note,
+.hunter-detail.shop .shop-cell {
+  background: var(--parch, var(--c3)) padding-box !important;
+  border: 12px solid var(--wood, var(--c0)) !important;
+  border-image: var(--img-panel) 5 fill / 12px / 0 stretch !important;
+  image-rendering: pixelated;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.45) !important;
+  padding: 2px 4px !important;
+  margin: 0 0 8px;
+}
+.hunter-detail.shop .shop-cell {
+  margin: 0;
+  padding: 2px 0 !important;
+}
 .hunter-detail.shop .section-title {
-  background: transparent !important;
+  margin-top: 6px;
+}
+/* A note inside a panel (no bonuses yet) doesn't get a second frame. */
+.hunter-detail.shop .card .hd-note {
+  background: none !important;
   border: 0 !important;
   border-image: none !important;
   box-shadow: none !important;
+  margin: 0;
 }
 .hunter-detail.shop .hd-scroll,
 .hunter-detail.shop .hd-scroll * {
