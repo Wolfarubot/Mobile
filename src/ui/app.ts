@@ -7,6 +7,9 @@ import {
   WEAPON_CLASSES,
   WEAPON_ARCHETYPES,
   weaponArchetype,
+  HELPER_FIRE_RATE,
+  BASE_FIRE_RATE,
+  withArchetype,
   MAX_LEVEL,
   MAIN_ASCEND_LEVEL,
   MAIN_MAX_LEVEL,
@@ -5314,6 +5317,29 @@ function simpleEffect(e: GearEffect): string {
   }
 }
 
+/**
+ * A tome's summon as a tag: the creature it calls and how often ("Spirit · 5s"); its popup says how long the creature
+ * hunts and its summon type, and (advanced) a Guild Hunter's pace, the creature's bite and speed, and any lunge.
+ */
+function tomeTag(gd: GearDef): string {
+  const cls = withArchetype(WEAPON_CLASSES.tome, weaponArchetype(gd));
+  const rate = cls.rate * (gd.tweak?.rate ?? 1);
+  const sm = cls.summon!;
+  const type = tomeSummonType(gd);
+  // A plain spirit takes its kind's name when it isn't a Spirit summon ("undead spirit" from a Necronomicon).
+  const creature = gd.summon?.name ?? (type === 'spirit' ? sm.name : `${SUMMON_TYPES[type].name.toLowerCase()} ${sm.name}`);
+  const every = (fireRate: number) => Math.round(1 / (fireRate * rate));
+  const v = { creature, a: /^[aeiou]/i.test(creature) ? 'an' : 'a', every: every(BASE_FIRE_RATE), guild: every(HELPER_FIRE_RATE), duration: +sm.duration.toFixed(1), type: SUMMON_TYPES[type].name, bites: +sm.bites.toFixed(2) };
+  let tip = tx('tip.gear.tome', v);
+  if (advancedTips) {
+    tip += `<br>${tx('tip.gear.tomeAdvanced', v)}`;
+    const d = gd.summon?.dash;
+    if (d) tip += `<br>${tx('tip.gear.tomeLunge', { cooldown: d.cooldown, damage: d.damage })}`;
+  }
+  const label = `${creature.replace(/\b\w/g, (c) => c.toUpperCase())} · ${v.every}s`;
+  return featTag(SUMMON_TAG_ICONS[type], label, tip);
+}
+
 /** A tag naming one of a piece's features (`icon`: a tag icon key); tapping it opens a popup with `tip` (HTML) in full. */
 function featTag(icon: string, name: string, tip: string, color = 'var(--gold)', cls = ''): string {
   return `<button type="button" class="dtype-tag feat-tag${cls}" style="--dc:${color}" data-tip="${esc(tip)}"><span class="ic">${tagIconHtml(icon)}</span>${name}</button>`;
@@ -5362,10 +5388,7 @@ function featureTags(gd: GearDef, stars = 1): string {
   if (gd.tweak) tags.push(featTag(FEATURE_TAG_ICONS.tweak, tweakName(gd), tweakText(gd)));
   const spell = staffSpell(gd);
   if (spell) tags.push(featTag(FEATURE_TAG_ICONS.spell, SPELLS[spell].name, tx('tip.gear.spell', { spell: SPELLS[spell].name, desc: SPELLS[spell].desc })));
-  if (gd.weaponClass === 'tome') {
-    const st = SUMMON_TYPES[tomeSummonType(gd)];
-    tags.push(featTag(SUMMON_TAG_ICONS[tomeSummonType(gd)], st.name, tx('tip.gear.summon', { type: st.name })));
-  }
+  if (gd.weaponClass === 'tome') tags.push(tomeTag(gd));
   if (gd.armorType) tags.push(featTag(ARMOR_TAG_ICONS[gd.armorType], ARMOR_TYPES[gd.armorType].name, ARMOR_TYPES[gd.armorType].desc));
   if (gd.accType) tags.push(featTag(ACC_TAG_ICONS[gd.accType], ACC_TYPES[gd.accType].name, ACC_TYPES[gd.accType].desc));
   if (gd.ability) tags.push(featTag(FEATURE_TAG_ICONS.ability, 'Ability', gd.ability));
