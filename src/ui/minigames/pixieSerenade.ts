@@ -73,6 +73,10 @@ function noteIn(color: string): HTMLCanvasElement | null {
   return c;
 }
 
+/** Seconds a tapped path's bar stays pressed in, and a caught pixie flashes white before it's gone. */
+const PRESS = 0.1;
+const POP = 0.35;
+
 /** The song speeds up this much per second played, up to MAX_TEMPO times its own tempo. */
 const TEMPO_RAMP = 0.0025;
 const MAX_TEMPO = 1.3;
@@ -91,7 +95,11 @@ function pixieOn(halfBeat: number, t: number): boolean {
 
 export function pixieSerenade(api: MinigameApi): MinigameGame {
   /** Each pixie reaches the bar at `at` (seconds into the song), falling `v` pixels per second of song. */
-  const notes: Array<{ lane: number; y: number; at: number; v: number; hit: boolean; phase: number }> = [];
+  const notes: Array<{ lane: number; y: number; at: number; v: number; hit: boolean; phase: number; pop?: number }> = [];
+  /** Each bar's press: seconds left of it dipping in, like a pressed button. */
+  const press = [0, 0, 0];
+  /** The pixie sheet turned pure white (a caught pixie flashes white before it vanishes), made once it's loaded. */
+  let whitePixies: HTMLCanvasElement | null = null;
   const track = MINIGAME_MUSIC.pixieSerenade;
   const beat = trackBeat(track) ?? 0.6;
   /** Where the song is: the music's own clock while it plays, otherwise counted here (music off or loading). */
@@ -178,6 +186,7 @@ export function pixieSerenade(api: MinigameApi): MinigameGame {
       for (let i = 1; i < 3; i++) if (Math.abs(x - laneX(i)) < Math.abs(x - laneX(lane))) lane = i;
       if (Math.abs(x - laneX(lane)) > spacing() * 0.9) return;
       flash[lane] = 0.15;
+      press[lane] = PRESS;
       let best: (typeof notes)[number] | null = null;
       for (const n of notes) if (!n.hit && n.lane === lane && Math.abs(n.y - lineY()) <= window() && (!best || Math.abs(n.y - lineY()) < Math.abs(best.y - lineY()))) best = n;
       if (!best) {
@@ -185,6 +194,8 @@ export function pixieSerenade(api: MinigameApi): MinigameGame {
         return;
       }
       best.hit = true;
+      // Caught: it stops on the bar and flashes white, then vanishes.
+      best.pop = 0;
       const dead = Math.abs(best.y - lineY()) <= perfect();
       api.addScore(dead ? 2 : 1, laneX(lane), lineY());
       // Ba'al strums, and notes drift up out of the guitar (more for a perfect hit), to either side of Ba'al.
@@ -226,7 +237,8 @@ export function pixieSerenade(api: MinigameApi): MinigameGame {
         notes.push({ lane, y: -20, at, v, hit: false, phase: Math.random() * 10 });
       }
       for (const n of notes) {
-        n.y = lineY() - (n.at - clock) * n.v;
+        if (n.pop !== undefined) n.pop += dt;
+        else n.y = lineY() - (n.at - clock) * n.v;
         n.phase += dt;
       }
       for (let i = notes.length - 1; i >= 0; i--) {
@@ -235,9 +247,12 @@ export function pixieSerenade(api: MinigameApi): MinigameGame {
           n.hit = true;
           api.loseLife(laneX(n.lane), lineY());
         }
-        if (n.hit || n.y > api.H + 30) notes.splice(i, 1);
+        if ((n.hit && (n.pop === undefined || n.pop > POP)) || n.y > api.H + 30) notes.splice(i, 1);
       }
-      for (let i = 0; i < 3; i++) flash[i] = Math.max(0, flash[i] - dt);
+      for (let i = 0; i < 3; i++) {
+        flash[i] = Math.max(0, flash[i] - dt);
+        press[i] = Math.max(0, press[i] - dt);
+      }
       strum = Math.max(0, strum - dt);
       for (const f of floaters) {
         f.t += dt;
@@ -249,13 +264,28 @@ export function pixieSerenade(api: MinigameApi): MinigameGame {
     draw(g) {
       g.imageSmoothingEnabled = false;
       for (let i = 0; i < 3; i++) drawPath(g, i);
-      // A small framed bar across each path, in its colour: the perfect spot.
+      // A small framed bar across each path, in its colour: the perfect spot. Tapping a path presses its bar in: it
+      // dips and narrows a little, then springs back, like a pressed button.
       const b = bar();
-      for (let i = 0; i < 3; i++) drawFramedBar(g, Math.round(laneX(i) - (b.w * BAR_S) / 2), Math.round(lineY() - (b.h * BAR_S) / 2), BAR_S, b.w, b.h, 1, COLORS[i]);
+      for (let i = 0; i < 3; i++) {
+        const down = press[i] > 0 ? 1 : 0;
+        const w = b.w - down * 2;
+        drawFramedBar(g, Math.round(laneX(i) - (w * BAR_S) / 2), Math.round(lineY() - (b.h * BAR_S) / 2) + down * BAR_S * 2, BAR_S, w, b.h, 1, COLORS[i]);
+      }
       // The pixies, fluttering down their paths (the Grove's pixie; facing alternate ways by path).
       const sheet = SHEETS.pixie;
       const img = monsterSheetImage('pixie');
       if (sheet && img.complete && img.naturalWidth) {
+        if (!whitePixies) {
+          whitePixies = document.createElement('canvas');
+          whitePixies.width = img.naturalWidth;
+          whitePixies.height = img.naturalHeight;
+          const x = whitePixies.getContext('2d')!;
+          x.drawImage(img, 0, 0);
+          x.globalCompositeOperation = 'source-in';
+          x.fillStyle = '#fff';
+          x.fillRect(0, 0, whitePixies.width, whitePixies.height);
+        }
         const F = sheet.frame;
         const [bx, by, bw, bh] = sheet.box;
         const k = (56 * api.k) / Math.max(bw, bh);
@@ -264,7 +294,13 @@ export function pixieSerenade(api: MinigameApi): MinigameGame {
           g.save();
           g.translate(laneX(n.lane) + Math.sin(n.phase * 4) * 4 * api.k, n.y);
           if (n.lane === 0) g.scale(-1, 1);
-          g.drawImage(img, col * F, 0, F, F, -(bx + bw / 2) * k, -(by + bh / 2) * k, F * k, F * k);
+          if (n.pop !== undefined) {
+            // Caught: pure white, swelling a little, held a moment and then fading out.
+            const f = n.pop / POP;
+            g.globalAlpha = f < 0.55 ? 1 : Math.max(0, 1 - (f - 0.55) / 0.45);
+            g.scale(1 + 0.25 * f, 1 + 0.25 * f);
+            g.drawImage(whitePixies, col * F, 0, F, F, -(bx + bw / 2) * k, -(by + bh / 2) * k, F * k, F * k);
+          } else g.drawImage(img, col * F, 0, F, F, -(bx + bw / 2) * k, -(by + bh / 2) * k, F * k, F * k);
           g.restore();
         }
       }
