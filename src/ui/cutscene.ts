@@ -2,6 +2,8 @@
  * Full-screen story cutscenes: a sequence of panels (a big piece of art and a line of text typed out).
  * Tap to finish the line or go on; Skip ends it. Calls `done` when it closes.
  */
+import { editableData, registerText, txt } from '../core/textRegistry';
+
 export interface CutscenePanel {
   art: string;
   text: string;
@@ -18,6 +20,11 @@ export const TIME_EATER_CUTSCENE: CutscenePanel[] = [
   { art: '🏹', text: 'The Void Rift is yours, for now. Somewhere beyond it, the Time Eater is waiting.' },
 ];
 
+// The Text editor can change every line, and the cutscene's own buttons.
+editableData('Story', 'cutscene.timeEater', TIME_EATER_CUTSCENE.map((p, i) => [String(i + 1), p, 'The Time Eater']), { text: 'Line' });
+registerText({ key: 'cutscene.ui.skip', group: 'Story', section: 'Cutscene buttons', label: 'Skip button', base: 'Skip ›' });
+registerText({ key: 'cutscene.ui.hint', group: 'Story', section: 'Cutscene buttons', label: 'Hint', base: 'Tap to continue' });
+
 const TYPE_MS = 28;
 
 export function playCutscene(panels: CutscenePanel[], done: () => void = () => {}): void {
@@ -25,9 +32,9 @@ export function playCutscene(panels: CutscenePanel[], done: () => void = () => {
   view.className = 'cutscene';
   view.innerHTML = `
     <div class="cs-stars">${Array.from({ length: 28 }, (_, i) => `<i style="left:${(i * 37) % 100}%;top:${(i * 53) % 100}%;animation-delay:${(i % 7) * 0.4}s"></i>`).join('')}</div>
-    <button class="cs-skip">Skip ›</button>
+    <button class="cs-skip">${txt('cutscene.ui.skip')}</button>
     <div class="cs-art"></div>
-    <div class="cs-box"><p class="cs-text"></p><small class="cs-hint">Tap to continue</small></div>
+    <div class="cs-box"><p class="cs-text"></p><small class="cs-hint">${txt('cutscene.ui.hint')}</small></div>
     <div class="cs-dots">${panels.map(() => '<b></b>').join('')}</div>`;
   document.body.appendChild(view);
   const art = view.querySelector<HTMLElement>('.cs-art')!;

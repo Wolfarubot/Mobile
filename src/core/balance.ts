@@ -1,3 +1,4 @@
+import { editableData } from './textRegistry';
 import { GEAR_CATALOG, type CatalogGearId, type CatalogSpec, type CatalogAccEffect } from './gearCatalog';
 
 // All tunable numbers, content tables and pure formulas live here so balancing never touches game flow code.
@@ -4352,3 +4353,43 @@ export function minigameStars(def: EventDef): number[] {
 /** Your Hunter's sessions from Lv 1 to 100, and from becoming the Slayer to Lv 200. */
 export const MAIN_SESSIONS_TO_ASCEND = sessionsToLevel(MAIN_ASCEND_LEVEL);
 export const MAIN_SESSIONS_AFTER_ASCEND = sessionsAfterAscending(MAIN_ASCEND_LEVEL, MAIN_MAX_LEVEL);
+
+// ---- Names and descriptions the Text editor can change (gear and Upgrades are the Item Forge's, tree nodes the
+// Skill Trees editor's). An edit replaces the field in place, so everything that reads it shows the new text; text
+// already built from it at load (a swarm's blurb naming its monster) keeps the old name until edited too. ----
+const textRec = <T>(r: Record<string, T>, name: (v: T, id: string) => string): Array<[string, T, string]> => Object.entries(r).map(([id, v]) => [id, v, name(v, id)]);
+const areaName = (id: AreaId): string => AREAS.find((a) => a.id === id)?.name ?? id;
+editableData('Areas', 'area', AREAS.map((a) => [a.id, a, a.name]), { name: 'Name', blurb: 'Description' });
+editableData('Monsters', 'monster', ENEMIES.map((e) => [e.id, e, `${areaName(e.area)} · ${e.name}`]), { name: 'Name', blurb: 'Description' });
+editableData('Monsters', 'archetype', textRec(ARCHETYPES, () => 'Monster kinds'), { name: 'Name' });
+editableData('Hunters', 'hunter', HUNTERS.map((h) => [h.id, h, `${h.name} the ${h.title}`]), {
+  name: 'Name',
+  title: 'Title',
+  ascendedTitle: 'Ascended title',
+  short: 'Card line',
+  ability: 'Ability',
+  story: 'Unlock story',
+  'special.name': 'Special: name',
+  'special.describe': 'Special: description',
+  'wall.name': 'Wall: name',
+  'wall.describe': 'Wall: description',
+});
+editableData('Hunters', 'tap', TAP_ABILITIES.map((t) => [t.id, t, 'Tap abilities']), { name: 'Name', desc: 'Description' });
+editableData('Materials', 'material', MATERIALS.map((m) => [m.id, m, m.name]), { name: 'Name', desc: 'Description' });
+editableData('Events', 'event', EVENTS.map((e) => [e.id, e, `${areaName(e.area)} · ${e.name}`]), { name: 'Name', blurb: 'Description' });
+editableData('Events', 'buff', textRec(MINIGAME_BUFFS, (b) => `Minigame buff · ${b.name}`), { name: 'Name', desc: 'Description' });
+editableData('Combat', 'damage', textRec(DAMAGE_TYPES, () => 'Damage types'), { name: 'Name', effect: 'Status effect' });
+editableData('Combat', 'weapon', textRec(WEAPON_CLASSES, (w) => `Weapon type · ${w.name}`), { name: 'Name', describe: 'Description' });
+editableData(
+  'Combat',
+  'archetypeWeapon',
+  Object.entries(WEAPON_ARCHETYPES).flatMap(([cls, arr]) => arr.map((a, i): [string, WeaponArchetype, string] => [`${cls}.${i}`, a, `Weapon type · ${WEAPON_CLASSES[cls as WeaponClass].name}`])),
+  { name: 'Archetype name', desc: 'Archetype description' },
+);
+editableData('Combat', 'spell', textRec(SPELLS, () => 'Staff spells'), { name: 'Name', desc: 'Description' });
+editableData('Combat', 'unique', textRec(UNIQUE_EFFECTS, () => 'Unique enchantments'), { name: 'Name', desc: 'Description' });
+editableData('Combat', 'armor', textRec(ARMOR_TYPES, () => 'Armor types'), { name: 'Name', desc: 'Description' });
+editableData('Combat', 'acc', textRec(ACC_TYPES, () => 'Accessory types'), { name: 'Name', desc: 'Description' });
+editableData('Combat', 'summon', textRec(SUMMON_TYPES, () => 'Summon types'), { name: 'Name' });
+editableData('Combat', 'rarity', textRec(RARITIES, () => 'Rarities'), { name: 'Name' });
+editableData('Shop', 'premium', textRec(PREMIUM_UPGRADES, (d) => `Upgrade kind · ${d.name}`), { name: 'Kind', 'names.0': 'Item 1', 'names.1': 'Item 2', 'names.2': 'Item 3', 'names.3': 'Item 4', 'names.4': 'Item 5' });

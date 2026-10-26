@@ -83,6 +83,8 @@ import {
   REFINES,
   ENCHANTS,
   ENERGY_AD,
+  ENERGY_MAX,
+  ENERGY_REGEN,
   ENERGY_ADS_PER_DAY,
   ENERGY_MAX_NO_ADS,
   GEMS_CHECKIN,
@@ -144,6 +146,8 @@ import { JOURNAL, type JournalEntry } from '../core/journal';
 import { App as CapApp } from '@capacitor/app';
 import { MINIGAMES, runMinigame } from './minigames';
 import { applyAreaTheme, applyUiStyle } from './theme';
+import './texts';
+import { tx, txp, txt } from '../core/textRegistry';
 import { playCutscene, TIME_EATER_CUTSCENE } from './cutscene';
 import { applyFont, fontDef, FONTS } from './fonts';
 import { GainPops } from './gainPops';
@@ -447,7 +451,7 @@ export class AppUI {
       else if (e.type === 'eventStart' || e.type === 'eventEnd' || e.type === 'guardianFail') this.refresh();
       else if (e.type === 'loot') {
         const d = gearDef(e.gear);
-        this.toast(e.salvaged ? `♻️ Looted and salvaged: ${d.icon} ${d.name}` : `🎁 Loot! ${d.icon} ${d.name}${e.stars > 1 ? ` ${e.stars}★` : ''}`);
+        this.toast(e.salvaged ? txt('toast.gear.salvaged', { item: `${d.icon} ${d.name}` }) : txt('toast.gear.loot', { item: `${d.icon} ${d.name}${e.stars > 1 ? ` ${e.stars}★` : ''}` }));
         if (this.tab === 'inventory') this.setTab('inventory', true);
       }
     });
@@ -565,7 +569,7 @@ export class AppUI {
       const def = who === 'main' ? null : hunterDef(who);
       const tile = el('button', 'hunter-tile') as HTMLButtonElement;
       tile.style.setProperty('--hc', def ? def.color : '#7c5cff');
-      tile.innerHTML = `<i>${wearerIcon(who)}</i><span class="ht-name">${def ? def.name : esc(mainName())}</span><small class="ht-lv"></small><b class="sp-dot hidden" title="Unspent skill points"></b>`;
+      tile.innerHTML = `<i>${wearerIcon(who)}</i><span class="ht-name">${def ? def.name : esc(mainName())}</span><small class="ht-lv"></small><b class="sp-dot hidden" title="${esc(txt('tip.markers.skillPoints'))}"></b>`;
       tile.classList.toggle('selected', who === this.selectedHunter);
       tile.addEventListener('click', () => {
         if (this.selectedHunter === who) return;
@@ -660,7 +664,7 @@ export class AppUI {
       <div class="hc-top">
         <div class="hc-art">${portraitHtml(who)}</div>
         <div class="hc-info">
-          <div class="card-corner"><b class="sp-dot hidden" title="Unspent skill points"></b><span class="expand-tag">Expand ›</span></div>
+          <div class="card-corner"><b class="sp-dot hidden" title="${esc(txt('tip.markers.skillPoints'))}"></b><span class="expand-tag">Expand ›</span></div>
           <div class="hc-name">${def ? `${def.name} <small>the ${g.titleOf(def.id)}</small>` : `${esc(mainName())} <small>the ${g.titleOf('main')}</small>`}</div>
           <div class="hc-ability">${def ? def.short : MAIN_SHORT}</div>
           <div class="hc-status"></div>
@@ -952,18 +956,13 @@ export class AppUI {
         if (which !== 'base' || id !== ASCEND_NODE.id) return;
         if (who === 'main') {
           this.openHunterDetail(who, 'skills');
-          this.showModal(
-            `<h2>⚔️ You are the Slayer!</h2><p>${esc(mainName())} ${mainHunterName ? 'is' : 'are'} now <b>the Slayer</b>. The Slayer's tree is open, and training goes on to <b>Lv ${MAIN_MAX_LEVEL}</b>: the level curve starts over (1 session to Lv ${MAIN_ASCEND_LEVEL + 1}), at the same training price.</p>`,
-            [{ label: 'Onward' }],
-          );
+          this.showModal(`<h2>${tx('popup.slayer.title')}</h2>${txp('popup.slayer.body', { name: esc(mainName()), is: mainHunterName ? 'is' : 'are', max: MAIN_MAX_LEVEL, next: MAIN_ASCEND_LEVEL + 1 })}`, [{ label: txt('popup.slayer.ok') }]);
           return;
         }
         const def = hunterDef(who);
         this.openHunterDetail(who, 'skills');
-        this.showModal(
-          `<h2>🌟 ${def.name} ascended!</h2><p>${def.name} is now <b>the ${def.ascendedTitle}</b>. A new skill tree is open, and training goes on to <b>Lv ${MAX_LEVEL}</b>: the level curve starts over (1 session to Lv ${ASCEND_LEVEL + 1}), at the same training price.</p>`,
-          [{ label: 'Onward' }],
-        );
+        const asc = { name: def.name, title: def.ascendedTitle, max: MAX_LEVEL, next: ASCEND_LEVEL + 1 };
+        this.showModal(`<h2>${tx('popup.ascended.title', asc)}</h2>${txp('popup.ascended.body', asc)}`, [{ label: txt('popup.ascended.ok') }]);
       },
     };
   }
@@ -1289,7 +1288,7 @@ export class AppUI {
             if (m) chips.push(m.kind === 'refine' ? `<span class="eq-chip mod-refine">${REFINES[m.stat].text(modValue(m, gd))}</span>` : `<span class="eq-chip mod-enchant">${ENCHANTS[m.id].name}</span>`);
         b.innerHTML = `<span class="eq-ic">${gd ? gearIcon(gd) : GEAR_KINDS[slot.kind].icon}</span><div class="eq-info"><small class="eq-slot">${slot.label}</small><b class="eq-name">${gd ? gd.name : 'Empty'}</b>${
           gd && it
-            ? `<span class="eq-rar"><em>${RARITIES[gd.rarity].name}</em><span class="stars">${starsHtml(it.stars)}</span>${tuned ? `<span class="tuned" title="Tuned by Reginald the Artificer">+${tuned}★</span>` : ''}</span><div class="eq-chips">${dtypeTag(gd)}${chips.join('')}</div>`
+            ? `<span class="eq-rar"><em>${RARITIES[gd.rarity].name}</em><span class="stars">${starsHtml(it.stars)}</span>${tuned ? `<span class="tuned" title="${esc(txt('tip.markers.tuned'))}">+${tuned}★</span>` : ''}</span><div class="eq-chips">${dtypeTag(gd)}${chips.join('')}</div>`
             : '<span class="eq-empty">Tap to equip</span>'
         }</div><span class="eq-chev">›</span>`;
       });
@@ -1523,7 +1522,7 @@ export class AppUI {
     const t = this.toast(text);
     t.classList.add('with-equip');
     t.style.setProperty('--toast-time', `${EQUIP_PROMPT_SECONDS}s`);
-    const btn = el('button', 'buy toast-equip', 'Equip') as HTMLButtonElement;
+    const btn = el('button', 'buy toast-equip', txt('toast.gear.equip')) as HTMLButtonElement;
     t.appendChild(btn);
     btn.addEventListener('click', () => {
       t.remove();
@@ -1580,9 +1579,9 @@ export class AppUI {
         const refund = g.salvageValue(uid);
         close();
         const gold = g.salvageGold(uid);
-        this.showModal(`<h2>Salvage ${gd.name}?</h2><p>You'll get back half of its materials${gold ? ', and half of what its modifiers cost' : ''}:</p><div class="cost" style="justify-content:center">${costHtml(g, refund, false)}${gold ? `<span>🪙 ${fmt(gold)}</span>` : ''}</div>`, [
-          { label: 'Cancel', secondary: true },
-          { label: 'Salvage', action: () => g.salvageGear(uid) },
+        this.showModal(`<h2>${tx('popup.salvage.title', { item: gd.name })}</h2>${txp(gold ? 'popup.salvage.bodyMods' : 'popup.salvage.body')}<div class="cost" style="justify-content:center">${costHtml(g, refund, false)}${gold ? `<span>🪙 ${fmt(gold)}</span>` : ''}</div>`, [
+          { label: txt('popup.salvage.cancel'), secondary: true },
+          { label: txt('popup.salvage.ok'), action: () => g.salvageGear(uid) },
         ]);
       });
       actions.appendChild(salvage);
@@ -1719,7 +1718,7 @@ export class AppUI {
             const m = g.chooseMod(uid, Number(b.dataset.choice));
             if (!m) return;
             this.hooks.save();
-            this.toast(`${modPerfect(m) ? '🌟 Perfect! ' : m.kind === 'refine' ? '⚒️ ' : '✨ '}${gd.name}: ${modText(m, gd)}`);
+            this.toast(txt(modPerfect(m) ? 'toast.gear.perfect' : m.kind === 'refine' ? 'toast.gear.refine' : 'toast.gear.enchant', { item: gd.name, mod: modText(m, gd) }));
             last = at;
             slot = null;
             draw();
@@ -2185,11 +2184,11 @@ export class AppUI {
     const g = this.game;
     navigator.vibrate?.(25);
     this.selectedArea = id;
-    if (g.area === id) this.toast(`You're already in ${areaDef(id).name}`);
-    else if (g.eventRunning) this.toast('Finish the event first!');
+    if (g.area === id) this.toast(txt('toast.areas.here', { area: areaDef(id).name }));
+    else if (g.eventRunning) this.toast(txt('toast.areas.busy'));
     else {
       g.travel(id);
-      this.toast(`Traveled to ${areaDef(id).name}!`);
+      this.toast(txt('toast.areas.traveled', { area: areaDef(id).name }));
     }
     this.setTab('areas', true);
   }
@@ -2231,7 +2230,7 @@ export class AppUI {
         g.station(h, area);
         g.station(bump, from);
       } else {
-        this.toast(`${areaDef(area).name} is full`);
+        this.toast(txt('toast.areas.full', { area: areaDef(area).name }));
         return false;
       }
       return true;
@@ -2309,7 +2308,7 @@ export class AppUI {
       const bump = (t.closest<HTMLElement>('.world-slot')?.dataset.hunter as HunterId | undefined) ?? null;
       const area = cell.dataset.area as AreaId;
       if (!g.canStation(selected, area) && !bump) {
-        this.toast(`${areaDef(area).name} is full: tap a Hunter there to swap`);
+        this.toast(txt('toast.areas.fullSwap', { area: areaDef(area).name }));
         return;
       }
       if (moveTo(selected, area, bump)) {
@@ -2490,7 +2489,7 @@ export class AppUI {
       const grid = el('div', 'hunter-grid');
       for (const def of areaEnemies(areaId)) {
         const tile = el('button', 'hunter-tile beast-tile') as HTMLButtonElement;
-        tile.innerHTML = `<canvas class="bt-portrait"></canvas><span class="ht-name">${def.name}</span><small class="ht-lv"></small><b class="sp-dot hidden" title="Unspent evolution points"></b><span class="alert-mark white tile-new hidden"></span>`;
+        tile.innerHTML = `<canvas class="bt-portrait"></canvas><span class="ht-name">${def.name}</span><small class="ht-lv"></small><b class="sp-dot hidden" title="${esc(txt('tip.markers.evoPoints'))}"></b><span class="alert-mark white tile-new hidden"></span>`;
         tile.classList.toggle('selected', def.id === this.selectedBeast);
         const mark = $('.tile-new', tile);
         this.refreshers.push(() => mark.classList.toggle('hidden', def.id === this.selectedBeast || !this.newBeast(def)));
@@ -2562,7 +2561,7 @@ export class AppUI {
     const row = el('div', 'hc-train');
     row.innerHTML = '<span class="hc-lv"></span><div class="hc-mid"></div><div class="hc-action"></div>';
     const dot = el('b', 'sp-dot hidden');
-    dot.title = 'Unspent evolution points';
+    dot.title = txt('tip.markers.evoPoints');
     if (unlocked) {
       const { btn, bar } = this.empowerParts(def.id);
       $('.hc-mid', row).appendChild(bar);
@@ -3184,8 +3183,8 @@ export class AppUI {
       if (!ok) return;
       sfx('craft');
       // Gear can be equipped straight away from the message; Upgrades (idols, potions) can't.
-      if (typeof ok === 'object' && gd) this.toastEquip(`Crafted ${gd.name}!`, ok.uid);
-      else this.toast(gd ? `Crafted ${gd.name}!` : g.state.items[it!.id] > 1 ? `Upgraded ${it!.name} to ${g.state.items[it!.id]}★!` : `Crafted ${it!.name}!`);
+      if (typeof ok === 'object' && gd) this.toastEquip(txt('toast.gear.crafted', { item: gd.name }), ok.uid);
+      else this.toast(gd ? txt('toast.gear.crafted', { item: gd.name }) : g.state.items[it!.id] > 1 ? txt('toast.gear.upgraded', { item: it!.name, stars: g.state.items[it!.id] }) : txt('toast.gear.crafted', { item: it!.name }));
       bumpCard(btn);
       this.refresh();
     });
@@ -3273,13 +3272,14 @@ export class AppUI {
     );
     now.addEventListener('click', () => {
       const n = spare();
-      this.showModal(`<h2>♻️ Salvage ${n} piece${n === 1 ? '' : 's'}?</h2><p>Every unequipped ${st.autoSalvage.map((r) => RARITIES[r].name).join(', ')} piece goes, for half its materials. Equipped gear is kept.</p>`, [
-        { label: 'Cancel', secondary: true },
+      const sv = { n, rarities: st.autoSalvage.map((r) => RARITIES[r].name).join(', ') };
+      this.showModal(`<h2>${tx('popup.salvageAll.title', sv)}</h2>${txp('popup.salvageAll.body', sv)}`, [
+        { label: txt('popup.salvageAll.cancel'), secondary: true },
         {
-          label: 'Salvage',
+          label: txt('popup.salvageAll.ok'),
           action: () => {
             const done = g.salvageRarities(st.autoSalvage);
-            this.toast(`♻️ Salvaged ${done} piece${done === 1 ? '' : 's'}`);
+            this.toast(txt('toast.gear.salvagedN', { n: done }));
             this.hooks.save();
             this.setTab('inventory', true);
           },
@@ -3441,16 +3441,17 @@ export class AppUI {
     const b = MINIGAME_BUFFS[mg];
     const par = ev.rewards!.par;
     const h = hunterDef(ev.hunter!);
+    const pm = g.premiumMult('buffTime');
     const fill =
       b.kind === 'timed'
-        ? `Each play adds ${span(b.per * g.premiumMult('buffTime'))} for a par score (${par} points), from ${span((b.per / 2) * g.premiumMult('buffTime'))} to ${span(b.per * 1.5 * g.premiumMult('buffTime'))} by score, up to ${span(g.buffCap(mg))}. It only runs down while you're playing, not while you're away.`
+        ? tx('popup.buff.timed', { per: span(b.per * pm), par, low: span((b.per / 2) * pm), high: span(b.per * 1.5 * pm), cap: span(g.buffCap(mg)) })
         : ev.blessing
-          ? `A score of ${ev.blessing.tiers[0]} or more adds ${b.per + g.premiumBonus('charges')} charges, up to ${g.buffCap(mg)}. Each ${ev.blessing.kind === 'refine' ? 'Refine' : 'Enchant'} you roll spends one; your best tier while you hold charges is the one used.`
-          : `Each play adds ${b.per + g.premiumBonus('charges')} charge${b.per + g.premiumBonus('charges') > 1 ? 's' : ''} (${Math.round(b.per * 1.5) + g.premiumBonus('charges')} for a great score), up to ${g.buffCap(mg)}. Starting a Guardian Challenge spends one.`;
+          ? tx('popup.buff.blessing', { score: ev.blessing.tiers[0], n: b.per + g.premiumBonus('charges'), cap: g.buffCap(mg), what: ev.blessing.kind === 'refine' ? 'Refine' : 'Enchant' })
+          : tx('popup.buff.charges', { n: b.per + g.premiumBonus('charges'), great: Math.round(b.per * 1.5) + g.premiumBonus('charges'), cap: g.buffCap(mg) });
     const tier = ev.blessing && g.blessingCharges(ev.blessing.kind) > 0 ? g.state.blessings[ev.blessing.kind] : 0;
     this.showModal(
-      `<h2>${ev.icon} ${b.name}</h2><p>${b.desc}</p><p class="buff-left">${b.kind === 'timed' ? 'Time left' : 'Charges'}: <b>${this.buffAmount(mg)}</b>${tier ? ` · ${tier} extra roll${tier > 1 ? 's' : ''} each` : ''}</p><p>From <b>${ev.name}</b> (${h.name} the ${h.title}). ${fill}</p>`,
-      [{ label: 'Close' }],
+      `<h2>${ev.icon} ${b.name}</h2><p>${b.desc}</p><p class="buff-left">${txt(b.kind === 'timed' ? 'popup.buff.left' : 'popup.buff.chargesLeft')}: <b>${this.buffAmount(mg)}</b>${tier ? ` · ${tier} extra roll${tier > 1 ? 's' : ''} each` : ''}</p><p>${tx('popup.buff.from', { event: ev.name, hunter: `${h.name} the ${h.title}` })} ${fill}</p>`,
+      [{ label: txt('popup.buff.close') }],
     );
   }
 
@@ -3458,27 +3459,28 @@ export class AppUI {
   private showNoEnergy(ev: EventDef): void {
     const g = this.game;
     const have = Math.floor(g.energy + 1e-9);
-    const need = `<p><b>${ev.name}</b> needs <b>${g.energyCost(ev.id)}</b> energy, and you have <b>${have}</b>.</p>`;
-    const wait = `<p>Energy comes back 1 every ${fmtTime(g.energyRegen)}: enough for this in <b>${fmtTime(g.energyWait(ev.id))}</b>.</p>`;
+    const need = txp('popup.noEnergy.need', { event: ev.name, cost: g.energyCost(ev.id), have });
+    const wait = txp('popup.noEnergy.wait', { regen: fmtTime(g.energyRegen), wait: fmtTime(g.energyWait(ev.id)) });
+    const title = `<h2>${tx('popup.noEnergy.title')}</h2>`;
     if (g.adsLeft <= 0) {
-      this.showModal(`<h2>🗲 Not enough energy</h2>${need}${wait}${g.state.noAds ? '' : `<p>You've watched today's ${ENERGY_ADS_PER_DAY} energy ads.</p>`}`, [{ label: 'OK' }]);
+      this.showModal(`${title}${need}${wait}${g.state.noAds ? '' : txp('popup.noEnergy.adsUsed', { ads: ENERGY_ADS_PER_DAY })}`, [{ label: txt('popup.noEnergy.ok') }]);
       return;
     }
     this.showModal(
-      `<h2>🗲 Not enough energy</h2>${need}<p>Watch an ad to restore <b>${ENERGY_AD} energy</b> (${g.adsLeft} of ${ENERGY_ADS_PER_DAY} left today). Energy past ${g.energyMax} overcharges your bar.</p>`,
+      `${title}${need}${txp('popup.noEnergy.ad', { ad: ENERGY_AD, left: g.adsLeft, ads: ENERGY_ADS_PER_DAY, max: g.energyMax })}`,
       [
         {
-          label: '📺 Watch ad',
+          label: txt('popup.noEnergy.watch'),
           action: () => {
             void showRewardedAd().then((ok) => {
               if (!ok || !g.adEnergy()) return;
-              this.toast(`🗲 +${ENERGY_AD} energy`);
+              this.toast(txt('toast.rewards.energy', { n: ENERGY_AD }));
               this.hooks.save();
               this.refresh();
             });
           },
         },
-        { label: 'Not now', secondary: true },
+        { label: txt('popup.noEnergy.notNow'), secondary: true },
       ],
     );
   }
@@ -3492,7 +3494,7 @@ export class AppUI {
 
   /** Energy cost as gold pips. */
   private energyPips(ev: EventDef): string {
-    return `<span class="ev-pips" title="Energy cost">${'<b></b>'.repeat(this.game.energyCost(ev.id))}</span>`;
+    return `<span class="ev-pips" title="${esc(txt('tip.markers.energy'))}">${'<b></b>'.repeat(this.game.energyCost(ev.id))}</span>`;
   }
 
   private eventTile(ev: EventDef): HTMLElement {
@@ -3536,14 +3538,14 @@ export class AppUI {
     const card = el('div', 'beast event-card');
     const icon = this.eventIcon(ev, 'ec-icon');
     const cost = g.energyCost(ev.id);
-    const blurb = ev.kind === 'minigame' ? `Play for gold, materials and ${MINIGAME_BUFFS[ev.minigame!].name}: ${lowerFirst(MINIGAME_BUFFS[ev.minigame!].desc)}` : ev.blurb;
-    card.innerHTML = `<div class="beast-head">${icon.html}<div class="info"><div class="name">${ev.name}</div><div class="blurb">${blurb}</div></div></div><div class="ev-status"></div><div class="ev-foot"><span class="ev-cost">Cost ${this.energyPips(ev)} <b>${cost}</b> energy</span><button class="ev-details">Details</button><button class="buy"></button></div>`;
+    const blurb = ev.kind === 'minigame' ? tx('event.card.minigame', { buff: MINIGAME_BUFFS[ev.minigame!].name, desc: lowerFirst(MINIGAME_BUFFS[ev.minigame!].desc) }) : ev.blurb;
+    card.innerHTML = `<div class="beast-head">${icon.html}<div class="info"><div class="name">${ev.name}</div><div class="blurb">${blurb}</div></div></div><div class="ev-status"></div><div class="ev-foot"><span class="ev-cost">Cost ${this.energyPips(ev)} <b>${cost}</b> energy</span><button class="ev-details">${tx('event.card.details')}</button><button class="buy"></button></div>`;
     icon.draw(card);
     $('.ev-details', card).addEventListener('click', () => this.openEventDetail(ev));
     this.wireEventButton(ev, card, $<HTMLButtonElement>('.buy', card), $('.ev-status', card), this.refreshers, () => {
       if (ev.kind !== 'minigame') return this.eventRewards(ev).join(' · ');
       const best = g.state.events[ev.id]?.best ?? 0;
-      return best > 0 ? `Best ${best} ${rankStars(g.starsFor(ev.id, best))}` : `Not played yet ${rankStars(0)}`;
+      return best > 0 ? `${tx('event.card.best', { score: fmt(best) })} ${rankStars(g.starsFor(ev.id, best))}` : `${tx('event.card.notPlayed')} ${rankStars(0)}`;
     });
     return card;
   }
@@ -3580,7 +3582,7 @@ export class AppUI {
       card?.classList.toggle('running', running);
       card?.classList.toggle('ready', g.eventReady(ev.id));
       const line = extra();
-      const note = line ? `<small>${ev.kind === 'minigame' ? '' : 'Reward: '}${line}</small>` : '';
+      const note = line ? `<small>${ev.kind === 'minigame' ? line : tx('event.card.reward', { what: line })}</small>` : '';
       if (!unlocked && ev.kind === 'minigame') {
         const h = hunterDef(ev.hunter!);
         status.innerHTML = `<small>🔒 Recruit ${wearerIcon(h.id)} ${h.name} the ${h.title} to play</small>`;
@@ -3630,30 +3632,30 @@ export class AppUI {
     const body = $('.hd-scroll', view);
     const icon = this.eventIcon(ev, 'ec-icon');
     const head = el('div', 'card ed-head');
-    const who = ev.hunter ? `<small>${wearerIcon(ev.hunter)} With ${hunterDef(ev.hunter).name} the ${hunterDef(ev.hunter).title} · ${areaDef(ev.area).name}</small>` : `<small>${areaDef(ev.area).name}</small>`;
+    const who = ev.hunter ? `<small>${wearerIcon(ev.hunter)} ${tx('event.detail.with', { hunter: `${hunterDef(ev.hunter).name} the ${hunterDef(ev.hunter).title}`, area: areaDef(ev.area).name })}</small>` : `<small>${areaDef(ev.area).name}</small>`;
     head.innerHTML = `<div class="beast-head">${icon.html}<div class="info"><div class="name">${ev.name}</div>${who}</div></div><p>${ev.blurb}</p>`;
     icon.draw(head);
     body.appendChild(head);
 
     if (ev.kind === 'minigame') this.buildMinigameDetail(ev, body, refreshers);
     else {
-      body.appendChild(sectionTitle('Rewards'));
+      body.appendChild(sectionTitle(txt('event.detail.rewards')));
       const box = el('div', 'card ed-text');
       const lines: string[] = [];
       if (ev.kind === 'guardian') {
         const boss = enemyDef(GUARDIAN_ENEMY[ev.area]);
         const next = nextAreaOf(ev.area);
-        if (next) lines.push(g.isAreaUnlocked(next.id) ? `Beating it the first time opened the <b>${next.name}</b>.` : `Beating it the first time opens the <b>${next.name}</b>.`);
-        lines.push(`Every win pays a Guardian bounty: 🪙 <b>${fmt(areaDef(ev.area).gold * GUARDIAN_GOLD_MULT)}</b>, ${gemHtml(boss.material)} <b>${BOSS_MATERIAL_DROP}</b> ${materialDef(boss.material).name}, and a piece of gear.`);
-        lines.push(`You have ${GUARDIAN_TIME}s to bring it down once it appears.`);
+        if (next) lines.push(tx(g.isAreaUnlocked(next.id) ? 'event.detail.opened' : 'event.detail.opens', { area: next.name }));
+        lines.push(tx('event.detail.bounty', { gold: fmt(areaDef(ev.area).gold * GUARDIAN_GOLD_MULT), material: `${gemHtml(boss.material)} <b>${BOSS_MATERIAL_DROP}</b> ${materialDef(boss.material).name}` }));
+        lines.push(tx('event.detail.time', { time: GUARDIAN_TIME }));
       } else {
-        lines.push(`It lasts ${ev.duration}s. Everything slain drops as usual, so twice the monsters means twice the gold and materials.`);
+        lines.push(tx('event.detail.swarm', { time: ev.duration }));
       }
-      for (const h of g.huntersUnlockedBy(ev.id)) lines.push(`${wearerIcon(h)} <b>${hunterDef(h).name} the ${hunterDef(h).title}</b> joins after ${unlockText(g, hunterDef(h)).replace(/^./, (c) => c.toLowerCase())}.`);
+      for (const h of g.huntersUnlockedBy(ev.id)) lines.push(`${wearerIcon(h)} ${tx('event.detail.joins', { hunter: `<b>${hunterDef(h).name} the ${hunterDef(h).title}</b>`, how: unlockText(g, hunterDef(h)).replace(/^./, (c) => c.toLowerCase()) })}`);
       box.innerHTML = lines.map((l) => `<p>${l}</p>`).join('');
       body.appendChild(box);
       const done = g.eventCompletions(ev.id);
-      if (done > 0) body.appendChild(el('p', 'hd-note', `Completed ${fmt(done)} time${done === 1 ? '' : 's'}.`));
+      if (done > 0) body.appendChild(el('p', 'hd-note', txt('event.detail.completed', { n: fmt(done) })));
     }
 
     // Start / Play, with its cost, at the bottom.
@@ -3673,11 +3675,11 @@ export class AppUI {
     body.appendChild(best);
     refreshers.push(() => {
       const b = g.state.events[ev.id]?.best ?? 0;
-      best.innerHTML = b > 0 ? `<span>Your best</span><b>${fmt(b)}</b>${rankStars(g.starsFor(ev.id, b))}` : `<span>Your best</span><b>Not played yet</b>${rankStars(0)}`;
+      best.innerHTML = `<span>${tx('event.detail.best')}</span><b>${b > 0 ? fmt(b) : tx('event.card.notPlayed')}</b>${rankStars(b > 0 ? g.starsFor(ev.id, b) : 0)}`;
     });
 
-    body.appendChild(sectionTitle('Star rankings'));
-    body.appendChild(el('p', 'hd-note', 'Rewards grow with every point you score. Here is what a play earns at each rank.'));
+    body.appendChild(sectionTitle(txt('event.detail.ranks')));
+    body.appendChild(el('p', 'hd-note', txt('event.detail.ranksNote')));
     const stars = minigameStars(ev);
     stars.forEach((score, i) => {
       const rank = el('div', 'card ed-rank');
@@ -3697,19 +3699,19 @@ export class AppUI {
         const key = `${score}:${Math.round(r.gold)}:${gain}:${mats}`;
         if (rank.dataset.key === key) return;
         rank.dataset.key = key;
-        rank.innerHTML = `<div class="ed-rank-head">${rankStars(i + 1)}<b>${fmt(score)}+ points</b></div><ul><li>${ev.icon} ${buffText}</li>${bless}<li>🪙 ${fmt(r.gold)} gold</li>${mats}</ul>`;
+        rank.innerHTML = `<div class="ed-rank-head">${rankStars(i + 1)}<b>${tx('event.detail.points', { score: fmt(score) })}</b></div><ul><li>${ev.icon} ${buffText}</li>${bless}<li>🪙 ${fmt(r.gold)} gold</li>${mats}</ul>`;
       });
     });
     const per = ev.rewards!.materials.map((m) => `${gemHtml(m.material)} 1 ${materialDef(m.material).name} every ${m.per} point${m.per === 1 ? '' : 's'}`).join(', ');
     const how = el('div', 'card ed-text');
-    how.innerHTML = `<p>Gold is measured against your income, so it's always worth playing wherever you are: a par score (${ev.rewards!.par} points) pays ${span(MINIGAME_INCOME_NEW)} of your gold income while ${areaDef(ev.area).name} is the furthest area you've reached, and ${span(MINIGAME_INCOME)} after that.</p><p>Drops: ${per}.</p>`;
+    how.innerHTML = txp('event.detail.gold', { par: ev.rewards!.par, new: span(MINIGAME_INCOME_NEW), area: areaDef(ev.area).name, old: span(MINIGAME_INCOME) }) + txp('event.detail.drops', { list: per });
     body.appendChild(how);
 
     body.appendChild(sectionTitle(`${ev.icon} ${buff.name}`));
     const bb = el('div', 'card ed-text');
     body.appendChild(bb);
     refreshers.push(() => {
-      const html = `<p>${buff.desc}</p><p>${buff.kind === 'timed' ? 'Time left' : 'Charges'}: <b>${this.buffAmount(mg)}</b> (holds up to ${buff.kind === 'timed' ? span(g.buffCap(mg)) : g.buffCap(mg)})</p><p>${buff.kind === 'timed' ? "It only runs down while you're playing, not while you're away." : ev.blessing ? `Each ${ev.blessing.kind === 'refine' ? 'Refine' : 'Enchant'} you roll spends one.` : 'Starting a Guardian Challenge spends one.'}</p>`;
+      const html = `<p>${buff.desc}</p><p>${txt(buff.kind === 'timed' ? 'popup.buff.left' : 'popup.buff.chargesLeft')}: <b>${this.buffAmount(mg)}</b> (holds up to ${buff.kind === 'timed' ? span(g.buffCap(mg)) : g.buffCap(mg)})</p><p>${buff.kind === 'timed' ? tx('event.detail.timedNote') : ev.blessing ? tx('event.detail.blessingNote', { what: ev.blessing.kind === 'refine' ? 'Refine' : 'Enchant' }) : tx('event.detail.slayerNote')}</p>`;
       if (bb.innerHTML !== html) bb.innerHTML = html;
     });
   }
@@ -3718,17 +3720,10 @@ export class AppUI {
   private showMinigameIntro(replay = false): void {
     if (!replay) this.game.state.flags.minigameIntro = true;
     const first = eventDef('huntingPractice');
-    this.showModal(
-      `<h2>🎮 Minigames unlocked!</h2>
-       <p><b>${first.name}</b> is open in the Events tab.</p>
-       <p>Every area has a minigame starring one of its Hunters, opened by recruiting them. Each play costs 🗲 <b>3 energy</b>.</p>
-       <p>Minigames always pay <b>gold relative to where you are in the game</b>, measured against your income, so they never fall behind. They also drop materials and fill a <b>temporary buff</b>: more drops, faster attacks, more gold, and more, each helping you across the whole game while it lasts.</p>
-       <p>Your score earns up to <b>3 stars</b>, and the better you do, the more you get. Each minigame's details page shows exactly what every rank pays.</p>`,
-      [
-        { label: 'Later', secondary: true },
-        { label: 'Play now', action: () => this.openEventDetail(first) },
-      ],
-    );
+    this.showModal(`<h2>${tx('popup.minigames.title')}</h2>${txp('popup.minigames.body', { game: first.name, cost: this.game.energyCost(first.id) })}`, [
+      { label: txt('popup.minigames.later'), secondary: true },
+      { label: txt('popup.minigames.go'), action: () => this.openEventDetail(first) },
+    ]);
   }
 
   /** Starts a minigame on its own screen; at the end it pays out and shows what you earned. */
@@ -3754,11 +3749,11 @@ export class AppUI {
         const buff = MINIGAME_BUFFS[ev.minigame!];
         const gained = g.buffLeft(ev.minigame!) - before;
         const buffLine = gained > 0 ? `<p class="mg-bless">${ev.icon} ${buff.name} +${buff.kind === 'timed' ? fmtTime(gained) : `${Math.round(gained)} charge${Math.round(gained) > 1 ? 's' : ''}`} (now ${this.buffAmount(ev.minigame!)})</p>` : '';
-        const record = `<p class="mg-stars">${rankStars(g.starsFor(ev.id, score))}</p>${score > best && best > 0 ? '<p class="mg-best">New best!</p>' : ''}`;
+        const record = `<p class="mg-stars">${rankStars(g.starsFor(ev.id, score))}</p>${score > best && best > 0 ? `<p class="mg-best">${tx('minigame.screen.newBest')}</p>` : ''}`;
         const tier = g.blessingFor(ev.id, score);
         const held = bless ? g.state.blessings[bless.kind] : 0;
         const blessed = bless && tier > 0 ? `<p class="mg-bless">✨ Blessed: your ${bless.kind === 'refine' ? 'Refines' : 'Enchants'} roll ${held} extra time${held > 1 ? 's' : ''} (${Math.round(g.perfectChance(held) * 100)}% perfect a roll)</p>` : '';
-        return `${record}<p>${score > 0 ? rewardText(r) : 'No rewards this time.'}</p>${buffLine}${blessed}`;
+        return `${record}<p>${score > 0 ? rewardText(r) : tx('minigame.screen.none')}</p>${buffLine}${blessed}`;
       },
       onClose: () => this.refresh(),
     });
@@ -3771,10 +3766,7 @@ export class AppUI {
   }
 
   private showRiftConqueredCard(): void {
-    this.showModal(
-      `<h2>⏳ The Time Eater is defeated!</h2><p>You've conquered the <b>${areaDef('rift').name}</b>, the end of the known world.</p><p>The Rift still teems with monsters to hunt, and the Time Eater can be fought again whenever it's ready.</p>`,
-      [{ label: 'Onward' }],
-    );
+    this.showModal(`<h2>${tx('popup.rift.title')}</h2>${txp('popup.rift.body', { rift: areaDef('rift').name })}`, [{ label: txt('popup.rift.ok') }]);
   }
 
   /** The Areas tab opens with the second area (the Fey Grove). */
@@ -3784,10 +3776,8 @@ export class AppUI {
 
   /** Tapping the greyed-out Areas tab explains how to open it. */
   private showAreasLocked(): void {
-    this.showModal(
-      `<h2>🔒 Areas</h2><p>Beat the <b>${areaDef('forest').name} Guardian</b> to unlock the ${areaDef('glade').name}, and the Areas tab with it.</p><p>The Guardian Challenge opens in Events once you've slain ${fmt(areaDef('forest').mastery)} monsters in the ${areaDef('forest').name} and survived its Slime Swarm.</p>`,
-      [{ label: 'OK' }],
-    );
+    const v = { woods: areaDef('forest').name, grove: areaDef('glade').name, kills: fmt(areaDef('forest').mastery) };
+    this.showModal(`<h2>${tx('popup.areasLocked.title')}</h2>${txp('popup.areasLocked.body', v)}`, [{ label: txt('popup.areasLocked.ok') }]);
   }
 
   /** Tapping the greyed-out Events tab explains how to open it. */
@@ -3795,25 +3785,17 @@ export class AppUI {
     const forest = areaDef('forest');
     const first = EVENTS.find((e) => e.area === 'forest')!; // listed in unlock order
     const kills = Math.min(this.game.eventProgress(first.id), first.unlockKills);
-    this.showModal(
-      `<h2>🔒 Events</h2><p>Slay ${fmt(first.unlockKills)} ${unlockNoun(first)} in the ${forest.name} to unlock Events, starting with the ${first.name}.</p><p><b>${fmt(kills)} / ${fmt(first.unlockKills)}</b></p>`,
-      [{ label: 'OK' }],
-    );
+    const v = { count: fmt(first.unlockKills), noun: unlockNoun(first), area: forest.name, event: first.name, progress: `${fmt(kills)} / ${fmt(first.unlockKills)}` };
+    this.showModal(`<h2>${tx('popup.eventsLocked.title')}</h2>${txp('popup.eventsLocked.body', v)}`, [{ label: txt('popup.eventsLocked.ok') }]);
   }
 
   /** Shown once, the very first time the game opens. */
   showWelcome(replay = false): void {
     if (!replay) this.game.state.flags.welcome = true;
-    this.showModal(
-      `<h2>Welcome!</h2>
-       <p>This is <b>Pocket Hunter</b>, an idle swarm slaying game!</p>
-       <p>Start your journey by tapping on the monsters while your Hunter attacks.</p>
-       <p>You can change the name of your Hunter in ${sprite(MENU_SPRITES.settings)} <b>Settings</b>, from the menu at the top right.</p>`,
-      [
-        { label: 'Name my Hunter', secondary: true, action: () => this.openSettings() },
-        { label: "Let's hunt!" },
-      ],
-    );
+    this.showModal(`<h2>${tx('popup.welcome.title')}</h2>${txp('popup.welcome.body', { settings: sprite(MENU_SPRITES.settings) })}`, [
+      { label: txt('popup.welcome.name'), secondary: true, action: () => this.openSettings() },
+      { label: txt('popup.welcome.go') },
+    ]);
   }
 
   /** The first recipe (gear or Upgrade) you have the materials for, if any. */
@@ -3829,13 +3811,11 @@ export class AppUI {
     if (!replay) this.game.state.flags.craftIntro = true;
     const first = this.firstCraftable();
     this.showModal(
-      `<h2>🔨 Ready to craft!</h2>
-       <p>${first ? `You've gathered enough materials to craft your first item: <b>${first}</b>.` : 'Once you gather enough materials, you can craft your first item.'}</p>
-       <p>Monsters drop materials when slain. Spend them in <b>Inventory → Crafting</b> on gear for your Hunters and on Upgrades that make everyone stronger.</p>`,
+      `<h2>${tx('popup.craft.title')}</h2>${first ? txp('popup.craft.ready', { item: first }) : txp('popup.craft.waiting')}${txp('popup.craft.body')}`,
       [
-        { label: 'Later', secondary: true },
+        { label: txt('popup.craft.later'), secondary: true },
         {
-          label: 'Go to Crafting',
+          label: txt('popup.craft.go'),
           action: () => {
             this.dropDetail();
             this.invSub = 'crafting';
@@ -3849,60 +3829,40 @@ export class AppUI {
   /** Shown once, when you can first afford to unlock the wolf: also how to raise the menu to full screen. */
   private showWolfIntro(replay = false): void {
     if (!replay) this.game.state.flags.wolfIntro = true;
-    this.showModal(
-      `<h2>🐺 A new monster!</h2>
-       <p>The wolf is now ready to be unlocked! Scroll down in the <b>Bestiary</b> to see the wolf.</p>
-       <p>Additionally, you can <b>swipe up</b> on the tab bar, or <b>long press</b> it, to expand the menu. To close the expanded menu, you can swipe down, long press again, or press the <b>red arrow</b> button to drop it down.</p>`,
-      [
-        { label: 'Later', secondary: true },
-        { label: 'Go to Bestiary', action: () => this.goTo('beasts') },
-      ],
-    );
+    this.showModal(`<h2>${tx('popup.wolf.title')}</h2>${txp('popup.wolf.body')}`, [
+      { label: txt('popup.wolf.later'), secondary: true },
+      { label: txt('popup.wolf.go'), action: () => this.goTo('beasts') },
+    ]);
   }
 
   /** Shown once, when the 100th slime falls: Empower opens in the Bestiary. */
   private showEmpowerIntro(replay = false): void {
     if (!replay) this.game.state.flags.empowerIntro = true;
     if (this.tab === 'beasts') this.setTab('beasts', true);
-    this.showModal(
-      `<h2>👾 Empower unlocked!</h2>
-       <p>You've slain ${EMPOWER_UNLOCK_KILLS} slimes. In the <b>Bestiary</b>, unlock new monsters to join an area's horde, and <b>Empower</b> them with gold: tougher, but they pay more gold and drop more materials.</p>
-       <p>Every level earns an <b>evolution point</b>. Tap a monster to evolve it; slaying more of it opens further evolutions. It all applies wherever they're hunted, including by stationed Hunters.</p>`,
-      [
-        { label: 'Later', secondary: true },
-        { label: 'Go to Bestiary', action: () => this.goTo('beasts') },
-      ],
-    );
+    this.showModal(`<h2>${tx('popup.empower.title')}</h2>${txp('popup.empower.body', { kills: EMPOWER_UNLOCK_KILLS })}`, [
+      { label: txt('popup.empower.later'), secondary: true },
+      { label: txt('popup.empower.go'), action: () => this.goTo('beasts') },
+    ]);
   }
 
   /** Shown once, the first time you can afford to train your Hunter. */
   private showTrainIntro(replay = false): void {
     if (!replay) this.game.state.flags.trainIntro = true;
-    this.showModal(
-      `<h2>💪 Time to train!</h2>
-       <p>You have enough gold to <b>Train</b> your Hunter! Tap <b>Train</b> in the Hunters tab to increase your strength!</p>
-       <p>After training enough, your Hunter will level up, granting <b>Skill Points</b> that can unlock more power and abilities.</p>
-       <p>Open the Hunter's card to see more details, upgrade their abilities, and change their equipment!</p>
-       <p>In the full card, the <b>×1 / ×10 / ×100 / MAX</b> switch under Training sets how many levels each tap of Train buys; MAX buys as many as you can afford. Your choice applies to every Hunter's Train button.</p>`,
-      [
-        { label: 'Later', secondary: true },
-        { label: 'Go to Hunters', action: () => this.goTo('hunters') },
-      ],
-    );
+    this.showModal(`<h2>${tx('popup.train.title')}</h2>${txp('popup.train.body')}`, [
+      { label: txt('popup.train.later'), secondary: true },
+      { label: txt('popup.train.go'), action: () => this.goTo('hunters') },
+    ]);
   }
 
   /** Shown once, when the first Guardian Challenge unlocks. */
   private showEventsIntro(replay = false): void {
     if (!replay) this.game.state.flags.eventsIntro = true;
-    this.showModal(
-      `<h2>🎉 Events unlocked!</h2>
-       <p>${this.game.eventUnlocked('guardian-forest') ? '<b>Guardian Challenge</b>' : `<b>${eventDef('slimeSwarm').name}</b>`} is ready in the ${areaDef('forest').name}.</p>
-       <p>The Events tab shows the events of every area you've opened. Slay monsters in an area to unlock its events. Each event costs 🗲 <b>energy</b> to start: a swarm 1, a Guardian 1 to 3 (more in later areas), a minigame 3. You hold up to 5 (20 with ads removed), and one comes back every 20 minutes, even while you're away. Out of energy, you can watch an ad for 5 more, 3 times a day.</p>`,
-      [
-        { label: 'Later', secondary: true },
-        { label: 'Go to Events', action: () => (this.game.eventsOpen ? this.goTo('events') : this.showEventsLocked()) },
-      ],
-    );
+    const ready = this.game.eventUnlocked('guardian-forest') ? eventDef('guardian-forest').name : eventDef('slimeSwarm').name;
+    const v = { event: ready, area: areaDef('forest').name, cap: ENERGY_MAX, capNoAds: ENERGY_MAX_NO_ADS, regen: span(ENERGY_REGEN), ad: ENERGY_AD, ads: ENERGY_ADS_PER_DAY };
+    this.showModal(`<h2>${tx('popup.events.title')}</h2>${txp('popup.events.ready', v)}${txp('popup.events.body', v)}`, [
+      { label: txt('popup.events.later'), secondary: true },
+      { label: txt('popup.events.go'), action: () => (this.game.eventsOpen ? this.goTo('events') : this.showEventsLocked()) },
+    ]);
   }
 
   // ---- "New" marks: what the player hasn't looked at yet ----
@@ -3966,14 +3926,14 @@ export class AppUI {
     const unread = this.game.unreadJournal().length;
     const item = (id: string, icon: string, name: string, extra = '') => `<button type="button" class="menu-item" data-menu="${id}"><span class="mi-icon">${icon}</span><span class="mi-name">${name}</span>${extra}</button>`;
     this.showModal(
-      `<h2>Menu</h2><div class="menu-list">
-        ${item('tutorials', sprite(MENU_SPRITES.tutorials), 'Tutorials')}
-        ${item('journal', sprite(MENU_SPRITES.journal), 'Journal Entries', unread ? `<span class="alert-mark" title="${unread} new"></span>` : '')}
-        ${item('shop', sprite(MENU_SPRITES.shop), 'Shop').replace('class="menu-item"', 'class="menu-item mi-gold"')}
-        ${item('settings', sprite(MENU_SPRITES.settings), 'Settings')}
-        ${item('quit', sprite(MENU_SPRITES.quit), 'Quit')}
+      `<h2>${tx('menu.main.title')}</h2><div class="menu-list">
+        ${item('tutorials', sprite(MENU_SPRITES.tutorials), tx('menu.main.tutorials'))}
+        ${item('journal', sprite(MENU_SPRITES.journal), tx('menu.main.journal'), unread ? `<span class="alert-mark" title="${esc(txt('tip.markers.journalNew', { n: unread }))}"></span>` : '')}
+        ${item('shop', sprite(MENU_SPRITES.shop), tx('menu.main.shop')).replace('class="menu-item"', 'class="menu-item mi-gold"')}
+        ${item('settings', sprite(MENU_SPRITES.settings), tx('menu.main.settings'))}
+        ${item('quit', sprite(MENU_SPRITES.quit), tx('menu.main.quit'))}
       </div>`,
-      [{ label: 'Close', secondary: true }],
+      [{ label: txt('menu.main.close'), secondary: true }],
     );
     const open: Record<string, () => void> = {
       tutorials: () => this.openTutorials(),
@@ -3991,10 +3951,10 @@ export class AppUI {
   }
 
   private confirmQuit(): void {
-    this.showModal(`<h2>Quit</h2><p>Close the game? Your progress is saved, and your Hunters keep hunting while you're away.</p>`, [
-      { label: 'No', secondary: true },
+    this.showModal(`<h2>${tx('popup.quit.title')}</h2>${txp('popup.quit.body')}`, [
+      { label: txt('popup.quit.no'), secondary: true },
       {
-        label: 'Yes',
+        label: txt('popup.quit.yes'),
         action: () => {
           this.hooks.save();
           void CapApp.exitApp().catch(() => window.close());
@@ -4071,10 +4031,10 @@ export class AppUI {
       const ck = `${all}:${claimed}`;
       if (claim.dataset.k === ck) return;
       claim.dataset.k = ck;
-      claim.innerHTML = `<img class="q-orb" src="${UI_URL}orb-gem.png" alt=""><span>${page === 'daily' ? 'Finish every daily quest' : 'Finish every weekly quest'}: ${gemIcon()} <b>${reward}</b> Exalted Gems</span><button class="buy"${!all || claimed ? ' disabled' : ''}>${claimed ? 'Collected ✓' : all ? 'Collect' : 'Not yet'}</button>`;
+      claim.innerHTML = `<img class="q-orb" src="${UI_URL}orb-gem.png" alt=""><span>${tx(page === 'daily' ? 'menu.quests.allDaily' : 'menu.quests.allWeekly')}: ${gemIcon()} <b>${reward}</b> Exalted Gems</span><button class="buy"${!all || claimed ? ' disabled' : ''}>${claimed ? 'Collected ✓' : all ? 'Collect' : 'Not yet'}</button>`;
       $('button', claim).addEventListener('click', () => {
         if (!(page === 'daily' ? g.claimDaily() : g.claimWeekly())) return;
-        this.toast(`💎 +${reward} Exalted Gems`);
+        this.toast(txt('toast.rewards.gems', { n: reward }));
         this.hooks.save();
         this.refresh();
       });
@@ -4090,11 +4050,11 @@ export class AppUI {
         const ck = `${done}:${noAds}`;
         if (check.dataset.k === ck) return;
         check.dataset.k = ck;
-        check.innerHTML = `<img class="q-orb" src="${UI_URL}orb-gem.png" alt=""><span><b>Daily check-in</b><small>${noAds ? 'Collect it once a day.' : 'Watch an ad, once a day.'}</small> ${gemIcon()} <b>${GEMS_CHECKIN}</b></span><button class="buy"${done ? ' disabled' : ''}>${done ? 'Collected ✓' : noAds ? 'Collect' : '📺 Watch ad'}</button>`;
+        check.innerHTML = `<img class="q-orb" src="${UI_URL}orb-gem.png" alt=""><span><b>${tx('menu.quests.checkIn')}</b><small>${tx(noAds ? 'menu.quests.checkInNoAds' : 'menu.quests.checkInAd')}</small> ${gemIcon()} <b>${GEMS_CHECKIN}</b></span><button class="buy"${done ? ' disabled' : ''}>${done ? 'Collected ✓' : noAds ? 'Collect' : '📺 Watch ad'}</button>`;
         $('button', check).addEventListener('click', () => {
           const give = () => {
             if (!g.claimCheckIn()) return;
-            this.toast(`💎 +${GEMS_CHECKIN} Exalted Gems`);
+            this.toast(txt('toast.rewards.gems', { n: GEMS_CHECKIN }));
             this.hooks.save();
             this.refresh();
           };
@@ -4103,7 +4063,7 @@ export class AppUI {
         });
       });
     }
-    const note = el('p', 'hd-note', page === 'daily' ? 'Daily quests reset at midnight. Exalted Gems buy permanent upgrades in the Shop (coming soon).' : 'Weekly quests reset at midnight going into Monday. Finishing your dailies on a day counts toward the week.');
+    const note = el('p', 'hd-note', txt(page === 'daily' ? 'menu.quests.dailyNote' : 'menu.quests.weeklyNote'));
     body.appendChild(note);
     for (const r of refreshers) r();
   }
@@ -4116,26 +4076,27 @@ export class AppUI {
     const name = premiumName(it);
     if (g.ownsPremium(id)) return;
     if (g.state.gems < it.cost) {
-      this.showModal(`<h2>${gemIcon()} Not enough Exalted Gems</h2><p><b>${name}</b> costs ${gemIcon()} <b>${gemsText(it.cost)}</b>; you have <b>${gemsText(g.state.gems)}</b>.</p><p>Earn more from daily and weekly quests in the Quest Log, or get some here.</p>`, [
-        { label: 'Get gems', action: () => this.openShop('gems') },
-        { label: 'Not now', secondary: true },
+      const v = { gem: gemIcon(), item: name, cost: gemsText(it.cost), have: gemsText(g.state.gems) };
+      this.showModal(`<h2>${tx('popup.noGems.title', v)}</h2>${txp('popup.noGems.body', v)}`, [
+        { label: txt('popup.noGems.go'), action: () => this.openShop('gems') },
+        { label: txt('popup.noGems.notNow'), secondary: true },
       ]);
       return;
     }
     const now = g.premiumBonus(it.kind);
     this.showModal(
-      `<h2>${sprite(it.icon)} ${name}</h2><p class="pm-rarity" style="color:${RARITIES[it.rarity].color}">${RARITIES[it.rarity].name}</p><p><b>${d.text(it.value)}</b>.</p>${now ? `<p>With what you own: ${d.text(now + it.value)} (now ${d.text(now)}).</p>` : ''}<p>Costs ${gemIcon()} <b>${gemsText(it.cost)}</b> (you have ${gemsText(g.state.gems)}). It's permanent, and multiplies on top of everything else.</p>`,
+      `<h2>${sprite(it.icon)} ${name}</h2><p class="pm-rarity" style="color:${RARITIES[it.rarity].color}">${RARITIES[it.rarity].name}</p><p><b>${d.text(it.value)}</b>.</p>${now ? txp('popup.buyPremium.owned', { total: d.text(now + it.value), now: d.text(now) }) : ''}${txp('popup.buyPremium.body', { gem: gemIcon(), cost: gemsText(it.cost), have: gemsText(g.state.gems) })}`,
       [
         {
-          label: 'Buy',
+          label: txt('popup.buyPremium.buy'),
           action: () => {
             if (!g.buyPremium(id)) return;
-            this.toast(`${name} bought`);
+            this.toast(txt('toast.rewards.bought', { item: name }));
             this.hooks.save();
             this.refresh();
           },
         },
-        { label: 'Not now', secondary: true },
+        { label: txt('popup.buyPremium.notNow'), secondary: true },
       ],
     );
   }
@@ -4162,7 +4123,7 @@ export class AppUI {
     tabs.innerHTML = `<button data-page="shop" class="${page === 'shop' ? 'on' : ''}">Shop</button><button data-page="gems" class="${page === 'gems' ? 'on' : ''}">${gemIcon()} Exalted Gems</button>`;
     tabs.querySelectorAll<HTMLElement>('button').forEach((b) => b.addEventListener('click', () => b.dataset.page !== page && this.openShop(b.dataset.page as 'shop' | 'gems')));
     body.appendChild(tabs);
-    if (STORE_TEST_MODE) body.appendChild(el('p', 'hd-note shop-test', 'Test mode: purchases go through without any payment until store billing is added.'));
+    if (STORE_TEST_MODE) body.appendChild(el('p', 'hd-note shop-test', txt('menu.shop.test')));
     const buy = (p: Product, done: () => void) =>
       void purchase(p.id).then((ok) => {
         if (!ok) return;
@@ -4182,18 +4143,18 @@ export class AppUI {
       btn.addEventListener('click', () =>
         buy(REMOVE_ADS, () => {
           g.removeAds();
-          this.toast('🚫 Ads removed. Thank you!');
+          this.toast(txt('toast.rewards.noAds'));
         }),
       );
-      card(sprite('status2/013'), REMOVE_ADS.name, `No more ads. Your energy bar grows to ${ENERGY_MAX_NO_ADS} and refills all the way on its own, your offline gold and materials are always doubled, and the daily check-in bonus is yours without an ad.`, btn);
+      card(sprite('status2/013'), REMOVE_ADS.name, tx('menu.shop.removeAds', { cap: ENERGY_MAX_NO_ADS }), btn);
       refreshers.push(() => {
         btn.disabled = g.state.noAds;
         btn.innerHTML = g.state.noAds ? 'Owned ✓' : REMOVE_ADS.price;
       });
-      body.appendChild(sectionTitle("Today's upgrades"));
+      body.appendChild(sectionTitle(txt('menu.shop.today')));
       const stock = el('p', 'hd-note');
       body.appendChild(stock);
-      refreshers.push(() => (stock.textContent = `Permanent, for every Hunter in every area, kept through every Ascension. ${SHOP_DAILY_ITEMS} new items in ${fmtWait(nextMidnight(g.clock()) - g.clock())}.`));
+      refreshers.push(() => (stock.textContent = txt('menu.shop.stock', { n: SHOP_DAILY_ITEMS, time: fmtWait(nextMidnight(g.clock()) - g.clock()) })));
       const grid = el('div', 'shop-grid');
       body.appendChild(grid);
       for (const it of g.shopItems) {
@@ -4232,7 +4193,7 @@ export class AppUI {
         btn.addEventListener('click', () =>
           buy(p, () => {
             g.addGems(total);
-            this.toast(`💎 +${gemsText(total)} Exalted Gems`);
+            this.toast(txt('toast.rewards.gems', { n: gemsText(total) }));
           }),
         );
         card(`${sprite(p.icon!)}<span class="si-gem">${gemIcon()}</span>`, p.name, `${gemsText(p.gems!)} Exalted Gems${p.bonus ? ` <em class="si-bonus">+${gemsText(p.bonus)} bonus</em>` : ''}`, btn);
@@ -4284,7 +4245,7 @@ export class AppUI {
   /** Full-screen Tutorials menu (opened from the main menu): replay the tips, and pages on weapon types and damage types. */
   private openTutorials(page: 'menu' | 'weapons' | 'damage' = 'menu'): void {
     if (this.detail) this.dropDetail();
-    const title = page === 'menu' ? 'Tutorials' : page === 'weapons' ? 'Weapon types' : 'Damage types';
+    const title = txt(page === 'menu' ? 'tut.menu.title' : page === 'weapons' ? 'tut.weapons.title' : 'tut.damage.title');
     const view = el('div', 'hunter-detail settings tutorials');
     view.innerHTML = `
       <div class="hd-top"><button class="hd-close" aria-label="${page === 'menu' ? 'Close' : 'Back'}">${page === 'menu' ? '✕' : '‹'}</button><span>${title}</span></div>
@@ -4306,25 +4267,27 @@ export class AppUI {
       b.addEventListener('click', open);
       body.appendChild(b);
     };
-    body.appendChild(sectionTitle('Guides'));
-    row(sprite(MENU_SPRITES.weapons), 'Weapon types', 'How each kind of weapon attacks: range, speed, reloads, knockback and more.', () => this.openTutorials('weapons'));
-    row(sprite(MENU_SPRITES.damage), 'Damage types & status effects', 'What each damage type does, weaknesses and resistances.', () => this.openTutorials('damage'));
-    body.appendChild(sectionTitle('Tips'));
-    row(sprite(MENU_SPRITES.welcome), 'Welcome', 'Getting started.', () => this.showWelcome(true));
-    row(sprite(MENU_SPRITES.training), 'Training', `Making your Hunter stronger (opens after ${TRAIN_UNLOCK_KILLS} slimes).`, () => this.showTrainIntro(true));
-    row(sprite(MENU_SPRITES.crafting), 'Crafting', 'Materials, gear and Upgrades.', () => this.showCraftIntro(true));
-    row(sprite(MENU_SPRITES.wolf), 'New monsters & the full-screen menu', 'Unlocking the wolf, and raising the menu over the battlefield.', () => this.showWolfIntro(true));
-    row(sprite(MENU_SPRITES.empower), 'Empower', `Unlocking and empowering monsters (opens after ${EMPOWER_UNLOCK_KILLS} slimes).`, () => this.showEmpowerIntro(true));
-    row(sprite(MENU_SPRITES.eventsLocked), 'Unlocking Events', 'How to open the Events tab.', () => this.showEventsLocked());
-    row(sprite(MENU_SPRITES.events), 'Events', 'Guardian Challenges, swarms, minigames and energy.', () => this.showEventsIntro(true));
-    row(sprite(MENU_SPRITES.events), 'Minigames', 'What minigames pay, their buffs and star ranks.', () => this.showMinigameIntro(true));
+    // Each row's name and line from the text table (tut.menu.<key> and <key>Desc).
+    const tut = (icon: string, key: string, open: () => void) => row(icon, tx(`tut.menu.${key}`), tx(`tut.menu.${key}Desc`, { train: TRAIN_UNLOCK_KILLS, empower: EMPOWER_UNLOCK_KILLS }), open);
+    body.appendChild(sectionTitle(txt('tut.menu.guides')));
+    tut(sprite(MENU_SPRITES.weapons), 'weapons', () => this.openTutorials('weapons'));
+    tut(sprite(MENU_SPRITES.damage), 'damage', () => this.openTutorials('damage'));
+    body.appendChild(sectionTitle(txt('tut.menu.tips')));
+    tut(sprite(MENU_SPRITES.welcome), 'welcome', () => this.showWelcome(true));
+    tut(sprite(MENU_SPRITES.training), 'training', () => this.showTrainIntro(true));
+    tut(sprite(MENU_SPRITES.crafting), 'crafting', () => this.showCraftIntro(true));
+    tut(sprite(MENU_SPRITES.wolf), 'wolf', () => this.showWolfIntro(true));
+    tut(sprite(MENU_SPRITES.empower), 'empower', () => this.showEmpowerIntro(true));
+    tut(sprite(MENU_SPRITES.eventsLocked), 'eventsLocked', () => this.showEventsLocked());
+    tut(sprite(MENU_SPRITES.events), 'events', () => this.showEventsIntro(true));
+    tut(sprite(MENU_SPRITES.events), 'minigames', () => this.showMinigameIntro(true));
     // The story so far, once you've seen it.
-    if ((this.game.state.events['guardian-rift']?.completed ?? 0) > 0) row(sprite(MENU_SPRITES.timeEater), 'The Time Eater', 'Replay the cutscene from the Void Rift.', () => playCutscene(TIME_EATER_CUTSCENE));
+    if ((this.game.state.events['guardian-rift']?.completed ?? 0) > 0) tut(sprite(MENU_SPRITES.timeEater), 'timeEater', () => playCutscene(TIME_EATER_CUTSCENE));
   }
 
   private buildWeaponGuide(body: HTMLElement): void {
     const intro = el('div', 'card setting');
-    intro.innerHTML = `<p>Each type comes in three archetypes: its standard form and two takes that trade one strength for another (a Maul slams slower over a much larger area, a Mallet quicker over a smaller one), so a new weapon can change how a Hunter fights, not just how hard.</p><p>Every hit starts from the weapon's own damage (the starting Short Sword and Short Bow: 1), which upgrading it raises; training, skills, Upgrades and armor or accessory bonuses multiply it. Heavier types have higher base damage for their rarity.</p><p>Your Hunter can wield any weapon and attacks the way it does. Guild Hunters keep their own signature attack; their weapon's type reshapes its speed, damage and range.</p><p>Every type trades speed, damage, reach and crowd hits, so none is simply best. Melee hits knock surviving monsters back.</p>`;
+    intro.innerHTML = txp('tut.weapons.body');
     body.appendChild(intro);
     const groups: Array<[string, WeaponClass[]]> = [
       ['Ranged', ['shortbow', 'longbow', 'crossbow', 'pistol', 'rifle', 'repeater']],
@@ -4348,15 +4311,13 @@ export class AppUI {
 
   private buildDamageGuide(body: HTMLElement): void {
     const intro = el('div', 'card setting');
-    intro.innerHTML = `<p>Every attack deals a damage type: a weapon's own, or the Hunter's if the weapon has none.</p>
-      <p>Monsters can be <b>Weak</b> to a type (×${WEAK_MULT} damage) or <b>Resist</b> it (×${RESIST_MULT}); their Bestiary card shows which.</p>
-      <p>Most types can inflict a <b>status effect</b>. A weapon's proc chance sets how often. A monster holds one of each effect at a time, and a new one refreshes it. <b>Bleeding</b> is the exception: it stacks.</p>`;
+    intro.innerHTML = txp('tut.damage.body', { weak: WEAK_MULT, resist: RESIST_MULT });
     body.appendChild(intro);
-    body.appendChild(sectionTitle('Damage types'));
+    body.appendChild(sectionTitle(txt('tut.damage.heading')));
     for (const t of Object.keys(DAMAGE_TYPES) as DamageType[]) {
       const d = DAMAGE_TYPES[t];
       const card = el('div', 'card setting tut-card');
-      card.innerHTML = `<div class="setting-name">${damageTypeHtml(t)}${STATUS_NAMES[t] ? ` <span class="tut-status">${STATUS_NAMES[t]}</span>` : ''}</div><p>${d.effect ? `${d.effect}.` : 'No status effect: pure damage that few monsters resist.'}</p>`;
+      card.innerHTML = `<div class="setting-name">${damageTypeHtml(t)}${STATUS_NAMES[t] ? ` <span class="tut-status">${STATUS_NAMES[t]}</span>` : ''}</div><p>${d.effect ? `${d.effect}.` : tx('tut.damage.none')}</p>`;
       body.appendChild(card);
     }
   }
@@ -4428,7 +4389,12 @@ export class AppUI {
     requestAnimationFrame(refitAffinities);
     void document.fonts?.ready.then(refitAffinities);
     const nav = $('.tabs');
-    for (const t of this.game.state.settings.tabOrder) nav.appendChild($(`.tabs button[data-tab=${t}]`));
+    for (const t of this.game.state.settings.tabOrder) {
+      const btn = $(`.tabs button[data-tab=${t}]`);
+      // The label is the text after the icon (before the "!" mark).
+      btn.childNodes[1].textContent = `${txt(`menu.tabs.${t}`)} `;
+      nav.appendChild(btn);
+    }
   }
 
   /** Full-screen Settings page. */
@@ -4790,9 +4756,9 @@ export class AppUI {
     const wipe = el('div', 'card setting');
     wipe.innerHTML = `<div class="setting-name">Reset all progress</div><p>Deletes your save: areas, Hunters, gear and materials. It cannot be undone.</p><button class="buy danger-btn">Reset…</button>`;
     $('.danger-btn', wipe).addEventListener('click', () =>
-      this.showModal('<h2>Reset everything?</h2><p>This deletes your save: areas, Hunters, items and materials. It cannot be undone.</p>', [
-        { label: 'Cancel', secondary: true },
-        { label: 'Delete', action: () => void this.hooks.wipe() },
+      this.showModal(`<h2>${tx('popup.reset.title')}</h2>${txp('popup.reset.body')}`, [
+        { label: txt('popup.reset.cancel'), secondary: true },
+        { label: txt('popup.reset.ok'), action: () => void this.hooks.wipe() },
       ]),
     );
     body.appendChild(wipe);
@@ -4918,15 +4884,15 @@ export class AppUI {
           .join('')}</div>${all.length > shown.length ? '<div class="offline-more" aria-label="More materials in Details">• • •</div>' : ''}`
       : '';
     this.showModal(
-      `<h2>Welcome back!</h2>
-       <p class="offline-times">Offline time: <b>${fmtTime(r.away)}</b><br>Max offline gains time: <b>${fmtTime(this.game.offlineCapSec())}</b></p>
+      `<h2>${tx('popup.offline.title')}</h2>
+       <p class="offline-times">${tx('popup.offline.away', { away: fmtTime(r.away) })}<br>${tx('popup.offline.cap', { cap: fmtTime(this.game.offlineCapSec()) })}</p>
        <div class="reward">+🪙 ${fmt(r.gold)}</div>
        ${matsHtml}
-       ${r.loot.length ? `<p class="offline-loot">🎁 ${r.loot.length} piece${r.loot.length === 1 ? '' : 's'} of loot${r.loot.some((l) => l.salvaged) ? ` (${r.loot.filter((l) => l.salvaged).length} auto-salvaged)` : ''}</p>` : ''}
-       ${r.knockouts > 0 ? '<p class="ko-tip">💫 Some Hunters were knocked out while you were away. See Details.</p>' : ''}
-       ${r.doubled ? `<p class="offline-doubled">✨ ${this.game.state.noAds ? 'Ads removed: your gold and materials are doubled' : 'Doubled!'}</p>` : ''}
-       <div class="offline-actions"><button class="buy offline-details-btn">Details</button>${!r.doubled && r.gold > 0 ? `<button class="buy offline-double-btn">${sprite('things/004')} Watch ad: ×2</button>` : ''}</div>`,
-      [{ label: 'Collect' }],
+       ${r.loot.length ? `<p class="offline-loot">${tx('popup.offline.loot', { n: r.loot.length })}${r.loot.some((l) => l.salvaged) ? ` ${tx('popup.offline.lootSalvaged', { n: r.loot.filter((l) => l.salvaged).length })}` : ''}</p>` : ''}
+       ${r.knockouts > 0 ? `<p class="ko-tip">${tx('popup.offline.knockouts')}</p>` : ''}
+       ${r.doubled ? `<p class="offline-doubled">${tx(this.game.state.noAds ? 'popup.offline.doubledNoAds' : 'popup.offline.doubled')}</p>` : ''}
+       <div class="offline-actions"><button class="buy offline-details-btn">${tx('popup.offline.details')}</button>${!r.doubled && r.gold > 0 ? `<button class="buy offline-double-btn">${sprite('things/004')} ${tx('popup.offline.double')}</button>` : ''}</div>`,
+      [{ label: txt('popup.offline.collect') }],
     );
     this.modal.querySelector('.modal-box')?.classList.add('offline-summary');
     $('.offline-details-btn', this.modal).addEventListener('click', () => this.showOfflineDetails(r));
@@ -4956,8 +4922,8 @@ export class AppUI {
           .map(([m, n]) => `<span class="am">${gemHtml(m)}${fmt(n)}</span>`)
           .join(' ');
         const loot = a.loot.length ? `<div>🎁 ${a.loot.map((l) => `${gearIcon(gearDef(l.gear))}${l.salvaged ? '♻️' : ''}`).join(' ')}</div>` : '';
-        return `<div class="offline-area"><div><b>${areaDef(a.area).icon} ${areaDef(a.area).name}</b> <small>${who}</small></div><div>⚔️ ${fmt(a.kills)} monsters slain · 🪙 ${fmt(a.gold)}</div>${am ? `<div class="offline-area-mats">${am}</div>` : ''}${loot}${
-          kos ? `<div class="knockouts">💫 Knocked out: ${kos}</div>` : ''
+        return `<div class="offline-area"><div><b>${areaDef(a.area).icon} ${areaDef(a.area).name}</b> <small>${who}</small></div><div>${tx('popup.offlineDetails.area', { kills: fmt(a.kills), gold: fmt(a.gold) })}</div>${am ? `<div class="offline-area-mats">${am}</div>` : ''}${loot}${
+          kos ? `<div class="knockouts">${tx('popup.offlineDetails.knockedOut', { who: kos })}</div>` : ''
         }</div>`;
       })
       .join('');
@@ -4979,13 +4945,14 @@ export class AppUI {
     };
     const loot = lootTiles(false);
     const salvaged = lootTiles(true);
-    this.modal.innerHTML = `<div class="modal-box fullpage offline-summary"><h2>While you were away</h2><div class="sheet-body">
-      <p class="offline-total">${fmtTime(r.away)} away · 🪙 ${fmt(r.gold)} · ⚔️ ${fmt(r.kills)} monsters slain</p>
-      ${mats ? `<h3>Materials</h3><div class="offline-mats all">${mats}</div>` : ''}
-      ${loot ? `<h3>Loot drops</h3><div class="offline-mats all">${loot}</div>` : ''}
-      ${salvaged ? `<h3>Salvaged equipment</h3><div class="offline-mats all">${salvaged}</div>` : ''}
-      <h3>By area</h3><div class="offline-areas">${rows}</div>
-      ${r.knockouts > 0 ? '<p class="ko-tip">Knocked-out Hunters stop fighting. Get stronger (or pick an easier area) to keep monsters from slipping through.</p>' : ''}
+    const D = 'popup.offlineDetails';
+    this.modal.innerHTML = `<div class="modal-box fullpage offline-summary"><h2>${tx(`${D}.title`)}</h2><div class="sheet-body">
+      <p class="offline-total">${tx(`${D}.total`, { away: fmtTime(r.away), gold: fmt(r.gold), kills: fmt(r.kills) })}</p>
+      ${mats ? `<h3>${tx(`${D}.materials`)}</h3><div class="offline-mats all">${mats}</div>` : ''}
+      ${loot ? `<h3>${tx(`${D}.loot`)}</h3><div class="offline-mats all">${loot}</div>` : ''}
+      ${salvaged ? `<h3>${tx(`${D}.salvaged`)}</h3><div class="offline-mats all">${salvaged}</div>` : ''}
+      <h3>${tx(`${D}.areas`)}</h3><div class="offline-areas">${rows}</div>
+      ${r.knockouts > 0 ? `<p class="ko-tip">${tx(`${D}.knockouts`)}</p>` : ''}
     </div><div class="buttons"></div></div>`;
     const close = () => {
       this.modal.classList.add('hidden');
@@ -4993,9 +4960,9 @@ export class AppUI {
       this.lastPopup = performance.now();
       this.refresh();
     };
-    const back = el('button', 'secondary', 'Back');
+    const back = el('button', 'secondary', txt('popup.offlineDetails.back'));
     back.addEventListener('click', () => this.showOffline(r));
-    const collect = el('button', '', 'Collect');
+    const collect = el('button', '', txt('popup.offlineDetails.collect'));
     collect.addEventListener('click', close);
     $('.buttons', this.modal).append(back, collect);
     this.modalClose = close;
@@ -5262,27 +5229,27 @@ function featureTags(gd: GearDef, stars = 1): string {
   if (gd.typeBonus) {
     const d = DAMAGE_TYPES[gd.typeBonus.type];
     const pct = Math.round(gd.typeBonus.bonus * GEAR_STAR_POWER[stars] * 100);
-    tags.push(featTag(DAMAGE_TAG_ICONS[gd.typeBonus.type], `+${pct}% ${d.name}`, `+${pct}% ${d.name} damage, whatever deals it.`, d.color));
+    tags.push(featTag(DAMAGE_TAG_ICONS[gd.typeBonus.type], `+${pct}% ${d.name}`, tx('tip.gear.typeBonus', { pct, type: d.name }), d.color));
   }
   if (gd.weaponClass) tags.push(featTag(FEATURE_TAG_ICONS.weapon, WEAPON_CLASSES[gd.weaponClass].name, WEAPON_CLASSES[gd.weaponClass].describe));
   // Its archetype, when it isn't the standard one: what this take on the class trades.
   if (gd.weaponClass && gd.archetype) {
     const a = weaponArchetype(gd)!;
-    tags.push(featTag(FEATURE_TAG_ICONS.archetype, a.name, `<b>${a.name}</b>, a kind of ${WEAPON_CLASSES[gd.weaponClass].name.toLowerCase()}: ${a.desc}`));
+    tags.push(featTag(FEATURE_TAG_ICONS.archetype, a.name, tx('tip.gear.archetype', { name: a.name, weapon: WEAPON_CLASSES[gd.weaponClass].name.toLowerCase(), desc: a.desc })));
   }
   // Built-in effects: always on the piece, at fixed rolls (a unique one on Artifact and Exalted gear).
   for (const bi of gd.builtIn ?? []) {
     const en = ENCHANTS[bi.id];
     const m = { kind: 'enchant' as const, id: bi.id, q: bi.q, p: bi.p };
     const text = en.text(modValue(m, gd), modPower(m, gd), enchantTierHit(gd));
-    tags.push(featTag(isUniqueEnchant(en) ? EFFECT_TAG_ICONS.unique : FEATURE_TAG_ICONS.builtIn, en.name, `<b>${isUniqueEnchant(en) ? 'Unique' : 'Built-in'}</b>: ${text.charAt(0).toUpperCase()}${text.slice(1)}.`, isUniqueEnchant(en) ? '#ff8ad0' : 'var(--gold)'));
+    tags.push(featTag(isUniqueEnchant(en) ? EFFECT_TAG_ICONS.unique : FEATURE_TAG_ICONS.builtIn, en.name, tx(isUniqueEnchant(en) ? 'tip.gear.unique' : 'tip.gear.builtIn', { text: `${text.charAt(0).toUpperCase()}${text.slice(1)}` }), isUniqueEnchant(en) ? '#ff8ad0' : 'var(--gold)'));
   }
   if (gd.tweak) tags.push(featTag(FEATURE_TAG_ICONS.tweak, tweakName(gd), tweakText(gd)));
   const spell = staffSpell(gd);
-  if (spell) tags.push(featTag(FEATURE_TAG_ICONS.spell, SPELLS[spell].name, `After its bolts, this staff casts <b>${SPELLS[spell].name}</b>: ${SPELLS[spell].desc}`));
+  if (spell) tags.push(featTag(FEATURE_TAG_ICONS.spell, SPELLS[spell].name, tx('tip.gear.spell', { spell: SPELLS[spell].name, desc: SPELLS[spell].desc })));
   if (gd.weaponClass === 'tome') {
     const st = SUMMON_TYPES[tomeSummonType(gd)];
-    tags.push(featTag(SUMMON_TAG_ICONS[tomeSummonType(gd)], st.name, `Summon type: <b>${st.name}</b>. Bonuses to ${st.name} summons make its creatures hit harder.`));
+    tags.push(featTag(SUMMON_TAG_ICONS[tomeSummonType(gd)], st.name, tx('tip.gear.summon', { type: st.name })));
   }
   if (gd.armorType) tags.push(featTag(ARMOR_TAG_ICONS[gd.armorType], ARMOR_TYPES[gd.armorType].name, ARMOR_TYPES[gd.armorType].desc));
   if (gd.accType) tags.push(featTag(ACC_TAG_ICONS[gd.accType], ACC_TYPES[gd.accType].name, ACC_TYPES[gd.accType].desc));
@@ -5291,7 +5258,7 @@ function featureTags(gd: GearDef, stars = 1): string {
     tags.push(featTag(gd.effect.kind === 'summon' ? SUMMON_TAG_ICONS[gd.effect.type] : EFFECT_TAG_ICONS[gd.effect.kind], gd.effect.kind === 'summon' ? `${gd.effect.name}s` : EFFECT_TAG[gd.effect.kind], `${describeEffect(gd.effect, stars)}${'base' in gd.effect ? '<br><small>Own damage, raised by your bonuses, not your weapon.</small>' : ''}`));
   if (gd.bane) {
     const a = ARCHETYPES[gd.bane.archetype];
-    tags.push(featTag(ARCHETYPE_TAG_ICONS[gd.bane.archetype], `${a.name} Bane`, `+${Math.round(gd.bane.bonus * GEAR_STAR_POWER[stars] * 100)}% damage against ${a.name}s.`));
+    tags.push(featTag(ARCHETYPE_TAG_ICONS[gd.bane.archetype], `${a.name} Bane`, tx('tip.gear.bane', { pct: Math.round(gd.bane.bonus * GEAR_STAR_POWER[stars] * 100), kind: a.name })));
   }
   if (gd.findDrop) {
     const f = gd.findDrop;
@@ -5421,7 +5388,7 @@ function dropsText(e: EnemyDef): string {
 
 /** A monster's tags: Flying (passes over the scenery) and Ranged (shoots from afar). */
 function beastTags(def: EnemyDef): string {
-  const tags = [FLYING.has(def.id) ? '<span class="beast-tag flying" title="Flies over rocks, trees and graves">Flying</span>' : '', def.ranged ? '<span class="beast-tag ranged" title="Shoots projectiles from afar">Ranged</span>' : ''];
+  const tags = [FLYING.has(def.id) ? `<span class="beast-tag flying" title="${esc(txt('tip.markers.flying'))}">Flying</span>` : '', def.ranged ? `<span class="beast-tag ranged" title="${esc(txt('tip.markers.ranged'))}">Ranged</span>` : ''];
   return tags.join('');
 }
 

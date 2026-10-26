@@ -17,6 +17,10 @@ import { BattleView } from './render/battle';
 installEmojiIcons();
 initSound();
 import { AppUI } from './ui/app';
+import { TEXT_REGISTRY, txt } from './core/textRegistry';
+
+// Dev builds: the text table, for tools/text/dump.mjs (the Text editor's list of every line).
+if (import.meta.env.DEV) (window as unknown as { __texts: typeof TEXT_REGISTRY }).__texts = TEXT_REGISTRY;
 import { perfFrame, perfOn } from './ui/perfMeter';
 import { SamplerHost } from './ui/samplerHost';
 import { initSound } from './ui/sound';
@@ -29,6 +33,11 @@ const SPLASH_MIN_MS = 3000;
 async function hideSplash(): Promise<void> {
   const splash = document.getElementById('splash');
   if (!splash) return;
+  // Its wording from the text table (index.html's is the same, there before the game's code loads).
+  for (const [cls, key] of [['.sp-title', 'menu.loading.title'], ['.sp-by', 'menu.loading.by']]) {
+    const el = splash.querySelector(cls);
+    if (el) el.textContent = txt(key);
+  }
   const loaded = document.readyState === 'complete' ? Promise.resolve() : new Promise<void>((r) => window.addEventListener('load', () => r(), { once: true }));
   const frames = new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
   await Promise.all([loaded, document.fonts?.ready, frames]);

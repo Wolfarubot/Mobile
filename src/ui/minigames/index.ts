@@ -10,6 +10,8 @@ import type { DecorOpts } from '../../render/backgrounds';
 import type { MinigameApi, MinigameGame } from './shell';
 import { shootingGallery, SG_DECOR, SG_INTRO } from './shootingGallery';
 
+import { editableData, fromHtml, registerText, txp } from '../../core/textRegistry';
+
 export { runMinigame } from './shell';
 
 /** Every minigame: its title on the intro card, the intro text, lives, and the game itself. */
@@ -23,3 +25,10 @@ export const MINIGAMES: Record<MinigameId, { title: string; intro: string; lives
   runeMatch: { title: '✨ Rune Match', intro: RM_INTRO, lives: 0, create: runeMatch },
   icebreaker: { title: '🔨 Icebreaker', intro: IB_INTRO, lives: 3, create: icebreaker },
 };
+
+// The Text editor can change each game's title and intro (its intro in the editor's markup, shown as paragraphs).
+editableData('Events', 'minigame', Object.entries(MINIGAMES).map(([id, m]) => [id, m, `Minigame · ${m.title}`]), { title: 'Title' });
+for (const [id, m] of Object.entries(MINIGAMES)) {
+  registerText({ key: `minigame.${id}.intro`, group: 'Events', section: `Minigame · ${m.title}`, label: 'Intro card', base: fromHtml(m.intro), note: 'The card shown before Start.' });
+  m.intro = txp(`minigame.${id}.intro`);
+}

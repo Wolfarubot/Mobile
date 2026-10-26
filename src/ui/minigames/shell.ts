@@ -5,6 +5,7 @@ import type { AreaId } from '../../core/balance';
 import { areaBackground, type DecorOpts } from '../../render/backgrounds';
 import { gearImage } from '../../render/sprites';
 import { canvasFont } from '../../render/fx';
+import { tx, txt } from '../../core/textRegistry';
 
 /**
  * The frame every minigame runs in: a full-screen canvas over its area's painted background, a HUD (score, lives,
@@ -74,8 +75,8 @@ export function runMinigame(spec: MinigameSpec): void {
   root.innerHTML = `
     <canvas></canvas>
     <i class="mg-safe"></i>
-    <div class="mg-hud"><span class="mg-score">0</span><span class="mg-lives"></span><button class="mg-quit">Quit</button></div>
-    <div class="mg-intro"><div class="mg-card"><h2>${spec.title}</h2>${spec.intro}<p class="mg-best">${spec.best > 0 ? `Best: ${spec.best}` : ''}</p><button class="buy mg-go">Start</button></div></div>`;
+    <div class="mg-hud"><span class="mg-score">0</span><span class="mg-lives"></span><button class="mg-quit">${tx('minigame.screen.quit')}</button></div>
+    <div class="mg-intro"><div class="mg-card"><h2>${spec.title}</h2>${spec.intro}<p class="mg-best">${spec.best > 0 ? tx('minigame.screen.best', { score: spec.best }) : ''}</p><button class="buy mg-go">${tx('minigame.screen.start')}</button></div></div>`;
   document.body.appendChild(root);
   // Its own music, and quiet from the battlefield behind it.
   if (spec.music) overrideMusic(spec.music);
@@ -175,7 +176,7 @@ export function runMinigame(spec: MinigameSpec): void {
     const text = spec.onEnd(score);
     const box = document.createElement('div');
     box.className = 'mg-intro';
-    box.innerHTML = `<div class="mg-card"><h2>All done!</h2><p class="mg-final">${score} point${score === 1 ? '' : 's'}</p>${text}<button class="buy mg-collect">Collect</button></div>`;
+    box.innerHTML = `<div class="mg-card"><h2>${tx('minigame.screen.done')}</h2><p class="mg-final">${txt('minigame.screen.points', { n: score })}</p>${text}<button class="buy mg-collect">${tx('minigame.screen.collect')}</button></div>`;
     root.appendChild(box);
     box.querySelector('.mg-collect')!.addEventListener('click', close);
   };
