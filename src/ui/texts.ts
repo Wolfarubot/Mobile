@@ -407,6 +407,16 @@ section(
 );
 section(
   G,
+  'tut.weapons.tome',
+  'Weapon types guide: tomes',
+  {
+    tomeSummons:
+      "Every creature a tome calls up has a **summon type**: {types}. Any bonus your Hunter has against that kind of monster (a **bane**, from a Guild Hunter's passive, an accessory or a Bane enchantment) makes their summons of that kind hit that much harder too: +20% damage against Undead also means undead summons bite 20% harder. Spirits aren't a kind of monster, so banes don't help them.",
+  },
+  { note: 'Under the Tome on the Weapon types guide.', vars: { types: 'the summon types' }, labels: { tomeSummons: 'Summon types and banes' } },
+);
+section(
+  G,
   'tut.damage',
   'Damage types guide',
   {
@@ -460,7 +470,9 @@ section(
     finderSimple: 'At {stars}★: your {kind} kills can drop {material}.',
     archetype: '**{name}**, a kind of {weapon}: {desc}',
     spell: 'After its bolts, this staff casts **{spell}**: {desc}',
-    tome: 'Summons {a} **{creature}** about every **{every}s** (sooner with attack speed). It hunts monsters for {duration}s, then fades. Summon type: **{type}**: bonuses to {type} summons make it hit harder.',
+    tome: 'Summons {a} **{creature}** about every **{every}s** (sooner with attack speed). It hunts monsters for {duration}s, then fades. Summon type: **{type}**.',
+    tomeBane: 'Bonus damage against **{kind}s** (a bane) makes it hit that much harder too.',
+    tomeSpirit: "Spirits aren't a kind of monster, so no bane makes them hit harder.",
     tomeAdvanced: 'Every {guild}s for a Guild Hunter (before attack speed). Each bite deals {bites}× the tome\'s hit.',
     tomeLunge: 'Every {cooldown}s it lunges at a monster, hitting for {damage}× a bite.',
     bane: '+{pct}% damage against {kind}s.',
@@ -512,6 +524,8 @@ section(
       archetype: 'Weapon archetype',
       spell: 'Staff spell',
       tome: 'Tome summon',
+      tomeBane: 'Tome summon: banes',
+      tomeSpirit: 'Tome summon: spirits and banes',
       tomeAdvanced: 'Tome summon (advanced)',
       tomeLunge: 'Tome summon: lunge (advanced)',
       bane: 'Bane (advanced)',

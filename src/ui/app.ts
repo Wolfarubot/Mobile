@@ -7,6 +7,8 @@ import {
   WEAPON_CLASSES,
   WEAPON_ARCHETYPES,
   weaponArchetype,
+  type SummonType,
+  SUMMON_ARCHETYPE,
   HELPER_FIRE_RATE,
   BASE_FIRE_RATE,
   withArchetype,
@@ -4376,7 +4378,7 @@ export class AppUI {
         const [, a1, a2] = WEAPON_ARCHETYPES[id];
         card.innerHTML = `<div class="setting-name">${CLASS_ICONS[id]} ${c.name}</div><p>${c.describe}</p><div class="tut-traits">${weaponTraits(c)
           .map((t) => `<span class="tut-trait">${t}</span>`)
-          .join('')}</div><p class="tut-archetypes">Also comes as a <b>${a1.name}</b> (${a1.desc.charAt(0).toLowerCase()}${a1.desc.slice(1, -1)}) or a <b>${a2.name}</b> (${a2.desc.charAt(0).toLowerCase()}${a2.desc.slice(1, -1)}).</p>${known.length ? `<p class="tut-examples">${known.map((gd) => `${gearIcon(gd)} ${gd.name}`).join(' · ')}</p>` : ''}`;
+          .join('')}</div><p class="tut-archetypes">Also comes as a <b>${a1.name}</b> (${a1.desc.charAt(0).toLowerCase()}${a1.desc.slice(1, -1)}) or a <b>${a2.name}</b> (${a2.desc.charAt(0).toLowerCase()}${a2.desc.slice(1, -1)}).</p>${id === 'tome' ? txp('tut.weapons.tome.tomeSummons', { types: (Object.keys(SUMMON_TYPES) as SummonType[]).map((t) => SUMMON_TYPES[t].name).join(', ') }) : ''}${known.length ? `<p class="tut-examples">${known.map((gd) => `${gearIcon(gd)} ${gd.name}`).join(' · ')}</p>` : ''}`;
         body.appendChild(card);
       }
     }
@@ -5331,6 +5333,8 @@ function tomeTag(gd: GearDef): string {
   const every = (fireRate: number) => Math.round(1 / (fireRate * rate));
   const v = { creature, a: /^[aeiou]/i.test(creature) ? 'an' : 'a', every: every(BASE_FIRE_RATE), guild: every(HELPER_FIRE_RATE), duration: +sm.duration.toFixed(1), type: SUMMON_TYPES[type].name, bites: +sm.bites.toFixed(2) };
   let tip = tx('tip.gear.tome', v);
+  const kind = SUMMON_ARCHETYPE[type];
+  tip += `<br>${kind ? tx('tip.gear.tomeBane', { kind: ARCHETYPES[kind].name }) : tx('tip.gear.tomeSpirit')}`;
   if (advancedTips) {
     tip += `<br>${tx('tip.gear.tomeAdvanced', v)}`;
     const d = gd.summon?.dash;

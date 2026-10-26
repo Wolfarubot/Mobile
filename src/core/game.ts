@@ -138,6 +138,7 @@ import {
   type GearDef,
   type GearEffect,
   type SummonType,
+  SUMMON_ARCHETYPE,
   GUARDIAN_GOLD_MULT,
   MINIGAME_INCOME,
   MINIGAME_INCOME_NEW,
@@ -401,10 +402,22 @@ export class Game {
     return this.shotDamage(who, archetype) / Math.max(1e-9, this.weaponHitOf(who));
   }
 
-  /** Damage multiplier for a Hunter's summons of a type (Deku's Beasts, Theon's Constructs). */
+  /**
+   * Damage multiplier for a Hunter's summons of a type: Deku's Beasts and Theon's Constructs, and every bonus the
+   * Hunter has against that kind of monster (their bane, their gear's and its Bane enchantments) also counts for
+   * their summons of that kind (undead bonus damage, harder-biting undead). Spirits aren't a kind of monster.
+   */
   summonMult(who: Shooter, type: SummonType): number {
     const b = who === 'main' ? undefined : hunterDef(who).summonBonus;
-    return b && b.type === type ? b.mult : 1;
+    const arch = SUMMON_ARCHETYPE[type];
+    return (b && b.type === type ? b.mult : 1) * (arch ? this.baneMult(who, arch) : 1);
+  }
+
+  /** A Hunter's whole bonus against a kind of monster, as a multiplier: their own bane (and tree), and their gear's. */
+  baneMult(who: Shooter, archetype: Archetype): number {
+    const def = who === 'main' ? null : hunterDef(who);
+    const own = def?.bane && def.bane.archetype === archetype ? def.bane.mult + this.tree(who).bane : 1;
+    return own * (1 + this.gearBane(who, archetype));
   }
 
   /** The pieces a Hunter wears that have a special effect, with their stars. */
@@ -624,18 +637,22 @@ export class Game {
   shotDamage(shooter: Shooter, archetype?: Archetype, mode?: GearMode): number {
     // A weapon's class weight is already in its base damage (a hammer's hits start higher than a dagger's).
     if (shooter === 'main') return this.damage * (1 + this.gearBane('main', archetype));
-    const def = hunterDef(shooter);
-    const bane = def.bane && def.bane.archetype === archetype ? def.bane.mult + this.tree(shooter).bane : 1;
-    return this.weaponHitOf(shooter, mode) * powerDamage(this.state.hunters[shooter].trains) * this.skillDamageMult(shooter) * bane * (1 + this.gear(shooter, mode).damage) * (1 + this.gearBane(shooter, archetype)) * this.premiumMult('damage');
+    const bane = archetype ? this.baneMult(shooter, archetype) : 1;
+    return this.weaponHitOf(shooter, mode) * powerDamage(this.state.hunters[shooter].trains) * this.skillDamageMult(shooter) * bane * (1 + this.gear(shooter, mode).damage) * this.premiumMult('damage');
   }
 
-  /** Extra damage from a Hunter's gear against an archetype (the Fang Talisman vs Beasts, the Slime Vial vs Slimes). */
+  /**
+   * Extra damage from a Hunter's gear against an archetype: built-in banes (the Fang Talisman vs Beasts, the Slime
+   * Vial vs Slimes) and Bane enchantments.
+   */
   gearBane(who: Shooter, archetype?: Archetype): number {
     if (!archetype) return 0;
     let b = 0;
     for (const item of this.equipped(who)) {
-      const d = item ? gearDef(item.base) : null;
-      if (item && d?.bane?.archetype === archetype) b += d.bane.bonus * GEAR_STAR_POWER[this.effStars(item, who)];
+      if (!item) continue;
+      const d = gearDef(item.base);
+      if (d.bane?.archetype === archetype) b += d.bane.bonus * GEAR_STAR_POWER[this.effStars(item, who)];
+      for (const e of this.enchantsOf(item)) if (e.en.bane === archetype) b += e.v;
     }
     return b;
   }

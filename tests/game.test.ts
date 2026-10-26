@@ -103,6 +103,8 @@ import {
   IDOL_ORE_STEPS,
   isGolem,
   ARCHETYPES,
+  baneEnchantId,
+  type Archetype,
   helperTrainCost,
   HELPER_TRAIN_GROWTH,
   HELPER_TAPER_GROWTH,
@@ -3151,7 +3153,7 @@ describe('Equipment', () => {
     expect(g.summonMult('druid', 'beast')).toBe(1.5);
     expect(g.summonMult('druid', 'construct')).toBe(1);
     expect(g.summonMult('puppeteer', 'construct')).toBe(1.5);
-    expect(g.summonMult('main', 'beast')).toBe(1);
+    expect(g.summonMult('main', 'beast')).toBeCloseTo(1 + g.gearBane('main', 'beast'));
     expect(tomeSummonType(gearDef('wolfTome'))).toBe('beast');
     expect(tomeSummonType(gearDef('wispTome'))).toBe('spirit');
     expect(tomeSummonType(gearDef('necroTome'))).toBe('undead');
@@ -3388,6 +3390,37 @@ describe('Equipment', () => {
     orb.mods = [{ kind: 'enchant', id: 'infuseVoid', q: 5, p: 5 }];
     expect(g.damageTypesOf('main')).toContain('void');
     expect(g.procFor('main', 'void')).toBeCloseTo(modRoll(ENCHANTS.infuseVoid.range, false, 'veryRare', 5));
+  });
+
+  it('banes: an accessory for every kind of monster, early and late; Bane enchantments; and banes count for summons of their kind', () => {
+    // Every kind of monster has a bane accessory, and the kinds that had one early have a later one too.
+    const banes = GEAR.filter((d) => d.bane);
+    for (const a of Object.keys(ARCHETYPES) as Archetype[]) expect(banes.some((d) => d.bane!.archetype === a), a).toBe(true);
+    for (const a of ['beast', 'slime', 'undead', 'demon', 'humanoid', 'construct', 'elemental'] as Archetype[]) expect(banes.filter((d) => d.bane!.archetype === a).length, a).toBeGreaterThanOrEqual(2);
+    // A Bane enchantment for every kind, on weapons and accessories but not armor.
+    for (const a of Object.keys(ARCHETYPES) as Archetype[]) expect(ENCHANTS[baneEnchantId(a)].bane).toBe(a);
+    expect(ENCHANTS.baneUndead.fits(gearDef('slimeSword'))).toBe(true);
+    expect(ENCHANTS.baneUndead.fits(gearDef('cinderRing'))).toBe(true);
+    expect(ENCHANTS.baneUndead.fits(gearDef('boneArmor'))).toBe(false);
+    const g = stocked();
+    g.state.gold = 1e30;
+    const ward = g.craftGear('lichward')!;
+    g.equip('main', 2, ward.uid);
+    const gear = g.gearBane('main', 'undead');
+    expect(gear).toBeCloseTo(gearDef('lichward').bane!.bonus);
+    // The bonus against Undead also makes undead summons bite harder; Spirits (not a kind of monster) get nothing.
+    expect(g.summonMult('main', 'undead')).toBeCloseTo(1 + gear);
+    expect(g.summonMult('main', 'spirit')).toBe(1);
+    expect(g.summonMult('main', 'beast')).toBeCloseTo(1 + g.gearBane('main', 'beast'));
+    // A Bane enchantment on the weapon adds its roll.
+    const sword = g.craftGear('slimeSword')!;
+    g.equip('main', 0, sword.uid);
+    sword.mods = [{ kind: 'enchant', id: 'baneUndead', q: 5, p: 5 }];
+    const roll = modRoll(ENCHANTS.baneUndead.range, false, gearDef('slimeSword').rarity, 5);
+    expect(g.gearBane('main', 'undead')).toBeCloseTo(gear + roll);
+    expect(g.summonMult('main', 'undead')).toBeCloseTo(1 + gear + roll);
+    // A Guild Hunter's own bane counts too: Galladair's bonus against Beasts makes his beast summons bite harder.
+    expect(g.summonMult('ranger', 'beast')).toBeCloseTo(hunterDef('ranger').bane!.mult + g.tree('ranger').bane);
   });
 
   it('every piece of gear has its own pixel icon, and every icon exists', () => {

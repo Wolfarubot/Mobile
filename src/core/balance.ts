@@ -2387,6 +2387,11 @@ export const slotAccepts = (slot: SlotDef, def: Pick<GearDef, 'kind' | 'armorTyp
 
 // ---- Summons: every summoned creature has a type, which some Hunters are better at commanding ----
 export type SummonType = 'beast' | 'construct' | 'spirit' | 'undead' | 'elemental';
+/**
+ * The kind of monster each summon type is: a bonus against that kind (a bane) also makes your summons of it hit
+ * harder. Spirits aren't a kind of monster, so no bane helps them.
+ */
+export const SUMMON_ARCHETYPE: Record<SummonType, Archetype | null> = { beast: 'beast', construct: 'construct', spirit: null, undead: 'undead', elemental: 'elemental' };
 export const SUMMON_TYPES: Record<SummonType, { name: string; icon: string }> = {
   beast: { name: 'Beast', icon: '🐺' },
   construct: { name: 'Construct', icon: '🪆' },
@@ -2978,6 +2983,7 @@ export type EnchantId =
   | 'shotPierce'
   | 'shotRicochet'
   | SpellEnchantId
+  | BaneEnchantId
   | UniqueId;
 
 /**
@@ -3083,6 +3089,8 @@ export interface EnchantDef {
   infuse?: DamageType;
   /** Potency: its chance is added to the weapon's status chance. */
   potency?: boolean;
+  /** Bane: its roll is extra damage against this kind of monster (and to the wearer's summons of that kind). */
+  bane?: Archetype;
   /** Virulence / Binding: their roll is a strength, not a chance: status effect strength, or summon duration. */
   boost?: 'status' | 'summonDur' | 'cooldown' | 'radius';
   /** Only ever built in (Artifact and Exalted uniques, and the shot effects below): never rolled by Enchant. */
@@ -3140,6 +3148,24 @@ const gun = (d: GearDef) => d.weaponClass === 'pistol' || d.weaponClass === 'rif
 const bow = (d: GearDef) => d.weaponClass === 'shortbow' || d.weaponClass === 'longbow' || d.weaponClass === 'crossbow';
 const hits = (p: number) => `${Math.round(p * 100) / 100}× a hit`;
 export const spellEnchantId = (id: SpellId): SpellEnchantId => `spell${id.charAt(0).toUpperCase()}${id.slice(1)}` as SpellEnchantId;
+
+/**
+ * Bane enchantments, one per kind of monster, on weapons and accessories: extra damage against that kind, and the
+ * same bonus to the wearer's summons of that kind (SUMMON_ARCHETYPE). Together they roll about as often as one and
+ * a third ordinary enchantments.
+ */
+export type BaneEnchantId = `bane${Capitalize<Archetype>}`;
+export const baneEnchantId = (a: Archetype): BaneEnchantId => `bane${a.charAt(0).toUpperCase()}${a.slice(1)}` as BaneEnchantId;
+const baneEnchant = (a: Archetype): EnchantDef => ({
+  name: `${ARCHETYPES[a].name} Bane`,
+  icon: ARCHETYPES[a].icon,
+  range: [0.08, 0.16],
+  weight: 0.15,
+  bane: a,
+  fits: (d) => isWeapon(d) || d.kind === 'accessory',
+  text: (v) => `+${pct(v)} damage against ${ARCHETYPES[a].name}s${summonOf(a) ? ` (and from ${ARCHETYPES[a].name} summons)` : ''}`,
+});
+const summonOf = (a: Archetype): SummonType | undefined => (Object.keys(SUMMON_ARCHETYPE) as SummonType[]).find((t) => SUMMON_ARCHETYPE[t] === a);
 
 /**
  * Unique built-in effects: Artifact pieces' (strong abilities of their own) and Exalted pieces' (field-wide
@@ -3202,6 +3228,7 @@ export const ENCHANTS: Record<EnchantId, EnchantDef> = {
   amplify: { name: 'Amplify', icon: '🌀', range: [0.2, 0.4], weight: 1, boost: 'radius', fits: () => true, text: (v) => `+${pct(v)} area size (every area effect: specials, blasts, puddles, slams, auras)` },
   binding: { name: 'Binding', icon: '⏳', range: [0.15, 0.3], weight: 1, boost: 'summonDur', fits: summons, text: (v) => `+${pct(v)} summon duration` },
   ...(Object.fromEntries((Object.keys(SPELLS) as SpellId[]).map((id) => [spellEnchantId(id), spellEnchant(id)])) as Record<SpellEnchantId, EnchantDef>),
+  ...(Object.fromEntries((Object.keys(ARCHETYPES) as Archetype[]).map((a) => [baneEnchantId(a), baneEnchant(a)])) as Record<BaneEnchantId, EnchantDef>),
   artWave: { name: 'Elemental Wave', icon: '🌊', range: [0.1, 0.2], power: [0.8, 1.2], weight: 1, melee: 'wave', fits: melee('sword'), text: (c, p) => `${pct(c)} chance on attack to send out a wave of the sword's element, through every monster in its path (${hits(p)})` },
   artSpear: { name: 'Phantom Spear', icon: '🔱', range: [0.1, 0.2], power: [1.2, 1.8], weight: 1, melee: 'spear', fits: melee('spear'), text: (c, p) => `${pct(c)} chance on attack for a giant spear of its element to stab out twice as far and wide (${hits(p)})` },
   artGlaive: { name: 'Phantom Glaive', icon: '🪓', range: [0.1, 0.2], power: [1, 1.5], weight: 1, melee: 'glaive', fits: melee('glaive'), text: (c, p) => `${pct(c)} chance on attack for a giant glaive of its element to cleave much further out (${hits(p)})` },

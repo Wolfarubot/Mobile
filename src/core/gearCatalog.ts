@@ -104,6 +104,9 @@ export const GEAR_CATALOG = [
   ac('groveTalisman', 'Grove Talisman', '🔯', 'talisman', ['magicDamage', 'cooldown'], { unicornHorn: 10, sap: 6 }),
   ac('mossTreads', 'Moss Treads', '👢', 'boots', [], { thorn: 10, spore: 6 }),
   ac('feyHood', 'Fey Hood', '🧙', 'hood', [], { sap: 10, dust: 6 }),
+  // Banes: Plants and Constructs, the Grove's own.
+  x('rootCharm', 'Rootbound Charm', '🌿', [], { thorn: 8, sap: 6 }, 'plant'),
+  x('golemRune', 'Golem Rune', '🪨', [], { awokenRock: 4, dust: 8 }, 'construct'),
 
   // ---- Restless Graveyard: hammers start here ----
   ...at('graveyard'),
@@ -133,6 +136,7 @@ export const GEAR_CATALOG = [
   ac('boneTalisman', 'Bone Talisman', '🔯', 'talisman', ['magicDamage', 'duration'], { wing: 12, nightmareWisp: 4 }),
   ac('gravewalkerBoots', 'Gravewalker Boots', '👢', 'boots', [], { sacredText: 12, bone: 4 }),
   ac('gravekeeperCowl', "Gravekeeper's Cowl", '🧙', 'hood', [], { robePiece: 12, flesh: 4 }),
+  x('cultistMark', "Cultist's Mark", '🕯️', [], { bone: 8, nightmareWisp: 5 }, 'humanoid'),
 
   // ---- Forbidden Crypt: more of everything ----
   ...at('crypt'),
@@ -209,6 +213,7 @@ export const GEAR_CATALOG = [
   ac('umbralSigil', 'Umbral Sigil', '🔯', 'talisman', ['magicDamage', 'radius'], { umbralEye: 10, shadowWisp: 4 }),
   ac('shadowstepBoots', 'Shadowstep Boots', '👢', 'boots', [], { umbralSlime: 10, umbralEye: 4 }),
   ac('gloomCowl', 'Gloom Cowl', '🧙', 'hood', [], { umbra: 10, umbralSlime: 4 }),
+  x('hauntWard', 'Haunt Ward', '👻', [], { shadowWisp: 6, gloom: 8 }, 'elemental'),
 
   // ---- Ember Mines ----
   ...at('caves'),
@@ -404,6 +409,7 @@ export const GEAR_CATALOG = [
   ac('sunstoneTalisman', 'Sunstone Talisman', '🔯', 'talisman', ['magicDamage', 'radius'], { skystone: 12, plume: 4 }),
   ac('cloudstriderBoots', 'Cloudstrider Boots', '👢', 'boots', [], { plume: 12, skystone: 4 }),
   ac('pilgrimsHood', "Pilgrim's Hood", '🧙', 'hood', [], { skystone: 12, plume: 4 }),
+  x('griffinTalon', 'Griffin Talon', '🦅', [], { plume: 10, skystone: 4 }, 'beast'),
 
   // ---- Cloud Fortress ----
   ...at('fortress'),
@@ -456,6 +462,8 @@ export const GEAR_CATALOG = [
   ac('stormTalisman', 'Storm Talisman', '🔯', 'talisman', ['magicDamage', 'cooldown'], { thunder: 6 }),
   ac('stormstrideBoots', 'Stormstride Boots', '👢', 'boots', [], { feather: 6 }),
   ac('stormcallerHat', "Stormcaller's Hat", '🧙', 'hood', [], { thunder: 6 }),
+  x('knightsCrest', "Knight's Crest", '🛡️', [], { thunder: 8, feather: 8 }, 'humanoid'),
+  x('cloudJellyLocket', 'Cloud Jelly Locket', '☁️', [], { feather: 10, thunder: 4 }, 'slime'),
 
   // ---- Meteor Field ----
   ...at('meteors'),
@@ -511,6 +519,8 @@ export const GEAR_CATALOG = [
   ac('moonstoneTalisman', 'Moonstone Talisman', '🔯', 'talisman', ['magicDamage', 'duration'], { stardust: 10, meteor: 4 }),
   ac('cometBoots', 'Comet Boots', '👢', 'boots', [], { meteor: 10, stardust: 4 }),
   ac('stargazerCap', "Stargazer's Cap", '🧙', 'hood', [], { stardust: 10, meteor: 4 }),
+  x('starforgedRune', 'Starforged Rune', '⚙️', [], { meteor: 10, stardust: 6 }, 'construct'),
+  x('starfallWard', 'Starfall Ward', '🌠', [], { stardust: 10, meteor: 6 }, 'elemental'),
 
   // ---- Void Rift: the long final stretch, the biggest armory ----
   ...at('rift'),
@@ -565,6 +575,8 @@ export const GEAR_CATALOG = [
   ac('voidTalisman', 'Void Talisman', '🔯', 'talisman', ['magicDamage', 'statusChance'], { shade: 12, soul: 6 }),
   ac('riftstepBoots', 'Riftstep Boots', '👢', 'boots', [], { void: 12, shade: 6 }),
   ac('voidCowl', 'Void Cowl', '🧙', 'hood', [], { soul: 12, void: 6 }),
+  x('lichward', 'Lichward', '💀', [], { soul: 8, shade: 8 }, 'undead'),
+  x('voidSigil', 'Void Sigil', '😈', [], { void: 10, soul: 6 }, 'demon'),
 ] as const;
 
 export type CatalogGearId = (typeof GEAR_CATALOG)[number]['id'];
