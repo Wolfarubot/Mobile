@@ -6868,3 +6868,41 @@ img.ei[src$='custom/012.png'] {
     linear-gradient(90deg, #ff7a2a, #ffe36e, #6fdc5a, #8fdcff, #c08cff, #ff5fd7, #ff7a2a) border-box !important;
   background-size: 100% 100%, 200% 100% !important;
 }
+
+/* Refine / Enchant: framed like the sub-tab buttons (the chosen one lit), white outlined text, the subtitle legible. */
+body.ui-parchment .mod-action {
+  background: var(--c1) padding-box !important;
+  border-radius: 0 !important;
+  border: 9px solid var(--c0) !important;
+  border-image: var(--img-btn) 3 fill / 9px / 0 stretch !important;
+  image-rendering: pixelated;
+  color: #fff !important;
+  text-shadow: var(--outline) !important;
+  box-shadow: none !important;
+  padding: 2px 4px 2px 50px !important;
+  min-height: 62px;
+}
+body.ui-parchment .mod-action.on {
+  border-image: var(--img-btnhi) 3 fill / 9px / 0 stretch !important;
+}
+body.ui-parchment .mod-action .btn-ic {
+  left: 0;
+}
+.mod-action b {
+  font-size: 15px;
+  line-height: 1.1;
+}
+body.ui-parchment .mod-action b {
+  text-shadow: var(--outline-thick) !important;
+}
+.mod-action small {
+  font-size: 11px;
+  line-height: 1.2;
+  opacity: 1;
+}
+/* The Modify window's hints: full strength, a touch bigger. */
+.sheet-body .refine-note {
+  font-size: 13px;
+  opacity: 1;
+  line-height: 1.35;
+}
