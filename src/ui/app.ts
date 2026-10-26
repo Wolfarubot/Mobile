@@ -5151,7 +5151,7 @@ function gearCardHtml(it: GearItem, vs: GearItem | null = null): string {
  */
 const MENU_SPRITES = {
   tutorials: 'wands-books/062',
-  quests: 'wands-books/054',
+  quests: 'wands-books/087',
   shop: 'custom/004',
   journal: 'rpg-items/289',
   settings: 'custom/002',
