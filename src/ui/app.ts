@@ -64,7 +64,6 @@ import {
   gearTypes,
   SPECIAL_TYPE,
   gearTotals,
-  GEAR_STATS,
   gearSummary,
   hitText,
   weaponHit,
@@ -1669,27 +1668,17 @@ export class AppUI {
     if (!item) return;
     const gd = gearDef(item.base);
     const waiting = g.pendingMod(uid);
+    // Pick a slot and Refine or Enchant in either order; with both, the cost and Roll show.
     let action: 'refine' | 'enchant' | null = waiting?.kind ?? null;
     let slot: number | null = waiting?.slot ?? null;
     let last: number | null = null; // the slot just filled
     let anim: 'shake' | 'reveal' | null = null;
-    /**
-     * What the piece does now: its hit, its stats with the refinements it holds added in, how it deals its damage
-     * types and their status effects, and its own abilities (at its stars), so you can see what a roll would add to.
-     */
-    const pieceHtml = (): string => {
-      const now = g.gearItem(uid) ?? item;
-      const total = gearTotals(gd, now.stars);
-      for (const m of now.mods ?? []) if (m?.kind === 'refine' && m.stat in GEAR_STATS) total[m.stat as GearStat] = (total[m.stat as GearStat] ?? 0) + modValue(m, gd);
-      const hit = weaponHit(gd, now.stars);
-      const stats = [hit ? hitText(hit) : '', describeGear(total)].filter(Boolean).join(', ');
-      return `${stats ? `<p class="gear-now"><b>${stats}</b></p>` : ''}${featureTags(gd, now.stars)}`;
-    };
     this.showSheet(`🛠️ Modify ${gearIcon(gd)} ${gd.name}`, (body) => {
       const draw = () => {
         const slots = g.modSlots(uid);
         const pending = g.pendingMod(uid);
         const busy = !!pending || !!anim;
+        const what = action === 'refine' ? 'refinement' : 'enchantment';
         const choices = pending
           ? `<div class="filter-label">${anim ? (pending.kind === 'refine' ? 'Refining…' : 'Enchanting…') : 'Choose one'}</div><div class="mod-choices">${pending.options
               .map((m, i) => {
@@ -1698,23 +1687,28 @@ export class AppUI {
                 return `<button class="mod-choice ${pending.kind}${anim === 'shake' ? ' shaking' : ''}${perfect ? ' perfect' : ''}" data-choice="${i}"${anim ? ' disabled' : ''}>${inner}</button>`;
               })
               .join('')}</div>`
-          : action
-            ? `<p class="refine-note">${slot === null ? 'Pick a slot.' : `🎲 Roll draws ${g.modChoices} random ${action === 'refine' ? 'refinements' : 'enchantments'} (stronger on rarer gear); pick one for the slot. A roll at the top of its range is perfect.`}</p>${
-                g.blessingCharges(action) > 0 && g.state.blessings[action] > 0
-                  ? `<p class="refine-note mg-bless">✨ Blessed by ${action === 'refine' ? "Kargesh's Forge Strike" : "Marceline's Rune Match"} (${g.blessingCharges(action)} charge${g.blessingCharges(action) > 1 ? 's' : ''} left): this roll tries ${g.state.blessings[action]} extra time${g.state.blessings[action] > 1 ? 's' : ''} for each choice (${Math.round(g.perfectChance(g.state.blessings[action]) * 100)}% perfect instead of ${Math.round(g.perfectChance(0) * 100)}%).</p>`
-                  : ''
-              }`
-            : '<p class="refine-note">Choose Refine or Enchant: the empty slots light up. Rolling draws random choices to pick from.</p>';
+          : '';
+        const note = pending
+          ? ''
+          : slot !== null && action
+            ? `🎲 Roll draws ${g.modChoices} random ${what}s (stronger on rarer gear); pick one for the slot. A roll at the top of its range is perfect.`
+            : slot !== null
+              ? 'Now choose Refine or Enchant for this slot.'
+              : action
+                ? `Pick a slot for the ${what}.`
+                : 'Pick a slot, then Refine or Enchant (or the other way round).';
+        const blessed =
+          action && !pending && g.blessingCharges(action) > 0 && g.state.blessings[action] > 0
+            ? `<p class="refine-note mg-bless">✨ Blessed by ${action === 'refine' ? "Kargesh's Forge Strike" : "Marceline's Rune Match"} (${g.blessingCharges(action)} charge${g.blessingCharges(action) > 1 ? 's' : ''} left): this roll tries ${g.state.blessings[action]} extra time${g.state.blessings[action] > 1 ? 's' : ''} for each choice (${Math.round(g.perfectChance(g.state.blessings[action]) * 100)}% perfect instead of ${Math.round(g.perfectChance(0) * 100)}%).</p>`
+            : '';
+        // The header and slots as on the piece's own card, the slots tappable.
         body.innerHTML = `
-          <p><b class="rarity-tag" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${gearKindName(gd)} · <span class="stars">${starsHtml(item.stars)}</span> · ${slots.length} modifier slot${slots.length === 1 ? '' : 's'}</p>
-          <div class="filter-label">This piece</div>
-          <div class="mod-piece">${pieceHtml()}</div>
-          <div class="filter-label">${action && slot === null ? 'Choose a slot' : 'Slots'}</div>
-          <div class="refine-slots">${slots
+          <p><b class="rarity-tag" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${gearKindName(gd)} · <span class="stars">${starsHtml(item.stars)}</span></p>
+          <div class="mod-slots"><div class="filter-label">Modifiers</div>${slots
             .map((m, i) => {
               const perfect = !!m && modPerfect(m);
-              const cls = ['refine-slot', action && !m && !busy ? 'open' : '', i === slot ? 'on' : '', perfect ? 'perfect' : '', i === last ? 'fresh' : ''].filter(Boolean).join(' ');
-              return `<button class="${cls}" data-slot="${i}"${action && !busy ? '' : ' disabled'}>${m ? `${modText(m, gd)}${perfect ? ' <em class="perfect-tag">Perfect</em>' : ''}` : '<i>Empty slot</i>'}</button>`;
+              const cls = ['mod-slot', 'pick', m ? 'full' : '', action && !m && slot === null && !busy ? 'open' : '', i === slot ? 'on' : '', perfect ? 'perfect' : '', i === last ? 'fresh' : ''].filter(Boolean).join(' ');
+              return `<button class="${cls}" data-slot="${i}"${busy ? ' disabled' : ''}>${m ? `${modText(m, gd)}${perfect ? ' <em class="perfect-tag">Perfect</em>' : ''}` : '<i>Empty slot</i>'}</button>`;
             })
             .join('')}</div>
           ${choices}
@@ -1722,6 +1716,7 @@ export class AppUI {
             ${g.refineOpen ? `<button class="mod-action${action === 'refine' ? ' on' : ''}" data-action="refine"${busy ? ' disabled' : ''}><b>⚒️ Refine</b><small>Equipment Stat Bonuses</small></button>` : ''}
             ${g.enchantOpen ? `<button class="mod-action${action === 'enchant' ? ' on' : ''}" data-action="enchant"${busy ? ' disabled' : ''}><b>✨ Enchant</b><small>Elemental and Magical Bonuses</small></button>` : ''}
           </div>
+          ${note ? `<p class="refine-note">${note}</p>` : ''}${blessed}
           ${!g.refineOpen ? '<p class="refine-note">Recruit Kargesh the Blacksmith (Ember Mines) to Refine.</p>' : ''}
           ${!g.enchantOpen ? '<p class="refine-note">Recruit Marceline the Enchantress (Venom Caverns) to Enchant.</p>' : ''}`;
         // The choice boxes shake for a second, then each is revealed in turn.
@@ -1793,12 +1788,11 @@ export class AppUI {
         body.querySelectorAll<HTMLButtonElement>('.mod-action').forEach((b) =>
           b.addEventListener('click', () => {
             action = b.dataset.action as 'refine' | 'enchant';
-            slot = null;
             last = null;
             draw();
           }),
         );
-        body.querySelectorAll<HTMLButtonElement>('.refine-slot').forEach((b) =>
+        body.querySelectorAll<HTMLButtonElement>('.mod-slot.pick').forEach((b) =>
           b.addEventListener('click', () => {
             const i = Number(b.dataset.slot);
             const held = g.modSlots(uid)[i];

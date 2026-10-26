@@ -982,7 +982,11 @@ button {
 }
 .sheet-body {
   overflow-y: auto;
+  /* One column no wider than the sheet (a long tag row or stat table wraps instead), and never a sideways pan. */
+  overflow-x: hidden;
+  touch-action: pan-y;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 6px;
 }
 .sheet-body p {
@@ -1031,6 +1035,8 @@ button {
 }
 .sheet-body .actions .buy {
   flex: 1;
+  /* Three to a row on any phone: they shrink (and wrap their text) rather than push the card wider. */
+  min-width: 0;
 }
 
 /* ---- Hunter cards ---- */
@@ -4324,6 +4330,41 @@ body.left-handed .hd-float-close {
   color: var(--gold);
   font-weight: 700;
 }
+/* The Modify window's slots: the piece card's slots, made tappable (pick one, in either order with Refine/Enchant). */
+.mod-slots button.mod-slot {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  font-size: 13px;
+  background: transparent !important;
+  color: inherit !important;
+  text-shadow: none !important;
+  box-shadow: none;
+  border-image: none !important;
+  cursor: pointer;
+}
+.mod-slots button.mod-slot.full {
+  color: var(--gold) !important;
+}
+.mod-slots button.mod-slot:disabled {
+  cursor: default;
+}
+.mod-slots button.mod-slot.on {
+  opacity: 1;
+  border-style: solid;
+  border-color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 28%, transparent) !important;
+}
+.mod-slots button.mod-slot.open {
+  opacity: 0.9;
+  outline: 3px solid var(--gold);
+  outline-offset: -1px;
+  animation: slot-glow 1.2s ease-in-out infinite;
+}
+.mod-slots button.mod-slot.fresh {
+  box-shadow: 0 0 0 3px var(--gold);
+}
 .refine-open {
   width: 100%;
   margin: 2px 0 8px;
@@ -6798,4 +6839,32 @@ img.ei[src$='custom/012.png'] {
 }
 .area-monsters .row.tappable:active {
   filter: brightness(0.92);
+}
+
+/* A roll's choices, written like the piece card's modifiers (gold, plain text) in a box you can tap. */
+.mod-choices button.mod-choice {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 8px 10px;
+  border: 2px solid var(--gold) !important;
+  border-radius: 8px;
+  border-image: none !important;
+  background: transparent !important;
+  color: var(--gold) !important;
+  text-shadow: none !important;
+  box-shadow: none !important;
+}
+.mod-choices button.mod-choice:not(:disabled):active {
+  background: color-mix(in srgb, var(--gold) 28%, transparent) !important;
+}
+.mod-choices button.mod-choice.perfect {
+  border: 3px solid transparent !important;
+  background:
+    linear-gradient(var(--card), var(--card)) padding-box,
+    linear-gradient(90deg, #ff7a2a, #ffe36e, #6fdc5a, #8fdcff, #c08cff, #ff5fd7, #ff7a2a) border-box !important;
+  background-size: 100% 100%, 200% 100% !important;
 }

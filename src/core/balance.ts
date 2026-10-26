@@ -3894,7 +3894,8 @@ function assignVariants(): void {
     d.slots = v.slots;
     const pool = (Object.keys(ENCHANTS) as EnchantId[]).filter((id) => {
       const en = ENCHANTS[id];
-      return (!en.builtInOnly || en.builtInPool) && !PLAIN_ENCHANTS.has(id) && !en.infuse && en.fits(d);
+      // Banes stay out of the draw (a piece's own bane is its `bane`), which also keeps every built-in as it was.
+      return (!en.builtInOnly || en.builtInPool) && !PLAIN_ENCHANTS.has(id) && !en.infuse && !en.bane && en.fits(d);
     });
     const pick = <T,>(ids: T[]) => ids.splice(Math.floor(rng() * ids.length), 1)[0];
     const roll = () => 5 + Math.floor(rng() * 5); // a good roll: 5–9 of 10
