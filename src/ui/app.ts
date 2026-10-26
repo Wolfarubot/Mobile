@@ -129,6 +129,7 @@ import { MATERIAL_SPRITES } from '../core/materialSprites';
 import { GEAR_SPRITES } from '../core/gearSprites';
 import { NODE_SPRITES } from '../core/nodeSprites';
 import { hunterIconHtml } from './hunterIcons';
+import { startMarket } from './market';
 import { buzz, setHaptics } from './haptics';
 import { perfOn, setPerfOn } from './perfMeter';
 import { AREA_MUSIC, GUARDIAN_MUSIC, MINIGAME_MUSIC, playMusic, setMusicVolume, SWARM_MUSIC } from './music';
@@ -3819,7 +3820,7 @@ export class AppUI {
       `<h2>Menu</h2><div class="menu-list">
         ${item('tutorials', sprite(MENU_SPRITES.tutorials), 'Tutorials')}
         ${item('journal', sprite(MENU_SPRITES.journal), 'Journal Entries', unread ? `<span class="alert-mark" title="${unread} new"></span>` : '')}
-        ${item('shop', sprite(MENU_SPRITES.shop), 'Shop')}
+        ${item('shop', sprite(MENU_SPRITES.shop), 'Shop').replace('class="menu-item"', 'class="menu-item mi-gold"')}
         ${item('settings', sprite(MENU_SPRITES.settings), 'Settings')}
         ${item('quit', sprite(MENU_SPRITES.quit), 'Quit')}
       </div>`,
@@ -3996,18 +3997,20 @@ export class AppUI {
     const g = this.game;
     const view = el('div', 'hunter-detail settings shop');
     view.innerHTML = `
+      <canvas class="shop-market"></canvas>
       <div class="hd-top"><button class="hd-close" aria-label="Close">✕</button><span>Shop</span><b class="gem-count"></b></div>
       <div class="hd-scroll"></div>`;
     document.body.appendChild(view);
+    // A busy market square behind it all (it stops by itself once the shop closes).
+    startMarket($<HTMLCanvasElement>('.shop-market', view));
     $('.hd-close', view).addEventListener('click', () => this.closeHunterDetail());
     const refreshers: Array<() => void> = [];
     this.detail = { el: view, refreshers };
     const body = $('.hd-scroll', view);
     const count = $('.gem-count', view);
     refreshers.push(() => (count.innerHTML = `${gemIcon()} ${gemsText(g.state.gems)}`));
-    const scene = el('div', 'shop-scene');
-    scene.innerHTML = `<img src="${UI_URL}shop-back.png" alt=""><div class="shop-trader"></div><img src="${UI_URL}shop-front.png" alt="">`;
-    body.appendChild(scene);
+    // Room at the top to see the market square (its first row of stalls) before the wares.
+    body.appendChild(el('div', 'shop-gap'));
     const tabs = el('div', 'subtabs shop-tabs');
     tabs.innerHTML = `<button data-page="shop" class="${page === 'shop' ? 'on' : ''}">Shop</button><button data-page="gems" class="${page === 'gems' ? 'on' : ''}">${gemIcon()} Exalted Gems</button>`;
     tabs.querySelectorAll<HTMLElement>('button').forEach((b) => b.addEventListener('click', () => b.dataset.page !== page && this.openShop(b.dataset.page as 'shop' | 'gems')));
