@@ -4009,8 +4009,6 @@ export class AppUI {
     const body = $('.hd-scroll', view);
     const count = $('.gem-count', view);
     refreshers.push(() => (count.innerHTML = `${gemIcon()} ${gemsText(g.state.gems)}`));
-    // Room at the top to see the market square (its first row of stalls) before the wares.
-    body.appendChild(el('div', 'shop-gap'));
     const tabs = el('div', 'subtabs shop-tabs');
     tabs.innerHTML = `<button data-page="shop" class="${page === 'shop' ? 'on' : ''}">Shop</button><button data-page="gems" class="${page === 'gems' ? 'on' : ''}">${gemIcon()} Exalted Gems</button>`;
     tabs.querySelectorAll<HTMLElement>('button').forEach((b) => b.addEventListener('click', () => b.dataset.page !== page && this.openShop(b.dataset.page as 'shop' | 'gems')));

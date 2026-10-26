@@ -105,25 +105,31 @@ export function startMarket(canvas: HTMLCanvasElement): Market {
     canvas.height = Math.round(H * dpr);
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     g.imageSmoothingEnabled = false;
-    const r1 = 210;
-    const r2 = Math.max(r1 + 150, Math.round(H * 0.58));
-    const r3 = Math.max(r2 + 120, H - 40);
+    // A border of stalls down both sides and along the bottom; the top and the middle stay open (the wares float
+    // over them).
+    const at = (f: number) => Math.round(H * f);
+    const right = (w: number) => W - w - 4;
     stalls = [
-      { file: 'stall-weapons', x: 6, y: r1, shop: true, trader: { file: 'trader-weapons', fw: 32, fh: 32, frames: 8, fps: 6, dx: 74, dy: -40, behind: true } },
-      { file: 'stall-fruit', x: Math.round(W / 2 - 52), y: r1 - 8, shop: true, trader: { file: 'trader-fruit', fw: 32, fh: 32, frames: 9, fps: 6, dx: 56, dy: -46, behind: true } },
-      { file: 'tent-magic', x: W - 104, y: r1, shop: true, trader: { file: 'trader-magic', fw: 48, fh: 48, frames: 8, fps: 6, dx: 50, dy: -14 } },
-      { file: 'banner', x: W - 132, y: r1 - 6 },
-      { file: 'stall-bread', x: 10, y: r2, shop: true, trader: { file: 'trader-bread', fw: 32, fh: 32, frames: 12, fps: 6, dx: 92, dy: 2 } },
-      { file: 'table2', x: Math.round(W / 2 - 26), y: r2 - 10 },
-      { file: 'cart-potions', x: W - 84, y: r2, shop: true, trader: { file: 'trader-drinks', fw: 32, fh: 32, frames: 12, fps: 6, dx: -12, dy: 0 } },
-      { file: 'cart-goods', x: 8, y: r3, shop: true },
-      { file: 'stand-fruit', x: Math.round(W / 2 - 44), y: r3, shop: true },
-      { file: 'barrels1', x: W - 46, y: r3 },
-      { file: 'crates2', x: W - 104, y: r3 - 4 },
+      { file: 'banner', x: 8, y: at(0.16) },
+      { file: 'banner', x: W - 31, y: at(0.16) },
+      // Down the left.
+      { file: 'stall-bread', x: 4, y: at(0.3), shop: true, trader: { file: 'trader-bread', fw: 32, fh: 32, frames: 12, fps: 6, dx: 90, dy: 2 } },
+      { file: 'cart-potions', x: 4, y: at(0.46), shop: true, trader: { file: 'trader-drinks', fw: 32, fh: 32, frames: 12, fps: 6, dx: 86, dy: 0 } },
+      { file: 'table-bread', x: 4, y: at(0.59), shop: true },
+      { file: 'crates2', x: 6, y: at(0.7) },
+      // Down the right.
+      { file: 'tent-magic', x: right(98), y: at(0.33), shop: true, trader: { file: 'trader-magic', fw: 48, fh: 48, frames: 8, fps: 6, dx: 50, dy: -14 } },
+      { file: 'stand-fruit', x: right(86), y: at(0.49), shop: true },
+      { file: 'table-magic', x: right(70), y: at(0.62), shop: true },
+      { file: 'barrels1', x: right(38), y: at(0.72) },
+      // Along the bottom.
+      { file: 'stall-fruit', x: 2, y: H - 30, shop: true, trader: { file: 'trader-fruit', fw: 32, fh: 32, frames: 9, fps: 6, dx: 56, dy: -46, behind: true } },
+      { file: 'stall-weapons', x: Math.round(W / 2 - 57), y: H - 26, shop: true, trader: { file: 'trader-weapons', fw: 32, fh: 32, frames: 8, fps: 6, dx: 74, dy: -40, behind: true } },
+      { file: 'cart-goods', x: right(71), y: H - 34, shop: true },
     ];
     buskers = [
-      { file: 'lute', fw: 32, fh: 32, frames: 6, fps: 6, x: Math.round(W * 0.3), y: Math.round((r1 + r2) / 2 + 24) },
-      { file: 'flute', fw: 32, fh: 48, frames: 6, fps: 6, x: Math.round(W * 0.72), y: Math.round((r2 + r3) / 2 + 20) },
+      { file: 'lute', fw: 32, fh: 32, frames: 6, fps: 6, x: 104, y: at(0.66) },
+      { file: 'flute', fw: 32, fh: 48, frames: 6, fps: 6, x: W - 112, y: at(0.72) },
     ];
     cols = Math.ceil(W / CELL);
     rows = Math.ceil(H / CELL);
@@ -136,9 +142,9 @@ export function startMarket(canvas: HTMLCanvasElement): Market {
       block(s.x, s.y - h * FOOT, s.x + w, s.y - 1);
     }
     for (const b of buskers) block(b.x - 10, b.y - 8, b.x + 10, b.y);
-    // Five townsfolk, each from a different stall.
+    // Townsfolk, each starting at a different stall.
     const shops = stalls.filter((s) => s.shop);
-    walkers = [1, 2, 3, 4, 5].map((sheet, i) => {
+    walkers = [1, 2, 3, 4, 5, 1, 3].map((sheet, i) => {
       const [c, r] = front(shops[i % shops.length]);
       return { sheet, x: c * CELL + CELL / 2, y: r * CELL + CELL / 2, dir: UP, path: [], wait: 1 + Math.random() * 4, at: i % shops.length, t: Math.random() * 10 };
     });
@@ -333,7 +339,7 @@ export function startMarket(canvas: HTMLCanvasElement): Market {
     frame = requestAnimationFrame(loop);
   };
   // Lay out once the pictures are in (sizes come from them).
-  const files = ['paving', 'shadow', 'stall-weapons', 'stall-fruit', 'tent-magic', 'banner', 'stall-bread', 'table2', 'cart-potions', 'cart-goods', 'stand-fruit', 'barrels1', 'crates2'];
+  const files = ['paving', 'shadow', 'stall-weapons', 'stall-fruit', 'tent-magic', 'banner', 'stall-bread', 'table-bread', 'table-magic', 'cart-potions', 'cart-goods', 'stand-fruit', 'barrels1', 'crates2'];
   void Promise.all(files.map((f) => img(f).decode().catch(() => undefined))).then(() => {
     if (stopped) return;
     layout();
