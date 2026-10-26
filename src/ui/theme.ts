@@ -68,6 +68,35 @@ async function tintFrames(pal: string[]): Promise<void> {
     g.putImageData(d, 0, 0);
     document.documentElement.style.setProperty(`--img-${f.name}`, `url(${c.toDataURL()})`);
   }
+  if (!purpleDone) {
+    purpleDone = true;
+    const img = await frameImages.get('btn.png')!.catch(() => null);
+    if (img) document.documentElement.style.setProperty('--img-btn-purple', `url(${repaint(img, PURPLE, 0.1)})`);
+  }
+}
+
+/** The shop's frames: the button frame repainted in the shop's purple, darkest to lightest (whatever the area). */
+const PURPLE = ['#2a0626', '#8a1677', '#ff2fd0', '#ffb8f1'].map((c) => [1, 3, 5].map((o) => parseInt(c.slice(o, o + 2), 16)));
+let purpleDone = false;
+
+/** A frame picture repainted along `stops` by each pixel's brightness, keeping `keep` of the original. */
+function repaint(img: HTMLImageElement, stops: number[][], keep: number): string {
+  const c = document.createElement('canvas');
+  c.width = img.width;
+  c.height = img.height;
+  const g = c.getContext('2d')!;
+  g.drawImage(img, 0, 0);
+  const d = g.getImageData(0, 0, c.width, c.height);
+  for (let i = 0; i < d.data.length; i += 4) {
+    if (!d.data[i + 3]) continue;
+    const L = (0.3 * d.data[i] + 0.59 * d.data[i + 1] + 0.11 * d.data[i + 2]) / 255;
+    const t = Math.min(stops.length - 1.001, L * (stops.length - 1));
+    const j = Math.floor(t);
+    const k = t - j;
+    for (let ch = 0; ch < 3; ch++) d.data[i + ch] = (stops[j][ch] + (stops[j + 1][ch] - stops[j][ch]) * k) * (1 - keep) + d.data[i + ch] * keep;
+  }
+  g.putImageData(d, 0, 0);
+  return c.toDataURL();
 }
 
 /** Switches the menu style (body class ui-parchment for the default parchment & wood look). */

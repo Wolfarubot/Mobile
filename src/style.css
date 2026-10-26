@@ -6417,11 +6417,10 @@ img.ei.gem-ic {
   display: grid;
   place-items: center;
   font-size: 26px;
-  /* The same frame as the wares: the UI's bevelled frame, edged in purple. */
-  border: 6px solid var(--c0);
-  border-image: var(--img-btn) 3 / 6px / 0 stretch;
+  /* The same frame as the wares: the UI's bevelled frame in purple. */
+  border: 6px solid #8a1677;
+  border-image: var(--img-btn-purple, var(--img-btn)) 3 / 6px / 0 stretch;
   background: var(--c3) padding-box;
-  box-shadow: 0 0 0 3px #ff2fd0, 0 0 0 5px #000;
   image-rendering: pixelated;
   box-sizing: content-box;
 }
@@ -6488,16 +6487,16 @@ img.ei.gem-ic {
   gap: 3px;
   min-width: 0;
 }
-/* The wares' frames: the game's bevelled UI frame, edged in the shop's purple, with the rarity glowing inside. */
+/* The wares' frames: the game's bevelled UI frame repainted in the shop's purple, with the rarity glowing inside. */
 body .craft-tile.shop-tile,
 body.ui-parchment .craft-tile.shop-tile {
   width: 100%;
   max-width: 96px;
-  border: 9px solid var(--c0) !important;
-  border-image: var(--img-btn) 3 / 9px / 0 stretch !important;
+  border: 9px solid #8a1677 !important;
+  border-image: var(--img-btn-purple, var(--img-btn)) 3 / 9px / 0 stretch !important;
   image-rendering: pixelated;
   background: radial-gradient(circle, color-mix(in srgb, var(--rc) 45%, var(--c3)) 0%, var(--c3) 75%) padding-box !important;
-  box-shadow: 0 0 0 3px #ff2fd0, 0 0 0 5px #000, inset 0 0 0 2px var(--rc) !important;
+  box-shadow: inset 0 0 0 2px var(--rc) !important;
 }
 .st-rarity {
   font-size: 10px;
