@@ -1872,17 +1872,21 @@ export const FLYING: ReadonlySet<EnemyId> = new Set<EnemyId>([
   'iceWyvern', 'cloudling', 'thunderbird', 'valkyrie', 'cometWisp', 'starEater', 'shade', 'watcher', 'voidWyrm', 'pixieQueen', 'beholdenWatcher',
 ]);
 
-export const DAMAGE_TYPES: Record<DamageType, { name: string; icon: string; color: string; effect?: string }> = {
-  physical: { name: 'Physical', icon: '🗡️', color: '#e8e8e8', effect: `Bleeds: ${STATUS.bleed.share * 100}% of the hit again over ${STATUS.bleed.duration}s; bleeds stack (up to ${STATUS.bleed.maxStacks})` },
-  fire: { name: 'Fire', icon: '🔥', color: '#ff7a2a', effect: `Burns: ${STATUS.burn.share * 100}% of the hit again over ${STATUS.burn.duration}s, and can spread to monsters right next to it` },
-  acid: { name: 'Acid', icon: '🧪', color: '#c6f03a', effect: `Acid puddle: hurts everything in it for ${STATUS.acid.duration}s` },
-  frost: { name: 'Frost', icon: '❄️', color: '#8fdcff', effect: `Chills: half speed for ${STATUS.chill.duration}s` },
-  radiant: { name: 'Radiant', icon: '✨', color: '#ffe36e', effect: `Radiant burst: ${STATUS.burst.share * 100}% of the hit to everything nearby` },
-  poison: { name: 'Poison', icon: '☠️', color: '#6fdc5a', effect: `Poisons: ${STATUS.poison.share * 100}% of the hit again over ${STATUS.poison.duration}s, plus a share of its max HP (more from rarer weapons, less on Guardians)` },
-  arcane: { name: 'Arcane', icon: '🔮', color: '#c08cff', effect: `Exposes: removes its resistances for ${STATUS.expose.duration}s` },
-  decay: { name: 'Decay', icon: '🥀', color: '#b09a60', effect: `Dark aura: it hurts the monsters around it for ${STATUS.aura.duration}s` },
-  lightning: { name: 'Lightning', icon: '⚡', color: '#8fb4ff', effect: `Arcs: ${STATUS.arc.share * 100}% of the hit jumps to another creature nearby, striking everything it passes through` },
-  void: { name: 'Void', icon: '🌀', color: '#ff5fd7', effect: `Gravity well: for ${STATUS.well.duration}s it pulls the monsters around it in toward itself` },
+/**
+ * Damage types: name, look, and the status effect a weapon's hits can set off. `effect` gives the numbers (advanced
+ * tooltips); `simple` says what it does in plain words (the default tooltips).
+ */
+export const DAMAGE_TYPES: Record<DamageType, { name: string; icon: string; color: string; effect?: string; simple?: string }> = {
+  physical: { name: 'Physical', icon: '🗡️', color: '#e8e8e8', effect: `Bleeds: ${STATUS.bleed.share * 100}% of the hit again over ${STATUS.bleed.duration}s; bleeds stack (up to ${STATUS.bleed.maxStacks})`, simple: 'Has a chance to make monsters bleed, dealing damage over a short time. Bleeds stack.' },
+  fire: { name: 'Fire', icon: '🔥', color: '#ff7a2a', effect: `Burns: ${STATUS.burn.share * 100}% of the hit again over ${STATUS.burn.duration}s, and can spread to monsters right next to it`, simple: 'Has a chance to set monsters on fire, burning them for a short time; the flames can spread to monsters right next to them.' },
+  acid: { name: 'Acid', icon: '🧪', color: '#c6f03a', effect: `Acid puddle: hurts everything in it for ${STATUS.acid.duration}s`, simple: 'Has a chance to leave an acid puddle that hurts every monster in it for a short time.' },
+  frost: { name: 'Frost', icon: '❄️', color: '#8fdcff', effect: `Chills: half speed for ${STATUS.chill.duration}s`, simple: 'Has a chance to chill monsters, slowing them down for a short time.' },
+  radiant: { name: 'Radiant', icon: '✨', color: '#ffe36e', effect: `Radiant burst: ${STATUS.burst.share * 100}% of the hit to everything nearby`, simple: 'Has a chance to burst with light, hurting every monster nearby.' },
+  poison: { name: 'Poison', icon: '☠️', color: '#6fdc5a', effect: `Poisons: ${STATUS.poison.share * 100}% of the hit again over ${STATUS.poison.duration}s, plus a share of its max HP (more from rarer weapons, less on Guardians)`, simple: 'Has a chance to apply the poison condition, dealing continuous damage for a short duration.' },
+  arcane: { name: 'Arcane', icon: '🔮', color: '#c08cff', effect: `Exposes: removes its resistances for ${STATUS.expose.duration}s`, simple: 'Has a chance to expose monsters, stripping away their resistances for a short time.' },
+  decay: { name: 'Decay', icon: '🥀', color: '#b09a60', effect: `Dark aura: it hurts the monsters around it for ${STATUS.aura.duration}s`, simple: 'Has a chance to wrap monsters in a dark aura that hurts the monsters around them.' },
+  lightning: { name: 'Lightning', icon: '⚡', color: '#8fb4ff', effect: `Arcs: ${STATUS.arc.share * 100}% of the hit jumps to another creature nearby, striking everything it passes through`, simple: 'Has a chance to arc to another monster nearby, striking everything it passes through.' },
+  void: { name: 'Void', icon: '🌀', color: '#ff5fd7', effect: `Gravity well: for ${STATUS.well.duration}s it pulls the monsters around it in toward itself`, simple: 'Has a chance to open a gravity well that pulls the monsters around it in.' },
 };
 
 /**
@@ -4378,7 +4382,7 @@ editableData('Hunters', 'tap', TAP_ABILITIES.map((t) => [t.id, t, 'Tap abilities
 editableData('Materials', 'material', MATERIALS.map((m) => [m.id, m, m.name]), { name: 'Name', desc: 'Description' });
 editableData('Events', 'event', EVENTS.map((e) => [e.id, e, `${areaName(e.area)} · ${e.name}`]), { name: 'Name', blurb: 'Description' });
 editableData('Events', 'buff', textRec(MINIGAME_BUFFS, (b) => `Minigame buff · ${b.name}`), { name: 'Name', desc: 'Description' });
-editableData('Combat', 'damage', textRec(DAMAGE_TYPES, () => 'Damage types'), { name: 'Name', effect: 'Status effect' });
+editableData('Combat', 'damage', textRec(DAMAGE_TYPES, () => 'Damage types'), { name: 'Name', simple: 'Status effect (tooltip)', effect: 'Status effect (advanced tooltip)' });
 editableData('Combat', 'weapon', textRec(WEAPON_CLASSES, (w) => `Weapon type · ${w.name}`), { name: 'Name', describe: 'Description' });
 editableData(
   'Combat',

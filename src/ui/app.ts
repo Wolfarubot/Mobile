@@ -99,6 +99,9 @@ import {
   SHOP_DAILY_ITEMS,
   type Quest,
   MINIGAME_BUFFS,
+  STATUS,
+  UNIQUE_EFFECTS,
+  type GearEffect,
   minigameStars,
   BOSS_MATERIAL_DROP,
   GUARDIAN_GOLD_MULT,
@@ -4317,7 +4320,7 @@ export class AppUI {
     for (const t of Object.keys(DAMAGE_TYPES) as DamageType[]) {
       const d = DAMAGE_TYPES[t];
       const card = el('div', 'card setting tut-card');
-      card.innerHTML = `<div class="setting-name">${damageTypeHtml(t)}${STATUS_NAMES[t] ? ` <span class="tut-status">${STATUS_NAMES[t]}</span>` : ''}</div><p>${d.effect ? `${d.effect}.` : tx('tut.damage.none')}</p>`;
+      card.innerHTML = `<div class="setting-name">${damageTypeHtml(t)}${STATUS_NAMES[t] ? ` <span class="tut-status">${STATUS_NAMES[t]}</span>` : ''}</div><p>${d.effect ? (advancedTips ? `${d.effect}.` : d.simple) : tx('tut.damage.none')}</p>`;
       body.appendChild(card);
     }
   }
@@ -4386,6 +4389,7 @@ export class AppUI {
     applyAudio(this.game.state.settings.audio);
     applyFont(this.game.state.settings.font);
     applyUiStyle(this.game.state.settings.uiStyle);
+    advancedTips = this.game.state.settings.advancedTips;
     requestAnimationFrame(refitAffinities);
     void document.fonts?.ready.then(refitAffinities);
     const nav = $('.tabs');
@@ -4748,6 +4752,19 @@ export class AppUI {
       () => st.uiStyle,
       (v) => {
         st.uiStyle = v;
+        this.applySettings();
+      },
+    );
+    choices(
+      tx('tip.settings.title'),
+      tx('tip.settings.body'),
+      [
+        ['simple', tx('tip.settings.simple')],
+        ['advanced', tx('tip.settings.advanced')],
+      ],
+      () => (st.advancedTips ? 'advanced' : 'simple'),
+      (v) => {
+        st.advancedTips = v === 'advanced';
         this.applySettings();
       },
     );
@@ -5194,6 +5211,42 @@ function foldChips(box: HTMLElement | null): void {
   for (let i = shown.length - 1; i > 0 && mid(more) > limit; i--) shown[i].classList.add('folded');
 }
 
+/** Settings → Advanced tooltips: tags explain themselves with the numbers (chances, damage, durations). */
+let advancedTips = false;
+
+/**
+ * A weapon's status effect for one of its damage types, for its tag's popup: in plain words, or (advanced) the
+ * chance per hit and what it deals (poison's share of max HP at this weapon's rarity).
+ */
+function statusTip(gd: GearDef, t: DamageType): string {
+  const d = DAMAGE_TYPES[t];
+  if (!advancedTips) return d.simple ?? '';
+  // The effect's own label ("Poisons: ...") would repeat the status name the line already gives.
+  let effect = (d.effect ?? '').replace(/^[^:]+:\s*/, '');
+  effect = effect.charAt(0).toUpperCase() + effect.slice(1);
+  if (t === 'poison') {
+    const hp = STATUS.poison.maxHp[gd.rarity];
+    effect = effect.replace(/plus a share of its max HP.*$/, tx('tip.gear.poisonHp', { pct: +(hp * 100).toFixed(2), guardian: +(hp * STATUS.poison.guardian * 100).toFixed(2) }));
+  }
+  return tx('tip.gear.proc', { pct: Math.round((gd.proc ?? 0) * 100), status: STATUS_NAMES[t] ?? d.name, effect });
+}
+
+/** A gear ability in plain words, without its numbers (advanced tooltips use describeEffect). */
+function simpleEffect(e: GearEffect): string {
+  switch (e.kind) {
+    case 'summon':
+      return tx('tip.effect.summon', { name: e.name });
+    case 'spell':
+      return tx('tip.effect.spell', { spell: SPELLS[e.spell].name, desc: SPELLS[e.spell].desc });
+    case 'unique':
+      return tx('tip.effect.unique', { name: UNIQUE_EFFECTS[e.id].name, desc: UNIQUE_EFFECTS[e.id].desc });
+    case 'potion':
+      return tx('tip.effect.potion', { stat: STAT_LABELS[e.stat] });
+    default:
+      return tx(`tip.effect.${e.kind}`);
+  }
+}
+
 /** A tag naming one of a piece's features (`icon`: a tag icon key); tapping it opens a popup with `tip` (HTML) in full. */
 function featTag(icon: string, name: string, tip: string, color = 'var(--gold)', cls = ''): string {
   return `<button type="button" class="dtype-tag feat-tag${cls}" style="--dc:${color}" data-tip="${esc(tip)}"><span class="ic">${tagIconHtml(icon)}</span>${name}</button>`;
@@ -5217,19 +5270,14 @@ function featureTags(gd: GearDef, stars = 1): string {
   else
     for (const t of types) {
       const d = DAMAGE_TYPES[t];
-      const how =
-        types.length === 1
-          ? `Deals <b>${d.name}</b> damage.`
-          : gd.perShot
-            ? `Each projectile deals one of its types in turn, at full damage: ${types.map((x) => DAMAGE_TYPES[x].name).join(', ')}.`
-            : `Each hit is split evenly between its ${types.length} types: ${types.map((x) => DAMAGE_TYPES[x].name).join(', ')}.`;
-      const proc = gd.proc && d.effect ? `<br><b>${Math.round(gd.proc * 100)}%</b> chance per hit · ${d.effect}` : '';
-      tags.push(featTag(DAMAGE_TAG_ICONS[t], d.name, how + proc, d.color));
+      const names = types.map((x) => DAMAGE_TYPES[x].name).join(', ');
+      const how = types.length === 1 ? tx('tip.gear.dmgOne', { type: d.name }) : tx(gd.perShot ? 'tip.gear.dmgPerShot' : 'tip.gear.dmgSplit', { n: types.length, types: names });
+      tags.push(featTag(DAMAGE_TAG_ICONS[t], d.name, `${how}${gd.proc && d.effect ? `<br>${statusTip(gd, t)}` : ''}`, d.color));
     }
   if (gd.typeBonus) {
     const d = DAMAGE_TYPES[gd.typeBonus.type];
     const pct = Math.round(gd.typeBonus.bonus * GEAR_STAR_POWER[stars] * 100);
-    tags.push(featTag(DAMAGE_TAG_ICONS[gd.typeBonus.type], `+${pct}% ${d.name}`, tx('tip.gear.typeBonus', { pct, type: d.name }), d.color));
+    tags.push(featTag(DAMAGE_TAG_ICONS[gd.typeBonus.type], `+${pct}% ${d.name}`, tx(advancedTips ? 'tip.gear.typeBonus' : 'tip.gear.typeBonusSimple', { pct, type: d.name }), d.color));
   }
   if (gd.weaponClass) tags.push(featTag(FEATURE_TAG_ICONS.weapon, WEAPON_CLASSES[gd.weaponClass].name, WEAPON_CLASSES[gd.weaponClass].describe));
   // Its archetype, when it isn't the standard one: what this take on the class trades.
@@ -5255,14 +5303,15 @@ function featureTags(gd: GearDef, stars = 1): string {
   if (gd.accType) tags.push(featTag(ACC_TAG_ICONS[gd.accType], ACC_TYPES[gd.accType].name, ACC_TYPES[gd.accType].desc));
   if (gd.ability) tags.push(featTag(FEATURE_TAG_ICONS.ability, 'Ability', gd.ability));
   if (gd.effect)
-    tags.push(featTag(gd.effect.kind === 'summon' ? SUMMON_TAG_ICONS[gd.effect.type] : EFFECT_TAG_ICONS[gd.effect.kind], gd.effect.kind === 'summon' ? `${gd.effect.name}s` : EFFECT_TAG[gd.effect.kind], `${describeEffect(gd.effect, stars)}${'base' in gd.effect ? '<br><small>Own damage, raised by your bonuses, not your weapon.</small>' : ''}`));
+    tags.push(featTag(gd.effect.kind === 'summon' ? SUMMON_TAG_ICONS[gd.effect.type] : EFFECT_TAG_ICONS[gd.effect.kind], gd.effect.kind === 'summon' ? `${gd.effect.name}s` : EFFECT_TAG[gd.effect.kind], advancedTips ? `${describeEffect(gd.effect, stars)}${'base' in gd.effect ? `<br><small>${tx('tip.gear.ownDamage')}</small>` : ''}` : simpleEffect(gd.effect)));
   if (gd.bane) {
     const a = ARCHETYPES[gd.bane.archetype];
-    tags.push(featTag(ARCHETYPE_TAG_ICONS[gd.bane.archetype], `${a.name} Bane`, tx('tip.gear.bane', { pct: Math.round(gd.bane.bonus * GEAR_STAR_POWER[stars] * 100), kind: a.name })));
+    tags.push(featTag(ARCHETYPE_TAG_ICONS[gd.bane.archetype], `${a.name} Bane`, tx(advancedTips ? 'tip.gear.bane' : 'tip.gear.baneSimple', { pct: Math.round(gd.bane.bonus * GEAR_STAR_POWER[stars] * 100), kind: a.name })));
   }
   if (gd.findDrop) {
     const f = gd.findDrop;
-    tags.push(featTag(FEATURE_TAG_ICONS.finder, 'Finder', `At ${f.stars}★: your ${ARCHETYPES[f.archetype].name.toLowerCase()} kills have a ${f.chance * 100}% chance to drop ${materialDef(f.material).name}${stars >= f.stars ? '.' : ` (now ${stars}★).`}`));
+    const fv = { stars: f.stars, kind: ARCHETYPES[f.archetype].name.toLowerCase(), pct: f.chance * 100, material: materialDef(f.material).name };
+    tags.push(featTag(FEATURE_TAG_ICONS.finder, 'Finder', `${tx(advancedTips ? 'tip.gear.finder' : 'tip.gear.finderSimple', fv)}${stars >= f.stars ? '' : ` (now ${stars}★)`}`));
   }
   return tags.length ? `<div class="feat-tags">${tags.join('')}</div>` : '';
 }
@@ -5610,8 +5659,9 @@ function procTypeTags(gd: GearDef): string {
     .map((t) => {
       const d = DAMAGE_TYPES[t];
       const pct = gd.proc && d.effect ? Math.round(gd.proc * 100) : 0;
-      const tip = d.effect ? `${pct ? `${pct}% chance each hit to set off its effect` : "This weapon doesn't set off its effect"}: <b>${d.effect}</b>.` : `${d.name} damage.`;
-      return `<button type="button" class="dtype-tag feat-tag" style="--dc:${d.color}" data-tip="${esc(tip)}"><span class="ic">${tagIconHtml(DAMAGE_TAG_ICONS[t])}</span>${d.name}${pct ? `<span class="pct">${pct}%</span>` : ''}</button>`;
+      const tip = `${tx('tip.gear.dmgOne', { type: d.name })}${d.effect ? `<br>${pct ? statusTip(gd, t) : advancedTips ? tx('tip.gear.noProc') : ''}` : ''}`;
+      // The chance on the tag itself only with advanced tooltips.
+      return `<button type="button" class="dtype-tag feat-tag" style="--dc:${d.color}" data-tip="${esc(tip)}"><span class="ic">${tagIconHtml(DAMAGE_TAG_ICONS[t])}</span>${d.name}${pct && advancedTips ? `<span class="pct">${pct}%</span>` : ''}</button>`;
     })
     .join('');
 }
@@ -5624,7 +5674,9 @@ function dtypeTag(gd: GearDef): string {
 /** What a Special weapon does with its many elements, in words. */
 function specialText(gd: GearDef): string {
   const types = gearTypes(gd);
-  return `${SPECIAL_TYPE.icon} Special: ${gd.perShot ? 'each projectile deals the next element in turn' : 'its hits split between its elements'} (${types.map((t) => DAMAGE_TYPES[t].icon).join('')}), starting with ${DAMAGE_TYPES[types[0]].name}${gd.proc ? `; each can trigger its status effect (${Math.round(gd.proc * 100)}% chance)` : ''}`;
+  const how = `${gd.perShot ? 'each projectile deals the next element in turn' : 'its hits split between its elements'} (${types.map((t) => DAMAGE_TYPES[t].icon).join('')})`;
+  const proc = gd.proc ? ` ${tx(advancedTips ? 'tip.gear.specialProcAdvanced' : 'tip.gear.specialProc', { pct: Math.round(gd.proc * 100) })}` : '';
+  return `${SPECIAL_TYPE.icon} ${tx('tip.gear.special', { how, first: DAMAGE_TYPES[types[0]].name })}${proc}`;
 }
 
 /** The Special damage type's tag (weapons that change elements, or deal too many to list). */
