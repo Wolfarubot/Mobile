@@ -401,6 +401,28 @@ it.runIf(!!process.env.SIM_FULL)('full game: a typical player beats the Time Eat
   const g = bot.game;
   let beaten: number | null = null;
   let now = 0;
+  // SIM_PRESETS=public/dev-presets.json records the Dev menu's progress phases from this run, as `npm run presets`
+  // does (each area's start, and the save just before the Guardian challenge that wins), written after every session.
+  const presets: Record<string, string> = {};
+  const takePreset = (key: string) => {
+    if (process.env.SIM_PRESETS && !presets[key]) presets[key] = serialize(g.state);
+  };
+  if (process.env.SIM_PRESETS) {
+    if (!from) takePreset('forest-start');
+    let pending: { area: AreaId; save: string } | null = null;
+    const challenge = g.challengeGuardian.bind(g);
+    g.challengeGuardian = () => {
+      pending = { area: g.state.area, save: serialize(g.state) };
+      return challenge();
+    };
+    g.on((e) => {
+      if (e.type === 'eventComplete' && pending && e.event === `guardian-${pending.area}` && !presets[`${pending.area}-end`]) presets[`${pending.area}-end`] = pending.save;
+    });
+  }
+  const writePresets = () => {
+    if (!process.env.SIM_PRESETS) return;
+    writeFileSync(process.env.SIM_PRESETS, JSON.stringify(Object.fromEntries(AREAS.flatMap((a) => [`${a.id}-start`, `${a.id}-end`]).filter((k) => presets[k]).map((k) => [k, JSON.parse(presets[k])]))));
+  };
   g.on((e) => {
     if (e.type === 'finalGuardian' && beaten === null) beaten = now;
   });
@@ -436,9 +458,14 @@ it.runIf(!!process.env.SIM_FULL)('full game: a typical player beats the Time Eat
       log(`  mastery ${g.state.area}: ${Math.round(ev.unlockKills)} (day ${(start / 86400).toFixed(2)})`);
     }
     botShop(g, start, bot.memo);
-    play(g, bot.field, length, start, 1, bot.memo, bot.unlockedAt, () => (now = start));
+    takePreset(`${g.state.area}-start`);
+    play(g, bot.field, length, start, 1, bot.memo, bot.unlockedAt, () => {
+      now = start;
+      takePreset(`${g.state.area}-start`);
+    });
     sampleGroups(g, sampleRng);
     g.state.lastSeen = (start + length) * 1000;
+    writePresets();
     // A checkpoint after every session (resume with SIM_FROM=<dir>/latest.json if the run is cut off).
     if (process.env.SIM_SNAP) writeFileSync(`${process.env.SIM_SNAP}/latest.json`, JSON.stringify({ clock: start + length, save: serialize(g.state), unlockedAt: bot.unlockedAt, masteries: found }));
     for (const a of AREAS) if (a.id in bot.unlockedAt && !seen.has(a.id)) {
