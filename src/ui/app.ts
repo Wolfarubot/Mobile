@@ -4777,6 +4777,7 @@ export class AppUI {
        <div class="offline-actions"><button class="buy offline-details-btn">Details</button>${!r.doubled && r.gold > 0 ? `<button class="buy offline-double-btn">${sprite('things/004')} Watch ad: ×2</button>` : ''}</div>`,
       [{ label: 'Collect' }],
     );
+    this.modal.querySelector('.modal-box')?.classList.add('offline-summary');
     $('.offline-details-btn', this.modal).addEventListener('click', () => this.showOfflineDetails(r));
     this.modal.querySelector('.offline-double-btn')?.addEventListener('click', () => {
       void showRewardedAd().then((ok) => {
@@ -4827,7 +4828,7 @@ export class AppUI {
     };
     const loot = lootTiles(false);
     const salvaged = lootTiles(true);
-    this.modal.innerHTML = `<div class="modal-box fullpage"><h2>While you were away</h2><div class="sheet-body">
+    this.modal.innerHTML = `<div class="modal-box fullpage offline-summary"><h2>While you were away</h2><div class="sheet-body">
       <p class="offline-total">${fmtTime(r.away)} away · 🪙 ${fmt(r.gold)} · ⚔️ ${fmt(r.kills)} monsters slain</p>
       ${mats ? `<h3>Materials</h3><div class="offline-mats all">${mats}</div>` : ''}
       ${loot ? `<h3>Loot drops</h3><div class="offline-mats all">${loot}</div>` : ''}

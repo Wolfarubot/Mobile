@@ -488,13 +488,14 @@ button {
 }
 .tnode.ascend .tn-name {
   background: var(--gold) !important;
-  color: var(--fg) !important;
+  color: #fff !important;
+  text-shadow: var(--outline) !important;
 }
 .tn-cost {
   font-size: 10px;
   font-weight: 800;
   color: var(--gold);
-  text-shadow: 0 1px 0 var(--c0);
+  text-shadow: var(--outline);
 }
 .tnode.gated .tn-icon {
   filter: grayscale(1);
@@ -4564,8 +4565,9 @@ body.ui-parchment .filter-btn {
   border: 9px solid var(--c0) !important;
   border-image: var(--img-btn) 3 fill / 9px / 0 stretch !important;
   image-rendering: pixelated;
-  color: var(--fg) !important;
-  text-shadow: 1px 1px 0 var(--c0) !important;
+  /* White with a thin black outline, wherever the button sits (cards and sheets set a dark text colour). */
+  color: #fff !important;
+  text-shadow: var(--outline) !important;
   padding: 2px 6px !important;
   box-shadow: none !important;
 }
@@ -4576,8 +4578,8 @@ body.ui-parchment .amounts button.active,
 body.ui-parchment .subtabs button.on,
 body.ui-parchment .segmented button.on {
   border-image: var(--img-btnhi) 3 fill / 9px / 0 stretch !important;
-  color: var(--fg) !important;
-  text-shadow: none !important;
+  color: #fff !important;
+  text-shadow: var(--outline) !important;
 }
 body.ui-parchment .equip-row > *,
 body.ui-parchment .gear-chip,
@@ -5191,7 +5193,7 @@ button.feat-tag {
   border: 2px solid var(--c0);
   border-radius: 0;
   background: var(--dc, var(--gold));
-  color: #141414;
+  color: #fff;
   box-shadow: inset 2px 2px 0 rgba(255, 255, 255, 0.45), inset -2px -2px 0 rgba(0, 0, 0, 0.3);
   font-size: 11px;
   font-weight: 800;
@@ -5587,11 +5589,13 @@ select,
 textarea {
   text-shadow: var(--outline);
 }
+/* Tags too: white text with the thin black outline, like the buttons. */
 .dtype-tag,
 .dtype-tag *,
 .feat-tag,
 .feat-tag * {
-  text-shadow: none;
+  color: #fff;
+  text-shadow: var(--outline);
 }
 
 /* The header plate of a Hunter's or monster's full view: a thicker outline. */
@@ -6635,4 +6639,11 @@ img.ei[src$='custom/012.png'] {
   flex: none;
   padding: 4px 10px;
   font-size: 12px;
+}
+
+/* The offline gains summary: white text with a thin black outline, easy to read on the parchment. */
+.modal-box.offline-summary,
+.modal-box.offline-summary * {
+  color: #fff;
+  text-shadow: var(--outline);
 }
