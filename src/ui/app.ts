@@ -1431,7 +1431,7 @@ export class AppUI {
           // Equipping takes it off whoever has it on.
           btn.textContent = `Take from ${wearerName(worn.who)}`;
         } else {
-          btn.textContent = current ? 'Equip (swap)' : 'Equip';
+          btn.textContent = 'Equip';
         }
         btn.addEventListener('click', () => {
           if (!g.equip(who, slot, item.uid)) return;
@@ -1607,7 +1607,7 @@ export class AppUI {
         ${featureTags(gd, item.stars)}
         ${statTable(gd, cost ? [{ label: `Now ${item.stars}★`, stars: item.stars }, { label: `Next ${item.stars + 1}★`, stars: item.stars + 1 }] : [{ label: `${item.stars}★`, stars: item.stars }]) || (gd.effect ? '' : '<p class="gear-now">No bonuses: plain everyday wear.</p>')}
         ${modSlotsHtml(g, uid)}
-        ${cost ? `<div class="fc-label">Upgrade cost</div><div class="fc-cost">${recipeHtml(g, cost, g.gearUpgradeGold(uid) ?? 0)}</div>` : Object.keys(gd.stats).length || gd.effect ? '<p>Fully upgraded.</p>' : '<p>Nothing to upgrade.</p>'}`;
+        ${cost ? `<div class="fc-label">Upgrade cost</div><div class="fc-cost">${recipeHtml(g, cost, g.gearUpgradeGold(uid) ?? 0)}</div>` : ''}`;
       // Under the modifier slots: Modify (once Kargesh or Marceline has joined).
       if (g.modifiable(uid)) {
         const rb = el('button', 'buy refine-open', '🛠️ Modify') as HTMLButtonElement;
