@@ -349,6 +349,8 @@ export class AppUI {
   private treePick = new Map<Wearer, TreeKind>();
   /** The full-screen gear picker, above the Hunter view. */
   private picker: HTMLElement | null = null;
+  /** Redraws the open gear picker (after its piece's full card, opened over it, closes). */
+  private pickerRedraw: (() => void) | null = null;
   private equipScreen: HTMLElement | null = null;
   private gearListOpen = false;
   private equipRefresh: (() => void) | null = null;
@@ -1396,12 +1398,17 @@ export class AppUI {
       const eq = $('.pk-equipped', view);
       if (current) {
         eq.innerHTML = gearCardHtml(current);
+        // Details opens the piece's full card over the picker: upgrade it, modify it.
+        const btns = el('div', 'pk-btns');
+        const details = el('button', 'buy secondary-btn', 'Details') as HTMLButtonElement;
+        details.addEventListener('click', () => this.openGearDetail(current.uid));
         const off = el('button', 'buy secondary-btn', 'Unequip') as HTMLButtonElement;
         off.addEventListener('click', () => {
           g.equip(who, slot, null);
           render();
         });
-        eq.firstElementChild!.appendChild(off);
+        btns.append(details, off);
+        eq.firstElementChild!.appendChild(btns);
       } else {
         eq.innerHTML = `<div class="gear-card empty"><div class="gc-head"><i>${GEAR_KINDS[def.kind].icon}</i><div><b>Empty</b><small>${def.label} slot</small></div></div></div>`;
       }
@@ -1490,6 +1497,7 @@ export class AppUI {
       }
     };
     let pager: IntersectionObserver | null = null;
+    this.pickerRedraw = () => render();
     render();
   }
 
@@ -1498,6 +1506,7 @@ export class AppUI {
     if (!this.picker) return false;
     this.picker.remove();
     this.picker = null;
+    this.pickerRedraw = null;
     this.equipRefresh?.();
     this.refresh();
     return true;
@@ -1609,7 +1618,7 @@ export class AppUI {
         body.querySelector('.mod-slots')?.after(rb);
       }
       const actions = el('div', 'actions');
-      const equip = el('button', 'buy', '🎽 Equip') as HTMLButtonElement;
+      const equip = el('button', 'buy', 'Equip') as HTMLButtonElement;
       equip.addEventListener('click', () => {
         close();
         this.openEquipScreen(uid);
@@ -1816,6 +1825,7 @@ export class AppUI {
     const close = () => {
       this.modal.classList.add('hidden');
       this.modalClose = null;
+      this.pickerRedraw?.();
       this.refresh();
     };
     build($('.sheet-body', this.modal), close);

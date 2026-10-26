@@ -2228,6 +2228,15 @@ button {
   padding: 10px;
   font-size: 15px;
 }
+/* The equipped piece's Details and Unequip, side by side. */
+.gear-card .pk-btns {
+  display: flex;
+  gap: 8px;
+}
+.gear-card .pk-btns .buy {
+  flex: 1;
+  width: auto;
+}
 .inv-tile.misfit {
   opacity: 0.35;
 }
