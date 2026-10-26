@@ -3609,10 +3609,10 @@ export class AppUI {
     const icon = this.eventIcon(ev, 'ec-icon');
     const cost = g.energyCost(ev.id);
     const blurb = ev.kind === 'minigame' ? tx('event.card.minigame', { buff: MINIGAME_BUFFS[ev.minigame!].name, desc: lowerFirst(MINIGAME_BUFFS[ev.minigame!].desc) }) : ev.blurb;
-    card.innerHTML = `<div class="beast-head">${icon.html}<div class="info"><div class="name">${ev.name}</div><div class="blurb">${blurb}</div></div></div><div class="ev-status"></div><div class="ev-foot"><span class="ev-cost">Cost ${this.energyPips(ev)} <b>${cost}</b> energy</span><button class="ev-details">${tx('event.card.details')}</button><button class="buy"></button></div>`;
+    card.innerHTML = `<div class="beast-head">${icon.html}<div class="info"><div class="name">${ev.name}</div><div class="blurb">${blurb}</div></div></div><div class="ev-status"></div><div class="ev-foot"><span class="ev-cost">Cost ${this.energyPips(ev)} <b>${cost}</b> energy</span><button class="buy ev-details">${tx('event.card.details')}</button><button class="buy ev-go"></button></div>`;
     icon.draw(card);
     $('.ev-details', card).addEventListener('click', () => this.openEventDetail(ev));
-    this.wireEventButton(ev, card, $<HTMLButtonElement>('.buy', card), $('.ev-status', card), this.refreshers, () => {
+    this.wireEventButton(ev, card, $<HTMLButtonElement>('.ev-go', card), $('.ev-status', card), this.refreshers, () => {
       if (ev.kind !== 'minigame') return this.eventRewards(ev).join(' · ');
       const best = g.state.events[ev.id]?.best ?? 0;
       return best > 0 ? `${tx('event.card.best', { score: fmt(best) })} ${rankStars(g.starsFor(ev.id, best))}` : `${tx('event.card.notPlayed')} ${rankStars(0)}`;

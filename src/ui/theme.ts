@@ -68,16 +68,23 @@ async function tintFrames(pal: string[]): Promise<void> {
     g.putImageData(d, 0, 0);
     document.documentElement.style.setProperty(`--img-${f.name}`, `url(${c.toDataURL()})`);
   }
-  if (!purpleDone) {
-    purpleDone = true;
+  if (!fixedDone) {
+    fixedDone = true;
     const img = await frameImages.get('btn.png')!.catch(() => null);
-    if (img) document.documentElement.style.setProperty('--img-btn-purple', `url(${repaint(img, PURPLE, 0.1)})`);
+    if (img) for (const [name, stops] of Object.entries(FIXED_SHADES)) document.documentElement.style.setProperty(`--img-btn-${name}`, `url(${repaint(img, stops, 0.1)})`);
   }
 }
 
-/** The shop's frames: the button frame repainted in the shop's purple, darkest to lightest (whatever the area). */
-const PURPLE = ['#2a0626', '#8a1677', '#ff2fd0', '#ffb8f1'].map((c) => [1, 3, 5].map((o) => parseInt(c.slice(o, o + 2), 16)));
-let purpleDone = false;
+const hexes = (cs: string[]): number[][] => cs.map((c) => [1, 3, 5].map((o) => parseInt(c.slice(o, o + 2), 16)));
+/**
+ * The button frame repainted in fixed shades (whatever the area), darkest to lightest: the shop's purple, and steel
+ * blue for buttons that sit beside an area-coloured one but do something else (an event's Details beside Start).
+ */
+const FIXED_SHADES: Record<string, number[][]> = {
+  purple: hexes(['#2a0626', '#8a1677', '#ff2fd0', '#ffb8f1']),
+  steel: hexes(['#0e1a2b', '#2f4f73', '#6f9ccc', '#d4e6f7']),
+};
+let fixedDone = false;
 
 /** A frame picture repainted along `stops` by each pixel's brightness, keeping `keep` of the original. */
 function repaint(img: HTMLImageElement, stops: number[][], keep: number): string {

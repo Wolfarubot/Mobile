@@ -1723,8 +1723,14 @@ button {
   flex: 1;
 }
 .ev-foot .ev-details {
-  padding: 6px 10px;
-  font-size: 13px;
+  min-width: 76px;
+}
+/* Details: framed like Start, in its own steel-blue shade (and without Start's ready glow). */
+body.ui-parchment .buy.ev-details,
+body.ui-parchment .hunter-dock .buy.ev-details {
+  border-image: var(--img-btn-steel, var(--img-btn)) 3 fill / 8px / 0 stretch !important;
+  background: #2f4f73 padding-box !important;
+  filter: brightness(1.12) !important;
 }
 .ev-status .rank-stars {
   margin-left: 4px;
@@ -2321,11 +2327,17 @@ canvas {
   color: var(--fg);
   border-bottom: 3px solid var(--c1);
 }
-.hd-close,
-.menu-btn {
+.hd-close {
   background: var(--c1);
   color: var(--fg);
   border: 2px solid var(--c3);
+}
+/* The menu and Quest Log buttons: their dark square, no light frame round it. */
+.menu-btn {
+  background: var(--c1);
+  color: var(--fg);
+  border: 0;
+  box-shadow: none;
 }
 .section-title {
   color: var(--fg);
