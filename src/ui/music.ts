@@ -36,8 +36,11 @@ export type TrackId =
   | 'ancientLibrary'
   | 'unknownIsland';
 
-/** Each track's file and loop length in seconds (from its MIDI: the last note, to the nearest half beat). */
-const TRACKS: Record<TrackId, { file: string; loop: number }> = {
+/**
+ * Each track's file and loop length in seconds (from its MIDI: the last note, to the nearest half beat), and its tempo
+ * where a minigame plays to its beat.
+ */
+const TRACKS: Record<TrackId, { file: string; loop: number; bpm?: number }> = {
   woodForestTown: { file: 'wood-forest-town', loop: 59.4286 },
   spiritForest: { file: 'spirit-forest', loop: 81.2903 },
   maliciousScheme: { file: 'malicious-scheme', loop: 71.2088 },
@@ -57,7 +60,7 @@ const TRACKS: Record<TrackId, { file: string; loop: number }> = {
   theEvilOne: { file: 'the-evil-one', loop: 82.649 },
   goofyMonster: { file: 'goofy-monster', loop: 32 },
   peacefulVillage: { file: 'peaceful-village', loop: 85.5445 },
-  magicTemple: { file: 'magic-temple', loop: 55.9223 },
+  magicTemple: { file: 'magic-temple', loop: 55.9223, bpm: 103 },
   oldMagician: { file: 'the-old-magician', loop: 47.5247 },
   livelyCity: { file: 'lively-city', loop: 64.6154 },
   militaryBase: { file: 'military-base', loop: 48.9796 },
@@ -123,7 +126,7 @@ let ctx: AudioContext | null = null;
 let bus: GainNode | null = null;
 /** The track that should be playing, and the one that is. */
 let wanted: TrackId | null = null;
-let playing: { id: TrackId; src: AudioBufferSourceNode; gain: GainNode } | null = null;
+let playing: { id: TrackId; src: AudioBufferSourceNode; gain: GainNode; at: number; pos: number; rate: number } | null = null;
 const buffers = new Map<TrackId, AudioBuffer>();
 const loading = new Set<TrackId>();
 /** Tracks fading out (kept until they've stopped). */
@@ -136,6 +139,34 @@ export function setMusicVolume(v: number): void {
 }
 
 /** Asks for a track (or silence); it plays once audio has started and the track has loaded. */
+/** How fast music plays (a minigame speeding its song up); 1 is normal. */
+let rate = 1;
+
+/** Speeds the playing track up (or back down): its tempo and pitch both follow, and later tracks start at this rate. */
+export function setMusicRate(r: number): void {
+  rate = r;
+  if (!playing || !ctx) return;
+  playing.pos += (ctx.currentTime - playing.at) * playing.rate;
+  playing.at = ctx.currentTime;
+  playing.rate = r;
+  playing.src.playbackRate.setValueAtTime(r, ctx.currentTime);
+}
+
+/**
+ * The playing track's beat clock, if it's this one and it has a tempo: seconds of the song heard so far (counted on
+ * past its loops, which are whole bars, and behind by the speakers' delay) and its seconds per beat. Null while it
+ * isn't playing (still loading, or the music's off).
+ */
+export function musicClock(id: TrackId): { pos: number; beat: number } | null {
+  const bpm = TRACKS[id].bpm;
+  if (!ctx || !bpm || playing?.id !== id) return null;
+  const delay = (ctx as AudioContext & { outputLatency?: number }).outputLatency || ctx.baseLatency || 0;
+  return { pos: playing.pos + (ctx.currentTime - playing.at - delay) * playing.rate, beat: 60 / bpm };
+}
+
+/** A track's seconds per beat, if it has a tempo. */
+export const trackBeat = (id: TrackId): number | null => (TRACKS[id].bpm ? 60 / TRACKS[id].bpm! : null);
+
 export function playMusic(id: TrackId | null): void {
   asked = id;
   const next = override ?? id;
@@ -180,7 +211,9 @@ function update(): void {
   gain.gain.linearRampToValueAtTime(1, ctx.currentTime + FADE_SEC);
   src.connect(gain).connect(bus);
   src.start(0, lead);
-  playing = { id, src, gain };
+  // Where the track is: `pos` seconds of it played by the context's time `at`, going at `rate`.
+  playing = { id, src, gain, at: ctx.currentTime, pos: 0, rate: 1 };
+  if (rate !== 1) setMusicRate(rate);
   // Keep only what's playing and what's fading out.
   for (const k of buffers.keys()) if (k !== id && !fading.has(k)) buffers.delete(k);
 }

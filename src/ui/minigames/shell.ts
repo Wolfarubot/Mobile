@@ -1,4 +1,4 @@
-import { overrideMusic, type TrackId } from '../music';
+import { overrideMusic, setMusicRate, type TrackId } from '../music';
 import { setBattleSfx } from '../sound';
 import type { AreaId } from '../../core/balance';
 import { areaBackground, type DecorOpts } from '../../render/backgrounds';
@@ -177,6 +177,7 @@ export function runMinigame(spec: MinigameSpec): void {
     cancelAnimationFrame(frame);
     window.removeEventListener('resize', resize);
     root.remove();
+    setMusicRate(1);
     overrideMusic(null);
     setBattleSfx(true);
     spec.onClose();

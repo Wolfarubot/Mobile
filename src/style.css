@@ -4751,10 +4751,11 @@ body.ui-parchment .hunter-dock .buy {
   }
 }
 
-/* ---- Minigames: full-screen, over everything ---- */
+/* ---- Minigames: full-screen, over everything but the phone's bottom bar (Android's navigation buttons): they end
+   above its inset, so their controls (drawn from the bottom of the canvas) are never under it. ---- */
 .minigame {
   position: fixed;
-  inset: 0;
+  inset: 0 0 var(--safe-bottom) 0;
   z-index: 60;
   background: #1d2a1a;
   touch-action: none;

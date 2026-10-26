@@ -4,10 +4,13 @@ import { HUNTER_SHEETS } from '../../render/hunterSheets';
 import { SHEETS } from '../../render/monsterSheets';
 import { hunterSheetImage, monsterSheetImage } from '../../render/sprites';
 import { drawFramedBar } from '../../render/hudBars';
+import { MINIGAME_MUSIC, musicClock, setMusicRate, trackBeat } from '../music';
 
 /**
- * Ba'al's Pixie Serenade (the Fey Grove): pixies fly down three cobbled paths, faster and faster. Tap a path as its
- * pixie reaches the small bar across it: 1 point anywhere on the blue cobbles round it, 2 right on the bar. A pixie
+ * Ba'al's Pixie Serenade (the Fey Grove): pixies fly down three cobbled paths, each reaching the bar on a beat of
+ * Ba'al's song, which slowly speeds up (and the pixies come more often: every other beat, then every beat, then
+ * off-beats too). Tap a path as its pixie reaches the small bar across it: 1 point anywhere on the blue cobbles
+ * round it, 2 right on the bar. A pixie
  * that slips past, or a tap on a path with no pixie there, costs a heart. Everything on screen is from the asset
  * packs: the paths (CraftPix's path & road tileset), the bars (the event timers' framed bar) and the music notes (the
  * UI packs), the Grove's pixies and Ba'al, who plays from the corner. The Grove's trees and scenery keep to the sides.
@@ -70,8 +73,36 @@ function noteIn(color: string): HTMLCanvasElement | null {
   return c;
 }
 
+/** The song speeds up this much per second played, up to MAX_TEMPO times its own tempo. */
+const TEMPO_RAMP = 0.0025;
+const MAX_TEMPO = 1.3;
+
+/**
+ * Which half-beats get a pixie, by seconds played: every other beat to begin with, then most beats, every beat, and
+ * more and more off-beats.
+ */
+function pixieOn(halfBeat: number, t: number): boolean {
+  const onBeat = halfBeat % 2 === 0;
+  if (t < 15) return halfBeat % 4 === 0;
+  if (t < 35) return onBeat && (halfBeat % 4 === 0 || Math.random() < 0.5);
+  if (t < 60) return onBeat;
+  return onBeat || Math.random() < Math.min(0.35, (t - 60) * 0.006);
+}
+
 export function pixieSerenade(api: MinigameApi): MinigameGame {
-  const notes: Array<{ lane: number; y: number; hit: boolean; phase: number }> = [];
+  /** Each pixie reaches the bar at `at` (seconds into the song), falling `v` pixels per second of song. */
+  const notes: Array<{ lane: number; y: number; at: number; v: number; hit: boolean; phase: number }> = [];
+  const track = MINIGAME_MUSIC.pixieSerenade;
+  const beat = trackBeat(track) ?? 0.6;
+  /** Where the song is: the music's own clock while it plays, otherwise counted here (music off or loading). */
+  let clock = 0;
+  let tempo = 1;
+  /** The next half-beat to place a pixie on (or not), once the song is known. */
+  let nextHalf = -1;
+  let lastLane = -1;
+  let lastAt = -Infinity;
+  /** Whether the clock is the song's (rather than counted here). */
+  let onSong = false;
   const flash = [0, 0, 0];
   /** Notes floating up out of Ba'al's guitar after each hit. */
   const floaters: Array<{ x: number; y: number; vx: number; vy: number; t: number; color: string; sway: number }> = [];
@@ -79,13 +110,13 @@ export function pixieSerenade(api: MinigameApi): MinigameGame {
   /** Ba'al plays from the bottom-left corner, beside the paths. */
   const baal = () => ({ x: Math.max(34 * api.k, api.W * 0.12), y: api.H - 24 });
   const guitarAt = () => ({ x: baal().x + 6 * api.k, y: baal().y - 28 * api.k });
-  let spawnIn = 0.8;
   const lineY = () => api.H - 150;
   /** The paths' pixel scale (the tiles are 48px wide), and how far apart they run (close together, in the middle). */
   const pathScale = () => Math.max(1, Math.round(Math.min(api.W, 480) / 200));
   const spacing = () => Math.round((ROAD + 10) * pathScale());
   const laneX = (i: number) => Math.round(api.W / 2 + (i - 1) * spacing());
-  const speed = () => Math.min(620, 200 + 5 * api.t) * api.k;
+  /** Pixels per second of song (the song itself speeding up makes them faster still). */
+  const speed = () => Math.min(520, 200 + 4 * api.t) * api.k;
   /** The okay range either side of the ribbon (the blue cobbles)… */
   const window = () => 46 * api.k;
   /** …and the small framed bar across each path (twice its pixels): a pixie on it is perfect. */
@@ -165,13 +196,37 @@ export function pixieSerenade(api: MinigameApi): MinigameGame {
       }
     },
     step(dt) {
-      spawnIn -= dt;
-      if (spawnIn <= 0) {
-        notes.push({ lane: Math.floor(Math.random() * 3), y: -20, hit: false, phase: Math.random() * 10 });
-        spawnIn = Math.max(0.3, 0.95 - 0.012 * api.t) * (0.75 + Math.random() * 0.5);
+      // The song slowly speeds up.
+      tempo = Math.min(MAX_TEMPO, 1 + TEMPO_RAMP * api.t);
+      setMusicRate(tempo);
+      const heard = musicClock(track);
+      const half = beat / 2;
+      if (heard && !onSong && nextHalf >= 0) {
+        // The song has just started (it was still loading): move the pixies already flying onto its beats, by whole
+        // half-beats, so they barely jump.
+        const shift = Math.round((heard.pos - clock) / half);
+        for (const n of notes) n.at += shift * half;
+        nextHalf += shift;
+        lastAt += shift * half;
+      }
+      onSong = !!heard;
+      clock = heard ? heard.pos : clock + dt * tempo;
+      // Pixies set off so each reaches the bar on its half-beat (as far ahead as the fall from the top takes).
+      const v = speed();
+      const fall = (lineY() + 20) / v;
+      if (nextHalf < 0) nextHalf = Math.ceil((clock + fall) / half);
+      for (; nextHalf * half <= clock + fall; nextHalf++) {
+        if (!pixieOn(nextHalf, api.t)) continue;
+        const at = nextHalf * half;
+        // Not the same path twice in quick succession.
+        let lane = Math.floor(Math.random() * 3);
+        if (lane === lastLane && at - lastAt < beat * 0.75) lane = (lane + 1 + Math.floor(Math.random() * 2)) % 3;
+        lastLane = lane;
+        lastAt = at;
+        notes.push({ lane, y: -20, at, v, hit: false, phase: Math.random() * 10 });
       }
       for (const n of notes) {
-        n.y += speed() * dt;
+        n.y = lineY() - (n.at - clock) * n.v;
         n.phase += dt;
       }
       for (let i = notes.length - 1; i >= 0; i--) {
