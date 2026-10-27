@@ -7009,6 +7009,11 @@ body.ui-parchment .mod-action b {
   stroke: rgba(190, 170, 255, 0.3);
   stroke-width: 2;
 }
+.rw-thread {
+  stroke: rgba(190, 170, 255, 0.16);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 5;
+}
 .rw-link.lit {
   stroke: #d8c8ff;
   stroke-width: 3;

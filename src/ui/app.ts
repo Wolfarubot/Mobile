@@ -4411,7 +4411,7 @@ export class AppUI {
       web.style.width = `${W}px`;
       web.style.height = `${H}px`;
       const maxRing = Math.max(...shown.map((n) => n.ring));
-      const rings = [1, 2, 3, 6.8]
+      const rings = [1, 2, 3, 6]
         .filter((r) => r <= maxRing)
         .map((r) => `<circle cx="${-x0}" cy="${-y0}" r="${r * R}" class="rw-ring"/>`)
         .join('');
@@ -4422,7 +4422,16 @@ export class AppUI {
           return `<line x1="${p.x}" y1="${p.y}" x2="${q.x}" y2="${q.y}" data-a="${a}" data-b="${b}" class="rw-link"/>`;
         })
         .join('');
-      web.innerHTML = `<svg viewBox="0 0 ${W} ${H}" aria-hidden="true">${rings}${links}</svg>`;
+      // Radial threads from each Unbound area in to the inner web, so the big ring reads as one spider web (drawn
+      // only: they don't join nodes).
+      const threads = shown
+        .filter((n) => n.area)
+        .map((n) => {
+          const a = (n.angle * Math.PI) / 180;
+          return `<line x1="${-x0 + 3.3 * R * Math.cos(a)}" y1="${-y0 + 3.3 * R * Math.sin(a)}" x2="${pos(n).x - 26 * Math.cos(a)}" y2="${pos(n).y - 26 * Math.sin(a)}" class="rw-thread"/>`;
+        })
+        .join('');
+      web.innerHTML = `<svg viewBox="0 0 ${W} ${H}" aria-hidden="true">${rings}${threads}${links}</svg>`;
       for (const n of shown) {
         const p = pos(n);
         const b = el('button', 'reg-node') as HTMLButtonElement;

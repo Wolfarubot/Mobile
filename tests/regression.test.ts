@@ -183,11 +183,26 @@ describe('Regression Tree', () => {
     // The whole inner web owned: the Unbound Woods shows, but nothing past it.
     g.state.regression.tree = Object.fromEntries(REGRESSION_TREE.filter((n) => n.ring <= 3).map((n) => [n.id, 1]));
     expect(g.regVisible('unbound-forest')).toBe(true);
-    expect(g.regVisible('unbound-glade')).toBe(false);
-    expect(g.regVisible('keepHunters')).toBe(false);
+    expect(g.regVisible('ring-0-1')).toBe(false);
     g.state.regression.tree['unbound-forest'] = 1;
-    expect(['unbound-glade', 'keepHunters', 'unbound-crypt'].every((id) => g.regVisible(id))).toBe(true);
-    expect(g.regVisible('unbound-depths')).toBe(false);
+    expect(g.regVisible('ring-0-1')).toBe(true);
+    expect(g.regVisible('ring-0-2')).toBe(false);
+    expect(g.regVisible('unbound-glade')).toBe(false);
+  });
+
+  it('the Unbound areas sit round a clock face, nodes between them, prices rising all the way round', () => {
+    const ring = REGRESSION_TREE.filter((n) => n.ring === 6).sort((a, b) => a.angle - b.angle);
+    // Woods at 12 o'clock, then an hour per area, the Void Rift at 11.
+    expect(ring[0].id).toBe('unbound-forest');
+    expect(ring[ring.length - 1].id).toBe('unbound-rift');
+    expect(ring.filter((n) => n.area).map((n) => n.angle)).toEqual(Array.from({ length: 12 }, (_, i) => -90 + 30 * i));
+    for (let i = 1; i < ring.length; i++) {
+      expect(ring[i].cost).toBeGreaterThan(ring[i - 1].cost);
+      // Each joined to the next, nothing skipping ahead.
+      expect(REGRESSION_LINKS.some(([a, b]) => (a === ring[i - 1].id && b === ring[i].id) || (b === ring[i - 1].id && a === ring[i].id))).toBe(true);
+    }
+    // Between two areas, the nodes in the middle come first.
+    expect(ring.findIndex((n) => n.id === 'unbound-glade') - ring.findIndex((n) => n.id === 'unbound-forest')).toBe(3);
   });
 
   it('the Unbound areas run in order round the web, each needing the one before, prices rising', () => {
@@ -216,7 +231,7 @@ describe('Regression Tree', () => {
 
   it('Kindred Spirits keeps Guild Hunters recruited through Regression', () => {
     const g = withShards(0);
-    g.state.regression.tree = { keepHunters: 1 };
+    g.state.regression.tree = { [REGRESSION_TREE.find((n) => n.flag === 'keepHunters')!.id]: 1 };
     expect(regress(g.state, 1).state.hunters.ranger).toMatchObject({ recruited: true, station: null, trains: 120 });
   });
 

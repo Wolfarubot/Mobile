@@ -1442,27 +1442,80 @@ export interface RegNode {
  * tunes them.
  */
 const SPOKES = [-90, -30, 30, 90, 150, 210];
-/** The Unbound areas in order (each needs the one before it). */
+/** The Unbound areas in order, clockwise round the clock face (each needs the one before it). */
 const UNBOUND_ORDER: AreaId[] = ['forest', 'glade', 'graveyard', 'crypt', 'depths', 'caves', 'mines', 'peaks', 'cliffs', 'fortress', 'meteors', 'rift'];
-const unboundArea = (area: AreaId, ring: number, angle: number, cost: number): RegNode => {
-  const i = UNBOUND_ORDER.indexOf(area);
-  const name = AREAS.find((a) => a.id === area)!.name;
-  return {
-    id: `unbound-${area}`,
-    name: `Unbound ${name}`,
-    icon: SHARD_ICON,
-    desc:
-      i === 0
-        ? `Opens the Unbound timeline with the Unbound ${name}: it takes the Woods' place in the Areas tab, as strong as an area after the Void Rift and far richer. Unbound gear and materials last through every Regression.`
-        : `The ${name} becomes Unbound: it takes its place in the Areas tab, a step stronger and richer than the Unbound area before it.`,
-    ring,
-    angle,
-    cost,
-    area,
-    needs: i > 0 ? `unbound-${UNBOUND_ORDER[i - 1]}` : undefined,
-    soon: true,
-  };
+/** How far out the Unbound ring sits, in rings. */
+const UNBOUND_RING = 6;
+/** Nodes between one Unbound area and the next. */
+const UNBOUND_BETWEEN = 2;
+/** Shards for the k-th node round the ring (the Woods is 0): ×1.3 a step, two significant figures. */
+const unboundCost = (k: number): number => {
+  const v = 10_000 * 1.3 ** k;
+  const p = 10 ** (Math.floor(Math.log10(v)) - 1);
+  return Math.round(v / p) * p;
 };
+/** The nodes between Unbound areas, in order round the ring: what each one does. */
+const UNBOUND_PERKS: Array<Pick<RegNode, 'name' | 'icon' | 'desc' | 'mult' | 'flag'>> = [
+  { name: 'Kindred Spirits', icon: 'rpg-items/300', desc: 'Recruited Guild Hunters stay recruited through every Regression.', flag: 'keepHunters' },
+  { name: 'Unbound Bounty', icon: 'things/008', desc: 'Gold from monsters ×10.', mult: { gold: 10 } },
+  { name: 'Timeless Dreams', icon: 'wands-books/087', desc: 'Offline gains ×5.', mult: { offline: 5 } },
+  { name: 'Deep Recall', icon: 'things/012', desc: 'Material drop chance ×5.', mult: { drops: 5 } },
+  { name: 'Echoes of Eternity', icon: SHARD_ICON, desc: 'Memory Shards from every Regression ×1.5.', mult: { shards: 1.5 } },
+  { name: 'Horde Eternal', icon: 'resources1/099', desc: 'Monsters spawn ×1.5 as often.', mult: { spawn: 1.5 } },
+  { name: 'Timeless Edge', icon: 'rpg-items/319', desc: 'Damage for every Hunter ×2.', mult: { damage: 2 } },
+  { name: 'Effortless Growth', icon: 'rpg-items/003', desc: 'Training costs ÷5.', mult: { trainCost: 0.2 } },
+  { name: 'Beast Lore', icon: 'resources1/042', desc: 'Empowering monsters costs ÷10.', mult: { empowerCost: 0.1 } },
+];
+const ROMAN = ['', ' II', ' III', ' IV'];
+/**
+ * The Unbound ring: the twelve Unbound areas where the hours sit on a clock (the Woods at 12, the Grove at 1, ...
+ * the Void Rift at 11), with UNBOUND_BETWEEN nodes on the ring between each area and the next. They're bought in
+ * order round the ring, each dearer than the last, so every area is a jump in gold and time.
+ */
+function unboundRing(): RegNode[] {
+  const out: RegNode[] = [];
+  let perk = 0;
+  const seen = new Map<string, number>();
+  UNBOUND_ORDER.forEach((area, i) => {
+    const angle = -90 + 30 * i;
+    const name = AREAS.find((a) => a.id === area)!.name;
+    out.push({
+      id: `unbound-${area}`,
+      name: `Unbound ${name}`,
+      icon: SHARD_ICON,
+      desc:
+        i === 0
+          ? `Opens the Unbound timeline with the Unbound ${name}: it takes the Woods' place in the Areas tab, as strong as an area after the Void Rift and far richer. Unbound gear and materials last through every Regression.`
+          : `The ${name} becomes Unbound: it takes its place in the Areas tab, a step stronger and richer than the Unbound area before it.`,
+      ring: UNBOUND_RING,
+      angle,
+      cost: unboundCost(i * (UNBOUND_BETWEEN + 1)),
+      area,
+      needs: i > 0 ? `unbound-${UNBOUND_ORDER[i - 1]}` : undefined,
+      soon: true,
+    });
+    if (i === UNBOUND_ORDER.length - 1) return;
+    for (let j = 1; j <= UNBOUND_BETWEEN; j++) {
+      // Perks come round again as the ring goes on (II, III...), all but the switches, which come once.
+      let p = UNBOUND_PERKS[perk++ % UNBOUND_PERKS.length];
+      while (p.flag && seen.has(p.name)) p = UNBOUND_PERKS[perk++ % UNBOUND_PERKS.length];
+      const n = seen.get(p.name) ?? 0;
+      seen.set(p.name, n + 1);
+      out.push({
+        ...p,
+        id: `ring-${i}-${j}`,
+        name: p.name + ROMAN[n],
+        ring: UNBOUND_RING,
+        angle: angle + (30 * j) / (UNBOUND_BETWEEN + 1),
+        cost: unboundCost(i * (UNBOUND_BETWEEN + 1) + j),
+      });
+    }
+  });
+  // Off the ring, inside it: Self-Forging, from the node just before the Meteor Field.
+  out.push({ id: 'autoCraft', name: 'Self-Forging', icon: 'resources3/003', desc: 'Crafts the best gear you can afford for empty or weaker slots, by itself.', ring: UNBOUND_RING - 1, angle: -90 + 30 * 9.5, cost: unboundCost(29), flag: 'autoCraft', soon: true });
+  return out;
+}
+
 const spoke = (i: number, ring: number, id: string, name: string, icon: string, desc: string, cost: number, mult: Partial<Record<RegKind, number>>): RegNode => ({
   id, name, icon, desc, ring, angle: SPOKES[i], cost, mult,
 });
@@ -1496,29 +1549,8 @@ export const REGRESSION_TREE: RegNode[] = [
   spoke(3, 3, 'endlessHorde', 'Endless Horde', 'resources1/099', 'Monsters spawn ×3 as often.', 2500, { spawn: 3 }),
   spoke(4, 3, 'treasureSense', 'Treasure Sense', 'things/007', 'Material drop chance ×25.', 2500, { drops: 25 }),
   spoke(5, 3, 'apexMemory', 'Apex Memory', 'rpg-items/319', 'Damage for every Hunter ×3.', 2500, { damage: 3 }),
-  // Beyond the web: the Unbound timeline. The Unbound Wandering Woods sits above the outer ring; off it, the Unbound
-  // Fey Grove (left), Restless Graveyard (up) and Forbidden Crypt (right), each with the next two areas trailing
-  // off it, and then nodes running clockwise round the rim to the Meteor Field and on to the Void Rift, near the
-  // Fey Grove again: one big circle.
-  unboundArea('forest', 4, -90, 10_000),
-  unboundArea('glade', 5, -118, 15_000),
-  { id: 'keepHunters', name: 'Kindred Spirits', icon: 'rpg-items/300', desc: 'Recruited Guild Hunters stay recruited through every Regression.', ring: 5, angle: -90, cost: 20_000, flag: 'keepHunters' },
-  unboundArea('graveyard', 6, -90, 25_000),
-  unboundArea('crypt', 5, -62, 40_000),
-  unboundArea('depths', 6, -128, 60_000),
-  unboundArea('caves', 6.8, -140, 90_000),
-  unboundArea('mines', 7, -100, 130_000),
-  unboundArea('peaks', 7, -80, 190_000),
-  unboundArea('cliffs', 6, -52, 280_000),
-  unboundArea('fortress', 6.8, -40, 400_000),
-  { id: 'unboundBounty', name: 'Unbound Bounty', icon: 'things/008', desc: 'Gold from monsters ×1,000.', ring: 6.8, angle: -12, cost: 550_000, mult: { gold: 1000 } },
-  { id: 'timelessDreams', name: 'Timeless Dreams', icon: 'wands-books/087', desc: 'Offline gains ×20.', ring: 6.8, angle: 16, cost: 650_000, mult: { offline: 20 } },
-  unboundArea('meteors', 6.8, 44, 800_000),
-  { id: 'deepRecall', name: 'Deep Recall', icon: 'things/012', desc: 'Material drop chance ×10.', ring: 6.8, angle: 72, cost: 1_000_000, mult: { drops: 10 } },
-  { id: 'echoesOfEternity', name: 'Echoes of Eternity', icon: SHARD_ICON, desc: 'Memory Shards from every Regression ×3.', ring: 6.8, angle: 100, cost: 1_200_000, mult: { shards: 3 } },
-  { id: 'autoCraft', name: 'Self-Forging', icon: 'resources3/003', desc: 'Crafts the best gear you can afford for empty or weaker slots, by itself.', ring: 6.8, angle: 128, cost: 1_400_000, flag: 'autoCraft', soon: true },
-  { id: 'hordeEternal', name: 'Horde Eternal', icon: 'resources1/099', desc: 'Monsters spawn twice as often, and damage for every Hunter ×3.', ring: 6.8, angle: 156, cost: 1_700_000, mult: { spawn: 2, damage: 3 } },
-  unboundArea('rift', 6.8, 186, 2_000_000),
+  // Beyond the web: the Unbound timeline, a big ring round it all (UNBOUND_RING).
+  ...unboundRing(),
 ];
 
 /** Which nodes are joined on the web (both ways). */
@@ -1533,32 +1565,10 @@ export const REGRESSION_LINKS: Array<[string, string]> = (() => {
     out.push([at(2, a), thread], [thread, at(2, next)]);
   });
   for (const a of [-90, -30, 210]) out.push([at(3, a), 'unbound-forest']);
-  // The Unbound timeline: three branches off the Woods, two areas trailing each, then clockwise round the rim.
-  const u = (a: AreaId) => `unbound-${a}`;
-  out.push(
-    [u('forest'), u('glade')],
-    [u('forest'), 'keepHunters'],
-    ['keepHunters', u('graveyard')],
-    [u('forest'), u('crypt')],
-    [u('glade'), u('graveyard')],
-    [u('graveyard'), u('crypt')],
-    [u('glade'), u('depths')],
-    [u('depths'), u('caves')],
-    [u('graveyard'), u('mines')],
-    [u('mines'), u('peaks')],
-    [u('crypt'), u('cliffs')],
-    [u('cliffs'), u('fortress')],
-    [u('fortress'), 'unboundBounty'],
-    ['unboundBounty', 'timelessDreams'],
-    ['timelessDreams', u('meteors')],
-    [u('meteors'), 'deepRecall'],
-    ['deepRecall', 'echoesOfEternity'],
-    ['echoesOfEternity', 'autoCraft'],
-    ['echoesOfEternity', 'hordeEternal'],
-    ['autoCraft', 'hordeEternal'],
-    ['hordeEternal', u('rift')],
-    [u('rift'), u('caves')],
-  );
+  // Round the Unbound ring, clockwise from the Woods to the Void Rift, each node joined to the next.
+  const ring = REGRESSION_TREE.filter((n) => n.ring === UNBOUND_RING).sort((x, y) => x.angle - y.angle);
+  for (let i = 1; i < ring.length; i++) out.push([ring[i - 1].id, ring[i].id]);
+  out.push([ring.find((n) => Math.abs(n.angle - (-90 + 30 * 9 + 10)) < 0.01)!.id, 'autoCraft']);
   return out;
 })();
 
