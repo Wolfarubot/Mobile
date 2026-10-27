@@ -11,6 +11,7 @@ import {
   PREMIUM_IDS,
   PREMIUM_UPGRADES,
   premiumItem,
+  MERCHANT_MATERIALS,
   MONSTER_EVO_TREES,
   GEAR,
   GEAR_COST_GROWTH,
@@ -268,6 +269,8 @@ export interface GameState {
   premium: string[];
   /** Today's items on sale in the Shop. */
   shop: { day: string; items: string[] };
+  /** The Monster Merchant's materials today, and those already traded today. */
+  merchant: { day: string; offers: MaterialId[]; traded: MaterialId[] };
   /** Exalted Gems: the premium currency. */
   gems: number;
   /** Ads have been removed (a purchase): no ad offers, a bigger energy bar, the check-in bonus without an ad. */
@@ -362,6 +365,7 @@ export function newGame(now = Date.now()): GameState {
     gems: 0,
     premium: [],
     shop: { day: '', items: [] },
+    merchant: { day: '', offers: [], traded: [] },
     noAds: false,
     quests: newQuests(),
     events: Object.fromEntries(EVENTS.map((e) => [e.id, { runs: 0, completed: 0 }])),
@@ -737,6 +741,11 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
     shop: (() => {
       const sh = (data.shop ?? {}) as { day?: unknown; items?: unknown };
       return { day: typeof sh.day === 'string' ? sh.day : '', items: Array.isArray(sh.items) ? sh.items.filter((id): id is string => typeof id === 'string' && !!premiumItem(id)) : [] };
+    })(),
+    merchant: (() => {
+      const m = (data.merchant ?? {}) as { day?: unknown; offers?: unknown; traded?: unknown };
+      const mats = (v: unknown): MaterialId[] => (Array.isArray(v) ? v.filter((id): id is MaterialId => typeof id === 'string' && MERCHANT_MATERIALS.includes(id as MaterialId)) : []);
+      return { day: typeof m.day === 'string' ? m.day : '', offers: mats(m.offers), traded: mats(m.traded) };
     })(),
     quests: (() => {
       const q = { ...newQuests(), ...((data.quests ?? {}) as Partial<QuestState>) };

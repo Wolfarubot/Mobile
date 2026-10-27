@@ -54,6 +54,10 @@ import {
   PREMIUM_ITEMS,
   premiumItem,
   SHOP_DAILY_ITEMS,
+  MERCHANT_AMOUNT,
+  MERCHANT_DAILY,
+  MERCHANT_GEMS,
+  MERCHANT_MATERIALS,
   type PremiumId,
   type PremiumItem,
   type QuestKind,
@@ -1542,6 +1546,30 @@ export class Game {
       [pool[i], pool[j]] = [pool[j], pool[i]];
     }
     this.state.shop = { day, items: pool.slice(0, SHOP_DAILY_ITEMS) };
+  }
+
+  /** The Monster Merchant's materials today (a shuffle seeded by the date, so they hold all day). */
+  get merchantOffers(): MaterialId[] {
+    const day = dayKey(this.clock());
+    if (this.state.merchant.day !== day) {
+      const offers = shuffle([...MERCHANT_MATERIALS], seeded(`merchant:${day}`)).slice(0, MERCHANT_DAILY);
+      this.state.merchant = { day, offers, traded: [] };
+    }
+    return this.state.merchant.offers;
+  }
+
+  /** Whether today's offer for a material is open and you have MERCHANT_AMOUNT of it. */
+  canTrade(m: MaterialId): boolean {
+    return this.merchantOffers.includes(m) && !this.state.merchant.traded.includes(m) && this.state.materials[m] >= MERCHANT_AMOUNT;
+  }
+
+  /** Trades MERCHANT_AMOUNT of a material to the Monster Merchant for MERCHANT_GEMS gems (once a day each). */
+  tradeMaterial(m: MaterialId): boolean {
+    if (!this.canTrade(m)) return false;
+    this.state.materials[m] -= MERCHANT_AMOUNT;
+    this.state.merchant.traded.push(m);
+    this.state.gems += MERCHANT_GEMS;
+    return true;
   }
 
   /** Seconds for a point of energy (less with Second Wind). */

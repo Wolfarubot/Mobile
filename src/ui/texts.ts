@@ -708,6 +708,11 @@ section(
     removeAds: 'No more ads. Your energy bar grows to {cap} and refills all the way on its own, your offline gold and materials are always doubled, and the daily check-in bonus is yours without an ad.',
     today: "Today's upgrades",
     stock: 'Permanent, for every Hunter in every area, kept through every Ascension. {n} new items in {time}.',
+    merchant: 'Monster Merchant',
+    merchantNote: 'He takes {amount} of a material for {gems} Exalted Gems, once a day for each. {n} new materials in {time}.',
   },
-  { vars: { cap: 'energy cap without ads', n: 'items a day', time: 'time to the next stock' }, labels: { test: 'Test mode note', removeAds: 'Remove Ads', today: 'Heading', stock: 'Stock note' } },
+  {
+    vars: { cap: 'energy cap without ads', n: 'items (or materials) a day', time: 'time to the next stock', amount: 'materials per trade', gems: 'gems per trade' },
+    labels: { test: 'Test mode note', removeAds: 'Remove Ads', today: 'Heading', stock: 'Stock note', merchant: 'Merchant heading', merchantNote: 'Merchant note' },
+  },
 );

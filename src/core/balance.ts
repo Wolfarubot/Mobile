@@ -1027,6 +1027,16 @@ export const MATERIALS: MaterialDef[] = [
 
 export const materialDef = (id: MaterialId): MaterialDef => byId(MATERIALS, id);
 
+/**
+ * The Monster Merchant (the Shop's gems page): each day MERCHANT_DAILY materials he'll take, MERCHANT_AMOUNT of one
+ * for MERCHANT_GEMS Exalted Gems, once a day each. Any material but the golems' ores and gems, and so many that only
+ * the ones you've farmed for ages are worth trading.
+ */
+export const MERCHANT_DAILY = 6;
+export const MERCHANT_AMOUNT = 10_000_000;
+export const MERCHANT_GEMS = 5;
+export const MERCHANT_MATERIALS: MaterialId[] = MATERIALS.map((m) => m.id).filter((id) => !RARE_MATERIALS.has(id));
+
 // ---- Archetypes: enemy families that Hunters specialize against ----
 export type Archetype = 'slime' | 'beast' | 'undead' | 'demon' | 'elemental' | 'humanoid' | 'plant' | 'dragon' | 'construct';
 

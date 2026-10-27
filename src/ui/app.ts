@@ -101,6 +101,9 @@ import {
   premiumItem,
   premiumName,
   SHOP_DAILY_ITEMS,
+  MERCHANT_AMOUNT,
+  MERCHANT_DAILY,
+  MERCHANT_GEMS,
   type Quest,
   MINIGAME_BUFFS,
   homeEvent,
@@ -4304,6 +4307,33 @@ export class AppUI {
           }),
         );
         card(`${sprite(p.icon!)}<span class="si-gem">${gemIcon()}</span>`, p.name, `${gemsText(p.gems!)} Exalted Gems${p.bonus ? ` <em class="si-bonus">+${gemsText(p.bonus)} bonus</em>` : ''}`, btn);
+      }
+      // The Monster Merchant: today's materials, a huge pile of one for a few gems.
+      body.appendChild(sectionTitle(txt('menu.shop.merchant')));
+      const note = el('p', 'hd-note');
+      body.appendChild(note);
+      refreshers.push(() => (note.textContent = txt('menu.shop.merchantNote', { amount: fmt(MERCHANT_AMOUNT), gems: MERCHANT_GEMS, n: MERCHANT_DAILY, time: fmtWait(nextMidnight(g.clock()) - g.clock()) })));
+      const grid = el('div', 'shop-grid merchant-grid');
+      body.appendChild(grid);
+      for (const m of g.merchantOffers) {
+        const cell = el('div', 'shop-cell');
+        cell.innerHTML = `<div class="mc-icon">${gemHtml(m, 'big')}</div><span class="st-name">${materialDef(m).name}</span><small class="st-what mc-have"></small><button class="buy mc-trade"></button>`;
+        const have = $('.mc-have', cell);
+        const trade = $<HTMLButtonElement>('.mc-trade', cell);
+        trade.addEventListener('click', () => {
+          if (!g.tradeMaterial(m)) return;
+          this.toast(txt('toast.rewards.gems', { n: gemsText(MERCHANT_GEMS) }));
+          this.hooks.save();
+          this.refresh();
+        });
+        refreshers.push(() => {
+          const done = g.state.merchant.traded.includes(m);
+          const n = g.state.materials[m];
+          have.innerHTML = `<b class="${n >= MERCHANT_AMOUNT ? 'mc-ok' : 'mc-short'}">${fmt(n)}</b> / ${fmt(MERCHANT_AMOUNT)}`;
+          trade.disabled = done || !g.canTrade(m);
+          trade.innerHTML = done ? 'Traded ✓' : `${gemIcon()} ${gemsText(MERCHANT_GEMS)}`;
+        });
+        grid.appendChild(cell);
       }
     }
     for (const r of refreshers) r();

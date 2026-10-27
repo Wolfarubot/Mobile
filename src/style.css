@@ -6690,6 +6690,35 @@ body.ui-parchment .craft-tile.shop-tile {
   width: 16px;
   height: 16px;
 }
+/* The Monster Merchant's offers: the material, what you have of what he wants, and the trade. */
+.merchant-grid .shop-cell {
+  padding: 4px 2px !important;
+}
+.merchant-grid .mc-icon {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.merchant-grid .mc-icon .gem-ic.big {
+  width: 36px;
+  height: 36px;
+}
+.merchant-grid .mc-ok {
+  color: #9ff0a8 !important;
+}
+.merchant-grid .mc-short {
+  color: #ff9a8a !important;
+}
+.merchant-grid .mc-trade {
+  font-size: 12px;
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+.merchant-grid .mc-trade img.ei {
+  width: 14px;
+  height: 14px;
+}
 .shop-owned {
   display: flex;
   flex-direction: column;

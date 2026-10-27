@@ -168,6 +168,10 @@ import {
   type MaterialId,
   typeMult,
   WEAK_MULT,
+  MERCHANT_AMOUNT,
+  MERCHANT_DAILY,
+  MERCHANT_GEMS,
+  MERCHANT_MATERIALS,
 } from '../src/core/balance';
 import { CHARM_MAX, CHARM_TIME, DICE_FLIGHT, Field, SLAM_OFFSET, type Enemy } from '../src/core/field';
 import { mergeSample, runSample, SAMPLE_KEEP } from '../src/core/sampler';
@@ -4151,6 +4155,38 @@ describe('Events', () => {
       return h.applyOffline(2 * 3600 * 1000).gold;
     };
     expect(away(['offline1', 'offline2', 'offline3', 'offline4'])).toBeCloseTo(away([]) * 3.5, -1);
+  });
+  it('the Monster Merchant: six materials a day (no golem ores or gems), a huge pile of one for a few gems, once each', () => {
+    const g = new Game(newGame(0), noCrit);
+    let now = new Date(2026, 9, 21, 10).getTime();
+    g.clock = () => now;
+    expect(MERCHANT_MATERIALS).toContain('goo');
+    for (const m of RARE_MATERIALS) expect(MERCHANT_MATERIALS).not.toContain(m);
+    const today = [...g.merchantOffers];
+    expect(today).toHaveLength(MERCHANT_DAILY);
+    expect(new Set(today).size).toBe(MERCHANT_DAILY);
+    for (const m of today) expect(MERCHANT_MATERIALS).toContain(m);
+    const m = today[0];
+    g.state.materials[m] = MERCHANT_AMOUNT - 1;
+    expect(g.tradeMaterial(m)).toBe(false); // not enough
+    g.state.materials[m] = MERCHANT_AMOUNT * 2 + 7;
+    expect(g.tradeMaterial(m)).toBe(true);
+    expect(g.state.gems).toBe(MERCHANT_GEMS);
+    expect(g.state.materials[m]).toBe(MERCHANT_AMOUNT + 7);
+    expect(g.tradeMaterial(m)).toBe(false); // once a day
+    const off = MERCHANT_MATERIALS.find((x) => !today.includes(x))!;
+    g.state.materials[off] = MERCHANT_AMOUNT;
+    expect(g.tradeMaterial(off)).toBe(false); // not wanted today
+    now += 3600 * 1000;
+    expect(g.merchantOffers).toEqual(today); // the same all day
+    // Saved and loaded, today's offers and trades hold.
+    const back = new Game(deserialize(serialize(g.state))!, noCrit);
+    back.clock = () => now;
+    expect(back.merchantOffers).toEqual(today);
+    expect(back.state.merchant.traded).toEqual([m]);
+    now += 24 * 3600 * 1000;
+    expect(g.merchantOffers).not.toEqual(today); // a new six tomorrow
+    expect(g.state.merchant.traded).toEqual([]);
   });
 
   it('offline gains: an ad doubles the gold and materials once; with ads removed they come doubled', () => {
