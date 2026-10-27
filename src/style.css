@@ -6398,6 +6398,21 @@ img.ei.gem-ic {
   padding: 2px;
   margin-bottom: 10px;
 }
+/* The Quest Log overlays the game like the menu: a see-through veil instead of the views' solid backdrop, and every
+   bit of text on a page of its own (the notes under the pages get the book page's frame too). */
+.hunter-detail.overlay,
+body.ui-parchment .hunter-detail.overlay {
+  background: rgba(0, 0, 0, 0.5) !important;
+}
+.hunter-detail.quests .hd-note {
+  border: 12px solid transparent;
+  border-image: url('/ui/book-page.png') 6 fill / 12px / 0 stretch;
+  image-rendering: pixelated;
+  color: #3e2c1a !important;
+  text-shadow: none !important;
+  padding: 2px 4px;
+  margin: 0;
+}
 .q-list {
   display: flex;
   flex-direction: column;

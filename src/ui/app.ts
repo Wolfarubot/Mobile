@@ -3363,9 +3363,9 @@ export class AppUI {
     return card;
   }
 
-  /** True while a full-screen menu or view covers the battlefield (main.ts skips drawing it). */
+  /** True while a full-screen menu or view covers the battlefield (main.ts skips drawing it); an overlay doesn't. */
   battleHidden(): boolean {
-    return this.menuFull || !!this.picker || !!this.detail;
+    return this.menuFull || !!this.picker || (!!this.detail && !this.detail.el.classList.contains('overlay'));
   }
 
   private toast(text: string): HTMLElement {
@@ -4078,7 +4078,8 @@ export class AppUI {
   private openQuests(page: 'daily' | 'weekly' = 'daily'): void {
     if (this.detail) this.dropDetail();
     const g = this.game;
-    const view = el('div', 'hunter-detail settings quests');
+    // Over the game like the menu: the battlefield shows through a dark veil.
+    const view = el('div', 'hunter-detail settings quests overlay');
     view.innerHTML = `
       <div class="hd-top"><button class="hd-close" aria-label="Close">✕</button><span>Quest Log</span><b class="gem-count"></b></div>
       <div class="hd-scroll"></div>`;
