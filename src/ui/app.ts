@@ -4297,17 +4297,6 @@ export class AppUI {
         if (mine.innerHTML !== html) mine.innerHTML = html;
       });
     } else {
-      for (const p of GEM_PACKS) {
-        const btn = el('button', 'buy', p.price) as HTMLButtonElement;
-        const total = (p.gems ?? 0) + (p.bonus ?? 0);
-        btn.addEventListener('click', () =>
-          buy(p, () => {
-            g.addGems(total);
-            this.toast(txt('toast.rewards.gems', { n: gemsText(total) }));
-          }),
-        );
-        card(`${sprite(p.icon!)}<span class="si-gem">${gemIcon()}</span>`, p.name, `${gemsText(p.gems!)} Exalted Gems${p.bonus ? ` <em class="si-bonus">+${gemsText(p.bonus)} bonus</em>` : ''}`, btn);
-      }
       // The Monster Merchant: today's materials, a huge pile of one for a few gems.
       body.appendChild(sectionTitle(txt('menu.shop.merchant')));
       const note = el('p', 'hd-note');
@@ -4334,6 +4323,18 @@ export class AppUI {
           trade.innerHTML = done ? 'Traded ✓' : `${gemIcon()} ${gemsText(MERCHANT_GEMS)}`;
         });
         grid.appendChild(cell);
+      }
+      body.appendChild(sectionTitle('Gem packs'));
+      for (const p of GEM_PACKS) {
+        const btn = el('button', 'buy', p.price) as HTMLButtonElement;
+        const total = (p.gems ?? 0) + (p.bonus ?? 0);
+        btn.addEventListener('click', () =>
+          buy(p, () => {
+            g.addGems(total);
+            this.toast(txt('toast.rewards.gems', { n: gemsText(total) }));
+          }),
+        );
+        card(`${sprite(p.icon!)}<span class="si-gem">${gemIcon()}</span>`, p.name, `${gemsText(p.gems!)} Exalted Gems${p.bonus ? ` <em class="si-bonus">+${gemsText(p.bonus)} bonus</em>` : ''}`, btn);
       }
     }
     for (const r of refreshers) r();
