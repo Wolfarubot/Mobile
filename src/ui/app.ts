@@ -976,7 +976,13 @@ export class AppUI {
         const hit = fmt(g.shotDamage(who) * g.specialDamageMult(who));
         if (def?.special?.summon)
           cells.push(
-            [`${def.special.summon.look === 'wolf' ? 'Wolf' : 'Puppet'} bite (${DAMAGE_TYPES[g.damageTypeOf(who, 'long', true)].name})`, fmt(g.shotDamage(who) * g.specialDamageMult(who) * (g.specialRadius(who) / def.special.radius))],
+            [`${{ wolf: 'Wolf', puppet: 'Puppet', skeleton: 'Skeleton' }[def.special.summon.look]} bite (${DAMAGE_TYPES[g.damageTypeOf(who, 'long', true)].name})`, fmt(g.shotDamage(who) * g.specialDamageMult(who) * (g.specialRadius(who) / def.special.radius))],
+            [`${def.special.name} every`, `${cd}s`],
+          );
+        else if (def?.special?.kind === 'laser')
+          cells.push(
+            [`Laser damage (${DAMAGE_TYPES[g.damageTypeOf(who, 'long', true)].name})`, hit],
+            ['Beam width', fmt((def.special.width ?? 12) * (g.specialRadius(who) / def.special.radius))],
             [`${def.special.name} every`, `${cd}s`],
           );
         else cells.push(

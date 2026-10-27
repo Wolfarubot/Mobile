@@ -38,4 +38,6 @@ export const HUNTER_SHEETS: Partial<Record<Wearer, HunterSheet>> = {
   archivist: { frame: 64, frames: [12, 12, 12, 4], box: [21, 16, 23, 28] },
   gambler: { frame: 64, frames: [12, 12, 12, 4], box: [21, 19, 21, 26] },
   spaceslime: { frame: 64, frames: [8, 8, 8, 8], box: [14, 17, 35, 23] },
+  lichlord: { frame: 64, frames: [4, 4, 4, 4], box: [19, 8, 26, 36] },
+  alien: { frame: 64, frames: [4, 4, 4, 4], box: [18, 15, 27, 29] },
 };

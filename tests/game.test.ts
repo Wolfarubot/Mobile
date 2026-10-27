@@ -4554,6 +4554,29 @@ describe('Field', () => {
     expect(g.state.stats.hunterKills.spaceslime ?? 0).toBeGreaterThan(kills);
   });
 
+  it('Azir the Lich raises six skeletal soldiers that fight for 10s', () => {
+    expect(hunterDef('lichlord')).toMatchObject({ name: 'Azir', title: 'Lich', area: 'fortress', unlock: { event: 'cloudburst', times: 2 } });
+    const { g, f } = thomasField(['lichlord']);
+    for (let t = 0; t < 1.5; t += 1 / 30) f.update(1 / 30);
+    const legion = f.summons.filter((s) => s.who === 'lichlord' && s.own);
+    expect(legion).toHaveLength(6);
+    expect(legion.every((s) => s.look === 'skeleton' && s.type === 'undead')).toBe(true);
+    expect(legion[0].maxLife).toBeCloseTo(10 * g.summonDurationMult('lichlord'));
+  });
+
+  it("Tonk the Alien's Eye Lasers pierce the whole field along their line, and nothing off it", () => {
+    expect(hunterDef('alien')).toMatchObject({ name: 'Tonk', title: 'Alien', area: 'meteors', unlock: { event: 'meteorShower', times: 2 } });
+    const { f } = thomasField(['alien']);
+    // The first stationed Hunter stands at -72, 42: once the lasers are ready, one monster close by, one far down
+    // the same line, one well off it.
+    f.enemies = [];
+    for (let t = 0; t < 1.5; t += 1 / 30) f.update(1 / 30);
+    f.enemies = [tough({ id: 1, x: 28, y: 42, speed: 0 }), tough({ id: 2, x: 1500, y: 42, speed: 0 }), tough({ id: 3, x: 300, y: 260, speed: 0 })];
+    f.update(1 / 30);
+    expect(f.enemies.find((e) => e.id === 2)!.hp).toBeLessThan(1e12);
+    expect(f.enemies.find((e) => e.id === 3)!.hp).toBe(1e12);
+  });
+
   it("Ted the Gambler throws dice at the monsters every few seconds", () => {
     expect(hunterDef('gambler')).toMatchObject({ name: 'Ted', title: 'Gambler', area: 'fortress', unlock: { event: 'cloudburst', times: 1 } });
     const { f } = thomasField(['gambler']);

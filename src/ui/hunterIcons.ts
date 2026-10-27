@@ -29,6 +29,8 @@ export const HUNTER_ICONS: Record<Wearer, string> = {
   archivist: 'ab-priest-bard/049',
   gambler: 'ab-priest-bard/059',
   spaceslime: 'ab-rogue-warlock/019',
+  lichlord: 'ab-paladin-dk/095',
+  alien: 'ab-engineer-psionic/058',
 };
 
 /** A Hunter's icon as HTML (an <img>), falling back to their emoji. */

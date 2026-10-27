@@ -96,6 +96,8 @@ const RICOCHET_RANGE = 160;
 
 /** How far a blood bolt flies looking for its next monster. */
 const BLOOD_BOLT_RANGE = 220;
+/** How far Tonk's Eye Lasers reach: past the edge of the field from anywhere on it. */
+const LASER_LENGTH = 3000;
 
 export interface Enemy {
   id: number;
@@ -179,7 +181,7 @@ export interface Summon {
   life: number;
   maxLife: number;
   bite: number;
-  look: 'wisp' | 'wolf' | 'puppet' | 'rock';
+  look: 'wisp' | 'wolf' | 'puppet' | 'rock' | 'skeleton';
   /** What kind of creature it is (some Hunters' summons of a type hit harder). */
   type: SummonType;
   /** A gear ability's creature (a Puppeteer's Doll's puppets): the piece that made it and its own bite. */
@@ -1388,6 +1390,27 @@ export class Field {
       }
       return true;
     }
+    if (sp.kind === 'laser') {
+      // Tonk's Eye Lasers: twin beams toward the nearest monster that pierce the whole field, hitting everything in
+      // their band (area skills widen it).
+      const cx = Math.cos(a);
+      const cy = Math.sin(a);
+      const width = (sp.width ?? 12) * (radius / sp.radius);
+      const far = LASER_LENGTH;
+      for (const side of [-1, 1]) {
+        const ox = -cy * side * width * 0.35;
+        const oy = cx * side * width * 0.35;
+        this.events.push({ type: 'beam', x1: x + ox, y1: y + oy, x2: x + ox + cx * far, y2: y + oy + cy * far, color: '#9dff5a', width: width * 0.7 });
+      }
+      for (const o of [...this.enemies]) {
+        if (o.hp <= 0) continue;
+        const t = (o.x - x) * cx + (o.y - y) * cy;
+        const perp = Math.abs((o.x - x) * cy - (o.y - y) * cx);
+        if (t <= 0 || perp > width + o.r) continue;
+        this.hitWith(by, o, dmg, x, y, undefined, undefined, true, true, only);
+      }
+      return true;
+    }
     if (sp.kind === 'spikes') {
       // Gideon's Bone Spikes burst up under the nearest monster, hurting everything around it and holding it in
       // place. They wait while his Bone Wall stands.
@@ -1459,13 +1482,18 @@ export class Field {
       return true;
     }
     if (sp.summon) {
-      // Two creatures (Deku's spirit wolves, Theon's puppets): each hunts for 6s, biting 1.5 times a second for
-      // the special's damage (their "radius" skills make them fiercer).
+      // Creatures that hunt for a while (two of Deku's spirit wolves or Theon's puppets for 6s; Azir's skeletal
+      // legion, six for 10s), each biting 1.5 times a second for the special's damage (their "radius" skills make
+      // them fiercer).
       const mult = dmg * (radius / sp.radius);
-      const life = 6 * g.summonDurationMult(by);
-      for (const side of [-1, 1])
-        this.summons.push({ who: by, type: sp.summon.type, x: x + side * 18, y, life, maxLife: life, bite: 0, look: sp.summon.look, dash: 0, dashHit: false, own: { bites: 1.5, speed: sp.summon.look === 'wolf' ? 170 : 140, mult } });
-      this.events.push({ type: 'nova', x, y, r: 30, color: sp.summon.look === 'wolf' ? '#8fdc7a' : '#d8a878' });
+      const life = (sp.summon.life ?? 6) * g.summonDurationMult(by);
+      const count = sp.summon.count ?? 2;
+      for (let i = 0; i < count; i++) {
+        const at = count === 2 ? (i === 0 ? Math.PI : 0) : (i / count) * Math.PI * 2;
+        const r = count === 2 ? 18 : 30;
+        this.summons.push({ who: by, type: sp.summon.type, x: x + Math.cos(at) * r, y: y + Math.sin(at) * r, life, maxLife: life, bite: 0, look: sp.summon.look, dash: 0, dashHit: false, own: { bites: 1.5, speed: sp.summon.look === 'wolf' ? 170 : 140, mult } });
+      }
+      this.events.push({ type: 'nova', x, y, r: count > 2 ? 44 : 30, color: sp.summon.look === 'wolf' ? '#8fdc7a' : sp.summon.look === 'skeleton' ? '#7fd8e0' : '#d8a878' });
     } else if (sp.kind === 'potion') {
       const d = Math.hypot(target.x - x, target.y - y);
       this.shoot(by, 'potion', x, y, a, 300, d, { radius, dmg, tx: target.x, ty: target.y, special: true, dtype: only, ticks: sp.ticks });

@@ -6,3 +6,5 @@ Archer 4. Lance: Swordsman 7. Glimmer: Mage 2 (warmed to fiery tones). Theon: Ar
 Mage 5 (white hair, purple eyes, dark brown cloak and leather-brown shirt). Kargesh: Swordsman 4. Sciirj: Archer 2 (tinted to a monk's orange). Marceline: Mage 4 (black hair). Gideon: Vampire 1
 (greyed toward bone). Okrin: Swordsman 5. Themus: Vampire 3 (pale red skin, dark brown hair). Reginald (Artificer): Swordsman 8. Thomas: Mage 9 (as drawn). Ted: Archer 7 (as drawn). No two Hunters share a base outfit, recoloured or not.
 Norm the Space Slime is a slime, not a person: the Shadow Slime's walk sheet from the monster packs (public/monsters/slime-shadow.png), its rows reordered to down, left, right, up, shifted to a cosmic purple-pink (hue-rotate 30deg, saturate 1.6, brightness 1.3) and sprinkled with star pixels.
+Azir (Lich): Lich 2 idle from CraftPix's top-down Lich pack, brown robes recoloured sky teal, blue crown and staff to gold, red gem to cyan; rows reordered from front, back, left, right to down, left, right, up.
+Tonk (Alien): Vampire 2 idle (body and head), skin recoloured alien green, red eyes to lime, blue cape to violet, maroon to purple; rows reordered the same way.

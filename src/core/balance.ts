@@ -643,6 +643,8 @@ export const ASCENDED_TREES: Record<HunterId, SkillNode[]> = {
   osteomancer: ascendedTree([area(8, 'Bone Forest', '🦴', 'Bone spikes reach wider:'), cdr(6, 'Grave Haste', '⏱️', 'Bone spikes come'), grd(3, 'Ribcage', '🛡️', 2)], { name: 'Ossuary', icon: '💀', desc: '+50% damage and spikes 30% wider.', maxRank: 1, effect: { damage: 0.5, radius: 0.3 } }),
   bloodblade: ascendedTree([area(8, 'Red Tide', '🌊', 'The Crimson Wave runs further:'), dur(6, 'Open Wounds', '🩸'), crd(6, 'Bloodletting', '🔪')], { name: 'Crimson Tide', icon: '🌊', desc: '+50% damage and 2 more blood bolts from each Crimson Wave kill.', maxRank: 1, effect: { damage: 0.5, bolts: 2 } }),
   spaceslime: ascendedTree([area(8, 'Galactic Charm', '🌌', 'His charm reaches further:'), cdr(6, 'Pickup Lines', '💬', 'His charm comes'), gld(6, 'Comet Dust', '☄️')], { name: 'Silver Tongue', icon: '💬', desc: '+50% damage and his charm reaches 30% further.', maxRank: 1, effect: { damage: 0.5, radius: 0.3 } }),
+  lichlord: ascendedTree([dur(8, 'Undying Legion', '⏳'), cdr(6, 'Necromantic Haste', '💀', 'The legion rises'), atk(6, 'Bone Lances', '🦴', 0.05)], { name: 'Lich King', icon: '👑', desc: '+50% damage, and his skeletons last 30% longer.', maxRank: 1, effect: { damage: 0.5, duration: 0.3 } }),
+  alien: ascendedTree([area(8, 'Wide Beam', '👁️', 'The beam grows'), cdr(6, 'Rapid Recharge', '🔋', 'The lasers fire'), crt(6, 'Targeting Array', '🎯')], { name: 'Death Ray', icon: '☄️', desc: '+50% damage and a beam 30% wider.', maxRank: 1, effect: { damage: 0.5, radius: 0.3 } }),
   gambler: ascendedTree([crd(8, 'Double Down', '🎲'), area(6, 'Boxcars', '💥', 'Dice blasts grow'), gld(6, 'House Money', '🪙')], { name: 'High Roller', icon: '🎲', desc: '+50% damage and dice blasts 30% wider.', maxRank: 1, effect: { damage: 0.5, radius: 0.3 } }),
   archivist: ascendedTree([area(8, 'Grand Index', '📜', 'Recalled specials grow'), cdr(6, 'Speed Archive', '📑', 'The tome opens'), dur(6, 'Long Memory', '🕯️')], { name: 'Great Library', icon: '📚', desc: '+50% damage and recalled specials 30% bigger.', maxRank: 1, effect: { damage: 0.5, radius: 0.3 } }),
   artificer: ascendedTree([spd(8, 'Perpetual Motion', '⚙️', 0.03), rng(6, 'Long Barrels', '🔭'), crt(6, 'Calibration', '📐')], { name: 'Grand Design', icon: '⚙️', desc: '+50% damage and +20% attack rate.', maxRank: 1, effect: { damage: 0.5, rate: 0.2 } }),
@@ -787,6 +789,22 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
     [at('raiseStakes', crd(4, 'Raise the Stakes', '💰')), at('loadedDice', crt(4, 'Loaded Dice', '🎲')), at('bigBlast', area(4, 'Big Blast', '💥', 'Dice blasts grow')), at('highStakes', gld(3, 'High Stakes', '🪙'))],
     [at('hotStreak', cdr(4, 'Hot Streak', '🔥', 'Dice come')), at('jackpot', atk(3, 'Jackpot', '🎰', 0.1)), at('winnings', drp(2, 'Winnings', '💎'))],
     [at('capstone', { name: 'All In', icon: '🎰', desc: '+10% crit chance and dice blasts 25% wider.', maxRank: 1, cost: 5, effect: { crit: 0.1, radius: 0.25 } })],
+  ]),
+  // Azir: a bigger, longer-lived legion, sooner.
+  lichlord: gridTree([
+    [at('root', dur(1, 'Grave Dirt', '🪦'))],
+    [at('power', atk(3)), at('speed', spd(3, 'Cold Hands', '🥶')), at('recovery', rec(3, 'Phylactery', '⚱️'))],
+    [at('marchingOrders', cdr(4, 'Marching Orders', '🥁', 'The legion rises')), at('sharpBones', atk(4, 'Sharpened Bones', '🦴', 0.1)), at('endlessRanks', dur(4, 'Endless Ranks', '💀')), at('deathChill', crt(3, 'Death Chill', '❄️'))],
+    [at('necromancy', cdr(4, 'Necromancy', '📜', 'The legion rises')), at('boneArmor', grd(2, 'Bone Armor', '🛡️')), at('soulHarvest', gld(3, 'Soul Harvest', '👻'))],
+    [at('capstone', { name: 'Army of the Dead', icon: '⚰️', desc: 'His skeletons hit 25% harder and last 25% longer.', maxRank: 1, cost: 5, effect: { damage: 0.25, duration: 0.25 } })],
+  ]),
+  // Tonk: wider, faster, harder-hitting lasers.
+  alien: gridTree([
+    [at('root', area(1, 'Focusing Lens', '🔍', 'The beam grows'))],
+    [at('power', atk(3)), at('speed', spd(3, 'Twitchy Tentacles', '🐙')), at('recovery', rec(3, 'Alien Physiology', '🧬'))],
+    [at('overcharge', atk(4, 'Overcharge', '⚡', 0.1)), at('scanner', crt(4, 'Scanner', '📡')), at('wideAngle', area(4, 'Wide Angle', '👁️', 'The beam grows')), at('probe', drp(3, 'Probe', '🛸'))],
+    [at('capacitors', cdr(4, 'Capacitors', '🔋', 'The lasers fire')), at('meltdown', crd(3, 'Meltdown', '🔥')), at('tractorBeam', rng(2, 'Tractor Beam', '🧲'))],
+    [at('capstone', { name: 'Mothership', icon: '🛸', desc: 'The lasers fire 15% faster and hit 25% harder.', maxRank: 1, cost: 5, effect: { cooldown: 0.15, damage: 0.25 } })],
   ]),
   // Thomas: bigger recalled specials, more often.
   archivist: gridTree([
@@ -2069,7 +2087,9 @@ export type HunterId =
   | 'artificer'
   | 'archivist'
   | 'gambler'
-  | 'spaceslime';
+  | 'lichlord'
+  | 'spaceslime'
+  | 'alien';
 
 // ---- Damage types: every attack deals one. Weapons carry a type; without one, a Hunter uses their own. ----
 export type DamageType = 'physical' | 'fire' | 'acid' | 'frost' | 'radiant' | 'poison' | 'arcane' | 'decay' | 'lightning' | 'void';
@@ -2151,7 +2171,7 @@ export const DAMAGE_TYPES: Record<DamageType, { name: string; icon: string; colo
  * the background model. Summons copy the weapon's damage type and status effects; the others keep their own.
  */
 export interface HunterSpecial {
-  kind: 'potion' | 'fireball' | 'summon' | 'punch' | 'spikes' | 'wave' | 'recall' | 'dice' | 'charm';
+  kind: 'potion' | 'fireball' | 'summon' | 'punch' | 'spikes' | 'wave' | 'recall' | 'dice' | 'charm' | 'laser';
   /** What it's called on the Hunter's card ("Potions", "Wolves"...). */
   name: string;
   damageType: DamageType;
@@ -2162,13 +2182,14 @@ export interface HunterSpecial {
   radius: number;
   ticks: number;
   crowd: number;
-  summon?: { look: 'wolf' | 'puppet'; type: SummonType };
+  /** Summons: what they look like and are, how many come (2 by default), and how long they stay (6s by default). */
+  summon?: { look: 'wolf' | 'puppet' | 'skeleton'; type: SummonType; count?: number; life?: number };
   /** Punches: how hard they knock monsters back (Guardians hold their ground) and how wide the blow is, in radians. */
   knock?: number;
   arc?: number;
   /** Bone spikes: seconds the monsters they hit are held in place (Guardians a quarter as long). */
   hold?: number;
-  /** Crimson Wave: how wide the surge is (it runs `radius` long). */
+  /** Crimson Wave: how wide the surge is (it runs `radius` long). Eye Lasers: how wide the beam is. */
   width?: number;
   describe: string;
 }
@@ -2468,6 +2489,27 @@ export const HUNTERS: HunterDef[] = [
     },
   },
   {
+    id: 'lichlord', name: 'Azir', title: 'Lich', icon: '💀', color: '#7fd8e0', area: 'fortress', recruitCost: 3e23,
+    short: 'Raises a small army of skeletal soldiers.',
+    unlock: { event: 'cloudburst', times: 2 },
+    ascendedTitle: 'Dread Sovereign',
+    story: "Azir sealed himself in the Cloud Fortress's highest tower to wait out the centuries, and the storms have been rattling his bones ever since. Weather two Cloudbursts, and his legion marches with you.",
+    ability: 'Every 15s, raises six skeletal soldiers from the ground around him. They march on the monsters and fight for 10s, striking with his weapon. Wields only magic weapons.',
+    slots: [{ kind: 'magic', label: 'Magic weapon' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
+    special: {
+      kind: 'summon',
+      name: 'Raise the Legion',
+      damageType: 'physical',
+      cooldown: 15,
+      damage: 0.6,
+      radius: 1,
+      ticks: 15,
+      crowd: 1,
+      summon: { look: 'skeleton', type: 'undead', count: 6, life: 10 },
+      describe: 'Every 15s, six skeletal soldiers claw their way up around him and march on the monsters for 10s, each striking for his damage: his weapon powers them, and they share its damage type and status effects.',
+    },
+  },
+  {
     id: 'spaceslime', name: 'Norm', title: 'Space Slime', icon: '🌌', color: '#c88aff', area: 'meteors', recruitCost: 1.6e24,
     short: 'Charms monsters into fighting each other.',
     unlock: { event: 'meteorShower', times: 1 },
@@ -2485,6 +2527,27 @@ export const HUNTERS: HunterDef[] = [
       ticks: 6,
       crowd: 4,
       describe: "Every 6s, charms the monster nearest him within reach (his weapon's attack rate and area size widen it; Guardians are immune). For 6s it turns on the nearest other monster, biting it every second for 25% of its own max health, and your Hunters leave it be.",
+    },
+  },
+  {
+    id: 'alien', name: 'Tonk', title: 'Alien', icon: '👽', color: '#7ee06a', area: 'meteors', recruitCost: 6e24,
+    short: 'Eye lasers that pierce the whole battlefield.',
+    unlock: { event: 'meteorShower', times: 2 },
+    ascendedTitle: 'Star Conqueror',
+    story: "Tonk's saucer came down in the Meteor Field, and he's been zapping anything that comes near the wreck ever since. Ride out two Meteor Showers, and he'll point those eyes at the monsters instead.",
+    ability: 'Every 5s, fires twin eye lasers at the nearest monster: the beam runs right across the battlefield, burning everything in its path. Uses ranged or magic weapons.',
+    slots: [{ kind: 'weapon', label: 'Weapon', accepts: ['weapon', 'magic'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
+    special: {
+      kind: 'laser',
+      name: 'Eye Lasers',
+      damageType: 'radiant',
+      cooldown: 5,
+      damage: 1.3,
+      radius: 1,
+      width: 12,
+      ticks: 1,
+      crowd: 5,
+      describe: "Every 5s, fires twin eye lasers at the nearest monster: the beam runs right across the battlefield, hitting every monster in its path for his weapon's damage. Its attack rate and area size widen the beam.",
     },
   },
 ];
@@ -2575,6 +2638,8 @@ const HUNTER_ABILITIES: Partial<Record<HunterId, HunterAbility[]>> = {
     { name: 'Roll the Dice', kind: 'active', text: 'Every 5s, rolls two dice at the monsters: the higher the total, the bigger the blast; doubles hit twice as hard, double 6s hit the whole field, and snake eyes leave him dazed.' },
     { name: 'Double or Nothing', kind: 'passive', text: 'Kills in his area pay double (25%) or nothing (10%).' },
   ],
+  lichlord: [{ name: 'Raise the Legion', kind: 'active', text: 'Every 15s, raises six skeletal soldiers from the ground around him; they march on the monsters and fight for 10s, striking with his weapon.' }],
+  alien: [{ name: 'Eye Lasers', kind: 'active', text: 'Every 5s, fires twin eye lasers at the nearest monster: the beam runs right across the battlefield, burning everything in its path.' }],
   spaceslime: [{ name: 'Smooth Talk', kind: 'active', text: "Every 6s, sweet-talks the monster nearest him (Guardians aren't fooled): for 6s it hunts the nearest other monster instead of your Hunters, biting it for a quarter of its own health every second." }],
 };
 

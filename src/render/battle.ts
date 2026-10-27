@@ -1220,6 +1220,7 @@ export class BattleView {
   private summonArt(sm: Summon): EnemyId {
     if (sm.look === 'wolf') return 'wolf';
     if (sm.look === 'puppet') return 'puppet';
+    if (sm.look === 'skeleton') return 'skeleton';
     if (sm.look === 'rock') return 'stoneGolem';
     return SUMMON_ART[sm.type] ?? 'wraith';
   }
