@@ -2535,8 +2535,8 @@ export const HUNTERS: HunterDef[] = [
     unlock: { event: 'meteorShower', times: 2 },
     ascendedTitle: 'Star Conqueror',
     story: "Tonk's saucer came down in the Meteor Field, and he's been zapping anything that comes near the wreck ever since. Ride out two Meteor Showers, and he'll point those eyes at the monsters instead.",
-    ability: 'Every 5s, fires twin eye lasers at the nearest monster: the beam runs right across the battlefield, burning everything in its path. Uses ranged or magic weapons.',
-    slots: [{ kind: 'weapon', label: 'Weapon', accepts: ['weapon', 'magic'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
+    ability: 'Every 5s, fires twin eye lasers at the nearest monster: the beam runs right across the battlefield, burning everything in its path. Uses melee or ranged weapons.',
+    slots: [{ kind: 'weapon', label: 'Weapon', accepts: ['weapon', 'melee'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
     special: {
       kind: 'laser',
       name: 'Eye Lasers',
