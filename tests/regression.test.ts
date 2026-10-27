@@ -191,7 +191,11 @@ describe('Regression Tree', () => {
   });
 
   it('the Unbound areas sit round a clock face, nodes between them, prices rising all the way round', () => {
-    const ring = REGRESSION_TREE.filter((n) => n.ring === 6).sort((a, b) => a.angle - b.angle);
+    const ring = REGRESSION_TREE.filter((n) => n.id.startsWith('unbound-') || n.id.startsWith('ring-'));
+    // Clockwise all the way round, close in round the inner web (the outer ring is at 3).
+    for (let i = 1; i < ring.length; i++) expect(ring[i].angle).toBeGreaterThan(ring[i - 1].angle);
+    for (const n of ring) expect(n.ring).toBeGreaterThan(3.5);
+    for (const n of ring) expect(n.ring).toBeLessThan(6);
     // Woods at 12 o'clock, then an hour per area, the Void Rift at 11.
     expect(ring[0].id).toBe('unbound-forest');
     expect(ring[ring.length - 1].id).toBe('unbound-rift');
@@ -202,7 +206,7 @@ describe('Regression Tree', () => {
       expect(REGRESSION_LINKS.some(([a, b]) => (a === ring[i - 1].id && b === ring[i].id) || (b === ring[i - 1].id && a === ring[i].id))).toBe(true);
     }
     // Between two areas, the nodes in the middle come first.
-    expect(ring.findIndex((n) => n.id === 'unbound-glade') - ring.findIndex((n) => n.id === 'unbound-forest')).toBe(3);
+    expect(ring.findIndex((n) => n.id === 'unbound-glade') - ring.findIndex((n) => n.id === 'unbound-forest')).toBe(5);
   });
 
   it('the Unbound areas run in order round the web, each needing the one before, prices rising', () => {

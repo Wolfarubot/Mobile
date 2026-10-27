@@ -4411,7 +4411,7 @@ export class AppUI {
       web.style.width = `${W}px`;
       web.style.height = `${H}px`;
       const maxRing = Math.max(...shown.map((n) => n.ring));
-      const rings = [1, 2, 3, 6]
+      const rings = [1, 2, 3, 4.7]
         .filter((r) => r <= maxRing)
         .map((r) => `<circle cx="${-x0}" cy="${-y0}" r="${r * R}" class="rw-ring"/>`)
         .join('');

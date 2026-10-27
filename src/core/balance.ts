@@ -1429,7 +1429,7 @@ export interface RegNode {
   /** Gold you start each run with. */
   startGold?: number;
   /** A switch rather than a number. */
-  flag?: 'autoEmpower' | 'keepHunters' | 'autoCraft';
+  flag?: 'autoEmpower' | 'keepHunters';
   /** Shown but not for sale yet. */
   soon?: boolean;
 }
@@ -1444,13 +1444,16 @@ export interface RegNode {
 const SPOKES = [-90, -30, 30, 90, 150, 210];
 /** The Unbound areas in order, clockwise round the clock face (each needs the one before it). */
 const UNBOUND_ORDER: AreaId[] = ['forest', 'glade', 'graveyard', 'crypt', 'depths', 'caves', 'mines', 'peaks', 'cliffs', 'fortress', 'meteors', 'rift'];
-/** How far out the Unbound ring sits, in rings. */
-const UNBOUND_RING = 6;
-/** Nodes between one Unbound area and the next. */
-const UNBOUND_BETWEEN = 2;
-/** Shards for the k-th node round the ring (the Woods is 0): ×1.3 a step, two significant figures. */
+/** How far out the Unbound areas sit (in rings), and the inner and outer edges of the band their nodes zigzag across. */
+const UNBOUND_RING = 4.7;
+const UNBOUND_IN = 4.1;
+const UNBOUND_OUT = 5.5;
+/** Nodes between one Unbound area and the next, and where they sit in the 30° to it: in, out, in, out. */
+const UNBOUND_BETWEEN = 4;
+const UNBOUND_STEPS = [8, 13, 19, 24];
+/** Shards for the k-th node round the ring (the Woods is 0): ×1.17 a step, two significant figures. */
 const unboundCost = (k: number): number => {
-  const v = 10_000 * 1.3 ** k;
+  const v = 10_000 * 1.17 ** k;
   const p = 10 ** (Math.floor(Math.log10(v)) - 1);
   return Math.round(v / p) * p;
 };
@@ -1466,11 +1469,12 @@ const UNBOUND_PERKS: Array<Pick<RegNode, 'name' | 'icon' | 'desc' | 'mult' | 'fl
   { name: 'Effortless Growth', icon: 'rpg-items/003', desc: 'Training costs ÷5.', mult: { trainCost: 0.2 } },
   { name: 'Beast Lore', icon: 'resources1/042', desc: 'Empowering monsters costs ÷10.', mult: { empowerCost: 0.1 } },
 ];
-const ROMAN = ['', ' II', ' III', ' IV'];
+const ROMAN = ['', ' II', ' III', ' IV', ' V', ' VI', ' VII'];
 /**
  * The Unbound ring: the twelve Unbound areas where the hours sit on a clock (the Woods at 12, the Grove at 1, ...
- * the Void Rift at 11), with UNBOUND_BETWEEN nodes on the ring between each area and the next. They're bought in
- * order round the ring, each dearer than the last, so every area is a jump in gold and time.
+ * the Void Rift at 11), close round the inner web, with UNBOUND_BETWEEN nodes between each area and the next that
+ * zigzag in and out across a band, so the ring fills the space round the web. They're bought in order round the
+ * ring (the order they're listed in), each dearer than the last, so every area is a jump in gold and time.
  */
 function unboundRing(): RegNode[] {
   const out: RegNode[] = [];
@@ -1505,14 +1509,12 @@ function unboundRing(): RegNode[] {
         ...p,
         id: `ring-${i}-${j}`,
         name: p.name + ROMAN[n],
-        ring: UNBOUND_RING,
-        angle: angle + (30 * j) / (UNBOUND_BETWEEN + 1),
+        ring: j % 2 ? UNBOUND_IN : UNBOUND_OUT,
+        angle: angle + UNBOUND_STEPS[j - 1],
         cost: unboundCost(i * (UNBOUND_BETWEEN + 1) + j),
       });
     }
   });
-  // Off the ring, inside it: Self-Forging, from the node just before the Meteor Field.
-  out.push({ id: 'autoCraft', name: 'Self-Forging', icon: 'resources3/003', desc: 'Crafts the best gear you can afford for empty or weaker slots, by itself.', ring: UNBOUND_RING - 1, angle: -90 + 30 * 9.5, cost: unboundCost(29), flag: 'autoCraft', soon: true });
   return out;
 }
 
@@ -1549,7 +1551,7 @@ export const REGRESSION_TREE: RegNode[] = [
   spoke(3, 3, 'endlessHorde', 'Endless Horde', 'resources1/099', 'Monsters spawn ×3 as often.', 2500, { spawn: 3 }),
   spoke(4, 3, 'treasureSense', 'Treasure Sense', 'things/007', 'Material drop chance ×25.', 2500, { drops: 25 }),
   spoke(5, 3, 'apexMemory', 'Apex Memory', 'rpg-items/319', 'Damage for every Hunter ×3.', 2500, { damage: 3 }),
-  // Beyond the web: the Unbound timeline, a big ring round it all (UNBOUND_RING).
+  // Round it all: the Unbound timeline (unboundRing).
   ...unboundRing(),
 ];
 
@@ -1566,9 +1568,8 @@ export const REGRESSION_LINKS: Array<[string, string]> = (() => {
   });
   for (const a of [-90, -30, 210]) out.push([at(3, a), 'unbound-forest']);
   // Round the Unbound ring, clockwise from the Woods to the Void Rift, each node joined to the next.
-  const ring = REGRESSION_TREE.filter((n) => n.ring === UNBOUND_RING).sort((x, y) => x.angle - y.angle);
+  const ring = REGRESSION_TREE.filter((n) => n.id.startsWith('unbound-') || n.id.startsWith('ring-'));
   for (let i = 1; i < ring.length; i++) out.push([ring[i - 1].id, ring[i].id]);
-  out.push([ring.find((n) => Math.abs(n.angle - (-90 + 30 * 9 + 10)) < 0.01)!.id, 'autoCraft']);
   return out;
 })();
 
