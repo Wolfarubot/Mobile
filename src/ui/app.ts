@@ -103,6 +103,10 @@ import {
   SHOP_DAILY_ITEMS,
   type Quest,
   MINIGAME_BUFFS,
+  homeEvent,
+  echoGame,
+  echoChangesIn,
+  pinEcho,
   STATUS,
   UNIQUE_EFFECTS,
   type GearEffect,
@@ -3404,7 +3408,8 @@ export class AppUI {
       const grid = el('div', 'hunter-grid event-grid');
       for (const ev of here) grid.appendChild(this.eventTile(ev));
       this.panel.appendChild(grid);
-      const mini = here.find((e) => e.minigame);
+      // The Rift Echo borrows the other areas' games, so its buff is shown in theirs.
+      const mini = here.find((e) => e.minigame && !e.echo);
       if (mini) this.panel.appendChild(this.buffBar(mini));
     }
     if (!shown.length) this.panel.appendChild(el('p', 'hd-note', 'No events here yet.'));
@@ -3613,10 +3618,31 @@ export class AppUI {
     $('.ev-details', card).addEventListener('click', () => this.openEventDetail(ev));
     this.wireEventButton(ev, card, $<HTMLButtonElement>('.ev-go', card), $('.ev-status', card), this.refreshers, () => {
       if (ev.kind !== 'minigame') return this.eventRewards(ev).join(' · ');
-      const best = g.state.events[ev.id]?.best ?? 0;
-      return best > 0 ? `${tx('event.card.best', { score: fmt(best) })} ${rankStars(g.starsFor(ev.id, best))}` : `${tx('event.card.notPlayed')} ${rankStars(0)}`;
+      const best = this.bestScore(ev);
+      const record = best > 0 ? `${tx('event.card.best', { score: fmt(best) })} ${rankStars(g.starsFor(ev.id, best))}` : `${tx('event.card.notPlayed')} ${rankStars(0)}`;
+      return ev.echo ? `${this.echoLine()}<br>${record}` : record;
     });
+    // The Rift Echo's line names the hour's game and buff, so it's kept current as the hour turns.
+    if (ev.echo) {
+      const blurbEl = $('.blurb', card);
+      this.refreshers.push(() => {
+        const html = tx('event.card.minigame', { buff: MINIGAME_BUFFS[ev.minigame!].name, desc: lowerFirst(MINIGAME_BUFFS[ev.minigame!].desc) });
+        if (blurbEl.innerHTML !== html) blurbEl.innerHTML = html;
+      });
+    }
     return card;
+  }
+
+  /** A minigame's best score: the Rift Echo shows the hour's game's own best (its scores count there too). */
+  private bestScore(ev: EventDef): number {
+    const id = ev.echo ? homeEvent(ev.minigame!).id : ev.id;
+    return this.game.state.events[id]?.best ?? 0;
+  }
+
+  /** The Rift Echo's game this hour, and how long until the next. */
+  private echoLine(): string {
+    const home = homeEvent(echoGame());
+    return tx('event.echo.now', { game: `${home.icon} <b>${home.name}</b>`, time: fmtTime(echoChangesIn(Date.now()) / 1000) });
   }
 
   /** What finishing an event gives, in short (a Guardian's unlock or bounty, the Hunters it brings). */
@@ -3652,7 +3678,7 @@ export class AppUI {
       card?.classList.toggle('ready', g.eventReady(ev.id));
       const line = extra();
       const note = line ? `<small>${ev.kind === 'minigame' ? line : tx('event.card.reward', { what: line })}</small>` : '';
-      if (!unlocked && ev.kind === 'minigame') {
+      if (!unlocked && ev.kind === 'minigame' && !ev.echo) {
         const h = hunterDef(ev.hunter!);
         status.innerHTML = `<small>🔒 Recruit ${wearerIcon(h.id)} ${h.name} the ${h.title} to play</small>`;
         btn.innerHTML = '🔒';
@@ -3702,9 +3728,10 @@ export class AppUI {
     const icon = this.eventIcon(ev, 'ec-icon');
     const head = el('div', 'card ed-head');
     const who = ev.hunter ? `<small>${wearerIcon(ev.hunter)} ${tx('event.detail.with', { hunter: `${hunterDef(ev.hunter).name} the ${hunterDef(ev.hunter).title}`, area: areaDef(ev.area).name })}</small>` : `<small>${areaDef(ev.area).name}</small>`;
-    head.innerHTML = `<div class="beast-head">${icon.html}<div class="info"><div class="name">${ev.name}</div>${who}</div></div><p>${ev.blurb}</p>`;
+    head.innerHTML = `<div class="beast-head">${icon.html}<div class="info"><div class="name">${ev.name}</div>${who}</div></div><p>${ev.blurb}</p>${ev.echo ? '<p class="ed-echo"></p>' : ''}`;
     icon.draw(head);
     body.appendChild(head);
+    if (ev.echo) refreshers.push(() => ($('.ed-echo', head).innerHTML = this.echoLine()));
 
     if (ev.kind === 'minigame') this.buildMinigameDetail(ev, body, refreshers);
     else {
@@ -3743,7 +3770,7 @@ export class AppUI {
     const best = el('div', 'card ed-best');
     body.appendChild(best);
     refreshers.push(() => {
-      const b = g.state.events[ev.id]?.best ?? 0;
+      const b = this.bestScore(ev);
       best.innerHTML = `<span>${tx('event.detail.best')}</span><b>${b > 0 ? fmt(b) : tx('event.card.notPlayed')}</b>${rankStars(b > 0 ? g.starsFor(ev.id, b) : 0)}`;
     });
 
@@ -3780,7 +3807,7 @@ export class AppUI {
     const bb = el('div', 'card ed-text');
     body.appendChild(bb);
     refreshers.push(() => {
-      const html = `<p>${buff.desc}</p><p>${txt(buff.kind === 'timed' ? 'popup.buff.left' : 'popup.buff.chargesLeft')}: <b>${this.buffAmount(mg)}</b> (holds up to ${buff.kind === 'timed' ? span(g.buffCap(mg)) : g.buffCap(mg)})</p><p>${buff.kind === 'timed' ? tx('event.detail.timedNote') : ev.blessing ? tx('event.detail.blessingNote', { what: ev.blessing.kind === 'refine' ? 'Refine' : 'Enchant' }) : tx('event.detail.slayerNote')}</p>`;
+      const html = `<p>${buff.desc}</p><p>${txt(buff.kind === 'timed' ? 'popup.buff.left' : 'popup.buff.chargesLeft')}: <b>${this.buffAmount(mg)}</b> (holds up to ${buff.kind === 'timed' ? span(g.buffCap(mg)) : g.buffCap(mg)})</p><p>${buff.kind === 'timed' ? tx('event.detail.timedNote') : ev.blessing ? tx('event.detail.blessingNote', { what: ev.blessing.kind === 'refine' ? 'Refine' : 'Enchant' }) : tx(mg === 'meteorBounce' ? 'event.detail.stardustNote' : 'event.detail.slayerNote')}</p>`;
       if (bb.innerHTML !== html) bb.innerHTML = html;
     });
   }
@@ -3805,12 +3832,14 @@ export class AppUI {
     const g = this.game;
     const mg = ev.minigame && MINIGAMES[ev.minigame];
     if (!mg || !g.startEvent(ev.id)) return;
+    // A Rift Echo play keeps this hour's game to the end, even if the hour turns while it's on.
+    if (ev.echo) pinEcho(ev.minigame!);
     this.refresh();
-    const best = g.state.events[ev.id]?.best ?? 0;
+    const best = this.bestScore(ev);
     const bless = ev.blessing;
     runMinigame({
-      title: mg.title,
-      intro: mg.intro + (bless ? `<p class="mg-bless">${blessingIntro(g, ev)}</p>` : ''),
+      title: ev.echo ? `${ev.icon} ${txt('event.echo.title', { game: mg.title.replace(/^[^\p{L}]+/u, '') })}` : mg.title,
+      intro: (ev.echo ? `<p class="mg-bless">${tx('event.echo.intro')}</p>` : '') + mg.intro + (bless ? `<p class="mg-bless">${blessingIntro(g, ev)}</p>` : ''),
       area: ev.area,
       decor: mg.decor,
       lives: mg.lives,
@@ -3829,7 +3858,10 @@ export class AppUI {
         const blessed = bless && tier > 0 ? `<p class="mg-bless">✨ Blessed: your ${bless.kind === 'refine' ? 'Refines' : 'Enchants'} roll ${held} extra time${held > 1 ? 's' : ''} (${Math.round(g.perfectChance(held) * 100)}% perfect a roll)</p>` : '';
         return `${record}<p>${score > 0 ? rewardText(r) : tx('minigame.screen.none')}</p>${buffLine}${blessed}`;
       },
-      onClose: () => this.refresh(),
+      onClose: () => {
+        pinEcho(null);
+        this.refresh();
+      },
     });
   }
 

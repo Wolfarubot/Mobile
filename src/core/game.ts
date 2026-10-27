@@ -63,6 +63,12 @@ import {
   BUFF_KEEN_EYE,
   BUFF_SLAYER,
   BUFF_SLAYER_TIME,
+  BUFF_OVERCLOCK,
+  BUFF_LOOT,
+  BUFF_LOOT_TWO_STAR,
+  STARDUST_MIN_AWAY,
+  ECHO_MULT,
+  homeEvent,
   MINIGAME_BUFFS,
   minigameStars,
   type MinigameId,
@@ -438,7 +444,7 @@ export class Game {
 
   /** The stars a piece works at for this wearer: its own, plus an Artificer's touch (up to one past 5★). */
   effStars(item: GearItem, who: Shooter): number {
-    return Math.min(MAX_EFFECTIVE_STARS, item.stars + this.tinkerFor(who));
+    return Math.min(MAX_EFFECTIVE_STARS, item.stars + this.tinkerFor(who) + BUFF_OVERCLOCK * this.buffPower('clockworkTower'));
   }
 
   gearEffects(who: Shooter): Array<{ uid: number; def: GearDef; effect: GearEffect; stars: number }> {
@@ -577,7 +583,7 @@ export class Game {
   critChanceOf(shooter: Shooter): number {
     const w = this.weaponItem(shooter);
     const arch = w ? (weaponArchetype(gearDef(w.base))?.crit ?? 0) : 0;
-    return BASE_CRIT_CHANCE + this.gear(shooter).crit + this.tree(shooter).crit + arch + (this.buffOn('shootingGallery') ? BUFF_CRIT : 0);
+    return BASE_CRIT_CHANCE + this.gear(shooter).crit + this.tree(shooter).crit + arch + BUFF_CRIT * this.buffPower('shootingGallery');
   }
 
   private critFactor(shooter: Shooter): number {
@@ -976,7 +982,7 @@ export class Game {
 
   /** A Hunter's crit damage multiplier (the Brutal refine and Brutal Criticals raise it). */
   critMultOf(who: Shooter): number {
-    return CRIT_MULT * (1 + this.modStat(who, 'critDmg') + this.tree(who).critDamage + this.gear(who).critDamage + (this.buffOn('shootingGallery') ? BUFF_CRIT_DMG : 0));
+    return CRIT_MULT * (1 + this.modStat(who, 'critDmg') + this.tree(who).critDamage + this.gear(who).critDamage + BUFF_CRIT_DMG * this.buffPower('shootingGallery'));
   }
 
   // ---- Potions (accessories): drunk on their cooldown in a fight, a boost for a while ----
@@ -1022,7 +1028,7 @@ export class Game {
 
   /** Multiplier on a Hunter's gear ability cooldowns (Haste), never below 40%. */
   cooldownMult(who: Shooter): number {
-    return Math.max(0.4, 1 - this.enchantBoost(who, 'cooldown') - this.tree(who).cooldown - this.gear(who).cooldown) * (this.buffOn('puppetShow') ? 1 - BUFF_ENCORE : 1);
+    return Math.max(0.4, 1 - this.enchantBoost(who, 'cooldown') - this.tree(who).cooldown - this.gear(who).cooldown) * (1 - BUFF_ENCORE * this.buffPower('puppetShow'));
   }
 
   /** How much longer the status effects a Hunter sets off last (Extended Effects, and gear). */
@@ -1384,6 +1390,8 @@ export class Game {
   eventUnlocked(id: string): boolean {
     const def = EVENTS.find((e) => e.id === id); // e.g. the final area has no Guardian Challenge
     if (!def || !this.isAreaUnlocked(def.area)) return false;
+    // The Rift Echo opens once the Rift's Shadow Tide has been survived; other minigames once their Hunter is recruited.
+    if (def.echo) return this.eventCompletions(def.requires!.event) >= def.requires!.times;
     if (def.kind === 'minigame') return !!def.hunter && this.state.hunters[def.hunter].recruited;
     if (def.requires && this.eventCompletions(def.requires.event) < def.requires.times && this.eventCompletions(id) === 0) return false;
     return this.eventProgress(id) >= def.unlockKills;
@@ -1432,27 +1440,46 @@ export class Game {
     return this.buffLeft(id) > 0 && !(this.away && MINIGAME_BUFFS[id].kind === 'timed');
   }
 
+  /** How strongly a buff works: 0 when off, 1 when on, ECHO_MULT while a Rift Echo play's doubled time lasts. */
+  buffPower(id: MinigameId): number {
+    if (!this.buffOn(id)) return 0;
+    return MINIGAME_BUFFS[id].kind === 'timed' && (this.state.echo[id] ?? 0) > 0 ? ECHO_MULT : 1;
+  }
+
+  /** Seconds left of a timed buff's doubled strength (from a Rift Echo play). */
+  echoLeft(id: MinigameId): number {
+    return this.state.echo[id] ?? 0;
+  }
+
   /** Battle Hymn's attack speed multiplier. */
   private get hymn(): number {
-    return this.buffOn('pixieSerenade') ? 1 + BUFF_HYMN : 1;
+    return 1 + BUFF_HYMN * this.buffPower('pixieSerenade');
   }
 
   /** What a play of a minigame adds to its buff for a score (nothing for a score of 0). */
   buffGain(mg: MinigameId, id: string, score: number): number {
     const b = MINIGAME_BUFFS[mg];
-    const par = eventDef(id).rewards?.par ?? 1;
+    const def = eventDef(id);
+    const par = def.rewards?.par ?? 1;
     if (score <= 0) return 0;
     const k = Math.max(0.5, Math.min(1.5, score / par));
-    if (b.kind === 'timed') return b.per * k * this.premiumMult('buffTime');
+    // The Rift Echo: twice the time, or twice the charges.
+    const echo = def.echo ? ECHO_MULT : 1;
+    if (b.kind === 'timed') return b.per * k * this.premiumMult('buffTime') * echo;
     const extra = this.premiumBonus('charges');
     // Forge Strike and Rune Match: only a score that earns a blessing.
-    if (eventDef(id).blessing) return this.blessingFor(id, score) > 0 ? b.per + extra : 0;
-    return Math.max(1, Math.round(b.per * k)) + extra;
+    if (def.blessing) return this.blessingFor(id, score) > 0 ? (b.per + extra) * echo : 0;
+    return (Math.max(1, Math.round(b.per * k)) + extra) * echo;
   }
 
   private fillBuff(mg: MinigameId, id: string, score: number): void {
     const add = this.buffGain(mg, id, score);
-    if (add > 0) this.state.buffs[mg] = Math.min(this.buffCap(mg), this.buffLeft(mg) + add);
+    if (add <= 0) return;
+    // A Rift Echo play can fill a tank to twice its usual cap, and a timed one works at double strength for its time.
+    const echo = eventDef(id).echo;
+    const cap = this.buffCap(mg) * (echo ? ECHO_MULT : 1);
+    this.state.buffs[mg] = Math.max(this.buffLeft(mg), Math.min(cap, this.buffLeft(mg) + add));
+    if (echo && MINIGAME_BUFFS[mg].kind === 'timed') this.state.echo[mg] = Math.min(cap, this.echoLeft(mg) + add);
   }
 
   /** The most a buff's tank holds (more with the Lasting Blessings and Overflowing Charges upgrades). */
@@ -1730,7 +1757,7 @@ export class Game {
     const top = this.unlockedAreas[this.unlockedAreas.length - 1];
     const floor = Math.max(areaDef(def.area).gold, areaDef(top).gold) * GUARDIAN_GOLD_MULT * r.gold * score;
     const income = this.goldPerSecond() * (def.area === top ? MINIGAME_INCOME_NEW : MINIGAME_INCOME) * (score / r.par);
-    const gold = Math.max(floor, income);
+    const gold = Math.max(floor, income) * (def.echo ? ECHO_MULT : 1);
     const materials: Partial<Record<MaterialId, number>> = {};
     for (const m of r.materials) {
       const n = Math.floor(score / m.per);
@@ -1785,6 +1812,11 @@ export class Game {
     if (def.minigame) this.fillBuff(def.minigame, id, score);
     const st = s.events[id];
     if (st) st.best = Math.max(st.best ?? 0, score);
+    // A Rift Echo score is also that game's own score (its best and star rank).
+    if (def.echo && def.minigame) {
+      const hs = s.events[homeEvent(def.minigame).id];
+      if (hs) hs.best = Math.max(hs.best ?? 0, score);
+    }
     return reward;
   }
 
@@ -1848,9 +1880,9 @@ export class Game {
       archetype: def.archetype,
       hp: area.hp * def.hp * emp('hp') * (1 + evo.hp),
       speed: area.speed * def.speed * (1 + evo.speed) * swarm.speed,
-      gold: area.gold * def.gold * emp('gold') * (1 + evo.gold) * this.areaPerk(def.area).gold * (this.buffOn('graveRobbing') ? 1 + BUFF_GOLD : 1) * this.premiumMult('gold'),
+      gold: area.gold * def.gold * emp('gold') * (1 + evo.gold) * this.areaPerk(def.area).gold * (1 + BUFF_GOLD * this.buffPower('graveRobbing')) * this.premiumMult('gold'),
       spawnRate: b.unlocked ? Math.max(def.spawn * emp('spawn') * (1 + evo.spawn) * (isGolem(def) ? 1 : idol.spawn) * swarm.spawn, swarm.spawn ? (ev?.minSpawn?.[id] ?? 0) : 0) : 0,
-      dropChance: BASE_DROP_CHANCE * emp('drops') * (1 + evo.drops) * (this.buffOn('huntingPractice') ? 1 + BUFF_KEEN_EYE : 1) * this.premiumMult('drops'),
+      dropChance: BASE_DROP_CHANCE * emp('drops') * (1 + evo.drops) * (1 + BUFF_KEEN_EYE * this.buffPower('huntingPractice')) * this.premiumMult('drops'),
       material: def.material,
       split: Math.min(1, evo.split),
       fireTrail: Math.min(1, evo.fireTrail),
@@ -1896,6 +1928,10 @@ export class Game {
     }
     // Timed minigame buffs run down while you play.
     for (const id of Object.keys(s.buffs) as MinigameId[]) if (MINIGAME_BUFFS[id].kind === 'timed') s.buffs[id] = Math.max(0, s.buffs[id]! - dt);
+    for (const id of Object.keys(s.echo) as MinigameId[]) {
+      s.echo[id] = Math.min(this.buffLeft(id), s.echo[id]! - dt);
+      if (s.echo[id]! <= 0) delete s.echo[id];
+    }
     if (this.activeEvent) {
       this.activeEvent.left -= dt;
       if (this.activeEvent.left <= 0) this.endEvent(true);
@@ -1928,7 +1964,8 @@ export class Game {
    * ×loot chance. Your current area counts the Hunters stationed with you.
    */
   areaPerk(area: AreaId): { gold: number; loot: number } {
-    const out = { gold: 1, loot: 1 };
+    // Loaded Dice (Ted's High or Low): loot drops twice as often everywhere.
+    const out = { gold: 1, loot: 1 + BUFF_LOOT * this.buffPower('highOrLow') };
     for (const h of HUNTERS) {
       if (!this.state.hunters[h.id].recruited || this.state.hunters[h.id].station !== area) continue;
       out.gold *= 1 + (h.areaGold ?? 0);
@@ -1943,7 +1980,7 @@ export class Game {
    */
   dropLoot(area: AreaId, quiet = false): { gear: GearId; salvaged: boolean } {
     const def = rollLoot(area, this.rng(), this.rng());
-    const stars = this.rng() < LOOT_TWO_STAR ? 2 : 1;
+    const stars = this.rng() < LOOT_TWO_STAR + BUFF_LOOT_TWO_STAR * this.buffPower('highOrLow') ? 2 : 1;
     const salvaged = this.state.settings.autoSalvage.includes(def.rarity);
     if (salvaged) {
       for (let l = 0; l < stars; l++)
@@ -2725,6 +2762,17 @@ export class Game {
     }
     s.lastSeen = now;
     this.away = false;
+    // Stardust (Norm's Meteor Bounce): a charge doubles what a long enough time away brought in.
+    if (seconds >= STARDUST_MIN_AWAY && (result.gold > 0 || Object.keys(result.materials).length) && this.spendBuff('meteorBounce')) {
+      result.stardust = true;
+      result.gold *= 2;
+      s.gold += result.gold / 2;
+      s.stats.totalGold += result.gold / 2;
+      for (const [m, n] of Object.entries(result.materials) as [MaterialId, number][]) {
+        this.gainMaterial(m, n);
+        result.materials[m] = n * 2;
+      }
+    }
     // With ads removed, the gold and materials come doubled (what watching the ad would do).
     if (s.noAds) this.doubleOffline(result);
     return result;

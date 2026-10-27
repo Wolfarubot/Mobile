@@ -59,7 +59,7 @@ export const OFFLINE_POPUP_SEC = 15 * 60;
 export type EventKind = 'guardian' | 'swarm' | 'minigame';
 
 /** Minigames: hands-on events played on their own screen, one per area with a Hunter from that area. */
-export type MinigameId = 'huntingPractice' | 'pixieSerenade' | 'graveRobbing' | 'puppetShow' | 'shootingGallery' | 'forgeStrike' | 'runeMatch' | 'icebreaker';
+export type MinigameId = 'huntingPractice' | 'pixieSerenade' | 'graveRobbing' | 'puppetShow' | 'shootingGallery' | 'forgeStrike' | 'runeMatch' | 'icebreaker' | 'clockworkTower' | 'highOrLow' | 'meteorBounce';
 
 /**
  * A blessing from a smithing minigame: your next Refine (Kargesh) or Enchant (Marceline) rolls every option's
@@ -103,6 +103,8 @@ export interface EventDef {
   rewards?: { gold: number; par: number; materials: Array<{ material: MaterialId; per: number }> };
   /** Minigame: a blessing on your next Refine or Enchant, by score. */
   blessing?: Blessing;
+  /** The Rift Echo: this hour's game (its minigame, Hunter, rewards and blessing follow it), at ECHO_MULT. */
+  echo?: boolean;
 }
 
 /**
@@ -4237,6 +4239,13 @@ export const BUFF_CRIT_DMG = 0.25;
 /** Giant Slayer: the Guardian has 1 / (1 + this) of its health (as if you hit it this much harder), and more time. */
 export const BUFF_SLAYER = 0.5;
 export const BUFF_SLAYER_TIME = 30;
+/** Overclock: extra stars every Hunter's gear works at. */
+export const BUFF_OVERCLOCK = 1;
+/** Loaded Dice: extra loot chance (1: twice as often), and the extra chance a piece comes as 2★. */
+export const BUFF_LOOT = 1;
+export const BUFF_LOOT_TWO_STAR = 0.1;
+/** Stardust: the shortest time away a charge is spent on (shorter ones are quiet anyway). */
+export const STARDUST_MIN_AWAY = 15 * 60;
 const TIMED = { kind: 'timed' as const, per: 30 * 60, cap: 2 * 60 * 60 };
 export const MINIGAME_BUFFS: Record<MinigameId, MinigameBuff> = {
   huntingPractice: { name: 'Keen Eye', ...TIMED, desc: `+${BUFF_KEEN_EYE * 100}% material drop chance, in every area.` },
@@ -4247,6 +4256,9 @@ export const MINIGAME_BUFFS: Record<MinigameId, MinigameBuff> = {
   forgeStrike: { name: 'Forge Blessing', kind: 'charges', per: 2, cap: 6, desc: 'Each charge blesses one Refine: every choice rolls its quality 1 to 3 extra times (by your best score) and keeps the best.' },
   runeMatch: { name: 'Rune Blessing', kind: 'charges', per: 2, cap: 6, desc: 'Each charge blesses one Enchant: every choice rolls its quality 1 to 3 extra times (by your best score) and keeps the best.' },
   icebreaker: { name: 'Giant Slayer', kind: 'charges', per: 1, cap: 3, desc: `Each charge is spent on your next Guardian Challenge: you deal ${BUFF_SLAYER * 100}% more damage to the Guardian and have ${BUFF_SLAYER_TIME}s longer to beat it.` },
+  clockworkTower: { name: 'Overclock', ...TIMED, desc: 'Every Hunter uses their gear as if it had one more star (gear at 5★ gets what a 6th would give).' },
+  highOrLow: { name: 'Loaded Dice', ...TIMED, desc: `Loot drops twice as often, and ${BUFF_LOOT_TWO_STAR * 100}% more of it comes as 2★.` },
+  meteorBounce: { name: 'Stardust', kind: 'charges', per: 1, cap: 3, desc: 'Each charge doubles the gold and materials of your next time away (of 15 minutes or more).' },
 };
 const AREA_MINIGAMES: Partial<Record<AreaId, Omit<EventDef, 'area' | 'kind' | 'unlockKills' | 'duration'>>> = {
   forest: {
@@ -4336,7 +4348,99 @@ const AREA_MINIGAMES: Partial<Record<AreaId, Omit<EventDef, 'area' | 'kind' | 'u
     hunter: 'frostbreaker',
     rewards: { gold: MINIGAME_GOLD, par: 40, materials: [{ material: 'ecto', per: 4 }, { material: 'coldsteel', per: 5 }, { material: 'frostIron', per: 2 }, { material: 'frost', per: 1 }] },
   },
+  cliffs: {
+    id: 'clockworkTower',
+    name: "Reginald's Clockwork Tower",
+    icon: '⚙️',
+    blurb: 'A gear swings over the tower: tap to drop it so its teeth mesh with the one below. Whatever hangs over the edge is shaved off.',
+    minigame: 'clockworkTower',
+    hunter: 'artificer',
+    rewards: { gold: MINIGAME_GOLD, par: 30, materials: [{ material: 'orichalcum', per: 4 }, { material: 'skysteel', per: 4 }, { material: 'skystone', per: 2 }, { material: 'plume', per: 1 }] },
+  },
+  fortress: {
+    id: 'highOrLow',
+    name: "Ted's High or Low",
+    icon: '🃏',
+    blurb: 'Guess whether the next card is higher or lower: every right guess grows the pot. Cash out to bank it, or lose it all on a wrong one.',
+    minigame: 'highOrLow',
+    hunter: 'gambler',
+    // A card counter averages about 14 a deck (three wrong guesses end it), so its par is lower than the others'.
+    rewards: { gold: MINIGAME_GOLD, par: 15, materials: [{ material: 'stormstone', per: 3 }, { material: 'opal', per: 2 }, { material: 'thunder', per: 1 }, { material: 'feather', per: 1 }] },
+  },
+  meteors: {
+    id: 'meteorBounce',
+    name: "Norm's Meteor Bounce",
+    icon: '☄️',
+    blurb: 'Slide Norm under the falling meteorites to bounce them back into space. Big ones split in two; three that land end it.',
+    minigame: 'meteorBounce',
+    hunter: 'spaceslime',
+    rewards: { gold: MINIGAME_GOLD, par: 40, materials: [{ material: 'adamantite', per: 4 }, { material: 'starIron', per: 5 }, { material: 'stardust', per: 2 }, { material: 'meteor', per: 1 }] },
+  },
 };
+
+/** The Rift Echo pays (gold, materials and minigame buffs) this many times what its game normally does. */
+export const ECHO_MULT = 2;
+/** What a Rift Echo pays in materials, at a par of 40 (scaled to the hour's game's par), before ECHO_MULT. */
+const ECHO_MATERIALS: Array<{ material: MaterialId; per: number }> = [
+  { material: 'voidPrism', per: 4 },
+  { material: 'voidsteel', per: 5 },
+  { material: 'soul', per: 2 },
+  { material: 'shade', per: 1 },
+];
+/** Every minigame, in a fixed order the Rift Echo's hourly shuffle starts from. */
+export const MINIGAME_IDS = Object.keys(MINIGAME_BUFFS) as MinigameId[];
+const HOUR_MS = 3_600_000;
+/** The clock the Rift Echo's game follows (tests set their own). */
+let echoNow: () => number = () => Date.now();
+export function setEchoClock(fn: () => number): void {
+  echoNow = fn;
+}
+/** The game a Rift Echo play in progress is held to, so an hour turning mid-game can't change what it pays. */
+let echoPin: MinigameId | null = null;
+export function pinEcho(mg: MinigameId | null): void {
+  echoPin = mg;
+}
+/** The Rift Echo's game right now (the one a play in progress is held to). */
+export const echoGame = (): MinigameId => echoPin ?? echoGameAt(echoNow());
+/** The minigame event a game belongs to: its area's own (not the Rift Echo). */
+export const homeEvent = (mg: MinigameId): EventDef => EVENTS.find((e) => e.minigame === mg && !e.echo)!;
+
+/** A cycle's order of the games: the same for everyone (seeded by the cycle), so a given hour is the same game for all. */
+function echoCycle(cycle: number): MinigameId[] {
+  let h = (cycle * 2654435761) >>> 0 || 1;
+  const rand = () => {
+    h = Math.imul(h ^ (h >>> 15), 2246822507);
+    h = Math.imul(h ^ (h >>> 13), 3266489909);
+    h ^= h >>> 16;
+    return (h >>> 0) / 4294967296;
+  };
+  const order = [...MINIGAME_IDS];
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  return order;
+}
+
+/**
+ * The Rift Echo's game for the hour holding `now`: every game once per cycle (one cycle is as many hours as there are
+ * games), in a shuffled order, and never the same game two hours running (a cycle that would start with the last
+ * one's final game swaps its first two).
+ */
+export function echoGameAt(now: number): MinigameId {
+  const hour = Math.floor(now / HOUR_MS);
+  const n = MINIGAME_IDS.length;
+  const cycle = Math.floor(hour / n);
+  const order = echoCycle(cycle);
+  if (order[0] === echoCycle(cycle - 1)[n - 1]) [order[0], order[1]] = [order[1], order[0]];
+  return order[hour - cycle * n];
+}
+
+/** Milliseconds until the Rift Echo's game changes. */
+export function echoChangesIn(now: number): number {
+  return HOUR_MS - (now % HOUR_MS);
+}
+
 
 export const EVENTS: EventDef[] = AREAS.flatMap((a): EventDef[] => {
   const sw = AREA_SWARMS[a.id];
@@ -4376,6 +4480,35 @@ export const EVENTS: EventDef[] = AREAS.flatMap((a): EventDef[] => {
   if (mg) out.push({ ...mg, area: a.id, kind: 'minigame', unlockKills: 0, duration: 0 });
   return out;
 });
+
+// The Rift Echo: one event in the Void Rift whose game (and with it its Hunter, rewards and blessing) is the hour's.
+{
+  const echo = {
+    id: 'riftEcho',
+    area: 'rift',
+    kind: 'minigame',
+    name: 'Rift Echo',
+    icon: '🔮',
+    blurb: "The Rift echoes another area's minigame, a new one every hour, at double the rewards: twice the gold and materials (in Void Rift materials), and twice the buff, for twice as long.",
+    unlockKills: 0,
+    duration: 0,
+    echo: true,
+    requires: { event: AREA_SWARMS.rift.id, times: 1 },
+  } as EventDef;
+  Object.defineProperties(echo, {
+    minigame: { get: echoGame, enumerable: true },
+    hunter: { get: () => homeEvent(echoGame()).hunter, enumerable: true },
+    blessing: { get: () => homeEvent(echoGame()).blessing, enumerable: true },
+    rewards: {
+      get: () => {
+        const r = homeEvent(echoGame()).rewards!;
+        return { gold: r.gold, par: r.par, materials: ECHO_MATERIALS.map((m) => ({ material: m.material, per: (m.per * r.par) / 40 / ECHO_MULT })) };
+      },
+      enumerable: true,
+    },
+  });
+  EVENTS.push(echo);
+}
 
 export const eventDef = (id: string): EventDef => byId(EVENTS, id);
 

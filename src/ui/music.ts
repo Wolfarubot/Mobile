@@ -79,6 +79,10 @@ export const MINIGAME_MUSIC: Record<MinigameId, TrackId> = {
   forgeStrike: 'eastTown',
   runeMatch: 'ancientLibrary',
   icebreaker: 'unknownIsland',
+  // Every track has a home already: these borrow ones that suit them (a factory's clank, a busy town, the open sky).
+  clockworkTower: 'darkFactory',
+  highOrLow: 'livelyCity',
+  meteorBounce: 'travelingTheSky',
 };
 
 /** Each area's own track. */

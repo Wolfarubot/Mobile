@@ -90,6 +90,14 @@ import {
   BUFF_KEEN_EYE,
   BUFF_SLAYER,
   BUFF_SLAYER_TIME,
+  BUFF_LOOT_TWO_STAR,
+  ECHO_MULT,
+  echoGameAt,
+  echoChangesIn,
+  MINIGAME_IDS,
+  setEchoClock,
+  LOOT_TWO_STAR,
+  MAX_EFFECTIVE_STARS,
   MINIGAME_BUFFS,
   ENERGY_MAX,
   ENERGY_REGEN,
@@ -5289,4 +5297,114 @@ it('a save with a huge inventory loads (no call-stack overflow)', () => {
   const back = deserialize(serialize(s))!;
   expect(back.inventory).toHaveLength(s.inventory.length);
   expect(back.nextGearUid).toBe(200_010);
+});
+
+describe('Late minigames and the Rift Echo', () => {
+  it('Overclock adds a star to everyone\'s gear, Loaded Dice doubles loot, Stardust doubles a time away', () => {
+    const g = new Game(newGame(0), noCrit);
+    const item = { uid: 999, base: 'shortBow' as const, stars: 2 };
+    const stars = g.effStars(item, 'main');
+    g.state.buffs.clockworkTower = 60;
+    expect(g.effStars(item, 'main')).toBe(Math.min(MAX_EFFECTIVE_STARS, stars + 1));
+    // Loaded Dice: loot twice as often, and more 2★ pieces.
+    const loot = g.areaPerk('forest').loot;
+    g.state.buffs.highOrLow = 60;
+    expect(g.areaPerk('forest').loot).toBeCloseTo(loot * 2);
+    let rolls = 0;
+    const two = new Game(newGame(0), () => (rolls++ % 3 === 2 ? LOOT_TWO_STAR + BUFF_LOOT_TWO_STAR / 2 : 0));
+    two.state.buffs.highOrLow = 60;
+    two.state.settings.autoSalvage = [];
+    two.dropLoot('forest', true);
+    expect(two.state.inventory[two.state.inventory.length - 1].stars).toBe(2);
+    // Stardust: a charge doubles a long time away; a short one leaves it.
+    const a = new Game(newGame(0), noCrit);
+    const b = new Game(newGame(0), noCrit);
+    b.state.buffs.meteorBounce = 2;
+    a.state.lastSeen = b.state.lastSeen = 0;
+    const ra = a.applyOffline(4 * 3600 * 1000);
+    const goldB = b.state.gold;
+    const rb = b.applyOffline(4 * 3600 * 1000);
+    expect(rb.stardust).toBe(true);
+    expect(rb.gold).toBeCloseTo(ra.gold * 2);
+    expect(b.state.gold - goldB).toBeCloseTo(ra.gold * 2);
+    expect(b.buffLeft('meteorBounce')).toBe(1);
+    b.applyOffline(4 * 3600 * 1000 + 5 * 60 * 1000); // five minutes more
+    expect(b.buffLeft('meteorBounce')).toBe(1);
+  });
+
+  it('the Rift Echo plays a new game every hour, the same for everyone, never twice running, every game each cycle', () => {
+    const H = 3_600_000;
+    const n = MINIGAME_IDS.length;
+    expect(n).toBe(11);
+    let prev = echoGameAt(0);
+    for (let h = 1; h < n * 40; h++) {
+      const now = h * H + 1234;
+      expect(echoGameAt(now)).toBe(echoGameAt(h * H)); // the whole hour
+      expect(echoGameAt(now)).not.toBe(prev);
+      prev = echoGameAt(now);
+    }
+    for (let c = 0; c < 30; c++) expect(new Set(Array.from({ length: n }, (_, i) => echoGameAt((c * n + i) * H))).size).toBe(n);
+    expect(echoChangesIn(5 * H + 600_000)).toBe(H - 600_000);
+  });
+
+  it('the Rift Echo opens after the Shadow Tide and pays double: gold, Void Rift materials, buff time and strength', () => {
+    let now = 7 * 3_600_000;
+    setEchoClock(() => now);
+    try {
+      // An hour that plays a timed-buff game.
+      while (MINIGAME_BUFFS[eventDef('riftEcho').minigame!].kind !== 'timed') now += 3_600_000;
+      const mg = eventDef('riftEcho').minigame!;
+      const home = EVENTS.find((e) => e.minigame === mg && !e.echo)!;
+      const g = new Game(newGame(0), noCrit);
+      g.state.areas.rift.unlocked = true;
+      expect(g.eventUnlocked('riftEcho')).toBe(false);
+      g.state.events.shadowTide.completed = 1;
+      expect(g.eventUnlocked('riftEcho')).toBe(true);
+      const par = home.rewards!.par;
+      expect(eventDef('riftEcho').rewards!.par).toBe(par);
+      const plain = g.minigameReward(home.id, par);
+      const echo = g.minigameReward('riftEcho', par);
+      expect(echo.gold).toBeCloseTo(plain.gold * ECHO_MULT);
+      expect(Object.keys(echo.materials).sort()).toEqual(['shade', 'soul', 'voidPrism', 'voidsteel'].sort());
+      expect(echo.materials.shade).toBe(ECHO_MULT * 40);
+      // Twice the time a play adds, and double strength while that time lasts; the cap doubles too.
+      const gain = g.buffGain(mg, home.id, par);
+      g.finishMinigame('riftEcho', par);
+      expect(g.buffLeft(mg)).toBeCloseTo(gain * ECHO_MULT);
+      expect(g.buffPower(mg)).toBe(ECHO_MULT);
+      for (let i = 0; i < 10; i++) g.finishMinigame('riftEcho', par * 2);
+      expect(g.buffLeft(mg)).toBeCloseTo(g.buffCap(mg) * ECHO_MULT);
+      g.tick(g.buffCap(mg) * ECHO_MULT - 1);
+      expect(g.buffPower(mg)).toBe(ECHO_MULT);
+      g.tick(2);
+      expect(g.buffPower(mg)).toBe(0);
+      // Its score is also that game's best.
+      expect(g.state.events[home.id].best).toBe(par * 2);
+      // A charge game: twice the charges.
+      while (MINIGAME_BUFFS[eventDef('riftEcho').minigame!].kind !== 'charges' || eventDef('riftEcho').blessing) now += 3_600_000;
+      const cm = eventDef('riftEcho').minigame!;
+      const ch = EVENTS.find((e) => e.minigame === cm && !e.echo)!;
+      const h = new Game(newGame(0), noCrit);
+      h.finishMinigame('riftEcho', ch.rewards!.par);
+      expect(h.buffLeft(cm)).toBe(h.buffGain(cm, ch.id, ch.rewards!.par) * ECHO_MULT);
+      expect(h.buffLeft(cm)).toBe(MINIGAME_BUFFS[cm].per * ECHO_MULT);
+    } finally {
+      setEchoClock(() => Date.now());
+    }
+  });
+
+  it('the new games each open with their area\'s Hunter and pay that area\'s materials', () => {
+    const g = new Game(newGame(0), noCrit);
+    for (const [id, area, hunter] of [['clockworkTower', 'cliffs', 'artificer'], ['highOrLow', 'fortress', 'gambler'], ['meteorBounce', 'meteors', 'spaceslime']] as const) {
+      const def = eventDef(id);
+      expect(def.area).toBe(area);
+      expect(def.minigame).toBe(id);
+      g.state.areas[area].unlocked = true;
+      expect(g.eventUnlocked(id)).toBe(false);
+      g.state.hunters[hunter].recruited = true;
+      expect(g.eventUnlocked(id)).toBe(true);
+      const mats = Object.keys(g.minigameReward(id, def.rewards!.par).materials);
+      for (const m of mats) expect(ENEMIES.some((e) => e.area === area && (e.material === m || e.drops?.some((d) => d.material === m)))).toBe(true);
+    }
+  });
 });

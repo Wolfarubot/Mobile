@@ -276,6 +276,8 @@ export interface GameState {
   quests: QuestState;
   /** Minigame buffs: seconds left of a timed one, charges of a charge one. */
   buffs: Partial<Record<MinigameId, number>>;
+  /** Seconds a timed buff works at double strength (from a Rift Echo play). */
+  echo: Partial<Record<MinigameId, number>>;
   /** Event energy (refilling over time up to ENERGY_MAX; an ad can overcharge it past that): every event costs some. */
   energy: number;
   /** What the player has already looked at, so new things can be flagged with a "!". */
@@ -356,6 +358,7 @@ export function newGame(now = Date.now()): GameState {
     blessings: { refine: 0, enchant: 0 },
     energy: ENERGY_MAX,
     buffs: {},
+    echo: {},
     gems: 0,
     premium: [],
     shop: { day: '', items: [] },
@@ -698,13 +701,23 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
       const out: Partial<Record<MinigameId, number>> = {};
       for (const id of Object.keys(MINIGAME_BUFFS) as MinigameId[]) {
         const v = b[id];
-        if (typeof v === 'number' && Number.isFinite(v) && v > 0) out[id] = Math.min(MINIGAME_BUFFS[id].cap, v);
+        // Room for the bigger tanks (the Lasting Blessings and Overflowing Charges upgrades, a Rift Echo's double).
+        if (typeof v === 'number' && Number.isFinite(v) && v > 0) out[id] = Math.min(MINIGAME_BUFFS[id].cap * 4 + 12, v);
       }
       // A blessing from before charges: one charge of it.
       const old = (data.blessings ?? {}) as Partial<Record<'refine' | 'enchant', unknown>>;
       if (!('buffs' in data)) {
         if (typeof old.refine === 'number' && old.refine > 0) out.forgeStrike = 1;
         if (typeof old.enchant === 'number' && old.enchant > 0) out.runeMatch = 1;
+      }
+      return out;
+    })(),
+    echo: (() => {
+      const b = (data.echo ?? {}) as Record<string, unknown>;
+      const out: Partial<Record<MinigameId, number>> = {};
+      for (const id of Object.keys(MINIGAME_BUFFS) as MinigameId[]) {
+        const v = b[id];
+        if (MINIGAME_BUFFS[id].kind === 'timed' && typeof v === 'number' && Number.isFinite(v) && v > 0) out[id] = Math.min(MINIGAME_BUFFS[id].cap * 4, v);
       }
       return out;
     })(),

@@ -625,11 +625,27 @@ section(
     timedNote: "It only runs down while you're playing, not while you're away.",
     blessingNote: 'Each {what} you roll spends one.',
     slayerNote: 'Starting a Guardian Challenge spends one.',
+    stardustNote: 'Coming back after 15 minutes or more away spends one.',
   },
   {
     note: "An event's Details page.",
     vars: { hunter: 'the Hunter', area: 'an area', gold: 'bounty gold', material: 'its material', time: 'seconds', how: 'how they unlock', n: 'times', score: 'score', par: 'par score', new: 'e.g. 1 h', old: 'e.g. 20 min', list: 'the drop rates', what: 'Refine or Enchant' },
-    labels: { with: 'Who and where', rewards: 'Heading', opens: 'Guardian: opens', opened: 'Guardian: opened', bounty: 'Guardian: bounty', time: 'Guardian: time', swarm: 'Swarm', joins: 'Hunter joins', completed: 'Times completed', best: 'Best label', ranks: 'Heading', ranksNote: 'Ranks note', points: 'Rank score', gold: 'Gold note', drops: 'Drops note', timedNote: 'Timed buff note', blessingNote: 'Blessing note', slayerNote: 'Giant Slayer note' },
+    labels: { with: 'Who and where', rewards: 'Heading', opens: 'Guardian: opens', opened: 'Guardian: opened', bounty: 'Guardian: bounty', time: 'Guardian: time', swarm: 'Swarm', joins: 'Hunter joins', completed: 'Times completed', best: 'Best label', ranks: 'Heading', ranksNote: 'Ranks note', points: 'Rank score', gold: 'Gold note', drops: 'Drops note', timedNote: 'Timed buff note', blessingNote: 'Blessing note', slayerNote: 'Giant Slayer note', stardustNote: 'Stardust note' },
+  },
+);
+section(
+  E,
+  'event.echo',
+  'Rift Echo',
+  {
+    now: 'This hour: {game} · next game in {time}',
+    intro: '**Rift Echo:** double the gold, paid with Void Rift materials, and twice the buff for twice as long.',
+    title: 'Rift Echo: {game}',
+  },
+  {
+    note: "The Void Rift's hourly minigame: the card's line, the intro card's extra paragraph, and the game's title.",
+    vars: { game: "this hour's game", time: 'time until it changes' },
+    labels: { now: "Card: this hour's game", intro: 'Intro card line', title: 'Game title' },
   },
 );
 section(

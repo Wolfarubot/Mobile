@@ -35,4 +35,6 @@ export interface OfflineResult {
   loot: Array<{ gear: GearId; salvaged: boolean }>;
   /** Gold and materials already doubled: by an ad, or automatically once ads are removed. */
   doubled?: boolean;
+  /** A Stardust charge (Norm's Meteor Bounce) doubled the gold and materials. */
+  stardust?: boolean;
 }
