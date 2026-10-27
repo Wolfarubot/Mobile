@@ -1405,7 +1405,7 @@ export const GEAR_WORTH_WEIGHT = 25;
 export const SHARD_ICON = 'resources3/097';
 
 /** What Regression Tree nodes multiply (each rank multiplies again). Costs below 1 make things cheaper. */
-export type RegKind = 'gold' | 'trainCost' | 'enemyHp' | 'offline' | 'spawn' | 'drops' | 'damage' | 'energy' | 'recruitCost' | 'empowerCost';
+export type RegKind = 'gold' | 'trainCost' | 'enemyHp' | 'offline' | 'spawn' | 'drops' | 'damage' | 'energy' | 'recruitCost' | 'empowerCost' | 'shards';
 
 export interface RegNode {
   id: string;
@@ -1444,18 +1444,18 @@ const spoke = (i: number, ring: number, id: string, name: string, icon: string, 
 export const REGRESSION_TREE: RegNode[] = [
   { id: 'stabilize', name: 'Stabilize', icon: 'rpg-items/261', desc: 'Your grip on time steadies: gold from monsters ×100, and training costs ÷50.', ring: 0, angle: 0, cost: 25, growth: 1, maxRank: 1, mult: { gold: 100, trainCost: 0.02 } },
   // The first ring: one node per spoke.
-  spoke(0, 1, 'goldenMemory', 'Golden Memory', 'things/003', 'Gold from monsters ×1.5.', 15, 1.6, 5, { gold: 1.5 }),
+  spoke(0, 1, 'goldenMemory', 'Golden Memory', 'things/003', 'Gold from monsters ×2.', 15, 1.6, 5, { gold: 2 }),
   spoke(1, 1, 'muscleMemory', 'Muscle Memory', 'rpg-items/001', 'Training costs ×0.75.', 15, 1.6, 5, { trainCost: 0.75 }),
-  spoke(2, 1, 'dreamHunt', 'Dream Hunt', 'wands-books/087', 'Offline gains ×1.25.', 15, 1.6, 5, { offline: 1.25 }),
-  spoke(3, 1, 'teemingWilds', 'Teeming Wilds', 'resources1/074', 'Monsters spawn ×1.1 as often.', 15, 1.6, 5, { spawn: 1.1 }),
-  spoke(4, 1, 'keenRecall', 'Keen Recall', 'things/005', 'Material drop chance ×1.15.', 15, 1.6, 5, { drops: 1.15 }),
+  spoke(2, 1, 'dreamHunt', 'Dream Hunt', 'wands-books/087', 'Offline gains ×1.5.', 15, 1.6, 5, { offline: 1.5 }),
+  spoke(3, 1, 'teemingWilds', 'Teeming Wilds', 'resources1/074', 'Monsters spawn ×1.2 as often.', 15, 1.6, 5, { spawn: 1.2 }),
+  spoke(4, 1, 'keenRecall', 'Keen Recall', 'things/005', 'Material drop chance ×1.4.', 15, 1.6, 5, { drops: 1.4 }),
   spoke(5, 1, 'honedInstinct', 'Honed Instinct', 'rpg-items/297', 'Damage for every Hunter ×1.15.', 15, 1.6, 5, { damage: 1.15 }),
   // The second ring: the spokes go on...
-  spoke(0, 2, 'midasEcho', 'Midas Echo', 'things/004', 'Gold from monsters ×2.', 60, 1.7, 5, { gold: 2 }),
+  spoke(0, 2, 'midasEcho', 'Midas Echo', 'things/004', 'Gold from monsters ×4.', 60, 1.7, 5, { gold: 4 }),
   spoke(1, 2, 'secondNature', 'Second Nature', 'rpg-items/002', 'Training costs ×0.6.', 60, 1.7, 5, { trainCost: 0.6 }),
-  spoke(2, 2, 'lucidDreams', 'Lucid Dreams', 'wands-books/062', 'Offline gains ×1.5.', 60, 1.7, 5, { offline: 1.5 }),
-  spoke(3, 2, 'swarmingRecall', 'Swarming Recall', 'resources1/084', 'Monsters spawn ×1.15 as often.', 60, 1.7, 5, { spawn: 1.15 }),
-  spoke(4, 2, 'scavengersEye', "Scavenger's Eye", 'things/012', 'Material drop chance ×1.25.', 60, 1.7, 5, { drops: 1.25 }),
+  spoke(2, 2, 'lucidDreams', 'Lucid Dreams', 'wands-books/062', 'Offline gains ×2.', 60, 1.7, 5, { offline: 2 }),
+  spoke(3, 2, 'swarmingRecall', 'Swarming Recall', 'resources1/084', 'Monsters spawn ×1.3 as often.', 60, 1.7, 5, { spawn: 1.3 }),
+  spoke(4, 2, 'scavengersEye', "Scavenger's Eye", 'things/012', 'Material drop chance ×1.75.', 60, 1.7, 5, { drops: 1.75 }),
   spoke(5, 2, 'veteranStrikes', 'Veteran Strikes', 'rpg-items/315', 'Damage for every Hunter ×1.3.', 60, 1.7, 5, { damage: 1.3 }),
   // ...and threads join neighbouring spokes.
   { id: 'inheritance', name: 'Inheritance', icon: 'things/010', desc: 'Start every run with gold: 1M, then 1B, then 1T.', ring: 2, angle: -60, cost: 80, growth: 2, maxRank: 3, startGold: [1e6, 1e9, 1e12] },
@@ -1463,13 +1463,13 @@ export const REGRESSION_TREE: RegNode[] = [
   { id: 'secondWind', name: 'Second Wind', icon: 'custom/012', desc: 'Energy refills ×1.25 as fast.', ring: 2, angle: 60, cost: 80, growth: 2, maxRank: 3, mult: { energy: 1.25 } },
   { id: 'autoEmpower', name: 'Auto Empower & Evolve', icon: 'rpg-items/264', desc: "Empowers monsters and buys their evolutions by itself, cheapest first, whenever one costs at most your chosen share of your gold (5%, 10%, 20% or 50%; tap the node to change it). Unbound monsters are left to you.", ring: 2, angle: 120, cost: 120, growth: 1, maxRank: 1, flag: 'autoEmpower' },
   { id: 'bestialMemory', name: 'Bestial Memory', icon: 'resources1/042', desc: 'Empowering monsters costs ×0.5.', ring: 2, angle: 180, cost: 80, growth: 2, maxRank: 5, mult: { empowerCost: 0.5 } },
-  { id: 'huntersFortune', name: "Hunter's Fortune", icon: 'things/006', desc: 'Gold from monsters ×1.3, and damage ×1.1.', ring: 2, angle: 240, cost: 80, growth: 2, maxRank: 5, mult: { gold: 1.3, damage: 1.1 } },
+  { id: 'echoingMemories', name: 'Echoing Memories', icon: SHARD_ICON, desc: 'Memory Shards from every Regression ×1.2.', ring: 2, angle: 240, cost: 100, growth: 2, maxRank: 5, mult: { shards: 1.2 } },
   // The outer ring: the strongest of each spoke, joined all the way round.
-  spoke(0, 3, 'goldenAge', 'Golden Age', 'things/009', 'Gold from monsters ×5.', 400, 2, 3, { gold: 5 }),
+  spoke(0, 3, 'goldenAge', 'Golden Age', 'things/009', 'Gold from monsters ×20, and Memory Shards ×1.25.', 400, 2, 3, { gold: 20, shards: 1.25 }),
   spoke(1, 3, 'masterTrainer', 'Master Trainer', 'rpg-items/003', 'Training costs ×0.3.', 400, 2, 3, { trainCost: 0.3 }),
-  spoke(2, 3, 'eternalSleep', 'Eternal Sleep', 'rpg-items/297', 'Offline gains ×2.', 400, 2, 3, { offline: 2 }),
-  spoke(3, 3, 'endlessHorde', 'Endless Horde', 'resources1/099', 'Monsters spawn ×1.25 as often.', 400, 2, 3, { spawn: 1.25 }),
-  spoke(4, 3, 'treasureSense', 'Treasure Sense', 'things/007', 'Material drop chance ×1.5.', 400, 2, 3, { drops: 1.5 }),
+  spoke(2, 3, 'eternalSleep', 'Eternal Sleep', 'rpg-items/297', 'Offline gains ×4.', 400, 2, 3, { offline: 4 }),
+  spoke(3, 3, 'endlessHorde', 'Endless Horde', 'resources1/099', 'Monsters spawn ×1.5 as often.', 400, 2, 3, { spawn: 1.5 }),
+  spoke(4, 3, 'treasureSense', 'Treasure Sense', 'things/007', 'Material drop chance ×3.', 400, 2, 3, { drops: 3 }),
   spoke(5, 3, 'apexMemory', 'Apex Memory', 'rpg-items/319', 'Damage for every Hunter ×1.5.', 400, 2, 3, { damage: 1.5 }),
   // Beyond the web.
   { id: 'unboundTimeline', name: 'Unbound Timeline', icon: SHARD_ICON, desc: 'Opens the Unbound timeline: stronger versions of every area after the Void Rift, whose gear and materials last through every Regression.', ring: 4, angle: -90, cost: 5000, growth: 1, maxRank: 1, flag: 'unbound', soon: true },
@@ -1491,6 +1491,16 @@ export const REGRESSION_LINKS: Array<[string, string]> = (() => {
 })();
 
 export const regNode = (id: string): RegNode | undefined => REGRESSION_TREE.find((n) => n.id === id);
+/** Everything a tree's ranks multiply a kind by (1 with nothing bought). */
+export function regTreeMult(tree: Record<string, number>, kind: RegKind): number {
+  let m = 1;
+  for (const n of REGRESSION_TREE) {
+    const rank = tree[n.id] ?? 0;
+    const v = n.mult?.[kind];
+    if (rank > 0 && v !== undefined) m *= v ** rank;
+  }
+  return m;
+}
 /** Shards for the next rank of a node, from `rank` owned. */
 export const regCost = (n: RegNode, rank: number): number => Math.round(n.cost * n.growth ** rank);
 /** Shares of gold Auto Empower & Evolve may spend on one purchase. */

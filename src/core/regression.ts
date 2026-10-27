@@ -1,4 +1,4 @@
-import { GEAR_WORTH_WEIGHT, gearCost, gearDef, HUNTERS, itemCost, itemDef, ITEMS, MATERIAL_WORTH, modCost, modGold, REGRESSION_TREE, shardsFor, type MaterialId } from './balance';
+import { GEAR_WORTH_WEIGHT, gearCost, gearDef, HUNTERS, itemCost, itemDef, ITEMS, MATERIAL_WORTH, modCost, modGold, REGRESSION_TREE, regTreeMult, shardsFor, type MaterialId } from './balance';
 import { newGame, type GameState, type GearItem, type Invested } from './state';
 
 /**
@@ -75,8 +75,11 @@ export function startGold(s: GameState): number {
   return gold;
 }
 
+/** Memory Shards for a worth, with the Regression Tree's shard nodes (Echoing Memories, Golden Age). */
+export const shardsPaid = (s: GameState, worth: number): number => Math.floor(shardsFor(worth) * regTreeMult(s.regression.tree, 'shards'));
+
 /** Memory Shards a Regression would pay right now. */
-export const shardsNow = (s: GameState): number => shardsFor(runWorth(s).total);
+export const shardsNow = (s: GameState): number => shardsPaid(s, runWorth(s).total);
 
 /**
  * The game after a Regression from `old` at `now` (epoch ms), and the shards it paid. `old` is left as it was.
@@ -84,7 +87,7 @@ export const shardsNow = (s: GameState): number => shardsFor(runWorth(s).total);
  */
 export function regress(old: GameState, now: number): { state: GameState; shards: number; worth: RunWorth } {
   const worth = runWorth(old);
-  const shards = shardsFor(worth.total);
+  const shards = shardsPaid(old, worth.total);
   const s = newGame(now);
   const copy = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
   // Your Hunter: training, skills, ascension and tap ability.

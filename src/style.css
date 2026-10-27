@@ -7111,3 +7111,27 @@ body.ui-parchment .mod-action b {
   height: 18px;
   vertical-align: -3px;
 }
+/* The tree page's Regress bar: what regressing now pays, and the button. */
+.reg-bar {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.rb-now {
+  display: flex;
+  flex-direction: column;
+  font-size: 12px;
+}
+.rb-now b {
+  font-size: 16px;
+}
+.rb-now img.ei {
+  width: 16px;
+  height: 16px;
+  vertical-align: -3px;
+}
+.rb-go {
+  flex: 0 0 auto;
+  padding: 8px 18px;
+}

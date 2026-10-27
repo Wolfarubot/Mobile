@@ -699,10 +699,11 @@ section(
     soon: 'Coming soon',
     locked: 'Buy a node joined to this one first.',
     share: 'Spend at most',
+    regressFor: 'Regress now and the shards it pays will cover this.',
   },
   {
     vars: { shards: 'Memory Shards', weight: 'gear weighting', cost: 'shards' },
-    labels: { title: 'Title', tree: 'Tab', regress: 'Tab', treeNote: 'Tree note', regressNote: 'Regress note', button: 'Regress button', confirmTitle: 'Confirm title', confirmBody: 'Confirm text', confirmYes: 'Confirm button', confirmNo: 'Cancel button', buy: 'Node buy button', maxed: 'Node maxed', soon: 'Node not yet for sale', locked: 'Node locked note', share: 'Auto Empower share label' },
+    labels: { title: 'Title', tree: 'Tab', regress: 'Tab', treeNote: 'Tree note', regressNote: 'Regress note', button: 'Regress button', confirmTitle: 'Confirm title', confirmBody: 'Confirm text', confirmYes: 'Confirm button', confirmNo: 'Cancel button', buy: 'Node buy button', maxed: 'Node maxed', soon: 'Node not yet for sale', locked: 'Node locked note', share: 'Auto Empower share label', regressFor: 'Node note when regressing now would pay for it' },
   },
 );
 section(

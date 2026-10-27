@@ -4384,6 +4384,15 @@ export class AppUI {
     body.appendChild(tabs);
     if (page === 'tree') {
       body.appendChild(el('p', 'hd-note', txt('menu.regression.treeNote')));
+      // Regress from right here, e.g. when a node is just out of reach: the shards this run would pay, and the button.
+      const bar = el('div', 'card reg-bar');
+      bar.innerHTML = `<span class="rb-now"></span><button class="buy rb-go"></button>`;
+      $('.rb-go', bar).addEventListener('click', () => this.confirmRegress());
+      refreshers.push(() => {
+        setHtml($('.rb-now', bar), `${tx('menu.regression.shardsNow')}<b>${this.shardsHtml(g.shardsNow)}</b>`);
+        setHtml($('.rb-go', bar), tx('menu.regression.regress'));
+      });
+      body.appendChild(bar);
       // The web: rings and threads drawn in an SVG, the nodes laid over it at the same spots.
       const R = 78;
       const W = 6 * R + 72;
@@ -4468,7 +4477,7 @@ export class AppUI {
         ? `<p class="rn-share-label">${tx('menu.regression.share')}</p><div class="chips rn-shares">${AUTO_EMPOWER_SHARES.map((v) => `<button type="button" class="chip${g.state.regression.autoShare === v ? ' on' : ''}" data-share="${v}">${Math.round(v * 100)}% of gold</button>`).join('')}</div>`
         : '';
     this.showModal(
-      `<div class="rn-head">${sprite(n.icon)}<h2>${esc(n.name)}</h2></div><p>${esc(n.desc)}</p><p class="hint">Rank ${rank} / ${n.maxRank}${status ? ` · ${esc(status)}` : cost < Infinity ? ` · Next rank: ${this.shardsHtml(cost)}${g.canBuyReg(id) ? '' : ` (you have ${fmt(g.state.regression.shards)})`}` : ''}</p>${shares}`,
+      `<div class="rn-head">${sprite(n.icon)}<h2>${esc(n.name)}</h2></div><p>${esc(n.desc)}</p><p class="hint">Rank ${rank} / ${n.maxRank}${status ? ` · ${esc(status)}` : cost < Infinity ? ` · Next rank: ${this.shardsHtml(cost)}${g.canBuyReg(id) ? '' : ` (you have ${fmt(g.state.regression.shards)})`}` : ''}</p>${!status && cost < Infinity && !g.canBuyReg(id) && g.state.regression.shards + g.shardsNow >= cost ? `<p class="hint">${tx('menu.regression.regressFor')}</p>` : ''}${shares}`,
       [
         { label: txt('menu.regression.confirmNo'), secondary: true },
         ...(g.canBuyReg(id)

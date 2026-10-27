@@ -180,10 +180,19 @@ describe('Regression Tree', () => {
     expect(g.trainPurchase('main', 1).cost).toBeCloseTo(train * 0.02);
     g.buyReg('goldenMemory');
     g.buyReg('goldenMemory');
-    expect(g.enemyStats('greenSlime').gold).toBeCloseTo(gold * 100 * 1.5 ** 2);
+    expect(g.enemyStats('greenSlime').gold).toBeCloseTo(gold * 100 * regNode('goldenMemory')!.mult!.gold! ** 2);
     const dmg = g.damage;
     g.buyReg('honedInstinct');
     expect(g.damage).toBeCloseTo(dmg * 1.15);
+  });
+
+  it('shard nodes multiply what a Regression pays', () => {
+    const g = withShards(1e6);
+    const base = g.shardsNow;
+    expect(base).toBeGreaterThan(0);
+    g.state.regression.tree = { stabilize: 1, honedInstinct: 1, apexMemory: 1, goldenAge: 1, echoingMemories: 2 };
+    const mult = regNode('goldenAge')!.mult!.shards! * regNode('echoingMemories')!.mult!.shards! ** 2;
+    expect(regress(g.state, 1).shards).toBe(Math.floor(shardsFor(runWorth(g.state).total) * mult));
   });
 
   it('the tree survives Regression, and Inheritance starts the next run with gold', () => {

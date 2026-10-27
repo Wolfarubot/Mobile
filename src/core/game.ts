@@ -39,7 +39,7 @@ import {
   ENEMIES,
   AUTO_EMPOWER_SHARES,
   REGRESSION_LINKS,
-  REGRESSION_TREE,
+  regTreeMult,
   regCost,
   regNode,
   type RegKind,
@@ -1617,14 +1617,9 @@ export class Game {
   regMult(kind: RegKind): number {
     const tree = this.state.regression.tree;
     if (!this.regCache || this.regCache.tree !== tree || this.regCache.version !== this.regVersion) {
-      const mult: Partial<Record<RegKind, number>> = {};
-      for (const n of REGRESSION_TREE) {
-        const rank = tree[n.id] ?? 0;
-        if (rank > 0 && n.mult) for (const [k, v] of Object.entries(n.mult) as [RegKind, number][]) mult[k] = (mult[k] ?? 1) * v ** rank;
-      }
-      this.regCache = { tree, version: this.regVersion, mult };
+      this.regCache = { tree, version: this.regVersion, mult: {} };
     }
-    return this.regCache.mult[kind] ?? 1;
+    return (this.regCache.mult[kind] ??= regTreeMult(tree, kind));
   }
 
   /** A node can be bought once a node it's linked to has a rank (the centre needs nothing). */
