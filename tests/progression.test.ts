@@ -453,6 +453,9 @@ it.runIf(!!process.env.SIM_FULL)('full game: a typical player beats the Time Eat
       found[a] = k;
       paced.add(a);
     }
+  // SIM_GUARDIAN={"mines":10} multiplies Guardians' health, to see when the team could first beat a tougher one.
+  if (process.env.SIM_GUARDIAN)
+    for (const [a, k] of Object.entries(JSON.parse(process.env.SIM_GUARDIAN) as Record<AreaId, number>) as [AreaId, number][]) AREAS.find((x) => x.id === a)!.guardian *= k;
   // Each Guardian challenge: when, the team's levels, and how much of the Guardian's health was left on a loss.
   {
     const end = (g as unknown as { endGuardian: () => void }).endGuardian.bind(g);
