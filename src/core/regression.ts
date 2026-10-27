@@ -1,4 +1,4 @@
-import { gearCost, gearDef, HUNTERS, itemCost, itemDef, ITEMS, MATERIAL_WORTH, modCost, modGold, shardsFor, type MaterialId } from './balance';
+import { GEAR_WORTH_WEIGHT, gearCost, gearDef, HUNTERS, itemCost, itemDef, ITEMS, MATERIAL_WORTH, modCost, modGold, REGRESSION_TREE, shardsFor, type MaterialId } from './balance';
 import { newGame, type GameState, type GearItem, type Invested } from './state';
 
 /**
@@ -6,7 +6,8 @@ import { newGame, type GameState, type GearItem, type Invested } from './state';
  * their training, levels and skill trees (Guild Hunters must be recruited again, and come back as they were); gold,
  * materials, gear, Upgrades, areas, events and the Bestiary start over. Gems, premium items, quests, minigame
  * buffs, settings and the Regression Tree are kept. Shards are paid on the run's worth: gold, materials and
- * everything invested in gear and Upgrades, in gold (MATERIAL_WORTH prices each material).
+ * everything invested in gear and Upgrades, in gold (MATERIAL_WORTH prices each material; gear counts
+ * GEAR_WORTH_WEIGHT times over, so the time spent on it pays off).
  */
 
 /** Adds a spend to a piece's record (started, for pieces from before it was kept, from its estimate). */
@@ -46,7 +47,7 @@ const matsWorth = (mats: Partial<Record<MaterialId, number>>): number =>
 export interface RunWorth {
   gold: number;
   materials: number;
-  /** Gear (crafting, stars, Refines and Enchants) and Upgrades (Idols and the rest). */
+  /** Gear (crafting, stars, Refines and Enchants) and Upgrades (Idols and the rest), weighted GEAR_WORTH_WEIGHT×. */
   gear: number;
   total: number;
 }
@@ -60,7 +61,18 @@ export function runWorth(s: GameState): RunWorth {
     gear += inv.gold + matsWorth(inv.mats);
   }
   for (const def of ITEMS) for (let star = 0; star < (s.items[def.id] ?? 0); star++) gear += matsWorth(itemCost(itemDef(def.id), star));
+  gear *= GEAR_WORTH_WEIGHT;
   return { gold, materials, gear, total: gold + materials + gear };
+}
+
+/** Gold a run starts with (Inheritance). */
+export function startGold(s: GameState): number {
+  let gold = 0;
+  for (const n of REGRESSION_TREE) {
+    const rank = s.regression.tree[n.id] ?? 0;
+    if (n.startGold && rank > 0) gold = Math.max(gold, n.startGold[Math.min(rank, n.startGold.length) - 1]);
+  }
+  return gold;
 }
 
 /** Memory Shards a Regression would pay right now. */
@@ -105,5 +117,6 @@ export function regress(old: GameState, now: number): { state: GameState; shards
   s.seen = { ...copy(old.seen), gearUid: s.nextGearUid - 1, beasts: [], events: [] };
   s.lastSeen = now;
   s.regression = { ...copy(old.regression), runs: old.regression.runs + 1, shards: old.regression.shards + shards, totalShards: old.regression.totalShards + shards, runStart: now };
+  s.gold = startGold(s);
   return { state: s, shards, worth };
 }

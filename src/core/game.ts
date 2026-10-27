@@ -37,6 +37,12 @@ import {
   type Rarity,
   evoKillsNeeded,
   ENEMIES,
+  AUTO_EMPOWER_SHARES,
+  REGRESSION_LINKS,
+  REGRESSION_TREE,
+  regCost,
+  regNode,
+  type RegKind,
   ENERGY_AD,
   ENERGY_ADS_PER_DAY,
   ENERGY_MAX_NO_ADS,
@@ -378,7 +384,7 @@ export class Game {
    * by training, skills and the % damage on their armor and accessory.
    */
   get damage(): number {
-    return this.weaponHitOf('main') * powerDamage(this.state.main.trains) * this.skillDamageMult('main') * (1 + this.gear('main').damage) * this.premiumMult('damage');
+    return this.weaponHitOf('main') * powerDamage(this.state.main.trains) * this.skillDamageMult('main') * (1 + this.gear('main').damage) * this.premiumMult('damage') * this.regMult('damage');
   }
 
   /** Base damage per hit of the weapon a Hunter holds (UNARMED_HIT without one). */
@@ -652,7 +658,7 @@ export class Game {
     // A weapon's class weight is already in its base damage (a hammer's hits start higher than a dagger's).
     if (shooter === 'main') return this.damage * (1 + this.gearBane('main', archetype));
     const bane = archetype ? this.baneMult(shooter, archetype) : 1;
-    return this.weaponHitOf(shooter, mode) * powerDamage(this.state.hunters[shooter].trains) * this.skillDamageMult(shooter) * bane * (1 + this.gear(shooter, mode).damage) * this.premiumMult('damage');
+    return this.weaponHitOf(shooter, mode) * powerDamage(this.state.hunters[shooter].trains) * this.skillDamageMult(shooter) * bane * (1 + this.gear(shooter, mode).damage) * this.premiumMult('damage') * this.regMult('damage');
   }
 
   /**
@@ -1378,7 +1384,7 @@ export class Game {
 
   /** The Guardian's health: less with a Giant Slayer charge spent on this challenge (as if hit harder). */
   get guardianHp(): number {
-    return areaDef(this.state.area).guardian / (this.slayer ? 1 + BUFF_SLAYER : 1);
+    return (areaDef(this.state.area).guardian * this.regMult('enemyHp')) / (this.slayer ? 1 + BUFF_SLAYER : 1);
   }
 
   travel(id: AreaId): boolean {
@@ -1596,9 +1602,91 @@ export class Game {
     return this.state.regression.unlocked;
   }
 
+  // ---- Regression Tree ----
+
+  private regCache: { tree: Record<string, number>; version: number; mult: Partial<Record<RegKind, number>> } | null = null;
+  private regVersion = 0;
+  private autoAge = 0;
+
+  /** Ranks owned in a Regression Tree node. */
+  regRank(id: string): number {
+    return this.state.regression.tree[id] ?? 0;
+  }
+
+  /** Everything the Regression Tree multiplies a kind by (1 with nothing bought). */
+  regMult(kind: RegKind): number {
+    const tree = this.state.regression.tree;
+    if (!this.regCache || this.regCache.tree !== tree || this.regCache.version !== this.regVersion) {
+      const mult: Partial<Record<RegKind, number>> = {};
+      for (const n of REGRESSION_TREE) {
+        const rank = tree[n.id] ?? 0;
+        if (rank > 0 && n.mult) for (const [k, v] of Object.entries(n.mult) as [RegKind, number][]) mult[k] = (mult[k] ?? 1) * v ** rank;
+      }
+      this.regCache = { tree, version: this.regVersion, mult };
+    }
+    return this.regCache.mult[kind] ?? 1;
+  }
+
+  /** A node can be bought once a node it's linked to has a rank (the centre needs nothing). */
+  regReachable(id: string): boolean {
+    const n = regNode(id);
+    if (!n) return false;
+    if (n.ring === 0) return true;
+    return REGRESSION_LINKS.some(([a, b]) => (a === id && this.regRank(b) > 0) || (b === id && this.regRank(a) > 0));
+  }
+
+  /** Shards for a node's next rank (Infinity once it's maxed, or not for sale yet). */
+  regNextCost(id: string): number {
+    const n = regNode(id);
+    if (!n || n.soon || this.regRank(id) >= n.maxRank) return Infinity;
+    return regCost(n, this.regRank(id));
+  }
+
+  canBuyReg(id: string): boolean {
+    return this.regReachable(id) && this.state.regression.shards >= this.regNextCost(id);
+  }
+
+  /** Buys a node's next rank with Memory Shards. */
+  buyReg(id: string): boolean {
+    if (!this.canBuyReg(id)) return false;
+    const r = this.state.regression;
+    r.shards -= this.regNextCost(id);
+    r.tree[id] = this.regRank(id) + 1;
+    this.regVersion++;
+    return true;
+  }
+
+  /** Auto Empower & Evolve: the most of your gold one purchase may cost. */
+  setAutoShare(share: number): void {
+    if ((AUTO_EMPOWER_SHARES as readonly number[]).includes(share)) this.state.regression.autoShare = share;
+  }
+
+  /**
+   * Auto Empower & Evolve: buys Empower sessions (cheapest first) while one costs at most the chosen share of your
+   * gold, then spends evolution points on the first nodes that can be bought.
+   */
+  private autoEmpower(): void {
+    if (this.regRank('autoEmpower') <= 0 || !this.empowerUnlocked) return;
+    const share = this.state.regression.autoShare;
+    const open = ENEMIES.filter((e) => this.isUnlocked(e.id) && !e.guardianOnly);
+    for (let guard = 0; guard < 200; guard++) {
+      let best: { id: EnemyId; cost: number } | null = null;
+      for (const e of open) {
+        const p = this.empowerPurchase(e.id, 1);
+        if (p.count > 0 && (!best || p.cost < best.cost)) best = { id: e.id, cost: p.cost };
+      }
+      if (!best || best.cost > share * this.state.gold || !this.empower(best.id, 1)) break;
+    }
+    for (const e of open)
+      for (let guard = 0; guard < 50 && this.evoPoints(e.id) > 0; guard++) {
+        const pick = this.evoTree(e.id).find((n) => this.canEvolve(e.id, n.id));
+        if (!pick || !this.evolve(e.id, pick.id)) break;
+      }
+  }
+
   /** Seconds for a point of energy (less with Second Wind). */
   get energyRegen(): number {
-    return ENERGY_REGEN / this.premiumMult('energy');
+    return ENERGY_REGEN / (this.premiumMult('energy') * this.regMult('energy'));
   }
 
   /** Spends a charge of a charge buff; false if there was none. */
@@ -1980,11 +2068,11 @@ export class Game {
     return {
       id,
       archetype: def.archetype,
-      hp: area.hp * def.hp * emp('hp') * (1 + evo.hp),
+      hp: area.hp * def.hp * emp('hp') * (1 + evo.hp) * this.regMult('enemyHp'),
       speed: area.speed * def.speed * (1 + evo.speed) * swarm.speed,
-      gold: area.gold * def.gold * emp('gold') * (1 + evo.gold) * this.areaPerk(def.area).gold * (1 + BUFF_GOLD * this.buffPower('graveRobbing')) * this.premiumMult('gold'),
-      spawnRate: b.unlocked ? Math.max(def.spawn * emp('spawn') * (1 + evo.spawn) * (isGolem(def) ? 1 : idol.spawn) * swarm.spawn, swarm.spawn ? (ev?.minSpawn?.[id] ?? 0) : 0) : 0,
-      dropChance: BASE_DROP_CHANCE * emp('drops') * (1 + evo.drops) * (1 + BUFF_KEEN_EYE * this.buffPower('huntingPractice')) * this.premiumMult('drops'),
+      gold: area.gold * def.gold * emp('gold') * (1 + evo.gold) * this.areaPerk(def.area).gold * (1 + BUFF_GOLD * this.buffPower('graveRobbing')) * this.premiumMult('gold') * this.regMult('gold'),
+      spawnRate: b.unlocked ? Math.max(def.spawn * emp('spawn') * (1 + evo.spawn) * (isGolem(def) ? 1 : idol.spawn) * swarm.spawn * this.regMult('spawn'), swarm.spawn ? (ev?.minSpawn?.[id] ?? 0) : 0) : 0,
+      dropChance: BASE_DROP_CHANCE * emp('drops') * (1 + evo.drops) * (1 + BUFF_KEEN_EYE * this.buffPower('huntingPractice')) * this.premiumMult('drops') * this.regMult('drops'),
       material: def.material,
       split: Math.min(1, evo.split),
       fireTrail: Math.min(1, evo.fireTrail),
@@ -2021,6 +2109,11 @@ export class Game {
   tick(dt: number): void {
     const s = this.state;
     this.coolEvents(dt);
+    this.autoAge += dt;
+    if (this.autoAge >= 2) {
+      this.autoAge = 0;
+      this.autoEmpower();
+    }
     this.tickPotions(dt);
     this.questAge += dt;
     if (this.questAge >= 5) {
@@ -2134,7 +2227,7 @@ export class Game {
     s.stats.totalKills++;
     s.stats.hunterKills[shooter] = (s.stats.hunterKills[shooter] ?? 0) + 1;
     if (boss) {
-      const gold = areaDef(s.area).gold * GUARDIAN_GOLD_MULT;
+      const gold = areaDef(s.area).gold * GUARDIAN_GOLD_MULT * this.regMult('gold');
       s.gold += gold;
       s.stats.totalGold += gold;
       s.areas[s.area].gold += gold;
@@ -2537,16 +2630,18 @@ export class Game {
     if (left <= 0) return { count: 0, cost: Infinity };
     if (who === 'main') {
       // Your Hunter: costs taper past Lv 30 too (more gently than a Guild Hunter's climb), up to the level cap.
-      const cost = (n: number) => mainBulkCost(done, n);
+      const m = this.regMult('trainCost');
+      const cost = (n: number) => mainBulkCost(done, n) * m;
       const wanted = amount === 'max' ? Math.max(1, affordableCount(cost, this.state.gold, left)) : amount;
       const count = Math.min(wanted, left);
       return { count, cost: cost(count) };
     }
     // Guild Hunters: costs taper past Lv 30, and training stops at their level cap.
     const base = helperTrainCost(hunterDef(who));
-    const wanted = amount === 'max' ? Math.max(1, helperMaxAffordable(base, done, this.state.gold, left)) : amount;
+    const m = this.regMult('trainCost');
+    const wanted = amount === 'max' ? Math.max(1, helperMaxAffordable(base, done, this.state.gold / m, left)) : amount;
     const count = Math.min(wanted, left);
-    return { count, cost: helperBulkCost(base, done, count) };
+    return { count, cost: helperBulkCost(base, done, count) * m };
   }
 
   /** Adds materials to your stock and to the all-time count of that material gained. */
@@ -2601,8 +2696,13 @@ export class Game {
     return this.eventCompletions(event) >= times;
   }
 
+  /** Gold to recruit a Guild Hunter (less with Old Friends). */
+  recruitCost(id: HunterId): number {
+    return hunterDef(id).recruitCost * this.regMult('recruitCost');
+  }
+
   canRecruit(id: HunterId): boolean {
-    return !this.state.hunters[id].recruited && this.hunterAvailable(id) && this.state.gold >= hunterDef(id).recruitCost;
+    return !this.state.hunters[id].recruited && this.hunterAvailable(id) && this.state.gold >= this.recruitCost(id);
   }
 
   /** Hunters a completion of this event would make available (the next time it's completed). */
@@ -2613,7 +2713,7 @@ export class Game {
 
   recruit(id: HunterId): boolean {
     if (!this.canRecruit(id)) return false;
-    this.state.gold -= hunterDef(id).recruitCost;
+    this.state.gold -= this.recruitCost(id);
     this.state.hunters[id].recruited = true;
     this.outfitRecruit(id);
     // New recruits join you where you are, if there's room.
@@ -2704,7 +2804,7 @@ export class Game {
 
   /** Cost of the next `amount` Empower sessions for a monster (`buyAmount` by default). */
   empowerPurchase(id: EnemyId, amount: BuyAmount = this.state.buyAmount): Purchase {
-    const base = empowerBaseCost(enemyDef(id));
+    const base = empowerBaseCost(enemyDef(id)) * this.regMult('empowerCost');
     const done = this.state.bestiary[id].empower;
     // Never past the top level.
     const left = Math.max(0, MAX_EMPOWER_SESSIONS - done);
@@ -2859,7 +2959,7 @@ export class Game {
     };
     const withYou: Shooter[] = ['main', ...this.helpersHere];
     // The Dreamcatcher upgrades: more of everything earned while away.
-    const dream = this.premiumMult('offline');
+    const dream = this.premiumMult('offline') * this.regMult('offline');
     add(s.area, withYou, this.accrue(s.area, this.ratesFor(s.area, withYou, OFFLINE_EFFICIENCY * dream), seconds, true));
     for (const area of AREAS) {
       const group = this.stationedIn(area.id);

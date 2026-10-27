@@ -69,6 +69,12 @@ async function boot(): Promise<void> {
     await loadDevPhase(game.state, phase);
     location.reload();
   };
+  // Regression: the new run replaces this one.
+  const regress = async (next: GameState) => {
+    saving = false;
+    await saveGame(next);
+    location.reload();
+  };
   const devRestore = async () => {
     saving = false;
     await restoreDevBackup();
@@ -100,7 +106,7 @@ async function boot(): Promise<void> {
     battle.setActive(false);
     return true;
   };
-  const ui = new AppUI(game, { save, wipe, devPhase, devRestore, hasDevBackup, observe, stopObserving, observing: () => obs?.area ?? null });
+  const ui = new AppUI(game, { save, wipe, devPhase, devRestore, hasDevBackup, regress, observe, stopObserving, observing: () => obs?.area ?? null });
   // Measures each farming group on a hidden copy of its battlefield, for offline gains and stationed Hunters.
   new SamplerHost(game, () => field.view);
   if (!game.state.flags.welcome) ui.showWelcome();

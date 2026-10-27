@@ -101,6 +101,13 @@ import {
   premiumItem,
   premiumName,
   SHOP_DAILY_ITEMS,
+  SHARD_ICON,
+  REGRESSION_LINKS,
+  REGRESSION_TREE,
+  regNode,
+  type RegNode,
+  GEAR_WORTH_WEIGHT,
+  AUTO_EMPOWER_SHARES,
   MERCHANT_AMOUNT,
   MERCHANT_DAILY,
   MERCHANT_GEMS,
@@ -163,6 +170,7 @@ import { applyAreaTheme, applyUiStyle } from './theme';
 import './texts';
 import { tx, txp, txt } from '../core/textRegistry';
 import { playCutscene, TIME_EATER_CUTSCENE } from './cutscene';
+import { regress } from '../core/regression';
 import { applyFont, fontDef, FONTS } from './fonts';
 import { GainPops } from './gainPops';
 import { ACC_TAG_ICONS, ARCHETYPE_TAG_ICONS, ARMOR_TAG_ICONS, DAMAGE_TAG_ICONS, EFFECT_TAG_ICONS, FEATURE_TAG_ICONS, SPECIAL_TAG_ICON, SUMMON_TAG_ICONS, tagIconHtml } from './tagIcons';
@@ -398,6 +406,8 @@ export class AppUI {
       devPhase: (phase: GameState) => Promise<void>;
       devRestore: () => Promise<void>;
       hasDevBackup: () => Promise<boolean>;
+      /** Regress: save the new run and start it. */
+      regress: (state: GameState) => Promise<void>;
       /** Areas → Details → Observe: watch another area's stationed Hunters (false if nobody's there). */
       observe: (area: AreaId) => boolean;
       stopObserving: () => void;
@@ -726,7 +736,7 @@ export class AppUI {
         status.textContent = open ? 'Available to recruit' : '';
         status.classList.toggle('hidden', !open);
         setHtml(mid, open ? 'Recruit to start training' : `🔒 ${unlockText(g, def)}`);
-        setHtml(recruitBtn, open ? `Recruit<small>🪙 ${fmt(def.recruitCost)}</small>` : '🔒<small>Locked</small>');
+        setHtml(recruitBtn, open ? `Recruit<small>🪙 ${fmt(g.recruitCost(def.id))}</small>` : '🔒<small>Locked</small>');
         recruitBtn.disabled = !g.canRecruit(def.id);
       });
       return card;
@@ -765,7 +775,7 @@ export class AppUI {
     if (!def || g.state.hunters[def.id].recruited) this.openHunterDetail(who);
     else
       this.showSheet(`${wearerIcon(def.id)} ${def.name} the ${def.title}`, (body) => {
-        body.innerHTML = `<p>${def.story}</p><p>${def.ability}</p><p class="hint">${g.hunterAvailable(def.id) ? `Recruit for 🪙 ${fmt(def.recruitCost)}` : `🔒 ${unlockText(g, def)}`}</p>`;
+        body.innerHTML = `<p>${def.story}</p><p>${def.ability}</p><p class="hint">${g.hunterAvailable(def.id) ? `Recruit for 🪙 ${fmt(g.recruitCost(def.id))}` : `🔒 ${unlockText(g, def)}`}</p>`;
       });
   }
 
@@ -861,7 +871,7 @@ export class AppUI {
       });
       overview.appendChild(btn);
       this.refreshers.push(() => {
-        btn.innerHTML = g.hunterAvailable(def.id) ? `Recruit<small>🪙 ${fmt(def.recruitCost)}</small>` : `🔒 ${unlockText(g, def)}`;
+        btn.innerHTML = g.hunterAvailable(def.id) ? `Recruit<small>🪙 ${fmt(g.recruitCost(def.id))}</small>` : `🔒 ${unlockText(g, def)}`;
         btn.disabled = !g.canRecruit(def.id);
       });
     } else {
@@ -3875,7 +3885,10 @@ export class AppUI {
   }
 
   private showRiftConqueredCard(): void {
-    this.showModal(`<h2>${tx('popup.rift.title')}</h2>${txp('popup.rift.body', { rift: areaDef('rift').name })}`, [{ label: txt('popup.rift.ok') }]);
+    this.showModal(`<h2>${tx('popup.rift.title')}</h2>${txp('popup.rift.body', { rift: areaDef('rift').name })}`, [
+      { label: txt('popup.rift.ok'), secondary: true },
+      { label: txt('popup.rift.regress'), action: () => this.openRegression('regress') },
+    ]);
   }
 
   /** The Areas tab opens with the second area (the Fey Grove). */
@@ -4039,6 +4052,7 @@ export class AppUI {
         ${item('tutorials', sprite(MENU_SPRITES.tutorials), tx('menu.main.tutorials'))}
         ${item('journal', sprite(MENU_SPRITES.journal), tx('menu.main.journal'), unread ? `<span class="alert-mark" title="${esc(txt('tip.markers.journalNew', { n: unread }))}"></span>` : '')}
         ${item('shop', sprite(MENU_SPRITES.shop), tx('menu.main.shop')).replace('class="menu-item"', 'class="menu-item mi-gold"')}
+        ${this.game.canRegress ? item('regression', sprite(SHARD_ICON), tx('menu.main.regression')).replace('class="menu-item"', 'class="menu-item mi-shard"') : ''}
         ${item('settings', sprite(MENU_SPRITES.settings), tx('menu.main.settings'))}
         ${item('quit', sprite(MENU_SPRITES.quit), tx('menu.main.quit'))}
       </div>`,
@@ -4049,6 +4063,7 @@ export class AppUI {
       journal: () => this.openJournal(),
       settings: () => this.openSettings(),
       shop: () => this.openShop(),
+      regression: () => this.openRegression(),
       quit: () => this.confirmQuit(),
     };
     this.modal.querySelectorAll<HTMLElement>('[data-menu]').forEach((b) =>
@@ -4338,6 +4353,156 @@ export class AppUI {
       }
     }
     for (const r of refreshers) r();
+  }
+
+  /** Memory Shards with their icon. */
+  private shardsHtml(n: number): string {
+    return `${sprite(SHARD_ICON)} ${fmt(n)}`;
+  }
+
+  /**
+   * The Regression view (menu → Regression): the Regression Tree, a web of nodes bought with Memory Shards, and
+   * the Regress page with what this run is worth and the shards a Regression pays now.
+   */
+  private openRegression(page: 'tree' | 'regress' = 'tree'): void {
+    if (this.detail) this.dropDetail();
+    const g = this.game;
+    const view = el('div', 'hunter-detail settings regression');
+    view.innerHTML = `
+      <div class="hd-top"><button class="hd-close" aria-label="Close">✕</button><span>${tx('menu.regression.title')}</span><b class="shard-count"></b></div>
+      <div class="hd-scroll"></div>`;
+    document.body.appendChild(view);
+    $('.hd-close', view).addEventListener('click', () => this.closeHunterDetail());
+    const refreshers: Array<() => void> = [];
+    this.detail = { el: view, refreshers };
+    const body = $('.hd-scroll', view);
+    const count = $('.shard-count', view);
+    refreshers.push(() => setHtml(count, this.shardsHtml(g.state.regression.shards)));
+    const tabs = el('div', 'subtabs');
+    tabs.innerHTML = `<button data-page="tree" class="${page === 'tree' ? 'on' : ''}">${tx('menu.regression.tree')}</button><button data-page="regress" class="${page === 'regress' ? 'on' : ''}">${tx('menu.regression.regress')}</button>`;
+    tabs.querySelectorAll<HTMLElement>('button').forEach((b) => b.addEventListener('click', () => b.dataset.page !== page && this.openRegression(b.dataset.page as 'tree' | 'regress')));
+    body.appendChild(tabs);
+    if (page === 'tree') {
+      body.appendChild(el('p', 'hd-note', txt('menu.regression.treeNote')));
+      // The web: rings and threads drawn in an SVG, the nodes laid over it at the same spots.
+      const R = 78;
+      const W = 6 * R + 72;
+      const H = 7 * R + 72;
+      const cx = W / 2;
+      const cy = 4 * R + 36;
+      const pos = (n: RegNode) => ({ x: cx + n.ring * R * Math.cos((n.angle * Math.PI) / 180), y: cy + n.ring * R * Math.sin((n.angle * Math.PI) / 180) });
+      const web = el('div', 'reg-web');
+      web.style.aspectRatio = `${W} / ${H}`;
+      const rings = [1, 2, 3].map((r) => `<circle cx="${cx}" cy="${cy}" r="${r * R}" class="rw-ring"/>`).join('');
+      const links = REGRESSION_LINKS.map(([a, b]) => {
+        const p = pos(regNode(a)!);
+        const q = pos(regNode(b)!);
+        return `<line x1="${p.x}" y1="${p.y}" x2="${q.x}" y2="${q.y}" data-a="${a}" data-b="${b}" class="rw-link"/>`;
+      }).join('');
+      web.innerHTML = `<svg viewBox="0 0 ${W} ${H}" aria-hidden="true">${rings}${links}</svg>`;
+      for (const n of REGRESSION_TREE) {
+        const p = pos(n);
+        const b = el('button', 'reg-node') as HTMLButtonElement;
+        b.style.left = `${(p.x / W) * 100}%`;
+        b.style.top = `${(p.y / H) * 100}%`;
+        if (n.ring === 0) b.classList.add('center');
+        if (n.flag === 'unbound') b.classList.add('unbound');
+        b.innerHTML = `<i>${sprite(n.icon)}</i><small class="rn-rank"></small>`;
+        b.setAttribute('aria-label', n.name);
+        b.addEventListener('click', () => this.showRegNode(n.id));
+        refreshers.push(() => {
+          const rank = g.regRank(n.id);
+          b.classList.toggle('owned', rank > 0);
+          b.classList.toggle('maxed', rank >= n.maxRank);
+          b.classList.toggle('open', g.regReachable(n.id) && rank < n.maxRank && !n.soon);
+          b.classList.toggle('ready', g.canBuyReg(n.id));
+          b.classList.toggle('locked', !g.regReachable(n.id) || !!n.soon);
+          setHtml($('.rn-rank', b), n.maxRank > 1 ? `${rank}/${n.maxRank}` : rank ? '✓' : '');
+        });
+        web.appendChild(b);
+      }
+      refreshers.push(() =>
+        web.querySelectorAll<SVGLineElement>('.rw-link').forEach((l) => l.classList.toggle('lit', g.regRank(l.dataset.a!) > 0 && g.regRank(l.dataset.b!) > 0)),
+      );
+      body.appendChild(web);
+    } else {
+      const note = el('div', 'hd-note reg-note');
+      body.appendChild(note);
+      const card = el('div', 'card reg-worth');
+      body.appendChild(card);
+      const btn = el('button', 'buy reg-go') as HTMLButtonElement;
+      body.appendChild(btn);
+      btn.addEventListener('click', () => this.confirmRegress());
+      refreshers.push(() => {
+        const w = g.runWorth;
+        const shards = g.shardsNow;
+        setHtml(note, txp('menu.regression.regressNote', { shards: fmt(shards) }));
+        const row = (label: string, v: string) => `<div class="rw-row"><span>${label}</span><b>${v}</b></div>`;
+        setHtml(
+          card,
+          `<h3>${tx('menu.regression.worth')}</h3>` +
+            row(txt('menu.regression.gold'), `🪙 ${fmt(w.gold)}`) +
+            row(txt('menu.regression.materials'), `🪙 ${fmt(w.materials)}`) +
+            row(txt('menu.regression.gear', { weight: GEAR_WORTH_WEIGHT }), `🪙 ${fmt(w.gear)}`) +
+            row(txt('menu.regression.total'), `🪙 ${fmt(w.total)}`) +
+            row(txt('menu.regression.shardsNow'), this.shardsHtml(shards)) +
+            row(txt('menu.regression.runs'), fmt(g.state.regression.runs)) +
+            row(txt('menu.regression.runTime'), fmtWait(g.clock() - g.state.regression.runStart)),
+        );
+        btn.disabled = !g.canRegress;
+        setHtml(btn, `${sprite(SHARD_ICON)} ${tx('menu.regression.button', { shards: fmt(shards) })}`);
+      });
+    }
+    for (const r of refreshers) r();
+  }
+
+  /** A Regression Tree node: what it does, its rank, and Buy (Auto Empower also picks its share of gold). */
+  private showRegNode(id: string): void {
+    const g = this.game;
+    const n = regNode(id)!;
+    const rank = g.regRank(id);
+    const cost = g.regNextCost(id);
+    const status = n.soon ? txt('menu.regression.soon') : rank >= n.maxRank ? txt('menu.regression.maxed') : !g.regReachable(id) ? txt('menu.regression.locked') : '';
+    const shares =
+      n.flag === 'autoEmpower' && rank > 0
+        ? `<p class="rn-share-label">${tx('menu.regression.share')}</p><div class="chips rn-shares">${AUTO_EMPOWER_SHARES.map((v) => `<button type="button" class="chip${g.state.regression.autoShare === v ? ' on' : ''}" data-share="${v}">${Math.round(v * 100)}% of gold</button>`).join('')}</div>`
+        : '';
+    this.showModal(
+      `<div class="rn-head">${sprite(n.icon)}<h2>${esc(n.name)}</h2></div><p>${esc(n.desc)}</p><p class="hint">Rank ${rank} / ${n.maxRank}${status ? ` · ${esc(status)}` : cost < Infinity ? ` · Next rank: ${this.shardsHtml(cost)}${g.canBuyReg(id) ? '' : ` (you have ${fmt(g.state.regression.shards)})`}` : ''}</p>${shares}`,
+      [
+        { label: txt('menu.regression.confirmNo'), secondary: true },
+        ...(g.canBuyReg(id)
+          ? [
+              {
+                label: txt('menu.regression.buy', { cost: `${fmt(cost)} shards` }),
+                action: () => {
+                  if (!g.buyReg(id)) return;
+                  this.hooks.save();
+                  this.refresh();
+                  for (const r of this.detail?.refreshers ?? []) r();
+                },
+              },
+            ]
+          : []),
+      ],
+    );
+    this.modal.querySelectorAll<HTMLElement>('[data-share]').forEach((b) =>
+      b.addEventListener('click', () => {
+        g.setAutoShare(Number(b.dataset.share));
+        this.hooks.save();
+        this.modal.querySelectorAll<HTMLElement>('[data-share]').forEach((c) => c.classList.toggle('on', c === b));
+      }),
+    );
+  }
+
+  private confirmRegress(): void {
+    const g = this.game;
+    if (!g.canRegress) return;
+    const shards = g.shardsNow;
+    this.showModal(`<h2>${tx('menu.regression.confirmTitle')}</h2>${txp('menu.regression.confirmBody', { shards: fmt(shards) })}`, [
+      { label: txt('menu.regression.confirmNo'), secondary: true },
+      { label: txt('menu.regression.confirmYes'), action: () => void this.hooks.regress(regress(g.state, g.clock()).state) },
+    ]);
   }
 
   private openJournal(entry?: JournalEntry): void {

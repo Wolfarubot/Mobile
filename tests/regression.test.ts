@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { gearCost, gearDef, HUNTERS, MATERIAL_WORTH, MATERIALS, shardsFor, SHARD_POWER, type MaterialId } from '../src/core/balance';
+import { GEAR_WORTH_WEIGHT, gearCost, gearDef, HUNTERS, MATERIAL_WORTH, MATERIALS, regCost, regNode, REGRESSION_LINKS, REGRESSION_TREE, shardsFor, SHARD_POWER, type MaterialId } from '../src/core/balance';
 import { Game } from '../src/core/game';
 import { estimateInvested, gearInvested, regress, runWorth } from '../src/core/regression';
 import { deserialize, newGame, serialize, type GameState } from '../src/core/state';
@@ -56,17 +56,24 @@ describe('Regression', () => {
     expect(back.inventory.find((it) => it.uid === bow.uid)!.invested).toEqual(bow.invested);
   });
 
-  it("a run's worth counts gold, materials and gear, so crafting doesn't lose shards", () => {
-    const s = midRun();
+  it("a run's worth counts gold, materials and gear (weighted), so crafting gains shards", () => {
+    // Only the Woods' materials, so the bow's few are visible next to the rest.
+    const s = newGame(0);
+    s.inventory = [];
+    s.gold = 1000;
+    s.materials.goo = 500;
+    s.materials.twig = 500;
     const g = new Game(s, noCrit);
     const before = runWorth(s);
-    expect(before.gold).toBe(1e9);
-    expect(before.materials).toBeGreaterThan(0);
-    g.craftGear('forestBow');
+    expect(before).toMatchObject({ gold: 1000, gear: 0 });
+    expect(before.materials).toBe(500 * MATERIAL_WORTH.goo + 500 * MATERIAL_WORTH.twig);
+    const bow = g.craftGear('forestBow')!;
+    const spent = (Object.entries(bow.invested!.mats) as [MaterialId, number][]).reduce((sum, [m, n]) => sum + MATERIAL_WORTH[m] * n, 0);
+    expect(spent).toBeGreaterThan(0);
     const after = runWorth(s);
-    expect(after.gear).toBeGreaterThan(0);
-    // The materials moved into the bow: the total holds.
-    expect(after.total).toBeCloseTo(before.total, 6);
+    // The materials moved into the bow, which counts GEAR_WORTH_WEIGHT times over.
+    expect(after.gear).toBe(spent * GEAR_WORTH_WEIGHT);
+    expect(after.total - before.total).toBe(spent * (GEAR_WORTH_WEIGHT - 1));
   });
 
   it('you can regress only after the Time Eater swallows the first run', () => {
@@ -123,5 +130,87 @@ describe('Regression', () => {
     delete data.regression;
     const back = deserialize(JSON.stringify(data))!;
     expect(back.regression).toMatchObject({ unlocked: false, runs: 0, shards: 0, totalShards: 0, tree: {} });
+  });
+});
+
+describe('Regression Tree', () => {
+  const withShards = (n: number) => {
+    const s = midRun();
+    s.regression.unlocked = true;
+    s.regression.shards = n;
+    return new Game(s, noCrit);
+  };
+
+  it('is a web: Stabilize in the centre, every other node joined to it through the links', () => {
+    expect(REGRESSION_TREE.filter((n) => n.ring === 0).map((n) => n.id)).toEqual(['stabilize']);
+    const seen = new Set(['stabilize']);
+    for (let changed = true; changed; ) {
+      changed = false;
+      for (const [a, b] of REGRESSION_LINKS)
+        if (seen.has(a) !== seen.has(b)) {
+          seen.add(a);
+          seen.add(b);
+          changed = true;
+        }
+    }
+    expect(seen.size).toBe(REGRESSION_TREE.length);
+    expect(new Set(REGRESSION_TREE.map((n) => n.id)).size).toBe(REGRESSION_TREE.length);
+  });
+
+  it('nodes open outward from Stabilize and cost shards', () => {
+    const g = withShards(1000);
+    expect(g.regReachable('goldenMemory')).toBe(false);
+    expect(g.buyReg('goldenMemory')).toBe(false);
+    expect(g.buyReg('stabilize')).toBe(true);
+    expect(g.state.regression.shards).toBe(1000 - regNode('stabilize')!.cost);
+    expect(g.buyReg('stabilize')).toBe(false); // one rank
+    expect(g.buyReg('goldenMemory')).toBe(true);
+    expect(g.regNextCost('goldenMemory')).toBe(regCost(regNode('goldenMemory')!, 1));
+    expect(g.canBuyReg('unboundTimeline')).toBe(false); // not for sale yet
+    const poor = withShards(0);
+    expect(poor.buyReg('stabilize')).toBe(false);
+  });
+
+  it('Stabilize multiplies gold and cuts training costs; ranks compound', () => {
+    const g = withShards(1e6);
+    const gold = g.enemyStats('greenSlime').gold;
+    const train = g.trainPurchase('main', 1).cost;
+    g.buyReg('stabilize');
+    expect(g.enemyStats('greenSlime').gold).toBeCloseTo(gold * 100);
+    expect(g.trainPurchase('main', 1).cost).toBeCloseTo(train * 0.02);
+    g.buyReg('goldenMemory');
+    g.buyReg('goldenMemory');
+    expect(g.enemyStats('greenSlime').gold).toBeCloseTo(gold * 100 * 1.5 ** 2);
+    const dmg = g.damage;
+    g.buyReg('honedInstinct');
+    expect(g.damage).toBeCloseTo(dmg * 1.15);
+  });
+
+  it('the tree survives Regression, and Inheritance starts the next run with gold', () => {
+    const g = withShards(1e6);
+    g.buyReg('stabilize');
+    g.buyReg('goldenMemory');
+    g.buyReg('midasEcho');
+    g.buyReg('inheritance');
+    const { state } = regress(g.state, 1);
+    expect(state.regression.tree).toMatchObject({ stabilize: 1, goldenMemory: 1, midasEcho: 1, inheritance: 1 });
+    expect(state.gold).toBe(1e6);
+  });
+
+  it('Auto Empower & Evolve buys Empower only while one costs at most the chosen share of gold', () => {
+    const g = withShards(1e6);
+    g.state.flags.empowerIntro = true;
+    g.state.regression.tree = { stabilize: 1, autoEmpower: 1 };
+    const cost = g.empowerPurchase('greenSlime', 1).cost;
+    g.state.gold = cost * 10; // 5% of it won't cover one
+    const before = g.state.bestiary.greenSlime.empower;
+    g.tick(2.1);
+    expect(g.state.bestiary.greenSlime.empower).toBe(before);
+    g.setAutoShare(0.5);
+    expect(g.state.regression.autoShare).toBe(0.5);
+    g.setAutoShare(0.33); // not one of the choices
+    expect(g.state.regression.autoShare).toBe(0.5);
+    g.tick(2.1);
+    expect(g.state.bestiary.greenSlime.empower).toBeGreaterThan(before);
   });
 });

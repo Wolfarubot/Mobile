@@ -1398,6 +1398,103 @@ export const MATERIAL_WORTH: Record<MaterialId, number> = (() => {
 export const SHARD_POWER = 0.2;
 export const SHARD_SCALE = 2e-4;
 export const shardsFor = (worth: number): number => (worth > 0 ? Math.floor(SHARD_SCALE * worth ** SHARD_POWER) : 0);
+/** What's invested in gear counts this many times over, so the time spent on it pays off in shards. */
+export const GEAR_WORTH_WEIGHT = 25;
+
+/** The Memory Shard's icon. */
+export const SHARD_ICON = 'resources3/097';
+
+/** What Regression Tree nodes multiply (each rank multiplies again). Costs below 1 make things cheaper. */
+export type RegKind = 'gold' | 'trainCost' | 'enemyHp' | 'offline' | 'spawn' | 'drops' | 'damage' | 'energy' | 'recruitCost' | 'empowerCost';
+
+export interface RegNode {
+  id: string;
+  name: string;
+  /** Its pixel icon (a key into public/icons). */
+  icon: string;
+  /** What one rank does, in words. */
+  desc: string;
+  /** Where it sits on the web: rings out from the centre, and the angle in degrees (−90 is straight up). */
+  ring: number;
+  angle: number;
+  /** Shards for the first rank; each further rank costs `growth` times the one before. */
+  cost: number;
+  growth: number;
+  maxRank: number;
+  /** Per rank: multipliers (compounding with each rank). */
+  mult?: Partial<Record<RegKind, number>>;
+  /** Gold you start each run with, by rank (index 0 = rank 1). */
+  startGold?: number[];
+  /** A switch rather than a number. */
+  flag?: 'autoEmpower' | 'unbound';
+  /** Shown but not for sale yet. */
+  soon?: boolean;
+}
+
+/**
+ * The Regression Tree, a spider web bought with Memory Shards: Stabilize in the centre, six spokes running out
+ * (gold, training, offline gains, spawns, drops, power), threads between neighbouring spokes, an outer ring, and
+ * the Unbound Timeline beyond it. A node can be bought once a node it's linked to has a rank (the centre needs
+ * nothing). Costs and values are placeholders until the pacing sim tunes them.
+ */
+const SPOKES = [-90, -30, 30, 90, 150, 210];
+const spoke = (i: number, ring: number, id: string, name: string, icon: string, desc: string, cost: number, growth: number, maxRank: number, mult: Partial<Record<RegKind, number>>): RegNode => ({
+  id, name, icon, desc, ring, angle: SPOKES[i], cost, growth, maxRank, mult,
+});
+export const REGRESSION_TREE: RegNode[] = [
+  { id: 'stabilize', name: 'Stabilize', icon: 'rpg-items/261', desc: 'Your grip on time steadies: gold from monsters ×100, and training costs ÷50.', ring: 0, angle: 0, cost: 25, growth: 1, maxRank: 1, mult: { gold: 100, trainCost: 0.02 } },
+  // The first ring: one node per spoke.
+  spoke(0, 1, 'goldenMemory', 'Golden Memory', 'things/003', 'Gold from monsters ×1.5.', 15, 1.6, 5, { gold: 1.5 }),
+  spoke(1, 1, 'muscleMemory', 'Muscle Memory', 'rpg-items/001', 'Training costs ×0.75.', 15, 1.6, 5, { trainCost: 0.75 }),
+  spoke(2, 1, 'dreamHunt', 'Dream Hunt', 'wands-books/087', 'Offline gains ×1.25.', 15, 1.6, 5, { offline: 1.25 }),
+  spoke(3, 1, 'teemingWilds', 'Teeming Wilds', 'resources1/074', 'Monsters spawn ×1.1 as often.', 15, 1.6, 5, { spawn: 1.1 }),
+  spoke(4, 1, 'keenRecall', 'Keen Recall', 'things/005', 'Material drop chance ×1.15.', 15, 1.6, 5, { drops: 1.15 }),
+  spoke(5, 1, 'honedInstinct', 'Honed Instinct', 'rpg-items/297', 'Damage for every Hunter ×1.15.', 15, 1.6, 5, { damage: 1.15 }),
+  // The second ring: the spokes go on...
+  spoke(0, 2, 'midasEcho', 'Midas Echo', 'things/004', 'Gold from monsters ×2.', 60, 1.7, 5, { gold: 2 }),
+  spoke(1, 2, 'secondNature', 'Second Nature', 'rpg-items/002', 'Training costs ×0.6.', 60, 1.7, 5, { trainCost: 0.6 }),
+  spoke(2, 2, 'lucidDreams', 'Lucid Dreams', 'wands-books/062', 'Offline gains ×1.5.', 60, 1.7, 5, { offline: 1.5 }),
+  spoke(3, 2, 'swarmingRecall', 'Swarming Recall', 'resources1/084', 'Monsters spawn ×1.15 as often.', 60, 1.7, 5, { spawn: 1.15 }),
+  spoke(4, 2, 'scavengersEye', "Scavenger's Eye", 'things/012', 'Material drop chance ×1.25.', 60, 1.7, 5, { drops: 1.25 }),
+  spoke(5, 2, 'veteranStrikes', 'Veteran Strikes', 'rpg-items/315', 'Damage for every Hunter ×1.3.', 60, 1.7, 5, { damage: 1.3 }),
+  // ...and threads join neighbouring spokes.
+  { id: 'inheritance', name: 'Inheritance', icon: 'things/010', desc: 'Start every run with gold: 1M, then 1B, then 1T.', ring: 2, angle: -60, cost: 80, growth: 2, maxRank: 3, startGold: [1e6, 1e9, 1e12] },
+  { id: 'oldFriends', name: 'Old Friends', icon: 'rpg-items/300', desc: 'Recruiting a Guild Hunter costs ×0.25.', ring: 2, angle: 0, cost: 80, growth: 2, maxRank: 3, mult: { recruitCost: 0.25 } },
+  { id: 'secondWind', name: 'Second Wind', icon: 'custom/012', desc: 'Energy refills ×1.25 as fast.', ring: 2, angle: 60, cost: 80, growth: 2, maxRank: 3, mult: { energy: 1.25 } },
+  { id: 'autoEmpower', name: 'Auto Empower & Evolve', icon: 'rpg-items/264', desc: "Empowers monsters and buys their evolutions by itself, cheapest first, whenever one costs at most your chosen share of your gold (5%, 10%, 20% or 50%; tap the node to change it). Unbound monsters are left to you.", ring: 2, angle: 120, cost: 120, growth: 1, maxRank: 1, flag: 'autoEmpower' },
+  { id: 'bestialMemory', name: 'Bestial Memory', icon: 'resources1/042', desc: 'Empowering monsters costs ×0.5.', ring: 2, angle: 180, cost: 80, growth: 2, maxRank: 5, mult: { empowerCost: 0.5 } },
+  { id: 'huntersFortune', name: "Hunter's Fortune", icon: 'things/006', desc: 'Gold from monsters ×1.3, and damage ×1.1.', ring: 2, angle: 240, cost: 80, growth: 2, maxRank: 5, mult: { gold: 1.3, damage: 1.1 } },
+  // The outer ring: the strongest of each spoke, joined all the way round.
+  spoke(0, 3, 'goldenAge', 'Golden Age', 'things/009', 'Gold from monsters ×5.', 400, 2, 3, { gold: 5 }),
+  spoke(1, 3, 'masterTrainer', 'Master Trainer', 'rpg-items/003', 'Training costs ×0.3.', 400, 2, 3, { trainCost: 0.3 }),
+  spoke(2, 3, 'eternalSleep', 'Eternal Sleep', 'rpg-items/297', 'Offline gains ×2.', 400, 2, 3, { offline: 2 }),
+  spoke(3, 3, 'endlessHorde', 'Endless Horde', 'resources1/099', 'Monsters spawn ×1.25 as often.', 400, 2, 3, { spawn: 1.25 }),
+  spoke(4, 3, 'treasureSense', 'Treasure Sense', 'things/007', 'Material drop chance ×1.5.', 400, 2, 3, { drops: 1.5 }),
+  spoke(5, 3, 'apexMemory', 'Apex Memory', 'rpg-items/319', 'Damage for every Hunter ×1.5.', 400, 2, 3, { damage: 1.5 }),
+  // Beyond the web.
+  { id: 'unboundTimeline', name: 'Unbound Timeline', icon: SHARD_ICON, desc: 'Opens the Unbound timeline: stronger versions of every area after the Void Rift, whose gear and materials last through every Regression.', ring: 4, angle: -90, cost: 5000, growth: 1, maxRank: 1, flag: 'unbound', soon: true },
+];
+
+/** Which nodes are joined on the web (both ways). */
+export const REGRESSION_LINKS: Array<[string, string]> = (() => {
+  const at = (ring: number, angle: number) => REGRESSION_TREE.find((n) => n.ring === ring && n.angle === angle)!.id;
+  const out: Array<[string, string]> = [];
+  SPOKES.forEach((a, i) => {
+    const next = SPOKES[(i + 1) % SPOKES.length];
+    out.push(['stabilize', at(1, a)], [at(1, a), at(2, a)], [at(2, a), at(3, a)], [at(3, a), at(3, next)]);
+    // The thread between this spoke and the next.
+    const thread = REGRESSION_TREE.find((n) => n.ring === 2 && !SPOKES.includes(n.angle) && ((n.angle - a + 360) % 360) === 30)!.id;
+    out.push([at(2, a), thread], [thread, at(2, next)]);
+  });
+  for (const a of [-90, -30, 210]) out.push([at(3, a), 'unboundTimeline']);
+  return out;
+})();
+
+export const regNode = (id: string): RegNode | undefined => REGRESSION_TREE.find((n) => n.id === id);
+/** Shards for the next rank of a node, from `rank` owned. */
+export const regCost = (n: RegNode, rank: number): number => Math.round(n.cost * n.growth ** rank);
+/** Shares of gold Auto Empower & Evolve may spend on one purchase. */
+export const AUTO_EMPOWER_SHARES = [0.05, 0.1, 0.2, 0.5] as const;
 /** Which monster each area's Guardian is a giant version of. */
 export const GUARDIAN_ENEMY: Record<AreaId, EnemyId> = {
   forest: 'kingSlime',

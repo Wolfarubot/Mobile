@@ -11,6 +11,7 @@ import {
   PREMIUM_IDS,
   PREMIUM_UPGRADES,
   premiumItem,
+  AUTO_EMPOWER_SHARES,
   MERCHANT_MATERIALS,
   MONSTER_EVO_TREES,
   GEAR,
@@ -154,6 +155,8 @@ export interface RegressionState {
   tree: Record<string, number>;
   /** Epoch ms the current run began (the first run: when the save was made). */
   runStart: number;
+  /** Auto Empower & Evolve: the most of your gold one purchase may cost (one of AUTO_EMPOWER_SHARES). */
+  autoShare: number;
 }
 
 /** A modifier on a piece of gear: a Refine stat (Kargesh) or an Enchantment (Marceline). */
@@ -394,7 +397,7 @@ export function newGame(now = Date.now()): GameState {
     premium: [],
     shop: { day: '', items: [] },
     merchant: { day: '', offers: [], traded: [] },
-    regression: { unlocked: false, runs: 0, shards: 0, totalShards: 0, tree: {}, runStart: now },
+    regression: { unlocked: false, runs: 0, shards: 0, totalShards: 0, tree: {}, runStart: now, autoShare: AUTO_EMPOWER_SHARES[0] },
     noAds: false,
     quests: newQuests(),
     events: Object.fromEntries(EVENTS.map((e) => [e.id, { runs: 0, completed: 0 }])),
@@ -786,7 +789,8 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
       const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? Math.floor(v) : 0);
       const tree: Record<string, number> = {};
       if (r.tree && typeof r.tree === 'object') for (const [k, v] of Object.entries(r.tree)) if (num(v) > 0) tree[k] = num(v);
-      return { unlocked: r.unlocked === true, runs: num(r.runs), shards: num(r.shards), totalShards: num(r.totalShards), tree, runStart: num(r.runStart) || Date.now() };
+      const autoShare = (AUTO_EMPOWER_SHARES as readonly unknown[]).includes(r.autoShare) ? (r.autoShare as number) : AUTO_EMPOWER_SHARES[0];
+      return { unlocked: r.unlocked === true, runs: num(r.runs), shards: num(r.shards), totalShards: num(r.totalShards), tree, runStart: num(r.runStart) || Date.now(), autoShare };
     })(),
     merchant: (() => {
       const m = (data.merchant ?? {}) as { day?: unknown; offers?: unknown; traded?: unknown };
