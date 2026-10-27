@@ -44,5 +44,7 @@ Source packs:
   things-for-rpg-game-32x32-pixel-art
 custom/001.png: the Green Slime's front walk frame (public/monsters/slime-green.png), used as the Bestiary icon.
 custom/002.png: the Settings cog, drawn for the game in the item packs' palette and style by tools/icons/cog.py.
+custom/003.png: the Exalted Gem: resources3/096 (a crystal shard) recoloured to the gems' pink.
+custom/013.png: Sapphire: resources3/099 (a teardrop gem) recoloured to Sapphire's blue.
 bows/NNN.png: CraftPix.net's free Bow and Crossbow pixel art icons (48; the versions with effects), in their order (1-24 bows, mirrored left to right to face the same way as the other packs' bows; 25-48 crossbows, as drawn).
 guns/NNN.png: CraftPix.net's free Guns icon 32x32 pixel pack (Icon29_01-40), in their order.

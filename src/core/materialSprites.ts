@@ -72,7 +72,7 @@ export const MATERIAL_SPRITES: Partial<Record<MaterialId, string>> = {
   frostIron: 'materials/frostIron',
   coldsteel: 'resources3/049',
   aquamarine: 'resources3/084',
-  sapphire: 'resources3/096',
+  sapphire: 'custom/013',
   skysteel: 'resources3/069',
   adamantite: 'resources3/064',
   opal: 'materials/opal',
