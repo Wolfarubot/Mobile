@@ -68,7 +68,7 @@ export const SFX: Record<SfxEvent, SfxSpec> = {
   guardianAppears: { clip: 'rpg-buff-atk-buff', gain: 0.34, gap: 1000, jitter: 0, pitch: -3.5, length: 0.85 },
   guardianEscapes: { clip: 'rpg-battle-flee', gain: 1.48, gap: 1000, jitter: 0, pitch: 1, length: 1.4 },
   gearDrop: { clip: 'coin', gain: 0.88, gap: 150, jitter: 0, pitch: 0, length: 1 },
-  kill: { clip: 'hurt-ally', gain: 0.49, gap: 720, jitter: 0.12, pitch: 0, length: 1.1 },
+  kill: { clip: 'hurt-ally', gain: 0.294, gap: 720, jitter: 0.12, pitch: 0, length: 1.1 },
   guardianKill: { clip: 'boss-kill', gain: 0.7, gap: 300, jitter: 0, pitch: 0, length: 1.75 },
   tap: { clip: 'block', gain: 0.98, gap: 510, jitter: 0.3, pitch: 0, length: 1.1 },
   explosion: { clip: 'explosion', gain: 1.95, gap: 140, jitter: 0.1, pitch: 0, length: 1 },
