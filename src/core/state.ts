@@ -741,7 +741,18 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
     quests: (() => {
       const q = { ...newQuests(), ...((data.quests ?? {}) as Partial<QuestState>) };
       const list = (v: unknown): Quest[] =>
-        Array.isArray(v) ? v.filter((x) => x && typeof x.kind === 'string' && typeof x.need === 'number').map((x) => ({ kind: x.kind, need: x.need, have: typeof x.have === 'number' ? x.have : 0 })) : [];
+        Array.isArray(v)
+          ? v
+              .filter((x) => x && typeof x.kind === 'string' && typeof x.need === 'number')
+              .map((x) => ({
+                kind: x.kind,
+                need: x.need,
+                have: typeof x.have === 'number' ? x.have : 0,
+                ...(typeof x.event === 'string' ? { event: x.event } : {}),
+                ...(typeof x.stars === 'number' ? { stars: x.stars } : {}),
+                ...(Array.isArray(x.got) ? { got: x.got.filter((g: unknown): g is string => typeof g === 'string') } : {}),
+              }))
+          : [];
       return { ...q, daily: list(q.daily), weekly: list(q.weekly), day: String(q.day ?? ''), week: String(q.week ?? '') };
     })(),
     // Saves from before event energy start with a full bar.

@@ -40,9 +40,11 @@ import {
   ENERGY_AD,
   ENERGY_ADS_PER_DAY,
   ENERGY_MAX_NO_ADS,
-  DAILY_QUESTS,
+  DAILY_QUEST_COUNT,
+  DAILY_MINIGAME_STARS,
   DAILY_KILLS,
   WEEKLY_QUESTS,
+  WEEKLY_QUEST_COUNT,
   WEEKLY_KILLS,
   WEEKLY_DAILIES,
   GEMS_DAILY,
@@ -1604,14 +1606,14 @@ export class Game {
     const week = weekKey(now);
     if (q.week !== week) {
       q.week = week;
-      q.weekly = this.makeQuests(WEEKLY_QUESTS, WEEKLY_KILLS, true);
+      q.weekly = this.makeWeekly(week);
       q.weeklyClaimed = false;
       q.weekKills = this.state.stats.totalKills;
     }
     if (this.state.shop.day !== day) this.stockShop(day);
     if (q.day !== day) {
       q.day = day;
-      q.daily = this.makeQuests(DAILY_QUESTS, DAILY_KILLS, false);
+      q.daily = this.makeDaily(day);
       q.dailyClaimed = false;
       q.checkIn = false;
       q.dailyDone = false;
@@ -1620,20 +1622,65 @@ export class Game {
     }
   }
 
-  /** Quests of the kinds you can do now, topped up with monster slaying to three; the week adds days of dailies. */
-  private makeQuests(defs: Array<{ kind: QuestKind; need: number }>, kills: number, weekly: boolean): Quest[] {
-    const open = (kind: QuestKind) => EVENTS.some((e) => e.kind === kind && this.eventUnlocked(e.id));
-    const out: Quest[] = defs.filter((d) => open(d.kind)).map((d) => ({ ...d, have: 0 }));
-    if (out.length < defs.length) out.push({ kind: 'kills', need: kills, have: 0 });
-    if (weekly) out.push({ kind: 'dailies', need: WEEKLY_DAILIES, have: 0 });
+  /** The unlocked events of a kind (a minigame once its Hunter is recruited, the Rift Echo after the Shadow Tide). */
+  private openEvents(kind: EventDef['kind']): EventDef[] {
+    return EVENTS.filter((e) => e.kind === kind && this.eventUnlocked(e.id));
+  }
+
+  /**
+   * A day's quests: DAILY_QUEST_COUNT unlocked events by name, minigames and battles (swarms and Guardians) taking
+   * turns, in a shuffle seeded by the date (so they hold all day); monster slaying fills in if fewer are open.
+   */
+  private makeDaily(day: string): Quest[] {
+    const rand = seeded(`daily:${day}`);
+    const games = shuffle(this.openEvents('minigame'), rand);
+    const fights = shuffle([...this.openEvents('swarm'), ...this.openEvents('guardian')], rand);
+    const out: Quest[] = [];
+    for (let i = 0; out.length < DAILY_QUEST_COUNT && (games.length || fights.length); i++) {
+      const from = (i % 2 === 0 && games.length) || !fights.length ? games : fights;
+      const ev = from.shift()!;
+      out.push(ev.kind === 'minigame' ? { kind: 'minigame', need: 1, have: 0, event: ev.id, stars: DAILY_MINIGAME_STARS } : { kind: ev.kind as QuestKind, need: 1, have: 0, event: ev.id });
+    }
+    if (out.length < DAILY_QUEST_COUNT) out.push({ kind: 'kills', need: DAILY_KILLS, have: 0 });
     return out;
   }
 
-  /** Counts progress toward today's and this week's quests of a kind. */
-  private questProgress(kind: QuestKind, n = 1): void {
+  /**
+   * A week's quests: WEEKLY_QUEST_COUNT of the bigger goals whose events are open (seeded by the week), monster slaying
+   * if fewer are, and finishing every daily on WEEKLY_DAILIES days. Playing different minigames asks for as many as
+   * are open, up to its goal.
+   */
+  private makeWeekly(week: string): Quest[] {
+    const games = this.openEvents('minigame').filter((e) => !e.echo).length;
+    const open = (kind: QuestKind) => (kind === 'stars' || kind === 'variety' ? games > 0 : this.openEvents(kind as EventDef['kind']).length > 0);
+    const picks = shuffle(WEEKLY_QUESTS.filter((d) => open(d.kind)), seeded(`weekly:${week}`)).slice(0, WEEKLY_QUEST_COUNT);
+    const out: Quest[] = picks.map((d) => ({ ...d, need: d.kind === 'variety' ? Math.min(d.need, games) : d.need, have: 0, ...(d.kind === 'variety' ? { got: [] } : {}) }));
+    if (out.length < WEEKLY_QUEST_COUNT) out.push({ kind: 'kills', need: WEEKLY_KILLS, have: 0 });
+    out.push({ kind: 'dailies', need: WEEKLY_DAILIES, have: 0 });
+    return out;
+  }
+
+  /**
+   * An event finished (a minigame with the stars its score earned): counts toward the quests it meets. A Rift Echo
+   * play counts as its game too.
+   */
+  private questEvent(id: string, stars = 0): void {
     this.rollQuests();
-    const q = this.state.quests;
-    for (const quest of [...q.daily, ...q.weekly]) if (quest.kind === kind) quest.have = Math.min(quest.need, quest.have + n);
+    const def = eventDef(id);
+    const mini = def.kind === 'minigame';
+    const home = def.echo && def.minigame ? homeEvent(def.minigame).id : null;
+    const bump = (quest: Quest) => (quest.have = Math.min(quest.need, quest.have + 1));
+    for (const quest of [...this.state.quests.daily, ...this.state.quests.weekly]) {
+      if (quest.kind === 'minigame' && mini && (!quest.event || quest.event === id || quest.event === home) && stars >= (quest.stars ?? 1)) bump(quest);
+      else if ((quest.kind === 'swarm' || quest.kind === 'guardian') && def.kind === quest.kind && (!quest.event || quest.event === id)) bump(quest);
+      else if (quest.kind === 'stars' && mini && stars >= (quest.stars ?? 1)) bump(quest);
+      else if (quest.kind === 'variety' && mini && stars >= (quest.stars ?? 1)) {
+        const got = (quest.got ??= []);
+        const key = home ?? id;
+        if (!got.includes(key)) got.push(key);
+        quest.have = Math.min(quest.need, got.length);
+      }
+    }
     this.checkQuests();
   }
 
@@ -1802,7 +1849,10 @@ export class Game {
     s.gold += reward.gold;
     s.stats.totalGold += reward.gold;
     for (const [m, n] of Object.entries(reward.materials)) this.gainMaterial(m as MaterialId, n!);
-    if (score > 0) this.completeEvent(id);
+    if (score > 0) {
+      this.completeEvent(id);
+      this.questEvent(id, this.starsFor(id, score));
+    }
     // Kargesh's and Marceline's minigames: a blessing on the next Refine / Enchant, by score (the better one stays).
     const def = eventDef(id);
     if (def.blessing) {
@@ -1824,8 +1874,8 @@ export class Game {
     const st = this.state.events[id];
     if (!st) return;
     st.completed++;
-    const kind = eventDef(id).kind;
-    this.questProgress(kind);
+    // Minigames count toward quests from finishMinigame, with their stars.
+    if (eventDef(id).kind !== 'minigame') this.questEvent(id);
     this.emit({ type: 'eventComplete', event: id });
   }
 
@@ -2786,6 +2836,28 @@ export function dayKey(t: number): string {
 }
 
 /** The local date of the week's Monday (weekly quests reset at midnight going into Monday). */
+/** A random number source seeded by a key (the same numbers for the same key, e.g. a date). */
+function seeded(key: string): () => number {
+  let h = 2166136261;
+  for (let i = 0; i < key.length; i++) h = Math.imul(h ^ key.charCodeAt(i), 16777619);
+  return () => {
+    h = Math.imul(h ^ (h >>> 15), 2246822507);
+    h = Math.imul(h ^ (h >>> 13), 3266489909);
+    h ^= h >>> 16;
+    return (h >>> 0) / 4294967296;
+  };
+}
+
+/** A shuffled copy of a list. */
+function shuffle<T>(list: T[], rand: () => number): T[] {
+  const out = [...list];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
 export function weekKey(t: number): string {
   const d = new Date(t);
   d.setDate(d.getDate() - ((d.getDay() + 6) % 7));

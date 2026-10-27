@@ -181,47 +181,63 @@ export const premiumName = (it: PremiumItem): string => PREMIUM_UPGRADES[it.kind
 /** Items on sale each day, picked afresh from those you don't own. */
 export const SHOP_DAILY_ITEMS = 6;
 
-/** What a quest counts: minigames played (for points), swarms survived, Guardians beaten, monsters slain, days of dailies done. */
-export type QuestKind = 'minigame' | 'swarm' | 'guardian' | 'kills' | 'dailies';
+/**
+ * What a quest counts. Dailies name one event each: a minigame played for at least a star (`stars`), a particular
+ * swarm survived or Guardian beaten. Weeklies are bigger, across any events: minigame plays at a star rank, different
+ * minigames played, swarms, Guardians, days of dailies done. Monster slaying fills in while too little is open.
+ */
+export type QuestKind = 'minigame' | 'swarm' | 'guardian' | 'kills' | 'dailies' | 'stars' | 'variety';
 
 export interface Quest {
   kind: QuestKind;
   need: number;
   have: number;
+  /** The one event it asks for (a daily's minigame, swarm or Guardian). */
+  event?: string;
+  /** Star rank a minigame play needs to count. */
+  stars?: number;
+  /** A variety quest's minigames played so far. */
+  got?: string[];
 }
 
-/**
- * The day's and the week's quests, of the kinds you can do (a minigame quest once one is open, and so on), topped up
- * with monster slaying so there are always three dailies. The week adds finishing your dailies on 5 days.
- */
-export const DAILY_QUESTS: Array<{ kind: QuestKind; need: number }> = [
-  { kind: 'minigame', need: 2 },
-  { kind: 'swarm', need: 2 },
-  { kind: 'guardian', need: 1 },
+/** Dailies a day: specific unlocked events, minigames and battles mixed; monster slaying if fewer are open. */
+export const DAILY_QUEST_COUNT = 3;
+/** The least a daily minigame play must earn. */
+export const DAILY_MINIGAME_STARS = 1;
+/** The weekly goals that can come up (each needs its kind of event open); three a week, plus WEEKLY_DAILIES. */
+export const WEEKLY_QUESTS: Array<{ kind: QuestKind; need: number; stars?: number }> = [
+  { kind: 'stars', need: 5, stars: 2 },
+  { kind: 'stars', need: 2, stars: 3 },
+  { kind: 'variety', need: 4, stars: 1 },
+  { kind: 'swarm', need: 8 },
+  { kind: 'guardian', need: 4 },
 ];
-export const WEEKLY_QUESTS: Array<{ kind: QuestKind; need: number }> = [
-  { kind: 'minigame', need: 10 },
-  { kind: 'swarm', need: 10 },
-  { kind: 'guardian', need: 5 },
-];
+export const WEEKLY_QUEST_COUNT = 3;
 export const DAILY_KILLS = 2000;
 export const WEEKLY_KILLS = 20_000;
-export const WEEKLY_DAILIES = 5;
+export const WEEKLY_DAILIES = 3;
 
-export function questText(q: { kind: QuestKind; need: number }): string {
+export function questText(q: Pick<Quest, 'kind' | 'need' | 'event' | 'stars'>): string {
   const n = q.need;
   const s = n === 1 ? '' : 's';
+  const ev = q.event ? EVENTS.find((e) => e.id === q.event) : undefined;
+  const where = ev ? AREAS.find((a) => a.id === ev.area)!.name : '';
+  const rank = `${q.stars ?? 1}★`;
   switch (q.kind) {
     case 'minigame':
-      return `Play ${n} minigame${s} (score at least 1 point)`;
+      return ev ? `Play ${ev.name} and earn ${rank} or better` : `Play ${n} minigame${s} (earn ${rank} or better)`;
     case 'swarm':
-      return `Survive ${n} swarm${s}`;
+      return ev ? `Survive the ${ev.name} (${where})` : `Survive ${n} swarm${s}`;
     case 'guardian':
-      return `Beat ${n} Guardian Challenge${s}`;
+      return ev ? `Beat the ${where} Guardian` : `Beat ${n} Guardian Challenge${s}`;
     case 'kills':
       return `Slay ${n.toLocaleString('en-US')} monsters`;
     case 'dailies':
-      return `Finish your daily quests on ${n} day${s}`;
+      return `Finish all your daily quests on ${n} day${s}`;
+    case 'stars':
+      return `Earn ${rank} or better in minigames ${n} time${s}`;
+    case 'variety':
+      return `Earn ${rank} or better in ${n} different minigame${s}`;
   }
 }
 

@@ -91,6 +91,8 @@ import {
   BUFF_SLAYER,
   BUFF_SLAYER_TIME,
   BUFF_LOOT_TWO_STAR,
+  WEEKLY_DAILIES,
+  questText,
   ECHO_MULT,
   echoGameAt,
   echoChangesIn,
@@ -171,7 +173,7 @@ import { CHARM_MAX, CHARM_TIME, DICE_FLIGHT, Field, SLAM_OFFSET, type Enemy } fr
 import { mergeSample, runSample, SAMPLE_KEEP } from '../src/core/sampler';
 import { GATED } from '../src/core/gates';
 import { boardCells, RM_BOARDS } from '../src/ui/minigames/runeMatch';
-import { Game, questsDone } from '../src/core/game';
+import { dayKey as dayKeyOf, Game, questsDone, weekKey as weekKeyOf } from '../src/core/game';
 import { deserialize, FX_KEYS, newGame as startingGame, SAVE_VERSION, serialize, type GameState } from '../src/core/state';
 
 /** A new game without the starting gear, so tests see a bare Hunter unless they add gear themselves. */
@@ -4057,22 +4059,26 @@ describe('Events', () => {
     g.state.areas.forest.kills = areaDef('forest').mastery;
     g.state.events.slimeSwarm.completed = 1;
     now += 24 * 3600 * 1000;
-    expect(g.dailyQuests.map((q) => [q.kind, q.need, q.have])).toEqual([
-      ['minigame', 2, 0],
-      ['swarm', 2, 0],
-      ['guardian', 1, 0],
-    ]);
+    // Each daily names an unlocked event: the minigame first (for a star or better), then the battles.
+    const daily = g.dailyQuests;
+    expect(daily[0]).toEqual({ kind: 'minigame', need: 1, have: 0, event: 'huntingPractice', stars: 1 });
+    expect(daily.slice(1).map((q) => q.event).sort()).toEqual(['guardian-forest', 'slimeSwarm']);
+    expect(questText(daily[0])).toBe("Play Galladair's Hunting Practice and earn 1★ or better");
     expect(g.state.quests.checkIn).toBe(false);
     g.state.energy = 20;
     g.startEvent('slimeSwarm');
     g.tick(eventDef('slimeSwarm').duration + 0.1);
-    g.finishMinigame('huntingPractice', 5);
-    g.finishMinigame('huntingPractice', 0); // no points: doesn't count
-    expect(g.dailyQuests.map((q) => q.have)).toEqual([1, 1, 0]);
+    g.finishMinigame('huntingPractice', 5); // points, but no star: doesn't count
+    expect(daily[0].have).toBe(0);
+    g.finishMinigame('huntingPractice', eventDef('huntingPractice').rewards!.par);
+    expect(g.dailyQuests.map((q) => [q.event, q.have])).toEqual(daily.map((q) => [q.event, q.event === 'guardian-forest' ? 0 : 1]));
     expect(g.weeklyQuests.filter((q) => q.kind === 'minigame' || q.kind === 'swarm').map((q) => q.have)).toEqual([]); // last week's weekly had none open
     // Monday: a new week, with the kinds now open.
     now = new Date(2026, 9, 26, 9).getTime();
-    expect(g.weeklyQuests.map((q) => q.kind)).toEqual(['minigame', 'swarm', 'guardian', 'dailies']);
+    const weekly = g.weeklyQuests;
+    expect(weekly).toHaveLength(4);
+    expect(weekly[3]).toEqual({ kind: 'dailies', need: WEEKLY_DAILIES, have: 0 });
+    for (const q of weekly.slice(0, 3)) expect(['stars', 'variety', 'swarm', 'guardian']).toContain(q.kind);
     expect(g.state.quests.weeklyClaimed).toBe(false);
     for (const q of g.state.quests.weekly) q.have = q.need;
     expect(g.claimWeekly()).toBe(true);
@@ -5406,5 +5412,80 @@ describe('Late minigames and the Rift Echo', () => {
       const mats = Object.keys(g.minigameReward(id, def.rewards!.par).materials);
       for (const m of mats) expect(ENEMIES.some((e) => e.area === area && (e.material === m || e.drops?.some((d) => d.material === m)))).toBe(true);
     }
+  });
+});
+
+describe('Quests', () => {
+  it('dailies count only their own event (a minigame at a star or better, the Rift Echo as its game); weeklies count stars, variety and battles', () => {
+    const g = new Game(newGame(0), noCrit);
+    g.clock = () => new Date(2026, 9, 21, 10).getTime();
+    const par = (id: string) => eventDef(id).rewards!.par;
+    g.state.quests.daily = [
+      { kind: 'minigame', need: 1, have: 0, event: 'icebreaker', stars: 1 },
+      { kind: 'swarm', need: 1, have: 0, event: 'sporeBloom' },
+      { kind: 'guardian', need: 1, have: 0, event: 'guardian-glade' },
+    ];
+    g.state.quests.weekly = [
+      { kind: 'stars', need: 5, have: 0, stars: 2 },
+      { kind: 'variety', need: 2, have: 0, stars: 1, got: [] },
+      { kind: 'swarm', need: 8, have: 0 },
+    ];
+    g.state.quests.day = dayKeyOf(g.clock());
+    g.state.quests.week = weekKeyOf(g.clock());
+    // Another minigame doesn't count for the daily; it does for the weekly at 2 stars.
+    g.finishMinigame('huntingPractice', par('huntingPractice'));
+    expect(g.state.quests.daily[0].have).toBe(0);
+    expect(g.state.quests.weekly.map((q) => q.have)).toEqual([1, 1, 0]);
+    // The named one, through the Rift Echo while it plays Icebreaker.
+    let now = 0;
+    setEchoClock(() => now);
+    try {
+      while (eventDef('riftEcho').minigame !== 'icebreaker') now += 3_600_000;
+      g.finishMinigame('riftEcho', Math.ceil(par('icebreaker') * 0.5));
+    } finally {
+      setEchoClock(() => Date.now());
+    }
+    expect(g.state.quests.daily[0].have).toBe(1);
+    expect(g.state.quests.weekly.map((q) => q.have)).toEqual([1, 2, 0]); // 1 star: not 2; a second different game
+    // The wrong swarm and Guardian count for the week only.
+    g.state.events.slimeSwarm.completed = 0;
+    (g as unknown as { completeEvent(id: string): void }).completeEvent('slimeSwarm');
+    expect(g.state.quests.daily[1].have).toBe(0);
+    expect(g.state.quests.weekly[2].have).toBe(1);
+    (g as unknown as { completeEvent(id: string): void }).completeEvent('sporeBloom');
+    (g as unknown as { completeEvent(id: string): void }).completeEvent('guardian-glade');
+    expect(g.state.quests.daily.map((q) => q.have)).toEqual([1, 1, 1]);
+    expect(questText(g.state.quests.daily[1])).toBe('Survive the Spore Bloom (Fey Grove)');
+    expect(questText(g.state.quests.daily[2])).toBe('Beat the Fey Grove Guardian');
+    expect(questText(g.state.quests.weekly[0])).toBe('Earn 2★ or better in minigames 5 times');
+    // Saved and loaded, details kept.
+    expect(deserialize(serialize(g.state))!.quests).toEqual(g.state.quests);
+  });
+
+  it('dailies hold all day and change with the date; only unlocked events are picked', () => {
+    const mk = () => {
+      // Every area open and slain through, and the minigames' Hunters recruited, but only the first four.
+      const g = new Game(newGame(0), noCrit);
+      for (const a of AREAS) Object.assign(g.state.areas[a.id], { unlocked: true, kills: 1e9 });
+      for (const e of ENEMIES) g.state.bestiary[e.id].kills = 1e9;
+      for (const e of EVENTS) if (e.kind === 'swarm') g.state.events[e.id].completed = 1;
+      for (const id of ['ranger', 'bard', 'thief', 'puppeteer'] as const) g.state.hunters[id].recruited = true;
+      return g;
+    };
+    const days = new Set<string>();
+    for (let d = 0; d < 12; d++) {
+      const t = new Date(2026, 9, 1 + d, 10).getTime();
+      const a = mk();
+      a.clock = () => t;
+      const b = mk();
+      b.clock = () => t + 3600_000;
+      const ids = a.dailyQuests.map((q) => q.event);
+      expect(b.dailyQuests.map((q) => q.event)).toEqual(ids); // same day, same quests
+      for (const id of ids) expect(a.eventUnlocked(id!)).toBe(true);
+      expect(ids.filter((id) => eventDef(id!).kind === 'minigame').length).toBe(2); // minigames and battles take turns
+      expect(new Set(ids).size).toBe(3);
+      days.add(ids.join());
+    }
+    expect(days.size).toBeGreaterThan(8); // they vary from day to day
   });
 });
