@@ -4393,30 +4393,46 @@ export class AppUI {
         setHtml($('.rb-go', bar), tx('menu.regression.regress'));
       });
       body.appendChild(bar);
-      // The web: rings and threads drawn in an SVG, the nodes laid over it at the same spots.
-      const R = 78;
-      const W = 6 * R + 72;
-      const H = 7 * R + 72;
-      const cx = W / 2;
-      const cy = 4 * R + 36;
-      const pos = (n: RegNode) => ({ x: cx + n.ring * R * Math.cos((n.angle * Math.PI) / 180), y: cy + n.ring * R * Math.sin((n.angle * Math.PI) / 180) });
+      // The web: only what you own and the nodes joined to it, so it grows outward as you buy. Rings and threads are
+      // drawn in an SVG with the nodes laid over it; it scrolls once it's wider or taller than the screen.
+      const R = 58;
+      const shown = REGRESSION_TREE.filter((n) => g.regVisible(n.id));
+      const at = (n: RegNode) => ({ x: n.ring * R * Math.cos((n.angle * Math.PI) / 180), y: n.ring * R * Math.sin((n.angle * Math.PI) / 180) });
+      const pad = 40;
+      const xs = shown.map((n) => at(n).x);
+      const ys = shown.map((n) => at(n).y);
+      const x0 = Math.min(...xs) - pad;
+      const y0 = Math.min(...ys) - pad;
+      const W = Math.max(...xs) + pad - x0;
+      const H = Math.max(...ys) + pad - y0;
+      const pos = (n: RegNode) => ({ x: at(n).x - x0, y: at(n).y - y0 });
+      const pan = el('div', 'reg-pan');
       const web = el('div', 'reg-web');
-      web.style.aspectRatio = `${W} / ${H}`;
-      const rings = [1, 2, 3].map((r) => `<circle cx="${cx}" cy="${cy}" r="${r * R}" class="rw-ring"/>`).join('');
-      const links = REGRESSION_LINKS.map(([a, b]) => {
-        const p = pos(regNode(a)!);
-        const q = pos(regNode(b)!);
-        return `<line x1="${p.x}" y1="${p.y}" x2="${q.x}" y2="${q.y}" data-a="${a}" data-b="${b}" class="rw-link"/>`;
-      }).join('');
+      web.style.width = `${W}px`;
+      web.style.height = `${H}px`;
+      const maxRing = Math.max(...shown.map((n) => n.ring));
+      const rings = [1, 2, 3, 6.8]
+        .filter((r) => r <= maxRing)
+        .map((r) => `<circle cx="${-x0}" cy="${-y0}" r="${r * R}" class="rw-ring"/>`)
+        .join('');
+      const links = REGRESSION_LINKS.filter(([a, b]) => g.regVisible(a) && g.regVisible(b))
+        .map(([a, b]) => {
+          const p = pos(regNode(a)!);
+          const q = pos(regNode(b)!);
+          return `<line x1="${p.x}" y1="${p.y}" x2="${q.x}" y2="${q.y}" data-a="${a}" data-b="${b}" class="rw-link"/>`;
+        })
+        .join('');
       web.innerHTML = `<svg viewBox="0 0 ${W} ${H}" aria-hidden="true">${rings}${links}</svg>`;
-      for (const n of REGRESSION_TREE) {
+      for (const n of shown) {
         const p = pos(n);
         const b = el('button', 'reg-node') as HTMLButtonElement;
-        b.style.left = `${(p.x / W) * 100}%`;
-        b.style.top = `${(p.y / H) * 100}%`;
+        b.style.left = `${p.x}px`;
+        b.style.top = `${p.y}px`;
         if (n.ring === 0) b.classList.add('center');
-        if (n.flag === 'unbound') b.classList.add('unbound');
-        b.innerHTML = `<i>${sprite(n.icon)}</i><small class="rn-rank"></small>`;
+        if (n.area) b.classList.add('unbound');
+        // An Unbound area shows its area's own material.
+        const icon = n.area ? MATERIAL_SPRITES[areaEnemies(n.area)[0].material] ?? n.icon : n.icon;
+        b.innerHTML = `<i>${sprite(icon)}</i><small class="rn-rank"></small>`;
         b.setAttribute('aria-label', n.name);
         b.addEventListener('click', () => this.showRegNode(n.id));
         refreshers.push(() => {
@@ -4433,7 +4449,14 @@ export class AppUI {
       refreshers.push(() =>
         web.querySelectorAll<SVGLineElement>('.rw-link').forEach((l) => l.classList.toggle('lit', g.ownsReg(l.dataset.a!) && g.ownsReg(l.dataset.b!))),
       );
-      body.appendChild(web);
+      pan.appendChild(web);
+      body.appendChild(pan);
+      // Start with Stabilize in the middle of the view.
+      requestAnimationFrame(() => {
+        const c = pos(REGRESSION_TREE[0]);
+        pan.scrollLeft = c.x - pan.clientWidth / 2;
+        pan.scrollTop = c.y - pan.clientHeight / 2;
+      });
     } else {
       const note = el('div', 'hd-note reg-note');
       body.appendChild(note);
@@ -4488,7 +4511,12 @@ export class AppUI {
                   if (!g.buyReg(id)) return;
                   this.hooks.save();
                   this.refresh();
-                  for (const r of this.detail?.refreshers ?? []) r();
+                  // The web grows: the nodes joined to this one appear.
+                  const pan = document.querySelector<HTMLElement>('.reg-pan');
+                  const keep = pan ? [pan.scrollLeft, pan.scrollTop] : null;
+                  this.openRegression('tree');
+                  const next = document.querySelector<HTMLElement>('.reg-pan');
+                  if (next && keep) requestAnimationFrame(() => ([next.scrollLeft, next.scrollTop] = keep));
                 },
               },
             ]

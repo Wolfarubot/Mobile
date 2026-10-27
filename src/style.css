@@ -6984,11 +6984,15 @@ body.ui-parchment .mod-action b {
   height: 18px;
   vertical-align: -3px;
 }
+.reg-pan {
+  overflow: auto;
+  max-height: 72vh;
+  margin: 4px 0 16px;
+  overscroll-behavior: contain;
+}
 .reg-web {
   position: relative;
-  width: 100%;
-  max-width: 520px;
-  margin: 4px auto 16px;
+  margin: 0 auto;
 }
 .reg-web svg {
   position: absolute;
@@ -7012,8 +7016,8 @@ body.ui-parchment .mod-action b {
 }
 .reg-node {
   position: absolute;
-  width: 9.5%;
-  aspect-ratio: 1;
+  width: 44px;
+  height: 44px;
   transform: translate(-50%, -50%);
   border-radius: 50%;
   padding: 0;
@@ -7027,7 +7031,8 @@ body.ui-parchment .mod-action b {
   min-height: 0;
 }
 .reg-node.center {
-  width: 13%;
+  width: 56px;
+  height: 56px;
   border-color: #e0c060 !important;
 }
 .reg-node i {

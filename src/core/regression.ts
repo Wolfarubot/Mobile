@@ -89,8 +89,9 @@ export function regress(old: GameState, now: number): { state: GameState; shards
   const copy = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
   // Your Hunter: training, skills, ascension and tap ability.
   s.main = copy(old.main);
-  // Guild Hunters: training and skills, but not recruited or stationed.
-  for (const h of HUNTERS) s.hunters[h.id] = { ...copy(old.hunters[h.id]), recruited: false, station: null };
+  // Guild Hunters: training and skills, but not recruited or stationed (Kindred Spirits keeps them recruited).
+  const keep = (old.regression.tree.keepHunters ?? 0) > 0;
+  for (const h of HUNTERS) s.hunters[h.id] = { ...copy(old.hunters[h.id]), recruited: keep && old.hunters[h.id].recruited, station: null };
   // The starting kit again, numbered after every piece ever made so no uid is reused.
   const renumber = new Map<number, number>();
   for (const item of s.inventory) {

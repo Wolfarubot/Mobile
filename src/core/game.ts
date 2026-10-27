@@ -40,6 +40,7 @@ import {
   AUTO_EMPOWER_SHARES,
   REGRESSION_LINKS,
   regTreeMult,
+  LOOT_ACCRUE_CAP,
   regNode,
   type RegKind,
   ENERGY_AD,
@@ -1636,7 +1637,13 @@ export class Game {
   }
 
   canBuyReg(id: string): boolean {
-    return this.regReachable(id) && this.state.regression.shards >= this.regCostOf(id);
+    const needs = regNode(id)?.needs;
+    return this.regReachable(id) && (!needs || this.ownsReg(needs)) && this.state.regression.shards >= this.regCostOf(id);
+  }
+
+  /** The web shows what you own and the nodes joined to it, nothing further (so the Unbound timeline stays hidden). */
+  regVisible(id: string): boolean {
+    return this.ownsReg(id) || this.regReachable(id);
   }
 
   /** Buys a node with Memory Shards. */
@@ -2463,7 +2470,7 @@ export class Game {
     }
     const loot: Array<{ gear: GearId; salvaged: boolean }> = [];
     const pieces = take(`${area}:loot`, lootRate * this.areaPerk(area).loot * seconds);
-    for (let i = 0; i < pieces; i++) loot.push(this.dropLoot(area, quiet));
+    for (let i = 0; i < Math.min(pieces, LOOT_ACCRUE_CAP); i++) loot.push(this.dropLoot(area, quiet));
     for (const [sh, share] of Object.entries(rates.share) as [Shooter, number][]) {
       const n = take(`${area}:hk:${sh}`, rates.killsTotal * share * seconds);
       if (n > 0) s.stats.hunterKills[sh] = (s.stats.hunterKills[sh] ?? 0) + n;

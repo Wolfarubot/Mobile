@@ -169,9 +169,55 @@ describe('Regression Tree', () => {
     expect(g.buyReg('goldenMemory')).toBe(false); // bought once
     expect(g.regCostOf('goldenMemory')).toBe(Infinity);
     for (const n of REGRESSION_TREE) expect(n.cost, n.id).toBeGreaterThan(0);
-    expect(g.canBuyReg('unboundTimeline')).toBe(false); // not for sale yet
+    expect(g.canBuyReg('unbound-forest')).toBe(false); // not for sale yet
     const poor = withShards(0);
     expect(poor.buyReg('stabilize')).toBe(false);
+  });
+
+  it('the web shows only what you own and the nodes joined to it; the Unbound timeline stays hidden', () => {
+    const g = withShards(0);
+    const shown = () => REGRESSION_TREE.filter((n) => g.regVisible(n.id)).map((n) => n.id);
+    expect(shown()).toEqual(['stabilize']);
+    g.state.regression.tree = { stabilize: 1 };
+    expect(shown().sort()).toEqual(['stabilize', 'goldenMemory', 'muscleMemory', 'dreamHunt', 'teemingWilds', 'keenRecall', 'honedInstinct'].sort());
+    // The whole inner web owned: the Unbound Woods shows, but nothing past it.
+    g.state.regression.tree = Object.fromEntries(REGRESSION_TREE.filter((n) => n.ring <= 3).map((n) => [n.id, 1]));
+    expect(g.regVisible('unbound-forest')).toBe(true);
+    expect(g.regVisible('unbound-glade')).toBe(false);
+    expect(g.regVisible('keepHunters')).toBe(false);
+    g.state.regression.tree['unbound-forest'] = 1;
+    expect(['unbound-glade', 'keepHunters', 'unbound-crypt'].every((id) => g.regVisible(id))).toBe(true);
+    expect(g.regVisible('unbound-depths')).toBe(false);
+  });
+
+  it('the Unbound areas run in order round the web, each needing the one before, prices rising', () => {
+    const order = ['forest', 'glade', 'graveyard', 'crypt', 'depths', 'caves', 'mines', 'peaks', 'cliffs', 'fortress', 'meteors', 'rift'];
+    const nodes = order.map((a) => regNode(`unbound-${a}`)!);
+    nodes.forEach((n, i) => {
+      expect(n.area).toBe(order[i]);
+      expect(n.needs).toBe(i ? `unbound-${order[i - 1]}` : undefined);
+      if (i) expect(n.cost).toBeGreaterThan(nodes[i - 1].cost);
+    });
+    // Each one is reachable through the web from the Woods.
+    const seen = new Set(['unbound-forest']);
+    for (let changed = true; changed; ) {
+      changed = false;
+      for (const [a, b] of REGRESSION_LINKS) {
+        if (seen.has(a) === seen.has(b)) continue;
+        const next = regNode(seen.has(a) ? b : a)!;
+        // Nodes not for sale yet (Self-Forging) mustn't be the only way round.
+        if (next.soon && !next.area) continue;
+        seen.add(next.id);
+        changed = true;
+      }
+    }
+    for (const n of nodes) expect(seen.has(n.id), n.id).toBe(true);
+  });
+
+  it('Kindred Spirits keeps Guild Hunters recruited through Regression', () => {
+    const g = withShards(0);
+    g.state.regression.tree = { keepHunters: 1 };
+    expect(regress(g.state, 1).state.hunters.ranger).toMatchObject({ recruited: true, station: null, trains: 120 });
   });
 
   it('Stabilize multiplies gold and cuts training costs; nodes stack', () => {

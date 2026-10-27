@@ -1415,17 +1415,21 @@ export interface RegNode {
   icon: string;
   /** What it does, in words. */
   desc: string;
-  /** Where it sits on the web: rings out from the centre, and the angle in degrees (−90 is straight up). */
+  /** Where it sits on the web: rings out from the centre (fractions allowed), and the angle in degrees (−90 is up). */
   ring: number;
   angle: number;
   /** Memory Shards to buy it. */
   cost: number;
+  /** An Unbound area node: the area it makes Unbound (its icon is the area's own material). */
+  area?: AreaId;
+  /** Another node that must be owned first (each Unbound area needs the one before it). */
+  needs?: string;
   /** Multipliers it applies. */
   mult?: Partial<Record<RegKind, number>>;
   /** Gold you start each run with. */
   startGold?: number;
   /** A switch rather than a number. */
-  flag?: 'autoEmpower' | 'unbound';
+  flag?: 'autoEmpower' | 'keepHunters' | 'autoCraft';
   /** Shown but not for sale yet. */
   soon?: boolean;
 }
@@ -1438,6 +1442,27 @@ export interface RegNode {
  * tunes them.
  */
 const SPOKES = [-90, -30, 30, 90, 150, 210];
+/** The Unbound areas in order (each needs the one before it). */
+const UNBOUND_ORDER: AreaId[] = ['forest', 'glade', 'graveyard', 'crypt', 'depths', 'caves', 'mines', 'peaks', 'cliffs', 'fortress', 'meteors', 'rift'];
+const unboundArea = (area: AreaId, ring: number, angle: number, cost: number): RegNode => {
+  const i = UNBOUND_ORDER.indexOf(area);
+  const name = AREAS.find((a) => a.id === area)!.name;
+  return {
+    id: `unbound-${area}`,
+    name: `Unbound ${name}`,
+    icon: SHARD_ICON,
+    desc:
+      i === 0
+        ? `Opens the Unbound timeline with the Unbound ${name}: it takes the Woods' place in the Areas tab, as strong as an area after the Void Rift and far richer. Unbound gear and materials last through every Regression.`
+        : `The ${name} becomes Unbound: it takes its place in the Areas tab, a step stronger and richer than the Unbound area before it.`,
+    ring,
+    angle,
+    cost,
+    area,
+    needs: i > 0 ? `unbound-${UNBOUND_ORDER[i - 1]}` : undefined,
+    soon: true,
+  };
+};
 const spoke = (i: number, ring: number, id: string, name: string, icon: string, desc: string, cost: number, mult: Partial<Record<RegKind, number>>): RegNode => ({
   id, name, icon, desc, ring, angle: SPOKES[i], cost, mult,
 });
@@ -1471,8 +1496,29 @@ export const REGRESSION_TREE: RegNode[] = [
   spoke(3, 3, 'endlessHorde', 'Endless Horde', 'resources1/099', 'Monsters spawn ×3 as often.', 2500, { spawn: 3 }),
   spoke(4, 3, 'treasureSense', 'Treasure Sense', 'things/007', 'Material drop chance ×25.', 2500, { drops: 25 }),
   spoke(5, 3, 'apexMemory', 'Apex Memory', 'rpg-items/319', 'Damage for every Hunter ×3.', 2500, { damage: 3 }),
-  // Beyond the web.
-  { id: 'unboundTimeline', name: 'Unbound Timeline', icon: SHARD_ICON, desc: 'Opens the Unbound timeline: stronger versions of every area after the Void Rift, whose gear and materials last through every Regression.', ring: 4, angle: -90, cost: 10000, flag: 'unbound', soon: true },
+  // Beyond the web: the Unbound timeline. The Unbound Wandering Woods sits above the outer ring; off it, the Unbound
+  // Fey Grove (left), Restless Graveyard (up) and Forbidden Crypt (right), each with the next two areas trailing
+  // off it, and then nodes running clockwise round the rim to the Meteor Field and on to the Void Rift, near the
+  // Fey Grove again: one big circle.
+  unboundArea('forest', 4, -90, 10_000),
+  unboundArea('glade', 5, -118, 15_000),
+  { id: 'keepHunters', name: 'Kindred Spirits', icon: 'rpg-items/300', desc: 'Recruited Guild Hunters stay recruited through every Regression.', ring: 5, angle: -90, cost: 20_000, flag: 'keepHunters' },
+  unboundArea('graveyard', 6, -90, 25_000),
+  unboundArea('crypt', 5, -62, 40_000),
+  unboundArea('depths', 6, -128, 60_000),
+  unboundArea('caves', 6.8, -140, 90_000),
+  unboundArea('mines', 7, -100, 130_000),
+  unboundArea('peaks', 7, -80, 190_000),
+  unboundArea('cliffs', 6, -52, 280_000),
+  unboundArea('fortress', 6.8, -40, 400_000),
+  { id: 'unboundBounty', name: 'Unbound Bounty', icon: 'things/008', desc: 'Gold from monsters ×1,000.', ring: 6.8, angle: -12, cost: 550_000, mult: { gold: 1000 } },
+  { id: 'timelessDreams', name: 'Timeless Dreams', icon: 'wands-books/087', desc: 'Offline gains ×20.', ring: 6.8, angle: 16, cost: 650_000, mult: { offline: 20 } },
+  unboundArea('meteors', 6.8, 44, 800_000),
+  { id: 'deepRecall', name: 'Deep Recall', icon: 'things/012', desc: 'Material drop chance ×10.', ring: 6.8, angle: 72, cost: 1_000_000, mult: { drops: 10 } },
+  { id: 'echoesOfEternity', name: 'Echoes of Eternity', icon: SHARD_ICON, desc: 'Memory Shards from every Regression ×3.', ring: 6.8, angle: 100, cost: 1_200_000, mult: { shards: 3 } },
+  { id: 'autoCraft', name: 'Self-Forging', icon: 'resources3/003', desc: 'Crafts the best gear you can afford for empty or weaker slots, by itself.', ring: 6.8, angle: 128, cost: 1_400_000, flag: 'autoCraft', soon: true },
+  { id: 'hordeEternal', name: 'Horde Eternal', icon: 'resources1/099', desc: 'Monsters spawn twice as often, and damage for every Hunter ×3.', ring: 6.8, angle: 156, cost: 1_700_000, mult: { spawn: 2, damage: 3 } },
+  unboundArea('rift', 6.8, 186, 2_000_000),
 ];
 
 /** Which nodes are joined on the web (both ways). */
@@ -1486,7 +1532,33 @@ export const REGRESSION_LINKS: Array<[string, string]> = (() => {
     const thread = REGRESSION_TREE.find((n) => n.ring === 2 && !SPOKES.includes(n.angle) && ((n.angle - a + 360) % 360) === 30)!.id;
     out.push([at(2, a), thread], [thread, at(2, next)]);
   });
-  for (const a of [-90, -30, 210]) out.push([at(3, a), 'unboundTimeline']);
+  for (const a of [-90, -30, 210]) out.push([at(3, a), 'unbound-forest']);
+  // The Unbound timeline: three branches off the Woods, two areas trailing each, then clockwise round the rim.
+  const u = (a: AreaId) => `unbound-${a}`;
+  out.push(
+    [u('forest'), u('glade')],
+    [u('forest'), 'keepHunters'],
+    ['keepHunters', u('graveyard')],
+    [u('forest'), u('crypt')],
+    [u('glade'), u('graveyard')],
+    [u('graveyard'), u('crypt')],
+    [u('glade'), u('depths')],
+    [u('depths'), u('caves')],
+    [u('graveyard'), u('mines')],
+    [u('mines'), u('peaks')],
+    [u('crypt'), u('cliffs')],
+    [u('cliffs'), u('fortress')],
+    [u('fortress'), 'unboundBounty'],
+    ['unboundBounty', 'timelessDreams'],
+    ['timelessDreams', u('meteors')],
+    [u('meteors'), 'deepRecall'],
+    ['deepRecall', 'echoesOfEternity'],
+    ['echoesOfEternity', 'autoCraft'],
+    ['echoesOfEternity', 'hordeEternal'],
+    ['autoCraft', 'hordeEternal'],
+    ['hordeEternal', u('rift')],
+    [u('rift'), u('caves')],
+  );
   return out;
 })();
 
@@ -1585,6 +1657,12 @@ export const lootChance = (id: EnemyId): number => LOOT_CARRIERS[id] ?? 0;
 export const LOOT_CURRENT_SHARE = 0.6;
 /** Chance a looted piece is already 2★. */
 export const LOOT_TWO_STAR = 0.1;
+/**
+ * The most pieces of gear one stretch of background or offline farming rolls one by one (each roll can craft or
+ * salvage a piece). With big Regression Tree boosts a long time away can be worth tens of thousands of drops; past
+ * this, the rest are skipped, since Auto Salvage would mostly have scrapped them anyway.
+ */
+export const LOOT_ACCRUE_CAP = 200;
 
 /**
  * How deep into the game a material comes from: its area's index, plus how far into the area the first
@@ -1617,17 +1695,26 @@ export function gearTier(def: GearDef): number {
 /** The area a piece of gear comes from (its whole tier). */
 export const gearArea = (def: GearDef): number => Math.floor(gearTier(def));
 
+/** Each area's loot: its newest tier of gear, and everything older (worked out once; GEAR's length keys it). */
+const LOOT_POOLS = new Map<AreaId, { size: number; current: GearDef[]; older: GearDef[] }>();
+function lootPools(area: AreaId): { current: GearDef[]; older: GearDef[] } {
+  const hit = LOOT_POOLS.get(area);
+  if (hit && hit.size === GEAR.length) return hit;
+  const tier = AREAS.findIndex((a) => a.id === area) + 1;
+  // Starting gear can drop too (it can't be crafted).
+  const pool = GEAR.filter((g) => gearArea(g) <= tier);
+  const top = Math.max(...pool.map(gearArea));
+  const out = { size: GEAR.length, current: pool.filter((g) => gearArea(g) === top), older: pool.filter((g) => gearArea(g) < top) };
+  LOOT_POOLS.set(area, out);
+  return out;
+}
+
 /**
  * A random piece of loot for an area: usually gear of that area's tier (or the newest tier below it that has
  * gear), otherwise something from an older area. `roll` and `pick` are uniform in [0, 1).
  */
 export function rollLoot(area: AreaId, roll: number, pick: number): GearDef {
-  const tier = AREAS.findIndex((a) => a.id === area) + 1;
-  // Starting gear can drop too (it can't be crafted).
-  const pool = GEAR.filter((g) => gearArea(g) <= tier);
-  const top = Math.max(...pool.map(gearArea));
-  const current = pool.filter((g) => gearArea(g) === top);
-  const older = pool.filter((g) => gearArea(g) < top);
+  const { current, older } = lootPools(area);
   const from = roll < LOOT_CURRENT_SHARE || !older.length ? current : older;
   return from[Math.floor(pick * from.length) % from.length];
 }
