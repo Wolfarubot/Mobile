@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GEAR_WORTH_WEIGHT, gearCost, gearDef, HUNTERS, MATERIAL_WORTH, MATERIALS, regCost, regNode, REGRESSION_LINKS, REGRESSION_TREE, shardsFor, SHARD_POWER, type MaterialId } from '../src/core/balance';
+import { GEAR_WORTH_WEIGHT, gearCost, gearDef, HUNTERS, MATERIAL_WORTH, MATERIALS, regNode, REGRESSION_LINKS, REGRESSION_TREE, shardsFor, SHARD_POWER, type MaterialId } from '../src/core/balance';
 import { Game } from '../src/core/game';
 import { estimateInvested, gearInvested, regress, runWorth } from '../src/core/regression';
 import { deserialize, newGame, serialize, type GameState } from '../src/core/state';
@@ -165,13 +165,16 @@ describe('Regression Tree', () => {
     expect(g.state.regression.shards).toBe(1000 - regNode('stabilize')!.cost);
     expect(g.buyReg('stabilize')).toBe(false); // one rank
     expect(g.buyReg('goldenMemory')).toBe(true);
-    expect(g.regNextCost('goldenMemory')).toBe(regCost(regNode('goldenMemory')!, 1));
+    expect(g.ownsReg('goldenMemory')).toBe(true);
+    expect(g.buyReg('goldenMemory')).toBe(false); // bought once
+    expect(g.regCostOf('goldenMemory')).toBe(Infinity);
+    for (const n of REGRESSION_TREE) expect(n.cost, n.id).toBeGreaterThan(0);
     expect(g.canBuyReg('unboundTimeline')).toBe(false); // not for sale yet
     const poor = withShards(0);
     expect(poor.buyReg('stabilize')).toBe(false);
   });
 
-  it('Stabilize multiplies gold and cuts training costs; ranks compound', () => {
+  it('Stabilize multiplies gold and cuts training costs; nodes stack', () => {
     const g = withShards(1e6);
     const gold = g.enemyStats('greenSlime').gold;
     const train = g.trainPurchase('main', 1).cost;
@@ -179,19 +182,18 @@ describe('Regression Tree', () => {
     expect(g.enemyStats('greenSlime').gold).toBeCloseTo(gold * 100);
     expect(g.trainPurchase('main', 1).cost).toBeCloseTo(train * 0.02);
     g.buyReg('goldenMemory');
-    g.buyReg('goldenMemory');
-    expect(g.enemyStats('greenSlime').gold).toBeCloseTo(gold * 100 * regNode('goldenMemory')!.mult!.gold! ** 2);
+    expect(g.enemyStats('greenSlime').gold).toBeCloseTo(gold * 100 * regNode('goldenMemory')!.mult!.gold!);
     const dmg = g.damage;
     g.buyReg('honedInstinct');
-    expect(g.damage).toBeCloseTo(dmg * 1.15);
+    expect(g.damage).toBeCloseTo(dmg * regNode('honedInstinct')!.mult!.damage!);
   });
 
   it('shard nodes multiply what a Regression pays', () => {
     const g = withShards(1e6);
     const base = g.shardsNow;
     expect(base).toBeGreaterThan(0);
-    g.state.regression.tree = { stabilize: 1, honedInstinct: 1, apexMemory: 1, goldenAge: 1, echoingMemories: 2 };
-    const mult = regNode('goldenAge')!.mult!.shards! * regNode('echoingMemories')!.mult!.shards! ** 2;
+    g.state.regression.tree = { stabilize: 1, honedInstinct: 1, apexMemory: 1, goldenAge: 1, echoingMemories: 1 };
+    const mult = regNode('goldenAge')!.mult!.shards! * regNode('echoingMemories')!.mult!.shards!;
     expect(regress(g.state, 1).shards).toBe(Math.floor(shardsFor(runWorth(g.state).total) * mult));
   });
 
@@ -203,7 +205,7 @@ describe('Regression Tree', () => {
     g.buyReg('inheritance');
     const { state } = regress(g.state, 1);
     expect(state.regression.tree).toMatchObject({ stabilize: 1, goldenMemory: 1, midasEcho: 1, inheritance: 1 });
-    expect(state.gold).toBe(1e6);
+    expect(state.gold).toBe(regNode('inheritance')!.startGold);
   });
 
   it('Auto Empower & Evolve buys Empower only while one costs at most the chosen share of gold', () => {

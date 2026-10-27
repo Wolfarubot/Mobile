@@ -679,7 +679,7 @@ section(
     title: 'Regression',
     tree: 'Regression Tree',
     regress: 'Regress',
-    treeNote: 'Spend Memory Shards on the web. Start from Stabilize in the centre; a node opens once a node joined to it has a rank. Everything here lasts forever.',
+    treeNote: 'Spend Memory Shards on the web. Start from Stabilize in the centre; each node is bought once, and opens once a node joined to it is owned. Everything here lasts forever.',
     regressNote: "Go back to day 1 in the Wandering Woods. Every Hunter keeps their levels, training and skills (Guild Hunters must be recruited again). Gold, materials, gear, Upgrades, areas and the Bestiary start over. You gain **{shards}** Memory Shards for what this run has built.",
     worth: "This run's worth",
     gold: 'Gold',
@@ -695,7 +695,8 @@ section(
     confirmYes: 'Regress',
     confirmNo: 'Not yet',
     buy: 'Buy for {cost}',
-    maxed: 'Maxed',
+    maxed: 'Owned ✓',
+    cost: 'Costs',
     soon: 'Coming soon',
     locked: 'Buy a node joined to this one first.',
     share: 'Spend at most',
@@ -703,7 +704,7 @@ section(
   },
   {
     vars: { shards: 'Memory Shards', weight: 'gear weighting', cost: 'shards' },
-    labels: { title: 'Title', tree: 'Tab', regress: 'Tab', treeNote: 'Tree note', regressNote: 'Regress note', button: 'Regress button', confirmTitle: 'Confirm title', confirmBody: 'Confirm text', confirmYes: 'Confirm button', confirmNo: 'Cancel button', buy: 'Node buy button', maxed: 'Node maxed', soon: 'Node not yet for sale', locked: 'Node locked note', share: 'Auto Empower share label', regressFor: 'Node note when regressing now would pay for it' },
+    labels: { title: 'Title', tree: 'Tab', regress: 'Tab', treeNote: 'Tree note', regressNote: 'Regress note', button: 'Regress button', confirmTitle: 'Confirm title', confirmBody: 'Confirm text', confirmYes: 'Confirm button', confirmNo: 'Cancel button', buy: 'Node buy button', maxed: 'Node owned', cost: 'Node price label', soon: 'Node not yet for sale', locked: 'Node locked note', share: 'Auto Empower share label', regressFor: 'Node note when regressing now would pay for it' },
   },
 );
 section(

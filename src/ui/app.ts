@@ -4420,18 +4420,18 @@ export class AppUI {
         b.setAttribute('aria-label', n.name);
         b.addEventListener('click', () => this.showRegNode(n.id));
         refreshers.push(() => {
-          const rank = g.regRank(n.id);
-          b.classList.toggle('owned', rank > 0);
-          b.classList.toggle('maxed', rank >= n.maxRank);
-          b.classList.toggle('open', g.regReachable(n.id) && rank < n.maxRank && !n.soon);
+          const owned = g.ownsReg(n.id);
+          b.classList.toggle('owned', owned);
+          b.classList.toggle('open', g.regReachable(n.id) && !owned && !n.soon);
           b.classList.toggle('ready', g.canBuyReg(n.id));
-          b.classList.toggle('locked', !g.regReachable(n.id) || !!n.soon);
-          setHtml($('.rn-rank', b), n.maxRank > 1 ? `${rank}/${n.maxRank}` : rank ? '✓' : '');
+          b.classList.toggle('locked', !owned && (!g.regReachable(n.id) || !!n.soon));
+          // Owned: a tick; for sale: its price.
+          setHtml($('.rn-rank', b), owned ? '✓' : n.soon ? '' : fmt(n.cost));
         });
         web.appendChild(b);
       }
       refreshers.push(() =>
-        web.querySelectorAll<SVGLineElement>('.rw-link').forEach((l) => l.classList.toggle('lit', g.regRank(l.dataset.a!) > 0 && g.regRank(l.dataset.b!) > 0)),
+        web.querySelectorAll<SVGLineElement>('.rw-link').forEach((l) => l.classList.toggle('lit', g.ownsReg(l.dataset.a!) && g.ownsReg(l.dataset.b!))),
       );
       body.appendChild(web);
     } else {
@@ -4465,21 +4465,21 @@ export class AppUI {
     for (const r of refreshers) r();
   }
 
-  /** A Regression Tree node: what it does, its rank, and Buy (Auto Empower also picks its share of gold). */
+  /** A Regression Tree node: what it does, whether it's owned, and Buy (Auto Empower also picks its share of gold). */
   private showRegNode(id: string): void {
     const g = this.game;
     const n = regNode(id)!;
-    const rank = g.regRank(id);
-    const cost = g.regNextCost(id);
-    const status = n.soon ? txt('menu.regression.soon') : rank >= n.maxRank ? txt('menu.regression.maxed') : !g.regReachable(id) ? txt('menu.regression.locked') : '';
+    const owned = g.ownsReg(id);
+    const cost = g.regCostOf(id);
+    const status = n.soon ? txt('menu.regression.soon') : owned ? txt('menu.regression.maxed') : !g.regReachable(id) ? txt('menu.regression.locked') : '';
     const shares =
-      n.flag === 'autoEmpower' && rank > 0
+      n.flag === 'autoEmpower' && owned
         ? `<p class="rn-share-label">${tx('menu.regression.share')}</p><div class="chips rn-shares">${AUTO_EMPOWER_SHARES.map((v) => `<button type="button" class="chip${g.state.regression.autoShare === v ? ' on' : ''}" data-share="${v}">${Math.round(v * 100)}% of gold</button>`).join('')}</div>`
         : '';
     this.showModal(
-      `<div class="rn-head">${sprite(n.icon)}<h2>${esc(n.name)}</h2></div><p>${esc(n.desc)}</p><p class="hint">Rank ${rank} / ${n.maxRank}${status ? ` · ${esc(status)}` : cost < Infinity ? ` · Next rank: ${this.shardsHtml(cost)}${g.canBuyReg(id) ? '' : ` (you have ${fmt(g.state.regression.shards)})`}` : ''}</p>${!status && cost < Infinity && !g.canBuyReg(id) && g.state.regression.shards + g.shardsNow >= cost ? `<p class="hint">${tx('menu.regression.regressFor')}</p>` : ''}${shares}`,
+      `<div class="rn-head">${sprite(n.icon)}<h2>${esc(n.name)}</h2></div><p>${esc(n.desc)}</p><p class="hint">${status ? esc(status) : `${tx('menu.regression.cost')} ${this.shardsHtml(cost)}${g.canBuyReg(id) ? '' : ` (you have ${fmt(g.state.regression.shards)})`}`}</p>${!status && cost < Infinity && !g.canBuyReg(id) && g.state.regression.shards + g.shardsNow >= cost ? `<p class="hint">${tx('menu.regression.regressFor')}</p>` : ''}${shares}`,
       [
-        { label: txt('menu.regression.confirmNo'), secondary: true },
+        { label: g.canBuyReg(id) ? txt('menu.regression.confirmNo') : txt('menu.main.close'), secondary: true },
         ...(g.canBuyReg(id)
           ? [
               {

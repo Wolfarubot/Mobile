@@ -68,10 +68,7 @@ export function runWorth(s: GameState): RunWorth {
 /** Gold a run starts with (Inheritance). */
 export function startGold(s: GameState): number {
   let gold = 0;
-  for (const n of REGRESSION_TREE) {
-    const rank = s.regression.tree[n.id] ?? 0;
-    if (n.startGold && rank > 0) gold = Math.max(gold, n.startGold[Math.min(rank, n.startGold.length) - 1]);
-  }
+  for (const n of REGRESSION_TREE) if (n.startGold && (s.regression.tree[n.id] ?? 0) > 0) gold = Math.max(gold, n.startGold);
   return gold;
 }
 

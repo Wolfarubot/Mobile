@@ -40,7 +40,6 @@ import {
   AUTO_EMPOWER_SHARES,
   REGRESSION_LINKS,
   regTreeMult,
-  regCost,
   regNode,
   type RegKind,
   ENERGY_AD,
@@ -1608,9 +1607,9 @@ export class Game {
   private regVersion = 0;
   private autoAge = 0;
 
-  /** Ranks owned in a Regression Tree node. */
-  regRank(id: string): number {
-    return this.state.regression.tree[id] ?? 0;
+  /** Owns a Regression Tree node. */
+  ownsReg(id: string): boolean {
+    return (this.state.regression.tree[id] ?? 0) > 0;
   }
 
   /** Everything the Regression Tree multiplies a kind by (1 with nothing bought). */
@@ -1627,26 +1626,25 @@ export class Game {
     const n = regNode(id);
     if (!n) return false;
     if (n.ring === 0) return true;
-    return REGRESSION_LINKS.some(([a, b]) => (a === id && this.regRank(b) > 0) || (b === id && this.regRank(a) > 0));
+    return REGRESSION_LINKS.some(([a, b]) => (a === id && this.ownsReg(b)) || (b === id && this.ownsReg(a)));
   }
 
-  /** Shards for a node's next rank (Infinity once it's maxed, or not for sale yet). */
-  regNextCost(id: string): number {
+  /** Shards a node costs (Infinity once owned, or not for sale yet). */
+  regCostOf(id: string): number {
     const n = regNode(id);
-    if (!n || n.soon || this.regRank(id) >= n.maxRank) return Infinity;
-    return regCost(n, this.regRank(id));
+    return !n || n.soon || this.ownsReg(id) ? Infinity : n.cost;
   }
 
   canBuyReg(id: string): boolean {
-    return this.regReachable(id) && this.state.regression.shards >= this.regNextCost(id);
+    return this.regReachable(id) && this.state.regression.shards >= this.regCostOf(id);
   }
 
-  /** Buys a node's next rank with Memory Shards. */
+  /** Buys a node with Memory Shards. */
   buyReg(id: string): boolean {
     if (!this.canBuyReg(id)) return false;
     const r = this.state.regression;
-    r.shards -= this.regNextCost(id);
-    r.tree[id] = this.regRank(id) + 1;
+    r.shards -= this.regCostOf(id);
+    r.tree[id] = 1;
     this.regVersion++;
     return true;
   }
@@ -1661,7 +1659,7 @@ export class Game {
    * gold, then spends evolution points on the first nodes that can be bought.
    */
   private autoEmpower(): void {
-    if (this.regRank('autoEmpower') <= 0 || !this.empowerUnlocked) return;
+    if (!this.ownsReg('autoEmpower') || !this.empowerUnlocked) return;
     const share = this.state.regression.autoShare;
     const open = ENEMIES.filter((e) => this.isUnlocked(e.id) && !e.guardianOnly);
     for (let guard = 0; guard < 200; guard++) {
