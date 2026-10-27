@@ -1374,6 +1374,30 @@ export const ENEMIES: EnemyDef[] = [
 export const enemyDef = (id: EnemyId): EnemyDef => byId(ENEMIES, id);
 /** An area's horde (Guardian-only monsters like the Time Eater aren't part of it). */
 export const areaEnemies = (area: AreaId): EnemyDef[] => ENEMIES.filter((e) => e.area === area && !e.guardianOnly);
+
+// ---- Regression: Memory Shards ----
+
+/**
+ * What one of a material is worth toward Memory Shards, in gold: its first area's gold per kill (the earliest area
+ * with a monster that drops it), so a Void Prism counts for far more than a Green Slime.
+ */
+export const MATERIAL_WORTH: Record<MaterialId, number> = (() => {
+  const out = {} as Record<MaterialId, number>;
+  for (const m of MATERIALS) {
+    const from = ENEMIES.filter((e) => e.material === m.id || e.drops?.some((d) => d.material === m.id)).map((e) => AREAS.findIndex((a) => a.id === e.area));
+    out[m.id] = AREAS[from.length ? Math.min(...from) : 0].gold;
+  }
+  return out;
+})();
+
+/**
+ * Memory Shards for a run's worth (gold + materials + what's invested in gear, all in gold):
+ * floor(SHARD_SCALE × worth^SHARD_POWER). The small power keeps a run of twice the worth to about 15% more shards.
+ * Placeholders until the pacing sim tunes them; SHARD_SCALE puts the end of the first run near 100.
+ */
+export const SHARD_POWER = 0.2;
+export const SHARD_SCALE = 2e-4;
+export const shardsFor = (worth: number): number => (worth > 0 ? Math.floor(SHARD_SCALE * worth ** SHARD_POWER) : 0);
 /** Which monster each area's Guardian is a giant version of. */
 export const GUARDIAN_ENEMY: Record<AreaId, EnemyId> = {
   forest: 'kingSlime',

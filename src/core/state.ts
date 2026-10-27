@@ -127,6 +127,33 @@ export interface GearItem {
   mods?: Array<GearMod | null>;
   /** A paid-for roll waiting on you to pick one of its choices (kept if you close the window). */
   pending?: PendingMod;
+  /**
+   * Everything spent on it (crafting, stars, every Refine and Enchant roll), counted toward Memory Shards when you
+   * regress. Missing on pieces from before it was tracked: those are estimated from their stars and modifiers.
+   */
+  invested?: Invested;
+}
+
+/** Gold and materials spent on something. */
+export interface Invested {
+  gold: number;
+  mats: Partial<Record<MaterialId, number>>;
+}
+
+/** Regression: going back to the start of the game, keeping your Hunters' levels, for Memory Shards. */
+export interface RegressionState {
+  /** You can regress (the Time Eater has swallowed the first run). */
+  unlocked: boolean;
+  /** Regressions so far. */
+  runs: number;
+  /** Memory Shards held. */
+  shards: number;
+  /** Memory Shards earned in all, ever. */
+  totalShards: number;
+  /** Ranks bought in each Regression Tree node. */
+  tree: Record<string, number>;
+  /** Epoch ms the current run began (the first run: when the save was made). */
+  runStart: number;
 }
 
 /** A modifier on a piece of gear: a Refine stat (Kargesh) or an Enchantment (Marceline). */
@@ -281,6 +308,7 @@ export interface GameState {
   buffs: Partial<Record<MinigameId, number>>;
   /** Seconds a timed buff works at double strength (from a Rift Echo play). */
   echo: Partial<Record<MinigameId, number>>;
+  regression: RegressionState;
   /** Event energy (refilling over time up to ENERGY_MAX; an ad can overcharge it past that): every event costs some. */
   energy: number;
   /** What the player has already looked at, so new things can be flagged with a "!". */
@@ -366,6 +394,7 @@ export function newGame(now = Date.now()): GameState {
     premium: [],
     shop: { day: '', items: [] },
     merchant: { day: '', offers: [], traded: [] },
+    regression: { unlocked: false, runs: 0, shards: 0, totalShards: 0, tree: {}, runStart: now },
     noAds: false,
     quests: newQuests(),
     events: Object.fromEntries(EVENTS.map((e) => [e.id, { runs: 0, completed: 0 }])),
@@ -540,6 +569,16 @@ function addMaterials(state: GameState, add: Partial<Record<MaterialId, number>>
 /** A saved value if it's one of the allowed ones, else the default. */
 function pick<T extends string>(allowed: readonly T[], v: unknown, fallback: T): T {
   return allowed.includes(v as T) ? (v as T) : fallback;
+}
+
+/** A saved record of what was spent on a piece, if well-formed (known materials, finite amounts only). */
+function parseInvested(v: unknown): Invested | null {
+  if (!v || typeof v !== 'object') return null;
+  const { gold, mats } = v as { gold?: unknown; mats?: unknown };
+  const out: Invested = { gold: typeof gold === 'number' && Number.isFinite(gold) && gold > 0 ? gold : 0, mats: {} };
+  if (mats && typeof mats === 'object')
+    for (const [m, n] of Object.entries(mats)) if (MATERIALS.some((d) => d.id === m) && typeof n === 'number' && Number.isFinite(n) && n > 0) out.mats[m as MaterialId] = n;
+  return out;
 }
 
 /** A saved modifier, if well-formed (ones from before rolls count as middling). */
@@ -742,6 +781,13 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
       const sh = (data.shop ?? {}) as { day?: unknown; items?: unknown };
       return { day: typeof sh.day === 'string' ? sh.day : '', items: Array.isArray(sh.items) ? sh.items.filter((id): id is string => typeof id === 'string' && !!premiumItem(id)) : [] };
     })(),
+    regression: (() => {
+      const r = (data.regression ?? {}) as Partial<Record<keyof RegressionState, unknown>>;
+      const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? Math.floor(v) : 0);
+      const tree: Record<string, number> = {};
+      if (r.tree && typeof r.tree === 'object') for (const [k, v] of Object.entries(r.tree)) if (num(v) > 0) tree[k] = num(v);
+      return { unlocked: r.unlocked === true, runs: num(r.runs), shards: num(r.shards), totalShards: num(r.totalShards), tree, runStart: num(r.runStart) || Date.now() };
+    })(),
     merchant: (() => {
       const m = (data.merchant ?? {}) as { day?: unknown; offers?: unknown; traded?: unknown };
       const mats = (v: unknown): MaterialId[] => (Array.isArray(v) ? v.filter((id): id is MaterialId => typeof id === 'string' && MERCHANT_MATERIALS.includes(id as MaterialId)) : []);
@@ -843,6 +889,8 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
             }
             if (Array.isArray(g.mods) && slots > 0)
               item.mods = Array.from({ length: slots }, (_, i) => parseMod(g.mods![i]));
+            const inv = parseInvested(g.invested);
+            if (inv) item.invested = inv;
             return item;
           }
           const def = gearDef(g.base);

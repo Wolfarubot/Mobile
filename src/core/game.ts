@@ -202,6 +202,7 @@ import {
   type TreeStat,
 } from './balance';
 import { capAway, type OfflineResult } from './offline';
+import { invest, runWorth, shardsNow, type RunWorth } from './regression';
 import { type BuyAmount, type GameState, type GearItem, type GearMod, type PendingMod, type Training, type Wearer } from './state';
 
 /** A piece's enchantments and refinements: its built-in effects first, then what's in its modifier slots. */
@@ -1187,8 +1188,11 @@ export class Game {
         options.push({ kind: 'enchant', id, q, p });
       }
     }
-    this.spend(kind === 'refine' ? this.refineCostOf(uid) : this.enchantCostOf(uid));
-    this.state.gold -= this.modGoldOf(uid, kind);
+    const mats = kind === 'refine' ? this.refineCostOf(uid) : this.enchantCostOf(uid);
+    const gold = this.modGoldOf(uid, kind);
+    this.spend(mats);
+    this.state.gold -= gold;
+    invest(item, gold, mats);
     item.pending = { slot, kind, options };
     return options;
   }
@@ -1239,8 +1243,9 @@ export class Game {
   /** Crafts a new 1★ piece into the inventory. */
   craftGear(id: GearId): GearItem | null {
     if (!this.canCraftGear(id)) return null;
-    this.spend(gearCost(gearDef(id), 0));
-    const item: GearItem = { uid: this.state.nextGearUid++, base: id, stars: 1 };
+    const cost = gearCost(gearDef(id), 0);
+    this.spend(cost);
+    const item: GearItem = { uid: this.state.nextGearUid++, base: id, stars: 1, invested: { gold: 0, mats: { ...cost } } };
     this.state.inventory.push(item);
     return item;
   }
@@ -1267,9 +1272,13 @@ export class Game {
 
   upgradeGear(uid: number): boolean {
     if (!this.canUpgradeGear(uid)) return false;
-    this.state.gold -= this.gearUpgradeGold(uid)!;
-    this.spend(this.gearUpgradeCost(uid)!);
-    this.gearItem(uid)!.stars++;
+    const gold = this.gearUpgradeGold(uid)!;
+    const mats = this.gearUpgradeCost(uid)!;
+    this.state.gold -= gold;
+    this.spend(mats);
+    const item = this.gearItem(uid)!;
+    invest(item, gold, mats);
+    item.stars++;
     return true;
   }
 
@@ -1570,6 +1579,21 @@ export class Game {
     this.state.merchant.traded.push(m);
     this.state.gems += MERCHANT_GEMS;
     return true;
+  }
+
+  /** The run's worth toward Memory Shards (gold, materials, gear and Upgrades, in gold). */
+  get runWorth(): RunWorth {
+    return runWorth(this.state);
+  }
+
+  /** Memory Shards a Regression would pay now. */
+  get shardsNow(): number {
+    return shardsNow(this.state);
+  }
+
+  /** You can regress once the Time Eater has swallowed the first run. */
+  get canRegress(): boolean {
+    return this.state.regression.unlocked;
   }
 
   /** Seconds for a point of energy (less with Second Wind). */
@@ -2063,7 +2087,7 @@ export class Game {
     if (salvaged) {
       for (let l = 0; l < stars; l++)
         for (const [m, n] of Object.entries(gearCost(def, l)) as [MaterialId, number][]) this.gainMaterial(m, Math.floor(n * SALVAGE_REFUND));
-    } else this.state.inventory.push({ uid: this.state.nextGearUid++, base: def.id, stars });
+    } else this.state.inventory.push({ uid: this.state.nextGearUid++, base: def.id, stars, invested: { gold: 0, mats: {} } });
     this.state.stats.looted = (this.state.stats.looted ?? 0) + 1;
     if (!quiet) this.emit({ type: 'loot', gear: def.id, stars, salvaged });
     return { gear: def.id, salvaged };
@@ -2124,7 +2148,11 @@ export class Game {
       if (next) {
         s.areas[next].unlocked = true;
         this.emit({ type: 'areaUnlocked', area: next });
-      } else if (!nextAreaOf(s.area)) this.emit({ type: 'finalGuardian' });
+      } else if (!nextAreaOf(s.area)) {
+        // The Time Eater swallows the run: from now on you can regress.
+        s.regression.unlocked = true;
+        this.emit({ type: 'finalGuardian' });
+      }
       return { gold, material: e.material, amount: BOSS_MATERIAL_DROP };
     }
     // Double or Nothing (Ted in this area): the kill pays twice, or nothing at all.
