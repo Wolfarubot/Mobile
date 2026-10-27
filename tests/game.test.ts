@@ -814,9 +814,9 @@ describe('Shops', () => {
     expect(g.train('main')).toBe(true);
   });
 
-  it('the Forest Guardian Challenge unlocks at 7,890 Forest kills (any monster); Twigglings cost 250 gold', () => {
-    expect(areaDef('forest').mastery).toBe(7_890);
-    expect(eventDef('guardian-forest').unlockKills).toBe(7_890);
+  it('the Forest Guardian Challenge unlocks at 7,500 Forest kills (any monster); Twigglings cost 250 gold', () => {
+    expect(areaDef('forest').mastery).toBe(7_500);
+    expect(eventDef('guardian-forest').unlockKills).toBe(7_500);
     expect(enemyUnlockCost(enemyDef('twiggling'))).toBe(250);
   });
 
