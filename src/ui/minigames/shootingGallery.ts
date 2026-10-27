@@ -1,3 +1,4 @@
+import { drawEffect } from './art';
 import { TITLE_Y, type MinigameApi, type MinigameGame } from './shell';
 import { mgArt } from './dpad';
 import { HUNTER_SHEETS } from '../../render/hunterSheets';
@@ -296,17 +297,8 @@ export function shootingGallery(api: MinigameApi): MinigameGame {
         g.drawImage(himg, col * F, row * F, F, F, wl.x - (bx2 + bw / 2) * k, wl.y - (by + bh) * k, F * k, F * k);
       }
       if (side) drawRifle();
-      // The muzzle flash.
-      if (api.t - fired < 0.07) {
-        g.fillStyle = '#fff2b0';
-        g.beginPath();
-        g.arc(m.x, m.y, 7 * api.k, 0, Math.PI * 2);
-        g.fill();
-        g.fillStyle = '#ffb347';
-        g.beginPath();
-        g.arc(m.x, m.y, 4 * api.k, 0, Math.PI * 2);
-        g.fill();
-      }
+      // The muzzle flash: the shards effect's first flash and burst.
+      if (api.t - fired < 0.07) drawEffect(g, 'shards', (api.t - fired) / 0.035, m.x, m.y, 26 * api.k);
     },
   };
 }

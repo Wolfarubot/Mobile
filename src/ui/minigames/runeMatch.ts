@@ -1,3 +1,4 @@
+import { drawNine } from './art';
 import { TITLE_Y, type MinigameApi, type MinigameGame } from './shell';
 import { drawFramedBar, TIMER_COLOR } from '../../render/hudBars';
 import { HUNTER_SHEETS } from '../../render/hunterSheets';
@@ -260,34 +261,16 @@ export function runeMatch(api: MinigameApi): MinigameGame {
   };
 }
 
-/** A card, centred on the origin, w × h: its face (an icon on pale parchment) or, if `face` is null, its back. */
+/**
+ * A card, centred on the origin, w × h: the RPG UI pack's panel (public/ui/panel.png: a wooden frame around parchment),
+ * with its icon on the face or, if `face` is null, tinted violet with the sigil on its back. A matched pair turns
+ * green, a wrong one red.
+ */
 function drawCard(g: CanvasRenderingContext2D, api: MinigameApi, w: number, h: number, face: string | null, matched: boolean, wrong: boolean): void {
-  const x = -Math.round(w / 2);
-  const y = -Math.round(h / 2);
-  const b = Math.max(2, Math.round(w / 22));
-  // Dark edge, gold (or red, or green) frame, then the card's field.
-  g.fillStyle = '#120a1c';
-  g.fillRect(x, y, w, h);
-  g.fillStyle = wrong ? '#d8443a' : matched ? '#8adc5a' : '#d4a84a';
-  g.fillRect(x + b, y + b, w - 2 * b, h - 2 * b);
-  g.fillStyle = face ? '#eadfc4' : '#2c1846';
-  g.fillRect(x + 2 * b, y + 2 * b, w - 4 * b, h - 4 * b);
-  if (face) {
-    api.icon(face, 0, 0, Math.round(w * 0.72), matched ? 0.55 : 1);
-    return;
-  }
-  // The back: a thin inner gold line, a star in each corner and the sigil in the middle.
-  g.strokeStyle = '#b08a3a';
-  g.lineWidth = 1;
-  g.strokeRect(x + 3 * b + 0.5, y + 3 * b + 0.5, w - 6 * b - 1, h - 6 * b - 1);
-  g.fillStyle = '#d4a84a';
-  const d = Math.max(1, Math.round(b * 0.8));
-  for (const [cx, cy] of [
-    [x + 4 * b, y + 4 * b],
-    [-x - 4 * b - d, y + 4 * b],
-    [x + 4 * b, -y - 4 * b - d],
-    [-x - 4 * b - d, -y - 4 * b - d],
-  ])
-    g.fillRect(cx, cy, d, d);
-  api.icon(BACK, 0, 0, Math.round(w * 0.62));
+  g.save();
+  g.filter = wrong ? 'hue-rotate(-30deg) saturate(2.4)' : matched ? 'hue-rotate(60deg) saturate(1.6)' : face ? 'none' : 'hue-rotate(230deg) saturate(1.5) brightness(0.55)';
+  drawNine(g, 'ui/panel', -w / 2, -h / 2, w, h, 6, Math.max(1, Math.round(w / 40)));
+  g.restore();
+  if (face) api.icon(face, 0, 0, Math.round(w * 0.66), matched ? 0.55 : 1);
+  else api.icon(BACK, 0, 0, Math.round(w * 0.62));
 }

@@ -22,3 +22,13 @@ Minigame art, all from CraftPix.net (license: https://craftpix.net/file-licenses
 - crack1..3.png: three of the ice cracks from CraftPix's "Winter Top Down Pixel Art Tileset" (Tiled_files/cracks.png, at
   272,16; 272,112 and 16,112), the cracks alone (the ice cut away) recoloured as dark earth: the ground splitting open
   in Grave Robbing where a skeleton is about to burst out, small to gaping as it nears.
+- arrow.png: one arrow (7 x 21, pointing down) cut from the arrow volley effect (public/effects/arrows.png, frame 3 at
+  181,23; "Magic Spells Pixel Art Sprite Pack", Magic/3): Galladair's arrows in Hunting Practice, turned to fly.
+- icicle.png: the falling ice shard (15 x 31) from the ice effect's first frame (public/effects/ice.png at 29,1;
+  "Magic Spells Pixel Art Sprite Pack", Magic/5): Icebreaker's icicles (the effect's last frames are their shatter).
+- cards.png: a playing card sheet provided with the game's assets: 56 x 80 cards, 15 to a row (jokers, backs, then
+  Ace to King), rows of hearts, spades, diamonds and clubs (and two recoloured suits): Ted's High or Low.
+Everything else the minigames draw comes from the packs already in the game: icons (public/icons), monster and Hunter
+sheets, magic effects (public/effects), the RPG UI's panel, button and framed bar (public/ui), and the areas' scenery
+pieces (public/backgrounds: the Meteor Field's rocks and shooting stars, the Steps' floating island, the Frost Peaks'
+rocks). Only lighting is drawn in code: shadows, glows, fades, shot tracers and the odd sparkle.

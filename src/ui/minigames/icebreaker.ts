@@ -1,9 +1,16 @@
+import { drawArt, drawBursts, drawHunter, stepBursts, type Burst } from './art';
 import type { MinigameApi, MinigameGame } from './shell';
 
 /**
  * Okrin's Icebreaker (the Frost Peaks): icicles fall on the camp, faster and faster. Tap one to smash it with
- * Okrin's hammer: 1 point, and the big ones take two blows for 3. One that reaches the camp costs a heart.
+ * Okrin's hammer: 1 point, and the big ones take two blows for 3. One that reaches the camp costs a heart. Pack art:
+ * each icicle is the ice spell's falling shard (public/minigames/icicle.png), it shatters with the spell's own
+ * burst, and the camp is a wall of the Frost Peaks' rocks.
  */
+
+const ICICLE = 'minigames/icicle';
+/** The Frost Peaks' rocks along the camp's edge. */
+const CAMP_ROCKS = ['backgrounds/peaks/r_Rock2', 'backgrounds/peaks/r_Rock11', 'backgrounds/peaks/r_Rock12', 'backgrounds/peaks/r_Rock13'];
 
 export const IB_INTRO = '<p>Icicles are falling on the camp! <b>Tap</b> to smash them with Okrin\'s hammer: 1 point each.</p><p>Big ones take two blows and are worth 3. One that reaches the camp costs a heart.</p>';
 
@@ -17,7 +24,7 @@ interface Icicle {
 
 export function icebreaker(api: MinigameApi): MinigameGame {
   const ice: Icicle[] = [];
-  const shards: Array<{ x: number; y: number; vx: number; vy: number; t: number }> = [];
+  const bursts: Burst[] = [];
   let spawnIn = 0.6;
   const ground = () => api.H - 120;
   const size = (b: boolean) => (b ? 30 : 18) * api.k;
@@ -34,7 +41,8 @@ export function icebreaker(api: MinigameApi): MinigameGame {
       }
       if (!best) return;
       best.hp--;
-      for (let i = 0; i < 8; i++) shards.push({ x: best.x, y: best.y - size(best.big), vx: (Math.random() - 0.5) * 300, vy: -Math.random() * 250, t: 0 });
+      // The ice spell's shatter (its last frames), bigger for the killing blow.
+      bursts.push({ key: 'ice', x: best.x, y: best.y - size(best.big), size: size(best.big) * (best.hp <= 0 ? 3 : 2), t: 0, dur: 0.35, from: 4, to: 7 });
       if (best.hp <= 0) {
         api.addScore(best.big ? 3 : 1, best.x, best.y);
         ice.splice(ice.indexOf(best), 1);
@@ -55,39 +63,20 @@ export function icebreaker(api: MinigameApi): MinigameGame {
           api.loseLife(c.x, ground());
         }
       }
-      for (let i = shards.length - 1; i >= 0; i--) {
-        const s = shards[i];
-        s.t += dt;
-        s.x += s.vx * dt;
-        s.y += s.vy * dt;
-        s.vy += 800 * dt;
-        if (s.t > 0.5) shards.splice(i, 1);
-      }
+      stepBursts(bursts, dt);
     },
     draw(g) {
-      // The camp along the bottom.
-      g.fillStyle = 'rgba(240,248,255,0.85)';
-      g.fillRect(0, ground(), api.W, 6);
+      // The camp's edge: a wall of rocks.
+      const n = Math.ceil(api.W / (44 * api.k)) + 1;
+      for (let i = 0; i < n; i++) drawArt(g, CAMP_ROCKS[i % CAMP_ROCKS.length], i * 44 * api.k, ground() + 10 * api.k, 34 * api.k);
       for (const c of ice) {
         const s = size(c.big);
-        g.fillStyle = c.hp < (c.big ? 2 : 1) ? '#a8d8f0' : '#dff4ff';
-        g.strokeStyle = '#5a9ac0';
-        g.lineWidth = 2;
-        g.beginPath();
-        g.moveTo(c.x - s * 0.55, c.y - s * 2.2);
-        g.lineTo(c.x + s * 0.55, c.y - s * 2.2);
-        g.lineTo(c.x, c.y);
-        g.closePath();
-        g.fill();
-        g.stroke();
+        // Chipped by a first blow, it pales.
+        drawArt(g, ICICLE, c.x, c.y - s, s * 2.4, 0, c.hp < (c.big ? 2 : 1) ? 0.6 : 1);
       }
-      g.fillStyle = '#dff4ff';
-      for (const s of shards) {
-        g.globalAlpha = 1 - s.t / 0.5;
-        g.fillRect(s.x - 2, s.y - 2, 4, 4);
-      }
-      g.globalAlpha = 1;
-      api.icon('ab-pyro-hydro/058', api.W / 2, api.H - 60, 56);
+      drawBursts(g, bursts);
+      // Okrin, hammer ready, in the camp.
+      drawHunter(g, 'frostbreaker', api.W / 2, api.H - 30, 56 * api.k, api.t, 3);
     },
   };
 }

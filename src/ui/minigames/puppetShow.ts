@@ -1,3 +1,4 @@
+import { drawFramedSegments } from '../../render/hudBars';
 import { TITLE_Y, type MinigameApi, type MinigameGame } from './shell';
 import { DIRS, dpadAt, dpadHit, dpadTop, drawDpad, type Dir, DIR_LIST } from './dpad';
 import { HUNTER_SHEETS } from '../../render/hunterSheets';
@@ -136,11 +137,9 @@ export function puppetShow(api: MinigameApi): MinigameGame {
     draw(g) {
       const st = stage();
       g.imageSmoothingEnabled = false;
-      // The stage boards.
-      g.fillStyle = 'rgba(40,24,14,0.55)';
-      g.fillRect(api.W * 0.06, st.floor - 6 * api.k, api.W * 0.88, 18 * api.k);
-      g.fillStyle = 'rgba(120,80,44,0.65)';
-      g.fillRect(api.W * 0.06, st.floor - 6 * api.k, api.W * 0.88, 4 * api.k);
+      // The stage boards: the UI pack's framed bar (public/ui/timer-bar.png) in wood.
+      const bs = Math.max(1, Math.round(api.k * 2));
+      drawFramedSegments(g, api.W * 0.06, st.floor - 6 * api.k, bs, (api.W * 0.88) / bs, (18 * api.k) / bs, [[0, 1, '#8a5a32']], '#6a4428');
 
       // Theon.
       const t = theonAt();

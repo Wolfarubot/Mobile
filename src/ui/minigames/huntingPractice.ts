@@ -2,6 +2,7 @@ import { SHEETS, sheetRow } from '../../render/monsterSheets';
 import { HUNTER_SHEETS } from '../../render/hunterSheets';
 import { scenePiece } from '../../render/backgrounds';
 import { hunterSheetImage, monsterSheetImage } from '../../render/sprites';
+import { drawArt } from './art';
 import type { MinigameApi, MinigameGame } from './shell';
 
 /**
@@ -305,22 +306,10 @@ export function huntingPractice(api: MinigameApi): MinigameGame {
         ...slimes.map((s) => ({ foot: slimeFoot(s), draw: () => drawSlime(s) })),
       ].sort((a, b) => a.foot - b.foot);
       for (const it of scene) it.draw();
-      g.strokeStyle = '#f4e2b8';
-      g.lineWidth = 3;
+      // Arrows: one from the arrow volley effect (public/minigames/arrow.png, pointing down), turned to fly.
       for (const a of arrows) {
         const d = Math.hypot(a.vx, a.vy);
-        const ux = a.vx / d;
-        const uy = a.vy / d;
-        g.beginPath();
-        g.moveTo(a.x - ux * 22, a.y - uy * 22);
-        g.lineTo(a.x, a.y);
-        g.stroke();
-        g.fillStyle = '#d8d8e0';
-        g.beginPath();
-        g.moveTo(a.x + ux * 7, a.y + uy * 7);
-        g.lineTo(a.x - uy * 4, a.y + ux * 4);
-        g.lineTo(a.x + uy * 4, a.y - ux * 4);
-        g.fill();
+        drawArt(g, 'minigames/arrow', a.x - (a.vx / d) * 8, a.y - (a.vy / d) * 8, 30, Math.atan2(a.vy, a.vx) - Math.PI / 2);
       }
       const ar = archer();
       g.fillStyle = 'rgba(0,0,0,0.3)';

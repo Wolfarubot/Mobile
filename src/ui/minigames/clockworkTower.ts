@@ -1,18 +1,26 @@
 import { canvasFont } from '../../render/fx';
+import { drawFramedSegments } from '../../render/hudBars';
+import { drawArt, drawBursts, drawHunter, stepBursts, type Burst } from './art';
 import type { MinigameApi, MinigameGame } from './shell';
 
 /**
  * Reginald's Clockwork Tower (the Ascendant Steps): a gear bar swings from side to side above the tower. Tap to drop
  * it; whatever hangs past the bar below is shaved off, so the bars get narrower. A drop that lands within a few
  * pixels of dead centre meshes perfectly: 2 points, and the bar grows back a little. A drop that misses the tower
- * altogether costs a heart (and the next bar comes down at the same width). Faster every few bars.
+ * altogether costs a heart (and the next bar comes down at the same width). Faster every few bars. All pack art:
+ * each bar is the UI pack's framed bar in brass, the tower stands on the Ascendant Steps' floating island, a perfect
+ * mesh gives off the puff effect, and Reginald watches from his idle animation.
  */
 
 export const CT_INTRO =
   "<p>Reginald is building a clockwork tower! A gear bar swings above it: <b>tap</b> to drop it on the stack.</p><p>Whatever hangs over the edge is shaved off, so line them up. Land one dead on the bar below for a <b>perfect mesh</b>: 2 points, and the bar grows back a little.</p><p>Missing the tower altogether costs a heart.</p>";
 
-/** A cog (ab-engineer-psionic), turning in the corner. */
-const CT_ICON = 'ab-engineer-psionic/001';
+/** The Ascendant Steps' floating island (public/backgrounds/cliffs), under the tower. */
+const ISLAND = 'backgrounds/cliffs/island';
+/** The bars' brass: the newest one bright, the ones below it darker. */
+const BRASS = '#e0b050';
+const BRASS_OLD = '#a8803a';
+const BRASS_FRAME = '#c8a060';
 const BAR_H = 22;
 const START_W = 0.55;
 /** How close (as a share of the bar's width) a drop must land to the one below to mesh perfectly. */
@@ -43,7 +51,7 @@ export function clockworkTower(api: MinigameApi): MinigameGame {
   let swing = { x: api.W / 2, dir: 1, w: api.W * START_W };
   let falling: { x: number; y: number; w: number; vy: number } | null = null;
   let camera = 0;
-  let flash = 0;
+  const bursts: Burst[] = [];
   /** Swing speed: quicker every few bars. */
   const speed = () => (180 + Math.min(320, (stack.length - 1) * 14)) * k();
   /** Where a bar sits on screen (the camera follows the top of the tower). */
@@ -68,7 +76,7 @@ export function clockworkTower(api: MinigameApi): MinigameGame {
     let bar: Bar;
     if (perfect) {
       bar = { x: below.x, w: Math.min(api.W * START_W, f.w * (1 + PERFECT_GROW)) };
-      flash = 0.35;
+      bursts.push({ key: 'puff', x: bar.x, y: y - h() / 2, size: Math.max(60 * k(), bar.w * 0.8), t: 0, dur: 0.45 });
       api.addScore(2, bar.x, y - h());
       api.pop(bar.x, y - h() - 22 * k(), 'Perfect!', '#ffe08a');
     } else {
@@ -83,28 +91,10 @@ export function clockworkTower(api: MinigameApi): MinigameGame {
     swing = { x: stack.length % 2 ? api.W * 0.12 : api.W * 0.88, dir: stack.length % 2 ? 1 : -1, w: bar.w };
   };
 
-  /** A gear bar: a brass band with teeth along the top and bottom, and a few rivets. */
+  /** A bar, its bottom centre at (x, y): the UI pack's framed bar (public/ui/timer-bar.png), its frame and slot in brass. */
   const drawBar = (g: CanvasRenderingContext2D, x: number, y: number, w: number, shade = 0) => {
-    const hh = h();
-    const tooth = 6 * k();
-    const n = Math.max(1, Math.floor(w / (tooth * 2)));
-    const step = w / n;
-    g.fillStyle = shade ? '#9a7a3a' : '#c99a44';
-    for (let i = 0; i < n; i++) {
-      const tx = x - w / 2 + i * step + (step - tooth) / 2;
-      g.fillRect(tx, y - hh - tooth * 0.5, tooth, tooth * 0.6);
-      g.fillRect(tx, y - tooth * 0.1, tooth, tooth * 0.6);
-    }
-    const grad = g.createLinearGradient(0, y - hh, 0, y);
-    grad.addColorStop(0, shade ? '#b8944c' : '#f0cb6a');
-    grad.addColorStop(1, shade ? '#6e5426' : '#a87828');
-    g.fillStyle = grad;
-    g.fillRect(x - w / 2, y - hh, w, hh);
-    g.strokeStyle = '#4a3410';
-    g.lineWidth = 2;
-    g.strokeRect(x - w / 2, y - hh, w, hh);
-    g.fillStyle = '#5a4018';
-    for (let i = 0; i < n; i += 2) g.fillRect(x - w / 2 + i * step + step / 2 - 2, y - hh / 2 - 2, 4, 4);
+    const s = Math.max(1, Math.round(k()));
+    drawFramedSegments(g, x - w / 2, y - h(), s, w / s, h() / s, [[0, 1, shade ? BRASS_OLD : BRASS]], BRASS_FRAME);
   };
 
   return {
@@ -114,7 +104,7 @@ export function clockworkTower(api: MinigameApi): MinigameGame {
       falling = { x: swing.x, y: barY(stack.length) - 150 * k(), w: swing.w, vy: 0 };
     },
     step(dt) {
-      flash = Math.max(0, flash - dt);
+      stepBursts(bursts, dt);
       if (!falling) {
         swing.x += swing.dir * speed() * dt;
         const lim = swing.w / 2 + 4;
@@ -144,22 +134,15 @@ export function clockworkTower(api: MinigameApi): MinigameGame {
       }
     },
     draw(g) {
-      // The tower's plinth.
+      // The floating island the tower stands on.
       const py = barY(0);
-      g.fillStyle = 'rgba(40,46,70,0.85)';
-      g.fillRect(api.W / 2 - api.W * 0.34, py, api.W * 0.68, 18 * k());
+      drawArt(g, ISLAND, api.W / 2, py + api.W * 0.18, api.W * 0.42);
       for (let i = 0; i < stack.length; i++) {
         const y = barY(i + 1);
         if (y < -h() || y > api.H + h()) continue;
         drawBar(g, stack[i].x, y + h(), stack[i].w, i === stack.length - 1 ? 0 : 1);
       }
-      if (flash > 0) {
-        g.globalAlpha = flash / 0.35;
-        g.fillStyle = '#ffe08a';
-        const t = top();
-        g.fillRect(t.x - t.w / 2 - 4, barY(stack.length) - 4, t.w + 8, h() + 8);
-        g.globalAlpha = 1;
-      }
+      drawBursts(g, bursts);
       for (const c of chips) {
         g.save();
         g.translate(c.x, c.y);
@@ -168,20 +151,11 @@ export function clockworkTower(api: MinigameApi): MinigameGame {
         drawBar(g, 0, h() / 2, c.w, 1);
         g.restore();
       }
-      // The swinging bar on its chain, or the one dropping.
+      // The swinging bar, or the one dropping.
       if (falling) drawBar(g, falling.x, falling.y + h(), falling.w);
-      else {
-        const sy = barY(stack.length) - 150 * k();
-        g.strokeStyle = 'rgba(220,220,230,0.7)';
-        g.lineWidth = 2;
-        g.beginPath();
-        g.moveTo(api.W / 2, sy - 90 * k());
-        g.lineTo(swing.x, sy - h());
-        g.stroke();
-        drawBar(g, swing.x, sy, swing.w);
-      }
+      else drawBar(g, swing.x, barY(stack.length) - 150 * k(), swing.w);
       // Reginald, minding the works.
-      api.icon(CT_ICON, api.W - 46 * k(), api.H - 64, 52 * k());
+      drawHunter(g, 'artificer', api.W - 40 * k(), api.H - 42, 56 * k(), api.t);
       g.font = canvasFont(Math.round(13 * k()), 700);
       g.textAlign = 'center';
       g.fillStyle = 'rgba(255,255,255,0.8)';
