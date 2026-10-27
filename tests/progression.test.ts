@@ -446,6 +446,26 @@ it.runIf(!!process.env.SIM_FULL)('full game: a typical player beats the Time Eat
     EVENTS.find((e) => e.id === `guardian-${a}`)!.unlockKills = k;
     paced.add(a);
   }
+  // SIM_MASTERY={"mines":1047000} tries other masteries (overriding the game's and any found above).
+  if (process.env.SIM_MASTERY)
+    for (const [a, k] of Object.entries(JSON.parse(process.env.SIM_MASTERY) as Record<AreaId, number>) as [AreaId, number][]) {
+      EVENTS.find((e) => e.id === `guardian-${a}`)!.unlockKills = k;
+      found[a] = k;
+      paced.add(a);
+    }
+  // Each Guardian challenge: when, the team's levels, and how much of the Guardian's health was left on a loss.
+  {
+    const end = (g as unknown as { endGuardian: () => void }).endGuardian.bind(g);
+    (g as unknown as { endGuardian: () => void }).endGuardian = () => {
+      const boss = bot.field.enemies.find((e) => e.boss && e.hp > 0);
+      if (boss) log(`  guardian ${g.state.area} lost (day ${(now / 86400).toFixed(2)}): ${Math.round((boss.hp / boss.maxHp) * 100)}% of its health left`);
+      end();
+    };
+    g.on((e) => {
+      if (e.type === 'guardianChallenge') log(`  guardian ${g.state.area} challenged (day ${(now / 86400).toFixed(2)}) · you Lv ${g.levelOf('main')} · ${HUNTERS.filter((h) => g.state.hunters[h.id].recruited).map((h) => `${h.id}:${g.levelOf(h.id)}`).join(' ')}`);
+      if (e.type === 'eventComplete' && e.event.startsWith('guardian-')) log(`  guardian ${e.event.slice(9)} beaten (day ${(now / 86400).toFixed(2)})`);
+    });
+  }
   const started = Date.now();
   for (const [start, length] of sessions) {
     if (beaten !== null) break;
