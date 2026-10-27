@@ -5143,6 +5143,11 @@ body.ui-parchment .tabs button.active {
     -2px 0 0 #000,
     2px 0 0 #000;
 }
+.gain-pop .gp-icons {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
 .gain-pop.rare b {
   color: #ffd86e;
 }

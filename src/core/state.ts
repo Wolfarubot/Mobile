@@ -244,6 +244,8 @@ export interface GameState {
     /** The pick-up pop-ups (materials just gained) on the battlefield, and which corner they sit in. */
     pickups: boolean;
     pickupCorner: DpsCorner;
+    /** A pop-up along the bottom of the battlefield for each piece of loot (when they come quickly, they join the pick-ups instead). */
+    lootPopups: boolean;
     /** Where the event timer and Guardian health bar go: the battlefield's top or bottom edge. */
     hudPos: HudPos;
     /** Cooldown icons on the battlefield (abilities recharging), and which edge they sit on. */
@@ -387,7 +389,7 @@ export function newGame(now = Date.now()): GameState {
     nextGearUid: 4,
     lastSeen: now,
     samples: {},
-    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', advancedTips: false, autoSalvage: [], fx: allFx(), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium', fps: '60', audio: defaultAudio() },
+    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', lootPopups: true, hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', advancedTips: false, autoSalvage: [], fx: allFx(), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium', fps: '60', audio: defaultAudio() },
     flags: { eventsIntro: false, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false, minigameIntro: false },
     blessings: { refine: 0, enchant: 0 },
     energy: ENERGY_MAX,
@@ -685,6 +687,7 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
       dpsCorner: pick(DPS_CORNERS, (data.settings as { dpsCorner?: unknown } | undefined)?.dpsCorner, 'tr'),
       pickups: (data.settings as { pickups?: unknown } | undefined)?.pickups !== false,
       pickupCorner: pick(DPS_CORNERS, (data.settings as { pickupCorner?: unknown } | undefined)?.pickupCorner, 'bl'),
+      lootPopups: (data.settings as { lootPopups?: unknown } | undefined)?.lootPopups !== false,
       hudPos: pick(HUD_POSITIONS, (data.settings as { hudPos?: unknown } | undefined)?.hudPos, 'bottom'),
       cooldowns: (data.settings as { cooldowns?: unknown } | undefined)?.cooldowns !== false,
       cooldownPos: pick(COOLDOWN_POSITIONS, (data.settings as { cooldownPos?: unknown } | undefined)?.cooldownPos, 'top'),

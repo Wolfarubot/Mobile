@@ -154,6 +154,7 @@ import { drawFramedBar, drawFramedSegments, TIMER_COLOR } from '../render/hudBar
 import { showRewardedAd } from './ads';
 import { GEM_PACKS, purchase, REMOVE_ADS, STORE_TEST_MODE, type Product } from './store';
 import { gearIconUrl, spriteUrl } from '../render/sprites';
+import { emojiImg } from './emojiIcons';
 import { MATERIAL_SPRITES } from '../core/materialSprites';
 import { GEAR_SPRITES } from '../core/gearSprites';
 import { NODE_SPRITES } from '../core/nodeSprites';
@@ -313,6 +314,9 @@ const upgradeIcon = (it: ItemDef): string => {
   return url ? `<img class="gi" src="${url}" alt="">` : it.icon;
 };
 
+/** Loot closer together than this (ms) goes to the pick-ups instead of a pop-up each. */
+const LOOT_POPUP_GAP = 3000;
+
 const gearIcon = (gd: GearDef): string => {
   const url = gearIconUrl(GEAR_SPRITES[gd.id]);
   return url ? `<img class="gi" src="${url}" alt="">` : gd.icon;
@@ -461,6 +465,7 @@ export class AppUI {
     // Panels that depend on which areas/enemies/Hunters exist are rebuilt when those change.
     // Materials picked up on the battlefield pop up in its bottom left.
     const pops = new GainPops($('#gainPops'), (m) => gemHtml(m), fmt);
+    let lastLoot = -Infinity;
     game.on((e) => {
       // Not during a Guardian fight: the fight matters more than its drops.
       if (e.type === 'gains' && !game.guardianActive && game.state.settings.pickups) for (const [m, n] of Object.entries(e.materials) as [MaterialId, number][]) pops.add(m, n);
@@ -477,7 +482,14 @@ export class AppUI {
       else if (e.type === 'eventStart' || e.type === 'eventEnd' || e.type === 'guardianFail') this.refresh();
       else if (e.type === 'loot') {
         const d = gearDef(e.gear);
-        this.toast(e.salvaged ? txt('toast.gear.salvaged', { item: `${d.icon} ${d.name}` }) : txt('toast.gear.loot', { item: `${d.icon} ${d.name}${e.stars > 1 ? ` ${e.stars}★` : ''}` }));
+        // A pop-up for loot now and then; when it comes more than once every LOOT_POPUP_GAP (or loot pop-ups are
+        // off), it joins the pick-ups instead: the inventory's icon and the piece's, counting up.
+        const at = performance.now();
+        const quick = at - lastLoot < LOOT_POPUP_GAP;
+        lastLoot = at;
+        if (game.state.settings.lootPopups && !quick)
+          this.toast(e.salvaged ? txt('toast.gear.salvaged', { item: `${d.icon} ${d.name}` }) : txt('toast.gear.loot', { item: `${d.icon} ${d.name}${e.stars > 1 ? ` ${e.stars}★` : ''}` }));
+        else if (game.state.settings.pickups) pops.addLoot(`${emojiImg('🎒', 'gem-ic')}${gearIcon(d).replace('class="gi"', 'class="gem-ic"')}`);
         if (this.tab === 'inventory') this.setTab('inventory', true);
       }
     });
@@ -4917,6 +4929,13 @@ export class AppUI {
           },
         },
       ],
+    );
+    group(
+      'Loot pop-ups',
+      'A pop-up along the bottom of the battlefield for each piece of loot. When loot comes more than once every 3 seconds (or with these hidden), it joins the pick-up pop-ups instead: the inventory icon and the piece, counting up.',
+      () => st.lootPopups,
+      (on) => (st.lootPopups = on),
+      [],
     );
     group(
       'Cooldown icons',
