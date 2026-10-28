@@ -20,6 +20,9 @@ const TAPS = Number(process.env.SIM_DPS_TAPS ?? 1);
 const REGEAR = !!process.env.SIM_DPS_REGEAR;
 const FULLGEAR = !!process.env.SIM_DPS_FULLGEAR;
 const STARS = Number(process.env.SIM_DPS_STARS ?? 0);
+const BEST = !!process.env.SIM_DPS_BEST;
+/** Fights per measurement (SIM_DPS_RUNS), each with its own random rolls, averaged. */
+const RUNS = Number(process.env.SIM_DPS_RUNS ?? 1);
 /** The Guardian's health in the test: far more than any team brings down in one fight (then twice that). */
 const POOL = Number(process.env.SIM_DPS_POOL ?? 1e13);
 
@@ -33,7 +36,7 @@ function mulberry(seed: number) {
 }
 
 /** One Guardian fight from a save, the Guardian at `hp` health: the damage dealt (and by taps directly), and the seconds it lasted. */
-function fight(raw: unknown, area: AreaId, hp: number): { dmg: number; tapped: number; secs: number; team: string; gear: string } {
+function fight(raw: unknown, area: AreaId, hp: number, seed = 42): { dmg: number; tapped: number; secs: number; team: string; gear: string } {
   const save = raw as { lastSeen: number };
   const state = deserialize(JSON.stringify(raw), save.lastSeen)!;
   state.area = area;
@@ -42,7 +45,7 @@ function fight(raw: unknown, area: AreaId, hp: number): { dmg: number; tapped: n
   const real = def.guardian;
   def.guardian = hp;
   try {
-    const g = new Game(state, mulberry(42));
+    const g = new Game(state, mulberry(seed));
     // SIM_DPS_REGEAR: first gear up the way a player keeping up would (tests/botGear.ts), with the save's own gold
     // and materials: the best craftable piece in every slot, upgraded, every modifier slot filled.
     // SIM_DPS_FULLGEAR: geared like the day-90 Time Eater team instead: the same routine with plenty of gold and of
@@ -59,6 +62,14 @@ function fight(raw: unknown, area: AreaId, hp: number): { dmg: number; tapped: n
       state.materials = mats;
       state.gold = gold;
     } else if (REGEAR) for (let i = 0; i < 4; i++) botGear(g);
+    // SIM_DPS_BEST: the three Guild Hunters with the most damage fight beside you, as a player going for the Guardian
+    // would pick (the bot stations by gold earned).
+    if (BEST) {
+      for (const h of HUNTERS) if (state.hunters[h.id].station === area) g.station(h.id, null);
+      const best = HUNTERS.filter((h) => state.hunters[h.id].recruited).sort((x, y) => g.dpsOf(y.id) - g.dpsOf(x.id));
+      let n = 0;
+      for (const h of best) if (n < 3 && g.station(h.id, area)) n++;
+    }
     const f = new Field(g);
     f.setView(390, 420);
     // A moment on the field first, so everyone is in place.
@@ -107,8 +118,12 @@ it.runIf(!!process.env.SIM_DPS)('Guardian damage at each stage', () => {
   for (const a of AREAS) {
     const raw = presets[`${a.id}-end`];
     if (!raw) continue;
-    const one = fight(raw, a.id, POOL);
-    const two = fight(raw, a.id, 2 * POOL);
+    const avg = (hp: number) => {
+      const fights = Array.from({ length: RUNS }, (_, i) => fight(raw, a.id, hp, 42 + i));
+      return { ...fights[0], dmg: fights.reduce((sum, x) => sum + x.dmg, 0) / RUNS, tapped: fights.reduce((sum, x) => sum + x.tapped, 0) / RUNS };
+    };
+    const one = avg(POOL);
+    const two = avg(2 * POOL);
     const share = Math.max(0, (two.dmg - one.dmg) / POOL);
     const plain = Math.max(0, one.dmg - share * POOL);
     // The Time Eater is beaten at half its health.
