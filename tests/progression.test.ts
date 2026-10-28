@@ -391,6 +391,7 @@ it.runIf(!!process.env.SIM_FULL)('full game: a typical player beats the Time Eat
   // SIM_GUARDIAN={"mines":10} multiplies Guardians' health, to see when the team could first beat a tougher one.
   if (process.env.SIM_GUARDIAN)
     for (const [a, k] of Object.entries(JSON.parse(process.env.SIM_GUARDIAN) as Record<AreaId, number>) as [AreaId, number][]) AREAS.find((x) => x.id === a)!.guardian *= k;
+  let stopped = false;
   // Each Guardian challenge: when, the team's levels, and how much of the Guardian's health was left on a loss.
   {
     const end = (g as unknown as { endGuardian: () => void }).endGuardian.bind(g);
@@ -400,6 +401,11 @@ it.runIf(!!process.env.SIM_FULL)('full game: a typical player beats the Time Eat
       end();
     };
     g.on((e) => {
+      // SIM_STOP_CHALLENGE=file: the save at the first Guardian challenge (as its mastery is reached), then stop.
+      if (e.type === 'guardianChallenge' && process.env.SIM_STOP_CHALLENGE && !stopped) {
+        stopped = true;
+        writeFileSync(process.env.SIM_STOP_CHALLENGE, JSON.stringify({ clock: now, area: g.state.area, save: serialize(g.state) }));
+      }
       if (e.type === 'guardianChallenge') log(`  guardian ${g.state.area} challenged (day ${(now / 86400).toFixed(2)}) · you Lv ${g.levelOf('main')} · ${HUNTERS.filter((h) => g.state.hunters[h.id].recruited).map((h) => `${h.id}:${g.levelOf(h.id)}`).join(' ')}`);
       if (e.type === 'eventComplete' && e.event.startsWith('guardian-')) log(`  guardian ${e.event.slice(9)} beaten (day ${(now / 86400).toFixed(2)})`);
     });
@@ -408,7 +414,7 @@ it.runIf(!!process.env.SIM_FULL)('full game: a typical player beats the Time Eat
   // SIM_UNTIL=90 plays on to that day (past the Time Eater too) and stops there.
   const until = process.env.SIM_UNTIL ? Number(process.env.SIM_UNTIL) * 86400 : null;
   for (const [start, length] of sessions) {
-    if (until !== null ? start >= until : beaten !== null) break;
+    if (stopped || (until !== null ? start >= until : beaten !== null)) break;
     if (from && start + length <= from.clock) continue;
     now = start;
     g.applyOffline(start * 1000);

@@ -18,6 +18,7 @@ import { botGear } from './botGear';
 /** Taps on the Guardian a second (SIM_DPS_TAPS; 2 is a player really going for it). */
 const TAPS = Number(process.env.SIM_DPS_TAPS ?? 1);
 const REGEAR = !!process.env.SIM_DPS_REGEAR;
+const FULLGEAR = !!process.env.SIM_DPS_FULLGEAR;
 /** The Guardian's health in the test: far more than any team brings down in one fight (then twice that). */
 const POOL = 1e13;
 
@@ -43,7 +44,18 @@ function fight(raw: unknown, area: AreaId, hp: number): { dmg: number; tapped: n
     const g = new Game(state, mulberry(42));
     // SIM_DPS_REGEAR: first gear up the way a player keeping up would (tests/botGear.ts), with the save's own gold
     // and materials: the best craftable piece in every slot, upgraded, every modifier slot filled.
-    if (REGEAR) for (let i = 0; i < 4; i++) botGear(g);
+    // SIM_DPS_FULLGEAR: geared like the day-90 Time Eater team instead: the same routine with plenty of gold and of
+    // every material found so far, so every slot holds the best piece its recipes allow, fully upgraded, with
+    // every modifier slot filled (the materials are put back after).
+    if (FULLGEAR) {
+      const mats = { ...state.materials };
+      const gold = state.gold;
+      for (const m of Object.keys(state.materials) as Array<keyof typeof state.materials>) if (state.materials[m] > 0 || (state.stats.matGained[m] ?? 0) > 0) state.materials[m] = 1e12;
+      state.gold = 1e300;
+      for (let i = 0; i < 4; i++) botGear(g);
+      state.materials = mats;
+      state.gold = gold;
+    } else if (REGEAR) for (let i = 0; i < 4; i++) botGear(g);
     const f = new Field(g);
     f.setView(390, 420);
     // A moment on the field first, so everyone is in place.
