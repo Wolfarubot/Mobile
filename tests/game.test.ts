@@ -1998,9 +1998,9 @@ describe('Equipment', () => {
     expect(m.ironOre / m.obsidian).toBeCloseTo(1 / 3, 0);
   });
 
-  it('77 monsters, plus 7 Guardian-only bosses (the first six areas\' and the Time Eater); each with a weakness', () => {
-    expect(ENEMIES).toHaveLength(84);
-    expect(new Set(ENEMIES.map((e) => e.id)).size).toBe(84);
+  it('77 monsters, plus 9 Guardian-only bosses (the first six areas\', the Venom Caverns\' and Frost Peaks\', and the Time Eater); each with a weakness', () => {
+    expect(ENEMIES).toHaveLength(86);
+    expect(new Set(ENEMIES.map((e) => e.id)).size).toBe(86);
     // The Time Eater is only ever the Void Rift's Guardian: not in its horde or unlockable.
     expect(areaEnemies('rift').map((e) => e.id)).not.toContain('timeEater');
     expect(enemyUnlockCost(enemyDef('timeEater'))).toBe(Infinity);

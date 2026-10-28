@@ -1191,6 +1191,8 @@ export type EnemyId =
   | 'voidWyrm'
   | 'behemoth'
   | 'timeEater'
+  | 'koboldKing'
+  | 'frostGargoyle'
   | 'kingSlime'
   | 'pixieQueen'
   | 'skeletonKing'
@@ -1396,11 +1398,13 @@ export const ENEMIES: EnemyDef[] = [
   // The Void Rift's Guardian: it only ever appears as the final Guardian.
   // Guardians: boss versions of each area's monsters, only ever met in its Guardian Challenge
   { id: 'kingSlime', name: 'King of Slimes', area: 'forest', archetype: 'slime', guardianOnly: true, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 20, material: 'royalSlime', unlock: Infinity, color: '#4ad04a', shape: 'circle', blurb: "The biggest, oldest slime in the forest, crowned in its own goo.", weak: ['fire', 'acid'], resist: ['poison'] },
-  { id: 'pixieQueen', name: 'Pixie Queen', area: 'glade', archetype: 'elemental', guardianOnly: true, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 16, material: 'regalEssence', unlock: Infinity, color: '#ff7ad8', shape: 'diamond', blurb: "She rules the Grove with a smile, a wand and a very long memory.", weak: ['void', 'decay'], resist: ['arcane', 'radiant'] },
-  { id: 'skeletonKing', name: 'Skeleton King', area: 'graveyard', archetype: 'undead', guardianOnly: true, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 20, material: 'calciumCrystal', unlock: Infinity, color: '#f0e8d0', shape: 'square', blurb: "He wears a crown of finger bones and commands every skeleton in the Graveyard.", weak: ['radiant', 'arcane'], resist: ['poison', 'decay', 'physical'] },
+  { id: 'pixieQueen', name: 'Huge Mushroom', area: 'glade', archetype: 'elemental', guardianOnly: true, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 16, material: 'regalEssence', unlock: Infinity, color: '#ff7ad8', shape: 'diamond', blurb: "The oldest toadstool in the Grove, grown big enough to walk, and every spore in the glade answers to it.", weak: ['void', 'decay'], resist: ['arcane', 'radiant'] },
+  { id: 'skeletonKing', name: 'Undead Executioner', area: 'graveyard', archetype: 'undead', guardianOnly: true, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 20, material: 'calciumCrystal', unlock: Infinity, color: '#f0e8d0', shape: 'square', blurb: "A reaper bound to the Graveyard, drifting between the stones with its scythe, gathering what's owed.", weak: ['radiant', 'arcane'], resist: ['poison', 'decay', 'physical'] },
   { id: 'awokenLich', name: 'Awoken Lich', area: 'crypt', archetype: 'undead', guardianOnly: true, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 20, material: 'eldritchText', unlock: Infinity, color: '#8a5ac0', shape: 'hexagon', blurb: "The Crypt's oldest master, risen at last, and furious about it.", weak: ['radiant', 'physical'], resist: ['decay', 'void', 'frost'] },
   { id: 'beholdenWatcher', name: 'Beholden Watcher', area: 'depths', archetype: 'demon', guardianOnly: true, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 22, material: 'everwatchingEye', unlock: Infinity, color: '#c0a0e0', shape: 'circle', blurb: "A great eye ringed with smaller ones. Every one of them is looking at you.", weak: ['radiant', 'lightning'], resist: ['arcane', 'void', 'physical'] },
   { id: 'demonLord', name: 'Demon Lord', area: 'caves', archetype: 'demon', guardianOnly: true, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 22, material: 'forsakenSoul', unlock: Infinity, color: '#c02a1a', shape: 'hexagon', blurb: "The master of the Ember Mines, wreathed in the souls it has taken.", weak: ['frost', 'radiant'], resist: ['fire', 'decay', 'physical'] },
+  { id: 'koboldKing', name: 'Kobold King', area: 'mines', archetype: 'humanoid', guardianOnly: true, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 20, material: 'ore', unlock: Infinity, color: '#c0503a', shape: 'square', blurb: 'The kobolds\' king rides to war on a tusked boar, scythe-spear raised over the caverns he dug.', weak: ['fire', 'acid'], resist: ['physical', 'frost'] },
+  { id: 'frostGargoyle', name: 'Frost Gargoyle', area: 'peaks', archetype: 'construct', guardianOnly: true, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 20, material: 'ecto', unlock: Infinity, color: '#8fd0ff', shape: 'diamond', blurb: 'Carved to watch the high passes, frozen solid, and long since woken by the storm.', weak: ['radiant', 'arcane'], resist: ['physical'] },
   { id: 'timeEater', name: 'Time Eater', area: 'rift', archetype: 'demon', guardianOnly: true, winAt: 0.5, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 22, material: 'void', unlock: Infinity, color: '#e0c060', shape: 'hexagon', blurb: 'It devours the hours of every world it finds. The Void Rift is its mouth.', weak: ['radiant', 'arcane'], resist: ['void', 'decay', 'physical'] },
 ];
 
@@ -1626,8 +1630,8 @@ export const GUARDIAN_ENEMY: Record<AreaId, EnemyId> = {
   crypt: 'awokenLich',
   depths: 'beholdenWatcher',
   caves: 'demonLord',
-  mines: 'caveTroll',
-  peaks: 'wraith',
+  mines: 'koboldKing',
+  peaks: 'frostGargoyle',
   cliffs: 'iceWyvern',
   fortress: 'stormTitan',
   meteors: 'starEater',
@@ -2158,7 +2162,7 @@ export const SHIELD_DEFLECT_PAUSE = 1;
 /** Monsters that fly (or float): they pass over the battlefield's rocks, trees and coffins instead of going around. */
 export const FLYING: ReadonlySet<EnemyId> = new Set<EnemyId>([
   'pixie', 'bat', 'graveWraith', 'crow', 'duskmoth', 'shadowWisp', 'gazingEye', 'frostSprite', 'wraith', 'harpy', 'snowOwl', 'griffin',
-  'iceWyvern', 'cloudling', 'thunderbird', 'valkyrie', 'cometWisp', 'starEater', 'shade', 'watcher', 'voidWyrm', 'pixieQueen', 'beholdenWatcher',
+  'iceWyvern', 'cloudling', 'thunderbird', 'valkyrie', 'cometWisp', 'starEater', 'shade', 'watcher', 'voidWyrm', 'beholdenWatcher', 'skeletonKing', 'frostGargoyle',
 ]);
 
 /**
