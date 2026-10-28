@@ -3186,6 +3186,17 @@ describe('Equipment', () => {
     expect(deserialize(JSON.stringify(old))!.hunters.puppeteer).toMatchObject({ recruited: true, trains: 40 });
   });
 
+  it("summons bite harder only with their Hunter's skill-tree area nodes, not with level, gear area or attack rate", () => {
+    const g = new Game(newGame(0), noCrit);
+    g.state.hunters.druid.recruited = true;
+    expect(g.summonFerocity('druid')).toBe(1);
+    // Levels and area gear widen his other area effects, but his wolves bite as hard.
+    g.state.hunters.druid.trains = 400;
+    expect(g.aoeScale('druid')).toBeGreaterThan(1);
+    expect(g.summonFerocity('druid')).toBe(1);
+    expect(g.summonFerocity('druid')).toBe(1 + g.tree('druid').radius);
+  });
+
   it('summon types: Deku hits harder with Beast summons and Theon with Constructs, whatever summoned them', () => {
     const g = new Game(newGame(0), noCrit);
     expect(g.summonMult('druid', 'beast')).toBe(1.5);

@@ -1496,7 +1496,7 @@ export class Field {
       // Creatures that hunt for a while (two of Deku's spirit wolves or Theon's puppets for 6s; Azir's skeletal
       // legion, six for 10s), each biting 1.5 times a second for the special's damage (their "radius" skills make
       // them fiercer).
-      const mult = dmg * (radius / sp.radius);
+      const mult = dmg * g.summonFerocity(by);
       const life = (sp.summon.life ?? 6) * g.summonDurationMult(by);
       const count = sp.summon.count ?? 2;
       for (let i = 0; i < count; i++) {

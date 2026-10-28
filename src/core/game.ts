@@ -906,12 +906,21 @@ export class Game {
     return sp ? sp.radius * (1 + (this.weaponStats(shooter).rate ?? 0)) * this.radiusMult(shooter) : 0;
   }
 
+  /**
+   * How much harder a Guild Hunter's summoned creatures bite: their skill tree's area nodes ("radius" skills) make
+   * them fiercer. Gear area stats, area modifiers, attack rate and level grow the Hunter's other specials, not this
+   * (level and gear already raise the damage it multiplies).
+   */
+  summonFerocity(shooter: Shooter): number {
+    return 1 + this.tree(shooter).radius;
+  }
+
   /** The special's damage in shot-equivalents per second against a crowd (for DPS and the farm model). */
   private specialHitRate(shooter: Shooter): number {
     const sp = shooter === 'main' ? undefined : hunterDef(shooter).special;
     if (!sp) return 0;
     // Wider specials catch more of the crowd.
-    const reach = this.specialRadius(shooter) / sp.radius;
+    const reach = sp.summon ? this.summonFerocity(shooter) : this.specialRadius(shooter) / sp.radius;
     return (sp.ticks * sp.crowd * reach * this.specialDamageMult(shooter)) / (sp.cooldown * this.cooldownMult(shooter));
   }
 
