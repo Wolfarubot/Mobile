@@ -326,6 +326,17 @@ describe('Areas', () => {
     expect(events).toContain('finalGuardian');
   });
 
+  it('a Fireburst chain thins out: each burst set off by a burst takes the chance again', () => {
+    const g = new Game(newGame(0), () => 0.3);
+    // A 50% Fireburst: the first kill bursts (0.3 < 0.5), a kill by that burst needs 0.3 < 0.25 and doesn't.
+    g.killBurst = () => ({ base: 1e9, radius: 70, damageType: 'fire', chance: 0.5 });
+    const f = new Field(g);
+    f.enemies = [enemy({ id: 1, x: 0, y: 200, hp: 1, maxHp: 1 }), enemy({ id: 2, x: 60, y: 200, hp: 1, maxHp: 1 }), enemy({ id: 3, x: 120, y: 200, hp: 1, maxHp: 1 })];
+    (f as unknown as { damage: (e: Enemy, d: number, c: boolean, x: number, y: number) => void }).damage(f.enemies[0], 10, false, 0, 0);
+    expect(f.enemies.find((e) => e.id === 2)!.hp).toBeLessThanOrEqual(0); // caught in the first burst
+    expect(f.enemies.find((e) => e.id === 3)!.hp).toBe(1); // the second burst didn't go off
+  });
+
   it('a Guardian charges in until it reaches a Hunter, then walks; it takes only part of a tap', () => {
     const g = new Game(newGame(0), noCrit);
     g.state.areas.forest.kills = AREAS[0].mastery;

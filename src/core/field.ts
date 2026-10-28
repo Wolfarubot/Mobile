@@ -455,6 +455,8 @@ export interface Puddle {
   k?: number;
   /** Burning sticks a Twiggling left behind (Fire Starter): drawn as smouldering twigs rather than a pool. */
   sticks?: boolean;
+  /** For sticks: how deep in a chain of kill effects they were left (Field.chain), so their kills' effects thin out. */
+  chain?: number;
 }
 
 export type FieldEvent =
@@ -512,6 +514,12 @@ export class Field {
   /** Ted's dice, in the air or lying where they landed (see rollDice). */
   dice: DiceThrow[] = [];
   /** The Hunter in the middle's special cooldown, when that's a Guild Hunter (see update). */
+  /**
+   * How deep in a chain of kill effects the current damage is: 0 for a hit, 1 inside a burst set off by a kill,
+   * 2 inside a burst set off by a kill that burst made, and so on. A kill effect's chance is taken once more for
+   * each step (chained), so a chain of bursts thins out instead of clearing the field.
+   */
+  private chain = 0;
   private leadCaster: SpecialCaster = { id: 'alchemist', x: 0, y: 0, specialCd: 1, aim: 0 };
   /** A focus's waves: rings expanding from where they were sent, hitting each monster once as they pass. */
   waves: Array<{ who: Shooter; x: number; y: number; r: number; max: number; hit: Set<number> }> = [];
@@ -706,6 +714,21 @@ export class Field {
     const hp = e.maxHp * RISE_HP;
     this.enemies.push({ id: this.nextId++, type: e.type, x: e.x, y: e.y, hp, maxHp: hp, r: e.r, speed: e.speed, boss: false, fleeing: false, flash: 0, kx: 0, ky: 0, phase: this.game.rng() * 10, scale: e.scale, half: true });
     this.say(e.x, e.y - e.r - 6, 'RISES!', '#b8f0c0', 9);
+  }
+
+  /** A kill effect's chance at the current depth of the chain: taken once more for each step (0 for a plain hit). */
+  private chained(p: number): number {
+    return p ** (this.chain + 1);
+  }
+
+  /** Runs a kill effect one step deeper in the chain, so the kills it makes set off their own effects less often. */
+  private inChain(fn: () => void): void {
+    this.chain++;
+    try {
+      fn();
+    } finally {
+      this.chain--;
+    }
   }
 
   /** A monster that bursts as it dies: every other monster close by takes a share of its max HP. */
@@ -3064,7 +3087,13 @@ export class Field {
       p.tick = PUDDLE_TICK;
       if (p.cast) {
         for (const e of [...this.enemies]) if (e.hp > 0 && Math.hypot(e.x - p.x, e.y - p.y) <= p.r + e.r) this.spellHit(p.cast, e, p.k ?? 1, p.x, p.y);
-      } else if (p.abs !== undefined) this.hitArea(p.x, p.y, p.r, p.abs, p.dtype ?? 'acid', p.shooter);
+      } else if (p.abs !== undefined) {
+        // Burning sticks carry the chain they were left in.
+        const was = this.chain;
+        this.chain = p.chain ?? was;
+        this.hitArea(p.x, p.y, p.r, p.abs, p.dtype ?? 'acid', p.shooter);
+        this.chain = was;
+      }
       else for (const e of this.enemies) if (e.hp > 0 && Math.hypot(e.x - p.x, e.y - p.y) <= p.r + e.r) this.hitWith(p.shooter, e, p.dmg, p.x, p.y, undefined, undefined, true, false, p.dtype);
     }
     this.puddles = this.puddles.filter((p) => p.life > 0);
@@ -3090,17 +3119,19 @@ export class Field {
         const st = this.game.enemyStats(e.type);
         // Splitting Slime and Fire Starter (evolutions).
         if (st.split && !e.half && this.game.rng() < st.split) this.split(e);
-        if (st.fireTrail && e.burn && this.game.rng() < st.fireTrail)
-          this.puddles.push({ shooter, x: e.x, y: e.y, r: STICKS_RADIUS, life: STICKS_LIFE, tick: PUDDLE_TICK, dmg: 0, abs: e.maxHp * STICKS_DAMAGE, dtype: 'fire', sticks: true });
+        // Kill effects that hurt other monsters (sticks, bursts) roll their chance once more for each step down a
+        // chain of them (see `chain`).
+        if (st.fireTrail && e.burn && this.game.rng() < this.chained(st.fireTrail))
+          this.puddles.push({ shooter, x: e.x, y: e.y, r: STICKS_RADIUS, life: STICKS_LIFE, tick: PUDDLE_TICK, dmg: 0, abs: e.maxHp * STICKS_DAMAGE, dtype: 'fire', sticks: true, chain: this.chain + 1 });
         // Undead that rise again, and monsters that burst (evolutions).
         if (st.rise && !e.half && this.game.rng() < st.rise) this.rise(e);
-        if (st.burst && this.game.rng() < st.burst) this.burstAt(shooter, e);
+        if (st.burst && this.game.rng() < this.chained(st.burst)) this.inChain(() => this.burstAt(shooter, e));
       }
       this.bloodthirst(shooter);
       this.quickDrawKill(shooter);
       // Fireburst (an enchantment): monsters the weapon kills burst, hurting everything around them.
       const burst = this.game.killBurst(shooter);
-      if (burst && this.game.rng() < burst.chance) this.abilityBurst(shooter, e.x, e.y, burst.radius, burst.base, burst.damageType);
+      if (burst && this.game.rng() < this.chained(burst.chance)) this.inChain(() => this.abilityBurst(shooter, e.x, e.y, burst.radius, burst.base, burst.damageType));
       this.events.push({ type: 'kill', x: e.x, y: e.y, enemy: e.type, boss: e.boss, reward });
       // Double or Nothing (Ted in this area).
       if (reward.luck === 'double') this.say(e.x, e.y - 14, '×2!', '#ffd84a', 11);
