@@ -1073,6 +1073,9 @@ export const ARCHETYPES: Record<Archetype, { name: string; icon: string }> = {
 // ---- Areas: permanent unlocks, each with its own enemies and materials ----
 export type AreaId = 'forest' | 'glade' | 'graveyard' | 'crypt' | 'depths' | 'caves' | 'mines' | 'peaks' | 'cliffs' | 'fortress' | 'meteors' | 'rift';
 
+/** The share of a tap blast's damage a Guardian takes, unless its area says otherwise (AreaDef.guardianTap). */
+export const GUARDIAN_TAP_TAKEN = 0.5;
+
 export interface AreaDef {
   id: AreaId;
   name: string;
@@ -1084,6 +1087,12 @@ export interface AreaDef {
   mastery: number;
   /** HP of this area's Guardian: the real gate to the next area. */
   guardian: number;
+  /**
+   * The share of a tap blast's damage this area's Guardian takes (its effects are as strong as the damage it
+   * took), so a Guardian is fought mostly by the Hunters: the first areas' Guardians shrug off more, as a tap
+   * there outweighs a small, low-level team (default GUARDIAN_TAP_TAKEN).
+   */
+  guardianTap?: number;
   icon: string;
   /** Game Boy Advance-style UI palette, darkest to lightest: menus take on these colours in this area. */
   palette: [string, string, string, string];
@@ -1096,11 +1105,11 @@ export interface AreaDef {
 // Crypt, ÷18 from the Frost Peaks, ÷20 in the Void Rift, ÷30 for the Time Eater; in the Woods only its Guardian,
 // ÷2): about the damage per second the removed Upgrades that boosted every Hunter had added by each area.
 export const AREAS: AreaDef[] = [
-  { id: 'forest', name: 'Wandering Woods', icon: '🌲', hp: 1, gold: 1, speed: 36, mastery: 7_500, guardian: 862, palette: ['#183c18', '#2f7d32', '#7ec850', '#e2f5c4'], ground: ['#6cb848', '#58a03c'], blurb: 'Where every hunt begins.' },
-  { id: 'glade', name: 'Fey Grove', icon: '🧚', hp: 57, gold: 139, speed: 38, mastery: 35_000, guardian: 4080, palette: ['#221a30', '#5a4a8a', '#a8d8b0', '#f4f0ff'], ground: ['#7cc47c', '#8ed28a'], blurb: 'Mushroom rings and things that bite.' },
-  { id: 'graveyard', name: 'Restless Graveyard', icon: '🪦', hp: 335, gold: 33_500, speed: 40, mastery: 350_000, guardian: 25_800, palette: ['#1e1a2a', '#4a4460', '#9a94b0', '#e8e4f0'], ground: ['#5b5670', '#4c4762'], blurb: 'The dead do not rest here.' },
-  { id: 'crypt', name: 'Forbidden Crypt', icon: '⚰️', hp: 601, gold: 3_160_000, speed: 42, mastery: 525_000, guardian: 59_300, palette: ['#1a1614', '#4a403a', '#9a8e80', '#ece4d8'], ground: ['#5a524a', '#4e4640'], blurb: 'Deeper than the graves, and older.' },
-  { id: 'depths', name: 'Shadowy Depths', icon: '🕳️', hp: 1890, gold: 24_500_000_000, speed: 43, mastery: 500_000, guardian: 99_000, palette: ['#120e1c', '#3a3050', '#8a7ea8', '#e6e0f4'], ground: ['#2e2838', '#26212f'], blurb: 'Below the crypt, the dark has teeth.' },
+  { id: 'forest', name: 'Wandering Woods', icon: '🌲', hp: 1, gold: 1, speed: 36, mastery: 7_500, guardian: 470, guardianTap: 0.15, palette: ['#183c18', '#2f7d32', '#7ec850', '#e2f5c4'], ground: ['#6cb848', '#58a03c'], blurb: 'Where every hunt begins.' },
+  { id: 'glade', name: 'Fey Grove', icon: '🧚', hp: 57, gold: 139, speed: 38, mastery: 35_000, guardian: 2000, guardianTap: 0.15, palette: ['#221a30', '#5a4a8a', '#a8d8b0', '#f4f0ff'], ground: ['#7cc47c', '#8ed28a'], blurb: 'Mushroom rings and things that bite.' },
+  { id: 'graveyard', name: 'Restless Graveyard', icon: '🪦', hp: 335, gold: 33_500, speed: 40, mastery: 350_000, guardian: 25_800, guardianTap: 0.15, palette: ['#1e1a2a', '#4a4460', '#9a94b0', '#e8e4f0'], ground: ['#5b5670', '#4c4762'], blurb: 'The dead do not rest here.' },
+  { id: 'crypt', name: 'Forbidden Crypt', icon: '⚰️', hp: 601, gold: 3_160_000, speed: 42, mastery: 525_000, guardian: 59_300, guardianTap: 0.15, palette: ['#1a1614', '#4a403a', '#9a8e80', '#ece4d8'], ground: ['#5a524a', '#4e4640'], blurb: 'Deeper than the graves, and older.' },
+  { id: 'depths', name: 'Shadowy Depths', icon: '🕳️', hp: 1890, gold: 24_500_000_000, speed: 43, mastery: 500_000, guardian: 99_000, guardianTap: 0.15, palette: ['#120e1c', '#3a3050', '#8a7ea8', '#e6e0f4'], ground: ['#2e2838', '#26212f'], blurb: 'Below the crypt, the dark has teeth.' },
   { id: 'caves', name: 'Ember Mines', icon: '🌋', hp: 2680, gold: 5_370_000_000_000, speed: 45, mastery: 875_000, guardian: 338_000, palette: ['#2a0e08', '#8a2c10', '#e07030', '#fde4c0'], ground: ['#6a2c1a', '#823722'], blurb: 'Hot, bright and full of teeth.' },
   { id: 'mines', name: 'Venom Caverns', icon: '🦂', hp: 4900, gold: 158_000_000_000_000, speed: 47, mastery: 1_250_000, guardian: 3_470_000, palette: ['#1e140a', '#6a4a22', '#c09050', '#f4e4c8'], ground: ['#5a4228', '#4e3820'], blurb: 'Dug too deep, woke too much.' },
   { id: 'peaks', name: 'Frost Peaks', icon: '🏔️', hp: 12_500, gold: 6.71e15, speed: 50, mastery: 2_750_000, guardian: 3_090_000, palette: ['#0c2038', '#2a60a0', '#78b8e8', '#e4f4ff'], ground: ['#bcd8f0', '#a4c6e6'], blurb: 'Cold winds carry cold things.' },

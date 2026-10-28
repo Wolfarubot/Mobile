@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { GEAR_CATALOG } from '../src/core/gearCatalog';
 import { GEAR_SPRITES } from '../src/core/gearSprites';
 import { describe, expect, it } from 'vitest';
-import { archetypeValue, armorStats, mirrorStats, WEAPON_ARCHETYPES, weaponArchetype, withArchetype, type WeaponClass } from '../src/core/balance';
+import { GUARDIAN_TAP_TAKEN, archetypeValue, armorStats, mirrorStats, WEAPON_ARCHETYPES, weaponArchetype, withArchetype, type WeaponClass } from '../src/core/balance';
 import {
   areaDef,
   AREAS,
@@ -319,11 +319,35 @@ describe('Areas', () => {
     g.on((e) => events.push(e.type));
     const f = new Field(g);
     const max = g.guardianHp;
-    const boss = enemy({ id: 1, type: 'timeEater', boss: true, x: 100, hp: max * 0.5 + g.tapDamage * 0.5, maxHp: max, r: 40 });
+    const boss = enemy({ id: 1, type: 'timeEater', boss: true, x: 100, hp: max * 0.5 + g.tapDamage * GUARDIAN_TAP_TAKEN * 0.5, maxHp: max, r: 40 });
     f.enemies.push(boss);
-    f.tap(100, 0); // one tap takes it just past half
+    f.tap(100, 0); // one tap (half of it taken, as by any Guardian) takes it just past half
     expect(boss.hp).toBe(0);
     expect(events).toContain('finalGuardian');
+  });
+
+  it('a Guardian charges in until it reaches a Hunter, then walks; it takes only part of a tap', () => {
+    const g = new Game(newGame(0), noCrit);
+    g.state.areas.forest.kills = AREAS[0].mastery;
+    g.state.events.slimeSwarm.completed = 1;
+    g.challengeGuardian();
+    const f = new Field(g);
+    f.setView(390, 420);
+    f.enemies = [];
+    f.update(1 / 30);
+    const boss = f.enemies.find((e) => e.boss)!;
+    expect(boss.rush).toBe(true);
+    const from = Math.hypot(boss.x, boss.y);
+    for (let t = 0; t < 1; t += 1 / 30) f.update(1 / 30);
+    // Ten times its walk: well over a hundred units in a second (a walk covers about twenty).
+    expect(from - Math.hypot(boss.x, boss.y)).toBeGreaterThan(boss.speed * 5);
+    for (let t = 0; t < 10 && boss.rush; t += 1 / 30) f.update(1 / 30);
+    expect(boss.rush).toBe(false);
+    expect(Math.hypot(boss.x, boss.y)).toBeLessThan(boss.r + 60);
+    // A tap: the Woods' Guardian takes 15% of it, a monster all of it.
+    const hp = boss.hp;
+    f.tap(boss.x, boss.y);
+    expect(hp - boss.hp).toBeCloseTo(g.tapDamage * areaDef('forest').guardianTap!, 5);
   });
 
   it('the Guardian is tuned to the next area and later areas are tougher and richer', () => {

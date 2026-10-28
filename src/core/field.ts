@@ -1,6 +1,8 @@
 import { GATED, gateWalls } from './gates';
 import {
   MAIN_RANGE,
+  GUARDIAN_TAP_TAKEN,
+  areaDef,
   type Rarity,
   type WeaponClassDef,
   DAMAGE_TYPES,
@@ -64,6 +66,8 @@ const ENCORE_GAP = 0.12;
 /** Apex Hunter: how far apart (radians) a shot's extra projectiles fan out. */
 const EXTRA_SHOT_SPREAD = 0.12;
 const BOSS_BOUNCE = 260;
+/** A Guardian charges in this many times faster than it walks, until it first reaches a Hunter. */
+const GUARDIAN_RUSH = 10;
 const GUARD_BOUNCE = 220;
 /** How far out a hammer's smash lands, as a fraction of its radius (the Hunter stands near its edge). */
 export const SLAM_OFFSET = 0.85;
@@ -128,6 +132,8 @@ export interface Enemy {
   half?: boolean;
   /** Hunter Hunter (a Forest Wolf evolution): it lunges at Hunters who come close. `dash`: seconds of lunge left; `cd`: until the next. */
   lunge?: { dash: number; cd: number };
+  /** A Guardian still charging in (GUARDIAN_RUSH) from where it appeared: it slows to its walk once it reaches a Hunter. */
+  rush?: boolean;
   /**
    * Charmed by Norm (or a copy of his Smooth Talk): for `left` seconds it hunts the nearest other monster instead
    * of the Hunters, biting it every CHARM_BITE seconds for `frac` of its own max health, credited to `by`.
@@ -690,6 +696,7 @@ export class Field {
       phase: g.rng() * 10,
       ...(boss ? {} : { scale: artScale(g.rng(), g.rng(), g.rng()), ...(g.rng() >= 1 - 1 / GOLDEN_ODDS ? { golden: true } : {}) }),
       ...(!boss && stats.lunge ? { lunge: { dash: 0, cd: g.rng() * LUNGE_COOLDOWN } } : {}),
+      ...(boss ? { rush: true } : {}),
     });
   }
 
@@ -915,6 +922,9 @@ export class Field {
             lunge = LUNGE_SPEED;
           }
         }
+        // A Guardian charges in, then walks once it's there.
+        if (e.rush && d - reach <= 1) e.rush = false;
+        if (e.rush) lunge = GUARDIAN_RUSH;
         const step = Math.min(speed * lunge * dt, Math.max(0, d - reach));
         const [ux, uy] = this.steer(e, -dx / d, -dy / d);
         e.x += ux * step + e.kx * dt;
@@ -3112,7 +3122,8 @@ export class Field {
       const dy = e.y - y;
       const d = Math.hypot(dx, dy);
       if (d > g.tapRadius + e.r) continue;
-      const amount = dmg * this.typeMultOn(dtype, e) * g.typeBonus('main', dtype);
+      // Guardians shrug off much of a tap blast (AreaDef.guardianTap), so the Hunters' own damage counts.
+      const amount = dmg * this.typeMultOn(dtype, e) * g.typeBonus('main', dtype) * (e.boss ? (areaDef(g.state.area).guardianTap ?? GUARDIAN_TAP_TAKEN) : 1);
       this.damage(e, amount, crit, dx / (d || 1), dy / (d || 1), 'main', dtype);
       hit.push({ e, dmg: amount });
     }

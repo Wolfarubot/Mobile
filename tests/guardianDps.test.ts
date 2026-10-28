@@ -26,8 +26,8 @@ function mulberry(seed: number) {
   };
 }
 
-/** One Guardian fight from a save, the Guardian at `hp` health: the damage dealt and the seconds it lasted. */
-function fight(raw: unknown, area: AreaId, hp: number): { dmg: number; secs: number; team: string } {
+/** One Guardian fight from a save, the Guardian at `hp` health: the damage dealt (and by taps directly), and the seconds it lasted. */
+function fight(raw: unknown, area: AreaId, hp: number): { dmg: number; tapped: number; secs: number; team: string } {
   const save = raw as { lastSeen: number };
   const state = deserialize(JSON.stringify(raw), save.lastSeen)!;
   state.area = area;
@@ -52,6 +52,7 @@ function fight(raw: unknown, area: AreaId, hp: number): { dmg: number; secs: num
     let left = 0;
     let secs = 0;
     let tapAcc = 0;
+    let tapped = 0;
     for (let t = 0; t < 300 && g.guardianActive; t += 0.05) {
       g.tick(0.05);
       f.update(0.05);
@@ -64,12 +65,14 @@ function fight(raw: unknown, area: AreaId, hp: number): { dmg: number; secs: num
         tapAcc += 0.05 * TAPS;
         while (tapAcc >= 1) {
           tapAcc -= 1;
+          const before = boss.hp;
           f.tap(boss.x, boss.y);
+          tapped += before - Math.max(0, boss.hp);
         }
       }
     }
     const team = ['main', ...HUNTERS.filter((h) => state.hunters[h.id].recruited && state.hunters[h.id].station === area).map((h) => h.id)].map((id) => `${id}:${g.levelOf(id as never)}`).join(' ');
-    return { dmg: maxHp - Math.max(0, left), secs, team };
+    return { dmg: maxHp - Math.max(0, left), tapped, secs, team };
   } finally {
     def.guardian = real;
   }
@@ -88,7 +91,7 @@ it.runIf(!!process.env.SIM_DPS)('Guardian damage at each stage', () => {
     // The Time Eater is beaten at half its health.
     const need = 1 - (enemyDef(GUARDIAN_ENEMY[a.id]).winAt ?? 0);
     const canBeat = plain / Math.max(1e-9, need - share);
-    const row = { area: a.id, secs: +one.secs.toFixed(1), plainDps: Math.round(plain / one.secs), plainDmg: Math.round(plain), share: +share.toFixed(4), canBeat: Math.round(canBeat), guardian: a.guardian, ratio: +(canBeat / a.guardian).toFixed(2), team: one.team };
+    const row = { area: a.id, secs: +one.secs.toFixed(1), plainDps: Math.round(plain / one.secs), plainDmg: Math.round(plain), share: +share.toFixed(4), canBeat: Math.round(canBeat), guardian: a.guardian, ratio: +(canBeat / a.guardian).toFixed(2), tapShare: +(one.tapped / Math.max(1, one.dmg)).toFixed(2), team: one.team };
     rows.push(row);
     console.log(JSON.stringify(row));
   }
