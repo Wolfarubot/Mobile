@@ -19,8 +19,9 @@ import { botGear } from './botGear';
 const TAPS = Number(process.env.SIM_DPS_TAPS ?? 1);
 const REGEAR = !!process.env.SIM_DPS_REGEAR;
 const FULLGEAR = !!process.env.SIM_DPS_FULLGEAR;
+const STARS = Number(process.env.SIM_DPS_STARS ?? 0);
 /** The Guardian's health in the test: far more than any team brings down in one fight (then twice that). */
-const POOL = 1e13;
+const POOL = Number(process.env.SIM_DPS_POOL ?? 1e13);
 
 function mulberry(seed: number) {
   return () => {
@@ -53,6 +54,8 @@ function fight(raw: unknown, area: AreaId, hp: number): { dmg: number; tapped: n
       for (const m of Object.keys(state.materials) as Array<keyof typeof state.materials>) if (state.materials[m] > 0 || (state.stats.matGained[m] ?? 0) > 0) state.materials[m] = 1e12;
       state.gold = 1e300;
       for (let i = 0; i < 4; i++) botGear(g);
+      // SIM_DPS_STARS: and every worn piece at that many stars at most (3 is about what a player keeping up has).
+      if (STARS) for (const it of state.inventory) it.stars = Math.min(it.stars, STARS);
       state.materials = mats;
       state.gold = gold;
     } else if (REGEAR) for (let i = 0; i < 4; i++) botGear(g);

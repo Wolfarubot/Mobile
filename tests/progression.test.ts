@@ -60,7 +60,8 @@ function botShop(game: Game, t: number, memo: { lastChallenge: number; lastHeavy
     memo.lastChallenge = t;
   }
   // Guardian: challenge when ready (retry every 60s); after winning, move to the newest area.
-  if (game.guardianReady && !game.eventRunning && t - memo.lastChallenge > 60) {
+  // SIM_NO_CHALLENGE: never challenge (to stay in an area, levelling and gearing up).
+  if (!process.env.SIM_NO_CHALLENGE && game.guardianReady && !game.eventRunning && t - memo.lastChallenge > 60) {
     game.challengeGuardian();
     memo.lastChallenge = t;
   }
