@@ -401,8 +401,9 @@ it.runIf(!!process.env.SIM_FULL)('full game: a typical player beats the Time Eat
       end();
     };
     g.on((e) => {
-      // SIM_STOP_CHALLENGE=file: the save at the first Guardian challenge (as its mastery is reached), then stop.
-      if (e.type === 'guardianChallenge' && process.env.SIM_STOP_CHALLENGE && !stopped) {
+      // SIM_STOP_CHALLENGE=file: the save at the first Guardian challenge (as its mastery is reached; SIM_STOP_AREA:
+      // that area's), then stop.
+      if (e.type === 'guardianChallenge' && process.env.SIM_STOP_CHALLENGE && !stopped && (!process.env.SIM_STOP_AREA || g.state.area === process.env.SIM_STOP_AREA)) {
         stopped = true;
         writeFileSync(process.env.SIM_STOP_CHALLENGE, JSON.stringify({ clock: now, area: g.state.area, save: serialize(g.state) }));
       }
