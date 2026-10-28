@@ -944,6 +944,10 @@ export const RARE_MATERIALS: ReadonlySet<MaterialId> = new Set<MaterialId>([
 
 /** A golem: a construct dropping ores and gems. They spawn rarely, and an area's Idol doesn't bring more of them. */
 export const isGolem = (e: { archetype: string; material: string }): boolean => e.archetype === 'construct' && RARE_MATERIALS.has(e.material as MaterialId);
+/** Golems spawn this many times as often as their `spawn` says, so the ores and gems Refines and Enchants need keep coming. */
+export const GOLEM_SPAWN = 2;
+/** And drop their ores and gems this many times as often as other monsters drop theirs. */
+export const GOLEM_DROPS = 3;
 
 export interface MaterialDef {
   id: MaterialId;
@@ -1388,7 +1392,7 @@ export const ENEMIES: EnemyDef[] = [
   { id: 'chimera', name: 'Chimera', area: 'rift', archetype: 'beast', hp: 5, speed: 1.2, gold: 6, spawn: 0.18, pack: [1, 1], radius: 16, material: 'void', unlock: 250_000, color: '#c08a4a', shape: 'hexagon', blurb: 'Three heads, zero manners.', weak: ['frost', 'acid'], resist: ['fire', 'poison'] },
   { id: 'voidWyrm', name: 'Void Wyrm', area: 'rift', archetype: 'dragon', hp: 8, speed: 0.9, gold: 9.5, spawn: 0.1, pack: [1, 1], radius: 18, material: 'void', unlock: 600_000, color: '#8a3ae0', shape: 'hexagon', size: 'huge', blurb: 'Swims through the dark between stars.', weak: ['radiant'], resist: ['void', 'physical', 'frost'] },
   { id: 'behemoth', name: 'Behemoth', area: 'rift', archetype: 'beast', hp: 10, speed: 0.6, gold: 12, spawn: 0.08, pack: [1, 1], radius: 20, material: 'soul', unlock: 1_500_000, color: '#6a4a8a', shape: 'hexagon', size: 'large', blurb: 'The ground shakes when it walks.', weak: ['arcane', 'acid'], resist: ['physical', 'fire'] },
-  { id: 'voidGolem', name: 'Void Golem', area: 'rift', archetype: 'construct', hp: 8, speed: 0.4, gold: 9, spawn: 0.03, pack: [1, 1], radius: 19, material: 'voidsteel', drops: [{ material: 'voidPrism', share: 0.3 }], unlock: 3_000_000, color: '#5a3a8a', shape: 'hexagon', blurb: 'Ore and gem from beyond the Rift, walking.', weak: ['radiant', 'acid'], resist: ['void', 'physical'] },
+  { id: 'voidGolem', name: 'Void Golem', area: 'rift', archetype: 'construct', hp: 8, speed: 0.4, gold: 9, spawn: 0.03, pack: [1, 1], radius: 19, material: 'voidsteel', drops: [{ material: 'voidPrism', share: 0.3 }], unlock: 40_000, color: '#5a3a8a', shape: 'hexagon', blurb: 'Ore and gem from beyond the Rift, walking.', weak: ['radiant', 'acid'], resist: ['void', 'physical'] },
   // The Void Rift's Guardian: it only ever appears as the final Guardian.
   // Guardians: boss versions of each area's monsters, only ever met in its Guardian Challenge
   { id: 'kingSlime', name: 'King of Slimes', area: 'forest', archetype: 'slime', guardianOnly: true, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 20, material: 'royalSlime', unlock: Infinity, color: '#4ad04a', shape: 'circle', blurb: "The biggest, oldest slime in the forest, crowned in its own goo.", weak: ['fire', 'acid'], resist: ['poison'] },

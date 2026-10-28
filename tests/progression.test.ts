@@ -405,8 +405,10 @@ it.runIf(!!process.env.SIM_FULL)('full game: a typical player beats the Time Eat
     });
   }
   const started = Date.now();
+  // SIM_UNTIL=90 plays on to that day (past the Time Eater too) and stops there.
+  const until = process.env.SIM_UNTIL ? Number(process.env.SIM_UNTIL) * 86400 : null;
   for (const [start, length] of sessions) {
-    if (beaten !== null) break;
+    if (until !== null ? start >= until : beaten !== null) break;
     if (from && start + length <= from.clock) continue;
     now = start;
     g.applyOffline(start * 1000);
