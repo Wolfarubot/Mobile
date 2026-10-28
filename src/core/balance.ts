@@ -1120,7 +1120,7 @@ export const AREAS: AreaDef[] = [
   { id: 'cliffs', name: 'Ascendant Steps', icon: '🪜', hp: 31_300, gold: 1.12e18, speed: 53, mastery: 800_000, guardian: 16_900_000, palette: ['#141c30', '#4a5a86', '#a8b8e0', '#f2f4ff'], ground: ['#9aa6bc', '#8a96ac'], blurb: 'Stone stairs above the peaks, climbing into the sky.' },
   { id: 'fortress', name: 'Cloud Fortress', icon: '🏰', hp: 44_000, gold: 2e19, speed: 54, mastery: 2_400_000, guardian: 131_000_000, palette: ['#1a2440', '#4a70b0', '#a8d0f8', '#fdfcf4'], ground: ['#e8f0fa', '#d4e2f4'], blurb: 'A citadel on the clouds, held by storm and steel.' },
   { id: 'meteors', name: 'Meteor Field', icon: '☄️', hp: 62_400, gold: 3.46e20, speed: 55, mastery: 4_000_000, guardian: 288_000_000, palette: ['#0a0a1e', '#3a2a6a', '#e08a4a', '#fce8d0'], ground: ['#1c1830', '#2a2440'], blurb: 'Past the sky, where falling stars still burn.' },
-  { id: 'rift', name: 'Void Rift', icon: '♾️', hp: 150_000, gold: 1e22, speed: 56, mastery: 6_000_000, guardian: 3_300_000_000, palette: ['#1a0830', '#5a2098', '#b070e0', '#f2e4ff'], ground: ['#2a1440', '#3a1d58'], blurb: 'The end of the known world.' },
+  { id: 'rift', name: 'Void Rift', icon: '♾️', hp: 150_000, gold: 1e22, speed: 56, mastery: 6_000_000, guardian: 1_020_000_000, palette: ['#1a0830', '#5a2098', '#b070e0', '#f2e4ff'], ground: ['#2a1440', '#3a1d58'], blurb: 'The end of the known world.' },
 ];
 
 export const areaDef = (id: AreaId): AreaDef => byId(AREAS, id);
