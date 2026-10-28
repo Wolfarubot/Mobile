@@ -2,6 +2,7 @@ import { GATED, gateWalls } from './gates';
 import {
   MAIN_RANGE,
   GUARDIAN_TAP_TAKEN,
+  GUARDIAN_WEAK_MULT,
   areaDef,
   type Rarity,
   type WeaponClassDef,
@@ -2755,6 +2756,7 @@ export class Field {
   /** Weakness/resistance multiplier, with resistances ignored while the monster is exposed (Arcane). */
   private typeMultOn(dtype: DamageType, e: Enemy): number {
     const m = typeMult(dtype, e.type);
+    if (e.boss && m > 1) return GUARDIAN_WEAK_MULT;
     return e.exposed && m < 1 ? 1 : m;
   }
 

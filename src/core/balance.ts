@@ -1261,6 +1261,8 @@ export interface EnemyDef {
 
 /** Damage multiplier for a type the enemy is vulnerable to. */
 export const WEAK_MULT = 1.5;
+/** A Guardian's weakness counts for less (resistances as usual). */
+export const GUARDIAN_WEAK_MULT = 1.25;
 /** Damage multiplier for a type the enemy resists. */
 export const RESIST_MULT = 0.5;
 

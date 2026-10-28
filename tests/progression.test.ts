@@ -1,10 +1,11 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { weaponHit, gearArea, EVENTS, AREAS, areaEnemies, ENEMIES, GEAR, gearDef, gearStats, slotAccepts, typeMult, type GearId, enemyUnlockCost, HUNTERS, ITEMS, RARITIES, STATION_EFFICIENCY, type AreaId, type Rarity, type HunterId, type ItemId } from '../src/core/balance';
+import { EVENTS, AREAS, ENEMIES, enemyUnlockCost, HUNTERS, ITEMS, RARITIES, STATION_EFFICIENCY, type AreaId, type Rarity, type HunterId, type ItemId } from '../src/core/balance';
 import { Field } from '../src/core/field';
 import { Game, type Shooter } from '../src/core/game';
 import { mergeSample, runSample, sameGroup, SAMPLE_SETTLED } from '../src/core/sampler';
 import { deserialize, newGame, serialize, type Wearer } from '../src/core/state';
+import { botGear } from './botGear';
 
 /** Small deterministic PRNG so pacing results are reproducible. */
 function mulberry(seed: number) {
@@ -16,72 +17,6 @@ function mulberry(seed: number) {
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
-}
-
-/** Rough value of a piece of gear for the bot. Weapons count for more when their damage type suits the area. */
-function gearScore(game: Game, base: GearId, level = 1): number {
-  const gd = gearDef(base);
-  const st = gearStats(gd, level);
-  // A weapon's base damage multiplies everything, so it counts in full (a bare hit is 1).
-  const raw = (gd.weaponClass ? weaponHit(gd, level) - 1 : 0) + (st.damage ?? 0) + (st.rate ?? 0) + (st.range ?? 0) / 100 + (st.crit ?? 0) * 3 + (st.stun ?? 0) + (st.gold ?? 0) * 0.3 + (st.drops ?? 0) * 0.2 + (st.radius ?? 0) * 0.5 + (st.guard ?? 0) * 0.2 + (st.pierce ?? 0) * 0.3;
-  if (!gd.damageType) return raw;
-  const here = areaEnemies(game.area);
-  const fit = here.reduce((sum, e) => sum + typeMult(gd.damageType!, e.id), 0) / here.length;
-  return (1 + raw) * fit - 1;
-}
-
-/** How well a damage type suits the current area's monsters (their average weakness/resistance to it). */
-function typeFit(game: Game, base: GearId): number {
-  const gd = gearDef(base);
-  if (!gd.damageType) return 1;
-  const here = areaEnemies(game.area);
-  return here.reduce((sum, e) => sum + typeMult(gd.damageType!, e.id), 0) / here.length;
-}
-
-/**
- * A weapon's worth to this Hunter in this slot: the game's own damage per second with it equipped (so slow,
- * heavy hammers don't win on damage per hit alone, and bows get the Hunter's multishot), times how well its
- * type suits the area. Tried by slipping a 1★ copy into the slot for a moment.
- */
-function weaponWorth(game: Game, who: Wearer, slot: number, base: GearId, stars = 1, uid?: number): number {
-  const s = game.state;
-  const eq = (s.equipment[who] ??= []);
-  const prev = eq[slot] ?? null;
-  const temp = uid === undefined;
-  const id = temp ? -999 : uid;
-  if (temp) s.inventory.push({ uid: id, base, stars });
-  eq[slot] = id;
-  const dps = game.dpsOf(who as never);
-  eq[slot] = prev;
-  if (temp) s.inventory.pop();
-  return dps * typeFit(game, base);
-}
-
-/** How much better a new piece from the same area must be before the bot crafts it to replace what's worn. */
-const SWAP_MARGIN = 1.3;
-
-/** Fill every slot with the best gear it can craft, then upgrade what's worn. Weapons are judged by damage per second. */
-function botGear(game: Game): void {
-  const wearers: Wearer[] = ['main', ...HUNTERS.filter((h) => game.state.hunters[h.id].recruited).map((h) => h.id)];
-  for (const who of wearers) {
-    game.slotsOf(who).forEach((slot, i) => {
-      const current = game.equipped(who)[i];
-      const options = GEAR.filter((gd) => slotAccepts(slot, gd) && game.canCraftGear(gd.id));
-      if (!options.length) return;
-      const weapons = options.some((gd) => gd.weaponClass) && (!current || gearDef(current.base).weaponClass);
-      const worth = (base: GearId, stars = 1, uid?: number) => (weapons && gearDef(base).weaponClass ? weaponWorth(game, who, i, base, stars, uid) : gearScore(game, base, stars));
-      const best = options.map((gd) => ({ gd, v: worth(gd.id) })).sort((a, b) => b.v - a.v)[0];
-      // Gear from a newer area always replaces older gear; between pieces of the same area, swap only for a
-      // real step up, as every new piece has to be upgraded again (materials and gold).
-      const margin = current && gearArea(best.gd) <= gearArea(gearDef(current.base)) ? SWAP_MARGIN : 1;
-      if (best && (!current || best.v > margin * worth(current.base, current.stars, current.uid))) {
-        const item = game.craftGear(best.gd.id)!;
-        game.equip(who, i, item.uid);
-        if (current) game.salvageGear(current.uid);
-      }
-    });
-  }
-  for (const who of wearers) for (const it of game.equipped(who)) if (it) game.upgradeGear(it.uid);
 }
 
 /** Spend skill points down the tree: root, then Attack Speed and Power in turn (some Recovery), then the rest. */

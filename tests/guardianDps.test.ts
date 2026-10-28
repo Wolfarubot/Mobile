@@ -1,21 +1,25 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { it } from 'vitest';
-import { AREAS, enemyDef, GUARDIAN_ENEMY, HUNTERS, type AreaId } from '../src/core/balance';
+import { AREAS, enemyDef, gearDef, GUARDIAN_ENEMY, HUNTERS, type AreaId } from '../src/core/balance';
 import { Field } from '../src/core/field';
 import { Game } from '../src/core/game';
 import { deserialize } from '../src/core/state';
+import { botGear } from './botGear';
 
 /**
  * Guardian damage test: `SIM_DPS=out.json npx vitest run tests/guardianDps.test.ts` loads each area's "-end" phase
  * from public/dev-presets.json (the pacing run's save just before its winning Guardian challenge, or SIM_DPS_PRESETS),
  * gives that area's Guardian a huge health pool and lets the team fight it for the full timer, tapping it once a
  * second (SIM_DPS_TAPS to change), then moves on. Damage that's a share of the Guardian's own health (poison and the like) grows with it,
- * so each fight runs at two pools (1e9 and 2e9): the difference is that share, the rest is the team's plain damage.
+ * so each fight runs at two pools (POOL and twice that): the difference is that share, the rest is the team's plain damage.
  * The most health the team could bring down in one fight is then plain / (1 - share) (the Time Eater: half that).
  */
 
 /** Taps on the Guardian a second (SIM_DPS_TAPS; 2 is a player really going for it). */
 const TAPS = Number(process.env.SIM_DPS_TAPS ?? 1);
+const REGEAR = !!process.env.SIM_DPS_REGEAR;
+/** The Guardian's health in the test: far more than any team brings down in one fight (then twice that). */
+const POOL = 1e13;
 
 function mulberry(seed: number) {
   return () => {
@@ -27,7 +31,7 @@ function mulberry(seed: number) {
 }
 
 /** One Guardian fight from a save, the Guardian at `hp` health: the damage dealt (and by taps directly), and the seconds it lasted. */
-function fight(raw: unknown, area: AreaId, hp: number): { dmg: number; tapped: number; secs: number; team: string } {
+function fight(raw: unknown, area: AreaId, hp: number): { dmg: number; tapped: number; secs: number; team: string; gear: string } {
   const save = raw as { lastSeen: number };
   const state = deserialize(JSON.stringify(raw), save.lastSeen)!;
   state.area = area;
@@ -37,6 +41,9 @@ function fight(raw: unknown, area: AreaId, hp: number): { dmg: number; tapped: n
   def.guardian = hp;
   try {
     const g = new Game(state, mulberry(42));
+    // SIM_DPS_REGEAR: first gear up the way a player keeping up would (tests/botGear.ts), with the save's own gold
+    // and materials: the best craftable piece in every slot, upgraded, every modifier slot filled.
+    if (REGEAR) for (let i = 0; i < 4; i++) botGear(g);
     const f = new Field(g);
     f.setView(390, 420);
     // A moment on the field first, so everyone is in place.
@@ -71,8 +78,9 @@ function fight(raw: unknown, area: AreaId, hp: number): { dmg: number; tapped: n
         }
       }
     }
+    const gear = ['main', ...HUNTERS.filter((h) => state.hunters[h.id].recruited && state.hunters[h.id].station === area).map((h) => h.id)].map((id) => g.equipped(id as never).map((it) => (it ? `${gearDef(it.base).name} ${it.stars}* ${(it.mods ?? []).filter(Boolean).length}m` : '-')).join('/')).join(' | ');
     const team = ['main', ...HUNTERS.filter((h) => state.hunters[h.id].recruited && state.hunters[h.id].station === area).map((h) => h.id)].map((id) => `${id}:${g.levelOf(id as never)}`).join(' ');
-    return { dmg: maxHp - Math.max(0, left), tapped, secs, team };
+    return { dmg: maxHp - Math.max(0, left), tapped, secs, team, gear };
   } finally {
     def.guardian = real;
   }
@@ -84,14 +92,14 @@ it.runIf(!!process.env.SIM_DPS)('Guardian damage at each stage', () => {
   for (const a of AREAS) {
     const raw = presets[`${a.id}-end`];
     if (!raw) continue;
-    const one = fight(raw, a.id, 1e9);
-    const two = fight(raw, a.id, 2e9);
-    const share = Math.max(0, (two.dmg - one.dmg) / 1e9);
-    const plain = Math.max(0, one.dmg - share * 1e9);
+    const one = fight(raw, a.id, POOL);
+    const two = fight(raw, a.id, 2 * POOL);
+    const share = Math.max(0, (two.dmg - one.dmg) / POOL);
+    const plain = Math.max(0, one.dmg - share * POOL);
     // The Time Eater is beaten at half its health.
     const need = 1 - (enemyDef(GUARDIAN_ENEMY[a.id]).winAt ?? 0);
     const canBeat = plain / Math.max(1e-9, need - share);
-    const row = { area: a.id, secs: +one.secs.toFixed(1), plainDps: Math.round(plain / one.secs), plainDmg: Math.round(plain), share: +share.toFixed(4), canBeat: Math.round(canBeat), guardian: a.guardian, ratio: +(canBeat / a.guardian).toFixed(2), tapShare: +(one.tapped / Math.max(1, one.dmg)).toFixed(2), team: one.team };
+    const row = { area: a.id, secs: +one.secs.toFixed(1), plainDps: Math.round(plain / one.secs), plainDmg: Math.round(plain), share: +share.toFixed(4), canBeat: Math.round(canBeat), guardian: a.guardian, ratio: +(canBeat / a.guardian).toFixed(2), tapShare: +(one.tapped / Math.max(1, one.dmg)).toFixed(2),  team: one.team, gear: one.gear };
     rows.push(row);
     console.log(JSON.stringify(row));
   }
