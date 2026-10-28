@@ -8,11 +8,14 @@ import { deserialize } from '../src/core/state';
 /**
  * Guardian damage test: `SIM_DPS=out.json npx vitest run tests/guardianDps.test.ts` loads each area's "-end" phase
  * from public/dev-presets.json (the pacing run's save just before its winning Guardian challenge, or SIM_DPS_PRESETS),
- * gives that area's Guardian a huge health pool and lets the team fight it for the full timer, tapping once a
- * second, then moves on. Damage that's a share of the Guardian's own health (poison and the like) grows with it,
+ * gives that area's Guardian a huge health pool and lets the team fight it for the full timer, tapping it once a
+ * second (SIM_DPS_TAPS to change), then moves on. Damage that's a share of the Guardian's own health (poison and the like) grows with it,
  * so each fight runs at two pools (1e9 and 2e9): the difference is that share, the rest is the team's plain damage.
  * The most health the team could bring down in one fight is then plain / (1 - share) (the Time Eater: half that).
  */
+
+/** Taps on the Guardian a second (SIM_DPS_TAPS; 2 is a player really going for it). */
+const TAPS = Number(process.env.SIM_DPS_TAPS ?? 1);
 
 function mulberry(seed: number) {
   return () => {
@@ -58,7 +61,7 @@ function fight(raw: unknown, area: AreaId, hp: number): { dmg: number; secs: num
         maxHp = boss.maxHp;
         left = boss.hp;
         secs += 0.05;
-        tapAcc += 0.05;
+        tapAcc += 0.05 * TAPS;
         while (tapAcc >= 1) {
           tapAcc -= 1;
           f.tap(boss.x, boss.y);
