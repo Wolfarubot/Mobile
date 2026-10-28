@@ -46,7 +46,7 @@ Side-view and animal packs (walk or flight strips, one row facing right, mirrore
 slime-green-death.png: Slime1's death (a splat into a puddle, 10 frames, the walk sheet's rows) from free-slime-mobs-pixel-art-top-down-sprite-pack, played in Galladair's Hunting Practice when an arrow strikes a slime.
 
 Guardian bosses (side view, walk strips baked into one row of square frames, all facing left but the Executioner):
-  cave-bosses-pixel-art-game-sprites: huge-mushroom.png (Huge Mushroom -> the Fey Grove's Huge Mushroom), kobold-king.png
+  cave-bosses-pixel-art-game-sprites: huge-mushroom.png (Huge Mushroom -> the Fey Grove's Queen's Guard), kobold-king.png
     (Goblin King -> the Kobold King), frost-gargoyle.png (Vampire Bat, recoloured by brightness to ice blues -> the Frost Gargoyle).
   hell-boss-sprite-sheets-pixel-art: necromancer.png (Necromancer -> the Awoken Lich), mega-beholder.png (Mega Beholder ->
     the Beholden Watcher).
