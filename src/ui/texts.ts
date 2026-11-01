@@ -131,6 +131,18 @@ section(
 );
 section(
   P,
+  'popup.quests',
+  'Daily quests',
+  {
+    title: '📜 Daily Quests',
+    body: "Welcome to the **{area}**! Your **quest log** is open: tap the 📜 scroll at the top of the screen.\n\nEvery day brings **{daily} daily quests**: events to play, Guardians and swarms to take on, monsters to slay. Finish them all for **{gemsDaily} Exalted Gems**. Every week brings **{weekly} bigger goals** worth **{gemsWeekly} Exalted Gems**, and you can collect a **daily check-in bonus** of {checkin} more.\n\nDaily quests change at midnight and weekly ones on Monday. Spend Exalted Gems in the Store on upgrades that last forever.",
+    later: 'Later',
+    go: 'Open quests',
+  },
+  { note: 'Shown once, when you first arrive in the Restless Graveyard (the quest log opens then).', vars: { area: 'Restless Graveyard', daily: '3', gemsDaily: '5', weekly: '3', gemsWeekly: '20', checkin: '5' } },
+);
+section(
+  P,
   'popup.eventsLocked',
   'Events locked',
   { title: '🔒 Events', body: 'Slay {count} {noun} in the {area} to unlock Events, starting with the {event}.\n\n**{progress}**', ok: 'OK' },
@@ -382,6 +394,8 @@ section(
     eventsDesc: 'Guardian Challenges, swarms, minigames and energy.',
     minigames: 'Minigames',
     minigamesDesc: 'What minigames pay, their buffs and star ranks.',
+    quests: 'Daily quests',
+    questsDesc: 'Daily and weekly quests, the check-in, and the Exalted Gems they pay.',
     timeEater: 'The Time Eater',
     timeEaterDesc: 'Replay the cutscene from the Void Rift.',
   },

@@ -1902,8 +1902,28 @@ export class Game {
     return true;
   }
 
+  /**
+   * The quest log (daily and weekly quests, the check-in) opens once you first arrive in the Restless Graveyard,
+   * and stays open.
+   */
+  get questsOpen(): boolean {
+    const at = (id: AreaId) => AREAS.findIndex((a) => a.id === id);
+    return this.state.flags.questsIntro || at(this.state.area) >= at('graveyard');
+  }
+
+  /** The quest log opens: today's and this week's quests start fresh (nothing earlier counts). */
+  openQuestLog(): void {
+    if (this.state.flags.questsIntro) return;
+    this.state.flags.questsIntro = true;
+    const q = this.state.quests;
+    q.day = '';
+    q.week = '';
+    this.rollQuests();
+  }
+
   /** Something in the quest log waiting to be collected. */
   get questsClaimable(): boolean {
+    if (!this.questsOpen) return false;
     const q = this.state.quests;
     return (!q.checkIn && this.state.quests.day === dayKey(this.clock())) || (!q.dailyClaimed && questsDone(this.dailyQuests)) || (!q.weeklyClaimed && questsDone(this.weeklyQuests));
   }

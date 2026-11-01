@@ -4101,6 +4101,26 @@ describe('Events', () => {
     expect(g.guardianHp).toBe(areaDef('forest').guardian);
   });
 
+  it('the quest log opens once you reach the Restless Graveyard, with fresh quests', () => {
+    const g = new Game(newGame(0), noCrit);
+    const now = new Date(2026, 9, 21, 10).getTime();
+    g.clock = () => now;
+    expect(g.questsOpen).toBe(false);
+    expect(g.questsClaimable).toBe(false); // the check-in waits too
+    g.dailyQuests[0].have = g.dailyQuests[0].need; // done before it opened
+    for (const a of ['glade', 'graveyard'] as const) g.state.areas[a].unlocked = true;
+    expect(g.questsOpen).toBe(false); // unlocked isn't arrived
+    expect(g.travel('graveyard')).toBe(true);
+    expect(g.questsOpen).toBe(true);
+    g.openQuestLog();
+    expect(g.state.flags.questsIntro).toBe(true);
+    expect(g.dailyQuests.every((q) => q.have === 0)).toBe(true); // nothing earlier counts
+    expect(g.questsClaimable).toBe(true); // the day's check-in
+    // It stays open back in the earlier areas.
+    g.travel('forest');
+    expect(g.questsOpen).toBe(true);
+  });
+
   it('daily and weekly quests pay Exalted Gems, reset by local day and week; the check-in bonus once a day', () => {
     const g = new Game(newGame(0), noCrit);
     let now = new Date(2026, 9, 21, 10).getTime(); // a Wednesday
@@ -5242,7 +5262,7 @@ describe('Saves', () => {
     s.flags.eventsIntro = true;
     const back = deserialize(serialize(s))!;
     expect(back.settings).toEqual({ leftHanded: true, name: 'Wolfa', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', lootPopups: true, hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', advancedTips: false, autoSalvage: [], fx: Object.fromEntries(FX_KEYS.map((k) => [k, true])), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium', fps: '60', audio: { on: true, musicOn: true, sfxOn: true, master: 80, music: 70, sfx: 80 } });
-    expect(back.flags).toEqual({ eventsIntro: true, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false, minigameIntro: false });
+    expect(back.flags).toEqual({ eventsIntro: true, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false, minigameIntro: false, questsIntro: false });
     const old = JSON.parse(serialize(newGame(0)));
     delete old.settings;
     delete old.flags;

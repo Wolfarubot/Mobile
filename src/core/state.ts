@@ -292,6 +292,8 @@ export interface GameState {
     craftIntro: boolean;
     /** The tip shown when you can first afford to unlock the wolf (also explains the full-screen menu). */
     wolfIntro: boolean;
+    /** The quest log is open (you've reached the Restless Graveyard) and its intro has been shown. */
+    questsIntro: boolean;
     /** The "how minigames work" tip, shown once the first minigame opens. */
     minigameIntro: boolean;
   };
@@ -390,7 +392,7 @@ export function newGame(now = Date.now()): GameState {
     lastSeen: now,
     samples: {},
     settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', lootPopups: true, hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', advancedTips: false, autoSalvage: [], fx: allFx(), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium', fps: '60', audio: defaultAudio() },
-    flags: { eventsIntro: false, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false, minigameIntro: false },
+    flags: { eventsIntro: false, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false, minigameIntro: false, questsIntro: false },
     blessings: { refine: 0, enchant: 0 },
     energy: ENERGY_MAX,
     buffs: {},
@@ -723,6 +725,11 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
       craftIntro: (data.flags as { craftIntro?: unknown } | undefined)?.craftIntro !== false,
       // Saves from before this tip already had the wolf within reach.
       wolfIntro: (data.flags as { wolfIntro?: unknown } | undefined)?.wolfIntro !== false,
+      // Saves that already reached the Restless Graveyard had the quest log all along.
+      questsIntro: (() => {
+        const v = (data.flags as { questsIntro?: unknown } | undefined)?.questsIntro;
+        return typeof v === 'boolean' ? v : !!(data.areas as Record<string, { unlocked?: boolean }> | undefined)?.graveyard?.unlocked;
+      })(),
       // Saves that have already played a minigame know how they work.
       minigameIntro:
         !!(data.flags as { minigameIntro?: unknown } | undefined)?.minigameIntro ||

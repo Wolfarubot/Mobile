@@ -91,6 +91,8 @@ import {
   ENERGY_REGEN,
   ENERGY_ADS_PER_DAY,
   ENERGY_MAX_NO_ADS,
+  DAILY_QUEST_COUNT,
+  WEEKLY_QUEST_COUNT,
   GEMS_CHECKIN,
   GEMS_DAILY,
   GEMS_WEEKLY,
@@ -549,7 +551,10 @@ export class AppUI {
       else if (!s.flags.craftIntro && this.firstCraftable()) this.showCraftIntro();
       else if (!s.flags.empowerIntro && g.empowerUnlocked) this.showEmpowerIntro();
       else if (!s.flags.minigameIntro && g.eventUnlocked('huntingPractice')) this.showMinigameIntro();
+      else if (!s.flags.questsIntro && g.questsOpen) this.showQuestsIntro();
     }
+    // The quest log's button only appears once you've reached the Restless Graveyard.
+    $('#questBtn').classList.toggle('hidden', !g.questsOpen);
     $('#menuBtn .alert-mark').classList.toggle('hidden', !g.unreadJournal().length);
     $('#questBtn .alert-mark').classList.toggle('hidden', !g.questsClaimable);
     // "!" marks: red on tabs and sub-tabs, white on the new things themselves.
@@ -4020,6 +4025,16 @@ export class AppUI {
     ]);
   }
 
+  /** Shown once, when you first arrive in the Restless Graveyard: the quest log opens. */
+  private showQuestsIntro(replay = false): void {
+    if (!replay) this.game.openQuestLog();
+    const v = { area: areaDef('graveyard').name, daily: DAILY_QUEST_COUNT, gemsDaily: GEMS_DAILY, weekly: WEEKLY_QUEST_COUNT, gemsWeekly: GEMS_WEEKLY, checkin: GEMS_CHECKIN };
+    this.showModal(`<h2>${tx('popup.quests.title')}</h2>${txp('popup.quests.body', v)}`, [
+      { label: txt('popup.quests.later'), secondary: true },
+      { label: txt('popup.quests.go'), action: () => this.openQuests() },
+    ]);
+  }
+
   /** Shown once, when the first Guardian Challenge unlocks. */
   private showEventsIntro(replay = false): void {
     if (!replay) this.game.state.flags.eventsIntro = true;
@@ -4688,6 +4703,7 @@ export class AppUI {
     tut(sprite(MENU_SPRITES.eventsLocked), 'eventsLocked', () => this.showEventsLocked());
     tut(sprite(MENU_SPRITES.events), 'events', () => this.showEventsIntro(true));
     tut(sprite(MENU_SPRITES.events), 'minigames', () => this.showMinigameIntro(true));
+    if (this.game.questsOpen) tut(sprite(MENU_SPRITES.quests), 'quests', () => this.showQuestsIntro(true));
     // The story so far, once you've seen it.
     if ((this.game.state.events['guardian-rift']?.completed ?? 0) > 0) tut(sprite(MENU_SPRITES.timeEater), 'timeEater', () => playCutscene(TIME_EATER_CUTSCENE));
   }
