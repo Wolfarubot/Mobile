@@ -79,6 +79,11 @@ interface Scene {
   clear?: number;
   /** The edge wall stands this many pixels further out (more of it off the view), for a bigger clearing. */
   edgeOut?: number;
+  /**
+   * An even bottom edge: along the bottom only wall pieces at least `minHeight` tall, each showing `show` (a range,
+   * as a fraction of its height) above the bottom of the view, so none juts out and none leaves a gap.
+   */
+  edgeBottom?: { minHeight: number; show: [number, number] };
   /** A gated area's corner walls (gates.ts): the wall face tile (32 wide, tiled along every face). */
   wallFace?: string;
 }
@@ -105,6 +110,8 @@ const SCENES: Partial<Record<AreaId, Scene>> = {
       // A wall of trees all round the border, crowding together (monsters walk through it, behind or in front).
       { pieces: [...p('Tree1 Tree2 Tree3 Tree4', 3), ...p('Tree5')], density: 0, from: 0.95, edge: true },
     ],
+    // The big trees only along the bottom, all showing about the same height of crown (an even edge).
+    edgeBottom: { minHeight: 96, show: [0.38, 0.48] },
   },
   // The forest tileset with its greens turned to fey pinks and purples (trunks, stones and ruins unchanged).
   glade: {
@@ -772,15 +779,20 @@ export function areaBackground(area: AreaId, w: number, h: number, decor?: Decor
           const [sx, sy] = spots[Math.floor(r() * spots.length)];
           spots.push([sx + (sx < 40 - out ? 22 : sx > w - 40 + out ? -22 : (r() - 0.5) * 30), sy + (sy < 60 - out ? 18 : sy > h + out ? -16 : 0)]);
         }
+        const even = scene.edgeBottom;
+        const tall = even ? band.pieces.filter((x) => (images.get(`${area}/${x.file}`)?.naturalHeight ?? 0) >= even.minHeight) : [];
+        const tallTotal = tall.reduce((s, x) => s + x.weight, 0);
         for (const [sx, sy] of spots) {
           // Not where a landmark stands (a trunk inside it, or a crown over its middle).
           if (markRects.some(([mx, my, mw, mh]) => sx > mx - 6 && sx < mx + mw + 6 && sy - 40 < my + mh && sy > my)) continue;
-          let pick = r() * total;
-          const piece = band.pieces.find((x) => (pick -= x.weight) <= 0) ?? band.pieces[0];
+          // An even bottom edge (edgeBottom): a big piece, showing a set share of its height.
+          const bottom = !!even && tall.length > 0 && sy > h;
+          let pick = r() * (bottom ? tallTotal : total);
+          const piece = (bottom ? tall : band.pieces).find((x) => (pick -= x.weight) <= 0) ?? band.pieces[0];
           const img = images.get(`${area}/${piece.file}`);
           if (!img || !img.naturalWidth) continue;
           const px = Math.round(sx - img.naturalWidth / 2);
-          const py = Math.round(sy - img.naturalHeight);
+          const py = bottom ? Math.round(h - img.naturalHeight * (even!.show[0] + r() * (even!.show[1] - even!.show[0]))) : Math.round(sy - img.naturalHeight);
           if (inClear(px, img.naturalWidth)) continue;
           // Other pieces keep clear of the wall (most of each crown counts).
           taken.push([px + img.naturalWidth * 0.12, py + img.naturalHeight * 0.1, img.naturalWidth * 0.76, img.naturalHeight * 0.85]);
