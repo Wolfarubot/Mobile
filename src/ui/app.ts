@@ -2626,7 +2626,7 @@ export class AppUI {
           dot.textContent = String(points);
           dot.classList.toggle('hidden', points <= 0);
         } else {
-          lv.textContent = 'Unlock';
+          lv.textContent = 'Locked';
           ready = false;
         }
         // Still locked: a greyed-out square, with a silver (not gold) outline once you can afford to unlock it.
