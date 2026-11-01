@@ -3116,7 +3116,7 @@ export class Field {
 
   /**
    * A ranged or magic shot's hit: it pushes the monster back (a bit more than other hits do) and splashes a share of
-   * its damage onto the monsters packed around it (SHOT_SPLASH).
+   * its damage onto the monsters packed around it (SHOT_SPLASH), which can set off its status effects too.
    */
   private shotSplash(b: Bullet, e: Enemy, mult: number): void {
     const speed = Math.hypot(b.vx, b.vy) || 1;
@@ -3127,7 +3127,7 @@ export class Field {
     for (const o of [...this.enemies]) {
       if (o === e || o.hp <= 0) continue;
       if (Math.hypot(o.x - e.x, o.y - e.y) > e.r + o.r + b.splash!) continue;
-      this.hitWith(b.shooter, o, mult * SHOT_SPLASH.share, e.x, e.y, b.crit, b.mode, false, false, b.dtype);
+      this.hitWith(b.shooter, o, mult * SHOT_SPLASH.share, e.x, e.y, b.crit, b.mode, false, true, b.dtype);
     }
   }
 
