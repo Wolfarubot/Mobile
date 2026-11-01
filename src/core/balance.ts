@@ -3325,6 +3325,7 @@ export type EnchantId =
   | 'shieldBurst'
   | 'virulence'
   | 'binding'
+  | 'lingering'
   | 'haste'
   | 'amplify'
   | 'artWave'
@@ -3469,7 +3470,7 @@ export interface EnchantDef {
   /** Bane: its roll is extra damage against this kind of monster (and to the wearer's summons of that kind). */
   bane?: Archetype;
   /** Virulence / Binding: their roll is a strength, not a chance: status effect strength, or summon duration. */
-  boost?: 'status' | 'summonDur' | 'cooldown' | 'radius';
+  boost?: 'status' | 'summonDur' | 'cooldown' | 'radius' | 'duration';
   /** Only ever built in (Artifact and Exalted uniques, and the shot effects below): never rolled by Enchant. */
   builtInOnly?: boolean;
   /** Built in only, but among the effects a piece's built-in slots can draw (the shot effects). */
@@ -3604,6 +3605,7 @@ export const ENCHANTS: Record<EnchantId, EnchantDef> = {
   haste: { name: 'Haste', icon: '⏱️', range: [0.08, 0.16], weight: 1, boost: 'cooldown', fits: hasCooldown, text: (v) => `−${pct(v)} ability cooldowns` },
   amplify: { name: 'Amplify', icon: '🌀', range: [0.2, 0.4], weight: 1, boost: 'radius', fits: () => true, text: (v) => `+${pct(v)} area size (every area effect: specials, blasts, puddles, slams, auras)` },
   binding: { name: 'Binding', icon: '⏳', range: [0.15, 0.3], weight: 1, boost: 'summonDur', fits: summons, text: (v) => `+${pct(v)} summon duration` },
+  lingering: { name: 'Lingering', icon: '⌛', range: [0.15, 0.3], weight: 1, boost: 'duration', fits: () => true, text: (v) => `+${pct(v)} effect duration (status effects, summons, puddles, orbs, zones, Arrow Rain and every other effect that lasts)` },
   ...(Object.fromEntries((Object.keys(SPELLS) as SpellId[]).map((id) => [spellEnchantId(id), spellEnchant(id)])) as Record<SpellEnchantId, EnchantDef>),
   ...(Object.fromEntries((Object.keys(ARCHETYPES) as Archetype[]).map((a) => [baneEnchantId(a), baneEnchant(a)])) as Record<BaneEnchantId, EnchantDef>),
   artWave: { name: 'Elemental Wave', icon: '🌊', range: [0.1, 0.2], power: [0.8, 1.2], weight: 1, melee: 'wave', fits: melee('sword'), text: (c, p) => `${pct(c)} chance on attack to send out a wave of the sword's element, through every monster in its path (${hits(p)})` },

@@ -3618,6 +3618,13 @@ describe('Equipment', () => {
     // Binding: summons last longer; Haste: shorter cooldowns.
     rifle.mods = [{ kind: 'enchant', id: 'binding', q: MOD_QUALITY_STEPS, p: 0 }];
     expect(g.summonDurationMult('main')).toBeCloseTo(1 + modRoll(ENCHANTS.binding.range, false, 'legendary', MOD_QUALITY_STEPS));
+    // Lingering: everything that lasts lasts longer (status effects, summons, puddles, zones...).
+    const before = g.effectDurationMult('main');
+    rifle.mods = [{ kind: 'enchant', id: 'lingering', q: MOD_QUALITY_STEPS, p: 0 }];
+    const ling = modRoll(ENCHANTS.lingering.range, false, 'legendary', MOD_QUALITY_STEPS);
+    expect(g.lastingMult('main')).toBeCloseTo(1 + ling);
+    expect(g.summonDurationMult('main')).toBeCloseTo(1 + ling);
+    expect(g.effectDurationMult('main')).toBeCloseTo(before + ling);
     // Saves from when they were Refinements turn them into the Enchantments, keeping the roll.
     const old = JSON.parse(serialize(g.state));
     old.inventory.find((it: { uid: number }) => it.uid === rifle.uid).mods = [{ kind: 'refine', stat: 'status', q: 7 }, { kind: 'refine', stat: 'cooldown', q: 3 }];

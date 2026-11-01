@@ -927,7 +927,7 @@ export class Game {
   rainOf(shooter: Shooter): { radius: number; time: number } {
     return {
       radius: this.specialRadius(shooter) * (1 + ARROW_RAIN.perPierce * this.pierceOf(shooter)),
-      time: ARROW_RAIN.time + ARROW_RAIN.perShot * (this.projectilesOf(shooter) - 1),
+      time: (ARROW_RAIN.time + ARROW_RAIN.perShot * (this.projectilesOf(shooter) - 1)) * this.lastingMult(shooter),
     };
   }
 
@@ -1054,13 +1054,21 @@ export class Game {
     return 1 + this.enchantBoost(who, 'status');
   }
 
-  /** Multiplier on how long a Hunter's summons last (Binding). */
+  /** Multiplier on how long a Hunter's summons last (Binding, and Lingering). */
   summonDurationMult(who: Shooter): number {
-    return 1 + this.enchantBoost(who, 'summonDur');
+    return 1 + this.enchantBoost(who, 'summonDur') + this.enchantBoost(who, 'duration');
   }
 
-  /** The total of Virulence, Binding or Haste across a Hunter's gear (Enchantments). */
-  private enchantBoost(who: Shooter, boost: 'status' | 'summonDur' | 'cooldown' | 'radius'): number {
+  /**
+   * Multiplier on how long a Hunter's lasting effects stay (Lingering): puddles, zones, cracks, orbs, Arrow Rain, a
+   * charm or a hold. Status effects take it too, with the rest of effectDurationMult.
+   */
+  lastingMult(who: Shooter): number {
+    return 1 + this.enchantBoost(who, 'duration');
+  }
+
+  /** The total of Virulence, Binding, Haste, Amplify or Lingering across a Hunter's gear (Enchantments). */
+  private enchantBoost(who: Shooter, boost: 'status' | 'summonDur' | 'cooldown' | 'radius' | 'duration'): number {
     let v = 0;
     for (const it of this.equipped(who)) if (it) for (const e of this.enchantsOf(it)) if (e.en.boost === boost) v += e.v;
     return v;
@@ -1073,7 +1081,7 @@ export class Game {
 
   /** How much longer the status effects a Hunter sets off last (Extended Effects, and gear). */
   effectDurationMult(who: Shooter): number {
-    return 1 + this.tree(who).duration + this.gear(who).duration;
+    return 1 + this.tree(who).duration + this.gear(who).duration + this.enchantBoost(who, 'duration');
   }
 
   // ---- Modify: Refine (Kargesh) and Enchant (Marceline) roll random modifiers into a piece's slots ----

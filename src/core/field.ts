@@ -1545,7 +1545,7 @@ export class Field {
       for (const o of this.enemies)
         if (o.hp > 0 && Math.hypot(o.x - tx, o.y - ty) <= radius + o.r) {
           this.hitWith(by, o, dmg, tx, ty, undefined, undefined, true, true, only);
-          o.held = Math.max(o.held ?? 0, (sp.hold ?? 1) * (o.boss ? 0.25 : 1));
+          o.held = Math.max(o.held ?? 0, (sp.hold ?? 1) * g.lastingMult(by) * (o.boss ? 0.25 : 1));
           this.events.push({ type: 'thorns', x: o.x, y: o.y, r: o.r });
         }
       return true;
@@ -1570,7 +1570,7 @@ export class Field {
       if (!near.length) return false;
       this.events.push({ type: 'nova', x, y, r: radius, color: '#ff8ad0' });
       for (const o of near) {
-        o.charm = { left: CHARM_TIME, by, frac: dmg, bite: CHARM_BITE * 0.5 };
+        o.charm = { left: CHARM_TIME * g.lastingMult(by), by, frac: dmg, bite: CHARM_BITE * 0.5 };
         this.events.push({ type: 'nova', x: o.x, y: o.y, r: o.r + 6, color: '#ff8ad0' });
       }
       return true;
@@ -1980,7 +1980,7 @@ export class Field {
         const cx = x + Math.cos(aim) * r * SLAM_OFFSET;
         const cy = y + Math.sin(aim) * r * SLAM_OFFSET;
         const len = reach * MELEE_ARTS.fissureLength;
-        this.fissures.push({ who, mode: m, x1: cx, y1: cy, x2: cx + Math.cos(aim) * len, y2: cy + Math.sin(aim) * len, width: MELEE_ARTS.fissureWidth * g.radiusMult(who), life: MELEE_ARTS.fissureLife, tick: 0, power, color });
+        this.fissures.push({ who, mode: m, x1: cx, y1: cy, x2: cx + Math.cos(aim) * len, y2: cy + Math.sin(aim) * len, width: MELEE_ARTS.fissureWidth * g.radiusMult(who), life: MELEE_ARTS.fissureLife * g.lastingMult(who), tick: 0, power, color });
         break;
       }
       default:
@@ -2118,7 +2118,7 @@ export class Field {
         for (const da of [-0.4, 0, 0.4]) this.shoot(b.shooter, 'spell', e.x, e.y, aim + da, BULLET_SPEED, 120, { dtype, cast: c, k: 0.5, mode: b.mode });
         break;
       case 'acid':
-        this.puddles.push({ shooter: b.shooter, x: e.x, y: e.y, r: 40 * area, life: 4 * PUDDLE_TICK, tick: 0, dmg: 0, dtype, cast: c, k: 0.3 });
+        this.puddles.push({ shooter: b.shooter, x: e.x, y: e.y, r: 40 * area, life: 4 * PUDDLE_TICK * this.game.lastingMult(b.shooter), tick: 0, dmg: 0, dtype, cast: c, k: 0.3 });
         break;
       case 'poison':
         this.infect(e, c, this.spellAmount(c, e));
@@ -2145,10 +2145,10 @@ export class Field {
         for (const da of [-0.3, 0.3]) this.shoot(b.shooter, 'spell', e.x, e.y, aim + da, BULLET_SPEED, 400, { pierce: Infinity, dtype, cast: c, k: 0.6, mode: b.mode });
         break;
       case 'decay':
-        this.zones.push({ kind: 'raiseDead', c, x: e.x, y: e.y, r: 50 * area, vx: 0, vy: 0, life: 3, max: 3, tick: 0, k: 0.1, touched: new Map() });
+        this.zones.push({ kind: 'raiseDead', c, x: e.x, y: e.y, r: 50 * area, vx: 0, vy: 0, life: 3 * this.game.lastingMult(c.who), max: 3 * this.game.lastingMult(c.who), tick: 0, k: 0.1, touched: new Map() });
         break;
       case 'void':
-        this.zones.push({ kind: 'gravityAnchor', c, x: e.x, y: e.y, r: 70 * area, vx: 0, vy: 0, life: 1.5, max: 1.5, tick: 0, k: 0.1, touched: new Map() });
+        this.zones.push({ kind: 'gravityAnchor', c, x: e.x, y: e.y, r: 70 * area, vx: 0, vy: 0, life: 1.5 * this.game.lastingMult(c.who), max: 1.5 * this.game.lastingMult(c.who), tick: 0, k: 0.1, touched: new Map() });
         break;
       default:
         // Physical: barbed, it leaves two more bleeds.
@@ -2203,13 +2203,13 @@ export class Field {
         const cx = live.reduce((a, e) => a + e.x, 0) / live.length;
         const cy = live.reduce((a, e) => a + e.y, 0) / live.length;
         const r = 260 * g.radiusMult(who);
-        this.zones.push({ kind: 'gravityAnchor', c: { who, dtype: 'void', base }, x: cx, y: cy, r, vx: 0, vy: 0, life: 3, max: 3, tick: 0, k: 0.25, touched: new Map() });
+        this.zones.push({ kind: 'gravityAnchor', c: { who, dtype: 'void', base }, x: cx, y: cy, r, vx: 0, vy: 0, life: 3 * this.game.lastingMult(who), max: 3 * this.game.lastingMult(who), tick: 0, k: 0.25, touched: new Map() });
         this.events.push({ type: 'spell', fx: 'anchor', x: cx, y: cy, r, color: DAMAGE_TYPES.void.color });
         break;
       }
       case 'eternalLegion':
         // Cursed ground under the whole field: everything that dies rises (it deals no damage of its own).
-        this.zones.push({ kind: 'raiseDead', c: { who, dtype: 'decay', base }, x: 0, y: 0, r: Math.hypot(this.halfW, this.halfH) * 2, vx: 0, vy: 0, life: 8, max: 8, tick: 0, k: 0, touched: new Map() });
+        this.zones.push({ kind: 'raiseDead', c: { who, dtype: 'decay', base }, x: 0, y: 0, r: Math.hypot(this.halfW, this.halfH) * 2, vx: 0, vy: 0, life: 8 * this.game.lastingMult(who), max: 8 * this.game.lastingMult(who), tick: 0, k: 0, touched: new Map() });
         this.events.push({ type: 'nova', x, y, r: 200, color: DAMAGE_TYPES.decay.color });
         break;
     }
@@ -2544,7 +2544,7 @@ export class Field {
         const near = this.enemies.filter((o) => o.hp > 0 && Math.hypot(o.x - target.x, o.y - target.y) <= sp.r! * area);
         const cx = near.reduce((a, o) => a + o.x, 0) / near.length;
         const cy = near.reduce((a, o) => a + o.y, 0) / near.length;
-        this.zones.push({ kind: spell, c, x: cx, y: cy, r: sp.r! * area, vx: 0, vy: 0, life: sp.life!, max: sp.life!, tick: 0, k: sp.k, touched: new Map() });
+        this.zones.push({ kind: spell, c, x: cx, y: cy, r: sp.r! * area, vx: 0, vy: 0, life: sp.life! * this.game.lastingMult(c.who), max: sp.life! * this.game.lastingMult(c.who), tick: 0, k: sp.k, touched: new Map() });
         if (spell === 'gravityAnchor') this.events.push({ type: 'spell', fx: 'anchor', x: cx, y: cy, r: sp.r! * area, color });
         break;
       }
@@ -2564,7 +2564,7 @@ export class Field {
       case 'poisonMist': {
         // A cloud rolling out from the Hunter, through the target and on across the field.
         const speed = 70;
-        this.zones.push({ kind: spell, c, x: x + Math.cos(aim) * 30, y: y + Math.sin(aim) * 30, r: sp.r! * area, vx: Math.cos(aim) * speed, vy: Math.sin(aim) * speed, life: sp.life!, max: sp.life!, tick: 0, k: sp.k, touched: new Map() });
+        this.zones.push({ kind: spell, c, x: x + Math.cos(aim) * 30, y: y + Math.sin(aim) * 30, r: sp.r! * area, vx: Math.cos(aim) * speed, vy: Math.sin(aim) * speed, life: sp.life! * this.game.lastingMult(c.who), max: sp.life! * this.game.lastingMult(c.who), tick: 0, k: sp.k, touched: new Map() });
         break;
       }
       case 'plague': {
@@ -2725,7 +2725,7 @@ export class Field {
     const z = this.zones.find((z) => z.kind === 'raiseDead' && Math.hypot(e.x - z.x, e.y - z.y) <= z.r + e.r);
     if (!z || e.boss) return;
     const look = enemyDef(e.type);
-    this.summons.push({ who: z.c.who, type: 'undead', x: e.x, y: e.y, life: RISEN.life, maxLife: RISEN.life, bite: 0, look: 'wisp', dash: 0, dashHit: false, risen: { c: z.c, enemy: look.id } });
+    this.summons.push({ who: z.c.who, type: 'undead', x: e.x, y: e.y, life: RISEN.life * this.game.summonDurationMult(z.c.who), maxLife: RISEN.life * this.game.summonDurationMult(z.c.who), bite: 0, look: 'wisp', dash: 0, dashHit: false, risen: { c: z.c, enemy: look.id } });
     this.events.push({ type: 'spell', fx: 'rise', x: e.x, y: e.y, r: e.r + 8, color: DAMAGE_TYPES.decay.color });
   }
 
@@ -3101,7 +3101,7 @@ export class Field {
         if (b.life <= 0 || (b.tx !== undefined && (b.tx - b.x) * b.vx + (b.ty! - b.y) * b.vy <= 0)) {
           b.life = 0;
           const ticks = b.ticks ?? (b.shooter === 'main' ? undefined : hunterDef(b.shooter).special?.ticks) ?? 6;
-          this.puddles.push({ shooter: b.shooter, x: b.tx ?? b.x, y: b.ty ?? b.y, r: b.radius ?? 40, life: ticks * PUDDLE_TICK, tick: 0, dmg: b.dmg, dtype: b.dtype, cast: b.cast, k: b.k });
+          this.puddles.push({ shooter: b.shooter, x: b.tx ?? b.x, y: b.ty ?? b.y, r: b.radius ?? 40, life: ticks * PUDDLE_TICK * this.game.lastingMult(b.shooter), tick: 0, dmg: b.dmg, dtype: b.dtype, cast: b.cast, k: b.k });
         }
         continue;
       }
