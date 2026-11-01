@@ -4165,11 +4165,11 @@ export class AppUI {
     return !gd.starter && !this.seenSet('recipes').has(gd.id) && this.gearKnown(gd);
   }
 
-  /** A monster you've unlocked, or can afford to, that you haven't looked at. */
+  /** A monster you can now afford to unlock and haven't looked at yet (ones already unlocked, like each area's first, don't count). */
   private newBeast(def: EnemyDef): boolean {
     const g = this.game;
-    if (this.seenSet('beasts').has(def.id)) return false;
-    return g.state.bestiary[def.id].unlocked || (g.isAreaUnlocked(def.area) && g.state.gold >= enemyUnlockCost(def));
+    if (this.seenSet('beasts').has(def.id) || g.state.bestiary[def.id].unlocked) return false;
+    return g.isAreaUnlocked(def.area) && g.state.gold >= enemyUnlockCost(def);
   }
 
   /** An event that's ready to start and hasn't been seen in the Events tab since it became ready. */
