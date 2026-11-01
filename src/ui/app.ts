@@ -163,6 +163,7 @@ import { NODE_SPRITES } from '../core/nodeSprites';
 import { hunterIconHtml } from './hunterIcons';
 import { startMarket } from './market';
 import { buzz, setHaptics } from './haptics';
+import { applyOrientation } from './orientation';
 import { perfOn, setPerfOn } from './perfMeter';
 import { AREA_MUSIC, GUARDIAN_MUSIC, MINIGAME_MUSIC, playMusic, setMusicVolume, SWARM_MUSIC } from './music';
 import { pressSound, setSfxVolume, sfx } from './sound';
@@ -4914,6 +4915,7 @@ export class AppUI {
     document.body.classList.toggle('left-handed', this.game.state.settings.leftHanded);
     mainHunterName = this.game.state.settings.name.trim();
     setHaptics(this.game.state.settings.haptics);
+    applyOrientation(this.game.state.settings.orientation);
     applyAudio(this.game.state.settings.audio);
     applyFont(this.game.state.settings.font);
     applyUiStyle(this.game.state.settings.uiStyle);
@@ -4981,7 +4983,7 @@ export class AppUI {
     const syncs: Array<() => void> = [];
     const choices = <T extends string>(title: string, blurb: string, opts: Array<[T, string]>, get: () => T, set: (v: T) => void, enabled: () => boolean = () => true) => {
       const card = el('div', 'card setting');
-      card.innerHTML = `<div class="setting-name">${title}</div><p>${blurb}</p><div class="segmented">${opts.map(([v, label]) => `<button data-v="${v}">${label}</button>`).join('')}</div>`;
+      card.innerHTML = `<div class="setting-name">${title}</div><p>${blurb}</p><div class="segmented${opts.length >= 4 && opts.some(([, l]) => l.length > 9) ? ' two-rows' : ''}">${opts.map(([v, label]) => `<button data-v="${v}">${label}</button>`).join('')}</div>`;
       const btns = card.querySelectorAll<HTMLButtonElement>('.segmented button');
       const draw = () => {
         const on = enabled();
@@ -5184,6 +5186,21 @@ export class AppUI {
       setHaptics(v);
       buzz();
     });
+    choices(
+      'Orientation',
+      'Rotate turns the screen with your phone. Portrait and Landscape hold it one way round: Landscape left with the top of the phone pointing left, Landscape right with it pointing right. In landscape the battlefield sits beside the menu, which goes on the side set by Handedness.',
+      [
+        ['rotate', 'Rotate'],
+        ['portrait', 'Portrait'],
+        ['landscapeLeft', 'Landscape left'],
+        ['landscapeRight', 'Landscape right'],
+      ],
+      () => st.orientation,
+      (v) => {
+        st.orientation = v;
+        applyOrientation(v);
+      },
+    );
     choices('Frame rate', 'The most times a second the battlefield is redrawn. 30 saves the most battery; Max follows your screen (up to 120 on some phones). The fight runs at the same speed either way.', [['30', '30'], ['60', '60'], ['max', 'Max']], () => st.fps, (v) => (st.fps = v));
     choices('Clarity Border', 'A white outline round Hunters, monsters and their projectiles, so they stand out from the ground and the scenery. Low is a faint edge; Strong a bright one.', [['off', 'Off'], ['low', 'Low'], ['moderate', 'Moderate'], ['strong', 'Strong']], () => st.clarity, (v) => (st.clarity = v));
 

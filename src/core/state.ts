@@ -275,6 +275,8 @@ export interface GameState {
     clarity: ClarityLevel;
     /** Vibration on button presses and battlefield taps (Medium by default). */
     haptics: HapticLevel;
+    /** Rotate (default) follows the phone; the others lock the screen that way round (on the phone app). */
+    orientation: Orientation;
     /** Highest battlefield frame rate: 30 or 60 save battery; 'max' follows the screen (up to 120 on some phones). */
     fps: FrameRate;
     /** Sound effects: off, or how loud (Medium by default). */
@@ -393,7 +395,7 @@ export function newGame(now = Date.now()): GameState {
     nextGearUid: 4,
     lastSeen: now,
     samples: {},
-    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', lootPopups: true, hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', advancedTips: false, maxTrainPopup: true, autoSalvage: [], fx: allFx(), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium', fps: '60', audio: defaultAudio() },
+    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', lootPopups: true, hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', advancedTips: false, maxTrainPopup: true, autoSalvage: [], fx: allFx(), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium', orientation: 'rotate', fps: '60', audio: defaultAudio() },
     flags: { eventsIntro: false, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false, minigameIntro: false, questsIntro: false },
     blessings: { refine: 0, enchant: 0 },
     energy: ENERGY_MAX,
@@ -429,6 +431,9 @@ export const CLARITY_LEVELS = ['off', 'low', 'moderate', 'strong'] as const;
 export type ClarityLevel = (typeof CLARITY_LEVELS)[number];
 /** Haptic feedback on presses and taps: off, or how strong. */
 export const HAPTIC_LEVELS = ['off', 'light', 'medium', 'strong'] as const;
+/** Screen orientation: follow the phone's rotation, or lock to portrait or one way round in landscape. */
+export const ORIENTATIONS = ['rotate', 'portrait', 'landscapeLeft', 'landscapeRight'] as const;
+export type Orientation = (typeof ORIENTATIONS)[number];
 export type HapticLevel = (typeof HAPTIC_LEVELS)[number];
 export const FRAME_RATES = ['30', '60', 'max'] as const;
 export type FrameRate = (typeof FRAME_RATES)[number];
@@ -714,6 +719,7 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
       uiStyle: pick(UI_STYLES, (data.settings as { uiStyle?: unknown } | undefined)?.uiStyle, 'parchment'),
       clarity: pick(CLARITY_LEVELS, (data.settings as { clarity?: unknown } | undefined)?.clarity, 'low'),
       haptics: pick(HAPTIC_LEVELS, (data.settings as { haptics?: unknown } | undefined)?.haptics, 'medium'),
+      orientation: pick(ORIENTATIONS, (data.settings as { orientation?: unknown } | undefined)?.orientation, 'rotate'),
       fps: pick(FRAME_RATES, (data.settings as { fps?: unknown } | undefined)?.fps, '60'),
       audio: readAudio(data.settings as Record<string, unknown> | undefined),
     },

@@ -7384,3 +7384,11 @@ body.landscape.left-handed .hunter-detail {
   border-left: none;
   border-right: 3px solid var(--c0);
 }
+
+/* A setting's choices with four long names (Orientation): two to a row. */
+.setting .segmented.two-rows {
+  flex-wrap: wrap;
+}
+.setting .segmented.two-rows button {
+  flex: 1 1 40%;
+}
