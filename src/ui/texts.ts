@@ -582,7 +582,7 @@ section(
     chill: 'Chill aura: monsters near you move at half speed.',
     spell: '{spell}: {desc}',
     unique: '{name}: every so often, {desc}.',
-    potion: 'Potion: every so often in a fight, you drink it for a short boost to {stat}.',
+    potion: 'Potion: every so often, gain a short boost to {stat}.',
   },
   {
     note: "An accessory's or armor's ability tag with Advanced tooltips off. On, it shows the exact damage, chance, cooldown and duration instead.",

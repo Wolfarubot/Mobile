@@ -4391,7 +4391,7 @@ export function describeEffect(e: GearEffect, stars: number): string {
     case 'unique':
       return `${UNIQUE_EFFECTS[e.id].name}: every ${e.cooldown}s, ${UNIQUE_EFFECTS[e.id].desc} (${dmg} damage).`;
     case 'potion':
-      return `Potion: every ${e.cooldown}s in a fight, drink it for ${GEAR_STATS[e.stat](potionValue(e, stars))} for ${e.duration}s.`;
+      return `Potion: every ${e.cooldown} seconds, gain ${GEAR_STATS[e.stat](potionValue(e, stars))} for ${e.duration} seconds.`;
   }
 }
 
