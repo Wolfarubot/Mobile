@@ -672,10 +672,9 @@ export class AppUI {
       }
       setHtml(btn, p.count === 0 ? (g.ascended(who) ? 'Max level' : `Lv ${level} cap<small>Ascend in Skills</small>`) : `Train${p.count > 1 ? ` ×${p.count}` : ''}<small>🪙 ${fmt(p.cost)}</small>`);
       btn.disabled = p.count === 0 || g.state.gold < p.cost;
-      $('i', bar).style.width = `${(into / need) * 100}%`;
       // The card's bar is just the bar; the numbers are in the full view.
       const capped = p.count === 0;
-      $('i', bar).style.width = capped ? '100%' : `${(into / need) * 100}%`;
+      levelBar(bar, level, capped ? 100 : (into / need) * 100);
       $('span', bar).textContent = compact ? '' : capped ? (g.ascended(who) ? 'Max' : 'Ascend') : `${into}/${need}`;
     });
     return { btn, bar };
@@ -991,7 +990,15 @@ export class AppUI {
             [`${{ wolf: 'Wolf', puppet: 'Puppet', skeleton: 'Skeleton' }[def.special.summon.look]} bite (${DAMAGE_TYPES[g.damageTypeOf(who, 'long', true)].name})`, fmt(g.shotDamage(who) * g.specialDamageMult(who) * g.summonFerocity(who))],
             [`${def.special.name} every`, `${cd}s`],
           );
-        else if (def?.special?.kind === 'laser')
+        else if (def?.special?.kind === 'rain') {
+          const rain = g.rainOf(who);
+          cells.push(
+            [`Arrow damage (${DAMAGE_TYPES[g.damageTypeOf(who, 'long', true)].name})`, hit],
+            ['Rain size', fmt(rain.radius)],
+            ['Rain lasts', `${rain.time.toFixed(2)}s`],
+            [`${def.special.name} every`, `${cd}s`],
+          );
+        } else if (def?.special?.kind === 'laser')
           cells.push(
             [`Laser damage (${DAMAGE_TYPES[g.damageTypeOf(who, 'long', true)].name})`, hit],
             ['Beam width', fmt((def.special.width ?? 12) * (g.specialRadius(who) / def.special.radius))],
@@ -2725,7 +2732,7 @@ export class AppUI {
             : `🔒 Empower<small>${fmt(g.slimeKills)}/${EMPOWER_UNLOCK_KILLS} slimes</small>`,
       );
       btn.disabled = maxed || !g.empowerUnlocked || g.state.gold < p.cost || !g.isUnlocked(id);
-      $('i', bar).style.width = `${(into / need) * 100}%`;
+      levelBar(bar, level, maxed ? 100 : (into / need) * 100);
       $('span', bar).textContent = compact ? '' : maxed ? 'Max' : `${into}/${need}`;
     });
     return { btn, bar };
@@ -2922,11 +2929,10 @@ export class AppUI {
     const g = this.game;
     this.gearListOpen = true;
     const invTitle = sectionTitle('Equipment');
-    pane.appendChild(invTitle);
+    pane.appendChild(titleWithFilter(invTitle, () => this.openInvFilter()));
     const bar = el('div', 'filter-bar');
     const modifyOpen = g.refineOpen || g.enchantOpen;
-    bar.innerHTML = `<button class="filter-btn">⚙️ Filter</button>${modifyOpen ? '<button class="filter-btn mod-btn">🛠️ Modify</button>' : ''}<div class="filter-chips"></div>${g.autoSalvageOpen ? '<button class="filter-btn as-btn">♻️ Auto Salvage</button>' : ''}`;
-    $('.filter-btn', bar).addEventListener('click', () => this.openInvFilter());
+    bar.innerHTML = `${modifyOpen ? '<button class="filter-btn mod-btn">🛠️ Modify</button>' : ''}${g.autoSalvageOpen ? '<button class="filter-btn as-btn">♻️ Auto Salvage</button>' : ''}<div class="filter-chips"></div>`;
     // Modify (once Kargesh or Marceline joins): between Filter and Auto Salvage.
     const modBtn = bar.querySelector<HTMLButtonElement>('.mod-btn');
     modBtn?.addEventListener('click', () => {
@@ -2980,7 +2986,7 @@ export class AppUI {
       invTitle.innerHTML = refining
         ? `<span>🛠️ Modify</span><span>${shown} piece${shown === 1 ? '' : 's'} with modifier slots</span>`
         : `<span>Equipment</span><span>${on ? `${shown} of ${total}` : total} item${total === 1 ? '' : 's'}</span>`;
-      $('.filter-btn', bar).classList.toggle('on', on);
+      invFilterBtn(pane).classList.toggle('on', on);
       filterChips($('.filter-chips', bar), f, () => {
         this.invFilter = { ...NO_FILTER };
         this.refresh();
@@ -3147,10 +3153,9 @@ export class AppUI {
     const g = this.game;
     let tiles: Array<{ tile: HTMLElement; ready: () => boolean; badge: () => string }> = [];
     const craftTitle = sectionTitle('Craft Equipment');
-    pane.appendChild(craftTitle);
+    pane.appendChild(titleWithFilter(craftTitle, () => this.openInvFilter('crafting')));
     const bar = el('div', 'filter-bar');
-    bar.innerHTML = '<button class="filter-btn">⚙️ Filter</button><div class="filter-chips"></div>';
-    $('.filter-btn', bar).addEventListener('click', () => this.openInvFilter('crafting'));
+    bar.innerHTML = '<div class="filter-chips"></div>';
     pane.appendChild(bar);
     const gearGrid = el('div', 'craft-grid');
     pane.appendChild(gearGrid);
@@ -3161,13 +3166,18 @@ export class AppUI {
     const buildGear = () => {
       const f = this.craftFilter;
       const known = GEAR.filter((x) => !x.starter && this.gearKnown(x));
-      const list = known.filter((gd) => gearMatches(gd, f) && f.type !== 'upgrades').sort((a, b) => gearArea(b) - gearArea(a));
-      const key = JSON.stringify(f) + list.map((gd) => gd.id).join(',');
+      // New recipes (marked !) first until they're opened; then the newest area's gear, rarest first.
+      const rank = (gd: GearDef) => RARITY_ORDER.indexOf(gd.rarity);
+      const isNew = new Set(known.filter((gd) => this.newRecipe(gd)).map((gd) => gd.id));
+      const list = known
+        .filter((gd) => gearMatches(gd, f) && f.type !== 'upgrades')
+        .sort((a, b) => Number(isNew.has(b.id)) - Number(isNew.has(a.id)) || gearArea(b) - gearArea(a) || rank(b) - rank(a));
+      const key = JSON.stringify(f) + list.map((gd) => gd.id + (isNew.has(gd.id) ? '!' : '')).join(',');
       if (key === gearKey) return;
       gearKey = key;
       const on = filtering(f);
       craftTitle.innerHTML = `<span>Craft Equipment</span><span>${on ? `${list.length} of ${known.length}` : known.length} recipe${known.length === 1 ? '' : 's'}</span>`;
-      $('.filter-btn', bar).classList.toggle('on', on);
+      invFilterBtn(pane).classList.toggle('on', on);
       filterChips($('.filter-chips', bar), f, () => {
         this.craftFilter = { ...NO_FILTER };
         this.refresh();
@@ -5807,6 +5817,34 @@ function wearerIcon(who: Wearer): string {
   return hunterIconHtml(who);
 }
 
+/** How long a level bar shows full when its level goes up, before it fades and starts again from the new level. */
+const LEVEL_BAR_HOLD = 450;
+
+/**
+ * Sets a level progress bar's fill. When the level has gone up since last time, the bar first fills all the way,
+ * holds a moment, then fades out and comes back at the new level's progress, so a level-up reads as a full bar.
+ */
+function levelBar(bar: HTMLElement, level: number, pct: number): void {
+  const fill = $('i', bar);
+  const prev = Number(bar.dataset.level ?? level);
+  bar.dataset.level = String(level);
+  bar.dataset.pct = String(pct);
+  if (level > prev) {
+    bar.dataset.holding = '1';
+    fill.classList.remove('lvl-reset');
+    fill.style.width = '100%';
+    window.setTimeout(() => {
+      delete bar.dataset.holding;
+      fill.classList.add('lvl-reset');
+      fill.style.width = `${bar.dataset.pct}%`;
+      window.setTimeout(() => fill.classList.remove('lvl-reset'), 250);
+    }, LEVEL_BAR_HOLD);
+    return;
+  }
+  // Still showing the full bar of a level-up: it comes back at the latest progress when that ends.
+  if (!bar.dataset.holding) fill.style.width = `${pct}%`;
+}
+
 /** Material cost list; with `check`, amounts you can't afford are highlighted. */
 /** Swells the Hunter or monster card holding `from` for a moment (restarting if it's already mid-bump). */
 function bumpCard(from: HTMLElement): void {
@@ -6202,6 +6240,18 @@ function weaponTraits(c: WeaponClassDef): string[] {
   if (c.knock) out.push(`💨 ${knock(c.knock)} knockback`);
   return out;
 }
+
+/** A section title with the Filter button, a small square, in its corner. */
+function titleWithFilter(title: HTMLElement, open: () => void): HTMLElement {
+  const row = el('div', 'title-row');
+  const btn = el('button', 'filter-btn filter-corner', '⚙️');
+  btn.title = 'Filter';
+  btn.setAttribute('aria-label', 'Filter');
+  btn.addEventListener('click', open);
+  row.append(title, btn);
+  return row;
+}
+const invFilterBtn = (pane: HTMLElement): HTMLElement => $('.title-row .filter-corner', pane);
 
 function sectionTitle(text: string): HTMLElement {
   const t = el('div', 'section-title');

@@ -1,5 +1,6 @@
 import { JOURNAL, type JournalEntry } from './journal';
 import {
+  ARROW_RAIN,
   weaponArchetype,
   withArchetype,
   modSlotCount,
@@ -917,10 +918,25 @@ export class Game {
     return 1 + this.tree(shooter).radius;
   }
 
+  /** Projectiles a Hunter's shot fires: one, plus extra arrows from their skills and their gear. */
+  projectilesOf(shooter: Shooter): number {
+    return 1 + Math.round(this.tree(shooter).multishot) + Math.ceil(this.weaponClassOf(shooter)?.multishot ?? 0);
+  }
+
+  /** Arrow Rain: how wide the rain falls (piercing widens it) and how long it lasts (extra arrows lengthen it). */
+  rainOf(shooter: Shooter): { radius: number; time: number } {
+    return {
+      radius: this.specialRadius(shooter) * (1 + ARROW_RAIN.perPierce * this.pierceOf(shooter)),
+      time: ARROW_RAIN.time + ARROW_RAIN.perShot * (this.projectilesOf(shooter) - 1),
+    };
+  }
+
   /** The special's damage in shot-equivalents per second against a crowd (for DPS and the farm model). */
   private specialHitRate(shooter: Shooter): number {
     const sp = shooter === 'main' ? undefined : hunterDef(shooter).special;
     if (!sp) return 0;
+    // Arrow Rain: each arrow hits about one monster wherever it lands (a wider rain spreads them, not more of them).
+    if (sp.kind === 'rain') return (ARROW_RAIN.rate * this.rainOf(shooter).time * sp.crowd * this.specialDamageMult(shooter)) / (sp.cooldown * this.cooldownMult(shooter));
     // Wider specials catch more of the crowd.
     const reach = sp.summon ? this.summonFerocity(shooter) : this.specialRadius(shooter) / sp.radius;
     return (sp.ticks * sp.crowd * reach * this.specialDamageMult(shooter)) / (sp.cooldown * this.cooldownMult(shooter));

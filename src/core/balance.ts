@@ -410,12 +410,17 @@ export interface TapAbilityDef {
 export const TAP_ABILITIES: TapAbilityDef[] = [
   { id: 'flame', name: 'Flame Burst', icon: '🔥', damageType: 'fire', damage: 1, desc: 'Your taps deal Fire damage, and every 3s a tap erupts, setting everything it hits ablaze.' },
   { id: 'thunder', name: 'Thunderclap', icon: '⚡', damageType: 'lightning', damage: 1, desc: 'Your taps crack with lightning: every monster hit arcs a bolt to another one nearby.' },
-  { id: 'frost', name: 'Frost Nova', icon: '❄️', damageType: 'frost', damage: 1, desc: 'Your taps freeze: everything hit is chilled (half speed) for 3s.' },
+  { id: 'frost', name: 'Frost Nova', icon: '❄️', damageType: 'frost', damage: 1, desc: 'Your taps deal Frost damage, and every 3s a tap freezes everything it hits solid for 1.5s, then chills it (half speed) for 3s.' },
   { id: 'miasma', name: 'Melting Miasma', icon: '☠️', damageType: 'poison', damage: 1, desc: 'Your taps poison everything they hit, and every 4s a tap leaves a poison puddle that hurts monsters walking through it.' },
 ];
 export const tapAbilityDef = (id: TapAbilityId): TapAbilityDef => byId(TAP_ABILITIES, id);
 /** How long Frost Nova chills. */
 export const FROST_TAP_CHILL = 3;
+/**
+ * Frost Nova freezes what a tap hits at most once per `cooldown` seconds (shortened by Quick Casting), holding it in
+ * place for `freeze` seconds (Guardians a quarter as long) before the chill sets in.
+ */
+export const FROST_NOVA = { cooldown: 3, freeze: 1.5 };
 /**
  * Melting Miasma's puddle: at most one per `cooldown` seconds (shortened by Quick Casting), as wide as the tap
  * blast, lasting `ticks` puddle ticks, each hurting everything in it for `share` of the tap's damage.
@@ -444,7 +449,7 @@ const MAIN_FIRST_TREE: SkillNode[] = [
   { id: 'recovery2', name: 'Tap Size', icon: '💥', desc: '+20% tap blast area per rank.', maxRank: 4, effect: { tapSize: 0.2 }, requires: ['recovery'], col: 3.5, row: 2 },
   { id: 'flameTap', name: 'Flame Burst', icon: '🔥', desc: `Unlocks the Flame Burst tap ability: taps deal Fire damage, and every ${FLAME_BURST_COOLDOWN}s a tap sets everything it hits ablaze. ${TAP_HINT}`, maxRank: 1, effect: {}, ability: 'flame', requires: ['power2'], col: 0.5, row: 3 },
   { id: 'speed2', name: 'Piercing Shot', icon: '🔱', desc: 'Shots pierce 1 more enemy.', maxRank: 1, effect: { pierce: 1 }, requires: ['eagleEye'], col: 2, row: 3 },
-  { id: 'frostTap', name: 'Frost Nova', icon: '❄️', desc: `Unlocks the Frost Nova tap ability: taps deal Frost damage and chill monsters. ${TAP_HINT}`, maxRank: 1, effect: {}, ability: 'frost', requires: ['recovery2'], col: 3.5, row: 3 },
+  { id: 'frostTap', name: 'Frost Nova', icon: '❄️', desc: `Unlocks the Frost Nova tap ability: taps deal Frost damage, and every ${FROST_NOVA.cooldown}s a tap freezes everything it hits, then chills it. ${TAP_HINT}`, maxRank: 1, effect: {}, ability: 'frost', requires: ['recovery2'], col: 3.5, row: 3 },
   { id: 'wideTaps', name: 'Wide Taps', icon: '🌀', desc: '+10% tap blast area per rank.', maxRank: 4, effect: { tapSize: 0.1 }, requires: ['flameTap'], col: 1, row: 4 },
   { id: 'prosperity', name: 'Prosperity', icon: '🪙', desc: '+15% gold from your kills per rank.', maxRank: 3, effect: { gold: 0.15 }, requires: ['speed2'], col: 2, row: 4 },
   { id: 'bulwark', name: 'Bulwark', icon: '🛡️', desc: '+1 shield charge per rank.', maxRank: 2, effect: { guard: 1 }, requires: ['frostTap'], col: 3, row: 4 },
@@ -2189,8 +2194,14 @@ export const DAMAGE_TYPES: Record<DamageType, { name: string; icon: string; colo
  * `ticks` is how many times it hits (a puddle ticks), and `crowd` how many monsters it typically catches, for
  * the background model. Summons copy the weapon's damage type and status effects; the others keep their own.
  */
+/**
+ * Galladair's Arrow Rain: arrows land `rate` a second for `time` seconds (plus `perShot` for every extra arrow per
+ * shot), each hitting a spot `arrow` wide; the rain spreads `perPierce` wider for each point of piercing.
+ */
+export const ARROW_RAIN = { time: 1.5, perShot: 0.75, rate: 8, arrow: 18, perPierce: 0.2 };
+
 export interface HunterSpecial {
-  kind: 'potion' | 'fireball' | 'summon' | 'punch' | 'spikes' | 'wave' | 'recall' | 'dice' | 'charm' | 'laser';
+  kind: 'potion' | 'fireball' | 'summon' | 'punch' | 'spikes' | 'wave' | 'recall' | 'dice' | 'charm' | 'laser' | 'rain';
   /** What it's called on the Hunter's card ("Potions", "Wolves"...). */
   name: string;
   damageType: DamageType;
@@ -2309,11 +2320,22 @@ export const HUNTERS: HunterDef[] = [
   },
   {
     id: 'ranger', name: 'Galladair', title: 'Ranger', icon: '🏹', color: '#c09060', area: 'forest', recruitCost: 2_000, bane: { archetype: 'beast', mult: BANE_BASE },
-    short: '+50% damage to Beasts.',
+    short: 'Rains arrows on monsters; slays Beasts.',
     unlock: { event: 'guardian-forest', times: 1 },
     ascendedTitle: 'Pathfinder',
     story: 'Galladair\'s home on the edge of the Wandering Woods is being threatened by monsters. Help her defeat the Woods\' Guardian, and she will fight by your side.',
-    ability: 'Deals 50% bonus damage to Beasts.',
+    ability: 'Every 6s, looses a volley into the sky that comes down as a rain of arrows around the nearest monster. Her piercing widens the rain and every extra arrow she shoots makes it last longer. Deals 50% bonus damage to Beasts.',
+    special: {
+      kind: 'rain',
+      name: 'Arrow Rain',
+      damageType: 'physical',
+      cooldown: 6,
+      damage: 0.5,
+      radius: 55,
+      ticks: 1,
+      crowd: 1,
+      describe: `Every 6s, arrows rain down around the nearest monster for ${ARROW_RAIN.time}s, ${ARROW_RAIN.rate} a second, each hitting what it lands on for half her weapon's damage. Each point of piercing widens the rain by ${ARROW_RAIN.perPierce * 100}% and each extra arrow per shot (from her skills or her gear) makes it last ${ARROW_RAIN.perShot}s longer. Her weapon's attack rate and area size widen it too.`,
+    },
   },
   {
     id: 'bard', name: "Ba'al", title: 'Bard', icon: '🪕', color: '#e0a0ff', area: 'glade', recruitCost: 40_000, bane: { archetype: 'humanoid', mult: BANE_BASE },

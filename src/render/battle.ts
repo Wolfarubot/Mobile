@@ -209,10 +209,12 @@ export class BattleView {
           sfx('tap');
           // An elemental tap ability also sounds like its element.
           if (e.color && e.color !== '#f4f4f4') sfx(MAGIC_SFX[elementOf(e.color)]);
-          // An elemental tap ability gets its spell: a fire explosion, a lightning strike or a falling ice shard.
-          if (this.fancy && e.color === DAMAGE_TYPES.fire.color) this.playEffect('explosion', e.x, e.y, this.game.tapRadius * 2);
+          // An elemental tap ability gets its spell: a lightning strike on every tap; Flame Burst's explosion and
+          // Frost Nova's falling ice shard only on the tap that sets them off (when they're ready). Otherwise just the
+          // tap's ring, in its element's colour.
+          if (this.fancy && e.spell && e.color === DAMAGE_TYPES.fire.color) this.playEffect('explosion', e.x, e.y, this.game.tapRadius * 2);
           else if (this.fancy && e.color === DAMAGE_TYPES.lightning.color) this.playEffect('lightning', e.x, e.y + 6, this.game.tapRadius * 2.4, 'bottom', 22);
-          else if (this.fancy && e.color === DAMAGE_TYPES.frost.color) this.playEffect('ice', e.x, e.y + 6, this.game.tapRadius * 1.8, 'bottom', 20);
+          else if (this.fancy && e.spell && e.color === DAMAGE_TYPES.frost.color) this.playEffect('ice', e.x, e.y + 6, this.game.tapRadius * 1.8, 'bottom', 20);
           this.rings.push({ x: e.x, y: e.y, t: 0, r: this.game.tapRadius, color: e.color ? hexRgb(e.color) : '255,255,255', max: 0.25 });
           if (e.color) this.fx.burst(e.x, e.y, e.color, 10, 160, 3, 0);
           break;
@@ -505,6 +507,9 @@ export class BattleView {
       }
     }
     for (const e of this.field.enemies) if (FLYING.has(e.type)) this.scaledAt(g, e.x, e.y, () => this.drawEnemy(g, e));
+    // Swings and thrusts aimed up the field go off behind the Hunters; the rest in front of them (below).
+    this.drawSweeps(g, true);
+    this.drawStrikes(g, true);
     this.drawHeld(g);
     for (const h of this.field.helpers) this.scaledAt(g, h.x, h.y, () => this.drawHelper(g, h));
     this.scaledAt(g, 0, 0, () => this.drawHunter(g));
@@ -545,7 +550,7 @@ export class BattleView {
       g.stroke();
       g.restore();
     }
-    for (const b of this.field.bullets) drawBullet(g, b, this.time, this.game.state.settings.aoeStyle === 'basic');
+    for (const b of this.field.bullets) drawBullet(g, b, this.time, this.game.state.settings.aoeStyle === 'basic', b.kind === 'dagger' ? this.daggerArt(b.shooter) : null);
     this.drawTomes(g);
     this.drawDice(g);
     for (const s of this.field.shots) drawEnemyShot(g, s, this.time, CHAR_SCALE, this.clarity);
@@ -659,8 +664,70 @@ export class BattleView {
       g.globalAlpha = 1;
     }
 
+    this.drawSweeps(g, false);
+
+    for (const b of this.blasts) {
+      // Squares fly outward from the centre as the blast spreads, flickering through fire colours.
+      const k = b.t / BLAST_TIME;
+      const spread = 0.35 + 0.65 * Math.min(1, k * 1.6);
+      g.globalAlpha = 1 - k * k;
+      for (const c of b.cells) {
+        g.fillStyle = b.colors[(c.color + Math.floor(b.t * 20)) % b.colors.length];
+        g.fillRect(b.x + c.x * spread - c.s / 2, b.y + c.y * spread - c.s / 2, c.s, c.s);
+      }
+      g.globalAlpha = 1;
+    }
+
+    for (const a of this.anims) {
+      const img = effectImage(a.key);
+      if (!img) continue;
+      g.globalAlpha = a.alpha;
+      drawEffectFrame(g, tinted(img, a.color), a.key, a.start + Math.floor(a.t * a.fps), a.x, a.y, a.size, a.anchor);
+      g.globalAlpha = 1;
+    }
+    this.drawStrikes(g, false);
+
+    for (const r of this.rings) {
+      const k = r.t / r.max;
+      const rad = r.r * (r.grow ? k : 0.4 + k * 0.6);
+      if (r.pixel) {
+        // A burst: a solid ring of square pixels in its colour, a fainter ring trailing inside it, and a
+        // scatter of pixels across the area it hit.
+        const a = k < 0.5 ? 1 : 1 - (k - 0.5) * 2; // full strength for the first half, then fades
+        g.fillStyle = `rgba(${r.color},${0.3 * a})`;
+        for (const c of r.scatter ?? []) if (Math.hypot(c.x, c.y) <= rad) g.fillRect(r.x + c.x - c.s / 2, r.y + c.y - c.s / 2, c.s, c.s);
+        g.fillStyle = `rgba(${r.color},${0.45 * a})`;
+        pixelCircle(g, r.x, r.y, Math.max(0, rad - PIXEL * 2), PIXEL);
+        g.fillStyle = `rgba(0,0,0,${0.35 * a})`;
+        pixelCircle(g, r.x + 1, r.y + 1, rad, PIXEL, 2);
+        g.fillStyle = `rgba(${r.color},${a})`;
+        pixelCircle(g, r.x, r.y, rad, PIXEL, 2);
+        continue;
+      }
+      g.beginPath();
+      g.arc(r.x, r.y, rad, 0, Math.PI * 2);
+      if (r.fill) {
+        g.fillStyle = `rgba(${r.color},${0.35 * (1 - k)})`;
+        g.fill();
+      }
+      g.strokeStyle = `rgba(${r.color},${1 - k})`;
+      g.lineWidth = 3;
+      g.stroke();
+    }
+
+    this.drawReloads(g);
+    this.fx.draw(g);
+    g.restore();
+    if (scene?.vignette) drawVignette(g, w, h, scene.vignette);
+    this.drawHud(g);
+    this.cooldownBar.update();
+  }
+
+  /** Blade sweeps: those aimed up the field (`behind`, drawn before the Hunters) or the rest. */
+  private drawSweeps(g: CanvasRenderingContext2D, behind: boolean): void {
     const hole = this.fancy ? effectImage('blackhole') : null;
     for (const w of this.sweeps) {
+      if (aimsAway(w.a) !== behind) continue;
       // The blade's arc sweeps across (a trailing crescent), fading out.
       const k = w.t / 0.2;
       const from = w.a - w.arc / 2;
@@ -720,64 +787,15 @@ export class BattleView {
       g.globalAlpha = 1;
     }
 
-    for (const b of this.blasts) {
-      // Squares fly outward from the centre as the blast spreads, flickering through fire colours.
-      const k = b.t / BLAST_TIME;
-      const spread = 0.35 + 0.65 * Math.min(1, k * 1.6);
-      g.globalAlpha = 1 - k * k;
-      for (const c of b.cells) {
-        g.fillStyle = b.colors[(c.color + Math.floor(b.t * 20)) % b.colors.length];
-        g.fillRect(b.x + c.x * spread - c.s / 2, b.y + c.y * spread - c.s / 2, c.s, c.s);
-      }
-      g.globalAlpha = 1;
-    }
+  }
 
-    for (const a of this.anims) {
-      const img = effectImage(a.key);
-      if (!img) continue;
-      g.globalAlpha = a.alpha;
-      drawEffectFrame(g, tinted(img, a.color), a.key, a.start + Math.floor(a.t * a.fps), a.x, a.y, a.size, a.anchor);
-      g.globalAlpha = 1;
-    }
+  /** Spear thrusts and fists: those aimed up the field (`behind`, drawn before the Hunters) or the rest. */
+  private drawStrikes(g: CanvasRenderingContext2D, behind: boolean): void {
     for (const st of this.strikes) {
+      if (aimsAway(st.a) !== behind) continue;
       const img = effectImage(st.key);
       if (img) drawStrike(g, img, st);
     }
-
-    for (const r of this.rings) {
-      const k = r.t / r.max;
-      const rad = r.r * (r.grow ? k : 0.4 + k * 0.6);
-      if (r.pixel) {
-        // A burst: a solid ring of square pixels in its colour, a fainter ring trailing inside it, and a
-        // scatter of pixels across the area it hit.
-        const a = k < 0.5 ? 1 : 1 - (k - 0.5) * 2; // full strength for the first half, then fades
-        g.fillStyle = `rgba(${r.color},${0.3 * a})`;
-        for (const c of r.scatter ?? []) if (Math.hypot(c.x, c.y) <= rad) g.fillRect(r.x + c.x - c.s / 2, r.y + c.y - c.s / 2, c.s, c.s);
-        g.fillStyle = `rgba(${r.color},${0.45 * a})`;
-        pixelCircle(g, r.x, r.y, Math.max(0, rad - PIXEL * 2), PIXEL);
-        g.fillStyle = `rgba(0,0,0,${0.35 * a})`;
-        pixelCircle(g, r.x + 1, r.y + 1, rad, PIXEL, 2);
-        g.fillStyle = `rgba(${r.color},${a})`;
-        pixelCircle(g, r.x, r.y, rad, PIXEL, 2);
-        continue;
-      }
-      g.beginPath();
-      g.arc(r.x, r.y, rad, 0, Math.PI * 2);
-      if (r.fill) {
-        g.fillStyle = `rgba(${r.color},${0.35 * (1 - k)})`;
-        g.fill();
-      }
-      g.strokeStyle = `rgba(${r.color},${1 - k})`;
-      g.lineWidth = 3;
-      g.stroke();
-    }
-
-    this.drawReloads(g);
-    this.fx.draw(g);
-    g.restore();
-    if (scene?.vignette) drawVignette(g, w, h, scene.vignette);
-    this.drawHud(g);
-    this.cooldownBar.update();
   }
 
   /** Is this effect switched on in Settings (its group and itself)? */
@@ -1536,6 +1554,12 @@ export class BattleView {
     if (!it) return null;
     const img = gearImage(GEAR_SPRITES[it.base]);
     return img ? { cls: gearDef(it.base).weaponClass!, img } : null;
+  }
+
+  /** A thrown dagger's art: the thrower's dagger, if they hold one (otherwise the plain blade is drawn). */
+  private daggerArt(who: Shooter): HTMLImageElement | null {
+    const it = this.game.equipped(who).find((x) => x && gearDef(x.base).weaponClass === 'dagger');
+    return it ? gearImage(GEAR_SPRITES[it.base]) : null;
   }
 
   private weaponImage(who: Shooter, close = false): HTMLImageElement | null {
@@ -2316,7 +2340,8 @@ function drawEnemyShot(g: CanvasRenderingContext2D, s: EnemyShot, t: number, k: 
   g.restore();
 }
 
-function drawBullet(g: CanvasRenderingContext2D, b: Bullet, t: number, basic = false): void {
+/** `blade`: a thrown dagger's own art (the thrower's dagger), drawn point first in place of the plain blade. */
+function drawBullet(g: CanvasRenderingContext2D, b: Bullet, t: number, basic = false, blade: HTMLImageElement | null = null): void {
   const a = Math.atan2(b.vy, b.vx);
   g.save();
   g.translate(b.x, b.y);
@@ -2408,6 +2433,14 @@ function drawBullet(g: CanvasRenderingContext2D, b: Bullet, t: number, basic = f
       g.fill();
       break;
     case 'dagger':
+      if (blade) {
+        // The thrower's dagger itself, flying point first (its icon points up and to the right).
+        const size = 22;
+        g.rotate(a + Math.PI / 4);
+        g.imageSmoothingEnabled = false;
+        g.drawImage(blade, -size / 2, -size / 2, size, size);
+        break;
+      }
       g.rotate(t * 30);
       g.fillStyle = '#dfe6f0';
       g.beginPath();
@@ -2961,6 +2994,9 @@ const TRAIL_DENSITY = 2.5;
 const TRAIL_SIZE = 1.7;
 
 /** Ranged weapons' projectiles, which leave a trail (spells, fireballs, potions and blood bolts have their own looks). */
+/** Is an attack aimed up the field, away from the viewer (so its effect goes behind whoever made it)? */
+const aimsAway = (a: number): boolean => Math.sin(a) < -0.3;
+
 const TRAIL_KINDS = new Set<BulletKind>(['arrow', 'bolt', 'pellet', 'pistol', 'ricochet', 'dagger', 'hammer']);
 
 /**

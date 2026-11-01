@@ -1267,6 +1267,15 @@ button {
   background: linear-gradient(90deg, var(--c1), var(--accent));
   transition: width 0.2s;
 }
+.train-bar i.lvl-reset {
+  animation: lvl-reset 0.25s ease-out;
+  transition: none;
+}
+@keyframes lvl-reset {
+  from {
+    opacity: 0;
+  }
+}
 .train-bar span {
   position: relative;
   display: block;
@@ -1989,6 +1998,21 @@ body.ui-parchment .hunter-dock .buy.ev-details {
   color: var(--fg);
   font-size: 11px;
   line-height: 18px;
+}
+
+/* On a sub-tab (Skills, Evolution) the count sits on the button's corner, out of the label's way. */
+.subtabs button {
+  position: relative;
+}
+.subtabs .sp-count {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  z-index: 2;
+  border: 2px solid var(--c0);
+  border-radius: 0;
+  padding: 0 4px;
+  font-weight: 900;
 }
 
 /* ---- Equipment sub-tab ---- */
@@ -3101,6 +3125,13 @@ button.mat:not(:disabled):active {
 .dropper.unknown::after {
   content: '';
 }
+/* A monster's name and area: white with the black outline, like the game's other labels. */
+.dropper b,
+.dropper small,
+.dropper::after {
+  color: #fff !important;
+  text-shadow: var(--outline);
+}
 .droppers-title {
   margin: 12px 0 6px;
   font-weight: 800;
@@ -4191,9 +4222,38 @@ body.left-handed .hd-float-close {
   margin: 4px 0;
   font-weight: 700;
 }
-/* Auto Salvage sits at the far right of the Filter line. */
-.filter-bar .as-btn {
-  margin-left: auto;
+/* A section title with the Filter button, a small square, in its corner. */
+.title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 14px 0 8px;
+}
+.title-row > .section-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+.title-row .filter-corner,
+body .title-row .filter-btn.filter-corner:has(> .btn-ic) {
+  flex: 0 0 48px;
+  width: 48px;
+  height: 48px;
+  min-height: 0 !important;
+  padding: 0 !important;
+  font-size: 0;
+}
+.title-row .filter-corner .btn-ic {
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 40px;
+  height: 40px;
+}
+.filter-bar .filter-chips {
+  flex-basis: 100%;
+}
+.filter-bar .filter-chips:empty {
+  display: none;
 }
 /* Auto Salvage's Confirm: a big label, and what it will salvage in a box underneath. */
 .as-now {

@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { GEAR_CATALOG } from '../src/core/gearCatalog';
 import { GEAR_SPRITES } from '../src/core/gearSprites';
 import { describe, expect, it } from 'vitest';
-import { GUARDIAN_TAP_TAKEN, archetypeValue, armorStats, mirrorStats, WEAPON_ARCHETYPES, weaponArchetype, withArchetype, type WeaponClass } from '../src/core/balance';
+import { ARROW_RAIN, GUARDIAN_TAP_TAKEN, archetypeValue, armorStats, mirrorStats, WEAPON_ARCHETYPES, weaponArchetype, withArchetype, type WeaponClass } from '../src/core/balance';
 import {
   areaDef,
   AREAS,
@@ -164,6 +164,7 @@ import {
   RESIST_MULT,
   STATUS,
   FROST_TAP_CHILL,
+  FROST_NOVA,
   type DamageType,
   type MaterialId,
   typeMult,
@@ -1311,8 +1312,8 @@ describe('Equipment', () => {
     const orb = g.craftGear('emberOrb')!;
     g.equip('glimmer', 2, orb.uid);
     expect(g.specialRadius('glimmer')).toBeCloseTo(r * 1.15 * 1.12);
-    expect(g.specialCooldown('ranger')).toBeNull();
-    expect(g.specialDamageMult('ranger')).toBe(0);
+    expect(g.specialCooldown('bard')).toBeNull();
+    expect(g.specialDamageMult('bard')).toBe(0);
   });
 
   it("damage types: a Hunter deals their weapon's type, or Physical without one; specials keep their own", () => {
@@ -2291,11 +2292,20 @@ describe('Equipment', () => {
     fresh();
     f.tap(0, 0);
     expect(f.enemies[0].burn).toBeDefined();
-    // Frost Nova: chilled.
+    // Frost Nova: when it's ready, frozen in place, then chilled; the next taps (still recharging) just hurt.
     g.setTapAbility('frost');
     fresh();
+    f.frostCd = 0;
     f.tap(0, 0);
-    expect(f.enemies[0].slow).toBeCloseTo(FROST_TAP_CHILL * g.effectDurationMult('main')); // longer with Extended Effects
+    const hold = FROST_NOVA.freeze * g.effectDurationMult('main');
+    expect(f.enemies[0].held).toBeCloseTo(hold);
+    expect(f.enemies[0].slow).toBeCloseTo(hold + FROST_TAP_CHILL * g.effectDurationMult('main')); // longer with Extended Effects
+    expect(f.drainEvents().some((e) => e.type === 'blast' && e.spell)).toBe(true);
+    fresh();
+    f.tap(0, 0);
+    expect(f.enemies[0].held ?? 0).toBe(0);
+    expect(f.drainEvents().some((e) => e.type === 'blast' && e.spell)).toBe(false);
+    expect(f.cooldowns().some((c) => c.key === 'tap:frost')).toBe(true);
     // Thunderclap: each monster hit arcs to another one nearby.
     g.setTapAbility('thunder');
     fresh();
@@ -2339,7 +2349,7 @@ describe('Equipment', () => {
     f.setView(390, 420);
     f.enemies = [enemy({ id: 1, x: 0, y: 0, hp: 1e12, maxHp: 1e12 })];
     f.tap(0, 0);
-    expect(f.enemies[0].slow).toBeCloseTo(FROST_TAP_CHILL * 1.3);
+    expect(f.enemies[0].slow).toBeCloseTo((FROST_NOVA.freeze + FROST_TAP_CHILL) * 1.3);
     // Apex Hunter: one more projectile per shot.
     expect(g.tree('main').multishot).toBe(0);
     sk.capstone = 1;
@@ -4623,6 +4633,28 @@ describe('Field', () => {
     expect(f.enemies.find((e) => e.id === 3)!.hp).toBe(1e12);
   });
 
+  it("Galladair's Arrow Rain grows with her piercing and lasts longer with every extra arrow", () => {
+    const { g, f } = thomasField(['ranger']);
+    const base = g.rainOf('ranger');
+    expect(base.time).toBeCloseTo(ARROW_RAIN.time);
+    // More piercing: a wider rain; another arrow per shot: a longer one.
+    const tree = g.tree('ranger');
+    const real = (g as unknown as { tree: (s: string) => typeof tree }).tree.bind(g);
+    (g as unknown as { tree: (s: string) => typeof tree }).tree = (s) => (s === 'ranger' ? { ...tree, pierce: tree.pierce + 2, multishot: tree.multishot + 1 } : real(s));
+    const more = g.rainOf('ranger');
+    expect(more.radius).toBeGreaterThan(base.radius);
+    expect(more.time).toBeCloseTo(base.time + ARROW_RAIN.perShot);
+    (g as unknown as { tree: typeof real }).tree = real;
+    // Once it's ready, a rain of arrows is called down around the monster, as long as the rain lasts.
+    f.enemies = [];
+    for (let t = 0; t < 1.5; t += 1 / 30) f.update(1 / 30);
+    f.enemies = [tough({ id: 1, x: 60, y: 42, speed: 0 })];
+    f.update(1 / 30);
+    const arrows = f.spellHits.filter((h) => h.fx === 'arrows');
+    expect(arrows.length).toBe(Math.round(base.time * ARROW_RAIN.rate));
+    for (const h of arrows) expect(Math.hypot(h.x - 60, h.y - 42)).toBeLessThanOrEqual(base.radius + 1);
+  });
+
   it("Ted the Gambler throws dice at the monsters every few seconds", () => {
     expect(hunterDef('gambler')).toMatchObject({ name: 'Ted', title: 'Gambler', area: 'fortress', unlock: { event: 'cloudburst', times: 1 } });
     const { f } = thomasField(['gambler']);
@@ -4903,6 +4935,16 @@ describe('Field', () => {
     for (let i = 0; i < 3; i++) {
       f.enemies = [tough({ id: 10 + i, x: lance.x - 20, y: lance.y + 5, speed: 40 })];
       f.update(1 / 30);
+      // Each block gives him a moment of grace, as a stun would: a hit then costs no charge.
+      expect(lance.immune).toBeGreaterThan(0);
+      if (i === 0) {
+        const left = lance.guard;
+        f.enemies = [tough({ id: 99, x: lance.x - 20, y: lance.y + 5, speed: 40 })];
+        f.update(1 / 30);
+        expect(lance.guard).toBe(left);
+        expect(lance.stun).toBe(0);
+      }
+      lance.immune = 0;
     }
     expect(lance.guard).toBe(0);
     expect(lance.stun).toBe(0);
@@ -4924,6 +4966,8 @@ describe('Field', () => {
     f.update(1 / 30);
     expect(f.guard).toBe(0);
     expect(f.stun).toBe(0);
+    expect(f.immune).toBeGreaterThan(0);
+    f.immune = 0;
     f.enemies = [tough({ id: 31, x: 20, y: -5, speed: 40 })];
     f.update(1 / 30);
     expect(f.stun).toBeGreaterThan(0);

@@ -22,6 +22,7 @@ import {
   ANCHOR_COLLAPSE,
   PLAGUE_SPREAD,
   BOULDER,
+  ARROW_RAIN,
   MELEE_ARTS,
   PASSIVE_ARTS,
   type SpellId,
@@ -29,6 +30,7 @@ import {
   TYPE_SPELLS,
   type MeleeArt,
   FLAME_BURST_COOLDOWN,
+  FROST_NOVA,
   FLEE_SPEED_MULT,
   GUARD_RECHARGE,
   hunterDef,
@@ -70,6 +72,8 @@ const BOSS_BOUNCE = 260;
 /** A Guardian charges in this many times faster than it walks, until it first reaches a Hunter. */
 const GUARDIAN_RUSH = 10;
 const GUARD_BOUNCE = 220;
+/** A shield block pushes back the monsters this far beyond touching the Hunter. */
+const GUARD_PUSH_RANGE = 30;
 /** How far out a hammer's smash lands, as a fraction of its radius (the Hunter stands near its edge). */
 export const SLAM_OFFSET = 0.85;
 /** Seconds between puddle ticks; a puddle lasts its special's `ticks` of these. */
@@ -343,6 +347,9 @@ export interface SpellCast {
   mult?: number;
   base?: number;
   mode?: GearMode;
+  /** A Hunter's special (Arrow Rain): hits as one, in `only` if set (a copy from Thomas's tome) or its own types. */
+  special?: boolean;
+  only?: DamageType;
 }
 
 /** A spell's hit a moment from now (an ice spike, a sunbeam pulse, a lightning strike from the sky). */
@@ -462,7 +469,7 @@ export interface Puddle {
 export type FieldEvent =
   | { type: 'hit'; x: number; y: number; dmg: number; crit: boolean; dtype: DamageType; affinity?: 'weak' | 'resist' | null }
   | { type: 'kill'; x: number; y: number; enemy: EnemyId; boss: boolean; reward: KillReward }
-  | { type: 'blast'; x: number; y: number; color?: string }
+  | { type: 'blast'; x: number; y: number; color?: string; /** A tap ability's spell went off with it (Flame Burst's explosion, Frost Nova's freeze). */ spell?: boolean }
   | { type: 'dodge'; x: number; y: number }
   | { type: 'boss' }
   | { type: 'stun'; x: number; y: number; boss: boolean; who: Shooter }
@@ -575,6 +582,8 @@ export class Field {
   /** Seconds until a tap with Melting Miasma equipped can leave another poison puddle. */
   miasmaCd = 0;
   flameCd = 0;
+  /** Frost Nova: seconds until a tap freezes again. */
+  frostCd = 0;
   private nextVolley = 1;
   /** Each Hunter's turn through their weapon's types, for weapons that fire one type per projectile. */
   private typeTurn = new Map<Shooter, number>();
@@ -875,6 +884,7 @@ export class Field {
     this.tickPuddles(dt);
     this.miasmaCd = Math.max(0, this.miasmaCd - dt);
     this.flameCd = Math.max(0, this.flameCd - dt);
+    this.frostCd = Math.max(0, this.frostCd - dt);
     this.runWaves(dt);
     this.bullets = this.bullets.filter((b) => b.life > 0);
     this.enemies = this.enemies.filter((e) => e.hp > 0);
@@ -1063,15 +1073,15 @@ export class Field {
       this.events.push({ type: 'dodge', x: hx, y: hy });
       return;
     }
-    if (state.guard > 0 && !e.boss) {
-      state.guard--;
-      state.guardAcc = 0;
+    // Still in the moment of grace after a block or a stun: it bounces off, and no shield charge is spent.
+    if (state.immune > 0 && !e.boss) {
       e.kx += ux * GUARD_BOUNCE;
       e.ky += uy * GUARD_BOUNCE;
-      this.events.push({ type: 'guard', x: hx, y: hy });
-      // Shield burst: the block blasts everything around the wearer.
-      for (const { effect: ef, stars } of effects)
-        if (ef.kind === 'block' && (ef.chance === undefined || this.game.rng() < ef.chance)) this.abilityBurst(who, hx, hy, ef.radius, effectBase(ef, stars), ef.damageType);
+      e.fleeing = true;
+      return;
+    }
+    if (state.guard > 0 && !e.boss) {
+      this.blockWith(who, state, hx, hy, effects);
       return;
     }
     this.knockOut(who, e.boss, e.x, e.y);
@@ -1181,15 +1191,36 @@ export class Field {
       this.events.push({ type: 'dodge', x: hx, y: hy });
       return;
     }
+    if (state.immune > 0) return;
     if (state.guard > 0) {
-      state.guard--;
-      state.guardAcc = 0;
-      this.events.push({ type: 'guard', x: hx, y: hy });
-      for (const { effect: ef, stars } of effects)
-        if (ef.kind === 'block' && (ef.chance === undefined || this.game.rng() < ef.chance)) this.abilityBurst(who, hx, hy, ef.radius, effectBase(ef, stars), ef.damageType);
+      this.blockWith(who, state, hx, hy, effects);
       return;
     }
     this.knockOut(who, false, hx, hy);
+  }
+
+  /**
+   * A shield charge spent on a blow or a projectile: the monsters close around the Hunter are pushed back a little
+   * (Guardians hold their ground), the Hunter gets the same moment of grace as after a stun (nothing gets through
+   * and no more charges are spent), and a shield burst may go off.
+   */
+  private blockWith(who: Shooter, state: { guard: number; guardAcc: number; immune: number }, hx: number, hy: number, effects: ReturnType<Game['gearEffects']>): void {
+    state.guard--;
+    state.guardAcc = 0;
+    state.immune = Math.max(state.immune, STUN_IMMUNITY);
+    this.events.push({ type: 'guard', x: hx, y: hy });
+    for (const o of this.enemies) {
+      if (o.hp <= 0 || o.boss) continue;
+      const dx = o.x - hx;
+      const dy = o.y - hy;
+      const d = Math.hypot(dx, dy) || 1;
+      if (d > PLAYER_RADIUS + o.r + GUARD_PUSH_RANGE) continue;
+      o.kx += (dx / d) * GUARD_BOUNCE;
+      o.ky += (dy / d) * GUARD_BOUNCE;
+    }
+    // Shield burst: the block blasts everything around the wearer.
+    for (const { effect: ef, stars } of effects)
+      if (ef.kind === 'block' && (ef.chance === undefined || this.game.rng() < ef.chance)) this.abilityBurst(who, hx, hy, ef.radius, effectBase(ef, stars), ef.damageType);
   }
 
   /** Cheap pairwise push-apart so the horde spreads into a crowd instead of a single dot. */
@@ -1421,6 +1452,22 @@ export class Field {
             this.shoot(by, 'blood', o.x, o.y, Math.atan2(next.y - o.y, next.x - o.x), 420, BLOOD_BOLT_RANGE, { dmg: dmg * 0.5, special: true, bleed: true });
           }
         }
+      }
+      return true;
+    }
+    if (sp.kind === 'rain') {
+      // Galladair's Arrow Rain: arrows pour down around the nearest monster for a while, each hitting where it lands.
+      // Her piercing widens the patch; each extra arrow she shoots makes it last longer.
+      const rain = g.rainOf(by);
+      const r = rain.radius * (radius / Math.max(1, g.specialRadius(by)));
+      const c: SpellCast = { who: by, dtype: only ?? g.damageTypeOf(by, 'long', true), mult: dmg, special: true, only };
+      const tx = target.x;
+      const ty = target.y;
+      const n = Math.max(1, Math.round(rain.time * ARROW_RAIN.rate));
+      for (let i = 0; i < n; i++) {
+        const ang = g.rng() * Math.PI * 2;
+        const d = Math.sqrt(g.rng()) * r;
+        this.spellHits.push({ c, t: 0.35 + i / ARROW_RAIN.rate, x: tx + Math.cos(ang) * d, y: ty + Math.sin(ang) * d, r: ARROW_RAIN.arrow, k: 1, fx: 'arrows' });
       }
       return true;
     }
@@ -1702,6 +1749,7 @@ export class Field {
     if (w && dash && this.game.weaponClassOf(this.lead)?.summon) out.push({ key: `item:${w.id}`, icon: w.icon, name: w.name, progress: 1 - this.dashCd / (dash.cooldown * this.game.cooldownMult(this.lead)) });
     // Flame Burst's ignite and Melting Miasma's puddle (your tap ability).
     if (this.game.tapAbility === 'flame') out.push({ key: 'tap:flame', icon: '🔥', name: 'Flame Burst', progress: 1 - this.flameCd / (FLAME_BURST_COOLDOWN * this.game.cooldownMult('main')) });
+    if (this.game.tapAbility === 'frost') out.push({ key: 'tap:frost', icon: '❄️', name: 'Frost Nova', progress: 1 - this.frostCd / (FROST_NOVA.cooldown * this.game.cooldownMult('main')) });
     if (this.game.tapAbility === 'miasma') out.push({ key: 'tap:miasma', icon: '☠️', name: 'Melting Miasma', progress: 1 - this.miasmaCd / (MIASMA_PUDDLE.cooldown * this.game.cooldownMult('main')) });
     for (const who of [this.lead, ...this.helpers.map((h) => h.id)]) {
       for (const { uid, def, effect } of this.game.gearEffects(who)) {
@@ -2487,6 +2535,10 @@ export class Field {
   /** One hit of a spell, `k` of its cast, always setting off its element's effect. */
   private spellHit(c: SpellCast, e: Enemy, k: number, fx: number, fy: number): void {
     if (e.hp <= 0) return;
+    if (c.special) {
+      this.hitWith(c.who, e, (c.mult ?? 1) * k, fx, fy, undefined, c.mode, true, true, c.only);
+      return;
+    }
     // Stone (Physical) spells crush rather than cut: no bleeding.
     const effect = c.dtype !== 'physical';
     if (c.base !== undefined) this.abilityHit(c.who, e, c.base * k, c.dtype, effect);
@@ -3144,7 +3196,8 @@ export class Field {
     const g = this.game;
     g.registerTap();
     const ability = g.tapAbility;
-    this.events.push({ type: 'blast', x, y, color: ability ? DAMAGE_TYPES[g.tapDamageType].color : undefined });
+    const blast: Extract<FieldEvent, { type: 'blast' }> = { type: 'blast', x, y, color: ability ? DAMAGE_TYPES[g.tapDamageType].color : undefined };
+    this.events.push(blast);
     const crit = g.rng() < g.critChanceOf('main');
     const dmg = g.tapDamage * (crit ? g.critMultOf('main') : 1);
     const dtype = g.tapDamageType;
@@ -3160,13 +3213,23 @@ export class Field {
       this.damage(e, amount, crit, dx / (d || 1), dy / (d || 1), 'main', dtype);
       hit.push({ e, dmg: amount });
     }
-    // An elemental tap ability sets off its effect on everything the blast hit (Flame Burst's only when it's ready).
+    // An elemental tap ability sets off its effect on everything the blast hit (Flame Burst's and Frost Nova's only
+    // when they're ready, and then the tap goes off with its spell: an explosion, a falling ice shard).
     const ignite = ability === 'flame' && this.flameCd <= 0 && hit.length > 0;
     if (ignite) this.flameCd = FLAME_BURST_COOLDOWN * g.cooldownMult('main');
+    const freeze = ability === 'frost' && this.frostCd <= 0 && hit.length > 0;
+    if (freeze) this.frostCd = FROST_NOVA.cooldown * g.cooldownMult('main');
+    blast.spell = ignite || freeze;
     for (const { e, dmg: amount } of hit) {
       if (ability === 'flame') {
         if (ignite && e.hp > 0) this.applyStatus(e, 'fire', amount, 'main');
-      } else if (ability === 'frost' && e.hp > 0 && !this.immuneTo(e, 'frost')) e.slow = Math.max(e.slow ?? 0, FROST_TAP_CHILL * g.effectDurationMult('main'));
+      } else if (ability === 'frost') {
+        if (freeze && e.hp > 0 && !this.immuneTo(e, 'frost')) {
+          const hold = FROST_NOVA.freeze * g.effectDurationMult('main') * (e.boss ? 0.25 : 1);
+          e.held = Math.max(e.held ?? 0, hold);
+          e.slow = Math.max(e.slow ?? 0, hold + FROST_TAP_CHILL * g.effectDurationMult('main'));
+        }
+      }
       else if (ability === 'thunder' && !this.immuneTo(e, 'lightning')) this.arc(e, amount * STATUS.arc.share, 'main');
       else if (ability === 'miasma' && e.hp > 0) this.applyStatus(e, 'poison', amount, 'main', g.procRarity('main'));
     }
