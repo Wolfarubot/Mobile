@@ -604,7 +604,7 @@ describe('Hunters', () => {
     const c = hunterDef('celeste');
     expect([c.name, c.title, c.area]).toEqual(['Celeste', 'Psion', 'depths']);
     expect(c.unlock).toEqual({ event: 'guardian-depths', times: 2 });
-    expect(c.bane).toEqual({ archetype: 'dragon', mult: 3 }); // triple damage to Dragons
+    expect(c.bane).toEqual({ archetype: 'dragon', mult: 1.5 });
   });
 
   it("Galladair's Curving Arrows ricochet her shots; Arrow Storm brings Arrow Rain sooner; Fan Shot adds arrows", () => {

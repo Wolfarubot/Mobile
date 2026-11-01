@@ -368,8 +368,6 @@ const grd = (maxRank: number, name: string, icon: string, cost?: number): NodeSp
  */
 export const BANE_BASE = 1.5;
 export const BANE_PER_TREE = 0.5;
-/** Celeste, Deku and Okrin: triple damage to their archetype from the start (their trees add to it as everyone's do). */
-export const BANE_TRIPLE = 3;
 const banePct = (v: number): string => `${Math.round(v * 10000) / 100}%`;
 const ban = (maxRank: number, name: string, icon: string, foes: string): NodeSpec => ({ name, icon, desc: `+${banePct(BANE_PER_TREE / maxRank)} bonus damage to ${foes} per rank.`, maxRank, effect: { bane: BANE_PER_TREE / maxRank } });
 const gld = (maxRank: number, name: string, icon: string, v = 0.1): NodeSpec => ({ name, icon, desc: `+${pctOf(v)} gold from their kills per rank.`, maxRank, effect: { gold: v } });
@@ -2363,12 +2361,12 @@ export const HUNTERS: HunterDef[] = [
     slots: [{ kind: 'weapon', label: 'Weapon', accepts: ['weapon', 'magic'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
   },
   {
-    id: 'druid', name: 'Deku', title: 'Druid', icon: '🌿', color: '#6abf5a', area: 'glade', recruitCost: 250_000, bane: { archetype: 'plant', mult: BANE_TRIPLE }, summonBonus: { type: 'beast', mult: 1.5 },
+    id: 'druid', name: 'Deku', title: 'Druid', icon: '🌿', color: '#6abf5a', area: 'glade', recruitCost: 250_000, bane: { archetype: 'plant', mult: BANE_BASE }, summonBonus: { type: 'beast', mult: 1.5 },
     short: 'Summons wolves to fight for him.',
     unlock: { event: 'guardian-glade', times: 2 },
     ascendedTitle: 'Archdruid',
     story: 'Deku tends the oldest trees of the Fey Grove, and the Guardian keeps trampling his saplings. Beat it twice, and he\'ll lend you the spirits of the wild.',
-    ability: 'Every 6s calls two spirit wolves to hunt. Deals triple damage to Plants, and his Beast summons (wolves from any source) hit 50% harder. Uses ranged or magic weapons.',
+    ability: 'Every 6s calls two spirit wolves to hunt. Deals 50% bonus damage to Plants, and his Beast summons (wolves from any source) hit 50% harder. Uses ranged or magic weapons.',
     slots: [{ kind: 'weapon', label: 'Weapon', accepts: ['weapon', 'magic'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
     special: { kind: 'summon', name: 'Wolves', damageType: 'physical', cooldown: 6, damage: 0.7, radius: 1, ticks: 18, crowd: 1, summon: { look: 'wolf', type: 'beast' }, describe: 'Every 6s calls two spirit wolves that hunt for 6s, biting for his damage: his weapon powers them, and they share its damage type and status effects.' },
   },
@@ -2427,12 +2425,12 @@ export const HUNTERS: HunterDef[] = [
     swapRange: 90,
   },
   {
-    id: 'celeste', name: 'Celeste', title: 'Psion', icon: '🔮', color: '#c9a8ff', area: 'depths', recruitCost: 200_000_000_000_000, bane: { archetype: 'dragon', mult: BANE_TRIPLE },
-    short: 'Triple damage to Dragons.',
+    id: 'celeste', name: 'Celeste', title: 'Psion', icon: '🔮', color: '#c9a8ff', area: 'depths', recruitCost: 200_000_000_000_000, bane: { archetype: 'dragon', mult: BANE_BASE },
+    short: '+50% damage to Dragons.',
     unlock: { event: 'guardian-depths', times: 2 },
     ascendedTitle: 'Oracle',
     story: 'Celeste, a Psion who hears the thoughts of monsters, followed a whisper into the Shadowy Depths and got lost in the noise. Beat the Depths\' Guardian twice to quiet it, and Celeste will lend you that mind.',
-    ability: 'Deals triple damage to Dragons.',
+    ability: 'Deals 50% bonus damage to Dragons.',
   },
   {
     id: 'blacksmith', name: 'Kargesh', title: 'Blacksmith', icon: '⚒️', color: '#d07a3a', area: 'caves', recruitCost: 3e15,
@@ -2475,12 +2473,12 @@ export const HUNTERS: HunterDef[] = [
     slots: [{ kind: 'magic', label: 'Magic weapon' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
   },
   {
-    id: 'frostbreaker', name: 'Okrin', title: 'Frostbreaker', icon: '🔨', color: '#8fdcff', area: 'peaks', recruitCost: 2.5e19, bane: { archetype: 'elemental', mult: BANE_TRIPLE },
-    short: 'Triple damage to Elementals.',
+    id: 'frostbreaker', name: 'Okrin', title: 'Frostbreaker', icon: '🔨', color: '#8fdcff', area: 'peaks', recruitCost: 2.5e19, bane: { archetype: 'elemental', mult: BANE_BASE },
+    short: '+50% damage to Elementals.',
     unlock: { event: 'guardian-peaks', times: 1 },
     ascendedTitle: 'Winterking',
     story: 'Okrin climbed the Frost Peaks to hunt the thing that rules them. Defeat the Peaks\' Guardian, and he\'ll bring his hammer to your side.',
-    ability: 'Deals triple damage to Elementals. Fights with melee weapons.',
+    ability: 'Deals 50% bonus damage to Elementals. Fights with melee weapons.',
     slots: [{ kind: 'melee', label: 'Melee' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
   },
   {
