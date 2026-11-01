@@ -7324,9 +7324,17 @@ body.ui-parchment .mod-action b {
  * Settings, the map...) cover the menu's side only, so the fight stays in view. Set by app.ts (body.landscape).
  */
 body.landscape {
-  --menu-w: clamp(340px, 44vw, 560px);
-  --safe-left: max(env(safe-area-inset-left, 0px), var(--safe-area-inset-left, 0px));
-  --safe-right: max(env(safe-area-inset-right, 0px), var(--safe-area-inset-right, 0px));
+  /* A gap on both sides for the camera notch (whichever side it's on): the phone's own inset, or 28px. */
+  --safe-left: max(28px, env(safe-area-inset-left, 0px), var(--safe-area-inset-left, 0px));
+  --safe-right: max(28px, env(safe-area-inset-right, 0px), var(--safe-area-inset-right, 0px));
+  /* The menu is drawn at 80%, so a narrower column still lays out like the portrait menu and shows more. */
+  --menu-zoom: 0.8;
+  --menu-w: clamp(290px, 36vw, 460px);
+}
+body.landscape .tabs,
+body.landscape .panel,
+body.landscape .hunter-detail {
+  zoom: var(--menu-zoom);
 }
 body.landscape #app {
   display: grid;
@@ -7373,14 +7381,15 @@ body.landscape .menu-drop {
 /* Full-screen views: over the menu's column only. */
 body.landscape .hunter-detail {
   left: auto;
-  right: var(--safe-right);
-  width: var(--menu-w);
+  /* Lengths on a zoomed element are zoomed too: divide to land on the menu's column. */
+  right: calc(var(--safe-right) / var(--menu-zoom));
+  width: calc(var(--menu-w) / var(--menu-zoom));
   max-width: none;
   border-left: 3px solid var(--c0);
 }
 body.landscape.left-handed .hunter-detail {
   right: auto;
-  left: var(--safe-left);
+  left: calc(var(--safe-left) / var(--menu-zoom));
   border-left: none;
   border-right: 3px solid var(--c0);
 }
