@@ -2654,7 +2654,7 @@ export class AppUI {
     card.innerHTML = `
       <div class="beast-head">
         <canvas class="portrait"></canvas>
-        <div class="info"><div class="card-corner"></div><div class="name"></div><div class="blurb">${def.blurb}</div>${dropHtml(def)}</div>
+        <div class="info"><div class="card-corner"></div><div class="name"></div><div class="blurb">${def.blurb}</div>${g.state.bestiary[def.id].unlocked ? dropHtml(def) : '<div class="drop-line ld-spacer" aria-hidden="true">&nbsp;</div>'}</div>
       </div>
       ${affinityHtml(def, true)}
       <div class="beast-actions"></div>`;
@@ -2681,7 +2681,15 @@ export class AppUI {
       $('.card-corner', card).append(dot, el('span', 'expand-tag', 'Expand ›'));
       card.setAttribute('role', 'button');
       card.addEventListener('click', () => this.openMonsterDetail(def.id));
-    } else actions.append(unlockBtn);
+    } else {
+      // Locked: laid out like an unlocked card's row: a lock where the level goes, what it drops where the progress
+      // bar goes, and a small Unlock button where Empower goes.
+      unlockBtn.classList.add('unlock-btn');
+      $('.hc-lv', row).textContent = '🔒';
+      $('.hc-mid', row).innerHTML = `<div class="locked-drops"><span class="ld-label">Drops</span>${lockedDrops(def)}</div>`;
+      $('.hc-action', row).appendChild(unlockBtn);
+      actions.appendChild(row);
+    }
 
     const arch = ARCHETYPES[def.archetype];
     this.refreshers.push(() => {
@@ -2690,7 +2698,7 @@ export class AppUI {
       setHtml($('.name', card), `${def.name}<span class="archetype">${arch.icon} ${arch.name}</span>${beastTags(def)}${b.unlocked ? '' : ' <small>locked</small>'}`);
       if (!b.unlocked) {
         const cost = enemyUnlockCost(def);
-        setHtml(unlockBtn, `Unlock · drops ${enemyDrops(def).map((m) => `${gemHtml(m)} ${materialDef(m).name}`).join(' + ')}<small>🪙 ${fmt(cost)}</small>`);
+        setHtml(unlockBtn, `Unlock<small>🪙 ${fmt(cost)}</small>`);
         unlockBtn.disabled = g.state.gold < cost;
         return;
       }
@@ -5896,6 +5904,16 @@ function dropListHtml(e: EnemyDef): string {
   }
   if (lootChance(e.id) > 0) rows.push('<div class="lore-drop lore-gear">Can also carry gear</div>');
   return rows.join('');
+}
+
+/** A locked monster's drops for its card's row: each material's icon and name (rarer ones in their rarity's colour). */
+function lockedDrops(e: EnemyDef): string {
+  const one = (m: MaterialId, color?: string) => `<span class="ld-item">${gemHtml(m)}<b${color ? ` style="color:${color}"` : ''}>${materialDef(m).name}</b></span>`;
+  const extra = enemyExtraDrops(e).map((d) => {
+    const r = dropRarity(d.share);
+    return one(d.material, r === 'common' ? undefined : RARITIES[r].color);
+  });
+  return [one(e.material), ...extra].join('');
 }
 
 function dropHtml(e: EnemyDef): string {
