@@ -401,6 +401,11 @@ export class AppUI {
   private areaTap: { id: AreaId | null; at: number } = { id: null, at: 0 };
   /** The menu raised to full screen over the battlefield. */
   private menuFull = false;
+  /**
+   * Landscape: the battlefield on one side and the menu, always at full height, on the other (the side set by
+   * handedness). Full-screen views open over the menu's side only, so the fight stays in view.
+   */
+  private landscape = false;
   /** When the last popup opened or closed (performance.now), to space out the one-time tips. */
   private lastPopup = -Infinity;
 
@@ -428,6 +433,19 @@ export class AppUI {
       }),
     );
     $('#menuBtn').addEventListener('click', () => this.openMenu());
+    // Turning the phone switches between the stacked layout and the side-by-side one.
+    const wide = window.matchMedia('(orientation: landscape) and (min-width: 640px)');
+    const orient = (): void => {
+      this.landscape = wide.matches;
+      document.body.classList.toggle('landscape', this.landscape);
+      if (this.landscape && this.menuFull) this.setMenuFull(false);
+    };
+    orient();
+    wide.addEventListener('change', () => {
+      orient();
+      this.closeFieldCard();
+      this.setTab(this.tab, true);
+    });
     $('#questBtn .qb-icon').innerHTML = sprite(MENU_SPRITES.quests);
     $('#questBtn').addEventListener('click', () => this.openQuests());
     // Any tap may change what the cached rates and DPS show (training, stationing, equipping): recompute them.
@@ -2640,7 +2658,8 @@ export class AppUI {
 
   /** Raises the menu to full screen (the battlefield keeps running underneath) or drops it back. */
   private setMenuFull(on: boolean): boolean {
-    if (on === this.menuFull) return false;
+    // In landscape the menu is always at full height beside the battlefield.
+    if (on === this.menuFull || (on && this.landscape)) return false;
     const app = $('#app');
     const wrap = $('.battle-wrap');
     // The battlefield keeps its size while hidden, so the fight carries on as it was.
@@ -3515,6 +3534,7 @@ export class AppUI {
 
   /** True while a full-screen menu or view covers the battlefield (main.ts skips drawing it); an overlay doesn't. */
   battleHidden(): boolean {
+    if (this.landscape) return false; // views open over the menu's side only
     return this.menuFull || !!this.picker || (!!this.detail && !this.detail.el.classList.contains('overlay'));
   }
 
@@ -3522,7 +3542,7 @@ export class AppUI {
     const t = el('div', 'toast');
     t.appendChild(el('span', '', text));
     // Over the battlefield, or floating near the top while it's hidden (full-screen menu, open views).
-    if (this.menuFull || this.picker || this.detail) {
+    if ((this.menuFull || this.picker || this.detail) && !this.landscape) {
       t.classList.add('floating');
       document.body.appendChild(t);
     } else $('.battle-wrap').appendChild(t);

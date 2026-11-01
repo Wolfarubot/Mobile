@@ -7317,3 +7317,70 @@ body.ui-parchment .mod-action b {
 .monster-lore .affinities {
   margin-bottom: 10px;
 }
+
+/*
+ * ---- Landscape: the battlefield (under the top bar) on one side, the menu at full height on the other ----
+ * Right-handed puts the menu on the right, left-handed on the left. Full-screen views (Hunter and monster cards,
+ * Settings, the map...) cover the menu's side only, so the fight stays in view. Set by app.ts (body.landscape).
+ */
+body.landscape {
+  --menu-w: clamp(340px, 44vw, 560px);
+  --safe-left: max(env(safe-area-inset-left, 0px), var(--safe-area-inset-left, 0px));
+  --safe-right: max(env(safe-area-inset-right, 0px), var(--safe-area-inset-right, 0px));
+}
+body.landscape #app {
+  display: grid;
+  max-width: none;
+  margin: 0;
+  grid-template-columns: minmax(0, 1fr) var(--menu-w);
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas:
+    'top tabs'
+    'field panel';
+  padding-left: var(--safe-left);
+  padding-right: var(--safe-right);
+}
+body.landscape.left-handed #app {
+  grid-template-columns: var(--menu-w) minmax(0, 1fr);
+  grid-template-areas:
+    'tabs top'
+    'panel field';
+}
+body.landscape .topbar {
+  grid-area: top;
+}
+body.landscape .battle-wrap {
+  grid-area: field;
+  min-height: 0;
+}
+body.landscape .tabs {
+  grid-area: tabs;
+  border-top: none;
+  border-bottom: 1px solid var(--c0);
+}
+body.landscape .panel {
+  grid-area: panel;
+  min-height: 0;
+  border-left: 3px solid var(--c0);
+}
+body.landscape.left-handed .panel {
+  border-left: none;
+  border-right: 3px solid var(--c0);
+}
+body.landscape .menu-drop {
+  display: none !important;
+}
+/* Full-screen views: over the menu's column only. */
+body.landscape .hunter-detail {
+  left: auto;
+  right: var(--safe-right);
+  width: var(--menu-w);
+  max-width: none;
+  border-left: 3px solid var(--c0);
+}
+body.landscape.left-handed .hunter-detail {
+  right: auto;
+  left: var(--safe-left);
+  border-left: none;
+  border-right: 3px solid var(--c0);
+}
