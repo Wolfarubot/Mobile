@@ -5732,12 +5732,13 @@ function featureTags(gd: GearDef, stars = 1): string {
     const pct = Math.round(gd.typeBonus.bonus * GEAR_STAR_POWER[stars] * 100);
     tags.push(featTag(DAMAGE_TAG_ICONS[gd.typeBonus.type], `+${pct}% ${d.name}`, tx(advancedTips ? 'tip.gear.typeBonus' : 'tip.gear.typeBonusSimple', { pct, type: d.name }), d.color));
   }
-  if (gd.weaponClass) tags.push(featTag(FEATURE_TAG_ICONS.weapon, WEAPON_CLASSES[gd.weaponClass].name, WEAPON_CLASSES[gd.weaponClass].describe));
-  // Its archetype, when it isn't the standard one: what this take on the class trades.
+  // Its weapon type, or, when it isn't the standard take on its class, just its archetype (what this take trades,
+  // with the class's own description after).
   if (gd.weaponClass && gd.archetype) {
     const a = weaponArchetype(gd)!;
-    tags.push(featTag(FEATURE_TAG_ICONS.archetype, a.name, tx('tip.gear.archetype', { name: a.name, weapon: WEAPON_CLASSES[gd.weaponClass].name.toLowerCase(), desc: a.desc })));
-  }
+    const cls = WEAPON_CLASSES[gd.weaponClass];
+    tags.push(featTag(FEATURE_TAG_ICONS.archetype, a.name, `${tx('tip.gear.archetype', { name: a.name, weapon: cls.name.toLowerCase(), desc: a.desc })}<br>${cls.describe}`));
+  } else if (gd.weaponClass) tags.push(featTag(FEATURE_TAG_ICONS.weapon, WEAPON_CLASSES[gd.weaponClass].name, WEAPON_CLASSES[gd.weaponClass].describe));
   // Built-in effects: always on the piece, at fixed rolls (a unique one on Artifact and Exalted gear).
   for (const bi of gd.builtIn ?? []) {
     const en = ENCHANTS[bi.id];
