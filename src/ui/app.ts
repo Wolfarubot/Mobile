@@ -3217,7 +3217,7 @@ export class AppUI {
       const f = this.craftFilter;
       if (!((f.type === 'all' || f.type === 'upgrades') && f.rarity === 'any' && f.dtype === 'any' && f.bonus === 'any')) return;
       for (const [title, list] of [
-        ['Available Upgrades', ITEMS.filter((it) => g.state.items[it.id] < itemMaxStars(it))],
+        ['Available Upgrades', ITEMS.filter((it) => g.state.items[it.id] < itemMaxStars(it) && this.upgradeShown(it.id))],
         ['Completed Upgrades', ITEMS.filter((it) => g.state.items[it.id] >= itemMaxStars(it))],
       ] as const) {
         if (!list.length) continue;
@@ -3241,7 +3241,7 @@ export class AppUI {
     };
     this.refreshers.push(() => {
       buildGear();
-      const k = JSON.stringify(this.craftFilter) + ITEMS.map((it) => (g.state.items[it.id] >= itemMaxStars(it) ? 1 : 0)).join('');
+      const k = JSON.stringify(this.craftFilter) + ITEMS.map((it) => (g.state.items[it.id] >= itemMaxStars(it) ? 1 : this.upgradeShown(it.id) ? 2 : 0)).join('');
       if (k !== crafted) {
         crafted = k;
         buildUpgrades();
@@ -4029,6 +4029,19 @@ export class AppUI {
   private markSeen(kind: 'recipes' | 'beasts' | 'events', id: string): void {
     if (this.seenSet(kind).has(id)) return;
     this.game.state.seen[kind].push(id);
+  }
+
+  /**
+   * Whether an Upgrade's recipe shows in Crafting: unlike gear (shown once any of its materials turns up), only once
+   * you've had every material it needs, enough to craft it. After that it stays (remembered in the save), as it
+   * does once crafted.
+   */
+  private upgradeShown(id: (typeof ITEMS)[number]['id']): boolean {
+    const key = `upgrade:${id}`;
+    if (this.game.state.items[id] > 0 || this.seenSet('recipes').has(key)) return true;
+    if (!this.game.canCraft(id)) return false;
+    this.markSeen('recipes', key);
+    return true;
   }
 
   /** A recipe you can now see but haven't opened. */
