@@ -1311,7 +1311,7 @@ describe('Equipment', () => {
     expect(g.equip('lance', 0, wand.uid)).toBe(false);
   });
 
-  it("a spellcaster's weapon damage powers their special and its attack rate widens it", () => {
+  it("a spellcaster's weapon damage powers their special and its attack speed widens it", () => {
     const g = stocked();
     const dmg = g.shotDamage('glimmer') * g.specialDamageMult('glimmer');
     const r = g.specialRadius('glimmer');
@@ -3251,7 +3251,7 @@ describe('Equipment', () => {
     expect(deserialize(JSON.stringify(old))!.hunters.puppeteer).toMatchObject({ recruited: true, trains: 40 });
   });
 
-  it("summons bite harder only with their Hunter's skill-tree area nodes, not with level, gear area or attack rate", () => {
+  it("summons bite harder only with their Hunter's skill-tree area nodes, not with level, gear area or attack speed", () => {
     const g = new Game(newGame(0), noCrit);
     g.state.hunters.druid.recruited = true;
     expect(g.summonFerocity('druid')).toBe(1);

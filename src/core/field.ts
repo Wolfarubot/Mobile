@@ -1782,7 +1782,7 @@ export class Field {
         if (t.age > TOME_LIFE - 0.2) t.cast = true; // nothing came near: it closes unused
         continue;
       }
-      // The copy: the special's own shape and power, driven by Thomas's damage, attack rate (its size) and skills.
+      // The copy: the special's own shape and power, driven by Thomas's damage, attack speed (its size) and skills.
       const radius = t.special.radius * (1 + (g.weaponStats(t.by).rate ?? 0)) * g.radiusMult(t.by);
       const dmg = t.special.damage * g.specialDamageMult(t.by);
       t.cast = this.castSpecial(t.by, t.special, t.x, t.y, target, range, radius, dmg, t.special.summon ? undefined : t.special.damageType) || t.age > TOME_LIFE - 0.2;

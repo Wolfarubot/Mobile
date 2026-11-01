@@ -297,7 +297,7 @@ export const MAIN_TRAIN_GROWTH = 1.075;
 /** What skill-tree nodes can improve (per rank). */
 export type TreeStat =
   | 'damage' // +x attack damage (multiplier)
-  | 'rate' // +x attack rate (multiplier)
+  | 'rate' // +x attack speed (multiplier)
   | 'recovery' // ranks of Recovery Speed: stuns ×0.92 each
   | 'crit' // +x crit chance
   | 'range' // +x world units of range
@@ -352,7 +352,7 @@ const pctOf = (v: number): string => `${+(v * 100).toFixed(1)}%`;
 const REC_STEP = Math.log(0.95) / Math.log(SKILL_RECOVERY);
 // Stock nodes: the per-rank numbers every tree shares, under each Hunter's own names.
 const atk = (maxRank: number, name = 'Attack Power', icon = '💪', v = 0.2): NodeSpec => ({ name, icon, desc: `+${pctOf(v)} damage per rank.`, maxRank, effect: { damage: v } });
-const spd = (maxRank: number, name = 'Attack Speed', icon = '⚡', v = 0.05): NodeSpec => ({ name, icon, desc: `+${pctOf(v)} attack rate per rank.`, maxRank, effect: { rate: v } });
+const spd = (maxRank: number, name = 'Attack Speed', icon = '⚡', v = 0.05): NodeSpec => ({ name, icon, desc: `+${pctOf(v)} attack speed per rank.`, maxRank, effect: { rate: v } });
 const rec = (maxRank: number, name = 'Recovery Speed', icon = '🧘'): NodeSpec => ({ name, icon, desc: 'Stuns wear off 5% faster per rank.', maxRank, effect: { recovery: REC_STEP } });
 const crt = (maxRank: number, name: string, icon: string, v = 0.025): NodeSpec => ({ name, icon, desc: `+${pctOf(v)} crit chance per rank.`, maxRank, effect: { crit: v } });
 const crd = (maxRank: number, name: string, icon: string, v = 0.1): NodeSpec => ({ name, icon, desc: `Critical hits deal +${pctOf(v)} more damage per rank.`, maxRank, effect: { critDamage: v } });
@@ -374,7 +374,7 @@ const banePct = (v: number): string => `${Math.round(v * 10000) / 100}%`;
 const ban = (maxRank: number, name: string, icon: string, foes: string): NodeSpec => ({ name, icon, desc: `+${banePct(BANE_PER_TREE / maxRank)} bonus damage to ${foes} per rank.`, maxRank, effect: { bane: BANE_PER_TREE / maxRank } });
 const gld = (maxRank: number, name: string, icon: string, v = 0.1): NodeSpec => ({ name, icon, desc: `+${pctOf(v)} gold from their kills per rank.`, maxRank, effect: { gold: v } });
 const drp = (maxRank: number, name: string, icon: string, v = 0.05): NodeSpec => ({ name, icon, desc: `+${pctOf(v)} materials from their kills per rank.`, maxRank, effect: { drops: v } });
-const multi = (name: string, icon: string, cost: number): NodeSpec => ({ name, icon, desc: 'Ranged and Magic attacks fire an extra projectile; melee attacks follow up with another strike.', maxRank: 1, effect: { multishot: 1 }, cost });
+const multi = (name: string, icon: string, cost: number): NodeSpec => ({ name, icon, desc: 'Ranged and Magic attacks fire an extra projectile, and melee attacks follow up with another strike.', maxRank: 1, effect: { multishot: 1 }, cost });
 
 type GridNode = NodeSpec & { id: string };
 /**
@@ -423,10 +423,10 @@ export interface TapAbilityDef {
   desc: string;
 }
 export const TAP_ABILITIES: TapAbilityDef[] = [
-  { id: 'flame', name: 'Flame Burst', icon: '🔥', damageType: 'fire', damage: 1, desc: 'Your taps deal Fire damage, and every 3s a tap erupts, setting everything it hits ablaze.' },
+  { id: 'flame', name: 'Flame Burst', icon: '🔥', damageType: 'fire', damage: 1, desc: 'Your taps deal Fire damage, and every 3 seconds a tap erupts, setting everything it hits ablaze.' },
   { id: 'thunder', name: 'Thunderclap', icon: '⚡', damageType: 'lightning', damage: 1, desc: 'Your taps crack with lightning: every monster hit arcs a bolt to another one nearby.' },
-  { id: 'frost', name: 'Frost Nova', icon: '❄️', damageType: 'frost', damage: 1, desc: 'Your taps deal Frost damage, and every 3s a tap freezes everything it hits solid for 1.5s, then chills it (half speed) for 3s.' },
-  { id: 'miasma', name: 'Melting Miasma', icon: '☠️', damageType: 'poison', damage: 1, desc: 'Your taps poison everything they hit, and every 4s a tap leaves a poison puddle that hurts monsters walking through it.' },
+  { id: 'frost', name: 'Frost Nova', icon: '❄️', damageType: 'frost', damage: 1, desc: 'Your taps deal Frost damage, and every 3 seconds a tap freezes everything it hits solid for 1.5 seconds, then chills it (half speed) for 3 seconds.' },
+  { id: 'miasma', name: 'Melting Miasma', icon: '☠️', damageType: 'poison', damage: 1, desc: 'Your taps poison everything they hit, and every 4 seconds a tap leaves a poison puddle that hurts monsters walking through it.' },
 ];
 export const tapAbilityDef = (id: TapAbilityId): TapAbilityDef => byId(TAP_ABILITIES, id);
 /** How long Frost Nova chills. */
@@ -457,14 +457,14 @@ const MAIN_FIRST_TREE: SkillNode[] = [
   { id: 'root', name: "Hunter's Instinct", icon: '👁️', desc: '+5% crit chance.', maxRank: 1, effect: { crit: 0.05 }, requires: [], col: 2, row: 0 },
   // First diamond
   { id: 'power', name: 'Attack Power', icon: '💪', desc: '+20% damage per rank.', maxRank: 5, effect: { damage: 0.2 }, requires: ['root'], col: 1, row: 1 },
-  { id: 'speed', name: 'Attack Speed', icon: '⚡', desc: '+5% attack rate per rank.', maxRank: 5, effect: { rate: 0.05 }, requires: ['root'], col: 2, row: 1 },
+  { id: 'speed', name: 'Attack Speed', icon: '⚡', desc: '+5% attack speed per rank.', maxRank: 5, effect: { rate: 0.05 }, requires: ['root'], col: 2, row: 1 },
   { id: 'recovery', name: 'Recovery Speed', icon: '🧘', desc: 'Stuns wear off 5% faster per rank.', maxRank: 3, effect: { recovery: RECOVERY_5 }, requires: ['root'], col: 3, row: 1 },
   { id: 'power2', name: 'Tap Power', icon: '👆', desc: '+25% tap blast damage per rank.', maxRank: 5, effect: { tapPower: 0.25 }, requires: ['power'], col: 0.5, row: 2 },
   { id: 'eagleEye', name: 'Eagle Eye', icon: '🎯', desc: '+2.5% crit chance per rank.', maxRank: 2, effect: { crit: 0.025 }, requires: ['speed'], col: 2, row: 2 },
   { id: 'recovery2', name: 'Tap Size', icon: '💥', desc: '+20% tap blast area per rank.', maxRank: 4, effect: { tapSize: 0.2 }, requires: ['recovery'], col: 3.5, row: 2 },
-  { id: 'flameTap', name: 'Flame Burst', icon: '🔥', desc: `Unlocks the Flame Burst tap ability: taps deal Fire damage, and every ${FLAME_BURST_COOLDOWN}s a tap sets everything it hits ablaze. ${TAP_HINT}`, maxRank: 1, effect: {}, ability: 'flame', requires: ['power2'], col: 0.5, row: 3 },
+  { id: 'flameTap', name: 'Flame Burst', icon: '🔥', desc: `Unlocks the Flame Burst tap ability: taps deal Fire damage, and every ${FLAME_BURST_COOLDOWN} seconds a tap sets everything it hits ablaze. ${TAP_HINT}`, maxRank: 1, effect: {}, ability: 'flame', requires: ['power2'], col: 0.5, row: 3 },
   { id: 'speed2', name: 'Piercing Shot', icon: '🔱', desc: 'Shots pierce 1 more enemy.', maxRank: 1, effect: { pierce: 1 }, requires: ['eagleEye'], col: 2, row: 3 },
-  { id: 'frostTap', name: 'Frost Nova', icon: '❄️', desc: `Unlocks the Frost Nova tap ability: taps deal Frost damage, and every ${FROST_NOVA.cooldown}s a tap freezes everything it hits, then chills it. ${TAP_HINT}`, maxRank: 1, effect: {}, ability: 'frost', requires: ['recovery2'], col: 3.5, row: 3 },
+  { id: 'frostTap', name: 'Frost Nova', icon: '❄️', desc: `Unlocks the Frost Nova tap ability: taps deal Frost damage, and every ${FROST_NOVA.cooldown} seconds a tap freezes everything it hits, then chills it. ${TAP_HINT}`, maxRank: 1, effect: {}, ability: 'frost', requires: ['recovery2'], col: 3.5, row: 3 },
   { id: 'wideTaps', name: 'Wide Taps', icon: '🌀', desc: '+10% tap blast area per rank.', maxRank: 4, effect: { tapSize: 0.1 }, requires: ['flameTap'], col: 1, row: 4 },
   { id: 'prosperity', name: 'Prosperity', icon: '🪙', desc: '+15% gold from your kills per rank.', maxRank: 3, effect: { gold: 0.15 }, requires: ['speed2'], col: 2, row: 4 },
   { id: 'bulwark', name: 'Bulwark', icon: '🛡️', desc: '+1 shield charge per rank.', maxRank: 2, effect: { guard: 1 }, requires: ['frostTap'], col: 3, row: 4 },
@@ -472,7 +472,7 @@ const MAIN_FIRST_TREE: SkillNode[] = [
     id: 'capstone',
     name: 'Apex Hunter',
     icon: '👑',
-    desc: 'Ranged and Magic attacks fire an extra projectile; melee attacks follow up with another strike, and dagger bursts throw one more dagger.',
+    desc: 'Ranged and Magic attacks fire an extra projectile, melee attacks follow up with another strike, and Dagger bursts throw one more dagger.',
     maxRank: 1,
     effect: { multishot: 1 },
     requires: ['wideTaps', 'prosperity', 'bulwark'],
@@ -488,16 +488,16 @@ const MAIN_FIRST_TREE: SkillNode[] = [
   { id: 'treasure', name: 'Treasure Sense', icon: '💎', desc: '+5% materials from your kills per rank.', maxRank: 3, effect: { drops: 0.05 }, requires: ['will', 'longShot'], col: 2.5, row: 7 },
   { id: 'extendedEffects', name: 'Extended Effects', icon: '⏳', desc: 'The status effects you set off last 10% longer per rank.', maxRank: 3, effect: { duration: 0.1 }, requires: ['longShot'], col: 3.5, row: 7 },
   { id: 'thunderTap', name: 'Thunderclap', icon: '⚡', desc: `Unlocks the Thunderclap tap ability: taps deal Lightning damage and arc to monsters nearby. ${TAP_HINT}`, maxRank: 1, effect: {}, ability: 'thunder', requires: ['deadlyTaps'], col: 0.5, row: 8 },
-  { id: 'haste', name: "Hunter's Haste", icon: '💨', desc: '+5.5% attack rate per rank.', maxRank: 5, effect: { rate: 0.055 }, requires: ['fortune'], col: 1.5, row: 8 },
+  { id: 'haste', name: "Hunter's Haste", icon: '💨', desc: '+5.5% attack speed per rank.', maxRank: 5, effect: { rate: 0.055 }, requires: ['fortune'], col: 1.5, row: 8 },
   { id: 'brutalCriticals', name: 'Brutal Criticals', icon: '💢', desc: 'Your critical hits deal +50% more damage.', maxRank: 1, effect: { critDamage: 0.5 }, requires: ['treasure'], col: 2.5, row: 8 },
-  { id: 'meltingMiasma', name: 'Melting Miasma', icon: '☠️', desc: `Unlocks the Melting Miasma tap ability: taps deal Poison damage and poison monsters, and every 4s a tap leaves a poison puddle that hurts monsters walking through it. ${TAP_HINT}`, maxRank: 1, effect: {}, ability: 'miasma', requires: ['extendedEffects'], col: 3.5, row: 8 },
+  { id: 'meltingMiasma', name: 'Melting Miasma', icon: '☠️', desc: `Unlocks the Melting Miasma tap ability: taps deal Poison damage and poison monsters, and every 4 seconds a tap leaves a poison puddle that hurts monsters walking through it. ${TAP_HINT}`, maxRank: 1, effect: {}, ability: 'miasma', requires: ['extendedEffects'], col: 3.5, row: 8 },
   { id: 'goldTouch', name: 'Golden Touch', icon: '✨', desc: '+20% gold from your kills per rank.', maxRank: 2, effect: { gold: 0.2 }, requires: ['thunderTap', 'haste'], col: 1, row: 9 },
   { id: 'shieldWall', name: 'Shield Wall', icon: '🛡️', desc: '+1 shield charge.', maxRank: 1, effect: { guard: 1 }, requires: ['haste', 'brutalCriticals'], col: 2, row: 9 },
   { id: 'bounty', name: 'Bounty', icon: '💰', desc: '+15% materials from your kills per rank.', maxRank: 3, effect: { drops: 0.15 }, requires: ['brutalCriticals', 'meltingMiasma'], col: 3, row: 9 },
   { id: 'keenEye', name: 'Keen Eye', icon: '🦅', desc: '+5% crit chance per rank.', maxRank: 3, effect: { crit: 0.05 }, requires: ['goldTouch', 'shieldWall'], col: 1.5, row: 10 },
   { id: 'might', name: "Hunter's Might", icon: '🗡️', desc: '+10% damage per rank.', maxRank: 5, effect: { damage: 0.1 }, requires: ['shieldWall', 'bounty'], col: 2.5, row: 10 },
   // 7 points (not the editor's 10) so the whole tree, then Ascend, fits in the 99 points earned by Lv 100.
-  { id: 'legend', name: 'Legend', icon: '🏆', desc: '+50% damage and +20% attack rate.', maxRank: 1, cost: 7, effect: { damage: 0.5, rate: 0.2 }, requires: ['keenEye', 'might'], col: 2, row: 11 },
+  { id: 'legend', name: 'Legend', icon: '🏆', desc: '+50% damage and +20% attack speed.', maxRank: 1, cost: 7, effect: { damage: 0.5, rate: 0.2 }, requires: ['keenEye', 'might'], col: 2, row: 11 },
 ];
 
 /**
@@ -523,7 +523,7 @@ export const MAIN_ASCEND_NODE: SkillNode = {
   id: 'ascend',
   name: 'Ascend',
   icon: '🌟',
-  desc: 'Become the Slayer: a new skill tree, and training up to Lv 200. Keeps Lv 100; the level curve starts over (1 session to Lv 101).',
+  desc: 'Become the Slayer, with a new Skill Tree and training up to Lv 200. Keeps Lv 100, and the level curve starts over (one session to reach Lv 101).',
   maxRank: 1,
   cost: 10,
   effect: {},
@@ -573,9 +573,9 @@ export function affordableCount(cost: (count: number) => number, gold: number, l
 
 /** The Slayer's tree (100 points: Lv 101–200), five wide like your first tree; its capstone the last 21 points. */
 export const SLAYER_TREE: SkillNode[] = [
-  { id: 'root', name: "Slayer's Oath", icon: '⚔️', desc: '+30% damage and +10% attack rate.', maxRank: 1, cost: 4, effect: { damage: 0.3, rate: 0.1 }, requires: [], col: 2, row: 0 },
+  { id: 'root', name: "Slayer's Oath", icon: '⚔️', desc: '+30% damage and +10% attack speed.', maxRank: 1, cost: 4, effect: { damage: 0.3, rate: 0.1 }, requires: [], col: 2, row: 0 },
   { id: 'power', name: 'Carnage', icon: '🩸', desc: '+7% damage per rank.', maxRank: 15, effect: { damage: 0.07 }, requires: ['root'], col: 0, row: 1 },
-  { id: 'speed', name: 'Frenzy', icon: '⚡', desc: '+7% attack rate per rank.', maxRank: 15, effect: { rate: 0.07 }, requires: ['root'], col: 1, row: 1 },
+  { id: 'speed', name: 'Frenzy', icon: '⚡', desc: '+7% attack speed per rank.', maxRank: 15, effect: { rate: 0.07 }, requires: ['root'], col: 1, row: 1 },
   { id: 'recovery', name: 'Unbreakable', icon: '🗿', desc: 'Stuns wear off 8% faster per rank.', maxRank: 5, effect: { recovery: 1 }, requires: ['root'], col: 2, row: 1 },
   { id: 'farSight', name: 'Far Sight', icon: '🔭', desc: '+10 range per rank.', maxRank: 5, effect: { range: 10 }, requires: ['root'], col: 3, row: 1 },
   { id: 'plunder', name: 'Plunder', icon: '🪙', desc: '+10% gold and materials from your kills per rank.', maxRank: 5, effect: { gold: 0.1, drops: 0.1 }, requires: ['root'], col: 4, row: 1 },
@@ -584,7 +584,7 @@ export const SLAYER_TREE: SkillNode[] = [
   { id: 'recovery2', name: 'Tap Reach', icon: '🌊', desc: '+9% tap blast area per rank.', maxRank: 9, effect: { tapSize: 0.09 }, requires: ['recovery'], col: 2, row: 2 },
   { id: 'ironSkin', name: 'Iron Skin', icon: '🛡️', desc: '+1 shield charge per rank.', maxRank: 2, effect: { guard: 1 }, requires: ['farSight'], col: 3, row: 2 },
   { id: 'spoils', name: 'Spoils', icon: '💰', desc: '+15% materials from your kills per rank.', maxRank: 3, effect: { drops: 0.15 }, requires: ['plunder'], col: 4, row: 2 },
-  { id: 'capstone', name: 'Godslayer', icon: '👑', desc: '+100% damage, +25% attack rate and +5% crit chance.', maxRank: 1, cost: 21, effect: { damage: 1, rate: 0.25, crit: 0.05 }, requires: ['power2', 'speed2', 'recovery2', 'ironSkin', 'spoils'], col: 2, row: 3 },
+  { id: 'capstone', name: 'Godslayer', icon: '👑', desc: '+100% damage, +25% attack speed and +5% crit chance.', maxRank: 1, cost: 21, effect: { damage: 1, rate: 0.25, crit: 0.05 }, requires: ['power2', 'speed2', 'recovery2', 'ironSkin', 'spoils'], col: 2, row: 3 },
 ];
 
 // ---- Ascension (Guild Hunters) ----
@@ -602,7 +602,7 @@ export const ASCEND_NODE: SkillNode = {
   id: 'ascend',
   name: 'Ascend',
   icon: '🌟',
-  desc: 'Ascend: a new title, a new skill tree, and training up to Lv 100. Keeps Lv 50; the level curve starts over (1 session to Lv 51).',
+  desc: 'Ascend, with a new title, a new Skill Tree, and training up to Lv 100. Keeps Lv 50, and the level curve starts over (one session to reach Lv 51).',
   maxRank: 1,
   cost: 10,
   effect: {},
@@ -637,7 +637,7 @@ export const SESSIONS_AFTER_ASCEND = Array.from({ length: MAX_LEVEL - ASCEND_LEV
  */
 function ascendedTree(focus: [NodeSpec, NodeSpec, NodeSpec], capstone: NodeSpec): SkillNode[] {
   return gridTree([
-    [at('root', { name: 'Awakening', icon: '🌅', desc: '+20% damage and +5% attack rate.', maxRank: 1, cost: 2, effect: { damage: 0.2, rate: 0.05 } })],
+    [at('root', { name: 'Awakening', icon: '🌅', desc: '+20% damage and +5% attack speed.', maxRank: 1, cost: 2, effect: { damage: 0.2, rate: 0.05 } })],
     [at('power', atk(5, 'Mastery', '⚔️', 0.1)), at('speed', spd(5, 'Fervor', '🔥')), at('recovery', rec(3, 'Resolve', '🗿'))],
     [at('power2', focus[0]), at('speed2', focus[1]), at('recovery2', focus[2])],
     [at('precision', crt(4, 'Precision', '🎯')), at('fortune', { name: 'Fortune', icon: '🍀', desc: '+10% gold and +5% materials from their kills per rank.', maxRank: 3, effect: { gold: 0.1, drops: 0.05 } })],
@@ -648,14 +648,14 @@ function ascendedTree(focus: [NodeSpec, NodeSpec, NodeSpec], capstone: NodeSpec)
 /** Each Guild Hunter's ascended tree. */
 export const ASCENDED_TREES: Record<HunterId, SkillNode[]> = {
   alchemist: ascendedTree([area(8, 'Vast Splash', '💦', 'Puddles spread', 0.05), dur(6, 'Slow Rot', '☠️'), ban(6, 'Slime Scourge', '🟢', 'Slimes')], { name: "Philosopher's Stone", icon: '💠', desc: '+50% damage and puddles 20% wider.', maxRank: 1, effect: { damage: 0.5, radius: 0.2 } }),
-  bard: ascendedTree([spd(8, 'Virtuoso', '🎻', 0.03), area(6, 'Amplify', '🔊', 'Sound waves reach'), ban(6, 'Showstopper', '👤', 'Humanoids')], { name: 'Symphony', icon: '🎼', desc: '+50% damage and +15% attack rate.', maxRank: 1, effect: { damage: 0.5, rate: 0.15 } }),
+  bard: ascendedTree([spd(8, 'Virtuoso', '🎻', 0.03), area(6, 'Amplify', '🔊', 'Sound waves reach'), ban(6, 'Showstopper', '👤', 'Humanoids')], { name: 'Symphony', icon: '🎼', desc: '+50% damage and +15% attack speed.', maxRank: 1, effect: { damage: 0.5, rate: 0.15 } }),
   druid: ascendedTree([area(8, 'Alpha Pack', '🐺', 'Wolves bite harder:'), cdr(6, 'Howl', '🌕', 'Wolves come'), ban(6, 'Overgrowth Bane', '🌱', 'Plants')], { name: 'Wild Hunt', icon: '🐺', desc: '+50% damage and wolves 30% fiercer.', maxRank: 1, effect: { damage: 0.5, radius: 0.3 } }),
-  ranger: ascendedTree([rng(8, 'Hawk Eye', '🦅'), crd(6, 'Barbed Arrows', '🏹'), ban(6, 'Beast Slayer', '🐾', 'Beasts')], { name: 'Hundred Arrows', icon: '🏹', desc: '+50% damage; one more arrow per shot, and arrows pierce 2 more enemies.', maxRank: 1, effect: { damage: 0.5, multishot: 1, pierce: 2 } }),
+  ranger: ascendedTree([rng(8, 'Hawk Eye', '🦅'), crd(6, 'Barbed Arrows', '🏹'), ban(6, 'Beast Slayer', '🐾', 'Beasts')], { name: 'Hundred Arrows', icon: '🏹', desc: '+50% damage, one more arrow per shot, and arrows pierce 2 more enemies.', maxRank: 1, effect: { damage: 0.5, multishot: 1, pierce: 2 } }),
   glimmer: ascendedTree([area(8, 'Cataclysm', '💥', 'Explosions grow'), cdr(6, 'Arcane Haste', '⏱️', 'Fireballs come'), dur(6, 'Everburn', '🔥')], { name: 'Starfire', icon: '☄️', desc: '+50% damage and explosions 30% wider.', maxRank: 1, effect: { damage: 0.5, radius: 0.3 } }),
   thief: ascendedTree([gld(8, 'Golden Hands', '👛'), drp(6, 'Fine Loot', '🗝️'), crd(6, 'Assassinate', '🔪')], { name: 'Grand Heist', icon: '💎', desc: '+50% damage and +50% gold from his kills.', maxRank: 1, effect: { damage: 0.5, gold: 0.5 } }),
   lance: ascendedTree([atk(8, 'Righteous Fury', '☀️', 0.05), grd(3, 'Bastion', '🧱', 2), area(6, 'Consecration', '✨', 'Their strikes reach wider:')], { name: 'Aegis', icon: '🛡️', desc: '+50% damage and 2 more shield charges.', maxRank: 1, effect: { damage: 0.5, guard: 2 } }),
   puppeteer: ascendedTree([area(8, 'Puppet Army', '🪆', 'Puppets bite harder:'), cdr(6, 'Curtain Call', '🎪', 'Puppets come'), crt(6, 'Stage Presence', '🌟')], { name: 'Theater of Puppets', icon: '🎭', desc: '+50% damage and puppets 30% fiercer.', maxRank: 1, effect: { damage: 0.5, radius: 0.3 } }),
-  blacksmith: ascendedTree([atk(8, 'Hammer and Tongs', '🔨', 0.05), crd(6, 'Crushing Blows', '💢'), spd(6, 'Hot Iron', '🔥', 0.03)], { name: 'Masterwork', icon: '⚒️', desc: '+50% damage and +20% attack rate.', maxRank: 1, effect: { damage: 0.5, rate: 0.2 } }),
+  blacksmith: ascendedTree([atk(8, 'Hammer and Tongs', '🔨', 0.05), crd(6, 'Crushing Blows', '💢'), spd(6, 'Hot Iron', '🔥', 0.03)], { name: 'Masterwork', icon: '⚒️', desc: '+50% damage and +20% attack speed.', maxRank: 1, effect: { damage: 0.5, rate: 0.2 } }),
   wilhelm: ascendedTree([crd(8, 'Executioner', '💀'), rng(6, 'Scope', '🔭'), prc(3, 'Armor Piercing', '🔩', 2)], { name: 'One Shot', icon: '🎯', desc: '+50% damage and +10% crit chance.', maxRank: 1, effect: { damage: 0.5, crit: 0.1 } }),
   celeste: ascendedTree([ban(8, 'Wyrmbane', '🐉', 'Dragons'), rng(6, 'Astral Reach', '🧠'), crd(6, 'Mind Break', '⚡')], { name: 'Omniscience', icon: '🧠', desc: '+50% damage and +10% crit chance.', maxRank: 1, effect: { damage: 0.5, crit: 0.1 } }),
   enchantress: ascendedTree([dur(8, 'Everlasting Hex', '⏳'), cdr(6, 'Swift Glyphs', '🪄', "Their gear's abilities recharge"), crt(6, 'Runic Insight', '✴️')], { name: 'Grand Enchantment', icon: '✨', desc: '+50% damage and +10% crit chance.', maxRank: 1, effect: { damage: 0.5, crit: 0.1 } }),
@@ -667,7 +667,7 @@ export const ASCENDED_TREES: Record<HunterId, SkillNode[]> = {
   alien: ascendedTree([area(8, 'Wide Beam', '👁️', 'The beam grows'), cdr(6, 'Rapid Recharge', '🔋', 'The lasers fire'), crt(6, 'Targeting Array', '🎯')], { name: 'Death Ray', icon: '☄️', desc: '+50% damage and a beam 30% wider.', maxRank: 1, effect: { damage: 0.5, radius: 0.3 } }),
   gambler: ascendedTree([crd(8, 'Double Down', '🎲'), area(6, 'Boxcars', '💥', 'Dice blasts grow'), gld(6, 'House Money', '🪙')], { name: 'High Roller', icon: '🎲', desc: '+50% damage and dice blasts 30% wider.', maxRank: 1, effect: { damage: 0.5, radius: 0.3 } }),
   archivist: ascendedTree([area(8, 'Grand Index', '📜', 'Recalled specials grow'), cdr(6, 'Speed Archive', '📑', 'The tome opens'), dur(6, 'Long Memory', '🕯️')], { name: 'Great Library', icon: '📚', desc: '+50% damage and recalled specials 30% bigger.', maxRank: 1, effect: { damage: 0.5, radius: 0.3 } }),
-  artificer: ascendedTree([spd(8, 'Perpetual Motion', '⚙️', 0.03), rng(6, 'Long Barrels', '🔭'), crt(6, 'Calibration', '📐')], { name: 'Grand Design', icon: '⚙️', desc: '+50% damage and +20% attack rate.', maxRank: 1, effect: { damage: 0.5, rate: 0.2 } }),
+  artificer: ascendedTree([spd(8, 'Perpetual Motion', '⚙️', 0.03), rng(6, 'Long Barrels', '🔭'), crt(6, 'Calibration', '📐')], { name: 'Grand Design', icon: '⚙️', desc: '+50% damage and +20% attack speed.', maxRank: 1, effect: { damage: 0.5, rate: 0.2 } }),
   frostbreaker: ascendedTree([ban(8, 'Glacier Bane', '🔷', 'Elementals'), dur(6, 'Endless Winter', '🥶'), crd(6, 'Ice Shatter', '💎')], { name: 'Eternal Winter', icon: '❄️', desc: '+50% damage, and status effects last 25% longer.', maxRank: 1, effect: { damage: 0.5, duration: 0.25 } }),
 };
 
@@ -680,7 +680,7 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
     [at('power', atk(3)), at('quickBrew', cdr(4, 'Quick Brew', '⏱️', 'Potions come')), at('recovery', rec(3))],
     [at('slimeBane', ban(4, 'Slime Bane', '🟢', 'Slimes')), at('wideSplash', area(4, 'Wide Splash', '💦', 'Puddles spread')), at('lingering', dur(4, 'Lingering Fumes', '☁️')), at('luckyFinds', drp(3, 'Lucky Finds', '🍀'))],
     [at('speed', spd(4)), at('potency', atk(4, 'Potent Toxins', '☠️', 0.1)), at('thickBrew', dur(2, 'Thick Brew', '🫧'))],
-    [at('capstone', { name: 'Grand Alchemy', icon: '⚗️', desc: '+20% damage; puddles 20% wider; poison lasts 20% longer.', maxRank: 1, cost: 3, effect: { damage: 0.2, radius: 0.2, duration: 0.2 } })],
+    [at('capstone', { name: 'Grand Alchemy', icon: '⚗️', desc: '+20% damage, puddles 20% wider, and poison lasts 20% longer.', maxRank: 1, cost: 3, effect: { damage: 0.2, radius: 0.2, duration: 0.2 } })],
   ]),
   // Galladair: arrows that pierce, and more of them.
   ranger: gridTree([
@@ -696,7 +696,7 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
     [at('power', atk(3)), at('speed', spd(5, 'Tempo', '🥁')), at('recovery', rec(3))],
     [at('crescendo', area(4, 'Crescendo', '🔊', 'Sound waves reach')), at('silverTongue', ban(4, 'Silver Tongue', '👤', 'Humanoids')), at('encore', spd(4, 'Encore', '🎤'))],
     [at('rhythm', crt(3, 'Rhythm', '🎼')), at('drumbeat', atk(5, 'Drumbeat', '🪘', 0.1)), at('echo', area(3, 'Echo', '📣', 'Sound waves reach'))],
-    [at('capstone', { name: 'Ballad of Heroes', icon: '🎶', desc: '+15% attack rate and sound waves reach 20% further.', maxRank: 1, cost: 4, effect: { rate: 0.15, radius: 0.2 } })],
+    [at('capstone', { name: 'Ballad of Heroes', icon: '🎶', desc: '+15% attack speed and sound waves reach 20% further.', maxRank: 1, cost: 4, effect: { rate: 0.15, radius: 0.2 } })],
   ]),
   // Deku: fiercer wolves, called sooner.
   druid: gridTree([
@@ -784,7 +784,7 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
     [at('power', atk(4, 'Keen Edge', '🗡️')), at('speed', spd(4, 'Bloodlust', '💢')), at('recovery', rec(2))],
     [at('surge', area(4, 'Surge', '🌊', 'The Crimson Wave runs further:')), at('hemorrhage', dur(4, 'Hemorrhage', '🩸')), at('tide', cdr(3, 'Rising Tide', '⏱️', 'The Crimson Wave comes')), at('sanguine', crt(3, 'Sanguine Eye', '👁️'))],
     [at('crimsonEdge', atk(5, 'Crimson Edge', '🔪', 0.1)), at('thirst', crd(4, 'Thirst', '🧛')), at('vitae', grd(1, 'Vitae', '❤️'))],
-    [at('capstone', { name: 'Blood Rain', icon: '🌧️', desc: '+10% damage; monsters the Crimson Wave kills burst into 3 blood bolts.', maxRank: 1, cost: 4, effect: { damage: 0.1, bolts: 3 } })],
+    [at('capstone', { name: 'Blood Rain', icon: '🌧️', desc: '+10% damage, and monsters the Crimson Wave kills burst into 3 blood bolts.', maxRank: 1, cost: 4, effect: { damage: 0.1, bolts: 3 } })],
   ]),
   // Marceline: long-lasting hexes and quick spells.
   enchantress: gridTree([
@@ -840,7 +840,7 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
     [at('power', atk(4)), at('speed', spd(4, 'Oiled Gears', '🔩')), at('sturdyFrame', grd(2, 'Sturdy Frame', '🛠️'))],
     [at('fineTuning', crt(3, 'Fine Tuning', '🔧')), at('clockwork', cdr(4, 'Clockwork', '⏱️', "Their gear's abilities recharge")), at('servo', rng(4, 'Servo Arm', '🦾')), at('recovery', rec(3))],
     [at('overclock', spd(5, 'Overclock', '🔋')), at('precision', atk(5, 'Precision Parts', '📐', 0.1))],
-    [at('capstone', { name: 'Grand Design', icon: '🧰', desc: 'Ranged and Magic attacks fire an extra projectile; melee attacks follow up with another strike.', maxRank: 1, cost: 4, effect: { multishot: 1 } })],
+    [at('capstone', { name: 'Grand Design', icon: '🧰', desc: 'Ranged and Magic attacks fire an extra projectile, and melee attacks follow up with another strike.', maxRank: 1, cost: 4, effect: { multishot: 1 } })],
   ]),
   // Okrin: long chills and shattering blows on Elementals.
   frostbreaker: gridTree([
@@ -1598,7 +1598,7 @@ export const REGRESSION_TREE: RegNode[] = [
   { id: 'inheritance', name: 'Inheritance', icon: 'things/010', desc: 'Start every run with 1 trillion gold.', ring: 2, angle: -60, cost: 300, startGold: 1e12 },
   { id: 'oldFriends', name: 'Old Friends', icon: 'rpg-items/300', desc: 'Recruiting a Guild Hunter costs ÷50.', ring: 2, angle: 0, cost: 300, mult: { recruitCost: 0.02 } },
   { id: 'secondWind', name: 'Second Wind', icon: 'custom/012', desc: 'Energy refills twice as fast.', ring: 2, angle: 60, cost: 300, mult: { energy: 2 } },
-  { id: 'autoEmpower', name: 'Auto Empower & Evolve', icon: 'rpg-items/264', desc: "Empowers monsters and buys their evolutions by itself, cheapest first, whenever one costs at most your chosen share of your gold (5%, 10%, 20% or 50%; tap the node to change it). Unbound monsters are left to you.", ring: 2, angle: 120, cost: 150, flag: 'autoEmpower' },
+  { id: 'autoEmpower', name: 'Auto Empower & Evolve', icon: 'rpg-items/264', desc: "Empowers monsters and buys their evolutions by itself, cheapest first, whenever one costs at most your chosen share of your gold (5%, 10%, 20%, or 50%). Tap the node to change it. Unbound monsters are left to you.", ring: 2, angle: 120, cost: 150, flag: 'autoEmpower' },
   { id: 'bestialMemory', name: 'Bestial Memory', icon: 'resources1/042', desc: 'Empowering monsters costs ÷30.', ring: 2, angle: 180, cost: 300, mult: { empowerCost: 1 / 30 } },
   { id: 'echoingMemories', name: 'Echoing Memories', icon: SHARD_ICON, desc: 'Memory Shards from every Regression ×2.5.', ring: 2, angle: 240, cost: 500, mult: { shards: 2.5 } },
   // The outer ring: the strongest of each spoke, joined all the way round.
@@ -2190,22 +2190,22 @@ export const FLYING: ReadonlySet<EnemyId> = new Set<EnemyId>([
  * tooltips); `simple` says what it does in plain words (the default tooltips).
  */
 export const DAMAGE_TYPES: Record<DamageType, { name: string; icon: string; color: string; effect?: string; simple?: string }> = {
-  physical: { name: 'Physical', icon: '🗡️', color: '#e8e8e8', effect: `Bleeds: ${STATUS.bleed.share * 100}% of the hit again over ${STATUS.bleed.duration}s; bleeds stack (up to ${STATUS.bleed.maxStacks})`, simple: 'Has a chance to make monsters bleed, dealing damage over a short time. Bleeds stack.' },
-  fire: { name: 'Fire', icon: '🔥', color: '#ff7a2a', effect: `Burns: ${STATUS.burn.share * 100}% of the hit again over ${STATUS.burn.duration}s, and can spread to monsters right next to it`, simple: 'Has a chance to set monsters on fire, burning them for a short time; the flames can spread to monsters right next to them.' },
-  acid: { name: 'Acid', icon: '🧪', color: '#c6f03a', effect: `Acid puddle: hurts everything in it for ${STATUS.acid.duration}s`, simple: 'Has a chance to leave an acid puddle that hurts every monster in it for a short time.' },
-  frost: { name: 'Frost', icon: '❄️', color: '#8fdcff', effect: `Chills: half speed for ${STATUS.chill.duration}s`, simple: 'Has a chance to chill monsters, slowing them down for a short time.' },
+  physical: { name: 'Physical', icon: '🗡️', color: '#e8e8e8', effect: `Bleeds: ${STATUS.bleed.share * 100}% of the hit again over ${STATUS.bleed.duration} seconds. Bleeds stack (up to ${STATUS.bleed.maxStacks})`, simple: 'Has a chance to make monsters bleed, dealing damage over a short time. Bleeds stack.' },
+  fire: { name: 'Fire', icon: '🔥', color: '#ff7a2a', effect: `Burns: ${STATUS.burn.share * 100}% of the hit again over ${STATUS.burn.duration} seconds, and can spread to monsters right next to it`, simple: 'Has a chance to set monsters on fire, burning them for a short time. The flames can spread to monsters right next to them.' },
+  acid: { name: 'Acid', icon: '🧪', color: '#c6f03a', effect: `Acid puddle: hurts everything in it for ${STATUS.acid.duration} seconds`, simple: 'Has a chance to leave an acid puddle that hurts every monster in it for a short time.' },
+  frost: { name: 'Frost', icon: '❄️', color: '#8fdcff', effect: `Chills: half speed for ${STATUS.chill.duration} seconds`, simple: 'Has a chance to chill monsters, slowing them down for a short time.' },
   radiant: { name: 'Radiant', icon: '✨', color: '#ffe36e', effect: `Radiant burst: ${STATUS.burst.share * 100}% of the hit to everything nearby`, simple: 'Has a chance to burst with light, hurting every monster nearby.' },
-  poison: { name: 'Poison', icon: '☠️', color: '#6fdc5a', effect: `Poisons: ${STATUS.poison.share * 100}% of the hit again over ${STATUS.poison.duration}s, plus a share of its max HP (more from rarer weapons, less on Guardians)`, simple: 'Has a chance to apply the poison condition, dealing continuous damage for a short duration.' },
-  arcane: { name: 'Arcane', icon: '🔮', color: '#c08cff', effect: `Exposes: removes its resistances for ${STATUS.expose.duration}s`, simple: 'Has a chance to expose monsters, stripping away their resistances for a short time.' },
-  decay: { name: 'Decay', icon: '🥀', color: '#b09a60', effect: `Dark aura: it hurts the monsters around it for ${STATUS.aura.duration}s`, simple: 'Has a chance to wrap monsters in a dark aura that hurts the monsters around them.' },
+  poison: { name: 'Poison', icon: '☠️', color: '#6fdc5a', effect: `Poisons: ${STATUS.poison.share * 100}% of the hit again over ${STATUS.poison.duration} seconds, plus a share of its max HP (more from rarer weapons, less on Guardians)`, simple: 'Has a chance to apply the poison condition, dealing continuous damage for a short duration.' },
+  arcane: { name: 'Arcane', icon: '🔮', color: '#c08cff', effect: `Exposes: removes its resistances for ${STATUS.expose.duration} seconds`, simple: 'Has a chance to expose monsters, stripping away their resistances for a short time.' },
+  decay: { name: 'Decay', icon: '🥀', color: '#b09a60', effect: `Dark aura: it hurts the monsters around it for ${STATUS.aura.duration} seconds`, simple: 'Has a chance to wrap monsters in a dark aura that hurts the monsters around them.' },
   lightning: { name: 'Lightning', icon: '⚡', color: '#8fb4ff', effect: `Arcs: ${STATUS.arc.share * 100}% of the hit jumps to another creature nearby, striking everything it passes through`, simple: 'Has a chance to arc to another monster nearby, striking everything it passes through.' },
-  void: { name: 'Void', icon: '🌀', color: '#ff5fd7', effect: `Gravity well: for ${STATUS.well.duration}s it pulls the monsters around it in toward itself`, simple: 'Has a chance to open a gravity well that pulls the monsters around it in.' },
+  void: { name: 'Void', icon: '🌀', color: '#ff5fd7', effect: `Gravity well: for ${STATUS.well.duration} seconds it pulls the monsters around it in toward itself`, simple: 'Has a chance to open a gravity well that pulls the monsters around it in.' },
 };
 
 /**
  * A Guild Hunter's signature ability, used on a cooldown alongside the attacks of the weapon they hold:
  * Andrejz's potions, Glimmer's fireballs, Deku's wolves, Theon's puppets. Its damage per hit is `damage` ×
- * their shot damage (so their weapon powers it); its radius is `radius` × (1 + their weapon's attack rate).
+ * their shot damage (so their weapon powers it); its radius is `radius` × (1 + their weapon's attack speed).
  * `ticks` is how many times it hits (a puddle ticks), and `crowd` how many monsters it typically catches, for
  * the background model. Summons copy the weapon's damage type and status effects; the others keep their own.
  */
@@ -2334,9 +2334,9 @@ export const HUNTERS: HunterDef[] = [
     unlock: { event: 'slimeSwarm', times: 1 },
     ascendedTitle: 'Archalchemist',
     story: "Andrejz is in the Wandering Woods doing research on Slimes, with an idea for a new potion, but he needs far more test subjects than he can catch. Survive a Slime Swarm, and Andrejz will help you hunt monsters.",
-    ability: 'Every 4s, lobs a potion that leaves a poison puddle. Deals 50% bonus damage to Slimes. Uses ranged or magic weapons.',
+    ability: 'Every 4 seconds, lobs a potion that leaves a poison puddle. Deals 50% bonus damage to Slimes. Uses ranged or magic weapons.',
     slots: [{ kind: 'weapon', label: 'Weapon', accepts: ['weapon', 'magic'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
-    special: { kind: 'potion', name: 'Potions', damageType: 'poison', cooldown: 4, damage: 0.35, radius: 45, ticks: 6, crowd: 2.5, describe: 'Every 4s, lobs a potion whose poison puddle keeps hurting: his weapon\'s damage powers it, its attack rate widens the puddle.' },
+    special: { kind: 'potion', name: 'Potions', damageType: 'poison', cooldown: 4, damage: 0.35, radius: 45, ticks: 6, crowd: 2.5, describe: 'Every 4 seconds, lobs a potion whose poison puddle keeps hurting. His weapon\'s damage powers it, and its attack speed widens the puddle.' },
   },
   {
     id: 'ranger', name: 'Galladair', title: 'Ranger', icon: '🏹', color: '#c09060', area: 'forest', recruitCost: 2_000, bane: { archetype: 'beast', mult: BANE_BASE },
@@ -2354,7 +2354,7 @@ export const HUNTERS: HunterDef[] = [
       radius: 55,
       ticks: 1,
       crowd: 1,
-      describe: `Every 6s, arrows rain down around the nearest monster for ${ARROW_RAIN.time}s, ${ARROW_RAIN.rate} a second, each hitting what it lands on for half her weapon's damage. Each point of piercing widens the rain by ${ARROW_RAIN.perPierce * 100}% and each extra arrow per shot (from her skills or her gear) makes it last ${ARROW_RAIN.perShot}s longer. Her weapon's attack rate and area size widen it too.`,
+      describe: `Every 6 seconds, arrows rain down around the nearest monster for ${ARROW_RAIN.time} seconds, ${ARROW_RAIN.rate} a second, each hitting what it lands on for half her weapon's damage. Each point of piercing widens the rain by ${ARROW_RAIN.perPierce * 100}% and each extra arrow per shot (from her skills or her gear) makes it last ${ARROW_RAIN.perShot} seconds longer. Her weapon's attack speed and area size widen it too.`,
     },
   },
   {
@@ -2374,9 +2374,9 @@ export const HUNTERS: HunterDef[] = [
     unlock: { event: 'guardian-glade', times: 2 },
     ascendedTitle: 'Archdruid',
     story: 'Deku tends the oldest trees of the Fey Grove, and the Guardian keeps trampling his saplings. Beat it twice, and he\'ll lend you the spirits of the wild.',
-    ability: 'Every 6s calls two spirit wolves to hunt. Deals 50% bonus damage to Plants, and his Beast summons (wolves from any source) hit 50% harder. Uses ranged or magic weapons.',
+    ability: 'Every 6 seconds, calls two spirit wolves to hunt. Deals 50% bonus damage to Plants, and his Beast summons (wolves from any source) hit 50% harder. Uses ranged or magic weapons.',
     slots: [{ kind: 'weapon', label: 'Weapon', accepts: ['weapon', 'magic'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
-    special: { kind: 'summon', name: 'Wolves', damageType: 'physical', cooldown: 6, damage: 0.7, radius: 1, ticks: 18, crowd: 1, summon: { look: 'wolf', type: 'beast' }, describe: 'Every 6s calls two spirit wolves that hunt for 6s, biting for his damage: his weapon powers them, and they share its damage type and status effects.' },
+    special: { kind: 'summon', name: 'Wolves', damageType: 'physical', cooldown: 6, damage: 0.7, radius: 1, ticks: 18, crowd: 1, summon: { look: 'wolf', type: 'beast' }, describe: 'Every 6 seconds, calls two spirit wolves that hunt for 6 seconds, biting for his damage. His weapon powers them, and they share its damage type and status effects.' },
   },
   {
     id: 'thief', name: 'Alias', title: 'Thief', icon: '🦹', color: '#8a8aa8', area: 'graveyard', recruitCost: 60_000_000,
@@ -2404,18 +2404,18 @@ export const HUNTERS: HunterDef[] = [
     unlock: { event: 'guardian-crypt', times: 1 },
     ascendedTitle: 'Archmage',
     story: 'Glimmer came to the Forbidden Crypt to study the old magic sealed inside, but its Guardian won\'t let anyone near. Put it to rest, and Glimmer will lend you a fireball or two.',
-    ability: 'Every 4s, hurls a fireball that explodes for area damage. Wields only magic weapons.',
+    ability: 'Every 4 seconds, hurls a fireball that explodes for area damage. Wields only magic weapons.',
     slots: [{ kind: 'magic', label: 'Magic weapon' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
-    special: { kind: 'fireball', name: 'Fireballs', damageType: 'fire', proc: 1, cooldown: 4, damage: 1.75, radius: 55, ticks: 1, crowd: 3, describe: 'Every 4s hurls a fireball that explodes: his weapon\'s damage powers the blast, its attack rate widens it.' },
+    special: { kind: 'fireball', name: 'Fireballs', damageType: 'fire', proc: 1, cooldown: 4, damage: 1.75, radius: 55, ticks: 1, crowd: 3, describe: 'Every 4 seconds, hurls a fireball that explodes. His weapon\'s damage powers the blast, and its attack speed widens it.' },
   },  {
     id: 'puppeteer', name: 'Theon', title: 'Puppeteer', icon: '🎎', color: '#c89a6a', area: 'crypt', recruitCost: 1_000_000_000_000, summonBonus: { type: 'construct', mult: 1.5 },
     short: 'Summons puppets to fight for her.',
     unlock: { event: 'guardian-crypt', times: 2 },
     ascendedTitle: 'Grand Puppeteer',
     story: "Theon pulls the strings of the Forbidden Crypt's Possessed Puppets, or tries to: something in the dark keeps cutting them. Beat the Crypt's Guardian twice, and her puppets will dance for you.",
-    ability: 'Every 6s calls two puppets that hunt across the field. Her Construct summons (puppets from any source) hit 50% harder. Uses magic or melee weapons.',
+    ability: 'Every 6 seconds, calls two puppets that hunt across the field. Her Construct summons (puppets from any source) hit 50% harder. Uses magic or melee weapons.',
     slots: [{ kind: 'magic', label: 'Weapon', accepts: ['magic', 'melee'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
-    special: { kind: 'summon', name: 'Puppets', damageType: 'physical', cooldown: 6, damage: 0.7, radius: 1, ticks: 18, crowd: 1, summon: { look: 'puppet', type: 'construct' }, describe: 'Every 6s calls two puppets that hunt for 6s, biting for her damage: her weapon powers them, and they share its damage type and status effects.' },
+    special: { kind: 'summon', name: 'Puppets', damageType: 'physical', cooldown: 6, damage: 0.7, radius: 1, ticks: 18, crowd: 1, summon: { look: 'puppet', type: 'construct' }, describe: 'Every 6 seconds, calls two puppets that hunt for 6 seconds, biting for her damage. Her weapon powers them, and they share its damage type and status effects.' },
   },
 
   {
@@ -2456,8 +2456,8 @@ export const HUNTERS: HunterDef[] = [
     unlock: { event: 'guardian-caves', times: 2 },
     ascendedTitle: 'Grandmaster',
     story: 'Sciirj trains in the heat of the Ember Mines, punching stone until the stone gives first. Beat its Guardian twice, and he\'ll lend you his fists.',
-    ability: 'Every 5s, throws a massive punch that hits every monster in front of him and sends them flying. Fights with melee weapons.',
-    special: { kind: 'punch', name: 'Mountain Fist', damageType: 'physical', cooldown: 5, damage: 3, radius: 95, ticks: 1, crowd: 2.5, knock: 700, arc: 1.6, describe: 'Every 5s, when a monster is close, throws a massive punch that hits everything in front of him and knocks it far back: his weapon\'s damage powers the blow, its attack rate lengthens his reach.' },
+    ability: 'Every 5 seconds, throws a massive punch that hits every monster in front of him and sends them flying. Fights with melee weapons.',
+    special: { kind: 'punch', name: 'Mountain Fist', damageType: 'physical', cooldown: 5, damage: 3, radius: 95, ticks: 1, crowd: 2.5, knock: 700, arc: 1.6, describe: 'Every 5 seconds, when a monster is close, throws a massive punch that hits everything in front of him and knocks it far back. His weapon\'s damage powers the blow, and its attack speed lengthens his reach.' },
     slots: [{ kind: 'melee', label: 'Melee' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
   },
   {
@@ -2475,9 +2475,9 @@ export const HUNTERS: HunterDef[] = [
     unlock: { event: 'guardian-mines', times: 2 },
     ascendedTitle: 'Bonelord',
     story: "Gideon came to the Venom Caverns for the bones of the things that died there, and there are a great many. Beat the Caverns' Guardian twice, and he'll raise them for you.",
-    ability: 'Every 5s, bone spikes burst from the ground under a group of monsters, hurting them and holding them in place. When he is stunned, a Bone Wall rises around every Hunter for a few seconds. Uses magic weapons.',
-    special: { kind: 'spikes', name: 'Bone Spikes', damageType: 'physical', cooldown: 5, damage: 1.6, radius: 60, ticks: 1, crowd: 3, hold: 1.5, describe: 'Every 5s, bone spikes burst up under the nearest monster, hurting everything around it and holding it in place for 1.5s: his weapon\'s damage powers them, its attack rate widens them. Not while his Bone Wall stands.' },
-    wall: { name: 'Bone Wall', cooldown: 25, duration: 4, radius: 70, describe: 'When he is stunned, a wall of bone rises around every Hunter for 4s: no monster can reach them. Ready again 25s later.' },
+    ability: 'Every 5 seconds, bone spikes burst from the ground under a group of monsters, hurting them and holding them in place. When he is stunned, a Bone Wall rises around every Hunter for a few seconds. Uses magic weapons.',
+    special: { kind: 'spikes', name: 'Bone Spikes', damageType: 'physical', cooldown: 5, damage: 1.6, radius: 60, ticks: 1, crowd: 3, hold: 1.5, describe: 'Every 5 seconds, bone spikes burst up under the nearest monster, hurting everything around it and holding it in place for 1.5 seconds. His weapon\'s damage powers them, and its attack speed widens them. Not while his Bone Wall stands.' },
+    wall: { name: 'Bone Wall', cooldown: 25, duration: 4, radius: 70, describe: 'When he is stunned, a wall of bone rises around every Hunter for 4 seconds, and no monster can reach them. It is ready again 25 seconds later.' },
     slots: [{ kind: 'magic', label: 'Magic weapon' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
   },
   {
@@ -2495,8 +2495,8 @@ export const HUNTERS: HunterDef[] = [
     unlock: { event: 'guardian-peaks', times: 2 },
     ascendedTitle: 'Crimson Lord',
     story: "Themus walks the Frost Peaks, where blood freezes before it can fall. Beat the Peaks' Guardian twice, and his blade is yours.",
-    ability: 'Every 5s, sends a Crimson Wave of blood surging toward the monsters, hurting everything it passes and making it bleed. Once his tree is complete, monsters it kills burst into blood bolts. Fights with melee weapons.',
-    special: { kind: 'wave', name: 'Crimson Wave', damageType: 'physical', cooldown: 5, damage: 1.4, radius: 200, width: 26, ticks: 1, crowd: 3, describe: 'Every 5s, a surge of blood rushes out toward the nearest monster, hurting everything in its path and making it bleed: his weapon\'s damage powers it, its attack rate lengthens it. With Blood Rain (his capstone), monsters it kills burst into blood bolts that seek out others and make them bleed too.' },
+    ability: 'Every 5 seconds, sends a Crimson Wave of blood surging toward the monsters, hurting everything it passes and making it bleed. Once his tree is complete, monsters it kills burst into blood bolts. Fights with melee weapons.',
+    special: { kind: 'wave', name: 'Crimson Wave', damageType: 'physical', cooldown: 5, damage: 1.4, radius: 200, width: 26, ticks: 1, crowd: 3, describe: 'Every 5 seconds, a surge of blood rushes out toward the nearest monster, hurting everything in its path and making it bleed. His weapon\'s damage powers it, and its attack speed lengthens it. With Blood Rain (his capstone), monsters it kills burst into blood bolts that seek out others and make them bleed too.' },
     slots: [{ kind: 'melee', label: 'Melee' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
   },
   {
@@ -2506,7 +2506,7 @@ export const HUNTERS: HunterDef[] = [
     ascendedTitle: 'Grand Artificer',
     tinker: 1,
     story: "Reginald climbed the Ascendant Steps to study the Sky Golems' clockwork, and the harpies won't leave his instruments alone. Drive off a Harpy Storm, and he'll tune your gear in return.",
-    ability: "Every Hunter in his area, him included, uses their gear as if it had one more star; gear already at 5★ gets the bonus a 6th star would give. Uses any weapon.",
+    ability: "Every Hunter in his area, him included, uses their gear as if it had one more star. Gear already at 5★ gets the bonus a 6th star would give. Uses any weapon.",
     slots: [{ kind: 'weapon', label: 'Weapon', accepts: ['weapon', 'magic', 'melee'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
   },
   {
@@ -2515,7 +2515,7 @@ export const HUNTERS: HunterDef[] = [
     unlock: { event: 'harpyStorm', times: 2 },
     ascendedTitle: 'Loremaster',
     story: "Thomas came to the Ascendant Steps to copy the sky-script carved into its stairs, but the harpies keep scattering his pages. Drive off two Harpy Storms, and his library is yours.",
-    ability: "Every 6s, his tome opens somewhere on the field and another Hunter's special bursts from it: usually one of the Hunters fighting beside him, sometimes any Hunter you've recruited. Wields only magic weapons.",
+    ability: "Every 6 seconds, his tome opens somewhere on the field and another Hunter's special bursts from it: usually one of the Hunters fighting beside him, sometimes any Hunter you've recruited. Wields only magic weapons.",
     slots: [{ kind: 'magic', label: 'Magic weapon' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
     special: {
       kind: 'recall',
@@ -2526,7 +2526,7 @@ export const HUNTERS: HunterDef[] = [
       radius: 1,
       ticks: 2,
       crowd: 2.5,
-      describe: "Every 6s a tome opens somewhere on the field and casts a copy of another Hunter's special at the monsters near it, powered by his weapon (its attack rate makes the copy bigger). 85% of the time it's the special of a Hunter fighting in his area; otherwise any recruited Hunter's. Only active specials (no passives like Reginald's or Alias's).",
+      describe: "Every 6 seconds, a tome opens somewhere on the field and casts a copy of another Hunter's special at the monsters near it, powered by his weapon (its attack speed makes the copy bigger). 85% of the time it's the special of a Hunter fighting in his area, and otherwise any recruited Hunter's. Only active specials are copied, not passives like Reginald's or Alias's.",
     },
   },
   {
@@ -2536,7 +2536,7 @@ export const HUNTERS: HunterDef[] = [
     ascendedTitle: 'High Roller',
     gamble: { double: 0.25, bust: 0.1 },
     story: "Ted runs the only card table in the Cloud Fortress, and the storm keeps blowing his chips off it. Weather a Cloudburst, and he'll bet on you instead.",
-    ability: 'Every 5s, rolls two dice at the monsters: the higher the total, the bigger the blast; doubles hit twice as hard, double 6s hit the whole field, and snake eyes leave him dazed. Kills in his area pay double (25%) or nothing (10%). Uses any weapon.',
+    ability: 'Every 5 seconds, rolls two dice at the monsters. The higher the total, the bigger the blast. Doubles hit twice as hard, double 6s hit the whole field, and snake eyes leave him dazed. Kills in his area pay double (25%) or nothing (10%). Uses any weapon.',
     slots: [{ kind: 'weapon', label: 'Weapon', accepts: ['weapon', 'magic', 'melee'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
     special: {
       kind: 'dice',
@@ -2547,7 +2547,7 @@ export const HUNTERS: HunterDef[] = [
       radius: 60,
       ticks: 1,
       crowd: 3,
-      describe: "Every 5s, throws two dice at the monsters, powered by his weapon (its attack rate widens the blasts). 2 (snake eyes): nothing, and he's dazed for a moment. 3-4: one monster takes a hit. 5-9: a blast. 10-11: a bigger blast. 12 (double 6s): the whole field. Other doubles hit twice as hard, and his crit chance can re-roll his lower die.",
+      describe: "Every 5 seconds, throws two dice at the monsters, powered by his weapon (its attack speed widens the blasts). Rolling a 2 (snake eyes) does nothing, and he's dazed for a moment. A 3 or 4 hits one monster, 5 to 9 causes a blast, 10 or 11 causes a bigger blast, and a 12 (double 6s) hits the whole field. Other doubles hit twice as hard, and his crit chance can re-roll his lower die.",
     },
   },
   {
@@ -2556,7 +2556,7 @@ export const HUNTERS: HunterDef[] = [
     unlock: { event: 'cloudburst', times: 2 },
     ascendedTitle: 'Dread Sovereign',
     story: "Azir sealed himself in the Cloud Fortress's highest tower to wait out the centuries, and the storms have been rattling his bones ever since. Weather two Cloudbursts, and his legion marches with you.",
-    ability: 'Every 15s, raises six skeletal soldiers from the ground around him. They march on the monsters and fight for 10s, striking with his weapon. Wields only magic weapons.',
+    ability: 'Every 15 seconds, raises six skeletal soldiers from the ground around him. They march on the monsters and fight for 10 seconds, striking with his weapon. Wields only magic weapons.',
     slots: [{ kind: 'magic', label: 'Magic weapon' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
     special: {
       kind: 'summon',
@@ -2568,7 +2568,7 @@ export const HUNTERS: HunterDef[] = [
       ticks: 15,
       crowd: 1,
       summon: { look: 'skeleton', type: 'undead', count: 6, life: 10 },
-      describe: 'Every 15s, six skeletal soldiers claw their way up around him and march on the monsters for 10s, each striking for his damage: his weapon powers them, and they share its damage type and status effects.',
+      describe: 'Every 15 seconds, six skeletal soldiers claw their way up around him and march on the monsters for 10 seconds, each striking for his damage. His weapon powers them, and they share its damage type and status effects.',
     },
   },
   {
@@ -2577,7 +2577,7 @@ export const HUNTERS: HunterDef[] = [
     unlock: { event: 'meteorShower', times: 1 },
     ascendedTitle: 'Cosmic Charmer',
     story: "Norm fell to the Meteor Field inside a meteorite and has been talking his way out of trouble ever since. Ride out a Meteor Shower with him, and he'll talk the monsters into fighting for you.",
-    ability: "Every 6s, sweet-talks the monster nearest him (Guardians aren't fooled): it turns pink and, for 6s, hunts the nearest other monster instead of your Hunters, biting it for a quarter of its own health every second. Uses ranged or magic weapons.",
+    ability: "Every 6 seconds, sweet-talks the monster nearest him (Guardians aren't fooled): it turns pink and, for 6 seconds, hunts the nearest other monster instead of your Hunters, biting it for a quarter of its own health every second. Uses ranged or magic weapons.",
     slots: [{ kind: 'weapon', label: 'Weapon', accepts: ['weapon', 'magic'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
     special: {
       kind: 'charm',
@@ -2588,7 +2588,7 @@ export const HUNTERS: HunterDef[] = [
       radius: 110,
       ticks: 6,
       crowd: 4,
-      describe: "Every 6s, charms the monster nearest him within reach (his weapon's attack rate and area size widen it; Guardians are immune). For 6s it turns on the nearest other monster, biting it every second for 25% of its own max health, and your Hunters leave it be.",
+      describe: "Every 6 seconds, charms the monster nearest him within reach (his weapon's attack speed and area size widen his reach, and Guardians are immune). For 6 seconds, it turns on the nearest other monster, biting it every second for 25% of its own max health, and your Hunters leave it be.",
     },
   },
   {
@@ -2597,7 +2597,7 @@ export const HUNTERS: HunterDef[] = [
     unlock: { event: 'meteorShower', times: 2 },
     ascendedTitle: 'Star Conqueror',
     story: "Tonk's saucer came down in the Meteor Field, and he's been zapping anything that comes near the wreck ever since. Ride out two Meteor Showers, and he'll point those eyes at the monsters instead.",
-    ability: 'Every 5s, fires twin eye lasers at the nearest monster: the beam runs right across the battlefield, burning everything in its path. Uses melee or ranged weapons.',
+    ability: 'Every 5 seconds, fires twin eye lasers at the nearest monster. The beam runs right across the battlefield, burning everything in its path. Uses melee or ranged weapons.',
     slots: [{ kind: 'weapon', label: 'Weapon', accepts: ['weapon', 'melee'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
     special: {
       kind: 'laser',
@@ -2609,7 +2609,7 @@ export const HUNTERS: HunterDef[] = [
       width: 12,
       ticks: 1,
       crowd: 5,
-      describe: "Every 5s, fires twin eye lasers at the nearest monster: the beam runs right across the battlefield, hitting every monster in its path for his weapon's damage. Its attack rate and area size widen the beam.",
+      describe: "Every 5 seconds, fires twin eye lasers at the nearest monster. The beam runs right across the battlefield, hitting every monster in its path for his weapon's damage. Its attack speed and area size widen the beam.",
     },
   },
 ];
@@ -2622,7 +2622,7 @@ export function hunterPerk(h: HunterDef): string {
   if (h.gold) parts.push(`+${Math.round((h.gold - 1) * 100)}% gold`);
   if (h.drops) parts.push(`+${Math.round((h.drops - 1) * 100)}% drops`);
   if (h.summonBonus) parts.push(`×${h.summonBonus.mult} damage from ${SUMMON_TYPES[h.summonBonus.type].name} summons`);
-  if (h.inspire) parts.push(`+${Math.round(h.inspire * 100)}% attack rate to Hunters beside him`);
+  if (h.inspire) parts.push(`+${Math.round(h.inspire * 100)}% attack speed to Hunters beside him`);
   if (h.areaGold) parts.push(`+${Math.round(h.areaGold * 100)}% gold in his area`);
   if (h.areaLoot) parts.push(`×${1 + h.areaLoot} loot in his area`);
   if (h.gamble) parts.push(`kills in his area pay double (${Math.round(h.gamble.double * 100)}%) or nothing (${Math.round(h.gamble.bust * 100)}%)`);
@@ -2667,10 +2667,10 @@ export function hunterWeaponsNote(h: HunterDef): string {
 
 /** Every Guild Hunter's named abilities besides their bane (which hunterAbilities adds from `bane`). */
 const HUNTER_ABILITIES: Partial<Record<HunterId, HunterAbility[]>> = {
-  alchemist: [{ name: 'Potions', kind: 'active', text: 'Every 4s, lobs a potion that leaves a poison puddle, hurting every monster in it.' }],
+  alchemist: [{ name: 'Potions', kind: 'active', text: 'Every 4 seconds, lobs a potion that leaves a poison puddle, hurting every monster in it.' }],
   bard: [{ name: 'Battle Hymn', kind: 'passive', text: 'His song makes every other Hunter in his area attack 15% faster.' }],
   druid: [
-    { name: 'Spirit Wolves', kind: 'active', text: 'Every 6s, calls two spirit wolves that hunt for 6s.' },
+    { name: 'Spirit Wolves', kind: 'active', text: 'Every 6 seconds, calls two spirit wolves that hunt for 6 seconds.' },
     { name: 'Pack Leader', kind: 'passive', text: 'Beast summons (wolves from any source) hit 50% harder.' },
   ],
   thief: [{ name: "Thieves' Luck", kind: 'passive', text: 'Wherever he is, monsters pay 30% more gold and drop loot twice as often.' }],
@@ -2678,31 +2678,31 @@ const HUNTER_ABILITIES: Partial<Record<HunterId, HunterAbility[]>> = {
     { name: 'Zone of Protection', kind: 'passive', text: 'Takes several hits before he is knocked out.' },
     { name: 'Rallying Oath', kind: 'passive', text: 'Every other Hunter can take an extra hit before they are knocked out.' },
   ],
-  glimmer: [{ name: 'Fireballs', kind: 'active', text: 'Every 4s, hurls a fireball that explodes for area damage.' }],
+  glimmer: [{ name: 'Fireballs', kind: 'active', text: 'Every 4 seconds, hurls a fireball that explodes for area damage.' }],
   puppeteer: [
-    { name: 'Puppets', kind: 'active', text: 'Every 6s, calls two puppets that hunt across the field.' },
+    { name: 'Puppets', kind: 'active', text: 'Every 6 seconds, calls two puppets that hunt across the field.' },
     { name: 'Master of Strings', kind: 'passive', text: 'Construct summons (puppets from any source) hit 50% harder.' },
   ],
   wilhelm: [{ name: 'Quick Draw', kind: 'passive', text: 'Carries a long-range weapon and a short-range one, and switches to the short-range one when monsters get close.' }],
   blacksmith: [{ name: 'Refine', kind: 'passive', text: 'Unlocks Refine in Equipment: add stat modifiers (attack speed, damage, knockback, piercing, magazine size) to Very Rare and rarer gear.' }],
   enchantress: [{ name: 'Enchant', kind: 'passive', text: 'Unlocks Enchant in Equipment: add damage types, stronger status effects and abilities to Very Rare and rarer gear.' }],
   osteomancer: [
-    { name: 'Bone Spikes', kind: 'active', text: 'Every 5s, bone spikes burst from the ground under a group of monsters, hurting them and holding them in place.' },
+    { name: 'Bone Spikes', kind: 'active', text: 'Every 5 seconds, bone spikes burst from the ground under a group of monsters, hurting them and holding them in place.' },
     { name: 'Bone Wall', kind: 'active', text: 'When he is stunned, a wall of bone rises around every Hunter for a few seconds and no monster can reach them.' },
   ],
   bloodblade: [
-    { name: 'Crimson Wave', kind: 'active', text: 'Every 5s, sends a wave of blood surging toward the monsters, hurting everything it passes and making it bleed.' },
+    { name: 'Crimson Wave', kind: 'active', text: 'Every 5 seconds, sends a wave of blood surging toward the monsters, hurting everything it passes and making it bleed.' },
     { name: 'Blood Bolts', kind: 'passive', text: 'Once his tree is complete, monsters the wave kills burst into blood bolts.' },
   ],
-  artificer: [{ name: 'Master Tinker', kind: 'passive', text: 'Every Hunter in his area, him included, uses their gear as if it had one more star; gear already at 5★ gets the bonus a 6th star would give.' }],
-  archivist: [{ name: 'Recall', kind: 'active', text: "Every 6s, his tome opens somewhere on the field and another Hunter's special bursts from it: usually one fighting beside him, sometimes any Hunter you've recruited." }],
+  artificer: [{ name: 'Master Tinker', kind: 'passive', text: 'Every Hunter in his area, him included, uses their gear as if it had one more star. Gear already at 5★ gets the bonus a 6th star would give.' }],
+  archivist: [{ name: 'Recall', kind: 'active', text: "Every 6 seconds, his tome opens somewhere on the field and another Hunter's special bursts from it: usually one fighting beside him, sometimes any Hunter you've recruited." }],
   gambler: [
-    { name: 'Roll the Dice', kind: 'active', text: 'Every 5s, rolls two dice at the monsters: the higher the total, the bigger the blast; doubles hit twice as hard, double 6s hit the whole field, and snake eyes leave him dazed.' },
+    { name: 'Roll the Dice', kind: 'active', text: 'Every 5 seconds, rolls two dice at the monsters. The higher the total, the bigger the blast. Doubles hit twice as hard, double 6s hit the whole field, and snake eyes leave him dazed.' },
     { name: 'Double or Nothing', kind: 'passive', text: 'Kills in his area pay double (25%) or nothing (10%).' },
   ],
-  lichlord: [{ name: 'Raise the Legion', kind: 'active', text: 'Every 15s, raises six skeletal soldiers from the ground around him; they march on the monsters and fight for 10s, striking with his weapon.' }],
-  alien: [{ name: 'Eye Lasers', kind: 'active', text: 'Every 5s, fires twin eye lasers at the nearest monster: the beam runs right across the battlefield, burning everything in its path.' }],
-  spaceslime: [{ name: 'Smooth Talk', kind: 'active', text: "Every 6s, sweet-talks the monster nearest him (Guardians aren't fooled): for 6s it hunts the nearest other monster instead of your Hunters, biting it for a quarter of its own health every second." }],
+  lichlord: [{ name: 'Raise the Legion', kind: 'active', text: 'Every 15 seconds, raises six skeletal soldiers from the ground around him that march on the monsters and fight for 10 seconds, striking with his weapon.' }],
+  alien: [{ name: 'Eye Lasers', kind: 'active', text: 'Every 5 seconds, fires twin eye lasers at the nearest monster. The beam runs right across the battlefield, burning everything in its path.' }],
+  spaceslime: [{ name: 'Smooth Talk', kind: 'active', text: "Every 6 seconds, sweet-talks the monster nearest him (Guardians aren't fooled): for 6 seconds it hunts the nearest other monster instead of your Hunters, biting it for a quarter of its own health every second." }],
 };
 
 /** Your Hunter's abilities in their full view. */
@@ -2805,7 +2805,7 @@ export const ARMOR_TYPES: Record<ArmorType, { name: string; icon: string; desc: 
  */
 export type AccType = 'shield' | 'boots' | 'hood' | 'quiver' | 'ammo' | 'gauntlet' | 'talisman';
 export const ACC_TYPES: Record<AccType, { name: string; icon: string; desc: string }> = {
-  shield: { name: 'Shield', icon: '🛡️', desc: 'Blocks like heavy armor: shield charges and shorter stuns; rarer ones burst out when they block.' },
+  shield: { name: 'Shield', icon: '🛡️', desc: 'Blocks like heavy armor, with shield charges and shorter stuns. Rarer ones burst out when they block.' },
   boots: { name: 'Boots', icon: '👢', desc: 'Light on their feet like light armor: attack speed, shorter stuns and a chance to dodge a monster entirely.' },
   hood: { name: 'Hood', icon: '🧙', desc: 'Channels power like a robe, to a smaller degree: damage and bigger area effects.' },
   quiver: { name: 'Quiver', icon: '🏹', desc: 'Boosts bows and crossbows only.' },
@@ -2916,7 +2916,7 @@ export type GearStat = 'damage' | 'rate' | 'range' | 'crit' | 'stun' | 'guard' |
 
 export const GEAR_STATS: Record<GearStat, (v: number) => string> = {
   damage: (v) => `+${Math.round(v * 100)}% damage`,
-  rate: (v) => `+${Math.round(v * 100)}% attack rate`,
+  rate: (v) => `+${Math.round(v * 100)}% attack speed`,
   range: (v) => `+${Math.round(v)} range`,
   crit: (v) => `+${Math.round(v * 100)}% crit`,
   stun: (v) => `−${Math.round(v * 100)}% stun time`,
@@ -3567,7 +3567,7 @@ export const UNIQUE_EFFECTS: Record<UniqueId, { name: string; icon: string; rari
   cataclysm: { name: 'Elemental Cataclysm', icon: '🌈', rarity: 'exalted', cooldown: 10, damageType: 'arcane', desc: 'unleashes a spell of every element at once, each at a different monster' },
   meteorStorm: { name: 'Meteor Storm', icon: '🌠', rarity: 'exalted', cooldown: 12, damageType: 'fire', desc: 'rains meteors down across the whole field' },
   singularity: { name: 'Singularity', icon: '🕳️', rarity: 'exalted', cooldown: 12, damageType: 'void', desc: 'opens a vast gravity well that drags the whole crowd together, then collapses' },
-  eternalLegion: { name: 'Eternal Legion', icon: '⚰️', rarity: 'exalted', cooldown: 20, damageType: 'decay', desc: 'for 8s, every monster that dies anywhere rises to fight for the wearer' },
+  eternalLegion: { name: 'Eternal Legion', icon: '⚰️', rarity: 'exalted', cooldown: 20, damageType: 'decay', desc: 'for 8 seconds, every monster that dies anywhere rises to fight for the wearer' },
 };
 const uniqueEnchant = (id: UniqueId): EnchantDef => {
   const u = UNIQUE_EFFECTS[id];
@@ -3580,7 +3580,7 @@ const uniqueEnchant = (id: UniqueId): EnchantDef => {
     builtInOnly: true,
     effect: { kind: 'unique', id, base: 1, damageType: u.damageType, cooldown: u.cooldown },
     fits: () => true,
-    text: (_c, p, t) => `Every ${u.cooldown}s, ${u.desc} (${dmg(p, t)})`,
+    text: (_c, p, t) => `Every ${u.cooldown} seconds, ${u.desc} (${dmg(p, t)})`,
   };
 };
 
@@ -3626,9 +3626,9 @@ export const ENCHANTS: Record<EnchantId, EnchantDef> = {
   artWhirlwind: { name: 'Whirlwind', icon: '🌪️', range: [0.08, 0.15], power: [1, 1.4], weight: 1, melee: 'whirlwind', fits: (d) => d.weaponClass === 'sword' || d.weaponClass === 'glaive', text: (c, p) => `${pct(c)} chance on attack to spin, hitting everything all the way around and drawing monsters in (${hits(p)})` },
   artRiposte: { name: 'Riposte', icon: '🤺', range: [0.2, 0.4], power: [1, 1.5], weight: 1, melee: 'riposte', fits: (d) => d.kind === 'melee', text: (c, p) => `${pct(c)} chance to strike a monster that reaches the wearer with a critical hit first (${hits(p)}); if it dies, no stun` },
   artExecutioner: { name: 'Executioner', icon: '🪓', range: [0.04, 0.08], power: [0.5, 1], weight: 1, melee: 'executioner', fits: (d) => d.weaponClass === 'dagger' || d.weaponClass === 'sword', text: (c, p) => `+${pct(p)} damage to monsters below ${MELEE_ARTS.executeAt * 100}% HP, and each hit has ${pct(c)} chance to finish one off (not Guardians)` },
-  artEarthshatter: { name: 'Earthshatter', icon: '⛰️', range: [0.15, 0.3], power: [0.2, 0.35], weight: 1, melee: 'earthshatter', fits: melee('hammer'), text: (c, p) => `${pct(c)} chance a slam cracks the ground in a line, the fissure hurting monsters on it every ${MELEE_ARTS.fissureTick}s for ${MELEE_ARTS.fissureLife}s (${hits(p)})` },
+  artEarthshatter: { name: 'Earthshatter', icon: '⛰️', range: [0.15, 0.3], power: [0.2, 0.35], weight: 1, melee: 'earthshatter', fits: melee('hammer'), text: (c, p) => `${pct(c)} chance a slam cracks the ground in a line, the fissure hurting monsters on it every ${MELEE_ARTS.fissureTick} seconds for ${MELEE_ARTS.fissureLife} seconds (${hits(p)})` },
   artMomentum: { name: 'Momentum', icon: '📈', range: [0.08, 0.15], weight: 1, melee: 'momentum', fits: melee('spear'), text: (c) => `each thrust in a row at the same monster hits +${pct(c)} harder (up to ${MELEE_ARTS.momentumMax} times); a new target starts over` },
-  artBloodthirst: { name: 'Bloodthirst', icon: '🩸', range: [0.15, 0.3], power: [0.3, 0.6], weight: 1, melee: 'bloodthirst', fits: (d) => d.kind === 'melee', text: (c, p) => `${pct(c)} chance a kill gives +${pct(p)} attack speed for ${MELEE_ARTS.frenzyTime}s (or, while stunned, takes ${MELEE_ARTS.stunCut}s off the stun)` },
+  artBloodthirst: { name: 'Bloodthirst', icon: '🩸', range: [0.15, 0.3], power: [0.3, 0.6], weight: 1, melee: 'bloodthirst', fits: (d) => d.kind === 'melee', text: (c, p) => `${pct(c)} chance a kill gives +${pct(p)} attack speed for ${MELEE_ARTS.frenzyTime} seconds (or, while stunned, takes ${MELEE_ARTS.stunCut}s off the stun)` },
   artOpeningShot: { name: 'Opening Shot', icon: '🎯', range: [1, 1], power: [1, 2], weight: 1, melee: 'openingShot', fits: gun, text: (_c, p) => `the first shot of each magazine deals +${pct(p)} damage` },
   artClosingShot: { name: 'Closing Shot', icon: '🔚', range: [1, 1], power: [1, 2], weight: 1, melee: 'closingShot', fits: gun, text: (_c, p) => `the last shot of each magazine deals +${pct(p)} damage` },
   artExplodingAmmo: { name: 'Exploding Ammo', icon: '💣', range: [0.15, 0.3], power: [0.4, 0.8], weight: 1, melee: 'explodingAmmo', fits: gun, text: (c, p) => `${pct(c)} chance each shot explodes where it hits (${hits(p)} to everything around)` },
@@ -3639,12 +3639,12 @@ export const ENCHANTS: Record<EnchantId, EnchantDef> = {
   artOverpenetration: { name: 'Overpenetration', icon: '➶', range: [1, 1], weight: 1, melee: 'overpenetration', fits: melee('rifle'), text: () => 'a shot pierces one more monster for every monster it kills' },
   artSteadyAim: { name: 'Steady Aim', icon: '🎯', range: [1, 1], power: [0.03, 0.06], weight: 1, melee: 'steadyAim', fits: melee('rifle'), text: (_c, p) => `+${pct(p)} crit chance for every second since the last reload (up to +${pct(MELEE_ARTS.steadyCap)})` },
   artRicochet: { name: 'Ricochet Rounds', icon: '↩️', range: [0.3, 0.6], weight: 1, melee: 'ricochet', fits: melee('repeater'), text: (c) => `${pct(c)} chance a bolt that misses bounces once toward the nearest monster` },
-  artSuppressing: { name: 'Suppressing Fire', icon: '🧊', range: [0.2, 0.4], power: [0.5, 1], weight: 1, melee: 'suppressing', fits: melee('repeater'), text: (c, p) => `${pct(c)} chance a bolt slows the monster it hits to half speed for ${Math.round(p * 10) / 10}s` },
+  artSuppressing: { name: 'Suppressing Fire', icon: '🧊', range: [0.2, 0.4], power: [0.5, 1], weight: 1, melee: 'suppressing', fits: melee('repeater'), text: (c, p) => `${pct(c)} chance a bolt slows the monster it hits to half speed for ${Math.round(p * 10) / 10} seconds` },
   artDoubleNock: { name: 'Double Nock', icon: '🏹', range: [0.15, 0.3], weight: 1, melee: 'doubleNock', fits: melee('shortbow'), text: (c) => `${pct(c)} chance to loose a second arrow at another monster nearby` },
   artQuickDraw: { name: 'Quick Draw', icon: '⚡', range: [1, 1], power: [0.06, 0.12], weight: 1, melee: 'quickDraw', fits: melee('shortbow'), text: (_c, p) => `each kill gives +${pct(p)} attack speed (up to ${MELEE_ARTS.quickDrawMax} times), fading ${MELEE_ARTS.quickDrawTime}s after the last kill` },
   artArrowRain: { name: 'Volley of Rain', icon: '🌧️', range: [0.08, 0.15], power: [0.3, 0.5], weight: 1, melee: 'arrowRain', fits: melee('longbow'), text: (c, p) => `${pct(c)} chance an arrow arcs up and comes down as a rain of ${MELEE_ARTS.rainArrows} arrows around its target (${hits(p)} each)` },
-  artHuntersMark: { name: "Hunter's Mark", icon: '🎯', range: [0.15, 0.3], power: [0.2, 0.4], weight: 1, melee: 'huntersMark', fits: melee('longbow'), text: (c, p) => `${pct(c)} chance an arrow marks the monster: every Hunter deals +${pct(p)} damage to it for ${MELEE_ARTS.markTime}s` },
-  artPinningBolt: { name: 'Pinning Bolt', icon: '📌', range: [0.15, 0.3], power: [0.8, 1.5], weight: 1, melee: 'pinningBolt', fits: melee('crossbow'), text: (c, p) => `${pct(c)} chance a bolt pins the monster in place for ${Math.round(p * 10) / 10}s (not Guardians)` },
+  artHuntersMark: { name: "Hunter's Mark", icon: '🎯', range: [0.15, 0.3], power: [0.2, 0.4], weight: 1, melee: 'huntersMark', fits: melee('longbow'), text: (c, p) => `${pct(c)} chance an arrow marks the monster: every Hunter deals +${pct(p)} damage to it for ${MELEE_ARTS.markTime} seconds` },
+  artPinningBolt: { name: 'Pinning Bolt', icon: '📌', range: [0.15, 0.3], power: [0.8, 1.5], weight: 1, melee: 'pinningBolt', fits: melee('crossbow'), text: (c, p) => `${pct(c)} chance a bolt pins the monster in place for ${Math.round(p * 10) / 10} seconds (not Guardians)` },
   artHarpoon: { name: 'Harpoon', icon: '🪝', range: [0.1, 0.2], weight: 1, melee: 'harpoon', fits: melee('crossbow'), text: (c) => `${pct(c)} chance a bolt drags the monster part of the way back toward the Hunter, away from the others (not Guardians)` },
   shieldBurst: { name: 'Shield Burst', icon: '🛡️', range: [0.4, 0.8], power: [0.8, 1.2], weight: 1, effect: { kind: 'block', base: 1, damageType: 'radiant', radius: 80 }, fits: isArmor, text: (c, p, t) => `${pct(c)} chance a blocked hit blasts everything nearby (${dmg(p, t)})` },
 };
@@ -3817,22 +3817,22 @@ export const weaponHitsPerAttack = (c: WeaponClassDef | null | undefined): numbe
 };
 
 export const WEAPON_CLASSES: Record<WeaponClass, WeaponClassDef> = {
-  dagger: { name: 'Dagger', attack: 'dagger', projectile: 'dagger', range: 0.8, reach: 60, thrusts: 3, knock: 160, rate: 0.9, damage: 0.4, farm: 1, describe: 'A quick burst of 3 stabs at one monster; the last knocks it back. Thrown when monsters are further off.' },
+  dagger: { name: 'Dagger', attack: 'dagger', projectile: 'dagger', range: 0.8, reach: 60, thrusts: 3, knock: 160, rate: 0.9, damage: 0.4, farm: 1, describe: 'A quick burst of 3 stabs at a close monster, and the last stab knocks it back. Daggers are thrown when monsters are far away.' },
   sword: { name: 'Sword', attack: 'sweep', range: 1, reach: 80, arc: 2.4, knock: 120, rate: 0.9, damage: 1.1, farm: 1.8, describe: 'A sweeping slash that hits every monster in front and knocks them back.' },
   glaive: { name: 'Glaive', attack: 'sweep', range: 1, reach: 100, arc: 3.2, knock: 160, rate: 0.7, damage: 1.4, farm: 2, describe: 'A wide, heavy cleave around the front that knocks monsters back.' },
   spear: { name: 'Spear', attack: 'stab', range: 1, reach: 170, width: 24, knock: 200, rate: 0.8, damage: 1.2, farm: 2, describe: 'A long, wide thrust straight out that hits everything in its path and drives it back.' },
   hammer: { name: 'Hammer', attack: 'slam', range: 1, reach: 80, knock: 460, rate: 0.45, damage: 2.3, farm: 2.2, describe: 'Very slow, crushing slams on the ground that hit every monster close around and send them flying.' },
-  shortbow: { name: 'Shortbow', attack: 'shot', projectile: 'arrow', range: 0.85, rate: 1.35, damage: 0.75, farm: 1.1, describe: 'The basic bow: quick, light shots that never stop.' },
-  longbow: { name: 'Longbow', attack: 'shot', projectile: 'arrow', range: 1.35, rate: 0.65, damage: 1.5, followThrough: 45, farm: 1.4, describe: 'Slow, heavy shots from far away; each arrow carries on through its target into whatever is just behind.' },
+  shortbow: { name: 'Shortbow', attack: 'shot', projectile: 'arrow', range: 0.85, rate: 1.35, damage: 0.75, farm: 1.1, describe: 'The basic bow, with quick, light shots that never stop.' },
+  longbow: { name: 'Longbow', attack: 'shot', projectile: 'arrow', range: 1.35, rate: 0.65, damage: 1.5, followThrough: 45, farm: 1.4, describe: 'Slow, heavy shots from far away. Each arrow carries on through its target into whatever is just behind it.' },
   crossbow: { name: 'Crossbow', attack: 'shot', projectile: 'arrow', range: 1.1, rate: 0.8, damage: 1.25, pierce: 1, farm: 1.45, describe: 'Heavy bolts that always pierce at least one more monster.' },
-  pistol: { name: 'Pistol', attack: 'shot', projectile: 'pistol', range: 0.7, rate: 1.6, damage: 1, mag: 6, reload: 3, farm: 1.1, describe: 'Hard-hitting shots at close range: 6 shots, then a reload.' },
-  rifle: { name: 'Rifle', attack: 'shot', projectile: 'pistol', range: 1.5, rate: 0.8, damage: 2.4, pierce: 1, mag: 4, reload: 3, farm: 1.3, describe: 'Very hard, very long shots that pierce: 4 shots, then a long reload.' },
-  repeater: { name: 'Repeater', attack: 'shot', projectile: 'bolt', range: 0.9, rate: 1.2, damage: 0.32, volley: 3, fan: 0.5, stack: 0.5, mag: 6, reload: 3, farm: 1.15, describe: 'Sprays volleys of 3 bolts in a random fan; each extra bolt of a volley on the same monster hits 50% harder. 6 volleys, then a reload.' },
-  wand: { name: 'Wand', attack: 'shot', projectile: 'spark', range: 0.85, rate: 1.35, damage: 0.75, farm: 1.1, describe: 'The basic magic weapon: quick, light bolts at shorter range.' },
+  pistol: { name: 'Pistol', attack: 'shot', projectile: 'pistol', range: 0.7, rate: 1.6, damage: 1, mag: 6, reload: 3, farm: 1.1, describe: 'Hard hitting shots at close range, with 6 shots before reloading.' },
+  rifle: { name: 'Rifle', attack: 'shot', projectile: 'pistol', range: 1.5, rate: 0.8, damage: 2.4, pierce: 1, mag: 4, reload: 3, farm: 1.3, describe: 'Very hard hitting, very long-range shots that pierce, with 4 shots before a long reload.' },
+  repeater: { name: 'Repeater', attack: 'shot', projectile: 'bolt', range: 0.9, rate: 1.2, damage: 0.32, volley: 3, fan: 0.5, stack: 0.5, mag: 6, reload: 3, farm: 1.15, describe: 'Sprays volleys of 3 bolts in a random fan, and each extra bolt that hits the same monster hits 50% harder. Fires 6 volleys before reloading.' },
+  wand: { name: 'Wand', attack: 'shot', projectile: 'spark', range: 0.85, rate: 1.35, damage: 0.75, farm: 1.1, describe: 'The basic magic weapon, with quick, light bolts at shorter range.' },
   scepter: { name: 'Scepter', attack: 'shot', projectile: 'spark', range: 1.25, rate: 0.75, damage: 1.3, bounces: 2, farm: 1.85, describe: 'Slower, longer-range bolts that bounce on to 2 more monsters nearby.' },
   staff: { name: 'Staff', attack: 'shot', projectile: 'spark', range: 1.1, rate: 0.8, damage: 1.25, spell: { every: 5, radius: 70, damage: 3 }, mag: 6, reload: 2, farm: 1.55, describe: "Casts 5 bolts, then its element's spell (a Fire staff's Fireball or Fire Volley, a Frost staff's Ice Spikes or Frost Fan, and so on), then a short cooldown." },
   focus: { name: 'Focus', attack: 'nova', range: 1, reach: 110, rate: 0.8, damage: 1.2, farm: 2, describe: 'When monsters come close, bursts with power that hits every monster around the Hunter.' },
-  tome: { name: 'Tome', attack: 'summon', range: 1, rate: 0.12, damage: 0.7, summon: { duration: 8, bites: 1.5, speed: 150, name: 'spirit' }, farm: 1, describe: 'Summons a spirit that hunts monsters across the field for 8s, then fades; a new one comes after a cooldown.' },
+  tome: { name: 'Tome', attack: 'summon', range: 1, rate: 0.12, damage: 0.7, summon: { duration: 8, bites: 1.5, speed: 150, name: 'spirit' }, farm: 1, describe: 'Summons a spirit that hunts monsters across the field for 8 seconds, then fades. A new one is summoned after a cooldown.' },
 };
 
 /**
@@ -3884,53 +3884,53 @@ const STANDARD = (name: string): WeaponArchetype => ({ name, desc: 'The standard
 
 export const WEAPON_ARCHETYPES: Record<WeaponClass, [WeaponArchetype, WeaponArchetype, WeaponArchetype]> = {
   dagger: [STANDARD('Dagger'),
-    { name: 'Stiletto', desc: '2 precise stabs instead of 3, over the same time: harder hits and +15% crit chance.', thrusts: 2, damage: 1.25, crit: 0.15 },
-    { name: 'Throwing Knife', desc: 'Quicker bursts of 4 lighter stabs or knives instead of 3, over the same time, thrown from a little further away.', thrusts: 4, rate: 1.4, damage: 0.55, range: 1.1 }],
+    { name: 'Stiletto', desc: 'A slower, harder hitting Dagger with a higher Crit chance. Stabs 2 times instead of 3 in the same amount of time, with +15% Crit chance.', thrusts: 2, damage: 1.25, crit: 0.15 },
+    { name: 'Throwing Knife', desc: 'A Dagger that attacks in quicker bursts and flies further. Stabs or throws 4 lighter hits instead of 3 in the same amount of time.', thrusts: 4, rate: 1.4, damage: 0.55, range: 1.1 }],
   sword: [STANDARD('Sword'),
-    { name: 'Rapier', desc: 'Quick, narrow slashes: half again as fast, a tighter arc, +10% crit chance.', rate: 1.5, damage: 0.72, arc: 0.6, reach: 0.9, crit: 0.1, farm: 0.85 },
-    { name: 'Greatsword', desc: 'Slow, heavy, wide slashes that reach further and knock harder.', rate: 0.65, damage: 1.45, arc: 1.25, reach: 1.2, knock: 1.5, farm: 1.15 }],
+    { name: 'Rapier', desc: 'A quicker Sword with a narrower slash. Attacks 50% faster in a tighter arc, with +10% Crit chance.', rate: 1.5, damage: 0.72, arc: 0.6, reach: 0.9, crit: 0.1, farm: 0.85 },
+    { name: 'Greatsword', desc: 'A slower, heavier Sword with wide slashes that reach further and knock monsters back harder.', rate: 0.65, damage: 1.45, arc: 1.25, reach: 1.2, knock: 1.5, farm: 1.15 }],
   glaive: [STANDARD('Glaive'),
-    { name: 'Scythe', desc: 'Sweeps almost all the way around, but slower.', arc: 1.45, reach: 1.05, rate: 0.8, damage: 1.05, farm: 1.2 },
-    { name: 'Halberd', desc: 'A narrower cleave that reaches much further and hits harder.', arc: 0.7, reach: 1.35, damage: 1.25, rate: 0.95, farm: 0.9 }],
+    { name: 'Scythe', desc: 'A slower Glaive that sweeps almost all the way around the Hunter.', arc: 1.45, reach: 1.05, rate: 0.8, damage: 1.05, farm: 1.2 },
+    { name: 'Halberd', desc: 'A Glaive with a narrower cleave that reaches much further and hits harder.', arc: 0.7, reach: 1.35, damage: 1.25, rate: 0.95, farm: 0.9 }],
   spear: [STANDARD('Spear'),
-    { name: 'Pike', hint: /\b(pike|lance)\b/i, desc: 'A much longer, narrower thrust, slower but harder.', reach: 1.4, width: 0.7, rate: 0.75, damage: 1.35 },
-    { name: 'Trident', desc: 'A shorter thrust three times as wide, a little lighter.', reach: 0.8, width: 1.8, damage: 0.8, farm: 1.2 }],
+    { name: 'Pike', hint: /\b(pike|lance)\b/i, desc: 'A slower, harder hitting Spear with a much longer, narrower thrust.', reach: 1.4, width: 0.7, rate: 0.75, damage: 1.35 },
+    { name: 'Trident', desc: 'A Spear with a shorter thrust that is three times as wide, but hits a little lighter.', reach: 0.8, width: 1.8, damage: 0.8, farm: 1.2 }],
   hammer: [STANDARD('Hammer'),
-    { name: 'Maul', hint: /\bmaul\b/i, desc: 'Even slower slams over a much larger area.', rate: 0.65, reach: 1.6, damage: 1.2, knock: 1.3, farm: 1.35 },
-    { name: 'Mallet', hint: /\b(mallet|club)\b/i, desc: 'Quicker slams over a smaller area.', rate: 1.6, reach: 0.7, damage: 0.75, knock: 0.7, farm: 0.8 }],
+    { name: 'Maul', hint: /\bmaul\b/i, desc: 'An even slower Hammer that slams over a much larger area.', rate: 0.65, reach: 1.6, damage: 1.2, knock: 1.3, farm: 1.35 },
+    { name: 'Mallet', hint: /\b(mallet|club)\b/i, desc: 'A quicker Hammer that slams over a smaller area.', rate: 1.6, reach: 0.7, damage: 0.75, knock: 0.7, farm: 0.8 }],
   shortbow: [STANDARD('Shortbow'),
-    { name: 'Hunting Bow', desc: 'Harder, longer shots, a little slower.', damage: 1.25, range: 1.15, rate: 0.85 },
-    { name: 'Quickbow', desc: 'Light shots, a third faster, at shorter range.', rate: 1.35, damage: 0.75, range: 0.9 }],
+    { name: 'Hunting Bow', desc: 'A slightly slower Shortbow with harder hitting shots and longer range.', damage: 1.25, range: 1.15, rate: 0.85 },
+    { name: 'Quickbow', desc: 'A faster Shortbow with lighter shots. Shoots a third faster, at shorter range.', rate: 1.35, damage: 0.75, range: 0.9 }],
   longbow: [STANDARD('Longbow'),
-    { name: 'Warbow', desc: 'Very heavy arrows that carry on twice as far through their target, but slower.', damage: 1.45, rate: 0.65, followThrough: 2, farm: 1.05 },
-    { name: 'Recurve Bow', desc: 'Quicker, lighter arrows at a little less range.', rate: 1.35, damage: 0.75, range: 0.85 }],
+    { name: 'Warbow', desc: 'A slower Longbow with very heavy arrows that carry on twice as far through their target.', damage: 1.45, rate: 0.65, followThrough: 2, farm: 1.05 },
+    { name: 'Recurve Bow', desc: 'A quicker Longbow with lighter arrows and a little less range.', rate: 1.35, damage: 0.75, range: 0.85 }],
   crossbow: [STANDARD('Crossbow'),
-    { name: 'Arbalest', desc: 'Huge bolts that pierce 2 more monsters, from further away, but slow.', damage: 1.5, rate: 0.6, pierce: 1, range: 1.15, farm: 1.1 },
-    { name: 'Hand Crossbow', desc: 'Half again as fast at closer range, but lighter bolts.', rate: 1.5, damage: 0.68, range: 0.8 }],
+    { name: 'Arbalest', desc: 'A slow Crossbow with huge bolts that pierce 2 more monsters, from further away.', damage: 1.5, rate: 0.6, pierce: 1, range: 1.15, farm: 1.1 },
+    { name: 'Hand Crossbow', desc: 'A Crossbow that shoots 50% faster at closer range, with lighter bolts.', rate: 1.5, damage: 0.68, range: 0.8 }],
   pistol: [STANDARD('Pistol'),
-    { name: 'Hand Cannon', desc: '4 very heavy shots, then a reload; +5% crit chance.', damage: 1.6, rate: 0.7, mag: 4, crit: 0.05 },
-    { name: 'Machine Pistol', desc: '12 rapid, lighter shots, then a reload, at shorter range.', rate: 1.6, damage: 0.55, mag: 12, range: 0.85 }],
+    { name: 'Hand Cannon', desc: 'A Pistol with 4 very heavy shots before reloading, and +5% Crit chance.', damage: 1.6, rate: 0.7, mag: 4, crit: 0.05 },
+    { name: 'Machine Pistol', desc: 'A Pistol with 12 rapid, lighter shots before reloading, at shorter range.', rate: 1.6, damage: 0.55, mag: 12, range: 0.85 }],
   rifle: [STANDARD('Rifle'),
-    { name: 'Carbine', desc: 'Shorter range and a little less damage, but quicker shots and 6 a magazine.', range: 0.8, damage: 0.8, rate: 1.15, mag: 6 },
-    { name: 'Marksman Rifle', desc: 'Much further range and much harder hits with +25% crit chance, but slower, with 2 shots a magazine.', range: 1.5, damage: 1.65, rate: 0.6, mag: 2, crit: 0.25 }],
+    { name: 'Carbine', desc: 'A quicker Rifle with 6 shots before reloading, but shorter range and a little less damage.', range: 0.8, damage: 0.8, rate: 1.15, mag: 6 },
+    { name: 'Marksman Rifle', desc: 'A slower Rifle with much further range, much harder hits, and +25% Crit chance, but only 2 shots before reloading.', range: 1.5, damage: 1.65, rate: 0.6, mag: 2, crit: 0.25 }],
   repeater: [STANDARD('Repeater'),
-    { name: 'Volley Gun', desc: 'Volleys of 5 bolts in a wider fan, each lighter.', volley: 5, fan: 1.5, damage: 0.6, rate: 0.85 },
-    { name: 'Chain Repeater', desc: 'Volleys of 2 in a tight fan, much faster, with 10 a magazine.', volley: 2, fan: 0.5, rate: 1.6, mag: 10, damage: 0.95 }],
+    { name: 'Volley Gun', desc: 'A Repeater that fires volleys of 5 lighter bolts in a wider fan.', volley: 5, fan: 1.5, damage: 0.6, rate: 0.85 },
+    { name: 'Chain Repeater', desc: 'A much faster Repeater that fires volleys of 2 bolts in a tight fan, with 10 volleys before reloading.', volley: 2, fan: 0.5, rate: 1.6, mag: 10, damage: 0.95 }],
   wand: [STANDARD('Wand'),
-    { name: 'Rod', desc: 'Heavier bolts that fly further, a little slower.', damage: 1.3, rate: 0.75, range: 1.15 },
-    { name: 'Sparkler', desc: 'A stream of light bolts, 40% faster, at shorter range.', rate: 1.4, damage: 0.7, range: 0.85 }],
+    { name: 'Rod', desc: 'A slightly slower Wand with heavier bolts that fly further.', damage: 1.3, rate: 0.75, range: 1.15 },
+    { name: 'Sparkler', desc: 'A Wand that fires a stream of light bolts 40% faster, at shorter range.', rate: 1.4, damage: 0.7, range: 0.85 }],
   scepter: [STANDARD('Scepter'),
-    { name: 'Chain Scepter', desc: 'Bolts bounce on to 4 more monsters, but each is lighter.', bounces: 4, damage: 0.75, rate: 0.9, farm: 1.5 },
-    { name: 'Orb Scepter', desc: 'Bolts don\'t bounce, but hit far harder, fly further, and leave a glowing orb where they land that hurts each monster walking into it.', bounces: 0, damage: 1.9, range: 1.1, rate: 0.85, orb: true, farm: 0.68 }],
+    { name: 'Chain Scepter', desc: 'A Scepter with lighter bolts that bounce on to 4 more monsters.', bounces: 4, damage: 0.75, rate: 0.9, farm: 1.5 },
+    { name: 'Orb Scepter', desc: 'A Scepter whose bolts don\'t bounce, but hit far harder, fly further, and leave a glowing orb where they land that hurts monsters walking into it.', bounces: 0, damage: 1.9, range: 1.1, rate: 0.85, orb: true, farm: 0.68 }],
   staff: [STANDARD('Staff'),
-    { name: 'Battle Staff', desc: 'Faster bolts, and its spell only every 8 bolts.', spellEvery: 8, rate: 1.3, damage: 0.8 },
-    { name: 'Archmage Staff', desc: 'Its spell every 3 bolts, a quarter wider and stronger, but slower bolts.', spellEvery: 3, spellDamage: 1.2, spellRadius: 1.25, rate: 0.75, farm: 1.2 }],
+    { name: 'Battle Staff', desc: 'A Staff with faster bolts that only casts its spell every 8 bolts.', spellEvery: 8, rate: 1.3, damage: 0.8 },
+    { name: 'Archmage Staff', desc: 'A Staff with slower bolts that casts its spell every 3 bolts, a quarter wider and stronger.', spellEvery: 3, spellDamage: 1.2, spellRadius: 1.25, rate: 0.75, farm: 1.2 }],
   focus: [STANDARD('Focus'),
-    { name: 'Orb', desc: 'Bursts reach 40% further, but come slower.', reach: 1.4, rate: 0.7, damage: 1.1, farm: 1.3 },
-    { name: 'Pulse Focus', desc: 'Quick, small bursts close around the Hunter.', reach: 0.75, rate: 1.5, damage: 0.82, farm: 0.8 }],
+    { name: 'Orb', desc: 'A slower Focus with bursts that reach 40% further.', reach: 1.4, rate: 0.7, damage: 1.1, farm: 1.3 },
+    { name: 'Pulse Focus', desc: 'A quicker Focus with small bursts close around the Hunter.', reach: 0.75, rate: 1.5, damage: 0.82, farm: 0.8 }],
   tome: [STANDARD('Tome'),
-    { name: 'Grimoire', desc: 'Its creatures stay 60% longer and bite harder, but come less often.', summonDuration: 1.6, summonBites: 1.2, rate: 0.52 },
-    { name: 'Primer', desc: 'Creatures come half again as often and move faster, but fade sooner.', summonDuration: 0.65, summonSpeed: 1.3, rate: 1.5 }],
+    { name: 'Grimoire', desc: 'A Tome whose creatures stay 60% longer and bite harder, but are summoned less often.', summonDuration: 1.6, summonBites: 1.2, rate: 0.52 },
+    { name: 'Primer', desc: 'A Tome whose creatures are summoned 50% more often and move faster, but fade sooner.', summonDuration: 0.65, summonSpeed: 1.3, rate: 1.5 }],
 };
 
 /** A weapon class as an archetype changes it. */
@@ -4140,7 +4140,7 @@ export const GEAR: GearDef[] = [
     stats: {},
     recipe: { pelt: 24, dust: 12 },
     summon: { look: 'wolf', name: 'wolf spirit', dash: { cooldown: 4, range: 150, speed: 520, damage: 2.5 } },
-    ability: 'Its wolves lunge at a monster every 4s; a lunge that lands bites for ×2.5.',
+    ability: 'Every 4 seconds, its wolves lunge at a monster. A lunge that lands bites for ×2.5.',
   },
   { id: 'soulfireStaff', name: 'Soulfire Staff', icon: '🌟', kind: 'magic', rarity: 'exalted', weaponClass: 'staff', tier: 12, damageType: 'radiant', proc: 0.2, stats: { rate: 0.15 }, tweak: { bolts: 8 }, recipe: { soul: 8, void: 4 } },
   // A weapon for every area tier (ranged, melee and magic), crafted from that area's materials.
@@ -4375,21 +4375,21 @@ export function describeEffect(e: GearEffect, stars: number): string {
     case 'block':
       return `Shield burst: each block blasts ${dmg} damage at everything nearby.`;
     case 'evade':
-      return `Evasion: ${Math.round(e.chance * 100)}% chance to slip a monster that reaches you (no stun, no shield used).`;
+      return `Evasion: ${Math.round(e.chance * 100)}% chance to slip past a monster that reaches you, without being stunned or using a shield.`;
     case 'pulse':
-      return `Pulse: every ${e.cooldown}s, a burst of ${dmg} damage around you.`;
+      return `Pulse: every ${e.cooldown} seconds, a burst of ${dmg} damage around you.`;
     case 'summon':
-      return `Summons ${e.count} ${e.name}s (${SUMMON_TYPES[e.type].icon} ${SUMMON_TYPES[e.type].name}) every ${e.cooldown}s; they hunt for ${e.duration}s, biting for ${dmg} damage.`;
+      return `Every ${e.cooldown} seconds, summons ${e.count} ${e.name}s (${SUMMON_TYPES[e.type].icon} ${SUMMON_TYPES[e.type].name}) that hunt for ${e.duration} seconds, biting for ${dmg} damage.`;
     case 'wave':
-      return `Melee attacks have a ${Math.round(e.chance * 100)}% chance to send out a wave of ${dmg} damage.`;
+      return `Wave: melee attacks have a ${Math.round(e.chance * 100)}% chance to send out a wave of ${dmg} damage.`;
     case 'strike':
-      return `Every ${e.cooldown}s, lightning strikes ${e.targets} monsters for ${dmg} damage.`;
+      return `Lightning strike: every ${e.cooldown} seconds, lightning strikes ${e.targets} monsters for ${dmg} damage.`;
     case 'chill':
       return 'Chill aura: monsters near you move at half speed.';
     case 'spell':
       return `${SPELLS[e.spell].name}: ${SPELLS[e.spell].desc} (${dmg} damage)`;
     case 'unique':
-      return `${UNIQUE_EFFECTS[e.id].name}: every ${e.cooldown}s, ${UNIQUE_EFFECTS[e.id].desc} (${dmg} damage).`;
+      return `${UNIQUE_EFFECTS[e.id].name}: every ${e.cooldown} seconds, ${UNIQUE_EFFECTS[e.id].desc} (${dmg} damage).`;
     case 'potion':
       return `Potion: every ${e.cooldown} seconds, gain ${GEAR_STATS[e.stat](potionValue(e, stars))} for ${e.duration} seconds.`;
   }
@@ -4596,18 +4596,18 @@ export function starsFromLevel(levels: number[], level: number, recipe: Partial<
  * them there, and its Guardian Challenge waits until it has been survived once.
  */
 const AREA_SWARMS: Record<AreaId, { id: string; name: string; icon: string; archetype: Archetype; blurb: string; unlockKills: number }> = {
-  forest: { id: 'slimeSwarm', name: 'Slime Swarm', icon: '🟢', archetype: 'slime', blurb: 'Slimes flood the forest for 60s', unlockKills: 1000 },
-  glade: { id: 'sporeBloom', name: 'Spore Bloom', icon: '🍄', archetype: 'plant', blurb: 'The grove blooms: walking mushrooms and man traps pour in for 60s', unlockKills: 15_000 },
-  graveyard: { id: 'nightOfTheDead', name: 'Night of the Dead', icon: '💀', archetype: 'undead', blurb: 'The graves empty for 60s: skeletons, zombies and wraiths', unlockKills: 70_000 },
-  crypt: { id: 'carrionFlock', name: 'Carrion Flock', icon: '🐦', archetype: 'beast', blurb: 'A black cloud of carrion crows descends for 60s', unlockKills: 52_000 },
-  depths: { id: 'gloomSwarm', name: 'Gloom Swarm', icon: '🌑', archetype: 'beast', blurb: 'Gloomcrawlers and duskmoths boil up from the dark for 60s', unlockKills: 100_000 },
-  caves: { id: 'demonSurge', name: 'Demon Surge', icon: '😈', archetype: 'demon', blurb: 'The mines open onto the pit for 60s: imps and hellhounds', unlockKills: 140_000 },
-  mines: { id: 'koboldRaid', name: 'Kobold Raid', icon: '⛏️', archetype: 'humanoid', blurb: 'Every kobold in the Caverns comes yipping out at once, for 60s', unlockKills: 125_000 },
-  peaks: { id: 'wolfBlizzard', name: 'Wolf Blizzard', icon: '🐺', archetype: 'beast', blurb: 'The pack howls down the mountain in a blizzard for 60s: ice wolves and yetis', unlockKills: 265_000 },
-  cliffs: { id: 'harpyStorm', name: 'Harpy Storm', icon: '🪶', archetype: 'beast', blurb: 'Harpies, owls and griffins dive from the sky for 60s', unlockKills: 68_000 },
-  fortress: { id: 'cloudburst', name: 'Cloudburst', icon: '☁️', archetype: 'slime', blurb: 'The clouds break open for 60s and cloudlings rain down', unlockKills: 125_000 },
-  meteors: { id: 'meteorShower', name: 'Meteor Shower', icon: '☄️', archetype: 'elemental', blurb: 'A meteor shower for 60s: meteorites and comet wisps crash in', unlockKills: 115_000 },
-  rift: { id: 'shadowTide', name: 'Shadow Tide', icon: '🌀', archetype: 'slime', blurb: 'The Rift spills over with shadow slimes for 60s', unlockKills: 480_000 },
+  forest: { id: 'slimeSwarm', name: 'Slime Swarm', icon: '🟢', archetype: 'slime', blurb: 'Slimes flood the forest for 60 seconds', unlockKills: 1000 },
+  glade: { id: 'sporeBloom', name: 'Spore Bloom', icon: '🍄', archetype: 'plant', blurb: 'The grove blooms: walking mushrooms and man traps pour in for 60 seconds', unlockKills: 15_000 },
+  graveyard: { id: 'nightOfTheDead', name: 'Night of the Dead', icon: '💀', archetype: 'undead', blurb: 'The graves empty for 60 seconds: skeletons, zombies and wraiths', unlockKills: 70_000 },
+  crypt: { id: 'carrionFlock', name: 'Carrion Flock', icon: '🐦', archetype: 'beast', blurb: 'A black cloud of carrion crows descends for 60 seconds', unlockKills: 52_000 },
+  depths: { id: 'gloomSwarm', name: 'Gloom Swarm', icon: '🌑', archetype: 'beast', blurb: 'Gloomcrawlers and duskmoths boil up from the dark for 60 seconds', unlockKills: 100_000 },
+  caves: { id: 'demonSurge', name: 'Demon Surge', icon: '😈', archetype: 'demon', blurb: 'The mines open onto the pit for 60 seconds: imps and hellhounds', unlockKills: 140_000 },
+  mines: { id: 'koboldRaid', name: 'Kobold Raid', icon: '⛏️', archetype: 'humanoid', blurb: 'Every kobold in the Caverns comes yipping out at once, for 60 seconds', unlockKills: 125_000 },
+  peaks: { id: 'wolfBlizzard', name: 'Wolf Blizzard', icon: '🐺', archetype: 'beast', blurb: 'The pack howls down the mountain in a blizzard for 60 seconds: ice wolves and yetis', unlockKills: 265_000 },
+  cliffs: { id: 'harpyStorm', name: 'Harpy Storm', icon: '🪶', archetype: 'beast', blurb: 'Harpies, owls and griffins dive from the sky for 60 seconds', unlockKills: 68_000 },
+  fortress: { id: 'cloudburst', name: 'Cloudburst', icon: '☁️', archetype: 'slime', blurb: 'The clouds break open for 60 seconds and cloudlings rain down', unlockKills: 125_000 },
+  meteors: { id: 'meteorShower', name: 'Meteor Shower', icon: '☄️', archetype: 'elemental', blurb: 'A meteor shower for 60 seconds: meteorites and comet wisps crash in', unlockKills: 115_000 },
+  rift: { id: 'shadowTide', name: 'Shadow Tide', icon: '🌀', archetype: 'slime', blurb: 'The Rift spills over with shadow slimes for 60 seconds', unlockKills: 480_000 },
 };
 
 /** Minigames by area (more to come): the third event, opened by recruiting the Hunter who stars in it. */
@@ -4874,8 +4874,8 @@ export const EVENTS: EventDef[] = AREAS.flatMap((a): EventDef[] => {
       name: 'Guardian Challenge',
       icon: '⚔️',
       blurb: enemyDef(GUARDIAN_ENEMY[a.id]).guardianOnly
-        ? `Bring down the ${enemyDef(GUARDIAN_ENEMY[a.id]).name}, the ${a.name} Guardian, within ${GUARDIAN_TIME}s.`
-        : `Bring down the ${a.name} Guardian within ${GUARDIAN_TIME}s.`,
+        ? `Bring down the ${enemyDef(GUARDIAN_ENEMY[a.id]).name}, the ${a.name} Guardian, within ${GUARDIAN_TIME} seconds.`
+        : `Bring down the ${a.name} Guardian within ${GUARDIAN_TIME} seconds.`,
       unlockKills: a.mastery,
       duration: GUARDIAN_TIME,
       requires: { event: sw.id, times: 1 },

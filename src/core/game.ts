@@ -886,7 +886,7 @@ export class Game {
 
   // ---- Special attacks (Andrejz's potions, Glimmer's fireballs) ----
 
-  /** Stats of the piece in a Hunter's weapon slot (zeros when empty). Its damage and attack rate power their special. */
+  /** Stats of the piece in a Hunter's weapon slot (zeros when empty). Its damage and attack speed power their special. */
   weaponStats(who: Shooter): Partial<Record<GearStat, number>> {
     const slots = this.slotsOf(who);
     const i = slots.findIndex((sl) => WEAPON_KINDS.includes(sl.kind));
@@ -906,7 +906,7 @@ export class Game {
     return sp ? sp.damage : 0;
   }
 
-  /** Radius of the special: its base × (1 + weapon attack rate) × area bonuses (skills, gear). */
+  /** Radius of the special: its base × (1 + weapon attack speed) × area bonuses (skills, gear). */
   specialRadius(shooter: Shooter): number {
     const sp = shooter === 'main' ? undefined : hunterDef(shooter).special;
     return sp ? sp.radius * (1 + (this.weaponStats(shooter).rate ?? 0)) * this.radiusMult(shooter) : 0;
@@ -914,7 +914,7 @@ export class Game {
 
   /**
    * How much harder a Guild Hunter's summoned creatures bite: their skill tree's area nodes ("radius" skills) make
-   * them fiercer. Gear area stats, area modifiers, attack rate and level grow the Hunter's other specials, not this
+   * them fiercer. Gear area stats, area modifiers, attack speed and level grow the Hunter's other specials, not this
    * (level and gear already raise the damage it multiplies).
    */
   summonFerocity(shooter: Shooter): number {

@@ -233,7 +233,7 @@ interface InvFilter {
   level: LevelFilter;
   /** A damage type, or 'special' for Special weapons (Elemental Cataclysm). */
   dtype: DamageType | 'any' | 'special';
-  /** A stat the piece raises (area size, crit, attack rate...), for building toward one. */
+  /** A stat the piece raises (area size, crit, attack speed...), for building toward one. */
   bonus: GearStat | 'any';
 }
 const NO_FILTER: InvFilter = { type: 'all', rarity: 'any', level: 'any', dtype: 'any', bonus: 'any' };
@@ -973,7 +973,7 @@ export class AppUI {
       headline.innerHTML = `<div><b>${fmt(this.dpsOf(who))}</b>DPS</div>${recruited ? `<div><b>${fmt(g.killsBy(who))}</b>Enemies slain</div>` : ''}`;
       const cells: Array<[string, string]> = [
         ['Damage', fmt(g.shotDamage(who))],
-        ['Attack rate', `${g.shooterRate(who).toFixed(2)}/s`],
+        ['Attack speed', `${g.shooterRate(who).toFixed(2)}/s`],
         ['Range', fmt(g.shooterRange(who))],
         ['Stun time', `${g.stunTime(false, who).toFixed(2)}s`],
         ['Shield', g.guardOf(who) ? `${g.guardOf(who)} hit${g.guardOf(who) > 1 ? 's' : ''}` : '—'],
@@ -5430,7 +5430,7 @@ function yieldHtml(r: FarmRates, where: string): string {
 
 const STAT_LABELS: Record<GearStat, string> = {
   damage: 'damage',
-  rate: 'attack rate',
+  rate: 'attack speed',
   range: 'range',
   crit: 'crit',
   stun: 'stun time',
@@ -6358,7 +6358,7 @@ function skillStatLines(g: Game, who: Wearer, n: TreeNode, rank: number): string
   for (const stat of Object.keys(n.effect) as TreeStat[]) {
     switch (stat) {
       case 'damage': out.push(`Damage ${fmt(g.weaponHitOf(who))}`); break;
-      case 'rate': out.push(`Attack rate ${+g.shooterRate(who).toFixed(2)}/s`); break;
+      case 'rate': out.push(`Attack speed ${+g.shooterRate(who).toFixed(2)}/s`); break;
       case 'recovery': out.push(`Stuns last ${+g.stunTime(false, who).toFixed(2)}s`); break;
       case 'crit': out.push(`Crit chance ${pctText(g.critChanceOf(who))}`); break;
       case 'critDamage': out.push(`Crit damage ${multText(g.critMultOf(who))}`); break;
