@@ -4981,6 +4981,17 @@ body.ui-parchment .mat {
   background: var(--c0);
   box-shadow: 0 -4px 10px -4px rgba(0, 0, 0, 0.6);
 }
+/* A tab with a pinned card lays out in a column, so the card sits at the bottom even when there's little above it. */
+.panel:has(> .hunter-dock) {
+  display: flex;
+  flex-direction: column;
+}
+.panel:has(> .hunter-dock) > * {
+  flex-shrink: 0;
+}
+.panel > .hunter-dock {
+  margin-top: auto;
+}
 .hunter-dock .hunter-card,
 .hunter-dock .beast {
   margin: 0;
