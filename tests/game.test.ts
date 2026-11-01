@@ -72,6 +72,8 @@ import {
   STATION_EFFICIENCY,
   OFFLINE_EFFICIENCY,
   STUN_IMMUNITY,
+  STUN_RELIEF,
+  SHOT_SPLASH,
   ENERGY_AD,
   PREMIUM_ITEMS,
   premiumName,
@@ -2249,6 +2251,8 @@ describe('Equipment', () => {
     for (let t = 0; t < 1 / g.shooterRate('glimmer') + 2; t += 0.01) {
       f.update(0.01);
       f.drainEvents();
+      // Held where it is (your Hunter's shots would push it back out of reach).
+      Object.assign(f.enemies[0], { kx: 0, ky: 0 });
     }
     expect(f.summons.some((s) => s.who === 'glimmer' && s.look === 'wolf')).toBe(true);
     expect(f.enemies[0].hp).toBeLessThan(hp);
@@ -4927,6 +4931,51 @@ describe('Field', () => {
     expect(f.stun).toBe(0);
   });
 
+  it('a Hunter getting up from a stun shoves the crowd back, and knockouts in a row buy longer grace', () => {
+    const { f } = withHelper('lance');
+    f.update(1 / 30);
+    const h = f.helpers[0];
+    h.guard = 0;
+    const hit = () => {
+      f.enemies = [tough({ id: 50, x: h.x - 20, y: h.y + 5, speed: 40 })];
+      f.update(1 / 30);
+    };
+    hit();
+    expect(h.stun).toBeGreaterThan(0);
+    expect(h.koStreak).toBe(1);
+    // A monster right beside them as they get up is pushed away.
+    const near = tough({ id: 51, x: h.x + 25, y: h.y, speed: 0 });
+    f.enemies = [near];
+    while (h.stun > 0) f.update(1 / 30);
+    expect(near.kx).toBeGreaterThan(0);
+    expect(h.immune).toBeCloseTo(STUN_IMMUNITY, 1);
+    // Knocked out again straight after the grace: the next grace is longer.
+    f.enemies = [];
+    while (h.immune > 0) f.update(1 / 30);
+    h.guard = 0;
+    hit();
+    expect(h.koStreak).toBe(2);
+    while (h.stun > 0) f.update(1 / 30);
+    expect(h.immune).toBeCloseTo(STUN_IMMUNITY + STUN_RELIEF.perStreak, 1);
+  });
+
+  it('ranged and magic shots splash onto monsters packed around what they hit, and push it back', () => {
+    const { g, f } = withHelper('lance');
+    g.state.hunters.lance.station = null;
+    f.update(0);
+    f.enemies = [tough({ id: 60, x: 100, y: 0, speed: 0 }), tough({ id: 61, x: 100, y: 22, speed: 0 }), tough({ id: 62, x: 100, y: 120, speed: 0 })];
+    f.bullets = [];
+    (f as unknown as { shoot: (...a: unknown[]) => void }).shoot('main', 'arrow', 0, 0, 0, 600, 400, {});
+    const b = f.bullets[0];
+    expect(b.splash).toBeCloseTo((SHOT_SPLASH.gap * g.shooterRange('main')) / MAIN_RANGE);
+    for (let i = 0; i < 20 && f.bullets.length; i++) f.update(1 / 60);
+    const [hitOne, beside, far] = f.enemies;
+    expect(hitOne.hp).toBeLessThan(1e12);
+    expect(beside.hp).toBeLessThan(1e12);
+    expect(1e12 - beside.hp).toBeLessThan(1e12 - hitOne.hp); // a share of it
+    expect(far.hp).toBe(1e12);
+  });
+
   it("Lance's shield blocks hits before he is stunned, then recharges", () => {
     const { f } = withHelper('lance');
     f.update(1 / 30);
@@ -4982,7 +5031,11 @@ describe('Field', () => {
 
     f.bullets = [];
     f.enemies = [tough({ id: 2, x: -72, y: -20 })];
-    for (let i = 0; i < 30; i++) f.update(1 / 30);
+    for (let i = 0; i < 30; i++) {
+      f.update(1 / 30);
+      // Held where it is (the shots would push it back out of his short range).
+      Object.assign(f.enemies[0], { kx: 0, ky: 0 });
+    }
     expect(f.helpers[0].close).toBe(true);
   });
 

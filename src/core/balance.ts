@@ -21,6 +21,18 @@ export const BOSS_STUN_TIME = 2.5;
  * the Hunter can't be re-stunned for this long, so they always get some shots off.
  */
 export const STUN_IMMUNITY = 1.2;
+/**
+ * Getting out from under a crowd. A Hunter who gets back up from a stun shoves the monsters within `shoveRange` of
+ * them back (`shove`, Guardians hold their ground). Knocked out again within `window` seconds of the last time, their
+ * grace afterwards lasts `perStreak` seconds longer for each knockout in the run (up to `maxStreak` of them).
+ */
+export const STUN_RELIEF = { shoveRange: 40, shove: 300, window: 5, perStreak: 0.6, maxStreak: 4 };
+/**
+ * Ranged and magic projectiles: a direct hit pushes the monster back `knock` more than other hits do, and splashes
+ * `share` of its damage onto monsters packed around it: those within `gap` of its edge (× the weapon's range
+ * over a bow's). Every hit splashes, so a piercing or ricocheting shot splashes at each monster it hits.
+ */
+export const SHOT_SPLASH = { knock: 80, gap: 12, share: 0.35 };
 /** Fleeing enemies run this much faster than they approached. */
 export const FLEE_SPEED_MULT = 1.4;
 export const BASE_DROP_CHANCE = 0.07; // chance an enemy drops its material

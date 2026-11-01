@@ -45,6 +45,8 @@ import {
   MAX_ENEMIES,
   areaScale,
   STUN_IMMUNITY,
+  STUN_RELIEF,
+  SHOT_SPLASH,
   SHIELD_DEFLECT_PAUSE,
   type EnemyId,
   type HunterId,
@@ -72,6 +74,8 @@ const BOSS_BOUNCE = 260;
 /** A Guardian charges in this many times faster than it walks, until it first reaches a Hunter. */
 const GUARDIAN_RUSH = 10;
 const GUARD_BOUNCE = 220;
+/** Projectiles that ranged and magic weapons fire as their own shots (these splash: see SHOT_SPLASH). */
+const SHOT_KINDS: ReadonlySet<BulletKind> = new Set<BulletKind>(['arrow', 'bolt', 'pistol', 'spark', 'rock']);
 /** A shield block pushes back the monsters this far beyond touching the Hunter. */
 const GUARD_PUSH_RANGE = 30;
 /** How far out a hammer's smash lands, as a fraction of its radius (the Hunter stands near its edge). */
@@ -228,6 +232,9 @@ export interface Helper {
   stun: number;
   stunTotal: number;
   immune: number;
+  /** Knockouts in a row (each within STUN_RELIEF.window of the last), and seconds since the last one. */
+  koStreak: number;
+  sinceKo: number;
   /** Shield charges left (Paladin) and recharge progress. */
   guard: number;
   guardAcc: number;
@@ -313,6 +320,8 @@ export interface Bullet {
   size?: number;
   /** Blast Daggers, Exploding Ammo and Arrows: explodes where it hits, for `k` × a hit within `r`. */
   blast?: { r: number; k: number };
+  /** A ranged or magic weapon's shot: pushes what it hits back, and splashes onto monsters this close to its edge. */
+  splash?: number;
   /** Elemental Arrows: bursts with its element's effect where it hits, at this × a hit. */
   elem?: number;
   /** Other ranged arts riding on it (see MeleeArt): what it does when it hits, or misses. */
@@ -537,6 +546,9 @@ export class Field {
   boneWallR = 0;
   /** Length of the current stun, for drawing its bar. */
   stunTotal = 0;
+  /** Knockouts in a row (each within STUN_RELIEF.window of the last), and seconds since the last one. */
+  koStreak = 0;
+  sinceKo = Infinity;
   /** Seconds of post-stun immunity left. */
   immune = 0;
   /** Your Hunter's shield charges (from gear or a rally) and recharge progress. */
@@ -654,10 +666,12 @@ export class Field {
     this.dice = [];
     this.stun = 0;
     this.immune = 0;
+    this.koStreak = 0;
+    this.sinceKo = Infinity;
     this.guard = this.game.guardOf(this.lead);
     this.spawnAcc = 0;
     this.nextPack = null;
-    for (const h of this.helpers) Object.assign(h, { stun: 0, immune: 0, guard: this.game.guardOf(h.id) });
+    for (const h of this.helpers) Object.assign(h, { stun: 0, immune: 0, koStreak: 0, sinceKo: Infinity, guard: this.game.guardOf(h.id) });
   }
 
   drainEvents(): FieldEvent[] {
@@ -798,17 +812,19 @@ export class Field {
     for (const [who, q] of this.quickDraw) if ((q.left -= dt) <= 0) this.quickDraw.delete(who);
 
     // Stuns, immunity and shields
+    this.sinceKo += dt;
     if (this.stun > 0) {
       this.stun = Math.max(0, this.stun - dt);
-      if (this.stun === 0) this.immune = STUN_IMMUNITY;
+      if (this.stun === 0) this.getUp(this, 0, 0);
     } else this.immune = Math.max(0, this.immune - dt);
     this.syncHelpers();
     this.boneWall = Math.max(0, this.boneWall - dt);
     for (const h of this.helpers) {
       h.wallCd = Math.max(0, h.wallCd - dt);
+      h.sinceKo += dt;
       if (h.stun > 0) {
         h.stun = Math.max(0, h.stun - dt);
-        if (h.stun === 0) h.immune = STUN_IMMUNITY;
+        if (h.stun === 0) this.getUp(h, h.x, h.y);
       } else h.immune = Math.max(0, h.immune - dt);
     }
     for (const [who, h] of [[this.lead, this], ...this.helpers.map((x) => [x.id, x])] as Array<[Shooter, { guard: number; guardAcc: number }]>) {
@@ -1091,11 +1107,36 @@ export class Field {
     } else e.fleeing = true;
   }
 
+  /**
+   * A Hunter gets back up from a stun: they shove the monsters close around them back, and get a moment of grace,
+   * longer for each time they've been knocked out in a row (STUN_RELIEF), so a crowd can't keep them down.
+   */
+  private getUp(state: { immune: number; koStreak: number }, x: number, y: number): void {
+    state.immune = STUN_IMMUNITY + STUN_RELIEF.perStreak * (Math.min(state.koStreak, STUN_RELIEF.maxStreak) - 1);
+    this.shove(x, y, STUN_RELIEF.shoveRange, STUN_RELIEF.shove);
+    this.events.push({ type: 'nova', x, y, r: PLAYER_RADIUS + STUN_RELIEF.shoveRange, color: '#f4f4f4' });
+  }
+
+  /** Pushes the monsters within `range` of a Hunter's edge at (x, y) away from them (Guardians hold their ground). */
+  private shove(x: number, y: number, range: number, force: number): void {
+    for (const o of this.enemies) {
+      if (o.hp <= 0 || o.boss) continue;
+      const dx = o.x - x;
+      const dy = o.y - y;
+      const d = Math.hypot(dx, dy) || 1;
+      if (d > PLAYER_RADIUS + o.r + range) continue;
+      o.kx += (dx / d) * force;
+      o.ky += (dy / d) * force;
+    }
+  }
+
   /** A Hunter is stunned (unless already stunned or immune: a stun runs its course, so no stun loops). */
   private knockOut(who: Shooter, boss: boolean, x: number, y: number): void {
     const helper = who === this.lead ? null : this.helpers.find((h) => h.id === who)!;
     const state = helper ?? this;
     if (state.immune > 0 || state.stun > 0) return;
+    state.koStreak = state.sinceKo <= STUN_RELIEF.window ? state.koStreak + 1 : 1;
+    state.sinceKo = 0;
     const t = this.game.stunTime(boss, who);
     state.stun = t;
     state.stunTotal = t;
@@ -1209,15 +1250,7 @@ export class Field {
     state.guardAcc = 0;
     state.immune = Math.max(state.immune, STUN_IMMUNITY);
     this.events.push({ type: 'guard', x: hx, y: hy });
-    for (const o of this.enemies) {
-      if (o.hp <= 0 || o.boss) continue;
-      const dx = o.x - hx;
-      const dy = o.y - hy;
-      const d = Math.hypot(dx, dy) || 1;
-      if (d > PLAYER_RADIUS + o.r + GUARD_PUSH_RANGE) continue;
-      o.kx += (dx / d) * GUARD_BOUNCE;
-      o.ky += (dy / d) * GUARD_BOUNCE;
-    }
+    this.shove(hx, hy, GUARD_PUSH_RANGE, GUARD_BOUNCE);
     // Shield burst: the block blasts everything around the wearer.
     for (const { effect: ef, stars } of effects)
       if (ef.kind === 'block' && (ef.chance === undefined || this.game.rng() < ef.chance)) this.abilityBurst(who, hx, hy, ef.radius, effectBase(ef, stars), ef.damageType);
@@ -1280,6 +1313,8 @@ export class Field {
       stun: 0,
       stunTotal: 0,
       immune: 0,
+      koStreak: 0,
+      sinceKo: Infinity,
       guard: this.game.guardOf(id),
       guardAcc: 0,
       close: false,
@@ -1849,7 +1884,12 @@ export class Field {
       this.typeTurn.set(shooter, turn + 1);
       dtype = types[turn % types.length];
     }
+    // A ranged or magic weapon's own shots (not a special's, a spell's or a melee weapon's) splash, more the
+    // further the weapon reaches.
+    const shot = SHOT_KINDS.has(kind) && !o.special && !o.cast && this.weaponDef(shooter)?.kind !== 'melee';
+    const splash = shot ? (SHOT_SPLASH.gap * g.shooterRange(shooter, o.mode)) / MAIN_RANGE : undefined;
     this.bullets.push({
+      splash,
       shooter,
       kind,
       x: ox + Math.cos(angle) * PLAYER_RADIUS,
@@ -3074,6 +3114,23 @@ export class Field {
     }
   }
 
+  /**
+   * A ranged or magic shot's hit: it pushes the monster back (a bit more than other hits do) and splashes a share of
+   * its damage onto the monsters packed around it (SHOT_SPLASH).
+   */
+  private shotSplash(b: Bullet, e: Enemy, mult: number): void {
+    const speed = Math.hypot(b.vx, b.vy) || 1;
+    if (!e.boss && e.hp > 0) {
+      e.kx += (b.vx / speed) * SHOT_SPLASH.knock;
+      e.ky += (b.vy / speed) * SHOT_SPLASH.knock;
+    }
+    for (const o of [...this.enemies]) {
+      if (o === e || o.hp <= 0) continue;
+      if (Math.hypot(o.x - e.x, o.y - e.y) > e.r + o.r + b.splash!) continue;
+      this.hitWith(b.shooter, o, mult * SHOT_SPLASH.share, e.x, e.y, b.crit, b.mode, false, false, b.dtype);
+    }
+  }
+
   private bulletHit(b: Bullet, e: Enemy): void {
     if (b.cast) {
       // A spell's projectile: a fireball bursts, the rest strike what they hit.
@@ -3107,6 +3164,7 @@ export class Field {
       mult *= 1 + (b.stack ?? 0) * e.volleyHits;
     }
     this.hitWith(b.shooter, e, mult, b.x - b.vx, b.y - b.vy, b.crit, b.mode, false, true, b.dtype);
+    if (b.splash !== undefined) this.shotSplash(b, e, mult);
     if (b.elem) this.elementalArrow(b, e);
     if (b.arts) this.shotArtsHit(b, e);
     if (b.blast) {
