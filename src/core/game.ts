@@ -586,7 +586,7 @@ export class Game {
 
   /** Everything a Hunter's learned skill-tree nodes add up to. */
   tree(who: Wearer): Record<TreeStat, number> {
-    const out: Record<TreeStat, number> = { damage: 0, rate: 0, recovery: 0, crit: 0, range: 0, pierce: 0, radius: 0, bane: 0, guard: 0, rally: 0, gold: 0, drops: 0, tapPower: 0, tapSize: 0, bolts: 0, cooldown: 0, duration: 0, critDamage: 0, multishot: 0 };
+    const out: Record<TreeStat, number> = { damage: 0, rate: 0, recovery: 0, crit: 0, range: 0, pierce: 0, radius: 0, bane: 0, guard: 0, rally: 0, gold: 0, drops: 0, tapPower: 0, tapSize: 0, bolts: 0, cooldown: 0, duration: 0, critDamage: 0, multishot: 0, bounces: 0 };
     for (const which of ['base', 'ascended'] as const)
       for (const node of this.skillTree(who, which)) {
         const rank = this.skill(who, node.id, which);
@@ -755,6 +755,8 @@ export class Game {
       if (en.shot === 'multishot') multishot += v;
       else if (en.shot === 'ricochet') bounces += v;
       else if (en.shot === 'pierce') pierce += v;
+    // Ricochets from the Hunter's skill tree (Galladair's Curving Arrows).
+    bounces += this.tree(who).bounces;
     if (!knock && !mag && !reload && !size && !multishot && !bounces && !pierce) return cls;
     // Quick Reload shortens reloads (and a staff's recharge), down to 40% at most.
     // Size lengthens a melee weapon's reach (its sweep, thrust, stabs or slam).

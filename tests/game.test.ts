@@ -604,7 +604,18 @@ describe('Hunters', () => {
     const c = hunterDef('celeste');
     expect([c.name, c.title, c.area]).toEqual(['Celeste', 'Psion', 'depths']);
     expect(c.unlock).toEqual({ event: 'guardian-depths', times: 2 });
-    expect(c.bane).toEqual({ archetype: 'dragon', mult: 1.5 });
+    expect(c.bane).toEqual({ archetype: 'dragon', mult: 3 }); // triple damage to Dragons
+  });
+
+  it("Galladair's Curving Arrows ricochet her shots; Arrow Storm brings Arrow Rain sooner; Fan Shot adds arrows", () => {
+    const g = new Game(newGame(0), noCrit);
+    g.state.hunters.ranger.recruited = true;
+    const sk = (g.state.hunters.ranger.skills = { root: 1, longshot: 3, piercing: 2, splitShot: 2 } as Record<string, number>);
+    expect(g.tree('ranger').bounces).toBe(3);
+    expect(g.tree('ranger').multishot).toBe(2);
+    expect(g.cooldownMult('ranger')).toBeCloseTo(0.8);
+    sk.longshot = 0;
+    expect(g.tree('ranger').bounces).toBe(0);
   });
 
   it('every Hunter is unlocked by an event in their home area, in order', () => {

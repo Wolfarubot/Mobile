@@ -10,7 +10,7 @@ export const MATERIAL_SPRITES: Partial<Record<MaterialId, string>> = {
   // Wandering Woods
   goo: 'materials/goo',
   twig: 'resources3/032',
-  pelt: 'resources1/046',
+  pelt: 'resources1/031',
   beastBone: 'resources1/012',
   scrap: 'resources3/012',
   bearClaw: 'resources1/015',

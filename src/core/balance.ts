@@ -314,7 +314,8 @@ export type TreeStat =
   | 'cooldown' // -x cooldowns of their gear's abilities and their tap ability (Quick Casting)
   | 'duration' // +x how long the status effects they set off last (Extended Effects)
   | 'critDamage' // +x crit damage (Brutal Criticals)
-  | 'multishot'; // extra projectiles per shot, or an extra strike per melee attack (Apex Hunter)
+  | 'multishot' // extra projectiles per shot, or an extra strike per melee attack (Apex Hunter)
+  | 'bounces'; // shots ricochet on to this many more monsters (Galladair's Curving Arrows)
 
 /** A node in a branching tree: a Hunter's skill tree or a monster's evolution tree. */
 export interface TreeNode<S extends string = string> {
@@ -367,6 +368,8 @@ const grd = (maxRank: number, name: string, icon: string, cost?: number): NodeSp
  */
 export const BANE_BASE = 1.5;
 export const BANE_PER_TREE = 0.5;
+/** Celeste, Deku and Okrin: triple damage to their archetype from the start (their trees add to it as everyone's do). */
+export const BANE_TRIPLE = 3;
 const banePct = (v: number): string => `${Math.round(v * 10000) / 100}%`;
 const ban = (maxRank: number, name: string, icon: string, foes: string): NodeSpec => ({ name, icon, desc: `+${banePct(BANE_PER_TREE / maxRank)} bonus damage to ${foes} per rank.`, maxRank, effect: { bane: BANE_PER_TREE / maxRank } });
 const gld = (maxRank: number, name: string, icon: string, v = 0.1): NodeSpec => ({ name, icon, desc: `+${pctOf(v)} gold from their kills per rank.`, maxRank, effect: { gold: v } });
@@ -681,11 +684,11 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
   ]),
   // Galladair: arrows that pierce, and more of them.
   ranger: gridTree([
-    [at('root', prc(1, 'Trueshot', '🎯'))],
-    [at('power', atk(4)), at('speed', spd(4)), at('longshot', rng(3, 'Longshot', '🔭'))],
-    [at('beastBane', ban(4, 'Beast Bane', '🐾', 'Beasts')), at('piercing', prc(2, 'Piercing Arrows', '➶')), at('eagleEye', crt(3, 'Eagle Eye', '🦅')), at('deepQuiver', spd(3, 'Deep Quiver', '🏹'))],
-    [at('splitShot', multi('Split Shot', '🔱', 4)), at('broadheads', atk(4, 'Broadheads', '🗡️', 0.1)), at('recovery', rec(3, 'Fleet Foot', '👣'))],
-    [at('capstone', { name: 'Volley', icon: '🌧️', desc: 'One more arrow per shot, and arrows pierce 1 more enemy.', maxRank: 1, cost: 4, effect: { multishot: 1, pierce: 1 } })],
+    [at('root', prc(1, 'Piercing Blow', '🎯'))],
+    [at('power', atk(4, 'Powerful Shots')), at('speed', spd(4, 'Volley')), at('longshot', { name: 'Curving Arrows', icon: '🔭', desc: 'Arrows ricochet off their target, striking another enemy (1 more per rank).', maxRank: 3, effect: { bounces: 1 } })],
+    [at('beastBane', ban(4, 'Beast Bane', '🐾', 'Beasts')), at('piercing', cdr(2, 'Arrow Storm', '➶', 'Arrow Rain comes', 0.1)), at('eagleEye', crt(3, 'Eagle Eye', '🦅')), at('deepQuiver', spd(3, 'Deep Quiver', '🏹'))],
+    [at('splitShot', { name: 'Fan Shot', icon: '🔱', desc: 'Fire an extra projectile with every shot (1 more per rank).', maxRank: 2, cost: 2, effect: { multishot: 1 } }), at('broadheads', atk(4, 'Broadheads', '🗡️', 0.1)), at('recovery', rec(3, 'Fleet Foot', '👣'))],
+    [at('capstone', { name: 'Volley', icon: '🌧️', desc: 'Fire an additional projectile with every shot, and pierce one additional enemy.', maxRank: 1, cost: 4, effect: { multishot: 1, pierce: 1 } })],
   ]),
   // Ba'al: faster playing, wider sound waves.
   bard: gridTree([
@@ -976,17 +979,17 @@ export interface MaterialDef {
 
 export const MATERIALS: MaterialDef[] = [
   // Wandering Woods
-  { id: 'goo', name: 'Green Slime', color: '#7be07b', desc: 'A wobbly glob of green slime. Sticky, harmless, and oddly useful for binding things together.' },
+  { id: 'goo', name: 'Green Slime', color: '#7be07b', desc: "It's like a Green Slime, but it doesn't smile anymore." },
   { id: 'twig', name: 'Twigs', color: '#a07a4a', desc: "A bundle of twigs from a Twiggling. They still twitch now and then." },
-  { id: 'pelt', name: 'Wolf Pelt', color: '#c09060', desc: 'A coarse hide from the wolves of the forest. Warm, tough, and a favourite of leatherworkers.' },
-  { id: 'beastBone', name: 'Beast Bone', color: '#e8dcc0', desc: 'A heavy bone from a forest beast. Good for handles, hilts and anything that needs to take a beating.' },
-  { id: 'scrap', name: 'Scrap', color: '#9a9a8a', desc: 'Bent nails, broken buckles and stolen spoons: everything a goblin thought was worth taking.' },
-  { id: 'bearClaw', name: 'Bear Claw', color: '#5a4030', desc: 'A claw as long as your hand. Sharp enough to carve wood, and other things.' },
+  { id: 'pelt', name: 'Wolf Pelt', color: '#c09060', desc: 'Thick hide that once protected the wolves from the dangers of the woods.' },
+  { id: 'beastBone', name: 'Beast Bone', color: '#e8dcc0', desc: 'Dense bone of a wild animal.' },
+  { id: 'scrap', name: 'Scrap', color: '#9a9a8a', desc: 'Broken nails, bent spoons, belt buckles, anything a goblin would find useful.' },
+  { id: 'bearClaw', name: 'Bear Claw', color: '#5a4030', desc: 'Massive claws from a massive beast.' },
   // Fey Grove
   { id: 'spore', name: 'Mushroom Cap', color: '#d0584a', desc: 'The spotted cap of a Toadstool. It sneezes spores if you squeeze it.' },
   { id: 'dust', name: 'Pixie Dust', color: '#ffb8f0', desc: 'Sparkling dust shaken off a pixie. Things sprinkled with it feel a little lighter.' },
   { id: 'enchantedBone', name: 'Enchanted Bone', color: '#f0e8ff', desc: 'A bone that hums with old magic. It is warm to the touch.' },
-  { id: 'unicornHorn', name: 'Unicorn Horn', color: '#ffe0f8', desc: 'A spiralled horn that glows faintly. Wands made from it never miss.' },
+  { id: 'unicornHorn', name: 'Unicorn Horn', color: '#ffe0f8', desc: 'The sharp horn of a mystical beast. Wounds caused by this horn will never close.' },
   { id: 'thorn', name: 'Enchanted Thorn', color: '#6ab04a', desc: 'A thorn from a Walking Man Trap. It keeps trying to bite.' },
   { id: 'sap', name: 'Sentient Sap', color: '#d8a040', desc: 'Golden sap from a Treant. It slowly crawls back toward the nearest tree.' },
   // Restless Graveyard
@@ -1010,9 +1013,9 @@ export const MATERIALS: MaterialDef[] = [
   { id: 'demonBone', name: 'Demon Bone', color: '#7a2a1a', desc: 'A blackened bone from a demon of the caves. It smells of brimstone.' },
   { id: 'demonWing', name: 'Demon Wing', color: '#c04a2a', desc: 'A leathery imp wing, scorched at the edges.' },
   // Guardians' own materials (10 per Guardian slain)
-  { id: 'royalSlime', name: 'Royal Slime', color: '#4ad04a', desc: 'A glob of the King of Slimes, golden-green and faintly regal. It wobbles with dignity.' },
-  { id: 'regalEssence', name: 'Regal Essence', color: '#ff7ad8', desc: 'A shimmering drop of the Pixie Queen\'s magic. Everything near it sparkles.' },
-  { id: 'calciumCrystal', name: 'Calcium Crystal', color: '#f8f0e0', desc: 'A crystal grown in the Skeleton King\'s bones over centuries. Hard as diamond.' },
+  { id: 'royalSlime', name: 'Royal Slime', color: '#4ad04a', desc: "The remnants of the King. They still jiggle when you aren't looking. Maybe you shouldn't have left the other bits lying around..." },
+  { id: 'regalEssence', name: 'Regal Essence', color: '#ff7ad8', desc: 'The regal essence bestowed on the most loyal subjects of the Pixie Queen.' },
+  { id: 'calciumCrystal', name: 'Calcium Crystal', color: '#f8f0e0', desc: "Crystals grown from the Skeleton King's bones over the years. Protected by the Undead Executioner. Even after being defeated, he will return to defend the bones of his long dead king." },
   { id: 'eldritchText', name: 'Eldritch Text', color: '#8a5ac0', desc: 'A page from the Awoken Lich\'s own book. The ink moves to follow your eyes.' },
   { id: 'everwatchingEye', name: 'Everwatching Eye', color: '#c0a0e0', desc: 'An eye of the Beholden Watcher. It still sees, and it still watches you.' },
   { id: 'forsakenSoul', name: 'Forsaken Soul', color: '#ff5030', desc: 'A soul the Demon Lord held captive. It burns cold, and it is grateful to be free.' },
@@ -2336,7 +2339,7 @@ export const HUNTERS: HunterDef[] = [
     unlock: { event: 'guardian-forest', times: 1 },
     ascendedTitle: 'Pathfinder',
     story: 'Galladair\'s home on the edge of the Wandering Woods is being threatened by monsters. Help her defeat the Woods\' Guardian, and she will fight by your side.',
-    ability: 'Every 6s, looses a volley into the sky that comes down as a rain of arrows around the nearest monster. Her piercing widens the rain and every extra arrow she shoots makes it last longer. Deals 50% bonus damage to Beasts.',
+    ability: 'Every 6 seconds, rains arrows down on the battlefield. Deals 50% bonus damage to Beasts.',
     special: {
       kind: 'rain',
       name: 'Arrow Rain',
@@ -2360,12 +2363,12 @@ export const HUNTERS: HunterDef[] = [
     slots: [{ kind: 'weapon', label: 'Weapon', accepts: ['weapon', 'magic'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
   },
   {
-    id: 'druid', name: 'Deku', title: 'Druid', icon: '🌿', color: '#6abf5a', area: 'glade', recruitCost: 250_000, bane: { archetype: 'plant', mult: BANE_BASE }, summonBonus: { type: 'beast', mult: 1.5 },
+    id: 'druid', name: 'Deku', title: 'Druid', icon: '🌿', color: '#6abf5a', area: 'glade', recruitCost: 250_000, bane: { archetype: 'plant', mult: BANE_TRIPLE }, summonBonus: { type: 'beast', mult: 1.5 },
     short: 'Summons wolves to fight for him.',
     unlock: { event: 'guardian-glade', times: 2 },
     ascendedTitle: 'Archdruid',
     story: 'Deku tends the oldest trees of the Fey Grove, and the Guardian keeps trampling his saplings. Beat it twice, and he\'ll lend you the spirits of the wild.',
-    ability: 'Every 6s calls two spirit wolves to hunt. Deals 50% bonus damage to Plants, and his Beast summons (wolves from any source) hit 50% harder. Uses ranged or magic weapons.',
+    ability: 'Every 6s calls two spirit wolves to hunt. Deals triple damage to Plants, and his Beast summons (wolves from any source) hit 50% harder. Uses ranged or magic weapons.',
     slots: [{ kind: 'weapon', label: 'Weapon', accepts: ['weapon', 'magic'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
     special: { kind: 'summon', name: 'Wolves', damageType: 'physical', cooldown: 6, damage: 0.7, radius: 1, ticks: 18, crowd: 1, summon: { look: 'wolf', type: 'beast' }, describe: 'Every 6s calls two spirit wolves that hunt for 6s, biting for his damage: his weapon powers them, and they share its damage type and status effects.' },
   },
@@ -2424,12 +2427,12 @@ export const HUNTERS: HunterDef[] = [
     swapRange: 90,
   },
   {
-    id: 'celeste', name: 'Celeste', title: 'Psion', icon: '🔮', color: '#c9a8ff', area: 'depths', recruitCost: 200_000_000_000_000, bane: { archetype: 'dragon', mult: BANE_BASE },
-    short: '+50% damage to Dragons.',
+    id: 'celeste', name: 'Celeste', title: 'Psion', icon: '🔮', color: '#c9a8ff', area: 'depths', recruitCost: 200_000_000_000_000, bane: { archetype: 'dragon', mult: BANE_TRIPLE },
+    short: 'Triple damage to Dragons.',
     unlock: { event: 'guardian-depths', times: 2 },
     ascendedTitle: 'Oracle',
     story: 'Celeste, a Psion who hears the thoughts of monsters, followed a whisper into the Shadowy Depths and got lost in the noise. Beat the Depths\' Guardian twice to quiet it, and Celeste will lend you that mind.',
-    ability: 'Deals 50% bonus damage to Dragons.',
+    ability: 'Deals triple damage to Dragons.',
   },
   {
     id: 'blacksmith', name: 'Kargesh', title: 'Blacksmith', icon: '⚒️', color: '#d07a3a', area: 'caves', recruitCost: 3e15,
@@ -2472,12 +2475,12 @@ export const HUNTERS: HunterDef[] = [
     slots: [{ kind: 'magic', label: 'Magic weapon' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
   },
   {
-    id: 'frostbreaker', name: 'Okrin', title: 'Frostbreaker', icon: '🔨', color: '#8fdcff', area: 'peaks', recruitCost: 2.5e19, bane: { archetype: 'elemental', mult: BANE_BASE },
-    short: '+50% damage to Elementals.',
+    id: 'frostbreaker', name: 'Okrin', title: 'Frostbreaker', icon: '🔨', color: '#8fdcff', area: 'peaks', recruitCost: 2.5e19, bane: { archetype: 'elemental', mult: BANE_TRIPLE },
+    short: 'Triple damage to Elementals.',
     unlock: { event: 'guardian-peaks', times: 1 },
     ascendedTitle: 'Winterking',
     story: 'Okrin climbed the Frost Peaks to hunt the thing that rules them. Defeat the Peaks\' Guardian, and he\'ll bring his hammer to your side.',
-    ability: 'Deals 50% bonus damage to Elementals. Fights with melee weapons.',
+    ability: 'Deals triple damage to Elementals. Fights with melee weapons.',
     slots: [{ kind: 'melee', label: 'Melee' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
   },
   {
