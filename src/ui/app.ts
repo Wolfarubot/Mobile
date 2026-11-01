@@ -685,7 +685,7 @@ export class AppUI {
         tile.classList.toggle('locked', !open);
         let ready = false;
         if (joined) {
-          const p = g.trainPurchase(who);
+          const p = g.trainPurchase(who, 1);
           ready = g.trainUnlocked && p.count > 0 && g.state.gold >= p.cost;
           lv.textContent = `Lv ${g.levelOf(who)}`;
           const points = g.skillPoints(who);
@@ -705,12 +705,14 @@ export class AppUI {
     this.panel.appendChild(dock);
   }
 
-  /** A Train button and a progress bar toward the next level, kept up to date. `compact` is the card's version. */
+  /** A Train button and a progress bar toward the next level, kept up to date. `compact` is the card's version, which always trains once. */
   private trainParts(who: Wearer, compact = false): { btn: HTMLButtonElement; bar: HTMLElement } {
     const g = this.game;
     const btn = el('button', 'buy') as HTMLButtonElement;
     const bar = el('div', 'train-bar');
     bar.innerHTML = '<i></i><span></span>';
+    // The card's button always trains once; the ×1/×10/×100/MAX switch is for the full view.
+    const amount = (): BuyAmount => (compact ? 1 : g.state.buyAmount);
     const trainMax = (): void => {
       const level = g.levelOf(who);
       if (g.train(who, 'max')) {
@@ -727,14 +729,14 @@ export class AppUI {
       ev.stopPropagation();
       if (this.heldFor === btn) return void (this.heldFor = null);
       const level = g.levelOf(who);
-      if (g.train(who)) {
+      if (g.train(who, amount())) {
         sfx(g.levelOf(who) > level ? 'levelUp' : 'train');
         bumpCard(btn);
         this.refresh();
       }
     });
     this.refreshers.push(() => {
-      const p = g.trainPurchase(who);
+      const p = g.trainPurchase(who, amount());
       const { level, into, need } = g.levelInfo(who);
       if (!g.trainUnlocked) {
         setHtml(btn, `🔒 Train<small>Slay ${fmt(Math.min(g.slimeKills, TRAIN_UNLOCK_KILLS))} / ${TRAIN_UNLOCK_KILLS} slimes</small>`);
@@ -2783,12 +2785,13 @@ export class AppUI {
   }
 
   /**
-   * An Empower button and a progress bar toward the monster's next level. `compact` is the Bestiary tab's card,
-   * whose button always empowers once (the ×1/×10/×100/MAX switch is for the full view).
+   * An Empower button and a progress bar toward the monster's next level. On the Bestiary tab's card (`card`, or
+   * `compact` without the bar's numbers) the button always empowers once and holding it empowers to the max; the
+   * ×1/×10/×100/MAX switch is for the full view.
    */
   private empowerParts(id: EnemyId, compact = false, card = false): { btn: HTMLButtonElement; bar: HTMLElement } {
     const g = this.game;
-    const amount = (): BuyAmount => (compact ? 1 : g.state.buyAmount);
+    const amount = (): BuyAmount => (compact || card ? 1 : g.state.buyAmount);
     const btn = el('button', 'buy') as HTMLButtonElement;
     const bar = el('div', 'train-bar');
     bar.innerHTML = '<i></i><span></span>';
