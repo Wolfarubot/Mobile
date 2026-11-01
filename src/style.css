@@ -6220,13 +6220,23 @@ button.pressing:not(:disabled) {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding: 12px 14px;
+  padding: 12px 8px;
 }
+/* The details scroll inside 6px of room each side, so their text (and its outline) is never clipped at the edges. */
 .field-card .fc-scroll {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   overscroll-behavior: contain;
+  padding: 0 6px;
+  overflow-wrap: anywhere;
+}
+.field-card .fc-craft {
+  width: auto;
+  align-self: stretch;
+  margin-left: 6px;
+  margin-right: 6px;
 }
 .field-card .fc-scroll.more {
   -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 34px), transparent);
