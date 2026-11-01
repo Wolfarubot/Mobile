@@ -2715,12 +2715,12 @@ export class Game {
     this.state.stats.matGained[id] = (this.state.stats.matGained[id] ?? 0) + n;
   }
 
-  /** Trains a Hunter `buyAmount` times. Returns false if they can't afford it (or aren't recruited). */
-  train(who: Wearer): boolean {
+  /** Trains a Hunter `amount` times (the ×1/×10/×100/MAX switch by default). False if they can't afford it (or aren't recruited). */
+  train(who: Wearer, amount: BuyAmount = this.state.buyAmount): boolean {
     if (!this.trainUnlocked) return false;
     if (who !== 'main' && !this.state.hunters[who].recruited) return false;
-    const p = this.trainPurchase(who);
-    if (this.state.gold < p.cost) return false;
+    const p = this.trainPurchase(who, amount);
+    if (p.count <= 0 || this.state.gold < p.cost) return false;
     this.state.gold -= p.cost;
     this.training(who).trains += p.count;
     return true;

@@ -246,6 +246,26 @@ section(
   { title: 'Salvage {n} piece{s}?', body: 'Every unequipped {rarities} piece will be salvaged, giving back half of its materials. Equipped gear is kept.', cancel: 'Cancel', ok: 'Salvage' },
   { note: 'Auto Salvage → Salvage now.', vars: { n: 'pieces', rarities: 'e.g. Common, Uncommon' } },
 );
+section(
+  P,
+  'popup.maxTrain',
+  'Train to max',
+  {
+    title: 'Train to max?',
+    train: 'Train **{name}** {count} times for 🪙 **{cost}**? This is the most you can afford right now.',
+    empower: 'Empower the **{name}** {count} times for 🪙 **{cost}**? This is the most you can afford right now.',
+    hint: 'Holding down the **Train** or **Empower** button on a card always trains as much as you can afford.',
+    never: 'Do not show again',
+    ok: 'OK',
+    setting: 'Hold to train to max',
+    settingBody: 'Holding down the **Train** or **Empower** button on a card trains as much as you can afford. **Ask first** shows a pop-up to confirm, and **Just train** skips it.',
+  },
+  {
+    note: 'Holding down Train on a Hunter card, or Empower on a Bestiary card. OK trains to the max and asks again next time; Do not show again trains to the max and stops asking.',
+    vars: { name: 'the Hunter or monster', count: 'how many times', cost: 'the total cost' },
+    labels: { train: 'Text: Hunter', empower: 'Text: monster', hint: 'Text: second line', setting: 'Setting name', settingBody: 'Setting description' },
+  },
+);
 section(P, 'popup.quit', 'Quit', { title: 'Quit', body: "Close the game? Your progress is saved, and your Hunters keep hunting while you're away.", no: 'No', yes: 'Yes' }, { note: 'Menu → Quit.' });
 section(
   P,

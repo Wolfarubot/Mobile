@@ -577,6 +577,61 @@ export class AppUI {
 
   // ---- Hunters tab: your Hunter's training + the Hunter Guild ----
 
+  /** The button a hold just went off on: its click (on release) is swallowed so it doesn't train again. */
+  private heldFor: HTMLElement | null = null;
+
+  /**
+   * Holding a card's Train (or Empower) button for a moment trains to the max. Unless turned off, a popup asks
+   * first: OK trains and asks again next time; Do not show again trains and stops asking. `offer` gives the
+   * popup's line and the training, or null when not even one session is affordable.
+   */
+  private holdForMax(btn: HTMLElement, offer: () => { text: string; run: () => void } | null): void {
+    const HOLD_MS = 500;
+    let timer = 0;
+    let x = 0;
+    let y = 0;
+    const stop = (): void => {
+      clearTimeout(timer);
+      timer = 0;
+    };
+    btn.addEventListener('pointerdown', (ev) => {
+      stop();
+      if (this.heldFor === btn) this.heldFor = null;
+      x = ev.clientX;
+      y = ev.clientY;
+      timer = window.setTimeout(() => {
+        timer = 0;
+        const o = offer();
+        if (!o) return;
+        this.heldFor = btn;
+        buzz();
+        const g = this.game;
+        if (!g.state.settings.maxTrainPopup) {
+          o.run();
+          this.refresh();
+          return;
+        }
+        this.showModal(`<h2>${tx('popup.maxTrain.title')}</h2>${o.text}${txp('popup.maxTrain.hint')}`, [
+          {
+            label: txt('popup.maxTrain.never'),
+            secondary: true,
+            action: () => {
+              g.state.settings.maxTrainPopup = false;
+              o.run();
+            },
+          },
+          { label: txt('popup.maxTrain.ok'), action: o.run },
+        ]);
+      }, HOLD_MS);
+    });
+    btn.addEventListener('pointermove', (ev) => {
+      if (timer && Math.hypot(ev.clientX - x, ev.clientY - y) > 12) stop();
+    });
+    for (const t of ['pointerup', 'pointerleave', 'pointercancel']) btn.addEventListener(t, stop);
+    // A long press opens the browser's menu on some phones.
+    btn.addEventListener('contextmenu', (ev) => ev.preventDefault());
+  }
+
   /** The Train ×1 / ×10 / ×100 / MAX switch. Every copy (Hunters tab, Hunter view) shows the same choice. */
   private amountsBar(extra = '', label = 'Train'): HTMLElement {
     const g = this.game;
@@ -656,8 +711,21 @@ export class AppUI {
     const btn = el('button', 'buy') as HTMLButtonElement;
     const bar = el('div', 'train-bar');
     bar.innerHTML = '<i></i><span></span>';
+    const trainMax = (): void => {
+      const level = g.levelOf(who);
+      if (g.train(who, 'max')) {
+        sfx(g.levelOf(who) > level ? 'levelUp' : 'train');
+        bumpCard(btn);
+      }
+    };
+    if (compact)
+      this.holdForMax(btn, () => {
+        const p = g.trainPurchase(who, 'max');
+        return p.count > 0 && g.state.gold >= p.cost ? { text: txp('popup.maxTrain.train', { name: who === 'main' && !mainHunterName ? 'your Hunter' : wearerName(who), count: fmt(p.count), cost: fmt(p.cost) }), run: trainMax } : null;
+      });
     btn.addEventListener('click', (ev) => {
       ev.stopPropagation();
+      if (this.heldFor === btn) return void (this.heldFor = null);
       const level = g.levelOf(who);
       if (g.train(who)) {
         sfx(g.levelOf(who) > level ? 'levelUp' : 'train');
@@ -2679,7 +2747,7 @@ export class AppUI {
     const dot = el('b', 'sp-dot hidden');
     dot.title = txt('tip.markers.evoPoints');
     if (unlocked) {
-      const { btn, bar } = this.empowerParts(def.id);
+      const { btn, bar } = this.empowerParts(def.id, false, true);
       $('.hc-mid', row).appendChild(bar);
       $('.hc-action', row).appendChild(btn);
       actions.appendChild(row);
@@ -2718,14 +2786,26 @@ export class AppUI {
    * An Empower button and a progress bar toward the monster's next level. `compact` is the Bestiary tab's card,
    * whose button always empowers once (the ×1/×10/×100/MAX switch is for the full view).
    */
-  private empowerParts(id: EnemyId, compact = false): { btn: HTMLButtonElement; bar: HTMLElement } {
+  private empowerParts(id: EnemyId, compact = false, card = false): { btn: HTMLButtonElement; bar: HTMLElement } {
     const g = this.game;
     const amount = (): BuyAmount => (compact ? 1 : g.state.buyAmount);
     const btn = el('button', 'buy') as HTMLButtonElement;
     const bar = el('div', 'train-bar');
     bar.innerHTML = '<i></i><span></span>';
+    if (card)
+      this.holdForMax(btn, () => {
+        const p = g.empowerPurchase(id, 'max');
+        const run = (): void => {
+          if (g.empower(id, 'max')) {
+            sfx('empower');
+            bumpCard(btn);
+          }
+        };
+        return g.empowerUnlocked && g.isUnlocked(id) && p.count > 0 && g.state.gold >= p.cost ? { text: txp('popup.maxTrain.empower', { name: enemyDef(id).name, count: fmt(p.count), cost: fmt(p.cost) }), run } : null;
+      });
     btn.addEventListener('click', (ev) => {
       ev.stopPropagation();
+      if (this.heldFor === btn) return void (this.heldFor = null);
       if (g.empower(id, amount())) {
         sfx('empower');
         bumpCard(btn);
@@ -2768,11 +2848,6 @@ export class AppUI {
             ${beastTags(def) ? `<div class="beast-tags">${beastTags(def)}</div>` : ''}
           </div>
         </div>
-        <div class="hero-lore">
-          <p class="lore-text">${def.blurb}</p>
-          <div class="lore-drops"><div class="lore-label">Drops</div>${dropListHtml(def)}</div>
-        </div>
-        ${affinityHtml(def)}
       </div>
       <button class="hd-close hd-float-close" aria-label="Close">✕</button>`;
     document.body.appendChild(view);
@@ -2798,6 +2873,16 @@ export class AppUI {
     };
     tabs.querySelectorAll<HTMLButtonElement>('button').forEach((b) => b.addEventListener('click', () => show(b.dataset.sub as 'stats' | 'evolution')));
     show(this.monsterSub);
+
+    // Its description, drops and weaknesses open the Stats page (not above the tabs, where they'd push the
+    // Evolution tree down the page).
+    const lore = el('div', 'monster-lore');
+    lore.innerHTML = `<div class="hero-lore">
+          <p class="lore-text">${def.blurb}</p>
+          <div class="lore-drops"><div class="lore-label">Drops</div>${dropListHtml(def)}</div>
+        </div>
+        ${affinityHtml(def)}`;
+    body.appendChild(lore);
 
     body.appendChild(sectionTitle('Empower'));
     body.appendChild(
@@ -5193,6 +5278,18 @@ export class AppUI {
       (v) => {
         st.advancedTips = v === 'advanced';
         this.applySettings();
+      },
+    );
+    choices(
+      tx('popup.maxTrain.setting'),
+      tx('popup.maxTrain.settingBody'),
+      [
+        ['ask', 'Ask first'],
+        ['go', 'Just train'],
+      ],
+      () => (st.maxTrainPopup ? 'ask' : 'go'),
+      (v) => {
+        st.maxTrainPopup = v === 'ask';
       },
     );
 

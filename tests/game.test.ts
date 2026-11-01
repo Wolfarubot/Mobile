@@ -863,6 +863,20 @@ describe('Shops', () => {
     expect(g.train('main')).toBe(true);
   });
 
+  it('training to the max (holding Train on a card) buys every session the gold covers, whatever the ×1/×10 switch says', () => {
+    const g = new Game(newGame(0), noCrit);
+    g.state.bestiary.greenSlime.kills = TRAIN_UNLOCK_KILLS;
+    g.state.buyAmount = 1;
+    g.state.gold = 1e6;
+    const p = g.trainPurchase('main', 'max');
+    g.state.gold = p.cost;
+    expect(p.count).toBeGreaterThan(1);
+    expect(g.train('main', 'max')).toBe(true);
+    expect(g.state.gold).toBe(0);
+    expect(g.training('main').trains).toBe(p.count);
+    expect(g.train('main', 'max')).toBe(false);
+  });
+
   it('the Forest Guardian Challenge unlocks at 6,000 Forest kills (any monster); Twigglings cost 250 gold', () => {
     expect(areaDef('forest').mastery).toBe(6_000);
     expect(eventDef('guardian-forest').unlockKills).toBe(6_000);
@@ -5331,12 +5345,12 @@ describe('Saves', () => {
     s.settings.name = 'Wolfa';
     s.flags.eventsIntro = true;
     const back = deserialize(serialize(s))!;
-    expect(back.settings).toEqual({ leftHanded: true, name: 'Wolfa', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', lootPopups: true, hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', advancedTips: false, autoSalvage: [], fx: Object.fromEntries(FX_KEYS.map((k) => [k, true])), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium', fps: '60', audio: { on: true, musicOn: true, sfxOn: true, master: 80, music: 70, sfx: 80 } });
+    expect(back.settings).toEqual({ leftHanded: true, name: 'Wolfa', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', lootPopups: true, hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', advancedTips: false, maxTrainPopup: true, autoSalvage: [], fx: Object.fromEntries(FX_KEYS.map((k) => [k, true])), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium', fps: '60', audio: { on: true, musicOn: true, sfxOn: true, master: 80, music: 70, sfx: 80 } });
     expect(back.flags).toEqual({ eventsIntro: true, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false, minigameIntro: false, questsIntro: false });
     const old = JSON.parse(serialize(newGame(0)));
     delete old.settings;
     delete old.flags;
-    expect(deserialize(JSON.stringify(old))!.settings).toEqual({ leftHanded: false, name: '', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', lootPopups: true, hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', advancedTips: false, autoSalvage: [], fx: Object.fromEntries(FX_KEYS.map((k) => [k, true])), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium', fps: '60', audio: { on: true, musicOn: true, sfxOn: true, master: 80, music: 70, sfx: 80 } });
+    expect(deserialize(JSON.stringify(old))!.settings).toEqual({ leftHanded: false, name: '', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', lootPopups: true, hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', advancedTips: false, maxTrainPopup: true, autoSalvage: [], fx: Object.fromEntries(FX_KEYS.map((k) => [k, true])), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium', fps: '60', audio: { on: true, musicOn: true, sfxOn: true, master: 80, music: 70, sfx: 80 } });
     // The old Sound effects / Music levels become the Audio card's switches and sliders; bad volumes are clamped.
     const oldAudio = JSON.parse(serialize(newGame(0)));
     delete oldAudio.settings.audio;

@@ -7309,3 +7309,11 @@ body.ui-parchment .mod-action b {
   flex: 0 0 auto;
   padding: 8px 18px;
 }
+
+/* The monster view's description, drops and weaknesses, at the top of its Stats page. */
+.monster-lore .hero-lore {
+  margin-top: 6px;
+}
+.monster-lore .affinities {
+  margin-bottom: 10px;
+}
