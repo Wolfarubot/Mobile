@@ -3750,6 +3750,14 @@ export interface WeaponClassDef {
   stack?: number;
   /** Daggers: stabs per attack, in quick succession at the same monster (or daggers thrown, when it's far). */
   thrusts?: number;
+  /** Orb Scepter: each bolt leaves an orb where it lands, hurting each monster that walks into it (see SCEPTER_ORB). */
+  orb?: boolean;
+  /**
+   * Daggers: the gap between stabs, as a share of the standard dagger's. An archetype with fewer or more stabs spreads
+   * them over the standard burst's time (a Stiletto's 2 a long beat apart, a Throwing Knife's 4 quicker); stabs added
+   * on top (Apex Hunter, a piece's own burst) come at that same beat.
+   */
+  stabGap?: number;
   /** Focuses that send out a wave: it expands from the Hunter out to `reach`, hitting monsters as it passes. */
   wave?: boolean;
   /** Spears: how wide the thrust is (it hits everything in that band). */
@@ -3844,6 +3852,7 @@ export interface WeaponArchetype {
   volley?: number;
   fan?: number;
   bounces?: number;
+  orb?: boolean;
   followThrough?: number;
   spellEvery?: number;
   spellDamage?: number;
@@ -3854,12 +3863,18 @@ export interface WeaponArchetype {
   farm?: number;
 }
 
+/**
+ * The Orb Scepter's orb: it stays `life` seconds (× the Hunter's effect duration), `radius` wide (× the weapon's range
+ * over a bow's), and hurts each monster that touches it once, for `share` of the bolt's hit.
+ */
+export const SCEPTER_ORB = { life: 1.5, radius: 16, share: 0.5 };
+
 const STANDARD = (name: string): WeaponArchetype => ({ name, desc: 'The standard form of its class.' });
 
 export const WEAPON_ARCHETYPES: Record<WeaponClass, [WeaponArchetype, WeaponArchetype, WeaponArchetype]> = {
   dagger: [STANDARD('Dagger'),
-    { name: 'Stiletto', desc: '2 precise stabs instead of 3: harder hits and +15% crit chance.', thrusts: 2, damage: 1.25, crit: 0.15 },
-    { name: 'Throwing Knife', desc: 'Throws from further away, a little quicker, but 2 stabs or knives a go.', thrusts: 2, range: 1.35, rate: 1.3, damage: 1.1 }],
+    { name: 'Stiletto', desc: '2 precise stabs instead of 3, over the same time: harder hits and +15% crit chance.', thrusts: 2, damage: 1.25, crit: 0.15 },
+    { name: 'Throwing Knife', desc: 'Quicker bursts of 4 lighter stabs or knives instead of 3, over the same time, thrown from a little further away.', thrusts: 4, rate: 1.4, damage: 0.55, range: 1.1 }],
   sword: [STANDARD('Sword'),
     { name: 'Rapier', desc: 'Quick, narrow slashes: half again as fast, a tighter arc, +10% crit chance.', rate: 1.5, damage: 0.72, arc: 0.6, reach: 0.9, crit: 0.1, farm: 0.85 },
     { name: 'Greatsword', desc: 'Slow, heavy, wide slashes that reach further and knock harder.', rate: 0.65, damage: 1.45, arc: 1.25, reach: 1.2, knock: 1.5, farm: 1.15 }],
@@ -3895,7 +3910,7 @@ export const WEAPON_ARCHETYPES: Record<WeaponClass, [WeaponArchetype, WeaponArch
     { name: 'Sparkler', desc: 'A stream of light bolts, 40% faster, at shorter range.', rate: 1.4, damage: 0.7, range: 0.85 }],
   scepter: [STANDARD('Scepter'),
     { name: 'Chain Scepter', desc: 'Bolts bounce on to 4 more monsters, but each is lighter.', bounces: 4, damage: 0.75, rate: 0.9, farm: 1.5 },
-    { name: 'Orb Scepter', desc: 'Bolts don\'t bounce, but hit far harder and fly further.', bounces: 0, damage: 1.9, range: 1.1, rate: 0.85, farm: 0.6 }],
+    { name: 'Orb Scepter', desc: 'Bolts don\'t bounce, but hit far harder, fly further, and leave a glowing orb where they land that hurts each monster walking into it.', bounces: 0, damage: 1.9, range: 1.1, rate: 0.85, orb: true, farm: 0.68 }],
   staff: [STANDARD('Staff'),
     { name: 'Battle Staff', desc: 'Faster bolts, and its spell only every 8 bolts.', spellEvery: 8, rate: 1.3, damage: 0.8 },
     { name: 'Archmage Staff', desc: 'Its spell every 3 bolts, a quarter wider and stronger, but slower bolts.', spellEvery: 3, spellDamage: 1.2, spellRadius: 1.25, rate: 0.75, farm: 1.2 }],
@@ -3923,9 +3938,14 @@ export function withArchetype(cls: WeaponClassDef, a: WeaponArchetype | undefine
   c.reload = mul(cls.reload, a.reload);
   if (a.pierce) c.pierce = (cls.pierce ?? 0) + a.pierce;
   if (a.mag !== undefined) c.mag = a.mag;
-  if (a.thrusts !== undefined) c.thrusts = a.thrusts;
+  if (a.thrusts !== undefined) {
+    c.thrusts = a.thrusts;
+    // Its burst takes the standard burst's time, however many stabs.
+    if (cls.thrusts && a.thrusts > 1) c.stabGap = (cls.thrusts - 1) / (a.thrusts - 1);
+  }
   if (a.volley !== undefined) c.volley = a.volley;
   if (a.bounces !== undefined) c.bounces = a.bounces;
+  if (a.orb) c.orb = true;
   if (cls.spell && (a.spellEvery || a.spellDamage || a.spellRadius)) {
     c.spell = { every: a.spellEvery ?? cls.spell.every, damage: cls.spell.damage * (a.spellDamage ?? 1), radius: cls.spell.radius * (a.spellRadius ?? 1) };
     if (a.spellEvery) c.mag = a.spellEvery + 1;

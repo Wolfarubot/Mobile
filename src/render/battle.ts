@@ -477,6 +477,33 @@ export class BattleView {
       drawPotionPool(g, p, this.time - born, p.dtype === 'acid');
     }
 
+    // Orb Scepter orbs: a glowing ball of the bolt's element where it landed, pulsing, fading as it runs out.
+    for (const o of this.field.orbs) {
+      const color = DAMAGE_TYPES[o.dtype ?? this.game.damageTypeOf(o.who, o.mode)].color;
+      const fade = Math.min(1, o.life / 0.4, (o.max - o.life) / 0.12 + 0.2);
+      const pulse = 1 + Math.sin(this.time * 9 + o.x) * 0.08;
+      const r = o.r * pulse;
+      g.globalAlpha = 0.28 * fade;
+      g.fillStyle = color;
+      g.beginPath();
+      g.arc(o.x, o.y, r, 0, Math.PI * 2);
+      g.fill();
+      g.globalAlpha = 0.9 * fade;
+      g.beginPath();
+      g.arc(o.x, o.y, r * 0.45, 0, Math.PI * 2);
+      g.fill();
+      g.fillStyle = '#ffffff';
+      g.globalAlpha = 0.8 * fade;
+      g.fillRect(Math.round(o.x - r * 0.2), Math.round(o.y - r * 0.25), Math.max(2, Math.round(r * 0.18)), Math.max(2, Math.round(r * 0.18)));
+      g.globalAlpha = fade;
+      g.strokeStyle = color;
+      g.lineWidth = 2;
+      g.beginPath();
+      g.arc(o.x, o.y, r, 0, Math.PI * 2);
+      g.stroke();
+      g.globalAlpha = 1;
+    }
+
     // Pickups under everything else
     for (const p of this.pickups) {
       g.fillStyle = p.color;

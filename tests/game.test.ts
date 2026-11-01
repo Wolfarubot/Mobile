@@ -2038,6 +2038,35 @@ describe('Equipment', () => {
     expect(g.shooterRange('wilhelm', 'long')).toBeCloseTo(MAIN_RANGE * shapedClass('frostRifle').range + 15);
   });
 
+  it('dagger archetypes spread their stabs over the standard burst; the Orb Scepter leaves orbs', () => {
+    const [, stiletto, knife] = WEAPON_ARCHETYPES.dagger;
+    const std = WEAPON_CLASSES.dagger;
+    const burst = (c: { thrusts?: number; stabGap?: number }) => ((c.thrusts ?? 1) - 1) * (c.stabGap ?? 1);
+    const s = withArchetype(std, stiletto);
+    const k = withArchetype(std, knife);
+    expect([s.thrusts, k.thrusts]).toEqual([2, 4]);
+    expect(burst(s)).toBeCloseTo(burst(std));
+    expect(burst(k)).toBeCloseTo(burst(std));
+    expect(k.rate).toBeGreaterThan(std.rate); // the quick one
+    // The Orb Scepter: no bounces, and an orb where each bolt lands that hurts what walks into it, once.
+    const orb = withArchetype(WEAPON_CLASSES.scepter, WEAPON_ARCHETYPES.scepter[2]);
+    expect(orb.orb).toBe(true);
+    expect(orb.bounces).toBe(0);
+    const g = new Game(newGame(0), () => 0.99);
+    const f = new Field(g);
+    f.setView(390, 420);
+    f.update(0);
+    f.enemies = [enemy({ id: 7, x: 150, y: 150, hp: 1e12, maxHp: 1e12, speed: 0 })];
+    f.orbs = [{ who: 'main', x: 150, y: 150, r: 16, life: 1, max: 1, dmg: 0.5, crit: false, hit: new Set() }];
+    (f as unknown as { tickOrbs(dt: number): void }).tickOrbs(0.1);
+    const after = f.enemies[0].hp;
+    expect(after).toBeLessThan(1e12);
+    (f as unknown as { tickOrbs(dt: number): void }).tickOrbs(0.1);
+    expect(f.enemies[0].hp).toBe(after); // once per monster
+    (f as unknown as { tickOrbs(dt: number): void }).tickOrbs(1);
+    expect(f.orbs).toHaveLength(0); // faded
+  });
+
   it('weapon archetypes: three takes on each class, fair trades, in rotation, and they change how a weapon fights', () => {
     for (const cls of Object.keys(WEAPON_ARCHETYPES) as WeaponClass[]) {
       // Each variant lands within 12% of its standard's crowd DPS.

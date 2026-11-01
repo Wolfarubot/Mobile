@@ -46,6 +46,7 @@ import {
   areaScale,
   STUN_IMMUNITY,
   STUN_RELIEF,
+  SCEPTER_ORB,
   SHOT_SPLASH,
   SHIELD_DEFLECT_PAUSE,
   type EnemyId,
@@ -322,6 +323,8 @@ export interface Bullet {
   blast?: { r: number; k: number };
   /** A ranged or magic weapon's shot: pushes what it hits back, and splashes onto monsters this close to its edge. */
   splash?: number;
+  /** An Orb Scepter's bolt: leaves an orb where it lands. */
+  orb?: boolean;
   /** Elemental Arrows: bursts with its element's effect where it hits, at this × a hit. */
   elem?: number;
   /** Other ranged arts riding on it (see MeleeArt): what it does when it hits, or misses. */
@@ -525,6 +528,8 @@ export class Field {
   /** Ranged monsters' projectiles in flight. */
   shots: EnemyShot[] = [];
   puddles: Puddle[] = [];
+  /** Orb Scepter orbs: where bolts landed, hurting each monster that walks into one, once. */
+  orbs: Array<{ who: Shooter; x: number; y: number; r: number; life: number; max: number; dmg: number; crit: boolean; mode?: GearMode; dtype?: DamageType; hit: Set<number> }> = [];
   /** Thomas's tomes, open on the field (see recall). */
   tomes: Tome[] = [];
   /** Ted's dice, in the air or lying where they landed (see rollDice). */
@@ -659,6 +664,7 @@ export class Field {
     this.bullets = [];
     this.shots = [];
     this.puddles = [];
+    this.orbs = [];
     this.spellHits = [];
     this.zones = [];
     this.fissures = [];
@@ -898,6 +904,7 @@ export class Field {
 
     this.moveBullets(dt);
     this.tickPuddles(dt);
+    this.tickOrbs(dt);
     this.miasmaCd = Math.max(0, this.miasmaCd - dt);
     this.flameCd = Math.max(0, this.flameCd - dt);
     this.frostCd = Math.max(0, this.frostCd - dt);
@@ -1385,7 +1392,8 @@ export class Field {
     if (cls?.attack === 'dagger') {
       // A burst of stabs (or throws, if it's out of reach) at this monster, a moment apart.
       const n = (cls.thrusts ?? 1) + extra;
-      for (let i = 0; i < n; i++) this.stabs.push({ who, t: i * DAGGER_GAP, target: target.id, last: i === n - 1 });
+      const gap = DAGGER_GAP * (cls.stabGap ?? 1);
+      for (let i = 0; i < n; i++) this.stabs.push({ who, t: i * gap, target: target.id, last: i === n - 1 });
     } else if (cls?.attack === 'nova' && cls.wave) {
       // A focus's wave: a ring expanding out to its reach (× area size), hitting monsters as it passes.
       const max = cls.reach! * g.radiusMult(who);
@@ -1890,6 +1898,7 @@ export class Field {
     const splash = shot ? (SHOT_SPLASH.gap * g.shooterRange(shooter, o.mode)) / MAIN_RANGE : undefined;
     this.bullets.push({
       splash,
+      orb: shot && !!this.game.weaponClassOf(shooter, o.mode)?.orb,
       shooter,
       kind,
       x: ox + Math.cos(angle) * PLAYER_RADIUS,
@@ -3085,6 +3094,8 @@ export class Field {
           b.life = (MELEE_ARTS.ricochetRange + 20) / speed;
         }
       }
+      // An Orb Scepter's bolt that hit nothing leaves its orb where it comes down.
+      if (b.life <= 0 && b.orb) this.dropOrb(b, b.x, b.y, b.dmg);
       if (b.kind === 'potion') {
         // Flies to its target point, then shatters into a puddle.
         if (b.life <= 0 || (b.tx !== undefined && (b.tx - b.x) * b.vx + (b.ty! - b.y) * b.vy <= 0)) {
@@ -3131,6 +3142,30 @@ export class Field {
     }
   }
 
+  /** An Orb Scepter's bolt lands (on a monster, or at the end of its flight): it leaves an orb there. */
+  private dropOrb(b: Bullet, x: number, y: number, mult: number, struck?: number): void {
+    const g = this.game;
+    b.orb = false;
+    const life = SCEPTER_ORB.life * g.effectDurationMult(b.shooter);
+    const r = (SCEPTER_ORB.radius * g.shooterRange(b.shooter, b.mode)) / MAIN_RANGE;
+    // The monster it struck has had its hit; the orb is for the ones that come after.
+    this.orbs.push({ who: b.shooter, x, y, r, life, max: life, dmg: mult * SCEPTER_ORB.share, crit: b.crit, mode: b.mode, dtype: b.dtype, hit: new Set(struck === undefined ? [] : [struck]) });
+  }
+
+  /** Orbs fade; each monster that touches one is hurt by it, once. */
+  private tickOrbs(dt: number): void {
+    if (!this.orbs.length) return;
+    for (const o of this.orbs) {
+      o.life -= dt;
+      for (const e of [...this.enemies]) {
+        if (e.hp <= 0 || o.hit.has(e.id) || Math.hypot(e.x - o.x, e.y - o.y) > o.r + e.r) continue;
+        o.hit.add(e.id);
+        this.hitWith(o.who, e, o.dmg, o.x, o.y, o.crit, o.mode, false, true, o.dtype);
+      }
+    }
+    this.orbs = this.orbs.filter((o) => o.life > 0);
+  }
+
   private bulletHit(b: Bullet, e: Enemy): void {
     if (b.cast) {
       // A spell's projectile: a fireball bursts, the rest strike what they hit.
@@ -3165,6 +3200,7 @@ export class Field {
     }
     this.hitWith(b.shooter, e, mult, b.x - b.vx, b.y - b.vy, b.crit, b.mode, false, true, b.dtype);
     if (b.splash !== undefined) this.shotSplash(b, e, mult);
+    if (b.orb) this.dropOrb(b, e.x, e.y, mult, e.id);
     if (b.elem) this.elementalArrow(b, e);
     if (b.arts) this.shotArtsHit(b, e);
     if (b.blast) {
