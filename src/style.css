@@ -4299,9 +4299,9 @@ body.left-handed .hd-float-close {
 }
 .title-row .filter-corner,
 body .title-row .filter-btn.filter-corner:has(> .btn-ic) {
-  flex: 0 0 48px;
-  width: 48px;
-  height: 48px;
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
   min-height: 0 !important;
   padding: 0 !important;
   font-size: 0;
@@ -4309,8 +4309,16 @@ body .title-row .filter-btn.filter-corner:has(> .btn-ic) {
 .title-row .filter-corner .btn-ic {
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
+}
+.title-row .filter-corner + .filter-corner {
+  margin-left: -2px;
+}
+/* Lit (a filter set, Modify on, a rarity set to salvage): a gold ring round the button, as its icon covers it. */
+.title-row .filter-corner.on {
+  outline: 3px solid var(--gold);
+  outline-offset: -1px;
 }
 .filter-bar .filter-chips {
   flex-basis: 100%;

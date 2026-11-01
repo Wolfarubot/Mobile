@@ -2937,18 +2937,26 @@ export class AppUI {
     const g = this.game;
     this.gearListOpen = true;
     const invTitle = sectionTitle('Equipment');
-    pane.appendChild(titleWithFilter(invTitle, () => this.openInvFilter()));
+    const titleRow = titleWithFilter(invTitle, () => this.openInvFilter());
+    pane.appendChild(titleRow);
     const bar = el('div', 'filter-bar');
     const modifyOpen = g.refineOpen || g.enchantOpen;
-    bar.innerHTML = `${modifyOpen ? '<button class="filter-btn mod-btn">🛠️ Modify</button>' : ''}${g.autoSalvageOpen ? '<button class="filter-btn as-btn">♻️ Auto Salvage</button>' : ''}<div class="filter-chips"></div>`;
-    // Modify (once Kargesh or Marceline joins): between Filter and Auto Salvage.
-    const modBtn = bar.querySelector<HTMLButtonElement>('.mod-btn');
+    bar.innerHTML = '<div class="filter-chips"></div>';
+    // Modify (once Kargesh or Marceline joins) and Auto Salvage: small square buttons in the title's corner, beside Filter.
+    const cornerBtn = (cls: string, icon: string, name: string) => {
+      const b = el('button', `filter-btn filter-corner ${cls}`, icon) as HTMLButtonElement;
+      b.title = name;
+      b.setAttribute('aria-label', name);
+      titleRow.insertBefore(b, invFilterBtn(titleRow));
+      return b;
+    };
+    const modBtn = modifyOpen ? cornerBtn('mod-btn', '🛠️', 'Modify') : null;
     modBtn?.addEventListener('click', () => {
       this.modifyMode = !this.modifyMode;
       this.refresh();
     });
     if (!modifyOpen) this.modifyMode = false;
-    const asBtn = bar.querySelector<HTMLButtonElement>('.as-btn');
+    const asBtn = g.autoSalvageOpen ? cornerBtn('as-btn', '♻️', 'Auto Salvage') : null;
     if (asBtn) {
       asBtn.addEventListener('click', () => this.openAutoSalvage());
       // Lit while any rarity is set to salvage.
@@ -6282,7 +6290,8 @@ function titleWithFilter(title: HTMLElement, open: () => void): HTMLElement {
   row.append(title, btn);
   return row;
 }
-const invFilterBtn = (pane: HTMLElement): HTMLElement => $('.title-row .filter-corner', pane);
+/** The Filter button in a pane's title row (the last of the corner buttons). */
+const invFilterBtn = (pane: HTMLElement): HTMLElement => $('.filter-corner:last-child', pane.matches('.title-row') ? pane : $('.title-row', pane));
 
 function sectionTitle(text: string): HTMLElement {
   const t = el('div', 'section-title');
