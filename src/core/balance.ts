@@ -368,6 +368,8 @@ const grd = (maxRank: number, name: string, icon: string, cost?: number): NodeSp
  */
 export const BANE_BASE = 1.5;
 export const BANE_PER_TREE = 0.5;
+/** Monsters a sound wave (Ba'al's) catches in a crowd, for the background model (more as it widens). */
+export const SONG_WAVE_CROWD = 2.5;
 const banePct = (v: number): string => `${Math.round(v * 10000) / 100}%`;
 const ban = (maxRank: number, name: string, icon: string, foes: string): NodeSpec => ({ name, icon, desc: `+${banePct(BANE_PER_TREE / maxRank)} bonus damage to ${foes} per rank.`, maxRank, effect: { bane: BANE_PER_TREE / maxRank } });
 const gld = (maxRank: number, name: string, icon: string, v = 0.1): NodeSpec => ({ name, icon, desc: `+${pctOf(v)} gold from their kills per rank.`, maxRank, effect: { gold: v } });
@@ -2254,6 +2256,11 @@ export interface HunterDef {
   recruitCost: number;
   /** Their signature ability on a cooldown (they otherwise fight with their weapon's attacks). */
   special?: HunterSpecial;
+  /**
+   * Ba'al's sound waves, a built-in Focus: every `every` attacks a blast of music notes rings out around him, hitting
+   * every monster within `reach` (× his area size) once, for `damage` × his hit.
+   */
+  songWave?: { every: number; reach: number; damage: number };
   /** Wilhelm: switches to his short-range weapon when a monster is this close. */
   swapRange?: number;
   /** Damage multiplier against one archetype. */
@@ -2356,8 +2363,9 @@ export const HUNTERS: HunterDef[] = [
     unlock: { event: 'guardian-glade', times: 1 },
     ascendedTitle: 'Maestro',
     inspire: 0.15,
+    songWave: { every: 6, reach: 85, damage: 1.5 },
     story: "Ba'al wandered into the Fey Grove chasing a melody only the pixies hum, and the Grove's Guardian won't let him leave. Beat it, and his songs are yours.",
-    ability: 'His song makes every other Hunter in his area attack 15% faster. Deals 50% bonus damage to Humanoids. Uses ranged or magic weapons.',
+    ability: 'His song makes every other Hunter in his area attack 15% faster, and every 6th attack sends out a blast of music notes that hits every monster close around him. Deals 50% bonus damage to Humanoids. Uses ranged or magic weapons.',
     slots: [{ kind: 'weapon', label: 'Weapon', accepts: ['weapon', 'magic'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
   },
   {

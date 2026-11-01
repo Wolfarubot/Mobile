@@ -12,3 +12,4 @@ Magic effect sheets from CraftPix.net packs (license: https://craftpix.net/file-
   Magic Spells Pixel Art Sprite Pack: arrows (Magic/3), orb (Magic/8, tinted per element at runtime), frost (Magic/10)
   Magic Effects Pixel Art Asset Pack 4: acid (Magic/3 Cycle)
   Free Pixel Magic Sprite Effects: shards (Magic/4_2)
+  Music-Notes Pixel Free (provided with the game's assets): music-orbit-ink (Music Scale Orbit, as is) and music-orbit (the same, ink turned light so it tints to a Hunter's colour): Ba'al's sound waves

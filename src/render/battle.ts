@@ -86,6 +86,8 @@ export class BattleView {
   private fx = new Fx();
   private pickups: Pickup[] = [];
   private rings: Ring[] = [];
+  /** Ba'al's sound waves: a ring of music notes swelling out to its reach, then fading. */
+  private noteRings: Array<{ x: number; y: number; max: number; time: number; t: number; color: string }> = [];
   /** When each puddle first appeared (for its bubbles' animation). */
   private puddleBorn = new WeakMap<object, number>();
   /** Explosions (fireballs, staff spells): a burst of fiery squares that spreads and fades. */
@@ -251,7 +253,8 @@ export class BattleView {
           this.beams.push({ ...e, t: 0, kinks: e.zigzag ? Array.from({ length: 6 }, () => (Math.random() - 0.5) * 16) : undefined });
           break;
         case 'wave':
-          this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: hexRgb(e.color), max: e.time + 0.1, grow: true });
+          if (e.notes) this.noteRings.push({ x: e.x, y: e.y, max: e.r, time: e.time, t: 0, color: e.color });
+          else this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: hexRgb(e.color), max: e.time + 0.1, grow: true });
           break;
         case 'slam':
           // A hammer's ground slam: an impact that bursts into a shockwave ring (a plain ring in Basic), dust
@@ -371,6 +374,8 @@ export class BattleView {
     this.anims = this.anims.filter((a) => a.start + a.t * a.fps < EFFECTS[a.key].frames);
     this.emitTrails(dt);
     for (const st of this.strikes) st.t += dt;
+    for (const n of this.noteRings) n.t += dt;
+    this.noteRings = this.noteRings.filter((n) => n.t < n.time + NOTE_RING_FADE);
     this.strikes = this.strikes.filter((st) => st.t * STRIKE_FPS[st.key] < EFFECTS[st.key].frames);
     this.rings = this.rings.filter((r) => r.t < r.max);
     for (const b of this.beams) b.t += dt;
@@ -713,6 +718,25 @@ export class BattleView {
       g.globalAlpha = 1;
     }
     this.drawStrikes(g, false);
+
+    // Ba'al's sound waves: the staff of notes in his colour over a dark copy (so it reads on light ground), turning
+    // as it swells out to its reach, then fading.
+    const ink = effectImage('music-orbit-ink');
+    const light = effectImage('music-orbit');
+    for (const n of this.noteRings) {
+      if (!ink || !light) break;
+      const rad = n.max * Math.min(1, 0.15 + (0.85 * n.t) / Math.max(0.01, n.time));
+      const fade = n.t <= n.time ? 1 : Math.max(0, 1 - (n.t - n.time) / NOTE_RING_FADE);
+      g.save();
+      g.translate(n.x, n.y);
+      g.rotate(n.t * 1.6);
+      g.imageSmoothingEnabled = false;
+      g.globalAlpha = 0.55 * fade;
+      g.drawImage(ink, -rad + 1, -rad + 1, rad * 2, rad * 2);
+      g.globalAlpha = fade;
+      g.drawImage(tinted(light, n.color), -rad, -rad, rad * 2, rad * 2);
+      g.restore();
+    }
 
     for (const r of this.rings) {
       const k = r.t / r.max;
@@ -3023,6 +3047,9 @@ const TRAIL_SIZE = 1.7;
 /** Ranged weapons' projectiles, which leave a trail (spells, fireballs, potions and blood bolts have their own looks). */
 /** Is an attack aimed up the field, away from the viewer (so its effect goes behind whoever made it)? */
 const aimsAway = (a: number): boolean => Math.sin(a) < -0.3;
+
+/** How long Ba'al's sound wave lingers, fading, once it has reached its full size (seconds). */
+const NOTE_RING_FADE = 0.25;
 
 const TRAIL_KINDS = new Set<BulletKind>(['arrow', 'bolt', 'pellet', 'pistol', 'ricochet', 'dagger', 'hammer']);
 

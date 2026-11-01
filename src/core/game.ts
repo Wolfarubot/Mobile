@@ -1,6 +1,7 @@
 import { JOURNAL, type JournalEntry } from './journal';
 import {
   ARROW_RAIN,
+  SONG_WAVE_CROWD,
   weaponArchetype,
   withArchetype,
   modSlotCount,
@@ -782,7 +783,7 @@ export class Game {
     const perAttack = cls?.farm ?? 1;
     // Guns spend part of their time reloading.
     const uptime = weaponUptime(cls) * weaponHitsPerAttack(cls);
-    return this.shotDamage(shooter, archetype) * (this.shooterRate(shooter) * perAttack * uptime + this.specialHitRate(shooter)) * this.critFactor(shooter);
+    return this.shotDamage(shooter, archetype) * (this.shooterRate(shooter) * perAttack * uptime + this.specialHitRate(shooter) + this.songHitRate(shooter)) * this.critFactor(shooter);
   }
 
   /**
@@ -931,6 +932,12 @@ export class Game {
       radius: this.specialRadius(shooter) * (1 + ARROW_RAIN.perPierce * this.pierceOf(shooter)),
       time: (ARROW_RAIN.time + ARROW_RAIN.perShot * (this.projectilesOf(shooter) - 1)) * this.lastingMult(shooter),
     };
+  }
+
+  /** Ba'al's sound waves in shot-equivalents per second against a crowd (one every few attacks, wider with area size). */
+  private songHitRate(shooter: Shooter): number {
+    const sw = shooter === 'main' ? undefined : hunterDef(shooter).songWave;
+    return sw ? (this.shooterRate(shooter) / sw.every) * sw.damage * SONG_WAVE_CROWD * this.radiusMult(shooter) : 0;
   }
 
   /** The special's damage in shot-equivalents per second against a crowd (for DPS and the farm model). */

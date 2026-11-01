@@ -5043,6 +5043,29 @@ describe('Field', () => {
     expect(far.hp).toBe(1e12);
   });
 
+  it("Ba'al's every 6th attack sends a sound wave of music notes round him, hitting everything close", () => {
+    const { g, f } = withHelper('bard');
+    f.update(1 / 30);
+    const b = f.helpers[0];
+    const sw = hunterDef('bard').songWave!;
+    const reach = sw.reach * g.radiusMult('bard');
+    // One monster to shoot at, one close beside him, one beyond the wave's reach.
+    const near = tough({ id: 71, x: b.x + reach * 0.6, y: b.y + 10, speed: 0 });
+    const far = tough({ id: 72, x: b.x - reach * 1.6, y: b.y, speed: 0 });
+    f.enemies = [tough({ id: 70, x: b.x, y: b.y - 150, speed: 0 }), near, far];
+    let waves = 0;
+    for (let t = 0; t < 30 && waves === 0; t += 1 / 30) {
+      f.update(1 / 30);
+      waves += f.drainEvents().filter((e) => e.type === 'wave' && e.notes).length;
+      for (const e of f.enemies) Object.assign(e, { kx: 0, ky: 0 });
+    }
+    expect(waves).toBe(1);
+    for (let i = 0; i < 15; i++) f.update(1 / 30); // it spreads out
+    expect(near.hp).toBeLessThan(1e12);
+    expect(far.hp).toBe(1e12);
+    expect(g.dpsOf('bard')).toBeGreaterThan(0);
+  });
+
   it("Lance's shield blocks hits before he is stunned, then recharges", () => {
     const { f } = withHelper('lance');
     f.update(1 / 30);

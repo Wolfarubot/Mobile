@@ -496,7 +496,7 @@ export type FieldEvent =
   | { type: 'beam'; x1: number; y1: number; x2: number; y2: number; color: string; width: number; zigzag?: boolean; thrust?: boolean }
   | { type: 'sweep'; x: number; y: number; a: number; arc: number; r: number; color: string; heavy?: boolean; blade?: boolean }
   /** A focus's wave: a ring growing to `r` over `time` seconds. */
-  | { type: 'wave'; x: number; y: number; r: number; time: number; color: string }
+  | { type: 'wave'; x: number; y: number; r: number; time: number; color: string; /** Ba'al's: a ring of music notes. */ notes?: boolean }
   /** A hammer's ground slam: a shockwave ring of radius `r`. */
   | { type: 'slam'; x: number; y: number; r: number; color: string }
   /** Sciirj's Mountain Fist thrown from (x, y) at angle `a`; `r` is its reach. */
@@ -543,7 +543,9 @@ export class Field {
   private chain = 0;
   private leadCaster: SpecialCaster = { id: 'alchemist', x: 0, y: 0, specialCd: 1, aim: 0 };
   /** A focus's waves: rings expanding from where they were sent, hitting each monster once as they pass. */
-  waves: Array<{ who: Shooter; x: number; y: number; r: number; max: number; hit: Set<number> }> = [];
+  waves: Array<{ who: Shooter; x: number; y: number; r: number; max: number; hit: Set<number>; /** × a hit (1 if unset). */ k?: number }> = [];
+  /** Ba'al's attacks since his last sound wave. */
+  private songCount = new Map<Shooter, number>();
   /** Seconds of stun left on your Hunter (can't shoot while > 0). */
   stun = 0;
   /** Seconds left of Gideon's Bone Wall, and how far out it stands around each Hunter. */
@@ -1375,6 +1377,17 @@ export class Field {
     const g = this.game;
     const m = mode === 'short' ? 'short' : undefined;
     this.events.push({ type: 'attack', who, a: aim });
+    // Ba'al: every few attacks, a sound wave rings out around him as well.
+    const song = who === 'main' || encore ? undefined : hunterDef(who).songWave;
+    if (song) {
+      const n = (this.songCount.get(who) ?? 0) + 1;
+      this.songCount.set(who, n % song.every);
+      if (n >= song.every) {
+        const max = song.reach * g.radiusMult(who);
+        this.waves.push({ who, x, y, r: 0, max, hit: new Set(), k: song.damage });
+        this.events.push({ type: 'wave', x, y, r: max, time: max / WAVE_SPEED, color: hunterDef(who as HunterId).color, notes: true });
+      }
+    }
     // Apex Hunter: extra projectiles on shots, one more dagger in a burst, a follow-up strike for other melee.
     const extra = encore ? 0 : g.tree(who).multishot;
     // Multishot from gear: more projectiles at a share of the damage (one at 40%, or two at 60% for 1.2 in all).
@@ -3025,7 +3038,7 @@ export class Field {
       for (const e of this.enemies)
         if (e.hp > 0 && !w.hit.has(e.id) && Math.hypot(e.x - w.x, e.y - w.y) <= w.r + e.r) {
           w.hit.add(e.id);
-          this.hitWith(w.who, e, 1, w.x, w.y);
+          this.hitWith(w.who, e, w.k ?? 1, w.x, w.y);
         }
     }
     this.waves = this.waves.filter((w) => w.r < w.max);
