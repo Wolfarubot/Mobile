@@ -7484,3 +7484,20 @@ body.landscape .modal-box.fullpage {
 body.landscape .menu-list {
   grid-template-columns: 1fr 1fr;
 }
+
+/* The Exalted Gem: a thicker black outline round its own, and a purple glow, wherever it shows. */
+img.ei.gem-ic.exalted {
+  filter: drop-shadow(1px 0 0 #000) drop-shadow(-1px 0 0 #000) drop-shadow(0 1px 0 #000) drop-shadow(0 -1px 0 #000)
+    drop-shadow(0 0 3px rgba(190, 80, 255, 0.95)) drop-shadow(0 0 2px rgba(220, 140, 255, 0.8));
+}
+
+/* The Monster Merchant's trade button: a small button centred in its card, clear of the card's border. */
+body .merchant-grid .shop-cell button.buy.mc-trade,
+body.ui-parchment .merchant-grid .shop-cell button.buy.mc-trade {
+  width: auto;
+  min-width: 0;
+  min-height: 0;
+  align-self: center;
+  padding: 4px 14px;
+  margin: 2px 0 6px;
+}

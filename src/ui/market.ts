@@ -318,9 +318,11 @@ export function startMarket(canvas: HTMLCanvasElement): Market {
           const walking = w.wait <= 0 && w.path.length > 0;
           const sheet = img(`citizen${w.sheet}-${walking ? 'walk' : 'idle'}`);
           if (!ready(sheet)) return;
-          const frames = walking ? 6 : 12;
+          // The idle sheet's facing-up row has only 6 frames (the others 12): past them it would be blank.
+          const frames = walking || w.dir === UP ? 6 : 12;
           const f = Math.floor(w.t * (walking ? 9 : 6)) % frames;
-          if (ready(shadow)) g.drawImage(shadow, Math.round(w.x - 16), Math.round(w.y - 22));
+          // The shadow's oval (rows 24 to 30 of its 32) centred on the feet (row 27 of the sprite, drawn 28 up).
+          if (ready(shadow)) g.drawImage(shadow, Math.round(w.x - 16), Math.round(w.y - 28));
           g.drawImage(sheet, f * 32, w.dir * 32, 32, 32, Math.round(w.x - 16), Math.round(w.y - 28), 32, 32);
         },
       });

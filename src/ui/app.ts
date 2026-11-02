@@ -4432,14 +4432,25 @@ export class AppUI {
     $('.hd-close', view).addEventListener('click', () => this.closeHunterDetail());
     const refreshers: Array<() => void> = [];
     this.detail = { el: view, refreshers };
-    const body = $('.hd-scroll', view);
+    const scroll = $('.hd-scroll', view);
+    /** Where the page being built goes (the Shop's pane, then the Gems'). */
+    let body = scroll;
     const count = $('.gem-count', view);
     refreshers.push(() => (count.innerHTML = `${gemIcon()} ${gemsText(g.state.gems)}`));
     const tabs = el('div', 'subtabs shop-tabs');
     tabs.innerHTML = `<button data-page="shop" class="${page === 'shop' ? 'on' : ''}">Shop</button><button data-page="gems" class="${page === 'gems' ? 'on' : ''}">${gemIcon()} Exalted Gems</button>`;
-    tabs.querySelectorAll<HTMLElement>('button').forEach((b) => b.addEventListener('click', () => b.dataset.page !== page && this.openShop(b.dataset.page as 'shop' | 'gems')));
     body.appendChild(tabs);
     if (STORE_TEST_MODE) body.appendChild(el('p', 'hd-note shop-test', txt('menu.shop.test')));
+    // Both pages are built once; the tabs just switch which shows (no rebuilding, the market carries on).
+    const panes = { shop: el('div', 'shop-pane'), gems: el('div', 'shop-pane') };
+    scroll.append(panes.shop, panes.gems);
+    const show = (p: 'shop' | 'gems') => {
+      tabs.querySelectorAll<HTMLElement>('button').forEach((b) => b.classList.toggle('on', b.dataset.page === p));
+      panes.shop.classList.toggle('hidden', p !== 'shop');
+      panes.gems.classList.toggle('hidden', p !== 'gems');
+      scroll.scrollTop = 0;
+    };
+    tabs.querySelectorAll<HTMLElement>('button').forEach((b) => b.addEventListener('click', () => show(b.dataset.page as 'shop' | 'gems')));
     const buy = (p: Product, done: () => void) =>
       void purchase(p.id).then((ok) => {
         if (!ok) return;
@@ -4454,7 +4465,8 @@ export class AppUI {
       body.appendChild(c);
       return c;
     };
-    if (page === 'shop') {
+    body = panes.shop;
+    {
       const btn = el('button', 'buy') as HTMLButtonElement;
       btn.addEventListener('click', () =>
         buy(REMOVE_ADS, () => {
@@ -4502,7 +4514,9 @@ export class AppUI {
         const html = rows.length ? rows.join('') : '<p class="hd-note">None yet. Buy an upgrade above with Exalted Gems.</p>';
         if (mine.innerHTML !== html) mine.innerHTML = html;
       });
-    } else {
+    }
+    body = panes.gems;
+    {
       // The Monster Merchant: today's materials, a huge pile of one for a few gems.
       body.appendChild(sectionTitle(txt('menu.shop.merchant')));
       const note = el('p', 'hd-note');
@@ -4543,6 +4557,7 @@ export class AppUI {
         card(`${sprite(p.icon!)}<span class="si-gem">${gemIcon()}</span>`, p.name, `${gemsText(p.gems!)} Exalted Gems${p.bonus ? ` <em class="si-bonus">+${gemsText(p.bonus)} bonus</em>` : ''}`, btn);
       }
     }
+    show(page);
     for (const r of refreshers) r();
   }
 
@@ -5699,7 +5714,7 @@ const UI_URL = `${import.meta.env.BASE_URL}ui/`;
 
 /** The Exalted Gem, the premium currency's icon. */
 function gemIcon(): string {
-  return `<img class="ei gem-ic" src="${gearIconUrl('custom/003')}" alt="Exalted Gems" draggable="false">`;
+  return `<img class="ei gem-ic exalted" src="${gearIconUrl('custom/003')}" alt="Exalted Gems" draggable="false">`;
 }
 
 /** Local midnight after `t`, and midnight going into the next Monday (when dailies and weeklies reset). */
