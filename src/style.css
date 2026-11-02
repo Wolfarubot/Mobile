@@ -7340,16 +7340,15 @@ body.landscape #app {
   display: grid;
   max-width: none;
   margin: 0;
-  grid-template-columns: minmax(0, 1fr) var(--menu-w);
+  /* The menu's column reaches the screen edge (its wood behind the notch gap, its contents clear of it). */
+  grid-template-columns: minmax(0, 1fr) calc(var(--menu-w) + var(--safe-right));
   grid-template-rows: auto minmax(0, 1fr);
   grid-template-areas:
     'top tabs'
     'field panel';
-  padding-left: var(--safe-left);
-  padding-right: var(--safe-right);
 }
 body.landscape.left-handed #app {
-  grid-template-columns: var(--menu-w) minmax(0, 1fr);
+  grid-template-columns: calc(var(--menu-w) + var(--safe-left)) minmax(0, 1fr);
   grid-template-areas:
     'tabs top'
     'panel field';
@@ -7360,6 +7359,43 @@ body.landscape .topbar {
 body.landscape .battle-wrap {
   grid-area: field;
   min-height: 0;
+}
+/*
+ * The battlefield side: the top bar's colour and the battlefield itself run to the screen edge (its scenery is
+ * drawn for whatever size it's given, so the gap just shows more of it), while the HUD (DPS, cooldowns,
+ * pick-ups) and the top bar's contents stay clear of the notch.
+ */
+body.landscape:not(.left-handed) .topbar {
+  padding-left: calc(12px + var(--safe-left));
+}
+body.landscape:not(.left-handed) .battle-wrap {
+  margin-left: var(--safe-left);
+}
+body.landscape:not(.left-handed) #battle {
+  left: calc(-1 * var(--safe-left));
+  width: calc(100% + var(--safe-left));
+}
+body.landscape.left-handed .topbar {
+  padding-right: calc(12px + var(--safe-right));
+}
+body.landscape.left-handed .battle-wrap {
+  margin-right: var(--safe-right);
+}
+body.landscape.left-handed #battle {
+  width: calc(100% + var(--safe-right));
+}
+/* The menu side: its tabs and pages keep clear of the notch gap they cover. */
+body.landscape:not(.left-handed) .tabs {
+  padding-right: calc(var(--safe-right) / var(--menu-zoom));
+}
+body.landscape:not(.left-handed) .panel {
+  padding-right: calc(10px + var(--safe-right) / var(--menu-zoom));
+}
+body.landscape.left-handed .tabs {
+  padding-left: calc(var(--safe-left) / var(--menu-zoom));
+}
+body.landscape.left-handed .panel {
+  padding-left: calc(10px + var(--safe-left) / var(--menu-zoom));
 }
 body.landscape .tabs {
   grid-area: tabs;
@@ -7382,14 +7418,18 @@ body.landscape .menu-drop {
 body.landscape .hunter-detail {
   left: auto;
   /* Lengths on a zoomed element are zoomed too: divide to land on the menu's column. */
-  right: calc(var(--safe-right) / var(--menu-zoom));
-  width: calc(var(--menu-w) / var(--menu-zoom));
+  right: 0;
+  width: calc((var(--menu-w) + var(--safe-right)) / var(--menu-zoom));
+  padding-right: calc(var(--safe-right) / var(--menu-zoom));
   max-width: none;
   border-left: 3px solid var(--c0);
 }
 body.landscape.left-handed .hunter-detail {
   right: auto;
-  left: calc(var(--safe-left) / var(--menu-zoom));
+  left: 0;
+  width: calc((var(--menu-w) + var(--safe-left)) / var(--menu-zoom));
+  padding-right: 0;
+  padding-left: calc(var(--safe-left) / var(--menu-zoom));
   border-left: none;
   border-right: 3px solid var(--c0);
 }
@@ -7400,4 +7440,12 @@ body.landscape.left-handed .hunter-detail {
 }
 .setting .segmented.two-rows button {
   flex: 1 1 40%;
+}
+
+/* The floating close button, in from the notch gap with the rest of the view. */
+body.landscape:not(.left-handed) .hd-float-close {
+  right: calc(16px + var(--safe-right) / var(--menu-zoom));
+}
+body.landscape.left-handed .hd-float-close {
+  left: calc(16px + var(--safe-left) / var(--menu-zoom));
 }
