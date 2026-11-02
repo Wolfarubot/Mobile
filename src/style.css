@@ -1937,10 +1937,8 @@ body.ui-parchment .hunter-dock .buy.ev-details {
 .font-option small {
   font-size: 12px;
   color: var(--fg);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   max-width: 100%;
+  overflow-wrap: anywhere;
 }
 .font-option.on {
   outline: 3px solid var(--gold);
@@ -7446,6 +7444,32 @@ body.landscape.left-handed .hunter-detail {
   border-right: 3px solid var(--c0);
 }
 
+/* Settings → Crafting card → Menu: in landscape a recipe's card opens over the menu's column, not the battlefield. */
+.field-card.over-menu {
+  position: fixed;
+  z-index: 14;
+  top: calc(8px + var(--safe-top, 0px));
+  max-height: calc(100vh - 16px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
+  inset-inline: auto;
+  right: calc(8px + var(--safe-right));
+  left: auto;
+  width: calc(var(--menu-w) - 16px);
+}
+body.landscape.left-handed .field-card.over-menu {
+  right: auto;
+  left: calc(8px + var(--safe-left));
+}
+/* Turned back to portrait while it's open: it floats under the top bar like the full-screen menu's. */
+body:not(.landscape) .field-card.over-menu {
+  top: calc(60px + var(--safe-top));
+  left: 8px;
+  right: 8px;
+  width: auto;
+  margin: 0 auto;
+  max-width: 584px;
+  max-height: 60vh;
+}
+
 /* A setting's choices with four long names (Orientation): two to a row. */
 .setting .segmented.two-rows {
   flex-wrap: wrap;
@@ -7520,4 +7544,106 @@ body .filter-options button,
 body .type-cycler button {
   color: #fff !important;
   text-shadow: var(--outline) !important;
+}
+
+/* Settings: each category's header (a section title you can tap) opens and closes the settings under it. */
+.settings-cat {
+  width: 100%;
+  font: inherit;
+  cursor: pointer;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-start !important;
+  text-align: left;
+}
+.settings-cat + .settings-cat,
+.settings-cat-body + .settings-cat {
+  margin-top: 8px;
+}
+.settings-cat .sc-name {
+  flex: 1;
+  min-width: 0;
+}
+.settings-cat .sc-arrow {
+  flex: none;
+  font-size: 18px;
+  line-height: 1;
+  transition: transform 0.15s;
+}
+.settings-cat.open .sc-arrow {
+  transform: rotate(90deg);
+}
+.settings-cat-body {
+  display: grid;
+  gap: 8px;
+  margin-top: 6px;
+}
+.settings-cat-body[hidden] {
+  display: none;
+}
+.settings-cat-body > .card {
+  margin: 0;
+}
+
+/*
+ * Text size (Settings → Text): fixed-size controls keep the Medium size, so a bigger setting can't push their labels
+ * out of their buttons; a label too wide for its button grows from the left edge, never under the icon.
+ */
+.tabs button,
+.subtabs button,
+.inv-tile small.stars,
+.craft-tile small.stars {
+  font-size-adjust: var(--font-adjust-fixed, none);
+}
+.subtabs button {
+  justify-content: safe center;
+}
+/* Inventory and crafting tiles: a long name goes onto a second line instead of being cut short. */
+.inv-tile span {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow-wrap: anywhere;
+  text-align: center;
+  line-height: 1.1;
+}
+/* Arcade's letters are very wide: its sub-tab labels a size smaller so "Equipment" fits beside its icon. */
+html.font-arcade .subtabs button {
+  font-size: 10px;
+  letter-spacing: -0.03em;
+}
+.inv-tile small.stars,
+.craft-tile small.stars {
+  white-space: nowrap;
+}
+/* The area bar's name and the landscape menu's narrow sub-tabs: fixed-size too, like the tabs. */
+.area-actions .aa-name {
+  font-size-adjust: var(--font-adjust-fixed, none);
+}
+body.landscape .inv-subtabs button {
+  font-size: 12px;
+}
+html.font-arcade body.landscape .inv-subtabs button {
+  font-size: 9px;
+}
+/* The landscape menu is narrow: its sub-tab icons a little smaller, giving their labels the room. */
+body.landscape .subtabs button > .btn-ic {
+  width: 34px;
+  height: 34px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+body.landscape.ui-parchment .subtabs button:has(> .btn-ic) {
+  padding-left: 38px !important;
+}
+/* The area bar: a name too long to sit beside the buttons gets the row to itself, the buttons below it. */
+.area-actions {
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+.area-actions .aa-name {
+  flex-shrink: 0;
+  max-width: 100%;
 }

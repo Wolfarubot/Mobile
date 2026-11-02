@@ -26,17 +26,24 @@ export const FONTS: FontDef[] = [
 
 /** The x-height every font is drawn at: Pixel's, which the UI was sized for. (Terminal, first, is the default.) */
 const BASE_ASPECT = 0.45;
-/** All text a touch bigger than the UI was first sized for, for legibility. */
-const TEXT_SCALE = 1.06;
+/**
+ * Settings → Text size: how much bigger or smaller than Pixel's x-height all text is drawn. Medium (a touch bigger
+ * than the UI was first sized for, for legibility) is the default.
+ */
+export const TEXT_SCALES = { small: 0.94, medium: 1.06, large: 1.18 } as const;
 
 export const fontDef = (id: string): FontDef => FONTS.find((f) => f.id === id) ?? FONTS[0];
 
 /** Puts a font into effect for the menus and the battlefield text. */
-export function applyFont(id: string): void {
+export function applyFont(id: string, size: keyof typeof TEXT_SCALES = 'medium'): void {
+  const scale = TEXT_SCALES[size] ?? TEXT_SCALES.medium;
   const f = fontDef(id);
   const root = document.documentElement;
   for (const x of FONTS) root.classList.toggle(`font-${x.id}`, x.id === f.id);
   root.style.setProperty('--ui-font', f.family);
-  root.style.setProperty('--font-adjust', String(BASE_ASPECT * TEXT_SCALE));
-  setCanvasFont(f.family, (BASE_ASPECT * TEXT_SCALE) / f.aspect);
+  root.dataset.textSize = size;
+  root.style.setProperty('--font-adjust', String(BASE_ASPECT * scale));
+  // Tight, fixed-size controls (the tabs, sub-tabs, star rows) stay at Medium whatever the Text size.
+  root.style.setProperty('--font-adjust-fixed', String(BASE_ASPECT * TEXT_SCALES.medium));
+  setCanvasFont(f.family, (BASE_ASPECT * scale) / f.aspect);
 }

@@ -279,7 +279,10 @@ export interface GameState {
     orientation: Orientation;
     /** Highest battlefield frame rate: 30 or 60 save battery; 'max' follows the screen (up to 120 on some phones). */
     fps: FrameRate;
-    /** Sound effects: off, or how loud (Medium by default). */
+    /** How big all text is drawn: Medium is the size the UI was laid out for; Small and Large go a step either way. */
+    textSize: TextSize;
+    /** In landscape, where a recipe's card opens: over the battlefield (default) or over the menu's column. */
+    craftCardPos: CraftCardPos;
     /** Sound effects and music: switches and volumes. */
     audio: AudioSettings;
   };
@@ -395,7 +398,7 @@ export function newGame(now = Date.now()): GameState {
     nextGearUid: 4,
     lastSeen: now,
     samples: {},
-    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', lootPopups: true, hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', advancedTips: false, maxTrainPopup: true, autoSalvage: [], fx: allFx(), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium', orientation: 'rotate', fps: '60', audio: defaultAudio() },
+    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', lootPopups: true, hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', advancedTips: false, maxTrainPopup: true, autoSalvage: [], fx: allFx(), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium', orientation: 'rotate', fps: '60', textSize: 'medium', craftCardPos: 'battlefield', audio: defaultAudio() },
     flags: { eventsIntro: false, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false, minigameIntro: false, questsIntro: false },
     blessings: { refine: 0, enchant: 0 },
     energy: ENERGY_MAX,
@@ -437,6 +440,10 @@ export type Orientation = (typeof ORIENTATIONS)[number];
 export type HapticLevel = (typeof HAPTIC_LEVELS)[number];
 export const FRAME_RATES = ['30', '60', 'max'] as const;
 export type FrameRate = (typeof FRAME_RATES)[number];
+export const TEXT_SIZES = ['small', 'medium', 'large'] as const;
+export type TextSize = (typeof TEXT_SIZES)[number];
+export const CRAFT_CARD_POSITIONS = ['battlefield', 'menu'] as const;
+export type CraftCardPos = (typeof CRAFT_CARD_POSITIONS)[number];
 /** Sound effect volume: off, or how loud. */
 /**
  * Audio: a switch for all of it, and under it one each for music and sound effects; a volume (0-100) for all of it,
@@ -721,6 +728,8 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
       haptics: pick(HAPTIC_LEVELS, (data.settings as { haptics?: unknown } | undefined)?.haptics, 'medium'),
       orientation: pick(ORIENTATIONS, (data.settings as { orientation?: unknown } | undefined)?.orientation, 'rotate'),
       fps: pick(FRAME_RATES, (data.settings as { fps?: unknown } | undefined)?.fps, '60'),
+      textSize: pick(TEXT_SIZES, (data.settings as { textSize?: unknown } | undefined)?.textSize, 'medium'),
+      craftCardPos: pick(CRAFT_CARD_POSITIONS, (data.settings as { craftCardPos?: unknown } | undefined)?.craftCardPos, 'battlefield'),
       audio: readAudio(data.settings as Record<string, unknown> | undefined),
     },
     flags: {

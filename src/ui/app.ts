@@ -3487,7 +3487,11 @@ export class AppUI {
       }
     };
     // Over the battlefield; with the menu raised to full screen, it floats under the top bar instead.
-    if (this.menuFull) {
+    // In landscape it can open over the menu's column instead (Settings → Crafting card).
+    if (g.state.settings.craftCardPos === 'menu' && document.body.classList.contains('landscape')) {
+      card.classList.add('over-menu');
+      document.body.appendChild(card);
+    } else if (this.menuFull) {
       card.classList.add('floating');
       document.body.appendChild(card);
     } else $('.battle-wrap').appendChild(card);
@@ -4981,7 +4985,7 @@ export class AppUI {
     setHaptics(this.game.state.settings.haptics);
     applyOrientation(this.game.state.settings.orientation);
     applyAudio(this.game.state.settings.audio);
-    applyFont(this.game.state.settings.font);
+    applyFont(this.game.state.settings.font, this.game.state.settings.textSize);
     applyUiStyle(this.game.state.settings.uiStyle);
     advancedTips = this.game.state.settings.advancedTips;
     requestAnimationFrame(refitAffinities);
@@ -5006,42 +5010,30 @@ export class AppUI {
     document.body.appendChild(view);
     $('.hd-close', view).addEventListener('click', () => this.closeHunterDetail());
     this.detail = { el: view, refreshers: [] };
-    const body = $('.hd-scroll', view);
+    const scroll = $('.hd-scroll', view);
+    // Settings come in categories; each one's header opens and closes it (they start closed, and stay as you
+    // left them until the game restarts). Every setting below goes into the category opened last.
+    let body: HTMLElement = scroll;
+    const section = (key: string, title: string) => {
+      const head = el('button', 'section-title settings-cat') as HTMLButtonElement;
+      head.type = 'button';
+      head.innerHTML = `<span class="sc-name">${title}</span><span class="sc-arrow">›</span>`;
+      const list = el('div', 'settings-cat-body');
+      const draw = () => {
+        const open = openSettingsCats.has(key);
+        head.classList.toggle('open', open);
+        head.setAttribute('aria-expanded', String(open));
+        list.hidden = !open;
+      };
+      head.addEventListener('click', () => {
+        if (!openSettingsCats.delete(key)) openSettingsCats.add(key);
+        draw();
+      });
+      draw();
+      scroll.append(head, list);
+      body = list;
+    };
 
-    // Audio first: the setting most people look for.
-    body.appendChild(sectionTitle('Audio'));
-    body.appendChild(this.audioSettings());
-
-    body.appendChild(sectionTitle('Your Hunter'));
-    const nameCard = el('div', 'card setting');
-    nameCard.innerHTML = `<div class="setting-name">Name</div><p>What your Hunter is called on their card and around the game.</p><input class="name-input" type="text" maxlength="${MAX_NAME_LENGTH}" placeholder="You" autocomplete="off" spellcheck="false" />`;
-    const input = $<HTMLInputElement>('.name-input', nameCard);
-    input.value = g.state.settings.name;
-    input.addEventListener('input', () => {
-      g.state.settings.name = input.value.slice(0, MAX_NAME_LENGTH);
-      this.applySettings();
-    });
-    input.addEventListener('change', () => this.hooks.save());
-    input.addEventListener('keydown', (e) => e.key === 'Enter' && input.blur());
-    body.appendChild(nameCard);
-
-    body.appendChild(sectionTitle('Controls'));
-    const hand = el('div', 'card setting');
-    hand.innerHTML = `<div class="setting-name">Handedness</div><p>Which side of the Hunter cards the Train button sits on.</p><div class="segmented"><button data-v="left">Left-handed</button><button data-v="right">Right-handed</button></div>`;
-    const buttons = hand.querySelectorAll<HTMLButtonElement>('.segmented button');
-    const sync = () => buttons.forEach((b) => b.classList.toggle('on', (b.dataset.v === 'left') === g.state.settings.leftHanded));
-    buttons.forEach((b) =>
-      b.addEventListener('click', () => {
-        g.state.settings.leftHanded = b.dataset.v === 'left';
-        this.applySettings();
-        this.hooks.save();
-        sync();
-      }),
-    );
-    sync();
-    body.appendChild(hand);
-
-    body.appendChild(sectionTitle('Battlefield'));
     // A setting with a row of choices; `get`/`set` read and write it. `enabled` greys it out (and locks it)
     // while the setting it belongs to is off.
     const syncs: Array<() => void> = [];
@@ -5071,6 +5063,209 @@ export class AppUI {
     };
     const st = g.state.settings;
     const styles: Array<[IndicatorStyle, string]> = [['fancy', 'Fancy'], ['basic', 'Basic']];
+    section('audio', 'Audio');
+    body.appendChild(this.audioSettings());
+
+    section('gameplay', 'Gameplay');
+    const nameCard = el('div', 'card setting');
+    nameCard.innerHTML = `<div class="setting-name">Name</div><p>What your Hunter is called on their card and around the game.</p><input class="name-input" type="text" maxlength="${MAX_NAME_LENGTH}" placeholder="You" autocomplete="off" spellcheck="false" />`;
+    const input = $<HTMLInputElement>('.name-input', nameCard);
+    input.value = g.state.settings.name;
+    input.addEventListener('input', () => {
+      g.state.settings.name = input.value.slice(0, MAX_NAME_LENGTH);
+      this.applySettings();
+    });
+    input.addEventListener('change', () => this.hooks.save());
+    input.addEventListener('keydown', (e) => e.key === 'Enter' && input.blur());
+    body.appendChild(nameCard);
+
+    choices(
+      tx('popup.maxTrain.setting'),
+      tx('popup.maxTrain.settingBody'),
+      [
+        ['ask', 'Ask first'],
+        ['go', 'Just train'],
+      ],
+      () => (st.maxTrainPopup ? 'ask' : 'go'),
+      (v) => {
+        st.maxTrainPopup = v === 'ask';
+      },
+    );
+
+    choices(
+      tx('tip.settings.title'),
+      tx('tip.settings.body'),
+      [
+        ['simple', tx('tip.settings.simple')],
+        ['advanced', tx('tip.settings.advanced')],
+      ],
+      () => (st.advancedTips ? 'advanced' : 'simple'),
+      (v) => {
+        st.advancedTips = v === 'advanced';
+        this.applySettings();
+      },
+    );
+    section('controls', 'Controls');
+    const hand = el('div', 'card setting');
+    hand.innerHTML = `<div class="setting-name">Handedness</div><p>Which side of the Hunter cards the Train button sits on.</p><div class="segmented"><button data-v="left">Left-handed</button><button data-v="right">Right-handed</button></div>`;
+    const buttons = hand.querySelectorAll<HTMLButtonElement>('.segmented button');
+    const sync = () => buttons.forEach((b) => b.classList.toggle('on', (b.dataset.v === 'left') === g.state.settings.leftHanded));
+    buttons.forEach((b) =>
+      b.addEventListener('click', () => {
+        g.state.settings.leftHanded = b.dataset.v === 'left';
+        this.applySettings();
+        this.hooks.save();
+        sync();
+      }),
+    );
+    sync();
+    body.appendChild(hand);
+
+    choices('Haptics', 'A short vibration when you press a button or tap the battlefield (not when you swipe or scroll).', [['off', 'Off'], ['light', 'Light'], ['medium', 'Medium'], ['strong', 'Strong']], () => st.haptics, (v) => {
+      st.haptics = v;
+      setHaptics(v);
+      buzz();
+    });
+    choices(
+      'Orientation',
+      'Rotate turns the screen with your phone. Portrait and Landscape hold it one way round: Landscape left with the top of the phone pointing left, Landscape right with it pointing right. In landscape the battlefield sits beside the menu, which goes on the side set by Handedness.',
+      [
+        ['rotate', 'Rotate'],
+        ['portrait', 'Portrait'],
+        ['landscapeLeft', 'Landscape left'],
+        ['landscapeRight', 'Landscape right'],
+      ],
+      () => st.orientation,
+      (v) => {
+        st.orientation = v;
+        applyOrientation(v);
+      },
+    );
+    section('text', 'Text');
+    const fontCard = el('div', 'card setting');
+    fontCard.innerHTML = `<div class="setting-name">Font</div><p>The lettering used in menus and on the battlefield.</p><div class="font-options"></div>`;
+    const fontList = $('.font-options', fontCard);
+    const fontButtons = FONTS.map((f) => {
+      const b = el('button', 'font-option') as HTMLButtonElement;
+      b.style.fontFamily = f.family;
+      b.innerHTML = `<b>${f.name}</b><small>Slay the horde! 123</small>`;
+      b.addEventListener('click', () => {
+        g.state.settings.font = f.id;
+        this.applySettings();
+        this.hooks.save();
+        syncFont();
+      });
+      fontList.appendChild(b);
+      return { f, b };
+    });
+    const syncFont = () => fontButtons.forEach(({ f, b }) => b.classList.toggle('on', fontDef(g.state.settings.font).id === f.id));
+    syncFont();
+    body.appendChild(fontCard);
+    choices(
+      'Text size',
+      'How big the lettering is in menus and on the battlefield. Medium is the standard size.',
+      [['small', 'Small'], ['medium', 'Medium'], ['large', 'Large']],
+      () => st.textSize,
+      (v) => {
+        st.textSize = v;
+        this.applySettings();
+      },
+    );
+    section('interface', 'Interface');
+    choices(
+      'Menu style',
+      'Parchment frames menus in wood and parchment, recoloured to match each area; Classic keeps the original flat cards.',
+      [['parchment', 'Parchment'], ['classic', 'Classic']],
+      () => st.uiStyle,
+      (v) => {
+        st.uiStyle = v;
+        this.applySettings();
+      },
+    );
+    const tabsCard = el('div', 'card setting');
+    tabsCard.innerHTML = `<div class="setting-name">Tab order</div><p>The order of the tabs along the bottom of the screen, left to right. Drag a row or use the arrows.</p><div class="tab-order"></div><button class="secondary tab-order-reset">Reset to default</button>`;
+    const list = $('.tab-order', tabsCard);
+    const reset = $<HTMLButtonElement>('.tab-order-reset', tabsCard);
+    const setOrder = (order: TabId[]) => {
+      g.state.settings.tabOrder = order;
+      this.applySettings();
+      this.hooks.save();
+      drawOrder();
+    };
+    const drawOrder = () => {
+      const order = g.state.settings.tabOrder;
+      list.innerHTML = '';
+      order.forEach((t, i) => {
+        const tabBtn = $(`.tabs button[data-tab=${t}]`);
+        const row = el('div', 'tab-order-row');
+        row.dataset.tab = t;
+        row.innerHTML = `<span class="tor-grip" aria-hidden="true">⠿</span><span class="tor-num">${i + 1}</span><i>${$('i', tabBtn).textContent}</i><b>${tabBtn.childNodes[1].textContent!.trim()}</b><button class="tor-up" aria-label="Move left">▲</button><button class="tor-down" aria-label="Move right">▼</button>`;
+        const move = (d: number) => {
+          const next = [...order];
+          [next[i], next[i + d]] = [next[i + d], next[i]];
+          setOrder(next);
+        };
+        const up = $<HTMLButtonElement>('.tor-up', row);
+        const down = $<HTMLButtonElement>('.tor-down', row);
+        up.disabled = i === 0;
+        down.disabled = i === order.length - 1;
+        up.addEventListener('click', () => move(-1));
+        down.addEventListener('click', () => move(1));
+        row.addEventListener('pointerdown', (e) => dragRow(e, row));
+        list.appendChild(row);
+      });
+      reset.disabled = order.every((t, i) => t === TAB_IDS[i]);
+    };
+    /** Drag a row (anywhere but its arrow buttons) up or down; the others make room as it passes them. */
+    const dragRow = (e: PointerEvent, row: HTMLElement) => {
+      if ((e.target as HTMLElement).closest('button') || (e.pointerType === 'mouse' && e.button !== 0)) return;
+      e.preventDefault();
+      row.setPointerCapture(e.pointerId);
+      row.classList.add('lifted');
+      list.classList.add('sorting');
+      const startY = e.clientY;
+      const startTop = row.offsetTop;
+      const follow = (y: number) => (row.style.transform = `translateY(${y - startY - (row.offsetTop - startTop)}px)`);
+      const onMove = (ev: PointerEvent) => {
+        const others = ([...list.children] as HTMLElement[]).filter((r) => r !== row);
+        // The dragged row goes before the first row whose middle is below the pointer.
+        const before = others.find((r) => {
+          const rect = r.getBoundingClientRect();
+          return ev.clientY < rect.top + rect.height / 2;
+        });
+        if (row.nextElementSibling !== (before ?? null)) list.insertBefore(row, before ?? null);
+        follow(ev.clientY);
+      };
+      const onUp = () => {
+        row.removeEventListener('pointermove', onMove);
+        row.removeEventListener('pointerup', onUp);
+        row.removeEventListener('pointercancel', onUp);
+        row.classList.remove('lifted');
+        list.classList.remove('sorting');
+        row.style.transform = '';
+        const next = ([...list.children] as HTMLElement[]).map((r) => r.dataset.tab as TabId);
+        if (next.some((t, i) => t !== g.state.settings.tabOrder[i])) setOrder(next);
+        else drawOrder();
+      };
+      row.addEventListener('pointermove', onMove);
+      row.addEventListener('pointerup', onUp);
+      row.addEventListener('pointercancel', onUp);
+    };
+    reset.addEventListener('click', () => setOrder([...TAB_IDS]));
+    drawOrder();
+    body.appendChild(tabsCard);
+
+    choices(
+      'Crafting card (landscape)',
+      "When you tap a recipe while the screen is sideways, where its card opens: over the battlefield, or over the menu.",
+      [['battlefield', 'Battlefield'], ['menu', 'Menu']],
+      () => st.craftCardPos,
+      (v) => {
+        st.craftCardPos = v;
+        this.closeFieldCard();
+      },
+    );
+    section('battlefield', 'Battlefield');
     choices(
       'Event timer & Guardian bar',
       "Where an event's timer and a Guardian's health bar go on the battlefield. They always sit clear of the cooldown icons and the DPS meter.",
@@ -5188,7 +5383,7 @@ export class AppUI {
       ],
     );
 
-    body.appendChild(sectionTitle('Effects'));
+    section('effects', 'Effects');
     // A group of effects with a master switch and a switch for each kind (greyed out while the group is off).
     const fxGroup = (title: string, blurb: string, master: FxKey, kinds: Array<[FxKey, string]>) => {
       const fx = st.fx;
@@ -5245,159 +5440,11 @@ export class AppUI {
       ['void', `${fxIcon('void')} Void gravity wells`],
     ]);
     choices('Area effect style', 'Fancy draws spells as animated pixel art (explosions, fireballs, lightning strikes, sun strikes, black holes, shield flashes, puffs as monsters fall) and puddles, bursts and auras as clusters of coloured pixel squares; Basic draws them as plain circles.', styles, () => st.aoeStyle, (v) => (st.aoeStyle = v));
-    choices('Haptics', 'A short vibration when you press a button or tap the battlefield (not when you swipe or scroll).', [['off', 'Off'], ['light', 'Light'], ['medium', 'Medium'], ['strong', 'Strong']], () => st.haptics, (v) => {
-      st.haptics = v;
-      setHaptics(v);
-      buzz();
-    });
-    choices(
-      'Orientation',
-      'Rotate turns the screen with your phone. Portrait and Landscape hold it one way round: Landscape left with the top of the phone pointing left, Landscape right with it pointing right. In landscape the battlefield sits beside the menu, which goes on the side set by Handedness.',
-      [
-        ['rotate', 'Rotate'],
-        ['portrait', 'Portrait'],
-        ['landscapeLeft', 'Landscape left'],
-        ['landscapeRight', 'Landscape right'],
-      ],
-      () => st.orientation,
-      (v) => {
-        st.orientation = v;
-        applyOrientation(v);
-      },
-    );
-    choices('Frame rate', 'The most times a second the battlefield is redrawn. 30 saves the most battery; Max follows your screen (up to 120 on some phones). The fight runs at the same speed either way.', [['30', '30'], ['60', '60'], ['max', 'Max']], () => st.fps, (v) => (st.fps = v));
     choices('Clarity Border', 'A white outline round Hunters, monsters and their projectiles, so they stand out from the ground and the scenery. Low is a faint edge; Strong a bright one.', [['off', 'Off'], ['low', 'Low'], ['moderate', 'Moderate'], ['strong', 'Strong']], () => st.clarity, (v) => (st.clarity = v));
 
-    const tabsCard = el('div', 'card setting');
-    tabsCard.innerHTML = `<div class="setting-name">Tab order</div><p>The order of the tabs along the bottom of the screen, left to right. Drag a row or use the arrows.</p><div class="tab-order"></div><button class="secondary tab-order-reset">Reset to default</button>`;
-    const list = $('.tab-order', tabsCard);
-    const reset = $<HTMLButtonElement>('.tab-order-reset', tabsCard);
-    const setOrder = (order: TabId[]) => {
-      g.state.settings.tabOrder = order;
-      this.applySettings();
-      this.hooks.save();
-      drawOrder();
-    };
-    const drawOrder = () => {
-      const order = g.state.settings.tabOrder;
-      list.innerHTML = '';
-      order.forEach((t, i) => {
-        const tabBtn = $(`.tabs button[data-tab=${t}]`);
-        const row = el('div', 'tab-order-row');
-        row.dataset.tab = t;
-        row.innerHTML = `<span class="tor-grip" aria-hidden="true">⠿</span><span class="tor-num">${i + 1}</span><i>${$('i', tabBtn).textContent}</i><b>${tabBtn.childNodes[1].textContent!.trim()}</b><button class="tor-up" aria-label="Move left">▲</button><button class="tor-down" aria-label="Move right">▼</button>`;
-        const move = (d: number) => {
-          const next = [...order];
-          [next[i], next[i + d]] = [next[i + d], next[i]];
-          setOrder(next);
-        };
-        const up = $<HTMLButtonElement>('.tor-up', row);
-        const down = $<HTMLButtonElement>('.tor-down', row);
-        up.disabled = i === 0;
-        down.disabled = i === order.length - 1;
-        up.addEventListener('click', () => move(-1));
-        down.addEventListener('click', () => move(1));
-        row.addEventListener('pointerdown', (e) => dragRow(e, row));
-        list.appendChild(row);
-      });
-      reset.disabled = order.every((t, i) => t === TAB_IDS[i]);
-    };
-    /** Drag a row (anywhere but its arrow buttons) up or down; the others make room as it passes them. */
-    const dragRow = (e: PointerEvent, row: HTMLElement) => {
-      if ((e.target as HTMLElement).closest('button') || (e.pointerType === 'mouse' && e.button !== 0)) return;
-      e.preventDefault();
-      row.setPointerCapture(e.pointerId);
-      row.classList.add('lifted');
-      list.classList.add('sorting');
-      const startY = e.clientY;
-      const startTop = row.offsetTop;
-      const follow = (y: number) => (row.style.transform = `translateY(${y - startY - (row.offsetTop - startTop)}px)`);
-      const onMove = (ev: PointerEvent) => {
-        const others = ([...list.children] as HTMLElement[]).filter((r) => r !== row);
-        // The dragged row goes before the first row whose middle is below the pointer.
-        const before = others.find((r) => {
-          const rect = r.getBoundingClientRect();
-          return ev.clientY < rect.top + rect.height / 2;
-        });
-        if (row.nextElementSibling !== (before ?? null)) list.insertBefore(row, before ?? null);
-        follow(ev.clientY);
-      };
-      const onUp = () => {
-        row.removeEventListener('pointermove', onMove);
-        row.removeEventListener('pointerup', onUp);
-        row.removeEventListener('pointercancel', onUp);
-        row.classList.remove('lifted');
-        list.classList.remove('sorting');
-        row.style.transform = '';
-        const next = ([...list.children] as HTMLElement[]).map((r) => r.dataset.tab as TabId);
-        if (next.some((t, i) => t !== g.state.settings.tabOrder[i])) setOrder(next);
-        else drawOrder();
-      };
-      row.addEventListener('pointermove', onMove);
-      row.addEventListener('pointerup', onUp);
-      row.addEventListener('pointercancel', onUp);
-    };
-    reset.addEventListener('click', () => setOrder([...TAB_IDS]));
-    drawOrder();
-    body.appendChild(tabsCard);
-
-    body.appendChild(sectionTitle('Display'));
-    const fontCard = el('div', 'card setting');
-    fontCard.innerHTML = `<div class="setting-name">Font</div><p>The lettering used in menus and on the battlefield.</p><div class="font-options"></div>`;
-    const fontList = $('.font-options', fontCard);
-    const fontButtons = FONTS.map((f) => {
-      const b = el('button', 'font-option') as HTMLButtonElement;
-      b.style.fontFamily = f.family;
-      b.innerHTML = `<b>${f.name}</b><small>Slay the horde! 123</small>`;
-      b.addEventListener('click', () => {
-        g.state.settings.font = f.id;
-        this.applySettings();
-        this.hooks.save();
-        syncFont();
-      });
-      fontList.appendChild(b);
-      return { f, b };
-    });
-    const syncFont = () => fontButtons.forEach(({ f, b }) => b.classList.toggle('on', fontDef(g.state.settings.font).id === f.id));
-    syncFont();
-    body.appendChild(fontCard);
-    choices(
-      'Menu style',
-      'Parchment frames menus in wood and parchment, recoloured to match each area; Classic keeps the original flat cards.',
-      [['parchment', 'Parchment'], ['classic', 'Classic']],
-      () => st.uiStyle,
-      (v) => {
-        st.uiStyle = v;
-        this.applySettings();
-      },
-    );
-    choices(
-      tx('tip.settings.title'),
-      tx('tip.settings.body'),
-      [
-        ['simple', tx('tip.settings.simple')],
-        ['advanced', tx('tip.settings.advanced')],
-      ],
-      () => (st.advancedTips ? 'advanced' : 'simple'),
-      (v) => {
-        st.advancedTips = v === 'advanced';
-        this.applySettings();
-      },
-    );
-    choices(
-      tx('popup.maxTrain.setting'),
-      tx('popup.maxTrain.settingBody'),
-      [
-        ['ask', 'Ask first'],
-        ['go', 'Just train'],
-      ],
-      () => (st.maxTrainPopup ? 'ask' : 'go'),
-      (v) => {
-        st.maxTrainPopup = v === 'ask';
-      },
-    );
-
-    body.appendChild(sectionTitle('Save'));
+    section('performance', 'Performance');
+    choices('Frame rate', 'The most times a second the battlefield is redrawn. 30 saves the most battery; Max follows your screen (up to 120 on some phones). The fight runs at the same speed either way.', [['30', '30'], ['60', '60'], ['max', 'Max']], () => st.fps, (v) => (st.fps = v));
+    section('save', 'Save');
     const wipe = el('div', 'card setting');
     wipe.innerHTML = `<div class="setting-name">Reset all progress</div><p>Deletes your save: areas, Hunters, gear and materials. It cannot be undone.</p><button class="buy danger-btn">Reset…</button>`;
     $('.danger-btn', wipe).addEventListener('click', () =>
@@ -5410,7 +5457,7 @@ export class AppUI {
 
     // Dev: jump to any point of the game to try an area's monsters and gear. Not in release builds.
     if (import.meta.env.MODE === 'release') return;
-    body.appendChild(sectionTitle('Dev'));
+    section('dev', 'Dev');
     const perf = el('div', 'card setting');
     perf.innerHTML = `<div class="setting-name">Frame times</div><p>A readout over the screen of frames per second and how many milliseconds each part of a frame takes (game, battlefield, drawing, menus; worst in brackets), refreshed every second. For finding what slows the game down on this phone.</p><button class="secondary perf-toggle"></button>`;
     const perfBtn = $('.perf-toggle', perf);
@@ -5860,6 +5907,8 @@ function foldChips(box: HTMLElement | null): void {
 
 /** Settings → Advanced tooltips: tags explain themselves with the numbers (chances, damage, durations). */
 let advancedTips = false;
+/** Settings categories left open this session. */
+const openSettingsCats = new Set<string>();
 
 /**
  * A weapon's status effect for one of its damage types, for its tag's popup: in plain words, or (advanced) the
