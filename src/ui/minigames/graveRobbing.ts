@@ -14,6 +14,8 @@ import { dpadAt, dpadHit, dpadTop, drawDpad, mgArt, playArea, DIRS, type Dir } f
  */
 
 export const GR_TIME = 60;
+/** The D-pad's size: as big as the Puppet Show's. */
+const PAD_SIZE = 1.5;
 /** Just the ground's small details (weeds, cracks, little bones): the graves are the game's own. */
 export const GR_DECOR = { bands: 1, density: 0.6 };
 export const GR_INTRO = `<p>Move Alias between the graves with the <b>arrows</b>. Step onto loot to grab it: 1 point, a golden urn 3.</p><p>Where the ground <b>cracks and shakes</b>, a skeleton is about to burst out: be standing there and it costs a heart. You have ${GR_TIME} seconds.</p>`;
@@ -87,7 +89,7 @@ export function graveRobbing(api: MinigameApi): MinigameGame {
 
   const grid = () => {
     const top = TITLE_Y + 46;
-    const bottom = dpadTop(api);
+    const bottom = dpadTop(api, PAD_SIZE);
     // Across the play area: the whole width, or the side away from the D-pad (landscape).
     const { x0, x1 } = playArea(api);
     const size = Math.min((x1 - x0) / 3.2, (bottom - top) / 3);
@@ -98,7 +100,7 @@ export function graveRobbing(api: MinigameApi): MinigameGame {
     const c = grid();
     return { x: c.x0 + (i % 3) * c.size + c.size / 2, y: c.y0 + Math.floor(i / 3) * c.size + c.size * 0.78 };
   };
-  const pad = () => dpadAt(api);
+  const pad = () => dpadAt(api, PAD_SIZE);
 
   const kickDirt = (x: number, y: number, n: number) => {
     for (let i = 0; i < n; i++) {
