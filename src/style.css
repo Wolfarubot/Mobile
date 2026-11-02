@@ -7501,3 +7501,11 @@ body.ui-parchment .merchant-grid .shop-cell button.buy.mc-trade {
   padding: 4px 14px;
   margin: 2px 0 6px;
 }
+
+/* The Filter sheet's choices: white text with a thin black outline, like the game's other buttons (the sheet sets a
+   dark text colour that read poorly on their grey). */
+body .filter-options button,
+body .type-cycler button {
+  color: #fff !important;
+  text-shadow: var(--outline) !important;
+}
