@@ -1938,7 +1938,6 @@ export class BattleView {
       g.font = canvasFont(13, 700);
       const bossDef = enemyDef(boss.type);
       label(`${bossDef.guardianOnly ? bossDef.name.toUpperCase() : `${areaDef(this.game.area).name.toUpperCase()} GUARDIAN`} · ${fmt(Math.max(0, boss.hp))}`, w / 2, '#ff9aa6');
-      const winAt = bossDef.winAt ?? 0;
       const t = Math.max(0, this.game.bossTimer / GUARDIAN_TIME);
       const hp = Math.max(0, boss.hp / boss.maxHp);
       // Health in the Guardian's own colour, the time left in light orange under it.
@@ -1953,11 +1952,6 @@ export class BattleView {
         g.fillRect(x, hy, bw * hp, HP_BAR_H * S);
         g.fillStyle = TIMER_COLOR;
         g.fillRect(x, ty, bw * t, TIME_BAR_H * S);
-      }
-      // A Guardian beaten before 0 HP (the Time Eater) shows where the win is.
-      if (winAt > 0) {
-        g.fillStyle = '#ffe36e';
-        g.fillRect(Math.round(x + bw * winAt) - 1, hy - 2, 2, HP_BAR_H * S + 4);
       }
     }
     this.drawBanner(g);
