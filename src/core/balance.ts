@@ -89,6 +89,8 @@ export interface EventDef {
   kind: EventKind;
   name: string;
   icon: string;
+  /** A minigame's item sprite ("<pack>/<NNN>"), shown for it everywhere instead of `icon`. */
+  sprite?: string;
   blurb: string;
   /** Monsters slain in the area to unlock it (a Guardian Challenge unlocks at the area's mastery). */
   unlockKills: number;
@@ -4857,6 +4859,21 @@ export function echoChangesIn(now: number): number {
 }
 
 
+/** Each minigame's item: what its game is played with (a bow, a lute, a shovel...). */
+export const MINIGAME_SPRITES: Record<MinigameId, string> = {
+  huntingPractice: 'weapons/031',
+  pixieSerenade: 'instruments/014',
+  graveRobbing: 'resources3/008',
+  puppetShow: 'rpg-items/273',
+  shootingGallery: 'rpg-items/269',
+  forgeStrike: 'resources3/003',
+  runeMatch: 'rpg-items/261',
+  icebreaker: 'resources3/005',
+  clockworkTower: 'custom/002',
+  highOrLow: 'rpg-items/287',
+  meteorBounce: 'resources3/089',
+};
+
 export const EVENTS: EventDef[] = AREAS.flatMap((a): EventDef[] => {
   const sw = AREA_SWARMS[a.id];
   const first = ENEMIES.find((e) => e.area === a.id && e.archetype === sw.archetype && e.unlock === 0) ?? ENEMIES.find((e) => e.area === a.id && e.archetype === sw.archetype)!;
@@ -4892,7 +4909,7 @@ export const EVENTS: EventDef[] = AREAS.flatMap((a): EventDef[] => {
       requires: { event: sw.id, times: 1 },
     });
   const mg = AREA_MINIGAMES[a.id];
-  if (mg) out.push({ ...mg, area: a.id, kind: 'minigame', unlockKills: 0, duration: 0 });
+  if (mg) out.push({ ...mg, sprite: MINIGAME_SPRITES[mg.minigame!], area: a.id, kind: 'minigame', unlockKills: 0, duration: 0 });
   return out;
 });
 
@@ -4904,6 +4921,7 @@ export const EVENTS: EventDef[] = AREAS.flatMap((a): EventDef[] => {
     kind: 'minigame',
     name: 'Rift Echo',
     icon: '🔮',
+    sprite: 'rpg-items/312',
     blurb: "The Rift echoes another area's minigame, a new one every hour, at double the rewards: twice the gold and materials (in Void Rift materials), and twice the buff, for twice as long.",
     unlockKills: 0,
     duration: 0,

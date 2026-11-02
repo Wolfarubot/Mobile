@@ -3302,3 +3302,60 @@ function auraCells(phase: number): Cell[] {
   }
   return cells;
 }
+
+/**
+ * An event's picture filling `canvas` (sized by CSS): 'swarm', a crowd of the monster overlapping across the whole
+ * canvas; 'silhouette', the monster blacked out and drawn `scale` times the canvas's larger side, centred, so a big
+ * one is cropped by the canvas's edges. Waits for the monster's art to load.
+ */
+export function drawEventBackdrop(canvas: HTMLCanvasElement, id: EnemyId, mode: 'swarm' | 'silhouette', scale = 1): void {
+  if (!canvas.isConnected) return;
+  const W = canvas.clientWidth;
+  const H = canvas.clientHeight;
+  const sheetKey = MONSTER_SHEETS[id];
+  const sheet = sheetKey ? monsterSheetImage(sheetKey) : null;
+  const ready = sheetKey ? !!(sheet && sheet.complete && sheet.naturalWidth > 0) : !!sprite(`enemies/${id}`);
+  if (!W || !H || !ready) {
+    setTimeout(() => drawEventBackdrop(canvas, id, mode, scale), 200);
+    return;
+  }
+  const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+  canvas.width = Math.round(W * dpr);
+  canvas.height = Math.round(H * dpr);
+  const g = canvas.getContext('2d')!;
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.imageSmoothingEnabled = false;
+  g.clearRect(0, 0, W, H);
+  const unit = Math.round(mode === 'swarm' ? Math.min(W, H) * 0.62 : Math.max(W, H) * scale);
+  const one = document.createElement('canvas');
+  drawEnemyPortrait(one, id, [unit, unit]);
+  if (mode === 'silhouette') {
+    g.drawImage(one, (W - unit) / 2, (H - unit) / 2 + unit * 0.06, unit, unit);
+    // Solid black with hard pixel edges (scaling a small sprite up softens them).
+    const d = g.getImageData(0, 0, canvas.width, canvas.height);
+    for (let i = 0; i < d.data.length; i += 4) {
+      d.data[i] = d.data[i + 1] = d.data[i + 2] = 0;
+      d.data[i + 3] = d.data[i + 3] >= 110 ? 255 : 0;
+    }
+    g.putImageData(d, 0, 0);
+    return;
+  }
+  // The crowd: a jittered grid a little past every edge, the ones further down drawn last (in front), some facing
+  // the other way, sizes varying a little. The same layout every time for the same monster.
+  let seed = [...id].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7);
+  const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32);
+  const step = unit * 0.5;
+  const pts: Array<[number, number, number, boolean]> = [];
+  for (let y = -step * 0.4; y < H + step * 0.4; y += step * 0.8)
+    for (let x = -step * 0.4 + (Math.round(y / step) % 2 ? step / 2 : 0); x < W + step * 0.4; x += step)
+      pts.push([x + (rnd() - 0.5) * step * 0.6, y + (rnd() - 0.5) * step * 0.5, 0.8 + rnd() * 0.35, rnd() < 0.5]);
+  pts.sort((a, b) => a[1] - b[1]);
+  for (const [x, y, s, flip] of pts) {
+    const d = unit * s;
+    g.save();
+    g.translate(x, y);
+    if (flip) g.scale(-1, 1);
+    g.drawImage(one, -d / 2, -d / 2, d, d);
+    g.restore();
+  }
+}

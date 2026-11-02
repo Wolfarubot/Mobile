@@ -153,7 +153,7 @@ import { fmt, fmtDps, fmtTime } from '../core/format';
 import { Game, type FarmRates, type TreeKind } from '../core/game';
 import type { OfflineResult } from '../core/offline';
 import { COOLDOWN_POSITIONS, deserialize, TAB_IDS, type GameState, type GearMod, type AudioSettings, type BuyAmount, type CooldownPos, type DpsCorner, type FxKey, type IndicatorStyle, type GearItem, type TabId, type Wearer } from '../core/state';
-import { queuePortrait } from '../render/battle';
+import { drawEventBackdrop, queuePortrait } from '../render/battle';
 import { drawFramedBar, drawFramedSegments, TIMER_COLOR } from '../render/hudBars';
 import { showRewardedAd } from './ads';
 import { GEM_PACKS, purchase, REMOVE_ADS, STORE_TEST_MODE, type Product } from './store';
@@ -3676,7 +3676,7 @@ export class AppUI {
     const mg = ev.minigame!;
     const b = MINIGAME_BUFFS[mg];
     const bar = el('button', 'buff-bar') as HTMLButtonElement;
-    bar.innerHTML = `<div class="bb-head"><b>${ev.icon} ${b.name}</b><span class="bb-hint">Tap for details</span></div><div class="bb-frame"><canvas></canvas><span class="bb-text"></span></div>`;
+    bar.innerHTML = `<div class="bb-head"><b>${eventGlyph(ev)} ${b.name}</b><span class="bb-hint">Tap for details</span></div><div class="bb-frame"><canvas></canvas><span class="bb-text"></span></div>`;
     bar.addEventListener('click', () => this.showBuff(ev));
     const cv = $<HTMLCanvasElement>('canvas', bar);
     const text = $('.bb-text', bar);
@@ -3725,7 +3725,7 @@ export class AppUI {
           : tx('popup.buff.charges', { n: b.per + g.premiumBonus('charges'), great: Math.round(b.per * 1.5) + g.premiumBonus('charges'), cap: g.buffCap(mg) });
     const tier = ev.blessing && g.blessingCharges(ev.blessing.kind) > 0 ? g.state.blessings[ev.blessing.kind] : 0;
     this.showModal(
-      `<h2>${ev.icon} ${b.name}</h2><p>${b.desc}</p><p class="buff-left">${txt(b.kind === 'timed' ? 'popup.buff.left' : 'popup.buff.chargesLeft')}: <b>${this.buffAmount(mg)}</b>${tier ? ` · ${tier} extra roll${tier > 1 ? 's' : ''} each` : ''}</p><p>${tx('popup.buff.from', { event: ev.name, hunter: `${h.name} the ${h.title}` })} ${fill}</p>`,
+      `<h2>${eventGlyph(ev)} ${b.name}</h2><p>${b.desc}</p><p class="buff-left">${txt(b.kind === 'timed' ? 'popup.buff.left' : 'popup.buff.chargesLeft')}: <b>${this.buffAmount(mg)}</b>${tier ? ` · ${tier} extra roll${tier > 1 ? 's' : ''} each` : ''}</p><p>${tx('popup.buff.from', { event: ev.name, hunter: `${h.name} the ${h.title}` })} ${fill}</p>`,
       [{ label: txt('popup.buff.close') }],
     );
   }
@@ -3760,11 +3760,27 @@ export class AppUI {
     );
   }
 
-  /** The icon for an event: the crown for a Guardian, the swarming monster for a swarm, a minigame's own. */
+  /**
+   * An event's picture. On its Events tab tile (`cls` 'et-icon'): a swarm's monster in a crowd filling the tile, a
+   * Guardian's silhouette huge behind it, a minigame's item. Smaller (the selected event's card, Area details): one
+   * of the swarm's monster, the Guardian's silhouette, the minigame's item.
+   */
   private eventIcon(ev: EventDef, cls: string): { html: string; draw: (root: HTMLElement) => void } {
     const swarmer = ev.kind === 'swarm' ? (ENEMIES.find((e) => e.area === ev.area && e.archetype === ev.archetype && e.unlock === 0) ?? ENEMIES.find((e) => e.area === ev.area && e.archetype === ev.archetype)) : undefined;
+    const guardian = ev.kind === 'guardian' ? GUARDIAN_ENEMY[ev.area] : undefined;
+    const tile = cls === 'et-icon';
+    if (tile && (swarmer || guardian))
+      return {
+        html: `<canvas class="ev-backdrop${guardian ? ' guardian' : ''}"></canvas><i class="${cls} et-space"></i>`,
+        draw: (root) => {
+          root.classList.add('has-backdrop');
+          const c = $<HTMLCanvasElement>('canvas.ev-backdrop', root);
+          requestAnimationFrame(() => (swarmer ? drawEventBackdrop(c, swarmer.id, 'swarm') : drawEventBackdrop(c, guardian!, 'silhouette', 1.35)));
+        },
+      };
     if (swarmer) return { html: `<canvas class="${cls}"></canvas>`, draw: (root) => queuePortrait($<HTMLCanvasElement>(`canvas.${cls}`, root), swarmer.id) };
-    return { html: `<i class="${cls}">${ev.kind === 'guardian' ? '👑' : ev.icon}</i>`, draw: () => {} };
+    if (guardian) return { html: `<canvas class="${cls} ev-silhouette"></canvas>`, draw: (root) => requestAnimationFrame(() => drawEventBackdrop($<HTMLCanvasElement>(`canvas.${cls}`, root), guardian, 'silhouette', 1)) };
+    return { html: `<i class="${cls}">${eventGlyph(ev)}</i>`, draw: () => {} };
   }
 
   /** Energy cost as gold pips. */
@@ -3843,7 +3859,7 @@ export class AppUI {
   /** The Rift Echo's game this hour, and how long until the next. */
   private echoLine(): string {
     const home = homeEvent(echoGame());
-    return tx('event.echo.now', { game: `${home.icon} <b>${home.name}</b>`, time: fmtTime(echoChangesIn(Date.now()) / 1000) });
+    return tx('event.echo.now', { game: `${eventGlyph(home)} <b>${home.name}</b>`, time: fmtTime(echoChangesIn(Date.now()) / 1000) });
   }
 
   /** What finishing an event gives, in short (a Guardian's unlock or bounty, the Hunters it brings). */
@@ -3996,7 +4012,7 @@ export class AppUI {
         const key = `${score}:${Math.round(r.gold)}:${gain}:${mats}`;
         if (rank.dataset.key === key) return;
         rank.dataset.key = key;
-        rank.innerHTML = `<div class="ed-rank-head">${rankStars(i + 1)}<b>${tx('event.detail.points', { score: fmt(score) })}</b></div><ul><li>${ev.icon} ${buffText}</li>${bless}<li>🪙 ${fmt(r.gold)} gold</li>${mats}</ul>`;
+        rank.innerHTML = `<div class="ed-rank-head">${rankStars(i + 1)}<b>${tx('event.detail.points', { score: fmt(score) })}</b></div><ul><li>${eventGlyph(ev)} ${buffText}</li>${bless}<li>🪙 ${fmt(r.gold)} gold</li>${mats}</ul>`;
       });
     });
     const per = ev.rewards!.materials.map((m) => `${gemHtml(m.material)} 1 ${materialDef(m.material).name} every ${m.per} point${m.per === 1 ? '' : 's'}`).join(', ');
@@ -4004,7 +4020,7 @@ export class AppUI {
     how.innerHTML = txp('event.detail.gold', { par: ev.rewards!.par, new: span(MINIGAME_INCOME_NEW), area: areaDef(ev.area).name, old: span(MINIGAME_INCOME) }) + txp('event.detail.drops', { list: per });
     body.appendChild(how);
 
-    body.appendChild(sectionTitle(`${ev.icon} ${buff.name}`));
+    body.appendChild(sectionTitle(`${eventGlyph(ev)} ${buff.name}`));
     const bb = el('div', 'card ed-text');
     body.appendChild(bb);
     refreshers.push(() => {
@@ -4039,7 +4055,7 @@ export class AppUI {
     const best = this.bestScore(ev);
     const bless = ev.blessing;
     runMinigame({
-      title: ev.echo ? `${ev.icon} ${txt('event.echo.title', { game: mg.title.replace(/^[^\p{L}]+/u, '') })}` : mg.title,
+      title: ev.echo ? `${eventGlyph(ev)} ${txt('event.echo.title', { game: mg.title.replace(/^[^\p{L}]+/u, '') })}` : mg.title,
       intro: (ev.echo ? `<p class="mg-bless">${tx('event.echo.intro')}</p>` : '') + mg.intro + (bless ? `<p class="mg-bless">${blessingIntro(g, ev)}</p>` : ''),
       area: ev.area,
       decor: mg.decor,
@@ -4053,7 +4069,7 @@ export class AppUI {
         const r = g.finishMinigame(ev.id, score);
         const buff = MINIGAME_BUFFS[ev.minigame!];
         const gained = g.buffLeft(ev.minigame!) - before;
-        const buffLine = gained > 0 ? `<p class="mg-bless">${ev.icon} ${buff.name} +${buff.kind === 'timed' ? fmtTime(gained) : `${Math.round(gained)} charge${Math.round(gained) > 1 ? 's' : ''}`} (now ${this.buffAmount(ev.minigame!)})</p>` : '';
+        const buffLine = gained > 0 ? `<p class="mg-bless">${eventGlyph(ev)} ${buff.name} +${buff.kind === 'timed' ? fmtTime(gained) : `${Math.round(gained)} charge${Math.round(gained) > 1 ? 's' : ''}`} (now ${this.buffAmount(ev.minigame!)})</p>` : '';
         const record = `<p class="mg-stars">${rankStars(g.starsFor(ev.id, score))}</p>${score > best && best > 0 ? `<p class="mg-best">${tx('minigame.screen.newBest')}</p>` : ''}`;
         const tier = g.blessingFor(ev.id, score);
         const held = bless ? g.state.blessings[bless.kind] : 0;
@@ -5837,6 +5853,11 @@ function nextMonday(t: number): number {
   d.setHours(0, 0, 0, 0);
   d.setDate(d.getDate() + (((8 - d.getDay()) % 7) || 7));
   return d.getTime();
+}
+
+/** An event's icon in a line of text: a minigame's item sprite, else its emoji. */
+function eventGlyph(ev: EventDef): string {
+  return ev.sprite ? sprite(ev.sprite) : ev.icon;
 }
 
 function sprite(key: string): string {

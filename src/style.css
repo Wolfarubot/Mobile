@@ -7695,3 +7695,37 @@ body.landscape.ui-parchment .subtabs button:has(> .btn-ic) {
   overflow-wrap: normal;
   word-break: normal;
 }
+
+/* Events tab: a swarm's tile filled with its monster, a Guardian's with its huge silhouette, under the tile's text. */
+.event-tile.has-backdrop {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.event-tile .ev-backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+.event-tile .ev-backdrop.guardian {
+  opacity: 0.88;
+}
+/* Keeps the tile as tall as the others (their icon's room). */
+.event-tile .et-space {
+  display: block;
+  width: 52px;
+  height: 46px;
+}
+/* The tile's text over the picture: on a dark band so it reads over any monster. */
+.event-tile.has-backdrop .ht-name,
+.event-tile.has-backdrop .ht-lv {
+  position: relative;
+}
+/* The Guardian's silhouette on the selected event's card and in Area details. */
+canvas.ev-silhouette {
+  image-rendering: pixelated;
+}
