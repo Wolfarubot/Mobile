@@ -4004,6 +4004,19 @@ const RARITY_ORDER: Rarity[] = ['common', 'uncommon', 'rare', 'veryRare', 'legen
 const MELEE_CLASSES: WeaponClass[] = ['dagger', 'sword', 'glaive', 'spear', 'hammer'];
 const MAGIC_CLASSES: WeaponClass[] = ['wand', 'staff', 'focus', 'scepter', 'tome'];
 /** A catalog accessory's stats at the Restless Graveyard (tier 3); they grow 30% per area after. */
+/** A bane talisman's side stat, by the kind of monster it hunts. */
+const BANE_SIDE_STAT: Record<Archetype, GearStat> = {
+  slime: 'radius',
+  beast: 'rate',
+  undead: 'duration',
+  demon: 'critDamage',
+  elemental: 'statusChance',
+  humanoid: 'crit',
+  plant: 'radius',
+  dragon: 'stun',
+  construct: 'stun',
+};
+
 const CATALOG_ACC_STATS: Record<string, number> = {
   damage: 0.06, rate: 0.05, crit: 0.02, gold: 0.15, drops: 0.15, range: 12, radius: 0.08, stun: 0.04,
   cooldown: 0.015, critDamage: 0.06, duration: 0.06, statusChance: 0.01,
@@ -4078,6 +4091,12 @@ function catalogGear(spec: CatalogSpec): GearDef {
     const m = 1 + 0.3 * (tier - 3);
     const stats: Partial<Record<GearStat, number>> = {};
     for (const st of spec.stats) stats[st] = st === 'range' ? Math.round(CATALOG_ACC_STATS[st] * m) : Math.round(CATALOG_ACC_STATS[st] * m * 1000) / 1000;
+    // Every accessory has at least one stat: a bane talisman with none listed gets a half-strength one that fits
+    // the monsters it hunts (its bane stays its main bonus).
+    if (spec.bane && !spec.stats.length) {
+      const st = BANE_SIDE_STAT[spec.bane];
+      stats[st] = Math.round(CATALOG_ACC_STATS[st] * m * 0.5 * 1000) / 1000;
+    }
     return { ...common, kind: 'accessory', ...(spec.acc ? { accType: spec.acc } : {}), stats, ...(spec.bane ? { bane: { archetype: spec.bane, bonus: Math.round(0.06 * m * 1000) / 1000 } } : {}), ...catalogAccEffect(spec.effect, areaIdx + 1) };
   }
   const cls = spec.cls as WeaponClass;
@@ -4113,7 +4132,7 @@ export const GEAR: GearDef[] = [
   { id: 'fangTalisman', name: 'Fang Talisman', icon: '🦷', kind: 'accessory', rarity: 'uncommon', stats: { rate: 0.05 }, bane: { archetype: 'beast', bonus: 0.05 }, recipe: { bearClaw: 4, beastBone: 4, pelt: 6, bone: 6 } },
   { id: 'forestBlade', name: 'Forest Blade', icon: '🗡️', kind: 'melee', rarity: 'uncommon', weaponClass: 'sword', damageType: 'physical', stats: {}, recipe: { scrap: 8, beastBone: 6, bearClaw: 4 } },
   { id: 'natureBow', name: 'Nature Bow', icon: '🏹', kind: 'weapon', rarity: 'uncommon', weaponClass: 'shortbow', damageType: 'physical', stats: {}, recipe: { bearClaw: 4, twig: 10, scrap: 5 } },
-  { id: 'slimeVial', name: 'Slime Vial', icon: '🧪', kind: 'accessory', rarity: 'uncommon', stats: {}, bane: { archetype: 'slime', bonus: 0.1 }, findDrop: { archetype: 'slime', material: 'royalSlime', chance: 0.01, stars: 5 }, recipe: { goo: 15, royalSlime: 2, vampEssence: 3 } },
+  { id: 'slimeVial', name: 'Slime Vial', icon: '🧪', kind: 'accessory', rarity: 'uncommon', stats: { drops: 0.125 }, bane: { archetype: 'slime', bonus: 0.1 }, findDrop: { archetype: 'slime', material: 'royalSlime', chance: 0.01, stars: 5 }, recipe: { goo: 15, royalSlime: 2, vampEssence: 3 } },
   { id: 'forestCrossbow', name: 'Crossbow', icon: '🎯', kind: 'weapon', rarity: 'uncommon', weaponClass: 'crossbow', damageType: 'physical', stats: {}, recipe: { royalSlime: 2, twig: 12 } },
   { id: 'forestShield', name: 'Shield', icon: '🛡️', kind: 'accessory', accType: 'shield', rarity: 'uncommon', stats: mirrorStats('shield', gearTier({ recipe: { royalSlime: 2, scrap: 10 } } as GearDef)), recipe: { royalSlime: 2, scrap: 10 } },
   { id: 'royalGlaive', name: 'Royal Glaive', icon: '🪓', kind: 'melee', rarity: 'uncommon', weaponClass: 'glaive', damageType: 'physical', stats: {}, recipe: { scrap: 10, royalSlime: 2, beastBone: 6 } },
@@ -4205,10 +4224,10 @@ export const GEAR: GearDef[] = [
   { id: 'hawkeyeLens', name: 'Hawkeye Lens', icon: '🔭', kind: 'accessory', rarity: 'rare', stats: { range: 20 }, recipe: { chitin: 8, umbralEye: 4 } },
   { id: 'soulRing', name: 'Soul Ring', icon: '💍', kind: 'accessory', rarity: 'relic', stats: { damage: 0.25, crit: 0.02 }, recipe: { soul: 6, ecto: 6 } },
   // Accessories with abilities of their own (found on nothing else)
-  { id: 'puppetDoll', name: "Puppeteer's Brooch", icon: '🪆', kind: 'accessory', rarity: 'rare', tier: 4, stats: {}, recipe: { string: 10, wrap: 5 }, effect: { kind: 'summon', base: 8, damageType: 'physical', look: 'puppet', type: 'construct', name: 'puppet', count: 2, duration: 6, cooldown: 8, bites: 1.5, speed: 140 } },
-  { id: 'flameBrand', name: 'Flame Brand', icon: '🔥', kind: 'accessory', rarity: 'veryRare', tier: 6, stats: {}, recipe: { demonTooth: 8, ember: 6, forsakenSoul: 2 }, effect: { kind: 'wave', base: 45, damageType: 'fire', radius: 100, chance: 0.3 } },
-  { id: 'frostCharm', name: 'Frostbite Charm', icon: '❄️', kind: 'accessory', rarity: 'legendary', tier: 8, stats: {}, recipe: { frost: 10, ecto: 6 }, effect: { kind: 'chill', radius: 110 } },
-  { id: 'thunderTotem', name: 'Thunder Totem', icon: '🗿', kind: 'accessory', rarity: 'relic', tier: 10, stats: {}, recipe: { thunder: 10, feather: 6 }, effect: { kind: 'strike', base: 230, damageType: 'lightning', targets: 3, cooldown: 3, range: 320 } },
+  { id: 'puppetDoll', name: "Puppeteer's Brooch", icon: '🪆', kind: 'accessory', rarity: 'rare', tier: 4, stats: { stun: 0.03 }, recipe: { string: 10, wrap: 5 }, effect: { kind: 'summon', base: 8, damageType: 'physical', look: 'puppet', type: 'construct', name: 'puppet', count: 2, duration: 6, cooldown: 8, bites: 1.5, speed: 140 } },
+  { id: 'flameBrand', name: 'Flame Brand', icon: '🔥', kind: 'accessory', rarity: 'veryRare', tier: 6, stats: { damage: 0.061 }, recipe: { demonTooth: 8, ember: 6, forsakenSoul: 2 }, effect: { kind: 'wave', base: 45, damageType: 'fire', radius: 100, chance: 0.3 } },
+  { id: 'frostCharm', name: 'Frostbite Charm', icon: '❄️', kind: 'accessory', rarity: 'legendary', tier: 8, stats: { duration: 0.077 }, recipe: { frost: 10, ecto: 6 }, effect: { kind: 'chill', radius: 110 } },
+  { id: 'thunderTotem', name: 'Thunder Totem', icon: '🗿', kind: 'accessory', rarity: 'relic', tier: 10, stats: { cooldown: 0.024 }, recipe: { thunder: 10, feather: 6 }, effect: { kind: 'strike', base: 230, damageType: 'lightning', targets: 3, cooldown: 3, range: 320 } },
   ...GEAR_CATALOG.map(catalogGear),
 ];
 
