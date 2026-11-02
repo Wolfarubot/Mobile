@@ -84,6 +84,7 @@ async function boot(): Promise<void> {
   };
 
   const field = new Field(game);
+  if (import.meta.env.DEV) (window as unknown as { __field: Field }).__field = field;
   const canvas = document.getElementById('battle') as HTMLCanvasElement;
   const battle = new BattleView(canvas, game, field);
   // Areas → Details → Observe: another area's battlefield with just the Hunters stationed there, run on a copy of
