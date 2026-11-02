@@ -19,9 +19,9 @@
   --line: var(--c1);
   /* Game text: white with a black outline, so it reads on any background (tags keep their own colours). */
   --fg: #fff;
-  --outline: -1px 0 #000, 1px 0 #000, 0 -1px #000, 0 1px #000, -1px -1px #000, 1px -1px #000, -1px 1px #000, 1px 1px #000;
+  --outline: -1.5px 0 #000, 1.5px 0 #000, 0 -1.5px #000, 0 1.5px #000, -1.5px -1.5px #000, 1.5px -1.5px #000, -1.5px 1.5px #000, 1.5px 1.5px #000, -1px -1.5px #000, 1px 1.5px #000, -1.5px 1px #000, 1.5px -1px #000;
   /* A thicker one, for big headings. */
-  --outline-thick: -2px 0 #000, 2px 0 #000, 0 -2px #000, 0 2px #000, -2px -2px #000, 2px -2px #000, -2px 2px #000, 2px 2px #000, -1px -2px #000, 1px -2px #000, -2px -1px #000, 2px -1px #000, -2px 1px #000, 2px 1px #000, -1px 2px #000, 1px 2px #000;
+  --outline-thick: -2.5px 0 #000, 2.5px 0 #000, 0 -2.5px #000, 0 2.5px #000, -2px -2px #000, 2px -2px #000, -2px 2px #000, 2px 2px #000, -1px -2.5px #000, 1px -2.5px #000, -2.5px -1px #000, 2.5px -1px #000, -2.5px 1px #000, 2.5px 1px #000, -1px 2.5px #000, 1px 2.5px #000;
   /* The phone's system bars (status bar, Android's navigation buttons). Android WebViews often report 0 for env(),
      so Capacitor's own measurement (--safe-area-inset-*, set on <html> by its SystemBars plugin) is used when larger. */
   --safe-top: max(env(safe-area-inset-top, 0px), var(--safe-area-inset-top, 0px));
@@ -3634,6 +3634,18 @@ body.ui-parchment .toast {
   font-size: 11px;
   font-weight: 700;
 }
+.tut-traits + .tut-archetypes,
+.tut-traits + p,
+.tut-archetypes .tut-traits {
+  margin-top: 8px;
+}
+.tut-archetypes .tut-traits + p,
+div.tut-archetypes + * {
+  margin-top: 10px;
+}
+.tut-archetypes .tut-traits .tut-trait {
+  background: color-mix(in srgb, var(--c0) 70%, transparent);
+}
 .tut-examples {
   margin-top: 6px;
   font-size: 12px;
@@ -4585,7 +4597,7 @@ body .title-row .filter-btn.filter-corner:has(> .btn-ic) {
   background: color-mix(in srgb, #8b5cf6 14%, transparent);
   box-shadow: inset 0 0 0 1px #c4a8ff;
   color: #fff;
-  text-shadow: -1px 0 #000, 1px 0 #000, 0 -1px #000, 0 1px #000, -1px -1px #000, 1px -1px #000, -1px 1px #000, 1px 1px #000;
+  text-shadow: var(--outline);
 }
 .gear-card .gc-mod.refine {
   border-color: #8a8f96;
@@ -5428,7 +5440,7 @@ body.ui-parchment .buy.ab-equip:has(> .btn-ic) {
   line-height: 20px;
   font-size: 11px;
   color: #fff;
-  text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
+  text-shadow: var(--outline);
 }
 
 /* An item's features as tappable tags (the full description pops up). */
@@ -5512,7 +5524,7 @@ button.feat-tag {
 .aff > .aff-label {
   padding: 2px 7px;
   color: #fff;
-  text-shadow: -1px 0 #000, 1px 0 #000, 0 -1px #000, 0 1px #000;
+  text-shadow: var(--outline);
 }
 .aff.weak > span.aff-label {
   --dc: var(--good);

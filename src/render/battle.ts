@@ -1000,7 +1000,7 @@ export class BattleView {
       g.beginPath();
       g.rect(x - 4, y - 20, edge - (x - 4), 40);
       g.clip();
-      g.lineWidth = 3 / Z;
+      g.lineWidth = 4 / Z;
       g.strokeStyle = '#000';
       g.strokeText(text, x, y);
       g.fillStyle = '#ffe066';
@@ -1904,7 +1904,7 @@ export class BattleView {
     this.placeGainPops(ev && !boss ? { top: y0, bottom: y0 + hh, left: x, right: x + bw } : null);
     /** A label with a black outline, so it reads over the battlefield. */
     const label = (text: string, cx: number, color: string) => {
-      g.lineWidth = 3;
+      g.lineWidth = 4;
       g.lineJoin = 'round';
       g.strokeStyle = '#000';
       g.strokeText(text, cx, y0 + 10);
@@ -1969,7 +1969,7 @@ export class BattleView {
       const k = this.banner.life;
       g.globalAlpha = k < 0.2 ? k / 0.2 : k > 1.6 ? Math.max(0, 1 - (k - 1.6) / 0.4) : 1;
       g.font = canvasFont(26, 700);
-      g.lineWidth = 5;
+      g.lineWidth = 6;
       g.strokeStyle = '#000';
       const by = this.h * 0.24;
       g.strokeText(this.banner.text, w / 2, by);

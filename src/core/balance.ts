@@ -3797,7 +3797,10 @@ export interface WeaponClassDef {
    * more for ones that pierce or bounce: see SHOT_SPLASH).
    */
   farm: number;
+  /** What it does, with its numbers (Advanced Info, and Advanced tooltips). */
   describe: string;
+  /** What it does in plain words, without numbers (the default). */
+  simple: string;
 }
 
 /** Share of time a weapon spends firing rather than reloading (1 for weapons that never reload). */
@@ -3817,22 +3820,22 @@ export const weaponHitsPerAttack = (c: WeaponClassDef | null | undefined): numbe
 };
 
 export const WEAPON_CLASSES: Record<WeaponClass, WeaponClassDef> = {
-  dagger: { name: 'Dagger', attack: 'dagger', projectile: 'dagger', range: 0.8, reach: 60, thrusts: 3, knock: 160, rate: 0.9, damage: 0.4, farm: 1, describe: 'A quick burst of 3 stabs at a close monster, and the last stab knocks it back. Daggers are thrown when monsters are far away.' },
-  sword: { name: 'Sword', attack: 'sweep', range: 1, reach: 80, arc: 2.4, knock: 120, rate: 0.9, damage: 1.1, farm: 1.8, describe: 'A sweeping slash that hits every monster in front and knocks them back.' },
-  glaive: { name: 'Glaive', attack: 'sweep', range: 1, reach: 100, arc: 3.2, knock: 160, rate: 0.7, damage: 1.4, farm: 2, describe: 'A wide, heavy cleave around the front that knocks monsters back.' },
-  spear: { name: 'Spear', attack: 'stab', range: 1, reach: 170, width: 24, knock: 200, rate: 0.8, damage: 1.2, farm: 2, describe: 'A long, wide thrust straight out that hits everything in its path and drives it back.' },
-  hammer: { name: 'Hammer', attack: 'slam', range: 1, reach: 80, knock: 460, rate: 0.45, damage: 2.3, farm: 2.2, describe: 'Very slow, crushing slams on the ground that hit every monster close around and send them flying.' },
-  shortbow: { name: 'Shortbow', attack: 'shot', projectile: 'arrow', range: 0.85, rate: 1.35, damage: 0.75, farm: 1.1, describe: 'The basic bow, with quick, light shots that never stop.' },
-  longbow: { name: 'Longbow', attack: 'shot', projectile: 'arrow', range: 1.35, rate: 0.65, damage: 1.5, followThrough: 45, farm: 1.4, describe: 'Slow, heavy shots from far away. Each arrow carries on through its target into whatever is just behind it.' },
-  crossbow: { name: 'Crossbow', attack: 'shot', projectile: 'arrow', range: 1.1, rate: 0.8, damage: 1.25, pierce: 1, farm: 1.45, describe: 'Heavy bolts that always pierce at least one more monster.' },
-  pistol: { name: 'Pistol', attack: 'shot', projectile: 'pistol', range: 0.7, rate: 1.6, damage: 1, mag: 6, reload: 3, farm: 1.1, describe: 'Hard hitting shots at close range, with 6 shots before reloading.' },
-  rifle: { name: 'Rifle', attack: 'shot', projectile: 'pistol', range: 1.5, rate: 0.8, damage: 2.4, pierce: 1, mag: 4, reload: 3, farm: 1.3, describe: 'Very hard hitting, very long-range shots that pierce, with 4 shots before a long reload.' },
-  repeater: { name: 'Repeater', attack: 'shot', projectile: 'bolt', range: 0.9, rate: 1.2, damage: 0.32, volley: 3, fan: 0.5, stack: 0.5, mag: 6, reload: 3, farm: 1.15, describe: 'Sprays volleys of 3 bolts in a random fan, and each extra bolt that hits the same monster hits 50% harder. Fires 6 volleys before reloading.' },
-  wand: { name: 'Wand', attack: 'shot', projectile: 'spark', range: 0.85, rate: 1.35, damage: 0.75, farm: 1.1, describe: 'The basic magic weapon, with quick, light bolts at shorter range.' },
-  scepter: { name: 'Scepter', attack: 'shot', projectile: 'spark', range: 1.25, rate: 0.75, damage: 1.3, bounces: 2, farm: 1.85, describe: 'Slower, longer-range bolts that bounce on to 2 more monsters nearby.' },
-  staff: { name: 'Staff', attack: 'shot', projectile: 'spark', range: 1.1, rate: 0.8, damage: 1.25, spell: { every: 5, radius: 70, damage: 3 }, mag: 6, reload: 2, farm: 1.55, describe: "Casts 5 bolts, then its element's spell (a Fire staff's Fireball or Fire Volley, a Frost staff's Ice Spikes or Frost Fan, and so on), then a short cooldown." },
-  focus: { name: 'Focus', attack: 'nova', range: 1, reach: 110, rate: 0.8, damage: 1.2, farm: 2, describe: 'When monsters come close, bursts with power that hits every monster around the Hunter.' },
-  tome: { name: 'Tome', attack: 'summon', range: 1, rate: 0.12, damage: 0.7, summon: { duration: 8, bites: 1.5, speed: 150, name: 'spirit' }, farm: 1, describe: 'Summons a spirit that hunts monsters across the field for 8 seconds, then fades. A new one is summoned after a cooldown.' },
+  dagger: { name: 'Dagger', attack: 'dagger', projectile: 'dagger', range: 0.8, reach: 60, thrusts: 3, knock: 160, rate: 0.9, damage: 0.4, farm: 1, describe: "A quick burst of 3 stabs at a monster within 60 range, and the last stab knocks it back. Further off, daggers are thrown instead, out to 80% of the Hunter's range.", simple: "A quick burst of stabs at a close monster, and the last stab knocks it back. Daggers are thrown when monsters are further away." },
+  sword: { name: 'Sword', attack: 'sweep', range: 1, reach: 80, arc: 2.4, knock: 120, rate: 0.9, damage: 1.1, farm: 1.8, describe: "A slash across a 138\u00b0 arc in front of the Hunter, out to 80 range, that hits every monster in it and knocks them back.", simple: "The basic melee weapon, with a wide slash that hits every monster in front of the Hunter and knocks them back." },
+  glaive: { name: 'Glaive', attack: 'sweep', range: 1, reach: 100, arc: 3.2, knock: 160, rate: 0.7, damage: 1.4, farm: 2, describe: 'A wide, heavy cleave around the front that knocks monsters back.', simple: 'A wide, heavy cleave around the front that knocks monsters back.' },
+  spear: { name: 'Spear', attack: 'stab', range: 1, reach: 170, width: 24, knock: 200, rate: 0.8, damage: 1.2, farm: 2, describe: 'A long, wide thrust straight out that hits everything in its path and drives it back.', simple: 'A long, wide thrust straight out that hits everything in its path and drives it back.' },
+  hammer: { name: 'Hammer', attack: 'slam', range: 1, reach: 80, knock: 460, rate: 0.45, damage: 2.3, farm: 2.2, describe: 'Very slow, crushing slams on the ground that hit every monster close around and send them flying.', simple: 'Very slow, crushing slams on the ground that hit every monster close around and send them flying.' },
+  shortbow: { name: 'Shortbow', attack: 'shot', projectile: 'arrow', range: 0.85, rate: 1.35, damage: 0.75, farm: 1.1, describe: 'The basic bow, with quick, light shots that never stop.', simple: 'The basic bow, with quick, light shots that never stop.' },
+  longbow: { name: 'Longbow', attack: 'shot', projectile: 'arrow', range: 1.35, rate: 0.65, damage: 1.5, followThrough: 45, farm: 1.4, describe: 'Slow, heavy shots from far away. Each arrow carries on through its target into whatever is just behind it.', simple: 'Slow, heavy shots from far away. Each arrow carries on through its target into whatever is just behind it.' },
+  crossbow: { name: 'Crossbow', attack: 'shot', projectile: 'arrow', range: 1.1, rate: 0.8, damage: 1.25, pierce: 1, farm: 1.45, describe: 'Heavy bolts that always pierce at least one more monster.', simple: 'Heavy bolts that always pierce at least one more monster.' },
+  pistol: { name: 'Pistol', attack: 'shot', projectile: 'pistol', range: 0.7, rate: 1.6, damage: 1, mag: 6, reload: 3, farm: 1.1, describe: 'Hard hitting shots at close range, with 6 shots before reloading.', simple: "Hard hitting shots at close range, with a few shots before each reload." },
+  rifle: { name: 'Rifle', attack: 'shot', projectile: 'pistol', range: 1.5, rate: 0.8, damage: 2.4, pierce: 1, mag: 4, reload: 3, farm: 1.3, describe: 'Very hard hitting, very long-range shots that pierce, with 4 shots before a long reload.', simple: "Very hard hitting, very long-range shots that pierce, with a few shots before each long reload." },
+  repeater: { name: 'Repeater', attack: 'shot', projectile: 'bolt', range: 0.9, rate: 1.2, damage: 0.32, volley: 3, fan: 0.5, stack: 0.5, mag: 6, reload: 3, farm: 1.15, describe: 'Sprays volleys of 3 bolts in a random fan, and each extra bolt that hits the same monster hits 50% harder. Fires 6 volleys before reloading.', simple: "Sprays volleys of bolts in a random fan, and bolts that hit the same monster hit harder. Fires several volleys before reloading." },
+  wand: { name: 'Wand', attack: 'shot', projectile: 'spark', range: 0.85, rate: 1.35, damage: 0.75, farm: 1.1, describe: 'The basic magic weapon, with quick, light bolts at shorter range.', simple: 'The basic magic weapon, with quick, light bolts at shorter range.' },
+  scepter: { name: 'Scepter', attack: 'shot', projectile: 'spark', range: 1.25, rate: 0.75, damage: 1.3, bounces: 2, farm: 1.85, describe: 'Slower, longer-range bolts that bounce on to 2 more monsters nearby.', simple: "Slower, longer-range bolts that bounce on to more monsters nearby." },
+  staff: { name: 'Staff', attack: 'shot', projectile: 'spark', range: 1.1, rate: 0.8, damage: 1.25, spell: { every: 5, radius: 70, damage: 3 }, mag: 6, reload: 2, farm: 1.55, describe: "Casts 5 bolts, then its element's spell (a Fire staff's Fireball or Fire Volley, a Frost staff's Ice Spikes or Frost Fan, and so on), then a short cooldown.", simple: "Casts a few bolts, then its element's spell (a Fire staff's Fireball or Fire Volley, a Frost staff's Ice Spikes or Frost Fan, and so on), then a short cooldown." },
+  focus: { name: 'Focus', attack: 'nova', range: 1, reach: 110, rate: 0.8, damage: 1.2, farm: 2, describe: 'When monsters come close, bursts with power that hits every monster around the Hunter.', simple: 'When monsters come close, bursts with power that hits every monster around the Hunter.' },
+  tome: { name: 'Tome', attack: 'summon', range: 1, rate: 0.12, damage: 0.7, summon: { duration: 8, bites: 1.5, speed: 150, name: 'spirit' }, farm: 1, describe: 'Summons a spirit that hunts monsters across the field for a while, biting 1.5 times a second, then fades. A new one is summoned after a cooldown.', simple: "Summons a spirit that hunts monsters across the field for a while, then fades. A new one is summoned after a cooldown." },
 };
 
 /**
@@ -3844,8 +3847,10 @@ export const WEAPON_CLASSES: Record<WeaponClass, WeaponClassDef> = {
  */
 export interface WeaponArchetype {
   name: string;
-  /** What's different, for the item card ("Slower, much wider slams"). */
+  /** What's different, for the item card ("Slower, much wider slams"), with its numbers where it has any. */
   desc: string;
+  /** The same without numbers (Advanced Info off), for archetypes whose `desc` has them. */
+  simple?: string;
   /** Item names that promise this archetype ("Titan Maul" is a Maul), which take it before the rotation. */
   hint?: RegExp;
   damage?: number;
@@ -3882,55 +3887,60 @@ export const SCEPTER_ORB = { life: 1.5, radius: 16, share: 0.5 };
 
 const STANDARD = (name: string): WeaponArchetype => ({ name, desc: 'The standard form of its class.' });
 
+/** An archetype's description: with its numbers (Advanced Info) or without. */
+export function archetypeText(a: WeaponArchetype, advanced: boolean): string {
+  return advanced ? a.desc : (a.simple ?? a.desc);
+}
+
 export const WEAPON_ARCHETYPES: Record<WeaponClass, [WeaponArchetype, WeaponArchetype, WeaponArchetype]> = {
   dagger: [STANDARD('Dagger'),
-    { name: 'Stiletto', desc: 'A slower, harder hitting Dagger with a higher Crit chance. Stabs 2 times instead of 3 in the same amount of time, with +15% Crit chance.', thrusts: 2, damage: 1.25, crit: 0.15 },
-    { name: 'Throwing Knife', desc: 'A Dagger that attacks in quicker bursts and flies further. Stabs or throws 4 lighter hits instead of 3 in the same amount of time.', thrusts: 4, rate: 1.4, damage: 0.55, range: 1.1 }],
+    { name: 'Stiletto', desc: 'A slower, harder hitting Dagger with a higher Crit chance. Stabs 2 times instead of 3 in the same amount of time, with +15% Crit chance.', simple: "A slower, harder hitting Dagger with a higher Crit chance. Stabs fewer times in the same amount of time.", thrusts: 2, damage: 1.25, crit: 0.15 },
+    { name: 'Throwing Knife', desc: 'A Dagger that attacks in quicker bursts and flies further. Stabs or throws 4 lighter hits instead of 3 in the same amount of time.', simple: "A Dagger that attacks in quicker bursts and flies further, with more, lighter hits in the same amount of time.", thrusts: 4, rate: 1.4, damage: 0.55, range: 1.1 }],
   sword: [STANDARD('Sword'),
-    { name: 'Rapier', desc: 'A quicker Sword with a narrower slash. Attacks 50% faster in a tighter arc, with +10% Crit chance.', rate: 1.5, damage: 0.72, arc: 0.6, reach: 0.9, crit: 0.1, farm: 0.85 },
+    { name: 'Rapier', desc: 'A quicker Sword with a narrower slash. Attacks 50% faster in a tighter arc, with +10% Crit chance.', simple: "A quicker Sword with a narrower slash and a higher Crit chance.", rate: 1.5, damage: 0.72, arc: 0.6, reach: 0.9, crit: 0.1, farm: 0.85 },
     { name: 'Greatsword', desc: 'A slower, heavier Sword with wide slashes that reach further and knock monsters back harder.', rate: 0.65, damage: 1.45, arc: 1.25, reach: 1.2, knock: 1.5, farm: 1.15 }],
   glaive: [STANDARD('Glaive'),
     { name: 'Scythe', desc: 'A slower Glaive that sweeps almost all the way around the Hunter.', arc: 1.45, reach: 1.05, rate: 0.8, damage: 1.05, farm: 1.2 },
     { name: 'Halberd', desc: 'A Glaive with a narrower cleave that reaches much further and hits harder.', arc: 0.7, reach: 1.35, damage: 1.25, rate: 0.95, farm: 0.9 }],
   spear: [STANDARD('Spear'),
     { name: 'Pike', hint: /\b(pike|lance)\b/i, desc: 'A slower, harder hitting Spear with a much longer, narrower thrust.', reach: 1.4, width: 0.7, rate: 0.75, damage: 1.35 },
-    { name: 'Trident', desc: 'A Spear with a shorter thrust that is three times as wide, but hits a little lighter.', reach: 0.8, width: 1.8, damage: 0.8, farm: 1.2 }],
+    { name: 'Trident', desc: 'A Spear with a shorter thrust that is three times as wide, but hits a little lighter.', simple: "A Spear with a shorter, much wider thrust, but hits a little lighter.", reach: 0.8, width: 1.8, damage: 0.8, farm: 1.2 }],
   hammer: [STANDARD('Hammer'),
     { name: 'Maul', hint: /\bmaul\b/i, desc: 'An even slower Hammer that slams over a much larger area.', rate: 0.65, reach: 1.6, damage: 1.2, knock: 1.3, farm: 1.35 },
     { name: 'Mallet', hint: /\b(mallet|club)\b/i, desc: 'A quicker Hammer that slams over a smaller area.', rate: 1.6, reach: 0.7, damage: 0.75, knock: 0.7, farm: 0.8 }],
   shortbow: [STANDARD('Shortbow'),
     { name: 'Hunting Bow', desc: 'A slightly slower Shortbow with harder hitting shots and longer range.', damage: 1.25, range: 1.15, rate: 0.85 },
-    { name: 'Quickbow', desc: 'A faster Shortbow with lighter shots. Shoots a third faster, at shorter range.', rate: 1.35, damage: 0.75, range: 0.9 }],
+    { name: 'Quickbow', desc: 'A faster Shortbow with lighter shots. Shoots a third faster, at shorter range.', simple: "A faster Shortbow with lighter shots, at shorter range.", rate: 1.35, damage: 0.75, range: 0.9 }],
   longbow: [STANDARD('Longbow'),
-    { name: 'Warbow', desc: 'A slower Longbow with very heavy arrows that carry on twice as far through their target.', damage: 1.45, rate: 0.65, followThrough: 2, farm: 1.05 },
+    { name: 'Warbow', desc: 'A slower Longbow with very heavy arrows that carry on twice as far through their target.', simple: "A slower Longbow with very heavy arrows that carry on further through their target.", damage: 1.45, rate: 0.65, followThrough: 2, farm: 1.05 },
     { name: 'Recurve Bow', desc: 'A quicker Longbow with lighter arrows and a little less range.', rate: 1.35, damage: 0.75, range: 0.85 }],
   crossbow: [STANDARD('Crossbow'),
-    { name: 'Arbalest', desc: 'A slow Crossbow with huge bolts that pierce 2 more monsters, from further away.', damage: 1.5, rate: 0.6, pierce: 1, range: 1.15, farm: 1.1 },
-    { name: 'Hand Crossbow', desc: 'A Crossbow that shoots 50% faster at closer range, with lighter bolts.', rate: 1.5, damage: 0.68, range: 0.8 }],
+    { name: 'Arbalest', desc: 'A slow Crossbow with huge bolts that pierce 2 more monsters, from further away.', simple: "A slow Crossbow with huge bolts that pierce more monsters, from further away.", damage: 1.5, rate: 0.6, pierce: 1, range: 1.15, farm: 1.1 },
+    { name: 'Hand Crossbow', desc: 'A Crossbow that shoots 50% faster at closer range, with lighter bolts.', simple: "A Crossbow that shoots much faster at closer range, with lighter bolts.", rate: 1.5, damage: 0.68, range: 0.8 }],
   pistol: [STANDARD('Pistol'),
-    { name: 'Hand Cannon', desc: 'A Pistol with 4 very heavy shots before reloading, and +5% Crit chance.', damage: 1.6, rate: 0.7, mag: 4, crit: 0.05 },
-    { name: 'Machine Pistol', desc: 'A Pistol with 12 rapid, lighter shots before reloading, at shorter range.', rate: 1.6, damage: 0.55, mag: 12, range: 0.85 }],
+    { name: 'Hand Cannon', desc: 'A Pistol with 4 very heavy shots before reloading, and +5% Crit chance.', simple: "A Pistol with fewer, very heavy shots before reloading, and a higher Crit chance.", damage: 1.6, rate: 0.7, mag: 4, crit: 0.05 },
+    { name: 'Machine Pistol', desc: 'A Pistol with 12 rapid, lighter shots before reloading, at shorter range.', simple: "A Pistol with many rapid, lighter shots before reloading, at shorter range.", rate: 1.6, damage: 0.55, mag: 12, range: 0.85 }],
   rifle: [STANDARD('Rifle'),
-    { name: 'Carbine', desc: 'A quicker Rifle with 6 shots before reloading, but shorter range and a little less damage.', range: 0.8, damage: 0.8, rate: 1.15, mag: 6 },
-    { name: 'Marksman Rifle', desc: 'A slower Rifle with much further range, much harder hits, and +25% Crit chance, but only 2 shots before reloading.', range: 1.5, damage: 1.65, rate: 0.6, mag: 2, crit: 0.25 }],
+    { name: 'Carbine', desc: 'A quicker Rifle with 6 shots before reloading, but shorter range and a little less damage.', simple: "A quicker Rifle with more shots before reloading, but shorter range and a little less damage.", range: 0.8, damage: 0.8, rate: 1.15, mag: 6 },
+    { name: 'Marksman Rifle', desc: 'A slower Rifle with much further range, much harder hits, and +25% Crit chance, but only 2 shots before reloading.', simple: "A slower Rifle with much further range, much harder hits, and a much higher Crit chance, but very few shots before reloading.", range: 1.5, damage: 1.65, rate: 0.6, mag: 2, crit: 0.25 }],
   repeater: [STANDARD('Repeater'),
-    { name: 'Volley Gun', desc: 'A Repeater that fires volleys of 5 lighter bolts in a wider fan.', volley: 5, fan: 1.5, damage: 0.6, rate: 0.85 },
-    { name: 'Chain Repeater', desc: 'A much faster Repeater that fires volleys of 2 bolts in a tight fan, with 10 volleys before reloading.', volley: 2, fan: 0.5, rate: 1.6, mag: 10, damage: 0.95 }],
+    { name: 'Volley Gun', desc: 'A Repeater that fires volleys of 5 lighter bolts in a wider fan.', simple: "A Repeater that fires bigger volleys of lighter bolts in a wider fan.", volley: 5, fan: 1.5, damage: 0.6, rate: 0.85 },
+    { name: 'Chain Repeater', desc: 'A much faster Repeater that fires volleys of 2 bolts in a tight fan, with 10 volleys before reloading.', simple: "A much faster Repeater that fires small volleys in a tight fan, with more volleys before reloading.", volley: 2, fan: 0.5, rate: 1.6, mag: 10, damage: 0.95 }],
   wand: [STANDARD('Wand'),
     { name: 'Rod', desc: 'A slightly slower Wand with heavier bolts that fly further.', damage: 1.3, rate: 0.75, range: 1.15 },
-    { name: 'Sparkler', desc: 'A Wand that fires a stream of light bolts 40% faster, at shorter range.', rate: 1.4, damage: 0.7, range: 0.85 }],
+    { name: 'Sparkler', desc: 'A Wand that fires a stream of light bolts 40% faster, at shorter range.', simple: "A Wand that fires a fast stream of light bolts, at shorter range.", rate: 1.4, damage: 0.7, range: 0.85 }],
   scepter: [STANDARD('Scepter'),
-    { name: 'Chain Scepter', desc: 'A Scepter with lighter bolts that bounce on to 4 more monsters.', bounces: 4, damage: 0.75, rate: 0.9, farm: 1.5 },
+    { name: 'Chain Scepter', desc: 'A Scepter with lighter bolts that bounce on to 4 more monsters.', simple: "A Scepter with lighter bolts that bounce on to more monsters.", bounces: 4, damage: 0.75, rate: 0.9, farm: 1.5 },
     { name: 'Orb Scepter', desc: 'A Scepter whose bolts don\'t bounce, but hit far harder, fly further, and leave a glowing orb where they land that hurts monsters walking into it.', bounces: 0, damage: 1.9, range: 1.1, rate: 0.85, orb: true, farm: 0.68 }],
   staff: [STANDARD('Staff'),
-    { name: 'Battle Staff', desc: 'A Staff with faster bolts that only casts its spell every 8 bolts.', spellEvery: 8, rate: 1.3, damage: 0.8 },
-    { name: 'Archmage Staff', desc: 'A Staff with slower bolts that casts its spell every 3 bolts, a quarter wider and stronger.', spellEvery: 3, spellDamage: 1.2, spellRadius: 1.25, rate: 0.75, farm: 1.2 }],
+    { name: 'Battle Staff', desc: 'A Staff with faster bolts that only casts its spell every 8 bolts.', simple: "A Staff with faster bolts that casts its spell less often.", spellEvery: 8, rate: 1.3, damage: 0.8 },
+    { name: 'Archmage Staff', desc: 'A Staff with slower bolts that casts its spell every 3 bolts, a quarter wider and stronger.', simple: "A Staff with slower bolts that casts a bigger, stronger spell more often.", spellEvery: 3, spellDamage: 1.2, spellRadius: 1.25, rate: 0.75, farm: 1.2 }],
   focus: [STANDARD('Focus'),
-    { name: 'Orb', desc: 'A slower Focus with bursts that reach 40% further.', reach: 1.4, rate: 0.7, damage: 1.1, farm: 1.3 },
+    { name: 'Orb', desc: 'A slower Focus with bursts that reach 40% further.', simple: "A slower Focus with bursts that reach much further.", reach: 1.4, rate: 0.7, damage: 1.1, farm: 1.3 },
     { name: 'Pulse Focus', desc: 'A quicker Focus with small bursts close around the Hunter.', reach: 0.75, rate: 1.5, damage: 0.82, farm: 0.8 }],
   tome: [STANDARD('Tome'),
-    { name: 'Grimoire', desc: 'A Tome whose creatures stay 60% longer and bite harder, but are summoned less often.', summonDuration: 1.6, summonBites: 1.2, rate: 0.52 },
-    { name: 'Primer', desc: 'A Tome whose creatures are summoned 50% more often and move faster, but fade sooner.', summonDuration: 0.65, summonSpeed: 1.3, rate: 1.5 }],
+    { name: 'Grimoire', desc: 'A Tome whose creatures stay 60% longer and bite harder, but are summoned less often.', simple: "A Tome whose creatures stay longer and bite harder, but are summoned less often.", summonDuration: 1.6, summonBites: 1.2, rate: 0.52 },
+    { name: 'Primer', desc: 'A Tome whose creatures are summoned 50% more often and move faster, but fade sooner.', simple: "A Tome whose creatures are summoned more often and move faster, but fade sooner.", summonDuration: 0.65, summonSpeed: 1.3, rate: 1.5 }],
 };
 
 /** A weapon class as an archetype changes it. */
@@ -4959,12 +4969,12 @@ editableData('Materials', 'material', MATERIALS.map((m) => [m.id, m, m.name]), {
 editableData('Events', 'event', EVENTS.map((e) => [e.id, e, `${areaName(e.area)} · ${e.name}`]), { name: 'Name', blurb: 'Description' });
 editableData('Events', 'buff', textRec(MINIGAME_BUFFS, (b) => `Minigame buff · ${b.name}`), { name: 'Name', desc: 'Description' });
 editableData('Combat', 'damage', textRec(DAMAGE_TYPES, () => 'Damage types'), { name: 'Name', simple: 'Status effect (tooltip)', effect: 'Status effect (advanced tooltip)' });
-editableData('Combat', 'weapon', textRec(WEAPON_CLASSES, (w) => `Weapon type · ${w.name}`), { name: 'Name', describe: 'Description' });
+editableData('Combat', 'weapon', textRec(WEAPON_CLASSES, (w) => `Weapon type · ${w.name}`), { name: 'Name', simple: 'Description', describe: 'Description (Advanced Info)' });
 editableData(
   'Combat',
   'archetypeWeapon',
   Object.entries(WEAPON_ARCHETYPES).flatMap(([cls, arr]) => arr.map((a, i): [string, WeaponArchetype, string] => [`${cls}.${i}`, a, `Weapon type · ${WEAPON_CLASSES[cls as WeaponClass].name}`])),
-  { name: 'Archetype name', desc: 'Archetype description' },
+  { name: 'Archetype name', simple: 'Archetype description', desc: 'Archetype description (Advanced Info, or the only one)' },
 );
 editableData('Combat', 'spell', textRec(SPELLS, () => 'Staff spells'), { name: 'Name', desc: 'Description' });
 editableData('Combat', 'unique', textRec(UNIQUE_EFFECTS, () => 'Unique enchantments'), { name: 'Name', desc: 'Description' });

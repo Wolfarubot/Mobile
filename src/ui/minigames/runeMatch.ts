@@ -250,7 +250,7 @@ export function runeMatch(api: MinigameApi): MinigameGame {
       if (preview > 0) {
         g.font = `bold ${Math.round(15 * api.k)}px monospace`;
         g.textAlign = 'center';
-        g.lineWidth = 3;
+        g.lineWidth = 4;
         g.strokeStyle = '#000';
         const y = layout().y0 - 12;
         g.strokeText('Remember them…', api.W / 2, y);

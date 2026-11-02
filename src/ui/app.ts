@@ -33,6 +33,8 @@ import {
   type DamageType,
   type WeaponClass,
   type WeaponClassDef,
+  type WeaponArchetype,
+  archetypeText,
   slotAccepts,
   areaDef,
   areaEnemies,
@@ -1020,8 +1022,8 @@ export class AppUI {
     const stats = el('div', 'hd-stats');
     overview.appendChild(stats);
     const arch = g.weaponItem(who) ? gearDef(g.weaponItem(who)!.base) : null;
-    const archLine = arch?.archetype ? ` ${weaponArchetype(arch)!.name}: ${weaponArchetype(arch)!.desc}` : '';
-    overview.appendChild(el('p', 'hd-style', `${g.weaponClassOf(who) ? `⚔️ Attacks with their weapon: ${g.weaponClassOf(who)!.describe}${archLine}` : '⚔️ Unarmed: fires a basic bolt. Equip a weapon to fight with its attacks.'}${def?.special ? ` ✨ ${def.special.describe}` : ''}${def?.wall ? ` 🦴 ${def.wall.name}: ${def.wall.describe}` : ''}`));
+    const archLine = arch?.archetype ? ` ${weaponArchetype(arch)!.name}: ${archetypeText(weaponArchetype(arch)!, advancedTips)}` : '';
+    overview.appendChild(el('p', 'hd-style', `${g.weaponClassOf(who) ? `⚔️ Attacks with their weapon: ${advancedTips ? g.weaponClassOf(who)!.describe : g.weaponClassOf(who)!.simple}${archLine}` : '⚔️ Unarmed: fires a basic bolt. Equip a weapon to fight with its attacks.'}${def?.special ? ` ✨ ${def.special.describe}` : ''}${def?.wall ? ` 🦴 ${def.wall.name}: ${def.wall.describe}` : ''}`));
     const effectNote = el('p', 'hd-style hd-effect');
     overview.appendChild(effectNote);
     this.refreshers.push(() => {
@@ -4825,6 +4827,22 @@ export class AppUI {
     $('.hd-close', view).addEventListener('click', () => (page === 'menu' ? this.closeHunterDetail() : this.openTutorials()));
     this.detail = { el: view, refreshers: [] };
     const body = $('.hd-scroll', view);
+    // Advanced Info: plain words, or the exact numbers (the same switch as Settings → Advanced tooltips).
+    const adv = el('div', 'card setting tut-adv');
+    adv.innerHTML = `<div class="setting-name">Advanced Info</div><div class="segmented"><button data-v="basic">Basic</button><button data-v="advanced">Advanced</button></div>`;
+    adv.querySelectorAll<HTMLButtonElement>('button').forEach((b) => {
+      b.classList.toggle('on', (b.dataset.v === 'advanced') === advancedTips);
+      b.addEventListener('click', () => {
+        const on = b.dataset.v === 'advanced';
+        if (on === advancedTips) return;
+        const top = body.scrollTop;
+        this.game.state.settings.advancedTips = on;
+        this.applySettings();
+        this.openTutorials(page);
+        $('.hd-scroll', this.detail!.el).scrollTop = top;
+      });
+    });
+    body.appendChild(adv);
     if (page === 'weapons') this.buildWeaponGuide(body);
     else if (page === 'damage') this.buildDamageGuide(body);
     else this.buildTutorialMenu(body);
@@ -4873,9 +4891,15 @@ export class AppUI {
         const known = GEAR.filter((gd) => gd.weaponClass === id && this.gearKnown(gd));
         const card = el('div', 'card setting tut-card');
         const [, a1, a2] = WEAPON_ARCHETYPES[id];
-        card.innerHTML = `<div class="setting-name">${classIcon(id)} ${c.name}</div><p>${c.describe}</p><div class="tut-traits">${weaponTraits(c)
+        const lower = (t: string) => `${t.charAt(0).toLowerCase()}${t.slice(1, -1)}`;
+        const archetypes = advancedTips
+          ? `<div class="tut-archetypes"><p>Also comes as:</p>${[a1, a2]
+              .map((a) => `<p><b>${a.name}</b>: ${a.desc}</p><div class="tut-traits">${archetypeMods(a).map((t) => `<span class="tut-trait">${t}</span>`).join('')}</div>`)
+              .join('')}</div>`
+          : `<p class="tut-archetypes">Also comes as a <b>${a1.name}</b> (${lower(archetypeText(a1, false))}) or a <b>${a2.name}</b> (${lower(archetypeText(a2, false))}).</p>`;
+        card.innerHTML = `<div class="setting-name">${classIcon(id)} ${c.name}</div><p>${advancedTips ? c.describe : c.simple}</p><div class="tut-traits">${weaponTraits(c, advancedTips)
           .map((t) => `<span class="tut-trait">${t}</span>`)
-          .join('')}</div><p class="tut-archetypes">Also comes as a <b>${a1.name}</b> (${a1.desc.charAt(0).toLowerCase()}${a1.desc.slice(1, -1)}) or a <b>${a2.name}</b> (${a2.desc.charAt(0).toLowerCase()}${a2.desc.slice(1, -1)}).</p>${id === 'tome' ? txp('tut.weapons.tome.tomeSummons', { types: (Object.keys(SUMMON_TYPES) as SummonType[]).map((t) => SUMMON_TYPES[t].name).join(', ') }) : ''}${known.length ? `<p class="tut-examples">${known.map((gd) => `${gearIcon(gd)} ${gd.name}`).join(' · ')}</p>` : ''}`;
+          .join('')}</div>${archetypes}${id === 'tome' ? txp('tut.weapons.tome.tomeSummons', { types: (Object.keys(SUMMON_TYPES) as SummonType[]).map((t) => SUMMON_TYPES[t].name).join(', ') }) : ''}${known.length ? `<p class="tut-examples">${known.map((gd) => `${gearIcon(gd)} ${gd.name}`).join(' · ')}</p>` : ''}`;
         body.appendChild(card);
       }
     }
@@ -5932,8 +5956,8 @@ function featureTags(gd: GearDef, stars = 1): string {
   if (gd.weaponClass && gd.archetype) {
     const a = weaponArchetype(gd)!;
     const cls = WEAPON_CLASSES[gd.weaponClass];
-    tags.push(featTag(FEATURE_TAG_ICONS.archetype, a.name, `${tx('tip.gear.archetype', { name: a.name, weapon: cls.name.toLowerCase(), desc: a.desc })}<br>${cls.describe}`));
-  } else if (gd.weaponClass) tags.push(featTag(FEATURE_TAG_ICONS.weapon, WEAPON_CLASSES[gd.weaponClass].name, WEAPON_CLASSES[gd.weaponClass].describe));
+    tags.push(featTag(FEATURE_TAG_ICONS.archetype, a.name, `${tx('tip.gear.archetype', { name: a.name, weapon: cls.name.toLowerCase(), desc: archetypeText(a, advancedTips) })}<br>${advancedTips ? cls.describe : cls.simple}`));
+  } else if (gd.weaponClass) tags.push(featTag(FEATURE_TAG_ICONS.weapon, WEAPON_CLASSES[gd.weaponClass].name, advancedTips ? WEAPON_CLASSES[gd.weaponClass].describe : WEAPON_CLASSES[gd.weaponClass].simple));
   // Built-in effects: always on the piece, at fixed rolls (a unique one on Artifact and Exalted gear).
   for (const bi of gd.builtIn ?? []) {
     const en = ENCHANTS[bi.id];
@@ -6474,30 +6498,84 @@ const STATUS_NAMES: Partial<Record<DamageType, string>> = {
   void: 'Gravity well',
 };
 
-/** Short, player-facing traits of a weapon type for the Tutorials page. */
-function weaponTraits(c: WeaponClassDef): string[] {
+/** Short, player-facing traits of a weapon type for the Tutorials page: in words, or (Advanced Info) with its exact numbers. */
+function weaponTraits(c: WeaponClassDef, advanced: boolean): string[] {
   const speed = (r: number) => (r >= 1.3 ? 'Very fast' : r >= 1 ? 'Fast' : r >= 0.75 ? 'Steady' : r >= 0.55 ? 'Slow' : 'Very slow');
   const knock = (k: number) => (k >= 300 ? 'Extreme' : k >= 180 ? 'Strong' : 'Light');
+  const reach = (r: number) => (r >= 1.3 ? 'Very long' : r >= 1.05 ? 'Long' : r >= 0.8 ? 'Medium' : 'Short');
+  const deg = (rad: number) => `${Math.round((rad * 180) / Math.PI)}\u00b0`;
+  const num = (n: number) => `${+n.toFixed(2)}`;
   const out: string[] = [];
-  if (c.summon) out.push(`🐾 Summon lasts ${c.summon.duration} seconds`);
-  else out.push(`⏱️ ${speed(c.rate)}`);
+  if (advanced) {
+    out.push(`⏱️ ×${num(c.rate)} attack speed`);
+    out.push(`💢 ×${num(c.damage)} damage`);
+    if (c.attack === 'shot') out.push(`📏 ${Math.round(c.range * 100)}% range`);
+    else if (c.attack === 'dagger') out.push(`📏 ${c.reach} reach, thrown out to ${Math.round(c.range * 100)}% range`);
+    else if (c.attack === 'stab') out.push(`📏 ${c.reach} long, ${c.width} wide`);
+    else if (c.attack === 'sweep') out.push(`📏 ${c.reach} reach, ${deg(c.arc ?? 0)} arc`);
+    else if (c.attack === 'slam' || c.attack === 'nova') out.push(`📏 ${c.reach} radius${c.wave ? ', as a wave' : ''}`);
+    else out.push('📏 Whole field');
+    if (c.thrusts) out.push(`🔪 ${c.thrusts} stabs`);
+    if (c.volley) out.push(`🎇 ${c.volley}-bolt volleys, ${deg(c.fan ?? 0)} fan`);
+    if (c.stack) out.push(`🎯 +${Math.round(c.stack * 100)}% per extra bolt on the same monster`);
+    if (c.pierce) out.push(`➡️ Pierces ${c.pierce}`);
+    if (c.followThrough) out.push(`➡️ Carries on ${c.followThrough} past its target`);
+    if (c.bounces) out.push(`↪️ Bounces ${c.bounces}`);
+    if (c.spell) out.push(`💥 Spell every ${c.spell.every + 1}: ×${num(c.spell.damage)} damage, ${c.spell.radius} wide`);
+    if (c.summon) out.push(`🐾 ${num(c.summon.bites)} bites a second`);
+    if (c.mag) out.push(`🔄 ${c.mag} ${c.spell ? 'casts' : 'shots'}, then a ${c.reload}-shot reload`);
+    if (c.knock) out.push(`💨 ${c.knock} knockback`);
+    return out;
+  }
+  out.push(`⏱️ ${speed(c.rate)}`);
   out.push(`💢 ${c.damage >= 1.5 ? 'Heavy' : c.damage <= 0.6 ? 'Light' : 'Medium'} hits`);
-  if (c.attack === 'shot') out.push(`📏 ${Math.round(c.range * 100)}% range`);
+  if (c.attack === 'shot') out.push(`📏 ${reach(c.range)} range`);
   else if (c.attack === 'dagger') out.push('📏 Close, or thrown');
-  else if (c.attack === 'stab') out.push('📏 Medium thrust');
+  else if (c.attack === 'stab') out.push('📏 Long thrust');
   else if (c.attack === 'sweep') out.push('📏 Close sweep');
   else if (c.attack === 'slam') out.push('📏 Slams all around');
   else if (c.attack === 'nova') out.push(c.wave ? '🌊 A wave outward' : '📏 Around the Hunter');
   else out.push('📏 Whole field');
-  if (c.thrusts) out.push(`🔪 ${c.thrusts} stabs`);
-  if (c.volley) out.push(`🎇 ${c.volley}-shot volleys`);
-  if (c.pierce) out.push(`➡️ Pierces ${c.pierce}`);
+  if (c.thrusts) out.push('🔪 Bursts of stabs');
+  if (c.volley) out.push('🎇 Volleys');
+  if (c.pierce) out.push('➡️ Pierces');
   if (c.followThrough) out.push('➡️ Follow-through');
-  if (c.bounces) out.push(`↪️ Bounces ${c.bounces}`);
-  if (c.spell) out.push(`💥 Big spell every ${c.spell.every + 1}`);
-  if (c.mag && !c.spell) out.push(`🔄 ${c.mag} shots, then reload`);
-  if (c.spell) out.push('🔄 Recharges after its spell');
+  if (c.bounces) out.push('↪️ Bounces');
+  if (c.spell) out.push('💥 Big spells');
+  if (c.summon) out.push('🐾 Summons');
+  if (c.mag) out.push(c.spell ? '🔄 Recharges after its spell' : '🔄 Reloads');
   if (c.knock) out.push(`💨 ${knock(c.knock)} knockback`);
+  return out;
+}
+
+/** An archetype's changes to its class, as exact modifiers (Advanced Info). */
+function archetypeMods(a: WeaponArchetype): string[] {
+  const num = (n: number) => `${+n.toFixed(2)}`;
+  const out: string[] = [];
+  const mul = (v: number | undefined, label: string) => v !== undefined && v !== 1 && out.push(`×${num(v)} ${label}`);
+  mul(a.rate, 'attack speed');
+  mul(a.damage, 'damage');
+  mul(a.range, 'range');
+  mul(a.reach, 'reach');
+  mul(a.arc, 'arc');
+  mul(a.width, 'width');
+  mul(a.knock, 'knockback');
+  mul(a.fan, 'fan');
+  mul(a.followThrough, 'follow-through');
+  mul(a.reload, 'reload');
+  if (a.crit) out.push(`+${Math.round(a.crit * 100)}% Crit chance`);
+  if (a.pierce) out.push(`+${a.pierce} pierce`);
+  if (a.thrusts !== undefined) out.push(`${a.thrusts} stabs`);
+  if (a.volley !== undefined) out.push(`${a.volley}-bolt volleys`);
+  if (a.mag !== undefined) out.push(`${a.mag} shots before reloading`);
+  if (a.bounces !== undefined) out.push(a.bounces ? `${a.bounces} bounces` : 'No bounces');
+  if (a.orb) out.push('Leaves an orb');
+  if (a.spellEvery !== undefined) out.push(`Spell every ${a.spellEvery + 1}`);
+  mul(a.spellDamage, 'spell damage');
+  mul(a.spellRadius, 'spell size');
+  mul(a.summonDuration, 'summon time');
+  mul(a.summonBites, 'bite speed');
+  mul(a.summonSpeed, 'summon move speed');
   return out;
 }
 

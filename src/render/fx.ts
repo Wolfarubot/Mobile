@@ -148,7 +148,7 @@ export class Fx {
       // Its size on screen follows the Hunters' scale, but never below minTextPx.
       const px = Math.max(this.minTextPx, f.size * this.textScale * this.zoom) * pop;
       g.font = canvasFont(px / this.zoom, 700);
-      g.lineWidth = Math.max(2, px / 4) / this.zoom;
+      g.lineWidth = Math.max(2.5, px / 3.2) / this.zoom;
       g.strokeStyle = '#000';
       g.strokeText(f.text, f.x, f.y);
       g.fillStyle = f.color;

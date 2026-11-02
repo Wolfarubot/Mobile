@@ -307,7 +307,7 @@ export function runMinigame(spec: MinigameSpec): void {
       g.font = canvasFont(Math.round(18 * api.k), 700);
       g.textAlign = 'center';
       g.textBaseline = 'middle';
-      g.lineWidth = 4;
+      g.lineWidth = 5;
       g.lineJoin = 'round';
       g.strokeStyle = '#000';
       g.strokeText(title, W / 2, TITLE_Y);
