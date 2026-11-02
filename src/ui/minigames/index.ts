@@ -1,9 +1,9 @@
 import type { MinigameId } from '../../core/balance';
+import { cardHop, CH_INTRO } from './cardHop';
 import { clockworkTower, CT_INTRO } from './clockworkTower';
 import { forgeStrike, FS_DECOR, FS_INTRO } from './forgeStrike';
 import { graveRobbing, GR_DECOR, GR_INTRO } from './graveRobbing';
 import { huntingPractice, HP_DECOR, HP_INTRO, HP_LIVES } from './huntingPractice';
-import { highOrLow, HL_INTRO } from './highOrLow';
 import { icebreaker, IB_INTRO } from './icebreaker';
 import { meteorBounce, MB_DECOR, MB_INTRO } from './meteorBounce';
 import { pixieSerenade, PS_DECOR, PS_INTRO } from './pixieSerenade';
@@ -28,7 +28,7 @@ export const MINIGAMES: Record<MinigameId, { title: string; intro: string; lives
   runeMatch: { title: '✨ Rune Match', intro: RM_INTRO, lives: 0, landscape: 'wide', create: runeMatch },
   icebreaker: { title: '🔨 Icebreaker', intro: IB_INTRO, lives: 3, landscape: 'center', create: icebreaker },
   clockworkTower: { title: '⚙️ Clockwork Tower', intro: CT_INTRO, lives: 3, landscape: 'center', create: clockworkTower },
-  highOrLow: { title: '🃏 High or Low', intro: HL_INTRO, lives: 3, landscape: 'center', create: highOrLow },
+  highOrLow: { title: '🃏 Card Hop', intro: CH_INTRO, lives: 3, landscape: 'center', create: cardHop },
   meteorBounce: { title: '☄️ Meteor Bounce', intro: MB_INTRO, lives: 3, decor: MB_DECOR, landscape: 'center', create: meteorBounce },
 };
 

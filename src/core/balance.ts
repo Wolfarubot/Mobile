@@ -4763,13 +4763,14 @@ const AREA_MINIGAMES: Partial<Record<AreaId, Omit<EventDef, 'area' | 'kind' | 'u
   },
   fortress: {
     id: 'highOrLow',
-    name: "Ted's High or Low",
+    name: "Ted's Card Hop",
     icon: '🃏',
-    blurb: 'Guess whether the next card is higher or lower: every right guess grows the pot. Cash out to bank it, or lose it all on a wrong one.',
+    blurb: 'Hop Ted up the rows of sliding cards. Higher cards score more, the next card up scores double, and Jokers always count as the next card.',
+    // Ted's minigame was High or Low: it keeps the id, so its buff, best score and saves carry on.
     minigame: 'highOrLow',
     hunter: 'gambler',
-    // A card counter averages about 14 a deck (three wrong guesses end it), so its par is lower than the others'.
-    rewards: { gold: MINIGAME_GOLD, par: 15, materials: [{ material: 'stormstone', per: 3 }, { material: 'opal', per: 2 }, { material: 'thunder', per: 1 }, { material: 'feather', per: 1 }] },
+    // A steady climb scores about 50 to 90 in the minute; runs of next cards take it well past that.
+    rewards: { gold: MINIGAME_GOLD, par: 70, materials: [{ material: 'stormstone', per: 3 }, { material: 'opal', per: 2 }, { material: 'thunder', per: 1 }, { material: 'feather', per: 1 }] },
   },
   meteors: {
     id: 'meteorBounce',

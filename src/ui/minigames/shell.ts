@@ -293,6 +293,12 @@ export function runMinigame(spec: MinigameSpec): void {
       g.fillRect(-6, 0, 6, full / scale);
       g.fillRect(W, 0, 6, full / scale);
     }
+    // Nothing the game draws spills out past a centred stage's sides.
+    if (layout === 'center') {
+      g.beginPath();
+      g.rect(0, 0, W, full / scale);
+      g.clip();
+    }
     if (game) {
       game.draw(g);
       // The game's title (its name, without the emoji), outlined so it reads over anything.

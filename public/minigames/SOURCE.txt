@@ -27,7 +27,7 @@ Minigame art, all from CraftPix.net (license: https://craftpix.net/file-licenses
 - icicle.png: the falling ice shard (15 x 31) from the ice effect's first frame (public/effects/ice.png at 29,1;
   "Magic Spells Pixel Art Sprite Pack", Magic/5): Icebreaker's icicles (the effect's last frames are their shatter).
 - cards.png: a playing card sheet provided with the game's assets: 56 x 80 cards, 15 to a row (jokers, backs, then
-  Ace to King), rows of hearts, spades, diamonds and clubs (and two recoloured suits): Ted's High or Low.
+  Ace to King), rows of hearts, spades, diamonds and clubs (and two recoloured suits): Ted's Card Hop.
 Everything else the minigames draw comes from the packs already in the game: icons (public/icons), monster and Hunter
 sheets, magic effects (public/effects), the RPG UI's panel, button and framed bar (public/ui), and the areas' scenery
 pieces (public/backgrounds: the Meteor Field's rocks and shooting stars, the Steps' floating island, the Frost Peaks'

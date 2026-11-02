@@ -180,6 +180,7 @@ import { CHARM_MAX, CHARM_TIME, DICE_FLIGHT, Field, SLAM_OFFSET, type Enemy } fr
 import { mergeSample, runSample, SAMPLE_KEEP } from '../src/core/sampler';
 import { GATED } from '../src/core/gates';
 import { boardCells, RM_BOARDS } from '../src/ui/minigames/runeMatch';
+import { cardPoints, followsOn } from '../src/ui/minigames/cardHop';
 import { dayKey as dayKeyOf, Game, questsDone, weekKey as weekKeyOf } from '../src/core/game';
 import { deserialize, FX_KEYS, newGame as startingGame, SAVE_VERSION, serialize, type GameState } from '../src/core/state';
 
@@ -1603,6 +1604,18 @@ describe('Equipment', () => {
     expect((g.enchant(plate.uid, 0) as { id: string }).id).toBe('evasion');
     const ev = g.gearEffects('main').find((e) => e.effect.kind === 'evade')!;
     expect((ev.effect as { chance: number }).chance).toBeCloseTo(modRoll(ENCHANTS.evasion.range, false, 'exalted', (g.modSlots(plate.uid)[0] as { q: number }).q));
+  });
+
+  it("Ted's Card Hop: higher cards score more; the next rank up (King to Ace) or a Joker either side follows on", () => {
+    // 0 is the Ace, 12 the King, 13 a Joker.
+    expect([0, 2, 3, 6, 7, 9, 10, 12, 13].map(cardPoints)).toEqual([1, 1, 2, 2, 3, 3, 4, 4, 2]);
+    expect(followsOn(-1, 0)).toBe(true); // from the start, an Ace
+    expect(followsOn(4, 5)).toBe(true);
+    expect(followsOn(4, 6)).toBe(false);
+    expect(followsOn(12, 0)).toBe(true); // King, then Ace
+    expect(followsOn(5, 13)).toBe(true); // onto a Joker
+    expect(followsOn(13, 9)).toBe(true); // and off it, to anything
+    expect(followsOn(3, 3)).toBe(false);
   });
 
   it("Marceline's Rune Match boards grow 2x2, 3x3 (no middle), 4x4 ... 8x8, always an even number of cards", () => {

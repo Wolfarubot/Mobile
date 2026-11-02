@@ -2223,7 +2223,7 @@ export class Game {
    * ×loot chance. Your current area counts the Hunters stationed with you.
    */
   areaPerk(area: AreaId): { gold: number; loot: number } {
-    // Loaded Dice (Ted's High or Low): loot drops twice as often everywhere.
+    // Loaded Dice (Ted's Card Hop): loot drops twice as often everywhere.
     const out = { gold: 1, loot: 1 + BUFF_LOOT * this.buffPower('highOrLow') };
     for (const h of HUNTERS) {
       if (!this.state.hunters[h.id].recruited || this.state.hunters[h.id].station !== area) continue;
