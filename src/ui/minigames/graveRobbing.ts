@@ -4,7 +4,7 @@ import { SHEETS, sheetRow } from '../../render/monsterSheets';
 import { gearImage, hunterSheetImage, monsterSheetImage } from '../../render/sprites';
 import { drawFramedBar, TIMER_COLOR } from '../../render/hudBars';
 import { outlineOf } from '../../render/outline';
-import { dpadAt, dpadHit, dpadTop, drawDpad, mgArt, DIRS, type Dir } from './dpad';
+import { dpadAt, dpadHit, dpadTop, drawDpad, mgArt, playArea, DIRS, type Dir } from './dpad';
 
 /**
  * Alias's Grave Robbing (the Restless Graveyard): Alias creeps between nine headstones in a 3×3 grid, moved one
@@ -88,8 +88,10 @@ export function graveRobbing(api: MinigameApi): MinigameGame {
   const grid = () => {
     const top = TITLE_Y + 46;
     const bottom = dpadTop(api);
-    const size = Math.min(api.W / 3.2, (bottom - top) / 3);
-    return { size, x0: (api.W - size * 3) / 2, y0: top + (bottom - top - size * 3) / 2 };
+    // Across the play area: the whole width, or the side away from the D-pad (landscape).
+    const { x0, x1 } = playArea(api);
+    const size = Math.min((x1 - x0) / 3.2, (bottom - top) / 3);
+    return { size, x0: x0 + (x1 - x0 - size * 3) / 2, y0: top + (bottom - top - size * 3) / 2 };
   };
   /** Where Alias stands at a spot (in front of its headstone). */
   const spotAt = (i: number) => {
@@ -213,8 +215,9 @@ export function graveRobbing(api: MinigameApi): MinigameGame {
       // The clock under the title (which shows the time left): the battlefield's framed event timer.
       const left = Math.max(0, GR_TIME - api.t);
       const S = 2;
-      const nw = Math.floor(Math.min(api.W * 0.8, 360) / S);
-      const bx = Math.round((api.W - nw * S) / 2);
+      const area = playArea(api);
+      const nw = Math.floor(Math.min((area.x1 - area.x0) * 0.8, 360) / S);
+      const bx = Math.round((area.x0 + area.x1 - nw * S) / 2);
       if (!drawFramedBar(g, bx, TITLE_Y + 16, S, nw, 9, left / GR_TIME, left < 10 ? '#ff6a6a' : TIMER_COLOR)) {
         g.fillStyle = 'rgba(0,0,0,0.45)';
         g.fillRect(bx, TITLE_Y + 16, nw * S, 10);

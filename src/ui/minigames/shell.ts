@@ -1,6 +1,7 @@
 import { overrideMusic, setMusicRate, type TrackId } from '../music';
 import { setBattleSfx } from '../sound';
 import { buzz } from '../haptics';
+import { holdOrientation, releaseOrientation } from '../orientation';
 import type { AreaId } from '../../core/balance';
 import { areaBackground, type DecorOpts } from '../../render/backgrounds';
 import { gearImage } from '../../render/sprites';
@@ -13,11 +14,23 @@ import { tx, txt } from '../../core/textRegistry';
  * reacts to taps, and reports points and lost lives through the api.
  */
 
+/**
+ * How a game lays out on a landscape screen (portrait is always the whole screen):
+ * - wide: a stage as wide as the screen and about a portrait screen's height, drawn scaled to fit;
+ * - center: a portrait-shaped stage in the middle, the area's background either side;
+ * - split: the wide stage, with the D-pad on the handedness side and the game on the other half (dpad.ts).
+ */
+export type LandscapeLayout = 'wide' | 'center' | 'split';
+
 export interface MinigameApi {
-  /** Screen size in CSS pixels, and a size factor (1 at a 400px-wide phone). */
+  /** The stage's size (the screen in portrait; see LandscapeLayout), and a size factor (1 at a 400px-wide phone). */
   readonly W: number;
   readonly H: number;
   readonly k: number;
+  /** How the stage is laid out: 'portrait', or the game's landscape layout. */
+  readonly layout: 'portrait' | LandscapeLayout;
+  /** Settings → Handedness is left (the D-pad goes on the left in a split layout). */
+  readonly leftHanded: boolean;
   /** Seconds since Start. */
   readonly t: number;
   readonly score: number;
@@ -59,7 +72,16 @@ export interface MinigameSpec {
   onClose(): void;
   /** Its own music while it's open. */
   music?: TrackId;
+  /** How it lays out on a landscape screen (center if not given). */
+  landscape?: LandscapeLayout;
 }
+
+/** A landscape stage's height in stage units: about a portrait phone's play area, scaled to the screen's height. */
+const LAND_STAGE_H = 540;
+/** A centred (portrait-shaped) stage's widest, in stage units. */
+const LAND_CENTER_W = 440;
+/** Room kept clear at each side of a centred stage, for a camera notch (as the main screen's). */
+const LAND_EDGE = 28;
 
 interface Pop {
   x: number;
@@ -78,6 +100,8 @@ export function runMinigame(spec: MinigameSpec): void {
     <div class="mg-hud"><span class="mg-score">0</span><span class="mg-lives"></span><button class="mg-quit">${tx('minigame.screen.quit')}</button></div>
     <div class="mg-intro"><div class="mg-card"><h2>${spec.title}</h2>${spec.intro}<p class="mg-best">${spec.best > 0 ? tx('minigame.screen.best', { score: spec.best }) : ''}</p><button class="buy mg-go">${tx('minigame.screen.start')}</button></div></div>`;
   document.body.appendChild(root);
+  // The screen stays the way round it opened (portrait or landscape) until the game closes.
+  holdOrientation();
   // Its own music, and quiet from the battlefield behind it.
   if (spec.music) overrideMusic(spec.music);
   setBattleSfx(false);
@@ -86,24 +110,45 @@ export function runMinigame(spec: MinigameSpec): void {
   const scoreEl = root.querySelector<HTMLElement>('.mg-score')!;
   const livesEl = root.querySelector<HTMLElement>('.mg-lives')!;
 
-  let W = 0;
-  /** The game's height: the screen above the phone's bottom bar. The canvas (and the background) runs `full` tall,
-   * down under the bar. */
-  let H = 0;
+  /** The screen's width; the game's height is the screen above the phone's bottom bar (`full` runs under it). */
+  let screenW = 0;
+  let screenH = 0;
   let full = 0;
+  /** The stage the game plays on (its own units), and where it's drawn: scaled by `scale`, `ox` in from the left. */
+  let W = 0;
+  let H = 0;
+  let scale = 1;
+  let ox = 0;
+  let layout: MinigameApi['layout'] = 'portrait';
+  const leftHanded = document.body.classList.contains('left-handed');
   let bg: HTMLCanvasElement | null = null;
   const safe = root.querySelector<HTMLElement>('.mg-safe')!;
   const resize = () => {
     const dpr = Math.min(2, window.devicePixelRatio || 1);
-    W = root.clientWidth;
+    screenW = root.clientWidth;
     full = root.clientHeight;
-    H = full - safe.offsetHeight;
-    canvas.width = Math.round(W * dpr);
+    screenH = full - safe.offsetHeight;
+    canvas.width = Math.round(screenW * dpr);
     canvas.height = Math.round(full * dpr);
-    canvas.style.width = `${W}px`;
+    canvas.style.width = `${screenW}px`;
     canvas.style.height = `${full}px`;
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     bg = null;
+    if (screenW > screenH) {
+      // Landscape: a stage about a portrait screen's height, scaled to fit. Wide and split stages run edge to
+      // edge (the HUD keeps clear of a notch); a centred one keeps clear of it anyway.
+      layout = spec.landscape ?? 'center';
+      scale = screenH / LAND_STAGE_H;
+      H = LAND_STAGE_H;
+      W = layout === 'center' ? Math.min((screenW - LAND_EDGE * 2) / scale, LAND_CENTER_W) : screenW / scale;
+      ox = (screenW - W * scale) / 2;
+    } else {
+      layout = 'portrait';
+      W = screenW;
+      H = screenH;
+      scale = 1;
+      ox = 0;
+    }
   };
   resize();
   window.addEventListener('resize', resize);
@@ -129,8 +174,13 @@ export function runMinigame(spec: MinigameSpec): void {
       return H;
     },
     get k() {
-      return Math.max(0.8, Math.min(1.6, W / 400));
+      // Its width, or (on a short, wide stage) what a portrait screen of its height would be.
+      return Math.max(0.8, Math.min(1.6, Math.min(W, H * 0.75) / 400));
     },
+    get layout() {
+      return layout;
+    },
+    leftHanded,
     get t() {
       return t;
     },
@@ -185,6 +235,7 @@ export function runMinigame(spec: MinigameSpec): void {
     cancelAnimationFrame(frame);
     window.removeEventListener('resize', resize);
     root.remove();
+    releaseOrientation();
     setMusicRate(1);
     overrideMusic(null);
     setBattleSfx(true);
@@ -202,7 +253,7 @@ export function runMinigame(spec: MinigameSpec): void {
     // A buzz for every tap in play (Settings → Haptics), as on the battlefield.
     buzz();
     const r = canvas.getBoundingClientRect();
-    game.tap(e.clientX - r.left, e.clientY - r.top);
+    game.tap((e.clientX - r.left - ox) / scale, (e.clientY - r.top) / scale);
   });
 
   let last = performance.now();
@@ -215,11 +266,21 @@ export function runMinigame(spec: MinigameSpec): void {
     }
     // A scaled background is laid out bigger, then drawn shrunk to fit (everything in it smaller, further off).
     const bgScale = spec.decor?.scale ?? 1;
-    if (!bg) bg = areaBackground(spec.area, Math.round(W / bgScale), Math.round(full / bgScale), spec.decor);
-    if (bg) g.drawImage(bg, 0, 0, W, full);
+    if (!bg) bg = areaBackground(spec.area, Math.round(screenW / bgScale), Math.round(full / bgScale), spec.decor);
+    if (bg) g.drawImage(bg, 0, 0, screenW, full);
     else {
       g.fillStyle = '#2a3a2a';
-      g.fillRect(0, 0, W, full);
+      g.fillRect(0, 0, screenW, full);
+    }
+    // The game draws on its stage: in landscape, scaled to the screen's height (and centred, when it's narrower).
+    g.save();
+    g.translate(ox, 0);
+    g.scale(scale, scale);
+    if (layout === 'center') {
+      // A centred stage stands out a little from the background either side.
+      g.fillStyle = 'rgba(0,0,0,0.18)';
+      g.fillRect(-6, 0, 6, full / scale);
+      g.fillRect(W, 0, 6, full / scale);
     }
     if (game) {
       game.draw(g);
@@ -253,6 +314,7 @@ export function runMinigame(spec: MinigameSpec): void {
       g.fillText(p.text, p.x, p.y - 30 - p.t * 40);
     }
     g.globalAlpha = 1;
+    g.restore();
     frame = requestAnimationFrame(loop);
   };
   frame = requestAnimationFrame(loop);

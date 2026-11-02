@@ -33,13 +33,33 @@ export interface Dpad {
 /** Room kept clear under the D-pad, so its down button isn't right against the phone's own (home, back) buttons. */
 const DPAD_LIFT = 48;
 
+/** In a split landscape layout, the share of the stage's width the D-pad's column takes (on the handedness side). */
+const PAD_COLUMN = 0.36;
+
+/**
+ * Where the game's own art goes, left to right: the whole stage, or in a split landscape layout the side away
+ * from the D-pad (which sits on the handedness side).
+ */
+export function playArea(api: MinigameApi): { x0: number; x1: number } {
+  if (api.layout !== 'split') return { x0: 0, x1: api.W };
+  const pad = api.W * PAD_COLUMN;
+  return api.leftHanded ? { x0: pad, x1: api.W } : { x0: 0, x1: api.W - pad };
+}
+
 export function dpadAt(api: MinigameApi, size = 1): Dpad {
+  if (api.layout === 'split') {
+    // Its own column on the handedness side, a little below the middle (in reach of a thumb).
+    const col = api.W * PAD_COLUMN;
+    const b = Math.min(68 * size * api.k, col * 0.29, api.H * 0.17);
+    return { x: api.leftHanded ? col / 2 : api.W - col / 2, y: api.H * 0.58, b };
+  }
   const b = Math.min(68 * size * api.k, api.W * 0.29);
   return { x: api.W / 2, y: api.H - b * 1.62 - DPAD_LIFT * api.k, b };
 }
 
-/** The top of the D-pad (so games can keep their art clear of it). */
+/** The top of the D-pad (so games can keep their art clear of it); in a split layout, the stage's bottom. */
 export function dpadTop(api: MinigameApi, size = 1): number {
+  if (api.layout === 'split') return api.H - 56 * api.k;
   const p = dpadAt(api, size);
   return p.y - p.b * 1.62 - 14 * api.k;
 }

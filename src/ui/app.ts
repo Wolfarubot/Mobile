@@ -166,7 +166,7 @@ import { buzz, setHaptics } from './haptics';
 import { applyOrientation } from './orientation';
 import { perfOn, setPerfOn } from './perfMeter';
 import { AREA_MUSIC, GUARDIAN_MUSIC, MINIGAME_MUSIC, playMusic, setMusicVolume, SWARM_MUSIC } from './music';
-import { pressSound, setSfxVolume, sfx } from './sound';
+import { battleSfx, pressSound, setSfxVolume, sfx } from './sound';
 import { JOURNAL, type JournalEntry } from '../core/journal';
 import { App as CapApp } from '@capacitor/app';
 import { MINIGAMES, runMinigame } from './minigames';
@@ -487,6 +487,8 @@ export class AppUI {
     // Materials picked up on the battlefield pop up in its bottom left.
     const pops = new GainPops($('#gainPops'), (m) => gemHtml(m), fmt);
     let lastLoot = -Infinity;
+    /** When recent loot dropped: past LOOT_SOUND_MAX pieces in LOOT_SOUND_WINDOW, the drop sound stays quiet. */
+    const lootTimes: number[] = [];
     game.on((e) => {
       // Not during a Guardian fight: the fight matters more than its drops.
       if (e.type === 'gains' && !game.guardianActive && game.state.settings.pickups) for (const [m, n] of Object.entries(e.materials) as [MaterialId, number][]) pops.add(m, n);
@@ -496,7 +498,14 @@ export class AppUI {
       else if (e.type === 'eventComplete' || e.type === 'finalGuardian') sfx('eventWon');
       else if (e.type === 'eventStart') sfx('eventStart');
       else if (e.type === 'guardianFail') sfx('guardianEscapes');
-      else if (e.type === 'loot' && !e.salvaged) sfx('gearDrop');
+      else if (e.type === 'loot') {
+        // A flood of loot (a big swarm, a rich area) goes quiet rather than ringing on and on; so does loot
+        // that drops while a minigame is open (battleSfx: off over the battlefield then).
+        const now = performance.now();
+        while (lootTimes.length && now - lootTimes[0] > LOOT_SOUND_WINDOW) lootTimes.shift();
+        lootTimes.push(now);
+        if (!e.salvaged && lootTimes.length <= LOOT_SOUND_MAX) battleSfx('gearDrop');
+      }
       if (e.type === 'areaUnlocked' || e.type === 'travel' || e.type === 'unlock' || e.type === 'recruit') this.setTab(this.tab, true);
       else if (e.type === 'eventComplete') this.setTab(this.tab, true); // may have made Hunters available
       else if (e.type === 'finalGuardian' && this.game.state.events['guardian-rift'].completed === 1) this.showRiftConquered();
@@ -4016,6 +4025,7 @@ export class AppUI {
       lives: mg.lives,
       best,
       create: mg.create,
+      landscape: mg.landscape,
       music: MINIGAME_MUSIC[ev.minigame!],
       onEnd: (score) => {
         const before = g.buffLeft(ev.minigame!);
@@ -5675,6 +5685,10 @@ function applyAudio(a: AudioSettings): void {
 
 /** Your Hunter's name (Settings), shown on their card and wherever they're named. */
 let mainHunterName = '';
+/** Past this many pieces of loot in LOOT_SOUND_WINDOW ms, their drop sound is muted until the pace slows. */
+const LOOT_SOUND_MAX = 5;
+const LOOT_SOUND_WINDOW = 10_000;
+
 const mainName = () => mainHunterName || 'You';
 export const MAX_NAME_LENGTH = 16;
 

@@ -155,6 +155,11 @@ export function huntingPractice(api: MinigameApi): MinigameGame {
   monsterSheetImage('slime-green-death');
   const archerSheet = HUNTER_SHEETS.ranger;
 
+  /**
+   * A wide (landscape) clearing is crossed a little quicker, so a slime takes nearly as long to get across as on a
+   * portrait screen (a touch longer: there's more room to aim). 1 on a portrait screen.
+   */
+  const wideness = Math.pow(Math.max(1, api.W / (400 * api.k)), 0.75);
   const spawn = () => {
     const { speed } = hpDifficulty(api.t);
     const fromLeft = Math.random() < 0.5;
@@ -167,7 +172,7 @@ export function huntingPractice(api: MinigameApi): MinigameGame {
       base: top + Math.random() * Math.max(40, bottom - top),
       hop: (22 + Math.random() * 30) * api.k,
       phase: Math.random() * Math.PI,
-      vx: (fromLeft ? 1 : -1) * speed * api.k * (golden ? 1.35 : 0.85 + Math.random() * 0.3),
+      vx: (fromLeft ? 1 : -1) * speed * api.k * wideness * (golden ? 1.35 : 0.85 + Math.random() * 0.3),
       r,
       golden,
       dead: false,

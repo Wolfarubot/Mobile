@@ -10,26 +10,26 @@ import { pixieSerenade, PS_DECOR, PS_INTRO } from './pixieSerenade';
 import { puppetShow, PU_INTRO } from './puppetShow';
 import { runeMatch, RM_INTRO } from './runeMatch';
 import type { DecorOpts } from '../../render/backgrounds';
-import type { MinigameApi, MinigameGame } from './shell';
+import type { LandscapeLayout, MinigameApi, MinigameGame } from './shell';
 import { shootingGallery, SG_DECOR, SG_INTRO } from './shootingGallery';
 
 import { editableData, fromHtml, registerText, txp } from '../../core/textRegistry';
 
 export { runMinigame } from './shell';
 
-/** Every minigame: its title on the intro card, the intro text, lives, and the game itself. */
-export const MINIGAMES: Record<MinigameId, { title: string; intro: string; lives: number; decor?: DecorOpts; create: (api: MinigameApi) => MinigameGame }> = {
-  huntingPractice: { title: '🏹 Hunting Practice', intro: HP_INTRO, lives: HP_LIVES, decor: HP_DECOR, create: huntingPractice },
-  pixieSerenade: { title: '🪕 Pixie Serenade', intro: PS_INTRO, lives: 3, decor: PS_DECOR, create: pixieSerenade },
-  graveRobbing: { title: '🦹 Grave Robbing', intro: GR_INTRO, lives: 3, decor: GR_DECOR, create: graveRobbing },
-  puppetShow: { title: '🎎 Puppet Show', intro: PU_INTRO, lives: 3, create: puppetShow },
-  shootingGallery: { title: '🎯 Shooting Gallery', intro: SG_INTRO, lives: 0, decor: SG_DECOR, create: shootingGallery },
-  forgeStrike: { title: '⚒️ Forge Strike', intro: FS_INTRO, lives: 3, decor: FS_DECOR, create: forgeStrike },
-  runeMatch: { title: '✨ Rune Match', intro: RM_INTRO, lives: 0, create: runeMatch },
-  icebreaker: { title: '🔨 Icebreaker', intro: IB_INTRO, lives: 3, create: icebreaker },
-  clockworkTower: { title: '⚙️ Clockwork Tower', intro: CT_INTRO, lives: 3, create: clockworkTower },
-  highOrLow: { title: '🃏 High or Low', intro: HL_INTRO, lives: 3, create: highOrLow },
-  meteorBounce: { title: '☄️ Meteor Bounce', intro: MB_INTRO, lives: 3, create: meteorBounce },
+/** Every minigame: its title on the intro card, the intro text, lives, how it lays out in landscape, and the game itself. */
+export const MINIGAMES: Record<MinigameId, { title: string; intro: string; lives: number; decor?: DecorOpts; landscape: LandscapeLayout; create: (api: MinigameApi) => MinigameGame }> = {
+  huntingPractice: { title: '🏹 Hunting Practice', intro: HP_INTRO, lives: HP_LIVES, decor: HP_DECOR, landscape: 'wide', create: huntingPractice },
+  pixieSerenade: { title: '🪕 Pixie Serenade', intro: PS_INTRO, lives: 3, decor: PS_DECOR, landscape: 'center', create: pixieSerenade },
+  graveRobbing: { title: '🦹 Grave Robbing', intro: GR_INTRO, lives: 3, decor: GR_DECOR, landscape: 'split', create: graveRobbing },
+  puppetShow: { title: '🎎 Puppet Show', intro: PU_INTRO, lives: 3, landscape: 'split', create: puppetShow },
+  shootingGallery: { title: '🎯 Shooting Gallery', intro: SG_INTRO, lives: 0, decor: SG_DECOR, landscape: 'wide', create: shootingGallery },
+  forgeStrike: { title: '⚒️ Forge Strike', intro: FS_INTRO, lives: 3, decor: FS_DECOR, landscape: 'wide', create: forgeStrike },
+  runeMatch: { title: '✨ Rune Match', intro: RM_INTRO, lives: 0, landscape: 'wide', create: runeMatch },
+  icebreaker: { title: '🔨 Icebreaker', intro: IB_INTRO, lives: 3, landscape: 'center', create: icebreaker },
+  clockworkTower: { title: '⚙️ Clockwork Tower', intro: CT_INTRO, lives: 3, landscape: 'center', create: clockworkTower },
+  highOrLow: { title: '🃏 High or Low', intro: HL_INTRO, lives: 3, landscape: 'center', create: highOrLow },
+  meteorBounce: { title: '☄️ Meteor Bounce', intro: MB_INTRO, lives: 3, landscape: 'center', create: meteorBounce },
 };
 
 // The Text editor can change each game's title and intro (its intro in the editor's markup, shown as paragraphs).

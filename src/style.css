@@ -7449,3 +7449,13 @@ body.landscape:not(.left-handed) .hd-float-close {
 body.landscape.left-handed .hd-float-close {
   left: calc(16px + var(--safe-left) / var(--menu-zoom));
 }
+
+/* Minigames in landscape: the score and Quit keep clear of a camera notch at either side. */
+body.landscape .mg-hud {
+  left: calc(10px + max(28px, env(safe-area-inset-left, 0px)));
+  right: calc(10px + max(28px, env(safe-area-inset-right, 0px)));
+}
+/* In landscape the hearts sit up in the top row (the stage's art below the title has the room). */
+body.landscape .mg-lives {
+  top: calc(8px + var(--safe-top, 0px));
+}

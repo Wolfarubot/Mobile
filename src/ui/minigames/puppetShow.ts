@@ -1,6 +1,6 @@
 import { drawFramedSegments } from '../../render/hudBars';
 import { TITLE_Y, type MinigameApi, type MinigameGame } from './shell';
-import { DIRS, dpadAt, dpadHit, dpadTop, drawDpad, type Dir, DIR_LIST } from './dpad';
+import { DIRS, dpadAt, dpadHit, dpadTop, drawDpad, playArea, type Dir, DIR_LIST } from './dpad';
 import { HUNTER_SHEETS } from '../../render/hunterSheets';
 import { SHEETS, sheetRow } from '../../render/monsterSheets';
 import { hunterSheetImage, monsterSheetImage } from '../../render/sprites';
@@ -54,10 +54,17 @@ export function puppetShow(api: MinigameApi): MinigameGame {
   const stage = () => {
     const top = TITLE_Y + 30;
     const bottom = dpadTop(api, PAD_SIZE);
-    return { top, bottom, floor: Math.min(top + 170 * api.k, bottom - 50 * api.k) };
+    // Beside the D-pad (landscape), the stage stands in the middle of its side; above it, under the title.
+    const floor = api.layout === 'split' ? (top + bottom) / 2 + 50 * api.k : Math.min(top + 170 * api.k, bottom - 50 * api.k);
+    return { top, bottom, floor };
   };
-  const theonAt = () => ({ x: api.W * 0.3, y: stage().floor });
-  const puppetAt = () => ({ x: api.W * 0.68, y: stage().floor });
+  /** Along the play area: the whole width, or the side away from the D-pad (landscape). */
+  const across = (f: number) => {
+    const { x0, x1 } = playArea(api);
+    return x0 + (x1 - x0) * f;
+  };
+  const theonAt = () => ({ x: across(0.3), y: stage().floor });
+  const puppetAt = () => ({ x: across(0.68), y: stage().floor });
   /** Where a hop has carried someone: out and back along its direction (an arc for up). */
   const hopOffset = (h: Hop | null): [number, number] => {
     if (!h) return [0, 0];
@@ -139,7 +146,8 @@ export function puppetShow(api: MinigameApi): MinigameGame {
       g.imageSmoothingEnabled = false;
       // The stage boards: the UI pack's framed bar (public/ui/timer-bar.png) in wood.
       const bs = Math.max(1, Math.round(api.k * 2));
-      drawFramedSegments(g, api.W * 0.06, st.floor - 6 * api.k, bs, (api.W * 0.88) / bs, (18 * api.k) / bs, [[0, 1, '#8a5a32']], '#6a4428');
+      const { x0, x1 } = playArea(api);
+      drawFramedSegments(g, across(0.06), st.floor - 6 * api.k, bs, ((x1 - x0) * 0.88) / bs, (18 * api.k) / bs, [[0, 1, '#8a5a32']], '#6a4428');
 
       // Theon.
       const t = theonAt();
@@ -186,9 +194,9 @@ export function puppetShow(api: MinigameApi): MinigameGame {
       g.lineJoin = 'round';
       g.strokeStyle = '#000';
       const text = phase === 'input' ? 'Your turn!' : phase === 'show' ? 'Watch the puppet…' : oops > 0 ? 'Tangled! Again…' : 'Get ready…';
-      g.strokeText(text, api.W / 2, st.floor + 44 * api.k);
+      g.strokeText(text, across(0.5), st.floor + 44 * api.k);
       g.fillStyle = phase === 'input' ? '#ffe8a3' : '#e8dcc0';
-      g.fillText(text, api.W / 2, st.floor + 44 * api.k);
+      g.fillText(text, across(0.5), st.floor + 44 * api.k);
       g.textBaseline = 'alphabetic';
 
       drawDpad(g, pad(), pressed, lit);
