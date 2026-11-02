@@ -7459,3 +7459,28 @@ body.landscape .mg-hud {
 body.landscape .mg-lives {
   top: calc(8px + var(--safe-top, 0px));
 }
+
+/*
+ * Popups in landscape: wider and a little tighter, so a whole message fits the short screen without scrolling
+ * (clear of a camera notch either side); the Menu's buttons go two to a row.
+ */
+body.landscape .modal {
+  padding: 8px max(28px, env(safe-area-inset-right, 0px)) 8px max(28px, env(safe-area-inset-left, 0px));
+}
+body.landscape .modal-box:not(.fullpage) {
+  width: min(640px, 100%);
+  max-height: calc(100vh - 16px);
+  padding: 12px 22px 14px;
+}
+body.landscape .modal-box .buttons {
+  margin-top: 10px;
+}
+body.landscape .modal-box.sheet {
+  max-height: calc(100vh - 16px);
+}
+body.landscape .modal-box.fullpage {
+  max-width: 720px;
+}
+body.landscape .menu-list {
+  grid-template-columns: 1fr 1fr;
+}
