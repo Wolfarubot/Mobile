@@ -26,6 +26,8 @@ export const FONTS: FontDef[] = [
 
 /** The x-height every font is drawn at: Pixel's, which the UI was sized for. (Terminal, first, is the default.) */
 const BASE_ASPECT = 0.45;
+/** All text a touch bigger than the UI was first sized for, for legibility. */
+const TEXT_SCALE = 1.06;
 
 export const fontDef = (id: string): FontDef => FONTS.find((f) => f.id === id) ?? FONTS[0];
 
@@ -35,6 +37,6 @@ export function applyFont(id: string): void {
   const root = document.documentElement;
   for (const x of FONTS) root.classList.toggle(`font-${x.id}`, x.id === f.id);
   root.style.setProperty('--ui-font', f.family);
-  root.style.setProperty('--font-adjust', String(BASE_ASPECT));
-  setCanvasFont(f.family, BASE_ASPECT / f.aspect);
+  root.style.setProperty('--font-adjust', String(BASE_ASPECT * TEXT_SCALE));
+  setCanvasFont(f.family, (BASE_ASPECT * TEXT_SCALE) / f.aspect);
 }
