@@ -4851,7 +4851,7 @@ export class AppUI {
     tut(sprite(MENU_SPRITES.empower), 'empower', () => this.showEmpowerIntro(true));
     tut(sprite(MENU_SPRITES.eventsLocked), 'eventsLocked', () => this.showEventsLocked());
     tut(sprite(MENU_SPRITES.events), 'events', () => this.showEventsIntro(true));
-    tut(sprite(MENU_SPRITES.events), 'minigames', () => this.showMinigameIntro(true));
+    tut(sprite(MENU_SPRITES.minigames), 'minigames', () => this.showMinigameIntro(true));
     if (this.game.questsOpen) tut(sprite(MENU_SPRITES.quests), 'quests', () => this.showQuestsIntro(true));
     // The story so far, once you've seen it.
     if ((this.game.state.events['guardian-rift']?.completed ?? 0) > 0) tut(sprite(MENU_SPRITES.timeEater), 'timeEater', () => playCutscene(TIME_EATER_CUTSCENE));
@@ -4873,7 +4873,7 @@ export class AppUI {
         const known = GEAR.filter((gd) => gd.weaponClass === id && this.gearKnown(gd));
         const card = el('div', 'card setting tut-card');
         const [, a1, a2] = WEAPON_ARCHETYPES[id];
-        card.innerHTML = `<div class="setting-name">${CLASS_ICONS[id]} ${c.name}</div><p>${c.describe}</p><div class="tut-traits">${weaponTraits(c)
+        card.innerHTML = `<div class="setting-name">${classIcon(id)} ${c.name}</div><p>${c.describe}</p><div class="tut-traits">${weaponTraits(c)
           .map((t) => `<span class="tut-trait">${t}</span>`)
           .join('')}</div><p class="tut-archetypes">Also comes as a <b>${a1.name}</b> (${a1.desc.charAt(0).toLowerCase()}${a1.desc.slice(1, -1)}) or a <b>${a2.name}</b> (${a2.desc.charAt(0).toLowerCase()}${a2.desc.slice(1, -1)}).</p>${id === 'tome' ? txp('tut.weapons.tome.tomeSummons', { types: (Object.keys(SUMMON_TYPES) as SummonType[]).map((t) => SUMMON_TYPES[t].name).join(', ') }) : ''}${known.length ? `<p class="tut-examples">${known.map((gd) => `${gearIcon(gd)} ${gd.name}`).join(' · ')}</p>` : ''}`;
         body.appendChild(card);
@@ -5703,6 +5703,7 @@ const MENU_SPRITES = {
   empower: 'custom/001',
   eventsLocked: 'resources3/029',
   events: 'instruments/033',
+  minigames: 'instruments/014',
   timeEater: 'jewelry/042',
 };
 
@@ -6431,6 +6432,15 @@ function costHtml(g: Game, cost: Partial<Record<MaterialId, number>>, check = tr
     .join('');
 }
 
+/**
+ * A weapon type's icon in the guide: the sprite of its basic weapon (the first of its kind in the catalogue, the
+ * plainest look at the type), so every type has its own, drawn like the weapons themselves.
+ */
+function classIcon(id: WeaponClass): string {
+  const gd = GEAR.find((g) => g.weaponClass === id && !g.special);
+  return gd ? gearIcon(gd).replace('class="gi"', 'class="ei"') : CLASS_ICONS[id];
+}
+
 const CLASS_ICONS: Record<WeaponClass, string> = {
   dagger: '🗡️',
   sword: '⚔️',
@@ -6469,7 +6479,7 @@ function weaponTraits(c: WeaponClassDef): string[] {
   const speed = (r: number) => (r >= 1.3 ? 'Very fast' : r >= 1 ? 'Fast' : r >= 0.75 ? 'Steady' : r >= 0.55 ? 'Slow' : 'Very slow');
   const knock = (k: number) => (k >= 300 ? 'Extreme' : k >= 180 ? 'Strong' : 'Light');
   const out: string[] = [];
-  if (c.summon) out.push(`🐾 Summon lasts ${c.summon.duration}s`);
+  if (c.summon) out.push(`🐾 Summon lasts ${c.summon.duration} seconds`);
   else out.push(`⏱️ ${speed(c.rate)}`);
   out.push(`💢 ${c.damage >= 1.5 ? 'Heavy' : c.damage <= 0.6 ? 'Light' : 'Medium'} hits`);
   if (c.attack === 'shot') out.push(`📏 ${Math.round(c.range * 100)}% range`);
