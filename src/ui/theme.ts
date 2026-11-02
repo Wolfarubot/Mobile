@@ -83,6 +83,8 @@ const hexes = (cs: string[]): number[][] => cs.map((c) => [1, 3, 5].map((o) => p
 const FIXED_SHADES: Record<string, number[][]> = {
   purple: hexes(['#2a0626', '#8a1677', '#ff2fd0', '#ffb8f1']),
   steel: hexes(['#0e1a2b', '#2f4f73', '#6f9ccc', '#d4e6f7']),
+  /** A lit corner button (a filter set, Modify on, a rarity set to salvage): its own frame in gold. */
+  gold: hexes(['#2b1a00', '#8a5a00', '#e8a800', '#ffe9a0']),
 };
 let fixedDone = false;
 

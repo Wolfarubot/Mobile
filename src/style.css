@@ -4279,20 +4279,10 @@ body.left-handed .hd-float-close {
   font-size: 13px;
   text-align: left;
 }
-.auto-salvage .as-chip {
-  padding: 8px 10px;
-}
 .as-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-}
-.as-chip {
-  border-left: 6px solid var(--rc) !important;
-}
-.as-chip.on {
-  background: var(--rc) !important;
-  color: var(--fg) !important;
 }
 .as-now {
   width: 100%;
@@ -4331,10 +4321,12 @@ body .title-row .filter-btn.filter-corner:has(> .btn-ic) {
 .title-row .filter-corner + .filter-corner {
   margin-left: -2px;
 }
-/* Lit (a filter set, Modify on, a rarity set to salvage): a gold ring round the button, as its icon covers it. */
+/* Lit (a filter set, Modify on, a rarity set to salvage): the button's own frame turns gold, as its icon covers it. */
 .title-row .filter-corner.on {
-  outline: 3px solid var(--gold);
-  outline-offset: -1px;
+  border: 3px solid var(--gold);
+}
+body.ui-parchment .title-row .filter-corner.on {
+  border-image: var(--img-btn-gold, var(--img-btnhi)) 3 fill / 9px / 0 stretch !important;
 }
 .filter-bar .filter-chips {
   flex-basis: 100%;
@@ -7541,7 +7533,8 @@ body.ui-parchment .merchant-grid .shop-cell button.buy.mc-trade {
 /* The Filter sheet's choices: white text with a thin black outline, like the game's other buttons (the sheet sets a
    dark text colour that read poorly on their grey). */
 body .filter-options button,
-body .type-cycler button {
+body .type-cycler button,
+body .auto-salvage .as-chip {
   color: #fff !important;
   text-shadow: var(--outline) !important;
 }
@@ -7646,4 +7639,59 @@ body.landscape.ui-parchment .subtabs button:has(> .btn-ic) {
 .area-actions .aa-name {
   flex-shrink: 0;
   max-width: 100%;
+}
+
+/* The crafting card in two columns under its header and tags: stats on the left, the recipe on the right. */
+.field-card .fc-scroll {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: 14px;
+  align-items: start;
+}
+.field-card .fc-head,
+.field-card .feat-tags {
+  grid-column: 1 / -1;
+}
+.field-card .fc-effect {
+  grid-column: 1;
+  grid-row: 3;
+  margin-top: 0;
+}
+.field-card .fc-owned {
+  grid-column: 1;
+  grid-row: 4;
+  align-self: start;
+}
+.field-card .fc-label {
+  display: none;
+}
+.field-card .fc-cost::before {
+  content: 'Recipe';
+  display: block;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 2px;
+}
+.field-card .fc-cost {
+  grid-column: 2;
+  grid-row: 3 / span 2;
+  border-left: 2px solid rgba(0, 0, 0, 0.25);
+  padding-left: 10px;
+  margin-left: -10px;
+}
+.field-card .fc-cost .fc-mat span {
+  white-space: normal;
+  line-height: 1.1;
+}
+/* Its stats in half the card's width: the numbers take only the room they need, and a stat's name wraps between
+   words, never inside one. */
+.field-card .st-row {
+  grid-template-columns: minmax(min-content, 1fr) repeat(var(--cols), auto);
+  gap: 6px 12px;
+}
+.field-card .st-row > span {
+  overflow-wrap: normal;
+  word-break: normal;
 }

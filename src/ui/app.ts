@@ -3135,7 +3135,7 @@ export class AppUI {
       const shown = gear.length + upgrades.length;
       const on = filtering(f);
       invTitle.innerHTML = refining
-        ? `<span>🛠️ Modify</span><span>${shown} piece${shown === 1 ? '' : 's'} with modifier slots</span>`
+        ? `<span>${shown} Item${shown === 1 ? '' : 's'} with Modification slots</span>`
         : `<span>Equipment</span><span>${on ? `${shown} of ${total}` : total} item${total === 1 ? '' : 's'}</span>`;
       invFilterBtn(pane).classList.toggle('on', on);
       filterChips($('.filter-chips', bar), f, () => {
@@ -3520,8 +3520,8 @@ export class AppUI {
     const st = g.state.settings;
     const card = el('div', 'auto-salvage');
     const rarities = Object.keys(RARITIES) as Rarity[];
-    card.innerHTML = `<p class="as-head">Tap the rarities to salvage: looted gear of those rarities turns straight into half its materials as it drops. Equipped gear is never touched.</p><div class="as-chips">${rarities
-      .map((r) => `<button class="chip as-chip" data-r="${r}" style="--rc:${RARITIES[r].color}">${RARITIES[r].name}</button>`)
+    card.innerHTML = `<p class="as-head">Tap the rarities to salvage: looted gear of those rarities turns straight into half its materials as it drops. Equipped gear is never touched.</p><div class="as-chips filter-options rarity-options">${rarities
+      .map((r) => `<button class="as-chip" data-r="${r}" style="--rc:${RARITIES[r].color}">${RARITIES[r].name}</button>`)
       .join('')}</div><button class="buy as-now"></button>`;
     const now = $<HTMLButtonElement>('.as-now', card);
     const spare = () => g.state.inventory.filter((it) => st.autoSalvage.includes(gearDef(it.base).rarity) && !gearDef(it.base).starter && !g.wearerOf(it.uid)).length;
