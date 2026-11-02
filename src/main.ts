@@ -52,6 +52,8 @@ const FRAME_CAP: Record<FrameRate, number> = { '30': 30, '60': 60, max: 0 };
 async function boot(): Promise<void> {
   const saved = await loadGame();
   const game = new Game(saved ?? newGame());
+  // Dev builds: the running game, for test scripts.
+  if (import.meta.env.DEV) (window as unknown as { __game: Game }).__game = game;
   const offline = saved ? game.applyOffline() : null;
 
   let saving = true;

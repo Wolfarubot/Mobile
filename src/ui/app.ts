@@ -281,7 +281,8 @@ function filterChips(chips: HTMLElement, f: InvFilter, clear: () => void): void 
   if (f.level !== 'any') chips.appendChild(el('span', 'filter-chip', LEVEL_FILTERS.find((l) => l.id === f.level)!.name));
   if (f.dtype !== 'any') {
     const dt = f.dtype === 'special' ? SPECIAL_TYPE : DAMAGE_TYPES[f.dtype];
-    const c = el('span', 'filter-chip', `${dt.icon} ${dt.name}`);
+    const c = el('span', 'filter-chip');
+    c.innerHTML = `${f.dtype === 'special' ? specialIcon() : dtIcon(f.dtype)} ${dt.name}`;
     c.style.color = dt.color;
     chips.appendChild(c);
   }
@@ -520,14 +521,16 @@ export class AppUI {
       else if (e.type === 'eventStart' || e.type === 'eventEnd' || e.type === 'guardianFail') this.refresh();
       else if (e.type === 'loot') {
         const d = gearDef(e.gear);
+        const pieceIcon = gearIcon(d).replace('class="gi"', 'class="gem-ic"');
         // A pop-up for loot now and then; when it comes more than once every LOOT_POPUP_GAP (or loot pop-ups are
         // off), it joins the pick-ups instead: the inventory's icon and the piece's, counting up.
         const at = performance.now();
         const quick = at - lastLoot < LOOT_POPUP_GAP;
         lastLoot = at;
         if (game.state.settings.lootPopups && !quick)
-          this.toast(e.salvaged ? txt('toast.gear.salvaged', { item: `${d.icon} ${d.name}` }) : txt('toast.gear.loot', { item: `${d.icon} ${d.name}${e.stars > 1 ? ` ${e.stars}★` : ''}` }));
-        else if (game.state.settings.pickups) pops.addLoot(`${emojiImg('🎒', 'gem-ic')}${gearIcon(d).replace('class="gi"', 'class="gem-ic"')}`);
+          // The piece's own icon (the one in your inventory), not its kind's.
+          this.toast(e.salvaged ? txt('toast.gear.salvaged', { item: `${pieceIcon} ${d.name}` }) : txt('toast.gear.loot', { item: `${pieceIcon} ${d.name}${e.stars > 1 ? ` ${e.stars}★` : ''}` }), true);
+        else if (game.state.settings.pickups) pops.addLoot(`${emojiImg('🎒', 'gem-ic')}${pieceIcon}`);
         if (this.tab === 'inventory') this.setTab('inventory', true);
       }
     });
@@ -1029,8 +1032,8 @@ export class AppUI {
       if (g.specialCooldown(who) !== null) for (const t of g.damageTypesOf(who, 'long', true)) lines.push([def?.special?.name ?? '', t, g.procOf(who, 'long', true)]);
       effectNote.innerHTML = lines
         .filter(([, t, p]) => p > 0 && DAMAGE_TYPES[t].effect)
-        .map(([what, t, p]) => `${DAMAGE_TYPES[t].icon} <b>${what}</b> (${Math.round(p * 100)}% chance): ${DAMAGE_TYPES[t].effect}.`)
-        .concat(special && g.procOf(who) > 0 ? [`${SPECIAL_TYPE.icon} <b>Attacks</b> (${Math.round(g.procOf(who) * 100)}% chance): each element's own status effect.`] : [])
+        .map(([what, t, p]) => `${dtIcon(t)} <b>${what}</b> (${Math.round(p * 100)}% chance): ${DAMAGE_TYPES[t].effect}.`)
+        .concat(special && g.procOf(who) > 0 ? [`${specialIcon()} <b>Attacks</b> (${Math.round(g.procOf(who) * 100)}% chance): each element's own status effect.`] : [])
         .join('<br>');
     });
     if (def && recruited) {
@@ -1089,8 +1092,8 @@ export class AppUI {
       const types = g.damageTypesOf(who);
       const special = !!(g.weaponItem(who) && gearDef(g.weaponItem(who)!.base).special);
       const typeHtml = special
-        ? `<span style="color:${SPECIAL_TYPE.color}" class="dt-cell">${SPECIAL_TYPE.icon} ${SPECIAL_TYPE.name}</span>`
-        : types.map((t) => `<span style="color:${DAMAGE_TYPES[t].color}" class="dt-cell">${DAMAGE_TYPES[t].icon} ${DAMAGE_TYPES[t].name}</span>`).join(' ');
+        ? `<span style="color:${SPECIAL_TYPE.color}" class="dt-cell">${specialIcon()} ${SPECIAL_TYPE.name}</span>`
+        : types.map((t) => `<span style="color:${DAMAGE_TYPES[t].color}" class="dt-cell">${dtIcon(t)} ${DAMAGE_TYPES[t].name}</span>`).join(' ');
       cells.splice(1, 0, [special ? 'Damage type' : types.length > 1 ? (g.perShotOf(who) ? 'Damage types (by shot)' : 'Damage types (split)') : 'Damage type', typeHtml]);
       const cd = g.specialCooldown(who);
       if (cd !== null) {
@@ -1338,7 +1341,7 @@ export class AppUI {
       const a = id && TAP_ABILITIES.find((t) => t.id === id);
       if (!a) return { icon: '💥', name: 'Blast', desc: "A plain blast in your weapon's damage type." };
       const dt = DAMAGE_TYPES[a.damageType];
-      return { icon: a.icon, name: a.name, desc: `${a.desc} <span style="color:${dt.color}">${dt.icon} ${dt.name}</span>` };
+      return { icon: a.icon, name: a.name, desc: `${a.desc} <span style="color:${dt.color}">${dtIcon(a.damageType)} ${dt.name}</span>` };
     };
     const cardHtml = (id: TapAbilityId | null) => {
       const i = info(id);
@@ -3226,9 +3229,9 @@ export class AppUI {
           <div class="filter-options">
             <button data-dtype="any" class="${f.dtype === 'any' ? 'on' : ''}">Any</button>
             ${(Object.keys(DAMAGE_TYPES) as DamageType[])
-              .map((t) => `<button data-dtype="${t}" class="${f.dtype === t ? 'on' : ''}">${DAMAGE_TYPES[t].icon} ${DAMAGE_TYPES[t].name}</button>`)
+              .map((t) => `<button data-dtype="${t}" class="${f.dtype === t ? 'on' : ''}">${dtIcon(t)} ${DAMAGE_TYPES[t].name}</button>`)
               .join('')}
-            <button data-dtype="special" class="${f.dtype === 'special' ? 'on' : ''}">${SPECIAL_TYPE.icon} ${SPECIAL_TYPE.name}</button>
+            <button data-dtype="special" class="${f.dtype === 'special' ? 'on' : ''}">${specialIcon()} ${SPECIAL_TYPE.name}</button>
           </div>
           <div class="filter-label">Bonuses</div>
           <div class="filter-options">
@@ -3556,9 +3559,13 @@ export class AppUI {
     return this.menuFull || !!this.picker || (!!this.detail && !this.detail.el.classList.contains('overlay'));
   }
 
-  private toast(text: string): HTMLElement {
+  /** A short message above the tab bar (`html`: the text holds markup, such as a piece's icon). */
+  private toast(text: string, html = false): HTMLElement {
     const t = el('div', 'toast');
-    t.appendChild(el('span', '', text));
+    const span = el('span');
+    if (html) span.innerHTML = text;
+    else span.textContent = text;
+    t.appendChild(span);
     // Over the battlefield, or floating near the top while it's hidden (full-screen menu, open views).
     if ((this.menuFull || this.picker || this.detail) && !this.landscape) {
       t.classList.add('floating');
@@ -5658,13 +5665,13 @@ function gearCardHtml(it: GearItem, vs: GearItem | null = null): string {
     (!gd.special && gearTypes(gd).length > 1
       ? `<li class="gc-effect">${gd.perShot ? `Each projectile deals one of its types in turn, at full damage` : `Each hit is split evenly between its ${gearTypes(gd).length} types`}</li>`
       : '') +
-    (gd.typeBonus ? `<li class="gc-effect">${DAMAGE_TYPES[gd.typeBonus.type].icon} +${Math.round(gd.typeBonus.bonus * GEAR_STAR_POWER[it.stars] * 100)}% ${DAMAGE_TYPES[gd.typeBonus.type].name} damage</li>` : '') +
+    (gd.typeBonus ? `<li class="gc-effect">${dtIcon(gd.typeBonus.type)} +${Math.round(gd.typeBonus.bonus * GEAR_STAR_POWER[it.stars] * 100)}% ${DAMAGE_TYPES[gd.typeBonus.type].name} damage</li>` : '') +
     // Built-in effects (always there), then the modifier slots: filled ones, then the empty ones.
     (gd.builtIn ?? [])
       .map((bi) => {
         const en = ENCHANTS[bi.id];
         const m: GearMod = { kind: 'enchant', id: bi.id, q: bi.q, p: bi.p };
-        return `<li class="gc-builtin${isUniqueEnchant(en) ? ' unique' : ''}">${en.icon} ${en.name}: ${en.text(modValue(m, gd), modPower(m, gd), enchantTierHit(gd))}</li>`;
+        return `<li class="gc-builtin${isUniqueEnchant(en) ? ' unique' : ''}">${enchantIcon(en)} ${en.name}: ${en.text(modValue(m, gd), modPower(m, gd), enchantTierHit(gd))}</li>`;
       })
       .join('') +
     (it.mods ?? []).filter(Boolean).map((m) => `<li class="gc-mod ${m!.kind}${modPerfect(m!) ? ' perfect' : ''}">${modText(m!, gd)}</li>`).join('') +
@@ -5714,6 +5721,19 @@ const LOOT_SOUND_WINDOW = 10_000;
 
 const mainName = () => mainHunterName || 'You';
 export const MAX_NAME_LENGTH = 16;
+
+/** A damage type's symbol: the same pixel icon as its tag everywhere (filters, stats, tooltips, gear cards). */
+function dtIcon(t: DamageType): string {
+  return tagIconHtml(DAMAGE_TAG_ICONS[t]);
+}
+
+/** An Enchantment's icon; an Infusion shows its element's symbol, as everywhere else. */
+function enchantIcon(e: { icon: string; infuse?: DamageType }): string {
+  return e.infuse ? dtIcon(e.infuse) : e.icon;
+}
+
+/** The Special weapons' symbol, as on their tag. */
+const specialIcon = (): string => tagIconHtml(SPECIAL_TAG_ICON);
 
 /** Escapes text typed by the player before it goes into HTML. */
 /** A pixel sprite from public/icons ("<pack>/<NNN>"), drawn like an emoji's icon (the menu screens use these directly). */
@@ -6309,7 +6329,7 @@ function revealWithPixels(box: HTMLElement, palette: string[], fall: 1 | -1, don
 /** A modifier in words, with its icon (its rolled value on this piece). */
 function modText(m: GearMod, gd: GearDef): string {
   const v = modValue(m, gd);
-  return m.kind === 'refine' ? `${REFINES[m.stat].icon} ${REFINES[m.stat].text(v)}` : `${ENCHANTS[m.id].icon} ${ENCHANTS[m.id].name}: ${ENCHANTS[m.id].text(v, modPower(m, gd), enchantTierHit(gd))}`;
+  return m.kind === 'refine' ? `${REFINES[m.stat].icon} ${REFINES[m.stat].text(v)}` : `${enchantIcon(ENCHANTS[m.id])} ${ENCHANTS[m.id].name}: ${ENCHANTS[m.id].text(v, modPower(m, gd), enchantTierHit(gd))}`;
 }
 
 /**
@@ -6337,9 +6357,9 @@ function dtypeTag(gd: GearDef): string {
 /** What a Special weapon does with its many elements, in words. */
 function specialText(gd: GearDef): string {
   const types = gearTypes(gd);
-  const how = `${gd.perShot ? 'each projectile deals the next element in turn' : 'its hits split between its elements'} (${types.map((t) => DAMAGE_TYPES[t].icon).join('')})`;
+  const how = `${gd.perShot ? 'each projectile deals the next element in turn' : 'its hits split between its elements'} (${types.map((t) => dtIcon(t)).join('')})`;
   const proc = gd.proc ? ` ${tx(advancedTips ? 'tip.gear.specialProcAdvanced' : 'tip.gear.specialProc', { pct: Math.round(gd.proc * 100) })}` : '';
-  return `${SPECIAL_TYPE.icon} ${tx('tip.gear.special', { how, first: DAMAGE_TYPES[types[0]].name })}${proc}`;
+  return `${specialIcon()} ${tx('tip.gear.special', { how, first: DAMAGE_TYPES[types[0]].name })}${proc}`;
 }
 
 /** The Special damage type's tag (weapons that change elements, or deal too many to list). */
