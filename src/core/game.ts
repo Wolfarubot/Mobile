@@ -586,7 +586,22 @@ export class Game {
   }
 
   /** Everything a Hunter's learned skill-tree nodes add up to. */
+  /** tree()'s last answer per Hunter, kept while their skill ranks are unchanged (it's asked for on every hit). */
+  private treeCache = new Map<Wearer, { key: string; out: Record<TreeStat, number> }>();
+
   tree(who: Wearer): Record<TreeStat, number> {
+    const t = this.training(who);
+    let key = this.ascended(who) ? 'A' : 'B';
+    for (const id in t.skills) key += `${id}${t.skills[id]},`;
+    if (t.skills2) for (const id in t.skills2) key += `.${id}${t.skills2[id]},`;
+    const hit = this.treeCache.get(who);
+    if (hit && hit.key === key) return hit.out;
+    const out = this.computeTree(who);
+    this.treeCache.set(who, { key, out });
+    return out;
+  }
+
+  private computeTree(who: Wearer): Record<TreeStat, number> {
     const out: Record<TreeStat, number> = { damage: 0, rate: 0, recovery: 0, crit: 0, range: 0, pierce: 0, radius: 0, bane: 0, guard: 0, rally: 0, gold: 0, drops: 0, tapPower: 0, tapSize: 0, bolts: 0, cooldown: 0, duration: 0, critDamage: 0, multishot: 0, bounces: 0 };
     for (const which of ['base', 'ascended'] as const)
       for (const node of this.skillTree(who, which)) {

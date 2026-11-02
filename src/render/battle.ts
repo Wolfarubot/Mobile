@@ -183,6 +183,7 @@ export class BattleView {
       if (this.banner.life > 2) this.banner = null;
     }
 
+    this.fx.busy = this.field.enemies.length > BUSY_ENEMIES;
     for (const e of this.field.drainEvents()) {
       switch (e.type) {
         case 'hit':
@@ -200,10 +201,15 @@ export class BattleView {
         case 'kill': {
           const color = e.boss ? '#ffd34d' : enemyDef(e.enemy).color;
           sfx(e.boss ? 'guardianKill' : 'kill');
-          if (this.fancy) this.playEffect('puff', e.x, e.y, e.boss ? 90 : 26, 'center', 22);
-          this.fx.burst(e.x, e.y, color, e.boss ? 40 : 8, e.boss ? 260 : 140, e.boss ? 5 : 3, 0);
-          this.dropPickup(e.x, e.y, '#ffd34d', false, e.boss ? 12 : 1);
-          if (e.reward.material) this.dropPickup(e.x, e.y, materialDef(e.reward.material).color, true, Math.min(8, e.reward.amount));
+          // A crowded field (a strong team mowing down a weak area) kills hundreds a second: then a fallen monster
+          // just vanishes, with no puff, a few sparks and only some of its gold flying over (the gold is yours
+          // either way). Guardians always get the full show.
+          const busy = !e.boss && (this.field.enemies.length > BUSY_ENEMIES || this.anims.length > BUSY_ANIMS);
+          if (this.fancy && !busy) this.playEffect('puff', e.x, e.y, e.boss ? 90 : 26, 'center', 22);
+          this.fx.burst(e.x, e.y, color, e.boss ? 40 : busy ? 2 : 8, e.boss ? 260 : 140, e.boss ? 5 : 3, 0);
+          if (e.boss || this.coinBudget(busy)) this.dropPickup(e.x, e.y, '#ffd34d', false, e.boss ? 12 : 1);
+          // Its material flies over too (a few gems for a big drop; one, or none past the cap, on a busy field).
+          if (e.reward.material && this.pickups.length < MAX_PICKUPS) this.dropPickup(e.x, e.y, materialDef(e.reward.material).color, true, busy ? 1 : Math.min(8, e.reward.amount));
           if (e.boss) this.shake = 0.4;
           break;
         }
@@ -415,6 +421,24 @@ export class BattleView {
     g.restore();
   }
 
+  /** Gold coins let fly in the last second, for coinBudget. */
+  private coinTimes: number[] = [];
+
+  /**
+   * Whether a kill's gold coin flies over: at most MAX_COINS in the air at once, and on a busy field at most
+   * BUSY_COINS_PER_SEC a second.
+   */
+  private coinBudget(busy: boolean): boolean {
+    let flying = 0;
+    for (const p of this.pickups) if (!p.gem) flying++;
+    if (flying >= MAX_COINS) return false;
+    const now = this.time;
+    while (this.coinTimes.length && now - this.coinTimes[0] > 1) this.coinTimes.shift();
+    if (busy && this.coinTimes.length >= BUSY_COINS_PER_SEC) return false;
+    this.coinTimes.push(now);
+    return true;
+  }
+
   private dropPickup(x: number, y: number, color: string, gem: boolean, count: number): void {
     if (this.pickups.length > 200) return;
     for (let i = 0; i < count; i++) {
@@ -511,15 +535,20 @@ export class BattleView {
 
     // Pickups under everything else
     for (const p of this.pickups) {
+      // A coin is one stamped image; a gem, its material's colour, a little diamond.
+      if (!p.gem) {
+        g.drawImage(COIN, p.x - p.size, p.y - p.size, p.size * 2, p.size * 2);
+        continue;
+      }
       g.fillStyle = p.color;
       g.beginPath();
-      if (p.gem) {
+      {
         g.moveTo(p.x, p.y - p.size);
         g.lineTo(p.x + p.size * 0.75, p.y);
         g.lineTo(p.x, p.y + p.size);
         g.lineTo(p.x - p.size * 0.75, p.y);
         g.closePath();
-      } else g.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      }
       g.fill();
     }
 
@@ -1411,10 +1440,8 @@ export class BattleView {
       const col = Math.floor(e.phase * (e.fleeing ? 12 : 8)) % sh.cols;
       // Charmed by Norm: pink; chilled by Frost: blue; a gold monster: gold.
       const src = e.charm ? charmTint(sheet) : e.slow && this.fxOn('chill') ? frostTint(sheet) : e.golden ? goldTint(sheet) : sheet;
-      g.fillStyle = 'rgba(0,0,0,0.25)';
-      g.beginPath();
-      g.ellipse(0, ra * 1.1, ra * 0.9, ra * 0.32, 0, 0, Math.PI * 2);
-      g.fill();
+      // Its shadow: one image stamped (cheaper than filling an ellipse for each of hundreds of monsters).
+      g.drawImage(SHADOW, -ra * 0.9, ra * 1.1 - ra * 0.32, ra * 1.8, ra * 0.64);
       // Side-view art faces one way: mirror it when heading the other.
       const flip = sideFlip(sh, dirX);
       if (flip) g.scale(-1, 1);
@@ -1787,7 +1814,17 @@ export class BattleView {
    * their side, and past the DPS meter and cooldown icons along their edge. During an event (a rush) with its bar on
    * their edge, they always sit past the bar, however wide the battlefield. (A Guardian fight hides them.)
    */
+  /** When placeGainPops last ran, and for which event bar (see there). */
+  private gainPopsAt = -1;
+  private gainPopsBar = '';
+
   private placeGainPops(bar: { top: number; bottom: number; left: number; right: number } | null): void {
+    // It measures the HUD around it (which makes the page work out its layout), so it runs a few times a second,
+    // or at once when the event bar appears, goes or moves, rather than every frame.
+    const barKey = bar ? `${bar.top},${bar.bottom},${bar.left},${bar.right}` : '';
+    if (barKey === this.gainPopsBar && this.time - this.gainPopsAt < 0.25 && this.time >= this.gainPopsAt) return;
+    this.gainPopsAt = this.time;
+    this.gainPopsBar = barKey;
     const wrap = this.cooldownBar.el.parentElement;
     const pops = wrap?.querySelector<HTMLElement>('#gainPops');
     if (!pops || pops.classList.contains('hidden')) return;
@@ -2752,29 +2789,41 @@ class CooldownBar {
     return this.lines[i];
   }
 
+  /** The meter's and the field's sizes, measured now and then (see update). */
+  private measured: { key: string; at: number; size: number; meterLen: number; room: number } | null = null;
+
   update(): void {
     const st = this.game.state.settings;
     const list = st.cooldowns ? this.field.cooldowns() : [];
     const pos = st.cooldownPos;
-    this.el.className = `cd-bar cd-${pos}`;
-    this.el.classList.toggle('hidden', !list.length);
+    const cls = `cd-bar cd-${pos}${list.length ? '' : ' hidden'}`;
+    if (this.el.className !== cls) this.el.className = cls;
     const wrap = this.el.parentElement!;
     const meter = wrap.querySelector<HTMLElement>('#dpsMeter');
     const meterOn = !!meter && st.dps && !meter.classList.contains('hidden');
-    const size = meterOn ? meter!.offsetHeight : 26;
     const gap = 6;
     const vertical = pos === 'left' || pos === 'right';
     // The first line shares its edge with the DPS meter when the meter sits on that edge: leave it room.
     const corner = st.dpsCorner;
     const meterHere = meterOn && (pos === 'top' ? corner[0] === 't' : pos === 'bottom' ? corner[0] === 'b' : pos === 'left' ? corner[1] === 'l' : corner[1] === 'r');
-    const meterLen = meterHere ? (vertical ? meter!.offsetHeight : meter!.offsetWidth) + gap : 0;
-    const room = (vertical ? wrap.clientHeight - 12 : wrap.clientWidth - 16) + gap;
+    // Measuring the meter and the field makes the page work out its layout, so it's done twice a second (or when
+    // a setting moves things), not every frame.
+    const key = `${pos}${corner}${meterOn}`;
+    const now = performance.now();
+    if (!this.measured || this.measured.key !== key || now - this.measured.at > 500) {
+      const size = meterOn ? meter!.offsetHeight || 26 : 26;
+      const meterLen = meterHere ? (vertical ? meter!.offsetHeight : meter!.offsetWidth) + gap : 0;
+      const room = (vertical ? wrap.clientHeight - 12 : wrap.clientWidth - 16) + gap;
+      this.measured = { key, at: now, size, meterLen, room };
+    }
+    const { size, meterLen, room } = this.measured;
     const perLine = Math.max(1, Math.floor(room / (size + gap)));
     // Keep the first line clear of the meter, leaving the same room at both ends so the icons stay centred.
     const firstLine = Math.max(0, Math.floor((room - 2 * meterLen) / (size + gap)));
     const first = this.line(0);
-    first.style.padding = meterHere ? (vertical ? `${meterLen}px 0` : `0 ${meterLen}px`) : '0';
-    this.el.style.setProperty('--cd-size', `${size}px`);
+    const pad = meterHere ? (vertical ? `${meterLen}px 0` : `0 ${meterLen}px`) : '0';
+    if (first.style.padding !== pad && !(pad === '0' && first.style.padding === '0px')) first.style.padding = pad;
+    if (this.el.style.getPropertyValue('--cd-size') !== `${size}px`) this.el.style.setProperty('--cd-size', `${size}px`);
     const seen = new Set<string>();
     list.forEach((c, i) => {
       seen.add(c.key);
@@ -2984,6 +3033,40 @@ const ARC_FIRST = 4;
 
 /** The smash sheet's first frame of its outward burst (before it, sparks gather). */
 const SMASH_START = 4;
+
+/** A soft-edged black ellipse at 25%, drawn once and stamped under each walking monster. */
+const SHADOW = (() => {
+  const c = document.createElement('canvas');
+  c.width = 64;
+  c.height = 24;
+  const g = c.getContext('2d')!;
+  g.fillStyle = 'rgba(0,0,0,0.25)';
+  g.beginPath();
+  g.ellipse(32, 12, 32, 12, 0, 0, Math.PI * 2);
+  g.fill();
+  return c;
+})();
+
+/** A gold coin, drawn once and stamped for each one flying to the Hunter. */
+const COIN = (() => {
+  const c = document.createElement('canvas');
+  c.width = c.height = 16;
+  const g = c.getContext('2d')!;
+  g.fillStyle = '#ffd34d';
+  g.beginPath();
+  g.arc(8, 8, 8, 0, Math.PI * 2);
+  g.fill();
+  return c;
+})();
+
+/** A field this crowded (monsters, or animated effects playing) skips the small touches on each kill. */
+const BUSY_ENEMIES = 70;
+const BUSY_ANIMS = 40;
+/** Gold coins in the air at once, and let fly a second on a busy field. */
+const MAX_COINS = 40;
+const BUSY_COINS_PER_SEC = 12;
+/** Gold and gems in the air at once, in all. */
+const MAX_PICKUPS = 90;
 
 /** Frames a second for strike effects: a quick thrust, a heavier punch. */
 const STRIKE_FPS = { thrust: 36, fist: 24 };

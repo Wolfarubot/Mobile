@@ -5302,18 +5302,10 @@ body.ui-parchment .tabs button.active {
 .gain-pop.rare b {
   color: #ffd86e;
 }
-.gain-pop b.bump {
-  animation: gain-bump 0.2s ease-out;
-}
 @keyframes gain-in {
   from {
     opacity: 0;
     transform: translateX(var(--gain-from, -10px));
-  }
-}
-@keyframes gain-bump {
-  50% {
-    transform: scale(1.25);
   }
 }
 

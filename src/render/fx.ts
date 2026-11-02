@@ -41,6 +41,8 @@ export class Fx {
   /** The view's zoom (world to screen), and the smallest text drawn on screen, in CSS pixels, so it stays legible. */
   zoom = 1;
   minTextPx = 7;
+  /** A crowded field (see BattleView): fewer particles, trails and floating numbers at once, to keep frames quick. */
+  busy = false;
   particles: Particle[] = [];
   /** Projectile trails: their own pool, so a busy volley never crowds out hit bursts. */
   trails: Particle[] = [];
@@ -49,7 +51,7 @@ export class Fx {
 
   /** Particle burst. Pass gravity 0 for top-down scenes. */
   burst(x: number, y: number, color: string, count = 14, speed = 220, size = 5, gravity = 600, square = false): void {
-    if (this.particles.length > 400) return;
+    if (this.particles.length > (this.busy ? 150 : 400)) return;
     for (let i = 0; i < count; i++) {
       const a = Math.random() * Math.PI * 2;
       const v = speed * (0.4 + Math.random() * 0.8);
@@ -70,12 +72,12 @@ export class Fx {
 
   /** One trail particle left behind a projectile (dropped when the pool is full). */
   trail(x: number, y: number, vx: number, vy: number, color: string, size: number, max: number, gravity = 0, square = false): void {
-    if (this.trails.length > 300) return;
+    if (this.trails.length > (this.busy ? 120 : 300)) return;
     this.trails.push({ x, y, vx, vy, life: 0, max, size, color, gravity, square });
   }
 
   text(x: number, y: number, text: string, color = '#fff', size = 22, max = 0.9): void {
-    if (this.floaters.length > 45) this.floaters.shift();
+    if (this.floaters.length > (this.busy ? 20 : 45)) this.floaters.shift();
     this.floaters.push({ x: x + (Math.random() - 0.5) * 60, y: y + (Math.random() - 0.5) * 24, text, color, size, life: 0, max });
   }
 
@@ -118,6 +120,11 @@ export class Fx {
       g.fillStyle = p.color;
       if (p.square) {
         g.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+        continue;
+      }
+      // A small round one is a square (the same at a few pixels, and far cheaper than a circle); a big one a circle.
+      if (p.size * this.zoom < 4) {
+        g.fillRect(p.x - p.size * 0.85, p.y - p.size * 0.85, p.size * 1.7, p.size * 1.7);
         continue;
       }
       g.beginPath();

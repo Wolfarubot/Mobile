@@ -87,6 +87,7 @@ async function boot(): Promise<void> {
   if (import.meta.env.DEV) (window as unknown as { __field: Field }).__field = field;
   const canvas = document.getElementById('battle') as HTMLCanvasElement;
   const battle = new BattleView(canvas, game, field);
+  if (import.meta.env.DEV) (window as unknown as { __battle: BattleView }).__battle = battle;
   // Areas → Details → Observe: another area's battlefield with just the Hunters stationed there, run on a copy of
   // the save (what happens in it isn't kept; their real gains go on as usual) and drawn instead of yours.
   let obs: { area: AreaId; game: Game; field: Field; battle: BattleView } | null = null;
@@ -139,8 +140,9 @@ async function boot(): Promise<void> {
     };
     let tick = 0;
     let fieldMs = 0;
-    // Substep so fast bullets can't skip past enemies on a slow frame.
-    const steps = Math.ceil(dt / (1 / 30));
+    // Substep so fast bullets can't skip past enemies on a slow frame, but at most 4 steps: on a struggling phone,
+    // catching up a long frame in many small steps would only make the next frame longer still.
+    const steps = Math.min(4, Math.ceil(dt / (1 / 30)));
     for (let i = 0; i < steps; i++) {
       game.tick(dt / steps);
       if (timed) tick += lap();

@@ -21,6 +21,9 @@ interface Row {
  */
 export class GainPops {
   private rows: Row[] = [];
+  /** Rows whose count changed since the last frame (see flushSoon). */
+  private dirty = new Set<Row>();
+  private flushing = false;
 
   constructor(
     readonly el: HTMLElement,
@@ -46,8 +49,9 @@ export class GainPops {
     const row = this.rows.find((r) => r.m === m);
     if (row) {
       row.n += n;
-      row.count.textContent = `+${this.fmt(row.n)}`;
-      this.bump(row);
+      // The count's text and its pulse wait for the next frame: hundreds of pick-ups a second change it once.
+      this.dirty.add(row);
+      this.flushSoon();
       this.arm(row);
       return row;
     }
@@ -76,15 +80,33 @@ export class GainPops {
     r.timer = window.setTimeout(() => this.remove(r), GAIN_POP_MS);
   }
 
-  /** Restarts the count's little pulse. */
+  /** Writes the changed counts once, on the next frame, each with its little pulse. */
+  private flushSoon(): void {
+    if (this.flushing) return;
+    this.flushing = true;
+    requestAnimationFrame(() => {
+      this.flushing = false;
+      for (const r of this.dirty) {
+        if (!r.el.isConnected) continue;
+        r.count.textContent = `+${this.fmt(r.n)}`;
+        this.bump(r);
+      }
+      this.dirty.clear();
+    });
+  }
+
+  /**
+   * Restarts the count's little pulse: the Web Animations API, so a restart doesn't make the page work out its
+   * layout again (removing and re-adding a CSS animation class did, on every pick-up).
+   */
   private bump(r: Row): void {
-    r.count.classList.remove('bump');
-    void r.count.offsetWidth;
-    r.count.classList.add('bump');
+    r.count.getAnimations?.().forEach((a) => a.cancel());
+    r.count.animate?.([{ transform: 'scale(1)' }, { transform: 'scale(1.25)' }, { transform: 'scale(1)' }], { duration: 200, easing: 'ease-out' });
   }
 
   private remove(r: Row): void {
     clearTimeout(r.timer);
+    this.dirty.delete(r);
     r.el.remove();
     this.rows = this.rows.filter((x) => x !== r);
   }
