@@ -9,8 +9,11 @@ import type { MinigameApi, MinigameGame } from './shell';
  * effect, Norm's idle animation (squashing for a moment on a bounce), and shard and explosion effects.
  */
 
+/** A quieter Meteor Field: few of its rocks and shooting stars, and none down the middle, so the falling ones stand out. */
+export const MB_DECOR = { bands: 1, density: 0.35, clear: 0.7 };
+
 export const MB_INTRO =
-  "<p>Meteorites are falling! <b>Tap</b> where Norm should go: he slides there, and any meteorite that hits him bounces back into space.</p><p>Small ones are 1 point. <b>Big ones</b> are 2, and crack in two on the way up: catch both halves too. <b>Comets</b> are fast, and worth 3.</p><p>One that lands costs a heart.</p>";
+  "<p>Meteorites are falling! <b>Tap</b> where Norm should go, or <b>hold and slide</b> your finger and he follows it. Any meteorite that hits him bounces back into space.</p><p>Small ones are 1 point. <b>Big ones</b> are 2, and crack in two on the way up: catch both halves too. <b>Comets</b> are fast, and worth 3.</p><p>One that lands costs a heart.</p>";
 
 type Kind = 'small' | 'big' | 'comet';
 
@@ -29,7 +32,8 @@ interface Rock {
   spin: number;
 }
 
-const SIZE: Record<Kind, number> = { small: 13, big: 22, comet: 10 };
+/** Drawn a size up from the rocks' own, so they read against the dark field. */
+const SIZE: Record<Kind, number> = { small: 16, big: 27, comet: 12 };
 const POINTS: Record<Kind, number> = { small: 1, big: 2, comet: 3 };
 const NORM_SPEED = 900;
 /** The Meteor Field's rocks (public/backgrounds/meteors): small ones and the big one. */
@@ -62,6 +66,10 @@ export function meteorBounce(api: MinigameApi): MinigameGame {
 
   return {
     tap(x) {
+      target = Math.max(normW() / 2, Math.min(api.W - normW() / 2, x));
+    },
+    // Hold and slide: Norm keeps heading wherever the finger is.
+    drag(x) {
       target = Math.max(normW() / 2, Math.min(api.W - normW() / 2, x));
     },
     step(dt) {
@@ -115,9 +123,25 @@ export function meteorBounce(api: MinigameApi): MinigameGame {
       }
     },
     draw(g) {
+      // Where each falling one will come down: a shadow on the ground, darker and tighter as it nears.
+      for (const r of rocks) {
+        if (r.up) continue;
+        const s = SIZE[r.kind] * k();
+        const near = Math.max(0, Math.min(1, r.y / ground()));
+        g.fillStyle = `rgba(0,0,0,${0.18 + 0.32 * near})`;
+        g.beginPath();
+        g.ellipse(r.x + r.vx * ((ground() - r.y) / Math.max(1, r.vy)), ground() - 4 * k(), s * (1.6 - 0.5 * near), s * (0.5 - 0.15 * near), 0, 0, Math.PI * 2);
+        g.fill();
+      }
       for (const r of rocks) {
         const s = SIZE[r.kind] * k();
         const heading = Math.atan2(r.vy, r.vx);
+        // A bright glow round each one, so it stands out from the dark sky.
+        const glow = g.createRadialGradient(r.x, r.y, 0, r.x, r.y, s * 2.4);
+        glow.addColorStop(0, r.kind === 'comet' ? 'rgba(180,230,255,0.75)' : 'rgba(255,214,140,0.7)');
+        glow.addColorStop(1, 'rgba(255,170,80,0)');
+        g.fillStyle = glow;
+        g.fillRect(r.x - s * 2.4, r.y - s * 2.4, s * 4.8, s * 4.8);
         if (r.kind === 'comet') {
           // The shooting star, turned to fly the way it's going.
           drawArt(g, COMET, r.x - Math.cos(heading) * s * 2, r.y - Math.sin(heading) * s * 2, s * 7, heading - COMET_HEADING);

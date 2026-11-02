@@ -48,6 +48,8 @@ export interface MinigameGame {
   step(dt: number): void;
   draw(g: CanvasRenderingContext2D): void;
   tap(x: number, y: number): void;
+  /** The finger moving while it's down (after its tap), for games that follow it. */
+  drag?(x: number, y: number): void;
   /** Shown after the game's title at the top (e.g. the time left). */
   titleSuffix?(): string;
 }
@@ -254,7 +256,16 @@ export function runMinigame(spec: MinigameSpec): void {
     buzz();
     const r = canvas.getBoundingClientRect();
     game.tap((e.clientX - r.left - ox) / scale, (e.clientY - r.top) / scale);
+    held = e.pointerId;
   });
+  // A finger held down and moving: games that follow it (Meteor Bounce's Norm) get each move.
+  let held: number | null = null;
+  canvas.addEventListener('pointermove', (e) => {
+    if (e.pointerId !== held || !running || !game?.drag) return;
+    const r = canvas.getBoundingClientRect();
+    game.drag((e.clientX - r.left - ox) / scale, (e.clientY - r.top) / scale);
+  });
+  for (const t of ['pointerup', 'pointercancel'] as const) canvas.addEventListener(t, (e) => e.pointerId === held && (held = null));
 
   let last = performance.now();
   const loop = (now: number) => {

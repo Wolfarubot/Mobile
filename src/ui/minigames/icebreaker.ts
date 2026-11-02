@@ -9,6 +9,8 @@ import type { MinigameApi, MinigameGame } from './shell';
  */
 
 const ICICLE = 'minigames/icicle';
+/** How far in from each side icicles fall (at a 400px-wide screen), so none overlaps the area's border. */
+const SIDE_MARGIN = 56;
 /** The Frost Peaks' rocks along the camp's edge. */
 const CAMP_ROCKS = ['backgrounds/peaks/r_Rock2', 'backgrounds/peaks/r_Rock11', 'backgrounds/peaks/r_Rock12', 'backgrounds/peaks/r_Rock13'];
 
@@ -52,7 +54,9 @@ export function icebreaker(api: MinigameApi): MinigameGame {
       spawnIn -= dt;
       if (spawnIn <= 0) {
         const big = Math.random() < 0.18;
-        ice.push({ x: 30 + Math.random() * (api.W - 60), y: -10, vy: Math.min(420, (95 + api.t * 4.5) * (big ? 0.7 : 1 + Math.random() * 0.3)) * api.k, big, hp: big ? 2 : 1 });
+        // Clear of the area's border down each side: its edge, plus the icicle's own half-width.
+        const m = SIDE_MARGIN * api.k + size(big) * 1.2;
+        ice.push({ x: m + Math.random() * Math.max(0, api.W - m * 2), y: -10, vy: Math.min(420, (95 + api.t * 4.5) * (big ? 0.7 : 1 + Math.random() * 0.3)) * api.k, big, hp: big ? 2 : 1 });
         spawnIn = Math.max(0.3, 1.0 - api.t * 0.011);
       }
       for (let i = ice.length - 1; i >= 0; i--) {

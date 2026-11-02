@@ -5,7 +5,7 @@ import { graveRobbing, GR_DECOR, GR_INTRO } from './graveRobbing';
 import { huntingPractice, HP_DECOR, HP_INTRO, HP_LIVES } from './huntingPractice';
 import { highOrLow, HL_INTRO } from './highOrLow';
 import { icebreaker, IB_INTRO } from './icebreaker';
-import { meteorBounce, MB_INTRO } from './meteorBounce';
+import { meteorBounce, MB_DECOR, MB_INTRO } from './meteorBounce';
 import { pixieSerenade, PS_DECOR, PS_INTRO } from './pixieSerenade';
 import { puppetShow, PU_INTRO } from './puppetShow';
 import { runeMatch, RM_INTRO } from './runeMatch';
@@ -29,7 +29,7 @@ export const MINIGAMES: Record<MinigameId, { title: string; intro: string; lives
   icebreaker: { title: '🔨 Icebreaker', intro: IB_INTRO, lives: 3, landscape: 'center', create: icebreaker },
   clockworkTower: { title: '⚙️ Clockwork Tower', intro: CT_INTRO, lives: 3, landscape: 'center', create: clockworkTower },
   highOrLow: { title: '🃏 High or Low', intro: HL_INTRO, lives: 3, landscape: 'center', create: highOrLow },
-  meteorBounce: { title: '☄️ Meteor Bounce', intro: MB_INTRO, lives: 3, landscape: 'center', create: meteorBounce },
+  meteorBounce: { title: '☄️ Meteor Bounce', intro: MB_INTRO, lives: 3, decor: MB_DECOR, landscape: 'center', create: meteorBounce },
 };
 
 // The Text editor can change each game's title and intro (its intro in the editor's markup, shown as paragraphs).
