@@ -1,6 +1,5 @@
 import type { MinigameId } from '../../core/balance';
 import { cardHop, CH_INTRO } from './cardHop';
-import { clockworkTower, CT_INTRO } from './clockworkTower';
 import { forgeStrike, FS_DECOR, FS_INTRO } from './forgeStrike';
 import { graveRobbing, GR_DECOR, GR_INTRO } from './graveRobbing';
 import { huntingPractice, HP_DECOR, HP_INTRO, HP_LIVES } from './huntingPractice';
@@ -12,6 +11,7 @@ import { runeMatch, RM_INTRO } from './runeMatch';
 import type { DecorOpts } from '../../render/backgrounds';
 import type { LandscapeLayout, MinigameApi, MinigameGame } from './shell';
 import { shootingGallery, SG_DECOR, SG_INTRO } from './shootingGallery';
+import { workbenchSort, WS_INTRO } from './workbenchSort';
 
 import { editableData, fromHtml, registerText, txp } from '../../core/textRegistry';
 
@@ -27,7 +27,7 @@ export const MINIGAMES: Record<MinigameId, { title: string; intro: string; lives
   forgeStrike: { title: '⚒️ Forge Strike', intro: FS_INTRO, lives: 3, decor: FS_DECOR, landscape: 'wide', create: forgeStrike },
   runeMatch: { title: '✨ Rune Match', intro: RM_INTRO, lives: 0, landscape: 'wide', create: runeMatch },
   icebreaker: { title: '🔨 Icebreaker', intro: IB_INTRO, lives: 3, landscape: 'center', create: icebreaker },
-  clockworkTower: { title: '⚙️ Clockwork Tower', intro: CT_INTRO, lives: 3, landscape: 'center', create: clockworkTower },
+  clockworkTower: { title: '⚙️ Workbench Sort', intro: WS_INTRO, lives: 3, landscape: 'center', create: workbenchSort },
   highOrLow: { title: '🃏 Card Hop', intro: CH_INTRO, lives: 3, landscape: 'center', create: cardHop },
   meteorBounce: { title: '☄️ Meteor Bounce', intro: MB_INTRO, lives: 3, decor: MB_DECOR, landscape: 'center', create: meteorBounce },
 };

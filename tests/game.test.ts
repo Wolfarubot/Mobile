@@ -179,6 +179,7 @@ import { mergeSample, runSample, SAMPLE_KEEP } from '../src/core/sampler';
 import { GATED } from '../src/core/gates';
 import { boardCells, RM_BOARDS } from '../src/ui/minigames/runeMatch';
 import { cardPoints, followsOn } from '../src/ui/minigames/cardHop';
+import { sortBin, workbenchSort, WS_TIME } from '../src/ui/minigames/workbenchSort';
 import { dayKey as dayKeyOf, Game, questsDone, weekKey as weekKeyOf } from '../src/core/game';
 import { deserialize, FX_KEYS, newGame as startingGame, SAVE_VERSION, serialize, type GameState } from '../src/core/state';
 
@@ -1650,6 +1651,57 @@ describe('Equipment', () => {
     expect(followsOn(5, 13)).toBe(true); // onto a Joker
     expect(followsOn(13, 9)).toBe(true); // and off it, to anything
     expect(followsOn(3, 3)).toBe(false);
+  });
+
+  it("Reginald's Workbench Sort: each part's bin by type, rarity and element; a minute of play scores and ends", () => {
+    const by = (id: GearId) => gearDef(id);
+    expect(sortBin(by('shortSword'), 'type')).toBe(0);
+    expect(sortBin(by('commonClothes'), 'type')).toBe(1);
+    expect(sortBin(by('mithrilBand'), 'type')).toBe(2);
+    expect(sortBin(by('shortSword'), 'rarity')).toBe(0); // common
+    expect(sortBin(by('prismRing'), 'rarity')).toBe(2); // exalted
+    const fire = GEAR.find((g) => g.damageType === 'fire' && !g.extraTypes?.length)!;
+    expect(sortBin(fire, 'element')).toBe(0);
+    // A minute on a stand-in stage, tapping the bins in turn: parts land (right or wrong), and it ends on time.
+    let t = 0;
+    let score = 0;
+    let lives = 3;
+    let ended = false;
+    const api = {
+      W: 400,
+      H: 760,
+      k: 1,
+      layout: 'portrait' as const,
+      leftHanded: false,
+      get t() {
+        return t;
+      },
+      get score() {
+        return score;
+      },
+      get lives() {
+        return lives;
+      },
+      addScore: (n: number) => (score += n),
+      loseLife: () => (lives = Math.max(0, lives - 1)),
+      pop: () => {},
+      end: () => (ended = true),
+      icon: () => false,
+    };
+    const game = workbenchSort(api);
+    let lost = 0;
+    for (let i = 0; t < WS_TIME + 0.1; i++) {
+      t += 1 / 30;
+      game.step(1 / 30);
+      if (i % 20 === 0) game.tap(60 + ((i / 20) % 3) * 133, 700);
+      if (lives < 3) {
+        lost += 3 - lives;
+        lives = 3; // keep playing past the hearts, to run the whole minute
+      }
+    }
+    expect(ended).toBe(true);
+    expect(score).toBeGreaterThan(0);
+    expect(lost).toBeGreaterThan(0);
   });
 
   it("Marceline's Rune Match boards grow 2x2, 3x3 (no middle), 4x4 ... 8x8, always an even number of cards", () => {

@@ -4846,12 +4846,12 @@ const AREA_MINIGAMES: Partial<Record<AreaId, Omit<EventDef, 'area' | 'kind' | 'u
   },
   cliffs: {
     id: 'clockworkTower',
-    name: "Reginald's Clockwork Tower",
+    name: "Reginald's Workbench Sort",
     icon: '⚙️',
-    blurb: 'A gear swings over the tower: tap to drop it so its teeth mesh with the one below. Whatever hangs over the edge is shaved off.',
+    blurb: 'Gear rides the conveyor across his workbench: tap a bin to sort each part before it falls off the end. The bins sort by type, then rarity, then element.',
     minigame: 'clockworkTower',
     hunter: 'artificer',
-    rewards: { gold: MINIGAME_GOLD, par: 30, materials: [{ material: 'orichalcum', per: 4 }, { material: 'skysteel', per: 4 }, { material: 'skystone', per: 2 }, { material: 'plume', per: 1 }] },
+    rewards: { gold: MINIGAME_GOLD, par: 35, materials: [{ material: 'orichalcum', per: 4 }, { material: 'skysteel', per: 4 }, { material: 'skystone', per: 2 }, { material: 'plume', per: 1 }] },
   },
   fortress: {
     id: 'highOrLow',
