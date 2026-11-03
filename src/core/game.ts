@@ -1242,7 +1242,7 @@ export class Game {
    * Rolls a slot, for gold: `modChoices` random modifiers that fit the piece (different ones while there are
    * enough), each at a random strength. They wait on the piece until you pick one (see chooseMod).
    */
-  rollMod(uid: number, slot: number, kind: 'refine' | 'enchant'): GearMod[] | null {
+  rollMod(uid: number, slot: number, kind: 'refine' | 'enchant', reroll = false): GearMod[] | null {
     const item = this.gearItem(uid);
     if (!item || item.pending || !(kind === 'refine' ? this.canRefine(uid, slot) : this.canEnchant(uid, slot))) return null;
     const options: GearMod[] = [];
@@ -1278,6 +1278,10 @@ export class Game {
     this.state.gold -= gold;
     invest(item, gold, mats);
     item.pending = { slot, kind, options };
+    const st = this.state.stats;
+    if (reroll) st.rerolls++;
+    else if (kind === 'refine') st.refines++;
+    else st.enchants++;
     return options;
   }
 
@@ -1305,7 +1309,7 @@ export class Game {
     const p = item?.pending;
     if (!item || !p || !this.canReroll(uid)) return null;
     item.pending = undefined;
-    const options = this.rollMod(uid, p.slot, p.kind);
+    const options = this.rollMod(uid, p.slot, p.kind, true);
     if (!options) item.pending = p;
     return options;
   }
@@ -1331,6 +1335,7 @@ export class Game {
     this.spend(cost);
     const item: GearItem = { uid: this.state.nextGearUid++, base: id, stars: 1, invested: { gold: 0, mats: { ...cost } } };
     this.state.inventory.push(item);
+    this.state.stats.gearCrafted++;
     return item;
   }
 
@@ -1363,6 +1368,7 @@ export class Game {
     const item = this.gearItem(uid)!;
     invest(item, gold, mats);
     item.stars++;
+    this.state.stats.starsAdded++;
     return true;
   }
 
@@ -1395,6 +1401,7 @@ export class Game {
     this.state.gold += this.salvageGold(uid);
     for (const [m, n] of Object.entries(refund) as [MaterialId, number][]) this.state.materials[m] += n;
     this.state.inventory = this.state.inventory.filter((g) => g.uid !== uid);
+    this.state.stats.salvaged++;
     return true;
   }
 
@@ -1935,6 +1942,7 @@ export class Game {
     const q = this.state.quests;
     if (q.dailyClaimed || !questsDone(this.dailyQuests)) return false;
     q.dailyClaimed = true;
+    this.state.stats.dailies++;
     this.state.gems += GEMS_DAILY;
     return true;
   }
@@ -1943,6 +1951,7 @@ export class Game {
     const q = this.state.quests;
     if (q.weeklyClaimed || !questsDone(this.weeklyQuests)) return false;
     q.weeklyClaimed = true;
+    this.state.stats.weeklies++;
     this.state.gems += GEMS_WEEKLY;
     return true;
   }
@@ -2072,6 +2081,14 @@ export class Game {
     return this.goldRate;
   }
 
+  /** Counts seconds of play and keeps the best DPS and gold per second seen (the Account page's records). */
+  notePlay(dt: number): void {
+    const st = this.state.stats;
+    st.played += dt;
+    st.bestDps = Math.max(st.bestDps, this.dps);
+    st.bestGps = Math.max(st.bestGps, this.goldPerSecond());
+  }
+
   /** Stars (0 to 3) a minigame score earns. */
   starsFor(id: string, score: number): number {
     return score > 0 ? minigameStars(eventDef(id)).filter((t) => score >= t).length : 0;
@@ -2115,6 +2132,9 @@ export class Game {
     const st = this.state.events[id];
     if (!st) return;
     st.completed++;
+    const kind = eventDef(id).kind;
+    if (kind === 'swarm') this.state.stats.swarms++;
+    else if (kind === 'minigame') this.state.stats.minigames++;
     // Minigames count toward quests from finishMinigame, with their stars.
     if (eventDef(id).kind !== 'minigame') this.questEvent(id);
     this.emit({ type: 'eventComplete', event: id });
@@ -2278,6 +2298,7 @@ export class Game {
     const stars = this.rng() < LOOT_TWO_STAR + BUFF_LOOT_TWO_STAR * this.buffPower('highOrLow') ? 2 : 1;
     const salvaged = this.state.settings.autoSalvage.includes(def.rarity);
     if (salvaged) {
+      this.state.stats.salvaged++;
       for (let l = 0; l < stars; l++)
         for (const [m, n] of Object.entries(gearCost(def, l)) as [MaterialId, number][]) this.gainMaterial(m, Math.floor(n * SALVAGE_REFUND));
     } else this.state.inventory.push({ uid: this.state.nextGearUid++, base: def.id, stars, invested: { gold: 0, mats: {} } });
@@ -2856,6 +2877,7 @@ export class Game {
     if (!this.canRecruit(id)) return false;
     this.state.gold -= this.recruitCost(id);
     this.state.hunters[id].recruited = true;
+    this.state.stats.recruits++;
     this.outfitRecruit(id);
     // New recruits join you where you are, if there's room.
     this.station(id, this.state.area);
@@ -2959,6 +2981,7 @@ export class Game {
     if (!this.empowerUnlocked || !this.isUnlocked(id) || p.count <= 0 || this.state.gold < p.cost) return false;
     this.state.gold -= p.cost;
     this.state.bestiary[id].empower += p.count;
+    this.state.stats.empowers += p.count;
     return true;
   }
 
@@ -3021,6 +3044,7 @@ export class Game {
     if (!this.canEvolve(id, node)) return false;
     const evo = this.state.bestiary[id].evo;
     evo[node] = (evo[node] ?? 0) + 1;
+    this.state.stats.evolves++;
     return true;
   }
 
@@ -3057,6 +3081,7 @@ export class Game {
     const cost = itemCost(itemDef(id), this.state.items[id]);
     for (const [m, n] of Object.entries(cost) as [MaterialId, number][]) this.state.materials[m] -= n;
     this.state.items[id]++;
+    this.state.stats.upgrades++;
     return true;
   }
 
@@ -3091,6 +3116,7 @@ export class Game {
     const s = this.state;
     const { away, seconds } = capAway((now - s.lastSeen) / 1000, this.offlineCapSec());
     this.coolEvents(away);
+    s.stats.away += seconds;
     const result: OfflineResult = { away, seconds, kills: 0, gold: 0, materials: {}, areas: [], knockouts: 0, loot: [] };
     const add = (area: AreaId, hunters: Shooter[], r: ReturnType<Game['accrue']>) => {
       result.kills += r.kills;

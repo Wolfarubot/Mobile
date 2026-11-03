@@ -7721,3 +7721,144 @@ body.landscape.ui-parchment .subtabs button:has(> .btn-ic) {
 canvas.ev-silhouette {
   image-rendering: pixelated;
 }
+
+/* ---- Account (Menu → Account) ---- */
+.account-card {
+  display: grid;
+  gap: 10px;
+}
+.account-signin {
+  width: 100%;
+  padding: 12px;
+  font-size: 17px;
+}
+.account-who {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: center;
+}
+.account-who small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.account-who.signed-in {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+}
+.account-who.signed-in > span:last-child {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.account-who.signed-in b {
+  overflow-wrap: anywhere;
+}
+.account-badge,
+.signin-btn .sb-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #fff;
+  color: #000;
+}
+.account-badge svg,
+.signin-btn .sb-icon svg {
+  width: 20px;
+  height: 20px;
+}
+.account-badge.apple {
+  background: #000;
+  color: #fff;
+}
+.account-stats .stats span.sub {
+  padding-left: 14px;
+  opacity: 0.8;
+}
+.account-delete .danger-btn {
+  width: 100%;
+}
+.account-delete .buy.danger-btn:not(:disabled) {
+  background: #b8322a;
+  color: #fff;
+}
+body.ui-parchment .account-delete .buy.danger-btn:not(:disabled) {
+  border-image: var(--img-btn-red, var(--img-btn)) 3 fill / 9px / 0 stretch !important;
+}
+.account-delete .danger-btn:disabled {
+  opacity: 0.45;
+}
+.signin-list {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 4px;
+}
+.signin-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 800;
+  text-align: left;
+  background: #fff;
+  color: #1f1f1f;
+  border: 1px solid #747775;
+  text-shadow: none;
+}
+.signin-btn .sb-icon {
+  width: 28px;
+  height: 28px;
+  background: transparent;
+}
+.signin-btn.apple {
+  background: #000;
+  color: #fff;
+  border-color: #000;
+}
+.signin-btn.apple .sb-icon {
+  color: #fff;
+}
+.signin-btn.email {
+  background: var(--card-hi);
+  color: #fff;
+  border-color: transparent;
+}
+.signin-btn.email .sb-icon {
+  color: #fff;
+}
+.signin-soon {
+  font-size: 12px;
+  opacity: 0.8;
+}
+.signin-form {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+  text-align: left;
+}
+.signin-form label {
+  display: grid;
+  gap: 4px;
+}
+.signin-form .name-input {
+  width: 100%;
+  box-sizing: border-box;
+}
+.signin-actions {
+  display: flex;
+  gap: 8px;
+}
+.signin-actions button {
+  flex: 1;
+  padding: 10px;
+}
+.signin-forgot {
+  justify-self: center;
+}

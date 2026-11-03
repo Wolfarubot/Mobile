@@ -54,6 +54,7 @@ async function boot(): Promise<void> {
   const game = new Game(saved ?? newGame());
   // Dev builds: the running game, for test scripts.
   if (import.meta.env.DEV) (window as unknown as { __game: Game }).__game = game;
+  if (import.meta.env.DEV) void import('./ui/account').then((m) => ((window as unknown as { __account: unknown }).__account = { fake: m.devFakeSignIn, signOut: m.signOut }));
   const offline = saved ? game.applyOffline() : null;
 
   let saving = true;
@@ -118,6 +119,7 @@ async function boot(): Promise<void> {
 
   // Main loop: simulation runs every frame; the DOM refreshes on a slower cadence.
   let last = performance.now();
+  let playAcc = 0;
   let uiAcc = 0;
   let saveAcc = 0;
   const frame = (now: number) => {
@@ -148,6 +150,12 @@ async function boot(): Promise<void> {
       if (timed) tick += lap();
       field.update(dt / steps);
       if (timed) fieldMs += lap();
+    }
+    // Time played and the best DPS and gold per second, for the Account page (checked once a second).
+    playAcc += dt;
+    if (playAcc >= 1) {
+      game.notePlay(playAcc);
+      playAcc = 0;
     }
     if (obs) {
       // Observing: your field keeps fighting unseen; the observed one runs and is drawn.

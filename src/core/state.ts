@@ -344,6 +344,36 @@ export interface GameState {
     looted?: number;
     /** Every material ever gained, per material (spending doesn't lower it). */
     matGained: Partial<Record<MaterialId, number>>;
+    /** Lifetime records for the Account page (all kept through Regression). Counted from when they were added. */
+    /** Epoch ms the save was started (older saves: their current run's start). */
+    started: number;
+    /** Seconds played with the game open, and seconds away that were paid out. */
+    played: number;
+    away: number;
+    /** Gear crafted, stars added to gear, pieces salvaged (by hand or Auto Salvage), Upgrades crafted. */
+    gearCrafted: number;
+    starsAdded: number;
+    salvaged: number;
+    upgrades: number;
+    /** Refine and Enchant rolls, and rerolls of either. */
+    refines: number;
+    enchants: number;
+    rerolls: number;
+    /** Hunters recruited, Empower sessions, Evolution ranks. */
+    recruits: number;
+    empowers: number;
+    evolves: number;
+    /** Swarms survived, minigames finished with a score, daily and weekly quest sets collected. */
+    swarms: number;
+    minigames: number;
+    dailies: number;
+    weeklies: number;
+    /** The highest DPS (your Hunter's) and gold per second seen. */
+    bestDps: number;
+    bestGps: number;
+    /** The fastest run that ended in a Regression (seconds; 0 before the first) and the most shards one paid. */
+    fastestRun: number;
+    mostShards: number;
   };
 }
 
@@ -416,7 +446,11 @@ export function newGame(now = Date.now()): GameState {
     events: Object.fromEntries(EVENTS.map((e) => [e.id, { runs: 0, completed: 0 }])),
     seen: { journal: [], recipes: [], beasts: [], events: [], gearUid: 3, init: true },
     buyAmount: 1,
-    stats: { totalKills: 0, totalGold: 0, taps: 0, escaped: 0, guardians: 0, hunterKills: {}, matGained: {} },
+    stats: {
+      totalKills: 0, totalGold: 0, taps: 0, escaped: 0, guardians: 0, hunterKills: {}, matGained: {},
+      started: now, played: 0, away: 0, gearCrafted: 0, starsAdded: 0, salvaged: 0, upgrades: 0, refines: 0, enchants: 0, rerolls: 0,
+      recruits: 0, empowers: 0, evolves: 0, swarms: 0, minigames: 0, dailies: 0, weeklies: 0, bestDps: 0, bestGps: 0, fastestRun: 0, mostShards: 0,
+    },
   };
 }
 
@@ -652,6 +686,12 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
 
   const base = newGame(now);
   const stats = { ...base.stats, ...((data.stats as object) ?? {}) };
+  // The Account page's records arrived later: older saves count them from now, and date the save from its run.
+  for (const k of Object.keys(base.stats) as Array<keyof typeof base.stats>) if (k !== 'hunterKills' && k !== 'matGained' && !(typeof stats[k] === 'number' && Number.isFinite(stats[k]))) (stats as Record<string, unknown>)[k] = base.stats[k];
+  if (!(data.stats as { started?: unknown } | undefined)?.started) {
+    const rs = (data.regression as { runStart?: unknown } | undefined)?.runStart;
+    if (typeof rs === 'number' && Number.isFinite(rs) && rs > 0 && rs < now) stats.started = rs;
+  }
   for (const k of ['deaths', 'prestiges', 'best']) delete (stats as Record<string, unknown>)[k];
   // Per-Hunter kills arrived after v5; older saves start them at 0.
   stats.hunterKills = Object.fromEntries(

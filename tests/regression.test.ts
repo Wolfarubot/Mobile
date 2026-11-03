@@ -94,6 +94,9 @@ describe('Regression', () => {
     expect(serialize(old)).toBe(snapshot); // the old run is untouched
     expect(shards).toBe(shardsFor(worth));
     expect(shards).toBeGreaterThan(0);
+    // The Account page's records: this run's length and shards.
+    expect(s.stats.fastestRun).toBe((1_000_000 - old.regression.runStart) / 1000);
+    expect(s.stats.mostShards).toBe(shards);
     // Kept.
     expect(s.main.trains).toBe(500);
     expect(s.main.skills).toEqual({ root: 1 });

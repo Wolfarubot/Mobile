@@ -5998,3 +5998,38 @@ describe('Quests', () => {
     expect(days.size).toBeGreaterThan(8); // they vary from day to day
   });
 });
+
+describe('Account stats', () => {
+  const stocked = () => {
+    const s = newGame(0);
+    for (const m of Object.keys(s.materials) as Array<keyof typeof s.materials>) s.materials[m] = 1e6;
+    return new Game(veteran(s), noCrit);
+  };
+  it('counts crafting, stars, refines, enchants, rerolls, salvage and Upgrades; play time and records', () => {
+    const g = stocked();
+    g.state.gold = 1e30;
+    g.state.hunters.blacksmith.recruited = true;
+    const bow = g.craftGear('cinderBow')!;
+    expect(g.state.stats.gearCrafted).toBe(1);
+    expect(g.upgradeGear(bow.uid)).toBe(true);
+    expect(g.state.stats.starsAdded).toBe(1);
+    expect(g.rollMod(bow.uid, 0, 'refine')).not.toBeNull();
+    expect(g.rerollMod(bow.uid)).not.toBeNull();
+    g.chooseMod(bow.uid, 0);
+    expect(g.state.stats).toMatchObject({ refines: 1, rerolls: 1, enchants: 0 });
+    expect(g.salvageGear(bow.uid)).toBe(true);
+    expect(g.state.stats.salvaged).toBe(1);
+    g.notePlay(2.5);
+    expect(g.state.stats.played).toBe(2.5);
+    expect(g.state.stats.bestDps).toBe(g.dps);
+    expect(g.state.stats.bestGps).toBeGreaterThanOrEqual(0);
+  });
+
+  it('older saves get the new stats at zero and are dated from their run', () => {
+    const old = JSON.parse(serialize(startingGame(5000))) as Record<string, unknown> & { stats: Record<string, unknown>; regression: { runStart: number } };
+    old.stats = { totalKills: 9, totalGold: 1, taps: 0, escaped: 0, guardians: 0, hunterKills: {}, matGained: {} };
+    old.regression.runStart = 1234;
+    const s = deserialize(JSON.stringify(old), 99_999)!;
+    expect(s.stats).toMatchObject({ totalKills: 9, started: 1234, played: 0, refines: 0, fastestRun: 0 });
+  });
+});

@@ -85,6 +85,8 @@ const FIXED_SHADES: Record<string, number[][]> = {
   steel: hexes(['#0e1a2b', '#2f4f73', '#6f9ccc', '#d4e6f7']),
   /** A lit corner button (a filter set, Modify on, a rarity set to salvage): its own frame in gold. */
   gold: hexes(['#2b1a00', '#8a5a00', '#e8a800', '#ffe9a0']),
+  /** Something you can't undo (Delete Account). */
+  red: hexes(['#2b0606', '#8a1616', '#e03a2f', '#ffc0b8']),
 };
 let fixedDone = false;
 

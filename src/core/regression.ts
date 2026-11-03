@@ -104,6 +104,9 @@ export function regress(old: GameState, now: number): { state: GameState; shards
   s.settings = copy(old.settings);
   s.flags = copy(old.flags);
   s.stats = copy(old.stats);
+  const ran = Math.max(0, (now - old.regression.runStart) / 1000);
+  s.stats.fastestRun = s.stats.fastestRun > 0 ? Math.min(s.stats.fastestRun, ran) : ran;
+  s.stats.mostShards = Math.max(s.stats.mostShards, shards);
   s.gems = old.gems;
   s.premium = [...old.premium];
   s.noAds = old.noAds;
