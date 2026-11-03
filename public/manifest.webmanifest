@@ -1,0 +1,11 @@
+{
+  "name": "Pocket Hunter",
+  "short_name": "Pocket Hunter",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#14101f",
+  "theme_color": "#14101f",
+  "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
+}
