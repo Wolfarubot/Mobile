@@ -1,4 +1,4 @@
-import type { AreaId, EnemyId, MaterialId } from './balance';
+import { MINIGAME_BUFFS, type AreaId, type EnemyId, type MaterialId, type MinigameId } from './balance';
 import { Field } from './field';
 import { Game, type Shooter } from './game';
 import { deserialize, type FieldSample } from './state';
@@ -36,6 +36,10 @@ export function runSample(job: SampleJob, rng: () => number = Math.random): Samp
   state.area = job.area;
   // Only the group is on this field; everyone else stays home (and no background farming runs in the copy).
   for (const [id, h] of Object.entries(state.hunters)) h.station = h.recruited && job.group.includes(id as Shooter) ? job.area : null;
+  // Without timed minigame buffs: the sample is the group's own pace, and the buffs running at any time scale it
+  // (Game.ratesFor), so a buff ending doesn't leave a boosted sample behind.
+  for (const id of Object.keys(state.buffs) as MinigameId[]) if (MINIGAME_BUFFS[id].kind === 'timed') delete state.buffs[id];
+  state.echo = {};
   const game = new Game(state, rng);
   const field = new Field(game, job.group[0]);
   field.setView(job.view.w, job.view.h);

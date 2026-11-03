@@ -76,8 +76,6 @@ import {
   BUFF_GOLD,
   BUFF_HYMN,
   BUFF_KEEN_EYE,
-  BUFF_SLAYER,
-  BUFF_SLAYER_TIME,
   BUFF_OVERCLOCK,
   BUFF_LOOT,
   BUFF_LOOT_TWO_STAR,
@@ -319,10 +317,8 @@ export class Game {
   /** The wall clock (ms), for daily and weekly resets; tests set their own. */
   clock: () => number = () => Date.now();
   private questAge = 0;
-  /** Okrin's Giant Slayer is working on the Guardian Challenge in progress. */
-  private slayer = false;
-  /** Offline gains are being worked out (timed buffs don't count). */
-  private away = false;
+  /** While true, timed buffs count as off (for working out how much they add to farming rates). */
+  private noBuffs = false;
   /** goldPerSecond's last measure, and seconds since. */
   private goldRate: number | null = null;
   private goldRateAge = 0;
@@ -1466,7 +1462,7 @@ export class Game {
 
   /** The Guardian's health: less with a Giant Slayer charge spent on this challenge (as if hit harder). */
   get guardianHp(): number {
-    return (areaDef(this.state.area).guardian * this.regMult('enemyHp')) / (this.slayer ? 1 + BUFF_SLAYER : 1);
+    return areaDef(this.state.area).guardian * this.regMult('enemyHp');
   }
 
   travel(id: AreaId): boolean {
@@ -1521,8 +1517,11 @@ export class Game {
   }
 
   /** Energy an event costs to start. */
+  /** Energy an event costs: a Guardian Challenge costs none while you hold a Giant Slayer charge (Okrin's Icebreaker). */
   energyCost(id: string): number {
-    return eventEnergyCost(eventDef(id));
+    const def = eventDef(id);
+    if (def.kind === 'guardian' && this.buffLeft('icebreaker') >= 1) return 0;
+    return eventEnergyCost(def);
   }
 
   /** Seconds until the next whole point of energy (0 when full). */
@@ -1540,7 +1539,7 @@ export class Game {
 
   /** A buff is working: charges held, or time left (timed ones only while you play, not for time away). */
   buffOn(id: MinigameId): boolean {
-    return this.buffLeft(id) > 0 && !(this.away && MINIGAME_BUFFS[id].kind === 'timed');
+    return this.buffLeft(id) > 0 && !(this.noBuffs && MINIGAME_BUFFS[id].kind === 'timed');
   }
 
   /** How strongly a buff works: 0 when off, 1 when on, ECHO_MULT while a Rift Echo play's doubled time lasts. */
@@ -2015,8 +2014,8 @@ export class Game {
     st.runs++;
     if (def.kind === 'guardian') {
       this.guardianActive = true;
-      // Okrin's Giant Slayer: a charge is spent on this challenge.
-      this.slayer = this.spendBuff('icebreaker');
+      // Okrin's Giant Slayer: a charge pays for this challenge (it cost no energy).
+      this.spendBuff('icebreaker');
       this.emit({ type: 'guardianChallenge' });
     } else {
       this.activeEvent = { id, left: def.duration };
@@ -2141,12 +2140,11 @@ export class Game {
   /** Field calls this when it puts the Guardian on the field. */
   bossSpawned(): void {
     this.bossAlive = true;
-    this.bossTimer = GUARDIAN_TIME + (this.slayer ? BUFF_SLAYER_TIME : 0);
+    this.bossTimer = GUARDIAN_TIME;
   }
 
   private endGuardian(): void {
     this.guardianActive = false;
-    this.slayer = false;
     this.bossAlive = false;
     this.bossTimer = 0;
   }
@@ -2543,9 +2541,26 @@ export class Game {
     return out;
   }
 
-  /** A group's farming rates in an area: measured on its background battlefield if it has been, else estimated. */
+  /**
+   * A group's farming rates in an area: measured on its background battlefield if it has been (samples run without
+   * timed buffs), scaled by what the timed minigame buffs running now add; else estimated, buffs and all.
+   */
   ratesFor(area: AreaId, group: Shooter[], efficiency = 1): FarmRates {
-    return this.measuredRates(area, group, efficiency) ?? this.farmRates(area, group, efficiency);
+    const measured = this.measuredRates(area, group, efficiency);
+    if (!measured) return this.farmRates(area, group, efficiency);
+    if (!(Object.keys(MINIGAME_BUFFS) as MinigameId[]).some((id) => MINIGAME_BUFFS[id].kind === 'timed' && this.buffOn(id))) return measured;
+    // What the buffs add, from the estimate with and without them: more kills (attack speed, crits, cooldowns,
+    // gear stars), more gold, more materials.
+    const on = this.farmRates(area, group, efficiency);
+    this.noBuffs = true;
+    const off = this.farmRates(area, group, efficiency);
+    this.noBuffs = false;
+    const ratio = (a: number, b: number) => (b > 0 ? a / b : 1);
+    const k = ratio(on.killsTotal, off.killsTotal);
+    const out: FarmRates = { ...measured, kills: {}, killsTotal: measured.killsTotal * k, gold: measured.gold * ratio(on.gold, off.gold), materials: {} };
+    for (const [id, n] of Object.entries(measured.kills) as [EnemyId, number][]) out.kills[id] = n * k;
+    for (const [m, n] of Object.entries(measured.materials) as [MaterialId, number][]) out.materials[m] = n * (off.materials[m] ? ratio(on.materials[m] ?? 0, off.materials[m]!) : k);
+    return out;
   }
 
   /** Applies `seconds` of farming yield, carrying fractions so slow trickles still pay out. */
@@ -3067,33 +3082,63 @@ export class Game {
     return true;
   }
 
-  /** Applies progress for time spent away: you (plus anyone stationed with you) and every stationed Hunter. */
+  /**
+   * Applies progress for time spent away: you (plus anyone stationed with you) and every stationed Hunter. Timed
+   * minigame buffs work while you're away and run down as they would in play: the time away is split where each one
+   * runs out, and every stretch is farmed with the buffs still going then.
+   */
   applyOffline(now = Date.now()): OfflineResult {
     const s = this.state;
     const { away, seconds } = capAway((now - s.lastSeen) / 1000, this.offlineCapSec());
     this.coolEvents(away);
-    // Timed buffs only run while you play, so they don't count while you're away.
-    this.away = true;
     const result: OfflineResult = { away, seconds, kills: 0, gold: 0, materials: {}, areas: [], knockouts: 0, loot: [] };
     const add = (area: AreaId, hunters: Shooter[], r: ReturnType<Game['accrue']>) => {
       result.kills += r.kills;
       result.gold += r.gold;
       for (const [m, n] of Object.entries(r.materials) as [MaterialId, number][]) result.materials[m] = (result.materials[m] ?? 0) + n;
-      result.areas.push({ area, hunters, ...r });
       for (const n of Object.values(r.knockouts)) result.knockouts += n ?? 0;
       result.loot.push(...r.loot);
+      // One line per area, however many stretches it was farmed in.
+      const row = result.areas.find((x) => x.area === area);
+      if (!row) {
+        result.areas.push({ area, hunters, ...r, materials: { ...r.materials }, knockouts: { ...r.knockouts }, loot: [...r.loot] });
+        return;
+      }
+      row.kills += r.kills;
+      row.gold += r.gold;
+      for (const [m, n] of Object.entries(r.materials) as [MaterialId, number][]) row.materials[m] = (row.materials[m] ?? 0) + n;
+      for (const [k, n] of Object.entries(r.knockouts) as [Shooter, number][]) row.knockouts[k] = (row.knockouts[k] ?? 0) + n;
+      row.loot.push(...r.loot);
     };
     const withYou: Shooter[] = ['main', ...this.helpersHere];
     // The Dreamcatcher upgrades: more of everything earned while away.
     const dream = this.premiumMult('offline') * this.regMult('offline');
-    add(s.area, withYou, this.accrue(s.area, this.ratesFor(s.area, withYou, OFFLINE_EFFICIENCY * dream), seconds, true));
-    for (const area of AREAS) {
-      const group = this.stationedIn(area.id);
-      if (area.id === s.area || !group.length) continue;
-      add(area.id, group, this.accrue(area.id, this.ratesFor(area.id, group, STATION_EFFICIENCY * OFFLINE_EFFICIENCY * dream), seconds, true));
+    // The timed buffs' time left (and a Rift Echo's doubled time) at the start; the stretches end where one runs out.
+    const timed = (Object.keys(MINIGAME_BUFFS) as MinigameId[]).filter((id) => MINIGAME_BUFFS[id].kind === 'timed');
+    const left0 = Object.fromEntries(timed.map((id) => [id, s.buffs[id] ?? 0])) as Record<MinigameId, number>;
+    const echo0 = { ...s.echo };
+    const cuts = [...new Set([0, seconds, ...timed.flatMap((id) => [left0[id], echo0[id] ?? 0]).filter((t) => t > 0 && t < seconds)])].sort((x, y) => x - y);
+    for (let i = 0; i + 1 < cuts.length; i++) {
+      const from = cuts[i];
+      const span = cuts[i + 1] - from;
+      if (span <= 0) continue;
+      for (const id of timed) s.buffs[id] = Math.max(0, left0[id] - from);
+      for (const id of Object.keys(echo0) as MinigameId[]) s.echo[id] = Math.max(0, echo0[id]! - from);
+      add(s.area, withYou, this.accrue(s.area, this.ratesFor(s.area, withYou, OFFLINE_EFFICIENCY * dream), span, true));
+      for (const area of AREAS) {
+        const group = this.stationedIn(area.id);
+        if (area.id === s.area || !group.length) continue;
+        add(area.id, group, this.accrue(area.id, this.ratesFor(area.id, group, STATION_EFFICIENCY * OFFLINE_EFFICIENCY * dream), span, true));
+      }
+    }
+    // The buffs ran down over the time away.
+    for (const id of timed) if (left0[id] > 0) s.buffs[id] = Math.max(0, left0[id] - away);
+    for (const id of Object.keys(echo0) as MinigameId[]) {
+      const e = Math.max(0, echo0[id]! - away);
+      if (e > 0) s.echo[id] = e;
+      else delete s.echo[id];
     }
     s.lastSeen = now;
-    this.away = false;
     // Stardust (Norm's Meteor Bounce): a charge doubles what a long enough time away brought in.
     if (seconds >= STARDUST_MIN_AWAY && (result.gold > 0 || Object.keys(result.materials).length) && this.spendBuff('meteorBounce')) {
       result.stardust = true;

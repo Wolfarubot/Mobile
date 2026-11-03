@@ -90,8 +90,6 @@ import {
   BUFF_GOLD,
   BUFF_HYMN,
   BUFF_KEEN_EYE,
-  BUFF_SLAYER,
-  BUFF_SLAYER_TIME,
   BUFF_LOOT_TWO_STAR,
   WEEKLY_DAILIES,
   questText,
@@ -4162,7 +4160,7 @@ describe('Events', () => {
     expect(g.state.events.huntingPractice.best).toBe(23);
   });
 
-  it('minigame buffs: plays fill a capped tank by score, timed ones run down only while you play, and each works', () => {
+  it('minigame buffs: plays fill a capped tank by score, timed ones run down (in play and away), and each works', () => {
     const g = new Game(newGame(0), noCrit);
     g.state.hunters.ranger.recruited = true;
     const par = eventDef('huntingPractice').rewards!.par;
@@ -4181,7 +4179,7 @@ describe('Events', () => {
     expect(g.buffLeft('huntingPractice')).toBeCloseTo(MINIGAME_BUFFS.huntingPractice.cap - 100);
     g.state.lastSeen = 0;
     g.applyOffline(3600 * 1000);
-    expect(g.buffLeft('huntingPractice')).toBeCloseTo(MINIGAME_BUFFS.huntingPractice.cap - 100); // not while away
+    expect(g.buffLeft('huntingPractice')).toBeCloseTo(MINIGAME_BUFFS.huntingPractice.cap - 100 - 3600); // and while away
     g.tick(1e6);
     expect(g.buffOn('huntingPractice')).toBe(false);
     // The others: attack speed, kill gold, cooldowns, crits.
@@ -4196,19 +4194,41 @@ describe('Events', () => {
     expect(g.cooldownMult('main')).toBeCloseTo(cd * (1 - BUFF_ENCORE));
     expect(g.critChanceOf('main')).toBeCloseTo(crit + BUFF_CRIT);
     expect(g.critMultOf('main')).toBeCloseTo(critMult + CRIT_MULT * BUFF_CRIT_DMG);
-    // Giant Slayer: a charge spent on the next Guardian Challenge, which has less health and more time.
+    // Giant Slayer: a charge pays for the next Guardian Challenge instead of energy (the fight itself is as ever).
     g.state.hunters.frostbreaker.recruited = true;
     g.state.areas.forest.kills = areaDef('forest').mastery;
     g.state.events.slimeSwarm.completed = 1;
     g.finishMinigame('icebreaker', eventDef('icebreaker').rewards!.par);
     expect(g.buffLeft('icebreaker')).toBe(1);
+    expect(g.energyCost('guardian-forest')).toBe(0);
+    g.state.energy = 0;
     expect(g.challengeGuardian()).toBe(true);
     expect(g.buffLeft('icebreaker')).toBe(0);
-    expect(g.guardianHp).toBeCloseTo(areaDef('forest').guardian / (1 + BUFF_SLAYER));
-    g.bossSpawned();
-    expect(g.bossTimer).toBe(GUARDIAN_TIME + BUFF_SLAYER_TIME);
-    g.tick(GUARDIAN_TIME + BUFF_SLAYER_TIME + 1); // it leaves
+    expect(g.state.energy).toBe(0);
+    expect(g.energyCost('guardian-forest')).toBeGreaterThan(0);
     expect(g.guardianHp).toBe(areaDef('forest').guardian);
+    g.bossSpawned();
+    expect(g.bossTimer).toBe(GUARDIAN_TIME);
+  });
+
+  it('timed minigame buffs work while you are away, for as long as they last, and run down over it', () => {
+    const away = (buffed: boolean) => {
+      const s = newGame(0);
+      s.gold = 0;
+      s.areas.forest.kills = 1e6;
+      if (buffed) s.buffs.graveRobbing = 600; // Sticky Fingers: +gold, 10 minutes of it
+      const g = new Game(s, noCrit);
+      s.lastSeen = Date.now() - 3600 * 1000;
+      const r = g.applyOffline(Date.now());
+      return { r, g };
+    };
+    const plain = away(false).r;
+    const { r, g } = away(true);
+    expect(r.gold).toBeGreaterThan(plain.gold);
+    // Only the first 10 minutes of the hour were boosted: (50 + 10 × (1 + BUFF_GOLD)) / 60 as much.
+    expect(r.gold / plain.gold).toBeCloseTo((50 + 10 * (1 + BUFF_GOLD)) / 60, 2);
+    expect(g.buffLeft('graveRobbing')).toBe(0);
+    expect(r.areas.filter((a) => a.area === g.area)).toHaveLength(1);
   });
 
   it('the quest log opens once you reach the Restless Graveyard, with fresh quests', () => {

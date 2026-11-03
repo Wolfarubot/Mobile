@@ -4717,9 +4717,9 @@ export const MINIGAME_INCOME = 20 * 60;
 
 /**
  * Each minigame's lasting buff, filled by playing it. A timed buff holds `per` seconds for a par score (more or less
- * by score, from half to one and a half times), up to `cap`, and runs down only while the game is open. A charge
- * buff gains `per` charges a play (Forge Strike and Rune Match only for a score that earns a blessing), up to `cap`,
- * and each is spent on the next thing it helps.
+ * by score, from half to one and a half times), up to `cap`, and runs down in play and while you're away, working
+ * for your Hunters either way. A charge buff gains `per` charges a play (Forge Strike and Rune Match only for a
+ * score that earns a blessing), up to `cap`, and each is spent on the next thing it helps.
  */
 export interface MinigameBuff {
   name: string;
@@ -4735,8 +4735,6 @@ export const BUFF_ENCORE = 0.2;
 export const BUFF_CRIT = 0.05;
 export const BUFF_CRIT_DMG = 0.25;
 /** Giant Slayer: the Guardian has 1 / (1 + this) of its health (as if you hit it this much harder), and more time. */
-export const BUFF_SLAYER = 0.5;
-export const BUFF_SLAYER_TIME = 30;
 /** Overclock: extra stars every Hunter's gear works at. */
 export const BUFF_OVERCLOCK = 1;
 /** Loaded Dice: extra loot chance (1: twice as often), and the extra chance a piece comes as 2★. */
@@ -4753,7 +4751,7 @@ export const MINIGAME_BUFFS: Record<MinigameId, MinigameBuff> = {
   shootingGallery: { name: 'Dead Eye', ...TIMED, desc: `+${BUFF_CRIT * 100}% crit chance and +${BUFF_CRIT_DMG * 100}% crit damage for every Hunter.` },
   forgeStrike: { name: 'Forge Blessing', kind: 'charges', per: 2, cap: 6, desc: 'Each charge blesses one Refine: every choice rolls its quality 1 to 3 extra times (by your best score) and keeps the best.' },
   runeMatch: { name: 'Rune Blessing', kind: 'charges', per: 2, cap: 6, desc: 'Each charge blesses one Enchant: every choice rolls its quality 1 to 3 extra times (by your best score) and keeps the best.' },
-  icebreaker: { name: 'Giant Slayer', kind: 'charges', per: 1, cap: 3, desc: `Each charge is spent on your next Guardian Challenge: you deal ${BUFF_SLAYER * 100}% more damage to the Guardian and have ${BUFF_SLAYER_TIME}s longer to beat it.` },
+  icebreaker: { name: 'Giant Slayer', kind: 'charges', per: 1, cap: 3, desc: 'Each charge pays for your next Guardian Challenge: it costs no energy.' },
   clockworkTower: { name: 'Overclock', ...TIMED, desc: 'Every Hunter uses their gear as if it had one more star (gear at 5★ gets what a 6th would give).' },
   highOrLow: { name: 'Loaded Dice', ...TIMED, desc: `Loot drops twice as often, and ${BUFF_LOOT_TWO_STAR * 100}% more of it comes as 2★.` },
   meteorBounce: { name: 'Stardust', kind: 'charges', per: 1, cap: 3, desc: 'Each charge doubles the gold and materials of your next time away (of 15 minutes or more).' },

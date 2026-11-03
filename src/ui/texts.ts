@@ -219,7 +219,7 @@ section(
   'Minigame buff',
   {
     from: 'From **{event}** ({hunter}).',
-    timed: "Each play adds {per} for a par score ({par} points), from {low} to {high} depending on your score, up to {cap}. It only runs down while you're playing, not while you're away.",
+    timed: "Each play adds {per} for a par score ({par} points), from {low} to {high} depending on your score, up to {cap}. It keeps working while you're away, and runs down as it does.",
     blessing: 'A score of {score} or more adds {n} charges, up to {cap}. Each {what} you roll uses one charge. While you hold charges, your best tier is the one used.',
     charges: 'Each play adds {n} charge{s} ({great} for a great score), up to {cap}. Starting a **Guardian Challenge** uses one charge.',
     left: 'Time left',
@@ -657,9 +657,9 @@ section(
     points: '{score}+ points',
     gold: "Gold is measured against your income, so it's always worth playing wherever you are. A par score ({par} points) pays {new} of your gold income while {area} is the furthest area you've reached, and {old} after that.",
     drops: 'Drops: {list}.',
-    timedNote: "It only runs down while you're playing, not while you're away.",
+    timedNote: "It keeps working while you're away (your Hunters' gains while you're gone count it), and runs down as it does.",
     blessingNote: 'Each {what} you roll uses one charge.',
-    slayerNote: 'Starting a Guardian Challenge uses one charge.',
+    slayerNote: 'Starting a Guardian Challenge uses one charge, instead of energy.',
     stardustNote: 'Coming back after 15 minutes or more away uses one charge.',
   },
   {
