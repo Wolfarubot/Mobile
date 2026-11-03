@@ -72,6 +72,7 @@ import {
   BUFF_CRIT,
   BUFF_CRIT_DMG,
   BUFF_ENCORE,
+  RIFT_QUICKEN_STEP,
   BUFF_GOLD,
   BUFF_HYMN,
   BUFF_KEEN_EYE,
@@ -1098,9 +1099,31 @@ export class Game {
     return v;
   }
 
-  /** Multiplier on a Hunter's gear ability cooldowns (Haste), never below 40%. */
+  /**
+   * Multiplier on a Hunter's cooldowns (specials, gear abilities, tap abilities): their own cuts (Haste, skills, gear),
+   * never below 40%, then Id's Time Slip if he's fighting in their area, and the Puppet Show's Encore.
+   */
   cooldownMult(who: Shooter): number {
-    return Math.max(0.4, 1 - this.enchantBoost(who, 'cooldown') - this.tree(who).cooldown - this.gear(who).cooldown) * (1 - BUFF_ENCORE * this.buffPower('puppetShow'));
+    return Math.max(0.4, 1 - this.enchantBoost(who, 'cooldown') - this.tree(who).cooldown - this.gear(who).cooldown) * (1 - this.timeSlipFor(who)) * (1 - BUFF_ENCORE * this.buffPower('puppetShow'));
+  }
+
+  /**
+   * Id's Time Slip: how much shorter every cooldown is for a Hunter fighting in his area (him included): his base
+   * cut, plus a step once he's ascended and another with his ascended capstone (10%, 20%, 30%).
+   */
+  timeSlipFor(who: Shooter): number {
+    const at = this.areaOfHunter(who);
+    if (!at) return 0;
+    let v = 0;
+    for (const h of HUNTERS) if (h.quicken && this.state.hunters[h.id].recruited && this.state.hunters[h.id].station === at) v += this.timeSlipOf(h.id);
+    return Math.min(0.5, v);
+  }
+
+  /** Id's own Time Slip cut, wherever he is: his base, and a step each for ascending and his ascended capstone. */
+  timeSlipOf(id: HunterId): number {
+    const base = hunterDef(id).quicken ?? 0;
+    if (!base) return 0;
+    return base + (this.ascended(id) ? RIFT_QUICKEN_STEP : 0) + (this.skill(id, 'capstone', 'ascended') > 0 ? RIFT_QUICKEN_STEP : 0);
   }
 
   /** How much longer the status effects a Hunter sets off last (Extended Effects, and gear). */

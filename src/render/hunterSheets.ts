@@ -40,4 +40,5 @@ export const HUNTER_SHEETS: Partial<Record<Wearer, HunterSheet>> = {
   spaceslime: { frame: 64, frames: [8, 8, 8, 8], box: [14, 17, 35, 23] },
   lichlord: { frame: 64, frames: [4, 4, 4, 4], box: [19, 8, 26, 36] },
   alien: { frame: 64, frames: [4, 4, 4, 4], box: [18, 15, 27, 29] },
+  riftwalker: { frame: 64, frames: [6, 6, 6, 6], box: [14, 7, 36, 33] },
 };

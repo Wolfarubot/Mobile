@@ -666,6 +666,7 @@ export const ASCENDED_TREES: Record<HunterId, SkillNode[]> = {
   bloodblade: ascendedTree([area(8, 'Red Tide', '🌊', 'The Crimson Wave runs further:'), dur(6, 'Open Wounds', '🩸'), crd(6, 'Bloodletting', '🔪')], { name: 'Crimson Tide', icon: '🌊', desc: '+50% damage and 2 more blood bolts from each Crimson Wave kill.', maxRank: 1, effect: { damage: 0.5, bolts: 2 } }),
   spaceslime: ascendedTree([area(8, 'Galactic Charm', '🌌', 'His charm reaches further:'), cdr(6, 'Pickup Lines', '💬', 'His charm comes'), gld(6, 'Comet Dust', '☄️')], { name: 'Silver Tongue', icon: '💬', desc: '+50% damage and his charm reaches 30% further.', maxRank: 1, effect: { damage: 0.5, radius: 0.3 } }),
   lichlord: ascendedTree([dur(8, 'Undying Legion', '⏳'), cdr(6, 'Necromantic Haste', '💀', 'The legion rises'), atk(6, 'Bone Lances', '🦴', 0.05)], { name: 'Lich King', icon: '👑', desc: '+50% damage, and his skeletons last 30% longer.', maxRank: 1, effect: { damage: 0.5, duration: 0.3 } }),
+  riftwalker: ascendedTree([area(8, 'Yawning Void', '🕳️', 'The blasts grow'), cdr(6, 'Rift Storm', '🌀', 'The rifts open'), dur(6, 'Lingering Dark', '🌑')], { name: 'Event Horizon', icon: '🌌', desc: '+50% damage, blasts 30% wider, and Time Slip cuts cooldowns 10% more (30% in all).', maxRank: 1, effect: { damage: 0.5, radius: 0.3 } }),
   alien: ascendedTree([area(8, 'Wide Beam', '👁️', 'The beam grows'), cdr(6, 'Rapid Recharge', '🔋', 'The lasers fire'), crt(6, 'Targeting Array', '🎯')], { name: 'Death Ray', icon: '☄️', desc: '+50% damage and a beam 30% wider.', maxRank: 1, effect: { damage: 0.5, radius: 0.3 } }),
   gambler: ascendedTree([crd(8, 'Double Down', '🎲'), area(6, 'Boxcars', '💥', 'Dice blasts grow'), gld(6, 'House Money', '🪙')], { name: 'High Roller', icon: '🎲', desc: '+50% damage and dice blasts 30% wider.', maxRank: 1, effect: { damage: 0.5, radius: 0.3 } }),
   archivist: ascendedTree([area(8, 'Grand Index', '📜', 'Recalled specials grow'), cdr(6, 'Speed Archive', '📑', 'The tome opens'), dur(6, 'Long Memory', '🕯️')], { name: 'Great Library', icon: '📚', desc: '+50% damage and recalled specials 30% bigger.', maxRank: 1, effect: { damage: 0.5, radius: 0.3 } }),
@@ -827,6 +828,14 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
     [at('overcharge', atk(4, 'Overcharge', '⚡', 0.1)), at('scanner', crt(4, 'Scanner', '📡')), at('wideAngle', area(4, 'Wide Angle', '👁️', 'The beam grows')), at('probe', drp(3, 'Probe', '🛸'))],
     [at('capacitors', cdr(4, 'Capacitors', '🔋', 'The lasers fire')), at('meltdown', crd(3, 'Meltdown', '🔥')), at('tractorBeam', rng(2, 'Tractor Beam', '🧲'))],
     [at('capstone', { name: 'Mothership', icon: '🛸', desc: 'The lasers fire 15% faster and hit 25% harder.', maxRank: 1, cost: 5, effect: { cooldown: 0.15, damage: 0.25 } })],
+  ]),
+  // Id: wider blasts from rifts that open more often.
+  riftwalker: gridTree([
+    [at('root', area(1, 'Torn Seams', '🌀', 'The blasts grow'))],
+    [at('power', atk(3)), at('speed', spd(3, 'Drift', '💨')), at('recovery', rec(3, 'Formless', '👻'))],
+    [at('unravel', atk(4, 'Unravel', '🌑', 0.1)), at('glimpse', crt(4, 'Glimpse Beyond', '👁️')), at('widen', area(4, 'Widening Rifts', '🕳️', 'The blasts grow')), at('starlight', drp(3, 'Starlight', '✨'))],
+    [at('restless', cdr(4, 'Restless Rifts', '⏳', 'The rifts open')), at('implode', crd(3, 'Implosion', '💥')), at('reach', rng(2, 'Long Reach', '🌌'))],
+    [at('capstone', { name: 'Rift Lord', icon: '🌀', desc: 'The rifts open 15% faster and their bolts hit 25% harder.', maxRank: 1, cost: 5, effect: { cooldown: 0.15, damage: 0.25 } })],
   ]),
   // Thomas: bigger recalled specials, more often.
   archivist: gridTree([
@@ -2130,7 +2139,8 @@ export type HunterId =
   | 'gambler'
   | 'lichlord'
   | 'spaceslime'
-  | 'alien';
+  | 'alien'
+  | 'riftwalker';
 
 // ---- Damage types: every attack deals one. Weapons carry a type; without one, a Hunter uses their own. ----
 export type DamageType = 'physical' | 'fire' | 'acid' | 'frost' | 'radiant' | 'poison' | 'arcane' | 'decay' | 'lightning' | 'void';
@@ -2218,7 +2228,7 @@ export const DAMAGE_TYPES: Record<DamageType, { name: string; icon: string; colo
 export const ARROW_RAIN = { time: 1.5, perShot: 0.75, rate: 8, arrow: 18, perPierce: 0.2 };
 
 export interface HunterSpecial {
-  kind: 'potion' | 'fireball' | 'summon' | 'punch' | 'spikes' | 'wave' | 'recall' | 'dice' | 'charm' | 'laser' | 'rain';
+  kind: 'potion' | 'fireball' | 'summon' | 'punch' | 'spikes' | 'wave' | 'recall' | 'dice' | 'charm' | 'laser' | 'rain' | 'rift';
   /** What it's called on the Hunter's card ("Potions", "Wolves"...). */
   name: string;
   damageType: DamageType;
@@ -2238,6 +2248,11 @@ export interface HunterSpecial {
   hold?: number;
   /** Crimson Wave: how wide the surge is (it runs `radius` long). Eye Lasers: how wide the beam is. */
   width?: number;
+  /**
+   * Id's Rifts: `count` rifts tear open near the monsters for `life` seconds, each loosing `bolts` homing void bolts
+   * that explode where they strike (`radius` wide, for `damage` × his hit to everything in it).
+   */
+  rift?: { count: number; bolts: number; life: number };
   describe: string;
 }
 
@@ -2291,6 +2306,11 @@ export interface HunterDef {
    * materials, and a `bust` chance to pay nothing (Guardians excepted).
    */
   gamble?: { double: number; bust: number };
+  /**
+   * Id's Time Slip: every Hunter in his area (him included) has their cooldowns this much shorter; ascending him
+   * adds RIFT_QUICKEN_STEP, and his ascended capstone another.
+   */
+  quicken?: number;
   /** Equipment slots (defaults to Weapon, Armor, Accessory). */
   slots?: SlotDef[];
   /**
@@ -2614,7 +2634,32 @@ export const HUNTERS: HunterDef[] = [
       describe: "Every 5 seconds, fires twin eye lasers at the nearest monster. The beam runs right across the battlefield, hitting every monster in its path for his weapon's damage. Its attack speed and area size widen the beam.",
     },
   },
+  {
+    id: 'riftwalker', name: 'Id', title: 'Rift Walker', icon: '🌀', color: '#a46bff', area: 'rift', recruitCost: 4e25,
+    short: 'Tears open rifts full of homing void bolts. Cooldowns run faster beside him.',
+    unlock: { event: 'shadowTide', times: 1 },
+    ascendedTitle: 'Lord of the Rift',
+    quicken: 0.1,
+    story: "Nobody knows whether Id came out of the Void Rift or the Rift came out of Id. He drifts where the shadow slimes pour through, watching. Turn back a Shadow Tide, and he'll open the Rift for you instead.",
+    ability: "Every 8 seconds, tears open three rifts near the monsters. Each one looses a swarm of homing void bolts that explode where they strike. Every Hunter in his area, him included, has their cooldowns 10% shorter (20% once he ascends, 30% with his ascended capstone). Wields only magic weapons.",
+    slots: [{ kind: 'magic', label: 'Magic weapon' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
+    special: {
+      kind: 'rift',
+      name: 'Rift Swarm',
+      damageType: 'void',
+      cooldown: 8,
+      damage: 0.45,
+      radius: 32,
+      ticks: 15,
+      crowd: 2,
+      rift: { count: 3, bolts: 5, life: 1.5 },
+      describe: "Every 8 seconds, tears open three rifts near the monsters for a moment. Each looses five void bolts that home in on the monsters and explode where they strike, hurting everything around for 45% of his weapon's damage. Area size widens the blasts.",
+    },
+  },
 ];
+
+/** Id's Time Slip: what ascending him, and then his ascended capstone, each add to the cooldown cut. */
+export const RIFT_QUICKEN_STEP = 0.1;
 
 export const hunterDef = (id: HunterId): HunterDef => byId(HUNTERS, id);
 
@@ -2629,6 +2674,7 @@ export function hunterPerk(h: HunterDef): string {
   if (h.areaLoot) parts.push(`×${1 + h.areaLoot} loot in his area`);
   if (h.gamble) parts.push(`kills in his area pay double (${Math.round(h.gamble.double * 100)}%) or nothing (${Math.round(h.gamble.bust * 100)}%)`);
   if (h.tinker) parts.push(`+${h.tinker}★ to the gear of every Hunter in his area`);
+  if (h.quicken) parts.push(`${Math.round(h.quicken * 100)}% shorter cooldowns for every Hunter in his area`);
   return parts.join(', ');
 }
 
@@ -2704,6 +2750,10 @@ const HUNTER_ABILITIES: Partial<Record<HunterId, HunterAbility[]>> = {
   ],
   lichlord: [{ name: 'Raise the Legion', kind: 'active', text: 'Every 15 seconds, raises six skeletal soldiers from the ground around him that march on the monsters and fight for 10 seconds, striking with his weapon.' }],
   alien: [{ name: 'Eye Lasers', kind: 'active', text: 'Every 5 seconds, fires twin eye lasers at the nearest monster. The beam runs right across the battlefield, burning everything in its path.' }],
+  riftwalker: [
+    { name: 'Rift Swarm', kind: 'active', text: 'Every 8 seconds, tears open three rifts near the monsters. Each looses five homing void bolts that explode where they strike.' },
+    { name: 'Time Slip', kind: 'passive', text: 'Every Hunter in his area, him included, has their cooldowns 10% shorter: 20% once he ascends, and 30% with his ascended capstone.' },
+  ],
   spaceslime: [{ name: 'Smooth Talk', kind: 'active', text: "Every 6 seconds, sweet-talks the monster nearest him (Guardians aren't fooled): for 6 seconds it hunts the nearest other monster instead of your Hunters, biting it for a quarter of its own health every second." }],
 };
 

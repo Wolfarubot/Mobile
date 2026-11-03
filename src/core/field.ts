@@ -277,7 +277,7 @@ const HELPER_SPOTS = [
   { x: 0, y: -80 },
 ];
 
-export type BulletKind = 'slash' | 'bigDagger' | 'rock' | 'spell' | 'blood' | 'bolt' | 'spark' | 'arrow' | 'fireball' | 'potion' | 'pellet' | 'dagger' | 'pistol' | 'ricochet' | 'hammer';
+export type BulletKind = 'slash' | 'bigDagger' | 'rock' | 'spell' | 'blood' | 'bolt' | 'spark' | 'arrow' | 'fireball' | 'potion' | 'pellet' | 'dagger' | 'pistol' | 'ricochet' | 'hammer' | 'riftbolt';
 
 export interface Bullet {
   shooter: Shooter;
@@ -329,7 +329,29 @@ export interface Bullet {
   elem?: number;
   /** Other ranged arts riding on it (see MeleeArt): what it does when it hits, or misses. */
   arts?: ShotArts;
+  /** Id's void bolts: how fast they turn toward the monster they're chasing (radians a second). */
+  homing?: number;
 }
+
+/** One of Id's rifts: open at (x, y) for `max` seconds, loosing `left` more homing void bolts, one every `every`. */
+export interface Rift {
+  by: Shooter;
+  x: number;
+  y: number;
+  t: number;
+  max: number;
+  left: number;
+  every: number;
+  next: number;
+  dmg: number;
+  /** How wide each bolt's blast is. */
+  blast: number;
+  /** A copied special (Thomas's tome) keeps Id's damage type. */
+  only?: DamageType;
+}
+
+/** Id's void bolts: how fast they fly and turn, and how far they go before fizzling out. */
+export const RIFT_BOLT = { speed: 260, turn: 7, range: 700 };
 
 /** Ranged arts a projectile carries. */
 /** What shotArts hands each projectile. */
@@ -584,6 +606,8 @@ export class Field {
   summons: Summon[] = [];
   /** Spells' hits still to land, and the spells lingering on the field. */
   spellHits: SpellHit[] = [];
+  /** Id's open rifts. */
+  rifts: Rift[] = [];
   zones: SpellZone[] = [];
   /** Earthshatter's fissures: cracks in the ground hurting the monsters on them. */
   fissures: Fissure[] = [];
@@ -904,6 +928,7 @@ export class Field {
     this.runGearEffects(dt);
     for (const h of this.helpers) this.helperAttack(h, dt);
 
+    this.updateRifts(dt);
     this.moveBullets(dt);
     this.tickPuddles(dt);
     this.tickOrbs(dt);
@@ -1524,6 +1549,18 @@ export class Field {
         const ang = g.rng() * Math.PI * 2;
         const d = Math.sqrt(g.rng()) * r;
         this.spellHits.push({ c, t: 0.35 + i / ARROW_RAIN.rate, x: tx + Math.cos(ang) * d, y: ty + Math.sin(ang) * d, r: ARROW_RAIN.arrow, k: 1, fx: 'arrows' });
+      }
+      return true;
+    }
+    if (sp.kind === 'rift' && sp.rift) {
+      // Id's Rift Swarm: rifts tear open around the nearest monster, a little way off it, and each looses a swarm
+      // of homing void bolts that explode where they strike.
+      const { count, bolts, life } = sp.rift;
+      const spin = g.rng() * Math.PI * 2;
+      for (let i = 0; i < count; i++) {
+        const ang = spin + (i / count) * Math.PI * 2;
+        const d = 70 + g.rng() * 30;
+        this.rifts.push({ by, x: target.x + Math.cos(ang) * d, y: target.y + Math.sin(ang) * d * 0.7, t: 0, max: life, left: bolts, every: life / (bolts + 1), next: 0.2, dmg, blast: radius, only });
       }
       return true;
     }
@@ -3090,8 +3127,40 @@ export class Field {
     }
   }
 
+  /** Id's rifts loose their bolts, and close once they've all gone and their time is up. */
+  private updateRifts(dt: number): void {
+    if (!this.rifts.length) return;
+    for (const r of this.rifts) {
+      r.t += dt;
+      r.next -= dt;
+      while (r.left > 0 && r.next <= 0) {
+        r.left--;
+        r.next += r.every;
+        // Out in a random direction; the bolt soon curves round onto its prey.
+        const a = this.game.rng() * Math.PI * 2;
+        this.shoot(r.by, 'riftbolt', r.x - Math.cos(a) * PLAYER_RADIUS, r.y - Math.sin(a) * PLAYER_RADIUS, a, RIFT_BOLT.speed, RIFT_BOLT.range, { dmg: r.dmg, radius: r.blast, special: true, dtype: r.only });
+        this.bullets[this.bullets.length - 1].homing = RIFT_BOLT.turn;
+      }
+    }
+    this.rifts = this.rifts.filter((r) => r.t < r.max || r.left > 0);
+  }
+
   private moveBullets(dt: number): void {
     for (const b of this.bullets) {
+      if (b.homing) {
+        // A void bolt turns toward the nearest monster, a little at a time.
+        const prey = this.nearest(b.x, b.y, RIFT_BOLT.range);
+        if (prey) {
+          const speed = Math.hypot(b.vx, b.vy);
+          const cur = Math.atan2(b.vy, b.vx);
+          let want = Math.atan2(prey.y - b.y, prey.x - b.x) - cur;
+          while (want > Math.PI) want -= Math.PI * 2;
+          while (want < -Math.PI) want += Math.PI * 2;
+          const turn = Math.max(-b.homing * dt, Math.min(b.homing * dt, want));
+          b.vx = Math.cos(cur + turn) * speed;
+          b.vy = Math.sin(cur + turn) * speed;
+        }
+      }
       b.x += b.vx * dt;
       b.y += b.vy * dt;
       b.life -= dt;
@@ -3194,6 +3263,14 @@ export class Field {
       // A blood bolt: Themus's special damage, and a bleed.
       this.hitWith(b.shooter, e, b.dmg, b.x - b.vx, b.y - b.vy, b.crit, b.mode, true, true);
       this.bleed(e, b.shooter, b.dmg);
+      b.life = 0;
+      return;
+    }
+    if (b.kind === 'riftbolt') {
+      // A void bolt explodes where it strikes, hurting everything around.
+      const r = b.radius ?? 30;
+      this.events.push({ type: 'explode', x: b.x, y: b.y, r, color: DAMAGE_TYPES.void.color, magic: 'void' });
+      for (const o of [...this.enemies]) if (o.hp > 0 && Math.hypot(o.x - b.x, o.y - b.y) <= r + o.r) this.hitWith(b.shooter, o, b.dmg, b.x, b.y, b.crit, b.mode, true, true, b.dtype);
       b.life = 0;
       return;
     }

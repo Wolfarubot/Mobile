@@ -4731,6 +4731,51 @@ describe('Field', () => {
     expect(f.enemies.find((e) => e.id === 3)!.hp).toBe(1e12);
   });
 
+  it("Id the Rift Walker's rifts loose homing void bolts that explode where they strike", () => {
+    expect(hunterDef('riftwalker')).toMatchObject({ name: 'Id', title: 'Rift Walker', area: 'rift', unlock: { event: 'shadowTide', times: 1 } });
+    const { f } = thomasField(['riftwalker']);
+    f.enemies = [];
+    for (let t = 0; t < 1.5; t += 1 / 30) f.update(1 / 30);
+    // One monster off to the side: the rifts open around it and every bolt curves onto it.
+    f.enemies = [tough({ id: 1, x: 80, y: -40, speed: 0 }), tough({ id: 2, x: 90, y: -30, speed: 0 })];
+    f.update(1 / 30);
+    const sp = hunterDef('riftwalker').special!;
+    expect(f.rifts).toHaveLength(sp.rift!.count);
+    let bolts = 0;
+    let blasts = 0;
+    for (let t = 0; t < 4; t += 1 / 30) {
+      f.update(1 / 30);
+      bolts = Math.max(bolts, f.bullets.filter((b) => b.kind === 'riftbolt').length);
+      blasts += f.drainEvents().filter((e) => e.type === 'explode' && e.magic === 'void').length;
+    }
+    expect(bolts).toBeGreaterThan(0);
+    expect(blasts).toBe(sp.rift!.count * sp.rift!.bolts);
+    // Each blast catches the monster beside the one it struck too.
+    expect(f.enemies.find((e) => e.id === 2)!.hp).toBeLessThan(1e12);
+    expect(f.rifts).toHaveLength(0);
+  });
+
+  it("Id's Time Slip cuts every cooldown in his area by 10%, 20% once he ascends and 30% with his ascended capstone", () => {
+    const { g } = thomasField(['riftwalker', 'glimmer'], ['alchemist']);
+    g.state.hunters.alchemist.station = 'glade';
+    const plain = (who: 'glimmer' | 'alchemist') => {
+      const real = g.timeSlipFor.bind(g);
+      g.timeSlipFor = () => 0;
+      const v = g.cooldownMult(who);
+      g.timeSlipFor = real;
+      return v;
+    };
+    expect(g.cooldownMult('glimmer')).toBeCloseTo(plain('glimmer') * 0.9);
+    expect(g.cooldownMult('riftwalker')).toBeLessThan(1);
+    // Not in his area: no change.
+    expect(g.cooldownMult('alchemist')).toBeCloseTo(plain('alchemist'));
+    g.state.hunters.riftwalker.ascendAt = 1;
+    expect(g.timeSlipFor('glimmer')).toBeCloseTo(0.2);
+    g.state.hunters.riftwalker.skills2 = { capstone: 1 };
+    expect(g.timeSlipFor('glimmer')).toBeCloseTo(0.3);
+    expect(g.cooldownMult('glimmer')).toBeCloseTo(plain('glimmer') * 0.7);
+  });
+
   it("Galladair's Arrow Rain grows with her piercing and lasts longer with every extra arrow", () => {
     const { g, f } = thomasField(['ranger']);
     const base = g.rainOf('ranger');

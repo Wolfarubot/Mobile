@@ -31,6 +31,7 @@ export const HUNTER_ICONS: Record<Wearer, string> = {
   spaceslime: 'ab-rogue-warlock/019',
   lichlord: 'ab-paladin-dk/095',
   alien: 'ab-engineer-psionic/058',
+  riftwalker: 'ab-rogue-warlock/080',
 };
 
 /** A Hunter's icon as HTML (an <img>), falling back to their emoji. */

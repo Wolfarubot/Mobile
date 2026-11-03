@@ -236,6 +236,8 @@ export class BattleView {
             this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: radiant ? '255,227,110' : '255,138,61', max: 0.3, fill: true });
             this.fx.burst(e.x, e.y, '#ffb04d', 8, 160, 3, 0);
           } else if (radiant) this.playEffect('sunstrike', e.x, e.y + e.r * 0.3, e.r * 2.2, 'bottom', 22);
+          // Id's void bolts burst in the Void's violet.
+          else if (e.magic === 'void') this.playEffect('explosion', e.x, e.y, e.r * 2.3, 'center', 22, 0, 1, DAMAGE_TYPES.void.color);
           else this.playEffect('explosion', e.x, e.y, e.r * 2.3);
           break;
         }
@@ -577,6 +579,7 @@ export class BattleView {
     this.drawBoneWall(g);
 
     for (const z of this.field.zones) this.drawZone(g, z);
+    this.drawRifts(g);
     for (const f of this.field.fissures) {
       // Earthshatter: a jagged crack glowing with the hammer's element, fading as it closes.
       const fade = Math.min(1, f.life / 0.5);
@@ -801,6 +804,39 @@ export class BattleView {
     if (scene?.vignette) drawVignette(g, w, h, scene.vignette);
     this.drawHud(g);
     this.cooldownBar.update();
+  }
+
+  /**
+   * Id's rifts: the effect pack's black hole, swirling in his violet, swelling open and shrinking shut (Basic: a
+   * violet ring with a dark middle).
+   */
+  private drawRifts(g: CanvasRenderingContext2D): void {
+    if (!this.field.rifts.length) return;
+    const hole = this.fancy ? effectImage('blackhole') : null;
+    for (const r of this.field.rifts) {
+      const open = Math.min(1, r.t / 0.2, Math.max(0, r.max - r.t) / 0.25 + (r.left > 0 ? 1 : 0));
+      const size = 92 * open;
+      if (size < 2) continue;
+      // A violet glow behind it, so it shows on the Rift's dark ground.
+      g.fillStyle = 'rgba(164,107,255,0.28)';
+      g.beginPath();
+      g.ellipse(r.x, r.y, size * 0.5, size * 0.42, 0, 0, Math.PI * 2);
+      g.fill();
+      if (hole) {
+        g.save();
+        g.globalAlpha = 0.95;
+        drawEffectFrame(g, tinted(hole, '#a46bff'), 'blackhole', Math.floor(r.t * 16), r.x, r.y, size, 'center', true);
+        g.restore();
+        continue;
+      }
+      g.fillStyle = 'rgba(20,6,40,0.85)';
+      g.beginPath();
+      g.ellipse(r.x, r.y, size / 2, size / 2.6, 0, 0, Math.PI * 2);
+      g.fill();
+      g.strokeStyle = '#a46bff';
+      g.lineWidth = 3;
+      g.stroke();
+    }
   }
 
   /** Blade sweeps: those aimed up the field (`behind`, drawn before the Hunters) or the rest. */
@@ -2436,6 +2472,22 @@ function drawBullet(g: CanvasRenderingContext2D, b: Bullet, t: number, basic = f
   g.save();
   g.translate(b.x, b.y);
   switch (b.kind) {
+    case 'riftbolt': {
+      // Id's void bolt: a violet spark with a pale core, trailing a wisp of the dark it came from.
+      g.rotate(a);
+      g.scale(1.6, 1.6);
+      g.fillStyle = 'rgba(164,107,255,0.25)';
+      g.fillRect(-8, -6, 16, 12);
+      g.fillStyle = 'rgba(40,10,70,0.55)';
+      g.fillRect(-13, -2.5, 10, 5);
+      g.fillStyle = 'rgba(164,107,255,0.45)';
+      g.fillRect(-6, -4, 10, 8);
+      g.fillStyle = '#a46bff';
+      g.fillRect(-3.5, -3.5, 7, 7);
+      g.fillStyle = '#e8d8ff';
+      g.fillRect(-1.5, -1.5, 3, 3);
+      break;
+    }
     case 'blood': {
       // A blood bolt: a dark-red drop with a short trail behind it.
       g.rotate(a);
