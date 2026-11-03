@@ -65,14 +65,14 @@ export const SHEETS: Record<string, MonsterSheet> = {
   'gnoll-dark': { frame: 64, cols: 6, order: 'DULR', box: [14, 10, 36, 35] },
   'demon-purple': { frame: 128, cols: 6, order: 'DULR', box: [34, 34, 59, 61] },
   'vampire-red': { frame: 64, cols: 6, order: 'DULR', box: [12, 16, 40, 29] },
-  'wolf-grey': { frame: 48, cols: 6, order: 'SIDE', faces: 'L', box: [0, 22, 48, 26] },
-  'wolf-ice': { frame: 48, cols: 6, order: 'SIDE', faces: 'L', box: [0, 22, 48, 26] },
+  'wolf-grey': { frame: 32, cols: 6, order: 'DULR', box: [0, 4, 32, 27] },
+  'wolf-ice': { frame: 32, cols: 6, order: 'DULR', box: [0, 4, 32, 27] },
   'bear-brown': { frame: 48, cols: 6, order: 'SIDE', faces: 'L', box: [5, 24, 43, 24] },
   'yeti': { frame: 72, cols: 6, order: 'SIDE', box: [5, 42, 51, 30] },
   'pixie': { frame: 48, cols: 4, order: 'SIDE', faces: 'L', box: [18, 17, 25, 20] },
   'unicorn': { frame: 72, cols: 6, order: 'SIDE', box: [0, 37, 61, 35] },
   'bat': { frame: 48, cols: 4, order: 'SIDE', faces: 'L', box: [10, 21, 36, 22] },
-  'crow': { frame: 48, cols: 4, order: 'SIDE', faces: 'L', box: [17, 23, 30, 24] },
+  'crow': { frame: 32, cols: 6, order: 'DULR', box: [0, 1, 31, 27] },
   'puppet': { frame: 48, cols: 6, order: 'SIDE', box: [17, 10, 28, 38] },
   // The zombie recoloured (white skin, black clothes, brown hair) and hung on two white strings, in 96px frames
   // (room above for the strings): behind it facing down, left or right, over its back facing up.

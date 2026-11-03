@@ -32,10 +32,13 @@ Source packs:
 
 Side-view and animal packs (walk or flight strips, one row facing right, mirrored in game; some recoloured):
   underground-mine-character-spritesheets-pixel-art (wisp, bear, spider, toadman voodoo)
-  field-enemies-game-sprite-sheets-pixel-art (wolf, wasp)
+  field-enemies-game-sprite-sheets-pixel-art (wasp)
   free-desert-enemy-sprite-sheets-pixel-art (vulture, scorpio)
   free-top-down-animals-farm-pixel-art-sprites (bull; 4-direction)
-  free-top-down-hunt-animals-pixel-sprite-pack (deer, black grouse; 4-direction)
+  free-top-down-hunt-animals-pixel-sprite-pack (deer, black grouse; 4-direction):
+    wolf-grey.png, wolf-ice.png: Fox_Run (Without_shadow) recoloured grey (cream tail tip) and icy blue (white
+    tip), its side rows swapped so they run down, up, left, right; crow.png: Black_grouse_Flight recoloured
+    purple-black (the red comb and blue sheen darkened, the pale feathers grey)
   golem-character-sprite-sheets-pixel-art, hellhound-character-sprite-sheets-pixel-art,
   dragon-pixel-art-character-sprite-sheets-pack, free-yokai-pixel-art-character-sprites
   swamp-enemies (bat), swamp-bosses (big bloated -> Toxic Bloat, recoloured), ruin-enemy (raven, bug), animal-sprite-sheets (white bear, horse), desert-bosses (manticore),
