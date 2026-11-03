@@ -4767,7 +4767,7 @@ describe('Field', () => {
     expect(f.enemies.find((e) => e.id === 3)!.hp).toBe(1e12);
   });
 
-  it("Id the Rift Walker's rifts loose homing arcane bolts that explode where they strike", () => {
+  it("Id the Rift Walker's rifts loose homing void bolts that explode where they strike", () => {
     expect(hunterDef('riftwalker')).toMatchObject({ name: 'Id', title: 'Rift Walker', area: 'rift', unlock: { event: 'shadowTide', times: 1 } });
     const { f } = thomasField(['riftwalker']);
     f.enemies = [];
@@ -4782,13 +4782,41 @@ describe('Field', () => {
     for (let t = 0; t < 4; t += 1 / 30) {
       f.update(1 / 30);
       bolts = Math.max(bolts, f.bullets.filter((b) => b.kind === 'riftbolt').length);
-      blasts += f.drainEvents().filter((e) => e.type === 'explode' && e.magic === 'arcane').length;
+      blasts += f.drainEvents().filter((e) => e.type === 'explode' && e.magic === 'void').length;
     }
     expect(bolts).toBeGreaterThan(0);
     expect(blasts).toBe(sp.rift!.count * sp.rift!.bolts);
     // Each blast catches the monster beside the one it struck too.
     expect(f.enemies.find((e) => e.id === 2)!.hp).toBeLessThan(1e12);
     expect(f.rifts).toHaveLength(0);
+  });
+
+  it("Void's gravity wells that touch merge into one bigger well; a spent well loses its size", () => {
+    const { f } = thomasField([]);
+    const a = tough({ id: 1, x: 100, y: 100, speed: 0 });
+    const b = tough({ id: 2, x: 150, y: 100, speed: 0 });
+    const c = tough({ id: 3, x: 400, y: 400, speed: 0 });
+    a.well = 1.5;
+    a.wellPull = 1;
+    a.wellSize = 1;
+    b.well = 1;
+    b.wellPull = 1.5;
+    b.wellSize = 1;
+    c.well = 1.5;
+    c.wellSize = 1;
+    f.enemies = [a, b, c];
+    for (let t = 0; t < 0.6; t += 1 / 30) f.update(1 / 30);
+    // The two near ones pulled each other in and became one well: √2 the size, the stronger pull, the longer time.
+    const withWell = [a, b].filter((e) => e.well);
+    expect(withWell).toHaveLength(1);
+    expect(withWell[0].wellSize).toBeCloseTo(Math.SQRT2);
+    expect(withWell[0].wellPull).toBe(1.5);
+    // The far one keeps its own, the same size.
+    expect(c.wellSize).toBe(1);
+    // Once it runs out, a well is gone, size and all.
+    for (let t = 0; t < 2; t += 1 / 30) f.update(1 / 30);
+    expect(c.well).toBe(0);
+    expect(c.wellSize).toBeUndefined();
   });
 
   it("Id's Time Slip cuts every cooldown in his area by 10%, 20% once he ascends and 30% with his ascended capstone", () => {

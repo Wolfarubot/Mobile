@@ -163,6 +163,8 @@ export interface Enemy {
   /** Seconds left of Void's gravity well around it, pulling nearby monsters in (`wellPull` × as hard). */
   well?: number;
   wellPull?: number;
+  /** Its gravity well's size (× its base radius): wells that touch merge into one bigger well (see pullIn). */
+  wellSize?: number;
   /** Plague (a spell): for `left` seconds it poisons every monster it touches for `amount` × PLAGUE_SPREAD. */
   plague?: { left: number; by: Shooter; amount: number };
   /** Bleeds (Physical): the only status that stacks, each its own instance. */
@@ -329,11 +331,11 @@ export interface Bullet {
   elem?: number;
   /** Other ranged arts riding on it (see MeleeArt): what it does when it hits, or misses. */
   arts?: ShotArts;
-  /** Id's arcane bolts: how fast they turn toward the monster they're chasing (radians a second). */
+  /** Id's void bolts: how fast they turn toward the monster they're chasing (radians a second). */
   homing?: number;
 }
 
-/** One of Id's rifts: open at (x, y) for `max` seconds, loosing `left` more homing arcane bolts, one every `every`. */
+/** One of Id's rifts: open at (x, y) for `max` seconds, loosing `left` more homing void bolts, one every `every`. */
 export interface Rift {
   by: Shooter;
   x: number;
@@ -350,7 +352,10 @@ export interface Rift {
   only?: DamageType;
 }
 
-/** Id's arcane bolts: how fast they fly and turn, and how far they go before fizzling out. */
+/** Void's gravity wells merging: how close two wells' monsters must come (a gap this small), and the biggest a merged well grows (× the base radius). */
+export const WELL_MERGE = { touch: 1, maxSize: 3 };
+
+/** Id's void bolts: how fast they fly and turn, and how far they go before fizzling out. */
 export const RIFT_BOLT = { speed: 260, turn: 7, range: 700 };
 
 /** Ranged arts a projectile carries. */
@@ -1554,7 +1559,7 @@ export class Field {
     }
     if (sp.kind === 'rift' && sp.rift) {
       // Id's Rift Swarm: rifts tear open around the nearest monster, a little way off it, and each looses a swarm
-      // of homing arcane bolts that explode where they strike.
+      // of homing void bolts that explode where they strike.
       const { count, bolts, life } = sp.rift;
       const spin = g.rng() * Math.PI * 2;
       for (let i = 0; i < count; i++) {
@@ -3021,8 +3026,10 @@ export class Field {
         break;
       case 'void':
         if (e.hp > 0) {
-          e.well = STATUS.well.duration * k * ext;
-          e.wellPull = k;
+          // A fresh well, or a merged one topped up (it keeps its size and pull).
+          e.well = Math.max(e.well ?? 0, STATUS.well.duration * k * ext);
+          e.wellPull = Math.max(e.wellPull ?? 0, k);
+          e.wellSize ??= 1;
         }
         break;
     }
@@ -3051,17 +3058,34 @@ export class Field {
 
   /**
    * Void's gravity well: monsters around `e` are drawn in toward it until they touch it. Guardians and
-   * monsters that resist Void aren't moved.
+   * monsters that resist Void aren't moved. A monster with a well of its own that touches it is swallowed into
+   * it: the two wells merge into one bigger one (their areas added, up to WELL_MERGE.maxSize × the base), lasting as
+   * long as the longer and pulling as hard as the stronger.
    */
   private pullIn(e: Enemy, dt: number): void {
     const w = STATUS.well;
+    const reach = w.radius * (e.wellSize ?? 1);
     for (const o of this.enemies) {
-      if (o === e || o.hp <= 0 || o.boss || this.immuneTo(o, 'void')) continue;
+      if (o === e || o.hp <= 0) continue;
       const dx = e.x - o.x;
       const dy = e.y - o.y;
       const d = Math.hypot(dx, dy);
       const gap = d - e.r - o.r;
-      if (d > w.radius + o.r || gap <= 0) continue;
+      if (o.well && gap <= WELL_MERGE.touch) {
+        // Two wells meet: they become one, around the monster with the bigger (or this) one.
+        const a = e.wellSize ?? 1;
+        const b = o.wellSize ?? 1;
+        e.wellSize = Math.min(WELL_MERGE.maxSize, Math.hypot(a, b));
+        e.well = Math.max(e.well ?? 0, o.well);
+        e.wellPull = Math.max(e.wellPull ?? 1, o.wellPull ?? 1);
+        o.well = 0;
+        o.wellPull = undefined;
+        o.wellSize = undefined;
+        this.events.push({ type: 'nova', x: e.x, y: e.y, r: w.radius * e.wellSize * 0.6, color: DAMAGE_TYPES.void.color });
+        continue;
+      }
+      if (o.boss || this.immuneTo(o, 'void')) continue;
+      if (d > reach + o.r || gap <= 0) continue;
       const step = Math.min(gap, w.pull * (e.wellPull ?? 1) * dt);
       o.x += (dx / d) * step;
       o.y += (dy / d) * step;
@@ -3097,6 +3121,11 @@ export class Field {
     if (e.well) {
       e.well = Math.max(0, e.well - dt);
       this.pullIn(e, dt);
+      // A spent well is gone, size and all.
+      if (!e.well) {
+        e.wellPull = undefined;
+        e.wellSize = undefined;
+      }
     }
     if (e.bleeds?.length) {
       // Each bleed ticks on its own.
@@ -3148,7 +3177,7 @@ export class Field {
   private moveBullets(dt: number): void {
     for (const b of this.bullets) {
       if (b.homing) {
-        // An arcane bolt turns toward the nearest monster, a little at a time.
+        // A void bolt turns toward the nearest monster, a little at a time.
         const prey = this.nearest(b.x, b.y, RIFT_BOLT.range);
         if (prey) {
           const speed = Math.hypot(b.vx, b.vy);
@@ -3267,9 +3296,9 @@ export class Field {
       return;
     }
     if (b.kind === 'riftbolt') {
-      // An arcane bolt explodes where it strikes, hurting everything around.
+      // A void bolt explodes where it strikes, hurting everything around (in Id's damage type, or a copy's).
       const r = b.radius ?? 30;
-      const t = b.dtype ?? 'arcane';
+      const t = b.dtype ?? (b.shooter === 'main' ? undefined : hunterDef(b.shooter).special?.damageType) ?? 'void';
       this.events.push({ type: 'explode', x: b.x, y: b.y, r, color: DAMAGE_TYPES[t].color, magic: t, tint: DAMAGE_TYPES[t].color });
       for (const o of [...this.enemies]) if (o.hp > 0 && Math.hypot(o.x - b.x, o.y - b.y) <= r + o.r) this.hitWith(b.shooter, o, b.dmg, b.x, b.y, b.crit, b.mode, true, true, b.dtype);
       b.life = 0;
