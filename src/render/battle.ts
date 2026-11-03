@@ -2757,13 +2757,35 @@ function drawRock(g: CanvasRenderingContext2D, r: number, color: string): void {
  * A Hunter's shield charges as little shields under them: the charges left, centred (one sits dead centre when
  * there's an odd number), spreading out from the middle as there are more.
  */
+/**
+ * A Hunter's shield charges as at most five little shields: up to 5 charges, one silver shield each; past that, the
+ * charges are shared out over the five, higher ones first: a blue shield holds 2, a gold one 3 (then purple 4 and
+ * red 5). So 6 charges show one blue and four silver, 11 one gold and four blue; as charges are spent the gold
+ * turns blue, then the blues turn silver.
+ */
 function drawShieldPips(g: CanvasRenderingContext2D, x: number, y: number, guard: number): void {
+  const n = Math.ceil(guard);
+  if (n <= 0) return;
+  const count = Math.min(n, MAX_SHIELD_PIPS);
+  const base = Math.floor(n / count);
+  const extra = n - base * count;
   const gap = 9;
-  for (let i = 0; i < guard; i++) drawMiniShield(g, x + (i - (guard - 1) / 2) * gap, y);
+  for (let i = 0; i < count; i++) drawMiniShield(g, x + (i - (count - 1) / 2) * gap, y, i < extra ? base + 1 : base);
 }
 
-/** A tiny heater shield (about 7×8), silver with a gold boss and a black edge. */
-function drawMiniShield(g: CanvasRenderingContext2D, x: number, y: number): void {
+const MAX_SHIELD_PIPS = 5;
+/** A shield pip's colours by the charges it holds (1 silver, 2 blue, 3 gold, 4 purple, 5+ red): face, shade, boss. */
+const SHIELD_TIERS: Array<[string, string, string]> = [
+  ['#c9d4e0', '#8fa2b8', '#ffd34d'],
+  ['#6ab4ff', '#3a78c8', '#ffd34d'],
+  ['#ffd34d', '#c8901e', '#ffffff'],
+  ['#c49aff', '#8a5ad8', '#ffd34d'],
+  ['#ff6a6a', '#c02c3a', '#ffd34d'],
+];
+
+/** A tiny heater shield (about 7×8) with a black edge: silver for one charge, then blue, gold... for more. */
+function drawMiniShield(g: CanvasRenderingContext2D, x: number, y: number, charges = 1): void {
+  const [face, shade, boss] = SHIELD_TIERS[Math.min(SHIELD_TIERS.length, Math.max(1, charges)) - 1];
   g.save();
   g.translate(Math.round(x), Math.round(y));
   g.beginPath();
@@ -2773,14 +2795,14 @@ function drawMiniShield(g: CanvasRenderingContext2D, x: number, y: number): void
   g.quadraticCurveTo(3.2, 3.2, 0, 4.6);
   g.quadraticCurveTo(-3.2, 3.2, -3.5, 0.5);
   g.closePath();
-  g.fillStyle = '#c9d4e0';
+  g.fillStyle = face;
   g.fill();
   g.lineWidth = 1.4;
   g.strokeStyle = '#000';
   g.stroke();
-  g.fillStyle = '#8fa2b8';
+  g.fillStyle = shade;
   g.fillRect(0, -3.3, 3, 3.3);
-  g.fillStyle = '#ffd34d';
+  g.fillStyle = boss;
   g.fillRect(-1, -1.2, 2, 2);
   g.restore();
 }
