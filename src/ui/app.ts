@@ -4059,6 +4059,7 @@ export class AppUI {
       intro: (ev.echo ? `<p class="mg-bless">${tx('event.echo.intro')}</p>` : '') + mg.intro + (bless ? `<p class="mg-bless">${blessingIntro(g, ev)}</p>` : ''),
       area: ev.area,
       decor: mg.decor,
+      room: mg.room,
       lives: mg.lives,
       best,
       create: mg.create,

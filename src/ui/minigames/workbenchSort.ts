@@ -151,17 +151,23 @@ export function workbenchSort(api: MinigameApi): MinigameGame {
       const S = size();
       const by = beltY();
       const r = rule();
-      // The workbench: a wooden top behind the belt and the bins.
+      // The workbench: a long wooden table under the belt, standing in his workroom.
+      const beltH = S * 1.25;
       const top = by - S * 1.1;
-      g.fillStyle = '#5c3b22';
-      g.fillRect(0, top, api.W, api.H - top);
-      // Its planks: a darker seam every few rows, and a lighter edge along the front.
+      const bot = by + beltH / 2 + 16 * k();
+      const face = 8 * k();
       g.fillStyle = 'rgba(0,0,0,0.3)';
-      for (let y = top + 18 * k(); y < api.H; y += 18 * k()) g.fillRect(0, Math.round(y), api.W, Math.max(1, Math.round(k())));
+      g.fillRect(0, Math.round(bot + face), api.W, Math.round(10 * k()));
+      g.fillStyle = '#5c3b22';
+      g.fillRect(0, Math.round(top), api.W, Math.round(bot - top));
+      // Its planks: a darker seam every few rows, a lighter edge along the back and a dark front face.
+      g.fillStyle = 'rgba(0,0,0,0.3)';
+      for (let y = top + 18 * k(); y < bot; y += 18 * k()) g.fillRect(0, Math.round(y), api.W, Math.max(1, Math.round(k())));
       g.fillStyle = '#7a5232';
       g.fillRect(0, Math.round(top), api.W, Math.round(4 * k()));
+      g.fillStyle = '#3e2715';
+      g.fillRect(0, Math.round(bot), api.W, Math.round(face));
       // The belt: dark rubber with slats running along it.
-      const beltH = S * 1.25;
       g.fillStyle = '#2a2a30';
       g.fillRect(0, by - beltH / 2, api.W, beltH);
       g.fillStyle = '#3c3c46';

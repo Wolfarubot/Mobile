@@ -7,7 +7,7 @@ import { gearImage, hunterSheetImage } from '../../render/sprites';
 import { drawFramedBar, drawFramedSegments, framedSlot } from '../../render/hudBars';
 
 /**
- * Kargesh's Forge Strike (the Ember Mines): Kargesh at his anvil beside a vent of the mine's fire, a glowing ingot
+ * Kargesh's Forge Strike (in a smithy): Kargesh at his anvil beside a roaring hearth, a glowing ingot
  * before him. A marker swings along the strike bar, slowly at first; tap while it's in the sweet spot and his hammer
  * lands: 1 point, 2 dead centre, times the multiplier. Every hit quickens the swing a little, and every 3 hits in a
  * row raise the multiplier; a miss resets the multiplier, halves the swing (never below where it started) and costs a
@@ -25,9 +25,6 @@ export const FS_MAX_SPEED = 2.4;
 /** Hits in a row for each step of the multiplier (×1, then ×2 after 3, ×3 after 6...), up to ×8. */
 export const FS_STREAK_STEP = 3;
 export const FS_MAX_MULT = 8;
-
-/** The mine far behind the forge, at half size and shaded (the forge stands out in front). */
-export const FS_DECOR = { bands: 4, density: 1, scale: 0.5 };
 
 /** Strikes to forge a piece. */
 const STRIKES = 5;
@@ -106,7 +103,7 @@ export function forgeStrike(api: MinigameApi): MinigameGame {
     zone = { c: w / 2 + Math.random() * (1 - w), w };
   };
 
-  // The forge, low on the screen: the anvil in the middle, Kargesh to its left, the fire vent behind on the right.
+  // The forge, low on the screen: the anvil in the middle, Kargesh to its left, the hearth behind on the right.
   const IS = () => (api.k > 1.3 ? 3 : 2);
   const anvil = () => ({ x: api.W / 2 + 10 * api.k, y: api.H - 150 * api.k });
   const kargesh = () => ({ x: anvil().x - 58 * api.k, y: anvil().y + 34 * api.k });
@@ -258,18 +255,23 @@ export function forgeStrike(api: MinigameApi): MinigameGame {
       g.fillStyle = '#ffffff';
       g.fillRect(Math.round(mx - 2), b.y + 4, 4, b.nh * BS - 8);
 
-      // The fire vent behind the anvil, flaring as he works.
-      const v = mgArt('forge-vent');
+      // The hearth behind the anvil, its coals flickering (six frames), glowing as he works.
+      const v = mgArt('smithy-forge');
       const vs = IS();
       const vp = vent();
       if (v) {
-        const pulse = 0.55 + Math.sin(api.t * 6) * 0.1;
+        const pulse = 0.5 + Math.sin(api.t * 6) * 0.1;
         const gl = g.createRadialGradient(vp.x, vp.y, 4, vp.x, vp.y, 80 * api.k);
         gl.addColorStop(0, `rgba(255,140,40,${pulse})`);
         gl.addColorStop(1, 'rgba(255,140,40,0)');
         g.fillStyle = gl;
         g.fillRect(vp.x - 90 * api.k, vp.y - 90 * api.k, 180 * api.k, 180 * api.k);
-        g.drawImage(v, Math.round(vp.x - (v.naturalWidth * vs) / 2), Math.round(vp.y - (v.naturalHeight * vs) / 2), v.naturalWidth * vs, v.naturalHeight * vs);
+        const fw = v.naturalWidth / 6;
+        const f = Math.floor(api.t * 8) % 6;
+        const smooth = g.imageSmoothingEnabled;
+        g.imageSmoothingEnabled = false;
+        g.drawImage(v, f * fw, 0, fw, v.naturalHeight, Math.round(vp.x - (fw * vs) / 2), Math.round(vp.y - (v.naturalHeight * vs) / 2), fw * vs, v.naturalHeight * vs);
+        g.imageSmoothingEnabled = smooth;
       }
 
       // The anvil, and the ingot on it: hammered flatter and longer with each strike, glowing by its heat.
