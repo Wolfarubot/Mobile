@@ -4731,7 +4731,7 @@ describe('Field', () => {
     expect(f.enemies.find((e) => e.id === 3)!.hp).toBe(1e12);
   });
 
-  it("Id the Rift Walker's rifts loose homing void bolts that explode where they strike", () => {
+  it("Id the Rift Walker's rifts loose homing arcane bolts that explode where they strike", () => {
     expect(hunterDef('riftwalker')).toMatchObject({ name: 'Id', title: 'Rift Walker', area: 'rift', unlock: { event: 'shadowTide', times: 1 } });
     const { f } = thomasField(['riftwalker']);
     f.enemies = [];
@@ -4746,7 +4746,7 @@ describe('Field', () => {
     for (let t = 0; t < 4; t += 1 / 30) {
       f.update(1 / 30);
       bolts = Math.max(bolts, f.bullets.filter((b) => b.kind === 'riftbolt').length);
-      blasts += f.drainEvents().filter((e) => e.type === 'explode' && e.magic === 'void').length;
+      blasts += f.drainEvents().filter((e) => e.type === 'explode' && e.magic === 'arcane').length;
     }
     expect(bolts).toBeGreaterThan(0);
     expect(blasts).toBe(sp.rift!.count * sp.rift!.bolts);

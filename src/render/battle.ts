@@ -236,8 +236,8 @@ export class BattleView {
             this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: radiant ? '255,227,110' : '255,138,61', max: 0.3, fill: true });
             this.fx.burst(e.x, e.y, '#ffb04d', 8, 160, 3, 0);
           } else if (radiant) this.playEffect('sunstrike', e.x, e.y + e.r * 0.3, e.r * 2.2, 'bottom', 22);
-          // Id's void bolts burst in the Void's violet.
-          else if (e.magic === 'void') this.playEffect('explosion', e.x, e.y, e.r * 2.3, 'center', 22, 0, 1, DAMAGE_TYPES.void.color);
+          // Id's arcane bolts burst in their own colour.
+          else if (e.tint) this.playEffect('explosion', e.x, e.y, e.r * 2.3, 'center', 22, 0, 1, e.tint);
           else this.playEffect('explosion', e.x, e.y, e.r * 2.3);
           break;
         }
@@ -2473,7 +2473,7 @@ function drawBullet(g: CanvasRenderingContext2D, b: Bullet, t: number, basic = f
   g.translate(b.x, b.y);
   switch (b.kind) {
     case 'riftbolt': {
-      // Id's void bolt: a violet spark with a pale core, trailing a wisp of the dark it came from.
+      // Id's arcane bolt: a violet spark with a pale core, trailing a wisp of the dark it came from.
       g.rotate(a);
       g.scale(1.6, 1.6);
       g.fillStyle = 'rgba(164,107,255,0.25)';
@@ -3441,8 +3441,8 @@ function auraCells(phase: number): Cell[] {
 }
 
 /**
- * An event's picture filling `canvas` (sized by CSS): 'swarm', a crowd of the monster overlapping across the whole
- * canvas; 'silhouette', the monster blacked out and drawn `scale` times the canvas's larger side, centred, so a big
+ * An event's picture filling `canvas` (sized by CSS): 'swarm', three of the monster huddled together near the
+ * top; 'silhouette', the monster blacked out and drawn `scale` times the canvas's larger side, centred, so a big
  * one is cropped by the canvas's edges. Waits for the monster's art to load.
  */
 export function drawEventBackdrop(canvas: HTMLCanvasElement, id: EnemyId, mode: 'swarm' | 'silhouette', scale = 1): void {
@@ -3463,7 +3463,7 @@ export function drawEventBackdrop(canvas: HTMLCanvasElement, id: EnemyId, mode: 
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
   g.imageSmoothingEnabled = false;
   g.clearRect(0, 0, W, H);
-  const unit = Math.round(mode === 'swarm' ? Math.min(W, H) * 0.62 : Math.max(W, H) * scale);
+  const unit = Math.round(mode === 'swarm' ? Math.min(W * 0.42, H * 0.55) : Math.max(W, H) * scale);
   const one = document.createElement('canvas');
   drawEnemyPortrait(one, id, [unit, unit]);
   if (mode === 'silhouette') {
@@ -3477,20 +3477,17 @@ export function drawEventBackdrop(canvas: HTMLCanvasElement, id: EnemyId, mode: 
     g.putImageData(d, 0, 0);
     return;
   }
-  // The crowd: a jittered grid a little past every edge, the ones further down drawn last (in front), some facing
-  // the other way, sizes varying a little. The same layout every time for the same monster.
-  let seed = [...id].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7);
-  const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32);
-  const step = unit * 0.5;
-  const pts: Array<[number, number, number, boolean]> = [];
-  for (let y = -step * 0.4; y < H + step * 0.4; y += step * 0.8)
-    for (let x = -step * 0.4 + (Math.round(y / step) % 2 ? step / 2 : 0); x < W + step * 0.4; x += step)
-      pts.push([x + (rnd() - 0.5) * step * 0.6, y + (rnd() - 0.5) * step * 0.5, 0.8 + rnd() * 0.35, rnd() < 0.5]);
-  pts.sort((a, b) => a[1] - b[1]);
-  for (const [x, y, s, flip] of pts) {
+  // Three of them huddled together above the tile's name (where a minigame's item sits): two a step behind, one
+  // in front, the back right one facing the other way.
+  const spots: Array<[number, number, number, boolean]> = [
+    [-0.2, -0.08, 0.92, false],
+    [0.2, -0.1, 0.92, true],
+    [0, 0.1, 1, false],
+  ];
+  for (const [fx, fy, s, flip] of spots) {
     const d = unit * s;
     g.save();
-    g.translate(x, y);
+    g.translate(W / 2 + fx * W * 0.8, H * 0.3 + fy * H * 0.8);
     if (flip) g.scale(-1, 1);
     g.drawImage(one, -d / 2, -d / 2, d, d);
     g.restore();

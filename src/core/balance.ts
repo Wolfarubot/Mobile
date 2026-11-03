@@ -2249,7 +2249,7 @@ export interface HunterSpecial {
   /** Crimson Wave: how wide the surge is (it runs `radius` long). Eye Lasers: how wide the beam is. */
   width?: number;
   /**
-   * Id's Rifts: `count` rifts tear open near the monsters for `life` seconds, each loosing `bolts` homing void bolts
+   * Id's Rifts: `count` rifts tear open near the monsters for `life` seconds, each loosing `bolts` homing arcane bolts
    * that explode where they strike (`radius` wide, for `damage` × his hit to everything in it).
    */
   rift?: { count: number; bolts: number; life: number };
@@ -2636,24 +2636,24 @@ export const HUNTERS: HunterDef[] = [
   },
   {
     id: 'riftwalker', name: 'Id', title: 'Rift Walker', icon: '🌀', color: '#a46bff', area: 'rift', recruitCost: 4e25,
-    short: 'Tears open rifts full of homing void bolts. Cooldowns run faster beside him.',
+    short: 'Tears open rifts full of homing arcane bolts. Cooldowns run faster beside him.',
     unlock: { event: 'shadowTide', times: 1 },
     ascendedTitle: 'Lord of the Rift',
     quicken: 0.1,
     story: "Nobody knows whether Id came out of the Void Rift or the Rift came out of Id. He drifts where the shadow slimes pour through, watching. Turn back a Shadow Tide, and he'll open the Rift for you instead.",
-    ability: "Every 8 seconds, tears open three rifts near the monsters. Each one looses a swarm of homing void bolts that explode where they strike. Every Hunter in his area, him included, has their cooldowns 10% shorter (20% once he ascends, 30% with his ascended capstone). Wields only magic weapons.",
+    ability: "Every 8 seconds, tears open three rifts near the monsters. Each one looses a swarm of homing arcane bolts that explode where they strike. Every Hunter in his area, him included, has their cooldowns 10% shorter (20% once he ascends, 30% with his ascended capstone). Wields only magic weapons.",
     slots: [{ kind: 'magic', label: 'Magic weapon' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
     special: {
       kind: 'rift',
       name: 'Rift Swarm',
-      damageType: 'void',
+      damageType: 'arcane',
       cooldown: 8,
       damage: 0.45,
       radius: 32,
       ticks: 15,
       crowd: 2,
       rift: { count: 3, bolts: 5, life: 1.5 },
-      describe: "Every 8 seconds, tears open three rifts near the monsters for a moment. Each looses five void bolts that home in on the monsters and explode where they strike, hurting everything around for 45% of his weapon's damage. Area size widens the blasts.",
+      describe: "Every 8 seconds, tears open three rifts near the monsters for a moment. Each looses five arcane bolts that home in on the monsters and explode where they strike, hurting everything around for 45% of his weapon's damage. Area size widens the blasts.",
     },
   },
 ];
@@ -2751,7 +2751,7 @@ const HUNTER_ABILITIES: Partial<Record<HunterId, HunterAbility[]>> = {
   lichlord: [{ name: 'Raise the Legion', kind: 'active', text: 'Every 15 seconds, raises six skeletal soldiers from the ground around him that march on the monsters and fight for 10 seconds, striking with his weapon.' }],
   alien: [{ name: 'Eye Lasers', kind: 'active', text: 'Every 5 seconds, fires twin eye lasers at the nearest monster. The beam runs right across the battlefield, burning everything in its path.' }],
   riftwalker: [
-    { name: 'Rift Swarm', kind: 'active', text: 'Every 8 seconds, tears open three rifts near the monsters. Each looses five homing void bolts that explode where they strike.' },
+    { name: 'Rift Swarm', kind: 'active', text: 'Every 8 seconds, tears open three rifts near the monsters. Each looses five homing arcane bolts that explode where they strike.' },
     { name: 'Time Slip', kind: 'passive', text: 'Every Hunter in his area, him included, has their cooldowns 10% shorter: 20% once he ascends, and 30% with his ascended capstone.' },
   ],
   spaceslime: [{ name: 'Smooth Talk', kind: 'active', text: "Every 6 seconds, sweet-talks the monster nearest him (Guardians aren't fooled): for 6 seconds it hunts the nearest other monster instead of your Hunters, biting it for a quarter of its own health every second." }],

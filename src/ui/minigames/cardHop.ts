@@ -1,13 +1,13 @@
 import { canvasFont } from '../../render/fx';
 import { drawHunter } from './art';
 import { mgArt } from './dpad';
-import { TITLE_Y, type MinigameApi, type MinigameGame } from './shell';
+import { type MinigameApi, type MinigameGame } from './shell';
 
 /**
  * Ted's Card Hop (the Cloud Fortress): rows of playing cards slide across the table, each row its own way, and Ted
- * hops up from card to card. Tap a card in the row above (within a hop's reach) to jump onto it; tap one beside him
- * to step across. His card carries him along, and if it takes him off the edge he falls (a heart) and climbs back
- * onto the row. The board scrolls up as he climbs, each row a little quicker.
+ * hops up from card to card. Tap anywhere to hop him onto the card in the row above, when one is close enough
+ * above him. His card carries him along, and if it takes him off the edge he falls (a heart) and climbs back onto
+ * the row. The board scrolls up as he climbs; the rows start slow, and each one is a little quicker.
  *
  * Every hop up scores by the card: Ace to 3 are 1 point, 4 to 7 are 2, 8 to 10 are 3, Jack to King 4 (a Joker 2).
  * Landing on the next rank up from his card (… Queen, King, Ace, 2 …) doubles it, plus a bonus that grows with
@@ -19,7 +19,7 @@ import { TITLE_Y, type MinigameApi, type MinigameGame } from './shell';
 
 export const CH_TIME = 60;
 export const CH_INTRO =
-  "<p>Cards slide across the table. <b>Tap</b> a card in the row above to hop Ted onto it, or one beside him to step across. Don't let his card carry him off the edge: that costs a heart.</p><p>Higher cards score more: Ace to 3 are 1, 4 to 7 are 2, 8 to 10 are 3, and Jack to King 4.</p><p>Hop onto the <b>next card up</b> (… Queen, King, Ace, 2 …) for double, and more for every one in a row. A <b>Joker</b> always counts as the next card, and so does whatever you hop to from it. You have " +
+  "<p>Cards slide across the table. <b>Tap anywhere</b> to hop Ted up onto the card above him, when one passes close enough. Don't let his card carry him off the edge: that costs a heart.</p><p>Higher cards score more: Ace to 3 are 1, 4 to 7 are 2, 8 to 10 are 3, and Jack to King 4.</p><p>Hop onto the <b>next card up</b> (… Queen, King, Ace, 2 …) for double, and more for every one in a row. A <b>Joker</b> always counts as the next card, and so does whatever you hop to from it. You have " +
   CH_TIME +
   ' seconds.</p>';
 
@@ -32,8 +32,8 @@ const JOKER = 13;
 const JOKER_CHANCE = 0.06;
 /** A row's cards, end to end: each card's width plus a gap this many card widths, at random. */
 const GAP: [number, number] = [0.35, 1.5];
-/** How far up a hop reaches sideways, in card widths. */
-const REACH = 1.6;
+/** How far to the side the card above can be for Ted to hop onto it, in card widths. */
+const REACH = 0.9;
 const HOP_TIME = 0.2;
 
 interface Card {
@@ -63,7 +63,7 @@ export function followsOn(from: number, to: number): boolean {
 
 export function cardHop(api: MinigameApi): MinigameGame {
   const k = () => api.k;
-  const cw = () => 46 * k();
+  const cw = () => 60 * k();
   const ch = () => (cw() * CARD_H) / CARD_W;
   const rowH = () => ch() + 16 * k();
   const rows: Row[] = [];
@@ -84,7 +84,8 @@ export function cardHop(api: MinigameApi): MinigameGame {
   /** A new row, filled across the screen and beyond: faster the higher it is, the other way from the row below. */
   const addRow = (i: number) => {
     const dir = i % 2 ? -1 : 1;
-    const v = dir * Math.min(150, 34 + i * 5) * (0.85 + Math.random() * 0.3);
+    // Slow to start, a little quicker with every row he climbs.
+    const v = dir * Math.min(150, 26 + i * 4.5) * (0.85 + Math.random() * 0.3);
     const cards: Card[] = [];
     let x = -cw() * 2 + Math.random() * cw();
     while (x < api.W + cw() * 2) {
@@ -139,22 +140,18 @@ export function cardHop(api: MinigameApi): MinigameGame {
 
   return {
     titleSuffix: () => `${Math.ceil(Math.max(0, CH_TIME - api.t))}s`,
-    tap(x, y) {
+    tap() {
       if (hop || falling > 0) return;
-      // A card in the row above (in reach), or one beside Ted in his own row.
-      for (const target of [row + 1, row]) {
-        if (target < 0) continue;
-        const ry = rowY(target);
-        if (Math.abs(y - ry) > ch() * 0.6 + 6 * k()) continue;
-        const hit = rows[target].cards.find((c) => Math.abs(x - c.x) <= cw() * 0.5 + 4 * k());
-        if (!hit || hit === card) return;
-        if (Math.abs(hit.x - tedX) > cw() * REACH * (target === row ? 1.25 : 1)) {
-          api.pop(hit.x, ry - ch() * 0.5, 'Too far!', '#e0e0e0');
-          return;
-        }
-        hop = { fromX: tedX, fromRow: row, to: hit, toRow: target, t: 0 };
+      // Up onto the card in the row above nearest to him, if it's close enough above him.
+      const target = row + 1;
+      const r = rows[target];
+      if (!r) return;
+      const hit = r.cards.reduce((a, c) => (Math.abs(c.x - tedX) < Math.abs(a.x - tedX) ? c : a));
+      if (Math.abs(hit.x - tedX) > cw() * REACH) {
+        api.pop(tedX, rowY(target) - ch() * 0.5, 'Too far!', '#e0e0e0');
         return;
       }
+      hop = { fromX: tedX, fromRow: row, to: hit, toRow: target, t: 0 };
     },
     step(dt) {
       if (api.t >= CH_TIME) {
@@ -195,9 +192,10 @@ export function cardHop(api: MinigameApi): MinigameGame {
       const H = ch();
       // The table under it all: a felt band for each row on screen, slightly darker every other one.
       const first = Math.max(0, Math.floor(camera) - 1);
-      for (let i = first; i < first + Math.ceil(api.H / rowH()) + 3; i++) {
+      // Rows past the top of the screen are drawn too, so new ones slide into view already moving.
+      for (let i = first; i < first + Math.ceil(api.H / rowH()) + 4; i++) {
         const y = rowY(i);
-        if (y < TITLE_Y + 10 || y > api.H + rowH()) continue;
+        if (y < -rowH() || y > api.H + rowH()) continue;
         g.fillStyle = i % 2 ? 'rgba(18,58,38,0.62)' : 'rgba(28,82,52,0.62)';
         g.fillRect(0, y - rowH() / 2, api.W, rowH());
         const r = rows[i];
@@ -240,7 +238,7 @@ export function cardHop(api: MinigameApi): MinigameGame {
       g.beginPath();
       g.ellipse(p.x, p.y + H * 0.33, W * 0.55, W * 0.2, 0, 0, Math.PI * 2);
       g.fill();
-      drawHunter(g, 'gambler', p.x, p.y + H * 0.35, 62 * k(), api.t, 3);
+      drawHunter(g, 'gambler', p.x, p.y + H * 0.35, 82 * k(), api.t, 3);
       g.restore();
       // What he needs next, and his run.
       g.font = canvasFont(Math.round(14 * k()), 700);

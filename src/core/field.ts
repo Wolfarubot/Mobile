@@ -329,11 +329,11 @@ export interface Bullet {
   elem?: number;
   /** Other ranged arts riding on it (see MeleeArt): what it does when it hits, or misses. */
   arts?: ShotArts;
-  /** Id's void bolts: how fast they turn toward the monster they're chasing (radians a second). */
+  /** Id's arcane bolts: how fast they turn toward the monster they're chasing (radians a second). */
   homing?: number;
 }
 
-/** One of Id's rifts: open at (x, y) for `max` seconds, loosing `left` more homing void bolts, one every `every`. */
+/** One of Id's rifts: open at (x, y) for `max` seconds, loosing `left` more homing arcane bolts, one every `every`. */
 export interface Rift {
   by: Shooter;
   x: number;
@@ -350,7 +350,7 @@ export interface Rift {
   only?: DamageType;
 }
 
-/** Id's void bolts: how fast they fly and turn, and how far they go before fizzling out. */
+/** Id's arcane bolts: how fast they fly and turn, and how far they go before fizzling out. */
 export const RIFT_BOLT = { speed: 260, turn: 7, range: 700 };
 
 /** Ranged arts a projectile carries. */
@@ -513,7 +513,7 @@ export type FieldEvent =
   | { type: 'boneWall'; r: number }
   | { type: 'escape'; x: number; y: number }
   /** `magic`: a spell's blast, which sounds like its element rather than a plain explosion. */
-  | { type: 'explode'; x: number; y: number; r: number; color: string; magic?: DamageType }
+  | { type: 'explode'; x: number; y: number; r: number; color: string; magic?: DamageType; /** Drawn in this colour (Id's bolts). */ tint?: string }
   | { type: 'nova'; x: number; y: number; r: number; color?: string }
   | { type: 'beam'; x1: number; y1: number; x2: number; y2: number; color: string; width: number; zigzag?: boolean; thrust?: boolean }
   | { type: 'sweep'; x: number; y: number; a: number; arc: number; r: number; color: string; heavy?: boolean; blade?: boolean }
@@ -1554,7 +1554,7 @@ export class Field {
     }
     if (sp.kind === 'rift' && sp.rift) {
       // Id's Rift Swarm: rifts tear open around the nearest monster, a little way off it, and each looses a swarm
-      // of homing void bolts that explode where they strike.
+      // of homing arcane bolts that explode where they strike.
       const { count, bolts, life } = sp.rift;
       const spin = g.rng() * Math.PI * 2;
       for (let i = 0; i < count; i++) {
@@ -3148,7 +3148,7 @@ export class Field {
   private moveBullets(dt: number): void {
     for (const b of this.bullets) {
       if (b.homing) {
-        // A void bolt turns toward the nearest monster, a little at a time.
+        // An arcane bolt turns toward the nearest monster, a little at a time.
         const prey = this.nearest(b.x, b.y, RIFT_BOLT.range);
         if (prey) {
           const speed = Math.hypot(b.vx, b.vy);
@@ -3267,9 +3267,10 @@ export class Field {
       return;
     }
     if (b.kind === 'riftbolt') {
-      // A void bolt explodes where it strikes, hurting everything around.
+      // An arcane bolt explodes where it strikes, hurting everything around.
       const r = b.radius ?? 30;
-      this.events.push({ type: 'explode', x: b.x, y: b.y, r, color: DAMAGE_TYPES.void.color, magic: 'void' });
+      const t = b.dtype ?? 'arcane';
+      this.events.push({ type: 'explode', x: b.x, y: b.y, r, color: DAMAGE_TYPES[t].color, magic: t, tint: DAMAGE_TYPES[t].color });
       for (const o of [...this.enemies]) if (o.hp > 0 && Math.hypot(o.x - b.x, o.y - b.y) <= r + o.r) this.hitWith(b.shooter, o, b.dmg, b.x, b.y, b.crit, b.mode, true, true, b.dtype);
       b.life = 0;
       return;
