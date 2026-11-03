@@ -70,7 +70,7 @@ export const SHEETS: Record<string, MonsterSheet> = {
   'bear-brown': { frame: 48, cols: 6, order: 'SIDE', faces: 'L', box: [5, 24, 43, 24] },
   'yeti': { frame: 72, cols: 6, order: 'SIDE', box: [5, 42, 51, 30] },
   'pixie': { frame: 48, cols: 4, order: 'SIDE', faces: 'L', box: [18, 17, 25, 20] },
-  'unicorn': { frame: 32, cols: 6, order: 'DULR', box: [0, 0, 32, 30] },
+  'unicorn': { frame: 64, cols: 6, order: 'DULR', box: [10, 7, 44, 35] },
   'bat': { frame: 48, cols: 4, order: 'SIDE', faces: 'L', box: [10, 21, 36, 22] },
   'crow': { frame: 32, cols: 6, order: 'DULR', box: [0, 1, 31, 27] },
   'puppet': { frame: 48, cols: 6, order: 'SIDE', box: [17, 10, 28, 38] },

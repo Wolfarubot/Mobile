@@ -35,12 +35,14 @@ Side-view and animal packs (walk or flight strips, one row facing right, mirrore
   field-enemies-game-sprite-sheets-pixel-art (wasp)
   free-desert-enemy-sprite-sheets-pixel-art (vulture, scorpio)
   free-top-down-animals-farm-pixel-art-sprites (bull; 4-direction)
+  top-down-cute-farm-animals-pixel-sprite (4-direction): unicorn.png is Horse_without_shadow's walk (64px frames, its
+    side rows swapped to run down, up, left, right) recoloured white and lilac with a pink mane and tail and grey
+    hooves, and a gold horn drawn on each frame from the forelock (slanting forward from the side, only its tip
+    showing from behind)
   free-top-down-hunt-animals-pixel-sprite-pack (deer, black grouse; 4-direction):
     wolf-grey.png, wolf-ice.png: Fox_Run (Without_shadow) recoloured grey (cream tail tip) and icy blue (white
     tip), its side rows swapped so they run down, up, left, right; crow.png: Black_grouse_Flight recoloured
-    purple-black (the red comb and blue sheen darkened, the pale feathers grey); unicorn.png: Deer_Run recoloured
-    white and lilac, its antlers taken off and a gold horn drawn on each frame (slanting forward from the side,
-    hidden behind the head from the back), moved down 2px to leave room for it
+    purple-black (the red comb and blue sheen darkened, the pale feathers grey)
   golem-character-sprite-sheets-pixel-art, hellhound-character-sprite-sheets-pixel-art,
   dragon-pixel-art-character-sprite-sheets-pack, free-yokai-pixel-art-character-sprites
   swamp-enemies (bat), swamp-bosses (big bloated -> Toxic Bloat, recoloured), ruin-enemy (raven, bug), animal-sprite-sheets (white bear), desert-bosses (manticore),
