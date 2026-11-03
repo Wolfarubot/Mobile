@@ -214,9 +214,10 @@ const enemy = (over: Partial<Enemy>): Enemy => ({
 });
 
 /** A game with plenty of gold and a strong Hunter. */
-/** Every event completed a few times, so every Hunter can be recruited. */
+/** Every event completed a few times, and every other unlock met, so every Hunter can be recruited. */
 function veteran(s: GameState): GameState {
   for (const e of Object.values(s.events)) e.completed = 5;
+  for (const h of Object.values(s.hunters)) h.met = true;
   s.flags.trainIntro = true; // past the first 20 slimes, so training is open
   return s;
 }
@@ -598,13 +599,13 @@ describe('Hunters', () => {
     expect(g.hunterAvailable('glimmer')).toBe(true);
   });
 
-  it('the Shadowy Depths: Wilhelm after its Guardian, Celeste the Psion after two', () => {
+  it('the Shadowy Depths: Wilhelm after its Guardian, Celeste the Psion after 12,000 Gazing Eyes', () => {
     expect(hunterDef('wilhelm').area).toBe('depths');
     expect(hunterDef('wilhelm').unlock).toEqual({ event: 'guardian-depths', times: 1 });
     expect(hunterDef('wilhelm').story).toContain('a hundred eyes');
     const c = hunterDef('celeste');
     expect([c.name, c.title, c.area]).toEqual(['Celeste', 'Psion', 'depths']);
-    expect(c.unlock).toEqual({ event: 'guardian-depths', times: 2 });
+    expect(c.unlock).toEqual({ kills: 12_000, enemy: 'gazingEye' });
     expect(c.bane).toEqual({ archetype: 'dragon', mult: 1.5 });
   });
 
@@ -619,9 +620,44 @@ describe('Hunters', () => {
     expect(g.tree('ranger').bounces).toBe(0);
   });
 
-  it('every Hunter is unlocked by an event in their home area, in order', () => {
-    for (const h of HUNTERS) expect(eventDef(h.unlock.event).area).toBe(h.area);
+  it('every Hunter is unlocked in their home area (its events, its monsters), and not all by events', () => {
+    for (const h of HUNTERS) {
+      const u = h.unlock;
+      if ('event' in u) expect(eventDef(u.event).area, h.id).toBe(h.area);
+      else if ('enemy' in u) expect(enemyDef(u.enemy).area, h.id).toBe(h.area);
+      else if ('archetype' in u) expect(u.area, h.id).toBe(h.area);
+    }
     expect(HUNTERS[0].id).toBe('alchemist');
+    const kinds = new Set(HUNTERS.map((h) => Object.keys(h.unlock).sort().join()));
+    expect(kinds.size).toBeGreaterThanOrEqual(4);
+  });
+
+  it('Hunters unlock by slaying monsters, by training, or by holding gold, and stay unlocked once they have', () => {
+    const g = new Game(newGame(0), noCrit);
+    // Deku: Toadstools slain.
+    expect(g.hunterAvailable('druid')).toBe(false);
+    g.state.bestiary.toadstool.kills = 15_000;
+    expect(g.hunterAvailable('druid')).toBe(true);
+    // Lance: undead slain in the Graveyard, any of them.
+    g.state.bestiary.skeleton.kills = 100_000;
+    expect(g.hunterAvailable('lance')).toBe(false);
+    g.state.bestiary.zombie.kills = 50_000;
+    expect(g.hunterAvailable('lance')).toBe(true);
+    // Theon: your Hunters' trainings together (recruited Guild Hunters' count).
+    g.state.main.trains = 1_000;
+    expect(g.hunterAvailable('puppeteer')).toBe(false);
+    g.state.hunters.alchemist.recruited = true;
+    g.state.hunters.alchemist.trains = 400;
+    expect(g.totalTrains()).toBe(1_400);
+    expect(g.hunterAvailable('puppeteer')).toBe(true);
+    // Ted: gold in hand; spending it afterwards doesn't lock him again.
+    g.state.gold = 1e25;
+    expect(g.hunterAvailable('gambler')).toBe(false);
+    g.state.gold = 2e25;
+    expect(g.hunterAvailable('gambler')).toBe(true);
+    g.state.gold = 0;
+    expect(g.hunterAvailable('gambler')).toBe(true);
+    expect(g.unlockProgress('gambler')).toEqual({ have: 0, need: 2e25 });
   });
 
   it('archetype bane multiplies damage only against that archetype', () => {
@@ -3173,7 +3209,7 @@ describe('Equipment', () => {
 
   it("the Fey Grove's Hunters: Ba'al's song speeds up the Hunters beside him, Deku calls spirit wolves", () => {
     expect(hunterDef('bard').unlock).toEqual({ event: 'guardian-glade', times: 1 });
-    expect(hunterDef('druid').unlock).toEqual({ event: 'guardian-glade', times: 2 });
+    expect(hunterDef('druid').unlock).toEqual({ kills: 15_000, enemy: 'toadstool' });
     const g = new Game(newGame(0), noCrit);
     g.state.areas.glade.unlocked = true;
     for (const id of ['bard', 'druid', 'ranger'] as const) g.state.hunters[id].recruited = true;
@@ -4719,7 +4755,7 @@ describe('Field', () => {
   });
 
   it("Tonk the Alien's Eye Lasers pierce the whole field along their line, and nothing off it", () => {
-    expect(hunterDef('alien')).toMatchObject({ name: 'Tonk', title: 'Alien', area: 'meteors', unlock: { event: 'meteorShower', times: 2 } });
+    expect(hunterDef('alien')).toMatchObject({ name: 'Tonk', title: 'Alien', area: 'meteors', unlock: { kills: 1_500_000, enemy: 'meteorite' } });
     const { f } = thomasField(['alien']);
     // The first stationed Hunter stands at -72, 42: once the lasers are ready, one monster close by, one far down
     // the same line, one well off it.
@@ -4799,7 +4835,7 @@ describe('Field', () => {
   });
 
   it("Ted the Gambler throws dice at the monsters every few seconds", () => {
-    expect(hunterDef('gambler')).toMatchObject({ name: 'Ted', title: 'Gambler', area: 'fortress', unlock: { event: 'cloudburst', times: 1 } });
+    expect(hunterDef('gambler')).toMatchObject({ name: 'Ted', title: 'Gambler', area: 'fortress', unlock: { gold: 2e25 } });
     const { f } = thomasField(['gambler']);
     let thrown = 0;
     let landed = 0;

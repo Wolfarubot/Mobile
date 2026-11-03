@@ -2792,10 +2792,34 @@ export class Game {
     return JOURNAL.filter((e) => this.journalUnlocked(e) && !this.state.seen.journal.includes(e.id));
   }
 
-  /** Completed their unlocking event enough times to be recruited. */
+  /**
+   * Met what it takes to recruit them (see HunterUnlock). Once met it stays met, so spending the gold, or a reset
+   * that lowers a count, doesn't lock them away again.
+   */
   hunterAvailable(id: HunterId): boolean {
-    const { event, times } = hunterDef(id).unlock;
-    return this.eventCompletions(event) >= times;
+    const st = this.state.hunters[id];
+    if (st.recruited || st.met) return true;
+    const { have, need } = this.unlockProgress(id);
+    if (have < need) return false;
+    st.met = true;
+    return true;
+  }
+
+  /** How far along a Hunter's unlock is: what you have of it, and what it needs. */
+  unlockProgress(id: HunterId): { have: number; need: number } {
+    const u = hunterDef(id).unlock;
+    if ('event' in u) return { have: this.eventCompletions(u.event), need: u.times };
+    if ('enemy' in u) return { have: this.state.bestiary[u.enemy]?.kills ?? 0, need: u.kills };
+    if ('archetype' in u) return { have: ENEMIES.filter((e) => e.area === u.area && e.archetype === u.archetype).reduce((n, e) => n + (this.state.bestiary[e.id]?.kills ?? 0), 0), need: u.kills };
+    if ('trains' in u) return { have: this.totalTrains(), need: u.trains };
+    return { have: this.state.gold, need: u.gold };
+  }
+
+  /** Every training session so far: your Hunter's and every recruited Guild Hunter's together. */
+  totalTrains(): number {
+    let n = this.state.main.trains;
+    for (const h of HUNTERS) if (this.state.hunters[h.id].recruited) n += this.state.hunters[h.id].trains;
+    return n;
   }
 
   /** Gold to recruit a Guild Hunter (less with Old Friends). */
@@ -2810,7 +2834,7 @@ export class Game {
   /** Hunters a completion of this event would make available (the next time it's completed). */
   huntersUnlockedBy(id: string): HunterId[] {
     const next = this.eventCompletions(id) + 1;
-    return HUNTERS.filter((h) => h.unlock.event === id && h.unlock.times === next).map((h) => h.id);
+    return HUNTERS.filter((h) => 'event' in h.unlock && h.unlock.event === id && h.unlock.times === next).map((h) => h.id);
   }
 
   recruit(id: HunterId): boolean {

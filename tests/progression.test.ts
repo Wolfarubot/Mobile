@@ -69,6 +69,8 @@ function botShop(game: Game, t: number, memo: { lastChallenge: number; lastHeavy
   // players unlock their recruits as soon as they can.
   for (const h of HUNTERS) {
     if (s.hunters[h.id].recruited || game.hunterAvailable(h.id)) continue;
+    // (Hunters unlocked by slaying, training or gold come along on their own.)
+    if (!('event' in h.unlock)) continue;
     if (!game.eventRunning && game.eventReady(h.unlock.event) && t - memo.lastChallenge > 60) {
       game.startEvent(h.unlock.event);
       memo.lastChallenge = t;

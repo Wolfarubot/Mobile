@@ -114,6 +114,8 @@ export interface Training {
 
 export interface HunterState extends Training {
   recruited: boolean;
+  /** Has met what it takes to recruit them (it stays met; see Game.hunterAvailable). */
+  met?: boolean;
   /** Area they're stationed in, earning in the background (null = resting). */
   station: AreaId | null;
 }

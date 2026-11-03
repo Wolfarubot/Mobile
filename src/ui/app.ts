@@ -6122,14 +6122,28 @@ const unlockNoun = (ev: EventDef): string => (ev.unlockArchetype ? `${ARCHETYPES
 /** How many not-yet-recruited Hunters the Hunters tab shows. */
 const NEXT_HUNTERS_SHOWN = 3;
 
-/** What a Hunter needs before they can be recruited, e.g. "Beat the Restless Graveyard Guardian (1/2)". */
+/**
+ * What a Hunter needs before they can be recruited, with how far along you are: "Beat the Restless Graveyard Guardian
+ * (1/2)", "Slay 15K Toadstools (4.2K/15K)", "Train your Hunters 1.4K times in all (980/1.4K)", "Have 20.0Sp gold at once".
+ */
 function unlockText(g: Game, def: HunterDef): string {
-  const ev = eventDef(def.unlock.event);
-  const done = Math.min(g.eventCompletions(ev.id), def.unlock.times);
-  const count = def.unlock.times > 1 ? ` ${def.unlock.times} times (${done}/${def.unlock.times})` : '';
-  const what = ev.kind === 'guardian' ? `Beat the ${areaDef(ev.area).name} Guardian` : `Survive a ${ev.name} in the ${areaDef(ev.area).name}`;
-  return `${what}${count}`;
+  const u = def.unlock;
+  const { have, need } = g.unlockProgress(def.id);
+  const of = ` (${fmt(Math.min(have, need))}/${fmt(need)})`;
+  if ('event' in u) {
+    const ev = eventDef(u.event);
+    const count = u.times > 1 ? ` ${u.times} times (${Math.min(have, need)}/${u.times})` : '';
+    const what = ev.kind === 'guardian' ? `Beat the ${areaDef(ev.area).name} Guardian` : `Survive a ${ev.name} in the ${areaDef(ev.area).name}`;
+    return `${what}${count}`;
+  }
+  if ('enemy' in u) return `Slay ${fmt(need)} ${plural(enemyDef(u.enemy).name)}${of}`;
+  if ('archetype' in u) return `Slay ${fmt(need)} ${ARCHETYPES[u.archetype].name.toLowerCase()} in the ${areaDef(u.area).name}${of}`;
+  if ('trains' in u) return `Train your Hunters ${fmt(need)} times in all${of}`;
+  return `Have 🪙 ${fmt(need)} at once${of}`;
 }
+
+/** A monster's name in the plural: Toadstools, Gazing Eyes, Ice Wolves. */
+const plural = (name: string): string => (/f$/.test(name) ? name.replace(/f$/, 'ves') : /[^aeiou]y$/.test(name) ? name.replace(/y$/, 'ies') : `${name}s`);
 
 /** A Hunter's art: their sprite if one was added, otherwise their icon on their colour. */
 function portraitHtml(who: Wearer, size = ''): string {

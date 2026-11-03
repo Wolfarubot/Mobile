@@ -2256,6 +2256,19 @@ export interface HunterSpecial {
   describe: string;
 }
 
+/**
+ * What makes a Guild Hunter available to recruit: completing an event of their area a number of times; slaying a
+ * number of one monster, or of one kind of monster in an area; training your Hunters a number of times in all (your
+ * Hunter's and every recruited Guild Hunter's levels together); or holding a sum of gold at once. Once met, it stays
+ * met (spending the gold doesn't lock them again).
+ */
+export type HunterUnlock =
+  | { event: string; times: number }
+  | { kills: number; enemy: EnemyId }
+  | { kills: number; archetype: Archetype; area: AreaId }
+  | { trains: number }
+  | { gold: number };
+
 export interface HunterDef {
   id: HunterId;
   name: string;
@@ -2264,8 +2277,8 @@ export interface HunterDef {
   color: string;
   /** Their home area (shown on their card). */
   area: AreaId;
-  /** Becomes available to recruit after completing this event of their area this many times. */
-  unlock: { event: string; times: number };
+  /** What it takes before they can be recruited (see HunterUnlock). */
+  unlock: HunterUnlock;
   /** Shown on their card while locked: where they are and what it takes to win them over. */
   story: string;
   /** Their title after ascending. */
@@ -2393,9 +2406,9 @@ export const HUNTERS: HunterDef[] = [
   {
     id: 'druid', name: 'Deku', title: 'Druid', icon: '🌿', color: '#6abf5a', area: 'glade', recruitCost: 250_000, bane: { archetype: 'plant', mult: BANE_BASE }, summonBonus: { type: 'beast', mult: 1.5 },
     short: 'Summons wolves to fight for him.',
-    unlock: { event: 'guardian-glade', times: 2 },
+    unlock: { kills: 15_000, enemy: 'toadstool' },
     ascendedTitle: 'Archdruid',
-    story: 'Deku tends the oldest trees of the Fey Grove, and the Guardian keeps trampling his saplings. Beat it twice, and he\'ll lend you the spirits of the wild.',
+    story: 'Deku tends the oldest trees of the Fey Grove, and the Toadstools keep choking his saplings. Clear out fifteen thousand of them, and he\'ll lend you the spirits of the wild.',
     ability: 'Every 6 seconds, calls two spirit wolves to hunt. Deals 50% bonus damage to Plants, and his Beast summons (wolves from any source) hit 50% harder. Uses ranged or magic weapons.',
     slots: [{ kind: 'weapon', label: 'Weapon', accepts: ['weapon', 'magic'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
     special: { kind: 'summon', name: 'Wolves', damageType: 'physical', cooldown: 6, damage: 0.7, radius: 1, ticks: 18, crowd: 1, summon: { look: 'wolf', type: 'beast' }, describe: 'Every 6 seconds, calls two spirit wolves that hunt for 6 seconds, biting for his damage. His weapon powers them, and they share its damage type and status effects.' },
@@ -2414,9 +2427,9 @@ export const HUNTERS: HunterDef[] = [
   {
     id: 'lance', name: 'Lance', title: 'Paladin', icon: '🛡️', color: '#ffe8a3', area: 'graveyard', recruitCost: 200_000_000,
     short: 'Takes extra hits and shields allies.',
-    unlock: { event: 'guardian-graveyard', times: 2 },
+    unlock: { kills: 150_000, archetype: 'undead', area: 'graveyard' },
     ascendedTitle: 'Crusader',
-    story: 'Lance swore to guard the Restless Graveyard\'s gates until its Guardian falls twice. Help him keep his oath, and his shield is yours.',
+    story: 'Lance swore to guard the Restless Graveyard\'s gates until its dead lie still. Put a hundred and fifty thousand of them back in the ground, and his shield is yours.',
     ability: 'Can take multiple hits before being knocked out (Zone of Protection), and grants other Hunters an extra hit as well (Rallying Oath).',
     slots: [{ kind: 'melee', label: 'Melee' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
   },
@@ -2432,9 +2445,9 @@ export const HUNTERS: HunterDef[] = [
   },  {
     id: 'puppeteer', name: 'Theon', title: 'Puppeteer', icon: '🎎', color: '#c89a6a', area: 'crypt', recruitCost: 1_000_000_000_000, summonBonus: { type: 'construct', mult: 1.5 },
     short: 'Summons puppets to fight for her.',
-    unlock: { event: 'guardian-crypt', times: 2 },
+    unlock: { trains: 1_400 },
     ascendedTitle: 'Grand Puppeteer',
-    story: "Theon pulls the strings of the Forbidden Crypt's Possessed Puppets, or tries to: something in the dark keeps cutting them. Beat the Crypt's Guardian twice, and her puppets will dance for you.",
+    story: "Theon pulls the strings of the Forbidden Crypt's Possessed Puppets, or tries to: something in the dark keeps cutting them. Show her a team that's trained hard (1,400 trainings in all), and her puppets will dance for you.",
     ability: 'Every 6 seconds, calls two puppets that hunt across the field. Her Construct summons (puppets from any source) hit 50% harder. Uses magic or melee weapons.',
     slots: [{ kind: 'magic', label: 'Weapon', accepts: ['magic', 'melee'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
     special: { kind: 'summon', name: 'Puppets', damageType: 'physical', cooldown: 6, damage: 0.7, radius: 1, ticks: 18, crowd: 1, summon: { look: 'puppet', type: 'construct' }, describe: 'Every 6 seconds, calls two puppets that hunt for 6 seconds, biting for her damage. Her weapon powers them, and they share its damage type and status effects.' },
@@ -2457,9 +2470,9 @@ export const HUNTERS: HunterDef[] = [
   {
     id: 'celeste', name: 'Celeste', title: 'Psion', icon: '🔮', color: '#c9a8ff', area: 'depths', recruitCost: 200_000_000_000_000, bane: { archetype: 'dragon', mult: BANE_BASE },
     short: '+50% damage to Dragons.',
-    unlock: { event: 'guardian-depths', times: 2 },
+    unlock: { kills: 12_000, enemy: 'gazingEye' },
     ascendedTitle: 'Oracle',
-    story: 'Celeste, a Psion who hears the thoughts of monsters, followed a whisper into the Shadowy Depths and got lost in the noise. Beat the Depths\' Guardian twice to quiet it, and Celeste will lend you that mind.',
+    story: 'Celeste, a Psion who hears the thoughts of monsters, followed a whisper into the Shadowy Depths and got lost in the noise. The Gazing Eyes are the loudest: close twelve thousand of them, and Celeste will lend you that mind.',
     ability: 'Deals 50% bonus damage to Dragons.',
   },
   {
@@ -2475,9 +2488,9 @@ export const HUNTERS: HunterDef[] = [
     // Sciirj replaced Pip the Scavenger; the id stays 'scavenger' so saves keep his recruit, levels and gear.
     id: 'scavenger', name: 'Sciirj', title: 'Monk', icon: '👊', color: '#e0703a', area: 'caves', recruitCost: 1.2e16,
     short: 'Punches monsters across the field.',
-    unlock: { event: 'guardian-caves', times: 2 },
+    unlock: { kills: 300_000, enemy: 'imp' },
     ascendedTitle: 'Grandmaster',
-    story: 'Sciirj trains in the heat of the Ember Mines, punching stone until the stone gives first. Beat its Guardian twice, and he\'ll lend you his fists.',
+    story: 'Sciirj trains in the heat of the Ember Mines, punching stone until the stone gives first. The Imps keep heckling him: knock out three hundred thousand of them, and he\'ll lend you his fists.',
     ability: 'Every 5 seconds, throws a massive punch that hits every monster in front of him and sends them flying. Fights with melee weapons.',
     special: { kind: 'punch', name: 'Mountain Fist', damageType: 'physical', cooldown: 5, damage: 3, radius: 95, ticks: 1, crowd: 2.5, knock: 700, arc: 1.6, describe: 'Every 5 seconds, when a monster is close, throws a massive punch that hits everything in front of him and knocks it far back. His weapon\'s damage powers the blow, and its attack speed lengthens his reach.' },
     slots: [{ kind: 'melee', label: 'Melee' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
@@ -2494,9 +2507,9 @@ export const HUNTERS: HunterDef[] = [
   {
     id: 'osteomancer', name: 'Gideon', title: 'Osteomancer', icon: '🦴', color: '#e8dcc0', area: 'mines', recruitCost: 4e18,
     short: 'Raises bone spikes and bone walls.',
-    unlock: { event: 'guardian-mines', times: 2 },
+    unlock: { trains: 4_300 },
     ascendedTitle: 'Bonelord',
-    story: "Gideon came to the Venom Caverns for the bones of the things that died there, and there are a great many. Beat the Caverns' Guardian twice, and he'll raise them for you.",
+    story: "Gideon came to the Venom Caverns for the bones of the things that died there, and there are a great many. He only follows the strong: train your Hunters 4,300 times in all, and he'll raise them for you.",
     ability: 'Every 5 seconds, bone spikes burst from the ground under a group of monsters, hurting them and holding them in place. When he is stunned, a Bone Wall rises around every Hunter for a few seconds. Uses magic weapons.',
     special: { kind: 'spikes', name: 'Bone Spikes', damageType: 'physical', cooldown: 5, damage: 1.6, radius: 60, ticks: 1, crowd: 3, hold: 1.5, describe: 'Every 5 seconds, bone spikes burst up under the nearest monster, hurting everything around it and holding it in place for 1.5 seconds. His weapon\'s damage powers them, and its attack speed widens them. Not while his Bone Wall stands.' },
     wall: { name: 'Bone Wall', cooldown: 25, duration: 4, radius: 70, describe: 'When he is stunned, a wall of bone rises around every Hunter for 4 seconds, and no monster can reach them. It is ready again 25 seconds later.' },
@@ -2514,9 +2527,9 @@ export const HUNTERS: HunterDef[] = [
   {
     id: 'bloodblade', name: 'Themus', title: 'Blood Blade', icon: '🩸', color: '#c0242c', area: 'peaks', recruitCost: 1.5e20,
     short: 'Waves of blood that make monsters bleed.',
-    unlock: { event: 'guardian-peaks', times: 2 },
+    unlock: { kills: 1_000_000, enemy: 'iceWolf' },
     ascendedTitle: 'Crimson Lord',
-    story: "Themus walks the Frost Peaks, where blood freezes before it can fall. Beat the Peaks' Guardian twice, and his blade is yours.",
+    story: "Themus walks the Frost Peaks, where blood freezes before it can fall, and the Ice Wolves hunt him for it. Thin the pack by a million, and his blade is yours.",
     ability: 'Every 5 seconds, sends a Crimson Wave of blood surging toward the monsters, hurting everything it passes and making it bleed. Once his tree is complete, monsters it kills burst into blood bolts. Fights with melee weapons.',
     special: { kind: 'wave', name: 'Crimson Wave', damageType: 'physical', cooldown: 5, damage: 1.4, radius: 200, width: 26, ticks: 1, crowd: 3, describe: 'Every 5 seconds, a surge of blood rushes out toward the nearest monster, hurting everything in its path and making it bleed. His weapon\'s damage powers it, and its attack speed lengthens it. With Blood Rain (his capstone), monsters it kills burst into blood bolts that seek out others and make them bleed too.' },
     slots: [{ kind: 'melee', label: 'Melee' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
@@ -2534,9 +2547,9 @@ export const HUNTERS: HunterDef[] = [
   {
     id: 'archivist', name: 'Thomas', title: 'Archivist', icon: '📖', color: '#c9b8ff', area: 'cliffs', recruitCost: 1.6e22,
     short: "His tome recalls other Hunters' specials.",
-    unlock: { event: 'harpyStorm', times: 2 },
+    unlock: { trains: 6_800 },
     ascendedTitle: 'Loremaster',
-    story: "Thomas came to the Ascendant Steps to copy the sky-script carved into its stairs, but the harpies keep scattering his pages. Drive off two Harpy Storms, and his library is yours.",
+    story: "Thomas came to the Ascendant Steps to copy the sky-script carved into its stairs, but the harpies keep scattering his pages. He'll trust a well-read team: train your Hunters 6,800 times in all, and his library is yours.",
     ability: "Every 6 seconds, his tome opens somewhere on the field and another Hunter's special bursts from it: usually one of the Hunters fighting beside him, sometimes any Hunter you've recruited. Wields only magic weapons.",
     slots: [{ kind: 'magic', label: 'Magic weapon' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
     special: {
@@ -2554,10 +2567,10 @@ export const HUNTERS: HunterDef[] = [
   {
     id: 'gambler', name: 'Ted', title: 'Gambler', icon: '🎲', color: '#e0c060', area: 'fortress', recruitCost: 8e22,
     short: 'Rolls dice for big blasts; kills near him pay double or nothing.',
-    unlock: { event: 'cloudburst', times: 1 },
+    unlock: { gold: 2e25 },
     ascendedTitle: 'High Roller',
     gamble: { double: 0.25, bust: 0.1 },
-    story: "Ted runs the only card table in the Cloud Fortress, and the storm keeps blowing his chips off it. Weather a Cloudburst, and he'll bet on you instead.",
+    story: "Ted runs the only card table in the Cloud Fortress, and he only deals in high rollers. Walk up to his table with 20 Sp of gold in hand, and he'll bet on you instead.",
     ability: 'Every 5 seconds, rolls two dice at the monsters. The higher the total, the bigger the blast. Doubles hit twice as hard, double 6s hit the whole field, and snake eyes leave him dazed. Kills in his area pay double (25%) or nothing (10%). Uses any weapon.',
     slots: [{ kind: 'weapon', label: 'Weapon', accepts: ['weapon', 'magic', 'melee'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
     special: {
@@ -2616,9 +2629,9 @@ export const HUNTERS: HunterDef[] = [
   {
     id: 'alien', name: 'Tonk', title: 'Alien', icon: '👽', color: '#7ee06a', area: 'meteors', recruitCost: 6e24,
     short: 'Eye lasers that pierce the whole battlefield.',
-    unlock: { event: 'meteorShower', times: 2 },
+    unlock: { kills: 1_500_000, enemy: 'meteorite' },
     ascendedTitle: 'Star Conqueror',
-    story: "Tonk's saucer came down in the Meteor Field, and he's been zapping anything that comes near the wreck ever since. Ride out two Meteor Showers, and he'll point those eyes at the monsters instead.",
+    story: "Tonk's saucer came down in the Meteor Field, and the Meteorites keep pelting the wreck. Smash a million and a half of them, and he'll point those eyes at the monsters instead.",
     ability: 'Every 5 seconds, fires twin eye lasers at the nearest monster. The beam runs right across the battlefield, burning everything in its path. Uses melee or ranged weapons.',
     slots: [{ kind: 'weapon', label: 'Weapon', accepts: ['weapon', 'melee'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
     special: {
