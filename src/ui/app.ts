@@ -177,6 +177,8 @@ import './texts';
 import { tx, txp, txt } from '../core/textRegistry';
 import { playCutscene, TIME_EATER_CUTSCENE } from './cutscene';
 import { regress } from '../core/regression';
+import { Capacitor } from '@capacitor/core';
+import { FEEDBACK_KINDS, FEEDBACK_MAX, feedbackReady, feedbackWait, sendFeedback, type FeedbackKind } from './feedback';
 import { ACCOUNTS_READY, AccountError, currentUser, deleteAccount, resetPassword, signIn, signInEmail, signOut, type AuthProvider } from './account';
 import { applyFont, fontDef, FONTS } from './fonts';
 import { GainPops } from './gainPops';
@@ -4319,6 +4321,69 @@ export class AppUI {
     ]);
   }
 
+  // ---- Feedback (top of Settings) ----
+
+  /** Submit Feedback: pick what it's about, type it out, Send. It goes with the game's version, device and progress. */
+  private feedbackCard(): HTMLElement {
+    const g = this.game;
+    const card = el('div', 'card feedback-card');
+    const kinds: Record<FeedbackKind, string> = { bug: txt('settings.feedback.bug'), qol: txt('settings.feedback.qol'), request: txt('settings.feedback.request'), other: txt('settings.feedback.other') };
+    card.innerHTML = `<div class="setting-name">${tx('settings.feedback.title')}</div><p>${tx('settings.feedback.blurb')}</p>
+      <div class="segmented two-rows fb-kinds">${FEEDBACK_KINDS.map((k) => `<button type="button" data-v="${k}">${kinds[k]}</button>`).join('')}</div>
+      <textarea class="fb-text" rows="5" maxlength="${FEEDBACK_MAX}" placeholder="${esc(txt('settings.feedback.placeholder'))}"></textarea>
+      <div class="fb-foot"><small class="fb-count"></small><button type="button" class="buy fb-send">${tx('settings.feedback.send')}</button></div>
+      <small class="fb-note">${tx('settings.feedback.note')}</small>`;
+    let kind: FeedbackKind = 'bug';
+    const area = $('.fb-text', card) as HTMLTextAreaElement;
+    const send = $('.fb-send', card) as HTMLButtonElement;
+    const count = $('.fb-count', card);
+    const sync = () => {
+      card.querySelectorAll<HTMLElement>('.fb-kinds button').forEach((b) => b.classList.toggle('on', b.dataset.v === kind));
+      const n = area.value.trim().length;
+      count.textContent = `${area.value.length} / ${FEEDBACK_MAX}`;
+      send.disabled = n < 3;
+    };
+    card.querySelectorAll<HTMLElement>('.fb-kinds button').forEach((b) =>
+      b.addEventListener('click', () => {
+        kind = b.dataset.v as FeedbackKind;
+        sync();
+      }),
+    );
+    area.addEventListener('input', sync);
+    send.addEventListener('click', () => {
+      if (!feedbackReady()) return this.toast(txt('settings.feedback.notReady'));
+      const wait = feedbackWait();
+      if (wait > 0) return this.toast(txt('settings.feedback.wait', { s: wait }));
+      const s = g.state;
+      const details = [
+        `Build ${__BUILD__}`,
+        `Save v${s.version}`,
+        `Platform ${Capacitor.getPlatform()}`,
+        `Area ${areaDef(s.area).name}`,
+        `Hunter Lv ${g.levelOf('main')}`,
+        `Areas ${g.unlockedAreas.length}`,
+        `Regressions ${s.regression.runs}`,
+        `Played ${fmtSpan(s.stats.played)}`,
+        `Screen ${window.innerWidth}x${window.innerHeight}`,
+        navigator.userAgent,
+      ].join(' | ');
+      send.disabled = true;
+      void sendFeedback(kind, area.value.trim(), details).then(
+        () => {
+          area.value = '';
+          sync();
+          this.toast(txt('settings.feedback.sent'));
+        },
+        (e: Error) => {
+          sync();
+          this.toast(e.message === 'wait' ? txt('settings.feedback.wait', { s: feedbackWait() }) : txt(e.message === 'unavailable' ? 'settings.feedback.notReady' : 'settings.feedback.failed'));
+        },
+      );
+    });
+    sync();
+    return card;
+  }
+
   // ---- Account: signing in, lifetime stats, deleting the account ----
 
   /**
@@ -5264,6 +5329,7 @@ export class AppUI {
     };
     const st = g.state.settings;
     const styles: Array<[IndicatorStyle, string]> = [['fancy', 'Fancy'], ['basic', 'Basic']];
+    scroll.appendChild(this.feedbackCard());
     section('audio', 'Audio');
     body.appendChild(this.audioSettings());
 

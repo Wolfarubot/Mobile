@@ -707,6 +707,27 @@ section(
 );
 section(
   M,
+  'settings.feedback',
+  'Submit Feedback',
+  {
+    title: 'Submit Feedback',
+    blurb: 'Any feedback, bug reports, quality of life changes, or update requests can be submitted here.',
+    bug: 'Bug',
+    qol: 'Quality of life',
+    request: 'Update request',
+    other: 'Other',
+    placeholder: 'Tell us what happened, or what you would like to see…',
+    send: 'Send',
+    note: "Your message is sent with your game's version, device type and progress, to help track down bugs.",
+    sent: 'Thanks! Your feedback was sent.',
+    wait: 'You can send more feedback in {s}s.',
+    notReady: "Feedback isn't connected yet. It will be soon!",
+    failed: "Couldn't send your feedback. Check your connection and try again.",
+  },
+  { note: 'The card at the top of Settings.', vars: { s: 'seconds' }, labels: { sent: 'Toast after sending', wait: 'Toast: sent one moments ago', notReady: 'Toast: not connected', failed: 'Toast: no connection' } },
+);
+section(
+  M,
   'menu.account',
   'Account',
   {

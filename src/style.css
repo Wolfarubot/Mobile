@@ -7862,3 +7862,41 @@ body.ui-parchment .account-delete .buy.danger-btn:not(:disabled) {
 .signin-forgot {
   justify-self: center;
 }
+
+/* ---- Submit Feedback (top of Settings) ---- */
+.feedback-card {
+  display: grid;
+  gap: 8px;
+}
+.feedback-card p {
+  margin: 0;
+}
+.feedback-card .fb-text {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 96px;
+  resize: vertical;
+  padding: 8px;
+  font: inherit;
+  font-size: 14px;
+  color: #141414;
+  background: #fff;
+  border: 2px solid var(--c0);
+  border-radius: 6px;
+  text-shadow: none;
+}
+.feedback-card .fb-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.feedback-card .fb-send {
+  min-width: 96px;
+  padding: 8px 16px;
+}
+.feedback-card .fb-count,
+.feedback-card .fb-note {
+  opacity: 0.8;
+  font-size: 11px;
+}
