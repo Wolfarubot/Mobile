@@ -636,7 +636,7 @@ describe('Hunters', () => {
     const g = new Game(newGame(0), noCrit);
     // Deku: Toadstools slain.
     expect(g.hunterAvailable('druid')).toBe(false);
-    g.state.bestiary.toadstool.kills = 15_000;
+    g.state.bestiary.toadstool.kills = 30_000;
     expect(g.hunterAvailable('druid')).toBe(true);
     // Lance: undead slain in the Graveyard, any of them.
     g.state.bestiary.skeleton.kills = 100_000;
@@ -3209,7 +3209,7 @@ describe('Equipment', () => {
 
   it("the Fey Grove's Hunters: Ba'al's song speeds up the Hunters beside him, Deku calls spirit wolves", () => {
     expect(hunterDef('bard').unlock).toEqual({ event: 'guardian-glade', times: 1 });
-    expect(hunterDef('druid').unlock).toEqual({ kills: 15_000, enemy: 'toadstool' });
+    expect(hunterDef('druid').unlock).toEqual({ kills: 30_000, enemy: 'toadstool' });
     const g = new Game(newGame(0), noCrit);
     g.state.areas.glade.unlocked = true;
     for (const id of ['bard', 'druid', 'ranger'] as const) g.state.hunters[id].recruited = true;

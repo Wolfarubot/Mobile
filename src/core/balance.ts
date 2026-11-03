@@ -2406,9 +2406,9 @@ export const HUNTERS: HunterDef[] = [
   {
     id: 'druid', name: 'Deku', title: 'Druid', icon: '🌿', color: '#6abf5a', area: 'glade', recruitCost: 250_000, bane: { archetype: 'plant', mult: BANE_BASE }, summonBonus: { type: 'beast', mult: 1.5 },
     short: 'Summons wolves to fight for him.',
-    unlock: { kills: 15_000, enemy: 'toadstool' },
+    unlock: { kills: 30_000, enemy: 'toadstool' },
     ascendedTitle: 'Archdruid',
-    story: 'Deku tends the oldest trees of the Fey Grove, and the Toadstools keep choking his saplings. Clear out fifteen thousand of them, and he\'ll lend you the spirits of the wild.',
+    story: 'Deku tends the oldest trees of the Fey Grove, and the Toadstools keep choking his saplings. Clear out thirty thousand of them, and he\'ll lend you the spirits of the wild.',
     ability: 'Every 6 seconds, calls two spirit wolves to hunt. Deals 50% bonus damage to Plants, and his Beast summons (wolves from any source) hit 50% harder. Uses ranged or magic weapons.',
     slots: [{ kind: 'weapon', label: 'Weapon', accepts: ['weapon', 'magic'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
     special: { kind: 'summon', name: 'Wolves', damageType: 'physical', cooldown: 6, damage: 0.7, radius: 1, ticks: 18, crowd: 1, summon: { look: 'wolf', type: 'beast' }, describe: 'Every 6 seconds, calls two spirit wolves that hunt for 6 seconds, biting for his damage. His weapon powers them, and they share its damage type and status effects.' },
