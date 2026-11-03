@@ -30,6 +30,24 @@ const AUTOSAVE_SEC = 10;
 const SPLASH_MIN_MS = 3000;
 
 /** Fades out the loading screen (index.html) once fonts and images are in and the game has drawn its first frames. */
+/**
+ * The web version added to an iPhone's Home Screen: the page fills the whole screen (iOS can measure 100% short of
+ * it there, leaving a gap at the bottom), and the menu sits lower over the home bar, as in Chrome's installed app.
+ */
+function fitIosHomeScreen(): void {
+  const nav = navigator as Navigator & { standalone?: boolean };
+  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (Capacitor.isNativePlatform() || !ios || !(nav.standalone || matchMedia('(display-mode: standalone)').matches)) return;
+  const root = document.documentElement;
+  root.classList.add('ios-home');
+  const fit = () => root.style.setProperty('--app-h', `${window.innerHeight}px`);
+  fit();
+  window.addEventListener('resize', fit);
+  // iOS reports the new size a moment after turning the phone.
+  window.addEventListener('orientationchange', () => setTimeout(fit, 300));
+}
+fitIosHomeScreen();
+
 async function hideSplash(): Promise<void> {
   const splash = document.getElementById('splash');
   if (!splash) return;

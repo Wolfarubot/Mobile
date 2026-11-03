@@ -7900,3 +7900,14 @@ body.ui-parchment .account-delete .buy.danger-btn:not(:disabled) {
   opacity: 0.8;
   font-size: 11px;
 }
+
+/* The web version on an iPhone's Home Screen (main.ts fitIosHomeScreen): the full screen's height, and only part of
+   the home bar's inset kept clear, so the menu reaches the bottom as it does in Chrome's installed app. */
+html.ios-home {
+  --safe-bottom: calc(env(safe-area-inset-bottom, 0px) * 0.35);
+}
+html.ios-home,
+html.ios-home body,
+html.ios-home #app {
+  height: var(--app-h, 100%);
+}
