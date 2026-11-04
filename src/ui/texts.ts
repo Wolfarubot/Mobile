@@ -596,7 +596,7 @@ section(
     block: 'Shield burst: each block blasts nearby monsters.',
     evade: 'Evasion: a chance to slip past a monster that reaches you.',
     pulse: 'Pulse: every so often, a burst of damage around you.',
-    summon: 'Every so often, summons {name}s to hunt monsters for a while.',
+    summon: 'Every so often, summons {name}s that charge through the monsters for a while, striking every one they pass.',
     wave: 'Wave: melee attacks can send out a wave of damage.',
     strike: 'Lightning strike: every so often, lightning strikes several monsters.',
     chill: 'Chill aura: monsters near you move at half speed.',

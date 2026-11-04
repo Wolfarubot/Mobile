@@ -654,12 +654,12 @@ function ascendedTree(focus: [NodeSpec, NodeSpec, NodeSpec], capstone: NodeSpec)
 export const ASCENDED_TREES: Record<HunterId, SkillNode[]> = {
   alchemist: ascendedTree([area(8, 'Vast Splash', '💦', 'Puddles spread', 0.05), dur(6, 'Slow Rot', '☠️'), ban(6, 'Slime Scourge', '🟢', 'Slimes')], { name: "Philosopher's Stone", icon: '💠', desc: '+50% damage and puddles 20% wider.', maxRank: 1, effect: { damage: 0.5, radius: 0.2 } }),
   bard: ascendedTree([spd(8, 'Virtuoso', '🎻', 0.03), area(6, 'Amplify', '🔊', 'Sound waves reach'), ban(6, 'Showstopper', '👤', 'Humanoids')], { name: 'Symphony', icon: '🎼', desc: '+50% damage and +15% attack speed.', maxRank: 1, effect: { damage: 0.5, rate: 0.15 } }),
-  druid: ascendedTree([area(8, 'Alpha Pack', '🐺', 'Wolves bite harder:'), cdr(6, 'Howl', '🌕', 'Wolves come'), ban(6, 'Overgrowth Bane', '🌱', 'Plants')], { name: 'Wild Hunt', icon: '🐺', desc: '+50% damage and wolves 30% fiercer.', maxRank: 1, effect: { damage: 0.5, radius: 0.3 } }),
+  druid: ascendedTree([area(8, 'Alpha Pack', '🐺', 'Wolves hit harder:'), cdr(6, 'Howl', '🌕', 'Wolves come'), ban(6, 'Overgrowth Bane', '🌱', 'Plants')], { name: 'Wild Hunt', icon: '🐺', desc: '+50% damage and wolves 30% fiercer.', maxRank: 1, effect: { damage: 0.5, radius: 0.3 } }),
   ranger: ascendedTree([rng(8, 'Hawk Eye', '🦅'), crd(6, 'Barbed Arrows', '🏹'), ban(6, 'Beast Slayer', '🐾', 'Beasts')], { name: 'Hundred Arrows', icon: '🏹', desc: '+50% damage, one more arrow per shot, and arrows pierce 2 more enemies.', maxRank: 1, effect: { damage: 0.5, multishot: 1, pierce: 2 } }),
   glimmer: ascendedTree([area(8, 'Cataclysm', '💥', 'Explosions grow'), cdr(6, 'Arcane Haste', '⏱️', 'Fireballs come'), dur(6, 'Everburn', '🔥')], { name: 'Starfire', icon: '☄️', desc: '+50% damage and explosions 30% wider.', maxRank: 1, effect: { damage: 0.5, radius: 0.3 } }),
   thief: ascendedTree([gld(8, 'Golden Hands', '👛'), drp(6, 'Fine Loot', '🗝️'), crd(6, 'Assassinate', '🔪')], { name: 'Grand Heist', icon: '💎', desc: '+50% damage and +50% gold from his kills.', maxRank: 1, effect: { damage: 0.5, gold: 0.5 } }),
   lance: ascendedTree([atk(8, 'Righteous Fury', '☀️', 0.05), grd(3, 'Bastion', '🧱', 2), area(6, 'Consecration', '✨', 'Their strikes reach wider:')], { name: 'Aegis', icon: '🛡️', desc: '+50% damage and 2 more shield charges.', maxRank: 1, effect: { damage: 0.5, guard: 2 } }),
-  puppeteer: ascendedTree([area(8, 'Puppet Army', '🪆', 'Puppets bite harder:'), cdr(6, 'Curtain Call', '🎪', 'Puppets come'), crt(6, 'Stage Presence', '🌟')], { name: 'Theater of Puppets', icon: '🎭', desc: '+50% damage and puppets 30% fiercer.', maxRank: 1, effect: { damage: 0.5, radius: 0.3 } }),
+  puppeteer: ascendedTree([area(8, 'Puppet Army', '🪆', 'Puppets hit harder:'), cdr(6, 'Curtain Call', '🎪', 'Puppets come'), crt(6, 'Stage Presence', '🌟')], { name: 'Theater of Puppets', icon: '🎭', desc: '+50% damage and puppets 30% fiercer.', maxRank: 1, effect: { damage: 0.5, radius: 0.3 } }),
   blacksmith: ascendedTree([atk(8, 'Hammer and Tongs', '🔨', 0.05), crd(6, 'Crushing Blows', '💢'), spd(6, 'Hot Iron', '🔥', 0.03)], { name: 'Masterwork', icon: '⚒️', desc: '+50% damage and +20% attack speed.', maxRank: 1, effect: { damage: 0.5, rate: 0.2 } }),
   wilhelm: ascendedTree([crd(8, 'Executioner', '💀'), rng(6, 'Scope', '🔭'), prc(3, 'Armor Piercing', '🔩', 2)], { name: 'One Shot', icon: '🎯', desc: '+50% damage and +10% crit chance.', maxRank: 1, effect: { damage: 0.5, crit: 0.1 } }),
   celeste: ascendedTree([ban(8, 'Wyrmbane', '🐉', 'Dragons'), rng(6, 'Astral Reach', '🧠'), crd(6, 'Mind Break', '⚡')], { name: 'Omniscience', icon: '🧠', desc: '+50% damage and +10% crit chance.', maxRank: 1, effect: { damage: 0.5, crit: 0.1 } }),
@@ -707,8 +707,8 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
   // Deku: fiercer wolves, called sooner.
   druid: gridTree([
     [at('root', grd(1, 'Thornskin', '🌵'))],
-    [at('packBond', area(4, 'Pack Bond', '🐺', 'Wolves bite harder:')), at('power', atk(3)), at('recovery', rec(3))],
-    [at('weedkiller', ban(4, 'Weedkiller', '🌱', 'Plants')), at('callPack', cdr(4, 'Call of the Pack', '📯', 'Wolves come')), at('alpha', area(3, 'Alpha', '🐾', 'Wolves bite harder:')), at('naturesGift', drp(3, "Nature's Gift", '🍃'))],
+    [at('packBond', area(4, 'Pack Bond', '🐺', 'Wolves hit harder:')), at('power', atk(3)), at('recovery', rec(3))],
+    [at('weedkiller', ban(4, 'Weedkiller', '🌱', 'Plants')), at('callPack', cdr(4, 'Call of the Pack', '📯', 'Wolves come')), at('alpha', area(3, 'Alpha', '🐾', 'Wolves hit harder:')), at('naturesGift', drp(3, "Nature's Gift", '🍃'))],
     [at('barkskin', grd(2, 'Barkskin', '🪵')), at('savage', dur(3, 'Savage Bites', '🦷')), at('speed', spd(5))],
     [at('capstone', { name: 'Call of the Wild', icon: '🌳', desc: '+20% damage and wolves 30% fiercer.', maxRank: 1, cost: 4, effect: { damage: 0.2, radius: 0.3 } })],
   ]),
@@ -738,9 +738,9 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
   ]),
   // Theon: fiercer puppets, sooner.
   puppeteer: gridTree([
-    [at('root', area(1, 'Strings Attached', '🧵', 'Puppets bite harder:'))],
-    [at('marionette', area(4, 'Marionette Master', '🪆', 'Puppets bite harder:')), at('power', atk(3)), at('recovery', rec(3, 'Cut the Strings', '✂️'))],
-    [at('quickStrings', cdr(4, 'Quick Strings', '🪡', 'Puppets come')), at('tangle', dur(3, 'Tangled Threads', '🕸️')), at('puppetShow', area(3, 'Puppet Show', '🎪', 'Puppets bite harder:')), at('speed', spd(4))],
+    [at('root', area(1, 'Strings Attached', '🧵', 'Puppets hit harder:'))],
+    [at('marionette', area(4, 'Marionette Master', '🪆', 'Puppets hit harder:')), at('power', atk(3)), at('recovery', rec(3, 'Cut the Strings', '✂️'))],
+    [at('quickStrings', cdr(4, 'Quick Strings', '🪡', 'Puppets come')), at('tangle', dur(3, 'Tangled Threads', '🕸️')), at('puppetShow', area(3, 'Puppet Show', '🎪', 'Puppets hit harder:')), at('speed', spd(4))],
     [at('showstopper', crt(3, 'Showstopper', '🌟')), at('sharpWires', atk(5, 'Sharp Wires', '🪝', 0.1)), at('woodenGuard', grd(2, 'Wooden Guard', '🪵'))],
     [at('capstone', { name: 'Grand Performance', icon: '🎭', desc: 'Puppets 30% fiercer, and they come 10% faster.', maxRank: 1, cost: 4, effect: { radius: 0.3, cooldown: 0.1 } })],
   ]),
@@ -2422,9 +2422,9 @@ export const HUNTERS: HunterDef[] = [
     unlock: { kills: 30_000, enemy: 'toadstool' },
     ascendedTitle: 'Archdruid',
     story: 'Deku tends the oldest trees of the Fey Grove, and the Toadstools keep choking his saplings. Clear out thirty thousand of them, and he\'ll lend you the spirits of the wild.',
-    ability: 'Every 6 seconds, calls two spirit wolves to hunt. Deals 50% bonus damage to Plants, and his Beast summons (wolves from any source) hit 50% harder. Uses ranged or magic weapons.',
+    ability: 'Every 6 seconds, calls two spirit wolves that charge through the monsters. Deals 50% bonus damage to Plants, and his Beast summons (wolves from any source) hit 50% harder. Uses ranged or magic weapons.',
     slots: [{ kind: 'weapon', label: 'Weapon', accepts: ['weapon', 'magic'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
-    special: { kind: 'summon', name: 'Wolves', damageType: 'physical', cooldown: 6, damage: 0.7, radius: 1, ticks: 18, crowd: 1, summon: { look: 'wolf', type: 'beast' }, describe: 'Every 6 seconds, calls two spirit wolves that hunt for 6 seconds, biting for his damage. His weapon powers them, and they share its damage type and status effects.' },
+    special: { kind: 'summon', name: 'Wolves', damageType: 'physical', cooldown: 6, damage: 0.7, radius: 1, ticks: 18, crowd: 1.7, summon: { look: 'wolf', type: 'beast' }, describe: 'Every 6 seconds, calls two spirit wolves that charge through the monsters for 6 seconds, striking every one they pass for his damage. His weapon powers them, and they share its damage type and status effects.' },
   },
   {
     id: 'thief', name: 'Alias', title: 'Thief', icon: '🦹', color: '#8a8aa8', area: 'graveyard', recruitCost: 60_000_000,
@@ -2461,9 +2461,9 @@ export const HUNTERS: HunterDef[] = [
     unlock: { trains: 1_400 },
     ascendedTitle: 'Grand Puppeteer',
     story: "Theon pulls the strings of the Forbidden Crypt's Possessed Puppets, or tries to: something in the dark keeps cutting them. Show her a team that's trained hard (1,400 trainings in all), and her puppets will dance for you.",
-    ability: 'Every 6 seconds, calls two puppets that hunt across the field. Her Construct summons (puppets from any source) hit 50% harder. Uses magic or melee weapons.',
+    ability: 'Every 6 seconds, calls two puppets that charge through the monsters. Her Construct summons (puppets from any source) hit 50% harder. Uses magic or melee weapons.',
     slots: [{ kind: 'magic', label: 'Weapon', accepts: ['magic', 'melee'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
-    special: { kind: 'summon', name: 'Puppets', damageType: 'physical', cooldown: 6, damage: 0.7, radius: 1, ticks: 18, crowd: 1, summon: { look: 'puppet', type: 'construct' }, describe: 'Every 6 seconds, calls two puppets that hunt for 6 seconds, biting for her damage. Her weapon powers them, and they share its damage type and status effects.' },
+    special: { kind: 'summon', name: 'Puppets', damageType: 'physical', cooldown: 6, damage: 0.7, radius: 1, ticks: 18, crowd: 1.7, summon: { look: 'puppet', type: 'construct' }, describe: 'Every 6 seconds, calls two puppets that charge through the monsters for 6 seconds, striking every one they pass for her damage. Her weapon powers them, and they share its damage type and status effects.' },
   },
 
   {
@@ -2605,7 +2605,7 @@ export const HUNTERS: HunterDef[] = [
     unlock: { event: 'cloudburst', times: 2 },
     ascendedTitle: 'Dread Sovereign',
     story: "Azir sealed himself in the Cloud Fortress's highest tower to wait out the centuries, and the storms have been rattling his bones ever since. Weather two Cloudbursts, and his legion marches with you.",
-    ability: 'Every 15 seconds, raises six skeletal soldiers from the ground around him. They march on the monsters and fight for 10 seconds, striking with his weapon. Wields only magic weapons.',
+    ability: 'Every 15 seconds, raises six skeletal soldiers from the ground around him. They charge through the monsters for 10 seconds, striking every one they pass with his weapon. Wields only magic weapons.',
     slots: [{ kind: 'magic', label: 'Magic weapon' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
     special: {
       kind: 'summon',
@@ -2615,9 +2615,9 @@ export const HUNTERS: HunterDef[] = [
       damage: 0.6,
       radius: 1,
       ticks: 15,
-      crowd: 1,
+      crowd: 1.7,
       summon: { look: 'skeleton', type: 'undead', count: 6, life: 10 },
-      describe: 'Every 15 seconds, six skeletal soldiers claw their way up around him and march on the monsters for 10 seconds, each striking for his damage. His weapon powers them, and they share its damage type and status effects.',
+      describe: 'Every 15 seconds, six skeletal soldiers claw their way up around him and charge through the monsters for 10 seconds, striking every one they pass for his damage. His weapon powers them, and they share its damage type and status effects.',
     },
   },
   {
@@ -2745,7 +2745,7 @@ const HUNTER_ABILITIES: Partial<Record<HunterId, HunterAbility[]>> = {
   alchemist: [{ name: 'Potions', kind: 'active', text: 'Every 4 seconds, lobs a potion that leaves a poison puddle, hurting every monster in it.' }],
   bard: [{ name: 'Battle Hymn', kind: 'passive', text: 'His song makes every other Hunter in his area attack 15% faster.' }],
   druid: [
-    { name: 'Spirit Wolves', kind: 'active', text: 'Every 6 seconds, calls two spirit wolves that hunt for 6 seconds.' },
+    { name: 'Spirit Wolves', kind: 'active', text: 'Every 6 seconds, calls two spirit wolves that charge through the monsters for 6 seconds, striking every one they pass.' },
     { name: 'Pack Leader', kind: 'passive', text: 'Beast summons (wolves from any source) hit 50% harder.' },
   ],
   thief: [{ name: "Thieves' Luck", kind: 'passive', text: 'Wherever he is, monsters pay 30% more gold and drop loot twice as often.' }],
@@ -2755,7 +2755,7 @@ const HUNTER_ABILITIES: Partial<Record<HunterId, HunterAbility[]>> = {
   ],
   glimmer: [{ name: 'Fireballs', kind: 'active', text: 'Every 4 seconds, hurls a fireball that explodes for area damage.' }],
   puppeteer: [
-    { name: 'Puppets', kind: 'active', text: 'Every 6 seconds, calls two puppets that hunt across the field.' },
+    { name: 'Puppets', kind: 'active', text: 'Every 6 seconds, calls two puppets that charge through the monsters for 6 seconds, striking every one they pass.' },
     { name: 'Master of Strings', kind: 'passive', text: 'Construct summons (puppets from any source) hit 50% harder.' },
   ],
   wilhelm: [{ name: 'Quick Draw', kind: 'passive', text: 'Carries a long-range weapon and a short-range one, and switches to the short-range one when monsters get close.' }],
@@ -2775,7 +2775,7 @@ const HUNTER_ABILITIES: Partial<Record<HunterId, HunterAbility[]>> = {
     { name: 'Roll the Dice', kind: 'active', text: 'Every 5 seconds, rolls two dice at the monsters. The higher the total, the bigger the blast. Doubles hit twice as hard, double 6s hit the whole field, and snake eyes leave him dazed.' },
     { name: 'Double or Nothing', kind: 'passive', text: 'Kills in his area pay double (25%) or nothing (10%).' },
   ],
-  lichlord: [{ name: 'Raise the Legion', kind: 'active', text: 'Every 15 seconds, raises six skeletal soldiers from the ground around him that march on the monsters and fight for 10 seconds, striking with his weapon.' }],
+  lichlord: [{ name: 'Raise the Legion', kind: 'active', text: 'Every 15 seconds, raises six skeletal soldiers from the ground around him that charge through the monsters for 10 seconds, striking every one they pass with his weapon.' }],
   alien: [{ name: 'Eye Lasers', kind: 'active', text: 'Every 5 seconds, fires twin eye lasers at the nearest monster. The beam runs right across the battlefield, burning everything in its path.' }],
   haunter: [
     { name: 'Grave Touch', kind: 'passive', text: 'Their strikes deal 40% extra Decay damage on top of their weapon\'s.' },
@@ -3159,7 +3159,7 @@ export interface GearDef {
   archetype?: 0 | 1 | 2;
   /**
    * Tomes: what this one summons (a spirit by default). `dash` is the creatures' own ability: every
-   * `cooldown` seconds they lunge `range` at a monster, and a lunge that lands deals `damage` × a bite. Its
+   * `cooldown` seconds they lunge into a faster charge, its strikes dealing `damage` × the Hunter's shot. Its
    * cooldown shows as the item's icon on the battlefield.
    */
   summon?: { look: 'wisp' | 'wolf' | 'rock'; name: string; dash?: { cooldown: number; range: number; speed: number; damage: number } };
@@ -3871,8 +3871,8 @@ export interface WeaponClassDef {
    */
   spell?: { every: number; radius: number; damage: number };
   /**
-   * Tomes: each attack summons a creature that roams the field for `duration` seconds, biting monsters within
-   * reach `bites` times a second for `damage` × a shot (the class's `damage`). Attack speed shortens the wait.
+   * Tomes: each attack summons a creature that charges through the monsters for `duration` seconds, striking every
+   * one it passes (see SUMMON_RUN in field.ts). Attack speed shortens the wait.
    */
   /**
    * Tomes: how long a creature hunts, the strikes a second it lands on one monster it keeps charging back through
@@ -4310,7 +4310,7 @@ export const GEAR: GearDef[] = [
   { id: 'hawkeyeLens', name: 'Hawkeye Lens', icon: '🔭', kind: 'accessory', rarity: 'rare', stats: { range: 20 }, recipe: { chitin: 8, umbralEye: 4 } },
   { id: 'soulRing', name: 'Soul Ring', icon: '💍', kind: 'accessory', rarity: 'relic', stats: { damage: 0.25, crit: 0.02 }, recipe: { soul: 6, ecto: 6 } },
   // Accessories with abilities of their own (found on nothing else)
-  { id: 'puppetDoll', name: "Puppeteer's Brooch", icon: '🪆', kind: 'accessory', rarity: 'rare', tier: 4, stats: { stun: 0.03 }, recipe: { string: 10, wrap: 5 }, effect: { kind: 'summon', base: 8, damageType: 'physical', look: 'puppet', type: 'construct', name: 'puppet', count: 2, duration: 6, cooldown: 8, bites: 1.5, speed: 140 } },
+  { id: 'puppetDoll', name: "Puppeteer's Brooch", icon: '🪆', kind: 'accessory', rarity: 'rare', tier: 4, stats: { stun: 0.03 }, recipe: { string: 10, wrap: 5 }, effect: { kind: 'summon', base: 8, damageType: 'physical', look: 'puppet', type: 'construct', name: 'puppet', count: 2, duration: 6, cooldown: 8, bites: 1.5, speed: 170 } },
   { id: 'flameBrand', name: 'Flame Brand', icon: '🔥', kind: 'accessory', rarity: 'veryRare', tier: 6, stats: { damage: 0.061 }, recipe: { demonTooth: 8, ember: 6, forsakenSoul: 2 }, effect: { kind: 'wave', base: 45, damageType: 'fire', radius: 100, chance: 0.3 } },
   { id: 'frostCharm', name: 'Frostbite Charm', icon: '❄️', kind: 'accessory', rarity: 'legendary', tier: 8, stats: { duration: 0.077 }, recipe: { frost: 10, ecto: 6 }, effect: { kind: 'chill', radius: 110 } },
   { id: 'thunderTotem', name: 'Thunder Totem', icon: '🗿', kind: 'accessory', rarity: 'relic', tier: 10, stats: { cooldown: 0.024 }, recipe: { thunder: 10, feather: 6 }, effect: { kind: 'strike', base: 230, damageType: 'lightning', targets: 3, cooldown: 3, range: 320 } },
@@ -4496,7 +4496,7 @@ export function describeEffect(e: GearEffect, stars: number): string {
     case 'pulse':
       return `Pulse: every ${e.cooldown} seconds, a burst of ${dmg} damage around you.`;
     case 'summon':
-      return `Every ${e.cooldown} seconds, summons ${e.count} ${e.name}s (${SUMMON_TYPES[e.type].icon} ${SUMMON_TYPES[e.type].name}) that hunt for ${e.duration} seconds, biting for ${dmg} damage.`;
+      return `Every ${e.cooldown} seconds, summons ${e.count} ${e.name}s (${SUMMON_TYPES[e.type].icon} ${SUMMON_TYPES[e.type].name}) that charge through the monsters for ${e.duration} seconds, striking every one they pass for ${dmg} damage.`;
     case 'wave':
       return `Wave: melee attacks have a ${Math.round(e.chance * 100)}% chance to send out a wave of ${dmg} damage.`;
     case 'strike':

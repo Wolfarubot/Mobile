@@ -207,7 +207,7 @@ export interface Summon {
   gear?: { uid: number; base: number; damageType: DamageType; bites: number; speed: number };
   /** Raised by Raise Dead: bites for the spell's cast × RISEN.k; `enemy` is what it was. */
   risen?: { c: SpellCast; enemy: EnemyId };
-  /** A Hunter's own creature (Deku's spirit wolves): it bites for their special's damage. */
+  /** A Hunter's own creature (Deku's spirit wolves): it strikes for their special's damage. */
   own?: { bites: number; speed: number; mult: number };
   /** Seconds left in a lunge (their tome's ability), and whether this lunge has landed yet. */
   dash: number;
@@ -1705,7 +1705,7 @@ export class Field {
       for (let i = 0; i < count; i++) {
         const at = count === 2 ? (i === 0 ? Math.PI : 0) : (i / count) * Math.PI * 2;
         const r = count === 2 ? 18 : 30;
-        this.summons.push({ who: by, type: sp.summon.type, x: x + Math.cos(at) * r, y: y + Math.sin(at) * r, life, maxLife: life, bite: 0, look: sp.summon.look, dash: 0, dashHit: false, own: { bites: 1.5, speed: sp.summon.look === 'wolf' ? 170 : 140, mult } });
+        this.summons.push({ who: by, type: sp.summon.type, x: x + Math.cos(at) * r, y: y + Math.sin(at) * r, life, maxLife: life, bite: 0, look: sp.summon.look, dash: 0, dashHit: false, own: { bites: 1.5, speed: sp.summon.look === 'wolf' ? 200 : 170, mult } });
       }
       this.events.push({ type: 'nova', x, y, r: count > 2 ? 44 : 30, color: sp.summon.look === 'wolf' ? '#8fdc7a' : sp.summon.look === 'skeleton' ? '#7fd8e0' : '#d8a878' });
     } else if (sp.kind === 'potion') {
@@ -2865,14 +2865,13 @@ export class Field {
       if (lunged) owner.dashCd = dash.cooldown * this.game.cooldownMult(who);
     }
     for (const s of this.summons) {
-      if (!s.gear && !s.own && !s.risen) {
+      if (!s.risen) {
         this.chargeSummon(s, dt);
         continue;
       }
-      const sm = s.gear ?? s.own ?? { bites: RISEN.bites, speed: enemyDef(s.risen!.enemy).speed * 1.2 };
-      const dash = undefined as { speed: number; damage: number } | undefined;
+      // Raised dead (Raise Dead) walk to the nearest monster and bite it with the spell's power.
+      const sm = { bites: RISEN.bites, speed: enemyDef(s.risen.enemy).speed * 1.2 };
       s.life -= dt;
-      s.dash = Math.max(0, s.dash - dt);
       const e = this.nearest(s.x, s.y, 2000);
       if (!e) continue;
       const dx = e.x - s.x;
@@ -2880,39 +2879,33 @@ export class Field {
       const d = Math.hypot(dx, dy) || 1;
       const reach = SUMMON_RADIUS + e.r;
       if (d > reach) {
-        const step = Math.min((s.dash > 0 && dash ? dash.speed : sm.speed) * dt, d - reach + 1);
+        const step = Math.min(sm.speed * dt, d - reach + 1);
         s.x += (dx / d) * step;
         s.y += (dy / d) * step;
         s.vx = dx;
         s.vy = dy;
       }
-      if (s.dash > 0 && dash && !s.dashHit && Math.hypot(e.x - s.x, e.y - s.y) <= reach + 2) {
-        // The lunge lands: a big bite, and the lunge is spent.
-        s.dashHit = true;
-        s.dash = 0;
-        this.hitWith(s.who, e, dash.damage * this.game.summonMult(s.who, s.type), s.x, s.y);
-      }
       if (d <= reach + 2) {
         s.bite += dt * sm.bites;
         while (s.bite >= 1 && e.hp > 0) {
           s.bite -= 1;
-          const m = this.game.summonMult(s.who, s.type);
-          if (s.risen) this.spellHit(s.risen.c, e, RISEN.k, s.x, s.y);
-          else if (s.gear) this.abilityHit(s.who, e, s.gear.base * m, s.gear.damageType, false);
-          // A Hunter's own creatures bite with their weapon's type, and can inflict its status effect.
-          else if (s.own) this.hitWith(s.who, e, s.own.mult * m, s.x, s.y, undefined, undefined, true);
+          this.spellHit(s.risen.c, e, RISEN.k, s.x, s.y);
         }
       } else s.bite = Math.min(s.bite + dt * sm.bites, 1);
     }
     this.summons = this.summons.filter((s) => s.life > 0);
   }
 
-  /** A tome's creature charging through the crowd (SUMMON_RUN). */
+  /**
+   * A creature charging through the crowd (SUMMON_RUN): a tome's, a Hunter's own (Deku's wolves, Theon's puppets,
+   * Azir's skeletons) or a gear ability's (the Puppeteer's Brooch).
+   */
   private chargeSummon(s: Summon, dt: number): void {
     const g = this.game;
-    const cls = g.weaponClassOf(s.who)?.summon;
-    if (!cls) return;
-    const dash = this.weaponDef(s.who)?.summon?.dash;
+    const cls = s.gear || s.own ? null : g.weaponClassOf(s.who)?.summon;
+    if (!s.gear && !s.own && !cls) return;
+    const speed = s.gear?.speed ?? s.own?.speed ?? cls!.speed;
+    const dash = cls ? this.weaponDef(s.who)?.summon?.dash : undefined;
     const lunging = s.dash > 0 && !!dash;
     s.life -= dt;
     s.dash = Math.max(0, s.dash - dt);
@@ -2932,20 +2925,23 @@ export class Field {
     const dx = run.tx - s.x;
     const dy = run.ty - s.y;
     const d = Math.hypot(dx, dy) || 1;
-    const step = Math.min((lunging ? dash!.speed : cls.speed) * dt, d);
+    const step = Math.min((lunging ? dash!.speed : speed) * dt, d);
     s.x += (dx / d) * step;
     s.y += (dy / d) * step;
     s.vx = dx;
     s.vy = dy;
     // Everything it brushes past takes a strike (each monster once every `rehit` seconds from this creature).
     const now = this.clock;
-    const m = g.summonMult(s.who, s.type) * (lunging ? dash!.damage : (cls.hit ?? 1));
+    const m = g.summonMult(s.who, s.type);
     for (const e of [...this.enemies]) {
       if (e.hp <= 0 || Math.hypot(e.x - s.x, e.y - s.y) > SUMMON_RADIUS + e.r + SUMMON_RUN.reach) continue;
       const last = run.struck.get(e.id);
       if (last !== undefined && now - last < SUMMON_RUN.rehit) continue;
       run.struck.set(e.id, now);
-      this.hitWith(s.who, e, m, s.x, s.y);
+      if (s.gear) this.abilityHit(s.who, e, s.gear.base * m, s.gear.damageType, false);
+      // A Hunter's own creatures strike with their weapon's type, and can inflict its status effect.
+      else if (s.own) this.hitWith(s.who, e, s.own.mult * m, s.x, s.y, undefined, undefined, true);
+      else this.hitWith(s.who, e, m * (lunging ? dash!.damage : (cls!.hit ?? 1)), s.x, s.y);
     }
     if (run.struck.size > 40) for (const [id, t] of run.struck) if (now - t > SUMMON_RUN.rehit) run.struck.delete(id);
   }

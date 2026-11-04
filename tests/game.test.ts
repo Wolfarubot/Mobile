@@ -6129,4 +6129,24 @@ describe('Tome summons', () => {
     f.update(0.01);
     expect(api.fireAcc).toBeGreaterThan(0.7);
   });
+
+  it("a Hunter's own creatures (Deku's wolves) charge through the crowd too", () => {
+    const s = newGame(0);
+    const g = new Game(veteran(s), noCrit);
+    g.state.hunters = Object.fromEntries(Object.entries(g.state.hunters).map(([k, h]) => [k, { ...h, station: null }])) as typeof g.state.hunters;
+    g.state.hunters.druid.recruited = true;
+    expect(g.station('druid', g.state.area)).toBe(true);
+    const f = new Field(g);
+    f.setView(390, 420);
+    f.update(0);
+    const druid = f.helpers.find((h) => h.id === 'druid')!;
+    for (let i = 0; i < 6; i++) f.enemies.push(enemy({ id: i + 1, x: druid.x + 60 + i * 22, y: druid.y, hp: 1e12, maxHp: 1e12 }));
+    f.summons.push({ who: 'druid', type: 'beast', x: druid.x, y: druid.y, life: 6, maxLife: 6, bite: 0, look: 'wolf', dash: 0, dashHit: false, own: { bites: 1.5, speed: 200, mult: 1 } });
+    for (let t = 0; t < 3; t += 0.01) {
+      f.update(0.01);
+      f.drainEvents();
+      for (const e of f.enemies) Object.assign(e, { x: druid.x + 60 + (e.id - 1) * 22, y: druid.y, kx: 0, ky: 0 });
+    }
+    expect(f.enemies.filter((e) => e.hp < 1e12).length).toBeGreaterThanOrEqual(4);
+  });
 });
