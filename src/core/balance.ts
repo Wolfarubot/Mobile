@@ -4734,7 +4734,6 @@ export const BUFF_GOLD = 0.3;
 export const BUFF_ENCORE = 0.2;
 export const BUFF_CRIT = 0.05;
 export const BUFF_CRIT_DMG = 0.25;
-/** Giant Slayer: the Guardian has 1 / (1 + this) of its health (as if you hit it this much harder), and more time. */
 /** Overclock: extra stars every Hunter's gear works at. */
 export const BUFF_OVERCLOCK = 1;
 /** Loaded Dice: extra loot chance (1: twice as often), and the extra chance a piece comes as 2★. */
