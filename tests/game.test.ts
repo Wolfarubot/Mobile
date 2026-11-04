@@ -2220,9 +2220,9 @@ describe('Equipment', () => {
     expect(g.critChanceOf('main')).toBeCloseTo(crit0 + 0.25);
     expect(g.shooterRange('main')).toBeCloseTo(MAIN_RANGE * WEAPON_CLASSES.rifle.range * 1.5 + g.gear('main').range + g.tree('main').range);
     expect(weaponHit(marksman, 1) / weaponHit({ ...marksman, archetype: 0 }, 1)).toBeCloseTo(1.65, 1);
-    // A Maul slams 1.6x as far as a standard hammer.
+    // A Maul slams 1.35x as far as a standard hammer.
     g.equip('main', 0, g.craftGear('boneMaul')!.uid);
-    expect(g.weaponClassOf('main')!.reach).toBeCloseTo(WEAPON_CLASSES.hammer.reach! * 1.6);
+    expect(g.weaponClassOf('main')!.reach).toBeCloseTo(WEAPON_CLASSES.hammer.reach! * 1.35);
   });
 
   it('armor of one kind and area comes in three stat mixes of about the same worth', () => {

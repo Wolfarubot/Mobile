@@ -1494,12 +1494,13 @@ export class Field {
       else fan((a, k) => this.shoot(who, 'fireball', x, y, a, 380, range, { radius: cls.spell!.radius * g.radiusMult(who), dmg: cls.spell!.damage * k, mode: m }));
     } else if (cls?.attack === 'slam') {
       // A hammer smashes the ground out in front: the Hunter stands at the edge of the blast, so its centre is
-      // further out the bigger it is. Everything in it is hit and thrown far back from where it landed.
+      // further out the bigger it is. Everything in it is hit and thrown far back, away from the Hunter (not from the
+      // blast's centre, which would throw the monsters between them and it back onto the Hunter).
       const r = cls.reach! * g.radiusMult(who);
       const cx = x + Math.cos(aim) * r * SLAM_OFFSET;
       const cy = y + Math.sin(aim) * r * SLAM_OFFSET;
       this.events.push({ type: 'slam', x: cx, y: cy, r, color: this.typeColor(who, mode) });
-      for (const e of [...this.enemies]) if (e.hp > 0 && Math.hypot(e.x - cx, e.y - cy) <= r + e.r) this.meleeHit(who, e, 1, cx, cy, cls.knock ?? 0);
+      for (const e of [...this.enemies]) if (e.hp > 0 && Math.hypot(e.x - cx, e.y - cy) <= r + e.r) this.meleeHit(who, e, 1, x, y, cls.knock ?? 0);
     } else if (cls?.attack === 'sweep') this.strikeArc(who, x, y, aim, cls.reach!, cls.arc!, 1, cls.knock ?? 0, true, this.typeColor(who, mode));
     else if (cls?.attack === 'stab') this.strikeLine(who, x, y, aim, range, cls.width ?? 10, Infinity, this.momentumOn(who, target, mode), this.typeColor(who, mode), (cls.width ?? 10) / 2, cls.knock ?? 0);
     else if (cls?.volley) {

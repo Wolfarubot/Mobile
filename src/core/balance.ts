@@ -4001,7 +4001,7 @@ export const WEAPON_ARCHETYPES: Record<WeaponClass, [WeaponArchetype, WeaponArch
     { name: 'Pike', hint: /\b(pike|lance)\b/i, desc: 'A slower, harder hitting Spear with a much longer, narrower thrust.', reach: 1.4, width: 0.7, rate: 0.75, damage: 1.35 },
     { name: 'Trident', desc: 'A Spear with a shorter thrust that is three times as wide, but hits a little lighter.', simple: "A Spear with a shorter, much wider thrust, but hits a little lighter.", reach: 0.8, width: 1.8, damage: 0.8, farm: 1.2 }],
   hammer: [STANDARD('Hammer'),
-    { name: 'Maul', hint: /\bmaul\b/i, desc: 'An even slower Hammer that slams over a much larger area.', rate: 0.65, reach: 1.6, damage: 1.2, knock: 1.3, farm: 1.35 },
+    { name: 'Maul', hint: /\bmaul\b/i, desc: 'An even slower Hammer that slams over a larger area.', rate: 0.65, reach: 1.35, damage: 1.2, knock: 1.3, farm: 1.35 },
     { name: 'Mallet', hint: /\b(mallet|club)\b/i, desc: 'A quicker Hammer that slams over a smaller area.', rate: 1.6, reach: 0.7, damage: 0.75, knock: 0.7, farm: 0.8 }],
   shortbow: [STANDARD('Shortbow'),
     { name: 'Hunting Bow', desc: 'A slightly slower Shortbow with harder hitting shots and longer range.', damage: 1.25, range: 1.15, rate: 0.85 },
