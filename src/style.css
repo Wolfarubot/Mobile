@@ -2718,7 +2718,9 @@ canvas {
 .area-cell {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  /* Room under the tile for its drop shadow and the selected tile's outline (3px, 2px out), so neither runs into
+     the Hunters' row. */
+  gap: 10px;
 }
 .area-tile {
   --ac: var(--c2);
@@ -2773,6 +2775,7 @@ canvas {
   display: flex;
   justify-content: center;
   gap: 4px;
+  cursor: pointer;
 }
 .mini-hunter {
   --hc: var(--c2);
@@ -3788,7 +3791,8 @@ body.left-handed .hd-float-close {
 .world-cell {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  /* Room for the focused tile's outline (3px, 2px out) above the Hunters' slots. */
+  gap: 10px;
   padding: 4px;
   border: 2px dashed transparent;
 }

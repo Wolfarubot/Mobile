@@ -2018,6 +2018,8 @@ export class AppUI {
       tile.style.setProperty('--ac', a.palette[2]);
       this.areaGestures(tile, a.id);
       const slots = el('div', 'area-hunters');
+      // The Hunters stationed there: tap them for the All Areas view, focused on this area.
+      slots.addEventListener('click', () => g.isAreaUnlocked(a.id) && this.openWorld(null, a.id));
       cell.append(tile, slots);
       grid.appendChild(cell);
       return { a, tile, slots };
