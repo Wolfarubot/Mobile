@@ -6206,3 +6206,28 @@ describe('Recovery Speed', () => {
     expect(fast.immune).toBeGreaterThan(plain.immune * (1 + cut) - 0.05);
   });
 });
+
+describe('Plants leave their own drops', () => {
+  it("a Toadstool dying Poisoned drops its poisonous caps; a Twiggling dying Burning still drops burning twigs", () => {
+    const s = newGame(0);
+    s.bestiary.toadstool.evo = { sig: 4 };
+    s.bestiary.twiggling.evo = { horde2: 4 };
+    const g = new Game(veteran(s), () => 0);
+    expect(g.enemyStats('toadstool').fireTrail).toBeGreaterThan(0);
+    const f = new Field(g);
+    const api = f as unknown as { damage: (...a: unknown[]) => void };
+    const cap = enemy({ id: 1, type: 'toadstool', x: 10, y: 10, hp: 5, maxHp: 5 });
+    cap.poison = { dps: 1, left: 1, by: 'main', acc: 0, ticks: 2 };
+    f.enemies = [cap];
+    api.damage(cap, 10, false, 0, 0, 'main', 'physical');
+    expect(f.puddles.find((p) => p.sticks)).toMatchObject({ look: 'spore', dtype: 'poison' });
+    f.puddles = [];
+    const twig = enemy({ id: 2, type: 'twiggling', x: 10, y: 10, hp: 5, maxHp: 5 });
+    twig.burn = { dps: 1, left: 1, by: 'main', acc: 0, ticks: 2 };
+    f.enemies = [twig];
+    api.damage(twig, 10, false, 0, 0, 'main', 'physical');
+    const sticks = f.puddles.find((p) => p.sticks)!;
+    expect(sticks.dtype).toBe('fire');
+    expect(sticks.look).toBeUndefined();
+  });
+});

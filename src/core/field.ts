@@ -35,6 +35,7 @@ import {
   GUARD_RECHARGE,
   hunterDef,
   GHOSTS,
+  FIRE_TRAILS,
   gearDef,
   type GearDef,
   type GearEffect,
@@ -52,6 +53,7 @@ import {
   SHIELD_DEFLECT_PAUSE,
   type EnemyId,
   type HunterId,
+  type MaterialId,
   type HunterSpecial,
   HUNTERS,
   artScale,
@@ -515,6 +517,8 @@ export interface Puddle {
   k?: number;
   /** Burning sticks a Twiggling left behind (Fire Starter): drawn as smouldering twigs rather than a pool. */
   sticks?: boolean;
+  /** For sticks: the plant's own drop they're drawn as (FIRE_TRAILS), twigs if not set. */
+  look?: MaterialId;
   /** For sticks: how deep in a chain of kill effects they were left (Field.chain), so their kills' effects thin out. */
   chain?: number;
   /** A ghost's haunt (Lilith): drawn as the ghost hovering over rotting ground; monsters dying in it may become ghosts. */
@@ -547,8 +551,6 @@ export type FieldEvent =
   /** `magic`: a spell's blast, which sounds like its element rather than a plain explosion. */
   | { type: 'explode'; x: number; y: number; r: number; color: string; magic?: DamageType; /** Drawn in this colour (Id's bolts). */ tint?: string }
   | { type: 'nova'; x: number; y: number; r: number; color?: string }
-  /** Galladair's Arrow Rain: the patch it pours down on, and for how long (for its marker on the ground). */
-  | { type: 'rainZone'; x: number; y: number; r: number; time: number }
   | { type: 'beam'; x1: number; y1: number; x2: number; y2: number; color: string; width: number; zigzag?: boolean; thrust?: boolean }
   | { type: 'sweep'; x: number; y: number; a: number; arc: number; r: number; color: string; heavy?: boolean; blade?: boolean }
   /** A focus's wave: a ring growing to `r` over `time` seconds. */
@@ -1594,7 +1596,6 @@ export class Field {
         const d = Math.sqrt(g.rng()) * r;
         this.spellHits.push({ c, t: 0.35 + i / ARROW_RAIN.rate, x: tx + Math.cos(ang) * d, y: ty + Math.sin(ang) * d, r: ARROW_RAIN.arrow, k: 1, fx: 'arrows' });
       }
-      this.events.push({ type: 'rainZone', x: tx, y: ty, r, time: 0.35 + n / ARROW_RAIN.rate + 0.2 });
       return true;
     }
     if (sp.kind === 'rift' && sp.rift) {
@@ -3528,8 +3529,10 @@ export class Field {
         if (st.split && !e.half && this.game.rng() < st.split) this.split(e);
         // Kill effects that hurt other monsters (sticks, bursts) roll their chance once more for each step down a
         // chain of them (see `chain`).
-        if (st.fireTrail && e.burn && this.game.rng() < this.chained(st.fireTrail))
-          this.puddles.push({ shooter, x: e.x, y: e.y, r: STICKS_RADIUS, life: STICKS_LIFE, tick: PUDDLE_TICK, dmg: 0, abs: e.maxHp * STICKS_DAMAGE, dtype: 'fire', sticks: true, chain: this.chain + 1 });
+        // Its own drop (FIRE_TRAILS: a Toadstool's poisonous caps, a Treant's sap; twigs otherwise).
+        const trail = FIRE_TRAILS[e.type];
+        if (st.fireTrail && (e.burn || (trail?.poison && e.poison)) && this.game.rng() < this.chained(st.fireTrail))
+          this.puddles.push({ shooter, x: e.x, y: e.y, r: STICKS_RADIUS, life: STICKS_LIFE, tick: PUDDLE_TICK, dmg: 0, abs: e.maxHp * STICKS_DAMAGE, dtype: trail?.dtype ?? 'fire', sticks: true, look: trail?.material, chain: this.chain + 1 });
         // Undead that rise again, and monsters that burst (evolutions).
         if (st.rise && !e.half && this.game.rng() < st.rise) this.rise(e);
         if (st.burst && this.game.rng() < this.chained(st.burst)) this.inChain(() => this.burstAt(shooter, e));

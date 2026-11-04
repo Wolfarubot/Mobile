@@ -1933,8 +1933,20 @@ export const EVO_TREES: Record<Archetype, EvoNode[]> = {
 /** Signatures: each kind is worth the same 4 points as the plain centre node it replaces. */
 const sigSplit = (name: string, icon: string, them: string) =>
   ev('sig', name, icon, `When slain, ${them} have a 25% chance per rank to split into 2 smaller ones.`, 4, { split: 0.25 });
-const sigFire = (name: string, icon: string, them: string) =>
-  ev('sig', name, icon, `${them} that die while Burning have a 10% chance per rank to leave burning debris on the ground that damages Monsters that walk over it.`, 4, { fireTrail: 0.1 });
+const sigFire = (name: string, icon: string, them: string, what: string, poison = false) =>
+  ev('sig', name, icon, poison
+    ? `${them} that die while Burning or Poisoned have a 10% chance per rank to drop ${what} that poison Monsters that walk over them.`
+    : `${them} that die while Burning have a 10% chance per rank to drop burning ${what} that burn Monsters that walk over them.`, 4, { fireTrail: 0.1 });
+
+/**
+ * What a plant leaves behind with its burning-drop evolution (fireTrail): its own drop, of a damage type, and
+ * (`poison`) whether dying Poisoned sets it off as well as dying Burning. Monsters not listed drop burning twigs.
+ */
+export const FIRE_TRAILS: Partial<Record<EnemyId, { material: MaterialId; dtype: DamageType; poison?: boolean }>> = {
+  toadstool: { material: 'spore', dtype: 'poison', poison: true },
+  manTrap: { material: 'thorn', dtype: 'fire' },
+  treant: { material: 'sap', dtype: 'fire' },
+};
 const sigLunge = (name: string, icon: string, them: string) =>
   ({ ...ev('sig', name, icon, `+50% gold and material drops.\n${them} now lunge at Hunters when they get close enough.`, 1, { gold: 0.5, drops: 0.5, lunge: 1 }), cost: 4 });
 const sigLoot = (name: string, icon: string, area: string) =>
@@ -1956,9 +1968,9 @@ const EVO_SIGNATURES: Partial<Record<EnemyId, EvoSpec>> = {
   imp: sigSplit('Imp Swarm', '😈', 'Imps'),
   puppet: sigSplit('Severed Strings', '🪆', 'Possessed Puppets'),
   // Plants leave burning debris.
-  toadstool: sigFire('Smoldering Caps', '🍄', 'Toadstools'),
-  manTrap: sigFire('Burning Maw', '🔥', 'Walking Man Traps'),
-  treant: sigFire('Kindling Bark', '🪵', 'Treants'),
+  toadstool: sigFire('Toxic Caps', '🍄', 'Toadstools', 'their poisonous caps', true),
+  manTrap: sigFire('Burning Thorns', '🔥', 'Walking Man Traps', 'thorns'),
+  treant: sigFire('Burning Sap', '🪵', 'Treants', 'sap'),
   // Predators lunge.
   brownBear: sigLunge('Bear Charge', '🐻', 'Brown Bears'),
   bat: sigLunge('Blood Dive', '🦇', 'Vampire Bats'),
