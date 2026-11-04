@@ -6250,7 +6250,7 @@ function tomeTag(gd: GearDef): string {
   // A plain spirit takes its kind's name when it isn't a Spirit summon ("undead spirit" from a Necronomicon).
   const creature = gd.summon?.name ?? (type === 'spirit' ? sm.name : `${SUMMON_TYPES[type].name.toLowerCase()} ${sm.name}`);
   const every = (fireRate: number) => Math.round(1 / (fireRate * rate));
-  const v = { creature, a: /^[aeiou]/i.test(creature) ? 'an' : 'a', every: every(BASE_FIRE_RATE), guild: every(HELPER_FIRE_RATE), duration: +sm.duration.toFixed(1), type: SUMMON_TYPES[type].name, bites: +sm.bites.toFixed(2) };
+  const v = { creature, a: /^[aeiou]/i.test(creature) ? 'an' : 'a', every: every(BASE_FIRE_RATE), guild: every(HELPER_FIRE_RATE), duration: +sm.duration.toFixed(1), type: SUMMON_TYPES[type].name, bites: +(sm.hit ?? 1).toFixed(2) };
   let tip = tx('tip.gear.tome', v);
   const kind = SUMMON_ARCHETYPE[type];
   tip += `<br>${kind ? tx('tip.gear.tomeBane', { kind: ARCHETYPES[kind].name }) : tx('tip.gear.tomeSpirit')}`;
@@ -6880,7 +6880,7 @@ function weaponTraits(c: WeaponClassDef, advanced: boolean): string[] {
     if (c.followThrough) out.push(`➡️ Carries on ${c.followThrough} past its target`);
     if (c.bounces) out.push(`↪️ Bounces ${c.bounces}`);
     if (c.spell) out.push(`💥 Spell every ${c.spell.every + 1}: ×${num(c.spell.damage)} damage, ${c.spell.radius} wide`);
-    if (c.summon) out.push(`🐾 ${num(c.summon.bites)} bites a second`);
+    if (c.summon) out.push(`🐾 Charges through the crowd: ×${num(c.summon.hit ?? 1)} per strike`);
     if (c.mag) out.push(`🔄 ${c.mag} ${c.spell ? 'casts' : 'shots'}, then a ${c.reload}-shot reload`);
     if (c.knock) out.push(`💨 ${c.knock} knockback`);
     return out;

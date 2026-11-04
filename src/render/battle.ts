@@ -1471,8 +1471,11 @@ export class BattleView {
     const ra = SUMMON_RADIUS * 1.25 * (sm.look === 'rock' ? 1.3 : 1) * Math.min(1.25, SIZE_SCALE[def.size ?? 'medium']);
     const fade = Math.min(1, sm.life / 1.2);
     const bob = sm.look === 'wisp' ? Math.sin(this.time * 8 + sm.maxLife) * 2 : 0;
-    // Facing the way it's heading (toward the monsters): mirrored when that's left.
-    const left = sm.x > 0;
+    // Facing the way it's running (toward the monsters if it hasn't moved yet): mirrored when that's left.
+    const vx = sm.vx ?? -sm.x;
+    const vy = sm.vy ?? 0;
+    const left = vx < 0;
+    const dir: 'D' | 'U' | 'L' | 'R' = Math.abs(vy) > Math.abs(vx) * 1.2 ? (vy < 0 ? 'U' : 'D') : left ? 'L' : 'R';
     g.save();
     g.translate(sm.x, sm.y + bob);
     g.scale(CHAR_SCALE, CHAR_SCALE);
@@ -1490,7 +1493,7 @@ export class BattleView {
       const sh = SHEETS[sheetKey!];
       const art = tinted(sheet!, physical ? undefined : color);
       const frame = Math.floor(this.time * 8 + sm.maxLife) % sh.cols;
-      const row = sheetRow(sh, left ? 'L' : 'R');
+      const row = sheetRow(sh, sh.order === 'SIDE' ? (left ? 'L' : 'R') : dir);
       if (sideFlip(sh, left ? -1 : 1)) g.scale(-1, 1);
       drawSheetFrame(g, outlineOf(art, ring, 1), sh, row, frame, ra * SHEET_SCALE);
       drawSheetFrame(g, art, sh, row, frame, ra * SHEET_SCALE);

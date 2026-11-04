@@ -3874,7 +3874,12 @@ export interface WeaponClassDef {
    * Tomes: each attack summons a creature that roams the field for `duration` seconds, biting monsters within
    * reach `bites` times a second for `damage` × a shot (the class's `damage`). Attack speed shortens the wait.
    */
-  summon?: { duration: number; bites: number; speed: number; name: string };
+  /**
+   * Tomes: how long a creature hunts, the strikes a second it lands on one monster it keeps charging back through
+   * (for the background model; a crowd's extra is in `farm`), its speed, each strike's share of the Hunter's shot
+   * (`hit`), and its name.
+   */
+  summon?: { duration: number; bites: number; speed: number; name: string; hit?: number };
   /**
    * Rough crowd efficiency for the background model (sweeps and stabs hit several; ranged and magic shots splash,
    * more for ones that pierce or bounce: see SHOT_SPLASH).
@@ -3896,7 +3901,7 @@ export const weaponUptime = (c: WeaponClassDef | null | undefined): number => (c
 export const weaponHitsPerAttack = (c: WeaponClassDef | null | undefined): number => {
   if (!c) return 1;
   if (c.thrusts) return c.thrusts;
-  if (c.summon) return c.summon.duration * c.summon.bites;
+  if (c.summon) return c.summon.duration * c.summon.bites * (c.summon.hit ?? 1);
   if (c.spell) return (c.spell.every + c.spell.damage) / (c.spell.every + 1);
   const v = c.volley ?? 1;
   return v * (1 + ((c.stack ?? 0) * (v - 1)) / 4) + (c.multishot ?? 0);
@@ -3918,7 +3923,7 @@ export const WEAPON_CLASSES: Record<WeaponClass, WeaponClassDef> = {
   scepter: { name: 'Scepter', attack: 'shot', projectile: 'spark', range: 1.25, rate: 0.75, damage: 1.3, bounces: 2, farm: 1.85, describe: 'Slower, longer-range bolts that bounce on to 2 more monsters nearby.', simple: "Slower, longer-range bolts that bounce on to more monsters nearby." },
   staff: { name: 'Staff', attack: 'shot', projectile: 'spark', range: 1.1, rate: 0.8, damage: 1.25, spell: { every: 5, radius: 70, damage: 3 }, mag: 6, reload: 2, farm: 1.55, describe: "Casts 5 bolts, then its element's spell (a Fire staff's Fireball or Fire Volley, a Frost staff's Ice Spikes or Frost Fan, and so on), then a short cooldown.", simple: "Casts a few bolts, then its element's spell (a Fire staff's Fireball or Fire Volley, a Frost staff's Ice Spikes or Frost Fan, and so on), then a short cooldown." },
   focus: { name: 'Focus', attack: 'nova', range: 1, reach: 110, rate: 0.8, damage: 1.2, farm: 2, describe: 'When monsters come close, bursts with power that hits every monster around the Hunter.', simple: 'When monsters come close, bursts with power that hits every monster around the Hunter.' },
-  tome: { name: 'Tome', attack: 'summon', range: 1, rate: 0.12, damage: 0.7, summon: { duration: 8, bites: 1.5, speed: 150, name: 'spirit' }, farm: 1, describe: 'Summons a spirit that hunts monsters across the field for a while, biting 1.5 times a second, then fades. A new one is summoned after a cooldown.', simple: "Summons a spirit that hunts monsters across the field for a while, then fades. A new one is summoned after a cooldown." },
+  tome: { name: 'Tome', attack: 'summon', range: 1, rate: 0.16, damage: 0.7, summon: { duration: 8, bites: 1.5, speed: 200, name: 'spirit', hit: 0.7 }, farm: 1.7, describe: 'Summons a spirit that charges through the monsters for a while, striking every one it runs past, then fades. A new one is summoned after a cooldown.', simple: "Summons a spirit that charges through the monsters for a while, striking every one it passes, then fades. A new one is summoned after a cooldown." },
 };
 
 /**
@@ -4022,7 +4027,7 @@ export const WEAPON_ARCHETYPES: Record<WeaponClass, [WeaponArchetype, WeaponArch
     { name: 'Orb', desc: 'A slower Focus with bursts that reach 40% further.', simple: "A slower Focus with bursts that reach much further.", reach: 1.4, rate: 0.7, damage: 1.1, farm: 1.3 },
     { name: 'Pulse Focus', desc: 'A quicker Focus with small bursts close around the Hunter.', reach: 0.75, rate: 1.5, damage: 0.82, farm: 0.8 }],
   tome: [STANDARD('Tome'),
-    { name: 'Grimoire', desc: 'A Tome whose creatures stay 60% longer and bite harder, but are summoned less often.', simple: "A Tome whose creatures stay longer and bite harder, but are summoned less often.", summonDuration: 1.6, summonBites: 1.2, rate: 0.52 },
+    { name: 'Grimoire', desc: 'A Tome whose creatures stay 60% longer and hit 20% harder, but are summoned less often.', simple: "A Tome whose creatures stay longer and hit harder, but are summoned less often.", summonDuration: 1.6, summonBites: 1.2, rate: 0.52 },
     { name: 'Primer', desc: 'A Tome whose creatures are summoned 50% more often and move faster, but fade sooner.', simple: "A Tome whose creatures are summoned more often and move faster, but fade sooner.", summonDuration: 0.65, summonSpeed: 1.3, rate: 1.5 }],
 };
 
@@ -4055,7 +4060,7 @@ export function withArchetype(cls: WeaponClassDef, a: WeaponArchetype | undefine
     if (a.spellEvery) c.mag = a.spellEvery + 1;
   }
   if (cls.summon && (a.summonDuration || a.summonBites || a.summonSpeed))
-    c.summon = { ...cls.summon, duration: cls.summon.duration * (a.summonDuration ?? 1), bites: cls.summon.bites * (a.summonBites ?? 1), speed: cls.summon.speed * (a.summonSpeed ?? 1) };
+    c.summon = { ...cls.summon, duration: cls.summon.duration * (a.summonDuration ?? 1), hit: (cls.summon.hit ?? 1) * (a.summonBites ?? 1), speed: cls.summon.speed * (a.summonSpeed ?? 1) };
   c.farm = cls.farm * (a.farm ?? 1);
   return c;
 }
@@ -4252,7 +4257,7 @@ export const GEAR: GearDef[] = [
     stats: {},
     recipe: { pelt: 24, dust: 12 },
     summon: { look: 'wolf', name: 'wolf spirit', dash: { cooldown: 4, range: 150, speed: 520, damage: 2.5 } },
-    ability: 'Every 4 seconds, its wolves lunge at a monster. A lunge that lands bites for ×2.5.',
+    ability: 'Every 4 seconds, its wolves lunge into a faster charge, and everything they strike in it takes ×2.5.',
   },
   { id: 'soulfireStaff', name: 'Soulfire Staff', icon: '🌟', kind: 'magic', rarity: 'exalted', weaponClass: 'staff', tier: 12, damageType: 'radiant', proc: 0.2, stats: { rate: 0.15 }, tweak: { bolts: 8 }, recipe: { soul: 8, void: 4 } },
   // A weapon for every area tier (ranged, melee and magic), crafted from that area's materials.

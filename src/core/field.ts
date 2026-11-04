@@ -212,7 +212,20 @@ export interface Summon {
   /** Seconds left in a lunge (their tome's ability), and whether this lunge has landed yet. */
   dash: number;
   dashHit: boolean;
+  /** A tome's creature charging through the crowd: the point it's running for, and when it last struck each monster. */
+  run?: { tx: number; ty: number; t: number; struck: Map<number, number> };
+  /** The way it last moved (for facing). */
+  vx?: number;
+  vy?: number;
 }
+
+/**
+ * A tome's creature doesn't stop to bite one monster: it charges through the crowd, past the nearest monster and on
+ * `overshoot` beyond it, then turns for the next, striking every monster it brushes (each at most once every `rehit`
+ * seconds) for the class's `hit` × the Hunter's shot. A lunge (the Wolf Spirit's) is a faster charge whose strikes
+ * hit for its damage instead.
+ */
+export const SUMMON_RUN = { overshoot: 70, rehit: 0.6, retarget: 1.6, reach: 6 };
 
 /** A damage-over-time effect: damage per second, seconds left, who applied it (for kill credit). */
 export interface Dot {
@@ -570,6 +583,8 @@ export class Field {
   shots: EnemyShot[] = [];
   puddles: Puddle[] = [];
   ghosts: Ghost[] = [];
+  /** Seconds the field has run (for timing things like a summon's repeat strikes). */
+  clock = 0;
   /** Orb Scepter orbs: where bolts landed, hurting each monster that walks into one, once. */
   orbs: Array<{ who: Shooter; x: number; y: number; r: number; life: number; max: number; dmg: number; crit: boolean; mode?: GearMode; dtype?: DamageType; hit: Set<number> }> = [];
   /** Thomas's tomes, open on the field (see recall). */
@@ -859,6 +874,7 @@ export class Field {
 
   update(dt: number): void {
     const g = this.game;
+    this.clock += dt;
     this.artCache.clear();
     for (const [who, t] of this.frenzy) if (t - dt > 0) this.frenzy.set(who, t - dt);
     else this.frenzy.delete(who);
@@ -914,7 +930,8 @@ export class Field {
 
     // Your Hunter (not while stunned): attacks the way their weapon's class does.
     this.fireAcc = Math.min(this.fireAcc + dt * g.shooterRate(this.lead) * this.frenzyMult(this.lead), 3);
-    if (this.stunned) this.fireAcc = 0;
+    // A stun holds the attack back without losing its charge (a tome's summon takes several seconds).
+    if (this.stunned) this.fireAcc = Math.min(this.fireAcc - dt * g.shooterRate(this.lead) * this.frenzyMult(this.lead), 0.999);
     const cls = g.weaponClassOf(this.lead);
     const range = g.shooterRange(this.lead);
     if (!this.gunReady(this.gunState, cls, dt)) this.fireAcc = 0;
@@ -1386,7 +1403,8 @@ export class Field {
     const g = this.game;
     const def = hunterDef(h.id);
     if (h.stun > 0) {
-      h.fireAcc = 0;
+      // A stun holds the attack back, but doesn't lose its charge (a tome's summon takes several seconds).
+      h.fireAcc = Math.min(h.fireAcc, 0.999);
       return;
     }
     // Wilhelm switches to his short-range weapon when anything is close.
@@ -2847,8 +2865,12 @@ export class Field {
       if (lunged) owner.dashCd = dash.cooldown * this.game.cooldownMult(who);
     }
     for (const s of this.summons) {
-      const sm = s.gear ?? s.own ?? (s.risen ? { bites: RISEN.bites, speed: enemyDef(s.risen.enemy).speed * 1.2 } : this.game.weaponClassOf(s.who)!.summon!);
-      const dash = s.gear || s.own || s.risen ? undefined : this.weaponDef(s.who)?.summon?.dash;
+      if (!s.gear && !s.own && !s.risen) {
+        this.chargeSummon(s, dt);
+        continue;
+      }
+      const sm = s.gear ?? s.own ?? { bites: RISEN.bites, speed: enemyDef(s.risen!.enemy).speed * 1.2 };
+      const dash = undefined as { speed: number; damage: number } | undefined;
       s.life -= dt;
       s.dash = Math.max(0, s.dash - dt);
       const e = this.nearest(s.x, s.y, 2000);
@@ -2861,6 +2883,8 @@ export class Field {
         const step = Math.min((s.dash > 0 && dash ? dash.speed : sm.speed) * dt, d - reach + 1);
         s.x += (dx / d) * step;
         s.y += (dy / d) * step;
+        s.vx = dx;
+        s.vy = dy;
       }
       if (s.dash > 0 && dash && !s.dashHit && Math.hypot(e.x - s.x, e.y - s.y) <= reach + 2) {
         // The lunge lands: a big bite, and the lunge is spent.
@@ -2877,11 +2901,53 @@ export class Field {
           else if (s.gear) this.abilityHit(s.who, e, s.gear.base * m, s.gear.damageType, false);
           // A Hunter's own creatures bite with their weapon's type, and can inflict its status effect.
           else if (s.own) this.hitWith(s.who, e, s.own.mult * m, s.x, s.y, undefined, undefined, true);
-          else this.hitWith(s.who, e, m, s.x, s.y);
         }
       } else s.bite = Math.min(s.bite + dt * sm.bites, 1);
     }
     this.summons = this.summons.filter((s) => s.life > 0);
+  }
+
+  /** A tome's creature charging through the crowd (SUMMON_RUN). */
+  private chargeSummon(s: Summon, dt: number): void {
+    const g = this.game;
+    const cls = g.weaponClassOf(s.who)?.summon;
+    if (!cls) return;
+    const dash = this.weaponDef(s.who)?.summon?.dash;
+    const lunging = s.dash > 0 && !!dash;
+    s.life -= dt;
+    s.dash = Math.max(0, s.dash - dt);
+    const run = (s.run ??= { tx: s.x, ty: s.y, t: 0, struck: new Map() });
+    run.t -= dt;
+    // Reached its mark (or ran too long at it): pick the nearest monster and run on through it.
+    if (run.t <= 0 || Math.hypot(run.tx - s.x, run.ty - s.y) < 6) {
+      const e = this.nearest(s.x, s.y, 2000);
+      if (!e) return;
+      const dx = e.x - s.x;
+      const dy = e.y - s.y;
+      const d = Math.hypot(dx, dy) || 1;
+      run.tx = e.x + (dx / d) * SUMMON_RUN.overshoot;
+      run.ty = e.y + (dy / d) * SUMMON_RUN.overshoot;
+      run.t = SUMMON_RUN.retarget;
+    }
+    const dx = run.tx - s.x;
+    const dy = run.ty - s.y;
+    const d = Math.hypot(dx, dy) || 1;
+    const step = Math.min((lunging ? dash!.speed : cls.speed) * dt, d);
+    s.x += (dx / d) * step;
+    s.y += (dy / d) * step;
+    s.vx = dx;
+    s.vy = dy;
+    // Everything it brushes past takes a strike (each monster once every `rehit` seconds from this creature).
+    const now = this.clock;
+    const m = g.summonMult(s.who, s.type) * (lunging ? dash!.damage : (cls.hit ?? 1));
+    for (const e of [...this.enemies]) {
+      if (e.hp <= 0 || Math.hypot(e.x - s.x, e.y - s.y) > SUMMON_RADIUS + e.r + SUMMON_RUN.reach) continue;
+      const last = run.struck.get(e.id);
+      if (last !== undefined && now - last < SUMMON_RUN.rehit) continue;
+      run.struck.set(e.id, now);
+      this.hitWith(s.who, e, m, s.x, s.y);
+    }
+    if (run.struck.size > 40) for (const [id, t] of run.struck) if (now - t > SUMMON_RUN.rehit) run.struck.delete(id);
   }
 
   /** A melee hit: damage, then a knock back if the monster survives (Guardians hold their ground). */

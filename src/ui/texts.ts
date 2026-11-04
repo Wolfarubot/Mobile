@@ -448,7 +448,7 @@ section(
   'Weapon types guide: tomes',
   {
     tomeSummons:
-      "Every creature a Tome summons has a **summon type**: {types}. Any bonus your Hunter has against that kind of monster makes their summons of that kind hit harder too. These bonuses are called **banes**, and come from Guild Hunter passives, accessories, and the Bane enchantment. For example, +20% damage against Undead also makes undead summons bite 20% harder. Spirits aren't a kind of monster, so banes don't help them.",
+      "Every creature a Tome summons has a **summon type**: {types}. Any bonus your Hunter has against that kind of monster makes their summons of that kind hit harder too. These bonuses are called **banes**, and come from Guild Hunter passives, accessories, and the Bane enchantment. For example, +20% damage against Undead also makes undead summons hit 20% harder. Spirits aren't a kind of monster, so banes don't help them.",
   },
   { note: 'Under the Tome on the Weapon types guide.', vars: { types: 'the summon types' }, labels: { tomeSummons: 'Summon types and banes' } },
 );
@@ -518,11 +518,11 @@ section(
     finderSimple: 'At {stars}★, your {kind} kills can drop {material}.',
     archetype: '**{name}**: {desc}',
     spell: 'After its bolts, this Staff casts **{spell}**: {desc}',
-    tome: 'Every **{every} seconds**, summons {a} **{creature}** that hunts monsters for {duration} seconds, then fades. Attack speed summons it sooner. Summon type: **{type}**.',
+    tome: 'Every **{every} seconds**, summons {a} **{creature}** that charges through the monsters for {duration} seconds, striking every one it runs past, then fades. Attack speed summons it sooner. Summon type: **{type}**.',
     tomeBane: 'Bonus damage against **{kind}s** (a bane) makes it hit harder too.',
     tomeSpirit: "Spirits aren't a kind of monster, so no bane makes them hit harder.",
-    tomeAdvanced: 'Every {guild} seconds for a Guild Hunter, before attack speed. Each bite deals {bites}× the Tome\'s hit.',
-    tomeLunge: 'Every {cooldown} seconds, it lunges at a monster, hitting for {damage}× a bite.',
+    tomeAdvanced: 'Every {guild} seconds for a Guild Hunter, before attack speed. Each strike deals {bites}× the Tome\'s hit, and it can strike the same monster again after a moment.',
+    tomeLunge: 'Every {cooldown} seconds, it lunges into a faster charge, its strikes hitting for {damage}× instead.',
     bane: '+{pct}% damage against {kind}s.',
     ownDamage: 'Has its own damage, raised by your bonuses instead of your weapon.',
     unique: '**Unique**: {text}.',
@@ -553,9 +553,9 @@ section(
       every: 'seconds between summons (your Hunter)',
       guild: 'seconds between summons (a Guild Hunter)',
       duration: 'seconds it hunts',
-      bites: "bite damage × the tome's hit",
+      bites: "strike damage × the tome's hit",
       cooldown: 'seconds between lunges',
-      damage: 'lunge damage × a bite',
+      damage: "lunge strike damage × the tome's hit",
     },
     labels: {
       dmgOne: 'Damage type: one type',

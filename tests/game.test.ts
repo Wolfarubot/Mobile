@@ -2370,7 +2370,7 @@ describe('Equipment', () => {
     }
   });
 
-  it("the Wolf Spirit tome's wolves lunge on a cooldown; a landed lunge bites ×2.5; only that ability gets a cooldown icon", () => {
+  it("the Wolf Spirit tome's wolves lunge on a cooldown, striking for ×2.5 instead of the tome's hit; only that ability gets a cooldown icon", () => {
     const g = stocked();
     g.state.hunters = Object.fromEntries(Object.entries(g.state.hunters).map(([k, h]) => [k, { ...h, station: null }])) as typeof g.state.hunters;
     g.equip('main', 0, g.craftGear('wolfTome')!.uid);
@@ -2384,8 +2384,8 @@ describe('Equipment', () => {
       for (const e of f.drainEvents()) if (e.type === 'hit') hits.push(e.dmg);
     }
     expect(f.summons[0]?.look).toBe('wolf');
-    const bite = Math.min(...hits);
-    expect(Math.max(...hits) / bite).toBeCloseTo(2.5); // the lunge
+    const strike = Math.min(...hits);
+    expect(Math.max(...hits) / strike).toBeCloseTo(2.5 / WEAPON_CLASSES.tome.summon!.hit!); // the lunge
     const icons = f.cooldowns();
     expect(icons.map((c) => c.key)).toEqual(['item:wolfTome']); // the lunge, not the tome's own summoning
     expect(icons[0].progress).toBeLessThan(1);
@@ -6101,5 +6101,32 @@ describe('Lilith the Haunter', () => {
     // Never more than GHOSTS.max ghosts and haunts at once.
     for (let i = 0; i < 20; i++) api.damage(enemy({ id: 10 + i, type: 'bat', x: 0, y: 0, hp: 1, maxHp: 1 }), 10, false, 0, 0, 'haunter', 'physical');
     expect(f.ghosts.length + f.puddles.filter((p) => p.haunt).length).toBeLessThanOrEqual(GHOSTS.max);
+  });
+});
+
+describe('Tome summons', () => {
+  it('charge through a crowd, striking every monster they pass, and a stun holds the summon back without losing it', () => {
+    const s = newGame(0);
+    for (const m of Object.keys(s.materials) as Array<keyof typeof s.materials>) s.materials[m] = 1e6;
+    const g = new Game(veteran(s), noCrit);
+    g.state.hunters = Object.fromEntries(Object.entries(g.state.hunters).map(([k, h]) => [k, { ...h, station: null }])) as typeof g.state.hunters;
+    g.equip('main', 0, g.craftGear('wispTome')!.uid);
+    const f = new Field(g);
+    f.setView(390, 420);
+    // A line of monsters held in place: a creature charging along it strikes each of them.
+    for (let i = 0; i < 6; i++) f.enemies.push(enemy({ id: i + 1, x: 60 + i * 22, y: 0, hp: 1e12, maxHp: 1e12 }));
+    for (let t = 0; t < 1 / g.shooterRate('main') + 3; t += 0.01) {
+      f.update(0.01);
+      f.drainEvents();
+      for (const e of f.enemies) Object.assign(e, { x: 60 + (e.id - 1) * 22, y: 0, kx: 0, ky: 0, vx: 0, vy: 0 });
+    }
+    expect(f.summons.length).toBeGreaterThan(0);
+    expect(f.enemies.filter((e) => e.hp < 1e12).length).toBeGreaterThanOrEqual(4);
+    // A stun no longer throws away the summon's charge.
+    const api = f as unknown as { fireAcc: number; stunned: boolean; stun: number };
+    api.fireAcc = 0.8;
+    Object.assign(f, { stun: 0.5 });
+    f.update(0.01);
+    expect(api.fireAcc).toBeGreaterThan(0.7);
   });
 });
