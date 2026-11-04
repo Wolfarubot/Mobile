@@ -86,6 +86,8 @@ export class BattleView {
   private fx = new Fx();
   private pickups: Pickup[] = [];
   private rings: Ring[] = [];
+  /** Galladair's Arrow Rain patches: marked on the ground while the arrows fall (`born` in this.time). */
+  private rainZones: Array<{ x: number; y: number; r: number; born: number; time: number }> = [];
   /** Ba'al's sound waves: a ring of music notes swelling out to its reach, then fading. */
   private noteRings: Array<{ x: number; y: number; max: number; time: number; t: number; color: string }> = [];
   /** When each puddle first appeared (for its bubbles' animation). */
@@ -241,6 +243,9 @@ export class BattleView {
           else this.playEffect('explosion', e.x, e.y, e.r * 2.3);
           break;
         }
+        case 'rainZone':
+          this.rainZones.push({ x: e.x, y: e.y, r: e.r, born: this.time, time: e.time });
+          break;
         case 'nova':
           if (this.game.state.settings.aoeStyle === 'basic') this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: hexRgb(e.color ?? '#fff0be'), max: 0.35 });
           else this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: hexRgb(e.color ?? '#fff0be'), max: 0.4, pixel: true, scatter: sparseCells(e.r, Math.random() * 1e6) });
@@ -510,6 +515,28 @@ export class BattleView {
       let born = this.puddleBorn.get(p);
       if (born === undefined) this.puddleBorn.set(p, (born = this.time));
       drawPotionPool(g, p, this.time - born, p.dtype === 'acid');
+    }
+
+    // Arrow Rain: the patch under the falling arrows, a shadow with a slowly turning dashed edge.
+    this.rainZones = this.rainZones.filter((z) => this.time - z.born < z.time);
+    for (const z of this.rainZones) {
+      const age = this.time - z.born;
+      const fade = Math.min(1, age / 0.25, (z.time - age) / 0.35);
+      g.save();
+      g.globalAlpha = fade;
+      g.fillStyle = 'rgba(20,16,10,0.22)';
+      g.beginPath();
+      g.arc(z.x, z.y, z.r, 0, Math.PI * 2);
+      g.fill();
+      g.strokeStyle = 'rgba(244,226,176,0.85)';
+      g.lineWidth = 3;
+      g.setLineDash([10, 8]);
+      g.lineDashOffset = -this.time * 30;
+      g.beginPath();
+      g.arc(z.x, z.y, z.r, 0, Math.PI * 2);
+      g.stroke();
+      g.setLineDash([]);
+      g.restore();
     }
 
     // Orb Scepter orbs: a glowing ball of the bolt's element where it landed, pulsing, fading as it runs out.
@@ -1267,9 +1294,11 @@ export class BattleView {
         break;
       case 'arrows':
         // Volley of Rain: arrows dropping out of the sky (the pack's volley in Fancy, a streak in Basic).
-        if (this.fancy) this.playEffect('arrows', e.x, e.y + 6, 46, 'bottom', 20);
-        else this.beams.push({ x1: e.x - 8, y1: e.y - 120, x2: e.x, y2: e.y, color: '#e8d2a8', width: 2, t: 0 });
-        this.fx.burst(e.x, e.y, '#c8b48a', 3, 60, 2, 300, true);
+        // Bigger than a plain hit's art, with a pale streak where it fell and a puff of dust where it lands.
+        if (this.fancy) this.playEffect('arrows', e.x, e.y + 10, 110, 'bottom', 18);
+        this.beams.push({ x1: e.x - 12, y1: e.y - 160, x2: e.x, y2: e.y, color: '#f4e2b0', width: 3, t: 0 });
+        this.rings.push({ x: e.x, y: e.y, t: 0, r: 12, color: '232,210,168', max: 0.25 });
+        this.fx.burst(e.x, e.y, '#c8b48a', 4, 70, 2.5, 300, true);
         break;
       case 'shock':
         // A hammer's Aftershock: a second impact in its element.
@@ -1534,7 +1563,7 @@ export class BattleView {
   }
 
   private playEffect(key: EffectKey, x: number, y: number, size: number, anchor: 'center' | 'bottom' = 'center', fps = 18, start = 0, alpha = 1, color?: string): void {
-    if (this.anims.length > 120) return; // keep the busiest moments cheap
+    if (this.anims.length > (key === 'arrows' ? 170 : 120)) return; // keep the busiest moments cheap (arrows get a little more room)
     this.anims.push({ key, x, y, size, anchor, fps, t: 0, start, alpha, color });
   }
 

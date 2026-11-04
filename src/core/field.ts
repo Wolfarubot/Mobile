@@ -547,6 +547,8 @@ export type FieldEvent =
   /** `magic`: a spell's blast, which sounds like its element rather than a plain explosion. */
   | { type: 'explode'; x: number; y: number; r: number; color: string; magic?: DamageType; /** Drawn in this colour (Id's bolts). */ tint?: string }
   | { type: 'nova'; x: number; y: number; r: number; color?: string }
+  /** Galladair's Arrow Rain: the patch it pours down on, and for how long (for its marker on the ground). */
+  | { type: 'rainZone'; x: number; y: number; r: number; time: number }
   | { type: 'beam'; x1: number; y1: number; x2: number; y2: number; color: string; width: number; zigzag?: boolean; thrust?: boolean }
   | { type: 'sweep'; x: number; y: number; a: number; arc: number; r: number; color: string; heavy?: boolean; blade?: boolean }
   /** A focus's wave: a ring growing to `r` over `time` seconds. */
@@ -1591,6 +1593,7 @@ export class Field {
         const d = Math.sqrt(g.rng()) * r;
         this.spellHits.push({ c, t: 0.35 + i / ARROW_RAIN.rate, x: tx + Math.cos(ang) * d, y: ty + Math.sin(ang) * d, r: ARROW_RAIN.arrow, k: 1, fx: 'arrows' });
       }
+      this.events.push({ type: 'rainZone', x: tx, y: ty, r, time: 0.35 + n / ARROW_RAIN.rate + 0.2 });
       return true;
     }
     if (sp.kind === 'rift' && sp.rift) {
