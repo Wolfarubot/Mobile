@@ -658,11 +658,19 @@ export class Game {
   }
 
   /**
+   * The share their Recovery Speed skills cut from a stun (0.05 for one 5% rank). The protection after a stun grows by
+   * the same share.
+   */
+  recoveryCut(shooter: Shooter = 'main'): number {
+    return 1 - SKILL_RECOVERY ** this.tree(shooter).recovery;
+  }
+
+  /**
    * Seconds a Hunter is stunned when an enemy reaches them. Their Recovery Speed skill and armor and other
    * gear reduce it per Hunter.
    */
   stunTime(boss = false, shooter: Shooter = 'main'): number {
-    const recovery = SKILL_RECOVERY ** this.tree(shooter).recovery;
+    const recovery = 1 - this.recoveryCut(shooter);
     const gear = 1 - Math.min(GEAR_STUN_CAP, this.gear(shooter).stun);
     return (boss ? BOSS_STUN_TIME : STUN_TIME) * recovery * gear;
   }

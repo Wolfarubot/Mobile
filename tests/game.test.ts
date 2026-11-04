@@ -6182,3 +6182,27 @@ describe('Evolution row gates', () => {
     expect(g.canEvolve(id, legacy.id)).toBe(true);
   });
 });
+
+describe('Recovery Speed', () => {
+  it('cuts the stun and lengthens the protection after it by the same share', () => {
+    const g = new Game(veteran(newGame(0)), noCrit);
+    const f = new Field(g);
+    const api = f as unknown as { knockOut: (who: string, boss: boolean, x: number, y: number) => void; stun: number; immune: number };
+    const protection = () => {
+      api.knockOut('main', false, 0, 0);
+      const stun = api.stun;
+      for (let i = 0; i < 400 && api.stun > 0; i++) f.update(0.01);
+      return { stun, immune: api.immune };
+    };
+    const plain = protection();
+    for (let i = 0; i < 400 && api.immune > 0; i++) f.update(0.01);
+    g.state.main.skills.recovery = 3; // three 5% ranks
+    const cut = g.recoveryCut('main');
+    expect(cut).toBeCloseTo(1 - 0.95 ** 3, 3);
+    // Let the knock-out streak lapse, then stun again.
+    for (let i = 0; i < 2000; i++) f.update(0.01);
+    const fast = protection();
+    expect(fast.stun).toBeCloseTo(plain.stun * (1 - cut), 5);
+    expect(fast.immune).toBeGreaterThan(plain.immune * (1 + cut) - 0.05);
+  });
+});

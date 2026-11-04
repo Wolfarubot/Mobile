@@ -158,7 +158,7 @@ export const EMOJI_ICONS: Record<string, string> = {
   "👿": 'status4/037',
   "🛠️": 'resources3/010',
   "🛡️": 'status1/021',
-  "🟢": 'rpg-items/041',
+  "🟢": 'custom/001', // the Slime type: the Green Slime itself
   "🤏": 'ab-rogue-warlock/045',
   "🥊": 'ab-hunter-warrior/063',
   "🥋": 'armor7/011',

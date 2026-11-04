@@ -884,7 +884,7 @@ export class Field {
     this.sinceKo += dt;
     if (this.stun > 0) {
       this.stun = Math.max(0, this.stun - dt);
-      if (this.stun === 0) this.getUp(this, 0, 0);
+      if (this.stun === 0) this.getUp(this.lead, this, 0, 0);
     } else this.immune = Math.max(0, this.immune - dt);
     this.syncHelpers();
     this.boneWall = Math.max(0, this.boneWall - dt);
@@ -893,7 +893,7 @@ export class Field {
       h.sinceKo += dt;
       if (h.stun > 0) {
         h.stun = Math.max(0, h.stun - dt);
-        if (h.stun === 0) this.getUp(h, h.x, h.y);
+        if (h.stun === 0) this.getUp(h.id, h, h.x, h.y);
       } else h.immune = Math.max(0, h.immune - dt);
     }
     for (const [who, h] of [[this.lead, this], ...this.helpers.map((x) => [x.id, x])] as Array<[Shooter, { guard: number; guardAcc: number }]>) {
@@ -1184,8 +1184,9 @@ export class Field {
    * A Hunter gets back up from a stun: they shove the monsters close around them back, and get a moment of grace,
    * longer for each time they've been knocked out in a row (STUN_RELIEF), so a crowd can't keep them down.
    */
-  private getUp(state: { immune: number; koStreak: number }, x: number, y: number): void {
-    state.immune = STUN_IMMUNITY + STUN_RELIEF.perStreak * (Math.min(state.koStreak, STUN_RELIEF.maxStreak) - 1);
+  private getUp(who: Shooter, state: { immune: number; koStreak: number }, x: number, y: number): void {
+    // Recovery Speed lengthens the protection by the share it cuts from the stun.
+    state.immune = (STUN_IMMUNITY + STUN_RELIEF.perStreak * (Math.min(state.koStreak, STUN_RELIEF.maxStreak) - 1)) * (1 + this.game.recoveryCut(who));
     this.shove(x, y, STUN_RELIEF.shoveRange, STUN_RELIEF.shove);
     this.events.push({ type: 'nova', x, y, r: PLAYER_RADIUS + STUN_RELIEF.shoveRange, color: '#f4f4f4' });
   }

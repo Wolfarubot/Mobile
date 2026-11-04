@@ -28,7 +28,7 @@ export const SUMMON_TAG_ICONS: Record<SummonType, string> = {
 };
 
 export const ARCHETYPE_TAG_ICONS: Record<Archetype, string> = {
-  slime: 'ab-paladin-dk/079',
+  slime: 'custom/001', // the Green Slime itself (the one tag that isn't a framed icon)
   beast: 'ab-gunslinger-druid/061',
   undead: 'ab-paladin-dk/065',
   demon: 'ab-pyro-hydro/037',

@@ -356,7 +356,7 @@ const REC_STEP = Math.log(0.95) / Math.log(SKILL_RECOVERY);
 // Stock nodes: the per-rank numbers every tree shares, under each Hunter's own names.
 const atk = (maxRank: number, name = 'Attack Power', icon = '💪', v = 0.2): NodeSpec => ({ name, icon, desc: `+${pctOf(v)} damage per rank.`, maxRank, effect: { damage: v } });
 const spd = (maxRank: number, name = 'Attack Speed', icon = '⚡', v = 0.05): NodeSpec => ({ name, icon, desc: `+${pctOf(v)} attack speed per rank.`, maxRank, effect: { rate: v } });
-const rec = (maxRank: number, name = 'Recovery Speed', icon = '🧘'): NodeSpec => ({ name, icon, desc: 'Stuns wear off 5% faster per rank.', maxRank, effect: { recovery: REC_STEP } });
+const rec = (maxRank: number, name = 'Recovery Speed', icon = '🧘'): NodeSpec => ({ name, icon, desc: 'Stuns wear off 5% faster per rank, and the protection after a stun lasts 5% longer.', maxRank, effect: { recovery: REC_STEP } });
 const crt = (maxRank: number, name: string, icon: string, v = 0.025): NodeSpec => ({ name, icon, desc: `+${pctOf(v)} crit chance per rank.`, maxRank, effect: { crit: v } });
 const crd = (maxRank: number, name: string, icon: string, v = 0.1): NodeSpec => ({ name, icon, desc: `Critical hits deal +${pctOf(v)} more damage per rank.`, maxRank, effect: { critDamage: v } });
 const rng = (maxRank: number, name: string, icon: string, v = 10): NodeSpec => ({ name, icon, desc: `+${v} range per rank.`, maxRank, effect: { range: v } });
@@ -463,7 +463,7 @@ const MAIN_FIRST_TREE: SkillNode[] = [
   // First diamond
   { id: 'power', name: 'Attack Power', icon: '💪', desc: '+20% damage per rank.', maxRank: 5, effect: { damage: 0.2 }, requires: ['root'], col: 1, row: 1 },
   { id: 'speed', name: 'Attack Speed', icon: '⚡', desc: '+5% attack speed per rank.', maxRank: 5, effect: { rate: 0.05 }, requires: ['root'], col: 2, row: 1 },
-  { id: 'recovery', name: 'Recovery Speed', icon: '🧘', desc: 'Stuns wear off 5% faster per rank.', maxRank: 3, effect: { recovery: RECOVERY_5 }, requires: ['root'], col: 3, row: 1 },
+  { id: 'recovery', name: 'Recovery Speed', icon: '🧘', desc: 'Stuns wear off 5% faster per rank, and the protection after a stun lasts 5% longer.', maxRank: 3, effect: { recovery: RECOVERY_5 }, requires: ['root'], col: 3, row: 1 },
   { id: 'power2', name: 'Tap Power', icon: '👆', desc: '+25% tap blast damage per rank.', maxRank: 5, effect: { tapPower: 0.25 }, requires: ['power'], col: 0.5, row: 2 },
   { id: 'eagleEye', name: 'Eagle Eye', icon: '🎯', desc: '+2.5% crit chance per rank.', maxRank: 2, effect: { crit: 0.025 }, requires: ['speed'], col: 2, row: 2 },
   { id: 'recovery2', name: 'Tap Size', icon: '💥', desc: '+20% tap blast area per rank.', maxRank: 4, effect: { tapSize: 0.2 }, requires: ['recovery'], col: 3.5, row: 2 },
@@ -581,7 +581,7 @@ export const SLAYER_TREE: SkillNode[] = [
   { id: 'root', name: "Slayer's Oath", icon: '⚔️', desc: '+30% damage and +10% attack speed.', maxRank: 1, cost: 4, effect: { damage: 0.3, rate: 0.1 }, requires: [], col: 2, row: 0 },
   { id: 'power', name: 'Carnage', icon: '🩸', desc: '+7% damage per rank.', maxRank: 15, effect: { damage: 0.07 }, requires: ['root'], col: 0, row: 1 },
   { id: 'speed', name: 'Frenzy', icon: '⚡', desc: '+7% attack speed per rank.', maxRank: 15, effect: { rate: 0.07 }, requires: ['root'], col: 1, row: 1 },
-  { id: 'recovery', name: 'Unbreakable', icon: '🗿', desc: 'Stuns wear off 8% faster per rank.', maxRank: 5, effect: { recovery: 1 }, requires: ['root'], col: 2, row: 1 },
+  { id: 'recovery', name: 'Unbreakable', icon: '🗿', desc: 'Stuns wear off 8% faster per rank, and the protection after a stun lasts 8% longer.', maxRank: 5, effect: { recovery: 1 }, requires: ['root'], col: 2, row: 1 },
   { id: 'farSight', name: 'Far Sight', icon: '🔭', desc: '+10 range per rank.', maxRank: 5, effect: { range: 10 }, requires: ['root'], col: 3, row: 1 },
   { id: 'plunder', name: 'Plunder', icon: '🪙', desc: '+10% gold and materials from your kills per rank.', maxRank: 5, effect: { gold: 0.1, drops: 0.1 }, requires: ['root'], col: 4, row: 1 },
   { id: 'power2', name: 'Precision', icon: '🎯', desc: '+1.25% crit chance per rank.', maxRank: 8, effect: { crit: 0.0125 }, requires: ['power'], col: 0, row: 2 },
