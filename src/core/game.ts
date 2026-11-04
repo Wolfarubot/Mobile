@@ -599,7 +599,7 @@ export class Game {
   }
 
   private computeTree(who: Wearer): Record<TreeStat, number> {
-    const out: Record<TreeStat, number> = { damage: 0, rate: 0, recovery: 0, crit: 0, range: 0, pierce: 0, radius: 0, bane: 0, guard: 0, rally: 0, gold: 0, drops: 0, tapPower: 0, tapSize: 0, bolts: 0, cooldown: 0, duration: 0, critDamage: 0, multishot: 0, bounces: 0 };
+    const out: Record<TreeStat, number> = { damage: 0, rate: 0, recovery: 0, crit: 0, range: 0, pierce: 0, radius: 0, bane: 0, guard: 0, rally: 0, gold: 0, drops: 0, tapPower: 0, tapSize: 0, bolts: 0, cooldown: 0, duration: 0, critDamage: 0, multishot: 0, bounces: 0, ghosts: 0 };
     for (const which of ['base', 'ascended'] as const)
       for (const node of this.skillTree(who, which)) {
         const rank = this.skill(who, node.id, which);
@@ -795,7 +795,9 @@ export class Game {
     const perAttack = cls?.farm ?? 1;
     // Guns spend part of their time reloading.
     const uptime = weaponUptime(cls) * weaponHitsPerAttack(cls);
-    return this.shotDamage(shooter, archetype) * (this.shooterRate(shooter) * perAttack * uptime + this.specialHitRate(shooter) + this.songHitRate(shooter)) * this.critFactor(shooter);
+    // Lilith's Grave Touch: each strike's Decay on top (their ghosts' haunts come and go, so they aren't counted).
+    const touch = 1 + (shooter === 'main' ? 0 : (hunterDef(shooter).haunt?.decay ?? 0));
+    return this.shotDamage(shooter, archetype) * (this.shooterRate(shooter) * perAttack * uptime * touch + this.specialHitRate(shooter) + this.songHitRate(shooter)) * this.critFactor(shooter);
   }
 
   /**
@@ -1524,7 +1526,7 @@ export class Game {
   }
 
   /** Energy an event costs to start. */
-  /** Energy an event costs: a Guardian Challenge costs none while you hold a Giant Slayer charge (Okrin's Icebreaker). */
+  /** Energy an event costs: a Guardian Challenge costs none while you hold a Giant Slayer charge (Lilith's Icebreaker). */
   energyCost(id: string): number {
     const def = eventDef(id);
     if (def.kind === 'guardian' && this.buffLeft('icebreaker') >= 1) return 0;
@@ -2023,7 +2025,7 @@ export class Game {
     st.runs++;
     if (def.kind === 'guardian') {
       this.guardianActive = true;
-      // Okrin's Giant Slayer: a charge pays for this challenge (it cost no energy).
+      // Lilith's Giant Slayer: a charge pays for this challenge (it cost no energy).
       this.spendBuff('icebreaker');
       this.emit({ type: 'guardianChallenge' });
     } else {

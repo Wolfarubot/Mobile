@@ -2,8 +2,8 @@ import { drawArt, drawBursts, drawHunter, stepBursts, type Burst } from './art';
 import type { MinigameApi, MinigameGame } from './shell';
 
 /**
- * Okrin's Icebreaker (the Frost Peaks): icicles fall on the camp, faster and faster. Tap one to smash it with
- * Okrin's hammer: 1 point, and the big ones take two blows for 3. One that reaches the camp costs a heart. Pack art:
+ * Lilith's Icebreaker (the Frost Peaks): icicles fall on the camp, faster and faster. Tap one and Lilith's ghosts
+ * shatter it: 1 point, and the big ones take two blows for 3. One that reaches the camp costs a heart. Pack art:
  * each icicle is the ice spell's falling shard (public/minigames/icicle.png), it shatters with the spell's own
  * burst, and the camp is a wall of the Frost Peaks' rocks.
  */
@@ -14,7 +14,7 @@ const SIDE_MARGIN = 56;
 /** The Frost Peaks' rocks along the camp's edge. */
 const CAMP_ROCKS = ['backgrounds/peaks/r_Rock2', 'backgrounds/peaks/r_Rock11', 'backgrounds/peaks/r_Rock12', 'backgrounds/peaks/r_Rock13'];
 
-export const IB_INTRO = '<p>Icicles are falling on the camp! <b>Tap</b> to smash them with Okrin\'s hammer: 1 point each.</p><p>Big ones take two blows and are worth 3. One that reaches the camp costs a heart.</p>';
+export const IB_INTRO = '<p>Icicles are falling on the camp! <b>Tap</b> to send Lilith\'s ghosts to shatter them: 1 point each.</p><p>Big ones take two blows and are worth 3. One that reaches the camp costs a heart.</p>';
 
 interface Icicle {
   x: number;
@@ -79,8 +79,8 @@ export function icebreaker(api: MinigameApi): MinigameGame {
         drawArt(g, ICICLE, c.x, c.y - s, s * 2.4, 0, c.hp < (c.big ? 2 : 1) ? 0.6 : 1);
       }
       drawBursts(g, bursts);
-      // Okrin, hammer ready, in the camp.
-      drawHunter(g, 'frostbreaker', api.W / 2, api.H - 30, 56 * api.k, api.t, 3);
+      // Lilith, keeping watch over the camp.
+      drawHunter(g, 'haunter', api.W / 2, api.H - 30, 56 * api.k, api.t, 3);
     },
   };
 }

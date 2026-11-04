@@ -44,6 +44,7 @@ import {
   GUARDIAN_GOLD_MULT,
   hunterDef,
   HUNTERS,
+  GHOSTS,
   MAIN_RANGE,
   itemCost,
   itemDef,
@@ -1996,11 +1997,11 @@ describe('Equipment', () => {
     // Poison and Frost.
     api.applyStatus(a, 'poison', 1000, 'alchemist');
     expect(a.poison!.left).toBe(STATUS.poison.duration);
-    api.applyStatus(a, 'frost', 1000, 'frostbreaker');
+    api.applyStatus(a, 'frost', 1000, 'lance');
     expect(a.slow).toBe(STATUS.chill.duration);
     // A monster that resists a type is immune to its effect: a Forest Wolf resists Frost, so it isn't chilled.
     const resists = mk(9);
-    api.applyStatus(resists, 'frost', 1000, 'frostbreaker');
+    api.applyStatus(resists, 'frost', 1000, 'lance');
     expect(resists.slow ?? 0).toBe(0);
     // Acid drops a puddle at the monster that hurts everything in it.
     api.applyStatus(a, 'acid', 1000, 'scavenger');
@@ -2020,16 +2021,16 @@ describe('Equipment', () => {
     expect(bearer.hp).toBe(1e6);
     expect(n2.hp).toBeLessThan(1e6);
     expect(f2.hp).toBe(1e6);
-    // Arcane strips resistances: a Wolf resists Frost until exposed (Okrin with a Frostbite Blade deals frost).
-    g.state.hunters.frostbreaker.recruited = true;
-    g.equip('frostbreaker', 0, g.craftGear('frostbiteBlade')!.uid);
+    // Arcane strips resistances: a Wolf resists Frost until exposed (Lance with a Frostbite Blade deals frost).
+    g.state.hunters.lance.recruited = true;
+    g.equip('lance', 0, g.craftGear('frostbiteBlade')!.uid);
     const w = mk(8);
     f.enemies = [w];
-    api.hitWith('frostbreaker', w, 1, 0, 0, false);
+    api.hitWith('lance', w, 1, 0, 0, false);
     const resisted = 1e6 - w.hp;
     api.applyStatus(w, 'arcane', 1000, 'blacksmith');
     const before = w.hp;
-    api.hitWith('frostbreaker', w, 1, 0, 0, false);
+    api.hitWith('lance', w, 1, 0, 0, false);
     expect(before - w.hp).toBeCloseTo(resisted / RESIST_MULT);
   });
 
@@ -4247,7 +4248,7 @@ describe('Events', () => {
     expect(g.critChanceOf('main')).toBeCloseTo(crit + BUFF_CRIT);
     expect(g.critMultOf('main')).toBeCloseTo(critMult + CRIT_MULT * BUFF_CRIT_DMG);
     // Giant Slayer: a charge pays for the next Guardian Challenge instead of energy (the fight itself is as ever).
-    g.state.hunters.frostbreaker.recruited = true;
+    g.state.hunters.haunter.recruited = true;
     g.state.areas.forest.kills = areaDef('forest').mastery;
     g.state.events.slimeSwarm.completed = 1;
     g.finishMinigame('icebreaker', eventDef('icebreaker').rewards!.par);
@@ -4360,7 +4361,7 @@ describe('Events', () => {
     let now = new Date(2026, 9, 21, 10).getTime();
     g.clock = () => now;
     g.state.hunters.ranger.recruited = true;
-    g.state.hunters.frostbreaker.recruited = true;
+    g.state.hunters.haunter.recruited = true;
     expect(PREMIUM_ITEMS.filter((it) => it.kind === 'offline').map((it) => [it.value, it.cost])).toEqual([
       [0.25, 100],
       [0.5, 200],
@@ -6031,5 +6032,74 @@ describe('Account stats', () => {
     old.regression.runStart = 1234;
     const s = deserialize(JSON.stringify(old), 99_999)!;
     expect(s.stats).toMatchObject({ totalKills: 9, started: 1234, played: 0, refines: 0, fastestRun: 0 });
+  });
+});
+
+describe('Lilith the Haunter', () => {
+  const setup = (roll: () => number) => {
+    const s = newGame(0);
+    for (const m of Object.keys(s.materials) as Array<keyof typeof s.materials>) s.materials[m] = 1e6;
+    const g = new Game(veteran(s), roll);
+    g.state.hunters.haunter.recruited = true;
+    const f = new Field(g);
+    const api = f as unknown as { hitWith: (...a: unknown[]) => void; tickGhosts: (dt: number) => void; tickPuddles: (dt: number) => void; damage: (...a: unknown[]) => void };
+    return { g, f, api };
+  };
+
+  it('was Okrin: melee only, they/them, and an Okrin save becomes Lilith', () => {
+    const def = HUNTERS.find((h) => h.id === 'haunter')!;
+    expect(def).toMatchObject({ name: 'Lilith', title: 'Haunter', area: 'peaks', haunt: { decay: 0.4 } });
+    expect(def.bane).toBeUndefined();
+    expect(def.slots![0]).toMatchObject({ kind: 'melee' });
+    expect(`${def.story} ${def.ability} ${def.short}`).not.toMatch(/\b(he|him|his|she|her)\b/i);
+    const old = JSON.parse(serialize(startingGame(0))) as { hunters: Record<string, unknown>; stats: { hunterKills: Record<string, number> } };
+    old.hunters.frostbreaker = { ...(old.hunters.haunter as object), recruited: true, trains: 77, skills: { root: 1, elementalBane: 2 } };
+    delete old.hunters.haunter;
+    old.stats.hunterKills = { frostbreaker: 123 };
+    const s = deserialize(JSON.stringify(old))!;
+    expect(s.hunters.haunter).toMatchObject({ recruited: true, trains: 77, skills: { root: 1, elementalBane: 2 } });
+    expect(s.stats.hunterKills.haunter).toBe(123);
+  });
+
+  it('their strikes deal 40% extra Decay', () => {
+    const { g, f, api } = setup(() => 0.99);
+    g.equip('haunter', 0, g.craftGear('slimeSword')!.uid);
+    const a = enemy({ id: 1, type: 'bat', x: 0, y: -100, hp: 1e9, maxHp: 1e9 });
+    f.enemies = [a];
+    api.hitWith('haunter', a, 1, 0, 0, false);
+    const lilith = 1e9 - a.hp;
+    g.state.hunters.lance.recruited = true;
+    g.equip('lance', 0, g.craftGear('slimeSword')!.uid);
+    const b = enemy({ id: 2, type: 'bat', x: 0, y: -100, hp: 1e9, maxHp: 1e9 });
+    f.enemies = [b];
+    api.hitWith('lance', b, 1, 0, 0, false);
+    const base = (1e9 - b.hp) / g.shotDamage('lance', enemyDef('bat').archetype);
+    expect(lilith / g.shotDamage('haunter', enemyDef('bat').archetype)).toBeCloseTo(base * (1 + 0.4 * typeMult('decay', 'bat') / typeMult('physical', 'bat')), 5);
+  });
+
+  it('a kill may release a ghost that flies off and haunts a spot; a death in the haunt may make another', () => {
+    const { f, api } = setup(() => 0); // every roll succeeds
+    const a = enemy({ id: 1, type: 'bat', x: 10, y: 20, hp: 5, maxHp: 5 });
+    f.enemies = [a];
+    api.damage(a, 10, false, 0, 0, 'haunter', 'physical');
+    expect(f.ghosts).toHaveLength(1);
+    expect(f.ghosts[0]).toMatchObject({ shooter: 'haunter', x: 10, y: 20 });
+    for (let i = 0; i < 300 && f.ghosts.length; i++) api.tickGhosts(1 / 30);
+    const haunt = f.puddles.find((p) => p.haunt)!;
+    expect(haunt).toMatchObject({ shooter: 'haunter', dtype: 'decay' });
+    expect(haunt.life).toBeCloseTo(GHOSTS.life);
+    // Monsters in the haunt rot.
+    const v = enemy({ id: 2, type: 'bat', x: haunt.x, y: haunt.y, hp: 1e9, maxHp: 1e9 });
+    f.enemies = [v];
+    api.tickPuddles(0.01);
+    expect(v.hp).toBeLessThan(1e9);
+    // Another Hunter's kill inside the haunt can still raise a ghost.
+    const w = enemy({ id: 3, type: 'bat', x: haunt.x, y: haunt.y, hp: 5, maxHp: 5 });
+    f.enemies = [w];
+    api.damage(w, 10, false, 0, 0, 'main', 'physical');
+    expect(f.ghosts).toHaveLength(1);
+    // Never more than GHOSTS.max ghosts and haunts at once.
+    for (let i = 0; i < 20; i++) api.damage(enemy({ id: 10 + i, type: 'bat', x: 0, y: 0, hp: 1, maxHp: 1 }), 10, false, 0, 0, 'haunter', 'physical');
+    expect(f.ghosts.length + f.puddles.filter((p) => p.haunt).length).toBeLessThanOrEqual(GHOSTS.max);
   });
 });

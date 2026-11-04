@@ -23,7 +23,7 @@ export const HUNTER_ICONS: Record<Wearer, string> = {
   scavenger: 'ab-cavalier-monk/089',
   enchantress: 'ab-alchemist-shaman/069',
   osteomancer: 'ab-paladin-dk/095',
-  frostbreaker: 'ab-pyro-hydro/058',
+  haunter: 'ab-rogue-warlock/093',
   bloodblade: 'ab-hunter-warrior/060',
   artificer: 'ab-engineer-psionic/028',
   archivist: 'ab-priest-bard/049',

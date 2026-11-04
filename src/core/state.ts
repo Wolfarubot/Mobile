@@ -377,7 +377,7 @@ export interface GameState {
   };
 }
 
-export const SAVE_VERSION = 28;
+export const SAVE_VERSION = 29;
 
 /** Things already looked at: Journal entries read, recipes, monsters and events seen, and gear up to a uid. */
 export interface SeenState {
@@ -676,8 +676,9 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
   }
   // v16 -> v17: Gus the Prospector became Theon the Puppeteer, the same way.
   const hk = (data.stats as { hunterKills?: Record<string, unknown> } | undefined)?.hunterKills;
-  // v20 -> v21: Sera the Demonbane became Kargesh the Blacksmith.
-  for (const [from, to] of [['gravewarden', 'thief'], ['prospector', 'puppeteer'], ['demonbane', 'blacksmith']])
+  // v20 -> v21: Sera the Demonbane became Kargesh the Blacksmith. v28 -> v29: Okrin the Frostbreaker became Lilith the
+  // Haunter (their skill tree keeps its node ids, so ranks carry over).
+  for (const [from, to] of [['gravewarden', 'thief'], ['prospector', 'puppeteer'], ['demonbane', 'blacksmith'], ['frostbreaker', 'haunter']])
     for (const m of [data.hunters, data.equipment, hk] as Array<Record<string, unknown> | undefined>)
       if (m && typeof m === 'object' && from in m && !(to in m)) {
         m[to] = m[from];

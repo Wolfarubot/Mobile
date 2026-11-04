@@ -489,6 +489,10 @@ export class BattleView {
         this.drawSticks(g, p);
         continue;
       }
+      if (p.haunt) {
+        this.drawHauntGround(g, p, basic);
+        continue;
+      }
       if (p.dtype === 'acid' && !this.fxOn('acid')) continue;
       if (basic) {
         const rgb = p.dtype === 'acid' ? '198,240,58' : '123,224,123';
@@ -580,6 +584,7 @@ export class BattleView {
 
     for (const z of this.field.zones) this.drawZone(g, z);
     this.drawRifts(g);
+    this.drawGhosts(g);
     for (const f of this.field.fissures) {
       // Earthshatter: a jagged crack glowing with the hammer's element, fading as it closes.
       const fade = Math.min(1, f.life / 0.5);
@@ -810,6 +815,83 @@ export class BattleView {
    * Id's rifts: the effect pack's black hole, swirling in his violet, swelling open and shrinking shut (Basic: a
    * violet ring with a dark middle).
    */
+  /** A ghost's haunt on the ground: rotting earth, a dim scatter of dark violet pixels inside a pulsing ring. */
+  private drawHauntGround(g: CanvasRenderingContext2D, p: Puddle, basic: boolean): void {
+    const fade = Math.min(1, p.life / 0.5);
+    const pulse = 0.5 + 0.5 * Math.sin(this.time * 5 + p.x);
+    g.save();
+    g.globalAlpha = fade;
+    if (basic) {
+      g.fillStyle = 'rgba(90,60,130,0.18)';
+      g.strokeStyle = `rgba(150,110,220,${0.45 + 0.25 * pulse})`;
+      g.lineWidth = 2;
+      g.beginPath();
+      g.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+      g.restore();
+      return;
+    }
+    const glow = g.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r);
+    glow.addColorStop(0, `rgba(110,60,170,${0.42 + 0.12 * pulse})`);
+    glow.addColorStop(0.75, 'rgba(70,30,110,0.32)');
+    glow.addColorStop(1, 'rgba(40,20,60,0)');
+    g.fillStyle = glow;
+    g.beginPath();
+    g.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    g.fill();
+    // Specks of rot drifting slowly round, and a ring of pixels at the haunt's edge.
+    g.fillStyle = 'rgba(60,24,70,0.7)';
+    for (let i = 0; i < 14; i++) {
+      const a = i * 2.39996 + this.time * 0.4;
+      const d = p.r * (0.25 + ((i * 37) % 70) / 100);
+      g.fillRect(Math.round(p.x + Math.cos(a) * d) - 1.5, Math.round(p.y + Math.sin(a) * d * 0.8) - 1.5, 3, 3);
+    }
+    g.fillStyle = `rgba(170,130,240,${0.5 + 0.35 * pulse})`;
+    for (let i = 0; i < 24; i++) {
+      const a = (i / 24) * Math.PI * 2 + this.time * 0.6;
+      g.fillRect(Math.round(p.x + Math.cos(a) * p.r) - 1.5, Math.round(p.y + Math.sin(a) * p.r * 0.8) - 1.5, 3, 3);
+    }
+    g.restore();
+  }
+
+  /** Lilith's ghosts: the pale wisp flying to its spot, then hovering over its haunt, bobbing, fading as it ends. */
+  private drawGhosts(g: CanvasRenderingContext2D): void {
+    const flying = this.field.ghosts;
+    let any = flying.length > 0;
+    if (!any) for (const p of this.field.puddles) if (p.haunt) any = true;
+    if (!any) return;
+    const sh = SHEETS['ghost-pale'];
+    const img = monsterSheetImage('ghost-pale');
+    if (!img.complete || !img.naturalWidth) return;
+    const size = 34;
+    const frame = Math.floor(this.time * 8) % sh.cols;
+    const ring = outlineOf(img, '#2a1440', 1);
+    // A violet glow behind the wisp and a dark edge, so it shows on snow and sand as well as dark ground.
+    const ghost = (x: number, y: number, dir: 'D' | 'L' | 'R' | 'U', alpha: number) => {
+      g.globalAlpha = 0.35 * alpha;
+      g.fillStyle = '#8a5cff';
+      g.beginPath();
+      g.arc(x, y, size * 0.5, 0, Math.PI * 2);
+      g.fill();
+      g.globalAlpha = alpha;
+      g.save();
+      g.translate(x, y);
+      drawSheetFrame(g, ring, sh, sheetRow(sh, dir), frame, size);
+      drawSheetFrame(g, img, sh, sheetRow(sh, dir), frame, size);
+      g.restore();
+    };
+    g.save();
+    g.imageSmoothingEnabled = false;
+    for (const gh of flying) {
+      const dx = gh.tx - gh.x;
+      const dy = gh.ty - gh.y;
+      ghost(gh.x, gh.y - 10, Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'L' : 'R') : dy < 0 ? 'U' : 'D', 0.9);
+    }
+    for (const p of this.field.puddles) if (p.haunt) ghost(p.x, p.y - 14 + Math.sin(this.time * 3 + p.x) * 3, 'D', 0.9 * Math.min(1, p.life / 0.5));
+    g.restore();
+  }
+
   private drawRifts(g: CanvasRenderingContext2D): void {
     if (!this.field.rifts.length) return;
     const hole = this.fancy ? effectImage('blackhole') : null;

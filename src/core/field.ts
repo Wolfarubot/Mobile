@@ -34,6 +34,7 @@ import {
   FLEE_SPEED_MULT,
   GUARD_RECHARGE,
   hunterDef,
+  GHOSTS,
   gearDef,
   type GearDef,
   type GearEffect,
@@ -503,6 +504,19 @@ export interface Puddle {
   sticks?: boolean;
   /** For sticks: how deep in a chain of kill effects they were left (Field.chain), so their kills' effects thin out. */
   chain?: number;
+  /** A ghost's haunt (Lilith): drawn as the ghost hovering over rotting ground; monsters dying in it may become ghosts. */
+  haunt?: boolean;
+}
+
+/** One of Lilith's ghosts, flying from where a monster died to the spot it will haunt. */
+export interface Ghost {
+  shooter: Shooter;
+  x: number;
+  y: number;
+  tx: number;
+  ty: number;
+  /** How deep in a chain of kill effects it was released (Field.chain). */
+  chain: number;
 }
 
 export type FieldEvent =
@@ -555,6 +569,7 @@ export class Field {
   /** Ranged monsters' projectiles in flight. */
   shots: EnemyShot[] = [];
   puddles: Puddle[] = [];
+  ghosts: Ghost[] = [];
   /** Orb Scepter orbs: where bolts landed, hurting each monster that walks into one, once. */
   orbs: Array<{ who: Shooter; x: number; y: number; r: number; life: number; max: number; dmg: number; crit: boolean; mode?: GearMode; dtype?: DamageType; hit: Set<number> }> = [];
   /** Thomas's tomes, open on the field (see recall). */
@@ -695,6 +710,7 @@ export class Field {
     this.bullets = [];
     this.shots = [];
     this.puddles = [];
+    this.ghosts = [];
     this.orbs = [];
     this.spellHits = [];
     this.zones = [];
@@ -936,6 +952,7 @@ export class Field {
     this.updateRifts(dt);
     this.moveBullets(dt);
     this.tickPuddles(dt);
+    this.tickGhosts(dt);
     this.tickOrbs(dt);
     this.miasmaCd = Math.max(0, this.miasmaCd - dt);
     this.flameCd = Math.max(0, this.flameCd - dt);
@@ -2922,6 +2939,13 @@ export class Field {
       // Each type rolls its own effect (an infused type at its infusion's chance).
       if (status && g.rng() < g.procFor(shooter, t, mode, special)) this.applyStatus(e, t, dmg, shooter, g.procRarity(shooter, mode, special));
     }
+    // Lilith's Grave Touch: their strikes deal a share of their damage again as Decay.
+    const haunt = shooter !== 'main' && !special && !only ? hunterDef(shooter).haunt : undefined;
+    if (haunt && e.hp > 0) {
+      const dmg = base * types.length * haunt.decay * this.typeMultOn('decay', e) * g.typeBonus(shooter, 'decay');
+      this.damage(e, dmg, crit, (e.x - fromX) / d, (e.y - fromY) / d, shooter, 'decay');
+      if (status && !types.includes('decay') && g.rng() < g.procFor(shooter, 'decay', mode, special)) this.applyStatus(e, 'decay', dmg, shooter, g.procRarity(shooter, mode, special));
+    }
     // Executioner: a monster left near death may be finished off outright (never a Guardian).
     if (e.hp > 0 && !e.boss && e.hp < e.maxHp * MELEE_ARTS.executeAt) {
       const ex = this.arts(shooter, mode ?? 'long').find((a) => a.art === 'executioner');
@@ -3360,9 +3384,59 @@ export class Field {
         this.hitArea(p.x, p.y, p.r, p.abs, p.dtype ?? 'acid', p.shooter);
         this.chain = was;
       }
-      else for (const e of this.enemies) if (e.hp > 0 && Math.hypot(e.x - p.x, e.y - p.y) <= p.r + e.r) this.hitWith(p.shooter, e, p.dmg, p.x, p.y, undefined, undefined, true, false, p.dtype);
+      else {
+        // A haunt carries the chain its ghost was released in.
+        const was = this.chain;
+        if (p.haunt) this.chain = p.chain ?? was;
+        for (const e of [...this.enemies]) if (e.hp > 0 && Math.hypot(e.x - p.x, e.y - p.y) <= p.r + e.r) this.hitWith(p.shooter, e, p.dmg, p.x, p.y, undefined, undefined, true, false, p.dtype);
+        this.chain = was;
+      }
     }
     this.puddles = this.puddles.filter((p) => p.life > 0);
+  }
+
+  /** Lilith's ghosts fly to their spot, then settle into a haunt there (GHOSTS). */
+  private tickGhosts(dt: number): void {
+    if (!this.ghosts.length) return;
+    for (const gh of this.ghosts) {
+      const dx = gh.tx - gh.x;
+      const dy = gh.ty - gh.y;
+      const d = Math.hypot(dx, dy);
+      const step = GHOSTS.speed * dt;
+      if (d > step) {
+        gh.x += (dx / d) * step;
+        gh.y += (dy / d) * step;
+        continue;
+      }
+      gh.x = gh.tx;
+      gh.y = gh.ty;
+      const g = this.game;
+      const life = GHOSTS.life * (1 + g.tree(gh.shooter).duration) * g.lastingMult(gh.shooter);
+      this.puddles.push({ shooter: gh.shooter, x: gh.x, y: gh.y, r: GHOSTS.radius * g.radiusMult(gh.shooter), life, tick: 0, dmg: GHOSTS.damage, dtype: 'decay', haunt: true, chain: gh.chain });
+      gh.chain = -1; // settled
+    }
+    this.ghosts = this.ghosts.filter((gh) => gh.chain >= 0);
+  }
+
+  /**
+   * A monster died: Lilith's kills may release a ghost, and so may any death inside one of their haunts. It flies
+   * from the body to a random spot on the field (at most GHOSTS.max ghosts and haunts at once).
+   */
+  private releaseGhost(shooter: Shooter, e: Enemy): void {
+    const g = this.game;
+    let owner: Shooter | null = null;
+    if (shooter !== 'main' && hunterDef(shooter).haunt && g.rng() < this.chained(GHOSTS.chance + g.tree(shooter).ghosts)) owner = shooter;
+    else {
+      const h = this.puddles.find((p) => p.haunt && Math.hypot(e.x - p.x, e.y - p.y) <= p.r + e.r);
+      if (h && g.rng() < this.chained(GHOSTS.spread)) owner = h.shooter;
+    }
+    if (!owner) return;
+    let n = this.ghosts.length;
+    for (const p of this.puddles) if (p.haunt) n++;
+    if (n >= GHOSTS.max) return;
+    const tx = (g.rng() * 2 - 1) * this.halfW * 0.8;
+    const ty = (g.rng() * 2 - 1) * this.halfH * 0.75;
+    this.ghosts.push({ shooter: owner, x: e.x, y: e.y, tx, ty, chain: this.chain + 1 });
   }
 
   private damage(e: Enemy, dmg: number, crit: boolean, dirX: number, dirY: number, shooter: Shooter = 'main', dtype: DamageType = 'physical'): void {
@@ -3393,6 +3467,7 @@ export class Field {
         if (st.rise && !e.half && this.game.rng() < st.rise) this.rise(e);
         if (st.burst && this.game.rng() < this.chained(st.burst)) this.inChain(() => this.burstAt(shooter, e));
       }
+      this.releaseGhost(shooter, e);
       this.bloodthirst(shooter);
       this.quickDrawKill(shooter);
       // Fireburst (an enchantment): monsters the weapon kills burst, hurting everything around them.

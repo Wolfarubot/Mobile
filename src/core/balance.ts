@@ -317,7 +317,8 @@ export type TreeStat =
   | 'duration' // +x how long the status effects they set off last (Extended Effects)
   | 'critDamage' // +x crit damage (Brutal Criticals)
   | 'multishot' // extra projectiles per shot, or an extra strike per melee attack (Apex Hunter)
-  | 'bounces'; // shots ricochet on to this many more monsters (Galladair's Curving Arrows)
+  | 'bounces' // shots ricochet on to this many more monsters (Galladair's Curving Arrows)
+  | 'ghosts'; // +x chance a kill releases a ghost (Lilith's Restless Dead)
 
 /** A node in a branching tree: a Hunter's skill tree or a monster's evolution tree. */
 export interface TreeNode<S extends string = string> {
@@ -375,6 +376,8 @@ export const SONG_WAVE_CROWD = 2.5;
 const banePct = (v: number): string => `${Math.round(v * 10000) / 100}%`;
 const ban = (maxRank: number, name: string, icon: string, foes: string): NodeSpec => ({ name, icon, desc: `+${banePct(BANE_PER_TREE / maxRank)} bonus damage to ${foes} per rank.`, maxRank, effect: { bane: BANE_PER_TREE / maxRank } });
 const gld = (maxRank: number, name: string, icon: string, v = 0.1): NodeSpec => ({ name, icon, desc: `+${pctOf(v)} gold from their kills per rank.`, maxRank, effect: { gold: v } });
+/** Lilith: a kill's chance to release a ghost. */
+const gho = (maxRank: number, name: string, icon: string, v = 0.02): NodeSpec => ({ name, icon, desc: `+${pctOf(v)} chance per rank that a kill releases a ghost.`, maxRank, effect: { ghosts: v } });
 const drp = (maxRank: number, name: string, icon: string, v = 0.05): NodeSpec => ({ name, icon, desc: `+${pctOf(v)} materials from their kills per rank.`, maxRank, effect: { drops: v } });
 const multi = (name: string, icon: string, cost: number): NodeSpec => ({ name, icon, desc: 'Ranged and Magic attacks fire an extra projectile, and melee attacks follow up with another strike.', maxRank: 1, effect: { multishot: 1 }, cost });
 
@@ -671,7 +674,7 @@ export const ASCENDED_TREES: Record<HunterId, SkillNode[]> = {
   gambler: ascendedTree([crd(8, 'Double Down', '🎲'), area(6, 'Boxcars', '💥', 'Dice blasts grow'), gld(6, 'House Money', '🪙')], { name: 'High Roller', icon: '🎲', desc: '+50% damage and dice blasts 30% wider.', maxRank: 1, effect: { damage: 0.5, radius: 0.3 } }),
   archivist: ascendedTree([area(8, 'Grand Index', '📜', 'Recalled specials grow'), cdr(6, 'Speed Archive', '📑', 'The tome opens'), dur(6, 'Long Memory', '🕯️')], { name: 'Great Library', icon: '📚', desc: '+50% damage and recalled specials 30% bigger.', maxRank: 1, effect: { damage: 0.5, radius: 0.3 } }),
   artificer: ascendedTree([spd(8, 'Perpetual Motion', '⚙️', 0.03), rng(6, 'Long Barrels', '🔭'), crt(6, 'Calibration', '📐')], { name: 'Grand Design', icon: '⚙️', desc: '+50% damage and +20% attack speed.', maxRank: 1, effect: { damage: 0.5, rate: 0.2 } }),
-  frostbreaker: ascendedTree([ban(8, 'Glacier Bane', '🔷', 'Elementals'), dur(6, 'Endless Winter', '🥶'), crd(6, 'Ice Shatter', '💎')], { name: 'Eternal Winter', icon: '❄️', desc: '+50% damage, and status effects last 25% longer.', maxRank: 1, effect: { damage: 0.5, duration: 0.25 } }),
+  haunter: ascendedTree([gho(8, 'Legion of the Lost', '👥', 0.01), dur(6, 'Endless Mourning', '🕯️'), crd(6, 'Reaper', '💀')], { name: 'Eternal Night', icon: '🌑', desc: '+50% damage, and haunts and status effects last 25% longer.', maxRank: 1, effect: { damage: 0.5, duration: 0.25 } }),
 };
 
 /** Each Hunter's skill tree ('main' is yours). Every Guild Hunter's costs 39 points: complete at Lv 40. */
@@ -853,13 +856,13 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
     [at('overclock', spd(5, 'Overclock', '🔋')), at('precision', atk(5, 'Precision Parts', '📐', 0.1))],
     [at('capstone', { name: 'Grand Design', icon: '🧰', desc: 'Ranged and Magic attacks fire an extra projectile, and melee attacks follow up with another strike.', maxRank: 1, cost: 4, effect: { multishot: 1 } })],
   ]),
-  // Okrin: long chills and shattering blows on Elementals.
-  frostbreaker: gridTree([
-    [at('root', atk(1, 'Permafrost', '❄️', 0.1))],
-    [at('power', atk(4, 'Heavy Hammer', '🔨')), at('recovery', rec(3, 'Glacial Hide', '🧊')), at('speed', spd(3))],
-    [at('elementalBane', ban(4, 'Elemental Bane', '🔷', 'Elementals')), at('deepFreeze', dur(4, 'Deep Freeze', '🥶')), at('shatter', crd(3, 'Shatter', '💎')), at('glacier', grd(2, 'Glacier', '🏔️'))],
-    [at('avalanche', area(3, 'Avalanche', '🌨️', 'Swings and blasts grow')), at('frostbite', crt(3, 'Frostbite', '🌬️')), at('might', atk(5, 'Frost Might', '💪', 0.1))],
-    [at('capstone', { name: 'Eternal Winter', icon: '❄️', desc: '+25% damage, and status effects last 25% longer.', maxRank: 1, cost: 4, effect: { damage: 0.25, duration: 0.25 } })],
+  // Lilith: more ghosts, longer and wider haunts. (Node ids kept from Okrin's tree, so ranks bought carry over.)
+  haunter: gridTree([
+    [at('root', atk(1, 'Cold Touch', '🖐️', 0.1))],
+    [at('power', atk(4, 'Grave Edge', '🗡️')), at('recovery', rec(3, 'Incorporeal', '👻')), at('speed', spd(3, 'Restless', '💨'))],
+    [at('elementalBane', gho(4, 'Restless Dead', '👻')), at('deepFreeze', dur(4, 'Lingering Haunt', '🕯️')), at('shatter', crd(3, 'Soul Rend', '💀')), at('glacier', grd(2, 'Spectral Ward', '🛡️'))],
+    [at('avalanche', area(3, 'Wailing Grounds', '🌫️', 'Swings and haunts grow')), at('frostbite', crt(3, 'Death Mark', '🎯')), at('might', atk(5, 'Wrath of the Dead', '💪', 0.1))],
+    [at('capstone', { name: 'Night of the Dead', icon: '🌑', desc: '+25% damage, and haunts and status effects last 25% longer.', maxRank: 1, cost: 4, effect: { damage: 0.25, duration: 0.25 } })],
   ]),
 };
 
@@ -2132,7 +2135,7 @@ export type HunterId =
   | 'scavenger'
   | 'enchantress'
   | 'osteomancer'
-  | 'frostbreaker'
+  | 'haunter'
   | 'bloodblade'
   | 'artificer'
   | 'archivist'
@@ -2331,7 +2334,17 @@ export interface HunterDef {
    * monster can get through it (they crowd at the wall). Its own cooldown; his spikes wait while it stands.
    */
   wall?: { name: string; cooldown: number; duration: number; radius: number; describe: string };
+  /** Lilith: their strikes deal this share of their damage again as Decay, and their kills release ghosts (GHOSTS). */
+  haunt?: { decay: number };
 }
+
+/**
+ * Lilith's ghosts: a kill has `chance` (plus their tree's Restless Dead) to release one. It flies to a random spot at
+ * `speed` and haunts it for `life` seconds (longer with their Lingering nodes): every half second, Decay damage of
+ * `damage` × their shot to the monsters within `radius` (× their area size). A monster dying in a haunt has `spread`
+ * chance to become a ghost too (thinning down a chain like other kill effects). At most `max` ghosts at once.
+ */
+export const GHOSTS = { chance: 0.1, spread: 0.25, life: 3, speed: 170, radius: 42, damage: 0.3, max: 6 };
 
 /**
  * Area effects grow with a Hunter's level: +3% per level (×1.75 at Lv 26, ×2.5 at Lv 51, ×7 at Lv 200), which keeps
@@ -2516,12 +2529,13 @@ export const HUNTERS: HunterDef[] = [
     slots: [{ kind: 'magic', label: 'Magic weapon' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
   },
   {
-    id: 'frostbreaker', name: 'Okrin', title: 'Frostbreaker', icon: '🔨', color: '#8fdcff', area: 'peaks', recruitCost: 2.5e19, bane: { archetype: 'elemental', mult: BANE_BASE },
-    short: '+50% damage to Elementals.',
+    id: 'haunter', name: 'Lilith', title: 'Haunter', icon: '👻', color: '#b9a4ff', area: 'peaks', recruitCost: 2.5e19,
+    haunt: { decay: 0.4 },
+    short: 'Decay strikes; kills release haunting ghosts.',
     unlock: { event: 'guardian-peaks', times: 1 },
-    ascendedTitle: 'Winterking',
-    story: 'Okrin climbed the Frost Peaks to hunt the thing that rules them. Defeat the Peaks\' Guardian, and he\'ll bring his hammer to your side.',
-    ability: 'Deals 50% bonus damage to Elementals. Fights with melee weapons.',
+    ascendedTitle: 'Soulreaper',
+    story: "Lilith came to the Frost Peaks to lay to rest the restless dead the Peaks' Guardian keeps in the ice. Defeat the Guardian, and they'll bring their ghosts to your side.",
+    ability: 'Their strikes deal 40% extra Decay damage. Monsters they kill may release a ghost that flies off and haunts a spot, rotting the monsters there; monsters that die in a haunt may become ghosts too. Fights with melee weapons.',
     slots: [{ kind: 'melee', label: 'Melee' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
   },
   {
@@ -2763,6 +2777,10 @@ const HUNTER_ABILITIES: Partial<Record<HunterId, HunterAbility[]>> = {
   ],
   lichlord: [{ name: 'Raise the Legion', kind: 'active', text: 'Every 15 seconds, raises six skeletal soldiers from the ground around him that march on the monsters and fight for 10 seconds, striking with his weapon.' }],
   alien: [{ name: 'Eye Lasers', kind: 'active', text: 'Every 5 seconds, fires twin eye lasers at the nearest monster. The beam runs right across the battlefield, burning everything in its path.' }],
+  haunter: [
+    { name: 'Grave Touch', kind: 'passive', text: 'Their strikes deal 40% extra Decay damage on top of their weapon\'s.' },
+    { name: 'Restless Dead', kind: 'passive', text: `Each monster they kill has a ${GHOSTS.chance * 100}% chance to release a ghost (more through their skill trees). It flies to a random spot and haunts it for ${GHOSTS.life} seconds, rotting the monsters there with Decay damage. A monster that dies in a haunt has a ${GHOSTS.spread * 100}% chance to become a ghost too.` },
+  ],
   riftwalker: [
     { name: 'Rift Swarm', kind: 'active', text: 'Every 8 seconds, tears open three rifts near the monsters. Each looses five homing void bolts that explode where they strike.' },
     { name: 'Time Slip', kind: 'passive', text: 'Every Hunter in his area, him included, has their cooldowns 10% shorter: 20% once he ascends, and 30% with his ascended capstone.' },
@@ -4836,11 +4854,11 @@ const AREA_MINIGAMES: Partial<Record<AreaId, Omit<EventDef, 'area' | 'kind' | 'u
   },
   peaks: {
     id: 'icebreaker',
-    name: "Okrin's Icebreaker",
+    name: "Lilith's Icebreaker",
     icon: '🔨',
     blurb: 'Smash the falling icicles before they reach the camp. Big ones take two blows.',
     minigame: 'icebreaker',
-    hunter: 'frostbreaker',
+    hunter: 'haunter',
     rewards: { gold: MINIGAME_GOLD, par: 40, materials: [{ material: 'ecto', per: 4 }, { material: 'coldsteel', per: 5 }, { material: 'frostIron', per: 2 }, { material: 'frost', per: 1 }] },
   },
   cliffs: {
