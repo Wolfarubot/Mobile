@@ -1199,6 +1199,10 @@ export class AppUI {
       waitText: () => `Next evolution point at Lv ${g.monsterLevelInfo(id).level + 1}. Empower to level up.`,
       pointName: 'evolution point',
       reachable: (n) => g.evoReachable(id, n),
+      rowGate: (row) => {
+        const need = g.evoRowGate(row);
+        return need > 0 ? { have: g.evoSpent(id), need } : null;
+      },
       canLearn: (n) => g.canEvolve(id, n),
       learn: (n) => g.evolve(id, n),
       verb: 'Evolve',

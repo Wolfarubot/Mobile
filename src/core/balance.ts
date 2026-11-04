@@ -2105,6 +2105,13 @@ function monsterEvoTree(def: EnemyDef): EvoNode[] {
   );
 }
 
+/**
+ * Evolution row gates, like the Hunters' skill trees' (rowGates): points a monster must have spent in its tree before
+ * a row opens. The root's row is always open, its branches need the root, the upper row 10 points and the Legacy 20.
+ * Every tree has at least 14 points below the upper row and 23 below the Legacy, so each gate can be met.
+ */
+export const EVO_ROW_GATES: Partial<Record<number, number>> = { 1: 1, 2: 10, 3: 20 };
+
 export const MONSTER_EVO_TREES = Object.fromEntries(ENEMIES.map((e) => [e.id, monsterEvoTree(e)])) as Record<EnemyId, EvoNode[]>;
 
 export const evoNode = (id: EnemyId, node: string): EvoNode | undefined => MONSTER_EVO_TREES[id].find((n) => n.id === node);

@@ -44,6 +44,7 @@ import {
   GUARDIAN_GOLD_MULT,
   hunterDef,
   HUNTERS,
+  EVO_ROW_GATES,
   GHOSTS,
   MAIN_RANGE,
   itemCost,
@@ -6148,5 +6149,36 @@ describe('Tome summons', () => {
       for (const e of f.enemies) Object.assign(e, { x: druid.x + 60 + (e.id - 1) * 22, y: druid.y, kx: 0, ky: 0 });
     }
     expect(f.enemies.filter((e) => e.hp < 1e12).length).toBeGreaterThanOrEqual(4);
+  });
+});
+
+describe('Evolution row gates', () => {
+  it('the branches open with the root, the upper row at 10 points spent, the Legacy at 20', () => {
+    const g = new Game(veteran(newGame(0)), noCrit);
+    const id = 'greenSlime';
+    const b = g.state.bestiary[id];
+    Object.assign(b, { unlocked: true, empower: 1e6, kills: 1e12 });
+    const tree = g.evoTree(id);
+    const row = (r: number) => tree.filter((n) => n.row === r);
+    expect(EVO_ROW_GATES).toEqual({ 1: 1, 2: 10, 3: 20 });
+    expect(g.canEvolve(id, row(1)[0].id)).toBe(false); // the root first
+    expect(g.evolve(id, 'root')).toBe(true);
+    // Fill the branches up to 9 points: the upper row stays shut.
+    const buyUntil = (nodes: typeof tree, spent: number) => {
+      for (const n of nodes) while (g.evoSpent(id) < spent && g.canEvolve(id, n.id) && g.evoSpent(id) + (n.cost ?? 1) <= spent) g.evolve(id, n.id);
+    };
+    buyUntil(row(1), 9);
+    expect(g.evoSpent(id)).toBe(9);
+    for (const n of row(2)) expect(g.canEvolve(id, n.id)).toBe(false);
+    buyUntil(row(1), 10);
+    expect(row(2).some((n) => g.canEvolve(id, n.id))).toBe(true);
+    // One upper node bought: still short of 20, so the Legacy waits.
+    g.evolve(id, row(2)[1].id);
+    const legacy = row(3)[0];
+    expect(g.evoSpent(id)).toBeLessThan(20);
+    expect(g.canEvolve(id, legacy.id)).toBe(false);
+    buyUntil([...row(1), ...row(2)], 20);
+    expect(g.evoSpent(id)).toBe(20);
+    expect(g.canEvolve(id, legacy.id)).toBe(true);
   });
 });

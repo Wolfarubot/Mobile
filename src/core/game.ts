@@ -96,6 +96,7 @@ import {
   monsterLevel,
   empowerBaseCost,
   MONSTER_EVO_TREES,
+  EVO_ROW_GATES,
   potionValue,
   evoNode,
   type EvoNode,
@@ -3014,14 +3015,24 @@ export class Game {
 
   /** Unspent evolution points: one per level above 1. */
   evoPoints(id: EnemyId): number {
-    const tree = this.evoTree(id);
-    const spent = Object.entries(this.state.bestiary[id].evo).reduce((a, [node, rank]) => a + rank * (tree.find((n) => n.id === node)?.cost ?? 1), 0);
-    return this.monsterLevelInfo(id).level - 1 - spent;
+    return this.monsterLevelInfo(id).level - 1 - this.evoSpent(id);
   }
 
+  /** Evolution points spent in a monster's tree. */
+  evoSpent(id: EnemyId): number {
+    const tree = this.evoTree(id);
+    return Object.entries(this.state.bestiary[id].evo).reduce((a, [node, rank]) => a + rank * (tree.find((n) => n.id === node)?.cost ?? 1), 0);
+  }
+
+  /** Points needed in a monster's tree before a row of it opens (EVO_ROW_GATES; 0 if open from the start). */
+  evoRowGate(row: number): number {
+    return EVO_ROW_GATES[row] ?? 0;
+  }
+
+  /** A node is reachable once a node it hangs from has a rank (the root always is) and its row is open. */
   evoReachable(id: EnemyId, node: string): boolean {
     const n = evoNode(id, node);
-    return !!n && (n.requires.length === 0 || n.requires.some((r) => this.evoRank(id, r) > 0));
+    return !!n && this.evoSpent(id) >= this.evoRowGate(n.row) && (n.requires.length === 0 || n.requires.some((r) => this.evoRank(id, r) > 0));
   }
 
   /** Kills of this monster still needed before an evolution node opens (0 = open). */
