@@ -260,12 +260,14 @@ export interface Helper {
   /** Shield charges left (Paladin) and recharge progress. */
   guard: number;
   guardAcc: number;
-  /** Wilhelm using his short-range weapon because something got close. */
+  /** Wilhelm firing his secondary weapon (his primary is reloading). */
   close: boolean;
   /** Seconds until their special attack (potion, fireball) is ready. */
   specialCd: number;
   /** A gun's magazine: shots left and seconds of reload left (see Field.gun). */
   gun: GunState;
+  /** Wilhelm's secondary weapon's magazine (his primary's is `gun`): each reloads on its own. */
+  gun2: GunState;
   /** Seconds until their tome's lunge is ready (a Wolf Spirit tome). */
   dashCd: number;
   /** Seconds until their Bone Wall can rise again (Gideon). */
@@ -1411,6 +1413,7 @@ export class Field {
       close: false,
       specialCd: 1,
       gun: { cls: null, ammo: 0, reload: 0 },
+      gun2: { cls: null, ammo: 0, reload: 0 },
       dashCd: 0,
       wallCd: 0,
     }));
@@ -1425,14 +1428,33 @@ export class Field {
       h.fireAcc = Math.min(h.fireAcc, 0.999);
       return;
     }
-    // Wilhelm switches to his short-range weapon when anything is close.
-    h.close = !!def.swapRange && !!this.nearest(h.x, h.y, def.swapRange);
+    // Wilhelm: his secondary weapon covers his primary's reloads (see backupGun). `close` marks the secondary in hand.
+    let ready: boolean;
+    if (def.backupGun) {
+      const prim = g.weaponClassOf(h.id, 'long');
+      const sec = g.weaponClassOf(h.id, 'short');
+      // Both magazines keep reloading whichever is in hand.
+      const primReady = this.gunReady(h.gun, prim, dt);
+      const secReady = this.gunReady(h.gun2, sec, dt);
+      const hasPrim = !!g.weaponItem(h.id, 'long');
+      const hasSec = !!g.weaponItem(h.id, 'short');
+      if (!hasSec) h.close = false;
+      else if (!hasPrim) h.close = true;
+      else if (!h.close) h.close = !primReady && secReady;
+      // On the secondary: a gun keeps firing until its own reload; anything else only until the primary is ready.
+      else if (sec?.mag ? !secReady : primReady) h.close = false;
+      ready = h.close ? secReady : primReady;
+    } else {
+      h.close = false;
+      ready = this.gunReady(h.gun, g.weaponClassOf(h.id, 'long'), dt);
+    }
     const mode: GearMode = h.close ? 'short' : 'long';
+    const gun = h.close ? h.gun2 : h.gun;
     const rate = g.shooterRate(h.id, mode);
     if (def.special) this.helperSpecial(h, dt);
     h.fireAcc = Math.min(h.fireAcc + dt * rate * this.frenzyMult(h.id), 3);
     const cls = g.weaponClassOf(h.id, mode);
-    if (!this.gunReady(h.gun, cls, dt)) h.fireAcc = 0;
+    if (!ready) h.fireAcc = 0;
     const range = g.shooterRange(h.id, mode);
     while (h.fireAcc >= 1) {
       const target = this.nearest(h.x, h.y, range);
@@ -1442,8 +1464,8 @@ export class Field {
       }
       h.fireAcc -= 1;
       h.aim = Math.atan2(target.y - h.y, target.x - h.x);
-      this.weaponAttack(h.id, h.x, h.y, h.aim, target, cls, h.gun, range, mode);
-      if (this.spendShot(h.gun, cls, rate)) {
+      this.weaponAttack(h.id, h.x, h.y, h.aim, target, cls, gun, range, mode);
+      if (this.spendShot(gun, cls, rate)) {
         this.events.push({ type: 'reload', who: h.id, x: h.x, y: h.y });
         h.fireAcc = 0;
         return;

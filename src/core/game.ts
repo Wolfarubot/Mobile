@@ -237,7 +237,7 @@ export type GameEvent =
   /** Materials a kill on the field dropped (for the battlefield's pick-up pop-ups). */
   | { type: 'gains'; materials: Partial<Record<MaterialId, number>> };
 
-/** Wilhelm's two weapon slots: 'long' is his usual weapon, 'short' the one he switches to up close. */
+/** Wilhelm's two weapon slots: 'long' is his primary weapon, 'short' the secondary he fires while it reloads. */
 /** Which of a Hunter's skill trees: their first, or the one they grow after ascending. */
 export type TreeKind = 'base' | 'ascended';
 
@@ -806,7 +806,19 @@ export class Game {
     const uptime = weaponUptime(cls) * weaponHitsPerAttack(cls);
     // Lilith's Grave Touch: each strike's Decay on top (their ghosts' haunts come and go, so they aren't counted).
     const touch = 1 + (shooter === 'main' ? 0 : (hunterDef(shooter).haunt?.decay ?? 0));
-    return this.shotDamage(shooter, archetype) * (this.shooterRate(shooter) * perAttack * uptime * touch + this.specialHitRate(shooter) + this.songHitRate(shooter) + this.flurryHitRate(shooter)) * this.critFactor(shooter);
+    return this.shotDamage(shooter, archetype) * (this.shooterRate(shooter) * perAttack * uptime * touch + this.specialHitRate(shooter) + this.songHitRate(shooter) + this.flurryHitRate(shooter)) * this.critFactor(shooter) + this.backupDps(shooter, archetype);
+  }
+
+  /** Wilhelm's secondary weapon: it fires while his primary reloads (never, if the primary doesn't reload). */
+  private backupDps(shooter: Shooter, archetype?: Archetype): number {
+    if (shooter === 'main' || !hunterDef(shooter).backupGun || !this.weaponItem(shooter, 'short')) return 0;
+    const primary = this.weaponClassOf(shooter);
+    if (this.weaponItem(shooter) && !primary?.mag) return 0;
+    const share = this.weaponItem(shooter) ? 1 - weaponUptime(primary) : 1;
+    const cls = this.weaponClassOf(shooter, 'short');
+    // Its own reloads still take some of that time (both can be reloading at once).
+    const own = Math.min(1, weaponUptime(cls) * weaponHitsPerAttack(cls) * (cls?.mag ? 1.25 : 1));
+    return this.shotDamage(shooter, archetype, 'short') * this.shooterRate(shooter, 'short') * (cls?.farm ?? 1) * own * share * this.critFactor(shooter);
   }
 
   /**

@@ -1755,7 +1755,7 @@ export class BattleView {
     return Math.abs(Math.sin(aim)) > Math.abs(Math.cos(aim)) && Math.sin(aim) < 0;
   }
 
-  /** The weapon a Hunter is holding (Wilhelm's short-range one when something's close) and its icon, if it has one. */
+  /** The weapon a Hunter is holding (Wilhelm's secondary while his primary reloads) and its icon, if it has one. */
   private heldWeapon(who: Shooter, close = false): { cls: string; img: HTMLImageElement } | null {
     const weapons = this.game.equipped(who).filter((it) => it && gearDef(it.base).weaponClass);
     const it = (close && weapons[1]) || weapons[0];

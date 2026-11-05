@@ -5356,21 +5356,42 @@ describe('Field', () => {
     expect(f.stun).toBeGreaterThan(0);
   });
 
-  it('Wilhelm fights with his long-range weapon, and switches to his short-range one up close', () => {
-    const { f } = withHelper('wilhelm');
-    f.enemies.push(tough({ id: 1, x: -72, y: -190 }));
-    for (let i = 0; i < 90; i++) f.update(1 / 30);
-    expect(f.helpers[0].close).toBe(false);
-    expect(f.enemies[0].hp).toBeLessThan(1e12);
-
-    f.bullets = [];
-    f.enemies = [tough({ id: 2, x: -72, y: -20 })];
-    for (let i = 0; i < 30; i++) {
-      f.update(1 / 30);
-      // Held where it is (the shots would push it back out of his short range).
-      Object.assign(f.enemies[0], { kx: 0, ky: 0 });
+  it("Wilhelm fires his secondary weapon while his primary reloads", () => {
+    // Runs him at a monster for a while; returns each switch: to the secondary (and whether the primary was
+    // reloading then) and back (whether the secondary was reloading, and whether the primary was ready).
+    const run = (primary: GearId | null, secondary: GearId | null) => {
+      const { g, f } = withHelper('wilhelm');
+      for (const m of Object.keys(g.state.materials) as Array<keyof typeof g.state.materials>) g.state.materials[m] = 1e6;
+      if (primary) g.equip('wilhelm', 0, g.craftGear(primary)!.uid);
+      if (secondary) g.equip('wilhelm', 1, g.craftGear(secondary)!.uid);
+      f.update(0);
+      const h = f.helpers[0];
+      f.enemies = [tough({ id: 1, x: h.x, y: h.y - 150 })];
+      const switches: Array<{ to: 'secondary' | 'primary'; primReloading: boolean; secReloading: boolean }> = [];
+      let was = h.close;
+      for (let i = 0; i < 30 * 40; i++) {
+        f.update(1 / 30);
+        Object.assign(f.enemies[0], { x: h.x, y: h.y - 150, kx: 0, ky: 0 });
+        if (h.close !== was) switches.push({ to: h.close ? 'secondary' : 'primary', primReloading: h.gun.reload > 0, secReloading: h.gun2.reload > 0 });
+        was = h.close;
+      }
+      return { switches, hp: f.enemies[0].hp };
+    };
+    // Pistol and pistol: over to the secondary as the primary reloads, back once the secondary empties in turn
+    // (the primary ready by then).
+    const guns = run('shadowPistol', 'bonePistol');
+    expect(guns.switches.filter((x) => x.to === 'secondary').length).toBeGreaterThan(1);
+    for (const x of guns.switches) {
+      if (x.to === 'secondary') expect(x.primReloading).toBe(true);
+      else expect(x.secReloading && !x.primReloading).toBe(true);
     }
-    expect(f.helpers[0].close).toBe(true);
+    // A bow as the secondary: fired only while the pistol reloads, back as soon as the pistol's ready.
+    const bow = run('shadowPistol', 'forestBow');
+    expect(bow.switches.some((x) => x.to === 'secondary')).toBe(true);
+    for (const x of bow.switches) expect(x.primReloading).toBe(x.to === 'secondary');
+    // A primary that never reloads (a bow): he never switches.
+    expect(run('forestBow', 'shadowPistol').switches).toHaveLength(0);
+    expect(run('forestBow', 'shadowPistol').hp).toBeLessThan(1e12);
   });
 
   it('Guild Hunters attack the way their weapon does, not with an attack of their own', () => {

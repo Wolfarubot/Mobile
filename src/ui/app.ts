@@ -1183,7 +1183,7 @@ export class AppUI {
       const pierce = g.pierceOf(who);
       if (pierce) cells.push(['Pierce', String(pierce)]);
       if (def?.bane) cells.splice(1, 0, [`vs ${ARCHETYPES[def.bane.archetype].name}`, fmt(g.shotDamage(who, def.bane.archetype))]);
-      if (def?.swapRange) cells.splice(1, 0, ['Short-range', fmt(g.shotDamage(who, undefined, 'short'))]);
+      if (def?.backupGun) cells.splice(1, 0, ['Secondary', fmt(g.shotDamage(who, undefined, 'short'))]);
       stats.innerHTML = cells.map(([k, v]) => `<div><b>${v}</b>${k}</div>`).join('');
     });
 

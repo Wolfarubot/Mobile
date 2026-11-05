@@ -2305,8 +2305,12 @@ export interface HunterDef {
    * every monster within `reach` (× his area size) once, for `damage` × his hit.
    */
   songWave?: { every: number; reach: number; damage: number };
-  /** Wilhelm: switches to his short-range weapon when a monster is this close. */
-  swapRange?: number;
+  /**
+   * Wilhelm: two ranged weapons. He fires his primary, and when it starts a reload he switches to his secondary
+   * until the primary is ready again (a secondary gun firing until its own reload, a bow or the like just until
+   * the primary is ready). A primary that never reloads, he never switches from.
+   */
+  backupGun?: boolean;
   /** Damage multiplier against one archetype. */
   bane?: { archetype: Archetype; mult: number };
   /** Multipliers on gold / material drops from their kills. */
@@ -2491,17 +2495,17 @@ export const HUNTERS: HunterDef[] = [
 
   {
     id: 'wilhelm', name: 'Wilhelm', title: 'Sniper', icon: '🎯', color: '#9aa7b8', area: 'depths', recruitCost: 100_000_000_000_000,
-    short: 'Swaps guns when monsters get close.',
+    short: 'Fires his second weapon while the first reloads.',
     unlock: { event: 'guardian-depths', times: 1 },
     ascendedTitle: 'Deadeye',
     story: '“I was hunting a creature with a hundred eyes, but after shooting 99 of them, it got away. Help me track it down in the Shadowy Depths.”',
-    ability: 'Carries a long-range weapon and a short-range one, and switches to the short-range one when monsters get close.',
+    ability: "Carries two ranged weapons. When his primary weapon starts to reload, he switches to his secondary: a secondary gun he fires until it reloads in turn (then back to the primary, once it's ready), and a bow or other weapon that doesn't reload just until the primary is ready. If his primary never needs to reload, he sticks with it.",
     slots: [
-      { kind: 'weapon', label: 'Long-range', role: 'long' },
-      { kind: 'weapon', label: 'Short-range', role: 'short' },
+      { kind: 'weapon', label: 'Primary', role: 'long' },
+      { kind: 'weapon', label: 'Secondary', role: 'short' },
       { kind: 'armor', label: 'Armor' },
     ],
-    swapRange: 90,
+    backupGun: true,
   },
   {
     id: 'celeste', name: 'Celeste', title: 'Psion', icon: '🔮', color: '#c9a8ff', area: 'depths', recruitCost: 200_000_000_000_000, bane: { archetype: 'dragon', mult: BANE_BASE },
@@ -2781,7 +2785,7 @@ const HUNTER_ABILITIES: Partial<Record<HunterId, HunterAbility[]>> = {
     { name: 'Puppets', kind: 'active', text: 'Every 6 seconds, calls two puppets that charge through the monsters for 6 seconds, striking every one they pass.' },
     { name: 'Master of Strings', kind: 'passive', text: 'Construct summons (puppets from any source) hit 50% harder.' },
   ],
-  wilhelm: [{ name: 'Quick Draw', kind: 'passive', text: 'Carries a long-range weapon and a short-range one, and switches to the short-range one when monsters get close.' }],
+  wilhelm: [{ name: 'Quick Draw', kind: 'passive', text: "Carries two ranged weapons, and fires his secondary while his primary reloads (a secondary gun until it reloads too). A primary that never reloads, he never puts down." }],
   blacksmith: [{ name: 'Refine', kind: 'passive', text: 'Unlocks Refine in Equipment: add stat modifiers (attack speed, damage, knockback, piercing, magazine size) to Very Rare and rarer gear.' }],
   enchantress: [{ name: 'Enchant', kind: 'passive', text: 'Unlocks Enchant in Equipment: add damage types, stronger status effects and abilities to Very Rare and rarer gear.' }],
   osteomancer: [
@@ -2863,7 +2867,7 @@ export const GEAR_KINDS: Record<GearKind, { name: string; icon: string }> = {
 export interface SlotDef {
   kind: GearKind;
   label: string;
-  /** Wilhelm's weapon slots: 'long' is his usual weapon, 'short' the one he switches to up close. */
+  /** Wilhelm's weapon slots: 'long' is his primary weapon, 'short' the secondary he fires while it reloads. */
   role?: 'long' | 'short';
   /** Kinds the slot takes, when more than its own `kind` (Andrejz's weapon slot takes ranged or magic). */
   accepts?: GearKind[];
