@@ -550,7 +550,8 @@ export type FieldEvent =
   | { type: 'escape'; x: number; y: number }
   /** `magic`: a spell's blast, which sounds like its element rather than a plain explosion. */
   | { type: 'explode'; x: number; y: number; r: number; color: string; magic?: DamageType; /** Drawn in this colour (Id's bolts). */ tint?: string }
-  | { type: 'nova'; x: number; y: number; r: number; color?: string }
+  /** `burst`: a Focus's attack, drawn as a shockwave. */
+  | { type: 'nova'; x: number; y: number; r: number; color?: string; burst?: boolean }
   | { type: 'beam'; x1: number; y1: number; x2: number; y2: number; color: string; width: number; zigzag?: boolean; thrust?: boolean }
   | { type: 'sweep'; x: number; y: number; a: number; arc: number; r: number; color: string; heavy?: boolean; blade?: boolean }
   /** A focus's wave: a ring growing to `r` over `time` seconds. */
@@ -1485,7 +1486,7 @@ export class Field {
     } else if (cls?.attack === 'nova') {
       // A burst of power around the Hunter: every monster in the radius (× area size).
       const r = cls.reach! * g.radiusMult(who);
-      this.events.push({ type: 'nova', x, y, r, color: DAMAGE_TYPES[g.damageTypeOf(who, mode)].color });
+      this.events.push({ type: 'nova', x, y, r, color: DAMAGE_TYPES[g.damageTypeOf(who, mode)].color, burst: true });
       for (const e of this.enemies) if (e.hp > 0 && Math.hypot(e.x - x, e.y - y) <= r + e.r) this.hitWith(who, e, 1, x, y);
     } else if (cls?.summon) {
       this.summon(who, x, y, aim, cls);

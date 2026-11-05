@@ -13,3 +13,7 @@ Magic effect sheets from CraftPix.net packs (license: https://craftpix.net/file-
   Magic Effects Pixel Art Asset Pack 4: acid (Magic/3 Cycle)
   Free Pixel Magic Sprite Effects: shards (Magic/4_2)
   Music-Notes Pixel Free (provided with the game's assets): music-orbit-ink (Music Scale Orbit, as is) and music-orbit (the same, ink turned light so it tints to a Hunter's colour): Ba'al's sound waves
+shockwave.png, rot.png: from CraftPix's "Free Magic and Traps Top Down Pixel Art Asset" (4 Barrel/Boom2.png and
+Boom1.png: a barrel's blast, eight 48px frames). shockwave is the blast's ring recoloured white and grey so it takes
+any element's tint (a Focus's burst); rot is its smoke ring recoloured rot-purple and dark brown (Decay's aura,
+looping its expanding frames).

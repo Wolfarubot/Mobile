@@ -242,6 +242,11 @@ export class BattleView {
           break;
         }
         case 'nova':
+          // A Focus's burst: a shockwave ring in its element's colour (Fancy).
+          if (e.burst && this.fancy) {
+            this.playEffect('shockwave', e.x, e.y, e.r * 2.2, 'center', 22, 2, 0.8, e.color);
+            break;
+          }
           if (this.game.state.settings.aoeStyle === 'basic') this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: hexRgb(e.color ?? '#fff0be'), max: 0.35 });
           else this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: hexRgb(e.color ?? '#fff0be'), max: 0.4, pixel: true, scatter: sparseCells(e.r, Math.random() * 1e6) });
           break;
@@ -2433,11 +2438,16 @@ function drawStatus(g: CanvasRenderingContext2D, e: Enemy, t: number, on: (k: Fx
       g.arc(0, 0, STATUS.aura.radius, 0, Math.PI * 2);
       g.fill();
       g.stroke();
+    } else if (effectImage('rot')) {
+      // A ring of rot-purple smoke puffing out round it, again and again (the sheet's expanding frames only).
+      g.globalAlpha = 0.85;
+      drawEffectFrame(g, effectImage('rot')!, 'rot', 2 + (Math.floor(t * 9 + e.phase * 6) % 6), 0, 0, STATUS.aura.radius * 2.1, 'center', true);
+      g.globalAlpha = 1;
     } else {
-    g.fillStyle = `rgba(60,24,52,${0.22 + 0.12 * pulse})`;
-    for (const c of auraCells(e.phase)) g.fillRect(c.x - c.s / 2, c.y - c.s / 2, c.s, c.s);
-    g.fillStyle = `rgba(88,34,70,${0.6 + 0.3 * pulse})`;
-    pixelCircle(g, 0, 0, STATUS.aura.radius, PIXEL);
+      g.fillStyle = `rgba(60,24,52,${0.22 + 0.12 * pulse})`;
+      for (const c of auraCells(e.phase)) g.fillRect(c.x - c.s / 2, c.y - c.s / 2, c.s, c.s);
+      g.fillStyle = `rgba(88,34,70,${0.6 + 0.3 * pulse})`;
+      pixelCircle(g, 0, 0, STATUS.aura.radius, PIXEL);
     }
   }
   if (e.well && on('void')) {

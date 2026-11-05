@@ -31,6 +31,10 @@ export const EFFECTS = {
   orb: { frame: 72, frames: 8, box: [20, 20, 31, 31] },
   shards: { frame: 72, frames: 4, box: [26, 24, 20, 24] },
   frost: { frame: 72, frames: 8, box: [17, 47, 36, 25] },
+  /** A Focus's burst: a shockwave ring blasting out (the traps pack's barrel blast, whitened to take any element's tint). */
+  shockwave: { frame: 48, frames: 8, box: [2, 0, 46, 48] },
+  /** Decay's aura: a ring of rot-purple smoke puffing out round the monster (the barrel's smoke blast, recoloured). */
+  rot: { frame: 48, frames: 8, box: [1, 2, 42, 43] },
 } satisfies Record<string, EffectSheet>;
 
 export type EffectKey = keyof typeof EFFECTS;
