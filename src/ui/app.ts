@@ -2723,13 +2723,13 @@ export class AppUI {
     if (!all.some((d) => d.id === this.selectedBeast)) this.selectedBeast = all[0].id;
     // The monster on the pinned card has been looked at.
     if (this.selectedBeast && this.newBeast(enemyDef(this.selectedBeast))) this.markSeen('beasts', this.selectedBeast);
-    const tiles: Array<{ def: EnemyDef; tile: HTMLElement; lv: HTMLElement; dot: HTMLElement }> = [];
+    const tiles: Array<{ def: EnemyDef; tile: HTMLElement; lv: HTMLElement; dot: HTMLElement; crown: HTMLElement }> = [];
     for (const areaId of order) {
       this.panel.appendChild(sectionTitle(`${areaDef(areaId).name}${areaId === g.area ? ' · here' : ''}`));
       const grid = el('div', 'hunter-grid');
       for (const def of areaEnemies(areaId)) {
         const tile = el('button', 'hunter-tile beast-tile') as HTMLButtonElement;
-        tile.innerHTML = `<canvas class="bt-portrait"></canvas><span class="ht-name">${def.name}</span><small class="ht-lv"></small><b class="sp-dot hidden" title="${esc(txt('tip.markers.evoPoints'))}"></b><span class="alert-mark white tile-new hidden"></span>`;
+        tile.innerHTML = `<canvas class="bt-portrait"></canvas><span class="ht-name">${def.name}</span><small class="ht-lv"></small><b class="sp-dot hidden" title="${esc(txt('tip.markers.evoPoints'))}"></b><span class="alert-mark white tile-new hidden"></span>${MAX_CROWN}`;
         tile.classList.toggle('selected', def.id === this.selectedBeast);
         const mark = $('.tile-new', tile);
         this.refreshers.push(() => mark.classList.toggle('hidden', def.id === this.selectedBeast || !this.newBeast(def)));
@@ -2742,13 +2742,14 @@ export class AppUI {
         this.onOpenGesture(tile, `beast:${def.id}`, () => g.state.bestiary[def.id].unlocked && this.openMonsterDetail(def.id));
         grid.appendChild(tile);
         queuePortrait($<HTMLCanvasElement>('canvas', tile), def.id);
-        tiles.push({ def, tile, lv: $('.ht-lv', tile), dot: $('.sp-dot', tile) });
+        tiles.push({ def, tile, lv: $('.ht-lv', tile), dot: $('.sp-dot', tile), crown: $('.max-crown', tile) });
       }
       this.panel.appendChild(grid);
     }
     this.refreshers.push(() => {
-      for (const { def, tile, lv, dot } of tiles) {
+      for (const { def, tile, lv, dot, crown } of tiles) {
         let ready: boolean;
+        crown.classList.toggle('hidden', !g.state.bestiary[def.id].unlocked || g.monsterLevelInfo(def.id).level < MAX_MONSTER_LEVEL);
         if (g.state.bestiary[def.id].unlocked) {
           const level = g.monsterLevelInfo(def.id).level;
           lv.textContent = `Lv ${level}`;
@@ -2784,7 +2785,7 @@ export class AppUI {
     const card = el('div', 'beast');
     card.innerHTML = `
       <div class="beast-head">
-        <canvas class="portrait"></canvas>
+        <span class="beast-portrait"><canvas class="portrait"></canvas>${MAX_CROWN}</span>
         <div class="info"><div class="card-corner"></div><div class="name"></div><div class="blurb">${def.blurb}</div>${g.state.bestiary[def.id].unlocked ? dropHtml(def) : '<div class="drop-line ld-spacer" aria-hidden="true">&nbsp;</div>'}</div>
       </div>
       ${affinityHtml(def, true)}
@@ -2826,6 +2827,7 @@ export class AppUI {
     this.refreshers.push(() => {
       const b = g.state.bestiary[def.id];
       card.classList.toggle('locked', !b.unlocked);
+      $('.max-crown', card).classList.toggle('hidden', !b.unlocked || g.monsterLevelInfo(def.id).level < MAX_MONSTER_LEVEL);
       setHtml($('.name', card), `${def.name}<span class="archetype">${arch.icon} ${arch.name}</span>${beastTags(def)}${b.unlocked ? '' : ' <small>locked</small>'}`);
       if (!b.unlocked) {
         const cost = enemyUnlockCost(def);
@@ -2900,7 +2902,7 @@ export class AppUI {
     view.innerHTML = `
       <div class="hd-scroll">
         <div class="hd-hero hero-head">
-          <canvas class="portrait big-portrait"></canvas>
+          <span class="beast-portrait big">${'<canvas class="portrait big-portrait"></canvas>'}${MAX_CROWN}</span>
           <div class="hd-title hero-plate">
             <h2>${def.name}</h2>
             <div class="hd-sub"></div>
@@ -2915,7 +2917,7 @@ export class AppUI {
     this.detail = { el: view, refreshers: [] };
     const scroll = $('.hd-scroll', view);
     const main = this.refreshers;
-    this.refreshers = [];
+    this.refreshers = [() => $('.max-crown', view).classList.toggle('hidden', !g.state.bestiary[id].unlocked || g.monsterLevelInfo(id).level < MAX_MONSTER_LEVEL)];
 
     // Sub-tabs, like the Hunter view: Stats (Empower and what it's worth) and Evolution (its tree).
     const tabs = el('div', 'subtabs');
@@ -6056,6 +6058,9 @@ const PROVIDER_ICONS: Record<AuthProvider, string> = {
   email:
     '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="4.5" width="20" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 6l9 7 9-7" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
 };
+
+/** A monster at its max level wears a crown in its card's top-left corner. */
+const MAX_CROWN = `<img class="max-crown hidden" src="${gearIconUrl('armor7/068')}" alt="" title="Max level" draggable="false">`;
 
 const MENU_SPRITES = {
   account: 'armor-rpg/058',
