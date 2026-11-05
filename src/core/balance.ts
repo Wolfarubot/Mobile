@@ -3181,7 +3181,7 @@ export interface GearDef {
    * `cooldown` seconds they lunge into a faster charge, its strikes dealing `damage` × the Hunter's shot. Its
    * cooldown shows as the item's icon on the battlefield.
    */
-  summon?: { look: 'wisp' | 'wolf' | 'rock'; name: string; dash?: { cooldown: number; range: number; speed: number; damage: number } };
+  summon?: { look: 'wisp' | 'wolf' | 'rock' | 'mushroom'; name: string; dash?: { cooldown: number; range: number; speed: number; damage: number } };
   /** Tomes: the type of creature they summon (default: Spirit, or Beast for wolves). */
   summonType?: SummonType;
   /** A line about the item's own ability, shown on its card. */
@@ -4215,6 +4215,7 @@ function catalogGear(spec: CatalogSpec): GearDef {
     ...(proc ? { proc } : {}),
     // Stone tomes call up stone golems.
     ...('stone' in spec && spec.stone && cls === 'tome' ? { summon: { look: 'rock' as const, name: 'stone golem' }, summonType: 'construct' as const } : {}),
+    ...('look' in spec && spec.look === 'mushroom' && cls === 'tome' ? { summon: { look: 'mushroom' as const, name: 'toadstool' } } : {}),
     stats: {},
   };
 }

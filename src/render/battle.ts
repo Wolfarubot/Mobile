@@ -1449,6 +1449,7 @@ export class BattleView {
     if (sm.look === 'puppet') return 'puppet';
     if (sm.look === 'skeleton') return 'skeleton';
     if (sm.look === 'rock') return 'stoneGolem';
+    if (sm.look === 'mushroom') return 'toadstool';
     return SUMMON_ART[sm.type] ?? 'wraith';
   }
 

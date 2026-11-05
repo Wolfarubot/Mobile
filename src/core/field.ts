@@ -202,7 +202,7 @@ export interface Summon {
   life: number;
   maxLife: number;
   bite: number;
-  look: 'wisp' | 'wolf' | 'puppet' | 'rock' | 'skeleton';
+  look: 'wisp' | 'wolf' | 'puppet' | 'rock' | 'skeleton' | 'mushroom';
   /** What kind of creature it is (some Hunters' summons of a type hit harder). */
   type: SummonType;
   /** A gear ability's creature (a Puppeteer's Doll's puppets): the piece that made it and its own bite. */

@@ -82,7 +82,8 @@ export const GEAR_CATALOG = [
   stone('boulderStaff', 'Boulder Staff', '🪨', 'staff', { awokenRock: 4, thorn: 8 }),
   w('unicornStaff', 'Unicorn Staff', '🦄', 'staff', 'radiant', { unicornHorn: 6, sap: 6 }),
   w('dewFocus', 'Dewdrop Focus', '💧', 'focus', 'arcane', { dust: 8, sap: 5 }),
-  w('bloomTome', 'Tome of Blooms', '📗', 'tome', 'poison', { thorn: 8, spore: 8 }),
+  // Its creatures are the Grove's walking Toadstools.
+  { ...w('bloomTome', 'Tome of Spores', '🍄', 'tome', 'poison', { thorn: 8, spore: 8 }), look: 'mushroom' as const },
   w('thornDagger', 'Thorn Dagger', '🗡️', 'dagger', 'poison', { thorn: 8, beastBone: 4 }),
   w('hornSword', 'Unicorn Blade', '⚔️', 'sword', 'radiant', { unicornHorn: 6, enchantedBone: 6 }),
   w('sapBow', 'Sapwood Bow', '🏹', 'shortbow', 'physical', { sap: 8, twig: 6 }),
