@@ -2886,18 +2886,27 @@ export const slotAccepts = (slot: SlotDef, def: Pick<GearDef, 'kind' | 'armorTyp
   (slot.accepts ?? [slot.kind]).includes(def.kind) && (!slot.armorTypes || !def.armorType || slot.armorTypes.includes(def.armorType));
 
 // ---- Summons: every summoned creature has a type, which some Hunters are better at commanding ----
-export type SummonType = 'beast' | 'construct' | 'spirit' | 'undead' | 'elemental';
+/** A summon is a Spirit, or any kind of monster (a tome's creature is the kind of the monster it calls up). */
+export type SummonType = 'spirit' | Archetype;
 /**
  * The kind of monster each summon type is: a bonus against that kind (a bane) also makes your summons of it hit
  * harder. Spirits aren't a kind of monster, so no bane helps them.
  */
-export const SUMMON_ARCHETYPE: Record<SummonType, Archetype | null> = { beast: 'beast', construct: 'construct', spirit: null, undead: 'undead', elemental: 'elemental' };
+export const SUMMON_ARCHETYPE: Record<SummonType, Archetype | null> = {
+  spirit: null,
+  ...(Object.fromEntries((Object.keys(ARCHETYPES) as Archetype[]).map((a) => [a, a])) as Record<Archetype, Archetype>),
+};
 export const SUMMON_TYPES: Record<SummonType, { name: string; icon: string }> = {
   beast: { name: 'Beast', icon: '🐺' },
   construct: { name: 'Construct', icon: '🪆' },
   spirit: { name: 'Spirit', icon: '👻' },
   undead: { name: 'Undead', icon: '💀' },
   elemental: { name: 'Elemental', icon: '🌪️' },
+  slime: { name: ARCHETYPES.slime.name, icon: ARCHETYPES.slime.icon },
+  demon: { name: ARCHETYPES.demon.name, icon: ARCHETYPES.demon.icon },
+  humanoid: { name: ARCHETYPES.humanoid.name, icon: ARCHETYPES.humanoid.icon },
+  plant: { name: ARCHETYPES.plant.name, icon: ARCHETYPES.plant.icon },
+  dragon: { name: ARCHETYPES.dragon.name, icon: ARCHETYPES.dragon.icon },
 };
 
 // ---- Armor: three kinds, each leaning toward attack speed, toughness or power; any Hunter wears any ----
@@ -3195,7 +3204,7 @@ export interface GearDef {
    * `cooldown` seconds they lunge into a faster charge, its strikes dealing `damage` × the Hunter's shot. Its
    * cooldown shows as the item's icon on the battlefield.
    */
-  summon?: { look: 'wisp' | 'wolf' | 'rock' | 'mushroom'; name: string; dash?: { cooldown: number; range: number; speed: number; damage: number } };
+  summon?: { look: 'wisp' | 'wolf' | 'rock' | 'mushroom' | 'monster'; name: string; art?: EnemyId; dash?: { cooldown: number; range: number; speed: number; damage: number } };
   /** Tomes: the type of creature they summon (default: Spirit, or Beast for wolves). */
   summonType?: SummonType;
   /** A line about the item's own ability, shown on its card. */
@@ -4350,6 +4359,41 @@ export const GEAR: GearDef[] = [
   { id: 'thunderTotem', name: 'Thunder Totem', icon: '🗿', kind: 'accessory', rarity: 'relic', tier: 10, stats: { cooldown: 0.024 }, recipe: { thunder: 10, feather: 6 }, effect: { kind: 'strike', base: 230, damageType: 'lightning', targets: 3, cooldown: 3, range: 320 } },
   ...GEAR_CATALOG.map(catalogGear),
 ];
+
+/**
+ * What each tome calls up: a monster of the area it's crafted in (one whose drops go into it), drawn in that
+ * monster's art, its summon type the monster's kind. Every kind of monster has a tome or two. The Tome of the
+ * Wolf Spirit keeps its lunging spirit wolves.
+ */
+const TOME_SUMMONS: Partial<Record<GearId, EnemyId>> = {
+  bloomTome: 'toadstool',
+  wispTome: 'graveWraith',
+  cultistTome: 'cultist',
+  necroTome: 'skeleton',
+  wrappingTome: 'mummy',
+  shadowTome: 'shadowWisp',
+  golemTome: 'oreGolem',
+  demonTome: 'imp',
+  deepTome: 'magmaSlime',
+  spiritTome: 'wraith',
+  frostTome: 'frostSprite',
+  featherTome: 'harpy',
+  griffinTome: 'griffin',
+  heavensTome: 'valkyrie',
+  thunderbirdTome: 'thunderbird',
+  stormTome: 'stormTitan',
+  meteoriteTome: 'meteorGolem',
+  cosmicTome: 'cometWisp',
+  riftTome: 'voidWyrm',
+  lichTome: 'lich',
+};
+for (const g of GEAR) {
+  const art = g.weaponClass === 'tome' ? TOME_SUMMONS[g.id] : undefined;
+  if (!art) continue;
+  const m = enemyDef(art);
+  g.summon = { look: 'monster', art, name: m.name.toLowerCase() };
+  g.summonType = m.archetype;
+}
 
 /** A weapon's archetype (undefined for anything that isn't a weapon). */
 export function weaponArchetype(def: GearDef): WeaponArchetype | undefined {

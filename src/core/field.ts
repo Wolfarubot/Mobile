@@ -203,7 +203,9 @@ export interface Summon {
   life: number;
   maxLife: number;
   bite: number;
-  look: 'wisp' | 'wolf' | 'puppet' | 'rock' | 'skeleton' | 'mushroom';
+  look: 'wisp' | 'wolf' | 'puppet' | 'rock' | 'skeleton' | 'mushroom' | 'monster';
+  /** A tome's creature: the monster whose art it wears. */
+  art?: EnemyId;
   /** What kind of creature it is (some Hunters' summons of a type hit harder). */
   type: SummonType;
   /** A gear ability's creature (a Puppeteer's Doll's puppets): the piece that made it and its own bite. */
@@ -2848,7 +2850,7 @@ export class Field {
     const sm = cls.summon!;
     const def = this.weaponDef(who);
     const look = def?.summon?.look ?? 'wisp';
-    this.summons.push({ who, type: def ? tomeSummonType(def) : 'spirit', x: ox + Math.cos(aim) * 20, y: oy + Math.sin(aim) * 20, life: sm.duration * this.game.summonDurationMult(who), maxLife: sm.duration * this.game.summonDurationMult(who), bite: 0, look, dash: 0, dashHit: false });
+    this.summons.push({ who, type: def ? tomeSummonType(def) : 'spirit', x: ox + Math.cos(aim) * 20, y: oy + Math.sin(aim) * 20, life: sm.duration * this.game.summonDurationMult(who), maxLife: sm.duration * this.game.summonDurationMult(who), bite: 0, look, art: def?.summon?.art, dash: 0, dashHit: false });
     this.events.push({ type: 'nova', x: ox, y: oy, r: 30, color: '#c9a8ff' });
   }
 

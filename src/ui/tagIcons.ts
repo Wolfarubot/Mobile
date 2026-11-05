@@ -25,6 +25,12 @@ export const SUMMON_TAG_ICONS: Record<SummonType, string> = {
   spirit: 'ab-alchemist-shaman/079',
   undead: 'ab-paladin-dk/065',
   elemental: 'ab-geo-aero/061',
+  // The other kinds of monster: the same icons as their monster-type tags.
+  slime: 'custom/001',
+  demon: 'ab-pyro-hydro/037',
+  humanoid: 'ab-cavalier-monk/062',
+  plant: 'ab-gunslinger-druid/069',
+  dragon: 'ab-cavalier-monk/086',
 };
 
 export const ARCHETYPE_TAG_ICONS: Record<Archetype, string> = {

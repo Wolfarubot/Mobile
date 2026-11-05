@@ -2639,9 +2639,11 @@ describe('Equipment', () => {
     expect(TYPE_SPELLS.physical).toEqual(['boulder', 'rockfall']);
     expect(staffSpell(gearDef('boulderStaff'))).toBe('boulder');
     expect(gearDef('boulderStaff').damageType).toBe('physical');
-    expect(gearDef('golemTome').summon?.look).toBe('rock');
+    // Tomes call up a monster of their area: the Tome of the Golem the Ore Golems of the Cinder Caves (Constructs).
+    expect(gearDef('golemTome').summon).toMatchObject({ look: 'monster', art: 'oreGolem', name: 'ore golem' });
     expect(gearDef('golemTome').summonType).toBe('construct');
-    expect(gearDef('featherTome').summon?.look).toBeUndefined(); // other Physical tomes keep their spirits
+    expect(gearDef('featherTome').summon?.art).toBe('harpy');
+    expect(gearDef('featherTome').summonType).toBe('beast');
     // A Pebble Wand's bolts are rocks.
     const s = g.state;
     s.inventory.push({ uid: 900, base: 'pebbleWand', stars: 1 } as (typeof s.inventory)[number]);
@@ -3416,8 +3418,12 @@ describe('Equipment', () => {
     expect(g.summonMult('puppeteer', 'construct')).toBe(1.5);
     expect(g.summonMult('main', 'beast')).toBeCloseTo(1 + g.gearBane('main', 'beast'));
     expect(tomeSummonType(gearDef('wolfTome'))).toBe('beast');
-    expect(tomeSummonType(gearDef('wispTome'))).toBe('spirit');
+    expect(tomeSummonType(gearDef('wispTome'))).toBe('undead'); // Grave Wraiths
     expect(tomeSummonType(gearDef('necroTome'))).toBe('undead');
+    // Every tome calls up a real monster (bar the Wolf Spirit's spirit wolves), and between them every kind.
+    const tomes = GEAR.filter((d) => d.weaponClass === 'tome' && d.id !== 'wolfTome');
+    for (const d of tomes) expect(enemyDef(d.summon!.art!).archetype).toBe(d.summonType);
+    expect(new Set(tomes.map((d) => d.summonType))).toEqual(new Set(Object.keys(ARCHETYPES)));
     expect((gearDef('puppetDoll').effect as { type: string }).type).toBe('construct');
     // Deku with the Wolf Spirit tome: his tome wolves bite 1.5× what the same tome's wolves bite for Andrejz.
     g.state.gold = 1e30;
@@ -3439,7 +3445,7 @@ describe('Equipment', () => {
     }
     // Same Hunter, same shot damage: Beast bites for Deku are ×1.5 of what a Spirit would do.
     g.equip('druid', 0, g.craftGear('wispTome')!.uid);
-    const spirit = bite('druid', 'wispTome');
+    const spirit = bite('druid', 'wispTome'); // Grave Wraiths: Undead, which Deku has no bonus for
     expect(bite('druid', 'wolfTome') / spirit).toBeCloseTo(1.5);
   });
 

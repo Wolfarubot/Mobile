@@ -1444,6 +1444,7 @@ export class BattleView {
   /** A monster raised by Raise Dead: its own art, ghostly violet, fading as its time runs out. */
   /** The monster whose art a summon wears, by its look (and, for wisps, its kind). */
   private summonArt(sm: Summon): EnemyId {
+    if (sm.art) return sm.art;
     if (sm.look === 'wolf') return 'wolf';
     if (sm.look === 'puppet') return 'puppet';
     if (sm.look === 'skeleton') return 'skeleton';
