@@ -7982,3 +7982,18 @@ html.ios-home #app {
   height: 16px;
   vertical-align: top;
 }
+/* The Equipment title switches the list to Equipped (just what's worn) and back. */
+.section-title.inv-switch {
+  cursor: pointer;
+}
+.section-title.inv-switch:active {
+  transform: translate(1px, 1px);
+}
+/* Equipped view: a bar for each Hunter across the grid, their worn gear under it. */
+.inventory .section-title.inv-wearer {
+  grid-column: 1 / -1;
+  margin: 8px 0 0;
+}
+.inventory .section-title.inv-wearer:first-child {
+  margin-top: 0;
+}

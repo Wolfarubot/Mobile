@@ -400,6 +400,8 @@ export class AppUI {
   private invSub: InvSub = 'equipment';
   /** Filters on the Inventory's Equipment sub-tab (kept for the session). */
   private invFilter: InvFilter = { ...NO_FILTER };
+  /** Inventory's Equipment list showing only what's worn, under a bar for each Hunter (tap the title to switch). */
+  private invEquipped = false;
   private craftFilter: InvFilter = { ...NO_FILTER };
   /** Equipment's Modify toggle: show only pieces that can be refined or enchanted, and open Modify when one is tapped. */
   private modifyMode = false;
@@ -3133,6 +3135,13 @@ export class AppUI {
     const g = this.game;
     this.gearListOpen = true;
     const invTitle = sectionTitle('Equipment');
+    // Tapping the title switches between every piece and just what's worn (under a bar for each Hunter).
+    invTitle.classList.add('inv-switch');
+    invTitle.setAttribute('role', 'button');
+    invTitle.addEventListener('click', () => {
+      this.invEquipped = !this.invEquipped;
+      this.refresh();
+    });
     const titleRow = titleWithFilter(invTitle, () => this.openInvFilter());
     pane.appendChild(titleRow);
     const bar = el('div', 'filter-bar');
@@ -3184,9 +3193,11 @@ export class AppUI {
       // Who wears what, looked up once rather than per piece (this runs every refresh).
       const wornBy = new Map<number, Wearer>();
       for (const [w, uids] of Object.entries(g.state.equipment) as [Wearer, Array<number | null>][]) for (const u of uids) if (u !== null) wornBy.set(u, w);
+      const equippedView = this.invEquipped && !refining;
       const k = [
         JSON.stringify(f),
         refining,
+        equippedView,
         gear.map((it) => `${it.uid}:${it.stars}:${wornBy.get(it.uid) ?? ''}:${it.mods ? it.mods.filter(Boolean).length : 0}`).join('|'),
         upgrades.map((it) => `${it.id}:${g.state.items[it.id]}`).join('|'),
       ].join('/');
@@ -3195,39 +3206,62 @@ export class AppUI {
       const total = g.state.inventory.length + ITEMS.filter((it) => g.state.items[it.id] > 0).length;
       const shown = gear.length + upgrades.length;
       const on = filtering(f);
+      // The Equipped view: everyone who can wear gear (you, then your recruits), each with what they wear, in slot
+      // order (the filters still narrow it).
+      const wearers: Wearer[] = ['main', ...HUNTERS.filter((h) => g.state.hunters[h.id].recruited).map((h) => h.id)];
+      const byUid = new Map(gear.map((it) => [it.uid, it]));
+      const worn = wearers.map((w) => ({ w, items: (g.state.equipment[w] ?? []).flatMap((u) => (u !== null && byUid.has(u) ? [byUid.get(u)!] : [])) }));
+      const wornCount = worn.reduce((a, x) => a + x.items.length, 0);
+      invTitle.classList.toggle('on', equippedView);
       invTitle.innerHTML = refining
         ? `<span>${shown} Item${shown === 1 ? '' : 's'} with Modification slots</span>`
-        : `<span>Equipment</span><span>${on ? `${shown} of ${total}` : total} item${total === 1 ? '' : 's'}</span>`;
+        : equippedView
+          ? `<span>Equipped ›</span><span>${wornCount} item${wornCount === 1 ? '' : 's'}</span>`
+          : `<span>Equipment ›</span><span>${on ? `${shown} of ${total}` : total} item${total === 1 ? '' : 's'}</span>`;
       invFilterBtn(pane).classList.toggle('on', on);
       filterChips($('.filter-chips', bar), f, () => {
         this.invFilter = { ...NO_FILTER };
         this.refresh();
       });
       inv.innerHTML = '';
-      if (!total) inv.innerHTML = '<p class="empty-inv">Empty. Craft equipment in Crafting, then equip it from a Hunter\'s card.</p>';
+      if (equippedView && !wornCount) inv.innerHTML = `<p class="empty-inv">${on ? 'No worn gear matches these filters.' : "Nothing equipped yet. Equip gear from a Hunter's card."}</p>`;
+      else if (!total) inv.innerHTML = '<p class="empty-inv">Empty. Craft equipment in Crafting, then equip it from a Hunter\'s card.</p>';
       else if (!shown)
         inv.innerHTML = refining
           ? '<p class="empty-inv">Nothing to modify yet: Very Rare and rarer gear has modifier slots.</p>'
           : '<p class="empty-inv">Nothing matches these filters.</p>';
-      const makers: Array<() => HTMLElement> = [
-        ...gear.map((it) => () => {
-          const gd = gearDef(it.base);
-          const worn = wornBy.has(it.uid) ? { who: wornBy.get(it.uid)! } : null;
-          const tile = el('button', 'inv-tile rar') as HTMLButtonElement;
-          tile.style.setProperty('--rc', gearColor(gd.id));
-          const slots = g.modSlots(it.uid);
-          tile.innerHTML = `<i>${gearIcon(gd)}</i><span>${gd.name}</span><small class="stars">${starsHtml(it.stars)}</small>${worn ? `<em>${wearerIcon(worn.who)}</em>` : ''}${slots.length ? `<b class="mod-pips">${slots.map((m) => (m ? (modPerfect(m) ? '★' : '◆') : '◇')).join('')}</b>` : ''}${it.uid > g.state.seen.gearUid ? '<span class="alert-mark white tile-new"></span>' : ''}`;
-          tile.addEventListener('click', () => (refining ? this.openModify(it.uid) : this.openGearDetail(it.uid)));
-          return tile;
-        }),
-        ...upgrades.map((it) => () => {
-          const tile = el('button', 'inv-tile upgrade rar') as HTMLButtonElement;
-          tile.style.setProperty('--rc', RARITIES[it.rarity].color);
-          tile.innerHTML = `<i>${upgradeIcon(it)}</i><span>${it.name}</span><small class="stars">${it.once ? 'Crafted' : starsHtml(g.state.items[it.id])}</small><em>⛺</em>`;
-          tile.addEventListener('click', () => this.openUpgradeDetail(it));
-          return tile;
-        }),
-      ];
+      const gearTile = (it: GearItem): HTMLElement => {
+        const gd = gearDef(it.base);
+        const worn = wornBy.has(it.uid) ? { who: wornBy.get(it.uid)! } : null;
+        const tile = el('button', 'inv-tile rar') as HTMLButtonElement;
+        tile.style.setProperty('--rc', gearColor(gd.id));
+        const slots = g.modSlots(it.uid);
+        tile.innerHTML = `<i>${gearIcon(gd)}</i><span>${gd.name}</span><small class="stars">${starsHtml(it.stars)}</small>${worn ? `<em>${wearerIcon(worn.who)}</em>` : ''}${slots.length ? `<b class="mod-pips">${slots.map((m) => (m ? (modPerfect(m) ? '★' : '◆') : '◇')).join('')}</b>` : ''}${it.uid > g.state.seen.gearUid ? '<span class="alert-mark white tile-new"></span>' : ''}`;
+        tile.addEventListener('click', () => (refining ? this.openModify(it.uid) : this.openGearDetail(it.uid)));
+        return tile;
+      };
+      const makers: Array<() => HTMLElement> = equippedView
+        ? worn
+            .filter((x) => x.items.length)
+            .flatMap((x) => [
+              () => {
+                const head = sectionTitle(`${wearerName(x.w)}`);
+                head.classList.add('inv-wearer');
+                head.insertAdjacentHTML('beforeend', `<span>${x.items.length} item${x.items.length === 1 ? '' : 's'}</span>`);
+                return head;
+              },
+              ...x.items.map((it) => () => gearTile(it)),
+            ])
+        : [
+            ...gear.map((it) => () => gearTile(it)),
+            ...upgrades.map((it) => () => {
+              const tile = el('button', 'inv-tile upgrade rar') as HTMLButtonElement;
+              tile.style.setProperty('--rc', RARITIES[it.rarity].color);
+              tile.innerHTML = `<i>${upgradeIcon(it)}</i><span>${it.name}</span><small class="stars">${it.once ? 'Crafted' : starsHtml(g.state.items[it.id])}</small><em>⛺</em>`;
+              tile.addEventListener('click', () => this.openUpgradeDetail(it));
+              return tile;
+            }),
+          ];
       // Late games hold thousands of pieces: draw a page of tiles now and the next page as you scroll near the
       // end, so opening the tab never builds them all at once.
       invPager?.disconnect();
