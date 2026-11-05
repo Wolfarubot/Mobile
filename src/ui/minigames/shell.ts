@@ -92,8 +92,14 @@ const LAND_CENTER_W = 440;
 const LAND_EDGE = 28;
 
 /** The pixel heart the HUD's lives use, also drawn in the pop when a life is lost. */
-const HEART = new Image();
-HEART.src = `${import.meta.env.BASE_URL}ui/heart.png`;
+let heartImg: HTMLImageElement | null = null;
+const heart = (): HTMLImageElement => {
+  if (!heartImg) {
+    heartImg = new Image();
+    heartImg.src = `${import.meta.env.BASE_URL}ui/heart.png`;
+  }
+  return heartImg;
+};
 
 interface Pop {
   /** Draw the HUD heart after the text. */
@@ -174,6 +180,7 @@ export function runMinigame(spec: MinigameSpec): void {
   let over = false;
   let game: MinigameGame | null = null;
   const pops: Pop[] = [];
+  heart(); // Loaded ahead, ready for the first life lost.
   const setHud = () => {
     scoreEl.textContent = String(score);
     livesEl.innerHTML = spec.lives > 0 ? '<i class="mg-heart"></i>'.repeat(Math.max(0, lives)) + '<i class="mg-heart lost"></i>'.repeat(Math.max(0, spec.lives - lives)) : '';
@@ -353,10 +360,11 @@ export function runMinigame(spec: MinigameSpec): void {
       g.fillText(p.text, px + 1, py + 1);
       g.fillStyle = p.color;
       g.fillText(p.text, px, py);
-      if (p.heart && HEART.complete && HEART.naturalWidth) {
-        const hh = (hw * HEART.naturalHeight) / HEART.naturalWidth;
+      const img = p.heart ? heart() : null;
+      if (img && img.complete && img.naturalWidth) {
+        const hh = (hw * img.naturalHeight) / img.naturalWidth;
         g.imageSmoothingEnabled = false;
-        g.drawImage(HEART, Math.round(px + tw / 2 + 1), Math.round(py - hh * 0.8), hw, hh);
+        g.drawImage(img, Math.round(px + tw / 2 + 1), Math.round(py - hh * 0.8), hw, hh);
       }
     }
     g.globalAlpha = 1;
