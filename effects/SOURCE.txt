@@ -1,0 +1,19 @@
+Magic effect sheets from CraftPix.net packs (license: https://craftpix.net/file-licenses/):
+  10 Magic Sprite Sheet Effects: explosion, fireball, lightning, sunstrike, blackhole, shield
+  Free Pixel Magic Sprite Effects: puff (Magic/9)
+  Magic Spells Pixel Art Sprite Pack: ice (Magic/5)
+  10 Magic Sprite Sheet Effects: spikes
+  Magic Effects Pixel Art Asset Pack 4: poison (Magic/9)
+  Free Pixel Magic Sprite Effects: thrust (Magic/3)
+  Magic Effects Pixel Art Asset Pack 4: smash (Magic/10), fist (Magic/2, tinted gold at runtime)
+  (Sword and glaive swings are cut from the black hole's swirling rim at runtime: src/render/battle.ts.)
+  32x32 Pixel Dice (provided with the game's assets): dice (a 4x6 sheet of 32x32 frames; each row is one top face, 1 to 6, in four turns)
+  10 Magic Sprite Sheet Effects: arc (1 Lightning, faded out toward its far end so a stretched arc has no hard edge)
+  Magic Spells Pixel Art Sprite Pack: arrows (Magic/3), orb (Magic/8, tinted per element at runtime), frost (Magic/10)
+  Magic Effects Pixel Art Asset Pack 4: acid (Magic/3 Cycle)
+  Free Pixel Magic Sprite Effects: shards (Magic/4_2)
+  Music-Notes Pixel Free (provided with the game's assets): music-orbit-ink (Music Scale Orbit, as is) and music-orbit (the same, ink turned light so it tints to a Hunter's colour): Ba'al's sound waves
+shockwave.png, rot.png: from CraftPix's "Free Magic and Traps Top Down Pixel Art Asset" (4 Barrel/Boom2.png and
+Boom1.png: a barrel's blast, eight 48px frames). shockwave is the blast's ring recoloured white and grey so it takes
+any element's tint (a Focus's burst); rot is its smoke ring recoloured rot-purple and dark brown (Decay's aura,
+looping its expanding frames).

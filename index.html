@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#14101f" />
+    <!-- The web version (playtesting): added to the Home Screen it opens full screen, like the app. -->
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+    <link rel="icon" type="image/png" href="./favicon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Pocket Hunter" />
+    <title>Pocket Hunter</title>
+    <style>#splash{z-index:1000;color:#f4ecd8;padding:env(safe-area-inset-top,0px) 16px env(safe-area-inset-bottom,0px);background:radial-gradient(circle at 50% 40%,#2a2140,#14101f 70%);flex-direction:column;justify-content:center;align-items:center;gap:18px;font-family:Pixelify Sans,Courier New,monospace;transition:opacity .45s ease-out;display:flex;position:fixed;top:0;bottom:0;left:0;right:0}#splash.gone{opacity:0;pointer-events:none}#splash .sp-title{letter-spacing:1px;text-shadow:3px 3px #000;text-align:center;font-size:44px;font-weight:700}#splash .sp-sword{width:96px;height:96px;image-rendering:pixelated;filter:drop-shadow(3px 3px #000);animation:1.6s ease-in-out infinite sp-bob}#splash .sp-by{bottom:calc(28px + env(safe-area-inset-bottom,0px));text-align:center;color:#c9bfa8;letter-spacing:.5px;font-size:15px;position:absolute;left:0;right:0}@keyframes sp-bob{0%,to{transform:translateY(0)}50%{transform:translateY(-6px)}}</style>
+    <script type="module" crossorigin src="./assets/index-DdOXW5Mw.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-CIb-xl3X.css">
+  </head>
+  <body>
+    <div id="splash" aria-label="Loading">
+      <div class="sp-title">Pocket Hunter</div>
+      <img class="sp-sword" src="./icons/weapons/015.png" alt="" />
+      <div class="sp-by">By Variette Studios</div>
+    </div>
+    <div id="app">
+      <header class="topbar">
+        <div class="stat gold"><span>🪙</span><b id="gold">0</b></div>
+        <div class="stage"><small id="areaLabel" class="area-label hidden">Current Area</small><b id="areaName">Wandering Woods</b></div>
+        <div class="stat right"><button id="questBtn" class="menu-btn quest-btn" aria-label="Quest log"><span class="qb-icon"></span><span class="alert-mark hidden"></span></button><button id="menuBtn" class="menu-btn" aria-label="Menu"><span class="menu-lines"></span><span class="alert-mark hidden"></span></button></div>
+      </header>
+      <div class="battle-wrap">
+        <canvas id="battle"></canvas>
+        <div id="dpsMeter" class="dps-meter"><b id="dps">0</b><small>DPS</small></div>
+        <div id="gainPops" class="gain-pops"></div>
+      </div>
+      <button id="menuDrop" class="menu-drop" aria-label="Lower the menu"><span>▼</span></button>
+      <nav class="tabs">
+        <button data-tab="hunters" class="active"><i>🏹</i>Hunters <span class="alert-mark tab-alert hidden" id="huntersBadge"></span></button>
+        <button data-tab="inventory"><i>🎒</i>Inventory <span class="alert-mark tab-alert hidden" id="forgeBadge"></span></button>
+        <button data-tab="beasts"><i>👾</i>Bestiary <span class="alert-mark tab-alert hidden" id="beastBadge"></span></button>
+        <button data-tab="events"><i>🎉</i>Events <span class="alert-mark tab-alert hidden" id="eventsBadge"></span></button>
+        <button data-tab="areas"><i>🗺️</i>Areas</button>
+      </nav>
+      <main class="panel" id="panel"></main>
+    </div>
+    <div id="modal" class="modal hidden"></div>
+  </body>
+</html>
