@@ -633,15 +633,23 @@ export class AppUI {
    * first: OK trains and asks again next time; Do not show again trains and stops asking. `offer` gives the
    * popup's line and the training, or null when not even one session is affordable.
    */
-  private holdForMax(btn: HTMLElement, offer: () => { text: string; run: () => void } | null, kind: keyof typeof HOLD_POPUPS = 'train'): void {
-    const HOLD_MS = 500;
+  private holdForMax(btn: HTMLElement, offer: () => { text: string; run: () => void } | null, kind: keyof typeof HOLD_POPUPS = 'train', progress?: string): void {
+    // A card (with a filling bar to watch) takes a little longer than a button.
+    const HOLD_MS = progress ? 750 : 500;
     const pop = HOLD_POPUPS[kind];
     let timer = 0;
     let x = 0;
     let y = 0;
+    // The bar above a held card, filling until the points are spent.
+    let bar: HTMLElement | null = null;
+    const dropBar = (): void => {
+      bar?.remove();
+      bar = null;
+    };
     const stop = (): void => {
       clearTimeout(timer);
       timer = 0;
+      dropBar();
     };
     btn.addEventListener('pointerdown', (ev) => {
       stop();
@@ -651,8 +659,17 @@ export class AppUI {
       if (inner && inner !== btn) return;
       x = ev.clientX;
       y = ev.clientY;
+      if (progress && offer()) {
+        bar = el('div', 'hold-bar');
+        bar.innerHTML = `<i></i><span>${progress}</span>`;
+        bar.style.setProperty('--hold-ms', `${HOLD_MS}ms`);
+        btn.appendChild(bar);
+        void bar.offsetWidth; // start from empty, then fill
+        bar.classList.add('filling');
+      }
       timer = window.setTimeout(() => {
         timer = 0;
+        dropBar();
         const o = offer();
         if (!o) return;
         this.heldFor = btn;
@@ -770,6 +787,10 @@ export class AppUI {
       if (g.train(who, 'max')) {
         sfx(g.levelOf(who) > level ? 'levelUp' : 'train');
         bumpCard(btn);
+        // The fifth time, a tip: holding a card spends its points the same way.
+        const holds = (g.state.stats.maxTrainHolds ?? 0) + 1;
+        g.state.stats.maxTrainHolds = holds;
+        if (holds === HOLD_CARD_TIP_AFTER) setTimeout(() => this.showModal(`<h2>${tx('popup.holdCardTip.title')}</h2>${txp('popup.holdCardTip.body')}`, [{ label: txt('popup.holdCardTip.ok') }]), 350);
       }
     };
     if (compact)
@@ -901,6 +922,7 @@ export class AppUI {
         return { text: txp('popup.autoSkills.hunter', { name: who === 'main' && !mainHunterName ? 'your Hunter' : wearerName(who), points, s: points === 1 ? '' : 's' }), run };
       },
       'hunterSkills',
+      'Spending Skill Points',
     );
     let gearKey = '';
     this.refreshers.push(() => {
@@ -2860,6 +2882,7 @@ export class AppUI {
           return { text: txp('popup.autoSkills.monster', { name: def.name, points, s: points === 1 ? '' : 's' }), run };
         },
         'monsterSkills',
+        'Spending Evolution Points',
       );
     } else {
       // Locked: laid out like an unlocked card's row: a lock where the level goes, what it drops where the progress
@@ -6186,6 +6209,9 @@ const PROVIDER_ICONS: Record<AuthProvider, string> = {
  * The pop-ups a long press asks with (see holdForMax), each with its own Do not show again: training or empowering
  * to the max, and spending a Hunter's skill points or a monster's evolution points.
  */
+/** Holding Train to the max this many times brings the tip about holding cards to spend points. */
+const HOLD_CARD_TIP_AFTER = 5;
+
 const HOLD_POPUPS = {
   train: { setting: 'maxTrainPopup', title: 'popup.maxTrain.title', hint: 'popup.maxTrain.hint', never: 'popup.maxTrain.never', ok: 'popup.maxTrain.ok' },
   hunterSkills: { setting: 'autoSkillPopup', title: 'popup.autoSkills.hunterTitle', hint: 'popup.autoSkills.hunterHint', never: 'popup.autoSkills.never', ok: 'popup.autoSkills.ok' },

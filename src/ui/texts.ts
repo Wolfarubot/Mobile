@@ -290,6 +290,17 @@ section(
     labels: { hunter: 'Text: Hunter', monster: 'Text: monster', hunterHint: 'Text: Hunter second line', monsterHint: 'Text: monster second line' },
   },
 );
+section(
+  P,
+  'popup.holdCardTip',
+  'Tip: hold a card to spend points',
+  {
+    title: 'Tip: hold a card',
+    body: "Holding a button works on cards too! When a Hunter has **skill points** to spend, **hold their card** and they're spent for you, starting at the top row of their tree and working left to right, then down. Holding a monster's card in the **Bestiary** spends its **evolution points** the same way.",
+    ok: 'Got it',
+  },
+  { note: "Shown once, after you've held a Train button to train to the max five times." },
+);
 section(P, 'popup.quit', 'Quit', { title: 'Quit', body: "Close the game? Your progress is saved, and your Hunters keep hunting while you're away.", no: 'No', yes: 'Yes' }, { note: 'Menu → Quit.' });
 section(
   P,

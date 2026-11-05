@@ -346,6 +346,8 @@ export interface GameState {
     hunterKills: Partial<Record<Wearer, number>>;
     /** Pieces of gear looted from monsters. */
     looted?: number;
+    /** Times you've held a Train button to train to the max (the fifth brings a tip about holding cards). */
+    maxTrainHolds?: number;
     /** Every material ever gained, per material (spending doesn't lower it). */
     matGained: Partial<Record<MaterialId, number>>;
     /** Lifetime records for the Account page (all kept through Regression). Counted from when they were added. */
