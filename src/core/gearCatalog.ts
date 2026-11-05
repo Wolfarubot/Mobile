@@ -114,7 +114,7 @@ export const GEAR_CATALOG = [
   w('graveDagger', 'Grave Dagger', '🗡️', 'dagger', 'decay', { bone: 8, flesh: 6 }),
   w('batBow', 'Batwing Bow', '🦇', 'shortbow', 'physical', { wing: 10, bone: 4 }),
   w('sacredWand', 'Sacred Wand', '🕯️', 'wand', 'radiant', { sacredText: 8, wing: 4 }),
-  w('wispFocus', 'Ring of Whisps', '🏮', 'focus', 'arcane', { nightmareWisp: 8, robePiece: 4 }),
+  w('wispFocus', 'Focus of Whisps', '🏮', 'focus', 'arcane', { nightmareWisp: 8, robePiece: 4 }),
   w('vampireBlade', 'Vampire Blade', '⚔️', 'sword', 'decay', { vampEssence: 8, bone: 6 }),
   w('kingsMaul', "Executioner's Maul", '🔨', 'hammer', 'physical', { calciumCrystal: 3, bone: 12 }, true),
   a('graveShroud', 'Grave Shroud', '🧥', 'light', { robePiece: 8, wing: 5 }),

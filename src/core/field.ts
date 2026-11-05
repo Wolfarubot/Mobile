@@ -59,6 +59,7 @@ import {
   artScale,
   GOLDEN_GOLD,
   GOLDEN_ODDS,
+  FOCUS_VIEW_SHARE,
 } from './balance';
 import type { Game, GearMode, KillReward, Shooter } from './game';
 
@@ -1463,7 +1464,7 @@ export class Field {
       const n = (this.songCount.get(who) ?? 0) + 1;
       this.songCount.set(who, n % song.every);
       if (n >= song.every) {
-        const max = song.reach * g.radiusMult(who);
+        const max = this.focusReach(song.reach * g.radiusMult(who));
         this.waves.push({ who, x, y, r: 0, max, hit: new Set(), k: song.damage });
         this.events.push({ type: 'wave', x, y, r: max, time: max / WAVE_SPEED, color: hunterDef(who as HunterId).color, notes: true });
       }
@@ -1489,12 +1490,12 @@ export class Field {
       for (let i = 0; i < n; i++) this.stabs.push({ who, t: i * gap, target: target.id, last: i === n - 1 });
     } else if (cls?.attack === 'nova' && cls.wave) {
       // A focus's wave: a ring expanding out to its reach (× area size), hitting monsters as it passes.
-      const max = cls.reach! * g.radiusMult(who);
+      const max = this.focusReach(cls.reach! * g.radiusMult(who));
       this.waves.push({ who, x, y, r: 0, max, hit: new Set() });
       this.events.push({ type: 'wave', x, y, r: max, time: max / WAVE_SPEED, color: DAMAGE_TYPES[g.damageTypeOf(who, mode)].color });
     } else if (cls?.attack === 'nova') {
       // A burst of power around the Hunter: every monster in the radius (× area size).
-      const r = cls.reach! * g.radiusMult(who);
+      const r = this.focusReach(cls.reach! * g.radiusMult(who));
       this.events.push({ type: 'nova', x, y, r, color: DAMAGE_TYPES[g.damageTypeOf(who, mode)].color, burst: true });
       for (const e of this.enemies) if (e.hp > 0 && Math.hypot(e.x - x, e.y - y) <= r + e.r) this.hitWith(who, e, 1, x, y);
     } else if (cls?.summon) {
@@ -2988,6 +2989,11 @@ export class Field {
       da = Math.atan2(Math.sin(da), Math.cos(da));
       if (Math.abs(da) <= arc / 2) this.meleeHit(shooter, e, dmg, ox, oy, knock);
     }
+  }
+
+  /** A Focus's (or Ba'al's song's) reach, kept to FOCUS_VIEW_SHARE of the way to the field's nearest edge. */
+  private focusReach(r: number): number {
+    return Math.min(r, FOCUS_VIEW_SHARE * Math.min(this.halfW, this.halfH));
   }
 
   /**

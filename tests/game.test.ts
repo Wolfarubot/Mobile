@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { GEAR_CATALOG } from '../src/core/gearCatalog';
 import { GEAR_SPRITES } from '../src/core/gearSprites';
 import { describe, expect, it } from 'vitest';
-import { ARROW_RAIN, GUARDIAN_TAP_TAKEN, archetypeValue, armorStats, mirrorStats, WEAPON_ARCHETYPES, weaponArchetype, withArchetype, type WeaponClass } from '../src/core/balance';
+import { ARROW_RAIN, FOCUS_VIEW_SHARE, GUARDIAN_TAP_TAKEN, archetypeValue, armorStats, mirrorStats, WEAPON_ARCHETYPES, weaponArchetype, withArchetype, type WeaponClass } from '../src/core/balance';
 import {
   areaDef,
   AREAS,
@@ -3985,7 +3985,7 @@ describe('Equipment', () => {
     expect(cls.reach).toBe(WEAPON_CLASSES.focus.reach! * 2);
     const f = new Field(g);
     const near = enemy({ id: 1, x: 0, y: -60, hp: 1e9, maxHp: 1e9, speed: 0 });
-    const out = enemy({ id: 2, x: 0, y: -190, hp: 1e9, maxHp: 1e9, speed: 0 });
+    const out = enemy({ id: 2, x: 0, y: -160, hp: 1e9, maxHp: 1e9, speed: 0 });
     f.enemies = [near, out];
     (f as unknown as { weaponAttack: (...a: unknown[]) => void }).weaponAttack('main', 0, 0, -Math.PI / 2, near, cls, { cls: null, ammo: 0, reload: 0 }, g.shooterRange('main'));
     expect(out.hp).toBe(1e9); // not reached yet
@@ -3995,6 +3995,9 @@ describe('Equipment', () => {
     (f as unknown as { runWaves: (dt: number) => void }).runWaves(0.3);
     expect(out.hp).toBeLessThan(1e9);
     expect(near.hp).toBe(once); // each monster is hit once
+    // However big the Focus, its wave stops short of the field's edges (FOCUS_VIEW_SHARE of the way out).
+    const api = f as unknown as { focusReach: (r: number) => number };
+    expect(api.focusReach(1e6)).toBeCloseTo(FOCUS_VIEW_SHARE * 320);
     // A longbow's follow-through grows with range.
     g.equip('main', 0, g.craftGear('thornLongbow')!.uid);
     const f2 = new Field(g);

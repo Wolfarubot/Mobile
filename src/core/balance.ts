@@ -2378,6 +2378,11 @@ export const GHOSTS = { chance: 0.1, spread: 0.25, life: 3, speed: 170, radius: 
  * pace with the later areas' wider views as a typical player levels, and keeps growing past them.
  */
 export const AOE_PER_LEVEL = 0.03;
+/**
+ * A Focus's burst or wave (and Ba'al's sound waves) reaches at most this share of the way from the middle of the
+ * field to its nearest edge, so a big Focus late on still leaves most of a small room (the Silent Crypt) alone.
+ */
+export const FOCUS_VIEW_SHARE = 0.55;
 
 /** Every Hunter's base range with a shooting weapon (scaled by its class), in world units. */
 export const MAIN_RANGE = 250;
@@ -3950,7 +3955,7 @@ export const WEAPON_CLASSES: Record<WeaponClass, WeaponClassDef> = {
   wand: { name: 'Wand', attack: 'shot', projectile: 'spark', range: 0.85, rate: 1.35, damage: 0.75, farm: 1.1, describe: 'The basic magic weapon, with quick, light bolts at shorter range.', simple: 'The basic magic weapon, with quick, light bolts at shorter range.' },
   scepter: { name: 'Scepter', attack: 'shot', projectile: 'spark', range: 1.25, rate: 0.75, damage: 1.3, bounces: 2, farm: 1.85, describe: 'Slower, longer-range bolts that bounce on to 2 more monsters nearby.', simple: "Slower, longer-range bolts that bounce on to more monsters nearby." },
   staff: { name: 'Staff', attack: 'shot', projectile: 'spark', range: 1.1, rate: 0.8, damage: 1.25, spell: { every: 5, radius: 70, damage: 3 }, mag: 6, reload: 2, farm: 1.55, describe: "Casts 5 bolts, then its element's spell (a Fire staff's Fireball or Fire Volley, a Frost staff's Ice Spikes or Frost Fan, and so on), then a short cooldown.", simple: "Casts a few bolts, then its element's spell (a Fire staff's Fireball or Fire Volley, a Frost staff's Ice Spikes or Frost Fan, and so on), then a short cooldown." },
-  focus: { name: 'Focus', attack: 'nova', range: 1, reach: 110, rate: 0.8, damage: 1.2, farm: 2, describe: 'When monsters come close, bursts with power that hits every monster around the Hunter.', simple: 'When monsters come close, bursts with power that hits every monster around the Hunter.' },
+  focus: { name: 'Focus', attack: 'nova', range: 1, reach: 90, rate: 0.8, damage: 1.2, farm: 2, describe: 'When monsters come close, bursts with power that hits every monster around the Hunter.', simple: 'When monsters come close, bursts with power that hits every monster around the Hunter.' },
   tome: { name: 'Tome', attack: 'summon', range: 1, rate: 0.16, damage: 0.7, summon: { duration: 8, bites: 1.5, speed: 200, name: 'spirit', hit: 0.7 }, farm: 1.7, describe: 'Summons a spirit that charges through the monsters for a while, striking every one it runs past, then fades. A new one is summoned after a cooldown.', simple: "Summons a spirit that charges through the monsters for a while, striking every one it passes, then fades. A new one is summoned after a cooldown." },
 };
 
