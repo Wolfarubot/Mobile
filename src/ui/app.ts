@@ -217,7 +217,8 @@ type InvSub = (typeof INV_SUBS)[number];
 /** Inventory Equipment filters. Types cycle in this order; weapons are split by how they fight. */
 const INV_TYPES = [
   { id: 'all', name: 'All types', icon: '🎒' },
-  { id: 'melee', name: 'Melee', icon: '⚔️' },
+  // A plain sword from the weapon pack (the emoji's crossed swords read as an ability, not a weapon type).
+  { id: 'melee', name: 'Melee', icon: `<img class="ei" src="${gearIconUrl('weapons/001')}" alt="">` },
   { id: 'ranged', name: 'Ranged', icon: '🏹' },
   { id: 'magic', name: 'Magic', icon: '🪄' },
   { id: 'armor', name: 'Armor', icon: '🦺' },
@@ -275,10 +276,8 @@ const filtering = (f: InvFilter): boolean => f.type !== 'all' || f.rarity !== 'a
 /** The chips under a Filter button: one per active filter, then Clear. */
 function filterChips(chips: HTMLElement, f: InvFilter, clear: () => void): void {
   chips.innerHTML = '';
-  if (f.type !== 'all') {
-    const t = INV_TYPES.find((x) => x.id === f.type)!;
-    chips.appendChild(el('span', 'filter-chip', `${t.icon} ${t.name}`));
-  }
+  // The type is picked with the quick Type selector (tap Filter), so it gets no tag: only what the full Filter
+  // page sets (hold Filter) shows here.
   if (f.rarity !== 'any') {
     const c = el('span', 'filter-chip', RARITIES[f.rarity].name);
     c.style.color = RARITIES[f.rarity].color;
@@ -296,7 +295,7 @@ function filterChips(chips: HTMLElement, f: InvFilter, clear: () => void): void 
     const b = BONUS_FILTERS.find((x) => x.id === f.bonus)!;
     chips.appendChild(el('span', 'filter-chip', `${b.icon} ${b.name}`));
   }
-  if (filtering(f)) {
+  if (filtering({ ...f, type: 'all' })) {
     const btn = el('button', 'filter-clear', '✕ Clear');
     btn.addEventListener('click', clear);
     chips.appendChild(btn);
@@ -3252,7 +3251,7 @@ export class AppUI {
           : `<span>Equipment ›</span><span>${on ? `${shown} of ${total}` : total} item${total === 1 ? '' : 's'}</span>`;
       invFilterBtn(pane).classList.toggle('on', on);
       filterChips($('.filter-chips', bar), f, () => {
-        this.invFilter = { ...NO_FILTER };
+        this.invFilter = { ...NO_FILTER, type: this.invFilter.type };
         this.refresh();
       });
       inv.innerHTML = '';
@@ -3515,7 +3514,7 @@ export class AppUI {
       craftTitle.innerHTML = `<span>Craft Equipment</span><span>${on ? `${list.length} of ${known.length}` : known.length} recipe${known.length === 1 ? '' : 's'}</span>`;
       invFilterBtn(pane).classList.toggle('on', on);
       filterChips($('.filter-chips', bar), f, () => {
-        this.craftFilter = { ...NO_FILTER };
+        this.craftFilter = { ...NO_FILTER, type: this.craftFilter.type };
         this.refresh();
       });
       gearGrid.innerHTML = '';
