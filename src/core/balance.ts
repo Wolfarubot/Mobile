@@ -2130,16 +2130,6 @@ export const MONSTER_EVO_TREES = Object.fromEntries(ENEMIES.map((e) => [e.id, mo
 
 export const evoNode = (id: EnemyId, node: string): EvoNode | undefined => MONSTER_EVO_TREES[id].find((n) => n.id === node);
 
-/** Kills of a monster needed before each row of its evolution tree opens (root, branches, signature nodes, capstone). */
-export const EVO_KILLS = [100, 1_000, 5_000, 20_000];
-
-/** Kills of this monster needed for an evolution node: rarer monsters (lower spawn rates) need fewer. */
-export function evoKillsNeeded(def: EnemyDef, node: EvoNode): number {
-  const n = EVO_KILLS[Math.min(node.row, EVO_KILLS.length - 1)] * Math.min(1, def.spawn);
-  const mag = 10 ** Math.max(0, Math.floor(Math.log10(n)) - 1);
-  return Math.max(10, Math.round(n / mag) * mag); // two significant figures
-}
-
 // ---- Hunters: extra hunters you recruit and station in areas ----
 export type HunterId =
   | 'alchemist'

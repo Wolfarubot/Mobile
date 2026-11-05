@@ -1258,10 +1258,6 @@ export class AppUI {
       learn: (n) => g.evolve(id, n),
       verb: 'Evolve',
       preview: (n) => previewRanks(g.state.bestiary[id].evo, n, () => evoStatLines(g, id, n)),
-      gate: (n) => {
-        const left = g.evoKillsLeft(id, n);
-        return left > 0 ? `Slay ${fmt(left)} more ${enemyDef(id).name}${left === 1 ? '' : 's'}` : null;
-      },
     };
   }
 
@@ -3060,7 +3056,7 @@ export class AppUI {
 
     body.appendChild(sectionTitle('Stats'));
     const stats = el('div', 'hd-stats');
-    // (kills of this monster are shown here too; evolutions open with them)
+    // (kills of this monster are shown here too)
     body.appendChild(stats);
 
     evoPane.appendChild(this.treeView(this.monsterTree(id)));

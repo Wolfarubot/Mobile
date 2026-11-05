@@ -156,7 +156,6 @@ import {
   MAX_EMPOWER_SESSIONS,
   MAX_MONSTER_LEVEL,
   EMPOWER_UNLOCK_KILLS,
-  evoKillsNeeded,
   EVO_TREES,
   MONSTER_EVO_TREES,
   evoLegacy,
@@ -470,13 +469,9 @@ describe('Enemies & archetypes', () => {
   it('evolution trees: one per monster (its archetype\'s nodes), root first; slimes get HP and gold, then bigger hordes', () => {
     const g = rich();
     g.state.bestiary.greenSlime.empower = 30; // plenty of points
-    // Evolutions open as you slay more of that monster.
-    expect(g.canEvolve('greenSlime', 'root')).toBe(false);
-    expect(g.evoKillsLeft('greenSlime', 'root')).toBe(evoKillsNeeded(enemyDef('greenSlime'), EVO_TREES.slime[0]));
-    g.state.bestiary.greenSlime.kills = 100;
+    // Only points (and the rows' point gates) hold evolutions back: no kills of the monster are needed.
+    g.state.bestiary.greenSlime.kills = 0;
     expect(g.canEvolve('greenSlime', 'root')).toBe(true);
-    expect(g.evoKillsLeft('greenSlime', 'capstone')).toBeGreaterThan(0);
-    g.state.bestiary.greenSlime.kills = 1e6;
     expect(g.evoTree('greenSlime')).toBe(MONSTER_EVO_TREES.greenSlime);
     expect(g.canEvolve('greenSlime', 'horde')).toBe(false); // needs the root first
     const base = g.enemyStats('greenSlime');
@@ -2081,8 +2076,6 @@ describe('Equipment', () => {
     expect(run('common', false)).toBeCloseTo(1e6 * STATUS.poison.maxHp.common, 0);
     expect(run('exalted', false)).toBeCloseTo(1e6 * STATUS.poison.maxHp.exalted, 0);
     expect(run('common', true)).toBeCloseTo(1e6 * STATUS.poison.maxHp.common * STATUS.poison.guardian, 0);
-    // Rarer monsters need fewer kills to evolve.
-    expect(evoKillsNeeded(enemyDef('behemoth'), MONSTER_EVO_TREES.behemoth[MONSTER_EVO_TREES.behemoth.length - 1])).toBeLessThan(evoKillsNeeded(enemyDef('wolf'), MONSTER_EVO_TREES.wolf[MONSTER_EVO_TREES.wolf.length - 1]));
   });
 
   it('effects proc at the weapon\'s chance; Physical weapons never proc', () => {

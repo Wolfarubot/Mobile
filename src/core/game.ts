@@ -37,7 +37,6 @@ import {
   SESSIONS_AFTER_ASCEND,
   SESSIONS_TO_ASCEND,
   type Rarity,
-  evoKillsNeeded,
   ENEMIES,
   AUTO_EMPOWER_SHARES,
   REGRESSION_LINKS,
@@ -3083,12 +3082,6 @@ export class Game {
     return !!n && this.evoSpent(id) >= this.evoRowGate(n.row) && (n.requires.length === 0 || n.requires.some((r) => this.evoRank(id, r) > 0));
   }
 
-  /** Kills of this monster still needed before an evolution node opens (0 = open). */
-  evoKillsLeft(id: EnemyId, node: string): number {
-    const n = evoNode(id, node);
-    return n ? Math.max(0, evoKillsNeeded(enemyDef(id), n) - this.state.bestiary[id].kills) : 0;
-  }
-
   canEvolve(id: EnemyId, node: string): boolean {
     const n = evoNode(id, node);
     return (
@@ -3096,8 +3089,7 @@ export class Game {
       this.isUnlocked(id) &&
       this.evoPoints(id) >= (n.cost ?? 1) &&
       this.evoRank(id, node) < n.maxRank &&
-      this.evoReachable(id, node) &&
-      this.evoKillsLeft(id, node) === 0
+      this.evoReachable(id, node)
     );
   }
 
