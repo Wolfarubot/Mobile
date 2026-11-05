@@ -6145,7 +6145,7 @@ describe("Alias's Flurry of Knives", () => {
     g.state.hunters.thief.recruited = true;
     g.equip('thief', 0, g.craftGear('slimeSword')!.uid);
     const f = new Field(g);
-    const api = f as unknown as { meleeHit: (...a: unknown[]) => void; hitBullet?: unknown; clock: number };
+    const api = f as unknown as { meleeHit: (...a: unknown[]) => void };
     return { g, f, api };
   };
   const fl = HUNTERS.find((h) => h.id === 'thief')!.flurry!;
@@ -6162,7 +6162,6 @@ describe("Alias's Flurry of Knives", () => {
     const a = enemy({ id: 1, type: 'bat', x: 0, y: -100, hp: 1e9, maxHp: 1e9 });
     const near = [2, 3, 4, 5, 6].map((id, i) => enemy({ id, type: 'bat', x: 40 + i * 10, y: -100, hp: 1e9, maxHp: 1e9 }));
     f.enemies = [a, ...near];
-    api.clock = 10;
     // meleeHit rolls its own crit: noCrit never crits, so nothing is thrown.
     api.meleeHit('thief', a, 1, 0, 0, 0);
     expect(f.bullets.filter((b) => b.kind === 'dagger')).toHaveLength(0);
@@ -6186,9 +6185,13 @@ describe("Alias's Flurry of Knives", () => {
     // Splash, status and other hits aren't strikes: a crit there throws nothing.
     raw.flurryArmed = false;
     raw.flurryDepth = 0;
-    api.clock = 20;
     raw.hitWith('thief', near[2], 1, 0, 0, true);
     expect(f.bullets.filter((b) => b.kind === 'dagger')).toHaveLength(fl.daggers * 2);
+    // No cooldown: another crit straight away throws another flurry.
+    raw.flurryArmed = true;
+    raw.flurryDepth = 0;
+    raw.hitWith('thief', near[3], 1, 0, 0, true);
+    expect(f.bullets.filter((b) => b.kind === 'dagger')).toHaveLength(fl.daggers * 3);
   });
 
   it('counts toward his damage estimate', () => {

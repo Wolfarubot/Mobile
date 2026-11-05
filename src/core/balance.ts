@@ -2333,10 +2333,9 @@ export interface HunterDef {
   /**
    * Alias's Flurry of Knives: `crit` more crit chance, and each critical hit on a monster throws `daggers` daggers at
    * the monsters within `reach` around it, each for `damage` × his hit. A flurry's daggers can crit and throw a
-   * flurry of their own, `depth` throws deep at most; a fresh flurry (not a dagger's) waits `gap` seconds after
-   * the last.
+   * flurry of their own, `depth` throws deep at most.
    */
-  flurry?: { crit: number; daggers: number; reach: number; damage: number; depth: number; gap: number };
+  flurry?: { crit: number; daggers: number; reach: number; damage: number; depth: number };
   /** Wherever they're stationed, every kill there pays this much more gold, and loot drops this much more often (Alias). */
   areaGold?: number;
   areaLoot?: number;
@@ -2461,7 +2460,7 @@ export const HUNTERS: HunterDef[] = [
     ascendedTitle: 'Master Thief',
     areaGold: 0.3,
     areaLoot: 1,
-    flurry: { crit: 0.15, daggers: 4, reach: 150, damage: 0.4, depth: 2, gap: 0.3 },
+    flurry: { crit: 0.15, daggers: 4, reach: 150, damage: 0.4, depth: 2 },
     story: "Alias has been robbing the Restless Graveyard's tombs, but its Guardian guards the best of them. Beat it, and he'll share the take.",
     ability: "Wherever he is, monsters pay 30% more gold and drop loot twice as often. Flurry of Knives: he has 15% more crit chance, and every critical hit on a monster throws 4 daggers at the monsters around it, each for 40% of his hit. Those daggers can crit too, throwing a flurry of their own. Uses any weapon.",
     slots: [{ kind: 'weapon', label: 'Weapon', accepts: ['weapon', 'magic', 'melee'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],

@@ -595,11 +595,10 @@ export class Field {
   /**
    * Alias's Flurry of Knives: set just around a weapon's own strike or projectile hit (not its splash, status
    * effects or specials), so only those throw a flurry when they crit; `flurryDepth` is how deep the hitting dagger
-   * already is (0 for his weapon's own hits). `lastFlurry` spaces out fresh flurries.
+   * already is (0 for his weapon's own hits).
    */
   private flurryArmed = false;
   private flurryDepth = 0;
-  private lastFlurry = new Map<Shooter, number>();
   /** Orb Scepter orbs: where bolts landed, hurting each monster that walks into one, once. */
   orbs: Array<{ who: Shooter; x: number; y: number; r: number; life: number; max: number; dmg: number; crit: boolean; mode?: GearMode; dtype?: DamageType; hit: Set<number> }> = [];
   /** Thomas's tomes, open on the field (see recall). */
@@ -3000,10 +2999,6 @@ export class Field {
     const fl = shooter === 'main' ? undefined : hunterDef(shooter).flurry;
     if (!fl || this.flurryDepth >= fl.depth) return;
     const depth = this.flurryDepth + 1;
-    if (depth === 1) {
-      if (this.clock - (this.lastFlurry.get(shooter) ?? -Infinity) < fl.gap) return;
-      this.lastFlurry.set(shooter, this.clock);
-    }
     const near = this.enemies
       .filter((o) => o !== e && o.hp > 0 && Math.hypot(o.x - e.x, o.y - e.y) <= fl.reach + o.r)
       .sort((a, b) => Math.hypot(a.x - e.x, a.y - e.y) - Math.hypot(b.x - e.x, b.y - e.y));
