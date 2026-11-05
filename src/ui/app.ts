@@ -1227,9 +1227,14 @@ export class AppUI {
     tree.style.height = `${H}px`;
     // Three columns, or five for your Hunter's wider trees. Columns can be halves (1.5) to stagger a row,
     // e.g. four nodes across centred under five.
-    const cols = Math.max(3, Math.ceil(Math.max(...nodes.map((n) => n.col)) + 1));
+    // Laid out over the columns the tree uses (a three-wide tree may sit in columns 1 to 3 of a five-wide grid),
+    // centred: otherwise the empty columns on one side push it off to the other.
+    const minCol = Math.min(...nodes.map((n) => n.col));
+    const span = Math.max(...nodes.map((n) => n.col)) - minCol + 1;
+    const cols = Math.max(3, Math.ceil(span));
+    const shift = (cols - span) / 2 - minCol;
     tree.classList.toggle('wide', cols > 3);
-    const pos = (n: TreeNode) => ({ x: ((n.col + 0.5) / cols) * 300, y: n.row * ROW + ROW / 2 - 8 });
+    const pos = (n: TreeNode) => ({ x: ((n.col + shift + 0.5) / cols) * 300, y: n.row * ROW + ROW / 2 - 8 });
     const lines = nodes.flatMap((n) =>
       n.requires.map((r) => {
         const a = pos(nodes.find((x) => x.id === r)!);
