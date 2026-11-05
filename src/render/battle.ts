@@ -244,7 +244,7 @@ export class BattleView {
         case 'nova':
           // A Focus's burst: a shockwave ring in its element's colour (Fancy).
           if (e.burst && this.fancy) {
-            this.playEffect('shockwave', e.x, e.y, e.r * 2.2, 'center', 22, 2, 0.8, e.color);
+            this.playEffect('shockwave', e.x, e.y, e.r * 2.2, 'center', 22, 2, 0.5, e.color);
             break;
           }
           if (this.game.state.settings.aoeStyle === 'basic') this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: hexRgb(e.color ?? '#fff0be'), max: 0.35 });
@@ -2440,7 +2440,7 @@ function drawStatus(g: CanvasRenderingContext2D, e: Enemy, t: number, on: (k: Fx
       g.stroke();
     } else if (effectImage('rot')) {
       // A ring of rot-purple smoke puffing out round it, again and again (the sheet's expanding frames only).
-      g.globalAlpha = 0.85;
+      g.globalAlpha = 0.5;
       drawEffectFrame(g, effectImage('rot')!, 'rot', 2 + (Math.floor(t * 9 + e.phase * 6) % 6), 0, 0, STATUS.aura.radius * 2.1, 'center', true);
       g.globalAlpha = 1;
     } else {
