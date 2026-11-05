@@ -45,7 +45,7 @@ export const GEAR_SPRITES: Record<string, string> = {
   thornLongbow: 'bows/008',
   thornSpear: 'weapons2/039',
   faerieWand: 'wands-books/009',
-  bansheeBow: 'weapons3/070',
+  bansheeBow: 'bows/001', // a dark longbow trailing spectral wisps
   knightGlaive: 'weapons4/016',
   necroTome: 'wands-books/055',
   gloomPistol: 'weapons5/048',
