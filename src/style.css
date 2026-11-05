@@ -7941,3 +7941,44 @@ html.ios-home #app {
   width: 38px;
   height: 38px;
 }
+/*
+ * Inventory tiles: the name kept clear of the frame (its outline no longer touches the sides), the stars always
+ * on one row (sized to the tile, so all five fit on the narrowest phones), the "new" marker tucked onto the
+ * corner instead of over the last star, and the icon of who's wearing it framed like a little portrait.
+ */
+.inv-tile {
+  container-type: inline-size;
+  padding-left: 7px;
+  padding-right: 7px;
+}
+.inv-tile span {
+  max-width: 100%;
+  padding: 0 1px;
+}
+.inv-tile small.stars {
+  font-size: min(15px, 15cqw) !important;
+  white-space: nowrap;
+  line-height: 1;
+  letter-spacing: 0;
+}
+.inv-tile .tile-new {
+  right: -6px;
+  bottom: -6px;
+  width: 18px;
+  height: 18px;
+}
+.inv-tile em {
+  top: 4px;
+  right: 4px;
+  display: block;
+  line-height: 0;
+  padding: 1px;
+  background: var(--c3);
+  border: 2px solid var(--c0);
+  box-shadow: 0 0 0 1px var(--rc, var(--c2));
+}
+.inv-tile em img.ei {
+  width: 16px;
+  height: 16px;
+  vertical-align: top;
+}
