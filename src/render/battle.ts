@@ -2672,8 +2672,9 @@ function drawBullet(g: CanvasRenderingContext2D, b: Bullet, t: number, basic = f
     }
     case 'dagger':
       if (blade) {
-        // The thrower's dagger itself, flying point first (its icon points up and to the right).
-        const size = 22;
+        // The thrower's dagger itself, flying point first (its icon points up and to the right). Alias's flurry
+        // daggers are drawn bigger, so a flurry reads clearly in a crowd.
+        const size = b.flurry ? 32 : 22;
         g.rotate(a + Math.PI / 4);
         g.imageSmoothingEnabled = false;
         g.drawImage(blade, -size / 2, -size / 2, size, size);
