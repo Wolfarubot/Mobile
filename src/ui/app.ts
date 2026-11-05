@@ -402,6 +402,8 @@ export class AppUI {
   private invFilter: InvFilter = { ...NO_FILTER };
   /** Inventory's Equipment list showing only what's worn, under a bar for each Hunter (tap the title to switch). */
   private invEquipped = false;
+  /** Equipment's and Crafting's title bars swapped for the quick Type selector (tap Filter to switch; hold it for the full Filter). */
+  private quickType = { equipment: false, crafting: false };
   private craftFilter: InvFilter = { ...NO_FILTER };
   /** Equipment's Modify toggle: show only pieces that can be refined or enchanted, and open Modify when one is tapped. */
   private modifyMode = false;
@@ -3166,7 +3168,7 @@ export class AppUI {
       this.invEquipped = !this.invEquipped;
       this.refresh();
     });
-    const titleRow = titleWithFilter(invTitle, () => this.openInvFilter());
+    const titleRow = this.filterTitle(invTitle, 'equipment');
     pane.appendChild(titleRow);
     const bar = el('div', 'filter-bar');
     const modifyOpen = g.refineOpen || g.enchantOpen;
@@ -3334,6 +3336,62 @@ export class AppUI {
    * The Equipment (or Crafting) filters: a Type cycler, Rarity, Damage type, Bonuses (a stat the piece raises) and,
    * for crafted gear, Level. Changes apply as you tap.
    */
+  /**
+   * A pane's title with its Filter button in the corner. Tapping Filter swaps the title for the Type selector
+   * (the one at the top of the Filter page: All, Melee, Ranged...) and back; holding it opens the full Filter page.
+   */
+  private filterTitle(title: HTMLElement, which: 'equipment' | 'crafting'): HTMLElement {
+    const get = () => (which === 'crafting' ? this.craftFilter : this.invFilter);
+    const put = (f: InvFilter) => {
+      if (which === 'crafting') this.craftFilter = f;
+      else this.invFilter = f;
+    };
+    const row = titleWithFilter(title, () => {});
+    const btn = invFilterBtn(row);
+    const cycler = el('div', 'type-cycler quick-type');
+    cycler.innerHTML = '<button data-step="-1" aria-label="Previous type">‹</button><button class="cyc-cur" data-step="1"></button><button data-step="1" aria-label="Next type">›</button>';
+    row.insertBefore(cycler, title);
+    cycler.querySelectorAll<HTMLButtonElement>('button').forEach((b) =>
+      b.addEventListener('click', () => {
+        const i = INV_TYPES.findIndex((x) => x.id === get().type);
+        put({ ...get(), type: INV_TYPES[(i + Number(b.dataset.step) + INV_TYPES.length) % INV_TYPES.length].id });
+        this.refresh();
+      }),
+    );
+    // Tap: the Type selector in and out. Hold: the full Filter page (its release isn't also a tap).
+    let timer = 0;
+    let held = false;
+    const cancel = () => {
+      clearTimeout(timer);
+      timer = 0;
+    };
+    btn.addEventListener('pointerdown', () => {
+      held = false;
+      cancel();
+      timer = window.setTimeout(() => {
+        timer = 0;
+        held = true;
+        buzz();
+        this.openInvFilter(which);
+      }, MENU_HOLD_MS);
+    });
+    for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) btn.addEventListener(ev, cancel);
+    btn.addEventListener('contextmenu', (e) => e.preventDefault());
+    btn.addEventListener('click', () => {
+      if (held) return void (held = false);
+      this.quickType[which] = !this.quickType[which];
+      this.refresh();
+    });
+    this.refreshers.push(() => {
+      const on = this.quickType[which];
+      row.classList.toggle('quick-on', on);
+      btn.classList.toggle('active', on);
+      const t = INV_TYPES.find((x) => x.id === get().type)!;
+      setHtml($('.cyc-cur', cycler), `${t.icon} ${t.name}`);
+    });
+    return row;
+  }
+
   private openInvFilter(which: 'equipment' | 'crafting' = 'equipment'): void {
     const get = () => (which === 'crafting' ? this.craftFilter : this.invFilter);
     const put = (f: InvFilter) => {
@@ -3431,7 +3489,7 @@ export class AppUI {
     const g = this.game;
     let tiles: Array<{ tile: HTMLElement; ready: () => boolean; badge: () => string }> = [];
     const craftTitle = sectionTitle('Craft Equipment');
-    pane.appendChild(titleWithFilter(craftTitle, () => this.openInvFilter('crafting')));
+    pane.appendChild(this.filterTitle(craftTitle, 'crafting'));
     const bar = el('div', 'filter-bar');
     bar.innerHTML = '<div class="filter-chips"></div>';
     pane.appendChild(bar);
