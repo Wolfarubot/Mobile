@@ -1766,7 +1766,8 @@ export class BattleView {
   /** A thrown dagger's art: the thrower's dagger, if they hold one (otherwise the plain blade is drawn). */
   private daggerArt(who: Shooter): HTMLImageElement | null {
     const it = this.game.equipped(who).find((x) => x && gearDef(x.base).weaponClass === 'dagger');
-    return it ? gearImage(GEAR_SPRITES[it.base]) : null;
+    // Not holding a dagger (Alias's Flurry of Knives with another weapon): a plain dagger from the pack.
+    return gearImage(it ? GEAR_SPRITES[it.base] : GEAR_SPRITES.beastBlade);
   }
 
   private weaponImage(who: Shooter, close = false): HTMLImageElement | null {

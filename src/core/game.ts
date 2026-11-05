@@ -613,7 +613,8 @@ export class Game {
   critChanceOf(shooter: Shooter): number {
     const w = this.weaponItem(shooter);
     const arch = w ? (weaponArchetype(gearDef(w.base))?.crit ?? 0) : 0;
-    return BASE_CRIT_CHANCE + this.gear(shooter).crit + this.tree(shooter).crit + arch + BUFF_CRIT * this.buffPower('shootingGallery');
+    const flurry = shooter === 'main' ? 0 : (hunterDef(shooter).flurry?.crit ?? 0);
+    return BASE_CRIT_CHANCE + this.gear(shooter).crit + this.tree(shooter).crit + arch + flurry + BUFF_CRIT * this.buffPower('shootingGallery');
   }
 
   private critFactor(shooter: Shooter): number {
@@ -806,7 +807,7 @@ export class Game {
     const uptime = weaponUptime(cls) * weaponHitsPerAttack(cls);
     // Lilith's Grave Touch: each strike's Decay on top (their ghosts' haunts come and go, so they aren't counted).
     const touch = 1 + (shooter === 'main' ? 0 : (hunterDef(shooter).haunt?.decay ?? 0));
-    return this.shotDamage(shooter, archetype) * (this.shooterRate(shooter) * perAttack * uptime * touch + this.specialHitRate(shooter) + this.songHitRate(shooter)) * this.critFactor(shooter);
+    return this.shotDamage(shooter, archetype) * (this.shooterRate(shooter) * perAttack * uptime * touch + this.specialHitRate(shooter) + this.songHitRate(shooter) + this.flurryHitRate(shooter)) * this.critFactor(shooter);
   }
 
   /**
@@ -961,6 +962,20 @@ export class Game {
   private songHitRate(shooter: Shooter): number {
     const sw = shooter === 'main' ? undefined : hunterDef(shooter).songWave;
     return sw ? (this.shooterRate(shooter) / sw.every) * sw.damage * SONG_WAVE_CROWD * this.radiusMult(shooter) : 0;
+  }
+
+  /**
+   * Alias's Flurry of Knives in shot-equivalents per second: each attack crits at his crit chance, throwing a
+   * flurry; each of its daggers crits in turn and may throw another, down to the flurry's depth.
+   */
+  private flurryHitRate(shooter: Shooter): number {
+    const fl = shooter === 'main' ? undefined : hunterDef(shooter).flurry;
+    if (!fl) return 0;
+    const c = Math.min(1, this.critChanceOf(shooter));
+    let daggers = 0;
+    let wave = c * fl.daggers;
+    for (let d = 0; d < fl.depth; d++, wave *= c * fl.daggers) daggers += wave;
+    return this.shooterRate(shooter) * daggers * fl.damage;
   }
 
   /** The special's damage in shot-equivalents per second against a crowd (for DPS and the farm model). */

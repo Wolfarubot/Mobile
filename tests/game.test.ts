@@ -6137,6 +6137,69 @@ describe('Lilith the Haunter', () => {
   });
 });
 
+describe("Alias's Flurry of Knives", () => {
+  const setup = (roll: () => number) => {
+    const s = newGame(0);
+    for (const m of Object.keys(s.materials) as Array<keyof typeof s.materials>) s.materials[m] = 1e6;
+    const g = new Game(veteran(s), roll);
+    g.state.hunters.thief.recruited = true;
+    g.equip('thief', 0, g.craftGear('slimeSword')!.uid);
+    const f = new Field(g);
+    const api = f as unknown as { meleeHit: (...a: unknown[]) => void; hitBullet?: unknown; clock: number };
+    return { g, f, api };
+  };
+  const fl = HUNTERS.find((h) => h.id === 'thief')!.flurry!;
+
+  it('gives Alias more crit chance', () => {
+    const { g } = setup(noCrit);
+    g.state.hunters.lance.recruited = true;
+    g.equip('lance', 0, g.craftGear('slimeSword')!.uid);
+    expect(g.critChanceOf('thief') - g.critChanceOf('lance')).toBeCloseTo(fl.crit, 9);
+  });
+
+  it('a critical strike throws daggers at the monsters around it; a plain one does not', () => {
+    const { f, api } = setup(noCrit);
+    const a = enemy({ id: 1, type: 'bat', x: 0, y: -100, hp: 1e9, maxHp: 1e9 });
+    const near = [2, 3, 4, 5, 6].map((id, i) => enemy({ id, type: 'bat', x: 40 + i * 10, y: -100, hp: 1e9, maxHp: 1e9 }));
+    f.enemies = [a, ...near];
+    api.clock = 10;
+    // meleeHit rolls its own crit: noCrit never crits, so nothing is thrown.
+    api.meleeHit('thief', a, 1, 0, 0, 0);
+    expect(f.bullets.filter((b) => b.kind === 'dagger')).toHaveLength(0);
+    // A crit (rigged via hitWith's crit argument, armed as a strike) throws a flurry, one dagger per nearby monster.
+    const raw = f as unknown as { flurryArmed: boolean; flurryDepth: number; hitWith: (...a: unknown[]) => void };
+    raw.flurryArmed = true;
+    raw.flurryDepth = 0;
+    raw.hitWith('thief', a, 1, 0, 0, true);
+    const daggers = f.bullets.filter((b) => b.kind === 'dagger');
+    expect(daggers).toHaveLength(fl.daggers);
+    expect(daggers.every((b) => b.shooter === 'thief' && b.flurry === 1 && b.dmg === fl.damage && b.hits.includes(1))).toBe(true);
+    // A dagger that crits throws the next flurry; one already at the flurry's depth throws none.
+    raw.flurryArmed = true;
+    raw.flurryDepth = 1;
+    raw.hitWith('thief', near[0], 1, 0, 0, true);
+    expect(f.bullets.filter((b) => b.flurry === 2)).toHaveLength(fl.daggers);
+    raw.flurryArmed = true;
+    raw.flurryDepth = fl.depth;
+    raw.hitWith('thief', near[1], 1, 0, 0, true);
+    expect(f.bullets.filter((b) => b.kind === 'dagger')).toHaveLength(fl.daggers * 2);
+    // Splash, status and other hits aren't strikes: a crit there throws nothing.
+    raw.flurryArmed = false;
+    raw.flurryDepth = 0;
+    api.clock = 20;
+    raw.hitWith('thief', near[2], 1, 0, 0, true);
+    expect(f.bullets.filter((b) => b.kind === 'dagger')).toHaveLength(fl.daggers * 2);
+  });
+
+  it('counts toward his damage estimate', () => {
+    const { g } = setup(noCrit);
+    g.state.hunters.lance.recruited = true;
+    g.equip('lance', 0, g.craftGear('slimeSword')!.uid);
+    const per = (w: 'thief' | 'lance') => g.dpsOf(w) / g.shotDamage(w, 'beast');
+    expect(per('thief')).toBeGreaterThan(per('lance'));
+  });
+});
+
 describe('Tome summons', () => {
   it('charge through a crowd, striking every monster they pass, and a stun holds the summon back without losing it', () => {
     const s = newGame(0);

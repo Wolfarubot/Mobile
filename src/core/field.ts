@@ -310,6 +310,8 @@ export interface Bullet {
   hits: number[];
   /** Multiplier on the shooter's shot damage (e.g. a staff's spell). */
   dmg: number;
+  /** One of Alias's flurry daggers: how many flurries deep (1 for a crit's own flurry). */
+  flurry?: number;
   /** Which of Wilhelm's weapons fired it (gear in that slot applies). */
   mode?: GearMode;
   /** Fireball explosion / potion puddle radius. */
@@ -590,6 +592,14 @@ export class Field {
   ghosts: Ghost[] = [];
   /** Seconds the field has run (for timing things like a summon's repeat strikes). */
   clock = 0;
+  /**
+   * Alias's Flurry of Knives: set just around a weapon's own strike or projectile hit (not its splash, status
+   * effects or specials), so only those throw a flurry when they crit; `flurryDepth` is how deep the hitting dagger
+   * already is (0 for his weapon's own hits). `lastFlurry` spaces out fresh flurries.
+   */
+  private flurryArmed = false;
+  private flurryDepth = 0;
+  private lastFlurry = new Map<Shooter, number>();
   /** Orb Scepter orbs: where bolts landed, hurting each monster that walks into one, once. */
   orbs: Array<{ who: Shooter; x: number; y: number; r: number; life: number; max: number; dmg: number; crit: boolean; mode?: GearMode; dtype?: DamageType; hit: Set<number> }> = [];
   /** Thomas's tomes, open on the field (see recall). */
@@ -1975,7 +1985,7 @@ export class Field {
     angle: number,
     speed: number,
     range: number,
-    o: { pierce?: number; dmg?: number; radius?: number; bounces?: number; slow?: number; tx?: number; ty?: number; mode?: GearMode; special?: boolean; followThrough?: number; volley?: number; stack?: number; bleed?: boolean; dtype?: DamageType; ticks?: number; cast?: SpellCast; k?: number; size?: number; blast?: { r: number; k: number }; elem?: number; arts?: ShotArts; critBonus?: number },
+    o: { pierce?: number; dmg?: number; radius?: number; bounces?: number; slow?: number; tx?: number; ty?: number; mode?: GearMode; special?: boolean; followThrough?: number; volley?: number; stack?: number; bleed?: boolean; dtype?: DamageType; ticks?: number; cast?: SpellCast; k?: number; size?: number; blast?: { r: number; k: number }; elem?: number; arts?: ShotArts; critBonus?: number; flurry?: number },
   ): void {
     const g = this.game;
     // Stone magic (a Physical magic weapon) hurls rocks instead of sparks.
@@ -2026,6 +2036,7 @@ export class Field {
       blast: o.blast,
       elem: o.elem,
       arts: o.arts,
+      flurry: o.flurry,
     });
   }
 
@@ -2955,7 +2966,10 @@ export class Field {
 
   /** A melee hit: damage, then a knock back if the monster survives (Guardians hold their ground). */
   private meleeHit(shooter: Shooter, e: Enemy, dmg: number, ox: number, oy: number, knock: number): void {
+    this.flurryArmed = true;
+    this.flurryDepth = 0;
     this.hitWith(shooter, e, dmg, ox, oy);
+    this.flurryArmed = false;
     if (knock <= 0 || e.hp <= 0 || e.boss) return;
     const d = Math.hypot(e.x - ox, e.y - oy) || 1;
     e.kx += ((e.x - ox) / d) * knock;
@@ -2974,6 +2988,33 @@ export class Field {
       let da = Math.atan2(dy, dx) - a;
       da = Math.atan2(Math.sin(da), Math.cos(da));
       if (Math.abs(da) <= arc / 2) this.meleeHit(shooter, e, dmg, ox, oy, knock);
+    }
+  }
+
+  /**
+   * Alias's Flurry of Knives: daggers fly from the monster he crit at the monsters around it (the nearest first; any
+   * spare ones scatter), each for a share of his hit. They're his weapon's damage, so they crit, and a crit throws
+   * the next flurry, down to the flurry's depth.
+   */
+  private knifeFlurry(shooter: Shooter, e: Enemy, mode?: GearMode): void {
+    const fl = shooter === 'main' ? undefined : hunterDef(shooter).flurry;
+    if (!fl || this.flurryDepth >= fl.depth) return;
+    const depth = this.flurryDepth + 1;
+    if (depth === 1) {
+      if (this.clock - (this.lastFlurry.get(shooter) ?? -Infinity) < fl.gap) return;
+      this.lastFlurry.set(shooter, this.clock);
+    }
+    const near = this.enemies
+      .filter((o) => o !== e && o.hp > 0 && Math.hypot(o.x - e.x, o.y - e.y) <= fl.reach + o.r)
+      .sort((a, b) => Math.hypot(a.x - e.x, a.y - e.y) - Math.hypot(b.x - e.x, b.y - e.y));
+    for (let i = 0; i < fl.daggers; i++) {
+      const t = near[i];
+      const a = t ? Math.atan2(t.y - e.y, t.x - e.x) : this.game.rng() * Math.PI * 2;
+      // From the monster's edge, so the dagger doesn't strike it again on the way out.
+      const ox = e.x + Math.cos(a) * (e.r - PLAYER_RADIUS + 2);
+      const oy = e.y + Math.sin(a) * (e.r - PLAYER_RADIUS + 2);
+      this.shoot(shooter, 'dagger', ox, oy, a, BULLET_SPEED * 1.15, fl.reach, { dmg: fl.damage, mode, flurry: depth });
+      this.bullets[this.bullets.length - 1].hits.push(e.id);
     }
   }
 
@@ -3007,6 +3048,11 @@ export class Field {
       this.damage(e, dmg, crit, (e.x - fromX) / d, (e.y - fromY) / d, shooter, t);
       // Each type rolls its own effect (an infused type at its infusion's chance).
       if (status && g.rng() < g.procFor(shooter, t, mode, special)) this.applyStatus(e, t, dmg, shooter, g.procRarity(shooter, mode, special));
+    }
+    // Alias's Flurry of Knives: a critical strike (his weapon's own, or a flurry dagger's) throws daggers around.
+    if (crit && this.flurryArmed && !special) {
+      this.flurryArmed = false;
+      this.knifeFlurry(shooter, e, mode);
     }
     // Lilith's Grave Touch: their strikes deal a share of their damage again as Decay.
     const haunt = shooter !== 'main' && !special && !only ? hunterDef(shooter).haunt : undefined;
@@ -3411,7 +3457,10 @@ export class Field {
       e.volley = b.volley;
       mult *= 1 + (b.stack ?? 0) * e.volleyHits;
     }
+    this.flurryArmed = true;
+    this.flurryDepth = b.flurry ?? 0;
     this.hitWith(b.shooter, e, mult, b.x - b.vx, b.y - b.vy, b.crit, b.mode, false, true, b.dtype);
+    this.flurryArmed = false;
     if (b.splash !== undefined) this.shotSplash(b, e, mult);
     if (b.orb) this.dropOrb(b, e.x, e.y, mult, e.id);
     if (b.elem) this.elementalArrow(b, e);
