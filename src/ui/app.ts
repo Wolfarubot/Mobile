@@ -539,7 +539,8 @@ export class AppUI {
           // The piece's own icon (the one in your inventory), not its kind's.
           this.toast(e.salvaged ? txt('toast.gear.salvaged', { item: `${pieceIcon} ${d.name}` }) : txt('toast.gear.loot', { item: `${pieceIcon} ${d.name}${e.stars > 1 ? ` ${e.stars}★` : ''}` }), true);
         else if (game.state.settings.pickups) pops.addLoot(`${emojiImg('🎒', 'gem-ic')}${pieceIcon}`);
-        if (this.tab === 'inventory') this.setTab('inventory', true);
+        // The open Inventory updates in place (its lists follow the loot), keeping where you've scrolled to.
+        if (this.tab === 'inventory') this.refresh();
       }
     });
     this.setTab('hunters');
@@ -3202,6 +3203,12 @@ export class AppUI {
         upgrades.map((it) => `${it.id}:${g.state.items[it.id]}`).join('|'),
       ].join('/');
       if (k === invKey) return;
+      // The same list with a piece more or less (loot, salvage): keep the scroll and draw as far as before, so
+      // the list doesn't jump back to the top. A new filter or view starts from the top.
+      const view = [JSON.stringify(f), refining, equippedView].join('/');
+      const sameView = invKey !== null && invKey.startsWith(view + '/');
+      const keepTop = sameView ? this.panel.scrollTop : 0;
+      const keepDrawn = sameView ? inv.children.length : 0;
       invKey = k;
       const total = g.state.inventory.length + ITEMS.filter((it) => g.state.items[it.id] > 0).length;
       const shown = gear.length + upgrades.length;
@@ -3278,6 +3285,8 @@ export class AppUI {
       };
       inv.appendChild(sentinel);
       page();
+      while (next < makers.length && next < keepDrawn) page();
+      if (keepTop) this.panel.scrollTop = keepTop;
       if (next < makers.length) {
         const pager = new IntersectionObserver(
           (es) => {
