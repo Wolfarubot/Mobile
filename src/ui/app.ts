@@ -2775,8 +2775,17 @@ export class AppUI {
     // The monster on the pinned card has been looked at.
     if (this.selectedBeast && this.newBeast(enemyDef(this.selectedBeast))) this.markSeen('beasts', this.selectedBeast);
     const tiles: Array<{ def: EnemyDef; tile: HTMLElement; lv: HTMLElement; dot: HTMLElement; crown: HTMLElement }> = [];
+    // An area's title wears the crown too once every one of its monsters is at its max level.
+    const areaCrowns: Array<{ crown: HTMLElement; defs: EnemyDef[] }> = [];
     for (const areaId of order) {
-      this.panel.appendChild(sectionTitle(`${areaDef(areaId).name}${areaId === g.area ? ' · here' : ''}`));
+      const title = sectionTitle(`${areaDef(areaId).name}${areaId === g.area ? ' · here' : ''}`);
+      const crown = el('img', 'area-crown hidden') as HTMLImageElement;
+      crown.src = gearIconUrl('armor7/068') ?? '';
+      crown.alt = '';
+      crown.title = 'Every monster here is at max level';
+      $('span', title).prepend(crown);
+      areaCrowns.push({ crown, defs: areaEnemies(areaId) });
+      this.panel.appendChild(title);
       const grid = el('div', 'hunter-grid');
       for (const def of areaEnemies(areaId)) {
         const tile = el('button', 'hunter-tile beast-tile') as HTMLButtonElement;
@@ -2798,6 +2807,7 @@ export class AppUI {
       this.panel.appendChild(grid);
     }
     this.refreshers.push(() => {
+      for (const { crown, defs } of areaCrowns) crown.classList.toggle('hidden', !defs.every((d) => g.state.bestiary[d.id].unlocked && g.monsterLevelInfo(d.id).level >= MAX_MONSTER_LEVEL));
       for (const { def, tile, lv, dot, crown } of tiles) {
         let ready: boolean;
         crown.classList.toggle('hidden', !g.state.bestiary[def.id].unlocked || g.monsterLevelInfo(def.id).level < MAX_MONSTER_LEVEL);
