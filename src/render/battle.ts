@@ -515,7 +515,7 @@ export class BattleView {
       // across it, then shrinks and fades as it dries up.
       let born = this.puddleBorn.get(p);
       if (born === undefined) this.puddleBorn.set(p, (born = this.time));
-      drawPotionPool(g, p, this.time - born, p.dtype === 'acid');
+      drawPixelPool(g, p, this.time - born, p.dtype === 'acid');
     }
 
     // Orb Scepter orbs: a glowing ball of the bolt's element where it landed, pulsing, fading as it runs out.
@@ -3139,6 +3139,64 @@ function drawPotionPool(g: CanvasRenderingContext2D, p: { x: number; y: number; 
   }
   g.restore();
 }
+/** A pool's art pixel, in battlefield units: about the size of a sprite's pixels, so it reads as pixel art too. */
+const POOL_PX = 4;
+const poolCanvas = document.createElement('canvas');
+
+/**
+ * drawPotionPool as pixel art: drawn small onto a scratch canvas, each colour snapped solid or clear, then scaled up
+ * with hard edges (a smooth vector pool looked flat beside the sprites).
+ */
+function drawPixelPool(g: CanvasRenderingContext2D, p: { x: number; y: number; r: number; life: number }, age: number, acid: boolean): void {
+  const half = p.r * 1.3;
+  const n = Math.ceil((half * 2) / POOL_PX);
+  if (n < 2) return;
+  if (poolCanvas.width < n || poolCanvas.height < n) {
+    poolCanvas.width = Math.max(poolCanvas.width, n);
+    poolCanvas.height = Math.max(poolCanvas.height, n);
+  }
+  const c = poolCanvas.getContext('2d', { willReadFrequently: true })!;
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.clearRect(0, 0, n, n);
+  c.setTransform(1 / POOL_PX, 0, 0, 1 / POOL_PX, half / POOL_PX - p.x / POOL_PX, half / POOL_PX - p.y / POOL_PX);
+  drawPotionPool(c, p, age, acid);
+  // Hard pixels: a faint edge is cut away and the rest snapped to a few levels of see-through, so the pool has
+  // crisp steps rather than smooth gradients; then a one-pixel dark rim round it, as the sprites have.
+  const d = c.getImageData(0, 0, n, n);
+  const px = d.data;
+  for (let i = 3; i < px.length; i += 4) px[i] = px[i] < 40 ? 0 : px[i] < 110 ? 120 : px[i] < 180 ? 175 : 230;
+  const [deep] = POOL_COLORS[acid ? 'acid' : 'potion'];
+  const [dr, dg, db] = deep.split(',').map((v) => Math.round(Number(v) * 0.55));
+  const inside = (x: number, y: number) => x >= 0 && y >= 0 && x < n && y < n && px[(y * n + x) * 4 + 3] > 0;
+  const rim: number[] = [];
+  for (let y = 0; y < n; y++)
+    for (let x = 0; x < n; x++) if (inside(x, y) && (!inside(x - 1, y) || !inside(x + 1, y) || !inside(x, y - 1) || !inside(x, y + 1))) rim.push((y * n + x) * 4);
+  for (const i of rim) {
+    px[i] = dr;
+    px[i + 1] = dg;
+    px[i + 2] = db;
+    px[i + 3] = Math.max(px[i + 3], 200);
+  }
+  c.putImageData(d, 0, 0);
+  g.save();
+  g.imageSmoothingEnabled = false;
+  g.drawImage(poolCanvas, 0, 0, n, n, p.x - half, p.y - half, n * POOL_PX, n * POOL_PX);
+  // The effect pack's poison bubbles rising off a potion pool (acid keeps its own bubbles).
+  const bubbles = acid ? null : effectImage('poison');
+  if (bubbles) {
+    const dry = Math.min(1, p.life / 0.8);
+    g.globalAlpha *= 0.8 * Math.min(1, age / 0.3) * dry;
+    const k = Math.max(2, Math.min(4, Math.round(p.r / 22)));
+    const seed = Math.abs(p.x * 0.37 + p.y * 0.61);
+    for (let i = 0; i < k; i++) {
+      const a = i * 2.4 + seed;
+      const dist = p.r * 0.45 * Math.sqrt((i + 0.5) / k);
+      drawEffectFrame(g, bubbles, 'poison', Math.floor(age * 11 + i * 4), p.x + Math.cos(a) * dist, p.y + Math.sin(a) * dist * 0.72 + p.r * 0.15, p.r * 0.7, 'bottom', true);
+    }
+  }
+  g.restore();
+}
+
 const FIRE_COLORS = ['#ffd23a', '#ff8a2a', '#e8321e'];
 
 /**
