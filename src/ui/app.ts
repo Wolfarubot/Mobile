@@ -630,8 +630,9 @@ export class AppUI {
    * first: OK trains and asks again next time; Do not show again trains and stops asking. `offer` gives the
    * popup's line and the training, or null when not even one session is affordable.
    */
-  private holdForMax(btn: HTMLElement, offer: () => { text: string; run: () => void } | null): void {
+  private holdForMax(btn: HTMLElement, offer: () => { text: string; run: () => void } | null, kind: keyof typeof HOLD_POPUPS = 'train'): void {
     const HOLD_MS = 500;
+    const pop = HOLD_POPUPS[kind];
     let timer = 0;
     let x = 0;
     let y = 0;
@@ -642,6 +643,9 @@ export class AppUI {
     btn.addEventListener('pointerdown', (ev) => {
       stop();
       if (this.heldFor === btn) this.heldFor = null;
+      // A press on a button inside (a card's Train or Empower) is that button's, not the card's.
+      const inner = (ev.target as Element | null)?.closest('button');
+      if (inner && inner !== btn) return;
       x = ev.clientX;
       y = ev.clientY;
       timer = window.setTimeout(() => {
@@ -651,21 +655,21 @@ export class AppUI {
         this.heldFor = btn;
         buzz();
         const g = this.game;
-        if (!g.state.settings.maxTrainPopup) {
+        if (!g.state.settings[pop.setting]) {
           o.run();
           this.refresh();
           return;
         }
-        this.showModal(`<h2>${tx('popup.maxTrain.title')}</h2>${o.text}${txp('popup.maxTrain.hint')}`, [
+        this.showModal(`<h2>${tx(pop.title)}</h2>${o.text}${txp(pop.hint)}`, [
           {
-            label: txt('popup.maxTrain.never'),
+            label: txt(pop.never),
             secondary: true,
             action: () => {
-              g.state.settings.maxTrainPopup = false;
+              g.state.settings[pop.setting] = false;
               o.run();
             },
           },
-          { label: txt('popup.maxTrain.ok'), action: o.run },
+          { label: txt(pop.ok), action: o.run },
         ]);
       }, HOLD_MS);
     });
@@ -832,7 +836,11 @@ export class AppUI {
       <div class="hc-gear"></div>`;
     // Only recruited Hunters open their full view (a locked card's story and Recruit button are all there is).
     const recruitedNow = () => !def || g.state.hunters[def.id].recruited;
-    card.addEventListener('click', () => this.openHunterCard(who));
+    card.addEventListener('click', () => {
+      // The release of a long press (which spent skill points) doesn't also open the card.
+      if (this.heldFor === card) return void (this.heldFor = null);
+      this.openHunterCard(who);
+    });
     this.refreshers.push(() => card.classList.toggle('no-expand', !recruitedNow()));
     if (def && !recruitedNow()) $('.expand-tag', card).textContent = 'Story ›';
     const mid = $('.hc-mid', card);
@@ -875,6 +883,22 @@ export class AppUI {
     const { btn, bar } = this.trainParts(who, true);
     mid.appendChild(bar);
     action.appendChild(btn);
+    // Holding the card spends their skill points, top row of the tree first, left to right.
+    this.holdForMax(
+      card,
+      () => {
+        const points = g.skillPoints(who);
+        if (points <= 0 || !g.canAutoLearn(who)) return null;
+        const run = (): void => {
+          if (g.autoLearn(who) > 0) {
+            sfx('learn');
+            bumpCard(card);
+          }
+        };
+        return { text: txp('popup.autoSkills.hunter', { name: who === 'main' && !mainHunterName ? 'your Hunter' : wearerName(who), points, s: points === 1 ? '' : 's' }), run };
+      },
+      'hunterSkills',
+    );
     let gearKey = '';
     this.refreshers.push(() => {
       const points = g.skillPoints(who);
@@ -2813,7 +2837,27 @@ export class AppUI {
       actions.appendChild(row);
       $('.card-corner', card).append(dot, el('span', 'expand-tag', 'Expand ›'));
       card.setAttribute('role', 'button');
-      card.addEventListener('click', () => this.openMonsterDetail(def.id));
+      card.addEventListener('click', () => {
+        // The release of a long press (which spent evolution points) doesn't also open the card.
+        if (this.heldFor === card) return void (this.heldFor = null);
+        this.openMonsterDetail(def.id);
+      });
+      // Holding the card spends its evolution points, top row of the tree first, left to right.
+      this.holdForMax(
+        card,
+        () => {
+          const points = g.evoPoints(def.id);
+          if (points <= 0 || !g.canAutoEvolve(def.id)) return null;
+          const run = (): void => {
+            if (g.autoEvolve(def.id) > 0) {
+              sfx('learn');
+              bumpCard(card);
+            }
+          };
+          return { text: txp('popup.autoSkills.monster', { name: def.name, points, s: points === 1 ? '' : 's' }), run };
+        },
+        'monsterSkills',
+      );
     } else {
       // Locked: laid out like an unlocked card's row: a lock where the level goes, what it drops where the progress
       // bar goes, and a small Unlock button where Empower goes.
@@ -5383,6 +5427,32 @@ export class AppUI {
     );
 
     choices(
+      tx('popup.autoSkills.hunterSetting'),
+      tx('popup.autoSkills.hunterSettingBody'),
+      [
+        ['ask', 'Ask first'],
+        ['go', 'Just spend'],
+      ],
+      () => (st.autoSkillPopup ? 'ask' : 'go'),
+      (v) => {
+        st.autoSkillPopup = v === 'ask';
+      },
+    );
+
+    choices(
+      tx('popup.autoSkills.monsterSetting'),
+      tx('popup.autoSkills.monsterSettingBody'),
+      [
+        ['ask', 'Ask first'],
+        ['go', 'Just spend'],
+      ],
+      () => (st.autoEvoPopup ? 'ask' : 'go'),
+      (v) => {
+        st.autoEvoPopup = v === 'ask';
+      },
+    );
+
+    choices(
       tx('tip.settings.title'),
       tx('tip.settings.body'),
       [
@@ -6068,6 +6138,16 @@ const PROVIDER_ICONS: Record<AuthProvider, string> = {
   email:
     '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="4.5" width="20" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 6l9 7 9-7" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
 };
+
+/**
+ * The pop-ups a long press asks with (see holdForMax), each with its own Do not show again: training or empowering
+ * to the max, and spending a Hunter's skill points or a monster's evolution points.
+ */
+const HOLD_POPUPS = {
+  train: { setting: 'maxTrainPopup', title: 'popup.maxTrain.title', hint: 'popup.maxTrain.hint', never: 'popup.maxTrain.never', ok: 'popup.maxTrain.ok' },
+  hunterSkills: { setting: 'autoSkillPopup', title: 'popup.autoSkills.hunterTitle', hint: 'popup.autoSkills.hunterHint', never: 'popup.autoSkills.never', ok: 'popup.autoSkills.ok' },
+  monsterSkills: { setting: 'autoEvoPopup', title: 'popup.autoSkills.monsterTitle', hint: 'popup.autoSkills.monsterHint', never: 'popup.autoSkills.never', ok: 'popup.autoSkills.ok' },
+} as const;
 
 /** A monster at its max level wears a crown in its card's top-left corner. */
 const MAX_CROWN = `<img class="max-crown hidden" src="${gearIconUrl('armor7/068')}" alt="" title="Max level" draggable="false">`;

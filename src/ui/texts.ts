@@ -266,6 +266,30 @@ section(
     labels: { train: 'Text: Hunter', empower: 'Text: monster', hint: 'Text: second line', setting: 'Setting name', settingBody: 'Setting description' },
   },
 );
+section(
+  P,
+  'popup.autoSkills',
+  'Spend skill points',
+  {
+    hunterTitle: 'Spend skill points?',
+    hunter: "Spend **{name}'s** {points} skill point{s}? They go into the first skills that can be learned, starting at the top row of the tree and working left to right, then down. Ascending is always left to you.",
+    hunterHint: 'Holding down a **Hunter card** always spends their skill points this way.',
+    monsterTitle: 'Spend evolution points?',
+    monster: "Spend the **{name}'s** {points} evolution point{s}? They go into the first evolutions that can be bought, starting at the top row of the tree and working left to right, then down.",
+    monsterHint: 'Holding down a **monster card** in the Bestiary always spends its evolution points this way.',
+    never: 'Do not show again',
+    ok: 'OK',
+    hunterSetting: 'Hold a Hunter card to spend skill points',
+    hunterSettingBody: "Holding down a Hunter's card spends their skill points on the first skills that can be learned, top row first, left to right. **Ask first** shows a pop-up to confirm, and **Just spend** skips it.",
+    monsterSetting: 'Hold a monster card to spend evolution points',
+    monsterSettingBody: "Holding down a monster's card in the Bestiary spends its evolution points on the first evolutions that can be bought, top row first, left to right. **Ask first** shows a pop-up to confirm, and **Just spend** skips it.",
+  },
+  {
+    note: "Holding down a Hunter's card (skill points) or a monster's card in the Bestiary (evolution points). Each has its own Do not show again.",
+    vars: { name: 'the Hunter or monster', points: 'how many points', s: "'s' when more than one" },
+    labels: { hunter: 'Text: Hunter', monster: 'Text: monster', hunterHint: 'Text: Hunter second line', monsterHint: 'Text: monster second line' },
+  },
+);
 section(P, 'popup.quit', 'Quit', { title: 'Quit', body: "Close the game? Your progress is saved, and your Hunters keep hunting while you're away.", no: 'No', yes: 'Yes' }, { note: 'Menu → Quit.' });
 section(
   P,

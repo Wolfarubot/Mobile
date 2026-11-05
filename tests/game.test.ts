@@ -861,6 +861,38 @@ describe('Hunters', () => {
   });
 });
 
+describe('Spending all points from a held card', () => {
+  it('a Hunter learns top row first, left to right, each skill maxed before the next, and never Ascends', () => {
+    const g = new Game(veteran(newGame(0)), noCrit);
+    g.state.main.trains = 60;
+    const points = g.skillPoints('main');
+    expect(points).toBeGreaterThan(0);
+    expect(g.canAutoLearn('main')).toBe(true);
+    const learned = g.autoLearn('main');
+    expect(learned).toBeGreaterThan(0);
+    // Each skill learned is in reading order: every node before it (row, then column) was maxed or out of reach.
+    const tree = g.skillTree('main').filter((n) => n.id !== 'ascend').sort((a, b) => a.row - b.row || a.col - b.col);
+    const firstOpen = tree.findIndex((n) => g.skill('main', n.id) < n.maxRank);
+    for (const n of tree.slice(0, firstOpen)) expect(g.skill('main', n.id)).toBe(n.maxRank);
+    expect(g.canAutoLearn('main')).toBe(false);
+    expect(g.ascended('main')).toBe(false);
+  });
+
+  it('a monster evolves top row first, left to right, until nothing more can be bought', () => {
+    const g = rich();
+    g.state.bestiary.greenSlime.empower = 30;
+    g.state.bestiary.greenSlime.kills = 1e6;
+    const before = g.evoPoints('greenSlime');
+    const bought = g.autoEvolve('greenSlime');
+    expect(bought).toBeGreaterThan(0);
+    expect(g.evoPoints('greenSlime')).toBeLessThan(before);
+    expect(g.canAutoEvolve('greenSlime')).toBe(false);
+    const tree = [...g.evoTree('greenSlime')].sort((a, b) => a.row - b.row || a.col - b.col);
+    const firstOpen = tree.findIndex((n) => g.evoRank('greenSlime', n.id) < n.maxRank);
+    for (const n of tree.slice(0, firstOpen)) expect(g.evoRank('greenSlime', n.id)).toBe(n.maxRank);
+  });
+});
+
 describe('Skill tree row gates', () => {
   it('a row stays shut until enough points are spent in its tree: your third row takes 5', () => {
     const g = new Game(veteran(newGame(0)), noCrit);
@@ -5550,12 +5582,12 @@ describe('Saves', () => {
     s.settings.name = 'Wolfa';
     s.flags.eventsIntro = true;
     const back = deserialize(serialize(s))!;
-    expect(back.settings).toEqual({ leftHanded: true, name: 'Wolfa', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', lootPopups: true, hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', advancedTips: false, maxTrainPopup: true, autoSalvage: [], fx: Object.fromEntries(FX_KEYS.map((k) => [k, true])), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium', orientation: 'rotate', fps: '60', textSize: 'medium', craftCardPos: 'battlefield', audio: { on: true, musicOn: true, sfxOn: true, master: 80, music: 70, sfx: 80 } });
+    expect(back.settings).toEqual({ leftHanded: true, name: 'Wolfa', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', lootPopups: true, hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', advancedTips: false, maxTrainPopup: true, autoSkillPopup: true, autoEvoPopup: true, autoSalvage: [], fx: Object.fromEntries(FX_KEYS.map((k) => [k, true])), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium', orientation: 'rotate', fps: '60', textSize: 'medium', craftCardPos: 'battlefield', audio: { on: true, musicOn: true, sfxOn: true, master: 80, music: 70, sfx: 80 } });
     expect(back.flags).toEqual({ eventsIntro: true, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false, minigameIntro: false, questsIntro: false });
     const old = JSON.parse(serialize(newGame(0)));
     delete old.settings;
     delete old.flags;
-    expect(deserialize(JSON.stringify(old))!.settings).toEqual({ leftHanded: false, name: '', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', lootPopups: true, hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', advancedTips: false, maxTrainPopup: true, autoSalvage: [], fx: Object.fromEntries(FX_KEYS.map((k) => [k, true])), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium', orientation: 'rotate', fps: '60', textSize: 'medium', craftCardPos: 'battlefield', audio: { on: true, musicOn: true, sfxOn: true, master: 80, music: 70, sfx: 80 } });
+    expect(deserialize(JSON.stringify(old))!.settings).toEqual({ leftHanded: false, name: '', tabOrder: ['hunters', 'inventory', 'beasts', 'events', 'areas'], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', lootPopups: true, hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', advancedTips: false, maxTrainPopup: true, autoSkillPopup: true, autoEvoPopup: true, autoSalvage: [], fx: Object.fromEntries(FX_KEYS.map((k) => [k, true])), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium', orientation: 'rotate', fps: '60', textSize: 'medium', craftCardPos: 'battlefield', audio: { on: true, musicOn: true, sfxOn: true, master: 80, music: 70, sfx: 80 } });
     // The old Sound effects / Music levels become the Audio card's switches and sliders; bad volumes are clamped.
     const oldAudio = JSON.parse(serialize(newGame(0)));
     delete oldAudio.settings.audio;

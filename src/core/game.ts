@@ -2772,6 +2772,31 @@ export class Game {
     return true;
   }
 
+  /**
+   * Spends a Hunter's skill points on the first skills they can learn, reading their tree top row first, left to
+   * right (each one maxed before the next; the first tree, then the ascended one). Never Ascends: that's left to
+   * the player. Returns how many ranks were learned.
+   */
+  autoLearn(who: Wearer): number {
+    let n = 0;
+    for (const which of ['base', 'ascended'] as const) {
+      const order = this.skillTree(who, which)
+        .filter((node) => !(which === 'base' && node.id === 'ascend'))
+        .sort((a, b) => a.row - b.row || a.col - b.col);
+      for (let guard = 0; guard < 500; guard++) {
+        const pick = order.find((node) => this.canLearn(who, node.id, which));
+        if (!pick || !this.learn(who, pick.id, which)) break;
+        n++;
+      }
+    }
+    return n;
+  }
+
+  /** Can autoLearn learn anything right now? */
+  canAutoLearn(who: Wearer): boolean {
+    return (['base', 'ascended'] as const).some((which) => this.skillTree(who, which).some((node) => !(which === 'base' && node.id === 'ascend') && this.canLearn(who, node.id, which)));
+  }
+
   /** Cost of the next `amount` training sessions (`buyAmount` by default), stopping at their level cap. */
   trainPurchase(who: Wearer, amount: BuyAmount = this.state.buyAmount): Purchase {
     const done = this.training(who).trains;
@@ -3067,6 +3092,26 @@ export class Game {
     evo[node] = (evo[node] ?? 0) + 1;
     this.state.stats.evolves++;
     return true;
+  }
+
+  /**
+   * Spends a monster's evolution points on the first nodes it can evolve, reading its tree top row first, left to
+   * right (each one maxed before the next). Returns how many ranks were bought.
+   */
+  autoEvolve(id: EnemyId): number {
+    const order = [...this.evoTree(id)].sort((a, b) => a.row - b.row || a.col - b.col);
+    let n = 0;
+    for (let guard = 0; guard < 500; guard++) {
+      const pick = order.find((node) => this.canEvolve(id, node.id));
+      if (!pick || !this.evolve(id, pick.id)) break;
+      n++;
+    }
+    return n;
+  }
+
+  /** Can autoEvolve buy anything right now? */
+  canAutoEvolve(id: EnemyId): boolean {
+    return this.evoTree(id).some((node) => this.canEvolve(id, node.id));
   }
 
   /** Summed evolution effects of a monster. */

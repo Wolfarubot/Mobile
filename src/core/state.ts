@@ -265,6 +265,10 @@ export interface GameState {
     advancedTips: boolean;
     /** Holding Train (or Empower) on a card asks first before training to the max; off: it just trains to the max. */
     maxTrainPopup: boolean;
+    /** Holding a Hunter's card asks first before spending their skill points; off: it just spends them. */
+    autoSkillPopup: boolean;
+    /** Holding a monster's card asks first before spending its evolution points; off: it just spends them. */
+    autoEvoPopup: boolean;
     /** Rarities of looted gear to salvage the moment it drops (Equipment → Auto Salvage, from the Restless Graveyard). */
     autoSalvage: Rarity[];
     /** Which visual effects show (damage numbers by kind, status effects by kind). All on by default. */
@@ -430,7 +434,7 @@ export function newGame(now = Date.now()): GameState {
     nextGearUid: 4,
     lastSeen: now,
     samples: {},
-    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', lootPopups: true, hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', advancedTips: false, maxTrainPopup: true, autoSalvage: [], fx: allFx(), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium', orientation: 'rotate', fps: '60', textSize: 'medium', craftCardPos: 'battlefield', audio: defaultAudio() },
+    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', lootPopups: true, hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', advancedTips: false, maxTrainPopup: true, autoSkillPopup: true, autoEvoPopup: true, autoSalvage: [], fx: allFx(), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium', orientation: 'rotate', fps: '60', textSize: 'medium', craftCardPos: 'battlefield', audio: defaultAudio() },
     flags: { eventsIntro: false, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false, minigameIntro: false, questsIntro: false },
     blessings: { refine: 0, enchant: 0 },
     energy: ENERGY_MAX,
@@ -756,6 +760,8 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
       summonText: (data.settings as { summonText?: unknown } | undefined)?.summonText === true,
       advancedTips: (data.settings as { advancedTips?: unknown } | undefined)?.advancedTips === true,
       maxTrainPopup: (data.settings as { maxTrainPopup?: unknown } | undefined)?.maxTrainPopup !== false,
+      autoSkillPopup: (data.settings as { autoSkillPopup?: unknown } | undefined)?.autoSkillPopup !== false,
+      autoEvoPopup: (data.settings as { autoEvoPopup?: unknown } | undefined)?.autoEvoPopup !== false,
       cooldownStyle: pick(INDICATOR_STYLES, (data.settings as { cooldownStyle?: unknown } | undefined)?.cooldownStyle, 'fancy'),
       autoSalvage: (() => {
         const a = (data.settings as { autoSalvage?: unknown } | undefined)?.autoSalvage;
