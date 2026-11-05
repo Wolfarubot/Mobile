@@ -4701,7 +4701,7 @@ function areaIdol(id: ItemId, name: string, area: AreaId, rarity: Rarity, drops:
     recipe: starCosts[0],
     starCosts,
     growth: 1,
-    describe: (l) => `${areaName} monsters spawn ×${IDOL_SPAWN_PER_STAR * l} (not its golems)`,
+    describe: (l) => `${areaName} monsters spawn ×${IDOL_SPAWN_PER_STAR * l}`,
   };
 }
 

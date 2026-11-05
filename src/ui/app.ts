@@ -2858,8 +2858,9 @@ export class AppUI {
     card.innerHTML = `
       <div class="beast-head">
         <span class="beast-portrait"><canvas class="portrait"></canvas>${MAX_CROWN}</span>
-        <div class="info"><div class="card-corner"></div><div class="name"></div><div class="blurb">${def.blurb}</div>${g.state.bestiary[def.id].unlocked ? dropHtml(def) : '<div class="drop-line ld-spacer" aria-hidden="true">&nbsp;</div>'}</div>
+        <div class="info"><div class="card-corner"></div><div class="name"></div><div class="blurb">${def.blurb}</div></div>
       </div>
+      ${g.state.bestiary[def.id].unlocked ? dropHtml(def, false) : '<div class="drop-line ld-spacer" aria-hidden="true">&nbsp;</div>'}
       ${affinityHtml(def, true)}
       <div class="beast-actions"></div>`;
     parent.appendChild(card);
@@ -6735,11 +6736,11 @@ function bumpCard(from: HTMLElement): void {
 }
 
 /** What a monster drops (both materials when it has two), and whether it can carry gear. */
-function dropsText(e: EnemyDef): string {
-  // Rarer drops are tagged with how rare they are (a golem's Obsidian, Iron Ore...).
+function dropsText(e: EnemyDef, rarity = true): string {
+  // Rarer drops are tagged with how rare they are (a golem's Obsidian, Iron Ore...), unless asked not to.
   const extra = enemyExtraDrops(e).map((d) => {
     const r = dropRarity(d.share);
-    return `${gemHtml(d.material)} <b>${materialDef(d.material).name}</b>${r === 'common' ? '' : ` <small style="color:${RARITIES[r].color}">(${RARITIES[r].name})</small>`}`;
+    return `${gemHtml(d.material)} <b>${materialDef(d.material).name}</b>${r === 'common' || !rarity ? '' : ` <small style="color:${RARITIES[r].color}">(${RARITIES[r].name})</small>`}`;
   });
   const all = [`${gemHtml(e.material)} <b>${materialDef(e.material).name}</b>`, ...extra];
   const mats = all.length > 2 ? `${all.slice(0, -1).join(', ')} and ${all[all.length - 1]}` : all.join(' and ');
@@ -6773,8 +6774,9 @@ function lockedDrops(e: EnemyDef): string {
   return [one(e.material), ...extra].join('');
 }
 
-function dropHtml(e: EnemyDef): string {
-  return `<div class="drop-line">${dropsText(e)}</div>`;
+/** An enemy's drops line (`rarity`: tag the rarer drops with how rare they are; the full lists always do). */
+function dropHtml(e: EnemyDef, rarity = true): string {
+  return `<div class="drop-line">${dropsText(e, rarity)}</div>`;
 }
 
 /**

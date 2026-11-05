@@ -8149,3 +8149,14 @@ body .title-row .quick-type .cyc-cur {
 .section-title.beast-area + .hunter-grid.hidden + .section-title.beast-area {
   margin-top: 0;
 }
+/*
+ * The Bestiary's pinned monster card: the portrait sits at the top (as far from the top edge as from the left), and
+ * the drops run underneath it across the card rather than under the blurb.
+ */
+.hunter-dock .beast-head {
+  align-items: flex-start;
+  min-height: 0;
+}
+.hunter-dock .beast > .drop-line {
+  margin-top: 6px;
+}
