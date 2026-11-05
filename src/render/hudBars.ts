@@ -108,25 +108,39 @@ export function drawFramedBar(g: CanvasRenderingContext2D, x: number, y: number,
 /**
  * A framed bar whose slot is filled in segments: each [from, to, colour] (fractions of the slot, left to right),
  * later ones over earlier ones; the rest of the slot left empty. `frame` recolours the silver frame (its light and
- * shade kept). False until the frame has loaded.
+ * shade kept): one colour for all of it, or [from, to, colour] spans of the slot (the frame's end caps go with the
+ * slot's ends; a stretch no span covers stays silver). False until the frame has loaded.
  */
-export function drawFramedSegments(g: CanvasRenderingContext2D, x: number, y: number, s: number, w: number, h: number, segs: Array<[number, number, string]>, frame?: string): boolean {
+export function drawFramedSegments(g: CanvasRenderingContext2D, x: number, y: number, s: number, w: number, h: number, segs: Array<[number, number, string]>, frame?: string | Array<[number, number, string]>): boolean {
   const src = load();
   if (!src) return false;
   const b = build(src, Math.max(2 * END + 1, Math.round(w)), Math.max(2 * EDGE + 1, Math.round(h)));
   const at = (f: number) => Math.round(b.x0 + (b.x1 - b.x0) * Math.max(0, Math.min(1, f)));
   const spans = segs.map(([from, to, color]) => ({ a: at(from), z: at(to), fill: shades(color), color }));
-  const key = `${frame ?? ''}#` + spans.map((sp) => `${sp.a}-${sp.z}:${sp.color}`).join('|');
+  const frames = frame === undefined ? [] : typeof frame === 'string' ? [[0, 1, frame] as [number, number, string]] : frame;
+  const key = frames.map((f) => f.join(',')).join(';') + '#' + spans.map((sp) => `${sp.a}-${sp.z}:${sp.color}`).join('|');
   if (b.key !== key) {
     b.key = key;
     const img = new ImageData(new Uint8ClampedArray(b.base.data), b.w, b.h);
-    if (frame) {
+    if (frames.length) {
       // The frame's greys become the colour, by brightness: dark edges stay dark, highlights go pale.
-      const n = parseInt(frame.replace('#', ''), 16);
-      const c: Rgb = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+      const rgb = (hex: string): Rgb => {
+        const n = parseInt(hex.replace('#', ''), 16);
+        return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+      };
+      // Each column's colour (null: left silver); the end caps take the slot's first and last.
+      const fspans = frames.map(([from, to, color]) => ({ a: at(from), z: at(to), c: rgb(color) }));
+      const cols: Array<Rgb | null> = [];
+      for (let px = 0; px < b.w; px++) {
+        const sx = Math.max(b.x0, Math.min(b.x1 - 1, px));
+        let c: Rgb | null = null;
+        for (const sp of fspans) if (sx >= sp.a && sx < sp.z) c = sp.c;
+        cols.push(c);
+      }
       const inSlot = new Set(b.slot);
       for (let q = 0; q < b.w * b.h; q++) {
-        if (inSlot.has(q) || img.data[q * 4 + 3] === 0) continue;
+        const c = cols[q % b.w];
+        if (!c || inSlot.has(q) || img.data[q * 4 + 3] === 0) continue;
         const l = (img.data[q * 4] + img.data[q * 4 + 1] + img.data[q * 4 + 2]) / 765;
         for (let k = 0; k < 3; k++) img.data[q * 4 + k] = l < 0.5 ? Math.round(c[k] * l * 2) : Math.round(c[k] + (255 - c[k]) * (l - 0.5) * 1.2);
       }

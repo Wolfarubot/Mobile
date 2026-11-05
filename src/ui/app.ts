@@ -93,6 +93,7 @@ import {
   ENERGY_REGEN,
   ENERGY_ADS_PER_DAY,
   ENERGY_MAX_NO_ADS,
+  ENERGY_BAR_SEGMENTS,
   DAILY_QUEST_COUNT,
   WEEKLY_QUEST_COUNT,
   GEMS_CHECKIN,
@@ -3638,8 +3639,10 @@ export class AppUI {
   }
 
   /**
-   * The energy bar: the battlefield's silver-framed timer bar split into five, a gold segment per whole point of
-   * energy. Overcharged (past the max, from an ad), all five are full and the frame turns gold.
+   * The energy bar: the battlefield's silver-framed timer bar split into segments (5, or 10 with ads removed), a
+   * gold one per whole point of energy. Energy past the segments laps the bar again, outlining segments from the
+   * left: gold for the second lap, red for the third (14 of 20 with ads removed: all 10 full, the first 4 framed
+   * gold; 25: the first 5 red, the rest gold).
    */
   private energyBar(): HTMLElement {
     const g = this.game;
@@ -3655,7 +3658,8 @@ export class AppUI {
       text.textContent = over ? `${whole} / ${max} · overcharged` : whole >= max ? `${max} / ${max} · full` : `${whole} / ${max} · +1 in ${fmtTime(g.energyNextIn)}`;
       // The frame at 2× its pixels, 12 tall, as wide as the bar.
       const w = Math.max(40, Math.round(cv.parentElement!.clientWidth / 2));
-      const key = `${w}:${whole}:${max}`;
+      const n = Math.min(max, ENERGY_BAR_SEGMENTS);
+      const key = `${w}:${whole}:${n}`;
       if (key === drawn) return;
       if (cv.width !== w || cv.height !== 12) {
         cv.width = w;
@@ -3664,11 +3668,17 @@ export class AppUI {
       const cg = cv.getContext('2d')!;
       cg.clearRect(0, 0, w, 12);
       const segs: Array<[number, number, string]> = [];
-      for (let i = 0; i < Math.min(whole, max); i++) segs.push([i / max, (i + 1) / max, '#f2b200']);
+      for (let i = 0; i < Math.min(whole, n); i++) segs.push([i / n, (i + 1) / n, '#f2b200']);
       // A dark notch between segments.
       const px = 1 / Math.max(1, w - 12);
-      for (let i = 1; i < max; i++) segs.push([i / max - px, i / max + px * 0.5, '#2e2a20']);
-      if (drawFramedSegments(cg, 0, 0, 1, w, 12, segs, over ? '#e8a800' : undefined)) drawn = key;
+      for (let i = 1; i < n; i++) segs.push([i / n - px, i / n + px * 0.5, '#2e2a20']);
+      // Each segment's outline: how many laps of the bar reach it (one: silver, two: gold, three or more: red).
+      const frame: Array<[number, number, string]> = [];
+      for (let i = 0; i < n; i++) {
+        const laps = Math.floor((whole - 1 - i) / n);
+        if (laps >= 1) frame.push([i / n, (i + 1) / n, laps >= 2 ? '#e0352b' : '#e8a800']);
+      }
+      if (drawFramedSegments(cg, 0, 0, 1, w, 12, segs, frame)) drawn = key;
     });
     return bar;
   }

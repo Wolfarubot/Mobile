@@ -133,6 +133,8 @@ export const ENERGY_REGEN = 20 * 60;
 export const ENERGY_ADS_PER_DAY = 3;
 /** With ads removed the bar holds this much and refills to it on its own (the base 5 plus three ads' worth). */
 export const ENERGY_MAX_NO_ADS = 20;
+/** The energy bar's segments at most: energy past them laps the bar again, outlining segments gold, then red. */
+export const ENERGY_BAR_SEGMENTS = 10;
 
 // ---- Exalted Gems (the premium currency) and daily / weekly quests ----
 
