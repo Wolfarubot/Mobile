@@ -18,7 +18,7 @@ export const GR_TIME = 60;
 const PAD_SIZE = 1.5;
 /** Just the ground's small details (weeds, cracks, little bones): the graves are the game's own. */
 export const GR_DECOR = { bands: 1, density: 0.6 };
-export const GR_INTRO = `<p>Move Alias between the graves with the <b>arrows</b>. Step onto loot to grab it: 1 point, a golden urn 3.</p><p>Where the ground <b>cracks and shakes</b>, a skeleton is about to burst out: be standing there and it costs a heart. You have ${GR_TIME} seconds.</p>`;
+export const GR_INTRO = `<p>Move Alias between the graves with the <b>arrows</b>. Step onto loot to grab it: 1 point, a golden urn 3.</p><p>Where the ground <b>cracks and shakes</b>, a skeleton is about to burst out: be standing there and it costs a heart, though he can't be caught again for a moment after. You have ${GR_TIME} seconds.</p>`;
 
 /** Loot: a ring or a necklace from the jewellery pack, picked at random for each find. */
 const JEWELS = ['010', '015', '017', '019', '021', '025', '026', '028', '029', '035', '036', '052', '056', '060', '062', '066', '069', '070', '076', '079', '084', '087', '090', '091', '093', '095', '099'].map((n) => `jewelry/${n}`);
@@ -43,6 +43,17 @@ const CRACKS = ['crack1', 'crack2', 'crack3'];
 const RISE = 0.12;
 const UP = 0.7;
 const SINK = 0.25;
+/** Seconds Alias can't be caught again after a skeleton gets him (he flickers meanwhile). */
+export const GR_IMMUNE = 1.5;
+
+/**
+ * A pixel-art scale near `want`, in whole pixels of the screen (not of the page): rounding to whole page pixels
+ * left the graves at about half size on some phones and browsers, beside a full-size Alias.
+ */
+const pixelScale = (want: number): number => {
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  return Math.max(1, Math.round(want * dpr)) / dpr;
+};
 
 interface Burst {
   spot: number;
@@ -78,6 +89,8 @@ export function graveRobbing(api: MinigameApi): MinigameGame {
   let from = 4;
   let slide = 1;
   let facing: Dir = 'down';
+  /** Seconds left that skeletons can't catch him (after one has). */
+  let immune = 0;
   const pressed: Record<Dir, number> = { up: 0, down: 0, left: 0, right: 0 };
   const bursts: Burst[] = [];
   const loot: Loot[] = [];
@@ -144,6 +157,7 @@ export function graveRobbing(api: MinigameApi): MinigameGame {
         return;
       }
       slide = Math.min(1, slide + dt / 0.1);
+      immune = Math.max(0, immune - dt);
       for (const d of Object.keys(pressed) as Dir[]) pressed[d] = Math.max(0, pressed[d] - dt);
 
       // New skeletons: more at once and less warning as time goes on, but never every grave.
@@ -174,9 +188,11 @@ export function graveRobbing(api: MinigameApi): MinigameGame {
           const p = spotAt(b.spot);
           kickDirt(p.x, p.y, 14);
         }
-        // Caught: Alias is on the spot while the skeleton is out.
-        if (!b.hit && b.t >= 0 && b.t < RISE + UP && at === b.spot && slide >= 0.5) {
+        // Caught: Alias is on the spot while the skeleton is out (unless he's just been caught and is still
+        // getting away).
+        if (!b.hit && immune <= 0 && b.t >= 0 && b.t < RISE + UP && at === b.spot && slide >= 0.5) {
           b.hit = true;
+          immune = GR_IMMUNE;
           const p = spotAt(b.spot);
           api.loseLife(p.x, p.y - grid().size * 0.4);
           // It's spent: it crumbles back into the ground in a puff of dirt.
@@ -238,7 +254,7 @@ export function graveRobbing(api: MinigameApi): MinigameGame {
         // A round patch of cobblestones to stand on (whole pixels).
         const patch = mgArt('grave-patch');
         if (patch) {
-          const sp = Math.max(1, Math.round((c.size * 0.6) / patch.naturalWidth));
+          const sp = pixelScale((c.size * 0.6) / patch.naturalWidth);
           const pw = patch.naturalWidth * sp;
           const ph = patch.naturalHeight * sp;
           g.drawImage(patch, Math.round(p.x + shake - pw / 2), Math.round(p.y - c.size * 0.04 - ph / 2), pw, ph);
@@ -247,14 +263,14 @@ export function graveRobbing(api: MinigameApi): MinigameGame {
           // The ground splits open: a small crack, then a wider one, then a gaping one just before the burst.
           const crack = mgArt(CRACKS[Math.min(2, Math.floor(warning * 3))]);
           if (crack) {
-            const cs = Math.max(1, Math.round((c.size * 0.5) / 45));
+            const cs = pixelScale((c.size * 0.5) / 45);
             g.drawImage(crack, Math.round(p.x + shake - (crack.naturalWidth * cs) / 2), Math.round(p.y - c.size * 0.02 - (crack.naturalHeight * cs) / 2), crack.naturalWidth * cs, crack.naturalHeight * cs);
           }
         }
         const img = stone(STONES[i]);
         if (img.complete && img.naturalWidth) {
           // Whole pixels, the stone about two fifths of a spot tall.
-          const px = Math.max(1, Math.round((c.size * 0.42) / img.naturalHeight));
+          const px = pixelScale((c.size * 0.42) / img.naturalHeight);
           draws.push({ y: p.y - c.size * 0.2, draw: () => g.drawImage(img, Math.round(p.x - (img.naturalWidth * px) / 2), Math.round(p.y - c.size * 0.16 - img.naturalHeight * px), img.naturalWidth * px, img.naturalHeight * px) });
         }
       }
@@ -334,6 +350,8 @@ export function graveRobbing(api: MinigameApi): MinigameGame {
           g.fill();
           const sheet = HUNTER_SHEETS.thief;
           const img = hunterSheetImage('thief');
+          // Just caught: he flickers while skeletons can't catch him.
+          if (immune > 0 && Math.floor(immune * 12) % 2 === 0) return;
           if (sheet && img && img.complete && img.naturalWidth) {
             g.imageSmoothingEnabled = false;
             const row = { down: 0, left: 1, right: 2, up: 3 }[facing];
