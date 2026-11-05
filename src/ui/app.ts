@@ -6230,7 +6230,7 @@ function gearCardHtml(it: GearItem, vs: GearItem | null = null): string {
       .join('') +
     (it.mods ?? []).filter(Boolean).map((m) => `<li class="gc-mod ${m!.kind}${modPerfect(m!) ? ' perfect' : ''}">${modText(m!, gd)}</li>`).join('') +
     `<li class="gc-mod gc-slot">◇ Empty modifier slot</li>`.repeat(Math.max(0, modSlotCount(gd) - (it.mods ?? []).filter(Boolean).length)) +
-    (gd.effect ? `<li class="gc-effect">✨ ${describeEffect(gd.effect, it.stars)}</li>` : '') +
+    (gd.effect ? `<li class="gc-effect"><span>✨ ${advancedTips ? describeEffect(gd.effect, it.stars) : simpleEffect(gd.effect)}</span></li>` : '') +
     (gd.bane ? `<li class="gc-effect">${ARCHETYPES[gd.bane.archetype].icon} +${Math.round(gd.bane.bonus * GEAR_STAR_POWER[it.stars] * 100)}% damage vs ${ARCHETYPES[gd.bane.archetype].name}s</li>` : '') +
     (gd.findDrop ? `<li class="gc-effect">💎 ${it.stars >= gd.findDrop.stars ? '' : `At ${gd.findDrop.stars}★: `}${gd.findDrop.chance * 100}% chance for ${materialDef(gd.findDrop.material).name} from ${ARCHETYPES[gd.findDrop.archetype].name.toLowerCase()} kills</li>` : '');
   return `<div class="gear-card rar" style="--rc:${gearColor(gd.id)}"><div class="gc-head"><i>${gearIcon(gd)}</i><div><b>${gd.name}</b><small>${RARITIES[gd.rarity].name} ${gearKindName(gd).toLowerCase()} · <span class="stars">${starsHtml(it.stars)}</span></small><div class="gc-typeline">${procTypeTags(gd)}${hitHtml}</div></div></div><ul class="gc-stats">${all}</ul></div>`;

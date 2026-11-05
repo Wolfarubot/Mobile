@@ -8127,3 +8127,8 @@ body .title-row .quick-type .cyc-cur {
   border: 0 !important;
   border-image: none !important;
 }
+/* A gear card's ability and bonus lines are sentences (with icons inline), not a label and a value: one flowing line. */
+.gc-stats li.gc-effect,
+.gc-stats li.gc-builtin {
+  display: block;
+}
