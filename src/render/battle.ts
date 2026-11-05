@@ -651,10 +651,7 @@ export class BattleView {
         g.globalAlpha = fade;
         g.translate(sm.x, sm.y - step);
         g.scale(CHAR_SCALE * 1.3, CHAR_SCALE * 1.3);
-        g.fillStyle = 'rgba(0,0,0,0.25)';
-        g.beginPath();
-        g.ellipse(0, SUMMON_RADIUS + step, SUMMON_RADIUS, SUMMON_RADIUS * 0.35, 0, 0, Math.PI * 2);
-        g.fill();
+        pixelShadow(g, 0, SUMMON_RADIUS + step, SUMMON_RADIUS, SUMMON_RADIUS * 0.35, 0.25);
         drawRock(g, SUMMON_RADIUS, '#8a8478');
         g.translate(0, -SUMMON_RADIUS * 0.9);
         drawRock(g, SUMMON_RADIUS * 0.6, '#9a9488');
@@ -1416,10 +1413,7 @@ export class BattleView {
       case 'boulder': {
         // A big rolling boulder: its shadow, then the rock turning the way it rolls.
         const v = Math.hypot(z.vx, z.vy);
-        g.fillStyle = 'rgba(0,0,0,0.25)';
-        g.beginPath();
-        g.ellipse(z.x, z.y + z.r * 0.8, z.r * 0.95, z.r * 0.3, 0, 0, Math.PI * 2);
-        g.fill();
+        pixelShadow(g, z.x, z.y + z.r * 0.8, z.r * 0.95, z.r * 0.3, 0.25);
         g.translate(z.x, z.y);
         g.rotate(((z.max - z.life) * v) / z.r * (z.vx < 0 ? -1 : 1) * 0.6);
         // The pack's grey rock (shapes until it loads).
@@ -1571,7 +1565,7 @@ export class BattleView {
       // Charmed by Norm: pink; chilled by Frost: blue; a gold monster: gold.
       const src = e.charm ? charmTint(sheet) : e.slow && this.fxOn('chill') ? frostTint(sheet) : e.golden ? goldTint(sheet) : sheet;
       // Its shadow: one image stamped (cheaper than filling an ellipse for each of hundreds of monsters).
-      g.drawImage(SHADOW, -ra * 0.9, ra * 1.1 - ra * 0.32, ra * 1.8, ra * 0.64);
+      pixelShadow(g, 0, ra * 1.1, ra * 0.9, ra * 0.32, 0.25);
       // Side-view art faces one way: mirror it when heading the other.
       const flip = sideFlip(sh, dirX);
       if (flip) g.scale(-1, 1);
@@ -1650,10 +1644,7 @@ export class BattleView {
       g.stroke();
     }
 
-    g.fillStyle = 'rgba(0,0,0,0.3)';
-    g.beginPath();
-    g.ellipse(0, R * 0.9, R, R * 0.35, 0, 0, Math.PI * 2);
-    g.fill();
+    pixelShadow(g, 0, R * 0.9, R, R * 0.35, 0.3);
 
     // Wobble while dazed
     const sway = f.stunned ? Math.sin(this.time * 14) * 0.18 : 0;
@@ -1857,10 +1848,7 @@ export class BattleView {
     const R = PLAYER_RADIUS * 0.9;
     g.save();
     g.translate(h.x, h.y);
-    g.fillStyle = 'rgba(0,0,0,0.3)';
-    g.beginPath();
-    g.ellipse(0, R * 0.9, R, R * 0.35, 0, 0, Math.PI * 2);
-    g.fill();
+    pixelShadow(g, 0, R * 0.9, R, R * 0.35, 0.3);
     const img = sprite(`hunters/${h.id}`);
     const behind = this.facesAway(h.id, h.aim);
     if (behind) {
@@ -2049,11 +2037,8 @@ export class BattleView {
         const frame = settled ? (d.faces[i] - 1) * 4 + d.turns[i] : (Math.floor(d.age * 18) * 7 + d.id * 5 + i * 11) % 24;
         this.scaledAt(g, x, y, () => {
           g.save();
-          g.globalAlpha = Math.max(0, fade) * 0.35;
-          g.fillStyle = '#000';
-          g.beginPath();
-          g.ellipse(x, y + S / 2 - 1, S * 0.42 * (1 - h / 80), S * 0.18, 0, 0, Math.PI * 2);
-          g.fill();
+          g.globalAlpha = Math.max(0, fade);
+          pixelShadow(g, x, y + S / 2 - 1, S * 0.42 * (1 - h / 80), S * 0.18, 0.35);
           g.globalAlpha = Math.max(0, fade);
           g.imageSmoothingEnabled = false;
           g.drawImage(sheet, (frame % 4) * F, Math.floor(frame / 4) * F, F, F, x - S / 2, y - S / 2 - h, S, S);
@@ -3208,18 +3193,37 @@ const ARC_FIRST = 4;
 /** The smash sheet's first frame of its outward burst (before it, sparks gather). */
 const SMASH_START = 4;
 
-/** A soft-edged black ellipse at 25%, drawn once and stamped under each walking monster. */
+/**
+ * A blocky pixel-art ellipse in solid black, drawn once at a small size and stamped (unsmoothed, so its pixels
+ * stay square) under everything that stands on the ground.
+ */
 const SHADOW = (() => {
+  const W = 16;
+  const H = 6;
   const c = document.createElement('canvas');
-  c.width = 64;
-  c.height = 24;
+  c.width = W;
+  c.height = H;
   const g = c.getContext('2d')!;
-  g.fillStyle = 'rgba(0,0,0,0.25)';
-  g.beginPath();
-  g.ellipse(32, 12, 32, 12, 0, 0, Math.PI * 2);
-  g.fill();
+  g.fillStyle = '#000';
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const dx = (x + 0.5 - W / 2) / (W / 2);
+      const dy = (y + 0.5 - H / 2) / (H / 2);
+      if (dx * dx + dy * dy <= 1.08) g.fillRect(x, y, 1, 1);
+    }
   return c;
 })();
+
+/** Stamps the pixel shadow: centred on (x, y), `rx` and `ry` its half-width and half-height, at `alpha`. */
+function pixelShadow(g: CanvasRenderingContext2D, x: number, y: number, rx: number, ry: number, alpha: number): void {
+  const a = g.globalAlpha;
+  const smooth = g.imageSmoothingEnabled;
+  g.globalAlpha = a * alpha;
+  g.imageSmoothingEnabled = false;
+  g.drawImage(SHADOW, x - rx, y - ry, rx * 2, ry * 2);
+  g.globalAlpha = a;
+  g.imageSmoothingEnabled = smooth;
+}
 
 /** A gold coin, drawn once and stamped for each one flying to the Hunter. */
 const COIN = (() => {

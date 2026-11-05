@@ -91,7 +91,13 @@ const LAND_CENTER_W = 440;
 /** Room kept clear at each side of a centred stage, for a camera notch (as the main screen's). */
 const LAND_EDGE = 28;
 
+/** The pixel heart the HUD's lives use, also drawn in the pop when a life is lost. */
+const HEART = new Image();
+HEART.src = `${import.meta.env.BASE_URL}ui/heart.png`;
+
 interface Pop {
+  /** Draw the HUD heart after the text. */
+  heart?: boolean;
   x: number;
   y: number;
   t: number;
@@ -208,7 +214,7 @@ export function runMinigame(spec: MinigameSpec): void {
       if (!running) return;
       lives--;
       setHud();
-      if (x !== undefined && y !== undefined) api.pop(x, y, '−❤️', '#ff6a6a');
+      if (x !== undefined && y !== undefined) pops.push({ x, y, t: 0, text: '−', color: '#ff6a6a', heart: true });
       if (lives <= 0) end();
     },
     pop(x, y, text, color) {
@@ -338,10 +344,20 @@ export function runMinigame(spec: MinigameSpec): void {
         continue;
       }
       g.globalAlpha = 1 - p.t / 0.8;
+      const py = p.y - 30 - p.t * 40;
+      // A life lost: a minus and the HUD's heart side by side, centred together.
+      const hw = p.heart ? Math.round(22 * api.k) : 0;
+      const tw = g.measureText(p.text).width;
+      const px = p.heart ? p.x - hw / 2 - 1 : p.x;
       g.fillStyle = '#000';
-      g.fillText(p.text, p.x + 1, p.y - 30 - p.t * 40 + 1);
+      g.fillText(p.text, px + 1, py + 1);
       g.fillStyle = p.color;
-      g.fillText(p.text, p.x, p.y - 30 - p.t * 40);
+      g.fillText(p.text, px, py);
+      if (p.heart && HEART.complete && HEART.naturalWidth) {
+        const hh = (hw * HEART.naturalHeight) / HEART.naturalWidth;
+        g.imageSmoothingEnabled = false;
+        g.drawImage(HEART, Math.round(px + tw / 2 + 1), Math.round(py - hh * 0.8), hw, hh);
+      }
     }
     g.globalAlpha = 1;
     g.restore();
