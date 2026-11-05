@@ -2778,15 +2778,30 @@ export class AppUI {
     // An area's title wears the crown too once every one of its monsters is at its max level.
     const areaCrowns: Array<{ crown: HTMLElement; defs: EnemyDef[] }> = [];
     for (const areaId of order) {
-      const title = sectionTitle(`${areaDef(areaId).name}${areaId === g.area ? ' · here' : ''}`);
+      // Each area's header opens and closes its monsters, like Settings' categories (open to begin with; one you
+      // close stays closed until the game restarts).
+      const title = el('button', 'section-title settings-cat beast-area') as HTMLButtonElement;
+      title.type = 'button';
+      title.innerHTML = `<span class="sc-name">${areaDef(areaId).name}${areaId === g.area ? ' · here' : ''}</span><span class="sc-arrow">›</span>`;
       const crown = el('img', 'area-crown hidden') as HTMLImageElement;
       crown.src = gearIconUrl('armor7/068') ?? '';
       crown.alt = '';
       crown.title = 'Every monster here is at max level';
-      $('span', title).prepend(crown);
+      $('.sc-name', title).prepend(crown);
       areaCrowns.push({ crown, defs: areaEnemies(areaId) });
       this.panel.appendChild(title);
       const grid = el('div', 'hunter-grid');
+      const draw = () => {
+        const open = !closedBeastAreas.has(areaId);
+        title.classList.toggle('open', open);
+        title.setAttribute('aria-expanded', String(open));
+        grid.classList.toggle('hidden', !open);
+      };
+      title.addEventListener('click', () => {
+        if (!closedBeastAreas.delete(areaId)) closedBeastAreas.add(areaId);
+        draw();
+      });
+      draw();
       for (const def of areaEnemies(areaId)) {
         const tile = el('button', 'hunter-tile beast-tile') as HTMLButtonElement;
         tile.innerHTML = `<canvas class="bt-portrait"></canvas><span class="ht-name">${def.name}</span><small class="ht-lv"></small><b class="sp-dot hidden" title="${esc(txt('tip.markers.evoPoints'))}"></b><span class="alert-mark white tile-new hidden"></span>${MAX_CROWN}`;
@@ -6445,6 +6460,8 @@ function foldChips(box: HTMLElement | null): void {
 /** Settings → Advanced tooltips: tags explain themselves with the numbers (chances, damage, durations). */
 let advancedTips = false;
 /** Settings categories left open this session. */
+/** Bestiary areas closed with their header (the rest are open), until the game restarts. */
+const closedBeastAreas = new Set<AreaId>();
 const openSettingsCats = new Set<string>();
 
 /**
