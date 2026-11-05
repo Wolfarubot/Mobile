@@ -2635,16 +2635,25 @@ function drawBullet(g: CanvasRenderingContext2D, b: Bullet, t: number, basic = f
       g.fillRect(-3, -1, 2, 2);
       break;
     case 'arrow':
-      g.rotate(a);
-      // An Elemental Arrow glows with its element; an exploding one trails sparks.
-      if (b.elem || b.blast) {
-        g.fillStyle = b.elem ? DAMAGE_TYPES[b.dtype ?? 'physical'].color : '#ff8a3d';
+    case 'bolt': {
+      // An arrow or bolt of an element (an Elemental Arrow, or an elemental weapon's) glows with it; an exploding
+      // one glows orange.
+      const elemental = !!b.dtype && b.dtype !== 'physical';
+      if (elemental || b.blast) {
+        g.fillStyle = elemental ? DAMAGE_TYPES[b.dtype!].color : '#ff8a3d';
         g.globalAlpha = 0.45;
         g.beginPath();
-        g.arc(4, 0, 6, 0, Math.PI * 2);
+        g.arc(Math.cos(a) * 4, Math.sin(a) * 4, 6, 0, Math.PI * 2);
         g.fill();
         g.globalAlpha = 1;
       }
+      // The pack's arrow (a bow's) or shorter bolt (a crossbow's or repeater's), flying point first.
+      const img = gearImage(b.kind === 'arrow' ? ARROW_ICON : BOLT_ICON);
+      if (img) {
+        drawFlyingIcon(g, img, a, b.kind === 'arrow' ? 26 : 22);
+        break;
+      }
+      g.rotate(a);
       g.strokeStyle = '#e8d2a8';
       g.lineWidth = 2;
       g.beginPath();
@@ -2659,6 +2668,7 @@ function drawBullet(g: CanvasRenderingContext2D, b: Bullet, t: number, basic = f
       g.closePath();
       g.fill();
       break;
+    }
     case 'dagger':
       if (blade) {
         // The thrower's dagger itself, flying point first (its icon points up and to the right).
@@ -2692,8 +2702,13 @@ function drawBullet(g: CanvasRenderingContext2D, b: Bullet, t: number, basic = f
       g.fill();
       break;
     case 'spark': {
-      // A spellcaster's magic bolt, in their colour.
-      const c = b.shooter === 'main' ? '#fff6c2' : hunterDef(b.shooter).color;
+      // A spellcaster's magic bolt: the effect pack's crackling orb, in their colour (or its element's).
+      const c = b.dtype && b.dtype !== 'physical' ? DAMAGE_TYPES[b.dtype].color : b.shooter === 'main' ? '#fff6c2' : hunterDef(b.shooter).color;
+      const orb = effectImage('orb');
+      if (orb) {
+        drawEffectFrame(g, tinted(orb, c), 'orb', Math.floor(t * 14), 0, 0, 16, 'center', true);
+        break;
+      }
       g.rotate(t * 10);
       g.fillStyle = c;
       g.globalAlpha = 0.35;
@@ -2799,6 +2814,23 @@ function drawBullet(g: CanvasRenderingContext2D, b: Bullet, t: number, basic = f
         g.beginPath();
         g.arc(0, 0, 6, 0, Math.PI * 2);
         g.fill();
+      }
+      {
+        // One lead ball from the pack (an exploding round glows orange behind it).
+        const shot = gearImage(SHOT_ICON);
+        const r = b.dmg > 1.5 ? 5 : 4;
+        if (shot) {
+          if (b.blast) {
+            g.fillStyle = 'rgba(255,138,61,0.5)';
+            g.beginPath();
+            g.arc(0, 0, r + 2.5, 0, Math.PI * 2);
+            g.fill();
+          }
+          const [sx, sy, sw, sh] = SHOT_BOX;
+          g.imageSmoothingEnabled = false;
+          g.drawImage(shot, sx, sy, sw, sh, -r, -r * (sh / sw), r * 2, r * 2 * (sh / sw));
+          break;
+        }
       }
       g.fillStyle = b.blast ? '#ff8a3d' : '#ffe9a0';
       g.beginPath();
@@ -3241,6 +3273,19 @@ function drawSheetFrame(g: CanvasRenderingContext2D, img: CanvasImageSource, sh:
 
 /** The rolling boulder: a grey rock from the resources pack. */
 const ROCK_ICON = 'resources3/011';
+/** A bow's arrow and a crossbow's (or repeater's) shorter bolt, from the weapon packs (both point up and to the right). */
+const ARROW_ICON = 'weapons/043';
+const BOLT_ICON = 'weapons/044';
+/** A gun's round: one lead ball cut from the pack's pile of three ([x, y, w, h] in the icon). */
+const SHOT_ICON = 'weapons5/053';
+const SHOT_BOX: [number, number, number, number] = [12, 1, 14, 13];
+
+/** A pack icon pointing up and to the right, drawn `size` across and turned to fly along angle `a`. */
+function drawFlyingIcon(g: CanvasRenderingContext2D, img: HTMLImageElement, a: number, size: number): void {
+  g.rotate(a + Math.PI / 4);
+  g.imageSmoothingEnabled = false;
+  g.drawImage(img, -size / 2, -size / 2, size, size);
+}
 
 /** Rock and boulder spells tint the pack's effects to stone. */
 const STONE_COLOR = '#a89c86';
