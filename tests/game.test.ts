@@ -859,6 +859,37 @@ describe('Hunters', () => {
   });
 });
 
+describe('Breaking projectiles', () => {
+  it("a melee Hunter breaks only the projectiles fired at them, not one aimed at a Hunter beside them", () => {
+    const g = new Game(newGame(0), noCrit);
+    for (const m of Object.keys(g.state.materials) as Array<keyof typeof g.state.materials>) g.state.materials[m] = 1e6;
+    g.state.gold = 1e40;
+    g.state.hunters.puppeteer.recruited = true;
+    g.equip('puppeteer', 0, g.craftGear('wolfTome')!.uid);
+    g.station('puppeteer', g.state.area);
+    g.equip('main', 0, g.craftGear('slimeSword')!.uid);
+    const run = (at: 'main' | 'puppeteer') => {
+      const f = new Field(g);
+      f.setView(390, 420);
+      f.update(0);
+      const h = f.helpers[0];
+      const tx = at === 'main' ? 0 : h.x;
+      const ty = at === 'main' ? 0 : h.y;
+      f.shots = [{ x: tx, y: ty - 120, vx: 0, vy: 120, life: 5, from: 'necromancer', at }];
+      const broke: string[] = [];
+      for (let i = 0; i < 60; i++) {
+        f.update(1 / 30);
+        for (const e of f.drainEvents()) if (e.type === 'parry') broke.push(e.who);
+      }
+      return broke;
+    };
+    // Your Hunter's sword breaks what's fired at you...
+    expect(run('main')).toEqual(['main']);
+    // ...but not what's fired at Theon (holding a tome) beside you: that reaches Theon.
+    expect(run('puppeteer')).toEqual([]);
+  });
+});
+
 describe('Loot carriers', () => {
   it('every area has a monster that carries gear and has a Loot node in its evolution tree', () => {
     for (const a of AREAS) {

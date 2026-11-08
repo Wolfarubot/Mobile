@@ -190,6 +190,8 @@ export interface EnemyShot {
   vy: number;
   life: number;
   from: EnemyId;
+  /** The Hunter it was fired at: only they can break it with a melee weapon (it flies past anyone else). */
+  at?: Shooter;
 }
 /** How big a monster's projectile is (for hitting a Hunter). */
 export const SHOT_RADIUS = 5;
@@ -1247,7 +1249,7 @@ export class Field {
   }
 
   /** A ranged monster within range of its Hunter counts down and shoots a projectile at them. */
-  private rangedAttack(e: Enemy, ranged: { range: number; cooldown: number; speed: number }, t: { x: number; y: number }, d: number, dt: number): void {
+  private rangedAttack(e: Enemy, ranged: { range: number; cooldown: number; speed: number }, t: { who: Shooter; x: number; y: number }, d: number, dt: number): void {
     e.shotCd ??= ranged.cooldown * (0.3 + this.game.rng() * 0.5);
     if (d > ranged.range + e.r) return;
     e.shotCd -= dt;
@@ -1256,7 +1258,7 @@ export class Field {
     const a = Math.atan2(t.y - e.y, t.x - e.x);
     const x = e.x + Math.cos(a) * e.r;
     const y = e.y + Math.sin(a) * e.r;
-    this.shots.push({ x, y, vx: Math.cos(a) * ranged.speed, vy: Math.sin(a) * ranged.speed, life: (ranged.range * 1.6) / ranged.speed, from: e.type });
+    this.shots.push({ x, y, vx: Math.cos(a) * ranged.speed, vy: Math.sin(a) * ranged.speed, life: (ranged.range * 1.6) / ranged.speed, from: e.type, at: t.who });
     this.events.push({ type: 'enemyShot', x, y, a });
   }
 
@@ -1292,8 +1294,9 @@ export class Field {
         }
         const up = h.state.stun <= 0;
         // A melee weapon swats it out of the air as it comes within reach, without breaking off the Hunter's own
-        // attacks (their charge, aim and swing carry on).
-        if (up && this.isMelee(h.who) && d <= Math.min(this.game.shooterRange(h.who), 90) + SHOT_RADIUS) {
+        // attacks (their charge, aim and swing carry on). Only the Hunter it was fired at does: one aimed at a
+        // Hunter beside them (a tome's summoner, say) flies on to its mark.
+        if (up && (!s.at || s.at === h.who) && this.isMelee(h.who) && d <= Math.min(this.game.shooterRange(h.who), 90) + SHOT_RADIUS) {
           s.life = 0;
           this.events.push({ type: 'parry', who: h.who, x: s.x, y: s.y, a: Math.atan2(s.y - h.y, s.x - h.x) });
           break;
