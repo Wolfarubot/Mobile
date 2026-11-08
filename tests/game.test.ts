@@ -859,6 +859,15 @@ describe('Hunters', () => {
   });
 });
 
+describe('Loot carriers', () => {
+  it('every area has a monster that carries gear and has a Loot node in its evolution tree', () => {
+    for (const a of AREAS) {
+      const ok = ENEMIES.filter((e) => e.area === a.id && !e.guardianOnly).filter((e) => lootChance(e.id) > 0 && MONSTER_EVO_TREES[e.id].some((n) => ((n.effect as Record<string, number>).loot ?? 0) > 0));
+      expect(ok.map((e) => e.id), a.id).not.toHaveLength(0);
+    }
+  });
+});
+
 describe('Offline drops', () => {
   it("every unlocked monster's drops come in while you're away, even one the battlefield sample never slew", () => {
     const g = new Game(veteran(newGame(0)), noCrit);

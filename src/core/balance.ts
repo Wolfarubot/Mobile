@@ -1719,10 +1719,14 @@ export const dropsFrom = (chance: number, roll: number): number => Math.floor(ch
 
 /**
  * Chance per kill that a monster drops a piece of gear (loot). Only certain monsters carry it: thieves,
- * knights, grave robbers and the like. A Guardian always drops a piece when it falls.
+ * knights, grave robbers and the like, at least one in every area, each with a Loot node in its evolution tree
+ * (tests check both). A Guardian always drops a piece when it falls.
  */
 export const LOOT_CARRIERS: Partial<Record<EnemyId, number>> = {
+  goblin: 1 / 3000,
+  stoneGolem: 1 / 1500, // rare: golems spawn seldom
   zombie: 1 / 2500,
+  cultist: 1 / 2500,
   boneKnight: 1 / 1500,
   possessedArmor: 1 / 1200,
   deepLurker: 1 / 1200, // what it dragged down into the abyss
@@ -1973,6 +1977,12 @@ const sigLunge = (name: string, icon: string, them: string) =>
   ({ ...ev('sig', name, icon, `+50% gold and material drops.\n${them} now lunge at Hunters when they get close enough.`, 1, { gold: 0.5, drops: 0.5, lunge: 1 }), cost: 4 });
 const sigLoot = (name: string, icon: string, area: string) =>
   ev('sig', name, icon, `+2.5% chance per rank to drop Loot from the ${area}.`, 4, { loot: 0.025 });
+/** A predator that also carries gear: its lunge, and the loot a full Loot signature gives (10%), in one node. */
+const sigLungeLoot = (name: string, icon: string, them: string, area: string) =>
+  ({ ...ev('sig', name, icon, `+50% gold and material drops, and +10% chance to drop Loot from the ${area}.\n${them} now lunge at Hunters when they get close enough.`, 1, { gold: 0.5, drops: 0.5, lunge: 1, loot: 0.1 }), cost: 4 });
+/** A swarm that also carries gear: it splits, and each rank adds a Loot chance too. */
+const sigSplitLoot = (name: string, icon: string, them: string, area: string) =>
+  ev('sig', name, icon, `When slain, ${them} have a 25% chance per rank to split into 2 smaller ones, and +2.5% chance per rank to drop Loot from the ${area}.`, 4, { split: 0.25, loot: 0.025 });
 const sigRise = (name: string, icon: string, them: string) =>
   ev('sig', name, icon, `When slain, ${them} have a 15% chance per rank to rise again once, at half their HP.`, 4, { rise: 0.15 });
 const sigBurst = (name: string, icon: string, them: string) =>
@@ -1987,7 +1997,7 @@ const EVO_SIGNATURES: Partial<Record<EnemyId, EvoSpec>> = {
   shadowSlime: sigSplit('Shadow Split', '🌑', 'Shadow Slimes'),
   fireDrake: sigSplit('Brood Hatch', '🥚', 'Broodmothers'),
   rockMite: sigSplit('Mite Swarm', '🪨', 'Rock Mites'),
-  imp: sigSplit('Imp Swarm', '😈', 'Imps'),
+  imp: sigSplitLoot('Imp Swarm', '😈', 'Imps', 'Ember Mines'),
   puppet: sigSplit('Severed Strings', '🪆', 'Possessed Puppets'),
   // Plants leave burning debris.
   toadstool: sigFire('Toxic Caps', '🍄', 'Toadstools', 'their poisonous caps', true),
@@ -1997,15 +2007,17 @@ const EVO_SIGNATURES: Partial<Record<EnemyId, EvoSpec>> = {
   brownBear: sigLunge('Bear Charge', '🐻', 'Brown Bears'),
   bat: sigLunge('Blood Dive', '🦇', 'Vampire Bats'),
   gloomcrawler: sigLunge('Skittering Ambush', '🕷️', 'Gloomcrawlers'),
-  deepLurker: sigLunge('From the Deep', '🦑', 'Abyssal Lurkers'),
+  deepLurker: sigLungeLoot('From the Deep', '🦑', 'Abyssal Lurkers', 'Shadowy Depths'),
   hellhound: sigLunge('Hellfire Pounce', '🔥', 'Hellhounds'),
   iceWolf: sigLunge('Pack Leader', '🐺', 'Ice Wolves'),
-  yeti: sigLunge('Avalanche Charge', '❄️', 'Yetis'),
+  yeti: sigLungeLoot('Avalanche Charge', '❄️', 'Yetis', 'Frost Peaks'),
   griffin: sigLunge('Diving Talons', '🦅', 'Griffins'),
   iceWyvern: sigLunge('Diving Strike', '🐉', 'Ice Wyverns'),
   chimera: sigLunge('Three-Headed Pounce', '🦁', 'Chimeras'),
   behemoth: sigLunge('Stampede', '🐘', 'Behemoths'),
   // Hoarders drop loot.
+  // (Every area has a monster that carries gear and has a Loot node like these; see LOOT_CARRIERS.)
+  stoneGolem: sigLoot('Buried Treasure', '💰', 'Fey Grove'),
   cultist: sigLoot('Ritual Offerings', '🕯️', 'Restless Graveyard'),
   necromancer: sigLoot('Grave Robbing', '⚰️', 'Forbidden Crypt'),
   possessedArmor: sigLoot('Hollow Armory', '🛡️', 'Forbidden Crypt'),
@@ -2016,6 +2028,7 @@ const EVO_SIGNATURES: Partial<Record<EnemyId, EvoSpec>> = {
   succubus: sigLoot('Stolen Hearts', '💋', 'Void Rift'),
   darkKnight: sigLoot('Fallen Arms', '🗡️', 'Void Rift'),
   voidWyrm: sigLoot("Wyrm's Hoard", '💰', 'Void Rift'),
+  astralSentinel: sigLoot('Star-Forged Relics', '🌟', 'Meteor Field'),
   // The undead rise again.
   skeleton: sigRise('Reassemble', '💀', 'Skeletons'),
   zombie: sigRise('Undying', '🧟', 'Zombies'),
