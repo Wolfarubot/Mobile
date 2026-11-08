@@ -341,6 +341,8 @@ export interface GameState {
   buyAmount: BuyAmount;
   /** How many sessions the full monster view's Empower button buys (its own ×1/×5/×10/MAX switch). */
   empowerAmount: BuyAmount;
+  /** One-time tips that came due while you were away, waiting behind the battlefield's envelope (oldest first). */
+  mailbox: string[];
   stats: {
     totalKills: number;
     totalGold: number;
@@ -458,6 +460,7 @@ export function newGame(now = Date.now()): GameState {
     seen: { journal: [], recipes: [], beasts: [], events: [], gearUid: 3, init: true },
     buyAmount: 1,
     empowerAmount: 1,
+    mailbox: [],
     stats: {
       totalKills: 0, totalGold: 0, taps: 0, escaped: 0, guardians: 0, hunterKills: {}, matGained: {},
       started: now, played: 0, away: 0, gearCrafted: 0, starsAdded: 0, salvaged: 0, upgrades: 0, refines: 0, enchants: 0, rerolls: 0,
@@ -745,6 +748,7 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
     items: mergeNumbers(base.items, data.items),
     stats,
     empowerAmount: EMPOWER_AMOUNTS.includes(data.empowerAmount as BuyAmount) ? (data.empowerAmount as BuyAmount) : 1,
+    mailbox: Array.isArray(data.mailbox) ? (data.mailbox as unknown[]).filter((x): x is string => typeof x === 'string') : [],
     settings: {
       leftHanded: !!(data.settings as { leftHanded?: unknown } | undefined)?.leftHanded,
       name: String((data.settings as { name?: unknown } | undefined)?.name ?? '').slice(0, 16),

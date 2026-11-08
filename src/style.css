@@ -8160,3 +8160,77 @@ body .title-row .quick-type .cyc-cur {
 .hunter-dock .beast > .drop-line {
   margin-top: 6px;
 }
+
+/*
+ * The battlefield's envelope (top left): tips that came due while you were away. Tap it for "While you were
+ * away…" and the list. A count shows when there's more than one.
+ */
+.mail-btn {
+  position: absolute;
+  z-index: 4;
+  left: 8px;
+  top: 8px;
+  width: 44px;
+  height: 38px;
+  padding: 0 !important;
+  min-height: 0 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: mail-bob 1.6s ease-in-out infinite;
+}
+.mail-btn.mail-low {
+  top: 52px;
+}
+.mail-btn .mail-ic {
+  width: 32px;
+  height: 24px;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 12' shape-rendering='crispEdges'><rect width='16' height='12' fill='%232a1e14'/><rect x='1' y='1' width='14' height='10' fill='%23f2e6c8'/><rect x='1' y='8' width='14' height='3' fill='%23e0cfa4'/><rect x='1' y='1' width='1' height='1' fill='%238a6a40'/><rect x='2' y='2' width='1' height='1' fill='%238a6a40'/><rect x='3' y='3' width='1' height='1' fill='%238a6a40'/><rect x='4' y='4' width='1' height='1' fill='%238a6a40'/><rect x='5' y='5' width='1' height='1' fill='%238a6a40'/><rect x='6' y='6' width='1' height='1' fill='%238a6a40'/><rect x='7' y='7' width='1' height='1' fill='%238a6a40'/><rect x='8' y='7' width='1' height='1' fill='%238a6a40'/><rect x='9' y='6' width='1' height='1' fill='%238a6a40'/><rect x='10' y='5' width='1' height='1' fill='%238a6a40'/><rect x='11' y='4' width='1' height='1' fill='%238a6a40'/><rect x='12' y='3' width='1' height='1' fill='%238a6a40'/><rect x='13' y='2' width='1' height='1' fill='%238a6a40'/><rect x='14' y='1' width='1' height='1' fill='%238a6a40'/><rect x='7' y='5' width='2' height='2' fill='%23c0302a'/><rect x='7' y='5' width='1' height='1' fill='%23ff6a5a'/></svg>") center / contain no-repeat;
+  image-rendering: pixelated;
+}
+.mail-btn .mail-count {
+  position: absolute;
+  right: -6px;
+  top: -6px;
+  min-width: 18px;
+  padding: 0 4px;
+  border: 2px solid #000;
+  background: #c0302a;
+  color: #fff;
+  font-size: 11px;
+  line-height: 14px;
+  text-align: center;
+}
+.mail-btn .mail-count:empty {
+  display: none;
+}
+@keyframes mail-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+.mail-list {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0 4px;
+}
+.mail-list .mail-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+}
+/* The envelope's list: each missed tip a framed button like the game's others (white outlined text). */
+.mail-list .mail-item {
+  background: var(--c1) padding-box !important;
+  border: 8px solid var(--c0) !important;
+  border-radius: 0 !important;
+  border-image: var(--img-btn) 3 fill / 8px / 0 stretch !important;
+  image-rendering: pixelated;
+  color: #fff !important;
+  text-shadow: var(--outline) !important;
+  padding: 4px 8px !important;
+  font-size: 14px;
+  min-height: 0 !important;
+}

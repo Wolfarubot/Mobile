@@ -301,6 +301,18 @@ section(
   },
   { note: "Shown once, after you've held a Train button to train to the max five times." },
 );
+section(
+  P,
+  'popup.mailbox',
+  'While you were away',
+  {
+    title: 'While you were away…',
+    body: 'These came up while you were gone. Tap one to read it.',
+    close: 'Close',
+    button: 'While you were away',
+  },
+  { note: "The envelope on the battlefield: one-time tips that came due while you were away, listed by their titles. Read one, then go where it points, or come back here with its other button." },
+);
 section(P, 'popup.quit', 'Quit', { title: 'Quit', body: "Close the game? Your progress is saved, and your Hunters keep hunting while you're away.", no: 'No', yes: 'Yes' }, { note: 'Menu → Quit.' });
 section(
   P,

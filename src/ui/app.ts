@@ -186,6 +186,8 @@ import { GainPops } from './gainPops';
 import { ACC_TAG_ICONS, ARCHETYPE_TAG_ICONS, ARMOR_TAG_ICONS, DAMAGE_TAG_ICONS, EFFECT_TAG_ICONS, FEATURE_TAG_ICONS, SPECIAL_TAG_ICON, SUMMON_TAG_ICONS, tagIconHtml } from './tagIcons';
 
 type Tab = TabId;
+/** The one-time tips (see App.tips), as the envelope keeps them. */
+type TipId = 'events' | 'train' | 'wolf' | 'craft' | 'empower' | 'minigames' | 'quests';
 /** What treeView needs to draw and drive a skill or evolution tree. */
 interface TreeAdapter {
   nodes: TreeNode[];
@@ -467,6 +469,8 @@ export class AppUI {
     });
     $('#questBtn .qb-icon').innerHTML = sprite(MENU_SPRITES.quests);
     $('#questBtn').addEventListener('click', () => this.openQuests());
+    $('#mailBtn').addEventListener('click', () => this.openMailbox());
+    $('#mailBtn').title = txt('popup.mailbox.button');
     // Any tap may change what the cached rates and DPS show (training, stationing, equipping): recompute them.
     document.addEventListener('pointerdown', () => this.shownCache.clear(), true);
     // A buzz when a button is pressed (on click, so a scroll that starts on a button doesn't buzz).
@@ -593,15 +597,12 @@ export class AppUI {
     $('.tabs button[data-tab=areas]').classList.toggle('locked', !this.areasOpen);
     // One-time tips, never two within POPUP_GAP of each other (or of any other popup).
     const tipReady = s.flags.welcome && !this.modalClose && !this.detail && performance.now() - this.lastPopup >= POPUP_GAP_MS;
-    if (tipReady) {
-      if (g.eventsOpen && !s.flags.eventsIntro) this.showEventsIntro();
-      else if (!s.flags.trainIntro && g.trainUnlocked && s.gold >= g.trainPurchase('main', 1).cost) this.showTrainIntro();
-      else if (!s.flags.wolfIntro && !s.bestiary.wolf.unlocked && s.gold >= enemyUnlockCost(enemyDef('wolf'))) this.showWolfIntro();
-      else if (!s.flags.craftIntro && this.firstCraftable()) this.showCraftIntro();
-      else if (!s.flags.empowerIntro && g.empowerUnlocked) this.showEmpowerIntro();
-      else if (!s.flags.minigameIntro && g.eventUnlocked('huntingPractice')) this.showMinigameIntro();
-      else if (!s.flags.questsIntro && g.questsOpen) this.showQuestsIntro();
-    }
+    if (tipReady) this.tips().find((t) => t.ready())?.show(false);
+    // The envelope: tips that came due while you were away.
+    const mailBtn = $('#mailBtn');
+    mailBtn.classList.toggle('hidden', !s.mailbox.length);
+    mailBtn.classList.toggle('mail-low', s.settings.dps && s.settings.dpsCorner === 'tl');
+    $('.mail-count', mailBtn).textContent = s.mailbox.length > 1 ? String(s.mailbox.length) : '';
     // The quest log's button only appears once you've reached the Restless Graveyard.
     $('#questBtn').classList.toggle('hidden', !g.questsOpen);
     $('#menuBtn .alert-mark').classList.toggle('hidden', !g.unreadJournal().length);
@@ -4338,6 +4339,59 @@ export class AppUI {
     this.showModal(`<h2>${tx('popup.eventsLocked.title')}</h2>${txp('popup.eventsLocked.body', v)}`, [{ label: txt('popup.eventsLocked.ok') }]);
   }
 
+  /**
+   * The one-time tips, in the order they're offered: when each is due, how it's marked as given (so it isn't
+   * offered again) and how it's shown (`replay` shows it without marking it, as Tutorials and the envelope do).
+   */
+  private tips(): Array<{ id: TipId; title: string; ready: () => boolean; mark: () => void; show: (replay: boolean) => void }> {
+    const g = this.game;
+    const s = g.state;
+    return [
+      { id: 'events', title: txt('popup.events.title'), ready: () => g.eventsOpen && !s.flags.eventsIntro, mark: () => (s.flags.eventsIntro = true), show: (r) => this.showEventsIntro(r) },
+      { id: 'train', title: txt('popup.train.title'), ready: () => !s.flags.trainIntro && g.trainUnlocked && s.gold >= g.trainPurchase('main', 1).cost, mark: () => (s.flags.trainIntro = true), show: (r) => this.showTrainIntro(r) },
+      { id: 'wolf', title: txt('popup.wolf.title'), ready: () => !s.flags.wolfIntro && !s.bestiary.wolf.unlocked && s.gold >= enemyUnlockCost(enemyDef('wolf')), mark: () => (s.flags.wolfIntro = true), show: (r) => this.showWolfIntro(r) },
+      { id: 'craft', title: txt('popup.craft.title'), ready: () => !s.flags.craftIntro && !!this.firstCraftable(), mark: () => (s.flags.craftIntro = true), show: (r) => this.showCraftIntro(r) },
+      { id: 'empower', title: txt('popup.empower.title'), ready: () => !s.flags.empowerIntro && g.empowerUnlocked, mark: () => (s.flags.empowerIntro = true), show: (r) => this.showEmpowerIntro(r) },
+      { id: 'minigames', title: txt('popup.minigames.title'), ready: () => !s.flags.minigameIntro && g.eventUnlocked('huntingPractice'), mark: () => (s.flags.minigameIntro = true), show: (r) => this.showMinigameIntro(r) },
+      { id: 'quests', title: txt('popup.quests.title'), ready: () => !s.flags.questsIntro && g.questsOpen, mark: () => g.openQuestLog(), show: (r) => this.showQuestsIntro(r) },
+    ];
+  }
+
+  /** Back from time away: every tip that came due goes behind the envelope instead of popping up. */
+  collectAwayTips(): void {
+    const s = this.game.state;
+    if (!s.flags.welcome) return;
+    for (const t of this.tips()) {
+      if (!t.ready()) continue;
+      t.mark();
+      if (!s.mailbox.includes(t.id)) s.mailbox.push(t.id);
+    }
+    this.refresh();
+  }
+
+  /** The envelope's window: "While you were away…" and the tips waiting there, each opening its pop-up. */
+  openMailbox(): void {
+    const s = this.game.state;
+    const tips = this.tips();
+    s.mailbox = s.mailbox.filter((id) => tips.some((t) => t.id === id));
+    if (!s.mailbox.length) return;
+    const list = s.mailbox.map((id) => `<button class="mail-item" data-tip="${id}">${esc(tips.find((t) => t.id === id)!.title)}<span>›</span></button>`).join('');
+    this.showModal(`<h2>${tx('popup.mailbox.title')}</h2>${txp('popup.mailbox.body')}<div class="mail-list">${list}</div>`, [{ label: txt('popup.mailbox.close'), secondary: true }]);
+    this.modal.querySelectorAll<HTMLButtonElement>('.mail-item').forEach((b) =>
+      b.addEventListener('click', () => {
+        const t = tips.find((x) => x.id === b.dataset.tip);
+        if (!t) return;
+        // Its pop-up's buttons take it out of the envelope: one that goes somewhere closes everything, the other
+        // comes back here while more are waiting.
+        this.fromMail = t.id;
+        t.show(true);
+      }),
+    );
+  }
+
+  /** The tip just opened from the envelope (see openMailbox), until its pop-up is up. */
+  private fromMail: TipId | null = null;
+
   /** Shown once, the very first time the game opens. */
   showWelcome(replay = false): void {
     if (!replay) this.game.state.flags.welcome = true;
@@ -6041,6 +6095,10 @@ export class AppUI {
   // ---- Modals ----
 
   showModal(html: string, buttons: Array<{ label: string; secondary?: boolean; action?: () => void }>): void {
+    // A tip opened from the envelope: either button takes it out; the one that goes nowhere ("Later") brings the
+    // envelope's window back while other tips wait there.
+    const mail = this.fromMail;
+    this.fromMail = null;
     this.modal.innerHTML = `<div class="modal-box">${html}<div class="buttons"></div></div>`;
     const wrap = $('.buttons', this.modal);
     this.lastPopup = performance.now();
@@ -6053,8 +6111,10 @@ export class AppUI {
       const btn = el('button', b.secondary ? 'secondary' : '', b.label);
       btn.addEventListener('click', () => {
         close();
+        if (mail) this.game.state.mailbox = this.game.state.mailbox.filter((id) => id !== mail);
         b.action?.();
         this.refresh();
+        if (mail && b.secondary && this.game.state.mailbox.length && !this.modalClose) this.openMailbox();
       });
       wrap.appendChild(btn);
     }
@@ -6075,6 +6135,7 @@ export class AppUI {
    * area, who hunted there, the monsters they slew and what it paid out.
    */
   showOffline(r: OfflineResult): void {
+    this.collectAwayTips();
     const gained = (m: Partial<Record<MaterialId, number>>) => (Object.entries(m) as [MaterialId, number][]).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]);
     const all = gained(r.materials);
     // The furthest area that brought anything back (its materials are the newest and rarest).
