@@ -577,6 +577,8 @@ export type FieldEvent =
   | { type: 'enemyShot'; x: number; y: number; a: number }
   /** A melee Hunter broke a projectile in the air (at x, y). */
   | { type: 'parry'; who: Shooter; x: number; y: number; a: number }
+  /** A monster's projectile swallowed by a gravity well (Void's, a Gravity Anchor's), at x, y. */
+  | { type: 'swallow'; x: number; y: number }
   /** A Hunter's shield deflected a projectile (at x, y), sending it off at angle `a`. */
   | { type: 'deflect'; who: Shooter; x: number; y: number; a: number }
   /** Floating words on the field: a dice roll's call, Double or Nothing's ×2 / BUST. */
@@ -1275,16 +1277,27 @@ export class Field {
   /**
    * Monsters' projectiles fly straight (over the scenery). A melee Hunter breaks one that comes within reach
    * (their own attacks carry on); one that reaches a Hunter is deflected by a shield (pausing their attacks a
-   * moment), dodged by light armor, blocked by a shield charge, or stuns them. A Bone Wall stops them.
+   * moment), dodged by light armor, blocked by a shield charge, or stuns them. A Bone Wall stops them, and a
+   * gravity well (Void's, a Gravity Anchor's) swallows any that fly into it.
    */
   private moveShots(dt: number): void {
     if (!this.shots.length) return;
     const hunters = this.hunters();
+    // Gravity wells swallow projectiles that fly into them: Void's (around a monster) and Gravity Anchors.
+    const wells: Array<{ x: number; y: number; r: number }> = [
+      ...this.enemies.filter((e) => e.hp > 0 && (e.well ?? 0) > 0).map((e) => ({ x: e.x, y: e.y, r: STATUS.well.radius * (e.wellSize ?? 1) })),
+      ...this.zones.filter((z) => z.kind === 'gravityAnchor').map((z) => ({ x: z.x, y: z.y, r: z.r })),
+    ];
     for (const s of this.shots) {
       s.x += s.vx * dt;
       s.y += s.vy * dt;
       s.life -= dt;
       if (s.life <= 0) continue;
+      if (wells.some((w) => Math.hypot(s.x - w.x, s.y - w.y) <= w.r + SHOT_RADIUS)) {
+        s.life = 0;
+        this.events.push({ type: 'swallow', x: s.x, y: s.y });
+        continue;
+      }
       for (const h of hunters) {
         const d = Math.hypot(s.x - h.x, s.y - h.y);
         if (this.boneWall > 0 && d <= this.boneWallR) {

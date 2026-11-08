@@ -306,6 +306,11 @@ export class BattleView {
         case 'enemyShot':
           this.fx.burst(e.x, e.y, '#b07ce0', 4, 50, 2, 0);
           break;
+        case 'swallow':
+          // Pulled into a gravity well: it collapses inward in a puff of violet.
+          this.fx.burst(e.x, e.y, '#ff5fd7', 7, -80, 2, 0, true);
+          this.fx.burst(e.x, e.y, '#3a1a5a', 5, 50, 3, 0, true);
+          break;
         case 'parry':
           // Smashed out of the air: a spray of sparks and shards.
           this.fx.burst(e.x, e.y, '#fff4d0', 8, 150, 2, 0, true);

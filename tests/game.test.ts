@@ -888,6 +888,27 @@ describe('Breaking projectiles', () => {
     // ...but not what's fired at Theon (holding a tome) beside you: that reaches Theon.
     expect(run('puppeteer')).toEqual([]);
   });
+
+  it("a gravity well swallows a monster's projectile that flies into it", () => {
+    const g = new Game(newGame(0), noCrit);
+    const f = new Field(g);
+    f.setView(390, 420);
+    f.guard = 0;
+    // A monster in a Void well between the shooter and your Hunter.
+    const held = enemy({ id: 1, x: 0, y: -60, hp: 1e12, maxHp: 1e12, speed: 0 });
+    held.well = 5;
+    f.enemies = [held];
+    f.shots = [{ x: 0, y: -200, vx: 0, vy: 150, life: 5, from: 'necromancer', at: 'main' }];
+    const seen: string[] = [];
+    for (let i = 0; i < 60; i++) {
+      f.update(1 / 30);
+      Object.assign(held, { x: 0, y: -60, kx: 0, ky: 0 });
+      for (const e of f.drainEvents()) seen.push(e.type);
+    }
+    expect(seen).toContain('swallow');
+    expect(f.shots).toHaveLength(0);
+    expect(f.stun).toBe(0);
+  });
 });
 
 describe('Loot carriers', () => {
