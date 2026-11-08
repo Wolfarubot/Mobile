@@ -1272,7 +1272,7 @@ export class Field {
 
   /**
    * Monsters' projectiles fly straight (over the scenery). A melee Hunter breaks one that comes within reach
-   * (spending their next attack); one that reaches a Hunter is deflected by a shield (pausing their attacks a
+   * (their own attacks carry on); one that reaches a Hunter is deflected by a shield (pausing their attacks a
    * moment), dodged by light armor, blocked by a shield charge, or stuns them. A Bone Wall stops them.
    */
   private moveShots(dt: number): void {
@@ -1291,15 +1291,11 @@ export class Field {
           break;
         }
         const up = h.state.stun <= 0;
-        // A melee weapon swats it out of the air as it comes within reach.
+        // A melee weapon swats it out of the air as it comes within reach, without breaking off the Hunter's own
+        // attacks (their charge, aim and swing carry on).
         if (up && this.isMelee(h.who) && d <= Math.min(this.game.shooterRange(h.who), 90) + SHOT_RADIUS) {
           s.life = 0;
-          h.state.fireAcc = Math.min(h.state.fireAcc, 0);
-          const a = Math.atan2(s.y - h.y, s.x - h.x);
-          if (h.who === this.lead) this.aim = a;
-          else (h.state as Helper).aim = a;
-          this.events.push({ type: 'attack', who: h.who, a });
-          this.events.push({ type: 'parry', who: h.who, x: s.x, y: s.y, a });
+          this.events.push({ type: 'parry', who: h.who, x: s.x, y: s.y, a: Math.atan2(s.y - h.y, s.x - h.x) });
           break;
         }
         if (d > PLAYER_RADIUS + SHOT_RADIUS) continue;

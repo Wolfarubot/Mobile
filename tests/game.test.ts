@@ -3949,12 +3949,12 @@ describe('Equipment', () => {
       return fx;
     };
     const g = stocked();
-    // A sword swats it out of the air: no stun, but the swing is spent.
+    // A sword swats it out of the air: no stun, and the Hunter's attack charge isn't spent.
     g.equip('main', 0, g.craftGear('slimeSword')!.uid);
     let fx = shotAt(g);
     expect(fx.shots.length).toBe(0);
     expect(fx.stun).toBe(0);
-    expect(fx.fireAcc).toBeLessThanOrEqual(0);
+    expect(fx.fireAcc).toBeGreaterThanOrEqual(0.8);
     // A shield (with a bow, so nothing breaks it first) deflects it, pausing attacks for a moment.
     g.equip('main', 0, g.craftGear('forestBow')!.uid);
     g.equip('main', 2, g.craftGear('forestShield')!.uid); // shields are accessories
