@@ -2050,6 +2050,9 @@ export class BattleView {
     }
   }
 
+  /** How opaque the Guardian's bar is: it fades while the Guardian is underneath it. */
+  private hudFade = 1;
+
   private drawHud(g: CanvasRenderingContext2D): void {
     const w = this.w;
     const boss = this.field.enemies.find((e) => e.boss);
@@ -2097,6 +2100,15 @@ export class BattleView {
       }
     }
     if (boss) {
+      // The Guardian under its own bar (one coming in at the bottom edge): the bar fades to see-through, so you can
+      // see it, aim your taps at it and watch them land (taps always pass through the bar to the battlefield).
+      const bx = w / 2 + boss.x * Z;
+      const by = this.h / 2 + boss.y * Z;
+      const br = boss.r * Z * 1.6;
+      const under = bx + br > x && bx - br < x + bw && by + br > y0 && by - br < y0 + hh;
+      this.hudFade += ((under ? 0.3 : 1) - this.hudFade) * 0.2;
+      g.save();
+      g.globalAlpha = this.hudFade;
       g.font = canvasFont(13, 700);
       const bossDef = enemyDef(boss.type);
       label(`${bossDef.guardianOnly ? bossDef.name.toUpperCase() : `${areaDef(this.game.area).name.toUpperCase()} GUARDIAN`} · ${fmt(Math.max(0, boss.hp))}`, w / 2, '#ff9aa6');
@@ -2115,7 +2127,8 @@ export class BattleView {
         g.fillStyle = TIMER_COLOR;
         g.fillRect(x, ty, bw * t, TIME_BAR_H * S);
       }
-    }
+      g.restore();
+    } else this.hudFade = 1;
     this.drawBanner(g);
   }
 
