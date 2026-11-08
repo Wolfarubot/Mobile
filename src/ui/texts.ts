@@ -376,6 +376,8 @@ section(
     areas: 'By area',
     area: '⚔️ {kills} monsters slain · 🪙 {gold}',
     knockedOut: '💫 Knocked out: {who}',
+    lootCount: '🎁 {n} piece{s} of gear looted',
+    lootSalvaged: '{n} salvaged',
     knockouts: 'Knocked out Hunters stop fighting. Make your Hunters stronger, or move them to an easier area, to keep monsters from slipping through.',
     back: 'Back',
     collect: 'Collect',

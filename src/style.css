@@ -8234,3 +8234,11 @@ body .title-row .quick-type .cyc-cur {
   font-size: 14px;
   min-height: 0 !important;
 }
+/* Welcome back → Details: the knocked-out line reads like the rest of the area card (white, outlined). */
+.offline-area .knockouts {
+  color: #fff !important;
+  font-size: 13px;
+}
+.offline-loot {
+  margin: 4px 0 0;
+}

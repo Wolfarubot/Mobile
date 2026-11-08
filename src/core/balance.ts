@@ -1725,6 +1725,7 @@ export const LOOT_CARRIERS: Partial<Record<EnemyId, number>> = {
   zombie: 1 / 2500,
   boneKnight: 1 / 1500,
   possessedArmor: 1 / 1200,
+  deepLurker: 1 / 1200, // what it dragged down into the abyss
   imp: 1 / 6000,
   kobold: 1 / 6000,
   caveTroll: 1 / 1000,

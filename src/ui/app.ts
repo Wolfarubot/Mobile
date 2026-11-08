@@ -145,7 +145,6 @@ import {
   type EnemyDef,
   type GearDef,
   type GearStat,
-  type GearId,
   type HunterDef,
   type HunterId,
   type ItemDef,
@@ -6177,6 +6176,10 @@ export class AppUI {
 
   /** The full away report, on its own scrolling page: every material gained, then each area's breakdown. */
   private showOfflineDetails(r: OfflineResult): void {
+    const lootLine = (loot: OfflineResult['loot']): string => {
+      const salvaged = loot.filter((l) => l.salvaged).length;
+      return `${tx('popup.offlineDetails.lootCount', { n: fmt(loot.length), s: loot.length === 1 ? '' : 's' })}${salvaged ? ` (${tx('popup.offlineDetails.lootSalvaged', { n: fmt(salvaged) })})` : ''}`;
+    };
     const gained = (m: Partial<Record<MaterialId, number>>) => (Object.entries(m) as [MaterialId, number][]).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]);
     const rows = r.areas
       .map((a) => {
@@ -6190,7 +6193,8 @@ export class AppUI {
         const am = gained(a.materials)
           .map(([m, n]) => `<span class="am">${gemHtml(m)}${fmt(n)}</span>`)
           .join(' ');
-        const loot = a.loot.length ? `<div>🎁 ${a.loot.map((l) => `${gearIcon(gearDef(l.gear))}${l.salvaged ? '♻️' : ''}`).join(' ')}</div>` : '';
+        // Loot as a count (with how much of it Auto Salvage took), not a piece-by-piece wall of icons.
+        const loot = a.loot.length ? `<div>${lootLine(a.loot)}</div>` : '';
         return `<div class="offline-area"><div><b>${areaDef(a.area).icon} ${areaDef(a.area).name}</b> <small>${who}</small></div><div>${tx('popup.offlineDetails.area', { kills: fmt(a.kills), gold: fmt(a.gold) })}</div>${am ? `<div class="offline-area-mats">${am}</div>` : ''}${loot}${
           kos ? `<div class="knockouts">${tx('popup.offlineDetails.knockedOut', { who: kos })}</div>` : ''
         }</div>`;
@@ -6199,27 +6203,11 @@ export class AppUI {
     const mats = gained(r.materials)
       .map(([m, n]) => `<div class="offline-mat" title="${materialDef(m).name}">${gemHtml(m)}<span>${materialDef(m).name}</span><b>+${fmt(n)}</b></div>`)
       .join('');
-    const RARITY_KEYS = Object.keys(RARITIES) as Rarity[];
-    // Loot drops by piece, rarest first: the pieces kept, and apart from them the ones Auto Salvage turned into materials.
-    const lootTiles = (salvaged: boolean): string => {
-      const pieces = new Map<GearId, number>();
-      for (const l of r.loot) if (l.salvaged === salvaged) pieces.set(l.gear, (pieces.get(l.gear) ?? 0) + 1);
-      return [...pieces.entries()]
-        .sort((a, b) => RARITY_KEYS.indexOf(gearDef(b[0]).rarity) - RARITY_KEYS.indexOf(gearDef(a[0]).rarity))
-        .map(([id, n]) => {
-          const gd = gearDef(id);
-          return `<div class="offline-mat" style="--rc:${gearColor(id)}" title="${gd.name}">${gearIcon(gd)}<span style="color:var(--rc)">${gd.name}</span><b>×${n}</b></div>`;
-        })
-        .join('');
-    };
-    const loot = lootTiles(false);
-    const salvaged = lootTiles(true);
     const D = 'popup.offlineDetails';
     this.modal.innerHTML = `<div class="modal-box fullpage offline-summary"><h2>${tx(`${D}.title`)}</h2><div class="sheet-body">
       <p class="offline-total">${tx(`${D}.total`, { away: fmtTime(r.away), gold: fmt(r.gold), kills: fmt(r.kills) })}</p>
       ${mats ? `<h3>${tx(`${D}.materials`)}</h3><div class="offline-mats all">${mats}</div>` : ''}
-      ${loot ? `<h3>${tx(`${D}.loot`)}</h3><div class="offline-mats all">${loot}</div>` : ''}
-      ${salvaged ? `<h3>${tx(`${D}.salvaged`)}</h3><div class="offline-mats all">${salvaged}</div>` : ''}
+      ${r.loot.length ? `<h3>${tx(`${D}.loot`)}</h3><p class="offline-loot">${lootLine(r.loot)}</p>` : ''}
       <h3>${tx(`${D}.areas`)}</h3><div class="offline-areas">${rows}</div>
       ${r.knockouts > 0 ? `<p class="ko-tip">${tx(`${D}.knockouts`)}</p>` : ''}
     </div><div class="buttons"></div></div>`;
