@@ -30,7 +30,7 @@ export function setSfxVolume(v: number): void {
   if (master) master.gain.value = v;
 }
 
-/** Starts audio on the first press (browsers need a gesture) and loads the clips. Call once at startup. */
+/** Starts audio right away where allowed (the apps), else on the first press (browsers need a gesture), and loads the clips. Call once at startup. */
 export function initSound(): void {
   const start = () => {
     if (!ctx) {
@@ -54,6 +54,8 @@ export function initSound(): void {
     }
     if (ctx.state === 'suspended') void ctx.resume().catch(() => {});
   };
+  // The app's web view lets audio play without a gesture, so try at once; a browser leaves it suspended until the first press.
+  start();
   document.addEventListener('pointerdown', start, true);
   // No sound while the app is in the background.
   document.addEventListener('visibilitychange', () => {
