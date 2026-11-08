@@ -52,6 +52,7 @@ import {
   SHOT_SPLASH,
   SHIELD_DEFLECT_PAUSE,
   type EnemyId,
+  type HunterDef,
   type HunterId,
   type MaterialId,
   type HunterSpecial,
@@ -627,6 +628,8 @@ export class Field {
   waves: Array<{ who: Shooter; x: number; y: number; r: number; max: number; hit: Set<number>; /** × a hit (1 if unset). */ k?: number }> = [];
   /** Ba'al's attacks since his last sound wave. */
   private songCount = new Map<Shooter, number>();
+  /** Attacks toward Lance's next holy spear. */
+  private spearCount = new Map<Shooter, number>();
   /** Seconds of stun left on your Hunter (can't shoot while > 0). */
   stun = 0;
   /** Seconds left of Gideon's Bone Wall, and how far out it stands around each Hunter. */
@@ -1505,6 +1508,13 @@ export class Field {
         this.waves.push({ who, x, y, r: 0, max, hit: new Set(), k: song.damage });
         this.events.push({ type: 'wave', x, y, r: max, time: max / WAVE_SPEED, color: hunterDef(who as HunterId).color, notes: true });
       }
+    }
+    // Lance: every few attacks, a holy spear thrusts out toward his target as well.
+    const spear = who === 'main' || encore ? undefined : hunterDef(who).holySpear;
+    if (spear) {
+      const n = (this.spearCount.get(who) ?? 0) + 1;
+      this.spearCount.set(who, n % spear.every);
+      if (n >= spear.every) this.holySpear(who, x, y, aim, spear, mode);
     }
     // Apex Hunter: extra projectiles on shots, one more dagger in a burst, a follow-up strike for other melee.
     const extra = encore ? 0 : g.tree(who).multishot;
@@ -2410,6 +2420,31 @@ export class Field {
       }
     }
     this.fissures = this.fissures.filter((f) => f.life > 0);
+  }
+
+  /**
+   * Lance's holy spear: a great thrust of light along `a`, striking every monster on it once for a share of his hit
+   * as Radiant (crits as his attacks do), each with a chance to set off Radiant's burst.
+   */
+  private holySpear(who: Shooter, ox: number, oy: number, a: number, sp: NonNullable<HunterDef['holySpear']>, mode: GearMode): void {
+    const g = this.game;
+    const len = sp.length * Math.sqrt(g.radiusMult(who));
+    const cx = Math.cos(a);
+    const cy = Math.sin(a);
+    const color = DAMAGE_TYPES.radiant.color;
+    // A broad golden glow under the spear's own thrust, so it reads as more than a weapon's stab.
+    this.events.push({ type: 'beam', x1: ox, y1: oy, x2: ox + cx * len, y2: oy + cy * len, color, width: sp.width });
+    this.events.push({ type: 'beam', x1: ox, y1: oy, x2: ox + cx * len, y2: oy + cy * len, color: '#fff6c2', width: sp.width * 0.8, thrust: true });
+    for (const e of [...this.enemies]) {
+      if (e.hp <= 0) continue;
+      const t = (e.x - ox) * cx + (e.y - oy) * cy;
+      const perp = Math.abs((e.x - ox) * cy - (e.y - oy) * cx);
+      if (t <= 0 || t > len + e.r || perp > sp.width + e.r) continue;
+      const crit = g.rng() < g.critChanceOf(who);
+      const amount = g.shotDamage(who, enemyDef(e.type).archetype, mode) * sp.damage * this.typeMultOn('radiant', e) * g.typeBonus(who, 'radiant') * (crit ? g.critMultOf(who) : 1);
+      this.damage(e, amount, crit, cx, cy, who, 'radiant');
+      if (g.rng() < sp.proc) this.applyStatus(e, 'radiant', amount, who);
+    }
   }
 
   /** Instant strike along a line (lance thrust, sniper shot): hits up to `maxHits` enemies within `width`. */

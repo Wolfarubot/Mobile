@@ -375,6 +375,8 @@ export const BANE_BASE = 1.5;
 export const BANE_PER_TREE = 0.5;
 /** Monsters a sound wave (Ba'al's) catches in a crowd, for the background model (more as it widens). */
 export const SONG_WAVE_CROWD = 2.5;
+/** Monsters Lance's holy spear pierces in a crowd, for the background model (bursts and all). */
+export const HOLY_SPEAR_CROWD = 3;
 const banePct = (v: number): string => `${Math.round(v * 10000) / 100}%`;
 const ban = (maxRank: number, name: string, icon: string, foes: string): NodeSpec => ({ name, icon, desc: `+${banePct(BANE_PER_TREE / maxRank)} bonus damage to ${foes} per rank.`, maxRank, effect: { bane: BANE_PER_TREE / maxRank } });
 const gld = (maxRank: number, name: string, icon: string, v = 0.1): NodeSpec => ({ name, icon, desc: `+${pctOf(v)} gold from their kills per rank.`, maxRank, effect: { gold: v } });
@@ -2339,6 +2341,12 @@ export interface HunterDef {
    */
   songWave?: { every: number; reach: number; damage: number };
   /**
+   * Lance's holy spear: every `every` attacks a great spear of light thrusts out toward his target, `length` long
+   * (× his area size) and `width` wide, striking every monster on it for `damage` × his hit as Radiant; each it
+   * strikes has a `proc` chance to set off Radiant's burst.
+   */
+  holySpear?: { every: number; length: number; width: number; damage: number; proc: number };
+  /**
    * Wilhelm: two ranged weapons. He fires his primary, and when it starts a reload he switches to his secondary
    * until the primary is ready again (a secondary gun firing until its own reload, a bow or the like just until
    * the primary is ready). A primary that never reloads, he never switches from.
@@ -2499,12 +2507,13 @@ export const HUNTERS: HunterDef[] = [
   },
   {
     id: 'lance', name: 'Lance', title: 'Paladin', icon: '🛡️', color: '#ffe8a3', area: 'graveyard', recruitCost: 200_000_000,
-    short: 'Takes extra hits and shields allies.',
+    short: 'Takes extra hits, shields allies, and thrusts a holy spear.',
     unlock: { kills: 150_000, archetype: 'undead', area: 'graveyard' },
     ascendedTitle: 'Crusader',
     story: 'Lance swore to guard the Restless Graveyard\'s gates until its dead lie still. Put a hundred and fifty thousand of them back in the ground, and his shield is yours.',
-    ability: 'Can take multiple hits before being knocked out (Zone of Protection), and grants other Hunters an extra hit as well (Rallying Oath).',
+    ability: 'Can take multiple hits before being knocked out (Zone of Protection), and grants other Hunters an extra hit as well (Rallying Oath). Every 4th attack, a great holy spear thrusts out toward his target, dealing 200% of his hit as Radiant damage to every monster it pierces, with a 40% chance on each to set off a Radiant burst (Holy Spear).',
     slots: [{ kind: 'melee', label: 'Melee' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
+    holySpear: { every: 4, length: 300, width: 28, damage: 2, proc: 0.4 },
   },
   {
     id: 'glimmer', name: 'Glimmer', title: 'Wizard', icon: '🧙', color: '#b07cff', area: 'crypt', recruitCost: 300_000_000_000,
@@ -2812,6 +2821,7 @@ const HUNTER_ABILITIES: Partial<Record<HunterId, HunterAbility[]>> = {
   lance: [
     { name: 'Zone of Protection', kind: 'passive', text: 'Takes several hits before he is knocked out.' },
     { name: 'Rallying Oath', kind: 'passive', text: 'Every other Hunter can take an extra hit before they are knocked out.' },
+    { name: 'Holy Spear', kind: 'passive', text: 'Every 4th attack, a great spear of light thrusts out toward his target, piercing every monster in its path for Radiant damage, with a good chance on each to set off a Radiant burst.' },
   ],
   glimmer: [{ name: 'Fireballs', kind: 'active', text: 'Every 4 seconds, hurls a fireball that explodes for area damage.' }],
   puppeteer: [

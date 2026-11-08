@@ -5489,6 +5489,29 @@ describe('Field', () => {
     expect(run('forestBow', 'shadowPistol').hp).toBeLessThan(1e12);
   });
 
+  it("Lance's holy spear thrusts out every 4th attack, piercing monsters far past his reach with Radiant damage", () => {
+    const { g, f } = withHelper('lance');
+    for (const m of Object.keys(g.state.materials) as Array<keyof typeof g.state.materials>) g.state.materials[m] = 1e6;
+    g.equip('lance', 0, g.craftGear('boneSpear')!.uid);
+    f.update(0);
+    const h = f.helpers[0];
+    const api = f as unknown as { weaponAttack: (...a: unknown[]) => void; drainEvents: () => Array<{ type: string; dtype?: string }> };
+    const near = tough({ id: 1, x: h.x, y: h.y - 30 });
+    const far = tough({ id: 2, x: h.x, y: h.y - 250 }); // well past a spear's reach, on the spear's line
+    f.enemies = [near, far];
+    const cls = g.weaponClassOf('lance');
+    const attack = () => api.weaponAttack('lance', h.x, h.y, -Math.PI / 2, near, cls, h.gun, g.shooterRange('lance'));
+    for (let i = 0; i < 3; i++) attack();
+    expect(far.hp).toBe(1e12); // the first three attacks are his spear's own
+    f.drainEvents();
+    attack(); // the 4th: the holy spear
+    expect(far.hp).toBeLessThan(1e12);
+    expect(f.drainEvents().some((e) => e.type === 'hit' && (e as { dtype?: string }).dtype === 'radiant')).toBe(true);
+    // It counts toward his damage estimate.
+    const def = hunterDef('lance');
+    expect(def.holySpear).toMatchObject({ every: 4, damage: 2, proc: 0.4 });
+  });
+
   it('Guild Hunters attack the way their weapon does, not with an attack of their own', () => {
     const { g, f } = withHelper('lance');
     for (const m of Object.keys(g.state.materials) as Array<keyof typeof g.state.materials>) g.state.materials[m] = 1e6;

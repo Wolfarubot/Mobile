@@ -2,6 +2,7 @@ import { JOURNAL, type JournalEntry } from './journal';
 import {
   ARROW_RAIN,
   SONG_WAVE_CROWD,
+  HOLY_SPEAR_CROWD,
   weaponArchetype,
   withArchetype,
   modSlotCount,
@@ -806,7 +807,7 @@ export class Game {
     const uptime = weaponUptime(cls) * weaponHitsPerAttack(cls);
     // Lilith's Grave Touch: each strike's Decay on top (their ghosts' haunts come and go, so they aren't counted).
     const touch = 1 + (shooter === 'main' ? 0 : (hunterDef(shooter).haunt?.decay ?? 0));
-    return this.shotDamage(shooter, archetype) * (this.shooterRate(shooter) * perAttack * uptime * touch + this.specialHitRate(shooter) + this.songHitRate(shooter) + this.flurryHitRate(shooter)) * this.critFactor(shooter) + this.backupDps(shooter, archetype);
+    return this.shotDamage(shooter, archetype) * (this.shooterRate(shooter) * perAttack * uptime * touch + this.specialHitRate(shooter) + this.songHitRate(shooter) + this.spearHitRate(shooter) + this.flurryHitRate(shooter)) * this.critFactor(shooter) + this.backupDps(shooter, archetype);
   }
 
   /** Wilhelm's secondary weapon: it fires while his primary reloads (never, if the primary doesn't reload). */
@@ -987,6 +988,12 @@ export class Game {
     let wave = c * fl.daggers;
     for (let d = 0; d < fl.depth; d++, wave *= c * fl.daggers) daggers += wave;
     return this.shooterRate(shooter) * daggers * fl.damage;
+  }
+
+  /** Lance's holy spear in shot-equivalents per second against a crowd (one every few attacks, longer with area size). */
+  private spearHitRate(shooter: Shooter): number {
+    const sp = shooter === 'main' ? undefined : hunterDef(shooter).holySpear;
+    return sp ? (this.shooterRate(shooter) / sp.every) * sp.damage * HOLY_SPEAR_CROWD * Math.sqrt(this.radiusMult(shooter)) : 0;
   }
 
   /** The special's damage in shot-equivalents per second against a crowd (for DPS and the farm model). */
