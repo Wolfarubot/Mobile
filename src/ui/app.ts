@@ -56,6 +56,7 @@ import {
   enemyUnlockCost,
   GEAR,
   gearArea,
+  recipeOrder,
   GEAR_KINDS,
   MAX_STARS,
   itemLevel,
@@ -3525,17 +3526,18 @@ export class AppUI {
     pane.appendChild(gearGrid);
     const note = el('p', 'hd-note');
     pane.appendChild(note);
-    // The newest recipes first: gear from the latest area at the top, then back through older areas.
+    // The newest recipes first: by when their materials come within reach, latest at the top.
     let gearKey = '';
     const buildGear = () => {
       const f = this.craftFilter;
       const known = GEAR.filter((x) => !x.starter && this.gearKnown(x));
-      // New recipes (marked !) first until they're opened; then the newest area's gear, rarest first.
+      // New recipes (marked !) first until they're opened; then the rest newest first, by when their materials come
+      // within reach (the last of them), rarest first among recipes unlocked together.
       const rank = (gd: GearDef) => RARITY_ORDER.indexOf(gd.rarity);
       const isNew = new Set(known.filter((gd) => this.newRecipe(gd)).map((gd) => gd.id));
       const list = known
         .filter((gd) => gearMatches(gd, f) && f.type !== 'upgrades')
-        .sort((a, b) => Number(isNew.has(b.id)) - Number(isNew.has(a.id)) || gearArea(b) - gearArea(a) || rank(b) - rank(a));
+        .sort((a, b) => Number(isNew.has(b.id)) - Number(isNew.has(a.id)) || recipeOrder(b) - recipeOrder(a) || rank(b) - rank(a));
       const key = JSON.stringify(f) + list.map((gd) => gd.id + (isNew.has(gd.id) ? '!' : '')).join(',');
       if (key === gearKey) return;
       gearKey = key;

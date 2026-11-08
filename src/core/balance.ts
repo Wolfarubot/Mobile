@@ -1779,6 +1779,25 @@ export function gearTier(def: GearDef): number {
 /** The area a piece of gear comes from (its whole tier). */
 export const gearArea = (def: GearDef): number => Math.floor(gearTier(def));
 
+/**
+ * When each material first comes within reach: area by area, and within an area in the order its monsters unlock
+ * (each one's own drop, then its extra drops), its Guardian's drops last. Materials nothing drops come at the end.
+ */
+let MATERIAL_ORDER: Map<MaterialId, number> | null = null;
+export function materialOrder(m: MaterialId): number {
+  if (!MATERIAL_ORDER) {
+    MATERIAL_ORDER = new Map();
+    const at = (e: EnemyDef) => AREAS.findIndex((a) => a.id === e.area);
+    const monsters = [...ENEMIES].sort((a, b) => at(a) - at(b) || Number(!!a.guardianOnly) - Number(!!b.guardianOnly) || a.unlock - b.unlock);
+    for (const e of monsters)
+      for (const mat of [e.material, ...enemyExtraDrops(e).map((d) => d.material)]) if (!MATERIAL_ORDER.has(mat)) MATERIAL_ORDER.set(mat, MATERIAL_ORDER.size);
+  }
+  return MATERIAL_ORDER.get(m) ?? Infinity;
+}
+
+/** When a recipe comes within reach: when the last of its materials does (see materialOrder). */
+export const recipeOrder = (def: GearDef): number => Math.max(...(Object.keys(def.recipe) as MaterialId[]).map(materialOrder));
+
 /** Each area's loot: its newest tier of gear, and everything older (worked out once; GEAR's length keys it). */
 const LOOT_POOLS = new Map<AreaId, { size: number; current: GearDef[]; older: GearDef[] }>();
 function lootPools(area: AreaId): { current: GearDef[]; older: GearDef[] } {
