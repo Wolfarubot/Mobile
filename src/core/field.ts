@@ -1279,7 +1279,7 @@ export class Field {
 
   /**
    * Monsters' projectiles fly straight (over the scenery). A melee Hunter breaks one that comes within reach
-   * (their own attacks carry on); one that reaches a Hunter is deflected by a shield (pausing their attacks a
+   * with a swing (their own attacks carry on), and a Hunter's shot in flight breaks any it flies through; one that reaches a Hunter is deflected by a shield (pausing their attacks a
    * moment), dodged by light armor, blocked by a shield charge, or stuns them. A Bone Wall stops them, and a
    * gravity well (Void's, a Gravity Anchor's) swallows any that fly into it.
    */
@@ -1314,7 +1314,10 @@ export class Field {
         // Hunter beside them (a tome's summoner, say) flies on to its mark.
         if (up && (!s.at || s.at === h.who) && this.isMelee(h.who) && d <= Math.min(this.game.shooterRange(h.who), 90) + SHOT_RADIUS) {
           s.life = 0;
-          this.events.push({ type: 'parry', who: h.who, x: s.x, y: s.y, a: Math.atan2(s.y - h.y, s.x - h.x) });
+          const a = Math.atan2(s.y - h.y, s.x - h.x);
+          // They swing at it (the look of an attack only: their own attack timer is untouched).
+          this.events.push({ type: 'attack', who: h.who, a });
+          this.events.push({ type: 'parry', who: h.who, x: s.x, y: s.y, a });
           break;
         }
         if (d > PLAYER_RADIUS + SHOT_RADIUS) continue;
@@ -3418,6 +3421,9 @@ export class Field {
       b.x += b.vx * dt;
       b.y += b.vy * dt;
       b.life -= dt;
+      // A shot in flight smashes any monster's projectile it passes through (and flies on). Ranged Hunters never aim
+      // at projectiles: only shots already fired at monsters break them.
+      if (this.shots.length && b.kind !== 'slash' && b.kind !== 'potion') this.breakShotsOnPath(b, dt);
       if (b.life <= 0 && b.arts?.ricochet && !b.hits.length) {
         // Ricochet Rounds: a bolt that missed bounces once toward the nearest monster.
         b.arts.ricochet = false;
@@ -3459,6 +3465,26 @@ export class Field {
         } else if (b.life > 0 && b.pierce-- <= 0) b.life = 0;
       }
     }
+  }
+
+  /** Breaks monsters' projectiles lying along the path a Hunter's shot just flew this tick. */
+  private breakShotsOnPath(b: Bullet, dt: number): void {
+    const x0 = b.x - b.vx * dt;
+    const y0 = b.y - b.vy * dt;
+    const len2 = (b.vx * dt) ** 2 + (b.vy * dt) ** 2 || 1;
+    const rr = (b.size ?? BULLET_RADIUS) + SHOT_RADIUS;
+    let broke = false;
+    for (const s of this.shots) {
+      if (s.life <= 0) continue;
+      const t = Math.max(0, Math.min(1, ((s.x - x0) * b.vx * dt + (s.y - y0) * b.vy * dt) / len2));
+      const dx = s.x - (x0 + b.vx * dt * t);
+      const dy = s.y - (y0 + b.vy * dt * t);
+      if (dx * dx + dy * dy > rr * rr) continue;
+      s.life = 0;
+      broke = true;
+      this.events.push({ type: 'parry', who: b.shooter, x: s.x, y: s.y, a: Math.atan2(b.vy, b.vx) });
+    }
+    if (broke) this.shots = this.shots.filter((s) => s.life > 0);
   }
 
   /**

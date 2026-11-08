@@ -879,7 +879,13 @@ describe('Breaking projectiles', () => {
       const broke: string[] = [];
       for (let i = 0; i < 60; i++) {
         f.update(1 / 30);
-        for (const e of f.drainEvents()) if (e.type === 'parry') broke.push(e.who);
+        const evs = f.drainEvents();
+        for (const e of evs)
+          if (e.type === 'parry') {
+            broke.push(e.who);
+            // ...with a swing of their weapon.
+            expect(evs.some((x) => x.type === 'attack' && x.who === e.who)).toBe(true);
+          }
       }
       return broke;
     };
@@ -887,6 +893,24 @@ describe('Breaking projectiles', () => {
     expect(run('main')).toEqual(['main']);
     // ...but not what's fired at Theon (holding a tome) beside you: that reaches Theon.
     expect(run('puppeteer')).toEqual([]);
+  });
+
+  it("a Hunter's shot in flight breaks a monster's projectile it passes through", () => {
+    const g = new Game(newGame(0), noCrit);
+    const f = new Field(g);
+    f.setView(390, 420);
+    f.update(0);
+    f.enemies = [];
+    // An arrow flying up the field, and a bolt coming down at it well away from any Hunter.
+    f.bullets = [{ shooter: 'main', kind: 'arrow', x: 0, y: -60, vx: 0, vy: -500, crit: false, pierce: 0, life: 2, hits: [], dmg: 1 } as (typeof f.bullets)[number]];
+    f.shots = [{ x: 0, y: -260, vx: 0, vy: 120, life: 5, from: 'necromancer', at: 'main' }];
+    const broke: string[] = [];
+    for (let i = 0; i < 20; i++) {
+      f.update(1 / 30);
+      for (const e of f.drainEvents()) if (e.type === 'parry') broke.push(e.who);
+    }
+    expect(broke).toEqual(['main']);
+    expect(f.shots).toEqual([]);
   });
 
   it("a gravity well swallows a monster's projectile that flies into it", () => {
