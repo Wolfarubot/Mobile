@@ -153,7 +153,7 @@ import {
 import { fmt, fmtDps, fmtTime } from '../core/format';
 import { Game, type FarmRates, type TreeKind } from '../core/game';
 import type { OfflineResult } from '../core/offline';
-import { COOLDOWN_POSITIONS, deserialize, TAB_IDS, type GameState, type GearMod, type AudioSettings, type BuyAmount, type CooldownPos, type DpsCorner, type FxKey, type IndicatorStyle, type GearItem, type TabId, type Wearer } from '../core/state';
+import { COOLDOWN_POSITIONS, deserialize, EMPOWER_AMOUNTS, TAB_IDS, TRAIN_AMOUNTS, type GameState, type GearMod, type AudioSettings, type BuyAmount, type CooldownPos, type DpsCorner, type FxKey, type IndicatorStyle, type GearItem, type TabId, type Wearer } from '../core/state';
 import { drawEventBackdrop, queuePortrait } from '../render/battle';
 import { drawFramedBar, drawFramedSegments, TIMER_COLOR } from '../render/hudBars';
 import { showRewardedAd } from './ads';
@@ -702,22 +702,28 @@ export class AppUI {
     btn.addEventListener('contextmenu', (ev) => ev.preventDefault());
   }
 
-  /** The Train ×1 / ×10 / ×100 / MAX switch. Every copy (Hunters tab, Hunter view) shows the same choice. */
-  private amountsBar(extra = '', label = 'Train'): HTMLElement {
+  /**
+   * The Train ×1 / ×10 / ×100 / MAX switch, or (Empower) the monster view's own ×1 / ×5 / ×10 / MAX one. Every
+   * copy of a switch shows the same choice.
+   */
+  private amountsBar(extra = '', label: 'Train' | 'Empower' = 'Train'): HTMLElement {
     const g = this.game;
+    const empower = label === 'Empower';
     const amounts = el('div', `amounts ${extra}`);
     amounts.appendChild(el('span', 'amounts-label', label));
-    const opts: BuyAmount[] = [1, 10, 100, 'max'];
+    const opts = empower ? EMPOWER_AMOUNTS : TRAIN_AMOUNTS;
+    const get = () => (empower ? g.state.empowerAmount : g.state.buyAmount);
     const buttons = opts.map((a) => {
       const b = el('button', '', a === 'max' ? 'MAX' : `×${a}`);
       b.addEventListener('click', () => {
-        g.state.buyAmount = a;
+        if (empower) g.state.empowerAmount = a;
+        else g.state.buyAmount = a;
         this.refresh();
       });
       amounts.appendChild(b);
       return b;
     });
-    this.refreshers.push(() => buttons.forEach((x, i) => x.classList.toggle('active', opts[i] === g.state.buyAmount)));
+    this.refreshers.push(() => buttons.forEach((x, i) => x.classList.toggle('active', opts[i] === get())));
     return amounts;
   }
 
@@ -2943,7 +2949,7 @@ export class AppUI {
    */
   private empowerParts(id: EnemyId, compact = false, card = false): { btn: HTMLButtonElement; bar: HTMLElement } {
     const g = this.game;
-    const amount = (): BuyAmount => (compact || card ? 1 : g.state.buyAmount);
+    const amount = (): BuyAmount => (compact || card ? 1 : g.state.empowerAmount);
     const btn = el('button', 'buy') as HTMLButtonElement;
     const bar = el('div', 'train-bar');
     bar.innerHTML = '<i></i><span></span>';

@@ -76,7 +76,10 @@ export interface EventState {
   best?: number;
 }
 
-export type BuyAmount = 1 | 10 | 100 | 'max';
+export type BuyAmount = 1 | 5 | 10 | 100 | 'max';
+/** The Train switch's choices, and the Empower switch's (its own choice, kept apart from Train's). */
+export const TRAIN_AMOUNTS: BuyAmount[] = [1, 10, 100, 'max'];
+export const EMPOWER_AMOUNTS: BuyAmount[] = [1, 5, 10, 'max'];
 
 export interface BestiaryEntry {
   unlocked: boolean;
@@ -336,6 +339,8 @@ export interface GameState {
   /** Blessings from Kargesh's and Marceline's minigames: extra quality rolls for your next Refine / Enchant. */
   blessings: { refine: number; enchant: number };
   buyAmount: BuyAmount;
+  /** How many sessions the full monster view's Empower button buys (its own ×1/×5/×10/MAX switch). */
+  empowerAmount: BuyAmount;
   stats: {
     totalKills: number;
     totalGold: number;
@@ -452,6 +457,7 @@ export function newGame(now = Date.now()): GameState {
     events: Object.fromEntries(EVENTS.map((e) => [e.id, { runs: 0, completed: 0 }])),
     seen: { journal: [], recipes: [], beasts: [], events: [], gearUid: 3, init: true },
     buyAmount: 1,
+    empowerAmount: 1,
     stats: {
       totalKills: 0, totalGold: 0, taps: 0, escaped: 0, guardians: 0, hunterKills: {}, matGained: {},
       started: now, played: 0, away: 0, gearCrafted: 0, starsAdded: 0, salvaged: 0, upgrades: 0, refines: 0, enchants: 0, rerolls: 0,
@@ -738,6 +744,7 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
     materials: mergeNumbers(base.materials, data.materials),
     items: mergeNumbers(base.items, data.items),
     stats,
+    empowerAmount: EMPOWER_AMOUNTS.includes(data.empowerAmount as BuyAmount) ? (data.empowerAmount as BuyAmount) : 1,
     settings: {
       leftHanded: !!(data.settings as { leftHanded?: unknown } | undefined)?.leftHanded,
       name: String((data.settings as { name?: unknown } | undefined)?.name ?? '').slice(0, 16),

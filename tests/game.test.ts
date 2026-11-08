@@ -175,14 +175,14 @@ import {
   MERCHANT_GEMS,
   MERCHANT_MATERIALS,
 } from '../src/core/balance';
-import { CHARM_MAX, CHARM_TIME, DICE_FLIGHT, Field, SLAM_OFFSET, type Enemy } from '../src/core/field';
+import { CHARM_MAX, CHARM_TIME, DICE_FLIGHT, Field, SLAM_OFFSET, SUMMON_RUN, type Enemy } from '../src/core/field';
 import { mergeSample, runSample, SAMPLE_KEEP } from '../src/core/sampler';
 import { GATED } from '../src/core/gates';
 import { boardCells, RM_BOARDS } from '../src/ui/minigames/runeMatch';
 import { cardPoints, followsOn } from '../src/ui/minigames/cardHop';
 import { sortBin, workbenchSort, WS_TIME } from '../src/ui/minigames/workbenchSort';
 import { dayKey as dayKeyOf, Game, questsDone, weekKey as weekKeyOf } from '../src/core/game';
-import { deserialize, FX_KEYS, newGame as startingGame, SAVE_VERSION, serialize, type GameState } from '../src/core/state';
+import { deserialize, EMPOWER_AMOUNTS, FX_KEYS, newGame as startingGame, SAVE_VERSION, serialize, type GameState } from '../src/core/state';
 
 /** A new game without the starting gear, so tests see a bare Hunter unless they add gear themselves. */
 function newGame(now = 0): GameState {
@@ -448,7 +448,10 @@ describe('Enemies & archetypes', () => {
     // Every 5 sessions is a level; each level is an evolution point.
     expect(g.monsterLevelInfo('wolf').level).toBe(1);
     expect(g.evoPoints('wolf')).toBe(0);
-    g.state.buyAmount = 10;
+    // The Empower switch has its own choice (×1 / ×5 / ×10 / MAX), apart from Train's.
+    expect(EMPOWER_AMOUNTS).toEqual([1, 5, 10, 'max']);
+    g.state.buyAmount = 100;
+    g.state.empowerAmount = 10;
     g.empower('wolf');
     expect(g.state.bestiary.wolf.empower).toBe(11);
     expect(g.monsterLevelInfo('wolf').level).toBe(3);
@@ -457,7 +460,7 @@ describe('Enemies & archetypes', () => {
     expect(lv3.gold).toBeCloseTo(before.gold * (1 + 11 * EMPOWER.gold));
     // Lv 42 is the top (enough points for any evolution tree): Empower stops there.
     g.state.gold = 1e300;
-    g.state.buyAmount = 'max';
+    g.state.empowerAmount = 'max';
     g.empower('wolf');
     expect(g.state.bestiary.wolf.empower).toBe(MAX_EMPOWER_SESSIONS);
     expect(g.monsterLevelInfo('wolf').level).toBe(MAX_MONSTER_LEVEL);
@@ -853,6 +856,37 @@ describe('Hunters', () => {
     expect(g.killsBy('main')).toBeGreaterThan(before.main);
     expect(g.killsBy('ranger')).toBeGreaterThan(before.ranger);
     expect(Math.abs(gained - r.kills)).toBeLessThanOrEqual(2); // rounding
+  });
+});
+
+describe('Offline drops', () => {
+  it("every unlocked monster's drops come in while you're away, even one the battlefield sample never slew", () => {
+    const g = new Game(veteran(newGame(0)), noCrit);
+    g.state.areas.crypt.unlocked = true;
+    g.state.area = 'crypt';
+    for (const e of ENEMIES) if (e.area === 'crypt' && !e.guardianOnly) g.state.bestiary[e.id].unlocked = true;
+    const group = ['main' as const];
+    // A sample that slew plenty, but no Possessed Armor (a rare spawn).
+    const roster = g.roster('crypt').filter((e) => e.id !== 'possessedArmor');
+    g.state.samples.crypt = {
+      group: [...group],
+      sig: g.sampleSig('crypt', [...group]),
+      seconds: 60,
+      kills: Object.fromEntries(roster.map((e) => [e.id, 30])),
+      gold: 1000,
+      materials: Object.fromEntries(roster.map((e) => [e.material, 10])),
+      stuns: {},
+      down: {},
+      hunterKills: { main: 30 * roster.length },
+    };
+    const r = g.ratesFor('crypt', [...group]);
+    expect(r.kills.possessedArmor).toBeGreaterThan(0);
+    expect(r.materials.enchantedScrap).toBeGreaterThan(0);
+    // And every monster of the area brings its own material (and any extra drops).
+    for (const e of g.roster('crypt')) {
+      expect(r.materials[e.material] ?? 0).toBeGreaterThan(0);
+      for (const d of enemyExtraDrops(enemyDef(e.id))) expect(r.materials[d.material] ?? 0).toBeGreaterThan(0);
+    }
   });
 });
 
@@ -6250,6 +6284,25 @@ describe('Tome summons', () => {
     Object.assign(f, { stun: 0.5 });
     f.update(0.01);
     expect(api.fireAcc).toBeGreaterThan(0.7);
+  });
+
+  it('a summon\'s strike knocks the monster away from the Hunter who summoned it', () => {
+    const g = new Game(veteran(newGame(0)), noCrit);
+    const f = new Field(g);
+    f.setView(390, 420);
+    const e = enemy({ id: 1, x: 80, y: -8, hp: 1e12, maxHp: 1e12 });
+    const boss = enemy({ id: 2, x: 80, y: 8, hp: 1e12, maxHp: 1e12, boss: true });
+    f.enemies.push(e, boss);
+    f.summons.push({ who: 'main', type: 'spirit', x: 80, y: 0, life: 5, maxLife: 5, bite: 0, look: 'puppet', dash: 0, dashHit: false, own: { bites: 1.5, speed: 170, mult: 1 } });
+    (f as unknown as { runSummons: (dt: number) => void }).runSummons(0.01);
+    expect(e.hp).toBeLessThan(1e12);
+    // Pushed out along the line from your Hunter (in the middle) through the monster.
+    // (the strike itself also nudges it away from the summon, straight up here, so only the outward part is checked)
+    expect(e.kx).toBeCloseTo((SUMMON_RUN.knock * 80) / Math.hypot(80, 8), 5);
+    expect(e.ky).toBeLessThan(0);
+    // A Guardian holds its ground.
+    expect(boss.hp).toBeLessThan(1e12);
+    expect(boss.kx).toBe(0);
   });
 
   it("a Hunter's own creatures (Deku's wolves) charge through the crowd too", () => {

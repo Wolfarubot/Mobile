@@ -230,7 +230,8 @@ export interface Summon {
  * seconds) for the class's `hit` × the Hunter's shot. A lunge (the Wolf Spirit's) is a faster charge whose strikes
  * hit for its damage instead.
  */
-export const SUMMON_RUN = { overshoot: 70, rehit: 0.6, retarget: 1.6, reach: 6 };
+/** Charging summons: how far past a monster they run, how often they can strike the same one, how long before they pick a new mark, how close counts as a strike, and how hard a strike knocks a monster away from their Hunter. */
+export const SUMMON_RUN = { overshoot: 70, rehit: 0.6, retarget: 1.6, reach: 6, knock: 140 };
 
 /** A damage-over-time effect: damage per second, seconds left, who applied it (for kill credit). */
 export interface Dot {
@@ -2984,8 +2985,21 @@ export class Field {
       // A Hunter's own creatures strike with their weapon's type, and can inflict its status effect.
       else if (s.own) this.hitWith(s.who, e, s.own.mult * m, s.x, s.y, undefined, undefined, true);
       else this.hitWith(s.who, e, m * (lunging ? dash!.damage : (cls!.hit ?? 1)), s.x, s.y);
+      // The strike knocks the monster away from the Hunter who summoned it (Guardians hold their ground).
+      if (e.hp > 0 && !e.boss) {
+        const [hx, hy] = this.hunterPos(s.who);
+        const kd = Math.hypot(e.x - hx, e.y - hy) || 1;
+        e.kx += ((e.x - hx) / kd) * SUMMON_RUN.knock;
+        e.ky += ((e.y - hy) / kd) * SUMMON_RUN.knock;
+      }
     }
     if (run.struck.size > 40) for (const [id, t] of run.struck) if (now - t > SUMMON_RUN.rehit) run.struck.delete(id);
+  }
+
+  /** Where a Hunter stands on this field: yours (or the lead) in the middle, a Guild Hunter at their spot. */
+  private hunterPos(who: Shooter): [number, number] {
+    const h = who === this.lead ? undefined : this.helpers.find((x) => x.id === who);
+    return h ? [h.x, h.y] : [0, 0];
   }
 
   /** A melee hit: damage, then a knock back if the monster survives (Guardians hold their ground). */

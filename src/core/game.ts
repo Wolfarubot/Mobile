@@ -2547,8 +2547,7 @@ export class Game {
       out.kills[e.id] = k;
       out.killsTotal += k;
       out.gold += k * e.gold * goldPerk * luck;
-      out.materials[e.material] = (out.materials[e.material] ?? 0) + k * e.dropChance * dropPerk * luck;
-      for (const d of [...enemyExtraDrops(enemyDef(e.id)), ...this.legacyDrops(e.archetype)]) out.materials[d.material] = (out.materials[d.material] ?? 0) + k * e.dropChance * dropPerk * d.share * luck;
+      this.addDrops(out.materials, e, k, dropPerk * luck);
     }
     for (const h of hunters) {
       out.stuns[h.sh] = h.stunRate * efficiency;
@@ -2556,6 +2555,12 @@ export class Game {
       out.share[h.sh] = (this.dpsOf(h.sh) * (1 - h.down)) / hunters.reduce((sum, x) => sum + this.dpsOf(x.sh) * (1 - x.down), 0) || 1 / hunters.length;
     }
     return out;
+  }
+
+  /** A monster's drops for `k` kills (a second): its own material and its extra ones, at `perk` × its drop chance. */
+  private addDrops(into: Partial<Record<MaterialId, number>>, e: EnemyStats, k: number, perk: number): void {
+    into[e.material] = (into[e.material] ?? 0) + k * e.dropChance * perk;
+    for (const d of [...enemyExtraDrops(enemyDef(e.id)), ...this.legacyDrops(e.archetype)]) into[d.material] = (into[d.material] ?? 0) + k * e.dropChance * perk * d.share;
   }
 
   /**
@@ -2590,6 +2595,21 @@ export class Game {
       out.killsTotal += n * per;
     }
     for (const [m, n] of Object.entries(smp.materials) as [MaterialId, number][]) out.materials[m] = n * per;
+    // A rare monster (a Possessed Armor, a golem) may not have been slain in the sample at all: it still turns
+    // up while you're away, so its kills, gold and drops come from the estimate, at the sample's pace.
+    const est = this.farmRates(area, group, efficiency);
+    const pace = est.killsTotal > 0 ? out.killsTotal / est.killsTotal : 1;
+    const total = group.reduce((sum, sh) => sum + this.dpsOf(sh), 0) || 1;
+    const dropPerk = group.reduce((sum, sh) => sum + (this.dpsOf(sh) / total) * this.shooterDrops(sh), 0) * this.gambleMult(area);
+    const goldPerk = group.reduce((sum, sh) => sum + (this.dpsOf(sh) / total) * this.shooterGold(sh), 0) * this.gambleMult(area);
+    for (const e of this.roster(area)) {
+      if ((smp.kills[e.id] ?? 0) > 0 || !(est.kills[e.id] ?? 0)) continue;
+      const k = est.kills[e.id]! * pace;
+      out.kills[e.id] = k;
+      out.killsTotal += k;
+      out.gold += k * e.gold * goldPerk;
+      this.addDrops(out.materials, e, k, dropPerk);
+    }
     const hk = group.reduce((sum, sh) => sum + (smp.hunterKills[sh] ?? 0), 0);
     for (const sh of group) {
       out.stuns[sh] = (smp.stuns[sh] ?? 0) * per;
@@ -3027,8 +3047,8 @@ export class Game {
     return this.state.flags.empowerIntro || this.slimeKills >= EMPOWER_UNLOCK_KILLS;
   }
 
-  /** Cost of the next `amount` Empower sessions for a monster (`buyAmount` by default). */
-  empowerPurchase(id: EnemyId, amount: BuyAmount = this.state.buyAmount): Purchase {
+  /** Cost of the next `amount` Empower sessions for a monster (the Empower switch's choice by default). */
+  empowerPurchase(id: EnemyId, amount: BuyAmount = this.state.empowerAmount): Purchase {
     const base = empowerBaseCost(enemyDef(id)) * this.regMult('empowerCost');
     const done = this.state.bestiary[id].empower;
     // Never past the top level.
@@ -3037,8 +3057,8 @@ export class Game {
     return { count, cost: bulkCost(base, EMPOWER_GROWTH, done, count) };
   }
 
-  /** Empowers a monster (`buyAmount` sessions): more HP, gold and material drops; levels earn evolution points. */
-  empower(id: EnemyId, amount: BuyAmount = this.state.buyAmount): boolean {
+  /** Empowers a monster (the Empower switch's sessions by default): more HP, gold and material drops; levels earn evolution points. */
+  empower(id: EnemyId, amount: BuyAmount = this.state.empowerAmount): boolean {
     const p = this.empowerPurchase(id, amount);
     if (!this.empowerUnlocked || !this.isUnlocked(id) || p.count <= 0 || this.state.gold < p.cost) return false;
     this.state.gold -= p.cost;
