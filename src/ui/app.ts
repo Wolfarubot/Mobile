@@ -57,6 +57,7 @@ import {
   GEAR,
   gearArea,
   recipeOrder,
+  materialOrder,
   GEAR_KINDS,
   MAX_STARS,
   itemLevel,
@@ -3130,7 +3131,9 @@ export class AppUI {
     const mats = el('div', 'mats');
     pane.appendChild(mats);
     pane.appendChild(el('p', 'hd-note', 'Monsters drop materials when slain. Spend them in Crafting. Tap a material for details.'));
-    const tiles = MATERIALS.map((m) => {
+    // In the order you come across them: area by area, its monsters in the order they unlock, its Guardian's last.
+    const ordered = [...MATERIALS].sort((a, b) => materialOrder(a.id) - materialOrder(b.id));
+    const tiles = ordered.map((m) => {
       const tile = el('button', 'mat') as HTMLButtonElement;
       tile.addEventListener('click', () => this.openMaterialDetail(m.id));
       mats.appendChild(tile);
