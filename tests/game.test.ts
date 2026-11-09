@@ -37,6 +37,7 @@ import {
   enemyExtraDrops,
   dropRarity,
   areaEnemies,
+  SWARM_SPAWN,
   enemyUnlockCost,
   GEAR,
   MATERIALS,
@@ -4328,6 +4329,22 @@ describe('Events', () => {
       expect(evs[0].unlockKills, a.id).toBeLessThan(evs[1].unlockKills);
       if (evs[2]) expect(evs[2].kind, a.id).toBe('minigame');
     }
+  });
+
+  it('a swarm brings at least SWARM_SPAWN times its area\'s usual monsters a second, all of its archetype', () => {
+    const g = new Game(newGame(0), noCrit);
+    g.state.area = 'graveyard';
+    g.state.areas.graveyard.unlocked = true;
+    for (const e of areaEnemies('graveyard')) g.state.bestiary[e.id].unlocked = true;
+    const usual = g.spawnRate;
+    const ev = EVENTS.find((e) => e.area === 'graveyard' && e.kind === 'swarm')!;
+    g.activeEvent = { id: ev.id, left: ev.duration } as typeof g.activeEvent;
+    expect(g.spawnRate).toBeGreaterThanOrEqual(usual * SWARM_SPAWN - 1e-9);
+    expect(g.roster().every((e) => e.spawnRate === 0 || e.archetype === ev.archetype)).toBe(true);
+    // A quiet area still gets its floor of the first monster a second (the Slime Swarm's 10).
+    const w = new Game(newGame(0), noCrit);
+    w.activeEvent = { id: 'slimeSwarm', left: 60 } as typeof w.activeEvent;
+    expect(w.spawnRate).toBeCloseTo(10, 5);
   });
 
   it("Galladair's Hunting Practice opens with Galladair, pays gold by your income and Royal Slime, and keeps a best score", () => {

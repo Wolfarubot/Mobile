@@ -210,6 +210,7 @@ import {
   SKILL_TREES,
   type SkillNode,
   type TreeStat,
+  SWARM_SPAWN,
 } from './balance';
 import { capAway, type OfflineResult } from './offline';
 import { invest, runWorth, shardsNow, type RunWorth } from './regression';
@@ -2219,12 +2220,13 @@ export class Game {
     return this.state.bestiary[id].unlocked && this.isAreaUnlocked(enemyDef(id).area);
   }
 
-  enemyStats(id: EnemyId): EnemyStats {
+  /** A monster's stats; `calm` leaves out the event running in its area (its usual spawn rate, for swarms). */
+  enemyStats(id: EnemyId, calm = false): EnemyStats {
     const def = enemyDef(id);
     const area = areaDef(def.area);
     const b = this.state.bestiary[id];
     // A swarm event here: only its archetype spawns, more of them and faster.
-    const ev = this.activeEvent && def.area === this.state.area ? eventDef(this.activeEvent.id) : null;
+    const ev = !calm && this.activeEvent && def.area === this.state.area ? eventDef(this.activeEvent.id) : null;
     const swarm = ev?.kind === 'swarm' ? (def.archetype === ev.archetype ? { spawn: ev.spawnMult ?? 1, speed: ev.speedMult ?? 1 } : { spawn: 0, speed: 1 }) : { spawn: 1, speed: 1 };
     const evo = this.evo(id);
     const emp = (stat: 'hp' | 'gold' | 'drops' | 'spawn') => empowerMult(stat, Math.min(b.empower, MAX_EMPOWER_SESSIONS));
@@ -2248,9 +2250,17 @@ export class Game {
 
   /** Unlocked enemies of an area (defaults to where you are). */
   roster(area: AreaId = this.state.area): EnemyStats[] {
-    return areaEnemies(area)
-      .filter((e) => this.state.bestiary[e.id].unlocked)
-      .map((e) => this.enemyStats(e.id));
+    const here = areaEnemies(area).filter((e) => this.state.bestiary[e.id].unlocked);
+    const list = here.map((e) => this.enemyStats(e.id));
+    // A swarm brings at least SWARM_SPAWN times the area's usual monsters a second (all of its archetype), however
+    // busy the area already is.
+    const ev = this.activeEvent && area === this.state.area ? eventDef(this.activeEvent.id) : null;
+    if (ev?.kind === 'swarm') {
+      const usual = here.reduce((sum, e) => sum + this.enemyStats(e.id, true).spawnRate, 0);
+      const total = list.reduce((sum, e) => sum + e.spawnRate, 0);
+      if (total > 0 && total < usual * SWARM_SPAWN) for (const e of list) e.spawnRate *= (usual * SWARM_SPAWN) / total;
+    }
+    return list;
   }
 
   get spawnRate(): number {

@@ -4824,9 +4824,12 @@ export function starsFromLevel(levels: number[], level: number, recipe: Partial<
 
 /**
  * Each area's first event: a swarm of its signature monsters. Only monsters of that archetype spawn, twice as
- * many and twice as fast (at least 10 a second of its first monster). It unlocks after slaying that many of
+ * fast, at least SWARM_SPAWN times as many a second as the area usually has (and at least 10 a second of its first
+ * monster). It unlocks after slaying that many of
  * them there, and its Guardian Challenge waits until it has been survived once.
  */
+/** A swarm brings at least this many times the monsters a second its area usually has (all of its archetype). */
+export const SWARM_SPAWN = 3;
 const AREA_SWARMS: Record<AreaId, { id: string; name: string; icon: string; archetype: Archetype; blurb: string; unlockKills: number }> = {
   forest: { id: 'slimeSwarm', name: 'Slime Swarm', icon: '🟢', archetype: 'slime', blurb: 'Slimes flood the forest for 60 seconds', unlockKills: 1000 },
   glade: { id: 'sporeBloom', name: 'Spore Bloom', icon: '🍄', archetype: 'plant', blurb: 'The grove blooms: walking mushrooms and man traps pour in for 60 seconds', unlockKills: 15_000 },
@@ -5101,7 +5104,7 @@ export const EVENTS: EventDef[] = AREAS.flatMap((a): EventDef[] => {
       kind: 'swarm',
       name: sw.name,
       icon: sw.icon,
-      blurb: `${sw.blurb}: twice as many (at least 10 ${first.name}s a second), twice as fast.`,
+      blurb: `${sw.blurb}: at least ${SWARM_SPAWN} times as many monsters as usual (and never fewer than 10 ${first.name}s a second), twice as fast.`,
       unlockKills: sw.unlockKills,
       unlockArchetype: sw.archetype,
       duration: 60,
