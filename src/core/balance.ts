@@ -1647,7 +1647,7 @@ export const REGRESSION_TREE: RegNode[] = [
   spoke(2, 3, 'eternalSleep', 'Eternal Sleep', 'wands-books/054', 'Offline gains ×60.', 2500, { offline: 60 }),
   spoke(3, 3, 'endlessHorde', 'Endless Horde', 'resources1/099', 'Monsters spawn ×3 as often.', 2500, { spawn: 3 }),
   spoke(4, 3, 'treasureSense', 'Treasure Sense', 'things/007', 'Material drop chance ×25.', 2500, { drops: 25 }),
-  spoke(5, 3, 'apexMemory', 'Apex Memory', 'rpg-items/319', 'Damage for every Hunter ×3.', 2500, { damage: 3 }),
+  spoke(5, 3, 'apexMemory', 'Apex Memory', 'rpg-items/319', 'Damage for every Hunter ×5.', 2500, { damage: 5 }),
   // Round it all: the Unbound timeline (unboundRing).
   ...unboundRing(),
 ];
