@@ -658,6 +658,13 @@ export class Field {
   fireAcc = 0;
   /** Your Hunter's gun magazine (when their weapon is a pistol, rifle or repeater). */
   gunState: GunState = { cls: null, ammo: 0, reload: 0 };
+  /**
+   * The Hunter in the middle's two weapons, when that's Wilhelm (an observed area or a background sample): his
+   * secondary's magazine and whether it's in hand, as a stationed Hunter's `close` and `gun2`.
+   */
+  readonly leadArms: { close: boolean; gun: GunState; gun2: GunState } = { close: false, gun: this.gunState, gun2: { cls: null, ammo: 0, reload: 0 } };
+  /** Seconds until the Hunter in the middle's Bone Wall can rise again (Gideon, observed or sampled). */
+  leadWallCd = 0;
   /** Daggers' bursts in progress (anyone's): stabs (or throws) still to come, at a monster. */
   private stabs: Array<{ who: Shooter; t: number; target: number; last: boolean }> = [];
   /** Apex Hunter's follow-up strikes, due in `t` seconds. */
@@ -915,6 +922,7 @@ export class Field {
     } else this.immune = Math.max(0, this.immune - dt);
     this.syncHelpers();
     this.boneWall = Math.max(0, this.boneWall - dt);
+    this.leadWallCd = Math.max(0, this.leadWallCd - dt);
     for (const h of this.helpers) {
       h.wallCd = Math.max(0, h.wallCd - dt);
       h.sinceKo += dt;
@@ -955,13 +963,18 @@ export class Field {
     this.separate();
     this.moveShots(dt);
 
-    // Your Hunter (not while stunned): attacks the way their weapon's class does.
-    this.fireAcc = Math.min(this.fireAcc + dt * g.shooterRate(this.lead) * this.frenzyMult(this.lead), 3);
+    // Your Hunter (not while stunned): attacks the way their weapon's class does. In the middle of an observed area
+    // or a background sample it's a Guild Hunter, with everything they have beside you (Wilhelm's two weapons).
+    const ready = this.armsReady(this.lead, this.leadArms, dt);
+    const leadMode: GearMode = this.leadArms.close ? 'short' : 'long';
+    const leadGun = this.leadArms.close ? this.leadArms.gun2 : this.gunState;
+    const leadRate = g.shooterRate(this.lead, leadMode);
+    this.fireAcc = Math.min(this.fireAcc + dt * leadRate * this.frenzyMult(this.lead), 3);
     // A stun holds the attack back without losing its charge (a tome's summon takes several seconds).
-    if (this.stunned) this.fireAcc = Math.min(this.fireAcc - dt * g.shooterRate(this.lead) * this.frenzyMult(this.lead), 0.999);
-    const cls = g.weaponClassOf(this.lead);
-    const range = g.shooterRange(this.lead);
-    if (!this.gunReady(this.gunState, cls, dt)) this.fireAcc = 0;
+    if (this.stunned) this.fireAcc = Math.min(this.fireAcc - dt * leadRate * this.frenzyMult(this.lead), 0.999);
+    const cls = g.weaponClassOf(this.lead, leadMode);
+    const range = g.shooterRange(this.lead, leadMode);
+    if (!ready) this.fireAcc = 0;
     while (this.fireAcc >= 1) {
       const target = this.nearest(0, 0, range);
       if (!target) {
@@ -970,8 +983,8 @@ export class Field {
       }
       this.fireAcc -= 1;
       this.aim = Math.atan2(target.y, target.x);
-      this.weaponAttack(this.lead, 0, 0, this.aim, target, cls, this.gunState, range);
-      if (this.spendShot(this.gunState, cls, g.shooterRate(this.lead))) {
+      this.weaponAttack(this.lead, 0, 0, this.aim, target, cls, leadGun, range, leadMode);
+      if (this.spendShot(leadGun, cls, leadRate)) {
         this.events.push({ type: 'reload', who: this.lead, x: 0, y: 0 });
         this.fireAcc = 0;
         break;
@@ -1244,9 +1257,10 @@ export class Field {
     this.game.registerKnockout();
     this.events.push({ type: 'stun', x, y, boss, who });
     // Gideon's Bone Wall: his stun raises a wall of bone around every Hunter.
-    const wall = helper && hunterDef(helper.id).wall;
-    if (helper && wall && helper.wallCd <= 0) {
-      helper.wallCd = wall.cooldown;
+    const wall = who === 'main' ? undefined : hunterDef(who).wall;
+    if (wall && (helper ? helper.wallCd : this.leadWallCd) <= 0) {
+      if (helper) helper.wallCd = wall.cooldown;
+      else this.leadWallCd = wall.cooldown;
       this.boneWall = wall.duration;
       this.boneWallR = wall.radius;
       this.events.push({ type: 'boneWall', r: wall.radius });
@@ -1447,26 +1461,7 @@ export class Field {
       h.fireAcc = Math.min(h.fireAcc, 0.999);
       return;
     }
-    // Wilhelm: his secondary weapon covers his primary's reloads (see backupGun). `close` marks the secondary in hand.
-    let ready: boolean;
-    if (def.backupGun) {
-      const prim = g.weaponClassOf(h.id, 'long');
-      const sec = g.weaponClassOf(h.id, 'short');
-      // Both magazines keep reloading whichever is in hand.
-      const primReady = this.gunReady(h.gun, prim, dt);
-      const secReady = this.gunReady(h.gun2, sec, dt);
-      const hasPrim = !!g.weaponItem(h.id, 'long');
-      const hasSec = !!g.weaponItem(h.id, 'short');
-      if (!hasSec) h.close = false;
-      else if (!hasPrim) h.close = true;
-      else if (!h.close) h.close = !primReady && secReady;
-      // On the secondary: a gun keeps firing until its own reload; anything else only until the primary is ready.
-      else if (sec?.mag ? !secReady : primReady) h.close = false;
-      ready = h.close ? secReady : primReady;
-    } else {
-      h.close = false;
-      ready = this.gunReady(h.gun, g.weaponClassOf(h.id, 'long'), dt);
-    }
+    const ready = this.armsReady(h.id, h, dt);
     const mode: GearMode = h.close ? 'short' : 'long';
     const gun = h.close ? h.gun2 : h.gun;
     const rate = g.shooterRate(h.id, mode);
@@ -1490,6 +1485,31 @@ export class Field {
         return;
       }
     }
+  }
+
+  /**
+   * Whether a Hunter's weapon is ready to attack (its magazine or recharge), counting down its reload. Wilhelm: his
+   * secondary weapon covers his primary's reloads (see backupGun), and `close` marks the secondary in hand.
+   */
+  private armsReady(who: Shooter, s: { close: boolean; gun: GunState; gun2: GunState }, dt: number): boolean {
+    const g = this.game;
+    if (who === 'main' || !hunterDef(who).backupGun) {
+      s.close = false;
+      return this.gunReady(s.gun, g.weaponClassOf(who, 'long'), dt);
+    }
+    const prim = g.weaponClassOf(who, 'long');
+    const sec = g.weaponClassOf(who, 'short');
+    // Both magazines keep reloading whichever is in hand.
+    const primReady = this.gunReady(s.gun, prim, dt);
+    const secReady = this.gunReady(s.gun2, sec, dt);
+    const hasPrim = !!g.weaponItem(who, 'long');
+    const hasSec = !!g.weaponItem(who, 'short');
+    if (!hasSec) s.close = false;
+    else if (!hasPrim) s.close = true;
+    else if (!s.close) s.close = !primReady && secReady;
+    // On the secondary: a gun keeps firing until its own reload; anything else only until the primary is ready.
+    else if (sec?.mag ? !secReady : primReady) s.close = false;
+    return s.close ? secReady : primReady;
   }
 
   /**
@@ -1947,10 +1967,16 @@ export class Field {
     const w = this.weaponDef(this.lead);
     const dash = w?.summon?.dash;
     if (w && dash && this.game.weaponClassOf(this.lead)?.summon) out.push({ key: `item:${w.id}`, icon: w.icon, name: w.name, progress: 1 - this.dashCd / (dash.cooldown * this.game.cooldownMult(this.lead)) });
-    // Flame Burst's ignite and Melting Miasma's puddle (your tap ability).
-    if (this.game.tapAbility === 'flame') out.push({ key: 'tap:flame', icon: '🔥', name: 'Flame Burst', progress: 1 - this.flameCd / (FLAME_BURST_COOLDOWN * this.game.cooldownMult('main')) });
-    if (this.game.tapAbility === 'frost') out.push({ key: 'tap:frost', icon: '❄️', name: 'Frost Nova', progress: 1 - this.frostCd / (FROST_NOVA.cooldown * this.game.cooldownMult('main')) });
-    if (this.game.tapAbility === 'miasma') out.push({ key: 'tap:miasma', icon: '☠️', name: 'Melting Miasma', progress: 1 - this.miasmaCd / (MIASMA_PUDDLE.cooldown * this.game.cooldownMult('main')) });
+    // Flame Burst's ignite and Melting Miasma's puddle (your tap ability: not while another area is observed).
+    if (this.lead !== 'main') {
+      // A Guild Hunter in the middle: their special and Bone Wall, as beside you.
+      const sp = hunterDef(this.lead).special;
+      if (sp) out.push({ key: this.lead, icon: hunterDef(this.lead).icon, name: hunterDef(this.lead).name, progress: 1 - Math.max(0, this.leadCaster.specialCd) / (sp.cooldown * this.game.cooldownMult(this.lead)) });
+      const wall = hunterDef(this.lead).wall;
+      if (wall) out.push({ key: `wall:${this.lead}`, icon: '🦴', name: `${hunterDef(this.lead).name}'s ${wall.name}`, progress: 1 - this.leadWallCd / wall.cooldown });
+    } else if (this.game.tapAbility === 'flame') out.push({ key: 'tap:flame', icon: '🔥', name: 'Flame Burst', progress: 1 - this.flameCd / (FLAME_BURST_COOLDOWN * this.game.cooldownMult('main')) });
+    else if (this.game.tapAbility === 'frost') out.push({ key: 'tap:frost', icon: '❄️', name: 'Frost Nova', progress: 1 - this.frostCd / (FROST_NOVA.cooldown * this.game.cooldownMult('main')) });
+    else if (this.game.tapAbility === 'miasma') out.push({ key: 'tap:miasma', icon: '☠️', name: 'Melting Miasma', progress: 1 - this.miasmaCd / (MIASMA_PUDDLE.cooldown * this.game.cooldownMult('main')) });
     for (const who of [this.lead, ...this.helpers.map((h) => h.id)]) {
       for (const { uid, def, effect } of this.game.gearEffects(who)) {
         const cd = effectCooldown(effect);

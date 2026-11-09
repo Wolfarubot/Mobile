@@ -1658,7 +1658,7 @@ export class BattleView {
     const sway = f.stunned ? Math.sin(this.time * 14) * 0.18 : 0;
     // Facing away, the weapon is behind them; otherwise it's drawn over them.
     const behind = this.facesAway(who, f.aim);
-    if (behind) this.drawHeldWeapon(g, who, 0, 0, f.aim, R, f.stunned);
+    if (behind) this.drawHeldWeapon(g, who, 0, 0, f.aim, R, f.stunned, f.leadArms.close);
     g.save();
     g.rotate(sway);
     const img = sprite(who === 'main' ? 'hunter' : `hunters/${who}`);
@@ -1673,7 +1673,7 @@ export class BattleView {
     } else {
       g.save();
       g.rotate(f.stunned ? Math.PI / 2 : f.aim); // gun droops while stunned
-      if (this.weaponImage(who)) g.globalAlpha = 0; // the weapon's own icon is drawn instead
+      if (this.weaponImage(who, f.leadArms.close)) g.globalAlpha = 0; // the weapon's own icon is drawn instead
       g.fillStyle = '#6b5a7a';
       g.strokeStyle = OUTLINE;
       g.lineWidth = 2;
@@ -1717,7 +1717,7 @@ export class BattleView {
       }
     }
     g.restore();
-    if (!behind) this.drawHeldWeapon(g, who, 0, 0, f.aim, R, f.stunned);
+    if (!behind) this.drawHeldWeapon(g, who, 0, 0, f.aim, R, f.stunned, f.leadArms.close);
 
     drawShieldPips(g, 0, R + (f.stunned ? 19 : 10), f.guard);
     if (f.stunned) drawStunBar(g, 0, R + 8, 34, f.stun / Math.max(0.01, f.stunTotal));

@@ -5513,6 +5513,46 @@ describe('Field', () => {
     expect(run('forestBow', 'shadowPistol').hp).toBeLessThan(1e12);
   });
 
+  it("in the middle of an observed area or a background sample, Wilhelm still switches weapons and Gideon's wall still rises", () => {
+    // Wilhelm leading the field: his secondary covers his primary's reloads, as beside you.
+    const w = withHelper('wilhelm');
+    for (const m of Object.keys(w.g.state.materials) as Array<keyof typeof w.g.state.materials>) w.g.state.materials[m] = 1e6;
+    w.g.equip('wilhelm', 0, w.g.craftGear('shadowPistol')!.uid);
+    w.g.equip('wilhelm', 1, w.g.craftGear('bonePistol')!.uid);
+    const fw = new Field(w.g, 'wilhelm');
+    fw.setView(390, 420);
+    fw.update(0);
+    expect(fw.helpers).toHaveLength(0);
+    fw.enemies = [tough({ id: 1, x: 0, y: -150 })];
+    let toSecondary = 0;
+    let was = fw.leadArms.close;
+    for (let i = 0; i < 30 * 40; i++) {
+      fw.update(1 / 30);
+      Object.assign(fw.enemies[0], { x: 0, y: -150, kx: 0, ky: 0 });
+      if (fw.leadArms.close && !was) {
+        toSecondary++;
+        expect(fw.gunState.reload).toBeGreaterThan(0); // only while the primary reloads
+      }
+      was = fw.leadArms.close;
+    }
+    expect(toSecondary).toBeGreaterThan(1);
+    // Gideon leading the field: his stun raises the Bone Wall, on its own cooldown, and it shows with the cooldowns.
+    const o = withHelper('osteomancer');
+    const fo = new Field(o.g, 'osteomancer');
+    fo.setView(390, 420);
+    fo.update(1 / 30);
+    const wall = hunterDef('osteomancer').wall!;
+    fo.enemies.push(tough({ id: 1, x: 10, y: 0 }));
+    fo.update(1 / 30);
+    expect(fo.stun).toBeGreaterThan(0);
+    expect(fo.boneWall).toBeCloseTo(wall.duration, 1);
+    expect(fo.leadWallCd).toBeCloseTo(wall.cooldown, 1);
+    const keys = fo.cooldowns().map((c) => c.key);
+    expect(keys).toContain('wall:osteomancer');
+    expect(keys).toContain('osteomancer'); // his special
+    expect(keys.some((k) => k.startsWith('tap:'))).toBe(false); // not your tap ability
+  });
+
   it("Lance's holy spear thrusts out every 4th attack, piercing monsters far past his reach with Radiant damage", () => {
     const { g, f } = withHelper('lance');
     for (const m of Object.keys(g.state.materials) as Array<keyof typeof g.state.materials>) g.state.materials[m] = 1e6;
