@@ -1550,6 +1550,14 @@ const UNBOUND_PERKS: Array<Pick<RegNode, 'name' | 'icon' | 'desc' | 'mult' | 'fl
   { name: 'Effortless Growth', icon: 'rpg-items/003', desc: 'Training costs ÷5.', mult: { trainCost: 0.2 } },
   { name: 'Beast Lore', icon: 'resources1/042', desc: 'Empowering monsters costs ÷10.', mult: { empowerCost: 0.1 } },
 ];
+/** The ring's last five nodes, past the Void Rift (the middle one its hub): in the order of UNBOUND_STEPS. */
+const UNBOUND_FINALE: Array<Pick<RegNode, 'name' | 'icon' | 'desc' | 'mult'>> = [
+  { name: 'Endless Bounty', icon: 'things/001', desc: 'Gold from monsters ×100.', mult: { gold: 100 } },
+  { name: 'Perfect Recall', icon: 'things/019', desc: 'Material drop chance ×10.', mult: { drops: 10 } },
+  { name: 'Full Circle', icon: 'rpg-items/310', desc: 'Damage for every Hunter ×5, and Memory Shards from every Regression ×2.', mult: { damage: 5, shards: 2 } },
+  { name: 'Eternal Slumber', icon: 'rpg-items/293', desc: 'Offline gains ×10.', mult: { offline: 10 } },
+  { name: 'Teeming Eternity', icon: 'resources1/089', desc: 'Monsters spawn ×2 as often.', mult: { spawn: 2 } },
+];
 const ROMAN = ['', ' II', ' III', ' IV', ' V', ' VI', ' VII'];
 /**
  * The Unbound ring: the twelve Unbound areas where the hours sit on a clock (the Woods at 12, the Grove at 1, ...
@@ -1580,7 +1588,14 @@ function unboundRing(): RegNode[] {
       needs: i > 0 ? `unbound-${UNBOUND_ORDER[i - 1]}` : undefined,
       soon: true,
     });
-    if (i === UNBOUND_ORDER.length - 1) return;
+    if (i === UNBOUND_ORDER.length - 1) {
+      // Past the Void Rift, closing the gap round to the Woods: the ring's final nodes, the strongest of them all.
+      UNBOUND_FINALE.forEach((p, k) => {
+        const j = k + 1;
+        out.push({ ...p, id: `ring-${i}-${j}`, ring: UNBOUND_RINGS[k], angle: angle + UNBOUND_STEPS[k], cost: unboundCost(i * (UNBOUND_BETWEEN + 1) + j) });
+      });
+      return;
+    }
     for (let j = 1; j <= UNBOUND_BETWEEN; j++) {
       // Perks come round again as the ring goes on (II, III...), all but the switches, which come once.
       let p = UNBOUND_PERKS[perk++ % UNBOUND_PERKS.length];
@@ -1652,14 +1667,15 @@ export const REGRESSION_LINKS: Array<[string, string]> = (() => {
   // Round the Unbound ring, clockwise from the Woods to the Void Rift. Between two areas: the area opens the inner
   // and outer node beside it and the hub; the hub joins all four nodes and the next area; the far pair joins the
   // next area too.
-  UNBOUND_ORDER.slice(0, -1).forEach((area, i) => {
+  // Past the Void Rift the same five lead round towards the Woods but stop short of it: the ring's end.
+  UNBOUND_ORDER.forEach((area, i) => {
     const from = `unbound-${area}`;
-    const to = `unbound-${UNBOUND_ORDER[i + 1]}`;
+    const to = i < UNBOUND_ORDER.length - 1 ? `unbound-${UNBOUND_ORDER[i + 1]}` : null;
     const node = (j: number) => `ring-${i}-${j}`;
     const hub = node(UNBOUND_HUB);
-    out.push([from, node(1)], [from, node(2)], [from, hub], [hub, to]);
+    out.push([from, node(1)], [from, node(2)], [from, hub]);
     for (let j = 1; j <= UNBOUND_BETWEEN; j++) if (j !== UNBOUND_HUB) out.push([hub, node(j)]);
-    out.push([node(4), to], [node(5), to]);
+    if (to) out.push([hub, to], [node(4), to], [node(5), to]);
   });
   return out;
 })();

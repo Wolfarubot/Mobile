@@ -843,7 +843,7 @@ section(
     buy: 'Buy for {cost}',
     maxed: 'Owned ✓',
     cost: 'Costs',
-    soon: 'Coming soon',
+    soon: 'Coming soon. The nodes past it are open already.',
     locked: 'Buy a node next to this one first.',
     share: 'Spend at most',
     regressFor: 'Regress now and the shards it pays will cover this.',

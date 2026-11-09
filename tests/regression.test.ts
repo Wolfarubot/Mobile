@@ -183,10 +183,11 @@ describe('Regression Tree', () => {
     expect(shown()).toEqual(['stabilize']);
     g.state.regression.tree = { stabilize: 1 };
     expect(shown().sort()).toEqual(['stabilize', 'goldenMemory', 'muscleMemory', 'dreamHunt', 'teemingWilds', 'keenRecall', 'honedInstinct'].sort());
-    // The whole inner web owned: the Unbound Woods shows, but nothing past it.
+    // The whole inner web owned: the Unbound Woods shows (not for sale yet) and lets you through to the nodes past it.
     g.state.regression.tree = Object.fromEntries(REGRESSION_TREE.filter((n) => n.ring <= 3).map((n) => [n.id, 1]));
     expect(g.regVisible('unbound-forest')).toBe(true);
-    expect(g.regVisible('ring-0-1')).toBe(false);
+    expect(['ring-0-1', 'ring-0-2', 'ring-0-3'].map((id) => g.regVisible(id))).toEqual([true, true, true]);
+    expect(g.regVisible('ring-0-4')).toBe(false);
     g.state.regression.tree['unbound-forest'] = 1;
     // Past an area: the inner and outer node beside it and the hub, not the far pair or the next area.
     expect(['ring-0-1', 'ring-0-2', 'ring-0-3'].map((id) => g.regVisible(id))).toEqual([true, true, true]);
@@ -222,13 +223,37 @@ describe('Regression Tree', () => {
     for (const n of ring) expect(n.ring).toBeLessThan(7);
     // Woods at 12 o'clock, then an hour per area, the Void Rift at 11.
     expect(ring[0].id).toBe('unbound-forest');
-    expect(ring[ring.length - 1].id).toBe('unbound-rift');
+    expect(ring.filter((n) => n.area).pop()!.id).toBe('unbound-rift');
+    // Past the Rift, the ring's five final nodes fill the gap round to the Woods.
+    expect(ring.slice(-5).map((n) => n.id)).toEqual([1, 2, 3, 4, 5].map((j) => `ring-11-${j}`));
+    for (const n of ring.slice(-5)) expect(n.angle).toBeGreaterThan(240), expect(n.angle).toBeLessThan(270);
     expect(ring.filter((n) => n.area).map((n) => n.angle)).toEqual(Array.from({ length: 12 }, (_, i) => -90 + 30 * i));
     for (let i = 1; i < ring.length; i++) {
       expect(ring[i].cost).toBeGreaterThan(ring[i - 1].cost);
     }
     // Between two areas, the five nodes in the middle come first.
     expect(ring.findIndex((n) => n.id === 'unbound-glade') - ring.findIndex((n) => n.id === 'unbound-forest')).toBe(6);
+  });
+
+  it("the Unbound ring's perks are for sale now: the areas aren't, but they let you through", () => {
+    const g = withShards(1e15);
+    g.state.regression.tree = Object.fromEntries(REGRESSION_TREE.filter((n) => n.ring <= 3).map((n) => [n.id, 1]));
+    expect(g.canBuyReg('unbound-forest')).toBe(false);
+    // Past the Woods, straight to the hub, which opens the far pair and lets you through the Grove too.
+    expect(g.buyReg('ring-0-3')).toBe(true);
+    expect(g.buyReg('ring-0-5')).toBe(true);
+    expect(g.canBuyReg('unbound-glade')).toBe(false);
+    expect(g.canBuyReg('ring-1-1')).toBe(true);
+    expect(g.canBuyReg('ring-1-4')).toBe(false); // the far pair wait on the hub as usual
+    // All the way round: every perk can be bought, no area can, and the shards go down by each price.
+    for (let pass = 0; pass < 20; pass++) for (const n of REGRESSION_TREE) g.buyReg(n.id);
+    const ring = REGRESSION_TREE.filter((n) => n.id.startsWith('ring-'));
+    expect(ring.every((n) => g.ownsReg(n.id))).toBe(true);
+    expect(REGRESSION_TREE.filter((n) => n.area).some((n) => g.ownsReg(n.id))).toBe(false);
+    // The final five lead on from the Rift and stop short of the Woods.
+    const joined = (a: string, b: string) => REGRESSION_LINKS.some(([x, y]) => (x === a && y === b) || (x === b && y === a));
+    expect(joined('unbound-rift', 'ring-11-3')).toBe(true);
+    for (let j = 1; j <= 5; j++) expect(joined(`ring-11-${j}`, 'unbound-forest')).toBe(false);
   });
 
   it('the Unbound areas run in order round the web, each needing the one before, prices rising', () => {

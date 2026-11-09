@@ -1770,12 +1770,17 @@ export class Game {
     return (this.regCache.mult[kind] ??= regTreeMult(tree, kind));
   }
 
-  /** A node can be bought once a node it's linked to has a rank (the centre needs nothing). */
-  regReachable(id: string): boolean {
+  /**
+   * A node can be bought once a node it's linked to is owned (the centre needs nothing). An Unbound area that isn't
+   * for sale yet lets you through: once it's within reach, the nodes past it open as if it were owned.
+   */
+  regReachable(id: string, seen: Set<string> = new Set()): boolean {
     const n = regNode(id);
     if (!n) return false;
     if (n.ring === 0) return true;
-    return REGRESSION_LINKS.some(([a, b]) => (a === id && this.ownsReg(b)) || (b === id && this.ownsReg(a)));
+    seen.add(id);
+    const through = (other: string) => this.ownsReg(other) || (!seen.has(other) && !!regNode(other)?.soon && this.regReachable(other, seen));
+    return REGRESSION_LINKS.some(([a, b]) => (a === id && through(b)) || (b === id && through(a)));
   }
 
   /** Shards a node costs (Infinity once owned, or not for sale yet). */
@@ -1786,7 +1791,9 @@ export class Game {
 
   canBuyReg(id: string): boolean {
     const needs = regNode(id)?.needs;
-    return this.regReachable(id) && (!needs || this.ownsReg(needs)) && this.state.regression.shards >= this.regCostOf(id);
+    // An area waiting on one that isn't for sale yet is waiting on nothing.
+    const met = !needs || this.ownsReg(needs) || !!regNode(needs)?.soon;
+    return this.regReachable(id) && met && this.state.regression.shards >= this.regCostOf(id);
   }
 
   /** The web shows what you own and the nodes joined to it, nothing further (so the Unbound timeline stays hidden). */
