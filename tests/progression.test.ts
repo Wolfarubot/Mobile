@@ -364,7 +364,8 @@ it.runIf(!!process.env.SIM_FULL)('full game: a typical player beats the Time Eat
     log(`  you Lv ${bot.game.levelOf('main')}, Guild Hunters ${HUNTERS.map((h) => `${h.id}:${bot.game.levelOf(h.id)}`).join(' ')} (to recruit again), starting gold ${bot.game.state.gold}`);
   }
   log('No ads watched, no gems bought or spent: events run on energy alone.');
-  // SIM_FROM=checkpoint.json resumes from a checkpoint written by SIM_SNAP=dir (one per area, as it opens).
+  // SIM_FROM=checkpoint.json resumes from a checkpoint written by SIM_SNAP=dir (one per area as it opens, one just
+  // before each area's first Guardian challenge, and the latest session).
   const from = process.env.SIM_FROM ? (JSON.parse(readFileSync(process.env.SIM_FROM, 'utf8')) as { clock: number; save: string; unlockedAt: Partial<Record<AreaId, number>>; masteries?: Partial<Record<AreaId, number>> }) : null;
   if (from) {
     bot.game = new Game(deserialize(from.save, from.clock * 1000)!, mulberry(42));
@@ -449,6 +450,21 @@ it.runIf(!!process.env.SIM_FULL)('full game: a typical player beats the Time Eat
       if (e.type === 'guardianChallenge') log(`  guardian ${g.state.area} challenged (day ${(now / 86400).toFixed(2)}) · you Lv ${g.levelOf('main')} · ${HUNTERS.filter((h) => g.state.hunters[h.id].recruited).map((h) => `${h.id}:${g.levelOf(h.id)}`).join(' ')}`);
       if (e.type === 'eventComplete' && e.event.startsWith('guardian-')) log(`  guardian ${e.event.slice(9)} beaten (day ${(now / 86400).toFixed(2)})`);
     });
+  }
+  // SIM_SNAP: a checkpoint right before each area's first Guardian challenge (<dir>/<area>-guardian.json), so a
+  // Guardian fight can be tried again (SIM_FROM) without playing the days before it.
+  if (process.env.SIM_SNAP) {
+    const snapped = new Set<AreaId>();
+    const challengeNow = g.challengeGuardian.bind(g);
+    g.challengeGuardian = () => {
+      const area = g.state.area;
+      if (!snapped.has(area) && g.guardianReady && !g.eventRunning) {
+        snapped.add(area);
+        writeFileSync(`${process.env.SIM_SNAP}/${area}-guardian.json`, JSON.stringify({ clock: now, save: serialize(g.state), unlockedAt: bot.unlockedAt, masteries: found }));
+        log(`  checkpoint: ${area}-guardian.json (day ${(now / 86400).toFixed(2)})`);
+      }
+      return challengeNow();
+    };
   }
   const started = Date.now();
   // SIM_UNTIL=90 plays on to that day (past the Time Eater too) and stops there.
