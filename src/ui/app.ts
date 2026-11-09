@@ -5196,13 +5196,17 @@ export class AppUI {
       // drawn in an SVG with the nodes laid over it; it scrolls once it's wider or taller than the screen.
       const R = 58;
       const shown = REGRESSION_TREE.filter((n) => g.regVisible(n.id));
-      const at = (n: RegNode) => ({ x: n.ring * R * Math.cos((n.angle * Math.PI) / 180), y: n.ring * R * Math.sin((n.angle * Math.PI) / 180) });
+      // The threads between the spokes (Inheritance, Old Friends…) sit a little further out than the spokes' second
+      // ring, so their square frames clear their neighbours' corners while the web still fits a phone's width.
+      const drawRing = (n: RegNode) => (n.ring === 2 && n.angle % 60 === 0 ? 2.25 : n.ring);
+      const at = (n: RegNode) => ({ x: drawRing(n) * R * Math.cos((n.angle * Math.PI) / 180), y: drawRing(n) * R * Math.sin((n.angle * Math.PI) / 180) });
+      const padX = 28;
       const pad = 40;
       const xs = shown.map((n) => at(n).x);
       const ys = shown.map((n) => at(n).y);
-      const x0 = Math.min(...xs) - pad;
+      const x0 = Math.min(...xs) - padX;
       const y0 = Math.min(...ys) - pad;
-      const W = Math.max(...xs) + pad - x0;
+      const W = Math.max(...xs) + padX - x0;
       const H = Math.max(...ys) + pad - y0;
       const pos = (n: RegNode) => ({ x: at(n).x - x0, y: at(n).y - y0 });
       const pan = el('div', 'reg-pan');

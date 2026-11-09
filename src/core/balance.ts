@@ -1622,7 +1622,7 @@ export const REGRESSION_TREE: RegNode[] = [
   // The outer ring: the strongest of each spoke, joined all the way round.
   spoke(0, 3, 'goldenAge', 'Golden Age', 'things/009', 'Gold from monsters ×10,000, and Memory Shards ×2.', 2500, { gold: 10000, shards: 2 }),
   spoke(1, 3, 'masterTrainer', 'Master Trainer', 'rpg-items/003', 'Training costs ÷30.', 2500, { trainCost: 1 / 30 }),
-  spoke(2, 3, 'eternalSleep', 'Eternal Sleep', 'rpg-items/297', 'Offline gains ×60.', 2500, { offline: 60 }),
+  spoke(2, 3, 'eternalSleep', 'Eternal Sleep', 'wands-books/054', 'Offline gains ×60.', 2500, { offline: 60 }),
   spoke(3, 3, 'endlessHorde', 'Endless Horde', 'resources1/099', 'Monsters spawn ×3 as often.', 2500, { spawn: 3 }),
   spoke(4, 3, 'treasureSense', 'Treasure Sense', 'things/007', 'Material drop chance ×25.', 2500, { drops: 25 }),
   spoke(5, 3, 'apexMemory', 'Apex Memory', 'rpg-items/319', 'Damage for every Hunter ×3.', 2500, { damage: 3 }),
