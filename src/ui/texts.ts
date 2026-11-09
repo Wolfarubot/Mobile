@@ -851,7 +851,7 @@ section(
     treeNote: 'Spend your Memory Shards here. Start from **Stabilize** in the centre. Each node can be bought once, and opens once a node next to it is owned. Everything here lasts forever.',
     regressNote: "Go back to day 1 in the Wandering Woods. Every Hunter keeps their levels, training, and skills, but Guild Hunters must be recruited again. Gold, materials, gear, Upgrades, areas, and the Bestiary start over. You gain **{shards}** Memory Shards for everything this run has built.",
     worth: "This run's worth",
-    gold: 'Gold',
+    gold: 'Gold earned this run',
     materials: 'Materials',
     gear: 'Gear and Upgrades (×{weight})',
     total: 'Total',

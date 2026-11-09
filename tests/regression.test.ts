@@ -57,11 +57,12 @@ describe('Regression', () => {
     expect(back.inventory.find((it) => it.uid === bow.uid)!.invested).toEqual(bow.invested);
   });
 
-  it("a run's worth counts gold, materials and gear (weighted), so crafting gains shards", () => {
+  it("a run's worth counts gold earned, materials and gear (weighted), so crafting gains shards", () => {
     // Only the Woods' materials, so the bow's few are visible next to the rest.
     const s = newGame(0);
     s.inventory = [];
     s.gold = 1000;
+    s.stats.totalGold = 1000;
     s.materials.goo = 500;
     s.materials.twig = 500;
     const g = new Game(s, noCrit);
@@ -75,6 +76,37 @@ describe('Regression', () => {
     // The materials moved into the bow, which counts GEAR_WORTH_WEIGHT times over.
     expect(after.gear).toBe(spent * GEAR_WORTH_WEIGHT);
     expect(after.total - before.total).toBe(spent * (GEAR_WORTH_WEIGHT - 1));
+  });
+
+  it("a run's worth counts the gold earned this run, so spending it (training, Empower) never lowers the shards", () => {
+    const s = midRun();
+    s.stats.totalGold = 5e9;
+    const before = runWorth(s);
+    expect(before.gold).toBe(5e9);
+    // Every coin on hand spent (on training, Empower...): the worth stays as it was.
+    s.gold = 0;
+    expect(runWorth(s).total).toBe(before.total);
+    // After a Regression only what's earned from then on counts.
+    s.regression.unlocked = true;
+    const next = regress(s, 1).state;
+    expect(next.regression.goldAtStart).toBe(5e9);
+    expect(runWorth(next).gold).toBe(0);
+    next.stats.totalGold += 1234;
+    expect(runWorth(next).gold).toBe(1234);
+  });
+
+  it("a save from before a run's start was kept: the first run counts all it earned, a later one its gold on hand", () => {
+    const first = midRun();
+    first.stats.totalGold = 9e9;
+    const raw1 = JSON.parse(serialize(first)) as { regression: Record<string, unknown> };
+    delete raw1.regression.goldAtStart;
+    expect(runWorth(deserialize(JSON.stringify(raw1))!).gold).toBe(9e9);
+    const later = midRun();
+    later.stats.totalGold = 9e9;
+    later.regression.runs = 2;
+    const raw2 = JSON.parse(serialize(later)) as { regression: Record<string, unknown> };
+    delete raw2.regression.goldAtStart;
+    expect(runWorth(deserialize(JSON.stringify(raw2))!).gold).toBe(later.gold);
   });
 
   it('you can regress only after the Time Eater swallows the first run', () => {

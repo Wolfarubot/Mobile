@@ -162,6 +162,8 @@ export interface RegressionState {
   runStart: number;
   /** Auto Empower & Evolve: the most of your gold one purchase may cost (one of AUTO_EMPOWER_SHARES). */
   autoShare: number;
+  /** Gold earned in all (stats.totalGold) when this run began: the run's own earnings are what's been earned since. */
+  goldAtStart: number;
 }
 
 /** A modifier on a piece of gear: a Refine stat (Kargesh) or an Enchantment (Marceline). */
@@ -453,7 +455,7 @@ export function newGame(now = Date.now()): GameState {
     premium: [],
     shop: { day: '', items: [] },
     merchant: { day: '', offers: [], traded: [] },
-    regression: { unlocked: false, runs: 0, shards: 0, totalShards: 0, tree: {}, runStart: now, autoShare: AUTO_EMPOWER_SHARES[0] },
+    regression: { unlocked: false, runs: 0, shards: 0, totalShards: 0, tree: {}, runStart: now, autoShare: AUTO_EMPOWER_SHARES[0], goldAtStart: 0 },
     noAds: false,
     quests: newQuests(),
     events: Object.fromEntries(EVENTS.map((e) => [e.id, { runs: 0, completed: 0 }])),
@@ -880,7 +882,13 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
       const tree: Record<string, number> = {};
       if (r.tree && typeof r.tree === 'object') for (const [k, v] of Object.entries(r.tree)) if (num(v) > 0) tree[k] = num(v);
       const autoShare = (AUTO_EMPOWER_SHARES as readonly unknown[]).includes(r.autoShare) ? (r.autoShare as number) : AUTO_EMPOWER_SHARES[0];
-      return { unlocked: r.unlocked === true, runs: num(r.runs), shards: num(r.shards), totalShards: num(r.totalShards), tree, runStart: num(r.runStart) || Date.now(), autoShare };
+      // (Gold can run past whole-number precision, so this one isn't floored.) A save from before it was kept: the first
+      // run began at 0; a later run, which can't be told, counts only the gold on hand (as runs were counted then).
+      const lifetime = typeof (data.stats as { totalGold?: unknown } | undefined)?.totalGold === 'number' ? ((data.stats as { totalGold: number }).totalGold) : 0;
+      const onHand = typeof data.gold === 'number' && Number.isFinite(data.gold) ? Math.max(0, data.gold) : 0;
+      const goldAtStart =
+        typeof r.goldAtStart === 'number' && Number.isFinite(r.goldAtStart) && r.goldAtStart >= 0 ? r.goldAtStart : num(r.runs) > 0 ? Math.max(0, lifetime - onHand) : 0;
+      return { unlocked: r.unlocked === true, runs: num(r.runs), shards: num(r.shards), totalShards: num(r.totalShards), tree, runStart: num(r.runStart) || Date.now(), autoShare, goldAtStart };
     })(),
     merchant: (() => {
       const m = (data.merchant ?? {}) as { day?: unknown; offers?: unknown; traded?: unknown };

@@ -53,7 +53,8 @@ export interface RunWorth {
 }
 
 export function runWorth(s: GameState): RunWorth {
-  const gold = Math.max(0, s.gold);
+  // Gold earned this run, however it was spent since (training, Empower...), so spending never lowers the shards.
+  const gold = runGold(s);
   const materials = matsWorth(s.materials);
   let gear = 0;
   for (const item of s.inventory) {
@@ -63,6 +64,11 @@ export function runWorth(s: GameState): RunWorth {
   for (const def of ITEMS) for (let star = 0; star < (s.items[def.id] ?? 0); star++) gear += matsWorth(itemCost(itemDef(def.id), star));
   gear *= GEAR_WORTH_WEIGHT;
   return { gold, materials, gear, total: gold + materials + gear };
+}
+
+/** Gold earned this run: everything earned since it began (Inheritance's starting gold isn't earned). */
+export function runGold(s: GameState): number {
+  return Math.max(0, s.stats.totalGold - (s.regression.goldAtStart ?? 0));
 }
 
 /** Gold a run starts with (Inheritance). */
@@ -120,7 +126,7 @@ export function regress(old: GameState, now: number): { state: GameState; shards
   s.buyAmount = old.buyAmount;
   s.seen = { ...copy(old.seen), gearUid: s.nextGearUid - 1, beasts: [], events: [] };
   s.lastSeen = now;
-  s.regression = { ...copy(old.regression), runs: old.regression.runs + 1, shards: old.regression.shards + shards, totalShards: old.regression.totalShards + shards, runStart: now };
+  s.regression = { ...copy(old.regression), runs: old.regression.runs + 1, shards: old.regression.shards + shards, totalShards: old.regression.totalShards + shards, runStart: now, goldAtStart: s.stats.totalGold };
   s.gold = startGold(s);
   return { state: s, shards, worth };
 }
