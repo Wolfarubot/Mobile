@@ -319,7 +319,7 @@ export class BattleView {
           break;
         case 'deflect': {
           // Glances off the shield: a flash of the shield and the bolt's sparks thrown off to the side.
-          const h = e.who === 'main' ? { x: 0, y: 0 } : (this.field.helpers.find((x) => x.id === e.who) ?? { x: 0, y: 0 });
+          const h = e.who === this.field.lead ? { x: 0, y: 0 } : (this.field.helpers.find((x) => x.id === e.who) ?? { x: 0, y: 0 });
           if (this.fancy) this.playEffect('shield', h.x, h.y, (PLAYER_RADIUS * CHAR_SCALE + 12) * 2, 'center', 24);
           else this.rings.push({ x: h.x, y: h.y, t: 0, r: PLAYER_RADIUS * CHAR_SCALE + 10, color: '200,220,255', max: 0.3 });
           for (let i = 0; i < 6; i++) this.fx.burst(e.x + Math.cos(e.a) * i * 5, e.y + Math.sin(e.a) * i * 5, i % 2 ? '#d8e8ff' : '#b07ce0', 1, 60, 2.5, 0, true);
@@ -344,10 +344,10 @@ export class BattleView {
           sfx(e.who === 'main' ? 'stunned' : 'allyStunned');
           this.shake = Math.max(this.shake, e.boss ? 0.35 : 0.15);
           this.fx.burst(e.x, e.y, '#ffe066', 6, 120, 2, 0);
-          if (e.who === 'main' && this.stunTextCooldown <= 0) {
+          if (e.who === this.field.lead && this.stunTextCooldown <= 0) {
             this.fx.text(0, -PLAYER_RADIUS * CHAR_SCALE - 26, 'STUNNED!', '#ffe066', 16, 0.8);
             this.stunTextCooldown = 1;
-          } else if (e.who !== 'main') {
+          } else if (e.who !== this.field.lead) {
             const h = this.field.helpers.find((x) => x.id === e.who);
             if (h) this.fx.text(h.x, h.y - PLAYER_RADIUS * CHAR_SCALE - 22, 'STUNNED!', '#ffe066', 14, 0.8);
           }
@@ -1136,7 +1136,7 @@ export class BattleView {
   private drawReloads(g: CanvasRenderingContext2D): void {
     const st = this.game.state.settings;
     if (!st.reloads) return;
-    const spots: Array<{ who: Shooter; x: number; y: number }> = [{ who: 'main', x: 0, y: 0 }, ...this.field.helpers.map((h) => ({ who: h.id as Shooter, x: h.x, y: h.y }))];
+    const spots: Array<{ who: Shooter; x: number; y: number }> = [{ who: this.field.lead, x: 0, y: 0 }, ...this.field.helpers.map((h) => ({ who: h.id as Shooter, x: h.x, y: h.y }))];
     g.font = canvasFont(11 / Z, 700);
     g.textAlign = 'left';
     g.textBaseline = 'middle';
@@ -1640,6 +1640,8 @@ export class BattleView {
   private drawHunter(g: CanvasRenderingContext2D): void {
     const f = this.field;
     const R = PLAYER_RADIUS;
+    // Whoever stands in the middle: your Hunter, or (observing another area) the Hunter leading the group there.
+    const who = f.lead;
 
     // Post-stun immunity ring
     if (f.immune > 0) {
@@ -1655,12 +1657,12 @@ export class BattleView {
     // Wobble while dazed
     const sway = f.stunned ? Math.sin(this.time * 14) * 0.18 : 0;
     // Facing away, the weapon is behind them; otherwise it's drawn over them.
-    const behind = this.facesAway('main', f.aim);
-    if (behind) this.drawHeldWeapon(g, 'main', 0, 0, f.aim, R, f.stunned);
+    const behind = this.facesAway(who, f.aim);
+    if (behind) this.drawHeldWeapon(g, who, 0, 0, f.aim, R, f.stunned);
     g.save();
     g.rotate(sway);
-    const img = sprite('hunter');
-    if (this.drawHunterSheet(g, 'main', f.aim, R)) {
+    const img = sprite(who === 'main' ? 'hunter' : `hunters/${who}`);
+    if (this.drawHunterSheet(g, who, f.aim, R)) {
       // Animated idle from the hunter sheet.
     } else if (img) {
       const size = R * SPRITE_SCALE * 1.2;
@@ -1671,7 +1673,7 @@ export class BattleView {
     } else {
       g.save();
       g.rotate(f.stunned ? Math.PI / 2 : f.aim); // gun droops while stunned
-      if (this.weaponImage('main')) g.globalAlpha = 0; // the weapon's own icon is drawn instead
+      if (this.weaponImage(who)) g.globalAlpha = 0; // the weapon's own icon is drawn instead
       g.fillStyle = '#6b5a7a';
       g.strokeStyle = OUTLINE;
       g.lineWidth = 2;
@@ -1715,7 +1717,7 @@ export class BattleView {
       }
     }
     g.restore();
-    if (!behind) this.drawHeldWeapon(g, 'main', 0, 0, f.aim, R, f.stunned);
+    if (!behind) this.drawHeldWeapon(g, who, 0, 0, f.aim, R, f.stunned);
 
     drawShieldPips(g, 0, R + (f.stunned ? 19 : 10), f.guard);
     if (f.stunned) drawStunBar(g, 0, R + 8, 34, f.stun / Math.max(0.01, f.stunTotal));
