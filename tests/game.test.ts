@@ -977,23 +977,36 @@ describe('Offline drops', () => {
 });
 
 describe('Spending all points from a held card', () => {
-  it('a Hunter learns top row first, left to right, each skill maxed before the next, and never Ascends', () => {
+  it('a Hunter spreads points evenly: one at a time into the reachable skill with the fewest ranks, and never Ascends', () => {
     const g = new Game(veteran(newGame(0)), noCrit);
     g.state.main.trains = 60;
     const points = g.skillPoints('main');
     expect(points).toBeGreaterThan(0);
     expect(g.canAutoLearn('main')).toBe(true);
-    const learned = g.autoLearn('main');
-    expect(learned).toBeGreaterThan(0);
-    // Each skill learned is in reading order: every node before it (row, then column) was maxed or out of reach.
-    const tree = g.skillTree('main').filter((n) => n.id !== 'ascend').sort((a, b) => a.row - b.row || a.col - b.col);
-    const firstOpen = tree.findIndex((n) => g.skill('main', n.id) < n.maxRank);
-    for (const n of tree.slice(0, firstOpen)) expect(g.skill('main', n.id)).toBe(n.maxRank);
+    // Point by point (same picks as all at once): each goes to a skill with no fewer ranks than any other it could take.
+    const tree = g.skillTree('main').filter((n) => n.id !== 'ascend');
+    let learned = 0;
+    for (;;) {
+      const before = new Map(tree.map((n) => [n.id, g.skill('main', n.id)]));
+      const open = tree.filter((n) => g.canLearn('main', n.id));
+      if (!open.length) break;
+      const low = Math.min(...open.map((n) => before.get(n.id)!));
+      expect(g.autoLearn('main', 1)).toBe(1);
+      const got = tree.find((n) => g.skill('main', n.id) > before.get(n.id)!)!;
+      expect(before.get(got.id)).toBe(low);
+      learned++;
+    }
+    expect(learned).toBeGreaterThan(1);
     expect(g.canAutoLearn('main')).toBe(false);
     expect(g.ascended('main')).toBe(false);
+    // All at once from scratch ends up the same.
+    const h = new Game(veteran(newGame(0)), noCrit);
+    h.state.main.trains = 60;
+    expect(h.autoLearn('main')).toBe(learned);
+    for (const n of tree) expect(h.skill('main', n.id), n.id).toBe(g.skill('main', n.id));
   });
 
-  it('a monster evolves top row first, left to right, until nothing more can be bought', () => {
+  it('a monster spreads its evolution points evenly, every reachable evolution ranked before any gets a second', () => {
     const g = rich();
     g.state.bestiary.greenSlime.empower = 30;
     g.state.bestiary.greenSlime.kills = 1e6;
@@ -1002,9 +1015,24 @@ describe('Spending all points from a held card', () => {
     expect(bought).toBeGreaterThan(0);
     expect(g.evoPoints('greenSlime')).toBeLessThan(before);
     expect(g.canAutoEvolve('greenSlime')).toBe(false);
-    const tree = [...g.evoTree('greenSlime')].sort((a, b) => a.row - b.row || a.col - b.col);
-    const firstOpen = tree.findIndex((n) => g.evoRank('greenSlime', n.id) < n.maxRank);
-    for (const n of tree.slice(0, firstOpen)) expect(g.evoRank('greenSlime', n.id)).toBe(n.maxRank);
+    // Point by point (the same picks as all at once): each goes to an evolution with no more ranks than any other it could buy.
+    const h = rich();
+    h.state.bestiary.greenSlime.empower = 30;
+    h.state.bestiary.greenSlime.kills = 1e6;
+    const tree = h.evoTree('greenSlime');
+    let steps = 0;
+    for (;;) {
+      const prev = new Map(tree.map((n) => [n.id, h.evoRank('greenSlime', n.id)]));
+      const open = tree.filter((n) => h.canEvolve('greenSlime', n.id));
+      if (!open.length) break;
+      const low = Math.min(...open.map((n) => prev.get(n.id)!));
+      expect(h.autoEvolve('greenSlime', 1)).toBe(1);
+      const got = tree.find((n) => h.evoRank('greenSlime', n.id) > prev.get(n.id)!)!;
+      expect(prev.get(got.id)).toBe(low);
+      steps++;
+    }
+    expect(steps).toBe(bought);
+    for (const n of tree) expect(h.evoRank('greenSlime', n.id), n.id).toBe(g.evoRank('greenSlime', n.id));
   });
 });
 

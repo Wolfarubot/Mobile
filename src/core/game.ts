@@ -297,6 +297,21 @@ export interface FarmRates {
   share: Partial<Record<Shooter, number>>;
 }
 
+/** The node to put the next point into: of those `can` allows, the one with the fewest ranks, first in `order` among equals. */
+function evenPick<N>(order: N[], can: (node: N) => boolean, rank: (node: N) => number): N | undefined {
+  let best: N | undefined;
+  let low = Infinity;
+  for (const node of order) {
+    if (!can(node)) continue;
+    const r = rank(node);
+    if (r < low) {
+      low = r;
+      best = node;
+    }
+  }
+  return best;
+}
+
 /**
  * The economy and progression rules. Positions, bullets and collisions live in
  * Field; Field reports kills/escapes here and reads combat stats from here.
@@ -2836,18 +2851,19 @@ export class Game {
   }
 
   /**
-   * Spends a Hunter's skill points on the first skills they can learn, reading their tree top row first, left to
-   * right (each one maxed before the next; the first tree, then the ascended one). Never Ascends: that's left to
-   * the player. Returns how many ranks were learned.
+   * Spends a Hunter's skill points evenly, one at a time: always on the skill they can learn with the fewest ranks
+   * (the first in reading order, top row then left to right, among equals), so every skill within reach gets a rank
+   * before any gets a second, and skills a row gate opens along the way are evened out too. The first tree, then
+   * the ascended one. Never Ascends: that's left to the player. At most `limit` ranks; returns how many were learned.
    */
-  autoLearn(who: Wearer): number {
+  autoLearn(who: Wearer, limit = Infinity): number {
     let n = 0;
     for (const which of ['base', 'ascended'] as const) {
       const order = this.skillTree(who, which)
         .filter((node) => !(which === 'base' && node.id === 'ascend'))
         .sort((a, b) => a.row - b.row || a.col - b.col);
-      for (let guard = 0; guard < 500; guard++) {
-        const pick = order.find((node) => this.canLearn(who, node.id, which));
+      for (let guard = 0; guard < 2000 && n < limit; guard++) {
+        const pick = evenPick(order, (node) => this.canLearn(who, node.id, which), (node) => this.skill(who, node.id, which));
         if (!pick || !this.learn(who, pick.id, which)) break;
         n++;
       }
@@ -3151,14 +3167,15 @@ export class Game {
   }
 
   /**
-   * Spends a monster's evolution points on the first nodes it can evolve, reading its tree top row first, left to
-   * right (each one maxed before the next). Returns how many ranks were bought.
+   * Spends a monster's evolution points evenly, one at a time, the way autoLearn spends a Hunter's skill points:
+   * always on the evolution with the fewest ranks it can buy (reading order among equals). Returns how many ranks
+   * were bought (at most `limit`).
    */
-  autoEvolve(id: EnemyId): number {
+  autoEvolve(id: EnemyId, limit = Infinity): number {
     const order = [...this.evoTree(id)].sort((a, b) => a.row - b.row || a.col - b.col);
     let n = 0;
-    for (let guard = 0; guard < 500; guard++) {
-      const pick = order.find((node) => this.canEvolve(id, node.id));
+    for (let guard = 0; guard < 2000 && n < limit; guard++) {
+      const pick = evenPick(order, (node) => this.canEvolve(id, node.id), (node) => this.evoRank(id, node.id));
       if (!pick || !this.evolve(id, pick.id)) break;
       n++;
     }

@@ -916,7 +916,7 @@ export class AppUI {
     const { btn, bar } = this.trainParts(who, true);
     mid.appendChild(bar);
     action.appendChild(btn);
-    // Holding the card spends their skill points, top row of the tree first, left to right.
+    // Holding the card spends their skill points, spread evenly across the tree.
     this.holdForMax(
       card,
       () => {
@@ -2928,7 +2928,7 @@ export class AppUI {
         if (this.heldFor === card) return void (this.heldFor = null);
         this.openMonsterDetail(def.id);
       });
-      // Holding the card spends its evolution points, top row of the tree first, left to right.
+      // Holding the card spends its evolution points, spread evenly across the tree.
       this.holdForMax(
         card,
         () => {
