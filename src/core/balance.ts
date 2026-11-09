@@ -1475,12 +1475,13 @@ export const MATERIAL_WORTH: Record<MaterialId, number> = (() => {
 })();
 
 /**
- * Memory Shards for a run's worth (gold + materials + what's invested in gear, all in gold):
+ * Memory Shards for a run's worth (gold earned this run + materials + what's invested in gear, all in gold):
  * floor(SHARD_SCALE × worth^SHARD_POWER). The small power keeps a run of twice the worth to about 15% more shards.
- * Placeholders until the pacing sim tunes them; SHARD_SCALE puts the end of the first run near 100.
+ * SHARD_SCALE puts the end of the paced first run near 130 (halved when the worth moved from gold on hand to gold
+ * earned, which about doubled it).
  */
 export const SHARD_POWER = 0.2;
-export const SHARD_SCALE = 2e-4;
+export const SHARD_SCALE = 1e-4;
 export const shardsFor = (worth: number): number => (worth > 0 ? Math.floor(SHARD_SCALE * worth ** SHARD_POWER) : 0);
 /** What's invested in gear counts this many times over, so the time spent on it pays off in shards. */
 export const GEAR_WORTH_WEIGHT = 25;

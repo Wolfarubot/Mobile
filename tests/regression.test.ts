@@ -35,8 +35,9 @@ describe('Regression', () => {
     expect(shardsFor(0)).toBe(0);
     const w = 1e28;
     expect(shardsFor(2 * w) / shardsFor(w)).toBeCloseTo(2 ** SHARD_POWER, 1);
-    expect(shardsFor(1e28)).toBeGreaterThanOrEqual(50);
-    expect(shardsFor(1e28)).toBeLessThanOrEqual(200);
+    // The paced first run earns about 3.5e30 gold by the Time Eater: about 130 shards.
+    expect(shardsFor(3.5e30)).toBeGreaterThanOrEqual(100);
+    expect(shardsFor(3.5e30)).toBeLessThanOrEqual(160);
   });
 
   it('crafting and starring a piece record what it cost; older pieces get an estimate', () => {
