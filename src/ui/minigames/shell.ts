@@ -4,6 +4,7 @@ import { buzz } from '../haptics';
 import { holdOrientation, releaseOrientation } from '../orientation';
 import type { AreaId } from '../../core/balance';
 import { areaBackground, type DecorOpts } from '../../render/backgrounds';
+import type { Backdrop } from './backdrops';
 import { gearImage } from '../../render/sprites';
 import { mgArt } from './dpad';
 import { canvasFont } from '../../render/fx';
@@ -70,6 +71,8 @@ export interface MinigameSpec {
    * scaled up to cover the screen.
    */
   room?: string;
+  /** Its own backdrop, drawn in place of the area's background (see backdrops.ts). */
+  backdrop?: Backdrop;
   /** Lives to start with (0: none shown; the game ends itself). */
   lives: number;
   best: number;
@@ -297,7 +300,8 @@ export function runMinigame(spec: MinigameSpec): void {
     // A scaled background is laid out bigger, then drawn shrunk to fit (everything in it smaller, further off).
     const bgScale = spec.decor?.scale ?? 1;
     const room = spec.room ? mgArt(screenW > full ? `${spec.room}-wide` : spec.room) : null;
-    if (!spec.room && !bg) bg = areaBackground(spec.area, Math.round(screenW / bgScale), Math.round(full / bgScale), spec.decor);
+    if (!spec.room && !bg)
+      bg = spec.backdrop ? spec.backdrop({ api, w: Math.round(screenW), h: Math.round(full), ox, scale }) : areaBackground(spec.area, Math.round(screenW / bgScale), Math.round(full / bgScale), spec.decor);
     if (room) {
       const s = Math.max(screenW / room.naturalWidth, full / room.naturalHeight);
       const smooth = g.imageSmoothingEnabled;

@@ -1,4 +1,5 @@
 import { drawFramedSegments } from '../../render/hudBars';
+import { pixelShadow } from '../../render/pixelShadow';
 import { TITLE_Y, type MinigameApi, type MinigameGame } from './shell';
 import { DIRS, dpadAt, dpadHit, dpadTop, drawDpad, playArea, type Dir, DIR_LIST } from './dpad';
 import { HUNTER_SHEETS } from '../../render/hunterSheets';
@@ -29,6 +30,15 @@ interface Hop {
   len: number;
 }
 
+/** The stage: from under the title down to above the status line (shared with the theatre backdrop). */
+export function puppetStage(api: MinigameApi): { top: number; bottom: number; floor: number } {
+  const top = TITLE_Y + 30;
+  const bottom = dpadTop(api, PAD_SIZE);
+  // Beside the D-pad (landscape), the stage stands in the middle of its side; above it, under the title.
+  const floor = api.layout === 'split' ? (top + bottom) / 2 + 50 * api.k : Math.min(top + 170 * api.k, bottom - 50 * api.k);
+  return { top, bottom, floor };
+}
+
 export function puppetShow(api: MinigameApi): MinigameGame {
   const rand = () => DIR_LIST[Math.floor(Math.random() * 4)];
   const seq: Dir[] = [rand(), rand(), rand()];
@@ -50,14 +60,7 @@ export function puppetShow(api: MinigameApi): MinigameGame {
   const beat = () => Math.max(0.34, 0.68 - seq.length * 0.025);
 
   const pad = () => dpadAt(api, PAD_SIZE);
-  /** The stage: from under the title down to above the status line. */
-  const stage = () => {
-    const top = TITLE_Y + 30;
-    const bottom = dpadTop(api, PAD_SIZE);
-    // Beside the D-pad (landscape), the stage stands in the middle of its side; above it, under the title.
-    const floor = api.layout === 'split' ? (top + bottom) / 2 + 50 * api.k : Math.min(top + 170 * api.k, bottom - 50 * api.k);
-    return { top, bottom, floor };
-  };
+  const stage = () => puppetStage(api);
   /** Along the play area: the whole width, or the side away from the D-pad (landscape). */
   const across = (f: number) => {
     const { x0, x1 } = playArea(api);
@@ -204,9 +207,7 @@ export function puppetShow(api: MinigameApi): MinigameGame {
   };
 }
 
+/** A pixel shadow under someone standing on the stage (as on the battlefield). */
 function shadow(g: CanvasRenderingContext2D, x: number, y: number, r: number): void {
-  g.fillStyle = 'rgba(0,0,0,0.35)';
-  g.beginPath();
-  g.ellipse(x, y, r, r * 0.3, 0, 0, Math.PI * 2);
-  g.fill();
+  pixelShadow(g, x, y, r, r * 0.3, 0.35);
 }

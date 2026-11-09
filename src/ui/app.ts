@@ -4319,6 +4319,7 @@ export class AppUI {
       area: ev.area,
       decor: mg.decor,
       room: mg.room,
+      backdrop: mg.backdrop,
       lives: mg.lives,
       best,
       create: mg.create,

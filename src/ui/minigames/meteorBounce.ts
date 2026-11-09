@@ -1,4 +1,5 @@
 import { drawArt, drawBursts, drawEffect, drawHunter, stepBursts, type Burst } from './art';
+import { pixelShadow } from '../../render/pixelShadow';
 import type { MinigameApi, MinigameGame } from './shell';
 
 /**
@@ -128,10 +129,7 @@ export function meteorBounce(api: MinigameApi): MinigameGame {
         if (r.up) continue;
         const s = SIZE[r.kind] * k();
         const near = Math.max(0, Math.min(1, r.y / ground()));
-        g.fillStyle = `rgba(0,0,0,${0.18 + 0.32 * near})`;
-        g.beginPath();
-        g.ellipse(r.x + r.vx * ((ground() - r.y) / Math.max(1, r.vy)), ground() - 4 * k(), s * (1.6 - 0.5 * near), s * (0.5 - 0.15 * near), 0, 0, Math.PI * 2);
-        g.fill();
+        pixelShadow(g, r.x + r.vx * ((ground() - r.y) / Math.max(1, r.vy)), ground() - 4 * k(), s * (1.6 - 0.5 * near), s * (0.5 - 0.15 * near), 0.18 + 0.32 * near);
       }
       for (const r of rocks) {
         const s = SIZE[r.kind] * k();

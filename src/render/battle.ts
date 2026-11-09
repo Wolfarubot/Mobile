@@ -1,4 +1,5 @@
 import { buzz } from '../ui/haptics';
+import { pixelShadow } from './pixelShadow';
 import { battleSfx as sfx } from '../ui/sound';
 import { MAGIC_SFX, SFX } from '../ui/sfxConfig';
 import { areaDef, DAMAGE_TYPES, FIELD_ZOOM, FLYING, gearDef, WEAPON_CLASSES, STATUS, enemyDef, eventDef, fieldZoom, GUARDIAN_TIME, hunterDef, materialDef, SIZE_SCALE, type AreaId, type DamageType, type EnemyId, type EnemyShape, type SummonType } from '../core/balance';
@@ -3319,37 +3320,6 @@ const ARC_FIRST = 4;
 /** The smash sheet's first frame of its outward burst (before it, sparks gather). */
 const SMASH_START = 4;
 
-/**
- * A blocky pixel-art ellipse in solid black, drawn once at a small size and stamped (unsmoothed, so its pixels
- * stay square) under everything that stands on the ground.
- */
-const SHADOW = (() => {
-  const W = 16;
-  const H = 6;
-  const c = document.createElement('canvas');
-  c.width = W;
-  c.height = H;
-  const g = c.getContext('2d')!;
-  g.fillStyle = '#000';
-  for (let y = 0; y < H; y++)
-    for (let x = 0; x < W; x++) {
-      const dx = (x + 0.5 - W / 2) / (W / 2);
-      const dy = (y + 0.5 - H / 2) / (H / 2);
-      if (dx * dx + dy * dy <= 1.08) g.fillRect(x, y, 1, 1);
-    }
-  return c;
-})();
-
-/** Stamps the pixel shadow: centred on (x, y), `rx` and `ry` its half-width and half-height, at `alpha`. */
-function pixelShadow(g: CanvasRenderingContext2D, x: number, y: number, rx: number, ry: number, alpha: number): void {
-  const a = g.globalAlpha;
-  const smooth = g.imageSmoothingEnabled;
-  g.globalAlpha = a * alpha;
-  g.imageSmoothingEnabled = false;
-  g.drawImage(SHADOW, x - rx, y - ry, rx * 2, ry * 2);
-  g.globalAlpha = a;
-  g.imageSmoothingEnabled = smooth;
-}
 
 /** A gold coin, drawn once and stamped for each one flying to the Hunter. */
 const COIN = (() => {

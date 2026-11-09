@@ -1,4 +1,5 @@
 import { SHEETS, sheetRow } from '../../render/monsterSheets';
+import { pixelShadow } from '../../render/pixelShadow';
 import { HUNTER_SHEETS } from '../../render/hunterSheets';
 import { scenePiece } from '../../render/backgrounds';
 import { hunterSheetImage, monsterSheetImage } from '../../render/sprites';
@@ -268,10 +269,7 @@ export function huntingPractice(api: MinigameApi): MinigameGame {
         const y = s.base - lift;
         // Its shadow: as wide as the slime's body where it lands, shrinking and fading as it hops up.
         const up = lift / Math.max(1, s.hop);
-        g.fillStyle = `rgba(20,40,10,${0.34 - 0.16 * up})`;
-        g.beginPath();
-        g.ellipse(s.x, s.base + s.r * 0.6, s.r * (1.02 - 0.32 * up), s.r * (0.3 - 0.08 * up), 0, 0, Math.PI * 2);
-        g.fill();
+        pixelShadow(g, s.x, s.base + s.r * 0.6, s.r * (1.02 - 0.32 * up), s.r * (0.3 - 0.08 * up), 0.34 - 0.16 * up);
         if (sImg.complete && sImg.naturalWidth) {
           const F = slimeSheet.frame;
           const row = sheetRow(slimeSheet, s.vx > 0 ? 'R' : 'L');
@@ -317,10 +315,7 @@ export function huntingPractice(api: MinigameApi): MinigameGame {
         drawArt(g, 'minigames/arrow', a.x - (a.vx / d) * 8, a.y - (a.vy / d) * 8, 30, Math.atan2(a.vy, a.vx) - Math.PI / 2);
       }
       const ar = archer();
-      g.fillStyle = 'rgba(0,0,0,0.3)';
-      g.beginPath();
-      g.ellipse(ar.x, ar.y + 30, 20, 7, 0, 0, Math.PI * 2);
-      g.fill();
+      pixelShadow(g, ar.x, ar.y + 30, 20, 7, 0.3);
       // The bow first, so Galladair stands in front of it.
       g.save();
       g.translate(ar.x, ar.y - 4);

@@ -1,4 +1,5 @@
 import { TITLE_Y, type MinigameApi, type MinigameGame } from './shell';
+import { pixelShadow } from '../../render/pixelShadow';
 import { HUNTER_SHEETS } from '../../render/hunterSheets';
 import { SHEETS, sheetRow } from '../../render/monsterSheets';
 import { gearImage, hunterSheetImage, monsterSheetImage } from '../../render/sprites';
@@ -344,10 +345,7 @@ export function graveRobbing(api: MinigameApi): MinigameGame {
       draws.push({
         y: ay + 0.25,
         draw: () => {
-          g.fillStyle = 'rgba(0,0,0,0.35)';
-          g.beginPath();
-          g.ellipse(ax, ay, c.size * 0.2, c.size * 0.07, 0, 0, Math.PI * 2);
-          g.fill();
+          pixelShadow(g, ax, ay, c.size * 0.2, c.size * 0.07, 0.35);
           const sheet = HUNTER_SHEETS.thief;
           const img = hunterSheetImage('thief');
           // Just caught: he flickers while skeletons can't catch him.

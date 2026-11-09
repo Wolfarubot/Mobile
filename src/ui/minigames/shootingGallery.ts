@@ -1,4 +1,5 @@
 import { drawEffect } from './art';
+import { pixelShadow } from '../../render/pixelShadow';
 import { TITLE_Y, type MinigameApi, type MinigameGame } from './shell';
 import { mgArt } from './dpad';
 import { HUNTER_SHEETS } from '../../render/hunterSheets';
@@ -209,11 +210,9 @@ export function shootingGallery(api: MinigameApi): MinigameGame {
       if (ledgeImg) {
         const cx = l.x + (LEDGE_W * l.L) / 2;
         const cy = l.y + (LEDGE_TOP * l.L) / 2;
-        const sh = g.createRadialGradient(cx, cy, LEDGE_W * l.L * 0.35, cx, cy, LEDGE_W * l.L * 0.95);
-        sh.addColorStop(0, 'rgba(0,0,0,0.55)');
-        sh.addColorStop(1, 'rgba(0,0,0,0)');
-        g.fillStyle = sh;
-        g.fillRect(0, l.y - LEDGE_W * l.L, (LEDGE_W + 30) * l.L, api.H);
+        // A pixel shadow (as on the battlefield), a soft one round a darker one.
+        pixelShadow(g, cx, cy + LEDGE_W * l.L * 0.2, LEDGE_W * l.L * 0.95, LEDGE_W * l.L * 0.75, 0.3);
+        pixelShadow(g, cx, cy + LEDGE_W * l.L * 0.2, LEDGE_W * l.L * 0.7, LEDGE_W * l.L * 0.5, 0.35);
         g.drawImage(ledgeImg, l.x, l.y, ledgeImg.naturalWidth * l.L, ledgeImg.naturalHeight * l.L);
       }
 
