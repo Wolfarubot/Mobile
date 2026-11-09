@@ -4444,6 +4444,20 @@ describe('Events', () => {
     Object.assign(g.state.buffs, { pixieSerenade: 60, graveRobbing: 60, puppetShow: 60, shootingGallery: 60 });
     expect(g.enemyStats('greenSlime').spawnRate).toBeCloseTo(spawn * (1 + BUFF_ALLURE));
     expect(g.shooterRate('main')).toBeCloseTo(rate); // Alluring Hymn no longer speeds attacks
+    // Alluring Hymn in the background: half again as many kills where the monsters are what's short, and never
+    // fewer where a group is already swamped.
+    {
+      const strong = new Game(newGame(0), noCrit);
+      strong.state.main.trains = 60;
+      const calm = strong.farmRates('forest', ['main']).killsTotal;
+      strong.state.buffs.pixieSerenade = 600;
+      expect(strong.farmRates('forest', ['main']).killsTotal).toBeCloseTo(calm * (1 + BUFF_ALLURE), 1);
+      const weak = new Game(newGame(0), noCrit);
+      for (const e of areaEnemies('rift')) weak.state.bestiary[e.id].unlocked = true;
+      const swamped = weak.farmRates('rift', ['main']).killsTotal;
+      weak.state.buffs.pixieSerenade = 600;
+      expect(weak.farmRates('rift', ['main']).killsTotal).toBeGreaterThanOrEqual(swamped);
+    }
     expect(g.enemyStats('greenSlime').gold).toBeCloseTo(gold * (1 + BUFF_GOLD));
     expect(g.cooldownMult('main')).toBeCloseTo(cd * (1 - BUFF_ENCORE));
     expect(g.critChanceOf('main')).toBeCloseTo(crit + BUFF_CRIT);

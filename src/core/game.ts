@@ -337,6 +337,8 @@ export class Game {
   private questAge = 0;
   /** While true, timed buffs count as off (for working out how much they add to farming rates). */
   private noBuffs = false;
+  /** While true, Alluring Hymn counts as off (to check it never lowers background farming). */
+  private noHymn = false;
   /** goldPerSecond's last measure, and seconds since. */
   private goldRate: number | null = null;
   private goldRateAge = 0;
@@ -2262,7 +2264,7 @@ export class Game {
       hp: area.hp * def.hp * emp('hp') * (1 + evo.hp) * this.regMult('enemyHp'),
       speed: area.speed * def.speed * (1 + evo.speed) * swarm.speed,
       gold: area.gold * def.gold * emp('gold') * (1 + evo.gold) * this.areaPerk(def.area).gold * (1 + BUFF_GOLD * this.buffPower('graveRobbing')) * this.premiumMult('gold') * this.regMult('gold'),
-      spawnRate: b.unlocked ? Math.max(def.spawn * emp('spawn') * (1 + evo.spawn) * (isGolem(def) ? GOLEM_SPAWN : idol.spawn) * swarm.spawn * this.regMult('spawn') * (1 + BUFF_ALLURE * this.buffPower('pixieSerenade')), swarm.spawn ? (ev?.minSpawn?.[id] ?? 0) : 0) : 0,
+      spawnRate: b.unlocked ? Math.max(def.spawn * emp('spawn') * (1 + evo.spawn) * (isGolem(def) ? GOLEM_SPAWN : idol.spawn) * swarm.spawn * this.regMult('spawn') * (this.noHymn ? 1 : 1 + BUFF_ALLURE * this.buffPower('pixieSerenade')), swarm.spawn ? (ev?.minSpawn?.[id] ?? 0) : 0) : 0,
       dropChance: BASE_DROP_CHANCE * (isGolem(def) ? GOLEM_DROPS : 1) * emp('drops') * (1 + evo.drops) * (1 + BUFF_KEEN_EYE * this.buffPower('huntingPractice')) * this.premiumMult('drops') * this.regMult('drops'),
       material: def.material,
       split: Math.min(1, evo.split),
@@ -2514,6 +2516,19 @@ export class Game {
    * online or offline. `efficiency` scales the result (stationing / offline rates).
    */
   farmRates(area: AreaId, shooters: Shooter[], efficiency = 1): FarmRates {
+    // Alluring Hymn brings more monsters; a group that can't keep up would only be swamped by them, so it never
+    // farms worse for it (it farms as if the hymn weren't playing).
+    if (!this.noHymn && this.buffOn('pixieSerenade')) {
+      const on = this.farmRatesAt(area, shooters, efficiency);
+      this.noHymn = true;
+      const off = this.farmRatesAt(area, shooters, efficiency);
+      this.noHymn = false;
+      return on.killsTotal >= off.killsTotal ? on : off;
+    }
+    return this.farmRatesAt(area, shooters, efficiency);
+  }
+
+  private farmRatesAt(area: AreaId, shooters: Shooter[], efficiency: number): FarmRates {
     const roster = this.roster(area);
     const out: FarmRates = { kills: {}, killsTotal: 0, gold: 0, materials: {}, stuns: {}, stunned: {}, share: {} };
     if (!shooters.length || !roster.length) return out;
