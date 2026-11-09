@@ -146,7 +146,7 @@ export class BattleView {
     game.on((e) => {
       if (e.type === 'guardianFail') this.showBanner('The Guardian retreats…', '#ffb04d');
       if (e.type === 'areaUnlocked') this.showBanner(`${areaDef(e.area).name} unlocked!`, '#9fe0ff');
-      else if (e.type === 'finalGuardian') this.showBanner('The Time Eater is defeated!', '#ffe36e');
+      else if (e.type === 'finalGuardian') this.showBanner(e.slain ? 'The Time Eater is slain!' : 'The Time Eater is driven back!', '#ffe36e');
       if (e.type === 'unlock') this.showBanner(`${enemyDef(e.enemy).name}s now roam!`, enemyDef(e.enemy).color);
       if (e.type === 'travel') {
         this.pickups = [];

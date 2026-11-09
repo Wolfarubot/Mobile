@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { GEAR_WORTH_WEIGHT, gearCost, gearDef, HUNTERS, MATERIAL_WORTH, MATERIALS, regNode, REGRESSION_LINKS, REGRESSION_TREE, shardsFor, SHARD_POWER, type MaterialId } from '../src/core/balance';
+import { GEAR_WORTH_WEIGHT, gearCost, gearDef, HUNTERS, MATERIAL_WORTH, MATERIALS, regNode, REGRESSION_LINKS, REGRESSION_TREE, shardsFor, SHARD_POWER, TIME_EATER_GROWTH, type MaterialId } from '../src/core/balance';
 import { Game } from '../src/core/game';
+import { Field } from '../src/core/field';
 import { estimateInvested, gearInvested, regress, runWorth } from '../src/core/regression';
 import { deserialize, newGame, serialize, type GameState } from '../src/core/state';
 
@@ -337,3 +338,50 @@ describe('Regression Tree', () => {
     expect(g.state.bestiary.greenSlime.empower).toBeGreaterThan(before);
   });
 });
+
+describe('The Time Eater', () => {
+  it('grows ×TIME_EATER_GROWTH with every Regression; other Guardians stay as they were', () => {
+    const at = (area: 'rift' | 'meteors', runs: number) => {
+      const s = newGame(0);
+      s.area = area;
+      s.regression.runs = runs;
+      return new Game(s, noCrit).guardianHp;
+    };
+    expect(at('rift', 1)).toBeCloseTo(at('rift', 0) * TIME_EATER_GROWTH, -3);
+    expect(at('rift', 3) / at('rift', 0)).toBeCloseTo(TIME_EATER_GROWTH ** 3, 0);
+    expect(at('meteors', 2)).toBe(at('meteors', 0));
+  });
+
+  it('is only driven back at half its health, until the Unbound Void Rift is yours: then it can be slain', () => {
+    const run = (mortal: boolean) => {
+      const s = newGame(0);
+      s.area = 'rift';
+      s.areas.rift.unlocked = true;
+      if (mortal) s.regression.tree['unbound-rift'] = 1;
+      const g = new Game(s, noCrit);
+      const f = new Field(g);
+      f.setView(390, 420);
+      const events: Array<{ type: string; slain?: boolean }> = [];
+      g.on((e) => events.push(e as { type: string; slain?: boolean }));
+      s.areas.rift.kills = 1e12;
+      s.events.shadowTide.completed = 1;
+      s.energy = 10;
+      expect(g.challengeGuardian()).toBe(true);
+      for (let i = 0; i < 5 && !f.enemies.some((e) => e.boss); i++) f.update(0.05);
+      const boss = f.enemies.find((e) => e.boss)!;
+      expect(boss?.type).toBe('timeEater');
+      // A blow that takes it just past half its health.
+      boss.hp = boss.maxHp * 0.5 + 0.01;
+      f.tap(boss.x, boss.y);
+      return { left: boss.hp, events };
+    };
+    const driven = run(false);
+    expect(driven.left).toBe(0);
+    expect(driven.events.find((e) => e.type === 'finalGuardian')).toEqual({ type: 'finalGuardian', slain: false });
+    // With the Unbound Void Rift it fights on past half, to the death.
+    const mortal = run(true);
+    expect(mortal.left).toBeGreaterThan(0);
+    expect(mortal.events.some((e) => e.type === 'finalGuardian')).toBe(false);
+  });
+});
+

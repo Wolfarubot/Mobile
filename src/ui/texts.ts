@@ -183,6 +183,29 @@ section(
 );
 section(
   P,
+  'popup.timeEaterAgain',
+  'Time Eater driven back again',
+  {
+    title: 'It cannot die',
+    body: "Torn in half once more, the Time Eater swallows the moment and slips away into the Rift, as it always does.\n\nIt has eaten **{n}** of your timelines now, and every one has made it stronger. Nothing bound to time can kill it. Only once the **Unbound Void Rift** is yours can it be slain for good.",
+    ok: 'Dismiss',
+    regress: 'See Regression',
+  },
+  { note: 'Each time the Time Eater is driven back after the first Regression.', vars: { n: 'Regressions so far' } },
+);
+section(
+  P,
+  'popup.timeEaterSlain',
+  'Time Eater slain',
+  {
+    title: 'The Time Eater is slain',
+    body: 'Unbound from time, your Hunters strike and the wounds stay open. There is no moment left for it to swallow.\n\nThe Time Eater falls, and it does not rise.',
+    ok: 'At last',
+  },
+  { note: 'When the Time Eater is slain for good (with the Unbound Void Rift).' },
+);
+section(
+  P,
   'popup.rift',
   'Time Eater defeated',
   {

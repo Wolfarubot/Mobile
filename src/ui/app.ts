@@ -531,7 +531,10 @@ export class AppUI {
       }
       if (e.type === 'areaUnlocked' || e.type === 'travel' || e.type === 'unlock' || e.type === 'recruit') this.setTab(this.tab, true);
       else if (e.type === 'eventComplete') this.setTab(this.tab, true); // may have made Hunters available
+      else if (e.type === 'finalGuardian' && e.slain) this.showTimeEaterSlain();
       else if (e.type === 'finalGuardian' && this.game.state.events['guardian-rift'].completed === 1) this.showRiftConquered();
+      // Driven back again on a later run: it can't die, and it's stronger for every timeline it has swallowed.
+      else if (e.type === 'finalGuardian' && this.game.state.regression.runs > 0) this.showTimeEaterAgain();
       else if (e.type === 'eventStart' || e.type === 'eventEnd' || e.type === 'guardianFail') this.refresh();
       else if (e.type === 'loot') {
         const d = gearDef(e.gear);
@@ -4344,6 +4347,19 @@ export class AppUI {
   private showRiftConquered(): void {
     this.lastPopup = performance.now();
     playCutscene(TIME_EATER_CUTSCENE, () => this.showRiftConqueredCard());
+  }
+
+  private showTimeEaterAgain(): void {
+    this.lastPopup = performance.now();
+    this.showModal(`<h2>${tx('popup.timeEaterAgain.title')}</h2>${txp('popup.timeEaterAgain.body', { n: String(this.game.state.regression.runs) })}`, [
+      { label: txt('popup.timeEaterAgain.ok'), secondary: true },
+      { label: txt('popup.timeEaterAgain.regress'), action: () => this.openRegression('regress') },
+    ]);
+  }
+
+  private showTimeEaterSlain(): void {
+    this.lastPopup = performance.now();
+    this.showModal(`<h2>${tx('popup.timeEaterSlain.title')}</h2>${txp('popup.timeEaterSlain.body', {})}`, [{ label: txt('popup.timeEaterSlain.ok') }]);
   }
 
   private showRiftConqueredCard(): void {

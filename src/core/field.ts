@@ -3706,7 +3706,8 @@ export class Field {
     }
     this.events.push({ type: 'hit', x: e.x, y: e.y - e.r, dmg, crit, dtype, affinity: affinity(dtype, e.type) });
     // Some Guardians are beaten before their HP runs out (the Time Eater: at half).
-    if (e.boss && e.hp > 0 && e.hp <= e.maxHp * (enemyDef(e.type).winAt ?? 0)) e.hp = 0;
+    // (The Time Eater fights to the death once the Unbound Void Rift is yours.)
+    if (e.boss && e.hp > 0 && !(e.type === 'timeEater' && this.game.timeEaterMortal) && e.hp <= e.maxHp * (enemyDef(e.type).winAt ?? 0)) e.hp = 0;
     if (e.hp <= 0) {
       const reward = this.game.registerKill(e.type, e.boss, shooter, !!e.golden);
       if (e.golden) this.say(e.x, e.y - 18, `×${GOLDEN_GOLD} GOLD!`, '#ffd84a', 12);

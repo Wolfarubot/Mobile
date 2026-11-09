@@ -211,6 +211,7 @@ import {
   type SkillNode,
   type TreeStat,
   SWARM_SPAWN,
+  TIME_EATER_GROWTH,
 } from './balance';
 import { capAway, type OfflineResult } from './offline';
 import { invest, runWorth, shardsNow, type RunWorth } from './regression';
@@ -233,7 +234,7 @@ export type GameEvent =
   | { type: 'eventEnd'; event: string }
   | { type: 'eventComplete'; event: string }
   /** The last area's Guardian (the Time Eater) fell: the Void Rift is conquered. */
-  | { type: 'finalGuardian' }
+  | { type: 'finalGuardian'; slain: boolean }
   /** A monster dropped a piece of gear (auto-salvaged into materials if its rarity is set to). */
   | { type: 'loot'; gear: GearId; stars: number; salvaged: boolean }
   /** Materials a kill on the field dropped (for the battlefield's pick-up pop-ups). */
@@ -1529,7 +1530,14 @@ export class Game {
 
   /** The Guardian's health: less with a Giant Slayer charge spent on this challenge (as if hit harder). */
   get guardianHp(): number {
-    return areaDef(this.state.area).guardian * this.regMult('enemyHp');
+    // The Time Eater grows with every timeline it has swallowed (TIME_EATER_GROWTH).
+    const fed = GUARDIAN_ENEMY[this.state.area] === 'timeEater' ? TIME_EATER_GROWTH ** this.state.regression.runs : 1;
+    return areaDef(this.state.area).guardian * this.regMult('enemyHp') * fed;
+  }
+
+  /** The Time Eater can be slain for good (not just driven back at half its health) once the Unbound Void Rift is yours. */
+  get timeEaterMortal(): boolean {
+    return this.ownsReg('unbound-rift');
   }
 
   travel(id: AreaId): boolean {
@@ -2439,9 +2447,9 @@ export class Game {
         s.areas[next].unlocked = true;
         this.emit({ type: 'areaUnlocked', area: next });
       } else if (!nextAreaOf(s.area)) {
-        // The Time Eater swallows the run: from now on you can regress.
+        // The Time Eater swallows the run: from now on you can regress. (Slain for good with the Unbound Void Rift.)
         s.regression.unlocked = true;
-        this.emit({ type: 'finalGuardian' });
+        this.emit({ type: 'finalGuardian', slain: this.timeEaterMortal });
       }
       return { gold, material: e.material, amount: BOSS_MATERIAL_DROP };
     }

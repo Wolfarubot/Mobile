@@ -39,6 +39,12 @@ export const BASE_DROP_CHANCE = 0.07; // chance an enemy drops its material
 export const BOSS_MATERIAL_DROP = 10;
 /** Seconds to defeat an area's Guardian once challenged. */
 export const GUARDIAN_TIME = 45;
+/**
+ * The Time Eater can't be killed, only driven back, and every timeline it swallows feeds it: its health is ×this for
+ * each Regression so far, so it stays a close fight run after run (on the second run, the paced team at its first
+ * challenge brings down about 80% of what it takes). Only once the Unbound Void Rift is yours can it be slain.
+ */
+export const TIME_EATER_GROWTH = 28;
 /** Gold for slaying a Guardian, in kills' worth of the area's basic enemy. */
 export const GUARDIAN_GOLD_MULT = 50;
 /** A gold monster: 1 in GOLDEN_ODDS ordinary monsters, paying GOLDEN_GOLD × the gold and GOLDEN_DROPS × the drop chance. */
@@ -1443,7 +1449,7 @@ export const ENEMIES: EnemyDef[] = [
   { id: 'demonLord', name: 'Demon Lord', area: 'caves', archetype: 'demon', guardianOnly: true, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 22, material: 'forsakenSoul', unlock: Infinity, color: '#c02a1a', shape: 'hexagon', blurb: "The master of the Ember Mines, wreathed in the souls it has taken.", weak: ['frost', 'radiant'], resist: ['fire', 'decay', 'physical'] },
   { id: 'koboldKing', name: 'Kobold King', area: 'mines', archetype: 'humanoid', guardianOnly: true, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 20, material: 'ore', unlock: Infinity, color: '#c0503a', shape: 'square', blurb: 'The kobolds\' king rides to war on a tusked boar, scythe-spear raised over the caverns he dug.', weak: ['fire', 'acid'], resist: ['physical', 'frost'] },
   { id: 'frostGargoyle', name: 'Frost Gargoyle', area: 'peaks', archetype: 'construct', guardianOnly: true, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 20, material: 'ecto', unlock: Infinity, color: '#8fd0ff', shape: 'diamond', blurb: 'Carved to watch the high passes, frozen solid, and long since woken by the storm.', weak: ['radiant', 'arcane'], resist: ['physical'] },
-  { id: 'timeEater', name: 'Time Eater', area: 'rift', archetype: 'demon', guardianOnly: true, winAt: 0.5, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 22, material: 'void', unlock: Infinity, color: '#e0c060', shape: 'hexagon', blurb: 'It devours the hours of every world it finds. The Void Rift is its mouth.', weak: ['radiant', 'arcane'], resist: ['void', 'decay', 'physical'] },
+  { id: 'timeEater', name: 'Time Eater', area: 'rift', archetype: 'demon', guardianOnly: true, winAt: 0.5, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 22, material: 'void', unlock: Infinity, color: '#e0c060', shape: 'hexagon', blurb: 'It devours the hours of every world it finds. The Void Rift is its mouth. It cannot be killed, only driven back, and every timeline it swallows makes it stronger.', weak: ['radiant', 'arcane'], resist: ['void', 'decay', 'physical'] },
 ];
 
 export const enemyDef = (id: EnemyId): EnemyDef => byId(ENEMIES, id);
