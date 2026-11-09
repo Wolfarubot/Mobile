@@ -41,10 +41,11 @@ export const BOSS_MATERIAL_DROP = 10;
 export const GUARDIAN_TIME = 45;
 /**
  * The Time Eater can't be killed, only driven back, and every timeline it swallows feeds it: its health is ×this for
- * each Regression so far, so it stays a close fight run after run (on the second run, the paced team at its first
- * challenge brings down about 80% of what it takes). Only once the Unbound Void Rift is yours can it be slain.
+ * each Regression so far, so it stays a close fight run after run. On the second run the paced team, at its first
+ * challenge, wins some fights and comes close in the rest (at ×28 it stalled at 55-75% of what it takes for days,
+ * with Hunters barely growing in the Void Rift). Only once the Unbound Void Rift is yours can it be slain.
  */
-export const TIME_EATER_GROWTH = 28;
+export const TIME_EATER_GROWTH = 20;
 /** Gold for slaying a Guardian, in kills' worth of the area's basic enemy. */
 export const GUARDIAN_GOLD_MULT = 50;
 /** A gold monster: 1 in GOLDEN_ODDS ordinary monsters, paying GOLDEN_GOLD × the gold and GOLDEN_DROPS × the drop chance. */
