@@ -41,16 +41,13 @@ export const BOSS_MATERIAL_DROP = 10;
 export const GUARDIAN_TIME = 45;
 /**
  * The Time Eater can't be killed, only driven back, and every timeline it swallows feeds it: its health is
- * ×TIME_EATER_GROWTH after the first Regression and ×TIME_EATER_GROWTH_AFTER more for each one after (×20, ×40, ×80...),
- * so it stays a close fight run after run. Paced, the team at its first challenge comes 75-100% of the way and wins
- * within a couple of days, on the second run and the third (a flat ×20 a Regression left the third run's team at
- * 15%: each run's team is only about twice as strong as the last at that point). Only once the Unbound Void Rift is
- * yours can it be slain.
+ * ×TIME_EATER_GROWTH for each Regression so far (×20, ×40, ×60...), so it stays a close fight run after run. Paced, the
+ * team at its first challenge comes 75-100% of the way on the second run (×20) and the third (×40); a player can
+ * regress at any time, so it needn't be beaten every run. Only once the Unbound Void Rift is yours can it be slain.
  */
 export const TIME_EATER_GROWTH = 20;
-export const TIME_EATER_GROWTH_AFTER = 2;
 /** How much health the Time Eater has gained after `runs` Regressions. */
-export const timeEaterGrowth = (runs: number): number => (runs > 0 ? TIME_EATER_GROWTH * TIME_EATER_GROWTH_AFTER ** (runs - 1) : 1);
+export const timeEaterGrowth = (runs: number): number => (runs > 0 ? TIME_EATER_GROWTH * runs : 1);
 /** Gold for slaying a Guardian, in kills' worth of the area's basic enemy. */
 export const GUARDIAN_GOLD_MULT = 50;
 /** A gold monster: 1 in GOLDEN_ODDS ordinary monsters, paying GOLDEN_GOLD × the gold and GOLDEN_DROPS × the drop chance. */
