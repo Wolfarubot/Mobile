@@ -1532,9 +1532,18 @@ export class Game {
 
   /** The Guardian's health: less with a Giant Slayer charge spent on this challenge (as if hit harder). */
   get guardianHp(): number {
-    // The Time Eater grows with every timeline it has swallowed (TIME_EATER_GROWTH).
-    const fed = GUARDIAN_ENEMY[this.state.area] === 'timeEater' ? TIME_EATER_GROWTH ** this.state.regression.runs : 1;
-    return areaDef(this.state.area).guardian * this.regMult('enemyHp') * fed;
+    return this.guardianHpIn(this.state.area);
+  }
+
+  /** An area's Guardian's health. The Time Eater grows with every timeline it has swallowed (TIME_EATER_GROWTH). */
+  guardianHpIn(area: AreaId): number {
+    const fed = GUARDIAN_ENEMY[area] === 'timeEater' ? TIME_EATER_GROWTH ** this.state.regression.runs : 1;
+    return areaDef(area).guardian * this.regMult('enemyHp') * fed;
+  }
+
+  /** A Guardian's Bestiary entry shows once it has been challenged. */
+  guardianMet(area: AreaId): boolean {
+    return (this.state.events[`guardian-${area}`]?.runs ?? 0) > 0;
   }
 
   /** The Time Eater can be slain for good (not just driven back at half its health) once the Unbound Void Rift is yours. */

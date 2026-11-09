@@ -2806,7 +2806,12 @@ export class AppUI {
   private buildBestiary(): void {
     const g = this.game;
     const order = [g.area, ...g.unlockedAreas.filter((a) => a !== g.area)];
-    const all = order.flatMap((a) => areaEnemies(a));
+    // Each area's monsters, then its Guardian once it has been challenged (a Guardian of its own, not one of them).
+    const beastsOf = (a: AreaId): EnemyDef[] => {
+      const boss = enemyDef(GUARDIAN_ENEMY[a]);
+      return [...areaEnemies(a), ...(boss.guardianOnly && g.guardianMet(a) ? [boss] : [])];
+    };
+    const all = order.flatMap((a) => beastsOf(a));
     // The current area's first monster until you pick one.
     if (!all.some((d) => d.id === this.selectedBeast)) this.selectedBeast = all[0].id;
     // The monster on the pinned card has been looked at.
@@ -2839,8 +2844,8 @@ export class AppUI {
         draw();
       });
       draw();
-      for (const def of areaEnemies(areaId)) {
-        const tile = el('button', 'hunter-tile beast-tile') as HTMLButtonElement;
+      for (const def of beastsOf(areaId)) {
+        const tile = el('button', `hunter-tile beast-tile${def.guardianOnly ? ' guardian-tile' : ''}`) as HTMLButtonElement;
         tile.innerHTML = `<canvas class="bt-portrait"></canvas><span class="ht-name">${def.name}</span><small class="ht-lv"></small><b class="sp-dot hidden" title="${esc(txt('tip.markers.evoPoints'))}"></b><span class="alert-mark white tile-new hidden"></span>${MAX_CROWN}`;
         tile.classList.toggle('selected', def.id === this.selectedBeast);
         const mark = $('.tile-new', tile);
@@ -2850,8 +2855,8 @@ export class AppUI {
           this.selectedBeast = def.id;
           this.setTab('beasts', true);
         });
-        // Only unlocked monsters have a full view (as their card).
-        this.onOpenGesture(tile, `beast:${def.id}`, () => g.state.bestiary[def.id].unlocked && this.openMonsterDetail(def.id));
+        // Only unlocked monsters have a full view (as their card); a Guardian once it's here at all.
+        this.onOpenGesture(tile, `beast:${def.id}`, () => (def.guardianOnly || g.state.bestiary[def.id].unlocked) && this.openMonsterDetail(def.id));
         grid.appendChild(tile);
         queuePortrait($<HTMLCanvasElement>('canvas', tile), def.id);
         tiles.push({ def, tile, lv: $('.ht-lv', tile), dot: $('.sp-dot', tile), crown: $('.max-crown', tile) });
@@ -2861,6 +2866,12 @@ export class AppUI {
     this.refreshers.push(() => {
       for (const { crown, defs } of areaCrowns) crown.classList.toggle('hidden', !defs.every((d) => g.state.bestiary[d.id].unlocked && g.monsterLevelInfo(d.id).level >= MAX_MONSTER_LEVEL));
       for (const { def, tile, lv, dot, crown } of tiles) {
+        // A Guardian: no levels, nothing to empower or unlock.
+        if (def.guardianOnly) {
+          lv.textContent = '👑 Guardian';
+          crown.classList.add('hidden');
+          continue;
+        }
         let ready: boolean;
         crown.classList.toggle('hidden', !g.state.bestiary[def.id].unlocked || g.monsterLevelInfo(def.id).level < MAX_MONSTER_LEVEL);
         if (g.state.bestiary[def.id].unlocked) {
@@ -2901,11 +2912,12 @@ export class AppUI {
         <span class="beast-portrait"><canvas class="portrait"></canvas>${MAX_CROWN}</span>
         <div class="info"><div class="card-corner"></div><div class="name"></div><div class="blurb">${def.blurb}</div></div>
       </div>
-      ${g.state.bestiary[def.id].unlocked ? dropHtml(def, false) : '<div class="drop-line ld-spacer" aria-hidden="true">&nbsp;</div>'}
+      ${def.guardianOnly || g.state.bestiary[def.id].unlocked ? dropHtml(def, false) : '<div class="drop-line ld-spacer" aria-hidden="true">&nbsp;</div>'}
       ${affinityHtml(def, true)}
       <div class="beast-actions"></div>`;
     parent.appendChild(card);
     queuePortrait($<HTMLCanvasElement>('canvas', card), def.id);
+    if (def.guardianOnly) return this.guardianCard(def, card);
 
     const actions = $('.beast-actions', card);
     const unlockBtn = el('button', 'buy') as HTMLButtonElement;
@@ -2974,6 +2986,27 @@ export class AppUI {
       const points = g.evoPoints(def.id);
       dot.textContent = String(points);
       dot.classList.toggle('hidden', points <= 0);
+    });
+  }
+
+  /**
+   * A Guardian's card in the Bestiary: no level, Empower or evolutions (it can't be made stronger), just how many
+   * times it has been challenged and beaten. Tap it for its full view.
+   */
+  private guardianCard(def: EnemyDef, card: HTMLElement): void {
+    const g = this.game;
+    const arch = ARCHETYPES[def.archetype];
+    const row = el('div', 'hc-train guardian-row');
+    row.innerHTML = '<span class="hc-lv">👑</span><div class="hc-mid guardian-record"></div>';
+    $('.beast-actions', card).appendChild(row);
+    $('.max-crown', card).classList.add('hidden');
+    $('.card-corner', card).append(el('span', 'expand-tag', 'Expand ›'));
+    card.setAttribute('role', 'button');
+    card.addEventListener('click', () => this.openMonsterDetail(def.id));
+    this.refreshers.push(() => {
+      const ev = g.state.events[`guardian-${def.area}`];
+      setHtml($('.name', card), `${def.name}<span class="archetype">${arch.icon} ${arch.name}</span>${beastTags(def)} <small>Guardian of the ${areaDef(def.area).name}</small>`);
+      setHtml($('.guardian-record', row), `Challenged <b>${fmt(ev?.runs ?? 0)}</b> · beaten <b>${fmt(ev?.completed ?? 0)}</b>`);
     });
   }
 
@@ -3068,7 +3101,13 @@ export class AppUI {
       evoPane.classList.toggle('hidden', sub !== 'evolution');
     };
     tabs.querySelectorAll<HTMLButtonElement>('button').forEach((b) => b.addEventListener('click', () => show(b.dataset.sub as 'stats' | 'evolution')));
-    show(this.monsterSub);
+    // A Guardian can't be empowered or evolved: just its Stats page, without the tabs.
+    const boss = !!def.guardianOnly;
+    tabs.classList.toggle('hidden', boss);
+    if (boss) {
+      body.classList.remove('hidden');
+      evoPane.classList.add('hidden');
+    } else show(this.monsterSub);
 
     // Its description, drops and weaknesses open the Stats page (not above the tabs, where they'd push the
     // Evolution tree down the page).
@@ -3079,6 +3118,28 @@ export class AppUI {
         </div>
         ${affinityHtml(def)}`;
     body.appendChild(lore);
+
+    if (boss) {
+      body.appendChild(sectionTitle('Guardian'));
+      const gstats = el('div', 'hd-stats');
+      body.appendChild(gstats);
+      this.refreshers.push(() => {
+        const ev = g.state.events[`guardian-${def.area}`];
+        $('.hd-sub', view).innerHTML = `<span>${arch.name} · Guardian</span><span class="where">${areaDef(def.area).name}</span>`;
+        const cells: Array<[string, string]> = [
+          ['Health', fmt(g.guardianHpIn(def.area))],
+          ['Time to beat it', `${GUARDIAN_TIME}s`],
+          ['Challenged', fmt(ev?.runs ?? 0)],
+          ['Beaten', fmt(ev?.completed ?? 0)],
+          ['Bounty', `🪙 ${fmt(areaDef(def.area).gold * GUARDIAN_GOLD_MULT * g.regMult('gold'))}`],
+        ];
+        gstats.innerHTML = cells.map(([k, v]) => `<div><b>${v}</b>${k}</div>`).join('');
+      });
+      this.detail.refreshers = this.refreshers;
+      this.refreshers = main;
+      this.refresh();
+      return;
+    }
 
     body.appendChild(sectionTitle('Empower'));
     body.appendChild(
