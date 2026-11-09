@@ -1,11 +1,12 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { EVENTS, AREAS, ENEMIES, enemyUnlockCost, HUNTERS, ITEMS, RARITIES, STATION_EFFICIENCY, type AreaId, type Rarity, type HunterId, type ItemId } from '../src/core/balance';
+import { EVENTS, AREAS, ENEMIES, enemyUnlockCost, HUNTERS, ITEMS, RARITIES, REGRESSION_TREE, STATION_EFFICIENCY, type AreaId, type Rarity, type HunterId, type ItemId } from '../src/core/balance';
 import { Field } from '../src/core/field';
 import { Game, type Shooter } from '../src/core/game';
 import { mergeSample, runSample, sameGroup, SAMPLE_SETTLED } from '../src/core/sampler';
 import { deserialize, newGame, serialize, type Wearer } from '../src/core/state';
 import { botGear } from './botGear';
+import { regress } from '../src/core/regression';
 
 /** Small deterministic PRNG so pacing results are reproducible. */
 function mulberry(seed: number) {
@@ -288,6 +289,24 @@ it.runIf(!!process.env.PRESETS_OUT)('dev progress presets', () => {
 }, 0);
 
 /**
+ * Spends Memory Shards on the Regression Tree the way a player would: whatever's for sale, cheapest first, the
+ * strongest kinds first among equals (damage, gold, training, then the rest). Returns the names bought.
+ */
+function botTree(game: Game): string[] {
+  const rank = (id: string) => {
+    const m = REGRESSION_TREE.find((n) => n.id === id)!.mult ?? {};
+    return m.damage ? 0 : m.gold ? 1 : m.trainCost ? 2 : m.shards ? 3 : 4;
+  };
+  const out: string[] = [];
+  for (let guard = 0; guard < 200; guard++) {
+    const pick = REGRESSION_TREE.filter((n) => game.canBuyReg(n.id)).sort((a, b) => game.regCostOf(a.id) - game.regCostOf(b.id) || rank(a.id) - rank(b.id))[0];
+    if (!pick || !game.buyReg(pick.id)) break;
+    out.push(pick.name);
+  }
+  return out;
+}
+
+/**
  * Starting over (a "New Game+"): a fresh game that keeps every Hunter's training and skill nodes (yours and the
  * Guild Hunters', ascensions included) from `save`, and nothing else: no gear, gold, materials, areas or monster
  * levels. Guild Hunters still have to be unlocked and recruited again, and come back at their old levels.
@@ -326,6 +345,23 @@ it.runIf(!!process.env.SIM_FULL)('full game: a typical player beats the Time Eat
     bot.field.setView(390, 420);
     const s = bot.game.state;
     log(`New Game+: you Lv ${bot.game.levelOf('main')}, Guild Hunters ${HUNTERS.map((h) => `${h.id}:${bot.game.levelOf(h.id)}`).join(' ')} (to recruit again), no gear but the starter kit, ${s.gold} gold`);
+  }
+  // SIM_REGRESS=rift-end (a key of public/dev-presets.json) or a SIM_END file: regress that save with the game's own
+  // Regression, spend the Memory Shards on the tree (botTree), and play the next run.
+  if (process.env.SIM_REGRESS) {
+    const src = process.env.SIM_REGRESS;
+    const save = existsSync(src)
+      ? (JSON.parse(readFileSync(src, 'utf8')) as { save: string }).save
+      : JSON.stringify((JSON.parse(readFileSync('public/dev-presets.json', 'utf8')) as Record<string, unknown>)[src]);
+    const old = deserialize(save)!;
+    old.regression.unlocked = true;
+    const r = regress(old, 0);
+    bot.game = new Game(r.state, mulberry(42));
+    bot.field = new Field(bot.game);
+    bot.field.setView(390, 420);
+    const bought = botTree(bot.game);
+    log(`Regression ${r.state.regression.runs} from ${src}: run worth ${r.worth.total.toExponential(2)} gold, ${r.shards} Memory Shards; bought ${bought.join(', ') || 'nothing'} (${bot.game.state.regression.shards} left)`);
+    log(`  you Lv ${bot.game.levelOf('main')}, Guild Hunters ${HUNTERS.map((h) => `${h.id}:${bot.game.levelOf(h.id)}`).join(' ')} (to recruit again), starting gold ${bot.game.state.gold}`);
   }
   log('No ads watched, no gems bought or spent: events run on energy alone.');
   // SIM_FROM=checkpoint.json resumes from a checkpoint written by SIM_SNAP=dir (one per area, as it opens).
