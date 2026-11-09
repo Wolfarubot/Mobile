@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GEAR_WORTH_WEIGHT, gearCost, gearDef, HUNTERS, MATERIAL_WORTH, MATERIALS, regNode, REGRESSION_LINKS, REGRESSION_TREE, shardsFor, SHARD_POWER, TIME_EATER_GROWTH, type MaterialId } from '../src/core/balance';
+import { GEAR_WORTH_WEIGHT, gearCost, gearDef, HUNTERS, MATERIAL_WORTH, MATERIALS, regNode, REGRESSION_LINKS, REGRESSION_TREE, shardsFor, SHARD_POWER, TIME_EATER_GROWTH, TIME_EATER_GROWTH_AFTER, timeEaterGrowth, type MaterialId } from '../src/core/balance';
 import { Game } from '../src/core/game';
 import { Field } from '../src/core/field';
 import { estimateInvested, gearInvested, regress, runWorth } from '../src/core/regression';
@@ -340,15 +340,17 @@ describe('Regression Tree', () => {
 });
 
 describe('The Time Eater', () => {
-  it('grows ×TIME_EATER_GROWTH with every Regression; other Guardians stay as they were', () => {
+  it('grows ×20 at the first Regression and ×2 at each after; other Guardians stay as they were', () => {
     const at = (area: 'rift' | 'meteors', runs: number) => {
       const s = newGame(0);
       s.area = area;
       s.regression.runs = runs;
       return new Game(s, noCrit).guardianHp;
     };
-    expect(at('rift', 1)).toBeCloseTo(at('rift', 0) * TIME_EATER_GROWTH, -3);
-    expect(at('rift', 3) / at('rift', 0)).toBeCloseTo(TIME_EATER_GROWTH ** 3, 0);
+    expect(at('rift', 1) / at('rift', 0)).toBeCloseTo(TIME_EATER_GROWTH, 6);
+    expect(at('rift', 2) / at('rift', 0)).toBeCloseTo(TIME_EATER_GROWTH * TIME_EATER_GROWTH_AFTER, 6);
+    expect(at('rift', 3) / at('rift', 0)).toBeCloseTo(TIME_EATER_GROWTH * TIME_EATER_GROWTH_AFTER ** 2, 6);
+    expect([1, 2, 3].map(timeEaterGrowth)).toEqual([20, 40, 80]);
     expect(at('meteors', 2)).toBe(at('meteors', 0));
   });
 

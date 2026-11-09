@@ -211,7 +211,7 @@ import {
   type SkillNode,
   type TreeStat,
   SWARM_SPAWN,
-  TIME_EATER_GROWTH,
+  timeEaterGrowth,
 } from './balance';
 import { capAway, type OfflineResult } from './offline';
 import { invest, runWorth, shardsNow, type RunWorth } from './regression';
@@ -1535,9 +1535,9 @@ export class Game {
     return this.guardianHpIn(this.state.area);
   }
 
-  /** An area's Guardian's health. The Time Eater grows with every timeline it has swallowed (TIME_EATER_GROWTH). */
+  /** An area's Guardian's health. The Time Eater grows with every timeline it has swallowed (timeEaterGrowth). */
   guardianHpIn(area: AreaId): number {
-    const fed = GUARDIAN_ENEMY[area] === 'timeEater' ? TIME_EATER_GROWTH ** this.state.regression.runs : 1;
+    const fed = GUARDIAN_ENEMY[area] === 'timeEater' ? timeEaterGrowth(this.state.regression.runs) : 1;
     return areaDef(area).guardian * this.regMult('enemyHp') * fed;
   }
 
