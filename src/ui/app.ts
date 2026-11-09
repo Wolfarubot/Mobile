@@ -22,6 +22,7 @@ import {
   enemyDef,
   FLYING,
   GUARDIAN_ENEMY,
+  guardianName,
   EMPOWER,
   type EnemyId,
   type TreeNode,
@@ -2274,7 +2275,7 @@ export class AppUI {
       // The last area is cleared by beating its Guardian (the Time Eater) at least once.
       const cleared = next ? g.isAreaUnlocked(next.id) : (g.state.events[`guardian-${id}`]?.completed ?? 0) > 0;
       mastery.innerHTML = cleared
-        ? `<div class="mastery done"><span>${next ? '✓ Guardian defeated' : `✓ ${enemyDef(GUARDIAN_ENEMY[id]).name} defeated`}</span></div>`
+        ? `<div class="mastery done"><span>${next ? '✓ Guardian defeated' : `✓ ${guardianName(id)} defeated`}</span></div>`
         : `<div class="mastery"><i style="width:${Math.min(1, st.kills / a.mastery) * 100}%"></i><span>Mastery ${fmt(st.kills)} / ${fmt(a.mastery)}</span></div>`;
       const guardian = g.state.events[`guardian-${id}`];
       const runs = events.reduce((sum, e) => sum + g.state.events[e.id].runs, 0);
@@ -2852,7 +2853,7 @@ export class AppUI {
       draw();
       for (const { def, boss } of beastsOf(areaId)) {
         const tile = el('button', `hunter-tile beast-tile${boss ? ' guardian-tile' : ''}`) as HTMLButtonElement;
-        tile.innerHTML = `<canvas class="bt-portrait"></canvas><span class="ht-name">${def.name}</span><small class="ht-lv"></small><b class="sp-dot hidden" title="${esc(txt('tip.markers.evoPoints'))}"></b><span class="alert-mark white tile-new hidden"></span>${MAX_CROWN}`;
+        tile.innerHTML = `<canvas class="bt-portrait"></canvas><span class="ht-name">${boss ? guardianName(areaId) : def.name}</span><small class="ht-lv"></small><b class="sp-dot hidden" title="${esc(txt('tip.markers.evoPoints'))}"></b><span class="alert-mark white tile-new hidden"></span>${MAX_CROWN}`;
         const picked = () => def.id === this.selectedBeast && boss === this.selectedBoss;
         tile.classList.toggle('selected', picked());
         const mark = $('.tile-new', tile);
@@ -3013,7 +3014,7 @@ export class AppUI {
     card.addEventListener('click', () => this.openMonsterDetail(def.id, true));
     this.refreshers.push(() => {
       const ev = g.state.events[`guardian-${def.area}`];
-      setHtml($('.name', card), `${def.name}<span class="archetype">${arch.icon} ${arch.name}</span>${beastTags(def)} <small>Guardian of the ${areaDef(def.area).name}</small>`);
+      setHtml($('.name', card), `${guardianName(def.area)}<span class="archetype">${arch.icon} ${arch.name}</span>${beastTags(def)} <small>Guardian of the ${areaDef(def.area).name}</small>`);
       setHtml($('.guardian-record', row), `Challenged <b>${fmt(ev?.runs ?? 0)}</b> · beaten <b>${fmt(ev?.completed ?? 0)}</b>`);
     });
   }
@@ -3081,7 +3082,7 @@ export class AppUI {
         <div class="hd-hero hero-head">
           <span class="beast-portrait big">${'<canvas class="portrait big-portrait"></canvas>'}${MAX_CROWN}</span>
           <div class="hd-title hero-plate">
-            <h2>${def.name}</h2>
+            <h2>${asGuardian || def.guardianOnly ? guardianName(def.area) : def.name}</h2>
             <div class="hd-sub"></div>
             ${beastTags(def) ? `<div class="beast-tags">${beastTags(def)}</div>` : ''}
           </div>

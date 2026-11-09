@@ -1713,6 +1713,14 @@ export const GUARDIAN_ENEMY: Record<AreaId, EnemyId> = {
   meteors: 'starEater',
   rift: 'timeEater',
 };
+/**
+ * An area's Guardian's name. A Guardian that's a giant one of the area's own monsters (the Ice Wyvern, Storm Titan and
+ * Star Eater) is the Ancient one, to tell it apart from the monster.
+ */
+export const guardianName = (area: AreaId): string => {
+  const def = enemyDef(GUARDIAN_ENEMY[area]);
+  return def.guardianOnly ? def.name : `Ancient ${def.name}`;
+};
 export const enemyUnlockCost = (def: EnemyDef): number => def.unlock * areaDef(def.area).gold;
 
 // ---- Monsters: Empower (gold) raises a monster's level; levels earn evolution points for its evolution tree ----
@@ -5160,9 +5168,7 @@ export const EVENTS: EventDef[] = AREAS.flatMap((a): EventDef[] => {
       kind: 'guardian',
       name: 'Guardian Challenge',
       icon: '⚔️',
-      blurb: enemyDef(GUARDIAN_ENEMY[a.id]).guardianOnly
-        ? `Bring down the ${enemyDef(GUARDIAN_ENEMY[a.id]).name}, the ${a.name} Guardian, within ${GUARDIAN_TIME} seconds.`
-        : `Bring down the ${a.name} Guardian within ${GUARDIAN_TIME} seconds.`,
+      blurb: `Bring down the ${guardianName(a.id)}, the ${a.name} Guardian, within ${GUARDIAN_TIME} seconds.`,
       unlockKills: a.mastery,
       duration: GUARDIAN_TIME,
       requires: { event: sw.id, times: 1 },

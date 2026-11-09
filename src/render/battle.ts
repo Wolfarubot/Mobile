@@ -2,7 +2,7 @@ import { buzz } from '../ui/haptics';
 import { pixelShadow } from './pixelShadow';
 import { battleSfx as sfx } from '../ui/sound';
 import { MAGIC_SFX, SFX } from '../ui/sfxConfig';
-import { areaDef, DAMAGE_TYPES, FIELD_ZOOM, FLYING, gearDef, WEAPON_CLASSES, STATUS, enemyDef, eventDef, fieldZoom, GUARDIAN_TIME, hunterDef, materialDef, SIZE_SCALE, type AreaId, type DamageType, type EnemyId, type EnemyShape, type SummonType } from '../core/balance';
+import { areaDef, DAMAGE_TYPES, FIELD_ZOOM, FLYING, gearDef, WEAPON_CLASSES, STATUS, enemyDef, eventDef, fieldZoom, GUARDIAN_TIME, guardianName, hunterDef, materialDef, SIZE_SCALE, type AreaId, type DamageType, type EnemyId, type EnemyShape, type SummonType } from '../core/balance';
 import { DICE_FLIGHT, DICE_REST, PLAYER_RADIUS, SHOT_RADIUS, SUMMON_RADIUS, TOME_LIFE, TOME_OPEN, type EnemyShot, type Summon, type SpellZone, type FieldEvent, type Bullet, type BulletKind, type Enemy, type Field, type Helper, type Puddle } from '../core/field';
 import { MATERIAL_SPRITES } from '../core/materialSprites';
 import { fmt } from '../core/format';
@@ -2119,7 +2119,7 @@ export class BattleView {
       g.globalAlpha = this.hudFade;
       g.font = canvasFont(13, 700);
       const bossDef = enemyDef(boss.type);
-      label(`${bossDef.guardianOnly ? bossDef.name.toUpperCase() : `${areaDef(this.game.area).name.toUpperCase()} GUARDIAN`} · ${fmt(Math.max(0, boss.hp))}`, w / 2, '#ff9aa6');
+      label(`${guardianName(this.game.area).toUpperCase()} · ${fmt(Math.max(0, boss.hp))}`, w / 2, '#ff9aa6');
       const t = Math.max(0, this.game.bossTimer / GUARDIAN_TIME);
       const hp = Math.max(0, boss.hp / boss.maxHp);
       // Health in the Guardian's own colour, the time left in light orange under it.
