@@ -16,11 +16,13 @@ import { MINIGAME_MUSIC, musicClock, setMusicRate, trackBeat } from '../music';
  * UI packs), the Grove's pixies and Ba'al, who plays from the corner. The Grove's trees and scenery keep to the sides.
  */
 
-export const PS_INTRO = '<p>Pixies fly down three paths. <b>Tap a path</b> as its pixie reaches the <b>bar</b> across it: 1 point anywhere on the blue cobbles, 2 right on the bar.</p><p>A pixie that slips past, or a tap on an empty path, costs a heart.</p>';
+export const PS_INTRO = '<p>Pixies fly down three paths. <b>Tap a path</b> as its pixie reaches the <b>bar</b> across it: 1 point anywhere on the blue cobbles, 2 right on the bar.</p><p>A pixie that slips past, or a tap on an empty path, costs a heart. Ba\'al then has a moment to recover (he flickers) before another can be lost.</p>';
 
 /** The Grove behind it, with a clear column down the middle for the paths (trees and scenery at the sides only). */
 export const PS_DECOR = { bands: 9, density: 1, clear: 0.7 };
 
+/** Seconds after losing a heart when a miss or an empty tap can't cost another (Ba'al flickers meanwhile), as in Grave Robbing. */
+export const PS_IMMUNE = 1.5;
 /** Each path's colour, for the music notes a hit sends up from Ba'al's guitar. */
 const COLORS = ['#ff8ad8', '#8ad8ff', '#c8ff8a'];
 /** Ba'al's guitar. */
@@ -115,6 +117,14 @@ export function pixieSerenade(api: MinigameApi): MinigameGame {
   /** Notes floating up out of Ba'al's guitar after each hit. */
   const floaters: Array<{ x: number; y: number; vx: number; vy: number; t: number; color: string; sway: number }> = [];
   let strum = 0;
+  /** Seconds left of Ba'al's grace after a heart is lost (PS_IMMUNE). */
+  let immune = 0;
+  /** A heart lost, unless Ba'al is still shaking off the last one. */
+  const miss = (x: number, y: number) => {
+    if (immune > 0) return;
+    api.loseLife(x, y);
+    immune = PS_IMMUNE;
+  };
   /** Ba'al plays from the bottom-left corner, beside the paths. */
   const baal = () => ({ x: Math.max(34 * api.k, api.W * 0.12), y: api.H - 24 });
   const guitarAt = () => ({ x: baal().x + 6 * api.k, y: baal().y - 28 * api.k });
@@ -135,6 +145,8 @@ export function pixieSerenade(api: MinigameApi): MinigameGame {
   /** Ba'al at the bottom, facing you, with the guitar across them (rocking as they strum). */
   const drawBaal = (g: CanvasRenderingContext2D) => {
     const b = baal();
+    // Flickering while a lost heart's grace lasts.
+    if (immune > 0 && Math.floor(immune * 12) % 2 === 0) return;
     const sheet = HUNTER_SHEETS.bard;
     const img = hunterSheetImage('bard');
     g.imageSmoothingEnabled = false;
@@ -190,7 +202,7 @@ export function pixieSerenade(api: MinigameApi): MinigameGame {
       let best: (typeof notes)[number] | null = null;
       for (const n of notes) if (!n.hit && n.lane === lane && Math.abs(n.y - lineY()) <= window() && (!best || Math.abs(n.y - lineY()) < Math.abs(best.y - lineY()))) best = n;
       if (!best) {
-        api.loseLife(laneX(lane), lineY());
+        miss(laneX(lane), lineY());
         return;
       }
       best.hit = true;
@@ -245,7 +257,7 @@ export function pixieSerenade(api: MinigameApi): MinigameGame {
         const n = notes[i];
         if (!n.hit && n.y > lineY() + window()) {
           n.hit = true;
-          api.loseLife(laneX(n.lane), lineY());
+          miss(laneX(n.lane), lineY());
         }
         if ((n.hit && (n.pop === undefined || n.pop > POP)) || n.y > api.H + 30) notes.splice(i, 1);
       }
@@ -254,6 +266,7 @@ export function pixieSerenade(api: MinigameApi): MinigameGame {
         press[i] = Math.max(0, press[i] - dt);
       }
       strum = Math.max(0, strum - dt);
+      immune = Math.max(0, immune - dt);
       for (const f of floaters) {
         f.t += dt;
         f.x += (f.vx + Math.sin((f.t + f.sway) * 5) * 22 * api.k) * dt;
