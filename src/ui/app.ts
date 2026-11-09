@@ -2162,14 +2162,53 @@ export class AppUI {
           <div class="area-tile big" style="--ac:${a.palette[2]}"><i>${a.icon}</i></div>
           <div class="hd-title"><h2>${a.name}</h2><div class="hd-sub"><span>${a.blurb}</span></div></div>
         </div>
-        <div class="hd-body"></div>
+        <div class="area-top-actions">
+          <button class="buy secondary-btn observe-btn">👁️ Observe</button>
+          <button class="buy travel-btn">Travel</button>
+        </div>
+        <div class="subtabs">
+          <button data-sub="stats">📊 Stats</button>
+          <button data-sub="hunters">🏹 Hunters</button>
+        </div>
+        <div class="hd-body" data-sub="stats"></div>
+        <div class="hd-body" data-sub="hunters"></div>
       </div>`;
     document.body.appendChild(view);
     $('.hd-close', view).addEventListener('click', () => this.closeHunterDetail());
     this.detail = { el: view, refreshers: [] };
-    const body = $('.hd-body', view);
+    const body = $('.hd-body[data-sub=stats]', view);
+    const huntersPane = $('.hd-body[data-sub=hunters]', view);
+    const show = (name: string) => {
+      view.querySelectorAll<HTMLElement>('.subtabs button[data-sub]').forEach((b) => b.classList.toggle('on', b.dataset.sub === name));
+      view.querySelectorAll<HTMLElement>('.hd-body').forEach((b) => b.classList.toggle('hidden', b.dataset.sub !== name));
+    };
+    view.querySelectorAll<HTMLButtonElement>('.subtabs button[data-sub]').forEach((b) => b.addEventListener('click', () => show(b.dataset.sub!)));
+    show('stats');
     const main = this.refreshers;
     this.refreshers = [];
+
+    // Observe (watch the Hunters stationed here fight on their own, without travelling) and Travel, up top.
+    const observeBtn = $<HTMLButtonElement>('.observe-btn', view);
+    observeBtn.addEventListener('click', () => {
+      if (!this.hooks.observe(id)) return;
+      this.closeHunterDetail();
+      this.refresh();
+    });
+    const travelBtn = $<HTMLButtonElement>('.travel-btn', view);
+    travelBtn.addEventListener('click', () => {
+      if (g.area === id || g.eventRunning) return;
+      g.travel(id);
+      this.toast(txt('toast.areas.traveled', { area: a.name }));
+      this.closeHunterDetail();
+      this.refresh();
+    });
+    this.refreshers.push(() => {
+      const here = g.area === id;
+      observeBtn.disabled = here || !g.stationedIn(id).length;
+      observeBtn.title = here ? 'You are hunting here' : g.stationedIn(id).length ? 'Watch the Hunters here on their own' : 'No Hunters are stationed here';
+      travelBtn.disabled = here || g.eventRunning;
+      travelBtn.textContent = here ? '📍 You are here' : 'Travel';
+    });
 
     body.appendChild(sectionTitle('Stats'));
     const mastery = el('div', 'mastery-wrap');
@@ -2201,20 +2240,11 @@ export class AppUI {
       }
     }
 
+    // Hunters tab: who's stationed here.
     const activeTitle = sectionTitle('Active Hunters');
     activeTitle.classList.add('center');
-    body.appendChild(activeTitle);
-    body.appendChild(this.activeHunters(id));
-    // Observe: watch the Hunters stationed here fight on their own, without travelling.
-    const observeBtn = el('button', 'buy observe-btn') as HTMLButtonElement;
-    observeBtn.innerHTML = '👁️ Observe<small>Watch the Hunters here on their own</small>';
-    observeBtn.addEventListener('click', () => {
-      if (!this.hooks.observe(id)) return;
-      this.closeHunterDetail();
-      this.refresh();
-    });
-    body.appendChild(observeBtn);
-    this.refreshers.push(() => observeBtn.classList.toggle('hidden', id === g.area || !g.stationedIn(id).length));
+    huntersPane.appendChild(activeTitle);
+    huntersPane.appendChild(this.activeHunters(id));
 
     body.appendChild(sectionTitle('Monsters'));
     const monsters = el('div', 'area-monsters');

@@ -6980,14 +6980,15 @@ img.ei[src$='custom/012.png'] {
   filter: none !important;
 }
 
-/* Areas → Details → Observe, and the bar over the battlefield while observing. */
-.observe-btn {
-  display: block;
-  margin: 10px auto 4px;
-  min-width: 200px;
+/* Areas → Details: Observe and Travel side by side up top, and the bar over the battlefield while observing. */
+.area-top-actions {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0 0;
 }
-.observe-btn small {
-  font-size: 11px;
+.area-top-actions .buy {
+  flex: 1;
+  min-width: 0;
 }
 .observe-bar {
   position: absolute;
