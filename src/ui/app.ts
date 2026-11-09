@@ -417,6 +417,8 @@ export class AppUI {
   private selectedHunter: Wearer = 'main';
   /** The monster whose card is pinned under the Bestiary's grid. */
   private selectedBeast: EnemyId | null = null;
+  /** The pinned card is the selected monster's Guardian entry (its own card, apart from its entry as a monster). */
+  private selectedBoss = false;
   /** The event whose card is pinned under the Events tab's tiles. */
   private selectedEvent: string | null = null;
   /** The last area tile tapped, for double-taps (tiles are rebuilt on each tap). */
@@ -2806,17 +2808,21 @@ export class AppUI {
   private buildBestiary(): void {
     const g = this.game;
     const order = [g.area, ...g.unlockedAreas.filter((a) => a !== g.area)];
-    // Each area's monsters, then its Guardian once it has been challenged (a Guardian of its own, not one of them).
-    const beastsOf = (a: AreaId): EnemyDef[] => {
-      const boss = enemyDef(GUARDIAN_ENEMY[a]);
-      return [...areaEnemies(a), ...(boss.guardianOnly && g.guardianMet(a) ? [boss] : [])];
-    };
+    // Each area's monsters, then its Guardian once it has been challenged: an entry of its own, even when the Guardian
+    // is a giant one of the area's monsters (that monster keeps its own entry too).
+    const beastsOf = (a: AreaId): Array<{ def: EnemyDef; boss: boolean }> => [
+      ...areaEnemies(a).map((def) => ({ def, boss: false })),
+      ...(g.guardianMet(a) ? [{ def: enemyDef(GUARDIAN_ENEMY[a]), boss: true }] : []),
+    ];
     const all = order.flatMap((a) => beastsOf(a));
     // The current area's first monster until you pick one.
-    if (!all.some((d) => d.id === this.selectedBeast)) this.selectedBeast = all[0].id;
+    if (!all.some((d) => d.def.id === this.selectedBeast && d.boss === this.selectedBoss)) {
+      this.selectedBeast = all[0].def.id;
+      this.selectedBoss = false;
+    }
     // The monster on the pinned card has been looked at.
-    if (this.selectedBeast && this.newBeast(enemyDef(this.selectedBeast))) this.markSeen('beasts', this.selectedBeast);
-    const tiles: Array<{ def: EnemyDef; tile: HTMLElement; lv: HTMLElement; dot: HTMLElement; crown: HTMLElement }> = [];
+    if (this.selectedBeast && !this.selectedBoss && this.newBeast(enemyDef(this.selectedBeast))) this.markSeen('beasts', this.selectedBeast);
+    const tiles: Array<{ def: EnemyDef; boss: boolean; tile: HTMLElement; lv: HTMLElement; dot: HTMLElement; crown: HTMLElement }> = [];
     // An area's title wears the crown too once every one of its monsters is at its max level.
     const areaCrowns: Array<{ crown: HTMLElement; defs: EnemyDef[] }> = [];
     for (const areaId of order) {
@@ -2844,30 +2850,32 @@ export class AppUI {
         draw();
       });
       draw();
-      for (const def of beastsOf(areaId)) {
-        const tile = el('button', `hunter-tile beast-tile${def.guardianOnly ? ' guardian-tile' : ''}`) as HTMLButtonElement;
+      for (const { def, boss } of beastsOf(areaId)) {
+        const tile = el('button', `hunter-tile beast-tile${boss ? ' guardian-tile' : ''}`) as HTMLButtonElement;
         tile.innerHTML = `<canvas class="bt-portrait"></canvas><span class="ht-name">${def.name}</span><small class="ht-lv"></small><b class="sp-dot hidden" title="${esc(txt('tip.markers.evoPoints'))}"></b><span class="alert-mark white tile-new hidden"></span>${MAX_CROWN}`;
-        tile.classList.toggle('selected', def.id === this.selectedBeast);
+        const picked = () => def.id === this.selectedBeast && boss === this.selectedBoss;
+        tile.classList.toggle('selected', picked());
         const mark = $('.tile-new', tile);
-        this.refreshers.push(() => mark.classList.toggle('hidden', def.id === this.selectedBeast || !this.newBeast(def)));
+        this.refreshers.push(() => mark.classList.toggle('hidden', boss || picked() || !this.newBeast(def)));
         tile.addEventListener('click', () => {
-          if (this.selectedBeast === def.id) return;
+          if (picked()) return;
           this.selectedBeast = def.id;
+          this.selectedBoss = boss;
           this.setTab('beasts', true);
         });
         // Only unlocked monsters have a full view (as their card); a Guardian once it's here at all.
-        this.onOpenGesture(tile, `beast:${def.id}`, () => (def.guardianOnly || g.state.bestiary[def.id].unlocked) && this.openMonsterDetail(def.id));
+        this.onOpenGesture(tile, `beast:${boss ? 'guardian:' : ''}${def.id}`, () => (boss || g.state.bestiary[def.id].unlocked) && this.openMonsterDetail(def.id, boss));
         grid.appendChild(tile);
         queuePortrait($<HTMLCanvasElement>('canvas', tile), def.id);
-        tiles.push({ def, tile, lv: $('.ht-lv', tile), dot: $('.sp-dot', tile), crown: $('.max-crown', tile) });
+        tiles.push({ def, boss, tile, lv: $('.ht-lv', tile), dot: $('.sp-dot', tile), crown: $('.max-crown', tile) });
       }
       this.panel.appendChild(grid);
     }
     this.refreshers.push(() => {
       for (const { crown, defs } of areaCrowns) crown.classList.toggle('hidden', !defs.every((d) => g.state.bestiary[d.id].unlocked && g.monsterLevelInfo(d.id).level >= MAX_MONSTER_LEVEL));
-      for (const { def, tile, lv, dot, crown } of tiles) {
+      for (const { def, boss, tile, lv, dot, crown } of tiles) {
         // A Guardian: no levels, nothing to empower or unlock.
-        if (def.guardianOnly) {
+        if (boss) {
           lv.textContent = '👑 Guardian';
           crown.classList.add('hidden');
           continue;
@@ -2900,11 +2908,11 @@ export class AppUI {
     }
     // The selected monster's card, pinned to the bottom so it's in reach wherever the grid is scrolled.
     const dock = el('div', 'hunter-dock');
-    this.buildBeast(enemyDef(this.selectedBeast!), dock);
+    this.buildBeast(enemyDef(this.selectedBeast!), dock, this.selectedBoss);
     this.panel.appendChild(dock);
   }
 
-  private buildBeast(def: EnemyDef, parent: HTMLElement): void {
+  private buildBeast(def: EnemyDef, parent: HTMLElement, boss = !!def.guardianOnly): void {
     const g = this.game;
     const card = el('div', 'beast');
     card.innerHTML = `
@@ -2912,12 +2920,12 @@ export class AppUI {
         <span class="beast-portrait"><canvas class="portrait"></canvas>${MAX_CROWN}</span>
         <div class="info"><div class="card-corner"></div><div class="name"></div><div class="blurb">${def.blurb}</div></div>
       </div>
-      ${def.guardianOnly || g.state.bestiary[def.id].unlocked ? dropHtml(def, false) : '<div class="drop-line ld-spacer" aria-hidden="true">&nbsp;</div>'}
+      ${boss || g.state.bestiary[def.id].unlocked ? dropHtml(def, false) : '<div class="drop-line ld-spacer" aria-hidden="true">&nbsp;</div>'}
       ${affinityHtml(def, true)}
       <div class="beast-actions"></div>`;
     parent.appendChild(card);
     queuePortrait($<HTMLCanvasElement>('canvas', card), def.id);
-    if (def.guardianOnly) return this.guardianCard(def, card);
+    if (boss) return this.guardianCard(def, card);
 
     const actions = $('.beast-actions', card);
     const unlockBtn = el('button', 'buy') as HTMLButtonElement;
@@ -3002,7 +3010,7 @@ export class AppUI {
     $('.max-crown', card).classList.add('hidden');
     $('.card-corner', card).append(el('span', 'expand-tag', 'Expand ›'));
     card.setAttribute('role', 'button');
-    card.addEventListener('click', () => this.openMonsterDetail(def.id));
+    card.addEventListener('click', () => this.openMonsterDetail(def.id, true));
     this.refreshers.push(() => {
       const ev = g.state.events[`guardian-${def.area}`];
       setHtml($('.name', card), `${def.name}<span class="archetype">${arch.icon} ${arch.name}</span>${beastTags(def)} <small>Guardian of the ${areaDef(def.area).name}</small>`);
@@ -3061,7 +3069,8 @@ export class AppUI {
   }
 
   /** Full-screen monster view: Empower, what it's worth now, and its evolution tree. */
-  private openMonsterDetail(id: EnemyId): void {
+  /** A monster's full view; `asGuardian` for its Guardian entry (always so for a Guardian-only monster). */
+  private openMonsterDetail(id: EnemyId, asGuardian = false): void {
     if (this.detail) this.dropDetail();
     const g = this.game;
     const def = enemyDef(id);
@@ -3085,7 +3094,8 @@ export class AppUI {
     this.detail = { el: view, refreshers: [] };
     const scroll = $('.hd-scroll', view);
     const main = this.refreshers;
-    this.refreshers = [() => $('.max-crown', view).classList.toggle('hidden', !g.state.bestiary[id].unlocked || g.monsterLevelInfo(id).level < MAX_MONSTER_LEVEL)];
+    // (A Guardian entry has no level, so no crown.)
+    this.refreshers = [() => $('.max-crown', view).classList.toggle('hidden', asGuardian || !g.state.bestiary[id].unlocked || g.monsterLevelInfo(id).level < MAX_MONSTER_LEVEL)];
 
     // Sub-tabs, like the Hunter view: Stats (Empower and what it's worth) and Evolution (its tree).
     const tabs = el('div', 'subtabs');
@@ -3102,7 +3112,7 @@ export class AppUI {
     };
     tabs.querySelectorAll<HTMLButtonElement>('button').forEach((b) => b.addEventListener('click', () => show(b.dataset.sub as 'stats' | 'evolution')));
     // A Guardian can't be empowered or evolved: just its Stats page, without the tabs.
-    const boss = !!def.guardianOnly;
+    const boss = asGuardian || !!def.guardianOnly;
     tabs.classList.toggle('hidden', boss);
     if (boss) {
       body.classList.remove('hidden');
