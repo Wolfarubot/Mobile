@@ -109,7 +109,32 @@ async function boot(): Promise<void> {
   if (import.meta.env.DEV) (window as unknown as { __battle: BattleView }).__battle = battle;
   // Areas → Details → Observe: another area's battlefield with just the Hunters stationed there, run on a copy of
   // the save (what happens in it isn't kept; their real gains go on as usual) and drawn instead of yours.
-  let obs: { area: AreaId; game: Game; field: Field; battle: BattleView } | null = null;
+  let obs: { area: AreaId; game: Game; field: Field; battle: BattleView; group: string; gear: string; at: number } | null = null;
+  /** What the observed Hunters are wearing, their training and skills, from the real save (to spot changes). */
+  const gearKey = (group: HunterId[]) =>
+    JSON.stringify(group.map((h) => [game.state.hunters[h], (game.state.equipment[h] ?? []).map((uid) => (uid != null ? (game.gearItem(uid) ?? null) : null))]));
+  /**
+   * Keeps the observed copy in step with the real save: a Hunter re-equipped, trained or given skills while you
+   * watch fights on with the change at once, and a Hunter stationed there or taken away restarts the view.
+   */
+  const syncObserved = () => {
+    if (!obs) return;
+    const group = game.stationedIn(obs.area);
+    if (group.join(',') !== obs.group) {
+      observe(obs.area);
+      return;
+    }
+    const key = gearKey(group);
+    if (key === obs.gear) return;
+    obs.gear = key;
+    const copy = obs.game.state;
+    const real = deserialize(serialize(game.state))!;
+    copy.inventory = real.inventory;
+    for (const h of group) {
+      copy.hunters[h] = { ...real.hunters[h], station: obs.area };
+      copy.equipment[h] = real.equipment[h];
+    }
+  };
   const stopObserving = () => {
     if (!obs) return;
     obs.battle.dispose();
@@ -125,10 +150,11 @@ async function boot(): Promise<void> {
     for (const [id, h] of Object.entries(state.hunters)) h.station = h.recruited && group.includes(id as HunterId) ? area : null;
     const copy = new Game(state);
     const f = new Field(copy, group[0]);
-    obs = { area, game: copy, field: f, battle: new BattleView(canvas, copy, f) };
+    obs = { area, game: copy, field: f, battle: new BattleView(canvas, copy, f), group: group.join(','), gear: gearKey(group), at: 0 };
     battle.setActive(false);
     return true;
   };
+  if (import.meta.env.DEV) Object.defineProperty(window, '__observed', { get: () => obs });
   const ui = new AppUI(game, { save, wipe, devPhase, devRestore, hasDevBackup, regress, observe, stopObserving, observing: () => obs?.area ?? null });
   // Measures each farming group on a hidden copy of its battlefield, for offline gains and stationed Hunters.
   new SamplerHost(game, () => field.view);
@@ -179,6 +205,10 @@ async function boot(): Promise<void> {
       // Observing: your field keeps fighting unseen; the observed one runs and is drawn.
       field.drainEvents();
       if (!game.stationedIn(obs.area).length || game.area === obs.area) stopObserving();
+      else if ((obs.at += dt) >= 0.25) {
+        obs.at = 0;
+        syncObserved();
+      }
     }
     if (obs) {
       const steps2 = Math.ceil(dt / (1 / 30));
