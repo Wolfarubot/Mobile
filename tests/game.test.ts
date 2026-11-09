@@ -91,7 +91,7 @@ import {
   BUFF_CRIT_DMG,
   BUFF_ENCORE,
   BUFF_GOLD,
-  BUFF_HYMN,
+  BUFF_ALLURE,
   BUFF_KEEN_EYE,
   BUFF_LOOT_TWO_STAR,
   WEEKLY_DAILIES,
@@ -4434,14 +4434,16 @@ describe('Events', () => {
     expect(g.buffLeft('huntingPractice')).toBeCloseTo(MINIGAME_BUFFS.huntingPractice.cap - 100 - 3600); // and while away
     g.tick(1e6);
     expect(g.buffOn('huntingPractice')).toBe(false);
-    // The others: attack speed, kill gold, cooldowns, crits.
+    // The others: spawns, kill gold, cooldowns, crits.
     const rate = g.shooterRate('main');
+    const spawn = g.enemyStats('greenSlime').spawnRate;
     const gold = g.enemyStats('greenSlime').gold;
     const cd = g.cooldownMult('main');
     const crit = g.critChanceOf('main');
     const critMult = g.critMultOf('main');
     Object.assign(g.state.buffs, { pixieSerenade: 60, graveRobbing: 60, puppetShow: 60, shootingGallery: 60 });
-    expect(g.shooterRate('main')).toBeCloseTo(rate * (1 + BUFF_HYMN));
+    expect(g.enemyStats('greenSlime').spawnRate).toBeCloseTo(spawn * (1 + BUFF_ALLURE));
+    expect(g.shooterRate('main')).toBeCloseTo(rate); // Alluring Hymn no longer speeds attacks
     expect(g.enemyStats('greenSlime').gold).toBeCloseTo(gold * (1 + BUFF_GOLD));
     expect(g.cooldownMult('main')).toBeCloseTo(cd * (1 - BUFF_ENCORE));
     expect(g.critChanceOf('main')).toBeCloseTo(crit + BUFF_CRIT);

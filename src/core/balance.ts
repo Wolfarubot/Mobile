@@ -4908,7 +4908,8 @@ export interface MinigameBuff {
   desc: string;
 }
 export const BUFF_KEEN_EYE = 0.25;
-export const BUFF_HYMN = 0.15;
+/** Alluring Hymn (Ba'al's Pixie Serenade): monsters spawn this much more often, in every area. */
+export const BUFF_ALLURE = 0.5;
 export const BUFF_GOLD = 0.3;
 export const BUFF_ENCORE = 0.2;
 export const BUFF_CRIT = 0.05;
@@ -4923,7 +4924,7 @@ export const STARDUST_MIN_AWAY = 15 * 60;
 const TIMED = { kind: 'timed' as const, per: 30 * 60, cap: 2 * 60 * 60 };
 export const MINIGAME_BUFFS: Record<MinigameId, MinigameBuff> = {
   huntingPractice: { name: 'Keen Eye', ...TIMED, desc: `+${BUFF_KEEN_EYE * 100}% material drop chance, in every area.` },
-  pixieSerenade: { name: 'Battle Hymn', ...TIMED, desc: `+${BUFF_HYMN * 100}% attack speed for every Hunter.` },
+  pixieSerenade: { name: 'Alluring Hymn', ...TIMED, desc: `Monsters spawn ${BUFF_ALLURE * 100}% more often, in every area: more to slay on the way to each Guardian.` },
   graveRobbing: { name: 'Sticky Fingers', ...TIMED, desc: `+${BUFF_GOLD * 100}% gold from every kill.` },
   puppetShow: { name: 'Encore', ...TIMED, desc: `Every Hunter's abilities and specials recharge ${BUFF_ENCORE * 100}% faster.` },
   shootingGallery: { name: 'Dead Eye', ...TIMED, desc: `+${BUFF_CRIT * 100}% crit chance and +${BUFF_CRIT_DMG * 100}% crit damage for every Hunter.` },

@@ -74,7 +74,7 @@ import {
   BUFF_ENCORE,
   RIFT_QUICKEN_STEP,
   BUFF_GOLD,
-  BUFF_HYMN,
+  BUFF_ALLURE,
   BUFF_KEEN_EYE,
   BUFF_OVERCLOCK,
   BUFF_LOOT,
@@ -416,7 +416,7 @@ export class Game {
   }
 
   get fireRate(): number {
-    return BASE_FIRE_RATE * this.skillRateMult('main') * (1 + this.gear('main').rate) * this.inspireFor('main') * this.hymn;
+    return BASE_FIRE_RATE * this.skillRateMult('main') * (1 + this.gear('main').rate) * this.inspireFor('main');
   }
 
   /**
@@ -724,7 +724,7 @@ export class Game {
   shooterRate(shooter: Shooter, mode?: GearMode): number {
     const cls = this.weaponClassOf(shooter, mode)?.rate ?? 1;
     if (shooter === 'main') return this.fireRate * cls;
-    return HELPER_FIRE_RATE * this.skillRateMult(shooter) * (1 + this.gear(shooter, mode).rate) * cls * this.inspireFor(shooter) * this.hymn;
+    return HELPER_FIRE_RATE * this.skillRateMult(shooter) * (1 + this.gear(shooter, mode).rate) * cls * this.inspireFor(shooter);
   }
 
   /**
@@ -1628,11 +1628,6 @@ export class Game {
     return this.state.echo[id] ?? 0;
   }
 
-  /** Battle Hymn's attack speed multiplier. */
-  private get hymn(): number {
-    return 1 + BUFF_HYMN * this.buffPower('pixieSerenade');
-  }
-
   /** What a play of a minigame adds to its buff for a score (nothing for a score of 0). */
   buffGain(mg: MinigameId, id: string, score: number): number {
     const b = MINIGAME_BUFFS[mg];
@@ -2267,7 +2262,7 @@ export class Game {
       hp: area.hp * def.hp * emp('hp') * (1 + evo.hp) * this.regMult('enemyHp'),
       speed: area.speed * def.speed * (1 + evo.speed) * swarm.speed,
       gold: area.gold * def.gold * emp('gold') * (1 + evo.gold) * this.areaPerk(def.area).gold * (1 + BUFF_GOLD * this.buffPower('graveRobbing')) * this.premiumMult('gold') * this.regMult('gold'),
-      spawnRate: b.unlocked ? Math.max(def.spawn * emp('spawn') * (1 + evo.spawn) * (isGolem(def) ? GOLEM_SPAWN : idol.spawn) * swarm.spawn * this.regMult('spawn'), swarm.spawn ? (ev?.minSpawn?.[id] ?? 0) : 0) : 0,
+      spawnRate: b.unlocked ? Math.max(def.spawn * emp('spawn') * (1 + evo.spawn) * (isGolem(def) ? GOLEM_SPAWN : idol.spawn) * swarm.spawn * this.regMult('spawn') * (1 + BUFF_ALLURE * this.buffPower('pixieSerenade')), swarm.spawn ? (ev?.minSpawn?.[id] ?? 0) : 0) : 0,
       dropChance: BASE_DROP_CHANCE * (isGolem(def) ? GOLEM_DROPS : 1) * emp('drops') * (1 + evo.drops) * (1 + BUFF_KEEN_EYE * this.buffPower('huntingPractice')) * this.premiumMult('drops') * this.regMult('drops'),
       material: def.material,
       split: Math.min(1, evo.split),
