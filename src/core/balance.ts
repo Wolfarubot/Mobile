@@ -1523,12 +1523,18 @@ const UNBOUND_ORDER: AreaId[] = ['forest', 'glade', 'graveyard', 'crypt', 'depth
 const UNBOUND_RING = 5.5;
 const UNBOUND_IN = 4.5;
 const UNBOUND_OUT = 6.5;
-/** Nodes between one Unbound area and the next, and where they sit in the 30° to it: in, out, in, out. */
-const UNBOUND_BETWEEN = 4;
-const UNBOUND_STEPS = [7.5, 11, 22.5, 26];
-/** Shards for the k-th node round the ring (the Woods is 0): ×1.17 a step, two significant figures. */
+/**
+ * Nodes between one Unbound area and the next, where they sit in the 30° to it, and how far out: an inner and an
+ * outer pair by each area, and a hub in the middle on the areas' own ring (see REGRESSION_LINKS for how they join).
+ */
+const UNBOUND_BETWEEN = 5;
+const UNBOUND_STEPS = [7.5, 7.5, 15, 22.5, 22.5];
+const UNBOUND_RINGS = [UNBOUND_IN, UNBOUND_OUT, UNBOUND_RING, UNBOUND_IN, UNBOUND_OUT];
+/** Which of the nodes between two areas is the hub (1-based, as in their ids `ring-<area>-<j>`). */
+const UNBOUND_HUB = 3;
+/** Shards for the k-th node round the ring (the Woods is 0): ×1.14 a step, two significant figures. */
 const unboundCost = (k: number): number => {
-  const v = 10_000 * 1.17 ** k;
+  const v = 10_000 * 1.14 ** k;
   const p = 10 ** (Math.floor(Math.log10(v)) - 1);
   return Math.round(v / p) * p;
 };
@@ -1547,9 +1553,10 @@ const UNBOUND_PERKS: Array<Pick<RegNode, 'name' | 'icon' | 'desc' | 'mult' | 'fl
 const ROMAN = ['', ' II', ' III', ' IV', ' V', ' VI', ' VII'];
 /**
  * The Unbound ring: the twelve Unbound areas where the hours sit on a clock (the Woods at 12, the Grove at 1, ...
- * the Void Rift at 11), close round the inner web, with UNBOUND_BETWEEN nodes between each area and the next that
- * zigzag in and out across a band, so the ring fills the space round the web. They're bought in order round the
- * ring (the order they're listed in), each dearer than the last, so every area is a jump in gold and time.
+ * the Void Rift at 11), round the inner web, with UNBOUND_BETWEEN nodes between each area and the next: an inner and
+ * an outer node by each area and a hub in the middle. From an area you can take either node beside it or go straight
+ * for the hub, which opens all four and the next area, so there's no one order to buy them in. Prices rise round the
+ * ring (the order they're listed in), so every area is a jump in gold and time.
  */
 function unboundRing(): RegNode[] {
   const out: RegNode[] = [];
@@ -1584,7 +1591,7 @@ function unboundRing(): RegNode[] {
         ...p,
         id: `ring-${i}-${j}`,
         name: p.name + ROMAN[n],
-        ring: j % 2 ? UNBOUND_IN : UNBOUND_OUT,
+        ring: UNBOUND_RINGS[j - 1],
         angle: angle + UNBOUND_STEPS[j - 1],
         cost: unboundCost(i * (UNBOUND_BETWEEN + 1) + j),
       });
@@ -1642,9 +1649,18 @@ export const REGRESSION_LINKS: Array<[string, string]> = (() => {
     out.push([at(2, a), thread], [thread, at(2, next)]);
   });
   for (const a of [-90, -30, 210]) out.push([at(3, a), 'unbound-forest']);
-  // Round the Unbound ring, clockwise from the Woods to the Void Rift, each node joined to the next.
-  const ring = REGRESSION_TREE.filter((n) => n.id.startsWith('unbound-') || n.id.startsWith('ring-'));
-  for (let i = 1; i < ring.length; i++) out.push([ring[i - 1].id, ring[i].id]);
+  // Round the Unbound ring, clockwise from the Woods to the Void Rift. Between two areas: the area opens the inner
+  // and outer node beside it and the hub; the hub joins all four nodes and the next area; the far pair joins the
+  // next area too.
+  UNBOUND_ORDER.slice(0, -1).forEach((area, i) => {
+    const from = `unbound-${area}`;
+    const to = `unbound-${UNBOUND_ORDER[i + 1]}`;
+    const node = (j: number) => `ring-${i}-${j}`;
+    const hub = node(UNBOUND_HUB);
+    out.push([from, node(1)], [from, node(2)], [from, hub], [hub, to]);
+    for (let j = 1; j <= UNBOUND_BETWEEN; j++) if (j !== UNBOUND_HUB) out.push([hub, node(j)]);
+    out.push([node(4), to], [node(5), to]);
+  });
   return out;
 })();
 

@@ -188,15 +188,36 @@ describe('Regression Tree', () => {
     expect(g.regVisible('unbound-forest')).toBe(true);
     expect(g.regVisible('ring-0-1')).toBe(false);
     g.state.regression.tree['unbound-forest'] = 1;
-    expect(g.regVisible('ring-0-1')).toBe(true);
-    expect(g.regVisible('ring-0-2')).toBe(false);
-    expect(g.regVisible('unbound-glade')).toBe(false);
+    // Past an area: the inner and outer node beside it and the hub, not the far pair or the next area.
+    expect(['ring-0-1', 'ring-0-2', 'ring-0-3'].map((id) => g.regVisible(id))).toEqual([true, true, true]);
+    expect(['ring-0-4', 'ring-0-5', 'unbound-glade'].map((id) => g.regVisible(id))).toEqual([false, false, false]);
+  });
+
+  it('between two Unbound areas there is no one order: take a node beside the area or go straight for the hub', () => {
+    const g = withShards(1e12);
+    g.state.regression.tree = Object.fromEntries(REGRESSION_TREE.filter((n) => n.ring <= 3).map((n) => [n.id, 1]));
+    g.state.regression.tree['unbound-forest'] = 1;
+    const reach = (id: string) => g.regReachable(id);
+    // From the Woods: either node beside it, or the hub.
+    expect(['ring-0-1', 'ring-0-2', 'ring-0-3', 'ring-0-4', 'ring-0-5'].map(reach)).toEqual([true, true, true, false, false]);
+    // The hub opens all four and the next area.
+    g.state.regression.tree['ring-0-3'] = 1;
+    expect(['ring-0-1', 'ring-0-2', 'ring-0-4', 'ring-0-5', 'unbound-glade'].map(reach)).toEqual([true, true, true, true, true]);
+    // Without the hub, a node beside the Woods only leads on to the hub.
+    delete g.state.regression.tree['ring-0-3'];
+    g.state.regression.tree['ring-0-2'] = 1;
+    expect(['ring-0-3', 'ring-0-4', 'ring-0-5', 'unbound-glade'].map(reach)).toEqual([true, false, false, false]);
+    // The far pair lead on to the next area too.
+    g.state.regression.tree = { 'ring-0-5': 1 };
+    expect(reach('unbound-glade')).toBe(true);
+    // The hub sits on the areas' own ring, halfway between them.
+    expect(regNode('ring-0-3')).toMatchObject({ ring: regNode('unbound-forest')!.ring, angle: -75 });
   });
 
   it('the Unbound areas sit round a clock face, nodes between them, prices rising all the way round', () => {
     const ring = REGRESSION_TREE.filter((n) => n.id.startsWith('unbound-') || n.id.startsWith('ring-'));
     // Clockwise all the way round, beyond the inner web (the outer ring is at 3).
-    for (let i = 1; i < ring.length; i++) expect(ring[i].angle).toBeGreaterThan(ring[i - 1].angle);
+    for (let i = 1; i < ring.length; i++) expect(ring[i].angle).toBeGreaterThanOrEqual(ring[i - 1].angle);
     for (const n of ring) expect(n.ring).toBeGreaterThan(3.5);
     for (const n of ring) expect(n.ring).toBeLessThan(7);
     // Woods at 12 o'clock, then an hour per area, the Void Rift at 11.
@@ -205,11 +226,9 @@ describe('Regression Tree', () => {
     expect(ring.filter((n) => n.area).map((n) => n.angle)).toEqual(Array.from({ length: 12 }, (_, i) => -90 + 30 * i));
     for (let i = 1; i < ring.length; i++) {
       expect(ring[i].cost).toBeGreaterThan(ring[i - 1].cost);
-      // Each joined to the next, nothing skipping ahead.
-      expect(REGRESSION_LINKS.some(([a, b]) => (a === ring[i - 1].id && b === ring[i].id) || (b === ring[i - 1].id && a === ring[i].id))).toBe(true);
     }
-    // Between two areas, the nodes in the middle come first.
-    expect(ring.findIndex((n) => n.id === 'unbound-glade') - ring.findIndex((n) => n.id === 'unbound-forest')).toBe(5);
+    // Between two areas, the five nodes in the middle come first.
+    expect(ring.findIndex((n) => n.id === 'unbound-glade') - ring.findIndex((n) => n.id === 'unbound-forest')).toBe(6);
   });
 
   it('the Unbound areas run in order round the web, each needing the one before, prices rising', () => {
