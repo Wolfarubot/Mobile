@@ -7152,6 +7152,12 @@ body.ui-parchment .mod-action b {
   max-height: 72vh;
   margin: 4px 0 16px;
   overscroll-behavior: contain;
+  /* Dragged by hand in any direction (see openRegression), not scrolled by the browser. */
+  touch-action: none;
+  cursor: grab;
+}
+.reg-pan.dragging {
+  cursor: grabbing;
 }
 .reg-web {
   position: relative;

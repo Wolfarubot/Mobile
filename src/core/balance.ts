@@ -1520,12 +1520,12 @@ const SPOKES = [-90, -30, 30, 90, 150, 210];
 /** The Unbound areas in order, clockwise round the clock face (each needs the one before it). */
 const UNBOUND_ORDER: AreaId[] = ['forest', 'glade', 'graveyard', 'crypt', 'depths', 'caves', 'mines', 'peaks', 'cliffs', 'fortress', 'meteors', 'rift'];
 /** How far out the Unbound areas sit (in rings), and the inner and outer edges of the band their nodes zigzag across. */
-const UNBOUND_RING = 4.7;
-const UNBOUND_IN = 4.1;
-const UNBOUND_OUT = 5.5;
+const UNBOUND_RING = 5.5;
+const UNBOUND_IN = 4.5;
+const UNBOUND_OUT = 6.5;
 /** Nodes between one Unbound area and the next, and where they sit in the 30° to it: in, out, in, out. */
 const UNBOUND_BETWEEN = 4;
-const UNBOUND_STEPS = [8, 13, 19, 24];
+const UNBOUND_STEPS = [7.5, 11, 22.5, 26];
 /** Shards for the k-th node round the ring (the Woods is 0): ×1.17 a step, two significant figures. */
 const unboundCost = (k: number): number => {
   const v = 10_000 * 1.17 ** k;

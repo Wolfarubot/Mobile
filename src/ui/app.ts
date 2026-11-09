@@ -5214,7 +5214,7 @@ export class AppUI {
       web.style.width = `${W}px`;
       web.style.height = `${H}px`;
       const maxRing = Math.max(...shown.map((n) => n.ring));
-      const rings = [1, 2, 3, 4.7]
+      const rings = [1, 2, 3, 5.5]
         .filter((r) => r <= maxRing)
         .map((r) => `<circle cx="${-x0}" cy="${-y0}" r="${r * R}" class="rw-ring"/>`)
         .join('');
@@ -5262,6 +5262,48 @@ export class AppUI {
         web.querySelectorAll<SVGLineElement>('.rw-link').forEach((l) => l.classList.toggle('lit', g.ownsReg(l.dataset.a!) && g.ownsReg(l.dataset.b!))),
       );
       pan.appendChild(web);
+      // Slide the web around by dragging it (finger or mouse, in any direction); a drag never taps the node under it.
+      let draggedAt = -Infinity;
+      pan.addEventListener('pointerdown', (ev) => {
+        if (ev.button > 0) return;
+        const sx = ev.clientX;
+        const sy = ev.clientY;
+        const left = pan.scrollLeft;
+        const top = pan.scrollTop;
+        let moved = false;
+        const move = (e: PointerEvent) => {
+          const dx = e.clientX - sx;
+          const dy = e.clientY - sy;
+          if (!moved && Math.hypot(dx, dy) > 6) {
+            moved = true;
+            pan.classList.add('dragging');
+          }
+          if (!moved) return;
+          e.preventDefault();
+          pan.scrollLeft = left - dx;
+          pan.scrollTop = top - dy;
+        };
+        const up = () => {
+          window.removeEventListener('pointermove', move);
+          window.removeEventListener('pointerup', up);
+          window.removeEventListener('pointercancel', up);
+          pan.classList.remove('dragging');
+          if (moved) draggedAt = performance.now();
+        };
+        window.addEventListener('pointermove', move, { passive: false });
+        window.addEventListener('pointerup', up);
+        window.addEventListener('pointercancel', up);
+      });
+      pan.addEventListener(
+        'click',
+        (e) => {
+          if (performance.now() - draggedAt < 250) {
+            e.stopPropagation();
+            e.preventDefault();
+          }
+        },
+        true,
+      );
       body.appendChild(pan);
       // Start with Stabilize in the middle of the view.
       requestAnimationFrame(() => {

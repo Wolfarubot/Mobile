@@ -195,10 +195,10 @@ describe('Regression Tree', () => {
 
   it('the Unbound areas sit round a clock face, nodes between them, prices rising all the way round', () => {
     const ring = REGRESSION_TREE.filter((n) => n.id.startsWith('unbound-') || n.id.startsWith('ring-'));
-    // Clockwise all the way round, close in round the inner web (the outer ring is at 3).
+    // Clockwise all the way round, beyond the inner web (the outer ring is at 3).
     for (let i = 1; i < ring.length; i++) expect(ring[i].angle).toBeGreaterThan(ring[i - 1].angle);
     for (const n of ring) expect(n.ring).toBeGreaterThan(3.5);
-    for (const n of ring) expect(n.ring).toBeLessThan(6);
+    for (const n of ring) expect(n.ring).toBeLessThan(7);
     // Woods at 12 o'clock, then an hour per area, the Void Rift at 11.
     expect(ring[0].id).toBe('unbound-forest');
     expect(ring[ring.length - 1].id).toBe('unbound-rift');
