@@ -306,6 +306,13 @@ function botTree(game: Game): string[] {
   return out;
 }
 
+/** How many Regression Tree nodes botTree would buy with `budget` shards (on a copy of the save). */
+function plannedBuys(game: Game, budget: number): number {
+  const s = deserialize(serialize(game.state))!;
+  s.regression.shards = budget;
+  return botTree(new Game(s, () => 0.5)).length;
+}
+
 /**
  * Starting over (a "New Game+"): a fresh game that keeps every Hunter's training and skill nodes (yours and the
  * Guild Hunters', ascensions included) from `save`, and nothing else: no gear, gold, materials, areas or monster
@@ -466,11 +473,29 @@ it.runIf(!!process.env.SIM_FULL)('full game: a typical player beats the Time Eat
       return challengeNow();
     };
   }
+  // After beating the Time Eater a player plays on until a Regression would buy one more Regression Tree node than
+  // it would have the moment it fell (rather than regressing with shards left over that buy nothing), then regresses.
+  // SIM_NO_WAIT: regress the moment it falls.
+  const wantNodes = { at: -1 };
+  const regressReady = (): boolean => {
+    if (process.env.SIM_NO_WAIT) return true;
+    const budget = g.state.regression.shards + g.shardsNow;
+    const n = plannedBuys(g, budget);
+    if (wantNodes.at < 0) {
+      wantNodes.at = n + 1;
+      log(`  Time Eater down: a Regression now would pay ${g.shardsNow} shards (${budget} to spend) for ${n} node${n === 1 ? '' : 's'}; playing on for a ${wantNodes.at}${wantNodes.at === 1 ? 'st' : wantNodes.at === 2 ? 'nd' : wantNodes.at === 3 ? 'rd' : 'th'}`);
+    }
+    if (n < wantNodes.at) return false;
+    log(`  ready to regress (day ${(now / 86400).toFixed(2)}): ${g.shardsNow} shards (${budget} to spend) buy ${n} nodes`);
+    return true;
+  };
+  // A resumed run that has already brought the Time Eater down this run carries on from there.
+  if (from && (g.state.events['guardian-rift']?.completed ?? 0) > 0) beaten = from.clock;
   const started = Date.now();
   // SIM_UNTIL=90 plays on to that day (past the Time Eater too) and stops there.
   const until = process.env.SIM_UNTIL ? Number(process.env.SIM_UNTIL) * 86400 : null;
   for (const [start, length] of sessions) {
-    if (stopped || (until !== null ? start >= until : beaten !== null)) break;
+    if (stopped || (until !== null ? start >= until : beaten !== null && regressReady())) break;
     if (from && start + length <= from.clock) continue;
     now = start;
     g.applyOffline(start * 1000);
