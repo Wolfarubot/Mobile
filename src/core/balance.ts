@@ -4280,6 +4280,12 @@ const BANE_SIDE_STAT: Record<Archetype, GearStat> = {
   construct: 'stun',
 };
 
+/**
+ * How much more a potion gives, averaged over its cooldown, than a plain accessory's always-on stat of the same area
+ * and stars: it's up only a quarter to two fifths of the time, so it must hit much harder while it is to be worth it.
+ */
+export const POTION_EDGE = 1.5;
+
 const CATALOG_ACC_STATS: Record<string, number> = {
   damage: 0.06, rate: 0.05, crit: 0.02, gold: 0.15, drops: 0.15, range: 12, radius: 0.08, stun: 0.04,
   cooldown: 0.015, critDamage: 0.06, duration: 0.06, abilityPower: 0.08, statusChance: 0.01,
@@ -4324,11 +4330,17 @@ function mirrorEffect(acc: MirrorAcc, rarity: Rarity, area: number): { effect?: 
 }
 
 /** A catalog accessory's ability; damaging ones hit for their area's base damage (TIER_HIT), like armor specials. */
-function catalogAccEffect(e: CatalogAccEffect | undefined, area: number): { effect?: GearEffect } {
+function catalogAccEffect(e: CatalogAccEffect | undefined, area: number, m: number): { effect?: GearEffect } {
   if (!e) return {};
   const base = TIER_HIT[Math.min(TIER_HIT.length, area) - 1];
   switch (e.kind) {
-    case 'potion':
+    case 'potion': {
+      // A potion's boost is sized from what a plain accessory of its area gives in that stat, so that over its
+      // cooldown it averages POTION_EDGE times that (it's only up part of the time, so it hits harder while it is).
+      const plain = CATALOG_ACC_STATS[e.stat] * m;
+      const v = (POTION_EDGE * plain * e.cooldown) / e.duration;
+      return { effect: { ...e, value: e.stat === 'range' ? Math.round(v) : Math.round(v * 1000) / 1000 } };
+    }
     case 'evade':
     case 'chill':
       return { effect: e };
@@ -4360,7 +4372,7 @@ function catalogGear(spec: CatalogSpec): GearDef {
       const st = BANE_SIDE_STAT[spec.bane];
       stats[st] = Math.round(CATALOG_ACC_STATS[st] * m * 0.5 * 1000) / 1000;
     }
-    return { ...common, kind: 'accessory', ...(spec.acc ? { accType: spec.acc } : {}), stats, ...(spec.bane ? { bane: { archetype: spec.bane, bonus: Math.round(0.06 * m * 1000) / 1000 } } : {}), ...catalogAccEffect(spec.effect, areaIdx + 1) };
+    return { ...common, kind: 'accessory', ...(spec.acc ? { accType: spec.acc } : {}), stats, ...(spec.bane ? { bane: { archetype: spec.bane, bonus: Math.round(0.06 * m * 1000) / 1000 } } : {}), ...catalogAccEffect(spec.effect, areaIdx + 1, m) };
   }
   const cls = spec.cls as WeaponClass;
   // Elemental weapons inflict their effect more often in later areas; among Physical weapons only blades bleed.
@@ -4741,7 +4753,8 @@ export function describeEffect(e: GearEffect, stars: number): string {
 }
 
 /** A potion's boost at a piece's stars: +10% per star past the first. */
-export const potionValue = (e: Extract<GearEffect, { kind: 'potion' }>, stars: number): number => e.value * (1 + 0.1 * (Math.max(1, Math.min(MAX_EFFECTIVE_STARS, stars)) - 1));
+/** A potion's boost at a piece's stars: it grows with stars like any stat (×1, ×2, ×4, ×7, ×10). */
+export const potionValue = (e: Extract<GearEffect, { kind: 'potion' }>, stars: number): number => e.value * GEAR_STAR_POWER[Math.max(1, Math.min(MAX_EFFECTIVE_STARS, stars))];
 
 /**
  * The spell a staff casts after its bolts: one of its type's (TYPE_SPELLS), taking turns between that type's
