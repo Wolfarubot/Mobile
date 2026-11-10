@@ -591,6 +591,7 @@ export class BattleView {
     this.drawStrikes(g, true);
     this.drawHeld(g);
     for (const h of this.field.helpers) this.scaledAt(g, h.x, h.y, () => this.drawHelper(g, h));
+    this.drawProjections(g);
     this.scaledAt(g, 0, 0, () => this.drawHunter(g));
     this.drawBoneWall(g);
 
@@ -1853,6 +1854,41 @@ export class BattleView {
   }
 
   /** A stationed Hunter: sprite if provided, otherwise a colored circle with their icon. */
+  /**
+   * Celeste's astral projections: a see-through, violet-haloed copy of her, flickering faster as it nears its blast.
+   */
+  private drawProjections(g: CanvasRenderingContext2D): void {
+    for (const p of this.field.projections) {
+      if (p.by === 'main') continue;
+      const left = p.max - p.t;
+      const fade = Math.min(1, p.t * 4);
+      const flicker = left < 1.5 ? 0.6 + 0.4 * Math.sin(this.time * (10 + (1.5 - left) * 20)) : 0.85 + 0.15 * Math.sin(this.time * 4);
+      const R = PLAYER_RADIUS * 0.9;
+      const ghost = { id: p.by, x: p.x, y: p.y, aim: p.aim, stun: 0, stunTotal: 0, immune: 0, close: false, guard: 0 } as unknown as Helper;
+      g.save();
+      this.scaledAt(g, p.x, p.y, () => {
+        // A soft violet aura behind her, and a glowing ring at her feet.
+        const pulse = Math.sin(this.time * 5);
+        g.globalAlpha = 0.22 * fade;
+        g.fillStyle = '#b48cff';
+        g.beginPath();
+        g.arc(p.x, p.y, R * 1.25 + pulse, 0, Math.PI * 2);
+        g.fill();
+        g.globalAlpha = 0.5 * fade;
+        g.beginPath();
+        g.ellipse(p.x, p.y + R * 0.9, R * 1.2 + pulse, R * 0.42, 0, 0, Math.PI * 2);
+        g.fill();
+        g.globalAlpha = 0.95 * fade;
+        g.strokeStyle = '#efe4ff';
+        g.lineWidth = 1.5;
+        g.stroke();
+        g.globalAlpha = 0.65 * fade * flicker;
+        this.drawHelper(g, ghost);
+      });
+      g.restore();
+    }
+  }
+
   private drawHelper(g: CanvasRenderingContext2D, h: Helper): void {
     const def = hunterDef(h.id);
     const R = PLAYER_RADIUS * 0.9;

@@ -2327,7 +2327,7 @@ export const DAMAGE_TYPES: Record<DamageType, { name: string; icon: string; colo
 export const ARROW_RAIN = { time: 1.5, perShot: 0.75, rate: 8, arrow: 18, perPierce: 0.2 };
 
 export interface HunterSpecial {
-  kind: 'potion' | 'fireball' | 'summon' | 'punch' | 'spikes' | 'wave' | 'recall' | 'dice' | 'charm' | 'laser' | 'rain' | 'rift';
+  kind: 'potion' | 'fireball' | 'summon' | 'punch' | 'spikes' | 'wave' | 'recall' | 'dice' | 'charm' | 'laser' | 'rain' | 'rift' | 'projection';
   /** What it's called on the Hunter's card ("Potions", "Wolves"...). */
   name: string;
   damageType: DamageType;
@@ -2352,6 +2352,11 @@ export interface HunterSpecial {
    * that explode where they strike (`radius` wide, for `damage` × his hit to everything in it).
    */
   rift?: { count: number; bolts: number; life: number };
+  /**
+   * Celeste's Astral Projection: a copy of her appears somewhere on the field for `life` seconds, attacking exactly as
+   * she does, then explodes (`radius` wide, for `damage` × her hit to everything in it).
+   */
+  projection?: { life: number };
   describe: string;
 }
 
@@ -2601,11 +2606,15 @@ export const HUNTERS: HunterDef[] = [
   },
   {
     id: 'celeste', name: 'Celeste', title: 'Psion', icon: '🔮', color: '#c9a8ff', area: 'depths', recruitCost: 200_000_000_000_000, bane: { archetype: 'dragon', mult: BANE_BASE },
-    short: '+50% damage to Dragons.',
+    short: '+50% damage to Dragons. Projects a fighting copy.',
     unlock: { kills: 12_000, enemy: 'gazingEye' },
     ascendedTitle: 'Oracle',
     story: 'Celeste, a Psion who hears the thoughts of monsters, followed a whisper into the Shadowy Depths and got lost in the noise. The Gazing Eyes are the loudest: close twelve thousand of them, and Celeste will lend you that mind.',
-    ability: 'Deals 50% bonus damage to Dragons.',
+    ability: 'Deals 50% bonus damage to Dragons. Astral Projection: every 10 seconds, sends a copy of herself to a random spot on the field.',
+    special: {
+      kind: 'projection', name: 'Astral Projection', damageType: 'arcane', proc: 0.5, cooldown: 10, damage: 2.5, radius: 70, ticks: 1, crowd: 3, projection: { life: 6 },
+      describe: 'Every 10 seconds, sends a copy of herself to a random spot on the field. For 6 seconds it attacks exactly as she does, with her weapon, then explodes, hurting everything around it. Her weapon\'s damage powers the blast, and its attack speed widens it.',
+    },
   },
   {
     id: 'blacksmith', name: 'Kargesh', title: 'Blacksmith', icon: '⚒️', color: '#d07a3a', area: 'caves', recruitCost: 3e15,

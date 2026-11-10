@@ -362,6 +362,21 @@ export interface Bullet {
   homing?: number;
 }
 
+/** Celeste's Astral Projection: a copy of `by` standing at (x, y) for `max` seconds, then exploding. */
+export interface Projection {
+  by: Shooter;
+  x: number;
+  y: number;
+  t: number;
+  max: number;
+  aim: number;
+  fireAcc: number;
+  gun: GunState;
+  dmg: number;
+  blast: number;
+  only?: DamageType;
+}
+
 /** One of Id's rifts: open at (x, y) for `max` seconds, loosing `left` more homing void bolts, one every `every`. */
 export interface Rift {
   by: Shooter;
@@ -677,6 +692,8 @@ export class Field {
   spellHits: SpellHit[] = [];
   /** Id's open rifts. */
   rifts: Rift[] = [];
+  /** Celeste's astral projections. */
+  projections: Projection[] = [];
   zones: SpellZone[] = [];
   /** Earthshatter's fissures: cracks in the ground hurting the monsters on them. */
   fissures: Fissure[] = [];
@@ -1007,6 +1024,7 @@ export class Field {
     for (const h of this.helpers) this.helperAttack(h, dt);
 
     this.updateRifts(dt);
+    this.runProjections(dt);
     this.moveBullets(dt);
     this.tickPuddles(dt);
     this.tickGhosts(dt);
@@ -1689,6 +1707,28 @@ export class Field {
         const d = 70 + g.rng() * 30;
         this.rifts.push({ by, x: target.x + Math.cos(ang) * d, y: target.y + Math.sin(ang) * d * 0.7, t: 0, max: life, left: bolts, every: life / (bolts + 1), next: 0.2, dmg, blast: radius, only });
       }
+      return true;
+    }
+    if (sp.kind === 'projection' && sp.projection) {
+      // Celeste's Astral Projection: a copy appears at a random spot on the field with a monster in its reach
+      // (beside one, if it fights up close), attacks as she does for a while, then explodes.
+      const reach = Math.max(g.shooterRange(by, 'long'), 40);
+      let spot: { x: number; y: number } | null = null;
+      for (let i = 0; i < 8 && !spot; i++) {
+        const px = (g.rng() * 2 - 1) * this.halfW * 0.85;
+        const py = (g.rng() * 2 - 1) * this.halfH * 0.85;
+        const t = this.nearest(px, py, reach);
+        if (!t) continue;
+        if (this.isMelee(by)) {
+          const ang = g.rng() * Math.PI * 2;
+          spot = { x: t.x + Math.cos(ang) * (t.r + 18), y: t.y + Math.sin(ang) * (t.r + 18) };
+        } else spot = { x: px, y: py };
+      }
+      // Nothing near any spot tried: beside the monster she was aiming at.
+      if (!spot) spot = { x: target.x - Math.cos(a) * (target.r + 30), y: target.y - Math.sin(a) * (target.r + 30) };
+      const life = sp.projection.life * g.lastingMult(by);
+      this.projections.push({ by, x: spot.x, y: spot.y, t: 0, max: life, aim: a, fireAcc: 0, gun: { cls: null, ammo: 0, reload: 0 }, dmg, blast: radius, only });
+      this.events.push({ type: 'nova', x: spot.x, y: spot.y, r: 28, color: '#c9a8ff' });
       return true;
     }
     if (sp.kind === 'laser') {
@@ -3408,6 +3448,46 @@ export class Field {
       }
       if (d.ticks <= 0 || (d.left <= 0 && d.acc < STATUS.tick)) e[key] = undefined;
     }
+  }
+
+  /**
+   * Celeste's projections attack exactly as she does (her weapon, its rate, magazine and range, from where they
+   * stand), then explode once their time is up.
+   */
+  private runProjections(dt: number): void {
+    if (!this.projections.length) return;
+    const g = this.game;
+    for (const p of this.projections) {
+      p.t += dt;
+      if (p.t >= p.max) {
+        this.events.push({ type: 'nova', x: p.x, y: p.y, r: p.blast, color: '#c9a8ff', burst: true });
+        for (const o of [...this.enemies]) if (o.hp > 0 && Math.hypot(o.x - p.x, o.y - p.y) <= p.blast + o.r) this.hitWith(p.by, o, p.dmg, p.x, p.y, undefined, undefined, true, true, p.only);
+        continue;
+      }
+      const cls = g.weaponClassOf(p.by, 'long');
+      if (!this.gunReady(p.gun, cls, dt)) {
+        p.fireAcc = 0;
+        continue;
+      }
+      const rate = g.shooterRate(p.by, 'long');
+      p.fireAcc = Math.min(p.fireAcc + dt * rate * this.frenzyMult(p.by), 3);
+      const range = g.shooterRange(p.by, 'long');
+      while (p.fireAcc >= 1) {
+        const target = this.nearest(p.x, p.y, range);
+        if (!target) {
+          p.fireAcc = Math.min(p.fireAcc, 1);
+          break;
+        }
+        p.fireAcc -= 1;
+        p.aim = Math.atan2(target.y - p.y, target.x - p.x);
+        this.weaponAttack(p.by, p.x, p.y, p.aim, target, cls, p.gun, range, 'long');
+        if (this.spendShot(p.gun, cls, rate)) {
+          p.fireAcc = 0;
+          break;
+        }
+      }
+    }
+    this.projections = this.projections.filter((p) => p.t < p.max);
   }
 
   /** Id's rifts loose their bolts, and close once they've all gone and their time is up. */

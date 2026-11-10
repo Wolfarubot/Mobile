@@ -5079,6 +5079,33 @@ describe('Field', () => {
     expect(f.rifts).toHaveLength(0);
   });
 
+  it("Celeste's Astral Projection: a copy appears on the field, attacks as she does, then explodes", () => {
+    const sp = hunterDef('celeste').special!;
+    expect(sp).toMatchObject({ kind: 'projection', name: 'Astral Projection' });
+    const { f, g } = thomasField(['celeste']);
+    f.enemies = [];
+    for (let t = 0; t < 1.5; t += 1 / 30) f.update(1 / 30);
+    f.enemies = [tough({ id: 1, x: 120, y: -60, speed: 0 }), tough({ id: 2, x: -150, y: -90, speed: 0 })];
+    f.update(1 / 30);
+    expect(f.projections).toHaveLength(1);
+    const p = f.projections[0];
+    expect(p.by).toBe('celeste');
+    const life = sp.projection!.life * g.lastingMult('celeste');
+    expect(p.max).toBeCloseTo(life);
+    // Count bolts fired from the copy's spot (not from Celeste's own).
+    let fromCopy = 0;
+    let blast = false;
+    for (let t = 0; t < life + 0.5; t += 1 / 30) {
+      const before = new Set(f.bullets);
+      f.update(1 / 30);
+      for (const b of f.bullets) if (!before.has(b) && b.shooter === 'celeste' && Math.hypot(b.x - p.x, b.y - p.y) < 60) fromCopy++;
+      if (f.drainEvents().some((e) => e.type === 'nova' && 'burst' in e && e.burst && Math.hypot(e.x - p.x, e.y - p.y) < 1)) blast = true;
+    }
+    expect(fromCopy).toBeGreaterThan(0);
+    expect(blast).toBe(true);
+    expect(f.projections).toHaveLength(0);
+  });
+
   it("Void's gravity wells that touch merge into one bigger well; a spent well loses its size", () => {
     const { f } = thomasField([]);
     const a = tough({ id: 1, x: 100, y: 100, speed: 0 });

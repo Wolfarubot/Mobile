@@ -1021,6 +1021,14 @@ export class Game {
     if (!sp) return 0;
     // Arrow Rain: each arrow hits about one monster wherever it lands (a wider rain spreads them, not more of them).
     if (sp.kind === 'rain') return (ARROW_RAIN.rate * this.rainOf(shooter).time * sp.crowd * this.specialDamageMult(shooter)) / (sp.cooldown * this.cooldownMult(shooter));
+    // Astral Projection: a second Celeste attacking for its life, plus the blast it ends in.
+    if (sp.kind === 'projection' && sp.projection) {
+      const cls = this.weaponClassOf(shooter);
+      const life = sp.projection.life * this.lastingMult(shooter);
+      const attacks = this.shooterRate(shooter) * (cls?.farm ?? 1) * weaponUptime(cls) * weaponHitsPerAttack(cls) * life;
+      const blast = sp.crowd * (this.specialRadius(shooter) / sp.radius) * this.specialDamageMult(shooter);
+      return (attacks + blast) / (sp.cooldown * this.cooldownMult(shooter));
+    }
     // Wider specials catch more of the crowd.
     const reach = sp.summon ? this.summonFerocity(shooter) : this.specialRadius(shooter) / sp.radius;
     return (sp.ticks * sp.crowd * reach * this.specialDamageMult(shooter)) / (sp.cooldown * this.cooldownMult(shooter));
