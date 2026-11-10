@@ -1689,9 +1689,9 @@ export const OUTER_COST = 300_000;
  * The second ring's later nodes: the spokes and threads a paced run reaches after Midas Echo, Veteran Strikes,
  * Bestial Memory and Echoing Memories, priced so the Regression that buys Golden Age takes only a few of them.
  */
-export const SPOKE2_LATE = 1_500;
-export const THREAD2_LATE = 1_200;
-export const AUTO_EMPOWER_COST = 600;
+export const SPOKE2_LATE = 4_500;
+export const THREAD2_LATE = 3_600;
+export const AUTO_EMPOWER_COST = 1_800;
 export const OUTER_GATE_COST = 20_000;
 
 const spoke = (i: number, ring: number, id: string, name: string, icon: string, desc: string, cost: number, mult: Partial<Record<RegKind, number>>): RegNode => ({
