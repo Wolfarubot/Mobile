@@ -504,8 +504,20 @@ it.runIf(!!process.env.SIM_FULL)('full game: a typical player beats the Time Eat
     const budget = g.state.regression.shards + g.shardsNow;
     const n = plannedBuys(g, budget);
     if (wantNodes.at < 0) {
-      wantNodes.at = n + 1;
-      log(`  Time Eater ${beaten !== null ? 'down' : 'lost to'}: a Regression now would pay ${g.shardsNow} shards (${budget} to spend) for ${n} node${n === 1 ? '' : 's'}; playing on for a ${wantNodes.at}${wantNodes.at === 1 ? 'st' : wantNodes.at === 2 ? 'nd' : wantNodes.at === 3 ? 'rd' : 'th'}`);
+      // Play on for one more node only if it's close: within SIM_CLOSE (default 25%) more shards than there are now.
+      // Further off, regress now (shards grow slowly with a run's worth, so waiting for a far node takes weeks).
+      let hi = budget * 2;
+      for (let k = 0; k < 40 && plannedBuys(g, hi) <= n; k++) hi *= 2;
+      let lo = budget;
+      for (let k = 0; k < 30 && hi - lo > 1; k++) {
+        const mid = (lo + hi) / 2;
+        if (plannedBuys(g, mid) > n) hi = mid;
+        else lo = mid;
+      }
+      const close = Number(process.env.SIM_CLOSE ?? 1.25);
+      const near = hi <= budget * close;
+      wantNodes.at = near ? n + 1 : n;
+      log(`  Time Eater ${beaten !== null ? 'down' : 'lost to'}: a Regression now would pay ${g.shardsNow} shards (${budget} to spend) for ${n} node${n === 1 ? '' : 's'}; a ${n + 1}${n + 1 === 1 ? 'st' : n + 1 === 2 ? 'nd' : n + 1 === 3 ? 'rd' : 'th'} needs ${Math.ceil(hi)}: ${near ? 'close, playing on for it' : 'too far off, regressing now'}`);
     }
     if (n < wantNodes.at) return false;
     log(`  ready to regress (day ${(now / 86400).toFixed(2)}): ${g.shardsNow} shards (${budget} to spend) buy ${n} nodes`);
