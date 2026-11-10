@@ -5190,10 +5190,17 @@ describe('Field', () => {
     own(g, 'impendingDoom');
     expect(g.guardianHpIn('forest')).toBeCloseTo(hp * DOOM_MULT);
     expect(g.guardianHpIn('rift')).toBeCloseTo(te);
-    // Second Station: stationed Hunters at full strength.
-    expect(g.stationEfficiency).toBe(STATION_EFFICIENCY);
-    own(g, 'fullStation');
+    // Stations farm at full strength; Second Station: +50% damage for Hunters stationed away, and 12 more offline hours.
     expect(g.stationEfficiency).toBe(1);
+    g.state.hunters.ranger.recruited = true;
+    g.state.hunters.ranger.station = 'glade';
+    const dmg = g.shotDamage('ranger');
+    const cap = g.offlineCapSec();
+    own(g, 'fullStation');
+    expect(g.shotDamage('ranger')).toBeCloseTo(dmg * 1.5);
+    expect(g.offlineCapSec()).toBe(cap + 12 * 3600);
+    g.state.hunters.ranger.station = g.state.area; // fighting beside you: no bonus
+    expect(g.shotDamage('ranger')).toBeCloseTo(dmg);
     // Call to Arms: with energy full, the area's ready swarm starts by itself.
     const c = rich();
     c.state.energy = c.energyMax;

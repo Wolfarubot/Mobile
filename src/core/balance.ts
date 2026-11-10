@@ -1564,6 +1564,9 @@ export const OLD_HAUNTS: AreaId[] = ['forest', 'glade', 'graveyard'];
 export const DOOM_MULT = 3;
 /** Auto Forge: equipped gear stars itself up while a star costs at most this share of your gold. */
 export const AUTO_FORGE_SHARE = 0.1;
+/** Second Station: Hunters stationed away from you deal this much more damage, and offline time counts this much longer. */
+export const SECOND_STATION_DAMAGE = 0.5;
+export const SECOND_STATION_OFFLINE_SEC = 12 * 3600;
 const UNBOUND_UNIQUES: Array<Pick<RegNode, 'name' | 'icon' | 'desc' | 'flag'> | undefined> = [
   // Past the Unbound Wandering Woods.
   { name: 'Kindred Spirits', icon: 'rpg-items/300', desc: 'Recruited Guild Hunters stay recruited through every Regression.', flag: 'keepHunters' },
@@ -1584,7 +1587,7 @@ const UNBOUND_UNIQUES: Array<Pick<RegNode, 'name' | 'icon' | 'desc' | 'flag'> | 
   // Ascendant Steps.
   { name: 'Daydreams', icon: 'wands-books/087', desc: 'Energy that would go to waste dreams up a minigame: while your energy is full, it spends a play on a random minigame you have, filling its buff as if played at par.', flag: 'daydreams' },
   // Cloud Fortress.
-  { name: 'Second Station', icon: 'rpg-items/300', desc: 'Hunters stationed away from you farm at full strength instead of 80%.', flag: 'fullStation' },
+  { name: 'Second Station', icon: 'rpg-items/300', desc: `Hunters stationed away from you deal +${SECOND_STATION_DAMAGE * 100}% damage, and offline time counts ${SECOND_STATION_OFFLINE_SEC / 3600} hours longer.`, flag: 'fullStation' },
   // Meteor Field.
   { name: 'Auto Forge', icon: 'things/004', desc: `Gear your Hunters wear stars itself up (cheapest first) whenever a star costs at most ${AUTO_FORGE_SHARE * 100}% of your gold and you have its materials.`, flag: 'autoForge' },
   // Void Rift: the first of the finale's nodes.
@@ -3012,10 +3015,10 @@ export function helperMaxAffordable(base: number, done: number, gold: number, li
 
 /** Cost of a Guild Hunter's first training session (then × HELPER_TRAIN_GROWTH each, tapering past Lv 30). */
 export const helperTrainCost = (h: HunterDef): number => Math.ceil(Math.max(10, h.recruitCost * 0.05));
-/** Stationed Hunters earn at this fraction of their full rate (they don't tap, but they never get stunned). */
 /** Hunters that can be stationed in one area (besides yours). */
 export const STATION_CAPACITY = 3;
-export const STATION_EFFICIENCY = 0.8;
+/** Stationed Hunters earn at this fraction of their full rate: their full strength (offline time still has its cut). */
+export const STATION_EFFICIENCY = 1;
 
 // ---- Equipment: crafted into the inventory, equipped into Hunters' slots ----
 export type GearKind = 'weapon' | 'melee' | 'magic' | 'armor' | 'accessory';

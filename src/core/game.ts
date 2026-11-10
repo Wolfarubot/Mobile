@@ -12,6 +12,8 @@ import {
   AUTO_TRAIN_SHARE,
   AUTO_FORGE_SHARE,
   DOOM_MULT,
+  SECOND_STATION_DAMAGE,
+  SECOND_STATION_OFFLINE_SEC,
   REGRESSION_TREE,
   type RegNode,
   type WeaponClass,
@@ -405,7 +407,7 @@ export class Game {
 
   /** Seconds away that count toward offline progress: 4 hours, plus 2 for each Energy Potion crafted. */
   offlineCapSec(): number {
-    return OFFLINE_BASE_SEC + OFFLINE_POTIONS.filter((id) => this.state.items[id] > 0).length * OFFLINE_POTION_SEC;
+    return OFFLINE_BASE_SEC + OFFLINE_POTIONS.filter((id) => this.state.items[id] > 0).length * OFFLINE_POTION_SEC + (this.hasRegFlag('fullStation') ? SECOND_STATION_OFFLINE_SEC : 0);
   }
 
   // ---- Combat stats (read by Field every frame) ----
@@ -720,7 +722,7 @@ export class Game {
     // A weapon's class weight is already in its base damage (a hammer's hits start higher than a dagger's).
     if (shooter === 'main') return this.damage * (1 + this.gearBane('main', archetype));
     const bane = archetype ? this.baneMult(shooter, archetype) : 1;
-    return this.weaponHitOf(shooter, mode) * powerDamage(this.state.hunters[shooter].trains) * this.skillDamageMult(shooter) * bane * (1 + this.gear(shooter, mode).damage) * this.premiumMult('damage') * this.regMult('damage');
+    return this.weaponHitOf(shooter, mode) * powerDamage(this.state.hunters[shooter].trains) * this.skillDamageMult(shooter) * bane * (1 + this.gear(shooter, mode).damage) * this.premiumMult('damage') * this.regMult('damage') * this.stationDamageMult(shooter);
   }
 
   /**
@@ -1907,9 +1909,15 @@ export class Game {
     return REGRESSION_TREE.some((n) => n.flag === flag && this.ownsReg(n.id));
   }
 
-  /** How well Hunters stationed away from you farm: STATION_EFFICIENCY, or full strength with Second Station. */
+  /** How well Hunters stationed away from you farm (their full strength; offline time has its own cut). */
   get stationEfficiency(): number {
-    return this.hasRegFlag('fullStation') ? 1 : STATION_EFFICIENCY;
+    return STATION_EFFICIENCY;
+  }
+
+  /** Second Station: a Hunter stationed away from you hits harder. */
+  private stationDamageMult(who: HunterId): number {
+    const at = this.state.hunters[who].station;
+    return at && at !== this.state.area && this.hasRegFlag('fullStation') ? 1 + SECOND_STATION_DAMAGE : 1;
   }
 
   /** Eager Trainer: sessions for your Hunters, cheapest first, while one costs at most AUTO_TRAIN_SHARE of your gold. */
