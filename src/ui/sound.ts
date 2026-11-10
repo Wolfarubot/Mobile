@@ -6,6 +6,7 @@
  * Battlefield sounds can fire many times a second, so each sound has a minimum gap between plays, a little random
  * pitch so repeats don't grate, and a cap on how many play at once.
  */
+import { Capacitor } from '@capacitor/core';
 import { SFX, type SfxEvent } from './sfxConfig';
 import { pitchRate, stretchFactor, timeStretch } from './stretch';
 
@@ -32,6 +33,21 @@ export function setSfxVolume(v: number): void {
 
 /** Starts audio right away where allowed (the apps), else on the first press (browsers need a gesture), and loads the clips. Call once at startup. */
 export function initSound(): void {
+  // No sound while the app is in the background: its tab hidden, or (in a browser) its window not the one in use.
+  // A browser can call a tab "visible" again while it's still behind other windows (once enough of it shows), so
+  // hidden alone isn't enough there; and it can resume a context by itself, so a running one is checked again.
+  // Only a context this paused is resumed here (one a browser holds back until the first press stays as it is).
+  let paused = false;
+  const sync = () => {
+    if (!ctx) return;
+    if (audible()) {
+      if (paused) void ctx.resume().catch(() => {});
+      paused = false;
+    } else if (ctx.state !== 'closed' && (ctx.state === 'running' || !paused)) {
+      paused = true;
+      void ctx.suspend().catch(() => {});
+    }
+  };
   const start = () => {
     if (!ctx) {
       const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
@@ -52,17 +68,24 @@ export function initSound(): void {
           .catch(() => {});
       }
     }
+    if (!audible()) return sync();
+    paused = false;
     if (ctx.state === 'suspended') void ctx.resume().catch(() => {});
   };
   // The app's web view lets audio play without a gesture, so try at once; a browser leaves it suspended until the first press.
   start();
   document.addEventListener('pointerdown', start, true);
-  // No sound while the app is in the background.
-  document.addEventListener('visibilitychange', () => {
-    if (!ctx) return;
-    if (document.hidden) void ctx.suspend().catch(() => {});
-    else void ctx.resume().catch(() => {});
-  });
+  document.addEventListener('visibilitychange', sync);
+  window.addEventListener('pagehide', sync);
+  window.addEventListener('blur', sync);
+  window.addEventListener('focus', sync);
+  setInterval(sync, 2000);
+}
+
+/** Whether the game may be heard: on screen, and in a browser its window is the one in use. */
+function audible(): boolean {
+  if (document.hidden) return false;
+  return Capacitor.isNativePlatform() || document.hasFocus();
 }
 
 /** Runs `fn` with the audio context once audio has started (right away if it already has). */
