@@ -2943,7 +2943,9 @@ export class Game {
       return info.level >= MAIN_ASCEND_LEVEL ? { level: MAIN_ASCEND_LEVEL, into: 0, need: 1 } : info;
     }
     if (t.ascendAt !== undefined) return levelAfterAscending(t.trains - t.ascendAt);
-    return levelFromTrains(t.trains);
+    // Training past Lv 50 without ascending (saves from before the 30-a-level cap): held at Lv 50 until they ascend.
+    const info = levelFromTrains(t.trains);
+    return info.level >= ASCEND_LEVEL ? { level: ASCEND_LEVEL, into: 0, need: 1 } : info;
   }
 
   levelOf(who: Wearer): number {
@@ -2966,7 +2968,7 @@ export class Game {
     const t = this.training(who);
     if (who === 'main')
       return Math.max(0, t.ascendAt !== undefined ? MAIN_SESSIONS_AFTER_ASCEND - (t.trains - t.ascendAt) : MAIN_SESSIONS_TO_ASCEND - t.trains);
-    return t.ascendAt !== undefined ? SESSIONS_AFTER_ASCEND - (t.trains - t.ascendAt) : SESSIONS_TO_ASCEND - t.trains;
+    return Math.max(0, t.ascendAt !== undefined ? SESSIONS_AFTER_ASCEND - (t.trains - t.ascendAt) : SESSIONS_TO_ASCEND - t.trains);
   }
 
   /** Their title: Guild Hunters take a new one when they ascend; your Hunter becomes the Slayer. */

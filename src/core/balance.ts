@@ -289,8 +289,11 @@ export function powerDamage(trains: number): number {
   return 1 + TRAIN_DAMAGE * trains;
 }
 
-/** Training sessions needed to go from `level` to the next (Lv 1→2: 3, 2→3: 4, ...). */
-export const trainsForLevel = (level: number): number => level + 2;
+/** Most training sessions a level ever takes: from Lv 28 on, every level is this many. */
+export const TRAINS_PER_LEVEL_CAP = 30;
+
+/** Training sessions needed to go from `level` to the next (Lv 1→2: 3, 2→3: 4, ... up to 30 a level from Lv 28). */
+export const trainsForLevel = (level: number): number => Math.min(level + 2, TRAINS_PER_LEVEL_CAP);
 
 /** Level reached after `trains` sessions, and progress toward the next one. */
 export function levelFromTrains(trains: number): { level: number; into: number; need: number } {
