@@ -952,6 +952,7 @@ export class AppUI {
       const k = items.map((it) => (it ? `${it.uid}:${it.stars}` : '-')).join('|');
       if (k !== gearKey) {
         gearKey = k;
+        gearEl.style.setProperty('--slots', String(g.slotsOf(who).length));
         gearEl.innerHTML = gearHtml(items);
       }
     });
@@ -1627,25 +1628,38 @@ export class AppUI {
       tiles.get(uid)?.classList.add('selected');
       render(false);
     };
+    // Every slot that takes the same gear (Wilhelm's Primary and Secondary) shows here together, each with its own
+    // Equip button on the piece being inspected.
+    const group = g.slotGroup(who, slot);
+    const label = (i: number) => g.slotsOf(who)[i].label;
     const render = (grid = true) => {
-      const current = g.equipped(who)[slot];
-      // Equipped
+      const worn = g.equipped(who);
+      const current = worn[slot];
+      // Equipped: a card per slot of the group (labelled when there's more than one).
       const eq = $('.pk-equipped', view);
-      if (current) {
-        eq.innerHTML = gearCardHtml(current);
-        // Details opens the piece's full card over the picker: upgrade it, modify it.
-        const btns = el('div', 'pk-btns');
-        const details = el('button', 'buy secondary-btn', 'Details') as HTMLButtonElement;
-        details.addEventListener('click', () => this.openGearDetail(current.uid));
-        const off = el('button', 'buy secondary-btn', 'Unequip') as HTMLButtonElement;
-        off.addEventListener('click', () => {
-          g.equip(who, slot, null);
-          render();
-        });
-        btns.append(details, off);
-        eq.firstElementChild!.appendChild(btns);
-      } else {
-        eq.innerHTML = `<div class="gear-card empty"><div class="gc-head"><i>${GEAR_KINDS[def.kind].icon}</i><div><b>Empty</b><small>${def.label} slot</small></div></div></div>`;
+      eq.innerHTML = '';
+      for (const i of group) {
+        const it = worn[i];
+        const box = el('div', 'pk-slot');
+        if (group.length > 1) box.appendChild(el('div', 'pk-slot-label', label(i)));
+        if (it) {
+          box.insertAdjacentHTML('beforeend', gearCardHtml(it));
+          // Details opens the piece's full card over the picker: upgrade it, modify it.
+          const btns = el('div', 'pk-btns');
+          const details = el('button', 'buy secondary-btn', 'Details') as HTMLButtonElement;
+          details.addEventListener('click', () => this.openGearDetail(it.uid));
+          const off = el('button', 'buy secondary-btn', 'Unequip') as HTMLButtonElement;
+          off.addEventListener('click', () => {
+            g.equip(who, i, null);
+            render();
+          });
+          btns.append(details, off);
+          box.lastElementChild!.appendChild(btns);
+        } else {
+          const d = g.slotsOf(who)[i];
+          box.insertAdjacentHTML('beforeend', `<div class="gear-card empty"><div class="gc-head"><i>${GEAR_KINDS[d.kind].icon}</i><div><b>Empty</b><small>${d.label} slot</small></div></div></div>`);
+        }
+        eq.appendChild(box);
       }
       // Inspecting
       const insp = $('.pk-inspect', view);
@@ -1653,27 +1667,35 @@ export class AppUI {
       $('.pk-inspect-title', view).classList.toggle('hidden', !item);
       insp.innerHTML = '';
       if (item) {
-        insp.innerHTML = gearCardHtml(item, current && current.uid !== item.uid ? current : null);
-        const worn = g.wearerOf(item.uid);
-        const btn = el('button', 'buy') as HTMLButtonElement;
-        if (current?.uid === item.uid) {
-          btn.textContent = 'Equipped';
-          btn.disabled = true;
-        } else if (!fits(item)) {
-          btn.textContent = `Doesn't fit the ${def.label} slot`;
-          btn.disabled = true;
-        } else if (worn) {
-          // Equipping takes it off whoever has it on.
-          btn.textContent = `Take from ${wearerName(worn.who)}`;
-        } else {
-          btn.textContent = 'Equip';
+        // Compared with what's in the slot it'll most likely replace: the one opened, or the first that holds something else.
+        const vs = current && current.uid !== item.uid ? current : (group.map((i) => worn[i]).find((it) => it && it.uid !== item.uid) ?? null);
+        insp.innerHTML = gearCardHtml(item, vs);
+        const owner = g.wearerOf(item.uid);
+        const row = el('div', group.length > 1 ? 'pk-equip-row' : 'pk-equip-one');
+        for (const i of group) {
+          const btn = el('button', 'buy') as HTMLButtonElement;
+          const named = group.length > 1 ? ` ${label(i)}` : '';
+          if (worn[i]?.uid === item.uid) {
+            btn.textContent = group.length > 1 ? `In ${label(i)}` : 'Equipped';
+            btn.disabled = true;
+          } else if (!slotAccepts(g.slotsOf(who)[i], gearDef(item.base))) {
+            btn.textContent = `Doesn't fit the ${label(i)} slot`;
+            btn.disabled = true;
+          } else if (owner && owner.who !== who) {
+            // Equipping takes it off whoever has it on.
+            btn.textContent = `Take from ${wearerName(owner.who)}${named ? ` (${label(i)})` : ''}`;
+          } else {
+            btn.textContent = `Equip${named}`;
+          }
+          btn.addEventListener('click', () => {
+            const prev = worn[i];
+            if (!g.equip(who, i, item.uid)) return;
+            selected = prev?.uid ?? null; // keep the old piece in view for comparison
+            render();
+          });
+          row.appendChild(btn);
         }
-        btn.addEventListener('click', () => {
-          if (!g.equip(who, slot, item.uid)) return;
-          selected = current?.uid ?? null; // keep the old piece in view for comparison
-          render();
-        });
-        insp.firstElementChild!.appendChild(btn);
+        insp.firstElementChild!.appendChild(row);
       }
       if (!grid) return;
       // Inventory grid: everything, with what fits this slot first.

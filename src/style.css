@@ -1208,7 +1208,7 @@ button {
 }
 .hc-gear {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--slots, 3), minmax(0, 1fr));
   gap: 5px;
   margin-top: 10px;
 }
@@ -2337,6 +2337,31 @@ body.ui-parchment .hunter-dock .buy.ev-details {
 }
 .gear-card .pk-btns .buy {
   flex: 1;
+  width: auto;
+}
+/* A Hunter with several slots for one kind of gear (Wilhelm's Primary and Secondary): each equipped card under its
+   slot's name, and an Equip button per slot on the piece being inspected. */
+.pk-equipped {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pk-slot-label {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin: 0 0 4px 2px;
+  opacity: 0.85;
+}
+.gear-card .pk-equip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.gear-card .pk-equip-row .buy {
+  flex: 1 1 0;
+  min-width: 0;
   width: auto;
 }
 .inv-tile.misfit {

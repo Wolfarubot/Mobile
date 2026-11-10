@@ -2606,6 +2606,7 @@ export const HUNTERS: HunterDef[] = [
       { kind: 'weapon', label: 'Primary', role: 'long' },
       { kind: 'weapon', label: 'Secondary', role: 'short' },
       { kind: 'armor', label: 'Armor' },
+      { kind: 'accessory', label: 'Accessory' },
     ],
     backupGun: true,
   },

@@ -1066,6 +1066,17 @@ export class Game {
   }
   private gearIndex = new Map<number, number>();
 
+  /**
+   * The slots of a Hunter that take the same gear as `slot` (Wilhelm's Primary and Secondary), `slot` among them, in
+   * order. The gear picker shows them together, with an Equip button for each.
+   */
+  slotGroup(who: Wearer, slot: number): number[] {
+    const slots = this.slotsOf(who);
+    const key = (sl: SlotDef) => `${sl.kind}:${[...(sl.accepts ?? [sl.kind])].sort().join(',')}:${[...(sl.armorTypes ?? [])].sort().join(',')}`;
+    const k = slots[slot] ? key(slots[slot]) : '';
+    return slots.map((sl, i) => (key(sl) === k ? i : -1)).filter((i) => i >= 0);
+  }
+
   /** The gear in each of a Hunter's slots (null = empty). */
   equipped(who: Wearer): Array<GearItem | null> {
     const uids = this.state.equipment[who] ?? [];

@@ -1446,13 +1446,13 @@ describe('Equipment', () => {
     expect(poor.craftGear('forestBow')).toBeNull();
   });
 
-  it('every Hunter has 3 slots with armor; Lance melee, Wilhelm two weapons, Glimmer a magic weapon', () => {
+  it('every Hunter has armor; Lance melee, Wilhelm two weapons and an accessory, Glimmer a magic weapon', () => {
     const g = stocked();
     const kinds = (who: Parameters<Game['slotsOf']>[0]) => g.slotsOf(who).map((sl) => sl.kind);
     expect(kinds('main')).toEqual(['weapon', 'armor', 'accessory']);
     expect(kinds('ranger')).toEqual(['weapon', 'armor', 'accessory']);
     expect(kinds('lance')).toEqual(['melee', 'armor', 'accessory']);
-    expect(kinds('wilhelm')).toEqual(['weapon', 'weapon', 'armor']);
+    expect(kinds('wilhelm')).toEqual(['weapon', 'weapon', 'armor', 'accessory']);
     expect(kinds('glimmer')).toEqual(['magic', 'armor', 'accessory']);
     for (const h of ['main', 'glimmer', 'lance', 'wilhelm', 'ranger'] as const) expect(kinds(h)).toContain('armor');
   });
@@ -5077,6 +5077,23 @@ describe('Field', () => {
     // Each blast catches the monster beside the one it struck too.
     expect(f.enemies.find((e) => e.id === 2)!.hp).toBeLessThan(1e12);
     expect(f.rifts).toHaveLength(0);
+  });
+
+  it('Wilhelm has four slots, and his two weapon slots group together in the picker', () => {
+    const g = rich();
+    expect(g.slotsOf('wilhelm').map((s) => s.label)).toEqual(['Primary', 'Secondary', 'Armor', 'Accessory']);
+    expect(g.slotGroup('wilhelm', 0)).toEqual([0, 1]);
+    expect(g.slotGroup('wilhelm', 1)).toEqual([0, 1]);
+    expect(g.slotGroup('wilhelm', 3)).toEqual([3]);
+    expect(g.slotGroup('main', 0)).toEqual([0]);
+    // An older save's three-slot list grows to take the accessory.
+    g.state.hunters.wilhelm.recruited = true;
+    g.state.equipment.wilhelm = [null, null, null];
+    const acc = { uid: g.state.nextGearUid++, base: GEAR.find((d) => d.kind === 'accessory')!.id, stars: 1, invested: { gold: 0, mats: {} } };
+    g.state.inventory.push(acc);
+    expect(g.equipped('wilhelm')).toHaveLength(4);
+    expect(g.equip('wilhelm', 3, acc.uid)).toBe(true);
+    expect(g.equipped('wilhelm')[3]?.uid).toBe(acc.uid);
   });
 
   it("Celeste's Astral Projection: a copy appears on the field, attacks as she does, then explodes", () => {
