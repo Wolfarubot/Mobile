@@ -306,8 +306,13 @@ function botTree(game: Game): string[] {
   };
   const out: string[] = [];
   for (let guard = 0; guard < 200; guard++) {
+    // Shard nodes first, then the inner web (cheapest first), saving up for it rather than spending on the Unbound
+    // ring's perks, which come only once the web is full.
+    const isInner = (n: (typeof REGRESSION_TREE)[number]) => n.ring <= 3 && !/^(unbound-|ring-)/.test(n.id);
     const open = REGRESSION_TREE.filter((n) => game.canBuyReg(n.id));
-    const pick = open.find((n) => n.mult?.shards) ?? open.sort((a, b) => game.regCostOf(a.id) - game.regCostOf(b.id) || rank(a.id) - rank(b.id))[0];
+    const innerLeft = REGRESSION_TREE.some((n) => isInner(n) && !game.ownsReg(n.id));
+    const choices = innerLeft ? open.filter(isInner) : open;
+    const pick = choices.find((n) => n.mult?.shards) ?? choices.sort((a, b) => game.regCostOf(a.id) - game.regCostOf(b.id) || rank(a.id) - rank(b.id))[0];
     if (!pick || !game.buyReg(pick.id)) break;
     out.push(pick.name);
   }

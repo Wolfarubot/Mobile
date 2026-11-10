@@ -1626,7 +1626,14 @@ function unboundRing(): RegNode[] {
 }
 
 /** Shards for an outer-ring node, and for Golden Age, the one that opens it. */
-export const OUTER_COST = 100_000;
+export const OUTER_COST = 300_000;
+/**
+ * The second ring's later nodes: the spokes and threads a paced run reaches after Midas Echo, Veteran Strikes,
+ * Bestial Memory and Echoing Memories, priced so the Regression that buys Golden Age takes only a few of them.
+ */
+export const SPOKE2_LATE = 1_500;
+export const THREAD2_LATE = 1_200;
+export const AUTO_EMPOWER_COST = 600;
 export const OUTER_GATE_COST = 20_000;
 
 const spoke = (i: number, ring: number, id: string, name: string, icon: string, desc: string, cost: number, mult: Partial<Record<RegKind, number>>): RegNode => ({
@@ -1643,16 +1650,16 @@ export const REGRESSION_TREE: RegNode[] = [
   spoke(5, 1, 'honedInstinct', 'Honed Instinct', 'rpg-items/297', 'Damage for every Hunter ×2.', 75, { damage: 2 }),
   // The second ring: the spokes go on...
   spoke(0, 2, 'midasEcho', 'Midas Echo', 'things/004', 'Gold from monsters ×1,000.', 400, { gold: 1000 }),
-  spoke(1, 2, 'secondNature', 'Second Nature', 'rpg-items/002', 'Training costs ÷10.', 400, { trainCost: 0.1 }),
-  spoke(2, 2, 'lucidDreams', 'Lucid Dreams', 'wands-books/062', 'Offline gains ×30.', 400, { offline: 30 }),
-  spoke(3, 2, 'swarmingRecall', 'Swarming Recall', 'resources1/084', 'Monsters spawn ×3 as often.', 400, { spawn: 3 }),
-  spoke(4, 2, 'scavengersEye', "Scavenger's Eye", 'things/012', 'Material drop chance ×15.', 400, { drops: 15 }),
+  spoke(1, 2, 'secondNature', 'Second Nature', 'rpg-items/002', 'Training costs ÷10.', SPOKE2_LATE, { trainCost: 0.1 }),
+  spoke(2, 2, 'lucidDreams', 'Lucid Dreams', 'wands-books/062', 'Offline gains ×30.', SPOKE2_LATE, { offline: 30 }),
+  spoke(3, 2, 'swarmingRecall', 'Swarming Recall', 'resources1/084', 'Monsters spawn ×3 as often.', SPOKE2_LATE, { spawn: 3 }),
+  spoke(4, 2, 'scavengersEye', "Scavenger's Eye", 'things/012', 'Material drop chance ×15.', SPOKE2_LATE, { drops: 15 }),
   spoke(5, 2, 'veteranStrikes', 'Veteran Strikes', 'rpg-items/315', 'Damage for every Hunter ×3.5.', 400, { damage: 3.5 }),
   // ...and threads join neighbouring spokes.
-  { id: 'inheritance', name: 'Inheritance', icon: 'things/010', desc: 'Start every run with 1 trillion gold.', ring: 2, angle: -60, cost: 300, startGold: 1e12 },
-  { id: 'oldFriends', name: 'Old Friends', icon: 'rpg-items/300', desc: 'Recruiting a Guild Hunter costs ÷50.', ring: 2, angle: 0, cost: 300, mult: { recruitCost: 0.02 } },
-  { id: 'secondWind', name: 'Second Wind', icon: 'custom/012', desc: 'Energy refills twice as fast.', ring: 2, angle: 60, cost: 300, mult: { energy: 2 } },
-  { id: 'autoEmpower', name: 'Auto Empower & Evolve', icon: 'rpg-items/264', desc: "Empowers monsters and buys their evolutions by itself, cheapest first, whenever one costs at most your chosen share of your gold (5%, 10%, 20%, or 50%). Tap the node to change it. Unbound monsters are left to you.", ring: 2, angle: 120, cost: 150, flag: 'autoEmpower' },
+  { id: 'inheritance', name: 'Inheritance', icon: 'things/010', desc: 'Start every run with 1 trillion gold.', ring: 2, angle: -60, cost: THREAD2_LATE, startGold: 1e12 },
+  { id: 'oldFriends', name: 'Old Friends', icon: 'rpg-items/300', desc: 'Recruiting a Guild Hunter costs ÷50.', ring: 2, angle: 0, cost: THREAD2_LATE, mult: { recruitCost: 0.02 } },
+  { id: 'secondWind', name: 'Second Wind', icon: 'custom/012', desc: 'Energy refills twice as fast.', ring: 2, angle: 60, cost: THREAD2_LATE, mult: { energy: 2 } },
+  { id: 'autoEmpower', name: 'Auto Empower & Evolve', icon: 'rpg-items/264', desc: "Empowers monsters and buys their evolutions by itself, cheapest first, whenever one costs at most your chosen share of your gold (5%, 10%, 20%, or 50%). Tap the node to change it. Unbound monsters are left to you.", ring: 2, angle: 120, cost: AUTO_EMPOWER_COST, flag: 'autoEmpower' },
   { id: 'bestialMemory', name: 'Bestial Memory', icon: 'resources1/042', desc: 'Empowering monsters costs ÷30.', ring: 2, angle: 180, cost: 300, mult: { empowerCost: 1 / 30 } },
   { id: 'echoingMemories', name: 'Echoing Memories', icon: SHARD_ICON, desc: 'Memory Shards from every Regression ×5.', ring: 2, angle: 240, cost: 500, mult: { shards: 5 } },
   // The outer ring: the strongest of each spoke, joined all the way round. Priced to take a few Regressions to fill
