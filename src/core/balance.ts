@@ -4715,6 +4715,29 @@ export const accessoryBuiltIn = (d: GearDef, en: EnchantDef): boolean => d.kind 
 export const PHANTOM_ARTS: Partial<Record<MeleeArt, WeaponClass>> = { spear: 'spear', glaive: 'glaive', bigDagger: 'dagger', phantomSword: 'sword', phantomHammer: 'hammer' };
 
 
+/** The built-in effects a piece can draw (see assignVariants). */
+function builtInPool(d: GearDef): EnchantId[] {
+  return (Object.keys(ENCHANTS) as EnchantId[]).filter((id) => {
+    const en = ENCHANTS[id];
+    // Banes stay out of the draw (a piece's own bane is its `bane`), which also keeps every built-in as it was.
+    return (!en.builtInOnly || en.builtInPool) && !PLAIN_ENCHANTS.has(id) && !en.infuse && !en.bane && (en.fits(d) || accessoryBuiltIn(d, en));
+  });
+}
+
+/**
+ * An Unbound copy's built-in effects: its original's, and one more from the same draw (seeded by its own id, so it's
+ * always the same), so even Common gear has one.
+ */
+function unboundBuiltIns(base: GearDef, id: string): GearDef['builtIn'] {
+  const rng = gearRng(id);
+  const have = new Set((base.builtIn ?? []).map((b) => b.id));
+  const pool = builtInPool(base).filter((e) => !have.has(e));
+  if (!pool.length) return base.builtIn;
+  const pick = pool[Math.floor(rng() * pool.length)];
+  const roll = () => 5 + Math.floor(rng() * 5);
+  return [...(base.builtIn ?? []), { id: pick, q: roll(), p: roll() }];
+}
+
 /** Gives every piece its variant: its built-in effects and its modifier slots. */
 function assignVariants(): void {
   for (const d of GEAR) {
@@ -4730,11 +4753,7 @@ function assignVariants(): void {
     if (!options.length) continue;
     const v = options[Math.floor(rng() * options.length)];
     d.slots = v.slots;
-    const pool = (Object.keys(ENCHANTS) as EnchantId[]).filter((id) => {
-      const en = ENCHANTS[id];
-      // Banes stay out of the draw (a piece's own bane is its `bane`), which also keeps every built-in as it was.
-      return (!en.builtInOnly || en.builtInPool) && !PLAIN_ENCHANTS.has(id) && !en.infuse && !en.bane && (en.fits(d) || accessoryBuiltIn(d, en));
-    });
+    const pool = builtInPool(d);
     const pick = <T,>(ids: T[]) => ids.splice(Math.floor(rng() * ids.length), 1)[0];
     const roll = () => 5 + Math.floor(rng() * 5); // a good roll: 5–9 of 10
     const builtIn: Array<{ id: EnchantId; q: number; p: number }> = [];
@@ -5487,6 +5506,8 @@ function unboundGearDef(id: UnboundGearId): GearDef {
     stats: base.weaponClass ? { ...base.stats } : stats,
     ...(base.effect && 'base' in base.effect ? { effect: { ...base.effect, base: base.effect.base * hk } as GearEffect } : {}),
     ...(base.bane ? { bane: { ...base.bane, bonus: Math.round(base.bane.bonus * k * 1000) / 1000 } } : {}),
+    // One more built-in effect than its original.
+    builtIn: unboundBuiltIns(base, id),
     starter: false,
   };
   UNBOUND_GEAR_MAP.set(id, d);

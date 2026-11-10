@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { areaDef, weaponHit, GEAR_WORTH_WEIGHT, gearCost, gearDef, HUNTERS, MATERIAL_WORTH, MATERIALS, regNode, REGRESSION_LINKS, REGRESSION_TREE, shardsFor, SHARD_POWER, TIME_EATER_GROWTH, timeEaterGrowth, type MaterialId } from '../src/core/balance';
+import { areaDef, weaponHit, UNBOUND_GEAR, GEAR_WORTH_WEIGHT, gearCost, gearDef, HUNTERS, MATERIAL_WORTH, MATERIALS, regNode, REGRESSION_LINKS, REGRESSION_TREE, shardsFor, SHARD_POWER, TIME_EATER_GROWTH, timeEaterGrowth, type MaterialId } from '../src/core/balance';
 import { Game } from '../src/core/game';
 import { Field } from '../src/core/field';
 import { estimateInvested, gearInvested, regress, runWorth } from '../src/core/regression';
@@ -442,6 +442,8 @@ describe('Unbound areas', () => {
     // Loot here is Unbound gear: the same piece, area-13 strong.
     expect(gearDef(g.dropLoot('forest', true).gear).unboundOf).toBeTruthy();
     expect(weaponHit(gearDef('u_slimeSword'), 1)).toBeGreaterThan(weaponHit(gearDef('slimeSword'), 1) * 100);
+    // One more built-in effect than its original, on every piece (so even Common gear has one).
+    for (const u of UNBOUND_GEAR) expect(u.builtIn?.length ?? 0).toBe((gearDef(u.unboundOf!).builtIn?.length ?? 0) + 1);
     // Through a Regression: Unbound materials and gear stay (worn pieces stay worn); ordinary ones go.
     g.state.materials.u_goo = 50;
     g.state.materials.goo = 50;
