@@ -8282,3 +8282,21 @@ body .title-row .quick-type .cyc-cur {
   text-transform: none;
   font-variant-numeric: tabular-nums;
 }
+/* A weapon's attack speed, under its damage on its card. */
+.gear-card .gc-head .gc-speed {
+  margin-top: 3px;
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.gc-speed .up,
+.gc-speed .down {
+  font-size: 0.9em;
+  font-weight: 800;
+}
+.gc-speed .up {
+  color: var(--good);
+}
+.gc-speed .down {
+  color: var(--danger);
+}

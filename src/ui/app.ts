@@ -1876,6 +1876,7 @@ export class AppUI {
       body.innerHTML = `
         <p><b class="rarity-tag" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${gearKindName(gd)} · <span class="stars">${starsHtml(item.stars)}</span></p>
         ${worn ? `<p class="worn-by">${wearerIcon(worn.who)} Worn by <b>${wearerName(worn.who)}</b></p>` : ''}
+        ${gd.weaponClass ? `<p class="gear-speed">${Number(weaponSpeed(gd, item.stars).toFixed(2))} attacks/s <small>(your Hunter, before training and skills)</small></p>` : ''}
         ${featureTags(gd, item.stars)}
         ${statTable(gd, cost ? [{ label: `Now ${item.stars}★`, stars: item.stars }, { label: `Next ${item.stars + 1}★`, stars: item.stars + 1 }] : [{ label: `${item.stars}★`, stars: item.stars }]) || (gd.effect ? '' : '<p class="gear-now">No bonuses: plain everyday wear.</p>')}
         ${modSlotsHtml(g, uid)}
@@ -6473,6 +6474,13 @@ function statDelta(k: GearStat, d: number): string {
 }
 
 /** A piece of gear's full card; with `vs`, each stat shows how it compares to that piece. */
+/** A weapon's attacks a second for your Hunter before training and skills (0 for anything else). */
+function weaponSpeed(gd: GearDef, stars: number): number {
+  if (!gd.weaponClass) return 0;
+  const cls = withArchetype(WEAPON_CLASSES[gd.weaponClass], weaponArchetype(gd));
+  return BASE_FIRE_RATE * cls.rate * (1 + (gearTotals(gd, stars).rate ?? 0));
+}
+
 function gearCardHtml(it: GearItem, vs: GearItem | null = null): string {
   const gd = gearDef(it.base);
   const st = gearTotals(gd, it.stars);
@@ -6494,6 +6502,13 @@ function gearCardHtml(it: GearItem, vs: GearItem | null = null): string {
   // It sits beside the damage-type tags in the card's head.
   const hitHtml = hit
     ? `<b class="gc-dmg">${hitText(hit)}</b>${vs && otherHit && Math.abs(hit - otherHit) > 1e-9 ? `<span class="${hit > otherHit ? 'up' : 'down'}">${hit > otherHit ? '▲' : '▼'} ${Number(Math.abs(hit - otherHit).toFixed(2))}</span>` : ''}`
+    : '';
+  // Its attack speed under the damage: attacks a second for your Hunter untrained (its class, archetype and its own
+  // attack-speed stat; Guild Hunters swing at HELPER_FIRE_RATE / BASE_FIRE_RATE of it).
+  const speed = weaponSpeed(gd, it.stars);
+  const otherSpeed = vs ? weaponSpeed(gearDef(vs.base), vs.stars) : 0;
+  const speedHtml = speed
+    ? `<div class="gc-speed" title="Attacks a second for your Hunter before training and skills">${Number(speed.toFixed(2))} attacks/s${vs && otherSpeed && Math.abs(speed - otherSpeed) > 0.005 ? ` <span class="${speed > otherSpeed ? 'up' : 'down'}">${speed > otherSpeed ? '▲' : '▼'} ${Number(Math.abs(speed - otherSpeed).toFixed(2))}</span>` : ''}</div>`
     : '';
   const all =
     lines +
@@ -6517,7 +6532,7 @@ function gearCardHtml(it: GearItem, vs: GearItem | null = null): string {
     (gd.effect ? `<li class="gc-effect"><span>✨ ${advancedTips ? describeEffect(gd.effect, it.stars) : simpleEffect(gd.effect)}</span></li>` : '') +
     (gd.bane ? `<li class="gc-effect">${ARCHETYPES[gd.bane.archetype].icon} +${Math.round(gd.bane.bonus * GEAR_STAR_POWER[it.stars] * 100)}% damage vs ${ARCHETYPES[gd.bane.archetype].name}s</li>` : '') +
     (gd.findDrop ? `<li class="gc-effect">💎 ${it.stars >= gd.findDrop.stars ? '' : `At ${gd.findDrop.stars}★: `}${gd.findDrop.chance * 100}% chance for ${materialDef(gd.findDrop.material).name} from ${ARCHETYPES[gd.findDrop.archetype].name.toLowerCase()} kills</li>` : '');
-  return `<div class="gear-card rar" style="--rc:${gearColor(gd.id)}"><div class="gc-head"><i>${gearIcon(gd)}</i><div><b>${gd.name}</b><small>${RARITIES[gd.rarity].name} ${gearKindName(gd).toLowerCase()} · <span class="stars">${starsHtml(it.stars)}</span></small><div class="gc-typeline">${procTypeTags(gd)}${hitHtml}</div></div></div><ul class="gc-stats">${all}</ul></div>`;
+  return `<div class="gear-card rar" style="--rc:${gearColor(gd.id)}"><div class="gc-head"><i>${gearIcon(gd)}</i><div><b>${gd.name}</b><small>${RARITIES[gd.rarity].name} ${gearKindName(gd).toLowerCase()} · <span class="stars">${starsHtml(it.stars)}</span></small><div class="gc-typeline">${procTypeTags(gd)}${hitHtml}</div>${speedHtml}</div></div><ul class="gc-stats">${all}</ul></div>`;
 }
 
 /**
