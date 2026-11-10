@@ -7925,7 +7925,21 @@ body.ui-parchment .account-delete .buy.danger-btn:not(:disabled) {
 /* ---- Submit Feedback (top of Settings) ---- */
 .feedback-card {
   display: grid;
+  /* One column no wider than the card, so the kind buttons, the text box and Send fit inside it. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
+  box-sizing: border-box;
+  max-width: 100%;
+}
+.feedback-card > * {
+  min-width: 0;
+}
+.feedback-card .fb-kinds {
+  box-sizing: border-box;
+  width: 100%;
+}
+.feedback-card .fb-kinds button {
+  min-width: 0;
 }
 .feedback-card p {
   margin: 0;
