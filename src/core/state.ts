@@ -164,7 +164,7 @@ export interface RegressionState {
   tree: Record<string, number>;
   /** Epoch ms the current run began (the first run: when the save was made). */
   runStart: number;
-  /** Auto Empower & Evolve: the most of your gold one purchase may cost (one of AUTO_EMPOWER_SHARES). */
+  /** Perpetual Growth: the most of your gold one purchase may cost (one of AUTO_EMPOWER_SHARES). */
   autoShare: number;
   /** Gold earned in all (stats.totalGold) when this run began: the run's own earnings are what's been earned since. */
   goldAtStart: number;

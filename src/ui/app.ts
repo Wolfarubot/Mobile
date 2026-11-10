@@ -5507,7 +5507,7 @@ export class AppUI {
     for (const r of refreshers) r();
   }
 
-  /** A Regression Tree node: what it does, whether it's owned, and Buy (Auto Empower also picks its share of gold). */
+  /** A Regression Tree node: what it does, whether it's owned, and Buy (Perpetual Growth also picks its share of gold). */
   private showRegNode(id: string): void {
     const g = this.game;
     const n = regNode(id)!;

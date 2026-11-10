@@ -351,7 +351,7 @@ describe('Regression Tree', () => {
     expect(state.gold).toBe(regNode('inheritance')!.startGold);
   });
 
-  it('Auto Empower & Evolve buys Empower only while one costs at most the chosen share of gold', () => {
+  it('Perpetual Growth buys Empower only while one costs at most the chosen share of gold', () => {
     const g = withShards(1e6);
     g.state.flags.empowerIntro = true;
     g.state.regression.tree = { stabilize: 1, autoEmpower: 1 };

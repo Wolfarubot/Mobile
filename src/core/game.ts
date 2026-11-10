@@ -1912,7 +1912,7 @@ export class Game {
     return true;
   }
 
-  /** Auto Empower & Evolve: the most of your gold one purchase may cost. */
+  /** Perpetual Growth: the most of your gold one purchase may cost. */
   setAutoShare(share: number): void {
     if ((AUTO_EMPOWER_SHARES as readonly number[]).includes(share)) this.state.regression.autoShare = share;
   }
@@ -2006,7 +2006,7 @@ export class Game {
 
   /**
    * Wild Awakening: unlocks monsters in the areas you've reached, cheapest first, while one costs at most
-   * AUTO_UNLOCK_SHARE of your gold (Auto Empower & Evolve then grows them).
+   * AUTO_UNLOCK_SHARE of your gold (Perpetual Growth then grows them).
    */
   private autoUnlock(): void {
     if (!this.hasRegFlag('autoUnlock')) return;
@@ -2017,7 +2017,7 @@ export class Game {
   }
 
   /**
-   * Auto Empower & Evolve: buys Empower sessions (cheapest first) while one costs at most the chosen share of your
+   * Perpetual Growth: buys Empower sessions (cheapest first) while one costs at most the chosen share of your
    * gold, then spends evolution points on the first nodes that can be bought.
    */
   private autoEmpower(): void {

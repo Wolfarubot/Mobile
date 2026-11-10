@@ -1577,8 +1577,8 @@ export const SECOND_STATION_OFFLINE_SEC = 12 * 3600;
 const UNBOUND_UNIQUES: Array<Pick<RegNode, 'name' | 'icon' | 'desc' | 'flag'> | undefined> = [
   // Past the Unbound Wandering Woods.
   { name: 'Kindred Spirits', icon: 'rpg-items/300', desc: 'Recruited Guild Hunters stay recruited through every Regression.', flag: 'keepHunters' },
-  // Past the Unbound Fey Grove: with Auto Empower & Evolve, monsters grow on their own.
-  { name: 'Wild Awakening', icon: 'resources1/074', desc: `Monsters unlock themselves (cheapest first) whenever unlocking one costs at most ${AUTO_UNLOCK_SHARE * 100}% of your gold. With Auto Empower & Evolve, every monster grows on its own.`, flag: 'autoUnlock' },
+  // Past the Unbound Fey Grove: with Perpetual Growth, monsters grow on their own.
+  { name: 'Wild Awakening', icon: 'resources1/074', desc: `Monsters unlock themselves (cheapest first) whenever unlocking one costs at most ${AUTO_UNLOCK_SHARE * 100}% of your gold. With Perpetual Growth, every monster grows on its own.`, flag: 'autoUnlock' },
   // Restless Graveyard.
   { name: 'Eager Trainer', icon: 'rpg-items/003', desc: `Your Hunters train themselves (cheapest session first) whenever a session costs at most ${AUTO_TRAIN_SHARE * 100}% of your gold.`, flag: 'autoTrain' },
   // Forbidden Crypt.
@@ -1717,7 +1717,7 @@ export const REGRESSION_TREE: RegNode[] = [
   { id: 'inheritance', name: 'Inheritance', icon: 'things/010', desc: 'Start every run with 1 trillion gold.', ring: 2, angle: -60, cost: THREAD2_LATE, startGold: 1e12 },
   { id: 'oldFriends', name: 'Old Friends', icon: 'rpg-items/300', desc: 'Recruiting a Guild Hunter costs ÷50.', ring: 2, angle: 0, cost: THREAD2_LATE, mult: { recruitCost: 0.02 } },
   { id: 'secondWind', name: 'Second Wind', icon: 'custom/012', desc: 'Energy refills twice as fast.', ring: 2, angle: 60, cost: THREAD2_LATE, mult: { energy: 2 } },
-  { id: 'autoEmpower', name: 'Auto Empower & Evolve', icon: 'rpg-items/264', desc: "Empowers monsters and buys their evolutions by itself, cheapest first, whenever one costs at most your chosen share of your gold (5%, 10%, 20%, or 50%). Tap the node to change it. Unbound monsters are left to you.", ring: 2, angle: 120, cost: AUTO_EMPOWER_COST, flag: 'autoEmpower' },
+  { id: 'autoEmpower', name: 'Perpetual Growth', icon: 'rpg-items/264', desc: "Empowers monsters and buys their evolutions by itself, cheapest first, whenever one costs at most your chosen share of your gold (5%, 10%, 20%, or 50%). Tap the node to change it. Unbound monsters are left to you.", ring: 2, angle: 120, cost: AUTO_EMPOWER_COST, flag: 'autoEmpower' },
   { id: 'bestialMemory', name: 'Bestial Memory', icon: 'resources1/042', desc: 'Empowering monsters costs ÷30.', ring: 2, angle: 180, cost: 300, mult: { empowerCost: 1 / 30 } },
   { id: 'echoingMemories', name: 'Echoing Memories', icon: SHARD_ICON, desc: 'Memory Shards from every Regression ×5.', ring: 2, angle: 240, cost: 500, mult: { shards: 5 } },
   // The outer ring: the strongest of each spoke, joined all the way round. Priced to take a few Regressions to fill
@@ -1770,7 +1770,7 @@ export function regTreeMult(tree: Record<string, number>, kind: RegKind): number
   }
   return m;
 }
-/** Shares of gold Auto Empower & Evolve may spend on one purchase. */
+/** Shares of gold Perpetual Growth may spend on one purchase. */
 export const AUTO_EMPOWER_SHARES = [0.05, 0.1, 0.2, 0.5] as const;
 /** Which monster each area's Guardian is a giant version of. */
 export const GUARDIAN_ENEMY: Record<AreaId, EnemyId> = {
