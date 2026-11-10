@@ -1,4 +1,4 @@
-import { GEAR_WORTH_WEIGHT, gearCost, gearDef, HUNTERS, itemCost, itemDef, ITEMS, MATERIAL_WORTH, modCost, modGold, REGRESSION_TREE, regTreeMult, shardsFor, type MaterialId } from './balance';
+import { KEEP_EMPOWER_SHARE, OLD_HAUNTS, GEAR_WORTH_WEIGHT, gearCost, gearDef, HUNTERS, itemCost, itemDef, ITEMS, MATERIAL_WORTH, modCost, modGold, REGRESSION_TREE, regTreeMult, shardsFor, type MaterialId } from './balance';
 import { newGame, type GameState, type GearItem, type Invested } from './state';
 
 /**
@@ -96,7 +96,8 @@ export function regress(old: GameState, now: number): { state: GameState; shards
   // Your Hunter: training, skills, ascension and tap ability.
   s.main = copy(old.main);
   // Guild Hunters: training and skills, but not recruited or stationed (Kindred Spirits keeps them recruited).
-  const keep = REGRESSION_TREE.some((n) => n.flag === 'keepHunters' && (old.regression.tree[n.id] ?? 0) > 0);
+  const owns = (flag: NonNullable<(typeof REGRESSION_TREE)[number]['flag']>) => REGRESSION_TREE.some((n) => n.flag === flag && (old.regression.tree[n.id] ?? 0) > 0);
+  const keep = owns('keepHunters');
   for (const h of HUNTERS) s.hunters[h.id] = { ...copy(old.hunters[h.id]), recruited: keep && old.hunters[h.id].recruited, station: null };
   // The starting kit again, numbered after every piece ever made so no uid is reused.
   const renumber = new Map<number, number>();
@@ -127,6 +128,10 @@ export function regress(old: GameState, now: number): { state: GameState; shards
   s.seen = { ...copy(old.seen), gearUid: s.nextGearUid - 1, beasts: [], events: [] };
   s.lastSeen = now;
   s.regression = { ...copy(old.regression), runs: old.regression.runs + 1, shards: old.regression.shards + shards, totalShards: old.regression.totalShards + shards, runStart: now, goldAtStart: s.stats.totalGold };
+  // Ancestral Memory: monsters keep a share of their Empower sessions (their evolutions start over, the points come back).
+  if (owns('keepEmpower')) for (const [id, b] of Object.entries(old.bestiary)) if (s.bestiary[id as keyof typeof s.bestiary]) s.bestiary[id as keyof typeof s.bestiary].empower = Math.floor(b.empower * KEEP_EMPOWER_SHARE);
+  // Old Haunts: the first areas start open.
+  if (owns('oldHaunts')) for (const a of OLD_HAUNTS) s.areas[a].unlocked = true;
   s.gold = startGold(s);
   return { state: s, shards, worth };
 }

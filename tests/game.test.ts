@@ -116,6 +116,7 @@ import {
   eventDef,
   ENEMIES,
   REGRESSION_TREE,
+  DOOM_MULT,
   RARE_MATERIALS,
   IDOL_DROP_STEPS,
   IDOL_ORE_STEPS,
@@ -181,6 +182,7 @@ import {
   MERCHANT_GEMS,
   MERCHANT_MATERIALS,
 } from '../src/core/balance';
+import { regress } from '../src/core/regression';
 import { CHARM_MAX, CHARM_TIME, DICE_FLIGHT, Field, SLAM_OFFSET, SUMMON_RUN, type Enemy } from '../src/core/field';
 import { mergeSample, runSample, SAMPLE_KEEP } from '../src/core/sampler';
 import { GATED } from '../src/core/gates';
@@ -5165,6 +5167,92 @@ describe('Field', () => {
       g.tick(2.1);
       expect(g.state.bestiary[dear.id].unlocked).toBe(false);
     }
+  });
+
+  it('every Unbound cluster opens with its own node, in order round the ring', () => {
+    const flags = ['keepHunters', 'autoUnlock', 'autoTrain', 'keepEmpower', 'callToArms', 'freeReroll', 'oldHaunts', 'impendingDoom', 'daydreams', 'fullStation', 'autoForge', 'betterRolls'];
+    flags.forEach((f, i) => expect(REGRESSION_TREE.find((n) => n.flag === f)?.id, f).toBe(`ring-${i}-1`));
+  });
+
+  it('the Unbound cluster nodes: Eager Trainer, Impending Doom, Second Station, Call to Arms, Daydreams', () => {
+    const own = (g: Game, flag: string) => (g.state.regression.tree[REGRESSION_TREE.find((n) => n.flag === flag)!.id] = 1);
+    // Eager Trainer: a session costing at most 5% of your gold is bought by itself.
+    const g = rich();
+    const before = g.training('main').trains;
+    g.tick(2.1);
+    expect(g.training('main').trains).toBe(before);
+    own(g, 'autoTrain');
+    g.tick(2.1);
+    expect(g.training('main').trains).toBeGreaterThan(before);
+    // Impending Doom: Guardians (not the Time Eater) have ×3 health.
+    const hp = g.guardianHpIn('forest');
+    const te = g.guardianHpIn('rift');
+    own(g, 'impendingDoom');
+    expect(g.guardianHpIn('forest')).toBeCloseTo(hp * DOOM_MULT);
+    expect(g.guardianHpIn('rift')).toBeCloseTo(te);
+    // Second Station: stationed Hunters at full strength.
+    expect(g.stationEfficiency).toBe(STATION_EFFICIENCY);
+    own(g, 'fullStation');
+    expect(g.stationEfficiency).toBe(1);
+    // Call to Arms: with energy full, the area's ready swarm starts by itself.
+    const c = rich();
+    c.state.energy = c.energyMax;
+    c.state.areas.forest.kills = 1e9;
+    for (const e of ENEMIES) c.state.bestiary[e.id].kills = 1e9;
+    own(c, 'callToArms');
+    const swarm = EVENTS.find((e) => e.area === c.state.area && e.kind === 'swarm')!;
+    expect(c.eventReady(swarm.id)).toBe(true);
+    c.tick(2.1);
+    expect(c.eventRunning).toBe(true);
+    // Daydreams: with energy full and no swarm to call, it fills a minigame's buff.
+    const d = rich();
+    for (const h of HUNTERS) d.state.hunters[h.id].recruited = true;
+    d.state.energy = d.energyMax;
+    own(d, 'daydreams');
+    const buffsBefore = Object.keys(d.state.buffs).length;
+    d.tick(2.1);
+    expect(Object.keys(d.state.buffs).length).toBeGreaterThan(buffsBefore);
+    expect(d.state.energy).toBeLessThan(d.energyMax);
+  });
+
+  it('Enhanced Forging makes every other roll free; Timeless Arsenal rolls twice and keeps the better', () => {
+    const g = rich();
+    g.state.regression.tree[REGRESSION_TREE.find((n) => n.flag === 'freeReroll')!.id] = 1;
+    for (const h of HUNTERS) g.state.hunters[h.id].recruited = true;
+    for (const m of Object.keys(g.state.materials)) g.state.materials[m as keyof typeof g.state.materials] = 1e9;
+    const d = GEAR.find((x) => modSlotCount(x) > 0 && x.kind === 'accessory')!;
+    const item = { uid: g.state.nextGearUid++, base: d.id, stars: 1, invested: { gold: 0, mats: {} } };
+    g.state.inventory.push(item);
+    g.state.gold = 1e40;
+    expect(g.canEnchant(item.uid, 0)).toBe(true);
+    const gold0 = g.state.gold;
+    g.rollMod(item.uid, 0, 'enchant');
+    const paid = gold0 - g.state.gold;
+    expect(paid).toBeGreaterThan(0);
+    expect(g.freeRollFor(item.uid)).toBe(true);
+    g.chooseMod(item.uid, 0);
+    const gold1 = g.state.gold;
+    g.rollMod(item.uid, 0, 'enchant');
+    expect(g.state.gold).toBe(gold1); // free
+    expect(g.freeRollFor(item.uid)).toBe(false);
+    // Timeless Arsenal: a low first try and a perfect second come out perfect.
+    const t = rich();
+    t.state.regression.tree[REGRESSION_TREE.find((n) => n.flag === 'betterRolls')!.id] = 1;
+    const seq = [0, 0.999];
+    t.rng = () => seq.shift() ?? 0;
+    expect((t as unknown as { rollQuality: () => number }).rollQuality()).toBe(MOD_QUALITY_STEPS);
+  });
+
+  it('Ancestral Memory keeps a quarter of Empower, and Old Haunts opens the first three areas, through a Regression', () => {
+    const g = rich();
+    g.state.regression.unlocked = true;
+    g.state.bestiary.greenSlime.empower = 40;
+    g.state.regression.tree[REGRESSION_TREE.find((n) => n.flag === 'keepEmpower')!.id] = 1;
+    g.state.regression.tree[REGRESSION_TREE.find((n) => n.flag === 'oldHaunts')!.id] = 1;
+    const next = regress(g.state, 1000).state;
+    expect(next.bestiary.greenSlime.empower).toBe(10);
+    for (const a of ['forest', 'glade', 'graveyard'] as const) expect(next.areas[a].unlocked).toBe(true);
+    expect(next.areas.crypt.unlocked).toBe(false);
   });
 
   it('the farm model counts each worn potion at its average over its cooldown', () => {

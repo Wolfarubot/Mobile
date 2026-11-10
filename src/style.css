@@ -8347,3 +8347,8 @@ body .title-row .quick-type .cyc-cur {
   border: 2px solid currentColor;
   opacity: 0.75;
 }
+/* Enhanced Forging's free roll, in place of a Refine or Enchant roll's cost. */
+.mod-free {
+  font-weight: 800;
+  color: var(--good);
+}

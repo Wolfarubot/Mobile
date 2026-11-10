@@ -141,7 +141,6 @@ import {
   modPower,
   modPerfect,
   STATION_CAPACITY,
-  STATION_EFFICIENCY,
   type AreaId,
   type EnemyDef,
   type GearDef,
@@ -962,7 +961,7 @@ export class AppUI {
       dot.textContent = String(points);
       dot.classList.toggle('hidden', points <= 0);
       const station = def ? g.state.hunters[def.id].station : g.area;
-      const down = def && station && station !== g.area ? (this.rates(station, g.stationedIn(station), STATION_EFFICIENCY).stunned[def.id] ?? 0) : 0;
+      const down = def && station && station !== g.area ? (this.rates(station, g.stationedIn(station), g.stationEfficiency).stunned[def.id] ?? 0) : 0;
       setHtml(status, `${station ? `📍 ${areaDef(station).name}` : '💤 Resting'} · ⚔️ ${fmt(this.dpsOf(who))} DPS${down >= 0.05 ? ' · <b class="warn">💫 overwhelmed</b>' : ''}`);
       const items = g.equipped(who);
       const k = items.map((it) => (it ? `${it.uid}:${it.stars}` : '-')).join('|');
@@ -1550,7 +1549,7 @@ export class AppUI {
       else if (st.station === g.area) yieldEl.textContent = `Fighting beside you in ${areaDef(st.station).name}.`;
       else {
         const group = g.stationedIn(st.station);
-        yieldEl.innerHTML = yieldHtml(this.rates(st.station, group, STATION_EFFICIENCY), `${areaDef(st.station).name}${group.length > 1 ? ` (with ${group.length - 1} other${group.length > 2 ? 's' : ''})` : ''}`);
+        yieldEl.innerHTML = yieldHtml(this.rates(st.station, group, g.stationEfficiency), `${areaDef(st.station).name}${group.length > 1 ? ` (with ${group.length - 1} other${group.length > 2 ? 's' : ''})` : ''}`);
       }
     });
     return wrap;
@@ -2015,7 +2014,8 @@ export class AppUI {
         // Its cost: some of the piece's recipe, plus golem metals (Refine) or gems (Enchant); a reroll costs the same.
         const costOf = (kind: 'refine' | 'enchant') => {
           const row = el('div', 'fc-cost mod-cost');
-          row.innerHTML = recipeHtml(g, kind === 'refine' ? g.refineCostOf(uid) : g.enchantCostOf(uid), g.modGoldOf(uid, kind));
+          // Enhanced Forging: the roll after a paid one is free.
+          row.innerHTML = g.freeRollFor(uid) ? '<span class="mod-free">✨ Free roll (Enhanced Forging)</span>' : recipeHtml(g, kind === 'refine' ? g.refineCostOf(uid) : g.enchantCostOf(uid), g.modGoldOf(uid, kind));
           return row;
         };
         if (action && slot !== null && !pending) {
@@ -2363,7 +2363,7 @@ export class AppUI {
           row.appendChild(slot);
         }
       }
-      yieldEl.innerHTML = here.length && g.area !== id ? yieldHtml(this.rates(id, here, STATION_EFFICIENCY), 'Together they earn') : '';
+      yieldEl.innerHTML = here.length && g.area !== id ? yieldHtml(this.rates(id, here, g.stationEfficiency), 'Together they earn') : '';
     });
     return wrap;
   }

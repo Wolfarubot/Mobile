@@ -1514,7 +1514,7 @@ export interface RegNode {
   /** Gold you start each run with. */
   startGold?: number;
   /** A switch rather than a number. */
-  flag?: 'autoEmpower' | 'keepHunters' | 'autoUnlock';
+  flag?: 'autoEmpower' | 'keepHunters' | 'autoUnlock' | 'autoTrain' | 'keepEmpower' | 'callToArms' | 'freeReroll' | 'oldHaunts' | 'impendingDoom' | 'daydreams' | 'fullStation' | 'autoForge' | 'betterRolls';
   /** Shown but not for sale yet. */
   soon?: boolean;
 }
@@ -1554,11 +1554,41 @@ const unboundCost = (k: number): number => {
  * game a little and makes it easier, rather than a multiplier. Clusters without one yet take a perk in its place.
  */
 export const AUTO_UNLOCK_SHARE = 0.2;
+/** Eager Trainer: Hunters train themselves while a session costs at most this share of your gold. */
+export const AUTO_TRAIN_SHARE = 0.05;
+/** Ancestral Memory: the share of each monster's Empower sessions kept through a Regression. */
+export const KEEP_EMPOWER_SHARE = 0.25;
+/** Old Haunts: the areas every run starts with open. */
+export const OLD_HAUNTS: AreaId[] = ['forest', 'glade', 'graveyard'];
+/** Impending Doom: Guardians (but the Time Eater) have this many times the health, and drop this many times the gold and materials. */
+export const DOOM_MULT = 3;
+/** Auto Forge: equipped gear stars itself up while a star costs at most this share of your gold. */
+export const AUTO_FORGE_SHARE = 0.1;
 const UNBOUND_UNIQUES: Array<Pick<RegNode, 'name' | 'icon' | 'desc' | 'flag'> | undefined> = [
   // Past the Unbound Wandering Woods.
   { name: 'Kindred Spirits', icon: 'rpg-items/300', desc: 'Recruited Guild Hunters stay recruited through every Regression.', flag: 'keepHunters' },
   // Past the Unbound Fey Grove: with Auto Empower & Evolve, monsters grow on their own.
   { name: 'Wild Awakening', icon: 'resources1/074', desc: `Monsters unlock themselves (cheapest first) whenever unlocking one costs at most ${AUTO_UNLOCK_SHARE * 100}% of your gold. With Auto Empower & Evolve, every monster grows on its own.`, flag: 'autoUnlock' },
+  // Restless Graveyard.
+  { name: 'Eager Trainer', icon: 'rpg-items/003', desc: `Your Hunters train themselves (cheapest session first) whenever a session costs at most ${AUTO_TRAIN_SHARE * 100}% of your gold.`, flag: 'autoTrain' },
+  // Forbidden Crypt.
+  { name: 'Ancestral Memory', icon: 'resources1/042', desc: `Monsters keep ${KEEP_EMPOWER_SHARE * 100}% of their Empower sessions through every Regression.`, flag: 'keepEmpower' },
+  // Shadowy Depths.
+  { name: 'Call to Arms', icon: 'resources1/099', desc: "Energy that would go to waste calls in a fight: while your energy is full, the current area's swarm starts by itself whenever it's ready.", flag: 'callToArms' },
+  // Ember Mines.
+  { name: 'Enhanced Forging', icon: 'rpg-items/264', desc: 'Every other Refine or Enchant roll on a piece is free: each roll you pay for earns the next one.', flag: 'freeReroll' },
+  // Venom Caverns.
+  { name: 'Old Haunts', icon: 'things/010', desc: 'Every run starts with the Wandering Woods, the Fey Grove and the Restless Graveyard open.', flag: 'oldHaunts' },
+  // Frost Peaks.
+  { name: 'Impending Doom', icon: 'rpg-items/319', desc: `Every Guardian but the Time Eater has ×${DOOM_MULT} health, and drops ×${DOOM_MULT} the gold and materials.`, flag: 'impendingDoom' },
+  // Ascendant Steps.
+  { name: 'Daydreams', icon: 'wands-books/087', desc: 'Energy that would go to waste dreams up a minigame: while your energy is full, it spends a play on a random minigame you have, filling its buff as if played at par.', flag: 'daydreams' },
+  // Cloud Fortress.
+  { name: 'Second Station', icon: 'rpg-items/300', desc: 'Hunters stationed away from you farm at full strength instead of 80%.', flag: 'fullStation' },
+  // Meteor Field.
+  { name: 'Auto Forge', icon: 'things/004', desc: `Gear your Hunters wear stars itself up (cheapest first) whenever a star costs at most ${AUTO_FORGE_SHARE * 100}% of your gold and you have its materials.`, flag: 'autoForge' },
+  // Void Rift: the first of the finale's nodes.
+  { name: 'Timeless Arsenal', icon: 'rpg-items/310', desc: 'Every Refine and Enchant roll is rolled twice, keeping the better (on top of any other extra tries).', flag: 'betterRolls' },
 ];
 const UNBOUND_PERKS: Array<Pick<RegNode, 'name' | 'icon' | 'desc' | 'mult' | 'flag'>> = [
   { name: 'Unbound Bounty', icon: 'things/008', desc: 'Gold from monsters ×10.', mult: { gold: 10 } },
@@ -1571,10 +1601,12 @@ const UNBOUND_PERKS: Array<Pick<RegNode, 'name' | 'icon' | 'desc' | 'mult' | 'fl
   { name: 'Beast Lore', icon: 'resources1/042', desc: 'Empowering monsters costs ÷10.', mult: { empowerCost: 0.1 } },
 ];
 /** The ring's last five nodes, past the Void Rift (the middle one its hub): in the order of UNBOUND_STEPS. */
-const UNBOUND_FINALE: Array<Pick<RegNode, 'name' | 'icon' | 'desc' | 'mult'>> = [
+const UNBOUND_FINALE: Array<Pick<RegNode, 'name' | 'icon' | 'desc' | 'mult' | 'flag'>> = [
+  // The first place goes to the Void Rift cluster's own node, Timeless Arsenal (UNBOUND_UNIQUES); Endless Bounty's
+  // gold ×100 moved into Full Circle. This entry only holds the place.
   { name: 'Endless Bounty', icon: 'things/001', desc: 'Gold from monsters ×100.', mult: { gold: 100 } },
   { name: 'Perfect Recall', icon: 'things/019', desc: 'Material drop chance ×10.', mult: { drops: 10 } },
-  { name: 'Full Circle', icon: 'rpg-items/310', desc: 'Damage for every Hunter ×5, and Memory Shards from every Regression ×2.', mult: { damage: 5, shards: 2 } },
+  { name: 'Full Circle', icon: 'rpg-items/310', desc: 'Damage for every Hunter ×5, gold from monsters ×100, and Memory Shards from every Regression ×2.', mult: { damage: 5, gold: 100, shards: 2 } },
   { name: 'Eternal Slumber', icon: 'rpg-items/293', desc: 'Offline gains ×10.', mult: { offline: 10 } },
   { name: 'Teeming Eternity', icon: 'resources1/089', desc: 'Monsters spawn ×2 as often.', mult: { spawn: 2 } },
 ];
@@ -1610,8 +1642,9 @@ function unboundRing(): RegNode[] {
     });
     if (i === UNBOUND_ORDER.length - 1) {
       // Past the Void Rift, closing the gap round to the Woods: the ring's final nodes, the strongest of them all.
-      UNBOUND_FINALE.forEach((p, k) => {
+      UNBOUND_FINALE.forEach((f, k) => {
         const j = k + 1;
+        const p = (j === 1 && UNBOUND_UNIQUES[i]) || f;
         out.push({ ...p, id: `ring-${i}-${j}`, ring: UNBOUND_RINGS[k], angle: angle + UNBOUND_STEPS[k], cost: unboundCost(i * (UNBOUND_BETWEEN + 1) + j) });
       });
       return;

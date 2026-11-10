@@ -138,6 +138,8 @@ export interface GearItem {
    * regress. Missing on pieces from before it was tracked: those are estimated from their stars and modifiers.
    */
   invested?: Invested;
+  /** Enhanced Forging: the roll you paid for earned this piece a free one. */
+  freeRoll?: boolean;
 }
 
 /** Gold and materials spent on something. */
@@ -993,6 +995,7 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
               item.mods = Array.from({ length: slots }, (_, i) => parseMod(g.mods![i]));
             const inv = parseInvested(g.invested);
             if (inv) item.invested = inv;
+            if (g.freeRoll === true) item.freeRoll = true;
             return item;
           }
           const def = gearDef(g.base);

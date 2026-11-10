@@ -9,6 +9,9 @@ import {
   weaponOnlyEnchant,
   PHANTOM_ARTS,
   AUTO_UNLOCK_SHARE,
+  AUTO_TRAIN_SHARE,
+  AUTO_FORGE_SHARE,
+  DOOM_MULT,
   REGRESSION_TREE,
   type RegNode,
   type WeaponClass,
@@ -236,6 +239,8 @@ export type GameEvent =
   | { type: 'unlock'; enemy: EnemyId }
   | { type: 'recruit'; hunter: HunterId }
   | { type: 'eventStart'; event: string }
+  /** Daydreams spent waiting energy on a minigame's buff (as if played at par). */
+  | { type: 'daydream'; event: string }
   | { type: 'eventEnd'; event: string }
   | { type: 'eventComplete'; event: string }
   /** The last area's Guardian (the Time Eater) fell: the Void Rift is conquered. */
@@ -1310,11 +1315,16 @@ export class Game {
   }
 
   canRefine(uid: number, slot: number): boolean {
-    return this.refinable(uid) && slot >= 0 && slot < this.modSlots(uid).length && this.refinesFor(uid).length > 0 && this.hasMaterials(this.refineCostOf(uid)) && this.state.gold >= this.modGoldOf(uid, 'refine');
+    return this.refinable(uid) && slot >= 0 && slot < this.modSlots(uid).length && this.refinesFor(uid).length > 0 && (this.freeRollFor(uid) || (this.hasMaterials(this.refineCostOf(uid)) && this.state.gold >= this.modGoldOf(uid, 'refine')));
   }
 
   canEnchant(uid: number, slot: number): boolean {
-    return this.enchantOpen && slot >= 0 && slot < this.modSlots(uid).length && this.enchantsFor(uid, slot).length > 0 && this.hasMaterials(this.enchantCostOf(uid)) && this.state.gold >= this.modGoldOf(uid, 'enchant');
+    return this.enchantOpen && slot >= 0 && slot < this.modSlots(uid).length && this.enchantsFor(uid, slot).length > 0 && (this.freeRollFor(uid) || (this.hasMaterials(this.enchantCostOf(uid)) && this.state.gold >= this.modGoldOf(uid, 'enchant')));
+  }
+
+  /** Enhanced Forging: this piece's next Refine or Enchant roll is free (the last one was paid for). */
+  freeRollFor(uid: number): boolean {
+    return this.hasRegFlag('freeReroll') && !!this.gearItem(uid)?.freeRoll;
   }
 
   /**
@@ -1322,6 +1332,8 @@ export class Game {
    * times and keeps the best, so a perfect roll is likelier.
    */
   private rollQuality(extra = 0): number {
+    // Timeless Arsenal: one more try on every roll, on top of any others.
+    if (this.hasRegFlag('betterRolls')) extra++;
     let q = 0;
     for (let i = 0; i <= extra && q < MOD_QUALITY_STEPS; i++) q = Math.max(q, Math.min(MOD_QUALITY_STEPS, Math.floor(this.rng() * (MOD_QUALITY_STEPS + 1))));
     return q;
@@ -1380,11 +1392,16 @@ export class Game {
         options.push({ kind: 'enchant', id, q, p });
       }
     }
-    const mats = kind === 'refine' ? this.refineCostOf(uid) : this.enchantCostOf(uid);
-    const gold = this.modGoldOf(uid, kind);
-    this.spend(mats);
-    this.state.gold -= gold;
-    invest(item, gold, mats);
+    // Enhanced Forging: every other roll is free (a paid roll earns the next).
+    if (this.freeRollFor(uid)) item.freeRoll = undefined;
+    else {
+      const mats = kind === 'refine' ? this.refineCostOf(uid) : this.enchantCostOf(uid);
+      const gold = this.modGoldOf(uid, kind);
+      this.spend(mats);
+      this.state.gold -= gold;
+      invest(item, gold, mats);
+      if (this.hasRegFlag('freeReroll')) item.freeRoll = true;
+    }
     item.pending = { slot, kind, options };
     const st = this.state.stats;
     if (reroll) st.rerolls++;
@@ -1582,8 +1599,13 @@ export class Game {
 
   /** An area's Guardian's health. The Time Eater grows with every timeline it has swallowed (timeEaterGrowth). */
   guardianHpIn(area: AreaId): number {
-    const fed = GUARDIAN_ENEMY[area] === 'timeEater' ? timeEaterGrowth(this.state.regression.runs) : 1;
+    const fed = GUARDIAN_ENEMY[area] === 'timeEater' ? timeEaterGrowth(this.state.regression.runs) : this.doomMult;
     return areaDef(area).guardian * this.regMult('enemyHp') * fed;
+  }
+
+  /** Impending Doom: every Guardian but the Time Eater has more health and drops more (1 without it). */
+  get doomMult(): number {
+    return this.hasRegFlag('impendingDoom') ? DOOM_MULT : 1;
   }
 
   /** A Guardian's Bestiary entry shows once it has been challenged. */
@@ -1883,6 +1905,61 @@ export class Game {
   /** Owns a Regression node with this switch (an Unbound cluster's own node, wherever it sits on the ring). */
   hasRegFlag(flag: NonNullable<RegNode['flag']>): boolean {
     return REGRESSION_TREE.some((n) => n.flag === flag && this.ownsReg(n.id));
+  }
+
+  /** How well Hunters stationed away from you farm: STATION_EFFICIENCY, or full strength with Second Station. */
+  get stationEfficiency(): number {
+    return this.hasRegFlag('fullStation') ? 1 : STATION_EFFICIENCY;
+  }
+
+  /** Eager Trainer: sessions for your Hunters, cheapest first, while one costs at most AUTO_TRAIN_SHARE of your gold. */
+  private autoTrain(): void {
+    if (!this.hasRegFlag('autoTrain') || !this.trainUnlocked) return;
+    const who: Wearer[] = ['main', ...HUNTERS.filter((h) => this.state.hunters[h.id].recruited).map((h) => h.id)];
+    for (let guard = 0; guard < 200; guard++) {
+      let best: { w: Wearer; cost: number } | null = null;
+      for (const w of who) {
+        const p = this.trainPurchase(w, 1);
+        if (p.count > 0 && (!best || p.cost < best.cost)) best = { w, cost: p.cost };
+      }
+      if (!best || best.cost > AUTO_TRAIN_SHARE * this.state.gold || !this.train(best.w, 1)) break;
+    }
+  }
+
+  /** Auto Forge: a star on gear your Hunters wear, cheapest first, while it costs at most AUTO_FORGE_SHARE of your gold. */
+  private autoForge(): void {
+    if (!this.hasRegFlag('autoForge')) return;
+    const who: Wearer[] = ['main', ...HUNTERS.filter((h) => this.state.hunters[h.id].recruited).map((h) => h.id)];
+    for (let guard = 0; guard < 100; guard++) {
+      let best: { uid: number; gold: number } | null = null;
+      for (const w of who)
+        for (const it of this.equipped(w)) {
+          if (!it || !this.canUpgradeGear(it.uid)) continue;
+          const gold = this.gearUpgradeGold(it.uid) ?? 0;
+          if (!best || gold < best.gold) best = { uid: it.uid, gold };
+        }
+      if (!best || best.gold > AUTO_FORGE_SHARE * this.state.gold || !this.upgradeGear(best.uid)) break;
+    }
+  }
+
+  /**
+   * Energy that would go to waste (it's full): Call to Arms starts the current area's swarm if it's ready; failing
+   * that, Daydreams spends a play on a random minigame you have, filling its buff as if played at par.
+   */
+  private idleEnergy(): void {
+    if (this.state.energy < this.energyMax) return;
+    if (this.hasRegFlag('callToArms') && !this.eventRunning && !this.guardianActive) {
+      const swarm = EVENTS.find((e) => e.area === this.state.area && e.kind === 'swarm' && this.eventReady(e.id));
+      if (swarm && this.startEvent(swarm.id)) return;
+    }
+    if (this.hasRegFlag('daydreams')) {
+      const games = EVENTS.filter((e) => e.kind === 'minigame' && !e.echo && e.minigame && this.eventReady(e.id));
+      if (!games.length) return;
+      const ev = games[Math.floor(this.rng() * games.length)];
+      this.state.energy = Math.max(0, this.state.energy - this.energyCost(ev.id));
+      this.fillBuff(ev.minigame!, ev.id, ev.rewards?.par ?? 1);
+      this.emit({ type: 'daydream', event: ev.id });
+    }
   }
 
   /**
@@ -2221,7 +2298,7 @@ export class Game {
       let gold = this.ratesFor(s.area, ['main', ...this.helpersHere]).gold;
       for (const area of AREAS) {
         const group = area.id === s.area ? [] : this.stationedIn(area.id);
-        if (group.length) gold += this.ratesFor(area.id, group, STATION_EFFICIENCY).gold;
+        if (group.length) gold += this.ratesFor(area.id, group, this.stationEfficiency).gold;
       }
       this.goldRate = gold;
       this.goldRateAge = 0;
@@ -2391,6 +2468,9 @@ export class Game {
       this.autoAge = 0;
       this.autoUnlock();
       this.autoEmpower();
+      this.autoTrain();
+      this.autoForge();
+      this.idleEnergy();
     }
     this.tickPotions(dt);
     this.questAge += dt;
@@ -2424,7 +2504,7 @@ export class Game {
       const key = group.join(',');
       let cached = this.stationRates.get(area.id);
       if (!cached || cached.key !== key || cached.age >= 1) {
-        cached = { key, rates: this.ratesFor(area.id, group, STATION_EFFICIENCY), age: 0 };
+        cached = { key, rates: this.ratesFor(area.id, group, this.stationEfficiency), age: 0 };
         this.stationRates.set(area.id, cached);
       }
       cached.age += dt;
@@ -2506,11 +2586,12 @@ export class Game {
     s.stats.totalKills++;
     s.stats.hunterKills[shooter] = (s.stats.hunterKills[shooter] ?? 0) + 1;
     if (boss) {
-      const gold = areaDef(s.area).gold * GUARDIAN_GOLD_MULT * this.regMult('gold');
+      const doom = GUARDIAN_ENEMY[s.area] === 'timeEater' ? 1 : this.doomMult;
+      const gold = areaDef(s.area).gold * GUARDIAN_GOLD_MULT * this.regMult('gold') * doom;
       s.gold += gold;
       s.stats.totalGold += gold;
       s.areas[s.area].gold += gold;
-      gain(e.material, BOSS_MATERIAL_DROP);
+      gain(e.material, BOSS_MATERIAL_DROP * doom);
       this.dropLoot(s.area); // every Guardian carries a piece
       s.stats.guardians++;
       const next = this.lockedNext;
@@ -2525,7 +2606,7 @@ export class Game {
         s.regression.unlocked = true;
         this.emit({ type: 'finalGuardian', slain: this.timeEaterMortal });
       }
-      return { gold, material: e.material, amount: BOSS_MATERIAL_DROP };
+      return { gold, material: e.material, amount: BOSS_MATERIAL_DROP * doom };
     }
     // Double or Nothing (Ted in this area): the kill pays twice, or nothing at all.
     const odds = this.gambleIn(enemyDef(type).area);
@@ -3406,7 +3487,7 @@ export class Game {
       for (const area of AREAS) {
         const group = this.stationedIn(area.id);
         if (area.id === s.area || !group.length) continue;
-        add(area.id, group, this.accrue(area.id, this.ratesFor(area.id, group, STATION_EFFICIENCY * OFFLINE_EFFICIENCY * dream), span, true));
+        add(area.id, group, this.accrue(area.id, this.ratesFor(area.id, group, this.stationEfficiency * OFFLINE_EFFICIENCY * dream), span, true));
       }
     }
     // The buffs ran down over the time away.
