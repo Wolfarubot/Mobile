@@ -1,4 +1,4 @@
-import { KEEP_EMPOWER_SHARE, OLD_HAUNTS, GEAR_WORTH_WEIGHT, gearCost, gearDef, HUNTERS, itemCost, itemDef, ITEMS, MATERIAL_WORTH, modCost, modGold, REGRESSION_TREE, regTreeMult, shardsFor, type MaterialId } from './balance';
+import { isUnboundId, KEEP_EMPOWER_SHARE, OLD_HAUNTS, GEAR_WORTH_WEIGHT, gearCost, gearDef, HUNTERS, itemCost, itemDef, ITEMS, MATERIAL_WORTH, modCost, modGold, REGRESSION_TREE, regTreeMult, shardsFor, type MaterialId } from './balance';
 import { newGame, type GameState, type GearItem, type Invested } from './state';
 
 /**
@@ -58,6 +58,9 @@ export function runWorth(s: GameState): RunWorth {
   const materials = matsWorth(s.materials);
   let gear = 0;
   for (const item of s.inventory) {
+    // Unbound gear is kept through every Regression, so it isn't given up for shards (nor are Unbound materials,
+    // which have no worth here).
+    if (isUnboundId(item.base)) continue;
     const inv = gearInvested(item);
     gear += inv.gold + matsWorth(inv.mats);
   }
@@ -107,6 +110,20 @@ export function regress(old: GameState, now: number): { state: GameState; shards
   }
   for (const slots of Object.values(s.equipment)) if (slots) slots.forEach((u, i) => (slots[i] = u === null ? null : (renumber.get(u) ?? null)));
   s.nextGearUid = old.nextGearUid + renumber.size;
+  // Unbound gear and materials last through every Regression: the pieces stay where they were worn (the starting
+  // kit's piece in that slot goes to the inventory).
+  for (const item of old.inventory) if (isUnboundId(item.base)) s.inventory.push(copy(item));
+  for (const [who, slots] of Object.entries(old.equipment) as [keyof typeof old.equipment, Array<number | null>][]) {
+    if (!slots) continue;
+    slots.forEach((uid, i) => {
+      const item = uid !== null ? old.inventory.find((it) => it.uid === uid) : undefined;
+      if (!item || !isUnboundId(item.base)) return;
+      const list = (s.equipment[who] ??= slots.map(() => null));
+      while (list.length <= i) list.push(null);
+      list[i] = uid;
+    });
+  }
+  for (const [m, n] of Object.entries(old.materials)) if (isUnboundId(m) && n > 0) s.materials[m as keyof typeof s.materials] = n;
   // Kept as they were.
   s.settings = copy(old.settings);
   s.flags = copy(old.flags);

@@ -9,6 +9,12 @@ import {
   weaponOnlyEnchant,
   PHANTOM_ARTS,
   AUTO_UNLOCK_SHARE,
+  unboundAreaDef,
+  isUnboundId,
+  unboundId,
+  type BaseMaterialId,
+  type BaseGearId,
+  type AreaDef,
   AUTO_TRAIN_SHARE,
   AUTO_FORGE_SHARE,
   DOOM_MULT,
@@ -1609,7 +1615,7 @@ export class Game {
   /** An area's Guardian's health. The Time Eater grows with every timeline it has swallowed (timeEaterGrowth). */
   guardianHpIn(area: AreaId): number {
     const fed = GUARDIAN_ENEMY[area] === 'timeEater' ? timeEaterGrowth(this.state.regression.runs) : this.doomMult;
-    return areaDef(area).guardian * this.regMult('enemyHp') * fed;
+    return this.areaStats(area).guardian * this.regMult('enemyHp') * fed;
   }
 
   /** Impending Doom: every Guardian but the Time Eater has more health and drops more (1 without it). */
@@ -1911,6 +1917,27 @@ export class Game {
     if ((AUTO_EMPOWER_SHARES as readonly number[]).includes(share)) this.state.regression.autoShare = share;
   }
 
+  /** Is this area Unbound (its node on the Unbound ring owned)? It takes the original's place, far stronger. */
+  isUnbound(area: AreaId): boolean {
+    return this.ownsReg(`unbound-${area}`);
+  }
+
+  /** An area's numbers: its own, or its Unbound self's (area 13 and on) once it's Unbound. */
+  areaStats(area: AreaId): AreaDef {
+    return this.isUnbound(area) ? unboundAreaDef(area) : areaDef(area);
+  }
+
+  /** What a material drops as in an area: its Unbound copy there once the area is Unbound. */
+  dropIn(m: MaterialId, area: AreaId): MaterialId {
+    return this.isUnbound(area) && !isUnboundId(m) ? unboundId(m as BaseMaterialId) : m;
+  }
+
+  /** Gold to unlock a monster (an Unbound area's are dearer, as its monsters pay more). */
+  unlockCostOf(id: EnemyId): number {
+    const def = enemyDef(id);
+    return enemyUnlockCost(def, this.areaStats(def.area).gold);
+  }
+
   /** Owns a Regression node with this switch (an Unbound cluster's own node, wherever it sits on the ring). */
   hasRegFlag(flag: NonNullable<RegNode['flag']>): boolean {
     return REGRESSION_TREE.some((n) => n.flag === flag && this.ownsReg(n.id));
@@ -1983,9 +2010,9 @@ export class Game {
    */
   private autoUnlock(): void {
     if (!this.hasRegFlag('autoUnlock')) return;
-    const locked = ENEMIES.filter((e) => !e.guardianOnly && !this.state.bestiary[e.id].unlocked && this.isAreaUnlocked(e.area)).sort((a, b) => enemyUnlockCost(a) - enemyUnlockCost(b));
+    const locked = ENEMIES.filter((e) => !e.guardianOnly && !this.state.bestiary[e.id].unlocked && this.isAreaUnlocked(e.area)).sort((a, b) => this.unlockCostOf(a.id) - this.unlockCostOf(b.id));
     for (const e of locked) {
-      if (enemyUnlockCost(e) > AUTO_UNLOCK_SHARE * this.state.gold || !this.unlockEnemy(e.id)) break;
+      if (this.unlockCostOf(e.id) > AUTO_UNLOCK_SHARE * this.state.gold || !this.unlockEnemy(e.id)) break;
     }
   }
 
@@ -2292,13 +2319,13 @@ export class Game {
     const r = def.rewards;
     if (!r || score <= 0) return { gold: 0, materials: {} };
     const top = this.unlockedAreas[this.unlockedAreas.length - 1];
-    const floor = Math.max(areaDef(def.area).gold, areaDef(top).gold) * GUARDIAN_GOLD_MULT * r.gold * score;
+    const floor = Math.max(this.areaStats(def.area).gold, this.areaStats(top).gold) * GUARDIAN_GOLD_MULT * r.gold * score;
     const income = this.goldPerSecond() * (def.area === top ? MINIGAME_INCOME_NEW : MINIGAME_INCOME) * (score / r.par);
     const gold = Math.max(floor, income) * (def.echo ? ECHO_MULT : 1);
     const materials: Partial<Record<MaterialId, number>> = {};
     for (const m of r.materials) {
       const n = Math.floor(score / m.per);
-      if (n > 0) materials[m.material] = n;
+      if (n > 0) materials[this.dropIn(m.material, def.area)] = n;
     }
     return { gold, materials };
   }
@@ -2418,7 +2445,7 @@ export class Game {
   /** A monster's stats; `calm` leaves out the event running in its area (its usual spawn rate, for swarms). */
   enemyStats(id: EnemyId, calm = false): EnemyStats {
     const def = enemyDef(id);
-    const area = areaDef(def.area);
+    const area = this.areaStats(def.area);
     const b = this.state.bestiary[id];
     // A swarm event here: only its archetype spawns, more of them and faster.
     const ev = !calm && this.activeEvent && def.area === this.state.area ? eventDef(this.activeEvent.id) : null;
@@ -2434,7 +2461,7 @@ export class Game {
       gold: area.gold * def.gold * emp('gold') * (1 + evo.gold) * this.areaPerk(def.area).gold * (1 + BUFF_GOLD * this.buffPower('graveRobbing')) * this.premiumMult('gold') * this.regMult('gold'),
       spawnRate: b.unlocked ? Math.max(def.spawn * emp('spawn') * (1 + evo.spawn) * (isGolem(def) ? GOLEM_SPAWN : idol.spawn) * swarm.spawn * this.regMult('spawn') * (this.noHymn ? 1 : 1 + BUFF_ALLURE * this.buffPower('pixieSerenade')), swarm.spawn ? (ev?.minSpawn?.[id] ?? 0) : 0) : 0,
       dropChance: BASE_DROP_CHANCE * (isGolem(def) ? GOLEM_DROPS : 1) * emp('drops') * (1 + evo.drops) * (1 + BUFF_KEEN_EYE * this.buffPower('huntingPractice')) * this.premiumMult('drops') * this.regMult('drops'),
-      material: def.material,
+      material: this.dropIn(def.material, def.area),
       split: Math.min(1, evo.split),
       fireTrail: Math.min(1, evo.fireTrail),
       lunge: evo.lunge > 0,
@@ -2547,7 +2574,9 @@ export class Game {
    * rarity is set to Auto Salvage, it's salvaged straight away (half its materials, like salvaging by hand).
    */
   dropLoot(area: AreaId, quiet = false): { gear: GearId; salvaged: boolean } {
-    const def = rollLoot(area, this.rng(), this.rng());
+    const rolled = rollLoot(area, this.rng(), this.rng());
+    // An Unbound area's loot is the Unbound copy of its piece.
+    const def = this.isUnbound(area) && !rolled.unboundOf ? gearDef(unboundId(rolled.id as BaseGearId)) : rolled;
     const stars = this.rng() < LOOT_TWO_STAR + BUFF_LOOT_TWO_STAR * this.buffPower('highOrLow') ? 2 : 1;
     const salvaged = this.state.settings.autoSalvage.includes(def.rarity);
     if (salvaged) {
@@ -2602,7 +2631,7 @@ export class Game {
     s.stats.hunterKills[shooter] = (s.stats.hunterKills[shooter] ?? 0) + 1;
     if (boss) {
       const doom = GUARDIAN_ENEMY[s.area] === 'timeEater' ? 1 : this.doomMult;
-      const gold = areaDef(s.area).gold * GUARDIAN_GOLD_MULT * this.regMult('gold') * doom;
+      const gold = this.areaStats(s.area).gold * GUARDIAN_GOLD_MULT * this.regMult('gold') * doom;
       s.gold += gold;
       s.stats.totalGold += gold;
       s.areas[s.area].gold += gold;
@@ -2801,7 +2830,11 @@ export class Game {
   /** A monster's drops for `k` kills (a second): its own material and its extra ones, at `perk` × its drop chance. */
   private addDrops(into: Partial<Record<MaterialId, number>>, e: EnemyStats, k: number, perk: number): void {
     into[e.material] = (into[e.material] ?? 0) + k * e.dropChance * perk;
-    for (const d of [...enemyExtraDrops(enemyDef(e.id)), ...this.legacyDrops(e.archetype)]) into[d.material] = (into[d.material] ?? 0) + k * e.dropChance * perk * d.share;
+    const area = enemyDef(e.id).area;
+    for (const d of [...enemyExtraDrops(enemyDef(e.id)), ...this.legacyDrops(e.archetype)]) {
+      const m = this.dropIn(d.material, area);
+      into[m] = (into[m] ?? 0) + k * e.dropChance * perk * d.share;
+    }
   }
 
   /**
@@ -3260,7 +3293,7 @@ export class Game {
   unlockEnemy(id: EnemyId): boolean {
     const def = enemyDef(id);
     const b = this.state.bestiary[id];
-    const cost = enemyUnlockCost(def);
+    const cost = this.unlockCostOf(id);
     if (b.unlocked || !this.isAreaUnlocked(def.area) || this.state.gold < cost) return false;
     this.state.gold -= cost;
     b.unlocked = true;
@@ -3287,7 +3320,7 @@ export class Game {
 
   /** Cost of the next `amount` Empower sessions for a monster (the Empower switch's choice by default). */
   empowerPurchase(id: EnemyId, amount: BuyAmount = this.state.empowerAmount): Purchase {
-    const base = empowerBaseCost(enemyDef(id)) * this.regMult('empowerCost');
+    const base = empowerBaseCost(enemyDef(id), this.areaStats(enemyDef(id).area).gold) * this.regMult('empowerCost');
     const done = this.state.bestiary[id].empower;
     // Never past the top level.
     const left = Math.max(0, MAX_EMPOWER_SESSIONS - done);

@@ -31,6 +31,8 @@ import {
   HUNTERS,
   ITEMS,
   MATERIALS,
+  UNBOUND_MATERIALS,
+  UNBOUND_GEAR,
   SKILL_TREES,
   RARITIES,
   type Rarity,
@@ -435,7 +437,7 @@ export function newGame(now = Date.now()): GameState {
     main: { trains: 0, skills: {} },
     bestiary: byId(ENEMIES, (id) => ({ unlocked: ENEMIES.find((e) => e.id === id)!.unlock === 0, empower: 0, evo: {}, kills: 0 })),
     hunters: byId(HUNTERS, () => ({ recruited: false, trains: 0, skills: {}, station: null })),
-    materials: zeroes(MATERIALS),
+    materials: zeroes([...MATERIALS, ...UNBOUND_MATERIALS]),
     items: zeroes(ITEMS),
     // Starting gear: a Short Sword and Common Clothes on your Hunter, and a Short Bow to try.
     inventory: [
@@ -653,7 +655,7 @@ function parseInvested(v: unknown): Invested | null {
   const { gold, mats } = v as { gold?: unknown; mats?: unknown };
   const out: Invested = { gold: typeof gold === 'number' && Number.isFinite(gold) && gold > 0 ? gold : 0, mats: {} };
   if (mats && typeof mats === 'object')
-    for (const [m, n] of Object.entries(mats)) if (MATERIALS.some((d) => d.id === m) && typeof n === 'number' && Number.isFinite(n) && n > 0) out.mats[m as MaterialId] = n;
+    for (const [m, n] of Object.entries(mats)) if ((MATERIALS.some((d) => d.id === m) || UNBOUND_MATERIALS.some((d) => d.id === m)) && typeof n === 'number' && Number.isFinite(n) && n > 0) out.mats[m as MaterialId] = n;
   return out;
 }
 
@@ -724,7 +726,7 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
   const gained = (stats.matGained && typeof stats.matGained === 'object' ? stats.matGained : {}) as Record<string, unknown>;
   stats.matGained = {};
   const held = (data.materials ?? {}) as Record<string, unknown>;
-  for (const m of MATERIALS) {
+  for (const m of [...MATERIALS, ...UNBOUND_MATERIALS]) {
     const had = typeof gained[m.id] === 'number' && Number.isFinite(gained[m.id]) ? (gained[m.id] as number) : 0;
     const now = typeof held[m.id] === 'number' && Number.isFinite(held[m.id]) ? (held[m.id] as number) : 0;
     if (Math.max(had, now) > 0) stats.matGained[m.id] = Math.max(had, now);
@@ -981,7 +983,7 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
     ? (data.inventory as Array<GearItem & { level?: number }>)
         // v19 -> v20: the Forest's gear was replaced; old pieces become their nearest new one.
         .map((g) => (g && typeof g.base === 'string' && g.base in RENAMED_GEAR ? { ...g, base: RENAMED_GEAR[g.base] } : g))
-        .filter((g) => g && typeof g.uid === 'number' && GEAR.some((d) => d.id === g.base) && typeof (oldLevels ? g.level : g.stars) === 'number')
+        .filter((g) => g && typeof g.uid === 'number' && (GEAR.some((d) => d.id === g.base) || UNBOUND_GEAR.some((d) => d.id === g.base)) && typeof (oldLevels ? g.level : g.stars) === 'number')
         .map((g) => {
           if (!oldLevels) {
             const item: GearItem = { uid: g.uid, base: g.base, stars: Math.max(1, Math.min(MAX_STARS, Math.floor(g.stars))) };
@@ -1075,7 +1077,7 @@ function cleanSamples(saved: unknown): Partial<Record<AreaId, FieldSample>> {
     return r;
   };
   const enemies = new Set<string>(ENEMIES.map((e) => e.id));
-  const mats = new Set<string>(MATERIALS.map((m) => m.id));
+  const mats = new Set<string>([...MATERIALS, ...UNBOUND_MATERIALS].map((m) => m.id));
   for (const a of AREAS) {
     const v = (saved as Record<string, Partial<FieldSample>>)[a.id];
     if (!v || typeof v !== 'object' || !Array.isArray(v.group) || typeof v.sig !== 'string') continue;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GEAR_WORTH_WEIGHT, gearCost, gearDef, HUNTERS, MATERIAL_WORTH, MATERIALS, regNode, REGRESSION_LINKS, REGRESSION_TREE, shardsFor, SHARD_POWER, TIME_EATER_GROWTH, timeEaterGrowth, type MaterialId } from '../src/core/balance';
+import { areaDef, weaponHit, GEAR_WORTH_WEIGHT, gearCost, gearDef, HUNTERS, MATERIAL_WORTH, MATERIALS, regNode, REGRESSION_LINKS, REGRESSION_TREE, shardsFor, SHARD_POWER, TIME_EATER_GROWTH, timeEaterGrowth, type MaterialId } from '../src/core/balance';
 import { Game } from '../src/core/game';
 import { Field } from '../src/core/field';
 import { estimateInvested, gearInvested, regress, runWorth } from '../src/core/regression';
@@ -217,11 +217,10 @@ describe('Regression Tree', () => {
     expect(shown()).toEqual(['stabilize']);
     g.state.regression.tree = { stabilize: 1 };
     expect(shown().sort()).toEqual(['stabilize', 'goldenMemory', 'muscleMemory', 'dreamHunt', 'teemingWilds', 'keenRecall', 'honedInstinct'].sort());
-    // The whole inner web owned: the Unbound Woods shows (not for sale yet) and lets you through to the nodes past it.
+    // The whole inner web owned: the Unbound Woods shows; the nodes past it wait on it.
     g.state.regression.tree = Object.fromEntries(REGRESSION_TREE.filter((n) => n.ring <= 3).map((n) => [n.id, 1]));
     expect(g.regVisible('unbound-forest')).toBe(true);
-    expect(['ring-0-1', 'ring-0-2', 'ring-0-3'].map((id) => g.regVisible(id))).toEqual([true, true, true]);
-    expect(g.regVisible('ring-0-4')).toBe(false);
+    expect(['ring-0-1', 'ring-0-2', 'ring-0-3'].map((id) => g.regVisible(id))).toEqual([false, false, false]);
     g.state.regression.tree['unbound-forest'] = 1;
     // Past an area: the inner and outer node beside it and the hub, not the far pair or the next area.
     expect(['ring-0-1', 'ring-0-2', 'ring-0-3'].map((id) => g.regVisible(id))).toEqual([true, true, true]);
@@ -269,22 +268,20 @@ describe('Regression Tree', () => {
     expect(ring.findIndex((n) => n.id === 'unbound-glade') - ring.findIndex((n) => n.id === 'unbound-forest')).toBe(6);
   });
 
-  it("the Unbound ring's perks are for sale now: the areas aren't, but they let you through", () => {
+  it('the Unbound areas are for sale, each opening the nodes past it; nothing past an area before it', () => {
     const g = withShards(1e15);
     g.state.regression.tree = Object.fromEntries(REGRESSION_TREE.filter((n) => n.ring <= 3).map((n) => [n.id, 1]));
-    expect(g.canBuyReg('unbound-forest')).toBe(false);
-    // Past the Woods, straight to the hub, which opens the far pair and lets you through the Grove too.
+    expect(g.canBuyReg('ring-0-1')).toBe(false);
+    expect(g.buyReg('unbound-forest')).toBe(true);
+    expect(g.isUnbound('forest')).toBe(true);
+    // Past the Woods, straight to the hub, which opens the far pair and the Grove.
     expect(g.buyReg('ring-0-3')).toBe(true);
-    expect(g.buyReg('ring-0-5')).toBe(true);
-    expect(g.canBuyReg('unbound-glade')).toBe(false);
-    expect(g.canBuyReg('ring-1-1')).toBe(true);
-    expect(g.canBuyReg('ring-1-4')).toBe(false); // the far pair wait on the hub as usual
-    // All the way round: every perk can be bought, no area can, and the shards go down by each price.
-    for (let pass = 0; pass < 20; pass++) for (const n of REGRESSION_TREE) g.buyReg(n.id);
-    const ring = REGRESSION_TREE.filter((n) => n.id.startsWith('ring-'));
-    expect(ring.every((n) => g.ownsReg(n.id))).toBe(true);
-    expect(REGRESSION_TREE.filter((n) => n.area).some((n) => g.ownsReg(n.id))).toBe(false);
-    // The final five lead on from the Rift and stop short of the Woods.
+    expect(g.canBuyReg('ring-0-5')).toBe(true);
+    expect(g.canBuyReg('unbound-glade')).toBe(true);
+    expect(g.canBuyReg('ring-1-1')).toBe(false); // past the Grove: waits on it
+    // All the way round: everything can be bought, and the final five stop short of the Woods.
+    for (let pass = 0; pass < 40; pass++) for (const n of REGRESSION_TREE) g.buyReg(n.id);
+    expect(REGRESSION_TREE.every((n) => g.ownsReg(n.id))).toBe(true);
     const joined = (a: string, b: string) => REGRESSION_LINKS.some(([x, y]) => (x === a && y === b) || (x === b && y === a));
     expect(joined('unbound-rift', 'ring-11-3')).toBe(true);
     for (let j = 1; j <= 5; j++) expect(joined(`ring-11-${j}`, 'unbound-forest')).toBe(false);
@@ -420,3 +417,46 @@ describe('The Time Eater', () => {
   });
 });
 
+
+describe('Unbound areas', () => {
+  const withShards = (n: number) => {
+    const s = midRun();
+    s.regression.unlocked = true;
+    s.regression.shards = n;
+    return new Game(s, noCrit);
+  };
+
+  it('an Unbound Woods: area-13 monsters dropping Unbound materials and loot; Unbound gear and materials last through Regression', () => {
+    const g = withShards(1e15);
+    const hp = g.enemyStats('greenSlime').hp;
+    const gold = g.enemyStats('greenSlime').gold;
+    g.state.regression.tree = { ...Object.fromEntries(REGRESSION_TREE.filter((n) => n.ring <= 3).map((n) => [n.id, 1])), 'unbound-forest': 1 };
+    expect(g.isUnbound('forest')).toBe(true);
+    expect(g.areaStats('forest').name).toBe('Unbound Wandering Woods');
+    // Stronger than the Void Rift's monsters, and richer.
+    expect(g.enemyStats('greenSlime').hp / hp).toBeGreaterThan(areaDef('rift').hp);
+    expect(g.enemyStats('greenSlime').gold / gold).toBeGreaterThan(areaDef('rift').gold);
+    expect(g.enemyStats('greenSlime').material).toBe('u_goo');
+    expect(g.isUnbound('glade')).toBe(false);
+    expect(g.enemyStats('pixie').material).not.toMatch(/^u_/);
+    // Loot here is Unbound gear: the same piece, area-13 strong.
+    expect(gearDef(g.dropLoot('forest', true).gear).unboundOf).toBeTruthy();
+    expect(weaponHit(gearDef('u_slimeSword'), 1)).toBeGreaterThan(weaponHit(gearDef('slimeSword'), 1) * 100);
+    // Through a Regression: Unbound materials and gear stay (worn pieces stay worn); ordinary ones go.
+    g.state.materials.u_goo = 50;
+    g.state.materials.goo = 50;
+    const uid = g.state.nextGearUid++;
+    g.state.inventory.push({ uid, base: 'u_slimeSword', stars: 2, invested: { gold: 0, mats: {} } });
+    g.equip('main', 0, uid);
+    g.state.regression.unlocked = true;
+    const next = regress(g.state, 1000).state;
+    expect(next.materials.u_goo).toBe(50);
+    expect(next.materials.goo).toBe(0);
+    expect(next.inventory.find((it) => it.uid === uid)?.stars).toBe(2);
+    expect(next.equipment.main?.[0]).toBe(uid);
+    // And it survives a save.
+    const back = deserialize(serialize(next))!;
+    expect(back.materials.u_goo).toBe(50);
+    expect(back.inventory.some((it) => it.base === 'u_slimeSword')).toBe(true);
+  });
+});

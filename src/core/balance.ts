@@ -897,7 +897,7 @@ export function maxAffordable(baseCost: number, growth: number, level: number, g
 }
 
 // ---- Materials: each enemy type drops its own ----
-export type MaterialId =
+export type BaseMaterialId =
   | 'spore'
   | 'dust'
   | 'wrap'
@@ -978,6 +978,9 @@ export type MaterialId =
   | 'shade'
   | 'void'
   | 'soul';
+/** An Unbound area's copy of a material (its own count, kept through every Regression). */
+export type UnboundMaterialId = `u_${BaseMaterialId}`;
+export type MaterialId = BaseMaterialId | UnboundMaterialId;
 
 /**
  * The golems' ores and gems (and their stones), the rarer materials: on the battlefield's pick-up pop-ups they
@@ -998,6 +1001,8 @@ export const GOLEM_DROPS = 3;
 
 export interface MaterialDef {
   id: MaterialId;
+  /** An Unbound copy: the material it copies (it drops in that material's area once the area is Unbound). */
+  unboundOf?: BaseMaterialId;
   name: string;
   color: string;
   /** A line of flavour for its details card. */
@@ -1094,7 +1099,7 @@ export const MATERIALS: MaterialDef[] = [
   { id: 'soul', name: 'Soul Gem', color: '#6ff0e0', desc: 'A crystal holding a trapped soul. It whispers at night.' },
 ];
 
-export const materialDef = (id: MaterialId): MaterialDef => byId(MATERIALS, id);
+export const materialDef = (id: MaterialId): MaterialDef => (isUnboundId(id) ? unboundMaterialDef(id as UnboundMaterialId) : byId(MATERIALS, id));
 
 /**
  * The Monster Merchant (the Shop's gems page): each day MERCHANT_DAILY materials he'll take, MERCHANT_AMOUNT of one
@@ -1543,8 +1548,10 @@ const UNBOUND_RINGS = [UNBOUND_IN, UNBOUND_OUT, UNBOUND_RING, UNBOUND_IN, UNBOUN
 /** Which of the nodes between two areas is the hub (1-based, as in their ids `ring-<area>-<j>`). */
 const UNBOUND_HUB = 3;
 /** Shards for the k-th node round the ring (the Woods is 0): ×1.14 a step, two significant figures. */
+/** Shards for the Unbound Woods, the ring's first node; every node after costs ×1.14 the last (tuned by the pacing sim). */
+export const UNBOUND_BASE_COST = 1_000_000;
 const unboundCost = (k: number): number => {
-  const v = 10_000 * 1.14 ** k;
+  const v = UNBOUND_BASE_COST * 1.14 ** k;
   const p = 10 ** (Math.floor(Math.log10(v)) - 1);
   return Math.round(v / p) * p;
 };
@@ -1634,14 +1641,13 @@ function unboundRing(): RegNode[] {
       icon: SHARD_ICON,
       desc:
         i === 0
-          ? `Opens the Unbound timeline with the Unbound ${name}: it takes the Woods' place in the Areas tab, as strong as an area after the Void Rift and far richer. Unbound gear and materials last through every Regression.`
-          : `The ${name} becomes Unbound: it takes its place in the Areas tab, a step stronger and richer than the Unbound area before it.`,
+          ? `Opens the Unbound timeline: the ${name} becomes Unbound, taking the Woods' place from the first day of every run, as strong as an area past the Void Rift (area 13) and far richer. Its monsters, materials and gear are Unbound (an iridescent border), and Unbound gear and materials last through every Regression.`
+          : `The ${name} becomes Unbound: it takes its place in every run, a step stronger and richer than the Unbound area before it (area ${13 + i}), with Unbound monsters, materials and gear.`,
       ring: UNBOUND_RING,
       angle,
       cost: unboundCost(i * (UNBOUND_BETWEEN + 1)),
       area,
       needs: i > 0 ? `unbound-${UNBOUND_ORDER[i - 1]}` : undefined,
-      soon: true,
     });
     if (i === UNBOUND_ORDER.length - 1) {
       // Past the Void Rift, closing the gap round to the Woods: the ring's final nodes, the strongest of them all.
@@ -1789,7 +1795,8 @@ export const guardianName = (area: AreaId): string => {
   const def = enemyDef(GUARDIAN_ENEMY[area]);
   return def.guardianOnly ? def.name : `Ancient ${def.name}`;
 };
-export const enemyUnlockCost = (def: EnemyDef): number => def.unlock * areaDef(def.area).gold;
+/** Gold to unlock a monster (`areaGold`: its area's gold per kill, an Unbound area's when it is one). */
+export const enemyUnlockCost = (def: EnemyDef, areaGold = areaDef(def.area).gold): number => def.unlock * areaGold;
 
 // ---- Monsters: Empower (gold) raises a monster's level; levels earn evolution points for its evolution tree ----
 
@@ -1874,6 +1881,8 @@ export const LOOT_ACCRUE_CAP = 200;
  * monster dropping it is met (its place in the unlock order, up to +0.8; a Guardian's material is +0.9).
  */
 export function materialDepth(m: MaterialId): number {
+  // An Unbound copy sits UNBOUND_TIERS deeper: the Unbound Woods' are area 13's.
+  if (isUnboundId(m)) return UNBOUND_TIERS + materialDepth(unboundBase(m) as BaseMaterialId);
   let best = Infinity;
   for (const e of ENEMIES) {
     if (!enemyDrops(e).includes(m)) continue;
@@ -1959,7 +1968,7 @@ export const enemyExtraDrops = (def: EnemyDef): Array<{ material: MaterialId; sh
 export const dropRarity = (share: number): Rarity => (share >= 0.5 ? 'common' : share >= 0.25 ? 'uncommon' : share >= 0.1 ? 'rare' : share >= 0.05 ? 'veryRare' : 'legendary');
 
 /** Cost of a monster's first Empower session (then × EMPOWER_GROWTH each). */
-export const empowerBaseCost = (def: EnemyDef): number => Math.ceil(areaDef(def.area).gold * Math.max(10, def.unlock * 0.075) * def.gold);
+export const empowerBaseCost = (def: EnemyDef, areaGold = areaDef(def.area).gold): number => Math.ceil(areaGold * Math.max(10, def.unlock * 0.075) * def.gold);
 
 /** What evolution nodes change (per rank). */
 export type EvoStat =
@@ -3225,7 +3234,7 @@ export const GEAR_STATS: Record<GearStat, (v: number) => string> = {
   magicDamage: (v) => `+${Math.round(v * 100)}% damage with magic weapons`,
 };
 
-export type GearId =
+export type BaseGearId =
   | 'slimeSword'
   | 'forestBow'
   | 'furCoat'
@@ -3316,6 +3325,9 @@ export type GearId =
   | 'hawkeyeLens'
   | 'soulRing'
   | CatalogGearId;
+/** An Unbound area's copy of a piece (same name and look, an Unbound area's strength, kept through every Regression). */
+export type UnboundGearId = `u_${BaseGearId}`;
+export type GearId = BaseGearId | UnboundGearId;
 
 /** Item rarity, lowest to highest. Shown as the item's colour everywhere gear appears. */
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'veryRare' | 'legendary' | 'exotic' | 'relic' | 'artifact' | 'exalted';
@@ -3334,6 +3346,8 @@ export const RARITIES: Record<Rarity, { name: string; color: string }> = {
 
 export interface GearDef {
   id: GearId;
+  /** An Unbound copy: the piece it copies (made from that piece's materials' Unbound copies). */
+  unboundOf?: BaseGearId;
   name: string;
   icon: string;
   kind: GearKind;
@@ -3410,7 +3424,9 @@ export interface GearDef {
  * A weapon's base damage per hit at 1★ by its area tier (1 = Wandering Woods … 12 = Void Rift), before its
  * class makes it heavier or lighter: each new area's weapons reach well past the last area's.
  */
-export const TIER_HIT = [2, 4, 8, 15, 27, 45, 72, 110, 160, 230, 320, 440];
+export const TIER_HIT = [2, 4, 8, 15, 27, 45, 72, 110, 160, 230, 320, 440,
+  // The Unbound areas (13 = Unbound Woods … 24 = Unbound Void Rift), each ×1.375 the last, as the Void Rift is the Meteor Field's.
+  ...Array.from({ length: 12 }, (_, i) => Math.round(440 * 1.375 ** (i + 1)))];
 /** A weapon's base damage at each star, as a multiple of 1★. */
 export const WEAPON_HIT_POWER = [0, 1, 1.3, 1.65, 2.1, 2.6, 3.2];
 /** Base damage per hit with no weapon equipped. */
@@ -4735,7 +4751,7 @@ assignVariants();
 /** A piece's modifier slots. */
 export const modSlotCount = (def: GearDef): number => def.slots ?? MOD_SLOTS[def.rarity];
 
-export const gearDef = (id: GearId): GearDef => byId(GEAR, id);
+export const gearDef = (id: GearId): GearDef => (isUnboundId(id) ? unboundGearDef(id as UnboundGearId) : byId(GEAR, id));
 
 /** The Special damage type's look (weapons with `special`: they change elements, or deal too many to list). */
 export const SPECIAL_TYPE = { name: 'Special', icon: '✴️', color: '#ffd84a' };
@@ -5398,3 +5414,110 @@ editableData('Combat', 'acc', textRec(ACC_TYPES, () => 'Accessory types'), { nam
 editableData('Combat', 'summon', textRec(SUMMON_TYPES, () => 'Summon types'), { name: 'Name' });
 editableData('Combat', 'rarity', textRec(RARITIES, () => 'Rarities'), { name: 'Name' });
 editableData('Shop', 'premium', textRec(PREMIUM_UPGRADES, (d) => `Upgrade kind · ${d.name}`), { name: 'Kind', 'names.0': 'Item 1', 'names.1': 'Item 2', 'names.2': 'Item 3', 'names.3': 'Item 4', 'names.4': 'Item 5' });
+
+
+// ---- Unbound areas: the original twelve, reborn far stronger (see the Regression Tree's Unbound ring) ----
+
+/** How many tiers deeper an Unbound area is than its original: the Unbound Woods is area 13. */
+export const UNBOUND_TIERS = 12;
+/** Is this an Unbound copy's id (`u_…`)? (Functions, not arrows: the gear catalog calls them while the module loads.) */
+export function isUnboundId(id: string): boolean {
+  return id.startsWith('u_');
+}
+/** The id an Unbound copy copies (the id itself for an original). */
+export function unboundBase(id: string): string {
+  return isUnboundId(id) ? id.slice(2) : id;
+}
+/** An original's Unbound copy's id. */
+export function unboundId<T extends string>(id: T): `u_${T}` {
+  return `u_${id}` as `u_${T}`;
+}
+
+/** Gear stats (armor, accessories, banes) grow by this with tier, as the catalog's do (1 + 30% an area past the Graveyard). */
+const tierStatScale = (t: number): number => 1 + 0.3 * (t - 3);
+/** A weapon's base hit at a (fractional) tier, as weaponHit works it out. */
+const tierHitAt = (t: number): number => {
+  const c = Math.max(1, Math.min(TIER_HIT.length, t));
+  const lo = Math.floor(c);
+  return lo >= TIER_HIT.length ? TIER_HIT[TIER_HIT.length - 1] : TIER_HIT[lo - 1] * (TIER_HIT[lo] / TIER_HIT[lo - 1]) ** (c - lo);
+};
+
+const UNBOUND_MATERIAL_MAP = new Map<string, MaterialDef>();
+/** An original material's Unbound copy: same name, colour and look; its own count. */
+function unboundMaterialDef(id: UnboundMaterialId): MaterialDef {
+  let d = UNBOUND_MATERIAL_MAP.get(id);
+  if (!d) {
+    const base = byId(MATERIALS, unboundBase(id));
+    d = { ...base, id, unboundOf: base.id as BaseMaterialId };
+    UNBOUND_MATERIAL_MAP.set(id, d);
+  }
+  return d;
+}
+/** Every material's Unbound copy. */
+export const UNBOUND_MATERIALS: MaterialDef[] = MATERIALS.map((m) => unboundMaterialDef(unboundId(m.id as BaseMaterialId)));
+
+const UNBOUND_GEAR_MAP = new Map<string, GearDef>();
+/**
+ * An original piece's Unbound copy: the same piece (name, look, rarity, built-in effects and modifier slots), made
+ * from the Unbound copies of its materials, so it sits UNBOUND_TIERS deeper: its weapon hit is that tier's, and its
+ * stats, abilities and bane grow as the catalog's do with tier.
+ */
+function unboundGearDef(id: UnboundGearId): GearDef {
+  let d = UNBOUND_GEAR_MAP.get(id);
+  if (d) return d;
+  const base = byId(GEAR, unboundBase(id));
+  const t0 = gearTier(base);
+  const t1 = t0 + UNBOUND_TIERS;
+  const k = tierStatScale(t1) / Math.max(0.1, tierStatScale(t0));
+  const hk = tierHitAt(t1) / tierHitAt(t0);
+  const stats: GearDef['stats'] = {};
+  for (const [s, v] of Object.entries(base.stats) as [GearStat, number][]) stats[s] = s === 'pierce' ? v : s === 'guard' ? Math.round(v * k) : s === 'range' ? Math.round(v * k) : Math.round(v * k * 1000) / 1000;
+  const recipe: GearDef['recipe'] = {};
+  for (const [m, n] of Object.entries(base.recipe) as [MaterialId, number][]) recipe[isUnboundId(m) ? m : unboundId(m as BaseMaterialId)] = n;
+  d = {
+    ...base,
+    id,
+    unboundOf: base.id as BaseGearId,
+    recipe,
+    ...(base.tier ? { tier: base.tier + UNBOUND_TIERS } : {}),
+    ...(base.hit ? { hit: Math.round(base.hit * hk * 10) / 10 } : {}),
+    // Weapons' own stats are what kind of weapon they are; everything else grows with the tier.
+    stats: base.weaponClass ? { ...base.stats } : stats,
+    ...(base.effect && 'base' in base.effect ? { effect: { ...base.effect, base: base.effect.base * hk } as GearEffect } : {}),
+    ...(base.bane ? { bane: { ...base.bane, bonus: Math.round(base.bane.bonus * k * 1000) / 1000 } } : {}),
+    starter: false,
+  };
+  UNBOUND_GEAR_MAP.set(id, d);
+  return d;
+}
+/** Every craftable piece's Unbound copy. */
+export const UNBOUND_GEAR: GearDef[] = GEAR.filter((g) => !g.starter).map((g) => unboundGearDef(unboundId(g.id as BaseGearId)));
+
+/**
+ * An Unbound area's strength: the Void Rift's, carried on past it (the Unbound Woods is area 13, the Unbound Grove
+ * area 14 …), with a difficulty bump on top. It keeps its name, look and monsters; its Guardian unlocks as quickly
+ * as the original's (the same mastery).
+ */
+export const UNBOUND_HP_STEP = 2.2;
+export const UNBOUND_GOLD_STEP = 30;
+export const UNBOUND_GUARDIAN_STEP = 2.5;
+/** How much harder an Unbound area is than the trend it carries on (its monsters' health and its Guardian's). */
+export const UNBOUND_BUMP = 3;
+const UNBOUND_AREA_MAP = new Map<AreaId, AreaDef>();
+export function unboundAreaDef(area: AreaId): AreaDef {
+  let d = UNBOUND_AREA_MAP.get(area);
+  if (d) return d;
+  const base = areaDef(area);
+  const rift = AREAS[AREAS.length - 1];
+  const n = AREAS.findIndex((a) => a.id === area) + 1; // steps past the Void Rift: the Woods 1, the Grove 2 …
+  d = {
+    ...base,
+    name: `Unbound ${base.name}`,
+    hp: rift.hp * UNBOUND_HP_STEP ** n * UNBOUND_BUMP,
+    gold: rift.gold * UNBOUND_GOLD_STEP ** n,
+    speed: Math.min(70, rift.speed + 2 * n),
+    guardian: rift.guardian * UNBOUND_GUARDIAN_STEP ** n * UNBOUND_BUMP,
+  };
+  UNBOUND_AREA_MAP.set(area, d);
+  return d;
+}
