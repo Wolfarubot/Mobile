@@ -7,6 +7,8 @@ import {
   withArchetype,
   modSlotCount,
   weaponOnlyEnchant,
+  PHANTOM_ARTS,
+  type WeaponClass,
   type MeleeArt,
   staffSpell,
   type SpellId,
@@ -531,6 +533,13 @@ export class Game {
     const item = this.weaponItem(who, mode);
     if (!item) return [];
     return this.enchantsOf(item).flatMap(({ en, v, p }) => (en.melee ? [{ art: en.melee, chance: v, power: p }] : []));
+  }
+
+  /** Phantom arts built into a Hunter's accessories (Phantom Spear, Phantom Glaive, Spectral Dagger), with the weapon each strikes as. */
+  accessoryArts(who: Shooter): Array<{ art: MeleeArt; chance: number; power: number; cls: WeaponClass }> {
+    return this.wornNonWeapons(who)
+      .flatMap((it) => this.enchantsOf(it))
+      .flatMap(({ en, v, p }) => (en.melee && PHANTOM_ARTS[en.melee] ? [{ art: en.melee, chance: v, power: p, cls: PHANTOM_ARTS[en.melee]! }] : []));
   }
 
   /** Enchantments set off by a Hunter's attacks (Thunder Call, the pulses), from anything they wear. */

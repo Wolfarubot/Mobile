@@ -23,6 +23,7 @@ import {
   type RefineStat,
   ENCHANTS,
   accessoryBuiltIn,
+  PHANTOM_ARTS,
   isUniqueEnchant,
   SPELLS,
   GEAR_VARIANTS,
@@ -5101,6 +5102,14 @@ describe('Field', () => {
     g2.state.inventory.push(item);
     g2.equip('main', 2, item.uid);
     expect(g2.attackEnchants('main').some((a) => a.effect.kind === 'spell')).toBe(true);
+    // ...and the phantom arts, struck as their own weapon on the wearer's attacks.
+    const phantom = GEAR.find((d) => d.kind === 'accessory' && d.builtIn?.some((b) => ENCHANTS[b.id].melee && ENCHANTS[b.id].melee! in PHANTOM_ARTS))!;
+    expect(phantom).toBeTruthy();
+    const g3 = rich();
+    const it3 = { uid: g3.state.nextGearUid++, base: phantom.id, stars: 1, invested: { gold: 0, mats: {} } };
+    g3.state.inventory.push(it3);
+    g3.equip('main', 2, it3.uid);
+    expect(g3.accessoryArts('main').length).toBeGreaterThan(0);
   });
 
   it('a stronger chill slows a monster further', () => {

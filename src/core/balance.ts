@@ -4612,7 +4612,13 @@ const SHOT_BUILT_INS: Partial<Record<string, EnchantId>> = {
  * Fireburst (on the wearer's kills). Melee arts and shot effects change the weapon's own swing or shots, so they
  * stay on weapons. (Enchant keeps its own pools: this is only the built-in draw.)
  */
-export const accessoryBuiltIn = (d: GearDef, en: EnchantDef): boolean => d.kind === 'accessory' && (en.onAttack?.kind === 'spell' || !!en.onKill);
+export const accessoryBuiltIn = (d: GearDef, en: EnchantDef): boolean => d.kind === 'accessory' && (en.onAttack?.kind === 'spell' || !!en.onKill || (!!en.melee && en.melee in PHANTOM_ARTS));
+
+/**
+ * The phantom arts (Phantom Spear, Phantom Glaive, Spectral Dagger), which accessories can have built in too: on
+ * the wearer's attacks they strike as that weapon would, whatever the wearer holds, in its damage type.
+ */
+export const PHANTOM_ARTS: Partial<Record<MeleeArt, WeaponClass>> = { spear: 'spear', glaive: 'glaive', bigDagger: 'dagger' };
 
 /** Gives every piece its variant: its built-in effects and its modifier slots. */
 function assignVariants(): void {

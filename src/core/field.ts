@@ -1,6 +1,7 @@
 import { GATED, gateWalls } from './gates';
 import {
   MAIN_RANGE,
+  WEAPON_CLASSES,
   GUARDIAN_TAP_TAKEN,
   GUARDIAN_WEAK_MULT,
   areaDef,
@@ -1628,6 +1629,8 @@ export class Field {
       this.meleeWave(who, x, y);
       if (!encore) for (const art of this.arts(who, mode)) if (!PASSIVE_ARTS.has(art.art) && g.rng() < art.chance) this.meleeArt(who, x, y, aim, art.art, art.power, cls!, mode);
     }
+    // Phantom arts on accessories strike as their own weapon would, from the Hunter, whatever they hold.
+    if (!encore) for (const a of g.accessoryArts(who)) if (g.rng() < a.chance) this.meleeArt(who, x, y, aim, a.art, a.power, WEAPON_CLASSES[a.cls], mode);
     // Enchantments set off by attacks (Thunder Call, the pulses), each at its rolled chance.
     for (const { effect, chance } of g.attackEnchants(who)) if (g.rng() < chance) this.fireGear(who, x, y, effect, 1, 0);
   }
