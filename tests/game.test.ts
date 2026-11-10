@@ -23,6 +23,8 @@ import {
   type RefineStat,
   ENCHANTS,
   accessoryBuiltIn,
+  potionValue,
+  type GearEffect,
   PHANTOM_ARTS,
   isUniqueEnchant,
   SPELLS,
@@ -5140,6 +5142,24 @@ describe('Field', () => {
     // Roughly its chance of the attacks: not none, not all.
     expect(phantoms).toBeGreaterThan(attacks * chance * 0.4);
     expect(phantoms).toBeLessThan(attacks * chance * 2);
+  });
+
+  it('the farm model counts each worn potion at its average over its cooldown', () => {
+    const g = rich();
+    const tonic = GEAR.find((d) => d.effect?.kind === 'potion' && d.effect.stat === 'damage')!;
+    const ef = tonic.effect as Extract<GearEffect, { kind: 'potion' }>;
+    const item = { uid: g.state.nextGearUid++, base: tonic.id, stars: 3, invested: { gold: 0, mats: {} } };
+    g.state.inventory.push(item);
+    g.equip('main', 2, item.uid);
+    const live = g.gear('main').damage;
+    const priv = g as unknown as { farmAverages: boolean };
+    priv.farmAverages = true;
+    expect(g.gear('main').damage).toBeCloseTo(live + potionValue(ef, 3) * (ef.duration / ef.cooldown));
+    priv.farmAverages = false;
+    // And farming with it pays at least as well as without it.
+    const withIt = g.farmRates('forest', ['main']).gold;
+    g.equip('main', 2, null);
+    expect(withIt).toBeGreaterThanOrEqual(g.farmRates('forest', ['main']).gold);
   });
 
   it('a stronger chill slows a monster further', () => {

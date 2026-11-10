@@ -1114,8 +1114,14 @@ export class Game {
       // Refined stats add to the piece's own (knockback and magazine size change its weapon class instead).
       for (const m of item.mods ?? []) if (m?.kind === 'refine' && m.stat in total) total[m.stat as GearStat] += modValue(m, gearDef(item.base));
     });
-    // Potions being felt right now.
-    for (const p of this.potions.get(who) ?? []) total[p.stat] += p.value;
+    // Potions: in the farm model (stations, offline), each worn potion at its average over its cooldown; otherwise
+    // those being felt right now.
+    if (this.farmAverages) {
+      for (const item of this.equipped(who)) {
+        const ef = item && gearDef(item.base).effect;
+        if (ef?.kind === 'potion') total[ef.stat] += potionValue(ef, this.effStars(item!, who)) * Math.min(1, ef.duration / ef.cooldown);
+      }
+    } else for (const p of this.potions.get(who) ?? []) total[p.stat] += p.value;
     // Quivers, Ammo Pouches, Gauntlets and Talismans: their group's damage counts only with a weapon of that group.
     const weapon = this.weaponItem(who, mode);
     const cls = weapon && gearDef(weapon.base).weaponClass;
@@ -1140,6 +1146,8 @@ export class Game {
   // ---- Potions (accessories): drunk on their cooldown in a fight, a boost for a while ----
 
   private potions = new Map<Shooter, Array<{ uid: number; stat: GearStat; value: number; left: number }>>();
+  /** While the farm model runs: gear() counts potions at their average over their cooldown. */
+  private farmAverages = false;
 
   /** A Hunter drinks a potion: its boost (at the piece's stars) lasts its duration, longer with Extended Effects. */
   drinkPotion(who: Shooter, uid: number, e: Extract<GearEffect, { kind: 'potion' }>, stars: number): void {
@@ -2577,6 +2585,17 @@ export class Game {
   }
 
   private farmRatesAt(area: AreaId, shooters: Shooter[], efficiency: number): FarmRates {
+    // Potions count at their average uptime here (gear()), not as whatever happens to be drunk right now.
+    const was = this.farmAverages;
+    this.farmAverages = true;
+    try {
+      return this.farmRatesWith(area, shooters, efficiency);
+    } finally {
+      this.farmAverages = was;
+    }
+  }
+
+  private farmRatesWith(area: AreaId, shooters: Shooter[], efficiency: number): FarmRates {
     const roster = this.roster(area);
     const out: FarmRates = { kills: {}, killsTotal: 0, gold: 0, materials: {}, stuns: {}, stunned: {}, share: {} };
     if (!shooters.length || !roster.length) return out;
