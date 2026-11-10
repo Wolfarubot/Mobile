@@ -7334,6 +7334,11 @@ function statTable(gd: GearDef, cols: Array<{ label: string; stars: number }>): 
   const rows = keys.map((k) => `<div class="st-row"><span>${BONUS_FILTERS.find((b) => b.id === k)!.name}</span>${totals.map((t) => `<b>${statValue(k, t[k] ?? 0)}</b>`).join('')}</div>`);
   // A weapon's own hit damage grows with its stars too.
   if (gd.weaponClass) rows.unshift(`<div class="st-row"><span>Hit damage</span>${cols.map((c) => `<b>${fmt(weaponHit(gd, c.stars))}</b>`).join('')}</div>`);
+  // A bane's bonus damage grows with the stars like any stat (the tag says who it's against).
+  if (gd.bane) {
+    const bane = gd.bane;
+    rows.push(`<div class="st-row"><span>${ARCHETYPES[bane.archetype].name} Bane</span>${cols.map((c) => `<b>+${Math.round(bane.bonus * GEAR_STAR_POWER[c.stars] * 100)}%</b>`).join('')}</div>`);
+  }
   if (gd.effect && 'base' in gd.effect)
     rows.push(`<div class="st-row"><span>${gd.effect.kind === 'summon' ? 'Summon' : 'Ability'} damage</span>${cols.map((c) => `<b>${fmt(effectBase(gd.effect!, c.stars))}</b>`).join('')}</div>`);
   if (!rows.length) return '';
