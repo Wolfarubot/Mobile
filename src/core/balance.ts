@@ -1514,7 +1514,7 @@ export interface RegNode {
   /** Gold you start each run with. */
   startGold?: number;
   /** A switch rather than a number. */
-  flag?: 'autoEmpower' | 'keepHunters';
+  flag?: 'autoEmpower' | 'keepHunters' | 'autoUnlock';
   /** Shown but not for sale yet. */
   soon?: boolean;
 }
@@ -1549,8 +1549,18 @@ const unboundCost = (k: number): number => {
   return Math.round(v / p) * p;
 };
 /** The nodes between Unbound areas, in order round the ring: what each one does. */
-const UNBOUND_PERKS: Array<Pick<RegNode, 'name' | 'icon' | 'desc' | 'mult' | 'flag'>> = [
+/**
+ * Each Unbound cluster's own node, the first past its area (beside it, on the inner ring): a switch that changes the
+ * game a little and makes it easier, rather than a multiplier. Clusters without one yet take a perk in its place.
+ */
+export const AUTO_UNLOCK_SHARE = 0.2;
+const UNBOUND_UNIQUES: Array<Pick<RegNode, 'name' | 'icon' | 'desc' | 'flag'> | undefined> = [
+  // Past the Unbound Wandering Woods.
   { name: 'Kindred Spirits', icon: 'rpg-items/300', desc: 'Recruited Guild Hunters stay recruited through every Regression.', flag: 'keepHunters' },
+  // Past the Unbound Fey Grove: with Auto Empower & Evolve, monsters grow on their own.
+  { name: 'Wild Awakening', icon: 'resources1/074', desc: `Monsters unlock themselves (cheapest first) whenever unlocking one costs at most ${AUTO_UNLOCK_SHARE * 100}% of your gold. With Auto Empower & Evolve, every monster grows on its own.`, flag: 'autoUnlock' },
+];
+const UNBOUND_PERKS: Array<Pick<RegNode, 'name' | 'icon' | 'desc' | 'mult' | 'flag'>> = [
   { name: 'Unbound Bounty', icon: 'things/008', desc: 'Gold from monsters ×10.', mult: { gold: 10 } },
   { name: 'Timeless Dreams', icon: 'wands-books/087', desc: 'Offline gains ×5.', mult: { offline: 5 } },
   { name: 'Deep Recall', icon: 'things/012', desc: 'Material drop chance ×5.', mult: { drops: 5 } },
@@ -1607,6 +1617,12 @@ function unboundRing(): RegNode[] {
       return;
     }
     for (let j = 1; j <= UNBOUND_BETWEEN; j++) {
+      // The cluster's own node first, if it has one.
+      const unique = j === 1 ? UNBOUND_UNIQUES[i] : undefined;
+      if (unique) {
+        out.push({ ...unique, id: `ring-${i}-${j}`, ring: UNBOUND_RINGS[j - 1], angle: angle + UNBOUND_STEPS[j - 1], cost: unboundCost(i * (UNBOUND_BETWEEN + 1) + j) });
+        continue;
+      }
       // Perks come round again as the ring goes on (II, III...), all but the switches, which come once.
       let p = UNBOUND_PERKS[perk++ % UNBOUND_PERKS.length];
       while (p.flag && seen.has(p.name)) p = UNBOUND_PERKS[perk++ % UNBOUND_PERKS.length];

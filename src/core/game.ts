@@ -8,6 +8,9 @@ import {
   modSlotCount,
   weaponOnlyEnchant,
   PHANTOM_ARTS,
+  AUTO_UNLOCK_SHARE,
+  REGRESSION_TREE,
+  type RegNode,
   type WeaponClass,
   type MeleeArt,
   staffSpell,
@@ -1877,6 +1880,23 @@ export class Game {
     if ((AUTO_EMPOWER_SHARES as readonly number[]).includes(share)) this.state.regression.autoShare = share;
   }
 
+  /** Owns a Regression node with this switch (an Unbound cluster's own node, wherever it sits on the ring). */
+  hasRegFlag(flag: NonNullable<RegNode['flag']>): boolean {
+    return REGRESSION_TREE.some((n) => n.flag === flag && this.ownsReg(n.id));
+  }
+
+  /**
+   * Wild Awakening: unlocks monsters in the areas you've reached, cheapest first, while one costs at most
+   * AUTO_UNLOCK_SHARE of your gold (Auto Empower & Evolve then grows them).
+   */
+  private autoUnlock(): void {
+    if (!this.hasRegFlag('autoUnlock')) return;
+    const locked = ENEMIES.filter((e) => !e.guardianOnly && !this.state.bestiary[e.id].unlocked && this.isAreaUnlocked(e.area)).sort((a, b) => enemyUnlockCost(a) - enemyUnlockCost(b));
+    for (const e of locked) {
+      if (enemyUnlockCost(e) > AUTO_UNLOCK_SHARE * this.state.gold || !this.unlockEnemy(e.id)) break;
+    }
+  }
+
   /**
    * Auto Empower & Evolve: buys Empower sessions (cheapest first) while one costs at most the chosen share of your
    * gold, then spends evolution points on the first nodes that can be bought.
@@ -2369,6 +2389,7 @@ export class Game {
     this.autoAge += dt;
     if (this.autoAge >= 2) {
       this.autoAge = 0;
+      this.autoUnlock();
       this.autoEmpower();
     }
     this.tickPotions(dt);

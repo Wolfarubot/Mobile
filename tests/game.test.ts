@@ -115,6 +115,7 @@ import {
   MINIGAME_INCOME_NEW,
   eventDef,
   ENEMIES,
+  REGRESSION_TREE,
   RARE_MATERIALS,
   IDOL_DROP_STEPS,
   IDOL_ORE_STEPS,
@@ -5142,6 +5143,28 @@ describe('Field', () => {
     // Roughly its chance of the attacks: not none, not all.
     expect(phantoms).toBeGreaterThan(attacks * chance * 0.4);
     expect(phantoms).toBeLessThan(attacks * chance * 2);
+  });
+
+  it('Wild Awakening, the Unbound Grove cluster\'s own node, unlocks monsters costing at most 20% of your gold', () => {
+    const node = REGRESSION_TREE.find((n) => n.flag === 'autoUnlock')!;
+    expect(node).toMatchObject({ id: 'ring-1-1', name: 'Wild Awakening' });
+    expect(REGRESSION_TREE.find((n) => n.flag === 'keepHunters')!.id).toBe('ring-0-1');
+    const g = new Game(newGame(0), noCrit);
+    const woods = ENEMIES.filter((e) => e.area === 'forest' && !g.state.bestiary[e.id].unlocked && !e.guardianOnly).sort((a, b) => enemyUnlockCost(a) - enemyUnlockCost(b));
+    const cheap = woods[0];
+    g.state.gold = enemyUnlockCost(cheap) * 5; // exactly 20%
+    g.tick(2.1);
+    expect(g.state.bestiary[cheap.id].unlocked).toBe(false); // not without the node
+    g.state.regression.tree[node.id] = 1;
+    g.tick(2.1);
+    expect(g.state.bestiary[cheap.id].unlocked).toBe(true);
+    // One that costs more than 20% of what's left waits.
+    const dear = woods[woods.length - 1];
+    if (dear !== cheap) {
+      g.state.gold = enemyUnlockCost(dear) * 4;
+      g.tick(2.1);
+      expect(g.state.bestiary[dear.id].unlocked).toBe(false);
+    }
   });
 
   it('the farm model counts each worn potion at its average over its cooldown', () => {
