@@ -2,7 +2,6 @@ import { GATED, gateWalls } from './gates';
 import {
   MAIN_RANGE,
   WEAPON_CLASSES,
-  phantomEvery,
   GUARDIAN_TAP_TAKEN,
   GUARDIAN_WEAK_MULT,
   areaDef,
@@ -654,8 +653,6 @@ export class Field {
   private songCount = new Map<Shooter, number>();
   /** Attacks toward Lance's next holy spear. */
   private spearCount = new Map<Shooter, number>();
-  /** Attacks since each accessory phantom art last went off, by `${Hunter}:${art}`. */
-  private phantomCount = new Map<string, number>();
   /** Seconds of stun left on your Hunter (can't shoot while > 0). */
   stun = 0;
   /** Seconds left of Gideon's Bone Wall, and how far out it stands around each Hunter. */
@@ -1637,16 +1634,8 @@ export class Field {
       this.meleeWave(who, x, y);
       if (!encore) for (const art of this.arts(who, mode)) if (!PASSIVE_ARTS.has(art.art) && g.rng() < art.chance) this.meleeArt(who, x, y, aim, art.art, art.power, cls!, mode);
     }
-    // Phantom arts on accessories strike as their own weapon would, from the Hunter, whatever they hold: every few
-    // attacks (like Ba'al's sound wave or Lance's holy spear), counted per Hunter and art.
-    if (!encore)
-      for (const a of g.accessoryArts(who)) {
-        const key = `${who}:${a.art}`;
-        const every = phantomEvery(a.chance);
-        const n = (this.phantomCount.get(key) ?? 0) + 1;
-        this.phantomCount.set(key, n % every);
-        if (n >= every) this.meleeArt(who, x, y, aim, a.art, a.power, WEAPON_CLASSES[a.cls], mode);
-      }
+    // Phantom arts on accessories strike as their own weapon would, from the Hunter, whatever they hold, at their rolled chance.
+    if (!encore) for (const a of g.accessoryArts(who)) if (g.rng() < a.chance) this.meleeArt(who, x, y, aim, a.art, a.power, WEAPON_CLASSES[a.cls], mode);
     // Enchantments set off by attacks (Thunder Call, the pulses), each at its rolled chance.
     for (const { effect, chance } of g.attackEnchants(who)) if (g.rng() < chance) this.fireGear(who, x, y, effect, 1, 0);
   }

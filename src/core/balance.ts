@@ -3742,8 +3742,6 @@ export interface EnchantDef {
   int?: boolean;
   /** A melee art (MELEE_ARTS): each attack has its chance to set it off, at its power × a hit. */
   melee?: MeleeArt;
-  /** A phantom art's effect without its chance, for an accessory that sets it off every few attacks (accessoryPhantomText). */
-  phantomText?: (power: number) => string;
   /** Fireburst: each kill by the weapon has its chance to burst within `radius`. */
   onKill?: { radius: number; damageType: DamageType };
   /** Thunder Call and the pulses: each of the wearer's attacks has its chance to set this off. */
@@ -3878,12 +3876,12 @@ export const ENCHANTS: Record<EnchantId, EnchantDef> = {
   ...(Object.fromEntries((Object.keys(SPELLS) as SpellId[]).map((id) => [spellEnchantId(id), spellEnchant(id)])) as Record<SpellEnchantId, EnchantDef>),
   ...(Object.fromEntries((Object.keys(ARCHETYPES) as Archetype[]).map((a) => [baneEnchantId(a), baneEnchant(a)])) as Record<BaneEnchantId, EnchantDef>),
   artWave: { name: 'Elemental Wave', icon: '🌊', range: [0.1, 0.2], power: [0.8, 1.2], weight: 1, melee: 'wave', fits: melee('sword'), text: (c, p) => `${pct(c)} chance on attack to send out a wave of the sword's element, through every monster in its path (${hits(p)})` },
-  artPhantomSword: { name: 'Phantom Sword', icon: '⚔️', range: [0.1, 0.2], power: [1.1, 1.6], weight: 1, melee: 'phantomSword', fits: melee('sword'), text: (c, p) => `${pct(c)} chance on attack for a giant phantom sword of its element to cleave a wide arc far out (${hits(p)})`, phantomText: (p) => `a giant phantom sword cleaves a wide arc far out (${hits(p)})` },
-  artPhantomHammer: { name: 'Phantom Hammer', icon: '🔨', range: [0.1, 0.2], power: [1.2, 1.8], weight: 1, melee: 'phantomHammer', fits: melee('hammer'), text: (c, p) => `${pct(c)} chance on attack for a giant phantom hammer of its element to slam down out in front, knocking monsters far back (${hits(p)})`, phantomText: (p) => `a giant phantom hammer slams down out in front, knocking monsters far back (${hits(p)})` },
-  artSpear: { name: 'Phantom Spear', icon: '🔱', range: [0.1, 0.2], power: [1.2, 1.8], weight: 1, melee: 'spear', fits: melee('spear'), text: (c, p) => `${pct(c)} chance on attack for a giant spear of its element to stab out twice as far and wide (${hits(p)})`, phantomText: (p) => `a giant phantom spear stabs out twice as far and wide (${hits(p)})` },
-  artGlaive: { name: 'Phantom Glaive', icon: '🪓', range: [0.1, 0.2], power: [1, 1.5], weight: 1, melee: 'glaive', fits: melee('glaive'), text: (c, p) => `${pct(c)} chance on attack for a giant glaive of its element to cleave much further out (${hits(p)})`, phantomText: (p) => `a giant phantom glaive cleaves much further out (${hits(p)})` },
+  artPhantomSword: { name: 'Phantom Sword', icon: '⚔️', range: [0.1, 0.2], power: [1.1, 1.6], weight: 1, melee: 'phantomSword', fits: melee('sword'), text: (c, p) => `${pct(c)} chance on attack for a giant phantom sword of its element to cleave a wide arc far out (${hits(p)})` },
+  artPhantomHammer: { name: 'Phantom Hammer', icon: '🔨', range: [0.1, 0.2], power: [1.2, 1.8], weight: 1, melee: 'phantomHammer', fits: melee('hammer'), text: (c, p) => `${pct(c)} chance on attack for a giant phantom hammer of its element to slam down out in front, knocking monsters far back (${hits(p)})` },
+  artSpear: { name: 'Phantom Spear', icon: '🔱', range: [0.1, 0.2], power: [1.2, 1.8], weight: 1, melee: 'spear', fits: melee('spear'), text: (c, p) => `${pct(c)} chance on attack for a giant spear of its element to stab out twice as far and wide (${hits(p)})` },
+  artGlaive: { name: 'Phantom Glaive', icon: '🪓', range: [0.1, 0.2], power: [1, 1.5], weight: 1, melee: 'glaive', fits: melee('glaive'), text: (c, p) => `${pct(c)} chance on attack for a giant glaive of its element to cleave much further out (${hits(p)})` },
   artAftershock: { name: 'Aftershock', icon: '💥', range: [0.15, 0.3], power: [0.6, 1], weight: 1, melee: 'aftershock', fits: melee('hammer'), text: (c, p) => `${pct(c)} chance a slam is followed at once by a second slam of the hammer's element (${hits(p)})` },
-  artBigDagger: { name: 'Spectral Dagger', icon: '🗡️', range: [0.1, 0.2], power: [1.5, 2.5], weight: 1, melee: 'bigDagger', fits: melee('dagger'), text: (c, p) => `${pct(c)} chance on attack to throw a big dagger of its element that pierces everything in its path (${hits(p)})`, phantomText: (p) => `a big spectral dagger flies out, piercing everything in its path (${hits(p)})` },
+  artBigDagger: { name: 'Spectral Dagger', icon: '🗡️', range: [0.1, 0.2], power: [1.5, 2.5], weight: 1, melee: 'bigDagger', fits: melee('dagger'), text: (c, p) => `${pct(c)} chance on attack to throw a big dagger of its element that pierces everything in its path (${hits(p)})` },
   artBlastDaggers: { name: 'Blast Daggers', icon: '💣', range: [0.25, 0.5], power: [0.5, 0.9], weight: 1, melee: 'blastDaggers', fits: melee('dagger'), text: (c, p) => `${pct(c)} chance each thrown dagger explodes where it hits, in its element (${hits(p)} to everything around)` },
   artWhirlwind: { name: 'Whirlwind', icon: '🌪️', range: [0.08, 0.15], power: [1, 1.4], weight: 1, melee: 'whirlwind', fits: (d) => d.weaponClass === 'sword' || d.weaponClass === 'glaive', text: (c, p) => `${pct(c)} chance on attack to spin, hitting everything all the way around and drawing monsters in (${hits(p)})` },
   artRiposte: { name: 'Riposte', icon: '🤺', range: [0.2, 0.4], power: [1, 1.5], weight: 1, melee: 'riposte', fits: (d) => d.kind === 'melee', text: (c, p) => `${pct(c)} chance to strike a monster that reaches the wearer with a critical hit first (${hits(p)}); if it dies, no stun` },
@@ -4634,15 +4632,6 @@ export const accessoryBuiltIn = (d: GearDef, en: EnchantDef): boolean => d.kind 
  */
 export const PHANTOM_ARTS: Partial<Record<MeleeArt, WeaponClass>> = { spear: 'spear', glaive: 'glaive', bigDagger: 'dagger', phantomSword: 'sword', phantomHammer: 'hammer' };
 
-/**
- * On an accessory, a phantom art goes off every few attacks (like Ba'al's sound wave or Lance's holy spear) rather
- * than by chance, whatever the Hunter holds: its rolled chance becomes the count (a 10% roll, every 10th attack).
- */
-export const phantomEvery = (chance: number): number => Math.max(2, Math.round(1 / Math.max(0.01, chance)));
-
-/** A phantom art's text on an accessory: every few attacks, rather than a chance. */
-export const accessoryPhantomText = (en: EnchantDef, chance: number, power: number): string | null =>
-  en.melee && PHANTOM_ARTS[en.melee] && en.phantomText ? `every ${phantomEvery(chance)} attacks, ${en.phantomText(power)}` : null;
 
 /** Gives every piece its variant: its built-in effects and its modifier slots. */
 function assignVariants(): void {

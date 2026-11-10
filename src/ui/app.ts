@@ -1,6 +1,5 @@
 import {
   modSlotCount,
-  accessoryPhantomText,
   SPELLS,
   staffSpell,
   ASCEND_LEVEL,
@@ -6489,12 +6488,9 @@ function weaponSpeed(gd: GearDef, stars: number): number {
   return BASE_FIRE_RATE * cls.rate * (1 + (gearTotals(gd, stars).rate ?? 0));
 }
 
-/** A built-in effect's text: an accessory's phantom art goes off every few attacks, the rest by their own text. */
+/** A built-in effect's text, at the piece's fixed rolls. */
 function builtInText(m: GearMod & { kind: 'enchant' }, gd: GearDef): string {
-  const en = ENCHANTS[m.id];
-  const v = modValue(m, gd);
-  const p = modPower(m, gd);
-  return (gd.kind === 'accessory' ? accessoryPhantomText(en, v, p) : null) ?? en.text(v, p, enchantTierHit(gd));
+  return ENCHANTS[m.id].text(modValue(m, gd), modPower(m, gd), enchantTierHit(gd));
 }
 
 function gearCardHtml(it: GearItem, vs: GearItem | null = null): string {
