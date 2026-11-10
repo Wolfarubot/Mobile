@@ -1650,7 +1650,7 @@ export const REGRESSION_TREE: RegNode[] = [
   { id: 'secondWind', name: 'Second Wind', icon: 'custom/012', desc: 'Energy refills twice as fast.', ring: 2, angle: 60, cost: 300, mult: { energy: 2 } },
   { id: 'autoEmpower', name: 'Auto Empower & Evolve', icon: 'rpg-items/264', desc: "Empowers monsters and buys their evolutions by itself, cheapest first, whenever one costs at most your chosen share of your gold (5%, 10%, 20%, or 50%). Tap the node to change it. Unbound monsters are left to you.", ring: 2, angle: 120, cost: 150, flag: 'autoEmpower' },
   { id: 'bestialMemory', name: 'Bestial Memory', icon: 'resources1/042', desc: 'Empowering monsters costs ÷30.', ring: 2, angle: 180, cost: 300, mult: { empowerCost: 1 / 30 } },
-  { id: 'echoingMemories', name: 'Echoing Memories', icon: SHARD_ICON, desc: 'Memory Shards from every Regression ×2.5.', ring: 2, angle: 240, cost: 500, mult: { shards: 2.5 } },
+  { id: 'echoingMemories', name: 'Echoing Memories', icon: SHARD_ICON, desc: 'Memory Shards from every Regression ×5.', ring: 2, angle: 240, cost: 500, mult: { shards: 5 } },
   // The outer ring: the strongest of each spoke, joined all the way round.
   spoke(0, 3, 'goldenAge', 'Golden Age', 'things/009', 'Gold from monsters ×10,000, and Memory Shards ×2.', 2500, { gold: 10000, shards: 2 }),
   spoke(1, 3, 'masterTrainer', 'Master Trainer', 'rpg-items/003', 'Training costs ÷30.', 2500, { trainCost: 1 / 30 }),

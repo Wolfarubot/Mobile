@@ -289,8 +289,9 @@ it.runIf(!!process.env.PRESETS_OUT)('dev progress presets', () => {
 }, 0);
 
 /**
- * Spends Memory Shards on the Regression Tree the way a player would: whatever's for sale, cheapest first, the
- * strongest kinds first among equals (damage, gold, training, then the rest). Returns the names bought.
+ * Spends Memory Shards on the Regression Tree the way a player would: a node that multiplies the shards themselves
+ * (Echoing Memories, Golden Age) the moment it's affordable, then whatever's for sale, cheapest first, the strongest
+ * kinds first among equals (damage, gold, training, then the rest). Returns the names bought.
  */
 function botTree(game: Game): string[] {
   const rank = (id: string) => {
@@ -299,7 +300,8 @@ function botTree(game: Game): string[] {
   };
   const out: string[] = [];
   for (let guard = 0; guard < 200; guard++) {
-    const pick = REGRESSION_TREE.filter((n) => game.canBuyReg(n.id)).sort((a, b) => game.regCostOf(a.id) - game.regCostOf(b.id) || rank(a.id) - rank(b.id))[0];
+    const open = REGRESSION_TREE.filter((n) => game.canBuyReg(n.id));
+    const pick = open.find((n) => n.mult?.shards) ?? open.sort((a, b) => game.regCostOf(a.id) - game.regCostOf(b.id) || rank(a.id) - rank(b.id))[0];
     if (!pick || !game.buyReg(pick.id)) break;
     out.push(pick.name);
   }
