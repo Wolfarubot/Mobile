@@ -8352,3 +8352,53 @@ body .title-row .quick-type .cyc-cur {
   font-weight: 800;
   color: var(--good);
 }
+/* ---- Unbound: the iridescent frame the Unbound ring's nodes wear, on Unbound areas, monsters, materials and gear ---- */
+.ub {
+  position: relative;
+}
+.ub::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 3px;
+  background: linear-gradient(135deg, #ff7ad9, #7af0ff, #b4ff7a, #ffd27a, #ff7ad9) 0 0 / 300% 300%;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 2;
+  animation: ub-shimmer 6s linear infinite;
+}
+@keyframes ub-shimmer {
+  to {
+    background-position: 300% 300%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ub::before {
+    animation: none;
+  }
+}
+/* A small Unbound material icon: an iridescent glow round it. */
+.ub-ic {
+  filter: drop-shadow(0 0 1px #ff7ad9) drop-shadow(0 0 1px #7af0ff);
+}
+/* An Unbound tag (cards, details). */
+.ub-tag {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #1a1030 !important;
+  text-shadow: none !important;
+  -webkit-text-stroke: 0 !important;
+  background: linear-gradient(135deg, #ff7ad9, #7af0ff, #b4ff7a, #ffd27a);
+}
+/* An Unbound monster's line under its blurb: how much stronger and richer than its original. */
+.ub-line {
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 700;
+}

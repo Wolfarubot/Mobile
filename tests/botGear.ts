@@ -1,4 +1,4 @@
-import { AREAS, areaEnemies, GEAR, gearArea, gearDef, gearTypes, HUNTERS, slotAccepts, typeMult, type GearId } from '../src/core/balance';
+import { AREAS, areaEnemies, GEAR, UNBOUND_GEAR, gearArea, gearDef, gearTypes, HUNTERS, slotAccepts, typeMult, type GearId } from '../src/core/balance';
 import type { Game } from '../src/core/game';
 import type { GearMod, Wearer } from '../src/core/state';
 
@@ -46,7 +46,8 @@ export function botGear(game: Game): void {
   for (const who of wearers) {
     game.slotsOf(who).forEach((slot, i) => {
       const current = game.equipped(who)[i];
-      const options = GEAR.filter((gd) => slotAccepts(slot, gd) && gearArea(gd) >= tier - 1 && game.canCraftGear(gd.id));
+      // Unbound gear too (an Unbound area's pieces are twelve tiers deeper than anything else).
+      const options = [...GEAR, ...UNBOUND_GEAR].filter((gd) => slotAccepts(slot, gd) && gearArea(gd) >= tier - 1 && game.canCraftGear(gd.id));
       if (!options.length) return;
       // Weighed at the stars of what's worn, so a new piece is judged by what it'll be once upgraded.
       const stars = current?.stars ?? 1;

@@ -1,5 +1,8 @@
 import {
   modSlotCount,
+  isUnboundId,
+  unboundBase,
+  UNBOUND_GEAR,
   SPELLS,
   staffSpell,
   ASCEND_LEVEL,
@@ -339,7 +342,8 @@ const upgradeIcon = (it: ItemDef): string => {
 const LOOT_POPUP_GAP = 3000;
 
 const gearIcon = (gd: GearDef): string => {
-  const url = gearIconUrl(GEAR_SPRITES[gd.id]);
+  // An Unbound copy looks like its original (its frame says it's Unbound).
+  const url = gearIconUrl(GEAR_SPRITES[unboundBase(gd.id) as keyof typeof GEAR_SPRITES]);
   return url ? `<img class="gi" src="${url}" alt="">` : gd.icon;
 };
 
@@ -354,10 +358,23 @@ function setHtml(e: Element, html: string): void {
   e.innerHTML = html;
 }
 
+/**
+ * An Unbound monster's line: tagged Unbound, with how much more health and gold it has than its original (same
+ * name; the Unbound area's strength). Empty for a monster whose area isn't Unbound.
+ */
+function unboundLine(g: Game, def: EnemyDef): string {
+  if (!g.isUnbound(def.area)) return '';
+  const u = g.areaStats(def.area);
+  const o = areaDef(def.area);
+  const x = (v: number) => `×${fmt(v)}`;
+  return `<div class="ub-line"><span class="ub-tag">Unbound</span> ${x(u.hp / o.hp)} health · ${x(u.gold / o.gold)} gold · drops Unbound materials</div>`;
+}
+
 /** A material's icon (its pixel art, or its coloured gem if it has none); size '' inline or 'big'. */
 const gemHtml = (m: MaterialId, size = ''): string => {
-  const url = gearIconUrl(MATERIAL_SPRITES[m]);
-  return url ? `<img class="gem-ic ${size}" src="${url}" alt="">` : `<i class="gem ${size}" style="background:${materialDef(m).color}"></i>`;
+  const url = gearIconUrl(MATERIAL_SPRITES[unboundBase(m) as MaterialId]);
+  const ub = isUnboundId(m) ? ' ub-ic' : '';
+  return url ? `<img class="gem-ic ${size}${ub}" src="${url}" alt="">` : `<i class="gem ${size}${ub}" style="background:${materialDef(m).color}"></i>`;
 };
 
 /** DOM layer: top bar, area controls, tabbed panels and modals. Refreshes numbers on a timer. */
@@ -589,7 +606,7 @@ export class AppUI {
   refresh(): void {
     const g = this.game;
     const s = g.state;
-    const area = areaDef(g.area);
+    const area = g.areaStats(g.area); // its Unbound name once it's Unbound
     $('#gold').textContent = fmt(s.gold);
     $('#dps').textContent = fmtDps(g.dps);
     $('#dpsMeter').className = `dps-meter dps-${s.settings.dpsCorner}${s.settings.dps ? '' : ' hidden'}`;
@@ -909,7 +926,7 @@ export class AppUI {
         .map((slot, i) => {
           const it = items[i];
           return it
-            ? `<span class="gear-chip rar" style="--rc:${gearColor(it.base)}">${gearIcon(gearDef(it.base))} ${gearDef(it.base).name}</span>`
+            ? `<span class="gear-chip rar${gearDef(it.base).unboundOf ? ' ub' : ''}" style="--rc:${gearColor(it.base)}">${gearIcon(gearDef(it.base))} ${gearDef(it.base).name}</span>`
             : `<span class="gear-chip empty">${GEAR_KINDS[slot.kind].icon} ${slot.label}</span>`;
         })
         .join('');
@@ -1583,6 +1600,7 @@ export class AppUI {
         b.classList.toggle('empty', !it);
         b.classList.toggle('rar', !!it);
         b.style.setProperty('--rc', gd ? gearColor(gd.id) : '');
+        b.classList.toggle('ub', !!gd?.unboundOf);
         // Option A: the icon in a rarity-framed box; the slot, name, rarity and stars beside it, then its damage
         // types and stats as chips.
         const chips = gd && it ? gearSummary(gd, g.effStars(it, who)).split(', ').filter(Boolean).map((t) => `<span class="eq-chip">${t}</span>`) : [];
@@ -1728,7 +1746,7 @@ export class AppUI {
       const makeTile = (it: GearItem): HTMLElement => {
         const gd = gearDef(it.base);
         const worn = wornBy.get(it.uid);
-        const tile = el('button', `inv-tile rar${fits(it) ? '' : ' misfit'}${it.uid === selected ? ' selected' : ''}`) as HTMLButtonElement;
+        const tile = el('button', `inv-tile rar${fits(it) ? '' : ' misfit'}${it.uid === selected ? ' selected' : ''}${gd.unboundOf ? ' ub' : ''}`) as HTMLButtonElement;
         tile.style.setProperty('--rc', gearColor(gd.id));
         tile.innerHTML = `<i>${gearIcon(gd)}</i><span>${gd.name}</span><small class="stars">${starsHtml(it.stars)}</small>${worn ? `<em>${wearerIcon(worn)}</em>` : ''}`;
         tile.addEventListener('click', () => {
@@ -1824,7 +1842,7 @@ export class AppUI {
             const d = it ? gearDef(it.base) : null;
             // A later slot of a group (Wilhelm's Secondary) tucks in under the one before it, so the row stays narrow.
             const stacked = g.slotGroup(w, i)[0] !== i;
-            return `<span class="es-slot${d ? ' rar' : ''}${stacked ? ' stacked' : ''}${it?.uid === uid ? ' this' : ''}" style="${d ? `--rc:${gearColor(d.id)}` : ''}" title="${d ? d.name : slots[i].label}">${d ? gearIcon(d) : ''}</span>`;
+            return `<span class="es-slot${d ? ' rar' : ''}${d?.unboundOf ? ' ub' : ''}${stacked ? ' stacked' : ''}${it?.uid === uid ? ' this' : ''}" style="${d ? `--rc:${gearColor(d.id)}` : ''}" title="${d ? d.name : slots[i].label}">${d ? gearIcon(d) : ''}</span>`;
           })
           .join('');
         b.innerHTML = `${portraitHtml(w)}<b class="es-name">${wearerName(w)}</b><small class="es-note">${worn?.who === w ? 'Wearing it' : fit < 0 ? "Can't use it" : `Lv ${g.levelOf(w)}`}</small><div class="es-gear">${gear}</div>`;
@@ -1876,7 +1894,8 @@ export class AppUI {
       const worn = g.wearerOf(uid);
       const cost = g.gearUpgradeCost(uid);
       body.innerHTML = `
-        <p><b class="rarity-tag" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${gearKindName(gd)} · <span class="stars">${starsHtml(item.stars)}</span></p>
+        <p><b class="rarity-tag" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${gearKindName(gd)} · <span class="stars">${starsHtml(item.stars)}</span>${gd.unboundOf ? ' · <span class="ub-tag">Unbound</span>' : ''}</p>
+        ${gd.unboundOf ? '<p class="hd-note">Unbound: an Unbound area\'s piece, as strong as that area. It stays through every Regression.</p>' : ''}
         ${worn ? `<p class="worn-by">${wearerIcon(worn.who)} Worn by <b>${wearerName(worn.who)}</b></p>` : ''}
         ${gd.weaponClass ? `<p class="gear-speed">${Number(weaponSpeed(gd, item.stars).toFixed(2))} attacks/s <small>(your Hunter, before training and skills)</small></p>` : ''}
         ${featureTags(gd, item.stars)}
@@ -2299,7 +2318,7 @@ export class AppUI {
     for (const e of areaEnemies(id)) {
       const known = g.state.bestiary[e.id].unlocked;
       const row = el('div', `row${known ? '' : ' locked'}`);
-      row.innerHTML = `<canvas class="portrait"></canvas><div class="info"><div class="name">${known ? e.name : '???'} <small>${ARCHETYPES[e.archetype].icon} ${ARCHETYPES[e.archetype].name}</small></div><div class="drop">${known ? dropsText(e) : `${gemHtml(e.material)} Drops <b>???</b>`}</div><div class="sub">${known ? e.blurb : 'Unlock it in the Bestiary.'}</div>${known ? affinityHtml(e, true) : ''}</div>`;
+      row.innerHTML = `<canvas class="portrait"></canvas><div class="info"><div class="name">${known ? e.name : '???'} <small>${ARCHETYPES[e.archetype].icon} ${ARCHETYPES[e.archetype].name}</small></div><div class="drop">${known ? dropsText(e, true, g.isUnbound(e.area)) : `${gemHtml(e.material)} Drops <b>???</b>`}</div><div class="sub">${known ? e.blurb : 'Unlock it in the Bestiary.'}</div>${known ? affinityHtml(e, true) : ''}</div>`;
       // A monster you've unlocked opens its full view.
       if (known) {
         row.classList.add('tappable');
@@ -2872,7 +2891,8 @@ export class AppUI {
       // close stays closed until the game restarts).
       const title = el('button', 'section-title settings-cat beast-area') as HTMLButtonElement;
       title.type = 'button';
-      title.innerHTML = `<span class="sc-name">${areaDef(areaId).name}${areaId === g.area ? ' · here' : ''}</span><span class="sc-arrow">›</span>`;
+      title.innerHTML = `<span class="sc-name">${g.areaStats(areaId).name}${areaId === g.area ? ' · here' : ''}</span><span class="sc-arrow">›</span>`;
+      title.classList.toggle('ub', g.isUnbound(areaId));
       const crown = el('img', 'area-crown hidden') as HTMLImageElement;
       crown.src = gearIconUrl('armor7/068') ?? '';
       crown.alt = '';
@@ -2893,7 +2913,7 @@ export class AppUI {
       });
       draw();
       for (const { def, boss } of beastsOf(areaId)) {
-        const tile = el('button', `hunter-tile beast-tile${boss ? ' guardian-tile' : ''}`) as HTMLButtonElement;
+        const tile = el('button', `hunter-tile beast-tile${boss ? ' guardian-tile' : ''}${g.isUnbound(areaId) ? ' ub' : ''}`) as HTMLButtonElement;
         tile.innerHTML = `<canvas class="bt-portrait"></canvas><span class="ht-name">${boss ? guardianName(areaId) : def.name}</span><small class="ht-lv"></small><b class="sp-dot hidden" title="${esc(txt('tip.markers.evoPoints'))}"></b><span class="alert-mark white tile-new hidden"></span>${MAX_CROWN}`;
         const picked = () => def.id === this.selectedBeast && boss === this.selectedBoss;
         tile.classList.toggle('selected', picked());
@@ -2940,7 +2960,7 @@ export class AppUI {
         // Still locked: a greyed-out square, with a silver (not gold) outline once you can afford to unlock it.
         const locked = !g.state.bestiary[def.id].unlocked;
         tile.classList.toggle('beast-locked', locked);
-        tile.classList.toggle('unlockable', locked && g.state.gold >= enemyUnlockCost(def));
+        tile.classList.toggle('unlockable', locked && g.state.gold >= g.unlockCostOf(def.id));
         tile.classList.toggle('ready', ready);
       }
     });
@@ -2958,13 +2978,13 @@ export class AppUI {
 
   private buildBeast(def: EnemyDef, parent: HTMLElement, boss = !!def.guardianOnly): void {
     const g = this.game;
-    const card = el('div', 'beast');
+    const card = el('div', `beast${g.isUnbound(def.area) ? ' ub' : ''}`);
     card.innerHTML = `
       <div class="beast-head">
         <span class="beast-portrait"><canvas class="portrait"></canvas>${MAX_CROWN}</span>
-        <div class="info"><div class="card-corner"></div><div class="name"></div><div class="blurb">${def.blurb}</div></div>
+        <div class="info"><div class="card-corner"></div><div class="name"></div><div class="blurb">${def.blurb}</div>${unboundLine(g, def)}</div>
       </div>
-      ${boss || g.state.bestiary[def.id].unlocked ? dropHtml(def, false) : '<div class="drop-line ld-spacer" aria-hidden="true">&nbsp;</div>'}
+      ${boss || g.state.bestiary[def.id].unlocked ? dropHtml(def, false, g.isUnbound(def.area)) : '<div class="drop-line ld-spacer" aria-hidden="true">&nbsp;</div>'}
       ${affinityHtml(def, true)}
       <div class="beast-actions"></div>`;
     parent.appendChild(card);
@@ -3029,7 +3049,7 @@ export class AppUI {
       $('.max-crown', card).classList.toggle('hidden', !b.unlocked || g.monsterLevelInfo(def.id).level < MAX_MONSTER_LEVEL);
       setHtml($('.name', card), `${def.name}<span class="archetype">${arch.icon} ${arch.name}</span>${beastTags(def)}${b.unlocked ? '' : ' <small>locked</small>'}`);
       if (!b.unlocked) {
-        const cost = enemyUnlockCost(def);
+        const cost = g.unlockCostOf(def.id);
         setHtml(unlockBtn, `Unlock<small>🪙 ${fmt(cost)}</small>`);
         unlockBtn.disabled = g.state.gold < cost;
         return;
@@ -3127,6 +3147,7 @@ export class AppUI {
           <div class="hd-title hero-plate">
             <h2>${asGuardian || def.guardianOnly ? guardianName(def.area) : def.name}</h2>
             <div class="hd-sub"></div>
+            ${unboundLine(g, def)}
             ${beastTags(def) ? `<div class="beast-tags">${beastTags(def)}</div>` : ''}
           </div>
         </div>
@@ -3279,9 +3300,11 @@ export class AppUI {
     pane.appendChild(mats);
     pane.appendChild(el('p', 'hd-note', 'Monsters drop materials when slain. Spend them in Crafting. Tap a material for details.'));
     // In the order you come across them: area by area, its monsters in the order they unlock, its Guardian's last.
+    // Then their Unbound copies, in the same order, once you've found them.
     const ordered = [...MATERIALS].sort((a, b) => materialOrder(a.id) - materialOrder(b.id));
+    ordered.push(...ordered.map((m) => materialDef(`u_${m.id}` as MaterialId)));
     const tiles = ordered.map((m) => {
-      const tile = el('button', 'mat') as HTMLButtonElement;
+      const tile = el('button', `mat${m.unboundOf ? ' ub' : ''}`) as HTMLButtonElement;
       tile.addEventListener('click', () => this.openMaterialDetail(m.id));
       mats.appendChild(tile);
       return { m, tile };
@@ -3293,7 +3316,9 @@ export class AppUI {
       key = k;
       for (const { m, tile } of tiles) {
         const known = this.materialKnown(m.id);
-        const source = ENEMIES.find((e) => enemyDrops(e).includes(m.id))!;
+        const source = ENEMIES.find((e) => enemyDrops(e).includes(unboundBase(m.id) as MaterialId))!;
+        // An Unbound copy shows once found; an original whose area is Unbound (it no longer drops) only while held.
+        tile.hidden = m.unboundOf ? !known : g.isUnbound(source.area) && g.state.materials[m.id] <= 0;
         const hint = g.isAreaUnlocked(source.area) ? (source.guardianOnly ? `the ${source.name}` : `${source.name}s`) : '???';
         tile.classList.toggle('unknown', !known);
         tile.disabled = !known;
@@ -3305,7 +3330,9 @@ export class AppUI {
   /** You've met a material once you've unlocked a monster that drops it or held some. */
   private materialKnown(id: MaterialId): boolean {
     const g = this.game;
-    return g.state.materials[id] > 0 || (g.state.stats.matGained[id] ?? 0) > 0 || ENEMIES.some((e) => enemyDrops(e).includes(id) && g.isUnlocked(e.id));
+    // An Unbound copy is known once a monster that drops it is unlocked in its Unbound area.
+    const base = unboundBase(id) as MaterialId;
+    return g.state.materials[id] > 0 || (g.state.stats.matGained[id] ?? 0) > 0 || ENEMIES.some((e) => enemyDrops(e).includes(base) && g.isUnlocked(e.id) && (!isUnboundId(id) || g.isUnbound(e.area)));
   }
 
   /** A material's details: icon, name, flavour, how many you hold and have ever gained, and who drops it. */
@@ -3313,12 +3340,12 @@ export class AppUI {
     const g = this.game;
     const m = materialDef(id);
     this.showSheet(`<span class="mat-title">${gemHtml(id, 'big')}${m.name}</span>`, (body, close) => {
-      body.innerHTML = `<p class="gear-now">${m.desc}</p>
+      body.innerHTML = `${m.unboundOf ? '<p><span class="ub-tag">Unbound</span> Dropped in Unbound areas, and kept through every Regression.</p>' : ''}<p class="gear-now">${m.desc}</p>
         <div class="hd-stats mat-stats"><div><b>${fmt(g.state.materials[id])}</b>You have</div><div><b>${fmt(g.state.stats.matGained[id] ?? 0)}</b>Gained in total</div></div>
         <p class="droppers-title">Dropped by</p>
         <div class="droppers"></div>`;
       const list = $('.droppers', body);
-      for (const e of ENEMIES.filter((x) => enemyDrops(x).includes(id))) {
+      for (const e of ENEMIES.filter((x) => enemyDrops(x).includes(unboundBase(id) as MaterialId))) {
         const seen = g.isAreaUnlocked(e.area);
         const b = el('button', `dropper${seen ? '' : ' unknown'}`) as HTMLButtonElement;
         b.innerHTML = `<canvas class="portrait"></canvas><span><b>${seen ? e.name : '???'}</b><small>${seen ? `${areaDef(e.area).name}${g.isUnlocked(e.id) ? '' : ' · locked'}` : 'Somewhere further on'}</small></span>`;
@@ -3444,7 +3471,7 @@ export class AppUI {
       const gearTile = (it: GearItem): HTMLElement => {
         const gd = gearDef(it.base);
         const worn = wornBy.has(it.uid) ? { who: wornBy.get(it.uid)! } : null;
-        const tile = el('button', 'inv-tile rar') as HTMLButtonElement;
+        const tile = el('button', `inv-tile rar${gd.unboundOf ? ' ub' : ''}`) as HTMLButtonElement;
         tile.style.setProperty('--rc', gearColor(gd.id));
         const slots = g.modSlots(it.uid);
         tile.innerHTML = `<i>${gearIcon(gd)}</i><span>${gd.name}</span><small class="stars">${starsHtml(it.stars)}</small>${worn ? `<em>${wearerIcon(worn.who)}</em>` : ''}${slots.length ? `<b class="mod-pips">${slots.map((m) => (m ? (modPerfect(m) ? '★' : '◆') : '◇')).join('')}</b>` : ''}${it.uid > g.state.seen.gearUid ? '<span class="alert-mark white tile-new"></span>' : ''}`;
@@ -3680,14 +3707,17 @@ export class AppUI {
     let gearKey = '';
     const buildGear = () => {
       const f = this.craftFilter;
-      const known = GEAR.filter((x) => !x.starter && this.gearKnown(x));
+      // An Unbound area's recipes are its Unbound copies (its original materials no longer drop there).
+      const g = this.game;
+      const unboundArea = (gd: GearDef) => g.isUnbound(AREAS[Math.min(AREAS.length, gearArea(gd)) - 1]?.id ?? 'forest');
+      const known = [...GEAR, ...UNBOUND_GEAR].filter((x) => !x.starter && this.gearKnown(x) && (x.unboundOf ? true : !unboundArea(x)));
       // New recipes (marked !) first until they're opened; then the rest newest first, by when their materials come
       // within reach (the last of them), rarest first among recipes unlocked together.
       const rank = (gd: GearDef) => RARITY_ORDER.indexOf(gd.rarity);
       const isNew = new Set(known.filter((gd) => this.newRecipe(gd)).map((gd) => gd.id));
       const list = known
         .filter((gd) => gearMatches(gd, f) && f.type !== 'upgrades')
-        .sort((a, b) => Number(isNew.has(b.id)) - Number(isNew.has(a.id)) || recipeOrder(b) - recipeOrder(a) || rank(b) - rank(a));
+        .sort((a, b) => Number(isNew.has(b.id)) - Number(isNew.has(a.id)) || Number(!!b.unboundOf) - Number(!!a.unboundOf) || recipeOrder(b) - recipeOrder(a) || rank(b) - rank(a));
       const key = JSON.stringify(f) + list.map((gd) => gd.id + (isNew.has(gd.id) ? '!' : '')).join(',');
       if (key === gearKey) return;
       gearKey = key;
@@ -3701,7 +3731,7 @@ export class AppUI {
       gearGrid.innerHTML = '';
       tiles = [];
       for (const gd of list) {
-        const tile = el('button', 'craft-tile rar') as HTMLButtonElement;
+        const tile = el('button', `craft-tile rar${gd.unboundOf ? ' ub' : ''}`) as HTMLButtonElement;
         tile.style.setProperty('--rc', gearColor(gd.id));
         tile.innerHTML = `<i>${gearIcon(gd)}</i><em></em><span class="alert-mark white tile-new hidden"></span>`;
         tile.title = gd.name;
@@ -3782,8 +3812,8 @@ export class AppUI {
     const name = gd ? gd.name : it!.name;
     card.innerHTML = `
       <button class="fc-close" aria-label="Close"><span class="close-x"></span></button>
-      <div class="fc-scroll"><div class="fc-head"><i class="fc-icon" style="--rc:${gd ? gearColor(gd.id) : RARITIES[it!.rarity].color}">${gd ? gearIcon(gd) : upgradeIcon(it!)}</i><div>
-        <h3>${name}</h3>
+      <div class="fc-scroll"><div class="fc-head"><i class="fc-icon${gd?.unboundOf ? ' ub' : ''}" style="--rc:${gd ? gearColor(gd.id) : RARITIES[it!.rarity].color}">${gd ? gearIcon(gd) : upgradeIcon(it!)}</i><div>
+        <h3>${name}${gd?.unboundOf ? ' <span class="ub-tag">Unbound</span>' : ''}</h3>
         <small>${gd ? `<b class="fc-rarity" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${gearKindName(gd).toLowerCase()}` : `<b class="fc-rarity" style="--rc:${RARITIES[it!.rarity].color}">${RARITIES[it!.rarity].name}</b> upgrade · ${upgradeReach(it!)}`}</small>
       </div></div>
       ${gd ? featureTags(gd) : ''}
@@ -3971,7 +4001,9 @@ export class AppUI {
     for (const areaId of order) {
       const here = EVENTS.filter((e) => e.area === areaId);
       if (!here.length) continue;
-      this.panel.appendChild(sectionTitle(`${areaDef(areaId).name}${areaId === g.area ? ' · here' : ''}`));
+      const areaTitle = sectionTitle(`${g.areaStats(areaId).name}${areaId === g.area ? ' · here' : ''}`);
+      areaTitle.classList.toggle('ub', g.isUnbound(areaId));
+      this.panel.appendChild(areaTitle);
       const grid = el('div', 'hunter-grid event-grid');
       for (const ev of here) grid.appendChild(this.eventTile(ev));
       this.panel.appendChild(grid);
@@ -4683,7 +4715,7 @@ export class AppUI {
   private newBeast(def: EnemyDef): boolean {
     const g = this.game;
     if (this.seenSet('beasts').has(def.id) || g.state.bestiary[def.id].unlocked) return false;
-    return g.isAreaUnlocked(def.area) && g.state.gold >= enemyUnlockCost(def);
+    return g.isAreaUnlocked(def.area) && g.state.gold >= g.unlockCostOf(def.id);
   }
 
   /** An event that's ready to start and hasn't been seen in the Events tab since it became ready. */
@@ -6544,7 +6576,7 @@ function gearCardHtml(it: GearItem, vs: GearItem | null = null): string {
     (gd.effect ? `<li class="gc-effect"><span>✨ ${advancedTips ? describeEffect(gd.effect, it.stars) : simpleEffect(gd.effect)}</span></li>` : '') +
     (gd.bane ? `<li class="gc-effect">${ARCHETYPES[gd.bane.archetype].icon} +${Math.round(gd.bane.bonus * GEAR_STAR_POWER[it.stars] * 100)}% damage vs ${ARCHETYPES[gd.bane.archetype].name}s</li>` : '') +
     (gd.findDrop ? `<li class="gc-effect">💎 ${it.stars >= gd.findDrop.stars ? '' : `At ${gd.findDrop.stars}★: `}${gd.findDrop.chance * 100}% chance for ${materialDef(gd.findDrop.material).name} from ${ARCHETYPES[gd.findDrop.archetype].name.toLowerCase()} kills</li>` : '');
-  return `<div class="gear-card rar" style="--rc:${gearColor(gd.id)}"><div class="gc-head"><i>${gearIcon(gd)}</i><div><b>${gd.name}</b><small>${RARITIES[gd.rarity].name} ${gearKindName(gd).toLowerCase()} · <span class="stars">${starsHtml(it.stars)}</span></small><div class="gc-typeline">${procTypeTags(gd)}</div>${hitHtml ? `<div class="gc-dmgline">${hitHtml}</div>` : ''}${speedHtml}</div></div><ul class="gc-stats">${all}</ul></div>`;
+  return `<div class="gear-card rar${gd.unboundOf ? ' ub' : ''}" style="--rc:${gearColor(gd.id)}"><div class="gc-head"><i>${gearIcon(gd)}</i><div><b>${gd.name}${gd.unboundOf ? ' <span class="ub-tag">Unbound</span>' : ''}</b><small>${RARITIES[gd.rarity].name} ${gearKindName(gd).toLowerCase()} · <span class="stars">${starsHtml(it.stars)}</span></small><div class="gc-typeline">${procTypeTags(gd)}</div>${hitHtml ? `<div class="gc-dmgline">${hitHtml}</div>` : ''}${speedHtml}</div></div><ul class="gc-stats">${all}</ul></div>`;
 }
 
 /**
@@ -7025,13 +7057,15 @@ function bumpCard(from: HTMLElement): void {
 }
 
 /** What a monster drops (both materials when it has two), and whether it can carry gear. */
-function dropsText(e: EnemyDef, rarity = true): string {
+function dropsText(e: EnemyDef, rarity = true, unbound = false): string {
+  // In an Unbound area, the Unbound copies of its materials.
+  const mat = (m: MaterialId): MaterialId => (unbound ? (`u_${unboundBase(m)}` as MaterialId) : m);
   // Rarer drops are tagged with how rare they are (a golem's Obsidian, Iron Ore...), unless asked not to.
   const extra = enemyExtraDrops(e).map((d) => {
     const r = dropRarity(d.share);
-    return `${gemHtml(d.material)} <b>${materialDef(d.material).name}</b>${r === 'common' || !rarity ? '' : ` <small style="color:${RARITIES[r].color}">(${RARITIES[r].name})</small>`}`;
+    return `${gemHtml(mat(d.material))} <b>${materialDef(d.material).name}</b>${r === 'common' || !rarity ? '' : ` <small style="color:${RARITIES[r].color}">(${RARITIES[r].name})</small>`}`;
   });
-  const all = [`${gemHtml(e.material)} <b>${materialDef(e.material).name}</b>`, ...extra];
+  const all = [`${gemHtml(mat(e.material))} <b>${materialDef(e.material).name}</b>`, ...extra];
   const mats = all.length > 2 ? `${all.slice(0, -1).join(', ')} and ${all[all.length - 1]}` : all.join(' and ');
   return `Drops ${mats}${lootChance(e.id) > 0 ? ' · 🎁 can carry gear' : ''}`;
 }
@@ -7064,8 +7098,8 @@ function lockedDrops(e: EnemyDef): string {
 }
 
 /** An enemy's drops line (`rarity`: tag the rarer drops with how rare they are; the full lists always do). */
-function dropHtml(e: EnemyDef, rarity = true): string {
-  return `<div class="drop-line">${dropsText(e, rarity)}</div>`;
+function dropHtml(e: EnemyDef, rarity = true, unbound = false): string {
+  return `<div class="drop-line">${dropsText(e, rarity, unbound)}</div>`;
 }
 
 /**

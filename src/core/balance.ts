@@ -1922,6 +1922,8 @@ export function materialOrder(m: MaterialId): number {
     for (const e of monsters)
       for (const mat of [e.material, ...enemyExtraDrops(e).map((d) => d.material)]) if (!MATERIAL_ORDER.has(mat)) MATERIAL_ORDER.set(mat, MATERIAL_ORDER.size);
   }
+  // Unbound copies come after every original, in the originals' order.
+  if (isUnboundId(m)) return MATERIAL_ORDER.size + materialOrder(unboundBase(m) as MaterialId);
   return MATERIAL_ORDER.get(m) ?? Infinity;
 }
 
