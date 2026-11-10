@@ -381,6 +381,11 @@ it.runIf(!!process.env.SIM_FULL)('full game: a typical player beats the Time Eat
     bot.field.setView(390, 420);
     const bought = botTree(bot.game);
     log(`Regression ${r.state.regression.runs} from ${src}: run worth ${r.worth.total.toExponential(2)} gold, ${r.shards} Memory Shards; bought ${bought.join(', ') || 'nothing'} (${bot.game.state.regression.shards} left)`);
+    {
+      const gm = bot.game;
+      const innerLeft = REGRESSION_TREE.filter((n) => n.ring <= 3 && !/^(unbound-|ring-)/.test(n.id) && !gm.ownsReg(n.id));
+      log(`  inner web: ${innerLeft.length ? `${innerLeft.length} node${innerLeft.length === 1 ? '' : 's'} left (${innerLeft.map((n) => `${n.name} ${n.cost}`).join(', ')})` : 'complete'}; Unbound Wandering Woods ${gm.regReachable('unbound-forest') ? 'within reach' : 'not yet within reach'}`);
+    }
     log(`  you Lv ${bot.game.levelOf('main')}, Guild Hunters ${HUNTERS.map((h) => `${h.id}:${bot.game.levelOf(h.id)}`).join(' ')} (to recruit again), starting gold ${bot.game.state.gold}`);
   }
   log('No ads watched, no gems bought or spent: events run on energy alone.');
@@ -395,6 +400,9 @@ it.runIf(!!process.env.SIM_FULL)('full game: a typical player beats the Time Eat
   }
   const g = bot.game;
   let beaten: number | null = null;
+  // A later run's first loss to the Time Eater: a player who can't beat it regresses anyway (on shards alone), with
+  // the same wait for the next node as after a win. SIM_NO_LOSS_REGRESS keeps playing until it's beaten.
+  let lostAt: number | null = null;
   let now = 0;
   // SIM_PRESETS=public/dev-presets.json records the Dev menu's progress phases from this run, as `npm run presets`
   // does (each area's start, and the save just before the Guardian challenge that wins), written after every session.
@@ -458,6 +466,7 @@ it.runIf(!!process.env.SIM_FULL)('full game: a typical player beats the Time Eat
     (g as unknown as { endGuardian: () => void }).endGuardian = () => {
       const boss = bot.field.enemies.find((e) => e.boss && e.hp > 0);
       if (boss) log(`  guardian ${g.state.area} lost (day ${(now / 86400).toFixed(2)}): ${Math.round((boss.hp / boss.maxHp) * 100)}% of its health left`);
+      if (boss && g.state.area === 'rift' && g.state.regression.runs > 0 && !process.env.SIM_NO_LOSS_REGRESS) lostAt ??= now;
       end();
     };
     g.on((e) => {
@@ -496,7 +505,7 @@ it.runIf(!!process.env.SIM_FULL)('full game: a typical player beats the Time Eat
     const n = plannedBuys(g, budget);
     if (wantNodes.at < 0) {
       wantNodes.at = n + 1;
-      log(`  Time Eater down: a Regression now would pay ${g.shardsNow} shards (${budget} to spend) for ${n} node${n === 1 ? '' : 's'}; playing on for a ${wantNodes.at}${wantNodes.at === 1 ? 'st' : wantNodes.at === 2 ? 'nd' : wantNodes.at === 3 ? 'rd' : 'th'}`);
+      log(`  Time Eater ${beaten !== null ? 'down' : 'lost to'}: a Regression now would pay ${g.shardsNow} shards (${budget} to spend) for ${n} node${n === 1 ? '' : 's'}; playing on for a ${wantNodes.at}${wantNodes.at === 1 ? 'st' : wantNodes.at === 2 ? 'nd' : wantNodes.at === 3 ? 'rd' : 'th'}`);
     }
     if (n < wantNodes.at) return false;
     log(`  ready to regress (day ${(now / 86400).toFixed(2)}): ${g.shardsNow} shards (${budget} to spend) buy ${n} nodes`);
@@ -508,7 +517,7 @@ it.runIf(!!process.env.SIM_FULL)('full game: a typical player beats the Time Eat
   // SIM_UNTIL=90 plays on to that day (past the Time Eater too) and stops there.
   const until = process.env.SIM_UNTIL ? Number(process.env.SIM_UNTIL) * 86400 : null;
   for (const [start, length] of sessions) {
-    if (stopped || (until !== null ? start >= until : beaten !== null && regressReady())) break;
+    if (stopped || (until !== null ? start >= until : (beaten !== null || lostAt !== null) && regressReady())) break;
     if (from && start + length <= from.clock) continue;
     now = start;
     g.applyOffline(start * 1000);
@@ -545,7 +554,7 @@ it.runIf(!!process.env.SIM_FULL)('full game: a typical player beats the Time Eat
       log(`  [day ${(start / 86400).toFixed(0)}] area ${s.area}${prog} · you Lv ${g.levelOf('main')} · gold ${s.gold.toExponential(2)} · ${hunters} · wall ${((Date.now() - started) / 60000).toFixed(0)}m`);
     }
   }
-  log(beaten !== null ? `TIME EATER BEATEN: day ${(beaten / 86400).toFixed(1)}` : `Time Eater not beaten in ${days} days`);
+  log(beaten !== null ? `TIME EATER BEATEN: day ${(beaten / 86400).toFixed(1)}` : lostAt !== null ? `TIME EATER NOT BEATEN: first lost on day ${(lostAt / 86400).toFixed(1)}, regressed on shards alone (day ${(now / 86400).toFixed(1)})` : `Time Eater not beaten in ${days} days`);
   // A free player: no ads, no gems.
   expect(g.state.noAds).toBe(false);
   expect(g.state.premium).toEqual([]);
