@@ -14,10 +14,10 @@ export const FEEDBACK_GAP = 30;
 
 /** The Google Form: its id (from its "/d/e/<id>/viewform" link) and each question's "entry.<n>" field name. */
 const FEEDBACK_FORM = {
-  id: '',
-  kind: '',
-  message: '',
-  details: '',
+  id: '1FAIpQLSckZbpsFor7JiDy7B5ZbXbtX-J5poq4pNn0oDAnwX0yvyNDUQ',
+  kind: 'entry.217714408',
+  message: 'entry.220799006',
+  details: 'entry.689421967',
 };
 
 export const feedbackReady = (): boolean => !!(FEEDBACK_FORM.id && FEEDBACK_FORM.kind && FEEDBACK_FORM.message && FEEDBACK_FORM.details);
