@@ -380,7 +380,23 @@ it.runIf(!!process.env.SIM_FULL)('full game: a typical player beats the Time Eat
     bot.field = new Field(bot.game);
     bot.field.setView(390, 420);
     const bought = botTree(bot.game);
-    log(`Regression ${r.state.regression.runs} from ${src}: run worth ${r.worth.total.toExponential(2)} gold, ${r.shards} Memory Shards; bought ${bought.join(', ') || 'nothing'} (${bot.game.state.regression.shards} left)`);
+    // SIM_MIN_BUYS=n: top the shards up until botTree has bought n nodes (to rebase a run after a price change).
+    let granted = 0;
+    for (let guard = 0; guard < 20 && bought.length < Number(process.env.SIM_MIN_BUYS ?? 0); guard++) {
+      const have = bot.game.state.regression.shards;
+      let hi = have + 1;
+      while (plannedBuys(bot.game, hi) === 0) hi *= 2;
+      let lo = have;
+      while (hi - lo > 1) {
+        const mid = Math.floor((lo + hi) / 2);
+        if (plannedBuys(bot.game, mid) > 0) hi = mid;
+        else lo = mid;
+      }
+      bot.game.state.regression.shards = hi;
+      granted += hi - have;
+      bought.push(...botTree(bot.game));
+    }
+    log(`Regression ${r.state.regression.runs} from ${src}: run worth ${r.worth.total.toExponential(2)} gold, ${r.shards} Memory Shards${granted ? ` (+${granted} granted by SIM_MIN_BUYS)` : ''}; bought ${bought.join(', ') || 'nothing'} (${bot.game.state.regression.shards} left)`);
     {
       const gm = bot.game;
       const innerLeft = REGRESSION_TREE.filter((n) => n.ring <= 3 && !/^(unbound-|ring-)/.test(n.id) && !gm.ownsReg(n.id));
