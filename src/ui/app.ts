@@ -714,6 +714,21 @@ export class AppUI {
    * The Train ×1 / ×10 / ×100 / MAX switch, or (Empower) the monster view's own ×1 / ×5 / ×10 / MAX one. Every
    * copy of a switch shows the same choice.
    */
+  /** A section title with the gold you hold on its right, kept current (Training, Empower). */
+  private goldTitle(text: string): HTMLElement {
+    const t = sectionTitle(text);
+    const gold = el('span', 'st-gold');
+    t.appendChild(gold);
+    let shown = '';
+    this.refreshers.push(() => {
+      const v = fmt(this.game.state.gold);
+      if (v === shown) return;
+      shown = v;
+      setHtml(gold, `🪙 ${v}`);
+    });
+    return t;
+  }
+
   private amountsBar(extra = '', label: 'Train' | 'Empower' = 'Train'): HTMLElement {
     const g = this.game;
     const empower = label === 'Empower';
@@ -1071,7 +1086,7 @@ export class AppUI {
         btn.disabled = !g.canRecruit(def.id);
       });
     } else {
-      overview.appendChild(sectionTitle('Training'));
+      overview.appendChild(this.goldTitle('Training'));
       overview.appendChild(this.amountsBar());
       overview.appendChild(this.trainButton(who));
     }
@@ -3174,7 +3189,7 @@ export class AppUI {
       return;
     }
 
-    body.appendChild(sectionTitle('Empower'));
+    body.appendChild(this.goldTitle('Empower'));
     body.appendChild(
       el(
         'p',

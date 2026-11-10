@@ -2617,6 +2617,7 @@ export const HUNTERS: HunterDef[] = [
     ascendedTitle: 'Oracle',
     story: 'Celeste, a Psion who hears the thoughts of monsters, followed a whisper into the Shadowy Depths and got lost in the noise. The Gazing Eyes are the loudest: close twelve thousand of them, and Celeste will lend you that mind.',
     ability: 'Deals 50% bonus damage to Dragons. Astral Projection: every 10 seconds, sends a copy of herself to a random spot on the field.',
+    slots: [{ kind: 'magic', label: 'Weapon', accepts: ['magic', 'weapon'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
     special: {
       kind: 'projection', name: 'Astral Projection', damageType: 'arcane', proc: 0.5, cooldown: 10, damage: 2.5, radius: 70, ticks: 1, crowd: 3, projection: { life: 6 },
       describe: 'Every 10 seconds, sends a copy of herself to a random spot on the field. For 6 seconds it attacks exactly as she does, with her weapon, then explodes, hurting everything around it. Her weapon\'s damage powers the blast, and its attack speed widens it.',

@@ -8274,3 +8274,11 @@ body .title-row .quick-type .cyc-cur {
 .offline-loot {
   margin: 4px 0 0;
 }
+/* The gold you hold, on the right of the Training and Empower titles. */
+.section-title .st-gold {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  text-transform: none;
+  font-variant-numeric: tabular-nums;
+}
