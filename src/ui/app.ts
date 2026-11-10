@@ -1822,7 +1822,9 @@ export class AppUI {
           .equipped(w)
           .map((it, i) => {
             const d = it ? gearDef(it.base) : null;
-            return `<span class="es-slot${d ? ' rar' : ''}${it?.uid === uid ? ' this' : ''}" style="${d ? `--rc:${gearColor(d.id)}` : ''}" title="${d ? d.name : slots[i].label}">${d ? gearIcon(d) : ''}</span>`;
+            // A later slot of a group (Wilhelm's Secondary) tucks in under the one before it, so the row stays narrow.
+            const stacked = g.slotGroup(w, i)[0] !== i;
+            return `<span class="es-slot${d ? ' rar' : ''}${stacked ? ' stacked' : ''}${it?.uid === uid ? ' this' : ''}" style="${d ? `--rc:${gearColor(d.id)}` : ''}" title="${d ? d.name : slots[i].label}">${d ? gearIcon(d) : ''}</span>`;
           })
           .join('');
         b.innerHTML = `${portraitHtml(w)}<b class="es-name">${wearerName(w)}</b><small class="es-note">${worn?.who === w ? 'Wearing it' : fit < 0 ? "Can't use it" : `Lv ${g.levelOf(w)}`}</small><div class="es-gear">${gear}</div>`;
@@ -6532,7 +6534,7 @@ function gearCardHtml(it: GearItem, vs: GearItem | null = null): string {
     (gd.effect ? `<li class="gc-effect"><span>✨ ${advancedTips ? describeEffect(gd.effect, it.stars) : simpleEffect(gd.effect)}</span></li>` : '') +
     (gd.bane ? `<li class="gc-effect">${ARCHETYPES[gd.bane.archetype].icon} +${Math.round(gd.bane.bonus * GEAR_STAR_POWER[it.stars] * 100)}% damage vs ${ARCHETYPES[gd.bane.archetype].name}s</li>` : '') +
     (gd.findDrop ? `<li class="gc-effect">💎 ${it.stars >= gd.findDrop.stars ? '' : `At ${gd.findDrop.stars}★: `}${gd.findDrop.chance * 100}% chance for ${materialDef(gd.findDrop.material).name} from ${ARCHETYPES[gd.findDrop.archetype].name.toLowerCase()} kills</li>` : '');
-  return `<div class="gear-card rar" style="--rc:${gearColor(gd.id)}"><div class="gc-head"><i>${gearIcon(gd)}</i><div><b>${gd.name}</b><small>${RARITIES[gd.rarity].name} ${gearKindName(gd).toLowerCase()} · <span class="stars">${starsHtml(it.stars)}</span></small><div class="gc-typeline">${procTypeTags(gd)}${hitHtml}</div>${speedHtml}</div></div><ul class="gc-stats">${all}</ul></div>`;
+  return `<div class="gear-card rar" style="--rc:${gearColor(gd.id)}"><div class="gc-head"><i>${gearIcon(gd)}</i><div><b>${gd.name}</b><small>${RARITIES[gd.rarity].name} ${gearKindName(gd).toLowerCase()} · <span class="stars">${starsHtml(it.stars)}</span></small><div class="gc-typeline">${procTypeTags(gd)}</div>${hitHtml ? `<div class="gc-dmgline">${hitHtml}</div>` : ''}${speedHtml}</div></div><ul class="gc-stats">${all}</ul></div>`;
 }
 
 /**

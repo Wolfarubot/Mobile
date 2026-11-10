@@ -4588,6 +4588,20 @@ body.ui-parchment .title-row .filter-corner.on {
   gap: 6px;
   margin-top: 4px;
 }
+.gear-card .gc-head .gc-dmgline {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+.gc-dmgline .up,
+.gc-dmgline .down {
+  font-size: 0.9em;
+}
+.gear-card .gc-head .gc-dmgline .gc-dmg,
 .gear-card .gc-head .gc-typeline .gc-dmg {
   font-size: 15px;
   color: var(--fg);
@@ -6230,6 +6244,15 @@ button.pressing:not(:disabled) {
   width: 100%;
   height: 100%;
   image-rendering: pixelated;
+}
+/* Same-kind slots overlap (Wilhelm's two weapons), the later one tucked under the edge of the one before. */
+.es-slot.stacked {
+  margin-left: -14px;
+  position: relative;
+  z-index: -1;
+}
+.es-gear {
+  isolation: isolate;
 }
 .es-slot.this {
   box-shadow: 0 0 0 2px #fff, 0 0 6px 2px var(--gold);
