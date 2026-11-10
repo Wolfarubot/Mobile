@@ -3786,6 +3786,7 @@ export class AppUI {
         <small>${gd ? `<b class="fc-rarity" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${gearKindName(gd).toLowerCase()}` : `<b class="fc-rarity" style="--rc:${RARITIES[it!.rarity].color}">${RARITIES[it!.rarity].name}</b> upgrade · ${upgradeReach(it!)}`}</small>
       </div></div>
       ${gd ? featureTags(gd) : ''}
+      ${gd && modSlotCount(gd) ? `<p class="fc-modslots" title="Filled by Refine or Enchant once crafted"><span class="fc-modslot-pips">${'<i></i>'.repeat(modSlotCount(gd))}</span>${modSlotCount(gd)} modifier slot${modSlotCount(gd) === 1 ? '' : 's'}</p>` : ''}
       <p class="fc-effect"></p>
       <div class="fc-owned"></div>
       <div class="fc-label">Recipe</div>

@@ -8323,3 +8323,27 @@ body .title-row .quick-type .cyc-cur {
 .gc-speed .down {
   color: var(--danger);
 }
+/* A recipe's modifier slots, as empty diamonds (they're filled by Refine or Enchant once it's crafted). */
+.fc-modslots {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0;
+  font-weight: 700;
+}
+.fc-modslots small {
+  font-weight: 400;
+  opacity: 0.8;
+}
+.fc-modslot-pips {
+  display: inline-flex;
+  gap: 3px;
+}
+.fc-modslot-pips i {
+  width: 9px;
+  height: 9px;
+  transform: rotate(45deg);
+  border: 2px solid currentColor;
+  opacity: 0.75;
+}
