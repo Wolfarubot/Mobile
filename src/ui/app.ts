@@ -3813,8 +3813,8 @@ export class AppUI {
     card.innerHTML = `
       <button class="fc-close" aria-label="Close"><span class="close-x"></span></button>
       <div class="fc-scroll"><div class="fc-head"><i class="fc-icon${gd?.unboundOf ? ' ub' : ''}" style="--rc:${gd ? gearColor(gd.id) : RARITIES[it!.rarity].color}">${gd ? gearIcon(gd) : upgradeIcon(it!)}</i><div>
-        <h3>${name}${gd?.unboundOf ? ' <span class="ub-tag">Unbound</span>' : ''}</h3>
-        <small>${gd ? `<b class="fc-rarity" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${gearKindName(gd).toLowerCase()}` : `<b class="fc-rarity" style="--rc:${RARITIES[it!.rarity].color}">${RARITIES[it!.rarity].name}</b> upgrade · ${upgradeReach(it!)}`}</small>
+        <h3>${name}</h3>
+        <small>${gd ? `<b class="fc-rarity" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${gearKindName(gd).toLowerCase()}${gd.unboundOf ? ' · <span class="ub-tag">Unbound</span>' : ''}` : `<b class="fc-rarity" style="--rc:${RARITIES[it!.rarity].color}">${RARITIES[it!.rarity].name}</b> upgrade · ${upgradeReach(it!)}`}</small>
       </div></div>
       ${gd ? featureTags(gd) : ''}
       ${gd && modSlotCount(gd) ? `<p class="fc-modslots" title="Filled by Refine or Enchant once crafted"><span class="fc-modslot-pips">${'<i></i>'.repeat(modSlotCount(gd))}</span>${modSlotCount(gd)} modifier slot${modSlotCount(gd) === 1 ? '' : 's'}</p>` : ''}
@@ -6576,7 +6576,7 @@ function gearCardHtml(it: GearItem, vs: GearItem | null = null): string {
     (gd.effect ? `<li class="gc-effect"><span>✨ ${advancedTips ? describeEffect(gd.effect, it.stars) : simpleEffect(gd.effect)}</span></li>` : '') +
     (gd.bane ? `<li class="gc-effect">${ARCHETYPES[gd.bane.archetype].icon} +${Math.round(gd.bane.bonus * GEAR_STAR_POWER[it.stars] * 100)}% damage vs ${ARCHETYPES[gd.bane.archetype].name}s</li>` : '') +
     (gd.findDrop ? `<li class="gc-effect">💎 ${it.stars >= gd.findDrop.stars ? '' : `At ${gd.findDrop.stars}★: `}${gd.findDrop.chance * 100}% chance for ${materialDef(gd.findDrop.material).name} from ${ARCHETYPES[gd.findDrop.archetype].name.toLowerCase()} kills</li>` : '');
-  return `<div class="gear-card rar${gd.unboundOf ? ' ub' : ''}" style="--rc:${gearColor(gd.id)}"><div class="gc-head"><i>${gearIcon(gd)}</i><div><b>${gd.name}${gd.unboundOf ? ' <span class="ub-tag">Unbound</span>' : ''}</b><small>${RARITIES[gd.rarity].name} ${gearKindName(gd).toLowerCase()} · <span class="stars">${starsHtml(it.stars)}</span></small><div class="gc-typeline">${procTypeTags(gd)}</div>${hitHtml ? `<div class="gc-dmgline">${hitHtml}</div>` : ''}${speedHtml}</div></div><ul class="gc-stats">${all}</ul></div>`;
+  return `<div class="gear-card rar${gd.unboundOf ? ' ub' : ''}" style="--rc:${gearColor(gd.id)}"><div class="gc-head"><i>${gearIcon(gd)}</i><div><b>${gd.name}</b><small>${RARITIES[gd.rarity].name} ${gearKindName(gd).toLowerCase()} · <span class="stars">${starsHtml(it.stars)}</span>${gd.unboundOf ? ' · <span class="ub-tag">Unbound</span>' : ''}</small><div class="gc-typeline">${procTypeTags(gd)}</div>${hitHtml ? `<div class="gc-dmgline">${hitHtml}</div>` : ''}${speedHtml}</div></div><ul class="gc-stats">${all}</ul></div>`;
 }
 
 /**
