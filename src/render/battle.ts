@@ -21,6 +21,11 @@ import { drawFramedBar, TIMER_COLOR } from './hudBars';
 import { outlineOf } from './outline';
 
 /** Frame heights (in its pixels) of an event's timer, a Guardian's health bar and the Guardian's timer. */
+/** Phantom weapons' look: how long one shows, and the placeholder sprite each uses (its kind's first weapon). */
+type PhantomWeapon = 'spear' | 'glaive' | 'sword' | 'hammer';
+const PHANTOM_LIFE = 0.42;
+const PHANTOM_SPRITES: Record<PhantomWeapon, string> = { spear: 'weapons2/032', glaive: 'weapons2/041', sword: 'weapons/011', hammer: 'custom/006' };
+
 const EVENT_BAR_H = 9;
 const HP_BAR_H = 15;
 const TIME_BAR_H = 9;
@@ -98,6 +103,8 @@ export class BattleView {
   private anims: Anim[] = [];
   /** Spear thrusts: a streak turned along the stab. */
   private strikes: Strike[] = [];
+  /** Phantom weapons (Phantom Spear, Glaive, Sword, Hammer) thrusting, sweeping or slamming, with their age. */
+  private phantoms: Array<{ weapon: PhantomWeapon; x: number; y: number; a: number; r: number; arc: number; color: string; t: number }> = [];
   /** Ability cooldown icons, overlaid on the battlefield. */
   private cooldownBar: CooldownBar;
   /** Melee sweeps and swipes: a fading arc in front of the attacker. */
@@ -282,6 +289,10 @@ export class BattleView {
           }
           this.shake = Math.max(this.shake, 0.16);
           break;
+        case 'phantom':
+          this.phantoms.push({ ...e, t: 0 });
+          if (e.weapon === 'hammer') this.shake = Math.max(this.shake, 0.14);
+          break;
         case 'punch':
           // A golden fist shoots out of a portal on Sciirj toward the monster.
           if (this.fancy) this.strikes.push({ key: 'fist', x: e.x, y: e.y, a: e.a, len: e.r * 0.75, thick: 0, t: 0 });
@@ -393,6 +404,8 @@ export class BattleView {
     this.anims = this.anims.filter((a) => a.start + a.t * a.fps < EFFECTS[a.key].frames);
     this.emitTrails(dt);
     for (const st of this.strikes) st.t += dt;
+    for (const p of this.phantoms) p.t += dt;
+    this.phantoms = this.phantoms.filter((p) => p.t < PHANTOM_LIFE);
     for (const n of this.noteRings) n.t += dt;
     this.noteRings = this.noteRings.filter((n) => n.t < n.time + NOTE_RING_FADE);
     this.strikes = this.strikes.filter((st) => st.t * STRIKE_FPS[st.key] < EFFECTS[st.key].frames);
@@ -765,6 +778,7 @@ export class BattleView {
       g.globalAlpha = 1;
     }
     this.drawStrikes(g, false);
+    this.drawPhantoms(g);
 
     // Ba'al's sound waves: the staff of notes in his colour over a dark copy (so it reads on light ground), turning
     // as it swells out to its reach, then fading.
@@ -1851,6 +1865,44 @@ export class BattleView {
     g.imageSmoothingEnabled = false;
     g.drawImage(held.img, -size * grip, -size * (1 - grip), size, size);
     g.restore();
+  }
+
+  /**
+   * Phantom weapons: a giant, see-through copy of the weapon's own sprite (placeholder art: the first weapon of its
+   * kind), glowing in the attack's colour, whatever the Hunter holds. A spear thrusts out along the aim, a glaive or
+   * sword sweeps across its arc, and a hammer swings up behind and slams down where its blast lands.
+   */
+  private drawPhantoms(g: CanvasRenderingContext2D): void {
+    for (const p of this.phantoms) {
+      const img = gearImage(PHANTOM_SPRITES[p.weapon]);
+      if (!img) continue;
+      const k = Math.min(1, p.t / PHANTOM_LIFE);
+      const alpha = Math.min(1, p.t / 0.05) * (1 - k) * 0.8;
+      const ease = (v: number) => 1 - (1 - Math.min(1, Math.max(0, v))) ** 3;
+      let angle = p.a;
+      let push = 0;
+      let size = p.r * 0.72;
+      if (p.weapon === 'spear') push = ease(k * 3) * p.r * 0.3;
+      else if (p.weapon === 'hammer') {
+        // Raised behind for the first part, then brought down hard onto the aim.
+        angle = p.a - 1.7 * (1 - ease((k - 0.1) * 3));
+        size = p.r * 1.15;
+      } else angle = p.a - p.arc / 2 + p.arc * ease(k * 2.4);
+      g.save();
+      g.globalAlpha = alpha;
+      g.shadowColor = p.color;
+      g.shadowBlur = 14;
+      g.translate(p.x + Math.cos(p.a) * push, p.y + Math.sin(p.a) * push);
+      g.rotate(angle + Math.PI / 4);
+      g.imageSmoothingEnabled = false;
+      // The weapon's own art, glowing in the attack's colour, with that colour washed over it so it reads as a ghost.
+      g.drawImage(img, -size * 0.1, -size * 0.9, size, size);
+      g.shadowBlur = 0;
+      g.globalCompositeOperation = 'lighter';
+      g.globalAlpha = alpha * 0.45;
+      g.drawImage(tinted(img, p.color), -size * 0.1, -size * 0.9, size, size);
+      g.restore();
+    }
   }
 
   /** A stationed Hunter: sprite if provided, otherwise a colored circle with their icon. */

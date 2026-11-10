@@ -2,6 +2,7 @@ import { GATED, gateWalls } from './gates';
 import {
   MAIN_RANGE,
   WEAPON_CLASSES,
+  phantomEvery,
   GUARDIAN_TAP_TAKEN,
   GUARDIAN_WEAK_MULT,
   areaDef,
@@ -589,6 +590,11 @@ export type FieldEvent =
   | { type: 'slam'; x: number; y: number; r: number; color: string }
   /** Sciirj's Mountain Fist thrown from (x, y) at angle `a`; `r` is its reach. */
   | { type: 'punch'; x: number; y: number; a: number; r: number }
+  /**
+   * A phantom weapon (Phantom Spear, Glaive, Sword or Hammer): its own sprite, whatever the Hunter holds, thrusting,
+   * sweeping or slamming from (x, y) along `a`; `r` is its reach (a hammer's blast lands at `r` out).
+   */
+  | { type: 'phantom'; weapon: 'spear' | 'glaive' | 'sword' | 'hammer'; x: number; y: number; a: number; r: number; arc: number; color: string }
   /** A Hunter attacked with their weapon (the renderer swings, thrusts or raises it). */
   | { type: 'attack'; who: Shooter; a: number }
   | { type: 'reload'; who: Shooter; x: number; y: number }
@@ -648,6 +654,8 @@ export class Field {
   private songCount = new Map<Shooter, number>();
   /** Attacks toward Lance's next holy spear. */
   private spearCount = new Map<Shooter, number>();
+  /** Attacks since each accessory phantom art last went off, by `${Hunter}:${art}`. */
+  private phantomCount = new Map<string, number>();
   /** Seconds of stun left on your Hunter (can't shoot while > 0). */
   stun = 0;
   /** Seconds left of Gideon's Bone Wall, and how far out it stands around each Hunter. */
@@ -1629,8 +1637,16 @@ export class Field {
       this.meleeWave(who, x, y);
       if (!encore) for (const art of this.arts(who, mode)) if (!PASSIVE_ARTS.has(art.art) && g.rng() < art.chance) this.meleeArt(who, x, y, aim, art.art, art.power, cls!, mode);
     }
-    // Phantom arts on accessories strike as their own weapon would, from the Hunter, whatever they hold.
-    if (!encore) for (const a of g.accessoryArts(who)) if (g.rng() < a.chance) this.meleeArt(who, x, y, aim, a.art, a.power, WEAPON_CLASSES[a.cls], mode);
+    // Phantom arts on accessories strike as their own weapon would, from the Hunter, whatever they hold: every few
+    // attacks (like Ba'al's sound wave or Lance's holy spear), counted per Hunter and art.
+    if (!encore)
+      for (const a of g.accessoryArts(who)) {
+        const key = `${who}:${a.art}`;
+        const every = phantomEvery(a.chance);
+        const n = (this.phantomCount.get(key) ?? 0) + 1;
+        this.phantomCount.set(key, n % every);
+        if (n >= every) this.meleeArt(who, x, y, aim, a.art, a.power, WEAPON_CLASSES[a.cls], mode);
+      }
     // Enchantments set off by attacks (Thunder Call, the pulses), each at its rolled chance.
     for (const { effect, chance } of g.attackEnchants(who)) if (g.rng() < chance) this.fireGear(who, x, y, effect, 1, 0);
   }
@@ -2177,10 +2193,28 @@ export class Field {
       case 'spear':
         // A giant phantom spear stabbing out twice as far and wide.
         this.strikeLine(who, x, y, aim, reach * MELEE_ARTS.spearReach, (cls.width ?? 24) * MELEE_ARTS.spearWidth, Infinity, power, color, (cls.width ?? 24) * MELEE_ARTS.spearWidth, cls.knock ?? 0);
+        this.events.push({ type: 'phantom', weapon: 'spear', x, y, a: aim, r: reach * MELEE_ARTS.spearReach, arc: 0, color });
         break;
       case 'glaive':
         this.strikeArc(who, x, y, aim, reach * MELEE_ARTS.glaiveReach, cls.arc ?? 3, power, cls.knock ?? 0, true, color);
+        this.events.push({ type: 'phantom', weapon: 'glaive', x, y, a: aim, r: reach * MELEE_ARTS.glaiveReach, arc: cls.arc ?? 3, color });
         break;
+      case 'phantomSword':
+        // A giant phantom blade cleaving a wide arc, much further out than the sword reaches.
+        this.strikeArc(who, x, y, aim, reach * MELEE_ARTS.phantomSwordReach, MELEE_ARTS.phantomSwordArc, power, cls.knock ?? 0, true, color);
+        this.events.push({ type: 'phantom', weapon: 'sword', x, y, a: aim, r: reach * MELEE_ARTS.phantomSwordReach, arc: MELEE_ARTS.phantomSwordArc, color });
+        break;
+      case 'phantomHammer': {
+        // A giant phantom hammer slamming down out in front: everything in its blast is hit and thrown far back.
+        const r = reach * MELEE_ARTS.phantomHammerReach * g.radiusMult(who);
+        const cx = x + Math.cos(aim) * r * SLAM_OFFSET;
+        const cy = y + Math.sin(aim) * r * SLAM_OFFSET;
+        this.events.push({ type: 'phantom', weapon: 'hammer', x, y, a: aim, r: r * SLAM_OFFSET, arc: 0, color });
+        this.events.push({ type: 'slam', x: cx, y: cy, r, color });
+        const knock = (cls.knock ?? 300) * MELEE_ARTS.phantomHammerKnock;
+        for (const e of [...this.enemies]) if (e.hp > 0 && Math.hypot(e.x - cx, e.y - cy) <= r + e.r) this.meleeHit(who, e, power, x, y, knock);
+        break;
+      }
       case 'aftershock': {
         // A second slam a moment later, where the first landed, in the hammer's element.
         const r = reach * g.radiusMult(who);

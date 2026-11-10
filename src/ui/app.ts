@@ -1,5 +1,6 @@
 import {
   modSlotCount,
+  accessoryPhantomText,
   SPELLS,
   staffSpell,
   ASCEND_LEVEL,
@@ -6488,6 +6489,14 @@ function weaponSpeed(gd: GearDef, stars: number): number {
   return BASE_FIRE_RATE * cls.rate * (1 + (gearTotals(gd, stars).rate ?? 0));
 }
 
+/** A built-in effect's text: an accessory's phantom art goes off every few attacks, the rest by their own text. */
+function builtInText(m: GearMod & { kind: 'enchant' }, gd: GearDef): string {
+  const en = ENCHANTS[m.id];
+  const v = modValue(m, gd);
+  const p = modPower(m, gd);
+  return (gd.kind === 'accessory' ? accessoryPhantomText(en, v, p) : null) ?? en.text(v, p, enchantTierHit(gd));
+}
+
 function gearCardHtml(it: GearItem, vs: GearItem | null = null): string {
   const gd = gearDef(it.base);
   const st = gearTotals(gd, it.stars);
@@ -6531,7 +6540,7 @@ function gearCardHtml(it: GearItem, vs: GearItem | null = null): string {
       .map((bi) => {
         const en = ENCHANTS[bi.id];
         const m: GearMod = { kind: 'enchant', id: bi.id, q: bi.q, p: bi.p };
-        return `<li class="gc-builtin${isUniqueEnchant(en) ? ' unique' : ''}">${enchantIcon(en)} ${en.name}: ${en.text(modValue(m, gd), modPower(m, gd), enchantTierHit(gd))}</li>`;
+        return `<li class="gc-builtin${isUniqueEnchant(en) ? ' unique' : ''}">${enchantIcon(en)} ${en.name}: ${builtInText(m, gd)}</li>`;
       })
       .join('') +
     (it.mods ?? []).filter(Boolean).map((m) => `<li class="gc-mod ${m!.kind}${modPerfect(m!) ? ' perfect' : ''}">${modText(m!, gd)}</li>`).join('') +
@@ -6846,7 +6855,7 @@ function featureTags(gd: GearDef, stars = 1): string {
   for (const bi of gd.builtIn ?? []) {
     const en = ENCHANTS[bi.id];
     const m = { kind: 'enchant' as const, id: bi.id, q: bi.q, p: bi.p };
-    const text = en.text(modValue(m, gd), modPower(m, gd), enchantTierHit(gd));
+    const text = builtInText(m, gd);
     tags.push(featTag(isUniqueEnchant(en) ? EFFECT_TAG_ICONS.unique : FEATURE_TAG_ICONS.builtIn, en.name, tx(isUniqueEnchant(en) ? 'tip.gear.unique' : 'tip.gear.builtIn', { text: `${text.charAt(0).toUpperCase()}${text.slice(1)}` }), isUniqueEnchant(en) ? '#ff8ad0' : 'var(--gold)'));
   }
   if (gd.tweak) tags.push(featTag(FEATURE_TAG_ICONS.tweak, tweakName(gd), tweakText(gd)));

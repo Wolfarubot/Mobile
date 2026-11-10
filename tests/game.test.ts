@@ -24,6 +24,7 @@ import {
   ENCHANTS,
   accessoryBuiltIn,
   PHANTOM_ARTS,
+  phantomEvery,
   isUniqueEnchant,
   SPELLS,
   GEAR_VARIANTS,
@@ -5110,6 +5111,36 @@ describe('Field', () => {
     g3.state.inventory.push(it3);
     g3.equip('main', 2, it3.uid);
     expect(g3.accessoryArts('main').length).toBeGreaterThan(0);
+    // Phantom Sword and Phantom Hammer roll on their own weapons, and every phantom art can be built into accessories.
+    expect(ENCHANTS.artPhantomSword.fits(GEAR.find((d) => d.weaponClass === 'sword')!)).toBe(true);
+    expect(ENCHANTS.artPhantomHammer.fits(GEAR.find((d) => d.weaponClass === 'hammer')!)).toBe(true);
+    expect(Object.values(PHANTOM_ARTS).sort()).toEqual(['dagger', 'glaive', 'hammer', 'spear', 'sword']);
+    // On an accessory they go off every few attacks, counted, not rolled: a 10% roll is every 10th attack.
+    expect(phantomEvery(0.1)).toBe(10);
+    expect(phantomEvery(0.2)).toBe(5);
+  });
+
+  it('an accessory phantom art goes off on exactly every Nth attack, whatever the Hunter holds', () => {
+    const g = rich();
+    const phantom = GEAR.find((d) => d.kind === 'accessory' && d.builtIn?.some((b) => ENCHANTS[b.id].melee === 'spear'))!;
+    const item = { uid: g.state.nextGearUid++, base: phantom.id, stars: 1, invested: { gold: 0, mats: {} } };
+    g.state.inventory.push(item);
+    g.equip('main', 2, item.uid);
+    const every = phantomEvery(g.accessoryArts('main').find((a) => a.art === 'spear')!.chance);
+    const f = new Field(g);
+    f.setView(390, 420);
+    f.enemies = [tough({ id: 1, x: 60, y: 0, speed: 0 })];
+    let phantoms = 0;
+    let attacks = 0;
+    for (let t = 0; t < 120 && attacks < every * 3; t += 1 / 30) {
+      f.update(1 / 30);
+      for (const e of f.drainEvents()) {
+        if (e.type === 'attack' && e.who === 'main') attacks++;
+        if (e.type === 'phantom' && e.weapon === 'spear') phantoms++;
+      }
+    }
+    expect(attacks).toBeGreaterThanOrEqual(every * 3);
+    expect(phantoms).toBe(Math.floor(attacks / every));
   });
 
   it('a stronger chill slows a monster further', () => {
