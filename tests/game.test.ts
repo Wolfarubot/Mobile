@@ -22,6 +22,7 @@ import {
   WEAPON_ONLY_REFINES,
   type RefineStat,
   ENCHANTS,
+  accessoryBuiltIn,
   isUniqueEnchant,
   SPELLS,
   GEAR_VARIANTS,
@@ -3108,7 +3109,7 @@ describe('Equipment', () => {
       // Built-in effects never repeat on a piece, and are ones that fit it.
       if (d.builtIn) {
         expect(new Set(d.builtIn.map((b) => b.id)).size).toBe(d.builtIn.length);
-        for (const b of d.builtIn) expect(ENCHANTS[b.id].builtInOnly || ENCHANTS[b.id].fits(d), `${d.id}: ${b.id}`).toBe(true);
+        for (const b of d.builtIn) expect(ENCHANTS[b.id].builtInOnly || ENCHANTS[b.id].fits(d) || accessoryBuiltIn(d, ENCHANTS[b.id]), `${d.id}: ${b.id}`).toBe(true);
       }
     }
     // The Elemental Cataclysm has the unique of its name.
@@ -5092,6 +5093,14 @@ describe('Field', () => {
     expect(g.effectDurationMult('main')).toBeCloseTo(base.ext + 0.4);
     expect(GEAR.some((d) => d.builtIn?.some((b) => b.id === 'lingering'))).toBe(false);
     expect(GEAR.filter((d) => d.stats.abilityPower).length).toBeGreaterThanOrEqual(5);
+    // Accessories draw spells and Fireburst too, and a spell built into one is cast on attack like a weapon's.
+    const acc = GEAR.filter((d) => d.kind === 'accessory' && d.builtIn?.some((b) => ENCHANTS[b.id].onAttack?.kind === 'spell'));
+    expect(acc.length).toBeGreaterThan(10);
+    const g2 = rich();
+    const item = { uid: g2.state.nextGearUid++, base: acc[0].id, stars: 1, invested: { gold: 0, mats: {} } };
+    g2.state.inventory.push(item);
+    g2.equip('main', 2, item.uid);
+    expect(g2.attackEnchants('main').some((a) => a.effect.kind === 'spell')).toBe(true);
   });
 
   it('a stronger chill slows a monster further', () => {

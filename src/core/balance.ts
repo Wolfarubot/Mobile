@@ -3846,7 +3846,7 @@ export const ENCHANTS: Record<EnchantId, EnchantDef> = {
   shotPierce: { name: 'Piercing Shots', icon: '🏹', range: [1, 2], int: true, weight: 0, builtInOnly: true, builtInPool: true, shot: 'pierce', fits: firesShots, text: (c) => `projectiles pierce ${c} more monster${c === 1 ? '' : 's'}` },
   shotRicochet: { name: 'Ricochet Shots', icon: '💫', range: [1, 2], int: true, weight: 0, builtInOnly: true, builtInPool: true, shot: 'ricochet', fits: firesShots, text: (c) => `projectiles bounce on to ${c} more monster${c === 1 ? '' : 's'} nearby` },
   potency: { name: 'Potency', icon: '🧫', range: [0.08, 0.15], weight: 1, potency: true, fits: isWeapon, text: (c) => `+${pct(c)} status effect chance` },
-  fireburst: { name: 'Fireburst', icon: '💥', range: [0.25, 0.5], power: [0.6, 1], weight: 1, onKill: { radius: 70, damageType: 'fire' }, fits: isWeapon, text: (c, p, t) => `${pct(c)} chance a monster this weapon kills bursts into flame (${dmg(p, t)})` },
+  fireburst: { name: 'Fireburst', icon: '💥', range: [0.25, 0.5], power: [0.6, 1], weight: 1, onKill: { radius: 70, damageType: 'fire' }, fits: isWeapon, text: (c, p, t) => `${pct(c)} chance a monster the wearer kills bursts into flame (${dmg(p, t)})` },
   thunderCall: { name: 'Thunder Call', icon: '🌩️', range: [0.05, 0.12], power: [0.5, 0.8], weight: 1, onAttack: { kind: 'strike', base: 1, damageType: 'lightning', targets: 2, cooldown: 0, range: 300 }, fits: () => true, text: (c, p, t) => `${pct(c)} chance on attack to call lightning on 2 monsters (${dmg(p, t)})` },
   frostPulse: { name: 'Frost Pulse', icon: '🧊', range: [0.05, 0.12], power: [0.6, 0.9], weight: 1, onAttack: { kind: 'pulse', base: 1, damageType: 'frost', radius: 90, cooldown: 0 }, fits: () => true, text: (c, p, t) => `${pct(c)} chance on attack for a burst of frost around the wearer (${dmg(p, t)})` },
   emberPulse: { name: 'Ember Pulse', icon: '🔥', range: [0.05, 0.12], power: [0.6, 0.9], weight: 1, onAttack: { kind: 'pulse', base: 1, damageType: 'fire', radius: 90, cooldown: 0 }, fits: (d) => !isWeapon(d), text: (c, p, t) => `${pct(c)} chance on attack for a burst of fire around the wearer (${dmg(p, t)})` },
@@ -4607,6 +4607,13 @@ const SHOT_BUILT_INS: Partial<Record<string, EnchantId>> = {
   cometWand: 'shotPierce', // comets punch straight through
 };
 
+/**
+ * Accessories draw their built-in effects from the weapons' too: every spell (cast from the wearer, on attack) and
+ * Fireburst (on the wearer's kills). Melee arts and shot effects change the weapon's own swing or shots, so they
+ * stay on weapons. (Enchant keeps its own pools: this is only the built-in draw.)
+ */
+export const accessoryBuiltIn = (d: GearDef, en: EnchantDef): boolean => d.kind === 'accessory' && (en.onAttack?.kind === 'spell' || !!en.onKill);
+
 /** Gives every piece its variant: its built-in effects and its modifier slots. */
 function assignVariants(): void {
   for (const d of GEAR) {
@@ -4625,7 +4632,7 @@ function assignVariants(): void {
     const pool = (Object.keys(ENCHANTS) as EnchantId[]).filter((id) => {
       const en = ENCHANTS[id];
       // Banes stay out of the draw (a piece's own bane is its `bane`), which also keeps every built-in as it was.
-      return (!en.builtInOnly || en.builtInPool) && !PLAIN_ENCHANTS.has(id) && !en.infuse && !en.bane && en.fits(d);
+      return (!en.builtInOnly || en.builtInPool) && !PLAIN_ENCHANTS.has(id) && !en.infuse && !en.bane && (en.fits(d) || accessoryBuiltIn(d, en));
     });
     const pick = <T,>(ids: T[]) => ids.splice(Math.floor(rng() * ids.length), 1)[0];
     const roll = () => 5 + Math.floor(rng() * 5); // a good roll: 5–9 of 10
