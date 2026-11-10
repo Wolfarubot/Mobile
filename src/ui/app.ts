@@ -6944,7 +6944,7 @@ function unlockText(g: Game, def: HunterDef): string {
   if ('event' in u) {
     const ev = eventDef(u.event);
     const count = u.times > 1 ? ` ${u.times} times (${Math.min(have, need)}/${u.times})` : '';
-    const what = ev.kind === 'guardian' ? `Beat the ${areaDef(ev.area).name} Guardian` : `Survive a ${ev.name} in the ${areaDef(ev.area).name}`;
+    const what = ev.kind === 'guardian' ? `Beat the ${areaDef(ev.area).name} Guardian` : ev.kind === 'minigame' ? `Play ${ev.name}` : `Survive a ${ev.name} in the ${areaDef(ev.area).name}`;
     return `${what}${count}`;
   }
   if ('enemy' in u) return `Slay ${fmt(need)} ${plural(enemyDef(u.enemy).name)}${of}`;

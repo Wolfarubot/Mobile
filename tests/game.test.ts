@@ -623,10 +623,12 @@ describe('Hunters', () => {
   it('every Hunter is unlocked in their home area (its events, its monsters), and not all by events', () => {
     for (const h of HUNTERS) {
       const u = h.unlock;
-      if ('event' in u) expect(eventDef(u.event).area, h.id).toBe(h.area);
+      // Another Hunter's minigame can bring one in from elsewhere (Kargesh, for Wilhelm's Shooting Gallery).
+      if ('event' in u && eventDef(u.event).kind !== 'minigame') expect(eventDef(u.event).area, h.id).toBe(h.area);
       else if ('enemy' in u) expect(enemyDef(u.enemy).area, h.id).toBe(h.area);
       else if ('archetype' in u) expect(u.area, h.id).toBe(h.area);
     }
+    expect(hunterDef('blacksmith').unlock).toEqual({ event: 'shootingGallery', times: 1 });
     expect(HUNTERS[0].id).toBe('alchemist');
     const kinds = new Set(HUNTERS.map((h) => Object.keys(h.unlock).sort().join()));
     expect(kinds.size).toBeGreaterThanOrEqual(4);

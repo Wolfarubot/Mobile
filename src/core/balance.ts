@@ -2626,9 +2626,9 @@ export const HUNTERS: HunterDef[] = [
   {
     id: 'blacksmith', name: 'Kargesh', title: 'Blacksmith', icon: '⚒️', color: '#d07a3a', area: 'caves', recruitCost: 3e15,
     short: 'Refines gear with new stats.',
-    unlock: { event: 'guardian-caves', times: 1 },
+    unlock: { event: 'shootingGallery', times: 1 },
     ascendedTitle: 'Master Smith',
-    story: "Kargesh keeps a forge deep in the Ember Mines, fed by the heat of the Demon Lord's lair. Beat the Mines' Guardian, and he'll bring his anvil to the guild.",
+    story: "Kargesh keeps a forge deep in the Ember Mines, fed by the heat of the Demon Lord's lair, and makes the guns for Wilhelm's Shooting Gallery. Play a round there, and he'll come to see how they shoot, and bring his anvil to the guild.",
     ability: 'Unlocks Refine in Equipment: add stat modifiers (attack speed, damage, knockback, piercing, magazine size) to Very Rare and rarer gear. Fights with melee weapons.',
     slots: [{ kind: 'melee', label: 'Melee' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
   },

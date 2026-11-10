@@ -72,6 +72,12 @@ function botShop(game: Game, t: number, memo: { lastChallenge: number; lastHeavy
     if (s.hunters[h.id].recruited || game.hunterAvailable(h.id)) continue;
     // (Hunters unlocked by slaying, training or gold come along on their own.)
     if (!('event' in h.unlock)) continue;
+    const ev = EVENTS.find((e) => e.id === (h.unlock as { event: string }).event)!;
+    // A minigame (Kargesh comes for Wilhelm's Shooting Gallery): play a round at its par.
+    if (ev.kind === 'minigame') {
+      if (game.eventReady(ev.id) && game.startEvent(ev.id)) game.finishMinigame(ev.id, ev.rewards?.par ?? 1);
+      continue;
+    }
     if (!game.eventRunning && game.eventReady(h.unlock.event) && t - memo.lastChallenge > 60) {
       game.startEvent(h.unlock.event);
       memo.lastChallenge = t;
