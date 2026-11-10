@@ -21,10 +21,13 @@ import { drawFramedBar, TIMER_COLOR } from './hudBars';
 import { outlineOf } from './outline';
 
 /** Frame heights (in its pixels) of an event's timer, a Guardian's health bar and the Guardian's timer. */
-/** Phantom weapons' look: how long one shows, and the placeholder sprite each uses (its kind's first weapon). */
+/**
+ * Phantom weapons' look: how long one shows, and the sprite each uses, a Rare weapon of its kind (Lurker Spear, Bone
+ * Knight Glaive, Dusk Blade, Sarcophagus Hammer), so a phantom never looks like starter gear.
+ */
 type PhantomWeapon = 'spear' | 'glaive' | 'sword' | 'hammer';
 const PHANTOM_LIFE = 0.42;
-const PHANTOM_SPRITES: Record<PhantomWeapon, string> = { spear: 'weapons2/032', glaive: 'weapons2/041', sword: 'weapons/011', hammer: 'custom/006' };
+const PHANTOM_SPRITES: Record<PhantomWeapon, string> = { spear: 'weapons-medieval/088', glaive: 'weapons4/016', sword: 'weapons-free/063', hammer: 'weapons/053' };
 
 const EVENT_BAR_H = 9;
 const HP_BAR_H = 15;
