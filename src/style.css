@@ -7938,8 +7938,14 @@ body.ui-parchment .account-delete .buy.danger-btn:not(:disabled) {
   box-sizing: border-box;
   width: 100%;
 }
+/* The four kinds two to a row, so their names fit at every text size. */
+.feedback-card .fb-kinds {
+  flex-wrap: wrap;
+}
 .feedback-card .fb-kinds button {
+  flex: 1 1 40%;
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 .feedback-card p {
   margin: 0;
