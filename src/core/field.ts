@@ -91,7 +91,7 @@ const PUDDLE_TICK = 0.5;
 /** What a Hunter calls out when a potion kicks in. */
 const POTION_WORD: Record<GearStat, string> = {
   damage: 'MIGHT!', rate: 'HASTE!', range: 'FARSIGHT!', crit: 'KEEN!', stun: 'STEADY!', guard: 'SHIELDED!', gold: 'GREED!', drops: 'FORTUNE!', radius: 'SURGE!', pierce: 'PIERCE!',
-  cooldown: 'QUICKEN!', critDamage: 'FURY!', duration: 'LINGER!', statusChance: 'AFFLICT!',
+  cooldown: 'QUICKEN!', critDamage: 'FURY!', duration: 'FESTER!', abilityPower: 'EMPOWER!', statusChance: 'AFFLICT!',
   bowDamage: 'TRUE AIM!', gunDamage: 'HOT SHOT!', meleeDamage: 'BRAWN!', magicDamage: 'ARCANA!',
 };
 /** Splitting Slime: each half's share of the slain slime's health and size. */
@@ -139,6 +139,8 @@ export interface Enemy {
   phase: number;
   /** Seconds of half-speed left (frost hammers, Frost chill). */
   slow?: number;
+  /** How hard a chill bites while it lasts: speed is halved, then divided by this (Status power and Virulence). */
+  chill?: number;
   /** How big its art is drawn (artScale: 0.5 to 1.5, mostly near 1); its hit size doesn't change. */
   scale?: number;
   /** A gold monster (1 in GOLDEN_ODDS): GOLDEN_GOLD × the gold and GOLDEN_DROPS × the drop chance. */
@@ -1061,11 +1063,13 @@ export class Field {
       e.flash = Math.max(0, e.flash - dt * 6);
       e.phase += dt;
       if (e.slow) e.slow = Math.max(0, e.slow - dt);
+      if (!e.slow) e.chill = undefined;
       if (e.burn || e.poison || e.aura || e.exposed || e.well) this.tickStatus(e, dt);
       if (e.held) e.held = Math.max(0, e.held - dt);
       if (e.mark && (e.mark.left -= dt) <= 0) e.mark = undefined;
       // Held by bone spikes: it can't walk, though hits still knock it about.
-      const speed = e.held ? 0 : e.speed * (e.slow ? 0.5 : 1);
+      // Slowed to half speed; a stronger chill (Status power) slows further, never below a fifth.
+      const speed = e.held ? 0 : e.speed * (e.slow ? Math.max(0.2, 0.5 / (e.chill ?? 1)) : 1);
       if (e.fleeing) {
         const d = Math.hypot(e.x, e.y) || 1;
         // Straight out, or (walking, in a gated area) out through the nearest gate.
@@ -2677,7 +2681,8 @@ export class Field {
         if (!near.length) return false;
         for (let i = 0; i < ef.targets && near.length; i++) {
           const e = near.splice(Math.floor(this.game.rng() * near.length), 1)[0];
-          this.events.push({ type: 'beam', x1: e.x + (this.game.rng() - 0.5) * 60, y1: e.y - 220, x2: e.x, y2: e.y, color: DAMAGE_TYPES[ef.damageType].color, width: 3, zigzag: true });
+          // Lightning zigzags down; other strikes (Smite's holy light) fall straight.
+          this.events.push({ type: 'beam', x1: e.x + (this.game.rng() - 0.5) * 60, y1: e.y - 220, x2: e.x, y2: e.y, color: DAMAGE_TYPES[ef.damageType].color, width: ef.damageType === 'lightning' ? 3 : 6, zigzag: ef.damageType === 'lightning' });
           this.abilityHit(who, e, base, ef.damageType, true);
         }
         return true;
@@ -3288,7 +3293,9 @@ export class Field {
         }
         break;
       case 'frost':
+        // Status power (and Virulence) make the chill bite deeper, as well as last longer.
         e.slow = Math.max(e.slow ?? 0, STATUS.chill.duration * k * ext);
+        e.chill = Math.max(e.chill ?? 1, k);
         break;
       case 'acid':
         if (e.acidPuddle && e.acidPuddle.life > 0) {

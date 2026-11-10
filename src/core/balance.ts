@@ -3147,7 +3147,7 @@ export const DEFAULT_SLOTS: SlotDef[] = [
 ];
 
 /** What a piece of gear can modify. Values are per gear level. */
-export type GearStat = 'damage' | 'rate' | 'range' | 'crit' | 'stun' | 'guard' | 'gold' | 'drops' | 'radius' | 'pierce' | 'cooldown' | 'critDamage' | 'duration' | 'statusChance' | 'bowDamage' | 'gunDamage' | 'meleeDamage' | 'magicDamage';
+export type GearStat = 'damage' | 'rate' | 'range' | 'crit' | 'stun' | 'guard' | 'gold' | 'drops' | 'radius' | 'pierce' | 'cooldown' | 'critDamage' | 'duration' | 'abilityPower' | 'statusChance' | 'bowDamage' | 'gunDamage' | 'meleeDamage' | 'magicDamage';
 
 export const GEAR_STATS: Record<GearStat, (v: number) => string> = {
   damage: (v) => `+${Math.round(v * 100)}% damage`,
@@ -3162,7 +3162,10 @@ export const GEAR_STATS: Record<GearStat, (v: number) => string> = {
   pierce: (v) => `+${Math.floor(v)} pierce`,
   cooldown: (v) => `−${Math.round(v * 100)}% ability cooldowns`,
   critDamage: (v) => `+${Math.round(v * 100)}% crit damage`,
-  duration: (v) => `+${Math.round(v * 100)}% status duration`,
+  // 'duration' is Status power: the status effects a Hunter sets off last longer and hit harder (a chill slows more).
+  duration: (v) => `+${Math.round(v * 100)}% status power`,
+  // Ability power: gear abilities, enchantment abilities and Hunter specials hit harder and last longer.
+  abilityPower: (v) => `+${Math.round(v * 100)}% ability power`,
   statusChance: (v) => `+${Math.round(v * 100)}% status chance`,
   bowDamage: (v) => `+${Math.round(v * 100)}% damage with bows`,
   gunDamage: (v) => `+${Math.round(v * 100)}% damage with guns`,
@@ -3562,6 +3565,10 @@ export type EnchantId =
   | 'potency'
   | 'fireburst'
   | 'thunderCall'
+  | 'acidPulse'
+  | 'toxicPulse'
+  | 'voidPulse'
+  | 'smite'
   | 'frostPulse'
   | 'emberPulse'
   | 'thorns'
@@ -3843,6 +3850,12 @@ export const ENCHANTS: Record<EnchantId, EnchantDef> = {
   thunderCall: { name: 'Thunder Call', icon: '🌩️', range: [0.05, 0.12], power: [0.5, 0.8], weight: 1, onAttack: { kind: 'strike', base: 1, damageType: 'lightning', targets: 2, cooldown: 0, range: 300 }, fits: () => true, text: (c, p, t) => `${pct(c)} chance on attack to call lightning on 2 monsters (${dmg(p, t)})` },
   frostPulse: { name: 'Frost Pulse', icon: '🧊', range: [0.05, 0.12], power: [0.6, 0.9], weight: 1, onAttack: { kind: 'pulse', base: 1, damageType: 'frost', radius: 90, cooldown: 0 }, fits: () => true, text: (c, p, t) => `${pct(c)} chance on attack for a burst of frost around the wearer (${dmg(p, t)})` },
   emberPulse: { name: 'Ember Pulse', icon: '🔥', range: [0.05, 0.12], power: [0.6, 0.9], weight: 1, onAttack: { kind: 'pulse', base: 1, damageType: 'fire', radius: 90, cooldown: 0 }, fits: (d) => !isWeapon(d), text: (c, p, t) => `${pct(c)} chance on attack for a burst of fire around the wearer (${dmg(p, t)})` },
+  // More on-attack abilities for accessories and armor (weapons have their spells and arts), so Thunder Call and
+  // the two Pulses aren't all they draw.
+  acidPulse: { name: 'Acid Pulse', icon: '🫧', range: [0.05, 0.12], power: [0.6, 0.9], weight: 1, onAttack: { kind: 'pulse', base: 1, damageType: 'acid', radius: 90, cooldown: 0 }, fits: (d) => !isWeapon(d), text: (c, p, t) => `${pct(c)} chance on attack for a splash of acid around the wearer (${dmg(p, t)})` },
+  toxicPulse: { name: 'Toxic Pulse', icon: '☠️', range: [0.05, 0.12], power: [0.6, 0.9], weight: 1, onAttack: { kind: 'pulse', base: 1, damageType: 'poison', radius: 90, cooldown: 0 }, fits: (d) => !isWeapon(d), text: (c, p, t) => `${pct(c)} chance on attack for a cloud of poison around the wearer (${dmg(p, t)})` },
+  voidPulse: { name: 'Void Pulse', icon: '🌀', range: [0.05, 0.12], power: [0.6, 0.9], weight: 1, onAttack: { kind: 'pulse', base: 1, damageType: 'void', radius: 90, cooldown: 0 }, fits: (d) => !isWeapon(d), text: (c, p, t) => `${pct(c)} chance on attack for a burst of void around the wearer, drawing the monsters together (${dmg(p, t)})` },
+  smite: { name: 'Smite', icon: '☀️', range: [0.05, 0.12], power: [0.5, 0.8], weight: 1, onAttack: { kind: 'strike', base: 1, damageType: 'radiant', targets: 2, cooldown: 0, range: 300 }, fits: (d) => !isWeapon(d), text: (c, p, t) => `${pct(c)} chance on attack to call holy light down on 2 monsters (${dmg(p, t)})` },
   thorns: { name: 'Thorns', icon: '🌵', range: [0.3, 0.6], power: [0.8, 1.2], weight: 1, effect: { kind: 'thorns', base: 1, damageType: 'physical' }, fits: isArmor, text: (c, p, t) => `${pct(c)} chance a monster that reaches the wearer takes damage (${dmg(p, t)})` },
   evasion: { name: 'Evasion', icon: '💨', range: [0.05, 0.1], weight: 1, effect: { kind: 'evade', chance: 1 }, fits: isArmor, text: (c) => `${pct(c)} chance to slip a monster entirely` },
   virulence: { name: 'Virulence', icon: '🧫', range: [0.1, 0.25], weight: 1, boost: 'status', fits: isWeapon, text: (v) => `+${pct(v)} status effect strength (damaging effects hit harder; the others last longer or pull harder)` },
@@ -4257,7 +4270,7 @@ const BANE_SIDE_STAT: Record<Archetype, GearStat> = {
 
 const CATALOG_ACC_STATS: Record<string, number> = {
   damage: 0.06, rate: 0.05, crit: 0.02, gold: 0.15, drops: 0.15, range: 12, radius: 0.08, stun: 0.04,
-  cooldown: 0.015, critDamage: 0.06, duration: 0.06, statusChance: 0.01,
+  cooldown: 0.015, critDamage: 0.06, duration: 0.06, abilityPower: 0.08, statusChance: 0.01,
   // One weapon group's damage: a quarter more than plain damage, since it only works with that group.
   bowDamage: 0.075, gunDamage: 0.075, meleeDamage: 0.075, magicDamage: 0.075,
 };
@@ -4569,7 +4582,8 @@ export const GEAR_VARIANTS: Partial<Record<Rarity, Array<{ fx: number | 'unique'
 /** Rare gear only has built-in effects from this tier on (the middle of the Rare areas). */
 export const BUILT_IN_FROM_TIER = 5;
 /** Enchantments too plain to be a piece's built-in effect (it should do something you can see). */
-const PLAIN_ENCHANTS: ReadonlySet<EnchantId> = new Set(['potency', 'virulence', 'haste', 'amplify', 'binding']);
+// Lingering reads as a stat bonus (like Amplify), not an ability: Enchant can roll it, but no piece has it built in.
+const PLAIN_ENCHANTS: ReadonlySet<EnchantId> = new Set(['potency', 'virulence', 'haste', 'amplify', 'binding', 'lingering']);
 
 /** A piece's seeded random numbers (the same every game), from its id. */
 function gearRng(id: string): () => number {

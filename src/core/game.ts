@@ -440,7 +440,7 @@ export class Game {
    * weapon's own damage would get except the weapon itself.
    */
   abilityMult(who: Shooter, archetype?: Archetype): number {
-    return this.shotDamage(who, archetype) / Math.max(1e-9, this.weaponHitOf(who));
+    return (this.shotDamage(who, archetype) / Math.max(1e-9, this.weaponHitOf(who))) * (1 + this.abilityPower(who));
   }
 
   /**
@@ -957,8 +957,8 @@ export class Game {
   /** Multiplier on shot damage for each hit of the special: its base × (1 + weapon damage). */
   specialDamageMult(shooter: Shooter): number {
     const sp = shooter === 'main' ? undefined : hunterDef(shooter).special;
-    // The weapon powers it through the shot it multiplies (every hit starts from the weapon's damage).
-    return sp ? sp.damage : 0;
+    // The weapon powers it through the shot it multiplies (every hit starts from the weapon's damage); Ability power on top.
+    return sp ? sp.damage * (1 + this.abilityPower(shooter)) : 0;
   }
 
   /** Radius of the special: its base × (1 + weapon attack speed) × area bonuses (skills, gear). */
@@ -1097,7 +1097,7 @@ export class Game {
    * their mode; with no mode given, the 'long' (default) weapon counts.
    */
   gear(who: Shooter, mode: GearMode = 'long'): Record<GearStat, number> {
-    const total: Record<GearStat, number> = { damage: 0, rate: 0, range: 0, crit: 0, stun: 0, guard: 0, gold: 0, drops: 0, radius: 0, pierce: 0, cooldown: 0, critDamage: 0, duration: 0, statusChance: 0, bowDamage: 0, gunDamage: 0, meleeDamage: 0, magicDamage: 0 };
+    const total: Record<GearStat, number> = { damage: 0, rate: 0, range: 0, crit: 0, stun: 0, guard: 0, gold: 0, drops: 0, radius: 0, pierce: 0, cooldown: 0, critDamage: 0, duration: 0, abilityPower: 0, statusChance: 0, bowDamage: 0, gunDamage: 0, meleeDamage: 0, magicDamage: 0 };
     const slots = this.slotsOf(who);
     this.equipped(who).forEach((item, i) => {
       if (!item || (slots[i].role && slots[i].role !== mode)) return;
@@ -1154,12 +1154,18 @@ export class Game {
 
   /** How much stronger a Hunter's status effects are: more damage, or longer / stronger for ones that deal none (Virulence). */
   statusStrength(who: Shooter): number {
-    return 1 + this.enchantBoost(who, 'status');
+    // Virulence, and Status power (gear): damaging effects hit harder, the others take a firmer hold.
+    return 1 + this.enchantBoost(who, 'status') + this.gear(who).duration;
+  }
+
+  /** Ability power (gear): gear and enchantment abilities and Hunter specials hit harder and last longer. */
+  abilityPower(who: Shooter): number {
+    return this.gear(who).abilityPower;
   }
 
   /** Multiplier on how long a Hunter's summons last (Binding, and Lingering). */
   summonDurationMult(who: Shooter): number {
-    return 1 + this.enchantBoost(who, 'summonDur') + this.enchantBoost(who, 'duration');
+    return 1 + this.enchantBoost(who, 'summonDur') + this.enchantBoost(who, 'duration') + this.abilityPower(who);
   }
 
   /**
@@ -1167,7 +1173,7 @@ export class Game {
    * charm or a hold. Status effects take it too, with the rest of effectDurationMult.
    */
   lastingMult(who: Shooter): number {
-    return 1 + this.enchantBoost(who, 'duration');
+    return 1 + this.enchantBoost(who, 'duration') + this.abilityPower(who);
   }
 
   /** The total of Virulence, Binding, Haste, Amplify or Lingering across a Hunter's gear (Enchantments). */

@@ -5081,6 +5081,33 @@ describe('Field', () => {
     expect(f.rifts).toHaveLength(0);
   });
 
+  it('Ability power makes abilities hit harder and last longer; Status power makes statuses stronger; Lingering is never built in', () => {
+    const g = rich();
+    const base = { mult: g.abilityMult('main'), last: g.lastingMult('main'), status: g.statusStrength('main'), ext: g.effectDurationMult('main') };
+    const realGear = g.gear.bind(g);
+    g.gear = ((who: Parameters<Game['gear']>[0], mode?: Parameters<Game['gear']>[1]) => ({ ...realGear(who, mode), abilityPower: 0.5, duration: 0.4 })) as Game['gear'];
+    expect(g.abilityMult('main')).toBeCloseTo(base.mult * 1.5);
+    expect(g.lastingMult('main')).toBeCloseTo(base.last + 0.5);
+    expect(g.statusStrength('main')).toBeCloseTo(base.status + 0.4);
+    expect(g.effectDurationMult('main')).toBeCloseTo(base.ext + 0.4);
+    expect(GEAR.some((d) => d.builtIn?.some((b) => b.id === 'lingering'))).toBe(false);
+    expect(GEAR.filter((d) => d.stats.abilityPower).length).toBeGreaterThanOrEqual(5);
+  });
+
+  it('a stronger chill slows a monster further', () => {
+    const g = rich();
+    const f = new Field(g);
+    f.setView(390, 420);
+    const e = tough({ id: 1, x: 200, y: 0, speed: 50 });
+    f.enemies = [e];
+    e.slow = 5;
+    e.chill = 2;
+    const x0 = e.x;
+    f.update(0.1);
+    // Half speed, halved again: an eighth of a full-speed step's distance or so (it walks toward the Hunter).
+    expect(Math.abs(x0 - e.x)).toBeLessThan(50 * 0.1 * 0.3);
+  });
+
   it('Wilhelm has four slots, and his two weapon slots group together in the picker', () => {
     const g = rich();
     expect(g.slotsOf('wilhelm').map((s) => s.label)).toEqual(['Primary', 'Secondary', 'Armor', 'Accessory']);
