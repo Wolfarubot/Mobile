@@ -318,6 +318,8 @@ export interface GameState {
     questsIntro: boolean;
     /** The "how minigames work" tip, shown once the first minigame opens. */
     minigameIntro: boolean;
+    /** The "Introducing Feedback" announcement has been shown. */
+    feedbackIntro: boolean;
   };
   /** Per event: seconds of cooldown left, times started and times completed (a Guardian beaten, a swarm survived). */
   events: Record<string, EventState>;
@@ -450,7 +452,7 @@ export function newGame(now = Date.now()): GameState {
     lastSeen: now,
     samples: {},
     settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', lootPopups: true, hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', advancedTips: false, maxTrainPopup: true, autoSkillPopup: true, autoEvoPopup: true, autoSalvage: [], fx: allFx(), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium', orientation: 'rotate', fps: '60', textSize: 'medium', craftCardPos: 'battlefield', audio: defaultAudio() },
-    flags: { eventsIntro: false, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false, minigameIntro: false, questsIntro: false },
+    flags: { eventsIntro: false, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false, minigameIntro: false, questsIntro: false, feedbackIntro: false },
     blessings: { refine: 0, enchant: 0 },
     energy: ENERGY_MAX,
     buffs: {},
@@ -820,6 +822,8 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
       minigameIntro:
         !!(data.flags as { minigameIntro?: unknown } | undefined)?.minigameIntro ||
         Object.values((data.events ?? {}) as Record<string, { started?: number; best?: number }>).some((e) => (e?.best ?? 0) > 0),
+      // Every save from before it gets the announcement too.
+      feedbackIntro: !!(data.flags as { feedbackIntro?: unknown } | undefined)?.feedbackIntro,
     },
     seen: (() => {
       const s = (data.seen ?? {}) as Partial<Record<keyof SeenState, unknown>>;

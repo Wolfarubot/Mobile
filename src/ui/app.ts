@@ -191,7 +191,7 @@ import { ACC_TAG_ICONS, ARCHETYPE_TAG_ICONS, ARMOR_TAG_ICONS, DAMAGE_TAG_ICONS, 
 
 type Tab = TabId;
 /** The one-time tips (see App.tips), as the envelope keeps them. */
-type TipId = 'events' | 'train' | 'wolf' | 'craft' | 'empower' | 'minigames' | 'quests';
+type TipId = 'events' | 'train' | 'wolf' | 'craft' | 'empower' | 'minigames' | 'quests' | 'feedback';
 /** What treeView needs to draw and drive a skill or evolution tree. */
 interface TreeAdapter {
   nodes: TreeNode[];
@@ -4553,6 +4553,8 @@ export class AppUI {
       { id: 'empower', title: txt('popup.empower.title'), ready: () => !s.flags.empowerIntro && g.empowerUnlocked, mark: () => (s.flags.empowerIntro = true), show: (r) => this.showEmpowerIntro(r) },
       { id: 'minigames', title: txt('popup.minigames.title'), ready: () => !s.flags.minigameIntro && g.eventUnlocked('huntingPractice'), mark: () => (s.flags.minigameIntro = true), show: (r) => this.showMinigameIntro(r) },
       { id: 'quests', title: txt('popup.quests.title'), ready: () => !s.flags.questsIntro && g.questsOpen, mark: () => g.openQuestLog(), show: (r) => this.showQuestsIntro(r) },
+      // An announcement for everyone (a new player gets it once past their first training tip).
+      { id: 'feedback', title: txt('popup.feedback.title'), ready: () => !s.flags.feedbackIntro && s.flags.trainIntro, mark: () => (s.flags.feedbackIntro = true), show: (r) => this.showFeedbackIntro(r) },
     ];
   }
 
@@ -4561,7 +4563,8 @@ export class AppUI {
     const s = this.game.state;
     if (!s.flags.welcome) return;
     for (const t of this.tips()) {
-      if (!t.ready()) continue;
+      // An announcement pops up when you're back rather than waiting in the envelope.
+      if (!t.ready() || t.id === 'feedback') continue;
       t.mark();
       if (!s.mailbox.includes(t.id)) s.mailbox.push(t.id);
     }
@@ -4663,6 +4666,15 @@ export class AppUI {
     this.showModal(`<h2>${tx('popup.quests.title')}</h2>${txp('popup.quests.body', v)}`, [
       { label: txt('popup.quests.later'), secondary: true },
       { label: txt('popup.quests.go'), action: () => this.openQuests() },
+    ]);
+  }
+
+  /** Shown once: Submit Feedback is in Settings. */
+  private showFeedbackIntro(replay = false): void {
+    if (!replay) this.game.state.flags.feedbackIntro = true;
+    this.showModal(`<h2>${tx('popup.feedback.title')}</h2>${txp('popup.feedback.body', { settings: sprite(MENU_SPRITES.settings) })}`, [
+      { label: txt('popup.feedback.later'), secondary: true },
+      { label: txt('popup.feedback.go'), action: () => this.openSettings() },
     ]);
   }
 

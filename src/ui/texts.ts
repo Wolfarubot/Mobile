@@ -143,6 +143,18 @@ section(
 );
 section(
   P,
+  'popup.feedback',
+  'Introducing Feedback',
+  {
+    title: 'Introducing Feedback',
+    body: "Submitting feedback is now available in {settings} **Settings**! Open the menu at the top right and tap **Settings**.\n\nChoose what kind of feedback you'd like to submit and write a brief message.\n\nPlease don't hesitate to send in any **bugs**, **quality of life** changes, or **features** you'd like to see!",
+    later: 'Dismiss',
+    go: 'Open Settings',
+  },
+  { note: 'Shown once to every player (a new one once past the first training tip): Submit Feedback is in Settings.', vars: { settings: 'the Settings icon' } },
+);
+section(
+  P,
   'popup.eventsLocked',
   'Events locked',
   { title: 'Events locked', body: 'Slay {count} {noun} in the {area} to unlock the **Events** tab, starting with the **{event}**.\n\n**{progress}**', ok: 'OK' },
