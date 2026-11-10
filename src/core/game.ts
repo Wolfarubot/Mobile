@@ -1565,6 +1565,11 @@ export class Game {
     return (this.state.events[`guardian-${area}`]?.runs ?? 0) > 0;
   }
 
+  /** A Guardian's Bestiary entry wears its crown once it has been beaten (for the Time Eater, driven back). */
+  guardianBeaten(area: AreaId): boolean {
+    return (this.state.events[`guardian-${area}`]?.completed ?? 0) > 0;
+  }
+
   /** The Time Eater can be slain for good (not just driven back at half its health) once the Unbound Void Rift is yours. */
   get timeEaterMortal(): boolean {
     return this.ownsReg('unbound-rift');

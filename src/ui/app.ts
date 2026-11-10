@@ -2865,7 +2865,7 @@ export class AppUI {
     if (this.selectedBeast && !this.selectedBoss && this.newBeast(enemyDef(this.selectedBeast))) this.markSeen('beasts', this.selectedBeast);
     const tiles: Array<{ def: EnemyDef; boss: boolean; tile: HTMLElement; lv: HTMLElement; dot: HTMLElement; crown: HTMLElement }> = [];
     // An area's title wears the crown too once every one of its monsters is at its max level.
-    const areaCrowns: Array<{ crown: HTMLElement; defs: EnemyDef[] }> = [];
+    const areaCrowns: Array<{ crown: HTMLElement; defs: EnemyDef[]; area: AreaId }> = [];
     for (const areaId of order) {
       // Each area's header opens and closes its monsters, like Settings' categories (open to begin with; one you
       // close stays closed until the game restarts).
@@ -2875,9 +2875,9 @@ export class AppUI {
       const crown = el('img', 'area-crown hidden') as HTMLImageElement;
       crown.src = gearIconUrl('armor7/068') ?? '';
       crown.alt = '';
-      crown.title = 'Every monster here is at max level';
+      crown.title = 'Every monster here is at max level, and its Guardian beaten';
       $('.sc-name', title).prepend(crown);
-      areaCrowns.push({ crown, defs: areaEnemies(areaId) });
+      areaCrowns.push({ crown, defs: areaEnemies(areaId), area: areaId });
       this.panel.appendChild(title);
       const grid = el('div', 'hunter-grid');
       const draw = () => {
@@ -2913,12 +2913,14 @@ export class AppUI {
       this.panel.appendChild(grid);
     }
     this.refreshers.push(() => {
-      for (const { crown, defs } of areaCrowns) crown.classList.toggle('hidden', !defs.every((d) => g.state.bestiary[d.id].unlocked && g.monsterLevelInfo(d.id).level >= MAX_MONSTER_LEVEL));
+      // Every entry crowned: each monster at max level, and the area's Guardian (if it has one) beaten.
+      for (const { crown, defs, area } of areaCrowns)
+        crown.classList.toggle('hidden', !defs.every((d) => g.state.bestiary[d.id].unlocked && g.monsterLevelInfo(d.id).level >= MAX_MONSTER_LEVEL) || (!!GUARDIAN_ENEMY[area] && !g.guardianBeaten(area)));
       for (const { def, boss, tile, lv, dot, crown } of tiles) {
         // A Guardian: no levels, nothing to empower or unlock.
         if (boss) {
           lv.textContent = '👑 Guardian';
-          crown.classList.add('hidden');
+          crown.classList.toggle('hidden', !g.guardianBeaten(def.area));
           continue;
         }
         let ready: boolean;
@@ -3048,13 +3050,13 @@ export class AppUI {
     const row = el('div', 'hc-train guardian-row');
     row.innerHTML = '<span class="hc-lv">👑</span><div class="hc-mid guardian-record"></div>';
     $('.beast-actions', card).appendChild(row);
-    $('.max-crown', card).classList.add('hidden');
     $('.card-corner', card).append(el('span', 'expand-tag', 'Expand ›'));
     card.setAttribute('role', 'button');
     card.addEventListener('click', () => this.openMonsterDetail(def.id, true));
     this.refreshers.push(() => {
       const ev = g.state.events[`guardian-${def.area}`];
       setHtml($('.name', card), `${guardianName(def.area)}<span class="archetype">${arch.icon} ${arch.name}</span>${beastTags(def)} <small>Guardian of the ${areaDef(def.area).name}</small>`);
+      $('.max-crown', card).classList.toggle('hidden', !g.guardianBeaten(def.area));
       setHtml($('.guardian-record', row), `Challenged <b>${fmt(ev?.runs ?? 0)}</b> · beaten <b>${fmt(ev?.completed ?? 0)}</b>`);
     });
   }
@@ -3135,8 +3137,8 @@ export class AppUI {
     this.detail = { el: view, refreshers: [] };
     const scroll = $('.hd-scroll', view);
     const main = this.refreshers;
-    // (A Guardian entry has no level, so no crown.)
-    this.refreshers = [() => $('.max-crown', view).classList.toggle('hidden', asGuardian || !g.state.bestiary[id].unlocked || g.monsterLevelInfo(id).level < MAX_MONSTER_LEVEL)];
+    // A Guardian's entry is crowned once beaten; a monster's once at its max level.
+    this.refreshers = [() => $('.max-crown', view).classList.toggle('hidden', asGuardian ? !g.guardianBeaten(def.area) : !g.state.bestiary[id].unlocked || g.monsterLevelInfo(id).level < MAX_MONSTER_LEVEL)];
 
     // Sub-tabs, like the Hunter view: Stats (Empower and what it's worth) and Evolution (its tree).
     const tabs = el('div', 'subtabs');
