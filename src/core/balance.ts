@@ -289,21 +289,30 @@ export function powerDamage(trains: number): number {
   return 1 + TRAIN_DAMAGE * trains;
 }
 
-/** Most training sessions a level ever takes: from Lv 28 on, every level is this many. */
+/** Training sessions a level takes from Lv 28 until the ascension level (Guild Hunters Lv 50, your Hunter Lv 100). */
 export const TRAINS_PER_LEVEL_CAP = 30;
+/** Past the ascension level, each level takes one session more than the last, up to this many (20 levels on). */
+export const TRAINS_PER_LEVEL_MAX = 50;
+/** Guild Hunters ascend at Lv 50 (their curve ramps from there); your Hunter at Lv 100. */
+const HELPER_RAMP = 50;
 
-/** Training sessions needed to go from `level` to the next (Lv 1→2: 3, 2→3: 4, ... up to 30 a level from Lv 28). */
-export const trainsForLevel = (level: number): number => Math.min(level + 2, TRAINS_PER_LEVEL_CAP);
+/**
+ * Training sessions needed to go from `level` to the next: Lv 1→2 takes 3, 2→3 takes 4 ... up to 30 a level from
+ * Lv 28. From the ascension level (`ramp`) on it takes one more a level, up to 50 a level twenty levels later. The
+ * curve never starts over: ascending just opens the levels past it.
+ */
+export const trainsForLevel = (level: number, ramp = HELPER_RAMP): number =>
+  level < ramp ? Math.min(level + 2, TRAINS_PER_LEVEL_CAP) : Math.min(TRAINS_PER_LEVEL_CAP + (level - ramp), TRAINS_PER_LEVEL_MAX);
 
-/** Level reached after `trains` sessions, and progress toward the next one. */
-export function levelFromTrains(trains: number): { level: number; into: number; need: number } {
+/** Level reached after `trains` sessions, and progress toward the next one (`ramp`: where the curve climbs to 50). */
+export function levelFromTrains(trains: number, ramp = HELPER_RAMP): { level: number; into: number; need: number } {
   let level = 1;
   let left = trains;
-  while (left >= trainsForLevel(level)) {
-    left -= trainsForLevel(level);
+  while (left >= trainsForLevel(level, ramp)) {
+    left -= trainsForLevel(level, ramp);
     level++;
   }
-  return { level, into: left, need: trainsForLevel(level) };
+  return { level, into: left, need: trainsForLevel(level, ramp) };
 }
 
 /** Your Hunter's training cost: `MAIN_TRAIN_COST × MAIN_TRAIN_GROWTH^trains`. Guild Hunters use helperTrainCost. */
@@ -544,7 +553,7 @@ export const MAIN_ASCEND_NODE: SkillNode = {
   id: 'ascend',
   name: 'Ascend',
   icon: '🌟',
-  desc: 'Become the Slayer, with a new Skill Tree and training up to Lv 200. Keeps Lv 100, and the level curve starts over (one session to reach Lv 101).',
+  desc: 'Become the Slayer, with a new Skill Tree and training up to Lv 200. Keeps Lv 100 and its training: from here each level takes one session more than the last, from 30 up to 50 a level at Lv 120.',
   maxRank: 1,
   cost: 10,
   effect: {},
@@ -623,7 +632,7 @@ export const ASCEND_NODE: SkillNode = {
   id: 'ascend',
   name: 'Ascend',
   icon: '🌟',
-  desc: 'Ascend, with a new title, a new Skill Tree, and training up to Lv 100. Keeps Lv 50, and the level curve starts over (one session to reach Lv 51).',
+  desc: 'Ascend, with a new title, a new Skill Tree, and training up to Lv 100. Keeps Lv 50 and its training: from here each level takes one session more than the last, from 30 up to 50 a level at Lv 70.',
   maxRank: 1,
   cost: 10,
   effect: {},
@@ -632,24 +641,12 @@ export const ASCEND_NODE: SkillNode = {
   row: 4,
 };
 
-/** Level after `sessions` training sessions since ascending (Lv 50 → 51 takes 1, 51 → 52 takes 2, ...). */
-export function levelAfterAscending(sessions: number, from = ASCEND_LEVEL, to = MAX_LEVEL): { level: number; into: number; need: number } {
-  let level = from;
-  let left = sessions;
-  while (level < to && left >= level - from + 1) {
-    left -= level - from + 1;
-    level++;
-  }
-  return { level, into: left, need: level - from + 1 };
-}
+/** Sessions from Lv 1 to `level` (`ramp`: where the curve climbs; see trainsForLevel). */
+export const sessionsToLevel = (level: number, ramp = HELPER_RAMP): number => Array.from({ length: level - 1 }, (_, i) => trainsForLevel(i + 1, ramp)).reduce((a, b) => a + b, 0);
 
-/** Sessions from Lv 1 to `level` on the normal curve, and from ascending at `from` to `to` on the restarted one. */
-export const sessionsToLevel = (level: number): number => Array.from({ length: level - 1 }, (_, i) => trainsForLevel(i + 1)).reduce((a, b) => a + b, 0);
-export const sessionsAfterAscending = (from: number, to: number): number => ((to - from) * (to - from + 1)) / 2;
-
-/** Sessions from Lv 1 to the pre-ascension cap, and from ascending to the final cap. */
-export const SESSIONS_TO_ASCEND = Array.from({ length: ASCEND_LEVEL - 1 }, (_, i) => trainsForLevel(i + 1)).reduce((a, b) => a + b, 0);
-export const SESSIONS_AFTER_ASCEND = Array.from({ length: MAX_LEVEL - ASCEND_LEVEL }, (_, i) => i + 1).reduce((a, b) => a + b, 0);
+/** A Guild Hunter's sessions from Lv 1 to the pre-ascension cap, and from there on to the final cap. */
+export const SESSIONS_TO_ASCEND = sessionsToLevel(ASCEND_LEVEL);
+export const SESSIONS_AFTER_ASCEND = sessionsToLevel(MAX_LEVEL) - SESSIONS_TO_ASCEND;
 
 /**
  * The tree a Hunter grows after ascending (50 points: Lv 51–100). Mastery, Fervor and Resolve for everyone; then
@@ -5359,8 +5356,8 @@ export function minigameStars(def: EventDef): number[] {
 }
 
 /** Your Hunter's sessions from Lv 1 to 100, and from becoming the Slayer to Lv 200. */
-export const MAIN_SESSIONS_TO_ASCEND = sessionsToLevel(MAIN_ASCEND_LEVEL);
-export const MAIN_SESSIONS_AFTER_ASCEND = sessionsAfterAscending(MAIN_ASCEND_LEVEL, MAIN_MAX_LEVEL);
+export const MAIN_SESSIONS_TO_ASCEND = sessionsToLevel(MAIN_ASCEND_LEVEL, MAIN_ASCEND_LEVEL);
+export const MAIN_SESSIONS_AFTER_ASCEND = sessionsToLevel(MAIN_MAX_LEVEL, MAIN_ASCEND_LEVEL) - MAIN_SESSIONS_TO_ASCEND;
 
 // ---- Names and descriptions the Text editor can change (gear and Upgrades are the Item Forge's, tree nodes the
 // Skill Trees editor's). An edit replaces the field in place, so everything that reads it shows the new text; text

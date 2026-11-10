@@ -116,6 +116,7 @@ import {
   eventDef,
   ENEMIES,
   REGRESSION_TREE,
+  trainsForLevel,
   DOOM_MULT,
   RARE_MATERIALS,
   IDOL_DROP_STEPS,
@@ -1155,7 +1156,7 @@ describe('Shops', () => {
     expect(helperMaxAffordable(base, k - 5, ten, 4)).toBe(4);
   });
 
-  it('Ascension: gold node after a full tree (10 points = Lv 50), level curve restarts, new tree to Lv 100', () => {
+  it('Ascension: gold node after a full tree (10 points = Lv 50), the curve climbs on from 30 a level, new tree to Lv 100', () => {
     const g = rich();
     g.recruit('alchemist');
     const t = g.state.hunters.alchemist;
@@ -1174,16 +1175,22 @@ describe('Shops', () => {
     const cost = g.trainPurchase('alchemist', 1);
     expect(g.titleOf('alchemist')).toBe('Alchemist');
     expect(g.learn('alchemist', 'ascend')).toBe(true);
-    // Ascended: new title, still Lv 50, 1 session to Lv 51, and the price picks up where it was.
+    // Ascended: new title, still Lv 50, 30 sessions to Lv 51 (one more each level after, up to 50 at Lv 70), and the
+    // price picks up where it was.
     expect(g.ascended('alchemist')).toBe(true);
     expect(g.titleOf('alchemist')).toBe(hunterDef('alchemist').ascendedTitle);
-    expect(g.levelInfo('alchemist')).toEqual({ level: 50, into: 0, need: 1 });
+    expect(g.levelInfo('alchemist')).toEqual({ level: 50, into: 0, need: 30 });
+    expect(trainsForLevel(51)).toBe(31);
+    expect(trainsForLevel(70)).toBe(50);
+    expect(trainsForLevel(90)).toBe(50);
     expect(g.skillPoints('alchemist')).toBe(0);
     const after = g.trainPurchase('alchemist', 1);
     expect(after.count).toBe(1);
     g.state.gold = 1e300;
     g.state.buyAmount = 1;
     expect(g.train('alchemist')).toBe(true);
+    expect(g.levelOf('alchemist')).toBe(50);
+    t.trains += 29;
     expect(g.levelOf('alchemist')).toBe(51);
     // The price carries on from where it was: the first session after ascending costs what the next one would have.
     const base = helperTrainCost(hunterDef('alchemist'));
@@ -1204,6 +1211,22 @@ describe('Shops', () => {
     expect(back.hunters.alchemist.skills2).toEqual(t.skills2);
   });
 
+  it('a Hunter whose level fell under the points they had spent (the curve no longer restarts) gets their ascended tree back', () => {
+    const s = rich().state;
+    const t = s.hunters.alchemist;
+    t.recruited = true;
+    t.trains = SESSIONS_TO_ASCEND + 400; // Lv 61 on the new curve (30 + 31 + … + 40); Lv 77 on the old restarted one
+    t.ascendAt = SESSIONS_TO_ASCEND;
+    t.skills = Object.fromEntries(SKILL_TREES.alchemist.map((n) => [n.id, n.maxRank]));
+    t.skills.ascend = 1;
+    t.skills2 = Object.fromEntries(ASCENDED_TREES.alchemist.slice(0, 6).map((n) => [n.id, n.maxRank]));
+    const g = new Game(s, noCrit);
+    expect(g.levelOf('alchemist')).toBe(61);
+    expect(g.skillPoints('alchemist')).toBeGreaterThanOrEqual(0);
+    expect(g.ascended('alchemist')).toBe(true);
+    expect(g.skill('alchemist', 'ascend')).toBe(1);
+  });
+
   it("the Slayer: your Hunter's tree runs to Lv 90, Ascend at Lv 100, then the Slayer's tree to Lv 200", () => {
     const g = rich();
     const t = g.state.main;
@@ -1222,7 +1245,9 @@ describe('Shops', () => {
     expect(g.skillPoints('main')).toBe(10);
     expect(g.learn('main', 'ascend')).toBe(true);
     expect(g.titleOf('main')).toBe('Slayer');
-    expect(g.levelInfo('main')).toEqual({ level: 100, into: 0, need: 1 });
+    expect(g.levelInfo('main')).toEqual({ level: 100, into: 0, need: 30 });
+    expect(trainsForLevel(101, MAIN_ASCEND_LEVEL)).toBe(31);
+    expect(trainsForLevel(120, MAIN_ASCEND_LEVEL)).toBe(50);
     expect(g.trainPurchase('main', 1).count).toBe(1);
     t.trains = t.ascendAt! + MAIN_SESSIONS_AFTER_ASCEND;
     expect(g.levelOf('main')).toBe(MAIN_MAX_LEVEL);

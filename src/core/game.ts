@@ -43,7 +43,6 @@ import {
   SLAYER_TREE,
   MAIN_SESSIONS_TO_ASCEND,
   MAIN_SESSIONS_AFTER_ASCEND,
-  levelAfterAscending,
   MAX_LEVEL,
   SESSIONS_AFTER_ASCEND,
   SESSIONS_TO_ASCEND,
@@ -370,6 +369,14 @@ export class Game {
         if (!n) delete b.evo[node];
         else if (rank > n.maxRank) b.evo[node] = n.maxRank;
       }
+    }
+    // The level curve changed (no restart after ascending): a Hunter now below the points they've spent gets their
+    // ascended tree's points back to spend again (and, should that not be enough, their first tree's, Ascend kept).
+    for (const who of ['main', ...HUNTERS.map((h) => h.id)] as Wearer[]) {
+      const t = this.training(who);
+      if (this.skillPoints(who) >= 0) continue;
+      t.skills2 = {};
+      if (this.skillPoints(who) < 0) t.skills = t.skills.ascend ? { ascend: t.skills.ascend } : {};
     }
     // Gear that no longer fits its slot (shields became accessories): moved to the wearer's free accessory slot,
     // or taken off.
@@ -2935,17 +2942,11 @@ export class Game {
 
   /** Level from training, and sessions done / needed toward the next one (the curve starts over after ascending). */
   levelInfo(who: Wearer): { level: number; into: number; need: number } {
-    const t = this.training(who);
-    if (who === 'main') {
-      if (t.ascendAt !== undefined) return levelAfterAscending(t.trains - t.ascendAt, MAIN_ASCEND_LEVEL, MAIN_MAX_LEVEL);
-      const info = levelFromTrains(t.trains);
-      // Saves from before the cap could be past it: hold them at Lv 100 until they ascend.
-      return info.level >= MAIN_ASCEND_LEVEL ? { level: MAIN_ASCEND_LEVEL, into: 0, need: 1 } : info;
-    }
-    if (t.ascendAt !== undefined) return levelAfterAscending(t.trains - t.ascendAt);
-    // Training past Lv 50 without ascending (saves from before the 30-a-level cap): held at Lv 50 until they ascend.
-    const info = levelFromTrains(t.trains);
-    return info.level >= ASCEND_LEVEL ? { level: ASCEND_LEVEL, into: 0, need: 1 } : info;
+    // One curve all the way (it never starts over): ascending just opens the levels past the cap. Training past the
+    // cap without ascending (older saves) holds at the cap until they do.
+    const info = levelFromTrains(this.training(who).trains, who === 'main' ? MAIN_ASCEND_LEVEL : ASCEND_LEVEL);
+    const cap = this.maxLevel(who);
+    return info.level >= cap ? { level: cap, into: 0, need: 1 } : info;
   }
 
   levelOf(who: Wearer): number {
@@ -2966,9 +2967,9 @@ export class Game {
   /** Training sessions left before they hit their level cap. */
   sessionsLeft(who: Wearer): number {
     const t = this.training(who);
-    if (who === 'main')
-      return Math.max(0, t.ascendAt !== undefined ? MAIN_SESSIONS_AFTER_ASCEND - (t.trains - t.ascendAt) : MAIN_SESSIONS_TO_ASCEND - t.trains);
-    return Math.max(0, t.ascendAt !== undefined ? SESSIONS_AFTER_ASCEND - (t.trains - t.ascendAt) : SESSIONS_TO_ASCEND - t.trains);
+    const asc = this.ascended(who);
+    const total = who === 'main' ? MAIN_SESSIONS_TO_ASCEND + (asc ? MAIN_SESSIONS_AFTER_ASCEND : 0) : SESSIONS_TO_ASCEND + (asc ? SESSIONS_AFTER_ASCEND : 0);
+    return Math.max(0, total - t.trains);
   }
 
   /** Their title: Guild Hunters take a new one when they ascend; your Hunter becomes the Slayer. */
@@ -3044,7 +3045,7 @@ export class Game {
     if (!this.canLearn(who, id, which)) return false;
     const t = this.training(who);
     if (which === 'base' && id === 'ascend') {
-      // Ascend: keep the level (Lv 50, or Lv 100 for your Hunter), start the level curve over from here (the training price carries on), open the next tree.
+      // Ascend: keep the level (Lv 50, or Lv 100 for your Hunter) and its training, and open the levels past it and the next tree.
       t.ascendAt = t.trains;
       t.skills2 = {};
       return true;
