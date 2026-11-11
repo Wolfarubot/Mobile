@@ -1880,7 +1880,14 @@ export const LOOT_ACCRUE_CAP = 200;
  * How deep into the game a material comes from: its area's index, plus how far into the area the first
  * monster dropping it is met (its place in the unlock order, up to +0.8; a Guardian's material is +0.9).
  */
+const MATERIAL_DEPTH = new Map<MaterialId, number>();
 export function materialDepth(m: MaterialId): number {
+  // Worked out once per material (gear stats ask for it on every hit).
+  let d = MATERIAL_DEPTH.get(m);
+  if (d === undefined) MATERIAL_DEPTH.set(m, (d = materialDepthOf(m)));
+  return d;
+}
+function materialDepthOf(m: MaterialId): number {
   // An Unbound copy sits UNBOUND_TIERS deeper: the Unbound Woods' are area 13's.
   if (isUnboundId(m)) return UNBOUND_TIERS + materialDepth(unboundBase(m) as BaseMaterialId);
   let best = Infinity;
@@ -1899,11 +1906,16 @@ export function materialDepth(m: MaterialId): number {
  * its recipe, so gear made from materials further into an area is a little stronger (Forest gear runs from
  * 1.0 for Green Slime up to 1.9 for Royal Slime).
  */
+const GEAR_TIER = new WeakMap<GearDef, number>();
 export function gearTier(def: GearDef): number {
   if (def.tier) return def.tier;
-  let t = 0;
-  for (const m of Object.keys(def.recipe) as MaterialId[]) t = Math.max(t, materialDepth(m));
-  return 1 + Math.round(t * 100) / 100;
+  let tier = GEAR_TIER.get(def);
+  if (tier === undefined) {
+    let t = 0;
+    for (const m of Object.keys(def.recipe) as MaterialId[]) t = Math.max(t, materialDepth(m));
+    GEAR_TIER.set(def, (tier = 1 + Math.round(t * 100) / 100));
+  }
+  return tier;
 }
 
 /** The area a piece of gear comes from (its whole tier). */
@@ -3602,6 +3614,8 @@ export const TYPE_SPELLS: Record<DamageType, SpellId[]> = {
 };
 /** Raise Dead: how long a risen monster fights, and how often it bites (each bite: the spell's cast × `k`). */
 export const RISEN = { life: 6, bites: 1, k: 0.5 };
+/** At most this many risen monsters fight for one Hunter at once (more fall without rising). */
+export const RISEN_MAX = 20;
 /**
  * Boulder: how fast it starts rolling, how much each monster it crushes slows it (×), how much speed it loses each
  * second on its own, the speed it stops and

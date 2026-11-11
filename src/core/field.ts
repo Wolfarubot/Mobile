@@ -20,6 +20,7 @@ import {
   MIASMA_PUDDLE,
   SPELLS,
   RISEN,
+  RISEN_MAX,
   ANCHOR_COLLAPSE,
   PLAGUE_SPREAD,
   BOULDER,
@@ -3004,6 +3005,9 @@ export class Field {
   private raiseFallen(e: Enemy): void {
     const z = this.zones.find((z) => z.kind === 'raiseDead' && Math.hypot(e.x - z.x, e.y - z.y) <= z.r + e.r);
     if (!z || e.boss) return;
+    // A cap per Hunter: with monsters pouring in, the risen would otherwise pile up into the hundreds.
+    let risen = 0;
+    for (const s of this.summons) if (s.risen && s.who === z.c.who && ++risen >= RISEN_MAX) return;
     const look = enemyDef(e.type);
     this.summons.push({ who: z.c.who, type: 'undead', x: e.x, y: e.y, life: RISEN.life * this.game.summonDurationMult(z.c.who), maxLife: RISEN.life * this.game.summonDurationMult(z.c.who), bite: 0, look: 'wisp', dash: 0, dashHit: false, risen: { c: z.c, enemy: look.id } });
     this.events.push({ type: 'spell', fx: 'rise', x: e.x, y: e.y, r: e.r + 8, color: DAMAGE_TYPES.decay.color });
