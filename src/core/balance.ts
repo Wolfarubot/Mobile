@@ -1547,11 +1547,19 @@ const UNBOUND_STEPS = [7.5, 7.5, 15, 22.5, 22.5];
 const UNBOUND_RINGS = [UNBOUND_IN, UNBOUND_OUT, UNBOUND_RING, UNBOUND_IN, UNBOUND_OUT];
 /** Which of the nodes between two areas is the hub (1-based, as in their ids `ring-<area>-<j>`). */
 const UNBOUND_HUB = 3;
-/** Shards for the k-th node round the ring (the Woods is 0): ×1.14 a step, two significant figures. */
-/** Shards for the Unbound Woods, the ring's first node; every node after costs ×1.14 the last (tuned by the pacing sim). */
+/** Shards for the Unbound Woods, the ring's first node (bought about Regression 8). */
 export const UNBOUND_BASE_COST = 1_000_000;
+/**
+ * Past the Unbound Woods the ring is paced by play time rather than by Regressions: the first node after the Woods
+ * costs UNBOUND_RING_COST and each one after ×UNBOUND_COST_STEP the last, so a typical player spends about 6-7 days
+ * in the Unbound Woods before the Unbound Fey Grove, 7-8 days there, and a day or two more in each area after (each
+ * area pays about three times the last; tuned by the pacing sim).
+ */
+export const UNBOUND_RING_COST = 2_600_000;
+export const UNBOUND_COST_STEP = 1.226;
+/** Shards for the k-th node round the ring (the Woods is 0), to two significant figures. */
 const unboundCost = (k: number): number => {
-  const v = UNBOUND_BASE_COST * 1.14 ** k;
+  const v = k === 0 ? UNBOUND_BASE_COST : UNBOUND_RING_COST * UNBOUND_COST_STEP ** (k - 1);
   const p = 10 ** (Math.floor(Math.log10(v)) - 1);
   return Math.round(v / p) * p;
 };
