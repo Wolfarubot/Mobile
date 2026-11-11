@@ -5538,8 +5538,12 @@ export const UNBOUND_GEAR: GearDef[] = GEAR.filter((g) => !g.starter).map((g) =>
 export const UNBOUND_HP_STEP = 2.2;
 export const UNBOUND_GOLD_STEP = 30;
 export const UNBOUND_GUARDIAN_STEP = 2.5;
-/** How much harder an Unbound area is than the trend it carries on (its monsters' health and its Guardian's). */
-export const UNBOUND_BUMP = 3;
+/**
+ * How much harder an Unbound area is than the trend it carries on (its monsters' health and its Guardian's): set so
+ * a team arriving in the Unbound Woods (about Regression 8) needs several hits a monster, as on reaching a new
+ * area in the first run (your Hunter about 6, the team's median about 20).
+ */
+export const UNBOUND_BUMP = 75;
 const UNBOUND_AREA_MAP = new Map<AreaId, AreaDef>();
 export function unboundAreaDef(area: AreaId): AreaDef {
   let d = UNBOUND_AREA_MAP.get(area);
