@@ -536,7 +536,7 @@ it.runIf(!!process.env.SIM_FULL)('full game: a typical player beats the Time Eat
       const close = Number(process.env.SIM_CLOSE ?? 1.25);
       const near = hi <= budget * close;
       wantNodes.at = near ? n + 1 : n;
-      log(`  Time Eater ${beaten !== null ? 'down' : 'lost to'}: a Regression now would pay ${g.shardsNow} shards (${budget} to spend) for ${n} node${n === 1 ? '' : 's'}; a ${n + 1}${n + 1 === 1 ? 'st' : n + 1 === 2 ? 'nd' : n + 1 === 3 ? 'rd' : 'th'} needs ${Math.ceil(hi)}: ${near ? 'close, playing on for it' : 'too far off, regressing now'}`);
+      log(`  ${farming ? 'Farming' : `Time Eater ${beaten !== null ? 'down' : 'lost to'}`}: a Regression now would pay ${g.shardsNow} shards (${budget} to spend) for ${n} node${n === 1 ? '' : 's'}; a ${n + 1}${n + 1 === 1 ? 'st' : n + 1 === 2 ? 'nd' : n + 1 === 3 ? 'rd' : 'th'} needs ${Math.ceil(hi)}: ${near ? 'close, playing on for it' : 'too far off, regressing now'}`);
     }
     if (n < wantNodes.at) return false;
     log(`  ready to regress (day ${(now / 86400).toFixed(2)}): ${g.shardsNow} shards (${budget} to spend) buy ${n} nodes`);
@@ -547,25 +547,21 @@ it.runIf(!!process.env.SIM_FULL)('full game: a typical player beats the Time Eat
   const started = Date.now();
   // SIM_UNTIL=90 plays on to that day (past the Time Eater too) and stops there.
   const until = process.env.SIM_UNTIL ? Number(process.env.SIM_UNTIL) * 86400 : null;
-  // The Unbound loop: with an Unbound area owned, the run stays there farming and regresses once the shards would
-  // buy the next Unbound area's node (no Time Eater).
+  // The Unbound loop: with an Unbound area owned, the run stays there farming (no Time Eater) and regresses the way
+  // it would after a Time Eater win: once the shards buy at least one node, playing on for one more if it's close.
   const farming = !process.env.SIM_NO_FARM && AREAS.some((a) => g.isUnbound(a.id));
   const nextUnbound = REGRESSION_TREE.find((n) => n.id.startsWith('unbound-') && n.area && !g.ownsReg(n.id));
   let lastFarmLog = -1;
   const farmReady = (): boolean => {
     if (!nextUnbound) return false;
     const budget = g.state.regression.shards + g.shardsNow;
-    const copy = new Game(deserialize(serialize(g.state))!, () => 0.5);
-    copy.state.regression.shards = budget;
-    botTree(copy);
     const day = Math.floor(now / 86400);
     if (day !== lastFarmLog) {
       lastFarmLog = day;
       log(`  [farm day ${day}] in ${g.areaStats(g.state.area).name}: ${g.shardsNow} shards this run (${budget} to spend); ${nextUnbound.name} costs ${g.regCostOf(nextUnbound.id)}`);
     }
-    if (!copy.ownsReg(nextUnbound.id)) return false;
-    log(`  ready to regress (day ${(now / 86400).toFixed(2)}): ${g.shardsNow} shards (${budget} to spend) buy ${nextUnbound.name}`);
-    return true;
+    if (plannedBuys(g, budget) < 1) return false;
+    return regressReady();
   };
   for (const [start, length] of sessions) {
     if (stopped || (until !== null ? start >= until : farming ? farmReady() : (beaten !== null || lostAt !== null) && regressReady())) break;
