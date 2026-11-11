@@ -1562,7 +1562,7 @@ export const UNBOUND_BASE_COST = 1_000_000;
 export const UNBOUND_RING_COST = 2_270_000;
 export const UNBOUND_WOODS_STEP = 1.2;
 export const UNBOUND_IN_STEP = 1.1;
-export const UNBOUND_AREA_STEP = 4.5;
+export const UNBOUND_AREA_STEP = 4.7;
 /** Shards for the k-th node round the ring (the Woods is 0), to two significant figures. */
 const unboundCost = (k: number): number => {
   const area = Math.floor((k - 1) / (UNBOUND_BETWEEN + 1));
