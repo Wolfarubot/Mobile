@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { areaDef, weaponHit, UNBOUND_GEAR, GEAR_WORTH_WEIGHT, gearCost, gearDef, HUNTERS, MATERIAL_WORTH, MATERIALS, regNode, REGRESSION_LINKS, REGRESSION_TREE, shardsFor, SHARD_POWER, TIME_EATER_GROWTH, timeEaterGrowth, type MaterialId } from '../src/core/balance';
+import { areaDef, weaponHit, UNBOUND_GEAR, UNBOUND_GEAR_TIERS, gearTier, GEAR_WORTH_WEIGHT, gearCost, gearDef, HUNTERS, MATERIAL_WORTH, MATERIALS, regNode, REGRESSION_LINKS, REGRESSION_TREE, shardsFor, SHARD_POWER, TIME_EATER_GROWTH, timeEaterGrowth, type MaterialId } from '../src/core/balance';
 import { Game } from '../src/core/game';
 import { Field } from '../src/core/field';
 import { estimateInvested, gearInvested, regress, runWorth } from '../src/core/regression';
@@ -439,9 +439,10 @@ describe('Unbound areas', () => {
     expect(g.enemyStats('greenSlime').material).toBe('u_goo');
     expect(g.isUnbound('glade')).toBe(false);
     expect(g.enemyStats('pixie').material).not.toMatch(/^u_/);
-    // Loot here is Unbound gear: the same piece, area-13 strong.
+    // Loot here is Unbound gear: the same piece, UNBOUND_GEAR_TIERS tiers stronger.
     expect(gearDef(g.dropLoot('forest', true).gear).unboundOf).toBeTruthy();
-    expect(weaponHit(gearDef('u_slimeSword'), 1)).toBeGreaterThan(weaponHit(gearDef('slimeSword'), 1) * 100);
+    expect(gearTier(gearDef('u_slimeSword'))).toBeCloseTo(gearTier(gearDef('slimeSword')) + UNBOUND_GEAR_TIERS, 2);
+    expect(weaponHit(gearDef('u_slimeSword'), 1)).toBeGreaterThan(weaponHit(gearDef('slimeSword'), 1) * 5);
     // One more built-in effect than its original, on every piece (so even Common gear has one).
     for (const u of UNBOUND_GEAR) expect(u.builtIn?.length ?? 0).toBe((gearDef(u.unboundOf!).builtIn?.length ?? 0) + 1);
     // Through a Regression: Unbound materials and gear stay (worn pieces stay worn); ordinary ones go.

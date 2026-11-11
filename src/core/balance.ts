@@ -5455,6 +5455,12 @@ editableData('Shop', 'premium', textRec(PREMIUM_UPGRADES, (d) => `Upgrade kind Â
 
 /** How many tiers deeper an Unbound area is than its original: the Unbound Woods is area 13. */
 export const UNBOUND_TIERS = 12;
+/**
+ * How many tiers stronger an Unbound piece of gear is than its original (its weapon hit, stats, abilities and bane
+ * are that tier's). Fewer than UNBOUND_TIERS: a team in Unbound gear still needs several hits a monster, while a
+ * team fresh from a Regression, in its starting kit, can still make headway.
+ */
+export const UNBOUND_GEAR_TIERS = 4;
 /** Is this an Unbound copy's id (`u_â€¦`)? (Functions, not arrows: the gear catalog calls them while the module loads.) */
 export function isUnboundId(id: string): boolean {
   return id.startsWith('u_');
@@ -5502,7 +5508,7 @@ function unboundGearDef(id: UnboundGearId): GearDef {
   if (d) return d;
   const base = byId(GEAR, unboundBase(id));
   const t0 = gearTier(base);
-  const t1 = t0 + UNBOUND_TIERS;
+  const t1 = t0 + UNBOUND_GEAR_TIERS;
   const k = tierStatScale(t1) / Math.max(0.1, tierStatScale(t0));
   const hk = tierHitAt(t1) / tierHitAt(t0);
   const stats: GearDef['stats'] = {};
@@ -5514,7 +5520,7 @@ function unboundGearDef(id: UnboundGearId): GearDef {
     id,
     unboundOf: base.id as BaseGearId,
     recipe,
-    ...(base.tier ? { tier: base.tier + UNBOUND_TIERS } : {}),
+    tier: Math.round(t1 * 100) / 100,
     ...(base.hit ? { hit: Math.round(base.hit * hk * 10) / 10 } : {}),
     // Weapons' own stats are what kind of weapon they are; everything else grows with the tier.
     stats: base.weaponClass ? { ...base.stats } : stats,
