@@ -1550,16 +1550,21 @@ const UNBOUND_HUB = 3;
 /** Shards for the Unbound Woods, the ring's first node (bought about Regression 8). */
 export const UNBOUND_BASE_COST = 1_000_000;
 /**
- * Past the Unbound Woods the ring is paced by play time rather than by Regressions: the first node after the Woods
- * costs UNBOUND_RING_COST and each one after ×UNBOUND_COST_STEP the last, so a typical player spends about 6-7 days
- * in the Unbound Woods before the Unbound Fey Grove, 7-8 days there, and a day or two more in each area after (each
- * area pays about three times the last; tuned by the pacing sim).
+ * Past the Unbound Woods the ring is paced by play time rather than by Regressions: a typical player spends about
+ * 6-7 days in the Unbound Woods before the Unbound Fey Grove, 7-8 days there, and a day or two more in each area
+ * after. Each area's six nodes (its five between-nodes, then the next area) start at its base price and climb
+ * ×UNBOUND_IN_STEP a node; each area's base is ×UNBOUND_AREA_STEP the last, as each Unbound area pays about three
+ * times the shards of the one before. Prices sit close to what a day's farming pays at that point (a run's shards
+ * grow only with the fifth root of its gold, so a price much above that takes many days), tuned by the pacing sim.
  */
-export const UNBOUND_RING_COST = 2_600_000;
-export const UNBOUND_COST_STEP = 1.226;
+export const UNBOUND_RING_COST = 2_200_000;
+export const UNBOUND_IN_STEP = 1.2;
+export const UNBOUND_AREA_STEP = 3.8;
 /** Shards for the k-th node round the ring (the Woods is 0), to two significant figures. */
 const unboundCost = (k: number): number => {
-  const v = k === 0 ? UNBOUND_BASE_COST : UNBOUND_RING_COST * UNBOUND_COST_STEP ** (k - 1);
+  const area = Math.floor((k - 1) / (UNBOUND_BETWEEN + 1));
+  const j = (k - 1) % (UNBOUND_BETWEEN + 1);
+  const v = k === 0 ? UNBOUND_BASE_COST : UNBOUND_RING_COST * UNBOUND_AREA_STEP ** area * UNBOUND_IN_STEP ** j;
   const p = 10 ** (Math.floor(Math.log10(v)) - 1);
   return Math.round(v / p) * p;
 };
