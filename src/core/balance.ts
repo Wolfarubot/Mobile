@@ -1552,19 +1552,22 @@ export const UNBOUND_BASE_COST = 1_000_000;
 /**
  * Past the Unbound Woods the ring is paced by play time rather than by Regressions: a typical player spends about
  * 6-7 days in the Unbound Woods before the Unbound Fey Grove, 7-8 days there, and a day or two more in each area
- * after. Each area's six nodes (its five between-nodes, then the next area) start at its base price and climb
- * ×UNBOUND_IN_STEP a node; each area's base is ×UNBOUND_AREA_STEP the last, as each Unbound area pays about three
- * times the shards of the one before. Prices sit close to what a day's farming pays at that point (a run's shards
- * grow only with the fifth root of its gold, so a price much above that takes many days), tuned by the pacing sim.
+ * after. Each area's six nodes (its five between-nodes, then the next area) start at its base price and climb a
+ * little a node: ×UNBOUND_WOODS_STEP in the Woods (whose nodes lift the shards a run pays steeply: Unbound Bounty,
+ * Echoes of Eternity) and ×UNBOUND_IN_STEP after. From the Grove on each area's base is ×UNBOUND_AREA_STEP the last
+ * (the Woods' is UNBOUND_RING_COST), as each Unbound area pays about three times the shards of the one before.
+ * Prices sit close to what a day's farming pays at that point (a run's shards grow only with the fifth root of its
+ * gold, so a price much above that takes many days), tuned by the pacing sim.
  */
-export const UNBOUND_RING_COST = 2_200_000;
-export const UNBOUND_IN_STEP = 1.2;
-export const UNBOUND_AREA_STEP = 3.8;
+export const UNBOUND_RING_COST = 2_270_000;
+export const UNBOUND_WOODS_STEP = 1.2;
+export const UNBOUND_IN_STEP = 1.1;
+export const UNBOUND_AREA_STEP = 4.5;
 /** Shards for the k-th node round the ring (the Woods is 0), to two significant figures. */
 const unboundCost = (k: number): number => {
   const area = Math.floor((k - 1) / (UNBOUND_BETWEEN + 1));
   const j = (k - 1) % (UNBOUND_BETWEEN + 1);
-  const v = k === 0 ? UNBOUND_BASE_COST : UNBOUND_RING_COST * UNBOUND_AREA_STEP ** area * UNBOUND_IN_STEP ** j;
+  const v = k === 0 ? UNBOUND_BASE_COST : area === 0 ? UNBOUND_RING_COST * UNBOUND_WOODS_STEP ** j : UNBOUND_RING_COST * UNBOUND_AREA_STEP ** area * UNBOUND_IN_STEP ** j;
   const p = 10 ** (Math.floor(Math.log10(v)) - 1);
   return Math.round(v / p) * p;
 };
