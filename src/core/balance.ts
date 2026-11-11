@@ -5546,6 +5546,11 @@ export const UNBOUND_GOLD_STEP = 30;
 export const UNBOUND_GUARDIAN_STEP = 2.5;
 /** How much harder an Unbound area is than the trend it carries on (its monsters' health and its Guardian's). */
 export const UNBOUND_BUMP = 3;
+/**
+ * The same for an Unbound area's Guardian: set so it falls quickly to a team that has started gearing up in its
+ * Unbound gear (UNBOUND_GEAR_TIERS), as a new area's Guardian does in the first run.
+ */
+export const UNBOUND_GUARDIAN_BUMP = 0.3;
 const UNBOUND_AREA_MAP = new Map<AreaId, AreaDef>();
 export function unboundAreaDef(area: AreaId): AreaDef {
   let d = UNBOUND_AREA_MAP.get(area);
@@ -5559,7 +5564,7 @@ export function unboundAreaDef(area: AreaId): AreaDef {
     hp: rift.hp * UNBOUND_HP_STEP ** n * UNBOUND_BUMP,
     gold: rift.gold * UNBOUND_GOLD_STEP ** n,
     speed: Math.min(70, rift.speed + 2 * n),
-    guardian: rift.guardian * UNBOUND_GUARDIAN_STEP ** n * UNBOUND_BUMP,
+    guardian: rift.guardian * UNBOUND_GUARDIAN_STEP ** n * UNBOUND_GUARDIAN_BUMP,
   };
   UNBOUND_AREA_MAP.set(area, d);
   return d;
