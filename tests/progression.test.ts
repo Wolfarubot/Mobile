@@ -88,7 +88,10 @@ function botShop(game: Game, t: number, memo: { lastChallenge: number; lastHeavy
     s.settings.autoSalvage = Object.keys(RARITIES) as Rarity[];
     game.salvageRarities(s.settings.autoSalvage);
   }
-  const newest = game.unlockedAreas[game.unlockedAreas.length - 1];
+  // Once an Unbound area is yours, its gold far outweighs every original area's: stay and farm where gold per kill
+  // is highest (SIM_NO_FARM: carry on to the newest area as before).
+  const unboundHome = process.env.SIM_NO_FARM ? undefined : [...game.unlockedAreas].filter((a) => game.isUnbound(a)).sort((a, b) => game.areaStats(b).gold - game.areaStats(a).gold)[0];
+  const newest = unboundHome ?? game.unlockedAreas[game.unlockedAreas.length - 1];
   if (newest !== game.area && !game.eventRunning) game.travel(newest);
 
   for (const e of ENEMIES) if (game.isAreaUnlocked(e.area) && !s.bestiary[e.id].unlocked && enemyUnlockCost(e) < s.gold * 0.1) game.unlockEnemy(e.id);
@@ -544,8 +547,28 @@ it.runIf(!!process.env.SIM_FULL)('full game: a typical player beats the Time Eat
   const started = Date.now();
   // SIM_UNTIL=90 plays on to that day (past the Time Eater too) and stops there.
   const until = process.env.SIM_UNTIL ? Number(process.env.SIM_UNTIL) * 86400 : null;
+  // The Unbound loop: with an Unbound area owned, the run stays there farming and regresses once the shards would
+  // buy the next Unbound area's node (no Time Eater).
+  const farming = !process.env.SIM_NO_FARM && AREAS.some((a) => g.isUnbound(a.id));
+  const nextUnbound = REGRESSION_TREE.find((n) => n.id.startsWith('unbound-') && n.area && !g.ownsReg(n.id));
+  let lastFarmLog = -1;
+  const farmReady = (): boolean => {
+    if (!nextUnbound) return false;
+    const budget = g.state.regression.shards + g.shardsNow;
+    const copy = new Game(deserialize(serialize(g.state))!, () => 0.5);
+    copy.state.regression.shards = budget;
+    botTree(copy);
+    const day = Math.floor(now / 86400);
+    if (day !== lastFarmLog) {
+      lastFarmLog = day;
+      log(`  [farm day ${day}] in ${g.areaStats(g.state.area).name}: ${g.shardsNow} shards this run (${budget} to spend); ${nextUnbound.name} costs ${g.regCostOf(nextUnbound.id)}`);
+    }
+    if (!copy.ownsReg(nextUnbound.id)) return false;
+    log(`  ready to regress (day ${(now / 86400).toFixed(2)}): ${g.shardsNow} shards (${budget} to spend) buy ${nextUnbound.name}`);
+    return true;
+  };
   for (const [start, length] of sessions) {
-    if (stopped || (until !== null ? start >= until : (beaten !== null || lostAt !== null) && regressReady())) break;
+    if (stopped || (until !== null ? start >= until : farming ? farmReady() : (beaten !== null || lostAt !== null) && regressReady())) break;
     if (from && start + length <= from.clock) continue;
     now = start;
     g.applyOffline(start * 1000);
