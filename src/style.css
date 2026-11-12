@@ -7872,8 +7872,20 @@ body.ui-parchment .filter-options button.on,
 body.ui-parchment .font-option.on {
   outline: 2px solid var(--gold);
 }
+/* Rarity choices (Filter, Auto Salvage) keep their rarity's colour: a stripe down the side while unpicked, the whole
+   button in it (pressed in) once picked. The frame is drawn without its fill so the colour shows through. */
 body.ui-parchment .rarity-options button[style] {
-  box-shadow: inset 5px 0 0 var(--rc) !important;
+  border-width: 4px !important;
+  border-image: var(--img-btn) 3 / 4px / 0 stretch !important;
+  padding: 5px 10px 5px 14px !important;
+  background: color-mix(in srgb, var(--rc) 22%, #3a3a3a) padding-box !important;
+  box-shadow: inset 7px 0 0 var(--rc) !important;
+}
+body.ui-parchment .rarity-options button[style].on {
+  border-image: var(--img-btnhi) 3 / 4px / 0 stretch !important;
+  padding: 5px 12px !important;
+  background: var(--rc) padding-box !important;
+  box-shadow: inset 0 3px 0 rgba(0, 0, 0, 0.35) !important;
 }
 body.ui-parchment .font-option small {
   color: #fff !important;

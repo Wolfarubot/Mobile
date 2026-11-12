@@ -3584,6 +3584,8 @@ export class AppUI {
     btn.addEventListener('click', () => {
       if (held) return void (held = false);
       this.quickType[which] = !this.quickType[which];
+      // Closing the Type selector puts the type back to All (what it shows once it's tucked away).
+      if (!this.quickType[which] && get().type !== 'all') put({ ...get(), type: 'all' });
       this.refresh();
     });
     this.refreshers.push(() => {
