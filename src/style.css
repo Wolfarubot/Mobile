@@ -6177,9 +6177,8 @@ button {
 button.pressing:not(:disabled) {
   scale: 0.93;
 }
-/* Tabs (the bottom menu and the tabs within a page) don't squeeze: they just turn pressed in. */
-.tabs button.pressing,
-.subtabs button.pressing {
+/* The bottom menu's five tabs don't squeeze: they just turn pressed in. */
+.tabs button.pressing {
   scale: none !important;
 }
 /* Long monster names (Walking Man Trap, Possessed Puppet…) wrap onto a second line instead of being cut off. */
