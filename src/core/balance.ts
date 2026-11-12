@@ -3113,17 +3113,86 @@ export const GEAR_KINDS: Record<GearKind, { name: string; icon: string }> = {
 export interface SlotDef {
   kind: GearKind;
   label: string;
-  /** Wilhelm's weapon slots: 'long' is his primary weapon, 'short' the secondary he fires while it reloads. */
-  role?: 'long' | 'short';
+  /**
+   * Wilhelm's weapon slots: 'long' is his primary weapon, 'short' the secondary he fires while it reloads. 'off': an
+   * off-hand weapon (an Ascended Hunter's second slot), attacking on its own at OFFHAND_RATE of its speed.
+   */
+  role?: 'long' | 'short' | 'off';
   /** Kinds the slot takes, when more than its own `kind` (Andrejz's weapon slot takes ranged or magic). */
   accepts?: GearKind[];
   /** Armor slots that only take some kinds of armor (Glimmer wears robes). */
   armorTypes?: ArmorType[];
+  /** Weapon slots that only take some classes of weapon (Deku's off-hand: tomes). */
+  classes?: WeaponClass[];
+  /** Accessory slots that only take some types of accessory (Lance's second: shields). */
+  accTypes?: AccType[];
+  /** An accessory slot that only takes potions (accessories you drink: Andrejz's second). */
+  potion?: boolean;
+  /** What it's limited to, in words ("Tomes only"), for the slot's label. */
+  only?: string;
+  /** The second slot an Ascended Hunter opens with the first node of their Ascended tree (see BONUS_SLOTS). */
+  bonus?: boolean;
 }
 
 /** Can this piece go in this slot? */
-export const slotAccepts = (slot: SlotDef, def: Pick<GearDef, 'kind' | 'armorType'>): boolean =>
-  (slot.accepts ?? [slot.kind]).includes(def.kind) && (!slot.armorTypes || !def.armorType || slot.armorTypes.includes(def.armorType));
+export const slotAccepts = (slot: SlotDef, def: Pick<GearDef, 'kind' | 'armorType' | 'weaponClass' | 'accType' | 'effect'>): boolean =>
+  (slot.accepts ?? [slot.kind]).includes(def.kind) &&
+  (!slot.armorTypes || !def.armorType || slot.armorTypes.includes(def.armorType)) &&
+  (!slot.classes || (!!def.weaponClass && slot.classes.includes(def.weaponClass))) &&
+  (!slot.accTypes || (!!def.accType && slot.accTypes.includes(def.accType))) &&
+  (!slot.potion || def.effect?.kind === 'potion');
+
+/** An off-hand weapon attacks at this share of its own speed (with its full stats). */
+export const OFFHAND_RATE = 0.5;
+
+const offhand = (classes: WeaponClass[], only: string, kind: GearKind): SlotDef => ({ kind, label: 'Off-hand', role: 'off', accepts: ['weapon', 'melee', 'magic'], classes, only, bonus: true });
+const secondAcc = (only: string, o: Partial<SlotDef>): SlotDef => ({ kind: 'accessory', label: 'Second Accessory', only, bonus: true, ...o });
+
+/**
+ * The second slot each Hunter opens with the first node of their Ascended tree (Awakening; your Hunter's Slayer's
+ * Oath). It sits beside the slot of the same kind: an off-hand weapon, a second accessory of a type, or (Reginald)
+ * a second armor.
+ */
+export const BONUS_SLOTS: Record<'main' | HunterId, SlotDef> = {
+  main: { kind: 'accessory', label: 'Second Accessory', bonus: true },
+  alchemist: secondAcc('Potions only', { potion: true }),
+  ranger: secondAcc('Quivers and Ammo Pouches only', { accTypes: ['quiver', 'ammo'] }),
+  bard: offhand(['focus'], 'Focuses only', 'magic'),
+  druid: offhand(['tome'], 'Tomes only', 'magic'),
+  thief: secondAcc('Gauntlets only', { accTypes: ['gauntlet'] }),
+  lance: secondAcc('Shields only', { accTypes: ['shield'] }),
+  glimmer: secondAcc('Hoods only', { accTypes: ['hood'] }),
+  puppeteer: offhand(['tome'], 'Tomes only', 'magic'),
+  wilhelm: secondAcc('Quivers and Ammo Pouches only', { accTypes: ['quiver', 'ammo'] }),
+  celeste: offhand(['staff'], 'Staffs only', 'magic'),
+  blacksmith: offhand(['hammer'], 'Hammers only', 'melee'),
+  scavenger: secondAcc('Boots only', { accTypes: ['boots'] }),
+  enchantress: secondAcc('Talismans only', { accTypes: ['talisman'] }),
+  osteomancer: secondAcc('Shields only', { accTypes: ['shield'] }),
+  haunter: offhand(['sword', 'glaive'], 'Swords and Glaives only', 'melee'),
+  bloodblade: offhand(['dagger'], 'Daggers only', 'melee'),
+  artificer: { kind: 'armor', label: 'Second Armor', bonus: true },
+  archivist: offhand(['wand', 'scepter'], 'Wands and Scepters only', 'magic'),
+  gambler: secondAcc('Boots only', { accTypes: ['boots'] }),
+  lichlord: secondAcc('Talismans only', { accTypes: ['talisman'] }),
+  spaceslime: secondAcc('Hoods only', { accTypes: ['hood'] }),
+  alien: offhand(['pistol', 'rifle', 'repeater'], 'Pistols, Rifles and Repeaters only', 'weapon'),
+  riftwalker: secondAcc('Talismans only', { accTypes: ['talisman'] }),
+};
+
+// The node that opens it says so.
+for (const [who, tree] of [['main', SLAYER_TREE], ...Object.entries(ASCENDED_TREES)] as Array<['main' | HunterId, SkillNode[]]>) {
+  const root = tree.find((n) => n.id === 'root')!;
+  root.desc = `${root.desc} Opens ${bonusSlotText(who)}.`;
+}
+
+/** What a Hunter's second slot holds, in words (for the node that opens it). */
+export function bonusSlotText(who: 'main' | HunterId): string {
+  const sl = BONUS_SLOTS[who];
+  if (sl.role === 'off') return `an off-hand weapon slot (${sl.only!.replace(' only', '')}), which attacks on its own at half speed with its full stats`;
+  if (sl.kind === 'armor') return 'a second armor slot: both armors count in full';
+  return sl.only ? `a second accessory slot (${sl.only.replace(' only', '')})` : 'a second accessory slot (any accessory)';
+}
 
 // ---- Summons: every summoned creature has a type, which some Hunters are better at commanding ----
 /** A summon is a Spirit, or any kind of monster (a tome's creature is the kind of the monster it calls up). */

@@ -126,6 +126,8 @@ import {
   gearTier,
   GEAR,
   WEAPON_KINDS,
+  BONUS_SLOTS,
+  OFFHAND_RATE,
   GROUP_DAMAGE,
   weaponGroup,
   areaDef,
@@ -261,7 +263,8 @@ export type GameEvent =
 /** Which of a Hunter's skill trees: their first, or the one they grow after ascending. */
 export type TreeKind = 'base' | 'ascended';
 
-export type GearMode = 'long' | 'short';
+/** Which weapon: the primary ('long'), Wilhelm's secondary ('short'), or an Ascended Hunter's off-hand ('off'). */
+export type GearMode = 'long' | 'short' | 'off';
 
 /** Who fired a shot: your main Hunter or one of the recruited Hunters. */
 export type Shooter = 'main' | HunterId;
@@ -435,8 +438,7 @@ export class Game {
 
   /** Base damage per hit of the weapon a Hunter holds (UNARMED_HIT without one). */
   weaponHitOf(who: Shooter, mode: GearMode = 'long'): number {
-    const slots = this.slotsOf(who);
-    const i = slots.findIndex((sl) => WEAPON_KINDS.includes(sl.kind) && (!sl.role || sl.role === mode));
+    const i = this.weaponSlot(who, mode);
     const item = i >= 0 ? this.equipped(who)[i] : null;
     const def = item ? gearDef(item.base) : null;
     return def?.weaponClass ? weaponHit(def, this.effStars(item!, who)) : UNARMED_HIT;
@@ -758,7 +760,7 @@ export class Game {
   shooterRate(shooter: Shooter, mode?: GearMode): number {
     const cls = this.weaponClassOf(shooter, mode)?.rate ?? 1;
     if (shooter === 'main') return this.fireRate * cls;
-    return HELPER_FIRE_RATE * this.skillRateMult(shooter) * (1 + this.gear(shooter, mode).rate) * cls * this.inspireFor(shooter);
+    return HELPER_FIRE_RATE * this.skillRateMult(shooter) * (1 + this.gear(shooter, mode).rate) * cls * this.inspireFor(shooter) * (mode === 'off' ? OFFHAND_RATE : 1);
   }
 
   /**
@@ -776,8 +778,7 @@ export class Game {
 
   /** The class of the weapon a Hunter has equipped (for Wilhelm, the one for `mode`), or null. */
   weaponClassOf(who: Shooter, mode: GearMode = 'long'): WeaponClassDef | null {
-    const slots = this.slotsOf(who);
-    const i = slots.findIndex((sl) => WEAPON_KINDS.includes(sl.kind) && (!sl.role || sl.role === mode));
+    const i = this.weaponSlot(who, mode);
     const item = i >= 0 ? this.equipped(who)[i] : null;
     const id = item ? gearDef(item.base).weaponClass : undefined;
     if (!id) return null;
@@ -858,7 +859,15 @@ export class Game {
     const uptime = weaponUptime(cls) * weaponHitsPerAttack(cls);
     // Lilith's Grave Touch: each strike's Decay on top (their ghosts' haunts come and go, so they aren't counted).
     const touch = 1 + (shooter === 'main' ? 0 : (hunterDef(shooter).haunt?.decay ?? 0));
-    return this.shotDamage(shooter, archetype) * (this.shooterRate(shooter) * perAttack * uptime * touch + this.specialHitRate(shooter) + this.songHitRate(shooter) + this.spearHitRate(shooter) + this.flurryHitRate(shooter)) * this.critFactor(shooter) + this.backupDps(shooter, archetype);
+    return this.shotDamage(shooter, archetype) * (this.shooterRate(shooter) * perAttack * uptime * touch + this.specialHitRate(shooter) + this.songHitRate(shooter) + this.spearHitRate(shooter) + this.flurryHitRate(shooter)) * this.critFactor(shooter) + this.backupDps(shooter, archetype) + this.offhandDps(shooter, archetype);
+  }
+
+  /** An off-hand weapon: it attacks on its own, at OFFHAND_RATE of its speed (in shooterRate), with its full stats. */
+  private offhandDps(shooter: Shooter, archetype?: Archetype): number {
+    if (shooter === 'main' || !this.weaponItem(shooter, 'off')) return 0;
+    const cls = this.weaponClassOf(shooter, 'off');
+    const touch = 1 + (hunterDef(shooter).haunt?.decay ?? 0);
+    return this.shotDamage(shooter, archetype, 'off') * this.shooterRate(shooter, 'off') * (cls?.farm ?? 1) * weaponUptime(cls) * weaponHitsPerAttack(cls) * touch * this.critFactor(shooter);
   }
 
   /** Wilhelm's secondary weapon: it fires while his primary reloads (never, if the primary doesn't reload). */
@@ -966,8 +975,7 @@ export class Game {
   }
 
   weaponItem(who: Shooter, mode: GearMode = 'long'): GearItem | null {
-    const slots = this.slotsOf(who);
-    const i = slots.findIndex((sl) => WEAPON_KINDS.includes(sl.kind) && (!sl.role || sl.role === mode));
+    const i = this.weaponSlot(who, mode);
     return i >= 0 ? this.equipped(who)[i] : null;
   }
 
@@ -1083,7 +1091,30 @@ export class Game {
 
   /** A Hunter's equipment slots. */
   slotsOf(who: Wearer): SlotDef[] {
-    return who === 'main' ? MAIN_SLOTS : (hunterDef(who).slots ?? DEFAULT_SLOTS);
+    const base = who === 'main' ? MAIN_SLOTS : (hunterDef(who).slots ?? DEFAULT_SLOTS);
+    return this.bonusSlotOpen(who) ? (this.withBonus[who] ??= [...base, BONUS_SLOTS[who]]) : base;
+  }
+  private withBonus: Partial<Record<Wearer, SlotDef[]>> = {};
+
+  /** Has a Hunter opened their second slot (the first node of their Ascended tree)? It comes after their own slots. */
+  bonusSlotOpen(who: Wearer): boolean {
+    return this.ascended(who) && this.skill(who, 'root', 'ascended') > 0;
+  }
+
+  /** Index of a Hunter's weapon slot for a mode (-1 if they have none): an off-hand only in its own slot. */
+  weaponSlot(who: Wearer, mode: GearMode = 'long'): number {
+    const slots = this.slotsOf(who);
+    if (mode === 'off') return slots.findIndex((sl) => sl.role === 'off');
+    return slots.findIndex((sl) => WEAPON_KINDS.includes(sl.kind) && sl.role !== 'off' && (!sl.role || sl.role === mode));
+  }
+
+  /** The slot a second slot sits beside (the first of the same kind), or -1 for a Hunter's own slots. */
+  pairOf(who: Wearer, slot: number): number {
+    const slots = this.slotsOf(who);
+    const sl = slots[slot];
+    if (!sl?.bonus) return -1;
+    const family = (k: SlotDef['kind']) => (WEAPON_KINDS.includes(k) ? 'weapon' : k);
+    return slots.findIndex((x) => !x.bonus && family(x.kind) === family(sl.kind));
   }
 
   gearItem(uid: number): GearItem | undefined {
@@ -1104,9 +1135,27 @@ export class Game {
    */
   slotGroup(who: Wearer, slot: number): number[] {
     const slots = this.slotsOf(who);
+    // A second slot pairs with the slot it sits beside (and that one with it).
+    const bonus = slots.findIndex((sl) => sl.bonus);
+    const pair = bonus >= 0 ? this.pairOf(who, bonus) : -1;
+    if (bonus >= 0 && (slot === bonus || slot === pair)) return [pair, bonus];
     const key = (sl: SlotDef) => `${sl.kind}:${[...(sl.accepts ?? [sl.kind])].sort().join(',')}:${[...(sl.armorTypes ?? [])].sort().join(',')}`;
     const k = slots[slot] ? key(slots[slot]) : '';
     return slots.map((sl, i) => (key(sl) === k ? i : -1)).filter((i) => i >= 0);
+  }
+
+  /**
+   * A Hunter's slots in the order they're shown: each one followed by the others of its group (Wilhelm's Secondary,
+   * a second slot), which are drawn tucked behind it (`sub`).
+   */
+  slotOrder(who: Wearer): Array<{ i: number; sub: boolean }> {
+    const out: Array<{ i: number; sub: boolean }> = [];
+    this.slotsOf(who).forEach((_, i) => {
+      const group = this.slotGroup(who, i);
+      if (group[0] !== i) return;
+      group.forEach((j, k) => out.push({ i: j, sub: k > 0 }));
+    });
+    return out;
   }
 
   /** The gear in each of a Hunter's slots (null = empty). */
@@ -1119,7 +1168,8 @@ export class Game {
   wearerOf(uid: number): { who: Wearer; slot: number } | null {
     for (const [who, uids] of Object.entries(this.state.equipment) as [Wearer, Array<number | null>][]) {
       const slot = uids.indexOf(uid);
-      if (slot >= 0) return { who, slot };
+      // (Not a second slot that has closed again.)
+      if (slot >= 0 && slot < this.slotsOf(who).length) return { who, slot };
     }
     return null;
   }
@@ -1131,8 +1181,10 @@ export class Game {
   gear(who: Shooter, mode: GearMode = 'long'): Record<GearStat, number> {
     const total: Record<GearStat, number> = { damage: 0, rate: 0, range: 0, crit: 0, stun: 0, guard: 0, gold: 0, drops: 0, radius: 0, pierce: 0, cooldown: 0, critDamage: 0, duration: 0, abilityPower: 0, statusChance: 0, bowDamage: 0, gunDamage: 0, meleeDamage: 0, magicDamage: 0 };
     const slots = this.slotsOf(who);
+    const wi = this.weaponSlot(who, mode);
     this.equipped(who).forEach((item, i) => {
-      if (!item || (slots[i].role && slots[i].role !== mode)) return;
+      // One weapon counts (the mode's); other slots with a role only in their mode.
+      if (!item || (WEAPON_KINDS.includes(slots[i].kind) ? i !== wi : slots[i].role && slots[i].role !== mode)) return;
       for (const [k, v] of Object.entries(gearTotals(gearDef(item.base), this.effStars(item, who))) as [GearStat, number][]) total[k] += v;
       // Refined stats add to the piece's own (knockback and magazine size change its weapon class instead).
       for (const m of item.mods ?? []) if (m?.kind === 'refine' && m.stat in total) total[m.stat as GearStat] += modValue(m, gearDef(item.base));
@@ -1560,8 +1612,8 @@ export class Game {
     if (uid !== null) {
       const item = this.gearItem(uid);
       if (!item || !slotAccepts(slots[slot], gearDef(item.base))) return false;
-      const worn = this.wearerOf(uid);
-      if (worn) this.state.equipment[worn.who]![worn.slot] = null;
+      // Off whoever wears it (and out of any second slot that has closed since).
+      for (const uids of Object.values(this.state.equipment)) if (uids) for (let j = 0; j < uids.length; j++) if (uids[j] === uid) uids[j] = null;
     }
     const list = (this.state.equipment[who] ??= slots.map(() => null));
     while (list.length < slots.length) list.push(null);

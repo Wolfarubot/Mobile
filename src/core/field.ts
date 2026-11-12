@@ -215,6 +215,8 @@ export interface Summon {
   art?: EnemyId;
   /** What kind of creature it is (some Hunters' summons of a type hit harder). */
   type: SummonType;
+  /** Summoned by an off-hand tome (its weapon's damage, not the primary's). */
+  mode?: GearMode;
   /** A gear ability's creature (a Puppeteer's Doll's puppets): the piece that made it and its own bite. */
   gear?: { uid: number; base: number; damageType: DamageType; bites: number; speed: number };
   /** Raised by Raise Dead: bites for the spell's cast × RISEN.k; `enemy` is what it was. */
@@ -276,6 +278,9 @@ export interface Helper {
   gun: GunState;
   /** Wilhelm's secondary weapon's magazine (his primary's is `gun`): each reloads on its own. */
   gun2: GunState;
+  /** An off-hand weapon's attack charge and magazine (an Ascended Hunter's second weapon slot). */
+  offAcc: number;
+  gun3: GunState;
   /** Seconds until their tome's lunge is ready (a Wolf Spirit tome). */
   dashCd: number;
   /** Seconds until their Bone Wall can rise again (Gideon). */
@@ -649,7 +654,7 @@ export class Field {
   private chain = 0;
   private leadCaster: SpecialCaster = { id: 'alchemist', x: 0, y: 0, specialCd: 1, aim: 0 };
   /** A focus's waves: rings expanding from where they were sent, hitting each monster once as they pass. */
-  waves: Array<{ who: Shooter; x: number; y: number; r: number; max: number; hit: Set<number>; /** × a hit (1 if unset). */ k?: number }> = [];
+  waves: Array<{ who: Shooter; x: number; y: number; r: number; max: number; hit: Set<number>; /** × a hit (1 if unset). */ k?: number; mode?: GearMode }> = [];
   /** Ba'al's attacks since his last sound wave. */
   private songCount = new Map<Shooter, number>();
   /** Attacks toward Lance's next holy spear. */
@@ -686,11 +691,11 @@ export class Field {
    * The Hunter in the middle's two weapons, when that's Wilhelm (an observed area or a background sample): his
    * secondary's magazine and whether it's in hand, as a stationed Hunter's `close` and `gun2`.
    */
-  readonly leadArms: { close: boolean; gun: GunState; gun2: GunState } = { close: false, gun: this.gunState, gun2: { cls: null, ammo: 0, reload: 0 } };
+  readonly leadArms: { close: boolean; gun: GunState; gun2: GunState; offAcc: number; gun3: GunState } = { close: false, gun: this.gunState, gun2: { cls: null, ammo: 0, reload: 0 }, offAcc: 0, gun3: { cls: null, ammo: 0, reload: 0 } };
   /** Seconds until the Hunter in the middle's Bone Wall can rise again (Gideon, observed or sampled). */
   leadWallCd = 0;
   /** Daggers' bursts in progress (anyone's): stabs (or throws) still to come, at a monster. */
-  private stabs: Array<{ who: Shooter; t: number; target: number; last: boolean }> = [];
+  private stabs: Array<{ who: Shooter; t: number; target: number; last: boolean; mode?: GearMode }> = [];
   /** Apex Hunter's follow-up strikes, due in `t` seconds. */
   private encores: Array<{ who: Shooter; t: number; target: number; mode: GearMode }> = [];
   /** Seconds until each worn piece's ability is ready again, by `${who}:${uid}`. */
@@ -1016,6 +1021,7 @@ export class Field {
         break;
       }
     }
+    this.offhandAttack(this.lead, this.leadArms, 0, 0, dt, this.stunned);
     // The Hunter in the middle's special, when that's a Guild Hunter (a stationed group's background sample).
     if (this.lead !== 'main' && hunterDef(this.lead).special && !this.stunned) {
       this.leadCaster.x = 0;
@@ -1476,6 +1482,8 @@ export class Field {
       specialCd: 1,
       gun: { cls: null, ammo: 0, reload: 0 },
       gun2: { cls: null, ammo: 0, reload: 0 },
+      offAcc: 0,
+      gun3: { cls: null, ammo: 0, reload: 0 },
       dashCd: 0,
       wallCd: 0,
     }));
@@ -1485,6 +1493,7 @@ export class Field {
   private helperAttack(h: Helper, dt: number): void {
     const g = this.game;
     const def = hunterDef(h.id);
+    this.offhandAttack(h.id, h, h.x, h.y, dt, h.stun > 0);
     if (h.stun > 0) {
       // A stun holds the attack back, but doesn't lose its charge (a tome's summon takes several seconds).
       h.fireAcc = Math.min(h.fireAcc, 0.999);
@@ -1511,6 +1520,44 @@ export class Field {
       if (this.spendShot(gun, cls, rate)) {
         this.events.push({ type: 'reload', who: h.id, x: h.x, y: h.y });
         h.fireAcc = 0;
+        return;
+      }
+    }
+  }
+
+  /**
+   * An Ascended Hunter's off-hand weapon: it attacks on its own, the way its class does, at OFFHAND_RATE of its speed
+   * (see shooterRate) with its full stats. A stun holds it back without losing its charge.
+   */
+  private offhandAttack(who: Shooter, s: { offAcc: number; gun3: GunState }, x: number, y: number, dt: number, stunned: boolean): void {
+    const g = this.game;
+    if (who === 'main' || !g.weaponItem(who, 'off')) {
+      s.offAcc = 0;
+      return;
+    }
+    if (stunned) {
+      s.offAcc = Math.min(s.offAcc, 0.999);
+      return;
+    }
+    const cls = g.weaponClassOf(who, 'off');
+    if (!this.gunReady(s.gun3, cls, dt)) {
+      s.offAcc = 0;
+      return;
+    }
+    const rate = g.shooterRate(who, 'off');
+    s.offAcc = Math.min(s.offAcc + dt * rate * this.frenzyMult(who), 3);
+    const range = g.shooterRange(who, 'off');
+    while (s.offAcc >= 1) {
+      const target = this.nearest(x, y, range);
+      if (!target) {
+        s.offAcc = Math.min(s.offAcc, 1);
+        return;
+      }
+      s.offAcc -= 1;
+      this.weaponAttack(who, x, y, Math.atan2(target.y - y, target.x - x), target, cls, s.gun3, range, 'off');
+      if (this.spendShot(s.gun3, cls, rate)) {
+        this.events.push({ type: 'reload', who, x, y });
+        s.offAcc = 0;
         return;
       }
     }
@@ -1548,7 +1595,7 @@ export class Field {
    */
   private weaponAttack(who: Shooter, x: number, y: number, aim: number, target: Enemy, cls: WeaponClassDef | null, gun: GunState, range: number, mode: GearMode = 'long', encore = false): void {
     const g = this.game;
-    const m = mode === 'short' ? 'short' : undefined;
+    const m = mode === 'long' ? undefined : mode;
     this.events.push({ type: 'attack', who, a: aim });
     // Ba'al: every few attacks, a sound wave rings out around him as well.
     const song = who === 'main' || encore ? undefined : hunterDef(who).songWave;
@@ -1586,19 +1633,19 @@ export class Field {
       // A burst of stabs (or throws, if it's out of reach) at this monster, a moment apart.
       const n = (cls.thrusts ?? 1) + extra;
       const gap = DAGGER_GAP * (cls.stabGap ?? 1);
-      for (let i = 0; i < n; i++) this.stabs.push({ who, t: i * gap, target: target.id, last: i === n - 1 });
+      for (let i = 0; i < n; i++) this.stabs.push({ who, t: i * gap, target: target.id, last: i === n - 1, mode: m });
     } else if (cls?.attack === 'nova' && cls.wave) {
       // A focus's wave: a ring expanding out to its reach (× area size), hitting monsters as it passes.
       const max = this.focusReach(cls.reach! * g.radiusMult(who));
-      this.waves.push({ who, x, y, r: 0, max, hit: new Set() });
+      this.waves.push({ who, x, y, r: 0, max, hit: new Set(), mode: m });
       this.events.push({ type: 'wave', x, y, r: max, time: max / WAVE_SPEED, color: DAMAGE_TYPES[g.damageTypeOf(who, mode)].color });
     } else if (cls?.attack === 'nova') {
       // A burst of power around the Hunter: every monster in the radius (× area size).
       const r = this.focusReach(cls.reach! * g.radiusMult(who));
       this.events.push({ type: 'nova', x, y, r, color: DAMAGE_TYPES[g.damageTypeOf(who, mode)].color, burst: true });
-      for (const e of this.enemies) if (e.hp > 0 && Math.hypot(e.x - x, e.y - y) <= r + e.r) this.hitWith(who, e, 1, x, y);
+      for (const e of this.enemies) if (e.hp > 0 && Math.hypot(e.x - x, e.y - y) <= r + e.r) this.hitWith(who, e, 1, x, y, undefined, m);
     } else if (cls?.summon) {
-      this.summon(who, x, y, aim, cls);
+      this.summon(who, x, y, aim, cls, m);
     } else if (cls?.spell && gun.ammo === 1) {
       // A staff's big spell: the last round of each cast, its element's spell (a Physical staff's a blast).
       const spell = g.spellOf(who, mode);
@@ -1612,9 +1659,9 @@ export class Field {
       const cx = x + Math.cos(aim) * r * SLAM_OFFSET;
       const cy = y + Math.sin(aim) * r * SLAM_OFFSET;
       this.events.push({ type: 'slam', x: cx, y: cy, r, color: this.typeColor(who, mode) });
-      for (const e of [...this.enemies]) if (e.hp > 0 && Math.hypot(e.x - cx, e.y - cy) <= r + e.r) this.meleeHit(who, e, 1, x, y, cls.knock ?? 0);
-    } else if (cls?.attack === 'sweep') this.strikeArc(who, x, y, aim, cls.reach!, cls.arc!, 1, cls.knock ?? 0, true, this.typeColor(who, mode));
-    else if (cls?.attack === 'stab') this.strikeLine(who, x, y, aim, range, cls.width ?? 10, Infinity, this.momentumOn(who, target, mode), this.typeColor(who, mode), (cls.width ?? 10) / 2, cls.knock ?? 0);
+      for (const e of [...this.enemies]) if (e.hp > 0 && Math.hypot(e.x - cx, e.y - cy) <= r + e.r) this.meleeHit(who, e, 1, x, y, cls.knock ?? 0, m);
+    } else if (cls?.attack === 'sweep') this.strikeArc(who, x, y, aim, cls.reach!, cls.arc!, 1, cls.knock ?? 0, true, this.typeColor(who, mode), m);
+    else if (cls?.attack === 'stab') this.strikeLine(who, x, y, aim, range, cls.width ?? 10, Infinity, this.momentumOn(who, target, mode), this.typeColor(who, mode), (cls.width ?? 10) / 2, cls.knock ?? 0, m);
     else if (cls?.volley) {
       // A fan: each bolt at a random angle within it. Bolts of one volley stack on the same monster.
       const volley = this.nextVolley++;
@@ -2212,7 +2259,7 @@ export class Field {
   /** A melee art going off (see MeleeArt): in the weapon's element, `power` × a hit. */
   private meleeArt(who: Shooter, x: number, y: number, aim: number, art: MeleeArt, power: number, cls: WeaponClassDef, mode: GearMode): void {
     const g = this.game;
-    const m = mode === 'short' ? 'short' : undefined;
+    const m = mode === 'long' ? undefined : mode;
     const color = this.typeColor(who, mode);
     const reach = cls.reach ?? 80;
     switch (art) {
@@ -2339,7 +2386,7 @@ export class Field {
   /** Arts that loose extra shots: Fan the Hammer (the rest of the magazine at once) and Double Nock (an arrow at another monster). */
   private extraShots(who: Shooter, x: number, y: number, aim: number, target: Enemy, cls: WeaponClassDef, gun: GunState, range: number, mode: GearMode, opts: () => ShotOptions): void {
     const g = this.game;
-    const m = mode === 'short' ? 'short' : undefined;
+    const m = mode === 'long' ? undefined : mode;
     for (const a of this.arts(who, mode)) {
       if (a.art === 'fanHammer' && cls.mag && gun.ammo > 1 && g.rng() < a.chance) {
         // The rest of the magazine, all at once, sprayed around the aim; the reload follows.
@@ -2588,7 +2635,7 @@ export class Field {
   }
 
   /** Instant strike along a line (lance thrust, sniper shot): hits up to `maxHits` enemies within `width`. */
-  private strikeLine(shooter: Shooter, ox: number, oy: number, a: number, len: number, width: number, maxHits: number, dmg: number, color: string, beamWidth: number, knock = 0): void {
+  private strikeLine(shooter: Shooter, ox: number, oy: number, a: number, len: number, width: number, maxHits: number, dmg: number, color: string, beamWidth: number, knock = 0, mode?: GearMode): void {
     const cx = Math.cos(a);
     const cy = Math.sin(a);
     const hits = this.enemies
@@ -2604,7 +2651,7 @@ export class Field {
     const end = Number.isFinite(maxHits) && hits.length ? hits[hits.length - 1].t : len;
     // Drawn as a spear's thrust.
     this.events.push({ type: 'beam', x1: ox, y1: oy, x2: ox + cx * end, y2: oy + cy * end, color, width: beamWidth, thrust: true });
-    for (const { e } of hits) this.meleeHit(shooter, e, dmg, ox, oy, knock);
+    for (const { e } of hits) this.meleeHit(shooter, e, dmg, ox, oy, knock, mode);
   }
 
   /**
@@ -2622,11 +2669,11 @@ export class Field {
       if ((c.who !== this.lead && !h) || (h ? h.stun > 0 : this.stunned)) continue;
       const ox = h?.x ?? 0;
       const oy = h?.y ?? 0;
-      const range = this.game.shooterRange(c.who);
+      const range = this.game.shooterRange(c.who, c.mode);
       const e = this.enemies.find((x) => x.id === c.target && x.hp > 0) ?? this.nearest(ox, oy, range);
       if (!e) continue;
       const a = Math.atan2(e.y - oy, e.x - ox);
-      this.weaponAttack(c.who, ox, oy, a, e, this.game.weaponClassOf(c.who, c.mode), h ? h.gun : this.gunState, range, c.mode, true);
+      this.weaponAttack(c.who, ox, oy, a, e, this.game.weaponClassOf(c.who, c.mode), c.mode === 'off' ? (h ?? this.leadArms).gun3 : h ? h.gun : this.gunState, range, c.mode, true);
     }
   }
 
@@ -2638,14 +2685,14 @@ export class Field {
     for (const s of due) {
       const h = s.who === this.lead ? null : this.helpers.find((x) => x.id === s.who);
       if (s.who !== this.lead && !h) continue;
-      const cls = this.game.weaponClassOf(s.who);
+      const cls = this.game.weaponClassOf(s.who, s.mode);
       if (cls?.attack !== 'dagger' || (h ? h.stun > 0 : this.stunned)) {
-        this.stabs = this.stabs.filter((x) => x.who !== s.who);
+        this.stabs = this.stabs.filter((x) => x.who !== s.who || x.mode !== s.mode);
         continue;
       }
       const ox = h?.x ?? 0;
       const oy = h?.y ?? 0;
-      const range = this.game.shooterRange(s.who);
+      const range = this.game.shooterRange(s.who, s.mode);
       const e = this.enemies.find((x) => x.id === s.target && x.hp > 0) ?? this.nearest(ox, oy, range);
       if (!e) continue;
       const a = Math.atan2(e.y - oy, e.x - ox);
@@ -2653,13 +2700,13 @@ export class Field {
       else this.aim = a;
       const d = Math.hypot(e.x - ox, e.y - oy);
       if (d <= cls.reach! + e.r) {
-        this.events.push({ type: 'beam', x1: ox, y1: oy, x2: ox + Math.cos(a) * (d - e.r * 0.3), y2: oy + Math.sin(a) * (d - e.r * 0.3), color: this.typeColor(s.who), width: 3 });
-        this.meleeHit(s.who, e, 1, ox, oy, s.last ? (cls.knock ?? 0) : 0);
+        this.events.push({ type: 'beam', x1: ox, y1: oy, x2: ox + Math.cos(a) * (d - e.r * 0.3), y2: oy + Math.sin(a) * (d - e.r * 0.3), color: this.typeColor(s.who, s.mode), width: 3 });
+        this.meleeHit(s.who, e, 1, ox, oy, s.last ? (cls.knock ?? 0) : 0, s.mode);
       } else {
         // Blast Daggers: some thrown daggers explode where they hit.
-        const blast = this.arts(s.who).find((x) => x.art === 'blastDaggers');
+        const blast = this.arts(s.who, s.mode).find((x) => x.art === 'blastDaggers');
         const boom = blast && this.game.rng() < blast.chance ? { r: MELEE_ARTS.blastRadius * this.game.radiusMult(s.who), k: blast.power } : undefined;
-        this.shoot(s.who, 'dagger', ox, oy, a, BULLET_SPEED, range, { pierce: this.game.pierceOf(s.who), blast: boom });
+        this.shoot(s.who, 'dagger', ox, oy, a, BULLET_SPEED, range, { pierce: this.game.pierceOf(s.who, s.mode), blast: boom, mode: s.mode });
       }
     }
   }
@@ -3054,17 +3101,17 @@ export class Field {
   }
 
   /** The gear in a Hunter's weapon slot, if any. */
-  private weaponDef(who: Shooter): GearDef | null {
-    const w = this.game.weaponItem(who);
+  private weaponDef(who: Shooter, mode?: GearMode): GearDef | null {
+    const w = this.game.weaponItem(who, mode);
     return w ? gearDef(w.base) : null;
   }
 
   /** A tome's creature appears beside the Hunter holding it. */
-  private summon(who: Shooter, ox: number, oy: number, aim: number, cls: WeaponClassDef): void {
+  private summon(who: Shooter, ox: number, oy: number, aim: number, cls: WeaponClassDef, mode?: GearMode): void {
     const sm = cls.summon!;
-    const def = this.weaponDef(who);
+    const def = this.weaponDef(who, mode);
     const look = def?.summon?.look ?? 'wisp';
-    this.summons.push({ who, type: def ? tomeSummonType(def) : 'spirit', x: ox + Math.cos(aim) * 20, y: oy + Math.sin(aim) * 20, life: sm.duration * this.game.summonDurationMult(who), maxLife: sm.duration * this.game.summonDurationMult(who), bite: 0, look, art: def?.summon?.art, dash: 0, dashHit: false });
+    this.summons.push({ who, type: def ? tomeSummonType(def) : 'spirit', x: ox + Math.cos(aim) * 20, y: oy + Math.sin(aim) * 20, life: sm.duration * this.game.summonDurationMult(who), maxLife: sm.duration * this.game.summonDurationMult(who), bite: 0, look, art: def?.summon?.art, dash: 0, dashHit: false, mode });
     this.events.push({ type: 'nova', x: ox, y: oy, r: 30, color: '#c9a8ff' });
   }
 
@@ -3081,15 +3128,15 @@ export class Field {
     this.summons = this.summons.filter(
       (s) =>
         (s.who === this.lead || this.helpers.some((h) => h.id === s.who)) &&
-        (s.own || s.risen || (s.gear ? this.game.equipped(s.who).some((it) => it?.uid === s.gear!.uid) : this.game.weaponClassOf(s.who)?.summon)),
+        (s.own || s.risen || (s.gear ? this.game.equipped(s.who).some((it) => it?.uid === s.gear!.uid) : this.game.weaponClassOf(s.who, s.mode)?.summon)),
     );
-    for (const who of new Set(this.summons.filter((s) => !s.gear && !s.own && !s.risen).map((s) => s.who))) {
+    for (const who of new Set(this.summons.filter((s) => !s.gear && !s.own && !s.risen && !s.mode).map((s) => s.who))) {
       const dash = this.weaponDef(who)?.summon?.dash;
       const owner: { dashCd: number } = who === this.lead ? this : this.helpers.find((h) => h.id === who)!;
       if (!dash || owner.dashCd > 0) continue;
       let lunged = false;
       for (const s of this.summons) {
-        if (s.who !== who || s.gear || s.own || s.risen) continue;
+        if (s.who !== who || s.gear || s.own || s.risen || s.mode) continue;
         const e = this.nearest(s.x, s.y, dash.range);
         if (!e || s.dash > 0) continue;
         s.dash = dash.range / dash.speed + 0.05;
@@ -3136,10 +3183,11 @@ export class Field {
    */
   private chargeSummon(s: Summon, dt: number): void {
     const g = this.game;
-    const cls = s.gear || s.own ? null : g.weaponClassOf(s.who)?.summon;
+    const cls = s.gear || s.own ? null : g.weaponClassOf(s.who, s.mode)?.summon;
     if (!s.gear && !s.own && !cls) return;
     const speed = s.gear?.speed ?? s.own?.speed ?? cls!.speed;
-    const dash = cls ? this.weaponDef(s.who)?.summon?.dash : undefined;
+    // (An off-hand tome's creatures don't lunge: the lunge is the primary tome's.)
+    const dash = cls && !s.mode ? this.weaponDef(s.who)?.summon?.dash : undefined;
     const lunging = s.dash > 0 && !!dash;
     s.life -= dt;
     s.dash = Math.max(0, s.dash - dt);
@@ -3175,7 +3223,7 @@ export class Field {
       if (s.gear) this.abilityHit(s.who, e, s.gear.base * m, s.gear.damageType, false);
       // A Hunter's own creatures strike with their weapon's type, and can inflict its status effect.
       else if (s.own) this.hitWith(s.who, e, s.own.mult * m, s.x, s.y, undefined, undefined, true);
-      else this.hitWith(s.who, e, m * (lunging ? dash!.damage : (cls!.hit ?? 1)), s.x, s.y);
+      else this.hitWith(s.who, e, m * (lunging ? dash!.damage : (cls!.hit ?? 1)), s.x, s.y, undefined, s.mode);
       // The strike knocks the monster away from the Hunter who summoned it (Guardians hold their ground).
       if (e.hp > 0 && !e.boss) {
         const [hx, hy] = this.hunterPos(s.who);
@@ -3194,10 +3242,10 @@ export class Field {
   }
 
   /** A melee hit: damage, then a knock back if the monster survives (Guardians hold their ground). */
-  private meleeHit(shooter: Shooter, e: Enemy, dmg: number, ox: number, oy: number, knock: number): void {
+  private meleeHit(shooter: Shooter, e: Enemy, dmg: number, ox: number, oy: number, knock: number, mode?: GearMode): void {
     this.flurryArmed = true;
     this.flurryDepth = 0;
-    this.hitWith(shooter, e, dmg, ox, oy);
+    this.hitWith(shooter, e, dmg, ox, oy, undefined, mode);
     this.flurryArmed = false;
     if (knock <= 0 || e.hp <= 0 || e.boss) return;
     const d = Math.hypot(e.x - ox, e.y - oy) || 1;
@@ -3207,7 +3255,7 @@ export class Field {
 
   /** Instant strike in an arc in front (sword sweep, glaive cleave): hits every enemy within `reach` and `arc`. */
   /** A strike across an arc (a blade's sweep, Sciirj's punch); `blade` draws it as a blade's swing, in `color`. */
-  private strikeArc(shooter: Shooter, ox: number, oy: number, a: number, reach: number, arc: number, dmg: number, knock = 0, blade = false, color = '#f4f4f4'): void {
+  private strikeArc(shooter: Shooter, ox: number, oy: number, a: number, reach: number, arc: number, dmg: number, knock = 0, blade = false, color = '#f4f4f4', mode?: GearMode): void {
     this.events.push({ type: 'sweep', x: ox, y: oy, a, arc, r: reach, color, heavy: knock >= 300, blade });
     for (const e of this.enemies) {
       if (e.hp <= 0) continue;
@@ -3216,7 +3264,7 @@ export class Field {
       if (Math.hypot(dx, dy) > reach + e.r) continue;
       let da = Math.atan2(dy, dx) - a;
       da = Math.atan2(Math.sin(da), Math.cos(da));
-      if (Math.abs(da) <= arc / 2) this.meleeHit(shooter, e, dmg, ox, oy, knock);
+      if (Math.abs(da) <= arc / 2) this.meleeHit(shooter, e, dmg, ox, oy, knock, mode);
     }
   }
 
@@ -3470,7 +3518,7 @@ export class Field {
       for (const e of this.enemies)
         if (e.hp > 0 && !w.hit.has(e.id) && Math.hypot(e.x - w.x, e.y - w.y) <= w.r + e.r) {
           w.hit.add(e.id);
-          this.hitWith(w.who, e, w.k ?? 1, w.x, w.y);
+          this.hitWith(w.who, e, w.k ?? 1, w.x, w.y, undefined, w.mode);
         }
     }
     this.waves = this.waves.filter((w) => w.r < w.max);

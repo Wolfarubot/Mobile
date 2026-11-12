@@ -148,12 +148,13 @@ import {
   type GearStat,
   type HunterDef,
   type HunterId,
+  type SlotDef,
   type ItemDef,
   type MaterialId,
   type Rarity,
 } from '../core/balance';
 import { fmt, fmtDps, fmtTime } from '../core/format';
-import { Game, type FarmRates, type TreeKind } from '../core/game';
+import { Game, type FarmRates, type Shooter, type TreeKind } from '../core/game';
 import type { OfflineResult } from '../core/offline';
 import { COOLDOWN_POSITIONS, deserialize, EMPOWER_AMOUNTS, TAB_IDS, TRAIN_AMOUNTS, type GameState, type GearMod, type AudioSettings, type BuyAmount, type CooldownPos, type DpsCorner, type FxKey, type IndicatorStyle, type GearItem, type TabId, type Wearer } from '../core/state';
 import { drawEventBackdrop, queuePortrait } from '../render/battle';
@@ -918,16 +919,30 @@ export class AppUI {
     const gearEl = $('.hc-gear', card);
     const status = $('.hc-status', card);
     const dot = $('.sp-dot', card);
-    const gearHtml = (items: Array<GearItem | null>) =>
-      g
-        .slotsOf(who)
-        .map((slot, i) => {
+    // One chip per slot; a slot's partner (Wilhelm's Secondary, a second slot) peeks out behind it, up to the left.
+    const gearHtml = (items: Array<GearItem | null>) => {
+      const slots = g.slotsOf(who);
+      const order = g.slotOrder(who);
+      return order
+        .filter((o) => !o.sub)
+        .map(({ i }) => {
+          const slot = slots[i];
           const it = items[i];
-          return it
+          const subs = g
+            .slotGroup(who, i)
+            .slice(1)
+            .map((j) => {
+              const d = items[j] ? gearDef(items[j]!.base) : null;
+              return `<span class="gear-sub${d ? ' rar' : ''}${d?.unboundOf ? ' ub' : ''}" style="${d ? `--rc:${gearColor(d.id)}` : ''}" title="${d ? d.name : slots[j].label}">${d ? gearIcon(d) : ''}</span>`;
+            })
+            .join('');
+          const chip = it
             ? `<span class="gear-chip rar${gearDef(it.base).unboundOf ? ' ub' : ''}" style="--rc:${gearColor(it.base)}">${gearIcon(gearDef(it.base))} ${gearDef(it.base).name}</span>`
             : `<span class="gear-chip empty">${GEAR_KINDS[slot.kind].icon} ${slot.label}</span>`;
+          return subs ? `<span class="gear-pair">${subs}${chip}</span>` : chip;
         })
         .join('');
+    };
     if (def && !g.state.hunters[def.id].recruited) {
       const recruitBtn = el('button', 'buy') as HTMLButtonElement;
       recruitBtn.addEventListener('click', (ev) => {
@@ -982,7 +997,7 @@ export class AppUI {
       const k = items.map((it) => (it ? `${it.uid}:${it.stars}` : '-')).join('|');
       if (k !== gearKey) {
         gearKey = k;
-        gearEl.style.setProperty('--slots', String(g.slotsOf(who).length));
+        gearEl.style.setProperty('--slots', String(g.slotOrder(who).filter((o) => !o.sub).length));
         gearEl.innerHTML = gearHtml(items);
       }
     });
@@ -1229,6 +1244,7 @@ export class AppUI {
       if (pierce) cells.push(['Pierce', String(pierce)]);
       if (def?.bane) cells.splice(1, 0, [`vs ${ARCHETYPES[def.bane.archetype].name}`, fmt(g.shotDamage(who, def.bane.archetype))]);
       if (def?.backupGun) cells.splice(1, 0, ['Secondary', fmt(g.shotDamage(who, undefined, 'short'))]);
+      if (def && g.weaponItem(who, 'off')) cells.splice(1, 0, ['Off-hand', fmt(g.shotDamage(who, undefined, 'off'))]);
       stats.innerHTML = cells.map(([k, v]) => `<div><b>${v}</b>${k}</div>`).join('');
     });
 
@@ -1576,23 +1592,31 @@ export class AppUI {
   private equipmentList(who: Wearer): HTMLElement {
     const g = this.game;
     const wrap = el('div', 'equip-list');
-    const rows = g.slotsOf(who).map((slot, i) => {
-      const b = el('button', 'card eq-card') as HTMLButtonElement;
-      b.addEventListener('click', () => this.openSlotPicker(who, i));
-      wrap.appendChild(b);
-      return { slot, b };
-    });
     const summary = el('div', 'gear-summary');
+    // A row per slot, a second slot right under the one it pairs with (rebuilt when one opens).
+    let rows: Array<{ slot: SlotDef; b: HTMLButtonElement; i: number }> = [];
+    const build = () => {
+      for (const r of rows) r.b.remove();
+      const slots = g.slotsOf(who);
+      rows = g.slotOrder(who).map(({ i, sub }) => {
+        const b = el('button', `card eq-card${sub ? ' eq-sub' : ''}`) as HTMLButtonElement;
+        b.addEventListener('click', () => this.openSlotPicker(who, i));
+        wrap.insertBefore(b, summary);
+        return { slot: slots[i], b, i };
+      });
+    };
     wrap.appendChild(summary);
+    build();
     let key = '';
     this.refreshers.push(() => {
       const items = g.equipped(who);
+      if (items.length !== rows.length) build();
       // Reginald the Artificer in their area: the gear works a star better (shown as +1★, and its stats at that).
       const tuned = g.tinkerFor(who);
-      const k = `${tuned};` + items.map((it) => (it ? `${it.uid}:${it.stars}:${JSON.stringify(it.mods ?? [])}` : '-')).join('|');
+      const k = `${tuned};${items.length};` + items.map((it) => (it ? `${it.uid}:${it.stars}:${JSON.stringify(it.mods ?? [])}` : '-')).join('|');
       if (k === key) return;
       key = k;
-      rows.forEach(({ slot, b }, i) => {
+      rows.forEach(({ slot, b, i }) => {
         const it = items[i];
         const gd = it ? gearDef(it.base) : null;
         b.classList.toggle('empty', !it);
@@ -1607,7 +1631,7 @@ export class AppUI {
         if (gd && it)
           for (const m of it.mods ?? [])
             if (m) chips.push(m.kind === 'refine' ? `<span class="eq-chip mod-refine">${REFINES[m.stat].text(modValue(m, gd))}</span>` : `<span class="eq-chip mod-enchant">${ENCHANTS[m.id].name}</span>`);
-        b.innerHTML = `<span class="eq-ic">${gd ? gearIcon(gd) : GEAR_KINDS[slot.kind].icon}</span><div class="eq-info"><small class="eq-slot">${slot.label}</small><b class="eq-name">${gd ? gd.name : 'Empty'}</b>${
+        b.innerHTML = `<span class="eq-ic">${gd ? gearIcon(gd) : GEAR_KINDS[slot.kind].icon}</span><div class="eq-info"><small class="eq-slot">${slot.label}${slot.only ? ` · ${slot.only}` : ''}</small><b class="eq-name">${gd ? gd.name : 'Empty'}</b>${
           gd && it
             ? `<span class="eq-rar"><em>${RARITIES[gd.rarity].name}</em><span class="stars">${starsHtml(it.stars)}</span>${tuned ? `<span class="tuned" title="${esc(txt('tip.markers.tuned'))}">+${tuned}★</span>` : ''}</span><div class="eq-chips">${dtypeTag(gd)}${chips.join('')}</div>`
             : '<span class="eq-empty">Tap to equip</span>'
@@ -1617,7 +1641,8 @@ export class AppUI {
       requestAnimationFrame(() => rows.forEach(({ b }) => foldChips(b.querySelector<HTMLElement>('.eq-chips'))));
       const stats = describeGear(g.gear(who));
       const short = g.slotsOf(who).some((sl) => sl.role === 'short') ? describeGear(g.gear(who, 'short')) : '';
-      summary.textContent = stats || short ? `Total: ${stats || 'nothing yet'}${short ? ` · pistols: ${short}` : ''}` : '';
+      const off = g.weaponItem(who as Shooter, 'off') ? describeGear(g.gear(who as Shooter, 'off')) : '';
+      summary.textContent = stats || short || off ? `Total: ${stats || 'nothing yet'}${short ? ` · pistols: ${short}` : ''}${off ? ` · off-hand: ${off}` : ''}` : '';
     });
     return wrap;
   }
@@ -1662,7 +1687,9 @@ export class AppUI {
     // Every slot that takes the same gear (Wilhelm's Primary and Secondary) shows here together, each with its own
     // Equip button on the piece being inspected.
     const group = g.slotGroup(who, slot);
-    const label = (i: number) => g.slotsOf(who)[i].label;
+    // A slot and its second slot: Primary and Secondary.
+    const paired = group.some((i) => g.slotsOf(who)[i].bonus);
+    const label = (i: number) => (paired ? (g.slotsOf(who)[i].bonus ? 'Secondary' : 'Primary') : g.slotsOf(who)[i].label);
     const render = (grid = true) => {
       const worn = g.equipped(who);
       const current = worn[slot];
@@ -1672,7 +1699,7 @@ export class AppUI {
       for (const i of group) {
         const it = worn[i];
         const box = el('div', 'pk-slot');
-        if (group.length > 1) box.appendChild(el('div', 'pk-slot-label', label(i)));
+        if (group.length > 1) box.appendChild(el('div', 'pk-slot-label', `${label(i)}${g.slotsOf(who)[i].only ? ` · ${g.slotsOf(who)[i].only}` : ''}`));
         if (it) {
           box.insertAdjacentHTML('beforeend', gearCardHtml(it));
           // Details opens the piece's full card over the picker: upgrade it, modify it.
@@ -1702,15 +1729,19 @@ export class AppUI {
         const vs = current && current.uid !== item.uid ? current : (group.map((i) => worn[i]).find((it) => it && it.uid !== item.uid) ?? null);
         insp.innerHTML = gearCardHtml(item, vs);
         const owner = g.wearerOf(item.uid);
-        const row = el('div', group.length > 1 ? 'pk-equip-row' : 'pk-equip-one');
-        for (const i of group) {
+        // Primary or Secondary only when the piece fits both (a second slot takes only some kinds).
+        const fitting = group.filter((i) => slotAccepts(g.slotsOf(who)[i], gearDef(item.base)));
+        const choices = fitting.length ? fitting : [slot];
+        const many = choices.length > 1;
+        const row = el('div', many ? 'pk-equip-row' : 'pk-equip-one');
+        for (const i of choices) {
           const btn = el('button', 'buy') as HTMLButtonElement;
-          const named = group.length > 1 ? ` ${label(i)}` : '';
+          const named = many ? ` ${label(i)}` : '';
           if (worn[i]?.uid === item.uid) {
-            btn.textContent = group.length > 1 ? `In ${label(i)}` : 'Equipped';
+            btn.textContent = many ? `In ${label(i)}` : 'Equipped';
             btn.disabled = true;
           } else if (!slotAccepts(g.slotsOf(who)[i], gearDef(item.base))) {
-            btn.textContent = `Doesn't fit the ${label(i)} slot`;
+            btn.textContent = g.slotsOf(who)[i].only ? `${g.slotsOf(who)[i].only}` : `Doesn't fit the ${g.slotsOf(who)[i].label} slot`;
             btn.disabled = true;
           } else if (owner && owner.who !== who) {
             // Equipping takes it off whoever has it on.
@@ -1735,7 +1766,7 @@ export class AppUI {
       tiles.clear();
       // Who wears what, looked up once rather than per tile.
       const wornBy = new Map<number, Wearer>();
-      for (const [w, uids] of Object.entries(g.state.equipment) as [Wearer, Array<number | null>][]) for (const u of uids) if (u !== null) wornBy.set(u, w);
+      for (const [w, uids] of Object.entries(g.state.equipment) as [Wearer, Array<number | null>][]) for (const u of uids.slice(0, g.slotsOf(w).length)) if (u !== null) wornBy.set(u, w);
       const rank = (it: GearItem) => RARITY_ORDER.indexOf(gearDef(it.base).rarity);
       const inv = [...g.state.inventory].sort((a, b) => Number(fits(b)) - Number(fits(a)) || rank(b) - rank(a) || b.uid - a.uid);
       $('.pk-count', view).textContent = `${inv.length} item${inv.length === 1 ? '' : 's'}`;
@@ -1834,13 +1865,19 @@ export class AppUI {
         const slots = g.slotsOf(w);
         const fit = slots.findIndex((sl) => slotAccepts(sl, gd));
         const b = el('button', `card es-hunter${fit < 0 ? ' misfit' : ''}${worn?.who === w ? ' wearing' : ''}`) as HTMLButtonElement;
+        const items = g.equipped(w);
+        const icon = (i: number, sub: boolean) => {
+          const it = items[i];
+          const d = it ? gearDef(it.base) : null;
+          return `<span class="es-slot${d ? ' rar' : ''}${d?.unboundOf ? ' ub' : ''}${sub ? ' stacked' : ''}${it?.uid === uid ? ' this' : ''}" style="${d ? `--rc:${gearColor(d.id)}` : ''}" title="${d ? d.name : slots[i].label}">${d ? gearIcon(d) : ''}</span>`;
+        };
+        // A slot's partner (Wilhelm's Secondary, a second slot) sits behind it, up to the left, so the row stays narrow.
         const gear = g
-          .equipped(w)
-          .map((it, i) => {
-            const d = it ? gearDef(it.base) : null;
-            // A later slot of a group (Wilhelm's Secondary) tucks in under the one before it, so the row stays narrow.
-            const stacked = g.slotGroup(w, i)[0] !== i;
-            return `<span class="es-slot${d ? ' rar' : ''}${d?.unboundOf ? ' ub' : ''}${stacked ? ' stacked' : ''}${it?.uid === uid ? ' this' : ''}" style="${d ? `--rc:${gearColor(d.id)}` : ''}" title="${d ? d.name : slots[i].label}">${d ? gearIcon(d) : ''}</span>`;
+          .slotOrder(w)
+          .filter((o) => !o.sub)
+          .map(({ i }) => {
+            const subs = g.slotGroup(w, i).slice(1);
+            return subs.length ? `<span class="es-pair">${subs.map((j) => icon(j, true)).join('')}${icon(i, false)}</span>` : icon(i, false);
           })
           .join('');
         b.innerHTML = `${portraitHtml(w)}<b class="es-name">${wearerName(w)}</b><small class="es-note">${worn?.who === w ? 'Wearing it' : fit < 0 ? "Can't use it" : `Lv ${g.levelOf(w)}`}</small><div class="es-gear">${gear}</div>`;
@@ -3422,7 +3459,7 @@ export class AppUI {
           : [];
       // Who wears what, looked up once rather than per piece (this runs every refresh).
       const wornBy = new Map<number, Wearer>();
-      for (const [w, uids] of Object.entries(g.state.equipment) as [Wearer, Array<number | null>][]) for (const u of uids) if (u !== null) wornBy.set(u, w);
+      for (const [w, uids] of Object.entries(g.state.equipment) as [Wearer, Array<number | null>][]) for (const u of uids.slice(0, g.slotsOf(w).length)) if (u !== null) wornBy.set(u, w);
       const equippedView = this.invEquipped && !refining;
       const k = [
         JSON.stringify(f),
@@ -3446,7 +3483,7 @@ export class AppUI {
       // order (the filters still narrow it).
       const wearers: Wearer[] = ['main', ...HUNTERS.filter((h) => g.state.hunters[h.id].recruited).map((h) => h.id)];
       const byUid = new Map(gear.map((it) => [it.uid, it]));
-      const worn = wearers.map((w) => ({ w, items: (g.state.equipment[w] ?? []).flatMap((u) => (u !== null && byUid.has(u) ? [byUid.get(u)!] : [])) }));
+      const worn = wearers.map((w) => ({ w, items: (g.state.equipment[w] ?? []).slice(0, g.slotsOf(w).length).flatMap((u) => (u !== null && byUid.has(u) ? [byUid.get(u)!] : [])) }));
       const wornCount = worn.reduce((a, x) => a + x.items.length, 0);
       invTitle.classList.toggle('on', equippedView);
       invTitle.innerHTML = refining
