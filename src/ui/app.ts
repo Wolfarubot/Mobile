@@ -5262,13 +5262,6 @@ export class AppUI {
         this.hooks.save();
         this.refresh();
       });
-    const card = (icon: string, name: string, text: string, button: HTMLButtonElement) => {
-      const c = el('div', 'card shop-item');
-      c.innerHTML = `<div class="si-icon">${icon}</div><div class="si-info"><b>${name}</b><small>${text}</small></div>`;
-      c.appendChild(button);
-      body.appendChild(c);
-      return c;
-    };
     /** A section heading with the time to the next stock in a clock pill on its right. */
     const stockTitle = (text: string) => {
       const t = sectionTitle(text);
@@ -5348,8 +5341,10 @@ export class AppUI {
       const grid = el('div', 'shop-grid merchant-grid');
       body.appendChild(grid);
       for (const m of g.merchantOffers) {
-        const cell = el('div', 'shop-cell');
-        cell.innerHTML = `<div class="mc-icon">${gemHtml(m, 'big')}</div><span class="st-name">${materialDef(m).name}</span><small class="st-what mc-have"></small><div class="mc-bar"><i></i></div><button class="buy mc-trade"></button>`;
+        // As the Shop's wares: the material framed and lit in its own colour, the trade on a button below.
+        const cell = el('div', 'shop-cell ware merchant-ware');
+        cell.style.setProperty('--rc', materialDef(m).color);
+        cell.innerHTML = `<div class="shop-tile"><i class="mc-icon">${gemHtml(m, 'big')}</i><b class="st-owned">✓</b></div><span class="st-name">${materialDef(m).name}</span><small class="st-what mc-have"></small><div class="mc-bar"><i></i></div><button class="buy st-buy mc-trade"></button>`;
         const have = $('.mc-have', cell);
         const fill = $('.mc-bar i', cell);
         const trade = $<HTMLButtonElement>('.mc-trade', cell);
@@ -5366,32 +5361,31 @@ export class AppUI {
           fill.style.width = `${Math.min(1, n / MERCHANT_AMOUNT) * 100}%`;
           cell.classList.toggle('mc-ready', !done && g.canTrade(m));
           cell.classList.toggle('mc-done', done);
+          cell.classList.toggle('sold', done);
           trade.disabled = done || !g.canTrade(m);
           trade.innerHTML = done ? 'Traded ✓' : `${gemIcon()} ${gemsText(MERCHANT_GEMS)}`;
         });
         grid.appendChild(cell);
       }
       body.appendChild(sectionTitle('Gem packs'));
+      // As the Shop's wares too: each pack framed and lit by its size, its total large, the price on its button.
+      const packs = el('div', 'shop-grid pack-grid');
+      body.appendChild(packs);
+      const PACK_COLORS = ['#a8b3c2', '#4fc36b', '#3f8cff', '#b45cff', '#ffb020'];
       GEM_PACKS.forEach((p, i) => {
-        const btn = el('button', 'buy', p.price) as HTMLButtonElement;
         const total = (p.gems ?? 0) + (p.bonus ?? 0);
-        btn.addEventListener('click', () =>
+        const badge = p.id === 'gems_275' ? txt('menu.shop.popular') : i === GEM_PACKS.length - 1 ? txt('menu.shop.bestValue') : '';
+        const cell = el('div', 'shop-cell ware gem-pack');
+        cell.style.setProperty('--rc', PACK_COLORS[Math.min(i, PACK_COLORS.length - 1)]);
+        cell.style.setProperty('--tier', String(i));
+        cell.innerHTML = `${badge ? `<span class="gp-badge${i === GEM_PACKS.length - 1 ? ' best' : ''}">${badge}</span>` : ''}<div class="shop-tile"><i>${sprite(p.icon!)}</i><span class="si-gem">${gemIcon()}</span></div><span class="st-name">${p.name}</span><span class="gp-total">${gemIcon()} ${gemsText(total)}</span>${p.bonus ? `<em class="gp-ribbon">${tx('menu.shop.bonus', { n: gemsText(p.bonus) })}</em>` : '<em class="gp-ribbon gp-none"></em>'}<button class="buy st-buy">${p.price}</button>`;
+        $<HTMLButtonElement>('.st-buy', cell).addEventListener('click', () =>
           buy(p, () => {
             g.addGems(total);
             this.toast(txt('toast.rewards.gems', { n: gemsText(total) }));
           }),
         );
-        // The total large, the bonus on a ribbon, the art growing with the pack, two packs badged.
-        const badge = p.id === 'gems_275' ? txt('menu.shop.popular') : i === GEM_PACKS.length - 1 ? txt('menu.shop.bestValue') : '';
-        const c = card(
-          `${sprite(p.icon!)}<span class="si-gem">${gemIcon()}</span>`,
-          p.name,
-          `<span class="gp-total">${gemIcon()} ${gemsText(total)}</span>${p.bonus ? `<em class="gp-ribbon">${tx('menu.shop.bonus', { n: gemsText(p.bonus) })}</em>` : ''}`,
-          btn,
-        );
-        c.classList.add('gem-pack');
-        c.style.setProperty('--tier', String(i));
-        if (badge) c.insertAdjacentHTML('afterbegin', `<span class="gp-badge${i === GEM_PACKS.length - 1 ? ' best' : ''}">${badge}</span>`);
+        packs.appendChild(cell);
       });
     }
     show(page);

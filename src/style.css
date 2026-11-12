@@ -7100,52 +7100,86 @@ body.ui-parchment .hunter-detail.overlay {
   width: 14px;
   height: 14px;
 }
-/* Gem packs: the total large, the bonus on a ribbon, the art growing with the pack, two packs badged. */
-.hunter-detail.shop .gem-pack {
-  position: relative;
+/* Gem packs, as wares: lit by their size, the art growing with the pack, the total large, two packs badged. Three
+   to a row, the last row centred. */
+.shop-grid.pack-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 14px 8px;
 }
-.gem-pack .si-icon img.ei {
-  width: calc(20px + var(--tier) * 3px);
-  height: calc(20px + var(--tier) * 3px);
+.pack-grid .gem-pack {
+  position: relative;
+  width: calc((100% - 16px) / 3);
+}
+.merchant-ware .st-what {
+  min-height: 0;
+}
+.gem-pack .shop-tile i img.ei {
+  width: calc(30px + var(--tier) * 5px);
+  height: calc(30px + var(--tier) * 5px);
+}
+.gem-pack .shop-tile .si-gem {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+}
+.gem-pack .shop-tile .si-gem img.ei {
+  width: 18px;
+  height: 18px;
 }
 .gem-pack .gp-total {
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 800;
+  white-space: nowrap;
   text-shadow: var(--outline-thick) !important;
 }
 .gem-pack .gp-total img.ei {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
   vertical-align: -2px;
 }
 .gem-pack .gp-ribbon {
-  margin-left: 6px;
+  min-height: 15px;
   padding: 0 6px;
-  vertical-align: 3px;
-  font-size: 11px;
+  font-size: 10px;
   font-style: normal;
   font-weight: 800;
   color: #fff;
   background: #c2410c;
   border: 1px solid #120e14;
   border-radius: 3px;
+  white-space: nowrap;
+}
+.gem-pack .gp-ribbon.gp-none {
+  visibility: hidden;
 }
 .gem-pack .gp-badge {
   position: absolute;
-  top: -10px;
-  right: 6px;
-  z-index: 1;
-  padding: 1px 8px;
-  font-size: 10px;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  padding: 1px 6px;
+  font-size: 9px;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  white-space: nowrap;
   background: #2563eb;
   border: 2px solid #120e14;
   border-radius: 999px;
 }
 .gem-pack .gp-badge.best {
   background: #b91c1c;
+}
+/* The merchant's wares: the material framed in its own colour, its progress, the trade lit once it's ready. */
+.merchant-ware .shop-tile {
+  cursor: default;
+}
+.merchant-ware .mc-icon .gem-ic.big,
+.merchant-ware .mc-icon img.ei {
+  width: 44px;
+  height: 44px;
 }
 .shop-owned {
   display: flex;
