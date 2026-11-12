@@ -561,6 +561,9 @@ it.runIf(!!process.env.SIM_FULL)('full game: a typical player beats the Time Eat
       log(`  [farm day ${day}] in ${g.areaStats(g.state.area).name}: ${g.shardsNow} shards this run (${budget} to spend); ${nextUnbound.name} costs ${g.regCostOf(nextUnbound.id)}`);
     }
     if (plannedBuys(g, budget) < 1) return false;
+    // Shards carried over can pay for a node before this run has earned much: keep farming until the run itself has
+    // earned at least as much as was carried in (a run's payout climbs steeply over its first day).
+    if (g.shardsNow < g.state.regression.shards) return false;
     return regressReady();
   };
   for (const [start, length] of sessions) {
