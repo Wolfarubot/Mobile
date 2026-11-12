@@ -5371,7 +5371,7 @@ export class AppUI {
       // As the Shop's wares too: each pack framed and lit by its size, its total large, the price on its button.
       const packs = el('div', 'shop-grid pack-grid');
       body.appendChild(packs);
-      const PACK_COLORS = ['#a8b3c2', '#4fc36b', '#3f8cff', '#b45cff', '#ffb020'];
+      const PACK_COLORS = ['#a8b3c2', '#4fc36b', '#3f8cff', '#b45cff', '#ffb020', '#ff4d3d'];
       GEM_PACKS.forEach((p, i) => {
         const total = (p.gems ?? 0) + (p.bonus ?? 0);
         const badge = p.id === 'gems_275' ? txt('menu.shop.popular') : i === GEM_PACKS.length - 1 ? txt('menu.shop.bestValue') : '';
