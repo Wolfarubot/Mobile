@@ -1780,6 +1780,34 @@ export class Field {
         }
       return true;
     }
+    if (sp.kind === 'hammer' && sp.hammer) {
+      // Kargesh's Forge Hammer: thrown end over end at the monster, it lands like a blow on the anvil. The shockwave
+      // hits everything around it, knocks it back and cracks its armour (Exposed); sparks shower down around it.
+      const tx = target.x;
+      const ty = target.y;
+      const dist = Math.hypot(tx - x, ty - y);
+      const dtype = only ?? sp.damageType;
+      this.events.push({ type: 'phantom', weapon: 'hammer', x, y, a, r: dist, arc: 0, color: DAMAGE_TYPES[dtype].color });
+      this.events.push({ type: 'slam', x: tx, y: ty, r: radius, color: DAMAGE_TYPES[dtype].color });
+      const expose = sp.hammer.expose * g.lastingMult(by);
+      for (const o of [...this.enemies]) {
+        if (o.hp <= 0 || Math.hypot(o.x - tx, o.y - ty) > radius + o.r) continue;
+        this.hitWith(by, o, dmg, tx, ty, undefined, undefined, true, true, dtype);
+        o.exposed = Math.max(o.exposed ?? 0, o.boss ? expose / 2 : expose);
+        if (o.hp > 0 && !o.boss && sp.knock) {
+          const d = Math.hypot(o.x - tx, o.y - ty) || 1;
+          o.kx += ((o.x - tx) / d) * sp.knock;
+          o.ky += ((o.y - ty) / d) * sp.knock;
+        }
+      }
+      const c: SpellCast = { who: by, dtype, mult: dmg * sp.hammer.spark, special: true, only: dtype };
+      for (let i = 0; i < sp.hammer.sparks; i++) {
+        const ang = g.rng() * Math.PI * 2;
+        const d = radius * (0.6 + g.rng() * 0.7);
+        this.spellHits.push({ c, t: 0.2 + g.rng() * 0.35, x: tx + Math.cos(ang) * d, y: ty + Math.sin(ang) * d, r: 18, k: 1, fx: 'sun' });
+      }
+      return true;
+    }
     if (sp.kind === 'punch') {
       // Sciirj's Mountain Fist: waits until a monster is within reach, then one huge blow at everything in front
       // of him, knocking the survivors far back.

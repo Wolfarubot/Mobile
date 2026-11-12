@@ -2433,7 +2433,7 @@ export const DAMAGE_TYPES: Record<DamageType, { name: string; icon: string; colo
 export const ARROW_RAIN = { time: 1.5, perShot: 0.75, rate: 8, arrow: 18, perPierce: 0.2 };
 
 export interface HunterSpecial {
-  kind: 'potion' | 'fireball' | 'summon' | 'punch' | 'spikes' | 'wave' | 'recall' | 'dice' | 'charm' | 'laser' | 'rain' | 'rift' | 'projection';
+  kind: 'potion' | 'fireball' | 'summon' | 'punch' | 'spikes' | 'wave' | 'recall' | 'dice' | 'charm' | 'laser' | 'rain' | 'rift' | 'projection' | 'hammer';
   /** What it's called on the Hunter's card ("Potions", "Wolves"...). */
   name: string;
   damageType: DamageType;
@@ -2463,6 +2463,12 @@ export interface HunterSpecial {
    * she does, then explodes (`radius` wide, for `damage` × her hit to everything in it).
    */
   projection?: { life: number };
+  /**
+   * Kargesh's Forge Hammer: thrown at a monster, it lands with an anvil-strike shockwave (`radius` wide, `damage` × his
+   * hit, knocking back by `knock`) that cracks the armour of everything it hits (Exposed: resistances count for
+   * nothing for `expose` seconds), and showers `sparks` sparks around it, each `spark` × his hit where it falls.
+   */
+  hammer?: { expose: number; sparks: number; spark: number };
   describe: string;
 }
 
@@ -2730,7 +2736,20 @@ export const HUNTERS: HunterDef[] = [
     unlock: { event: 'shootingGallery', times: 1 },
     ascendedTitle: 'Master Smith',
     story: "Kargesh keeps a forge deep in the Ember Mines, fed by the heat of the Demon Lord's lair, and makes the guns for Wilhelm's Shooting Gallery. Play a round there, and he'll come to see how they shoot, and bring his anvil to the guild.",
-    ability: 'Unlocks Refine in Equipment: add stat modifiers (attack speed, damage, knockback, piercing, magazine size) to Very Rare and rarer gear. Fights with melee weapons.',
+    ability: 'Unlocks Refine in Equipment: add stat modifiers (attack speed, damage, knockback, piercing, magazine size) to Very Rare and rarer gear. Every 6 seconds, hurls his Forge Hammer: it lands in a fiery shockwave that cracks monsters\' armour and showers sparks. Fights with melee weapons.',
+    special: {
+      kind: 'hammer',
+      name: 'Forge Hammer',
+      damageType: 'fire',
+      cooldown: 6,
+      damage: 3,
+      radius: 80,
+      ticks: 1,
+      crowd: 2.5,
+      knock: 260,
+      hammer: { expose: 4, sparks: 6, spark: 0.5 },
+      describe: "Every 6 seconds, hurls his smithing hammer at a monster. It lands like a blow on the anvil: a fiery shockwave hits everything around it and knocks it back, cracks their armour (their resistances count for nothing for a while), and showers sparks that burn where they fall.",
+    },
     slots: [{ kind: 'melee', label: 'Melee' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
   },
   {
