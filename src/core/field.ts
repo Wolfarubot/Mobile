@@ -445,7 +445,7 @@ export interface SpellHit {
   y: number;
   r: number;
   k: number;
-  fx?: 'spike' | 'sun' | 'storm' | 'rock' | 'shock' | 'arrows';
+  fx?: 'spike' | 'sun' | 'storm' | 'rock' | 'shock' | 'arrows' | 'rune';
 }
 
 /** Earthshatter: a crack in the ground from (x1, y1) to (x2, y2), hurting monsters on it each tick for `power` × a hit. */
@@ -609,7 +609,7 @@ export type FieldEvent =
   /** Floating words on the field: a dice roll's call, Double or Nothing's ×2 / BUST. */
   | { type: 'say'; x: number; y: number; text: string; color: string; size: number }
   /** A spell's moment: an ice spike, a fan of frost, a sunbeam, an acid drop, an anchor landing, the dead rising. */
-  | { type: 'spell'; fx: 'spike' | 'cone' | 'sun' | 'drop' | 'anchor' | 'rise' | 'rock' | 'break' | 'shock' | 'arrows'; x: number; y: number; r: number; color: string; a?: number; arc?: number };
+  | { type: 'spell'; fx: 'spike' | 'cone' | 'sun' | 'drop' | 'anchor' | 'rise' | 'rock' | 'break' | 'shock' | 'arrows' | 'rune'; x: number; y: number; r: number; color: string; a?: number; arc?: number };
 
 /**
  * The survivor-style battlefield in world coordinates centered on your Hunter.
@@ -1806,6 +1806,18 @@ export class Field {
         const d = radius * (0.6 + g.rng() * 0.7);
         this.spellHits.push({ c, t: 0.2 + g.rng() * 0.35, x: tx + Math.cos(ang) * d, y: ty + Math.sin(ang) * d, r: 18, k: 1, fx: 'sun' });
       }
+      return true;
+    }
+    if (sp.kind === 'runes' && sp.runes) {
+      // Marceline's Rune Circle: inscribed under the monster, it pulses once in each of its enchantments, each pulse
+      // certain to set off its type's effect (a copy from Thomas's tome pulses in his chosen type only).
+      const tx = target.x;
+      const ty = target.y;
+      sp.runes.types.forEach((t, i) => {
+        const dtype = only ?? t;
+        this.spellHits.push({ c: { who: by, dtype, mult: dmg }, t: 0.25 + i * sp.runes!.gap, x: tx, y: ty, r: radius, k: 1, fx: 'rune' });
+      });
+      this.events.push({ type: 'nova', x: tx, y: ty, r: radius, color: DAMAGE_TYPES[only ?? sp.runes.types[0]].color });
       return true;
     }
     if (sp.kind === 'punch') {

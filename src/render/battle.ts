@@ -1262,6 +1262,15 @@ export class BattleView {
           this.fx.burst(e.x + Math.cos(a) * d, e.y + Math.sin(a) * d, i % 2 ? '#e8f8ff' : e.color, 1, 70, 3, 0, true);
         }
         break;
+      case 'rune':
+        // A pulse of Marceline's Rune Circle: the circle flares in its enchantment's colour, runes sparking round it.
+        this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: rgb, max: 0.45, fill: true });
+        this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: rgb, max: 0.45, grow: true });
+        for (let i = 0; i < 8; i++) {
+          const a = (i / 8) * Math.PI * 2;
+          this.fx.burst(e.x + Math.cos(a) * e.r * 0.85, e.y + Math.sin(a) * e.r * 0.85, i % 2 ? '#f4e8ff' : e.color, 2, 60, 3, -120, true);
+        }
+        break;
       case 'sun':
         if (this.fancy) this.playEffect('sunstrike', e.x, e.y + e.r * 0.3, e.r * 2.4, 'bottom', 16);
         this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: rgb, max: 0.8, fill: true });

@@ -2433,7 +2433,7 @@ export const DAMAGE_TYPES: Record<DamageType, { name: string; icon: string; colo
 export const ARROW_RAIN = { time: 1.5, perShot: 0.75, rate: 8, arrow: 18, perPierce: 0.2 };
 
 export interface HunterSpecial {
-  kind: 'potion' | 'fireball' | 'summon' | 'punch' | 'spikes' | 'wave' | 'recall' | 'dice' | 'charm' | 'laser' | 'rain' | 'rift' | 'projection' | 'hammer';
+  kind: 'potion' | 'fireball' | 'summon' | 'punch' | 'spikes' | 'wave' | 'recall' | 'dice' | 'charm' | 'laser' | 'rain' | 'rift' | 'projection' | 'hammer' | 'runes';
   /** What it's called on the Hunter's card ("Potions", "Wolves"...). */
   name: string;
   damageType: DamageType;
@@ -2469,6 +2469,11 @@ export interface HunterSpecial {
    * nothing for `expose` seconds), and showers `sparks` sparks around it, each `spark` × his hit where it falls.
    */
   hammer?: { expose: number; sparks: number; spark: number };
+  /**
+   * Marceline's Rune Circle: a circle of runes `radius` wide under a monster, pulsing once for each of `types`, `gap`
+   * seconds apart, each pulse `damage` × her hit in that type to everything in it, its status effect certain.
+   */
+  runes?: { types: DamageType[]; gap: number };
   describe: string;
 }
 
@@ -2769,7 +2774,19 @@ export const HUNTERS: HunterDef[] = [
     unlock: { event: 'guardian-mines', times: 1 },
     ascendedTitle: 'Archenchantress',
     story: "Marceline came to the Venom Caverns for the venom-bright crystals that hold an enchantment best, and the Caverns' Guardian has kept her pinned in the dark ever since. Beat it, and she'll put her runes on your gear.",
-    ability: 'Unlocks Enchant in Equipment: add damage types, stronger status effects and abilities to Very Rare and rarer gear. Fights with magic weapons.',
+    ability: "Unlocks Enchant in Equipment: add damage types, stronger status effects and abilities to Very Rare and rarer gear. Every 7 seconds, inscribes a Rune Circle that pulses Arcane, Fire and Frost, each pulse's effect certain. Fights with magic weapons.",
+    special: {
+      kind: 'runes',
+      name: 'Rune Circle',
+      damageType: 'arcane',
+      cooldown: 7,
+      damage: 1.2,
+      radius: 75,
+      ticks: 3,
+      crowd: 2.5,
+      runes: { types: ['arcane', 'fire', 'frost'], gap: 0.5 },
+      describe: 'Every 7 seconds, inscribes a circle of runes under a monster. It pulses three times, a different enchantment each time: Arcane (exposed: resistances count for nothing), then Fire (burning), then Frost (chilled), each pulse hitting everything in the circle with its effect certain to take hold.',
+    },
     slots: [{ kind: 'magic', label: 'Magic weapon' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
   },
   {
