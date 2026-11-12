@@ -4852,10 +4852,11 @@ body.ui-parchment .tabs button {
   color: var(--fg);
   text-shadow: 1px 1px 0 var(--ink);
 }
+/* The open tab sits pressed in: darker than the bar, shadowed along its top (the others stand raised). */
 body.ui-parchment .tabs button.active {
-  background: var(--c2) !important;
+  background: color-mix(in srgb, var(--wood-hi) 55%, #000) !important;
   color: var(--fg) !important;
-  box-shadow: inset 0 3px 0 color-mix(in srgb, var(--c2) 60%, #fff), inset 0 -3px 0 var(--c0);
+  box-shadow: inset 0 4px 0 rgba(0, 0, 0, 0.45), inset 0 -3px 0 var(--c0);
   text-shadow: none;
 }
 body.ui-parchment .card,
@@ -7847,6 +7848,35 @@ body .type-cycler button,
 body .auto-salvage .as-chip {
   color: #fff !important;
   text-shadow: var(--outline) !important;
+}
+/* The Filter and Auto Salvage choices and the font choices: framed like the other buttons, raised (light) when you
+   can pick them and pressed in (dark) once picked. */
+body.ui-parchment .filter-options button,
+body.ui-parchment .font-option {
+  background: var(--c1) padding-box !important;
+  border-radius: 0 !important;
+  border: 8px solid var(--c0) !important;
+  border-image: var(--img-btn) 3 fill / 8px / 0 stretch !important;
+  image-rendering: pixelated;
+  padding: 0 4px !important;
+  color: #fff !important;
+  text-shadow: var(--outline) !important;
+}
+body.ui-parchment .filter-options button.on,
+body.ui-parchment .font-option.on,
+body.ui-parchment .filter-options button:active,
+body.ui-parchment .font-option:active {
+  border-image: var(--img-btnhi) 3 fill / 8px / 0 stretch !important;
+}
+body.ui-parchment .filter-options button.on,
+body.ui-parchment .font-option.on {
+  outline: 2px solid var(--gold);
+}
+body.ui-parchment .rarity-options button[style] {
+  box-shadow: inset 5px 0 0 var(--rc) !important;
+}
+body.ui-parchment .font-option small {
+  color: #fff !important;
 }
 
 /* Settings: each category's header (a section title you can tap) opens and closes the settings under it. */
