@@ -6771,9 +6771,89 @@ body.ui-parchment .hunter-detail.overlay {
 .shop-tabs {
   margin-bottom: 8px;
 }
-.shop-test {
-  font-size: 11px;
-  opacity: 0.8;
+/* The test-mode note: a thin strip, not a panel. */
+.hunter-detail.shop .shop-test {
+  margin: 0 0 8px;
+  padding: 3px 8px;
+  font-size: 10px;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 6px;
+  opacity: 0.85;
+}
+/* A section's countdown to new stock, in a clock pill on its right. */
+.stock-clock {
+  align-self: center;
+  padding: 1px 8px;
+  font-size: 10px;
+  letter-spacing: 0;
+  text-transform: none;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+/* Remove Ads: a featured banner, lit gold, with what it gives as a checklist and the price below. */
+.hunter-detail.shop .shop-feature {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 6px !important;
+  box-shadow: 0 0 0 2px var(--gold), 0 0 14px rgba(232, 168, 0, 0.55), 0 3px 0 rgba(0, 0, 0, 0.45) !important;
+}
+.shop-feature .sf-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.shop-feature .si-icon {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border: 6px solid #8a1677;
+  border-image: var(--img-btn-purple, var(--img-btn)) 3 / 6px / 0 stretch;
+  background: var(--c3) padding-box;
+  image-rendering: pixelated;
+  box-sizing: content-box;
+}
+.shop-feature .si-icon img.ei {
+  width: 28px;
+  height: 28px;
+}
+.shop-feature .sf-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.shop-feature .sf-title b {
+  font-size: 18px;
+  text-shadow: var(--outline-thick) !important;
+}
+.shop-feature .sf-title small {
+  font-size: 12px;
+}
+.shop-feature .sf-points {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 3px;
+  font-size: 12px;
+}
+.shop-feature .sf-points li::before {
+  content: '✓ ';
+  color: #9ff0a8;
+  font-weight: 800;
+}
+.shop-feature .buy {
+  align-self: stretch;
+  font-size: 16px;
+  padding: 8px;
+}
+.shop-feature.owned {
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.45) !important;
 }
 .shop-item {
   display: flex;
@@ -6858,16 +6938,71 @@ body.ui-parchment .hunter-detail.overlay {
   gap: 3px;
   min-width: 0;
 }
-/* The wares' frames: the game's bevelled UI frame repainted in the shop's purple, with the rarity glowing inside. */
-body .craft-tile.shop-tile,
-body.ui-parchment .craft-tile.shop-tile {
+/* The wares: each framed and lit in its rarity's colour, its price on a buy button below. */
+.shop-cell.ware {
+  gap: 4px;
+  padding: 4px 4px 6px !important;
+}
+.ware .shop-tile {
+  position: relative;
   width: 100%;
-  max-width: 96px;
-  border: 9px solid #8a1677 !important;
-  border-image: var(--img-btn-purple, var(--img-btn)) 3 / 9px / 0 stretch !important;
-  image-rendering: pixelated;
-  background: radial-gradient(circle, color-mix(in srgb, var(--rc) 45%, var(--c3)) 0%, var(--c3) 75%) padding-box !important;
-  box-shadow: inset 0 0 0 2px var(--rc) !important;
+  max-width: 88px;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 3px solid var(--rc);
+  border-radius: 4px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--rc) 55%, #1e1a24) 0%, #1e1a24 78%);
+  box-shadow: 0 0 0 2px #120e14, 0 0 10px color-mix(in srgb, var(--rc) 70%, transparent);
+  cursor: pointer;
+}
+.ware .shop-tile i {
+  font-style: normal;
+}
+.ware .st-owned {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 22px;
+  height: 22px;
+  display: none;
+  place-items: center;
+  font-size: 13px;
+  color: #fff;
+  background: #2f9e44;
+  border: 2px solid #120e14;
+  border-radius: 50%;
+}
+.ware.sold .st-owned {
+  display: grid;
+}
+.ware.sold .shop-tile i {
+  opacity: 0.45;
+}
+.ware .st-rarity {
+  color: var(--rc) !important;
+}
+.ware .st-what {
+  font-size: 11px;
+  line-height: 1.2;
+  min-height: 2.4em;
+  opacity: 1;
+}
+.ware .st-buy {
+  width: 100%;
+  margin-top: auto;
+  padding: 4px 2px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.ware .st-buy img.ei {
+  width: 15px;
+  height: 15px;
+  vertical-align: -2px;
+}
+.hunter-detail.shop .ware .st-buy.short {
+  filter: grayscale(1) brightness(0.75) !important;
 }
 .st-rarity {
   font-size: 10px;
@@ -6891,9 +7026,7 @@ body.ui-parchment .craft-tile.shop-tile {
   color: #fff;
   text-shadow: var(--outline);
 }
-.shop-tile.sold {
-  opacity: 0.45;
-}
+
 .st-name {
   font-size: 11px;
   font-weight: 800;
@@ -6940,9 +7073,79 @@ body.ui-parchment .craft-tile.shop-tile {
   padding: 3px 8px;
   white-space: nowrap;
 }
+/* How close you are to the 10M he wants, and the trade lit up once it's ready. */
+.merchant-grid .mc-bar {
+  width: 80%;
+  height: 6px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid #120e14;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.merchant-grid .mc-bar i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #c97a1e, var(--gold));
+}
+.merchant-grid .mc-ready .mc-bar i {
+  background: linear-gradient(90deg, #3fae5a, #9ff0a8);
+}
+.merchant-grid .mc-ready .mc-trade {
+  box-shadow: 0 0 0 2px var(--gold), 0 0 10px rgba(232, 168, 0, 0.7);
+}
+.merchant-grid .mc-done {
+  opacity: 0.7;
+}
 .merchant-grid .mc-trade img.ei {
   width: 14px;
   height: 14px;
+}
+/* Gem packs: the total large, the bonus on a ribbon, the art growing with the pack, two packs badged. */
+.hunter-detail.shop .gem-pack {
+  position: relative;
+}
+.gem-pack .si-icon img.ei {
+  width: calc(20px + var(--tier) * 3px);
+  height: calc(20px + var(--tier) * 3px);
+}
+.gem-pack .gp-total {
+  font-size: 17px;
+  font-weight: 800;
+  text-shadow: var(--outline-thick) !important;
+}
+.gem-pack .gp-total img.ei {
+  width: 16px;
+  height: 16px;
+  vertical-align: -2px;
+}
+.gem-pack .gp-ribbon {
+  margin-left: 6px;
+  padding: 0 6px;
+  vertical-align: 3px;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
+  color: #fff;
+  background: #c2410c;
+  border: 1px solid #120e14;
+  border-radius: 3px;
+}
+.gem-pack .gp-badge {
+  position: absolute;
+  top: -10px;
+  right: 6px;
+  z-index: 1;
+  padding: 1px 8px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: #2563eb;
+  border: 2px solid #120e14;
+  border-radius: 999px;
+}
+.gem-pack .gp-badge.best {
+  background: #b91c1c;
 }
 .shop-owned {
   display: flex;

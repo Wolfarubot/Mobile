@@ -111,7 +111,6 @@ import {
   PREMIUM_UPGRADES,
   premiumItem,
   premiumName,
-  SHOP_DAILY_ITEMS,
   SHARD_ICON,
   REGRESSION_LINKS,
   REGRESSION_TREE,
@@ -120,7 +119,6 @@ import {
   GEAR_WORTH_WEIGHT,
   AUTO_EMPOWER_SHARES,
   MERCHANT_AMOUNT,
-  MERCHANT_DAILY,
   MERCHANT_GEMS,
   type Quest,
   MINIGAME_BUFFS,
@@ -5246,7 +5244,7 @@ export class AppUI {
     const tabs = el('div', 'subtabs shop-tabs');
     tabs.innerHTML = `<button data-page="shop" class="${page === 'shop' ? 'on' : ''}">Shop</button><button data-page="gems" class="${page === 'gems' ? 'on' : ''}">${gemIcon()} Exalted Gems</button>`;
     body.appendChild(tabs);
-    if (STORE_TEST_MODE) body.appendChild(el('p', 'hd-note shop-test', txt('menu.shop.test')));
+    if (STORE_TEST_MODE) body.appendChild(el('p', 'shop-test', txt('menu.shop.test')));
     // Both pages are built once; the tabs just switch which shows (no rebuilding, the market carries on).
     const panes = { shop: el('div', 'shop-pane'), gems: el('div', 'shop-pane') };
     scroll.append(panes.shop, panes.gems);
@@ -5271,8 +5269,17 @@ export class AppUI {
       body.appendChild(c);
       return c;
     };
+    /** A section heading with the time to the next stock in a clock pill on its right. */
+    const stockTitle = (text: string) => {
+      const t = sectionTitle(text);
+      const pill = el('small', 'stock-clock');
+      t.appendChild(pill);
+      refreshers.push(() => setHtml(pill, `🕒 ${tx('menu.shop.restock', { time: fmtWait(nextMidnight(g.clock()) - g.clock()) })}`));
+      return t;
+    };
     body = panes.shop;
     {
+      // Remove Ads: a featured banner, what it gives as a short checklist.
       const btn = el('button', 'buy') as HTMLButtonElement;
       btn.addEventListener('click', () =>
         buy(REMOVE_ADS, () => {
@@ -5280,29 +5287,41 @@ export class AppUI {
           this.toast(txt('toast.rewards.noAds'));
         }),
       );
-      card(sprite('status2/013'), REMOVE_ADS.name, tx('menu.shop.removeAds', { cap: ENERGY_MAX_NO_ADS }), btn);
+      const ads = el('div', 'card shop-feature');
+      const points = tx('menu.shop.removeAdsPoints', { cap: ENERGY_MAX_NO_ADS })
+        .split('|')
+        .map((p) => `<li>${p.trim()}</li>`)
+        .join('');
+      ads.innerHTML = `<div class="sf-head"><div class="si-icon">${sprite('status2/013')}</div><div class="sf-title"><b>${REMOVE_ADS.name}</b><small>${tx('menu.shop.removeAds')}</small></div></div><ul class="sf-points">${points}</ul>`;
+      ads.appendChild(btn);
+      body.appendChild(ads);
       refreshers.push(() => {
         btn.disabled = g.state.noAds;
+        ads.classList.toggle('owned', g.state.noAds);
         btn.innerHTML = g.state.noAds ? 'Owned ✓' : REMOVE_ADS.price;
       });
-      body.appendChild(sectionTitle(txt('menu.shop.today')));
-      const stock = el('p', 'hd-note');
-      body.appendChild(stock);
-      refreshers.push(() => (stock.textContent = txt('menu.shop.stock', { n: SHOP_DAILY_ITEMS, time: fmtWait(nextMidnight(g.clock()) - g.clock()) })));
+      body.appendChild(stockTitle(txt('menu.shop.today')));
+      body.appendChild(el('p', 'hd-note', txt('menu.shop.stock')));
       const grid = el('div', 'shop-grid');
       body.appendChild(grid);
       for (const it of g.shopItems) {
         const d = PREMIUM_UPGRADES[it.kind];
-        const cell = el('div', 'shop-cell');
-        cell.innerHTML = `<button class="craft-tile shop-tile" style="--rc:${RARITIES[it.rarity].color}"><i>${sprite(it.icon)}</i></button><span class="st-name">${premiumName(it)}</span><small class="st-rarity" style="color:${RARITIES[it.rarity].color}">${RARITIES[it.rarity].name}</small><small class="st-what">${d.text(it.value)}</small><span class="st-price"></span>`;
+        const r = RARITIES[it.rarity];
+        // Each ware framed and lit in its rarity's colour, its price on a buy button.
+        const cell = el('div', 'shop-cell ware');
+        cell.style.setProperty('--rc', r.color);
+        cell.innerHTML = `<button class="shop-tile"><i>${sprite(it.icon)}</i><b class="st-owned">✓</b></button><span class="st-name">${premiumName(it)}</span><small class="st-rarity">${r.name}</small><small class="st-what">${d.text(it.value)}</small><button class="buy st-buy"></button>`;
         const tile = $<HTMLButtonElement>('.shop-tile', cell);
-        const price = $('.st-price', cell);
+        const price = $<HTMLButtonElement>('.st-buy', cell);
         tile.addEventListener('click', () => this.confirmPremium(it.id));
+        price.addEventListener('click', () => this.confirmPremium(it.id));
         refreshers.push(() => {
           const owned = g.ownsPremium(it.id);
-          tile.classList.toggle('sold', owned);
-          tile.classList.toggle('short', !owned && g.state.gems < it.cost);
-          price.innerHTML = owned ? 'Owned ✓' : `${gemIcon()} ${gemsText(it.cost)}`;
+          const short = !owned && g.state.gems < it.cost;
+          cell.classList.toggle('sold', owned);
+          price.classList.toggle('short', short);
+          price.disabled = owned;
+          setHtml(price, owned ? 'Owned' : `${gemIcon()} ${gemsText(it.cost)}`);
         });
         grid.appendChild(cell);
       }
@@ -5324,16 +5343,15 @@ export class AppUI {
     body = panes.gems;
     {
       // The Monster Merchant: today's materials, a huge pile of one for a few gems.
-      body.appendChild(sectionTitle(txt('menu.shop.merchant')));
-      const note = el('p', 'hd-note');
-      body.appendChild(note);
-      refreshers.push(() => (note.textContent = txt('menu.shop.merchantNote', { amount: fmt(MERCHANT_AMOUNT), gems: MERCHANT_GEMS, n: MERCHANT_DAILY, time: fmtWait(nextMidnight(g.clock()) - g.clock()) })));
+      body.appendChild(stockTitle(txt('menu.shop.merchant')));
+      body.appendChild(el('p', 'hd-note', txt('menu.shop.merchantNote', { amount: fmt(MERCHANT_AMOUNT), gems: MERCHANT_GEMS })));
       const grid = el('div', 'shop-grid merchant-grid');
       body.appendChild(grid);
       for (const m of g.merchantOffers) {
         const cell = el('div', 'shop-cell');
-        cell.innerHTML = `<div class="mc-icon">${gemHtml(m, 'big')}</div><span class="st-name">${materialDef(m).name}</span><small class="st-what mc-have"></small><button class="buy mc-trade"></button>`;
+        cell.innerHTML = `<div class="mc-icon">${gemHtml(m, 'big')}</div><span class="st-name">${materialDef(m).name}</span><small class="st-what mc-have"></small><div class="mc-bar"><i></i></div><button class="buy mc-trade"></button>`;
         const have = $('.mc-have', cell);
+        const fill = $('.mc-bar i', cell);
         const trade = $<HTMLButtonElement>('.mc-trade', cell);
         trade.addEventListener('click', () => {
           if (!g.tradeMaterial(m)) return;
@@ -5345,13 +5363,16 @@ export class AppUI {
           const done = g.state.merchant.traded.includes(m);
           const n = g.state.materials[m];
           have.innerHTML = `<b class="${n >= MERCHANT_AMOUNT ? 'mc-ok' : 'mc-short'}">${fmt(n)}</b> / ${fmt(MERCHANT_AMOUNT)}`;
+          fill.style.width = `${Math.min(1, n / MERCHANT_AMOUNT) * 100}%`;
+          cell.classList.toggle('mc-ready', !done && g.canTrade(m));
+          cell.classList.toggle('mc-done', done);
           trade.disabled = done || !g.canTrade(m);
           trade.innerHTML = done ? 'Traded ✓' : `${gemIcon()} ${gemsText(MERCHANT_GEMS)}`;
         });
         grid.appendChild(cell);
       }
       body.appendChild(sectionTitle('Gem packs'));
-      for (const p of GEM_PACKS) {
+      GEM_PACKS.forEach((p, i) => {
         const btn = el('button', 'buy', p.price) as HTMLButtonElement;
         const total = (p.gems ?? 0) + (p.bonus ?? 0);
         btn.addEventListener('click', () =>
@@ -5360,8 +5381,18 @@ export class AppUI {
             this.toast(txt('toast.rewards.gems', { n: gemsText(total) }));
           }),
         );
-        card(`${sprite(p.icon!)}<span class="si-gem">${gemIcon()}</span>`, p.name, `${gemsText(p.gems!)} Exalted Gems${p.bonus ? ` <em class="si-bonus">+${gemsText(p.bonus)} bonus</em>` : ''}`, btn);
-      }
+        // The total large, the bonus on a ribbon, the art growing with the pack, two packs badged.
+        const badge = p.id === 'gems_275' ? txt('menu.shop.popular') : i === GEM_PACKS.length - 1 ? txt('menu.shop.bestValue') : '';
+        const c = card(
+          `${sprite(p.icon!)}<span class="si-gem">${gemIcon()}</span>`,
+          p.name,
+          `<span class="gp-total">${gemIcon()} ${gemsText(total)}</span>${p.bonus ? `<em class="gp-ribbon">${tx('menu.shop.bonus', { n: gemsText(p.bonus) })}</em>` : ''}`,
+          btn,
+        );
+        c.classList.add('gem-pack');
+        c.style.setProperty('--tier', String(i));
+        if (badge) c.insertAdjacentHTML('afterbegin', `<span class="gp-badge${i === GEM_PACKS.length - 1 ? ' best' : ''}">${badge}</span>`);
+      });
     }
     show(page);
     for (const r of refreshers) r();
