@@ -4028,7 +4028,7 @@ export class AppUI {
   private energyBar(): HTMLElement {
     const g = this.game;
     const bar = el('div', 'energy-bar');
-    bar.innerHTML = `<div class="en-rested hidden">💤 ${tx('event.wellRested.label')}</div><div class="en-head"><b>🗲 Energy</b><span class="en-text"></span></div><div class="en-frame"><canvas></canvas></div>`;
+    bar.innerHTML = `<div class="en-head"><span><b>🗲 Energy</b><span class="en-rested hidden">💤 ${tx('event.wellRested.label')}</span></span><span class="en-text"></span></div><div class="en-frame"><canvas></canvas></div>`;
     const cv = $<HTMLCanvasElement>('canvas', bar);
     const text = $('.en-text', bar);
     const rested = $('.en-rested', bar);

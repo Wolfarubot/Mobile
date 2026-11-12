@@ -1766,10 +1766,10 @@ button {
   cursor: pointer;
 }
 .en-rested {
+  margin-left: 8px;
   font-size: 12px;
   font-weight: 800;
   color: #8fd8ff;
-  margin-bottom: 2px;
 }
 .event-card .ec-icon {
   width: 48px;
