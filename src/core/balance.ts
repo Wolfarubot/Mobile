@@ -1559,7 +1559,7 @@ export const UNBOUND_BASE_COST = 1_000_000;
  * many days, and how much more each area pays than the last shrinks as the ring goes on), measured area by area
  * with the pacing sim; past the last one measured, each area's base is ×UNBOUND_LATER_STEP the last.
  */
-export const UNBOUND_AREA_BASES = [2_270_000, 10_700_000, 47_700_000, 213_000_000, 535_000_000, 1_250_000_000];
+export const UNBOUND_AREA_BASES = [2_270_000, 10_700_000, 47_700_000, 213_000_000, 535_000_000, 2_900_000_000];
 export const UNBOUND_WOODS_STEP = 1.2;
 export const UNBOUND_IN_STEP = 1.1;
 export const UNBOUND_LATER_STEP = 1.8;
