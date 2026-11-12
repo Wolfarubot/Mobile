@@ -4380,6 +4380,26 @@ describe('Offline', () => {
 });
 
 describe('Events', () => {
+  it('Well Rested: the day\'s first minigame play is free, and it comes back the next day', () => {
+    let now = new Date(2026, 10, 12, 9).getTime();
+    const g = new Game(newGame(), () => 0.5);
+    g.clock = () => now;
+    g.state.hunters.ranger.recruited = true;
+    expect(g.wellRested).toBe(true);
+    expect(g.energyCost('huntingPractice')).toBe(0);
+    const e = g.energy;
+    expect(g.startEvent('huntingPractice')).toBe(true);
+    expect(g.energy).toBeCloseTo(e);
+    expect(g.wellRested).toBe(false);
+    expect(g.energyCost('huntingPractice')).toBe(3);
+    expect(g.startEvent('huntingPractice')).toBe(true);
+    expect(g.energy).toBeCloseTo(e - 3);
+    // Not other events: a swarm pays its energy while Well Rested.
+    now += 86_400_000;
+    expect(g.wellRested).toBe(true);
+    expect(g.energyCost('slimeSwarm')).toBeGreaterThan(0);
+  });
+
   it('every area: first a swarm of its own monsters, then its Guardian (waiting on that swarm), then its minigame', () => {
     for (const a of AREAS) {
       const evs = EVENTS.filter((e) => e.area === a.id);
@@ -4429,9 +4449,11 @@ describe('Events', () => {
     g.state.areas.graveyard.unlocked = false;
     expect(r.materials.royalSlime).toBe(2);
     expect(g.minigameReward('huntingPractice', 40).materials.royalSlime).toBe(10); // a whole Guardian's worth
-    // Played on its own screen: it doesn't need (or block) the battlefield's events. Swarm 1 energy, minigame 3.
+    // Played on its own screen: it doesn't need (or block) the battlefield's events. Swarm 1 energy, minigame 3
+    // (the day's first minigame play is free: Well Rested).
     g.state.bestiary.greenSlime.kills = 1000;
     expect(g.startEvent('slimeSwarm')).toBe(true);
+    g.state.freePlayDay = dayKeyOf(g.clock());
     expect(g.startEvent('huntingPractice')).toBe(true);
     expect(g.energy).toBeCloseTo(ENERGY_MAX - 4);
     expect(g.activeEvent?.id).toBe('slimeSwarm');

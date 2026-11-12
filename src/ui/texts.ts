@@ -712,6 +712,21 @@ section(
 const E = 'Events';
 section(
   E,
+  'event.wellRested',
+  'Well Rested',
+  {
+    label: 'Well Rested',
+    free: 'Free',
+    tipTitle: 'Well Rested',
+    tipBody: "You're well rested! Your first minigame play each day is **free**: it costs no energy. It comes back at midnight.",
+  },
+  {
+    note: 'The free daily minigame play: the note above the energy bar, the cost shown on minigames while it lasts, and the popup from tapping the energy bar.',
+    labels: { label: 'Note above the energy bar', free: 'Cost on a minigame', tipTitle: 'Popup title', tipBody: 'Popup text' },
+  },
+);
+section(
+  E,
   'event.card',
   'Event card',
   { minigame: 'Play for gold, materials, and {buff}: {desc}', best: 'Best {score}', notPlayed: 'Not played yet', details: 'Details', reward: 'Reward: {what}' },

@@ -1694,6 +1694,7 @@ export class Game {
   energyCost(id: string): number {
     const def = eventDef(id);
     if (def.kind === 'guardian' && this.buffLeft('icebreaker') >= 1) return 0;
+    if (def.kind === 'minigame' && this.wellRested) return 0;
     return eventEnergyCost(def);
   }
 
@@ -1998,7 +1999,9 @@ export class Game {
       const games = EVENTS.filter((e) => e.kind === 'minigame' && !e.echo && e.minigame && this.eventReady(e.id));
       if (!games.length) return;
       const ev = games[Math.floor(this.rng() * games.length)];
-      this.state.energy = Math.max(0, this.state.energy - this.energyCost(ev.id));
+      // A daydream always pays its energy: the Well Rested free play is kept for one you play yourself.
+      if (this.state.energy < eventEnergyCost(ev)) return;
+      this.state.energy -= eventEnergyCost(ev);
       this.fillBuff(ev.minigame!, ev.id, ev.rewards?.par ?? 1);
       this.emit({ type: 'daydream', event: ev.id });
     }
@@ -2258,6 +2261,11 @@ export class Game {
     return (!q.checkIn && this.state.quests.day === dayKey(this.clock())) || (!q.dailyClaimed && questsDone(this.dailyQuests)) || (!q.weeklyClaimed && questsDone(this.weeklyQuests));
   }
 
+  /** Well Rested: the day's free minigame play hasn't been used yet (it comes back at local midnight). */
+  get wellRested(): boolean {
+    return this.state.freePlayDay !== dayKey(this.clock());
+  }
+
   /** Seconds until there's enough energy for an event (0 if there already is). */
   energyWait(id: string): number {
     return Math.max(0, (this.energyCost(id) - this.state.energy) * this.energyRegen);
@@ -2279,7 +2287,10 @@ export class Game {
     if (!this.eventReady(id)) return false;
     const def = eventDef(id);
     const st = this.state.events[id];
+    // Well Rested: the day's first minigame play is free.
+    const free = def.kind === 'minigame' && this.wellRested;
     this.state.energy = Math.max(0, this.state.energy - this.energyCost(id));
+    if (free) this.state.freePlayDay = dayKey(this.clock());
     if (def.kind === 'minigame') {
       // Played on its own screen; its rewards come from finishMinigame.
       st.runs++;

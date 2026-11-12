@@ -4028,11 +4028,25 @@ export class AppUI {
   private energyBar(): HTMLElement {
     const g = this.game;
     const bar = el('div', 'energy-bar');
-    bar.innerHTML = `<div class="en-head"><b>🗲 Energy</b><span class="en-text"></span></div><div class="en-frame"><canvas></canvas></div>`;
+    bar.innerHTML = `<div class="en-rested hidden">💤 ${tx('event.wellRested.label')}</div><div class="en-head"><b>🗲 Energy</b><span class="en-text"></span></div><div class="en-frame"><canvas></canvas></div>`;
     const cv = $<HTMLCanvasElement>('canvas', bar);
     const text = $('.en-text', bar);
+    const rested = $('.en-rested', bar);
+    // Well Rested: tapping the bar explains the day's free minigame play.
+    bar.addEventListener('click', () => {
+      if (!g.wellRested) return;
+      const tip = el('div', 'feat-tip rested-tip');
+      tip.innerHTML = `<b>💤 ${tx('event.wellRested.tipTitle')}</b><p>${tx('event.wellRested.tipBody')}</p>`;
+      document.body.appendChild(tip);
+      const r = bar.getBoundingClientRect();
+      const left = Math.max(8, Math.min(window.innerWidth - tip.offsetWidth - 8, r.left + r.width / 2 - tip.offsetWidth / 2));
+      const top = r.bottom + 6 + tip.offsetHeight > window.innerHeight - 8 ? r.top - tip.offsetHeight - 6 : r.bottom + 6;
+      Object.assign(tip.style, { left: `${left}px`, top: `${top}px` });
+    });
     let drawn = '';
     this.refreshers.push(() => {
+      rested.classList.toggle('hidden', !g.wellRested);
+      bar.classList.toggle('rested', g.wellRested);
       const whole = Math.floor(g.energy + 1e-9);
       const max = g.energyMax;
       const over = whole > max;
@@ -4192,7 +4206,28 @@ export class AppUI {
 
   /** Energy cost as gold pips. */
   private energyPips(ev: EventDef): string {
+    if (this.freePlay(ev)) return `<span class="ev-pips ev-free">${tx('event.wellRested.free')}</span>`;
     return `<span class="ev-pips" title="${esc(txt('tip.markers.energy'))}">${'<b></b>'.repeat(this.game.energyCost(ev.id))}</span>`;
+  }
+
+  /** A minigame that the day's Well Rested play makes free. */
+  private freePlay(ev: EventDef): boolean {
+    return ev.kind === 'minigame' && this.game.wellRested;
+  }
+
+  /** An event's cost line: its energy, or Free for a minigame while you're Well Rested. */
+  private costLine(ev: EventDef): string {
+    if (this.freePlay(ev)) return `💤 <b>${tx('event.wellRested.free')}</b>`;
+    return `Cost ${this.energyPips(ev)} <b>${this.game.energyCost(ev.id)}</b> energy`;
+  }
+
+  /** Keeps an event's cost (its pips, or its cost line) current as Well Rested comes and goes. */
+  private watchCost(node: HTMLElement, html: () => string, refreshers: Array<() => void> = this.refreshers): void {
+    let last = node.innerHTML;
+    refreshers.push(() => {
+      const h = html();
+      if (h !== last) node.innerHTML = last = h;
+    });
   }
 
   private eventTile(ev: EventDef): HTMLElement {
@@ -4201,8 +4236,9 @@ export class AppUI {
     const icon = this.eventIcon(ev, 'et-icon');
     // Minigames go by the game's own name on a tile ("Hunting Practice", not "Galladair's Hunting Practice").
     const short = ev.kind === 'guardian' ? 'Guardian' : ev.kind === 'minigame' ? ev.name.replace(/^.*?'s /, '') : ev.name;
-    tile.innerHTML = `${icon.html}<span class="ht-name">${short}</span>${this.energyPips(ev)}<small class="ht-lv"></small>`;
+    tile.innerHTML = `${icon.html}<span class="ht-name">${short}</span><span class="et-cost">${this.energyPips(ev)}</span><small class="ht-lv"></small>`;
     icon.draw(tile);
+    this.watchCost($('.et-cost', tile), () => this.energyPips(ev));
     tile.classList.toggle('selected', ev.id === this.selectedEvent);
     tile.addEventListener('click', () => {
       if (this.selectedEvent === ev.id) return;
@@ -4235,10 +4271,10 @@ export class AppUI {
     const g = this.game;
     const card = el('div', 'beast event-card');
     const icon = this.eventIcon(ev, 'ec-icon');
-    const cost = g.energyCost(ev.id);
     const blurb = ev.kind === 'minigame' ? tx('event.card.minigame', { buff: MINIGAME_BUFFS[ev.minigame!].name, desc: lowerFirst(MINIGAME_BUFFS[ev.minigame!].desc) }) : ev.blurb;
-    card.innerHTML = `<div class="beast-head">${icon.html}<div class="info"><div class="name">${ev.name}</div><div class="blurb">${blurb}</div></div></div><div class="ev-status"></div><div class="ev-foot"><span class="ev-cost">Cost ${this.energyPips(ev)} <b>${cost}</b> energy</span><button class="buy ev-details">${tx('event.card.details')}</button><button class="buy ev-go"></button></div>`;
+    card.innerHTML = `<div class="beast-head">${icon.html}<div class="info"><div class="name">${ev.name}</div><div class="blurb">${blurb}</div></div></div><div class="ev-status"></div><div class="ev-foot"><span class="ev-cost">${this.costLine(ev)}</span><button class="buy ev-details">${tx('event.card.details')}</button><button class="buy ev-go"></button></div>`;
     icon.draw(card);
+    this.watchCost($('.ev-cost', card), () => this.costLine(ev));
     $('.ev-details', card).addEventListener('click', () => this.openEventDetail(ev));
     this.wireEventButton(ev, card, $<HTMLButtonElement>('.ev-go', card), $('.ev-status', card), this.refreshers, () => {
       if (ev.kind !== 'minigame') return this.eventRewards(ev).join(' · ');
@@ -4285,7 +4321,6 @@ export class AppUI {
    */
   private wireEventButton(ev: EventDef, card: HTMLElement | null, btn: HTMLButtonElement, status: HTMLElement, refreshers: Array<() => void>, extra: () => string, before?: () => void): void {
     const g = this.game;
-    const cost = g.energyCost(ev.id);
     btn.addEventListener('click', () => {
       if (g.eventUnlocked(ev.id) && g.energyWait(ev.id) > 0) return this.showNoEnergy(ev);
       before?.();
@@ -4323,7 +4358,7 @@ export class AppUI {
         btn.disabled = true;
       } else if (wait > 0 && (ev.kind === 'minigame' || !g.eventRunning)) {
         status.innerHTML = note;
-        btn.innerHTML = `${ev.kind === 'minigame' ? 'Play' : 'Start'}<small>need ${cost} 🗲</small>`;
+        btn.innerHTML = `${ev.kind === 'minigame' ? 'Play' : 'Start'}<small>need ${g.energyCost(ev.id)} 🗲</small>`;
         btn.disabled = false;
       } else {
         status.innerHTML = note;
@@ -4380,8 +4415,9 @@ export class AppUI {
 
     // Start / Play, with its cost, at the bottom.
     const foot = el('div', 'card ed-foot');
-    foot.innerHTML = `<div class="ev-status"></div><div class="ev-foot"><span class="ev-cost">Cost ${this.energyPips(ev)} <b>${g.energyCost(ev.id)}</b> energy</span><button class="buy"></button></div>`;
+    foot.innerHTML = `<div class="ev-status"></div><div class="ev-foot"><span class="ev-cost">${this.costLine(ev)}</span><button class="buy"></button></div>`;
     body.appendChild(foot);
+    this.watchCost($('.ev-cost', foot), () => this.costLine(ev), refreshers);
     this.wireEventButton(ev, null, $<HTMLButtonElement>('.buy', foot), $('.ev-status', foot), refreshers, () => '', () => this.dropDetail());
     this.refresh();
   }

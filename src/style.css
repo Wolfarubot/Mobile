@@ -1756,6 +1756,21 @@ button {
   background: var(--gold);
   border: 1px solid var(--c0);
 }
+/* Well Rested: a minigame's pips give way to Free, and a note sits above the energy bar (tap the bar for why). */
+.ev-free {
+  font-size: 11px;
+  font-weight: 800;
+  color: #8fd8ff;
+}
+.energy-bar.rested {
+  cursor: pointer;
+}
+.en-rested {
+  font-size: 12px;
+  font-weight: 800;
+  color: #8fd8ff;
+  margin-bottom: 2px;
+}
 .event-card .ec-icon {
   width: 48px;
   height: 48px;

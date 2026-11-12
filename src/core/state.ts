@@ -335,6 +335,8 @@ export interface GameState {
   noAds: boolean;
   /** Today's and this week's quests (keys are the local date, and the date of the week's Monday). */
   quests: QuestState;
+  /** Well Rested: the local date (dayKey) the day's free minigame play was last used ('' if never). */
+  freePlayDay: string;
   /** Minigame buffs: seconds left of a timed one, charges of a charge one. */
   buffs: Partial<Record<MinigameId, number>>;
   /** Seconds a timed buff works at double strength (from a Rift Echo play). */
@@ -464,6 +466,7 @@ export function newGame(now = Date.now()): GameState {
     regression: { unlocked: false, runs: 0, shards: 0, totalShards: 0, tree: {}, runStart: now, autoShare: AUTO_EMPOWER_SHARES[0], goldAtStart: 0 },
     noAds: false,
     quests: newQuests(),
+    freePlayDay: '',
     events: Object.fromEntries(EVENTS.map((e) => [e.id, { runs: 0, completed: 0 }])),
     seen: { journal: [], recipes: [], beasts: [], events: [], gearUid: 3, init: true },
     buyAmount: 1,
@@ -903,6 +906,7 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
       const mats = (v: unknown): MaterialId[] => (Array.isArray(v) ? v.filter((id): id is MaterialId => typeof id === 'string' && MERCHANT_MATERIALS.includes(id as MaterialId)) : []);
       return { day: typeof m.day === 'string' ? m.day : '', offers: mats(m.offers), traded: mats(m.traded) };
     })(),
+    freePlayDay: typeof data.freePlayDay === 'string' ? data.freePlayDay : '',
     quests: (() => {
       const q = { ...newQuests(), ...((data.quests ?? {}) as Partial<QuestState>) };
       const list = (v: unknown): Quest[] =>
