@@ -1438,10 +1438,10 @@ describe('Equipment', () => {
     const inArea = (i: number) => GEAR.filter((g) => !g.starter && gearArea(g) === i);
     const counts = AREAS.map((_, i) => inArea(i + 1).length);
     expect(counts[0]).toBeGreaterThanOrEqual(15);
-    expect(counts[0]).toBeLessThanOrEqual(26);
+    expect(counts[0]).toBeLessThanOrEqual(28); // (three of them potions)
     // Each area has at least as many items as the one before (players stay longer in later areas).
     for (let i = 1; i < counts.length; i++) expect(counts[i]).toBeGreaterThanOrEqual(counts[i - 1]);
-    // The Woods: melee, bows, two wands, armor and a few plain accessories (no abilities but one potion and the boots' dodge); no robes, no firearms.
+    // The Woods: melee, bows, two wands, armor and a few plain accessories (no abilities but its potions and the boots' dodge); no robes, no firearms.
     const woods = inArea(1);
     expect(woods.filter((g) => g.kind === 'magic').map((g) => g.weaponClass)).toEqual(['wand', 'wand']);
     expect(woods.some((g) => g.armorType === 'robe')).toBe(false);
