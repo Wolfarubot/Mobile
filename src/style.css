@@ -4902,9 +4902,16 @@ body.ui-parchment .filter-btn {
 body.ui-parchment .buy:disabled {
   filter: grayscale(0.7) brightness(0.9);
 }
+/* Selected, or held down: the dark, pressed-in frame (the light one is a button ready to press). */
 body.ui-parchment .amounts button.active,
 body.ui-parchment .subtabs button.on,
-body.ui-parchment .segmented button.on {
+body.ui-parchment .segmented button.on,
+body.ui-parchment .buy:not(:disabled):active,
+body.ui-parchment .secondary-btn:not(:disabled):active,
+body.ui-parchment .amounts button:active,
+body.ui-parchment .subtabs button:active,
+body.ui-parchment .segmented button:active,
+body.ui-parchment .filter-btn:active {
   border-image: var(--img-btnhi) 3 fill / 9px / 0 stretch !important;
   color: #fff !important;
   text-shadow: var(--outline) !important;

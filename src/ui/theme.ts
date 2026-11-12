@@ -20,11 +20,13 @@ export function applyAreaTheme(area: AreaId): void {
  * The parchment style's frame art (public/ui/, from CraftPix's RPG UI pack), repainted in the area's colours:
  * each pixel's brightness picks a colour along the palette (darkest to lightest), keeping a little of the
  * original for its warmth, so the wood grain and pixel shading survive. Set as --img-panel, --img-btn, --img-btnhi.
+ * A button reads as raised and ready in the light frame (--img-btn) and as pressed in the dark one (--img-btnhi:
+ * a selected tab or choice, and any button while it's held down).
  */
 const FRAMES: Array<{ name: string; file: string; stops: number[]; keep: number }> = [
   { name: 'panel', file: 'panel.png', stops: [0, 0, 1, 3, 3], keep: 0.25 },
-  { name: 'btn', file: 'btn.png', stops: [0, 1, 1, 2], keep: 0.1 },
-  { name: 'btnhi', file: 'btn-hi.png', stops: [0, 1, 2, 3], keep: 0.1 },
+  { name: 'btn', file: 'btn-hi.png', stops: [0, 1, 2, 3], keep: 0.1 },
+  { name: 'btnhi', file: 'btn.png', stops: [0, 1, 1, 2], keep: 0.1 },
 ];
 const frameImages = new Map<string, Promise<HTMLImageElement>>();
 let tintRun = 0;
