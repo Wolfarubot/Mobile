@@ -190,7 +190,7 @@ import { ACC_TAG_ICONS, ARCHETYPE_TAG_ICONS, ARMOR_TAG_ICONS, DAMAGE_TAG_ICONS, 
 
 type Tab = TabId;
 /** The one-time tips (see App.tips), as the envelope keeps them. */
-type TipId = 'events' | 'train' | 'wolf' | 'craft' | 'empower' | 'minigames' | 'quests' | 'feedback';
+type TipId = 'events' | 'train' | 'wolf' | 'craft' | 'empower' | 'minigames' | 'quests' | 'feedback' | 'quickTrain';
 /** What treeView needs to draw and drive a skill or evolution tree. */
 interface TreeAdapter {
   nodes: TreeNode[];
@@ -448,7 +448,9 @@ export class AppUI {
    */
   private landscape = false;
   /** When the last popup opened or closed (performance.now), to space out the one-time tips. */
-  private lastPopup = -Infinity;
+  // Counts from when the game opens: a tip due then goes behind the envelope (collectAwayTips), not over the
+  // welcome-back summary (which would hide it).
+  private lastPopup = performance.now();
 
   constructor(
     private game: Game,
@@ -4635,6 +4637,7 @@ export class AppUI {
       { id: 'empower', title: txt('popup.empower.title'), ready: () => !s.flags.empowerIntro && g.empowerUnlocked, mark: () => (s.flags.empowerIntro = true), show: (r) => this.showEmpowerIntro(r) },
       { id: 'minigames', title: txt('popup.minigames.title'), ready: () => !s.flags.minigameIntro && g.eventUnlocked('huntingPractice'), mark: () => (s.flags.minigameIntro = true), show: (r) => this.showMinigameIntro(r) },
       { id: 'quests', title: txt('popup.quests.title'), ready: () => !s.flags.questsIntro && g.questsOpen, mark: () => g.openQuestLog(), show: (r) => this.showQuestsIntro(r) },
+      { id: 'quickTrain', title: txt('popup.quickTrain.title'), ready: () => !s.flags.quickTrainIntro && this.firstAtLevel(QUICK_TRAIN_TIP_LEVEL), mark: () => (s.flags.quickTrainIntro = true), show: (r) => this.showQuickTrainIntro(r) },
       // An announcement for everyone (a new player gets it once past their first training tip).
       { id: 'feedback', title: txt('popup.feedback.title'), ready: () => !s.flags.feedbackIntro && s.flags.trainIntro, mark: () => (s.flags.feedbackIntro = true), show: (r) => this.showFeedbackIntro(r) },
     ];
@@ -4749,6 +4752,20 @@ export class AppUI {
       { label: txt('popup.quests.later'), secondary: true },
       { label: txt('popup.quests.go'), action: () => this.openQuests() },
     ]);
+  }
+
+  /** Has any Hunter (yours or a recruit) or unlocked monster reached `level`? */
+  private firstAtLevel(level: number): boolean {
+    const g = this.game;
+    if (g.levelOf('main') >= level || HUNTERS.some((h) => g.state.hunters[h.id].recruited && g.levelOf(h.id) >= level)) return true;
+    return ENEMIES.some((e) => g.state.bestiary[e.id]?.unlocked && g.monsterLevelInfo(e.id).level >= level);
+  }
+
+  /** Shown once, when a Hunter or a monster first reaches Lv 5: holding Train or Empower, and holding a card's Expand. */
+  private showQuickTrainIntro(replay = false): void {
+    if (!replay) this.game.state.flags.quickTrainIntro = true;
+    // (Secondary: opened from the envelope, it goes back there while other tips wait.)
+    this.showModal(`<h2>${tx('popup.quickTrain.title')}</h2>${txp('popup.quickTrain.body')}`, [{ label: txt('popup.quickTrain.ok'), secondary: true }]);
   }
 
   /** Shown once: Submit Feedback is in Settings. */
@@ -5775,6 +5792,7 @@ export class AppUI {
     tut(sprite(MENU_SPRITES.crafting), 'crafting', () => this.showCraftIntro(true));
     tut(sprite(MENU_SPRITES.wolf), 'wolf', () => this.showWolfIntro(true));
     tut(sprite(MENU_SPRITES.empower), 'empower', () => this.showEmpowerIntro(true));
+    tut(sprite(MENU_SPRITES.training), 'quickTrain', () => this.showQuickTrainIntro(true));
     tut(sprite(MENU_SPRITES.eventsLocked), 'eventsLocked', () => this.showEventsLocked());
     tut(sprite(MENU_SPRITES.events), 'events', () => this.showEventsIntro(true));
     tut(sprite(MENU_SPRITES.minigames), 'minigames', () => this.showMinigameIntro(true));
@@ -6732,6 +6750,8 @@ const PROVIDER_ICONS: Record<AuthProvider, string> = {
  */
 /** Holding Train to the max this many times brings the tip about holding cards to spend points. */
 const HOLD_CARD_TIP_AFTER = 5;
+/** The tip on holding Train / Empower and a card's Expand comes up when the first Hunter or monster reaches this level. */
+const QUICK_TRAIN_TIP_LEVEL = 5;
 
 const HOLD_POPUPS = {
   train: { setting: 'maxTrainPopup', title: 'popup.maxTrain.title', hint: 'popup.maxTrain.hint', never: 'popup.maxTrain.never', ok: 'popup.maxTrain.ok' },

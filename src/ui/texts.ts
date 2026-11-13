@@ -327,6 +327,17 @@ section(
 );
 section(
   P,
+  'popup.quickTrain',
+  'Tip: quick training and spending points',
+  {
+    title: 'Tip: Quick Train & Empower',
+    body: "**Hold** the **Train** button on a Hunter's card, or the **Empower** button on a monster's card, to train or empower them as far as your gold goes. It spends all the gold you have on them at once.\n\nGot **skill points** (or a monster's **evolution points**) to spend? **Hold** the card's **Expand** button and they're all spent for you, spread out as evenly as possible across the tree.\n\nAiming for a particular upgrade first? Open their **Skill** or **Evolution** tree and choose it yourself.",
+    ok: 'Got it',
+  },
+  { note: 'Shown once, when a Hunter or a monster first reaches Lv 5 (behind the envelope if that happened while you were away).' },
+);
+section(
+  P,
   'popup.holdCardTip',
   'Tip: hold a card to spend points',
   {
@@ -492,6 +503,8 @@ section(
     wolfDesc: 'Unlocking the wolf, and expanding the menu over the battlefield.',
     empower: 'Empower',
     empowerDesc: 'Unlocking and Empowering monsters. Opens after {empower} slimes.',
+    quickTrain: 'Quick Train & Empower',
+    quickTrainDesc: 'Holding Train, Empower, and Expand to train and spend points in one go.',
     eventsLocked: 'Unlocking Events',
     eventsLockedDesc: 'How to open the Events tab.',
     events: 'Events',
@@ -507,7 +520,7 @@ section(
     note: 'Menu → Tutorials: the page title, two headings, and a name and a line for each tip.',
     vars: { train: 'slimes to open Training', empower: 'slimes to open Empower' },
     labels: Object.fromEntries(
-      ['title:Page title', 'guides:Heading', 'tips:Heading', 'weapons:Row', 'damage:Row', 'modify:Row', 'welcome:Row', 'training:Row', 'crafting:Row', 'wolf:Row', 'empower:Row', 'eventsLocked:Row', 'events:Row', 'minigames:Row', 'timeEater:Row']
+      ['title:Page title', 'guides:Heading', 'tips:Heading', 'weapons:Row', 'damage:Row', 'modify:Row', 'welcome:Row', 'training:Row', 'crafting:Row', 'wolf:Row', 'empower:Row', 'quickTrain:Row', 'eventsLocked:Row', 'events:Row', 'minigames:Row', 'timeEater:Row']
         .map((s) => s.split(':'))
         .flatMap(([k, v]) => [
           [k, v],

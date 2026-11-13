@@ -320,6 +320,8 @@ export interface GameState {
     minigameIntro: boolean;
     /** The "Introducing Feedback" announcement has been shown. */
     feedbackIntro: boolean;
+    /** The tip on holding Train / Empower and holding a card's Expand (first Hunter or monster at Lv 5). */
+    quickTrainIntro: boolean;
   };
   /** Per event: seconds of cooldown left, times started and times completed (a Guardian beaten, a swarm survived). */
   events: Record<string, EventState>;
@@ -454,7 +456,7 @@ export function newGame(now = Date.now()): GameState {
     lastSeen: now,
     samples: {},
     settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', lootPopups: true, hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', advancedTips: false, maxTrainPopup: true, autoSkillPopup: true, autoEvoPopup: true, autoSalvage: [], fx: allFx(), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium', orientation: 'rotate', fps: '60', textSize: 'medium', craftCardPos: 'battlefield', audio: defaultAudio() },
-    flags: { eventsIntro: false, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false, minigameIntro: false, questsIntro: false, feedbackIntro: false },
+    flags: { eventsIntro: false, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false, minigameIntro: false, questsIntro: false, feedbackIntro: false, quickTrainIntro: false },
     blessings: { refine: 0, enchant: 0 },
     energy: ENERGY_MAX,
     buffs: {},
@@ -827,6 +829,7 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
         Object.values((data.events ?? {}) as Record<string, { started?: number; best?: number }>).some((e) => (e?.best ?? 0) > 0),
       // Every save from before it gets the announcement too.
       feedbackIntro: !!(data.flags as { feedbackIntro?: unknown } | undefined)?.feedbackIntro,
+      quickTrainIntro: !!(data.flags as { quickTrainIntro?: unknown } | undefined)?.quickTrainIntro,
     },
     seen: (() => {
       const s = (data.seen ?? {}) as Partial<Record<keyof SeenState, unknown>>;

@@ -160,6 +160,8 @@ async function boot(): Promise<void> {
   new SamplerHost(game, () => field.view);
   if (!game.state.flags.welcome) ui.showWelcome();
   else if (offline && offline.away >= OFFLINE_POPUP_SEC) ui.showOffline(offline);
+  // Back in the game: tips that came due while you were away wait behind the envelope rather than popping up.
+  else ui.collectAwayTips();
 
   // Main loop: simulation runs every frame; the DOM refreshes on a slower cadence.
   let last = performance.now();
