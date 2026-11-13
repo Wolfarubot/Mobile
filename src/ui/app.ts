@@ -318,6 +318,8 @@ const AREA_HOLD_MS = 550;
 const DOUBLE_TAP_MS = 350;
 /** One-time tips wait at least this long after the last popup opened or closed. */
 const POPUP_GAP_MS = 30_000;
+/** How long a press is held to count as a long press (a worn piece in Inventory: its wearer's slot picker). */
+const LONG_PRESS_MS = 500;
 /** Holding a tab this long raises (or drops) the full-screen menu. */
 const MENU_HOLD_MS = 450;
 
@@ -673,6 +675,37 @@ export class AppUI {
     void bar.offsetWidth; // start from empty, then fill
     bar.classList.add('filling');
     return () => bar.remove();
+  }
+
+  /**
+   * A long press on `target` (held still for LONG_PRESS_MS) runs `run`; the click that follows the release is then
+   * ignored (see heldFor). A drag (scrolling) cancels it.
+   */
+  private longPress(target: HTMLElement, run: () => void): void {
+    let timer = 0;
+    let x = 0;
+    let y = 0;
+    const stop = (): void => {
+      clearTimeout(timer);
+      timer = 0;
+    };
+    target.addEventListener('pointerdown', (ev) => {
+      stop();
+      if (this.heldFor === target) this.heldFor = null;
+      x = ev.clientX;
+      y = ev.clientY;
+      timer = window.setTimeout(() => {
+        timer = 0;
+        this.heldFor = target;
+        buzz();
+        run();
+      }, LONG_PRESS_MS);
+    });
+    target.addEventListener('pointermove', (ev) => {
+      if (timer && Math.hypot(ev.clientX - x, ev.clientY - y) > 12) stop();
+    });
+    for (const t of ['pointerup', 'pointerleave', 'pointercancel']) target.addEventListener(t, stop);
+    target.addEventListener('contextmenu', (ev) => ev.preventDefault());
   }
 
   private holdForMax(btn: HTMLElement, offer: () => { text: string; run: () => void } | null, kind: keyof typeof HOLD_POPUPS = 'train', progress?: string): void {
@@ -3521,7 +3554,17 @@ export class AppUI {
         tile.style.setProperty('--rc', gearColor(gd.id));
         const slots = g.modSlots(it.uid);
         tile.innerHTML = `<i>${gearIcon(gd)}</i><span>${gd.name}</span><small class="stars">${starsHtml(it.stars)}</small>${worn ? `<em>${wearerIcon(worn.who)}</em>` : ''}${slots.length ? `<b class="mod-pips">${slots.map((m) => (m ? (modPerfect(m) ? '★' : '◆') : '◇')).join('')}</b>` : ''}${it.uid > g.state.seen.gearUid ? '<span class="alert-mark white tile-new"></span>' : ''}`;
-        tile.addEventListener('click', () => (refining ? this.openModify(it.uid) : this.openGearDetail(it.uid)));
+        tile.addEventListener('click', () => {
+          if (this.heldFor === tile) return void (this.heldFor = null);
+          if (refining) this.openModify(it.uid);
+          else this.openGearDetail(it.uid);
+        });
+        // Holding a worn piece opens its wearer's slot picker: what they have on, and your gear to swap in.
+        if (worn)
+          this.longPress(tile, () => {
+            const at = g.wearerOf(it.uid);
+            if (at) this.openSlotPicker(at.who, at.slot);
+          });
         return tile;
       };
       const makers: Array<() => HTMLElement> = equippedView
