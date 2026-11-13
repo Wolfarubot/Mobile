@@ -63,6 +63,9 @@ function hexA(hex: string, a: number): string {
   return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${Math.max(0, Math.min(1, a))})`;
 }
 
+/** On a portrait screen, how much of the screen's height the (wide) smithy fills, from the bottom. */
+const PORTRAIT_ROOM = 0.84;
+
 /** Kargesh's height on screen (at k = 1). */
 const KARGESH_H = 128;
 
@@ -301,6 +304,26 @@ export function forgeStrike(api: MinigameApi): MinigameGame {
       const it = ingotTop();
       const vp = vent();
       const hot = fresh > 0 ? 0 : heat;
+
+      // On a portrait screen the smithy is the wide room's art, zoomed in round the hearth and the anvil to fill the
+      // lower part of the screen (furnished all round, as on a landscape screen), fading into the dark under the title.
+      if (api.layout === 'portrait') {
+        const room = mgArt('smithy-wide');
+        if (room) {
+          g.fillStyle = '#0c0604';
+          g.fillRect(0, 0, api.W, api.H);
+          const sc = Math.max(api.W / room.naturalWidth, (api.H * PORTRAIT_ROOM) / room.naturalHeight);
+          const rw = room.naturalWidth * sc;
+          const rh = room.naturalHeight * sc;
+          const ry = api.H - rh;
+          g.drawImage(room, Math.round((api.W - rw) / 2), Math.round(ry), Math.round(rw), Math.round(rh));
+          const fade = g.createLinearGradient(0, ry - 1, 0, ry + 90 * k);
+          fade.addColorStop(0, 'rgba(12,6,4,1)');
+          fade.addColorStop(1, 'rgba(12,6,4,0)');
+          g.fillStyle = fade;
+          g.fillRect(0, ry - 1, api.W, 90 * k + 1);
+        }
+      }
 
       // The smithy in shadow, lit warm around the anvil and the hearth (the light breathing with the fire).
       const breathe = 0.04 * Math.sin(api.t * 5) + 0.03 * Math.sin(api.t * 13);
