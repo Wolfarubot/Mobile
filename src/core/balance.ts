@@ -1562,7 +1562,8 @@ export const UNBOUND_BASE_COST = 1_000_000;
  */
 // ×1.05 after the Ascended Hunters' second slots: the Unbound Woods re-measured 1.26× faster (6.7 → 5.3 days), and
 // a run's shards grow with about the fifth root of its length (1.26^0.2 ≈ 1.05), applied to every area alike.
-export const UNBOUND_AREA_BASES = [2_380_000, 11_200_000, 50_100_000, 224_000_000, 562_000_000, 3_360_000_000, 8_300_000_000];
+// The Venom Caverns measured 5.8 days at 8.3B (target 14-15); 2.5× the time is about 2.5^0.2 ≈ ×1.2 on its prices.
+export const UNBOUND_AREA_BASES = [2_380_000, 11_200_000, 50_100_000, 224_000_000, 562_000_000, 3_360_000_000, 10_000_000_000];
 export const UNBOUND_AREA_IN_STEPS = [1.2, 1.1, 1.1, 1.1, 1.1, 1.03, 1.1];
 export const UNBOUND_IN_STEP = 1.1;
 export const UNBOUND_LATER_STEP = 1.8;
