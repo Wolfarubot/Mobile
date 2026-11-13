@@ -1,0 +1,63 @@
+Monster walk sheets baked from CraftPix.net character packs (license: https://craftpix.net/file-licenses/).
+Generated from each pack's PNG/<Character>/Without_shadow/*Walk* sheet; some are recoloured (see src/render/monsterSheets.ts).
+
+Source packs:
+  archer-1-3-level-pixel-top-down-sprite-character
+  beholder-monsters-top-down-pixel-art-sprites
+  demons-4-direction-pixel-character-sprite-pack
+  free-predator-plant-mobs-pixel-art-pack
+  free-swordsman-1-3-level-pixel-top-down-sprite-character
+  free-vampire-4-direction-pixel-character-sprite-pack
+  giant-rat-4-direction-pixel-character-sprite-pack
+  goblin-pixel-art-character-sprite-pack
+  golem-pixel-art-top-down-sprite-pack
+  imp-mobs-pixel-art-character-sprite-pack
+  lizardmen-pixel-art-character-sprite-pack
+  mage-1-3-level-pixel-top-down-sprite-character
+  mage-4-6-level-pixel-top-down-sprite-characters
+  pixel-art-slime-enemies-top-down-sprite-pack
+  slime-boss-pixel-art-2d-sprite-for-roguelike-games
+  swordsman-7-9-level-pixel-top-down-sprite-character-pack
+  swordsman-level-4-6-pixel-character-top-down-sprite-pack
+  top-down-pixel-art-slime-monsters-sprite-pack
+  top-down-pixel-ent-character-sprites
+  top-down-pixel-ghost-character-sprite-pack
+  top-down-pixel-gnolls-character-pack
+  top-down-pixel-lich-character-sprites
+  top-down-pixel-mushroom-sprite-pack
+  top-down-pixel-skeletons-character-sprite-pack
+  zombie-4-direction-pixel-character-sprite-pack
+  free-slime-mobs-pixel-art-top-down-sprite-pack
+  free-top-down-orc-game-character-pixel-art
+
+Side-view and animal packs (walk or flight strips, one row facing right, mirrored in game; some recoloured):
+  underground-mine-character-spritesheets-pixel-art (wisp, bear, spider, toadman voodoo)
+  field-enemies-game-sprite-sheets-pixel-art (wasp)
+  free-desert-enemy-sprite-sheets-pixel-art (vulture, scorpio)
+  free-top-down-animals-farm-pixel-art-sprites (bull; 4-direction)
+  top-down-cute-farm-animals-pixel-sprite (4-direction): unicorn.png is Horse_without_shadow's walk (64px frames, its
+    side rows swapped to run down, up, left, right) recoloured white and lilac with a pink mane and tail and grey
+    hooves, and a gold horn drawn on each frame from the forelock (slanting forward from the side, only its tip
+    showing from behind)
+  free-top-down-hunt-animals-pixel-sprite-pack (deer, black grouse; 4-direction):
+    wolf-grey.png, wolf-ice.png: Fox_Run (Without_shadow) recoloured grey (cream tail tip) and icy blue (white
+    tip), its side rows swapped so they run down, up, left, right; crow.png: Black_grouse_Flight recoloured
+    purple-black (the red comb and blue sheen darkened, the pale feathers grey)
+  golem-character-sprite-sheets-pixel-art, hellhound-character-sprite-sheets-pixel-art,
+  dragon-pixel-art-character-sprite-sheets-pack, free-yokai-pixel-art-character-sprites
+  swamp-enemies (bat), swamp-bosses (big bloated -> Toxic Bloat, recoloured), ruin-enemy (raven, bug), animal-sprite-sheets (white bear), desert-bosses (manticore),
+  ruin-bosses (wild boar), mine-bosses (elemental; arachnid -> Broodmother, recoloured), mega-boss-for-pixel-platformer (Time Eater)
+  puppet-marionette.png (the Possessed Puppet, also Theon's puppet in the Puppet Show): zombie.png recoloured to white
+  skin, black clothes and brown hair, set into 96px frames with two white strings rising from its shoulders.
+
+slime-green-death.png: Slime1's death (a splat into a puddle, 10 frames, the walk sheet's rows) from free-slime-mobs-pixel-art-top-down-sprite-pack, played in Galladair's Hunting Practice when an arrow strikes a slime.
+
+Guardian bosses (side view, walk strips baked into one row of square frames, all facing left but the Executioner):
+  cave-bosses-pixel-art-game-sprites: huge-mushroom.png (Huge Mushroom -> the Fey Grove's Queen's Guard), kobold-king.png
+    (Goblin King -> the Kobold King), frost-gargoyle.png (Vampire Bat, recoloured by brightness to ice blues -> the Frost Gargoyle).
+  hell-boss-sprite-sheets-pixel-art: necromancer.png (Necromancer -> the Awoken Lich), mega-beholder.png (Mega Beholder ->
+    the Beholden Watcher).
+  boss_demon_slime_FREE_v1.0: demon-slime.png (the demon form's 12 walk frames, 288x160, set into 288px squares -> the Demon
+    Lord; the first-form slime isn't used).
+  Undead executioner puppet by Kronovi-: executioner.png (its idle, as it floats, with a soft violet outline added -> the Undead Executioner).
+
