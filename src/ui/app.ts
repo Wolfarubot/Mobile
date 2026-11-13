@@ -658,17 +658,32 @@ export class AppUI {
    * first: OK trains and asks again next time; Do not show again trains and stops asking. `offer` gives the
    * popup's line and the training, or null when not even one session is affordable.
    */
+  /**
+   * The bar for a held press (spending points, max training, quick travel): docked at the foot of the battlefield,
+   * just above the menu buttons, filling over `ms` with what it's doing written on it. Returns what takes it down.
+   */
+  private holdBar(label: string, ms: number): () => void {
+    document.querySelector('.hold-bar')?.remove();
+    const bar = el('div', 'hold-bar');
+    bar.innerHTML = `<i></i><span>${label}</span>`;
+    bar.style.setProperty('--hold-ms', `${ms}ms`);
+    (document.querySelector('.battle-wrap') ?? document.body).appendChild(bar);
+    void bar.offsetWidth; // start from empty, then fill
+    bar.classList.add('filling');
+    return () => bar.remove();
+  }
+
   private holdForMax(btn: HTMLElement, offer: () => { text: string; run: () => void } | null, kind: keyof typeof HOLD_POPUPS = 'train', progress?: string): void {
-    // A card (with a filling bar to watch) takes a little longer than a button.
-    const HOLD_MS = progress ? 750 : 500;
+    // A card takes a little longer to hold than a button.
+    const HOLD_MS = btn.tagName === 'BUTTON' ? 500 : 750;
     const pop = HOLD_POPUPS[kind];
     let timer = 0;
     let x = 0;
     let y = 0;
-    // The bar above a held card, filling until the points are spent.
-    let bar: HTMLElement | null = null;
+    // The bar above the menu buttons, filling until it goes.
+    let bar: (() => void) | null = null;
     const dropBar = (): void => {
-      bar?.remove();
+      bar?.();
       bar = null;
     };
     const stop = (): void => {
@@ -684,14 +699,7 @@ export class AppUI {
       if (inner && inner !== btn) return;
       x = ev.clientX;
       y = ev.clientY;
-      if (progress && offer()) {
-        bar = el('div', 'hold-bar');
-        bar.innerHTML = `<i></i><span>${progress}</span>`;
-        bar.style.setProperty('--hold-ms', `${HOLD_MS}ms`);
-        btn.appendChild(bar);
-        void bar.offsetWidth; // start from empty, then fill
-        bar.classList.add('filling');
-      }
+      if (progress && offer()) bar = this.holdBar(progress, HOLD_MS);
       timer = window.setTimeout(() => {
         timer = 0;
         dropBar();
@@ -843,7 +851,7 @@ export class AppUI {
       this.holdForMax(btn, () => {
         const p = g.trainPurchase(who, 'max');
         return p.count > 0 && g.state.gold >= p.cost ? { text: txp('popup.maxTrain.train', { name: who === 'main' && !mainHunterName ? 'your Hunter' : wearerName(who), count: fmt(p.count), cost: fmt(p.cost) }), run: trainMax } : null;
-      });
+      }, 'train', 'Max Training');
     btn.addEventListener('click', (ev) => {
       ev.stopPropagation();
       if (this.heldFor === btn) return void (this.heldFor = null);
@@ -2563,9 +2571,11 @@ export class AppUI {
       if (!g.isAreaUnlocked(id)) return;
       const start = { x: ev.clientX, y: ev.clientY };
       let over = false;
+      // Travelling: the bar above the menu buttons (not where you're already hunting).
+      const dropBar = g.area === id ? null : this.holdBar(`Traveling to ${areaDef(id).name}`, AREA_HOLD_MS);
       const end = () => {
         clearTimeout(timer);
-        tile.classList.remove('holding');
+        dropBar?.();
         window.removeEventListener('pointermove', move);
         window.removeEventListener('pointerup', up);
         window.removeEventListener('pointercancel', cancel);
@@ -2597,7 +2607,6 @@ export class AppUI {
           this.setTab('areas', true);
         }
       };
-      tile.classList.add('holding');
       window.addEventListener('pointermove', move);
       window.addEventListener('pointerup', up);
       window.addEventListener('pointercancel', cancel);
@@ -3138,7 +3147,7 @@ export class AppUI {
           }
         };
         return g.empowerUnlocked && g.isUnlocked(id) && p.count > 0 && g.state.gold >= p.cost ? { text: txp('popup.maxTrain.empower', { name: enemyDef(id).name, count: fmt(p.count), cost: fmt(p.cost) }), run } : null;
-      });
+      }, 'train', 'Max Empowering');
     btn.addEventListener('click', (ev) => {
       ev.stopPropagation();
       if (this.heldFor === btn) return void (this.heldFor = null);
