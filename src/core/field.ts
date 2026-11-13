@@ -199,6 +199,8 @@ export interface EnemyShot {
   at?: Shooter;
 }
 /** How big a monster's projectile is (for hitting a Hunter). */
+/** A monster going after one Hunter fights another instead if it comes within this much of touching them. */
+export const ENGAGE_RANGE = 14;
 export const SHOT_RADIUS = 5;
 
 /** A creature summoned by a Hunter's tome: roams to the nearest monster and bites it until it fades. */
@@ -1068,6 +1070,32 @@ export class Field {
     return best;
   }
 
+  /**
+   * Who a monster goes after. Not simply the nearest Hunter (the Guild Hunters stand between the edge and you, so
+   * you'd never be the nearest): each monster has its own fixed pick, so an even share of them (one in however many
+   * Hunters there are) heads for the Hunter in the middle, and the rest for the Guild Hunter on their side of the
+   * field (the one whose direction from the middle is closest to theirs). One that bumps into another Hunter on the
+   * way fights that one; a Guardian goes for the nearest.
+   */
+  private targetOf(e: Enemy): { who: Shooter; x: number; y: number } {
+    const near = this.nearestHunter(e.x, e.y);
+    if (e.boss || !this.helpers.length || Math.hypot(e.x - near.x, e.y - near.y) <= e.r + PLAYER_RADIUS + ENGAGE_RANGE) return near;
+    // A pick of its own from its id (not the game's random numbers, so nothing else changes for it).
+    const pick = (Math.abs(Math.sin(e.id * 12.9898) * 43758.5453) % 1) * (this.helpers.length + 1);
+    if (pick < 1) return { who: this.lead, x: 0, y: 0 };
+    const a = Math.atan2(e.y, e.x);
+    let best = this.helpers[0];
+    let bestA = Infinity;
+    for (const h of this.helpers) {
+      const da = Math.abs(Math.atan2(Math.sin(Math.atan2(h.y, h.x) - a), Math.cos(Math.atan2(h.y, h.x) - a)));
+      if (da < bestA) {
+        bestA = da;
+        best = h;
+      }
+    }
+    return { who: best.id, x: best.x, y: best.y };
+  }
+
   private moveEnemies(dt: number): void {
     const g = this.game;
     const decay = Math.exp(-8 * dt);
@@ -1097,7 +1125,7 @@ export class Field {
       } else if (e.charm) {
         this.charmed(e, speed, dt);
       } else {
-        const t = this.nearestHunter(e.x, e.y);
+        const t = this.targetOf(e);
         const dx = e.x - t.x;
         const dy = e.y - t.y;
         const d = Math.hypot(dx, dy) || 1;
