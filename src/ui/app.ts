@@ -8,6 +8,7 @@ import {
   ASCEND_LEVEL,
   ASCEND_NODE,
   WEAPON_CLASSES,
+  SKILL_RECOVERY,
   WEAPON_ARCHETYPES,
   weaponArchetype,
   type SummonType,
@@ -1182,23 +1183,6 @@ export class AppUI {
     overview.appendChild(headline);
     const stats = el('div', 'hd-stats');
     overview.appendChild(stats);
-    const arch = g.weaponItem(who) ? gearDef(g.weaponItem(who)!.base) : null;
-    const archLine = arch?.archetype ? ` ${weaponArchetype(arch)!.name}: ${archetypeText(weaponArchetype(arch)!, advancedTips)}` : '';
-    overview.appendChild(el('p', 'hd-style', `${g.weaponClassOf(who) ? `⚔️ Attacks with their weapon: ${advancedTips ? g.weaponClassOf(who)!.describe : g.weaponClassOf(who)!.simple}${archLine}` : '⚔️ Unarmed: fires a basic bolt. Equip a weapon to fight with its attacks.'}${def?.special ? ` ✨ ${def.special.describe}` : ''}${def?.wall ? ` 🦴 ${def.wall.name}: ${def.wall.describe}` : ''}`));
-    const effectNote = el('p', 'hd-style hd-effect');
-    overview.appendChild(effectNote);
-    this.refreshers.push(() => {
-      const wItem = g.weaponItem(who);
-      const special = !!(wItem && gearDef(wItem.base).special);
-      // A Special weapon's many elements read as one line, not one per element.
-      const lines: Array<[string, DamageType, number]> = special ? [] : g.damageTypesOf(who).map((t) => ['Attacks', t, g.procFor(who, t)]);
-      if (g.specialCooldown(who) !== null) for (const t of g.damageTypesOf(who, 'long', true)) lines.push([def?.special?.name ?? '', t, g.procOf(who, 'long', true)]);
-      effectNote.innerHTML = lines
-        .filter(([, t, p]) => p > 0 && DAMAGE_TYPES[t].effect)
-        .map(([what, t, p]) => `${dtIcon(t)} <b>${what}</b> (${Math.round(p * 100)}% chance): ${DAMAGE_TYPES[t].effect}.`)
-        .concat(special && g.procOf(who) > 0 ? [`${specialIcon()} <b>Attacks</b> (${Math.round(g.procOf(who) * 100)}% chance): each element's own status effect.`] : [])
-        .join('<br>');
-    });
 
     // Abilities (your Hunter): tap abilities unlocked in the skill tree; one is equipped at a time.
 
@@ -1239,55 +1223,53 @@ export class AppUI {
       // Only redrawn when it changes, so a tap on the location button isn't lost mid-press.
       if (html !== subHtml) subLine.innerHTML = subHtml = html;
       headline.innerHTML = `<div><b>${fmt(this.dpsOf(who))}</b>DPS</div>${recruited ? `<div><b>${fmt(g.killsBy(who))}</b>Enemies slain</div>` : ''}`;
-      const cells: Array<[string, string]> = [
-        ['Damage', fmt(g.shotDamage(who))],
+      // Every stat the game counts for them (their weapon, gear, skills, and Upgrades all in).
+      const pc = (v: number) => `${+(v * 100).toFixed(1)}%`;
+      const mul = (v: number) => `×${+v.toFixed(2)}`;
+      const guard = g.guardOf(who);
+      const rally = g.rallyFor(who);
+      const tree = g.tree(who);
+      const cells: Array<[string, string]> = [['Damage', fmt(g.shotDamage(who))]];
+      if (def?.bane) cells.push([`vs ${ARCHETYPES[def.bane.archetype].name}`, fmt(g.shotDamage(who, def.bane.archetype))]);
+      if (def?.backupGun) cells.push(['Secondary', fmt(g.shotDamage(who, undefined, 'short'))]);
+      if (def && g.weaponItem(who, 'off')) cells.push(['Off-hand', fmt(g.shotDamage(who, undefined, 'off'))]);
+      cells.push(
         ['Attack speed', `${g.shooterRate(who).toFixed(2)}/s`],
         ['Range', fmt(g.shooterRange(who))],
+        ['Crit chance', pc(g.critChanceOf(who))],
+        ['Crit damage', mul(g.critMultOf(who))],
+        ['Pierce', String(g.pierceOf(who))],
+        ['Area size', mul(g.radiusMult(who))],
+        ['Status chance', pc(g.procOf(who))],
+        ['Status duration', mul(g.effectDurationMult(who))],
+        ['Cooldowns', mul(g.cooldownMult(who))],
+        ['Ability power', `+${pc(g.abilityPower(who))}`],
         ['Stun time', `${g.stunTime(false, who).toFixed(2)}s`],
-        ['Shield', g.guardOf(who) ? `${g.guardOf(who)} hit${g.guardOf(who) > 1 ? 's' : ''}` : '—'],
-        ['Crit chance', `${Math.round(g.critChanceOf(who) * 100)}%`],
-      ];
+        ['Shield', guard ? `${guard} hit${guard > 1 ? 's' : ''}` : '—'],
+        ['Gold', mul(g.shooterGold(who))],
+        ['Drops', mul(g.shooterDrops(who))],
+      );
+      if (rally) cells.push(['Shields for others', String(rally)]);
+      if (tree.multishot) cells.push(['Extra shots', `+${+tree.multishot.toFixed(2)}`]);
+      if (tree.bounces) cells.push(['Bounces', `+${tree.bounces}`]);
       if (!def) cells.push(['Tap damage', fmt(g.tapDamage)], ['Tap size', fmt(g.tapRadius)]);
-      const types = g.damageTypesOf(who);
-      const special = !!(g.weaponItem(who) && gearDef(g.weaponItem(who)!.base).special);
-      const typeHtml = special
-        ? `<span style="color:${SPECIAL_TYPE.color}" class="dt-cell">${specialIcon()} ${SPECIAL_TYPE.name}</span>`
-        : types.map((t) => `<span style="color:${DAMAGE_TYPES[t].color}" class="dt-cell">${dtIcon(t)} ${DAMAGE_TYPES[t].name}</span>`).join(' ');
-      cells.splice(1, 0, [special ? 'Damage type' : types.length > 1 ? (g.perShotOf(who) ? 'Damage types (by shot)' : 'Damage types (split)') : 'Damage type', typeHtml]);
       const cd = g.specialCooldown(who);
       if (cd !== null) {
         const potion = def?.special?.kind === 'potion';
         const hit = fmt(g.shotDamage(who) * g.specialDamageMult(who));
         if (def?.special?.summon)
           cells.push(
-            [`${{ wolf: 'Wolf', puppet: 'Puppet', skeleton: 'Skeleton' }[def.special.summon.look]} strike (${DAMAGE_TYPES[g.damageTypeOf(who, 'long', true)].name})`, fmt(g.shotDamage(who) * g.specialDamageMult(who) * g.summonFerocity(who))],
+            [`${{ wolf: 'Wolf', puppet: 'Puppet', skeleton: 'Skeleton' }[def.special.summon.look]} strike`, fmt(g.shotDamage(who) * g.specialDamageMult(who) * g.summonFerocity(who))],
             [`${def.special.name} every`, `${cd}s`],
           );
         else if (def?.special?.kind === 'rain') {
           const rain = g.rainOf(who);
-          cells.push(
-            [`Arrow damage (${DAMAGE_TYPES[g.damageTypeOf(who, 'long', true)].name})`, hit],
-            ['Rain size', fmt(rain.radius)],
-            ['Rain lasts', `${rain.time.toFixed(2)}s`],
-            [`${def.special.name} every`, `${cd}s`],
-          );
+          cells.push(['Arrow damage', hit], ['Rain size', fmt(rain.radius)], ['Rain lasts', `${rain.time.toFixed(2)}s`], [`${def.special.name} every`, `${cd}s`]);
         } else if (def?.special?.kind === 'laser')
-          cells.push(
-            [`Laser damage (${DAMAGE_TYPES[g.damageTypeOf(who, 'long', true)].name})`, hit],
-            ['Beam width', fmt((def.special.width ?? 12) * (g.specialRadius(who) / def.special.radius))],
-            [`${def.special.name} every`, `${cd}s`],
-          );
-        else cells.push(
-          [`${potion ? 'Puddle' : 'Fireball'} damage (${DAMAGE_TYPES[g.damageTypeOf(who, 'long', true)].name})`, potion ? `${hit}/tick` : hit],
-          [potion ? 'Puddle size' : 'Blast size', fmt(g.specialRadius(who))],
-          [potion ? 'Potion every' : 'Fireball every', `${cd}s`],
-        );
+          cells.push(['Laser damage', hit], ['Beam width', fmt((def.special.width ?? 12) * (g.specialRadius(who) / def.special.radius))], [`${def.special.name} every`, `${cd}s`]);
+        else if (potion) cells.push(['Puddle damage', `${hit}/tick`], ['Puddle size', fmt(g.specialRadius(who))], ['Potion every', `${cd}s`]);
+        else cells.push([`${def?.special?.name ?? 'Special'} damage`, hit], [`${def?.special?.name ?? 'Special'} size`, fmt(g.specialRadius(who))], [`${def?.special?.name ?? 'Special'} every`, `${cd}s`]);
       }
-      const pierce = g.pierceOf(who);
-      if (pierce) cells.push(['Pierce', String(pierce)]);
-      if (def?.bane) cells.splice(1, 0, [`vs ${ARCHETYPES[def.bane.archetype].name}`, fmt(g.shotDamage(who, def.bane.archetype))]);
-      if (def?.backupGun) cells.splice(1, 0, ['Secondary', fmt(g.shotDamage(who, undefined, 'short'))]);
-      if (def && g.weaponItem(who, 'off')) cells.splice(1, 0, ['Off-hand', fmt(g.shotDamage(who, undefined, 'off'))]);
       stats.innerHTML = cells.map(([k, v]) => `<div><b>${v}</b>${k}</div>`).join('');
     });
 
@@ -1319,10 +1301,11 @@ export class AppUI {
       canLearn: (id) => g.canLearn(who, id, which),
       learn: (id) => g.learn(who, id, which),
       verb: 'Acquire',
+      // What the node itself gives, at its rank now and the next (not the Hunter's totals).
       preview: (n) => {
-        const t = g.training(who);
-        const ranks = which === 'base' ? t.skills : (t.skills2 ??= {});
-        return previewRanks(ranks, n, () => skillStatLines(g, who, n, ranks[n.id] ?? 0));
+        const rank = g.skill(who, n.id, which);
+        if (!Object.keys(n.effect).length) return { current: [], next: null };
+        return { current: rank > 0 ? nodeBonusLines(n, rank) : ['None yet'], next: rank < n.maxRank ? nodeBonusLines(n, rank + 1) : null };
       },
       // The gold Ascend node only shows once the first tree is complete.
       hidden: (id) => which === 'base' && id === ASCEND_NODE.id && !g.baseTreeComplete(who),
@@ -7759,34 +7742,35 @@ function previewHtml(p: { current: string[]; next: string[] | null } | undefined
 }
 
 const pctText = (v: number): string => `${+(v * 100).toFixed(1)}%`;
-const multText = (v: number): string => `×${+v.toFixed(2)}`;
 
-/** A Hunter's real stats behind a skill node's effects. */
-function skillStatLines(g: Game, who: Wearer, n: TreeNode, rank: number): string[] {
+/** What a skill node gives at `rank` ranks, stat by stat ("+40% damage", "+2 shield charges"). */
+function nodeBonusLines(n: TreeNode, rank: number): string[] {
   const out: string[] = [];
-  for (const stat of Object.keys(n.effect) as TreeStat[]) {
+  const pct = (v: number) => `+${pctText(v)}`;
+  for (const [stat, per] of Object.entries(n.effect) as Array<[TreeStat, number]>) {
+    const v = per * rank;
     switch (stat) {
-      case 'damage': out.push(`Damage ${fmt(g.weaponHitOf(who))}`); break;
-      case 'rate': out.push(`Attack speed ${+g.shooterRate(who).toFixed(2)}/s`); break;
-      case 'recovery': out.push(`Stuns last ${+g.stunTime(false, who).toFixed(2)}s`); break;
-      case 'crit': out.push(`Crit chance ${pctText(g.critChanceOf(who))}`); break;
-      case 'critDamage': out.push(`Crit damage ${multText(g.critMultOf(who))}`); break;
-      case 'range': out.push(`Range ${Math.round(g.shooterRange(who))}`); break;
-      case 'pierce': out.push(`Pierces ${g.pierceOf(who)}`); break;
-      case 'radius': out.push(`Area size ${multText(g.radiusMult(who))}`); break;
-      case 'guard': out.push(`Shield charges ${g.guardOf(who)}`); break;
-      case 'rally': out.push(`Shields for others ${g.rallyFor(who)}`); break;
-      case 'gold': out.push(`Gold ${multText(g.shooterGold(who))}`); break;
-      case 'drops': out.push(`Drops ${multText(g.shooterDrops(who))}`); break;
-      case 'tapPower': out.push(`Tap damage ${fmt(g.tapDamage)}`); break;
-      case 'tapSize': out.push(`Tap size ${Math.round(g.tapRadius)}`); break;
-      case 'cooldown': out.push(`Cooldowns ${multText(g.cooldownMult(who))}`); break;
-      case 'duration': out.push(`Effects last ${multText(g.effectDurationMult(who))}`); break;
-      default: {
-        // Banes, blood bolts, multishot: what this node adds so far.
-        const v = (n.effect[stat] ?? 0) * rank;
-        out.push(stat === 'bane' ? `Bonus damage +${pctText(v)}` : stat === 'multishot' ? `Extra shots +${+v.toFixed(2)}` : `${stat} +${+v.toFixed(2)}`);
-      }
+      case 'damage': out.push(`${pct(v)} damage`); break;
+      case 'rate': out.push(`${pct(v)} attack speed`); break;
+      case 'recovery': out.push(`−${pctText(1 - SKILL_RECOVERY ** v)} stun time`); break;
+      case 'crit': out.push(`${pct(v)} crit chance`); break;
+      case 'critDamage': out.push(`${pct(v)} crit damage`); break;
+      case 'range': out.push(`+${+v.toFixed(1)} range`); break;
+      case 'pierce': out.push(`+${v} pierce`); break;
+      case 'radius': out.push(`${pct(v)} area size`); break;
+      case 'bane': out.push(`${pct(v)} bonus damage`); break;
+      case 'bolts': out.push(`+${+v.toFixed(2)} blood bolts`); break;
+      case 'guard': out.push(`+${v} shield charge${v === 1 ? '' : 's'}`); break;
+      case 'rally': out.push(`+${v} shield charge${v === 1 ? '' : 's'} for every other Hunter`); break;
+      case 'gold': out.push(`${pct(v)} gold`); break;
+      case 'drops': out.push(`${pct(v)} material drops`); break;
+      case 'tapPower': out.push(`${pct(v)} tap damage`); break;
+      case 'tapSize': out.push(`${pct(v)} tap area`); break;
+      case 'cooldown': out.push(`−${pctText(v)} cooldowns`); break;
+      case 'duration': out.push(`${pct(v)} status duration`); break;
+      case 'multishot': out.push(`+${+v.toFixed(2)} extra shot${v === 1 ? '' : 's'}`); break;
+      case 'bounces': out.push(`+${v} bounce${v === 1 ? '' : 's'}`); break;
+      case 'ghosts': out.push(`${pct(v)} ghost chance`); break;
     }
   }
   return out;

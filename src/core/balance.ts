@@ -377,17 +377,25 @@ const pctOf = (v: number): string => `${+(v * 100).toFixed(1)}%`;
 /** Ranks of SKILL_RECOVERY that make stuns wear off 5% faster (Guild Hunters use the same step as you). */
 const REC_STEP = Math.log(0.95) / Math.log(SKILL_RECOVERY);
 // Stock nodes: the per-rank numbers every tree shares, under each Hunter's own names.
-const atk = (maxRank: number, name = 'Attack Power', icon = '💪', v = 0.2): NodeSpec => ({ name, icon, desc: `+${pctOf(v)} damage per rank.`, maxRank, effect: { damage: v } });
-const spd = (maxRank: number, name = 'Attack Speed', icon = '⚡', v = 0.05): NodeSpec => ({ name, icon, desc: `+${pctOf(v)} attack speed per rank.`, maxRank, effect: { rate: v } });
-const rec = (maxRank: number, name = 'Recovery Speed', icon = '🧘'): NodeSpec => ({ name, icon, desc: 'Stuns wear off 5% faster per rank, and the protection after a stun lasts 5% longer.', maxRank, effect: { recovery: REC_STEP } });
-const crt = (maxRank: number, name: string, icon: string, v = 0.025): NodeSpec => ({ name, icon, desc: `+${pctOf(v)} crit chance per rank.`, maxRank, effect: { crit: v } });
-const crd = (maxRank: number, name: string, icon: string, v = 0.1): NodeSpec => ({ name, icon, desc: `Critical hits deal +${pctOf(v)} more damage per rank.`, maxRank, effect: { critDamage: v } });
-const rng = (maxRank: number, name: string, icon: string, v = 10): NodeSpec => ({ name, icon, desc: `+${v} range per rank.`, maxRank, effect: { range: v } });
-const area = (maxRank: number, name: string, icon: string, what: string, v = 0.1): NodeSpec => ({ name, icon, desc: `${what} ${pctOf(v)} per rank.`, maxRank, effect: { radius: v } });
-const cdr = (maxRank: number, name: string, icon: string, what = 'Their special recharges', v = 0.05): NodeSpec => ({ name, icon, desc: `${what} ${pctOf(v)} faster per rank.`, maxRank, effect: { cooldown: v } });
-const dur = (maxRank: number, name: string, icon: string, v = 0.1): NodeSpec => ({ name, icon, desc: `The status effects they set off last ${pctOf(v)} longer per rank.`, maxRank, effect: { duration: v } });
-const prc = (maxRank: number, name: string, icon: string, cost?: number): NodeSpec => ({ name, icon, desc: 'Shots pierce 1 more enemy per rank.', maxRank, effect: { pierce: 1 }, cost });
-const grd = (maxRank: number, name: string, icon: string, cost?: number): NodeSpec => ({ name, icon, desc: '+1 shield charge per rank.', maxRank, effect: { guard: 1 }, cost });
+const atk = (maxRank: number, name = 'Attack Power', icon = '💪', v = 0.2): NodeSpec => ({ name, icon, desc: `Increase damage by ${pctOf(v)}.`, maxRank, effect: { damage: v } });
+const spd = (maxRank: number, name = 'Attack Speed', icon = '⚡', v = 0.05): NodeSpec => ({ name, icon, desc: `+${pctOf(v)} attack speed.`, maxRank, effect: { rate: v } });
+const rec = (maxRank: number, name = 'Recovery Speed', icon = '🧘'): NodeSpec => ({ name, icon, desc: 'Reduce Stun duration by 5%.', maxRank, effect: { recovery: REC_STEP } });
+const crt = (maxRank: number, name: string, icon: string, v = 0.025): NodeSpec => ({ name, icon, desc: `+${pctOf(v)} crit chance.`, maxRank, effect: { crit: v } });
+const crd = (maxRank: number, name: string, icon: string, v = 0.1): NodeSpec => ({ name, icon, desc: `Critical hits deal +${pctOf(v)} more damage.`, maxRank, effect: { critDamage: v } });
+const rng = (maxRank: number, name: string, icon: string, v = 10): NodeSpec => ({ name, icon, desc: `+${v} range.`, maxRank, effect: { range: v } });
+/** "Wolves hit harder:" → "Wolves hit 10% harder."; "Explosions grow" → "Explosions grow 10% larger." */
+const areaText = (what: string, v: number): string => {
+  const m = /^(.*) (\w+):$/.exec(what);
+  if (m) return `${m[1]} ${pctOf(v)} ${m[2]}.`;
+  if (/ (grow|grows)$/.test(what)) return `${what} ${pctOf(v)} larger.`;
+  if (/ (spread|reach)$/.test(what)) return `${what} ${pctOf(v)} ${what.endsWith('reach') ? 'further' : 'wider'}.`;
+  return `${what} ${pctOf(v)}.`;
+};
+const area = (maxRank: number, name: string, icon: string, what: string, v = 0.1): NodeSpec => ({ name, icon, desc: areaText(what, v), maxRank, effect: { radius: v } });
+const cdr = (maxRank: number, name: string, icon: string, what = 'Their special recharges', v = 0.05): NodeSpec => ({ name, icon, desc: `${what} ${pctOf(v)} faster.`, maxRank, effect: { cooldown: v } });
+const dur = (maxRank: number, name: string, icon: string, v = 0.1): NodeSpec => ({ name, icon, desc: `Increase Status Effect duration by ${pctOf(v)}.`, maxRank, effect: { duration: v } });
+const prc = (maxRank: number, name: string, icon: string, cost?: number): NodeSpec => ({ name, icon, desc: 'Shots pierce 1 more enemy.', maxRank, effect: { pierce: 1 }, cost });
+const grd = (maxRank: number, name: string, icon: string, cost?: number): NodeSpec => ({ name, icon, desc: '+1 shield charge.', maxRank, effect: { guard: 1 }, cost });
 /**
  * A Guild Hunter's bane passive starts at +50% damage to their archetype (BANE_BASE); each tree's bane node adds up
  * to BANE_PER_TREE more in total (+100% after the first tree, +150% after the Ascended one), however many ranks it has.
@@ -399,11 +407,11 @@ export const SONG_WAVE_CROWD = 2.5;
 /** Monsters Lance's holy spear pierces in a crowd, for the background model (bursts and all). */
 export const HOLY_SPEAR_CROWD = 3;
 const banePct = (v: number): string => `${Math.round(v * 10000) / 100}%`;
-const ban = (maxRank: number, name: string, icon: string, foes: string): NodeSpec => ({ name, icon, desc: `+${banePct(BANE_PER_TREE / maxRank)} bonus damage to ${foes} per rank.`, maxRank, effect: { bane: BANE_PER_TREE / maxRank } });
-const gld = (maxRank: number, name: string, icon: string, v = 0.1): NodeSpec => ({ name, icon, desc: `+${pctOf(v)} gold from their kills per rank.`, maxRank, effect: { gold: v } });
+const ban = (maxRank: number, name: string, icon: string, foes: string): NodeSpec => ({ name, icon, desc: `Deal +${banePct(BANE_PER_TREE / maxRank)} bonus damage to ${foes}.`, maxRank, effect: { bane: BANE_PER_TREE / maxRank } });
+const gld = (maxRank: number, name: string, icon: string, v = 0.1): NodeSpec => ({ name, icon, desc: `+${pctOf(v)} gold from their kills.`, maxRank, effect: { gold: v } });
 /** Lilith: a kill's chance to release a ghost. */
-const gho = (maxRank: number, name: string, icon: string, v = 0.02): NodeSpec => ({ name, icon, desc: `+${pctOf(v)} chance per rank that a kill releases a ghost.`, maxRank, effect: { ghosts: v } });
-const drp = (maxRank: number, name: string, icon: string, v = 0.05): NodeSpec => ({ name, icon, desc: `+${pctOf(v)} materials from their kills per rank.`, maxRank, effect: { drops: v } });
+const gho = (maxRank: number, name: string, icon: string, v = 0.02): NodeSpec => ({ name, icon, desc: `+${pctOf(v)} chance that a kill releases a ghost.`, maxRank, effect: { ghosts: v } });
+const drp = (maxRank: number, name: string, icon: string, v = 0.05): NodeSpec => ({ name, icon, desc: `+${pctOf(v)} material drops from their kills.`, maxRank, effect: { drops: v } });
 const multi = (name: string, icon: string, cost: number): NodeSpec => ({ name, icon, desc: 'Ranged and Magic attacks fire an extra projectile, and melee attacks follow up with another strike.', maxRank: 1, effect: { multishot: 1 }, cost });
 
 type GridNode = NodeSpec & { id: string };
@@ -417,12 +425,12 @@ function gridTree(rows: GridNode[][]): SkillNode[] {
     const above = out.filter((n) => n.row === r - 1);
     row.forEach((spec, i) => {
       const col = 2 - (row.length - 1) / 2 + i;
-      out.push({ ...spec, requires: above.filter((p) => Math.abs(p.col - col) <= 1).map((p) => p.id), col, row: r });
+      out.push({...spec, requires: above.filter((p) => Math.abs(p.col - col) <= 1).map((p) => p.id), col, row: r });
     });
   });
   return out;
 }
-const at = (id: string, spec: NodeSpec): GridNode => ({ id, ...spec });
+const at = (id: string, spec: NodeSpec): GridNode => ({ id,...spec });
 
 // ---- Your Hunter: tap abilities, unlocked in the skill tree and swapped under Tap Abilities on the Overview ----
 
@@ -486,18 +494,18 @@ const RECOVERY_5 = Math.log(0.95) / Math.log(SKILL_RECOVERY);
 const MAIN_FIRST_TREE: SkillNode[] = [
   { id: 'root', name: "Hunter's Instinct", icon: '👁️', desc: '+5% crit chance.', maxRank: 1, effect: { crit: 0.05 }, requires: [], col: 2, row: 0 },
   // First diamond
-  { id: 'power', name: 'Attack Power', icon: '💪', desc: '+20% damage per rank.', maxRank: 5, effect: { damage: 0.2 }, requires: ['root'], col: 1, row: 1 },
-  { id: 'speed', name: 'Attack Speed', icon: '⚡', desc: '+5% attack speed per rank.', maxRank: 5, effect: { rate: 0.05 }, requires: ['root'], col: 2, row: 1 },
-  { id: 'recovery', name: 'Recovery Speed', icon: '🧘', desc: 'Stuns wear off 5% faster per rank, and the protection after a stun lasts 5% longer.', maxRank: 3, effect: { recovery: RECOVERY_5 }, requires: ['root'], col: 3, row: 1 },
-  { id: 'power2', name: 'Tap Power', icon: '👆', desc: '+25% tap blast damage per rank.', maxRank: 5, effect: { tapPower: 0.25 }, requires: ['power'], col: 0.5, row: 2 },
-  { id: 'eagleEye', name: 'Eagle Eye', icon: '🎯', desc: '+2.5% crit chance per rank.', maxRank: 2, effect: { crit: 0.025 }, requires: ['speed'], col: 2, row: 2 },
-  { id: 'recovery2', name: 'Tap Size', icon: '💥', desc: '+20% tap blast area per rank.', maxRank: 4, effect: { tapSize: 0.2 }, requires: ['recovery'], col: 3.5, row: 2 },
+  { id: 'power', name: 'Attack Power', icon: '💪', desc: 'Increase damage by 20%.', maxRank: 5, effect: { damage: 0.2 }, requires: ['root'], col: 1, row: 1 },
+  { id: 'speed', name: 'Attack Speed', icon: '⚡', desc: '+5% attack speed.', maxRank: 5, effect: { rate: 0.05 }, requires: ['root'], col: 2, row: 1 },
+  { id: 'recovery', name: 'Recovery Speed', icon: '🧘', desc: 'Reduce Stun duration by 5%.', maxRank: 3, effect: { recovery: RECOVERY_5 }, requires: ['root'], col: 3, row: 1 },
+  { id: 'power2', name: 'Tap Power', icon: '👆', desc: '+25% tap blast damage.', maxRank: 5, effect: { tapPower: 0.25 }, requires: ['power'], col: 0.5, row: 2 },
+  { id: 'eagleEye', name: 'Eagle Eye', icon: '🎯', desc: '+2.5% crit chance.', maxRank: 2, effect: { crit: 0.025 }, requires: ['speed'], col: 2, row: 2 },
+  { id: 'recovery2', name: 'Tap Size', icon: '💥', desc: '+20% tap blast area.', maxRank: 4, effect: { tapSize: 0.2 }, requires: ['recovery'], col: 3.5, row: 2 },
   { id: 'flameTap', name: 'Flame Burst', icon: '🔥', desc: `Unlocks the Flame Burst tap ability: taps deal Fire damage, and every ${FLAME_BURST_COOLDOWN} seconds a tap sets everything it hits ablaze. ${TAP_HINT}`, maxRank: 1, effect: {}, ability: 'flame', requires: ['power2'], col: 0.5, row: 3 },
   { id: 'speed2', name: 'Piercing Shot', icon: '🔱', desc: 'Shots pierce 1 more enemy.', maxRank: 1, effect: { pierce: 1 }, requires: ['eagleEye'], col: 2, row: 3 },
   { id: 'frostTap', name: 'Frost Nova', icon: '❄️', desc: `Unlocks the Frost Nova tap ability: taps deal Frost damage, and every ${FROST_NOVA.cooldown} seconds a tap freezes everything it hits, then chills it. ${TAP_HINT}`, maxRank: 1, effect: {}, ability: 'frost', requires: ['recovery2'], col: 3.5, row: 3 },
-  { id: 'wideTaps', name: 'Wide Taps', icon: '🌀', desc: '+10% tap blast area per rank.', maxRank: 4, effect: { tapSize: 0.1 }, requires: ['flameTap'], col: 1, row: 4 },
-  { id: 'prosperity', name: 'Prosperity', icon: '🪙', desc: '+15% gold from your kills per rank.', maxRank: 3, effect: { gold: 0.15 }, requires: ['speed2'], col: 2, row: 4 },
-  { id: 'bulwark', name: 'Bulwark', icon: '🛡️', desc: '+1 shield charge per rank.', maxRank: 2, effect: { guard: 1 }, requires: ['frostTap'], col: 3, row: 4 },
+  { id: 'wideTaps', name: 'Wide Taps', icon: '🌀', desc: '+10% tap blast area.', maxRank: 4, effect: { tapSize: 0.1 }, requires: ['flameTap'], col: 1, row: 4 },
+  { id: 'prosperity', name: 'Prosperity', icon: '🪙', desc: '+15% gold from your kills.', maxRank: 3, effect: { gold: 0.15 }, requires: ['speed2'], col: 2, row: 4 },
+  { id: 'bulwark', name: 'Bulwark', icon: '🛡️', desc: '+1 shield charge.', maxRank: 2, effect: { guard: 1 }, requires: ['frostTap'], col: 3, row: 4 },
   {
     id: 'capstone',
     name: 'Apex Hunter',
@@ -510,22 +518,22 @@ const MAIN_FIRST_TREE: SkillNode[] = [
     row: 5,
   },
   // Second diamond
-  { id: 'reach', name: 'Reach', icon: '📏', desc: '+15 range per rank.', maxRank: 3, effect: { range: 15 }, requires: ['capstone'], col: 1, row: 6 },
-  { id: 'will', name: 'Quick Casting', icon: '⏱️', desc: "Your gear's abilities and your tap ability recharge 10% faster per rank.", maxRank: 3, effect: { cooldown: 0.1 }, requires: ['capstone'], col: 2, row: 6 },
-  { id: 'longShot', name: 'Long Shot', icon: '🔭', desc: '+10 range per rank.', maxRank: 3, effect: { range: 10 }, requires: ['capstone'], col: 3, row: 6 },
-  { id: 'deadlyTaps', name: 'Deadly Taps', icon: '👊', desc: '+30% tap blast damage per rank.', maxRank: 4, effect: { tapPower: 0.3 }, requires: ['reach'], col: 0.5, row: 7 },
-  { id: 'fortune', name: 'Fortune', icon: '🍀', desc: '+10% gold from your kills per rank.', maxRank: 3, effect: { gold: 0.1 }, requires: ['reach', 'will'], col: 1.5, row: 7 },
-  { id: 'treasure', name: 'Treasure Sense', icon: '💎', desc: '+5% materials from your kills per rank.', maxRank: 3, effect: { drops: 0.05 }, requires: ['will', 'longShot'], col: 2.5, row: 7 },
-  { id: 'extendedEffects', name: 'Extended Effects', icon: '⏳', desc: 'The status effects you set off last 10% longer per rank.', maxRank: 3, effect: { duration: 0.1 }, requires: ['longShot'], col: 3.5, row: 7 },
+  { id: 'reach', name: 'Reach', icon: '📏', desc: '+15 range.', maxRank: 3, effect: { range: 15 }, requires: ['capstone'], col: 1, row: 6 },
+  { id: 'will', name: 'Quick Casting', icon: '⏱️', desc: "Your gear's abilities and your tap ability recharge 10% faster.", maxRank: 3, effect: { cooldown: 0.1 }, requires: ['capstone'], col: 2, row: 6 },
+  { id: 'longShot', name: 'Long Shot', icon: '🔭', desc: '+10 range.', maxRank: 3, effect: { range: 10 }, requires: ['capstone'], col: 3, row: 6 },
+  { id: 'deadlyTaps', name: 'Deadly Taps', icon: '👊', desc: '+30% tap blast damage.', maxRank: 4, effect: { tapPower: 0.3 }, requires: ['reach'], col: 0.5, row: 7 },
+  { id: 'fortune', name: 'Fortune', icon: '🍀', desc: '+10% gold from your kills.', maxRank: 3, effect: { gold: 0.1 }, requires: ['reach', 'will'], col: 1.5, row: 7 },
+  { id: 'treasure', name: 'Treasure Sense', icon: '💎', desc: '+5% materials from your kills.', maxRank: 3, effect: { drops: 0.05 }, requires: ['will', 'longShot'], col: 2.5, row: 7 },
+  { id: 'extendedEffects', name: 'Extended Effects', icon: '⏳', desc: 'Increase Status Effect duration by 10%.', maxRank: 3, effect: { duration: 0.1 }, requires: ['longShot'], col: 3.5, row: 7 },
   { id: 'thunderTap', name: 'Thunderclap', icon: '⚡', desc: `Unlocks the Thunderclap tap ability: taps deal Lightning damage and arc to monsters nearby. ${TAP_HINT}`, maxRank: 1, effect: {}, ability: 'thunder', requires: ['deadlyTaps'], col: 0.5, row: 8 },
-  { id: 'haste', name: "Hunter's Haste", icon: '💨', desc: '+5.5% attack speed per rank.', maxRank: 5, effect: { rate: 0.055 }, requires: ['fortune'], col: 1.5, row: 8 },
+  { id: 'haste', name: "Hunter's Haste", icon: '💨', desc: '+5.5% attack speed.', maxRank: 5, effect: { rate: 0.055 }, requires: ['fortune'], col: 1.5, row: 8 },
   { id: 'brutalCriticals', name: 'Brutal Criticals', icon: '💢', desc: 'Your critical hits deal +50% more damage.', maxRank: 1, effect: { critDamage: 0.5 }, requires: ['treasure'], col: 2.5, row: 8 },
   { id: 'meltingMiasma', name: 'Melting Miasma', icon: '☠️', desc: `Unlocks the Melting Miasma tap ability: taps deal Poison damage and poison monsters, and every 4 seconds a tap leaves a poison puddle that hurts monsters walking through it. ${TAP_HINT}`, maxRank: 1, effect: {}, ability: 'miasma', requires: ['extendedEffects'], col: 3.5, row: 8 },
-  { id: 'goldTouch', name: 'Golden Touch', icon: '✨', desc: '+20% gold from your kills per rank.', maxRank: 2, effect: { gold: 0.2 }, requires: ['thunderTap', 'haste'], col: 1, row: 9 },
+  { id: 'goldTouch', name: 'Golden Touch', icon: '✨', desc: '+20% gold from your kills.', maxRank: 2, effect: { gold: 0.2 }, requires: ['thunderTap', 'haste'], col: 1, row: 9 },
   { id: 'shieldWall', name: 'Shield Wall', icon: '🛡️', desc: '+1 shield charge.', maxRank: 1, effect: { guard: 1 }, requires: ['haste', 'brutalCriticals'], col: 2, row: 9 },
-  { id: 'bounty', name: 'Bounty', icon: '💰', desc: '+15% materials from your kills per rank.', maxRank: 3, effect: { drops: 0.15 }, requires: ['brutalCriticals', 'meltingMiasma'], col: 3, row: 9 },
-  { id: 'keenEye', name: 'Keen Eye', icon: '🦅', desc: '+5% crit chance per rank.', maxRank: 3, effect: { crit: 0.05 }, requires: ['goldTouch', 'shieldWall'], col: 1.5, row: 10 },
-  { id: 'might', name: "Hunter's Might", icon: '🗡️', desc: '+10% damage per rank.', maxRank: 5, effect: { damage: 0.1 }, requires: ['shieldWall', 'bounty'], col: 2.5, row: 10 },
+  { id: 'bounty', name: 'Bounty', icon: '💰', desc: '+15% materials from your kills.', maxRank: 3, effect: { drops: 0.15 }, requires: ['brutalCriticals', 'meltingMiasma'], col: 3, row: 9 },
+  { id: 'keenEye', name: 'Keen Eye', icon: '🦅', desc: '+5% crit chance.', maxRank: 3, effect: { crit: 0.05 }, requires: ['goldTouch', 'shieldWall'], col: 1.5, row: 10 },
+  { id: 'might', name: "Hunter's Might", icon: '🗡️', desc: 'Increase damage by 10%.', maxRank: 5, effect: { damage: 0.1 }, requires: ['shieldWall', 'bounty'], col: 2.5, row: 10 },
   // 7 points (not the editor's 10) so the whole tree, then Ascend, fits in the 99 points earned by Lv 100.
   { id: 'legend', name: 'Legend', icon: '🏆', desc: '+50% damage and +20% attack speed.', maxRank: 1, cost: 7, effect: { damage: 0.5, rate: 0.2 }, requires: ['keenEye', 'might'], col: 2, row: 11 },
 ];
@@ -604,16 +612,16 @@ export function affordableCount(cost: (count: number) => number, gold: number, l
 /** The Slayer's tree (100 points: Lv 101–200), five wide like your first tree; its capstone the last 21 points. */
 export const SLAYER_TREE: SkillNode[] = [
   { id: 'root', name: "Slayer's Oath", icon: '⚔️', desc: '+30% damage and +10% attack speed.', maxRank: 1, cost: 4, effect: { damage: 0.3, rate: 0.1 }, requires: [], col: 2, row: 0 },
-  { id: 'power', name: 'Carnage', icon: '🩸', desc: '+7% damage per rank.', maxRank: 15, effect: { damage: 0.07 }, requires: ['root'], col: 0, row: 1 },
-  { id: 'speed', name: 'Frenzy', icon: '⚡', desc: '+7% attack speed per rank.', maxRank: 15, effect: { rate: 0.07 }, requires: ['root'], col: 1, row: 1 },
-  { id: 'recovery', name: 'Unbreakable', icon: '🗿', desc: 'Stuns wear off 8% faster per rank, and the protection after a stun lasts 8% longer.', maxRank: 5, effect: { recovery: 1 }, requires: ['root'], col: 2, row: 1 },
-  { id: 'farSight', name: 'Far Sight', icon: '🔭', desc: '+10 range per rank.', maxRank: 5, effect: { range: 10 }, requires: ['root'], col: 3, row: 1 },
-  { id: 'plunder', name: 'Plunder', icon: '🪙', desc: '+10% gold and materials from your kills per rank.', maxRank: 5, effect: { gold: 0.1, drops: 0.1 }, requires: ['root'], col: 4, row: 1 },
-  { id: 'power2', name: 'Precision', icon: '🎯', desc: '+1.25% crit chance per rank.', maxRank: 8, effect: { crit: 0.0125 }, requires: ['power'], col: 0, row: 2 },
-  { id: 'speed2', name: 'Tap Fury', icon: '💥', desc: '+40% tap blast damage per rank.', maxRank: 8, effect: { tapPower: 0.4 }, requires: ['speed'], col: 1, row: 2 },
-  { id: 'recovery2', name: 'Tap Reach', icon: '🌊', desc: '+9% tap blast area per rank.', maxRank: 9, effect: { tapSize: 0.09 }, requires: ['recovery'], col: 2, row: 2 },
-  { id: 'ironSkin', name: 'Iron Skin', icon: '🛡️', desc: '+1 shield charge per rank.', maxRank: 2, effect: { guard: 1 }, requires: ['farSight'], col: 3, row: 2 },
-  { id: 'spoils', name: 'Spoils', icon: '💰', desc: '+15% materials from your kills per rank.', maxRank: 3, effect: { drops: 0.15 }, requires: ['plunder'], col: 4, row: 2 },
+  { id: 'power', name: 'Carnage', icon: '🩸', desc: 'Increase damage by 7%.', maxRank: 15, effect: { damage: 0.07 }, requires: ['root'], col: 0, row: 1 },
+  { id: 'speed', name: 'Frenzy', icon: '⚡', desc: '+7% attack speed.', maxRank: 15, effect: { rate: 0.07 }, requires: ['root'], col: 1, row: 1 },
+  { id: 'recovery', name: 'Unbreakable', icon: '🗿', desc: 'Reduce Stun duration by 8%.', maxRank: 5, effect: { recovery: 1 }, requires: ['root'], col: 2, row: 1 },
+  { id: 'farSight', name: 'Far Sight', icon: '🔭', desc: '+10 range.', maxRank: 5, effect: { range: 10 }, requires: ['root'], col: 3, row: 1 },
+  { id: 'plunder', name: 'Plunder', icon: '🪙', desc: '+10% gold and materials from your kills.', maxRank: 5, effect: { gold: 0.1, drops: 0.1 }, requires: ['root'], col: 4, row: 1 },
+  { id: 'power2', name: 'Precision', icon: '🎯', desc: '+1.25% crit chance.', maxRank: 8, effect: { crit: 0.0125 }, requires: ['power'], col: 0, row: 2 },
+  { id: 'speed2', name: 'Tap Fury', icon: '💥', desc: '+40% tap blast damage.', maxRank: 8, effect: { tapPower: 0.4 }, requires: ['speed'], col: 1, row: 2 },
+  { id: 'recovery2', name: 'Tap Reach', icon: '🌊', desc: '+9% tap blast area.', maxRank: 9, effect: { tapSize: 0.09 }, requires: ['recovery'], col: 2, row: 2 },
+  { id: 'ironSkin', name: 'Iron Skin', icon: '🛡️', desc: '+1 shield charge.', maxRank: 2, effect: { guard: 1 }, requires: ['farSight'], col: 3, row: 2 },
+  { id: 'spoils', name: 'Spoils', icon: '💰', desc: '+15% materials from your kills.', maxRank: 3, effect: { drops: 0.15 }, requires: ['plunder'], col: 4, row: 2 },
   { id: 'capstone', name: 'Godslayer', icon: '👑', desc: '+100% damage, +25% attack speed and +5% crit chance.', maxRank: 1, cost: 21, effect: { damage: 1, rate: 0.25, crit: 0.05 }, requires: ['power2', 'speed2', 'recovery2', 'ironSkin', 'spoils'], col: 2, row: 3 },
 ];
 
@@ -658,8 +666,8 @@ function ascendedTree(focus: [NodeSpec, NodeSpec, NodeSpec], capstone: NodeSpec)
     [at('root', { name: 'Awakening', icon: '🌅', desc: '+20% damage and +5% attack speed.', maxRank: 1, cost: 2, effect: { damage: 0.2, rate: 0.05 } })],
     [at('power', atk(5, 'Mastery', '⚔️', 0.1)), at('speed', spd(5, 'Fervor', '🔥')), at('recovery', rec(3, 'Resolve', '🗿'))],
     [at('power2', focus[0]), at('speed2', focus[1]), at('recovery2', focus[2])],
-    [at('precision', crt(4, 'Precision', '🎯')), at('fortune', { name: 'Fortune', icon: '🍀', desc: '+10% gold and +5% materials from their kills per rank.', maxRank: 3, effect: { gold: 0.1, drops: 0.05 } })],
-    [at('capstone', { cost: 8, ...capstone })],
+    [at('precision', crt(4, 'Precision', '🎯')), at('fortune', { name: 'Fortune', icon: '🍀', desc: '+10% gold and +5% materials from their kills.', maxRank: 3, effect: { gold: 0.1, drops: 0.05 } })],
+    [at('capstone', { cost: 8,...capstone })],
   ]);
 }
 
@@ -704,9 +712,9 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
   // Galladair: arrows that pierce, and more of them.
   ranger: gridTree([
     [at('root', prc(1, 'Piercing Blow', '🎯'))],
-    [at('power', atk(4, 'Powerful Shots')), at('speed', spd(4, 'Volley')), at('longshot', { name: 'Curving Arrows', icon: '🔭', desc: 'Arrows ricochet off their target, striking another enemy (1 more per rank).', maxRank: 3, effect: { bounces: 1 } })],
+    [at('power', atk(4, 'Powerful Shots')), at('speed', spd(4, 'Volley')), at('longshot', { name: 'Curving Arrows', icon: '🔭', desc: 'Arrows ricochet off their target, striking another enemy.', maxRank: 3, effect: { bounces: 1 } })],
     [at('beastBane', ban(4, 'Beast Bane', '🐾', 'Beasts')), at('piercing', cdr(2, 'Arrow Storm', '➶', 'Arrow Rain comes', 0.1)), at('eagleEye', crt(3, 'Eagle Eye', '🦅')), at('deepQuiver', spd(3, 'Deep Quiver', '🏹'))],
-    [at('splitShot', { name: 'Fan Shot', icon: '🔱', desc: 'Fire an extra projectile with every shot (1 more per rank).', maxRank: 2, cost: 2, effect: { multishot: 1 } }), at('broadheads', atk(4, 'Broadheads', '🗡️', 0.1)), at('recovery', rec(3, 'Fleet Foot', '👣'))],
+    [at('splitShot', { name: 'Fan Shot', icon: '🔱', desc: 'Fire an extra projectile with every shot.', maxRank: 2, cost: 2, effect: { multishot: 1 } }), at('broadheads', atk(4, 'Broadheads', '🗡️', 0.1)), at('recovery', rec(3, 'Fleet Foot', '👣'))],
     [at('capstone', { name: 'Volley', icon: '🌧️', desc: 'Fire an additional projectile with every shot, and pierce one additional enemy.', maxRank: 1, cost: 4, effect: { multishot: 1, pierce: 1 } })],
   ]),
   // Ba'al: faster playing, wider sound waves.
@@ -1676,7 +1684,7 @@ function unboundRing(): RegNode[] {
       UNBOUND_FINALE.forEach((f, k) => {
         const j = k + 1;
         const p = (j === 1 && UNBOUND_UNIQUES[i]) || f;
-        out.push({ ...p, id: `ring-${i}-${j}`, ring: UNBOUND_RINGS[k], angle: angle + UNBOUND_STEPS[k], cost: unboundCost(i * (UNBOUND_BETWEEN + 1) + j) });
+        out.push({...p, id: `ring-${i}-${j}`, ring: UNBOUND_RINGS[k], angle: angle + UNBOUND_STEPS[k], cost: unboundCost(i * (UNBOUND_BETWEEN + 1) + j) });
       });
       return;
     }
@@ -1684,7 +1692,7 @@ function unboundRing(): RegNode[] {
       // The cluster's own node first, if it has one.
       const unique = j === 1 ? UNBOUND_UNIQUES[i] : undefined;
       if (unique) {
-        out.push({ ...unique, id: `ring-${i}-${j}`, ring: UNBOUND_RINGS[j - 1], angle: angle + UNBOUND_STEPS[j - 1], cost: unboundCost(i * (UNBOUND_BETWEEN + 1) + j) });
+        out.push({...unique, id: `ring-${i}-${j}`, ring: UNBOUND_RINGS[j - 1], angle: angle + UNBOUND_STEPS[j - 1], cost: unboundCost(i * (UNBOUND_BETWEEN + 1) + j) });
         continue;
       }
       // Perks come round again as the ring goes on (II, III...), all but the switches, which come once.
@@ -1693,7 +1701,7 @@ function unboundRing(): RegNode[] {
       const n = seen.get(p.name) ?? 0;
       seen.set(p.name, n + 1);
       out.push({
-        ...p,
+       ...p,
         id: `ring-${i}-${j}`,
         name: p.name + ROMAN[n],
         ring: UNBOUND_RINGS[j - 1],
@@ -1751,7 +1759,7 @@ export const REGRESSION_TREE: RegNode[] = [
   spoke(4, 3, 'treasureSense', 'Treasure Sense', 'things/007', 'Material drop chance ×25.', OUTER_COST, { drops: 25 }),
   spoke(5, 3, 'apexMemory', 'Apex Memory', 'rpg-items/319', 'Damage for every Hunter ×5.', OUTER_COST, { damage: 5 }),
   // Round it all: the Unbound timeline (unboundRing).
-  ...unboundRing(),
+ ...unboundRing(),
 ];
 
 /** Which nodes are joined on the web (both ways). */
@@ -1955,7 +1963,7 @@ export function materialOrder(m: MaterialId): number {
     const at = (e: EnemyDef) => AREAS.findIndex((a) => a.id === e.area);
     const monsters = [...ENEMIES].sort((a, b) => at(a) - at(b) || Number(!!a.guardianOnly) - Number(!!b.guardianOnly) || a.unlock - b.unlock);
     for (const e of monsters)
-      for (const mat of [e.material, ...enemyExtraDrops(e).map((d) => d.material)]) if (!MATERIAL_ORDER.has(mat)) MATERIAL_ORDER.set(mat, MATERIAL_ORDER.size);
+      for (const mat of [e.material,...enemyExtraDrops(e).map((d) => d.material)]) if (!MATERIAL_ORDER.has(mat)) MATERIAL_ORDER.set(mat, MATERIAL_ORDER.size);
   }
   // Unbound copies come after every original, in the originals' order.
   if (isUnboundId(m)) return MATERIAL_ORDER.size + materialOrder(unboundBase(m) as MaterialId);
@@ -1993,12 +2001,12 @@ export function rollLoot(area: AreaId, roll: number, pick: number): GearDef {
 export const EXTRA_DROP_SHARE = 0.5;
 
 /** Every material a monster drops (its main one, then its second if it has one). */
-export const enemyDrops = (def: EnemyDef): MaterialId[] => [def.material, ...enemyExtraDrops(def).map((d) => d.material)];
+export const enemyDrops = (def: EnemyDef): MaterialId[] => [def.material,...enemyExtraDrops(def).map((d) => d.material)];
 
 /** Every drop after a monster's main one, with its share of the drop chance. */
 export const enemyExtraDrops = (def: EnemyDef): Array<{ material: MaterialId; share: number }> => [
-  ...(def.extra ? [{ material: def.extra, share: EXTRA_DROP_SHARE }] : []),
-  ...(def.drops ?? []),
+ ...(def.extra ? [{ material: def.extra, share: EXTRA_DROP_SHARE }] : []),
+ ...(def.drops ?? []),
 ];
 
 /** How rare a drop is, by its share of the monster's drop chance (for the Bestiary). */
@@ -2032,18 +2040,18 @@ const ev = (id: string, name: string, icon: string, desc: string, maxRank: numbe
  * the capstone. The capstone takes whatever points are left, so every tree completes exactly at the top level.
  */
 function evoTree(root: EvoSpec, branches: [EvoSpec, EvoSpec, EvoSpec], upper: [EvoSpec, EvoSpec, EvoSpec], capstone: Omit<EvoSpec, 'id'>): EvoNode[] {
-  const [l, m, r] = branches.map((b, col) => ({ ...b, row: 1, col, requires: ['root'] }));
+  const [l, m, r] = branches.map((b, col) => ({...b, row: 1, col, requires: ['root'] }));
   const nodes: EvoNode[] = [
-    { ...root, row: 0, col: 1, requires: [] },
+    {...root, row: 0, col: 1, requires: [] },
     l,
     m,
     r,
-    { ...upper[0], row: 2, col: 0, requires: [l.id, m.id] },
-    { ...upper[1], row: 2, col: 1, requires: [l.id, m.id, r.id] },
-    { ...upper[2], row: 2, col: 2, requires: [m.id, r.id] },
+    {...upper[0], row: 2, col: 0, requires: [l.id, m.id] },
+    {...upper[1], row: 2, col: 1, requires: [l.id, m.id, r.id] },
+    {...upper[2], row: 2, col: 2, requires: [m.id, r.id] },
   ];
   const spent = nodes.reduce((a, n) => a + n.maxRank * (n.cost ?? 1), 0);
-  return [...nodes, { id: 'capstone', ...capstone, cost: MAX_MONSTER_LEVEL - 1 - spent, requires: upper.map((u) => u.id), col: 1, row: 3 }];
+  return [...nodes, { id: 'capstone',...capstone, cost: MAX_MONSTER_LEVEL - 1 - spent, requires: upper.map((u) => u.id), col: 1, row: 3 }];
 }
 
 /**
@@ -2056,75 +2064,75 @@ export const EVO_TREES: Record<Archetype, EvoNode[]> = {
   // Slimes (the Green Slime's): gold, and bigger blobs of them.
   slime: evoTree(
     ev('root', 'Gelatinous Bulk', '🟢', '+25% HP and +25% gold.', 1, { hp: 0.25, gold: 0.25 }),
-    [ev('wealth', 'Sticky Coins', '💰', '+15% gold per rank.', 5, { gold: 0.15 }), ev('ooze', 'Slime Squad', '🫧', 'Packs of 1 more per rank.', 3, { pack: 1 }), ev('horde', 'Ooze Trail', '👥', '+12% spawns per rank.', 5, { spawn: 0.12 })],
-    [ev('wealth2', 'Treasure Gel', '🪙', '+20% gold per rank.', 5, { gold: 0.2 }), ev('sig', 'Wobbling Mass', '🟩', '+10% gold and +10% material drops per rank.', 4, { gold: 0.1, drops: 0.1 }), ev('harvest2', 'Bursting Ooze', '💧', '+15% material drops per rank.', 5, { drops: 0.15 })],
+    [ev('wealth', 'Sticky Coins', '💰', '+15% gold.', 5, { gold: 0.15 }), ev('ooze', 'Slime Squad', '🫧', 'Packs of 1 more.', 3, { pack: 1 }), ev('horde', 'Ooze Trail', '👥', '+12% spawns.', 5, { spawn: 0.12 })],
+    [ev('wealth2', 'Treasure Gel', '🪙', '+20% gold.', 5, { gold: 0.2 }), ev('sig', 'Wobbling Mass', '🟩', '+10% gold and +10% material drops.', 4, { gold: 0.1, drops: 0.1 }), ev('harvest2', 'Bursting Ooze', '💧', '+15% material drops.', 5, { drops: 0.15 })],
     { name: 'Slime Court', icon: '👑', desc: '+50% gold and +30% material drops.', maxRank: 1, effect: { gold: 0.5, drops: 0.3 } },
   ),
   // Plants (the Twiggling's): they spread, slowly, and bloom.
   plant: evoTree(
     ev('root', 'Deep Roots', '🌿', '+30% HP and +20% material drops.', 1, { hp: 0.3, drops: 0.2 }),
-    [ev('harvest', 'Seed Harvest', '💎', '+15% material drops per rank.', 6, { drops: 0.15 }), ev('thicket', 'Tangled Thicket', '🌾', 'Packs of 1 more per rank.', 2, { pack: 1 }), ev('horde', 'Spreading Spores', '👥', '+15% spawns per rank.', 5, { spawn: 0.15 })],
-    [ev('harvest2', 'Bountiful Bloom', '🌸', '+30% material drops per rank.', 3, { drops: 0.3 }), ev('sig', 'Thorny Growth', '🌵', '+10% gold and +10% material drops per rank.', 4, { gold: 0.1, drops: 0.1 }), ev('rooted', 'Golden Sap', '🪙', '+20% gold and 10% slower per rank.', 3, { gold: 0.2, speed: -0.1 })],
+    [ev('harvest', 'Seed Harvest', '💎', '+15% material drops.', 6, { drops: 0.15 }), ev('thicket', 'Tangled Thicket', '🌾', 'Packs of 1 more.', 2, { pack: 1 }), ev('horde', 'Spreading Spores', '👥', '+15% spawns.', 5, { spawn: 0.15 })],
+    [ev('harvest2', 'Bountiful Bloom', '🌸', '+30% material drops.', 3, { drops: 0.3 }), ev('sig', 'Thorny Growth', '🌵', '+10% gold and +10% material drops.', 4, { gold: 0.1, drops: 0.1 }), ev('rooted', 'Golden Sap', '🪙', '+20% gold and 10% slower.', 3, { gold: 0.2, speed: -0.1 })],
     { name: 'World Tree', icon: '👑', desc: '+50% material drops and +40% gold.', maxRank: 1, effect: { drops: 0.5, gold: 0.4 } },
   ),
   // Beasts (the Forest Wolf's): fine pelts and fast, dangerous packs.
   beast: evoTree(
     ev('root', 'Thick Hide', '🐾', '+20% HP and +20% material drops.', 1, { hp: 0.2, drops: 0.2 }),
-    [ev('wealth', 'Hunting Grounds', '💰', '+15% gold per rank.', 6, { gold: 0.15 }), ev('pack', 'Pack Hunters', '🐺', 'Packs of 1 more per rank.', 2, { pack: 1 }), ev('harvest', 'Valuable Pelts', '💎', '+15% material drops per rank.', 6, { drops: 0.15 })],
-    [ev('wealth2', 'Prized Pelts', '🪙', '+40% gold but 8% faster per rank.', 3, { gold: 0.4, speed: 0.08 }), ev('sig', 'Feral Instinct', '🐾', '+10% gold and +10% material drops per rank.', 4, { gold: 0.1, drops: 0.1 }), ev('harvest2', 'Alpha Stock', '🦴', '+25% material drops per rank.', 3, { drops: 0.25 })],
+    [ev('wealth', 'Hunting Grounds', '💰', '+15% gold.', 6, { gold: 0.15 }), ev('pack', 'Pack Hunters', '🐺', 'Packs of 1 more.', 2, { pack: 1 }), ev('harvest', 'Valuable Pelts', '💎', '+15% material drops.', 6, { drops: 0.15 })],
+    [ev('wealth2', 'Prized Pelts', '🪙', '+40% gold but 8% faster.', 3, { gold: 0.4, speed: 0.08 }), ev('sig', 'Feral Instinct', '🐾', '+10% gold and +10% material drops.', 4, { gold: 0.1, drops: 0.1 }), ev('harvest2', 'Alpha Stock', '🦴', '+25% material drops.', 3, { drops: 0.25 })],
     { name: 'Apex Herd', icon: '👑', desc: '+40% gold and +25% spawns.', maxRank: 1, effect: { gold: 0.4, spawn: 0.25 } },
   ),
   // Humanoids (the Goblin's): war chests and warbands.
   humanoid: evoTree(
     ev('root', 'Loot Sacks', '👤', '+10% HP and +30% gold.', 1, { hp: 0.1, gold: 0.3 }),
-    [ev('wealth', 'Stolen Wealth', '💰', '+20% gold per rank.', 6, { gold: 0.2 }), ev('horde', 'Angry Horde', '👥', '+12% spawns per rank.', 4, { spawn: 0.12 }), ev('harvest', 'Supply Lines', '💎', '+10% material drops per rank.', 3, { drops: 0.1 })],
-    [ev('wealth2', 'War Chest', '🪙', '+35% gold per rank.', 3, { gold: 0.35 }), ev('sig', 'Bounties', '📜', '+10% gold and +10% material drops per rank.', 4, { gold: 0.1, drops: 0.1 }), ev('horde2', 'Warbands', '⚔️', 'Packs of 1 more and +10% spawns per rank.', 3, { pack: 1, spawn: 0.1 })],
+    [ev('wealth', 'Stolen Wealth', '💰', '+20% gold.', 6, { gold: 0.2 }), ev('horde', 'Angry Horde', '👥', '+12% spawns.', 4, { spawn: 0.12 }), ev('harvest', 'Supply Lines', '💎', '+10% material drops.', 3, { drops: 0.1 })],
+    [ev('wealth2', 'War Chest', '🪙', '+35% gold.', 3, { gold: 0.35 }), ev('sig', 'Bounties', '📜', '+10% gold and +10% material drops.', 4, { gold: 0.1, drops: 0.1 }), ev('horde2', 'Warbands', '⚔️', 'Packs of 1 more and +10% spawns.', 3, { pack: 1, spawn: 0.1 })],
     { name: 'Warlord', icon: '👑', desc: '+50% gold and +20% spawns.', maxRank: 1, effect: { gold: 0.5, spawn: 0.2 } },
   ),
   // Undead: endless hordes, each worth little.
   undead: evoTree(
     ev('root', 'Restless Dead', '💀', '+20% HP and +20% spawns.', 1, { hp: 0.2, spawn: 0.2 }),
-    [ev('wealth', 'Grave Goods', '💰', '+12% gold per rank.', 5, { gold: 0.12 }), ev('graves', 'Mass Grave', '⚰️', 'Packs of 1 more per rank.', 3, { pack: 1 }), ev('horde', 'Shambling Horde', '👥', '+12% spawns per rank.', 5, { spawn: 0.12 })],
-    [ev('wealth2', 'Tithe', '🪙', '+20% gold per rank.', 4, { gold: 0.2 }), ev('sig', 'Bone Harvest', '🦴', '+10% gold and +10% material drops per rank.', 4, { gold: 0.1, drops: 0.1 }), ev('horde2', 'Rising Horde', '🧟', 'Packs of 1 more and +12% spawns per rank.', 2, { pack: 1, spawn: 0.12 })],
+    [ev('wealth', 'Grave Goods', '💰', '+12% gold.', 5, { gold: 0.12 }), ev('graves', 'Mass Grave', '⚰️', 'Packs of 1 more.', 3, { pack: 1 }), ev('horde', 'Shambling Horde', '👥', '+12% spawns.', 5, { spawn: 0.12 })],
+    [ev('wealth2', 'Tithe', '🪙', '+20% gold.', 4, { gold: 0.2 }), ev('sig', 'Bone Harvest', '🦴', '+10% gold and +10% material drops.', 4, { gold: 0.1, drops: 0.1 }), ev('horde2', 'Rising Horde', '🧟', 'Packs of 1 more and +12% spawns.', 2, { pack: 1, spawn: 0.12 })],
     { name: 'Endless Legion', icon: '👑', desc: '+30% spawns, packs of 2 more and +30% gold.', maxRank: 1, effect: { spawn: 0.3, pack: 2, gold: 0.3 } },
   ),
   // Demons: rich, but faster and tougher for it.
   demon: evoTree(
     ev('root', 'Infernal Pact', '😈', '+20% HP and +30% gold.', 1, { hp: 0.2, gold: 0.3 }),
-    [ev('wealth', 'Blood Money', '💰', '+20% gold per rank.', 5, { gold: 0.2 }), ev('horde', 'Summoning Circle', '👥', '+15% spawns per rank.', 4, { spawn: 0.15 }), ev('harvest', 'Brimstone', '💎', '+15% material drops per rank.', 4, { drops: 0.15 })],
-    [ev('wealth2', 'Hoarded Souls', '🪙', '+45% gold but 8% faster per rank.', 3, { gold: 0.45, speed: 0.08 }), ev('sig', 'Bloodlust', '🔥', '+15% gold and +10% material drops per rank.', 4, { gold: 0.15, drops: 0.1 }), ev('horde2', 'Hellspawn', '👹', 'Packs of 1 more per rank.', 2, { pack: 1 })],
+    [ev('wealth', 'Blood Money', '💰', '+20% gold.', 5, { gold: 0.2 }), ev('horde', 'Summoning Circle', '👥', '+15% spawns.', 4, { spawn: 0.15 }), ev('harvest', 'Brimstone', '💎', '+15% material drops.', 4, { drops: 0.15 })],
+    [ev('wealth2', 'Hoarded Souls', '🪙', '+45% gold but 8% faster.', 3, { gold: 0.45, speed: 0.08 }), ev('sig', 'Bloodlust', '🔥', '+15% gold and +10% material drops.', 4, { gold: 0.15, drops: 0.1 }), ev('horde2', 'Hellspawn', '👹', 'Packs of 1 more.', 2, { pack: 1 })],
     { name: 'Hellgate', icon: '👑', desc: '+60% gold and packs of 1 more, but +20% HP.', maxRank: 1, effect: { gold: 0.6, pack: 1, hp: 0.2 } },
   ),
   // Elementals: shards and cores.
   elemental: evoTree(
     ev('root', 'Condensed Core', '🔷', '+25% HP and +25% material drops.', 1, { hp: 0.25, drops: 0.25 }),
-    [ev('wealth', 'Crystal Heart', '💰', '+15% gold per rank.', 5, { gold: 0.15 }), ev('horde', 'Elemental Surge', '🌪️', '+15% spawns per rank.', 4, { spawn: 0.15 }), ev('harvest', 'Shard Harvest', '💎', '+15% material drops per rank.', 5, { drops: 0.15 })],
-    [ev('wealth2', 'Charged Core', '🪙', '+30% gold per rank.', 3, { gold: 0.3 }), ev('sig', 'Unstable Essence', '⚡', '+15% material drops and +5% gold per rank.', 4, { drops: 0.15, gold: 0.05 }), ev('harvest2', 'Shard Shedding', '💠', '+35% material drops per rank.', 3, { drops: 0.35 })],
+    [ev('wealth', 'Crystal Heart', '💰', '+15% gold.', 5, { gold: 0.15 }), ev('horde', 'Elemental Surge', '🌪️', '+15% spawns.', 4, { spawn: 0.15 }), ev('harvest', 'Shard Harvest', '💎', '+15% material drops.', 5, { drops: 0.15 })],
+    [ev('wealth2', 'Charged Core', '🪙', '+30% gold.', 3, { gold: 0.3 }), ev('sig', 'Unstable Essence', '⚡', '+15% material drops and +5% gold.', 4, { drops: 0.15, gold: 0.05 }), ev('harvest2', 'Shard Shedding', '💠', '+35% material drops.', 3, { drops: 0.35 })],
     { name: 'Primordial', icon: '👑', desc: '+60% material drops and +30% gold.', maxRank: 1, effect: { drops: 0.6, gold: 0.3 } },
   ),
   // Constructs: tough frames full of parts.
   construct: evoTree(
     ev('root', 'Reinforced Frame', '🪆', '+25% HP and +20% material drops.', 1, { hp: 0.25, drops: 0.2 }),
-    [ev('wealth', 'Salvage Value', '💰', '+15% gold per rank.', 5, { gold: 0.15 }), ev('horde', 'Assembly Line', '👥', '+12% spawns per rank.', 4, { spawn: 0.12 }), ev('harvest', 'Plating', '💎', '+20% material drops but +10% HP per rank.', 4, { drops: 0.2, hp: 0.1 })],
-    [ev('wealth2', 'Scrap Value', '🪙', '+30% gold per rank.', 3, { gold: 0.3 }), ev('sig', 'Spare Parts', '🔩', '+15% material drops and +5% gold per rank.', 4, { drops: 0.15, gold: 0.05 }), ev('horde2', 'Production Run', '⚙️', 'Packs of 1 more and +10% spawns per rank.', 2, { pack: 1, spawn: 0.1 })],
+    [ev('wealth', 'Salvage Value', '💰', '+15% gold.', 5, { gold: 0.15 }), ev('horde', 'Assembly Line', '👥', '+12% spawns.', 4, { spawn: 0.12 }), ev('harvest', 'Plating', '💎', '+20% material drops but +10% HP.', 4, { drops: 0.2, hp: 0.1 })],
+    [ev('wealth2', 'Scrap Value', '🪙', '+30% gold.', 3, { gold: 0.3 }), ev('sig', 'Spare Parts', '🔩', '+15% material drops and +5% gold.', 4, { drops: 0.15, gold: 0.05 }), ev('horde2', 'Production Run', '⚙️', 'Packs of 1 more and +10% spawns.', 2, { pack: 1, spawn: 0.1 })],
     { name: 'Animated Legion', icon: '👑', desc: '+40% gold and +30% spawns.', maxRank: 1, effect: { gold: 0.4, spawn: 0.3 } },
   ),
   // Dragons: few, tough, and sitting on a hoard.
   dragon: evoTree(
     ev('root', 'Dragon Hoard', '🐉', '+30% HP and +40% gold.', 1, { hp: 0.3, gold: 0.4 }),
-    [ev('wealth', 'Gilded Lair', '💰', '+20% gold per rank.', 6, { gold: 0.2 }), ev('horde', 'Clutch', '🥚', '+15% spawns per rank.', 3, { spawn: 0.15 }), ev('harvest', 'Shed Scales', '💎', '+15% material drops per rank.', 5, { drops: 0.15 })],
-    [ev('wealth2', 'Golden Scales', '🪙', '+50% gold but 8% faster per rank.', 3, { gold: 0.5, speed: 0.08 }), ev('sig', 'Wyrmblood', '🩸', '+15% gold and +10% material drops per rank.', 4, { gold: 0.15, drops: 0.1 }), ev('harvest2', "Dragon's Bounty", '🦴', '+25% material drops per rank.', 3, { drops: 0.25 })],
+    [ev('wealth', 'Gilded Lair', '💰', '+20% gold.', 6, { gold: 0.2 }), ev('horde', 'Clutch', '🥚', '+15% spawns.', 3, { spawn: 0.15 }), ev('harvest', 'Shed Scales', '💎', '+15% material drops.', 5, { drops: 0.15 })],
+    [ev('wealth2', 'Golden Scales', '🪙', '+50% gold but 8% faster.', 3, { gold: 0.5, speed: 0.08 }), ev('sig', 'Wyrmblood', '🩸', '+15% gold and +10% material drops.', 4, { gold: 0.15, drops: 0.1 }), ev('harvest2', "Dragon's Bounty", '🦴', '+25% material drops.', 3, { drops: 0.25 })],
     { name: 'Elder Wyrm', icon: '👑', desc: '+75% gold and +40% material drops.', maxRank: 1, effect: { gold: 0.75, drops: 0.4 } },
   ),
 };
 
 /** Signatures: each kind is worth the same 4 points as the plain centre node it replaces. */
 const sigSplit = (name: string, icon: string, them: string) =>
-  ev('sig', name, icon, `When slain, ${them} have a 25% chance per rank to split into 2 smaller ones.`, 4, { split: 0.25 });
+  ev('sig', name, icon, `When slain, ${them} have a 25% chance to split into 2 smaller ones.`, 4, { split: 0.25 });
 const sigFire = (name: string, icon: string, them: string, what: string, poison = false) =>
   ev('sig', name, icon, poison
-    ? `${them} that die while Burning or Poisoned have a 10% chance per rank to drop ${what} that poison Monsters that walk over them.`
-    : `${them} that die while Burning have a 10% chance per rank to drop burning ${what} that burn Monsters that walk over them.`, 4, { fireTrail: 0.1 });
+    ? `${them} that die while Burning or Poisoned have a 10% chance to drop ${what} that poison Monsters that walk over them.`
+    : `${them} that die while Burning have a 10% chance to drop burning ${what} that burn Monsters that walk over them.`, 4, { fireTrail: 0.1 });
 
 /**
  * What a plant leaves behind with its burning-drop evolution (fireTrail): its own drop, of a damage type, and
@@ -2136,19 +2144,19 @@ export const FIRE_TRAILS: Partial<Record<EnemyId, { material: MaterialId; dtype:
   treant: { material: 'sap', dtype: 'fire' },
 };
 const sigLunge = (name: string, icon: string, them: string) =>
-  ({ ...ev('sig', name, icon, `+50% gold and material drops.\n${them} now lunge at Hunters when they get close enough.`, 1, { gold: 0.5, drops: 0.5, lunge: 1 }), cost: 4 });
+  ({...ev('sig', name, icon, `+50% gold and material drops.\n${them} now lunge at Hunters when they get close enough.`, 1, { gold: 0.5, drops: 0.5, lunge: 1 }), cost: 4 });
 const sigLoot = (name: string, icon: string, area: string) =>
-  ev('sig', name, icon, `+2.5% chance per rank to drop Loot from the ${area}.`, 4, { loot: 0.025 });
+  ev('sig', name, icon, `+2.5% chance to drop Loot from the ${area}.`, 4, { loot: 0.025 });
 /** A predator that also carries gear: its lunge, and the loot a full Loot signature gives (10%), in one node. */
 const sigLungeLoot = (name: string, icon: string, them: string, area: string) =>
-  ({ ...ev('sig', name, icon, `+50% gold and material drops, and +10% chance to drop Loot from the ${area}.\n${them} now lunge at Hunters when they get close enough.`, 1, { gold: 0.5, drops: 0.5, lunge: 1, loot: 0.1 }), cost: 4 });
+  ({...ev('sig', name, icon, `+50% gold and material drops, and +10% chance to drop Loot from the ${area}.\n${them} now lunge at Hunters when they get close enough.`, 1, { gold: 0.5, drops: 0.5, lunge: 1, loot: 0.1 }), cost: 4 });
 /** A swarm that also carries gear: it splits, and each rank adds a Loot chance too. */
 const sigSplitLoot = (name: string, icon: string, them: string, area: string) =>
-  ev('sig', name, icon, `When slain, ${them} have a 25% chance per rank to split into 2 smaller ones, and +2.5% chance per rank to drop Loot from the ${area}.`, 4, { split: 0.25, loot: 0.025 });
+  ev('sig', name, icon, `When slain, ${them} have a 25% chance to split into 2 smaller ones, and +2.5% chance to drop Loot from the ${area}.`, 4, { split: 0.25, loot: 0.025 });
 const sigRise = (name: string, icon: string, them: string) =>
-  ev('sig', name, icon, `When slain, ${them} have a 15% chance per rank to rise again once, at half their HP.`, 4, { rise: 0.15 });
+  ev('sig', name, icon, `When slain, ${them} have a 15% chance to rise again once, at half their HP.`, 4, { rise: 0.15 });
 const sigBurst = (name: string, icon: string, them: string) =>
-  ev('sig', name, icon, `When slain, ${them} have a 15% chance per rank to burst, dealing half their max HP to every monster close by.`, 4, { burst: 0.15 });
+  ev('sig', name, icon, `When slain, ${them} have a 15% chance to burst, dealing half their max HP to every monster close by.`, 4, { burst: 0.15 });
 
 /** Monsters with a signature of their own in their tree's centre (the Woods monsters have whole trees of their own). */
 const EVO_SIGNATURES: Partial<Record<EnemyId, EvoSpec>> = {
@@ -2223,40 +2231,40 @@ const evn = (id: string, name: string, icon: string, desc: string, maxRank: numb
 const EVO_OWN_TREES: Partial<Record<EnemyId, EvoNode[]>> = {
   greenSlime: [
     evn('root', 'Gelatinous Bulk', '🟢', '+25% HP and +25% gold.', 1, { hp: 0.25, gold: 0.25 }, 0, 1, []),
-    evn('wealth', 'Sticky Coins', '💰', '+15% gold per rank.', 5, { gold: 0.15 }, 1, 0, ['root']),
-    evn('ooze', 'Slime Squad', '🫧', 'Increase Horde size by 1 per rank.', 3, { pack: 1 }, 1, 1, ['root']),
-    evn('horde', 'Ooze Trail', '👥', '+12% spawns per rank.', 5, { spawn: 0.12 }, 1, 2, ['root']),
-    evn('wealth2', 'Treasure Gel', '🪙', '+20% gold per rank.', 5, { gold: 0.2 }, 2, 0, ['wealth', 'ooze']),
-    evn('horde2', 'Splitting Slime', '🫧', 'When slain, Green Slimes have a 25% chance per rank to split into 2 smaller slimes.', 4, { split: 0.25 }, 2, 1, ['wealth', 'ooze', 'horde']),
-    evn('harvest2', 'Bursting Ooze', '💧', '+15% material drops per rank.', 5, { drops: 0.15 }, 2, 2, ['ooze', 'horde']),
+    evn('wealth', 'Sticky Coins', '💰', '+15% gold.', 5, { gold: 0.15 }, 1, 0, ['root']),
+    evn('ooze', 'Slime Squad', '🫧', 'Increase Horde size by 1.', 3, { pack: 1 }, 1, 1, ['root']),
+    evn('horde', 'Ooze Trail', '👥', '+12% spawns.', 5, { spawn: 0.12 }, 1, 2, ['root']),
+    evn('wealth2', 'Treasure Gel', '🪙', '+20% gold.', 5, { gold: 0.2 }, 2, 0, ['wealth', 'ooze']),
+    evn('horde2', 'Splitting Slime', '🫧', 'When slain, Green Slimes have a 25% chance to split into 2 smaller slimes.', 4, { split: 0.25 }, 2, 1, ['wealth', 'ooze', 'horde']),
+    evn('harvest2', 'Bursting Ooze', '💧', '+15% material drops.', 5, { drops: 0.15 }, 2, 2, ['ooze', 'horde']),
     evn('capstone', "A Green Slime's Legacy", '👑', '+50% gold\n+30% drops.\nAll Slime type monsters have a small chance to drop Royal Slime.', 1, { gold: 0.5, drops: 0.3 }, 3, 1, ['wealth2', 'horde2', 'harvest2']),
   ],
   twiggling: [
     evn('root', 'Deep Roots', '🌿', '+30% HP\n+20% Material Drops', 1, { hp: 0.3, drops: 0.2 }, 0, 1, []),
-    evn('harvest', 'Kindling Harvest', '💎', '+15% Material Drops per rank.', 6, { drops: 0.15 }, 1, 0, ['root']),
-    evn('horde2', 'Fire Starter', '🍄', 'Twigglings that die while Burning have a 10% chance per rank to leave burning sticks on the ground that damage Monsters that walk over them.', 4, { fireTrail: 0.1 }, 1, 1, ['root']),
-    evn('horde', 'Spreading Spores', '👥', '+15% spawns per rank.', 6, { spawn: 0.15 }, 1, 2, ['root']),
-    evn('harvest2', 'Bountiful Bundle', '🌸', '+30% material drops per rank.', 3, { drops: 0.3 }, 2, 0.5, ['harvest', 'horde2']),
-    evn('rooted', 'Golden Sap', '🪙', '+20% gold and 10% slower per rank.', 3, { gold: 0.2, speed: -0.1 }, 2, 1.5, ['horde2', 'horde']),
+    evn('harvest', 'Kindling Harvest', '💎', '+15% Material Drops.', 6, { drops: 0.15 }, 1, 0, ['root']),
+    evn('horde2', 'Fire Starter', '🍄', 'Twigglings that die while Burning have a 10% chance to leave burning sticks on the ground that damage Monsters that walk over them.', 4, { fireTrail: 0.1 }, 1, 1, ['root']),
+    evn('horde', 'Spreading Spores', '👥', '+15% spawns.', 6, { spawn: 0.15 }, 1, 2, ['root']),
+    evn('harvest2', 'Bountiful Bundle', '🌸', '+30% material drops.', 3, { drops: 0.3 }, 2, 0.5, ['harvest', 'horde2']),
+    evn('rooted', 'Golden Sap', '🪙', '+20% gold and 10% slower.', 3, { gold: 0.2, speed: -0.1 }, 2, 1.5, ['horde2', 'horde']),
     evn('capstone', "A Twiggling's Legacy", '👑', '+50% Material Drops\n+40% gold.\nAll Plant type Monsters have a small chance to drop Twigs.', 1, { drops: 0.5, gold: 0.4 }, 3, 1, ['horde2', 'harvest2', 'rooted'], 6),
   ],
   wolf: [
     evn('root', 'Thick Hide', '🐾', '+20% HP and +20% material drops.', 1, { hp: 0.2, drops: 0.2 }, 0, 1, []),
-    evn('wealth', 'Hunting Grounds', '💰', '+15% gold per rank.', 7, { gold: 0.15 }, 1, 0, ['root']),
+    evn('wealth', 'Hunting Grounds', '💰', '+15% gold.', 7, { gold: 0.15 }, 1, 0, ['root']),
     evn('horde2', 'Hunter Hunter', '🐺', '+50% Gold and Material Drops\nWolves now lunge at Hunters when they get close enough.', 1, { gold: 0.5, drops: 0.5, lunge: 1 }, 1, 1, ['wealth', 'harvest'], 3),
-    evn('harvest', 'Valuable Pelts', '💎', '+15% material drops per rank.', 7, { drops: 0.15 }, 1, 2, ['root']),
-    evn('wealth2', 'Prized Pelts', '🪙', '+40% gold but 8% faster per rank.', 3, { gold: 0.4, speed: 0.08 }, 2, 0.5, ['wealth']),
-    evn('harvest2', 'Alpha Stock', '🦴', '+25% material drops per rank.', 3, { drops: 0.25 }, 2, 1.5, ['harvest']),
+    evn('harvest', 'Valuable Pelts', '💎', '+15% material drops.', 7, { drops: 0.15 }, 1, 2, ['root']),
+    evn('wealth2', 'Prized Pelts', '🪙', '+40% gold but 8% faster.', 3, { gold: 0.4, speed: 0.08 }, 2, 0.5, ['wealth']),
+    evn('harvest2', 'Alpha Stock', '🦴', '+25% material drops.', 3, { drops: 0.25 }, 2, 1.5, ['harvest']),
     evn('capstone', "A Forest Wolf's Legacy", '👑', '+40% gold\n+25% spawns\nAll Beast type Monsters have a small chance to drop Beast Bones.', 1, { gold: 0.4, spawn: 0.25 }, 3, 1, ['horde2', 'wealth2', 'harvest2'], 5),
   ],
   goblin: [
     evn('root', 'Loot Sacks', '👤', '+10% HP and +30% gold.', 1, { hp: 0.1, gold: 0.3 }, 0, 1, []),
-    evn('wealth', 'Stolen Wealth', '💰', '+20% gold per rank.', 6, { gold: 0.2 }, 1, 0, ['root']),
-    evn('horde', 'Angry Horde', '👥', '+12% spawns per rank.', 4, { spawn: 0.12 }, 1, 1, ['root']),
-    evn('harvest', 'Supply Lines', '💎', '+10% material drops per rank.', 3, { drops: 0.1 }, 1, 2, ['root']),
-    evn('wealth2', 'War Chest', '🪙', '+35% gold per rank.', 3, { gold: 0.35 }, 2, 0, ['wealth', 'horde']),
-    evn('bounties', 'Scavenged Goods', '📜', '+2.5% chance per rank to drop Loot from the Wandering Woods.', 4, { loot: 0.025 }, 2, 1, ['wealth', 'horde', 'harvest']),
-    evn('horde2', 'Warbands', '⚔️', 'Packs of 1 more and +10% spawns per rank.', 3, { pack: 1, spawn: 0.1 }, 2, 2, ['horde', 'harvest']),
+    evn('wealth', 'Stolen Wealth', '💰', '+20% gold.', 6, { gold: 0.2 }, 1, 0, ['root']),
+    evn('horde', 'Angry Horde', '👥', '+12% spawns.', 4, { spawn: 0.12 }, 1, 1, ['root']),
+    evn('harvest', 'Supply Lines', '💎', '+10% material drops.', 3, { drops: 0.1 }, 1, 2, ['root']),
+    evn('wealth2', 'War Chest', '🪙', '+35% gold.', 3, { gold: 0.35 }, 2, 0, ['wealth', 'horde']),
+    evn('bounties', 'Scavenged Goods', '📜', '+2.5% chance to drop Loot from the Wandering Woods.', 4, { loot: 0.025 }, 2, 1, ['wealth', 'horde', 'harvest']),
+    evn('horde2', 'Warbands', '⚔️', 'Packs of 1 more and +10% spawns.', 3, { pack: 1, spawn: 0.1 }, 2, 2, ['horde', 'harvest']),
     evn('capstone', "A Goblin's Legacy", '👑', '+50% gold and +20% spawns.\nAll Humanoid type Monsters have a small chance to drop Scrap.', 1, { gold: 0.5, spawn: 0.2 }, 3, 1, ['wealth2', 'bounties', 'horde2'], 5),
   ],
 };
@@ -2302,10 +2310,10 @@ function monsterEvoTree(def: EnemyDef): EvoNode[] {
   const own = EVO_OWN_TREES[def.id];
   const sig = EVO_SIGNATURES[def.id];
   return (own ?? EVO_TREES[def.archetype]).map((n) =>
-    n.id === 'sig' && sig ? { ...n, ...sig } :
+    n.id === 'sig' && sig ? {...n,...sig } :
     n.id === 'capstone'
       ? {
-          ...n,
+         ...n,
           name: `A ${def.name}'s Legacy`,
           desc: own ? n.desc : `${n.desc}\nAll ${kind} type Monsters have a small chance to drop ${materialDef(legacy.material).name}.`,
           legacy,
@@ -3151,7 +3159,7 @@ export const slotAccepts = (slot: SlotDef, def: Pick<GearDef, 'kind' | 'armorTyp
 export const OFFHAND_RATE = 0.5;
 
 const offhand = (classes: WeaponClass[], only: string, kind: GearKind): SlotDef => ({ kind, label: 'Off-hand', role: 'off', accepts: ['weapon', 'melee', 'magic'], classes, only, bonus: true });
-const secondAcc = (only: string, o: Partial<SlotDef>): SlotDef => ({ kind: 'accessory', label: 'Second Accessory', only, bonus: true, ...o });
+const secondAcc = (only: string, o: Partial<SlotDef>): SlotDef => ({ kind: 'accessory', label: 'Second Accessory', only, bonus: true,...o });
 
 /**
  * The second slot each Hunter opens with the first node of their Ascended tree (Awakening; your Hunter's Slayer's
@@ -3186,10 +3194,30 @@ export const BONUS_SLOTS: Record<'main' | HunterId, SlotDef> = {
 };
 
 // The node that opens it says so.
-for (const [who, tree] of [['main', SLAYER_TREE], ...Object.entries(ASCENDED_TREES)] as Array<['main' | HunterId, SkillNode[]]>) {
+for (const [who, tree] of [['main', SLAYER_TREE],...Object.entries(ASCENDED_TREES)] as Array<['main' | HunterId, SkillNode[]]>) {
   const root = tree.find((n) => n.id === 'root')!;
   root.desc = `${root.desc} Opens ${bonusSlotText(who)}.`;
 }
+
+// Andrejz's first tree, worded as in the Skill Trees editor.
+const ALCHEMIST_WORDING: Record<string, string> = {
+  root: 'Puddles grow 10% larger.',
+  power: 'Increase damage by 20%.',
+  quickBrew: 'Reduce Potion cooldown by 5%.',
+  recovery: 'Reduce Stun duration by 5%.',
+  slimeBane: 'Deal +12.5% bonus damage to Slimes.',
+  wideSplash: 'Puddles grow 10% larger.',
+  lingering: 'Increase Status Effect duration by 10%.',
+  luckyFinds: '+5% material drops from monsters slain by Andrejz.',
+  speed: '+5% attack speed.',
+  potency: 'Increase damage by 10%.',
+  thickBrew: 'Status effects last 10% longer.',
+  capstone: '+20% damage, puddles grow 20% larger, and poison lasts 20% longer.',
+};
+for (const n of SKILL_TREES.alchemist) if (ALCHEMIST_WORDING[n.id]) n.desc = ALCHEMIST_WORDING[n.id];
+// Gold and drops nodes name the Hunter whose kills they count.
+for (const h of HUNTERS)
+  for (const n of [...SKILL_TREES[h.id], ...ASCENDED_TREES[h.id]]) n.desc = n.desc.replace(/their kills/g, `monsters slain by ${h.name}`);
 
 /** What a Hunter's second slot holds, in words (for the node that opens it). */
 export function bonusSlotText(who: 'main' | HunterId): string {
@@ -3208,7 +3236,7 @@ export type SummonType = 'spirit' | Archetype;
  */
 export const SUMMON_ARCHETYPE: Record<SummonType, Archetype | null> = {
   spirit: null,
-  ...(Object.fromEntries((Object.keys(ARCHETYPES) as Archetype[]).map((a) => [a, a])) as Record<Archetype, Archetype>),
+ ...(Object.fromEntries((Object.keys(ARCHETYPES) as Archetype[]).map((a) => [a, a])) as Record<Archetype, Archetype>),
 };
 export const SUMMON_TYPES: Record<SummonType, { name: string; icon: string }> = {
   beast: { name: 'Beast', icon: '🐺' },
@@ -3569,7 +3597,7 @@ export interface GearDef {
  */
 export const TIER_HIT = [2, 4, 8, 15, 27, 45, 72, 110, 160, 230, 320, 440,
   // The Unbound areas (13 = Unbound Woods … 24 = Unbound Void Rift), each ×1.375 the last, as the Void Rift is the Meteor Field's.
-  ...Array.from({ length: 12 }, (_, i) => Math.round(440 * 1.375 ** (i + 1)))];
+ ...Array.from({ length: 12 }, (_, i) => Math.round(440 * 1.375 ** (i + 1)))];
 /** A weapon's base damage at each star, as a multiple of 1★. */
 export const WEAPON_HIT_POWER = [0, 1, 1.3, 1.65, 2.1, 2.6, 3.2];
 /** Base damage per hit with no weapon equipped. */
@@ -4053,7 +4081,7 @@ const uniqueEnchant = (id: UniqueId): EnchantDef => {
 export const isUniqueEnchant = (en: EnchantDef): boolean => !!en.builtInOnly && !en.builtInPool;
 
 export const ENCHANTS: Record<EnchantId, EnchantDef> = {
-  ...(Object.fromEntries((Object.keys(UNIQUE_EFFECTS) as UniqueId[]).map((id) => [id, uniqueEnchant(id)])) as Record<UniqueId, EnchantDef>),
+ ...(Object.fromEntries((Object.keys(UNIQUE_EFFECTS) as UniqueId[]).map((id) => [id, uniqueEnchant(id)])) as Record<UniqueId, EnchantDef>),
   infuseFire: infusion('fire', '🔥'),
   infuseFrost: infusion('frost', '❄️'),
   infuseAcid: infusion('acid', '🧪'),
@@ -4086,8 +4114,8 @@ export const ENCHANTS: Record<EnchantId, EnchantDef> = {
   amplify: { name: 'Amplify', icon: '🌀', range: [0.2, 0.4], weight: 1, boost: 'radius', fits: () => true, text: (v) => `+${pct(v)} area size (every area effect: specials, blasts, puddles, slams, auras)` },
   binding: { name: 'Binding', icon: '⏳', range: [0.15, 0.3], weight: 1, boost: 'summonDur', fits: summons, text: (v) => `+${pct(v)} summon duration` },
   lingering: { name: 'Lingering', icon: '⌛', range: [0.15, 0.3], weight: 1, boost: 'duration', fits: () => true, text: (v) => `+${pct(v)} effect duration (status effects, summons, puddles, orbs, zones, Arrow Rain and every other effect that lasts)` },
-  ...(Object.fromEntries((Object.keys(SPELLS) as SpellId[]).map((id) => [spellEnchantId(id), spellEnchant(id)])) as Record<SpellEnchantId, EnchantDef>),
-  ...(Object.fromEntries((Object.keys(ARCHETYPES) as Archetype[]).map((a) => [baneEnchantId(a), baneEnchant(a)])) as Record<BaneEnchantId, EnchantDef>),
+ ...(Object.fromEntries((Object.keys(SPELLS) as SpellId[]).map((id) => [spellEnchantId(id), spellEnchant(id)])) as Record<SpellEnchantId, EnchantDef>),
+ ...(Object.fromEntries((Object.keys(ARCHETYPES) as Archetype[]).map((a) => [baneEnchantId(a), baneEnchant(a)])) as Record<BaneEnchantId, EnchantDef>),
   artWave: { name: 'Elemental Wave', icon: '🌊', range: [0.1, 0.2], power: [0.8, 1.2], weight: 1, melee: 'wave', fits: melee('sword'), text: (c, p) => `${pct(c)} chance on attack to send out a wave of the sword's element, through every monster in its path (${hits(p)})` },
   artPhantomSword: { name: 'Phantom Sword', icon: '⚔️', range: [0.1, 0.2], power: [1.1, 1.6], weight: 1, melee: 'phantomSword', fits: melee('sword'), text: (c, p) => `${pct(c)} chance on attack for a giant phantom sword of its element to cleave a wide arc far out (${hits(p)})` },
   artPhantomHammer: { name: 'Phantom Hammer', icon: '🔨', range: [0.1, 0.2], power: [1.2, 1.8], weight: 1, melee: 'phantomHammer', fits: melee('hammer'), text: (c, p) => `${pct(c)} chance on attack for a giant phantom hammer of its element to slam down out in front, knocking monsters far back (${hits(p)})` },
@@ -4424,7 +4452,7 @@ export const WEAPON_ARCHETYPES: Record<WeaponClass, [WeaponArchetype, WeaponArch
 /** A weapon class as an archetype changes it. */
 export function withArchetype(cls: WeaponClassDef, a: WeaponArchetype | undefined): WeaponClassDef {
   if (!a || a.desc === STANDARD('').desc) return cls;
-  const c: WeaponClassDef = { ...cls };
+  const c: WeaponClassDef = {...cls };
   const mul = (v: number | undefined, m: number | undefined) => (v === undefined || m === undefined ? v : v * m);
   c.rate = cls.rate * (a.rate ?? 1);
   c.range = cls.range * (a.range ?? 1);
@@ -4450,7 +4478,7 @@ export function withArchetype(cls: WeaponClassDef, a: WeaponArchetype | undefine
     if (a.spellEvery) c.mag = a.spellEvery + 1;
   }
   if (cls.summon && (a.summonDuration || a.summonBites || a.summonSpeed))
-    c.summon = { ...cls.summon, duration: cls.summon.duration * (a.summonDuration ?? 1), hit: (cls.summon.hit ?? 1) * (a.summonBites ?? 1), speed: cls.summon.speed * (a.summonSpeed ?? 1) };
+    c.summon = {...cls.summon, duration: cls.summon.duration * (a.summonDuration ?? 1), hit: (cls.summon.hit ?? 1) * (a.summonBites ?? 1), speed: cls.summon.speed * (a.summonSpeed ?? 1) };
   c.farm = cls.farm * (a.farm ?? 1);
   return c;
 }
@@ -4552,7 +4580,7 @@ function catalogAccEffect(e: CatalogAccEffect | undefined, area: number, m: numb
       // cooldown it averages POTION_EDGE times that (it's only up part of the time, so it hits harder while it is).
       const plain = CATALOG_ACC_STATS[e.stat] * m;
       const v = (POTION_EDGE * plain * e.cooldown) / e.duration;
-      return { effect: { ...e, value: e.stat === 'range' ? Math.round(v) : Math.round(v * 1000) / 1000 } };
+      return { effect: {...e, value: e.stat === 'range' ? Math.round(v) : Math.round(v * 1000) / 1000 } };
     }
     case 'evade':
     case 'chill':
@@ -4572,9 +4600,9 @@ function catalogGear(spec: CatalogSpec): GearDef {
   const areaIdx = AREAS.findIndex((a) => a.id === spec.area);
   const rarity = spec.top ? AREA_TOP_RARITY[areaIdx] : AREA_RARITY[areaIdx];
   const common = { id: spec.id as GearId, name: spec.name, icon: spec.icon, rarity, recipe };
-  if (spec.type === 'armor') return { ...common, kind: 'armor', armorType: spec.armor, stats: armorStats(spec.armor, tier), ...catalogArmorEffect(spec.armor, rarity, areaIdx + 1) };
+  if (spec.type === 'armor') return {...common, kind: 'armor', armorType: spec.armor, stats: armorStats(spec.armor, tier),...catalogArmorEffect(spec.armor, rarity, areaIdx + 1) };
   if (spec.type === 'accessory' && spec.acc && (spec.acc === 'shield' || spec.acc === 'boots' || spec.acc === 'hood'))
-    return { ...common, kind: 'accessory', accType: spec.acc, stats: mirrorStats(spec.acc, tier), ...mirrorEffect(spec.acc, rarity, areaIdx + 1) };
+    return {...common, kind: 'accessory', accType: spec.acc, stats: mirrorStats(spec.acc, tier),...mirrorEffect(spec.acc, rarity, areaIdx + 1) };
   if (spec.type === 'accessory') {
     const m = 1 + 0.3 * (tier - 3);
     const stats: Partial<Record<GearStat, number>> = {};
@@ -4585,20 +4613,20 @@ function catalogGear(spec: CatalogSpec): GearDef {
       const st = BANE_SIDE_STAT[spec.bane];
       stats[st] = Math.round(CATALOG_ACC_STATS[st] * m * 0.5 * 1000) / 1000;
     }
-    return { ...common, kind: 'accessory', ...(spec.acc ? { accType: spec.acc } : {}), stats, ...(spec.bane ? { bane: { archetype: spec.bane, bonus: Math.round(0.06 * m * 1000) / 1000 } } : {}), ...catalogAccEffect(spec.effect, areaIdx + 1, m) };
+    return {...common, kind: 'accessory',...(spec.acc ? { accType: spec.acc } : {}), stats,...(spec.bane ? { bane: { archetype: spec.bane, bonus: Math.round(0.06 * m * 1000) / 1000 } } : {}),...catalogAccEffect(spec.effect, areaIdx + 1, m) };
   }
   const cls = spec.cls as WeaponClass;
   // Elemental weapons inflict their effect more often in later areas; among Physical weapons only blades bleed.
   const proc = spec.dmg !== 'physical' ? Math.min(0.3, 0.15 + 0.01 * (areaIdx - 1)) : cls === 'dagger' ? 0.15 : cls === 'sword' || cls === 'spear' ? 0.1 : 0;
   return {
-    ...common,
+   ...common,
     kind: MELEE_CLASSES.includes(cls) ? 'melee' : MAGIC_CLASSES.includes(cls) ? 'magic' : 'weapon',
     weaponClass: cls,
     damageType: spec.dmg,
-    ...(proc ? { proc } : {}),
+   ...(proc ? { proc } : {}),
     // Stone tomes call up stone golems.
-    ...('stone' in spec && spec.stone && cls === 'tome' ? { summon: { look: 'rock' as const, name: 'stone golem' }, summonType: 'construct' as const } : {}),
-    ...('look' in spec && spec.look === 'mushroom' && cls === 'tome' ? { summon: { look: 'mushroom' as const, name: 'toadstool' } } : {}),
+   ...('stone' in spec && spec.stone && cls === 'tome' ? { summon: { look: 'rock' as const, name: 'stone golem' }, summonType: 'construct' as const } : {}),
+   ...('look' in spec && spec.look === 'mushroom' && cls === 'tome' ? { summon: { look: 'mushroom' as const, name: 'toadstool' } } : {}),
     stats: {},
   };
 }
@@ -4717,7 +4745,7 @@ export const GEAR: GearDef[] = [
   { id: 'flameBrand', name: 'Flame Brand', icon: '🔥', kind: 'accessory', rarity: 'veryRare', tier: 6, stats: { damage: 0.061 }, recipe: { demonTooth: 8, ember: 6, forsakenSoul: 2 }, effect: { kind: 'wave', base: 45, damageType: 'fire', radius: 100, chance: 0.3 } },
   { id: 'frostCharm', name: 'Frostbite Charm', icon: '❄️', kind: 'accessory', rarity: 'legendary', tier: 8, stats: { duration: 0.077 }, recipe: { frost: 10, ecto: 6 }, effect: { kind: 'chill', radius: 110 } },
   { id: 'thunderTotem', name: 'Thunder Totem', icon: '🗿', kind: 'accessory', rarity: 'relic', tier: 10, stats: { cooldown: 0.024 }, recipe: { thunder: 10, feather: 6 }, effect: { kind: 'strike', base: 230, damageType: 'lightning', targets: 3, cooldown: 3, range: 320 } },
-  ...GEAR_CATALOG.map(catalogGear),
+ ...GEAR_CATALOG.map(catalogGear),
 ];
 
 /**
@@ -4921,7 +4949,7 @@ export const gearDef = (id: GearId): GearDef => (isUnboundId(id) ? unboundGearDe
 export const SPECIAL_TYPE = { name: 'Special', icon: '✴️', color: '#ffd84a' };
 
 /** Every damage type a piece deals (none for armor and accessories). */
-export const gearTypes = (def: GearDef): DamageType[] => (def.damageType ? [def.damageType, ...(def.extraTypes ?? [])] : []);
+export const gearTypes = (def: GearDef): DamageType[] => (def.damageType ? [def.damageType,...(def.extraTypes ?? [])] : []);
 
 /** Colour of a gear piece's rarity. */
 export const gearColor = (id: GearId): string => RARITIES[gearDef(id).rarity].color;
@@ -4947,9 +4975,9 @@ export function gearTotals(def: GearDef, stars: number): Partial<Record<GearStat
 
 export function describeGear(stats: Partial<Record<GearStat, number>>): string {
   return (Object.entries(stats) as [GearStat, number][])
-    .filter(([k, v]) => (k === 'guard' || k === 'pierce' ? Math.floor(v) >= 1 : v !== 0))
-    .map(([k, v]) => (v < 0 ? GEAR_STATS[k](-v).replace(/^\+/, '−') : GEAR_STATS[k](v)))
-    .join(', ');
+   .filter(([k, v]) => (k === 'guard' || k === 'pierce' ? Math.floor(v) >= 1 : v !== 0))
+   .map(([k, v]) => (v < 0 ? GEAR_STATS[k](-v).replace(/^\+/, '−') : GEAR_STATS[k](v)))
+   .join(', ');
 }
 
 /** The type of creature a tome summons. */
@@ -5095,7 +5123,7 @@ export const IDOL_ORE_STEPS = [1, 2, 3, 4, 5];
 function areaIdol(id: ItemId, name: string, area: AreaId, rarity: Rarity, drops: Partial<Record<MaterialId, number>>, ores: Partial<Record<MaterialId, number>> = {}): ItemDef {
   const areaName = AREAS.find((a) => a.id === area)!.name;
   const scale = (r: Partial<Record<MaterialId, number>>, k: number) => Object.fromEntries(Object.entries(r).map(([m, n]) => [m, n! * k]));
-  const starCosts = IDOL_DROP_STEPS.map((k, i) => ({ ...scale(drops, k), ...scale(ores, IDOL_ORE_STEPS[i]) }));
+  const starCosts = IDOL_DROP_STEPS.map((k, i) => ({...scale(drops, k),...scale(ores, IDOL_ORE_STEPS[i]) }));
   return {
     id,
     name,
@@ -5164,7 +5192,7 @@ export const itemLevel = (item: ItemDef, stars: number): number => itemLevels(it
 
 /** Materials to go from `stars` to `stars + 1` (0 = crafting it). */
 export function itemCost(item: ItemDef, stars: number): Partial<Record<MaterialId, number>> {
-  if (item.starCosts) return { ...item.starCosts[stars] };
+  if (item.starCosts) return {...item.starCosts[stars] };
   const levels = itemLevels(item);
   const step = starStep(levels[stars], levels[stars + 1]);
   return stepsCost(item.recipe, item.growth, step, step + 1);
@@ -5243,16 +5271,16 @@ export const BUFF_LOOT_TWO_STAR = 0.1;
 export const STARDUST_MIN_AWAY = 15 * 60;
 const TIMED = { kind: 'timed' as const, per: 30 * 60, cap: 2 * 60 * 60 };
 export const MINIGAME_BUFFS: Record<MinigameId, MinigameBuff> = {
-  huntingPractice: { name: 'Keen Eye', ...TIMED, desc: `+${BUFF_KEEN_EYE * 100}% material drop chance, in every area.` },
-  pixieSerenade: { name: 'Alluring Hymn', ...TIMED, desc: `Monsters spawn ${BUFF_ALLURE * 100}% more often, in every area: more to slay on the way to each Guardian.` },
-  graveRobbing: { name: 'Sticky Fingers', ...TIMED, desc: `+${BUFF_GOLD * 100}% gold from every kill.` },
-  puppetShow: { name: 'Encore', ...TIMED, desc: `Every Hunter's abilities and specials recharge ${BUFF_ENCORE * 100}% faster.` },
-  shootingGallery: { name: 'Dead Eye', ...TIMED, desc: `+${BUFF_CRIT * 100}% crit chance and +${BUFF_CRIT_DMG * 100}% crit damage for every Hunter.` },
+  huntingPractice: { name: 'Keen Eye',...TIMED, desc: `+${BUFF_KEEN_EYE * 100}% material drop chance, in every area.` },
+  pixieSerenade: { name: 'Alluring Hymn',...TIMED, desc: `Monsters spawn ${BUFF_ALLURE * 100}% more often, in every area: more to slay on the way to each Guardian.` },
+  graveRobbing: { name: 'Sticky Fingers',...TIMED, desc: `+${BUFF_GOLD * 100}% gold from every kill.` },
+  puppetShow: { name: 'Encore',...TIMED, desc: `Every Hunter's abilities and specials recharge ${BUFF_ENCORE * 100}% faster.` },
+  shootingGallery: { name: 'Dead Eye',...TIMED, desc: `+${BUFF_CRIT * 100}% crit chance and +${BUFF_CRIT_DMG * 100}% crit damage for every Hunter.` },
   forgeStrike: { name: 'Forge Blessing', kind: 'charges', per: 2, cap: 6, desc: 'Each charge blesses one Refine: every choice rolls its quality 1 to 3 extra times (by your best score) and keeps the best.' },
   runeMatch: { name: 'Rune Blessing', kind: 'charges', per: 2, cap: 6, desc: 'Each charge blesses one Enchant: every choice rolls its quality 1 to 3 extra times (by your best score) and keeps the best.' },
   icebreaker: { name: 'Giant Slayer', kind: 'charges', per: 1, cap: 3, desc: 'Each charge pays for your next Guardian Challenge: it costs no energy.' },
-  clockworkTower: { name: 'Overclock', ...TIMED, desc: 'Every Hunter uses their gear as if it had one more star (gear at 5★ gets what a 6th would give).' },
-  highOrLow: { name: 'Loaded Dice', ...TIMED, desc: `Loot drops twice as often, and ${BUFF_LOOT_TWO_STAR * 100}% more of it comes as 2★.` },
+  clockworkTower: { name: 'Overclock',...TIMED, desc: 'Every Hunter uses their gear as if it had one more star (gear at 5★ gets what a 6th would give).' },
+  highOrLow: { name: 'Loaded Dice',...TIMED, desc: `Loot drops twice as often, and ${BUFF_LOOT_TWO_STAR * 100}% more of it comes as 2★.` },
   meteorBounce: { name: 'Stardust', kind: 'charges', per: 1, cap: 3, desc: 'Each charge doubles the gold and materials of your next time away (of 15 minutes or more).' },
 };
 const AREA_MINIGAMES: Partial<Record<AreaId, Omit<EventDef, 'area' | 'kind' | 'unlockKills' | 'duration'>>> = {
@@ -5486,7 +5514,7 @@ export const EVENTS: EventDef[] = AREAS.flatMap((a): EventDef[] => {
       requires: { event: sw.id, times: 1 },
     });
   const mg = AREA_MINIGAMES[a.id];
-  if (mg) out.push({ ...mg, sprite: MINIGAME_SPRITES[mg.minigame!], area: a.id, kind: 'minigame', unlockKills: 0, duration: 0 });
+  if (mg) out.push({...mg, sprite: MINIGAME_SPRITES[mg.minigame!], area: a.id, kind: 'minigame', unlockKills: 0, duration: 0 });
   return out;
 });
 
@@ -5618,7 +5646,7 @@ function unboundMaterialDef(id: UnboundMaterialId): MaterialDef {
   let d = UNBOUND_MATERIAL_MAP.get(id);
   if (!d) {
     const base = byId(MATERIALS, unboundBase(id));
-    d = { ...base, id, unboundOf: base.id as BaseMaterialId };
+    d = {...base, id, unboundOf: base.id as BaseMaterialId };
     UNBOUND_MATERIAL_MAP.set(id, d);
   }
   return d;
@@ -5645,16 +5673,16 @@ function unboundGearDef(id: UnboundGearId): GearDef {
   const recipe: GearDef['recipe'] = {};
   for (const [m, n] of Object.entries(base.recipe) as [MaterialId, number][]) recipe[isUnboundId(m) ? m : unboundId(m as BaseMaterialId)] = n;
   d = {
-    ...base,
+   ...base,
     id,
     unboundOf: base.id as BaseGearId,
     recipe,
     tier: Math.round(t1 * 100) / 100,
-    ...(base.hit ? { hit: Math.round(base.hit * hk * 10) / 10 } : {}),
+   ...(base.hit ? { hit: Math.round(base.hit * hk * 10) / 10 } : {}),
     // Weapons' own stats are what kind of weapon they are; everything else grows with the tier.
-    stats: base.weaponClass ? { ...base.stats } : stats,
-    ...(base.effect && 'base' in base.effect ? { effect: { ...base.effect, base: base.effect.base * hk } as GearEffect } : {}),
-    ...(base.bane ? { bane: { ...base.bane, bonus: Math.round(base.bane.bonus * k * 1000) / 1000 } } : {}),
+    stats: base.weaponClass ? {...base.stats } : stats,
+   ...(base.effect && 'base' in base.effect ? { effect: {...base.effect, base: base.effect.base * hk } as GearEffect } : {}),
+   ...(base.bane ? { bane: {...base.bane, bonus: Math.round(base.bane.bonus * k * 1000) / 1000 } } : {}),
     // One more built-in effect than its original.
     builtIn: unboundBuiltIns(base, id),
     starter: false,
@@ -5688,7 +5716,7 @@ export function unboundAreaDef(area: AreaId): AreaDef {
   const rift = AREAS[AREAS.length - 1];
   const n = AREAS.findIndex((a) => a.id === area) + 1; // steps past the Void Rift: the Woods 1, the Grove 2 …
   d = {
-    ...base,
+   ...base,
     name: `Unbound ${base.name}`,
     hp: rift.hp * UNBOUND_HP_STEP ** n * UNBOUND_BUMP,
     gold: rift.gold * UNBOUND_GOLD_STEP ** n,
