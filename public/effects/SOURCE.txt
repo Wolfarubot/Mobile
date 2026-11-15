@@ -19,8 +19,8 @@ any element's tint (a Focus's burst); rot is its smoke ring recoloured rot-purpl
 looping its expanding frames).
 From CraftPix's "Elemental Combat Spells", "Elemental Magic Projectiles" and "Magic Shields and Healing Spells"
 Top Down Pixel Art Asset Packs (same license), one row cut from each sheet with its frames padded square:
-  icespikes (Ice _spikes_front-back, front row): the Ice Spikes spell
-  icecube (Ice_cube_front-back, front row): Frost Nova's freezing tap
+  icespikes (Ice _spikes_front-back, front row): the Ice Spikes spell and Frost Nova's freezing tap
+  icecube (Ice_cube_front-back, front row): unused for now (Frost Nova's tap uses icespikes)
   stones (Falling_stones_front-back, front row): falling rocks (Rockfall and the stone spells)
   meteor (Falling_flaming_stones, first row): a Meteor Golem's Starfall
   firebreath (Fire_Missiles, the right-facing row; turned to aim): an Imp's Fire Breath

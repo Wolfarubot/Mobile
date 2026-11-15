@@ -233,7 +233,7 @@ export class BattleView {
           // tap's ring, in its element's colour.
           if (this.fancy && e.spell && e.color === DAMAGE_TYPES.fire.color) this.playEffect('explosion', e.x, e.y, this.game.tapRadius * 2);
           else if (this.fancy && e.color === DAMAGE_TYPES.lightning.color) this.playEffect('lightning', e.x, e.y + 6, this.game.tapRadius * 2.4, 'bottom', 22);
-          else if (this.fancy && e.spell && e.color === DAMAGE_TYPES.frost.color) this.playEffect('icecube', e.x, e.y + this.game.tapRadius * 0.4, this.game.tapRadius * 1.3, 'bottom', 26);
+          else if (this.fancy && e.spell && e.color === DAMAGE_TYPES.frost.color) this.playEffect('icespikes', e.x, e.y + this.game.tapRadius * 0.5, this.game.tapRadius * 1.8, 'bottom', 24);
           this.rings.push({ x: e.x, y: e.y, t: 0, r: this.game.tapRadius, color: e.color ? hexRgb(e.color) : '255,255,255', max: 0.25 });
           if (e.color) this.fx.burst(e.x, e.y, e.color, 10, 160, 3, 0);
           break;
