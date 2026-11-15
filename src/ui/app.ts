@@ -57,6 +57,7 @@ import {
   lootChance,
   SUMMON_TYPES,
   tomeSummonType,
+  gearSummonAbility,
   ENEMIES,
   enemyUnlockCost,
   GEAR,
@@ -7128,6 +7129,9 @@ function featureTags(gd: GearDef, stars = 1): string {
   const spell = staffSpell(gd);
   if (spell) tags.push(featTag(FEATURE_TAG_ICONS.spell, SPELLS[spell].name, tx('tip.gear.spell', { spell: SPELLS[spell].name, desc: SPELLS[spell].desc })));
   if (gd.weaponClass === 'tome') tags.push(tomeTag(gd));
+  // What its creatures can do (SUMMON_ABILITIES); the Wolf Spirit's lunge is already its Ability.
+  const summonAb = gearSummonAbility(gd);
+  if (summonAb && !gd.summon?.dash) tags.push(featTag(FEATURE_TAG_ICONS.ability, summonAb.name, summonAb.desc));
   if (gd.armorType) tags.push(featTag(ARMOR_TAG_ICONS[gd.armorType], ARMOR_TYPES[gd.armorType].name, ARMOR_TYPES[gd.armorType].desc));
   if (gd.accType) tags.push(featTag(ACC_TAG_ICONS[gd.accType], ACC_TYPES[gd.accType].name, ACC_TYPES[gd.accType].desc));
   if (gd.ability) tags.push(featTag(FEATURE_TAG_ICONS.ability, 'Ability', gd.ability));

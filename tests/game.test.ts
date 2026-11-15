@@ -5090,12 +5090,12 @@ describe('Field', () => {
     expect(g.state.stats.hunterKills.spaceslime ?? 0).toBeGreaterThan(kills);
   });
 
-  it('Azir the Lich raises six skeletal soldiers that fight for 10s', () => {
+  it('Azir the Lich raises nine skeletal soldiers (Legion) that fight for 10s', () => {
     expect(hunterDef('lichlord')).toMatchObject({ name: 'Azir', title: 'Lich', area: 'fortress', unlock: { event: 'cloudburst', times: 2 } });
     const { g, f } = thomasField(['lichlord']);
     for (let t = 0; t < 1.5; t += 1 / 30) f.update(1 / 30);
     const legion = f.summons.filter((s) => s.who === 'lichlord' && s.own);
-    expect(legion).toHaveLength(6);
+    expect(legion).toHaveLength(9);
     expect(legion.every((s) => s.look === 'skeleton' && s.type === 'undead')).toBe(true);
     expect(legion[0].maxLife).toBeCloseTo(10 * g.summonDurationMult('lichlord'));
   });

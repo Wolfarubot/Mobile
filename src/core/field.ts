@@ -63,6 +63,7 @@ import {
   GOLDEN_GOLD,
   GOLDEN_ODDS,
   FOCUS_VIEW_SHARE,
+  summonAbilityKey,
 } from './balance';
 import type { Game, GearMode, KillReward, Shooter } from './game';
 
@@ -228,6 +229,10 @@ export interface Summon {
   /** Seconds left in a lunge (their tome's ability), and whether this lunge has landed yet. */
   dash: number;
   dashHit: boolean;
+  /** Its own ability's state (SUMMON_ABILITIES): see runSummonAbility. */
+  ab?: SummonAbilityState;
+  /** Raised by a Lich's Raise Dead: a plain skeleton with no ability of its own. */
+  raised?: boolean;
   /** A tome's creature charging through the crowd: the point it's running for, and when it last struck each monster. */
   run?: { tx: number; ty: number; t: number; struck: Map<number, number> };
   /** The way it last moved (for facing). */
@@ -241,6 +246,22 @@ export interface Summon {
  * seconds) for the class's `hit` × the Hunter's shot. A lunge (the Wolf Spirit's) is a faster charge whose strikes
  * hit for its damage instead.
  */
+/** A summon's ability state: its cooldown, a stop (a Wraith's pulse), a surge, a once-only use, and so on. */
+export interface SummonAbilityState {
+  key: string;
+  t: number;
+  stop: number;
+  tick: number;
+  surge: number;
+  surgeK: number;
+  surgeSpeed: number;
+  used: boolean;
+  /** A Kobold's lit dynamite, burning down where it landed. */
+  bomb?: { x: number; y: number; fuse: number };
+  /** Ice Wolves: bites on each monster, every third freezing it. */
+  bites?: Map<number, number>;
+}
+
 /** Charging summons: how far past a monster they run, how often they can strike the same one, how long before they pick a new mark, how close counts as a strike, and how hard a strike knocks a monster away from their Hunter. */
 export const SUMMON_RUN = { overshoot: 70, rehit: 0.6, retarget: 1.6, reach: 6, knock: 140 };
 
@@ -1276,6 +1297,7 @@ export class Field {
       this.blockWith(who, state, hx, hy, effects);
       return;
     }
+    if (!e.boss && this.valkyrieWard(who, state, hx, hy)) return;
     this.knockOut(who, e.boss, e.x, e.y);
     if (e.boss) {
       e.kx += ux * BOSS_BOUNCE;
@@ -1426,6 +1448,7 @@ export class Field {
       this.blockWith(who, state, hx, hy, effects);
       return;
     }
+    if (this.valkyrieWard(who, state, hx, hy)) return;
     this.knockOut(who, false, hx, hy);
   }
 
@@ -1952,7 +1975,7 @@ export class Field {
     }
     if (sp.summon) {
       // Creatures that hunt for a while (two of Deku's spirit wolves or Theon's puppets for 6s; Azir's skeletal
-      // legion, six for 10s), each biting 1.5 times a second for the special's damage (their "radius" skills make
+      // legion, nine for 10s), each biting 1.5 times a second for the special's damage (their "radius" skills make
       // them fiercer).
       const mult = dmg * g.summonFerocity(by);
       const life = (sp.summon.life ?? 6) * g.summonDurationMult(by);
@@ -3139,7 +3162,12 @@ export class Field {
     const sm = cls.summon!;
     const def = this.weaponDef(who, mode);
     const look = def?.summon?.look ?? 'wisp';
-    this.summons.push({ who, type: def ? tomeSummonType(def) : 'spirit', x: ox + Math.cos(aim) * 20, y: oy + Math.sin(aim) * 20, life: sm.duration * this.game.summonDurationMult(who), maxLife: sm.duration * this.game.summonDurationMult(who), bite: 0, look, art: def?.summon?.art, dash: 0, dashHit: false, mode });
+    // Skeletons' Legion: a tome raises two at a time.
+    const n = summonAbilityKey(def?.summon?.art, look) === 'skeleton' ? 2 : 1;
+    for (let i = 0; i < n; i++) {
+      const a = aim + (i - (n - 1) / 2) * 0.9;
+      this.summons.push({ who, type: def ? tomeSummonType(def) : 'spirit', x: ox + Math.cos(a) * 20, y: oy + Math.sin(a) * 20, life: sm.duration * this.game.summonDurationMult(who), maxLife: sm.duration * this.game.summonDurationMult(who), bite: 0, look, art: def?.summon?.art, dash: 0, dashHit: false, mode });
+    }
     this.events.push({ type: 'nova', x: ox, y: oy, r: 30, color: '#c9a8ff' });
   }
 
@@ -3176,6 +3204,7 @@ export class Field {
     for (const s of this.summons) {
       if (!s.risen) {
         this.chargeSummon(s, dt);
+        if (!s.raised) this.runSummonAbility(s, dt);
         continue;
       }
       // Raised dead (Raise Dead) walk to the nearest monster and bite it with the spell's power.
@@ -3202,8 +3231,349 @@ export class Field {
         }
       } else s.bite = Math.min(s.bite + dt * sm.bites, 1);
     }
+    // Abilities that go off as a creature's time runs out (a Toadstool's spores, a Comet Wisp's last flare).
+    for (const s of this.summons) if (s.life <= 0 && s.ab && !s.ab.used) this.summonExpires(s);
     this.summons = this.summons.filter((s) => s.life > 0);
   }
+
+  /**
+   * A summon's strike for `k` times its usual hit: a summoning accessory's creatures hit for the piece's own
+   * damage, a Hunter's own creatures for their special's, and a tome's for its wielder's weapon.
+   */
+  private summonHit(s: Summon, e: Enemy, k: number): void {
+    const g = this.game;
+    const m = g.summonMult(s.who, s.type) * k;
+    if (s.gear) this.abilityHit(s.who, e, s.gear.base * m, s.gear.damageType, false);
+    // A Hunter's own creatures strike with their weapon's type, and can inflict its status effect.
+    else if (s.own) this.hitWith(s.who, e, s.own.mult * m, s.x, s.y, undefined, undefined, true);
+    else this.hitWith(s.who, e, m * (g.weaponClassOf(s.who, s.mode)?.summon?.hit ?? 1), s.x, s.y, undefined, s.mode);
+    if (e.hp <= 0 && s.ab?.key === 'lich' && !s.raised) this.lichRaise(s, e);
+  }
+
+  /** A summon's usual hit as a multiplier on its Hunter's shot (for puddles and shots), or fixed damage (gear). */
+  private summonPower(s: Summon, k: number): { dmg: number; abs?: number } {
+    const g = this.game;
+    const m = g.summonMult(s.who, s.type) * k;
+    if (s.gear) return { dmg: 0, abs: s.gear.base * m };
+    if (s.own) return { dmg: s.own.mult * m };
+    return { dmg: m * (g.weaponClassOf(s.who, s.mode)?.summon?.hit ?? 1) };
+  }
+
+  /** The damage type a summon strikes with (for its abilities' colours and puddles). */
+  private summonDtype(s: Summon): DamageType {
+    return s.gear?.damageType ?? this.game.damageTypeOf(s.who, s.mode);
+  }
+
+  /** Every monster within `r` of (x, y) takes a summon's strike × `k`, knocked `knock` away from there. */
+  private summonArea(s: Summon, x: number, y: number, r: number, k: number, knock = 0): void {
+    for (const e of [...this.enemies]) {
+      if (e.hp <= 0 || Math.hypot(e.x - x, e.y - y) > r + e.r) continue;
+      this.summonHit(s, e, k);
+      if (knock && e.hp > 0 && !e.boss) {
+        const d = Math.hypot(e.x - x, e.y - y) || 1;
+        e.kx += ((e.x - x) / d) * knock;
+        e.ky += ((e.y - y) / d) * knock;
+      }
+    }
+  }
+
+  /** Strikes that carry a creature's ability: Thunderbirds' chains, Duskmoths' sleep, Ice Wolves' frostbite, puppets' strings. */
+  private onSummonStrike(s: Summon, e: Enemy): void {
+    const key = s.ab?.key;
+    if (!key || s.raised) return;
+    if (key === 'thunderbird') {
+      const near = this.enemies
+        .filter((o) => o !== e && o.hp > 0 && Math.hypot(o.x - e.x, o.y - e.y) <= 90 + o.r)
+        .sort((a, b) => Math.hypot(a.x - e.x, a.y - e.y) - Math.hypot(b.x - e.x, b.y - e.y));
+      let from = { x: e.x, y: e.y };
+      for (const o of near.slice(0, 3)) {
+        this.events.push({ type: 'beam', x1: from.x, y1: from.y, x2: o.x, y2: o.y, color: DAMAGE_TYPES.lightning.color, width: 2, zigzag: true });
+        from = { x: o.x, y: o.y };
+        this.summonHit(s, o, 0.5);
+      }
+    } else if (key === 'duskmoth') {
+      if (e.hp > 0 && this.game.rng() < 0.2) {
+        e.held = Math.max(e.held ?? 0, 2 * (e.boss ? 0.25 : 1));
+        this.events.push({ type: 'say', x: e.x, y: e.y - e.r - 6, text: 'z', color: '#c9a8ff', size: 9 });
+      }
+    } else if (key === 'iceWolf') {
+      if (e.hp <= 0) return;
+      e.slow = Math.max(e.slow ?? 0, 2);
+      const bites = (s.ab!.bites ??= new Map());
+      const n = (bites.get(e.id) ?? 0) + 1;
+      bites.set(e.id, n % 3);
+      if (n >= 3) {
+        e.held = Math.max(e.held ?? 0, e.boss ? 0.25 : 1);
+        this.events.push({ type: 'nova', x: e.x, y: e.y, r: e.r + 8, color: DAMAGE_TYPES.frost.color });
+      }
+    } else if (key === 'puppet') {
+      if (e.hp > 0 && !e.boss) e.slow = Math.max(e.slow ?? 0, 2);
+    }
+  }
+
+  /** A Lich's Raise Dead: a monster it kills gets up as a skeleton fighting for its Hunter for a few seconds. */
+  private lichRaise(s: Summon, e: Enemy): void {
+    if (e.boss) return;
+    let raised = 0;
+    for (const o of this.summons) if (o.raised && o.who === s.who && ++raised >= 6) return;
+    this.summons.push({ who: s.who, type: 'undead', x: e.x, y: e.y, life: 4, maxLife: 4, bite: 0, look: 'skeleton', dash: 0, dashHit: false, raised: true, ...(s.gear ? { gear: s.gear } : {}), ...(s.own ? { own: s.own } : {}), ...(s.mode ? { mode: s.mode } : {}) });
+    this.events.push({ type: 'spell', fx: 'rise', x: e.x, y: e.y, r: e.r + 8, color: DAMAGE_TYPES.decay.color });
+  }
+
+  /**
+   * A summon's own ability (SUMMON_ABILITIES), run every frame beside its charge. Most go off on a cooldown when
+   * there's a monster to use them on; a few are passive (a Valkyrie's block, Thunderbirds' chains) or happen once.
+   */
+  private runSummonAbility(s: Summon, dt: number): void {
+    if (!s.ab) {
+      const key = summonAbilityKey(s.art, s.look);
+      if (!key) return;
+      s.ab = { key, t: 0.6 + this.game.rng() * 0.6, stop: 0, tick: 0, surge: 0, surgeK: 1, surgeSpeed: 1, used: false };
+    }
+    const ab = s.ab;
+    const g = this.game;
+    const rm = g.radiusMult(s.who);
+    const color = DAMAGE_TYPES[this.summonDtype(s)].color;
+    ab.t -= dt;
+    ab.stop = Math.max(0, ab.stop - dt);
+    ab.surge = Math.max(0, ab.surge - dt);
+    const age = s.maxLife - s.life;
+    const ready = ab.t <= 0;
+    switch (ab.key) {
+      case 'wolf':
+        // A tome's wolves lunge on the tome's own cooldown (runSummons); a Hunter's or a piece's on their own.
+        if ((s.gear || s.own) && ready && this.nearest(s.x, s.y, 150)) {
+          Object.assign(ab, { surge: 0.35, surgeK: 2.5, surgeSpeed: 3, t: 4 });
+          if (s.run) s.run.t = 0;
+        }
+        break;
+      case 'shadowWisp':
+        if (ready && this.nearest(s.x, s.y, 200)) {
+          Object.assign(ab, { surge: 0.5, surgeK: 1.5, surgeSpeed: 3, t: 3 });
+          if (s.run) s.run.t = 0;
+          this.events.push({ type: 'nova', x: s.x, y: s.y, r: 22, color });
+        }
+        break;
+      case 'graveWraith':
+        if (ready && this.nearest(s.x, s.y, 120)) Object.assign(ab, { stop: 1, t: 3, tick: 0 });
+        if (ab.stop > 0) {
+          ab.tick -= dt;
+          if (ab.tick <= 0) {
+            ab.tick = 0.25;
+            this.events.push({ type: 'nova', x: s.x, y: s.y, r: 55 * rm, color });
+            this.summonArea(s, s.x, s.y, 55 * rm, 0.35);
+          }
+        }
+        break;
+      case 'cultist': {
+        const e = ready ? this.nearest(s.x, s.y, 320) : null;
+        if (!e) break;
+        ab.t = 2;
+        const a = Math.atan2(e.y - s.y, e.x - s.x);
+        // A tome's cultist fires a real bolt (the tome's power, piercing everything); anyone else's strikes along the line.
+        if (!s.gear && !s.own) this.shoot(s.who, 'spark', s.x, s.y, a, BULLET_SPEED, 320, { pierce: 999, dmg: this.summonPower(s, 1.2).dmg, special: true, mode: s.mode, dtype: this.summonDtype(s) });
+        else {
+          const x2 = s.x + Math.cos(a) * 320;
+          const y2 = s.y + Math.sin(a) * 320;
+          this.events.push({ type: 'beam', x1: s.x, y1: s.y, x2, y2, color, width: 4 });
+          for (const o of [...this.enemies]) {
+            if (o.hp <= 0) continue;
+            const t = Math.max(0, Math.min(1, ((o.x - s.x) * (x2 - s.x) + (o.y - s.y) * (y2 - s.y)) / (320 * 320)));
+            if (Math.hypot(s.x + (x2 - s.x) * t - o.x, s.y + (y2 - s.y) * t - o.y) <= o.r + 8) this.summonHit(s, o, 1.2);
+          }
+        }
+        break;
+      }
+      case 'mummy':
+        if (ready && this.nearest(s.x, s.y, 50 * rm)) {
+          ab.t = 1.5;
+          this.events.push({ type: 'sweep', x: s.x, y: s.y, a: 0, arc: Math.PI * 2, r: 50 * rm, color: '#d8c8a0' });
+          this.summonArea(s, s.x, s.y, 50 * rm, 0.8, 60);
+        }
+        break;
+      case 'meteorGolem':
+      case 'oreGolem':
+        // Starfall: a Meteor Golem lands as a meteor, once; then both golems slam the ground.
+        if (ab.key === 'meteorGolem' && !ab.used) {
+          ab.used = true;
+          this.events.push({ type: 'explode', x: s.x, y: s.y, r: 70 * rm, color: '#ff9a4a' });
+          this.summonArea(s, s.x, s.y, 70 * rm, 2, 160);
+        }
+        if (ready && this.nearest(s.x, s.y, 70 * rm)) {
+          ab.t = 3;
+          this.events.push({ type: 'slam', x: s.x, y: s.y, r: 70 * rm, color: '#c8a878' });
+          this.summonArea(s, s.x, s.y, 70 * rm, 1.2, 160);
+        }
+        break;
+      case 'imp': {
+        const e = ready ? this.nearest(s.x, s.y, 110) : null;
+        if (!e) break;
+        ab.t = 2;
+        const a = Math.atan2(e.y - s.y, e.x - s.x);
+        const r = 110 * rm;
+        this.events.push({ type: 'spell', fx: 'cone', x: s.x, y: s.y, r, color: DAMAGE_TYPES.fire.color, a, arc: 1 });
+        for (const o of [...this.enemies]) {
+          if (o.hp <= 0 || Math.hypot(o.x - s.x, o.y - s.y) > r + o.r) continue;
+          let da = Math.atan2(o.y - s.y, o.x - s.x) - a;
+          da = Math.atan2(Math.sin(da), Math.cos(da));
+          if (Math.abs(da) <= 0.5) this.summonHit(s, o, 0.8);
+        }
+        break;
+      }
+      case 'magmaSlime':
+        if (ready) {
+          ab.t = 0.6;
+          const pw = this.summonPower(s, 0.3);
+          this.puddles.push({ shooter: s.who, x: s.x, y: s.y, r: 24 * rm, life: 5 * PUDDLE_TICK, tick: 0, dmg: pw.dmg, ...(pw.abs !== undefined ? { abs: pw.abs } : {}), dtype: this.summonDtype(s) });
+        }
+        break;
+      case 'wraith':
+        if (!ab.used && age >= 1) {
+          ab.used = true;
+          const r = 80 * rm;
+          this.events.push({ type: 'wave', x: s.x, y: s.y, r, time: 0.35, color: DAMAGE_TYPES.frost.color });
+          for (const e of this.enemies) if (e.hp > 0 && Math.hypot(e.x - s.x, e.y - s.y) <= r + e.r) e.held = Math.max(e.held ?? 0, 1.5 * (e.boss ? 0.25 : 1));
+        }
+        break;
+      case 'frostSprite': {
+        const e = ready ? this.nearest(s.x, s.y, 180) : null;
+        if (!e) break;
+        ab.t = 1.5;
+        this.events.push({ type: 'beam', x1: s.x, y1: s.y, x2: e.x, y2: e.y, color: DAMAGE_TYPES.frost.color, width: 3 });
+        const near = this.enemies.filter((o) => o !== e && o.hp > 0 && Math.hypot(o.x - e.x, o.y - e.y) <= 70 + o.r).slice(0, 3);
+        const ex = e.x;
+        const ey = e.y;
+        this.summonHit(s, e, 1);
+        for (const o of near) {
+          this.events.push({ type: 'beam', x1: ex, y1: ey, x2: o.x, y2: o.y, color: DAMAGE_TYPES.frost.color, width: 2 });
+          this.summonHit(s, o, 0.5);
+        }
+        break;
+      }
+      case 'harpy': {
+        const e = ready ? this.nearest(s.x, s.y, 220) : null;
+        if (!e) break;
+        ab.t = 3;
+        const ex = e.x;
+        const ey = e.y;
+        this.events.push({ type: 'beam', x1: s.x, y1: s.y - 30, x2: ex, y2: ey, color: '#d8c8a0', width: 3 });
+        s.x = ex;
+        s.y = ey;
+        this.summonHit(s, e, 2);
+        this.events.push({ type: 'slam', x: ex, y: ey, r: 50 * rm, color: '#d8c8a0' });
+        for (const o of this.enemies) {
+          if (o === e || o.hp <= 0 || o.boss || Math.hypot(o.x - ex, o.y - ey) > 50 * rm + o.r) continue;
+          const d = Math.hypot(o.x - ex, o.y - ey) || 1;
+          o.kx += ((o.x - ex) / d) * 200;
+          o.ky += ((o.y - ey) / d) * 200;
+        }
+        break;
+      }
+      case 'griffin': {
+        const e = ready ? this.enemies.find((o) => o.hp > 0 && !o.boss && Math.hypot(o.x - s.x, o.y - s.y) <= 160 + o.r) : undefined;
+        if (!e) break;
+        ab.t = 3;
+        this.summonHit(s, e, 1);
+        if (e.hp > 0) {
+          const [hx, hy] = this.hunterPos(s.who);
+          const d = Math.hypot(e.x - hx, e.y - hy) || 1;
+          e.kx += ((e.x - hx) / d) * 700;
+          e.ky += ((e.y - hy) / d) * 700;
+          e.held = Math.max(e.held ?? 0, 0.6);
+          this.events.push({ type: 'say', x: e.x, y: e.y - e.r - 8, text: 'Snatched!', color: '#ffe08a', size: 8 });
+        }
+        break;
+      }
+      case 'stormTitan':
+        if (ready) {
+          const near = this.enemies.filter((o) => o.hp > 0 && Math.hypot(o.x - s.x, o.y - s.y) <= 220 + o.r);
+          if (!near.length) break;
+          ab.t = 1;
+          const e = near[Math.floor(g.rng() * near.length)];
+          this.events.push({ type: 'beam', x1: e.x + (g.rng() - 0.5) * 60, y1: e.y - 220, x2: e.x, y2: e.y, color: DAMAGE_TYPES.lightning.color, width: 3, zigzag: true });
+          this.summonHit(s, e, 0.8);
+        }
+        break;
+      case 'voidWyrm':
+        for (const e of this.enemies) {
+          if (e.hp <= 0 || e.boss) continue;
+          const d = Math.hypot(s.x - e.x, s.y - e.y);
+          if (d > 120 * rm || d < 4) continue;
+          e.kx += ((s.x - e.x) / d) * 500 * dt;
+          e.ky += ((s.y - e.y) / d) * 500 * dt;
+        }
+        if (ready) {
+          ab.t = 1;
+          this.events.push({ type: 'spell', fx: 'anchor', x: s.x, y: s.y, r: 120 * rm, color: DAMAGE_TYPES.void.color });
+        }
+        break;
+      case 'shade': {
+        if (!ready) break;
+        const near = this.enemies.filter((o) => o.hp > 0 && Math.hypot(o.x - s.x, o.y - s.y) <= 250 + o.r);
+        if (!near.length) break;
+        ab.t = 2.5;
+        const e = near[Math.floor(g.rng() * near.length)];
+        this.events.push({ type: 'nova', x: s.x, y: s.y, r: 18, color });
+        s.x = e.x;
+        s.y = e.y;
+        if (s.run) s.run.t = 0;
+        this.events.push({ type: 'nova', x: s.x, y: s.y, r: 40 * rm, color, burst: true });
+        this.summonArea(s, s.x, s.y, 40 * rm, 1);
+        break;
+      }
+      case 'kobold':
+        if (!ab.used && !ab.bomb && age >= 0.6) {
+          const e = this.nearest(s.x, s.y, 200);
+          if (e) {
+            ab.bomb = { x: e.x, y: e.y, fuse: 0.7 };
+            this.events.push({ type: 'beam', x1: s.x, y1: s.y, x2: e.x, y2: e.y, color: '#ffb04a', width: 2 });
+          }
+        }
+        if (ab.bomb) {
+          ab.bomb.fuse -= dt;
+          if (ab.bomb.fuse <= 0) {
+            ab.used = true;
+            this.events.push({ type: 'explode', x: ab.bomb.x, y: ab.bomb.y, r: 55 * rm, color: '#ffb04a' });
+            this.summonArea(s, ab.bomb.x, ab.bomb.y, 55 * rm, 2, 140);
+            ab.bomb = undefined;
+          }
+        }
+        break;
+    }
+  }
+
+  /** Abilities set off as a creature's time runs out. */
+  private summonExpires(s: Summon): void {
+    const ab = s.ab!;
+    const rm = this.game.radiusMult(s.who);
+    if (ab.key === 'toadstool') {
+      ab.used = true;
+      const pw = this.summonPower(s, 0.35);
+      this.puddles.push({ shooter: s.who, x: s.x, y: s.y, r: 55 * rm, life: 6 * PUDDLE_TICK, tick: 0, dmg: pw.dmg, ...(pw.abs !== undefined ? { abs: pw.abs } : {}), dtype: 'poison' });
+      this.events.push({ type: 'nova', x: s.x, y: s.y, r: 55 * rm, color: DAMAGE_TYPES.poison.color });
+    } else if (ab.key === 'cometWisp') {
+      ab.used = true;
+      const e = this.nearest(s.x, s.y, 250);
+      const x = e?.x ?? s.x;
+      const y = e?.y ?? s.y;
+      this.events.push({ type: 'beam', x1: s.x, y1: s.y, x2: x, y2: y, color: DAMAGE_TYPES.arcane.color, width: 4 });
+      this.events.push({ type: 'explode', x, y, r: 60 * rm, color: DAMAGE_TYPES.arcane.color });
+      this.summonArea(s, x, y, 60 * rm, 2);
+    }
+  }
+
+  /** A Valkyrie out for this Hunter blocks the blow that would stun them, and is spent doing it. */
+  private valkyrieWard(who: Shooter, state: { immune: number }, hx: number, hy: number): boolean {
+    const v = this.summons.find((s) => s.who === who && s.life > 0 && s.ab?.key === 'valkyrie');
+    if (!v) return false;
+    v.life = 0;
+    state.immune = Math.max(state.immune, STUN_IMMUNITY);
+    this.events.push({ type: 'guard', x: hx, y: hy });
+    this.events.push({ type: 'say', x: hx, y: hy - 30, text: 'Guarded!', color: '#ffe08a', size: 9 });
+    this.shove(hx, hy, GUARD_PUSH_RANGE, GUARD_BOUNCE);
+    return true;
+  }
+
 
   /**
    * A creature charging through the crowd (SUMMON_RUN): a tome's, a Hunter's own (Deku's wolves, Theon's puppets,
@@ -3213,7 +3583,8 @@ export class Field {
     const g = this.game;
     const cls = s.gear || s.own ? null : g.weaponClassOf(s.who, s.mode)?.summon;
     if (!s.gear && !s.own && !cls) return;
-    const speed = s.gear?.speed ?? s.own?.speed ?? cls!.speed;
+    const surging = (s.ab?.surge ?? 0) > 0;
+    const speed = (s.gear?.speed ?? s.own?.speed ?? cls!.speed) * (surging ? s.ab!.surgeSpeed : 1) * ((s.ab?.stop ?? 0) > 0 ? 0 : 1);
     // (An off-hand tome's creatures don't lunge: the lunge is the primary tome's.)
     const dash = cls && !s.mode ? this.weaponDef(s.who)?.summon?.dash : undefined;
     const lunging = s.dash > 0 && !!dash;
@@ -3248,10 +3619,9 @@ export class Field {
       const last = run.struck.get(e.id);
       if (last !== undefined && now - last < SUMMON_RUN.rehit) continue;
       run.struck.set(e.id, now);
-      if (s.gear) this.abilityHit(s.who, e, s.gear.base * m, s.gear.damageType, false);
-      // A Hunter's own creatures strike with their weapon's type, and can inflict its status effect.
-      else if (s.own) this.hitWith(s.who, e, s.own.mult * m, s.x, s.y, undefined, undefined, true);
-      else this.hitWith(s.who, e, m * (lunging ? dash!.damage : (cls!.hit ?? 1)), s.x, s.y, undefined, s.mode);
+      if (lunging) this.hitWith(s.who, e, m * dash!.damage, s.x, s.y, undefined, s.mode);
+      else this.summonHit(s, e, surging ? s.ab!.surgeK : 1);
+      this.onSummonStrike(s, e);
       // The strike knocks the monster away from the Hunter who summoned it (Guardians hold their ground).
       if (e.hp > 0 && !e.boss) {
         const [hx, hy] = this.hunterPos(s.who);

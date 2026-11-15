@@ -2675,7 +2675,7 @@ export const HUNTERS: HunterDef[] = [
     story: 'Deku tends the oldest trees of the Fey Grove, and the Toadstools keep choking his saplings. Clear out thirty thousand of them, and he\'ll lend you the spirits of the wild.',
     ability: 'Every 6 seconds, calls two spirit wolves that charge through the monsters. Deals 50% bonus damage to Plants, and his Beast summons (wolves from any source) hit 50% harder. Uses ranged or magic weapons.',
     slots: [{ kind: 'weapon', label: 'Weapon', accepts: ['weapon', 'magic'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
-    special: { kind: 'summon', name: 'Wolves', damageType: 'physical', cooldown: 6, damage: 0.7, radius: 1, ticks: 18, crowd: 1.7, summon: { look: 'wolf', type: 'beast' }, describe: 'Every 6 seconds, calls two spirit wolves that charge through the monsters for 6 seconds, striking every one they pass for his damage. His weapon powers them, and they share its damage type and status effects.' },
+    special: { kind: 'summon', name: 'Wolves', damageType: 'physical', cooldown: 6, damage: 0.7, radius: 1, ticks: 18, crowd: 1.7, summon: { look: 'wolf', type: 'beast' }, describe: 'Every 6 seconds, calls two spirit wolves that charge through the monsters for 6 seconds, striking every one they pass for his damage, and every 4 seconds they lunge into a faster charge that strikes ×2.5. His weapon powers them, and they share its damage type and status effects.' },
   },
   {
     id: 'thief', name: 'Alias', title: 'Thief', icon: '🦹', color: '#8a8aa8', area: 'graveyard', recruitCost: 60_000_000,
@@ -2716,7 +2716,7 @@ export const HUNTERS: HunterDef[] = [
     story: "Theon pulls the strings of the Forbidden Crypt's Possessed Puppets, or tries to: something in the dark keeps cutting them. Show her a team that's trained hard (1,400 trainings in all), and her puppets will dance for you.",
     ability: 'Every 6 seconds, calls two puppets that charge through the monsters. Her Construct summons (puppets from any source) hit 50% harder. Uses magic or melee weapons.',
     slots: [{ kind: 'magic', label: 'Weapon', accepts: ['magic', 'melee'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
-    special: { kind: 'summon', name: 'Puppets', damageType: 'physical', cooldown: 6, damage: 0.7, radius: 1, ticks: 18, crowd: 1.7, summon: { look: 'puppet', type: 'construct' }, describe: 'Every 6 seconds, calls two puppets that charge through the monsters for 6 seconds, striking every one they pass for her damage. Her weapon powers them, and they share its damage type and status effects.' },
+    special: { kind: 'summon', name: 'Puppets', damageType: 'physical', cooldown: 6, damage: 0.7, radius: 1, ticks: 18, crowd: 1.7, summon: { look: 'puppet', type: 'construct' }, describe: 'Every 6 seconds, calls two puppets that charge through the monsters for 6 seconds, striking every one they pass for her damage. Monsters they strike are tangled in their strings, slowed by half for 2 seconds. Her weapon powers them, and they share its damage type and status effects.' },
   },
 
   {
@@ -2890,7 +2890,7 @@ export const HUNTERS: HunterDef[] = [
     unlock: { event: 'cloudburst', times: 2 },
     ascendedTitle: 'Dread Sovereign',
     story: "Azir sealed himself in the Cloud Fortress's highest tower to wait out the centuries, and the storms have been rattling his bones ever since. Weather two Cloudbursts, and his legion marches with you.",
-    ability: 'Every 15 seconds, raises six skeletal soldiers from the ground around him. They charge through the monsters for 10 seconds, striking every one they pass with his weapon. Wields only magic weapons.',
+    ability: 'Every 15 seconds, raises nine skeletal soldiers from the ground around him. They charge through the monsters for 10 seconds, striking every one they pass with his weapon. Wields only magic weapons.',
     slots: [{ kind: 'magic', label: 'Magic weapon' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
     special: {
       kind: 'summon',
@@ -2901,8 +2901,8 @@ export const HUNTERS: HunterDef[] = [
       radius: 1,
       ticks: 15,
       crowd: 1.7,
-      summon: { look: 'skeleton', type: 'undead', count: 6, life: 10 },
-      describe: 'Every 15 seconds, six skeletal soldiers claw their way up around him and charge through the monsters for 10 seconds, striking every one they pass for his damage. His weapon powers them, and they share its damage type and status effects.',
+      summon: { look: 'skeleton', type: 'undead', count: 9, life: 10 },
+      describe: 'Every 15 seconds, nine skeletal soldiers claw their way up around him and charge through the monsters for 10 seconds, striking every one they pass for his damage. His weapon powers them, and they share its damage type and status effects.',
     },
   },
   {
@@ -3061,7 +3061,7 @@ const HUNTER_ABILITIES: Partial<Record<HunterId, HunterAbility[]>> = {
     { name: 'Roll the Dice', kind: 'active', text: 'Every 5 seconds, rolls two dice at the monsters. The higher the total, the bigger the blast. Doubles hit twice as hard, double 6s hit the whole field, and snake eyes leave him dazed.' },
     { name: 'Double or Nothing', kind: 'passive', text: 'Kills in his area pay double (25%) or nothing (10%).' },
   ],
-  lichlord: [{ name: 'Raise the Legion', kind: 'active', text: 'Every 15 seconds, raises six skeletal soldiers from the ground around him that charge through the monsters for 10 seconds, striking every one they pass with his weapon.' }],
+  lichlord: [{ name: 'Raise the Legion', kind: 'active', text: 'Every 15 seconds, raises nine skeletal soldiers from the ground around him that charge through the monsters for 10 seconds, striking every one they pass with his weapon.' }],
   alien: [{ name: 'Eye Lasers', kind: 'active', text: 'Every 5 seconds, fires twin eye lasers at the nearest monster. The beam runs right across the battlefield, burning everything in its path.' }],
   haunter: [
     { name: 'Grave Touch', kind: 'passive', text: 'Their strikes deal 40% extra Decay damage on top of their weapon\'s.' },
@@ -4789,6 +4789,56 @@ for (const g of GEAR) {
   const m = enemyDef(art);
   g.summon = { look: 'monster', art, name: m.name.toLowerCase() };
   g.summonType = m.archetype;
+}
+
+/**
+ * Every summoned creature's own ability, by the monster it is (a tome's or a summoning accessory's art, or a Hunter's
+ * own creatures: Deku's wolves, Theon's puppets, Azir's skeletons). field.ts runs them; the cards show these words.
+ */
+export const SUMMON_ABILITIES: Record<string, { name: string; desc: string }> = {
+  wolf: { name: 'Lunge', desc: 'Every 4 seconds they lunge into a faster charge, and everything they strike in it takes ×2.5.' },
+  toadstool: { name: 'Spore Burst', desc: 'When its time runs out, it bursts into a poison cloud that hurts every monster inside for 3 seconds.' },
+  graveWraith: { name: 'Haunting Pulse', desc: 'Every 3 seconds it stops for a second, pulsing damage at every monster around it.' },
+  cultist: { name: 'Dark Bolt', desc: 'Every 2 seconds it fires a bolt that pierces every monster in its path.' },
+  skeleton: { name: 'Legion', desc: 'More of them rise: a tome raises two at a time, and a Hunter\'s legion is half as big again.' },
+  mummy: { name: 'Wrapping Sweep', desc: 'Every 1.5 seconds it swings its wrappings all the way around, hitting every monster in reach.' },
+  shadowWisp: { name: 'Shadow Surge', desc: 'Every 3 seconds it surges through the monsters at three times the speed, striking ×1.5.' },
+  oreGolem: { name: 'Ground Slam', desc: 'Every 3 seconds it slams the ground, hurting and knocking back every monster around it.' },
+  meteorGolem: { name: 'Starfall', desc: 'It crashes down as a meteor where it\'s summoned, then slams the ground every 3 seconds like the other golems.' },
+  imp: { name: 'Fire Breath', desc: 'Every 2 seconds it breathes a cone of fire at the monsters in front of it.' },
+  magmaSlime: { name: 'Burning Trail', desc: 'It leaves burning patches behind it that hurt the monsters walking through them.' },
+  wraith: { name: 'Frost Wail', desc: 'A second after it appears it shrieks, freezing every monster near it for 1.5 seconds.' },
+  frostSprite: { name: 'Ice Shards', desc: 'Every 1.5 seconds it fires an ice bolt that shatters into shards, hitting up to 3 more monsters nearby.' },
+  harpy: { name: 'Dive Bomb', desc: 'Every 3 seconds it dives onto a monster, hitting it twice as hard and knocking back everything around it.' },
+  griffin: { name: 'Snatch', desc: 'Every 3 seconds it snatches a monster and carries it back toward the edge (Guardians are too heavy).' },
+  valkyrie: { name: 'Guardian Wings', desc: 'Blocks one blow that would stun her Hunter, as a shield charge does, and is spent doing it.' },
+  thunderbird: { name: 'Chain Strike', desc: 'Every strike arcs lightning on to 3 more monsters nearby.' },
+  stormTitan: { name: 'Tempest', desc: 'Calls lightning down on a monster near it every second.' },
+  cometWisp: { name: 'Final Flare', desc: 'When its time runs out, it streaks into the nearest monster and explodes.' },
+  voidWyrm: { name: 'Event Horizon', desc: 'Pulls the monsters around it into its path.' },
+  lich: { name: 'Raise Dead', desc: 'Monsters it kills rise as skeletons that fight for you for 4 seconds.' },
+  duskmoth: { name: 'Sleep Dust', desc: 'Each strike has a 20% chance to put the monster to sleep for 2 seconds.' },
+  kobold: { name: 'Dynamite', desc: 'Each one throws a lit stick of dynamite that blows up a moment later, hitting everything nearby.' },
+  iceWolf: { name: 'Frostbite', desc: 'Its bites chill, and every third bite on the same monster freezes it for a second.' },
+  shade: { name: 'Shadow Step', desc: 'Every 2.5 seconds it steps through the shadows to another monster, striking everything around where it lands.' },
+  puppet: { name: 'Tangled Strings', desc: 'Monsters it strikes are tangled up and slowed by half for 2 seconds.' },
+};
+
+/** Which SUMMON_ABILITIES entry a creature uses: the monster whose art it wears, or its look's monster. */
+export function summonAbilityKey(art: EnemyId | undefined, look: string): string | null {
+  const key = art ?? ({ wolf: 'wolf', puppet: 'puppet', skeleton: 'skeleton', mushroom: 'toadstool', rock: 'oreGolem' } as Record<string, string>)[look];
+  return key && SUMMON_ABILITIES[key] ? key : null;
+}
+
+/** The ability of what a piece summons (a tome's creature or a summoning accessory's), if any. */
+export function gearSummonAbility(g: GearDef): { name: string; desc: string } | null {
+  if (g.effect?.kind === 'summon') {
+    const k = summonAbilityKey(g.effect.art, g.effect.look);
+    return k ? SUMMON_ABILITIES[k] : null;
+  }
+  if (g.weaponClass !== 'tome') return null;
+  const k = summonAbilityKey(g.summon?.art, g.summon?.look ?? 'wisp');
+  return k ? SUMMON_ABILITIES[k] : null;
 }
 
 /** A weapon's archetype (undefined for anything that isn't a weapon). */
