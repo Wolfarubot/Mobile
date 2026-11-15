@@ -1706,7 +1706,7 @@ export class Field {
       // A hammer smashes the ground out in front: the Hunter stands at the edge of the blast, so its centre is
       // further out the bigger it is. Everything in it is hit and thrown far back, away from the Hunter (not from the
       // blast's centre, which would throw the monsters between them and it back onto the Hunter).
-      const r = cls.reach! * g.radiusMult(who);
+      const r = cls.reach! * g.slamRadiusMult(who);
       const cx = x + Math.cos(aim) * r * SLAM_OFFSET;
       const cy = y + Math.sin(aim) * r * SLAM_OFFSET;
       this.events.push({ type: 'slam', x: cx, y: cy, r, color: this.typeColor(who, mode) });
@@ -2334,7 +2334,7 @@ export class Field {
         break;
       case 'phantomHammer': {
         // A giant phantom hammer slamming down out in front: everything in its blast is hit and thrown far back.
-        const r = reach * MELEE_ARTS.phantomHammerReach * g.radiusMult(who);
+        const r = reach * MELEE_ARTS.phantomHammerReach * g.slamRadiusMult(who);
         const cx = x + Math.cos(aim) * r * SLAM_OFFSET;
         const cy = y + Math.sin(aim) * r * SLAM_OFFSET;
         this.events.push({ type: 'phantom', weapon: 'hammer', x, y, a: aim, r: r * SLAM_OFFSET, arc: 0, color });
@@ -2345,7 +2345,7 @@ export class Field {
       }
       case 'aftershock': {
         // A second slam a moment later, where the first landed, in the hammer's element.
-        const r = reach * g.radiusMult(who);
+        const r = reach * g.slamRadiusMult(who);
         const cx = x + Math.cos(aim) * r * SLAM_OFFSET;
         const cy = y + Math.sin(aim) * r * SLAM_OFFSET;
         this.spellHits.push({ c: { who, dtype: g.damageTypeOf(who, mode), mult: power, mode: m }, t: MELEE_ARTS.aftershockDelay, x: cx, y: cy, r, k: 1, fx: 'shock' });
@@ -2369,7 +2369,7 @@ export class Field {
       }
       case 'earthshatter': {
         // The ground cracks out in a line from where the slam landed.
-        const r = reach * g.radiusMult(who);
+        const r = reach * g.slamRadiusMult(who);
         const cx = x + Math.cos(aim) * r * SLAM_OFFSET;
         const cy = y + Math.sin(aim) * r * SLAM_OFFSET;
         const len = reach * MELEE_ARTS.fissureLength;

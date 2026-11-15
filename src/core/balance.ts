@@ -4330,7 +4330,7 @@ export const WEAPON_CLASSES: Record<WeaponClass, WeaponClassDef> = {
   sword: { name: 'Sword', attack: 'sweep', range: 1, reach: 80, arc: 2.4, knock: 120, rate: 0.9, damage: 1.1, farm: 1.8, describe: "A slash across a 138\u00b0 arc in front of the Hunter, out to 80 range, that hits every monster in it and knocks them back.", simple: "The basic melee weapon, with a wide slash that hits every monster in front of the Hunter and knocks them back." },
   glaive: { name: 'Glaive', attack: 'sweep', range: 1, reach: 100, arc: 3.2, knock: 160, rate: 0.7, damage: 1.4, farm: 2, describe: 'A wide, heavy cleave around the front that knocks monsters back.', simple: 'A wide, heavy cleave around the front that knocks monsters back.' },
   spear: { name: 'Spear', attack: 'stab', range: 1, reach: 170, width: 24, knock: 200, rate: 0.8, damage: 1.2, farm: 2, describe: 'A long, wide thrust straight out that hits everything in its path and drives it back.', simple: 'A long, wide thrust straight out that hits everything in its path and drives it back.' },
-  hammer: { name: 'Hammer', attack: 'slam', range: 1, reach: 80, knock: 460, rate: 0.45, damage: 2.3, farm: 2.2, describe: 'Very slow, crushing slams on the ground that hit every monster close around and send them flying.', simple: 'Very slow, crushing slams on the ground that hit every monster close around and send them flying.' },
+  hammer: { name: 'Hammer', attack: 'slam', range: 1, reach: 68, knock: 460, rate: 0.45, damage: 2.3, farm: 2.2, describe: 'Very slow, crushing slams on the ground that hit every monster close around and send them flying.', simple: 'Very slow, crushing slams on the ground that hit every monster close around and send them flying.' },
   shortbow: { name: 'Shortbow', attack: 'shot', projectile: 'arrow', range: 0.85, rate: 1.35, damage: 0.75, farm: 1.1, describe: 'The basic bow, with quick, light shots that never stop.', simple: 'The basic bow, with quick, light shots that never stop.' },
   longbow: { name: 'Longbow', attack: 'shot', projectile: 'arrow', range: 1.35, rate: 0.65, damage: 1.5, followThrough: 45, farm: 1.4, describe: 'Slow, heavy shots from far away. Each arrow carries on through its target into whatever is just behind it.', simple: 'Slow, heavy shots from far away. Each arrow carries on through its target into whatever is just behind it.' },
   crossbow: { name: 'Crossbow', attack: 'shot', projectile: 'bolt', range: 1.1, rate: 0.8, damage: 1.25, pierce: 1, farm: 1.45, describe: 'Heavy bolts that always pierce at least one more monster.', simple: 'Heavy bolts that always pierce at least one more monster.' },
@@ -4397,6 +4397,9 @@ const STANDARD = (name: string): WeaponArchetype => ({ name, desc: 'The standard
 export function archetypeText(a: WeaponArchetype, advanced: boolean): string {
   return advanced ? a.desc : (a.simple ?? a.desc);
 }
+
+/** How much of a Hunter's area size bonus a hammer's slam gets (half: see Game.slamRadiusMult). */
+export const HAMMER_AREA_SHARE = 0.5;
 
 export const WEAPON_ARCHETYPES: Record<WeaponClass, [WeaponArchetype, WeaponArchetype, WeaponArchetype]> = {
   dagger: [STANDARD('Dagger'),

@@ -229,6 +229,7 @@ import {
   type TreeStat,
   SWARM_SPAWN,
   timeEaterGrowth,
+  HAMMER_AREA_SHARE,
 } from './balance';
 import { capAway, type OfflineResult } from './offline';
 import { invest, runWorth, shardsNow, type RunWorth } from './regression';
@@ -680,6 +681,14 @@ export class Game {
   }
 
   /** Multiplier on a Hunter's area effects (fireballs, puddles, novas). */
+  /**
+   * A hammer slam's area bonus: area size counts half (HAMMER_AREA_SHARE), since the slam lands out in front with the
+   * Hunter at its edge, so a bigger radius would push its far side out twice as far; this grows its width instead.
+   */
+  slamRadiusMult(who: Shooter): number {
+    return 1 + (this.radiusMult(who) - 1) * HAMMER_AREA_SHARE;
+  }
+
   radiusMult(shooter: Shooter): number {
     return (1 + this.gear(shooter).radius + this.tree(shooter).radius + this.enchantBoost(shooter, 'radius')) * this.aoeScale(shooter);
   }
