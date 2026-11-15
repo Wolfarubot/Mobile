@@ -3506,7 +3506,7 @@ export class AppUI {
         const tile = el('button', `inv-tile rar${gd.unboundOf ? ' ub' : ''}`) as HTMLButtonElement;
         tile.style.setProperty('--rc', gearColor(gd.id));
         const slots = g.modSlots(it.uid);
-        tile.innerHTML = `<i>${gearIcon(gd)}</i><span>${gd.name}</span><small class="stars">${starsHtml(it.stars)}</small>${worn ? `<em>${wearerIcon(worn.who)}</em>` : ''}${slots.length ? `<b class="mod-pips">${slots.map((m) => (m ? (modPerfect(m) ? '★' : '◆') : '◇')).join('')}</b>` : ''}${stack.length > 1 ? `<b class="stack-n">×${stack.length}</b>` : ''}${affordable(it) ? '<b class="can-up" title="Can upgrade"><svg viewBox="0 0 9 10" shape-rendering="crispEdges"><path d="M4.5 0.5 L8.5 4.5 L6 4.5 L6 9.5 L3 9.5 L3 4.5 L0.5 4.5 Z" fill="#3fd25a" stroke="#000" stroke-width="1" stroke-linejoin="miter"/><path d="M4.5 2 L6.5 4 L4.5 4 Z" fill="#b6ffbf"/></svg></b>' : ''}${stack.some((x) => x.uid > g.state.seen.gearUid) ? '<span class="alert-mark white tile-new"></span>' : ''}`;
+        tile.innerHTML = `<i>${gearIcon(gd)}</i><span>${gd.name}</span><small class="stars">${starsHtml(it.stars)}</small>${worn ? `<em>${wearerIcon(worn.who)}</em>` : ''}${slots.length ? `<b class="mod-pips">${slots.map((m) => (m ? (modPerfect(m) ? '★' : '◆') : '◇')).join('')}</b>` : ''}${stack.length > 1 ? `<b class="stack-n">×${stack.length}</b>` : ''}${affordable(it) ? '<b class="can-up" title="Can upgrade"></b>' : ''}${stack.some((x) => x.uid > g.state.seen.gearUid) ? '<span class="alert-mark white tile-new"></span>' : ''}`;
         tile.addEventListener('click', () => {
           if (this.heldFor === tile) return void (this.heldFor = null);
           if (refining) this.openModify(it.uid);

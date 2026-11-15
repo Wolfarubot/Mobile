@@ -8383,21 +8383,18 @@ html.ios-home #app {
   border: 2px solid var(--c0);
   box-shadow: 0 0 0 1px var(--rc, var(--c2));
 }
-/* Enough gold and materials to upgrade it: a little green arrow pointing up, in the bottom-left corner. */
+/* Enough gold and materials to upgrade it: a little green arrow pointing up (public/ui/upgrade-arrow.png), in the
+   bottom-left corner. */
 .inv-tile .can-up {
   position: absolute;
-  left: 4px;
-  bottom: 4px;
-  width: 14px;
-  height: 16px;
-  line-height: 0;
+  left: 3px;
+  bottom: 2px;
+  width: 12px;
+  height: 14px;
+  background: url('/ui/upgrade-arrow.png') center / contain no-repeat;
+  image-rendering: pixelated;
   pointer-events: none;
   animation: can-up-bob 1.2s ease-in-out infinite;
-}
-.inv-tile .can-up svg {
-  width: 100%;
-  height: 100%;
-  overflow: visible;
 }
 @keyframes can-up-bob {
   0%,

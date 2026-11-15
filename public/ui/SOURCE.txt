@@ -5,3 +5,6 @@ heart.png and heart-empty.png (minigame lives) from "Pixel Game User Interface f
 timer-bar.png (the simple silver-edged bar at the top, nine-sliced to any size at runtime), cut from Bars.png in
 "HP, Mana, Stamina and Scroll Bar Pixel RPG Asset Pack" by CraftPix.net (same license). Its slot is
 filled at runtime (src/render/hudBars.ts).
+upgrade-arrow.png (the Equipment tiles' "can upgrade" arrow): the arrow cut out of icon 012 of CraftPix's "100 Pixel
+Art Status Effect Icons Pack" (public/icons/status1/012.png, same license), its square dropped, recoloured green and
+outlined in black.
