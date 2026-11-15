@@ -61,6 +61,8 @@ import {
   rollLoot,
   gearTier,
   gearArea,
+  materialSources,
+  LOOT_UNCRAFTED_SHARE,
   gearTypes,
   DAMAGE_TYPES,
   FLYING,
@@ -3526,11 +3528,43 @@ describe('Equipment', () => {
     expect(g.state.inventory.length).toBe(before + 1);
     expect(Object.entries(g.state.materials).some(([m, n]) => n > mats[m as keyof typeof mats])).toBe(true);
     // Salvage now: unequipped pieces of the chosen rarities go; equipped gear stays.
-    expect(g.salvageRarities([looted.rarity])).toBe(1);
+    expect(g.salvageRarities([looted.rarity])).toBe(looted.starter ? 0 : 1);
     // Auto Salvage opens at the Restless Graveyard.
     expect(g.autoSalvageOpen).toBe(false);
     g.state.areas.graveyard.unlocked = true;
     expect(g.autoSalvageOpen).toBe(true);
+  });
+
+  it("loot only brings gear made from unlocked monsters' (and beaten Guardians') materials, mostly kinds you've crafted", () => {
+    let seed = 99;
+    const g = new Game(newGame(0), () => ((seed = (seed * 1103515245 + 12345) % 2 ** 31) / 2 ** 31));
+    g.state.areas.caves.unlocked = true;
+    g.state.area = 'caves';
+    // Every Ember Mines monster unlocked, but its Guardian (the Demon Lord) not beaten.
+    for (const e of ENEMIES) if (e.area === 'caves' && !e.guardianOnly) g.state.bestiary[e.id].unlocked = true;
+    const reachable = (id: GearId) =>
+      (Object.keys(gearDef(id).recipe) as MaterialId[]).every((m) => materialSources(m).some((e) => (e.guardianOnly ? false : g.state.bestiary[e.id].unlocked)) || !materialSources(m).length);
+    const counts = new Map<GearId, number>();
+    for (let i = 0; i < 400; i++) {
+      const { gear } = g.dropLoot('caves', true);
+      counts.set(gear, (counts.get(gear) ?? 0) + 1);
+    }
+    // Nothing made with the Guardian's material (Forsaken Souls), nor anything else out of reach.
+    for (const id of counts.keys()) expect(reachable(id), id).toBe(true);
+    expect([...counts.keys()].some((id) => 'forsakenSoul' in gearDef(id).recipe)).toBe(false);
+    // Craft one piece: from then on most loot is that kind (all but LOOT_UNCRAFTED_SHARE of it).
+    const pick = [...counts.keys()].find((id) => !gearDef(id).starter && gearArea(gearDef(id)) === 6)!;
+    g.state.crafted = [pick];
+    let same = 0;
+    for (let i = 0; i < 1000; i++) if (g.dropLoot('caves', true).gear === pick) same++;
+    expect(same / 1000).toBeGreaterThan(1 - LOOT_UNCRAFTED_SHARE - 0.03);
+    // Crafting records the kind; old saves count every piece in the inventory that cost materials.
+    g.state.materials = { ...g.state.materials, ...Object.fromEntries(Object.keys(gearDef('slimeSword').recipe).map((m) => [m, 1e6])) };
+    g.craftGear('slimeSword');
+    expect(g.state.crafted).toContain('slimeSword');
+    const old = JSON.parse(serialize(g.state));
+    delete old.crafted;
+    expect(deserialize(JSON.stringify(old))!.crafted).toContain('slimeSword');
   });
 
   it('Alias the Thief: his area pays 30% more gold and drops loot twice as often; old saves turn Alric into Alias', () => {

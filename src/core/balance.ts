@@ -1903,6 +1903,8 @@ export const LOOT_CARRIERS: Partial<Record<EnemyId, number>> = {
 export const lootChance = (id: EnemyId): number => LOOT_CARRIERS[id] ?? 0;
 /** Share of loot from the area's own tier (the rest comes from older areas' gear). */
 export const LOOT_CURRENT_SHARE = 0.6;
+/** The share of loot that's a kind of gear you've never crafted (the rest is gear you have). */
+export const LOOT_UNCRAFTED_SHARE = 0.05;
 /** Chance a looted piece is already 2★. */
 export const LOOT_TWO_STAR = 0.1;
 /**
@@ -1990,6 +1992,22 @@ function lootPools(area: AreaId): { current: GearDef[]; older: GearDef[] } {
   const out = { size: GEAR.length, current: pool.filter((g) => gearArea(g) === top), older: pool.filter((g) => gearArea(g) < top) };
   LOOT_POOLS.set(area, out);
   return out;
+}
+
+/** Every piece an area's loot can be: its tier of gear and everything older (Game.pickLoot narrows it). */
+export function lootPool(area: AreaId): GearDef[] {
+  const { current, older } = lootPools(area);
+  return [...current, ...older];
+}
+
+/** The monsters that drop a material (as their main drop or an extra one). */
+let MATERIAL_SOURCES: Map<MaterialId, EnemyDef[]> | null = null;
+export function materialSources(m: MaterialId): EnemyDef[] {
+  if (!MATERIAL_SOURCES) {
+    MATERIAL_SOURCES = new Map();
+    for (const e of ENEMIES) for (const mat of enemyDrops(e)) MATERIAL_SOURCES.set(mat, [...(MATERIAL_SOURCES.get(mat) ?? []), e]);
+  }
+  return MATERIAL_SOURCES.get(m) ?? [];
 }
 
 /**

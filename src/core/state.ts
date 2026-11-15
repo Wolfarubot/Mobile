@@ -230,6 +230,11 @@ export interface GameState {
   items: Record<ItemId, number>;
   /** Every crafted piece of gear, equipped or not. */
   inventory: GearItem[];
+  /**
+   * Every kind of gear you've ever crafted (loot is mostly pieces from this list). Saves from before it was kept start
+   * with every piece in the inventory that cost materials (crafted, not looted).
+   */
+  crafted: GearId[];
   /** Gear uid in each of a Hunter's slots (null = empty), indexed like their slot list. */
   equipment: Partial<Record<Wearer, Array<number | null>>>;
   nextGearUid: number;
@@ -452,6 +457,7 @@ export function newGame(now = Date.now()): GameState {
       { uid: 3, base: 'shortBow', stars: 1 },
     ],
     equipment: { main: [1, 2, null] },
+    crafted: [],
     nextGearUid: 4,
     lastSeen: now,
     samples: {},
@@ -1017,6 +1023,9 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
           return { uid: g.uid, base: g.base, stars };
         })
     : [];
+  state.crafted = Array.isArray(data.crafted)
+    ? [...new Set((data.crafted as unknown[]).filter((id): id is GearId => typeof id === 'string' && (GEAR.some((d) => d.id === id) || UNBOUND_GEAR.some((d) => d.id === id))))]
+    : [...new Set(state.inventory.filter((g) => g.invested && Object.keys(g.invested.mats).length > 0).map((g) => g.base))];
   convertItems(state, oldLevels);
   refundRemovedUpgrades(state, data.items, oldLevels);
   // v24 -> v25: Adamantite and Orichalcum traded places (Orichalcum now drops in the Ascendant Steps, Adamantite in

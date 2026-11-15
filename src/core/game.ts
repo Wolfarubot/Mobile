@@ -231,6 +231,12 @@ import {
   timeEaterGrowth,
   HAMMER_AREA_SHARE,
   TAP_PACE_REF,
+  lootPool,
+  materialSources,
+  gearArea,
+  unboundBase,
+  LOOT_UNCRAFTED_SHARE,
+  LOOT_CURRENT_SHARE,
 } from './balance';
 import { capAway, type OfflineResult } from './offline';
 import { invest, runWorth, shardsNow, type RunWorth } from './regression';
@@ -1548,6 +1554,7 @@ export class Game {
     const item: GearItem = { uid: this.state.nextGearUid++, base: id, stars: 1, invested: { gold: 0, mats: { ...cost } } };
     this.state.inventory.push(item);
     this.state.stats.gearCrafted++;
+    if (!this.state.crafted.includes(id)) this.state.crafted.push(id);
     return item;
   }
 
@@ -2657,7 +2664,7 @@ export class Game {
    * rarity is set to Auto Salvage, it's salvaged straight away (half its materials, like salvaging by hand).
    */
   dropLoot(area: AreaId, quiet = false): { gear: GearId; salvaged: boolean } {
-    const rolled = rollLoot(area, this.rng(), this.rng());
+    const rolled = this.pickLoot(area);
     // An Unbound area's loot is the Unbound copy of its piece.
     const def = this.isUnbound(area) && !rolled.unboundOf ? gearDef(unboundId(rolled.id as BaseGearId)) : rolled;
     const stars = this.rng() < LOOT_TWO_STAR + BUFF_LOOT_TWO_STAR * this.buffPower('highOrLow') ? 2 : 1;
@@ -2670,6 +2677,37 @@ export class Game {
     this.state.stats.looted = (this.state.stats.looted ?? 0) + 1;
     if (!quiet) this.emit({ type: 'loot', gear: def.id, stars, salvaged });
     return { gear: def.id, salvaged };
+  }
+
+  /**
+   * The piece an area's loot brings: from the area's pool (its tier and older, see lootPool), only gear whose every
+   * material comes from a monster you've unlocked (a Guardian's only once it's beaten), so loot never runs ahead of
+   * what you could craft there. Mostly (all but LOOT_UNCRAFTED_SHARE) a kind you've crafted before; within that,
+   * mostly the newest tier among them (LOOT_CURRENT_SHARE).
+   */
+  private pickLoot(area: AreaId): GearDef {
+    const roll = this.rng();
+    const tierRoll = this.rng();
+    const pick = this.rng();
+    const reachable = lootPool(area).filter((g) => this.lootReachable(g));
+    if (!reachable.length) return rollLoot(area, tierRoll, pick);
+    const done = new Set(this.state.crafted.map((id) => (isUnboundId(id) ? unboundBase(id) : id)));
+    const crafted = reachable.filter((g) => done.has(g.id));
+    const fresh = reachable.filter((g) => !done.has(g.id));
+    const from = !fresh.length || (crafted.length && roll >= LOOT_UNCRAFTED_SHARE) ? crafted : fresh;
+    const top = Math.max(...from.map(gearArea));
+    const current = from.filter((g) => gearArea(g) === top);
+    const older = from.filter((g) => gearArea(g) < top);
+    const set = tierRoll < LOOT_CURRENT_SHARE || !older.length ? current : older;
+    return set[Math.floor(pick * set.length) % set.length];
+  }
+
+  /** Whether a piece's every material comes from a monster you've unlocked (a Guardian's: one you've beaten). */
+  private lootReachable(g: GearDef): boolean {
+    return (Object.keys(g.recipe) as MaterialId[]).every((m) => {
+      const from = materialSources(isUnboundId(m) ? (unboundBase(m) as MaterialId) : m);
+      return !from.length || from.some((e) => (e.guardianOnly ? this.guardianBeaten(e.area) : this.isUnlocked(e.id)));
+    });
   }
 
   /** Salvages every unequipped piece of the given rarities. Returns how many went. */
