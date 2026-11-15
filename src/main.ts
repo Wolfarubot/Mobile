@@ -252,6 +252,7 @@ async function boot(): Promise<void> {
     if (!away) return;
     away = false;
     last = performance.now();
+    ui.quietLoot();
     const r = game.applyOffline();
     if (r.away >= OFFLINE_POPUP_SEC) ui.showOffline(r);
     ui.refresh();

@@ -348,6 +348,8 @@ const upgradeIcon = (it: ItemDef): string => {
 
 /** Loot closer together than this (ms) goes to the pick-ups instead of a pop-up each. */
 const LOOT_POPUP_GAP = 3000;
+/** No loot pop-up for this long after the game opens or comes back to the screen. */
+const LOOT_OPEN_QUIET = 1000;
 
 const gearIcon = (gd: GearDef): string => {
   // An Unbound copy looks like its original (its frame says it's Unbound).
@@ -540,6 +542,7 @@ export class AppUI {
     // Materials picked up on the battlefield pop up in its bottom left.
     const pops = new GainPops($('#gainPops'), (m) => gemHtml(m), fmt);
     let lastLoot = -Infinity;
+    this.quietLoot();
     /** When recent loot dropped: past LOOT_SOUND_MAX pieces in LOOT_SOUND_WINDOW, the drop sound stays quiet. */
     const lootTimes: number[] = [];
     game.on((e) => {
@@ -572,7 +575,7 @@ export class AppUI {
         // A pop-up for loot now and then; when it comes more than once every LOOT_POPUP_GAP (or loot pop-ups are
         // off), it joins the pick-ups instead: the inventory's icon and the piece's, counting up.
         const at = performance.now();
-        const quick = at - lastLoot < LOOT_POPUP_GAP;
+        const quick = at - lastLoot < LOOT_POPUP_GAP || at < this.lootQuietUntil;
         lastLoot = at;
         if (game.state.settings.lootPopups && !quick)
           // The piece's own icon (the one in your inventory), not its kind's.
@@ -669,6 +672,17 @@ export class AppUI {
    * first: OK trains and asks again next time; Do not show again trains and stops asking. `offer` gives the
    * popup's line and the training, or null when not even one session is affordable.
    */
+  /** Until when loot goes to the pick-ups rather than a pop-up (see quietLoot). */
+  private lootQuietUntil = 0;
+
+  /**
+   * Opening the game, or coming back to it, gives LOOT_OPEN_QUIET of grace before a loot pop-up: what drops straight
+   * away (often a flood) joins the pick-ups instead.
+   */
+  quietLoot(): void {
+    this.lootQuietUntil = performance.now() + LOOT_OPEN_QUIET;
+  }
+
   /**
    * The bar for a held press (spending points, max training, quick travel): docked at the foot of the battlefield,
    * just above the menu buttons, filling over `ms` with what it's doing written on it. Returns what takes it down.
