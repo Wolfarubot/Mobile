@@ -1137,8 +1137,12 @@ export const ARCHETYPES: Record<Archetype, { name: string; icon: string }> = {
 // ---- Areas: permanent unlocks, each with its own enemies and materials ----
 export type AreaId = 'forest' | 'glade' | 'graveyard' | 'crypt' | 'depths' | 'caves' | 'mines' | 'peaks' | 'cliffs' | 'fortress' | 'meteors' | 'rift';
 
-/** The share of a tap blast's damage a Guardian takes, unless its area says otherwise (AreaDef.guardianTap). */
-export const GUARDIAN_TAP_TAKEN = 0.5;
+/**
+ * The share of a tap blast's damage a Guardian takes, unless its area says otherwise (AreaDef.guardianTap; the first
+ * five areas take 15%, while a small team needs the taps more). From the Ember Mines on, taps (even of the element a
+ * Guardian is weak to) do well under half the fight, so the Hunters do the heavy lifting.
+ */
+export const GUARDIAN_TAP_TAKEN = 0.08;
 
 export interface AreaDef {
   id: AreaId;
@@ -1153,8 +1157,7 @@ export interface AreaDef {
   guardian: number;
   /**
    * The share of a tap blast's damage this area's Guardian takes (its effects are as strong as the damage it
-   * took), so a Guardian is fought mostly by the Hunters: the first areas' Guardians shrug off more, as a tap
-   * there outweighs a small, low-level team (default GUARDIAN_TAP_TAKEN).
+   * took), so a Guardian is fought mostly by the Hunters (default GUARDIAN_TAP_TAKEN).
    */
   guardianTap?: number;
   icon: string;
