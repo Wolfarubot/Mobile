@@ -40,8 +40,7 @@ Side-view and animal packs (walk or flight strips, one row facing right, mirrore
     hooves, and a gold horn drawn on each frame from the forelock (slanting forward from the side, only its tip
     showing from behind)
   free-top-down-hunt-animals-pixel-sprite-pack (deer, black grouse; 4-direction):
-    wolf-grey.png, wolf-ice.png: Fox_Run (Without_shadow) recoloured grey (cream tail tip) and icy blue (white
-    tip), its side rows swapped so they run down, up, left, right; crow.png: Black_grouse_Flight recoloured
+    crow.png: Black_grouse_Flight recoloured
     purple-black (the red comb and blue sheen darkened, the pale feathers grey)
   golem-character-sprite-sheets-pixel-art, hellhound-character-sprite-sheets-pixel-art,
   dragon-pixel-art-character-sprite-sheets-pack, free-yokai-pixel-art-character-sprites
@@ -60,4 +59,6 @@ Guardian bosses (side view, walk strips baked into one row of square frames, all
   boss_demon_slime_FREE_v1.0: demon-slime.png (the demon form's 12 walk frames, 288x160, set into 288px squares -> the Demon
     Lord; the first-form slime isn't used).
   Undead executioner puppet by Kronovi-: executioner.png (its idle, as it floats, with a soft violet outline added -> the Undead Executioner).
-
+wolf-grey.png, wolf-ice.png: "The Wolf Pack" by finalbossblues (timefantasy.net; a free release for anyone to use):
+  full_color/wolf_gray_full.png, its gallop (columns 4-6) in the rows facing down, up, left and right. wolf-ice is
+  the same recoloured icy blue (each pixel's brightness mapped onto a navy-to-white ramp).
