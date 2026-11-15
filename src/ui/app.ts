@@ -2959,6 +2959,7 @@ export class AppUI {
       };
       title.addEventListener('click', () => {
         if (!closedBeastAreas.delete(areaId)) closedBeastAreas.add(areaId);
+        saveClosedBeastAreas();
         draw();
       });
       draw();
@@ -6998,8 +6999,25 @@ function foldChips(box: HTMLElement | null): void {
 /** Settings → Advanced tooltips: tags explain themselves with the numbers (chances, damage, durations). */
 let advancedTips = false;
 /** Settings categories left open this session. */
-/** Bestiary areas closed with their header (the rest are open), until the game restarts. */
-const closedBeastAreas = new Set<AreaId>();
+/** Bestiary areas closed with their header (the rest are open), remembered on this device. */
+const BEAST_AREAS_KEY = 'monster-horde-closed-beast-areas';
+const closedBeastAreas = new Set<AreaId>(
+  (() => {
+    try {
+      const v = JSON.parse(localStorage.getItem(BEAST_AREAS_KEY) ?? '[]');
+      return Array.isArray(v) ? (v.filter((a) => typeof a === 'string') as AreaId[]) : [];
+    } catch {
+      return [];
+    }
+  })(),
+);
+function saveClosedBeastAreas(): void {
+  try {
+    localStorage.setItem(BEAST_AREAS_KEY, JSON.stringify([...closedBeastAreas]));
+  } catch {
+    // Storage blocked: it's remembered until the game restarts.
+  }
+}
 const openSettingsCats = new Set<string>();
 
 /**
@@ -7236,12 +7254,15 @@ function wearerIcon(who: Wearer): string {
   return hunterIconHtml(who);
 }
 
-/** How long a level bar shows full when its level goes up, before it fades and starts again from the new level. */
+/** How long a level bar shows full when its level goes up (glowing), before that full bar fades away. */
 const LEVEL_BAR_HOLD = 450;
+/** How long the full bar takes to fade off the new level's progress. */
+const LEVEL_BAR_FADE = 500;
 
 /**
- * Sets a level progress bar's fill. When the level has gone up since last time, the bar first fills all the way,
- * holds a moment, then fades out and comes back at the new level's progress, so a level-up reads as a full bar.
+ * Sets a level progress bar's fill. When the level has gone up since last time, the bar fills all the way and
+ * glows, then that full bar fades away (still glowing) over the new level's progress, so a level-up reads as a
+ * full bar rather than the bar just emptying.
  */
 function levelBar(bar: HTMLElement, level: number, pct: number): void {
   const fill = $('i', bar);
@@ -7250,13 +7271,24 @@ function levelBar(bar: HTMLElement, level: number, pct: number): void {
   bar.dataset.pct = String(pct);
   if (level > prev) {
     bar.dataset.holding = '1';
-    fill.classList.remove('lvl-reset');
+    bar.querySelector('.lvl-ghost')?.remove();
     fill.style.width = '100%';
+    bar.classList.remove('lvl-glow');
+    void bar.offsetWidth; // restart the glow on a quick second level-up
+    bar.classList.add('lvl-glow');
     window.setTimeout(() => {
       delete bar.dataset.holding;
+      // A full copy of the bar on top fades out while the real fill drops straight to the new progress beneath.
+      const ghost = el('b', 'lvl-ghost');
+      fill.after(ghost);
       fill.classList.add('lvl-reset');
       fill.style.width = `${bar.dataset.pct}%`;
-      window.setTimeout(() => fill.classList.remove('lvl-reset'), 250);
+      void fill.offsetWidth;
+      fill.classList.remove('lvl-reset');
+      window.setTimeout(() => {
+        ghost.remove();
+        bar.classList.remove('lvl-glow');
+      }, LEVEL_BAR_FADE);
     }, LEVEL_BAR_HOLD);
     return;
   }
