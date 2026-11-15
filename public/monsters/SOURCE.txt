@@ -62,3 +62,5 @@ Guardian bosses (side view, walk strips baked into one row of square frames, all
 wolf-grey.png, wolf-ice.png: "The Wolf Pack" by finalbossblues (timefantasy.net; a free release for anyone to use):
   full_color/wolf_gray_full.png, its gallop (columns 4-6) in the rows facing down, up, left and right. wolf-ice is
   the same recoloured icy blue (each pixel's brightness mapped onto a navy-to-white ramp).
+bear-brown.png (the Brown Bear): a four-direction walk sheet (56px frames, rows facing down, left, right, up), provided
+  with the game's assets; it replaces the side-view bear from underground-mine-character-spritesheets.

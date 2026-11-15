@@ -67,7 +67,7 @@ export const SHEETS: Record<string, MonsterSheet> = {
   'vampire-red': { frame: 64, cols: 6, order: 'DULR', box: [12, 16, 40, 29] },
   'wolf-grey': { frame: 32, cols: 3, order: 'DULR', box: [2, 6, 28, 25] },
   'wolf-ice': { frame: 32, cols: 3, order: 'DULR', box: [2, 6, 28, 25] },
-  'bear-brown': { frame: 48, cols: 6, order: 'SIDE', faces: 'L', box: [5, 24, 43, 24] },
+  'bear-brown': { frame: 56, cols: 4, order: 'DLRU', box: [0, 2, 56, 54] },
   'yeti': { frame: 72, cols: 6, order: 'SIDE', box: [5, 42, 51, 30] },
   'pixie': { frame: 48, cols: 4, order: 'SIDE', faces: 'L', box: [18, 17, 25, 20] },
   'unicorn': { frame: 64, cols: 6, order: 'DULR', box: [10, 7, 44, 35] },
