@@ -61,6 +61,7 @@ import {
   rollLoot,
   gearTier,
   gearArea,
+  UNLOCK_SPAWN_BONUS,
   enemyUnlockKills,
   materialSources,
   LOOT_UNCRAFTED_SHARE,
@@ -3540,20 +3541,24 @@ describe('Equipment', () => {
     const g = new Game(newGame(0));
     g.state.areas.mines.unlocked = true;
     g.state.gold = 1e30;
-    // The Venom Caverns: Basilisks at 89,000 kills there, the last monster at 85% of the area's mastery.
-    expect(enemyUnlockKills(enemyDef('basilisk'))).toBe(89_000);
+    // The Venom Caverns: Basilisks at 53,000 kills there, the last monster at half the area's mastery.
+    expect(enemyUnlockKills(enemyDef('basilisk'))).toBe(53_000);
     expect(enemyUnlockKills(enemyDef('kobold'))).toBe(0);
-    expect(enemyUnlockKills(enemyDef('venomGolem'))).toBe(850_000);
+    expect(enemyUnlockKills(enemyDef('venomGolem'))).toBe(500_000);
     expect(enemyUnlockKills(enemyDef('twiggling'))).toBe(0); // the first two areas need none
     expect(g.unlockEnemy('basilisk')).toBe(false);
-    expect(g.unlockKillsLeft('basilisk')).toBe(89_000);
-    g.state.areas.mines.kills = 88_999;
+    expect(g.unlockKillsLeft('basilisk')).toBe(53_000);
+    g.state.areas.mines.kills = 52_999;
     expect(g.canUnlockEnemy('basilisk')).toBe(false);
-    g.state.areas.mines.kills = 89_000;
+    g.state.areas.mines.kills = 53_000;
+    const spawn = g.roster('mines').reduce((n, e) => n + e.spawnRate, 0);
     expect(g.unlockEnemy('basilisk')).toBe(true);
-    // Each wait is longer than the last.
+    // Every unlock brings more of the whole area (UNLOCK_SPAWN_BONUS), on top of the new monster's own spawns.
+    const kobold = g.roster('mines').find((e) => e.id === 'kobold')!.spawnRate;
+    expect(kobold).toBeCloseTo((spawn) * (1 + UNLOCK_SPAWN_BONUS));
+    // Each wait is at least as long as the last (rounding can make two equal).
     const roster = ENEMIES.filter((e) => e.area === 'mines' && !e.guardianOnly).sort((a, b) => a.unlock - b.unlock).map(enemyUnlockKills);
-    for (let i = 2; i < roster.length; i++) expect(roster[i] - roster[i - 1]).toBeGreaterThan(roster[i - 1] - roster[i - 2]);
+    for (let i = 2; i < roster.length; i++) expect(roster[i] - roster[i - 1]).toBeGreaterThanOrEqual(roster[i - 1] - roster[i - 2]);
   });
 
   it("loot only brings gear made from unlocked monsters' (and beaten Guardians') materials, mostly kinds you've crafted", () => {

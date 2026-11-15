@@ -1840,8 +1840,10 @@ export const enemyUnlockCost = (def: EnemyDef, areaGold = areaDef(def.area).gold
  * so there's always a next monster (and its gear) to work toward. The first two areas (and each area's first monster)
  * need no kills.
  */
-export const UNLOCK_KILL_SPAN = 0.85;
+export const UNLOCK_KILL_SPAN = 0.5;
 export const UNLOCK_KILL_CURVE = 1.4;
+/** From the Restless Graveyard on, each monster unlocked past an area's first brings this much more of the whole area. */
+export const UNLOCK_SPAWN_BONUS = 0.12;
 export function enemyUnlockKills(def: EnemyDef): number {
   const at = AREAS.findIndex((a) => a.id === def.area);
   if (at < 2 || def.guardianOnly || def.unlock <= 0) return 0;

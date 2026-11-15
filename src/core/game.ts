@@ -238,6 +238,7 @@ import {
   LOOT_UNCRAFTED_SHARE,
   LOOT_CURRENT_SHARE,
   enemyUnlockKills,
+  UNLOCK_SPAWN_BONUS,
 } from './balance';
 import { capAway, type OfflineResult } from './offline';
 import { invest, runWorth, shardsNow, type RunWorth } from './regression';
@@ -2567,6 +2568,10 @@ export class Game {
   roster(area: AreaId = this.state.area): EnemyStats[] {
     const here = areaEnemies(area).filter((e) => this.state.bestiary[e.id].unlocked);
     const list = here.map((e) => this.enemyStats(e.id));
+    // A growing horde: from the Restless Graveyard on, every monster unlocked past the first brings more of the whole
+    // area (UNLOCK_SPAWN_BONUS each), so each unlock speeds up the kills toward its Guardian.
+    const horde = 1 + (AREAS.findIndex((a) => a.id === area) >= 2 ? UNLOCK_SPAWN_BONUS * Math.max(0, here.length - 1) : 0);
+    if (horde > 1) for (const e of list) e.spawnRate *= horde;
     // A swarm brings at least SWARM_SPAWN times the area's usual monsters a second (all of its archetype), however
     // busy the area already is.
     const ev = this.activeEvent && area === this.state.area ? eventDef(this.activeEvent.id) : null;
