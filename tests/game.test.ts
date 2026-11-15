@@ -631,8 +631,10 @@ describe('Hunters', () => {
   it('every Hunter is unlocked in their home area (its events, its monsters), and not all by events', () => {
     for (const h of HUNTERS) {
       const u = h.unlock;
-      // Another Hunter's minigame can bring one in from elsewhere (Kargesh, for Wilhelm's Shooting Gallery).
-      if ('event' in u && eventDef(u.event).kind !== 'minigame') expect(eventDef(u.event).area, h.id).toBe(h.area);
+      // Another Hunter's minigame can bring one in from elsewhere (Kargesh, for Wilhelm's Shooting Gallery), and
+      // Marceline is freed by the Guardian before her area, so Enchant is ready as you arrive.
+      if (h.id === 'enchantress') expect(u).toEqual({ event: 'guardian-caves', times: 1 });
+      else if ('event' in u && eventDef(u.event).kind !== 'minigame') expect(eventDef(u.event).area, h.id).toBe(h.area);
       else if ('enemy' in u) expect(enemyDef(u.enemy).area, h.id).toBe(h.area);
       else if ('archetype' in u) expect(u.area, h.id).toBe(h.area);
     }
@@ -1789,7 +1791,7 @@ describe('Equipment', () => {
     const bow = g.craftGear('cinderBow')!; // Fire, Very Rare: 1 slot
     const rifle = g.craftGear('frostRifle')!; // Frost, Legendary: 2 slots
     const plate = g.craftGear('voidPlate')!; // Exalted heavy armor: 3 slots
-    expect(hunterDef('enchantress')).toMatchObject({ name: 'Marceline', area: 'mines', unlock: { event: 'guardian-mines', times: 1 } });
+    expect(hunterDef('enchantress')).toMatchObject({ name: 'Marceline', area: 'mines', unlock: { event: 'guardian-caves', times: 1 } });
     expect(g.enchant(bow.uid, 0)).toBeNull(); // closed until she joins
     g.state.hunters.enchantress.recruited = true;
     // What fits: no infusing a type the weapon deals; armor gets armor specials, not weapon enchantments.

@@ -2774,9 +2774,10 @@ export const HUNTERS: HunterDef[] = [
   {
     id: 'enchantress', name: 'Marceline', title: 'Enchantress', icon: '✨', color: '#c47cff', area: 'mines', recruitCost: 6e17,
     short: 'Enchants gear with new powers.',
-    unlock: { event: 'guardian-mines', times: 1 },
+    // Opens with the Ember Mines Guardian, so you can enchant your gear as soon as you reach the Venom Caverns.
+    unlock: { event: 'guardian-caves', times: 1 },
     ascendedTitle: 'Archenchantress',
-    story: "Marceline came to the Venom Caverns for the venom-bright crystals that hold an enchantment best, and the Caverns' Guardian has kept her pinned in the dark ever since. Beat it, and she'll put her runes on your gear.",
+    story: "Marceline came for the venom-bright crystals past the Ember Mines that hold an enchantment best, and the Mines' Guardian has kept her pinned at the Caverns' mouth ever since. Beat it, and she'll put her runes on your gear.",
     ability: "Unlocks Enchant in Equipment: add damage types, stronger status effects and abilities to Very Rare and rarer gear. Every 7 seconds, inscribes a Rune Circle that pulses Arcane, Fire and Frost, each pulse's effect certain. Fights with magic weapons.",
     special: {
       kind: 'runes',
