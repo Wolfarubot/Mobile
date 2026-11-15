@@ -2514,13 +2514,13 @@ export class Game {
     const ev = !calm && this.activeEvent && def.area === this.state.area ? eventDef(this.activeEvent.id) : null;
     const swarm = ev?.kind === 'swarm' ? (def.archetype === ev.archetype ? { spawn: ev.spawnMult ?? 1, speed: ev.speedMult ?? 1 } : { spawn: 0, speed: 1 }) : { spawn: 1, speed: 1 };
     const evo = this.evo(id);
-    const emp = (stat: 'hp' | 'gold' | 'drops' | 'spawn') => empowerMult(stat, Math.min(b.empower, MAX_EMPOWER_SESSIONS));
+    const emp = (stat: 'hp' | 'gold' | 'drops' | 'spawn' | 'speed') => empowerMult(stat, Math.min(b.empower, MAX_EMPOWER_SESSIONS));
     const idol = this.areaUpgrades(def.area);
     return {
       id,
       archetype: def.archetype,
       hp: area.hp * def.hp * emp('hp') * (1 + evo.hp) * this.regMult('enemyHp'),
-      speed: area.speed * def.speed * (1 + evo.speed) * swarm.speed,
+      speed: area.speed * def.speed * emp('speed') * (1 + evo.speed) * swarm.speed,
       gold: area.gold * def.gold * emp('gold') * (1 + evo.gold) * this.areaPerk(def.area).gold * (1 + BUFF_GOLD * this.buffPower('graveRobbing')) * this.premiumMult('gold') * this.regMult('gold'),
       spawnRate: b.unlocked ? Math.max(def.spawn * emp('spawn') * (1 + evo.spawn) * (isGolem(def) ? GOLEM_SPAWN : idol.spawn) * swarm.spawn * this.regMult('spawn') * (this.noHymn ? 1 : 1 + BUFF_ALLURE * this.buffPower('pixieSerenade')), swarm.spawn ? (ev?.minSpawn?.[id] ?? 0) : 0) : 0,
       dropChance: BASE_DROP_CHANCE * (isGolem(def) ? GOLEM_DROPS : 1) * emp('drops') * (1 + evo.drops) * (1 + BUFF_KEEN_EYE * this.buffPower('huntingPractice')) * this.premiumMult('drops') * this.regMult('drops'),

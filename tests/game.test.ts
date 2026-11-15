@@ -453,7 +453,7 @@ describe('Enemies & archetypes', () => {
     expect(after.gold).toBeCloseTo(before.gold * (1 + EMPOWER.gold));
     expect(after.dropChance).toBeCloseTo(before.dropChance * (1 + EMPOWER.drops));
     expect(after.spawnRate).toBeCloseTo(before.spawnRate * (1 + EMPOWER.spawn));
-    expect(after.speed).toBe(before.speed);
+    expect(after.speed).toBeCloseTo(before.speed * (1 + EMPOWER.speed));
     // Every 5 sessions is a level; each level is an evolution point.
     expect(g.monsterLevelInfo('wolf').level).toBe(1);
     expect(g.evoPoints('wolf')).toBe(0);

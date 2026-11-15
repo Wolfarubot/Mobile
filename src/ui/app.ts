@@ -1052,7 +1052,7 @@ export class AppUI {
   }
 
   /**
-   * Full-screen Hunter view with sub-tabs: Overview (training, abilities, stats, station), Equipment, Skills (the
+   * Full-screen Hunter view with sub-tabs: Overview (training, abilities, stats), Equipment, Skills (the
    * branching skill tree) and, for your Hunter, Abilities (tap abilities unlocked in the tree, swapped here).
    * Closing returns to the battlefield.
    */
@@ -1199,10 +1199,6 @@ export class AppUI {
         .concat(special && g.procOf(who) > 0 ? [`${specialIcon()} <b>Attacks</b> (${Math.round(g.procOf(who) * 100)}% chance): each element's own status effect.`] : [])
         .join('<br>');
     });
-    if (def && recruited) {
-      overview.appendChild(sectionTitle('Station'));
-      overview.appendChild(this.stationControls(def));
-    }
 
     // Abilities (your Hunter): tap abilities unlocked in the skill tree; one is equipped at a time.
 
@@ -1591,47 +1587,6 @@ export class AppUI {
     return true;
   }
 
-  /** Rest / area chips for a recruited Hunter, plus their yield where stationed. */
-  private stationControls(def: HunterDef): HTMLElement {
-    const g = this.game;
-    const wrap = el('div', 'station');
-    const chips = el('div', 'chips');
-    wrap.appendChild(chips);
-    const yieldEl = el('div', 'yield');
-    wrap.appendChild(yieldEl);
-    const rest = el('button', 'chip', 'Rest') as HTMLButtonElement;
-    rest.addEventListener('click', () => {
-      g.station(def.id, null);
-      this.refresh();
-    });
-    chips.appendChild(rest);
-    const areaChips = AREAS.map((a) => {
-      const c = el('button', 'chip', a.name.split(' ').pop()!) as HTMLButtonElement;
-      c.addEventListener('click', () => {
-        g.station(def.id, a.id);
-        this.refresh();
-      });
-      chips.appendChild(c);
-      return { a, c };
-    });
-    this.refreshers.push(() => {
-      const st = g.state.hunters[def.id];
-      rest.classList.toggle('on', !st.station);
-      for (const { a, c } of areaChips) {
-        c.classList.toggle('on', st.station === a.id);
-        c.disabled = !g.isAreaUnlocked(a.id) || !g.canStation(def.id, a.id);
-        const n = g.stationedIn(a.id).length;
-        c.textContent = `${a.name.split(' ').pop()} ${n}/${STATION_CAPACITY}`;
-      }
-      if (!st.station) yieldEl.textContent = 'Resting. Station them in an area to earn.';
-      else if (st.station === g.area) yieldEl.textContent = `Fighting beside you in ${areaDef(st.station).name}.`;
-      else {
-        const group = g.stationedIn(st.station);
-        yieldEl.innerHTML = yieldHtml(this.rates(st.station, group, g.stationEfficiency), `${areaDef(st.station).name}${group.length > 1 ? ` (with ${group.length - 1} other${group.length > 2 ? 's' : ''})` : ''}`);
-      }
-    });
-    return wrap;
-  }
 
   // ---- Equipment ----
 
@@ -3305,7 +3260,7 @@ export class AppUI {
         'p',
         'hd-note',
         g.empowerUnlocked
-          ? `Each session: +${Math.round(EMPOWER.hp * 1000) / 10}% HP, +${Math.round(EMPOWER.gold * 1000) / 10}% gold, +${Math.round(EMPOWER.drops * 1000) / 10}% material drops and +${Math.round(EMPOWER.spawn * 1000) / 10}% spawns. Every ${EMPOWER_SESSIONS_PER_LEVEL} sessions is a level, and every level earns an evolution point, up to Lv ${MAX_MONSTER_LEVEL} (fully evolved).`
+          ? `Each session: +${Math.round(EMPOWER.hp * 1000) / 10}% HP, +${Math.round(EMPOWER.gold * 1000) / 10}% gold, +${Math.round(EMPOWER.drops * 1000) / 10}% material drops, +${Math.round(EMPOWER.spawn * 1000) / 10}% spawns and +${Math.round(EMPOWER.speed * 1000) / 10}% speed. Every ${EMPOWER_SESSIONS_PER_LEVEL} sessions is a level, and every level earns an evolution point, up to Lv ${MAX_MONSTER_LEVEL} (fully evolved).`
           : `🔒 Slay ${EMPOWER_UNLOCK_KILLS} slimes to unlock Empower.`,
       ),
     );
@@ -4366,8 +4321,8 @@ export class AppUI {
     const g = this.game;
     const card = el('div', 'beast event-card');
     const icon = this.eventIcon(ev, 'ec-icon');
-    const blurb = ev.kind === 'minigame' ? tx('event.card.minigame', { buff: MINIGAME_BUFFS[ev.minigame!].name, desc: lowerFirst(MINIGAME_BUFFS[ev.minigame!].desc) }) : ev.blurb;
-    card.innerHTML = `<div class="beast-head">${icon.html}<div class="info"><div class="name">${ev.name}</div><div class="blurb">${blurb}</div></div></div><div class="ev-status"></div><div class="ev-foot"><span class="ev-cost">${this.costLine(ev)}</span><button class="buy ev-details">${tx('event.card.details')}</button><button class="buy ev-go"></button></div>`;
+    // The same description its Details page opens with (minigames included).
+    card.innerHTML = `<div class="beast-head">${icon.html}<div class="info"><div class="name">${ev.name}</div><div class="blurb">${ev.blurb}</div></div></div><div class="ev-status"></div><div class="ev-foot"><span class="ev-cost">${this.costLine(ev)}</span><button class="buy ev-details">${tx('event.card.details')}</button><button class="buy ev-go"></button></div>`;
     icon.draw(card);
     this.watchCost($('.ev-cost', card), () => this.costLine(ev));
     $('.ev-details', card).addEventListener('click', () => this.openEventDetail(ev));
@@ -4377,14 +4332,6 @@ export class AppUI {
       const record = best > 0 ? `${tx('event.card.best', { score: fmt(best) })} ${rankStars(g.starsFor(ev.id, best))}` : `${tx('event.card.notPlayed')} ${rankStars(0)}`;
       return ev.echo ? `${this.echoLine()}<br>${record}` : record;
     });
-    // The Rift Echo's line names the hour's game and buff, so it's kept current as the hour turns.
-    if (ev.echo) {
-      const blurbEl = $('.blurb', card);
-      this.refreshers.push(() => {
-        const html = tx('event.card.minigame', { buff: MINIGAME_BUFFS[ev.minigame!].name, desc: lowerFirst(MINIGAME_BUFFS[ev.minigame!].desc) });
-        if (blurbEl.innerHTML !== html) blurbEl.innerHTML = html;
-      });
-    }
     return card;
   }
 
@@ -7199,7 +7146,6 @@ function rankStars(n: number): string {
   return `<span class="stars rank-stars">${'★'.repeat(n)}<span class="off">${'★'.repeat(3 - n)}</span></span>`;
 }
 
-const lowerFirst = (t: string): string => t.replace(/^[A-Z](?=[a-z])/, (c) => c.toLowerCase());
 
 /** A minigame's rewards in words: gold, then each material. */
 function rewardText(r: { gold: number; materials: Partial<Record<MaterialId, number>> }): string {

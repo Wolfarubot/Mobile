@@ -742,11 +742,11 @@ section(
   E,
   'event.card',
   'Event card',
-  { minigame: 'Play for gold, materials, and {buff}: {desc}', best: 'Best {score}', notPlayed: 'Not played yet', details: 'Details', reward: 'Reward: {what}' },
+  { best: 'Best {score}', notPlayed: 'Not played yet', details: 'Details', reward: 'Reward: {what}' },
   {
     note: 'The card pinned under the event tiles.',
-    vars: { buff: "the minigame's buff", desc: 'what it does', score: 'best score', what: 'what finishing it gives' },
-    labels: { minigame: "Minigame's line", best: 'Best score', notPlayed: 'Not played', details: 'Details button', reward: 'Reward line' },
+    vars: { score: 'best score', what: 'what finishing it gives' },
+    labels: { best: 'Best score', notPlayed: 'Not played', details: 'Details button', reward: 'Reward line' },
   },
 );
 section(
