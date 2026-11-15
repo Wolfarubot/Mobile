@@ -2719,10 +2719,11 @@ export class Game {
       s.stats.totalGold += gold;
       s.areas[s.area].gold += gold;
       gain(e.material, BOSS_MATERIAL_DROP * doom);
-      this.dropLoot(s.area); // every Guardian carries a piece
       s.stats.guardians++;
       const next = this.lockedNext;
       this.endGuardian();
+      // Every Guardian carries a piece: dropped once the fight's over, so its pop-up shows (loot's are hidden during it).
+      this.dropLoot(s.area);
       told(); // once the fight's over, so its drops pop up (the pop-ups are hidden during the fight)
       this.completeEvent(`guardian-${s.area}`);
       if (next) {

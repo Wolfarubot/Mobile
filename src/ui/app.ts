@@ -578,10 +578,14 @@ export class AppUI {
         const at = performance.now();
         const quick = at - lastLoot < LOOT_POPUP_GAP || at < this.lootQuietUntil;
         lastLoot = at;
-        if (game.state.settings.lootPopups && !quick)
+        // Not during a Guardian fight (nor its pick-up, as with materials): the fight matters more than its drops,
+        // which still go to the Inventory.
+        if (!game.guardianActive) {
           // The piece's own icon (the one in your inventory), not its kind's.
-          this.toast(e.salvaged ? txt('toast.gear.salvaged', { item: `${pieceIcon} ${d.name}` }) : txt('toast.gear.loot', { item: `${pieceIcon} ${d.name}${e.stars > 1 ? ` ${e.stars}★` : ''}` }), true);
-        else if (game.state.settings.pickups) pops.addLoot(`${emojiImg('🎒', 'gem-ic')}${pieceIcon}`);
+          if (game.state.settings.lootPopups && !quick)
+            this.toast(e.salvaged ? txt('toast.gear.salvaged', { item: `${pieceIcon} ${d.name}` }) : txt('toast.gear.loot', { item: `${pieceIcon} ${d.name}${e.stars > 1 ? ` ${e.stars}★` : ''}` }), true);
+          else if (game.state.settings.pickups) pops.addLoot(`${emojiImg('🎒', 'gem-ic')}${pieceIcon}`);
+        }
         // The open Inventory updates in place (its lists follow the loot), keeping where you've scrolled to.
         if (this.tab === 'inventory') this.refresh();
       }
