@@ -1942,9 +1942,12 @@ export class AppUI {
         const up = el('button', 'buy', `Upgrade to ${item.stars + 1}★`) as HTMLButtonElement;
         up.disabled = !g.canUpgradeGear(uid);
         up.addEventListener('click', () => {
+          // Redrawn with its new stars, scrolled where it was (so the Upgrade button stays under your finger).
+          const top = body.scrollTop;
           g.upgradeGear(uid);
           close();
           this.openGearDetail(uid);
+          $('.sheet-body', this.modal).scrollTop = top;
         });
         actions.appendChild(up);
       }
