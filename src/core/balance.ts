@@ -11,6 +11,8 @@ export const BULLET_SPEED = 520;
 export const BASE_CRIT_CHANCE = 0.05;
 export const CRIT_MULT = 3;
 export const TAP_DAMAGE_MULT = 2; // a tap blast deals this many shots of damage
+/** The weapon pace (hits a second at base speed) whose taps deal TAP_DAMAGE_MULT of its hit: a standard Sword's. */
+export const TAP_PACE_REF = 0.9;
 export const TAP_RADIUS = 48;
 /** An enemy that reaches the Hunter stuns them this long (seconds), then flees. */
 export const STUN_TIME = 1.2;

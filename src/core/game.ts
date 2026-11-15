@@ -230,6 +230,7 @@ import {
   SWARM_SPAWN,
   timeEaterGrowth,
   HAMMER_AREA_SHARE,
+  TAP_PACE_REF,
 } from './balance';
 import { capAway, type OfflineResult } from './offline';
 import { invest, runWorth, shardsNow, type RunWorth } from './regression';
@@ -595,7 +596,17 @@ export class Game {
   /** Damage of a tap blast (Tap Power nodes, and the equipped tap ability). */
   get tapDamage(): number {
     const ab = this.tapAbility;
-    return this.damage * TAP_DAMAGE_MULT * (1 + this.tree('main').tapPower) * (ab ? tapAbilityDef(ab).damage : 1);
+    return this.damage * this.tapPace * TAP_DAMAGE_MULT * (1 + this.tree('main').tapPower) * (ab ? tapAbilityDef(ab).damage : 1);
+  }
+
+  /**
+   * How a tap's damage follows your weapon's pace: its hit times how many hits it lands a second (its class's rate,
+   * reloads and volleys; not your attack speed bonuses), against TAP_PACE_REF. Every class deals about the same
+   * damage a second, so a slow, heavy hammer or rifle no longer taps several times harder than a quick repeater.
+   */
+  get tapPace(): number {
+    const cls = this.weaponClassOf('main');
+    return cls ? (cls.rate * weaponUptime(cls) * weaponHitsPerAttack(cls)) / TAP_PACE_REF : 1;
   }
 
   /** The tap ability your Hunter has equipped, if it's still unlocked. */
