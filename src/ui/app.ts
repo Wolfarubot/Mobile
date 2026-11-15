@@ -3447,11 +3447,19 @@ export class AppUI {
       const wornBy = new Map<number, Wearer>();
       for (const [w, uids] of Object.entries(g.state.equipment) as [Wearer, Array<number | null>][]) for (const u of uids.slice(0, g.slotsOf(w).length)) if (u !== null) wornBy.set(u, w);
       const equippedView = this.invEquipped && !refining;
+      // Which pieces you could upgrade now (gold and materials both in hand), worked out once per kind and stars.
+      const affordMemo = new Map<string, boolean>();
+      const affordable = (it: GearItem) => {
+        const key = `${it.base}:${it.stars}`;
+        let v = affordMemo.get(key);
+        if (v === undefined) affordMemo.set(key, (v = g.canUpgradeGear(it.uid)));
+        return v;
+      };
       const k = [
         JSON.stringify(f),
         refining,
         equippedView,
-        gear.map((it) => `${it.uid}:${it.stars}:${wornBy.get(it.uid) ?? ''}:${it.mods ? it.mods.filter(Boolean).length : 0}`).join('|'),
+        gear.map((it) => `${it.uid}:${it.stars}:${wornBy.get(it.uid) ?? ''}:${it.mods ? it.mods.filter(Boolean).length : 0}:${affordable(it) ? 1 : 0}`).join('|'),
         upgrades.map((it) => `${it.id}:${g.state.items[it.id]}`).join('|'),
       ].join('/');
       if (k === invKey) return;
@@ -3495,7 +3503,7 @@ export class AppUI {
         const tile = el('button', `inv-tile rar${gd.unboundOf ? ' ub' : ''}`) as HTMLButtonElement;
         tile.style.setProperty('--rc', gearColor(gd.id));
         const slots = g.modSlots(it.uid);
-        tile.innerHTML = `<i>${gearIcon(gd)}</i><span>${gd.name}</span><small class="stars">${starsHtml(it.stars)}</small>${worn ? `<em>${wearerIcon(worn.who)}</em>` : ''}${slots.length ? `<b class="mod-pips">${slots.map((m) => (m ? (modPerfect(m) ? '★' : '◆') : '◇')).join('')}</b>` : ''}${stack.length > 1 ? `<b class="stack-n">×${stack.length}</b>` : ''}${stack.some((x) => x.uid > g.state.seen.gearUid) ? '<span class="alert-mark white tile-new"></span>' : ''}`;
+        tile.innerHTML = `<i>${gearIcon(gd)}</i><span>${gd.name}</span><small class="stars">${starsHtml(it.stars)}</small>${worn ? `<em>${wearerIcon(worn.who)}</em>` : ''}${slots.length ? `<b class="mod-pips">${slots.map((m) => (m ? (modPerfect(m) ? '★' : '◆') : '◇')).join('')}</b>` : ''}${stack.length > 1 ? `<b class="stack-n">×${stack.length}</b>` : ''}${affordable(it) ? '<b class="can-up" title="Can upgrade"><svg viewBox="0 0 9 10" shape-rendering="crispEdges"><path d="M4.5 0.5 L8.5 4.5 L6 4.5 L6 9.5 L3 9.5 L3 4.5 L0.5 4.5 Z" fill="#3fd25a" stroke="#000" stroke-width="1" stroke-linejoin="miter"/><path d="M4.5 2 L6.5 4 L4.5 4 Z" fill="#b6ffbf"/></svg></b>' : ''}${stack.some((x) => x.uid > g.state.seen.gearUid) ? '<span class="alert-mark white tile-new"></span>' : ''}`;
         tile.addEventListener('click', () => {
           if (this.heldFor === tile) return void (this.heldFor = null);
           if (refining) this.openModify(it.uid);

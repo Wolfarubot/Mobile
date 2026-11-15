@@ -8383,6 +8383,31 @@ html.ios-home #app {
   border: 2px solid var(--c0);
   box-shadow: 0 0 0 1px var(--rc, var(--c2));
 }
+/* Enough gold and materials to upgrade it: a little green arrow pointing up, in the bottom-left corner. */
+.inv-tile .can-up {
+  position: absolute;
+  left: 4px;
+  bottom: 4px;
+  width: 14px;
+  height: 16px;
+  line-height: 0;
+  pointer-events: none;
+  animation: can-up-bob 1.2s ease-in-out infinite;
+}
+.inv-tile .can-up svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+@keyframes can-up-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
 /* A stack of identical spare pieces: how many, in the top-right corner (where a worn piece shows its wearer). */
 .inv-tile .stack-n {
   position: absolute;
