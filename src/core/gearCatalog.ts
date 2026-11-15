@@ -28,7 +28,13 @@ export type CatalogAccEffect =
   | { kind: 'pulse'; radius: number; cooldown: number; dmg: CatalogDamage }
   | { kind: 'strike'; targets: number; cooldown: number; range: number; dmg: CatalogDamage }
   | { kind: 'thorns'; dmg: CatalogDamage }
-  | { kind: 'chill'; radius: number };
+  | { kind: 'chill'; radius: number }
+  /**
+   * Summons `count` of a monster (its art: `art`, a monster id) on its cooldown, charging through the monsters for
+   * `duration` seconds and striking each one they pass for a share of its area's base damage (as the Puppeteer's
+   * Brooch does). `name` is one of them, made plural with an s; `type` is what kind of creature they are.
+   */
+  | { kind: 'summon'; art: string; name: string; type: CatalogArchetype; count: number; duration: number; cooldown: number; bites: number; speed: number; dmg: CatalogDamage };
 export type CatalogArchetype = 'slime' | 'beast' | 'undead' | 'demon' | 'elemental' | 'humanoid' | 'plant' | 'dragon' | 'construct';
 
 export type CatalogSpec<I extends string = string> =
@@ -203,6 +209,7 @@ export const GEAR_CATALOG = [
   a('mothRobe', 'Mothsilk Robe', '👘', 'robe', { gloom: 10, shadowWisp: 4 }),
   a('crawlerPlate', 'Crawler Plate', '🛡️', 'heavy', { darkClaw: 12, umbra: 4 }),
   sh('pearlShield', 'Pearl Shield', '🛡️', { umbra: 8, umbralSlime: 6 }),
+  xa('duskmothFlute', 'Duskmoth Flute', '🪈', ['statusChance'], { gloom: 8, umbralEye: 5 }, { kind: 'summon', art: 'duskmoth', name: 'duskmoth', type: 'beast', count: 3, duration: 6, cooldown: 8, bites: 1, speed: 200, dmg: 'decay' }),
   x('eyeAmulet', 'Eye Amulet', '🧿', ['range'], { umbralEye: 8, gloom: 4 }),
   x('bandolier', 'Bandolier', '🎒', ['rate'], { gloom: 8, darkClaw: 6 }),
   x('abyssPearl', 'Abyssal Pearl', '🦪', ['gold'], { umbra: 6, umbralSlime: 6 }),
@@ -246,6 +253,7 @@ export const GEAR_CATALOG = [
   a('impLeathers', 'Imp Leathers', '🧥', 'light', { demonWing: 10, chitin: 4 }),
   a('magmaPlate', 'Magma Plate', '🛡️', 'heavy', { magma: 10, demonBone: 6 }),
   sh('hellShield', 'Hellforged Shield', '🛡️', { demonBone: 10, chitin: 6 }),
+  xa('impGong', 'Imp Gong', '🔔', ['abilityPower'], { demonTooth: 8, ember: 5 }, { kind: 'summon', art: 'imp', name: 'imp', type: 'demon', count: 2, duration: 6, cooldown: 8, bites: 1.5, speed: 180, dmg: 'fire' }),
   x('cinderRing', 'Cinder Ring', '💍', ['damage'], { ember: 8, demonTooth: 4 }),
   x('demonHorn', 'Demon Horn', '📯', [], { demonBone: 8, demonTooth: 4 }, 'demon'),
   x('minersLamp', "Miner's Lamp", '🪔', ['drops', 'abilityPower'], { chitin: 8, ember: 5 }),
@@ -294,6 +302,7 @@ export const GEAR_CATALOG = [
   a('mithrilMail', 'Mithril Mail', '⛓️', 'heavy', { ore: 12, scale: 4 }),
   a('scaleLeathers', 'Drakescale Leathers', '🧥', 'light', { scale: 10, chitin: 4 }),
   a('venomRobe', 'Venomweave Robe', '👘', 'robe', { scale: 8, demonWing: 6 }),
+  xa('koboldDrum', 'Kobold War Drum', '🥁', ['gold'], { ore: 8, chitin: 5 }, { kind: 'summon', art: 'kobold', name: 'kobold', type: 'humanoid', count: 3, duration: 7, cooldown: 9, bites: 1, speed: 150, dmg: 'physical' }),
   x('mithrilBand', 'Mithril Band', '💍', ['crit'], { ore: 8, scale: 4 }),
   x('dragonscaleCharm', 'Dragonscale Charm', '🐉', [], { scale: 10, ore: 4 }, 'dragon'),
   x('prospectorPick', "Prospector's Pick", '⛏️', ['gold'], { ore: 10, chitin: 4 }),
@@ -343,6 +352,7 @@ export const GEAR_CATALOG = [
   a('wraithShroud', 'Wraith Shroud', '👘', 'robe', { ecto: 10, fur: 5 }),
   sh('iceShield', 'Ice Shield', '🛡️', { frost: 10, fur: 6 }),
   a('spiritMail', 'Spirit Mail', '⛓️', 'heavy', { ecto: 12, frost: 8 }, true),
+  xa('frostfangHorn', 'Frostfang Horn', '📯', ['rate'], { fur: 8, frost: 5 }, { kind: 'summon', art: 'iceWolf', name: 'frostfang', type: 'beast', count: 2, duration: 5, cooldown: 7, bites: 1.5, speed: 220, dmg: 'frost' }),
   x('snowflakeBrooch', 'Snowflake Brooch', '❄️', ['stun'], { frost: 8, ecto: 4 }),
   x('furGloves', 'Wolf-Fur Gloves', '🧤', ['rate'], { fur: 8, frost: 4 }),
   x('ectoLantern', 'Ecto Lantern', '🏮', ['radius'], { ecto: 8, frost: 4 }),
@@ -396,6 +406,7 @@ export const GEAR_CATALOG = [
   a('windRobe', 'Windweave Robe', '👘', 'robe', { plume: 10, skystone: 5 }),
   sh('skystoneShield', 'Skystone Shield', '🛡️', { skystone: 10, plume: 6 }),
   a('ascendantRobe', 'Ascendant Vestments', '🥻', 'robe', { skystone: 12, plume: 10 }, true),
+  xa('griffinCall', 'Griffin Call', '🎺', ['range'], { plume: 8, skystone: 5 }, { kind: 'summon', art: 'griffin', name: 'griffin', type: 'beast', count: 1, duration: 6, cooldown: 8, bites: 3, speed: 230, dmg: 'physical' }),
   x('featherCharm', 'Feather Charm', '🪶', ['rate'], { plume: 8, skystone: 4 }),
   x('skystoneRing', 'Skystone Ring', '💍', ['damage'], { skystone: 8, plume: 4 }),
   x('eagleEye', 'Eagle Eye', '🦅', ['range'], { plume: 8, skystone: 6 }),
@@ -448,6 +459,7 @@ export const GEAR_CATALOG = [
   a('stormhide', 'Stormhide Leathers', '🧥', 'light', { feather: 10, thunder: 5 }),
   sh('knightShield', 'Sky Knight Shield', '🛡️', { thunder: 10, feather: 6 }),
   a('titanPlate', 'Titan Plate', '🛡️', 'heavy', { thunder: 16, feather: 10 }, true),
+  xa('valkyrieHorn', "Valkyrie's Horn", '📯', ['crit'], { feather: 8, thunder: 5 }, { kind: 'summon', art: 'valkyrie', name: 'valkyrie', type: 'humanoid', count: 2, duration: 6, cooldown: 8, bites: 1.5, speed: 190, dmg: 'radiant' }),
   x('thunderRing', 'Thunder Ring', '💍', ['crit'], { thunder: 8, feather: 4 }),
   x('featherCrown', 'Feather Crown', '👑', ['damage'], { feather: 10, thunder: 4 }),
   x('stormCharm', 'Storm Charm', '⚡', ['rate'], { thunder: 8, feather: 6 }),
@@ -505,6 +517,7 @@ export const GEAR_CATALOG = [
   a('nebulaRobe', 'Nebula Robe', '👘', 'robe', { stardust: 12, meteor: 4 }),
   sh('sentinelShield', 'Sentinel Shield', '🛡️', { meteor: 10, stardust: 6 }),
   a('cosmicRobe', 'Cosmic Vestments', '🥻', 'robe', { stardust: 16, meteor: 8 }, true),
+  xa('cometChime', 'Comet Chime', '🔔', ['radius'], { stardust: 8, meteor: 5 }, { kind: 'summon', art: 'cometWisp', name: 'comet wisp', type: 'elemental', count: 3, duration: 6, cooldown: 8, bites: 1, speed: 210, dmg: 'arcane' }),
   x('starRing', 'Star Ring', '💍', ['damage'], { stardust: 8, meteor: 4 }),
   x('cometTail', 'Comet Tail', '🌠', ['rate'], { stardust: 8, meteor: 6 }),
   x('meteorCore', 'Meteor Core', '☄️', ['radius'], { meteor: 10, stardust: 4 }),
@@ -565,6 +578,7 @@ export const GEAR_CATALOG = [
   a('wyrmscaleArmor', 'Wyrmscale Armor', '🐉', 'heavy', { void: 14, soul: 8 }),
   sh('riftShield', 'Rift Shield', '🛡️', { void: 12, shade: 6 }),
   a('lichShroud', 'Lich Shroud', '👘', 'robe', { soul: 10, shade: 6 }),
+  xa('shadeBell', 'Shade Bell', '🔔', ['cooldown'], { soul: 8, shade: 5 }, { kind: 'summon', art: 'shade', name: 'shade', type: 'undead', count: 3, duration: 7, cooldown: 9, bites: 1, speed: 180, dmg: 'void' }),
   x('voidRing', 'Void Ring', '💍', ['crit'], { void: 8, soul: 4 }),
   x('soulAmulet', 'Soul Amulet', '📿', ['damage'], { soul: 10, void: 6 }),
   x('riftCompass', 'Rift Compass', '🧭', ['range'], { void: 8, shade: 6 }),

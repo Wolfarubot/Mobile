@@ -2812,7 +2812,7 @@ export class Field {
         if (!this.nearest(x, y, 2000)) return false;
         for (let i = 0; i < ef.count; i++) {
           const a = (i / ef.count) * Math.PI * 2 + this.game.rng();
-          this.summons.push({ who, type: ef.type, x: x + Math.cos(a) * 22, y: y + Math.sin(a) * 22, life: ef.duration * this.game.summonDurationMult(who), maxLife: ef.duration * this.game.summonDurationMult(who), bite: 0, look: ef.look, dash: 0, dashHit: false, gear: { uid, base, damageType: ef.damageType, bites: ef.bites, speed: ef.speed } });
+          this.summons.push({ who, type: ef.type, x: x + Math.cos(a) * 22, y: y + Math.sin(a) * 22, life: ef.duration * this.game.summonDurationMult(who), maxLife: ef.duration * this.game.summonDurationMult(who), bite: 0, look: ef.look, ...(ef.art ? { art: ef.art } : {}), dash: 0, dashHit: false, gear: { uid, base, damageType: ef.damageType, bites: ef.bites, speed: ef.speed } });
         }
         this.events.push({ type: 'nova', x, y, r: 30, color: '#d8a878' });
         return true;

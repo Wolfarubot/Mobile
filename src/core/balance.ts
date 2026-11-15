@@ -3345,7 +3345,7 @@ export type GearEffect =
   | { kind: 'block'; base: number; damageType: DamageType; radius: number; chance?: number }
   | { kind: 'evade'; chance: number }
   | { kind: 'pulse'; base: number; damageType: DamageType; radius: number; cooldown: number }
-  | { kind: 'summon'; base: number; damageType: DamageType; look: 'puppet'; type: SummonType; name: string; count: number; duration: number; cooldown: number; bites: number; speed: number }
+  | { kind: 'summon'; base: number; damageType: DamageType; look: 'puppet' | 'monster'; art?: EnemyId; type: SummonType; name: string; count: number; duration: number; cooldown: number; bites: number; speed: number }
   | { kind: 'wave'; base: number; damageType: DamageType; radius: number; chance: number }
   | { kind: 'strike'; base: number; damageType: DamageType; targets: number; cooldown: number; range: number }
   | { kind: 'chill'; radius: number }
@@ -4570,6 +4570,9 @@ function mirrorEffect(acc: MirrorAcc, rarity: Rarity, area: number): { effect?: 
     : { effect: { kind: 'pulse', base: Math.round(base * 0.5), damageType, radius: 80 + 5 * (area - 6), cooldown: 6 } };
 }
 
+/** A summoning accessory's creatures strike for this share of their area's base hit (TIER_HIT). */
+const SUMMON_ACC_SHARE = 0.53;
+
 /** A catalog accessory's ability; damaging ones hit for their area's base damage (TIER_HIT), like armor specials. */
 function catalogAccEffect(e: CatalogAccEffect | undefined, area: number, m: number): { effect?: GearEffect } {
   if (!e) return {};
@@ -4591,6 +4594,11 @@ function catalogAccEffect(e: CatalogAccEffect | undefined, area: number, m: numb
       return { effect: { kind: 'strike', base, damageType: e.dmg, targets: e.targets, cooldown: e.cooldown, range: e.range } };
     case 'thorns':
       return { effect: { kind: 'thorns', base, damageType: e.dmg } };
+    case 'summon':
+      // A share of the area's hit, as the Puppeteer's Brooch is of the Forsaken Crypt's (8 of 15).
+      return {
+        effect: { kind: 'summon', base: Math.round(base * SUMMON_ACC_SHARE * 10) / 10, damageType: e.dmg, look: 'monster', art: e.art as EnemyId, type: e.type, name: e.name, count: e.count, duration: e.duration, cooldown: e.cooldown, bites: e.bites, speed: e.speed },
+      };
   }
 }
 
