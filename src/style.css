@@ -8413,7 +8413,7 @@ html.ios-home #app {
   top: 3px;
   right: 5px;
   font-size: 12px;
-  color: var(--gold);
+  color: #fff;
   text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
 }
 .inv-tile em img.ei {
