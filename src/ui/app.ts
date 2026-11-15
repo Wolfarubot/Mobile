@@ -176,6 +176,7 @@ import { battleSfx, pressSound, setSfxVolume, sfx } from './sound';
 import { JOURNAL, type JournalEntry } from '../core/journal';
 import { App as CapApp } from '@capacitor/app';
 import { MINIGAMES, runMinigame } from './minigames';
+import { decodeSaveCode, encodeSaveCode } from '../core/saveCode';
 import { applyAreaTheme, applyUiStyle } from './theme';
 import './texts';
 import { tx, txp, txt } from '../core/textRegistry';
@@ -318,6 +319,9 @@ const AREA_HOLD_MS = 550;
 const DOUBLE_TAP_MS = 350;
 /** One-time tips wait at least this long after the last popup opened or closed. */
 const POPUP_GAP_MS = 30_000;
+/** Naming your Hunter this opens the Dev settings (in every build). */
+const DEV_NAME = '8675309';
+const devUnlocked = (name: string): boolean => name.trim() === DEV_NAME;
 /** How long a press is held to count as a long press (a worn piece in Inventory: its wearer's slot picker). */
 const LONG_PRESS_MS = 500;
 /** Holding a tab this long raises (or drops) the full-screen menu. */
@@ -6038,8 +6042,18 @@ export class AppUI {
     const input = $<HTMLInputElement>('.name-input', nameCard);
     input.value = g.state.settings.name;
     input.addEventListener('input', () => {
+      const had = devUnlocked(g.state.settings.name);
       g.state.settings.name = input.value.slice(0, MAX_NAME_LENGTH);
       this.applySettings();
+      // The Dev name opens the Dev settings (in every build): shown open, at the bottom of Settings.
+      if (!had && devUnlocked(g.state.settings.name) && import.meta.env.MODE === 'release') {
+        this.hooks.save();
+        openSettingsCats.add('dev');
+        this.openSettings();
+        const sc = $('.hd-scroll', this.detail!.el);
+        sc.scrollTop = sc.scrollHeight;
+        this.toast('🛠️ Dev settings unlocked');
+      }
     });
     input.addEventListener('change', () => this.hooks.save());
     input.addEventListener('keydown', (e) => e.key === 'Enter' && input.blur());
@@ -6447,9 +6461,10 @@ export class AppUI {
     );
     body.appendChild(wipe);
 
-    // Dev: jump to any point of the game to try an area's monsters and gear. Not in release builds.
-    if (import.meta.env.MODE === 'release') return;
+    // Dev: jump to any point of the game, and save codes. In release builds only for the Dev name.
+    if (import.meta.env.MODE === 'release' && !devUnlocked(g.state.settings.name)) return;
     section('dev', 'Dev');
+    body.appendChild(this.saveCodeCard());
     const perf = el('div', 'card setting');
     perf.innerHTML = `<div class="setting-name">Frame times</div><p>A readout over the screen of frames per second and how many milliseconds each part of a frame takes (game, battlefield, drawing, menus; worst in brackets), refreshed every second. For finding what slows the game down on this phone.</p><button class="secondary perf-toggle"></button>`;
     const perfBtn = $('.perf-toggle', perf);
@@ -6478,6 +6493,45 @@ export class AppUI {
     );
     void this.hooks.hasDevBackup().then((has) => restore.classList.toggle('hidden', !has));
     body.appendChild(dev);
+  }
+
+  /**
+   * Settings → Dev → Save codes: copy this exact game as a code, or load one (your own save is kept, as with a
+   * progress phase, until Restore). A loaded code keeps this device's settings (your name, so Dev stays open) and
+   * starts from the moment it was copied (no offline gains for the time between).
+   */
+  private saveCodeCard(): HTMLElement {
+    const g = this.game;
+    const card = el('div', 'card setting dev-codes');
+    card.innerHTML = `<div class="setting-name">Save codes</div><p>Copy your exact game as a code to keep or load on another device, or load a code to play from that point. Your own save is kept, and comes back with Restore.</p><button class="buy dev-copy">Copy save code</button><button class="secondary dev-paste">Load a save code…</button>`;
+    $('.dev-copy', card).addEventListener('click', () => {
+      void encodeSaveCode(g.state).then((code) => {
+        const area = areaDef(g.area).name;
+        const info = `Lv ${g.levelOf('main')} · ${area} · run ${g.state.regression.runs + 1} · build ${__BUILD__}`;
+        this.showModal(`<h2>🛠️ Save code</h2><p>${esc(info)}</p><textarea class="code-box" readonly rows="6">${code}</textarea><p class="code-note">Copied to the clipboard. If it didn't copy, select the code above and copy it.</p>`, [{ label: 'Close', secondary: true }]);
+        const box = $<HTMLTextAreaElement>('.code-box', this.modal);
+        box.addEventListener('focus', () => box.select());
+        navigator.clipboard?.writeText(code).catch(() => ($('.code-note', this.modal).textContent = "Couldn't copy it: select the code above and copy it."));
+      });
+    });
+    $('.dev-paste', card).addEventListener('click', () => {
+      this.showModal(`<h2>🛠️ Load a save code</h2><p>Paste a code below. Loading it replaces the game you're playing; your own save is kept until you Restore it.</p><textarea class="code-box" rows="6" placeholder="PH1.…" autocomplete="off" spellcheck="false"></textarea>`, [
+        { label: 'Cancel', secondary: true },
+        {
+          label: 'Load',
+          action: () => {
+            const code = $<HTMLTextAreaElement>('.code-box', this.modal).value;
+            void decodeSaveCode(code).then((st) => {
+              if (!st) return this.toast("That isn't a save code (check it was copied whole)");
+              st.settings = structuredClone(g.state.settings);
+              st.lastSeen = Date.now();
+              void this.hooks.devPhase(st);
+            });
+          },
+        },
+      ]);
+    });
+    return card;
   }
 
   /** Settings → Dev → Progress: every area's start and end, recorded from a typical player's run (public/dev-presets.json). */
