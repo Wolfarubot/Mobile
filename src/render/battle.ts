@@ -233,7 +233,7 @@ export class BattleView {
           // tap's ring, in its element's colour.
           if (this.fancy && e.spell && e.color === DAMAGE_TYPES.fire.color) this.playEffect('explosion', e.x, e.y, this.game.tapRadius * 2);
           else if (this.fancy && e.color === DAMAGE_TYPES.lightning.color) this.playEffect('lightning', e.x, e.y + 6, this.game.tapRadius * 2.4, 'bottom', 22);
-          else if (this.fancy && e.spell && e.color === DAMAGE_TYPES.frost.color) this.playEffect('ice', e.x, e.y + 6, this.game.tapRadius * 1.8, 'bottom', 20);
+          else if (this.fancy && e.spell && e.color === DAMAGE_TYPES.frost.color) this.playEffect('icecube', e.x, e.y + this.game.tapRadius * 0.4, this.game.tapRadius * 1.3, 'bottom', 26);
           this.rings.push({ x: e.x, y: e.y, t: 0, r: this.game.tapRadius, color: e.color ? hexRgb(e.color) : '255,255,255', max: 0.25 });
           if (e.color) this.fx.burst(e.x, e.y, e.color, 10, 160, 3, 0);
           break;
@@ -342,7 +342,8 @@ export class BattleView {
           break;
         }
         case 'thorns':
-          if (this.fancy) this.playEffect('spikes', e.x, e.y + e.r, Math.max(30, e.r * 2.6), 'bottom', 24);
+          // Thorny vines lashing up round whoever reached the wearer.
+          if (this.fancy) this.playEffect('vines', e.x, e.y + e.r * 0.6, Math.max(40, e.r * 3.2), 'bottom', 24);
           break;
         case 'guard':
           sfx('block');
@@ -777,7 +778,13 @@ export class BattleView {
       const img = effectImage(a.key);
       if (!img) continue;
       g.globalAlpha = a.alpha;
-      drawEffectFrame(g, tinted(img, a.color), a.key, a.start + Math.floor(a.t * a.fps), a.x, a.y, a.size, a.anchor);
+      if (a.angle) {
+        g.save();
+        g.translate(a.x, a.y);
+        g.rotate(a.angle);
+        drawEffectFrame(g, tinted(img, a.color), a.key, a.start + Math.floor(a.t * a.fps), 0, 0, a.size, a.anchor);
+        g.restore();
+      } else drawEffectFrame(g, tinted(img, a.color), a.key, a.start + Math.floor(a.t * a.fps), a.x, a.y, a.size, a.anchor);
       g.globalAlpha = 1;
     }
     this.drawStrikes(g, false);
@@ -1243,11 +1250,22 @@ export class BattleView {
     switch (e.fx) {
       case 'spike':
         // An ice spike bursting up out of the ground.
-        if (this.fancy) this.playEffect('spikes', e.x, e.y + e.r * 0.6, e.r * 2.6, 'bottom', 26, 0, 1, e.color);
+        if (this.fancy) this.playEffect('icespikes', e.x, e.y + e.r * 0.6, e.r * 2.4, 'bottom', 24);
         else this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: rgb, max: 0.25, fill: true });
         this.fx.burst(e.x, e.y, '#e8f8ff', 4, 90, 2.5, 0, true);
         break;
       case 'cone':
+        // Fire Breath (an Imp's): a spray of fire aimed down the cone, embers flying out.
+        if (e.color === DAMAGE_TYPES.fire.color) {
+          if (this.fancy) this.playEffect('firebreath', e.x + Math.cos(e.a!) * e.r * 0.5, e.y + Math.sin(e.a!) * e.r * 0.5, e.r * 1.05, 'center', 22, 0, 1, undefined, e.a);
+          else this.sweeps.push({ x: e.x, y: e.y, a: e.a!, arc: e.arc!, r: e.r, color: e.color, t: 0 });
+          for (let i = 0; i < 8; i++) {
+            const a = e.a! + (Math.random() - 0.5) * e.arc!;
+            const d = e.r * (0.3 + Math.random() * 0.7);
+            this.fx.burst(e.x + Math.cos(a) * d, e.y + Math.sin(a) * d, i % 2 ? '#ffd23a' : e.color, 1, 70, 3, -60, true);
+          }
+          break;
+        }
         // A fan of frost: frost sprays bursting across the cone (Fancy) or a pale sweep, and shards flying out.
         if (this.fancy)
           for (let i = 0; i < 5; i++) {
@@ -1291,10 +1309,8 @@ export class BattleView {
         break;
       case 'rock':
         // A rock crashing down out of the sky: an impact in stone (Fancy) or a streak and a ring, then dust and chips.
-        if (this.fancy) {
-          this.playEffect('smash', e.x, e.y, e.r * 2, 'center', 26, SMASH_START, 0.8, STONE_COLOR);
-          this.playEffect('shards', e.x, e.y, e.r * 1.2, 'center', 14, 0, 1, STONE_COLOR);
-        } else {
+        if (this.fancy) this.playEffect('stones', e.x, e.y + e.r * 0.6, e.r * 2.4, 'bottom', 24);
+        else {
           this.beams.push({ x1: e.x + 14, y1: e.y - 110, x2: e.x, y2: e.y, color: '#8a8478', width: 6, t: 0 });
           this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: '200,190,170', max: 0.3, fill: true });
         }
@@ -1324,6 +1340,23 @@ export class BattleView {
         this.fx.burst(e.x, e.y, '#9a9488', 10, 160, 4, 300, true);
         this.fx.burst(e.x, e.y, '#6a6458', 8, 120, 3, 300, true);
         this.shake = Math.max(this.shake, 0.1);
+        break;
+      case 'meteor':
+        // Starfall: flaming meteors raining down where a Meteor Golem lands.
+        sfx('explosion');
+        if (this.fancy) this.playEffect('meteor', e.x, e.y + e.r * 0.5, e.r * 2.2, 'bottom', 20);
+        else this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: rgb, max: 0.35, fill: true });
+        this.fx.burst(e.x, e.y, '#ffb04a', 10, 140, 3, 200, true);
+        this.shake = Math.max(this.shake, 0.12);
+        break;
+      case 'wings':
+        // A Valkyrie's Guardian Wings spreading round the Hunter she shields.
+        if (this.fancy) this.playEffect('wings', e.x, e.y - 6, e.r * 3, 'center', 16);
+        break;
+      case 'iceburst':
+        // A burst of ice shards (a Frost Sprite's bolt, an Ice Wolf's freezing bite).
+        if (this.fancy) this.playEffect('iceburst', e.x, e.y, e.r * 2, 'center', 18);
+        else this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: rgb, max: 0.25 });
         break;
       case 'rise':
         // The dead getting back up: a puff of grave dust and violet motes.
@@ -1570,9 +1603,9 @@ export class BattleView {
     g.restore();
   }
 
-  private playEffect(key: EffectKey, x: number, y: number, size: number, anchor: 'center' | 'bottom' = 'center', fps = 18, start = 0, alpha = 1, color?: string): void {
+  private playEffect(key: EffectKey, x: number, y: number, size: number, anchor: 'center' | 'bottom' = 'center', fps = 18, start = 0, alpha = 1, color?: string, angle?: number): void {
     if (this.anims.length > (key === 'arrows' ? 170 : 120)) return; // keep the busiest moments cheap (arrows get a little more room)
-    this.anims.push({ key, x, y, size, anchor, fps, t: 0, start, alpha, color });
+    this.anims.push({ key, x, y, size, anchor, fps, t: 0, start, alpha, color, ...(angle ? { angle } : {}) });
   }
 
   private drawEnemy(g: CanvasRenderingContext2D, e: Enemy): void {
@@ -3629,6 +3662,8 @@ interface Anim {
   alpha: number;
   /** A damage type's colour to tint it (a hammer's smash). */
   color?: string;
+  /** Turned this far (radians) about its anchor point: a fire spray aimed at its target. */
+  angle?: number;
 }
 
 /**

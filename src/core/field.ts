@@ -637,7 +637,7 @@ export type FieldEvent =
   /** Floating words on the field: a dice roll's call, Double or Nothing's ×2 / BUST. */
   | { type: 'say'; x: number; y: number; text: string; color: string; size: number }
   /** A spell's moment: an ice spike, a fan of frost, a sunbeam, an acid drop, an anchor landing, the dead rising. */
-  | { type: 'spell'; fx: 'spike' | 'cone' | 'sun' | 'drop' | 'anchor' | 'rise' | 'rock' | 'break' | 'shock' | 'arrows' | 'rune'; x: number; y: number; r: number; color: string; a?: number; arc?: number };
+  | { type: 'spell'; fx: 'spike' | 'cone' | 'sun' | 'drop' | 'anchor' | 'rise' | 'rock' | 'break' | 'shock' | 'arrows' | 'rune' | 'meteor' | 'wings' | 'iceburst'; x: number; y: number; r: number; color: string; a?: number; arc?: number };
 
 /**
  * The survivor-style battlefield in world coordinates centered on your Hunter.
@@ -3304,7 +3304,7 @@ export class Field {
       bites.set(e.id, n % 3);
       if (n >= 3) {
         e.held = Math.max(e.held ?? 0, e.boss ? 0.25 : 1);
-        this.events.push({ type: 'nova', x: e.x, y: e.y, r: e.r + 8, color: DAMAGE_TYPES.frost.color });
+        this.events.push({ type: 'spell', fx: 'iceburst', x: e.x, y: e.y, r: e.r + 8, color: DAMAGE_TYPES.frost.color });
       }
     } else if (key === 'puppet') {
       if (e.hp > 0 && !e.boss) e.slow = Math.max(e.slow ?? 0, 2);
@@ -3396,7 +3396,7 @@ export class Field {
         // Starfall: a Meteor Golem lands as a meteor, once; then both golems slam the ground.
         if (ab.key === 'meteorGolem' && !ab.used) {
           ab.used = true;
-          this.events.push({ type: 'explode', x: s.x, y: s.y, r: 70 * rm, color: '#ff9a4a' });
+          this.events.push({ type: 'spell', fx: 'meteor', x: s.x, y: s.y, r: 70 * rm, color: '#ff9a4a' });
           this.summonArea(s, s.x, s.y, 70 * rm, 2, 160);
         }
         if (ready && this.nearest(s.x, s.y, 70 * rm)) {
@@ -3443,6 +3443,7 @@ export class Field {
         const near = this.enemies.filter((o) => o !== e && o.hp > 0 && Math.hypot(o.x - e.x, o.y - e.y) <= 70 + o.r).slice(0, 3);
         const ex = e.x;
         const ey = e.y;
+        this.events.push({ type: 'spell', fx: 'iceburst', x: ex, y: ey, r: e.r + 10, color: DAMAGE_TYPES.frost.color });
         this.summonHit(s, e, 1);
         for (const o of near) {
           this.events.push({ type: 'beam', x1: ex, y1: ey, x2: o.x, y2: o.y, color: DAMAGE_TYPES.frost.color, width: 2 });
@@ -3569,6 +3570,7 @@ export class Field {
     v.life = 0;
     state.immune = Math.max(state.immune, STUN_IMMUNITY);
     this.events.push({ type: 'guard', x: hx, y: hy });
+    this.events.push({ type: 'spell', fx: 'wings', x: hx, y: hy, r: 30, color: '#ffe08a' });
     this.events.push({ type: 'say', x: hx, y: hy - 30, text: 'Guarded!', color: '#ffe08a', size: 9 });
     this.shove(hx, hy, GUARD_PUSH_RANGE, GUARD_BOUNCE);
     return true;

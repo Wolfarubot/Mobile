@@ -17,3 +17,13 @@ shockwave.png, rot.png: from CraftPix's "Free Magic and Traps Top Down Pixel Art
 Boom1.png: a barrel's blast, eight 48px frames). shockwave is the blast's ring recoloured white and grey so it takes
 any element's tint (a Focus's burst); rot is its smoke ring recoloured rot-purple and dark brown (Decay's aura,
 looping its expanding frames).
+From CraftPix's "Elemental Combat Spells", "Elemental Magic Projectiles" and "Magic Shields and Healing Spells"
+Top Down Pixel Art Asset Packs (same license), one row cut from each sheet with its frames padded square:
+  icespikes (Ice _spikes_front-back, front row): the Ice Spikes spell
+  icecube (Ice_cube_front-back, front row): Frost Nova's freezing tap
+  stones (Falling_stones_front-back, front row): falling rocks (Rockfall and the stone spells)
+  meteor (Falling_flaming_stones, first row): a Meteor Golem's Starfall
+  firebreath (Fire_Missiles, the right-facing row; turned to aim): an Imp's Fire Breath
+  wings (Air_buff_Wings, first row): a Valkyrie's Guardian Wings
+  vines (Lianas_front-back, front row): Thorns
+  iceburst (Ice_arrow_explosion_front-back, front row): a Frost Sprite's ice bolt, an Ice Wolf's freezing bite

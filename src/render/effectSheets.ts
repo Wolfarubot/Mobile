@@ -35,6 +35,18 @@ export const EFFECTS = {
   shockwave: { frame: 48, frames: 8, box: [2, 0, 46, 48] },
   /** Decay's aura: a ring of rot-purple smoke puffing out round the monster (the barrel's smoke blast, recoloured). */
   rot: { frame: 48, frames: 8, box: [1, 2, 42, 43] },
+  // From CraftPix's Elemental Combat Spells, Elemental Magic Projectiles and Magic Shields and Healing Spells packs
+  // (one row cut from each, frames padded square): ice spikes bursting up, a monster frozen into an ice cube, rocks
+  // falling and breaking, flaming meteors raining down, a fire spray (facing right, turned to aim), a Valkyrie's
+  // wings spreading, thorny vines lashing up, and a burst of ice shards.
+  icespikes: { frame: 80, frames: 12, box: [10, 2, 59, 76] },
+  icecube: { frame: 64, frames: 19, box: [21, 0, 35, 55] },
+  stones: { frame: 96, frames: 12, box: [19, 18, 52, 78] },
+  meteor: { frame: 96, frames: 12, box: [18, 16, 54, 80] },
+  firebreath: { frame: 64, frames: 10, box: [6, 1, 54, 62] },
+  wings: { frame: 64, frames: 8, box: [0, 5, 63, 46] },
+  vines: { frame: 112, frames: 11, box: [32, 0, 33, 102] },
+  iceburst: { frame: 80, frames: 5, box: [23, 31, 39, 39] },
 } satisfies Record<string, EffectSheet>;
 
 export type EffectKey = keyof typeof EFFECTS;
