@@ -1783,21 +1783,38 @@ export class AppUI {
       const wornBy = new Map<number, Wearer>();
       for (const [w, uids] of Object.entries(g.state.equipment) as [Wearer, Array<number | null>][]) for (const u of uids.slice(0, g.slotsOf(w).length)) if (u !== null) wornBy.set(u, w);
       const rank = (it: GearItem) => RARITY_ORDER.indexOf(gearDef(it.base).rarity);
-      const inv = [...g.state.inventory].sort((a, b) => Number(fits(b)) - Number(fits(a)) || rank(b) - rank(a) || b.uid - a.uid);
-      $('.pk-count', view).textContent = `${inv.length} item${inv.length === 1 ? '' : 's'}`;
-      if (!inv.length) gridEl.innerHTML = '<p class="empty-inv">Empty. Craft gear in Inventory → Crafting.</p>';
+      const all = [...g.state.inventory].sort((a, b) => Number(fits(b)) - Number(fits(a)) || rank(b) - rank(a) || b.uid - a.uid);
+      $('.pk-count', view).textContent = `${all.length} item${all.length === 1 ? '' : 's'}`;
+      if (!all.length) gridEl.innerHTML = '<p class="empty-inv">Empty. Craft gear in Inventory → Crafting.</p>';
+      // Identical spare pieces share a tile with a count, as in the Equipment list (same gear and stars, unworn and
+      // untouched), each stack in the spot it holds there.
+      const stackOf = new Map<string, GearItem[]>();
+      const groups: Array<{ st: GearItem[]; a: number }> = [];
+      for (const it of all) {
+        const key = !wornBy.has(it.uid) && !it.pending && !it.freeRoll && !(it.mods ?? []).some(Boolean) ? `${it.base}:${it.stars}` : null;
+        const st = key ? stackOf.get(key) : undefined;
+        if (st) st.push(it);
+        else {
+          const grp = { st: [it], a: (key && this.stackAnchors.get(key)) || it.uid };
+          groups.push(grp);
+          if (key) stackOf.set(key, grp.st);
+        }
+      }
+      const inv = groups.sort((x, y) => Number(fits(y.st[0])) - Number(fits(x.st[0])) || rank(y.st[0]) - rank(x.st[0]) || y.a - x.a).map((x) => x.st);
       // A page of tiles now, the next as you scroll near the end (late games hold thousands of pieces).
-      const makeTile = (it: GearItem): HTMLElement => {
+      const makeTile = (stack: GearItem[]): HTMLElement => {
+        const it = stack[0];
         const gd = gearDef(it.base);
         const worn = wornBy.get(it.uid);
-        const tile = el('button', `inv-tile rar${fits(it) ? '' : ' misfit'}${it.uid === selected ? ' selected' : ''}${gd.unboundOf ? ' ub' : ''}`) as HTMLButtonElement;
+        const chosen = stack.some((x) => x.uid === selected);
+        const tile = el('button', `inv-tile rar${fits(it) ? '' : ' misfit'}${chosen ? ' selected' : ''}${gd.unboundOf ? ' ub' : ''}`) as HTMLButtonElement;
         tile.style.setProperty('--rc', gearColor(gd.id));
-        tile.innerHTML = `<i>${gearIcon(gd)}</i><span>${gd.name}</span><small class="stars">${starsHtml(it.stars)}</small>${worn ? `<em>${wearerIcon(worn)}</em>` : ''}`;
+        tile.innerHTML = `<i>${gearIcon(gd)}</i><span>${gd.name}</span><small class="stars">${starsHtml(it.stars)}</small>${worn ? `<em>${wearerIcon(worn)}</em>` : ''}${stack.length > 1 ? `<b class="stack-n">×${stack.length}</b>` : ''}`;
         tile.addEventListener('click', () => {
           select(it.uid);
           $('.hd-scroll', view).scrollTo({ top: 0, behavior: 'smooth' });
         });
-        tiles.set(it.uid, tile);
+        for (const x of stack) tiles.set(x.uid, tile);
         return tile;
       };
       pager?.disconnect();
