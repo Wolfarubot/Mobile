@@ -3489,13 +3489,13 @@ export class AppUI {
         inv.innerHTML = refining
           ? '<p class="empty-inv">Nothing to modify yet: Very Rare and rarer gear has modifier slots.</p>'
           : '<p class="empty-inv">Nothing matches these filters.</p>';
-      const gearTile = (it: GearItem): HTMLElement => {
+      const gearTile = (it: GearItem, stack: GearItem[] = [it]): HTMLElement => {
         const gd = gearDef(it.base);
         const worn = wornBy.has(it.uid) ? { who: wornBy.get(it.uid)! } : null;
         const tile = el('button', `inv-tile rar${gd.unboundOf ? ' ub' : ''}`) as HTMLButtonElement;
         tile.style.setProperty('--rc', gearColor(gd.id));
         const slots = g.modSlots(it.uid);
-        tile.innerHTML = `<i>${gearIcon(gd)}</i><span>${gd.name}</span><small class="stars">${starsHtml(it.stars)}</small>${worn ? `<em>${wearerIcon(worn.who)}</em>` : ''}${slots.length ? `<b class="mod-pips">${slots.map((m) => (m ? (modPerfect(m) ? '★' : '◆') : '◇')).join('')}</b>` : ''}${it.uid > g.state.seen.gearUid ? '<span class="alert-mark white tile-new"></span>' : ''}`;
+        tile.innerHTML = `<i>${gearIcon(gd)}</i><span>${gd.name}</span><small class="stars">${starsHtml(it.stars)}</small>${worn ? `<em>${wearerIcon(worn.who)}</em>` : ''}${slots.length ? `<b class="mod-pips">${slots.map((m) => (m ? (modPerfect(m) ? '★' : '◆') : '◇')).join('')}</b>` : ''}${stack.length > 1 ? `<b class="stack-n">×${stack.length}</b>` : ''}${stack.some((x) => x.uid > g.state.seen.gearUid) ? '<span class="alert-mark white tile-new"></span>' : ''}`;
         tile.addEventListener('click', () => {
           if (this.heldFor === tile) return void (this.heldFor = null);
           if (refining) this.openModify(it.uid);
@@ -3509,6 +3509,21 @@ export class AppUI {
           });
         return tile;
       };
+      // Identical spare pieces share one tile with a count: the same gear at the same stars, unworn and untouched (no
+      // modifiers, no roll waiting, no free roll). Equipping, upgrading or modifying one moves it out of its stack
+      // (into the stack for its new stars, if it's still untouched). Each stack sits where its newest piece would.
+      const stacks: GearItem[][] = [];
+      const stackOf = new Map<string, GearItem[]>();
+      for (const it of gear) {
+        const plain = !wornBy.has(it.uid) && !it.pending && !it.freeRoll && !(it.mods ?? []).some(Boolean);
+        const key = plain ? `${it.base}:${it.stars}` : null;
+        const st = key ? stackOf.get(key) : undefined;
+        if (st) st.push(it);
+        else {
+          stacks.push([it]);
+          if (key) stackOf.set(key, stacks[stacks.length - 1]);
+        }
+      }
       const makers: Array<() => HTMLElement> = equippedView
         ? worn
             .filter((x) => x.items.length)
@@ -3522,7 +3537,7 @@ export class AppUI {
               ...x.items.map((it) => () => gearTile(it)),
             ])
         : [
-            ...gear.map((it) => () => gearTile(it)),
+            ...stacks.map((st) => () => gearTile(st[0], st)),
             ...upgrades.map((it) => () => {
               const tile = el('button', 'inv-tile upgrade rar') as HTMLButtonElement;
               tile.style.setProperty('--rc', RARITIES[it.rarity].color);

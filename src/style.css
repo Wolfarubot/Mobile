@@ -8383,6 +8383,15 @@ html.ios-home #app {
   border: 2px solid var(--c0);
   box-shadow: 0 0 0 1px var(--rc, var(--c2));
 }
+/* A stack of identical spare pieces: how many, in the top-right corner (where a worn piece shows its wearer). */
+.inv-tile .stack-n {
+  position: absolute;
+  top: 3px;
+  right: 5px;
+  font-size: 12px;
+  color: var(--gold);
+  text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
+}
 .inv-tile em img.ei {
   width: 16px;
   height: 16px;
