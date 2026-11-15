@@ -5350,7 +5350,7 @@ const AREA_MINIGAMES: Partial<Record<AreaId, Omit<EventDef, 'area' | 'kind' | 'u
         { material: 'diamond', per: 80 },
       ],
     },
-    blessing: { kind: 'refine', tiers: [140, 240, 360] },
+    blessing: { kind: 'refine', tiers: [60, 120, 180] },
   },
   mines: {
     id: 'runeMatch',

@@ -4,16 +4,17 @@ import { GEAR, WEAPON_CLASSES } from '../../core/balance';
 import { GEAR_SPRITES } from '../../core/gearSprites';
 import { HUNTER_SHEETS } from '../../render/hunterSheets';
 import { gearImage, hunterSheetImage } from '../../render/sprites';
-import { drawFramedBar, drawFramedSegments, framedSlot } from '../../render/hudBars';
+import { drawFramedBar, drawFramedSegments, framedSlot, TIMER_COLOR } from '../../render/hudBars';
 
 /**
  * Kargesh's Forge Strike (in a smithy): Kargesh at his anvil beside a roaring hearth, a glowing ingot
  * before him. A marker swings along the strike bar, slowly at first; tap while it's in the sweet spot and his hammer
  * lands: 1 point, 2 dead centre, times the multiplier. Every hit quickens the swing a little, and every 3 hits in a
- * row raise the multiplier; a miss resets the multiplier, halves the swing (never below where it started) and costs a
- * heart. Five strikes hammer the ingot into a finished weapon, set on the rack (3 more, times the multiplier, if none
- * missed). The metal cools as he works (the bar under the title), quicker the faster the swing: forge it before it
- * goes cold, or it's spoiled and a heart is lost. The sweet spot shrinks as the strikes add up.
+ * row raise the multiplier; a miss resets the multiplier and halves the swing (never below where it started). Five
+ * strikes hammer the ingot into a finished weapon, set on the rack (3 more, times the multiplier, if none missed). The
+ * metal cools as he works (the gauge under the strike bar), at the swing's pace: it stays hot for the same number of
+ * the marker's passes whatever its speed, so a slow swing gives a slow cool. Forge it before it goes cold, or it's
+ * spoiled and the multiplier resets. The sweet spot shrinks as the strikes add up. Timed: FS_TIME seconds.
  *
  * The look: the smithy in shadow, lit by the hearth (embers drifting up off it) and by the ingot's own glow. Each
  * strike flashes the ingot white, squashes it, throws streaking sparks and a shockwave (more for a dead-centre
@@ -21,7 +22,12 @@ import { drawFramedBar, drawFramedSegments, framedSlot } from '../../render/hudB
  * sits under the strike bar, flashing blue as the metal goes cold.
  */
 
-export const FS_INTRO = '<p>Kargesh is at the anvil. <b>Tap</b> when the marker is in the bright sweet spot: 1 point, 2 dead centre. Every hit speeds the swing up, and hits in a row raise your <b>multiplier</b>. Five strikes forge a weapon (3 more if none missed).</p><p>A miss resets the multiplier, slows the swing by half and costs a heart. The metal <b>cools</b> as you work: forge it before it goes cold, or that costs a heart too.</p>';
+/** Seconds a game lasts. */
+export const FS_TIME = 90;
+/** Passes of the marker (end to end) a piece stays hot for: the metal cools at the swing's pace. */
+export const FS_HOT_PASSES = 9;
+
+export const FS_INTRO = `<p>Kargesh is at the anvil. <b>Tap</b> when the marker is in the bright sweet spot: 1 point, 2 dead centre. Every hit speeds the swing up, and hits in a row raise your <b>multiplier</b>. Five strikes forge a weapon (3 more if none missed).</p><p>A miss resets the multiplier and slows the swing by half. The metal <b>cools</b> as you work, as fast as the marker swings: forge it before it goes cold, or that resets the multiplier too. You have ${FS_TIME} seconds.</p>`;
 
 /** The swing's starting speed (bar widths a second), how much each hit quickens it, and its top speed. */
 export const FS_START_SPEED = 0.45;
@@ -126,8 +132,11 @@ export function forgeStrike(api: MinigameApi): MinigameGame {
 
   /** Swing speed (bar widths a second), sweet-spot width, and seconds a piece stays hot, by progress. */
   const speed = () => spd;
-  /** A piece stays hot long enough for its five strikes at the current swing (shorter as the swing quickens). */
-  const coolTime = () => 2 + 3.2 / spd;
+  /** A piece stays hot for FS_HOT_PASSES of the marker's passes, so it cools in step with the swing. */
+  const coolTime = () => FS_HOT_PASSES / spd;
+  /** Seconds played, and whether time is up. */
+  let used = 0;
+  let over = false;
   const newZone = () => {
     const w = Math.max(0.1, 0.24 - strikes * 0.004);
     zone = { c: w / 2 + Math.random() * (1 - w), w };
@@ -169,9 +178,9 @@ export function forgeStrike(api: MinigameApi): MinigameGame {
   };
 
   return {
-    titleSuffix: () => `${pieces} forged · ×${mult()}`,
+    titleSuffix: () => `${Math.ceil(Math.max(0, FS_TIME - used))}s · ×${mult()}`,
     tap() {
-      if (fresh > 0) return;
+      if (fresh > 0 || over) return;
       swing = 0;
       const off = Math.abs(pos - zone.c);
       const it = ingotTop();
@@ -220,7 +229,6 @@ export function forgeStrike(api: MinigameApi): MinigameGame {
         shake = 0.08;
         barFlash = 1;
         barHit = false;
-        api.loseLife(it.x, it.y - 30 * api.k);
       }
     },
     step(dt) {
@@ -233,16 +241,22 @@ export function forgeStrike(api: MinigameApi): MinigameGame {
         dir = 1;
       }
       swing += dt;
+      used += dt;
+      if (!over && used >= FS_TIME) {
+        over = true;
+        api.end();
+      }
       if (fresh > 0) {
         fresh -= dt;
         if (fresh <= 0) heat = 1;
       } else {
         heat -= dt / coolTime();
         if (heat <= 0) {
-          // Gone cold: spoiled, and back to the fire for a new ingot.
+          // Gone cold: spoiled (the multiplier lost), and back to the fire for a new ingot.
           const it = ingotTop();
-          api.loseLife(it.x, it.y - 30 * api.k);
           api.pop(it.x, it.y - 56 * api.k, 'Too cold!', '#8ab4ff');
+          if (streak >= FS_STREAK_STEP) api.pop(it.x + 40 * api.k, it.y - 80 * api.k, 'Streak lost', '#ff8a6a');
+          streak = 0;
           burst(it.x, it.y, 8, ['#5d5866'], 120);
           puff(it.x, it.y - 6 * api.k, 7, '170,200,255');
           hits = 0;
@@ -599,6 +613,16 @@ export function forgeStrike(api: MinigameApi): MinigameGame {
         g.restore();
         api.icon(flying.icon, 0, 0, RS * (1.4 - 0.4 * p));
         g.restore();
+      }
+
+      // The clock under the title: the battlefield's framed event timer.
+      const left = Math.max(0, FS_TIME - used) / FS_TIME;
+      const TS = 2;
+      const tw = Math.floor(Math.min(api.W * 0.8, 360) / TS);
+      const tx = Math.round((api.W - tw * TS) / 2);
+      if (!drawFramedBar(g, tx, TITLE_Y + 16, TS, tw, 9, left, left < 0.12 ? '#ff6a6a' : TIMER_COLOR)) {
+        g.fillStyle = TIMER_COLOR;
+        g.fillRect(tx, TITLE_Y + 16, tw * TS * left, 10);
       }
     },
   };

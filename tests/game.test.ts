@@ -1929,24 +1929,24 @@ describe('Equipment', () => {
     g.state.gold = 1e30;
     g.state.hunters.blacksmith.recruited = true;
     g.state.hunters.enchantress.recruited = true;
-    expect(eventDef('forgeStrike').blessing).toEqual({ kind: 'refine', tiers: [140, 240, 360] });
+    expect(eventDef('forgeStrike').blessing).toEqual({ kind: 'refine', tiers: [60, 120, 180] });
     expect(eventDef('runeMatch').blessing?.kind).toBe('enchant');
-    expect([0, 139, 140, 239, 240, 359, 360, 800].map((s) => g.blessingFor('forgeStrike', s))).toEqual([0, 0, 1, 1, 2, 2, 3, 3]);
+    expect([0, 59, 60, 119, 120, 179, 180, 800].map((s) => g.blessingFor('forgeStrike', s))).toEqual([0, 0, 1, 1, 2, 2, 3, 3]);
     expect(g.blessingFor('huntingPractice', 999)).toBe(0); // only the smithing games bless
     // Star ranks: half par, par and one and a half par (Hunting Practice's par is 30); the smithing games use their tiers.
     expect([0, 14, 15, 30, 44, 45, 99].map((s) => g.starsFor('huntingPractice', s))).toEqual([0, 0, 1, 2, 2, 3, 3]);
-    expect([139, 140, 240, 360].map((s) => g.starsFor('forgeStrike', s))).toEqual([0, 1, 2, 3]);
+    expect([59, 60, 120, 180].map((s) => g.starsFor('forgeStrike', s))).toEqual([0, 1, 2, 3]);
     // Each extra roll keeps the best: a perfect roll goes from 1 in 11 to about 17%, 25% and 32%.
     expect(g.perfectChance(0)).toBeCloseTo(1 / 11);
     expect([1, 2, 3].map((k) => Math.round(g.perfectChance(k) * 100))).toEqual([17, 25, 32]);
-    // A score of 250 gives 2 charges of blessing at 2 extra rolls; a weaker game later adds charges but keeps the tier.
-    g.finishMinigame('forgeStrike', 250);
+    // A score of 150 gives 2 charges of blessing at 2 extra rolls; a weaker game later adds charges but keeps the tier.
+    g.finishMinigame('forgeStrike', 150);
     expect(g.state.blessings).toEqual({ refine: 2, enchant: 0 });
     expect(g.blessingCharges('refine')).toBe(2);
-    g.finishMinigame('forgeStrike', 150);
+    g.finishMinigame('forgeStrike', 70);
     expect(g.state.blessings.refine).toBe(2);
     expect(g.blessingCharges('refine')).toBe(4);
-    g.finishMinigame('forgeStrike', 100); // no blessing, no charges
+    g.finishMinigame('forgeStrike', 50); // no blessing, no charges
     expect(g.blessingCharges('refine')).toBe(4);
     // The blessed roll: each choice's quality is the best of 3 draws (here 0, 0, then a perfect 0.99).
     const rifle = g.craftGear('frostRifle')!;

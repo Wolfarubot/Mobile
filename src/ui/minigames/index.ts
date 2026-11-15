@@ -25,7 +25,7 @@ export const MINIGAMES: Record<MinigameId, { title: string; intro: string; lives
   graveRobbing: { title: '🦹 Grave Robbing', intro: GR_INTRO, lives: 3, decor: GR_DECOR, landscape: 'split', create: graveRobbing },
   puppetShow: { title: '🎎 Puppet Show', intro: PU_INTRO, lives: 3, backdrop: theatre, landscape: 'split', create: puppetShow },
   shootingGallery: { title: '🎯 Shooting Gallery', intro: SG_INTRO, lives: 0, backdrop: nestPit, landscape: 'wide', create: shootingGallery },
-  forgeStrike: { title: '⚒️ Forge Strike', intro: FS_INTRO, lives: 3, room: 'smithy', landscape: 'wide', create: forgeStrike },
+  forgeStrike: { title: '⚒️ Forge Strike', intro: FS_INTRO, lives: 0, room: 'smithy', landscape: 'wide', create: forgeStrike },
   runeMatch: { title: '✨ Rune Match', intro: RM_INTRO, lives: 0, backdrop: readingTable, landscape: 'wide', create: runeMatch },
   icebreaker: { title: '🔨 Icebreaker', intro: IB_INTRO, lives: 3, backdrop: iceCamp, landscape: 'center', create: icebreaker },
   clockworkTower: { title: '⚙️ Workbench Sort', intro: WS_INTRO, lives: 3, room: 'workroom', landscape: 'center', create: workbenchSort },
