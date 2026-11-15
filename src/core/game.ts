@@ -237,6 +237,7 @@ import {
   unboundBase,
   LOOT_UNCRAFTED_SHARE,
   LOOT_CURRENT_SHARE,
+  enemyUnlockKills,
 } from './balance';
 import { capAway, type OfflineResult } from './offline';
 import { invest, runWorth, shardsNow, type RunWorth } from './regression';
@@ -2094,7 +2095,9 @@ export class Game {
     if (!this.hasRegFlag('autoUnlock')) return;
     const locked = ENEMIES.filter((e) => !e.guardianOnly && !this.state.bestiary[e.id].unlocked && this.isAreaUnlocked(e.area)).sort((a, b) => this.unlockCostOf(a.id) - this.unlockCostOf(b.id));
     for (const e of locked) {
-      if (this.unlockCostOf(e.id) > AUTO_UNLOCK_SHARE * this.state.gold || !this.unlockEnemy(e.id)) break;
+      if (this.unlockCostOf(e.id) > AUTO_UNLOCK_SHARE * this.state.gold) break;
+      // One still waiting on its area's kills is passed over (not the end: a cheaper one elsewhere may be ready).
+      this.unlockEnemy(e.id);
     }
   }
 
@@ -3412,11 +3415,22 @@ export class Game {
 
   // ---- Bestiary ----
 
-  unlockEnemy(id: EnemyId): boolean {
+  /** Kills still needed in a monster's area before it can be unlocked (see enemyUnlockKills; 0 once there). */
+  unlockKillsLeft(id: EnemyId): number {
     const def = enemyDef(id);
+    return Math.max(0, enemyUnlockKills(def) - this.state.areas[def.area].kills);
+  }
+
+  /** A monster can be unlocked now: its area reached, its kills done there, and its gold in hand. */
+  canUnlockEnemy(id: EnemyId): boolean {
+    const def = enemyDef(id);
+    return !this.state.bestiary[id].unlocked && this.isAreaUnlocked(def.area) && this.unlockKillsLeft(id) <= 0 && this.state.gold >= this.unlockCostOf(id);
+  }
+
+  unlockEnemy(id: EnemyId): boolean {
     const b = this.state.bestiary[id];
     const cost = this.unlockCostOf(id);
-    if (b.unlocked || !this.isAreaUnlocked(def.area) || this.state.gold < cost) return false;
+    if (!this.canUnlockEnemy(id)) return false;
     this.state.gold -= cost;
     b.unlocked = true;
     this.emit({ type: 'unlock', enemy: id });

@@ -3036,7 +3036,7 @@ export class AppUI {
         // Still locked: a greyed-out square, with a silver (not gold) outline once you can afford to unlock it.
         const locked = !g.state.bestiary[def.id].unlocked;
         tile.classList.toggle('beast-locked', locked);
-        tile.classList.toggle('unlockable', locked && g.state.gold >= g.unlockCostOf(def.id));
+        tile.classList.toggle('unlockable', locked && g.canUnlockEnemy(def.id));
         tile.classList.toggle('ready', ready);
       }
     });
@@ -3126,8 +3126,10 @@ export class AppUI {
       setHtml($('.name', card), `${def.name}<span class="archetype">${arch.icon} ${arch.name}</span>${beastTags(def)}${b.unlocked ? '' : ' <small>locked</small>'}`);
       if (!b.unlocked) {
         const cost = g.unlockCostOf(def.id);
-        setHtml(unlockBtn, `Unlock<small>🪙 ${fmt(cost)}</small>`);
-        unlockBtn.disabled = g.state.gold < cost;
+        // Still waiting on kills in its area: how many more, then the price.
+        const left = g.unlockKillsLeft(def.id);
+        setHtml(unlockBtn, left > 0 ? `Unlock<small>⚔️ ${fmt(left)} kills</small>` : `Unlock<small>🪙 ${fmt(cost)}</small>`);
+        unlockBtn.disabled = !g.canUnlockEnemy(def.id);
         return;
       }
       $('.hc-lv', row).textContent = `Lv ${g.monsterLevelInfo(def.id).level}`;
@@ -4903,7 +4905,7 @@ export class AppUI {
   private newBeast(def: EnemyDef): boolean {
     const g = this.game;
     if (this.seenSet('beasts').has(def.id) || g.state.bestiary[def.id].unlocked) return false;
-    return g.isAreaUnlocked(def.area) && g.state.gold >= g.unlockCostOf(def.id);
+    return g.canUnlockEnemy(def.id);
   }
 
   /** An event that's ready to start and hasn't been seen in the Events tab since it became ready. */

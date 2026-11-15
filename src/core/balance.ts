@@ -1833,6 +1833,28 @@ export const guardianName = (area: AreaId): string => {
 /** Gold to unlock a monster (`areaGold`: its area's gold per kill, an Unbound area's when it is one). */
 export const enemyUnlockCost = (def: EnemyDef, areaGold = areaDef(def.area).gold): number => def.unlock * areaGold;
 
+/**
+ * Kills in a monster's area before it can be unlocked (as well as its gold), from the Restless Graveyard on: spaced
+ * out across the area's mastery (its Guardian's kill requirement), each wait longer than the last, the area's last
+ * monster at UNLOCK_KILL_SPAN of it. Gold carried in from the area before can't buy an area's whole roster at once,
+ * so there's always a next monster (and its gear) to work toward. The first two areas (and each area's first monster)
+ * need no kills.
+ */
+export const UNLOCK_KILL_SPAN = 0.85;
+export const UNLOCK_KILL_CURVE = 1.4;
+export function enemyUnlockKills(def: EnemyDef): number {
+  const at = AREAS.findIndex((a) => a.id === def.area);
+  if (at < 2 || def.guardianOnly || def.unlock <= 0) return 0;
+  const roster = areaEnemies(def.area).sort((a, b) => a.unlock - b.unlock);
+  const k = roster.findIndex((e) => e.id === def.id);
+  const n = roster.length - 1;
+  if (k <= 0 || n <= 0) return 0;
+  const raw = AREAS[at].mastery * UNLOCK_KILL_SPAN * (k / n) ** UNLOCK_KILL_CURVE;
+  // Rounded to two significant figures (12,000 rather than 12,345).
+  const p = 10 ** Math.max(0, Math.floor(Math.log10(raw)) - 1);
+  return Math.round(raw / p) * p;
+}
+
 // ---- Monsters: Empower (gold) raises a monster's level; levels earn evolution points for its evolution tree ----
 
 /** Slimes to slay (in all) before training unlocks. */
