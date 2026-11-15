@@ -673,6 +673,9 @@ export class AppUI {
    * first: OK trains and asks again next time; Do not show again trains and stops asking. `offer` gives the
    * popup's line and the training, or null when not even one session is affordable.
    */
+  /** Where each stack in the Equipment list sits: the uid it sorts by, kept while the stack stands (see the list). */
+  private stackAnchors = new Map<string, number>();
+
   /** Until when loot goes to the pick-ups rather than a pop-up (see quietLoot). */
   private lootQuietUntil = 0;
 
@@ -3550,9 +3553,11 @@ export class AppUI {
       };
       // Identical spare pieces share one tile with a count: the same gear at the same stars, unworn and untouched (no
       // modifiers, no roll waiting, no free roll). Equipping, upgrading or modifying one moves it out of its stack
-      // (into the stack for its new stars, if it's still untouched). Each stack sits where its newest piece would.
-      const stacks: GearItem[][] = [];
+      // (into the stack for its new stars, if it's still untouched). A stack keeps the spot it first took (where its
+      // newest piece was then), so more of the same piece joining it doesn't send it jumping to the front.
+      let stacks: GearItem[][] = [];
       const stackOf = new Map<string, GearItem[]>();
+      const keyOf = new Map<GearItem[], string>();
       for (const it of gear) {
         const plain = !wornBy.has(it.uid) && !it.pending && !it.freeRoll && !(it.mods ?? []).some(Boolean);
         const key = plain ? `${it.base}:${it.stars}` : null;
@@ -3560,9 +3565,29 @@ export class AppUI {
         if (st) st.push(it);
         else {
           stacks.push([it]);
-          if (key) stackOf.set(key, stacks[stacks.length - 1]);
+          if (key) {
+            stackOf.set(key, stacks[stacks.length - 1]);
+            keyOf.set(stacks[stacks.length - 1], key);
+          }
         }
       }
+      const anchors = new Map<string, number>();
+      const anchorOf = (st: GearItem[]): number => {
+        const key = keyOf.get(st);
+        if (!key) return st[0].uid;
+        const a = this.stackAnchors.get(key) ?? st[0].uid;
+        anchors.set(key, a);
+        return a;
+      };
+      stacks = stacks.map((st) => ({ st, a: anchorOf(st) })).sort((x, y) => rank(y.st[0]) - rank(x.st[0]) || y.a - x.a).map((x) => x.st);
+      // Only stacks still standing keep their spot (one that's gone starts afresh if it comes back); those just hidden
+      // by a filter keep theirs too.
+      for (const it of g.state.inventory) {
+        const key = `${it.base}:${it.stars}`;
+        const a = this.stackAnchors.get(key);
+        if (a !== undefined && !anchors.has(key) && !wornBy.has(it.uid) && !it.pending && !it.freeRoll && !(it.mods ?? []).some(Boolean)) anchors.set(key, a);
+      }
+      this.stackAnchors = anchors;
       const makers: Array<() => HTMLElement> = equippedView
         ? worn
             .filter((x) => x.items.length)
