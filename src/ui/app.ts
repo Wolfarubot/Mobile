@@ -903,9 +903,12 @@ export class AppUI {
   }
 
   /** A Train button and a progress bar toward the next level, kept up to date. `compact` is the card's version, which always trains once. */
-  private trainParts(who: Wearer, compact = false): { btn: HTMLButtonElement; bar: HTMLElement } {
+  private trainParts(who: Wearer, compact = false): { btn: HTMLButtonElement; bar: HTMLElement; label: HTMLElement } {
     const g = this.game;
-    const btn = el('button', 'buy') as HTMLButtonElement;
+    const btn = el('button', 'buy cost-btn') as HTMLButtonElement;
+    // What the button does, beside the bar ("Training", or "Training ×100" in the full view): the button itself shows
+    // just the price, so it's no taller than the bar.
+    const label = el('span', 'row-label', 'Training');
     const bar = el('div', 'train-bar');
     bar.innerHTML = '<i></i><span></span>';
     // The card's button always trains once; the ×1/×10/×100/MAX switch is for the full view.
@@ -940,27 +943,28 @@ export class AppUI {
       const p = g.trainPurchase(who, amount());
       const { level, into, need } = g.levelInfo(who);
       if (!g.trainUnlocked) {
-        setHtml(btn, `🔒 Train<small>Slay ${fmt(Math.min(g.slimeKills, TRAIN_UNLOCK_KILLS))} / ${TRAIN_UNLOCK_KILLS} slimes</small>`);
+        setHtml(btn, `🔒 ${fmt(Math.min(g.slimeKills, TRAIN_UNLOCK_KILLS))}/${TRAIN_UNLOCK_KILLS} slimes`);
         btn.disabled = true;
         $('i', bar).style.width = '0%';
         $('span', bar).textContent = compact ? '' : `${into}/${need}`;
         return;
       }
-      setHtml(btn, p.count === 0 ? (g.ascended(who) ? 'Max level' : `Lv ${level} cap<small>Ascend in Skills</small>`) : `Train${p.count > 1 ? ` ×${p.count}` : ''}<small>🪙 ${fmt(p.cost)}</small>`);
+      setHtml(btn, p.count === 0 ? (g.ascended(who) ? 'Max level' : 'Ascend in Skills') : `🪙 ${fmt(p.cost)}`);
+      label.textContent = `Training${p.count > 1 ? ` ×${p.count}` : ''}`;
       btn.disabled = p.count === 0 || g.state.gold < p.cost;
       // The card's bar is just the bar; the numbers are in the full view.
       const capped = p.count === 0;
       levelBar(bar, level, capped ? 100 : (into / need) * 100);
       $('span', bar).textContent = compact ? '' : capped ? (g.ascended(who) ? 'Max' : 'Ascend') : `${into}/${need}`;
     });
-    return { btn, bar };
+    return { btn, bar, label };
   }
 
-  /** Train button with its progress bar, for the full view. */
+  /** Train button with its progress bar, for the full view: "Training ×N", the bar, then the price. */
   private trainButton(who: Wearer): HTMLElement {
     const wrap = el('div', 'train');
-    const { btn, bar } = this.trainParts(who);
-    wrap.append(btn, bar);
+    const { btn, bar, label } = this.trainParts(who);
+    wrap.append(btn, bar, label);
     return wrap;
   }
 
@@ -976,7 +980,7 @@ export class AppUI {
     card.setAttribute('role', 'button');
     card.innerHTML = `
       <div class="hc-top">
-        <div class="hc-art">${portraitHtml(who)}</div>
+        <div class="hc-art">${portraitHtml(who)}<b class="lv-tag hidden"></b></div>
         <div class="hc-info">
           <div class="card-corner"><b class="sp-dot hidden" title="${esc(txt('tip.markers.skillPoints'))}"></b><span class="expand-tag">Expand ›</span></div>
           <div class="hc-name">${def ? `${def.name} <small>the ${g.titleOf(def.id)}</small>` : `${esc(mainName())} <small>the ${g.titleOf('main')}</small>`}</div>
@@ -984,7 +988,7 @@ export class AppUI {
           <div class="hc-status"></div>
         </div>
       </div>
-      <div class="hc-train"><span class="hc-lv"></span><div class="hc-mid"></div><div class="hc-action"></div></div>
+      <div class="hc-train"><span class="hc-lv">Training</span><div class="hc-mid"></div><div class="hc-action"></div></div>
       <div class="hc-gear"></div>`;
     // Only recruited Hunters open their full view (a locked card's story and Recruit button are all there is).
     const recruitedNow = () => !def || g.state.hunters[def.id].recruited;
@@ -997,7 +1001,7 @@ export class AppUI {
     if (def && !recruitedNow()) $('.expand-tag', card).textContent = 'Story ›';
     const mid = $('.hc-mid', card);
     const action = $('.hc-action', card);
-    const lv = $('.hc-lv', card);
+    const lv = $('.lv-tag', card);
     const gearEl = $('.hc-gear', card);
     const status = $('.hc-status', card);
     const dot = $('.sp-dot', card);
@@ -1070,6 +1074,7 @@ export class AppUI {
     this.refreshers.push(() => {
       const points = g.skillPoints(who);
       lv.textContent = `Lv ${g.levelOf(who)}`;
+      lv.classList.remove('hidden');
       dot.textContent = String(points);
       dot.classList.toggle('hidden', points <= 0);
       const station = def ? g.state.hunters[def.id].station : g.area;
@@ -3057,7 +3062,7 @@ export class AppUI {
     const card = el('div', `beast${g.isUnbound(def.area) ? ' ub' : ''}`);
     card.innerHTML = `
       <div class="beast-head">
-        <span class="beast-portrait"><canvas class="portrait"></canvas>${MAX_CROWN}</span>
+        <span class="beast-portrait"><canvas class="portrait"></canvas>${MAX_CROWN}<b class="lv-tag hidden"></b></span>
         <div class="info"><div class="card-corner"></div><div class="name"></div><div class="blurb">${def.blurb}</div>${unboundLine(g, def)}</div>
       </div>
       ${boss || g.state.bestiary[def.id].unlocked ? dropHtml(def, false, g.isUnbound(def.area)) : '<div class="drop-line ld-spacer" aria-hidden="true">&nbsp;</div>'}
@@ -3081,6 +3086,7 @@ export class AppUI {
     dot.title = txt('tip.markers.evoPoints');
     if (unlocked) {
       const { btn, bar } = this.empowerParts(def.id, false, true);
+      $('.hc-lv', row).textContent = 'Power';
       $('.hc-mid', row).appendChild(bar);
       $('.hc-action', row).appendChild(btn);
       actions.appendChild(row);
@@ -3132,7 +3138,9 @@ export class AppUI {
         unlockBtn.disabled = !g.canUnlockEnemy(def.id);
         return;
       }
-      $('.hc-lv', row).textContent = `Lv ${g.monsterLevelInfo(def.id).level}`;
+      const tag = $('.lv-tag', card);
+      tag.textContent = `Lv ${g.monsterLevelInfo(def.id).level}`;
+      tag.classList.remove('hidden');
       const points = g.evoPoints(def.id);
       dot.textContent = String(points);
       dot.classList.toggle('hidden', points <= 0);
@@ -3165,10 +3173,12 @@ export class AppUI {
    * `compact` without the bar's numbers) the button always empowers once and holding it empowers to the max; the
    * ×1/×10/×100/MAX switch is for the full view.
    */
-  private empowerParts(id: EnemyId, compact = false, card = false): { btn: HTMLButtonElement; bar: HTMLElement } {
+  private empowerParts(id: EnemyId, compact = false, card = false): { btn: HTMLButtonElement; bar: HTMLElement; label: HTMLElement } {
     const g = this.game;
     const amount = (): BuyAmount => (compact || card ? 1 : g.state.empowerAmount);
-    const btn = el('button', 'buy') as HTMLButtonElement;
+    const btn = el('button', 'buy cost-btn') as HTMLButtonElement;
+    // "Power" (or "Power ×10" in the full view) beside the bar; the button shows just the price.
+    const label = el('span', 'row-label', 'Power');
     const bar = el('div', 'train-bar');
     bar.innerHTML = '<i></i><span></span>';
     if (card)
@@ -3197,17 +3207,14 @@ export class AppUI {
       const maxed = level >= MAX_MONSTER_LEVEL;
       setHtml(
         btn,
-        maxed
-          ? 'Max level<small>fully evolved</small>'
-          : g.empowerUnlocked
-            ? `Empower${p.count > 1 ? ` ×${p.count}` : ''}<small>🪙 ${fmt(p.cost)}</small>`
-            : `🔒 Empower<small>${fmt(g.slimeKills)}/${EMPOWER_UNLOCK_KILLS} slimes</small>`,
+        maxed ? 'Max level' : g.empowerUnlocked ? `🪙 ${fmt(p.cost)}` : `🔒 ${fmt(g.slimeKills)}/${EMPOWER_UNLOCK_KILLS} slimes`,
       );
+      label.textContent = `Power${p.count > 1 && !maxed ? ` ×${p.count}` : ''}`;
       btn.disabled = maxed || !g.empowerUnlocked || g.state.gold < p.cost || !g.isUnlocked(id);
       levelBar(bar, level, maxed ? 100 : (into / need) * 100);
       $('span', bar).textContent = compact ? '' : maxed ? 'Max' : `${into}/${need}`;
     });
-    return { btn, bar };
+    return { btn, bar, label };
   }
 
   /** Full-screen monster view: Empower, what it's worth now, and its evolution tree. */
@@ -3306,8 +3313,8 @@ export class AppUI {
     );
     body.appendChild(this.amountsBar('', 'Empower'));
     const wrap = el('div', 'train');
-    const { btn, bar } = this.empowerParts(id);
-    wrap.append(btn, bar);
+    const { btn, bar, label } = this.empowerParts(id);
+    wrap.append(btn, bar, label);
     body.appendChild(wrap);
 
     body.appendChild(sectionTitle('Stats'));

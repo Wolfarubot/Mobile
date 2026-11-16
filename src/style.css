@@ -8842,3 +8842,55 @@ body .title-row .quick-type .cyc-cur {
 .dev-codes button {
   margin-right: 6px;
 }
+
+/*
+ * Train / Power rows: "Training" (or "Power") where the level was, the bar, then a button showing just the price, as
+ * tall as the bar. The level moves onto the portrait: a white tag centred along its bottom edge.
+ */
+.lv-tag {
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  bottom: -8px;
+  transform: translateX(-50%);
+  padding: 3px 6px;
+  background: #fff;
+  color: #3b2a1e;
+  border: 2px solid #3b2a1e;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  text-shadow: none;
+  pointer-events: none;
+}
+.buy.cost-btn {
+  height: 28px;
+  min-height: 0;
+  padding: 0 6px !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  line-height: 1;
+  white-space: nowrap;
+  font-size: 13px;
+}
+.hc-train .train-bar,
+.train .train-bar {
+  height: 28px;
+}
+.hc-train .train-bar span,
+.train .train-bar span {
+  line-height: 28px;
+}
+.hc-train .hc-lv {
+  font-size: 12px;
+}
+.row-label {
+  flex: none;
+  font-size: 13px;
+  font-weight: 900;
+  white-space: nowrap;
+  color: inherit;
+}
