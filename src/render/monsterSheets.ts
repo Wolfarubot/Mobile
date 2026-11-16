@@ -42,7 +42,7 @@ export const GUARDIAN_DEATHS: Record<string, number> = {
   'slime-king': 10,
   executioner: 18,
   necromancer: 6,
-  'mega-beholder': 6,
+  'mega-beholder': 9,
   'demon-slime': 22,
   'kobold-king': 4,
   'frost-gargoyle': 4,
