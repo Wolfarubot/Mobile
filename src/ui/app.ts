@@ -328,8 +328,8 @@ const devUnlocked = (name: string): boolean => name.trim() === DEV_NAME;
 const LONG_PRESS_MS = 500;
 /** Holding a tab this long raises (or drops) the full-screen menu. */
 const MENU_HOLD_MS = 450;
-/** How long the max-training bar shows at the end of a hold on Train, Empower or a skill point (before that, a tap never flashes it). */
-const HOLD_BAR_MS = 250;
+/** How long a hold on Train, Empower or a skill point waits before the max-training bar comes up (so a tap never flashes it). */
+const HOLD_BAR_DELAY_MS = 250;
 
 const upgradeReach = (it: ItemDef): string => (it.area ? `affects the ${areaDef(it.area.id).name}` : it.once ? 'crafted once' : 'works in every area');
 
@@ -744,9 +744,9 @@ export class AppUI {
   private holdForMax(btn: HTMLElement, offer: () => { text: string; run: () => void } | null, kind: keyof typeof HOLD_POPUPS = 'train', progress?: string): void {
     // A full second's hold, on a button or a card.
     const HOLD_MS = 1000;
-    // The max runs after HOLD_MS either way. With a bar (max Train / Empower / skill points), the bar only shows for
-    // the last HOLD_BAR_MS of the hold, so a tap never flashes it.
-    const wait = progress ? Math.max(0, HOLD_MS - HOLD_BAR_MS) : 0;
+    // The max runs after HOLD_MS either way. With a bar (max Train / Empower / skill points), the bar comes up after
+    // HOLD_BAR_DELAY_MS, so a tap never flashes it, and fills over the rest of the hold.
+    const wait = progress ? HOLD_BAR_DELAY_MS : 0;
     const pop = HOLD_POPUPS[kind];
     let timer = 0;
     let showTimer = 0;
