@@ -120,6 +120,7 @@ export const EMOJI_ICONS: Record<string, string> = {
   "💨": 'ab-geo-aero/065',
   "💪": 'status1/052',
   "💫": 'status5/063',
+  "🐙": 'ab-alchemist-shaman/043', // the Monstrosity type
   "🔆": 'status5/095',
   "💬": 'status3/056',
   "💰": 'things/006',

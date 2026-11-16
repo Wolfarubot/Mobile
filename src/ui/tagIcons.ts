@@ -31,6 +31,7 @@ export const SUMMON_TAG_ICONS: Record<SummonType, string> = {
   humanoid: 'ab-cavalier-monk/062',
   plant: 'ab-gunslinger-druid/088',
   dragon: 'ab-cavalier-monk/086',
+  monstrosity: 'ab-alchemist-shaman/043',
 };
 
 export const ARCHETYPE_TAG_ICONS: Record<Archetype, string> = {
@@ -43,6 +44,7 @@ export const ARCHETYPE_TAG_ICONS: Record<Archetype, string> = {
   plant: 'ab-gunslinger-druid/088', // a leaf (Deku the Druid's own icon is the tree)
   dragon: 'ab-cavalier-monk/086',
   construct: 'ab-engineer-psionic/064',
+  monstrosity: 'ab-alchemist-shaman/043', // an eye on a tentacle
 };
 
 export const ARMOR_TAG_ICONS = { light: 'ab-cavalier-monk/059', heavy: 'ab-paladin-dk/011', robe: 'ab-rogue-warlock/076' } as const;

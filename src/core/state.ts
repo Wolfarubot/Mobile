@@ -409,7 +409,7 @@ export interface GameState {
   };
 }
 
-export const SAVE_VERSION = 29;
+export const SAVE_VERSION = 30;
 
 /** Things already looked at: Journal entries read, recipes, monsters and events seen, and gear up to a uid. */
 export interface SeenState {
@@ -1062,6 +1062,8 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
     if (((data.version as number) ?? 1) < 22 && e.id === 'fireDrake') b.evo = {};
     // v26 -> v27: every archetype's evolution tree got its own shape, so evolution points are refunded.
     if (((data.version as number) ?? 1) < 27) b.evo = {};
+    // v29 -> v30: the Monstrosity type: these monsters moved to its evolution tree, so their evolutions are refunded.
+    if (((data.version as number) ?? 1) < 30 && ['lavaGolem', 'fireDrake', 'chimera', 'gazingEye', 'beholdenWatcher', 'watcher'].includes(e.id)) b.evo = {};
     // v27 -> v28: every tree but the Woods monsters' own was rebuilt on theirs (signature nodes), so refunded too.
     if (((data.version as number) ?? 1) < 28 && !['greenSlime', 'twiggling', 'wolf', 'goblin'].includes(e.id)) b.evo = {};
     b.kills = n(b.kills);

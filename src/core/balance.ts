@@ -1122,7 +1122,7 @@ export const MERCHANT_GEMS = 5;
 export const MERCHANT_MATERIALS: MaterialId[] = MATERIALS.map((m) => m.id).filter((id) => !RARE_MATERIALS.has(id));
 
 // ---- Archetypes: enemy families that Hunters specialize against ----
-export type Archetype = 'slime' | 'beast' | 'undead' | 'demon' | 'elemental' | 'humanoid' | 'plant' | 'dragon' | 'construct';
+export type Archetype = 'slime' | 'beast' | 'undead' | 'demon' | 'elemental' | 'humanoid' | 'plant' | 'dragon' | 'construct' | 'monstrosity';
 
 export const ARCHETYPES: Record<Archetype, { name: string; icon: string }> = {
   slime: { name: 'Slime', icon: '🟢' },
@@ -1134,6 +1134,7 @@ export const ARCHETYPES: Record<Archetype, { name: string; icon: string }> = {
   plant: { name: 'Plant', icon: '🌿' },
   dragon: { name: 'Dragon', icon: '🐉' },
   construct: { name: 'Construct', icon: '🪆' },
+  monstrosity: { name: 'Monstrosity', icon: '🐙' },
 };
 
 // ---- Areas: permanent unlocks, each with its own enemies and materials ----
@@ -1388,7 +1389,7 @@ export const ENEMIES: EnemyDef[] = [
   { id: 'gloomcrawler', name: 'Gloomcrawler', area: 'depths', archetype: 'beast', hp: 1, speed: 1.3, gold: 1.1, spawn: 1.4, pack: [3, 5], radius: 9, material: 'darkClaw', unlock: 0, color: '#4a4058', shape: 'triangle', blurb: 'Too many legs, all of them quiet.', weak: ['fire', 'radiant'], resist: ['poison'] },
   { id: 'duskmoth', name: 'Duskmoth', area: 'depths', archetype: 'beast', hp: 0.8, speed: 1.8, gold: 1.2, spawn: 0.6, pack: [2, 4], radius: 8, material: 'gloom', unlock: 120, color: '#8a7a9a', shape: 'diamond', blurb: 'Drawn to light. Especially yours.', weak: ['fire', 'frost'], resist: ['decay'] },
   { id: 'shadowWisp', name: 'Shadow Haunt', area: 'depths', archetype: 'elemental', hp: 1, speed: 1.5, gold: 1.8, spawn: 0.5, pack: [2, 3], radius: 9, material: 'shadowWisp', unlock: 900, color: '#6a5a8a', shape: 'ghost', blurb: 'A shadow that follows you even where there is no light, flinging shards of darkness from afar.', weak: ['radiant', 'arcane'], resist: ['physical', 'decay'], ranged: { range: 190, cooldown: 2.2, speed: 140 } },
-  { id: 'gazingEye', name: 'Gazing Eye', area: 'depths', archetype: 'demon', hp: 1.8, speed: 0.9, gold: 2.2, spawn: 0.45, pack: [1, 3], radius: 11, material: 'umbralEye', unlock: 4_000, color: '#b8a0d8', shape: 'circle', blurb: 'It never blinks. It never stops watching, and it keeps its distance while it fires bolts from its gaze.', weak: ['radiant', 'physical'], resist: ['arcane', 'void'], ranged: { range: 230, cooldown: 3, speed: 125 } },
+  { id: 'gazingEye', name: 'Gazing Eye', area: 'depths', archetype: 'monstrosity', hp: 1.8, speed: 0.9, gold: 2.2, spawn: 0.45, pack: [1, 3], radius: 11, material: 'umbralEye', unlock: 4_000, color: '#b8a0d8', shape: 'circle', blurb: 'It never blinks. It never stops watching, and it keeps its distance while it fires bolts from its gaze.', weak: ['radiant', 'physical'], resist: ['arcane', 'void'], ranged: { range: 230, cooldown: 3, speed: 125 } },
   { id: 'umbralOoze', name: 'Umbral Ooze', area: 'depths', archetype: 'slime', hp: 2.2, speed: 0.8, gold: 2.6, spawn: 0.4, pack: [2, 3], radius: 12, material: 'umbralSlime', unlock: 8_000, color: '#3a2e4a', shape: 'circle', blurb: 'A slime that soaked up the dark.', weak: ['fire', 'radiant'], resist: ['poison', 'void'] },
   { id: 'deepLurker', name: 'Abyssal Lurker', area: 'depths', archetype: 'demon', hp: 3, speed: 0.7, gold: 3.5, spawn: 0.35, pack: [1, 2], radius: 13, material: 'umbra', unlock: 15_000, color: '#2a2036', shape: 'hexagon', blurb: 'All eyes and teeth, somewhere in the abyss.', weak: ['radiant'], resist: ['physical', 'void'] },
 
@@ -1407,8 +1408,8 @@ export const ENEMIES: EnemyDef[] = [
   { id: 'kobold', name: 'Kobold', area: 'mines', archetype: 'humanoid', hp: 1, speed: 1.2, gold: 1.4, spawn: 1.4, pack: [3, 5], radius: 9, material: 'ore', unlock: 0, color: '#c07a3a', shape: 'square', blurb: 'Digs tunnels, sets traps, yips a lot.', weak: ['frost', 'physical'], resist: ['fire'] },
   { id: 'basilisk', name: 'Basilisk', area: 'mines', archetype: 'beast', hp: 3, speed: 1, gold: 3.8, spawn: 0.3, pack: [1, 2], radius: 13, material: 'scale', unlock: 120, color: '#5aa05a', shape: 'triangle', blurb: 'Whatever you do, don\'t meet its eyes.', weak: ['radiant', 'frost'], resist: ['poison', 'acid'] },
   // Ids kept from the old fire monsters (Lava Golem, Fire Drake) so saves keep their kills, Empower and evolutions.
-  { id: 'lavaGolem', name: 'Toxic Bloat', area: 'mines', archetype: 'elemental', hp: 5, speed: 0.5, gold: 5.5, spawn: 0.2, pack: [1, 1], radius: 16, material: 'magma', unlock: 900, color: '#7a5aa0', shape: 'diamond', size: 'large', blurb: 'A walking sack of cave gas. Best popped from a distance.', weak: ['fire', 'radiant'], resist: ['poison', 'acid', 'physical'] },
-  { id: 'fireDrake', name: 'Broodmother', area: 'mines', archetype: 'beast', hp: 3.5, speed: 1.2, gold: 4.2, spawn: 0.25, pack: [1, 2], radius: 14, material: 'scale', unlock: 4_000, color: '#5a9a3a', shape: 'hexagon', size: 'large', blurb: 'Mother of every spider in the Caverns. Her bite burns for days.', weak: ['fire', 'radiant'], resist: ['poison', 'physical'] },
+  { id: 'lavaGolem', name: 'Toxic Bloat', area: 'mines', archetype: 'monstrosity', hp: 5, speed: 0.5, gold: 5.5, spawn: 0.2, pack: [1, 1], radius: 16, material: 'magma', unlock: 900, color: '#7a5aa0', shape: 'diamond', size: 'large', blurb: 'A walking sack of cave gas. Best popped from a distance.', weak: ['fire', 'radiant'], resist: ['poison', 'acid', 'physical'] },
+  { id: 'fireDrake', name: 'Broodmother', area: 'mines', archetype: 'monstrosity', hp: 3.5, speed: 1.2, gold: 4.2, spawn: 0.25, pack: [1, 2], radius: 14, material: 'scale', unlock: 4_000, color: '#5a9a3a', shape: 'hexagon', size: 'large', blurb: 'Mother of every spider in the Caverns. Her bite burns for days.', weak: ['fire', 'radiant'], resist: ['poison', 'physical'] },
   { id: 'caveTroll', name: 'Cave Troll', area: 'mines', archetype: 'humanoid', hp: 6, speed: 0.6, gold: 6.5, spawn: 0.15, pack: [1, 1], radius: 17, material: 'ore', unlock: 15_000, color: '#7a6a5a', shape: 'square', blurb: 'Shrugs off blades. Hates fire.', weak: ['fire', 'acid'], resist: ['physical', 'frost'] },
   { id: 'venomGolem', name: 'Venomite Golem', area: 'mines', archetype: 'construct', hp: 6, speed: 0.45, gold: 7, spawn: 0.04, pack: [1, 1], radius: 18, material: 'cobaltOre', drops: [{ material: 'venomite', share: 0.3 }, { material: 'ore', share: 0.1 }], unlock: 40_000, color: '#4a7a3a', shape: 'square', blurb: 'Stone and ore, soaked through with venom.', weak: ['acid', 'radiant'], resist: ['physical', 'poison'] },
 
@@ -1453,10 +1454,10 @@ export const ENEMIES: EnemyDef[] = [
   { id: 'horror', name: 'Void Horror', area: 'rift', archetype: 'demon', hp: 5, speed: 0.8, gold: 6, spawn: 0.25, pack: [1, 2], radius: 15, material: 'void', unlock: 120, color: '#ff5fd7', shape: 'hexagon', blurb: 'Rare, huge, and very rewarding.', weak: ['radiant', 'arcane'], resist: ['void', 'decay'] },
   { id: 'lich', name: 'Lich', area: 'rift', archetype: 'undead', hp: 2.5, speed: 1, gold: 3.5, spawn: 0.4, pack: [1, 3], radius: 12, material: 'soul', unlock: 900, color: '#6ff0e0', shape: 'ghost', blurb: 'An undead king hoarding souls.', weak: ['radiant', 'fire'], resist: ['decay', 'poison', 'frost'] },
   { id: 'shade', name: 'Shade', area: 'rift', archetype: 'undead', hp: 1.2, speed: 1.4, gold: 1.6, spawn: 0.7, pack: [3, 5], radius: 10, material: 'shade', unlock: 4_000, color: '#4a3a6a', shape: 'ghost', blurb: 'A shadow that forgot who cast it.', weak: ['radiant'], resist: ['physical', 'void'] },
-  { id: 'watcher', name: 'Watcher', area: 'rift', archetype: 'demon', hp: 2.5, speed: 0.8, gold: 3.2, spawn: 0.35, pack: [1, 2], radius: 13, material: 'void', unlock: 15_000, color: '#c05ad0', shape: 'circle', blurb: 'One huge eye. It never blinks.', weak: ['radiant', 'acid'], resist: ['arcane', 'void'] },
+  { id: 'watcher', name: 'Watcher', area: 'rift', archetype: 'monstrosity', hp: 2.5, speed: 0.8, gold: 3.2, spawn: 0.35, pack: [1, 2], radius: 13, material: 'void', unlock: 15_000, color: '#c05ad0', shape: 'circle', blurb: 'One huge eye. It never blinks.', weak: ['radiant', 'acid'], resist: ['arcane', 'void'] },
   { id: 'darkKnight', name: 'Dark Knight', area: 'rift', archetype: 'humanoid', hp: 4, speed: 0.9, gold: 4.6, spawn: 0.25, pack: [1, 2], radius: 13, material: 'soul', unlock: 40_000, color: '#3a2a4a', shape: 'square', blurb: 'Traded his soul for better armor.', weak: ['radiant', 'arcane'], resist: ['physical', 'decay'] },
   { id: 'succubus', name: 'Succubus', area: 'rift', archetype: 'demon', hp: 2, speed: 1.5, gold: 2.8, spawn: 0.4, pack: [1, 3], radius: 11, material: 'soul', unlock: 100_000, color: '#ff6ab0', shape: 'diamond', blurb: 'Charming. Deadly. Mostly deadly.', weak: ['radiant', 'frost'], resist: ['fire', 'arcane'] },
-  { id: 'chimera', name: 'Chimera', area: 'rift', archetype: 'beast', hp: 5, speed: 1.2, gold: 6, spawn: 0.18, pack: [1, 1], radius: 16, material: 'void', unlock: 250_000, color: '#c08a4a', shape: 'hexagon', blurb: 'Three heads, zero manners.', weak: ['frost', 'acid'], resist: ['fire', 'poison'] },
+  { id: 'chimera', name: 'Chimera', area: 'rift', archetype: 'monstrosity', hp: 5, speed: 1.2, gold: 6, spawn: 0.18, pack: [1, 1], radius: 16, material: 'void', unlock: 250_000, color: '#c08a4a', shape: 'hexagon', blurb: 'Three heads, zero manners.', weak: ['frost', 'acid'], resist: ['fire', 'poison'] },
   { id: 'voidWyrm', name: 'Void Wyrm', area: 'rift', archetype: 'dragon', hp: 8, speed: 0.9, gold: 9.5, spawn: 0.1, pack: [1, 1], radius: 18, material: 'void', unlock: 600_000, color: '#8a3ae0', shape: 'hexagon', size: 'huge', blurb: 'Swims through the dark between stars.', weak: ['radiant'], resist: ['void', 'physical', 'frost'] },
   { id: 'behemoth', name: 'Behemoth', area: 'rift', archetype: 'beast', hp: 10, speed: 0.6, gold: 12, spawn: 0.08, pack: [1, 1], radius: 20, material: 'soul', unlock: 1_500_000, color: '#6a4a8a', shape: 'hexagon', size: 'large', blurb: 'The ground shakes when it walks.', weak: ['arcane', 'acid'], resist: ['physical', 'fire'] },
   { id: 'voidGolem', name: 'Void Golem', area: 'rift', archetype: 'construct', hp: 8, speed: 0.4, gold: 9, spawn: 0.03, pack: [1, 1], radius: 19, material: 'voidsteel', drops: [{ material: 'voidPrism', share: 1 }], unlock: 40_000, color: '#5a3a8a', shape: 'hexagon', blurb: 'Ore and gem from beyond the Rift, walking.', weak: ['radiant', 'acid'], resist: ['void', 'physical'] },
@@ -1466,7 +1467,7 @@ export const ENEMIES: EnemyDef[] = [
   { id: 'pixieQueen', name: "Queen's Guard", area: 'glade', archetype: 'elemental', guardianOnly: true, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 16, material: 'regalEssence', unlock: Infinity, color: '#ff7ad8', shape: 'diamond', blurb: "The Pixie Queen's guard: the oldest toadstool in the Grove, grown big enough to walk, and it lets nothing past.", weak: ['void', 'decay'], resist: ['arcane', 'radiant'] },
   { id: 'skeletonKing', name: 'Undead Executioner', area: 'graveyard', archetype: 'undead', guardianOnly: true, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 20, material: 'calciumCrystal', unlock: Infinity, color: '#f0e8d0', shape: 'square', blurb: "A reaper bound to the Graveyard, drifting between the stones with its scythe, gathering what's owed.", weak: ['radiant', 'arcane'], resist: ['poison', 'decay', 'physical'] },
   { id: 'awokenLich', name: 'Awoken Lich', area: 'crypt', archetype: 'undead', guardianOnly: true, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 20, material: 'eldritchText', unlock: Infinity, color: '#8a5ac0', shape: 'hexagon', blurb: "The Crypt's oldest master, risen at last, and furious about it.", weak: ['radiant', 'physical'], resist: ['decay', 'void', 'frost'] },
-  { id: 'beholdenWatcher', name: 'Beholden Watcher', area: 'depths', archetype: 'demon', guardianOnly: true, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 22, material: 'everwatchingEye', unlock: Infinity, color: '#c0a0e0', shape: 'circle', blurb: "A great eye ringed with smaller ones. Every one of them is looking at you.", weak: ['radiant', 'lightning'], resist: ['arcane', 'void', 'physical'] },
+  { id: 'beholdenWatcher', name: 'Beholden Watcher', area: 'depths', archetype: 'monstrosity', guardianOnly: true, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 22, material: 'everwatchingEye', unlock: Infinity, color: '#c0a0e0', shape: 'circle', blurb: "A great eye ringed with smaller ones. Every one of them is looking at you.", weak: ['radiant', 'lightning'], resist: ['arcane', 'void', 'physical'] },
   { id: 'demonLord', name: 'Demon Lord', area: 'caves', archetype: 'demon', guardianOnly: true, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 22, material: 'forsakenSoul', unlock: Infinity, color: '#c02a1a', shape: 'hexagon', blurb: "The master of the Ember Mines, wreathed in the souls it has taken.", weak: ['frost', 'radiant'], resist: ['fire', 'decay', 'physical'] },
   { id: 'koboldKing', name: 'Kobold King', area: 'mines', archetype: 'humanoid', guardianOnly: true, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 20, material: 'ore', unlock: Infinity, color: '#c0503a', shape: 'square', blurb: 'The kobolds\' king rides to war on a tusked boar, scythe-spear raised over the caverns he dug.', weak: ['fire', 'acid'], resist: ['physical', 'frost'] },
   { id: 'frostGargoyle', name: 'Frost Gargoyle', area: 'peaks', archetype: 'construct', guardianOnly: true, hp: 1, speed: 0.6, gold: 1, spawn: 0, pack: [1, 1], radius: 20, material: 'ecto', unlock: Infinity, color: '#8fd0ff', shape: 'diamond', blurb: 'Carved to watch the high passes, frozen solid, and long since woken by the storm.', weak: ['radiant', 'arcane'], resist: ['physical'] },
@@ -2170,6 +2171,13 @@ export const EVO_TREES: Record<Archetype, EvoNode[]> = {
     [ev('wealth', 'Gilded Lair', '💰', '+20% gold.', 6, { gold: 0.2 }), ev('horde', 'Clutch', '🥚', '+15% spawns.', 3, { spawn: 0.15 }), ev('harvest', 'Shed Scales', '💎', '+15% material drops.', 5, { drops: 0.15 })],
     [ev('wealth2', 'Golden Scales', '🪙', '+50% gold but 8% faster.', 3, { gold: 0.5, speed: 0.08 }), ev('sig', 'Wyrmblood', '🩸', '+15% gold and +10% material drops.', 4, { gold: 0.15, drops: 0.1 }), ev('harvest2', "Dragon's Bounty", '🦴', '+25% material drops.', 3, { drops: 0.25 })],
     { name: 'Elder Wyrm', icon: '👑', desc: '+75% gold and +40% material drops.', maxRank: 1, effect: { gold: 0.75, drops: 0.4 } },
+  ),
+  // Monstrosities: freaks of nature, rare and grotesque, prized for the strange parts they're made of.
+  monstrosity: evoTree(
+    ev('root', 'Aberrant Growth', '🐙', '+25% HP and +30% material drops.', 1, { hp: 0.25, drops: 0.3 }),
+    [ev('wealth', "Collector's Prize", '💰', '+15% gold.', 5, { gold: 0.15 }), ev('pack', 'Spawning Pit', '🥚', '+15% spawns.', 4, { spawn: 0.15 }), ev('harvest', 'Strange Parts', '💎', '+15% material drops.', 5, { drops: 0.15 })],
+    [ev('wealth2', 'Curiosity Trade', '🪙', '+40% gold but 8% faster.', 3, { gold: 0.4, speed: 0.08 }), ev('sig', 'Mutation', '🧬', '+15% material drops and +10% gold.', 4, { drops: 0.15, gold: 0.1 }), ev('harvest2', 'Grotesque Bounty', '🦴', '+35% material drops.', 3, { drops: 0.35 })],
+    { name: 'Abomination', icon: '👑', desc: '+60% material drops and +40% gold.', maxRank: 1, effect: { drops: 0.6, gold: 0.4 } },
   ),
 };
 
@@ -3055,6 +3063,7 @@ const BANE_NAMES: Record<Archetype, string> = {
   undead: 'Gravewarden',
   demon: 'Demonbane',
   construct: 'Scrapper',
+  monstrosity: 'Monster Hunter',
 };
 
 /** A Hunter's abilities, active first then passive, for their full view. */
@@ -3296,6 +3305,7 @@ export const SUMMON_TYPES: Record<SummonType, { name: string; icon: string }> = 
   humanoid: { name: ARCHETYPES.humanoid.name, icon: ARCHETYPES.humanoid.icon },
   plant: { name: ARCHETYPES.plant.name, icon: ARCHETYPES.plant.icon },
   dragon: { name: ARCHETYPES.dragon.name, icon: ARCHETYPES.dragon.icon },
+  monstrosity: { name: ARCHETYPES.monstrosity.name, icon: ARCHETYPES.monstrosity.icon },
 };
 
 // ---- Armor: three kinds, each leaning toward attack speed, toughness or power; any Hunter wears any ----
@@ -4578,6 +4588,7 @@ const BANE_SIDE_STAT: Record<Archetype, GearStat> = {
   plant: 'radius',
   dragon: 'stun',
   construct: 'stun',
+  monstrosity: 'critDamage',
 };
 
 /**
@@ -4830,6 +4841,7 @@ const TOME_SUMMONS: Partial<Record<GearId, EnemyId>> = {
   golemTome: 'oreGolem',
   demonTome: 'imp',
   deepTome: 'magmaSlime',
+  broodTome: 'fireDrake',
   spiritTome: 'wraith',
   frostTome: 'frostSprite',
   featherTome: 'harpy',
@@ -4881,6 +4893,7 @@ export const SUMMON_ABILITIES: Record<string, { name: string; desc: string }> = 
   iceWolf: { name: 'Frostbite', desc: 'Its bites chill, and every third bite on the same monster freezes it for a second.' },
   shade: { name: 'Shadow Step', desc: 'Every 2.5 seconds it steps through the shadows to another monster, striking everything around where it lands.' },
   puppet: { name: 'Tangled Strings', desc: 'Monsters it strikes are tangled up and slowed by half for 2 seconds.' },
+  fireDrake: { name: 'Web Spit', desc: 'Every 3 seconds she spits webbing at a monster, sticking it and every monster around it in place for 1.5 seconds.' },
 };
 
 /** Which SUMMON_ABILITIES entry a creature uses: the monster whose art it wears, or its look's monster. */

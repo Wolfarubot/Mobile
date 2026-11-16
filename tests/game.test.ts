@@ -6429,9 +6429,15 @@ describe('Saves', () => {
     expect(s.bestiary.greenSlime.evo).toEqual({ root: 1 });
     expect(s.hunters.alchemist.skills).toEqual({ root: 1, power: 3 });
     old.version = 28;
+    old.bestiary.treant.evo = { root: 1 };
+    s = deserialize(JSON.stringify(old))!;
+    expect(s.bestiary.treant.evo).toEqual({ root: 1 });
+    // v29 -> v30: the Toxic Bloat (and the other new Monstrosities) moved to the Monstrosity tree, so refunded.
+    expect(s.bestiary.lavaGolem.evo).toEqual({});
+    old.version = 30;
     s = deserialize(JSON.stringify(old))!;
     expect(s.bestiary.lavaGolem.evo).toEqual({ root: 1 });
-    expect(enemyDef('fireDrake').archetype).toBe('beast');
+    expect(enemyDef('fireDrake').archetype).toBe('monstrosity');
   });
 
   it('migrates a stage-based save: keeps items and surviving materials', () => {

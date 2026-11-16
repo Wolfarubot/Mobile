@@ -35,7 +35,7 @@ export type CatalogAccEffect =
    * Brooch does). `name` is one of them, made plural with an s; `type` is what kind of creature they are.
    */
   | { kind: 'summon'; art: string; name: string; type: CatalogArchetype; count: number; duration: number; cooldown: number; bites: number; speed: number; dmg: CatalogDamage };
-export type CatalogArchetype = 'slime' | 'beast' | 'undead' | 'demon' | 'elemental' | 'humanoid' | 'plant' | 'dragon' | 'construct';
+export type CatalogArchetype = 'slime' | 'beast' | 'undead' | 'demon' | 'elemental' | 'humanoid' | 'plant' | 'dragon' | 'construct' | 'monstrosity';
 
 export type CatalogSpec<I extends string = string> =
   | { id: I; name: string; icon: string; area: string; type: 'weapon'; cls: CatalogWeapon; dmg: CatalogDamage; recipe: Record<string, number>; top?: boolean; stone?: boolean }
@@ -231,6 +231,7 @@ export const GEAR_CATALOG = [
   ac('shadowstepBoots', 'Shadowstep Boots', '👢', 'boots', [], { umbralSlime: 10, umbralEye: 4 }),
   ac('gloomCowl', 'Gloom Cowl', '🧙', 'hood', [], { umbra: 10, umbralSlime: 4 }),
   x('hauntWard', 'Haunt Ward', '👻', [], { shadowWisp: 6, gloom: 8 }, 'elemental'),
+  x('watcherRing', "Watcher's Ring", '🧿', [], { umbralEye: 8, gloom: 5 }, 'monstrosity'),
 
   // ---- Ember Mines ----
   ...at('caves'),
@@ -305,6 +306,7 @@ export const GEAR_CATALOG = [
   xa('koboldDrum', 'Kobold War Drum', '🥁', ['gold'], { ore: 8, chitin: 5 }, { kind: 'summon', art: 'kobold', name: 'kobold', type: 'humanoid', count: 3, duration: 7, cooldown: 9, bites: 1, speed: 150, dmg: 'physical' }),
   x('mithrilBand', 'Mithril Band', '💍', ['crit'], { ore: 8, scale: 4 }),
   x('dragonscaleCharm', 'Dragonscale Charm', '🐉', [], { scale: 10, ore: 4 }, 'dragon'),
+  w('broodTome', 'Tome of the Brood', '📕', 'tome', 'poison', { scale: 10, ore: 5 }),
   x('prospectorPick', "Prospector's Pick", '⛏️', ['gold'], { ore: 10, chitin: 4 }),
   w('koboldLongbow', 'Kobold Longbow', '🏹', 'longbow', 'physical', { ore: 10, scale: 4 }),
   w('trollMaul', 'Cave Troll Maul', '🔨', 'hammer', 'physical', { ore: 16, scale: 6 }, true),

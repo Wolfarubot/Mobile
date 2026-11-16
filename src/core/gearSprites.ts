@@ -223,6 +223,8 @@ export const GEAR_SPRITES: Record<string, string> = {
   venomRobe: 'cloaks-belts/078',
   mithrilBand: 'jewelry/012',
   dragonscaleCharm: 'jewelry/057',
+  broodTome: 'wands-books/076',
+  watcherRing: 'jewelry/039',
   prospectorPick: 'weapons3/011',
   koboldLongbow: 'bows/011',
   trollMaul: 'weapons/059',

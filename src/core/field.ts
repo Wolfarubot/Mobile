@@ -3499,6 +3499,21 @@ export class Field {
         }
         break;
       }
+      case 'fireDrake': {
+        // Web Spit: a glob of webbing that sticks the monster and those around it in place (Guardians only briefly).
+        const e = ready ? this.nearest(s.x, s.y, 160) : null;
+        if (!e) break;
+        ab.t = 3;
+        const r = 45 * rm;
+        this.events.push({ type: 'beam', x1: s.x, y1: s.y, x2: e.x, y2: e.y, color: '#e8e8e0', width: 2 });
+        this.events.push({ type: 'nova', x: e.x, y: e.y, r, color: '#e8e8e0' });
+        for (const o of [...this.enemies]) {
+          if (o.hp <= 0 || Math.hypot(o.x - e.x, o.y - e.y) > r + o.r) continue;
+          o.held = Math.max(o.held ?? 0, 1.5 * (o.boss ? 0.25 : 1));
+          this.summonHit(s, o, 0.5);
+        }
+        break;
+      }
       case 'magmaSlime':
         if (ready) {
           ab.t = 0.6;
