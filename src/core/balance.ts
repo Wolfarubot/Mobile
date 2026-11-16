@@ -3759,6 +3759,8 @@ export type SpellId =
   | 'raiseDead'
   | 'chainLightning'
   | 'thunderstorm'
+  | 'lightningBall'
+  | 'poisonSpray'
   | 'gravityAnchor'
   | 'boulder'
   | 'rockfall';
@@ -3799,6 +3801,8 @@ export const SPELLS: Record<SpellId, SpellDef> = {
   raiseDead: { name: 'Raise Dead', icon: '💀', damageType: 'decay', k: 0.15, r: 80, life: 6, tick: 0.5, desc: 'Curses the ground: monsters that die on it rise again to fight for the Hunter.' },
   chainLightning: { name: 'Chain Lightning', icon: '⚡', damageType: 'lightning', k: 1, count: 5, r: 130, desc: 'A bolt from the Hunter that jumps from monster to monster.' },
   thunderstorm: { name: 'Thunderstorm', icon: '🌩️', damageType: 'lightning', k: 0.8, count: 5, r: 150, tick: 0.2, desc: 'Lightning strikes down from the sky on the monsters around the target.' },
+  lightningBall: { name: 'Lightning Ball', icon: '🔆', damageType: 'lightning', k: 0.35, count: 3, r: 90, life: 2.4, tick: 0.3, desc: 'A crackling ball of lightning that drifts toward the monsters, zapping the ones near it, then bursts.' },
+  poisonSpray: { name: 'Poison Spray', icon: '💦', damageType: 'poison', k: 0.8, r: 150, spread: 0.5, desc: 'A spray of venom in front of the Hunter, poisoning everything it splashes.' },
   boulder: { name: 'Boulder', icon: '🪨', damageType: 'physical', k: 1.2, r: 20, desc: 'A boulder that rolls across the field, crushing every monster in its path and slowing with each one, until it stops and breaks apart.' },
   rockfall: { name: 'Rockfall', icon: '☄️', damageType: 'physical', k: 0.7, count: 6, r: 30, tick: 0.15, desc: 'Rocks crashing down from above on the monsters around the target.' },
   gravityAnchor: { name: 'Gravity Anchor', icon: '🌀', damageType: 'void', k: 0.15, r: 110, life: 3, tick: 0.5, desc: 'An anchor thrown into the thick of them that pulls every monster in, then collapses.' },
@@ -3810,10 +3814,10 @@ export const TYPE_SPELLS: Record<DamageType, SpellId[]> = {
   acid: ['acidPool', 'acidRain'],
   frost: ['iceSpikes', 'frostFan'],
   radiant: ['radiantBeam', 'sunbeam'],
-  poison: ['poisonMist', 'plague'],
+  poison: ['poisonMist', 'plague', 'poisonSpray'],
   arcane: ['arcaneBolts'],
   decay: ['raiseDead'],
-  lightning: ['chainLightning', 'thunderstorm'],
+  lightning: ['chainLightning', 'thunderstorm', 'lightningBall'],
   void: ['gravityAnchor'],
 };
 /** Raise Dead: how long a risen monster fights, and how often it bites (each bite: the spell's cast × `k`). */
@@ -4098,17 +4102,22 @@ const summonOf = (a: Archetype): SummonType | undefined => (Object.keys(SUMMON_A
  * Unique built-in effects: Artifact pieces' (strong abilities of their own) and Exalted pieces' (field-wide
  * cataclysms), each on its own cooldown, dealing the piece's own damage (its power × its area's TIER_HIT).
  */
-export type UniqueId = 'stormcaller' | 'spellweaver' | 'gravewarden' | 'meteorCaller' | 'cataclysm' | 'meteorStorm' | 'singularity' | 'eternalLegion';
+export type UniqueId = 'stormcaller' | 'spellweaver' | 'gravewarden' | 'meteorCaller' | 'eyeOfFlame' | 'cataclysm' | 'meteorStorm' | 'singularity' | 'eternalLegion';
 export const UNIQUE_EFFECTS: Record<UniqueId, { name: string; icon: string; rarity: 'artifact' | 'exalted'; cooldown: number; damageType: DamageType; desc: string }> = {
   stormcaller: { name: 'Stormcaller', icon: '🌩️', rarity: 'artifact', cooldown: 5, damageType: 'lightning', desc: 'calls a Thunderstorm down on the monsters' },
   spellweaver: { name: 'Spellweaver', icon: '🔮', rarity: 'artifact', cooldown: 4, damageType: 'arcane', desc: 'casts a random spell of any element at the monsters' },
   gravewarden: { name: 'Gravewarden', icon: '💀', rarity: 'artifact', cooldown: 8, damageType: 'decay', desc: 'curses the ground under the thickest crowd: whatever dies there rises to fight for the wearer' },
   meteorCaller: { name: 'Meteor Caller', icon: '☄️', rarity: 'artifact', cooldown: 6, damageType: 'fire', desc: 'drops a Fireball and a Rockfall on the monsters' },
+  eyeOfFlame: { name: 'Eye of Flame', icon: '👁️', rarity: 'artifact', cooldown: 7, damageType: 'fire', desc: 'opens a flaming eye somewhere on the field that fires a beam through every monster in its path' },
   cataclysm: { name: 'Elemental Cataclysm', icon: '🌈', rarity: 'exalted', cooldown: 10, damageType: 'arcane', desc: 'unleashes a spell of every element at once, each at a different monster' },
   meteorStorm: { name: 'Meteor Storm', icon: '🌠', rarity: 'exalted', cooldown: 12, damageType: 'fire', desc: 'rains meteors down across the whole field' },
   singularity: { name: 'Singularity', icon: '🕳️', rarity: 'exalted', cooldown: 12, damageType: 'void', desc: 'opens a vast gravity well that drags the whole crowd together, then collapses' },
   eternalLegion: { name: 'Eternal Legion', icon: '⚰️', rarity: 'exalted', cooldown: 20, damageType: 'decay', desc: 'for 8 seconds, every monster that dies anywhere rises to fight for the wearer' },
 };
+/** Eye of Flame: the eye opens for `delay` seconds before its beam, `width` wide (× area size), each monster on it hit once for `k` × the piece's damage. */
+export const EYE_OF_FLAME = { delay: 0.55, width: 24, k: 2.5 };
+/** Lightning Ball: how fast it drifts, and its burst at the end (× its radius, and `k` × the cast). */
+export const LIGHTNING_BALL = { speed: 75, burstR: 0.9, burstK: 1.2 };
 const uniqueEnchant = (id: UniqueId): EnchantDef => {
   const u = UNIQUE_EFFECTS[id];
   return {
@@ -4995,8 +5004,17 @@ export const PHANTOM_ARTS: Partial<Record<MeleeArt, WeaponClass>> = { spear: 'sp
 
 
 /** The built-in effects a piece can draw (see assignVariants). */
+/**
+ * Effects added after every piece's built-ins were drawn: kept out of the seeded draws below so no existing piece's
+ * built-ins change (they still roll from enchanting and loot). The Eye of Flame goes on the piece PLACED_UNIQUES names.
+ */
+const LATE_EFFECTS: ReadonlySet<string> = new Set(['eyeOfFlame', 'spellLightningBall', 'spellPoisonSpray']);
+/** Unique effects placed on a particular piece instead of drawn. */
+const PLACED_UNIQUES: Partial<Record<string, UniqueId>> = { supernovaRifle: 'eyeOfFlame' };
+
 function builtInPool(d: GearDef): EnchantId[] {
   return (Object.keys(ENCHANTS) as EnchantId[]).filter((id) => {
+    if (LATE_EFFECTS.has(id)) return false;
     const en = ENCHANTS[id];
     // Banes stay out of the draw (a piece's own bane is its `bane`), which also keeps every built-in as it was.
     return (!en.builtInOnly || en.builtInPool) && !PLAIN_ENCHANTS.has(id) && !en.infuse && !en.bane && (en.fits(d) || accessoryBuiltIn(d, en));
@@ -5037,9 +5055,10 @@ function assignVariants(): void {
     const roll = () => 5 + Math.floor(rng() * 5); // a good roll: 5–9 of 10
     const builtIn: Array<{ id: EnchantId; q: number; p: number }> = [];
     if (v.fx === 'unique') {
-      const uniques = (Object.keys(UNIQUE_EFFECTS) as UniqueId[]).filter((u) => UNIQUE_EFFECTS[u].rarity === d.rarity);
+      const uniques = (Object.keys(UNIQUE_EFFECTS) as UniqueId[]).filter((u) => UNIQUE_EFFECTS[u].rarity === d.rarity && !LATE_EFFECTS.has(u));
       const named = uniques.find((u) => UNIQUE_EFFECTS[u].name === d.name);
-      builtIn.push({ id: named ?? pick(uniques), q: MOD_QUALITY_STEPS, p: roll() });
+      const drawn = named ?? pick(uniques);
+      builtIn.push({ id: PLACED_UNIQUES[d.id] ?? drawn, q: MOD_QUALITY_STEPS, p: roll() });
     } else for (let i = own; i < v.fx && pool.length; i++) builtIn.push({ id: pick(pool), q: roll(), p: roll() });
     const placed = SHOT_BUILT_INS[d.id];
     if (placed && v.fx !== 'unique' && builtIn.length > own && !builtIn.some((b) => b.id === placed)) builtIn[builtIn.length - 1] = { id: placed, q: roll(), p: roll() };

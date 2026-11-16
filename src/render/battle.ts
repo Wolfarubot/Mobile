@@ -253,6 +253,13 @@ export class BattleView {
           break;
         }
         case 'nova':
+          // A gear pulse: lightning's crackling sphere, fire's flaming one, or the flaming one in any other element's colour.
+          if (e.pulse && this.fancy) {
+            if (e.pulse === 'lightning') this.playEffect('lightsphere', e.x, e.y, e.r * 2, 'center', 24);
+            else if (e.pulse === 'fire') this.playEffect('flamesphere', e.x, e.y, e.r * 2, 'center', 24);
+            else this.playEffect('flamesphere-grey', e.x, e.y, e.r * 2, 'center', 24, 0, 1, e.color);
+            break;
+          }
           // A Focus's burst: a shockwave ring in its element's colour (Fancy).
           if (e.burst && this.fancy) {
             this.playEffect('shockwave', e.x, e.y, e.r * 2.2, 'center', 22, 2, 0.5, e.color);
@@ -260,6 +267,14 @@ export class BattleView {
           }
           if (this.game.state.settings.aoeStyle === 'basic') this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: hexRgb(e.color ?? '#fff0be'), max: 0.35 });
           else this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: hexRgb(e.color ?? '#fff0be'), max: 0.4, pixel: true, scatter: sparseCells(e.r, Math.random() * 1e6) });
+          break;
+        case 'impact':
+          // A magic shot or spell bolt landing: a fireball's burst, a lightning crackle, a rock's crash, an icicle shattering.
+          if (!this.fancy) break;
+          if (e.art === 'fire' && e.kind !== 'rock') this.playEffect('fireboom', e.x, e.y, 30, 'center', 22, 0, 1, undefined, e.a);
+          else if (e.art === 'lightning' && e.kind !== 'rock') this.playEffect('lightningburst', e.x, e.y, 30, 'center', 26, 2);
+          else if (e.art === 'frost' && e.kind !== 'rock') this.playEffect('iceburst', e.x, e.y, 24, 'center', 20);
+          else if (e.kind === 'rock') this.playEffect('rockfist', e.x, e.y + 6, 34, 'center', 24, 6);
           break;
         case 'beam':
           // A spear's thrust: a white streak shooting out along the stab.
@@ -1052,8 +1067,19 @@ export class BattleView {
     g.stroke();
   }
 
-  /** Monsters pinned by Gideon's bone spikes: a few spikes jutting up around their feet. */
+  /** Monsters pinned by Gideon's bone spikes: the spike field up around their feet (Fancy), or a few drawn spikes. */
   private drawHeld(g: CanvasRenderingContext2D): void {
+    const spikes = this.fancy ? effectImage('bonespikes') : null;
+    if (spikes) {
+      const img = spikes;
+      for (const e of this.field.enemies) {
+        if (!e.held) continue;
+        // Fully up while it holds; sinking back (the sheet's last frames) in its last quarter second.
+        const f = e.held > 0.25 ? 3 : 3 + Math.min(2, Math.floor((0.25 - e.held) * 12));
+        drawEffectFrame(g, img, 'bonespikes', f, e.x, e.y + e.r * 0.7, e.r * 2.2, 'bottom');
+      }
+      return;
+    }
     g.save();
     g.fillStyle = '#efe4c8';
     g.strokeStyle = '#4a3a2a';
@@ -1363,6 +1389,37 @@ export class BattleView {
         if (this.fancy) this.playEffect('puff', e.x, e.y, e.r * 2.4, 'center', 20, 0, 0.8, e.color);
         this.fx.burst(e.x, e.y, '#c8a0ff', 8, 80, 2.5, 0, true);
         break;
+      case 'spray':
+        // Poison Spray: the pack's splash flung down the cone (Fancy), or a sweep, and droplets flying out.
+        if (this.fancy) this.playEffect('acidsplash', e.x + Math.cos(e.a!) * e.r * 0.5, e.y + Math.sin(e.a!) * e.r * 0.5, e.r * 1.1, 'center', 20, 0, 1, undefined, e.a);
+        else this.sweeps.push({ x: e.x, y: e.y, a: e.a!, arc: e.arc!, r: e.r, color: e.color, t: 0 });
+        for (let i = 0; i < 10; i++) {
+          const a = e.a! + (Math.random() - 0.5) * e.arc!;
+          const d = e.r * (0.3 + Math.random() * 0.7);
+          this.fx.burst(e.x + Math.cos(a) * d, e.y + Math.sin(a) * d, i % 2 ? '#c8ff7a' : e.color, 1, 60, 3, 0, true);
+        }
+        break;
+      case 'lburst':
+        // A Lightning Ball bursting.
+        if (this.fancy) this.playEffect('lightningburst', e.x, e.y, e.r * 2.2, 'center', 22);
+        else this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: rgb, max: 0.3 });
+        this.fx.burst(e.x, e.y, '#ffffff', 6, 120, 2.5, 0, true);
+        break;
+      case 'bones': {
+        // Gideon's Bone Spikes: the traps pack's spike field bursting up across the spot (Fancy), or a pale ring.
+        if (!this.fancy) {
+          this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: rgb, max: 0.4, pixel: true, scatter: sparseCells(e.r, Math.random() * 1e6) });
+          break;
+        }
+        this.playEffect('bonespikes', e.x, e.y, e.r * 2, 'center', 12);
+        break;
+      }
+      case 'eye':
+        // The Eye of Flame opening: flames flaring up from a ring on the ground, then its beam (a moment later).
+        if (this.fancy) this.playEffect('eyefire', e.x, e.y + e.r * 0.5, e.r * 2.6, 'bottom', 16);
+        else this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: rgb, max: 0.6, fill: true });
+        this.fx.burst(e.x, e.y, '#ffd23a', 6, 50, 2.5, -60, true);
+        break;
     }
   }
 
@@ -1372,6 +1429,24 @@ export class BattleView {
     const t = this.time;
     g.save();
     switch (z.kind) {
+      case 'lightningBall': {
+        // The pack's crackling ball of lightning (Fancy), or a flickering white orb.
+        const ball = this.fancy ? effectImage('lightningball') : null;
+        if (ball) drawEffectFrame(g, ball, 'lightningball', Math.floor(t * 16), z.x, z.y, z.r * 0.5, 'center', true);
+        else {
+          g.globalAlpha = 0.5 + 0.3 * Math.sin(t * 30);
+          g.fillStyle = DAMAGE_TYPES.lightning.color;
+          g.beginPath();
+          g.arc(z.x, z.y, 12, 0, Math.PI * 2);
+          g.fill();
+          g.globalAlpha = 1;
+          g.fillStyle = '#ffffff';
+          g.beginPath();
+          g.arc(z.x, z.y, 6, 0, Math.PI * 2);
+          g.fill();
+        }
+        break;
+      }
       case 'acidRain': {
         // Fancy: a few rings of the pack's wispy clouds over the spot (four circling together in each, like the
         // Poison Mist's), each ring turning at its own pace.
@@ -2707,6 +2782,29 @@ function drawEnemyShot(g: CanvasRenderingContext2D, s: EnemyShot, t: number, k: 
   g.restore();
 }
 
+/**
+ * A magic shot by element, flying along `a` (already translated to it): Lightning's crackling bolt, Fire's fireball,
+ * Frost's icicle, Radiant's ray of light. False for the elements without one (they keep the tinted orb).
+ */
+function drawMagicShot(g: CanvasRenderingContext2D, art: DamageType, a: number, t: number): boolean {
+  const key: EffectKey | null = art === 'lightning' ? 'boltcast' : art === 'fire' ? 'firebolt' : art === 'frost' ? 'icicle' : art === 'radiant' ? 'rayburst' : null;
+  const img = key ? effectImage(key) : null;
+  if (!key || !img) return false;
+  if (key === 'boltcast') {
+    // The bolt is drawn upright: lay it along the flight, flickering between its two biggest frames.
+    g.rotate(a - Math.PI / 2);
+    drawEffectFrame(g, img, key, 1 + (Math.floor(t * 20) % 2), 0, 0, 30, 'center');
+  } else if (key === 'rayburst') {
+    // A shaft of light with its starburst leading (the sheet's ray points down).
+    g.rotate(a - Math.PI / 2);
+    drawEffectFrame(g, img, key, 1, 0, 0, 40, 'center');
+  } else {
+    g.rotate(a);
+    drawEffectFrame(g, img, key, Math.floor(t * 16), 0, 0, key === 'firebolt' ? 32 : 26, 'center', true);
+  }
+  return true;
+}
+
 /** `blade`: a thrown dagger's own art (the thrower's dagger), drawn point first in place of the plain blade. */
 function drawBullet(g: CanvasRenderingContext2D, b: Bullet, t: number, basic = false, blade: HTMLImageElement | null = null): void {
   const a = Math.atan2(b.vy, b.vx);
@@ -2859,7 +2957,9 @@ function drawBullet(g: CanvasRenderingContext2D, b: Bullet, t: number, basic = f
       g.fill();
       break;
     case 'spark': {
-      // A spellcaster's magic bolt: the effect pack's crackling orb, in their colour (or its element's).
+      // A magic weapon's shot in its element's own look (a lightning bolt, a fireball, an icicle, a ray of light).
+      if (!basic && b.art && drawMagicShot(g, b.art, a, t)) break;
+      // Otherwise the effect pack's crackling orb, in the caster's colour (or its element's).
       const c = b.dtype && b.dtype !== 'physical' ? DAMAGE_TYPES[b.dtype].color : b.shooter === 'main' ? '#fff6c2' : hunterDef(b.shooter).color;
       const orb = effectImage('orb');
       if (orb) {
@@ -2879,9 +2979,16 @@ function drawBullet(g: CanvasRenderingContext2D, b: Bullet, t: number, basic = f
       break;
     }
     case 'slash': {
-      // A sword's Elemental Wave: a crescent of its element, as wide as it hits, flying edge-first.
+      // A sword's Elemental Wave: the pack's wave in its element's colour (Fancy), or a drawn crescent, as wide as it
+      // hits, flying edge-first.
       const c = DAMAGE_TYPES[b.dtype ?? 'physical'].color;
       const r = b.size ?? 30;
+      const wave = basic ? null : effectImage('wave');
+      if (wave) {
+        g.rotate(a);
+        drawEffectFrame(g, tinted(wave, c === PHYSICAL_COLOR ? '#e8eef8' : c), 'wave', 4 + (Math.floor(t * 14) % 4), 0, 0, r * 2.4, 'center');
+        break;
+      }
       g.rotate(a);
       g.globalAlpha = 0.35;
       g.fillStyle = c;
@@ -2928,7 +3035,14 @@ function drawBullet(g: CanvasRenderingContext2D, b: Bullet, t: number, basic = f
       break;
     }
     case 'rock': {
-      // Stone magic: a tumbling chunk of rock with a little dust behind it.
+      // Stone magic: the pack's falling rock, streaking the way it flies (Fancy).
+      const fist = basic ? null : effectImage('rockfist');
+      if (fist) {
+        g.rotate(a - Math.PI / 2);
+        drawEffectFrame(g, fist, 'rockfist', 3 + (Math.floor(t * 12) % 3), 0, 0, 34, 'center');
+        break;
+      }
+      // A tumbling chunk of rock with a little dust behind it.
       g.fillStyle = 'rgba(160,150,130,0.35)';
       g.fillRect(-Math.cos(a) * 10 - 2, -Math.sin(a) * 10 - 2, 4, 4);
       g.rotate(t * 14);
@@ -2941,7 +3055,9 @@ function drawBullet(g: CanvasRenderingContext2D, b: Bullet, t: number, basic = f
       break;
     }
     case 'spell': {
-      // A spell's bolt: the pack's crackling orb in its element's colour (Fancy), or a glowing orb with a tail.
+      // A spell's bolt: its element's own look where it has one (Fire Volley's fireballs), else the pack's crackling
+      // orb in its element's colour (Fancy), or a glowing orb with a tail.
+      if (!basic && b.art && b.art !== 'radiant' && drawMagicShot(g, b.art, a, t)) break;
       const c = b.dtype ? DAMAGE_TYPES[b.dtype].color : '#fff6c2';
       const orb = !basic ? effectImage('orb') : null;
       if (orb) {

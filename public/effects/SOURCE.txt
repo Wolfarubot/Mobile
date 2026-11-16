@@ -27,3 +27,19 @@ Top Down Pixel Art Asset Packs (same license), one row cut from each sheet with 
   wings (Air_buff_Wings, first row): a Valkyrie's Guardian Wings
   vines (Lianas_front-back, front row): Thorns
   iceburst (Ice_arrow_explosion_front-back, front row): a Frost Sprite's ice bolt, an Ice Wolf's freezing bite
+More from the same three packs and the traps pack, one row cut from each sheet with its frames padded square
+(src/render/effectSheets.ts):
+  boltcast (Elemental Combat Spells, Lightning_ball_cast_front-back, front row): a lightning magic weapon's shot
+  lightningball, lightningburst (Lightning_ball_cycle / Lightning_ball_explosion, front rows): the Lightning Ball spell
+  rockfist (Stone_fist_front-back, front row): a Physical magic weapon's falling rock (frames 3-5) and its crash (6-10)
+  acidsplash (Acid _splash, the right-facing row): Poison Spray
+  eyefire (Eyes_of_fire): the Eye of Flame's eye
+  firebolt, fireboom (Elemental Magic Projectiles, Fireball_cycle / Fireball_explosion, right-facing rows): a fire
+    magic weapon's shot and its impact (and Fire Volley's bolts)
+  icicle (Ice_arrow_left-right, right-facing row): a frost magic weapon's shot
+  rayburst (Explosion_cast_front_back, front row): a radiant magic weapon's shot, a ray of light
+  lightsphere, flamesphere (Magic Shields and Healing Spells, Lightning_sphere / Flaming_sphere): lightning and fire
+    gear pulses; flamesphere-grey is the flaming sphere in grey, tinted at runtime for every other element's pulse
+  wave (Wave_left-right, right-facing row, in grey): a melee weapon's Elemental Wave, tinted to its element
+  bonespikes (Free Magic and Traps, 1 Spikes/3.png): Gideon's Bone Spikes
+

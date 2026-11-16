@@ -52,6 +52,8 @@ import {
   STUN_RELIEF,
   SCEPTER_ORB,
   SHOT_SPLASH,
+  EYE_OF_FLAME,
+  LIGHTNING_BALL,
   SHIELD_DEFLECT_PAUSE,
   type EnemyId,
   type HunterDef,
@@ -392,6 +394,8 @@ export interface Bullet {
   arts?: ShotArts;
   /** Id's void bolts: how fast they turn toward the monster they're chasing (radians a second). */
   homing?: number;
+  /** A magic shot's or spell bolt's look: its element (a lightning bolt, a fireball, an icicle, a falling rock...). */
+  art?: DamageType;
 }
 
 /** Celeste's Astral Projection: a copy of `by` standing at (x, y) for `max` seconds, then exploding. */
@@ -474,6 +478,8 @@ export interface SpellHit {
   r: number;
   k: number;
   fx?: 'spike' | 'sun' | 'storm' | 'rock' | 'shock' | 'arrows' | 'rune';
+  /** A beam instead of a blast (the Eye of Flame's): from (x, y) along `a`, `len` long and `w` wide, through everything on it. */
+  beam?: { a: number; len: number; w: number };
 }
 
 /** Earthshatter: a crack in the ground from (x1, y1) to (x2, y2), hurting monsters on it each tick for `power` × a hit. */
@@ -609,7 +615,9 @@ export type FieldEvent =
   /** `magic`: a spell's blast, which sounds like its element rather than a plain explosion. */
   | { type: 'explode'; x: number; y: number; r: number; color: string; magic?: DamageType; /** Drawn in this colour (Id's bolts). */ tint?: string }
   /** `burst`: a Focus's attack, drawn as a shockwave. */
-  | { type: 'nova'; x: number; y: number; r: number; color?: string; burst?: boolean }
+  | { type: 'nova'; x: number; y: number; r: number; color?: string; burst?: boolean; /** A gear pulse (or a melee weapon's wave burst) of this element: drawn as its sphere. */ pulse?: DamageType }
+  /** A magic shot or spell bolt struck (x, y) flying along `a`: its element's impact. */
+  | { type: 'impact'; x: number; y: number; a: number; art: DamageType; kind: 'spark' | 'rock' | 'spell' }
   | { type: 'beam'; x1: number; y1: number; x2: number; y2: number; color: string; width: number; zigzag?: boolean; thrust?: boolean }
   | { type: 'sweep'; x: number; y: number; a: number; arc: number; r: number; color: string; heavy?: boolean; blade?: boolean }
   /** A focus's wave: a ring growing to `r` over `time` seconds. */
@@ -637,7 +645,7 @@ export type FieldEvent =
   /** Floating words on the field: a dice roll's call, Double or Nothing's ×2 / BUST. */
   | { type: 'say'; x: number; y: number; text: string; color: string; size: number }
   /** A spell's moment: an ice spike, a fan of frost, a sunbeam, an acid drop, an anchor landing, the dead rising. */
-  | { type: 'spell'; fx: 'spike' | 'cone' | 'sun' | 'drop' | 'anchor' | 'rise' | 'rock' | 'break' | 'shock' | 'arrows' | 'rune' | 'meteor' | 'wings' | 'iceburst'; x: number; y: number; r: number; color: string; a?: number; arc?: number };
+  | { type: 'spell'; fx: 'spike' | 'cone' | 'sun' | 'drop' | 'anchor' | 'rise' | 'rock' | 'break' | 'shock' | 'arrows' | 'rune' | 'meteor' | 'wings' | 'iceburst' | 'spray' | 'lburst' | 'bones' | 'eye'; x: number; y: number; r: number; color: string; a?: number; arc?: number };
 
 /**
  * The survivor-style battlefield in world coordinates centered on your Hunter.
@@ -1869,12 +1877,11 @@ export class Field {
       if (this.boneWall > 0 && !only) return false;
       const tx = target.x;
       const ty = target.y;
-      this.events.push({ type: 'nova', x: tx, y: ty, r: radius, color: '#efe4c8' });
+      this.events.push({ type: 'spell', fx: 'bones', x: tx, y: ty, r: radius, color: '#efe4c8' });
       for (const o of this.enemies)
         if (o.hp > 0 && Math.hypot(o.x - tx, o.y - ty) <= radius + o.r) {
           this.hitWith(by, o, dmg, tx, ty, undefined, undefined, true, true, only);
           o.held = Math.max(o.held ?? 0, (sp.hold ?? 1) * g.lastingMult(by) * (o.boss ? 0.25 : 1));
-          this.events.push({ type: 'thorns', x: o.x, y: o.y, r: o.r });
         }
       return true;
     }
@@ -2270,7 +2277,9 @@ export class Field {
     // further the weapon reaches.
     const shot = SHOT_KINDS.has(kind) && !o.special && !o.cast && this.weaponDef(shooter)?.kind !== 'melee';
     const splash = shot ? (SHOT_SPLASH.gap * g.shooterRange(shooter, o.mode)) / MAIN_RANGE : undefined;
+    const art = kind === 'spark' || kind === 'rock' || kind === 'spell' ? (dtype ?? g.damageTypeOf(shooter, o.mode)) : undefined;
     this.bullets.push({
+      ...(art ? { art } : {}),
       splash,
       orb: shot && !!this.game.weaponClassOf(shooter, o.mode)?.orb,
       shooter,
@@ -2572,6 +2581,23 @@ export class Field {
         this.castSpell(who, x, y, 'fireball', target, { base });
         this.castSpell(who, x, y, 'rockfall', target, { base });
         break;
+      case 'eyeOfFlame': {
+        // An eye opens somewhere toward the edge of the field, looks at a monster, and fires a beam through every
+        // monster on that line, out past the far side.
+        const e = any();
+        let ex = 0;
+        let ey = 0;
+        for (let i = 0; i < 6; i++) {
+          ex = (g.rng() * 2 - 1) * this.halfW * 0.85;
+          ey = (g.rng() * 2 - 1) * this.halfH * 0.85;
+          if (Math.hypot(ex - e.x, ey - e.y) > 120) break;
+        }
+        const a = Math.atan2(e.y - ey, e.x - ex);
+        const len = Math.hypot(this.halfW, this.halfH) * 2;
+        this.events.push({ type: 'spell', fx: 'eye', x: ex, y: ey, r: 26, a, color: DAMAGE_TYPES.fire.color });
+        this.spellHits.push({ c: { who, dtype: 'fire', base }, t: EYE_OF_FLAME.delay, x: ex, y: ey, r: 0, k: EYE_OF_FLAME.k, beam: { a, len, w: EYE_OF_FLAME.width * g.radiusMult(who) } });
+        break;
+      }
       case 'cataclysm':
         // One spell of every element at once, each at a monster of its own.
         this.events.push({ type: 'nova', x, y, r: 120, color: '#ffffff' });
@@ -2787,7 +2813,7 @@ export class Field {
   private abilityBurst(who: Shooter, x: number, y: number, r: number, base: number, dtype: DamageType): void {
     // Area-size upgrades (gear, skills) and the area's own scale widen it, as they do every area effect.
     r *= this.game.radiusMult(who);
-    this.events.push({ type: 'nova', x, y, r, color: DAMAGE_TYPES[dtype].color });
+    this.events.push({ type: 'nova', x, y, r, color: DAMAGE_TYPES[dtype].color, pulse: dtype });
     for (const e of [...this.enemies]) if (e.hp > 0 && Math.hypot(e.x - x, e.y - y) <= r + e.r) this.abilityHit(who, e, base, dtype, true);
   }
 
@@ -2980,6 +3006,24 @@ export class Field {
           this.spellHits.push({ c, t: i * sp.tick!, x: target.x + Math.cos(a) * d, y: target.y + Math.sin(a) * d, r: sp.r! * area, k: sp.k, fx: 'rock' });
         }
         break;
+      case 'poisonSpray': {
+        // A spray of venom fanning out in front of the Hunter.
+        const reach = sp.r! * area;
+        this.events.push({ type: 'spell', fx: 'spray', x, y, r: reach, a: aim, arc: sp.spread! * 2, color });
+        for (const e of [...this.enemies]) {
+          const d = Math.hypot(e.x - x, e.y - y);
+          if (e.hp <= 0 || d > reach + e.r) continue;
+          const off = Math.abs(Math.atan2(Math.sin(Math.atan2(e.y - y, e.x - x) - aim), Math.cos(Math.atan2(e.y - y, e.x - x) - aim)));
+          if (off <= sp.spread! + Math.atan2(e.r, Math.max(1, d))) this.spellHit(c, e, sp.k, x, y);
+        }
+        break;
+      }
+      case 'lightningBall': {
+        // A ball of lightning drifting out toward the monster, zapping what comes near it, then bursting.
+        const v = LIGHTNING_BALL.speed;
+        this.zones.push({ kind: spell, c, x: x + Math.cos(aim) * 24, y: y + Math.sin(aim) * 24, r: sp.r! * area, vx: Math.cos(aim) * v, vy: Math.sin(aim) * v, life: sp.life! * this.game.lastingMult(c.who), max: sp.life! * this.game.lastingMult(c.who), tick: 0.15, k: sp.k, touched: new Map() });
+        break;
+      }
       case 'poisonMist': {
         // A cloud rolling out from the Hunter, through the target and on across the field.
         const speed = 70;
@@ -3036,6 +3080,20 @@ export class Field {
           const e = near[Math.floor(this.game.rng() * near.length)];
           this.events.push({ type: 'beam', x1: e.x + (this.game.rng() - 0.5) * 60, y1: e.y - 220, x2: e.x, y2: e.y, color, width: 3, zigzag: true });
           this.spellHit(h.c, e, h.k, e.x, e.y - 50);
+        }
+        continue;
+      }
+      if (h.beam) {
+        // A beam through everything on its line (the Eye of Flame's).
+        const { a, len, w } = h.beam;
+        const cx = Math.cos(a);
+        const cy = Math.sin(a);
+        this.events.push({ type: 'beam', x1: h.x, y1: h.y, x2: h.x + cx * len, y2: h.y + cy * len, color, width: w });
+        this.events.push({ type: 'beam', x1: h.x, y1: h.y, x2: h.x + cx * len, y2: h.y + cy * len, color: '#fff2b0', width: w * 0.4 });
+        for (const e of [...this.enemies]) {
+          if (e.hp <= 0) continue;
+          const t = (e.x - h.x) * cx + (e.y - h.y) * cy;
+          if (t > 0 && t <= len + e.r && Math.abs((e.x - h.x) * cy - (e.y - h.y) * cx) <= w / 2 + e.r) this.spellHit(h.c, e, h.k, h.x, h.y);
         }
         continue;
       }
@@ -3096,6 +3154,27 @@ export class Field {
           this.events.push({ type: 'explode', x: z.x, y: z.y, r: z.r * ANCHOR_COLLAPSE.r, color: DAMAGE_TYPES.void.color });
           for (const e of [...this.enemies]) if (e.hp > 0 && Math.hypot(e.x - z.x, e.y - z.y) <= z.r * ANCHOR_COLLAPSE.r + e.r) this.spellHit(z.c, e, ANCHOR_COLLAPSE.k, z.x, z.y);
         }
+      }
+      if (z.kind === 'lightningBall') {
+        if (z.life <= 0) {
+          // Its end: a burst of lightning where it is.
+          const r = z.r * LIGHTNING_BALL.burstR;
+          this.events.push({ type: 'spell', fx: 'lburst', x: z.x, y: z.y, r, color: DAMAGE_TYPES.lightning.color });
+          for (const e of [...this.enemies]) if (e.hp > 0 && Math.hypot(e.x - z.x, e.y - z.y) <= r + e.r) this.spellHit(z.c, e, z.k * LIGHTNING_BALL.burstK, z.x, z.y);
+          continue;
+        }
+        if (z.tick > 0) continue;
+        // Zaps the nearest few monsters in reach.
+        z.tick = sp.tick!;
+        const near = this.enemies
+          .filter((e) => e.hp > 0 && Math.hypot(e.x - z.x, e.y - z.y) <= z.r + e.r)
+          .sort((p, q) => Math.hypot(p.x - z.x, p.y - z.y) - Math.hypot(q.x - z.x, q.y - z.y))
+          .slice(0, sp.count!);
+        for (const e of near) {
+          this.events.push({ type: 'beam', x1: z.x, y1: z.y, x2: e.x, y2: e.y, color: DAMAGE_TYPES.lightning.color, width: 2, zigzag: true });
+          this.spellHit(z.c, e, z.k, z.x, z.y);
+        }
+        continue;
       }
       if (z.tick > 0 || z.life <= 0) continue;
       if (z.kind === 'acidRain') {
@@ -4085,6 +4164,7 @@ export class Field {
         const dy = e.y - b.y;
         if (dx * dx + dy * dy > rr * rr) continue;
         b.hits.push(e.id);
+        if (b.art && b.hits.length === 1 && (b.kind === 'spark' || b.kind === 'rock' || b.kind === 'spell')) this.events.push({ type: 'impact', x: b.x, y: b.y, a: Math.atan2(b.vy, b.vx), art: b.art, kind: b.kind });
         this.bulletHit(b, e);
         // Overpenetration: each kill lets it pierce one more.
         if (b.arts?.overpen && e.hp <= 0) b.pierce++;

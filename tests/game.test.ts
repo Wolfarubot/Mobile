@@ -2800,6 +2800,63 @@ describe('Equipment', () => {
     expect(ench.fits(gearDef('bonePlate'))).toBe(false);
   });
 
+  it('new spell effects: Lightning Ball zaps then bursts, Poison Spray poisons its cone, and the Eye of Flame beams through a line', () => {
+    const g = new Game(newGame(0), () => 0.5);
+    g.state.main.trains = 50;
+    type Api = { castSpell: (...a: unknown[]) => void; unique: (...a: unknown[]) => boolean };
+    // Lightning Ball: drifts out, zapping what's near it, then bursts at the end of its life.
+    {
+      const f = new Field(g);
+      f.setView(390, 420);
+      f.enemies = Array.from({ length: 4 }, (_, i) => enemy({ id: i + 1, type: 'wolf', x: i * 20 - 30, y: -110, hp: 1e9, maxHp: 1e9 }));
+      (f as unknown as Api).castSpell('main', 0, 0, 'lightningBall', f.enemies[0], { base: 100 });
+      expect(f.zones.some((z) => z.kind === 'lightningBall')).toBe(true);
+      const ev: ReturnType<Field['drainEvents']> = [];
+      for (let i = 0; i < 4 * 30; i++) {
+        f.update(1 / 30);
+        ev.push(...f.drainEvents());
+      }
+      expect(ev.some((e) => e.type === 'beam' && e.zigzag)).toBe(true);
+      expect(ev.some((e) => e.type === 'spell' && e.fx === 'lburst')).toBe(true);
+      expect(f.zones.some((z) => z.kind === 'lightningBall')).toBe(false);
+    }
+    // Poison Spray: everything in the cone in front is hit and poisoned, nothing behind.
+    {
+      const f = new Field(g);
+      f.setView(390, 420);
+      f.enemies = [enemy({ id: 1, type: 'wolf', x: 0, y: -100, hp: 1e9, maxHp: 1e9 }), enemy({ id: 2, type: 'wolf', x: 0, y: 100, hp: 1e9, maxHp: 1e9 })];
+      (f as unknown as Api).castSpell('main', 0, 0, 'poisonSpray', f.enemies[0], { base: 100 });
+      expect(f.enemies[0].hp).toBeLessThan(1e9);
+      expect(f.enemies[0].poison).toBeTruthy();
+      expect(f.enemies[1].hp).toBe(1e9);
+    }
+    // Eye of Flame: an eye opens, and a moment later its beam hits every monster on its line (the one it looked at too).
+    {
+      const f = new Field(g);
+      f.setView(390, 420);
+      f.enemies = Array.from({ length: 5 }, (_, i) => enemy({ id: i + 1, type: 'wolf', x: 0, y: -40 - i * 30, hp: 1e9, maxHp: 1e9 }));
+      expect((f as unknown as Api).unique('main', 0, 0, 'eyeOfFlame', 100)).toBe(true);
+      const ev = f.drainEvents();
+      expect(ev.some((e) => e.type === 'spell' && e.fx === 'eye')).toBe(true);
+      expect(f.enemies.every((e) => e.hp === 1e9)).toBe(true); // not yet: the eye is still opening
+      for (let i = 0; i < 30; i++) f.update(1 / 30);
+      expect(f.enemies.filter((e) => e.hp < 1e9).length).toBeGreaterThanOrEqual(1);
+    }
+    // Only the Supernova Rifle carries the Eye of Flame; the new spells aren't drawn into any piece's built-ins.
+    expect(GEAR.filter((d) => d.builtIn?.some((b) => b.id === 'eyeOfFlame')).map((d) => d.id)).toEqual(['supernovaRifle']);
+    expect(GEAR.some((d) => d.builtIn?.some((b) => b.id === 'spellLightningBall' || b.id === 'spellPoisonSpray'))).toBe(false);
+    // A magic weapon's shots carry their element's look, and a gear pulse names its element.
+    {
+      const f = new Field(g);
+      f.setView(390, 420);
+      (f as unknown as { shoot: (...a: unknown[]) => void }).shoot('main', 'spark', 0, 0, 0, 300, 300, { dtype: 'fire' });
+      expect(f.bullets[0].art).toBe('fire');
+      f.enemies = [enemy({ id: 1, type: 'wolf', x: 40, y: 0, hp: 1e9, maxHp: 1e9 })];
+      (f as unknown as { abilityBurst: (...a: unknown[]) => void }).abilityBurst('main', 0, 0, 90, 100, 'lightning');
+      expect(f.drainEvents().some((e) => e.type === 'nova' && e.pulse === 'lightning')).toBe(true);
+    }
+  });
+
   it('stone magic: Physical magic weapons hurl rocks, stone tomes raise golems, and a boulder rolls until the monsters stop it', () => {
     const g = new Game(newGame(0), () => 0.5);
     g.state.main.trains = 50;

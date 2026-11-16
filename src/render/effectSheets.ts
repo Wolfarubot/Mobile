@@ -47,6 +47,26 @@ export const EFFECTS = {
   wings: { frame: 64, frames: 8, box: [0, 5, 63, 46] },
   vines: { frame: 112, frames: 11, box: [32, 0, 33, 102] },
   iceburst: { frame: 80, frames: 5, box: [23, 31, 39, 39] },
+  // More from the same three packs (see SOURCE.txt): magic weapons' shots by element (a lightning bolt, a fireball
+  // with its impact, an icicle, a falling rock with its impact, a ray of light), the Lightning Ball spell (its loop and
+  // burst), Poison Spray (the acid splash, sideways), gear pulses (the lightning and flaming spheres; the grey copy of
+  // the flaming one takes any element's tint), a melee weapon's Elemental Wave (grey, tinted per element), the Eye of
+  // Flame's eye, and Gideon's Bone Spikes (the traps pack's steel spike trap).
+  boltcast: { frame: 128, frames: 3, box: [62, 37, 10, 26] },
+  lightningball: { frame: 128, frames: 7, box: [41, 35, 49, 56] },
+  lightningburst: { frame: 128, frames: 8, box: [18, 21, 90, 77] },
+  rockfist: { frame: 96, frames: 11, box: [6, 6, 79, 90] },
+  acidsplash: { frame: 64, frames: 7, box: [10, 14, 46, 38] },
+  eyefire: { frame: 48, frames: 11, box: [12, 14, 25, 33] },
+  firebolt: { frame: 64, frames: 7, box: [12, 30, 37, 15] },
+  fireboom: { frame: 64, frames: 6, box: [13, 19, 37, 30] },
+  icicle: { frame: 80, frames: 1, box: [35, 34, 21, 7] },
+  rayburst: { frame: 64, frames: 2, box: [27, 5, 11, 43] },
+  lightsphere: { frame: 128, frames: 10, box: [11, 5, 111, 112] },
+  flamesphere: { frame: 96, frames: 10, box: [4, 2, 88, 86] },
+  'flamesphere-grey': { frame: 96, frames: 10, box: [4, 2, 88, 86] },
+  wave: { frame: 64, frames: 10, box: [17, 6, 30, 57] },
+  bonespikes: { frame: 32, frames: 6, box: [0, 0, 32, 31] },
 } satisfies Record<string, EffectSheet>;
 
 export type EffectKey = keyof typeof EFFECTS;
