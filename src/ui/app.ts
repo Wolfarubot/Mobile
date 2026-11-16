@@ -742,8 +742,8 @@ export class AppUI {
   }
 
   private holdForMax(btn: HTMLElement, offer: () => { text: string; run: () => void } | null, kind: keyof typeof HOLD_POPUPS = 'train', progress?: string): void {
-    // A card takes a little longer to hold than a button.
-    const HOLD_MS = btn.tagName === 'BUTTON' ? 500 : 750;
+    // A full second's hold, on a button or a card.
+    const HOLD_MS = 1000;
     // The max runs after HOLD_MS either way. With a bar (max Train / Empower / skill points), the bar only shows for
     // the last HOLD_BAR_MS of the hold, so a tap never flashes it.
     const wait = progress ? Math.max(0, HOLD_MS - HOLD_BAR_MS) : 0;
