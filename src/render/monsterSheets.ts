@@ -111,7 +111,7 @@ export const SHEETS: Record<string, MonsterSheet> = {
   'thunderbird': { frame: 48, cols: 4, order: 'SIDE', faces: 'L', box: [10, 17, 38, 29] },
   'golem-sky': { frame: 128, cols: 7, order: 'SIDE', box: [47, 50, 37, 78] },
   'golem-storm': { frame: 128, cols: 8, order: 'SIDE', box: [25, 71, 56, 57] },
-  'storm-titan': { frame: 128, cols: 8, order: 'SIDE', box: [24, 54, 56, 74] },
+  'storm-titan': { frame: 128, cols: 7, order: 'SIDE', box: [47, 50, 37, 78] }, // the Sky Golem's flying stone golem, recoloured to storm clouds
   'meteorite': { frame: 72, cols: 4, order: 'SIDE', box: [25, 20, 47, 51] },
   'behemoth': { frame: 72, cols: 6, order: 'SIDE', faces: 'L', box: [12, 29, 59, 43] },
   'huge-mushroom': { frame: 72, cols: 6, order: 'SIDE', faces: 'L', box: [26, 9, 46, 63] },
