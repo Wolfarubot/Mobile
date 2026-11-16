@@ -700,7 +700,7 @@ export interface Ghost {
 
 export type FieldEvent =
   | { type: 'hit'; x: number; y: number; dmg: number; crit: boolean; dtype: DamageType; affinity?: 'weak' | 'resist' | null }
-  | { type: 'kill'; x: number; y: number; enemy: EnemyId; boss: boolean; reward: KillReward }
+  | { type: 'kill'; x: number; y: number; enemy: EnemyId; boss: boolean; reward: KillReward; foe?: Enemy }
   /** A Guardian's telegraphed strike landed (see Hazard). */
   | { type: 'gstrike'; hz: Hazard }
   | { type: 'blast'; x: number; y: number; color?: string; /** A tap ability's spell went off with it (Flame Burst's explosion, Frost Nova's freeze). */ spell?: boolean }
@@ -5023,7 +5023,7 @@ export class Field {
       // Fireburst (an enchantment): monsters the weapon kills burst, hurting everything around them.
       const burst = this.game.killBurst(shooter);
       if (burst && this.game.rng() < this.chained(burst.chance)) this.inChain(() => this.abilityBurst(shooter, e.x, e.y, burst.radius, burst.base, burst.damageType));
-      this.events.push({ type: 'kill', x: e.x, y: e.y, enemy: e.type, boss: e.boss, reward });
+      this.events.push({ type: 'kill', x: e.x, y: e.y, enemy: e.type, boss: e.boss, reward, ...(e.boss ? { foe: e } : {}) });
       // Double or Nothing (Ted in this area).
       if (reward.luck === 'double') this.say(e.x, e.y - 14, '×2!', '#ffd84a', 11);
       else if (reward.luck === 'bust') this.say(e.x, e.y - 14, 'BUST', '#9a9aa8', 9);

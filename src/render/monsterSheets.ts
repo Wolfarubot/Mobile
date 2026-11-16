@@ -31,6 +31,25 @@ export const GUARDIAN_ANIMS: Record<string, Record<string, number>> = {
   'wyvern-ice': { attack2: 10, rise: 7, landing: 5 },
   'star-eater': { special: 12, rise: 7, landing: 5 },
   'time-eater': { special: 8, attack3: 8, attack: 8 },
+  'storm-titan': { attack1: 5, attack2: 4 },
+};
+
+/**
+ * Guardians' deaths: frames in each one's `<sheet>-death` sheet (from its pack, recoloured like its walk), played
+ * where it fell. The King Slime's pack had none (it simply vanishes, as before).
+ */
+export const GUARDIAN_DEATHS: Record<string, number> = {
+  executioner: 18,
+  necromancer: 6,
+  'mega-beholder': 6,
+  'demon-slime': 22,
+  'kobold-king': 4,
+  'frost-gargoyle': 4,
+  'wyvern-ice': 3,
+  'star-eater': 3,
+  'time-eater': 8,
+  'huge-mushroom': 4,
+  'storm-titan': 9,
 };
 
 export const SHEETS: Record<string, MonsterSheet> = {

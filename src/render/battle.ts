@@ -13,7 +13,7 @@ import { effectImage, gearImage, hunterSheetImage, monsterSheetImage, sprite } f
 import { HUNTER_SHEETS } from './hunterSheets';
 import { EFFECTS, type EffectKey } from './effectSheets';
 import { areaBackground, areaScene, drawVignette, type SceneProp } from './backgrounds';
-import { GUARDIAN_ANIMS, MONSTER_SHEETS, SHEETS, sheetRow, sideFlip, type MonsterSheet } from './monsterSheets';
+import { GUARDIAN_ANIMS, GUARDIAN_DEATHS, MONSTER_SHEETS, SHEETS, sheetRow, sideFlip, type MonsterSheet } from './monsterSheets';
 import { GEAR_SPRITES } from '../core/gearSprites';
 import { emojiIconKey } from '../ui/emojiIcons';
 import { HUNTER_ICONS, hunterIconHtml } from '../ui/hunterIcons';
@@ -115,6 +115,8 @@ export class BattleView {
   private swings = new Map<Shooter, { t: number; a: number }>();
   /** The current scene's big objects (null until its pictures load), and the obstacles made from them. */
   private sceneProps: SceneProp[] | null = null;
+  /** Fallen Guardians playing their death where they fell (a copy of the Guardian as it was, and when it fell). */
+  private falls: Array<{ e: Enemy; at: number }> = [];
   private sweeps: Array<{ x: number; y: number; a: number; arc: number; r: number; color: string; t: number; blade?: boolean }> = [];
   private time = 0;
   private shake = 0;
@@ -161,6 +163,7 @@ export class BattleView {
       if (e.type === 'unlock') this.showBanner(`${enemyDef(e.enemy).name}s now roam!`, enemyDef(e.enemy).color);
       if (e.type === 'travel') {
         this.pickups = [];
+        this.falls = [];
         this.showBanner(areaDef(game.area).name, '#ffffff');
       }
       if (e.type === 'eventStart' && eventDef(e.event).kind !== 'guardian') this.showBanner(`${eventDef(e.event).name}!`, '#7be07b');
@@ -216,7 +219,10 @@ export class BattleView {
           // just vanishes, with no puff, a few sparks and only some of its gold flying over (the gold is yours
           // either way). Guardians always get the full show.
           const busy = !e.boss && (this.field.enemies.length > BUSY_ENEMIES || this.anims.length > BUSY_ANIMS);
-          if (this.fancy && !busy) this.playEffect('puff', e.x, e.y, e.boss ? 90 : 26, 'center', 22);
+          // A Guardian with a death in its pack plays it where it fell (no puff hiding it).
+          const deathSheet = e.foe && guardianDeath(e.foe);
+          if (deathSheet) this.falls.push({ e: { ...e.foe!, flash: 0, anim: undefined, gm: undefined, phased: false }, at: this.time });
+          else if (this.fancy && !busy) this.playEffect('puff', e.x, e.y, e.boss ? 90 : 26, 'center', 22);
           this.fx.burst(e.x, e.y, color, e.boss ? 40 : busy ? 2 : 8, e.boss ? 260 : 140, e.boss ? 5 : 3, 0);
           if (e.reward.gold > 0 && (e.boss || this.coinBudget(busy))) this.dropPickup(e.x, e.y, '#ffd34d', false, e.boss ? 12 : 1);
           // Its material flies over too (a few gems for a big drop; one, or none past the cap, on a busy field).
@@ -485,6 +491,22 @@ export class BattleView {
         g.fillStyle = grad;
         g.fillRect(-W / 2, -H / 2, W, H);
       }
+      g.restore();
+    }
+  }
+
+  /** Fallen Guardians: their death played through, the last frame held a moment, then fading away. */
+  private drawFalls(g: CanvasRenderingContext2D): void {
+    this.falls = this.falls.filter((f) => {
+      const n = GUARDIAN_DEATHS[guardianDeath(f.e)!];
+      return this.time - f.at < n / DEATH_FPS + DEATH_HOLD + DEATH_FADE;
+    });
+    for (const f of this.falls) {
+      const t = this.time - f.at;
+      const end = GUARDIAN_DEATHS[guardianDeath(f.e)!] / DEATH_FPS + DEATH_HOLD + DEATH_FADE;
+      g.save();
+      g.globalAlpha = Math.max(0, Math.min(1, (end - t) / DEATH_FADE));
+      this.scaledAt(g, f.e.x, f.e.y, () => this.drawEnemy(g, f.e, t));
       g.restore();
     }
   }
@@ -974,6 +996,7 @@ export class BattleView {
       g.stroke();
     }
 
+    this.drawFalls(g);
     this.drawEchoes(g);
     this.drawReloads(g);
     this.fx.draw(g);
@@ -1822,7 +1845,7 @@ export class BattleView {
     this.anims.push({ key, x, y, size, anchor, fps, t: 0, start, alpha, color, ...(angle ? { angle } : {}) });
   }
 
-  private drawEnemy(g: CanvasRenderingContext2D, e: Enemy): void {
+  private drawEnemy(g: CanvasRenderingContext2D, e: Enemy, dying?: number): void {
     const def = enemyDef(e.type);
     const r = e.r;
     // Its art's size: the hit radius scaled by the monster's size class (dragons are drawn huge), and by its own
@@ -1853,6 +1876,21 @@ export class BattleView {
       if (flip) g.scale(-1, 1);
       // A Guardian making a move plays that move's animation (its frames sized like its walk), holding the last frame
       // while the move lasts; out of reach (vanished, in the air) it's drawn faint.
+      // A fallen Guardian: its death, frame by frame, the last one held, then fading.
+      const deathN = e.boss ? GUARDIAN_DEATHS[sheetKey] : undefined;
+      if (deathN) {
+        const deathImg = monsterSheetImage(`${sheetKey}-death`); // asked for while it fights, so it's ready when it falls
+        if (dying !== undefined && deathImg.complete && deathImg.naturalWidth > 0) {
+          const f = Math.min(deathN - 1, Math.floor(dying * DEATH_FPS));
+          drawSheetFrame(g, deathImg, { ...sh, cols: deathN }, 0, f, ra * SHEET_SCALE, { of: deathImg, alpha: this.clarity });
+          g.restore();
+          return;
+        }
+      }
+      if (dying !== undefined) {
+        g.restore();
+        return;
+      }
       const atk = e.anim ? GUARDIAN_ANIMS[sheetKey]?.[e.anim.key] : undefined;
       const atkImg = atk ? monsterSheetImage(`${sheetKey}-${e.anim!.key}`) : null;
       if (e.phased) g.globalAlpha *= 0.25;
@@ -2892,6 +2930,17 @@ function drawStatus(g: CanvasRenderingContext2D, e: Enemy, t: number, on: (k: Fx
 }
 
 /** Each attack style gets its own simple look. */
+/** Guardian deaths: frames a second, then seconds the last frame is held and seconds it fades over. */
+const DEATH_FPS = 10;
+const DEATH_HOLD = 0.7;
+const DEATH_FADE = 0.6;
+
+/** The sheet whose death a fallen Guardian plays (its own art, if its pack had a death), or null. */
+function guardianDeath(e: Enemy): string | null {
+  const key = e.art ?? MONSTER_SHEETS[e.type];
+  return key && GUARDIAN_DEATHS[key] ? key : null;
+}
+
 /** A ranged monster's bolt: a glowing orb of its colour with a fading tail, `k` times its size (like the characters). */
 function drawEnemyShot(g: CanvasRenderingContext2D, s: EnemyShot, t: number, k: number, clarity = 0): void {
   // A Guardian's: the Executioner's shadow wisps (rising in place, then streaking in), the Watcher's energy balls.
