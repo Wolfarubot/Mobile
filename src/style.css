@@ -8913,3 +8913,9 @@ body .title-row .quick-type .cyc-cur {
 .sv-bar .sv-count { flex:1; font-weight:800; font-size:13px; }
 .sv-bar button { flex:none; width:auto; padding:6px 12px; }
 .sv-bar.hidden { display:none; }
+
+/* A monster's type and its Flying / Ranged tags: a row of their own under its name, on every monster card. */
+.beast-sub { display:flex; flex-wrap:wrap; align-items:center; gap:4px 6px; margin-top:2px; font-size:11px; line-height:16px; }
+.beast-sub .archetype { margin-left:0; display:inline-flex; align-items:center; gap:3px; white-space:nowrap; }
+.beast-sub .beast-tag { margin-left:0; }
+.beast-sub small { font-size:10px; }

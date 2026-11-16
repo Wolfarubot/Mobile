@@ -2403,7 +2403,7 @@ export class AppUI {
     for (const e of areaEnemies(id)) {
       const known = g.state.bestiary[e.id].unlocked;
       const row = el('div', `row${known ? '' : ' locked'}`);
-      row.innerHTML = `<canvas class="portrait"></canvas><div class="info"><div class="name">${known ? e.name : '???'} <small>${tagIconHtml(ARCHETYPE_TAG_ICONS[e.archetype])} ${ARCHETYPES[e.archetype].name}</small></div><div class="drop">${known ? dropsText(e, true, g.isUnbound(e.area)) : `${gemHtml(e.material)} Drops <b>???</b>`}</div><div class="sub">${known ? e.blurb : 'Unlock it in the Bestiary.'}</div>${known ? affinityHtml(e, true) : ''}</div>`;
+      row.innerHTML = `<canvas class="portrait"></canvas><div class="info"><div class="name">${known ? e.name : '???'}${beastSub(e)}</div><div class="drop">${known ? dropsText(e, true, g.isUnbound(e.area)) : `${gemHtml(e.material)} Drops <b>???</b>`}</div><div class="sub">${known ? e.blurb : 'Unlock it in the Bestiary.'}</div>${known ? affinityHtml(e, true) : ''}</div>`;
       // A monster you've unlocked opens its full view.
       if (known) {
         row.classList.add('tappable');
@@ -3137,12 +3137,12 @@ export class AppUI {
       actions.appendChild(row);
     }
 
-    const arch = ARCHETYPES[def.archetype];
     this.refreshers.push(() => {
       const b = g.state.bestiary[def.id];
       card.classList.toggle('locked', !b.unlocked);
       $('.max-crown', card).classList.toggle('hidden', !b.unlocked || g.monsterLevelInfo(def.id).level < MAX_MONSTER_LEVEL);
-      setHtml($('.name', card), `${def.name}<span class="archetype">${tagIconHtml(ARCHETYPE_TAG_ICONS[def.archetype])} ${arch.name}</span>${beastTags(def)}${b.unlocked ? '' : ' <small>locked</small>'}`);
+      // The name on its own line; its type and Flying / Ranged tags on the row under it, the same on every card.
+      setHtml($('.name', card), `${def.name}${b.unlocked ? '' : ' <small>locked</small>'}${beastSub(def)}`);
       if (!b.unlocked) {
         const cost = g.unlockCostOf(def.id);
         // Still waiting on kills in its area: how many more, then the price.
@@ -3166,7 +3166,6 @@ export class AppUI {
    */
   private guardianCard(def: EnemyDef, card: HTMLElement): void {
     const g = this.game;
-    const arch = ARCHETYPES[def.archetype];
     const row = el('div', 'hc-train guardian-row');
     row.innerHTML = '<span class="hc-lv">👑</span><div class="hc-mid guardian-record"></div>';
     $('.beast-actions', card).appendChild(row);
@@ -3175,7 +3174,7 @@ export class AppUI {
     card.addEventListener('click', () => this.openMonsterDetail(def.id, true));
     this.refreshers.push(() => {
       const ev = g.state.events[`guardian-${def.area}`];
-      setHtml($('.name', card), `${guardianName(def.area)}<span class="archetype">${tagIconHtml(ARCHETYPE_TAG_ICONS[def.archetype])} ${arch.name}</span>${beastTags(def)} <small>Guardian of the ${areaDef(def.area).name}</small>`);
+      setHtml($('.name', card), `${guardianName(def.area)}${beastSub(def, `<small>Guardian of the ${areaDef(def.area).name}</small>`)}`);
       $('.max-crown', card).classList.toggle('hidden', !g.guardianBeaten(def.area));
       setHtml($('.guardian-record', row), `Challenged <b>${fmt(ev?.runs ?? 0)}</b> · beaten <b>${fmt(ev?.completed ?? 0)}</b>`);
     });
@@ -7512,6 +7511,11 @@ function dropsText(e: EnemyDef, rarity = true, unbound = false): string {
 }
 
 /** A monster's tags: Flying (passes over the scenery) and Ranged (shoots from afar). */
+/** The row under a monster's name: its type (icon and name), then its Flying / Ranged tags and anything `extra`. */
+function beastSub(def: EnemyDef, extra = ''): string {
+  return `<div class="beast-sub"><span class="archetype">${tagIconHtml(ARCHETYPE_TAG_ICONS[def.archetype])} ${ARCHETYPES[def.archetype].name}</span>${beastTags(def)}${extra}</div>`;
+}
+
 function beastTags(def: EnemyDef): string {
   const tags = [FLYING.has(def.id) ? `<span class="beast-tag flying" title="${esc(txt('tip.markers.flying'))}">Flying</span>` : '', def.ranged ? `<span class="beast-tag ranged" title="${esc(txt('tip.markers.ranged'))}">Ranged</span>` : ''];
   return tags.join('');
