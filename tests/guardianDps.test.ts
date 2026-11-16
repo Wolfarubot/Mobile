@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { it } from 'vitest';
-import { AREAS, enemyDef, GEAR, gearArea, gearDef, GUARDIAN_ENEMY, HUNTERS, slotAccepts, type AreaId } from '../src/core/balance';
+import { AREAS, ENEMIES, enemyDef, GEAR, gearArea, gearDef, GUARDIAN_ENEMY, HUNTERS, slotAccepts, type AreaId } from '../src/core/balance';
 import { Field } from '../src/core/field';
 import { Game } from '../src/core/game';
 import { deserialize } from '../src/core/state';
@@ -82,8 +82,10 @@ function fight(raw: unknown, area: AreaId, hp: number, seed = 42): { dmg: number
         g.slotsOf(who as never).forEach((slot, i) => {
           const weapon = slot.kind !== 'armor' && slot.kind !== 'accessory';
           const stars = weapon ? 4 : 3;
-          // not pieces made from the Guardian's own drop (you can't have them before you've beaten it)
-          const drop = enemyDef(GUARDIAN_ENEMY[area]).material;
+          // not pieces made from the Guardian's own drop (you can't have them before you've beaten it), unless
+          // the area's monsters drop it too (the Kobold King's Ore, the Star Eater's Stardust …)
+          const own = enemyDef(GUARDIAN_ENEMY[area]).material;
+          const drop = ENEMIES.some((e) => e.id !== GUARDIAN_ENEMY[area] && e.material === own) ? '' : own;
           // the area's own pieces; for a slot it makes none for, the latest area's before it that does
           let options: typeof GEAR = [];
           // the same kind of weapon the Hunter already fights with, where the area makes one (a sword
@@ -91,7 +93,7 @@ function fight(raw: unknown, area: AreaId, hp: number, seed = 42): { dmg: number
           const worn = eq[i] != null ? state.inventory.find((it) => it.uid === eq[i]) : undefined;
           const kind = worn ? gearDef(worn.base).weaponClass : undefined;
           for (let t = tier; t >= 1 && !options.length; t--) {
-            options = GEAR.filter((gd) => slotAccepts(slot, gd) && gearArea(gd) === t && !(drop in gd.recipe));
+            options = GEAR.filter((gd) => slotAccepts(slot, gd) && gearArea(gd) === t && !(drop && drop in gd.recipe));
             if (weapon && kind && options.some((gd) => gd.weaponClass === kind)) options = options.filter((gd) => gd.weaponClass === kind);
           }
           if (!options.length) return;
