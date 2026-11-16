@@ -317,7 +317,7 @@ const $ = <T extends HTMLElement = HTMLElement>(sel: string, root: ParentNode = 
 
 /** Who an Upgrade affects: every Hunter, or one area's monsters. */
 /** Holding an area tile this long travels there; two taps this close together open its details (and a Hunter's or monster's tile). */
-const AREA_HOLD_MS = 550;
+const AREA_HOLD_MS = 1000;
 const DOUBLE_TAP_MS = 350;
 /** One-time tips wait at least this long after the last popup opened or closed. */
 const POPUP_GAP_MS = 30_000;
@@ -2611,14 +2611,19 @@ export class AppUI {
       if (!g.isAreaUnlocked(id)) return;
       const start = { x: ev.clientX, y: ev.clientY };
       let over = false;
-      // Travelling: the bar above the menu buttons (not where you're already hunting).
-      const dropBar = g.area === id ? null : this.holdBar(`Traveling to ${areaDef(id).name}`, AREA_HOLD_MS);
+      // Travelling: the bar above the menu buttons (not where you're already hunting). Like max Train, it only
+      // comes up once the press has been held a quarter second, so a tap or the start of a scroll never flashes it.
+      let dropBar: (() => void) | null = null;
+      const barTimer = g.area === id ? 0 : window.setTimeout(() => (dropBar = this.holdBar(`Traveling to ${areaDef(id).name}`, AREA_HOLD_MS - HOLD_BAR_DELAY_MS)), HOLD_BAR_DELAY_MS);
       const end = () => {
         clearTimeout(timer);
+        clearTimeout(barTimer);
         dropBar?.();
+        dropBar = null;
         window.removeEventListener('pointermove', move);
         window.removeEventListener('pointerup', up);
         window.removeEventListener('pointercancel', cancel);
+        this.panel.removeEventListener('scroll', cancel, true);
       };
       const timer = setTimeout(() => {
         over = true;
@@ -2626,7 +2631,7 @@ export class AppUI {
         this.holdTravel(id);
       }, AREA_HOLD_MS);
       const move = (e: PointerEvent) => {
-        if (Math.hypot(e.clientX - start.x, e.clientY - start.y) > 10) cancel(); // scrolling, not holding
+        if (Math.hypot(e.clientX - start.x, e.clientY - start.y) > 6) cancel(); // scrolling, not holding
       };
       const cancel = () => {
         over = true;
@@ -2650,6 +2655,8 @@ export class AppUI {
       window.addEventListener('pointermove', move);
       window.addEventListener('pointerup', up);
       window.addEventListener('pointercancel', cancel);
+      // Moving the list up and down is a scroll, never a hold: any scroll calls it off.
+      this.panel.addEventListener('scroll', cancel, true);
     });
   }
 
