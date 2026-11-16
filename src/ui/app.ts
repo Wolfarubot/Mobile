@@ -328,8 +328,8 @@ const devUnlocked = (name: string): boolean => name.trim() === DEV_NAME;
 const LONG_PRESS_MS = 500;
 /** Holding a tab this long raises (or drops) the full-screen menu. */
 const MENU_HOLD_MS = 450;
-/** How long Train or Empower must be held before the max-training bar comes up (so a tap never flashes it). */
-const HOLD_SHOW_MS = 500;
+/** How long the max-training bar shows at the end of a hold on Train, Empower or a skill point (before that, a tap never flashes it). */
+const HOLD_BAR_MS = 250;
 
 const upgradeReach = (it: ItemDef): string => (it.area ? `affects the ${areaDef(it.area.id).name}` : it.once ? 'crafted once' : 'works in every area');
 
@@ -744,9 +744,9 @@ export class AppUI {
   private holdForMax(btn: HTMLElement, offer: () => { text: string; run: () => void } | null, kind: keyof typeof HOLD_POPUPS = 'train', progress?: string): void {
     // A card takes a little longer to hold than a button.
     const HOLD_MS = btn.tagName === 'BUTTON' ? 500 : 750;
-    // With a bar (max Train / Empower), it only comes up once the press has been held for HOLD_SHOW_MS, so a tap
-    // never flashes it; then it fills over HOLD_MS and the max runs.
-    const wait = progress ? HOLD_SHOW_MS : 0;
+    // The max runs after HOLD_MS either way. With a bar (max Train / Empower / skill points), the bar only shows for
+    // the last HOLD_BAR_MS of the hold, so a tap never flashes it.
+    const wait = progress ? Math.max(0, HOLD_MS - HOLD_BAR_MS) : 0;
     const pop = HOLD_POPUPS[kind];
     let timer = 0;
     let showTimer = 0;
@@ -776,7 +776,7 @@ export class AppUI {
       if (progress)
         showTimer = window.setTimeout(() => {
           showTimer = 0;
-          if (offer()) bar = this.holdBar(progress, HOLD_MS);
+          if (offer()) bar = this.holdBar(progress, HOLD_MS - wait);
         }, wait);
       timer = window.setTimeout(() => {
         timer = 0;
@@ -802,7 +802,7 @@ export class AppUI {
           },
           { label: txt(pop.ok), action: o.run },
         ]);
-      }, wait + HOLD_MS);
+      }, HOLD_MS);
     });
     btn.addEventListener('pointermove', (ev) => {
       if (timer && Math.hypot(ev.clientX - x, ev.clientY - y) > 12) stop();
