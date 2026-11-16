@@ -193,7 +193,7 @@ import { ACC_TAG_ICONS, ARCHETYPE_TAG_ICONS, ARMOR_TAG_ICONS, DAMAGE_TAG_ICONS, 
 
 type Tab = TabId;
 /** The one-time tips (see App.tips), as the envelope keeps them. */
-type TipId = 'events' | 'train' | 'wolf' | 'craft' | 'empower' | 'minigames' | 'quests' | 'feedback' | 'quickTrain';
+type TipId = 'events' | 'train' | 'wolf' | 'craft' | 'empower' | 'minigames' | 'quests' | 'feedback' | 'quickTrain' | 'salvage';
 /** What treeView needs to draw and drive a skill or evolution tree. */
 interface TreeAdapter {
   nodes: TreeNode[];
@@ -330,6 +330,8 @@ const LONG_PRESS_MS = 500;
 const MENU_HOLD_MS = 450;
 /** How long a hold on Train, Empower or a skill point waits before the max-training bar comes up (so a tap never flashes it). */
 const HOLD_BAR_DELAY_MS = 250;
+/** The salvaging tip comes up once the inventory holds this many pieces. */
+const SALVAGE_TIP_ITEMS = 100;
 
 const upgradeReach = (it: ItemDef): string => (it.area ? `affects the ${areaDef(it.area.id).name}` : it.once ? 'crafted once' : 'works in every area');
 
@@ -4835,6 +4837,7 @@ export class AppUI {
       { id: 'minigames', title: txt('popup.minigames.title'), ready: () => !s.flags.minigameIntro && g.eventUnlocked('huntingPractice'), mark: () => (s.flags.minigameIntro = true), show: (r) => this.showMinigameIntro(r) },
       { id: 'quests', title: txt('popup.quests.title'), ready: () => !s.flags.questsIntro && g.questsOpen, mark: () => g.openQuestLog(), show: (r) => this.showQuestsIntro(r) },
       { id: 'quickTrain', title: txt('popup.quickTrain.title'), ready: () => !s.flags.quickTrainIntro && this.firstAtLevel(QUICK_TRAIN_TIP_LEVEL), mark: () => (s.flags.quickTrainIntro = true), show: (r) => this.showQuickTrainIntro(r) },
+      { id: 'salvage', title: txt('popup.salvageTip.title'), ready: () => !s.flags.salvageIntro && g.autoSalvageOpen && s.inventory.length >= SALVAGE_TIP_ITEMS, mark: () => (s.flags.salvageIntro = true), show: (r) => this.showSalvageIntro(r) },
       // An announcement for everyone (a new player gets it once past their first training tip).
       { id: 'feedback', title: txt('popup.feedback.title'), ready: () => !s.flags.feedbackIntro && s.flags.trainIntro, mark: () => (s.flags.feedbackIntro = true), show: (r) => this.showFeedbackIntro(r) },
     ];
@@ -4963,6 +4966,21 @@ export class AppUI {
     if (!replay) this.game.state.flags.quickTrainIntro = true;
     // (Secondary: opened from the envelope, it goes back there while other tips wait.)
     this.showModal(`<h2>${tx('popup.quickTrain.title')}</h2>${txp('popup.quickTrain.body')}`, [{ label: txt('popup.quickTrain.ok'), secondary: true }]);
+  }
+
+  /** Shown once, when the inventory reaches SALVAGE_TIP_ITEMS pieces: how to salvage (Mass and Auto Salvage). */
+  private showSalvageIntro(replay = false): void {
+    if (!replay) this.game.state.flags.salvageIntro = true;
+    this.showModal(`<h2>${tx('popup.salvageTip.title')}</h2>${txp('popup.salvageTip.body')}`, [
+      { label: txt('popup.salvageTip.later'), secondary: true },
+      {
+        label: txt('popup.salvageTip.go'),
+        action: () => {
+          this.invSub = 'equipment';
+          this.goTo('inventory');
+        },
+      },
+    ]);
   }
 
   /** Shown once: Submit Feedback is in Settings. */
@@ -5990,6 +6008,7 @@ export class AppUI {
     tut(sprite(MENU_SPRITES.wolf), 'wolf', () => this.showWolfIntro(true));
     tut(sprite(MENU_SPRITES.empower), 'empower', () => this.showEmpowerIntro(true));
     tut(sprite(MENU_SPRITES.training), 'quickTrain', () => this.showQuickTrainIntro(true));
+    if (this.game.autoSalvageOpen) tut(sprite(MENU_SPRITES.salvage), 'salvage', () => this.showSalvageIntro(true));
     tut(sprite(MENU_SPRITES.eventsLocked), 'eventsLocked', () => this.showEventsLocked());
     tut(sprite(MENU_SPRITES.events), 'events', () => this.showEventsIntro(true));
     tut(sprite(MENU_SPRITES.minigames), 'minigames', () => this.showMinigameIntro(true));
@@ -7022,6 +7041,7 @@ const MENU_SPRITES = {
   modify: 'resources3/010',
   welcome: 'rpg-items/300',
   training: 'rpg-items/001',
+  salvage: 'resources3/004',
   crafting: 'resources3/003',
   wolf: 'resources1/032',
   empower: 'custom/001',

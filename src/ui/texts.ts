@@ -338,6 +338,18 @@ section(
 );
 section(
   P,
+  'popup.salvageTip',
+  'Tip: salvaging',
+  {
+    title: "That's a lot of items!",
+    body: "Want to clear some out? **Salvage** them. Salvaging a piece gives back half of the materials spent on it, its upgrades included (and gold for any modifiers on it).\n\nTap the **Salvage** button beside Filter in **Inventory → Equipment** for the Salvage menu. There, **Mass Salvage** lets you pick pieces by hand, and **Auto Salvage** salvages gear of the rarities you choose the moment it drops. Hold the Salvage button to go straight to Mass Salvage.\n\n**Careful:** picking a stack salvages **every** piece in that stack.",
+    later: 'Got it',
+    go: 'Show me',
+  },
+  { note: 'Shown once, when the inventory reaches {count} pieces (once Salvage is open, from the Restless Graveyard on; behind the envelope if that happened while you were away).', vars: { count: 'pieces' } },
+);
+section(
+  P,
   'popup.holdCardTip',
   'Tip: hold a card to spend points',
   {
@@ -505,6 +517,8 @@ section(
     empowerDesc: 'Unlocking and Empowering monsters. Opens after {empower} slimes.',
     quickTrain: 'Quick Train & Empower',
     quickTrainDesc: 'Holding Train, Empower, and Expand to train and spend points in one go.',
+    salvage: 'Salvaging',
+    salvageDesc: 'Mass Salvage, Auto Salvage, and clearing out a full inventory.',
     eventsLocked: 'Unlocking Events',
     eventsLockedDesc: 'How to open the Events tab.',
     events: 'Events',
@@ -520,7 +534,7 @@ section(
     note: 'Menu → Tutorials: the page title, two headings, and a name and a line for each tip.',
     vars: { train: 'slimes to open Training', empower: 'slimes to open Empower' },
     labels: Object.fromEntries(
-      ['title:Page title', 'guides:Heading', 'tips:Heading', 'weapons:Row', 'damage:Row', 'modify:Row', 'welcome:Row', 'training:Row', 'crafting:Row', 'wolf:Row', 'empower:Row', 'quickTrain:Row', 'eventsLocked:Row', 'events:Row', 'minigames:Row', 'timeEater:Row']
+      ['title:Page title', 'guides:Heading', 'tips:Heading', 'weapons:Row', 'damage:Row', 'modify:Row', 'welcome:Row', 'training:Row', 'crafting:Row', 'wolf:Row', 'empower:Row', 'quickTrain:Row', 'salvage:Row', 'eventsLocked:Row', 'events:Row', 'minigames:Row', 'timeEater:Row']
         .map((s) => s.split(':'))
         .flatMap(([k, v]) => [
           [k, v],
