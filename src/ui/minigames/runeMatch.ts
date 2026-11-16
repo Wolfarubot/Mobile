@@ -92,8 +92,7 @@ export function runeMatch(api: MinigameApi): MinigameGame {
     const y0 = Math.round(top + (availH - (ch * n + gap * (n - 1))) / 2);
     return { n, gap, cw, ch, x0, y0 };
   };
-  const rect = (c: Card) => {
-    const l = layout();
+  const rect = (c: Card, l = layout()) => {
     return { x: l.x0 + (c.cell % l.n) * (l.cw + l.gap), y: l.y0 + Math.floor(c.cell / l.n) * (l.ch + l.gap), w: l.cw, h: l.ch };
   };
 
@@ -230,8 +229,9 @@ export function runeMatch(api: MinigameApi): MinigameGame {
         g.fillRect(bx, TITLE_Y + 16, nw * BS * left, 10);
       }
 
+      const l = layout();
       for (const c of cards) {
-        const r = rect(c);
+        const r = rect(c, l);
         // Turning: squeezed to nothing at the halfway point, showing the side it's turning from until then.
         const p = c.turn / FLIP; // 1 → 0
         const squeeze = Math.abs(1 - 2 * (1 - p));
@@ -261,16 +261,43 @@ export function runeMatch(api: MinigameApi): MinigameGame {
   };
 }
 
+/** The four card panels (back, face, matched, wrong), drawn once per card size and reused: a canvas `filter` per card
+ *  per frame was what dragged the frame rate down on the big boards. */
+type Panel = 'back' | 'face' | 'match' | 'wrong';
+const PANEL_FILTER: Record<Panel, string> = {
+  back: 'hue-rotate(230deg) saturate(1.5) brightness(0.55)',
+  face: 'none',
+  match: 'hue-rotate(60deg) saturate(1.6)',
+  wrong: 'hue-rotate(-30deg) saturate(2.4)',
+};
+const panels = new Map<string, HTMLCanvasElement>();
+function panelImage(kind: Panel, w: number, h: number): HTMLCanvasElement | null {
+  const key = `${kind}:${w}x${h}`;
+  const hit = panels.get(key);
+  if (hit) return hit;
+  // Drawn at 2× so it stays crisp on a sharp screen.
+  const S = 2;
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(w * S));
+  c.height = Math.max(1, Math.round(h * S));
+  const g = c.getContext('2d')!;
+  g.scale(S, S);
+  g.filter = PANEL_FILTER[kind];
+  if (!drawNine(g, 'ui/panel', 0, 0, w, h, 6, Math.max(1, Math.round(w / 40)))) return null;
+  // Only one board size is on screen at a time: keep the cache small.
+  if (panels.size > 16) panels.clear();
+  panels.set(key, c);
+  return c;
+}
+
 /**
  * A card, centred on the origin, w × h: the RPG UI pack's panel (public/ui/panel.png: a wooden frame around parchment),
  * with its icon on the face or, if `face` is null, tinted violet with the sigil on its back. A matched pair turns
  * green, a wrong one red.
  */
 function drawCard(g: CanvasRenderingContext2D, api: MinigameApi, w: number, h: number, face: string | null, matched: boolean, wrong: boolean): void {
-  g.save();
-  g.filter = wrong ? 'hue-rotate(-30deg) saturate(2.4)' : matched ? 'hue-rotate(60deg) saturate(1.6)' : face ? 'none' : 'hue-rotate(230deg) saturate(1.5) brightness(0.55)';
-  drawNine(g, 'ui/panel', -w / 2, -h / 2, w, h, 6, Math.max(1, Math.round(w / 40)));
-  g.restore();
+  const panel = panelImage(wrong ? 'wrong' : matched ? 'match' : face ? 'face' : 'back', w, h);
+  if (panel) g.drawImage(panel, -w / 2, -h / 2, w, h);
   if (face) api.icon(face, 0, 0, Math.round(w * 0.66), matched ? 0.55 : 1);
   else api.icon(BACK, 0, 0, Math.round(w * 0.62));
 }

@@ -740,6 +740,16 @@ section(
 );
 section(
   E,
+  'event.tile',
+  'Event tile',
+  { locked: 'Locked', unavailable: 'Unavailable' },
+  {
+    note: 'Shown on an event tile in place of its energy cost: before it opens, and while another event (a Guardian fight or a swarm) is on.',
+    labels: { locked: 'Not open yet', unavailable: 'Another event is on' },
+  },
+);
+section(
+  E,
   'event.card',
   'Event card',
   { best: 'Best {score}', notPlayed: 'Not played yet', details: 'Details', reward: 'Reward: {what}' },

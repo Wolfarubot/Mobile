@@ -2360,9 +2360,8 @@ export class Game {
   }
 
   eventReady(id: string): boolean {
-    // Minigames are played on their own screen, so they don't wait for (or block) the battlefield's events.
-    const mini = eventDef(id).kind === 'minigame';
-    return this.eventUnlocked(id) && this.energyWait(id) <= 0 && (mini || !this.eventRunning);
+    // Nothing starts while a Guardian fight or a timed event (a swarm) is on, minigames included.
+    return this.eventUnlocked(id) && this.energyWait(id) <= 0 && !this.eventRunning;
   }
 
   /** Starts an event, travelling to its area first, and spends its energy. */
@@ -2716,6 +2715,32 @@ export class Game {
       const from = materialSources(isUnboundId(m) ? (unboundBase(m) as MaterialId) : m);
       return !from.length || from.some((e) => (e.guardianOnly ? this.guardianBeaten(e.area) : this.isUnlocked(e.id)));
     });
+  }
+
+  /** Everything a hand-picked batch of pieces gives back (worn pieces are skipped): materials and gold. */
+  salvageTotal(uids: Iterable<number>): { mats: Partial<Record<MaterialId, number>>; gold: number } {
+    const mats: Partial<Record<MaterialId, number>> = {};
+    let gold = 0;
+    for (const uid of uids) {
+      if (!this.gearItem(uid) || this.wearerOf(uid)) continue;
+      for (const [m, n] of Object.entries(this.salvageValue(uid)) as [MaterialId, number][]) mats[m] = (mats[m] ?? 0) + n;
+      gold += this.salvageGold(uid);
+    }
+    return { mats, gold };
+  }
+
+  /** Mass Salvage: salvages the hand-picked pieces (worn ones stay). Returns how many went. */
+  salvageMany(uids: Iterable<number>): number {
+    const doomed = new Set<number>();
+    for (const uid of uids) if (this.gearItem(uid) && !this.wearerOf(uid)) doomed.add(uid);
+    if (!doomed.size) return 0;
+    const { mats, gold } = this.salvageTotal(doomed);
+    this.state.gold += gold;
+    for (const [m, n] of Object.entries(mats) as [MaterialId, number][]) this.state.materials[m] += n;
+    // One pass over the inventory, not one per piece: a batch can be thousands of pieces.
+    this.state.inventory = this.state.inventory.filter((it) => !doomed.has(it.uid));
+    this.state.stats.salvaged += doomed.size;
+    return doomed.size;
   }
 
   /** Salvages every unequipped piece of the given rarities. Returns how many went. */

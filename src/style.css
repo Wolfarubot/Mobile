@@ -8894,3 +8894,21 @@ body .title-row .quick-type .cyc-cur {
   white-space: nowrap;
   color: inherit;
 }
+
+/* Event tiles: the cost as energy-bar bolts, or Locked / Unavailable in its place; greyed while another event is on. */
+.ev-pips img.ev-bolt { width:15px; height:15px; image-rendering:pixelated; filter:drop-shadow(1px 0 0 #000) drop-shadow(-1px 0 0 #000) drop-shadow(0 1px 0 #000) drop-shadow(0 -1px 0 #000); }
+.ev-pips { gap:1px; }
+.event-tile .et-note { font-size:10px; font-weight:800; }
+.event-tile.unavailable { filter:grayscale(1); opacity:.55; }
+
+/* Salvage menu: Mass Salvage over Auto Salvage. Mass Salvage's picks show a red frame and check; worn pieces dim. */
+.sv-head { margin:4px 0 6px; font-size:14px; text-align:left; }
+.mass-salvage { display:grid; gap:8px; margin-bottom:12px; }
+.mass-salvage .as-head { margin:0; font-size:13px; text-align:left; }
+.inv-tile .sv-check { display:none; }
+.inv-tile.sv-on .sv-check { display:flex; position:absolute; inset:0; z-index:6; align-items:center; justify-content:center; background:rgba(150,20,20,.55); border:3px solid var(--danger); font-size:44px !important; font-weight:900; line-height:1; color:#fff; text-shadow:var(--outline-thick); pointer-events:none; }
+.inv-tile.sv-worn { opacity:.4; }
+.sv-bar { position:sticky; bottom:0; z-index:5; display:flex; align-items:center; gap:8px; margin-top:8px; padding:8px; background:var(--panel); border:2px solid #000; }
+.sv-bar .sv-count { flex:1; font-weight:800; font-size:13px; }
+.sv-bar button { flex:none; width:auto; padding:6px 12px; }
+.sv-bar.hidden { display:none; }

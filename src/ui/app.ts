@@ -329,7 +329,7 @@ const LONG_PRESS_MS = 500;
 /** Holding a tab this long raises (or drops) the full-screen menu. */
 const MENU_HOLD_MS = 450;
 /** How long Train or Empower must be held before the max-training bar comes up (so a tap never flashes it). */
-const HOLD_SHOW_MS = 1000;
+const HOLD_SHOW_MS = 500;
 
 const upgradeReach = (it: ItemDef): string => (it.area ? `affects the ${areaDef(it.area.id).name}` : it.once ? 'crafted once' : 'works in every area');
 
@@ -438,6 +438,9 @@ export class AppUI {
   private craftFilter: InvFilter = { ...NO_FILTER };
   /** Equipment's Modify toggle: show only pieces that can be refined or enchanted, and open Modify when one is tapped. */
   private modifyMode = false;
+  /** Mass Salvage: the Equipment list picks pieces (a stack picks all of it) instead of opening them. */
+  private salvageMode = false;
+  private salvagePick = new Set<number>();
   /** The open sub-tab of the monster view. */
   private monsterSub: 'stats' | 'evolution' = 'stats';
   /** The area selected in the Areas tab. */
@@ -606,6 +609,7 @@ export class AppUI {
     // Gear shown in the Equipment list counts as seen once you leave it (its "!" stays up while you look).
     if (this.gearListOpen && !(tab === 'inventory' && this.invSub === 'equipment')) this.game.state.seen.gearUid = this.game.state.nextGearUid - 1;
     this.gearListOpen = false;
+    if (tab !== 'inventory' || this.invSub !== 'equipment') this.leaveSalvage();
     this.tab = tab;
     document.querySelectorAll<HTMLButtonElement>('.tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
     const scroll = keepScroll ? this.panel.scrollTop : 0;
@@ -3478,22 +3482,44 @@ export class AppUI {
       this.refresh();
     });
     if (!modifyOpen) this.modifyMode = false;
-    const asBtn = g.autoSalvageOpen ? cornerBtn('as-btn', '♻️', 'Auto Salvage') : null;
+    if (!g.autoSalvageOpen) this.leaveSalvage();
+    // Salvage: tap for the menu (Mass Salvage and Auto Salvage), hold to go straight into Mass Salvage.
+    const asBtn = g.autoSalvageOpen ? cornerBtn('as-btn', '♻️', 'Salvage') : null;
     if (asBtn) {
-      asBtn.addEventListener('click', () => this.openAutoSalvage());
-      // Lit while any rarity is set to salvage.
-      this.refreshers.push(() => asBtn.classList.toggle('on', g.state.settings.autoSalvage.length > 0));
+      asBtn.addEventListener('click', () => {
+        if (this.heldFor === asBtn) return void (this.heldFor = null);
+        this.openSalvage();
+      });
+      this.longPress(asBtn, () => this.enterSalvage());
+      // Lit while picking, or while any rarity is set to salvage.
+      this.refreshers.push(() => asBtn.classList.toggle('on', this.salvageMode || g.state.settings.autoSalvage.length > 0));
     }
     pane.appendChild(bar);
     const inv = el('div', 'inventory');
     pane.appendChild(inv);
+    // Mass Salvage's bar, held to the bottom of the list while picking: how many are picked, Cancel and Salvage.
+    const svBar = el('div', 'sv-bar hidden');
+    svBar.innerHTML = '<span class="sv-count"></span><button class="secondary sv-cancel">Cancel</button><button class="buy danger-btn sv-go">Salvage</button>';
+    pane.appendChild(svBar);
+    const drawSvBar = () => {
+      const n = this.salvagePick.size;
+      $('.sv-count', svBar).textContent = n ? `${n} piece${n === 1 ? '' : 's'} picked` : 'Tap items to pick them';
+      $<HTMLButtonElement>('.sv-go', svBar).disabled = !n;
+    };
+    $('.sv-cancel', svBar).addEventListener('click', () => {
+      this.leaveSalvage();
+      this.refresh();
+    });
+    $('.sv-go', svBar).addEventListener('click', () => this.confirmMassSalvage());
     let invKey: string | null = null;
     let invPager: IntersectionObserver | null = null;
     this.refreshers.push(() => {
       const f = this.invFilter;
       const lv = LEVEL_FILTERS.find((l) => l.id === f.level)!;
-      const refining = this.modifyMode && modifyOpen;
+      const salvaging = this.salvageMode;
+      const refining = !salvaging && this.modifyMode && modifyOpen;
       modBtn?.classList.toggle('on', refining);
+      svBar.classList.toggle('hidden', !salvaging);
       const rank = (it: GearItem) => RARITY_ORDER.indexOf(gearDef(it.base).rarity);
       const gear = g.state.inventory
         .filter((it) => {
@@ -3504,13 +3530,16 @@ export class AppUI {
         .sort((a, b) => rank(b) - rank(a) || b.uid - a.uid);
       // Upgrades have no rarity, damage type or gear bonus, so those filters hide them.
       const upgrades =
-        !refining && (f.type === 'all' || f.type === 'upgrades') && f.rarity === 'any' && f.dtype === 'any' && f.bonus === 'any'
+        !refining && !salvaging && (f.type === 'all' || f.type === 'upgrades') && f.rarity === 'any' && f.dtype === 'any' && f.bonus === 'any'
           ? ITEMS.filter((it) => g.state.items[it.id] > 0 && g.state.items[it.id] >= lv.min && g.state.items[it.id] <= lv.max)
           : [];
       // Who wears what, looked up once rather than per piece (this runs every refresh).
       const wornBy = new Map<number, Wearer>();
       for (const [w, uids] of Object.entries(g.state.equipment) as [Wearer, Array<number | null>][]) for (const u of uids.slice(0, g.slotsOf(w).length)) if (u !== null) wornBy.set(u, w);
-      const equippedView = this.invEquipped && !refining;
+      const equippedView = this.invEquipped && !refining && !salvaging;
+      // Picks that are gone (salvaged, or taken by Auto Salvage) or now worn drop out.
+      if (salvaging) for (const uid of [...this.salvagePick]) if (!g.gearItem(uid) || wornBy.has(uid)) this.salvagePick.delete(uid);
+      if (salvaging) drawSvBar();
       // Which pieces you could upgrade now (gold and materials both in hand), worked out once per kind and stars.
       const affordMemo = new Map<string, boolean>();
       const affordable = (it: GearItem) => {
@@ -3523,13 +3552,14 @@ export class AppUI {
         JSON.stringify(f),
         refining,
         equippedView,
+        salvaging,
         gear.map((it) => `${it.uid}:${it.stars}:${wornBy.get(it.uid) ?? ''}:${it.mods ? it.mods.filter(Boolean).length : 0}:${affordable(it) ? 1 : 0}`).join('|'),
         upgrades.map((it) => `${it.id}:${g.state.items[it.id]}`).join('|'),
       ].join('/');
       if (k === invKey) return;
       // The same list with a piece more or less (loot, salvage): keep the scroll and draw as far as before, so
       // the list doesn't jump back to the top. A new filter or view starts from the top.
-      const view = [JSON.stringify(f), refining, equippedView].join('/');
+      const view = [JSON.stringify(f), refining, equippedView, salvaging].join('/');
       const sameView = invKey !== null && invKey.startsWith(view + '/');
       const keepTop = sameView ? this.panel.scrollTop : 0;
       const keepDrawn = sameView ? inv.children.length : 0;
@@ -3544,7 +3574,9 @@ export class AppUI {
       const worn = wearers.map((w) => ({ w, items: (g.state.equipment[w] ?? []).slice(0, g.slotsOf(w).length).flatMap((u) => (u !== null && byUid.has(u) ? [byUid.get(u)!] : [])) }));
       const wornCount = worn.reduce((a, x) => a + x.items.length, 0);
       invTitle.classList.toggle('on', equippedView);
-      invTitle.innerHTML = refining
+      invTitle.innerHTML = salvaging
+        ? `<span>Mass Salvage</span><span>Tap to pick</span>`
+        : refining
         ? `<span>${shown} Item${shown === 1 ? '' : 's'} with Modification slots</span>`
         : equippedView
           ? `<span>Equipped ›</span><span>${wornCount} item${wornCount === 1 ? '' : 's'}</span>`
@@ -3568,6 +3600,20 @@ export class AppUI {
         tile.style.setProperty('--rc', gearColor(gd.id));
         const slots = g.modSlots(it.uid);
         tile.innerHTML = `<i>${gearIcon(gd)}</i><span>${gd.name}</span><small class="stars">${starsHtml(it.stars)}</small>${worn ? `<em>${wearerIcon(worn.who)}</em>` : ''}${slots.length ? `<b class="mod-pips">${slots.map((m) => (m ? (modPerfect(m) ? '★' : '◆') : '◇')).join('')}</b>` : ''}${stack.length > 1 ? `<b class="stack-n">×${stack.length}</b>` : ''}${affordable(it) ? '<b class="can-up" title="Can upgrade"></b>' : ''}${stack.some((x) => x.uid > g.state.seen.gearUid) ? '<span class="alert-mark white tile-new"></span>' : ''}`;
+        if (salvaging) {
+          // Worn gear can't be salvaged; a stack is picked (and salvaged) whole.
+          tile.classList.toggle('sv-worn', !!worn);
+          tile.classList.toggle('sv-on', stack.every((x) => this.salvagePick.has(x.uid)));
+          tile.insertAdjacentHTML('beforeend', '<b class="sv-check">✓</b>');
+          tile.addEventListener('click', () => {
+            if (worn) return void this.toast('Worn: unequip it to salvage it');
+            const on = !tile.classList.contains('sv-on');
+            for (const x of stack) on ? this.salvagePick.add(x.uid) : this.salvagePick.delete(x.uid);
+            tile.classList.toggle('sv-on', on);
+            drawSvBar();
+          });
+          return tile;
+        }
         tile.addEventListener('click', () => {
           if (this.heldFor === tile) return void (this.heldFor = null);
           if (refining) this.openModify(it.uid);
@@ -4049,8 +4095,57 @@ export class AppUI {
    * looted gear of those rarities is salvaged the moment it drops. "Salvage now" clears out the unequipped
    * pieces of those rarities you already have.
    */
-  private openAutoSalvage(): void {
-    this.showSheet('♻️ Auto Salvage', (body) => body.appendChild(this.autoSalvageCard()));
+  /** The Salvage menu (the ♻️ button in Equipment's corner): Mass Salvage, then Auto Salvage. */
+  private openSalvage(): void {
+    this.showSheet('♻️ Salvage', (body, close) => {
+      const mass = el('div', 'mass-salvage');
+      mass.innerHTML = `<h3 class="sv-head">Mass Salvage</h3><p class="as-head">Hand select items to salvage. Selecting a stack of items will salvage <b>all</b> of that item. Access Mass Salvage quicker by holding the Salvage button in the Equipment menu.</p><button class="buy sv-start">Select items</button>`;
+      $('.sv-start', mass).addEventListener('click', () => {
+        close();
+        this.enterSalvage();
+      });
+      body.appendChild(mass);
+      body.insertAdjacentHTML('beforeend', '<h3 class="sv-head">Auto Salvage</h3>');
+      body.appendChild(this.autoSalvageCard());
+    });
+  }
+
+  /** Starts Mass Salvage: the Equipment list (every piece, not the Equipped view) picks pieces when tapped. */
+  private enterSalvage(): void {
+    this.salvageMode = true;
+    this.modifyMode = false;
+    this.salvagePick.clear();
+    this.refresh();
+  }
+
+  private leaveSalvage(): void {
+    this.salvageMode = false;
+    this.salvagePick.clear();
+  }
+
+  /** Mass Salvage's Salvage button: what the picked pieces give back, then salvage them. */
+  private confirmMassSalvage(): void {
+    const g = this.game;
+    const picks = [...this.salvagePick];
+    if (!picks.length) return;
+    const { mats, gold } = g.salvageTotal(picks);
+    const n = picks.length;
+    this.showModal(
+      `<h2>Salvage ${n} piece${n === 1 ? '' : 's'}?</h2><p>They're gone for good, giving back half of their materials${gold ? ' and modifier gold' : ''}.</p><div class="cost" style="justify-content:center;flex-wrap:wrap">${costHtml(g, mats, false)}${gold ? `<span>🪙 ${fmt(gold)}</span>` : ''}</div>`,
+      [
+        { label: 'Cancel', secondary: true },
+        {
+          label: 'Salvage',
+          action: () => {
+            const done = g.salvageMany(picks);
+            this.leaveSalvage();
+            this.toast(txt('toast.gear.salvagedN', { n: done }));
+            this.hooks.save();
+            this.setTab('inventory', true);
+          },
+        },
+      ],
+    );
   }
 
   private autoSalvageCard(): HTMLElement {
@@ -4346,10 +4441,21 @@ export class AppUI {
     return { html: `<i class="${cls}">${eventGlyph(ev)}</i>`, draw: () => {} };
   }
 
-  /** Energy cost as gold pips. */
+  /** Energy cost as lightning bolts, the energy bar's own icon, one per point. */
   private energyPips(ev: EventDef): string {
     if (this.freePlay(ev)) return `<span class="ev-pips ev-free">${tx('event.wellRested.free')}</span>`;
-    return `<span class="ev-pips" title="${esc(txt('tip.markers.energy'))}">${'<b></b>'.repeat(this.game.energyCost(ev.id))}</span>`;
+    return `<span class="ev-pips" title="${esc(txt('tip.markers.energy'))}">${emojiImg('🗲', 'ei ev-bolt').repeat(this.game.energyCost(ev.id))}</span>`;
+  }
+
+  /**
+   * What an event tile shows under its name: its cost in bolts, "Locked" until it opens, or "Unavailable" while
+   * another event (a Guardian fight or a swarm) is on.
+   */
+  private tileCost(ev: EventDef): string {
+    const g = this.game;
+    if (!g.eventUnlocked(ev.id)) return `<span class="et-note">${tx('event.tile.locked')}</span>`;
+    if (g.eventRunning && !this.eventLive(ev)) return `<span class="et-note">${tx('event.tile.unavailable')}</span>`;
+    return this.energyPips(ev);
   }
 
   /** A minigame that the day's Well Rested play makes free. */
@@ -4378,23 +4484,22 @@ export class AppUI {
     const icon = this.eventIcon(ev, 'et-icon');
     // Minigames go by the game's own name on a tile ("Hunting Practice", not "Galladair's Hunting Practice").
     const short = ev.kind === 'guardian' ? 'Guardian' : ev.kind === 'minigame' ? ev.name.replace(/^.*?'s /, '') : ev.name;
-    tile.innerHTML = `${icon.html}<span class="ht-name">${short}</span><span class="et-cost">${this.energyPips(ev)}</span><small class="ht-lv"></small>`;
+    tile.innerHTML = `${icon.html}<span class="ht-name">${short}</span><span class="et-cost">${this.tileCost(ev)}</span>`;
     icon.draw(tile);
-    this.watchCost($('.et-cost', tile), () => this.energyPips(ev));
+    this.watchCost($('.et-cost', tile), () => this.tileCost(ev));
     tile.classList.toggle('selected', ev.id === this.selectedEvent);
     tile.addEventListener('click', () => {
       if (this.selectedEvent === ev.id) return;
       this.selectedEvent = ev.id;
       this.setTab('events', true);
     });
-    const lv = $('.ht-lv', tile);
     this.refreshers.push(() => {
       const unlocked = g.eventUnlocked(ev.id);
       const running = this.eventLive(ev);
       tile.classList.toggle('locked', !unlocked);
       tile.classList.toggle('ready', g.eventReady(ev.id) && !running);
       tile.classList.toggle('live', running);
-      lv.textContent = !unlocked ? '🔒 Locked' : running ? '● Live' : g.energyWait(ev.id) > 0 ? fmtTime(g.energyWait(ev.id)) : ev.kind !== 'minigame' && g.eventRunning ? 'Busy' : 'Ready';
+      tile.classList.toggle('unavailable', unlocked && g.eventRunning && !running);
     });
     return tile;
   }
@@ -4410,7 +4515,6 @@ export class AppUI {
    * what it gives and your best stars; Details opens the full breakdown.
    */
   private eventCard(ev: EventDef): HTMLElement {
-    const g = this.game;
     const card = el('div', 'beast event-card');
     const icon = this.eventIcon(ev, 'ec-icon');
     // The same description its Details page opens with (minigames included).
@@ -4420,9 +4524,8 @@ export class AppUI {
     $('.ev-details', card).addEventListener('click', () => this.openEventDetail(ev));
     this.wireEventButton(ev, card, $<HTMLButtonElement>('.ev-go', card), $('.ev-status', card), this.refreshers, () => {
       if (ev.kind !== 'minigame') return this.eventRewards(ev).join(' · ');
-      const best = this.bestScore(ev);
-      const record = best > 0 ? `${tx('event.card.best', { score: fmt(best) })} ${rankStars(g.starsFor(ev.id, best))}` : `${tx('event.card.notPlayed')} ${rankStars(0)}`;
-      return ev.echo ? `${this.echoLine()}<br>${record}` : record;
+      // The best score lives on the Details page; the card only says which game the Rift Echo is on.
+      return ev.echo ? this.echoLine() : '';
     });
     return card;
   }
@@ -4456,6 +4559,7 @@ export class AppUI {
   private wireEventButton(ev: EventDef, card: HTMLElement | null, btn: HTMLButtonElement, status: HTMLElement, refreshers: Array<() => void>, extra: () => string, before?: () => void): void {
     const g = this.game;
     btn.addEventListener('click', () => {
+      if (g.eventRunning) return;
       if (g.eventUnlocked(ev.id) && g.energyWait(ev.id) > 0) return this.showNoEnergy(ev);
       before?.();
       if (ev.kind === 'minigame') this.playMinigame(ev);
@@ -4490,13 +4594,13 @@ export class AppUI {
         status.innerHTML = `<b class="ev-live">● Running · ${Math.ceil(left)}s left</b>`;
         btn.innerHTML = 'Live';
         btn.disabled = true;
-      } else if (wait > 0 && (ev.kind === 'minigame' || !g.eventRunning)) {
+      } else if (wait > 0 && !g.eventRunning) {
         status.innerHTML = note;
         btn.innerHTML = `${ev.kind === 'minigame' ? 'Play' : 'Start'}<small>need ${g.energyCost(ev.id)} 🗲</small>`;
         btn.disabled = false;
       } else {
         status.innerHTML = note;
-        btn.innerHTML = ev.kind === 'minigame' ? 'Play' : g.eventRunning ? 'Busy<small>another event</small>' : 'Start';
+        btn.innerHTML = g.eventRunning ? 'Busy<small>another event</small>' : ev.kind === 'minigame' ? 'Play' : 'Start';
         btn.disabled = !g.eventReady(ev.id);
       }
     });

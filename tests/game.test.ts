@@ -4511,14 +4511,17 @@ describe('Events', () => {
     g.state.areas.graveyard.unlocked = false;
     expect(r.materials.royalSlime).toBe(2);
     expect(g.minigameReward('huntingPractice', 40).materials.royalSlime).toBe(10); // a whole Guardian's worth
-    // Played on its own screen: it doesn't need (or block) the battlefield's events. Swarm 1 energy, minigame 3
+    // Nothing starts while a swarm (or a Guardian fight) is on, minigames included. Swarm 1 energy, minigame 3
     // (the day's first minigame play is free: Well Rested).
     g.state.bestiary.greenSlime.kills = 1000;
     expect(g.startEvent('slimeSwarm')).toBe(true);
     g.state.freePlayDay = dayKeyOf(g.clock());
+    expect(g.eventReady('huntingPractice')).toBe(false);
+    expect(g.startEvent('huntingPractice')).toBe(false);
+    expect(g.activeEvent?.id).toBe('slimeSwarm');
+    g.activeEvent = null;
     expect(g.startEvent('huntingPractice')).toBe(true);
     expect(g.energy).toBeCloseTo(ENERGY_MAX - 4);
-    expect(g.activeEvent?.id).toBe('slimeSwarm');
     const gold = g.state.gold;
     const royal = g.state.materials.royalSlime;
     g.finishMinigame('huntingPractice', 23);
