@@ -138,7 +138,9 @@ export const SHEETS: Record<string, MonsterSheet> = {
   'kobold-king': { frame: 72, cols: 6, order: 'SIDE', faces: 'L', box: [9, 15, 62, 57] },
   'frost-gargoyle': { frame: 72, cols: 6, order: 'SIDE', faces: 'L', box: [13, 16, 57, 56] },
   'necromancer': { frame: 72, cols: 6, order: 'SIDE', faces: 'L', box: [15, 14, 57, 58] },
-  'mega-beholder': { frame: 72, cols: 4, order: 'SIDE', faces: 'L', box: [26, 5, 43, 63] },
+  // Recoloured to the Shadowy Depths, with the Depths' tentacle monster's maw and tentacle-plant tendrils (padded to
+  // 104px frames for them; the box is the body's, as before).
+  'mega-beholder': { frame: 104, cols: 4, order: 'SIDE', faces: 'L', box: [42, 21, 43, 63] },
   'demon-slime': { frame: 288, cols: 12, order: 'SIDE', faces: 'L', box: [106, 187, 85, 100] },
   'executioner': { frame: 100, cols: 5, order: 'SIDE', box: [32, 19, 49, 66] },
   'time-eater': { frame: 256, cols: 8, order: 'SIDE', box: [82, 132, 122, 124] },
