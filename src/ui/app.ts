@@ -3604,7 +3604,7 @@ export class AppUI {
           // Worn gear can't be salvaged; a stack is picked (and salvaged) whole.
           tile.classList.toggle('sv-worn', !!worn);
           tile.classList.toggle('sv-on', stack.every((x) => this.salvagePick.has(x.uid)));
-          tile.insertAdjacentHTML('beforeend', '<b class="sv-check">✓</b>');
+          tile.insertAdjacentHTML('beforeend', `<b class="sv-check"><img class="sv-tick" src="${pixelTick(getComputedStyle(this.panel).fontFamily)}" alt="✓"></b>`);
           tile.addEventListener('click', () => {
             if (worn) return void this.toast('Worn: unequip it to salvage it');
             const on = !tile.classList.contains('sv-on');
@@ -8049,4 +8049,39 @@ function evoStatLines(g: Game, id: EnemyId, n: TreeNode): string[] {
     }
   }
   return out;
+}
+
+/**
+ * Mass Salvage's pick mark: the ✓ drawn to fill a 12×12 box (the font has no tick, so it's the system one, at the
+ * size whose ink fits 12×12), its soft edges snapped to solid pixels and a 1px black edge added (14×14 in all), then
+ * shown scaled up (CSS, pixelated) so it keeps the chunky pixel look of the rest of the art.
+ */
+let tickUrl: { font: string; url: string } | null = null;
+function pixelTick(font: string): string {
+  if (tickUrl?.font === font) return tickUrl.url;
+  const N = 14;
+  const c = document.createElement('canvas');
+  c.width = c.height = N;
+  const g = c.getContext('2d')!;
+  g.font = `bold 22px ${font}`;
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillStyle = '#fff';
+  g.fillText('✓', N / 2, N / 2);
+  const img = g.getImageData(0, 0, N, N);
+  const d = img.data;
+  const on = (x: number, y: number) => x >= 0 && y >= 0 && x < N && y < N && d[(y * N + x) * 4 + 3] >= 110;
+  const ink = new Uint8Array(N * N);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) ink[y * N + x] = on(x, y) ? 1 : 0;
+  for (let y = 0; y < N; y++)
+    for (let x = 0; x < N; x++) {
+      const i = (y * N + x) * 4;
+      const edge = !ink[y * N + x] && [-1, 0, 1].some((dy) => [-1, 0, 1].some((dx) => ink[(y + dy) * N + x + dx] && x + dx >= 0 && x + dx < N && y + dy >= 0 && y + dy < N));
+      const v = ink[y * N + x] ? 255 : 0;
+      d[i] = d[i + 1] = d[i + 2] = v;
+      d[i + 3] = ink[y * N + x] || edge ? 255 : 0;
+    }
+  g.putImageData(img, 0, 0);
+  tickUrl = { font, url: c.toDataURL() };
+  return tickUrl.url;
 }

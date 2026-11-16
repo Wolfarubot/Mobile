@@ -8906,7 +8906,8 @@ body .title-row .quick-type .cyc-cur {
 .mass-salvage { display:grid; gap:8px; margin-bottom:12px; }
 .mass-salvage .as-head { margin:0; font-size:13px; text-align:left; }
 .inv-tile .sv-check { display:none; }
-.inv-tile.sv-on .sv-check { display:flex; position:absolute; inset:0; z-index:6; align-items:center; justify-content:center; background:rgba(150,20,20,.55); border:3px solid var(--danger); font-size:44px !important; font-weight:900; line-height:1; color:#fff; text-shadow:var(--outline-thick); pointer-events:none; }
+.inv-tile.sv-on .sv-check { display:flex; position:absolute; inset:0; z-index:6; align-items:center; justify-content:center; background:rgba(150,20,20,.55); border:3px solid var(--danger); pointer-events:none; }
+.sv-check img.sv-tick { width:28px; height:28px; image-rendering:pixelated; }
 .inv-tile.sv-worn { opacity:.4; }
 .sv-bar { position:sticky; bottom:0; z-index:5; display:flex; align-items:center; gap:8px; margin-top:8px; padding:8px; background:var(--panel); border:2px solid #000; }
 .sv-bar .sv-count { flex:1; font-weight:800; font-size:13px; }
