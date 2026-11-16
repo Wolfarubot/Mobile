@@ -5,7 +5,7 @@ import './style.css';
 import { installEmojiIcons } from './ui/emojiIcons';
 import { App as CapApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
-import { OFFLINE_POPUP_SEC } from './core/balance';
+import { GUARDIAN_MOVES_ON, OFFLINE_POPUP_SEC } from './core/balance';
 import { Field } from './core/field';
 import { Game } from './core/game';
 import { hasDevBackup, loadDevPhase, loadGame, restoreDevBackup, saveGame, wipeSave } from './core/save';
@@ -103,6 +103,25 @@ async function boot(): Promise<void> {
   };
 
   const field = new Field(game);
+  // Settings → Dev → Guardian moves: a preview of the Guardians' new moves before they're switched on for everyone.
+  const guardianPreview = () => {
+    try {
+      return localStorage.getItem('dev-guardian-moves') === '1';
+    } catch {
+      return false;
+    }
+  };
+  if (guardianPreview()) field.guardianMoves = true;
+  const setGuardianMoves = (on: boolean) => {
+    try {
+      if (on) localStorage.setItem('dev-guardian-moves', '1');
+      else localStorage.removeItem('dev-guardian-moves');
+    } catch {
+      /* not kept: this session only */
+    }
+    field.guardianMoves = on || GUARDIAN_MOVES_ON;
+    if (obs) obs.field.guardianMoves = field.guardianMoves;
+  };
   if (import.meta.env.DEV) (window as unknown as { __field: Field }).__field = field;
   const canvas = document.getElementById('battle') as HTMLCanvasElement;
   const battle = new BattleView(canvas, game, field);
@@ -150,12 +169,13 @@ async function boot(): Promise<void> {
     for (const [id, h] of Object.entries(state.hunters)) h.station = h.recruited && group.includes(id as HunterId) ? area : null;
     const copy = new Game(state);
     const f = new Field(copy, group[0]);
+    f.guardianMoves = field.guardianMoves;
     obs = { area, game: copy, field: f, battle: new BattleView(canvas, copy, f), group: group.join(','), gear: gearKey(group), at: 0 };
     battle.setActive(false);
     return true;
   };
   if (import.meta.env.DEV) Object.defineProperty(window, '__observed', { get: () => obs });
-  const ui = new AppUI(game, { save, wipe, devPhase, devRestore, hasDevBackup, regress, observe, stopObserving, observing: () => obs?.area ?? null });
+  const ui = new AppUI(game, { save, wipe, devPhase, devRestore, hasDevBackup, regress, observe, stopObserving, observing: () => obs?.area ?? null, guardianMoves: () => field.guardianMoves, setGuardianMoves });
   // Measures each farming group on a hidden copy of its battlefield, for offline gains and stationed Hunters.
   new SamplerHost(game, () => field.view);
   if (!game.state.flags.welcome) ui.showWelcome();

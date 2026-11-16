@@ -52,6 +52,10 @@ import {
   STUN_RELIEF,
   SCEPTER_ORB,
   SHOT_SPLASH,
+  GUARDIAN_KITS,
+  GUARDIAN_MOVES_ON,
+  GUARDIAN_STANDOFF,
+  type GuardianMove,
   EYE_OF_FLAME,
   LIGHTNING_BALL,
   SHIELD_DEFLECT_PAUSE,
@@ -100,6 +104,60 @@ const POTION_WORD: Record<GearStat, string> = {
   cooldown: 'QUICKEN!', critDamage: 'FURY!', duration: 'FESTER!', abilityPower: 'EMPOWER!', statusChance: 'AFFLICT!',
   bowDamage: 'TRUE AIM!', gunDamage: 'HOT SHOT!', meleeDamage: 'BRAWN!', magicDamage: 'ARCANA!',
 };
+/**
+ * Each Guardian move's numbers: seconds between uses (`cd`) and before the first (`first`); how near a Hunter must be
+ * to start it (`reach`); its wind-up before it lands (`windup`); and its size (a cone's reach, a circle's radius, a
+ * beam's width) and a cone's spread (`arc`, radians).
+ */
+const GUARDIAN_MOVE: Record<GuardianMove, { cd: number; first: number; reach?: number; windup?: number; size?: number; arc?: number }> = {
+  reap: { cd: 4, first: 2, reach: 160, windup: 0.55, size: 170, arc: 2.2 },
+  wisps: { cd: 10, first: 5 },
+  scythe: { cd: 4, first: 2, reach: 170, windup: 0.6, size: 185, arc: 2.6 },
+  ghosts: { cd: 11, first: 5 },
+  beam: { cd: 6, first: 2.5, windup: 1, size: 34 },
+  balls: { cd: 4, first: 1.2 },
+  slam: { cd: 9, first: 4, windup: 1.2 },
+  imps: { cd: 12, first: 7 },
+  charge: { cd: 12, first: 5, windup: 0.9 },
+  bombs: { cd: 5, first: 2, windup: 1.1 },
+  gust: { cd: 9, first: 3 },
+  dive: { cd: 8, first: 5, windup: 0.9, size: 80 },
+  breath: { cd: 5, first: 2, reach: 260, windup: 0.6, size: 250, arc: 1.1 },
+  flight: { cd: 10, first: 6, windup: 1, size: 110 },
+  storm: { cd: 6, first: 2, windup: 0.9, size: 45 },
+  overload: { cd: 12, first: 6, windup: 1.3, size: 200 },
+  meteors: { cd: 7, first: 2.5, windup: 0.8, size: 55 },
+  plunge: { cd: 10, first: 6, windup: 1, size: 120 },
+  freeze: { cd: 15, first: 6 },
+  echo: { cd: 9, first: 3 },
+};
+/** The Undead Executioner's wisps: how many around each Hunter, how far out, how fast, and how long they hang first. */
+const WISPS = { count: 5, ring: 150, speed: 230, wait: 0.7 };
+/** The Awoken Lich's ghosts around each Hunter, and how far out they rise. */
+const LICH_GHOSTS = { count: 4, ring: 190 };
+/** The Demon Lord's imps, and how much faster than an imp's walk they fly. */
+const IMPS = { count: 6, speed: 3 };
+/** The Kobold King's charge: seconds per lap across the field, how many laps he runs, and how far in from his side he pulls up after. */
+const CHARGE = { lap: 0.9, laps: 3, stop: 140 };
+/** The Kobold King's bombs, and how big each burst is. */
+const BOMBS = { count: 3, r: 50 };
+/** Seconds no Hunter projectile can fly after the Frost Gargoyle's Wing Gust. */
+const GUST_TIME = 1;
+/** The Time Eater's frozen time: how long it lasts, when its first slam lands, and the seconds between slams. */
+const FREEZE = { time: 2.6, first: 0.6, gap: 0.8 };
+/** A frozen slam on a Hunter who's already down: seconds it adds to the stun, and the most a stun can reach so. */
+const GUARDIAN_STACK = 0.8;
+const GUARDIAN_STACK_MAX = 5;
+/** The Time Eater's echoes: the other Guardians' moves its ghosts can do. */
+const ECHOES: Array<{ type: EnemyId; move: GuardianMove }> = [
+  { type: 'skeletonKing', move: 'wisps' },
+  { type: 'beholdenWatcher', move: 'beam' },
+  { type: 'demonLord', move: 'slam' },
+  { type: 'koboldKing', move: 'bombs' },
+  { type: 'stormTitan', move: 'storm' },
+  { type: 'starEater', move: 'meteors' },
+];
+
 /** Splitting Slime: each half's share of the slain slime's health and size. */
 const SPLIT_HP = 0.5;
 /** Undead that rise again (an evolution) come back once at this share of their HP. */
@@ -159,6 +217,15 @@ export interface Enemy {
   art?: string;
   /** A summoner's state: seconds until it next summons, and seconds left standing still to summon. */
   summon?: { cd: number; stop: number };
+  /**
+   * A Guardian's moves (GUARDIAN_KITS): each one's cooldown, the move under way (and seconds into it, the steps of it
+   * already done, and what it picked: an aim, a spot, a lane), and the animation the renderer should play.
+   */
+  gm?: { cd: Partial<Record<GuardianMove, number>>; move: GuardianMove | null; t: number; step: number; a: number; x: number; y: number; laps: number; hit: Shooter[] };
+  /** Out of reach for the moment (vanished, up in the air): it can't be hurt, and it's drawn faint or not at all. */
+  phased?: boolean;
+  /** The attack animation the renderer plays (a Guardian's): which one, and the field clock when it began. */
+  anim?: { key: string; at: number };
   /** Hunter Hunter (a Forest Wolf evolution): it lunges at Hunters who come close. `dash`: seconds of lunge left; `cd`: until the next. */
   lunge?: { dash: number; cd: number };
   /** A Guardian still charging in (GUARDIAN_RUSH) from where it appeared: it slows to its walk once it reaches a Hunter. */
@@ -207,6 +274,30 @@ export interface EnemyShot {
   from: EnemyId;
   /** The Hunter it was fired at: only they can break it with a melee weapon (it flies past anyone else). */
   at?: Shooter;
+  /** A Guardian's: how it looks (a shadow wisp, an eye's energy ball), and seconds it hangs in the air before flying. */
+  look?: 'wisp' | 'eyeball';
+  wait?: number;
+}
+
+/**
+ * A Guardian's telegraphed strike: shown on the ground for `max` seconds, then it lands on every Hunter inside it.
+ * 'circle' around (x, y) of radius r; 'line' from (x, y) along `a`, `len` long and `w` wide; 'cone' from (x, y) along
+ * `a`, reaching r over `arc` radians; 'all' every Hunter on the field. `stack`: it lengthens a stun already running
+ * (the Time Eater's frozen slams). `fx`: how it looks when it lands.
+ */
+export interface Hazard {
+  kind: 'circle' | 'line' | 'cone' | 'all';
+  x: number;
+  y: number;
+  r: number;
+  a: number;
+  arc: number;
+  len: number;
+  w: number;
+  t: number;
+  max: number;
+  stack?: boolean;
+  fx: 'reap' | 'beam' | 'explode' | 'bomb' | 'dive' | 'frost' | 'lightning' | 'shock' | 'meteor' | 'slam';
 }
 /** How big a monster's projectile is (for hitting a Hunter). */
 /** A monster going after one Hunter fights another instead if it comes within this much of touching them. */
@@ -610,6 +701,8 @@ export interface Ghost {
 export type FieldEvent =
   | { type: 'hit'; x: number; y: number; dmg: number; crit: boolean; dtype: DamageType; affinity?: 'weak' | 'resist' | null }
   | { type: 'kill'; x: number; y: number; enemy: EnemyId; boss: boolean; reward: KillReward }
+  /** A Guardian's telegraphed strike landed (see Hazard). */
+  | { type: 'gstrike'; hz: Hazard }
   | { type: 'blast'; x: number; y: number; color?: string; /** A tap ability's spell went off with it (Flame Burst's explosion, Frost Nova's freeze). */ spell?: boolean }
   | { type: 'dodge'; x: number; y: number }
   | { type: 'boss' }
@@ -666,6 +759,14 @@ export class Field {
   bullets: Bullet[] = [];
   /** Ranged monsters' projectiles in flight. */
   shots: EnemyShot[] = [];
+  /** Guardian moves (see GUARDIAN_KITS): on or off (the sim switches them on), telegraphed strikes, and field states. */
+  guardianMoves = GUARDIAN_MOVES_ON;
+  hazards: Hazard[] = [];
+  /** Seconds left of the Frost Gargoyle's Wing Gust (no Hunter projectile can fly), and of the Time Eater's frozen time. */
+  gust = 0;
+  freeze = 0;
+  /** The Time Eater's echoes: a ghost of another Guardian, shown where it appears for a moment. */
+  echoes: Array<{ type: EnemyId; x: number; y: number; t: number; max: number }> = [];
   puddles: Puddle[] = [];
   ghosts: Ghost[] = [];
   /** Seconds the field has run (for timing things like a summon's repeat strikes). */
@@ -1072,6 +1173,24 @@ export class Field {
       }
     }
 
+    // Guardian moves: telegraphed strikes land, the Wing Gust passes, and in frozen time only the Time Eater moves.
+    if (this.guardianMoves) {
+      this.gust = Math.max(0, this.gust - dt);
+      this.runHazards(dt);
+      for (const x of this.echoes) x.t += dt;
+      this.echoes = this.echoes.filter((x) => x.t < x.max);
+      if (!g.guardianActive) this.hazards = [];
+      if (this.freeze > 0) {
+        this.freeze = Math.max(0, this.freeze - dt);
+        const boss = this.enemies.find((e) => e.boss && e.hp > 0);
+        if (boss) {
+          boss.phase += dt;
+          this.runGuardian(boss, dt);
+        }
+        return;
+      }
+    }
+
     // Spawning
     if (g.guardianActive && !g.bossAlive && !this.enemies.some((e) => e.boss)) {
       this.spawn(g.guardianType, true);
@@ -1229,7 +1348,10 @@ export class Field {
         const walled = this.boneWall > 0;
         const ranged = e.boss || e.minion ? undefined : enemyDef(e.type).ranged;
         // A summoner (not its minions) calls up more; one that keeps its distance stops there like a ranged one.
-        const standoff = e.summon && !e.minion ? enemyDef(e.type).summoner!.standoff : undefined;
+        // A Guardian's moves (with Guardian moves on): it stands still while it makes one (or runs its own course).
+        if (e.boss && this.guardianMoves) this.runGuardian(e, dt);
+        const busy = !!e.gm?.move;
+        const standoff = (e.summon && !e.minion ? enemyDef(e.type).summoner!.standoff : undefined) ?? (e.boss && this.guardianMoves ? GUARDIAN_STANDOFF[e.type] : undefined);
         if (e.summon && !e.minion) this.runSummoner(e, d, dt);
         // A ranged monster stops within its range and shoots instead.
         const keep = ranged ? ranged.range * 0.9 : standoff;
@@ -1253,17 +1375,18 @@ export class Field {
         if (e.rush) lunge = GUARDIAN_RUSH;
         // Standing still to summon (a Cultist's chant).
         const chanting = e.summon && e.summon.stop > 0 ? 0 : 1;
-        const step = Math.min(speed * lunge * chanting * dt, Math.max(0, d - reach));
+        const step = Math.min(speed * lunge * chanting * (busy ? 0 : 1) * dt, Math.max(0, d - reach));
         const [ux, uy] = this.steer(e, -dx / d, -dy / d);
-        e.x += ux * step + e.kx * dt;
-        e.y += uy * step + e.ky * dt;
+        // Mid-move a Guardian keeps to its own course: no knockback, nothing in the way (see keepOut below).
+        e.x += ux * step + (busy ? 0 : e.kx * dt);
+        e.y += uy * step + (busy ? 0 : e.ky * dt);
         if (walled && d < reach) {
           // Pushed back out to the wall (a knockback toward a Hunter can't carry it through).
           e.x = t.x + (dx / d) * reach;
           e.y = t.y + (dy / d) * reach;
-        } else if (!walled && !ranged && !standoff && d <= reach + 1) this.contact(e, t.who, dx / d, dy / d);
+        } else if (!walled && !ranged && !standoff && !e.phased && d <= reach + 1) this.contact(e, t.who, dx / d, dy / d);
       }
-      this.keepOut(e);
+      if (!(e.boss && e.gm?.move)) this.keepOut(e);
       e.kx *= decay;
       e.ky *= decay;
     }
@@ -1433,6 +1556,390 @@ export class Field {
     }
   }
 
+  // ---- Guardian moves (GUARDIAN_KITS) ----
+
+  /** Every Hunter on the field, where they stand. */
+  private hunterSpots(): Array<{ who: Shooter; x: number; y: number }> {
+    return [{ who: this.lead, x: 0, y: 0 }, ...this.helpers.map((h) => ({ who: h.id as Shooter, x: h.x, y: h.y }))];
+  }
+
+  /**
+   * A Guardian's move lands on a Hunter: a Guardian's long stun, unless a shield charge, a moment of grace or a
+   * Valkyrie takes it. `stack`: a stun already running lasts longer instead (the Time Eater's slams in frozen time).
+   */
+  private guardianStrike(who: Shooter, x: number, y: number, stack = false): void {
+    const helper = who === this.lead ? null : this.helpers.find((h) => h.id === who);
+    if (who !== this.lead && !helper) return;
+    const state = helper ?? this;
+    if (stack && state.stun > 0) {
+      state.stun = Math.min(state.stun + GUARDIAN_STACK, GUARDIAN_STACK_MAX);
+      state.stunTotal = Math.max(state.stunTotal, state.stun);
+      this.events.push({ type: 'stun', x, y, boss: true, who });
+      return;
+    }
+    if (state.immune > 0 && !stack) return;
+    const effects = this.game.gearEffects(who);
+    if (state.guard > 0) {
+      this.blockWith(who, state, x, y, effects);
+      return;
+    }
+    if (this.valkyrieWard(who, state, x, y)) return;
+    if (stack) state.immune = 0;
+    this.knockOut(who, true, x, y);
+  }
+
+  /** A telegraphed strike, landing `delay` seconds from now. */
+  private hazard(h: Omit<Hazard, 't' | 'max' | 'r' | 'a' | 'arc' | 'len' | 'w'> & Partial<Hazard>, delay: number): void {
+    this.hazards.push({ r: 0, a: 0, arc: 0, len: 0, w: 0, ...h, t: delay, max: delay });
+  }
+
+  /** Counts down the telegraphed strikes and lands the ones that are due. */
+  private runHazards(dt: number): void {
+    if (!this.hazards.length) return;
+    for (const h of this.hazards) {
+      h.t -= dt;
+      if (h.t > 0) continue;
+      this.events.push({ type: 'gstrike', hz: { ...h } });
+      for (const p of this.hunterSpots()) {
+        let hit = h.kind === 'all';
+        if (h.kind === 'circle') hit = Math.hypot(p.x - h.x, p.y - h.y) <= h.r + PLAYER_RADIUS;
+        else if (h.kind === 'line') {
+          const t = (p.x - h.x) * Math.cos(h.a) + (p.y - h.y) * Math.sin(h.a);
+          hit = t >= -PLAYER_RADIUS && t <= h.len + PLAYER_RADIUS && Math.abs(-(p.x - h.x) * Math.sin(h.a) + (p.y - h.y) * Math.cos(h.a)) <= h.w / 2 + PLAYER_RADIUS;
+        } else if (h.kind === 'cone') {
+          const d = Math.hypot(p.x - h.x, p.y - h.y);
+          const off = Math.abs(Math.atan2(Math.sin(Math.atan2(p.y - h.y, p.x - h.x) - h.a), Math.cos(Math.atan2(p.y - h.y, p.x - h.x) - h.a)));
+          hit = d <= h.r + PLAYER_RADIUS && (d < PLAYER_RADIUS * 2 || off <= h.arc / 2);
+        }
+        if (hit) this.guardianStrike(p.who, p.x, p.y, h.stack);
+      }
+    }
+    this.hazards = this.hazards.filter((h) => h.t > 0);
+  }
+
+  /** A Guardian's minion (the Awoken Lich's ghosts, the Demon Lord's imps): a monster of `type` at (x, y), worth nothing. */
+  private guardianMinion(boss: Enemy, type: EnemyId, x: number, y: number, speed = 1): void {
+    const g = this.game;
+    const st = g.enemyStats(type);
+    this.enemies.push({ id: this.nextId++, type, x, y, hp: st.hp, maxHp: st.hp, r: enemyDef(type).radius, speed: st.speed * speed, boss: false, fleeing: false, flash: 0, kx: 0, ky: 0, phase: g.rng() * 10, minion: boss.id });
+  }
+
+  /** A projectile of a Guardian's, hanging in the air `wait` seconds, then flying at `speed` toward (tx, ty). */
+  private guardianShot(from: EnemyId, x: number, y: number, tx: number, ty: number, speed: number, look: 'wisp' | 'eyeball', wait = 0, at?: Shooter): void {
+    const a = Math.atan2(ty - y, tx - x);
+    this.shots.push({ x, y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, life: wait + 900 / speed, from, look, wait, ...(at ? { at } : {}) });
+  }
+
+  /**
+   * A spot for a Guardian to reappear at (or a ghost to stand on): at least `away` from every Hunter, but no further
+   * than `within` from your Hunter, so the fight stays in reach of the Hunters' weapons.
+   */
+  private spotAway(away: number, within = 240): { x: number; y: number } {
+    const g = this.game;
+    let best = { x: within, y: 0 };
+    for (let i = 0; i < 16; i++) {
+      const a = g.rng() * Math.PI * 2;
+      const d = away + g.rng() * Math.max(0, within - away);
+      const p = { x: Math.max(-this.halfW * 0.9, Math.min(this.halfW * 0.9, Math.cos(a) * d)), y: Math.max(-this.halfH * 0.9, Math.min(this.halfH * 0.9, Math.sin(a) * d)) };
+      best = p;
+      if (this.hunterSpots().every((h) => Math.hypot(h.x - p.x, h.y - p.y) >= away)) break;
+    }
+    return best;
+  }
+
+  /** A Guardian's turn (with Guardian moves on): carry on with the move under way, or start the next one that's ready. */
+  private runGuardian(e: Enemy, dt: number): void {
+    const kit = GUARDIAN_KITS[e.type];
+    if (!kit) return;
+    e.gm ??= { cd: Object.fromEntries(kit.map((m) => [m, GUARDIAN_MOVE[m].first])), move: null, t: 0, step: 0, a: 0, x: 0, y: 0, laps: 0, hit: [] };
+    const gm = e.gm;
+    if (gm.move) {
+      gm.t += dt;
+      this.stepMove(e, gm.move, dt);
+      return;
+    }
+    for (const m of kit) gm.cd[m] = (gm.cd[m] ?? 0) - dt;
+    const near = this.hunterSpots().reduce((best, h) => Math.min(best, Math.hypot(h.x - e.x, h.y - e.y)), Infinity);
+    const next = kit.find((m) => (gm.cd[m] ?? 0) <= 0 && near <= (GUARDIAN_MOVE[m].reach ?? Infinity));
+    if (!next) return;
+    gm.cd[next] = GUARDIAN_MOVE[next].cd;
+    Object.assign(gm, { move: next, t: 0, step: 0, laps: 0, hit: [] });
+    this.stepMove(e, next, 0);
+  }
+
+  /** Plays the anim `key` on the Guardian. */
+  private animate(e: Enemy, key: string): void {
+    e.anim = { key, at: this.clock };
+  }
+
+  /** One step of a Guardian's move: each move is a short script, its beats at set seconds into it (`gm.t`). */
+  private stepMove(e: Enemy, m: GuardianMove, dt: number): void {
+    const gm = e.gm!;
+    const g = this.game;
+    const spots = this.hunterSpots();
+    const nearest = spots.reduce((b, h) => (Math.hypot(h.x - e.x, h.y - e.y) < Math.hypot(b.x - e.x, b.y - e.y) ? h : b), spots[0]);
+    // A beat: true once, the first frame at or past `at` seconds (each move's beats in order).
+    const beat = (at: number) => {
+      if (gm.t < at || gm.step > at) return false;
+      gm.step = at + 1e-6;
+      return true;
+    };
+    const done = (at: number) => {
+      if (gm.t < at) return;
+      gm.move = null;
+      e.phased = false;
+    };
+    const def = GUARDIAN_MOVE[m];
+    switch (m) {
+      case 'reap':
+      case 'scythe':
+      case 'breath': {
+        // A sweep (a scythe, a frost breath) in a cone toward the nearest Hunter, after a wind-up.
+        if (beat(0)) {
+          gm.a = Math.atan2(nearest.y - e.y, nearest.x - e.x);
+          this.animate(e, m === 'breath' ? 'attack2' : m === 'scythe' ? 'attack3' : 'attack');
+          this.hazard({ kind: 'cone', x: e.x, y: e.y, r: def.size!, a: gm.a, arc: def.arc!, fx: m === 'breath' ? 'frost' : 'reap' }, def.windup!);
+        }
+        done(def.windup! + 0.35);
+        break;
+      }
+      case 'wisps': {
+        // Shadow Burst: it bursts into shadow and is gone, then reappears far off and calls the damned: wisps rise
+        // in a ring around every Hunter and fly in at them.
+        if (beat(0)) {
+          this.animate(e, 'skill');
+          e.phased = true;
+        }
+        if (beat(0.7)) {
+          const p = this.spotAway(150, 230);
+          e.x = p.x;
+          e.y = p.y;
+          this.animate(e, 'summon');
+          this.events.push({ type: 'nova', x: e.x, y: e.y, r: e.r * 1.4, color: '#2a1838' });
+        }
+        if (beat(1.0)) {
+          e.phased = false;
+          for (const h of spots)
+            for (let i = 0; i < WISPS.count; i++) {
+              const a = (i / WISPS.count) * Math.PI * 2 + g.rng() * 0.5;
+              const x = h.x + Math.cos(a) * WISPS.ring;
+              const y = h.y + Math.sin(a) * WISPS.ring;
+              this.guardianShot(e.type, x, y, h.x, h.y, WISPS.speed, 'wisp', WISPS.wait + i * 0.08, h.who);
+            }
+        }
+        done(1.4);
+        break;
+      }
+      case 'ghosts': {
+        // The Awoken Lich raises ghosts in a ring around every Hunter; they close in.
+        if (beat(0)) this.animate(e, 'attack4');
+        if (beat(0.6))
+          for (const h of spots)
+            for (let i = 0; i < LICH_GHOSTS.count; i++) {
+              const a = (i / LICH_GHOSTS.count) * Math.PI * 2 + g.rng() * 0.4;
+              this.guardianMinion(e, 'graveWraith', h.x + Math.cos(a) * LICH_GHOSTS.ring, h.y + Math.sin(a) * LICH_GHOSTS.ring);
+            }
+        done(1.1);
+        break;
+      }
+      case 'beam': {
+        // A charged eye beam along a line through the nearest Hunter, telegraphed while it charges.
+        if (beat(0)) {
+          gm.a = Math.atan2(nearest.y - e.y, nearest.x - e.x);
+          this.animate(e, 'attack2');
+          this.hazard({ kind: 'line', x: e.x, y: e.y, a: gm.a, len: 1200, w: def.size!, fx: 'beam' }, def.windup!);
+        }
+        done(def.windup! + 0.4);
+        break;
+      }
+      case 'balls': {
+        // A fan of energy balls at the nearest Hunter.
+        if (beat(0)) this.animate(e, 'attack3');
+        if (beat(0.35)) {
+          const a = Math.atan2(nearest.y - e.y, nearest.x - e.x);
+          for (let i = 0; i < 5; i++) {
+            const b = a + (i - 2) * 0.22;
+            this.guardianShot(e.type, e.x, e.y, e.x + Math.cos(b) * 100, e.y + Math.sin(b) * 100, 190, 'eyeball', 0, nearest.who);
+          }
+        }
+        done(0.8);
+        break;
+      }
+      case 'slam': {
+        // Hellcleave: the Demon Lord raises his cleaver and smashes it down; the blast reaches every Hunter.
+        if (beat(0)) {
+          this.animate(e, 'cleave');
+          this.hazard({ kind: 'all', x: e.x, y: e.y, fx: 'explode' }, def.windup!);
+        }
+        done(def.windup! + 0.4);
+        break;
+      }
+      case 'imps': {
+        // He holds his cleaver high and imps come screaming in from the edges, far faster than any imp walks.
+        if (beat(0)) this.animate(e, 'raise');
+        if (beat(0.8))
+          for (let i = 0; i < IMPS.count; i++) {
+            const p = this.edgePoint();
+            this.guardianMinion(e, 'imp', p.x, p.y, IMPS.speed);
+          }
+        done(1.1);
+        break;
+      }
+      case 'charge': {
+        // The Kobold King runs to the edge level with a Hunter, then charges clean across, comes back in from the
+        // side he started on and goes again, lap after lap, knocking down every Hunter in his way.
+        const W = this.halfW + 60;
+        if (beat(0)) {
+          gm.x = e.x >= 0 ? 1 : -1; // the side he starts from
+          gm.y = nearest.y;
+          this.events.push({ type: 'say', x: e.x, y: e.y - e.r - 10, text: 'CHARGE!', color: '#ffd84a', size: 12 });
+        }
+        if (gm.t < def.windup!) {
+          // Into position at the edge, his lane shown across the field.
+          const tx = gm.x * W;
+          const k = Math.min(1, dt * 6);
+          e.x += (tx - e.x) * k;
+          e.y += (gm.y - e.y) * k;
+          if (beat(0.05)) this.hazard({ kind: 'line', x: -W, y: gm.y, a: 0, len: W * 2, w: e.r * 2, fx: 'slam' }, def.windup! - 0.05);
+          break;
+        }
+        if (beat(def.windup!)) {
+          e.x = gm.x * W;
+          e.y = gm.y;
+          this.animate(e, 'attack2');
+        }
+        e.x -= gm.x * ((2 * W) / CHARGE.lap) * dt; // each lap across the field in the same time, however wide
+        for (const h of spots)
+          if (!gm.hit.includes(h.who) && Math.hypot(h.x - e.x, h.y - e.y) <= e.r + PLAYER_RADIUS) {
+            gm.hit.push(h.who);
+            this.guardianStrike(h.who, h.x, h.y);
+          }
+        // Off the far side: back in from the side he started on for the next lap. The last lap ends as he comes
+        // back in, pulling up near the Hunters.
+        if (gm.laps >= CHARGE.laps && e.x * gm.x <= CHARGE.stop) {
+          gm.move = null;
+          e.anim = undefined;
+        } else if (e.x * gm.x < -W) {
+          gm.laps++;
+          gm.hit = [];
+          e.x = gm.x * W;
+        }
+        break;
+      }
+      case 'bombs': {
+        // Lit bombs lobbed at the Hunters, bursting where they land.
+        if (beat(0)) {
+          this.animate(e, 'attack4');
+          for (let i = 0; i < BOMBS.count; i++) {
+            const h = spots[i % spots.length];
+            this.hazard({ kind: 'circle', x: h.x + (g.rng() - 0.5) * 50, y: h.y + (g.rng() - 0.5) * 50, r: BOMBS.r, fx: 'bomb' }, def.windup! + i * 0.15);
+          }
+        }
+        done(0.9);
+        break;
+      }
+      case 'gust': {
+        // Wing Gust: one beat of its wings blows every Hunter projectile out of the air, and none can fly for a second.
+        if (beat(0)) this.animate(e, 'attack3');
+        if (beat(0.35)) {
+          for (const b of this.bullets) this.events.push({ type: 'swallow', x: b.x, y: b.y });
+          this.bullets = [];
+          this.gust = GUST_TIME;
+          this.events.push({ type: 'wave', x: e.x, y: e.y, r: 600, time: 0.5, color: '#d8f0ff' });
+        }
+        done(0.9);
+        break;
+      }
+      case 'dive':
+      case 'flight':
+      case 'plunge': {
+        // Up and out of reach, then down onto a Hunter (the spot shown on the ground first).
+        if (beat(0)) {
+          e.phased = true;
+          this.animate(e, m === 'dive' ? 'attack4' : 'rise');
+        }
+        if (beat(0.6)) {
+          const h = spots[Math.floor(g.rng() * spots.length)];
+          gm.x = h.x;
+          gm.y = h.y;
+          this.hazard({ kind: 'circle', x: h.x, y: h.y, r: def.size!, fx: m === 'flight' ? 'frost' : m === 'plunge' ? 'meteor' : 'dive' }, def.windup!);
+        }
+        if (beat(0.6 + def.windup!)) {
+          e.x = gm.x + (e.x > gm.x ? 1 : -1) * e.r * 0.5;
+          e.y = gm.y;
+          e.phased = false;
+          this.animate(e, m === 'dive' ? 'attack1' : 'landing');
+        }
+        done(0.9 + def.windup!);
+        break;
+      }
+      case 'storm': {
+        // Lightning called down on and around the Hunters.
+        if (beat(0)) {
+          this.animate(e, 'attack1');
+          for (let i = 0; i < 6; i++) {
+            const h = spots[i % spots.length];
+            const j = i < spots.length ? 0 : 70;
+            this.hazard({ kind: 'circle', x: h.x + (g.rng() - 0.5) * j, y: h.y + (g.rng() - 0.5) * j, r: def.size!, fx: 'lightning' }, def.windup! + i * 0.12);
+          }
+        }
+        done(def.windup! + 0.8);
+        break;
+      }
+      case 'overload':
+        // It charges up, then a shockwave bursts out all around it.
+        if (beat(0)) {
+          this.animate(e, 'attack2');
+          this.hazard({ kind: 'circle', x: e.x, y: e.y, r: def.size!, fx: 'shock' }, def.windup!);
+        }
+        done(def.windup! + 0.3);
+        break;
+      case 'meteors': {
+        // Meteors rain down across the Hunters' ground, one after another.
+        if (beat(0)) {
+          this.animate(e, 'special');
+          for (let i = 0; i < 8; i++) {
+            const h = spots[i % spots.length];
+            this.hazard({ kind: 'circle', x: h.x + (g.rng() - 0.5) * 140, y: h.y + (g.rng() - 0.5) * 140, r: def.size!, fx: 'meteor' }, def.windup! + i * 0.15);
+          }
+        }
+        done(def.windup! + 1.4);
+        break;
+      }
+      case 'freeze': {
+        // Time stops: everything but the Time Eater goes still and grey, and it slams the ground three times, every
+        // slam knocking every Hunter down again.
+        if (beat(0)) {
+          this.freeze = FREEZE.time;
+          this.animate(e, 'special');
+          for (let i = 0; i < 3; i++) this.hazard({ kind: 'all', x: e.x, y: e.y, fx: 'slam', stack: true }, FREEZE.first + i * FREEZE.gap);
+        }
+        // Each slam swings the blade down (the attack timed to land on it).
+        for (let i = 0; i < 3; i++) if (beat(FREEZE.first + i * FREEZE.gap - 0.35)) this.animate(e, 'attack3');
+        done(FREEZE.time);
+        break;
+      }
+      case 'echo': {
+        // A ghost of another Guardian appears for a moment and does its move.
+        if (beat(0)) {
+          this.animate(e, 'attack');
+          const pick = ECHOES[Math.floor(g.rng() * ECHOES.length)];
+          const p = this.spotAway(180);
+          this.echoes.push({ type: pick.type, x: p.x, y: p.y, t: 0, max: 1.8 });
+          const ghost: Enemy = { ...e, id: -1, type: pick.type, x: p.x, y: p.y, gm: { ...gm, move: pick.move, t: 0, step: 0, hit: [] } };
+          // Its move's opening beat, from where the ghost stands (the moves that play out from there in one go).
+          this.stepMove(ghost, pick.move, 0);
+          for (let t = 0; t < 2.5 && ghost.gm!.move; t += 0.05) {
+            ghost.gm!.t += 0.05;
+            this.stepMove(ghost, pick.move, 0.05);
+          }
+        }
+        done(1.0);
+        break;
+      }
+    }
+  }
+
   /** A ranged monster within range of its Hunter counts down and shoots a projectile at them. */
   private rangedAttack(e: Enemy, ranged: { range: number; cooldown: number; speed: number }, t: { who: Shooter; x: number; y: number }, d: number, dt: number): void {
     e.shotCd ??= ranged.cooldown * (0.3 + this.game.rng() * 0.5);
@@ -1472,6 +1979,12 @@ export class Field {
       ...this.zones.filter((z) => z.kind === 'gravityAnchor').map((z) => ({ x: z.x, y: z.y, r: z.r })),
     ];
     for (const s of this.shots) {
+      // A Guardian's projectile hanging in the air before it flies (the Executioner's wisps).
+      if (s.wait && s.wait > 0) {
+        s.wait -= dt;
+        s.life -= dt;
+        continue;
+      }
       s.x += s.vx * dt;
       s.y += s.vy * dt;
       s.life -= dt;
@@ -2334,6 +2847,8 @@ export class Field {
     range: number,
     o: { pierce?: number; dmg?: number; radius?: number; bounces?: number; slow?: number; tx?: number; ty?: number; mode?: GearMode; special?: boolean; followThrough?: number; volley?: number; stack?: number; bleed?: boolean; dtype?: DamageType; ticks?: number; cast?: SpellCast; k?: number; size?: number; blast?: { r: number; k: number }; elem?: number; arts?: ShotArts; critBonus?: number; flurry?: number },
   ): void {
+    // The Frost Gargoyle's Wing Gust: nothing gets off the ground for a moment.
+    if (this.gust > 0) return;
     const g = this.game;
     // Stone magic (a Physical magic weapon) hurls rocks instead of sparks.
     if (kind === 'spark' && !o.special && !o.cast && g.damageTypeOf(shooter, o.mode) === 'physical' && g.weaponItem(shooter, o.mode)) kind = 'rock';
@@ -4469,7 +4984,7 @@ export class Field {
   }
 
   private damage(e: Enemy, dmg: number, crit: boolean, dirX: number, dirY: number, shooter: Shooter = 'main', dtype: DamageType = 'physical'): void {
-    if (e.hp <= 0) return;
+    if (e.hp <= 0 || e.phased) return;
     if (e.mark) dmg *= 1 + e.mark.bonus;
     e.hp -= dmg;
     e.flash = 1;

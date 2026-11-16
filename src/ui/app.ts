@@ -158,7 +158,7 @@ import {
 import { fmt, fmtDps, fmtTime } from '../core/format';
 import { Game, type FarmRates, type Shooter, type TreeKind } from '../core/game';
 import type { OfflineResult } from '../core/offline';
-import { COOLDOWN_POSITIONS, deserialize, EMPOWER_AMOUNTS, TAB_IDS, TRAIN_AMOUNTS, type GameState, type GearMod, type AudioSettings, type BuyAmount, type CooldownPos, type DpsCorner, type FxKey, type IndicatorStyle, type GearItem, type TabId, type Wearer } from '../core/state';
+import { COOLDOWN_POSITIONS, deserialize, newGame, EMPOWER_AMOUNTS, TAB_IDS, TRAIN_AMOUNTS, type GameState, type GearMod, type AudioSettings, type BuyAmount, type CooldownPos, type DpsCorner, type FxKey, type IndicatorStyle, type GearItem, type TabId, type Wearer } from '../core/state';
 import { drawEventBackdrop, queuePortrait } from '../render/battle';
 import { drawFramedBar, drawFramedSegments, TIMER_COLOR } from '../render/hudBars';
 import { showRewardedAd } from './ads';
@@ -483,6 +483,9 @@ export class AppUI {
       observe: (area: AreaId) => boolean;
       stopObserving: () => void;
       observing: () => AreaId | null;
+      /** Dev: whether the Guardians' new moves are on, and switching the preview of them. */
+      guardianMoves: () => boolean;
+      setGuardianMoves: (on: boolean) => void;
     },
   ) {
     document.querySelectorAll<HTMLButtonElement>('.tabs button').forEach((b) =>
@@ -6661,6 +6664,45 @@ export class AppUI {
     );
     void this.hooks.hasDevBackup().then((has) => restore.classList.toggle('hidden', !has));
     body.appendChild(dev);
+
+    // Start over: a brand-new game with nothing bought (ads back, no Exalted Gems), keeping this device's settings
+    // (your name, so Dev stays open); your current save is kept for Restore, as with a phase.
+    const fresh = el('div', 'card setting dev-fresh');
+    fresh.innerHTML = `<div class="setting-name">Purchases</div><p>Clear every purchase (Remove Ads and Exalted Gems) and start the game over from the very beginning, to play it as a new player would. Your settings stay, and your current save is kept until you Restore it.</p><button class="buy dev-restart">Clear purchases &amp; start over</button><button class="secondary dev-unbuy">Clear purchases only</button>`;
+    $('.dev-restart', fresh).addEventListener('click', () =>
+      this.showModal('<h2>Start over?</h2><p>Every purchase is cleared and the game starts from the very beginning. Your current save is kept, and comes back with Restore.</p>', [
+        { label: 'Cancel', secondary: true },
+        {
+          label: 'Start over',
+          action: () => {
+            const st = newGame();
+            st.settings = structuredClone(g.state.settings);
+            void this.hooks.devPhase(st);
+          },
+        },
+      ]),
+    );
+    $('.dev-unbuy', fresh).addEventListener('click', () => {
+      g.state.noAds = false;
+      g.state.gems = 0;
+      g.state.energy = Math.min(g.state.energy, g.energyMax);
+      this.hooks.save();
+      this.toast('🧾 Purchases cleared: ads are back and Exalted Gems are 0');
+      this.refresh();
+    });
+    body.appendChild(fresh);
+
+    // Guardian moves: preview the Guardians' new moves (not yet switched on for everyone).
+    const gm = el('div', 'card setting dev-guardians');
+    gm.innerHTML = `<div class="setting-name">Guardian moves</div><p>Preview the Guardians' new moves in their fights (sweeps, summons, charges, frozen time...). Not yet on for players; kept on this device until you switch it off.</p><button class="secondary gm-toggle"></button>`;
+    const gmBtn = $('.gm-toggle', gm);
+    const gmLabel = () => (gmBtn.textContent = this.hooks.guardianMoves() ? 'Switch Guardian moves off' : 'Switch Guardian moves on');
+    gmLabel();
+    gmBtn.addEventListener('click', () => {
+      this.hooks.setGuardianMoves(!this.hooks.guardianMoves());
+      gmLabel();
+    });
+    body.appendChild(gm);
   }
 
   /**

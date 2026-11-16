@@ -3,7 +3,7 @@ import { pixelShadow } from './pixelShadow';
 import { battleSfx as sfx } from '../ui/sound';
 import { MAGIC_SFX, SFX } from '../ui/sfxConfig';
 import { areaDef, DAMAGE_TYPES, FIELD_ZOOM, FLYING, gearDef, WEAPON_CLASSES, STATUS, enemyDef, eventDef, fieldZoom, GUARDIAN_TIME, guardianName, hunterDef, materialDef, SIZE_SCALE, type AreaId, type DamageType, type EnemyId, type EnemyShape, type SummonType } from '../core/balance';
-import { DICE_FLIGHT, DICE_REST, PLAYER_RADIUS, SHOT_RADIUS, SUMMON_RADIUS, TOME_LIFE, TOME_OPEN, type EnemyShot, type Summon, type SpellZone, type FieldEvent, type Bullet, type BulletKind, type Enemy, type Field, type Helper, type Puddle } from '../core/field';
+import { DICE_FLIGHT, DICE_REST, PLAYER_RADIUS, SHOT_RADIUS, SUMMON_RADIUS, TOME_LIFE, TOME_OPEN, type EnemyShot, type Summon, type SpellZone, type FieldEvent, type Bullet, type BulletKind, type Enemy, type Field, type Helper, type Puddle, type Hazard } from '../core/field';
 import { MATERIAL_SPRITES } from '../core/materialSprites';
 import { fmt } from '../core/format';
 import type { Game, Shooter } from '../core/game';
@@ -13,7 +13,7 @@ import { effectImage, gearImage, hunterSheetImage, monsterSheetImage, sprite } f
 import { HUNTER_SHEETS } from './hunterSheets';
 import { EFFECTS, type EffectKey } from './effectSheets';
 import { areaBackground, areaScene, drawVignette, type SceneProp } from './backgrounds';
-import { MONSTER_SHEETS, SHEETS, sheetRow, sideFlip, type MonsterSheet } from './monsterSheets';
+import { GUARDIAN_ANIMS, MONSTER_SHEETS, SHEETS, sheetRow, sideFlip, type MonsterSheet } from './monsterSheets';
 import { GEAR_SPRITES } from '../core/gearSprites';
 import { emojiIconKey } from '../ui/emojiIcons';
 import { HUNTER_ICONS, hunterIconHtml } from '../ui/hunterIcons';
@@ -268,6 +268,9 @@ export class BattleView {
           if (this.game.state.settings.aoeStyle === 'basic') this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: hexRgb(e.color ?? '#fff0be'), max: 0.35 });
           else this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: hexRgb(e.color ?? '#fff0be'), max: 0.4, pixel: true, scatter: sparseCells(e.r, Math.random() * 1e6) });
           break;
+        case 'gstrike':
+          this.guardianStrikeFx(e.hz);
+          break;
         case 'impact':
           // A magic shot or spell bolt landing: a fireball's burst, a lightning crackle, a rock's crash, an icicle shattering.
           if (!this.fancy) break;
@@ -437,6 +440,123 @@ export class BattleView {
     this.fx.update(dt);
   }
 
+  /**
+   * Guardian moves' telegraphs: where a strike is about to land, a red patch filling in as it comes (a circle, a
+   * lane, a cone, or the whole field's edges glowing for one that reaches every Hunter).
+   */
+  private drawHazards(g: CanvasRenderingContext2D): void {
+    for (const hz of this.field.hazards) {
+      const k = 1 - Math.max(0, hz.t) / Math.max(0.01, hz.max); // 0 → 1 as it comes
+      const pulse = 0.5 + 0.5 * Math.sin(this.time * 18);
+      g.save();
+      g.fillStyle = `rgba(230,40,40,${0.12 + 0.22 * k})`;
+      g.strokeStyle = `rgba(255,90,70,${0.5 + 0.4 * pulse})`;
+      g.lineWidth = 2;
+      if (hz.kind === 'circle') {
+        g.beginPath();
+        g.arc(hz.x, hz.y, hz.r, 0, Math.PI * 2);
+        g.fill();
+        g.stroke();
+        g.beginPath();
+        g.arc(hz.x, hz.y, hz.r * k, 0, Math.PI * 2);
+        g.fillStyle = `rgba(255,70,60,${0.18 + 0.2 * k})`;
+        g.fill();
+      } else if (hz.kind === 'line') {
+        g.translate(hz.x, hz.y);
+        g.rotate(hz.a);
+        g.fillRect(0, -hz.w / 2, hz.len, hz.w);
+        g.strokeRect(0, -hz.w / 2, hz.len, hz.w);
+        g.fillStyle = `rgba(255,70,60,${0.2 * k})`;
+        g.fillRect(0, (-hz.w / 2) * k, hz.len, hz.w * k);
+      } else if (hz.kind === 'cone') {
+        g.beginPath();
+        g.moveTo(hz.x, hz.y);
+        g.arc(hz.x, hz.y, hz.r, hz.a - hz.arc / 2, hz.a + hz.arc / 2);
+        g.closePath();
+        g.fill();
+        g.stroke();
+      } else {
+        // Every Hunter: the field's edges glow red, stronger as it comes.
+        const W = this.w / Z;
+        const H = this.h / Z;
+        const grad = g.createRadialGradient(0, 0, Math.min(W, H) * 0.25, 0, 0, Math.hypot(W, H) * 0.6);
+        grad.addColorStop(0, 'rgba(230,40,40,0)');
+        grad.addColorStop(1, `rgba(230,40,40,${0.25 + 0.35 * k * (0.6 + 0.4 * pulse)})`);
+        g.fillStyle = grad;
+        g.fillRect(-W / 2, -H / 2, W, H);
+      }
+      g.restore();
+    }
+  }
+
+  /** The Time Eater's echoes: a ghost of another Guardian, pale and translucent, fading in and out. */
+  private drawEchoes(g: CanvasRenderingContext2D): void {
+    for (const x of this.field.echoes) {
+      const def = enemyDef(x.type);
+      const ghost: Enemy = { id: -1, type: x.type, x: x.x, y: x.y, hp: 1, maxHp: 1, r: def.radius * 2.6, speed: 0, boss: true, fleeing: false, flash: 0, kx: 0, ky: 0, phase: x.t };
+      g.save();
+      g.globalAlpha = 0.45 * Math.min(1, x.t / 0.3, (x.max - x.t) / 0.4);
+      this.scaledAt(g, x.x, x.y, () => this.drawEnemy(g, ghost));
+      g.restore();
+    }
+  }
+
+  /** A Guardian's telegraphed strike landing: its own burst (a sweep, a beam, an explosion, a bomb, a crash...). */
+  private guardianStrikeFx(hz: Hazard): void {
+    const fancy = this.fancy;
+    switch (hz.fx) {
+      case 'reap':
+        this.sweeps.push({ x: hz.x, y: hz.y, a: hz.a, arc: hz.arc, r: hz.r, color: '#b89cff', t: 0, blade: true });
+        break;
+      case 'frost':
+        if (hz.kind === 'cone') {
+          if (fancy) for (let i = 0; i < 5; i++) {
+            const a = hz.a + ((i - 2) / 4) * hz.arc;
+            this.playEffect('frost', hz.x + Math.cos(a) * hz.r * 0.6, hz.y + Math.sin(a) * hz.r * 0.6, hz.r * 0.5, 'bottom', 20);
+          }
+        } else if (fancy) this.playEffect('iceburst', hz.x, hz.y, hz.r * 2, 'center', 18);
+        this.rings.push({ x: hz.x, y: hz.y, t: 0, r: hz.r, color: '143,214,255', max: 0.4, fill: true });
+        break;
+      case 'beam':
+        this.beams.push({ x1: hz.x, y1: hz.y, x2: hz.x + Math.cos(hz.a) * hz.len, y2: hz.y + Math.sin(hz.a) * hz.len, color: '#ffe066', width: hz.w, t: 0 });
+        this.beams.push({ x1: hz.x, y1: hz.y, x2: hz.x + Math.cos(hz.a) * hz.len, y2: hz.y + Math.sin(hz.a) * hz.len, color: '#ffffff', width: hz.w * 0.35, t: 0 });
+        break;
+      case 'explode':
+      case 'slam': {
+        // Every Hunter: a blast at each of them, and the field shakes.
+        this.shake = Math.max(this.shake, 0.5);
+        const spots = [{ x: 0, y: 0 }, ...this.field.helpers.map((h) => ({ x: h.x, y: h.y }))];
+        for (const p of spots) {
+          if (fancy) this.playEffect(hz.fx === 'slam' ? 'shockwave' : 'explosion', p.x, p.y, 70, 'center', 22, 0, 1, hz.fx === 'slam' ? '#c8b8ff' : undefined);
+          else this.rings.push({ x: p.x, y: p.y, t: 0, r: 35, color: '255,138,61', max: 0.35, fill: true });
+        }
+        break;
+      }
+      case 'bomb':
+        if (fancy) this.playEffect('explosion', hz.x, hz.y, hz.r * 2.2);
+        else this.rings.push({ x: hz.x, y: hz.y, t: 0, r: hz.r, color: '255,138,61', max: 0.35, fill: true });
+        break;
+      case 'dive':
+        this.shake = Math.max(this.shake, 0.3);
+        if (fancy) this.playEffect('iceburst', hz.x, hz.y, hz.r * 2.2, 'center', 18);
+        this.rings.push({ x: hz.x, y: hz.y, t: 0, r: hz.r, color: '200,230,255', max: 0.4, grow: true });
+        break;
+      case 'lightning':
+        if (fancy) this.playEffect('lightning', hz.x, hz.y + 6, hz.r * 2.6, 'bottom', 22);
+        else this.beams.push({ x1: hz.x, y1: hz.y - 200, x2: hz.x, y2: hz.y, color: DAMAGE_TYPES.lightning.color, width: 3, t: 0 });
+        break;
+      case 'shock':
+        if (fancy) this.playEffect('lightsphere', hz.x, hz.y, hz.r * 2, 'center', 24);
+        this.rings.push({ x: hz.x, y: hz.y, t: 0, r: hz.r, color: '255,232,102', max: 0.4, grow: true });
+        break;
+      case 'meteor':
+        this.shake = Math.max(this.shake, 0.2);
+        if (fancy) this.playEffect('meteor', hz.x, hz.y + hz.r * 0.5, hz.r * 2.4, 'bottom', 24);
+        else this.rings.push({ x: hz.x, y: hz.y, t: 0, r: hz.r, color: '255,154,74', max: 0.35, fill: true });
+        break;
+    }
+  }
+
   /** Fire Starter's burning sticks: the Twigs icon smouldering, embers rising off it, fading as it burns out. */
   private drawSticks(g: CanvasRenderingContext2D, p: Puddle): void {
     const fade = Math.min(1, p.life / 0.8);
@@ -555,6 +675,8 @@ export class BattleView {
       if (born === undefined) this.puddleBorn.set(p, (born = this.time));
       drawPixelPool(g, p, this.time - born, p.dtype === 'acid');
     }
+
+    this.drawHazards(g);
 
     // Orb Scepter orbs: a glowing ball of the bolt's element where it landed, pulsing, fading as it runs out.
     for (const o of this.field.orbs) {
@@ -852,9 +974,26 @@ export class BattleView {
       g.stroke();
     }
 
+    this.drawEchoes(g);
     this.drawReloads(g);
     this.fx.draw(g);
     g.restore();
+    // The Time Eater's frozen time: the whole field drained of colour but the Time Eater itself.
+    if (this.field.freeze > 0) {
+      const boss = this.field.enemies.find((e) => e.boss && e.hp > 0);
+      g.save();
+      g.globalCompositeOperation = 'saturation';
+      g.fillStyle = 'hsl(0, 0%, 50%)';
+      g.fillRect(0, 0, w, h);
+      g.restore();
+      if (boss) {
+        g.save();
+        g.translate(w / 2, h / 2);
+        g.scale(Z, Z);
+        this.scaledAt(g, boss.x, boss.y, () => this.drawEnemy(g, boss));
+        g.restore();
+      }
+    }
     if (scene?.vignette) drawVignette(g, w, h, scene.vignette);
     this.drawHud(g);
     this.cooldownBar.update();
@@ -1712,7 +1851,23 @@ export class BattleView {
       // Side-view art faces one way: mirror it when heading the other.
       const flip = sideFlip(sh, dirX);
       if (flip) g.scale(-1, 1);
+      // A Guardian making a move plays that move's animation (its frames sized like its walk), holding the last frame
+      // while the move lasts; out of reach (vanished, in the air) it's drawn faint.
+      const atk = e.anim ? GUARDIAN_ANIMS[sheetKey]?.[e.anim.key] : undefined;
+      const atkImg = atk ? monsterSheetImage(`${sheetKey}-${e.anim!.key}`) : null;
+      if (e.phased) g.globalAlpha *= 0.25;
+      if (atk && atkImg && atkImg.complete && atkImg.naturalWidth > 0) {
+        const f = Math.floor((this.field.clock - e.anim!.at) * 12);
+        if (f < atk || e.gm?.move) {
+          drawSheetFrame(g, atkImg, { ...sh, cols: atk }, 0, Math.min(f, atk - 1), ra * SHEET_SCALE, { of: atkImg, alpha: this.clarity });
+          if (flip) g.scale(-1, 1);
+          g.globalAlpha = 1;
+          g.restore();
+          return;
+        }
+      }
       drawSheetFrame(g, src, sh, sheetRow(sh, dir), col, ra * SHEET_SCALE, { of: sheet, alpha: this.clarity });
+      if (e.phased) g.globalAlpha = 1;
       if (e.flash > 0.5) {
         g.globalAlpha = 0.5;
         g.globalCompositeOperation = 'lighter';
@@ -2739,6 +2894,14 @@ function drawStatus(g: CanvasRenderingContext2D, e: Enemy, t: number, on: (k: Fx
 /** Each attack style gets its own simple look. */
 /** A ranged monster's bolt: a glowing orb of its colour with a fading tail, `k` times its size (like the characters). */
 function drawEnemyShot(g: CanvasRenderingContext2D, s: EnemyShot, t: number, k: number, clarity = 0): void {
+  // A Guardian's: the Executioner's shadow wisps (rising in place, then streaking in), the Watcher's energy balls.
+  if (s.look) {
+    const img = effectImage(s.look);
+    if (img) {
+      drawEffectFrame(g, img, s.look, Math.floor(t * 10), s.x, s.y, s.look === 'wisp' ? 22 * k : 9 * k, 'center', true);
+      return;
+    }
+  }
   const color = enemyDef(s.from).color;
   const sp = Math.hypot(s.vx, s.vy) || 1;
   const ux = s.vx / sp;

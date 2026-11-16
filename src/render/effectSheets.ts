@@ -67,6 +67,9 @@ export const EFFECTS = {
   'flamesphere-grey': { frame: 96, frames: 10, box: [4, 2, 88, 86] },
   wave: { frame: 64, frames: 10, box: [17, 6, 30, 57] },
   bonespikes: { frame: 32, frames: 6, box: [0, 0, 32, 31] },
+  // Guardian moves' projectiles: the Undead Executioner's shadow wisps and the Beholden Watcher's energy balls.
+  wisp: { frame: 50, frames: 4, box: [12, 10, 26, 32] },
+  eyeball: { frame: 8, frames: 2, box: [0, 0, 8, 8] },
 } satisfies Record<string, EffectSheet>;
 
 export type EffectKey = keyof typeof EFFECTS;

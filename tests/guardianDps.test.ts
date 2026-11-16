@@ -25,6 +25,10 @@ const BEST = !!process.env.SIM_DPS_BEST;
 const RUNS = Number(process.env.SIM_DPS_RUNS ?? 1);
 /** The Guardian's health in the test: far more than any team brings down in one fight (then twice that). */
 const POOL = Number(process.env.SIM_DPS_POOL ?? 1e13);
+/** SIM_DPS_MOVES: the Guardians fight with their moves (GUARDIAN_KITS), to compare the fights' pacing with and without. */
+const MOVES = !!process.env.SIM_DPS_MOVES;
+/** SIM_DPS_AREAS: only these areas (comma-separated). */
+const ONLY = process.env.SIM_DPS_AREAS?.split(',');
 
 function mulberry(seed: number) {
   return () => {
@@ -36,7 +40,7 @@ function mulberry(seed: number) {
 }
 
 /** One Guardian fight from a save, the Guardian at `hp` health: the damage dealt (and by taps directly), and the seconds it lasted. */
-function fight(raw: unknown, area: AreaId, hp: number, seed = 42): { dmg: number; tapped: number; secs: number; team: string; gear: string } {
+function fight(raw: unknown, area: AreaId, hp: number, seed = 42): { dmg: number; tapped: number; secs: number; team: string; gear: string; downShare: number; kos: number } {
   const save = raw as { lastSeen: number };
   const state = deserialize(JSON.stringify(raw), save.lastSeen)!;
   state.area = area;
@@ -72,6 +76,7 @@ function fight(raw: unknown, area: AreaId, hp: number, seed = 42): { dmg: number
     }
     const f = new Field(g);
     f.setView(390, 420);
+    f.guardianMoves = MOVES;
     // A moment on the field first, so everyone is in place.
     for (let t = 0; t < 3; t += 0.05) {
       g.tick(0.05);
@@ -86,10 +91,18 @@ function fight(raw: unknown, area: AreaId, hp: number, seed = 42): { dmg: number
     let secs = 0;
     let tapAcc = 0;
     let tapped = 0;
+    // How much of the fight the Hunters spend knocked down (each Hunter's share, averaged), and how many knockouts.
+    let down = 0;
+    let present = 0;
+    let kos = 0;
     for (let t = 0; t < 300 && g.guardianActive; t += 0.05) {
       g.tick(0.05);
       f.update(0.05);
-      f.drainEvents();
+      for (const ev of f.drainEvents()) if (ev.type === 'stun') kos++;
+      for (const who of ['main', ...f.helpers.map((h) => h.id)] as const) {
+        present += 0.05;
+        if (f.isDown(who as never)) down += 0.05;
+      }
       const boss = f.enemies.find((e) => e.boss);
       if (boss) {
         maxHp = boss.maxHp;
@@ -106,7 +119,7 @@ function fight(raw: unknown, area: AreaId, hp: number, seed = 42): { dmg: number
     }
     const gear = ['main', ...HUNTERS.filter((h) => state.hunters[h.id].recruited && state.hunters[h.id].station === area).map((h) => h.id)].map((id) => g.equipped(id as never).map((it) => (it ? `${gearDef(it.base).name} ${it.stars}* ${(it.mods ?? []).filter(Boolean).length}m` : '-')).join('/')).join(' | ');
     const team = ['main', ...HUNTERS.filter((h) => state.hunters[h.id].recruited && state.hunters[h.id].station === area).map((h) => h.id)].map((id) => `${id}:${g.levelOf(id as never)}`).join(' ');
-    return { dmg: maxHp - Math.max(0, left), tapped, secs, team, gear };
+    return { dmg: maxHp - Math.max(0, left), tapped, secs, team, gear, downShare: down / Math.max(1e-9, present), kos };
   } finally {
     def.guardian = real;
   }
@@ -116,6 +129,7 @@ it.runIf(!!process.env.SIM_DPS)('Guardian damage at each stage', () => {
   const presets = JSON.parse(readFileSync(process.env.SIM_DPS_PRESETS ?? 'public/dev-presets.json', 'utf8')) as Record<string, unknown>;
   const rows: Array<Record<string, unknown>> = [];
   for (const a of AREAS) {
+    if (ONLY && !ONLY.includes(a.id)) continue;
     const raw = presets[`${a.id}-end`];
     if (!raw) continue;
     const avg = (hp: number) => {
@@ -129,7 +143,7 @@ it.runIf(!!process.env.SIM_DPS)('Guardian damage at each stage', () => {
     // The Time Eater is beaten at half its health.
     const need = 1 - (enemyDef(GUARDIAN_ENEMY[a.id]).winAt ?? 0);
     const canBeat = plain / Math.max(1e-9, need - share);
-    const row = { area: a.id, secs: +one.secs.toFixed(1), plainDps: Math.round(plain / one.secs), plainDmg: Math.round(plain), share: +share.toFixed(4), canBeat: Math.round(canBeat), guardian: a.guardian, ratio: +(canBeat / a.guardian).toFixed(2), tapShare: +(one.tapped / Math.max(1, one.dmg)).toFixed(2),  team: one.team, gear: one.gear };
+    const row = { area: a.id, secs: +one.secs.toFixed(1), plainDps: Math.round(plain / one.secs), plainDmg: Math.round(plain), share: +share.toFixed(4), canBeat: Math.round(canBeat), guardian: a.guardian, ratio: +(canBeat / a.guardian).toFixed(2), tapShare: +(one.tapped / Math.max(1, one.dmg)).toFixed(2), down: +one.downShare.toFixed(3), kos: one.kos, team: one.team, gear: one.gear };
     rows.push(row);
     console.log(JSON.stringify(row));
   }

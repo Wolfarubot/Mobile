@@ -1817,6 +1817,39 @@ export function regTreeMult(tree: Record<string, number>, kind: RegKind): number
 /** Shares of gold Perpetual Growth may spend on one purchase. */
 export const AUTO_EMPOWER_SHARES = [0.05, 0.1, 0.2, 0.5] as const;
 /** Which monster each area's Guardian is a giant version of. */
+/**
+ * Guardian moves (work in progress): every Guardian from the Restless Graveyard on fights with moves of its own, not
+ * just by walking at the Hunters. Off in the game until they're signed off; the Guardian fight sim switches them on
+ * (SIM_DPS_MOVES) to compare the fights' pacing with and without.
+ */
+export const GUARDIAN_MOVES_ON = false;
+export type GuardianMove =
+  | 'reap' | 'wisps' // Undead Executioner
+  | 'scythe' | 'ghosts' // Awoken Lich
+  | 'beam' | 'balls' // Beholden Watcher
+  | 'slam' | 'imps' // Demon Lord
+  | 'charge' | 'bombs' // Kobold King
+  | 'gust' | 'dive' // Frost Gargoyle
+  | 'breath' | 'flight' // Ice Wyvern
+  | 'storm' | 'overload' // Storm Titan
+  | 'meteors' | 'plunge' // Star Eater
+  | 'freeze' | 'echo'; // Time Eater
+/** Each Guardian's moves (the first two areas' Guardians keep to walking and bouncing). */
+export const GUARDIAN_KITS: Partial<Record<EnemyId, GuardianMove[]>> = {
+  skeletonKing: ['reap', 'wisps'],
+  awokenLich: ['scythe', 'ghosts'],
+  beholdenWatcher: ['beam', 'balls'],
+  demonLord: ['slam', 'imps'],
+  koboldKing: ['charge', 'bombs'],
+  frostGargoyle: ['gust', 'dive'],
+  iceWyvern: ['breath', 'flight'],
+  stormTitan: ['storm', 'overload'],
+  starEater: ['meteors', 'plunge'],
+  timeEater: ['freeze', 'echo'],
+};
+/** A Guardian that keeps this far from the Hunters while it fights (the Beholden Watcher). */
+export const GUARDIAN_STANDOFF: Partial<Record<EnemyId, number>> = { beholdenWatcher: 150 };
+
 export const GUARDIAN_ENEMY: Record<AreaId, EnemyId> = {
   forest: 'kingSlime',
   glade: 'pixieQueen',

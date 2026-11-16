@@ -16,6 +16,23 @@ export interface MonsterSheet {
   box: [number, number, number, number];
 }
 
+/**
+ * Guardians' attack animations (Guardian moves): public/monsters/<sheet>-<anim>.png, one row of frames the same size
+ * as the Guardian's walk sheet's (so they share its box and scale), and how many. Recoloured Guardians' attacks are
+ * recoloured the same way as their walk sheets (see SOURCE.txt).
+ */
+export const GUARDIAN_ANIMS: Record<string, Record<string, number>> = {
+  executioner: { attack: 13, skill: 12, summon: 5 },
+  necromancer: { attack3: 4, attack4: 6 },
+  'mega-beholder': { attack2: 4, attack3: 4 },
+  'demon-slime': { cleave: 15, raise: 4 },
+  'kobold-king': { attack2: 6, attack4: 4 },
+  'frost-gargoyle': { attack1: 4, attack3: 4, attack4: 4 },
+  'wyvern-ice': { attack2: 10, rise: 7, landing: 5 },
+  'star-eater': { special: 12, rise: 7, landing: 5 },
+  'time-eater': { special: 8, attack3: 8, attack: 8 },
+};
+
 export const SHEETS: Record<string, MonsterSheet> = {
   'slime-green': { frame: 64, cols: 8, order: 'DULR', box: [15, 17, 34, 23] },
   'slime-lava': { frame: 64, cols: 8, order: 'DULR', box: [15, 4, 34, 36] },
