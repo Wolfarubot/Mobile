@@ -3696,6 +3696,42 @@ export interface GearDef {
 export const TIER_HIT = [2, 4, 8, 15, 27, 45, 72, 110, 160, 230, 320, 440,
   // The Unbound areas (13 = Unbound Woods … 24 = Unbound Void Rift), each ×1.375 the last, as the Void Rift is the Meteor Field's.
  ...Array.from({ length: 12 }, (_, i) => Math.round(440 * 1.375 ** (i + 1)))];
+/**
+ * Every weapon is a clear step past the same kind of weapon from the areas before it, so gear brought back to an
+ * old area tears through it: an area's best of each weapon class hits at least WEAPON_STEP harder than the best
+ * before it (or as much harder as the areas' TIER_HIT grows, if that's more), and none of its others falls under
+ * WEAPON_FLOOR times that best. Where a class's catalog numbers fall short (a few rifles and the like punch well above
+ * their tier), the later ones are raised to match. Unbound copies keep their original's raise.
+ */
+export const WEAPON_STEP = 1.5;
+export const WEAPON_FLOOR = 1.2;
+/**
+ * And a whole area's weapons raised by this much on top (by area: 7 = Venom Caverns): the Ember Mines' rifles and scepters
+ * carry its team so far past its other gear that the Caverns' next step needs a little more to feel like one.
+ */
+const AREA_WEAPON_LIFT: Partial<Record<number, number>> = { 7: 1.12 };
+let WEAPON_BOOST: Map<string, number> | null = null;
+/** How much a weapon's damage is raised over its catalog numbers (1 for most). */
+export function weaponBoost(def: GearDef): number {
+  if (!WEAPON_BOOST) {
+    WEAPON_BOOST = new Map();
+    const classes = new Set(GEAR.filter((g) => g.weaponClass).map((g) => g.weaponClass));
+    for (const c of classes) {
+      let best = 0;
+      for (let t = 1; t <= AREAS.length; t++) {
+        const group = GEAR.filter((g) => g.weaponClass === c && gearArea(g) === t);
+        if (!group.length) continue;
+        const jump = t > 1 ? Math.max(WEAPON_STEP, TIER_HIT[t - 1] / TIER_HIT[t - 2]) : 1;
+        const top = Math.max(...group.map(catalogHit));
+        const area = AREA_WEAPON_LIFT[t] ?? 1;
+        const lift = area * (best && top < best * jump ? (best * jump) / top : 1);
+        for (const g of group) WEAPON_BOOST.set(g.id, best ? Math.max(lift, (best * WEAPON_FLOOR) / catalogHit(g)) : 1);
+        best = Math.max(best, top * lift);
+      }
+    }
+  }
+  return WEAPON_BOOST.get(def.unboundOf ?? def.id) ?? 1;
+}
 /** A weapon's base damage at each star, as a multiple of 1★. */
 export const WEAPON_HIT_POWER = [0, 1, 1.3, 1.65, 2.1, 2.6, 3.2];
 /** Base damage per hit with no weapon equipped. */
@@ -3703,13 +3739,17 @@ export const UNARMED_HIT = 1;
 /** A weapon's base damage per hit at a star count (0 for gear that isn't a weapon). */
 export function weaponHit(def: GearDef, stars: number): number {
   if (!def.weaponClass) return 0;
+  return Math.round(catalogHit(def) * weaponBoost(def) * 10) / 10 * WEAPON_HIT_POWER[Math.max(0, Math.min(MAX_EFFECTIVE_STARS, stars))];
+}
+/** A weapon's 1★ damage from its tier, class and kind (or its own `hit`), before weaponBoost. */
+function catalogHit(def: GearDef): number {
+  if (!def.weaponClass) return 0;
   // Between whole tiers, damage grows geometrically toward the next tier's.
   const t = Math.max(1, Math.min(TIER_HIT.length, gearTier(def)));
   const lo = Math.floor(t);
   const tierHit = lo >= TIER_HIT.length ? TIER_HIT[TIER_HIT.length - 1] : TIER_HIT[lo - 1] * (TIER_HIT[lo] / TIER_HIT[lo - 1]) ** (t - lo);
   const raw = tierHit * WEAPON_CLASSES[def.weaponClass].damage * (weaponArchetype(def)?.damage ?? 1);
-  const base = def.hit ?? (raw >= 10 ? Math.round(raw) : Math.round(raw * 10) / 10);
-  return base * WEAPON_HIT_POWER[Math.max(0, Math.min(MAX_EFFECTIVE_STARS, stars))];
+  return def.hit ?? (raw >= 10 ? Math.round(raw) : Math.round(raw * 10) / 10);
 }
 /** A weapon's damage for display (e.g. "1.3 damage"). */
 export const hitText = (v: number): string => `${Number(v.toFixed(v < 10 ? 2 : 1))} damage`;

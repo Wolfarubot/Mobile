@@ -134,6 +134,7 @@ import {
   HELPER_TAPER_GROWTH,
   powerDamage,
   TIER_HIT,
+  weaponBoost,
   weaponHit,
   WEAPON_HIT_POWER,
   AOE_PER_LEVEL,
@@ -2373,8 +2374,23 @@ describe('Equipment', () => {
     expect(g.shotDamage('wilhelm', undefined, 'long')).toBeCloseTo(baseLong * weaponHit(gearDef('frostRifle'), 1));
     expect(g.shotDamage('wilhelm', undefined, 'short')).toBeCloseTo(baseShort * weaponHit(gearDef('forestBow'), 1));
     // A class's weight is part of its weapons' base damage: a rifle hits harder than a bow of the same rarity.
-    expect(weaponHit(gearDef('frostRifle'), 1) / TIER_HIT[7]).toBeCloseTo(WEAPON_CLASSES.rifle.damage * (weaponArchetype(gearDef('frostRifle'))!.damage ?? 1), 1);
+    expect(weaponHit(gearDef('frostRifle'), 1) / weaponBoost(gearDef('frostRifle')) / TIER_HIT[7]).toBeCloseTo(WEAPON_CLASSES.rifle.damage * (weaponArchetype(gearDef('frostRifle'))!.damage ?? 1), 1);
     expect(g.shooterRange('wilhelm', 'long')).toBeCloseTo(MAIN_RANGE * shapedClass('frostRifle').range + 15);
+  });
+
+  it("every area's weapons outclass the same kind from the areas before it", () => {
+    for (const c of Object.keys(WEAPON_CLASSES)) {
+      let best = 0;
+      for (let t = 1; t <= AREAS.length; t++) {
+        const hits = GEAR.filter((gd) => gd.weaponClass === c && gearArea(gd) === t).map((gd) => weaponHit(gd, 1));
+        if (!hits.length) continue;
+        if (best) {
+          expect(Math.max(...hits)).toBeGreaterThanOrEqual(best * 1.49);
+          expect(Math.min(...hits)).toBeGreaterThanOrEqual(best * 1.19);
+        }
+        best = Math.max(best, ...hits);
+      }
+    }
   });
 
   it('dagger archetypes spread their stabs over the standard burst; the Orb Scepter leaves orbs', () => {
