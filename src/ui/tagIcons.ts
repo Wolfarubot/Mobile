@@ -26,21 +26,21 @@ export const SUMMON_TAG_ICONS: Record<SummonType, string> = {
   undead: 'ab-paladin-dk/065',
   elemental: 'ab-geo-aero/061',
   // The other kinds of monster: the same icons as their monster-type tags.
-  slime: 'custom/001',
+  slime: 'ab-pyro-hydro/095',
   demon: 'ab-pyro-hydro/037',
   humanoid: 'ab-cavalier-monk/062',
-  plant: 'ab-gunslinger-druid/069',
+  plant: 'ab-gunslinger-druid/088',
   dragon: 'ab-cavalier-monk/086',
 };
 
 export const ARCHETYPE_TAG_ICONS: Record<Archetype, string> = {
-  slime: 'custom/001', // the Green Slime itself (the one tag that isn't a framed icon)
+  slime: 'ab-pyro-hydro/095', // an ooze
   beast: 'ab-gunslinger-druid/061',
   undead: 'ab-paladin-dk/065',
   demon: 'ab-pyro-hydro/037',
   elemental: 'ab-geo-aero/061',
   humanoid: 'ab-cavalier-monk/062',
-  plant: 'ab-gunslinger-druid/069',
+  plant: 'ab-gunslinger-druid/088', // a leaf (Deku the Druid's own icon is the tree)
   dragon: 'ab-cavalier-monk/086',
   construct: 'ab-engineer-psionic/064',
 };

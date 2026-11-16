@@ -2403,7 +2403,7 @@ export class AppUI {
     for (const e of areaEnemies(id)) {
       const known = g.state.bestiary[e.id].unlocked;
       const row = el('div', `row${known ? '' : ' locked'}`);
-      row.innerHTML = `<canvas class="portrait"></canvas><div class="info"><div class="name">${known ? e.name : '???'} <small>${ARCHETYPES[e.archetype].icon} ${ARCHETYPES[e.archetype].name}</small></div><div class="drop">${known ? dropsText(e, true, g.isUnbound(e.area)) : `${gemHtml(e.material)} Drops <b>???</b>`}</div><div class="sub">${known ? e.blurb : 'Unlock it in the Bestiary.'}</div>${known ? affinityHtml(e, true) : ''}</div>`;
+      row.innerHTML = `<canvas class="portrait"></canvas><div class="info"><div class="name">${known ? e.name : '???'} <small>${tagIconHtml(ARCHETYPE_TAG_ICONS[e.archetype])} ${ARCHETYPES[e.archetype].name}</small></div><div class="drop">${known ? dropsText(e, true, g.isUnbound(e.area)) : `${gemHtml(e.material)} Drops <b>???</b>`}</div><div class="sub">${known ? e.blurb : 'Unlock it in the Bestiary.'}</div>${known ? affinityHtml(e, true) : ''}</div>`;
       // A monster you've unlocked opens its full view.
       if (known) {
         row.classList.add('tappable');
@@ -3142,7 +3142,7 @@ export class AppUI {
       const b = g.state.bestiary[def.id];
       card.classList.toggle('locked', !b.unlocked);
       $('.max-crown', card).classList.toggle('hidden', !b.unlocked || g.monsterLevelInfo(def.id).level < MAX_MONSTER_LEVEL);
-      setHtml($('.name', card), `${def.name}<span class="archetype">${arch.icon} ${arch.name}</span>${beastTags(def)}${b.unlocked ? '' : ' <small>locked</small>'}`);
+      setHtml($('.name', card), `${def.name}<span class="archetype">${tagIconHtml(ARCHETYPE_TAG_ICONS[def.archetype])} ${arch.name}</span>${beastTags(def)}${b.unlocked ? '' : ' <small>locked</small>'}`);
       if (!b.unlocked) {
         const cost = g.unlockCostOf(def.id);
         // Still waiting on kills in its area: how many more, then the price.
@@ -3175,7 +3175,7 @@ export class AppUI {
     card.addEventListener('click', () => this.openMonsterDetail(def.id, true));
     this.refreshers.push(() => {
       const ev = g.state.events[`guardian-${def.area}`];
-      setHtml($('.name', card), `${guardianName(def.area)}<span class="archetype">${arch.icon} ${arch.name}</span>${beastTags(def)} <small>Guardian of the ${areaDef(def.area).name}</small>`);
+      setHtml($('.name', card), `${guardianName(def.area)}<span class="archetype">${tagIconHtml(ARCHETYPE_TAG_ICONS[def.archetype])} ${arch.name}</span>${beastTags(def)} <small>Guardian of the ${areaDef(def.area).name}</small>`);
       $('.max-crown', card).classList.toggle('hidden', !g.guardianBeaten(def.area));
       setHtml($('.guardian-record', row), `Challenged <b>${fmt(ev?.runs ?? 0)}</b> · beaten <b>${fmt(ev?.completed ?? 0)}</b>`);
     });
@@ -6979,7 +6979,7 @@ function gearCardHtml(it: GearItem, vs: GearItem | null = null): string {
     (it.mods ?? []).filter(Boolean).map((m) => `<li class="gc-mod ${m!.kind}${modPerfect(m!) ? ' perfect' : ''}">${modText(m!, gd)}</li>`).join('') +
     `<li class="gc-mod gc-slot">◇ Empty modifier slot</li>`.repeat(Math.max(0, modSlotCount(gd) - (it.mods ?? []).filter(Boolean).length)) +
     (gd.effect ? `<li class="gc-effect"><span>✨ ${advancedTips ? describeEffect(gd.effect, it.stars) : simpleEffect(gd.effect)}</span></li>` : '') +
-    (gd.bane ? `<li class="gc-effect">${ARCHETYPES[gd.bane.archetype].icon} +${Math.round(gd.bane.bonus * GEAR_STAR_POWER[it.stars] * 100)}% damage vs ${ARCHETYPES[gd.bane.archetype].name}s</li>` : '') +
+    (gd.bane ? `<li class="gc-effect">${tagIconHtml(ARCHETYPE_TAG_ICONS[gd.bane.archetype])} +${Math.round(gd.bane.bonus * GEAR_STAR_POWER[it.stars] * 100)}% damage vs ${ARCHETYPES[gd.bane.archetype].name}s</li>` : '') +
     (gd.findDrop ? `<li class="gc-effect">💎 ${it.stars >= gd.findDrop.stars ? '' : `At ${gd.findDrop.stars}★: `}${gd.findDrop.chance * 100}% chance for ${materialDef(gd.findDrop.material).name} from ${ARCHETYPES[gd.findDrop.archetype].name.toLowerCase()} kills</li>` : '');
   return `<div class="gear-card rar${gd.unboundOf ? ' ub' : ''}" style="--rc:${gearColor(gd.id)}"><div class="gc-head"><i>${gearIcon(gd)}</i><div><b>${gd.name}</b><small>${RARITIES[gd.rarity].name} ${gearKindName(gd).toLowerCase()} · <span class="stars">${starsHtml(it.stars)}</span>${gd.unboundOf ? ' · <span class="ub-tag">Unbound</span>' : ''}</small><div class="gc-typeline">${procTypeTags(gd)}</div>${hitHtml ? `<div class="gc-dmgline">${hitHtml}</div>` : ''}${speedHtml}</div></div><ul class="gc-stats">${all}</ul></div>`;
 }
