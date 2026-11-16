@@ -15,7 +15,7 @@ const SWAP_MARGIN = 1.3;
 const MOD_BUDGET = 0.05;
 
 /** How well a piece's damage types suit the area's monsters (their average weakness or resistance; 1 for none). */
-function typeFit(game: Game, base: GearId): number {
+export function typeFit(game: Game, base: GearId): number {
   const types = gearTypes(gearDef(base));
   if (!types.length) return 1;
   const here = areaEnemies(game.area);
@@ -23,7 +23,7 @@ function typeFit(game: Game, base: GearId): number {
 }
 
 /** A piece's worth to a Hunter in a slot: their damage per second wearing it there (a copy, for a moment). */
-function worth(game: Game, who: Wearer, slot: number, base: GearId, stars: number, uid?: number): number {
+export function worth(game: Game, who: Wearer, slot: number, base: GearId, stars: number, uid?: number): number {
   const s = game.state;
   const eq = (s.equipment[who] ??= []);
   const prev = eq[slot] ?? null;

@@ -1,10 +1,10 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { it } from 'vitest';
-import { AREAS, enemyDef, gearDef, GUARDIAN_ENEMY, HUNTERS, type AreaId } from '../src/core/balance';
+import { AREAS, enemyDef, GEAR, gearArea, gearDef, GUARDIAN_ENEMY, HUNTERS, slotAccepts, type AreaId } from '../src/core/balance';
 import { Field } from '../src/core/field';
 import { Game } from '../src/core/game';
 import { deserialize } from '../src/core/state';
-import { botGear } from './botGear';
+import { botGear, worth } from './botGear';
 
 /**
  * Guardian damage test: `SIM_DPS=out.json npx vitest run tests/guardianDps.test.ts` loads each area's "-end" phase
@@ -21,6 +21,12 @@ const REGEAR = !!process.env.SIM_DPS_REGEAR;
 const FULLGEAR = !!process.env.SIM_DPS_FULLGEAR;
 const STARS = Number(process.env.SIM_DPS_STARS ?? 0);
 const BEST = !!process.env.SIM_DPS_BEST;
+/**
+ * SIM_DPS_AREAGEAR: every Hunter in the fight wears gear from the Guardian's own area: in each slot the piece of that
+ * area's that does the most for them (weighed as the pacing bot weighs it), the weapon at 4 stars and everything else
+ * at 3, no modifiers. A baseline for the Guardians' health.
+ */
+const AREAGEAR = !!process.env.SIM_DPS_AREAGEAR;
 /** Fights per measurement (SIM_DPS_RUNS), each with its own random rolls, averaged. */
 const RUNS = Number(process.env.SIM_DPS_RUNS ?? 1);
 /** The Guardian's health in the test: far more than any team brings down in one fight (then twice that). */
@@ -66,6 +72,29 @@ function fight(raw: unknown, area: AreaId, hp: number, seed = 42): { dmg: number
       state.materials = mats;
       state.gold = gold;
     } else if (REGEAR) for (let i = 0; i < 4; i++) botGear(g);
+    if (AREAGEAR) {
+      const tier = AREAS.findIndex((x) => x.id === area) + 1;
+      const wearers = ['main', ...HUNTERS.filter((h) => state.hunters[h.id].recruited && state.hunters[h.id].station === area).map((h) => h.id)] as const;
+      let uid = 9e8;
+      for (const who of wearers) {
+        const eqs = state.equipment as unknown as Record<string, (number | null)[]>;
+        const eq = (eqs[who] ??= []);
+        g.slotsOf(who as never).forEach((slot, i) => {
+          const weapon = slot.kind !== 'armor' && slot.kind !== 'accessory';
+          const stars = weapon ? 4 : 3;
+          // not pieces made from the Guardian's own drop (you can't have them before you've beaten it)
+          const drop = enemyDef(GUARDIAN_ENEMY[area]).material;
+          // the area's own pieces; for a slot it makes none for, the latest area's before it that does
+          let options: typeof GEAR = [];
+          for (let t = tier; t >= 1 && !options.length; t--) options = GEAR.filter((gd) => slotAccepts(slot, gd) && gearArea(gd) === t && !(drop in gd.recipe));
+          if (!options.length) return;
+          const best = options.map((gd) => ({ gd, v: worth(g, who as never, i, gd.id, stars) })).sort((x, y) => y.v - x.v)[0];
+          const id = uid++;
+          state.inventory.push({ uid: id, base: best.gd.id, stars });
+          eq[i] = id;
+        });
+      }
+    }
     // SIM_DPS_BEST: the three Guild Hunters with the most damage fight beside you, as a player going for the Guardian
     // would pick (the bot stations by gold earned).
     if (BEST) {
