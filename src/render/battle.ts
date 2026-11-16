@@ -12,7 +12,7 @@ import { canvasFont, fitCanvas, Fx } from './fx';
 import { effectImage, gearImage, hunterSheetImage, monsterSheetImage, sprite } from './sprites';
 import { HUNTER_SHEETS } from './hunterSheets';
 import { EFFECTS, type EffectKey } from './effectSheets';
-import { areaBackground, areaScene, drawVignette, type SceneProp } from './backgrounds';
+import { areaBackground, areaScene, drawVignette, RIFT_WINGS, type SceneProp } from './backgrounds';
 import { GUARDIAN_ANIMS, GUARDIAN_DEATHS, MONSTER_SHEETS, SHEETS, sheetRow, sideFlip, type MonsterSheet } from './monsterSheets';
 import { GEAR_SPRITES } from '../core/gearSprites';
 import { emojiIconKey } from '../ui/emojiIcons';
@@ -115,6 +115,12 @@ export class BattleView {
   private swings = new Map<Shooter, { t: number; a: number }>();
   /** The current scene's big objects (null until its pictures load), and the obstacles made from them. */
   private sceneProps: SceneProp[] | null = null;
+  /** Seconds into the Time Eater's entrance (-1 when it isn't playing). */
+  private reveal = -1;
+  /** The Rift's wings are gone for good once the Time Eater has come down to fight (its first challenge on). */
+  private get revealed(): boolean {
+    return (this.game.state.events['guardian-rift']?.runs ?? 0) > 0 && this.reveal < 0;
+  }
   /** Fallen Guardians playing their death where they fell (a copy of the Guardian as it was, and when it fell). */
   private falls: Array<{ e: Enemy; at: number }> = [];
   private sweeps: Array<{ x: number; y: number; a: number; arc: number; r: number; color: string; t: number; blade?: boolean }> = [];
@@ -161,6 +167,13 @@ export class BattleView {
       if (e.type === 'areaUnlocked') this.showBanner(`${areaDef(e.area).name} unlocked!`, '#9fe0ff');
       else if (e.type === 'finalGuardian') this.showBanner(e.slain ? 'The Time Eater is slain!' : 'The Time Eater is driven back!', '#ffe36e');
       if (e.type === 'unlock') this.showBanner(`${enemyDef(e.enemy).name}s now roam!`, enemyDef(e.enemy).color);
+      // The Time Eater's first challenge: the Rift shakes, the great wings looming over it lift away, and it walks
+      // in from where they were (it had been watching all along).
+      if (e.type === 'guardianChallenge' && game.area === 'rift' && (game.state.events['guardian-rift']?.runs ?? 0) === 1) {
+        this.reveal = 0;
+        this.field.bossHold = REVEAL.spawn;
+        this.field.bossFrom = { x: 0, y: this.field.top - 20 };
+      }
       if (e.type === 'travel') {
         this.pickups = [];
         this.falls = [];
@@ -191,6 +204,12 @@ export class BattleView {
   update(dt: number): void {
     this.time += dt;
     this.shake = Math.max(0, this.shake - dt);
+    if (this.reveal >= 0) {
+      this.reveal += dt;
+      // the ground rumbling while the wings lift away
+      if (this.reveal < REVEAL.shake) this.shake = Math.max(this.shake, 0.35 + 0.25 * Math.sin(this.reveal * 9));
+      if (this.reveal >= REVEAL.spawn) this.reveal = -1;
+    }
     this.stunTextCooldown = Math.max(0, this.stunTextCooldown - dt);
     if (this.banner) {
       this.banner.life += dt;
@@ -758,7 +777,13 @@ export class BattleView {
       if (it.e) this.scaledAt(g, it.e.x, it.e.y, () => this.drawEnemy(g, it.e!));
       else {
         const p = it.p!;
-        g.drawImage(p.img, (p.x - w / 2) / Z, (p.y - h / 2) / Z, p.img.naturalWidth / Z, p.img.naturalHeight / Z);
+        let dy = 0;
+        if (p.file === RIFT_WINGS) {
+          if (this.revealed) continue;
+          // lifting away: slowly at first, then up and out of the top of the view
+          if (this.reveal >= 0) { const k = Math.min(1, Math.max(0, (this.reveal - REVEAL.lift) / REVEAL.slide)); dy = -(k * k) * (p.y + p.img.naturalHeight + 10); }
+        }
+        g.drawImage(p.img, (p.x - w / 2) / Z, (p.y + dy - h / 2) / Z, p.img.naturalWidth / Z, p.img.naturalHeight / Z);
       }
     }
     for (const e of this.field.enemies) if (FLYING.has(e.type)) this.scaledAt(g, e.x, e.y, () => this.drawEnemy(g, e));
@@ -2930,6 +2955,9 @@ function drawStatus(g: CanvasRenderingContext2D, e: Enemy, t: number, on: (k: Fx
 }
 
 /** Each attack style gets its own simple look. */
+/** The Time Eater's entrance (seconds): the rumble, when the wings start to lift and how long they take, and when it comes on. */
+const REVEAL = { shake: 1.7, lift: 0.35, slide: 1.2, spawn: 1.9 };
+
 /** Guardian deaths: frames a second, then seconds the last frame is held and seconds it fades over. */
 const DEATH_FPS = 10;
 const DEATH_HOLD = 0.7;

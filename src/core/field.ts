@@ -139,6 +139,8 @@ const LICH_GHOSTS = { count: 4, ring: 190 };
 const IMPS = { count: 6, speed: 3 };
 /** The Kobold King's charge: seconds per lap across the field, how many laps he runs, and how far in from his side he pulls up after. */
 const CHARGE = { lap: 0.9, laps: 3, stop: 140 };
+/** How fast (field units a second, on top of its own walk) a Guardian strides into view on its entrance. */
+const ENTRANCE_WALK = 60;
 /** The Kobold King's bombs, and how big each burst is. */
 const BOMBS = { count: 3, r: 50 };
 /** Seconds no Hunter projectile can fly after the Frost Gargoyle's Wing Gust. */
@@ -820,6 +822,14 @@ export class Field {
   /** Events since the last drain, consumed by the renderer. */
   events: FieldEvent[] = [];
   private spawnAcc = 0;
+  /** Seconds a Guardian waits before it comes on (its entrance playing), and where it then comes on from. */
+  bossHold = 0;
+  bossFrom: { x: number; y: number } | null = null;
+  private entering: Enemy | null = null;
+  /** The top edge of the view, in field units. */
+  get top(): number {
+    return -this.halfH;
+  }
   /** Enemies arrive in packs; this is the next pack's type and size. */
   private nextPack: { type: EnemyId; size: number } | null = null;
   /** Your Hunter's attack charge (an attack at 1; below 0 while a shield deflection pauses them). */
@@ -1191,9 +1201,27 @@ export class Field {
       }
     }
 
-    // Spawning
-    if (g.guardianActive && !g.bossAlive && !this.enemies.some((e) => e.boss)) {
-      this.spawn(g.guardianType, true);
+    // Spawning (a Guardian waits while its entrance plays: the Time Eater's wings lifting off the Rift)
+    this.bossHold = Math.max(0, this.bossHold - dt);
+    if (this.entering) {
+      // a steady stride into view, then the usual Guardian charge
+      if (this.entering.hp > 0) this.entering.y += ENTRANCE_WALK * dt;
+      if (this.entering.hp <= 0 || this.entering.y > -this.halfH + 130) {
+        if (this.entering.hp > 0) this.entering.rush = true;
+        this.entering = null;
+      }
+    }
+    if (g.guardianActive && !g.bossAlive && !this.enemies.some((e) => e.boss) && this.bossHold <= 0) {
+      this.spawn(g.guardianType, true, this.bossFrom ?? undefined);
+      if (this.bossFrom) {
+        // It walks in from where it was watching rather than charging (until it's well into view).
+        const boss = this.enemies.find((e) => e.boss);
+        if (boss) {
+          boss.rush = false;
+          this.entering = boss;
+        }
+        this.bossFrom = null;
+      }
       g.bossSpawned();
       this.events.push({ type: 'boss' });
     }

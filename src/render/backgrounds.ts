@@ -561,6 +561,8 @@ const FLAT = /^(c_Veins|o_magic_circle|moon\d|skull_chasm|excavated_grave|gd\d|d
  */
 export interface SceneProp {
   img: HTMLImageElement;
+  /** The piece's file (the Rift's looming wings are picked out by it). */
+  file?: string;
   x: number;
   y: number;
   foot: number;
@@ -599,12 +601,15 @@ function baseOf(img: HTMLImageElement): { foot: number; left: number; right: num
   return out;
 }
 
-function sceneProp(img: HTMLImageElement, x: number, y: number): SceneProp {
+function sceneProp(img: HTMLImageElement, x: number, y: number, file?: string): SceneProp {
   const b = baseOf(img);
-  if (!b) return { img, x, y, foot: y + img.naturalHeight, base: null };
+  if (!b) return { img, file, x, y, foot: y + img.naturalHeight, base: null };
   const r = ((b.right - b.left) / 2) * 0.85;
-  return { img, x, y, foot: y + b.foot, base: r >= 3 ? { x: x + (b.left + b.right) / 2, y: y + b.foot - r * 0.6, r } : null };
+  return { img, file, x, y, foot: y + b.foot, base: r >= 3 ? { x: x + (b.left + b.right) / 2, y: y + b.foot - r * 0.6, r } : null };
 }
+
+/** The great wings looming over the Rift: the Time Eater's own, until it first comes down to fight. */
+export const RIFT_WINGS = 'c_Wing_monster';
 
 const sceneProps = new Map<string, SceneProp[]>();
 
@@ -857,7 +862,7 @@ export function areaBackground(area: AreaId, w: number, h: number, decor?: Decor
     }
     for (const it of placed) {
       // The wall stands among the monsters but doesn't stop them.
-      if (it.prop) props.push(it.wall ? { ...sceneProp(it.img, it.x, it.y), base: null } : sceneProp(it.img, it.x, it.y));
+      if (it.prop) props.push(it.wall ? { ...sceneProp(it.img, it.x, it.y, it.file), base: null } : sceneProp(it.img, it.x, it.y, it.file));
       else g.drawImage(it.img, it.x, it.y);
     }
   };
