@@ -86,7 +86,14 @@ function fight(raw: unknown, area: AreaId, hp: number, seed = 42): { dmg: number
           const drop = enemyDef(GUARDIAN_ENEMY[area]).material;
           // the area's own pieces; for a slot it makes none for, the latest area's before it that does
           let options: typeof GEAR = [];
-          for (let t = tier; t >= 1 && !options.length; t--) options = GEAR.filter((gd) => slotAccepts(slot, gd) && gearArea(gd) === t && !(drop in gd.recipe));
+          // the same kind of weapon the Hunter already fights with, where the area makes one (a sword
+          // swapped in for a focus only looks better on paper: up close the Guardian keeps knocking them down)
+          const worn = eq[i] != null ? state.inventory.find((it) => it.uid === eq[i]) : undefined;
+          const kind = worn ? gearDef(worn.base).weaponClass : undefined;
+          for (let t = tier; t >= 1 && !options.length; t--) {
+            options = GEAR.filter((gd) => slotAccepts(slot, gd) && gearArea(gd) === t && !(drop in gd.recipe));
+            if (weapon && kind && options.some((gd) => gd.weaponClass === kind)) options = options.filter((gd) => gd.weaponClass === kind);
+          }
           if (!options.length) return;
           const best = options.map((gd) => ({ gd, v: worth(g, who as never, i, gd.id, stars) })).sort((x, y) => y.v - x.v)[0];
           const id = uid++;
