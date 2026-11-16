@@ -7517,7 +7517,11 @@ function beastSub(def: EnemyDef, extra = ''): string {
 }
 
 function beastTags(def: EnemyDef): string {
-  const tags = [FLYING.has(def.id) ? `<span class="beast-tag flying" title="${esc(txt('tip.markers.flying'))}">Flying</span>` : '', def.ranged ? `<span class="beast-tag ranged" title="${esc(txt('tip.markers.ranged'))}">Ranged</span>` : ''];
+  const tags = [
+    FLYING.has(def.id) ? `<span class="beast-tag flying" title="${esc(txt('tip.markers.flying'))}">Flying</span>` : '',
+    def.ranged ? `<span class="beast-tag ranged" title="${esc(txt('tip.markers.ranged'))}">Ranged</span>` : '',
+    def.summoner ? `<span class="beast-tag summoner" title="${esc(txt('tip.markers.summoner'))}">Summoner</span>` : '',
+  ];
   return tags.join('');
 }
 

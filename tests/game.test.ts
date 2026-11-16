@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { GEAR_CATALOG } from '../src/core/gearCatalog';
 import { GEAR_SPRITES } from '../src/core/gearSprites';
 import { describe, expect, it } from 'vitest';
-import { ARROW_RAIN, FOCUS_VIEW_SHARE, GUARDIAN_TAP_TAKEN, archetypeValue, armorStats, mirrorStats, WEAPON_ARCHETYPES, weaponArchetype, withArchetype, type WeaponClass } from '../src/core/balance';
+import { ARROW_RAIN, FOCUS_VIEW_SHARE, GUARDIAN_TAP_TAKEN, archetypeValue, armorStats, mirrorStats, WEAPON_ARCHETYPES, weaponArchetype, withArchetype, type WeaponClass, type EnemyId } from '../src/core/balance';
 import {
   areaDef,
   AREAS,
@@ -2854,6 +2854,58 @@ describe('Equipment', () => {
       f.enemies = [enemy({ id: 1, type: 'wolf', x: 40, y: 0, hp: 1e9, maxHp: 1e9 })];
       (f as unknown as { abilityBurst: (...a: unknown[]) => void }).abilityBurst('main', 0, 0, 90, 100, 'lightning');
       expect(f.drainEvents().some((e) => e.type === 'nova' && e.pulse === 'lightning')).toBe(true);
+    }
+  });
+
+  it('summoners: the Broodmother keeps her distance and sends spiders (more when she dies), Cultists stop to raise a skeleton, Necromancers raise two; minions are worth nothing', () => {
+    const g = new Game(newGame(0), () => 0.5);
+    const setUp = (type: EnemyId, x: number) => {
+      const f = new Field(g);
+      f.setView(390, 420);
+      const def = enemyDef(type);
+      const e = enemy({ id: 1, type, x, y: 0, hp: 1e6, maxHp: 1e6, r: def.radius, speed: 40, summon: { cd: 0.1, stop: 0 } });
+      f.enemies = [e];
+      return { f, e };
+    };
+    // The Broodmother stops short of the Hunters, sends spiders (in their own art, up to her cap) and never stuns.
+    {
+      const { f, e } = setUp('fireDrake', 400);
+      for (let i = 0; i < 20 * 30; i++) f.update(1 / 30);
+      expect(Math.hypot(e.x, e.y)).toBeGreaterThanOrEqual(enemyDef('fireDrake').summoner!.standoff! - 2);
+      expect(e.fleeing).toBe(false);
+      const spiders = () => f.enemies.filter((o) => o.minion === e.id && o.hp > 0);
+      expect(spiders().length).toBeGreaterThan(0);
+      expect(spiders().length).toBeLessThanOrEqual(enemyDef('fireDrake').summoner!.max);
+      expect(spiders().every((o) => o.art === 'spider-black' && !o.summon)).toBe(true);
+      // A spider's kill is worth nothing: no gold and no kill credit.
+      const kills = g.state.bestiary.fireDrake.kills;
+      const gold = g.state.gold;
+      const s = spiders()[0];
+      (f as unknown as { damage: (...a: unknown[]) => void }).damage(s, 1e9, false, 0, 0, 'main', 'physical');
+      expect(g.state.bestiary.fireDrake.kills).toBe(kills);
+      expect(g.state.gold).toBe(gold);
+      // When she dies, out comes the rest of her brood.
+      f.enemies = f.enemies.filter((o) => o.minion !== e.id);
+      (f as unknown as { damage: (...a: unknown[]) => void }).damage(e, 1e9, false, 0, 0, 'main', 'physical');
+      expect(f.enemies.filter((o) => o.minion === e.id).length).toBe(enemyDef('fireDrake').summoner!.onDeath);
+    }
+    // A Cultist stops to chant, then a skeleton rises beside it; it walks on afterwards.
+    {
+      const { f, e } = setUp('cultist', 250);
+      f.update(0.2);
+      expect(e.summon!.stop).toBeGreaterThan(0);
+      const x = e.x;
+      f.update(0.3);
+      expect(e.x).toBe(x); // standing still
+      for (let i = 0; i < 30; i++) f.update(1 / 30);
+      expect(f.enemies.filter((o) => o.minion === e.id && o.type === 'skeleton').length).toBe(1);
+      expect(e.summon!.stop).toBeLessThanOrEqual(0); // done chanting: it walks on
+    }
+    // A Necromancer raises two skeletons at a time.
+    {
+      const { f, e } = setUp('necromancer', 250);
+      f.update(0.2);
+      expect(f.enemies.filter((o) => o.minion === e.id && o.type === 'skeleton').length).toBe(2);
     }
   });
 

@@ -55,6 +55,7 @@ import {
   EYE_OF_FLAME,
   LIGHTNING_BALL,
   SHIELD_DEFLECT_PAUSE,
+  type EnemyDef,
   type EnemyId,
   type HunterDef,
   type HunterId,
@@ -152,6 +153,12 @@ export interface Enemy {
   golden?: boolean;
   /** One of the two halves a Splitting Slime breaks into (they don't split again). */
   half?: boolean;
+  /** Called up by a summoner (the id of the one that summoned it): no loot, no kill credit, never summons. */
+  minion?: number;
+  /** Drawn in this monster sheet instead of its kind's (a Broodmother's spiders), at medium size. */
+  art?: string;
+  /** A summoner's state: seconds until it next summons, and seconds left standing still to summon. */
+  summon?: { cd: number; stop: number };
   /** Hunter Hunter (a Forest Wolf evolution): it lunges at Hunters who come close. `dash`: seconds of lunge left; `cd`: until the next. */
   lunge?: { dash: number; cd: number };
   /** A Guardian still charging in (GUARDIAN_RUSH) from where it appeared: it slows to its walk once it reaches a Hunter. */
@@ -893,7 +900,67 @@ export class Field {
       ...(boss ? {} : { scale: artScale(g.rng(), g.rng(), g.rng()), ...(g.rng() >= 1 - 1 / GOLDEN_ODDS ? { golden: true } : {}) }),
       ...(!boss && stats.lunge ? { lunge: { dash: 0, cd: g.rng() * LUNGE_COOLDOWN } } : {}),
       ...(boss ? { rush: true } : {}),
+      ...(!boss && def.summoner ? { summon: { cd: def.summoner.every * (0.4 + g.rng() * 0.6), stop: 0 } } : {}),
     });
+  }
+
+  /** `n` of a summoner's minions around (x, y), thrown a little apart (see EnemyDef.summoner). */
+  private summonMinions(e: Enemy, n: number, x = e.x, y = e.y): void {
+    const sm = enemyDef(e.type).summoner;
+    if (!sm || n <= 0) return;
+    const g = this.game;
+    const kind = enemyDef(sm.minion);
+    const hp = Math.max(1, e.maxHp * sm.hp);
+    for (let i = 0; i < n; i++) {
+      const a = g.rng() * Math.PI * 2;
+      const d = e.r * (0.6 + g.rng() * 0.8);
+      this.enemies.push({
+        id: this.nextId++,
+        type: sm.minion,
+        x: x + Math.cos(a) * d,
+        y: y + Math.sin(a) * d,
+        hp,
+        maxHp: hp,
+        r: kind.radius * (sm.size ?? 1) * (0.9 + g.rng() * 0.2),
+        speed: g.enemyStats(sm.minion).speed * (sm.speed ?? 1) * (0.9 + g.rng() * 0.2),
+        boss: false,
+        fleeing: false,
+        flash: 0,
+        kx: Math.cos(a) * 60,
+        ky: Math.sin(a) * 60,
+        phase: g.rng() * 10,
+        minion: e.id,
+        ...(sm.art ? { art: sm.art } : {}),
+      });
+    }
+    this.events.push({ type: 'nova', x, y, r: e.r * 1.8, color: enemyDef(e.type).color });
+  }
+
+  /** A summoner's turn: count down, and when it's ready (near enough a Hunter, with room for more) call them up. */
+  private runSummoner(e: Enemy, d: number, dt: number): void {
+    const sm = enemyDef(e.type).summoner!;
+    const st = e.summon!;
+    if (st.stop > 0) {
+      st.stop -= dt;
+      if (st.stop <= 0) this.summonMinions(e, this.summonRoom(e, sm));
+      return;
+    }
+    st.cd -= dt;
+    if (st.cd > 0 || d > sm.near) return;
+    const room = this.summonRoom(e, sm);
+    if (room <= 0) {
+      st.cd = 1;
+      return;
+    }
+    st.cd = sm.every;
+    if (sm.stop) st.stop = sm.stop; // stands still to chant, then the minions come
+    else this.summonMinions(e, room);
+  }
+
+  /** How many more minions a summoner may call up now (its own still alive count against its cap). */
+  private summonRoom(e: Enemy, sm: NonNullable<EnemyDef['summoner']>): number {
+    const alive = this.enemies.reduce((n, o) => n + (o.minion === e.id && o.hp > 0 ? 1 : 0), 0);
+    return Math.min(sm.count, sm.max - alive);
   }
 
   /** An undead that rises again where it fell, at half its HP (once: a risen one stays down). */
@@ -1148,7 +1215,7 @@ export class Field {
         e.y += oy * speed * FLEE_SPEED_MULT * dt + e.ky * dt;
         if (d > escapeR) {
           e.hp = 0;
-          g.registerEscape();
+          if (!e.minion) g.registerEscape();
           this.events.push({ type: 'escape', x: e.x, y: e.y });
         }
       } else if (e.charm) {
@@ -1160,9 +1227,13 @@ export class Field {
         const d = Math.hypot(dx, dy) || 1;
         // A Bone Wall keeps every monster at its edge: nothing reaches a Hunter while it stands.
         const walled = this.boneWall > 0;
-        const ranged = e.boss ? undefined : enemyDef(e.type).ranged;
+        const ranged = e.boss || e.minion ? undefined : enemyDef(e.type).ranged;
+        // A summoner (not its minions) calls up more; one that keeps its distance stops there like a ranged one.
+        const standoff = e.summon && !e.minion ? enemyDef(e.type).summoner!.standoff : undefined;
+        if (e.summon && !e.minion) this.runSummoner(e, d, dt);
         // A ranged monster stops within its range and shoots instead.
-        const reach = ranged ? Math.max(ranged.range * 0.9, walled ? this.boneWallR + e.r : 0) : walled ? this.boneWallR + e.r : e.r + PLAYER_RADIUS;
+        const keep = ranged ? ranged.range * 0.9 : standoff;
+        const reach = keep ? Math.max(keep, walled ? this.boneWallR + e.r : 0) : walled ? this.boneWallR + e.r : e.r + PLAYER_RADIUS;
         if (ranged) this.rangedAttack(e, ranged, t, d, dt);
         // Hunter Hunter: close enough, it lunges.
         let lunge = 1;
@@ -1180,7 +1251,9 @@ export class Field {
         // A Guardian charges in, then walks once it's there.
         if (e.rush && d - reach <= 1) e.rush = false;
         if (e.rush) lunge = GUARDIAN_RUSH;
-        const step = Math.min(speed * lunge * dt, Math.max(0, d - reach));
+        // Standing still to summon (a Cultist's chant).
+        const chanting = e.summon && e.summon.stop > 0 ? 0 : 1;
+        const step = Math.min(speed * lunge * chanting * dt, Math.max(0, d - reach));
         const [ux, uy] = this.steer(e, -dx / d, -dy / d);
         e.x += ux * step + e.kx * dt;
         e.y += uy * step + e.ky * dt;
@@ -1188,7 +1261,7 @@ export class Field {
           // Pushed back out to the wall (a knockback toward a Hunter can't carry it through).
           e.x = t.x + (dx / d) * reach;
           e.y = t.y + (dy / d) * reach;
-        } else if (!walled && !ranged && d <= reach + 1) this.contact(e, t.who, dx / d, dy / d);
+        } else if (!walled && !ranged && !standoff && d <= reach + 1) this.contact(e, t.who, dx / d, dy / d);
       }
       this.keepOut(e);
       e.kx *= decay;
@@ -4409,10 +4482,13 @@ export class Field {
     // (The Time Eater fights to the death once the Unbound Void Rift is yours.)
     if (e.boss && e.hp > 0 && !(e.type === 'timeEater' && this.game.timeEaterMortal) && e.hp <= e.maxHp * (enemyDef(e.type).winAt ?? 0)) e.hp = 0;
     if (e.hp <= 0) {
-      const reward = this.game.registerKill(e.type, e.boss, shooter, !!e.golden);
+      // A summoner's minion is worth nothing: no gold, drops or kill credit.
+      const reward: KillReward = e.minion ? { gold: 0, material: null, amount: 0 } : this.game.registerKill(e.type, e.boss, shooter, !!e.golden);
+      // A summoner that dies with minions to spare bursts into them (a Broodmother's brood).
+      if (!e.minion && !e.boss && enemyDef(e.type).summoner?.onDeath) this.summonMinions(e, enemyDef(e.type).summoner!.onDeath!);
       if (e.golden) this.say(e.x, e.y - 18, `×${GOLDEN_GOLD} GOLD!`, '#ffd84a', 12);
       if (this.zones.length) this.raiseFallen(e);
-      if (!e.boss) {
+      if (!e.boss && !e.minion) {
         const st = this.game.enemyStats(e.type);
         // Splitting Slime and Fire Starter (evolutions).
         if (st.split && !e.half && this.game.rng() < st.split) this.split(e);

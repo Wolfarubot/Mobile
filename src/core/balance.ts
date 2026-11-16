@@ -1329,6 +1329,14 @@ export interface EnemyDef {
    * seconds, flying at `speed` (it never reaches them, so never runs off with its loot). Otherwise it's melee.
    */
   ranged?: { range: number; cooldown: number; speed: number };
+  /**
+   * A summoner: every `every` seconds (once within `near` of a Hunter) it calls up `count` minions of `minion`
+   * (drawn in `art` if set), up to `max` of its own alive at once; each has `hp` × the summoner's health, `speed` ×
+   * its own kind's speed and `size` × its kind's size. With `standoff` it stops that far from the Hunters instead of
+   * closing in; with `stop` it halts for that long to summon, then walks on. `onDeath`: more minions when it dies.
+   * Minions carry no loot, count for nothing, and don't summon in turn.
+   */
+  summoner?: { minion: EnemyId; art?: string; every: number; count: number; max: number; hp: number; speed?: number; size?: number; near: number; standoff?: number; stop?: number; onDeath?: number };
 }
 
 /** Damage multiplier for a type the enemy is vulnerable to. */
@@ -1372,7 +1380,7 @@ export const ENEMIES: EnemyDef[] = [
   { id: 'skeleton', name: 'Skeleton', area: 'graveyard', archetype: 'undead', hp: 1, speed: 0.9, gold: 1, spawn: 1.5, pack: [3, 5], radius: 11, material: 'bone', unlock: 0, color: '#e8dcc0', shape: 'square', blurb: 'Rattles in by the dozen.', weak: ['radiant', 'arcane'], resist: ['poison', 'decay'] },
   { id: 'zombie', name: 'Zombie', area: 'graveyard', archetype: 'undead', hp: 2.2, speed: 0.6, gold: 2.4, spawn: 0.6, pack: [2, 4], radius: 12, material: 'flesh', unlock: 120, color: '#8fae6b', shape: 'square', blurb: 'Slow, sturdy, relentless. Sometimes still wearing its gear.', weak: ['fire', 'radiant'], resist: ['poison', 'decay'] },
   { id: 'bat', name: 'Vampire Bat', area: 'graveyard', archetype: 'beast', hp: 0.8, speed: 1.9, gold: 1.5, spawn: 0.8, pack: [3, 5], radius: 8, material: 'vampEssence', extra: 'wing', unlock: 900, color: '#8a2a4a', shape: 'triangle', blurb: 'Tiny, fast and thirsty.', weak: ['frost', 'radiant'], resist: ['decay'] },
-  { id: 'cultist', name: 'Cultist', area: 'graveyard', archetype: 'humanoid', hp: 1.8, speed: 1, gold: 2.2, spawn: 0.5, pack: [2, 3], radius: 11, material: 'sacredText', extra: 'robePiece', unlock: 4_000, color: '#7a2a3a', shape: 'diamond', blurb: 'Chants in the dark; sometimes the dark answers.', weak: ['radiant', 'physical'], resist: ['decay'] },
+  { id: 'cultist', name: 'Cultist', area: 'graveyard', archetype: 'humanoid', hp: 1.8, speed: 1, gold: 2.2, spawn: 0.5, pack: [2, 3], radius: 11, material: 'sacredText', extra: 'robePiece', unlock: 4_000, color: '#7a2a3a', shape: 'diamond', blurb: 'Chants in the dark, and sometimes the dark answers: it stops to call up a skeleton now and then.', weak: ['radiant', 'physical'], resist: ['decay'], summoner: { minion: 'skeleton', every: 6, count: 1, max: 3, hp: 0.6, stop: 1, near: 300 } },
   { id: 'graveWraith', name: 'Wraith', area: 'graveyard', archetype: 'undead', hp: 1.2, speed: 1.3, gold: 1.8, spawn: 0.6, pack: [2, 4], radius: 11, material: 'nightmareWisp', unlock: 15_000, color: '#5a6a8a', shape: 'ghost', blurb: 'The shadow of a nightmare that never ended.', weak: ['radiant', 'arcane'], resist: ['physical', 'frost'] },
 
 
@@ -1382,7 +1390,7 @@ export const ENEMIES: EnemyDef[] = [
   { id: 'boneKnight', name: 'Bone Knight', area: 'crypt', archetype: 'undead', hp: 4, speed: 0.8, gold: 4.5, spawn: 0.3, pack: [1, 2], radius: 13, material: 'enchantedBone', unlock: 900, color: '#c8c0a8', shape: 'hexagon', blurb: 'A skeleton that kept its armor, and its sword.', weak: ['radiant'], resist: ['physical', 'poison', 'decay'] },
   { id: 'possessedArmor', name: 'Possessed Armor', area: 'crypt', archetype: 'construct', hp: 4.5, speed: 0.7, gold: 5, spawn: 0.25, pack: [1, 2], radius: 13, material: 'enchantedScrap', unlock: 4_000, color: '#8890b0', shape: 'square', blurb: 'An empty suit of armor that never stopped standing guard.', weak: ['arcane', 'lightning'], resist: ['physical', 'poison', 'decay'] },
   { id: 'mummy', name: 'Mummy', area: 'crypt', archetype: 'undead', hp: 3, speed: 0.6, gold: 3.2, spawn: 0.35, pack: [1, 3], radius: 12, material: 'wrap', unlock: 8_000, color: '#d8c89a', shape: 'square', blurb: 'Wrapped tight and very flammable.', weak: ['fire'], resist: ['poison', 'decay', 'frost'] },
-  { id: 'necromancer', name: 'Necromancer', area: 'crypt', archetype: 'humanoid', hp: 3, speed: 0.9, gold: 4, spawn: 0.25, pack: [1, 2], radius: 12, material: 'grave', unlock: 15_000, color: '#5a3a7a', shape: 'diamond', blurb: 'Raises the dead for fun, and hurls bolts of grave-magic from afar.', weak: ['radiant', 'physical'], resist: ['decay', 'void'], ranged: { range: 165, cooldown: 2.6, speed: 115 } },
+  { id: 'necromancer', name: 'Necromancer', area: 'crypt', archetype: 'humanoid', hp: 3, speed: 0.9, gold: 4, spawn: 0.25, pack: [1, 2], radius: 12, material: 'grave', unlock: 15_000, color: '#5a3a7a', shape: 'diamond', blurb: 'Raises the dead for fun, two skeletons at a time, and hurls bolts of grave-magic from afar.', weak: ['radiant', 'physical'], resist: ['decay', 'void'], ranged: { range: 165, cooldown: 2.6, speed: 115 }, summoner: { minion: 'skeleton', every: 5, count: 2, max: 6, hp: 0.4, near: 260 } },
 
 
   // Shadowy Depths
@@ -1409,7 +1417,7 @@ export const ENEMIES: EnemyDef[] = [
   { id: 'basilisk', name: 'Basilisk', area: 'mines', archetype: 'beast', hp: 3, speed: 1, gold: 3.8, spawn: 0.3, pack: [1, 2], radius: 13, material: 'scale', unlock: 120, color: '#5aa05a', shape: 'triangle', blurb: 'Whatever you do, don\'t meet its eyes.', weak: ['radiant', 'frost'], resist: ['poison', 'acid'] },
   // Ids kept from the old fire monsters (Lava Golem, Fire Drake) so saves keep their kills, Empower and evolutions.
   { id: 'lavaGolem', name: 'Toxic Bloat', area: 'mines', archetype: 'monstrosity', hp: 5, speed: 0.5, gold: 5.5, spawn: 0.2, pack: [1, 1], radius: 16, material: 'magma', unlock: 900, color: '#7a5aa0', shape: 'diamond', size: 'large', blurb: 'A walking sack of cave gas. Best popped from a distance.', weak: ['fire', 'radiant'], resist: ['poison', 'acid', 'physical'] },
-  { id: 'fireDrake', name: 'Broodmother', area: 'mines', archetype: 'monstrosity', hp: 3.5, speed: 1.2, gold: 4.2, spawn: 0.25, pack: [1, 2], radius: 14, material: 'scale', unlock: 4_000, color: '#5a9a3a', shape: 'hexagon', size: 'large', blurb: 'Mother of every spider in the Caverns. Her bite burns for days.', weak: ['fire', 'radiant'], resist: ['poison', 'physical'] },
+  { id: 'fireDrake', name: 'Broodmother', area: 'mines', archetype: 'monstrosity', hp: 3.5, speed: 1.2, gold: 4.2, spawn: 0.25, pack: [1, 2], radius: 14, material: 'scale', unlock: 4_000, color: '#5a9a3a', shape: 'hexagon', size: 'large', blurb: 'Mother of every spider in the Caverns. She hangs back and sends her brood, and bursts into more of them when she dies.', weak: ['fire', 'radiant'], resist: ['poison', 'physical'], summoner: { minion: 'fireDrake', art: 'spider-black', every: 4, count: 3, max: 9, hp: 0.12, speed: 1.7, size: 0.7, near: 280, standoff: 190, onDeath: 5 } },
   { id: 'caveTroll', name: 'Cave Troll', area: 'mines', archetype: 'humanoid', hp: 6, speed: 0.6, gold: 6.5, spawn: 0.15, pack: [1, 1], radius: 17, material: 'ore', unlock: 15_000, color: '#7a6a5a', shape: 'square', blurb: 'Shrugs off blades. Hates fire.', weak: ['fire', 'acid'], resist: ['physical', 'frost'] },
   { id: 'venomGolem', name: 'Venomite Golem', area: 'mines', archetype: 'construct', hp: 6, speed: 0.45, gold: 7, spawn: 0.04, pack: [1, 1], radius: 18, material: 'cobaltOre', drops: [{ material: 'venomite', share: 0.3 }, { material: 'ore', share: 0.1 }], unlock: 40_000, color: '#4a7a3a', shape: 'square', blurb: 'Stone and ore, soaked through with venom.', weak: ['acid', 'radiant'], resist: ['physical', 'poison'] },
 

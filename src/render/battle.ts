@@ -218,7 +218,7 @@ export class BattleView {
           const busy = !e.boss && (this.field.enemies.length > BUSY_ENEMIES || this.anims.length > BUSY_ANIMS);
           if (this.fancy && !busy) this.playEffect('puff', e.x, e.y, e.boss ? 90 : 26, 'center', 22);
           this.fx.burst(e.x, e.y, color, e.boss ? 40 : busy ? 2 : 8, e.boss ? 260 : 140, e.boss ? 5 : 3, 0);
-          if (e.boss || this.coinBudget(busy)) this.dropPickup(e.x, e.y, '#ffd34d', false, e.boss ? 12 : 1);
+          if (e.reward.gold > 0 && (e.boss || this.coinBudget(busy))) this.dropPickup(e.x, e.y, '#ffd34d', false, e.boss ? 12 : 1);
           // Its material flies over too (a few gems for a big drop; one, or none past the cap, on a busy field).
           if (e.reward.material && this.pickups.length < MAX_PICKUPS) this.dropPickup(e.x, e.y, materialDef(e.reward.material).color, true, busy ? 1 : Math.min(8, e.reward.amount));
           if (e.boss) this.shake = 0.4;
@@ -1688,14 +1688,15 @@ export class BattleView {
     const r = e.r;
     // Its art's size: the hit radius scaled by the monster's size class (dragons are drawn huge), and by its own
     // size roll (some of the same monster are smaller or bigger).
-    const ra = r * SIZE_SCALE[def.size ?? 'medium'] * (e.scale ?? 1);
+    // A minion in its own art (a Broodmother's spiders) is drawn at medium size, whatever its kind's.
+    const ra = r * SIZE_SCALE[e.art ? 'medium' : (def.size ?? 'medium')] * (e.scale ?? 1);
     // Walking away from the Hunter while fleeing, toward them otherwise.
     const dirX = e.fleeing ? e.x : -e.x;
     g.save();
     g.translate(e.x, e.y);
     if (e.fleeing) g.globalAlpha = 0.8;
 
-    const sheetKey = MONSTER_SHEETS[e.type];
+    const sheetKey = e.art ?? MONSTER_SHEETS[e.type];
     const sheet = sheetKey ? monsterSheetImage(sheetKey) : null;
     const img = (e.boss && sprite(`bosses/${e.type}`)) || sprite(`enemies/${e.type}`);
     if (sheetKey && sheet && sheet.complete && sheet.naturalWidth > 0) {

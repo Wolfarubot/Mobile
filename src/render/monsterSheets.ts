@@ -40,6 +40,8 @@ export const SHEETS: Record<string, MonsterSheet> = {
   'golem-lava': { frame: 128, cols: 8, order: 'DULR', box: [37, 24, 53, 52] },
   'golem-void': { frame: 128, cols: 8, order: 'DULR', box: [36, 32, 55, 44] },
   'skeleton': { frame: 64, cols: 6, order: 'DULR', box: [13, 18, 38, 23] },
+  // A Broodmother's spiders (a sheet provided with the game's assets: its walk cycle, facing left).
+  'spider-black': { frame: 64, cols: 9, order: 'SIDE', faces: 'L', box: [6, 25, 51, 38] },
   'skeleton-knight': { frame: 64, cols: 6, order: 'DULR', box: [12, 18, 40, 23] },
   'zombie': { frame: 64, cols: 6, order: 'DULR', box: [19, 15, 26, 27] },
   'mummy': { frame: 64, cols: 6, order: 'DULR', box: [19, 15, 26, 27] },

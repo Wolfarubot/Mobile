@@ -5352,6 +5352,9 @@ body.ui-parchment .tabs button.active {
 .beast-tag.ranged {
   background: #8a4fb8;
 }
+.beast-tag.summoner {
+  background: #3f8f5a;
+}
 .beast-tags:empty {
   display: none;
 }

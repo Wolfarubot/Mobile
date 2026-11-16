@@ -602,10 +602,11 @@ section(
     journalNew: '{n} new',
     flying: 'Flies over rocks, trees and graves',
     ranged: 'Shoots projectiles from afar',
+    summoner: 'Calls up other monsters to fight for it (they carry no loot)',
   },
   {
     vars: { n: 'unread entries' },
-    labels: { skillPoints: 'Hunter tile dot', evoPoints: 'Monster tile dot', tuned: "Reginald's tuning stars", energy: 'Event energy pips', journalNew: 'Journal "!"', flying: 'Flying monster tag', ranged: 'Ranged monster tag' },
+    labels: { skillPoints: 'Hunter tile dot', evoPoints: 'Monster tile dot', tuned: "Reginald's tuning stars", energy: 'Event energy pips', journalNew: 'Journal "!"', flying: 'Flying monster tag', ranged: 'Ranged monster tag', summoner: 'Summoner monster tag' },
   },
 );
 section(
