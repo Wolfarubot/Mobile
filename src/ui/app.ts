@@ -8052,22 +8052,22 @@ function evoStatLines(g: Game, id: EnemyId, n: TreeNode): string[] {
 }
 
 /**
- * Mass Salvage's pick mark: the ✓ drawn to fill a 12×12 box (the font has no tick, so it's the system one, at the
- * size whose ink fits 12×12), its soft edges snapped to solid pixels and a 1px black edge added (14×14 in all), then
- * shown scaled up (CSS, pixelated) so it keeps the chunky pixel look of the rest of the art.
+ * Mass Salvage's pick mark: the ✓ drawn to fill a 16×16 box (the font has no tick, so it's the system one, at the
+ * size whose ink fits 16×16), its soft edges snapped to solid pixels and a 1px black edge added (18×18 in all), then
+ * shown at 2× (CSS, pixelated) so it keeps the chunky pixel look of the rest of the art.
  */
 let tickUrl: { font: string; url: string } | null = null;
 function pixelTick(font: string): string {
   if (tickUrl?.font === font) return tickUrl.url;
-  const N = 14;
+  const N = 18;
   const c = document.createElement('canvas');
   c.width = c.height = N;
   const g = c.getContext('2d')!;
-  g.font = `bold 22px ${font}`;
+  g.font = `bold 34px ${font}`;
   g.textAlign = 'center';
   g.textBaseline = 'middle';
   g.fillStyle = '#fff';
-  g.fillText('✓', N / 2, N / 2);
+  g.fillText('✓', N / 2, N / 2 + 1);
   const img = g.getImageData(0, 0, N, N);
   const d = img.data;
   const on = (x: number, y: number) => x >= 0 && y >= 0 && x < N && y < N && d[(y * N + x) * 4 + 3] >= 110;
