@@ -1882,7 +1882,7 @@ export class BattleView {
         const deathImg = monsterSheetImage(`${sheetKey}-death`); // asked for while it fights, so it's ready when it falls
         if (dying !== undefined && deathImg.complete && deathImg.naturalWidth > 0) {
           const f = Math.min(deathN - 1, Math.floor(dying * DEATH_FPS));
-          drawSheetFrame(g, deathImg, { ...sh, cols: deathN }, 0, f, ra * SHEET_SCALE, { of: deathImg, alpha: this.clarity });
+          drawSheetFrame(g, deathImg, { ...sh, cols: deathN }, sh.order === 'SIDE' ? 0 : sheetRow(sh, dir), f, ra * SHEET_SCALE, { of: deathImg, alpha: this.clarity });
           g.restore();
           return;
         }

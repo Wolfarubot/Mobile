@@ -36,9 +36,10 @@ export const GUARDIAN_ANIMS: Record<string, Record<string, number>> = {
 
 /**
  * Guardians' deaths: frames in each one's `<sheet>-death` sheet (from its pack, recoloured like its walk), played
- * where it fell. The King Slime's pack had none (it simply vanishes, as before).
+ * where it fell. A sheet with facing rows (the King Slime's) has them in its walk's order.
  */
 export const GUARDIAN_DEATHS: Record<string, number> = {
+  'slime-king': 10,
   executioner: 18,
   necromancer: 6,
   'mega-beholder': 6,
