@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs';
+import { DEV_FLAGS } from '../src/core/devFlags';
 import { GEAR_CATALOG } from '../src/core/gearCatalog';
 import { GEAR_SPRITES } from '../src/core/gearSprites';
 import { describe, expect, it } from 'vitest';
@@ -4690,6 +4691,28 @@ describe('Events', () => {
     expect(back.events.huntingPractice).toMatchObject({ bestExpert: 12, expert: true });
     g.setExpert('huntingPractice', false);
     expect(g.playsExpert('huntingPractice')).toBe(false);
+  });
+
+  it("Dev's switches open every Expert version and let events start without energy, whatever the save", () => {
+    const g = new Game(newGame(0), noCrit);
+    g.state.hunters.ranger.recruited = true;
+    g.state.energy = 0;
+    expect(g.expertUnlocked('huntingPractice')).toBe(false);
+    expect(g.eventReady('huntingPractice')).toBe(g.wellRested);
+    try {
+      DEV_FLAGS.expert = true;
+      DEV_FLAGS.energy = true;
+      expect(g.expertUnlocked('huntingPractice')).toBe(true);
+      expect(g.expertUnlocked('pixieSerenade')).toBe(true);
+      g.state.freePlayDay = dayKeyOf(g.clock()); // the day's free play used
+      expect(g.eventReady('huntingPractice')).toBe(true);
+      expect(g.startEvent('huntingPractice')).toBe(true);
+      expect(g.state.energy).toBe(0);
+    } finally {
+      DEV_FLAGS.expert = false;
+      DEV_FLAGS.energy = false;
+    }
+    expect(g.expertUnlocked('huntingPractice')).toBe(false);
   });
 
   it("Galladair's Hunting Practice opens with Galladair, pays gold by your income and Royal Slime, and keeps a best score", () => {

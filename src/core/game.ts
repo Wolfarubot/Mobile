@@ -1,4 +1,5 @@
 import { JOURNAL, type JournalEntry } from './journal';
+import { DEV_FLAGS } from './devFlags';
 import {
   ARROW_RAIN,
   SONG_WAVE_CROWD,
@@ -2355,6 +2356,7 @@ export class Game {
 
   /** Seconds until there's enough energy for an event (0 if there already is). */
   energyWait(id: string): number {
+    if (DEV_FLAGS.energy) return 0;
     return Math.max(0, (this.energyCost(id) - this.state.energy) * this.energyRegen);
   }
 
@@ -2375,7 +2377,7 @@ export class Game {
     const st = this.state.events[id];
     // Well Rested: the day's first minigame play is free.
     const free = def.kind === 'minigame' && this.wellRested;
-    this.state.energy = Math.max(0, this.state.energy - this.energyCost(id));
+    if (!DEV_FLAGS.energy) this.state.energy = Math.max(0, this.state.energy - this.energyCost(id));
     if (free) this.state.freePlayDay = dayKey(this.clock());
     if (def.kind === 'minigame') {
       // Played on its own screen; its rewards come from finishMinigame.
@@ -2468,7 +2470,7 @@ export class Game {
   /** A minigame's Expert version is open: once its area is Unbound (not the Rift Echo, which plays other areas' games). */
   expertUnlocked(id: string): boolean {
     const def = eventDef(id);
-    return def.kind === 'minigame' && !def.echo && this.isUnbound(def.area);
+    return def.kind === 'minigame' && !def.echo && (DEV_FLAGS.expert || this.isUnbound(def.area));
   }
 
   /** The Play button plays the Expert version (chosen, and open). */

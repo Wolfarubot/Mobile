@@ -157,6 +157,7 @@ import {
   type Rarity,
 } from '../core/balance';
 import { fmt, fmtDps, fmtTime } from '../core/format';
+import { DEV_FLAGS } from '../core/devFlags';
 import { Game, type FarmRates, type Shooter, type TreeKind } from '../core/game';
 import type { OfflineResult } from '../core/offline';
 import { COOLDOWN_POSITIONS, deserialize, newGame, EMPOWER_AMOUNTS, TAB_IDS, TRAIN_AMOUNTS, type GameState, type GearMod, type AudioSettings, type BuyAmount, type CooldownPos, type DpsCorner, type FxKey, type IndicatorStyle, type GearItem, type TabId, type Wearer } from '../core/state';
@@ -394,6 +395,25 @@ const gemHtml = (m: MaterialId, size = ''): string => {
 };
 
 /** DOM layer: top bar, area controls, tabbed panels and modals. Refreshes numbers on a timer. */
+/** Settings → Dev's Expert and infinite-energy switches, kept on this device. */
+const DEV_FLAG_KEYS = { expert: 'dev-expert-minigames', energy: 'dev-infinite-energy' } as const;
+for (const k of Object.keys(DEV_FLAG_KEYS) as Array<keyof typeof DEV_FLAG_KEYS>) {
+  try {
+    DEV_FLAGS[k] = localStorage.getItem(DEV_FLAG_KEYS[k]) === '1';
+  } catch {
+    /* no storage: off */
+  }
+}
+const setDevFlag = (k: keyof typeof DEV_FLAG_KEYS, on: boolean): void => {
+  DEV_FLAGS[k] = on;
+  try {
+    if (on) localStorage.setItem(DEV_FLAG_KEYS[k], '1');
+    else localStorage.removeItem(DEV_FLAG_KEYS[k]);
+  } catch {
+    /* not kept: this session only */
+  }
+};
+
 export class AppUI {
   private refreshers: Array<() => void> = [];
   /**
@@ -6729,6 +6749,28 @@ export class AppUI {
       gmLabel();
     });
     body.appendChild(gm);
+
+    // Minigames: every Expert version open, and events costing no energy, whatever the save says (this device only).
+    const mgDev = el('div', 'card setting dev-minigames');
+    mgDev.innerHTML = `<div class="setting-name">Expert & energy</div><p>Open every minigame's ⚡ Expert version (normally each opens once its area is Unbound), and let every event and minigame start without spending energy. Kept on this device until you switch them off.</p><button class="secondary dev-expert"></button><button class="secondary dev-energy"></button>`;
+    const exBtn = $('.dev-expert', mgDev);
+    const enBtn = $('.dev-energy', mgDev);
+    const devLabels = () => {
+      exBtn.textContent = DEV_FLAGS.expert ? 'Switch Expert minigames off' : 'Switch Expert minigames on';
+      enBtn.textContent = DEV_FLAGS.energy ? 'Switch infinite energy off' : 'Switch infinite energy on';
+    };
+    devLabels();
+    exBtn.addEventListener('click', () => {
+      setDevFlag('expert', !DEV_FLAGS.expert);
+      devLabels();
+      this.refresh();
+    });
+    enBtn.addEventListener('click', () => {
+      setDevFlag('energy', !DEV_FLAGS.energy);
+      devLabels();
+      this.refresh();
+    });
+    body.appendChild(mgDev);
   }
 
   /**
