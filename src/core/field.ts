@@ -107,6 +107,11 @@ const POTION_WORD: Record<GearStat, string> = {
   knockback: 'HEAVE!', flurry: 'FLURRY!',
 };
 /**
+ * Where the Beholden Watcher's eye beam starts, from its middle, in its radii: the centre of the ring round its eye in
+ * its beam frames (6 art pixels ahead of the art's centre, 1 above, at its drawn scale of 3.3 radii across 63 pixels).
+ */
+export const WATCHER_EYE = { x: (6 * 3.3) / 63, y: (-1 * 3.3) / 63 };
+/**
  * Each Guardian move's numbers: seconds between uses (`cd`) and before the first (`first`); how near a Hunter must be
  * to start it (`reach`); its wind-up before it lands (`windup`); and its size (a cone's reach, a circle's radius, a
  * beam's width) and a cone's spread (`arc`, radians).
@@ -1788,11 +1793,15 @@ export class Field {
         break;
       }
       case 'beam': {
-        // A charged eye beam along a line through the nearest Hunter, telegraphed while it charges.
+        // A charged eye beam along a line through the nearest Hunter, telegraphed while it charges. It shoots from the
+        // ring that flares round its eye (WATCHER_EYE), on whichever side it faces (toward your Hunter, as it's drawn).
         if (beat(0)) {
-          gm.a = Math.atan2(nearest.y - e.y, nearest.x - e.x);
+          const face = -e.x > 0 ? 1 : -1;
+          const ox = e.x + face * WATCHER_EYE.x * e.r;
+          const oy = e.y + WATCHER_EYE.y * e.r;
+          gm.a = Math.atan2(nearest.y - oy, nearest.x - ox);
           this.animate(e, 'attack2');
-          this.hazard({ kind: 'line', x: e.x, y: e.y, a: gm.a, len: 1200, w: def.size!, fx: 'beam' }, def.windup!);
+          this.hazard({ kind: 'line', x: ox, y: oy, a: gm.a, len: 1200, w: def.size!, fx: 'beam' }, def.windup!);
         }
         done(def.windup! + 0.4);
         break;
