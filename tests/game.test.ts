@@ -3714,16 +3714,16 @@ describe('Equipment', () => {
     const g = new Game(newGame(0));
     g.state.areas.mines.unlocked = true;
     g.state.gold = 1e30;
-    // The Venom Caverns: Basilisks at 150,000 kills there, the last monster at half the area's mastery.
-    expect(enemyUnlockKills(enemyDef('basilisk'))).toBe(150_000);
+    // The Venom Caverns: Basilisks at 89,000 kills there, the last monster at 850,000 (AREA_UNLOCK_KILLS).
+    expect(enemyUnlockKills(enemyDef('basilisk'))).toBe(89_000);
     expect(enemyUnlockKills(enemyDef('kobold'))).toBe(0);
-    expect(enemyUnlockKills(enemyDef('venomGolem'))).toBe(1_500_000);
+    expect(enemyUnlockKills(enemyDef('venomGolem'))).toBe(850_000);
     expect(enemyUnlockKills(enemyDef('twiggling'))).toBe(0); // the first two areas need none
     expect(g.unlockEnemy('basilisk')).toBe(false);
-    expect(g.unlockKillsLeft('basilisk')).toBe(150_000);
-    g.state.areas.mines.kills = 149_999;
+    expect(g.unlockKillsLeft('basilisk')).toBe(89_000);
+    g.state.areas.mines.kills = 88_999;
     expect(g.canUnlockEnemy('basilisk')).toBe(false);
-    g.state.areas.mines.kills = 150_000;
+    g.state.areas.mines.kills = 89_000;
     const spawn = g.roster('mines').reduce((n, e) => n + e.spawnRate, 0);
     expect(g.unlockEnemy('basilisk')).toBe(true);
     // Every unlock brings more of the whole area (UNLOCK_SPAWN_BONUS), on top of the new monster's own spawns.

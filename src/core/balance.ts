@@ -1878,12 +1878,21 @@ export const enemyUnlockCost = (def: EnemyDef, areaGold = areaDef(def.area).gold
 /**
  * Kills in a monster's area before it can be unlocked (as well as its gold), from the Restless Graveyard on: spaced
  * out across the area's mastery (its Guardian's kill requirement), each wait longer than the last, the area's last
- * monster at UNLOCK_KILL_SPAN of it. Gold carried in from the area before can't buy an area's whole roster at once,
+ * monster at UNLOCK_KILL_SPAN of it (or at AREA_UNLOCK_KILLS). Gold carried in from the area before can't buy an area's whole roster at once,
  * so there's always a next monster (and its gear) to work toward. The first two areas (and each area's first monster)
  * need no kills.
  */
 export const UNLOCK_KILL_SPAN = 0.5;
 export const UNLOCK_KILL_CURVE = 1.4;
+/**
+ * Kills by which an area's last monster unlocks, where set: the waits the pacing was calibrated with (masteries were
+ * then raised to put each Guardian on its target day, which would otherwise have pushed every monster later too and
+ * slowed the area down again). Areas not listed use UNLOCK_KILL_SPAN of their mastery.
+ */
+export const AREA_UNLOCK_KILLS: Partial<Record<AreaId, number>> = {
+  graveyard: 140_000, crypt: 230_000, depths: 500_000, caves: 500_000, mines: 850_000, peaks: 1_750_000,
+  cliffs: 900_000, fortress: 2_200_000, meteors: 3_000_000, rift: 4_500_000,
+};
 /** From the Restless Graveyard on, each monster unlocked past an area's first brings this much more of the whole area. */
 export const UNLOCK_SPAWN_BONUS = 0.12;
 export function enemyUnlockKills(def: EnemyDef): number {
@@ -1893,7 +1902,7 @@ export function enemyUnlockKills(def: EnemyDef): number {
   const k = roster.findIndex((e) => e.id === def.id);
   const n = roster.length - 1;
   if (k <= 0 || n <= 0) return 0;
-  const raw = AREAS[at].mastery * UNLOCK_KILL_SPAN * (k / n) ** UNLOCK_KILL_CURVE;
+  const raw = (AREA_UNLOCK_KILLS[def.area] ?? AREAS[at].mastery * UNLOCK_KILL_SPAN) * (k / n) ** UNLOCK_KILL_CURVE;
   // Rounded to two significant figures (12,000 rather than 12,345).
   const p = 10 ** Math.max(0, Math.floor(Math.log10(raw)) - 1);
   return Math.round(raw / p) * p;
