@@ -1892,15 +1892,21 @@ button {
 .ev-foot .ev-details {
   min-width: 76px;
 }
-/* The Expert switch beside Play (once the area is Unbound): dim while off, lit gold while on. */
+/* The Expert switch beside Play (once the area is Unbound): dim while off; gold, glowing, while on. */
 .ev-foot .ev-expert {
   min-width: 0;
   padding-inline: 8px;
   opacity: 0.6;
 }
-.ev-foot .ev-expert.on {
+.ev-foot .ev-expert.on,
+body.ui-parchment .ev-foot .buy.ev-expert.on {
   opacity: 1;
-  color: #ffd84a;
+  background: linear-gradient(#ffe27a, #e0a82a) padding-box !important;
+  filter: brightness(1.18) drop-shadow(0 0 5px rgba(255, 205, 70, 0.95)) drop-shadow(0 0 10px rgba(255, 190, 40, 0.6)) !important;
+}
+body.ui-parchment .ev-foot .buy.ev-expert.on {
+  border-image: var(--img-btn-gold, var(--img-btnhi)) 3 fill / 8px / 0 stretch !important;
+  background: #e0a82a padding-box !important;
 }
 /* Details: framed like Start, in its own steel-blue shade (and without Start's ready glow). */
 body.ui-parchment .buy.ev-details,

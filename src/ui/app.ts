@@ -4597,7 +4597,7 @@ export class AppUI {
     if (ev.kind === 'minigame') {
       expertBtn = document.createElement('button');
       expertBtn.className = 'buy ev-expert';
-      expertBtn.innerHTML = `⚡ ${txt('event.expert.toggle')}`;
+      expertBtn.textContent = txt('event.expert.toggle');
       expertBtn.title = txt('event.expert.tip', { mult: EXPERT_MULT });
       btn.before(expertBtn);
       expertBtn.addEventListener('click', () => {
@@ -4605,7 +4605,6 @@ export class AppUI {
         this.refresh();
       });
     }
-    const playLabel = () => (g.playsExpert(ev.id) ? `Play<small>⚡ ${txt('event.expert.toggle')}</small>` : 'Play');
     btn.addEventListener('click', () => {
       if (g.eventRunning) return;
       if (g.eventUnlocked(ev.id) && g.energyWait(ev.id) > 0) return this.showNoEnergy(ev);
@@ -4649,11 +4648,11 @@ export class AppUI {
         btn.disabled = true;
       } else if (wait > 0 && !g.eventRunning) {
         status.innerHTML = note;
-        btn.innerHTML = `${ev.kind === 'minigame' ? (g.playsExpert(ev.id) ? `Play ⚡` : 'Play') : 'Start'}<small>need ${g.energyCost(ev.id)} 🗲</small>`;
+        btn.innerHTML = `${ev.kind === 'minigame' ? 'Play' : 'Start'}<small>need ${g.energyCost(ev.id)} 🗲</small>`;
         btn.disabled = false;
       } else {
         status.innerHTML = note;
-        btn.innerHTML = g.eventRunning ? 'Busy<small>another event</small>' : ev.kind === 'minigame' ? playLabel() : 'Start';
+        btn.innerHTML = g.eventRunning ? 'Busy<small>another event</small>' : ev.kind === 'minigame' ? 'Play' : 'Start';
         btn.disabled = !g.eventReady(ev.id);
       }
     });
