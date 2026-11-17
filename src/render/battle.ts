@@ -278,11 +278,12 @@ export class BattleView {
           break;
         }
         case 'nova':
-          // A gear pulse: lightning's crackling sphere, fire's flaming one, or the flaming one in any other element's colour.
+          // A gear pulse: lightning's crackling sphere, fire's flaming one, or the flaming one in any other element's colour,
+          // see-through and fading in and out (robes pulse often, so it shouldn't cover the fight).
           if (e.pulse && this.fancy) {
-            if (e.pulse === 'lightning') this.playEffect('lightsphere', e.x, e.y, e.r * 2, 'center', 24);
-            else if (e.pulse === 'fire') this.playEffect('flamesphere', e.x, e.y, e.r * 2, 'center', 24);
-            else this.playEffect('flamesphere-grey', e.x, e.y, e.r * 2, 'center', 24, 0, 1, e.color);
+            if (e.pulse === 'lightning') this.playEffect('lightsphere', e.x, e.y, e.r * 2, 'center', 24, 0, PULSE_ALPHA, undefined, undefined, true);
+            else if (e.pulse === 'fire') this.playEffect('flamesphere', e.x, e.y, e.r * 2, 'center', 24, 0, PULSE_ALPHA, undefined, undefined, true);
+            else this.playEffect('flamesphere-grey', e.x, e.y, e.r * 2, 'center', 24, 0, PULSE_ALPHA, e.color, undefined, true);
             break;
           }
           // A Focus's burst: a shockwave ring in its element's colour (Fancy).
@@ -961,7 +962,9 @@ export class BattleView {
     for (const a of this.anims) {
       const img = effectImage(a.key);
       if (!img) continue;
-      g.globalAlpha = a.alpha;
+      // A fading one rises to its opacity and falls back over its frames (a half sine).
+      const life = (a.t * a.fps) / Math.max(1, EFFECTS[a.key].frames - a.start);
+      g.globalAlpha = a.fade ? a.alpha * Math.sin(Math.PI * Math.min(1, Math.max(0, life))) : a.alpha;
       if (a.angle) {
         g.save();
         g.translate(a.x, a.y);
@@ -1865,9 +1868,9 @@ export class BattleView {
     g.restore();
   }
 
-  private playEffect(key: EffectKey, x: number, y: number, size: number, anchor: 'center' | 'bottom' = 'center', fps = 18, start = 0, alpha = 1, color?: string, angle?: number): void {
+  private playEffect(key: EffectKey, x: number, y: number, size: number, anchor: 'center' | 'bottom' = 'center', fps = 18, start = 0, alpha = 1, color?: string, angle?: number, fade = false): void {
     if (this.anims.length > (key === 'arrows' ? 170 : 120)) return; // keep the busiest moments cheap (arrows get a little more room)
-    this.anims.push({ key, x, y, size, anchor, fps, t: 0, start, alpha, color, ...(angle ? { angle } : {}) });
+    this.anims.push({ key, x, y, size, anchor, fps, t: 0, start, alpha, color, ...(angle ? { angle } : {}), ...(fade ? { fade } : {}) });
   }
 
   private drawEnemy(g: CanvasRenderingContext2D, e: Enemy, dying?: number): void {
@@ -4006,6 +4009,9 @@ function bladeRingOf(src: HTMLImageElement): HTMLCanvasElement {
   return c;
 }
 
+/** A gear pulse's opacity at its brightest (it fades in and out around that). */
+const PULSE_ALPHA = 0.5;
+
 interface Anim {
   key: EffectKey;
   x: number;
@@ -4021,6 +4027,8 @@ interface Anim {
   color?: string;
   /** Turned this far (radians) about its anchor point: a fire spray aimed at its target. */
   angle?: number;
+  /** Fades in and back out over its frames (a gear pulse), rather than showing at full opacity throughout. */
+  fade?: boolean;
 }
 
 /**
