@@ -1107,9 +1107,9 @@ describe('Shops', () => {
     expect(g.train('main', 'max')).toBe(false);
   });
 
-  it('the Forest Guardian Challenge unlocks at 6,000 Forest kills (any monster); Twigglings cost 250 gold', () => {
-    expect(areaDef('forest').mastery).toBe(6_000);
-    expect(eventDef('guardian-forest').unlockKills).toBe(6_000);
+  it('the Forest Guardian Challenge unlocks at 8,200 Forest kills (any monster); Twigglings cost 250 gold', () => {
+    expect(areaDef('forest').mastery).toBe(8_200);
+    expect(eventDef('guardian-forest').unlockKills).toBe(8_200);
     expect(enemyUnlockCost(enemyDef('twiggling'))).toBe(250);
   });
 
@@ -3714,16 +3714,16 @@ describe('Equipment', () => {
     const g = new Game(newGame(0));
     g.state.areas.mines.unlocked = true;
     g.state.gold = 1e30;
-    // The Venom Caverns: Basilisks at 53,000 kills there, the last monster at half the area's mastery.
-    expect(enemyUnlockKills(enemyDef('basilisk'))).toBe(53_000);
+    // The Venom Caverns: Basilisks at 150,000 kills there, the last monster at half the area's mastery.
+    expect(enemyUnlockKills(enemyDef('basilisk'))).toBe(150_000);
     expect(enemyUnlockKills(enemyDef('kobold'))).toBe(0);
-    expect(enemyUnlockKills(enemyDef('venomGolem'))).toBe(500_000);
+    expect(enemyUnlockKills(enemyDef('venomGolem'))).toBe(1_500_000);
     expect(enemyUnlockKills(enemyDef('twiggling'))).toBe(0); // the first two areas need none
     expect(g.unlockEnemy('basilisk')).toBe(false);
-    expect(g.unlockKillsLeft('basilisk')).toBe(53_000);
-    g.state.areas.mines.kills = 52_999;
+    expect(g.unlockKillsLeft('basilisk')).toBe(150_000);
+    g.state.areas.mines.kills = 149_999;
     expect(g.canUnlockEnemy('basilisk')).toBe(false);
-    g.state.areas.mines.kills = 53_000;
+    g.state.areas.mines.kills = 150_000;
     const spawn = g.roster('mines').reduce((n, e) => n + e.spawnRate, 0);
     expect(g.unlockEnemy('basilisk')).toBe(true);
     // Every unlock brings more of the whole area (UNLOCK_SPAWN_BONUS), on top of the new monster's own spawns.

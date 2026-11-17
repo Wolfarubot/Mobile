@@ -225,18 +225,17 @@ describe('progression pacing', () => {
     const { unlockedAt: r } = simulatePlayer(14);
     // SIM_OUT=file.json writes when each area unlocked, in hours.
     if (process.env.SIM_OUT) writeFileSync(process.env.SIM_OUT, JSON.stringify(Object.fromEntries(Object.entries(r).map(([k, v]) => [k, +(v! / 3600).toFixed(1)]))));
-    // The Forest Guardian takes 10,000 Forest kills, so the Glade opens on day one, not in the first session.
+    // The Forest Guardian opens at the first check-in (day 0.6), so the Glade opens on day one, not in the first session.
     expect(r.glade).toBeGreaterThan(40 * 60);
     expect(r.glade).toBeLessThan(24 * H);
-    expect(r.graveyard).toBeGreaterThan(4 * H);
-    expect(r.graveyard).toBeLessThan(36 * H);
-    expect(r.caves).toBeGreaterThan(4 * 24 * H);
-    expect(r.caves).toBeLessThan(10 * 24 * H);
-    expect(r.peaks).toBeGreaterThan(7 * 24 * H);
-    expect(r.peaks).toBeLessThan(14 * 24 * H);
-    expect(r.cliffs).toBeGreaterThan(9 * 24 * H);
-    // The Void Rift is the long-term goal: about two weeks in.
-    expect(r.rift ?? Infinity).toBeGreaterThan(10 * 24 * H);
+    // Then the original timeline: the Graveyard about day 2.6, the Crypt 5.6, the Depths 10.5, the Caves 18.
+    expect(r.graveyard).toBeGreaterThan(1.5 * 24 * H);
+    expect(r.graveyard).toBeLessThan(3.5 * 24 * H);
+    expect(r.crypt).toBeGreaterThan(4.5 * 24 * H);
+    expect(r.crypt).toBeLessThan(7 * 24 * H);
+    expect(r.depths).toBeGreaterThan(9 * 24 * H);
+    expect(r.depths).toBeLessThan(13 * 24 * H);
+    expect(r.caves ?? Infinity).toBeGreaterThan(14 * 24 * H);
   }, 1_500_000);
 });
 
