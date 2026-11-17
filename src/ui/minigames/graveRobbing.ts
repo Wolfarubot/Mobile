@@ -166,15 +166,16 @@ export function graveRobbing(api: MinigameApi): MinigameGame {
       if (burstIn <= 0) {
         const busy = new Set(bursts.map((b) => b.spot));
         const free = [...Array(9).keys()].filter((i) => !busy.has(i));
-        const many = Math.min(4, 1 + Math.floor(api.t / 15));
+        // Expert: more skeletons at once, less warning, more often, and loot that vanishes sooner.
+        const many = api.expert ? Math.min(5, 2 + Math.floor(api.t / 12)) : Math.min(4, 1 + Math.floor(api.t / 15));
         for (let n = 0; n < many && free.length > 1; n++) {
           // Often right where Alias is, so standing still isn't safe.
           const pick = n === 0 && free.includes(at) && Math.random() < 0.45 ? at : free[Math.floor(Math.random() * free.length)];
           free.splice(free.indexOf(pick), 1);
-          const warn = Math.max(0.55, 1.1 - api.t * 0.009);
+          const warn = Math.max(0.55, 1.1 - api.t * 0.009) * (api.expert ? 0.72 : 1);
           bursts.push({ spot: pick, t: -warn, warn, hit: false });
         }
-        burstIn = Math.max(0.6, 1.6 - api.t * 0.016) * (0.8 + Math.random() * 0.4);
+        burstIn = Math.max(0.6, 1.6 - api.t * 0.016) * (api.expert ? 0.7 : 1) * (0.8 + Math.random() * 0.4);
       }
       for (let i = bursts.length - 1; i >= 0; i--) {
         const b = bursts[i];
@@ -211,7 +212,7 @@ export function graveRobbing(api: MinigameApi): MinigameGame {
         const free = [...Array(9).keys()].filter((i) => !taken.has(i));
         if (free.length) {
           const gold = Math.random() < 0.18;
-          loot.push({ spot: free[Math.floor(Math.random() * free.length)], gold, life: Math.max(2, 3.6 - api.t * 0.025), icon: gold ? 'things/057' : JEWELS[Math.floor(Math.random() * JEWELS.length)] });
+          loot.push({ spot: free[Math.floor(Math.random() * free.length)], gold, life: Math.max(2, 3.6 - api.t * 0.025) * (api.expert ? 0.75 : 1), icon: gold ? 'things/057' : JEWELS[Math.floor(Math.random() * JEWELS.length)] });
         }
         lootIn = 0.5 + Math.random() * 0.7;
       }

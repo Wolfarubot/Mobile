@@ -78,7 +78,7 @@ export function workbenchSort(api: MinigameApi): MinigameGame {
   const flashes: Array<{ bin: number; t: number; ok: boolean }> = [];
 
   /** Belt speed (px a second at a 400px-wide screen): gentle at first, quicker as the minute goes on. */
-  const speed = () => (46 + api.t * 1.3) * k();
+  const speed = () => (46 + api.t * 1.3) * (api.expert ? 1.4 : 1) * k();
   const spawn = () => {
     const pool = POOL[rule()];
     parts.push({ gd: pool[Math.floor(Math.random() * pool.length)], x: -size() });

@@ -1892,6 +1892,16 @@ button {
 .ev-foot .ev-details {
   min-width: 76px;
 }
+/* The Expert switch beside Play (once the area is Unbound): dim while off, lit gold while on. */
+.ev-foot .ev-expert {
+  min-width: 0;
+  padding-inline: 8px;
+  opacity: 0.6;
+}
+.ev-foot .ev-expert.on {
+  opacity: 1;
+  color: #ffd84a;
+}
 /* Details: framed like Start, in its own steel-blue shade (and without Start's ready glow). */
 body.ui-parchment .buy.ev-details,
 body.ui-parchment .hunter-dock .buy.ev-details {

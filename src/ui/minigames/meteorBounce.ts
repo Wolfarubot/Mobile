@@ -59,10 +59,10 @@ export function meteorBounce(api: MinigameApi): MinigameGame {
   const spawn = () => {
     const r = Math.random();
     const kind: Kind = r < 0.1 + Math.min(0.08, api.t * 0.001) ? 'comet' : r < 0.32 ? 'big' : 'small';
-    const fall = (80 + api.t * 3.2) * k() * (kind === 'comet' ? 2.1 : kind === 'big' ? 0.8 : 1 + Math.random() * 0.3);
+    const fall = (80 + api.t * 3.2) * (api.expert ? 1.4 : 1) * k() * (kind === 'comet' ? 2.1 : kind === 'big' ? 0.8 : 1 + Math.random() * 0.3);
     const x = 30 * k() + Math.random() * (api.W - 60 * k());
     const art = kind === 'big' ? BIG_ROCK : SMALL_ROCKS[Math.floor(Math.random() * SMALL_ROCKS.length)];
-    rocks.push({ x, y: -20, vx: (Math.random() - 0.5) * 60 * k(), vy: Math.min(520 * k(), fall), kind, art, up: false, crack: 0, spin: Math.random() * 6 });
+    rocks.push({ x, y: -20, vx: (Math.random() - 0.5) * 60 * k(), vy: Math.min((api.expert ? 700 : 520) * k(), fall), kind, art, up: false, crack: 0, spin: Math.random() * 6 });
   };
 
   return {
@@ -81,7 +81,8 @@ export function meteorBounce(api: MinigameApi): MinigameGame {
       spawnIn -= dt;
       if (spawnIn <= 0) {
         spawn();
-        spawnIn = Math.max(0.38, 1.25 - api.t * 0.012);
+        // Expert: meteorites fall faster and more often.
+        spawnIn = api.expert ? Math.max(0.28, 0.95 - api.t * 0.01) : Math.max(0.38, 1.25 - api.t * 0.012);
       }
       for (let i = rocks.length - 1; i >= 0; i--) {
         const r = rocks[i];

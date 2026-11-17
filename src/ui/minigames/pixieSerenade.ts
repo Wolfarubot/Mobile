@@ -134,7 +134,8 @@ export function pixieSerenade(api: MinigameApi): MinigameGame {
   const spacing = () => Math.round((ROAD + 10) * pathScale());
   const laneX = (i: number) => Math.round(api.W / 2 + (i - 1) * spacing());
   /** Pixels per second of song (the song itself speeding up makes them faster still). */
-  const speed = () => Math.min(520, 200 + 4 * api.t) * api.k;
+  // Expert: the pixies fly down much faster (still landing on the beat) and come thicker sooner.
+  const speed = () => (api.expert ? Math.min(760, 300 + 6 * api.t) : Math.min(520, 200 + 4 * api.t)) * api.k;
   /** The okay range either side of the ribbon (the blue cobbles)… */
   const window = () => 46 * api.k;
   /** …and the small framed bar across each path (twice its pixels): a pixie on it is perfect. */
@@ -239,7 +240,7 @@ export function pixieSerenade(api: MinigameApi): MinigameGame {
       const fall = (lineY() + 20) / v;
       if (nextHalf < 0) nextHalf = Math.ceil((clock + fall) / half);
       for (; nextHalf * half <= clock + fall; nextHalf++) {
-        if (!pixieOn(nextHalf, api.t)) continue;
+        if (!pixieOn(nextHalf, api.t + (api.expert ? 45 : 0))) continue;
         const at = nextHalf * half;
         // Not the same path twice in quick succession.
         let lane = Math.floor(Math.random() * 3);

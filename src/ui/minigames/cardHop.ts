@@ -85,7 +85,8 @@ export function cardHop(api: MinigameApi): MinigameGame {
   const addRow = (i: number) => {
     const dir = i % 2 ? -1 : 1;
     // Slow to start, a little quicker with every row he climbs.
-    const v = dir * Math.min(150, 26 + i * 4.5) * (0.85 + Math.random() * 0.3);
+    // Expert: every row slides faster.
+    const v = dir * Math.min(api.expert ? 220 : 150, (26 + i * 4.5) * (api.expert ? 1.45 : 1)) * (0.85 + Math.random() * 0.3);
     const cards: Card[] = [];
     let x = -cw() * 2 + Math.random() * cw();
     while (x < api.W + cw() * 2) {

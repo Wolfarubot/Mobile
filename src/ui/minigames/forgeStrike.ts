@@ -33,6 +33,9 @@ export const FS_INTRO = `<p>Kargesh is at the anvil. <b>Tap</b> when the marker 
 export const FS_START_SPEED = 0.45;
 export const FS_HIT_SPEEDUP = 1.07;
 export const FS_MAX_SPEED = 2.4;
+/** Expert's swing: quicker from the first strike, and a higher top speed. */
+export const FS_EXPERT_START = 0.65;
+export const FS_EXPERT_MAX = 3.2;
 /** Hits in a row for each step of the multiplier (×1, then ×2 after 3, ×3 after 6...), up to ×8. */
 export const FS_STREAK_STEP = 3;
 export const FS_MAX_MULT = 8;
@@ -99,7 +102,9 @@ export function forgeStrike(api: MinigameApi): MinigameGame {
   let zone = { c: 0.5, w: 0.24 };
   let strikes = 0;
   /** The swing's speed, and hits in a row (the multiplier). */
-  let spd = FS_START_SPEED;
+  const START = api.expert ? FS_EXPERT_START : FS_START_SPEED;
+  const TOP = api.expert ? FS_EXPERT_MAX : FS_MAX_SPEED;
+  let spd = START;
   let streak = 0;
   const mult = () => Math.min(FS_MAX_MULT, 1 + Math.floor(streak / FS_STREAK_STEP));
   /** This piece: strikes on it, whether any missed, and its heat (1 → 0). */
@@ -190,7 +195,7 @@ export function forgeStrike(api: MinigameApi): MinigameGame {
         hits++;
         const before = mult();
         streak++;
-        spd = Math.min(FS_MAX_SPEED, spd * FS_HIT_SPEEDUP);
+        spd = Math.min(TOP, spd * FS_HIT_SPEEDUP);
         const perfect = off <= zone.w * 0.15;
         api.addScore((perfect ? 2 : 1) * mult(), it.x, it.y - 30 * api.k);
         if (mult() > before) api.pop(it.x + 40 * api.k, it.y - 80 * api.k, `×${mult()}!`, '#ffd34d');
@@ -224,7 +229,7 @@ export function forgeStrike(api: MinigameApi): MinigameGame {
         clean = false;
         if (streak >= FS_STREAK_STEP) api.pop(it.x + 40 * api.k, it.y - 80 * api.k, 'Streak lost', '#ff8a6a');
         streak = 0;
-        spd = Math.max(FS_START_SPEED, spd / 2);
+        spd = Math.max(START, spd / 2);
         burst(it.x + 30 * api.k, it.y + 10 * api.k, 8, ['#8a8494', '#5d5866'], 160);
         shake = 0.08;
         barFlash = 1;

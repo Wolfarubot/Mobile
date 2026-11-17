@@ -75,7 +75,8 @@ export function runeMatch(api: MinigameApi): MinigameGame {
     const faces = [...FACES].sort(() => Math.random() - 0.5).slice(0, cells.length / 2);
     const deck = [...faces, ...faces].sort(() => Math.random() - 0.5);
     cards = cells.map((cell, i) => ({ face: deck[i], cell, up: true, matched: false, turn: FLIP, shake: 0 }));
-    preview = showTime(cells.length / 2);
+    // Expert: the cards are shown face up for less time.
+    preview = showTime(cells.length / 2) * (api.expert ? 0.6 : 1);
     picked = [];
   };
 

@@ -137,6 +137,7 @@ import {
   GUARDIAN_TIME,
   MINIGAME_INCOME,
   MINIGAME_INCOME_NEW,
+  EXPERT_MULT,
   type MinigameId,
   isUniqueEnchant,
   enchantTierHit,
@@ -4571,6 +4572,20 @@ export class AppUI {
    */
   private wireEventButton(ev: EventDef, card: HTMLElement | null, btn: HTMLButtonElement, status: HTMLElement, refreshers: Array<() => void>, extra: () => string, before?: () => void): void {
     const g = this.game;
+    // A minigame whose area is Unbound has an Expert version: this switch picks which one Play plays.
+    let expertBtn: HTMLButtonElement | null = null;
+    if (ev.kind === 'minigame' && !ev.echo) {
+      expertBtn = document.createElement('button');
+      expertBtn.className = 'buy ev-expert';
+      expertBtn.innerHTML = `⚡ ${txt('event.expert.toggle')}`;
+      expertBtn.title = txt('event.expert.tip', { mult: EXPERT_MULT });
+      btn.before(expertBtn);
+      expertBtn.addEventListener('click', () => {
+        g.setExpert(ev.id, !g.playsExpert(ev.id));
+        this.refresh();
+      });
+    }
+    const playLabel = () => (g.playsExpert(ev.id) ? `Play<small>⚡ ${txt('event.expert.toggle')}</small>` : 'Play');
     btn.addEventListener('click', () => {
       if (g.eventRunning) return;
       if (g.eventUnlocked(ev.id) && g.energyWait(ev.id) > 0) return this.showNoEnergy(ev);
@@ -4579,6 +4594,11 @@ export class AppUI {
       else if (g.startEvent(ev.id)) this.refresh();
     });
     refreshers.push(() => {
+      if (expertBtn) {
+        const open = g.expertUnlocked(ev.id) && g.eventUnlocked(ev.id);
+        expertBtn.hidden = !open;
+        expertBtn.classList.toggle('on', g.playsExpert(ev.id));
+      }
       const kills = g.eventProgress(ev.id);
       const unlocked = g.eventUnlocked(ev.id);
       const running = this.eventLive(ev);
@@ -4609,11 +4629,11 @@ export class AppUI {
         btn.disabled = true;
       } else if (wait > 0 && !g.eventRunning) {
         status.innerHTML = note;
-        btn.innerHTML = `${ev.kind === 'minigame' ? 'Play' : 'Start'}<small>need ${g.energyCost(ev.id)} 🗲</small>`;
+        btn.innerHTML = `${ev.kind === 'minigame' ? (g.playsExpert(ev.id) ? `Play ⚡` : 'Play') : 'Start'}<small>need ${g.energyCost(ev.id)} 🗲</small>`;
         btn.disabled = false;
       } else {
         status.innerHTML = note;
-        btn.innerHTML = g.eventRunning ? 'Busy<small>another event</small>' : ev.kind === 'minigame' ? 'Play' : 'Start';
+        btn.innerHTML = g.eventRunning ? 'Busy<small>another event</small>' : ev.kind === 'minigame' ? playLabel() : 'Start';
         btn.disabled = !g.eventReady(ev.id);
       }
     });
@@ -4682,7 +4702,9 @@ export class AppUI {
     body.appendChild(best);
     refreshers.push(() => {
       const b = this.bestScore(ev);
-      best.innerHTML = `<span>${tx('event.detail.best')}</span><b>${b > 0 ? fmt(b) : tx('event.card.notPlayed')}</b>${rankStars(b > 0 ? g.starsFor(ev.id, b) : 0)}`;
+      const be = g.state.events[ev.id]?.bestExpert ?? 0;
+      const expertLine = g.expertUnlocked(ev.id) ? `<span>⚡ ${tx('event.expert.best')}</span><b>${be > 0 ? fmt(be) : tx('event.card.notPlayed')}</b>${rankStars(be > 0 ? g.starsFor(ev.id, be) : 0)}<p class="hd-note">${tx('event.expert.note', { mult: EXPERT_MULT })}</p>` : '';
+      best.innerHTML = `<span>${tx('event.detail.best')}</span><b>${b > 0 ? fmt(b) : tx('event.card.notPlayed')}</b>${rankStars(b > 0 ? g.starsFor(ev.id, b) : 0)}${expertLine}`;
     });
 
     body.appendChild(sectionTitle(txt('event.detail.ranks')));
@@ -4742,15 +4764,17 @@ export class AppUI {
   private playMinigame(ev: EventDef): void {
     const g = this.game;
     const mg = ev.minigame && MINIGAMES[ev.minigame];
+    const expert = g.playsExpert(ev.id);
     if (!mg || !g.startEvent(ev.id)) return;
     // A Rift Echo play keeps this hour's game to the end, even if the hour turns while it's on.
     if (ev.echo) pinEcho(ev.minigame!);
     this.refresh();
-    const best = this.bestScore(ev);
+    const best = expert ? (g.state.events[ev.id]?.bestExpert ?? 0) : this.bestScore(ev);
     const bless = ev.blessing;
     runMinigame({
-      title: ev.echo ? `${eventGlyph(ev)} ${txt('event.echo.title', { game: mg.title.replace(/^[^\p{L}]+/u, '') })}` : mg.title,
-      intro: (ev.echo ? `<p class="mg-bless">${tx('event.echo.intro')}</p>` : '') + mg.intro + (bless ? `<p class="mg-bless">${blessingIntro(g, ev)}</p>` : ''),
+      title: ev.echo ? `${eventGlyph(ev)} ${txt('event.echo.title', { game: mg.title.replace(/^[^\p{L}]+/u, '') })}` : expert ? `${mg.title} ⚡` : mg.title,
+      intro: (ev.echo ? `<p class="mg-bless">${tx('event.echo.intro')}</p>` : '') + (expert ? `<p class="mg-bless">⚡ ${tx('event.expert.intro', { mult: EXPERT_MULT })}</p>` : '') + mg.intro + (bless ? `<p class="mg-bless">${blessingIntro(g, ev)}</p>` : ''),
+      expert,
       area: ev.area,
       decor: mg.decor,
       room: mg.room,
@@ -4762,7 +4786,7 @@ export class AppUI {
       music: MINIGAME_MUSIC[ev.minigame!],
       onEnd: (score) => {
         const before = g.buffLeft(ev.minigame!);
-        const r = g.finishMinigame(ev.id, score);
+        const r = g.finishMinigame(ev.id, score, expert);
         const buff = MINIGAME_BUFFS[ev.minigame!];
         const gained = g.buffLeft(ev.minigame!) - before;
         const buffLine = gained > 0 ? `<p class="mg-bless">${eventGlyph(ev)} ${buff.name} +${buff.kind === 'timed' ? fmtTime(gained) : `${Math.round(gained)} charge${Math.round(gained) > 1 ? 's' : ''}`} (now ${this.buffAmount(ev.minigame!)})</p>` : '';

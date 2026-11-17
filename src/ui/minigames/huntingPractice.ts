@@ -92,10 +92,16 @@ function propHit(p: Prop, x: number, y: number): boolean {
 
 export const HP_INTRO = `<p>Slimes hop across the clearing, faster and faster. <b>Tap</b> to send Galladair's arrows at them.</p><p>Green slimes are 1 point, golden ones 3. Let ${HP_LIVES} get across and practice is over.</p>`;
 
-/** The round's difficulty after `t` seconds: slime speed (px/s at a 400px-wide screen) and seconds between slimes. */
-export function hpDifficulty(t: number): { speed: number; gap: number } {
+/**
+ * The round's difficulty after `t` seconds: slime speed (px/s at a 400px-wide screen) and seconds between slimes.
+ * Expert starts quicker and closer together, and climbs higher.
+ */
+export function hpDifficulty(t: number, expert = false): { speed: number; gap: number } {
+  if (expert) return { speed: Math.min(580, 80 + 8 * t), gap: Math.max(0.3, 1.25 - 0.02 * t) };
   return { speed: Math.min(430, 40 + 6 * t), gap: Math.max(0.42, 1.7 - 0.022 * t) };
 }
+/** Expert's arrows fly this much faster. */
+export const HP_EXPERT_ARROW = 1.35;
 
 interface Slime {
   x: number;
@@ -162,7 +168,7 @@ export function huntingPractice(api: MinigameApi): MinigameGame {
    */
   const wideness = Math.pow(Math.max(1, api.W / (400 * api.k)), 0.75);
   const spawn = () => {
-    const { speed } = hpDifficulty(api.t);
+    const { speed } = hpDifficulty(api.t, api.expert);
     const fromLeft = Math.random() < 0.5;
     const golden = Math.random() < GOLDEN_CHANCE;
     const r = (golden ? 27 : 32) * api.k;
@@ -188,7 +194,8 @@ export function huntingPractice(api: MinigameApi): MinigameGame {
       if (shotCd > 0) return;
       const a = archer();
       aim = Math.max(-Math.PI + 0.08, Math.min(-0.08, Math.atan2(y - a.y, x - a.x)));
-      arrows.push({ x: a.x, y: a.y - 20, vx: Math.cos(aim) * ARROW_SPEED, vy: Math.sin(aim) * ARROW_SPEED, stuck: 0 });
+      const v = ARROW_SPEED * (api.expert ? HP_EXPERT_ARROW : 1);
+      arrows.push({ x: a.x, y: a.y - 20, vx: Math.cos(aim) * v, vy: Math.sin(aim) * v, stuck: 0 });
       shotCd = SHOT_COOLDOWN;
     },
     step(dt) {
@@ -197,7 +204,7 @@ export function huntingPractice(api: MinigameApi): MinigameGame {
       spawnIn -= dt;
       if (spawnIn <= 0) {
         spawn();
-        spawnIn = hpDifficulty(api.t).gap * (0.7 + Math.random() * 0.6);
+        spawnIn = hpDifficulty(api.t, api.expert).gap * (0.7 + Math.random() * 0.6);
       }
       for (const s of slimes) {
         if (s.dying !== undefined) {

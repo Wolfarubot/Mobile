@@ -105,6 +105,7 @@ import {
   WEEKLY_DAILIES,
   questText,
   ECHO_MULT,
+  EXPERT_MULT,
   echoGameAt,
   echoChangesIn,
   MINIGAME_IDS,
@@ -1891,6 +1892,7 @@ describe('Equipment', () => {
       k: 1,
       layout: 'portrait' as const,
       leftHanded: false,
+      expert: false,
       get t() {
         return t;
       },
@@ -4662,6 +4664,32 @@ describe('Events', () => {
     const w = new Game(newGame(0), noCrit);
     w.activeEvent = { id: 'slimeSwarm', left: 60 } as typeof w.activeEvent;
     expect(w.spawnRate).toBeCloseTo(10, 5);
+  });
+
+  it('an Unbound area opens its minigame\'s Expert version: a switch for Play, 3x the gold and materials, its own best', () => {
+    const g = new Game(newGame(0), noCrit);
+    g.state.hunters.ranger.recruited = true;
+    expect(g.expertUnlocked('huntingPractice')).toBe(false);
+    g.setExpert('huntingPractice', true);
+    expect(g.playsExpert('huntingPractice')).toBe(false); // not open yet
+    g.state.regression.tree['unbound-forest'] = 1;
+    expect(g.isUnbound('forest')).toBe(true);
+    expect(g.expertUnlocked('huntingPractice')).toBe(true);
+    expect(g.expertUnlocked('pixieSerenade')).toBe(false); // only the Unbound area's own game
+    g.setExpert('huntingPractice', true);
+    expect(g.playsExpert('huntingPractice')).toBe(true);
+    const normal = g.minigameReward('huntingPractice', 20);
+    const expert = g.minigameReward('huntingPractice', 20, true);
+    expect(expert.gold).toBeCloseTo(normal.gold * EXPERT_MULT);
+    for (const [m, n] of Object.entries(normal.materials)) expect(expert.materials[m as MaterialId]!).toBeGreaterThanOrEqual(n! * EXPERT_MULT);
+    g.finishMinigame('huntingPractice', 12, true);
+    expect(g.state.events.huntingPractice.bestExpert).toBe(12);
+    expect(g.state.events.huntingPractice.best ?? 0).toBe(0);
+    // The choice is kept in the save.
+    const back = deserialize(serialize(g.state))!;
+    expect(back.events.huntingPractice).toMatchObject({ bestExpert: 12, expert: true });
+    g.setExpert('huntingPractice', false);
+    expect(g.playsExpert('huntingPractice')).toBe(false);
   });
 
   it("Galladair's Hunting Practice opens with Galladair, pays gold by your income and Royal Slime, and keeps a best score", () => {

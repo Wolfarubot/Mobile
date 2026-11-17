@@ -33,6 +33,8 @@ export interface MinigameApi {
   readonly layout: 'portrait' | LandscapeLayout;
   /** Settings → Handedness is left (the D-pad goes on the left in a split layout). */
   readonly leftHanded: boolean;
+  /** The Expert version (its area Unbound): quicker and harder, for bigger rewards. Each game speeds itself up. */
+  readonly expert: boolean;
   /** Seconds since Start. */
   readonly t: number;
   readonly score: number;
@@ -85,6 +87,8 @@ export interface MinigameSpec {
   music?: TrackId;
   /** How it lays out on a landscape screen (center if not given). */
   landscape?: LandscapeLayout;
+  /** Play the Expert version. */
+  expert?: boolean;
 }
 
 /** A landscape stage's height in stage units: about a portrait phone's play area, scaled to the screen's height. */
@@ -205,6 +209,7 @@ export function runMinigame(spec: MinigameSpec): void {
       return layout;
     },
     leftHanded,
+    expert: !!spec.expert,
     get t() {
       return t;
     },

@@ -822,6 +822,23 @@ section(
 );
 section(
   E,
+  'event.expert',
+  'Expert minigames',
+  {
+    toggle: 'Expert',
+    tip: 'Play the Expert version: quicker and harder, {mult}× the gold and materials.',
+    intro: '**Expert:** everything moves quicker and comes harder, for {mult}× the gold and materials.',
+    best: 'Your Expert best',
+    note: 'Expert opened when this area became Unbound: the same game, quicker and harder, paying {mult}× the gold and materials at the same score. Pick it with the ⚡ Expert switch beside Play.',
+  },
+  {
+    note: "A minigame's Expert version, open once its area is Unbound: the switch beside Play, the intro card's extra line, and the Details page's Expert best.",
+    vars: { mult: 'reward multiplier' },
+    labels: { toggle: 'Switch', tip: 'Switch tooltip', intro: 'Intro card line', best: 'Expert best label', note: 'Details note' },
+  },
+);
+section(
+  E,
   'minigame.screen',
   'Minigame screen',
   { start: 'Start', quit: 'Quit', best: 'Best: {score}', done: 'All done!', points: '{n} point{s}', none: 'No rewards this time.', newBest: 'New best!', collect: 'Collect' },

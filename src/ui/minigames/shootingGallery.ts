@@ -158,10 +158,11 @@ export function shootingGallery(api: MinigameApi): MinigameGame {
       spawnIn -= dt;
       if (spawned < SG_EYES && spawnIn <= 0) {
         const red = Math.random() < 0.13;
-        const max = (1.8 - 0.95 * n) * (red ? 0.65 : 1);
+        // Expert: eyes shut sooner and open closer together.
+        const max = (1.8 - 0.95 * n) * (red ? 0.65 : 1) * (api.expert ? 0.7 : 1);
         targets.push({ ...place(), life: max, max, kind: red ? 'red' : 'eye', done: false, t: 0 });
         spawned++;
-        spawnIn = (1.0 - 0.55 * n) * (0.8 + Math.random() * 0.4);
+        spawnIn = (1.0 - 0.55 * n) * (api.expert ? 0.75 : 1) * (0.8 + Math.random() * 0.4);
       }
       // Now and then a lantern, to leave be.
       lanternIn -= dt;

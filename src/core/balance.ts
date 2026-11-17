@@ -5858,6 +5858,8 @@ const AREA_MINIGAMES: Partial<Record<AreaId, Omit<EventDef, 'area' | 'kind' | 'u
 
 /** The Rift Echo pays (gold, materials and minigame buffs) this many times what its game normally does. */
 export const ECHO_MULT = 2;
+/** An Expert play's gold and materials, times a normal play's at the same score (Expert opens with its area Unbound). */
+export const EXPERT_MULT = 3;
 /** What a Rift Echo pays in materials, at a par of 40 (scaled to the hour's game's par), before ECHO_MULT. */
 const ECHO_MATERIALS: Array<{ material: MaterialId; per: number }> = [
   { material: 'voidPrism', per: 4 },

@@ -96,6 +96,7 @@ import {
   BUFF_LOOT_TWO_STAR,
   STARDUST_MIN_AWAY,
   ECHO_MULT,
+  EXPERT_MULT,
   homeEvent,
   MINIGAME_BUFFS,
   minigameStars,
@@ -2410,17 +2411,18 @@ export class Game {
    * its area is the furthest you've reached, MINIGAME_INCOME seconds' after that (so it keeps up with your income),
    * and never less than its old pay of Guardian bounties of the furthest area per point. Materials: one per `per` points.
    */
-  minigameReward(id: string, score: number): { gold: number; materials: Partial<Record<MaterialId, number>> } {
+  minigameReward(id: string, score: number, expert = false): { gold: number; materials: Partial<Record<MaterialId, number>> } {
     const def = eventDef(id);
     const r = def.rewards;
     if (!r || score <= 0) return { gold: 0, materials: {} };
+    const ex = expert ? EXPERT_MULT : 1;
     const top = this.unlockedAreas[this.unlockedAreas.length - 1];
     const floor = Math.max(this.areaStats(def.area).gold, this.areaStats(top).gold) * GUARDIAN_GOLD_MULT * r.gold * score;
     const income = this.goldPerSecond() * (def.area === top ? MINIGAME_INCOME_NEW : MINIGAME_INCOME) * (score / r.par);
-    const gold = Math.max(floor, income) * (def.echo ? ECHO_MULT : 1);
+    const gold = Math.max(floor, income) * (def.echo ? ECHO_MULT : 1) * ex;
     const materials: Partial<Record<MaterialId, number>> = {};
     for (const m of r.materials) {
-      const n = Math.floor(score / m.per);
+      const n = Math.floor((score * ex) / m.per);
       if (n > 0) materials[this.dropIn(m.material, def.area)] = n;
     }
     return { gold, materials };
@@ -2463,9 +2465,28 @@ export class Game {
     return b ? b.tiers.filter((t) => score >= t).length : 0;
   }
 
-  /** A minigame ended with `score`: pays out its rewards and counts as completed. */
-  finishMinigame(id: string, score: number): { gold: number; materials: Partial<Record<MaterialId, number>> } {
-    const reward = this.minigameReward(id, score);
+  /** A minigame's Expert version is open: once its area is Unbound (not the Rift Echo, which plays other areas' games). */
+  expertUnlocked(id: string): boolean {
+    const def = eventDef(id);
+    return def.kind === 'minigame' && !def.echo && this.isUnbound(def.area);
+  }
+
+  /** The Play button plays the Expert version (chosen, and open). */
+  playsExpert(id: string): boolean {
+    return this.expertUnlocked(id) && !!this.state.events[id]?.expert;
+  }
+
+  /** Chooses which version the Play button plays (Expert only once it's open). */
+  setExpert(id: string, on: boolean): void {
+    const st = this.state.events[id];
+    if (!st) return;
+    if (on && this.expertUnlocked(id)) st.expert = true;
+    else delete st.expert;
+  }
+
+  /** A minigame ended with `score` (`expert`: its Expert version): pays out its rewards and counts as completed. */
+  finishMinigame(id: string, score: number, expert = false): { gold: number; materials: Partial<Record<MaterialId, number>> } {
+    const reward = this.minigameReward(id, score, expert);
     const s = this.state;
     s.gold += reward.gold;
     s.stats.totalGold += reward.gold;
@@ -2482,7 +2503,8 @@ export class Game {
     }
     if (def.minigame) this.fillBuff(def.minigame, id, score);
     const st = s.events[id];
-    if (st) st.best = Math.max(st.best ?? 0, score);
+    if (st && expert) st.bestExpert = Math.max(st.bestExpert ?? 0, score);
+    else if (st) st.best = Math.max(st.best ?? 0, score);
     // A Rift Echo score is also that game's own score (its best and star rank).
     if (def.echo && def.minigame) {
       const hs = s.events[homeEvent(def.minigame).id];

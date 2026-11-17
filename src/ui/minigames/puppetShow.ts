@@ -41,7 +41,8 @@ export function puppetStage(api: MinigameApi): { top: number; bottom: number; fl
 
 export function puppetShow(api: MinigameApi): MinigameGame {
   const rand = () => DIR_LIST[Math.floor(Math.random() * 4)];
-  const seq: Dir[] = [rand(), rand(), rand()];
+  // Expert starts with a longer dance, shown quicker.
+  const seq: Dir[] = api.expert ? [rand(), rand(), rand(), rand(), rand()] : [rand(), rand(), rand()];
   let phase: 'show' | 'input' | 'pause' = 'pause';
   let timer = 0.8;
   let shown = 0;
@@ -57,7 +58,7 @@ export function puppetShow(api: MinigameApi): MinigameGame {
   /** A wrong move: Theon slumps and the strings tangle for a moment. */
   let oops = 0;
   /** Seconds each move is shown: quicker as the dance gets longer. */
-  const beat = () => Math.max(0.34, 0.68 - seq.length * 0.025);
+  const beat = () => Math.max(0.34, 0.68 - seq.length * 0.025) * (api.expert ? 0.7 : 1);
 
   const pad = () => dpadAt(api, PAD_SIZE);
   const stage = () => puppetStage(api);
