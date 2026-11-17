@@ -4693,6 +4693,22 @@ describe('Events', () => {
     expect(g.playsExpert('huntingPractice')).toBe(false);
   });
 
+  it("the Rift Echo's Expert version opens with the Void Rift Unbound and plays the hour's game in Expert, 6x the pay", () => {
+    const g = new Game(newGame(0), noCrit);
+    const echo = EVENTS.find((e) => e.echo)!;
+    expect(g.expertUnlocked(echo.id)).toBe(false);
+    g.state.regression.tree['unbound-rift'] = 1;
+    expect(g.expertUnlocked(echo.id)).toBe(true);
+    g.setExpert(echo.id, true);
+    expect(g.playsExpert(echo.id)).toBe(true);
+    const normal = g.minigameReward(echo.id, 20);
+    expect(g.minigameReward(echo.id, 20, true).gold).toBeCloseTo(normal.gold * EXPERT_MULT);
+    // Its score is the hour's game's Expert best.
+    const home = EVENTS.find((e) => !e.echo && e.minigame === echo.minigame)!;
+    g.finishMinigame(echo.id, 9, true);
+    expect(g.state.events[home.id].bestExpert).toBe(9);
+  });
+
   it("Dev's switches open every Expert version and let events start without energy, whatever the save", () => {
     const g = new Game(newGame(0), noCrit);
     g.state.hunters.ranger.recruited = true;

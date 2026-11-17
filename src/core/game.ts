@@ -2467,10 +2467,13 @@ export class Game {
     return b ? b.tiers.filter((t) => score >= t).length : 0;
   }
 
-  /** A minigame's Expert version is open: once its area is Unbound (not the Rift Echo, which plays other areas' games). */
+  /**
+   * A minigame's Expert version is open: once its area is Unbound. The Rift Echo's opens with the Void Rift Unbound,
+   * and plays the hour's game in its Expert version.
+   */
   expertUnlocked(id: string): boolean {
     const def = eventDef(id);
-    return def.kind === 'minigame' && !def.echo && (DEV_FLAGS.expert || this.isUnbound(def.area));
+    return def.kind === 'minigame' && (DEV_FLAGS.expert || this.isUnbound(def.area));
   }
 
   /** The Play button plays the Expert version (chosen, and open). */
@@ -2510,7 +2513,8 @@ export class Game {
     // A Rift Echo score is also that game's own score (its best and star rank).
     if (def.echo && def.minigame) {
       const hs = s.events[homeEvent(def.minigame).id];
-      if (hs) hs.best = Math.max(hs.best ?? 0, score);
+      if (hs && expert) hs.bestExpert = Math.max(hs.bestExpert ?? 0, score);
+      else if (hs) hs.best = Math.max(hs.best ?? 0, score);
     }
     return reward;
   }

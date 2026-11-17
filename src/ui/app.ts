@@ -4594,7 +4594,7 @@ export class AppUI {
     const g = this.game;
     // A minigame whose area is Unbound has an Expert version: this switch picks which one Play plays.
     let expertBtn: HTMLButtonElement | null = null;
-    if (ev.kind === 'minigame' && !ev.echo) {
+    if (ev.kind === 'minigame') {
       expertBtn = document.createElement('button');
       expertBtn.className = 'buy ev-expert';
       expertBtn.innerHTML = `⚡ ${txt('event.expert.toggle')}`;
@@ -4722,7 +4722,7 @@ export class AppUI {
     body.appendChild(best);
     refreshers.push(() => {
       const b = this.bestScore(ev);
-      const be = g.state.events[ev.id]?.bestExpert ?? 0;
+      const be = g.state.events[ev.echo ? homeEvent(ev.minigame!).id : ev.id]?.bestExpert ?? 0;
       const expertLine = g.expertUnlocked(ev.id) ? `<span>⚡ ${tx('event.expert.best')}</span><b>${be > 0 ? fmt(be) : tx('event.card.notPlayed')}</b>${rankStars(be > 0 ? g.starsFor(ev.id, be) : 0)}<p class="hd-note">${tx('event.expert.note', { mult: EXPERT_MULT })}</p>` : '';
       best.innerHTML = `<span>${tx('event.detail.best')}</span><b>${b > 0 ? fmt(b) : tx('event.card.notPlayed')}</b>${rankStars(b > 0 ? g.starsFor(ev.id, b) : 0)}${expertLine}`;
     });
@@ -4789,10 +4789,10 @@ export class AppUI {
     // A Rift Echo play keeps this hour's game to the end, even if the hour turns while it's on.
     if (ev.echo) pinEcho(ev.minigame!);
     this.refresh();
-    const best = expert ? (g.state.events[ev.id]?.bestExpert ?? 0) : this.bestScore(ev);
+    const best = expert ? (g.state.events[ev.echo ? homeEvent(ev.minigame!).id : ev.id]?.bestExpert ?? 0) : this.bestScore(ev);
     const bless = ev.blessing;
     runMinigame({
-      title: ev.echo ? `${eventGlyph(ev)} ${txt('event.echo.title', { game: mg.title.replace(/^[^\p{L}]+/u, '') })}` : expert ? `${mg.title} ⚡` : mg.title,
+      title: (ev.echo ? `${eventGlyph(ev)} ${txt('event.echo.title', { game: mg.title.replace(/^[^\p{L}]+/u, '') })}` : mg.title) + (expert ? ' ⚡' : ''),
       intro: (ev.echo ? `<p class="mg-bless">${tx('event.echo.intro')}</p>` : '') + (expert ? `<p class="mg-bless">⚡ ${tx('event.expert.intro', { mult: EXPERT_MULT })}</p>` : '') + mg.intro + (bless ? `<p class="mg-bless">${blessingIntro(g, ev)}</p>` : ''),
       expert,
       area: ev.area,
