@@ -45,6 +45,7 @@ import {
   type SummonType,
   tomeSummonType,
   effectBase,
+  effectChance,
   effectCooldown,
   MAX_ENEMIES,
   areaScale,
@@ -103,6 +104,7 @@ const POTION_WORD: Record<GearStat, string> = {
   damage: 'MIGHT!', rate: 'HASTE!', range: 'FARSIGHT!', crit: 'KEEN!', stun: 'STEADY!', guard: 'SHIELDED!', gold: 'GREED!', drops: 'FORTUNE!', radius: 'SURGE!', pierce: 'PIERCE!',
   cooldown: 'QUICKEN!', critDamage: 'FURY!', duration: 'FESTER!', abilityPower: 'EMPOWER!', statusChance: 'AFFLICT!',
   bowDamage: 'TRUE AIM!', gunDamage: 'HOT SHOT!', meleeDamage: 'BRAWN!', magicDamage: 'ARCANA!',
+  knockback: 'HEAVE!', flurry: 'FLURRY!',
 };
 /**
  * Each Guardian move's numbers: seconds between uses (`cd`) and before the first (`first`); how near a Hunter must be
@@ -779,6 +781,17 @@ export class Field {
    * already is (0 for his weapon's own hits).
    */
   private flurryArmed = false;
+  /** Each Hunter's gear stats this frame (Flurry, knockback: read on every attack and hit). */
+  private gearCache = new Map<Shooter, Record<GearStat, number>>();
+  private gearOf(who: Shooter): Record<GearStat, number> {
+    let v = this.gearCache.get(who);
+    if (!v) this.gearCache.set(who, (v = this.game.gear(who)));
+    return v;
+  }
+  /** How far a Hunter's hits push monsters, as a multiple (heavy armor's knockback). */
+  private knockMult(who: Shooter): number {
+    return 1 + this.gearOf(who).knockback;
+  }
   private flurryDepth = 0;
   /** Orb Scepter orbs: where bolts landed, hurting each monster that walks into one, once. */
   orbs: Array<{ who: Shooter; x: number; y: number; r: number; life: number; max: number; dmg: number; crit: boolean; mode?: GearMode; dtype?: DamageType; hit: Set<number> }> = [];
@@ -1150,6 +1163,7 @@ export class Field {
     const g = this.game;
     this.clock += dt;
     this.artCache.clear();
+    this.gearCache.clear();
     for (const [who, t] of this.frenzy) if (t - dt > 0) this.frenzy.set(who, t - dt);
     else this.frenzy.delete(who);
     for (const [who, q] of this.quickDraw) if ((q.left -= dt) <= 0) this.quickDraw.delete(who);
@@ -1265,6 +1279,8 @@ export class Field {
         this.fireAcc = 0;
         break;
       }
+      // Flurry (light armor): sometimes the attack goes off again straight away.
+      if (g.rng() < this.gearOf(this.lead).flurry) this.fireAcc += 1;
     }
     this.offhandAttack(this.lead, this.leadArms, 0, 0, dt, this.stunned);
     // The Hunter in the middle's special, when that's a Guild Hunter (a stationed group's background sample).
@@ -1499,9 +1515,9 @@ export class Field {
     const hy = helper?.y ?? 0;
     const effects = this.game.gearEffects(who);
     // Thorns: whatever reaches you gets hurt, blocked or not.
-    for (const { effect: ef, stars } of effects)
+    for (const { effect: ef, stars, def } of effects)
       if (ef.kind === 'thorns' && (ef.chance === undefined || this.game.rng() < ef.chance)) {
-        this.abilityHit(who, e, effectBase(ef, stars), ef.damageType, false);
+        this.abilityHit(who, e, effectBase(ef, stars, def), ef.damageType, false);
         this.events.push({ type: 'thorns', x: e.x, y: e.y, r: e.r });
       }
     // Riposte: a melee Hunter may strike first, with a critical hit; if that kills it, it never lands its blow.
@@ -1512,10 +1528,11 @@ export class Field {
       this.hitWith(who, e, riposte.power, hx, hy, true);
       if (e.hp <= 0) return;
     }
-    // Evasion (light armor): slip it entirely, no stun and no shield used.
-    if (!e.boss && effects.some(({ effect: ef }) => ef.kind === 'evade' && this.game.rng() < ef.chance)) {
+    // Evasion (light armor): slip it entirely, no stun and no shield used, and Flurry: an attack straight back.
+    if (!e.boss && effects.some(({ effect: ef, stars, def }) => ef.kind === 'evade' && this.game.rng() < effectChance(ef, stars, def))) {
       e.fleeing = true;
       this.events.push({ type: 'dodge', x: hx, y: hy });
+      this.flurryOnDodge(state);
       return;
     }
     // Still in the moment of grace after a block or a stun: it bounces off, and no shield charge is spent.
@@ -2061,8 +2078,9 @@ export class Field {
       return;
     }
     const effects = this.game.gearEffects(who);
-    if (effects.some(({ effect: ef }) => ef.kind === 'evade' && this.game.rng() < ef.chance)) {
+    if (effects.some(({ effect: ef, stars, def }) => ef.kind === 'evade' && this.game.rng() < effectChance(ef, stars, def))) {
       this.events.push({ type: 'dodge', x: hx, y: hy });
+      this.flurryOnDodge(state);
       return;
     }
     if (state.immune > 0) return;
@@ -2086,8 +2104,13 @@ export class Field {
     this.events.push({ type: 'guard', x: hx, y: hy });
     this.shove(hx, hy, GUARD_PUSH_RANGE, GUARD_BOUNCE);
     // Shield burst: the block blasts everything around the wearer.
-    for (const { effect: ef, stars } of effects)
-      if (ef.kind === 'block' && (ef.chance === undefined || this.game.rng() < ef.chance)) this.abilityBurst(who, hx, hy, ef.radius, effectBase(ef, stars), ef.damageType);
+    for (const { effect: ef, stars, def } of effects)
+      if (ef.kind === 'block' && (ef.chance === undefined || this.game.rng() < ef.chance)) this.abilityBurst(who, hx, hy, ef.radius, effectBase(ef, stars, def), ef.damageType);
+  }
+
+  /** Flurry after a dodge: the dodger's next attack comes at once. */
+  private flurryOnDodge(state: { fireAcc: number }): void {
+    state.fireAcc = Math.max(state.fireAcc, 1);
   }
 
   /** Cheap pairwise push-apart so the horde spreads into a crowd instead of a single dot. */
@@ -2195,6 +2218,7 @@ export class Field {
         h.fireAcc = 0;
         return;
       }
+      if (g.rng() < this.gearOf(h.id).flurry) h.fireAcc += 1;
     }
   }
 
@@ -3435,8 +3459,8 @@ export class Field {
 
   /** A melee attack with a wave-sending accessory (the Flame Brand): sometimes a wave bursts out. */
   private meleeWave(who: Shooter, x: number, y: number): void {
-    for (const { effect: ef, stars } of this.game.gearEffects(who))
-      if (ef.kind === 'wave' && this.game.rng() < ef.chance) this.abilityBurst(who, x, y, ef.radius, effectBase(ef, stars), ef.damageType);
+    for (const { effect: ef, stars, def } of this.game.gearEffects(who))
+      if (ef.kind === 'wave' && this.game.rng() < ef.chance) this.abilityBurst(who, x, y, ef.radius, effectBase(ef, stars, def), ef.damageType);
   }
 
   /**
@@ -3449,7 +3473,7 @@ export class Field {
       ...this.helpers.map((h) => ({ who: h.id as Shooter, x: h.x, y: h.y, stunned: h.stun > 0 })),
     ];
     for (const w of wearers) {
-      for (const { uid, effect: ef, stars } of this.game.gearEffects(w.who)) {
+      for (const { uid, effect: ef, stars, def } of this.game.gearEffects(w.who)) {
         if (ef.kind === 'chill') {
           for (const e of this.enemies) if (!e.boss && !this.immuneTo(e, 'frost') && Math.hypot(e.x - w.x, e.y - w.y) <= ef.radius * this.game.radiusMult(w.who) + e.r) e.slow = Math.max(e.slow ?? 0, 0.2);
           continue;
@@ -3460,14 +3484,14 @@ export class Field {
         const left = Math.max(0, (this.gearCd.get(key) ?? 0) - dt);
         this.gearCd.set(key, left);
         if (left > 0 || w.stunned) continue;
-        if (this.fireGear(w.who, w.x, w.y, ef, stars, uid)) this.gearCd.set(key, cd * this.game.cooldownMult(w.who));
+        if (this.fireGear(w.who, w.x, w.y, ef, stars, uid, def)) this.gearCd.set(key, cd * this.game.cooldownMult(w.who));
       }
     }
   }
 
   /** Sets off a recharging gear ability. Returns false (staying ready) when there's nothing to use it on. */
-  private fireGear(who: Shooter, x: number, y: number, ef: GearEffect, stars: number, uid: number): boolean {
-    const base = effectBase(ef, stars);
+  private fireGear(who: Shooter, x: number, y: number, ef: GearEffect, stars: number, uid: number, def?: GearDef): boolean {
+    const base = effectBase(ef, stars, def);
     switch (ef.kind) {
       case 'pulse':
         if (!this.nearest(x, y, ef.radius * this.game.radiusMult(who))) return false;
@@ -3504,7 +3528,7 @@ export class Field {
         // Drunk when there's a fight on: the boost, and a word over the Hunter.
         if (!this.nearest(x, y, Math.max(this.game.shooterRange(who), MAIN_RANGE) * 1.5)) return false;
         const item = this.game.gearItem(uid);
-        this.game.drinkPotion(who, uid, ef, item ? this.game.effStars(item, who) : 1);
+        this.game.drinkPotion(who, uid, ef, item ? this.game.effStars(item, who) : 1, def);
         this.events.push({ type: 'say', x, y: y - 34, text: POTION_WORD[ef.stat], color: '#9fe8ff', size: 9 });
         return true;
       }
@@ -4359,6 +4383,7 @@ export class Field {
     this.flurryArmed = false;
     if (knock <= 0 || e.hp <= 0 || e.boss) return;
     const d = Math.hypot(e.x - ox, e.y - oy) || 1;
+    knock *= this.knockMult(shooter);
     e.kx += ((e.x - ox) / d) * knock;
     e.ky += ((e.y - oy) / d) * knock;
   }
@@ -4836,8 +4861,9 @@ export class Field {
   private shotSplash(b: Bullet, e: Enemy, mult: number): void {
     const speed = Math.hypot(b.vx, b.vy) || 1;
     if (!e.boss && e.hp > 0) {
-      e.kx += (b.vx / speed) * SHOT_SPLASH.knock;
-      e.ky += (b.vy / speed) * SHOT_SPLASH.knock;
+      const k = SHOT_SPLASH.knock * this.knockMult(b.shooter);
+      e.kx += (b.vx / speed) * k;
+      e.ky += (b.vy / speed) * k;
     }
     for (const o of [...this.enemies]) {
       if (o === e || o.hp <= 0) continue;
@@ -5017,8 +5043,9 @@ export class Field {
     e.hp -= dmg;
     e.flash = 1;
     if (!e.boss) {
-      e.kx += dirX * 90;
-      e.ky += dirY * 90;
+      const k = 90 * this.knockMult(shooter);
+      e.kx += dirX * k;
+      e.ky += dirY * k;
     }
     this.events.push({ type: 'hit', x: e.x, y: e.y - e.r, dmg, crit, dtype, affinity: affinity(dtype, e.type) });
     // Some Guardians are beaten before their HP runs out (the Time Eater: at half).

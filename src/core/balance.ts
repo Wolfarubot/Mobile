@@ -1175,18 +1175,18 @@ export interface AreaDef {
 // Crypt, ÷18 from the Frost Peaks, ÷20 in the Void Rift, ÷30 for the Time Eater; in the Woods only its Guardian,
 // ÷2): about the damage per second the removed Upgrades that boosted every Hunter had added by each area.
 export const AREAS: AreaDef[] = [
-  { id: 'forest', name: 'Wandering Woods', icon: '🌲', hp: 1, gold: 1, speed: 36, mastery: 6_000, guardian: 1_910, guardianTap: 0.15, palette: ['#183c18', '#2f7d32', '#7ec850', '#e2f5c4'], ground: ['#6cb848', '#58a03c'], blurb: 'Where every hunt begins.' },
-  { id: 'glade', name: 'Fey Grove', icon: '🧚', hp: 57, gold: 139, speed: 38, mastery: 28_000, guardian: 9_950, guardianTap: 0.15, palette: ['#221a30', '#5a4a8a', '#a8d8b0', '#f4f0ff'], ground: ['#7cc47c', '#8ed28a'], blurb: 'Mushroom rings and things that bite.' },
-  { id: 'graveyard', name: 'Restless Graveyard', icon: '🪦', hp: 335, gold: 33_500, speed: 40, mastery: 280_000, guardian: 82_400, guardianTap: 0.15, palette: ['#1e1a2a', '#4a4460', '#9a94b0', '#e8e4f0'], ground: ['#5b5670', '#4c4762'], blurb: 'The dead do not rest here.' },
-  { id: 'crypt', name: 'Forbidden Crypt', icon: '⚰️', hp: 601, gold: 3_160_000, speed: 42, mastery: 420_000, guardian: 193_000, guardianTap: 0.15, palette: ['#1a1614', '#4a403a', '#9a8e80', '#ece4d8'], ground: ['#5a524a', '#4e4640'], blurb: 'Deeper than the graves, and older.' },
-  { id: 'depths', name: 'Shadowy Depths', icon: '🕳️', hp: 1890, gold: 24_500_000_000, speed: 43, mastery: 400_000, guardian: 316_000, guardianTap: 0.15, palette: ['#120e1c', '#3a3050', '#8a7ea8', '#e6e0f4'], ground: ['#2e2838', '#26212f'], blurb: 'Below the crypt, the dark has teeth.' },
-  { id: 'caves', name: 'Ember Mines', icon: '🌋', hp: 2680, gold: 5_370_000_000_000, speed: 45, mastery: 700_000, guardian: 3_170_000, palette: ['#2a0e08', '#8a2c10', '#e07030', '#fde4c0'], ground: ['#6a2c1a', '#823722'], blurb: 'Hot, bright and full of teeth.' },
-  { id: 'mines', name: 'Venom Caverns', icon: '🦂', hp: 4900, gold: 158_000_000_000_000, speed: 47, mastery: 1_000_000, guardian: 3_330_000, palette: ['#1e140a', '#6a4a22', '#c09050', '#f4e4c8'], ground: ['#5a4228', '#4e3820'], blurb: 'Dug too deep, woke too much.' },
-  { id: 'peaks', name: 'Frost Peaks', icon: '🏔️', hp: 12_500, gold: 6.71e15, speed: 50, mastery: 2_200_000, guardian: 4_320_000, palette: ['#0c2038', '#2a60a0', '#78b8e8', '#e4f4ff'], ground: ['#bcd8f0', '#a4c6e6'], blurb: 'Cold winds carry cold things.' },
-  { id: 'cliffs', name: 'Ascendant Steps', icon: '🪜', hp: 31_300, gold: 1.12e18, speed: 53, mastery: 800_000, guardian: 7_360_000, palette: ['#141c30', '#4a5a86', '#a8b8e0', '#f2f4ff'], ground: ['#9aa6bc', '#8a96ac'], blurb: 'Stone stairs above the peaks, climbing into the sky.' },
-  { id: 'fortress', name: 'Cloud Fortress', icon: '🏰', hp: 44_000, gold: 2e19, speed: 54, mastery: 2_400_000, guardian: 22_200_000, palette: ['#1a2440', '#4a70b0', '#a8d0f8', '#fdfcf4'], ground: ['#e8f0fa', '#d4e2f4'], blurb: 'A citadel on the clouds, held by storm and steel.' },
-  { id: 'meteors', name: 'Meteor Field', icon: '☄️', hp: 62_400, gold: 3.46e20, speed: 55, mastery: 4_000_000, guardian: 23_300_000, palette: ['#0a0a1e', '#3a2a6a', '#e08a4a', '#fce8d0'], ground: ['#1c1830', '#2a2440'], blurb: 'Past the sky, where falling stars still burn.' },
-  { id: 'rift', name: 'Void Rift', icon: '♾️', hp: 150_000, gold: 1e22, speed: 56, mastery: 6_000_000, guardian: 520_000_000, palette: ['#1a0830', '#5a2098', '#b070e0', '#f2e4ff'], ground: ['#2a1440', '#3a1d58'], blurb: 'The end of the known world.' },
+  { id: 'forest', name: 'Wandering Woods', icon: '🌲', hp: 1, gold: 1, speed: 36, mastery: 6_000, guardian: 2_530, guardianTap: 0.15, palette: ['#183c18', '#2f7d32', '#7ec850', '#e2f5c4'], ground: ['#6cb848', '#58a03c'], blurb: 'Where every hunt begins.' },
+  { id: 'glade', name: 'Fey Grove', icon: '🧚', hp: 57, gold: 139, speed: 38, mastery: 28_000, guardian: 9_240, guardianTap: 0.15, palette: ['#221a30', '#5a4a8a', '#a8d8b0', '#f4f0ff'], ground: ['#7cc47c', '#8ed28a'], blurb: 'Mushroom rings and things that bite.' },
+  { id: 'graveyard', name: 'Restless Graveyard', icon: '🪦', hp: 335, gold: 33_500, speed: 40, mastery: 280_000, guardian: 50_300, guardianTap: 0.15, palette: ['#1e1a2a', '#4a4460', '#9a94b0', '#e8e4f0'], ground: ['#5b5670', '#4c4762'], blurb: 'The dead do not rest here.' },
+  { id: 'crypt', name: 'Forbidden Crypt', icon: '⚰️', hp: 601, gold: 3_160_000, speed: 42, mastery: 420_000, guardian: 290_000, guardianTap: 0.15, palette: ['#1a1614', '#4a403a', '#9a8e80', '#ece4d8'], ground: ['#5a524a', '#4e4640'], blurb: 'Deeper than the graves, and older.' },
+  { id: 'depths', name: 'Shadowy Depths', icon: '🕳️', hp: 1890, gold: 24_500_000_000, speed: 43, mastery: 400_000, guardian: 764_000, guardianTap: 0.15, palette: ['#120e1c', '#3a3050', '#8a7ea8', '#e6e0f4'], ground: ['#2e2838', '#26212f'], blurb: 'Below the crypt, the dark has teeth.' },
+  { id: 'caves', name: 'Ember Mines', icon: '🌋', hp: 2680, gold: 5_370_000_000_000, speed: 45, mastery: 700_000, guardian: 3_390_000, palette: ['#2a0e08', '#8a2c10', '#e07030', '#fde4c0'], ground: ['#6a2c1a', '#823722'], blurb: 'Hot, bright and full of teeth.' },
+  { id: 'mines', name: 'Venom Caverns', icon: '🦂', hp: 4900, gold: 158_000_000_000_000, speed: 47, mastery: 1_000_000, guardian: 7_150_000, palette: ['#1e140a', '#6a4a22', '#c09050', '#f4e4c8'], ground: ['#5a4228', '#4e3820'], blurb: 'Dug too deep, woke too much.' },
+  { id: 'peaks', name: 'Frost Peaks', icon: '🏔️', hp: 12_500, gold: 6.71e15, speed: 50, mastery: 2_200_000, guardian: 28_300_000, palette: ['#0c2038', '#2a60a0', '#78b8e8', '#e4f4ff'], ground: ['#bcd8f0', '#a4c6e6'], blurb: 'Cold winds carry cold things.' },
+  { id: 'cliffs', name: 'Ascendant Steps', icon: '🪜', hp: 31_300, gold: 1.12e18, speed: 53, mastery: 800_000, guardian: 42_600_000, palette: ['#141c30', '#4a5a86', '#a8b8e0', '#f2f4ff'], ground: ['#9aa6bc', '#8a96ac'], blurb: 'Stone stairs above the peaks, climbing into the sky.' },
+  { id: 'fortress', name: 'Cloud Fortress', icon: '🏰', hp: 44_000, gold: 2e19, speed: 54, mastery: 2_400_000, guardian: 266_000_000, palette: ['#1a2440', '#4a70b0', '#a8d0f8', '#fdfcf4'], ground: ['#e8f0fa', '#d4e2f4'], blurb: 'A citadel on the clouds, held by storm and steel.' },
+  { id: 'meteors', name: 'Meteor Field', icon: '☄️', hp: 62_400, gold: 3.46e20, speed: 55, mastery: 4_000_000, guardian: 2_880_000_000, palette: ['#0a0a1e', '#3a2a6a', '#e08a4a', '#fce8d0'], ground: ['#1c1830', '#2a2440'], blurb: 'Past the sky, where falling stars still burn.' },
+  { id: 'rift', name: 'Void Rift', icon: '♾️', hp: 150_000, gold: 1e22, speed: 56, mastery: 6_000_000, guardian: 3_330_000_000, palette: ['#1a0830', '#5a2098', '#b070e0', '#f2e4ff'], ground: ['#2a1440', '#3a1d58'], blurb: 'The end of the known world.' },
 ];
 
 export const areaDef = (id: AreaId): AreaDef => byId(AREAS, id);
@@ -3458,7 +3458,11 @@ export type GearEffect =
 export const effectCooldown = (e: GearEffect): number | null => ('cooldown' in e ? e.cooldown : null);
 
 /** A piece's ability base damage at its stars. */
-export const effectBase = (e: GearEffect, stars: number): number => ('base' in e ? e.base * WEAPON_HIT_POWER[Math.max(1, Math.min(MAX_EFFECTIVE_STARS, stars))] : 0);
+/** An ability's damage at a star count: armor's and accessories' grow as their stats do (gearStarPower), weapons' by WEAPON_HIT_POWER. */
+export const effectBase = (e: GearEffect, stars: number, def?: GearDef): number =>
+  'base' in e ? e.base * (def && !def.weaponClass ? gearStarPower(def, Math.max(1, stars)) : WEAPON_HIT_POWER[Math.max(1, Math.min(MAX_EFFECTIVE_STARS, stars))]) : 0;
+/** A chance-based ability's chance at a star count (dodging grows with the piece's stars). */
+export const effectChance = (e: GearEffect, stars: number, def?: GearDef): number => ('chance' in e && e.chance !== undefined ? (e.kind === 'evade' && def && !def.weaponClass ? e.chance * gearStarPower(def, Math.max(1, stars)) : e.chance) : 1);
 
 /** Weapon kinds: a Hunter's weapon slot powers their special attack. */
 export const WEAPON_KINDS: GearKind[] = ['weapon', 'melee', 'magic'];
@@ -3477,7 +3481,7 @@ export const DEFAULT_SLOTS: SlotDef[] = [
 ];
 
 /** What a piece of gear can modify. Values are per gear level. */
-export type GearStat = 'damage' | 'rate' | 'range' | 'crit' | 'stun' | 'guard' | 'gold' | 'drops' | 'radius' | 'pierce' | 'cooldown' | 'critDamage' | 'duration' | 'abilityPower' | 'statusChance' | 'bowDamage' | 'gunDamage' | 'meleeDamage' | 'magicDamage';
+export type GearStat = 'damage' | 'rate' | 'range' | 'crit' | 'stun' | 'guard' | 'gold' | 'drops' | 'radius' | 'pierce' | 'cooldown' | 'critDamage' | 'duration' | 'abilityPower' | 'statusChance' | 'bowDamage' | 'gunDamage' | 'meleeDamage' | 'magicDamage' | 'knockback' | 'flurry';
 
 export const GEAR_STATS: Record<GearStat, (v: number) => string> = {
   damage: (v) => `+${Math.round(v * 100)}% damage`,
@@ -3501,6 +3505,10 @@ export const GEAR_STATS: Record<GearStat, (v: number) => string> = {
   gunDamage: (v) => `+${Math.round(v * 100)}% damage with guns`,
   meleeDamage: (v) => `+${Math.round(v * 100)}% damage with melee weapons`,
   magicDamage: (v) => `+${Math.round(v * 100)}% damage with magic weapons`,
+  // Heavy armor's push: every hit knocks monsters further back.
+  knockback: (v) => `+${Math.round(v * 100)}% knockback`,
+  // Light armor's Flurry: a chance each attack goes off twice in a row (and after every dodge).
+  flurry: (v) => `${Math.round(v * 100)}% Flurry`,
 };
 
 export type BaseGearId =
@@ -3663,6 +3671,8 @@ export interface GearDef {
   accType?: AccType;
   /** Rarer armor and accessories: a special effect (see GearEffect). */
   effect?: GearEffect;
+  /** Armor's own ability, which every piece of its kind has: a Robe's Pulse, Heavy armor's Thorns (light armor's Flurry is a stat). */
+  identity?: GearEffect;
   /** Extra damage against one archetype (+bonus at 1★, ×GEAR_STAR_POWER for stars), e.g. the Fang Talisman vs Beasts. */
   bane?: { archetype: Archetype; bonus: number };
   /** From `stars`★: the wearer's kills of `archetype` have `chance` to also drop one `material` (the Slime Vial's Royal Slime). */
@@ -3808,7 +3818,7 @@ export const firesShots = (d: GearDef): boolean => isWeapon(d) && d.kind !== 'me
 /** Gear that summons (a tome, a Puppeteer's Doll), for summon modifiers. */
 const summons = (d: GearDef) => (isWeapon(d) && !!WEAPON_CLASSES[d.weaponClass!].summon) || d.effect?.kind === 'summon';
 /** Gear with a built-in ability on a cooldown (pulses, strikes, summons, a tome's lunge), for Haste. */
-const hasCooldown = (d: GearDef) => (!!d.effect && 'cooldown' in d.effect) || !!d.summon?.dash;
+const hasCooldown = (d: GearDef) => (!!d.effect && 'cooldown' in d.effect) || (!!d.identity && 'cooldown' in d.identity) || !!d.summon?.dash;
 
 /** Refine modifiers: stat bonuses. `range` is at Legendary (see MOD_POWER); `fits` says which pieces take it. */
 export const REFINES: Record<RefineStat, { name: string; icon: string; range: [number, number]; int?: boolean; text: (v: number) => string; fits: (def: GearDef) => boolean }> = {
@@ -5161,6 +5171,173 @@ function assignVariants(): void {
 }
 assignVariants();
 
+// ---- Armor and accessory stats: one table for every area ----
+/**
+ * Armor and accessories at 5★ are their 1★ × their area's star multiplier (the stars between in even steps): ×2 in
+ * the first areas, easing to ×1.5 from the Venom Caverns on, so high numbers don't double. Each area's 1★ is about the
+ * last area's 3.5★: new gear is a step up on well-upgraded old gear, and old 5★ gear carries you until it's found.
+ */
+export const AREA_STAR_MULT: number[] = [2, 2, 2, 1.85, 1.7, 1.6, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5];
+/**
+ * What a stat-only accessory is worth at 1★ in each area, as damage (0.1 = +10%); past the Void Rift (the Unbound
+ * areas) each step ×UNBOUND_WORTH_STEP. Pieces deeper into an area sit a little toward the next area's.
+ */
+export const AREA_WORTH: number[] = [0.1, 0.15, 0.25, 0.4, 0.6, 0.85, 1.15, 1.5, 2, 2.6, 3.4, 4.5];
+export const UNBOUND_WORTH_STEP = 1.3;
+/** Damage-type stats, per 1% of damage they're worth: narrower ones give more (crit damage only counts on crits). */
+export const WORTH_RATE: Partial<Record<GearStat, number>> = { damage: 1, bowDamage: 1.25, gunDamage: 1.25, meleeDamage: 1.25, magicDamage: 1.25, abilityPower: 1.25, duration: 1.5, critDamage: 2 };
+/** A bane (damage against one kind of monster) and a type bonus (one damage type), per 1% of damage. */
+export const BANE_RATE = 2.5;
+export const TYPE_BONUS_RATE = 1.5;
+/**
+ * Stats that are capped or multiply each other don't grow with damage: a stat-only accessory's 1★ value in the
+ * Wandering Woods and in the Void Rift, in a straight line between (and on past, for the Unbound areas).
+ */
+export const STAT_SCALE: Partial<Record<GearStat, [number, number]>> = {
+  rate: [0.1, 0.4], crit: [0.03, 0.12], stun: [0.15, 0.4], cooldown: [0.03, 0.12], radius: [0.1, 0.35], range: [8, 40],
+  gold: [0.2, 1.5], drops: [0.2, 1.5], statusChance: [0.02, 0.08], knockback: [0.25, 0.8], flurry: [0.04, 0.1],
+};
+/** Light armor's Flurry at 1★ (Woods, Rift): its own ability, on top of its stats. */
+export const FLURRY_CHANCE: [number, number] = [0.05, 0.12];
+/** Armor's stats are this share of an accessory's: its ability (Pulse, Thorns and shield charges, Flurry) is the rest. */
+export const ARMOR_SHARE = 0.5;
+/**
+ * Each ability and modifier slot a piece has past what its rarity usually has costs it this share of its stats,
+ * and each it's short of gains it (a stat-only accessory hits harder than one that summons, at the same rarity).
+ */
+export const EXTRA_STEP = 0.3;
+
+const areaWorth = (i: number): number => (i < AREA_WORTH.length ? AREA_WORTH[Math.max(0, i)] : AREA_WORTH[AREA_WORTH.length - 1] * UNBOUND_WORTH_STEP ** (i - AREA_WORTH.length + 1));
+/** The table's place for a (fractional) tier: its area, plus half the way toward the next for how deep into it. */
+const tierPlace = (tier: number): number => {
+  const a = Math.max(1, Math.floor(tier));
+  return a + 0.5 * Math.min(0.99, Math.max(0, tier - a));
+};
+/** A stat-only accessory's worth at 1★ at a tier. */
+export function worthAt(tier: number): number {
+  const t = tierPlace(tier);
+  const a = Math.floor(t);
+  const lo = areaWorth(a - 1);
+  return lo * (areaWorth(a) / lo) ** (t - a);
+}
+/** A capped stat's 1★ value on a stat-only accessory at a tier. */
+export function scaleAt(stat: GearStat, tier: number, scale = STAT_SCALE[stat]): number {
+  if (!scale) return 0;
+  return scale[0] + ((scale[1] - scale[0]) * (tierPlace(tier) - 1)) / 11;
+}
+/** A non-weapon piece's power at a star count, as a multiple of its 1★ (5★ = its area's star multiplier). */
+export function gearStarPower(def: GearDef, stars: number): number {
+  const s = Math.max(0, Math.min(MAX_EFFECTIVE_STARS, stars));
+  if (!s) return 0;
+  if (def.weaponClass) return GEAR_STAR_POWER[s];
+  const mult = AREA_STAR_MULT[Math.min(AREA_STAR_MULT.length, Math.max(1, Math.floor(gearTier(def)))) - 1];
+  return 1 + ((s - 1) * (mult - 1)) / 4;
+}
+
+/** How many abilities and modifier slots a piece has (an armor's own ability isn't counted: ARMOR_SHARE covers it). */
+const gearExtras = (d: GearDef): number => (d.effect ? 1 : 0) + (d.builtIn?.length ?? 0) + (d.slots ?? 0);
+/** What each rarity's pieces usually have (the average of its variants). */
+const RARITY_EXTRAS: Partial<Record<Rarity, number>> = Object.fromEntries(
+  Object.entries(GEAR_VARIANTS).map(([r, vs]) => [r, vs!.reduce((sum, v) => sum + (v.fx === 'unique' ? 1 : v.fx) + v.slots, 0) / vs!.length]),
+);
+/** The share of the table a piece's stats get: armor's half, more for fewer abilities and slots than its rarity's usual. */
+export function statShare(d: GearDef): number {
+  const kind = d.kind === 'armor' ? ARMOR_SHARE : 1;
+  return kind * Math.min(1.6, Math.max(0.5, 1 + EXTRA_STEP * ((RARITY_EXTRAS[d.rarity] ?? 0) - gearExtras(d))));
+}
+
+/**
+ * What each stat on a piece weighed in the old hand-made numbers (how much of it made a full stat), so a piece keeps
+ * its mix: the Soulforged Crown stays half damage, half crit damage.
+ */
+const OLD_UNIT: Partial<Record<GearStat | 'bane' | 'typeBonus', number>> = {
+  damage: 1, critDamage: 1, rate: 0.82, crit: 0.37, stun: 0.7, radius: 1.3, range: 170, gold: 2.7, drops: 2.5, cooldown: 0.25,
+  duration: 1, abilityPower: 1.35, statusChance: 0.17, bowDamage: 1.25, gunDamage: 1.25, meleeDamage: 1.25, magicDamage: 1.25,
+  knockback: 2, flurry: 0.4, bane: 0.75, typeBonus: 1,
+};
+type Mix = Partial<Record<GearStat | 'bane' | 'typeBonus', number>>;
+/**
+ * Armor mixes, as shares of its stats (they take turns through each kind's pieces). Light: attack speed, with crit,
+ * damage, crit damage or status. Heavy: shorter stuns, with damage, knockback or reach. Robe: damage, with area,
+ * ability power or cooldowns.
+ */
+export const ARMOR_MIXES: Record<ArmorType, Mix[]> = {
+  light: [{ rate: 0.7, damage: 0.3 }, { rate: 0.6, crit: 0.4 }, { rate: 0.6, critDamage: 0.4 }, { rate: 0.6, statusChance: 0.2, duration: 0.2 }],
+  heavy: [{ stun: 0.6, damage: 0.4 }, { stun: 0.6, knockback: 0.4 }, { stun: 0.6, range: 0.4 }],
+  robe: [{ damage: 0.6, radius: 0.4 }, { damage: 0.5, abilityPower: 0.5 }, { damage: 0.5, cooldown: 0.5 }],
+};
+/** A piece's stats (and bane / type bonus) at a tier, from its mix and its share of the table. */
+function statsFromMix(d: GearDef, mix: Mix, tier: number): { stats: GearDef['stats']; bane?: number; typeBonus?: number } {
+  const total = Object.values(mix).reduce((a, b) => a + b!, 0) || 1;
+  const share = statShare(d);
+  const worth = worthAt(tier);
+  const stats: GearDef['stats'] = {};
+  let bane: number | undefined;
+  let typeBonus: number | undefined;
+  for (const [k, w] of Object.entries(mix) as Array<[keyof Mix, number]>) {
+    const part = (w / total) * share;
+    if (k === 'bane') bane = Math.round(worth * part * BANE_RATE * 1000) / 1000;
+    else if (k === 'typeBonus') typeBonus = Math.round(worth * part * TYPE_BONUS_RATE * 1000) / 1000;
+    else {
+      const v = k in WORTH_RATE ? worth * part * WORTH_RATE[k]! : scaleAt(k, tier) * part;
+      stats[k] = k === 'range' ? Math.round(v * 10) / 10 : Math.round(v * 1000) / 1000;
+    }
+  }
+  if (d.stats.guard) stats.guard = d.stats.guard;
+  return { stats, bane, typeBonus };
+}
+/** A piece's mix from its hand-made numbers (or its armor kind's turn). */
+function mixOf(d: GearDef, armorTurn?: number): Mix {
+  if (d.armorType && armorTurn !== undefined) return ARMOR_MIXES[d.armorType][armorTurn % ARMOR_MIXES[d.armorType].length];
+  const mix: Mix = {};
+  for (const [k, v] of Object.entries(d.stats) as [GearStat, number][]) if (k !== 'guard' && k !== 'pierce' && v > 0 && OLD_UNIT[k]) mix[k] = v / OLD_UNIT[k]!;
+  if (d.bane) mix.bane = d.bane.bonus / OLD_UNIT.bane!;
+  if (d.typeBonus) mix.typeBonus = d.typeBonus.bonus / OLD_UNIT.typeBonus!;
+  return mix;
+}
+/** Every armor and accessory's stats at a tier from the table (also used for Unbound copies). */
+export function rebuildGearStats(d: GearDef, mix: Mix, tier: number): void {
+  const { stats, bane, typeBonus } = statsFromMix(d, mix, tier);
+  // Light armor's own ability: Flurry, outside its share.
+  if (d.armorType === 'light') stats.flurry = Math.round(scaleAt('flurry', tier, FLURRY_CHANCE) * 1000) / 1000;
+  d.stats = stats;
+  if (d.bane && bane !== undefined) d.bane = { ...d.bane, bonus: bane };
+  if (d.typeBonus && typeBonus !== undefined) d.typeBonus = { ...d.typeBonus, bonus: typeBonus };
+  // Potions: three times a stat-only piece's value of their stat, for their duration.
+  if (d.effect?.kind === 'potion') {
+    const st = d.effect.stat;
+    const v = 3 * (st in WORTH_RATE ? worthAt(tier) * WORTH_RATE[st]! : scaleAt(st, tier));
+    d.effect = { ...d.effect, value: st === 'range' ? Math.round(v) : Math.round(v * 1000) / 1000 };
+  }
+}
+/** The mixes the catalog's armor and accessories were given (kept for their Unbound copies). */
+const GEAR_MIX = new Map<string, Mix>();
+(() => {
+  const turns: Partial<Record<ArmorType, number>> = {};
+  const byTier = GEAR.map((g, i) => ({ g, i })).sort((a, b) => gearTier(a.g) - gearTier(b.g) || a.i - b.i).map((x) => x.g);
+  for (const d of byTier) {
+    if (d.weaponClass || d.starter || WEAPON_KINDS.includes(d.kind)) continue;
+    const tier = gearTier(d);
+    const area = Math.min(AREAS.length, Math.max(1, Math.floor(tier)));
+    // Armor's own ability: every Robe pulses and all Heavy armor has Thorns (a piece that had one keeps its look).
+    if (d.armorType === 'robe' || d.armorType === 'heavy') {
+      const own = d.effect && (d.effect.kind === 'pulse' || d.effect.kind === 'thorns') ? d.effect : undefined;
+      if (own) delete d.effect;
+      const base = Math.round(tierHitAt(tier) * 10) / 10;
+      const damageType = own && 'damageType' in own ? own.damageType : AREA_ELEMENT[area - 1];
+      d.identity = d.armorType === 'robe' ? { kind: 'pulse', base, damageType, radius: own?.kind === 'pulse' ? own.radius : 70 + 4 * area, cooldown: own?.kind === 'pulse' ? own.cooldown : 6 } : { kind: 'thorns', base, damageType };
+    }
+    // Dodging grows with stars now: its 1★ chance a little lower than it was.
+    if (d.effect?.kind === 'evade') d.effect = { ...d.effect, chance: Math.round(d.effect.chance * 0.75 * 1000) / 1000 };
+    const turn = d.armorType ? (turns[d.armorType] = (turns[d.armorType] ?? -1) + 1) : undefined;
+    const mix = mixOf(d, turn);
+    GEAR_MIX.set(d.id, mix);
+    rebuildGearStats(d, mix, tier);
+  }
+})();
+/** A piece's mix (for its Unbound copy). */
+export const gearMix = (id: string): Mix | undefined => GEAR_MIX.get(id);
+
 /** A piece's modifier slots. */
 export const modSlotCount = (def: GearDef): number => def.slots ?? MOD_SLOTS[def.rarity];
 
@@ -5179,8 +5356,9 @@ export const gearColor = (id: GearId): string => RARITIES[gearDef(id).rarity].co
 export function gearStats(def: GearDef, stars: number): Partial<Record<GearStat, number>> {
   const out: Partial<Record<GearStat, number>> = {};
   const st = Math.max(0, Math.min(MAX_EFFECTIVE_STARS, stars));
-  // Shield charges grow slowly with stars (a 5★ piece has twice its 1★ charges); everything else ×GEAR_STAR_POWER.
-  for (const [k, v] of Object.entries(def.stats) as [GearStat, number][]) out[k] = v * (k === 'guard' ? GUARD_STAR_POWER[st] : GEAR_STAR_POWER[st]);
+  // Shield charges grow slowly with stars (a 5★ piece has twice its 1★ charges); everything else by gearStarPower.
+  const power = gearStarPower(def, st);
+  for (const [k, v] of Object.entries(def.stats) as [GearStat, number][]) out[k] = v * (k === 'guard' ? GUARD_STAR_POWER[st] : power);
   return out;
 }
 
@@ -5205,15 +5383,15 @@ export function describeGear(stats: Partial<Record<GearStat, number>>): string {
 export const tomeSummonType = (def: GearDef): SummonType => def.summonType ?? (def.summon?.look === 'wolf' ? 'beast' : 'spirit');
 
 /** A gear effect in words, with its damage at a star count (before the wearer's bonuses). */
-export function describeEffect(e: GearEffect, stars: number): string {
-  const dmg = 'base' in e ? `${fmtNum(effectBase(e, stars))} ${DAMAGE_TYPES[e.damageType].name}` : '';
+export function describeEffect(e: GearEffect, stars: number, def?: GearDef): string {
+  const dmg = 'base' in e ? `${fmtNum(effectBase(e, stars, def))} ${DAMAGE_TYPES[e.damageType].name}` : '';
   switch (e.kind) {
     case 'thorns':
       return `Thorns: monsters that reach you take ${dmg} damage.`;
     case 'block':
       return `Shield burst: each block blasts ${dmg} damage at everything nearby.`;
     case 'evade':
-      return `Evasion: ${Math.round(e.chance * 100)}% chance to slip past a monster that reaches you, without being stunned or using a shield.`;
+      return `Evasion: ${Math.round(effectChance(e, stars, def) * 100)}% chance to slip past a monster that reaches you, without being stunned or using a shield (and Flurry with your next attack).`;
     case 'pulse':
       return `Pulse: every ${e.cooldown} seconds, a burst of ${dmg} damage around you.`;
     case 'summon':
@@ -5229,13 +5407,12 @@ export function describeEffect(e: GearEffect, stars: number): string {
     case 'unique':
       return `${UNIQUE_EFFECTS[e.id].name}: every ${e.cooldown} seconds, ${UNIQUE_EFFECTS[e.id].desc} (${dmg} damage).`;
     case 'potion':
-      return `Potion: every ${e.cooldown} seconds, gain ${GEAR_STATS[e.stat](potionValue(e, stars))} for ${e.duration} seconds.`;
+      return `Potion: every ${e.cooldown} seconds, gain ${GEAR_STATS[e.stat](potionValue(e, stars, def))} for ${e.duration} seconds.`;
   }
 }
 
-/** A potion's boost at a piece's stars: +10% per star past the first. */
-/** A potion's boost at a piece's stars: it grows with stars like any stat (×1, ×2, ×4, ×7, ×10). */
-export const potionValue = (e: Extract<GearEffect, { kind: 'potion' }>, stars: number): number => e.value * GEAR_STAR_POWER[Math.max(1, Math.min(MAX_EFFECTIVE_STARS, stars))];
+/** A potion's boost at a piece's stars: it grows with stars like the piece's stats (gearStarPower). */
+export const potionValue = (e: Extract<GearEffect, { kind: 'potion' }>, stars: number, def?: GearDef): number => e.value * (def ? gearStarPower(def, Math.max(1, stars)) : GEAR_STAR_POWER[Math.max(1, Math.min(MAX_EFFECTIVE_STARS, stars))]);
 
 /**
  * The spell a staff casts after its bolts: one of its type's (TYPE_SPELLS), taking turns between that type's
@@ -5855,11 +6032,11 @@ export function unboundId<T extends string>(id: T): `u_${T}` {
 /** Gear stats (armor, accessories, banes) grow by this with tier, as the catalog's do (1 + 30% an area past the Graveyard). */
 const tierStatScale = (t: number): number => 1 + 0.3 * (t - 3);
 /** A weapon's base hit at a (fractional) tier, as weaponHit works it out. */
-const tierHitAt = (t: number): number => {
+function tierHitAt(t: number): number {
   const c = Math.max(1, Math.min(TIER_HIT.length, t));
   const lo = Math.floor(c);
   return lo >= TIER_HIT.length ? TIER_HIT[TIER_HIT.length - 1] : TIER_HIT[lo - 1] * (TIER_HIT[lo] / TIER_HIT[lo - 1]) ** (c - lo);
-};
+}
 
 const UNBOUND_MATERIAL_MAP = new Map<string, MaterialDef>();
 /** An original material's Unbound copy: same name, colour and look; its own count. */
@@ -5907,7 +6084,11 @@ function unboundGearDef(id: UnboundGearId): GearDef {
     // One more built-in effect than its original.
     builtIn: unboundBuiltIns(base, id),
     starter: false,
+   ...(base.identity && 'base' in base.identity ? { identity: { ...base.identity, base: Math.round(base.identity.base * hk * 10) / 10 } as GearEffect } : {}),
   };
+  // Armor and accessories: the table carried on past the Void Rift (their mix, at their Unbound tier).
+  const mix = gearMix(base.id);
+  if (!base.weaponClass && mix) rebuildGearStats(d, mix, t1);
   UNBOUND_GEAR_MAP.set(id, d);
   return d;
 }

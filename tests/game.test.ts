@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { GEAR_CATALOG } from '../src/core/gearCatalog';
 import { GEAR_SPRITES } from '../src/core/gearSprites';
 import { describe, expect, it } from 'vitest';
-import { ARROW_RAIN, FOCUS_VIEW_SHARE, GUARDIAN_TAP_TAKEN, archetypeValue, armorStats, mirrorStats, WEAPON_ARCHETYPES, weaponArchetype, withArchetype, type WeaponClass, type EnemyId } from '../src/core/balance';
+import { ARMOR_MIXES, AREA_STAR_MULT, AREA_WORTH, statShare, worthAt, WORTH_RATE, ARROW_RAIN, FOCUS_VIEW_SHARE, GUARDIAN_TAP_TAKEN, archetypeValue, WEAPON_ARCHETYPES, weaponArchetype, withArchetype, type WeaponClass, type EnemyId } from '../src/core/balance';
 import {
   areaDef,
   AREAS,
@@ -1555,13 +1555,13 @@ describe('Equipment', () => {
     expect(g.damage).toBeCloseTo(dmg * weaponHit(gearDef('forestBow'), 1));
     expect(weaponHit(gearDef('forestBow'), 1)).toBeGreaterThan(weaponHit(gearDef('shortBow'), 1)); // crafted beats starting gear
     const stun = g.stunTime();
-    const vest = g.craftGear('furCoat')!;
+    const vest = g.craftGear('boneArmor')!;
     g.equip('main', 1, vest.uid);
     expect(g.stunTime()).toBeLessThan(stun);
     const lens = g.craftGear('hawkeyeLens')!;
     const range = g.shooterRange('main');
     g.equip('main', 2, lens.uid);
-    expect(g.shooterRange('main')).toBe(range + 20);
+    expect(g.shooterRange('main')).toBeCloseTo(range + gearTotals(gearDef('hawkeyeLens'), 1).range!);
   });
 
   it('magic weapons: Glimmer takes only magic, Andrejz takes ranged or magic, nobody else takes magic', () => {
@@ -1592,7 +1592,7 @@ describe('Equipment', () => {
     // Area gear still widens it too, and Hunters without a special have none.
     const orb = g.craftGear('emberOrb')!;
     g.equip('glimmer', 2, orb.uid);
-    expect(g.specialRadius('glimmer')).toBeCloseTo(r * 1.15 * 1.12);
+    expect(g.specialRadius('glimmer')).toBeCloseTo(r * 1.15 * (1 + gearTotals(gearDef('emberOrb'), 1).radius!));
     expect(g.specialCooldown('bard')).toBeNull();
     expect(g.specialDamageMult('bard')).toBe(0);
   });
@@ -2378,6 +2378,48 @@ describe('Equipment', () => {
     expect(g.shooterRange('wilhelm', 'long')).toBeCloseTo(MAIN_RANGE * shapedClass('frostRifle').range + 15);
   });
 
+  it("armor and accessories follow one table: each area's 1★ is about the last area's 3.5★, 5★ eases from ×2 to ×1.5", () => {
+    for (let a = 1; a < AREA_WORTH.length; a++) {
+      const m = AREA_STAR_MULT[a - 1];
+      const stars = 1 + (4 * (AREA_WORTH[a] / AREA_WORTH[a - 1] - 1)) / (m - 1);
+      expect(stars, AREAS[a].id).toBeGreaterThan(2.9);
+      expect(stars, AREAS[a].id).toBeLessThan(3.8);
+    }
+    expect(AREA_STAR_MULT[0]).toBe(2);
+    expect(AREA_STAR_MULT[AREA_STAR_MULT.length - 1]).toBe(1.5);
+    // A stat-only damage accessory is worth exactly its share of the table; armor gets half.
+    const ring = gearDef('cinderRing');
+    expect(gearStats(ring, 1).damage).toBeCloseTo(worthAt(gearTier(ring)) * statShare(ring), 2);
+    const robe = gearDef('cinderShroud');
+    expect(statShare(robe)).toBeLessThan(statShare(ring));
+    // Each area's typical accessory, in damage worth (its damage-type stats, each at its exchange rate), beats the last
+    // area's (a piece with fewer abilities and slots than its rarity's usual can out-stat the next area's that has more).
+    const worth = (d: (typeof GEAR)[number]) => Object.entries(gearStats(d, 1)).reduce((sum, [k, v]) => sum + (k in WORTH_RATE ? v! / WORTH_RATE[k as keyof typeof WORTH_RATE]! : 0), 0);
+    let prev = 0;
+    for (let t = 1; t <= AREAS.length; t++) {
+      const ws = GEAR.filter((d) => gearArea(d) === t && d.kind === 'accessory').map(worth).filter((w) => w > 0).sort((x, y) => x - y);
+      const best = ws[Math.floor(ws.length / 2)];
+      expect(best, AREAS[t - 1].id).toBeGreaterThan(prev);
+      prev = best;
+    }
+  });
+
+  it('light armor has Flurry: more attacks in the farm model, and every dodge sets one off', () => {
+    const g = stocked();
+    const dps = g.dpsOf('main');
+    const coat = g.craftGear('furCoat')!;
+    expect(g.gear('main').flurry).toBe(0);
+    g.equip('main', 1, coat.uid);
+    const fl = g.gear('main').flurry;
+    expect(fl).toBeCloseTo(gearStats(gearDef('furCoat'), 1).flurry!);
+    expect(g.dpsOf('main')).toBeGreaterThan(dps * (1 + fl));
+    // Heavy armor's knockback is a stat too, and a Robe pulses as hard as its area's weapons.
+    expect(GEAR.some((d) => d.armorType === 'heavy' && (d.stats.knockback ?? 0) > 0)).toBe(true);
+    const pulse = gearDef('cinderShroud').identity!;
+    expect(pulse.kind).toBe('pulse');
+    expect(effectBase(pulse, 5, gearDef('cinderShroud'))).toBeCloseTo(effectBase(pulse, 1, gearDef('cinderShroud')) * AREA_STAR_MULT[5]);
+  });
+
   it("every area's weapons outclass the same kind from the areas before it", () => {
     for (const c of Object.keys(WEAPON_CLASSES)) {
       let best = 0;
@@ -2454,24 +2496,28 @@ describe('Equipment', () => {
     expect(g.weaponClassOf('main')!.reach).toBeCloseTo(WEAPON_CLASSES.hammer.reach! * 1.35);
   });
 
-  it('armor of one kind and area comes in three stat mixes of about the same worth', () => {
+  it('armor of each kind comes in several stat mixes on its identity, taking turns through its pieces', () => {
+    const keys = (st: Partial<Record<string, number>>) => Object.keys(st).filter((k) => k !== 'guard' && k !== 'flurry').sort().join(',');
     for (const type of ['light', 'heavy', 'robe'] as const) {
-      const mixes = ([0, 1, 2] as const).map((v) => armorStats(type, 5, v));
-      expect(new Set(mixes.map((m) => JSON.stringify(m))).size).toBe(3);
-      // Worth: % stats count at face value, crit double (a crit hits for 3x), shield charges are the same in each.
-      const worth = (m: Partial<Record<string, number>>) => (m.damage ?? 0) + (m.rate ?? 0) + (m.stun ?? 0) + (m.radius ?? 0) + 2 * (m.crit ?? 0);
-      const w = mixes.map(worth);
-      expect(Math.max(...w) / Math.min(...w)).toBeLessThan(1.35);
-      expect(new Set(mixes.map((m) => m.guard)).size).toBe(1);
-      // Every mix shows up among the game's armor of that kind.
-      const used = new Set(GEAR.filter((d) => d.armorType === type).map((d) => ([0, 1, 2] as const).find((v) => [gearTier(d), Math.round(gearTier(d))].some((t) => JSON.stringify(d.stats) === JSON.stringify(armorStats(type, t, v))))));
-      expect(used.has(0) && used.has(1) && used.has(2)).toBe(true);
+      const mixes = ARMOR_MIXES[type];
+      expect(new Set(mixes.map((m) => JSON.stringify(m))).size).toBe(mixes.length);
+      for (const m of mixes) expect(Object.values(m).reduce((x, y) => x + y!, 0)).toBeCloseTo(1);
+      // Each kind's main stat is in every mix: light's attack speed, heavy's shorter stuns, a robe's damage.
+      const main = { light: 'rate', heavy: 'stun', robe: 'damage' }[type];
+      for (const m of mixes) expect(m[main as keyof typeof m]).toBeGreaterThan(0);
+      // Every mix shows up among the game's armor of that kind, and every piece wears one of them.
+      const sigs = mixes.map((m) => Object.keys(m).sort().join(','));
+      const used = GEAR.filter((d) => d.armorType === type && !d.starter).map((d) => sigs.indexOf(keys(d.stats)));
+      expect(used.every((i) => i >= 0)).toBe(true);
+      expect(new Set(used).size).toBe(mixes.length);
     }
-    // So do the accessories that mirror armor (Shields, Boots, Hoods).
-    for (const type of ['shield', 'boots', 'hood'] as const) {
-      const used = new Set(GEAR.filter((d) => d.accType === type).map((d) => ([0, 1, 2] as const).find((v) => [gearTier(d), Math.round(gearTier(d))].some((t) => JSON.stringify(d.stats) === JSON.stringify(mirrorStats(type, t, v))))));
-      expect(used.has(0) && used.has(1) && used.has(2), type).toBe(true);
+    // Light armor always has Flurry, a Robe always Pulses and Heavy armor always has Thorns.
+    for (const d of GEAR.filter((x) => x.armorType && !x.starter)) {
+      if (d.armorType === 'light') expect(d.stats.flurry, d.id).toBeGreaterThan(0);
+      else expect(d.identity?.kind, d.id).toBe(d.armorType === 'robe' ? 'pulse' : 'thorns');
     }
+    // The accessories that mirror armor (Shields, Boots, Hoods) still come in more than one mix.
+    for (const type of ['shield', 'boots', 'hood'] as const) expect(new Set(GEAR.filter((d) => d.accType === type).map((d) => keys(d.stats))).size, type).toBeGreaterThan(1);
   });
 
   it('weapon classes: your Hunter attacks the way the weapon does; each class trades speed for weight', () => {
@@ -3257,14 +3303,16 @@ describe('Equipment', () => {
   it('gear variants: built-in effects and modifier slots follow each rarity\'s variants; Artifact and Exalted can be unique', () => {
     for (const d of GEAR) {
       if (d.starter) continue;
-      const fx = (d.builtIn?.length ?? 0) + (d.effect ? 1 : 0);
+      // Very Rare and rarer armor's own ability (a Robe's Pulse, Heavy armor's Thorns) counts as its built-in effect, as when they were drawn.
+      const own = d.effect || (d.identity && !['common', 'uncommon', 'rare'].includes(d.rarity)) ? 1 : 0;
+      const fx = (d.builtIn?.length ?? 0) + own;
       const unique = d.builtIn?.some((b) => isUniqueEnchant(ENCHANTS[b.id])) ?? false;
       const variants = GEAR_VARIANTS[d.rarity];
       if (!variants) {
-        expect(fx === (d.effect ? 1 : 0) && modSlotCount(d) === 0, d.id).toBe(true);
+        expect(fx === own && modSlotCount(d) === 0, d.id).toBe(true);
         continue;
       }
-      const ok = variants.some((v) => v.slots === modSlotCount(d) && (v.fx === 'unique' ? unique && d.builtIn!.length === 1 : !unique && (v.fx === fx || (v.fx === 0 && fx === (d.effect ? 1 : 0) && d.rarity === 'rare'))));
+      const ok = variants.some((v) => v.slots === modSlotCount(d) && (v.fx === 'unique' ? unique && d.builtIn!.length === 1 : !unique && (v.fx === fx || (v.fx === 0 && fx === own && d.rarity === 'rare'))));
       expect(ok, `${d.id} (${d.rarity}): ${fx} effects, ${modSlotCount(d)} slots`).toBe(true);
       // Rare gear before the middle of the Rare areas has none built in.
       if (d.rarity === 'rare' && gearTier(d) < BUILT_IN_FROM_TIER) expect(d.builtIn, d.id).toBeUndefined();
@@ -3420,12 +3468,13 @@ describe('Equipment', () => {
     expect(light.guard ?? 0).toBe(0);
     expect(heavy.guard).toBe(1);
     expect(heavy.rate ?? 0).toBe(0); // no attack speed penalty any more
-    expect(robe.damage).toBeGreaterThan(light.damage!);
+    expect(robe.damage).toBeGreaterThan(light.damage ?? 0);
     expect(robe.guard ?? 0).toBe(0);
-    // Every armor piece has a kind; specials from Very Rare up. No shields are armor any more.
+    // Every armor piece has a kind and its kind's own ability; light armor dodges too from Very Rare up. No shields are armor any more.
     for (const d of GEAR.filter((x) => x.kind === 'armor' && !x.starter)) {
       expect(d.armorType).toBeDefined();
-      expect(!!d.effect).toBe(['veryRare', 'legendary', 'exotic', 'relic', 'artifact', 'exalted'].includes(d.rarity));
+      if (d.armorType === 'light') expect(!!d.effect, d.id).toBe(['veryRare', 'legendary', 'exotic', 'relic', 'artifact', 'exalted'].includes(d.rarity));
+      else expect(d.identity, d.id).toBeDefined();
     }
     // Glimmer wears any armor now.
     const g = new Game(newGame(0));
@@ -3456,7 +3505,6 @@ describe('Equipment', () => {
     for (const d of GEAR.filter((x) => x.accType === 'boots')) expect(d.effect?.kind, d.id).toBe('evade');
     const hood = gearDef('feyHood').stats;
     expect(hood.damage ?? hood.radius).toBeGreaterThan(0);
-    expect(hood.damage ?? 0).toBeLessThan(armorStats('robe', gearTier(gearDef('feyHood')), 2).damage! + 1e-9);
     // A save with a shield in the armor slot: it moves to the free accessory slot.
     const s = newGame(0);
     const uid = 9000;
@@ -3828,11 +3876,11 @@ describe('Equipment', () => {
     const vsBeast = g.shotDamage('main', 'beast');
     const tal = g.craftGear('fangTalisman')!;
     g.equip('main', 2, tal.uid);
-    expect(g.shotDamage('main', 'beast')).toBeCloseTo(vsBeast * 1.05);
+    expect(g.shotDamage('main', 'beast')).toBeCloseTo(vsBeast * (1 + gearDef('fangTalisman').bane!.bonus));
     expect(g.shotDamage('main', 'slime')).toBeCloseTo(vsBeast);
     const vial = g.craftGear('slimeVial')!;
     g.equip('main', 2, vial.uid);
-    expect(g.shotDamage('main', 'slime')).toBeCloseTo(vsBeast * 1.1);
+    expect(g.shotDamage('main', 'slime')).toBeCloseTo(vsBeast * (1 + gearDef('slimeVial').bane!.bonus));
     const royal = g.state.materials.royalSlime;
     g.registerKill('greenSlime', false);
     expect(g.state.materials.royalSlime).toBe(royal); // only at 5★
@@ -5509,7 +5557,7 @@ describe('Field', () => {
     const live = g.gear('main').damage;
     const priv = g as unknown as { farmAverages: boolean };
     priv.farmAverages = true;
-    expect(g.gear('main').damage).toBeCloseTo(live + potionValue(ef, 3) * (ef.duration / ef.cooldown));
+    expect(g.gear('main').damage).toBeCloseTo(live + potionValue(ef, 3, tonic) * (ef.duration / ef.cooldown));
     priv.farmAverages = false;
     // And farming with it pays at least as well as without it.
     const withIt = g.farmRates('forest', ['main']).gold;
@@ -6415,10 +6463,12 @@ describe('Saves', () => {
   });
 
   it('stars: gear and Upgrades go 1★ to 5★; old levels convert down to a star and refund the rest', () => {
-    // 1★ is the old Lv 1 and 5★ the old max, so the strongest pieces are as strong as before.
+    // Armor and accessories at 5★ are their 1★ × their area's star multiplier (×1.5 in the Void Rift), in even steps.
     const ring = gearDef('soulRing');
-    expect(gearStats(ring, 1).damage).toBeCloseTo(0.25);
-    expect(gearStats(ring, MAX_STARS).damage).toBeCloseTo(2.5);
+    const one = gearStats(ring, 1).damage!;
+    expect(gearStats(ring, MAX_STARS).damage).toBeCloseTo(one * AREA_STAR_MULT[11]);
+    expect(gearStats(ring, 3).damage).toBeCloseTo(one * (1 + (AREA_STAR_MULT[11] - 1) / 2));
+    expect(gearStats(gearDef('ropeBelt'), MAX_STARS).gold).toBeCloseTo(gearStats(gearDef('ropeBelt'), 1).gold! * 2);
     const bow = gearDef('forestBow'); // a weapon's base damage grows with its stars too
     expect(weaponHit(bow, MAX_STARS)).toBeCloseTo(weaponHit(bow, 1) * WEAPON_HIT_POWER[MAX_STARS]);
     // A level-based Upgrade's stars: 1★ = Lv 1 and 5★ its max, geometric between.

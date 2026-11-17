@@ -151,7 +151,7 @@ import {
   itemMaxStars,
   GEAR_STUN_CAP,
   gearCost,
-  GEAR_STAR_POWER,
+  gearStarPower,
   AOE_PER_LEVEL,
   MAX_EFFECTIVE_STARS,
   MOD_QUALITY_STEPS,
@@ -524,6 +524,8 @@ export class Game {
       const def = item ? gearDef(item.base) : null;
       if (!item || !def) continue;
       if (def.effect) out.push({ uid: item.uid, def, effect: def.effect, stars: this.effStars(item, who) });
+      // Armor's own ability (a Robe's Pulse, Heavy armor's Thorns).
+      if (def.identity) out.push({ uid: -(item.uid * 8 + 7), def, effect: def.identity, stars: this.effStars(item, who) });
       // Enchanted armor specials (Thorns, Evasion, Shield Burst): their rolled chance, and damage from their
       // rolled power × the piece's area.
       allMods(item).forEach((m, slot) => {
@@ -778,7 +780,7 @@ export class Game {
     for (const item of this.equipped(who)) {
       if (!item) continue;
       const d = gearDef(item.base);
-      if (d.bane?.archetype === archetype) b += d.bane.bonus * GEAR_STAR_POWER[this.effStars(item, who)];
+      if (d.bane?.archetype === archetype) b += d.bane.bonus * gearStarPower(d, this.effStars(item, who));
       for (const e of this.enchantsOf(item)) if (e.en.bane === archetype) b += e.v;
     }
     return b;
@@ -887,7 +889,8 @@ export class Game {
     const uptime = weaponUptime(cls) * weaponHitsPerAttack(cls);
     // Lilith's Grave Touch: each strike's Decay on top (their ghosts' haunts come and go, so they aren't counted).
     const touch = 1 + (shooter === 'main' ? 0 : (hunterDef(shooter).haunt?.decay ?? 0));
-    return this.shotDamage(shooter, archetype) * (this.shooterRate(shooter) * perAttack * uptime * touch + this.specialHitRate(shooter) + this.songHitRate(shooter) + this.spearHitRate(shooter) + this.flurryHitRate(shooter)) * this.critFactor(shooter) + this.backupDps(shooter, archetype) + this.offhandDps(shooter, archetype);
+    // Flurry (light armor): that share of attacks goes off twice.
+    return this.shotDamage(shooter, archetype) * (this.shooterRate(shooter) * (1 + this.gear(shooter).flurry) * perAttack * uptime * touch + this.specialHitRate(shooter) + this.songHitRate(shooter) + this.spearHitRate(shooter) + this.flurryHitRate(shooter)) * this.critFactor(shooter) + this.backupDps(shooter, archetype) + this.offhandDps(shooter, archetype);
   }
 
   /** An off-hand weapon: it attacks on its own, at OFFHAND_RATE of its speed (in shooterRate), with its full stats. */
@@ -945,7 +948,7 @@ export class Game {
     let b = 0;
     for (const item of this.equipped(who)) {
       const d = item ? gearDef(item.base) : null;
-      if (item && d?.typeBonus?.type === t) b += d.typeBonus.bonus * GEAR_STAR_POWER[this.effStars(item, who)];
+      if (item && d?.typeBonus?.type === t) b += d.typeBonus.bonus * gearStarPower(d, this.effStars(item, who));
       // An infusion's rolled bonus to its own type.
       for (const { en, p } of this.enchantsOf(item)) if (en.infuse === t) b += p;
     }
@@ -1207,7 +1210,7 @@ export class Game {
    * their mode; with no mode given, the 'long' (default) weapon counts.
    */
   gear(who: Shooter, mode: GearMode = 'long'): Record<GearStat, number> {
-    const total: Record<GearStat, number> = { damage: 0, rate: 0, range: 0, crit: 0, stun: 0, guard: 0, gold: 0, drops: 0, radius: 0, pierce: 0, cooldown: 0, critDamage: 0, duration: 0, abilityPower: 0, statusChance: 0, bowDamage: 0, gunDamage: 0, meleeDamage: 0, magicDamage: 0 };
+    const total: Record<GearStat, number> = { damage: 0, rate: 0, range: 0, crit: 0, stun: 0, guard: 0, gold: 0, drops: 0, radius: 0, pierce: 0, cooldown: 0, critDamage: 0, duration: 0, abilityPower: 0, statusChance: 0, bowDamage: 0, gunDamage: 0, meleeDamage: 0, magicDamage: 0, knockback: 0, flurry: 0 };
     const slots = this.slotsOf(who);
     const wi = this.weaponSlot(who, mode);
     this.equipped(who).forEach((item, i) => {
@@ -1222,7 +1225,7 @@ export class Game {
     if (this.farmAverages) {
       for (const item of this.equipped(who)) {
         const ef = item && gearDef(item.base).effect;
-        if (ef?.kind === 'potion') total[ef.stat] += potionValue(ef, this.effStars(item!, who)) * Math.min(1, ef.duration / ef.cooldown);
+        if (ef?.kind === 'potion') total[ef.stat] += potionValue(ef, this.effStars(item!, who), gearDef(item!.base)) * Math.min(1, ef.duration / ef.cooldown);
       }
     } else for (const p of this.potions.get(who) ?? []) total[p.stat] += p.value;
     // Quivers, Ammo Pouches, Gauntlets and Talismans: their group's damage counts only with a weapon of that group.
@@ -1253,9 +1256,9 @@ export class Game {
   private farmAverages = false;
 
   /** A Hunter drinks a potion: its boost (at the piece's stars) lasts its duration, longer with Extended Effects. */
-  drinkPotion(who: Shooter, uid: number, e: Extract<GearEffect, { kind: 'potion' }>, stars: number): void {
+  drinkPotion(who: Shooter, uid: number, e: Extract<GearEffect, { kind: 'potion' }>, stars: number, def?: GearDef): void {
     const list = (this.potions.get(who) ?? []).filter((p) => p.uid !== uid);
-    list.push({ uid, stat: e.stat, value: potionValue(e, stars), left: e.duration * this.effectDurationMult(who) });
+    list.push({ uid, stat: e.stat, value: potionValue(e, stars, def), left: e.duration * this.effectDurationMult(who) });
     this.potions.set(who, list);
   }
 

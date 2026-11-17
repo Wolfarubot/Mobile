@@ -91,8 +91,8 @@ describe('second slots', () => {
     const a1 = g.craftGear('plateArmor')!;
     const a2 = g.craftGear('leatherArmor')!;
     g.equip('artificer', 1, a1.uid);
-    const one = g.gear('artificer').stun;
+    const one = g.gear('artificer').rate;
     g.equip('artificer', 3, a2.uid);
-    expect(g.gear('artificer').stun).toBeGreaterThan(one);
+    expect(g.gear('artificer').rate).toBeGreaterThan(one);
   });
 });

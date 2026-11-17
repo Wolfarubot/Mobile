@@ -50,7 +50,7 @@ import {
   effectBase,
   ARMOR_TYPES,
   ACC_TYPES,
-  GEAR_STAR_POWER,
+  gearStarPower,
   enemyDrops,
   enemyExtraDrops,
   dropRarity,
@@ -274,6 +274,8 @@ const BONUS_FILTERS: Array<{ id: GearStat; name: string; icon: string }> = [
   { id: 'magicDamage', name: 'Magic damage', icon: '🪄' },
   { id: 'gold', name: 'Gold', icon: '🪙' },
   { id: 'drops', name: 'Drops', icon: '💎' },
+  { id: 'flurry', name: 'Flurry', icon: '🌀' },
+  { id: 'knockback', name: 'Knockback', icon: '🥊' },
 ];
 /** Does a gear recipe match a filter (its type, rarity, damage type and bonus; stars aside)? */
 const gearMatches = (gd: GearDef, f: InvFilter): boolean =>
@@ -1984,7 +1986,7 @@ export class AppUI {
         ${worn ? `<p class="worn-by">${wearerIcon(worn.who)} Worn by <b>${wearerName(worn.who)}</b></p>` : ''}
         ${gd.weaponClass ? `<p class="gear-speed">${Number(weaponSpeed(gd, item.stars).toFixed(2))} attacks/s <small>(your Hunter, before training and skills)</small></p>` : ''}
         ${featureTags(gd, item.stars)}
-        ${statTable(gd, cost ? [{ label: `Now ${item.stars}★`, stars: item.stars }, { label: `Next ${item.stars + 1}★`, stars: item.stars + 1 }] : [{ label: `${item.stars}★`, stars: item.stars }]) || (gd.effect ? '' : '<p class="gear-now">No bonuses: plain everyday wear.</p>')}
+        ${statTable(gd, cost ? [{ label: `Now ${item.stars}★`, stars: item.stars }, { label: `Next ${item.stars + 1}★`, stars: item.stars + 1 }] : [{ label: `${item.stars}★`, stars: item.stars }]) || (gd.effect || gd.identity ? '' : '<p class="gear-now">No bonuses: plain everyday wear.</p>')}
         ${modSlotsHtml(g, uid)}
         ${cost ? `<div class="fc-label">Upgrade cost</div><div class="fc-cost">${recipeHtml(g, cost, g.gearUpgradeGold(uid) ?? 0)}</div>` : ''}`;
       // Under the modifier slots: Modify (once Kargesh or Marceline has joined).
@@ -6948,6 +6950,8 @@ const STAT_LABELS: Record<GearStat, string> = {
   gunDamage: 'damage with guns',
   meleeDamage: 'damage with melee weapons',
   magicDamage: 'damage with magic weapons',
+  knockback: 'knockback',
+  flurry: 'Flurry',
 };
 
 /** A difference in one stat, e.g. "+20% damage" or "−3 range". */
@@ -7008,7 +7012,7 @@ function gearCardHtml(it: GearItem, vs: GearItem | null = null): string {
     (!gd.special && gearTypes(gd).length > 1
       ? `<li class="gc-effect">${gd.perShot ? `Each projectile deals one of its types in turn, at full damage` : `Each hit is split evenly between its ${gearTypes(gd).length} types`}</li>`
       : '') +
-    (gd.typeBonus ? `<li class="gc-effect">${dtIcon(gd.typeBonus.type)} +${Math.round(gd.typeBonus.bonus * GEAR_STAR_POWER[it.stars] * 100)}% ${DAMAGE_TYPES[gd.typeBonus.type].name} damage</li>` : '') +
+    (gd.typeBonus ? `<li class="gc-effect">${dtIcon(gd.typeBonus.type)} +${Math.round(gd.typeBonus.bonus * gearStarPower(gd, it.stars) * 100)}% ${DAMAGE_TYPES[gd.typeBonus.type].name} damage</li>` : '') +
     // Built-in effects (always there), then the modifier slots: filled ones, then the empty ones.
     (gd.builtIn ?? [])
       .map((bi) => {
@@ -7019,8 +7023,9 @@ function gearCardHtml(it: GearItem, vs: GearItem | null = null): string {
       .join('') +
     (it.mods ?? []).filter(Boolean).map((m) => `<li class="gc-mod ${m!.kind}${modPerfect(m!) ? ' perfect' : ''}">${modText(m!, gd)}</li>`).join('') +
     `<li class="gc-mod gc-slot">◇ Empty modifier slot</li>`.repeat(Math.max(0, modSlotCount(gd) - (it.mods ?? []).filter(Boolean).length)) +
-    (gd.effect ? `<li class="gc-effect"><span>✨ ${advancedTips ? describeEffect(gd.effect, it.stars) : simpleEffect(gd.effect)}</span></li>` : '') +
-    (gd.bane ? `<li class="gc-effect">${tagIconHtml(ARCHETYPE_TAG_ICONS[gd.bane.archetype])} +${Math.round(gd.bane.bonus * GEAR_STAR_POWER[it.stars] * 100)}% damage vs ${ARCHETYPES[gd.bane.archetype].name}s</li>` : '') +
+    (gd.identity ? `<li class="gc-effect"><span>✨ ${advancedTips ? describeEffect(gd.identity, it.stars, gd) : simpleEffect(gd.identity)}</span></li>` : '') +
+    (gd.effect ? `<li class="gc-effect"><span>✨ ${advancedTips ? describeEffect(gd.effect, it.stars, gd) : simpleEffect(gd.effect)}</span></li>` : '') +
+    (gd.bane ? `<li class="gc-effect">${tagIconHtml(ARCHETYPE_TAG_ICONS[gd.bane.archetype])} +${Math.round(gd.bane.bonus * gearStarPower(gd, it.stars) * 100)}% damage vs ${ARCHETYPES[gd.bane.archetype].name}s</li>` : '') +
     (gd.findDrop ? `<li class="gc-effect">💎 ${it.stars >= gd.findDrop.stars ? '' : `At ${gd.findDrop.stars}★: `}${gd.findDrop.chance * 100}% chance for ${materialDef(gd.findDrop.material).name} from ${ARCHETYPES[gd.findDrop.archetype].name.toLowerCase()} kills</li>` : '');
   return `<div class="gear-card rar${gd.unboundOf ? ' ub' : ''}" style="--rc:${gearColor(gd.id)}"><div class="gc-head"><i>${gearIcon(gd)}</i><div><b>${gd.name}</b><small>${RARITIES[gd.rarity].name} ${gearKindName(gd).toLowerCase()} · <span class="stars">${starsHtml(it.stars)}</span>${gd.unboundOf ? ' · <span class="ub-tag">Unbound</span>' : ''}</small><div class="gc-typeline">${procTypeTags(gd)}</div>${hitHtml ? `<div class="gc-dmgline">${hitHtml}</div>` : ''}${speedHtml}</div></div><ul class="gc-stats">${all}</ul></div>`;
 }
@@ -7335,7 +7340,7 @@ function featureTags(gd: GearDef, stars = 1): string {
     }
   if (gd.typeBonus) {
     const d = DAMAGE_TYPES[gd.typeBonus.type];
-    const pct = Math.round(gd.typeBonus.bonus * GEAR_STAR_POWER[stars] * 100);
+    const pct = Math.round(gd.typeBonus.bonus * gearStarPower(gd, stars) * 100);
     tags.push(featTag(DAMAGE_TAG_ICONS[gd.typeBonus.type], `+${pct}% ${d.name}`, tx(advancedTips ? 'tip.gear.typeBonus' : 'tip.gear.typeBonusSimple', { pct, type: d.name }), d.color));
   }
   // Its weapon type, or, when it isn't the standard take on its class, just its archetype (what this take trades,
@@ -7362,11 +7367,11 @@ function featureTags(gd: GearDef, stars = 1): string {
   if (gd.armorType) tags.push(featTag(ARMOR_TAG_ICONS[gd.armorType], ARMOR_TYPES[gd.armorType].name, ARMOR_TYPES[gd.armorType].desc));
   if (gd.accType) tags.push(featTag(ACC_TAG_ICONS[gd.accType], ACC_TYPES[gd.accType].name, ACC_TYPES[gd.accType].desc));
   if (gd.ability) tags.push(featTag(FEATURE_TAG_ICONS.ability, 'Ability', gd.ability));
-  if (gd.effect)
-    tags.push(featTag(gd.effect.kind === 'summon' ? SUMMON_TAG_ICONS[gd.effect.type] : EFFECT_TAG_ICONS[gd.effect.kind], gd.effect.kind === 'summon' ? `${gd.effect.name}s` : EFFECT_TAG[gd.effect.kind], advancedTips ? `${describeEffect(gd.effect, stars)}${'base' in gd.effect ? `<br><small>${tx('tip.gear.ownDamage')}</small>` : ''}` : simpleEffect(gd.effect)));
+  for (const ef of [gd.identity, gd.effect])
+    if (ef) tags.push(featTag(ef.kind === 'summon' ? SUMMON_TAG_ICONS[ef.type] : EFFECT_TAG_ICONS[ef.kind], ef.kind === 'summon' ? `${ef.name}s` : EFFECT_TAG[ef.kind], advancedTips ? `${describeEffect(ef, stars, gd)}${'base' in ef ? `<br><small>${tx('tip.gear.ownDamage')}</small>` : ''}` : simpleEffect(ef)));
   if (gd.bane) {
     const a = ARCHETYPES[gd.bane.archetype];
-    tags.push(featTag(ARCHETYPE_TAG_ICONS[gd.bane.archetype], `${a.name} Bane`, tx(advancedTips ? 'tip.gear.bane' : 'tip.gear.baneSimple', { pct: Math.round(gd.bane.bonus * GEAR_STAR_POWER[stars] * 100), kind: a.name })));
+    tags.push(featTag(ARCHETYPE_TAG_ICONS[gd.bane.archetype], `${a.name} Bane`, tx(advancedTips ? 'tip.gear.bane' : 'tip.gear.baneSimple', { pct: Math.round(gd.bane.bonus * gearStarPower(gd, stars) * 100), kind: a.name })));
   }
   if (gd.findDrop) {
     const f = gd.findDrop;
@@ -7869,10 +7874,10 @@ function statTable(gd: GearDef, cols: Array<{ label: string; stars: number }>): 
   // A bane's bonus damage grows with the stars like any stat (the tag says who it's against).
   if (gd.bane) {
     const bane = gd.bane;
-    rows.push(`<div class="st-row"><span>${ARCHETYPES[bane.archetype].name} Bane</span>${cols.map((c) => `<b>+${Math.round(bane.bonus * GEAR_STAR_POWER[c.stars] * 100)}%</b>`).join('')}</div>`);
+    rows.push(`<div class="st-row"><span>${ARCHETYPES[bane.archetype].name} Bane</span>${cols.map((c) => `<b>+${Math.round(bane.bonus * gearStarPower(gd, c.stars) * 100)}%</b>`).join('')}</div>`);
   }
-  if (gd.effect && 'base' in gd.effect)
-    rows.push(`<div class="st-row"><span>${gd.effect.kind === 'summon' ? 'Summon' : 'Ability'} damage</span>${cols.map((c) => `<b>${fmt(effectBase(gd.effect!, c.stars))}</b>`).join('')}</div>`);
+  for (const ef of [gd.identity, gd.effect])
+    if (ef && 'base' in ef) rows.push(`<div class="st-row"><span>${ef.kind === 'summon' ? 'Summon' : ef.kind === 'pulse' ? 'Pulse' : ef.kind === 'thorns' ? 'Thorns' : 'Ability'} damage</span>${cols.map((c) => `<b>${fmt(effectBase(ef, c.stars, gd))}</b>`).join('')}</div>`);
   if (!rows.length) return '';
   return `<div class="stat-table" style="--cols:${cols.length}"><div class="st-row st-head"><span></span>${cols.map((c) => `<b>${c.label}</b>`).join('')}</div>${rows.join('')}</div>`;
 }
