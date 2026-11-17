@@ -5440,10 +5440,57 @@ function starStep(from: number, to: number): number {
   return from === 0 ? 0 : Math.max(from, Math.round(from ** (1 / 3) * to ** (2 / 3)) - 1);
 }
 
+/**
+ * Upgrading gear takes grinding, each star harder than the last: a star costs its recipe × STAR_STEPS (3× the star
+ * before) × its area's STAR_COST_AREA, set so that taking a piece from 1★ to 5★ takes about a day of what its
+ * area's most plentiful material drops (later areas pay out far more, so their stars cost far more). Each material
+ * is scaled by how plentiful it is in its own area (materialAbundance), so a piece of rare drops takes about as
+ * long as one of common drops; materials no monster drops (a Guardian's spoils) cost STAR_COST_SPOILS of their recipe.
+ */
+export const STAR_STEPS = [3, 9, 27, 81];
+export const STAR_COST_AREA = [1.1, 1.1, 5.7, 8.3, 8.3, 10, 18, 25, 25, 40, 50, 52];
+/** Past the Void Rift (Unbound gear): each area's stars cost this much more than the last's. */
+export const UNBOUND_STAR_COST_STEP = 1.2;
+export const STAR_COST_SPOILS = 0.7;
+let MATERIAL_ABUNDANCE: Map<MaterialId, number> | null = null;
+/**
+ * How plentiful a material is in its own area, against that area's most plentiful (1): the monsters that drop it,
+ * weighed by how many come (spawn rate × pack size) and its share of their drop chance. Undefined for materials no
+ * monster drops.
+ */
+export function materialAbundance(m: MaterialId): number | undefined {
+  if (!MATERIAL_ABUNDANCE) {
+    MATERIAL_ABUNDANCE = new Map();
+    for (const a of AREAS) {
+      const here = new Map<MaterialId, number>();
+      for (const e of areaEnemies(a.id)) {
+        const w = e.spawn * (e.pack[0] + e.pack[1]) / 2;
+        here.set(e.material, (here.get(e.material) ?? 0) + w);
+        for (const d of enemyExtraDrops(e)) here.set(d.material, (here.get(d.material) ?? 0) + w * d.share);
+      }
+      const top = Math.max(...here.values());
+      // (To the 1.5 power: the monsters with rarer drops are unlocked later in the area, so they're about for less of it.)
+      for (const [mat, v] of here) if (!MATERIAL_ABUNDANCE.has(mat)) MATERIAL_ABUNDANCE.set(mat, (v / top) ** 1.5);
+    }
+  }
+  return MATERIAL_ABUNDANCE.get((isUnboundId(m) ? unboundBase(m) : m) as MaterialId);
+}
+/** A piece's star-cost scale from its area (Unbound gear carries on past the Void Rift). */
+export function starCostArea(def: GearDef): number {
+  const a = Math.max(1, Math.floor(gearTier(def)));
+  return a <= STAR_COST_AREA.length ? STAR_COST_AREA[a - 1] : STAR_COST_AREA[STAR_COST_AREA.length - 1] * UNBOUND_STAR_COST_STEP ** (a - STAR_COST_AREA.length);
+}
 /** Materials to go from `stars` to `stars + 1` (0 = crafting it). */
 export function gearCost(def: GearDef, stars: number): Partial<Record<MaterialId, number>> {
-  const step = starStep(GEAR_STAR_POWER[stars], GEAR_STAR_POWER[stars + 1]);
-  return stepsCost(def.recipe, GEAR_COST_GROWTH, step, step + 1);
+  if (stars <= 0) return { ...def.recipe };
+  const step = STAR_STEPS[Math.min(STAR_STEPS.length, stars) - 1];
+  const area = starCostArea(def);
+  const out: Partial<Record<MaterialId, number>> = {};
+  for (const [m, n] of Object.entries(def.recipe) as [MaterialId, number][]) {
+    const rel = materialAbundance(m);
+    out[m] = Math.max(1, Math.ceil(n * step * (rel === undefined ? STAR_COST_SPOILS : area * Math.max(0.01, rel))));
+  }
+  return out;
 }
 
 /** The cost of steps `from` … `to − 1` of a recipe whose step `l` costs `recipe × growth^l`. */
