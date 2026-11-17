@@ -4503,6 +4503,12 @@ export class AppUI {
     return `Cost ${this.energyPips(ev)} <b>${this.game.energyCost(ev.id)}</b> energy`;
   }
 
+  /** The Events tab card's cost: just its energy pips (or Free while Well Rested), to keep the card short. */
+  private cardCost(ev: EventDef): string {
+    if (this.freePlay(ev)) return `💤 <b>${tx('event.wellRested.free')}</b>`;
+    return this.energyPips(ev);
+  }
+
   /** Keeps an event's cost (its pips, or its cost line) current as Well Rested comes and goes. */
   private watchCost(node: HTMLElement, html: () => string, refreshers: Array<() => void> = this.refreshers): void {
     let last = node.innerHTML;
@@ -4552,9 +4558,9 @@ export class AppUI {
     const card = el('div', 'beast event-card');
     const icon = this.eventIcon(ev, 'ec-icon');
     // The same description its Details page opens with (minigames included).
-    card.innerHTML = `<div class="beast-head">${icon.html}<div class="info"><div class="name">${ev.name}</div><div class="blurb">${ev.blurb}</div></div></div><div class="ev-status"></div><div class="ev-foot"><span class="ev-cost">${this.costLine(ev)}</span><button class="buy ev-details">${tx('event.card.details')}</button><button class="buy ev-go"></button></div>`;
+    card.innerHTML = `<div class="beast-head">${icon.html}<div class="info"><div class="name">${ev.name}</div><div class="blurb">${ev.blurb}</div></div></div><div class="ev-status"></div><div class="ev-foot"><span class="ev-cost">${this.cardCost(ev)}</span><button class="buy ev-details">${tx('event.card.details')}</button><button class="buy ev-go"></button></div>`;
     icon.draw(card);
-    this.watchCost($('.ev-cost', card), () => this.costLine(ev));
+    this.watchCost($('.ev-cost', card), () => this.cardCost(ev));
     $('.ev-details', card).addEventListener('click', () => this.openEventDetail(ev));
     this.wireEventButton(ev, card, $<HTMLButtonElement>('.ev-go', card), $('.ev-status', card), this.refreshers, () => {
       if (ev.kind !== 'minigame') return this.eventRewards(ev).join(' · ');
@@ -4791,8 +4797,8 @@ export class AppUI {
     const best = expert ? (g.state.events[ev.echo ? homeEvent(ev.minigame!).id : ev.id]?.bestExpert ?? 0) : this.bestScore(ev);
     const bless = ev.blessing;
     runMinigame({
-      title: (ev.echo ? `${eventGlyph(ev)} ${txt('event.echo.title', { game: mg.title.replace(/^[^\p{L}]+/u, '') })}` : mg.title) + (expert ? ' ⚡' : ''),
-      intro: (ev.echo ? `<p class="mg-bless">${tx('event.echo.intro')}</p>` : '') + (expert ? `<p class="mg-bless">⚡ ${tx('event.expert.intro', { mult: EXPERT_MULT })}</p>` : '') + mg.intro + (bless ? `<p class="mg-bless">${blessingIntro(g, ev)}</p>` : ''),
+      title: ev.echo ? `${eventGlyph(ev)} ${txt('event.echo.title', { game: mg.title.replace(/^[^\p{L}]+/u, '') })}` : mg.title,
+      intro: (ev.echo ? `<p class="mg-bless">${tx('event.echo.intro')}</p>` : '') + (expert ? `<p class="mg-expert">${tx('event.expert.intro')}</p>` : '') + mg.intro + (bless ? `<p class="mg-bless">${blessingIntro(g, ev)}</p>` : ''),
       expert,
       area: ev.area,
       decor: mg.decor,

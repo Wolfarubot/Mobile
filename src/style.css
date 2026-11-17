@@ -1892,6 +1892,13 @@ button {
 .ev-foot .ev-details {
   min-width: 76px;
 }
+/* An Expert play's intro card: "Expert Mode" in gold. */
+.mg-card .mg-expert {
+  color: var(--gold, #ffd84a);
+  font-weight: 700;
+  font-size: 1.15em;
+  margin: 0 0 6px;
+}
 /* The Expert switch beside Play (once the area is Unbound): dim while off; gold, glowing, while on. */
 .ev-foot .ev-expert {
   min-width: 0;
