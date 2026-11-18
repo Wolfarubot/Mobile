@@ -107,7 +107,8 @@ export const SHEETS: Record<string, MonsterSheet> = {
   'wolf-grey': { frame: 32, cols: 3, order: 'DULR', box: [2, 6, 28, 25] },
   'wolf-ice': { frame: 32, cols: 3, order: 'DULR', box: [2, 6, 28, 25] },
   'bear-brown': { frame: 56, cols: 4, order: 'DLRU', box: [0, 2, 56, 54] },
-  'yeti': { frame: 72, cols: 6, order: 'SIDE', box: [5, 42, 51, 30] },
+  // The Frost Peaks' Polar Bear: the Woods' brown bear recoloured white and ice-blue.
+  'bear-polar': { frame: 56, cols: 4, order: 'DLRU', box: [0, 2, 56, 54] },
   'pixie': { frame: 48, cols: 4, order: 'SIDE', faces: 'L', box: [18, 17, 25, 20] },
   'unicorn': { frame: 64, cols: 6, order: 'DULR', box: [10, 7, 44, 35] },
   'bat': { frame: 48, cols: 4, order: 'SIDE', faces: 'L', box: [10, 21, 36, 22] },
@@ -217,7 +218,7 @@ export const MONSTER_SHEETS: Partial<Record<EnemyId, string>> = {
   hellhound: 'hellhound',
   fireDrake: 'spider-brood',
   iceWolf: 'wolf-ice',
-  yeti: 'yeti',
+  yeti: 'bear-polar',
   harpy: 'harpy',
   snowOwl: 'snow-owl',
   griffin: 'griffin',
