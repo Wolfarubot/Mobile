@@ -5461,7 +5461,12 @@ function starStep(from: number, to: number): number {
  * long as one of common drops; materials no monster drops (a Guardian's spoils) cost STAR_COST_SPOILS of their recipe.
  */
 export const STAR_STEPS = [3, 9, 27, 81];
-export const STAR_COST_AREA = [1.1, 1.1, 5.7, 8.3, 8.3, 10, 18, 25, 25, 40, 50, 52];
+// The Ember Mines ×2.5 (10 → 25), the Ascendant Steps and the Void Rift ×1.5: on the paced full-game run 60% of the
+// Mines' pieces went from crafted straight to 5★ (its materials pile up over a long stay), as did a fifth of the
+// Rift's and a quarter of the Steps'; elsewhere a piece takes one to eight days to reach 5★.
+export const STAR_COST_AREA = [1.1, 1.1, 5.7, 8.3, 8.3, 25, 18, 25, 38, 40, 50, 78];
+/** Unbound gear's star costs carry on from this (the Void Rift's before its ×1.5), ×UNBOUND_STAR_COST_STEP a tier. */
+export const UNBOUND_STAR_COST_BASE = 52;
 /** Past the Void Rift (Unbound gear): each area's stars cost this much more than the last's. */
 export const UNBOUND_STAR_COST_STEP = 1.2;
 export const STAR_COST_SPOILS = 0.7;
@@ -5491,7 +5496,7 @@ export function materialAbundance(m: MaterialId): number | undefined {
 /** A piece's star-cost scale from its area (Unbound gear carries on past the Void Rift). */
 export function starCostArea(def: GearDef): number {
   const a = Math.max(1, Math.floor(gearTier(def)));
-  return a <= STAR_COST_AREA.length ? STAR_COST_AREA[a - 1] : STAR_COST_AREA[STAR_COST_AREA.length - 1] * UNBOUND_STAR_COST_STEP ** (a - STAR_COST_AREA.length);
+  return a <= STAR_COST_AREA.length ? STAR_COST_AREA[a - 1] : UNBOUND_STAR_COST_BASE * UNBOUND_STAR_COST_STEP ** (a - STAR_COST_AREA.length);
 }
 /** Materials to go from `stars` to `stars + 1` (0 = crafting it). */
 export function gearCost(def: GearDef, stars: number): Partial<Record<MaterialId, number>> {
