@@ -1,4 +1,4 @@
-package com.wolfarubot.pockethunter;
+package com.variettestudios.pockethunter;
 
 import android.os.Bundle;
 import com.getcapacitor.BridgeActivity;

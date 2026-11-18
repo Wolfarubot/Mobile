@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.wolfarubot.pockethunter',
+  appId: 'com.variettestudios.pockethunter',
   appName: 'Pocket Hunter',
   webDir: 'dist',
   android: { backgroundColor: '#14101f' },

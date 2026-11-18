@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "com.wolfarubot.pockethunter"
+    namespace = "com.variettestudios.pockethunter"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.wolfarubot.pockethunter"
+        applicationId "com.variettestudios.pockethunter"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
