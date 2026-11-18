@@ -1781,8 +1781,8 @@ export class Field {
         break;
       }
       case 'ghosts': {
-        // The Awoken Lich raises ghosts in a ring around every Hunter; they close in.
-        if (beat(0)) this.animate(e, 'attack4');
+        // The Awoken Lich raises ghosts in a ring around every Hunter; they close in. (Its skeleton-raising cast.)
+        if (beat(0)) this.animate(e, 'attack1');
         if (beat(0.6))
           for (const h of spots)
             for (let i = 0; i < LICH_GHOSTS.count; i++) {

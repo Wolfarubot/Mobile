@@ -23,7 +23,7 @@ export interface MonsterSheet {
  */
 export const GUARDIAN_ANIMS: Record<string, Record<string, number>> = {
   executioner: { attack: 13, skill: 12, summon: 5 },
-  necromancer: { attack3: 4, attack4: 6 },
+  necromancer: { attack1: 6, attack3: 4 },
   'mega-beholder': { attack2: 4, attack3: 4 },
   'demon-slime': { cleave: 15, raise: 4 },
   'kobold-king': { attack2: 6, attack4: 4 },
