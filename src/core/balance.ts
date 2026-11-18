@@ -6161,13 +6161,17 @@ export const UNBOUND_GEAR: GearDef[] = GEAR.filter((g) => !g.starter).map((g) =>
 export const UNBOUND_HP_STEP = 2.2;
 export const UNBOUND_GOLD_STEP = 30;
 export const UNBOUND_GUARDIAN_STEP = 2.5;
-/** How much harder an Unbound area is than the trend it carries on (its monsters' health and its Guardian's). */
-export const UNBOUND_BUMP = 3;
+/**
+ * How an Unbound area's monsters' health sits against the trend it carries on: set so your Hunter, fresh from a
+ * Regression with the Unbound Woods bought, needs about 7 hits a monster there (measured on the paced Regression
+ * chain, after the first run's retune made the Void Rift's monsters four times tougher).
+ */
+export const UNBOUND_BUMP = 0.25;
 /**
  * The same for an Unbound area's Guardian: set so it falls quickly to a team that has started gearing up in its
  * Unbound gear (UNBOUND_GEAR_TIERS), as a new area's Guardian does in the first run.
  */
-export const UNBOUND_GUARDIAN_BUMP = 0.3;
+export const UNBOUND_GUARDIAN_BUMP = 0.0022;
 const UNBOUND_AREA_MAP = new Map<AreaId, AreaDef>();
 export function unboundAreaDef(area: AreaId): AreaDef {
   let d = UNBOUND_AREA_MAP.get(area);

@@ -433,8 +433,8 @@ describe('Unbound areas', () => {
     g.state.regression.tree = { ...Object.fromEntries(REGRESSION_TREE.filter((n) => n.ring <= 3).map((n) => [n.id, 1])), 'unbound-forest': 1 };
     expect(g.isUnbound('forest')).toBe(true);
     expect(g.areaStats('forest').name).toBe('Unbound Wandering Woods');
-    // Stronger than the Void Rift's monsters, and richer.
-    expect(g.enemyStats('greenSlime').hp / hp).toBeGreaterThan(areaDef('rift').hp);
+    // Far tougher than the original Woods (set by the team a Regression starts with: UNBOUND_BUMP), and richer than the Void Rift.
+    expect(g.enemyStats('greenSlime').hp / hp).toBeGreaterThan(areaDef('fortress').hp);
     expect(g.enemyStats('greenSlime').gold / gold).toBeGreaterThan(areaDef('rift').gold);
     expect(g.enemyStats('greenSlime').material).toBe('u_goo');
     expect(g.isUnbound('glade')).toBe(false);
