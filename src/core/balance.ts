@@ -1585,10 +1585,10 @@ export const UNBOUND_BASE_COST = 1_000_000;
 // ×1.05 after the Ascended Hunters' second slots: the Unbound Woods re-measured 1.26× faster (6.7 → 5.3 days), and
 // a run's shards grow with about the fifth root of its length (1.26^0.2 ≈ 1.05), applied to every area alike.
 // The Venom Caverns measured 5.8 days at 8.3B (target 14-15); 2.5× the time is about 2.5^0.2 ≈ ×1.2 on its prices.
-// ×1.15 from the Fey Grove on after the first run's retune: on the re-run Regression chain a run there paid 15-20%
-// more shards than when these were measured, so the Unbound Fey Grove went in 3.5 days (target 7-8; the Woods stayed
-// at 5.3); twice the time is about 2^0.2 ≈ ×1.15 on its prices.
-export const UNBOUND_AREA_BASES = [2_380_000, 12_900_000, 57_600_000, 258_000_000, 646_000_000, 3_860_000_000, 11_500_000_000];
+// ×1.3 from the Fey Grove on after the first run's retune: on the re-run Regression chain a run there paid about 30%
+// more shards at the same point than when these were measured, so the Unbound Fey Grove went in 3.5 days, a node at
+// every first check-in (target 7-8; the Woods stayed at 5.3).
+export const UNBOUND_AREA_BASES = [2_380_000, 14_600_000, 65_100_000, 291_000_000, 731_000_000, 4_370_000_000, 13_000_000_000];
 export const UNBOUND_AREA_IN_STEPS = [1.2, 1.1, 1.1, 1.1, 1.1, 1.03, 1.1];
 export const UNBOUND_IN_STEP = 1.1;
 export const UNBOUND_LATER_STEP = 1.8;
