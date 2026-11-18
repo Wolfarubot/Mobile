@@ -1932,6 +1932,14 @@ export class BattleView {
           return;
         }
       }
+      // A glowing minion (the Awoken Lich's skeletons): a bright border in its colour, haloed.
+      if (e.glow) {
+        g.save();
+        g.shadowColor = e.glow;
+        g.shadowBlur = 8;
+        drawSheetFrame(g, outlineOf(src, e.glow, 1), sh, sheetRow(sh, dir), col, ra * SHEET_SCALE);
+        g.restore();
+      }
       drawSheetFrame(g, src, sh, sheetRow(sh, dir), col, ra * SHEET_SCALE, { of: sheet, alpha: this.clarity });
       if (e.phased) g.globalAlpha = 1;
       if (e.flash > 0.5) {

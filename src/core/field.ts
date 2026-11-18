@@ -142,6 +142,8 @@ const GUARDIAN_MOVE: Record<GuardianMove, { cd: number; first: number; reach?: n
 const WISPS = { count: 5, ring: 150, speed: 230, wait: 0.7 };
 /** The Awoken Lich's ghosts around each Hunter, and how far out they rise. */
 const LICH_GHOSTS = { count: 4, ring: 190 };
+/** Minions that glow: the Awoken Lich's risen skeletons, in its own grave-magic green. */
+const LICH_GLOW: Partial<Record<EnemyId, string>> = { awokenLich: '#6dff5a' };
 /** The Demon Lord's imps, and how much faster than an imp's walk they fly. */
 const IMPS = { count: 6, speed: 3 };
 /** The Kobold King's charge: seconds per lap across the field, how many laps he runs, and how far in from his side he pulls up after. */
@@ -224,6 +226,8 @@ export interface Enemy {
   minion?: number;
   /** Drawn in this monster sheet instead of its kind's (a Broodmother's spiders), at medium size. */
   art?: string;
+  /** A glowing border in this colour (the Awoken Lich's risen skeletons: green). */
+  glow?: string;
   /** A summoner's state: seconds until it next summons, and seconds left standing still to summon. */
   summon?: { cd: number; stop: number };
   /**
@@ -1671,7 +1675,7 @@ export class Field {
   private guardianMinion(boss: Enemy, type: EnemyId, x: number, y: number, speed = 1): void {
     const g = this.game;
     const st = g.enemyStats(type);
-    this.enemies.push({ id: this.nextId++, type, x, y, hp: st.hp, maxHp: st.hp, r: enemyDef(type).radius, speed: st.speed * speed, boss: false, fleeing: false, flash: 0, kx: 0, ky: 0, phase: g.rng() * 10, minion: boss.id });
+    this.enemies.push({ id: this.nextId++, type, x, y, hp: st.hp, maxHp: st.hp, r: enemyDef(type).radius, speed: st.speed * speed, boss: false, fleeing: false, flash: 0, kx: 0, ky: 0, phase: g.rng() * 10, minion: boss.id, ...(LICH_GLOW[boss.type] ? { glow: LICH_GLOW[boss.type] } : {}) });
   }
 
   /** A projectile of a Guardian's, hanging in the air `wait` seconds, then flying at `speed` toward (tx, ty). */
@@ -1781,13 +1785,14 @@ export class Field {
         break;
       }
       case 'ghosts': {
-        // The Awoken Lich raises ghosts in a ring around every Hunter; they close in. (Its skeleton-raising cast.)
+        // The Awoken Lich raises skeletons in a ring around every Hunter (its skeleton-raising cast); they close in,
+        // glowing green.
         if (beat(0)) this.animate(e, 'attack1');
         if (beat(0.6))
           for (const h of spots)
             for (let i = 0; i < LICH_GHOSTS.count; i++) {
               const a = (i / LICH_GHOSTS.count) * Math.PI * 2 + g.rng() * 0.4;
-              this.guardianMinion(e, 'graveWraith', h.x + Math.cos(a) * LICH_GHOSTS.ring, h.y + Math.sin(a) * LICH_GHOSTS.ring);
+              this.guardianMinion(e, 'skeleton', h.x + Math.cos(a) * LICH_GHOSTS.ring, h.y + Math.sin(a) * LICH_GHOSTS.ring);
             }
         done(1.1);
         break;
