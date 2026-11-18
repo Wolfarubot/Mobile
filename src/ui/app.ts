@@ -4503,10 +4503,13 @@ export class AppUI {
     return `Cost ${this.energyPips(ev)} <b>${this.game.energyCost(ev.id)}</b> energy`;
   }
 
-  /** The Events tab card's cost: just its energy pips (or Free while Well Rested), to keep the card short. */
+  /**
+   * The Events tab card's cost: the full line (pips and how much energy), except a minigame with its Expert switch
+   * showing, which keeps to its pips so its three buttons still fit on one row (by then the pips need no words).
+   */
   private cardCost(ev: EventDef): string {
-    if (this.freePlay(ev)) return `💤 <b>${tx('event.wellRested.free')}</b>`;
-    return this.energyPips(ev);
+    if (ev.kind === 'minigame' && this.game.expertUnlocked(ev.id) && !this.freePlay(ev)) return this.energyPips(ev);
+    return this.costLine(ev);
   }
 
   /** Keeps an event's cost (its pips, or its cost line) current as Well Rested comes and goes. */
