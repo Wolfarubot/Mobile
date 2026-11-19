@@ -5523,10 +5523,13 @@ export class Field {
   }
 
   private damage(e: Enemy, dmg: number, crit: boolean, dirX: number, dirY: number, shooter: Shooter = 'main', dtype: DamageType = 'physical'): void {
-    if (e.hp <= 0 || e.phased) return;
+    if (e.phased) return;
     if (e.mark) dmg *= 1 + e.mark.bonus;
-    e.hp -= dmg;
+    // Every hit counts in full toward the Hunter's damage (their DPS), overkill and all: a hit on a monster already
+    // slain this frame (a second arrow, a blast, a proc) counts too, though there's nothing left of it to hurt.
     this.game.noteDealt(shooter, dmg);
+    if (e.hp <= 0) return;
+    e.hp -= dmg;
     e.flash = 1;
     if (!e.boss) {
       const k = 90 * this.knockMult(shooter);

@@ -14,7 +14,8 @@ import { worth } from './botGear';
  * weaknesses or resistances, so every damage type and status effect counts the same): one very
  * close, one a little way off, one far away, then packs of 5, 10, 20 and 100 a little way off (100 for the later areas' swarms). The monsters can't knock
  * the Hunter down, and each one killed is replaced where it stood, so the number is the Hunter's own output at that
- * range and crowd. BENCH_BASE=before.json adds each row's change against an earlier run (e.g. before a tree rework).
+ * range and crowd. Damage is counted as the game's DPS counts it: every hit in full, overkill included.
+ * BENCH_BASE=before.json adds each row's change against an earlier run (e.g. before a tree rework).
  * BENCH_HUNTERS=alchemist,bard runs only those.
  * tests/hunterBench.baseline.json is the run from before the skill-tree rework (Guild Hunters' own skills).
  */
@@ -113,26 +114,27 @@ function bench(id: HunterId, level: number, sc: (typeof SCENARIOS)[number], seed
     last.set(e.id, hp);
   };
   for (const p of at) place(p);
+  // Damage as the game counts it (Game.dealt, what its DPS shows): every hit in full, overkill and all, the
+  // Hunter's summons and effects included.
   let dealt = 0;
   let measured = 0;
+  let from = 0;
   for (let t = 0; t < WARMUP + SECONDS; t += DT) {
     f.immune = 1e9;
     g.tick(DT);
     f.update(DT);
     f.drainEvents();
     const counting = t >= WARMUP;
+    if (!counting) from = g.dealt.get(id) ?? 0;
     const alive = new Set<number>();
     for (const e of f.enemies) {
-      const before = last.get(e.id);
-      if (before === undefined) continue; // anything else on the field (none should be)
+      if (!last.has(e.id)) continue; // anything else on the field (none should be)
       alive.add(e.id);
-      if (counting) dealt += Math.max(0, before - Math.max(0, e.hp));
       last.set(e.id, e.hp);
     }
-    for (const [eid, before] of [...last]) {
+    for (const [eid] of [...last]) {
       if (alive.has(eid)) continue;
-      // Killed: what it had left counts, and a fresh one takes its place.
-      if (counting) dealt += Math.max(0, before);
+      // Killed: a fresh one takes its place.
       const p = anchor.get(eid)!;
       last.delete(eid);
       anchor.delete(eid);
@@ -142,6 +144,7 @@ function bench(id: HunterId, level: number, sc: (typeof SCENARIOS)[number], seed
     if (Math.round(t / DT) % 10 === 0) for (const e of f.enemies) { const p = anchor.get(e.id); if (p) Object.assign(e, { x: p.x, y: p.y }); }
     if (counting) measured += DT;
   }
+  dealt = (g.dealt.get(id) ?? 0) - from;
   return dealt / measured;
 }
 
