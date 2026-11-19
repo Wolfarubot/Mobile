@@ -85,6 +85,8 @@ import {
 import type { Game, GearMode, KillReward, Shooter } from './game';
 
 export const PLAYER_RADIUS = 13;
+/** How often (s) the battlefield works out again the numbers it keeps (see Field.slowly). */
+const SLOW_REFRESH = 0.5;
 const BULLET_RADIUS = 4;
 /** Size of a tome's summoned creature. */
 export const SUMMON_RADIUS = 9;
@@ -1338,6 +1340,19 @@ export class Field {
     return { type, size: lo + Math.floor(this.game.rng() * (hi - lo + 1)) };
   }
 
+  /**
+   * Numbers that change only when something is bought or learned (a Hunter's shield charges and their recharge, the
+   * area's spawn rate), worked out at most every SLOW_REFRESH seconds rather than on every frame.
+   */
+  private slow = new Map<string, { v: number; at: number }>();
+  private slowly(key: string, work: () => number): number {
+    const hit = this.slow.get(key);
+    if (hit && this.clock - hit.at < SLOW_REFRESH) return hit.v;
+    const v = work();
+    this.slow.set(key, { v, at: this.clock });
+    return v;
+  }
+
   update(dt: number): void {
     const g = this.game;
     this.clock += dt;
@@ -1366,11 +1381,11 @@ export class Field {
       } else h.immune = Math.max(0, h.immune - dt);
     }
     for (const [who, h] of [[this.lead, this], ...this.helpers.map((x) => [x.id, x])] as Array<[Shooter, { guard: number; guardAcc: number }]>) {
-      const max = g.guardOf(who);
+      const max = this.slowly(`guard:${who}`, () => g.guardOf(who));
       if (h.guard > max) h.guard = max;
       else if (h.guard < max) {
         h.guardAcc += dt;
-        if (h.guardAcc * g.guardRechargeMult(who) >= GUARD_RECHARGE) {
+        if (h.guardAcc * this.slowly(`recharge:${who}`, () => g.guardRechargeMult(who)) >= GUARD_RECHARGE) {
           h.guardAcc = 0;
           h.guard++;
         }
@@ -1419,7 +1434,7 @@ export class Field {
       g.bossSpawned();
       this.events.push({ type: 'boss' });
     }
-    this.spawnAcc += dt * g.spawnRate;
+    this.spawnAcc += dt * this.slowly('spawn', () => g.spawnRate);
     this.nextPack ??= this.rollPack();
     while (this.spawnAcc >= this.nextPack.size) {
       this.spawnAcc -= this.nextPack.size;

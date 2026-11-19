@@ -64,6 +64,11 @@ export function* sampleSteps(job: SampleJob, rng: () => number = Math.random): G
     field.drainEvents();
     yield;
   }
+  // The counters start from nothing (this is a copy): a late save's lifetime gold (10^23 and up) can't register a
+  // few thousand more, so measuring the difference made an early area's gold come out as 0.
+  state.stats.totalGold = 0;
+  state.stats.matGained = {};
+  state.stats.hunterKills = {};
   const kills0 = Object.fromEntries(Object.entries(state.bestiary).map(([id, b]) => [id, b.kills]));
   const gold0 = state.stats.totalGold;
   const mats0 = { ...state.stats.matGained };

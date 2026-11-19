@@ -1338,30 +1338,22 @@ export class BattleView {
     const st = this.game.state.settings;
     if (!st.reloads) return;
     const spots: Array<{ who: Shooter; x: number; y: number }> = [{ who: this.field.lead, x: 0, y: 0 }, ...this.field.helpers.map((h) => ({ who: h.id as Shooter, x: h.x, y: h.y }))];
-    g.font = canvasFont(11 / Z, 700);
-    g.textAlign = 'left';
-    g.textBaseline = 'middle';
+    const m = g.getTransform().a;
     for (const s of spots) {
       const status = this.field.weaponStatus(s.who);
       if (!status) continue;
       const { text, progress: p } = status;
       // A tome's "SUMMONING!" has its own switch (off by default).
       if (text === 'SUMMONING!' && !st.summonText) continue;
-      const w = g.measureText(text).width;
+      const label = reloadLabel(text, m);
+      const w = label.w;
       const x = s.x - w / 2;
       const y = s.y + (st.reloadPos === 'below' ? 1 : -1) * (PLAYER_RADIUS * CHAR_SCALE + 14 / Z);
-      // What's left of the wait: the text from the left edge, shrinking toward it as the wait runs.
+      // What's left of the wait: the text from the left edge, shrinking toward it as the wait runs (the label's
+      // picture, drawn once, cut off at that edge).
       const edge = x - 4 + (w + 8) * (1 - p);
-      g.save();
-      g.beginPath();
-      g.rect(x - 4, y - 20, edge - (x - 4), 40);
-      g.clip();
-      g.lineWidth = 4 / Z;
-      g.strokeStyle = '#000';
-      g.strokeText(text, x, y);
-      g.fillStyle = '#ffe066';
-      g.fillText(text, x, y);
-      g.restore();
+      const show = Math.max(0, Math.min(label.cw, (edge - (x - label.pad)) * m));
+      if (show > 0) g.drawImage(label.c, 0, 0, show, label.c.height, x - label.pad, y - label.h / 2, show / m, label.h);
       // The fading edge breaks up into pixels: sparks and metal for guns, magic for staffs, a haze for tomes.
       const palette = EDGE_PIXELS[text] ?? EDGE_PIXELS['RELOADING!'];
       const px = 2 / Z;
@@ -3794,10 +3786,8 @@ const poolCanvas = document.createElement('canvas');
  * drawPotionPool as pixel art: drawn small onto a scratch canvas, each colour snapped solid or clear, then scaled up
  * with hard edges (a smooth vector pool looked flat beside the sprites).
  */
-function drawPixelPool(g: CanvasRenderingContext2D, p: { x: number; y: number; r: number; life: number }, age: number, acid: boolean): void {
-  const half = p.r * 1.3;
-  const n = Math.ceil((half * 2) / POOL_PX);
-  if (n < 2) return;
+/** Draws a pool's pixel art onto the scratch canvas (n×n, top left). */
+function renderPixelPool(p: { x: number; y: number; r: number; life: number }, age: number, acid: boolean, half: number, n: number): void {
   if (poolCanvas.width < n || poolCanvas.height < n) {
     poolCanvas.width = Math.max(poolCanvas.width, n);
     poolCanvas.height = Math.max(poolCanvas.height, n);
@@ -3825,9 +3815,64 @@ function drawPixelPool(g: CanvasRenderingContext2D, p: { x: number; y: number; r
     px[i + 3] = Math.max(px[i + 3], 200);
   }
   c.putImageData(d, 0, 0);
+}
+
+/** The reload labels ("RELOADING!" and the like), each drawn once at the screen's scale: outlined text as a picture. */
+const reloadLabels = new Map<string, { c: HTMLCanvasElement; w: number; h: number; pad: number; cw: number }>();
+function reloadLabel(text: string, m: number): { c: HTMLCanvasElement; w: number; h: number; pad: number; cw: number } {
+  const key = `${text}|${Math.round(m * 100)}`;
+  const hit = reloadLabels.get(key);
+  if (hit) return hit;
+  const c = document.createElement('canvas');
+  const x = c.getContext('2d')!;
+  const font = canvasFont((11 / Z) * m, 700);
+  x.font = font;
+  const w = x.measureText(text).width / m;
+  const pad = 4 / Z;
+  const h = 22 / Z;
+  c.width = Math.ceil((w + pad * 2) * m);
+  c.height = Math.ceil(h * m);
+  x.font = font;
+  x.textAlign = 'left';
+  x.textBaseline = 'middle';
+  x.lineWidth = (4 / Z) * m;
+  x.strokeStyle = '#000';
+  x.strokeText(text, pad * m, (h / 2) * m);
+  x.fillStyle = '#ffe066';
+  x.fillText(text, pad * m, (h / 2) * m);
+  const out = { c, w, h, pad, cw: c.width };
+  if (reloadLabels.size > 40) reloadLabels.clear();
+  reloadLabels.set(key, out);
+  return out;
+}
+
+/** Each pool's pixel art, kept and redrawn POOL_REDRAW times a second (POOL_SPLASH_REDRAW while it splashes down). */
+const poolArt = new WeakMap<object, { c: HTMLCanvasElement; n: number; at: number }>();
+const POOL_REDRAW = 10;
+const POOL_SPLASH_REDRAW = 20;
+
+function drawPixelPool(g: CanvasRenderingContext2D, p: { x: number; y: number; r: number; life: number }, age: number, acid: boolean): void {
+  const half = p.r * 1.3;
+  const n = Math.ceil((half * 2) / POOL_PX);
+  if (n < 2) return;
+  let art = poolArt.get(p);
+  if (!art || art.n !== n || age - art.at >= 1 / (age < 0.4 ? POOL_SPLASH_REDRAW : POOL_REDRAW) || age < art.at) {
+    renderPixelPool(p, age, acid, half, n);
+    if (!art || art.n !== n) {
+      const c = document.createElement('canvas');
+      c.width = n;
+      c.height = n;
+      art = { c, n, at: age };
+      poolArt.set(p, art);
+    }
+    const x = art.c.getContext('2d')!;
+    x.clearRect(0, 0, n, n);
+    x.drawImage(poolCanvas, 0, 0, n, n, 0, 0, n, n);
+    art.at = age;
+  }
   g.save();
   g.imageSmoothingEnabled = false;
-  g.drawImage(poolCanvas, 0, 0, n, n, p.x - half, p.y - half, n * POOL_PX, n * POOL_PX);
+  g.drawImage(art.c, 0, 0, n, n, p.x - half, p.y - half, n * POOL_PX, n * POOL_PX);
   // The effect pack's poison bubbles rising off a potion pool (acid keeps its own bubbles).
   const bubbles = acid ? null : effectImage('poison');
   if (bubbles) {
