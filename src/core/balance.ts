@@ -1139,6 +1139,7 @@ export type BaseMaterialId =
   | 'voidsteel'
   | 'voidPrism'
   | 'scale'
+  | 'broodSac'
   | 'plume'
   | 'skystone'
   | 'feather'
@@ -1295,7 +1296,8 @@ export const MATERIALS: MaterialDef[] = [
   { id: 'voidsteel', name: 'Voidsteel', color: '#5a3a8a', desc: "Metal from beyond the Rift. It drinks the light." },
   { id: 'voidPrism', name: 'Void Prism', color: '#ff5fd7', desc: "A gem from beyond the Rift that bends light the wrong way." },
   { id: 'ore', name: 'Mithril Ore', color: '#b8c8d8', desc: 'A silvery ore from the Venom Caverns, light and harder than steel.' },
-  { id: 'scale', name: 'Drake Scale', color: '#e0603a', desc: 'A scale shed by a fire drake. Still warm, and it never burns.' },
+  { id: 'scale', name: 'Basilisk Scale', color: '#e0603a', desc: "A scale shed by a basilisk. It still holds a glint of the stare that turns things to stone." },
+  { id: 'broodSac', name: 'Brood Sac', color: '#8aa84a', desc: 'An egg sac cut from a Broodmother, still twitching with spiderlings that never hatched.' },
   { id: 'plume', name: 'Griffin Plume', color: '#f0d890', desc: 'A golden feather from the Ascendant Steps. It catches every breeze.' },
   { id: 'skystone', name: 'Sky Stone', color: '#a8b8e0', desc: 'A pale stone from the stairs to the sky. It hangs in the air a moment when dropped.' },
   { id: 'feather', name: 'Storm Feather', color: '#e8f4ff', desc: 'A feather that crackles with static. It never quite settles when you put it down.' },
@@ -1615,7 +1617,7 @@ export const ENEMIES: EnemyDef[] = [
   { id: 'basilisk', name: 'Basilisk', area: 'mines', archetype: 'beast', hp: 3, speed: 1, gold: 3.8, spawn: 0.3, pack: [1, 2], radius: 13, material: 'scale', unlock: 120, color: '#5aa05a', shape: 'triangle', blurb: 'Whatever you do, don\'t meet its eyes.', weak: ['radiant', 'frost'], resist: ['poison', 'acid'] },
   // Ids kept from the old fire monsters (Lava Golem, Fire Drake) so saves keep their kills, Empower and evolutions.
   { id: 'lavaGolem', name: 'Toxic Bloat', area: 'mines', archetype: 'monstrosity', hp: 5, speed: 0.5, gold: 5.5, spawn: 0.2, pack: [1, 1], radius: 16, material: 'magma', unlock: 900, color: '#7a5aa0', shape: 'diamond', size: 'large', blurb: 'A walking sack of cave gas. Best popped from a distance.', weak: ['fire', 'radiant'], resist: ['poison', 'acid', 'physical'] },
-  { id: 'fireDrake', name: 'Broodmother', area: 'mines', archetype: 'monstrosity', hp: 3.5, speed: 1.2, gold: 4.2, spawn: 0.25, pack: [1, 2], radius: 14, material: 'scale', unlock: 4_000, color: '#5a9a3a', shape: 'hexagon', size: 'large', blurb: 'Mother of every spider in the Caverns. She hangs back and sends her brood, and bursts into more of them when she dies.', weak: ['fire', 'radiant'], resist: ['poison', 'physical'], summoner: { minion: 'fireDrake', art: 'spider-black', every: 4, count: 3, max: 9, hp: 0.12, speed: 1.7, size: 0.7, near: 280, standoff: 190, onDeath: 5 } },
+  { id: 'fireDrake', name: 'Broodmother', area: 'mines', archetype: 'monstrosity', hp: 3.5, speed: 1.2, gold: 4.2, spawn: 0.25, pack: [1, 2], radius: 14, material: 'broodSac', unlock: 4_000, color: '#5a9a3a', shape: 'hexagon', size: 'large', blurb: 'Mother of every spider in the Caverns. She hangs back and sends her brood, and bursts into more of them when she dies.', weak: ['fire', 'radiant'], resist: ['poison', 'physical'], summoner: { minion: 'fireDrake', art: 'spider-black', every: 4, count: 3, max: 9, hp: 0.12, speed: 1.7, size: 0.7, near: 280, standoff: 190, onDeath: 5 } },
   { id: 'caveTroll', name: 'Cave Troll', area: 'mines', archetype: 'humanoid', hp: 6, speed: 0.6, gold: 6.5, spawn: 0.15, pack: [1, 1], radius: 17, material: 'ore', unlock: 15_000, color: '#7a6a5a', shape: 'square', blurb: 'Shrugs off blades. Hates fire.', weak: ['fire', 'acid'], resist: ['physical', 'frost'] },
   { id: 'venomGolem', name: 'Venomite Golem', area: 'mines', archetype: 'construct', hp: 6, speed: 0.45, gold: 7, spawn: 0.04, pack: [1, 1], radius: 18, material: 'cobaltOre', drops: [{ material: 'venomite', share: 0.3 }, { material: 'ore', share: 0.1 }], unlock: 40_000, color: '#4a7a3a', shape: 'square', blurb: 'Stone and ore, soaked through with venom.', weak: ['acid', 'radiant'], resist: ['physical', 'poison'] },
 
@@ -5811,7 +5813,7 @@ export const ITEMS: ItemDef[] = [
   areaIdol('cryptIdol', 'Crypt Idol', 'crypt', 'legendary', { undeadFeather: 4_000_000, string: 800_000 }, { cobaltOre: 2_500, venomite: 750 }),
   areaIdol('depthsIdol', 'Shadowy Depths Idol', 'depths', 'legendary', { darkClaw: 5_000_000, gloom: 3_000_000 }, { frostIron: 2_000, aquamarine: 1_200 }),
   areaIdol('emberIdol', 'Ember Mines Idol', 'caves', 'legendary', { demonBone: 5_000_000, chitin: 2_000_000 }, { coldsteel: 400, sapphire: 250 }),
-  areaIdol('venomIdol', 'Venom Caverns Idol', 'mines', 'exotic', { ore: 6_000_000, scale: 600_000 }, { skysteel: 2_000, orichalcum: 400 }),
+  areaIdol('venomIdol', 'Venom Caverns Idol', 'mines', 'exotic', { ore: 6_000_000, scale: 300_000, broodSac: 300_000 }, { skysteel: 2_000, orichalcum: 400 }),
   areaIdol('frostIdol', 'Frost Peaks Idol', 'peaks', 'relic', { fur: 4_000_000, frost: 1_000_000 }, { opal: 2_000, stormstone: 400 }),
   areaIdol('skyIdol', 'Ascendant Steps Idol', 'cliffs', 'artifact', { plume: 4_000_000, skystone: 1_000_000 }, { starIron: 2_000, adamantite: 400 }),
   areaIdol('cloudIdol', 'Cloud Fortress Idol', 'fortress', 'exalted', { feather: 5_000_000, thunder: 1_500_000 }, { voidsteel: 1_500, voidPrism: 250 }),

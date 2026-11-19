@@ -86,6 +86,7 @@ export const MATERIAL_SPRITES: Partial<Record<MaterialId, string>> = {
   fur: 'materials/fur',
   frost: 'materials/frost',
   scale: 'materials/scale',
+  broodSac: 'materials/broodSac',
   plume: 'materials/plume',
   skystone: 'materials/skystone',
   feather: 'resources1/078',
