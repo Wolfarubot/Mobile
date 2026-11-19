@@ -5,6 +5,18 @@ import { serialize } from '../core/state';
 
 /** How often (ms) to look for a group whose sample needs another run. */
 const CHECK_MS = 3000;
+/**
+ * The worker's rest per millisecond of work (see sampler.worker.ts): light while the game runs smoothly, heavy (the
+ * worker on a quarter of a core at most, in shorter bursts) while its frames come late, i.e. the worker and the game share too few cores.
+ */
+const PACE_LIGHT = 0.25;
+const PACE_HEAVY = 3;
+/**
+ * The page's frames per second below which the game counts as struggling (the browser draws 60 or more a second
+ * when it keeps up, whatever the game's own frame-rate cap); back to light only after SMOOTH_SECS of smooth play.
+ */
+const SLOW_FPS = 50;
+const SMOOTH_SECS = 5;
 
 /**
  * Keeps every farming group's background battlefield sample (core/sampler.ts) up to date: yours in your area,
@@ -14,6 +26,7 @@ const CHECK_MS = 3000;
 export class SamplerHost {
   private worker: Worker | null = null;
   private busy: { area: AreaId; group: Shooter[]; sig: string } | null = null;
+  private pace = PACE_LIGHT;
 
   constructor(
     private game: Game,
@@ -29,6 +42,32 @@ export class SamplerHost {
       this.busy = null;
     };
     setInterval(() => this.next(), CHECK_MS);
+    this.watchFrames();
+  }
+
+  /** Keeps an eye on the game's frame rate (a second at a time) and sets the worker's pace from it. */
+  private watchFrames(): void {
+    let frames = 0;
+    let since = performance.now();
+    let smooth = 0;
+    const look = (now: number) => {
+      requestAnimationFrame(look);
+      frames++;
+      const span = (now - since) / 1000;
+      if (span < 1) return;
+      const fps = frames / span;
+      frames = 0;
+      since = now;
+      if (span > 2) return; // the tab was hidden or paused: nothing to judge by
+      const slow = fps < SLOW_FPS;
+      smooth = slow ? 0 : smooth + span;
+      const pace = slow ? PACE_HEAVY : smooth >= SMOOTH_SECS ? PACE_LIGHT : this.pace;
+      if (pace !== this.pace) {
+        this.pace = pace;
+        this.worker?.postMessage({ pace });
+      }
+    };
+    requestAnimationFrame(look);
   }
 
   /** Who's farming where: you (with anyone stationed with you) here, and each stationed group elsewhere. */

@@ -3,6 +3,8 @@ import { RARE_MATERIALS, type MaterialId } from '../core/balance';
 /** How long a pop-up row stays up after its material was last picked up, and how many rows show at once. */
 export const GAIN_POP_MS = 2000;
 export const GAIN_POP_ROWS = 4;
+/** A count's pulse (ms): restarted at most this often. */
+const PULSE_MS = 200;
 
 interface Row {
   /** A material, or 'loot' for the gear row. */
@@ -11,6 +13,9 @@ interface Row {
   el: HTMLElement;
   count: HTMLElement;
   timer: number;
+  /** The count's pulse, and when it last started. */
+  pulse?: Animation;
+  pulsedAt: number;
 }
 
 /**
@@ -63,7 +68,7 @@ export class GainPops {
     const el = document.createElement('div');
     el.className = `gain-pop${rare ? ' rare' : ''}`;
     el.innerHTML = `<span class="gp-icons">${icon}</span><b>+${this.fmt(n)}</b>`;
-    const r: Row = { m, n, el, count: el.querySelector('b')!, timer: 0 };
+    const r: Row = { m, n, el, count: el.querySelector('b')!, timer: 0, pulsedAt: 0 };
     this.rows.push(r);
     this.el.append(el);
     this.arm(r);
@@ -100,8 +105,12 @@ export class GainPops {
    * layout again (removing and re-adding a CSS animation class did, on every pick-up).
    */
   private bump(r: Row): void {
-    r.count.getAnimations?.().forEach((a) => a.cancel());
-    r.count.animate?.([{ transform: 'scale(1)' }, { transform: 'scale(1.25)' }, { transform: 'scale(1)' }], { duration: 200, easing: 'ease-out' });
+    // At most one pulse per PULSE_MS: a steady stream of pick-ups keeps it beating instead of restarting it every frame.
+    const now = performance.now();
+    if (now - r.pulsedAt < PULSE_MS) return;
+    r.pulsedAt = now;
+    r.pulse?.cancel();
+    r.pulse = r.count.animate?.([{ transform: 'scale(1)' }, { transform: 'scale(1.25)' }, { transform: 'scale(1)' }], { duration: PULSE_MS, easing: 'ease-out' });
   }
 
   private remove(r: Row): void {

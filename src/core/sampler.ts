@@ -32,6 +32,18 @@ export type SampleRun = Omit<FieldSample, 'sig' | 'group'>;
 
 /** Runs a hidden battlefield for `job.seconds` (after the warm-up) and returns what happened in it. */
 export function runSample(job: SampleJob, rng: () => number = Math.random): SampleRun {
+  const run = sampleSteps(job, rng);
+  for (;;) {
+    const r = run.next();
+    if (r.done) return r.value;
+  }
+}
+
+/**
+ * runSample a slice at a time: it yields after every step (a step is a millisecond or so of work), so whoever runs it can rest in between (the
+ * worker does, to leave the game the processor) without changing the result.
+ */
+export function* sampleSteps(job: SampleJob, rng: () => number = Math.random): Generator<void, SampleRun> {
   const state = deserialize(job.save)!;
   state.area = job.area;
   // Only the group is on this field; everyone else stays home (and no background farming runs in the copy).
@@ -50,6 +62,7 @@ export function runSample(job: SampleJob, rng: () => number = Math.random): Samp
   for (let t = 0; t < SAMPLE_WARMUP; t += SAMPLE_DT) {
     step();
     field.drainEvents();
+    yield;
   }
   const kills0 = Object.fromEntries(Object.entries(state.bestiary).map(([id, b]) => [id, b.kills]));
   const gold0 = state.stats.totalGold;
@@ -62,6 +75,7 @@ export function runSample(job: SampleJob, rng: () => number = Math.random): Samp
     step();
     for (const e of field.drainEvents()) if (e.type === 'stun') out.stuns[e.who] = (out.stuns[e.who] ?? 0) + 1;
     for (const who of job.group) if (field.isDown(who)) out.down[who] = (out.down[who] ?? 0) + SAMPLE_DT;
+    yield;
   }
   out.seconds = t;
   for (const [id, b] of Object.entries(state.bestiary) as [EnemyId, { kills: number }][]) if (b.kills > kills0[id]) out.kills[id] = b.kills - kills0[id];

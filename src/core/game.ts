@@ -334,6 +334,9 @@ export interface FarmRates {
 }
 
 /** Seconds of the battlefield the live DPS and gold meters average over, and the fewest before they show. */
+/** Stationed groups' background farming: their rates are worked out again this often (s), and paid out this often. */
+const STATION_REFRESH = 5;
+const STATION_STEP = 0.5;
 const LIVE_WINDOW = 10;
 const LIVE_MIN = 3;
 
@@ -370,7 +373,7 @@ export class Game {
   private farmAcc = new Map<string, number>();
   /** Stationed Hunters' farm rates, refreshed about once a second (the model iterates, so don't redo it every frame). */
   private aoeCache = new Map<Shooter, { key: string; v: number }>();
-  private stationRates = new Map<AreaId, { key: string; rates: FarmRates; age: number }>();
+  private stationRates = new Map<AreaId, { key: string; rates: FarmRates; age: number; pending: number }>();
   /** The wall clock (ms), for daily and weekly resets; tests set their own. */
   clock: () => number = () => Date.now();
   private questAge = 0;
@@ -2546,7 +2549,7 @@ export class Game {
   areaGoldPerSecond(area: AreaId): number {
     if (area === this.state.area) return this.liveGold() ?? this.ratesFor(area, ['main', ...this.helpersHere]).gold;
     const group = this.stationedIn(area);
-    return group.length ? this.ratesFor(area, group, this.stationEfficiency).gold : 0;
+    return group.length ? (this.cachedStationRates(area, group) ?? this.ratesFor(area, group, this.stationEfficiency)).gold : 0;
   }
 
   /**
@@ -2559,7 +2562,7 @@ export class Game {
       let gold = this.ratesFor(s.area, ['main', ...this.helpersHere]).gold;
       for (const area of AREAS) {
         const group = area.id === s.area ? [] : this.stationedIn(area.id);
-        if (group.length) gold += this.ratesFor(area.id, group, this.stationEfficiency).gold;
+        if (group.length) gold += (this.cachedStationRates(area.id, group) ?? this.ratesFor(area.id, group, this.stationEfficiency)).gold;
       }
       this.goldRate = gold;
       this.goldRateAge = 0;
@@ -2786,20 +2789,40 @@ export class Game {
         this.emit({ type: 'guardianFail' });
       }
     }
-    // Hunters stationed elsewhere keep farming in the background, together per area.
-    for (const area of AREAS) {
-      if (area.id === s.area) continue;
+    // Hunters stationed elsewhere keep farming in the background, together per area. Their rates are worked out
+    // again every STATION_REFRESH seconds (each area at its own moment, so they don't all land on one frame), and
+    // what they earn is paid every STATION_STEP seconds rather than every frame (the same total: accrue carries
+    // the fractions).
+    AREAS.forEach((area, i) => {
+      if (area.id === s.area) return;
       const group = this.stationedIn(area.id);
-      if (!group.length) continue;
-      const key = group.join(',');
+      if (!group.length) return;
+      const key = this.stationKey(area.id, group);
       let cached = this.stationRates.get(area.id);
-      if (!cached || cached.key !== key || cached.age >= 1) {
-        cached = { key, rates: this.ratesFor(area.id, group, this.stationEfficiency), age: 0 };
+      if (!cached || cached.key !== key || cached.age >= STATION_REFRESH) {
+        // What was earned at the old rates is paid first.
+        if (cached && cached.pending > 0) this.accrue(area.id, cached.rates, cached.pending);
+        cached = { key, rates: this.ratesFor(area.id, group, this.stationEfficiency), age: cached ? 0 : (i * 0.37) % STATION_REFRESH, pending: 0 };
         this.stationRates.set(area.id, cached);
       }
       cached.age += dt;
-      this.accrue(area.id, cached.rates, dt);
-    }
+      cached.pending += dt;
+      if (cached.pending >= STATION_STEP) {
+        this.accrue(area.id, cached.rates, cached.pending);
+        cached.pending = 0;
+      }
+    });
+  }
+
+  /** A stationed group's rates as last worked out (see tick), if they're for this group. */
+  private cachedStationRates(area: AreaId, group: Shooter[]): FarmRates | null {
+    const c = this.stationRates.get(area);
+    return c && c.key === this.stationKey(area, group) ? c.rates : null;
+  }
+
+  /** What a stationed group's cached rates were worked out for: the group, and its sample (a new one counts at once). */
+  private stationKey(area: AreaId, group: Shooter[]): string {
+    return `${group.join(',')}|${this.state.samples[area]?.seconds ?? 0}`;
   }
 
   /**
