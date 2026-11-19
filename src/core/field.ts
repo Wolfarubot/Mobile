@@ -5055,6 +5055,7 @@ export class Field {
     if (e.hp <= 0 || e.phased) return;
     if (e.mark) dmg *= 1 + e.mark.bonus;
     e.hp -= dmg;
+    this.game.noteDealt(shooter, dmg);
     e.flash = 1;
     if (!e.boss) {
       const k = 90 * this.knockMult(shooter);
@@ -5068,6 +5069,7 @@ export class Field {
     if (e.hp <= 0) {
       // A summoner's minion is worth nothing: no gold, drops or kill credit.
       const reward: KillReward = e.minion ? { gold: 0, material: null, amount: 0 } : this.game.registerKill(e.type, e.boss, shooter, !!e.golden);
+      this.game.noteFieldGold(reward.gold);
       // A summoner that dies with minions to spare bursts into them (a Broodmother's brood).
       if (!e.minion && !e.boss && enemyDef(e.type).summoner?.onDeath) this.summonMinions(e, enemyDef(e.type).summoner!.onDeath!);
       if (e.golden) this.say(e.x, e.y - 18, `×${GOLDEN_GOLD} GOLD!`, '#ffd84a', 12);

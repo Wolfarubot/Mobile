@@ -55,6 +55,7 @@ export function runSample(job: SampleJob, rng: () => number = Math.random): Samp
   const gold0 = state.stats.totalGold;
   const mats0 = { ...state.stats.matGained };
   const hk0 = { ...state.stats.hunterKills };
+  const dmg0 = new Map(game.dealt);
   const out: SampleRun = { seconds: 0, kills: {}, gold: 0, materials: {}, stuns: {}, down: {}, hunterKills: {} };
   let t = 0;
   for (; t < job.seconds; t += SAMPLE_DT) {
@@ -67,6 +68,8 @@ export function runSample(job: SampleJob, rng: () => number = Math.random): Samp
   out.gold = state.stats.totalGold - gold0;
   for (const [m, n] of Object.entries(state.stats.matGained) as [MaterialId, number][]) if (n > (mats0[m] ?? 0)) out.materials[m] = n - (mats0[m] ?? 0);
   for (const [sh, n] of Object.entries(state.stats.hunterKills) as [Shooter, number][]) if (n > (hk0[sh] ?? 0)) out.hunterKills[sh] = n - (hk0[sh] ?? 0);
+  out.damage = {};
+  for (const sh of job.group) out.damage[sh] = (game.dealt.get(sh) ?? 0) - (dmg0.get(sh) ?? 0);
   return out;
 }
 
@@ -82,7 +85,8 @@ const addCounts = <K extends string>(a: Partial<Record<K, number>>, b: Partial<R
  * the older runs are scaled down, so the sample follows small changes the strength check rounds away.
  */
 export function mergeSample(old: FieldSample | undefined, group: Shooter[], sig: string, run: SampleRun): FieldSample {
-  const same = !!old && old.sig === sig && sameGroup(old.group, group);
+  // (A sample from before damage was measured starts over, so its damage and seconds cover the same runs.)
+  const same = !!old && old.sig === sig && sameGroup(old.group, group) && (!!old.damage || !run.damage);
   const k = same ? Math.min(1, Math.max(0, SAMPLE_KEEP - run.seconds) / old!.seconds) : 0;
   const base: FieldSample = same ? old! : { group, sig, seconds: 0, kills: {}, gold: 0, materials: {}, stuns: {}, down: {}, hunterKills: {} };
   return {
@@ -95,6 +99,7 @@ export function mergeSample(old: FieldSample | undefined, group: Shooter[], sig:
     stuns: addCounts(base.stuns, run.stuns, k),
     down: addCounts(base.down, run.down, k),
     hunterKills: addCounts(base.hunterKills, run.hunterKills, k),
+    ...(run.damage ? { damage: addCounts(base.damage ?? {}, run.damage, k) } : {}),
   };
 }
 

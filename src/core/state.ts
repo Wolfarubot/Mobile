@@ -203,6 +203,8 @@ export interface FieldSample {
   stuns: Partial<Record<Wearer, number>>;
   down: Partial<Record<Wearer, number>>;
   hunterKills: Partial<Record<Wearer, number>>;
+  /** Damage each Hunter dealt (missing on samples from before it was measured). */
+  damage?: Partial<Record<Wearer, number>>;
 }
 
 /** The main menu tabs, in their default order. */
@@ -1123,6 +1125,7 @@ function cleanSamples(saved: unknown): Partial<Record<AreaId, FieldSample>> {
       stuns: counts<Wearer>(v.stuns, (k) => wearers.has(k)),
       down: counts<Wearer>(v.down, (k) => wearers.has(k)),
       hunterKills: counts<Wearer>(v.hunterKills, (k) => wearers.has(k)),
+      ...(v.damage ? { damage: counts<Wearer>(v.damage, (k) => wearers.has(k)) } : {}),
     };
   }
   return out;

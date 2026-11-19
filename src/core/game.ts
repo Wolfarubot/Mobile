@@ -330,6 +330,10 @@ export interface FarmRates {
   share: Partial<Record<Shooter, number>>;
 }
 
+/** Seconds of the battlefield the live DPS and gold meters average over, and the fewest before they show. */
+const LIVE_WINDOW = 10;
+const LIVE_MIN = 3;
+
 /** The node to put the next point into: of those `can` allows, the one with the fewest ranks, first in `order` among equals. */
 function evenPick<N>(order: N[], can: (node: N) => boolean, rank: (node: N) => number): N | undefined {
   let best: N | undefined;
@@ -374,6 +378,13 @@ export class Game {
   /** goldPerSecond's last measure, and seconds since. */
   private goldRate: number | null = null;
   private goldRateAge = 0;
+  /** Damage each Hunter has dealt on this game's battlefield (the background samples read it from their copies). */
+  readonly dealt = new Map<Shooter, number>();
+  /**
+   * What the battlefield in view is actually doing: damage per Hunter and gold from kills, in one-second buckets
+   * over the last LIVE_WINDOW seconds (started over when the area changes).
+   */
+  private live = { area: '' as string, t: 0, dmg: new Map<Shooter, number>(), gold: 0, past: [] as Array<{ dmg: Map<Shooter, number>; gold: number }> };
   private listeners: Array<(e: GameEvent) => void> = [];
   rng: () => number;
 
@@ -1109,7 +1120,7 @@ export class Game {
 
   /** Your main Hunter's DPS. */
   get dps(): number {
-    return this.dpsOf('main');
+    return this.liveDps('main') ?? 0;
   }
 
   shooterGold(shooter: Shooter): number {
@@ -2430,6 +2441,67 @@ export class Game {
     return { gold, materials };
   }
 
+  /** A hit landed on the battlefield: counted toward that Hunter's damage. */
+  noteDealt(who: Shooter, dmg: number): void {
+    if (!(dmg > 0) || !Number.isFinite(dmg)) return;
+    this.dealt.set(who, (this.dealt.get(who) ?? 0) + dmg);
+    this.live.dmg.set(who, (this.live.dmg.get(who) ?? 0) + dmg);
+  }
+
+  /** Gold a kill on the battlefield paid. */
+  noteFieldGold(gold: number): void {
+    if (gold > 0 && Number.isFinite(gold)) this.live.gold += gold;
+  }
+
+  /** Moves the live window along (every tick). */
+  private tickLive(dt: number): void {
+    const lv = this.live;
+    if (lv.area !== this.state.area) Object.assign(lv, { area: this.state.area, t: 0, dmg: new Map(), gold: 0, past: [] });
+    lv.t += dt;
+    if (lv.t < 1) return;
+    lv.past.push({ dmg: lv.dmg, gold: lv.gold });
+    if (lv.past.length > LIVE_WINDOW) lv.past.shift();
+    Object.assign(lv, { t: 0, dmg: new Map(), gold: 0 });
+  }
+
+  /** Damage per second a Hunter is actually dealing on the battlefield in view (null until a few seconds are in). */
+  liveDps(who: Shooter): number | null {
+    const past = this.live.past;
+    if (past.length < LIVE_MIN) return null;
+    return past.reduce((sum, b) => sum + (b.dmg.get(who) ?? 0), 0) / past.length;
+  }
+
+  /** Gold per second the battlefield in view is actually earning from its kills (null until a few seconds are in). */
+  liveGold(): number | null {
+    const past = this.live.past;
+    if (past.length < LIVE_MIN) return null;
+    return past.reduce((sum, b) => sum + b.gold, 0) / past.length;
+  }
+
+  /**
+   * A Hunter's damage per second as it actually happens: on the battlefield in view for you and the Hunters beside
+   * you, and on their area's background battlefield for a Hunter stationed elsewhere. Null for a resting Hunter, or
+   * before there's anything measured.
+   */
+  actualDps(who: Shooter): number | null {
+    if (who === 'main' || this.helpersHere.includes(who)) return this.liveDps(who);
+    const station = this.state.hunters[who].station;
+    const smp = station ? this.state.samples[station] : undefined;
+    if (!smp?.damage || !smp.group.includes(who) || !(smp.seconds > 0)) return null;
+    return (smp.damage[who] ?? 0) / smp.seconds;
+  }
+
+  /**
+   * Gold per second an area brings in: where you are, what its battlefield is actually earning (you and the Hunters
+   * beside you); elsewhere, what the Hunters stationed there earn (their background battlefield, at the stationed
+   * rate). 0 for an area nobody is farming.
+   */
+  areaGoldPerSecond(area: AreaId): number {
+    if (area === this.state.area) return this.liveGold() ?? this.ratesFor(area, ['main', ...this.helpersHere]).gold;
+    const group = this.stationedIn(area);
+    return group.length ? this.ratesFor(area, group, this.stationEfficiency).gold : 0;
+  }
+
   /**
    * Your gold income per second: where you are (with the Hunters beside you) plus every stationed group. Measured
    * from the farming rates, refreshed every few seconds.
@@ -2632,6 +2704,7 @@ export class Game {
 
   tick(dt: number): void {
     const s = this.state;
+    this.tickLive(dt);
     this.coolEvents(dt);
     this.autoAge += dt;
     if (this.autoAge >= 2) {

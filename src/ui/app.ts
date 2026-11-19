@@ -435,6 +435,25 @@ export class AppUI {
   private dpsOf(who: Wearer): number {
     return this.cached(`d:${who}`, () => this.game.dpsOf(who));
   }
+  /**
+   * A Hunter's DPS as shown: what they're actually dealing (on the battlefield in view, or their area's background
+   * battlefield); for a resting Hunter, or before anything's measured, the estimate from their gear and skills, with a "~".
+   */
+  /** Gold per second an area brings in (see Game.areaGoldPerSecond), worked out at most once a second. */
+  private areaGps(area: AreaId): number {
+    return this.cached(`g:${area}`, () => this.game.areaGoldPerSecond(area));
+  }
+  /** An area tile's gold-per-second badge: on every area someone is hunting in, even one earning nothing (worth moving them). */
+  private areaGpsBadge(area: AreaId): string {
+    const g = this.game;
+    if (!g.isAreaUnlocked(area) || (area !== g.area && !g.stationedIn(area).length)) return '';
+    const gps = this.areaGps(area);
+    return `<b class="area-gps${gps > 0 ? '' : ' none'}">🪙${fmt(gps)}/s</b>`;
+  }
+  private dpsText(who: Wearer): string {
+    const actual = this.cached(`a:${who}`, () => this.game.actualDps(who));
+    return actual !== null ? fmt(actual) : `~${fmt(this.dpsOf(who))}`;
+  }
   private panel = $('#panel');
   private modal = $('#modal');
   private modalClose: (() => void) | null = null;
@@ -1111,7 +1130,7 @@ export class AppUI {
       dot.classList.toggle('hidden', points <= 0);
       const station = def ? g.state.hunters[def.id].station : g.area;
       const down = def && station && station !== g.area ? (this.rates(station, g.stationedIn(station), g.stationEfficiency).stunned[def.id] ?? 0) : 0;
-      setHtml(status, `${station ? `📍 ${areaDef(station).name}` : '💤 Resting'} · ⚔️ ${fmt(this.dpsOf(who))} DPS${down >= 0.05 ? ' · <b class="warn">💫 overwhelmed</b>' : ''}`);
+      setHtml(status, `${station ? `📍 ${areaDef(station).name}` : '💤 Resting'} · ⚔️ ${this.dpsText(who)} DPS${down >= 0.05 ? ' · <b class="warn">💫 overwhelmed</b>' : ''}`);
       const items = g.equipped(who);
       const k = items.map((it) => (it ? `${it.uid}:${it.stars}` : '-')).join('|');
       if (k !== gearKey) {
@@ -1293,14 +1312,15 @@ export class AppUI {
       ].join('');
       // Only redrawn when it changes, so a tap on the location button isn't lost mid-press.
       if (html !== subHtml) subLine.innerHTML = subHtml = html;
-      headline.innerHTML = `<div><b>${fmt(this.dpsOf(who))}</b>DPS</div>${recruited ? `<div><b>${fmt(g.killsBy(who))}</b>Enemies slain</div>` : ''}`;
+      headline.innerHTML = `<div><b>${this.dpsText(who)}</b>DPS</div>${recruited ? `<div><b>${fmt(g.killsBy(who))}</b>Enemies slain</div>` : ''}`;
       // Every stat the game counts for them (their weapon, gear, skills, and Upgrades all in).
       const pc = (v: number) => `${+(v * 100).toFixed(1)}%`;
       const mul = (v: number) => `×${+v.toFixed(2)}`;
       const guard = g.guardOf(who);
       const rally = g.rallyFor(who);
       const tree = g.tree(who);
-      const cells: Array<[string, string]> = [['Damage', fmt(g.shotDamage(who))]];
+      // The estimate from gear and skills alone (what the DPS above settles toward against a steady crowd).
+      const cells: Array<[string, string]> = [['Damage', fmt(g.shotDamage(who))], ['Estimated DPS', fmt(this.dpsOf(who))]];
       if (def?.bane) cells.push([`vs ${ARCHETYPES[def.bane.archetype].name}`, fmt(g.shotDamage(who, def.bane.archetype))]);
       if (def?.backupGun) cells.push(['Secondary', fmt(g.shotDamage(who, undefined, 'short'))]);
       if (def && g.weaponItem(who, 'off')) cells.push(['Off-hand', fmt(g.shotDamage(who, undefined, 'off'))]);
@@ -2267,7 +2287,7 @@ export class AppUI {
         tile.classList.toggle('locked', !open);
         tile.classList.toggle('here', g.area === a.id);
         tile.classList.toggle('selected', this.selectedArea === a.id);
-        tile.innerHTML = open ? `<i>${a.icon}</i><span>${a.name}</span>${g.area === a.id ? '<b class="you-here">📍</b>' : ''}` : '<i>🔒</i><span>???</span>';
+        tile.innerHTML = open ? `<i>${a.icon}</i><span>${a.name}</span>${g.area === a.id ? '<b class="you-here">📍</b>' : ''}${this.areaGpsBadge(a.id)}` : '<i>🔒</i><span>???</span>';
         const here = open ? g.stationedIn(a.id) : [];
         slots.innerHTML = Array.from({ length: STATION_CAPACITY }, (_, i) => {
           const h = here[i];
@@ -2279,7 +2299,14 @@ export class AppUI {
     // The selected area
     const a = areaDef(this.selectedArea);
     const panel = el('div', 'card area-panel');
-    panel.innerHTML = `<h3><span>${a.icon} ${a.name}</span></h3><p>${a.blurb}</p><div class="monster-icons"></div><p class="area-hint">Double-tap an area for its details · hold one to travel there</p>`;
+    panel.innerHTML = `<h3><span>${a.icon} ${a.name}</span></h3><p>${a.blurb}</p><p class="area-gps-line"></p><div class="monster-icons"></div><p class="area-hint">Double-tap an area for its details · hold one to travel there</p>`;
+    const gpsLine = $('.area-gps-line', panel);
+    this.refreshers.push(() => {
+      const gps = this.areaGps(a.id);
+      const who = g.area === a.id ? 'you and the Hunters with you' : `${g.stationedIn(a.id).length} stationed Hunter${g.stationedIn(a.id).length === 1 ? '' : 's'}`;
+      const hunting = g.area === a.id || g.stationedIn(a.id).length > 0;
+      setHtml(gpsLine, hunting ? `🪙 <b>${fmt(gps)}</b> gold per second, from ${who}${gps > 0 ? '' : ': its monsters pay almost nothing now'}` : g.isAreaUnlocked(a.id) ? '🪙 No gold coming in: nobody is hunting here' : '');
+    });
     // Full-screen menu: the selected area's name heads the tab, right under the tabs.
     if (this.menuFull) {
       const head = el('div', 'area-head');
@@ -2755,7 +2782,7 @@ export class AppUI {
         if (open) cell.dataset.area = a.id;
         if (picking && open && selected && g.state.hunters[selected].station !== a.id) cell.classList.add(g.canStation(selected, a.id) ? 'can-drop' : 'can-swap');
         cell.innerHTML = `<div class="area-tile world-tile" style="--ac:${a.palette[2]}">${
-          open ? `<i>${a.icon}</i><span>${a.name}</span>${g.area === a.id ? '<b class="you-here">📍</b>' : ''}` : '<i>🔒</i><span>???</span>'
+          open ? `<i>${a.icon}</i><span>${a.name}</span>${g.area === a.id ? '<b class="you-here">📍</b>' : ''}${this.areaGpsBadge(a.id)}` : '<i>🔒</i><span>???</span>'
         }</div><div class="world-slots"></div>`;
         const slots = $('.world-slots', cell);
         for (let i = 0; i < STATION_CAPACITY; i++) {

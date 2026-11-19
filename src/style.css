@@ -2896,6 +2896,25 @@ canvas {
   left: 4px;
   font-size: 14px;
 }
+.area-tile .area-gps {
+  position: absolute;
+  bottom: 2px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--gold);
+  text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.area-tile .area-gps.none {
+  color: #ff8a80;
+}
+.area-gps-line {
+  margin: 4px 0;
+}
 .area-tile.big {
   width: 96px;
   flex: none;

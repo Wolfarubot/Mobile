@@ -745,6 +745,34 @@ describe('Hunters', () => {
     expect((run.hunterKills.alchemist ?? 0) + (run.hunterKills.ranger ?? 0)).toBe(kills);
   });
 
+  it('DPS shown is what Hunters actually deal: live on the battlefield, from samples elsewhere; areas show their gold per second', () => {
+    const g = rich();
+    for (const id of ['alchemist', 'ranger'] as const) g.recruit(id);
+    g.station('alchemist', 'forest');
+    g.state.areas.glade.unlocked = true;
+    g.station('ranger', 'glade');
+    const f = new Field(g);
+    f.setView(390, 420);
+    expect(g.actualDps('main')).toBeNull(); // nothing measured yet
+    for (let t = 0; t < 15; t += 1 / 30) {
+      g.tick(1 / 30);
+      f.update(1 / 30);
+      f.drainEvents();
+    }
+    expect(g.actualDps('main')).toBeGreaterThan(0);
+    expect(g.actualDps('alchemist')).toBeGreaterThan(0);
+    expect(g.dps).toBe(g.liveDps('main'));
+    expect(g.areaGoldPerSecond('forest')).toBeGreaterThan(0);
+    // Stationed elsewhere: measured on their area's background battlefield, once it's been sampled.
+    expect(g.actualDps('ranger')).toBeNull();
+    const run = runSample({ save: serialize(g.state), area: 'glade', group: ['ranger'], seconds: 20, view: { w: 390, h: 420 } }, () => 0.5);
+    expect(run.damage?.ranger).toBeGreaterThan(0);
+    g.state.samples.glade = mergeSample(undefined, ['ranger'], g.sampleSig('glade', ['ranger']), run);
+    expect(g.actualDps('ranger')).toBeCloseTo(run.damage!.ranger! / run.seconds);
+    expect(g.areaGoldPerSecond('glade')).toBe(g.ratesFor('glade', ['ranger'], g.stationEfficiency).gold);
+    expect(g.areaGoldPerSecond('graveyard')).toBe(0);
+  });
+
   it('samples add up for the same group and strength, and start over when either changes', () => {
     const run = { seconds: 30, kills: { greenSlime: 30 }, gold: 300, materials: { goo: 6 }, stuns: { main: 1 }, down: { main: 2 }, hunterKills: { main: 30 } };
     const a = mergeSample(undefined, ['main'], 'x', run);
