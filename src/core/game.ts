@@ -334,9 +334,11 @@ export interface FarmRates {
 }
 
 /** Seconds of the battlefield the live DPS and gold meters average over, and the fewest before they show. */
-/** Stationed groups' background farming: their rates are worked out again this often (s), and paid out this often. */
-const STATION_REFRESH = 5;
+/** Stationed groups' background farming: paid out this often (s); at most this many areas' rates worked out again a frame. */
 const STATION_STEP = 0.5;
+const STATION_RECALCS = 2;
+/** The minigame buffs that run on time (they scale farming rates while on). */
+const TIMED_BUFFS = (Object.keys(MINIGAME_BUFFS) as MinigameId[]).filter((id) => MINIGAME_BUFFS[id].kind === 'timed');
 const LIVE_WINDOW = 10;
 const LIVE_MIN = 3;
 
@@ -373,7 +375,7 @@ export class Game {
   private farmAcc = new Map<string, number>();
   /** Stationed Hunters' farm rates, refreshed about once a second (the model iterates, so don't redo it every frame). */
   private aoeCache = new Map<Shooter, { key: string; v: number }>();
-  private stationRates = new Map<AreaId, { key: string; rates: FarmRates; age: number; pending: number }>();
+  private stationRates = new Map<AreaId, { key: string; rates: FarmRates; pending: number }>();
   /** The wall clock (ms), for daily and weekly resets; tests set their own. */
   clock: () => number = () => Date.now();
   private questAge = 0;
@@ -1580,6 +1582,7 @@ export class Game {
     item.mods = this.modSlots(uid);
     item.mods[p.slot] = mod;
     item.pending = undefined;
+    this.changedWorn(uid);
     return mod;
   }
 
@@ -1656,6 +1659,7 @@ export class Game {
     invest(item, gold, mats);
     item.stars++;
     this.state.stats.starsAdded++;
+    this.changedWorn(uid);
     return true;
   }
 
@@ -1707,12 +1711,14 @@ export class Game {
     if (uid !== null) {
       const item = this.gearItem(uid);
       if (!item || !slotAccepts(slots[slot], gearDef(item.base))) return false;
+      this.changedWorn(uid); // whoever wore it before loses it
       // Off whoever wears it (and out of any second slot that has closed since).
       for (const uids of Object.values(this.state.equipment)) if (uids) for (let j = 0; j < uids.length; j++) if (uids[j] === uid) uids[j] = null;
     }
     const list = (this.state.equipment[who] ??= slots.map(() => null));
     while (list.length < slots.length) list.push(null);
     list[slot] = uid;
+    this.changedFor(who);
     return true;
   }
 
@@ -1791,6 +1797,7 @@ export class Game {
     this.endGuardian();
     this.endEvent();
     this.emit({ type: 'travel' });
+    this.rev++;
     return true;
   }
 
@@ -1939,6 +1946,7 @@ export class Game {
     if (!it || this.ownsPremium(id) || !this.state.shop.items.includes(id) || this.state.gems < it.cost) return false;
     this.state.gems -= it.cost;
     this.state.premium.push(id);
+    this.rev++;
     return true;
   }
 
@@ -2003,6 +2011,36 @@ export class Game {
 
   private regCache: { tree: Record<string, number>; version: number; mult: Partial<Record<RegKind, number>> } | null = null;
   private regVersion = 0;
+  /**
+   * Goes up whenever something that changes what a group earns happens: training, skill points, gear (equipped,
+   * upgraded, refined or enchanted, crafted upgrades), the monsters' levels and evolutions, who's stationed where,
+   * Regression and shop perks. A stationed group's rates are worked out again only when it (or the group's sample,
+   * or which timed buffs are on) has changed, never on a timer.
+   */
+  rev = 0;
+  /** The same, per area: a change to one area's Hunters or monsters (see changedIn). */
+  private areaRev = new Map<AreaId, number>();
+
+  /** Something about `area`'s Hunters or monsters changed (null: nowhere that's farmed, e.g. a resting Hunter). */
+  private changedIn(area: AreaId | null): void {
+    if (area) this.areaRev.set(area, (this.areaRev.get(area) ?? 0) + 1);
+  }
+
+  /** A Hunter changed (trained, learned, re-geared): their area's numbers. */
+  private changedFor(who: Wearer): void {
+    this.changedIn(this.areaOfHunter(who as Shooter));
+  }
+
+  /** A piece of gear changed: its wearer's area, if anyone wears it. */
+  private changedWorn(uid: number): void {
+    const who = this.wearerOf(uid);
+    if (who) this.changedFor(who.who);
+  }
+
+  /** Which version of `area`'s Hunters and monsters this is (it goes up with any change there, or anywhere). */
+  areaVersion(area: AreaId): string {
+    return `${this.rev}.${this.areaRev.get(area) ?? 0}`;
+  }
   private autoAge = 0;
 
   /** Owns a Regression Tree node. */
@@ -2057,6 +2095,7 @@ export class Game {
     r.shards -= this.regCostOf(id);
     r.tree[id] = 1;
     this.regVersion++;
+    this.rev++;
     return true;
   }
 
@@ -2790,39 +2829,56 @@ export class Game {
       }
     }
     // Hunters stationed elsewhere keep farming in the background, together per area. Their rates are worked out
-    // again every STATION_REFRESH seconds (each area at its own moment, so they don't all land on one frame), and
-    // what they earn is paid every STATION_STEP seconds rather than every frame (the same total: accrue carries
-    // the fractions).
-    AREAS.forEach((area, i) => {
-      if (area.id === s.area) return;
+    // once and kept until something that changes them happens (see stationKey): nothing is re-checked on a timer.
+    // At most STATION_RECALCS areas are worked out again in one frame (a change that touches every area spreads
+    // over a few frames), and what they earn is paid every STATION_STEP seconds rather than every frame (the same
+    // total: accrue carries the fractions).
+    const buffs = this.timedBuffKey();
+    let recalcs = 0;
+    for (const area of AREAS) {
+      if (area.id === s.area) continue;
       const group = this.stationedIn(area.id);
-      if (!group.length) return;
-      const key = this.stationKey(area.id, group);
+      if (!group.length) continue;
+      const key = this.stationKey(area.id, group, buffs);
       let cached = this.stationRates.get(area.id);
-      if (!cached || cached.key !== key || cached.age >= STATION_REFRESH) {
+      if (!cached || (cached.key !== key && recalcs < STATION_RECALCS)) {
+        recalcs++;
         // What was earned at the old rates is paid first.
         if (cached && cached.pending > 0) this.accrue(area.id, cached.rates, cached.pending);
-        cached = { key, rates: this.ratesFor(area.id, group, this.stationEfficiency), age: cached ? 0 : (i * 0.37) % STATION_REFRESH, pending: 0 };
+        cached = { key, rates: this.ratesFor(area.id, group, this.stationEfficiency), pending: 0 };
         this.stationRates.set(area.id, cached);
       }
-      cached.age += dt;
       cached.pending += dt;
       if (cached.pending >= STATION_STEP) {
         this.accrue(area.id, cached.rates, cached.pending);
         cached.pending = 0;
       }
-    });
+    }
   }
 
   /** A stationed group's rates as last worked out (see tick), if they're for this group. */
   private cachedStationRates(area: AreaId, group: Shooter[]): FarmRates | null {
     const c = this.stationRates.get(area);
-    return c && c.key === this.stationKey(area, group) ? c.rates : null;
+    return c && c.key === this.stationKey(area, group, this.timedBuffKey()) ? c.rates : null;
   }
 
-  /** What a stationed group's cached rates were worked out for: the group, and its sample (a new one counts at once). */
-  private stationKey(area: AreaId, group: Shooter[]): string {
-    return `${group.join(',')}|${this.state.samples[area]?.seconds ?? 0}`;
+  /**
+   * What a stationed group's rates were worked out for: the group, any change to its Hunters or the area's monsters
+   * (areaVersion), its background sample (a new run counts at once), and which timed buffs are on (they scale the
+   * rates; one starting or running out is a change too).
+   */
+  private stationKey(area: AreaId, group: Shooter[], buffs: string): string {
+    return `${group.join(',')}|${this.areaVersion(area)}|${this.state.samples[area]?.seconds ?? 0}|${buffs}`;
+  }
+
+  /** The timed buffs on now, and how strongly (a Rift Echo doubles one). */
+  private timedBuffKey(): string {
+    let key = '';
+    for (const id of TIMED_BUFFS) {
+      const p = this.buffPower(id);
+      if (p > 0) key += `${id}${p},`;
+    }
+    return key;
   }
 
   /**
@@ -3167,21 +3223,26 @@ export class Game {
   }
 
   /**
-   * What a group's background battlefield sample (sampler.ts) depends on: who's in it, their strength and gear,
-   * and the area's monsters, rounded so small steps (one training session) don't throw the sample away.
+   * What a group's background battlefield sample (sampler.ts) depends on, written as the things themselves rather
+   * than numbers worked out from them: each Hunter's level (and whether they've ascended), the skills they've
+   * learned, the gear they wear (each piece, its stars and its modifiers), the area's monsters (which are unlocked,
+   * their levels and evolutions), the Regression and shop perks, and crafted upgrades. A sample is measured again only when one of
+   * these changes; anything else (training that doesn't reach a level, a timed buff, gold) leaves it be.
    */
   sampleSig(area: AreaId, group: Shooter[]): string {
-    const r = (n: number) => (Number.isFinite(n) && n !== 0 ? Number(n.toPrecision(2)) : n);
-    const hunters = group.map((sh) => [
-      sh,
-      r(this.dpsOf(sh)),
-      r(this.shooterRange(sh)),
-      r(this.shooterRate(sh)),
-      this.guardOf(sh),
-      this.equipped(sh).map((it) => (it ? `${it.base}${it.stars}` : '')),
-    ]);
-    const monsters = this.roster(area).map((e) => [e.id, r(e.hp), r(e.speed), r(e.spawnRate), r(e.gold), r(e.dropChance)]);
-    return JSON.stringify([hunters, monsters, r(this.areaPerk(area).gold)]);
+    const hunters = group.map((sh) => {
+      const t = this.training(sh);
+      return [
+        sh,
+        this.levelOf(sh),
+        this.ascended(sh) ? 1 : 0,
+        t.skills,
+        (t as { skills2?: Record<string, number> }).skills2 ?? {},
+        this.equipped(sh).map((it) => (it ? [it.base, it.stars, (it.mods ?? []).map((m) => (m ? JSON.stringify(m) : ''))] : '')),
+      ];
+    });
+    const monsters = this.roster(area).map((e) => [e.id, this.monsterLevelInfo(e.id).level, this.state.bestiary[e.id].evo]);
+    return JSON.stringify([hunters, monsters, this.state.regression.tree, this.state.premium, this.state.items]);
   }
 
   /**
@@ -3410,10 +3471,12 @@ export class Game {
       // Ascend: keep the level (Lv 50, or Lv 100 for your Hunter) and its training, and open the levels past it and the next tree.
       t.ascendAt = t.trains;
       t.skills2 = {};
+      this.changedFor(who);
       return true;
     }
     const ranks = which === 'base' ? t.skills : (t.skills2 ??= {});
     ranks[id] = (ranks[id] ?? 0) + 1;
+    this.changedFor(who);
     return true;
   }
 
@@ -3435,6 +3498,7 @@ export class Game {
         n++;
       }
     }
+    if (n) this.changedFor(who);
     return n;
   }
 
@@ -3479,6 +3543,7 @@ export class Game {
     if (p.count <= 0 || this.state.gold < p.cost) return false;
     this.state.gold -= p.cost;
     this.training(who).trains += p.count;
+    this.changedFor(who);
     return true;
   }
 
@@ -3564,6 +3629,7 @@ export class Game {
     // New recruits join you where you are, if there's room.
     this.station(id, this.state.area);
     this.emit({ type: 'recruit', hunter: id });
+    this.rev++;
     return true;
   }
 
@@ -3606,9 +3672,12 @@ export class Game {
 
   /** Station a Hunter in an area (or pass null to call them back). Fails if the area is full. */
   station(id: HunterId, area: AreaId | null): boolean {
+    const was = this.state.hunters[id]?.station ?? null;
     const h = this.state.hunters[id];
     if (!h.recruited || (area && (!this.isAreaUnlocked(area) || !this.canStation(id, area)))) return false;
     h.station = area;
+    this.changedIn(was);
+    this.changedIn(area);
     return true;
   }
 
@@ -3638,6 +3707,7 @@ export class Game {
     this.state.gold -= cost;
     b.unlocked = true;
     this.emit({ type: 'unlock', enemy: id });
+    this.changedIn(enemyDef(id).area);
     return true;
   }
 
@@ -3675,6 +3745,7 @@ export class Game {
     this.state.gold -= p.cost;
     this.state.bestiary[id].empower += p.count;
     this.state.stats.empowers += p.count;
+    this.changedIn(enemyDef(id).area);
     return true;
   }
 
@@ -3741,6 +3812,7 @@ export class Game {
     const evo = this.state.bestiary[id].evo;
     evo[node] = (evo[node] ?? 0) + 1;
     this.state.stats.evolves++;
+    this.changedIn(enemyDef(id).area);
     return true;
   }
 
@@ -3757,6 +3829,7 @@ export class Game {
       if (!pick || !this.evolve(id, pick.id)) break;
       n++;
     }
+    if (n) this.changedIn(enemyDef(id).area);
     return n;
   }
 
@@ -3799,6 +3872,7 @@ export class Game {
     for (const [m, n] of Object.entries(cost) as [MaterialId, number][]) this.state.materials[m] -= n;
     this.state.items[id]++;
     this.state.stats.upgrades++;
+    this.rev++;
     return true;
   }
 

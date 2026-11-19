@@ -21,12 +21,16 @@ const SMOOTH_SECS = 5;
 /**
  * Keeps every farming group's background battlefield sample (core/sampler.ts) up to date: yours in your area,
  * and each stationed group in theirs. One run at a time, in a worker; a group's sample settles after a few
- * minutes of measured battle and is only measured again when the group, its strength or the area's monsters change.
+ * minutes of measured battle and is only measured again when something changes there (Game.areaVersion, then
+ * Game.sampleSig: a level, a skill, a piece of gear or its stars or modifiers, a monster's level or evolution, who's
+ * stationed); a settled area isn't looked at again until then.
  */
 export class SamplerHost {
   private worker: Worker | null = null;
   private busy: { area: AreaId; group: Shooter[]; sig: string } | null = null;
   private pace = PACE_LIGHT;
+  /** Areas whose sample is settled, with the version of their Hunters and monsters it was settled at. */
+  private settled = new Map<AreaId, string>();
 
   constructor(
     private game: Game,
@@ -85,9 +89,16 @@ export class SamplerHost {
     if (!this.worker || this.busy || document.hidden) return;
     const g = this.game;
     for (const { area, group } of this.groups()) {
+      // Settled and nothing changed there since (no Hunter or monster of that area levelled, learned or was
+      // re-geared, nobody came or went): left alone, without even working out its signature.
+      const version = `${g.areaVersion(area)}|${group.join(',')}`;
+      if (this.settled.get(area) === version) continue;
       const sig = g.sampleSig(area, group);
       const smp = g.state.samples[area];
-      if (smp && smp.sig === sig && sameGroup(smp.group, group) && smp.seconds >= SAMPLE_SETTLED) continue;
+      if (smp && smp.sig === sig && sameGroup(smp.group, group) && smp.seconds >= SAMPLE_SETTLED) {
+        this.settled.set(area, version);
+        continue;
+      }
       this.busy = { area, group, sig };
       this.worker.postMessage({ save: serialize(g.state), area, group, seconds: SAMPLE_RUN, view: this.view() });
       return;

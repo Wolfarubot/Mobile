@@ -692,6 +692,45 @@ describe('Hunters', () => {
     expect(ratio()).toBeCloseTo(2.5);
   });
 
+  it("a stationed group's rates and sample are worked out again only when something changes in that area", () => {
+    const g = rich();
+    g.recruit('ranger');
+    g.state.areas.glade.unlocked = true;
+    expect(g.station('ranger', 'glade')).toBe(true);
+    const cache = () => (g as unknown as { stationRates: Map<string, { rates: unknown }> }).stationRates.get('glade')?.rates;
+    g.state.gold = 1000; // small enough that the Grove's gold shows up
+    g.tick(0.1);
+    const first = cache();
+    expect(first).toBeTruthy();
+    const gold = g.state.gold;
+    for (let i = 0; i < 600; i++) g.tick(0.1); // a minute with nothing changing
+    expect(cache()).toBe(first);
+    expect(g.state.gold).toBeGreaterThan(gold); // still earning
+    // A change elsewhere (your Hunter, in the Woods, trains) leaves the Fey Grove alone.
+    const v = g.areaVersion('glade');
+    g.state.gold = 1e20;
+    expect(g.train('main', 1)).toBe(true);
+    expect(g.areaVersion('glade')).toBe(v);
+    g.tick(0.1);
+    expect(cache()).toBe(first);
+    g.station('ranger', 'glade');
+    expect(g.areaVersion('glade')).not.toBe(v); // re-stationing counts as a change there
+    g.tick(0.1);
+    const second = cache();
+    expect(second).not.toBe(first);
+    const sig = g.sampleSig('glade', ['ranger']);
+    // A training session that doesn't reach a level leaves the sample be; a level, or new gear, doesn't.
+    const lv = g.levelOf('ranger');
+    while (g.levelOf('ranger') === lv) {
+      expect(g.sampleSig('glade', ['ranger'])).toBe(sig);
+      g.state.hunters.ranger.trains++;
+    }
+    expect(g.sampleSig('glade', ['ranger'])).not.toBe(sig);
+    expect(g.train('ranger', 1)).toBe(true);
+    g.tick(0.1);
+    expect(cache()).not.toBe(second);
+  });
+
   it('up to 3 Hunters per area; stationed Hunters farm in the background, together', () => {
     const g = rich();
     for (const id of ['alchemist', 'ranger', 'glimmer', 'thief'] as const) g.recruit(id);
