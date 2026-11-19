@@ -8,7 +8,8 @@ import { worth } from './botGear';
 
 /**
  * Hunter test bench: `BENCH_OUT=out.json npx vitest run tests/hunterBench.test.ts` puts each Guild Hunter alone on
- * the field at Lv 50 and Lv 100 (every point spent: the whole first tree, then Ascend and the whole Ascended tree),
+ * the field at Lv 20, 35, 50 and 100 (every point spent as Auto spends them: part of the first tree, all of it, then
+ * Ascend and the whole Ascended tree),
  * all in the same tier of gear, and measures their damage per second against monsters that stand still (with no
  * weaknesses or resistances, so every damage type and status effect counts the same): one very
  * close, one a little way off, one far away, then packs of 5, 10, 20 and 100 a little way off (100 for the later areas' swarms). The monsters can't knock
@@ -31,7 +32,8 @@ const WARMUP = 2;
 const SECONDS = Number(process.env.BENCH_SECONDS ?? 20);
 const SEEDS = Number(process.env.BENCH_SEEDS ?? 4);
 const DT = 1 / 20;
-const LEVELS = [50, 100];
+/** Lv 20 and 35: a first tree partly spent (evenly, as Auto spends); Lv 50: all of it; Lv 100: Ascended, all of both. */
+const LEVELS = (process.env.BENCH_LEVELS?.split(',').map(Number)) ?? [20, 35, 50, 100];
 
 /** Where the dummies stand (the Hunter is at 0, 0): up the field, at these distances; packs spread around a point. */
 const SCENARIOS: Array<{ id: string; at: number; n: number }> = [

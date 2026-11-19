@@ -10,8 +10,10 @@ import { worth } from './botGear';
  * Field test: `FIELD_OUT=out.json npx vitest run tests/fieldBench.test.ts` puts the Guild Hunters in random groups of
  * three (a few different shuffles) on a real battlefield, the area's own monsters spawning as they do in the game
  * (every one of them unlocked), in the Fey Grove, the Shadowy Depths and the Cloud Fortress, each Hunter in that
- * area's gear (the piece of each slot that does the most for them, weapons at 4★, the rest at 3★), at Lv 50 (whole
- * first tree) and Lv 100 (Ascended, whole second tree). Nobody is shielded: monsters reach them and stun them as in
+ * area's gear (the piece of each slot that does the most for them, weapons at 4★, the rest at 3★), at Lv 20 and 35
+ * (part of the first tree), 50 (all of it) and 100 (Ascended, both trees). Each round shuffles the groups afresh
+ * (FIELD_ROUNDS, 6 by default), and the output keeps every fight as well as the averages, so a Hunter who takes the
+ * kills from whoever they're beside shows up. Nobody is shielded: monsters reach them and stun them as in
  * the game. Each Hunter's damage per second is what they actually deal (Game.dealt, as the game's DPS shows it),
  * over FIELD_SECONDS after a warm-up. The rows are per Hunter, per area and level, averaged over the groups they
  * were in; compare two runs (before and after a change) Hunter by Hunter.
@@ -24,8 +26,8 @@ import { worth } from './botGear';
 
 const OUT = process.env.FIELD_OUT;
 const AREA_IDS: AreaId[] = (process.env.FIELD_AREAS?.split(',') as AreaId[] | undefined) ?? ['glade', 'depths', 'fortress'];
-const LEVELS = [50, 100];
-const ROUNDS = Number(process.env.FIELD_ROUNDS ?? 3);
+const LEVELS = (process.env.FIELD_LEVELS?.split(',').map(Number)) ?? [20, 35, 50, 100];
+const ROUNDS = Number(process.env.FIELD_ROUNDS ?? 6);
 const WARMUP = 8;
 const SECONDS = Number(process.env.FIELD_SECONDS ?? 30);
 const DT = 1 / 30;
@@ -170,11 +172,14 @@ it.runIf(!!OUT && !!process.env.FIELD_PRESETS)('Field test (pacing-run saves)', 
 
 it.runIf(!!OUT && !process.env.FIELD_PRESETS)('Field test', () => {
   const sums = new Map<string, { dps: number; n: number }>();
+  // Every fight, so the groupings can be compared: who does well beside whom (a Hunter taking the kills from the others).
+  const fights: Array<{ round: number; area: AreaId; level: number; dps: Record<string, number> }> = [];
   for (let r = 0; r < ROUNDS; r++)
     for (const group of groups(101 + r))
       for (const area of AREA_IDS)
         for (const level of LEVELS) {
           const dps = fight(group, area, level, 7 + r);
+          fights.push({ round: r, area, level, dps });
           for (const [id, v] of Object.entries(dps)) {
             const k = `${id}|${area}|${level}`;
             const cur = sums.get(k) ?? { dps: 0, n: 0 };
@@ -185,5 +190,5 @@ it.runIf(!!OUT && !process.env.FIELD_PRESETS)('Field test', () => {
     const [hunter, area, level] = k.split('|');
     return { hunter, area, level: Number(level), dps: Math.round(v.dps / v.n) };
   });
-  writeFileSync(OUT!, JSON.stringify(rows, null, 1));
+  writeFileSync(OUT!, JSON.stringify({ rows, fights }, null, 1));
 }, 0);
