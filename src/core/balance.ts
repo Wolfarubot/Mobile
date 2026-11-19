@@ -2025,11 +2025,11 @@ export function regTreeMult(tree: Record<string, number>, kind: RegKind): number
 export const AUTO_EMPOWER_SHARES = [0.05, 0.1, 0.2, 0.5] as const;
 /** Which monster each area's Guardian is a giant version of. */
 /**
- * Guardian moves (work in progress): every Guardian from the Restless Graveyard on fights with moves of its own, not
- * just by walking at the Hunters. Off in the game until they're signed off; the Guardian fight sim switches them on
- * (SIM_DPS_MOVES) to compare the fights' pacing with and without.
+ * Guardian moves: every Guardian from the Restless Graveyard on fights with moves of its own (GUARDIAN_KITS), not
+ * just by walking at the Hunters. On in the game; the Guardians' health is set with them on. The Guardian fight sim
+ * can still compare with them off (SIM_DPS_MOVES unset).
  */
-export const GUARDIAN_MOVES_ON = false;
+export const GUARDIAN_MOVES_ON = true;
 export type GuardianMove =
   | 'reap' | 'wisps' // Undead Executioner
   | 'scythe' | 'ghosts' // Awoken Lich

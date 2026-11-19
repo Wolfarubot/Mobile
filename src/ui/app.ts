@@ -26,6 +26,7 @@ import {
   enemyDef,
   FLYING,
   GUARDIAN_ENEMY,
+  GUARDIAN_MOVES_ON,
   guardianName,
   EMPOWER,
   type EnemyId,
@@ -6801,7 +6802,8 @@ export class AppUI {
     });
     body.appendChild(fresh);
 
-    // Guardian moves: preview the Guardians' new moves (not yet switched on for everyone).
+    // Guardian moves: a preview switch while they were off for players (gone now they're on for everyone).
+    if (!GUARDIAN_MOVES_ON) {
     const gm = el('div', 'card setting dev-guardians');
     gm.innerHTML = `<div class="setting-name">Guardian moves</div><p>Preview the Guardians' new moves in their fights (sweeps, summons, charges, frozen time...). Not yet on for players; kept on this device until you switch it off.</p><button class="secondary gm-toggle"></button>`;
     const gmBtn = $('.gm-toggle', gm);
@@ -6812,6 +6814,7 @@ export class AppUI {
       gmLabel();
     });
     body.appendChild(gm);
+    }
 
     // Minigames: every Expert version open, and events costing no energy, whatever the save says (this device only).
     const mgDev = el('div', 'card setting dev-minigames');
