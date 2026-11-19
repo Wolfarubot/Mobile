@@ -887,7 +887,7 @@ describe('Hunters', () => {
     expect(g.registerKill('greenSlime', false, 'thief').gold).toBeCloseTo(plain * 1.1);
   });
 
-  it("Lance's shield is his Zone of Protection node; his Rallying Oath gives every other Hunter a hit", () => {
+  it("Lance's shield is his Rallying Oath node; his Zone of Protection gives every other Hunter in his area a hit", () => {
     const g = rich();
     g.state.areas.graveyard.unlocked = true;
     g.recruit('ranger');
@@ -897,13 +897,23 @@ describe('Hunters', () => {
     g.state.hunters.lance.trains = 100;
     expect(g.guardOf('lance')).toBe(0); // his shield comes from his skill tree
     expect(g.learn('lance', 'power')).toBe(false); // the root comes first
-    expect(g.learn('lance', 'root')).toBe(true); // Zone of Protection
+    expect(g.learn('lance', 'root')).toBe(true); // Rallying Oath
     expect(g.guardOf('lance')).toBe(3);
     expect(g.guardOf('main')).toBe(0);
     for (let i = 0; i < 4; i++) g.learn('lance', 'power'); // 5 points in: his third row opens
-    expect(g.learn('lance', 'rally')).toBe(true); // Rallying Oath
-    expect(g.guardOf('main')).toBe(1);
-    expect(g.guardOf('ranger')).toBe(1);
+    expect(g.learn('lance', 'rally')).toBe(true); // Zone of Protection
+    // Only the Hunters in his area get the shield: none while he rests.
+    g.station('lance', null);
+    g.station('ranger', null);
+    expect(g.guardOf('main')).toBe(0);
+    expect(g.station('lance', g.area)).toBe(true);
+    expect(g.guardOf('main')).toBe(1); // you, with him in your area
+    expect(g.guardOf('ranger')).toBe(0); // resting
+    g.state.areas.glade.unlocked = true;
+    expect(g.station('ranger', 'glade')).toBe(true);
+    expect(g.guardOf('ranger')).toBe(0); // elsewhere
+    expect(g.station('ranger', g.area)).toBe(true);
+    expect(g.guardOf('ranger')).toBe(1); // beside him
     expect(g.guardOf('lance')).toBe(3); // his own shield isn't rallied
   });
 
@@ -6197,7 +6207,7 @@ describe('Field', () => {
     expect(lance.guard).toBeGreaterThan(0);
   });
 
-  it("with Lance's Rallying Oath, your Hunter's rally shield blocks a hit before you're stunned", () => {
+  it("with Lance's Zone of Protection, your Hunter's rally shield blocks a hit before you're stunned", () => {
     const { g, f } = withHelper('lance');
     g.state.hunters.lance.skills = { root: 1, recovery: 1, rally: 1 };
     for (let i = 0; i < 5 * 30; i++) f.update(1 / 30);

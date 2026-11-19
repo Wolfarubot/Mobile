@@ -333,7 +333,7 @@ export type TreeStat =
   | 'bane' // +x to their archetype damage multiplier
   | 'bolts' // Themus: blood bolts burst from each monster his Crimson Wave kills
   | 'guard' // shield charges before being stunned
-  | 'rally' // shield charges granted to every other Hunter
+  | 'rally' // shield charges granted to every other Hunter in the same area
   | 'gold' // +x gold from their kills
   | 'drops' // +x materials from their kills
   | 'tapPower' // +x tap blast damage
@@ -373,9 +373,9 @@ export type TreeStat =
   | 'knifePierce' // Alias: Flurry daggers pierce this many monsters
   | 'spearEvery' // Lance: his holy spear this many attacks sooner
   | 'retribution' // Lance: a hit his shield blocks thrusts his spear at the attacker
-  | 'sanctuary' // Lance: +x recharge speed of the shields his Rallying Oath gives
+  | 'sanctuary' // Lance: +x recharge speed of the shields his Zone of Protection gives
   | 'judgement' // Lance: +x chance his spear sets off Radiant's burst
-  | 'aegis' // Lance: a hit any Rallying Oath shield blocks thrusts his spear at the attacker
+  | 'aegis' // Lance: a hit any Zone of Protection shield blocks thrusts his spear at the attacker
   | 'stagehand' // Theon: -x cooldown of the summoning abilities on her gear (their summons count as Constructs)
   | 'finalBow' // Theon: a puppet bursts as it falls apart for x × its strike
   | 'seams' // Kargesh: crits on monsters whose armour he cracked deal +x
@@ -879,7 +879,7 @@ export const ASCENDED_TREES: Record<HunterId, SkillNode[]> = {
   ranger: ascendedTree([rng(8, 'Hawk Eye', '🦅'), crd(6, 'Barbed Arrows', '🏹'), ban(6, 'Beast Slayer', '🐾', 'Beasts')], { name: 'Hundred Arrows', icon: '🏹', desc: "+125% damage, one more arrow per shot, arrows pierce 2 more enemies, and Arrow Rain's arrows ricochet twice.", maxRank: 1, effect: { damage: 1.25, multishot: 1, pierce: 2, rainBounce: 1 } }, { name: 'Marked Prey', icon: '🎯', desc: 'Monsters her Arrow Rain hits take 20% more damage from every Hunter for 3 seconds.', maxRank: 4, effect: { rainMark: 0.2 } }),
   glimmer: ascendedTree([area(8, 'Cataclysm', '💥', 'Explosions grow'), cdr(6, 'Arcane Haste', '⏱️', 'Fireballs come'), { name: 'Combustion', icon: '🔥', desc: 'A burning monster he kills explodes, hurting the monsters around it for 3% of his hit.', maxRank: 6, effect: { combust: 0.03 } }], { name: 'Starfire', icon: '☄️', desc: '+50% damage, and his explosions (both fireballs) grow 15% wider.', maxRank: 1, effect: { damage: 0.5, radius: 0.15 } }),
   thief: ascendedTree([gld(8, 'Golden Hands', '👛'), drp(6, 'Fine Loot', '🗝️'), crd(6, 'Assassinate', '🔪')], { name: 'Grand Heist', icon: '💎', desc: '+50% damage, +50% gold from his kills, and his Flurry of Knives throws one more dagger.', maxRank: 1, effect: { damage: 0.5, gold: 0.5, knives: 1 } }),
-  lance: ascendedTree([atk(8, 'Righteous Fury', '☀️', 0.05), grd(3, 'Bastion', '🧱', 2), area(6, 'Consecration', '✨', 'Their strikes reach wider:')], { name: 'Aegis', icon: '🛡️', desc: "+95% damage, 1 more shield charge, and a hit any Hunter's Rallying Oath shield blocks thrusts his holy spear at the attacker.", maxRank: 1, effect: { damage: 0.95, guard: 1, aegis: 1 } }, { name: 'Judgement', icon: '⚖️', desc: "His holy spear is 10% more likely to set off Radiant's burst.", maxRank: 4, effect: { judgement: 0.1 } }),
+  lance: ascendedTree([atk(8, 'Righteous Fury', '☀️', 0.05), grd(3, 'Bastion', '🧱', 2), area(6, 'Consecration', '✨', 'Their strikes reach wider:')], { name: 'Aegis', icon: '🛡️', desc: "+95% damage, 1 more shield charge, and a hit any Hunter's Zone of Protection shield blocks thrusts his holy spear at the attacker.", maxRank: 1, effect: { damage: 0.95, guard: 1, aegis: 1 } }, { name: 'Judgement', icon: '⚖️', desc: "His holy spear is 10% more likely to set off Radiant's burst.", maxRank: 4, effect: { judgement: 0.1 } }),
   puppeteer: ascendedTree([area(8, 'Puppet Army', '🪆', 'Puppets hit harder:'), cdr(6, 'Curtain Call', '🎪', 'Puppets come'), { name: 'Strings of Fate', icon: '🧵', desc: 'Her puppets stay 4% longer.', maxRank: 6, effect: { summonLife: 0.04 } }], { name: 'Theater of Puppets', icon: '🎭', desc: '+75% damage, and every third call brings a Grand Marionette twice the size.', maxRank: 1, effect: { damage: 0.75, dire: 1 } }),
   blacksmith: ascendedTree([atk(8, 'Hammer and Tongs', '🔨', 0.05), crd(6, 'Crushing Blows', '💢'), { name: 'Spark Shower', icon: '✨', desc: 'The Forge Hammer throws two more sparks.', maxRank: 6, effect: { sparks: 2 } }], { name: 'Masterwork', icon: '⚒️', desc: '+95% damage, +20% attack speed, and armour he cracks stays cracked twice as long.', maxRank: 1, effect: { damage: 0.95, rate: 0.2, exposeLong: 1 } }),
   wilhelm: ascendedTree([crd(8, 'Executioner', '💀'), { name: 'Quick Swap', icon: '🔁', desc: 'His guns reload 5% faster.', maxRank: 6, effect: { reload: 0.05 } }, prc(3, 'Armor Piercing', '🔩', 2)], { name: 'One Shot', icon: '🎯', desc: '+65% damage, and the first three shots after he switches guns are Swap Shots.', maxRank: 1, effect: { damage: 0.65, swapShot: 2 } }),
@@ -951,9 +951,9 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
   ]),
   // Lance: a bigger shield for everyone, and a spear for anyone who tests it.
   lance: gridTree([
-    [at('root', { name: 'Zone of Protection', icon: '🛡️', desc: 'His shield: blocks 3 hits before he is stunned, regaining a charge every few seconds.', maxRank: 1, effect: { guard: 3 } })],
+    [at('root', { name: 'Rallying Oath', icon: '🛡️', desc: 'His shield: blocks 3 hits before he is stunned, regaining a charge every few seconds.', maxRank: 1, effect: { guard: 3 } })],
     [at('power', atk(5, 'Attack Power', '💪', 0.21)), at('bulwark', grd(2, 'Bulwark', '🧱')), at('spearOfDawn', { name: 'Spear of Dawn', icon: '🌅', desc: 'His holy spear thrusts out every 3rd attack instead of every 4th.', maxRank: 1, cost: 3, effect: { spearEvery: 1 } })],
-    [at('piercingThrust', rng(3, 'Piercing Thrust', '🔱')), at('rally', { name: 'Rallying Oath', icon: '📯', desc: 'Every other Hunter (you too) gets a 1-hit shield.', maxRank: 1, cost: 3, effect: { rally: 1 } }), at('holyLight', atk(5, 'Holy Light', '☀️', 0.1)), at('sanctuary', { name: 'Sanctuary', icon: '⛪', desc: 'The shields his Rallying Oath gives the other Hunters recharge 10% faster.', maxRank: 4, effect: { sanctuary: 0.1 } })],
+    [at('piercingThrust', rng(3, 'Piercing Thrust', '🔱')), at('rally', { name: 'Zone of Protection', icon: '📯', desc: 'Every other Hunter in his area (you too, when he fights beside you) gets a 1-hit shield.', maxRank: 1, cost: 3, effect: { rally: 1 } }), at('holyLight', atk(5, 'Holy Light', '☀️', 0.1)), at('sanctuary', { name: 'Sanctuary', icon: '⛪', desc: 'The shields his Zone of Protection gives the Hunters in his area recharge 10% faster.', maxRank: 4, effect: { sanctuary: 0.1 } })],
     [at('aegis', grd(2, 'Aegis', '🔰')), at('crusader', crt(4, 'Crusader', '⚔️')), at('speed', spd(3))],
     [at('capstone', { name: 'Retribution', icon: '⚜️', desc: '1 more shield charge, and every hit his shield blocks thrusts his holy spear back at the attacker.', maxRank: 1, cost: 4, effect: { guard: 1, retribution: 1 } })],
   ]),
@@ -3007,7 +3007,7 @@ export const HUNTERS: HunterDef[] = [
     unlock: { kills: 150_000, archetype: 'undead', area: 'graveyard' },
     ascendedTitle: 'Crusader',
     story: 'Lance swore to guard the Restless Graveyard\'s gates until its dead lie still. Put a hundred and fifty thousand of them back in the ground, and his shield is yours.',
-    ability: 'Can take multiple hits before being knocked out (Zone of Protection), and grants other Hunters an extra hit as well (Rallying Oath). Every 4th attack, a great holy spear thrusts out toward his target, dealing 200% of his hit as Radiant damage to every monster it pierces, with a 40% chance on each to set off a Radiant burst (Holy Spear).',
+    ability: 'Can take multiple hits before being knocked out (Rallying Oath), and grants the other Hunters in his area an extra hit as well (Zone of Protection). Every 4th attack, a great holy spear thrusts out toward his target, dealing 200% of his hit as Radiant damage to every monster it pierces, with a 40% chance on each to set off a Radiant burst (Holy Spear).',
     slots: [{ kind: 'melee', label: 'Melee' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
     holySpear: { every: 4, length: 300, width: 28, damage: 2, proc: 0.4 },
   },
@@ -3348,8 +3348,8 @@ const HUNTER_ABILITIES: Partial<Record<HunterId, HunterAbility[]>> = {
   ],
   thief: [{ name: "Thieves' Luck", kind: 'passive', text: 'Wherever he is, monsters pay 30% more gold and drop loot twice as often.' }],
   lance: [
-    { name: 'Zone of Protection', kind: 'passive', text: 'Takes several hits before he is knocked out.' },
-    { name: 'Rallying Oath', kind: 'passive', text: 'Every other Hunter can take an extra hit before they are knocked out.' },
+    { name: 'Rallying Oath', kind: 'passive', text: 'Takes several hits before he is knocked out.' },
+    { name: 'Zone of Protection', kind: 'passive', text: 'Every other Hunter in his area can take an extra hit before they are knocked out.' },
     { name: 'Holy Spear', kind: 'passive', text: 'Every 4th attack, a great spear of light thrusts out toward his target, piercing every monster in its path for Radiant damage, with a good chance on each to set off a Radiant burst.' },
   ],
   glimmer: [{ name: 'Fireballs', kind: 'active', text: 'Every 4 seconds, hurls a fireball that explodes for area damage.' }],

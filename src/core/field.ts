@@ -911,7 +911,7 @@ export class Field {
     return best;
   }
 
-  /** Lance's Retribution (his own blocks) and Aegis (blocks by any shield his Rallying Oath gave): a spear at the attacker. */
+  /** Lance's Retribution (his own blocks) and Aegis (blocks by any shield his Zone of Protection gave): a spear at the attacker. */
   private retribute(who: Shooter, x: number, y: number): void {
     const g = this.game;
     const target = this.nearest(x, y, 160);
@@ -923,7 +923,7 @@ export class Field {
       return;
     }
     if (g.rallyFor(who) <= 0) return;
-    for (const h of HUNTERS) if (h.holySpear && h.id !== who && g.state.hunters[h.id].recruited && g.tree(h.id).aegis > 0) this.holySpear(h.id, x, y, a, h.holySpear, 'long');
+    for (const h of HUNTERS) if (h.holySpear && h.id !== who && g.sameArea(h.id, who) && g.tree(h.id).aegis > 0) this.holySpear(h.id, x, y, a, h.holySpear, 'long');
   }
   /** Orb Scepter orbs: where bolts landed, hurting each monster that walks into one, once. */
   orbs: Array<{ who: Shooter; x: number; y: number; r: number; life: number; max: number; dmg: number; crit: boolean; mode?: GearMode; dtype?: DamageType; hit: Set<number> }> = [];

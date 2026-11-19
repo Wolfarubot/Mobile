@@ -3486,7 +3486,7 @@ function drawRock(g: CanvasRenderingContext2D, r: number, color: string): void {
  * turns blue, then the blues turn silver.
  */
 /**
- * Charges from Lance's Rallying Oath (`rally`, the first to go) show apart from the Hunter's own: a see-through
+ * Charges from Lance's Zone of Protection (`rally`, the first to go) show apart from the Hunter's own: a see-through
  * golden shield each, glowing, at the end of the row.
  */
 function drawShieldPips(g: CanvasRenderingContext2D, x: number, y: number, guard: number, rally = 0): void {
@@ -3506,7 +3506,7 @@ function drawShieldPips(g: CanvasRenderingContext2D, x: number, y: number, guard
   }
 }
 
-/** A Rallying Oath charge: Lance's shield, see-through gold with a holy glow and a white cross. */
+/** A Zone of Protection charge: Lance's shield, see-through gold with a holy glow and a white cross. */
 function drawOathShield(g: CanvasRenderingContext2D, x: number, y: number): void {
   g.save();
   g.translate(Math.round(x), Math.round(y));

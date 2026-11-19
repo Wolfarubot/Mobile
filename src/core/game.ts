@@ -747,16 +747,22 @@ export class Game {
     return c.v;
   }
 
-  /** Shield charges before a Hunter is stunned (skill tree, e.g. Lance's Zone of Protection + gear + rallies). */
+  /** Shield charges before a Hunter is stunned (skill tree, e.g. Lance's Rallying Oath + gear + rallies). */
   guardOf(shooter: Shooter): number {
     return this.tree(shooter).guard + Math.floor(this.gear(shooter).guard) + this.rallyFor(shooter) + Math.round(this.auraIn(this.areaOfHunter(shooter), 'reinforce', shooter));
   }
 
-  /** Shield charges granted to `shooter` by other recruited Hunters' rally nodes (Lance's Rallying Oath). */
+  /** Shield charges granted to `shooter` by the rally nodes of other Hunters in the same area (Lance's Zone of Protection). */
   rallyFor(shooter: Shooter): number {
     let n = 0;
-    for (const h of HUNTERS) if (h.id !== shooter && this.state.hunters[h.id].recruited) n += this.tree(h.id).rally;
+    for (const h of HUNTERS) if (h.id !== shooter && this.sameArea(h.id, shooter)) n += this.tree(h.id).rally;
     return n;
+  }
+
+  /** Two Hunters fighting in the same area (your Hunter in yours; a Guild Hunter where they're stationed). */
+  sameArea(a: Shooter, b: Shooter): boolean {
+    const at = this.areaOfHunter(a);
+    return !!at && at === this.areaOfHunter(b);
   }
 
   /** Enemies this Hunter has defeated (on the field, stationed and offline). */
@@ -838,11 +844,11 @@ export class Game {
     return v;
   }
 
-  /** How much faster a Hunter's shield charges come back: Lance's Sanctuary, for those his Rallying Oath shields. */
+  /** How much faster a Hunter's shield charges come back: Lance's Sanctuary, for those his Zone of Protection shields. */
   guardRechargeMult(who: Shooter): number {
     if (this.rallyFor(who) <= 0) return 1;
     let v = 0;
-    for (const h of HUNTERS) if (h.id !== who && this.state.hunters[h.id].recruited && this.tree(h.id).rally > 0) v += this.tree(h.id).sanctuary;
+    for (const h of HUNTERS) if (h.id !== who && this.sameArea(h.id, who) && this.tree(h.id).rally > 0) v += this.tree(h.id).sanctuary;
     return 1 + v;
   }
 

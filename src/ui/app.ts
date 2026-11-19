@@ -8235,7 +8235,7 @@ function nodeBonusLines(n: TreeNode, rank: number): string[] {
       case 'bane': out.push(`${pct(v)} bonus damage`); break;
       case 'bolts': out.push(`+${+v.toFixed(2)} blood bolts`); break;
       case 'guard': out.push(`+${v} shield charge${v === 1 ? '' : 's'}`); break;
-      case 'rally': out.push(`+${v} shield charge${v === 1 ? '' : 's'} for every other Hunter`); break;
+      case 'rally': out.push(`+${v} shield charge${v === 1 ? '' : 's'} for every other Hunter in the same area`); break;
       case 'gold': out.push(`${pct(v)} gold`); break;
       case 'drops': out.push(`${pct(v)} material drops`); break;
       case 'tapPower': out.push(`${pct(v)} tap damage`); break;
