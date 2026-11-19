@@ -8964,3 +8964,93 @@ body .title-row .quick-type .cyc-cur {
 .beast-sub .archetype { margin-left:0; display:inline-flex; align-items:center; gap:3px; white-space:nowrap; }
 .beast-sub .beast-tag { margin-left:0; }
 .beast-sub small { font-size:10px; }
+
+/* ---- Modify, in two screens (no scrolling): the title and the piece's name centred, framed slots, empty choice boxes ---- */
+.modify-sheet > h2 {
+  text-align: center;
+  margin-bottom: 0;
+}
+.modify-sheet .sheet-body {
+  gap: 4px;
+}
+.modify-sheet .mod-item-name {
+  text-align: center;
+  font-size: 15px;
+  margin: 0 0 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.modify-sheet .mod-item-sub {
+  text-align: center;
+  font-size: 12px;
+  margin: 0 0 4px;
+}
+/* Slots: a solid frame, empty ones too, so each reads as a box you can pick. */
+.modify-sheet .mod-slot,
+.modify-sheet .mod-slots button.mod-slot {
+  border: 2px solid color-mix(in srgb, currentColor 55%, transparent) !important;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25) !important;
+  border-radius: 8px;
+  opacity: 1;
+  min-height: 38px;
+  padding: 8px 10px;
+}
+.modify-sheet .mod-slot.full,
+.modify-sheet .mod-slots button.mod-slot.full {
+  border-color: var(--gold) !important;
+}
+.modify-sheet .mod-slots button.mod-slot.on {
+  border-color: var(--gold) !important;
+  box-shadow: 0 0 0 2px var(--gold) !important;
+  background: color-mix(in srgb, var(--gold) 28%, transparent) !important;
+}
+.modify-sheet .mod-slots button.mod-slot.fresh {
+  box-shadow: 0 0 0 3px var(--gold) !important;
+}
+.modify-sheet .mod-slot i {
+  opacity: 0.7;
+}
+.modify-sheet .mod-slot.chosen {
+  border-color: var(--gold) !important;
+  background: color-mix(in srgb, var(--gold) 18%, transparent);
+}
+.modify-sheet .mod-actions {
+  grid-template-columns: 1fr 1fr;
+  margin: 8px 0 4px;
+}
+.modify-sheet .mod-action:disabled {
+  filter: grayscale(1) brightness(0.8);
+  opacity: 0.55;
+}
+.modify-sheet .filter-label {
+  text-align: center;
+  margin-top: 4px;
+}
+.modify-sheet .mod-choices {
+  margin-bottom: 4px;
+}
+.mod-choice.empty {
+  min-height: 38px;
+  border: 2px dashed color-mix(in srgb, var(--fg) 40%, transparent);
+  background: transparent;
+}
+.modify-sheet .mod-what {
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.35;
+}
+.modify-sheet .mod-bless {
+  text-align: center;
+  font-size: 12px;
+  color: var(--gold);
+}
+.modify-sheet .mod-cost {
+  margin: 2px 0;
+}
+.modify-sheet .refine-go {
+  width: 100%;
+}
+.modify-sheet .refine-note {
+  text-align: center;
+}

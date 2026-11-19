@@ -2084,65 +2084,124 @@ export class AppUI {
    * Enchant), and a perfect roll gets its border. Pick one and it goes in the slot. A paid-for roll waits on
    * the piece until you pick, even if you close the window.
    */
+  /**
+   * The Modify window, in two screens so nothing needs scrolling. The first: "Modify" with the piece's name under it,
+   * its modifier slots (framed), and Refine and Enchant, greyed out until a slot is picked. Refine or Enchant opens the
+   * second: its name and the piece's at the top, the chosen slot, one empty box for each choice the roll will offer
+   * (filled with the choices once rolled), what it does, any blessing on it, its cost, and the button that rolls.
+   * Close there goes back to the first screen.
+   */
   private openModify(uid: number): void {
     const g = this.game;
     const item = g.gearItem(uid);
     if (!item) return;
     const gd = gearDef(item.base);
     const waiting = g.pendingMod(uid);
-    // Pick a slot and Refine or Enchant in either order; with both, the cost and Roll show.
     let action: 'refine' | 'enchant' | null = waiting?.kind ?? null;
     let slot: number | null = waiting?.slot ?? null;
     let last: number | null = null; // the slot just filled
     let anim: 'shake' | 'reveal' | null = null;
-    this.showSheet(`🛠️ Modify ${gearIcon(gd)} ${gd.name}`, (body) => {
+    this.showSheet('Modify', (body, closeSheet) => {
+      const box = body.closest('.modal-box') as HTMLElement;
+      box.classList.add('modify-sheet');
+      const title = $('h2', box);
+      const buttons = $('.buttons', box);
+      const slotHtml = (i: number, cls = '') => {
+        const m = g.modSlots(uid)[i];
+        const perfect = !!m && modPerfect(m);
+        return `<div class="mod-slot ${m ? 'full' : ''} ${perfect ? 'perfect' : ''} ${cls}">${m ? `${modText(m, gd)}${perfect ? ' <em class="perfect-tag">Perfect</em>' : ''}` : '<i>Empty slot</i>'}</div>`;
+      };
       const draw = () => {
         const slots = g.modSlots(uid);
         const pending = g.pendingMod(uid);
         const busy = !!pending || !!anim;
-        const what = action === 'refine' ? 'refinement' : 'enchantment';
-        const choices = pending
-          ? `<div class="filter-label">${anim ? (pending.kind === 'refine' ? 'Refining…' : 'Enchanting…') : 'Choose one'}</div><div class="mod-choices">${pending.options
+        const screen = action && slot !== null ? 'mod' : 'main';
+        const name = `<p class="mod-item-name"><b style="color:${gearColor(gd.id)}">${gd.name}</b></p>`;
+        buttons.innerHTML = '';
+        const closeBtn = el('button', 'secondary', 'Close');
+        buttons.appendChild(closeBtn);
+        if (screen === 'main') {
+          title.textContent = 'Modify';
+          body.innerHTML = `
+            ${name}
+            <p class="mod-item-sub"><b class="rarity-tag" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${gearKindName(gd)} · <span class="stars">${starsHtml(item.stars)}</span></p>
+            <div class="mod-slots"><div class="filter-label">Modifiers</div>${slots
+              .map((m, i) => {
+                const perfect = !!m && modPerfect(m);
+                const cls = ['mod-slot', 'pick', m ? 'full' : '', i === slot ? 'on' : '', perfect ? 'perfect' : '', i === last ? 'fresh' : ''].filter(Boolean).join(' ');
+                return `<button class="${cls}" data-slot="${i}"${busy ? ' disabled' : ''}>${m ? `${modText(m, gd)}${perfect ? ' <em class="perfect-tag">Perfect</em>' : ''}` : '<i>Empty slot</i>'}</button>`;
+              })
+              .join('')}</div>
+            <div class="mod-actions">
+              ${g.refineOpen ? `<button class="mod-action" data-action="refine"${slot === null ? ' disabled' : ''}><b>⚒️ Refine</b></button>` : ''}
+              ${g.enchantOpen ? `<button class="mod-action" data-action="enchant"${slot === null ? ' disabled' : ''}><b>✨ Enchant</b></button>` : ''}
+            </div>
+            ${slot === null ? '<p class="refine-note">Pick a slot to modify.</p>' : ''}
+            ${!g.refineOpen ? '<p class="refine-note">Recruit Kargesh the Blacksmith (Ember Mines) to Refine.</p>' : ''}
+            ${!g.enchantOpen ? '<p class="refine-note">Recruit Marceline the Enchantress (Venom Caverns) to Enchant.</p>' : ''}`;
+          closeBtn.addEventListener('click', closeSheet);
+          body.querySelectorAll<HTMLButtonElement>('.mod-action').forEach((b) =>
+            b.addEventListener('click', () => {
+              if (slot === null) return;
+              action = b.dataset.action as 'refine' | 'enchant';
+              last = null;
+              draw();
+            }),
+          );
+          body.querySelectorAll<HTMLButtonElement>('.mod-slot.pick').forEach((b) =>
+            b.addEventListener('click', () => {
+              const i = Number(b.dataset.slot);
+              const held = g.modSlots(uid)[i];
+              const choose = () => {
+                slot = i;
+                last = null;
+                draw();
+              };
+              if (!held || slot === i) return choose();
+              // An occupied slot: confirm replacing what's there.
+              const wrap = el('div', 'mod-confirm-wrap');
+              wrap.innerHTML = `<div class="modal-box mod-confirm"><h2>Replace modifier?</h2><p>Using this slot will replace its existing modifier:</p><p class="mod-confirm-cur">${modText(held, gd)}</p><div class="buttons"><button class="secondary mc-cancel">Cancel</button><button class="buy mc-ok">Confirm</button></div></div>`;
+              $('.mc-cancel', wrap).addEventListener('click', () => wrap.remove());
+              $('.mc-ok', wrap).addEventListener('click', () => {
+                wrap.remove();
+                choose();
+              });
+              this.modal.appendChild(wrap);
+            }),
+          );
+          return;
+        }
+        // ---- Refine / Enchant ----
+        const kind = action!;
+        const at = slot!;
+        title.textContent = kind === 'refine' ? 'Refine' : 'Enchant';
+        const n = g.modChoices;
+        const boxes = pending
+          ? pending.options
               .map((m, i) => {
                 const perfect = modPerfect(m) && !anim;
                 const inner = anim === 'shake' ? `<span class="roll-dice">🎲</span>` : `${modText(m, gd)}${perfect ? ' <em class="perfect-tag">Perfect</em>' : ''}`;
                 return `<button class="mod-choice ${pending.kind}${anim === 'shake' ? ' shaking' : ''}${perfect ? ' perfect' : ''}" data-choice="${i}"${anim ? ' disabled' : ''}>${inner}</button>`;
               })
-              .join('')}</div>`
-          : '';
-        const note = pending
-          ? ''
-          : slot !== null && action
-            ? ''
-            : slot !== null
-              ? 'Now choose Refine or Enchant for this slot.'
-              : action
-                ? `Pick a slot for the ${what}.`
-                : 'Pick a slot, then Refine or Enchant (or the other way round).';
+              .join('')
+          : Array.from({ length: n }, () => '<div class="mod-choice empty"></div>').join('');
+        const charges = g.blessingCharges(kind);
         const blessed =
-          action && !pending && g.blessingCharges(action) > 0 && g.state.blessings[action] > 0
-            ? `<p class="refine-note mg-bless">✨ Blessed by ${action === 'refine' ? "Kargesh's Forge Strike" : "Marceline's Rune Match"} (${g.blessingCharges(action)} charge${g.blessingCharges(action) > 1 ? 's' : ''} left): this roll tries ${g.state.blessings[action]} extra time${g.state.blessings[action] > 1 ? 's' : ''} for each choice (${Math.round(g.perfectChance(g.state.blessings[action]) * 100)}% perfect instead of ${Math.round(g.perfectChance(0) * 100)}%).</p>`
+          charges > 0 && g.state.blessings[kind] > 0
+            ? `<p class="mod-bless">✨ <b>${kind === 'refine' ? 'Forge Blessing' : 'Rune Blessing'}</b> · ${charges} charge${charges === 1 ? '' : 's'} left · Increased chance for better rolls</p>`
             : '';
-        // The header and slots as on the piece's own card, the slots tappable.
         body.innerHTML = `
-          <p><b class="rarity-tag" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${gearKindName(gd)} · <span class="stars">${starsHtml(item.stars)}</span></p>
-          <div class="mod-slots"><div class="filter-label">Modifiers</div>${slots
-            .map((m, i) => {
-              const perfect = !!m && modPerfect(m);
-              const cls = ['mod-slot', 'pick', m ? 'full' : '', action && !m && slot === null && !busy ? 'open' : '', i === slot ? 'on' : '', perfect ? 'perfect' : '', i === last ? 'fresh' : ''].filter(Boolean).join(' ');
-              return `<button class="${cls}" data-slot="${i}"${busy ? ' disabled' : ''}>${m ? `${modText(m, gd)}${perfect ? ' <em class="perfect-tag">Perfect</em>' : ''}` : '<i>Empty slot</i>'}</button>`;
-            })
-            .join('')}</div>
-          ${choices}
-          <div class="mod-actions">
-            ${g.refineOpen ? `<button class="mod-action${action === 'refine' ? ' on' : ''}" data-action="refine"${busy ? ' disabled' : ''}><b>⚒️ Refine</b><small>Equipment Stat Bonuses</small></button>` : ''}
-            ${g.enchantOpen ? `<button class="mod-action${action === 'enchant' ? ' on' : ''}" data-action="enchant"${busy ? ' disabled' : ''}><b>✨ Enchant</b><small>Elemental and Magical Bonuses</small></button>` : ''}
-          </div>
-          ${note ? `<p class="refine-note">${note}</p>` : ''}${blessed}
-          ${!g.refineOpen ? '<p class="refine-note">Recruit Kargesh the Blacksmith (Ember Mines) to Refine.</p>' : ''}
-          ${!g.enchantOpen ? '<p class="refine-note">Recruit Marceline the Enchantress (Venom Caverns) to Enchant.</p>' : ''}`;
-        // The choice boxes shake for a second, then each is revealed in turn.
-        const reveal = (kind: 'refine' | 'enchant') => {
+          ${name}
+          ${slotHtml(at, 'chosen')}
+          <div class="filter-label">${pending ? (anim ? (kind === 'refine' ? 'Refining…' : 'Enchanting…') : 'Choose one') : `${n} choices`}</div>
+          <div class="mod-choices">${boxes}</div>
+          <p class="mod-what"><b>${kind === 'refine' ? '⚒️ Refine' : '✨ Enchant'}</b><br>${kind === 'refine' ? 'Enhance equipment stats and bonuses.' : 'Enchant equipment with magical effects and spells.'}</p>
+          ${blessed}`;
+        // The cost (a reroll costs the same), then the button.
+        const cost = el('div', 'fc-cost mod-cost');
+        cost.innerHTML = g.freeRollFor(uid) ? '<span class="mod-free">✨ Free roll (Enhanced Forging)</span>' : recipeHtml(g, kind === 'refine' ? g.refineCostOf(uid) : g.enchantCostOf(uid), g.modGoldOf(uid, kind));
+        body.appendChild(cost);
+        const reveal = () => {
           this.hooks.save();
           last = null;
           anim = 'shake';
@@ -2151,98 +2210,63 @@ export class AppUI {
             if (!body.isConnected) return;
             anim = 'reveal';
             draw();
-            const boxes = Array.from(body.querySelectorAll<HTMLElement>('.mod-choice'));
-            let left = boxes.length;
+            const els = Array.from(body.querySelectorAll<HTMLElement>('.mod-choice'));
+            let left = els.length;
             const done = () => {
               if (--left > 0 || !body.isConnected) return;
               anim = null;
               draw();
             };
-            boxes.forEach((box, i) => setTimeout(() => revealWithPixels(box, REVEAL_PIXELS[kind], kind === 'refine' ? 1 : -1, done), i * 220));
-            if (!boxes.length) done();
+            els.forEach((b, i) => setTimeout(() => revealWithPixels(b, REVEAL_PIXELS[kind], kind === 'refine' ? 1 : -1, done), i * 220));
+            if (!els.length) done();
           }, 1000);
         };
-        // Its cost: some of the piece's recipe, plus golem metals (Refine) or gems (Enchant); a reroll costs the same.
-        const costOf = (kind: 'refine' | 'enchant') => {
-          const row = el('div', 'fc-cost mod-cost');
-          // Enhanced Forging: the roll after a paid one is free.
-          row.innerHTML = g.freeRollFor(uid) ? '<span class="mod-free">✨ Free roll (Enhanced Forging)</span>' : recipeHtml(g, kind === 'refine' ? g.refineCostOf(uid) : g.enchantCostOf(uid), g.modGoldOf(uid, kind));
-          return row;
-        };
-        if (action && slot !== null && !pending) {
-          const go = el('button', 'buy refine-go') as HTMLButtonElement;
-          go.innerHTML = `🎲 Roll ${g.modChoices} ${action === 'refine' ? 'Refinements' : 'Enchantments'}`;
-          go.disabled = !(action === 'refine' ? g.canRefine(uid, slot) : g.canEnchant(uid, slot));
-          body.appendChild(costOf(action));
+        const go = el('button', 'buy refine-go') as HTMLButtonElement;
+        if (pending) {
+          go.innerHTML = `🎲 Reroll`;
+          go.disabled = !!anim || !g.canReroll(uid);
           go.addEventListener('click', () => {
-            if (slot === null || !action || anim) return;
-            const kind = action;
-            if (!g.rollMod(uid, slot, kind)) return;
-            reveal(kind);
-          });
-          body.appendChild(go);
-        }
-        // Waiting choices: Reroll swaps them all for a fresh roll, for the same cost, without leaving the window.
-        if (pending && !anim) {
-          const kind = pending.kind;
-          const again = el('button', 'buy refine-go reroll') as HTMLButtonElement;
-          again.innerHTML = `🎲 Reroll ${g.modChoices} ${kind === 'refine' ? 'Refinements' : 'Enchantments'}`;
-          again.disabled = !g.canReroll(uid);
-          again.addEventListener('click', () => {
             if (anim || !g.rerollMod(uid)) return;
-            reveal(kind);
+            reveal();
           });
-          // Right under the choices it replaces.
-          $('.mod-choices', body).after(costOf(kind), again);
+        } else {
+          go.innerHTML = kind === 'refine' ? '⚒️ Refine' : '✨ Enchant';
+          go.disabled = !!anim || !(kind === 'refine' ? g.canRefine(uid, at) : g.canEnchant(uid, at));
+          go.addEventListener('click', () => {
+            if (anim || !g.rollMod(uid, at, kind)) return;
+            reveal();
+          });
         }
-        body.querySelectorAll<HTMLButtonElement>('.mod-choice').forEach((b) =>
+        body.appendChild(go);
+        body.querySelectorAll<HTMLButtonElement>('.mod-choice[data-choice]').forEach((b) =>
           b.addEventListener('click', () => {
             if (anim) return;
-            const at = g.pendingMod(uid)?.slot ?? null;
             const m = g.chooseMod(uid, Number(b.dataset.choice));
             if (!m) return;
             this.hooks.save();
             this.toast(txt(modPerfect(m) ? 'toast.gear.perfect' : m.kind === 'refine' ? 'toast.gear.refine' : 'toast.gear.enchant', { item: gd.name, mod: modText(m, gd) }));
+            // Back to the first screen, the slot just filled lit.
             last = at;
             slot = null;
+            action = null;
             draw();
           }),
         );
-        body.querySelectorAll<HTMLButtonElement>('.mod-action').forEach((b) =>
-          b.addEventListener('click', () => {
-            action = b.dataset.action as 'refine' | 'enchant';
-            last = null;
-            draw();
-          }),
-        );
-        body.querySelectorAll<HTMLButtonElement>('.mod-slot.pick').forEach((b) =>
-          b.addEventListener('click', () => {
-            const i = Number(b.dataset.slot);
-            const held = g.modSlots(uid)[i];
-            const choose = () => {
-              slot = i;
-              last = null;
-              draw();
-            };
-            if (!held || slot === i) return choose();
-            // An occupied slot: confirm replacing what's there.
-            const wrap = el('div', 'mod-confirm-wrap');
-            wrap.innerHTML = `<div class="modal-box mod-confirm"><h2>Replace modifier?</h2><p>Using this slot will replace its existing modifier:</p><p class="mod-confirm-cur">${modText(held, gd)}</p><div class="buttons"><button class="secondary mc-cancel">Cancel</button><button class="buy mc-ok">Confirm</button></div></div>`;
-            $('.mc-cancel', wrap).addEventListener('click', () => wrap.remove());
-            $('.mc-ok', wrap).addEventListener('click', () => {
-              wrap.remove();
-              choose();
-            });
-            this.modal.appendChild(wrap);
-          }),
-        );
+        // Close goes back to the first screen (with choices waiting, they stay waiting on the piece).
+        closeBtn.addEventListener('click', () => {
+          if (anim) return;
+          if (g.pendingMod(uid)) return closeSheet();
+          action = null;
+          draw();
+        });
       };
       draw();
-    });
+    }, true);
   }
 
   /** A modal with arbitrary content and a Close button. */
-  private showSheet(title: string, build: (body: HTMLElement, close: () => void) => void): void {
+  /** `ownClose`: the sheet draws its own Close (Modify's goes back a screen first), so none is added here. */
+  private showSheet(title: string, build: (body: HTMLElement, close: () => void) => void, ownClose = false): void {
     this.modal.innerHTML = `<div class="modal-box sheet"><h2>${title}</h2><div class="sheet-body"></div><div class="buttons"></div></div>`;
     const close = () => {
       this.modal.classList.add('hidden');
@@ -2251,9 +2275,11 @@ export class AppUI {
       this.refresh();
     };
     build($('.sheet-body', this.modal), close);
-    const btn = el('button', 'secondary', 'Close');
-    btn.addEventListener('click', close);
-    $('.buttons', this.modal).appendChild(btn);
+    if (!ownClose) {
+      const btn = el('button', 'secondary', 'Close');
+      btn.addEventListener('click', close);
+      $('.buttons', this.modal).appendChild(btn);
+    }
     this.modalClose = close;
     this.modal.classList.remove('hidden');
   }
