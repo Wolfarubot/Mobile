@@ -2244,7 +2244,7 @@ export class AppUI {
             const m = g.chooseMod(uid, Number(b.dataset.choice));
             if (!m) return;
             this.hooks.save();
-            this.toast(txt(modPerfect(m) ? 'toast.gear.perfect' : m.kind === 'refine' ? 'toast.gear.refine' : 'toast.gear.enchant', { item: gd.name, mod: modText(m, gd) }));
+            this.toast(txt(modPerfect(m) ? 'toast.gear.perfect' : m.kind === 'refine' ? 'toast.gear.refine' : 'toast.gear.enchant', { item: gd.name, mod: modName(m, gd) }));
             // Back to the first screen, the slot just filled lit.
             last = at;
             slot = null;
@@ -7925,6 +7925,11 @@ function revealWithPixels(box: HTMLElement, palette: string[], fall: 1 | -1, don
 }
 
 /** A modifier in words, with its icon (its rolled value on this piece). */
+/** A modifier in a few words, for a toast: an enchantment's name, or a refine's one-line stat. */
+function modName(m: GearMod, gd: GearDef): string {
+  return m.kind === 'refine' ? modText(m, gd) : `${enchantIcon(ENCHANTS[m.id])} ${ENCHANTS[m.id].name}`;
+}
+
 function modText(m: GearMod, gd: GearDef): string {
   const v = modValue(m, gd);
   return m.kind === 'refine' ? `${REFINES[m.stat].icon} ${REFINES[m.stat].text(v)}` : `${enchantIcon(ENCHANTS[m.id])} ${ENCHANTS[m.id].name}: ${ENCHANTS[m.id].text(v, modPower(m, gd), enchantTierHit(gd))}`;
