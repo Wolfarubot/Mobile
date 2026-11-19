@@ -2134,7 +2134,7 @@ export class AppUI {
               .join('')}</div>
             <div class="mod-actions">
               ${g.refineOpen ? `<button class="mod-action" data-action="refine"${slot === null ? ' disabled' : ''}><b>⚒️ Refine</b></button>` : ''}
-              ${g.enchantOpen ? `<button class="mod-action" data-action="enchant"${slot === null ? ' disabled' : ''}><b>✨ Enchant</b></button>` : ''}
+              ${g.enchantOpen ? `<button class="mod-action" data-action="enchant"${slot === null ? ' disabled' : ''}><b>${enchantActionIcon()} Enchant</b></button>` : ''}
             </div>
             ${slot === null ? '<p class="refine-note">Pick a slot to modify.</p>' : ''}
             ${!g.refineOpen ? '<p class="refine-note">Recruit Kargesh the Blacksmith (Ember Mines) to Refine.</p>' : ''}
@@ -2195,7 +2195,7 @@ export class AppUI {
           ${slotHtml(at, 'chosen')}
           <div class="filter-label">${pending ? (anim ? (kind === 'refine' ? 'Refining…' : 'Enchanting…') : 'Choose one') : `${n} choices`}</div>
           <div class="mod-choices">${boxes}</div>
-          <p class="mod-what"><b>${kind === 'refine' ? '⚒️ Refine' : '✨ Enchant'}</b><br>${kind === 'refine' ? 'Enhance equipment stats and bonuses.' : 'Enchant equipment with magical effects and spells.'}</p>
+          <p class="mod-what"><b>${kind === 'refine' ? '⚒️ Refine' : `${enchantActionIcon()} Enchant`}</b><br>${kind === 'refine' ? 'Enhance equipment stats and bonuses.' : 'Enchant equipment with magical effects and spells.'}</p>
           ${blessed}`;
         // The cost (a reroll costs the same), then the button.
         const cost = el('div', 'fc-cost mod-cost');
@@ -2230,7 +2230,7 @@ export class AppUI {
             reveal();
           });
         } else {
-          go.innerHTML = kind === 'refine' ? '⚒️ Refine' : '✨ Enchant';
+          go.innerHTML = kind === 'refine' ? '⚒️ Refine' : `${enchantActionIcon()} Enchant`;
           go.disabled = !!anim || !(kind === 'refine' ? g.canRefine(uid, at) : g.canEnchant(uid, at));
           go.addEventListener('click', () => {
             if (anim || !g.rollMod(uid, at, kind)) return;
@@ -7291,6 +7291,11 @@ function nextMonday(t: number): number {
 function blessGlyph(kind: 'refine' | 'enchant'): string {
   const ev = EVENTS.find((e) => e.blessing?.kind === kind && !e.echo);
   return ev ? eventGlyph(ev) : '✨';
+}
+
+/** Enchant's icon in the Modify window: an item (a jewelled wand), like Refine's hammer and the materials beside it. */
+function enchantActionIcon(): string {
+  return sprite('wands-books/015');
 }
 
 function eventGlyph(ev: EventDef): string {
