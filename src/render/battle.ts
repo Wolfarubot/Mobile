@@ -88,6 +88,12 @@ const TOPDOWN_HEIGHT = 25;
 const CHAR_SCALE = 1 / FIELD_ZOOM;
 /** Animated walk sheets: the character's longer side, × the monster's radius (detailed art needs room). */
 const SHEET_SCALE = 3.3;
+/**
+ * With more than CROWD_ON monsters on the field they're drawn without the Clarity Border (an extra image each; about
+ * a tenth of the frame time in a crowd of a hundred), until fewer than CROWD_OFF are left.
+ */
+const CROWD_ON = 60;
+const CROWD_OFF = 50;
 /** A big summon is drawn this many times the size. */
 const BIG_SUMMON_DRAW = 1.8;
 
@@ -772,6 +778,9 @@ export class BattleView {
     // Everything that stands on the ground, farthest first, so whatever is nearer the bottom of the view is drawn
     // over what's behind it: walking monsters, the scene's big objects (a monster behind a tree or a coffin is hidden
     // by it), walking summons, the Hunters beside you and your own Hunter. Fliers (monsters and wisps) pass over it all.
+    // Crowded past CROWD_ON monsters, clear again under CROWD_OFF (a gap, so the borders don't flicker at the line).
+    const crowd = this.field.enemies.length;
+    this.crowded = this.crowded ? crowd >= CROWD_OFF : crowd > CROWD_ON;
     const props = this.sceneProps ?? [];
     type Layer = { y: number; e?: Enemy; p?: SceneProp; s?: Summon; h?: Helper; lead?: true; behind?: true };
     const layered: Layer[] = [];
@@ -1407,6 +1416,14 @@ export class BattleView {
     return CLARITY_ALPHA[this.game.state.settings.clarity] ?? 0;
   }
 
+  /** The battlefield is crowded (see CROWD_ON): monsters drop their Clarity Border, to keep the frame rate up. */
+  private crowded = false;
+
+  /** A monster's Clarity Border: none while the field is crowded (a Guardian keeps its own). */
+  private monsterClarity(e: Enemy): number {
+    return this.crowded && !e.boss ? 0 : this.clarity;
+  }
+
   private get fancy(): boolean {
     return this.game.state.settings.aoeStyle !== 'basic';
   }
@@ -1862,7 +1879,7 @@ export class BattleView {
         const deathImg = monsterSheetImage(`${sheetKey}-death`); // asked for while it fights, so it's ready when it falls
         if (dying !== undefined && deathImg.complete && deathImg.naturalWidth > 0) {
           const f = Math.min(deathN - 1, Math.floor(dying * DEATH_FPS));
-          drawSheetFrame(g, deathImg, { ...sh, cols: deathN }, sh.order === 'SIDE' ? 0 : sheetRow(sh, dir), f, ra * SHEET_SCALE, { of: deathImg, alpha: this.clarity });
+          drawSheetFrame(g, deathImg, { ...sh, cols: deathN }, sh.order === 'SIDE' ? 0 : sheetRow(sh, dir), f, ra * SHEET_SCALE, { of: deathImg, alpha: this.monsterClarity(e) });
           g.restore();
           return;
         }
@@ -1877,7 +1894,7 @@ export class BattleView {
       if (atk && atkImg && atkImg.complete && atkImg.naturalWidth > 0) {
         const f = Math.floor((this.field.clock - e.anim!.at) * 12);
         if (f < atk || e.gm?.move) {
-          drawSheetFrame(g, atkImg, { ...sh, cols: atk }, 0, Math.min(f, atk - 1), ra * SHEET_SCALE, { of: atkImg, alpha: this.clarity });
+          drawSheetFrame(g, atkImg, { ...sh, cols: atk }, 0, Math.min(f, atk - 1), ra * SHEET_SCALE, { of: atkImg, alpha: this.monsterClarity(e) });
           if (flip) g.scale(-1, 1);
           g.globalAlpha = 1;
           g.restore();
@@ -1892,7 +1909,7 @@ export class BattleView {
         drawSheetFrame(g, outlineOf(src, e.glow, 1), sh, sheetRow(sh, dir), col, ra * SHEET_SCALE);
         g.restore();
       }
-      drawSheetFrame(g, src, sh, sheetRow(sh, dir), col, ra * SHEET_SCALE, { of: sheet, alpha: this.clarity });
+      drawSheetFrame(g, src, sh, sheetRow(sh, dir), col, ra * SHEET_SCALE, { of: sheet, alpha: this.monsterClarity(e) });
       if (e.phased) g.globalAlpha = 1;
       if (e.flash > 0.5) {
         g.globalAlpha = 0.5;
