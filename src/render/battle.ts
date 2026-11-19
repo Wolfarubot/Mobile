@@ -2085,7 +2085,7 @@ export class BattleView {
     g.restore();
     if (!behind) this.drawHeldWeapon(g, who, 0, 0, f.aim, R, f.stunned, f.leadArms.close);
 
-    drawShieldPips(g, 0, R + (f.stunned ? 19 : 10), f.guard);
+    drawShieldPips(g, 0, R + (f.stunned ? 19 : 10), f.guard, this.game.rallyFor(who));
     if (f.stunned) drawStunBar(g, 0, R + 8, 34, f.stun / Math.max(0.01, f.stunTotal));
   }
 
@@ -2343,7 +2343,7 @@ export class BattleView {
     g.restore();
     g.restore();
     if (!behind) this.drawHeldWeapon(g, h.id, h.x, h.y, h.aim, R, h.stun > 0, h.close);
-    drawShieldPips(g, h.x, h.y + R + (h.stun > 0 ? 19 : 10), h.guard);
+    drawShieldPips(g, h.x, h.y + R + (h.stun > 0 ? 19 : 10), h.guard, this.game.rallyFor(h.id));
     g.save();
     g.translate(h.x, h.y);
     // Post-stun immunity ring
@@ -3405,14 +3405,50 @@ function drawRock(g: CanvasRenderingContext2D, r: number, color: string): void {
  * red 5). So 6 charges show one blue and four silver, 11 one gold and four blue; as charges are spent the gold
  * turns blue, then the blues turn silver.
  */
-function drawShieldPips(g: CanvasRenderingContext2D, x: number, y: number, guard: number): void {
-  const n = Math.ceil(guard);
-  if (n <= 0) return;
+/**
+ * Charges from Lance's Rallying Oath (`rally`, the first to go) show apart from the Hunter's own: a see-through
+ * golden shield each, glowing, at the end of the row.
+ */
+function drawShieldPips(g: CanvasRenderingContext2D, x: number, y: number, guard: number, rally = 0): void {
+  const total = Math.ceil(guard);
+  if (total <= 0) return;
+  const oath = Math.min(Math.max(0, rally), total);
+  const n = total - oath;
   const count = Math.min(n, MAX_SHIELD_PIPS);
-  const base = Math.floor(n / count);
+  const base = count ? Math.floor(n / count) : 0;
   const extra = n - base * count;
   const gap = 9;
-  for (let i = 0; i < count; i++) drawMiniShield(g, x + (i - (count - 1) / 2) * gap, y, i < extra ? base + 1 : base);
+  const pips = count + oath;
+  for (let i = 0; i < pips; i++) {
+    const px = x + (i - (pips - 1) / 2) * gap;
+    if (i < count) drawMiniShield(g, px, y, i < extra ? base + 1 : base);
+    else drawOathShield(g, px, y);
+  }
+}
+
+/** A Rallying Oath charge: Lance's shield, see-through gold with a holy glow and a white cross. */
+function drawOathShield(g: CanvasRenderingContext2D, x: number, y: number): void {
+  g.save();
+  g.translate(Math.round(x), Math.round(y));
+  g.beginPath();
+  g.moveTo(-3.5, -4);
+  g.lineTo(3.5, -4);
+  g.lineTo(3.5, 0.5);
+  g.quadraticCurveTo(3.2, 3.2, 0, 4.6);
+  g.quadraticCurveTo(-3.2, 3.2, -3.5, 0.5);
+  g.closePath();
+  g.shadowColor = '#fff3a8';
+  g.shadowBlur = 6;
+  g.fillStyle = 'rgba(255, 232, 140, 0.45)';
+  g.fill();
+  g.shadowBlur = 0;
+  g.lineWidth = 1.2;
+  g.strokeStyle = 'rgba(255, 246, 200, 0.95)';
+  g.stroke();
+  g.fillStyle = 'rgba(255, 255, 255, 0.9)';
+  g.fillRect(-0.6, -3, 1.2, 5.5);
+  g.fillRect(-2.2, -1.5, 4.4, 1.2);
+  g.restore();
 }
 
 const MAX_SHIELD_PIPS = 5;

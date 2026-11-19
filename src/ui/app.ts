@@ -7372,7 +7372,7 @@ function tomeTag(gd: GearDef): string {
   // A plain spirit takes its kind's name when it isn't a Spirit summon ("undead spirit" from a Necronomicon).
   const creature = gd.summon?.name ?? (type === 'spirit' ? sm.name : `${SUMMON_TYPES[type].name.toLowerCase()} ${sm.name}`);
   const every = (fireRate: number) => Math.round(1 / (fireRate * rate));
-  const v = { creature, a: /^[aeiou]/i.test(creature) ? 'an' : 'a', every: every(BASE_FIRE_RATE), guild: every(HELPER_FIRE_RATE), duration: +sm.duration.toFixed(1), type: SUMMON_TYPES[type].name, bites: +(sm.hit ?? 1).toFixed(2) };
+  const v = { creature, a: /^[aeiou]/i.test(creature) ? 'an' : 'a', every: every(BASE_FIRE_RATE), guild: every(HELPER_FIRE_RATE), duration: +sm.duration.toFixed(1), type: SUMMON_TYPES[type].name, verb: SUMMON_TYPES[type].verb, bites: +(sm.hit ?? 1).toFixed(2) };
   let tip = tx('tip.gear.tome', v);
   const kind = SUMMON_ARCHETYPE[type];
   tip += `<br>${kind ? tx('tip.gear.tomeBane', { kind: ARCHETYPES[kind].name }) : tx('tip.gear.tomeSpirit')}`;

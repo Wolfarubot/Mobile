@@ -3023,7 +3023,7 @@ export const HUNTERS: HunterDef[] = [
     unlock: { event: 'meteorShower', times: 1 },
     ascendedTitle: 'Cosmic Charmer',
     story: "Norm fell to the Meteor Field inside a meteorite and has been talking his way out of trouble ever since. Ride out a Meteor Shower with him, and he'll talk the monsters into fighting for you.",
-    ability: "Every 6 seconds, sweet-talks the monster nearest him (Guardians aren't fooled): it turns pink and, for 6 seconds, hunts the nearest other monster instead of your Hunters, biting it for a quarter of its own health every second. Uses ranged or magic weapons.",
+    ability: "Every 6 seconds, sweet-talks the monster nearest him (Guardians aren't fooled): it turns pink and, for 6 seconds, hunts the nearest other monster instead of your Hunters, attacking it for a quarter of its own health every second. Uses ranged or magic weapons.",
     slots: [{ kind: 'weapon', label: 'Weapon', accepts: ['weapon', 'magic'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
     special: {
       kind: 'charm',
@@ -3034,7 +3034,7 @@ export const HUNTERS: HunterDef[] = [
       radius: 110,
       ticks: 6,
       crowd: 4,
-      describe: "Every 6 seconds, charms the monster nearest him within reach (his weapon's attack speed and area size widen his reach, and Guardians are immune). For 6 seconds, it turns on the nearest other monster, biting it every second for 25% of its own max health, and your Hunters leave it be.",
+      describe: "Every 6 seconds, charms the monster nearest him within reach (his weapon's attack speed and area size widen his reach, and Guardians are immune). For 6 seconds, it turns on the nearest other monster, attacking it every second for 25% of its own max health, and your Hunters leave it be.",
     },
   },
   {
@@ -3184,7 +3184,7 @@ const HUNTER_ABILITIES: Partial<Record<HunterId, HunterAbility[]>> = {
     { name: 'Rift Swarm', kind: 'active', text: 'Every 8 seconds, tears open three rifts near the monsters. Each looses five homing void bolts that explode where they strike.' },
     { name: 'Time Slip', kind: 'passive', text: 'Every Hunter in his area, him included, has their cooldowns 10% shorter: 20% once he ascends, and 30% with his ascended capstone.' },
   ],
-  spaceslime: [{ name: 'Smooth Talk', kind: 'active', text: "Every 6 seconds, sweet-talks the monster nearest him (Guardians aren't fooled): for 6 seconds it hunts the nearest other monster instead of your Hunters, biting it for a quarter of its own health every second." }],
+  spaceslime: [{ name: 'Smooth Talk', kind: 'active', text: "Every 6 seconds, sweet-talks the monster nearest him (Guardians aren't fooled): for 6 seconds it hunts the nearest other monster instead of your Hunters, attacking it for a quarter of its own health every second." }],
 };
 
 /** Your Hunter's abilities in their full view. */
@@ -3351,18 +3351,19 @@ export const SUMMON_ARCHETYPE: Record<SummonType, Archetype | null> = {
   spirit: null,
  ...(Object.fromEntries((Object.keys(ARCHETYPES) as Archetype[]).map((a) => [a, a])) as Record<Archetype, Archetype>),
 };
-export const SUMMON_TYPES: Record<SummonType, { name: string; icon: string }> = {
-  beast: { name: 'Beast', icon: '🐺' },
-  construct: { name: 'Construct', icon: '🪆' },
-  spirit: { name: 'Spirit', icon: '👻' },
-  undead: { name: 'Undead', icon: '💀' },
-  elemental: { name: 'Elemental', icon: '🌪️' },
-  slime: { name: ARCHETYPES.slime.name, icon: ARCHETYPES.slime.icon },
-  demon: { name: ARCHETYPES.demon.name, icon: ARCHETYPES.demon.icon },
-  humanoid: { name: ARCHETYPES.humanoid.name, icon: ARCHETYPES.humanoid.icon },
-  plant: { name: ARCHETYPES.plant.name, icon: ARCHETYPES.plant.icon },
-  dragon: { name: ARCHETYPES.dragon.name, icon: ARCHETYPES.dragon.icon },
-  monstrosity: { name: ARCHETYPES.monstrosity.name, icon: ARCHETYPES.monstrosity.icon },
+/** Each kind of summon, with how it attacks (its verb, for descriptions: beasts maul, constructs slam...). */
+export const SUMMON_TYPES: Record<SummonType, { name: string; icon: string; verb: string }> = {
+  beast: { name: 'Beast', icon: '🐺', verb: 'mauling' },
+  construct: { name: 'Construct', icon: '🪆', verb: 'slamming' },
+  spirit: { name: 'Spirit', icon: '👻', verb: 'searing' },
+  undead: { name: 'Undead', icon: '💀', verb: 'slashing' },
+  elemental: { name: 'Elemental', icon: '🌪️', verb: 'blasting' },
+  slime: { name: ARCHETYPES.slime.name, icon: ARCHETYPES.slime.icon, verb: 'smothering' },
+  demon: { name: ARCHETYPES.demon.name, icon: ARCHETYPES.demon.icon, verb: 'clawing' },
+  humanoid: { name: ARCHETYPES.humanoid.name, icon: ARCHETYPES.humanoid.icon, verb: 'striking' },
+  plant: { name: ARCHETYPES.plant.name, icon: ARCHETYPES.plant.icon, verb: 'lashing' },
+  dragon: { name: ARCHETYPES.dragon.name, icon: ARCHETYPES.dragon.icon, verb: 'rending' },
+  monstrosity: { name: ARCHETYPES.monstrosity.name, icon: ARCHETYPES.monstrosity.icon, verb: 'crushing' },
 };
 
 // ---- Armor: three kinds, each leaning toward attack speed, toughness or power; any Hunter wears any ----
@@ -5411,7 +5412,7 @@ export function describeEffect(e: GearEffect, stars: number, def?: GearDef): str
     case 'pulse':
       return `Pulse: every ${e.cooldown} seconds, a burst of ${dmg} damage around you.`;
     case 'summon':
-      return `Every ${e.cooldown} seconds, summons ${e.count} ${e.name}s (${SUMMON_TYPES[e.type].icon} ${SUMMON_TYPES[e.type].name}) that charge through the monsters for ${e.duration} seconds, striking every one they pass for ${dmg} damage.`;
+      return `Every ${e.cooldown} seconds, summons ${e.count} ${e.name}s (${SUMMON_TYPES[e.type].icon} ${SUMMON_TYPES[e.type].name}) that charge through the monsters for ${e.duration} seconds, ${SUMMON_TYPES[e.type].verb} every one they pass for ${dmg} damage.`;
     case 'wave':
       return `Wave: melee attacks have a ${Math.round(e.chance * 100)}% chance to send out a wave of ${dmg} damage.`;
     case 'strike':
