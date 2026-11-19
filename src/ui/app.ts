@@ -2809,7 +2809,7 @@ export class AppUI {
         if (open) cell.dataset.area = a.id;
         if (picking && open && selected && g.state.hunters[selected].station !== a.id) cell.classList.add(g.canStation(selected, a.id) ? 'can-drop' : 'can-swap');
         cell.innerHTML = `<div class="area-tile world-tile" style="--ac:${a.palette[2]}">${
-          open ? `<i>${a.icon}</i><span>${a.name}</span>${g.area === a.id ? '<b class="you-here">📍</b>' : ''}${this.areaGpsBadge(a.id)}` : '<i>🔒</i><span>???</span>'
+          open ? `<i>${a.icon}</i><span>${a.name}</span>${g.area === a.id ? '<b class="you-here">📍</b>' : ''}` : '<i>🔒</i><span>???</span>'
         }</div><div class="world-slots"></div>`;
         const slots = $('.world-slots', cell);
         for (let i = 0; i < STATION_CAPACITY; i++) {
