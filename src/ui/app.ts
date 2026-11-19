@@ -2244,7 +2244,7 @@ export class AppUI {
             const m = g.chooseMod(uid, Number(b.dataset.choice));
             if (!m) return;
             this.hooks.save();
-            this.toast(txt(modPerfect(m) ? 'toast.gear.perfect' : m.kind === 'refine' ? 'toast.gear.refine' : 'toast.gear.enchant', { item: gd.name, mod: modName(m, gd) }));
+            this.toast(txt(modPerfect(m) ? 'toast.gear.perfect' : m.kind === 'refine' ? 'toast.gear.refine' : 'toast.gear.enchant', { item: gd.name, mod: modName(m, gd) }), true); // as HTML: an Infusion's icon is a picture (its element's tag icon)
             // Back to the first screen, the slot just filled lit.
             last = at;
             slot = null;
