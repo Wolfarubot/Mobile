@@ -1588,9 +1588,10 @@ export const UNBOUND_BASE_COST = 1_000_000;
 // Re-measured on the Regression chain after the first run's retune: the Unbound Fey Grove ×1.3 (a run there paid about
 // 30% more shards than when it was measured, and went in 3.5 days; now 6.7, target 7-8), the Unbound Graveyard ×0.82
 // (a run there pays about 15% fewer: 42M by its third day, against 52M by 3.6 days; 10.9 days at ×0.86, target 8-10),
-// the rest as measured before.
-export const UNBOUND_AREA_BASES = [2_380_000, 14_600_000, 41_000_000, 224_000_000, 562_000_000, 4_600_000_000, 10_000_000_000];
-export const UNBOUND_AREA_IN_STEPS = [1.2, 1.1, 1.1, 1.1, 1.1, 1.03, 1.1];
+// the rest as measured before. The Unbound Depths went in 7.4 days at ×1.1 a node (target 10-11): its nodes now climb
+// ×1.18 a node, so each run there needs a little longer before its next node.
+export const UNBOUND_AREA_BASES = [2_380_000, 14_600_000, 41_000_000, 224_000_000, 562_000_000, 3_360_000_000, 10_000_000_000];
+export const UNBOUND_AREA_IN_STEPS = [1.2, 1.1, 1.1, 1.1, 1.18, 1.03, 1.1];
 export const UNBOUND_IN_STEP = 1.1;
 export const UNBOUND_LATER_STEP = 1.8;
 const unboundAreaBase = (area: number): number =>
