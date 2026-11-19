@@ -88,6 +88,9 @@ const TOPDOWN_HEIGHT = 25;
 const CHAR_SCALE = 1 / FIELD_ZOOM;
 /** Animated walk sheets: the character's longer side, × the monster's radius (detailed art needs room). */
 const SHEET_SCALE = 3.3;
+/** A big summon is drawn this many times the size. */
+const BIG_SUMMON_DRAW = 1.8;
+
 
 /** Draws the survivor-style battlefield: the Hunter in the middle, the horde closing in. */
 export class BattleView {
@@ -766,17 +769,34 @@ export class BattleView {
       g.fill();
     }
 
-    // Walking monsters and the scene's big objects, farthest first, so a monster behind a tree or a coffin is
-    // hidden by it; fliers pass over everything.
+    // Everything that stands on the ground, farthest first, so whatever is nearer the bottom of the view is drawn
+    // over what's behind it: walking monsters, the scene's big objects (a monster behind a tree or a coffin is hidden
+    // by it), walking summons, the Hunters beside you and your own Hunter. Fliers (monsters and wisps) pass over it all.
     const props = this.sceneProps ?? [];
-    const layered: Array<{ y: number; e?: Enemy; p?: SceneProp }> = [];
+    type Layer = { y: number; e?: Enemy; p?: SceneProp; s?: Summon; h?: Helper; lead?: true; behind?: true };
+    const layered: Layer[] = [];
     for (const e of this.field.enemies) if (!FLYING.has(e.type)) layered.push({ y: e.y + e.r * CHAR_SCALE, e });
     for (const p of props) layered.push({ y: (p.foot - h / 2) / Z, p });
+    for (const sm of this.field.summons) if (!this.summonFlies(sm)) layered.push({ y: sm.y + SUMMON_RADIUS * CHAR_SCALE * (sm.big ? BIG_SUMMON_DRAW : 1), s: sm });
+    const feet = PLAYER_RADIUS * CHAR_SCALE;
+    for (const hp of this.field.helpers) layered.push({ y: hp.y + feet, h: hp });
+    layered.push({ y: feet, lead: true });
+    // Swings and thrusts aimed up the field go off behind the Hunters (just before the farthest of them is drawn).
+    layered.push({ y: Math.min(feet, ...this.field.helpers.map((hp) => hp.y + feet)) - 0.001, behind: true });
     layered.sort((a, b) => a.y - b.y);
     g.imageSmoothingEnabled = false;
     for (const it of layered) {
       if (it.e) this.scaledAt(g, it.e.x, it.e.y, () => this.drawEnemy(g, it.e!));
-      else {
+      else if (it.s) this.drawSummonAt(g, it.s);
+      else if (it.h) this.scaledAt(g, it.h.x, it.h.y, () => this.drawHelper(g, it.h!));
+      else if (it.lead) {
+        this.drawProjections(g);
+        this.scaledAt(g, 0, 0, () => this.drawHunter(g));
+      } else if (it.behind) {
+        this.drawSweeps(g, true);
+        this.drawStrikes(g, true);
+        this.drawHeld(g);
+      } else {
         const p = it.p!;
         let dy = 0;
         if (p.file === RIFT_WINGS) {
@@ -788,13 +808,6 @@ export class BattleView {
       }
     }
     for (const e of this.field.enemies) if (FLYING.has(e.type)) this.scaledAt(g, e.x, e.y, () => this.drawEnemy(g, e));
-    // Swings and thrusts aimed up the field go off behind the Hunters; the rest in front of them (below).
-    this.drawSweeps(g, true);
-    this.drawStrikes(g, true);
-    this.drawHeld(g);
-    for (const h of this.field.helpers) this.scaledAt(g, h.x, h.y, () => this.drawHelper(g, h));
-    this.drawProjections(g);
-    this.scaledAt(g, 0, 0, () => this.drawHunter(g));
     this.drawBoneWall(g);
 
     for (const z of this.field.zones) this.drawZone(g, z);
@@ -839,20 +852,8 @@ export class BattleView {
     this.drawDice(g);
     for (const s of this.field.shots) drawEnemyShot(g, s, this.time, CHAR_SCALE, this.clarity);
 
-    // Tome spirits: a glowing wisp with a trailing tail, fading as their time runs out.
-    // A big summon (a dire wolf, a Grand Marionette, a Death Knight) is drawn twice the size.
-    for (const sm of this.field.summons) {
-      if (!sm.big) {
-        this.drawSummon(g, sm);
-        continue;
-      }
-      g.save();
-      g.translate(sm.x, sm.y);
-      g.scale(1.8, 1.8);
-      g.translate(-sm.x, -sm.y);
-      this.drawSummon(g, sm);
-      g.restore();
-    }
+    // Tome spirits and other flying summons: over everything on the ground (the walking ones are drawn with it).
+    for (const sm of this.field.summons) if (this.summonFlies(sm)) this.drawSummonAt(g, sm);
 
     for (const b of this.beams) {
       const fade = 1 - b.t / 0.25;
@@ -2230,6 +2231,22 @@ export class BattleView {
   }
 
   /** One summoned creature (tome spirits, wolves, puppets, golems...). */
+  /** A summon that flies (a tome's wisp, or one wearing a flying monster's art) rather than walks. */
+  private summonFlies(sm: Summon): boolean {
+    return (sm.look === 'wisp' && !sm.risen) || FLYING.has(this.summonArt(sm));
+  }
+
+  /** A summon where it stands: a big one (a dire wolf, a Grand Marionette, a Death Knight) drawn BIG_SUMMON_DRAW times the size. */
+  private drawSummonAt(g: CanvasRenderingContext2D, sm: Summon): void {
+    if (!sm.big) return this.drawSummon(g, sm);
+    g.save();
+    g.translate(sm.x, sm.y);
+    g.scale(BIG_SUMMON_DRAW, BIG_SUMMON_DRAW);
+    g.translate(-sm.x, -sm.y);
+    this.drawSummon(g, sm);
+    g.restore();
+  }
+
   private drawSummon(g: CanvasRenderingContext2D, sm: Summon): void {
     if (sm.risen) {
       this.drawRisen(g, sm);
