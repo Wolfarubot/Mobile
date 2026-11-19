@@ -43,3 +43,4 @@ More from the same three packs and the traps pack, one row cut from each sheet w
   wave (Wave_left-right, right-facing row, in grey): a melee weapon's Elemental Wave, tinted to its element
   bonespikes (Free Magic and Traps, 1 Spikes/3.png): Gideon's Bone Spikes
 
+turret-base.png, turret-barrel.png: Reginald's Clockwork Turret, drawn for the game in the palette of his sprite (brass legs, steel drum, gold trim, red sight); the barrel is its own image so it can turn to aim.

@@ -3,7 +3,7 @@ import { pixelShadow } from './pixelShadow';
 import { battleSfx as sfx } from '../ui/sound';
 import { MAGIC_SFX, SFX } from '../ui/sfxConfig';
 import { areaDef, DAMAGE_TYPES, FIELD_ZOOM, FLYING, gearDef, WEAPON_CLASSES, STATUS, enemyDef, eventDef, fieldZoom, GUARDIAN_TIME, guardianName, hunterDef, materialDef, SIZE_SCALE, type AreaId, type DamageType, type EnemyId, type EnemyShape, type SummonType } from '../core/balance';
-import { DICE_FLIGHT, DICE_REST, PLAYER_RADIUS, SHOT_RADIUS, SUMMON_RADIUS, TOME_LIFE, TOME_OPEN, type EnemyShot, type Summon, type SpellZone, type FieldEvent, type Bullet, type BulletKind, type Enemy, type Field, type Helper, type Puddle, type Hazard } from '../core/field';
+import { DICE_FLIGHT, DICE_REST, PLAYER_RADIUS, SHOT_RADIUS, SUMMON_RADIUS, TOME_LIFE, TOME_OPEN, type EnemyShot, type Summon, type SpellZone, type FieldEvent, type Bullet, type BulletKind, type Enemy, type Field, type Helper, type Puddle, type Hazard, type Projection } from '../core/field';
 import { MATERIAL_SPRITES } from '../core/materialSprites';
 import { fmt } from '../core/format';
 import type { Game, Shooter } from '../core/game';
@@ -840,59 +840,18 @@ export class BattleView {
     for (const s of this.field.shots) drawEnemyShot(g, s, this.time, CHAR_SCALE, this.clarity);
 
     // Tome spirits: a glowing wisp with a trailing tail, fading as their time runs out.
+    // A big summon (a dire wolf, a Grand Marionette, a Death Knight) is drawn twice the size.
     for (const sm of this.field.summons) {
-      if (sm.risen) {
-        this.drawRisen(g, sm);
+      if (!sm.big) {
+        this.drawSummon(g, sm);
         continue;
       }
-      // A creature with a monster's art: that monster, tinted toward the summon's element (Physical ones keep
-      // their colours and get a purple outline instead), so it reads as yours.
-      if (this.drawSummonSprite(g, sm)) continue;
-      if (sm.look === 'wolf') {
-        this.scaledAt(g, sm.x, sm.y, () => this.drawWolf(g, sm));
-        continue;
-      }
-      if (sm.look === 'rock') {
-        // A stone golem: a stack of boulders with glowing eyes, stomping along.
-        const fade = Math.min(1, sm.life / 1.2);
-        const step = Math.abs(Math.sin(this.time * 8 + sm.maxLife)) * 2;
-        g.save();
-        g.globalAlpha = fade;
-        g.translate(sm.x, sm.y - step);
-        g.scale(CHAR_SCALE * 1.3, CHAR_SCALE * 1.3);
-        pixelShadow(g, 0, SUMMON_RADIUS + step, SUMMON_RADIUS, SUMMON_RADIUS * 0.35, 0.25);
-        drawRock(g, SUMMON_RADIUS, '#8a8478');
-        g.translate(0, -SUMMON_RADIUS * 0.9);
-        drawRock(g, SUMMON_RADIUS * 0.6, '#9a9488');
-        g.fillStyle = '#ffd34d';
-        g.fillRect(-4, -2, 3, 3);
-        g.fillRect(1, -2, 3, 3);
-        g.restore();
-        continue;
-      }
-      if (sm.look === 'puppet') {
-        this.scaledAt(g, sm.x, sm.y, () => this.drawPuppet(g, sm));
-        continue;
-      }
-      const fade = Math.min(1, sm.life / 1.2);
-      const bob = Math.sin(this.time * 8 + sm.maxLife) * 2;
-      g.globalAlpha = 0.35 * fade;
-      g.fillStyle = '#b48cff';
-      g.beginPath();
-      g.arc(sm.x, sm.y + bob, SUMMON_RADIUS + 5, 0, Math.PI * 2);
-      g.fill();
-      g.globalAlpha = fade;
-      g.fillStyle = '#e8dcff';
-      g.strokeStyle = '#5a3a9a';
-      g.lineWidth = 2;
-      g.beginPath();
-      g.arc(sm.x, sm.y + bob, SUMMON_RADIUS, 0, Math.PI * 2);
-      g.fill();
-      g.stroke();
-      g.fillStyle = '#3a2060';
-      g.fillRect(sm.x - 4, sm.y + bob - 2, 2, 3);
-      g.fillRect(sm.x + 2, sm.y + bob - 2, 2, 3);
-      g.globalAlpha = 1;
+      g.save();
+      g.translate(sm.x, sm.y);
+      g.scale(1.8, 1.8);
+      g.translate(-sm.x, -sm.y);
+      this.drawSummon(g, sm);
+      g.restore();
     }
 
     for (const b of this.beams) {
@@ -2255,12 +2214,95 @@ export class BattleView {
     }
   }
 
+  /**
+   * Reginald's clockwork turret: brass legs and a steel drum (public/effects/turret-base), its barrel turning to aim
+   * (turret-barrel, pivoting on the drum), settling in as it lands and fading as it winds down.
+   */
+  private drawTurret(g: CanvasRenderingContext2D, p: Projection): void {
+    const base = effectImage('turret-base');
+    const barrel = effectImage('turret-barrel');
+    if (!base || !barrel) return;
+    const fade = Math.min(1, p.t * 5, (p.max - p.t) * 2);
+    this.scaledAt(g, p.x, p.y, () => {
+      g.save();
+      g.globalAlpha = Math.max(0, fade);
+      g.translate(p.x, p.y);
+      g.imageSmoothingEnabled = false;
+      g.scale(1.25, 1.25);
+      g.drawImage(base, -16, -16);
+      g.translate(0, -1);
+      g.rotate(p.aim + Math.PI / 2);
+      g.drawImage(barrel, -16, -15);
+      g.restore();
+    });
+  }
+
+  /** One summoned creature (tome spirits, wolves, puppets, golems...). */
+  private drawSummon(g: CanvasRenderingContext2D, sm: Summon): void {
+    if (sm.risen) {
+      this.drawRisen(g, sm);
+      return;
+    }
+    // A creature with a monster's art: that monster, tinted toward the summon's element (Physical ones keep
+    // their colours and get a purple outline instead), so it reads as yours.
+    if (this.drawSummonSprite(g, sm)) return;
+    if (sm.look === 'wolf') {
+      this.scaledAt(g, sm.x, sm.y, () => this.drawWolf(g, sm));
+      return;
+    }
+    if (sm.look === 'rock') {
+      // A stone golem: a stack of boulders with glowing eyes, stomping along.
+      const fade = Math.min(1, sm.life / 1.2);
+      const step = Math.abs(Math.sin(this.time * 8 + sm.maxLife)) * 2;
+      g.save();
+      g.globalAlpha = fade;
+      g.translate(sm.x, sm.y - step);
+      g.scale(CHAR_SCALE * 1.3, CHAR_SCALE * 1.3);
+      pixelShadow(g, 0, SUMMON_RADIUS + step, SUMMON_RADIUS, SUMMON_RADIUS * 0.35, 0.25);
+      drawRock(g, SUMMON_RADIUS, '#8a8478');
+      g.translate(0, -SUMMON_RADIUS * 0.9);
+      drawRock(g, SUMMON_RADIUS * 0.6, '#9a9488');
+      g.fillStyle = '#ffd34d';
+      g.fillRect(-4, -2, 3, 3);
+      g.fillRect(1, -2, 3, 3);
+      g.restore();
+      return;
+    }
+    if (sm.look === 'puppet') {
+      this.scaledAt(g, sm.x, sm.y, () => this.drawPuppet(g, sm));
+      return;
+    }
+    const fade = Math.min(1, sm.life / 1.2);
+    const bob = Math.sin(this.time * 8 + sm.maxLife) * 2;
+    g.globalAlpha = 0.35 * fade;
+    g.fillStyle = '#b48cff';
+    g.beginPath();
+    g.arc(sm.x, sm.y + bob, SUMMON_RADIUS + 5, 0, Math.PI * 2);
+    g.fill();
+    g.globalAlpha = fade;
+    g.fillStyle = '#e8dcff';
+    g.strokeStyle = '#5a3a9a';
+    g.lineWidth = 2;
+    g.beginPath();
+    g.arc(sm.x, sm.y + bob, SUMMON_RADIUS, 0, Math.PI * 2);
+    g.fill();
+    g.stroke();
+    g.fillStyle = '#3a2060';
+    g.fillRect(sm.x - 4, sm.y + bob - 2, 2, 3);
+    g.fillRect(sm.x + 2, sm.y + bob - 2, 2, 3);
+    g.globalAlpha = 1;
+  }
+
   /** A stationed Hunter: sprite if provided, otherwise a colored circle with their icon. */
   /**
    * Celeste's astral projections: a see-through, violet-haloed copy of her, flickering faster as it nears its blast.
    */
   private drawProjections(g: CanvasRenderingContext2D): void {
     for (const p of this.field.projections) {
+      if (p.turret) {
+        this.drawTurret(g, p);
+        continue;
+      }
       if (p.by === 'main') continue;
       const left = p.max - p.t;
       const fade = Math.min(1, p.t * 4);
@@ -3063,6 +3105,18 @@ function drawBullet(g: CanvasRenderingContext2D, b: Bullet, t: number, basic = f
   g.save();
   g.translate(b.x, b.y);
   switch (b.kind) {
+    case 'note': {
+      // Ba'al's Reverberate: a music note, in his colour with a dark edge.
+      g.font = 'bold 14px sans-serif';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.lineWidth = 3;
+      g.strokeStyle = '#2a1a3a';
+      g.strokeText('♪', 0, 0);
+      g.fillStyle = '#e0a0ff';
+      g.fillText('♪', 0, 0);
+      break;
+    }
     case 'riftbolt': {
       // Id's void bolt: a violet spark with a pale core, trailing a wisp of the dark it came from.
       g.rotate(a);

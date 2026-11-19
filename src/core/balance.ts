@@ -343,7 +343,96 @@ export type TreeStat =
   | 'critDamage' // +x crit damage (Brutal Criticals)
   | 'multishot' // extra projectiles per shot, or an extra strike per melee attack (Apex Hunter)
   | 'bounces' // shots ricochet on to this many more monsters (Galladair's Curving Arrows)
-  | 'ghosts'; // +x chance a kill releases a ghost (Lilith's Restless Dead)
+  | 'ghosts' // +x chance a kill releases a ghost (Lilith's Restless Dead)
+  // Guild Hunters' own skills (the field and Game read them; see each Hunter's tree):
+  | 'extra' // one more of their special's creatures, beams, rifts, copies or charms (Pack Leader, Understudy...)
+  | 'twin' // their special is cast again this many more times at another monster (a fraction: the chance of one)
+  | 'twinPower' // +x strength of those extra casts (they start at TWIN_POWER)
+  | 'reverb' // Ba'al's Reverberate: each monster a sound wave hits looses a piercing note, x × REVERB_NOTE of the wave
+  | 'songEvery' // Ba'al: a sound wave this many attacks sooner
+  | 'inspire' // Ba'al: +x attack speed his song gives the others
+  | 'lull' // Ba'al: seconds a sound wave slows what it hits
+  | 'potionCdr' // Andrejz: -x cooldown of the potion accessories he wears
+  | 'corrode' // Andrejz: monsters in his puddles take +x damage from everyone
+  | 'burst' // Andrejz: his potions burst as they land for x × the potion's damage
+  | 'rainMore' // Galladair: +x arrows in Arrow Rain
+  | 'rainBounce' // Galladair: each Arrow Rain arrow ricochets this many times
+  | 'pin' // Galladair: seconds her arrows slow what they hit
+  | 'rainMark' // Galladair: monsters Arrow Rain hits take +x from her shots
+  | 'fangs' // Deku: his wolves make what they maul bleed (x × their strike)
+  | 'feral' // Deku: +x attack speed for each wolf of his out
+  | 'summonLife' // +x how long their special's summons stay
+  | 'dire' // Deku, Theon: every third call brings a summon twice the size
+  | 'scorch' // Glimmer: his explosions leave burning ground (x × his hit a second)
+  | 'kindle' // Glimmer: +x damage to burning monsters
+  | 'combust' // Glimmer: burning monsters he kills explode for x × his hit
+  | 'knives' // Alias: more daggers in a Flurry of Knives
+  | 'knifeBounce' // Alias: each Flurry dagger bounces on to this many more monsters
+  | 'critMark' // Alias: his crits make the monster take +x from everyone for 3s
+  | 'knifeDepth' // Alias: a Flurry can chain this much deeper
+  | 'knifePierce' // Alias: Flurry daggers pierce this many monsters
+  | 'spearEvery' // Lance: his holy spear this many attacks sooner
+  | 'retribution' // Lance: a hit his shield blocks thrusts his spear at the attacker
+  | 'sanctuary' // Lance: +x recharge speed of the shields his Rallying Oath gives
+  | 'judgement' // Lance: +x chance his spear sets off Radiant's burst
+  | 'aegis' // Lance: a hit any Rallying Oath shield blocks thrusts his spear at the attacker
+  | 'stagehand' // Theon: -x cooldown of the summoning abilities on her gear (their summons count as Constructs)
+  | 'finalBow' // Theon: a puppet bursts as it falls apart for x × its strike
+  | 'seams' // Kargesh: crits on monsters whose armour he cracked deal +x
+  | 'aftershock' // Kargesh: his hammer's shockwave strikes again at x strength
+  | 'sparks' // Kargesh: more sparks from his hammer
+  | 'exposeLong' // Kargesh: cracked armour stays cracked ×(1 + x) as long
+  | 'reload' // Wilhelm: -x reload time
+  | 'mag' // Wilhelm: more rounds in each magazine
+  | 'swapShot' // Wilhelm: shots after switching guns that always crit and pierce everything
+  | 'copyLife' // Celeste: +x how long her copies last
+  | 'mindLink' // Celeste: +x attack speed while a copy is out
+  | 'copyBurst' // Celeste: her copies' explosions ×(1 + x)
+  | 'astral' // Celeste: +x damage from her copies
+  | 'crash' // Sciirj: monsters his Mountain Fist flings hit the ones behind for x × the blow
+  | 'momentum' // Sciirj: seconds each strike takes off Mountain Fist
+  | 'palm' // Sciirj: seconds Mountain Fist stuns
+  | 'fistCircle' // Sciirj: Mountain Fist strikes all round
+  | 'holdLong' // Gideon: seconds longer his spikes hold
+  | 'prison' // Gideon: held monsters take +x from everyone
+  | 'wallLong' // Gideon: seconds longer his Bone Wall stands
+  | 'wallSpikes' // Gideon: monsters touching his Bone Wall are hit and held
+  | 'harvest' // Gideon: chance a spike kill raises a spike of its own
+  | 'ghostCap' // Lilith: more ghosts at once
+  | 'possession' // Lilith: ghosts go for the thickest crowd
+  | 'soulChain' // Lilith: a haunt's ghost flies on to this many more spots
+  | 'siphon' // Lilith: +x attack speed for each ghost out
+  | 'feast' // Themus: seconds a bleeding kill takes off the Crimson Wave
+  | 'veins' // Themus: +x damage to bleeding monsters
+  | 'runePulses' // Marceline: more pulses from her Rune Circle
+  | 'runeVuln' // Marceline: monsters in her Rune Circle take +x from everyone for 2s
+  | 'stormGlyph' // Marceline: her Rune Circle pulses Lightning too
+  | 'loveBites' // Norm: +x damage charmed monsters do
+  | 'heartbreak' // Norm: a charm ends in a burst of x × the monster's health
+  | 'charmBoss' // Norm: his charm dazes Guardians for this many seconds
+  | 'hotHand' // Ted: seconds doubles take off his next throw
+  | 'noDaze' // Ted: snake eyes don't daze him
+  | 'threeDice' // Ted: rolls a third die and keeps the best two
+  | 'allDoubles' // Ted: any doubles hit the whole field
+  | 'raiseDead' // Azir: chance a monster his skeletons kill rises as one
+  | 'boneBurst' // Azir: his skeletons burst as they crumble for x × a strike
+  | 'deathKnight' // Azir: a Death Knight rises with every legion
+  | 'scorchLine' // Tonk: his beam leaves a burning line (x × his hit a second)
+  | 'sweep' // Tonk: radians his beam sweeps as it fires
+  | 'beamLinger' // Tonk: his beam burns its path again
+  | 'overheat' // Tonk: monsters his beam hits take +x from everyone for 3s
+  | 'quicken' // Id: +x to his Time Slip
+  | 'riftPull' // Id: his rifts drag monsters in
+  | 'riftLife' // Id: +x how long his rifts stay open
+  | 'bestseller' // Thomas: his tome favours the strongest Hunter beside him
+  | 'marginNotes' // Thomas: monsters a recalled special hits take +x from everyone for 3s
+  | 'greatLibrary' // Thomas: recalled specials come with their Hunter's capstone
+  | 'overtune' // Reginald: -x cooldowns for every Hunter in his area
+  | 'reinforce' // Reginald: more shield charges for the other Hunters in his area
+  | 'turret' // Reginald: clockwork turrets he sets down
+  | 'ammoFeed' // Reginald: +x attack speed of his turrets;
+/** Every TreeStat (a Hunter's tree totals start from these, all 0). */
+export const TREE_STATS: readonly TreeStat[] = ['damage', 'rate', 'recovery', 'crit', 'range', 'pierce', 'radius', 'bane', 'bolts', 'guard', 'rally', 'gold', 'drops', 'tapPower', 'tapSize', 'cooldown', 'duration', 'critDamage', 'multishot', 'bounces', 'ghosts', 'extra', 'twin', 'twinPower', 'reverb', 'songEvery', 'inspire', 'lull', 'potionCdr', 'corrode', 'burst', 'rainMore', 'rainBounce', 'pin', 'rainMark', 'fangs', 'feral', 'summonLife', 'dire', 'scorch', 'kindle', 'combust', 'knives', 'knifeBounce', 'critMark', 'knifeDepth', 'knifePierce', 'spearEvery', 'retribution', 'sanctuary', 'judgement', 'aegis', 'stagehand', 'finalBow', 'seams', 'aftershock', 'sparks', 'exposeLong', 'reload', 'mag', 'swapShot', 'copyLife', 'mindLink', 'copyBurst', 'astral', 'crash', 'momentum', 'palm', 'fistCircle', 'holdLong', 'prison', 'wallLong', 'wallSpikes', 'harvest', 'ghostCap', 'possession', 'soulChain', 'siphon', 'feast', 'veins', 'runePulses', 'runeVuln', 'stormGlyph', 'loveBites', 'heartbreak', 'charmBoss', 'hotHand', 'noDaze', 'threeDice', 'allDoubles', 'raiseDead', 'boneBurst', 'deathKnight', 'scorchLine', 'sweep', 'beamLinger', 'overheat', 'quicken', 'riftPull', 'riftLife', 'bestseller', 'marginNotes', 'greatLibrary', 'overtune', 'reinforce', 'turret', 'ammoFeed'];
 
 /** A node in a branching tree: a Hunter's skill tree or a monster's evolution tree. */
 export interface TreeNode<S extends string = string> {
@@ -370,6 +459,115 @@ export type SkillNode = TreeNode<TreeStat>;
 
 /** Recovery Speed: each rank shortens stuns by this factor. */
 export const SKILL_RECOVERY = 0.92;
+
+/** A special cast again (Double Dose, Twin Cast...) hits at this share of the first, plus their twinPower. */
+export const TWIN_POWER = 0.5;
+/** Ba'al's Reverberate: a note's damage per rank of `reverb`, as a share of the sound wave's hit; how far it flies, and how long it slows. */
+export const REVERB_NOTE = 0.4;
+export const REVERB_RANGE = 260;
+export const REVERB_SLOW = 0.5;
+/** How long the debuffs that make a monster take more from everyone last (Marked for Death, Overheat...). */
+export const VULN_TIME = 3;
+/** Reginald's Clockwork Turret: how often he sets one down, how long it fires, its attack speed against his. */
+export const TURRET = { every: 10, life: 6, rate: 1 };
+/** A big summon (a dire wolf, a Grand Marionette, a Death Knight) hits this many times as hard. */
+export const BIG_SUMMON = 1.5;
+/** Lilith's Possession: how far round a ghost looks for the thickest crowd. */
+export const POSSESSION_REACH = 90;
+
+/** A Guild Hunter's own skills on their node card, from their total (`v`, the per-rank value × ranks). */
+export function perkLine(stat: TreeStat, v: number): string | null {
+  const pct = (x: number) => `+${pctOf(x)}`;
+  switch (stat) {
+    case 'extra': return `+${v} more at once`;
+    case 'twin': return v >= 1 ? `${+v.toFixed(2)} more cast${v === 1 ? '' : 's'}` : `${pct(v)} chance of a second cast`;
+    case 'twinPower': return `${pct(v)} strength of extra casts`;
+    case 'reverb': return `notes at ${pctOf(v * REVERB_NOTE)} of the wave`;
+    case 'songEvery': return `a wave ${v} attack${v === 1 ? '' : 's'} sooner`;
+    case 'inspire': return `${pct(v)} song speed for others`;
+    case 'lull': return `${+v.toFixed(2)}s slow from waves`;
+    case 'potionCdr': return `−${pctOf(v)} potion cooldowns`;
+    case 'corrode': return `${pct(v)} damage taken in puddles`;
+    case 'burst': return `${pct(v)} landing burst`;
+    case 'rainMore': return `${pct(v)} rain arrows`;
+    case 'rainBounce': return `${v} rain ricochet${v === 1 ? '' : 's'}`;
+    case 'pin': return `${+v.toFixed(2)}s slow`;
+    case 'rainMark': return `${pct(v)} damage to rained-on monsters`;
+    case 'fangs': return `bleed at ${pctOf(v)} of a strike`;
+    case 'feral': return `${pct(v)} attack speed per wolf`;
+    case 'summonLife': return `${pct(v)} summon duration`;
+    case 'dire': return `a big summon every 3rd call`;
+    case 'scorch': return `burning ground (${pctOf(v)}/s)`;
+    case 'kindle': return `${pct(v)} damage to burning`;
+    case 'combust': return `${pctOf(v)} death blasts`;
+    case 'knives': return `+${v} dagger${v === 1 ? '' : 's'}`;
+    case 'knifeBounce': return `+${v} dagger bounce${v === 1 ? '' : 's'}`;
+    case 'critMark': return `${pct(v)} damage taken when marked`;
+    case 'knifeDepth': return `+${v} flurry depth`;
+    case 'knifePierce': return `+${v} dagger pierce`;
+    case 'spearEvery': return `spear ${v} attack${v === 1 ? '' : 's'} sooner`;
+    case 'retribution': return `blocks strike back`;
+    case 'sanctuary': return `${pct(v)} Oath shield recharge`;
+    case 'judgement': return `${pct(v)} Radiant burst chance`;
+    case 'aegis': return `Oath blocks strike back`;
+    case 'stagehand': return `−${pctOf(v)} summon gear cooldowns`;
+    case 'finalBow': return `${pctOf(v)} parting burst`;
+    case 'seams': return `${pct(v)} crits on cracked armour`;
+    case 'aftershock': return `aftershock at ${pctOf(v)}`;
+    case 'sparks': return `+${v} spark${v === 1 ? '' : 's'}`;
+    case 'exposeLong': return `×${1 + v} cracked time`;
+    case 'reload': return `−${pctOf(v)} reload time`;
+    case 'mag': return `+${v} round${v === 1 ? '' : 's'}`;
+    case 'swapShot': return `${v} Swap Shot${v === 1 ? '' : 's'}`;
+    case 'copyLife': return `${pct(v)} copy duration`;
+    case 'mindLink': return `${pct(v)} attack speed with a copy out`;
+    case 'copyBurst': return `×${1 + v} copy explosions`;
+    case 'astral': return `${pct(v)} copy damage`;
+    case 'crash': return `crashes at ${pctOf(v)}`;
+    case 'momentum': return `−${+v.toFixed(2)}s per strike`;
+    case 'palm': return `${+v.toFixed(2)}s stun`;
+    case 'fistCircle': return `strikes all round`;
+    case 'holdLong': return `+${+v.toFixed(2)}s hold`;
+    case 'prison': return `${pct(v)} damage taken while held`;
+    case 'wallLong': return `+${v}s wall`;
+    case 'wallSpikes': return `a spiked wall`;
+    case 'harvest': return `${pct(v)} spike from a kill`;
+    case 'ghostCap': return `+${v} ghost${v === 1 ? '' : 's'} at once`;
+    case 'possession': return `ghosts seek crowds`;
+    case 'soulChain': return `ghosts haunt ${v} more spot${v === 1 ? '' : 's'}`;
+    case 'siphon': return `${pct(v)} attack speed per ghost`;
+    case 'feast': return `−${+v.toFixed(2)}s per bleeding kill`;
+    case 'veins': return `${pct(v)} damage to bleeding`;
+    case 'runePulses': return `+${v} pulse${v === 1 ? '' : 's'}`;
+    case 'runeVuln': return `${pct(v)} damage taken in runes`;
+    case 'stormGlyph': return `a Lightning pulse`;
+    case 'loveBites': return `${pct(v)} charmed damage`;
+    case 'heartbreak': return `${pctOf(v)} heartbreak burst`;
+    case 'charmBoss': return `dazes Guardians ${v}s`;
+    case 'hotHand': return `−${+v.toFixed(2)}s on doubles`;
+    case 'noDaze': return `no snake-eyes daze`;
+    case 'threeDice': return `a third die`;
+    case 'allDoubles': return `any doubles hit everything`;
+    case 'raiseDead': return `${pct(v)} chance to raise`;
+    case 'boneBurst': return `${pctOf(v)} crumbling burst`;
+    case 'deathKnight': return `a Death Knight`;
+    case 'scorchLine': return `burning line (${pctOf(v)}/s)`;
+    case 'sweep': return `${Math.round((v * 180) / Math.PI)}° sweep`;
+    case 'beamLinger': return `a lingering beam`;
+    case 'overheat': return `${pct(v)} damage taken after the beam`;
+    case 'quicken': return `${pct(v)} Time Slip`;
+    case 'riftPull': return `rifts pull`;
+    case 'riftLife': return `${pct(v)} rift duration`;
+    case 'bestseller': return `favours the strongest`;
+    case 'marginNotes': return `${pct(v)} damage taken after a recall`;
+    case 'greatLibrary': return `recalls carry capstones`;
+    case 'overtune': return `−${pctOf(v)} cooldowns in his area`;
+    case 'reinforce': return `+${v} shield for the others here`;
+    case 'turret': return `${v} turret${v === 1 ? '' : 's'}`;
+    case 'ammoFeed': return `${pct(v)} turret attack speed`;
+  }
+  return null;
+}
 
 type NodeSpec = Pick<SkillNode, 'name' | 'icon' | 'desc' | 'maxRank' | 'effect' | 'cost'>;
 
@@ -663,229 +861,229 @@ export const SESSIONS_AFTER_ASCEND = sessionsToLevel(MAX_LEVEL) - SESSIONS_TO_AS
  * three deep nodes in what that Hunter does best (20 points between them), Precision and Fortune, and their own
  * capstone: the last 8 points, so it opens at Lv 100.
  */
-function ascendedTree(focus: [NodeSpec, NodeSpec, NodeSpec], capstone: NodeSpec): SkillNode[] {
+function ascendedTree(focus: [NodeSpec, NodeSpec, NodeSpec], capstone: NodeSpec, precision: NodeSpec = crt(4, 'Precision', '🎯')): SkillNode[] {
   return gridTree([
     [at('root', { name: 'Awakening', icon: '🌅', desc: '+20% damage and +5% attack speed.', maxRank: 1, cost: 2, effect: { damage: 0.2, rate: 0.05 } })],
     [at('power', atk(5, 'Mastery', '⚔️', 0.1)), at('speed', spd(5, 'Fervor', '🔥')), at('recovery', rec(3, 'Resolve', '🗿'))],
     [at('power2', focus[0]), at('speed2', focus[1]), at('recovery2', focus[2])],
-    [at('precision', crt(4, 'Precision', '🎯')), at('fortune', { name: 'Fortune', icon: '🍀', desc: '+10% gold and +5% materials from their kills.', maxRank: 3, effect: { gold: 0.1, drops: 0.05 } })],
+    [at('precision', precision), at('fortune', { name: 'Fortune', icon: '🍀', desc: '+10% gold and +5% materials from their kills.', maxRank: 3, effect: { gold: 0.1, drops: 0.05 } })],
     [at('capstone', { cost: 8,...capstone })],
   ]);
 }
 
 /** Each Guild Hunter's ascended tree. */
 export const ASCENDED_TREES: Record<HunterId, SkillNode[]> = {
-  alchemist: ascendedTree([area(8, 'Vast Splash', '💦', 'Puddles spread', 0.05), dur(6, 'Slow Rot', '☠️'), ban(6, 'Slime Scourge', '🟢', 'Slimes')], { name: "Philosopher's Stone", icon: '💠', desc: '+50% damage and puddles 20% wider.', maxRank: 1, effect: { damage: 0.5, radius: 0.2 } }),
-  bard: ascendedTree([spd(8, 'Virtuoso', '🎻', 0.03), area(6, 'Amplify', '🔊', 'Sound waves reach'), ban(6, 'Showstopper', '👤', 'Humanoids')], { name: 'Symphony', icon: '🎼', desc: '+50% damage and +15% attack speed.', maxRank: 1, effect: { damage: 0.5, rate: 0.15 } }),
-  druid: ascendedTree([area(8, 'Alpha Pack', '🐺', 'Wolves hit harder:'), cdr(6, 'Howl', '🌕', 'Wolves come'), ban(6, 'Overgrowth Bane', '🌱', 'Plants')], { name: 'Wild Hunt', icon: '🐺', desc: '+50% damage and wolves 30% fiercer.', maxRank: 1, effect: { damage: 0.5, radius: 0.3 } }),
-  ranger: ascendedTree([rng(8, 'Hawk Eye', '🦅'), crd(6, 'Barbed Arrows', '🏹'), ban(6, 'Beast Slayer', '🐾', 'Beasts')], { name: 'Hundred Arrows', icon: '🏹', desc: '+50% damage, one more arrow per shot, and arrows pierce 2 more enemies.', maxRank: 1, effect: { damage: 0.5, multishot: 1, pierce: 2 } }),
-  glimmer: ascendedTree([area(8, 'Cataclysm', '💥', 'Explosions grow'), cdr(6, 'Arcane Haste', '⏱️', 'Fireballs come'), dur(6, 'Everburn', '🔥')], { name: 'Starfire', icon: '☄️', desc: '+50% damage and explosions 30% wider.', maxRank: 1, effect: { damage: 0.5, radius: 0.3 } }),
-  thief: ascendedTree([gld(8, 'Golden Hands', '👛'), drp(6, 'Fine Loot', '🗝️'), crd(6, 'Assassinate', '🔪')], { name: 'Grand Heist', icon: '💎', desc: '+50% damage and +50% gold from his kills.', maxRank: 1, effect: { damage: 0.5, gold: 0.5 } }),
-  lance: ascendedTree([atk(8, 'Righteous Fury', '☀️', 0.05), grd(3, 'Bastion', '🧱', 2), area(6, 'Consecration', '✨', 'Their strikes reach wider:')], { name: 'Aegis', icon: '🛡️', desc: '+50% damage and 2 more shield charges.', maxRank: 1, effect: { damage: 0.5, guard: 2 } }),
-  puppeteer: ascendedTree([area(8, 'Puppet Army', '🪆', 'Puppets hit harder:'), cdr(6, 'Curtain Call', '🎪', 'Puppets come'), crt(6, 'Stage Presence', '🌟')], { name: 'Theater of Puppets', icon: '🎭', desc: '+50% damage and puppets 30% fiercer.', maxRank: 1, effect: { damage: 0.5, radius: 0.3 } }),
-  blacksmith: ascendedTree([atk(8, 'Hammer and Tongs', '🔨', 0.05), crd(6, 'Crushing Blows', '💢'), spd(6, 'Hot Iron', '🔥', 0.03)], { name: 'Masterwork', icon: '⚒️', desc: '+50% damage and +20% attack speed.', maxRank: 1, effect: { damage: 0.5, rate: 0.2 } }),
-  wilhelm: ascendedTree([crd(8, 'Executioner', '💀'), rng(6, 'Scope', '🔭'), prc(3, 'Armor Piercing', '🔩', 2)], { name: 'One Shot', icon: '🎯', desc: '+50% damage and +10% crit chance.', maxRank: 1, effect: { damage: 0.5, crit: 0.1 } }),
-  celeste: ascendedTree([ban(8, 'Wyrmbane', '🐉', 'Dragons'), rng(6, 'Astral Reach', '🧠'), crd(6, 'Mind Break', '⚡')], { name: 'Omniscience', icon: '🧠', desc: '+50% damage and +10% crit chance.', maxRank: 1, effect: { damage: 0.5, crit: 0.1 } }),
-  enchantress: ascendedTree([dur(8, 'Everlasting Hex', '⏳'), cdr(6, 'Swift Glyphs', '🪄', "Their gear's abilities recharge"), crt(6, 'Runic Insight', '✴️')], { name: 'Grand Enchantment', icon: '✨', desc: '+50% damage and +10% crit chance.', maxRank: 1, effect: { damage: 0.5, crit: 0.1 } }),
-  scavenger: ascendedTree([area(8, 'Mountain Stance', '🏔️', 'Punches reach further:'), cdr(6, 'Still Mind', '🧘', 'Mountain Fist comes'), atk(6, 'Stone Fists', '👊', 0.05)], { name: 'Mountain Breaker', icon: '🏔️', desc: '+50% damage and punches reach 30% further.', maxRank: 1, effect: { damage: 0.5, radius: 0.3 } }),
-  osteomancer: ascendedTree([area(8, 'Bone Forest', '🦴', 'Bone spikes reach wider:'), cdr(6, 'Grave Haste', '⏱️', 'Bone spikes come'), grd(3, 'Ribcage', '🛡️', 2)], { name: 'Ossuary', icon: '💀', desc: '+50% damage and spikes 30% wider.', maxRank: 1, effect: { damage: 0.5, radius: 0.3 } }),
+  alchemist: ascendedTree([area(8, 'Vast Splash', '💦', 'Puddles spread', 0.05), { name: 'Volatile Brew', icon: '💥', desc: "His potions burst as they land, hitting the monsters around for 10% of a potion's hit.", maxRank: 6, effect: { burst: 0.1 } }, ban(6, 'Slime Scourge', '🟢', 'Slimes')], { name: "Philosopher's Stone", icon: '💠', desc: '+50% damage, and his second potion hits at 70% strength.', maxRank: 1, effect: { damage: 0.5, twinPower: 0.05 } }),
+  bard: ascendedTree([{ name: 'Resonance', icon: '🎻', desc: 'A sound wave rings out one attack sooner.', maxRank: 2, cost: 4, effect: { songEvery: 1 } }, area(6, 'Amplify', '🔊', 'Sound waves reach'), ban(6, 'Showstopper', '👤', 'Humanoids')], { name: 'Symphony', icon: '🎼', desc: "+50% damage, and Reverberate's notes hit twice as hard.", maxRank: 1, effect: { damage: 0.5, reverb: 1 } }),
+  druid: ascendedTree([area(8, 'Alpha Pack', '🐺', 'Wolves hit harder:'), cdr(6, 'Howl', '🌕', 'Wolves come'), ban(6, 'Overgrowth Bane', '🌱', 'Plants')], { name: 'Wild Hunt', icon: '🐺', desc: '+50% damage, and every third call brings a dire wolf twice the size.', maxRank: 1, effect: { damage: 0.5, dire: 1 } }, { name: 'Moonlit Pack', icon: '🌙', desc: 'His wolves stay 4% longer.', maxRank: 4, effect: { summonLife: 0.04 } }),
+  ranger: ascendedTree([rng(8, 'Hawk Eye', '🦅'), crd(6, 'Barbed Arrows', '🏹'), ban(6, 'Beast Slayer', '🐾', 'Beasts')], { name: 'Hundred Arrows', icon: '🏹', desc: "+50% damage, one more arrow per shot, arrows pierce 2 more enemies, and Arrow Rain's arrows ricochet twice.", maxRank: 1, effect: { damage: 0.5, multishot: 1, pierce: 2, rainBounce: 1 } }, { name: 'Marked Prey', icon: '🎯', desc: 'Monsters her Arrow Rain hits take 20% more damage from every Hunter for 3 seconds.', maxRank: 4, effect: { rainMark: 0.2 } }),
+  glimmer: ascendedTree([area(8, 'Cataclysm', '💥', 'Explosions grow'), cdr(6, 'Arcane Haste', '⏱️', 'Fireballs come'), { name: 'Combustion', icon: '🔥', desc: 'A burning monster he kills explodes, hurting the monsters around it for 3% of his hit.', maxRank: 6, effect: { combust: 0.03 } }], { name: 'Starfire', icon: '☄️', desc: '+50% damage, and his explosions (both fireballs) grow 15% wider.', maxRank: 1, effect: { damage: 0.5, radius: 0.15 } }),
+  thief: ascendedTree([gld(8, 'Golden Hands', '👛'), drp(6, 'Fine Loot', '🗝️'), crd(6, 'Assassinate', '🔪')], { name: 'Grand Heist', icon: '💎', desc: '+50% damage, +50% gold from his kills, and his Flurry of Knives throws one more dagger.', maxRank: 1, effect: { damage: 0.5, gold: 0.5, knives: 1 } }),
+  lance: ascendedTree([atk(8, 'Righteous Fury', '☀️', 0.05), grd(3, 'Bastion', '🧱', 2), area(6, 'Consecration', '✨', 'Their strikes reach wider:')], { name: 'Aegis', icon: '🛡️', desc: "+50% damage, 1 more shield charge, and a hit any Hunter's Rallying Oath shield blocks thrusts his holy spear at the attacker.", maxRank: 1, effect: { damage: 0.5, guard: 1, aegis: 1 } }, { name: 'Judgement', icon: '⚖️', desc: "His holy spear is 10% more likely to set off Radiant's burst.", maxRank: 4, effect: { judgement: 0.1 } }),
+  puppeteer: ascendedTree([area(8, 'Puppet Army', '🪆', 'Puppets hit harder:'), cdr(6, 'Curtain Call', '🎪', 'Puppets come'), { name: 'Strings of Fate', icon: '🧵', desc: 'Her puppets stay 4% longer.', maxRank: 6, effect: { summonLife: 0.04 } }], { name: 'Theater of Puppets', icon: '🎭', desc: '+50% damage, and every third call brings a Grand Marionette twice the size.', maxRank: 1, effect: { damage: 0.5, dire: 1 } }),
+  blacksmith: ascendedTree([atk(8, 'Hammer and Tongs', '🔨', 0.05), crd(6, 'Crushing Blows', '💢'), { name: 'Spark Shower', icon: '✨', desc: 'The Forge Hammer throws two more sparks.', maxRank: 6, effect: { sparks: 2 } }], { name: 'Masterwork', icon: '⚒️', desc: '+50% damage, +20% attack speed, and armour he cracks stays cracked twice as long.', maxRank: 1, effect: { damage: 0.5, rate: 0.2, exposeLong: 1 } }),
+  wilhelm: ascendedTree([crd(8, 'Executioner', '💀'), { name: 'Quick Swap', icon: '🔁', desc: 'His guns reload 5% faster.', maxRank: 6, effect: { reload: 0.05 } }, prc(3, 'Armor Piercing', '🔩', 2)], { name: 'One Shot', icon: '🎯', desc: '+50% damage, and the first three shots after he switches guns are Swap Shots.', maxRank: 1, effect: { damage: 0.5, swapShot: 2 } }),
+  celeste: ascendedTree([ban(8, 'Wyrmbane', '🐉', 'Dragons'), rng(6, 'Astral Reach', '🧠'), { name: 'Astral Bond', icon: '✨', desc: 'Her copies deal 8% more damage.', maxRank: 6, effect: { astral: 0.08 } }], { name: 'Omniscience', icon: '🧠', desc: "+50% damage, and her copies' explosions hit twice as hard.", maxRank: 1, effect: { damage: 0.5, copyBurst: 1 } }),
+  enchantress: ascendedTree([dur(8, 'Everlasting Hex', '⏳'), cdr(6, 'Swift Glyphs', '🪄', "Their gear's abilities recharge"), area(6, 'Ley Lines', '🌐', 'Their spells grow', 0.08)], { name: 'Grand Enchantment', icon: '✨', desc: '+50% damage, and she inscribes a second Rune Circle at another monster, at 75% strength.', maxRank: 1, effect: { damage: 0.5, twin: 1, twinPower: 0.25 } }),
+  scavenger: ascendedTree([area(8, 'Mountain Stance', '🏔️', 'Punches reach further:'), cdr(6, 'Still Mind', '🧘', 'Mountain Fist comes'), atk(6, 'Stone Fists', '👊', 0.05)], { name: 'Mountain Breaker', icon: '🏔️', desc: '+50% damage, and Mountain Fist strikes all around him.', maxRank: 1, effect: { damage: 0.5, fistCircle: 1 } }),
+  osteomancer: ascendedTree([area(8, 'Bone Forest', '🦴', 'Bone spikes reach wider:'), cdr(6, 'Grave Haste', '⏱️', 'Bone spikes come'), { name: 'Bone Harvest', icon: '🌾', desc: 'A monster that dies on his spikes has a 15% chance to raise a spike of its own.', maxRank: 3, cost: 2, effect: { harvest: 0.15 } }], { name: 'Ossuary', icon: '💀', desc: '+50% damage, and monsters that touch his Bone Wall are impaled: hit and held.', maxRank: 1, effect: { damage: 0.5, wallSpikes: 1 } }),
   bloodblade: ascendedTree([area(8, 'Red Tide', '🌊', 'The Crimson Wave runs further:'), dur(6, 'Open Wounds', '🩸'), crd(6, 'Bloodletting', '🔪')], { name: 'Crimson Tide', icon: '🌊', desc: '+50% damage and 2 more blood bolts from each Crimson Wave kill.', maxRank: 1, effect: { damage: 0.5, bolts: 2 } }),
-  spaceslime: ascendedTree([area(8, 'Galactic Charm', '🌌', 'His charm reaches further:'), cdr(6, 'Pickup Lines', '💬', 'His charm comes'), gld(6, 'Comet Dust', '☄️')], { name: 'Silver Tongue', icon: '💬', desc: '+50% damage and his charm reaches 30% further.', maxRank: 1, effect: { damage: 0.5, radius: 0.3 } }),
-  lichlord: ascendedTree([dur(8, 'Undying Legion', '⏳'), cdr(6, 'Necromantic Haste', '💀', 'The legion rises'), atk(6, 'Bone Lances', '🦴', 0.05)], { name: 'Lich King', icon: '👑', desc: '+50% damage, and his skeletons last 30% longer.', maxRank: 1, effect: { damage: 0.5, duration: 0.3 } }),
-  riftwalker: ascendedTree([area(8, 'Yawning Void', '🕳️', 'The blasts grow'), cdr(6, 'Rift Storm', '🌀', 'The rifts open'), dur(6, 'Lingering Dark', '🌑')], { name: 'Event Horizon', icon: '🌌', desc: '+50% damage, blasts 30% wider, and Time Slip cuts cooldowns 10% more (30% in all).', maxRank: 1, effect: { damage: 0.5, radius: 0.3 } }),
-  alien: ascendedTree([area(8, 'Wide Beam', '👁️', 'The beam grows'), cdr(6, 'Rapid Recharge', '🔋', 'The lasers fire'), crt(6, 'Targeting Array', '🎯')], { name: 'Death Ray', icon: '☄️', desc: '+50% damage and a beam 30% wider.', maxRank: 1, effect: { damage: 0.5, radius: 0.3 } }),
-  gambler: ascendedTree([crd(8, 'Double Down', '🎲'), area(6, 'Boxcars', '💥', 'Dice blasts grow'), gld(6, 'House Money', '🪙')], { name: 'High Roller', icon: '🎲', desc: '+50% damage and dice blasts 30% wider.', maxRank: 1, effect: { damage: 0.5, radius: 0.3 } }),
-  archivist: ascendedTree([area(8, 'Grand Index', '📜', 'Recalled specials grow'), cdr(6, 'Speed Archive', '📑', 'The tome opens'), dur(6, 'Long Memory', '🕯️')], { name: 'Great Library', icon: '📚', desc: '+50% damage and recalled specials 30% bigger.', maxRank: 1, effect: { damage: 0.5, radius: 0.3 } }),
-  artificer: ascendedTree([spd(8, 'Perpetual Motion', '⚙️', 0.03), rng(6, 'Long Barrels', '🔭'), crt(6, 'Calibration', '📐')], { name: 'Grand Design', icon: '⚙️', desc: '+50% damage and +20% attack speed.', maxRank: 1, effect: { damage: 0.5, rate: 0.2 } }),
-  haunter: ascendedTree([gho(8, 'Legion of the Lost', '👥', 0.01), dur(6, 'Endless Mourning', '🕯️'), crd(6, 'Reaper', '💀')], { name: 'Eternal Night', icon: '🌑', desc: '+50% damage, and haunts and status effects last 25% longer.', maxRank: 1, effect: { damage: 0.5, duration: 0.25 } }),
+  spaceslime: ascendedTree([area(8, 'Galactic Charm', '🌌', 'His charm reaches further:'), cdr(6, 'Pickup Lines', '💬', 'His charm comes'), gld(6, 'Comet Dust', '☄️')], { name: 'Silver Tongue', icon: '💬', desc: '+50% damage, and even a Guardian falls for him a little: his charm dazes it for a second.', maxRank: 1, effect: { damage: 0.5, charmBoss: 1 } }),
+  lichlord: ascendedTree([dur(8, 'Undying Legion', '⏳'), cdr(6, 'Necromantic Haste', '💀', 'The legion rises'), atk(6, 'Bone Lances', '🦴', 0.05)], { name: 'Lich King', icon: '👑', desc: '+50% damage, and a Death Knight twice the size rises with every legion.', maxRank: 1, effect: { damage: 0.5, deathKnight: 1 } }),
+  riftwalker: ascendedTree([area(8, 'Yawning Void', '🕳️', 'The blasts grow'), cdr(6, 'Rift Storm', '🌀', 'The rifts open'), { name: 'Long Dark', icon: '🌑', desc: 'His rifts stay open 3% longer, loosing more bolts.', maxRank: 6, effect: { riftLife: 0.03 } }], { name: 'Event Horizon', icon: '🌌', desc: '+50% damage, Time Slip cuts cooldowns 10% more (30% in all), and his rifts drag nearby monsters in.', maxRank: 1, effect: { damage: 0.5, riftPull: 1 } }),
+  alien: ascendedTree([area(8, 'Wide Beam', '👁️', 'The beam grows'), cdr(6, 'Rapid Recharge', '🔋', 'The lasers fire'), { name: 'Overheat', icon: '🌡️', desc: 'Monsters his beam hits take 2% more damage from every Hunter for 3 seconds.', maxRank: 6, effect: { overheat: 0.02 } }], { name: 'Death Ray', icon: '☄️', desc: '+50% damage, and the beam lingers, burning its path again half a second later.', maxRank: 1, effect: { damage: 0.5, beamLinger: 1 } }),
+  gambler: ascendedTree([crd(8, 'Double Down', '🎲'), area(6, 'Boxcars', '💥', 'Dice blasts grow'), gld(6, 'House Money', '🪙')], { name: 'High Roller', icon: '🎲', desc: '+50% damage, dice blasts 15% wider, and any doubles hit the whole field, not just double 6s.', maxRank: 1, effect: { damage: 0.5, radius: 0.15, allDoubles: 1 } }),
+  archivist: ascendedTree([area(8, 'Grand Index', '📜', 'Recalled specials grow'), cdr(6, 'Speed Archive', '📑', 'The tome opens'), { name: 'First Edition', icon: '📕', desc: 'Recalled specials, and his attacks, hit 6% harder.', maxRank: 6, effect: { damage: 0.06 } }], { name: 'Great Library', icon: '📚', desc: "+50% damage, and recalled specials come with their Hunter's own capstone (a second potion, a third wolf, a twin fireball...).", maxRank: 1, effect: { damage: 0.5, greatLibrary: 1 } }),
+  artificer: ascendedTree([spd(8, 'Perpetual Motion', '⚙️', 0.03), rng(6, 'Long Barrels', '🔭'), { name: 'Ammo Feed', icon: '🔋', desc: 'His turrets fire 8% faster.', maxRank: 6, effect: { ammoFeed: 0.08 } }], { name: 'Master Artificer', icon: '⚙️', desc: '+50% damage, and he sets down two turrets at a time.', maxRank: 1, effect: { damage: 0.5, turret: 1 } }),
+  haunter: ascendedTree([gho(8, 'Legion of the Lost', '👥', 0.01), dur(6, 'Endless Mourning', '🕯️'), { name: 'Soul Siphon', icon: '🌀', desc: 'They attack 0.3% faster for every ghost of theirs out.', maxRank: 6, effect: { siphon: 0.003 } }], { name: 'Eternal Night', icon: '🌑', desc: '+50% damage, and haunts and status effects last 25% longer.', maxRank: 1, effect: { damage: 0.5, duration: 0.25 } }),
 };
 
 /** Each Hunter's skill tree ('main' is yours). Every Guild Hunter's costs 39 points: complete at Lv 40. */
 export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
   main: MAIN_FIRST_TREE,
-  // Andrejz: wider, longer-lasting poison puddles, sooner.
+  // Andrejz: wider, longer-lasting poison puddles that soften monsters up, and a second potion every time.
   alchemist: gridTree([
     [at('root', area(1, 'Toxic Brew', '🧪', 'Poison puddles spread'))],
-    [at('power', atk(3)), at('quickBrew', cdr(4, 'Quick Brew', '⏱️', 'Potions come')), at('recovery', rec(3))],
+    [at('corrosion', { name: 'Corrosion', icon: '🫗', desc: 'Monsters standing in his puddles take 10% more damage from every Hunter.', maxRank: 3, effect: { corrode: 0.1 } }), at('quickBrew', cdr(4, 'Quick Brew', '⏱️', 'Potions come')), at('steadyHands', { name: 'Steady Hands', icon: '🫙', desc: 'The potion accessories he wears recharge 10% faster.', maxRank: 3, effect: { potionCdr: 0.1 } })],
     [at('slimeBane', ban(4, 'Slime Bane', '🟢', 'Slimes')), at('wideSplash', area(4, 'Wide Splash', '💦', 'Puddles spread')), at('lingering', dur(4, 'Lingering Fumes', '☁️')), at('luckyFinds', drp(3, 'Lucky Finds', '🍀'))],
     [at('speed', spd(4)), at('potency', atk(4, 'Potent Toxins', '☠️', 0.1)), at('thickBrew', dur(2, 'Thick Brew', '🫧'))],
-    [at('capstone', { name: 'Grand Alchemy', icon: '⚗️', desc: '+20% damage, puddles 20% wider, and poison lasts 20% longer.', maxRank: 1, cost: 3, effect: { damage: 0.2, radius: 0.2, duration: 0.2 } })],
+    [at('capstone', { name: 'Double Dose', icon: '⚗️', desc: 'Every potion he lobs is followed by a second at another monster, at 65% strength.', maxRank: 1, cost: 3, effect: { twin: 1, twinPower: 0.15 } })],
   ]),
-  // Galladair: arrows that pierce, and more of them.
+  // Galladair: arrows that pierce and ricochet, and more of them, even raining down.
   ranger: gridTree([
     [at('root', prc(1, 'Piercing Blow', '🎯'))],
-    [at('power', atk(4, 'Powerful Shots')), at('speed', spd(4, 'Volley')), at('longshot', { name: 'Curving Arrows', icon: '🔭', desc: 'Arrows ricochet off their target, striking another enemy.', maxRank: 3, effect: { bounces: 1 } })],
+    [at('power', atk(4, 'Powerful Shots')), at('cloudburst', { name: 'Cloudburst', icon: '🌧️', desc: 'Arrow Rain looses 15% more arrows, and she shoots 3% faster.', maxRank: 4, effect: { rainMore: 0.15, rate: 0.03 } }), at('longshot', { name: 'Curving Arrows', icon: '🔭', desc: 'Arrows ricochet off their target, striking another enemy.', maxRank: 3, effect: { bounces: 1 } })],
     [at('beastBane', ban(4, 'Beast Bane', '🐾', 'Beasts')), at('piercing', cdr(2, 'Arrow Storm', '➶', 'Arrow Rain comes', 0.1)), at('eagleEye', crt(3, 'Eagle Eye', '🦅')), at('deepQuiver', spd(3, 'Deep Quiver', '🏹'))],
-    [at('splitShot', { name: 'Fan Shot', icon: '🔱', desc: 'Fire an extra projectile with every shot.', maxRank: 2, cost: 2, effect: { multishot: 1 } }), at('broadheads', atk(4, 'Broadheads', '🗡️', 0.1)), at('recovery', rec(3, 'Fleet Foot', '👣'))],
-    [at('capstone', { name: 'Volley', icon: '🌧️', desc: 'Fire an additional projectile with every shot, and pierce one additional enemy.', maxRank: 1, cost: 4, effect: { multishot: 1, pierce: 1 } })],
+    [at('splitShot', { name: 'Fan Shot', icon: '🔱', desc: 'Fire an extra projectile with every shot.', maxRank: 2, cost: 2, effect: { multishot: 1 } }), at('broadheads', atk(4, 'Broadheads', '🗡️', 0.1)), at('pinningShot', { name: 'Pinning Shot', icon: '📌', desc: 'Her arrows slow the monsters they hit to half speed for 0.3 seconds.', maxRank: 3, effect: { pin: 0.3 } })],
+    [at('capstone', { name: 'Ricochet Rain', icon: '🌧️', desc: 'Every arrow of her Arrow Rain ricochets on to another monster nearby.', maxRank: 1, cost: 4, effect: { rainBounce: 1 } })],
   ]),
-  // Ba'al: faster playing, wider sound waves.
+  // Ba'al: faster playing, wider sound waves, and notes that ring on through the crowd.
   bard: gridTree([
     [at('root', area(1, 'Opening Chord', '🎵', 'Sound waves reach'))],
-    [at('power', atk(3)), at('speed', spd(5, 'Tempo', '🥁')), at('recovery', rec(3))],
+    [at('power', atk(3)), at('rousingAnthem', { name: 'Rousing Anthem', icon: '🥁', desc: 'His song makes the other Hunters in his area attack 2% faster still, and him 2% faster too.', maxRank: 5, effect: { inspire: 0.02, rate: 0.02 } }), at('lullaby', { name: 'Lullaby', icon: '🌙', desc: 'His sound waves slow the monsters they hit to half speed for 0.3 seconds.', maxRank: 3, effect: { lull: 0.3 } })],
     [at('crescendo', area(4, 'Crescendo', '🔊', 'Sound waves reach')), at('silverTongue', ban(4, 'Silver Tongue', '👤', 'Humanoids')), at('encore', spd(4, 'Encore', '🎤'))],
     [at('rhythm', crt(3, 'Rhythm', '🎼')), at('drumbeat', atk(5, 'Drumbeat', '🪘', 0.1)), at('echo', area(3, 'Echo', '📣', 'Sound waves reach'))],
-    [at('capstone', { name: 'Ballad of Heroes', icon: '🎶', desc: '+15% attack speed and sound waves reach 20% further.', maxRank: 1, cost: 4, effect: { rate: 0.15, radius: 0.2 } })],
+    [at('capstone', { name: 'Reverberate', icon: '🎶', desc: "Every monster a sound wave hits blasts a music note on outward, piercing every monster in its path for 40% of the wave's damage and slowing them.", maxRank: 1, cost: 4, effect: { reverb: 1 } })],
   ]),
-  // Deku: fiercer wolves, called sooner.
+  // Deku: fiercer wolves, called sooner, and a bigger pack.
   druid: gridTree([
     [at('root', grd(1, 'Thornskin', '🌵'))],
-    [at('packBond', area(4, 'Pack Bond', '🐺', 'Wolves hit harder:')), at('power', atk(3)), at('recovery', rec(3))],
+    [at('packBond', area(4, 'Pack Bond', '🐺', 'Wolves hit harder:')), at('power', atk(3)), at('rendingFangs', { name: 'Rending Fangs', icon: '🦷', desc: 'His wolves make the monsters they maul bleed.', maxRank: 3, effect: { fangs: 0.2 } })],
     [at('weedkiller', ban(4, 'Weedkiller', '🌱', 'Plants')), at('callPack', cdr(4, 'Call of the Pack', '📯', 'Wolves come')), at('alpha', area(3, 'Alpha', '🐾', 'Wolves hit harder:')), at('naturesGift', drp(3, "Nature's Gift", '🍃'))],
-    [at('barkskin', grd(2, 'Barkskin', '🪵')), at('savage', dur(3, 'Savage Bites', '🦷')), at('speed', spd(5))],
-    [at('capstone', { name: 'Call of the Wild', icon: '🌳', desc: '+20% damage and wolves 30% fiercer.', maxRank: 1, cost: 4, effect: { damage: 0.2, radius: 0.3 } })],
+    [at('barkskin', grd(2, 'Barkskin', '🪵')), at('savage', dur(3, 'Savage Bites', '🦷')), at('feralBond', { name: 'Feral Bond', icon: '🐾', desc: 'He attacks 1% faster for every wolf of his on the field.', maxRank: 5, effect: { feral: 0.01 } })],
+    [at('capstone', { name: 'Pack Leader', icon: '🐺', desc: 'He calls three wolves instead of two.', maxRank: 1, cost: 4, effect: { extra: 1 } })],
   ]),
-  // Glimmer: bigger explosions, more often.
+  // Glimmer: bigger explosions, more often, and two at a time.
   glimmer: gridTree([
     [at('root', area(1, 'Kindling', '🔥', 'Explosions grow'))],
     [at('power', atk(3)), at('quickCast', cdr(4, 'Quick Incantation', '⏱️', 'Fireballs come')), at('wildfire', area(4, 'Wildfire', '💥', 'Explosions grow'))],
     [at('inferno', dur(3, 'Inferno', '🌋')), at('arcane', crt(3, 'Arcane Focus', '🔮')), at('blastWave', area(4, 'Blast Wave', '🌀', 'Explosions grow')), at('channel', cdr(4, 'Channeling', '✨', 'Fireballs come'))],
-    [at('speed', spd(3)), at('heat', atk(3, 'Searing Heat', '♨️', 0.1)), at('recovery', rec(2))],
-    [at('capstone', { name: 'Meteor', icon: '☄️', desc: 'Explosions 30% wider, and fireballs come 15% faster.', maxRank: 1, cost: 5, effect: { radius: 0.3, cooldown: 0.15 } })],
+    [at('kindled', { name: 'Kindled Strikes', icon: '🕯️', desc: 'His attacks deal 5% more damage to burning monsters.', maxRank: 3, effect: { kindle: 0.05 } }), at('heat', atk(3, 'Searing Heat', '♨️', 0.1)), at('scorchedEarth', { name: 'Scorched Earth', icon: '🔥', desc: 'His explosions leave the ground burning for 2 seconds, hurting monsters on it.', maxRank: 2, effect: { scorch: 0.04 } })],
+    [at('capstone', { name: 'Twin Cast', icon: '☄️', desc: 'Every fireball he hurls is followed by a second at another monster, at 35% strength.', maxRank: 1, cost: 5, effect: { twin: 1, twinPower: -0.15 } })],
   ]),
-  // Alias: gold, loot and dirty tricks.
+  // Alias: gold, loot and dirty tricks, with knives flying everywhere. (Master Thief's gold and loot moved into Fence and Looter.)
   thief: gridTree([
     [at('root', gld(1, 'Sticky Fingers', '🤏'))],
-    [at('power', atk(3)), at('pickpocket', gld(4, 'Pickpocket', '👛')), at('speed', spd(3))],
-    [at('treasureSense', drp(4, 'Treasure Sense', '🗝️')), at('backstab', crt(4, 'Backstab', '🔪')), at('recovery', rec(3, 'Shadowstep', '👣')), at('fence', gld(3, 'Fence', '⚖️'))],
-    [at('cheapShot', crd(4, 'Cheap Shot', '💢')), at('looter', drp(3, 'Looter', '🎒')), at('luckyBreak', gld(2, 'Lucky Break', '🍀'))],
-    [at('capstone', { name: 'Master Thief', icon: '🎭', desc: '+40% gold and +20% materials from their kills.', maxRank: 1, cost: 5, effect: { gold: 0.4, drops: 0.2 } })],
+    [at('power', atk(3)), at('pickpocket', gld(4, 'Pickpocket', '👛')), at('knifeJuggler', { name: 'Knife Juggler', icon: '🔪', desc: 'His Flurry of Knives throws two more daggers.', maxRank: 1, cost: 3, effect: { knives: 2 } })],
+    [at('treasureSense', drp(4, 'Treasure Sense', '🗝️')), at('backstab', crt(4, 'Backstab', '🔪')), at('markedForDeath', { name: 'Marked for Death', icon: '🎯', desc: 'His critical hits mark the monster: it takes 6% more damage from every Hunter for 3 seconds.', maxRank: 3, effect: { critMark: 0.06 } }), at('fence', gld(3, 'Fence', '⚖️', 0.1 + 0.4 / 3))],
+    [at('cheapShot', crd(4, 'Cheap Shot', '💢')), at('looter', drp(3, 'Looter', '🎒', 0.05 + 0.2 / 3)), at('luckyBreak', gld(2, 'Lucky Break', '🍀'))],
+    [at('capstone', { name: 'Ricochet Knives', icon: '🗡️', desc: 'Each dagger of his Flurry of Knives bounces on to one more monster.', maxRank: 1, cost: 5, effect: { knifeBounce: 1 } })],
   ]),
-  // Lance: a bigger shield, for everyone.
+  // Lance: a bigger shield for everyone, and a spear for anyone who tests it.
   lance: gridTree([
     [at('root', { name: 'Zone of Protection', icon: '🛡️', desc: 'His shield: blocks 3 hits before he is stunned, regaining a charge every few seconds.', maxRank: 1, effect: { guard: 3 } })],
-    [at('power', atk(5)), at('bulwark', grd(2, 'Bulwark', '🧱')), at('recovery', rec(3))],
-    [at('piercingThrust', rng(3, 'Piercing Thrust', '🔱')), at('rally', { name: 'Rallying Oath', icon: '📯', desc: 'Every other Hunter (you too) gets a 1-hit shield.', maxRank: 1, cost: 3, effect: { rally: 1 } }), at('holyLight', atk(5, 'Holy Light', '☀️', 0.1)), at('vigil', spd(4, 'Vigil', '🕯️'))],
+    [at('power', atk(5)), at('bulwark', grd(2, 'Bulwark', '🧱')), at('spearOfDawn', { name: 'Spear of Dawn', icon: '🌅', desc: 'His holy spear thrusts out every 3rd attack instead of every 4th.', maxRank: 1, cost: 3, effect: { spearEvery: 1 } })],
+    [at('piercingThrust', rng(3, 'Piercing Thrust', '🔱')), at('rally', { name: 'Rallying Oath', icon: '📯', desc: 'Every other Hunter (you too) gets a 1-hit shield.', maxRank: 1, cost: 3, effect: { rally: 1 } }), at('holyLight', atk(5, 'Holy Light', '☀️', 0.1)), at('sanctuary', { name: 'Sanctuary', icon: '⛪', desc: 'The shields his Rallying Oath gives the other Hunters recharge 10% faster.', maxRank: 4, effect: { sanctuary: 0.1 } })],
     [at('aegis', grd(2, 'Aegis', '🔰')), at('crusader', crt(4, 'Crusader', '⚔️')), at('speed', spd(3))],
-    [at('capstone', { name: 'Holy Lance', icon: '⚜️', desc: '1 more shield charge, and every other Hunter gets 1 more shield charge too.', maxRank: 1, cost: 4, effect: { guard: 1, rally: 1 } })],
+    [at('capstone', { name: 'Retribution', icon: '⚜️', desc: '1 more shield charge, and every hit his shield blocks thrusts his holy spear back at the attacker.', maxRank: 1, cost: 4, effect: { guard: 1, retribution: 1 } })],
   ]),
-  // Theon: fiercer puppets, sooner.
+  // Theon: fiercer puppets, sooner, and a bigger cast.
   puppeteer: gridTree([
     [at('root', area(1, 'Strings Attached', '🧵', 'Puppets hit harder:'))],
-    [at('marionette', area(4, 'Marionette Master', '🪆', 'Puppets hit harder:')), at('power', atk(3)), at('recovery', rec(3, 'Cut the Strings', '✂️'))],
-    [at('quickStrings', cdr(4, 'Quick Strings', '🪡', 'Puppets come')), at('tangle', dur(3, 'Tangled Threads', '🕸️')), at('puppetShow', area(3, 'Puppet Show', '🎪', 'Puppets hit harder:')), at('speed', spd(4))],
+    [at('marionette', area(4, 'Marionette Master', '🪆', 'Puppets hit harder:')), at('power', atk(3)), at('finalBow', { name: 'Final Bow', icon: '🎭', desc: 'A puppet bursts as it falls apart, hurting the monsters around it for 30% of its strike.', maxRank: 3, effect: { finalBow: 0.3 } })],
+    [at('quickStrings', cdr(4, 'Quick Strings', '🪡', 'Puppets come')), at('tangle', dur(3, 'Tangled Threads', '🕸️')), at('puppetShow', area(3, 'Puppet Show', '🎪', 'Puppets hit harder:')), at('stagehand', { name: 'Stagehand', icon: '🎬', desc: 'Summoning abilities on her gear recharge 8% faster, and what they summon counts as Constructs.', maxRank: 4, effect: { stagehand: 0.08 } })],
     [at('showstopper', crt(3, 'Showstopper', '🌟')), at('sharpWires', atk(5, 'Sharp Wires', '🪝', 0.1)), at('woodenGuard', grd(2, 'Wooden Guard', '🪵'))],
-    [at('capstone', { name: 'Grand Performance', icon: '🎭', desc: 'Puppets 30% fiercer, and they come 10% faster.', maxRank: 1, cost: 4, effect: { radius: 0.3, cooldown: 0.1 } })],
+    [at('capstone', { name: 'Understudy', icon: '🪆', desc: 'She calls three puppets instead of two.', maxRank: 1, cost: 4, effect: { extra: 1 } })],
   ]),
-  // Kargesh: heavy, telling blows.
+  // Kargesh: heavy, telling blows, and a hammer that lands twice.
   blacksmith: gridTree([
     [at('root', grd(1, 'Forge-Hardened', '🔥'))],
-    [at('power', atk(5)), at('heavyBlows', crd(3, 'Heavy Blows', '🔨')), at('recovery', rec(3))],
+    [at('hammerTime', cdr(5, 'Hammer Time', '🔨', 'The Forge Hammer comes')), at('heavyBlows', crd(3, 'Heavy Blows', '🔨')), at('exposedSeams', { name: 'Exposed Seams', icon: '🪛', desc: 'Critical hits on monsters whose armour he has cracked deal 10% more, from every Hunter.', maxRank: 3, effect: { seams: 0.1 } })],
     [at('speed', spd(4, 'Quench', '💧')), at('whetstone', crt(4, 'Whetstone Eye', '🪨')), at('tempered', grd(2, 'Tempered Steel', '🛡️')), at('anvil', atk(4, 'Anvil Strike', '⚒️', 0.1))],
     [at('foldedSteel', atk(3, 'Folded Steel', '🗡️', 0.1)), at('bellows', spd(3, 'Bellows', '🌬️')), at('longHaft', rng(2, 'Long Haft', '📏'))],
-    [at('capstone', { name: 'Master Smith', icon: '⚒️', desc: '+40% damage and critical hits deal +20% more damage.', maxRank: 1, cost: 5, effect: { damage: 0.4, critDamage: 0.2 } })],
+    [at('capstone', { name: 'Aftershock', icon: '⚒️', desc: "The Forge Hammer's shockwave strikes a second time half a second later, at 60% strength.", maxRank: 1, cost: 5, effect: { aftershock: 0.6 } })],
   ]),
-  // Wilhelm: crits from afar.
+  // Wilhelm: crits from afar, and a deadly shot every time he switches guns.
   wilhelm: gridTree([
     [at('root', rng(1, 'Steady Aim', '🎯', 15))],
-    [at('power', atk(4)), at('deadeye', crt(4, 'Deadeye', '👁️')), at('speed', spd(3, 'Quickdraw', '🔫'))],
-    [at('hollowPoint', prc(2, 'Hollow Point', '🔩')), at('longBarrel', rng(3, 'Long Barrel', '🔭')), at('headshot', crd(4, 'Headshot', '💥')), at('recovery', rec(3))],
+    [at('power', atk(4)), at('deadeye', crt(4, 'Deadeye', '👁️')), at('speedLoader', { name: 'Speed Loader', icon: '🔄', desc: 'His guns reload 8% faster.', maxRank: 3, effect: { reload: 0.08 } })],
+    [at('hollowPoint', prc(2, 'Hollow Point', '🔩')), at('longBarrel', rng(3, 'Long Barrel', '🔭')), at('headshot', crd(4, 'Headshot', '💥')), at('extendedMag', { name: 'Extended Mag', icon: '📦', desc: 'His guns hold 1 more round.', maxRank: 3, effect: { mag: 1 } })],
     [at('buckshot', multi('Buckshot', '💨', 4)), at('steadyHands', crt(3, 'Steady Hands', '🤲')), at('caliber', atk(3, 'Heavy Caliber', '🧨', 0.1))],
-    [at('capstone', { name: 'Marksman', icon: '🏅', desc: '+10% crit chance, and critical hits deal +30% more damage.', maxRank: 1, cost: 5, effect: { crit: 0.1, critDamage: 0.3 } })],
+    [at('capstone', { name: 'Swap Shot', icon: '🎯', desc: 'The first shot after he switches guns always crits and pierces every monster in its path.', maxRank: 1, cost: 5, effect: { swapShot: 1 } })],
   ]),
-  // Celeste: reach and dragon-slaying focus.
+  // Celeste: reach, dragon-slaying focus, and more of herself.
   celeste: gridTree([
     [at('root', { name: "Mind's Eye", icon: '👁️', desc: '+10% damage and +10 range.', maxRank: 1, effect: { damage: 0.1, range: 10 } })],
-    [at('power', atk(4)), at('farReach', rng(3, 'Far Reach', '🧠')), at('recovery', rec(3))],
-    [at('dragonBane', ban(4, 'Dragon Bane', '🐉', 'Dragons')), at('insight', crt(4, 'Insight', '💡')), at('psionicWave', area(3, 'Psionic Wave', '🌀', 'Their blasts grow')), at('speed', spd(4))],
+    [at('power', atk(4)), at('farReach', rng(3, 'Far Reach', '🧠')), at('lingeringEcho', { name: 'Lingering Echo', icon: '🪞', desc: 'Her copies last 5% longer.', maxRank: 3, effect: { copyLife: 0.05 } })],
+    [at('dragonBane', ban(4, 'Dragon Bane', '🐉', 'Dragons')), at('insight', crt(4, 'Insight', '💡')), at('psionicWave', area(3, 'Psionic Wave', '🌀', 'Their blasts grow')), at('mindLink', { name: 'Mind Link', icon: '🔗', desc: 'While a copy of her is out, she and her copies attack 1.5% faster.', maxRank: 4, effect: { mindLink: 0.015 } })],
     [at('overload', crd(3, 'Overload', '⚡')), at('clarity', atk(4, 'Clarity', '🔮', 0.1)), at('telekinesis', prc(1, 'Telekinesis', '🪄', 2))],
-    [at('capstone', { name: 'Transcendence', icon: '👑', desc: 'Shots pierce 1 more enemy, and +25% damage.', maxRank: 1, cost: 4, effect: { pierce: 1, damage: 0.25 } })],
+    [at('capstone', { name: 'Twin Projection', icon: '👑', desc: 'She projects two copies instead of one.', maxRank: 1, cost: 4, effect: { extra: 1 } })],
   ]),
-  // Sciirj: longer reach, more punches.
+  // Sciirj: longer reach, more punches, and monsters sent crashing into each other.
   scavenger: gridTree([
     [at('root', area(1, 'Inner Focus', '🧘', 'Punches reach further:'))],
-    [at('power', atk(4, 'Iron Knuckles', '👊')), at('speed', spd(4, 'Flurry', '💨')), at('recovery', rec(3))],
+    [at('power', atk(4, 'Iron Knuckles', '👊')), at('momentum', { name: 'Momentum', icon: '🌀', desc: 'Each of his strikes brings Mountain Fist 0.2 seconds closer.', maxRank: 4, effect: { momentum: 0.2 } }), at('stunningPalm', { name: 'Stunning Palm', icon: '🖐️', desc: 'Mountain Fist stuns the monsters it hits for 0.25 seconds.', maxRank: 3, effect: { palm: 0.25 } })],
     [at('wideStance', area(4, 'Wide Stance', '🌀', 'Punches reach further:')), at('breath', cdr(4, 'Centered Breath', '🌬️', 'Mountain Fist comes')), at('pressure', crt(3, 'Pressure Points', '🎯')), at('combo', multi('Combo', '🥊', 3))],
     [at('thousandFists', atk(5, 'Hundred Blows', '💥', 0.1)), at('ironBody', grd(2, 'Iron Body', '🗿')), at('fleetSteps', rng(2, 'Fleet Steps', '👣'))],
-    [at('capstone', { name: 'Thousand Fists', icon: '💥', desc: 'Punches reach 25% further, and Mountain Fist comes 15% faster.', maxRank: 1, cost: 4, effect: { radius: 0.25, cooldown: 0.15 } })],
+    [at('capstone', { name: 'Crash Landing', icon: '💥', desc: "Monsters his Mountain Fist sends flying crash into the ones behind them, hitting each for half the blow's damage.", maxRank: 1, cost: 4, effect: { crash: 0.5 } })],
   ]),
-  // Gideon: wider spikes, sooner, behind walls of bone.
+  // Gideon: wider spikes, sooner, holding monsters in a prison of bone behind walls of bone.
   osteomancer: gridTree([
     [at('root', area(1, 'Marrow Sense', '🦴', 'Bone spikes reach wider:'))],
     [at('power', atk(5)), at('ossuary', area(4, 'Ossuary Field', '🌀', 'Bone spikes reach wider:')), at('calcified', grd(2, 'Calcified Skin', '🛡️'))],
-    [at('sharpened', atk(4, 'Sharpened Bone', '🗡️', 0.1)), at('restless', cdr(4, 'Restless Dead', '⏱️', 'Bone spikes come')), at('grasping', dur(3, 'Grasping Bones', '🖐️')), at('recovery', rec(3))],
-    [at('speed', spd(4)), at('marrow', crt(3, 'Marrow Strike', '💀')), at('boneArmor', grd(2, 'Bone Armor', '🦴'))],
-    [at('capstone', { name: 'Boneyard', icon: '💀', desc: 'Bone spikes 25% wider, and they come 10% faster.', maxRank: 1, cost: 4, effect: { radius: 0.25, cooldown: 0.1 } })],
+    [at('sharpened', atk(4, 'Sharpened Bone', '🗡️', 0.1)), at('restless', cdr(4, 'Restless Dead', '⏱️', 'Bone spikes come')), at('grasping', dur(3, 'Grasping Bones', '🖐️')), at('thickWalls', { name: 'Thick Walls', icon: '🧱', desc: 'His Bone Wall stands 1 second longer.', maxRank: 3, effect: { wallLong: 1 } })],
+    [at('impale', { name: 'Impale', icon: '🍢', desc: 'His bone spikes hold monsters 0.2 seconds longer.', maxRank: 4, effect: { holdLong: 0.2 } }), at('marrow', crt(3, 'Marrow Strike', '💀')), at('boneArmor', grd(2, 'Bone Armor', '🦴'))],
+    [at('capstone', { name: 'Bone Prison', icon: '💀', desc: 'His bone spikes hold monsters 1 second longer, and a held monster takes 15% more damage from every Hunter.', maxRank: 1, cost: 4, effect: { holdLong: 1, prison: 0.15 } })],
   ]),
-  // Themus: longer waves, deeper bleeding.
+  // Themus: longer waves, deeper bleeding, and kills that feed the tide.
   bloodblade: gridTree([
     [at('root', area(1, 'First Blood', '🩸', 'The Crimson Wave runs further:'))],
-    [at('power', atk(4, 'Keen Edge', '🗡️')), at('speed', spd(4, 'Bloodlust', '💢')), at('recovery', rec(2))],
+    [at('power', atk(4, 'Keen Edge', '🗡️')), at('openVeins', { name: 'Open Veins', icon: '🩸', desc: 'Bleeding monsters take 10% more damage from his strikes.', maxRank: 4, effect: { veins: 0.1 } }), at('bloodfeast', { name: 'Bloodfeast', icon: '🧛', desc: 'Killing a bleeding monster brings his Crimson Wave 0.15 seconds closer.', maxRank: 2, effect: { feast: 0.15 } })],
     [at('surge', area(4, 'Surge', '🌊', 'The Crimson Wave runs further:')), at('hemorrhage', dur(4, 'Hemorrhage', '🩸')), at('tide', cdr(3, 'Rising Tide', '⏱️', 'The Crimson Wave comes')), at('sanguine', crt(3, 'Sanguine Eye', '👁️'))],
     [at('crimsonEdge', atk(5, 'Crimson Edge', '🔪', 0.1)), at('thirst', crd(4, 'Thirst', '🧛')), at('vitae', grd(1, 'Vitae', '❤️'))],
     [at('capstone', { name: 'Blood Rain', icon: '🌧️', desc: '+10% damage, and monsters the Crimson Wave kills burst into 3 blood bolts.', maxRank: 1, cost: 4, effect: { damage: 0.1, bolts: 3 } })],
   ]),
-  // Marceline: long-lasting hexes and quick spells.
+  // Marceline: long-lasting hexes and quick spells, and a circle that crackles with lightning.
   enchantress: gridTree([
     [at('root', crt(1, 'Glyphwork', '🔯'))],
-    [at('power', atk(4)), at('speed', spd(4, 'Quickened Words', '💬')), at('recovery', rec(3))],
+    [at('overcharged', { name: 'Overcharged Runes', icon: '🔆', desc: 'Her Rune Circle pulses once more.', maxRank: 2, cost: 2, effect: { runePulses: 1 } }), at('speed', spd(4, 'Quickened Words', '💬')), at('runeBrand', { name: 'Rune Brand', icon: '🔯', desc: 'Monsters her Rune Circle hits take 4% more damage from every Hunter for 2 seconds.', maxRank: 3, effect: { runeVuln: 0.04 } })],
     [at('runedBolts', crt(3, 'Runed Bolts', '✴️')), at('lastingHexes', dur(4, 'Lasting Hexes', '⏳')), at('wideWards', area(3, 'Wide Wards', '🌀', 'Their spells grow')), at('spellweave', cdr(4, 'Spellweave', '🪄', "Their gear's abilities recharge"))],
     [at('arcanePower', atk(4, 'Arcane Power', '🔮', 0.1)), at('hex', crd(3, 'Hex', '💢')), at('manaShield', grd(1, 'Mana Shield', '🛡️'))],
-    [at('capstone', { name: 'Spellbinder', icon: '📜', desc: 'Status effects last 30% longer, and abilities recharge 15% faster.', maxRank: 1, cost: 5, effect: { duration: 0.3, cooldown: 0.15 } })],
+    [at('capstone', { name: 'Storm Glyph', icon: '⚡', desc: 'Her Rune Circle pulses Lightning too, arcing between the monsters in it.', maxRank: 1, cost: 5, effect: { stormGlyph: 1 } })],
   ]),
-  // Norm: a wider, quicker charm.
+  // Norm: a wider, quicker charm, for more than one at a time.
   spaceslime: gridTree([
     [at('root', area(1, 'Cosmic Goo', '🌌', 'His charm reaches further:'))],
-    [at('power', atk(3)), at('speed', spd(4, 'Quick Wit', '⚡')), at('recovery', rec(3, 'Unflappable', '🫧'))],
+    [at('power', atk(3)), at('loveBites', { name: 'Love Bites', icon: '💋', desc: 'Monsters he charms attack 5% harder.', maxRank: 4, effect: { loveBites: 0.05 } }), at('heartbreak', { name: 'Heartbreak', icon: '💔', desc: 'When his charm wears off, the monster bursts, hurting the ones around it for 2% of its own health.', maxRank: 3, effect: { heartbreak: 0.02 } })],
     [at('smoothTalker', cdr(4, 'Smooth Talker', '💬', 'His charm comes')), at('magnetism', area(4, 'Magnetism', '🧲', 'His charm reaches further:')), at('goo', grd(2, 'Gooey Body', '🟣')), at('stardust', gld(3, 'Stardust', '✨'))],
     [at('gravity', atk(5, 'Gravity Well', '🌑', 0.1)), at('orbit', crt(3, 'Orbit', '🪐')), at('spaceJunk', drp(3, 'Space Junk', '🛰️'))],
-    [at('capstone', { name: 'Magnetic Personality', icon: '🧲', desc: 'His charm reaches 30% further and comes 10% faster.', maxRank: 1, cost: 4, effect: { radius: 0.3, cooldown: 0.1 } })],
+    [at('capstone', { name: 'Double Date', icon: '💞', desc: 'He charms two monsters at a time, each for a quarter less long.', maxRank: 1, cost: 4, effect: { extra: 1 } })],
   ]),
-  // Ted: big crits, bigger blasts.
+  // Ted: big crits, bigger blasts, and a third die up his sleeve.
   gambler: gridTree([
     [at('root', crt(1, 'Lucky Coin', '🪙'))],
-    [at('power', atk(3)), at('speed', spd(3, 'Quick Hands', '🃏')), at('recovery', rec(3, 'Poker Face', '🎭'))],
+    [at('power', atk(3)), at('hotHand', { name: 'Hot Hand', icon: '🔥', desc: 'Rolling doubles brings his next throw 0.5 seconds closer.', maxRank: 3, effect: { hotHand: 0.5 } }), at('pokerFace', { name: 'Poker Face', icon: '🎭', desc: 'Snake eyes no longer leave him dazed.', maxRank: 1, cost: 3, effect: { noDaze: 1 } })],
     [at('raiseStakes', crd(4, 'Raise the Stakes', '💰')), at('loadedDice', crt(4, 'Loaded Dice', '🎲')), at('bigBlast', area(4, 'Big Blast', '💥', 'Dice blasts grow')), at('highStakes', gld(3, 'High Stakes', '🪙'))],
     [at('hotStreak', cdr(4, 'Hot Streak', '🔥', 'Dice come')), at('jackpot', atk(3, 'Jackpot', '🎰', 0.1)), at('winnings', drp(2, 'Winnings', '💎'))],
-    [at('capstone', { name: 'All In', icon: '🎰', desc: '+10% crit chance and dice blasts 25% wider.', maxRank: 1, cost: 5, effect: { crit: 0.1, radius: 0.25 } })],
+    [at('capstone', { name: 'Third Die', icon: '🎲', desc: 'He rolls three dice and keeps the best two (doubles come more often, snake eyes less), +10% crit chance, and his dice blasts grow 25%.', maxRank: 1, cost: 5, effect: { threeDice: 1, crit: 0.1, radius: 0.25 } })],
   ]),
-  // Azir: a bigger, longer-lived legion, sooner.
+  // Azir: a bigger, longer-lived legion, sooner, that grows as it kills.
   lichlord: gridTree([
     [at('root', dur(1, 'Grave Dirt', '🪦'))],
-    [at('power', atk(3)), at('speed', spd(3, 'Cold Hands', '🥶')), at('recovery', rec(3, 'Phylactery', '⚱️'))],
+    [at('power', atk(3)), at('boneBurst', { name: 'Bone Burst', icon: '🦴', desc: 'His skeletons burst as they crumble, hurting the monsters around them for 15% of a strike.', maxRank: 3, effect: { boneBurst: 0.15 } }), at('swellingRanks', { name: 'Swelling Ranks', icon: '💀', desc: 'Two more skeletons rise with his legion.', maxRank: 1, cost: 3, effect: { extra: 2 } })],
     [at('marchingOrders', cdr(4, 'Marching Orders', '🥁', 'The legion rises')), at('sharpBones', atk(4, 'Sharpened Bones', '🦴', 0.1)), at('endlessRanks', dur(4, 'Endless Ranks', '💀')), at('deathChill', crt(3, 'Death Chill', '❄️'))],
     [at('necromancy', cdr(4, 'Necromancy', '📜', 'The legion rises')), at('boneArmor', grd(2, 'Bone Armor', '🛡️')), at('soulHarvest', gld(3, 'Soul Harvest', '👻'))],
-    [at('capstone', { name: 'Army of the Dead', icon: '⚰️', desc: 'His skeletons hit 25% harder and last 25% longer.', maxRank: 1, cost: 5, effect: { damage: 0.25, duration: 0.25 } })],
+    [at('capstone', { name: 'Raise Dead', icon: '⚰️', desc: 'A monster his skeletons kill has a 2% chance to rise as another skeleton.', maxRank: 1, cost: 5, effect: { raiseDead: 0.02 } })],
   ]),
-  // Tonk: wider, faster, harder-hitting lasers.
+  // Tonk: wider, faster, harder-hitting lasers, and a third eye.
   alien: gridTree([
     [at('root', area(1, 'Focusing Lens', '🔍', 'The beam grows'))],
-    [at('power', atk(3)), at('speed', spd(3, 'Twitchy Tentacles', '🐙')), at('recovery', rec(3, 'Alien Physiology', '🧬'))],
+    [at('power', atk(3)), at('sweep', { name: 'Sweep', icon: '↔️', desc: 'His beam sweeps sideways as it fires, through 7° more.', maxRank: 3, effect: { sweep: 0.12 } }), at('scorchLine', { name: 'Scorch Line', icon: '🔥', desc: 'His beam leaves a burning line for 2 seconds, hurting monsters on it.', maxRank: 3, effect: { scorchLine: 0.08 } })],
     [at('overcharge', atk(4, 'Overcharge', '⚡', 0.1)), at('scanner', crt(4, 'Scanner', '📡')), at('wideAngle', area(4, 'Wide Angle', '👁️', 'The beam grows')), at('probe', drp(3, 'Probe', '🛸'))],
     [at('capacitors', cdr(4, 'Capacitors', '🔋', 'The lasers fire')), at('meltdown', crd(3, 'Meltdown', '🔥')), at('tractorBeam', rng(2, 'Tractor Beam', '🧲'))],
-    [at('capstone', { name: 'Mothership', icon: '🛸', desc: 'The lasers fire 15% faster and hit 25% harder.', maxRank: 1, cost: 5, effect: { cooldown: 0.15, damage: 0.25 } })],
+    [at('capstone', { name: 'Third Eye', icon: '👁️', desc: 'He fires three beams instead of two.', maxRank: 1, cost: 5, effect: { extra: 1 } })],
   ]),
-  // Id: wider blasts from rifts that open more often.
+  // Id: wider blasts from rifts that open more often, and more of them.
   riftwalker: gridTree([
     [at('root', area(1, 'Torn Seams', '🌀', 'The blasts grow'))],
-    [at('power', atk(3)), at('speed', spd(3, 'Drift', '💨')), at('recovery', rec(3, 'Formless', '👻'))],
+    [at('power', atk(3)), at('timeDilation', { name: 'Time Dilation', icon: '⏳', desc: 'His Time Slip shortens cooldowns 2% more.', maxRank: 3, effect: { quicken: 0.02 } }), at('unstable', area(3, 'Unstable Rifts', '💥', 'Void bolts burst wider:'))],
     [at('unravel', atk(4, 'Unravel', '🌑', 0.1)), at('glimpse', crt(4, 'Glimpse Beyond', '👁️')), at('widen', area(4, 'Widening Rifts', '🕳️', 'The blasts grow')), at('starlight', drp(3, 'Starlight', '✨'))],
     [at('restless', cdr(4, 'Restless Rifts', '⏳', 'The rifts open')), at('implode', crd(3, 'Implosion', '💥')), at('reach', rng(2, 'Long Reach', '🌌'))],
-    [at('capstone', { name: 'Rift Lord', icon: '🌀', desc: 'The rifts open 15% faster and their bolts hit 25% harder.', maxRank: 1, cost: 5, effect: { cooldown: 0.15, damage: 0.25 } })],
+    [at('capstone', { name: 'Fourth Seam', icon: '🌀', desc: 'He tears open four rifts instead of three, and their bolts hit 10% harder.', maxRank: 1, cost: 5, effect: { extra: 1, damage: 0.1 } })],
   ]),
-  // Thomas: bigger recalled specials, more often.
+  // Thomas: bigger recalled specials, more often, two at a time.
   archivist: gridTree([
     [at('root', area(1, 'Marginalia', '📖', 'Recalled specials grow'))],
-    [at('power', atk(3)), at('speedReading', cdr(4, 'Speed Reading', '📑', 'The tome opens')), at('recovery', rec(3, 'Quiet Study', '🕯️'))],
-    [at('annotated', area(4, 'Annotated Volumes', '📜', 'Recalled specials grow')), at('footnotes', dur(3, 'Footnotes', '🖋️')), at('crossRef', crt(3, 'Cross-Reference', '🔖')), at('speed', spd(4))],
+    [at('power', atk(3)), at('speedReading', cdr(4, 'Speed Reading', '📑', 'The tome opens')), at('bestseller', { name: 'Bestseller', icon: '🏷️', desc: 'His tome recalls the special of the strongest Hunter beside him more often.', maxRank: 1, cost: 3, effect: { bestseller: 1 } })],
+    [at('annotated', area(4, 'Annotated Volumes', '📜', 'Recalled specials grow')), at('footnotes', dur(3, 'Footnotes', '🖋️')), at('crossRef', crt(3, 'Cross-Reference', '🔖')), at('marginNotes', { name: 'Margin Notes', icon: '🖊️', desc: 'Monsters a recalled special hits take 6% more damage from every Hunter for 3 seconds.', maxRank: 4, effect: { marginNotes: 0.06 } })],
     [at('indexing', cdr(3, 'Indexing', '🗂️', 'The tome opens')), at('tomes', atk(4, 'Weighty Tomes', '📚', 0.1)), at('bookmark', rng(2, 'Bookmark', '🔖'))],
-    [at('capstone', { name: 'Encyclopedia', icon: '📚', desc: 'Recalled specials 30% bigger, and the tome opens 10% faster.', maxRank: 1, cost: 5, effect: { radius: 0.3, cooldown: 0.1 } })],
+    [at('capstone', { name: 'Double Entry', icon: '📚', desc: 'Each time his tome opens, a second opens elsewhere, at 75% strength.', maxRank: 1, cost: 5, effect: { twin: 1, twinPower: 0.25 } })],
   ]),
-  // Reginald: gadgets that fire faster and further.
+  // Reginald: gadgets that fire faster and further, and turrets of his own.
   artificer: gridTree([
     [at('root', spd(1, 'Spare Parts', '⚙️'))],
-    [at('power', atk(4)), at('speed', spd(4, 'Oiled Gears', '🔩')), at('sturdyFrame', grd(2, 'Sturdy Frame', '🛠️'))],
+    [at('power', atk(4)), at('overtuning', { name: 'Overtuning', icon: '🔧', desc: 'Every Hunter in his area, him included, has their cooldowns 3% shorter.', maxRank: 4, effect: { overtune: 0.03 } }), at('reinforcement', { name: 'Reinforcement', icon: '🛠️', desc: 'Every other Hunter in his area gets 1 more shield charge.', maxRank: 1, cost: 2, effect: { reinforce: 1 } })],
     [at('fineTuning', crt(3, 'Fine Tuning', '🔧')), at('clockwork', cdr(4, 'Clockwork', '⏱️', "Their gear's abilities recharge")), at('servo', rng(4, 'Servo Arm', '🦾')), at('recovery', rec(3))],
     [at('overclock', spd(5, 'Overclock', '🔋')), at('precision', atk(5, 'Precision Parts', '📐', 0.1))],
-    [at('capstone', { name: 'Grand Design', icon: '🧰', desc: 'Ranged and Magic attacks fire an extra projectile, and melee attacks follow up with another strike.', maxRank: 1, cost: 4, effect: { multishot: 1 } })],
+    [at('capstone', { name: 'Clockwork Turret', icon: '🧰', desc: 'Every 10 seconds he sets down a clockwork turret beside him that fires his weapon for 6 seconds.', maxRank: 1, cost: 4, effect: { turret: 1 } })],
   ]),
-  // Lilith: more ghosts, longer and wider haunts. (Node ids kept from Okrin's tree, so ranks bought carry over.)
+  // Lilith: more ghosts, longer and wider haunts, and ghosts that move on. (Node ids kept from Okrin's tree, so ranks bought carry over.)
   haunter: gridTree([
     [at('root', atk(1, 'Cold Touch', '🖐️', 0.1))],
-    [at('power', atk(4, 'Grave Edge', '🗡️')), at('recovery', rec(3, 'Incorporeal', '👻')), at('speed', spd(3, 'Restless', '💨'))],
-    [at('elementalBane', gho(4, 'Restless Dead', '👻')), at('deepFreeze', dur(4, 'Lingering Haunt', '🕯️')), at('shatter', crd(3, 'Soul Rend', '💀')), at('glacier', grd(2, 'Spectral Ward', '🛡️'))],
+    [at('power', atk(4, 'Grave Edge', '🗡️')), at('possession', { name: 'Possession', icon: '🫥', desc: 'Half the time, their ghosts fly to the thickest crowd nearby instead of a random spot.', maxRank: 1, cost: 3, effect: { possession: 1 } }), at('speed', spd(3, 'Restless', '💨'))],
+    [at('elementalBane', gho(4, 'Restless Dead', '👻')), at('deepFreeze', dur(4, 'Lingering Haunt', '🕯️')), at('shatter', crd(3, 'Soul Rend', '💀')), at('legionOfSouls', { name: 'Legion of Souls', icon: '👥', desc: '1 more of their ghosts can haunt at once.', maxRank: 2, effect: { ghostCap: 1 } })],
     [at('avalanche', area(3, 'Wailing Grounds', '🌫️', 'Swings and haunts grow')), at('frostbite', crt(3, 'Death Mark', '🎯')), at('might', atk(5, 'Wrath of the Dead', '💪', 0.1))],
-    [at('capstone', { name: 'Night of the Dead', icon: '🌑', desc: '+25% damage, and haunts and status effects last 25% longer.', maxRank: 1, cost: 4, effect: { damage: 0.25, duration: 0.25 } })],
+    [at('capstone', { name: 'Soul Chain', icon: '🌑', desc: 'When a haunt ends, its ghost flies on to haunt one more spot.', maxRank: 1, cost: 4, effect: { soulChain: 1 } })],
   ]),
 };
 

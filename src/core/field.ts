@@ -72,6 +72,15 @@ import {
   GOLDEN_ODDS,
   FOCUS_VIEW_SHARE,
   summonAbilityKey,
+  TWIN_POWER,
+  REVERB_NOTE,
+  REVERB_RANGE,
+  REVERB_SLOW,
+  VULN_TIME,
+  TURRET,
+  POSSESSION_REACH,
+  BIG_SUMMON,
+  type TreeStat,
 } from './balance';
 import type { Game, GearMode, KillReward, Shooter } from './game';
 
@@ -247,7 +256,7 @@ export interface Enemy {
    * Charmed by Norm (or a copy of his Smooth Talk): for `left` seconds it hunts the nearest other monster instead
    * of the Hunters, biting it every CHARM_BITE seconds for `frac` of its own max health, credited to `by`.
    */
-  charm?: { left: number; by: Shooter; frac: number; bite: number };
+  charm?: { left: number; by: Shooter; frac: number; bite: number; /** Heartbreak: it bursts for this share of its health when the charm wears off. */ hb?: number };
   /** Seconds left pinned in place by Gideon's bone spikes (it can't move, though hits still knock it). */
   held?: number;
   /** Hunter's Mark: for `left` seconds every Hunter deals +`bonus` damage to it. */
@@ -259,6 +268,10 @@ export interface Enemy {
   aura?: Dot;
   /** Seconds left with its resistances stripped (Arcane). */
   exposed?: number;
+  /** Exposed Seams: crits on it deal this much more while it's exposed. */
+  seams?: number;
+  /** Bone Prison: while held, it takes this much more from everyone. */
+  prison?: number;
   /** Seconds left of Void's gravity well around it, pulling nearby monsters in (`wellPull` × as hard). */
   well?: number;
   wellPull?: number;
@@ -339,6 +352,8 @@ export interface Summon {
   risen?: { c: SpellCast; enemy: EnemyId };
   /** A Hunter's own creature (Deku's spirit wolves): it strikes for their special's damage. */
   own?: { bites: number; speed: number; mult: number };
+  /** Twice the size and twice the damage (a dire wolf, a Grand Marionette, a Death Knight). */
+  big?: boolean;
   /** Seconds left in a lunge (their tome's ability), and whether this lunge has landed yet. */
   dash: number;
   dashHit: boolean;
@@ -393,6 +408,8 @@ export interface Dot {
 /** A stationed Hunter fighting next to you, with their own attack style and stun state. */
 export interface Helper {
   id: HunterId;
+  /** Swap Shot: deadly shots left from his last switch of guns (Wilhelm). */
+  swap?: number;
   x: number;
   y: number;
   aim: number;
@@ -449,10 +466,12 @@ const HELPER_SPOTS = [
   { x: 0, y: -80 },
 ];
 
-export type BulletKind = 'slash' | 'bigDagger' | 'rock' | 'spell' | 'blood' | 'bolt' | 'spark' | 'arrow' | 'fireball' | 'potion' | 'pellet' | 'dagger' | 'pistol' | 'ricochet' | 'hammer' | 'riftbolt';
+export type BulletKind = 'slash' | 'bigDagger' | 'rock' | 'spell' | 'blood' | 'bolt' | 'spark' | 'arrow' | 'fireball' | 'potion' | 'pellet' | 'dagger' | 'pistol' | 'ricochet' | 'hammer' | 'riftbolt' | 'note';
 
 export interface Bullet {
   shooter: Shooter;
+  /** Fired by a copy or a turret that hits harder (Astral Bond): × its hits. */
+  boost?: number;
   kind: BulletKind;
   x: number;
   y: number;
@@ -522,6 +541,8 @@ export interface Projection {
   dmg: number;
   blast: number;
   only?: DamageType;
+  /** Reginald's clockwork turret (not a copy of Celeste): no blast at the end, and its own attack speed. */
+  turret?: boolean;
 }
 
 /** One of Id's rifts: open at (x, y) for `max` seconds, loosing `left` more homing void bolts, one every `every`. */
@@ -539,6 +560,8 @@ export interface Rift {
   blast: number;
   /** A copied special (Thomas's tome) keeps Id's damage type. */
   only?: DamageType;
+  /** Event Horizon: it drags the monsters near it in. */
+  pull?: boolean;
 }
 
 /** Void's gravity wells merging: how close two wells' monsters must come (a gap this small), and the biggest a merged well grows (× the base radius). */
@@ -578,6 +601,11 @@ export interface SpellCast {
   /** A Hunter's special (Arrow Rain): hits as one, in `only` if set (a copy from Thomas's tome) or its own types. */
   special?: boolean;
   only?: DamageType;
+  /** Ricochet Rain: each arrow ricochets on to this many more monsters. */
+  bounce?: number;
+  /** Marked Prey / Rune Brand: what it hits takes this much more from everyone, for `markTime` seconds. */
+  mark?: number;
+  markTime?: number;
 }
 
 /** A spell's hit a moment from now (an ice spike, a sunbeam pulse, a lightning strike from the sky). */
@@ -637,6 +665,8 @@ export interface Tome {
   y: number;
   age: number;
   cast: boolean;
+  /** Double Entry: the second tome casts at this share. */
+  power?: number;
 }
 
 /** A pair of Ted's dice in the air or settling: thrown from (x0, y0) to land at (x1, y1), showing `faces`. */
@@ -698,6 +728,10 @@ export interface Puddle {
   chain?: number;
   /** A ghost's haunt (Lilith): drawn as the ghost hovering over rotting ground; monsters dying in it may become ghosts. */
   haunt?: boolean;
+  /** Soul Chain: more spots its ghost haunts once this one ends. */
+  hops?: number;
+  /** Andrejz's Corrosion: monsters in it take this much more from everyone. */
+  corrode?: number;
 }
 
 /** One of Lilith's ghosts, flying from where a monster died to the spot it will haunt. */
@@ -709,6 +743,8 @@ export interface Ghost {
   ty: number;
   /** How deep in a chain of kill effects it was released (Field.chain). */
   chain: number;
+  /** Soul Chain: more spots it haunts after this one. */
+  hops?: number;
 }
 
 export type FieldEvent =
@@ -802,6 +838,91 @@ export class Field {
     return 1 + this.gearOf(who).knockback;
   }
   private flurryDepth = 0;
+  /** × the hits of whatever is attacking right now (a copy with Astral Bond); a projectile carries it with it. */
+  private boost = 1;
+  /** Swap Shot: the Hunter whose next projectile always crits and pierces everything. */
+  private swapFor: Shooter | null = null;
+  /** Each Hunter's calls of their summoning special (every third brings a big one: Wild Hunt, Theater of Puppets). */
+  private calls = new Map<Shooter, number>();
+  /** Seconds until each Hunter with Clockwork Turret sets down the next (Reginald). */
+  private turretCd = new Map<Shooter, number>();
+  /** Gideon's Ossuary: who raised the Bone Wall standing now, and seconds until it next bites the monsters at it. */
+  private boneWallBy: Shooter | null = null;
+  private wallBite = 0;
+  /** How deep a chain of Combustion blasts is (kept short). */
+  private combusting = 0;
+
+  /** A Hunter's total in one of their skills. */
+  private perk(who: Shooter, stat: TreeStat): number {
+    return who === 'main' ? 0 : this.game.tree(who)[stat];
+  }
+
+  /** Every Hunter deals `bonus` more to it for `secs` seconds (the strongest mark, and the longest, holds). */
+  private markFor(e: Enemy, bonus: number, secs: number): void {
+    if (!(bonus > 0) || e.hp <= 0) return;
+    e.mark = { left: Math.max(e.mark?.left ?? 0, secs), bonus: Math.max(e.mark?.bonus ?? 0, bonus) };
+  }
+
+  /** A Guild Hunter on this field, with their special's cooldown (null for your Hunter, or one not here). */
+  private casterOf(who: Shooter): SpecialCaster | null {
+    if (who === 'main') return null;
+    if (who === this.lead) return this.leadCaster;
+    return this.helpers.find((h) => h.id === who) ?? null;
+  }
+
+  /**
+   * Casts again (Double Dose, Twin Cast, Twin Tide...): `pk`'s `twin` more times (a fraction is the chance of one
+   * more), each at another monster if there is one, at TWIN_POWER (+ their twinPower) of the first.
+   */
+  private castTwins(by: Shooter, sp: HunterSpecial, x: number, y: number, first: Enemy, range: number, radius: number, dmg: number, only: DamageType | undefined, pk: Shooter): void {
+    const g = this.game;
+    const twin = this.perk(pk, 'twin');
+    if (!(twin > 0)) return;
+    const n = Math.floor(twin) + (g.rng() < twin % 1 ? 1 : 0);
+    const power = TWIN_POWER + this.perk(pk, 'twinPower');
+    const taken = [first.id];
+    for (let i = 0; i < n; i++) {
+      const t = this.nearest(x, y, range, taken) ?? first;
+      taken.push(t.id);
+      this.castSpecial(by, sp, x, y, t, range, radius, dmg * power, only, pk);
+    }
+  }
+
+  /** Lilith's ghosts: where one flies to haunt (Possession: half the time, the thickest crowd of a few spots tried). */
+  private ghostSpot(owner: Shooter): { x: number; y: number } {
+    const g = this.game;
+    const pick = () => ({ x: (g.rng() * 2 - 1) * this.halfW * 0.8, y: (g.rng() * 2 - 1) * this.halfH * 0.75 });
+    if (!this.perk(owner, 'possession') || g.rng() < 0.5) return pick();
+    let best = pick();
+    let most = -1;
+    for (let i = 0; i < 3; i++) {
+      // Near a monster: the spots worth trying.
+      const e = this.enemies[Math.floor(g.rng() * this.enemies.length)];
+      const at = e && e.hp > 0 ? { x: e.x, y: e.y } : pick();
+      let n = 0;
+      for (const o of this.enemies) if (o.hp > 0 && Math.hypot(o.x - at.x, o.y - at.y) <= POSSESSION_REACH) n++;
+      if (n > most) {
+        most = n;
+        best = at;
+      }
+    }
+    return best;
+  }
+
+  /** Lance's Retribution (his own blocks) and Aegis (blocks by any shield his Rallying Oath gave): a spear at the attacker. */
+  private retribute(who: Shooter, x: number, y: number): void {
+    const g = this.game;
+    const target = this.nearest(x, y, 160);
+    if (!target) return;
+    const a = Math.atan2(target.y - y, target.x - x);
+    const own = who === 'main' ? undefined : hunterDef(who).holySpear;
+    if (own && this.perk(who, 'retribution')) {
+      this.holySpear(who, x, y, a, own, 'long');
+      return;
+    }
+    if (g.rallyFor(who) <= 0) return;
+    for (const h of HUNTERS) if (h.holySpear && h.id !== who && g.state.hunters[h.id].recruited && g.tree(h.id).aegis > 0) this.holySpear(h.id, x, y, a, h.holySpear, 'long');
+  }
   /** Orb Scepter orbs: where bolts landed, hurting each monster that walks into one, once. */
   orbs: Array<{ who: Shooter; x: number; y: number; r: number; life: number; max: number; dmg: number; crit: boolean; mode?: GearMode; dtype?: DamageType; hit: Set<number> }> = [];
   /** Thomas's tomes, open on the field (see recall). */
@@ -817,7 +938,7 @@ export class Field {
   private chain = 0;
   private leadCaster: SpecialCaster = { id: 'alchemist', x: 0, y: 0, specialCd: 1, aim: 0 };
   /** A focus's waves: rings expanding from where they were sent, hitting each monster once as they pass. */
-  waves: Array<{ who: Shooter; x: number; y: number; r: number; max: number; hit: Set<number>; /** × a hit (1 if unset). */ k?: number; mode?: GearMode }> = [];
+  waves: Array<{ who: Shooter; x: number; y: number; r: number; max: number; hit: Set<number>; /** × a hit (1 if unset). */ k?: number; mode?: GearMode; /** Lullaby: seconds it slows. */ lull?: number; /** Reverberate: notes at this many × REVERB_NOTE of the wave. */ reverb?: number }> = [];
   /** Ba'al's attacks since his last sound wave. */
   private songCount = new Map<Shooter, number>();
   /** Attacks toward Lance's next holy spear. */
@@ -862,7 +983,7 @@ export class Field {
    * The Hunter in the middle's two weapons, when that's Wilhelm (an observed area or a background sample): his
    * secondary's magazine and whether it's in hand, as a stationed Hunter's `close` and `gun2`.
    */
-  readonly leadArms: { close: boolean; gun: GunState; gun2: GunState; offAcc: number; gun3: GunState } = { close: false, gun: this.gunState, gun2: { cls: null, ammo: 0, reload: 0 }, offAcc: 0, gun3: { cls: null, ammo: 0, reload: 0 } };
+  readonly leadArms: { close: boolean; gun: GunState; gun2: GunState; offAcc: number; gun3: GunState; swap?: number } = { close: false, gun: this.gunState, gun2: { cls: null, ammo: 0, reload: 0 }, offAcc: 0, gun3: { cls: null, ammo: 0, reload: 0 } };
   /** Seconds until the Hunter in the middle's Bone Wall can rise again (Gideon, observed or sampled). */
   leadWallCd = 0;
   /** Daggers' bursts in progress (anyone's): stabs (or throws) still to come, at a monster. */
@@ -1155,6 +1276,55 @@ export class Field {
     }
   }
 
+  /**
+   * The Guild Hunters' own skills that run every frame: what each has out (Feral Bond, Mind Link and Soul Siphon
+   * read it), Reginald's turrets going down, and Gideon's Ossuary wall biting the monsters at it.
+   */
+  private runPerks(dt: number): void {
+    const g = this.game;
+    const counts = g.fieldCounts;
+    counts.clear();
+    const add = (k: string) => counts.set(k, (counts.get(k) ?? 0) + 1);
+    for (const s of this.summons) if (s.own && s.look === 'wolf') add(`${s.who}:wolves`);
+    for (const p of this.projections) if (!p.turret) add(`${p.by}:copies`);
+    for (const gh of this.ghosts) add(`${gh.shooter}:ghosts`);
+    for (const p of this.puddles) if (p.haunt) add(`${p.shooter}:ghosts`);
+    // Clockwork Turret: every so often, one (or two) set down beside him, firing his weapon for a while.
+    const here: Array<{ who: Shooter; x: number; y: number; down: boolean }> = [{ who: this.lead, x: 0, y: 0, down: this.stunned }, ...this.helpers.map((h) => ({ who: h.id as Shooter, x: h.x, y: h.y, down: h.stun > 0 }))];
+    for (const h of here) {
+      const n = Math.round(this.perk(h.who, 'turret'));
+      if (!n) continue;
+      const cd = (this.turretCd.get(h.who) ?? 1) - dt;
+      if (cd > 0 || h.down || !this.nearest(h.x, h.y, g.shooterRange(h.who))) {
+        this.turretCd.set(h.who, Math.max(0, cd));
+        continue;
+      }
+      this.turretCd.set(h.who, TURRET.every * g.cooldownMult(h.who));
+      for (let i = 0; i < n; i++) {
+        const side = i % 2 === 0 ? 1 : -1;
+        const x = h.x + side * 40;
+        const y = h.y + 16;
+        this.projections.push({ by: h.who, x, y, t: 0, max: TURRET.life, aim: -Math.PI / 2, fireAcc: 0, gun: { cls: null, ammo: 0, reload: 0 }, dmg: 0, blast: 0, turret: true });
+        this.events.push({ type: 'nova', x, y, r: 20, color: '#d8b060' });
+      }
+    }
+    // Ossuary: monsters at Gideon's Bone Wall are impaled, once a second.
+    if (this.boneWall > 0 && this.boneWallBy && this.perk(this.boneWallBy, 'wallSpikes')) {
+      this.wallBite -= dt;
+      if (this.wallBite <= 0) {
+        this.wallBite = 1;
+        const by = this.boneWallBy;
+        const dmg = g.specialDamageMult(by) * 0.5;
+        for (const e of [...this.enemies]) {
+          if (e.hp <= 0) continue;
+          if (!here.some((h) => Math.abs(Math.hypot(e.x - h.x, e.y - h.y) - this.boneWallR) <= e.r + 10)) continue;
+          this.hitWith(by, e, dmg, e.x, e.y + 10, undefined, undefined, true, true);
+          if (!e.boss) e.held = Math.max(e.held ?? 0, 1);
+        }
+      }
+    } else this.wallBite = 0;
+  }
+
   /** In a gated area, a coordinate across a gate kept within its opening (`across`: this is the gate's width). */
   private inGate(v: number, half: number, across: boolean): number {
     if (!this.gated || !across) return v;
@@ -1186,6 +1356,7 @@ export class Field {
     this.syncHelpers();
     this.boneWall = Math.max(0, this.boneWall - dt);
     this.leadWallCd = Math.max(0, this.leadWallCd - dt);
+    this.runPerks(dt);
     for (const h of this.helpers) {
       h.wallCd = Math.max(0, h.wallCd - dt);
       h.sinceKo += dt;
@@ -1199,7 +1370,7 @@ export class Field {
       if (h.guard > max) h.guard = max;
       else if (h.guard < max) {
         h.guardAcc += dt;
-        if (h.guardAcc >= GUARD_RECHARGE) {
+        if (h.guardAcc * g.guardRechargeMult(who) >= GUARD_RECHARGE) {
           h.guardAcc = 0;
           h.guard++;
         }
@@ -1283,7 +1454,7 @@ export class Field {
       this.fireAcc -= 1;
       this.aim = Math.atan2(target.y, target.x);
       this.weaponAttack(this.lead, 0, 0, this.aim, target, cls, leadGun, range, leadMode);
-      if (this.spendShot(leadGun, cls, leadRate)) {
+      if (this.spendShot(leadGun, cls, leadRate, this.lead)) {
         this.events.push({ type: 'reload', who: this.lead, x: 0, y: 0 });
         this.fireAcc = 0;
         break;
@@ -1604,8 +1775,9 @@ export class Field {
     if (wall && (helper ? helper.wallCd : this.leadWallCd) <= 0) {
       if (helper) helper.wallCd = wall.cooldown;
       else this.leadWallCd = wall.cooldown;
-      this.boneWall = wall.duration;
+      this.boneWall = wall.duration + this.perk(who, 'wallLong');
       this.boneWallR = wall.radius;
+      this.boneWallBy = who;
       this.events.push({ type: 'boneWall', r: wall.radius });
     }
   }
@@ -2117,6 +2289,7 @@ export class Field {
     state.immune = Math.max(state.immune, STUN_IMMUNITY);
     this.events.push({ type: 'guard', x: hx, y: hy });
     this.shove(hx, hy, GUARD_PUSH_RANGE, GUARD_BOUNCE);
+    this.retribute(who, hx, hy);
     // Shield burst: the block blasts everything around the wearer.
     for (const { effect: ef, stars, def } of effects)
       if (ef.kind === 'block' && (ef.chance === undefined || this.game.rng() < ef.chance)) this.abilityBurst(who, hx, hy, ef.radius, effectBase(ef, stars, def), ef.damageType);
@@ -2227,7 +2400,7 @@ export class Field {
       h.fireAcc -= 1;
       h.aim = Math.atan2(target.y - h.y, target.x - h.x);
       this.weaponAttack(h.id, h.x, h.y, h.aim, target, cls, gun, range, mode);
-      if (this.spendShot(gun, cls, rate)) {
+      if (this.spendShot(gun, cls, rate, h.id)) {
         this.events.push({ type: 'reload', who: h.id, x: h.x, y: h.y });
         h.fireAcc = 0;
         return;
@@ -2251,7 +2424,7 @@ export class Field {
       return;
     }
     const cls = g.weaponClassOf(who, 'off');
-    if (!this.gunReady(s.gun3, cls, dt)) {
+    if (!this.gunReady(s.gun3, cls, dt, who)) {
       s.offAcc = 0;
       return;
     }
@@ -2266,7 +2439,7 @@ export class Field {
       }
       s.offAcc -= 1;
       this.weaponAttack(who, x, y, Math.atan2(target.y - y, target.x - x), target, cls, s.gun3, range, 'off');
-      if (this.spendShot(s.gun3, cls, rate)) {
+      if (this.spendShot(s.gun3, cls, rate, who)) {
         this.events.push({ type: 'reload', who, x, y });
         s.offAcc = 0;
         return;
@@ -2278,17 +2451,18 @@ export class Field {
    * Whether a Hunter's weapon is ready to attack (its magazine or recharge), counting down its reload. Wilhelm: his
    * secondary weapon covers his primary's reloads (see backupGun), and `close` marks the secondary in hand.
    */
-  private armsReady(who: Shooter, s: { close: boolean; gun: GunState; gun2: GunState }, dt: number): boolean {
+  private armsReady(who: Shooter, s: { close: boolean; gun: GunState; gun2: GunState; swap?: number }, dt: number): boolean {
     const g = this.game;
     if (who === 'main' || !hunterDef(who).backupGun) {
       s.close = false;
-      return this.gunReady(s.gun, g.weaponClassOf(who, 'long'), dt);
+      return this.gunReady(s.gun, g.weaponClassOf(who, 'long'), dt, who);
     }
     const prim = g.weaponClassOf(who, 'long');
     const sec = g.weaponClassOf(who, 'short');
     // Both magazines keep reloading whichever is in hand.
-    const primReady = this.gunReady(s.gun, prim, dt);
-    const secReady = this.gunReady(s.gun2, sec, dt);
+    const primReady = this.gunReady(s.gun, prim, dt, who);
+    const secReady = this.gunReady(s.gun2, sec, dt, who);
+    const was = s.close;
     const hasPrim = !!g.weaponItem(who, 'long');
     const hasSec = !!g.weaponItem(who, 'short');
     if (!hasSec) s.close = false;
@@ -2296,6 +2470,8 @@ export class Field {
     else if (!s.close) s.close = !primReady && secReady;
     // On the secondary: a gun keeps firing until its own reload; anything else only until the primary is ready.
     else if (sec?.mag ? !secReady : primReady) s.close = false;
+    // Swap Shot: switching guns readies that many deadly shots.
+    if (s.close !== was) s.swap = Math.round(this.perk(who, 'swapShot'));
     return s.close ? secReady : primReady;
   }
 
@@ -2308,23 +2484,39 @@ export class Field {
     const g = this.game;
     const m = mode === 'long' ? undefined : mode;
     this.events.push({ type: 'attack', who, a: aim });
-    // Ba'al: every few attacks, a sound wave rings out around him as well.
+    if (who !== 'main' && !encore) {
+      // Momentum: every strike brings his special closer.
+      const mo = this.perk(who, 'momentum');
+      const c = mo ? this.casterOf(who) : null;
+      if (c) c.specialCd = Math.max(0, c.specialCd - mo);
+      // Swap Shot: the first shots after switching guns.
+      this.swapFor = null;
+      const arms: { swap?: number } | undefined = who === this.lead ? this.leadArms : this.helpers.find((h) => h.id === who);
+      if (arms && (arms.swap ?? 0) > 0) {
+        arms.swap!--;
+        this.swapFor = who;
+      }
+    }
+    // Ba'al: every few attacks, a sound wave rings out around him as well (Resonance: sooner).
     const song = who === 'main' || encore ? undefined : hunterDef(who).songWave;
     if (song) {
+      const every = Math.max(2, song.every - Math.round(this.perk(who, 'songEvery')));
       const n = (this.songCount.get(who) ?? 0) + 1;
-      this.songCount.set(who, n % song.every);
-      if (n >= song.every) {
+      this.songCount.set(who, n % every);
+      if (n >= every) {
         const max = this.focusReach(song.reach * g.radiusMult(who));
-        this.waves.push({ who, x, y, r: 0, max, hit: new Set(), k: song.damage });
+        this.waves.push({ who, x, y, r: 0, max, hit: new Set(), k: song.damage, lull: this.perk(who, 'lull'), reverb: this.perk(who, 'reverb') });
         this.events.push({ type: 'wave', x, y, r: max, time: max / WAVE_SPEED, color: hunterDef(who as HunterId).color, notes: true });
       }
     }
     // Lance: every few attacks, a holy spear thrusts out toward his target as well.
     const spear = who === 'main' || encore ? undefined : hunterDef(who).holySpear;
     if (spear) {
+      // Spear of Dawn: sooner.
+      const every = Math.max(2, spear.every - Math.round(this.perk(who, 'spearEvery')));
       const n = (this.spearCount.get(who) ?? 0) + 1;
-      this.spearCount.set(who, n % spear.every);
-      if (n >= spear.every) this.holySpear(who, x, y, aim, spear, mode);
+      this.spearCount.set(who, n % every);
+      if (n >= every) this.holySpear(who, x, y, aim, spear, mode);
     }
     // Apex Hunter: extra projectiles on shots, one more dagger in a burst, a follow-up strike for other melee.
     const extra = encore ? 0 : g.tree(who).multishot;
@@ -2414,6 +2606,7 @@ export class Field {
     const target = this.nearest(h.x, h.y, range);
     if (!target) return;
     if (!this.castSpecial(h.id, sp, h.x, h.y, target, range, g.specialRadius(h.id), g.specialDamageMult(h.id))) return;
+    this.castTwins(h.id, sp, h.x, h.y, target, range, g.specialRadius(h.id), g.specialDamageMult(h.id), undefined, h.id);
     h.specialCd = sp.cooldown * g.cooldownMult(h.id);
     h.aim = Math.atan2(target.y - h.y, target.x - h.x);
   }
@@ -2422,9 +2615,11 @@ export class Field {
    * Casts a special from (x, y) at `target`, as `by` (their damage and gear power it): its own Hunter's, or a
    * copy from Thomas's tome (`only` then keeps the copied special's damage type). False if it can't go yet.
    */
-  private castSpecial(by: Shooter, sp: HunterSpecial, x: number, y: number, target: Enemy, range: number, radius: number, dmg: number, only?: DamageType): boolean {
+  private castSpecial(by: Shooter, sp: HunterSpecial, x: number, y: number, target: Enemy, range: number, radius: number, dmg: number, only?: DamageType, pk: Shooter = by): boolean {
     const g = this.game;
     const a = Math.atan2(target.y - y, target.x - x);
+    // The skills that shape it are `pk`'s: the caster's own, or (Great Library) those of the Hunter whose special a tome copies.
+    const t = pk === 'main' ? null : g.tree(pk);
     if (sp.kind === 'wave') {
       // Themus's Crimson Wave: a surge of blood along a band toward the nearest monster, hurting and bleeding
       // everything in it. With Blood Rain, each monster it kills bursts into blood bolts at others nearby.
@@ -2457,10 +2652,12 @@ export class Field {
       // Her piercing widens the patch; each extra arrow she shoots makes it last longer.
       const rain = g.rainOf(by);
       const r = rain.radius * (radius / Math.max(1, g.specialRadius(by)));
-      const c: SpellCast = { who: by, dtype: only ?? g.damageTypeOf(by, 'long', true), mult: dmg, special: true, only };
+      // Ricochet Rain: each arrow ricochets on; Marked Prey: what it hits takes more from everyone.
+      const c: SpellCast = { who: by, dtype: only ?? g.damageTypeOf(by, 'long', true), mult: dmg, special: true, only, bounce: Math.round(t?.rainBounce ?? 0), mark: t?.rainMark, markTime: VULN_TIME };
       const tx = target.x;
       const ty = target.y;
-      const n = Math.max(1, Math.round(rain.time * ARROW_RAIN.rate));
+      // Cloudburst: more arrows.
+      const n = Math.max(1, Math.round(rain.time * ARROW_RAIN.rate * (1 + (t?.rainMore ?? 0))));
       for (let i = 0; i < n; i++) {
         const ang = g.rng() * Math.PI * 2;
         const d = Math.sqrt(g.rng()) * r;
@@ -2471,12 +2668,16 @@ export class Field {
     if (sp.kind === 'rift' && sp.rift) {
       // Id's Rift Swarm: rifts tear open around the nearest monster, a little way off it, and each looses a swarm
       // of homing void bolts that explode where they strike.
-      const { count, bolts, life } = sp.rift;
+      // Fourth Seam: one more rift; Long Dark: open longer, loosing more bolts; Event Horizon: they pull.
+      const count = sp.rift.count + Math.round(t?.extra ?? 0);
+      const longer = 1 + (t?.riftLife ?? 0);
+      const life = sp.rift.life * longer;
+      const bolts = Math.round(sp.rift.bolts * longer);
       const spin = g.rng() * Math.PI * 2;
       for (let i = 0; i < count; i++) {
         const ang = spin + (i / count) * Math.PI * 2;
         const d = 70 + g.rng() * 30;
-        this.rifts.push({ by, x: target.x + Math.cos(ang) * d, y: target.y + Math.sin(ang) * d * 0.7, t: 0, max: life, left: bolts, every: life / (bolts + 1), next: 0.2, dmg, blast: radius, only });
+        this.rifts.push({ by, x: target.x + Math.cos(ang) * d, y: target.y + Math.sin(ang) * d * 0.7, t: 0, max: life, left: bolts, every: life / (bolts + 1), next: 0.2, dmg, blast: radius, only, ...(t?.riftPull ? { pull: true } : {}) });
       }
       return true;
     }
@@ -2484,6 +2685,9 @@ export class Field {
       // Celeste's Astral Projection: a copy appears at a random spot on the field with a monster in its reach
       // (beside one, if it fights up close), attacks as she does for a while, then explodes.
       const reach = Math.max(g.shooterRange(by, 'long'), 40);
+      // Twin Projection: more than one copy; Lingering Echo: they last longer; Omniscience: they end in a bigger blast.
+      const copies = 1 + Math.round(t?.extra ?? 0);
+      for (let n = 0; n < copies; n++) {
       let spot: { x: number; y: number } | null = null;
       for (let i = 0; i < 8 && !spot; i++) {
         const px = (g.rng() * 2 - 1) * this.halfW * 0.85;
@@ -2497,9 +2701,10 @@ export class Field {
       }
       // Nothing near any spot tried: beside the monster she was aiming at.
       if (!spot) spot = { x: target.x - Math.cos(a) * (target.r + 30), y: target.y - Math.sin(a) * (target.r + 30) };
-      const life = sp.projection.life * g.lastingMult(by);
-      this.projections.push({ by, x: spot.x, y: spot.y, t: 0, max: life, aim: a, fireAcc: 0, gun: { cls: null, ammo: 0, reload: 0 }, dmg, blast: radius, only });
+      const life = sp.projection.life * g.lastingMult(by) * (1 + (t?.copyLife ?? 0));
+      this.projections.push({ by, x: spot.x, y: spot.y, t: 0, max: life, aim: a, fireAcc: 0, gun: { cls: null, ammo: 0, reload: 0 }, dmg: dmg * (1 + (t?.copyBurst ?? 0)), blast: radius, only });
       this.events.push({ type: 'nova', x: spot.x, y: spot.y, r: 28, color: '#c9a8ff' });
+      }
       return true;
     }
     if (sp.kind === 'laser') {
@@ -2509,18 +2714,32 @@ export class Field {
       const cy = Math.sin(a);
       const width = (sp.width ?? 12) * (radius / sp.radius);
       const far = LASER_LENGTH;
-      for (const side of [-1, 1]) {
-        const ox = -cy * side * width * 0.35;
-        const oy = cx * side * width * 0.35;
+      // Third Eye: more beams, side by side (each one's share of the hit); Sweep: the beam swings through an arc.
+      const beams = 2 + Math.round(t?.extra ?? 0);
+      const sweep = t?.sweep ?? 0;
+      for (let i = 0; i < beams; i++) {
+        const side = (i - (beams - 1) / 2) * 0.7;
+        const ox = -cy * side * width;
+        const oy = cx * side * width;
         this.events.push({ type: 'beam', x1: x + ox, y1: y + oy, x2: x + ox + cx * far, y2: y + oy + cy * far, color: '#9dff5a', width: width * 0.7 });
       }
+      if (sweep > 0)
+        for (const da of [-sweep / 2, sweep / 2]) this.events.push({ type: 'beam', x1: x, y1: y, x2: x + Math.cos(a + da) * far, y2: y + Math.sin(a + da) * far, color: '#9dff5a', width: width * 0.4 });
+      const k = dmg * (beams / 2);
       for (const o of [...this.enemies]) {
         if (o.hp <= 0) continue;
-        const t = (o.x - x) * cx + (o.y - y) * cy;
+        const along = (o.x - x) * cx + (o.y - y) * cy;
         const perp = Math.abs((o.x - x) * cy - (o.y - y) * cx);
-        if (t <= 0 || perp > width + o.r) continue;
-        this.hitWith(by, o, dmg, x, y, undefined, undefined, true, true, only);
+        let off = Math.atan2(o.y - y, o.x - x) - a;
+        off = Math.atan2(Math.sin(off), Math.cos(off));
+        if (along <= 0 || (perp > width * Math.max(1, beams / 2) + o.r && Math.abs(off) > sweep / 2)) continue;
+        this.hitWith(by, o, k, x, y, undefined, undefined, true, true, only);
+        // Overheat: the beam leaves it taking more from everyone.
+        if (t?.overheat) this.markFor(o, t.overheat, VULN_TIME);
       }
+      // Scorch Line: the path burns on for a while; Death Ray: it burns again a moment later.
+      if (t?.scorchLine) this.fissures.push({ who: by, x1: x, y1: y, x2: x + cx * far, y2: y + cy * far, width: width * 2, life: 2, tick: 0, power: dmg * t.scorchLine * MELEE_ARTS.fissureTick, color: '#ff8a3d' });
+      if (t?.beamLinger) this.spellHits.push({ c: { who: by, dtype: only ?? sp.damageType, mult: k * 0.5, special: true, only }, t: 0.5, x, y, r: 0, k: 1, beam: { a, len: far, w: width * 2 } });
       return true;
     }
     if (sp.kind === 'spikes') {
@@ -2530,11 +2749,26 @@ export class Field {
       const tx = target.x;
       const ty = target.y;
       this.events.push({ type: 'spell', fx: 'bones', x: tx, y: ty, r: radius, color: '#efe4c8' });
-      for (const o of this.enemies)
+      // Impale, Bone Prison: held longer, and a held monster takes more from everyone; Bone Harvest: a kill on the
+      // spikes may raise a smaller ring of its own.
+      const hold = ((sp.hold ?? 1) + (t?.holdLong ?? 0)) * g.lastingMult(by);
+      const harvest: Enemy[] = [];
+      for (const o of [...this.enemies])
         if (o.hp > 0 && Math.hypot(o.x - tx, o.y - ty) <= radius + o.r) {
           this.hitWith(by, o, dmg, tx, ty, undefined, undefined, true, true, only);
-          o.held = Math.max(o.held ?? 0, (sp.hold ?? 1) * g.lastingMult(by) * (o.boss ? 0.25 : 1));
+          const held = hold * (o.boss ? 0.25 : 1);
+          o.held = Math.max(o.held ?? 0, held);
+          if (t?.prison) this.markFor(o, t.prison, held);
+          if (o.hp <= 0 && t?.harvest && g.rng() < t.harvest) harvest.push(o);
         }
+      for (const d of harvest) {
+        this.events.push({ type: 'spell', fx: 'bones', x: d.x, y: d.y, r: radius * 0.5, color: '#efe4c8' });
+        for (const o of [...this.enemies])
+          if (o.hp > 0 && Math.hypot(o.x - d.x, o.y - d.y) <= radius * 0.5 + o.r) {
+            this.hitWith(by, o, dmg * 0.5, d.x, d.y, undefined, undefined, true, true, only);
+            o.held = Math.max(o.held ?? 0, hold * 0.5 * (o.boss ? 0.25 : 1));
+          }
+      }
       return true;
     }
     if (sp.kind === 'hammer' && sp.hammer) {
@@ -2546,11 +2780,13 @@ export class Field {
       const dtype = only ?? sp.damageType;
       this.events.push({ type: 'phantom', weapon: 'hammer', x, y, a, r: dist, arc: 0, color: DAMAGE_TYPES[dtype].color });
       this.events.push({ type: 'slam', x: tx, y: ty, r: radius, color: DAMAGE_TYPES[dtype].color });
-      const expose = sp.hammer.expose * g.lastingMult(by);
+      // Masterwork: cracked for longer; Exposed Seams: crits on it hit harder while it is.
+      const expose = sp.hammer.expose * g.lastingMult(by) * (1 + (t?.exposeLong ?? 0));
       for (const o of [...this.enemies]) {
         if (o.hp <= 0 || Math.hypot(o.x - tx, o.y - ty) > radius + o.r) continue;
         this.hitWith(by, o, dmg, tx, ty, undefined, undefined, true, true, dtype);
         o.exposed = Math.max(o.exposed ?? 0, o.boss ? expose / 2 : expose);
+        if (t?.seams) o.seams = Math.max(o.seams ?? 0, t.seams);
         if (o.hp > 0 && !o.boss && sp.knock) {
           const d = Math.hypot(o.x - tx, o.y - ty) || 1;
           o.kx += ((o.x - tx) / d) * sp.knock;
@@ -2558,7 +2794,9 @@ export class Field {
         }
       }
       const c: SpellCast = { who: by, dtype, mult: dmg * sp.hammer.spark, special: true, only: dtype };
-      for (let i = 0; i < sp.hammer.sparks; i++) {
+      // Aftershock: the shockwave strikes again; Spark Shower: more sparks.
+      if (t?.aftershock) this.spellHits.push({ c: { who: by, dtype, mult: dmg * t.aftershock, special: true, only: dtype }, t: 0.5, x: tx, y: ty, r: radius, k: 1, fx: 'shock' });
+      for (let i = 0; i < sp.hammer.sparks + Math.round(t?.sparks ?? 0); i++) {
         const ang = g.rng() * Math.PI * 2;
         const d = radius * (0.6 + g.rng() * 0.7);
         this.spellHits.push({ c, t: 0.2 + g.rng() * 0.35, x: tx + Math.cos(ang) * d, y: ty + Math.sin(ang) * d, r: 18, k: 1, fx: 'sun' });
@@ -2570,10 +2808,14 @@ export class Field {
       // certain to set off its type's effect (a copy from Thomas's tome pulses in his chosen type only).
       const tx = target.x;
       const ty = target.y;
-      sp.runes.types.forEach((t, i) => {
-        const dtype = only ?? t;
-        this.spellHits.push({ c: { who: by, dtype, mult: dmg }, t: 0.25 + i * sp.runes!.gap, x: tx, y: ty, r: radius, k: 1, fx: 'rune' });
-      });
+      // Storm Glyph: a Lightning pulse too; Overcharged Runes: more pulses (through her types again); Rune Brand:
+      // what a pulse hits takes more from everyone for a moment.
+      const types: DamageType[] = [...sp.runes.types, ...(t?.stormGlyph ? (['lightning'] as DamageType[]) : [])];
+      const pulses = types.length + Math.round(t?.runePulses ?? 0);
+      for (let i = 0; i < pulses; i++) {
+        const dtype = only ?? types[i % types.length];
+        this.spellHits.push({ c: { who: by, dtype, mult: dmg, ...(t?.runeVuln ? { mark: t.runeVuln, markTime: 2 } : {}) }, t: 0.25 + i * sp.runes!.gap, x: tx, y: ty, r: radius, k: 1, fx: 'rune' });
+      }
       this.events.push({ type: 'nova', x: tx, y: ty, r: radius, color: DAMAGE_TYPES[only ?? sp.runes.types[0]].color });
       return true;
     }
@@ -2581,7 +2823,33 @@ export class Field {
       // Sciirj's Mountain Fist: waits until a monster is within reach, then one huge blow at everything in front
       // of him, knocking the survivors far back.
       if (Math.hypot(target.x - x, target.y - y) > radius + target.r) return false;
-      this.strikeArc(by, x, y, a, radius, sp.arc ?? 1.6, dmg, sp.knock ?? 0);
+      // Mountain Breaker: all round him.
+      const arc = t?.fistCircle ? Math.PI * 2 : (sp.arc ?? 1.6);
+      const struck = this.enemies.filter((o) => {
+        if (o.hp <= 0 || Math.hypot(o.x - x, o.y - y) > radius + o.r) return false;
+        let da = Math.atan2(o.y - y, o.x - x) - a;
+        da = Math.atan2(Math.sin(da), Math.cos(da));
+        return Math.abs(da) <= arc / 2;
+      });
+      this.strikeArc(by, x, y, a, radius, arc, dmg, sp.knock ?? 0);
+      // Stunning Palm: what it hits stands dazed; Crash Landing: what it flings hits the monsters behind.
+      const crashed = new Set<number>(struck.map((o) => o.id));
+      for (const o of struck) {
+        if (o.hp <= 0 || o.boss) continue;
+        if (t?.palm) o.held = Math.max(o.held ?? 0, t.palm);
+        if (!t?.crash) continue;
+        const d = Math.hypot(o.x - x, o.y - y) || 1;
+        const ux = (o.x - x) / d;
+        const uy = (o.y - y) / d;
+        const fly = (sp.knock ?? 0) * 0.25;
+        for (const b of [...this.enemies]) {
+          if (b.hp <= 0 || crashed.has(b.id)) continue;
+          const along = (b.x - o.x) * ux + (b.y - o.y) * uy;
+          if (along <= 0 || along > fly + b.r || Math.abs((b.x - o.x) * uy - (b.y - o.y) * ux) > o.r + b.r) continue;
+          crashed.add(b.id);
+          this.hitWith(by, b, dmg * t.crash, o.x, o.y, undefined, undefined, true, true, only);
+        }
+      }
       const px = x + Math.cos(a) * radius * 0.6;
       const py = y + Math.sin(a) * radius * 0.6;
       this.events.push({ type: 'punch', x, y, a, r: radius });
@@ -2593,11 +2861,14 @@ export class Field {
       const near = this.enemies
         .filter((o) => o.hp > 0 && !o.boss && !o.charm && !o.fleeing && Math.hypot(o.x - x, o.y - y) <= radius + o.r)
         .sort((p, q) => Math.hypot(p.x - x, p.y - y) - Math.hypot(q.x - x, q.y - y))
-        .slice(0, CHARM_MAX);
+        .slice(0, CHARM_MAX + Math.round(t?.extra ?? 0));
       if (!near.length) return false;
       this.events.push({ type: 'nova', x, y, r: radius, color: '#ff8ad0' });
+      // Silver Tongue: a Guardian in reach is dazed for a moment.
+      if (t?.charmBoss) for (const o of this.enemies) if (o.boss && o.hp > 0 && Math.hypot(o.x - x, o.y - y) <= radius + o.r) o.held = Math.max(o.held ?? 0, t.charmBoss);
       for (const o of near) {
-        o.charm = { left: CHARM_TIME * g.lastingMult(by), by, frac: dmg, bite: CHARM_BITE * 0.5 };
+        // Double Date: more at a time; Love Bites: they attack harder; Heartbreak: they burst when it wears off.
+        o.charm = { left: CHARM_TIME * g.lastingMult(by) * (t?.extra ? 0.75 : 1), by, frac: dmg * (1 + (t?.loveBites ?? 0)), bite: CHARM_BITE * 0.5, ...(t?.heartbreak ? { hb: t.heartbreak } : {}) };
         this.events.push({ type: 'nova', x: o.x, y: o.y, r: o.r + 6, color: '#ff8ad0' });
       }
       return true;
@@ -2606,7 +2877,9 @@ export class Field {
       // Ted's dice: thrown at the monsters, they land a moment later and the roll decides what happens there.
       const rng = g.rng;
       const roll = (): number => 1 + Math.floor(rng() * 6);
-      const faces: [number, number] = [roll(), roll()];
+      // Third Die: roll three and keep the best two.
+      const rolled = [roll(), roll(), ...(t?.threeDice ? [roll()] : [])].sort((p, q) => q - p);
+      const faces: [number, number] = [rolled[0], rolled[1]];
       // Loaded dice: his crit chance can re-roll the lower die (keeping the better of the two).
       if (rng() < g.critChanceOf(by)) {
         const lo = faces[0] <= faces[1] ? 0 : 1;
@@ -2637,12 +2910,17 @@ export class Field {
       // legion, nine for 10s), each biting 1.5 times a second for the special's damage (their "radius" skills make
       // them fiercer).
       const mult = dmg * g.summonFerocity(by);
-      const life = (sp.summon.life ?? 6) * g.summonDurationMult(by);
-      const count = sp.summon.count ?? 2;
-      for (let i = 0; i < count; i++) {
-        const at = count === 2 ? (i === 0 ? Math.PI : 0) : (i / count) * Math.PI * 2;
-        const r = count === 2 ? 18 : 30;
-        this.summons.push({ who: by, type: sp.summon.type, x: x + Math.cos(at) * r, y: y + Math.sin(at) * r, life, maxLife: life, bite: 0, look: sp.summon.look, dash: 0, dashHit: false, own: { bites: 1.5, speed: sp.summon.look === 'wolf' ? 200 : 170, mult } });
+      // Moonlit Pack, Strings of Fate: they stay longer; Pack Leader, Understudy, Swelling Ranks: more of them;
+      // Wild Hunt, Theater of Puppets: every third call a big one too; Lich King: a Death Knight with every legion.
+      const life = (sp.summon.life ?? 6) * g.summonDurationMult(by) * (1 + (t?.summonLife ?? 0));
+      const count = (sp.summon.count ?? 2) + Math.round(t?.extra ?? 0);
+      const call = (this.calls.get(by) ?? 0) + 1;
+      this.calls.set(by, call);
+      const big = (t?.deathKnight ?? 0) > 0 || ((t?.dire ?? 0) > 0 && call % 3 === 0);
+      for (let i = 0; i < count + (big ? 1 : 0); i++) {
+        const at = count === 2 && i < 2 ? (i === 0 ? Math.PI : 0) : (i / count) * Math.PI * 2;
+        const r = i >= count ? 0 : count === 2 ? 18 : 30;
+        this.summons.push({ who: by, type: sp.summon.type, x: x + Math.cos(at) * r, y: y + Math.sin(at) * r, life, maxLife: life, bite: 0, look: sp.summon.look, dash: 0, dashHit: false, own: { bites: 1.5, speed: sp.summon.look === 'wolf' ? 200 : 170, mult }, ...(i >= count ? { big: true } : {}) });
       }
       this.events.push({ type: 'nova', x, y, r: count > 2 ? 44 : 30, color: sp.summon.look === 'wolf' ? '#8fdc7a' : sp.summon.look === 'skeleton' ? '#7fd8e0' : '#d8a878' });
     } else if (sp.kind === 'potion') {
@@ -2678,6 +2956,19 @@ export class Field {
     h.specialCd = hunterDef(h.id).special!.cooldown * this.game.cooldownMult(h.id);
     this.tomes.push({ by: h.id, source: pick.id, special: sp, x: spot.x, y: spot.y, age: 0, cast: false });
     this.events.push({ type: 'nova', x: spot.x, y: spot.y, r: 26, color: '#c9b8ff' });
+    // Double Entry: a second tome opens elsewhere, at a share of the first's strength.
+    const twin = this.perk(h.id, 'twin');
+    if (twin > 0 && g.rng() < twin) {
+      const e2 = this.enemies[Math.floor(g.rng() * this.enemies.length)];
+      if (e2 && e2.hp > 0) {
+        const a2 = g.rng() * Math.PI * 2;
+        const x2 = e2.x + Math.cos(a2) * 60;
+        const y2 = e2.y + Math.sin(a2) * 60;
+        const p2 = this.recallPick(h.id) ?? pick;
+        this.tomes.push({ by: h.id, source: p2.id, special: p2.special, x: x2, y: y2, age: 0, cast: false, power: TWIN_POWER + this.perk(h.id, 'twinPower') });
+        this.events.push({ type: 'nova', x: x2, y: y2, r: 26, color: '#c9b8ff' });
+      }
+    }
   }
 
   /** Which Hunter's special Thomas's tome copies (null if no recruited Hunter has an active one). */
@@ -2688,6 +2979,11 @@ export class Field {
     const others = HUNTERS.filter((d) => active(d.id) && g.state.hunters[d.id].recruited && !here.includes(d.id)).map((d) => d.id);
     const pool = here.length && (!others.length || g.rng() < RECALL_HERE_CHANCE) ? here : others;
     if (!pool.length) return null;
+    // Bestseller: half the time, the strongest Hunter beside him.
+    if (here.length && this.perk(by, 'bestseller') && g.rng() < 0.5) {
+      const best = here.reduce((p, q) => (g.dpsOf(q) > g.dpsOf(p) ? q : p));
+      return { id: best, special: hunterDef(best).special! };
+    }
     const id = pool[Math.floor(g.rng() * pool.length)];
     return { id, special: hunterDef(id).special! };
   }
@@ -2698,6 +2994,10 @@ export class Field {
     c.left -= dt;
     if (c.left <= 0) {
       e.charm = undefined;
+      if (c.hb && e.hp > 0) {
+        this.events.push({ type: 'nova', x: e.x, y: e.y, r: e.r + 40, color: '#ff8ad0' });
+        for (const o of [...this.enemies]) if (o !== e && o.hp > 0 && Math.hypot(o.x - e.x, o.y - e.y) <= e.r + o.r + 40) this.damage(o, e.maxHp * c.hb, false, 0, 0, c.by, 'physical');
+      }
       return;
     }
     let t: Enemy | null = null;
@@ -2747,8 +3047,8 @@ export class Field {
         this.say(x, y, 'SNAKE EYES', '#b8b8c8', 12);
         const who = d.by;
         const caster = who === this.lead ? this : this.helpers.find((h) => h.id === who);
-        // Dazed, as if knocked out briefly (not through immunity: it's his own bad luck).
-        if (caster && caster.stun <= 0) {
+        // Dazed, as if knocked out briefly (not through immunity: it's his own bad luck). Poker Face: not him.
+        if (caster && caster.stun <= 0 && !this.perk(who, 'noDaze')) {
           caster.stun = SNAKE_EYES_DAZE;
           caster.stunTotal = SNAKE_EYES_DAZE;
         }
@@ -2761,6 +3061,17 @@ export class Field {
         continue;
       }
       this.say(x, y, doubles ? `${total}! DOUBLES` : `${total}!`, total >= 10 ? '#ffd84a' : '#f4f4f4', total >= 10 || doubles ? 13 : 11);
+      if (doubles) {
+        // Hot Hand: doubles bring the next throw closer; High Roller: any doubles hit the whole field.
+        const hot = this.perk(d.by, 'hotHand');
+        const c = this.casterOf(d.by);
+        if (hot && c) c.specialCd = Math.max(0, c.specialCd - hot);
+        if (this.perk(d.by, 'allDoubles')) {
+          this.events.push({ type: 'explode', x, y, r: d.radius * 2.5, color: '#ffd84a' });
+          for (const o of [...this.enemies]) if (o.hp > 0) hit(o, mult);
+          continue;
+        }
+      }
       if (total <= 4) {
         const t = this.nearest(x, y, d.radius * 1.5);
         if (t) hit(t, mult);
@@ -2798,8 +3109,16 @@ export class Field {
       }
       // The copy: the special's own shape and power, driven by Thomas's damage, attack speed (its size) and skills.
       const radius = t.special.radius * (1 + (g.weaponStats(t.by).rate ?? 0)) * g.radiusMult(t.by);
-      const dmg = t.special.damage * g.specialDamageMult(t.by);
-      t.cast = this.castSpecial(t.by, t.special, t.x, t.y, target, range, radius, dmg, t.special.summon ? undefined : t.special.damageType) || t.age > TOME_LIFE - 0.2;
+      const dmg = t.special.damage * g.specialDamageMult(t.by) * (t.power ?? 1);
+      const only = t.special.summon ? undefined : t.special.damageType;
+      // Great Library: the copy comes with its own Hunter's skills (their capstone, their second cast...).
+      const pk = this.perk(t.by, 'greatLibrary') ? t.source : t.by;
+      const cast = this.castSpecial(t.by, t.special, t.x, t.y, target, range, radius, dmg, only, pk);
+      if (cast && pk !== t.by) this.castTwins(t.by, t.special, t.x, t.y, target, range, radius, dmg, only, pk);
+      // Margin Notes: what it struck takes more from everyone for a while.
+      const notes = this.perk(t.by, 'marginNotes');
+      if (cast && notes) for (const o of this.enemies) if (o.hp > 0 && Math.hypot(o.x - target.x, o.y - target.y) <= radius + o.r) this.markFor(o, notes, VULN_TIME);
+      t.cast = cast || t.age > TOME_LIFE - 0.2;
     }
     this.tomes = this.tomes.filter((t) => t.age < TOME_LIFE);
   }
@@ -2878,14 +3197,16 @@ export class Field {
    * Keeps a gun's magazine up to date (a new weapon starts full) and runs down its reload. Returns whether it
    * can fire now. Weapons without a magazine always can.
    */
-  private gunReady(gun: GunState, cls: WeaponClassDef | null, dt: number): boolean {
+  private gunReady(gun: GunState, cls: WeaponClassDef | null, dt: number, who?: Shooter): boolean {
     const id = cls?.mag ? cls.name : null;
-    if (gun.cls !== id) Object.assign(gun, { cls: id, ammo: cls?.mag ?? 0, reload: 0 });
+    // Extended Mag: more rounds in each magazine.
+    const mag = (cls?.mag ?? 0) + (who && cls?.mag ? Math.round(this.perk(who, 'mag')) : 0);
+    if (gun.cls !== id) Object.assign(gun, { cls: id, ammo: mag, reload: 0 });
     if (!cls?.mag) return true;
     if (gun.reload > 0) {
       gun.reload -= dt;
       if (gun.reload > 0) return false;
-      gun.ammo = cls.mag;
+      gun.ammo = mag;
       gun.steady = 0;
     }
     gun.steady = (gun.steady ?? 0) + dt;
@@ -2893,10 +3214,11 @@ export class Field {
   }
 
   /** Uses a round; when the magazine runs dry, starts the reload (the class's `reload` shots' worth of time). Returns true if it just emptied. */
-  private spendShot(gun: GunState, cls: WeaponClassDef | null, rate: number): boolean {
+  private spendShot(gun: GunState, cls: WeaponClassDef | null, rate: number, who?: Shooter): boolean {
     if (!cls?.mag) return false;
     if (--gun.ammo > 0) return false;
-    gun.reload = (cls.reload ?? 0) / Math.max(rate, 1e-6);
+    // Speed Loader, Quick Swap: quicker reloads.
+    gun.reload = ((cls.reload ?? 0) / Math.max(rate, 1e-6)) * Math.max(0.3, 1 - (who ? this.perk(who, 'reload') : 0));
     gun.total = gun.reload;
     gun.steady = 0;
     return true;
@@ -2932,8 +3254,12 @@ export class Field {
     const shot = SHOT_KINDS.has(kind) && !o.special && !o.cast && this.weaponDef(shooter)?.kind !== 'melee';
     const splash = shot ? (SHOT_SPLASH.gap * g.shooterRange(shooter, o.mode)) / MAIN_RANGE : undefined;
     const art = kind === 'spark' || kind === 'rock' || kind === 'spell' ? (dtype ?? g.damageTypeOf(shooter, o.mode)) : undefined;
+    // Swap Shot: this one always crits and pierces everything.
+    const swap = this.swapFor === shooter;
+    if (swap) this.swapFor = null;
     this.bullets.push({
       ...(art ? { art } : {}),
+      ...(this.boost !== 1 ? { boost: this.boost } : {}),
       splash,
       orb: shot && !!this.game.weaponClassOf(shooter, o.mode)?.orb,
       shooter,
@@ -2942,8 +3268,8 @@ export class Field {
       y: oy + Math.sin(angle) * PLAYER_RADIUS,
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed,
-      crit: g.rng() < g.critChanceOf(shooter) + (o.critBonus ?? 0),
-      pierce: o.pierce ?? 0,
+      crit: swap || g.rng() < g.critChanceOf(shooter) + (o.critBonus ?? 0),
+      pierce: swap ? Infinity : (o.pierce ?? 0),
       life: Math.max(0.05, (range + 20) / speed),
       hits: [],
       dmg: o.dmg ?? 1,
@@ -3361,7 +3687,7 @@ export class Field {
       const crit = g.rng() < g.critChanceOf(who);
       const amount = g.shotDamage(who, enemyDef(e.type).archetype, mode) * sp.damage * this.typeMultOn('radiant', e) * g.typeBonus(who, 'radiant') * (crit ? g.critMultOf(who) : 1);
       this.damage(e, amount, crit, cx, cy, who, 'radiant');
-      if (g.rng() < sp.proc) this.applyStatus(e, 'radiant', amount, who);
+      if (g.rng() < sp.proc + this.perk(who, 'judgement')) this.applyStatus(e, 'radiant', amount, who);
     }
   }
 
@@ -3498,7 +3824,9 @@ export class Field {
         const left = Math.max(0, (this.gearCd.get(key) ?? 0) - dt);
         this.gearCd.set(key, left);
         if (left > 0 || w.stunned) continue;
-        if (this.fireGear(w.who, w.x, w.y, ef, stars, uid, def)) this.gearCd.set(key, cd * this.game.cooldownMult(w.who));
+        // Steady Hands (potions), Stagehand (summons): those recharge faster.
+        const own = ef.kind === 'potion' ? this.perk(w.who, 'potionCdr') : ef.kind === 'summon' ? this.perk(w.who, 'stagehand') : 0;
+        if (this.fireGear(w.who, w.x, w.y, ef, stars, uid, def)) this.gearCd.set(key, cd * this.game.cooldownMult(w.who) * Math.max(0.3, 1 - own));
       }
     }
   }
@@ -3515,7 +3843,7 @@ export class Field {
         if (!this.nearest(x, y, 2000)) return false;
         for (let i = 0; i < ef.count; i++) {
           const a = (i / ef.count) * Math.PI * 2 + this.game.rng();
-          this.summons.push({ who, type: ef.type, x: x + Math.cos(a) * 22, y: y + Math.sin(a) * 22, life: ef.duration * this.game.summonDurationMult(who), maxLife: ef.duration * this.game.summonDurationMult(who), bite: 0, look: ef.look, ...(ef.art ? { art: ef.art } : {}), dash: 0, dashHit: false, gear: { uid, base, damageType: ef.damageType, bites: ef.bites, speed: ef.speed } });
+          this.summons.push({ who, type: this.perk(who, 'stagehand') ? 'construct' : ef.type, x: x + Math.cos(a) * 22, y: y + Math.sin(a) * 22, life: ef.duration * this.game.summonDurationMult(who), maxLife: ef.duration * this.game.summonDurationMult(who), bite: 0, look: ef.look, ...(ef.art ? { art: ef.art } : {}), dash: 0, dashHit: false, gear: { uid, base, damageType: ef.damageType, bites: ef.bites, speed: ef.speed } });
         }
         this.events.push({ type: 'nova', x, y, r: 30, color: '#d8a878' });
         return true;
@@ -3701,8 +4029,17 @@ export class Field {
   /** One hit of a spell, `k` of its cast, always setting off its element's effect. */
   private spellHit(c: SpellCast, e: Enemy, k: number, fx: number, fy: number): void {
     if (e.hp <= 0) return;
+    if (c.mark) this.markFor(e, c.mark, c.markTime ?? VULN_TIME);
     if (c.special) {
       this.hitWith(c.who, e, (c.mult ?? 1) * k, fx, fy, undefined, c.mode, true, true, c.only);
+      // Ricochet Rain: the arrow ricochets on to the nearest other monster.
+      if (c.bounce) {
+        const next = this.nearest(e.x, e.y, RICOCHET_RANGE, [e.id]);
+        if (next) {
+          this.shoot(c.who, 'arrow', e.x, e.y, Math.atan2(next.y - e.y, next.x - e.x), BULLET_SPEED, RICOCHET_RANGE + 20, { dmg: (c.mult ?? 1) * k, special: true, dtype: c.only, bounces: c.bounce - 1 });
+          this.bullets[this.bullets.length - 1].hits.push(e.id);
+        }
+      }
       return;
     }
     // Stone (Physical) spells crush rather than cut: no bleeding.
@@ -3966,6 +4303,14 @@ export class Field {
     }
     // Abilities that go off as a creature's time runs out (a Toadstool's spores, a Comet Wisp's last flare).
     for (const s of this.summons) if (s.life <= 0 && s.ab && !s.ab.used) this.summonExpires(s);
+    // Final Bow (puppets), Bone Burst (skeletons): a Hunter's own creatures burst as they go.
+    for (const s of this.summons) {
+      if (s.life > 0 || !s.own) continue;
+      const k = this.perk(s.who, s.look === 'puppet' ? 'finalBow' : s.look === 'skeleton' ? 'boneBurst' : 'finalBow') * (s.look === 'wolf' ? 0 : 1);
+      if (!k) continue;
+      this.events.push({ type: 'nova', x: s.x, y: s.y, r: 40, color: s.look === 'skeleton' ? '#7fd8e0' : '#d8a878' });
+      for (const o of [...this.enemies]) if (o.hp > 0 && Math.hypot(o.x - s.x, o.y - s.y) <= 40 + o.r) this.hitWith(s.who, o, s.own.mult * k * (s.big ? BIG_SUMMON : 1), s.x, s.y, undefined, undefined, true, true);
+    }
     this.summons = this.summons.filter((s) => s.life > 0);
   }
 
@@ -3975,10 +4320,21 @@ export class Field {
    */
   private summonHit(s: Summon, e: Enemy, k: number): void {
     const g = this.game;
-    const m = g.summonMult(s.who, s.type) * k;
+    const m = g.summonMult(s.who, s.type) * k * (s.big ? BIG_SUMMON : 1);
     if (s.gear) this.abilityHit(s.who, e, s.gear.base * m, s.gear.damageType, false);
     // A Hunter's own creatures strike with their weapon's type, and can inflict its status effect.
-    else if (s.own) this.hitWith(s.who, e, s.own.mult * m, s.x, s.y, undefined, undefined, true);
+    else if (s.own) {
+      this.hitWith(s.who, e, s.own.mult * m, s.x, s.y, undefined, undefined, true);
+      // Rending Fangs: the bite bleeds.
+      const fangs = this.perk(s.who, 'fangs');
+      if (fangs && e.hp > 0) this.bleed(e, s.who, s.own.mult * m * fangs);
+      // Raise Dead: a monster his skeletons kill may rise as another.
+      const raise = s.look === 'skeleton' ? this.perk(s.who, 'raiseDead') : 0;
+      if (raise && e.hp <= 0 && !e.boss && g.rng() < raise) {
+        this.summons.push({ who: s.who, type: s.type, x: e.x, y: e.y, life: s.maxLife * 0.5, maxLife: s.maxLife * 0.5, bite: 0, look: 'skeleton', dash: 0, dashHit: false, own: s.own });
+        this.events.push({ type: 'spell', fx: 'rise', x: e.x, y: e.y, r: e.r + 8, color: DAMAGE_TYPES.decay.color });
+      }
+    }
     else this.hitWith(s.who, e, m * (g.weaponClassOf(s.who, s.mode)?.summon?.hit ?? 1), s.x, s.y, undefined, s.mode);
     if (e.hp <= 0 && s.ab?.key === 'lich' && !s.raised) this.lichRaise(s, e);
   }
@@ -4429,18 +4785,22 @@ export class Field {
    */
   private knifeFlurry(shooter: Shooter, e: Enemy, mode?: GearMode): void {
     const fl = shooter === 'main' ? undefined : hunterDef(shooter).flurry;
-    if (!fl || this.flurryDepth >= fl.depth) return;
+    // Grand Heist: deeper chains; Knife Juggler: more daggers; Ricochet Knives: they bounce on; Shadow Daggers: they pierce.
+    if (!fl || this.flurryDepth >= fl.depth + Math.round(this.perk(shooter, 'knifeDepth'))) return;
+    const daggers = fl.daggers + Math.round(this.perk(shooter, 'knives'));
+    const bounces = Math.round(this.perk(shooter, 'knifeBounce'));
+    const pierce = Math.round(this.perk(shooter, 'knifePierce'));
     const depth = this.flurryDepth + 1;
     const near = this.enemies
       .filter((o) => o !== e && o.hp > 0 && Math.hypot(o.x - e.x, o.y - e.y) <= fl.reach + o.r)
       .sort((a, b) => Math.hypot(a.x - e.x, a.y - e.y) - Math.hypot(b.x - e.x, b.y - e.y));
-    for (let i = 0; i < fl.daggers; i++) {
+    for (let i = 0; i < daggers; i++) {
       const t = near[i];
       const a = t ? Math.atan2(t.y - e.y, t.x - e.x) : this.game.rng() * Math.PI * 2;
       // From the monster's edge, so the dagger doesn't strike it again on the way out.
       const ox = e.x + Math.cos(a) * (e.r - PLAYER_RADIUS + 2);
       const oy = e.y + Math.sin(a) * (e.r - PLAYER_RADIUS + 2);
-      this.shoot(shooter, 'dagger', ox, oy, a, BULLET_SPEED * 1.15, fl.reach, { dmg: fl.damage, mode, flurry: depth });
+      this.shoot(shooter, 'dagger', ox, oy, a, BULLET_SPEED * 1.15, fl.reach, { dmg: fl.damage, mode, flurry: depth, ...(bounces ? { bounces } : {}), ...(pierce ? { pierce } : {}) });
       this.bullets[this.bullets.length - 1].hits.push(e.id);
     }
   }
@@ -4468,6 +4828,15 @@ export class Field {
     // Executioner: monsters near death take extra.
     const exec = e.hp < e.maxHp * MELEE_ARTS.executeAt ? this.arts(shooter, mode ?? 'long').find((a) => a.art === 'executioner') : undefined;
     if (exec) mult *= 1 + exec.power;
+    // A Guild Hunter's own edges: Kindled Strikes (burning), Open Veins (bleeding); anyone's crits on armour Kargesh
+    // cracked (Exposed Seams); and a copy's or turret's boost (Astral Bond).
+    if (shooter !== 'main') {
+      const t = g.tree(shooter);
+      if (t.kindle && e.burn) mult *= 1 + t.kindle;
+      if (t.veins && e.bleeds?.length) mult *= 1 + t.veins;
+    }
+    if (crit && e.exposed && e.seams) mult *= 1 + e.seams;
+    mult *= this.boost;
     const base = (g.shotDamage(shooter, enemyDef(e.type).archetype, mode) * mult * (crit ? g.critMultOf(shooter) : 1)) / types.length;
     const d = Math.hypot(e.x - fromX, e.y - fromY) || 1;
     for (const t of types) {
@@ -4475,6 +4844,11 @@ export class Field {
       this.damage(e, dmg, crit, (e.x - fromX) / d, (e.y - fromY) / d, shooter, t);
       // Each type rolls its own effect (an infused type at its infusion's chance).
       if (status && g.rng() < g.procFor(shooter, t, mode, special)) this.applyStatus(e, t, dmg, shooter, g.procRarity(shooter, mode, special));
+    }
+    // Marked for Death: his crits mark the monster.
+    if (crit && e.hp > 0) {
+      const cm = this.perk(shooter, 'critMark');
+      if (cm) this.markFor(e, cm, VULN_TIME);
     }
     // Alias's Flurry of Knives: a critical strike (his weapon's own, or a flurry dagger's) throws daggers around.
     if (crit && this.flurryArmed && !special) {
@@ -4668,6 +5042,13 @@ export class Field {
         if (e.hp > 0 && !w.hit.has(e.id) && Math.hypot(e.x - w.x, e.y - w.y) <= w.r + e.r) {
           w.hit.add(e.id);
           this.hitWith(w.who, e, w.k ?? 1, w.x, w.y, undefined, w.mode);
+          if (w.lull && !e.boss) e.slow = Math.max(e.slow ?? 0, w.lull);
+          // Reverberate: a note flies on outward from it, through every monster in its path, slowing them.
+          if (w.reverb) {
+            const a = Math.atan2(e.y - w.y, e.x - w.x);
+            this.shoot(w.who, 'note', e.x - Math.cos(a) * PLAYER_RADIUS, e.y - Math.sin(a) * PLAYER_RADIUS, a, 380, REVERB_RANGE, { dmg: (w.k ?? 1) * REVERB_NOTE * w.reverb, pierce: Infinity, slow: REVERB_SLOW + (w.lull ?? 0), special: true, mode: w.mode });
+            this.bullets[this.bullets.length - 1].hits.push(e.id);
+          }
         }
     }
     this.waves = this.waves.filter((w) => w.r < w.max);
@@ -4733,17 +5114,38 @@ export class Field {
     const g = this.game;
     for (const p of this.projections) {
       p.t += dt;
+      if (p.t >= p.max && p.turret) continue;
       if (p.t >= p.max) {
         this.events.push({ type: 'nova', x: p.x, y: p.y, r: p.blast, color: '#c9a8ff', burst: true });
         for (const o of [...this.enemies]) if (o.hp > 0 && Math.hypot(o.x - p.x, o.y - p.y) <= p.blast + o.r) this.hitWith(p.by, o, p.dmg, p.x, p.y, undefined, undefined, true, true, p.only);
         continue;
       }
       const cls = g.weaponClassOf(p.by, 'long');
-      if (!this.gunReady(p.gun, cls, dt)) {
+      if (!this.gunReady(p.gun, cls, dt, p.by)) {
         p.fireAcc = 0;
         continue;
       }
+      // A turret fires bolts of his hit at its own pace (Ammo Feed: faster), whatever weapon he holds.
+      if (p.turret) {
+        p.fireAcc = Math.min(p.fireAcc + dt * g.shooterRate(p.by, 'long') * TURRET.rate * (1 + this.perk(p.by, 'ammoFeed')), 3);
+        const reach = Math.max(g.shooterRange(p.by, 'long'), MAIN_RANGE);
+        while (p.fireAcc >= 1) {
+          const target = this.nearest(p.x, p.y, reach);
+          if (!target) {
+            p.fireAcc = Math.min(p.fireAcc, 1);
+            break;
+          }
+          p.fireAcc -= 1;
+          p.aim = Math.atan2(target.y - p.y, target.x - p.x);
+          // A shot like any ranged weapon's: it splashes onto the monsters packed around what it hits.
+          this.shoot(p.by, 'bolt', p.x, p.y, p.aim, BULLET_SPEED, reach + 20, { dmg: 1 });
+        }
+        continue;
+      }
+      // A copy of Celeste hits harder with Astral Bond.
       const rate = g.shooterRate(p.by, 'long');
+      const was = this.boost;
+      this.boost = 1 + this.perk(p.by, 'astral');
       p.fireAcc = Math.min(p.fireAcc + dt * rate * this.frenzyMult(p.by), 3);
       const range = g.shooterRange(p.by, 'long');
       while (p.fireAcc >= 1) {
@@ -4755,11 +5157,12 @@ export class Field {
         p.fireAcc -= 1;
         p.aim = Math.atan2(target.y - p.y, target.x - p.x);
         this.weaponAttack(p.by, p.x, p.y, p.aim, target, cls, p.gun, range, 'long');
-        if (this.spendShot(p.gun, cls, rate)) {
+        if (this.spendShot(p.gun, cls, rate, p.by)) {
           p.fireAcc = 0;
           break;
         }
       }
+      this.boost = was;
     }
     this.projections = this.projections.filter((p) => p.t < p.max);
   }
@@ -4770,6 +5173,16 @@ export class Field {
     for (const r of this.rifts) {
       r.t += dt;
       r.next -= dt;
+      // Event Horizon: it drags the monsters near it in.
+      if (r.pull && r.t < r.max)
+        for (const o of this.enemies) {
+          if (o.hp <= 0 || o.boss) continue;
+          const d = Math.hypot(r.x - o.x, r.y - o.y);
+          if (d > 100 || d < 8) continue;
+          const step = Math.min(d - 8, 50 * dt);
+          o.x += ((r.x - o.x) / d) * step;
+          o.y += ((r.y - o.y) / d) * step;
+        }
       while (r.left > 0 && r.next <= 0) {
         r.left--;
         r.next += r.every;
@@ -4823,7 +5236,17 @@ export class Field {
         if (b.life <= 0 || (b.tx !== undefined && (b.tx - b.x) * b.vx + (b.ty! - b.y) * b.vy <= 0)) {
           b.life = 0;
           const ticks = b.ticks ?? (b.shooter === 'main' ? undefined : hunterDef(b.shooter).special?.ticks) ?? 6;
-          this.puddles.push({ shooter: b.shooter, x: b.tx ?? b.x, y: b.ty ?? b.y, r: b.radius ?? 40, life: ticks * PUDDLE_TICK * this.game.lastingMult(b.shooter), tick: 0, dmg: b.dmg, dtype: b.dtype, cast: b.cast, k: b.k });
+          const px = b.tx ?? b.x;
+          const py = b.ty ?? b.y;
+          const r = b.radius ?? 40;
+          const corrode = b.special ? this.perk(b.shooter, 'corrode') : 0;
+          this.puddles.push({ shooter: b.shooter, x: px, y: py, r, life: ticks * PUDDLE_TICK * this.game.lastingMult(b.shooter), tick: 0, dmg: b.dmg, dtype: b.dtype, cast: b.cast, k: b.k, ...(corrode ? { corrode } : {}) });
+          // Volatile Brew: it bursts as it lands.
+          const burst = b.special ? this.perk(b.shooter, 'burst') : 0;
+          if (burst) {
+            this.events.push({ type: 'nova', x: px, y: py, r, color: DAMAGE_TYPES[b.dtype ?? 'poison'].color });
+            for (const o of [...this.enemies]) if (o.hp > 0 && Math.hypot(o.x - px, o.y - py) <= r + o.r) this.hitWith(b.shooter, o, b.dmg * burst, px, py, b.crit, b.mode, true, true, b.dtype);
+          }
         }
         continue;
       }
@@ -4911,6 +5334,22 @@ export class Field {
   }
 
   private bulletHit(b: Bullet, e: Enemy): void {
+    const was = this.boost;
+    this.boost = b.boost ?? 1;
+    try {
+      this.bulletHitAs(b, e);
+    } finally {
+      this.boost = was;
+    }
+  }
+
+  private bulletHitAs(b: Bullet, e: Enemy): void {
+    if (b.kind === 'note') {
+      // Reverberate: a music note, through everything in its path, slowing it.
+      this.hitWith(b.shooter, e, b.dmg, b.x - b.vx, b.y - b.vy, b.crit, b.mode, true, true);
+      if (b.slow && !e.boss) e.slow = Math.max(e.slow ?? 0, b.slow);
+      return;
+    }
     if (b.cast) {
       // A spell's projectile: a fireball bursts, the rest strike what they hit.
       if (b.kind === 'fireball') {
@@ -4940,7 +5379,10 @@ export class Field {
     if (b.kind === 'fireball') {
       const r = b.radius ?? 50;
       this.events.push({ type: 'explode', x: b.x, y: b.y, r, color: '#ff8a3d' });
-      for (const o of this.enemies) if (o.hp > 0 && Math.hypot(o.x - b.x, o.y - b.y) <= r + o.r) this.hitWith(b.shooter, o, b.dmg, b.x, b.y, b.crit, b.mode, b.special, true, b.dtype);
+      for (const o of [...this.enemies]) if (o.hp > 0 && Math.hypot(o.x - b.x, o.y - b.y) <= r + o.r) this.hitWith(b.shooter, o, b.dmg, b.x, b.y, b.crit, b.mode, b.special, true, b.dtype);
+      // Scorched Earth: the ground burns on for a while.
+      const scorch = b.special ? this.perk(b.shooter, 'scorch') : 0;
+      if (scorch) this.puddles.push({ shooter: b.shooter, x: b.x, y: b.y, r: r * 0.8, life: 2, tick: 0, dmg: b.dmg * scorch * PUDDLE_TICK, dtype: b.dtype ?? 'fire' });
       b.life = 0;
       return;
     }
@@ -4951,10 +5393,16 @@ export class Field {
       e.volley = b.volley;
       mult *= 1 + (b.stack ?? 0) * e.volleyHits;
     }
-    this.flurryArmed = true;
+    // A Flurry dagger only throws more from the first monster it strikes (not once it bounces or pierces on).
+    this.flurryArmed = !(b.kind === 'dagger' && b.flurry && b.hits.length > 1);
     this.flurryDepth = b.flurry ?? 0;
     this.hitWith(b.shooter, e, mult, b.x - b.vx, b.y - b.vy, b.crit, b.mode, false, true, b.dtype);
     this.flurryArmed = false;
+    // Pinning Shot: her arrows slow what they hit.
+    if (b.kind === 'arrow' && !e.boss) {
+      const pin = this.perk(b.shooter, 'pin');
+      if (pin) e.slow = Math.max(e.slow ?? 0, pin);
+    }
     if (b.splash !== undefined) this.shotSplash(b, e, mult);
     if (b.orb) this.dropOrb(b, e.x, e.y, mult, e.id);
     if (b.elem) this.elementalArrow(b, e);
@@ -4985,8 +5433,16 @@ export class Field {
     for (const p of this.puddles) {
       p.life -= dt;
       p.tick -= dt;
+      // Soul Chain: a haunt that ends sends its ghost on to haunt somewhere else.
+      if (p.life <= 0 && p.haunt && (p.hops ?? 0) > 0) {
+        const to = this.ghostSpot(p.shooter);
+        this.ghosts.push({ shooter: p.shooter, x: p.x, y: p.y, tx: to.x, ty: to.y, chain: p.chain ?? 0, hops: p.hops! - 1 });
+        p.hops = 0;
+      }
       if (p.tick > 0) continue;
       p.tick = PUDDLE_TICK;
+      // Corrosion: monsters in it take more from everyone.
+      if (p.corrode) for (const e of this.enemies) if (e.hp > 0 && Math.hypot(e.x - p.x, e.y - p.y) <= p.r + e.r) this.markFor(e, p.corrode, PUDDLE_TICK + 0.1);
       if (p.cast) {
         for (const e of [...this.enemies]) if (e.hp > 0 && Math.hypot(e.x - p.x, e.y - p.y) <= p.r + e.r) this.spellHit(p.cast, e, p.k ?? 1, p.x, p.y);
       } else if (p.abs !== undefined) {
@@ -5024,7 +5480,7 @@ export class Field {
       gh.y = gh.ty;
       const g = this.game;
       const life = GHOSTS.life * (1 + g.tree(gh.shooter).duration) * g.lastingMult(gh.shooter);
-      this.puddles.push({ shooter: gh.shooter, x: gh.x, y: gh.y, r: GHOSTS.radius * g.radiusMult(gh.shooter), life, tick: 0, dmg: GHOSTS.damage, dtype: 'decay', haunt: true, chain: gh.chain });
+      this.puddles.push({ shooter: gh.shooter, x: gh.x, y: gh.y, r: GHOSTS.radius * g.radiusMult(gh.shooter), life, tick: 0, dmg: GHOSTS.damage, dtype: 'decay', haunt: true, chain: gh.chain, hops: gh.hops ?? Math.round(g.tree(gh.shooter).soulChain) });
       gh.chain = -1; // settled
     }
     this.ghosts = this.ghosts.filter((gh) => gh.chain >= 0);
@@ -5045,10 +5501,10 @@ export class Field {
     if (!owner) return;
     let n = this.ghosts.length;
     for (const p of this.puddles) if (p.haunt) n++;
-    if (n >= GHOSTS.max) return;
-    const tx = (g.rng() * 2 - 1) * this.halfW * 0.8;
-    const ty = (g.rng() * 2 - 1) * this.halfH * 0.75;
-    this.ghosts.push({ shooter: owner, x: e.x, y: e.y, tx, ty, chain: this.chain + 1 });
+    // Legion of Souls: more at once; Possession: they make for the thickest crowd.
+    if (n >= GHOSTS.max + Math.round(this.perk(owner, 'ghostCap'))) return;
+    const to = this.ghostSpot(owner);
+    this.ghosts.push({ shooter: owner, x: e.x, y: e.y, tx: to.x, ty: to.y, chain: this.chain + 1 });
   }
 
   private damage(e: Enemy, dmg: number, crit: boolean, dirX: number, dirY: number, shooter: Shooter = 'main', dtype: DamageType = 'physical'): void {
@@ -5066,6 +5522,21 @@ export class Field {
     // Some Guardians are beaten before their HP runs out (the Time Eater: at half).
     // (The Time Eater fights to the death once the Unbound Void Rift is yours.)
     if (e.boss && e.hp > 0 && !(e.type === 'timeEater' && this.game.timeEaterMortal) && e.hp <= e.maxHp * (enemyDef(e.type).winAt ?? 0)) e.hp = 0;
+    if (e.hp <= 0 && shooter !== 'main') {
+      const t = this.game.tree(shooter);
+      // Bloodfeast: a bleeding kill brings his Crimson Wave closer.
+      if (t.feast && e.bleeds?.length) {
+        const c = this.casterOf(shooter);
+        if (c) c.specialCd = Math.max(0, c.specialCd - t.feast);
+      }
+      // Combustion: a burning monster he kills explodes (a short chain at most).
+      if (t.combust && e.burn && this.combusting < 2) {
+        this.combusting++;
+        this.events.push({ type: 'explode', x: e.x, y: e.y, r: 45, color: '#ff8a3d' });
+        for (const o of [...this.enemies]) if (o !== e && o.hp > 0 && Math.hypot(o.x - e.x, o.y - e.y) <= 45 + o.r) this.hitWith(shooter, o, t.combust, e.x, e.y, undefined, undefined, true, true, 'fire');
+        this.combusting--;
+      }
+    }
     if (e.hp <= 0) {
       // A summoner's minion is worth nothing: no gold, drops or kill credit.
       const reward: KillReward = e.minion ? { gold: 0, material: null, amount: 0 } : this.game.registerKill(e.type, e.boss, shooter, !!e.golden);

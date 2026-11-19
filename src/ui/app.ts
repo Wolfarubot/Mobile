@@ -31,6 +31,7 @@ import {
   type EnemyId,
   type TreeNode,
   type TreeStat,
+  perkLine,
   type EvoStat,
   RESIST_MULT,
   WEAK_MULT,
@@ -8201,6 +8202,11 @@ function nodeBonusLines(n: TreeNode, rank: number): string[] {
       case 'multishot': out.push(`+${+v.toFixed(2)} extra shot${v === 1 ? '' : 's'}`); break;
       case 'bounces': out.push(`+${v} bounce${v === 1 ? '' : 's'}`); break;
       case 'ghosts': out.push(`${pct(v)} ghost chance`); break;
+      default: {
+        // A Guild Hunter's own skills (Pack Leader, Reverberate...).
+        const line = perkLine(stat, v);
+        if (line) out.push(line);
+      }
     }
   }
   return out;

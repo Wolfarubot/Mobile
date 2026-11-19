@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { it } from 'vitest';
-import { GEAR, gearArea, HUNTERS, sessionsToLevel, slotAccepts, type AreaId, type EnemyId, type HunterId } from '../src/core/balance';
+import { enemyDef, GEAR, gearArea, HUNTERS, sessionsToLevel, slotAccepts, type AreaId, type EnemyId, type HunterId } from '../src/core/balance';
 import { Field } from '../src/core/field';
 import { Game } from '../src/core/game';
 import { newGame } from '../src/core/state';
@@ -9,12 +9,13 @@ import { worth } from './botGear';
 /**
  * Hunter test bench: `BENCH_OUT=out.json npx vitest run tests/hunterBench.test.ts` puts each Guild Hunter alone on
  * the field at Lv 50 and Lv 100 (every point spent: the whole first tree, then Ascend and the whole Ascended tree),
- * all in the same tier of gear, and measures their damage per second against monsters that stand still: one very
+ * all in the same tier of gear, and measures their damage per second against monsters that stand still (with no
+ * weaknesses or resistances, so every damage type and status effect counts the same): one very
  * close, one a little way off, one far away, then packs of 5, 10, 20 and 100 a little way off (100 for the later areas' swarms). The monsters can't knock
  * the Hunter down, and each one killed is replaced where it stood, so the number is the Hunter's own output at that
  * range and crowd. BENCH_BASE=before.json adds each row's change against an earlier run (e.g. before a tree rework).
  * BENCH_HUNTERS=alchemist,bard runs only those.
- * tests/hunterBench.baseline.json is the run from before the skill-tree rework.
+ * tests/hunterBench.baseline.json is the run from before the skill-tree rework (Guild Hunters' own skills).
  */
 
 const OUT = process.env.BENCH_OUT;
@@ -28,7 +29,7 @@ const DUMMY: EnemyId = 'lavaGolem';
 const HP_MULT = 40;
 const WARMUP = 2;
 const SECONDS = Number(process.env.BENCH_SECONDS ?? 20);
-const SEEDS = Number(process.env.BENCH_SEEDS ?? 2);
+const SEEDS = Number(process.env.BENCH_SEEDS ?? 4);
 const DT = 1 / 20;
 const LEVELS = [50, 100];
 
@@ -143,6 +144,13 @@ function bench(id: HunterId, level: number, sc: (typeof SCENARIOS)[number], seed
 }
 
 it.runIf(!!OUT)('Hunter test bench', () => {
+  // The dummy is neutral: no weaknesses or resistances (so a Hunter's damage type, and the status effects it can
+  // set off, don't decide the result).
+  const def = enemyDef(DUMMY);
+  const kept = { weak: def.weak, resist: def.resist };
+  def.weak = [];
+  def.resist = [];
+  try {
   const base = BASE && existsSync(BASE) ? (JSON.parse(readFileSync(BASE, 'utf8')) as Array<Record<string, number | string>>) : [];
   const rows: Array<Record<string, number | string>> = [];
   for (const h of HUNTERS) {
@@ -159,5 +167,8 @@ it.runIf(!!OUT)('Hunter test bench', () => {
       rows.push(row);
       writeFileSync(OUT!, JSON.stringify(rows, null, 1));
     }
+  }
+  } finally {
+    Object.assign(def, kept);
   }
 }, 0);

@@ -229,6 +229,9 @@ import {
   SKILL_TREES,
   type SkillNode,
   type TreeStat,
+  TREE_STATS,
+  TWIN_POWER,
+  TURRET,
   SWARM_SPAWN,
   timeEaterGrowth,
   HAMMER_AREA_SHARE,
@@ -480,7 +483,7 @@ export class Game {
     if (!where) return 1;
     let m = 1;
     for (const h of HUNTERS)
-      if (h.inspire && h.id !== who && this.state.hunters[h.id].recruited && this.state.hunters[h.id].station === where) m *= 1 + h.inspire;
+      if (h.inspire && h.id !== who && this.state.hunters[h.id].recruited && this.state.hunters[h.id].station === where) m *= 1 + h.inspire + this.tree(h.id).inspire;
     return m;
   }
 
@@ -688,7 +691,7 @@ export class Game {
   }
 
   private computeTree(who: Wearer): Record<TreeStat, number> {
-    const out: Record<TreeStat, number> = { damage: 0, rate: 0, recovery: 0, crit: 0, range: 0, pierce: 0, radius: 0, bane: 0, guard: 0, rally: 0, gold: 0, drops: 0, tapPower: 0, tapSize: 0, bolts: 0, cooldown: 0, duration: 0, critDamage: 0, multishot: 0, bounces: 0, ghosts: 0 };
+    const out = Object.fromEntries(TREE_STATS.map((k) => [k, 0])) as Record<TreeStat, number>;
     for (const which of ['base', 'ascended'] as const)
       for (const node of this.skillTree(who, which)) {
         const rank = this.skill(who, node.id, which);
@@ -739,7 +742,7 @@ export class Game {
 
   /** Shield charges before a Hunter is stunned (skill tree, e.g. Lance's Zone of Protection + gear + rallies). */
   guardOf(shooter: Shooter): number {
-    return this.tree(shooter).guard + Math.floor(this.gear(shooter).guard) + this.rallyFor(shooter);
+    return this.tree(shooter).guard + Math.floor(this.gear(shooter).guard) + this.rallyFor(shooter) + Math.round(this.auraIn(this.areaOfHunter(shooter), 'reinforce', shooter));
   }
 
   /** Shield charges granted to `shooter` by other recruited Hunters' rally nodes (Lance's Rallying Oath). */
@@ -803,7 +806,37 @@ export class Game {
   shooterRate(shooter: Shooter, mode?: GearMode): number {
     const cls = this.weaponClassOf(shooter, mode)?.rate ?? 1;
     if (shooter === 'main') return this.fireRate * cls;
-    return HELPER_FIRE_RATE * this.skillRateMult(shooter) * (1 + this.gear(shooter, mode).rate) * cls * this.inspireFor(shooter) * (mode === 'off' ? OFFHAND_RATE : 1);
+    return HELPER_FIRE_RATE * this.skillRateMult(shooter) * (1 + this.gear(shooter, mode).rate) * cls * this.inspireFor(shooter) * this.fieldRateMult(shooter) * (mode === 'off' ? OFFHAND_RATE : 1);
+  }
+
+  /**
+   * What's out on a Hunter's battlefield right now, as the field last counted it (`${who}:wolves`, `:copies`,
+   * `:ghosts`): the skills that quicken them for each (Feral Bond, Mind Link, Soul Siphon) read it.
+   */
+  readonly fieldCounts = new Map<string, number>();
+
+  /** Attack speed from what a Hunter has out on the field (Feral Bond, Mind Link, Soul Siphon). */
+  private fieldRateMult(who: Shooter): number {
+    const t = this.tree(who);
+    if (!t.feral && !t.mindLink && !t.siphon) return 1;
+    const n = (k: string) => this.fieldCounts.get(`${who}:${k}`) ?? 0;
+    return 1 + t.feral * n('wolves') + (n('copies') > 0 ? t.mindLink : 0) + t.siphon * n('ghosts');
+  }
+
+  /** The total of a skill across the recruited Guild Hunters stationed in `area` (other than `except`). */
+  private auraIn(area: AreaId | null, stat: TreeStat, except?: Shooter): number {
+    if (!area) return 0;
+    let v = 0;
+    for (const h of HUNTERS) if (h.id !== except && this.state.hunters[h.id].recruited && this.state.hunters[h.id].station === area) v += this.tree(h.id)[stat];
+    return v;
+  }
+
+  /** How much faster a Hunter's shield charges come back: Lance's Sanctuary, for those his Rallying Oath shields. */
+  guardRechargeMult(who: Shooter): number {
+    if (this.rallyFor(who) <= 0) return 1;
+    let v = 0;
+    for (const h of HUNTERS) if (h.id !== who && this.state.hunters[h.id].recruited && this.tree(h.id).rally > 0) v += this.tree(h.id).sanctuary;
+    return 1 + v;
   }
 
   /**
@@ -903,7 +936,10 @@ export class Game {
     // Lilith's Grave Touch: each strike's Decay on top (their ghosts' haunts come and go, so they aren't counted).
     const touch = 1 + (shooter === 'main' ? 0 : (hunterDef(shooter).haunt?.decay ?? 0));
     // Flurry (light armor): that share of attacks goes off twice.
-    return this.shotDamage(shooter, archetype) * (this.shooterRate(shooter) * (1 + this.gear(shooter).flurry) * perAttack * uptime * touch + this.specialHitRate(shooter) + this.songHitRate(shooter) + this.spearHitRate(shooter) + this.flurryHitRate(shooter)) * this.critFactor(shooter) + this.backupDps(shooter, archetype) + this.offhandDps(shooter, archetype);
+    // Reginald's turrets: more of his attacks, for the share of the time they're out.
+    const t = this.tree(shooter);
+    const turrets = 1 + (t.turret * TURRET.life * TURRET.rate * (1 + t.ammoFeed)) / TURRET.every;
+    return this.shotDamage(shooter, archetype) * (this.shooterRate(shooter) * turrets * (1 + this.gear(shooter).flurry) * perAttack * uptime * touch + this.specialHitRate(shooter) + this.songHitRate(shooter) + this.spearHitRate(shooter) + this.flurryHitRate(shooter)) * this.critFactor(shooter) + this.backupDps(shooter, archetype) + this.offhandDps(shooter, archetype);
   }
 
   /** An off-hand weapon: it attacks on its own, at OFFHAND_RATE of its speed (in shooterRate), with its full stats. */
@@ -1101,6 +1137,16 @@ export class Game {
 
   /** The special's damage in shot-equivalents per second against a crowd (for DPS and the farm model). */
   private specialHitRate(shooter: Shooter): number {
+    const base = this.specialHitRateBase(shooter);
+    if (!base) return 0;
+    const sp = hunterDef(shooter as HunterId).special!;
+    const t = this.tree(shooter);
+    // One more creature, beam, rift, copy or charm (Pack Leader...) adds its share; casts again (Double Dose...) add theirs.
+    const count = sp.summon ? (sp.summon.count ?? 2) : sp.kind === 'laser' ? 2 : sp.rift ? sp.rift.count : 1;
+    return base * (1 + t.extra / count) * (1 + t.twin * (TWIN_POWER + t.twinPower));
+  }
+
+  private specialHitRateBase(shooter: Shooter): number {
     const sp = shooter === 'main' ? undefined : hunterDef(shooter).special;
     if (!sp) return 0;
     // Arrow Rain: each arrow hits about one monster wherever it lands (a wider rain spreads them, not more of them).
@@ -1324,7 +1370,8 @@ export class Game {
    * never below 40%, then Id's Time Slip if he's fighting in their area, and the Puppet Show's Encore.
    */
   cooldownMult(who: Shooter): number {
-    return Math.max(0.4, 1 - this.enchantBoost(who, 'cooldown') - this.tree(who).cooldown - this.gear(who).cooldown) * (1 - this.timeSlipFor(who)) * (1 - BUFF_ENCORE * this.buffPower('puppetShow'));
+    // Reginald's Overtuning: every Hunter in his area, him included.
+    return Math.max(0.4, 1 - this.enchantBoost(who, 'cooldown') - this.tree(who).cooldown - this.gear(who).cooldown - this.auraIn(this.areaOfHunter(who), 'overtune')) * (1 - this.timeSlipFor(who)) * (1 - BUFF_ENCORE * this.buffPower('puppetShow'));
   }
 
   /**
@@ -1343,7 +1390,7 @@ export class Game {
   timeSlipOf(id: HunterId): number {
     const base = hunterDef(id).quicken ?? 0;
     if (!base) return 0;
-    return base + (this.ascended(id) ? RIFT_QUICKEN_STEP : 0) + (this.skill(id, 'capstone', 'ascended') > 0 ? RIFT_QUICKEN_STEP : 0);
+    return base + (this.ascended(id) ? RIFT_QUICKEN_STEP : 0) + (this.skill(id, 'capstone', 'ascended') > 0 ? RIFT_QUICKEN_STEP : 0) + this.tree(id).quicken;
   }
 
   /** How much longer the status effects a Hunter sets off last (Extended Effects, and gear). */

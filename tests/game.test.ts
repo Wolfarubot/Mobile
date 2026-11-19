@@ -857,12 +857,11 @@ describe('Hunters', () => {
     g.recruit('lance');
     g.state.hunters.lance.trains = 100;
     expect(g.guardOf('lance')).toBe(0); // his shield comes from his skill tree
-    expect(g.learn('lance', 'recovery')).toBe(false); // the root comes first
+    expect(g.learn('lance', 'power')).toBe(false); // the root comes first
     expect(g.learn('lance', 'root')).toBe(true); // Zone of Protection
     expect(g.guardOf('lance')).toBe(3);
     expect(g.guardOf('main')).toBe(0);
-    for (let i = 0; i < 3; i++) g.learn('lance', 'recovery');
-    g.learn('lance', 'power'); // 5 points in: his third row opens
+    for (let i = 0; i < 4; i++) g.learn('lance', 'power'); // 5 points in: his third row opens
     expect(g.learn('lance', 'rally')).toBe(true); // Rallying Oath
     expect(g.guardOf('main')).toBe(1);
     expect(g.guardOf('ranger')).toBe(1);
@@ -6348,14 +6347,14 @@ describe('Saves', () => {
     s.gold = 42;
     s.items.forestIdol = 3;
     (s.items as Record<string, number>).whetstone = 2; // a removed Upgrade: refunded
-    s.hunters.ranger = { recruited: true, trains: 4, skills: { root: 1, speed: 1 }, station: 'forest' };
+    s.hunters.ranger = { recruited: true, trains: 4, skills: { root: 1, power: 1 }, station: 'forest' };
     s.main = { trains: 9, skills: { root: 1, power: 2, nope: 3 } };
     const back = deserialize(serialize(s));
     expect(back?.gold).toBe(42);
     expect(back?.items.forestIdol).toBe(3);
     expect('whetstone' in back!.items).toBe(false);
     expect(back?.materials.goo).toBe(s.materials.goo + 4 + Math.ceil(4 * 1.45)); // its 1★ and 2★
-    expect(back?.hunters.ranger).toEqual({ recruited: true, trains: 4, skills: { root: 1, speed: 1 }, station: 'forest' });
+    expect(back?.hunters.ranger).toEqual({ recruited: true, trains: 4, skills: { root: 1, power: 1 }, station: 'forest' });
     expect(back?.main).toEqual({ trains: 9, skills: { root: 1, power: 2 } }); // unknown nodes dropped
     expect(deserialize('not json')).toBeNull();
   });
@@ -6630,7 +6629,7 @@ describe('Saves', () => {
     const old = JSON.parse(serialize(newGame(0)));
     old.version = 26;
     old.bestiary.lavaGolem.evo = { root: 1 };
-    old.hunters.alchemist.skills = { root: 1, power: 3 };
+    old.hunters.alchemist.skills = { root: 1, quickBrew: 3 };
     let s = deserialize(JSON.stringify(old))!;
     expect(s.bestiary.lavaGolem.evo).toEqual({});
     expect(s.hunters.alchemist.skills).toEqual({});
@@ -6640,7 +6639,7 @@ describe('Saves', () => {
     s = deserialize(JSON.stringify(old))!;
     expect(s.bestiary.lavaGolem.evo).toEqual({});
     expect(s.bestiary.greenSlime.evo).toEqual({ root: 1 });
-    expect(s.hunters.alchemist.skills).toEqual({ root: 1, power: 3 });
+    expect(s.hunters.alchemist.skills).toEqual({ root: 1, quickBrew: 3 });
     old.version = 28;
     old.bestiary.treant.evo = { root: 1 };
     s = deserialize(JSON.stringify(old))!;
