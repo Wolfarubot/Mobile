@@ -1,6 +1,28 @@
 [
  {
   "hunter": "alchemist",
+  "level": 20,
+  "close": 6451,
+  "mid": 6481,
+  "far": 0,
+  "pack5": 43331,
+  "pack10": 66492,
+  "pack20": 100883,
+  "pack100": 176499
+ },
+ {
+  "hunter": "alchemist",
+  "level": 35,
+  "close": 20989,
+  "mid": 20873,
+  "far": 0,
+  "pack5": 148308,
+  "pack10": 254648,
+  "pack20": 412019,
+  "pack100": 936262
+ },
+ {
+  "hunter": "alchemist",
   "level": 50,
   "close": 37981,
   "mid": 38940,
@@ -20,6 +42,28 @@
   "pack10": 2639213,
   "pack20": 4467351,
   "pack100": 14945193
+ },
+ {
+  "hunter": "ranger",
+  "level": 20,
+  "close": 6790,
+  "mid": 3844,
+  "far": 0,
+  "pack5": 26834,
+  "pack10": 45967,
+  "pack20": 48517,
+  "pack100": 62773
+ },
+ {
+  "hunter": "ranger",
+  "level": 35,
+  "close": 37219,
+  "mid": 12485,
+  "far": 0,
+  "pack5": 150193,
+  "pack10": 263381,
+  "pack20": 372153,
+  "pack100": 415773
  },
  {
   "hunter": "ranger",
@@ -45,6 +89,28 @@
  },
  {
   "hunter": "bard",
+  "level": 20,
+  "close": 7163,
+  "mid": 7318,
+  "far": 0,
+  "pack5": 52039,
+  "pack10": 75497,
+  "pack20": 127665,
+  "pack100": 269194
+ },
+ {
+  "hunter": "bard",
+  "level": 35,
+  "close": 22670,
+  "mid": 20806,
+  "far": 816,
+  "pack5": 161157,
+  "pack10": 259138,
+  "pack20": 399386,
+  "pack100": 1222307
+ },
+ {
+  "hunter": "bard",
   "level": 50,
   "close": 43398,
   "mid": 43070,
@@ -64,6 +130,28 @@
   "pack10": 3467522,
   "pack20": 5636458,
   "pack100": 17516127
+ },
+ {
+  "hunter": "druid",
+  "level": 20,
+  "close": 37705,
+  "mid": 35197,
+  "far": 0,
+  "pack5": 97689,
+  "pack10": 157451,
+  "pack20": 240321,
+  "pack100": 393937
+ },
+ {
+  "hunter": "druid",
+  "level": 35,
+  "close": 159862,
+  "mid": 147164,
+  "far": 0,
+  "pack5": 395747,
+  "pack10": 647757,
+  "pack20": 1019284,
+  "pack100": 2203091
  },
  {
   "hunter": "druid",
@@ -89,6 +177,28 @@
  },
  {
   "hunter": "thief",
+  "level": 20,
+  "close": 4886,
+  "mid": 5253,
+  "far": 0,
+  "pack5": 52159,
+  "pack10": 94676,
+  "pack20": 98000,
+  "pack100": 174217
+ },
+ {
+  "hunter": "thief",
+  "level": 35,
+  "close": 16288,
+  "mid": 16422,
+  "far": 0,
+  "pack5": 200932,
+  "pack10": 221579,
+  "pack20": 473795,
+  "pack100": 667722
+ },
+ {
+  "hunter": "thief",
   "level": 50,
   "close": 26166,
   "mid": 26381,
@@ -108,6 +218,28 @@
   "pack10": 4903099,
   "pack20": 6405349,
   "pack100": 12758399
+ },
+ {
+  "hunter": "lance",
+  "level": 20,
+  "close": 10253,
+  "mid": 0,
+  "far": 0,
+  "pack5": 1464,
+  "pack10": 4375,
+  "pack20": 135207,
+  "pack100": 98191
+ },
+ {
+  "hunter": "lance",
+  "level": 35,
+  "close": 36285,
+  "mid": 902,
+  "far": 0,
+  "pack5": 11153,
+  "pack10": 169921,
+  "pack20": 617747,
+  "pack100": 410687
  },
  {
   "hunter": "lance",
@@ -133,6 +265,28 @@
  },
  {
   "hunter": "glimmer",
+  "level": 20,
+  "close": 7663,
+  "mid": 7572,
+  "far": 0,
+  "pack5": 52349,
+  "pack10": 89227,
+  "pack20": 121363,
+  "pack100": 256164
+ },
+ {
+  "hunter": "glimmer",
+  "level": 35,
+  "close": 27050,
+  "mid": 26246,
+  "far": 0,
+  "pack5": 186646,
+  "pack10": 326942,
+  "pack20": 539639,
+  "pack100": 1588165
+ },
+ {
+  "hunter": "glimmer",
   "level": 50,
   "close": 55267,
   "mid": 52090,
@@ -152,6 +306,28 @@
   "pack10": 3198325,
   "pack20": 6759478,
   "pack100": 27887635
+ },
+ {
+  "hunter": "puppeteer",
+  "level": 20,
+  "close": 29547,
+  "mid": 29693,
+  "far": 0,
+  "pack5": 80508,
+  "pack10": 119324,
+  "pack20": 195544,
+  "pack100": 256476
+ },
+ {
+  "hunter": "puppeteer",
+  "level": 35,
+  "close": 139466,
+  "mid": 139966,
+  "far": 91376,
+  "pack5": 334114,
+  "pack10": 577319,
+  "pack20": 853303,
+  "pack100": 1487978
  },
  {
   "hunter": "puppeteer",
@@ -177,6 +353,28 @@
  },
  {
   "hunter": "wilhelm",
+  "level": 20,
+  "close": 24311,
+  "mid": 11199,
+  "far": 10118,
+  "pack5": 56383,
+  "pack10": 184362,
+  "pack20": 284774,
+  "pack100": 281011
+ },
+ {
+  "hunter": "wilhelm",
+  "level": 35,
+  "close": 110324,
+  "mid": 63260,
+  "far": 50358,
+  "pack5": 275565,
+  "pack10": 850438,
+  "pack20": 1447401,
+  "pack100": 2409342
+ },
+ {
+  "hunter": "wilhelm",
   "level": 50,
   "close": 222225,
   "mid": 144584,
@@ -196,6 +394,28 @@
   "pack10": 18437031,
   "pack20": 43801331,
   "pack100": 45410096
+ },
+ {
+  "hunter": "celeste",
+  "level": 20,
+  "close": 7390,
+  "mid": 7604,
+  "far": 0,
+  "pack5": 55000,
+  "pack10": 88587,
+  "pack20": 124955,
+  "pack100": 217250
+ },
+ {
+  "hunter": "celeste",
+  "level": 35,
+  "close": 28214,
+  "mid": 29546,
+  "far": 0,
+  "pack5": 197766,
+  "pack10": 293934,
+  "pack20": 515773,
+  "pack100": 820271
  },
  {
   "hunter": "celeste",
@@ -221,6 +441,28 @@
  },
  {
   "hunter": "blacksmith",
+  "level": 20,
+  "close": 11226,
+  "mid": 3806,
+  "far": 0,
+  "pack5": 15391,
+  "pack10": 35808,
+  "pack20": 107039,
+  "pack100": 185317
+ },
+ {
+  "hunter": "blacksmith",
+  "level": 35,
+  "close": 45318,
+  "mid": 11299,
+  "far": 0,
+  "pack5": 71323,
+  "pack10": 148088,
+  "pack20": 556578,
+  "pack100": 999425
+ },
+ {
+  "hunter": "blacksmith",
   "level": 50,
   "close": 87875,
   "mid": 21732,
@@ -240,6 +482,28 @@
   "pack10": 7669164,
   "pack20": 14668228,
   "pack100": 25816127
+ },
+ {
+  "hunter": "scavenger",
+  "level": 20,
+  "close": 15204,
+  "mid": 3501,
+  "far": 0,
+  "pack5": 19329,
+  "pack10": 39897,
+  "pack20": 118423,
+  "pack100": 167549
+ },
+ {
+  "hunter": "scavenger",
+  "level": 35,
+  "close": 53544,
+  "mid": 38416,
+  "far": 0,
+  "pack5": 203912,
+  "pack10": 395004,
+  "pack20": 777810,
+  "pack100": 1055962
  },
  {
   "hunter": "scavenger",
@@ -265,6 +529,28 @@
  },
  {
   "hunter": "enchantress",
+  "level": 20,
+  "close": 8593,
+  "mid": 8690,
+  "far": 0,
+  "pack5": 55665,
+  "pack10": 88862,
+  "pack20": 145148,
+  "pack100": 260861
+ },
+ {
+  "hunter": "enchantress",
+  "level": 35,
+  "close": 34890,
+  "mid": 33154,
+  "far": 0,
+  "pack5": 232271,
+  "pack10": 360043,
+  "pack20": 559208,
+  "pack100": 1446121
+ },
+ {
+  "hunter": "enchantress",
   "level": 50,
   "close": 65425,
   "mid": 60964,
@@ -284,6 +570,28 @@
   "pack10": 6558880,
   "pack20": 11354911,
   "pack100": 46036641
+ },
+ {
+  "hunter": "osteomancer",
+  "level": 20,
+  "close": 5835,
+  "mid": 5918,
+  "far": 0,
+  "pack5": 50339,
+  "pack10": 65896,
+  "pack20": 100276,
+  "pack100": 175232
+ },
+ {
+  "hunter": "osteomancer",
+  "level": 35,
+  "close": 22557,
+  "mid": 22523,
+  "far": 0,
+  "pack5": 165361,
+  "pack10": 273301,
+  "pack20": 423994,
+  "pack100": 1107760
  },
  {
   "hunter": "osteomancer",
@@ -309,6 +617,28 @@
  },
  {
   "hunter": "haunter",
+  "level": 20,
+  "close": 9420,
+  "mid": 333,
+  "far": 0,
+  "pack5": 3435,
+  "pack10": 7171,
+  "pack20": 92403,
+  "pack100": 142114
+ },
+ {
+  "hunter": "haunter",
+  "level": 35,
+  "close": 36922,
+  "mid": 1240,
+  "far": 0,
+  "pack5": 45506,
+  "pack10": 282114,
+  "pack20": 765906,
+  "pack100": 879863
+ },
+ {
+  "hunter": "haunter",
   "level": 50,
   "close": 72739,
   "mid": 2513,
@@ -328,6 +658,28 @@
   "pack10": 7147605,
   "pack20": 13317636,
   "pack100": 26062863
+ },
+ {
+  "hunter": "bloodblade",
+  "level": 20,
+  "close": 9421,
+  "mid": 1854,
+  "far": 0,
+  "pack5": 8802,
+  "pack10": 20316,
+  "pack20": 96279,
+  "pack100": 144344
+ },
+ {
+  "hunter": "bloodblade",
+  "level": 35,
+  "close": 34389,
+  "mid": 6322,
+  "far": 0,
+  "pack5": 111706,
+  "pack10": 250878,
+  "pack20": 496252,
+  "pack100": 772213
  },
  {
   "hunter": "bloodblade",
@@ -353,6 +705,28 @@
  },
  {
   "hunter": "artificer",
+  "level": 20,
+  "close": 6869,
+  "mid": 6363,
+  "far": 0,
+  "pack5": 60304,
+  "pack10": 76951,
+  "pack20": 106843,
+  "pack100": 188666
+ },
+ {
+  "hunter": "artificer",
+  "level": 35,
+  "close": 38774,
+  "mid": 21987,
+  "far": 0,
+  "pack5": 295160,
+  "pack10": 431987,
+  "pack20": 687329,
+  "pack100": 851588
+ },
+ {
+  "hunter": "artificer",
   "level": 50,
   "close": 77550,
   "mid": 40415,
@@ -372,6 +746,28 @@
   "pack10": 7387622,
   "pack20": 10049365,
   "pack100": 17223364
+ },
+ {
+  "hunter": "archivist",
+  "level": 20,
+  "close": 4720,
+  "mid": 4946,
+  "far": 0,
+  "pack5": 42991,
+  "pack10": 59351,
+  "pack20": 81575,
+  "pack100": 150056
+ },
+ {
+  "hunter": "archivist",
+  "level": 35,
+  "close": 16777,
+  "mid": 16777,
+  "far": 0,
+  "pack5": 134260,
+  "pack10": 200939,
+  "pack20": 316237,
+  "pack100": 881895
  },
  {
   "hunter": "archivist",
@@ -397,6 +793,28 @@
  },
  {
   "hunter": "gambler",
+  "level": 20,
+  "close": 5885,
+  "mid": 5859,
+  "far": 0,
+  "pack5": 50179,
+  "pack10": 76353,
+  "pack20": 108910,
+  "pack100": 166638
+ },
+ {
+  "hunter": "gambler",
+  "level": 35,
+  "close": 26524,
+  "mid": 27562,
+  "far": 0,
+  "pack5": 170927,
+  "pack10": 277070,
+  "pack20": 441321,
+  "pack100": 888198
+ },
+ {
+  "hunter": "gambler",
   "level": 50,
   "close": 46479,
   "mid": 46892,
@@ -416,6 +834,28 @@
   "pack10": 4378992,
   "pack20": 7477916,
   "pack100": 18297715
+ },
+ {
+  "hunter": "lichlord",
+  "level": 20,
+  "close": 22267,
+  "mid": 21282,
+  "far": 0,
+  "pack5": 82585,
+  "pack10": 129755,
+  "pack20": 196612,
+  "pack100": 354357
+ },
+ {
+  "hunter": "lichlord",
+  "level": 35,
+  "close": 70224,
+  "mid": 68897,
+  "far": 0,
+  "pack5": 259628,
+  "pack10": 448190,
+  "pack20": 655397,
+  "pack100": 1345214
  },
  {
   "hunter": "lichlord",
@@ -441,6 +881,28 @@
  },
  {
   "hunter": "spaceslime",
+  "level": 20,
+  "close": 666,
+  "mid": 666,
+  "far": 0,
+  "pack5": 448533,
+  "pack10": 674274,
+  "pack20": 334712,
+  "pack100": 478717
+ },
+ {
+  "hunter": "spaceslime",
+  "level": 35,
+  "close": 1790,
+  "mid": 1790,
+  "far": 0,
+  "pack5": 602800,
+  "pack10": 864327,
+  "pack20": 556042,
+  "pack100": 1046242
+ },
+ {
+  "hunter": "spaceslime",
   "level": 50,
   "close": 3178,
   "mid": 3178,
@@ -463,6 +925,28 @@
  },
  {
   "hunter": "alien",
+  "level": 20,
+  "close": 8932,
+  "mid": 1714,
+  "far": 0,
+  "pack5": 7947,
+  "pack10": 18221,
+  "pack20": 83337,
+  "pack100": 125422
+ },
+ {
+  "hunter": "alien",
+  "level": 35,
+  "close": 33241,
+  "mid": 6936,
+  "far": 0,
+  "pack5": 122422,
+  "pack10": 278457,
+  "pack20": 473297,
+  "pack100": 746107
+ },
+ {
+  "hunter": "alien",
   "level": 50,
   "close": 59529,
   "mid": 59529,
@@ -482,6 +966,28 @@
   "pack10": 5187398,
   "pack20": 10845520,
   "pack100": 23832158
+ },
+ {
+  "hunter": "riftwalker",
+  "level": 20,
+  "close": 9055,
+  "mid": 9180,
+  "far": 0,
+  "pack5": 53285,
+  "pack10": 85304,
+  "pack20": 124659,
+  "pack100": 195374
+ },
+ {
+  "hunter": "riftwalker",
+  "level": 35,
+  "close": 33311,
+  "mid": 30819,
+  "far": 0,
+  "pack5": 219053,
+  "pack10": 363466,
+  "pack20": 537105,
+  "pack100": 1021676
  },
  {
   "hunter": "riftwalker",

@@ -904,7 +904,7 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
   // Andrejz: wider, longer-lasting poison puddles that soften monsters up, and a second potion every time.
   alchemist: gridTree([
     [at('root', area(1, 'Toxic Brew', '🧪', 'Poison puddles spread'))],
-    [at('corrosion', { name: 'Corrosion', icon: '🫗', desc: 'Monsters standing in his puddles take 10% more damage from every Hunter.', maxRank: 3, effect: { corrode: 0.1 } }), at('quickBrew', cdr(4, 'Quick Brew', '⏱️', 'Potions come')), at('steadyHands', { name: 'Steady Hands', icon: '🫙', desc: 'The potion accessories he wears recharge 10% faster.', maxRank: 3, effect: { potionCdr: 0.1 } })],
+    [at('corrosion', { name: 'Corrosion', icon: '🫗', desc: 'Monsters standing in his puddles take 20% more damage from every Hunter.', maxRank: 3, effect: { corrode: 0.2 } }), at('quickBrew', cdr(4, 'Quick Brew', '⏱️', 'Potions come')), at('steadyHands', { name: 'Steady Hands', icon: '🫙', desc: 'The potion accessories he wears recharge 10% faster.', maxRank: 3, effect: { potionCdr: 0.1 } })],
     [at('slimeBane', ban(4, 'Slime Bane', '🟢', 'Slimes')), at('wideSplash', area(4, 'Wide Splash', '💦', 'Puddles spread')), at('lingering', dur(4, 'Lingering Fumes', '☁️')), at('luckyFinds', drp(3, 'Lucky Finds', '🍀'))],
     [at('speed', spd(4)), at('potency', atk(4, 'Potent Toxins', '☠️', 0.15)), at('thickBrew', dur(2, 'Thick Brew', '🫧'))],
     [at('capstone', { name: 'Double Dose', icon: '⚗️', desc: 'Every potion he lobs is followed by a second at another monster, at 65% strength.', maxRank: 1, cost: 3, effect: { twin: 1, twinPower: 0.15 } })],
@@ -944,7 +944,7 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
   // Alias: gold, loot and dirty tricks, with knives flying everywhere. (Master Thief's gold and loot moved into Fence and Looter.)
   thief: gridTree([
     [at('root', gld(1, 'Sticky Fingers', '🤏'))],
-    [at('power', atk(3, 'Attack Power', '💪', 0.255)), at('pickpocket', gld(4, 'Pickpocket', '👛')), at('knifeJuggler', { name: 'Knife Juggler', icon: '🔪', desc: 'His Flurry of Knives throws two more daggers.', maxRank: 1, cost: 3, effect: { knives: 2 } })],
+    [at('power', atk(3, 'Attack Power', '💪', 0.3)), at('pickpocket', gld(4, 'Pickpocket', '👛')), at('knifeJuggler', { name: 'Knife Juggler', icon: '🔪', desc: 'His Flurry of Knives throws two more daggers.', maxRank: 1, cost: 3, effect: { knives: 2 } })],
     [at('treasureSense', drp(4, 'Treasure Sense', '🗝️')), at('backstab', crt(4, 'Backstab', '🔪')), at('markedForDeath', { name: 'Marked for Death', icon: '🎯', desc: 'His critical hits mark the monster: it takes 6% more damage from every Hunter for 3 seconds.', maxRank: 3, effect: { critMark: 0.06 } }), at('fence', gld(3, 'Fence', '⚖️', 0.1 + 0.4 / 3))],
     [at('cheapShot', crd(4, 'Cheap Shot', '💢')), at('looter', drp(3, 'Looter', '🎒', 0.05 + 0.2 / 3)), at('luckyBreak', gld(2, 'Lucky Break', '🍀'))],
     [at('capstone', { name: 'Ricochet Knives', icon: '🗡️', desc: 'Each dagger of his Flurry of Knives bounces on to one more monster.', maxRank: 1, cost: 5, effect: { knifeBounce: 1 } })],
@@ -960,7 +960,7 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
   // Theon: fiercer puppets, sooner, and a bigger cast.
   puppeteer: gridTree([
     [at('root', area(1, 'Strings Attached', '🧵', 'Puppets hit harder:'))],
-    [at('marionette', area(4, 'Marionette Master', '🪆', 'Puppets hit harder:')), at('power', atk(3)), at('finalBow', { name: 'Final Bow', icon: '🎭', desc: 'A puppet bursts as it falls apart, hurting the monsters around it for 30% of its strike.', maxRank: 3, effect: { finalBow: 0.3 } })],
+    [at('marionette', area(4, 'Marionette Master', '🪆', 'Puppets hit harder:')), at('power', atk(3, 'Attack Power', '💪', 0.27)), at('finalBow', { name: 'Final Bow', icon: '🎭', desc: 'A puppet bursts as it falls apart, hurting the monsters around it for 30% of its strike.', maxRank: 3, effect: { finalBow: 0.3 } })],
     [at('quickStrings', cdr(4, 'Quick Strings', '🪡', 'Puppets come')), at('tangle', dur(3, 'Tangled Threads', '🕸️')), at('puppetShow', area(3, 'Puppet Show', '🎪', 'Puppets hit harder:')), at('stagehand', { name: 'Stagehand', icon: '🎬', desc: 'Summoning abilities on her gear recharge 8% faster, and what they summon counts as Constructs.', maxRank: 4, effect: { stagehand: 0.08 } })],
     [at('showstopper', crt(3, 'Showstopper', '🌟')), at('sharpWires', atk(5, 'Sharp Wires', '🪝', 0.1)), at('woodenGuard', grd(2, 'Wooden Guard', '🪵'))],
     [at('capstone', { name: 'Understudy', icon: '🪆', desc: 'She calls three puppets instead of two.', maxRank: 1, cost: 4, effect: { extra: 1 } })],
@@ -968,8 +968,8 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
   // Kargesh: heavy, telling blows, and a hammer that lands twice.
   blacksmith: gridTree([
     [at('root', grd(1, 'Forge-Hardened', '🔥'))],
-    [at('hammerTime', cdr(5, 'Hammer Time', '🔨', 'The Forge Hammer comes')), at('heavyBlows', crd(3, 'Heavy Blows', '🔨')), at('exposedSeams', { name: 'Exposed Seams', icon: '🪛', desc: 'Critical hits on monsters whose armour he has cracked deal 10% more, from every Hunter.', maxRank: 3, effect: { seams: 0.1 } })],
-    [at('speed', spd(4, 'Quench', '💧')), at('whetstone', crt(4, 'Whetstone Eye', '🪨')), at('tempered', grd(2, 'Tempered Steel', '🛡️')), at('anvil', atk(4, 'Anvil Strike', '⚒️', 0.13))],
+    [at('hammerTime', { name: 'Hammer Time', icon: '🔨', desc: 'The Forge Hammer comes 5% faster, and he hits 5% harder.', maxRank: 5, effect: { cooldown: 0.05, damage: 0.05 } }), at('heavyBlows', crd(3, 'Heavy Blows', '🔨', 0.2)), at('exposedSeams', { name: 'Exposed Seams', icon: '🪛', desc: 'Critical hits on monsters whose armour he has cracked deal 15% more, from every Hunter.', maxRank: 3, effect: { seams: 0.15 } })],
+    [at('speed', spd(4, 'Quench', '💧')), at('whetstone', crt(4, 'Whetstone Eye', '🪨')), at('tempered', grd(2, 'Tempered Steel', '🛡️')), at('anvil', atk(4, 'Anvil Strike', '⚒️', 0.18))],
     [at('foldedSteel', atk(3, 'Folded Steel', '🗡️', 0.1)), at('bellows', spd(3, 'Bellows', '🌬️')), at('longHaft', rng(2, 'Long Haft', '📏'))],
     [at('capstone', { name: 'Aftershock', icon: '⚒️', desc: "The Forge Hammer's shockwave strikes a second time half a second later, at 60% strength.", maxRank: 1, cost: 5, effect: { aftershock: 0.6 } })],
   ]),
@@ -984,7 +984,7 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
   // Celeste: reach, dragon-slaying focus, and more of herself.
   celeste: gridTree([
     [at('root', { name: "Mind's Eye", icon: '👁️', desc: '+10% damage and +10 range.', maxRank: 1, effect: { damage: 0.1, range: 10 } })],
-    [at('power', atk(4)), at('farReach', rng(3, 'Far Reach', '🧠')), at('lingeringEcho', { name: 'Lingering Echo', icon: '🪞', desc: 'Her copies last 5% longer.', maxRank: 3, effect: { copyLife: 0.05 } })],
+    [at('power', atk(4, 'Attack Power', '💪', 0.32)), at('farReach', rng(3, 'Far Reach', '🧠')), at('lingeringEcho', { name: 'Lingering Echo', icon: '🪞', desc: 'Her copies last 5% longer.', maxRank: 3, effect: { copyLife: 0.05 } })],
     [at('dragonBane', ban(4, 'Dragon Bane', '🐉', 'Dragons')), at('insight', crt(4, 'Insight', '💡')), at('psionicWave', area(3, 'Psionic Wave', '🌀', 'Their blasts grow')), at('mindLink', { name: 'Mind Link', icon: '🔗', desc: 'While a copy of her is out, she and her copies attack 1.5% faster.', maxRank: 4, effect: { mindLink: 0.015 } })],
     [at('overload', crd(3, 'Overload', '⚡')), at('clarity', atk(4, 'Clarity', '🔮', 0.1)), at('telekinesis', prc(1, 'Telekinesis', '🪄', 2))],
     [at('capstone', { name: 'Twin Projection', icon: '👑', desc: 'She projects two copies instead of one.', maxRank: 1, cost: 4, effect: { extra: 1 } })],
@@ -992,15 +992,15 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
   // Sciirj: longer reach, more punches, and monsters sent crashing into each other.
   scavenger: gridTree([
     [at('root', area(1, 'Inner Focus', '🧘', 'Punches reach further:'))],
-    [at('power', atk(4, 'Iron Knuckles', '👊')), at('momentum', { name: 'Momentum', icon: '🌀', desc: 'Each of his strikes brings Mountain Fist 0.2 seconds closer.', maxRank: 4, effect: { momentum: 0.2 } }), at('stunningPalm', { name: 'Stunning Palm', icon: '🖐️', desc: 'Mountain Fist stuns the monsters it hits for 0.25 seconds.', maxRank: 3, effect: { palm: 0.25 } })],
+    [at('power', atk(4, 'Iron Knuckles', '👊', 0.25)), at('momentum', { name: 'Momentum', icon: '🌀', desc: 'Each of his strikes brings Mountain Fist 0.2 seconds closer.', maxRank: 4, effect: { momentum: 0.2 } }), at('stunningPalm', { name: 'Stunning Palm', icon: '🖐️', desc: 'Mountain Fist stuns the monsters it hits for 0.25 seconds.', maxRank: 3, effect: { palm: 0.25 } })],
     [at('wideStance', area(4, 'Wide Stance', '🌀', 'Punches reach further:')), at('breath', cdr(4, 'Centered Breath', '🌬️', 'Mountain Fist comes')), at('pressure', crt(3, 'Pressure Points', '🎯')), at('combo', multi('Combo', '🥊', 3))],
-    [at('thousandFists', atk(5, 'Hundred Blows', '💥', 0.16)), at('ironBody', grd(2, 'Iron Body', '🗿')), at('fleetSteps', rng(2, 'Fleet Steps', '👣'))],
+    [at('thousandFists', atk(5, 'Hundred Blows', '💥', 0.25)), at('ironBody', grd(2, 'Iron Body', '🗿')), at('fleetSteps', rng(2, 'Fleet Steps', '👣'))],
     [at('capstone', { name: 'Crash Landing', icon: '💥', desc: "Monsters his Mountain Fist sends flying crash into the ones behind them, hitting each for half the blow's damage.", maxRank: 1, cost: 4, effect: { crash: 0.5 } })],
   ]),
   // Gideon: wider spikes, sooner, holding monsters in a prison of bone behind walls of bone.
   osteomancer: gridTree([
     [at('root', area(1, 'Marrow Sense', '🦴', 'Bone spikes reach wider:'))],
-    [at('power', atk(5, 'Attack Power', '💪', 0.245)), at('ossuary', area(4, 'Ossuary Field', '🌀', 'Bone spikes reach wider:')), at('calcified', grd(2, 'Calcified Skin', '🛡️'))],
+    [at('power', atk(5, 'Attack Power', '💪', 0.29)), at('ossuary', area(4, 'Ossuary Field', '🌀', 'Bone spikes reach wider:')), at('calcified', grd(2, 'Calcified Skin', '🛡️'))],
     [at('sharpened', atk(4, 'Sharpened Bone', '🗡️', 0.1)), at('restless', cdr(4, 'Restless Dead', '⏱️', 'Bone spikes come')), at('grasping', dur(3, 'Grasping Bones', '🖐️')), at('thickWalls', { name: 'Thick Walls', icon: '🧱', desc: 'His Bone Wall stands 1 second longer.', maxRank: 3, effect: { wallLong: 1 } })],
     [at('impale', { name: 'Impale', icon: '🍢', desc: 'His bone spikes hold monsters 0.2 seconds longer.', maxRank: 4, effect: { holdLong: 0.2 } }), at('marrow', crt(3, 'Marrow Strike', '💀')), at('boneArmor', grd(2, 'Bone Armor', '🦴'))],
     [at('capstone', { name: 'Bone Prison', icon: '💀', desc: 'His bone spikes hold monsters 1 second longer, and a held monster takes 15% more damage from every Hunter.', maxRank: 1, cost: 4, effect: { holdLong: 1, prison: 0.15 } })],
@@ -1016,7 +1016,7 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
   // Marceline: long-lasting hexes and quick spells, and a circle that crackles with lightning.
   enchantress: gridTree([
     [at('root', crt(1, 'Glyphwork', '🔯'))],
-    [at('overcharged', { name: 'Overcharged Runes', icon: '🔆', desc: 'Her Rune Circle pulses once more.', maxRank: 2, cost: 2, effect: { runePulses: 1 } }), at('speed', spd(4, 'Quickened Words', '💬')), at('runeBrand', { name: 'Rune Brand', icon: '🔯', desc: 'Monsters her Rune Circle hits take 4% more damage from every Hunter for 2 seconds.', maxRank: 3, effect: { runeVuln: 0.04 } })],
+    [at('overcharged', { name: 'Overcharged Runes', icon: '🔆', desc: 'Her Rune Circle pulses once more, and she hits 10% harder.', maxRank: 2, cost: 2, effect: { runePulses: 1, damage: 0.1 } }), at('speed', spd(4, 'Quickened Words', '💬', 0.07)), at('runeBrand', { name: 'Rune Brand', icon: '🔯', desc: 'Monsters her Rune Circle hits take 10% more damage from every Hunter for 2 seconds.', maxRank: 3, effect: { runeVuln: 0.1 } })],
     [at('runedBolts', crt(3, 'Runed Bolts', '✴️')), at('lastingHexes', dur(4, 'Lasting Hexes', '⏳')), at('wideWards', area(3, 'Wide Wards', '🌀', 'Their spells grow')), at('spellweave', cdr(4, 'Spellweave', '🪄', "Their gear's abilities recharge"))],
     [at('arcanePower', atk(4, 'Arcane Power', '🔮', 0.16)), at('hex', crd(3, 'Hex', '💢')), at('manaShield', grd(1, 'Mana Shield', '🛡️'))],
     [at('capstone', { name: 'Storm Glyph', icon: '⚡', desc: 'Her Rune Circle pulses Lightning too, arcing between the monsters in it.', maxRank: 1, cost: 5, effect: { stormGlyph: 1 } })],
@@ -1032,7 +1032,7 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
   // Ted: big crits, bigger blasts, and a third die up his sleeve.
   gambler: gridTree([
     [at('root', crt(1, 'Lucky Coin', '🪙'))],
-    [at('power', atk(3, 'Attack Power', '💪', 0.25)), at('hotHand', { name: 'Hot Hand', icon: '🔥', desc: 'Rolling doubles brings his next throw 0.5 seconds closer.', maxRank: 3, effect: { hotHand: 0.5 } }), at('pokerFace', { name: 'Poker Face', icon: '🎭', desc: 'Snake eyes no longer leave him dazed.', maxRank: 1, cost: 3, effect: { noDaze: 1 } })],
+    [at('power', atk(3, 'Attack Power', '💪', 0.29)), at('hotHand', { name: 'Hot Hand', icon: '🔥', desc: 'Rolling doubles brings his next throw 0.5 seconds closer.', maxRank: 3, effect: { hotHand: 0.5 } }), at('pokerFace', { name: 'Poker Face', icon: '🎭', desc: 'Snake eyes no longer leave him dazed.', maxRank: 1, cost: 3, effect: { noDaze: 1 } })],
     [at('raiseStakes', crd(4, 'Raise the Stakes', '💰')), at('loadedDice', crt(4, 'Loaded Dice', '🎲')), at('bigBlast', area(4, 'Big Blast', '💥', 'Dice blasts grow')), at('highStakes', gld(3, 'High Stakes', '🪙'))],
     [at('hotStreak', cdr(4, 'Hot Streak', '🔥', 'Dice come')), at('jackpot', atk(3, 'Jackpot', '🎰', 0.1)), at('winnings', drp(2, 'Winnings', '💎'))],
     [at('capstone', { name: 'Third Die', icon: '🎲', desc: 'He rolls three dice and keeps the best two (doubles come more often, snake eyes less), +10% crit chance, and his dice blasts grow 25%.', maxRank: 1, cost: 5, effect: { threeDice: 1, crit: 0.1, radius: 0.25 } })],
@@ -1072,7 +1072,7 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
   // Reginald: gadgets that fire faster and further, and turrets of his own.
   artificer: gridTree([
     [at('root', spd(1, 'Spare Parts', '⚙️'))],
-    [at('power', atk(4)), at('overtuning', { name: 'Overtuning', icon: '🔧', desc: 'Every Hunter in his area, him included, has their cooldowns 3% shorter.', maxRank: 4, effect: { overtune: 0.03 } }), at('reinforcement', { name: 'Reinforcement', icon: '🛠️', desc: 'Every other Hunter in his area gets 1 more shield charge.', maxRank: 1, cost: 2, effect: { reinforce: 1 } })],
+    [at('power', atk(4, 'Attack Power', '💪', 0.24)), at('overtuning', { name: 'Overtuning', icon: '🔧', desc: 'Every Hunter in his area, him included, has their cooldowns 3% shorter.', maxRank: 4, effect: { overtune: 0.03 } }), at('reinforcement', { name: 'Reinforcement', icon: '🛠️', desc: 'Every other Hunter in his area gets 1 more shield charge.', maxRank: 1, cost: 2, effect: { reinforce: 1 } })],
     [at('fineTuning', crt(3, 'Fine Tuning', '🔧')), at('clockwork', cdr(4, 'Clockwork', '⏱️', "Their gear's abilities recharge")), at('servo', rng(4, 'Servo Arm', '🦾')), at('recovery', rec(3))],
     [at('overclock', spd(5, 'Overclock', '🔋')), at('precision', atk(5, 'Precision Parts', '📐', 0.18))],
     [at('capstone', { name: 'Clockwork Turret', icon: '🧰', desc: 'Every 10 seconds he sets down a clockwork turret beside him that fires his weapon for 6 seconds.', maxRank: 1, cost: 4, effect: { turret: 1 } })],
@@ -1080,7 +1080,7 @@ export const SKILL_TREES: Record<'main' | HunterId, SkillNode[]> = {
   // Lilith: more ghosts, longer and wider haunts, and ghosts that move on. (Node ids kept from Okrin's tree, so ranks bought carry over.)
   haunter: gridTree([
     [at('root', atk(1, 'Cold Touch', '🖐️', 0.1))],
-    [at('power', atk(4, 'Grave Edge', '🗡️')), at('possession', { name: 'Possession', icon: '🫥', desc: 'Half the time, their ghosts fly to the thickest crowd nearby instead of a random spot.', maxRank: 1, cost: 3, effect: { possession: 1 } }), at('speed', spd(3, 'Restless', '💨'))],
+    [at('power', atk(4, 'Grave Edge', '🗡️', 0.24)), at('possession', { name: 'Possession', icon: '🫥', desc: 'Half the time, their ghosts fly to the thickest crowd nearby instead of a random spot.', maxRank: 1, cost: 3, effect: { possession: 1 } }), at('speed', spd(3, 'Restless', '💨'))],
     [at('elementalBane', gho(4, 'Restless Dead', '👻')), at('deepFreeze', dur(4, 'Lingering Haunt', '🕯️')), at('shatter', crd(3, 'Soul Rend', '💀')), at('legionOfSouls', { name: 'Legion of Souls', icon: '👥', desc: '1 more of their ghosts can haunt at once.', maxRank: 2, effect: { ghostCap: 1 } })],
     [at('avalanche', area(3, 'Wailing Grounds', '🌫️', 'Swings and haunts grow')), at('frostbite', crt(3, 'Death Mark', '🎯')), at('might', atk(5, 'Wrath of the Dead', '💪', 0.195))],
     [at('capstone', { name: 'Soul Chain', icon: '🌑', desc: 'When a haunt ends, its ghost flies on to haunt one more spot.', maxRank: 1, cost: 4, effect: { soulChain: 1 } })],
