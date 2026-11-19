@@ -10,7 +10,7 @@ import { worth } from './botGear';
  * Hunter test bench: `BENCH_OUT=out.json npx vitest run tests/hunterBench.test.ts` puts each Guild Hunter alone on
  * the field at Lv 50 and Lv 100 (every point spent: the whole first tree, then Ascend and the whole Ascended tree),
  * all in the same tier of gear, and measures their damage per second against monsters that stand still: one very
- * close, one a little way off, one far away, then packs of 5, 10 and 20 a little way off. The monsters can't knock
+ * close, one a little way off, one far away, then packs of 5, 10, 20 and 100 a little way off (100 for the later areas' swarms). The monsters can't knock
  * the Hunter down, and each one killed is replaced where it stood, so the number is the Hunter's own output at that
  * range and crowd. BENCH_BASE=before.json adds each row's change against an earlier run (e.g. before a tree rework).
  * BENCH_HUNTERS=alchemist,bard runs only those.
@@ -40,6 +40,7 @@ const SCENARIOS: Array<{ id: string; at: number; n: number }> = [
   { id: 'pack5', at: 180, n: 5 },
   { id: 'pack10', at: 180, n: 10 },
   { id: 'pack20', at: 180, n: 20 },
+  { id: 'pack100', at: 180, n: 100 },
 ];
 
 function mulberry(seed: number) {
