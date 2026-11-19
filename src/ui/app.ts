@@ -2188,7 +2188,7 @@ export class AppUI {
         const charges = g.blessingCharges(kind);
         const blessed =
           charges > 0 && g.state.blessings[kind] > 0
-            ? `<p class="mod-bless">✨ <b>${kind === 'refine' ? 'Forge Blessing' : 'Rune Blessing'}</b> · ${charges} charge${charges === 1 ? '' : 's'} left · Increased chance for better rolls</p>`
+            ? `<p class="mod-bless">${blessGlyph(kind)} <b>${kind === 'refine' ? 'Forge Blessing' : 'Rune Blessing'}</b> · ${charges} charge${charges === 1 ? '' : 's'} left · Increased chance for better rolls</p>`
             : '';
         body.innerHTML = `
           ${name}
@@ -7287,6 +7287,12 @@ function nextMonday(t: number): number {
 }
 
 /** An event's icon in a line of text: a minigame's item sprite, else its emoji. */
+/** A blessing's icon: the buff icon of the event that gives it (Kargesh's for Refine, Marceline's for Enchant), as on the Events page. */
+function blessGlyph(kind: 'refine' | 'enchant'): string {
+  const ev = EVENTS.find((e) => e.blessing?.kind === kind && !e.echo);
+  return ev ? eventGlyph(ev) : '✨';
+}
+
 function eventGlyph(ev: EventDef): string {
   return ev.sprite ? sprite(ev.sprite) : ev.icon;
 }
