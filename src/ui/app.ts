@@ -323,6 +323,8 @@ const $ = <T extends HTMLElement = HTMLElement>(sel: string, root: ParentNode = 
 /** Who an Upgrade affects: every Hunter, or one area's monsters. */
 /** Holding an area tile this long travels there; two taps this close together open its details (and a Hunter's or monster's tile). */
 const AREA_HOLD_MS = 1000;
+/** Holding Train, Empower, a skill-point badge or an evolution badge this long (ms) buys the most it can. */
+const MAX_HOLD_MS = 600;
 const DOUBLE_TAP_MS = 350;
 /** One-time tips wait at least this long after the last popup opened or closed. */
 const POPUP_GAP_MS = 30_000;
@@ -790,10 +792,9 @@ export class AppUI {
   }
 
   private holdForMax(btn: HTMLElement, offer: () => { text: string; run: () => void } | null, kind: keyof typeof HOLD_POPUPS = 'train', progress?: string): void {
-    // A full second's hold, on a button or a card.
-    const HOLD_MS = 1000;
-    // The max runs after HOLD_MS either way. With a bar (max Train / Empower / skill points), the bar comes up after
-    // HOLD_BAR_DELAY_MS, so a tap never flashes it, and fills over the rest of the hold.
+    // A short hold (MAX_HOLD_MS), on a button or a card.
+    // The max runs after MAX_HOLD_MS either way. With a bar (max Train / Empower / skill points / evolutions), the bar
+    // comes up after HOLD_BAR_DELAY_MS, so a tap never flashes it, and fills over the rest of the hold.
     const wait = progress ? HOLD_BAR_DELAY_MS : 0;
     const pop = HOLD_POPUPS[kind];
     let timer = 0;
@@ -824,7 +825,7 @@ export class AppUI {
       if (progress)
         showTimer = window.setTimeout(() => {
           showTimer = 0;
-          if (offer()) bar = this.holdBar(progress, HOLD_MS - wait);
+          if (offer()) bar = this.holdBar(progress, MAX_HOLD_MS - wait);
         }, wait);
       timer = window.setTimeout(() => {
         timer = 0;
@@ -850,7 +851,7 @@ export class AppUI {
           },
           { label: txt(pop.ok), action: o.run },
         ]);
-      }, HOLD_MS);
+      }, MAX_HOLD_MS);
     });
     btn.addEventListener('pointermove', (ev) => {
       if (timer && Math.hypot(ev.clientX - x, ev.clientY - y) > 12) stop();
