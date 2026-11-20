@@ -3166,7 +3166,7 @@ export class Field {
       if (wall) out.push({ key: `wall:${this.lead}`, icon: '🦴', name: `${def.name}'s ${wall.name}`, art: WALL_ART, tint: 'physical', progress: 1 - this.leadWallCd / wall.cooldown });
     } else if (this.game.tapAbility === 'flame') out.push({ key: 'tap:flame', icon: '🔥', name: 'Flame Burst', art: TAP_ART.flame, tint: 'fire', progress: 1 - this.flameCd / (FLAME_BURST_COOLDOWN * this.game.cooldownMult('main')) });
     else if (this.game.tapAbility === 'frost') out.push({ key: 'tap:frost', icon: '❄️', name: 'Frost Nova', art: TAP_ART.frost, tint: 'frost', progress: 1 - this.frostCd / (FROST_NOVA.cooldown * this.game.cooldownMult('main')) });
-    else if (this.game.tapAbility === 'miasma') out.push({ key: 'tap:miasma', icon: '☠️', name: 'Melting Miasma', art: TAP_ART.miasma, tint: 'acid', progress: 1 - this.miasmaCd / (MIASMA_PUDDLE.cooldown * this.game.cooldownMult('main')) });
+    else if (this.game.tapAbility === 'miasma') out.push({ key: 'tap:miasma', icon: '☠️', name: 'Melting Miasma', art: TAP_ART.miasma, tint: 'poison', progress: 1 - this.miasmaCd / (MIASMA_PUDDLE.cooldown * this.game.cooldownMult('main')) });
     for (const who of [this.lead, ...this.helpers.map((h) => h.id)]) {
       for (const { uid, def, effect } of this.game.gearEffects(who)) {
         const cd = effectCooldown(effect);

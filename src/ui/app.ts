@@ -86,6 +86,7 @@ import {
   MAIN_ABILITIES,
   MAIN_SHORT,
   TAP_ABILITIES,
+  tapAbilityDef,
   type TapAbilityId,
   itemCost,
   ITEMS,
@@ -172,6 +173,8 @@ import { emojiImg } from './emojiIcons';
 import { MATERIAL_SPRITES } from '../core/materialSprites';
 import { GEAR_SPRITES } from '../core/gearSprites';
 import { NODE_SPRITES } from '../core/nodeSprites';
+import { TAP_ART } from '../core/cooldownArt';
+import { tintedIconUrl } from '../render/cdIcons';
 import { hunterIconHtml } from './hunterIcons';
 import { startMarket } from './market';
 import { buzz, setHaptics } from './haptics';
@@ -1581,15 +1584,21 @@ export class AppUI {
     const g = this.game;
     const wrap = el('div', 'abilities');
     wrap.appendChild(sectionTitle('Tap Abilities'));
-    const info = (id: TapAbilityId | null): { icon: string; name: string; desc: string } => {
+    const info = (id: TapAbilityId | null): { name: string; desc: string } => {
       const a = id && TAP_ABILITIES.find((t) => t.id === id);
-      if (!a) return { icon: '💥', name: 'Blast', desc: "A plain blast in your weapon's damage type." };
+      if (!a) return { name: 'Blast', desc: "A plain blast in your weapon's damage type." };
       const dt = DAMAGE_TYPES[a.damageType];
-      return { icon: a.icon, name: a.name, desc: `${a.desc} <span style="color:${dt.color}">${dtIcon(a.damageType)} ${dt.name}</span>` };
+      return { name: a.name, desc: `${a.desc} <span style="color:${dt.color}">${dtIcon(a.damageType)} ${dt.name}</span>` };
     };
+    // Each ability's icon in its damage type's colours (the plain Blast: your weapon's), as on its cooldown icon.
+    const tint = (id: TapAbilityId | null): DamageType => (id ? tapAbilityDef(id).damageType : g.damageTypeOf('main'));
     const cardHtml = (id: TapAbilityId | null) => {
       const i = info(id);
-      return `<div class="ab-icon">${i.icon}</div><div class="ab-info"><div class="ab-name">${i.name}</div><p>${i.desc}</p></div>`;
+      return `<div class="ab-icon"><img class="ei" alt=""></div><div class="ab-info"><div class="ab-name">${i.name}</div><p>${i.desc}</p></div>`;
+    };
+    const paint = (root: HTMLElement, id: TapAbilityId | null) => {
+      const img = root.querySelector<HTMLImageElement>('.ab-icon img');
+      if (img) void tintedIconUrl(TAP_ART[id ?? 'blast'], tint(id)).then((url) => (img.src = url));
     };
     const card = el('div', 'card ability-card');
     const face = el('div', 'ab-face');
@@ -1602,6 +1611,7 @@ export class AppUI {
           if (id !== null && !g.tapAbilityUnlocked(id)) continue;
           const row = el('div', `card ability-card${id === g.tapAbility ? ' equipped' : ''}`);
           row.innerHTML = cardHtml(id);
+          paint(row, id);
           const btn = el('button', 'buy ab-equip', id === g.tapAbility ? 'Equipped' : 'Equip') as HTMLButtonElement;
           btn.disabled = id === g.tapAbility;
           btn.addEventListener('click', () => {
@@ -1621,6 +1631,7 @@ export class AppUI {
       if (shown === g.tapAbility) return;
       shown = g.tapAbility;
       face.innerHTML = cardHtml(shown);
+      paint(face, shown);
     });
     return wrap;
   }
