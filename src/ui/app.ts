@@ -4129,9 +4129,10 @@ export class AppUI {
   private openCraftCard(what: { gear: GearDef } | { item: ItemDef }): void {
     const g = this.game;
     this.closeFieldCard();
-    const card = el('div', 'field-card');
     const gd = 'gear' in what ? what.gear : null;
     const it = 'item' in what ? what.item : null;
+    // One with a line of story (the Time Release) runs it across the whole card, the recipe below.
+    const card = el('div', `field-card${it?.flavor ? ' fc-story' : ''}`);
     const name = gd ? gd.name : it!.name;
     card.innerHTML = `
       <button class="fc-close" aria-label="Close"><span class="close-x"></span></button>

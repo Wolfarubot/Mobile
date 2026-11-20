@@ -8159,6 +8159,23 @@ body.landscape.ui-parchment .subtabs button:has(> .btn-ic) {
   white-space: normal;
   line-height: 1.1;
 }
+/* An Upgrade with a line of story (the Time Release): one column, the story across the whole card and the recipe
+   below it. */
+.field-card.fc-story .fc-effect,
+.field-card.fc-story .fc-owned,
+.field-card.fc-story .fc-cost {
+  grid-column: 1 / -1;
+  grid-row: auto;
+}
+.field-card.fc-story .fc-cost {
+  border-left: none;
+  border-top: 2px solid rgba(0, 0, 0, 0.25);
+  padding-left: 0;
+  margin-left: 0;
+  padding-top: 6px;
+  margin-top: 4px;
+}
+
 /* Its stats in half the card's width: the numbers take only the room they need, and a stat's name wraps between
    words, never inside one. */
 .field-card .st-row {
