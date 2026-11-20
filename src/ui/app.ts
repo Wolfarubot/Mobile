@@ -91,6 +91,7 @@ import {
   itemCost,
   ITEMS,
   materialDef,
+  itemDef,
   MATERIALS,
   nextAreaOf,
   EVENTS,
@@ -343,6 +344,8 @@ const MENU_HOLD_MS = 450;
 const HOLD_BAR_DELAY_MS = 250;
 /** The salvaging tip comes up once the inventory holds this many pieces. */
 const SALVAGE_TIP_ITEMS = 100;
+/** Seconds after the Time Eater is beaten (persisting) before its pop-up: once it has faded away on the field. */
+const PERSISTS_POPUP_DELAY = 2000;
 
 const upgradeReach = (it: ItemDef): string => (it.area ? `affects the ${areaDef(it.area.id).name}` : it.once ? 'crafted once' : 'works in every area');
 
@@ -623,9 +626,9 @@ export class AppUI {
       if (e.type === 'areaUnlocked' || e.type === 'travel' || e.type === 'unlock' || e.type === 'recruit') this.setTab(this.tab, true);
       else if (e.type === 'eventComplete') this.setTab(this.tab, true); // may have made Hunters available
       else if (e.type === 'finalGuardian' && e.slain) this.showTimeEaterSlain();
-      else if (e.type === 'finalGuardian' && this.game.state.events['guardian-rift'].completed === 1) this.showRiftConquered();
-      // Driven back again on a later run: it can't die, and it's stronger for every timeline it has swallowed.
-      else if (e.type === 'finalGuardian' && this.game.state.regression.runs > 0) this.showTimeEaterAgain();
+      // Brought to half its health while it can't die: it persists (once it has faded away on the field).
+      else if (e.type === 'finalGuardian') this.showTimeEaterPersists();
+      else if (e.type === 'regressionUnlocked') this.showRegressionUnlocked();
       else if (e.type === 'eventStart' || e.type === 'eventEnd' || e.type === 'guardianFail') this.refresh();
       else if (e.type === 'loot') {
         const d = gearDef(e.gear);
@@ -3991,7 +3994,7 @@ export class AppUI {
       const lv = g.state.items[it.id];
       const maxed = lv >= itemMaxStars(it);
       const owned = it.once ? (lv ? 'Crafted' : 'Not crafted yet') : `<span class="stars">${starsHtml(lv)}</span>`;
-      body.innerHTML = `<p class="gear-now"><b class="rarity-tag" style="--rc:${RARITIES[it.rarity].color}">${RARITIES[it.rarity].name}</b> upgrade · ${upgradeReach(it)} · ${owned}</p><p><b>${it.describe(itemLevel(it, it.once ? 1 : lv))}</b>${maxed || it.once ? '' : ` → ${it.describe(itemLevel(it, lv + 1))}`}</p>${
+      body.innerHTML = `<p class="gear-now"><b class="rarity-tag" style="--rc:${RARITIES[it.rarity].color}">${RARITIES[it.rarity].name}</b> upgrade · ${upgradeReach(it)} · ${owned}</p>${it.flavor ? `<p class="fc-flavor">${it.flavor}</p>` : ''}<p><b>${it.describe(itemLevel(it, it.once ? 1 : lv))}</b>${maxed || it.once ? '' : ` → ${it.describe(itemLevel(it, lv + 1))}`}</p>${
         maxed ? '' : `<div class="fc-label">${lv ? 'Upgrade cost' : 'Recipe'}</div><div class="fc-cost">${recipeHtml(g, itemCost(it, lv))}</div>`
       }`;
       const btn = el('button', 'buy', maxed ? (it.once ? 'Crafted' : 'MAX') : it.once || !lv ? 'Craft' : 'Upgrade') as HTMLButtonElement;
@@ -4083,7 +4086,7 @@ export class AppUI {
       const f = this.craftFilter;
       if (!((f.type === 'all' || f.type === 'upgrades') && f.rarity === 'any' && f.dtype === 'any' && f.bonus === 'any')) return;
       for (const [title, list] of [
-        ['Available Upgrades', ITEMS.filter((it) => g.state.items[it.id] < itemMaxStars(it) && this.upgradeShown(it.id))],
+        ['Available Upgrades', ITEMS.filter((it) => g.state.items[it.id] < itemMaxStars(it) && g.itemOffered(it.id) && this.upgradeShown(it.id))],
         ['Completed Upgrades', ITEMS.filter((it) => g.state.items[it.id] >= itemMaxStars(it))],
       ] as const) {
         if (!list.length) continue;
@@ -4107,7 +4110,7 @@ export class AppUI {
     };
     this.refreshers.push(() => {
       buildGear();
-      const k = JSON.stringify(this.craftFilter) + ITEMS.map((it) => (g.state.items[it.id] >= itemMaxStars(it) ? 1 : this.upgradeShown(it.id) ? 2 : 0)).join('');
+      const k = JSON.stringify(this.craftFilter) + ITEMS.map((it) => (g.state.items[it.id] >= itemMaxStars(it) ? 1 : g.itemOffered(it.id) && this.upgradeShown(it.id) ? 2 : 0)).join('');
       if (k !== crafted) {
         crafted = k;
         buildUpgrades();
@@ -4186,7 +4189,7 @@ export class AppUI {
         const at = (stars: number) => item.describe(itemLevel(item, stars));
         const top = itemMaxStars(item);
         $('.fc-effect', card).innerHTML = item.once
-          ? `<b>${at(1)}</b>`
+          ? `${item.flavor ? `<span class="fc-flavor">${item.flavor}</span>` : ''}<b>${at(1)}</b>`
           : lineTable(
               lv
                 ? [[`Now ${lv}★`, at(lv)], ...(maxed ? [] : ([[`Next ${lv + 1}★`, at(lv + 1)]] as Array<[string, string]>)), ...(lv + 1 < top ? ([[`Max ${top}★`, at(top)]] as Array<[string, string]>) : [])]
@@ -4928,30 +4931,50 @@ export class AppUI {
     });
   }
 
-  /** The first time the Time Eater falls: the Hunters' attempt to kill it, then the Void Rift is conquered. */
-  private showRiftConquered(): void {
+  /**
+   * The Time Eater persists: brought to half its health, it stopped time, shattered every shield and faded away. Shown
+   * once it's gone from the field. Before Regression is open, it points to the Time Release its shards craft.
+   */
+  private showTimeEaterPersists(): void {
     this.lastPopup = performance.now();
-    playCutscene(TIME_EATER_CUTSCENE, () => this.showRiftConqueredCard());
+    setTimeout(() => {
+      this.lastPopup = performance.now();
+      const g = this.game;
+      const title = `<h2 class="persist-title">${tx('popup.timeEaterPersists.title')}</h2>`;
+      if (!g.canRegress)
+        this.showModal(`${title}${txp('popup.timeEaterPersists.first', { rift: areaDef('rift').name, shards: materialDef('timeShard').name, item: itemDef('timeRelease').name })}`, [
+          { label: txt('popup.timeEaterPersists.ok'), secondary: true },
+          {
+            label: txt('popup.timeEaterPersists.craft'),
+            action: () => {
+              this.dropDetail();
+              this.invSub = 'crafting';
+              this.setTab('inventory');
+            },
+          },
+        ]);
+      else
+        this.showModal(`${title}${txp('popup.timeEaterPersists.again', { n: String(g.state.regression.runs) })}`, [
+          { label: txt('popup.timeEaterPersists.ok'), secondary: true },
+          { label: txt('popup.timeEaterPersists.regress'), action: () => this.openRegression('regress') },
+        ]);
+    }, PERSISTS_POPUP_DELAY);
   }
 
-  private showTimeEaterAgain(): void {
+  /** The Time Release is crafted: Regression is open, from the menu. */
+  private showRegressionUnlocked(): void {
     this.lastPopup = performance.now();
-    this.showModal(`<h2>${tx('popup.timeEaterAgain.title')}</h2>${txp('popup.timeEaterAgain.body', { n: String(this.game.state.regression.runs) })}`, [
-      { label: txt('popup.timeEaterAgain.ok'), secondary: true },
-      { label: txt('popup.timeEaterAgain.regress'), action: () => this.openRegression('regress') },
+    this.closeFieldCard();
+    this.showModal(`<h2>${tx('popup.regressionUnlocked.title')}</h2>${txp('popup.regressionUnlocked.body', {})}`, [
+      { label: txt('popup.regressionUnlocked.ok'), secondary: true },
+      { label: txt('popup.regressionUnlocked.regress'), action: () => this.openRegression('regress') },
     ]);
+    this.refresh();
   }
 
   private showTimeEaterSlain(): void {
     this.lastPopup = performance.now();
     this.showModal(`<h2>${tx('popup.timeEaterSlain.title')}</h2>${txp('popup.timeEaterSlain.body', {})}`, [{ label: txt('popup.timeEaterSlain.ok') }]);
-  }
-
-  private showRiftConqueredCard(): void {
-    this.showModal(`<h2>${tx('popup.rift.title')}</h2>${txp('popup.rift.body', { rift: areaDef('rift').name })}`, [
-      { label: txt('popup.rift.ok'), secondary: true },
-      { label: txt('popup.rift.regress'), action: () => this.openRegression('regress') },
-    ]);
   }
 
   /** The Areas tab opens with the second area (the Fey Grove). */

@@ -173,6 +173,15 @@ const GUST_TIME = 1;
 const FREEZE = { time: 2.6, first: 0.6, gap: 0.8 };
 /** A frozen slam on a Hunter who's already down: seconds it adds to the stun, and the most a stun can reach so. */
 const GUARDIAN_STACK = 0.8;
+/**
+ * The Time Eater persisting (at half health, before the Unbound Void Rift): time stops, and it strikes the ground
+ * `slams` times, sped up (its swing played `rate` times as fast), the first at `first` seconds and `gap` apart. The
+ * last strike shatters every shield and stuns every Hunter; then it glows red for `glow` seconds and fades away.
+ */
+export const PERSIST = { first: 0.8, gap: 0.3, slams: 9, rate: 2.5, glow: 1.6 };
+/** When the last slam lands, and when the Time Eater is gone. */
+const PERSIST_LAST = PERSIST.first + (PERSIST.slams - 1) * PERSIST.gap;
+export const PERSIST_TIME = PERSIST_LAST + PERSIST.glow;
 const GUARDIAN_STACK_MAX = 5;
 /** The Time Eater's echoes: the other Guardians' moves its ghosts can do. */
 const ECHOES: Array<{ type: EnemyId; move: GuardianMove }> = [
@@ -253,7 +262,9 @@ export interface Enemy {
   /** Out of reach for the moment (vanished, up in the air): it can't be hurt, and it's drawn faint or not at all. */
   phased?: boolean;
   /** The attack animation the renderer plays (a Guardian's): which one, and the field clock when it began. */
-  anim?: { key: string; at: number };
+  anim?: { key: string; at: number; /** Played faster (the Time Eater's sped-up slams). */ rate?: number };
+  /** The Time Eater persisting: how brightly it glows red (0 to 1) before it fades away. */
+  persist?: number;
   /** Hunter Hunter (a Forest Wolf evolution): it lunges at Hunters who come close. `dash`: seconds of lunge left; `cd`: until the next. */
   lunge?: { dash: number; cd: number };
   /** A Guardian still charging in (GUARDIAN_RUSH) from where it appeared: it slows to its walk once it reaches a Hunter. */
@@ -781,6 +792,11 @@ export type FieldEvent =
   | { type: 'wave'; x: number; y: number; r: number; time: number; color: string; /** Ba'al's: a ring of music notes. */ notes?: boolean }
   /** A hammer's ground slam: a shockwave ring of radius `r`. */
   | { type: 'slam'; x: number; y: number; r: number; color: string }
+  /**
+   * The Time Eater striking the ground as it persists, at its feet (it stands at x, y): `r` is how big, in its own
+   * size as drawn (`big`: the last, shattering strike).
+   */
+  | { type: 'quake'; x: number; y: number; r: number; color: string; big: boolean; foe: Enemy }
   /** Sciirj's Mountain Fist thrown from (x, y) at angle `a`; `r` is its reach. */
   | { type: 'punch'; x: number; y: number; a: number; r: number }
   /**
@@ -822,6 +838,8 @@ export class Field {
   /** Seconds left of the Frost Gargoyle's Wing Gust (no Hunter projectile can fly), and of the Time Eater's frozen time. */
   gust = 0;
   freeze = 0;
+  /** The Time Eater persisting (see PERSIST): it, seconds in, the beats done, and who dealt the blow that brought it to half. */
+  persisting: { e: Enemy; t: number; step: number; shooter: Shooter } | null = null;
   /** The Time Eater's echoes: a ghost of another Guardian, shown where it appears for a moment. */
   echoes: Array<{ type: EnemyId; x: number; y: number; t: number; max: number }> = [];
   puddles: Puddle[] = [];
@@ -1405,6 +1423,12 @@ export class Field {
       }
     }
 
+    // The Time Eater persisting: time stays stopped while it plays out.
+    if (this.persisting) {
+      this.runPersist(dt);
+      return;
+    }
+
     // Guardian moves: telegraphed strikes land, the Wing Gust passes, and in frozen time only the Time Eater moves.
     if (this.guardianMoves) {
       this.gust = Math.max(0, this.gust - dt);
@@ -1928,8 +1952,68 @@ export class Field {
   }
 
   /** Plays the anim `key` on the Guardian. */
-  private animate(e: Enemy, key: string): void {
-    e.anim = { key, at: this.clock };
+  private animate(e: Enemy, key: string, rate?: number): void {
+    e.anim = { key, at: this.clock, ...(rate ? { rate } : {}) };
+  }
+
+  /** The Time Eater, brought to half its health while it can't die: it persists (see PERSIST). */
+  private persist(e: Enemy, shooter: Shooter): void {
+    if (this.persisting) return;
+    this.persisting = { e, t: 0, step: 0, shooter };
+    e.gm = e.gm && { ...e.gm, move: null, t: 0, step: 0, hit: [] };
+    e.held = 0;
+    this.hazards = [];
+    this.freeze = PERSIST_TIME;
+    this.animate(e, 'special');
+  }
+
+  /** One step of the Time Eater persisting: its nine slams, the last one breaking every shield, then it glows and is gone. */
+  private runPersist(dt: number): void {
+    const p = this.persisting!;
+    const e = p.e;
+    const g = this.game;
+    p.t += dt;
+    this.freeze = Math.max(0.05, PERSIST_TIME - p.t);
+    // Its fight's clock stands still too.
+    g.bossTimer = Math.max(g.bossTimer, 1);
+    const beat = (at: number) => {
+      if (p.t < at || p.step > at) return false;
+      p.step = at + 1e-6;
+      return true;
+    };
+    // The swing's blade meets the ground about a third of the way in (12 frames a second, sped up).
+    const lead = 4 / (12 * PERSIST.rate);
+    for (let i = 0; i < PERSIST.slams; i++) {
+      const at = PERSIST.first + i * PERSIST.gap;
+      if (beat(at - lead)) this.animate(e, 'attack3', PERSIST.rate);
+      if (!beat(at)) continue;
+      const last = i === PERSIST.slams - 1;
+      // Each strike a little bigger than the last; the ninth a huge red one.
+      this.events.push({ type: 'quake', x: e.x, y: e.y, r: last ? 3 : 0.9 + i * 0.12, color: last ? '#ff3a3a' : '#c8b8ff', big: last, foe: e });
+      if (!last) continue;
+      this.events.push({ type: 'wave', x: e.x, y: e.y, r: 900, time: 0.6, color: '#ff3a3a' });
+      // Every shield shatters (shield charges, a moment of grace, a Valkyrie, a Bone Wall), and every Hunter goes down.
+      for (const s of this.summons) if (s.ab?.key === 'valkyrie') s.life = 0;
+      for (const h of this.hunterSpots()) {
+        const state = h.who === this.lead ? this : this.helpers.find((x) => x.id === h.who);
+        if (!state) continue;
+        if (state.guard > 0) this.events.push({ type: 'guard', x: h.x, y: h.y });
+        state.guard = 0;
+        state.guardAcc = 0;
+        state.immune = 0;
+        state.stun = 0;
+        this.knockOut(h.who, true, h.x, h.y);
+      }
+      this.boneWall = 0;
+    }
+    if (p.t > PERSIST_LAST) e.persist = Math.min(1, (p.t - PERSIST_LAST) / (PERSIST.glow * 0.6));
+    if (p.t < PERSIST_TIME) return;
+    // Gone: it counts as beaten (its spoils, the Rift's conquest), and time runs again.
+    this.persisting = null;
+    this.freeze = 0;
+    e.persist = 1;
+    e.hp = 0;
+    this.slain(e, p.shooter);
   }
 
   /** One step of a Guardian's move: each move is a short script, its beats at set seconds into it (`gm.t`). */
@@ -5561,7 +5645,7 @@ export class Field {
   }
 
   private damage(e: Enemy, dmg: number, crit: boolean, dirX: number, dirY: number, shooter: Shooter = 'main', dtype: DamageType = 'physical'): void {
-    if (e.hp <= 0 || e.phased) return;
+    if (e.hp <= 0 || e.phased || this.persisting?.e === e) return;
     if (e.mark) dmg *= 1 + e.mark.bonus;
     // The whole hit counts toward the Hunter's damage (their DPS), overkill and all, not just the health it took.
     this.game.noteDealt(shooter, dmg);
@@ -5575,7 +5659,16 @@ export class Field {
     this.events.push({ type: 'hit', x: e.x, y: e.y - e.r, dmg, crit, dtype, affinity: affinity(dtype, e.type) });
     // Some Guardians are beaten before their HP runs out (the Time Eater: at half).
     // (The Time Eater fights to the death once the Unbound Void Rift is yours.)
-    if (e.boss && e.hp > 0 && !(e.type === 'timeEater' && this.game.timeEaterMortal) && e.hp <= e.maxHp * (enemyDef(e.type).winAt ?? 0)) e.hp = 0;
+    const winAt = enemyDef(e.type).winAt ?? 0;
+    if (e.boss && e.hp > 0 && winAt && !(e.type === 'timeEater' && this.game.timeEaterMortal) && e.hp <= e.maxHp * winAt) {
+      // The Time Eater doesn't simply fall: it persists (see PERSIST), and counts as beaten once it has faded away.
+      if (e.type === 'timeEater') {
+        e.hp = e.maxHp * winAt;
+        this.persist(e, shooter);
+        return;
+      }
+      e.hp = 0;
+    }
     if (e.hp <= 0 && shooter !== 'main') {
       const t = this.game.tree(shooter);
       // Bloodfeast: a bleeding kill brings his Crimson Wave closer.
@@ -5591,41 +5684,44 @@ export class Field {
         this.combusting--;
       }
     }
-    if (e.hp <= 0) {
-      // A summoner's minion is worth nothing: no gold, drops or kill credit.
-      const reward: KillReward = e.minion ? { gold: 0, material: null, amount: 0 } : this.game.registerKill(e.type, e.boss, shooter, !!e.golden);
-      this.game.noteFieldGold(reward.gold);
-      // A summoner that dies with minions to spare bursts into them (a Broodmother's brood).
-      if (!e.minion && !e.boss && enemyDef(e.type).summoner?.onDeath) this.summonMinions(e, enemyDef(e.type).summoner!.onDeath!);
-      if (e.golden) this.say(e.x, e.y - 18, `×${GOLDEN_GOLD} GOLD!`, '#ffd84a', 12);
-      if (this.zones.length) this.raiseFallen(e);
-      if (!e.boss && !e.minion) {
-        const st = this.game.enemyStats(e.type);
-        // Splitting Slime and Fire Starter (evolutions).
-        if (st.split && !e.half && this.game.rng() < st.split) this.split(e);
-        // Kill effects that hurt other monsters (sticks, bursts) roll their chance once more for each step down a
-        // chain of them (see `chain`).
-        // Its own drop (FIRE_TRAILS: a Toadstool's poisonous caps, a Treant's sap; twigs otherwise).
-        const trail = FIRE_TRAILS[e.type];
-        if (st.fireTrail && (e.burn || (trail?.poison && e.poison)) && this.game.rng() < this.chained(st.fireTrail))
-          this.puddles.push({ shooter, x: e.x, y: e.y, r: STICKS_RADIUS, life: STICKS_LIFE, tick: PUDDLE_TICK, dmg: 0, abs: e.maxHp * STICKS_DAMAGE, dtype: trail?.dtype ?? 'fire', sticks: true, look: trail?.material, chain: this.chain + 1 });
-        // Undead that rise again, and monsters that burst (evolutions).
-        if (st.rise && !e.half && this.game.rng() < st.rise) this.rise(e);
-        if (st.burst && this.game.rng() < this.chained(st.burst)) this.inChain(() => this.burstAt(shooter, e));
-      }
-      this.releaseGhost(shooter, e);
-      // Withering Touch: a cursed monster's death passes the curse on.
-      if (e.wither) this.spreadWither(e);
-      this.bloodthirst(shooter);
-      this.quickDrawKill(shooter);
-      // Fireburst (an enchantment): monsters the weapon kills burst, hurting everything around them.
-      const burst = this.game.killBurst(shooter);
-      if (burst && this.game.rng() < this.chained(burst.chance)) this.inChain(() => this.abilityBurst(shooter, e.x, e.y, burst.radius, burst.base, burst.damageType));
-      this.events.push({ type: 'kill', x: e.x, y: e.y, enemy: e.type, boss: e.boss, reward, ...(e.boss ? { foe: e } : {}) });
-      // Double or Nothing (Ted in this area).
-      if (reward.luck === 'double') this.say(e.x, e.y - 14, '×2!', '#ffd84a', 11);
-      else if (reward.luck === 'bust') this.say(e.x, e.y - 14, 'BUST', '#9a9aa8', 9);
+    if (e.hp <= 0) this.slain(e, shooter);
+  }
+
+  /** A monster has fallen: its rewards, and everything its death sets off. */
+  private slain(e: Enemy, shooter: Shooter): void {
+    // A summoner's minion is worth nothing: no gold, drops or kill credit.
+    const reward: KillReward = e.minion ? { gold: 0, material: null, amount: 0 } : this.game.registerKill(e.type, e.boss, shooter, !!e.golden);
+    this.game.noteFieldGold(reward.gold);
+    // A summoner that dies with minions to spare bursts into them (a Broodmother's brood).
+    if (!e.minion && !e.boss && enemyDef(e.type).summoner?.onDeath) this.summonMinions(e, enemyDef(e.type).summoner!.onDeath!);
+    if (e.golden) this.say(e.x, e.y - 18, `×${GOLDEN_GOLD} GOLD!`, '#ffd84a', 12);
+    if (this.zones.length) this.raiseFallen(e);
+    if (!e.boss && !e.minion) {
+      const st = this.game.enemyStats(e.type);
+      // Splitting Slime and Fire Starter (evolutions).
+      if (st.split && !e.half && this.game.rng() < st.split) this.split(e);
+      // Kill effects that hurt other monsters (sticks, bursts) roll their chance once more for each step down a
+      // chain of them (see `chain`).
+      // Its own drop (FIRE_TRAILS: a Toadstool's poisonous caps, a Treant's sap; twigs otherwise).
+      const trail = FIRE_TRAILS[e.type];
+      if (st.fireTrail && (e.burn || (trail?.poison && e.poison)) && this.game.rng() < this.chained(st.fireTrail))
+        this.puddles.push({ shooter, x: e.x, y: e.y, r: STICKS_RADIUS, life: STICKS_LIFE, tick: PUDDLE_TICK, dmg: 0, abs: e.maxHp * STICKS_DAMAGE, dtype: trail?.dtype ?? 'fire', sticks: true, look: trail?.material, chain: this.chain + 1 });
+      // Undead that rise again, and monsters that burst (evolutions).
+      if (st.rise && !e.half && this.game.rng() < st.rise) this.rise(e);
+      if (st.burst && this.game.rng() < this.chained(st.burst)) this.inChain(() => this.burstAt(shooter, e));
     }
+    this.releaseGhost(shooter, e);
+    // Withering Touch: a cursed monster's death passes the curse on.
+    if (e.wither) this.spreadWither(e);
+    this.bloodthirst(shooter);
+    this.quickDrawKill(shooter);
+    // Fireburst (an enchantment): monsters the weapon kills burst, hurting everything around them.
+    const burst = this.game.killBurst(shooter);
+    if (burst && this.game.rng() < this.chained(burst.chance)) this.inChain(() => this.abilityBurst(shooter, e.x, e.y, burst.radius, burst.base, burst.damageType));
+    this.events.push({ type: 'kill', x: e.x, y: e.y, enemy: e.type, boss: e.boss, reward, ...(e.boss ? { foe: e } : {}) });
+    // Double or Nothing (Ted in this area).
+    if (reward.luck === 'double') this.say(e.x, e.y - 14, '×2!', '#ffd84a', 11);
+    else if (reward.luck === 'bust') this.say(e.x, e.y - 14, 'BUST', '#9a9aa8', 9);
   }
 
   /** Tap blast at a world position: damages every enemy in the radius. Works even while stunned. */

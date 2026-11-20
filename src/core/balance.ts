@@ -5831,6 +5831,7 @@ export type ItemId =
   | 'skyPotion'
   | 'stormPotion'
   | 'starPotion'
+  | 'timeRelease'
   | 'choiceCodex'
   | 'fateSigil';
 
@@ -5855,6 +5856,8 @@ export interface ItemDef {
   once?: boolean;
   /** Its pixel icon (a key into public/icons), drawn instead of the emoji. */
   sprite?: string;
+  /** A line of story, shown above what it does. */
+  flavor?: string;
   /** What it does at a strength (in steps; see itemLevel). */
   describe: (level: number) => string;
 }
@@ -5916,6 +5919,20 @@ export const ITEMS: ItemDef[] = [
   // Roll choices: each adds one more choice to every Refine and Enchant roll (2, then 3 from the Steps, 4 from the Rift).
   { id: 'choiceCodex', name: 'Codex of Choices', icon: '📘', sprite: 'rpg-items/292', rarity: 'exotic', once: true, maxLevel: 1, recipe: { orichalcum: 300, skysteel: 1_500, plume: 15_000 }, growth: 1, describe: () => '+1 choice on every Refine and Enchant roll' },
   { id: 'fateSigil', name: 'Sigil of Fate', icon: '🔯', sprite: 'rpg-items/261', rarity: 'exalted', once: true, maxLevel: 1, recipe: { voidPrism: 40, voidsteel: 1_500, soul: 20_000 }, growth: 1, describe: () => '+1 choice on every Refine and Enchant roll' },
+  // Time Release: the Time Eater's shards, from bringing it to half its health. Crafting it opens Regression (see Game.craft).
+  {
+    id: 'timeRelease',
+    name: 'Time Release',
+    icon: '⏳',
+    sprite: 'jewelry/042',
+    rarity: 'exalted',
+    once: true,
+    maxLevel: 1,
+    recipe: { timeShard: BOSS_MATERIAL_DROP },
+    growth: 1,
+    flavor: 'The Time Eater could not be defeated. But by stepping into the Void Rift, your Hunters can release themselves from time as well: going back to the very start, with every ability and memory kept, to grow stronger and try again.',
+    describe: () => 'Unlocks Regression',
+  },
   { id: 'starPotion', name: 'Star Energy Potion', icon: '🧪', sprite: 'rpg-items/010', rarity: 'artifact', once: true, maxLevel: 1, recipe: { adamantite: 250, starIron: 1_000, diamond: 50 }, growth: 1, describe: () => '+2h offline time' },
 ];
 

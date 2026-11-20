@@ -195,15 +195,17 @@ section(
 );
 section(
   P,
-  'popup.timeEaterAgain',
-  'Time Eater driven back again',
+  'popup.timeEaterPersists',
+  'Time Eater persists',
   {
-    title: 'It cannot die',
-    body: "Torn in half once more, the Time Eater swallows the moment and slips away into the Rift, as it always does.\n\nIt has eaten **{n}** of your timelines now, and every one has made it stronger. Nothing bound to time can kill it. Only once the **Unbound Void Rift** is yours can it be slain for good.",
+    title: 'The Time Eater persists',
+    first: "Torn in half, the Time Eater stopped time itself, shattered every shield and struck your Hunters down. Then it burned red and scattered into the dark of the **{rift}**.\n\nIt cannot be killed. Not like this. But it left its **{shards}** behind: craft the **{item}** from them in **Crafting**.",
+    again: "Torn in half once more, the Time Eater stops time, strikes your Hunters down and scatters into the Rift, as it always does.\n\nIt has eaten **{n}** of your timelines now, and every one has made it stronger. Nothing bound to time can kill it. Only once the **Unbound Void Rift** is yours can it be slain for good.",
     ok: 'Dismiss',
+    craft: 'To Crafting',
     regress: 'See Regression',
   },
-  { note: 'Each time the Time Eater is driven back after the first Regression.', vars: { n: 'Regressions so far' } },
+  { note: 'When the Time Eater is brought to half its health and fades away. "first" before Regression is open, "again" after.', vars: { rift: 'the Void Rift', shards: "the Time Eater's material", item: 'the Time Release', n: 'Regressions so far' } },
 );
 section(
   P,
@@ -218,15 +220,15 @@ section(
 );
 section(
   P,
-  'popup.rift',
-  'Time Eater defeated',
+  'popup.regressionUnlocked',
+  'Regression unlocked',
   {
-    title: 'Unbound from time',
-    body: "The Time Eater swallowed the moment, and you with it. Deep in the **{rift}**, your Hunters have come loose from time.\n\nYou can now **Regress**. Go back to the very beginning, keep every level and skill, and earn **Memory Shards** for everything this run has built. Spend them on the **Regression Tree** in the menu to come back stronger.",
+    title: 'Regression unlocked',
+    body: "Released from time, your Hunters can go back to the very beginning, keeping every level, skill and memory, and earn **Memory Shards** for everything this run has built. Spend them on the **Regression Tree** to come back stronger and face the Time Eater again.\n\n**Regression** can be accessed through the **menu**.",
     ok: 'Dismiss',
     regress: 'See Regression',
   },
-  { note: 'After the Time Eater cutscene, the first time it falls (it opens Regression).', vars: { rift: 'the Void Rift' } },
+  { note: 'When the Time Release is crafted (it opens Regression).' },
 );
 section(
   P,

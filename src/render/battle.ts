@@ -105,6 +105,8 @@ export class BattleView {
   private fx = new Fx();
   private pickups: Pickup[] = [];
   private rings: Ring[] = [];
+  /** The Time Eater's strikes on the ground as it persists: a flash, a ring rolling out and cracks, at (x, y). */
+  private quakes: Array<{ x: number; y: number; r: number; t: number; max: number; color: string; cracks: number[] }> = [];
   /** Ba'al's sound waves: a ring of music notes swelling out to its reach, then fading. */
   private noteRings: Array<{ x: number; y: number; max: number; time: number; t: number; color: string }> = [];
   /** When each puddle first appeared (for its bubbles' animation). */
@@ -132,7 +134,7 @@ export class BattleView {
     return (this.game.state.events['guardian-rift']?.runs ?? 0) > 0 && this.reveal < 0;
   }
   /** Fallen Guardians playing their death where they fell (a copy of the Guardian as it was, and when it fell). */
-  private falls: Array<{ e: Enemy; at: number }> = [];
+  private falls: Array<{ e: Enemy; at: number; /** Fading into particles (the Time Eater persisting) rather than its death. */ dissolve?: boolean }> = [];
   private sweeps: Array<{ x: number; y: number; a: number; arc: number; r: number; color: string; t: number; blade?: boolean }> = [];
   private time = 0;
   private shake = 0;
@@ -175,7 +177,7 @@ export class BattleView {
     game.on((e) => {
       if (e.type === 'guardianFail') this.showBanner('The Guardian retreats…', '#ffb04d');
       if (e.type === 'areaUnlocked') this.showBanner(`${areaDef(e.area).name} unlocked!`, '#9fe0ff');
-      else if (e.type === 'finalGuardian') this.showBanner(e.slain ? 'The Time Eater is slain!' : 'The Time Eater is driven back!', '#ffe36e');
+      else if (e.type === 'finalGuardian') this.showBanner(e.slain ? 'The Time Eater is slain!' : 'The Time Eater persists', e.slain ? '#ffe36e' : '#ff3a3a');
       if (e.type === 'unlock') this.showBanner(`${enemyDef(e.enemy).name}s now roam!`, enemyDef(e.enemy).color);
       // The Time Eater's first challenge: the Rift shakes, the great wings looming over it lift away, and it walks
       // in from where they were (it had been watching all along).
@@ -250,7 +252,9 @@ export class BattleView {
           const busy = !e.boss && (this.field.enemies.length > BUSY_ENEMIES || this.anims.length > BUSY_ANIMS);
           // A Guardian with a death in its pack plays it where it fell (no puff hiding it).
           const deathSheet = e.foe && guardianDeath(e.foe);
-          if (deathSheet) this.falls.push({ e: { ...e.foe!, flash: 0, anim: undefined, gm: undefined, phased: false }, at: this.time });
+          // The Time Eater persisting fades away into red motes instead.
+          if (e.foe?.persist) this.falls.push({ e: { ...e.foe, flash: 0, gm: undefined, phased: false }, at: this.time, dissolve: true });
+          else if (deathSheet) this.falls.push({ e: { ...e.foe!, flash: 0, anim: undefined, gm: undefined, phased: false }, at: this.time });
           else if (this.fancy && !busy) this.playEffect('puff', e.x, e.y, e.boss ? 90 : 26, 'center', 22);
           this.fx.burst(e.x, e.y, color, e.boss ? 40 : busy ? 2 : 8, e.boss ? 260 : 140, e.boss ? 5 : 3, 0);
           if (e.reward.gold > 0 && (e.boss || this.coinBudget(busy))) this.dropPickup(e.x, e.y, '#ffd34d', false, e.boss ? 12 : 1);
@@ -334,6 +338,19 @@ export class BattleView {
           if (e.notes) this.noteRings.push({ x: e.x, y: e.y, max: e.r, time: e.time, t: 0, color: e.color });
           else this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: hexRgb(e.color), max: e.time + 0.1, grow: true });
           break;
+        case 'quake': {
+          // The Time Eater strikes the ground: a jolt, rubble thrown up, and the ground flashing and cracking.
+          this.shake = Math.max(this.shake, e.big ? 0.9 : 0.35);
+          sfx(e.big ? 'guardianKill' : 'explosion');
+          const n = e.big ? 10 : 6;
+          // At its feet, as big as it's drawn.
+          const size = e.foe.r * SIZE_SCALE[enemyDef(e.foe.type).size ?? 'medium'] * (e.foe.scale ?? 1) * SHEET_SCALE * CHAR_SCALE;
+          const y = e.y + size * QUAKE_FEET;
+          this.quakes.push({ x: e.x, y, r: e.r * size, t: 0, max: e.big ? 0.9 : 0.45, color: hexRgb(e.color), cracks: Array.from({ length: n }, (_, i) => ((i + Math.random() * 0.6) / n) * Math.PI * 2) });
+          this.fx.burst(e.x, y, '#6a5a72', e.big ? 30 : 12, e.big ? 420 : 240, 5, 700, true);
+          this.fx.burst(e.x, y, e.big ? '#ff5a4a' : '#c8b8ff', e.big ? 20 : 6, e.big ? 360 : 200, 3, 500, true);
+          break;
+        }
         case 'slam':
           // A hammer's ground slam: an impact that bursts into a shockwave ring (a plain ring in Basic), dust
           // kicked up all around, and a jolt.
@@ -456,6 +473,8 @@ export class BattleView {
     }
     this.pickups = this.pickups.filter((p) => p.t < 0.35 || Math.hypot(p.x, p.y) > PLAYER_RADIUS);
     for (const r of this.rings) r.t += dt;
+    for (const q of this.quakes) q.t += dt;
+    this.quakes = this.quakes.filter((q) => q.t < q.max);
     for (const b of this.blasts) b.t += dt;
     this.blasts = this.blasts.filter((b) => b.t < BLAST_TIME);
     for (const a of this.anims) a.t += dt;
@@ -528,11 +547,29 @@ export class BattleView {
   /** Fallen Guardians: their death played through, the last frame held a moment, then fading away. */
   private drawFalls(g: CanvasRenderingContext2D): void {
     this.falls = this.falls.filter((f) => {
+      if (f.dissolve) return this.time - f.at < DISSOLVE.time;
       const n = GUARDIAN_DEATHS[guardianDeath(f.e)!];
       return this.time - f.at < n / DEATH_FPS + DEATH_HOLD + DEATH_FADE;
     });
     for (const f of this.falls) {
       const t = this.time - f.at;
+      if (f.dissolve) {
+        // Glowing red, it comes apart: motes drift up off it as it fades, thinning out as it goes.
+        const k = t / DISSOLVE.time;
+        // Its body as drawn (the box its sheet is sized by), with the wings out past it.
+        const size = f.e.r * SIZE_SCALE[enemyDef(f.e.type).size ?? 'medium'] * (f.e.scale ?? 1) * SHEET_SCALE * CHAR_SCALE;
+        const n = Math.round(DISSOLVE.motes * (1 - k));
+        for (let i = 0; i < n; i++) {
+          const x = f.e.x + (Math.random() - 0.5) * size * 2.2;
+          const y = f.e.y + (Math.random() - 0.5) * size * 1.4;
+          this.fx.burst(x, y, Math.random() < 0.6 ? '#ff3a3a' : Math.random() < 0.5 ? '#ff9a7a' : '#7a0c14', 1, 50, 3.5, -120, true);
+        }
+        g.save();
+        g.globalAlpha = Math.max(0, 1 - k) ** 1.5;
+        this.scaledAt(g, f.e.x, f.e.y, () => this.drawEnemy(g, f.e));
+        g.restore();
+        continue;
+      }
       const end = GUARDIAN_DEATHS[guardianDeath(f.e)!] / DEATH_FPS + DEATH_HOLD + DEATH_FADE;
       g.save();
       g.globalAlpha = Math.max(0, Math.min(1, (end - t) / DEATH_FADE));
@@ -929,23 +966,10 @@ export class BattleView {
       g.globalAlpha = 1;
     }
 
-    for (const a of this.anims) {
-      const img = effectImage(a.key);
-      if (!img) continue;
-      // A fading one rises to its opacity and falls back over its frames (a half sine).
-      const life = (a.t * a.fps) / Math.max(1, EFFECTS[a.key].frames - a.start);
-      g.globalAlpha = a.fade ? a.alpha * Math.sin(Math.PI * Math.min(1, Math.max(0, life))) : a.alpha;
-      if (a.angle) {
-        g.save();
-        g.translate(a.x, a.y);
-        g.rotate(a.angle);
-        drawEffectFrame(g, tinted(img, a.color), a.key, a.start + Math.floor(a.t * a.fps), 0, 0, a.size, a.anchor);
-        g.restore();
-      } else drawEffectFrame(g, tinted(img, a.color), a.key, a.start + Math.floor(a.t * a.fps), a.x, a.y, a.size, a.anchor);
-      g.globalAlpha = 1;
-    }
+    for (const a of this.anims) this.drawAnim(g, a);
     this.drawStrikes(g, false);
     this.drawPhantoms(g);
+    this.drawQuakes(g);
 
     // Ba'al's sound waves: the staff of notes in his colour over a dark copy (so it reads on light ground), turning
     // as it swells out to its reach, then fading.
@@ -1007,13 +1031,13 @@ export class BattleView {
       g.fillStyle = 'hsl(0, 0%, 50%)';
       g.fillRect(0, 0, w, h);
       g.restore();
-      if (boss) {
-        g.save();
-        g.translate(w / 2, h / 2);
-        g.scale(Z, Z);
-        this.scaledAt(g, boss.x, boss.y, () => this.drawEnemy(g, boss));
-        g.restore();
-      }
+      g.save();
+      g.translate(w / 2, h / 2);
+      g.scale(Z, Z);
+      // The Time Eater persisting: its strikes on the ground keep their colour too (under it).
+      if (this.field.persisting) this.drawQuakes(g);
+      if (boss) this.scaledAt(g, boss.x, boss.y, () => this.drawEnemy(g, boss));
+      g.restore();
     }
     if (scene?.vignette) drawVignette(g, w, h, scene.vignette);
     this.drawHud(g);
@@ -1197,6 +1221,40 @@ export class BattleView {
   }
 
   /** Spear thrusts and fists: those aimed up the field (`behind`, drawn before the Hunters) or the rest. */
+  /** The Time Eater's strikes on the ground (see `quakes`), flattened to lie on it. */
+  private drawQuakes(g: CanvasRenderingContext2D): void {
+    for (const q of this.quakes) {
+      const k = q.t / q.max;
+      const out = 1 - (1 - k) * (1 - k);
+      g.save();
+      g.translate(q.x, q.y);
+      // Cracks first, running out from where it struck.
+      g.strokeStyle = `rgba(20,8,16,${0.8 * (1 - k)})`;
+      g.lineWidth = 3;
+      for (const a of q.cracks) {
+        const len = q.r * 0.9 * Math.min(1, k * 4);
+        g.beginPath();
+        g.moveTo(0, 0);
+        g.lineTo(Math.cos(a) * len * 0.5 + Math.sin(a * 3) * 6, Math.sin(a) * len * 0.25);
+        g.lineTo(Math.cos(a) * len, Math.sin(a) * len * 0.45);
+        g.stroke();
+      }
+      g.scale(1, 0.45);
+      // The ground flashes where it struck...
+      g.fillStyle = `rgba(${q.color},${0.55 * (1 - k)})`;
+      g.beginPath();
+      g.arc(0, 0, q.r * (0.25 + 0.35 * out), 0, Math.PI * 2);
+      g.fill();
+      // ...and a ring rolls out across it.
+      g.strokeStyle = `rgba(${q.color},${1 - k})`;
+      g.lineWidth = 2 + 10 * (1 - k);
+      g.beginPath();
+      g.arc(0, 0, q.r * (0.2 + 0.8 * out), 0, Math.PI * 2);
+      g.stroke();
+      g.restore();
+    }
+  }
+
   private drawStrikes(g: CanvasRenderingContext2D, behind: boolean): void {
     for (const st of this.strikes) {
       if (aimsAway(st.a) !== behind) continue;
@@ -1838,6 +1896,23 @@ export class BattleView {
     g.restore();
   }
 
+  /** One playing effect, at its frame. */
+  private drawAnim(g: CanvasRenderingContext2D, a: Anim): void {
+    const img = effectImage(a.key);
+    if (!img) return;
+    // A fading one rises to its opacity and falls back over its frames (a half sine).
+    const life = (a.t * a.fps) / Math.max(1, EFFECTS[a.key].frames - a.start);
+    g.globalAlpha = a.fade ? a.alpha * Math.sin(Math.PI * Math.min(1, Math.max(0, life))) : a.alpha;
+    if (a.angle) {
+      g.save();
+      g.translate(a.x, a.y);
+      g.rotate(a.angle);
+      drawEffectFrame(g, tinted(img, a.color), a.key, a.start + Math.floor(a.t * a.fps), 0, 0, a.size, a.anchor);
+      g.restore();
+    } else drawEffectFrame(g, tinted(img, a.color), a.key, a.start + Math.floor(a.t * a.fps), a.x, a.y, a.size, a.anchor);
+    g.globalAlpha = 1;
+  }
+
   private playEffect(key: EffectKey, x: number, y: number, size: number, anchor: 'center' | 'bottom' = 'center', fps = 18, start = 0, alpha = 1, color?: string, angle?: number, fade = false): void {
     if (this.anims.length > (key === 'arrows' ? 170 : 120)) return; // keep the busiest moments cheap (arrows get a little more room)
     this.anims.push({ key, x, y, size, anchor, fps, t: 0, start, alpha, color, ...(angle ? { angle } : {}), ...(fade ? { fade } : {}) });
@@ -1893,9 +1968,10 @@ export class BattleView {
       const atkImg = atk ? monsterSheetImage(`${sheetKey}-${e.anim!.key}`) : null;
       if (e.phased) g.globalAlpha *= 0.25;
       if (atk && atkImg && atkImg.complete && atkImg.naturalWidth > 0) {
-        const f = Math.floor((this.field.clock - e.anim!.at) * 12);
+        const f = Math.floor((this.field.clock - e.anim!.at) * 12 * (e.anim!.rate ?? 1));
         if (f < atk || e.gm?.move) {
           drawSheetFrame(g, atkImg, { ...sh, cols: atk }, 0, Math.min(f, atk - 1), ra * SHEET_SCALE, { of: atkImg, alpha: this.monsterClarity(e) });
+          if (e.persist) redGlow(g, atkImg, { ...sh, cols: atk }, 0, Math.min(f, atk - 1), ra * SHEET_SCALE, e.persist, this.time);
           if (flip) g.scale(-1, 1);
           g.globalAlpha = 1;
           g.restore();
@@ -1911,6 +1987,7 @@ export class BattleView {
         g.restore();
       }
       drawSheetFrame(g, src, sh, sheetRow(sh, dir), col, ra * SHEET_SCALE, { of: sheet, alpha: this.monsterClarity(e) });
+      if (e.persist) redGlow(g, sheet, sh, sheetRow(sh, dir), col, ra * SHEET_SCALE, e.persist, this.time);
       if (e.phased) g.globalAlpha = 1;
       if (e.flash > 0.5) {
         g.globalAlpha = 0.5;
@@ -3036,6 +3113,12 @@ function drawStatus(g: CanvasRenderingContext2D, e: Enemy, t: number, on: (k: Fx
 /** Each attack style gets its own simple look. */
 /** The Time Eater's entrance (seconds): the rumble, when the wings start to lift and how long they take, and when it comes on. */
 const REVEAL = { shake: 1.7, lift: 0.35, slide: 1.2, spawn: 1.9 };
+
+/** Where the Time Eater's feet are, below where it stands, in its size as drawn. */
+const QUAKE_FEET = 0.62;
+
+/** The Time Eater fading away as it persists: seconds it takes, and motes shed a frame at the start. */
+const DISSOLVE = { time: 1.8, motes: 6 };
 
 /** Guardian deaths: frames a second, then seconds the last frame is held and seconds it fades over. */
 const DEATH_FPS = 10;
@@ -4247,6 +4330,36 @@ function charmTint(img: HTMLImageElement | HTMLCanvasElement): HTMLCanvasElement
 
 /** A gold copy of a monster's art, for a gold monster (cached per image). */
 const goldCache = new WeakMap<HTMLImageElement | HTMLCanvasElement, HTMLCanvasElement>();
+/** The Time Eater glowing bright red as it persists (`k` 0 to 1): a red-hot copy over it, haloed, pulsing. */
+function redGlow(g: CanvasRenderingContext2D, img: HTMLImageElement, sh: MonsterSheet, row: number, col: number, size: number, k: number, time: number): void {
+  const pulse = 0.85 + 0.15 * Math.sin(time * 14);
+  g.save();
+  g.shadowColor = '#ff2020';
+  g.shadowBlur = 18 * k * pulse;
+  g.globalAlpha *= k;
+  drawSheetFrame(g, outlineOf(img, '#ff4a3a', 2), sh, row, col, size);
+  g.shadowBlur = 0;
+  g.globalAlpha *= 0.8 * pulse;
+  drawSheetFrame(g, redTint(img), sh, row, col, size);
+  g.restore();
+}
+
+const redCache = new WeakMap<object, HTMLCanvasElement>();
+function redTint(img: HTMLImageElement | HTMLCanvasElement): HTMLCanvasElement {
+  const hit = redCache.get(img);
+  if (hit) return hit;
+  const c = document.createElement('canvas');
+  c.width = img.width;
+  c.height = img.height;
+  const x = c.getContext('2d')!;
+  x.drawImage(img, 0, 0);
+  x.globalCompositeOperation = 'source-atop';
+  x.fillStyle = 'rgba(255,40,30,0.75)';
+  x.fillRect(0, 0, c.width, c.height);
+  redCache.set(img, c);
+  return c;
+}
+
 function goldTint(img: HTMLImageElement | HTMLCanvasElement): HTMLCanvasElement {
   const hit = goldCache.get(img);
   if (hit) return hit;

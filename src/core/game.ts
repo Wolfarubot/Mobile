@@ -269,6 +269,8 @@ export type GameEvent =
   | { type: 'eventComplete'; event: string }
   /** The last area's Guardian (the Time Eater) fell: the Void Rift is conquered. */
   | { type: 'finalGuardian'; slain: boolean }
+  /** The Time Release was crafted: Regression is open. */
+  | { type: 'regressionUnlocked' }
   /** A monster dropped a piece of gear (auto-salvaged into materials if its rarity is set to). */
   | { type: 'loot'; gear: GearId; stars: number; salvaged: boolean }
   /** Materials a kill on the field dropped (for the battlefield's pick-up pop-ups). */
@@ -2013,7 +2015,7 @@ export class Game {
     return shardsNow(this.state);
   }
 
-  /** You can regress once the Time Eater has swallowed the first run. */
+  /** You can regress once the Time Release is crafted (from the shards of the Time Eater, brought to half its health). */
   get canRegress(): boolean {
     return this.state.regression.unlocked;
   }
@@ -3042,8 +3044,8 @@ export class Game {
         s.areas[next].unlocked = true;
         this.emit({ type: 'areaUnlocked', area: next });
       } else if (!nextAreaOf(s.area)) {
-        // The Time Eater swallows the run: from now on you can regress. (Slain for good with the Unbound Void Rift.)
-        s.regression.unlocked = true;
+        // The Time Eater persists (slain for good only with the Unbound Void Rift): its shards craft the Time
+        // Release, which opens Regression.
         this.emit({ type: 'finalGuardian', slain: this.timeEaterMortal });
       }
       return { gold, material: e.material, amount: BOSS_MATERIAL_DROP * doom };
@@ -3869,7 +3871,14 @@ export class Game {
 
   // ---- Forge ----
 
+  /** Whether an Upgrade is on offer in Crafting at all (the Time Release only until Regression is open). */
+  itemOffered(id: ItemId): boolean {
+    return id !== 'timeRelease' || !this.state.regression.unlocked || this.state.items[id] > 0;
+  }
+
   canCraft(id: ItemId): boolean {
+    // The Time Release only opens Regression: once it's open, there's nothing for it to do.
+    if (id === 'timeRelease' && this.state.regression.unlocked) return false;
     const def = itemDef(id);
     const stars = this.state.items[id];
     if (stars >= itemMaxStars(def)) return false;
@@ -3883,6 +3892,10 @@ export class Game {
     for (const [m, n] of Object.entries(cost) as [MaterialId, number][]) this.state.materials[m] -= n;
     this.state.items[id]++;
     this.state.stats.upgrades++;
+    if (id === 'timeRelease') {
+      this.state.regression.unlocked = true;
+      this.emit({ type: 'regressionUnlocked' });
+    }
     this.rev++;
     return true;
   }

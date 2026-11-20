@@ -192,7 +192,7 @@ import {
   MERCHANT_MATERIALS,
 } from '../src/core/balance';
 import { regress } from '../src/core/regression';
-import { CHARM_MAX, CHARM_TIME, DICE_FLIGHT, Field, SLAM_OFFSET, SUMMON_RUN, type Enemy } from '../src/core/field';
+import { CHARM_MAX, CHARM_TIME, DICE_FLIGHT, Field, PERSIST_TIME, SLAM_OFFSET, SUMMON_RUN, type Enemy } from '../src/core/field';
 import { mergeSample, runSample, SAMPLE_KEEP } from '../src/core/sampler';
 import { GATED } from '../src/core/gates';
 import { boardCells, RM_BOARDS } from '../src/ui/minigames/runeMatch';
@@ -344,6 +344,10 @@ describe('Areas', () => {
     const boss = enemy({ id: 1, type: 'timeEater', boss: true, x: 100, hp: max * 0.5 + g.tapDamage * GUARDIAN_TAP_TAKEN * 0.5, maxHp: max, r: 40 });
     f.enemies.push(boss);
     f.tap(100, 0); // one tap (half of it taken, as by any Guardian) takes it just past half
+    // It persists first (time stopped while it strikes the ground), then it's gone, beaten.
+    expect(boss.hp).toBe(max * 0.5);
+    expect(events).not.toContain('finalGuardian');
+    for (let t = 0; t < PERSIST_TIME + 0.2; t += 0.05) f.update(0.05);
     expect(boss.hp).toBe(0);
     expect(events).toContain('finalGuardian');
   });

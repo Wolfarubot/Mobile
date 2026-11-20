@@ -9167,3 +9167,14 @@ body .title-row .quick-type .cyc-cur {
 .modal-box.gear-sheet .gs-foot {
   margin-top: 8px;
 }
+
+/* The Time Eater persists: its pop-up's title in red. */
+.modal-box h2.persist-title {
+  color: #ff3a3a !important;
+}
+/* An Upgrade's line of story (the Time Release), above what it does. */
+.fc-flavor {
+  display: block;
+  margin-bottom: 6px;
+  opacity: 0.9;
+}

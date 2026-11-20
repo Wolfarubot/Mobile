@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { areaDef, weaponHit, UNBOUND_GEAR, UNBOUND_GEAR_TIERS, gearTier, GEAR_WORTH_WEIGHT, gearCost, gearDef, HUNTERS, MATERIAL_WORTH, MATERIALS, regNode, REGRESSION_LINKS, REGRESSION_TREE, shardsFor, SHARD_POWER, TIME_EATER_GROWTH, timeEaterGrowth, type MaterialId } from '../src/core/balance';
 import { Game } from '../src/core/game';
-import { Field } from '../src/core/field';
+import { Field, PERSIST, PERSIST_TIME } from '../src/core/field';
 import { estimateInvested, gearInvested, regress, runWorth } from '../src/core/regression';
 import { deserialize, newGame, serialize, type GameState } from '../src/core/state';
 
@@ -384,6 +384,73 @@ describe('The Time Eater', () => {
     expect(at('meteors', 2)).toBe(at('meteors', 0));
   });
 
+  it('persists at half its health: time stops, nine slams, the last shatters every shield and stuns every Hunter', () => {
+    const s = newGame(0);
+    s.area = 'rift';
+    s.areas.rift.unlocked = true;
+    const g = new Game(s, noCrit);
+    const f = new Field(g);
+    f.setView(390, 420);
+    s.areas.rift.kills = 1e12;
+    s.events.shadowTide.completed = 1;
+    s.energy = 10;
+    expect(g.challengeGuardian()).toBe(true);
+    for (let i = 0; i < 5 && !f.enemies.some((e) => e.boss); i++) f.update(0.05);
+    const boss = f.enemies.find((e) => e.boss)!;
+    const slams: unknown[] = [];
+    boss.hp = boss.maxHp * 0.5 + 0.01;
+    f.tap(boss.x, boss.y);
+    expect(f.persisting?.e).toBe(boss);
+    expect(boss.hp).toBe(boss.maxHp * 0.5);
+    // No more harm comes to it while it plays out.
+    f.tap(boss.x, boss.y);
+    expect(boss.hp).toBe(boss.maxHp * 0.5);
+    // A shield charge, just before the last slam: it's shattered, and the Hunter goes down anyway.
+    let t = 0;
+    const lastAt = PERSIST.first + (PERSIST.slams - 1) * PERSIST.gap;
+    for (; t < lastAt - 0.1; t += 0.05) {
+      f.update(0.05);
+      slams.push(...f.events.filter((e) => e.type === 'quake'));
+      f.events = [];
+    }
+    expect(f.stun).toBe(0);
+    expect(f.freeze).toBeGreaterThan(0);
+    f.guard = 3;
+    for (; t < lastAt + 0.2; t += 0.05) {
+      f.update(0.05);
+      slams.push(...f.events.filter((e) => e.type === 'quake'));
+      f.events = [];
+    }
+    expect(slams).toHaveLength(PERSIST.slams);
+    expect(f.guard).toBe(0);
+    expect(f.stun).toBeGreaterThan(0);
+    expect(boss.persist).toBeGreaterThan(0);
+    // Then it's gone, and beaten; its shards drop, but Regression waits on the Time Release.
+    for (; t < PERSIST_TIME + 0.2; t += 0.05) f.update(0.05);
+    expect(boss.hp).toBe(0);
+    expect(f.persisting).toBeNull();
+    expect(s.events['guardian-rift'].completed).toBe(1);
+    expect(s.materials.timeShard).toBeGreaterThan(0);
+    expect(g.canRegress).toBe(false);
+  });
+
+  it('the Time Release, crafted from Shards of Time, opens Regression (and is off the list once it is open)', () => {
+    const g = new Game(newGame(0), noCrit);
+    const events: string[] = [];
+    g.on((e) => events.push(e.type));
+    expect(g.canCraft('timeRelease')).toBe(false);
+    g.state.materials.timeShard = 10;
+    expect(g.canCraft('timeRelease')).toBe(true);
+    expect(g.craft('timeRelease')).toBe(true);
+    expect(g.canRegress).toBe(true);
+    expect(events).toContain('regressionUnlocked');
+    // A later run (Upgrades start over): it isn't offered again.
+    g.state.items.timeRelease = 0;
+    g.state.materials.timeShard = 10;
+    expect(g.itemOffered('timeRelease')).toBe(false);
+    expect(g.canCraft('timeRelease')).toBe(false);
+  });
+
   it('is only driven back at half its health, until the Unbound Void Rift is yours: then it can be slain', () => {
     const run = (mortal: boolean) => {
       const s = newGame(0);
@@ -405,9 +472,13 @@ describe('The Time Eater', () => {
       // A blow that takes it just past half its health.
       boss.hp = boss.maxHp * 0.5 + 0.01;
       f.tap(boss.x, boss.y);
-      return { left: boss.hp, events };
+      // Driven back, it persists first: time stops while it strikes the ground and fades away.
+      const held = boss.hp;
+      for (let t = 0; t < PERSIST_TIME + 0.2; t += 0.05) f.update(0.05);
+      return { held, left: boss.hp, events };
     };
     const driven = run(false);
+    expect(driven.held).toBeGreaterThan(0);
     expect(driven.left).toBe(0);
     expect(driven.events.find((e) => e.type === 'finalGuardian')).toEqual({ type: 'finalGuardian', slain: false });
     // With the Unbound Void Rift it fights on past half, to the death.
