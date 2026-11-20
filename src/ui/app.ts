@@ -4145,7 +4145,8 @@ export class AppUI {
       <div class="fc-owned"></div>
       <div class="fc-label">Recipe</div>
       <div class="fc-cost"></div></div>
-      <button class="buy fc-craft"></button>`;
+      <button class="buy fc-craft"></button>
+      <button class="fc-grow" aria-label="Expand"></button>`;
     $('.fc-close', card).addEventListener('click', () => this.closeFieldCard());
     // The details scroll between the pinned close button and Craft button; the last line fades while there's more.
     const scroller = $('.fc-scroll', card);
@@ -4207,13 +4208,31 @@ export class AppUI {
     };
     // Over the battlefield; with the menu raised to full screen, it floats under the top bar instead.
     // In landscape it can open over the menu's column instead (Settings → Crafting card).
+    // Over the battlefield, its arrow opens the large version (as with the menu raised) and back; the choice is kept,
+    // so the next recipe's card opens the same way.
+    const grow = $<HTMLButtonElement>('.fc-grow', card);
+    const place = () => {
+      const big = g.state.settings.craftCardBig;
+      card.classList.toggle('floating', big);
+      card.classList.toggle('big', big);
+      grow.setAttribute('aria-label', big ? 'Shrink' : 'Expand');
+      (big ? document.body : $('.battle-wrap')).appendChild(card);
+    };
     if (g.state.settings.craftCardPos === 'menu' && document.body.classList.contains('landscape')) {
       card.classList.add('over-menu');
+      grow.remove();
       document.body.appendChild(card);
     } else if (this.menuFull) {
       card.classList.add('floating');
+      grow.remove();
       document.body.appendChild(card);
-    } else $('.battle-wrap').appendChild(card);
+    } else {
+      grow.addEventListener('click', () => {
+        g.state.settings.craftCardBig = !g.state.settings.craftCardBig;
+        place();
+      });
+      place();
+    }
     this.fieldCard = { el: card, update };
     update();
   }

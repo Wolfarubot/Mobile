@@ -309,6 +309,8 @@ export interface GameState {
     textSize: TextSize;
     /** In landscape, where a recipe's card opens: over the battlefield (default) or over the menu's column. */
     craftCardPos: CraftCardPos;
+    /** A recipe's card opens in its large version (its arrow toggles it; the last choice is kept for the next). */
+    craftCardBig: boolean;
     /** Sound effects and music: switches and volumes. */
     audio: AudioSettings;
   };
@@ -469,7 +471,7 @@ export function newGame(now = Date.now()): GameState {
     nextGearUid: 4,
     lastSeen: now,
     samples: {},
-    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', lootPopups: true, hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', advancedTips: false, maxTrainPopup: true, autoSkillPopup: true, autoEvoPopup: true, autoSalvage: [], fx: allFx(), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium', orientation: 'rotate', fps: '60', textSize: 'medium', craftCardPos: 'battlefield', audio: defaultAudio() },
+    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', lootPopups: true, hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', advancedTips: false, maxTrainPopup: true, autoSkillPopup: true, autoEvoPopup: true, autoSalvage: [], fx: allFx(), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium', orientation: 'rotate', fps: '60', textSize: 'medium', craftCardPos: 'battlefield', craftCardBig: false, audio: defaultAudio() },
     flags: { eventsIntro: false, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false, minigameIntro: false, questsIntro: false, feedbackIntro: false, quickTrainIntro: false, salvageIntro: false },
     blessings: { refine: 0, enchant: 0 },
     energy: ENERGY_MAX,
@@ -819,6 +821,7 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
       fps: pick(FRAME_RATES, (data.settings as { fps?: unknown } | undefined)?.fps, '60'),
       textSize: pick(TEXT_SIZES, (data.settings as { textSize?: unknown } | undefined)?.textSize, 'medium'),
       craftCardPos: pick(CRAFT_CARD_POSITIONS, (data.settings as { craftCardPos?: unknown } | undefined)?.craftCardPos, 'battlefield'),
+      craftCardBig: (data.settings as { craftCardBig?: unknown } | undefined)?.craftCardBig === true,
       audio: readAudio(data.settings as Record<string, unknown> | undefined),
     },
     flags: {
