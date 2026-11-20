@@ -5,7 +5,8 @@ The ability packs (ab-*) each hold two classes, 50 icons apiece, and each half i
 panel, a darker shade, two accents and a shared cream). Each Hunter has a home half (`home` in skill_sources.json). A
 node whose icon (its source in `sources`) is from another half is redrawn in the home half's five colours: the source
 half's colours, ranked by brightness, map to the home half's at the same rank, so dark stays dark and the cream art
-stays cream. Results go to public/icons/skill/<tree>-<node>.png ("+" in an Ascended tree's name becomes "_asc").
+stays cream. Nodes listed under `damage` (your Hunter's tap ability unlocks) are drawn in their damage type's colours
+instead, matching the tap ability's own icon, so they stand out. Results go to public/icons/skill/<tree>-<node>.png ("+" in an Ascended tree's name becomes "_asc").
 
 Sources are each node's pick in skill_picks.json, else the icon it had (and the Ascend node, shared by everyone,
 starts from Paladin 019). Run from the repo root:
@@ -19,6 +20,17 @@ from PIL import Image
 CFG = json.load(open('tools/icons/skill_sources.json'))
 PICKS = json.load(open('tools/icons/skill_picks.json'))
 OUT = 'public/icons/skill'
+
+# Damage types' five colours, darkest first: the same as the cooldown icons' (src/render/cdIcons.ts).
+DAMAGE = {
+    'physical': 'ab-cavalier-monk:2', 'fire': 'ab-pyro-hydro:1', 'frost': 'ab-pyro-hydro:2', 'radiant': 'ab-paladin-dk:1',
+    'arcane': 'ab-rogue-warlock:2', 'decay': 'ab-gunslinger-druid:2', 'lightning': 'ab-geo-aero:2',
+    'poison': ['#0f240a', '#1f4a14', '#3a8a2a', '#6fdc5a', '#efd8a1'],
+    'acid': ['#1f240a', '#3a4a0a', '#8ab820', '#d6f050', '#efd8a1'],
+    'void': ['#1a0820', '#3d0f4a', '#9a2a8a', '#ff5fd7', '#efd8a1'],
+}
+# Nodes that unlock a tap ability stand out in their element's colours (as the tap ability's own icon), not the Hunter's.
+NODE_DAMAGE = CFG.get('damage', {})
 
 
 def half(key):
@@ -45,8 +57,13 @@ def palette(h):
     return _pal[h]
 
 
+def hexes(p):
+    return [tuple(int(c[i:i + 2], 16) for i in (1, 3, 5)) for c in p]
+
+
 def recolor(src, home):
-    a, b = palette(half(src)), palette(home)
+    a = palette(half(src))
+    b = hexes(home) if isinstance(home, list) else palette(home)
     im = Image.open(f'public/icons/{src}.png').convert('RGBA')
     near = lambda c: min(range(len(a)), key=lambda i: sum((x - y) ** 2 for x, y in zip(c, a[i])))
     cache = {}
@@ -70,6 +87,8 @@ def main():
         src = PICKS.get(key, CFG['sources'][key])
         tree = key.split('/')[0]
         h = home[tree.rstrip('+')]
+        if key in NODE_DAMAGE:
+            h = DAMAGE[NODE_DAMAGE[key]]
         if half(src) == h:
             sprites[key] = src
         else:

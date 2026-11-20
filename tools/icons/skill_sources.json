@@ -597,5 +597,11 @@
 "riftwalker+/precision": "ab-geo-aero/081",
 "riftwalker+/fortune": "ab-geo-aero/076",
 "riftwalker+/capstone": "ab-geo-aero/092"
+},
+"damage": {
+"main/flameTap": "fire",
+"main/frostTap": "frost",
+"main/thunderTap": "lightning",
+"main/meltingMiasma": "poison"
 }
 }
