@@ -9057,3 +9057,113 @@ body .title-row .quick-type .cyc-cur {
 .modify-sheet .refine-note {
   text-align: center;
 }
+
+/* ---- A piece's card from Inventory (openGearDetail): built like the crafting card. ---- */
+.modal-box.sheet.gear-sheet {
+  position: relative;
+}
+.gear-sheet h2 {
+  margin-bottom: 2px;
+}
+/* The ✕ sits just under the window, on the right, where a thumb rests. */
+.modal-box.sheet.gear-sheet {
+  overflow: visible;
+  margin-bottom: 58px;
+}
+.gear-sheet .gs-close {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 46px;
+  height: 46px;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  background: #c8352f;
+  border: 2px solid #000;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.45);
+}
+.gear-sheet .gs-close .close-x {
+  width: 22px;
+  height: 22px;
+}
+.gear-sheet .gs-sub {
+  margin: 0 0 6px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.gear-sheet .gs-sub .worn-by {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin: 0;
+}
+.gear-sheet .sheet-body.more {
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 34px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 34px), transparent);
+}
+/* Attack speed: a line below the stats upgrading raises. */
+.stat-table .st-row.st-apart {
+  margin-top: 10px;
+}
+.gear-sheet .mod-slots .filter-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.gear-sheet .gs-modify {
+  width: auto;
+  min-height: 0;
+  padding: 3px 10px;
+  font-size: 12px;
+}
+.gear-sheet .mod-slot {
+  padding: 4px 8px;
+}
+/* Always in view: the next star's cost over Equip, Upgrade and a narrow Salvage. */
+.gear-sheet .gs-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+.gear-sheet .gs-cost {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  padding-top: 6px;
+  border-top: 2px dashed color-mix(in srgb, currentColor 25%, transparent);
+  font-size: 12px;
+}
+.gear-sheet .gs-cost > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.gear-sheet .gs-cost .short {
+  color: var(--danger);
+}
+.gear-sheet .gs-cost-label {
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.gear-sheet .gs-foot .actions {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+}
+.modal-box.gear-sheet .gs-foot .actions .buy {
+  flex: 1 1 0;
+  padding: 8px 6px;
+}
+.modal-box.gear-sheet .gs-foot .actions .gs-salvage {
+  flex: 0 0 52px;
+  min-width: 0;
+  padding: 0;
+}
+.modal-box.gear-sheet .gs-foot {
+  margin-top: 8px;
+}

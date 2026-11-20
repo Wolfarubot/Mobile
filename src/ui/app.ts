@@ -2029,66 +2029,95 @@ export class AppUI {
   }
 
   /** Details for one inventory piece: upgrade or salvage. */
+  /**
+   * A piece's card (tapped in Inventory): built like the crafting card, with its ✕ just under the window (where a thumb
+   * rests). Its name and one line of
+   * rarity, kind, stars and who wears it; then, scrolling (the last line fades while there's more), its tags, its stats
+   * (now and at the next star, with a weapon's attack speed a line below, apart from what upgrading raises) and its
+   * modifiers (Modify beside their heading) and the next star's cost; and, always in view, Equip, Upgrade and Salvage.
+   */
   private openGearDetail(uid: number): void {
     const g = this.game;
     const item = g.gearItem(uid);
     if (!item) return;
     const gd = gearDef(item.base);
-    this.showSheet(`${gearIcon(gd)} ${gd.name}`, (body, close) => {
-      const worn = g.wearerOf(uid);
-      const cost = g.gearUpgradeCost(uid);
-      body.innerHTML = `
-        <p><b class="rarity-tag" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${gearKindName(gd)} · <span class="stars">${starsHtml(item.stars)}</span>${gd.unboundOf ? ' · <span class="ub-tag">Unbound</span>' : ''}</p>
+    this.showSheet(
+      `${gearIcon(gd)} ${gd.name}`,
+      (body, close) => {
+        const box = body.closest('.modal-box') as HTMLElement;
+        box.classList.add('gear-sheet');
+        const worn = g.wearerOf(uid);
+        const cost = g.gearUpgradeCost(uid);
+        const cols = cost ? [{ label: `Now ${item.stars}★`, stars: item.stars }, { label: `Next ${item.stars + 1}★`, stars: item.stars + 1 }] : [{ label: `${item.stars}★`, stars: item.stars }];
+        // Attack speed doesn't change with stars: only under the current ones, so it doesn't read as something upgrading raises.
+        const speed = gd.weaponClass ? [{ label: 'Attacks/s', values: cols.map((c, i) => (i ? '' : String(Number(weaponSpeed(gd, c.stars).toFixed(2))))) }] : [];
+        const x = el('button', 'gs-close');
+        x.setAttribute('aria-label', 'Close');
+        x.innerHTML = '<span class="close-x"></span>';
+        x.addEventListener('click', close);
+        box.appendChild(x);
+        const sub = el('p', 'gs-sub');
+        sub.innerHTML = `<b class="rarity-tag" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${gearKindName(gd)} · <span class="stars">${starsHtml(item.stars)}</span>${gd.unboundOf ? ' · <span class="ub-tag">Unbound</span>' : ''}${worn ? ` · <span class="worn-by">${wearerIcon(worn.who)} ${wearerName(worn.who)}</span>` : ''}`;
+        $('h2', box).after(sub);
+        body.innerHTML = `
         ${gd.unboundOf ? '<p class="hd-note">Unbound: an Unbound area\'s piece, as strong as that area. It stays through every Regression.</p>' : ''}
-        ${worn ? `<p class="worn-by">${wearerIcon(worn.who)} Worn by <b>${wearerName(worn.who)}</b></p>` : ''}
-        ${gd.weaponClass ? `<p class="gear-speed">${Number(weaponSpeed(gd, item.stars).toFixed(2))} attacks/s <small>(your Hunter, before training and skills)</small></p>` : ''}
         ${featureTags(gd, item.stars)}
-        ${statTable(gd, cost ? [{ label: `Now ${item.stars}★`, stars: item.stars }, { label: `Next ${item.stars + 1}★`, stars: item.stars + 1 }] : [{ label: `${item.stars}★`, stars: item.stars }]) || (gd.effect || gd.identity ? '' : '<p class="gear-now">No bonuses: plain everyday wear.</p>')}
+        ${statTable(gd, cols, speed) || (gd.effect || gd.identity ? '' : '<p class="gear-now">No bonuses: plain everyday wear.</p>')}
         ${modSlotsHtml(g, uid)}
         ${cost ? `<div class="fc-label">Upgrade cost</div><div class="fc-cost">${recipeHtml(g, cost, g.gearUpgradeGold(uid) ?? 0)}</div>` : ''}`;
-      // Under the modifier slots: Modify (once Kargesh or Marceline has joined).
-      if (g.modifiable(uid)) {
-        const rb = el('button', 'buy refine-open', '🛠️ Modify') as HTMLButtonElement;
-        rb.addEventListener('click', () => {
+        // Modify (once Kargesh or Marceline has joined): beside the Modifiers heading.
+        if (g.modifiable(uid)) {
+          const rb = el('button', 'buy gs-modify', '🛠️ Modify') as HTMLButtonElement;
+          rb.addEventListener('click', () => {
+            close();
+            this.openModify(uid);
+          });
+          body.querySelector('.mod-slots .filter-label')?.appendChild(rb);
+        }
+        // The details scroll; the last line fades while there's more below.
+        const fade = () => body.classList.toggle('more', body.scrollTop + body.clientHeight < body.scrollHeight - 2);
+        body.addEventListener('scroll', fade, { passive: true });
+        requestAnimationFrame(fade);
+        // Always in view: the buttons.
+        const foot = $('.buttons', box);
+        foot.classList.add('gs-foot');
+        const actions = el('div', 'actions');
+        const equip = el('button', 'buy', 'Equip') as HTMLButtonElement;
+        equip.addEventListener('click', () => {
           close();
-          this.openModify(uid);
+          this.openEquipScreen(uid);
         });
-        body.querySelector('.mod-slots')?.after(rb);
-      }
-      const actions = el('div', 'actions');
-      const equip = el('button', 'buy', 'Equip') as HTMLButtonElement;
-      equip.addEventListener('click', () => {
-        close();
-        this.openEquipScreen(uid);
-      });
-      actions.appendChild(equip);
-      if (cost) {
-        const up = el('button', 'buy', `Upgrade to ${item.stars + 1}★`) as HTMLButtonElement;
-        up.disabled = !g.canUpgradeGear(uid);
-        up.addEventListener('click', () => {
-          // Redrawn with its new stars, scrolled where it was (so the Upgrade button stays under your finger).
-          const top = body.scrollTop;
-          g.upgradeGear(uid);
+        actions.appendChild(equip);
+        if (cost) {
+          const up = el('button', 'buy', 'Upgrade') as HTMLButtonElement;
+          up.disabled = !g.canUpgradeGear(uid);
+          up.addEventListener('click', () => {
+            // Redrawn with its new stars, scrolled where it was.
+            const top = body.scrollTop;
+            g.upgradeGear(uid);
+            close();
+            this.openGearDetail(uid);
+            $('.sheet-body', this.modal).scrollTop = top;
+          });
+          actions.appendChild(up);
+        }
+        const salvage = el('button', 'buy danger-btn gs-salvage', worn ? '🔒' : '🗑️') as HTMLButtonElement;
+        salvage.title = worn ? 'Worn: unequip to salvage' : 'Salvage';
+        salvage.disabled = !!worn;
+        salvage.addEventListener('click', () => {
+          const refund = g.salvageValue(uid);
           close();
-          this.openGearDetail(uid);
-          $('.sheet-body', this.modal).scrollTop = top;
+          const gold = g.salvageGold(uid);
+          this.showModal(`<h2>${tx('popup.salvage.title', { item: gd.name })}</h2>${txp(gold ? 'popup.salvage.bodyMods' : 'popup.salvage.body')}<div class="cost" style="justify-content:center">${costHtml(g, refund, false)}${gold ? `<span>🪙 ${fmt(gold)}</span>` : ''}</div>`, [
+            { label: txt('popup.salvage.cancel'), secondary: true },
+            { label: txt('popup.salvage.ok'), action: () => g.salvageGear(uid) },
+          ]);
         });
-        actions.appendChild(up);
-      }
-      const salvage = el('button', 'buy danger-btn', worn ? 'Worn: unequip to salvage' : 'Salvage') as HTMLButtonElement;
-      salvage.disabled = !!worn;
-      salvage.addEventListener('click', () => {
-        const refund = g.salvageValue(uid);
-        close();
-        const gold = g.salvageGold(uid);
-        this.showModal(`<h2>${tx('popup.salvage.title', { item: gd.name })}</h2>${txp(gold ? 'popup.salvage.bodyMods' : 'popup.salvage.body')}<div class="cost" style="justify-content:center">${costHtml(g, refund, false)}${gold ? `<span>🪙 ${fmt(gold)}</span>` : ''}</div>`, [
-          { label: txt('popup.salvage.cancel'), secondary: true },
-          { label: txt('popup.salvage.ok'), action: () => g.salvageGear(uid) },
-        ]);
-      });
-      actions.appendChild(salvage);
-      body.appendChild(actions);
-    });
+        actions.appendChild(salvage);
+        foot.appendChild(actions);
+      },
+      true,
+    );
   }
 
   /**
@@ -8034,7 +8063,7 @@ function statValue(k: GearStat, v: number): string {
  * A piece's stats as a table, one stat per row and one column per star count (e.g. 1★ and 5★, or Now and Next),
  * its ability's own damage last. Empty when the piece raises nothing.
  */
-function statTable(gd: GearDef, cols: Array<{ label: string; stars: number }>): string {
+function statTable(gd: GearDef, cols: Array<{ label: string; stars: number }>, apart: Array<{ label: string; values: string[] }> = []): string {
   const totals = cols.map((c) => gearTotals(gd, c.stars));
   const keys = BONUS_FILTERS.map((b) => b.id).filter((k) => totals.some((t) => (t[k] ?? 0) !== 0));
   const rows = keys.map((k) => `<div class="st-row"><span>${BONUS_FILTERS.find((b) => b.id === k)!.name}</span>${totals.map((t) => `<b>${statValue(k, t[k] ?? 0)}</b>`).join('')}</div>`);
@@ -8047,8 +8076,10 @@ function statTable(gd: GearDef, cols: Array<{ label: string; stars: number }>): 
   }
   for (const ef of [gd.identity, gd.effect])
     if (ef && 'base' in ef) rows.push(`<div class="st-row"><span>${ef.kind === 'summon' ? 'Summon' : ef.kind === 'pulse' ? 'Pulse' : ef.kind === 'thorns' ? 'Thorns' : 'Ability'} damage</span>${cols.map((c) => `<b>${fmt(effectBase(ef, c.stars, gd))}</b>`).join('')}</div>`);
-  if (!rows.length) return '';
-  return `<div class="stat-table" style="--cols:${cols.length}"><div class="st-row st-head"><span></span>${cols.map((c) => `<b>${c.label}</b>`).join('')}</div>${rows.join('')}</div>`;
+  // Rows set a line apart below (a weapon's attack speed): shown at the same stars, but not what upgrading is about.
+  const below = apart.map((a, i) => `<div class="st-row${i ? '' : ' st-apart'}"><span>${a.label}</span>${a.values.map((v) => `<b>${v}</b>`).join('')}</div>`);
+  if (!rows.length && !below.length) return '';
+  return `<div class="stat-table" style="--cols:${cols.length}"><div class="st-row st-head"><span></span>${cols.map((c) => `<b>${c.label}</b>`).join('')}</div>${rows.join('')}${below.join('')}</div>`;
 }
 
 /** Lines that read top to bottom: a label on the left, its text on the right. */
