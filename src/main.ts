@@ -16,6 +16,8 @@ import { BattleView } from './render/battle';
 // Emoji anywhere in the UI are drawn as pixel-art icons.
 installEmojiIcons();
 initSound();
+// iPhone Safari can hold back a tap's click while the field is busy: send it on finger up instead.
+if (isIosWebKit()) installIosTap();
 import { AppUI } from './ui/app';
 import { TEXT_REGISTRY, txt } from './core/textRegistry';
 
@@ -24,6 +26,7 @@ if (import.meta.env.DEV) (window as unknown as { __texts: typeof TEXT_REGISTRY }
 import { perfFrame, perfOn } from './ui/perfMeter';
 import { SamplerHost } from './ui/samplerHost';
 import { initSound } from './ui/sound';
+import { installIosTap, isIosWebKit } from './ui/iosTap';
 
 const AUTOSAVE_SEC = 10;
 /** The loading screen stays at least this long from launch, and until everything has loaded. */
