@@ -1055,7 +1055,7 @@ describe('Offline drops', () => {
       seconds: 60,
       kills: Object.fromEntries(roster.map((e) => [e.id, 30])),
       gold: 1000,
-      materials: Object.fromEntries(roster.map((e) => [e.material, 10])),
+      materials: Object.fromEntries(roster.flatMap((e) => [e.material, ...enemyExtraDrops(enemyDef(e.id)).map((d) => d.material)]).map((m) => [m, 10])),
       stuns: {},
       down: {},
       hunterKills: { main: 30 * roster.length },

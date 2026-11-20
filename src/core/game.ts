@@ -336,8 +336,8 @@ export interface FarmRates {
 /** Seconds of the battlefield the live DPS and gold meters average over, and the fewest before they show. */
 /** Stationed groups' background farming: paid out this often (s); at most this many areas' rates worked out again a frame. */
 const STATION_STEP = 0.5;
-/** Goes up when samples are measured differently, so the ones in saves are measured again (2: gold counted from 0). */
-const SAMPLE_VERSION = 2;
+/** Goes up when samples are measured differently, so the ones in saves are measured again (2: gold counted from 0; 3: monsters' own new drops). */
+const SAMPLE_VERSION = 3;
 const STATION_RECALCS = 2;
 /** The minigame buffs that run on time (they scale farming rates while on). */
 const TIMED_BUFFS = (Object.keys(MINIGAME_BUFFS) as MinigameId[]).filter((id) => MINIGAME_BUFFS[id].kind === 'timed');
