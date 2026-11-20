@@ -16,7 +16,8 @@ import { areaBackground, areaScene, drawVignette, RIFT_WINGS, type SceneProp } f
 import { GUARDIAN_ANIMS, GUARDIAN_DEATHS, MONSTER_SHEETS, SHEETS, sheetRow, sideFlip, type MonsterSheet } from './monsterSheets';
 import { GEAR_SPRITES } from '../core/gearSprites';
 import { emojiIconKey } from '../ui/emojiIcons';
-import { HUNTER_ICONS, hunterIconHtml } from '../ui/hunterIcons';
+import { tintedIconUrl } from './cdIcons';
+import { HUNTER_ICONS } from '../ui/hunterIcons';
 import { drawFramedBar, TIMER_COLOR } from './hudBars';
 import { outlineOf } from './outline';
 
@@ -3664,9 +3665,11 @@ class CooldownBar {
         const el = document.createElement('div');
         el.className = 'cd-icon';
         el.title = c.name;
-        // A Hunter's special shows that Hunter's own icon; gear shows its emoji's icon.
-        const icon = c.key in HUNTER_ICONS ? hunterIconHtml(c.key as keyof typeof HUNTER_ICONS) : c.icon;
+        // An ability-pack icon (a Hunter's special: that Hunter's own) in its damage type's colours, or the Hunter's.
+        const art = c.art ?? HUNTER_ICONS[c.key as keyof typeof HUNTER_ICONS];
+        const icon = art ? '<img class="ei" alt="">' : c.icon;
         el.innerHTML = `<span class="cd-gray">${icon}</span><span class="cd-color">${icon}</span><i class="cd-line"></i>`;
+        if (art) void tintedIconUrl(art, c.tint).then((url) => el.querySelectorAll('img').forEach((im) => (im.src = url)));
         ic = { el, color: el.querySelector('.cd-color') as HTMLSpanElement, line: el.querySelector('.cd-line') as HTMLElement, ready: c.progress >= 1 };
         this.icons.set(c.key, ic);
       }

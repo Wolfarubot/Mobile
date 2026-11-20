@@ -83,6 +83,7 @@ import {
   type TreeStat,
 } from './balance';
 import type { Game, GearMode, KillReward, Shooter } from './game';
+import { DASH_ART, gearCooldownArt, specialTint, TAP_ART, WALL_ART, type CooldownTint } from './cooldownArt';
 
 export const PLAYER_RADIUS = 13;
 /** How often (s) the battlefield works out again the numbers it keeps (see Field.slowly). */
@@ -459,6 +460,9 @@ export interface CooldownView {
   icon: string;
   name: string;
   progress: number;
+  /** Its ability-pack icon (a Hunter's special leaves it out: it shows their own icon) and the colours it's drawn in. */
+  art?: string;
+  tint: CooldownTint;
 }
 
 /** Where stationed Hunters stand, relative to your Hunter (room for them all at their drawn size). */
@@ -3150,34 +3154,39 @@ export class Field {
     // Items' own abilities (not the weapon's basic cooldown): e.g. the Wolf Spirit tome's lunge.
     const w = this.weaponDef(this.lead);
     const dash = w?.summon?.dash;
-    if (w && dash && this.game.weaponClassOf(this.lead)?.summon) out.push({ key: `item:${w.id}`, icon: w.icon, name: w.name, progress: 1 - this.dashCd / (dash.cooldown * this.game.cooldownMult(this.lead)) });
+    if (w && dash && this.game.weaponClassOf(this.lead)?.summon)
+      out.push({ key: `item:${w.id}`, icon: w.icon, name: w.name, art: DASH_ART, tint: w.damageType ?? 'physical', progress: 1 - this.dashCd / (dash.cooldown * this.game.cooldownMult(this.lead)) });
     // Flame Burst's ignite and Melting Miasma's puddle (your tap ability: not while another area is observed).
     if (this.lead !== 'main') {
       // A Guild Hunter in the middle: their special and Bone Wall, as beside you.
-      const sp = hunterDef(this.lead).special;
-      if (sp) out.push({ key: this.lead, icon: hunterDef(this.lead).icon, name: hunterDef(this.lead).name, progress: 1 - Math.max(0, this.leadCaster.specialCd) / (sp.cooldown * this.game.cooldownMult(this.lead)) });
-      const wall = hunterDef(this.lead).wall;
-      if (wall) out.push({ key: `wall:${this.lead}`, icon: '🦴', name: `${hunterDef(this.lead).name}'s ${wall.name}`, progress: 1 - this.leadWallCd / wall.cooldown });
-    } else if (this.game.tapAbility === 'flame') out.push({ key: 'tap:flame', icon: '🔥', name: 'Flame Burst', progress: 1 - this.flameCd / (FLAME_BURST_COOLDOWN * this.game.cooldownMult('main')) });
-    else if (this.game.tapAbility === 'frost') out.push({ key: 'tap:frost', icon: '❄️', name: 'Frost Nova', progress: 1 - this.frostCd / (FROST_NOVA.cooldown * this.game.cooldownMult('main')) });
-    else if (this.game.tapAbility === 'miasma') out.push({ key: 'tap:miasma', icon: '☠️', name: 'Melting Miasma', progress: 1 - this.miasmaCd / (MIASMA_PUDDLE.cooldown * this.game.cooldownMult('main')) });
+      const def = hunterDef(this.lead);
+      const sp = def.special;
+      if (sp) out.push({ key: this.lead, icon: def.icon, name: def.name, tint: specialTint(this.lead, sp), progress: 1 - Math.max(0, this.leadCaster.specialCd) / (sp.cooldown * this.game.cooldownMult(this.lead)) });
+      const wall = def.wall;
+      if (wall) out.push({ key: `wall:${this.lead}`, icon: '🦴', name: `${def.name}'s ${wall.name}`, art: WALL_ART, tint: 'physical', progress: 1 - this.leadWallCd / wall.cooldown });
+    } else if (this.game.tapAbility === 'flame') out.push({ key: 'tap:flame', icon: '🔥', name: 'Flame Burst', art: TAP_ART.flame, tint: 'fire', progress: 1 - this.flameCd / (FLAME_BURST_COOLDOWN * this.game.cooldownMult('main')) });
+    else if (this.game.tapAbility === 'frost') out.push({ key: 'tap:frost', icon: '❄️', name: 'Frost Nova', art: TAP_ART.frost, tint: 'frost', progress: 1 - this.frostCd / (FROST_NOVA.cooldown * this.game.cooldownMult('main')) });
+    else if (this.game.tapAbility === 'miasma') out.push({ key: 'tap:miasma', icon: '☠️', name: 'Melting Miasma', art: TAP_ART.miasma, tint: 'acid', progress: 1 - this.miasmaCd / (MIASMA_PUDDLE.cooldown * this.game.cooldownMult('main')) });
     for (const who of [this.lead, ...this.helpers.map((h) => h.id)]) {
       for (const { uid, def, effect } of this.game.gearEffects(who)) {
         const cd = effectCooldown(effect);
         if (cd === null) continue;
         const left = this.gearCd.get(`${who}:${uid}`) ?? 0;
-        out.push({ key: `gear:${who}:${uid}`, icon: def.icon, name: who === 'main' ? def.name : `${hunterDef(who as HunterId).name}'s ${def.name}`, progress: 1 - Math.max(0, left) / (cd * this.game.cooldownMult(who)) });
+        const look = gearCooldownArt(effect, who) ?? { art: undefined, tint: { hunter: who } };
+        out.push({ key: `gear:${who}:${uid}`, icon: def.icon, name: who === 'main' ? def.name : `${hunterDef(who as HunterId).name}'s ${def.name}`, ...look, progress: 1 - Math.max(0, left) / (cd * this.game.cooldownMult(who)) });
       }
     }
     for (const h of this.helpers) {
       const hw = this.weaponDef(h.id);
       const hd = hw?.summon?.dash;
-      if (hw && hd && this.game.weaponClassOf(h.id)?.summon) out.push({ key: `item:${h.id}:${hw.id}`, icon: hw.icon, name: `${hunterDef(h.id).name}'s ${hw.name}`, progress: 1 - h.dashCd / (hd.cooldown * this.game.cooldownMult(h.id)) });
-      const sp = hunterDef(h.id).special;
-      if (sp) out.push({ key: h.id, icon: hunterDef(h.id).icon, name: hunterDef(h.id).name, progress: 1 - Math.max(0, h.specialCd) / (sp.cooldown * this.game.cooldownMult(h.id)) });
+      if (hw && hd && this.game.weaponClassOf(h.id)?.summon)
+        out.push({ key: `item:${h.id}:${hw.id}`, icon: hw.icon, name: `${hunterDef(h.id).name}'s ${hw.name}`, art: DASH_ART, tint: hw.damageType ?? 'physical', progress: 1 - h.dashCd / (hd.cooldown * this.game.cooldownMult(h.id)) });
+      const def = hunterDef(h.id);
+      const sp = def.special;
+      if (sp) out.push({ key: h.id, icon: def.icon, name: def.name, tint: specialTint(h.id, sp), progress: 1 - Math.max(0, h.specialCd) / (sp.cooldown * this.game.cooldownMult(h.id)) });
       // Gideon's Bone Wall has its own cooldown (it rises when he's stunned).
-      const wall = hunterDef(h.id).wall;
-      if (wall) out.push({ key: `wall:${h.id}`, icon: '🦴', name: `${hunterDef(h.id).name}'s ${wall.name}`, progress: 1 - h.wallCd / wall.cooldown });
+      const wall = def.wall;
+      if (wall) out.push({ key: `wall:${h.id}`, icon: '🦴', name: `${def.name}'s ${wall.name}`, art: WALL_ART, tint: 'physical', progress: 1 - h.wallCd / wall.cooldown });
     }
     return out;
   }
