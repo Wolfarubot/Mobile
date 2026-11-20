@@ -2820,7 +2820,7 @@ export const DAMAGE_TYPES: Record<DamageType, { name: string; icon: string; colo
   arcane: { name: 'Arcane', icon: '🔮', color: '#c08cff', effect: `Exposes: removes its resistances for ${STATUS.expose.duration} seconds`, simple: 'Has a chance to expose monsters, stripping away their resistances for a short time.' },
   decay: { name: 'Decay', icon: '🥀', color: '#b09a60', effect: `Dark aura: it hurts the monsters around it for ${STATUS.aura.duration} seconds`, simple: 'Has a chance to wrap monsters in a dark aura that hurts the monsters around them.' },
   lightning: { name: 'Lightning', icon: '⚡', color: '#8fb4ff', effect: `Arcs: ${STATUS.arc.share * 100}% of the hit jumps to another creature nearby, striking everything it passes through`, simple: 'Has a chance to arc to another monster nearby, striking everything it passes through.' },
-  void: { name: 'Void', icon: '🌀', color: '#ff5fd7', effect: `Gravity well: for ${STATUS.well.duration} seconds it pulls the monsters around it in toward itself. Two wells pulled together merge into one bigger well (up to 3× as wide)`, simple: 'Has a chance to open a gravity well that pulls the monsters around it in. Wells that touch merge into a bigger one.' },
+  void: { name: 'Void', icon: '🌀', color: '#ff5fd7', effect: `Gravity well: for ${STATUS.well.duration} seconds it's held where it stands and pulls the monsters around it in toward itself`, simple: 'Has a chance to open a gravity well: the monster is held in place and pulls the monsters around it in.' },
 };
 
 /**

@@ -2966,9 +2966,8 @@ function drawStatus(g: CanvasRenderingContext2D, e: Enemy, t: number, on: (k: Fx
     }
   }
   if (e.well && on('void')) {
-    // Void's gravity well: magenta and deep-violet pixels spiral in from its reach (basic: a shrinking ring). A
-    // merged well is bigger.
-    const R = STATUS.well.radius * (e.wellSize ?? 1);
+    // Void's gravity well: magenta and deep-violet pixels spiral in from its reach (basic: a shrinking ring).
+    const R = STATUS.well.radius;
     const fade = Math.min(1, e.well * 3);
     if (basic) {
       g.strokeStyle = `rgba(255,95,215,${0.3 * fade})`;

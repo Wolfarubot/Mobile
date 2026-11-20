@@ -281,8 +281,6 @@ export interface Enemy {
   /** Seconds left of Void's gravity well around it, pulling nearby monsters in (`wellPull` × as hard). */
   well?: number;
   wellPull?: number;
-  /** Its gravity well's size (× its base radius): wells that touch merge into one bigger well (see pullIn). */
-  wellSize?: number;
   /** Plague (a spell): for `left` seconds it poisons every monster it touches for `amount` × PLAGUE_SPREAD. */
   plague?: { left: number; by: Shooter; amount: number };
   /** Withering Touch's curse: `left` seconds; if it dies cursed, the curse passes to the monsters nearest it. */
@@ -574,9 +572,6 @@ export interface Rift {
   /** Event Horizon: it drags the monsters near it in. */
   pull?: boolean;
 }
-
-/** Void's gravity wells merging: how close two wells' monsters must come (a gap this small), and the biggest a merged well grows (× the base radius). */
-export const WELL_MERGE = { touch: 1, maxSize: 3 };
 
 /** Id's void bolts: how fast they fly and turn, and how far they go before fizzling out. */
 export const RIFT_BOLT = { speed: 260, turn: 7, range: 700 };
@@ -2243,7 +2238,7 @@ export class Field {
     const hunters = this.hunters();
     // Gravity wells swallow projectiles that fly into them: Void's (around a monster) and Gravity Anchors.
     const wells: Array<{ x: number; y: number; r: number }> = [
-      ...this.enemies.filter((e) => e.hp > 0 && (e.well ?? 0) > 0).map((e) => ({ x: e.x, y: e.y, r: STATUS.well.radius * (e.wellSize ?? 1) })),
+      ...this.enemies.filter((e) => e.hp > 0 && (e.well ?? 0) > 0).map((e) => ({ x: e.x, y: e.y, r: STATUS.well.radius })),
       ...this.zones.filter((z) => z.kind === 'gravityAnchor').map((z) => ({ x: z.x, y: z.y, r: z.r })),
     ];
     for (const s of this.shots) {
@@ -5015,10 +5010,11 @@ export class Field {
         break;
       case 'void':
         if (e.hp > 0) {
-          // A fresh well, or a merged one topped up (it keeps its size and pull).
+          // A well opens on it, and it's held where it stands while the well lasts (a Guardian a quarter as long), so
+          // the monsters it pulls in gather there instead of being dragged along with it.
           e.well = Math.max(e.well ?? 0, STATUS.well.duration * k * ext);
           e.wellPull = Math.max(e.wellPull ?? 0, k);
-          e.wellSize ??= 1;
+          e.held = Math.max(e.held ?? 0, e.well * (e.boss ? 0.25 : 1));
         }
         break;
     }
@@ -5046,35 +5042,18 @@ export class Field {
   }
 
   /**
-   * Void's gravity well: monsters around `e` are drawn in toward it until they touch it. Guardians and
-   * monsters that resist Void aren't moved. A monster with a well of its own that touches it is swallowed into
-   * it: the two wells merge into one bigger one (their areas added, up to WELL_MERGE.maxSize × the base), lasting as
-   * long as the longer and pulling as hard as the stronger.
+   * Void's gravity well: monsters around `e` (held in place while its well lasts) are drawn in toward it until they
+   * touch it. Guardians, monsters that resist Void, and monsters held in a well of their own aren't moved.
    */
   private pullIn(e: Enemy, dt: number): void {
     const w = STATUS.well;
-    const reach = w.radius * (e.wellSize ?? 1);
     for (const o of this.enemies) {
-      if (o === e || o.hp <= 0) continue;
+      if (o === e || o.hp <= 0 || o.well || o.boss || this.immuneTo(o, 'void')) continue;
       const dx = e.x - o.x;
       const dy = e.y - o.y;
       const d = Math.hypot(dx, dy);
       const gap = d - e.r - o.r;
-      if (o.well && gap <= WELL_MERGE.touch) {
-        // Two wells meet: they become one, around the monster with the bigger (or this) one.
-        const a = e.wellSize ?? 1;
-        const b = o.wellSize ?? 1;
-        e.wellSize = Math.min(WELL_MERGE.maxSize, Math.hypot(a, b));
-        e.well = Math.max(e.well ?? 0, o.well);
-        e.wellPull = Math.max(e.wellPull ?? 1, o.wellPull ?? 1);
-        o.well = 0;
-        o.wellPull = undefined;
-        o.wellSize = undefined;
-        this.events.push({ type: 'nova', x: e.x, y: e.y, r: w.radius * e.wellSize * 0.6, color: DAMAGE_TYPES.void.color });
-        continue;
-      }
-      if (o.boss || this.immuneTo(o, 'void')) continue;
-      if (d > reach + o.r || gap <= 0) continue;
+      if (d > w.radius + o.r || gap <= 0) continue;
       const step = Math.min(gap, w.pull * (e.wellPull ?? 1) * dt);
       o.x += (dx / d) * step;
       o.y += (dy / d) * step;
@@ -5117,11 +5096,7 @@ export class Field {
     if (e.well) {
       e.well = Math.max(0, e.well - dt);
       this.pullIn(e, dt);
-      // A spent well is gone, size and all.
-      if (!e.well) {
-        e.wellPull = undefined;
-        e.wellSize = undefined;
-      }
+      if (!e.well) e.wellPull = undefined;
     }
     if (e.bleeds?.length) {
       // Each bleed ticks on its own.

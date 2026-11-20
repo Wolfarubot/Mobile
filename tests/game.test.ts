@@ -5855,32 +5855,25 @@ describe('Field', () => {
     expect(f.projections).toHaveLength(0);
   });
 
-  it("Void's gravity wells that touch merge into one bigger well; a spent well loses its size", () => {
+  it("Void's gravity well holds its monster in place; wells don't merge or drag each other", () => {
     const { f } = thomasField([]);
-    const a = tough({ id: 1, x: 100, y: 100, speed: 0 });
-    const b = tough({ id: 2, x: 150, y: 100, speed: 0 });
-    const c = tough({ id: 3, x: 400, y: 400, speed: 0 });
-    a.well = 1.5;
-    a.wellPull = 1;
-    a.wellSize = 1;
-    b.well = 1;
-    b.wellPull = 1.5;
-    b.wellSize = 1;
-    c.well = 1.5;
-    c.wellSize = 1;
+    const a = tough({ id: 1, x: 200, y: 0, speed: 60 });
+    const b = tough({ id: 2, x: 260, y: 0, speed: 0 });
+    const c = tough({ id: 3, x: 140, y: 40, speed: 0 });
     f.enemies = [a, b, c];
-    for (let t = 0; t < 0.6; t += 1 / 30) f.update(1 / 30);
-    // The two near ones pulled each other in and became one well: √2 the size, the stronger pull, the longer time.
-    const withWell = [a, b].filter((e) => e.well);
-    expect(withWell).toHaveLength(1);
-    expect(withWell[0].wellSize).toBeCloseTo(Math.SQRT2);
-    expect(withWell[0].wellPull).toBe(1.5);
-    // The far one keeps its own, the same size.
-    expect(c.wellSize).toBe(1);
-    // Once it runs out, a well is gone, size and all.
+    // A Void hit opens a well on it and holds it where it stands (a Guardian a quarter as long).
+    (f as unknown as { applyStatus: (e: typeof a, t: 'void', d: number, by: 'main') => void }).applyStatus(a, 'void', 1, 'main');
+    expect(a.well).toBeGreaterThan(0);
+    expect(a.held).toBeCloseTo(a.well!);
+    c.well = 1.5; // a monster with a well of its own isn't pulled
+    const gapC = Math.hypot(c.x - a.x, c.y - a.y);
+    for (let t = 0; t < 1; t += 1 / 30) f.update(1 / 30);
+    expect(Math.hypot(a.x - 200, a.y)).toBeLessThan(10); // it stays put (bar a nudge from the crowd) instead of walking its catch to the Hunter
+    expect(Math.hypot(b.x - a.x, b.y - a.y)).toBeLessThan(60); // the free one is pulled in
+    expect(Math.hypot(c.x - a.x, c.y - a.y)).toBeGreaterThan(gapC - 25); // not drawn in (shots still nudge it)
+    expect(c.well).toBeGreaterThan(0); // no merging
     for (let t = 0; t < 2; t += 1 / 30) f.update(1 / 30);
-    expect(c.well).toBe(0);
-    expect(c.wellSize).toBeUndefined();
+    expect(a.well).toBe(0);
   });
 
   it("Id's Time Slip cuts every cooldown in his area by 10%, 20% once he ascends and 30% with his ascended capstone", () => {
