@@ -43,7 +43,13 @@ function fitIosHomeScreen(): void {
   if (Capacitor.isNativePlatform() || !ios || !(nav.standalone || matchMedia('(display-mode: standalone)').matches)) return;
   const root = document.documentElement;
   root.classList.add('ios-home');
-  const fit = () => root.style.setProperty('--app-h', `${window.innerHeight}px`);
+  // Newer iOS can also report the window short by the status bar's height (393x793 on a 393x852 iPhone) while the page
+  // still covers the whole screen, so take the screen's own height (its long side upright, its short side turned).
+  const fit = () => {
+    const upright = window.innerHeight >= window.innerWidth;
+    const full = upright ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height);
+    root.style.setProperty('--app-h', `${Math.max(window.innerHeight, full)}px`);
+  };
   fit();
   window.addEventListener('resize', fit);
   // iOS reports the new size a moment after turning the phone.
