@@ -1041,7 +1041,8 @@ export class BattleView {
     }
     if (scene?.vignette) drawVignette(g, w, h, scene.vignette);
     this.drawHud(g);
-    this.cooldownBar.update();
+    const boss = this.field.enemies.find((e) => e.boss && e.hp > 0);
+    this.cooldownBar.update(boss ? this.bossOnScreen(boss) : null);
   }
 
   /**
@@ -2645,6 +2646,13 @@ export class BattleView {
   /** How opaque the Guardian's bar is: it fades while the Guardian is underneath it. */
   private hudFade = 1;
 
+  /** Where a Guardian is on the screen (in the battlefield's pixels), and how far round it counts as covering a HUD. */
+  private bossOnScreen(boss: Enemy): { x: number; y: number; r: number } {
+    // Its art's size as drawn (a sheet's body box, as drawEnemy sizes it), most of the way out, or its hit circle.
+    const art = (boss.art ?? MONSTER_SHEETS[boss.type]) ? boss.r * SIZE_SCALE[enemyDef(boss.type).size ?? 'medium'] * (boss.scale ?? 1) * SHEET_SCALE * CHAR_SCALE * 0.4 : 0;
+    return { x: this.w / 2 + boss.x * Z, y: this.h / 2 + boss.y * Z, r: Math.max(boss.r * 1.6, art) * Z };
+  }
+
   private drawHud(g: CanvasRenderingContext2D): void {
     const w = this.w;
     const boss = this.field.enemies.find((e) => e.boss);
@@ -2694,9 +2702,7 @@ export class BattleView {
     if (boss) {
       // The Guardian under its own bar (one coming in at the bottom edge): the bar fades to see-through, so you can
       // see it, aim your taps at it and watch them land (taps always pass through the bar to the battlefield).
-      const bx = w / 2 + boss.x * Z;
-      const by = this.h / 2 + boss.y * Z;
-      const br = boss.r * Z * 1.6;
+      const { x: bx, y: by, r: br } = this.bossOnScreen(boss);
       const under = bx + br > x && bx - br < x + bw && by + br > y0 && by - br < y0 + hh;
       this.hudFade += ((under ? 0.3 : 1) - this.hudFade) * 0.2;
       g.save();
@@ -3707,7 +3713,11 @@ class CooldownBar {
   /** The meter's and the field's sizes, measured now and then (see update). */
   private measured: { key: string; at: number; size: number; meterLen: number; room: number } | null = null;
 
-  update(): void {
+  /** How opaque the icons are: like the Guardian's bar, they fade while a Guardian is under them. */
+  private fade = 1;
+
+  /** `boss`: a Guardian on the field, where it is on screen (see bossOnScreen). */
+  update(boss: { x: number; y: number; r: number } | null = null): void {
     const st = this.game.state.settings;
     const list = st.cooldowns ? this.field.cooldowns() : [];
     const pos = st.cooldownPos;
@@ -3779,6 +3789,14 @@ class CooldownBar {
       }
     // Empty lines take no room (the first stays: it holds the gap beside the meter).
     this.lines.forEach((l, i) => l.classList.toggle('hidden', i > 0 && !l.childElementCount));
+    // A Guardian under the icons (coming in at the top edge, say): they fade to see-through so it can be seen and
+    // tapped (taps always pass through them to the battlefield).
+    const box = boss && this.rect();
+    const under = !!box && boss!.x + boss!.r > box.left && boss!.x - boss!.r < box.right && boss!.y + boss!.r > box.top && boss!.y - boss!.r < box.bottom;
+    this.fade += ((under ? 0.3 : 1) - this.fade) * 0.2;
+    if (Math.abs(this.fade - 1) < 0.01) this.fade = 1;
+    const op = this.fade === 1 ? '' : this.fade.toFixed(2);
+    if (this.el.style.opacity !== op) this.el.style.opacity = op;
   }
 
   /** The icons' box within the battlefield, when they're showing. */
