@@ -1046,9 +1046,11 @@ export class AppUI {
       <div class="hc-gear"></div>`;
     // Only recruited Hunters open their full view (a locked card's story and Recruit button are all there is).
     const recruitedNow = () => !def || g.state.hunters[def.id].recruited;
-    card.addEventListener('click', () => {
+    card.addEventListener('click', (ev) => {
       // The release of a long press (which spent skill points) doesn't also open the card.
       if (this.heldFor === card) return void (this.heldFor = null);
+      // A tap on the gear tags opens straight to their Equipment.
+      if (recruitedNow() && (ev.target as HTMLElement).closest('.hc-gear')) return this.openHunterDetail(who, 'equipment');
       this.openHunterCard(who);
     });
     this.refreshers.push(() => card.classList.toggle('no-expand', !recruitedNow()));
