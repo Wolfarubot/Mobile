@@ -86,7 +86,7 @@ import {
   type TreeStat,
 } from './balance';
 import type { Game, GearMode, KillReward, Shooter } from './game';
-import { DASH_ART, gearCooldownArt, specialTint, TAP_ART, WALL_ART, type CooldownTint } from './cooldownArt';
+import { COUNTER_ART, DASH_ART, gearCooldownArt, specialTint, TAP_ART, WALL_ART, type CooldownTint } from './cooldownArt';
 
 export const PLAYER_RADIUS = 13;
 /** How often (s) the battlefield works out again the numbers it keeps (see Field.slowly). */
@@ -951,6 +951,8 @@ export class Field {
   private songCount = new Map<Shooter, number>();
   /** Attacks toward Lance's next holy spear. */
   private spearCount = new Map<Shooter, number>();
+  /** Counters that just went off (`<who>:song`, `<who>:spear`): their cooldown icon shows full until the next attack. */
+  private countFired = new Set<string>();
   /** Seconds of stun left on your Hunter (can't shoot while > 0). */
   stun = 0;
   /** Seconds left of Gideon's Bone Wall, and how far out it stands around each Hunter. */
@@ -2532,9 +2534,11 @@ export class Field {
     // Ba'al: every few attacks, a sound wave rings out around him as well (Resonance: sooner).
     const song = who === 'main' || encore ? undefined : hunterDef(who).songWave;
     if (song) {
-      const every = Math.max(2, song.every - Math.round(this.perk(who, 'songEvery')));
+      const every = this.songEvery(who);
       const n = (this.songCount.get(who) ?? 0) + 1;
       this.songCount.set(who, n % every);
+      if (n >= every) this.countFired.add(`${who}:song`);
+      else this.countFired.delete(`${who}:song`);
       if (n >= every) {
         const max = this.focusReach(song.reach * g.radiusMult(who));
         this.waves.push({ who, x, y, r: 0, max, hit: new Set(), k: song.damage, lull: this.perk(who, 'lull'), reverb: this.perk(who, 'reverb') });
@@ -2545,9 +2549,11 @@ export class Field {
     const spear = who === 'main' || encore ? undefined : hunterDef(who).holySpear;
     if (spear) {
       // Spear of Dawn: sooner.
-      const every = Math.max(2, spear.every - Math.round(this.perk(who, 'spearEvery')));
+      const every = this.spearEvery(who);
       const n = (this.spearCount.get(who) ?? 0) + 1;
       this.spearCount.set(who, n % every);
+      if (n >= every) this.countFired.add(`${who}:spear`);
+      else this.countFired.delete(`${who}:spear`);
       if (n >= every) this.holySpear(who, x, y, aim, spear, mode);
     }
     // Apex Hunter: extra projectiles on shots, one more dagger in a burst, a follow-up strike for other melee.
@@ -3162,6 +3168,29 @@ export class Field {
    * potions, Glimmer's fireballs). Weapons waiting (guns reloading, staffs recharging, tomes summoning) show
    * text over the Hunter instead (see weaponStatus).
    */
+  /** Ba'al's attacks per sound wave (Resonance: fewer). */
+  private songEvery(who: Shooter): number {
+    return Math.max(2, (who === 'main' ? 0 : (hunterDef(who).songWave?.every ?? 0)) - Math.round(this.perk(who, 'songEvery')));
+  }
+
+  /** Lance's attacks per holy spear (Spear of Dawn: fewer). */
+  private spearEvery(who: Shooter): number {
+    return Math.max(2, (who === 'main' ? 0 : (hunterDef(who).holySpear?.every ?? 0)) - Math.round(this.perk(who, 'spearEvery')));
+  }
+
+  /**
+   * Abilities that go off every few attacks (Ba'al's sound wave, Lance's holy spear), as cooldown icons that fill a
+   * step with each attack, and show full when it goes off until the next attack.
+   */
+  private counterCooldowns(who: HunterId, out: CooldownView[]): void {
+    const def = hunterDef(who);
+    const step = (key: string, count: number, every: number) => (this.countFired.has(`${who}:${key}`) ? 1 : count / every);
+    if (def.songWave)
+      out.push({ key: `song:${who}`, icon: '🎵', name: `${def.name}'s Sound Wave`, art: COUNTER_ART.song, tint: { hunter: who }, progress: step('song', this.songCount.get(who) ?? 0, this.songEvery(who)) });
+    if (def.holySpear)
+      out.push({ key: `spear:${who}`, icon: '🔱', name: `${def.name}'s Holy Spear`, art: COUNTER_ART.spear, tint: 'radiant', progress: step('spear', this.spearCount.get(who) ?? 0, this.spearEvery(who)) });
+  }
+
   cooldowns(): CooldownView[] {
     const out: CooldownView[] = [];
     // Items' own abilities (not the weapon's basic cooldown): e.g. the Wolf Spirit tome's lunge.
@@ -3175,6 +3204,7 @@ export class Field {
       const def = hunterDef(this.lead);
       const sp = def.special;
       if (sp) out.push({ key: this.lead, icon: def.icon, name: def.name, tint: specialTint(this.lead, sp), progress: 1 - Math.max(0, this.leadCaster.specialCd) / (sp.cooldown * this.game.cooldownMult(this.lead)) });
+      this.counterCooldowns(this.lead, out);
       const wall = def.wall;
       if (wall) out.push({ key: `wall:${this.lead}`, icon: '🦴', name: `${def.name}'s ${wall.name}`, art: WALL_ART, tint: 'physical', progress: 1 - this.leadWallCd / wall.cooldown });
     } else if (this.game.tapAbility === 'flame') out.push({ key: 'tap:flame', icon: '🔥', name: 'Flame Burst', art: TAP_ART.flame, tint: 'fire', progress: 1 - this.flameCd / (FLAME_BURST_COOLDOWN * this.game.cooldownMult('main')) });
@@ -3201,6 +3231,7 @@ export class Field {
       const def = hunterDef(h.id);
       const sp = def.special;
       if (sp) out.push({ key: h.id, icon: def.icon, name: def.name, tint: specialTint(h.id, sp), progress: 1 - Math.max(0, h.specialCd) / (sp.cooldown * this.game.cooldownMult(h.id)) });
+      this.counterCooldowns(h.id, out);
       // Gideon's Bone Wall has its own cooldown (it rises when he's stunned).
       const wall = def.wall;
       if (wall) out.push({ key: `wall:${h.id}`, icon: '🦴', name: `${def.name}'s ${wall.name}`, art: WALL_ART, tint: 'physical', progress: 1 - h.wallCd / wall.cooldown });

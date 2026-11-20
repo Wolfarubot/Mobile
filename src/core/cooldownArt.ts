@@ -24,6 +24,8 @@ export const TAP_ART: Record<TapAbilityId | 'blast', string> = {
 };
 /** Gideon's Bone Wall. */
 export const WALL_ART = 'ab-paladin-dk/093';
+/** Abilities that go off every few attacks: Ba'al's sound wave (his colours: it hits as his weapon does), Lance's holy spear (Radiant). */
+export const COUNTER_ART = { song: 'ab-priest-bard/084', spear: 'ab-paladin-dk/018' } as const;
 /** A tome summon's own move (the Wolf Spirit's lunge). */
 export const DASH_ART = 'ab-hunter-warrior/028';
 /** Artifact and Exalted pieces' built-in abilities. */

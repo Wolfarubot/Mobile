@@ -6259,6 +6259,28 @@ describe('Field', () => {
     expect(g.dpsOf('bard')).toBeGreaterThan(0);
   });
 
+  it("Ba'al's sound wave shows as a cooldown icon that fills a step with each attack, and full when it goes off", () => {
+    const { f } = withHelper('bard');
+    f.update(1 / 30);
+    const b = f.helpers[0];
+    f.enemies = [tough({ id: 70, x: b.x, y: b.y - 150, speed: 0 })];
+    const icon = () => f.cooldowns().find((c) => c.key === 'song:bard')!;
+    expect(icon()).toBeDefined();
+    expect(icon().tint).toEqual({ hunter: 'bard' });
+    const seen: number[] = [];
+    let fired = false;
+    for (let t = 0; t < 30 && !fired; t += 1 / 30) {
+      f.update(1 / 30);
+      const p = icon().progress;
+      if (seen[seen.length - 1] !== p) seen.push(p);
+      fired = p === 1;
+      for (const e of f.enemies) Object.assign(e, { kx: 0, ky: 0 });
+    }
+    // 0, 1/6, 2/6 ... 5/6, then full as it rings out.
+    const every = hunterDef('bard').songWave!.every;
+    expect(seen.slice(-every)).toEqual(Array.from({ length: every }, (_, i) => (i + 1 < every ? (i + 1) / every : 1)));
+  });
+
   it("Lance's shield blocks hits before he is stunned, then recharges", () => {
     const { f } = withHelper('lance');
     f.update(1 / 30);
