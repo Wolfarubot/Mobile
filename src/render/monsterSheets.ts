@@ -144,7 +144,7 @@ export const SHEETS: Record<string, MonsterSheet> = {
   'mega-beholder': { frame: 104, cols: 4, order: 'SIDE', faces: 'L', box: [42, 21, 43, 63] },
   'demon-slime': { frame: 288, cols: 12, order: 'SIDE', faces: 'L', box: [106, 187, 85, 100] },
   'executioner': { frame: 100, cols: 5, order: 'SIDE', box: [32, 19, 49, 66] },
-  'time-eater': { frame: 256, cols: 8, order: 'SIDE', box: [82, 132, 122, 124] },
+  'time-eater': { frame: 448, cols: 8, order: 'SIDE', box: [164, 277, 97, 97] },
 };
 
 /** Which sheet each monster walks with (as a Guardian too, drawn bigger). Monsters without one keep their shape. */

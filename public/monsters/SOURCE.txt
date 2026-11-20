@@ -45,7 +45,7 @@ Side-view and animal packs (walk or flight strips, one row facing right, mirrore
   golem-character-sprite-sheets-pixel-art, hellhound-character-sprite-sheets-pixel-art,
   dragon-pixel-art-character-sprite-sheets-pack, free-yokai-pixel-art-character-sprites
   swamp-enemies (bat), swamp-bosses (big bloated -> Toxic Bloat, recoloured), ruin-enemy (raven, bug), animal-sprite-sheets (white bear), desert-bosses (manticore),
-  ruin-bosses (wild boar), mine-bosses (elemental; arachnid -> Broodmother, recoloured), mega-boss-for-pixel-platformer (Time Eater)
+  ruin-bosses (wild boar), mine-bosses (elemental; arachnid -> Broodmother, recoloured)
   puppet-marionette.png (the Possessed Puppet, also Theon's puppet in the Puppet Show): zombie.png recoloured to white
   skin, black clothes and brown hair, set into 96px frames with two white strings rising from its shoulders.
 
@@ -72,3 +72,10 @@ bear-brown.png (the Brown Bear): a four-direction walk sheet (56px frames, rows 
   with the game's assets; it replaces the side-view bear from underground-mine-character-spritesheets.
 spider-black.png: the Broodmother's spiders, from a spider sheet provided with the game's assets (its walk-cycle row,
   nine 64px frames facing left; mirrored to face right).
+
+time-eater.png, time-eater-attack.png, time-eater-attack3.png, time-eater-special.png, time-eater-death.png: the Time Eater,
+  drawn by the game's author (body, head, arms, hands and staff cut from their sheet and rigged at the joints), with
+  the wings of the creature atop the Void Rift background (backgrounds/rift/c_Wing_monster.png, recoloured, face
+  darkened) hinged behind its back. Posed frame by frame after the earlier knight's walk, thrust and overhead swing;
+  the special flares the wings with a red glow, and the death drops the staff and crumbles the body. 448px frames, 8
+  per sheet, drawn 1.5x the earlier knight's size. Rig and export scripts: tools/time-eater/.
