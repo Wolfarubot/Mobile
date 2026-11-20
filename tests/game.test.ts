@@ -181,6 +181,7 @@ import {
   STATUS,
   FROST_TAP_CHILL,
   FROST_NOVA,
+  TAP_EFFECTS,
   type DamageType,
   type MaterialId,
   typeMult,
@@ -1383,7 +1384,10 @@ describe('Shops', () => {
     expect(g.learn('main', 'flameTap')).toBe(true);
     expect(g.learn('main', 'wideTaps')).toBe(false); // its row opens at 15 points
     for (const k of ['speed', 'speed', 'speed', 'speed']) g.learn('main', k);
-    for (let i = 0; i < 4; i++) expect(g.learn('main', 'wideTaps')).toBe(true); // hangs from Flame Burst
+    for (const k of ['wideTaps', 'wideTaps', 'earthTap']) expect(g.learn('main', k)).toBe(true); // they hang from Flame Burst
+    expect(g.learn('main', 'wideTaps')).toBe(false); // 2 ranks
+    expect(g.learn('main', 'venomTap')).toBe(false); // hangs from Frost Nova
+    expect(g.learn('main', 'recovery')).toBe(true);
     expect(g.learn('main', 'capstone')).toBe(false); // 19 points: its row opens at 20
     expect(g.learn('main', 'eagleEye')).toBe(true);
     expect(g.learn('main', 'capstone')).toBe(true); // reachable from any one of the row above, at 20 points
@@ -2782,7 +2786,7 @@ describe('Equipment', () => {
     // Flame Burst and Frost Nova sit on the first diamond's wings; Thunderclap and Melting Miasma on the second's.
     const path = [
       ...['root', 'power', 'power', 'power', 'power', 'power', 'speed', 'speed', 'speed', 'speed', 'speed', 'recovery', 'recovery', 'recovery'],
-      ...['power2', 'recovery2', 'eagleEye', 'flameTap', 'frostTap', 'speed2', 'wideTaps', 'wideTaps', 'wideTaps', 'wideTaps', 'capstone'],
+      ...['power2', 'recovery2', 'eagleEye', 'flameTap', 'frostTap', 'speed2', 'wideTaps', 'wideTaps', 'earthTap', 'venomTap', 'capstone'],
       ...['power2', 'power2', 'power2', 'power2', 'recovery2', 'recovery2', 'recovery2', 'eagleEye', 'prosperity', 'prosperity'],
       ...['reach', 'reach', 'reach', 'deadlyTaps', 'thunderTap', 'longShot', 'extendedEffects', 'meltingMiasma'],
     ];
@@ -2826,24 +2830,109 @@ describe('Equipment', () => {
     expect(f.drainEvents().some((e) => e.type === 'beam')).toBe(false);
     f.tap(0, 0);
     expect(f.drainEvents().some((e) => e.type === 'beam' && e.zigzag)).toBe(true);
-    // Melting Miasma: everything hit is poisoned, and a poison puddle is left behind, at most once per cooldown.
+    // Melting Miasma (Acid): everything hit is splashed with acid, and an acid puddle is left behind, at most once
+    // per cooldown.
     g.setTapAbility('miasma');
-    expect(g.tapDamageType).toBe('poison');
+    expect(g.tapDamageType).toBe('acid');
     fresh();
-    f.enemies[0].type = 'wolf'; // Green Slimes shrug off poison
+    f.enemies[0].type = 'wolf';
     f.puddles = [];
     f.miasmaCd = 0;
     f.tap(0, 0);
-    expect(f.enemies[0].poison).toBeDefined();
-    expect(f.puddles.filter((p) => p.dtype === 'poison')).toHaveLength(1);
+    expect(f.enemies[0].acidPuddle).toBeDefined();
+    const left = (): number => f.puddles.filter((p) => p.dtype === 'acid' && p.shooter === 'main' && p.r === g.tapRadius).length;
+    expect(left()).toBe(1);
     f.tap(0, 0);
-    expect(f.puddles.filter((p) => p.dtype === 'poison')).toHaveLength(1); // still recharging
+    expect(left()).toBe(1); // still recharging
     expect(f.cooldowns().some((c) => c.key === 'tap:miasma')).toBe(true);
     // Unequip: back to a plain blast; and a save keeps the equipped one.
     g.setTapAbility('frost');
     expect(deserialize(serialize(g.state))!.main.tapAbility).toBe('frost');
     g.setTapAbility(null);
     expect(g.tapAbility).toBeNull();
+  });
+
+  it('the newer tap abilities: Earthshatter, Venom Cloud and the four Ascended ones each go off on their cooldown', () => {
+    const g = new Game(newGame(0), () => 0.5);
+    g.state.main.trains = 300;
+    Object.assign(g.state.main.skills, { earthTap: 1, venomTap: 1 });
+    g.state.main.skills2 = { sunTap: 1, witherTap: 1, echoTap: 1, collapseTap: 1 };
+    for (const id of ['earth', 'venom', 'sun', 'wither', 'echo', 'collapse'] as const) expect(g.tapAbilityUnlocked(id), id).toBe(true);
+    const f = new Field(g);
+    f.setView(390, 420);
+    const fresh = (hp = 1e12) => {
+      f.enemies = [enemy({ id: 1, x: 0, y: 0, hp, maxHp: hp, type: 'wolf' }), enemy({ id: 2, x: 40, y: 0, hp, maxHp: hp, type: 'wolf' })];
+      f.zones = [];
+      f.spellHits = [];
+      f.tapCd = 0;
+      f.drainEvents();
+    };
+    // Earthshatter: Physical taps, and boulders roll out every way; a second tap while it recharges sends none.
+    g.setTapAbility('earth');
+    expect(g.tapDamageType).toBe('physical');
+    fresh();
+    f.tap(0, 0);
+    expect(f.zones.filter((z) => z.kind === 'boulder')).toHaveLength(TAP_EFFECTS.earth.count);
+    f.tap(0, 0);
+    expect(f.zones.filter((z) => z.kind === 'boulder')).toHaveLength(TAP_EFFECTS.earth.count);
+    expect(f.cooldowns().some((c) => c.key === 'tap:earth')).toBe(true);
+    // Venom Cloud: poisons what it hits and leaves a cloud.
+    g.setTapAbility('venom');
+    fresh();
+    f.tap(0, 0);
+    expect(f.enemies[0].poison).toBeDefined();
+    expect(f.zones.some((z) => z.kind === 'poisonMist')).toBe(true);
+    // Sunburst: beams on the toughest monster near the tap.
+    g.setTapAbility('sun');
+    fresh();
+    f.enemies[1].hp = 2e12;
+    f.enemies[1].maxHp = 2e12;
+    f.tap(0, 0);
+    expect(f.spellHits).toHaveLength(TAP_EFFECTS.sun.hits);
+    expect(f.spellHits.every((h) => h.x === 40)).toBe(true);
+    // Withering Touch: curses what it hits, and a cursed monster's death passes the curse on.
+    g.setTapAbility('wither');
+    fresh();
+    f.tap(0, 0);
+    expect(f.enemies[0].wither).toBeDefined();
+    f.enemies[1].wither = undefined;
+    f.enemies.push(enemy({ id: 3, x: 20, y: 20, hp: 1e12, maxHp: 1e12, type: 'wolf' }));
+    f.enemies[0].hp = 1;
+    f.tap(0, 0); // recharging: no new curse, but it finishes off the cursed one
+    expect(f.enemies.some((e) => e.id === 1)).toBe(false);
+    expect(f.enemies.some((e) => e.wither)).toBe(true);
+    // Arcane Echo: strips resistances, and the tap goes off again half a second later.
+    g.setTapAbility('echo');
+    fresh();
+    f.tap(0, 0);
+    expect(f.drainEvents().filter((e) => e.type === 'blast')).toHaveLength(1);
+    f.update(TAP_EFFECTS.echo.delay + 0.05);
+    expect(f.drainEvents().filter((e) => e.type === 'blast')).toHaveLength(1);
+    // Collapse: a gravity well where the tap landed.
+    g.setTapAbility('collapse');
+    fresh();
+    f.tap(0, 0);
+    expect(f.zones.some((z) => z.kind === 'gravityAnchor' && z.x === 0 && z.y === 0)).toBe(true);
+  });
+
+  it("a tap ability's effect is shrugged off by Guardians like a tap is", () => {
+    const g = new Game(newGame(0), () => 0.99);
+    g.state.main.trains = 300;
+    g.state.main.skills2 = { sunTap: 1 };
+    g.setTapAbility('sun');
+    const f = new Field(g);
+    f.setView(390, 420);
+    const hit = (boss: boolean): number => {
+      f.enemies = [enemy({ id: 1, x: 0, y: 0, hp: 1e15, maxHp: 1e15, type: 'wolf', boss })];
+      f.spellHits = [];
+      f.tapCd = 0;
+      f.tap(0, 0);
+      const before = f.enemies[0].hp;
+      f.update(1);
+      return before - f.enemies[0].hp;
+    };
+    const plain = hit(false);
+    expect(hit(true)).toBeLessThan(plain * 0.5);
   });
 
   it('your Hunter: Quick Casting shortens cooldowns, Extended Effects lengthens effects, Apex Hunter adds a shot', () => {

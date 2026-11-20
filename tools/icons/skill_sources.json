@@ -596,12 +596,24 @@
 "riftwalker+/recovery2": "ab-geo-aero/095",
 "riftwalker+/precision": "ab-geo-aero/081",
 "riftwalker+/fortune": "ab-geo-aero/076",
-"riftwalker+/capstone": "ab-geo-aero/092"
+"riftwalker+/capstone": "ab-geo-aero/092",
+"main/earthTap": "ab-geo-aero/002",
+"main/venomTap": "ab-alchemist-shaman/038",
+"main+/sunTap": "ab-paladin-dk/021",
+"main+/witherTap": "ab-gunslinger-druid/069",
+"main+/echoTap": "ab-rogue-warlock/055",
+"main+/collapseTap": "ab-rogue-warlock/080"
 },
 "damage": {
 "main/flameTap": "fire",
 "main/frostTap": "frost",
 "main/thunderTap": "lightning",
-"main/meltingMiasma": "poison"
+"main/meltingMiasma": "acid",
+"main/earthTap": "physical",
+"main/venomTap": "poison",
+"main+/sunTap": "radiant",
+"main+/witherTap": "decay",
+"main+/echoTap": "arcane",
+"main+/collapseTap": "void"
 }
 }

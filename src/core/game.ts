@@ -651,7 +651,10 @@ export class Game {
   /** A tap ability is unlocked by learning its node in your Hunter's skill tree. */
   tapAbilityUnlocked(id: TapAbilityId): boolean {
     const node = SKILL_TREES.main.find((n) => n.ability === id);
-    return !!node && this.skill('main', node.id) > 0;
+    if (node) return this.skill('main', node.id) > 0;
+    // The stronger ones are in your Ascended tree.
+    const asc = SLAYER_TREE.find((n) => n.ability === id);
+    return !!asc && this.skill('main', asc.id, 'ascended') > 0;
   }
 
   /** Equips a tap ability (null = a plain blast in your weapon's damage type). */

@@ -634,7 +634,7 @@ const at = (id: string, spec: NodeSpec): GridNode => ({ id,...spec });
 
 // ---- Your Hunter: tap abilities, unlocked in the skill tree and swapped under Tap Abilities on the Overview ----
 
-export type TapAbilityId = 'flame' | 'thunder' | 'frost' | 'miasma';
+export type TapAbilityId = 'flame' | 'thunder' | 'frost' | 'miasma' | 'earth' | 'venom' | 'sun' | 'wither' | 'echo' | 'collapse';
 
 /** Lookup tables for the *Def(id) helpers (built on first use: called every frame, a list search added up). */
 const ID_MAPS = new WeakMap<readonly { id: string }[], Map<string, unknown>>();
@@ -659,12 +659,20 @@ export interface TapAbilityDef {
   /** Tap blast damage multiplier. */
   damage: number;
   desc: string;
+  /** Seconds between its effect going off (the newer abilities; Flame Burst, Frost Nova and Melting Miasma keep their own). */
+  cooldown?: number;
 }
 export const TAP_ABILITIES: TapAbilityDef[] = [
   { id: 'flame', name: 'Flame Burst', icon: '🔥', damageType: 'fire', damage: 1, desc: 'Your taps deal Fire damage, and every 3 seconds a tap erupts, setting everything it hits ablaze.' },
   { id: 'thunder', name: 'Thunderclap', icon: '⚡', damageType: 'lightning', damage: 1, desc: 'Your taps crack with lightning: every monster hit arcs a bolt to another one nearby.' },
   { id: 'frost', name: 'Frost Nova', icon: '❄️', damageType: 'frost', damage: 1, desc: 'Your taps deal Frost damage, and every 3 seconds a tap freezes everything it hits solid for 1.5 seconds, then chills it (half speed) for 3 seconds.' },
-  { id: 'miasma', name: 'Melting Miasma', icon: '☠️', damageType: 'poison', damage: 1, desc: 'Your taps poison everything they hit, and every 4 seconds a tap leaves a poison puddle that hurts monsters walking through it.' },
+  { id: 'miasma', name: 'Melting Miasma', icon: '🧪', damageType: 'acid', damage: 1, desc: 'Your taps splash acid on everything they hit, and every 4 seconds a tap leaves an acid puddle that eats away at monsters walking through it.' },
+  { id: 'earth', name: 'Earthshatter', icon: '🪨', damageType: 'physical', damage: 1, cooldown: 3, desc: 'Your taps deal Physical damage, and every 3 seconds a tap breaks the ground: boulders roll out from it in every direction, crushing the monsters in their path and knocking them aside.' },
+  { id: 'venom', name: 'Venom Cloud', icon: '☠️', damageType: 'poison', damage: 1, cooldown: 4, desc: 'Your taps poison everything they hit, and every 4 seconds a tap leaves a cloud of venom that poisons monsters walking through it.' },
+  { id: 'sun', name: 'Sunburst', icon: '☀️', damageType: 'radiant', damage: 1, cooldown: 4, desc: 'Your taps deal Radiant damage, and every 4 seconds a tap calls a sunbeam down on the toughest monster near it, striking three times.' },
+  { id: 'wither', name: 'Withering Touch', icon: '🥀', damageType: 'decay', damage: 1, cooldown: 4, desc: 'Your taps deal Decay damage, and every 4 seconds a tap curses everything it hits: cursed monsters wither, and one that dies passes the curse on to the monsters nearest it.' },
+  { id: 'echo', name: 'Arcane Echo', icon: '🔮', damageType: 'arcane', damage: 1, cooldown: 3, desc: 'Your taps strip resistances from everything they hit, and every 3 seconds a tap echoes: half a second later it goes off again in the same spot.' },
+  { id: 'collapse', name: 'Collapse', icon: '🕳️', damageType: 'void', damage: 1, cooldown: 5, desc: 'Your taps deal Void damage, and every 5 seconds a tap opens a gravity well that drags monsters in toward it, then collapses on everything it gathered.' },
 ];
 export const tapAbilityDef = (id: TapAbilityId): TapAbilityDef => byId(TAP_ABILITIES, id);
 /** How long Frost Nova chills. */
@@ -681,6 +689,22 @@ export const FROST_NOVA = { cooldown: 3, freeze: 1.5 };
 /** Flame Burst sets monsters ablaze at most once per this many seconds (shortened by Quick Casting). */
 export const FLAME_BURST_COOLDOWN = 3;
 export const MIASMA_PUDDLE = { cooldown: 4, ticks: 6, share: 0.15 };
+/**
+ * The newer tap abilities' effects, each hitting for `k` × your tap damage (Guardians shrug off as much of it as of a
+ * tap). Earthshatter: `count` boulders roll out from the tap. Venom Cloud: a cloud `r` × the tap blast wide for `life`
+ * seconds. Sunburst: `hits` beams on the toughest monster within `reach` × the blast, `r` × the blast wide. Withering
+ * Touch: cursed for `life` seconds; a cursed monster's death curses up to `spread` monsters within `reach`. Arcane
+ * Echo: goes off again `delay` seconds later. Collapse: a well `r` × the blast wide for `life` seconds, hurting
+ * what's in it for `tick` × your tap damage each half second, then collapsing for `k` ×.
+ */
+export const TAP_EFFECTS = {
+  earth: { count: 4, k: 0.8, r: 18 },
+  venom: { r: 1.3, life: 4, k: 0.12 },
+  sun: { hits: 3, k: 1, reach: 2.5, r: 0.5 },
+  wither: { life: 5, k: 1.5, spread: 2, reach: 90 },
+  echo: { delay: 0.5, k: 1 },
+  collapse: { r: 1.6, life: 1.5, k: 2, tick: 0.1 },
+} as const;
 
 /**
  * Your Hunter's first tree, as laid out in the Skill Trees editor: two diamonds. The root opens three branches
@@ -703,9 +727,11 @@ const MAIN_FIRST_TREE: SkillNode[] = [
   { id: 'flameTap', name: 'Flame Burst', icon: '🔥', desc: `Unlocks the Flame Burst tap ability: taps deal Fire damage, and every ${FLAME_BURST_COOLDOWN} seconds a tap sets everything it hits ablaze. ${TAP_HINT}`, maxRank: 1, effect: {}, ability: 'flame', requires: ['power2'], col: 0.5, row: 3 },
   { id: 'speed2', name: 'Piercing Shot', icon: '🔱', desc: 'Shots pierce 1 more enemy.', maxRank: 1, effect: { pierce: 1 }, requires: ['eagleEye'], col: 2, row: 3 },
   { id: 'frostTap', name: 'Frost Nova', icon: '❄️', desc: `Unlocks the Frost Nova tap ability: taps deal Frost damage, and every ${FROST_NOVA.cooldown} seconds a tap freezes everything it hits, then chills it. ${TAP_HINT}`, maxRank: 1, effect: {}, ability: 'frost', requires: ['recovery2'], col: 3.5, row: 3 },
-  { id: 'wideTaps', name: 'Wide Taps', icon: '🌀', desc: '+10% tap blast area.', maxRank: 4, effect: { tapSize: 0.1 }, requires: ['flameTap'], col: 1, row: 4 },
+  { id: 'earthTap', name: 'Earthshatter', icon: '🪨', desc: `Unlocks the Earthshatter tap ability: taps deal Physical damage, and every ${TAP_ABILITIES.find((t) => t.id === 'earth')!.cooldown} seconds a tap sends boulders rolling out from it. ${TAP_HINT}`, maxRank: 1, effect: {}, ability: 'earth', requires: ['flameTap'], col: 0, row: 4 },
+  { id: 'wideTaps', name: 'Wide Taps', icon: '🌀', desc: '+20% tap blast area.', maxRank: 2, effect: { tapSize: 0.2 }, requires: ['flameTap'], col: 1, row: 4 },
   { id: 'prosperity', name: 'Prosperity', icon: '🪙', desc: '+15% gold from your kills.', maxRank: 3, effect: { gold: 0.15 }, requires: ['speed2'], col: 2, row: 4 },
   { id: 'bulwark', name: 'Bulwark', icon: '🛡️', desc: '+1 shield charge.', maxRank: 2, effect: { guard: 1 }, requires: ['frostTap'], col: 3, row: 4 },
+  { id: 'venomTap', name: 'Venom Cloud', icon: '☠️', desc: `Unlocks the Venom Cloud tap ability: taps poison monsters, and every ${TAP_ABILITIES.find((t) => t.id === 'venom')!.cooldown} seconds a tap leaves a cloud of venom behind. ${TAP_HINT}`, maxRank: 1, effect: {}, ability: 'venom', requires: ['frostTap'], col: 4, row: 4 },
   {
     id: 'capstone',
     name: 'Apex Hunter',
@@ -728,7 +754,7 @@ const MAIN_FIRST_TREE: SkillNode[] = [
   { id: 'thunderTap', name: 'Thunderclap', icon: '⚡', desc: `Unlocks the Thunderclap tap ability: taps deal Lightning damage and arc to monsters nearby. ${TAP_HINT}`, maxRank: 1, effect: {}, ability: 'thunder', requires: ['deadlyTaps'], col: 0.5, row: 8 },
   { id: 'haste', name: "Hunter's Haste", icon: '💨', desc: '+5.5% attack speed.', maxRank: 5, effect: { rate: 0.055 }, requires: ['fortune'], col: 1.5, row: 8 },
   { id: 'brutalCriticals', name: 'Brutal Criticals', icon: '💢', desc: 'Your critical hits deal +50% more damage.', maxRank: 1, effect: { critDamage: 0.5 }, requires: ['treasure'], col: 2.5, row: 8 },
-  { id: 'meltingMiasma', name: 'Melting Miasma', icon: '☠️', desc: `Unlocks the Melting Miasma tap ability: taps deal Poison damage and poison monsters, and every 4 seconds a tap leaves a poison puddle that hurts monsters walking through it. ${TAP_HINT}`, maxRank: 1, effect: {}, ability: 'miasma', requires: ['extendedEffects'], col: 3.5, row: 8 },
+  { id: 'meltingMiasma', name: 'Melting Miasma', icon: '🧪', desc: `Unlocks the Melting Miasma tap ability: taps splash acid on monsters, and every 4 seconds a tap leaves an acid puddle that eats away at monsters walking through it. ${TAP_HINT}`, maxRank: 1, effect: {}, ability: 'miasma', requires: ['extendedEffects'], col: 3.5, row: 8 },
   { id: 'goldTouch', name: 'Golden Touch', icon: '✨', desc: '+20% gold from your kills.', maxRank: 2, effect: { gold: 0.2 }, requires: ['thunderTap', 'haste'], col: 1, row: 9 },
   { id: 'shieldWall', name: 'Shield Wall', icon: '🛡️', desc: '+1 shield charge.', maxRank: 1, effect: { guard: 1 }, requires: ['haste', 'brutalCriticals'], col: 2, row: 9 },
   { id: 'bounty', name: 'Bounty', icon: '💰', desc: '+15% materials from your kills.', maxRank: 3, effect: { drops: 0.15 }, requires: ['brutalCriticals', 'meltingMiasma'], col: 3, row: 9 },
@@ -747,7 +773,7 @@ const MAIN_FIRST_TREE: SkillNode[] = [
 export type RowGates = Partial<Record<number, number>>;
 export const DEFAULT_ROW_GATES: { main: RowGates; mainAscended: RowGates; hunter: RowGates; hunterAscended: RowGates } = {
   main: { 2: 5, 3: 10, 4: 15, 5: 20, 6: 35, 9: 55 },
-  mainAscended: { 2: 15, 3: 40 },
+  mainAscended: { 2: 15, 3: 25, 4: 40 },
   hunter: { 2: 5, 3: 15, 4: 30 },
   hunterAscended: { 2: 10, 3: 25, 4: 40 },
 };
@@ -817,12 +843,17 @@ export const SLAYER_TREE: SkillNode[] = [
   { id: 'recovery', name: 'Unbreakable', icon: '🗿', desc: 'Reduce Stun duration by 8%.', maxRank: 5, effect: { recovery: 1 }, requires: ['root'], col: 2, row: 1 },
   { id: 'farSight', name: 'Far Sight', icon: '🔭', desc: '+10 range.', maxRank: 5, effect: { range: 10 }, requires: ['root'], col: 3, row: 1 },
   { id: 'plunder', name: 'Plunder', icon: '🪙', desc: '+10% gold and materials from your kills.', maxRank: 5, effect: { gold: 0.1, drops: 0.1 }, requires: ['root'], col: 4, row: 1 },
-  { id: 'power2', name: 'Precision', icon: '🎯', desc: '+1.25% crit chance.', maxRank: 8, effect: { crit: 0.0125 }, requires: ['power'], col: 0, row: 2 },
+  { id: 'power2', name: 'Precision', icon: '🎯', desc: '+2.5% crit chance.', maxRank: 4, effect: { crit: 0.025 }, requires: ['power'], col: 0, row: 2 },
   { id: 'speed2', name: 'Tap Fury', icon: '💥', desc: '+40% tap blast damage.', maxRank: 8, effect: { tapPower: 0.4 }, requires: ['speed'], col: 1, row: 2 },
   { id: 'recovery2', name: 'Tap Reach', icon: '🌊', desc: '+9% tap blast area.', maxRank: 9, effect: { tapSize: 0.09 }, requires: ['recovery'], col: 2, row: 2 },
   { id: 'ironSkin', name: 'Iron Skin', icon: '🛡️', desc: '+1 shield charge.', maxRank: 2, effect: { guard: 1 }, requires: ['farSight'], col: 3, row: 2 },
   { id: 'spoils', name: 'Spoils', icon: '💰', desc: '+15% materials from your kills.', maxRank: 3, effect: { drops: 0.15 }, requires: ['plunder'], col: 4, row: 2 },
-  { id: 'capstone', name: 'Godslayer', icon: '👑', desc: '+100% damage, +25% attack speed and +5% crit chance.', maxRank: 1, cost: 21, effect: { damage: 1, rate: 0.25, crit: 0.05 }, requires: ['power2', 'speed2', 'recovery2', 'ironSkin', 'spoils'], col: 2, row: 3 },
+  // The stronger tap abilities: one row, each reached from the two nodes above it.
+  { id: 'sunTap', name: 'Sunburst', icon: '☀️', desc: `Unlocks the Sunburst tap ability: taps deal Radiant damage, and every ${TAP_ABILITIES.find((t) => t.id === 'sun')!.cooldown} seconds a tap calls a sunbeam down on the toughest monster near it. ${TAP_HINT}`, maxRank: 1, effect: {}, ability: 'sun', requires: ['power2', 'speed2'], col: 0.5, row: 3 },
+  { id: 'witherTap', name: 'Withering Touch', icon: '🥀', desc: `Unlocks the Withering Touch tap ability: taps deal Decay damage, and every ${TAP_ABILITIES.find((t) => t.id === 'wither')!.cooldown} seconds a tap curses what it hits, the curse spreading as they die. ${TAP_HINT}`, maxRank: 1, effect: {}, ability: 'wither', requires: ['speed2', 'recovery2'], col: 1.5, row: 3 },
+  { id: 'echoTap', name: 'Arcane Echo', icon: '🔮', desc: `Unlocks the Arcane Echo tap ability: taps strip resistances, and every ${TAP_ABILITIES.find((t) => t.id === 'echo')!.cooldown} seconds a tap goes off again half a second later. ${TAP_HINT}`, maxRank: 1, effect: {}, ability: 'echo', requires: ['recovery2', 'ironSkin'], col: 2.5, row: 3 },
+  { id: 'collapseTap', name: 'Collapse', icon: '🕳️', desc: `Unlocks the Collapse tap ability: taps deal Void damage, and every ${TAP_ABILITIES.find((t) => t.id === 'collapse')!.cooldown} seconds a tap opens a gravity well that collapses on what it gathers. ${TAP_HINT}`, maxRank: 1, effect: {}, ability: 'collapse', requires: ['ironSkin', 'spoils'], col: 3.5, row: 3 },
+  { id: 'capstone', name: 'Godslayer', icon: '👑', desc: '+100% damage, +25% attack speed and +5% crit chance.', maxRank: 1, cost: 21, effect: { damage: 1, rate: 0.25, crit: 0.05 }, requires: ['sunTap', 'witherTap', 'echoTap', 'collapseTap'], col: 2, row: 4 },
 ];
 
 // ---- Ascension (Guild Hunters) ----

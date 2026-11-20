@@ -18,6 +18,9 @@ import {
   fieldZoom,
   FROST_TAP_CHILL,
   MIASMA_PUDDLE,
+  TAP_EFFECTS,
+  tapAbilityDef,
+  type TapAbilityId,
   SPELLS,
   RISEN,
   RISEN_MAX,
@@ -282,6 +285,8 @@ export interface Enemy {
   wellSize?: number;
   /** Plague (a spell): for `left` seconds it poisons every monster it touches for `amount` × PLAGUE_SPREAD. */
   plague?: { left: number; by: Shooter; amount: number };
+  /** Withering Touch's curse: `left` seconds; if it dies cursed, the curse passes to the monsters nearest it. */
+  wither?: { left: number; amount: number };
   /** Bleeds (Physical): the only status that stacks, each its own instance. */
   bleeds?: Dot[];
   /** Its acid puddle, if one is still on the ground (one per monster; a new proc refreshes it). */
@@ -606,6 +611,8 @@ export interface SpellCast {
   mode?: GearMode;
   /** A Hunter's special (Arrow Rain): hits as one, in `only` if set (a copy from Thomas's tome) or its own types. */
   special?: boolean;
+  /** Your tap ability's effect: `base` is your tap damage, and Guardians shrug off as much of it as of a tap. */
+  tap?: boolean;
   only?: DamageType;
   /** Ricochet Rain: each arrow ricochets on to this many more monsters. */
   bounce?: number;
@@ -1025,6 +1032,10 @@ export class Field {
   flameCd = 0;
   /** Frost Nova: seconds until a tap freezes again. */
   frostCd = 0;
+  /** The newer tap abilities (TAP_EFFECTS): seconds until the equipped one's effect can go off again. */
+  tapCd = 0;
+  /** Arcane Echo: taps waiting to go off again. */
+  private tapEchoes: Array<{ x: number; y: number; t: number }> = [];
   private nextVolley = 1;
   /** Each Hunter's turn through their weapon's types, for weapons that fire one type per projectile. */
   private typeTurn = new Map<Shooter, number>();
@@ -1092,6 +1103,7 @@ export class Field {
     this.orbs = [];
     this.spellHits = [];
     this.zones = [];
+    this.tapEchoes = [];
     this.fissures = [];
     this.tomes = [];
     this.dice = [];
@@ -1507,6 +1519,12 @@ export class Field {
     this.miasmaCd = Math.max(0, this.miasmaCd - dt);
     this.flameCd = Math.max(0, this.flameCd - dt);
     this.frostCd = Math.max(0, this.frostCd - dt);
+    this.tapCd = Math.max(0, this.tapCd - dt);
+    if (this.tapEchoes.length) {
+      for (const ec of this.tapEchoes) if ((ec.t -= dt) <= 0) this.blast(ec.x, ec.y, true);
+      this.tapEchoes = this.tapEchoes.filter((ec) => ec.t > 0);
+    }
+    for (const e of this.enemies) if (e.wither && (e.wither.left -= dt) <= 0) e.wither = undefined;
     this.runWaves(dt);
     this.bullets = this.bullets.filter((b) => b.life > 0);
     this.enemies = this.enemies.filter((e) => e.hp > 0);
@@ -3166,7 +3184,11 @@ export class Field {
       if (wall) out.push({ key: `wall:${this.lead}`, icon: '🦴', name: `${def.name}'s ${wall.name}`, art: WALL_ART, tint: 'physical', progress: 1 - this.leadWallCd / wall.cooldown });
     } else if (this.game.tapAbility === 'flame') out.push({ key: 'tap:flame', icon: '🔥', name: 'Flame Burst', art: TAP_ART.flame, tint: 'fire', progress: 1 - this.flameCd / (FLAME_BURST_COOLDOWN * this.game.cooldownMult('main')) });
     else if (this.game.tapAbility === 'frost') out.push({ key: 'tap:frost', icon: '❄️', name: 'Frost Nova', art: TAP_ART.frost, tint: 'frost', progress: 1 - this.frostCd / (FROST_NOVA.cooldown * this.game.cooldownMult('main')) });
-    else if (this.game.tapAbility === 'miasma') out.push({ key: 'tap:miasma', icon: '☠️', name: 'Melting Miasma', art: TAP_ART.miasma, tint: 'poison', progress: 1 - this.miasmaCd / (MIASMA_PUDDLE.cooldown * this.game.cooldownMult('main')) });
+    else if (this.game.tapAbility === 'miasma') out.push({ key: 'tap:miasma', icon: '🧪', name: 'Melting Miasma', art: TAP_ART.miasma, tint: 'acid', progress: 1 - this.miasmaCd / (MIASMA_PUDDLE.cooldown * this.game.cooldownMult('main')) });
+    else if (this.game.tapAbility) {
+      const t = tapAbilityDef(this.game.tapAbility);
+      if (t.cooldown) out.push({ key: `tap:${t.id}`, icon: t.icon, name: t.name, art: TAP_ART[t.id], tint: t.damageType, progress: 1 - this.tapCd / (t.cooldown * this.game.cooldownMult('main')) });
+    }
     for (const who of [this.lead, ...this.helpers.map((h) => h.id)]) {
       for (const { uid, def, effect } of this.game.gearEffects(who)) {
         const cd = effectCooldown(effect);
@@ -4053,6 +4075,7 @@ export class Field {
   /** One hit of a spell, `k` of its cast, always setting off its element's effect. */
   private spellHit(c: SpellCast, e: Enemy, k: number, fx: number, fy: number): void {
     if (e.hp <= 0) return;
+    if (c.tap) return this.tapHit(e, (c.base ?? 0) * k, c.dtype, c.dtype !== 'physical');
     if (c.mark) this.markFor(e, c.mark, c.markTime ?? VULN_TIME);
     if (c.special) {
       this.hitWith(c.who, e, (c.mult ?? 1) * k, fx, fy, undefined, c.mode, true, true, c.only);
@@ -5585,6 +5608,8 @@ export class Field {
         if (st.burst && this.game.rng() < this.chained(st.burst)) this.inChain(() => this.burstAt(shooter, e));
       }
       this.releaseGhost(shooter, e);
+      // Withering Touch: a cursed monster's death passes the curse on.
+      if (e.wither) this.spreadWither(e);
       this.bloodthirst(shooter);
       this.quickDrawKill(shooter);
       // Fireburst (an enchantment): monsters the weapon kills burst, hurting everything around them.
@@ -5599,13 +5624,18 @@ export class Field {
 
   /** Tap blast at a world position: damages every enemy in the radius. Works even while stunned. */
   tap(x: number, y: number): void {
+    this.game.registerTap();
+    this.blast(x, y, false);
+  }
+
+  /** A tap blast, and its tap ability's effect. An Arcane Echo's repeat (`echo`) only blasts: it sets off nothing. */
+  private blast(x: number, y: number, echo: boolean): void {
     const g = this.game;
-    g.registerTap();
     const ability = g.tapAbility;
     const blast: Extract<FieldEvent, { type: 'blast' }> = { type: 'blast', x, y, color: ability ? DAMAGE_TYPES[g.tapDamageType].color : undefined };
     this.events.push(blast);
     const crit = g.rng() < g.critChanceOf('main');
-    const dmg = g.tapDamage * (crit ? g.critMultOf('main') : 1);
+    const dmg = g.tapDamage * (crit ? g.critMultOf('main') : 1) * (echo ? TAP_EFFECTS.echo.k : 1);
     const dtype = g.tapDamageType;
     const hit: Array<{ e: Enemy; dmg: number }> = [];
     for (const e of this.enemies) {
@@ -5615,36 +5645,131 @@ export class Field {
       const d = Math.hypot(dx, dy);
       if (d > g.tapRadius + e.r) continue;
       // Guardians shrug off much of a tap blast (AreaDef.guardianTap), so the Hunters' own damage counts.
-      const amount = dmg * this.typeMultOn(dtype, e) * g.typeBonus('main', dtype) * (e.boss ? (areaDef(g.state.area).guardianTap ?? GUARDIAN_TAP_TAKEN) : 1);
+      const amount = dmg * this.typeMultOn(dtype, e) * g.typeBonus('main', dtype) * (e.boss ? this.guardianTap() : 1);
       this.damage(e, amount, crit, dx / (d || 1), dy / (d || 1), 'main', dtype);
       hit.push({ e, dmg: amount });
     }
     // An elemental tap ability sets off its effect on everything the blast hit (Flame Burst's and Frost Nova's only
     // when they're ready, and then the tap goes off with its spell: an explosion, a falling ice shard).
-    const ignite = ability === 'flame' && this.flameCd <= 0 && hit.length > 0;
+    const ignite = !echo && ability === 'flame' && this.flameCd <= 0 && hit.length > 0;
     if (ignite) this.flameCd = FLAME_BURST_COOLDOWN * g.cooldownMult('main');
-    const freeze = ability === 'frost' && this.frostCd <= 0 && hit.length > 0;
+    const freeze = !echo && ability === 'frost' && this.frostCd <= 0 && hit.length > 0;
     if (freeze) this.frostCd = FROST_NOVA.cooldown * g.cooldownMult('main');
+    // The newer abilities: their effect goes off when ready (Withering Touch's and Sunburst's only on a tap that
+    // found something to curse or strike).
+    const def = ability ? tapAbilityDef(ability) : null;
+    const ready = !echo && !!def?.cooldown && this.tapCd <= 0 && (ability !== 'wither' || hit.length > 0);
     blast.spell = ignite || freeze;
     for (const { e, dmg: amount } of hit) {
+      if (e.hp <= 0) continue;
       if (ability === 'flame') {
-        if (ignite && e.hp > 0) this.applyStatus(e, 'fire', amount, 'main');
+        if (ignite) this.applyStatus(e, 'fire', amount, 'main');
       } else if (ability === 'frost') {
-        if (freeze && e.hp > 0 && !this.immuneTo(e, 'frost')) {
+        if (freeze && !this.immuneTo(e, 'frost')) {
           const hold = FROST_NOVA.freeze * g.effectDurationMult('main') * (e.boss ? 0.25 : 1);
           e.held = Math.max(e.held ?? 0, hold);
           e.slow = Math.max(e.slow ?? 0, hold + FROST_TAP_CHILL * g.effectDurationMult('main'));
         }
+      } else if (ability === 'thunder' && !this.immuneTo(e, 'lightning')) this.arc(e, amount * STATUS.arc.share, 'main');
+      else if (ability === 'miasma') this.applyStatus(e, 'acid', amount, 'main', g.procRarity('main'));
+      else if (ability === 'venom') this.applyStatus(e, 'poison', amount, 'main', g.procRarity('main'));
+      else if (ability === 'echo') this.applyStatus(e, 'arcane', amount, 'main', g.procRarity('main'));
+      else if (ability === 'wither' && ready) {
+        e.wither = { left: TAP_EFFECTS.wither.life * g.effectDurationMult('main'), amount: amount * TAP_EFFECTS.wither.k };
+        this.applyStatus(e, 'decay', e.wither.amount, 'main');
       }
-      else if (ability === 'thunder' && !this.immuneTo(e, 'lightning')) this.arc(e, amount * STATUS.arc.share, 'main');
-      else if (ability === 'miasma' && e.hp > 0) this.applyStatus(e, 'poison', amount, 'main', g.procRarity('main'));
     }
-    // Melting Miasma: when it's ready, the tap also leaves a poison puddle the size of the blast.
-    if (ability === 'miasma' && this.miasmaCd <= 0) {
+    // Melting Miasma: when it's ready, the tap also leaves an acid puddle the size of the blast.
+    if (!echo && ability === 'miasma' && this.miasmaCd <= 0) {
       this.miasmaCd = MIASMA_PUDDLE.cooldown * g.cooldownMult('main');
       const life = MIASMA_PUDDLE.ticks * PUDDLE_TICK * g.effectDurationMult('main');
-      this.puddles.push({ shooter: 'main', x, y, r: g.tapRadius, life, tick: 0, dmg: 0, abs: g.tapDamage * MIASMA_PUDDLE.share, dtype: 'poison' });
+      this.puddles.push({ shooter: 'main', x, y, r: g.tapRadius, life, tick: 0, dmg: 0, abs: g.tapDamage * MIASMA_PUDDLE.share, dtype: 'acid' });
+    }
+    if (ready && def) {
+      this.tapCd = def.cooldown! * g.cooldownMult('main');
+      this.tapEffect(def.id, x, y);
     }
     this.enemies = this.enemies.filter((e) => e.hp > 0);
+  }
+
+  /** How much of a tap a Guardian takes (the rest it shrugs off). */
+  private guardianTap(): number {
+    return areaDef(this.game.state.area).guardianTap ?? GUARDIAN_TAP_TAKEN;
+  }
+
+  /** A hit from your tap ability's effect: your tap damage, its type's strengths, a Guardian's shrug, a crit. */
+  private tapHit(e: Enemy, base: number, dtype: DamageType, status: boolean): void {
+    if (e.hp <= 0 || base <= 0) return;
+    const g = this.game;
+    const crit = g.rng() < g.critChanceOf('main');
+    const amount = base * this.typeMultOn(dtype, e) * g.typeBonus('main', dtype) * (e.boss ? this.guardianTap() : 1) * (crit ? g.critMultOf('main') : 1);
+    this.damage(e, amount, crit, 0, 0, 'main', dtype);
+    if (status && e.hp > 0) this.applyStatus(e, dtype, amount, 'main', g.procRarity('main'));
+  }
+
+  /** The newer tap abilities' effects, where the tap landed (TAP_EFFECTS). */
+  private tapEffect(id: TapAbilityId, x: number, y: number): void {
+    const g = this.game;
+    const R = g.tapRadius;
+    const cast = (dtype: DamageType, base: number): SpellCast => ({ who: 'main', dtype, base, tap: true });
+    switch (id) {
+      case 'earth': {
+        // The ground breaks: boulders roll out from the tap in every direction.
+        const fx = TAP_EFFECTS.earth;
+        const c = cast('physical', g.tapDamage);
+        const turn = g.rng() * Math.PI * 2;
+        this.events.push({ type: 'spell', fx: 'break', x, y, r: R * 0.6, color: DAMAGE_TYPES.physical.color });
+        for (let i = 0; i < fx.count; i++) {
+          const a = turn + (i / fx.count) * Math.PI * 2;
+          this.zones.push({ kind: 'boulder', c, x: x + Math.cos(a) * 10, y: y + Math.sin(a) * 10, r: fx.r * g.radiusMult('main'), vx: Math.cos(a) * BOULDER.speed, vy: Math.sin(a) * BOULDER.speed, life: 12, max: 12, tick: 0, k: fx.k, touched: new Map() });
+        }
+        break;
+      }
+      case 'venom': {
+        const fx = TAP_EFFECTS.venom;
+        const life = fx.life * g.lastingMult('main');
+        this.zones.push({ kind: 'poisonMist', c: cast('poison', g.tapDamage), x, y, r: R * fx.r, vx: 0, vy: 0, life, max: life, tick: 0, k: fx.k, touched: new Map() });
+        break;
+      }
+      case 'sun': {
+        // The toughest monster near the tap (Guardians included) takes the beam.
+        const fx = TAP_EFFECTS.sun;
+        const reach = R * fx.reach;
+        let target: Enemy | null = null;
+        for (const e of this.enemies) if (e.hp > 0 && Math.hypot(e.x - x, e.y - y) <= reach + e.r && (!target || e.hp > target.hp)) target = e;
+        if (!target) break;
+        const c = cast('radiant', g.tapDamage);
+        for (let i = 0; i < fx.hits; i++) this.spellHits.push({ c, t: i * 0.25, x: target.x, y: target.y, r: R * fx.r, k: fx.k, fx: i === 0 ? 'sun' : undefined });
+        break;
+      }
+      case 'echo':
+        this.tapEchoes.push({ x, y, t: TAP_EFFECTS.echo.delay });
+        break;
+      case 'collapse': {
+        const fx = TAP_EFFECTS.collapse;
+        const life = fx.life * g.lastingMult('main');
+        this.zones.push({ kind: 'gravityAnchor', c: cast('void', g.tapDamage * fx.k), x, y, r: R * fx.r, vx: 0, vy: 0, life, max: life, tick: 0, k: fx.tick / fx.k, touched: new Map() });
+        this.events.push({ type: 'spell', fx: 'anchor', x, y, r: R * fx.r, color: DAMAGE_TYPES.void.color });
+        break;
+      }
+      default:
+        break;
+    }
+  }
+
+  /** Withering Touch: a cursed monster died, so the nearest few around it take up the curse. */
+  private spreadWither(from: Enemy): void {
+    const w = from.wither!;
+    from.wither = undefined;
+    const fx = TAP_EFFECTS.wither;
+    const near = this.enemies
+      .filter((o) => o !== from && o.hp > 0 && !o.wither && Math.hypot(o.x - from.x, o.y - from.y) <= fx.reach + o.r)
+      .sort((p, q) => Math.hypot(p.x - from.x, p.y - from.y) - Math.hypot(q.x - from.x, q.y - from.y))
+      .slice(0, fx.spread);
+    for (const o of near) {
+      this.events.push({ type: 'beam', x1: from.x, y1: from.y, x2: o.x, y2: o.y, color: DAMAGE_TYPES.decay.color, width: 2 });
+      o.wither = { left: fx.life * this.game.effectDurationMult('main'), amount: w.amount };
+      this.applyStatus(o, 'decay', w.amount, 'main');
+    }
   }
 }

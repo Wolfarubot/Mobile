@@ -1,4 +1,4 @@
-import type { DamageType, GearEffect, HunterId, UniqueId } from './balance';
+import type { DamageType, GearEffect, HunterId, TapAbilityId, UniqueId } from './balance';
 import type { Wearer } from './state';
 
 /**
@@ -9,7 +9,19 @@ import type { Wearer } from './state';
 export type CooldownTint = DamageType | { hunter: Wearer };
 
 /** Your tap abilities (and the plain Blast), also shown in the Tap Abilities list. */
-export const TAP_ART = { blast: 'ab-hunter-warrior/032', flame: 'ab-pyro-hydro/008', thunder: 'ab-geo-aero/052', frost: 'ab-pyro-hydro/069', miasma: 'ab-paladin-dk/092' } as const;
+export const TAP_ART: Record<TapAbilityId | 'blast', string> = {
+  blast: 'ab-hunter-warrior/032',
+  flame: 'ab-pyro-hydro/008',
+  thunder: 'ab-geo-aero/052',
+  frost: 'ab-pyro-hydro/069',
+  miasma: 'ab-paladin-dk/092',
+  earth: 'ab-geo-aero/002',
+  venom: 'ab-alchemist-shaman/038',
+  sun: 'ab-paladin-dk/021',
+  wither: 'ab-gunslinger-druid/069',
+  echo: 'ab-rogue-warlock/055',
+  collapse: 'ab-rogue-warlock/080',
+};
 /** Gideon's Bone Wall. */
 export const WALL_ART = 'ab-paladin-dk/093';
 /** A tome summon's own move (the Wolf Spirit's lunge). */
