@@ -2970,14 +2970,14 @@ function drawStatus(g: CanvasRenderingContext2D, e: Enemy, t: number, on: (k: Fx
     const R = STATUS.well.radius * (e.wellSize ?? 1);
     const fade = Math.min(1, e.well * 3);
     if (basic) {
-      g.strokeStyle = `rgba(255,95,215,${0.5 * fade})`;
+      g.strokeStyle = `rgba(255,95,215,${0.3 * fade})`;
       g.lineWidth = 2;
       g.beginPath();
       g.arc(0, 0, r + (R - r) * (1 - ((t * 1.5 + e.phase) % 1)), 0, Math.PI * 2);
       g.stroke();
     } else if (effectImage('blackhole')) {
       // A swirling black hole under the monster, as wide as the well's pull.
-      g.globalAlpha = fade * 0.85;
+      g.globalAlpha = fade * 0.5;
       drawEffectFrame(g, effectImage('blackhole')!, 'blackhole', Math.floor(t * 12 + e.phase * 8), 0, 0, Math.max(r * 2.6, R * 0.9), 'center', true);
       g.globalAlpha = 1;
     } else {
@@ -2987,7 +2987,7 @@ function drawStatus(g: CanvasRenderingContext2D, e: Enemy, t: number, on: (k: Fx
         const dist = r + (R - r) * (1 - p);
         const a = (i * Math.PI * 2) / n + p * 3 + t * 2;
         const s = 2 + 2 * (1 - p);
-        g.globalAlpha = fade * (0.35 + 0.65 * p);
+        g.globalAlpha = fade * 0.6 * (0.35 + 0.65 * p);
         g.fillStyle = i % 2 ? '#ff5fd7' : '#5a2a8a';
         g.fillRect(Math.cos(a) * dist - s / 2, Math.sin(a) * dist - s / 2, s, s);
       }

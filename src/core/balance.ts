@@ -2754,7 +2754,7 @@ export const STATUS = {
    */
   arc: { share: 0.6, radius: 110 },
   /** Void opens a gravity well on the monster it hits: for `duration`s, monsters within `radius` are pulled toward it at `pull` units/s (Guardians and Void-resistant monsters hold their ground). */
-  well: { duration: 1.5, radius: 95, pull: 150 },
+  well: { duration: 1.5, radius: 90, pull: 128 },
   /**
    * Bleeding (Physical): `share` of the hit again over `duration`. The only effect that stacks: each bleed is
    * its own instance, up to `maxStacks` at once (a new one replaces the oldest).
