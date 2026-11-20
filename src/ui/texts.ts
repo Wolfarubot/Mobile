@@ -639,6 +639,7 @@ section(
     ownDamage: 'Has its own damage, raised by your bonuses instead of your weapon.',
     unique: '**Unique**: {text}.',
     builtIn: '**Built-in**: {text}.',
+    modSlots: '**{n} modifier slot{s}**: once it\'s crafted, Refine or Enchant fills each one with a modifier of your choosing.',
   },
   {
     note: "What a tag on a gear card says when tapped. With Advanced tooltips off (Settings), the plain versions show; on, the ones with the numbers. Weapon, armor and accessory types, spells and damage types use their own descriptions (under Combat).",
@@ -696,6 +697,7 @@ section(
       finderSimple: 'Finder',
       unique: 'Unique enchantment',
       builtIn: 'Built-in enchantment',
+      modSlots: 'Modifier slots (recipe cards)',
     },
   },
 );

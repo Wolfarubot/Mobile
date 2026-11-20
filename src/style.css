@@ -8801,29 +8801,20 @@ body .title-row .quick-type .cyc-cur {
 .gc-speed .down {
   color: var(--danger);
 }
-/* A recipe's modifier slots, as empty diamonds (they're filled by Refine or Enchant once it's crafted). */
-.fc-modslots {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 6px 0;
-  font-weight: 700;
+/* A recipe's modifier slots: the first tag on its card, a diamond per slot (filled by Refine or Enchant once crafted). */
+.feat-tag .ic.mod-pips {
+  gap: 0;
 }
-.fc-modslots small {
-  font-weight: 400;
-  opacity: 0.8;
-}
-.fc-modslot-pips {
-  display: inline-flex;
-  gap: 3px;
-}
-.fc-modslot-pips i {
-  width: 9px;
+.feat-tag .ic.mod-pips i {
+  width: 5px;
   height: 9px;
-  transform: rotate(45deg);
-  border: 2px solid currentColor;
-  opacity: 0.75;
+  flex: none;
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+  background: color-mix(in srgb, var(--dc) 45%, #fff);
+}
+.feat-tag .ic.mod-pips i:only-child {
+  width: 8px;
+  height: 12px;
 }
 /* Enhanced Forging's free roll, in place of a Refine or Enchant roll's cost. */
 .mod-free {

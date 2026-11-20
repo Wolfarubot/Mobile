@@ -4107,8 +4107,7 @@ export class AppUI {
         <h3>${name}</h3>
         <small>${gd ? `<b class="fc-rarity" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${gearKindName(gd).toLowerCase()}${gd.unboundOf ? ' · <span class="ub-tag">Unbound</span>' : ''}` : `<b class="fc-rarity" style="--rc:${RARITIES[it!.rarity].color}">${RARITIES[it!.rarity].name}</b> upgrade · ${upgradeReach(it!)}`}</small>
       </div></div>
-      ${gd ? featureTags(gd) : ''}
-      ${gd && modSlotCount(gd) ? `<p class="fc-modslots" title="Filled by Refine or Enchant once crafted"><span class="fc-modslot-pips">${'<i></i>'.repeat(modSlotCount(gd))}</span>${modSlotCount(gd)} modifier slot${modSlotCount(gd) === 1 ? '' : 's'}</p>` : ''}
+      ${gd ? featureTags(gd, 1, true) : ''}
       <p class="fc-effect"></p>
       <div class="fc-owned"></div>
       <div class="fc-label">Recipe</div>
@@ -7483,8 +7482,17 @@ function tweakName(gd: GearDef): string {
  * splits them, their status effects), its weapon class and tweaks, armor kind, own abilities, bane and finds (at
  * `stars`). Each tag's popup has the full description.
  */
-function featureTags(gd: GearDef, stars = 1): string {
+/** Modifier slot tags on a recipe: one look per count (1, 2 or 3 slots), each with a diamond per slot. */
+const MOD_SLOT_TAG_COLORS = ['#7fd8e0', '#8fb4ff', '#c08cff'];
+function modSlotTag(n: number): string {
+  const color = MOD_SLOT_TAG_COLORS[Math.min(n, MOD_SLOT_TAG_COLORS.length) - 1];
+  return `<button type="button" class="dtype-tag feat-tag mod-slot-tag mod-slots-${n}" style="--dc:${color}" data-tip="${esc(tx('tip.gear.modSlots', { n, s: n === 1 ? '' : 's' }))}"><span class="ic mod-pips">${'<i></i>'.repeat(n)}</span>${n} Mod Slot${n === 1 ? '' : 's'}</button>`;
+}
+
+/** A piece's tags; `modSlots` puts its modifier slots first (the crafting card: Inventory shows the slots themselves). */
+function featureTags(gd: GearDef, stars = 1, modSlots = false): string {
   const tags: string[] = [];
+  if (modSlots && modSlotCount(gd)) tags.push(modSlotTag(modSlotCount(gd)));
   const types = gearTypes(gd);
   if (gd.special) tags.push(featTag(SPECIAL_TAG_ICON, SPECIAL_TYPE.name, specialText(gd), SPECIAL_TYPE.color, ' special-type'));
   else
