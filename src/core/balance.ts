@@ -1871,8 +1871,10 @@ export const UNBOUND_BASE_COST = 1_000_000;
 // the rest as measured before. The Unbound Depths went in 7.4 days at ×1.1 a node (target 10-11): its nodes now climb
 // ×1.18 a node, so each run there needs a little longer before its next node.
 // The Unbound Ember Mines went in 9.5 days at 3.36B (six runs of 1.6 days; target 12-13): ×1.1 on its base, so each
-// run there farms to about its second day.
-export const UNBOUND_AREA_BASES = [2_380_000, 14_600_000, 41_000_000, 224_000_000, 562_000_000, 3_700_000_000, 10_000_000_000];
+// run there farms to about its second day. Re-measured at 3.7B: still 9.7 days (1.79 + five runs of 1.58), each run
+// paying about 3.95B by day 1.6 and gaining about 0.7B a day; ×1.15 (4.25B, the Unbound Venom Caverns about 4.9B) so
+// each run there needs to farm to about day 2.1.
+export const UNBOUND_AREA_BASES = [2_380_000, 14_600_000, 41_000_000, 224_000_000, 562_000_000, 4_250_000_000, 10_000_000_000];
 export const UNBOUND_AREA_IN_STEPS = [1.2, 1.1, 1.1, 1.1, 1.18, 1.03, 1.1];
 export const UNBOUND_IN_STEP = 1.1;
 export const UNBOUND_LATER_STEP = 1.8;
