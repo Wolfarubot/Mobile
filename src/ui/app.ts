@@ -4176,10 +4176,16 @@ export class AppUI {
     const update = () => {
       if (gd) {
         const owned = g.state.inventory.filter((x) => x.base === gd.id).length;
-        $('.fc-effect', card).innerHTML = `${statTable(gd, [
-          { label: '1★', stars: 1 },
-          { label: `${MAX_STARS}★`, stars: MAX_STARS },
-        ])}`;
+        // A weapon's attack speed set a line apart, under the 1★ it's crafted at only (as in Equipment's details).
+        const speed = gd.weaponClass ? [{ label: 'Attacks/s', values: [String(Number(weaponSpeed(gd, 1).toFixed(2))), ''] }] : [];
+        $('.fc-effect', card).innerHTML = `${statTable(
+          gd,
+          [
+            { label: '1★', stars: 1 },
+            { label: `${MAX_STARS}★`, stars: MAX_STARS },
+          ],
+          speed,
+        )}`;
         $('.fc-owned', card).innerHTML = `In your equipment: <b>${owned}</b>`;
         $('.fc-cost', card).innerHTML = recipeHtml(g, gearCost(gd, 0));
         btn.textContent = 'Craft';
