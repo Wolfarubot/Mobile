@@ -1,0 +1,46 @@
+Magic effect sheets from CraftPix.net packs (license: https://craftpix.net/file-licenses/):
+  10 Magic Sprite Sheet Effects: explosion, fireball, lightning, sunstrike, blackhole, shield
+  Free Pixel Magic Sprite Effects: puff (Magic/9)
+  Magic Spells Pixel Art Sprite Pack: ice (Magic/5)
+  10 Magic Sprite Sheet Effects: spikes
+  Magic Effects Pixel Art Asset Pack 4: poison (Magic/9)
+  Free Pixel Magic Sprite Effects: thrust (Magic/3)
+  Magic Effects Pixel Art Asset Pack 4: smash (Magic/10), fist (Magic/2, tinted gold at runtime)
+  (Sword and glaive swings are cut from the black hole's swirling rim at runtime: src/render/battle.ts.)
+  32x32 Pixel Dice (provided with the game's assets): dice (a 4x6 sheet of 32x32 frames; each row is one top face, 1 to 6, in four turns)
+  10 Magic Sprite Sheet Effects: arc (1 Lightning, faded out toward its far end so a stretched arc has no hard edge)
+  Magic Spells Pixel Art Sprite Pack: arrows (Magic/3), orb (Magic/8, tinted per element at runtime), frost (Magic/10)
+  Magic Effects Pixel Art Asset Pack 4: acid (Magic/3 Cycle)
+  Free Pixel Magic Sprite Effects: shards (Magic/4_2)
+  Music-Notes Pixel Free (provided with the game's assets): music-orbit-ink (Music Scale Orbit, as is) and music-orbit (the same, ink turned light so it tints to a Hunter's colour): Ba'al's sound waves
+shockwave.png, rot.png: from CraftPix's "Free Magic and Traps Top Down Pixel Art Asset" (4 Barrel/Boom2.png and
+Boom1.png: a barrel's blast, eight 48px frames). shockwave is the blast's ring recoloured white and grey so it takes
+any element's tint (a Focus's burst); rot is its smoke ring recoloured rot-purple and dark brown (Decay's aura,
+looping its expanding frames).
+From CraftPix's "Elemental Combat Spells", "Elemental Magic Projectiles" and "Magic Shields and Healing Spells"
+Top Down Pixel Art Asset Packs (same license), one row cut from each sheet with its frames padded square:
+  icespikes (Ice _spikes_front-back, front row): the Ice Spikes spell and Frost Nova's freezing tap
+  icecube (Ice_cube_front-back, front row): unused for now (Frost Nova's tap uses icespikes)
+  stones (Falling_stones_front-back, front row): falling rocks (Rockfall and the stone spells)
+  meteor (Falling_flaming_stones, first row): a Meteor Golem's Starfall
+  firebreath (Fire_Missiles, the right-facing row; turned to aim): an Imp's Fire Breath
+  wings (Air_buff_Wings, first row): a Valkyrie's Guardian Wings
+  vines (Lianas_front-back, front row): Thorns
+  iceburst (Ice_arrow_explosion_front-back, front row): a Frost Sprite's ice bolt, an Ice Wolf's freezing bite
+More from the same three packs and the traps pack, one row cut from each sheet with its frames padded square
+(src/render/effectSheets.ts):
+  boltcast (Elemental Combat Spells, Lightning_ball_cast_front-back, front row): a lightning magic weapon's shot
+  lightningball, lightningburst (Lightning_ball_cycle / Lightning_ball_explosion, front rows): the Lightning Ball spell
+  rockfist (Stone_fist_front-back, front row): a Physical magic weapon's falling rock (frames 3-5) and its crash (6-10)
+  acidsplash (Acid _splash, the right-facing row): Poison Spray
+  eyefire (Eyes_of_fire): the Eye of Flame's eye
+  firebolt, fireboom (Elemental Magic Projectiles, Fireball_cycle / Fireball_explosion, right-facing rows): a fire
+    magic weapon's shot and its impact (and Fire Volley's bolts)
+  icicle (Ice_arrow_left-right, right-facing row): a frost magic weapon's shot
+  rayburst (Explosion_cast_front_back, front row): a radiant magic weapon's shot, a ray of light
+  lightsphere, flamesphere (Magic Shields and Healing Spells, Lightning_sphere / Flaming_sphere): lightning and fire
+    gear pulses; flamesphere-grey is the flaming sphere in grey, tinted at runtime for every other element's pulse
+  wave (Wave_left-right, right-facing row, in grey): a melee weapon's Elemental Wave, tinted to its element
+  bonespikes (Free Magic and Traps, 1 Spikes/3.png): Gideon's Bone Spikes
+
+turret-base.png, turret-barrel.png: Reginald's Clockwork Turret, drawn for the game in the palette of his sprite (brass legs, steel drum, gold trim, red sight); the barrel is its own image so it can turn to aim.
