@@ -4764,10 +4764,10 @@ body.ui-parchment .title-row .filter-corner.on {
   font-weight: 400;
 }
 
-/* The Special damage type (Elemental Cataclysm): a rainbow tag. */
+/* The Special damage type (Elemental Cataclysm): a rainbow tag, its text white with a black outline like every tag's. */
 .dtype-tag.special-type {
   background: linear-gradient(90deg, #ff7a2a, #ffe36e, #6fdc5a, #8fdcff, #c08cff, #ff5fd7);
-  color: #111;
+  color: #fff;
   border-color: transparent;
 }
 
@@ -5697,7 +5697,7 @@ button.feat-tag {
 }
 .dtype-tag.special-type {
   background: linear-gradient(90deg, #ff7a2a, #ffe36e, #6fdc5a, #8fdcff, #c08cff, #ff5fd7);
-  color: #141414;
+  color: #fff;
 }
 /* The popup's title repeats the tag (icon and name) without the tag's box. */
 .feat-tip > b .ic {
