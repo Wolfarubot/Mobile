@@ -9261,3 +9261,32 @@ body .title-row .quick-type .cyc-cur {
   border: 2px solid var(--c0);
   box-shadow: 2px 2px 0 var(--c0);
 }
+
+/* Account card: the cloud save's last upload, and Save now. */
+.account-cloud {
+  display: grid;
+  gap: 6px;
+  text-align: center;
+}
+.account-cloud small {
+  color: var(--text);
+  text-shadow: none;
+  font-size: 13px;
+}
+/* Which save to keep: this device's and the account's, side by side (stacked when narrow). */
+.cloud-picks {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+  margin: 8px 0;
+  text-align: left;
+}
+.cloud-pick {
+  border: 2px solid var(--c0);
+  padding: 6px 8px;
+  min-width: 0;
+}
+.cloud-pick > b {
+  display: block;
+  margin-bottom: 4px;
+}

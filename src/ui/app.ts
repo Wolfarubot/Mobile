@@ -195,6 +195,7 @@ import { regress } from '../core/regression';
 import { Capacitor } from '@capacitor/core';
 import { FEEDBACK_KINDS, FEEDBACK_MAX, feedbackReady, feedbackWait, sendFeedback, type FeedbackKind } from './feedback';
 import { ACCOUNTS_READY, AccountError, currentUser, deleteAccount, resetPassword, signIn, signInEmail, signOut, type AuthProvider } from './account';
+import { cloudSaveNow, cloudStatus, type SaveSummary } from './cloudSave';
 import { applyFont, fontDef, FONTS } from './fonts';
 import { GainPops } from './gainPops';
 import { ACC_TAG_ICONS, ARCHETYPE_TAG_ICONS, ARMOR_TAG_ICONS, DAMAGE_TAG_ICONS, EFFECT_TAG_ICONS, FEATURE_TAG_ICONS, SPECIAL_TAG_ICON, SUMMON_TAG_ICONS, tagIconHtml } from './tagIcons';
@@ -5436,9 +5437,28 @@ export class AppUI {
         head.innerHTML = `<button class="buy account-signin">${tx('menu.account.signIn')}</button><div class="account-who"><b>${tx('menu.account.signedOut')}</b><small>${tx('menu.account.signedOutNote')}</small></div>`;
         $('.account-signin', head).addEventListener('click', () => this.openSignIn());
       } else {
-        head.innerHTML = `<div class="account-who signed-in"><span class="account-badge ${u.provider}">${PROVIDER_ICONS[u.provider]}</span><span><small>${tx('menu.account.signedIn', { provider: PROVIDER_NAMES[u.provider] })}</small><b>${esc(u.email)}</b>${u.name ? `<small>${esc(u.name)}</small>` : ''}</span></div><button class="buy secondary-btn account-signout">${tx('menu.account.signOut')}</button>`;
+        head.innerHTML = `<div class="account-who signed-in"><span class="account-badge ${u.provider}">${PROVIDER_ICONS[u.provider]}</span><span><small>${tx('menu.account.signedIn', { provider: PROVIDER_NAMES[u.provider] })}</small><b>${esc(u.email)}</b>${u.name ? `<small>${esc(u.name)}</small>` : ''}</span></div><div class="account-cloud"><small class="ac-status"></small><button class="buy secondary-btn ac-save">${tx('menu.account.cloudSaveNow')}</button></div><button class="buy secondary-btn account-signout">${tx('menu.account.signOut')}</button>`;
         $('.account-signout', head).addEventListener('click', () => void signOut().catch((e) => this.accountError(e)));
+        $('.ac-save', head).addEventListener('click', () => {
+          this.hooks.save();
+          void cloudSaveNow();
+        });
       }
+    });
+    // The cloud save: when it last went up (or that it's checking, or couldn't).
+    refreshers.push(() => {
+      const line = head.querySelector<HTMLElement>('.ac-status');
+      if (!line) return;
+      const st = cloudStatus();
+      const text =
+        st.state === 'saved'
+          ? txt('menu.account.cloudSaved', { when: new Date(st.at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) })
+          : st.state === 'syncing'
+            ? txt('menu.account.cloudSyncing')
+            : st.state === 'error'
+              ? txt('menu.account.cloudError')
+              : txt('menu.account.cloudOff');
+      if (line.textContent !== text) line.textContent = text;
     });
 
     // The stats, a card per kind of thing done (all of them kept through Regression).
@@ -5576,6 +5596,28 @@ export class AppUI {
       const email = form.elements.namedItem('email') as HTMLInputElement;
       if (!email.reportValidity()) return;
       void resetPassword(email.value.trim()).then(() => this.toast(txt('menu.account.resetSent', { email: email.value.trim() })), (e) => this.accountError(e));
+    });
+  }
+
+  /**
+   * Signing in where both this device and the cloud have a save, and they differ: which one to keep. Shows what's in
+   * each (level, area, Regressions, time played, when it was saved); nothing is overwritten until you pick.
+   */
+  askCloudChoice(device: SaveSummary, cloud: SaveSummary): Promise<'device' | 'cloud'> {
+    const card = (title: string, s: SaveSummary) =>
+      `<div class="cloud-pick"><b>${title}</b>${lineTable([
+        [txt('popup.cloudChoice.level'), `Lv ${s.level}`],
+        [txt('popup.cloudChoice.area'), s.area],
+        [txt('popup.cloudChoice.regressions'), String(s.regressions)],
+        [txt('popup.cloudChoice.played'), fmtSpan(s.played)],
+        [txt('popup.cloudChoice.saved'), new Date(s.savedAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })],
+      ])}</div>`;
+    return new Promise((resolve) => {
+      this.lastPopup = performance.now();
+      this.showModal(`<h2>${tx('popup.cloudChoice.title')}</h2>${txp('popup.cloudChoice.body')}<div class="cloud-picks">${card(txt('popup.cloudChoice.device'), device)}${card(txt('popup.cloudChoice.cloud'), cloud)}</div>`, [
+        { label: txt('popup.cloudChoice.keepDevice'), secondary: true, action: () => resolve('device') },
+        { label: txt('popup.cloudChoice.useCloud'), action: () => resolve('cloud') },
+      ]);
     });
   }
 

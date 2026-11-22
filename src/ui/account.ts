@@ -80,7 +80,7 @@ function accountError(e: unknown): AccountError {
 }
 
 type FirebaseAuth = typeof import('firebase/auth');
-let ready: Promise<{ fb: FirebaseAuth; auth: import('firebase/auth').Auth }> | null = null;
+let ready: Promise<{ fb: FirebaseAuth; auth: import('firebase/auth').Auth; app: import('firebase/app').FirebaseApp }> | null = null;
 
 /** Firebase, loaded on first use (and at start-up, to restore a signed-in account). */
 function firebase() {
@@ -91,7 +91,7 @@ function firebase() {
     // In the apps the account is kept in the web view's storage, so it's still signed in next time.
     const auth = Capacitor.isNativePlatform() ? fb.initializeAuth(app, { persistence: fb.indexedDBLocalPersistence }) : fb.getAuth(app);
     fb.onAuthStateChanged(auth, (u) => changed(u ? toUser(u) : null));
-    return { fb, auth };
+    return { fb, auth, app };
   })();
   return ready;
 }
@@ -147,8 +147,11 @@ const backend: Backend = FIREBASE_CONFIGURED
           await fb.signOut(auth);
         }),
       deleteAccount: () =>
-        call(async ({ fb, auth }) => {
+        call(async ({ fb, auth, app }) => {
           if (!auth.currentUser) throw new AccountError('failed');
+          // The cloud save goes first, while the account can still reach it.
+          const { doc, deleteDoc, getFirestore } = await import('firebase/firestore');
+          await deleteDoc(doc(getFirestore(app), 'saves', auth.currentUser.uid));
           await fb.deleteUser(auth.currentUser);
           if (Capacitor.isNativePlatform()) {
             const { FirebaseAuthentication } = await import('@capacitor-firebase/authentication');
@@ -211,6 +214,11 @@ export async function deleteAccount(): Promise<void> {
   if (user?.uid.startsWith('dev-')) return changed(null);
   await backend.deleteAccount();
   changed(null);
+}
+
+/** The Firebase app, once the online service is connected (for the cloud save). */
+export async function firebaseApp(): Promise<import('firebase/app').FirebaseApp> {
+  return (await firebase()).app;
 }
 
 /** At start-up: restores the account signed in last time (when the online service is connected). */

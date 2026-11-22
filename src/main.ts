@@ -9,6 +9,7 @@ import { GUARDIAN_MOVES_ON, OFFLINE_POPUP_SEC } from './core/balance';
 import { Field } from './core/field';
 import { Game } from './core/game';
 import { hasDevBackup, loadDevPhase, loadGame, restoreDevBackup, saveGame, wipeSave } from './core/save';
+import { cloudAutosave, cloudPutAway, cloudResume, initCloudSave } from './ui/cloudSave';
 import { deserialize, newGame, serialize, type FrameRate, type GameState } from './core/state';
 import type { AreaId, HunterId } from './core/balance';
 import { BattleView } from './render/battle';
@@ -90,7 +91,9 @@ async function boot(): Promise<void> {
 
   let saving = true;
   const save = () => {
-    if (saving) void saveGame(game.state);
+    if (!saving) return;
+    void saveGame(game.state);
+    cloudAutosave();
   };
   const wipe = async () => {
     saving = false;
@@ -189,6 +192,16 @@ async function boot(): Promise<void> {
   };
   if (import.meta.env.DEV) Object.defineProperty(window, '__observed', { get: () => obs });
   const ui = new AppUI(game, { save, wipe, devPhase, devRestore, hasDevBackup, regress, observe, stopObserving, observing: () => obs?.area ?? null, guardianMoves: () => field.guardianMoves, setGuardianMoves });
+  // Cloud saves (signed in): the account's save, swapped in when picked (the game restarts with it).
+  initCloudSave({
+    state: () => game.state,
+    replace: async (next) => {
+      saving = false;
+      await saveGame(next);
+      location.reload();
+    },
+    choose: (device, cloud) => ui.askCloudChoice(device, cloud),
+  });
   if (import.meta.env.DEV) (window as unknown as { __ui: AppUI }).__ui = ui;
   // Measures each farming group on a hidden copy of its battlefield, for offline gains and stationed Hunters.
   new SamplerHost(game, () => field.view);
@@ -281,12 +294,14 @@ async function boot(): Promise<void> {
     if (away) return;
     away = true;
     save();
+    cloudPutAway();
   };
   const onShow = () => {
     if (!away) return;
     away = false;
     last = performance.now();
     ui.quietLoot();
+    cloudResume();
     const r = game.applyOffline();
     if (r.away >= OFFLINE_POPUP_SEC) ui.showOffline(r);
     ui.refresh();

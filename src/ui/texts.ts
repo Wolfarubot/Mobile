@@ -953,12 +953,36 @@ section(
     errNetwork: 'Couldn\'t reach the server. Check your connection and try again.',
     errRecentLogin: 'For your safety, sign out and back in, then try again.',
     errTooMany: 'Too many tries. Wait a little and try again.',
+    cloudSaved: 'Cloud save: saved {when}',
+    cloudSyncing: 'Cloud save: checking…',
+    cloudError: "Cloud save: couldn't reach the server. It'll try again.",
+    cloudOff: 'Cloud save: waiting to sync',
+    cloudSaveNow: 'Save to cloud now',
   },
   {
     note: 'Menu → Account: signing in, your lifetime stats, and deleting the account.',
     vars: { provider: 'Google, Apple or email', email: 'the address typed' },
-    labels: { signedOutNote: 'Under "Not signed in"', chooseNote: 'Sign-in choices: note', comingSoon: 'Shown while sign-in is not connected', resetSent: 'After Forgot password', deleteConfirm: 'Delete: confirm', deleted: 'Toast after deleting', failed: 'Error toast', errWrongPassword: 'Error: wrong password', errNoAccount: 'Error: no account', errEmailInUse: 'Error: email taken', errWeakPassword: 'Error: weak password', errBadEmail: 'Error: bad email', errNetwork: 'Error: offline', errRecentLogin: 'Error: delete needs a fresh sign-in', errTooMany: 'Error: too many tries' },
+    labels: { signedOutNote: 'Under "Not signed in"', chooseNote: 'Sign-in choices: note', comingSoon: 'Shown while sign-in is not connected', resetSent: 'After Forgot password', deleteConfirm: 'Delete: confirm', deleted: 'Toast after deleting', failed: 'Error toast', errWrongPassword: 'Error: wrong password', errNoAccount: 'Error: no account', errEmailInUse: 'Error: email taken', errWeakPassword: 'Error: weak password', errBadEmail: 'Error: bad email', errNetwork: 'Error: offline', errRecentLogin: 'Error: delete needs a fresh sign-in', errTooMany: 'Error: too many tries', cloudSaved: 'Cloud save: last saved', cloudSyncing: 'Cloud save: checking', cloudError: 'Cloud save: offline', cloudOff: 'Cloud save: not synced yet', cloudSaveNow: 'Save to cloud button' },
   },
+);
+section(
+  P,
+  'popup.cloudChoice',
+  'Which save to keep',
+  {
+    title: 'Which save?',
+    body: 'This device and your account each have a different save. Pick the one to keep: **the other is replaced**, and can\'t be brought back.',
+    device: 'On this device',
+    cloud: 'In your account',
+    level: 'Your Hunter',
+    area: 'Area',
+    regressions: 'Regressions',
+    played: 'Time played',
+    saved: 'Saved',
+    keepDevice: 'Keep this device',
+    useCloud: 'Use account save',
+  },
+  { note: 'Signing in (or coming back to the app) when this device and the cloud save differ.' },
 );
 section(
   M,
