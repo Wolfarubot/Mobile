@@ -977,6 +977,7 @@ section(
     level: 'Your Hunter',
     area: 'Area',
     regressions: 'Regressions',
+    started: 'Started',
     played: 'Time played',
     saved: 'Saved',
     keepDevice: 'Keep this device',

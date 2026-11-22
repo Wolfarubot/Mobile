@@ -28,6 +28,8 @@ export interface SaveSummary {
   area: string;
   regressions: number;
   played: number;
+  /** When this save's game was first started (kept through every Regression). */
+  started: number;
   savedAt: number;
 }
 
@@ -73,7 +75,7 @@ export function summarize(s: GameState, savedAt: number): SaveSummary {
   } catch {
     // A summary is only for show.
   }
-  return { level, area: areaDef(s.area).name, regressions: s.regression.runs, played: s.stats.played, savedAt };
+  return { level, area: areaDef(s.area).name, regressions: s.regression.runs, played: s.stats.played, started: s.stats.started, savedAt };
 }
 
 async function readLink(): Promise<{ uid: string; syncedAt: number } | null> {

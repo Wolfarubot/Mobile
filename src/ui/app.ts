@@ -5609,6 +5609,7 @@ export class AppUI {
         [txt('popup.cloudChoice.level'), `Lv ${s.level}`],
         [txt('popup.cloudChoice.area'), s.area],
         [txt('popup.cloudChoice.regressions'), String(s.regressions)],
+        [txt('popup.cloudChoice.started'), new Date(s.started).toLocaleDateString([], { dateStyle: 'medium' })],
         [txt('popup.cloudChoice.played'), fmtSpan(s.played)],
         [txt('popup.cloudChoice.saved'), new Date(s.savedAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })],
       ])}</div>`;
