@@ -16,8 +16,27 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // The app's own signing key, when the build has it (GitHub Actions decodes the ANDROID_KEYSTORE secret to
+    // app/release.jks and passes the passwords as environment variables). Every build signed with it has the same
+    // SHA-1, which Google sign-in checks. Without it, debug builds use the machine's own debug key as before.
+    def keystore = file('release.jks')
+    def signed = keystore.exists() && System.getenv('ANDROID_KEYSTORE_PASSWORD')
+    signingConfigs {
+        if (signed) {
+            app {
+                storeFile keystore
+                storePassword System.getenv('ANDROID_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('ANDROID_KEY_ALIAS')
+                keyPassword System.getenv('ANDROID_KEY_PASSWORD')
+            }
+        }
+    }
     buildTypes {
+        debug {
+            if (signed) signingConfig signingConfigs.app
+        }
         release {
+            if (signed) signingConfig signingConfigs.app
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
