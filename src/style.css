@@ -9221,3 +9221,34 @@ body .title-row .quick-type .cyc-cur {
 .field-card.big .fc-grow::before {
   transform: translateY(3px) rotate(-135deg);
 }
+
+/* The Account card and sign-in screens sit on the light panel: their notes in dark text without the outline, a size
+   up, so they read easily (the game's white outlined text is made for dark ground). */
+.account-who small,
+.account-who small *,
+.signin-soon,
+.signin-form label {
+  color: var(--text);
+  text-shadow: none;
+}
+.account-who small {
+  font-size: 14px;
+  line-height: 1.35;
+}
+.account-who b {
+  font-size: 17px;
+}
+.signin-soon {
+  font-size: 13px;
+  line-height: 1.35;
+  opacity: 1;
+}
+.signin-form label {
+  font-size: 14px;
+}
+.modal-box .signin-forgot {
+  color: #9a1c1c;
+  text-shadow: none;
+  font-size: 14px;
+  text-decoration: underline;
+}
