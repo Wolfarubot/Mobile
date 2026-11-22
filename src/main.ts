@@ -9,7 +9,7 @@ import { GUARDIAN_MOVES_ON, OFFLINE_POPUP_SEC } from './core/balance';
 import { Field } from './core/field';
 import { Game } from './core/game';
 import { hasDevBackup, loadDevPhase, loadGame, restoreDevBackup, saveGame, wipeSave } from './core/save';
-import { cloudAutosave, cloudPutAway, cloudResume, initCloudSave } from './ui/cloudSave';
+import { cloudAutosave, cloudPutAway, cloudResume, cloudStatus, initCloudSave } from './ui/cloudSave';
 import { deserialize, newGame, serialize, type FrameRate, type GameState } from './core/state';
 import type { AreaId, HunterId } from './core/balance';
 import { BattleView } from './render/battle';
@@ -85,7 +85,7 @@ async function boot(): Promise<void> {
   // The signed-in account (if any) comes back as the game starts.
   void import('./ui/account').then((m) => {
     m.initAccounts();
-    if (import.meta.env.DEV) (window as unknown as { __account: unknown }).__account = { fake: m.devFakeSignIn, signOut: m.signOut, signInEmail: m.signInEmail, deleteAccount: m.deleteAccount, current: m.currentUser };
+    if (import.meta.env.DEV) (window as unknown as { __account: unknown }).__account = { fake: m.devFakeSignIn, signOut: m.signOut, signInEmail: m.signInEmail, deleteAccount: m.deleteAccount, current: m.currentUser, cloud: cloudStatus };
   });
   const offline = saved ? game.applyOffline() : null;
 
