@@ -81,7 +81,11 @@ async function boot(): Promise<void> {
   const game = new Game(saved ?? newGame());
   // Dev builds: the running game, for test scripts.
   if (import.meta.env.DEV) (window as unknown as { __game: Game }).__game = game;
-  if (import.meta.env.DEV) void import('./ui/account').then((m) => ((window as unknown as { __account: unknown }).__account = { fake: m.devFakeSignIn, signOut: m.signOut }));
+  // The signed-in account (if any) comes back as the game starts.
+  void import('./ui/account').then((m) => {
+    m.initAccounts();
+    if (import.meta.env.DEV) (window as unknown as { __account: unknown }).__account = { fake: m.devFakeSignIn, signOut: m.signOut };
+  });
   const offline = saved ? game.applyOffline() : null;
 
   let saving = true;

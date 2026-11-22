@@ -945,11 +945,19 @@ section(
     deleteYes: 'Delete',
     deleted: 'Your account has been deleted.',
     failed: 'That didn\'t work. Check your connection and try again.',
+    errWrongPassword: 'That email and password don\'t match. Check them, or tap Forgot password.',
+    errNoAccount: 'No account uses that email yet. Tap Create account to make one.',
+    errEmailInUse: 'An account already uses that email. Sign in instead, or tap Forgot password.',
+    errWeakPassword: 'Pick a longer password: at least 6 characters.',
+    errBadEmail: 'That doesn\'t look like an email address.',
+    errNetwork: 'Couldn\'t reach the server. Check your connection and try again.',
+    errRecentLogin: 'For your safety, sign out and back in, then try again.',
+    errTooMany: 'Too many tries. Wait a little and try again.',
   },
   {
     note: 'Menu → Account: signing in, your lifetime stats, and deleting the account.',
     vars: { provider: 'Google, Apple or email', email: 'the address typed' },
-    labels: { signedOutNote: 'Under "Not signed in"', chooseNote: 'Sign-in choices: note', comingSoon: 'Shown while sign-in is not connected', resetSent: 'After Forgot password', deleteConfirm: 'Delete: confirm', deleted: 'Toast after deleting', failed: 'Error toast' },
+    labels: { signedOutNote: 'Under "Not signed in"', chooseNote: 'Sign-in choices: note', comingSoon: 'Shown while sign-in is not connected', resetSent: 'After Forgot password', deleteConfirm: 'Delete: confirm', deleted: 'Toast after deleting', failed: 'Error toast', errWrongPassword: 'Error: wrong password', errNoAccount: 'Error: no account', errEmailInUse: 'Error: email taken', errWeakPassword: 'Error: weak password', errBadEmail: 'Error: bad email', errNetwork: 'Error: offline', errRecentLogin: 'Error: delete needs a fresh sign-in', errTooMany: 'Error: too many tries' },
   },
 );
 section(

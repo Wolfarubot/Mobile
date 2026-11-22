@@ -5583,7 +5583,18 @@ export class AppUI {
   private accountError(e: unknown): void {
     const code = e instanceof AccountError ? e.code : 'failed';
     if (code === 'cancelled') return;
-    this.toast(txt(code === 'unavailable' ? 'menu.account.comingSoon' : 'menu.account.failed'));
+    const key: Record<string, string> = {
+      unavailable: 'menu.account.comingSoon',
+      wrongPassword: 'menu.account.errWrongPassword',
+      noAccount: 'menu.account.errNoAccount',
+      emailInUse: 'menu.account.errEmailInUse',
+      weakPassword: 'menu.account.errWeakPassword',
+      badEmail: 'menu.account.errBadEmail',
+      network: 'menu.account.errNetwork',
+      recentLogin: 'menu.account.errRecentLogin',
+      tooMany: 'menu.account.errTooMany',
+    };
+    this.toast(txt(key[code] ?? 'menu.account.failed'));
   }
 
   // ---- Journal ----

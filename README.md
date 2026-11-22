@@ -210,3 +210,9 @@ npm run ios        # opens Xcode → pick a device → Run
 - Rewarded ads ("double your offline gold") or IAP; cloud save
 - Replace procedural art with a commissioned sprite set
 - Release signing & Play Store listing (`./gradlew bundleRelease`)
+
+## Accounts (Firebase Authentication)
+
+Menu → Account signs in with Google, Apple or an email address (`src/ui/account.ts`). The Firebase JavaScript SDK holds the account everywhere; in a browser Google and Apple use Firebase's pop-up, and in the Android/iOS apps they sign in natively through `@capacitor-firebase/authentication` (`skipNativeAuth: true` in `capacitor.config.ts`) and hand the credential to the JavaScript SDK. Email and password go straight through the JavaScript SDK. Firebase loads only when needed, and the account signed in last time is restored at start-up.
+
+Sign-in stays off (the Account page says it's on its way) until the project's web app settings are filled in `src/ui/firebaseConfig.ts` (or `VITE_FIREBASE_*` in the build's environment). The Android build leaves the native plugin out until `android/app/google-services.json` exists, since the plugin starts native Firebase on launch; Google sign-in on Android also needs the signing key's SHA-1 in the Firebase project (and the Play app-signing key's, once on Google Play).
