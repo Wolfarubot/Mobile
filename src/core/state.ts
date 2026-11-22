@@ -285,6 +285,8 @@ export interface GameState {
     advancedTips: boolean;
     /** Holding Train (or Empower) on a card asks first before training to the max; off: it just trains to the max. */
     maxTrainPopup: boolean;
+    /** Salvaging a piece above 2★ or with modifiers asks first (Settings → Gameplay). */
+    salvageConfirm: boolean;
     /** Holding a Hunter's card asks first before spending their skill points; off: it just spends them. */
     autoSkillPopup: boolean;
     /** Holding a monster's card asks first before spending its evolution points; off: it just spends them. */
@@ -337,6 +339,8 @@ export interface GameState {
     quickTrainIntro: boolean;
     /** The tip on salvaging (Mass Salvage and Auto Salvage), shown once 100 pieces fill the inventory. */
     salvageIntro: boolean;
+    /** The first time a piece's Salvage button is pressed: what salvaging does. */
+    salvageExplained: boolean;
   };
   /** Per event: seconds of cooldown left, times started and times completed (a Guardian beaten, a swarm survived). */
   events: Record<string, EventState>;
@@ -471,8 +475,8 @@ export function newGame(now = Date.now()): GameState {
     nextGearUid: 4,
     lastSeen: now,
     samples: {},
-    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', lootPopups: true, hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', advancedTips: false, maxTrainPopup: true, autoSkillPopup: true, autoEvoPopup: true, autoSalvage: [], fx: allFx(), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium', orientation: 'rotate', fps: '60', textSize: 'medium', craftCardPos: 'battlefield', craftCardBig: false, audio: defaultAudio() },
-    flags: { eventsIntro: false, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false, minigameIntro: false, questsIntro: false, feedbackIntro: false, quickTrainIntro: false, salvageIntro: false },
+    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', lootPopups: true, hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', advancedTips: false, maxTrainPopup: true, salvageConfirm: true, autoSkillPopup: true, autoEvoPopup: true, autoSalvage: [], fx: allFx(), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium', orientation: 'rotate', fps: '60', textSize: 'medium', craftCardPos: 'battlefield', craftCardBig: false, audio: defaultAudio() },
+    flags: { eventsIntro: false, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false, minigameIntro: false, questsIntro: false, feedbackIntro: false, quickTrainIntro: false, salvageIntro: false, salvageExplained: false },
     blessings: { refine: 0, enchant: 0 },
     energy: ENERGY_MAX,
     buffs: {},
@@ -802,6 +806,7 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
       summonText: (data.settings as { summonText?: unknown } | undefined)?.summonText === true,
       advancedTips: (data.settings as { advancedTips?: unknown } | undefined)?.advancedTips === true,
       maxTrainPopup: (data.settings as { maxTrainPopup?: unknown } | undefined)?.maxTrainPopup !== false,
+      salvageConfirm: (data.settings as { salvageConfirm?: unknown } | undefined)?.salvageConfirm !== false,
       autoSkillPopup: (data.settings as { autoSkillPopup?: unknown } | undefined)?.autoSkillPopup !== false,
       autoEvoPopup: (data.settings as { autoEvoPopup?: unknown } | undefined)?.autoEvoPopup !== false,
       cooldownStyle: pick(INDICATOR_STYLES, (data.settings as { cooldownStyle?: unknown } | undefined)?.cooldownStyle, 'fancy'),
@@ -848,6 +853,7 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
       feedbackIntro: !!(data.flags as { feedbackIntro?: unknown } | undefined)?.feedbackIntro,
       quickTrainIntro: !!(data.flags as { quickTrainIntro?: unknown } | undefined)?.quickTrainIntro,
       salvageIntro: !!(data.flags as { salvageIntro?: unknown } | undefined)?.salvageIntro,
+      salvageExplained: !!(data.flags as { salvageExplained?: unknown } | undefined)?.salvageExplained,
     },
     seen: (() => {
       const s = (data.seen ?? {}) as Partial<Record<keyof SeenState, unknown>>;

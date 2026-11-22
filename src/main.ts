@@ -185,6 +185,7 @@ async function boot(): Promise<void> {
   };
   if (import.meta.env.DEV) Object.defineProperty(window, '__observed', { get: () => obs });
   const ui = new AppUI(game, { save, wipe, devPhase, devRestore, hasDevBackup, regress, observe, stopObserving, observing: () => obs?.area ?? null, guardianMoves: () => field.guardianMoves, setGuardianMoves });
+  if (import.meta.env.DEV) (window as unknown as { __ui: AppUI }).__ui = ui;
   // Measures each farming group on a hidden copy of its battlefield, for offline gains and stationed Hunters.
   new SamplerHost(game, () => field.view);
   if (!game.state.flags.welcome) ui.showWelcome();

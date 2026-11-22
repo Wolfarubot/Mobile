@@ -273,8 +273,33 @@ section(
   P,
   'popup.salvage',
   'Salvage a piece',
-  { title: 'Salvage {item}?', body: "You'll get back half of its materials:", bodyMods: "You'll get back half of its materials, and half of what its modifiers cost:", cancel: 'Cancel', ok: 'Salvage' },
-  { note: 'Salvaging one piece of gear (the second text if it has modifiers).', vars: { item: 'the gear' }, labels: { bodyMods: 'Text (with modifiers)' } },
+  {
+    title: 'Salvage {item}?',
+    body: "You'll get back half of its materials:",
+    bodyMods: "You'll get back half of its materials, and half of what its modifiers cost:",
+    cancel: 'Cancel',
+    ok: 'Salvage',
+    setting: 'Confirm salvage',
+    settingBody: 'Salvaging a piece above **2★** or with any **modifiers** asks first. **Ask first** shows a pop-up to confirm, and **Just salvage** skips it. Other pieces are always salvaged straight away.',
+    done: '♻️ Salvaged {item}',
+  },
+  {
+    note: 'Salvaging one piece of gear above 2★ or with modifiers (the second text if it has modifiers). "done" is the message after salvaging one.',
+    vars: { item: 'the gear' },
+    labels: { bodyMods: 'Text (with modifiers)', setting: 'Setting name', settingBody: 'Setting description', done: 'Message: salvaged' },
+  },
+);
+section(
+  P,
+  'popup.salvageFirst',
+  'Salvage explained',
+  {
+    title: 'Salvage',
+    body: "Salvaging breaks a piece of equipment down for good, giving back **half of the materials** it took to craft and upgrade (and half of what its **modifiers** cost, in gold). It can't be undone, and worn pieces need to be unequipped first.\n\nPieces above **2★** or with modifiers ask before they're salvaged (this can be turned off in **Settings**). To clear out many at once, use **Mass Salvage** or **Auto Salvage** from the saw button in Equipment's corner.",
+    cancel: 'Keep it',
+    ok: 'Salvage',
+  },
+  { note: 'The first time a piece\'s Salvage button is pressed (then it salvages if you choose to).' },
 );
 section(
   P,

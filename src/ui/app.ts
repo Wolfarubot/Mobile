@@ -344,6 +344,8 @@ const MENU_HOLD_MS = 450;
 const HOLD_BAR_DELAY_MS = 250;
 /** The salvaging tip comes up once the inventory holds this many pieces. */
 const SALVAGE_TIP_ITEMS = 100;
+/** Salvaging a piece above this many stars (or with modifiers) asks first (Settings: Confirm salvage). */
+const SALVAGE_ASK_STARS = 2;
 /** Seconds after the Time Eater is beaten (persisting) before its pop-up: once it has faded away on the field. */
 const PERSISTS_POPUP_DELAY = 2000;
 
@@ -2104,16 +2106,36 @@ export class AppUI {
           });
           actions.appendChild(up);
         }
-        const salvage = el('button', 'buy danger-btn gs-salvage', worn ? '🔒' : '🗑️') as HTMLButtonElement;
+        // The saw, as on the Salvage menu's button.
+        const salvage = el('button', 'buy danger-btn gs-salvage', worn ? '🔒' : '♻️') as HTMLButtonElement;
         salvage.title = worn ? 'Worn: unequip to salvage' : 'Salvage';
         salvage.disabled = !!worn;
         salvage.addEventListener('click', () => {
           const refund = g.salvageValue(uid);
-          close();
           const gold = g.salvageGold(uid);
-          this.showModal(`<h2>${tx('popup.salvage.title', { item: gd.name })}</h2>${txp(gold ? 'popup.salvage.bodyMods' : 'popup.salvage.body')}<div class="cost" style="justify-content:center">${costHtml(g, refund, false)}${gold ? `<span>🪙 ${fmt(gold)}</span>` : ''}</div>`, [
-            { label: txt('popup.salvage.cancel'), secondary: true },
-            { label: txt('popup.salvage.ok'), action: () => g.salvageGear(uid) },
+          const back = `<div class="cost" style="justify-content:center">${costHtml(g, refund, false)}${gold ? `<span>🪙 ${fmt(gold)}</span>` : ''}</div>`;
+          const go = () => {
+            if (!g.salvageGear(uid)) return;
+            sfx('craft');
+            this.toast(txt('popup.salvage.done', { item: gd.name }));
+            this.refresh();
+          };
+          close();
+          // The first time: what salvaging does (then it salvages, if you choose to).
+          if (!g.state.flags.salvageExplained) {
+            g.state.flags.salvageExplained = true;
+            this.showModal(`<h2>${tx('popup.salvageFirst.title')}</h2>${txp('popup.salvageFirst.body')}${back}`, [
+              { label: txt('popup.salvageFirst.cancel'), secondary: true, action: () => this.openGearDetail(uid) },
+              { label: txt('popup.salvageFirst.ok'), action: go },
+            ]);
+            return;
+          }
+          // A piece above 2★ or with modifiers asks first (unless that's turned off in Settings); others go straight away.
+          const precious = item.stars > SALVAGE_ASK_STARS || !!item.mods?.some((m) => m);
+          if (!precious || !g.state.settings.salvageConfirm) return go();
+          this.showModal(`<h2>${tx('popup.salvage.title', { item: gd.name })}</h2>${txp(gold ? 'popup.salvage.bodyMods' : 'popup.salvage.body')}${back}`, [
+            { label: txt('popup.salvage.cancel'), secondary: true, action: () => this.openGearDetail(uid) },
+            { label: txt('popup.salvage.ok'), action: go },
           ]);
         });
         actions.appendChild(salvage);
@@ -6429,6 +6451,19 @@ export class AppUI {
     input.addEventListener('change', () => this.hooks.save());
     input.addEventListener('keydown', (e) => e.key === 'Enter' && input.blur());
     body.appendChild(nameCard);
+
+    choices(
+      tx('popup.salvage.setting'),
+      tx('popup.salvage.settingBody'),
+      [
+        ['ask', 'Ask first'],
+        ['go', 'Just salvage'],
+      ],
+      () => (st.salvageConfirm ? 'ask' : 'go'),
+      (v) => {
+        st.salvageConfirm = v === 'ask';
+      },
+    );
 
     choices(
       tx('popup.maxTrain.setting'),
