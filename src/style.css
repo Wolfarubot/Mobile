@@ -9420,3 +9420,9 @@ body .title-row .quick-type .cyc-cur {
   width: 10px;
   height: 10px;
 }
+/* A skill node card's numbers (each revealed on its own when a rank changes it). */
+.node-preview .nv,
+.node-points .nv,
+.nv {
+  position: relative;
+}

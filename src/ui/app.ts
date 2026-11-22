@@ -1554,35 +1554,59 @@ export class AppUI {
    */
   private openTreeNode(t: TreeAdapter, n: TreeNode): void {
     this.showSheet(`${nodeIcon(t, n)} ${n.name}`, (body, close) => {
-      const rank = t.rank(n.id);
       const needs = n.requires.map((r) => t.nodes.find((x) => x.id === r)!.name);
       const cost = n.cost ?? 1;
-      const have = Math.max(0, t.points());
-      const maxed = rank >= n.maxRank;
-      body.innerHTML = `<div class="node-points">${
-        maxed
-          ? '<div>Fully learned</div>'
-          : `<div>Points required <b>${cost}</b></div><div class="${have >= cost ? 'ok' : 'short'}">Points available <b>${have}</b></div>`
-      }</div><p class="gear-now">${n.desc.replace(/\n/g, "<br>")}</p>${previewHtml(t.preview?.(n))}<p>Rank ${rank} / ${n.maxRank}</p>${
-        t.rowGate?.(n.row) && t.rowGate(n.row)!.have < t.rowGate(n.row)!.need
-          ? `<p>🔒 Spend ${t.rowGate(n.row)!.need} points in this tree to open this row (${t.rowGate(n.row)!.have}/${t.rowGate(n.row)!.need}).</p>`
-          : !t.reachable(n.id)
-            ? `<p>🔒 Needs a point in ${needs.join(' or ')} first.</p>`
-            : ''
-      }${t.gate?.(n.id) ? `<p>🔒 ${t.gate(n.id)} to open this evolution.</p>` : ''}`;
       // Like the Train button: what it does, and underneath what it costs.
       const btn = el('button', 'buy node-buy') as HTMLButtonElement;
-      btn.innerHTML = maxed ? 'Maxed' : `${n.id === ASCEND_NODE.id ? 'Ascend' : t.verb}<small>${cost} ${t.pointName}${cost === 1 ? '' : 's'}</small>`;
-      btn.disabled = !t.canLearn(n.id);
+      // The details at its rank now (drawn again in place after each rank learned). Every number sits in its own span,
+      // tagged by where it is, so the ones a rank changes can be revealed on their own.
+      const draw = () => {
+        const rank = t.rank(n.id);
+        const have = Math.max(0, t.points());
+        const maxed = rank >= n.maxRank;
+        const p = t.preview?.(n);
+        body.innerHTML = `<div class="node-points">${
+          maxed
+            ? '<div>Fully learned</div>'
+            : `<div>Points required <b>${numSpans(String(cost), 'need')}</b></div><div class="${have >= cost ? 'ok' : 'short'}">Points available <b>${numSpans(String(have), 'have')}</b></div>`
+        }</div><p class="gear-now">${n.desc.replace(/\n/g, '<br>')}</p>${
+          p && p.current.length
+            ? `<div class="node-preview"><div><span>Current:</span> ${p.current.map((l, k) => numSpans(l, `cur${k}`)).join(' · ')}</div>${
+                p.next ? `<div><span>Next Rank:</span> ${p.next.map((l, k) => numSpans(l, `next${k}`)).join(' · ')}</div>` : '<div class="max"><span>Max</span></div>'
+              }</div>`
+            : ''
+        }<p>Rank ${numSpans(String(rank), 'rank')} / ${n.maxRank}</p>${
+          t.rowGate?.(n.row) && t.rowGate(n.row)!.have < t.rowGate(n.row)!.need
+            ? `<p>🔒 Spend ${t.rowGate(n.row)!.need} points in this tree to open this row (${t.rowGate(n.row)!.have}/${t.rowGate(n.row)!.need}).</p>`
+            : !t.reachable(n.id)
+              ? `<p>🔒 Needs a point in ${needs.join(' or ')} first.</p>`
+              : ''
+        }${t.gate?.(n.id) ? `<p>🔒 ${t.gate(n.id)} to open this evolution.</p>` : ''}`;
+        btn.innerHTML = maxed ? 'Maxed' : `${n.id === ASCEND_NODE.id ? 'Ascend' : t.verb}<small>${cost} ${t.pointName}${cost === 1 ? '' : 's'}</small>`;
+        btn.disabled = !t.canLearn(n.id);
+        body.appendChild(btn);
+      };
+      draw();
       btn.addEventListener('click', () => {
+        const before = new Map([...body.querySelectorAll<HTMLElement>('.nv')].map((e) => [e.dataset.k!, e.textContent]));
         if (!t.learn(n.id)) return;
         sfx('learn');
-        close();
-        // Maxed (or a one-rank node): done. Otherwise stay open for the next rank, even if it can't be afforded yet.
-        if (t.rank(n.id) < n.maxRank) this.openTreeNode(t, n);
+        // Ascending opens a new tree: that one closes the card.
+        if (n.id === ASCEND_NODE.id) {
+          close();
+          t.after?.(n.id);
+          return;
+        }
+        // Drawn again where it is; only the numbers that changed sparkle in (as an upgraded piece's do).
+        draw();
+        for (const e of body.querySelectorAll<HTMLElement>('.nv')) {
+          if (before.get(e.dataset.k!) === e.textContent) continue;
+          e.classList.add('upg-reveal');
+          revealWithPixels(e, REVEAL_PIXELS.upgrade, 1, () => e.classList.remove('upg-reveal'), UPGRADE_REVEAL);
+        }
+        this.refresh();
         t.after?.(n.id);
       });
-      body.appendChild(btn);
     });
   }
 
@@ -8458,11 +8482,13 @@ function previewRanks(ranks: Record<string, number>, n: TreeNode, lines: () => s
 }
 
 /** "Current:" and "Next Rank:" (or "Max") under a node's description. */
-function previewHtml(p: { current: string[]; next: string[] | null } | undefined): string {
-  if (!p || !p.current.length) return '';
-  return `<div class="node-preview"><div><span>Current:</span> ${p.current.join(' · ')}</div>${
-    p.next ? `<div><span>Next Rank:</span> ${p.next.join(' · ')}</div>` : '<div class="max"><span>Max</span></div>'
-  }</div>`;
+/**
+ * A line of text with each number in it ("+40%", "12", "1.5s") in its own span tagged `key:index`, so a card drawn
+ * again can tell which numbers changed (and reveal just those). Leaves any HTML tags in it alone.
+ */
+function numSpans(text: string, key: string): string {
+  let i = 0;
+  return text.replace(/(<[^>]*>)|([+\-−]?\d[\d.,]*%?)/g, (m, tag: string | undefined) => (tag ? tag : `<span class="nv" data-k="${key}:${i++}">${m}</span>`));
 }
 
 const pctText = (v: number): string => `${+(v * 100).toFixed(1)}%`;
