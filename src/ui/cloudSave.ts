@@ -16,8 +16,8 @@ import { areaDef } from '../core/balance';
 import { deserialize, serialize, type GameState } from '../core/state';
 import { currentUser, firebaseApp, onAccountChange } from './account';
 
-/** Seconds between uploads while playing (only when the save has changed): 12 an hour, well inside the free tier. */
-const UPLOAD_EVERY = 300;
+/** Seconds between uploads while playing (only when the save has changed): once an hour, plus whenever the app is put away. */
+const UPLOAD_EVERY = 3600;
 /** A game this new (seconds played, no Regression yet) takes the cloud save without asking. */
 const FRESH_GAME_SEC = 300;
 const LINK_KEY = 'pocket-hunter-cloud-link';
