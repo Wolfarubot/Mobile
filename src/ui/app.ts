@@ -303,7 +303,7 @@ function filterChips(chips: HTMLElement, f: InvFilter, clear: () => void): void 
     c.style.color = RARITIES[f.rarity].color;
     chips.appendChild(c);
   }
-  if (f.level !== 'any') chips.appendChild(el('span', 'filter-chip', LEVEL_FILTERS.find((l) => l.id === f.level)!.name));
+  if (f.level !== 'any') chips.appendChild(el('span', 'filter-chip')).innerHTML = starLabel(LEVEL_FILTERS.find((l) => l.id === f.level)!.name);
   if (f.dtype !== 'any') {
     const dt = f.dtype === 'special' ? SPECIAL_TYPE : DAMAGE_TYPES[f.dtype];
     const c = el('span', 'filter-chip');
@@ -353,7 +353,11 @@ const PERSISTS_POPUP_DELAY = 2000;
 const upgradeReach = (it: ItemDef): string => (it.area ? `affects the ${areaDef(it.area.id).name}` : it.once ? 'crafted once' : 'works in every area');
 
 /** A star rank for inside a `.stars` element: filled stars, then the rest dimmed. */
-const starsHtml = (n: number): string => `${'★'.repeat(n)}<span class="off">${'★'.repeat(Math.max(0, MAX_STARS - n))}</span>`;
+/** A piece's stars: the drawn star (public/ui/star.png), gold for each it has, grey for the rest up to MAX_STARS. */
+const starsHtml = (n: number): string => `${'<i class="star on"></i>'.repeat(n)}${'<i class="star"></i>'.repeat(Math.max(0, MAX_STARS - n))}`;
+/** One gold star, in a line of text ("Now 3★", "1★"): the number in its own span, so an upgrade can reveal just it. */
+const STAR_ICON = '<i class="star on"></i>';
+const starLabel = (s: string): string => s.replace(/(\d+)★/g, `<span class="st-n">$1</span>${STAR_ICON}`).replace(/★/g, STAR_ICON);
 /** A piece of gear's icon: its pixel art when it has some (GEAR_SPRITES), otherwise its emoji. */
 /** A tree node's pixel icon (see NODE_SPRITES), or its emoji. */
 const nodeIcon = (t: { spriteTree: string }, n: TreeNode, cls = 'gi'): string => {
@@ -2103,10 +2107,12 @@ export class AppUI {
           const up = el('button', 'buy', 'Upgrade') as HTMLButtonElement;
           up.disabled = !g.canUpgradeGear(uid);
           up.addEventListener('click', () => {
-            // Redrawn in place with its new stars, scrolled where it was: the numbers that changed and the stars are
-            // revealed left to right, shedding white and gold sparks (as a Modify roll's choices shed theirs).
-            const cells = () => [...body.querySelectorAll<HTMLElement>('.stat-table .st-row b')];
-            const before = cells().map((c) => c.textContent);
+            // Redrawn in place with its new stars, scrolled where it was. Only what changed sparkles in (white and gold,
+            // as a Modify roll's choices do, but small): the star just earned fills in, the star counts in the headings
+            // ("Now 3★" → "Now 4★") change just their number, and each stat value that rose.
+            const values = () => [...body.querySelectorAll<HTMLElement>('.stat-table .st-row:not(.st-head) b')];
+            const counts = () => [...body.querySelectorAll<HTMLElement>('.stat-table .st-head .st-n')];
+            const before = { values: values().map((c) => c.textContent), counts: counts().map((c) => c.textContent) };
             const top = body.scrollTop;
             if (!g.upgradeGear(uid)) return;
             sfx('craft');
@@ -2115,12 +2121,21 @@ export class AppUI {
             fade();
             if (more) up.disabled = !g.canUpgradeGear(uid);
             else up.remove();
-            const changed = cells().filter((c, i) => c.textContent && c.textContent !== before[i]);
-            const stars = sub.querySelector<HTMLElement>('.stars');
-            if (stars) changed.push(stars);
+            const changed = [...values().filter((c, i) => c.textContent && c.textContent !== before.values[i]), ...counts().filter((c, i) => c.textContent !== before.counts[i])];
             for (const c of changed) {
               c.classList.add('upg-reveal');
-              revealWithPixels(c, REVEAL_PIXELS.upgrade, 1, () => c.classList.remove('upg-reveal'));
+              revealWithPixels(c, REVEAL_PIXELS.upgrade, 1, () => c.classList.remove('upg-reveal'), UPGRADE_REVEAL);
+            }
+            // The new star: the empty one stays while a gold one fills in over it, left to right.
+            const star = sub.querySelectorAll<HTMLElement>('.stars .star')[item.stars - 1];
+            if (star) {
+              star.classList.remove('on');
+              const gold = el('i', 'star on star-new');
+              star.appendChild(gold);
+              revealWithPixels(gold, REVEAL_PIXELS.upgrade, 1, () => {
+                gold.remove();
+                star.classList.add('on');
+              }, UPGRADE_REVEAL);
             }
             this.refresh();
           });
@@ -4000,7 +4015,7 @@ export class AppUI {
             which === 'equipment'
               ? `<div class="filter-label">Level</div>
           <div class="filter-options">
-            ${LEVEL_FILTERS.map((l) => `<button data-level="${l.id}" class="${f.level === l.id ? 'on' : ''}">${l.name}</button>`).join('')}
+            ${LEVEL_FILTERS.map((l) => `<button data-level="${l.id}" class="${f.level === l.id ? 'on' : ''}">${starLabel(l.name)}</button>`).join('')}
           </div>`
               : ''
           }
@@ -4159,7 +4174,12 @@ export class AppUI {
       }
       for (const t of [...tiles, ...upTiles]) {
         t.tile.classList.toggle('short', !t.ready());
-        $('em', t.tile).textContent = t.badge();
+        const em = $('em', t.tile);
+        const b = t.badge();
+        if (em.dataset.b !== b) {
+          em.dataset.b = b;
+          em.innerHTML = starLabel(b);
+        }
       }
     });
   }
@@ -8105,10 +8125,20 @@ const REVEAL_PIXELS = {
   /** An upgrade's new numbers and stars: light sparks, white and gold. */
   upgrade: ['#ffffff', '#fff6d6', '#ffe58a', '#ffd34d', '#f2b822'],
 };
-function revealWithPixels(box: HTMLElement, palette: string[], fall: 1 | -1, done: () => void): void {
+/** How big a reveal is: its length, pixels shed a frame, their size and how far they fly (a Modify roll's by default). */
+interface RevealSize {
+  ms: number;
+  perFrame: number;
+  size: [number, number];
+  fly: number;
+}
+const ROLL_REVEAL: RevealSize = { ms: 800, perFrame: 4, size: [2, 5], fly: 1 };
+/** An upgrade's: a quick, small sparkle on just the number or star that changes. */
+const UPGRADE_REVEAL: RevealSize = { ms: 450, perFrame: 2, size: [1, 2.5], fly: 0.45 };
+function revealWithPixels(box: HTMLElement, palette: string[], fall: 1 | -1, done: () => void, sz: RevealSize = ROLL_REVEAL): void {
   const host = box.parentElement ?? box;
   const start = performance.now();
-  const ms = 800;
+  const ms = sz.ms;
   const step = (now: number) => {
     if (!box.isConnected) return;
     const p = Math.min(1, (now - start) / ms);
@@ -8117,14 +8147,14 @@ function revealWithPixels(box: HTMLElement, palette: string[], fall: 1 | -1, don
     const hb = host.getBoundingClientRect();
     const bb = box.getBoundingClientRect();
     const edge = bb.left - hb.left + bb.width * p;
-    for (let i = 0; i < 4 && p < 1; i++) {
+    for (let i = 0; i < sz.perFrame && p < 1; i++) {
       const px = document.createElement('i');
       px.className = 'roll-px';
-      const size = 2 + Math.random() * 3;
+      const size = sz.size[0] + Math.random() * (sz.size[1] - sz.size[0]);
       Object.assign(px.style, { left: `${edge - Math.random() * 6}px`, top: `${bb.top - hb.top + Math.random() * bb.height}px`, width: `${size}px`, height: `${size}px`, background: palette[(Math.random() * palette.length) | 0] });
       host.appendChild(px);
-      const dx = (Math.random() - 0.5) * 30;
-      const dy = fall * (14 + Math.random() * 30);
+      const dx = (Math.random() - 0.5) * 30 * sz.fly;
+      const dy = fall * (14 + Math.random() * 30) * sz.fly;
       px.animate([{ transform: 'translate(0,0)', opacity: 1 }, { transform: `translate(${dx}px, ${dy}px)`, opacity: 0 }], { duration: 450 + Math.random() * 300, easing: fall > 0 ? 'cubic-bezier(.4,0,1,1)' : 'ease-out' }).onfinish = () => px.remove();
     }
     if (p < 1) requestAnimationFrame(step);
@@ -8238,12 +8268,12 @@ function statTable(gd: GearDef, cols: Array<{ label: string; stars: number }>, a
   // Rows set a line apart below (a weapon's attack speed): shown at the same stars, but not what upgrading is about.
   const below = apart.map((a, i) => `<div class="st-row${i ? '' : ' st-apart'}"><span>${a.label}</span>${a.values.map((v) => `<b>${v}</b>`).join('')}</div>`);
   if (!rows.length && !below.length) return '';
-  return `<div class="stat-table" style="--cols:${cols.length}"><div class="st-row st-head"><span></span>${cols.map((c) => `<b>${c.label}</b>`).join('')}</div>${rows.join('')}${below.join('')}</div>`;
+  return `<div class="stat-table" style="--cols:${cols.length}"><div class="st-row st-head"><span></span>${cols.map((c) => `<b>${starLabel(c.label)}</b>`).join('')}</div>${rows.join('')}${below.join('')}</div>`;
 }
 
 /** Lines that read top to bottom: a label on the left, its text on the right. */
 function lineTable(rows: Array<[string, string]>): string {
-  return `<div class="stat-table" style="--cols:1">${rows.map(([k, v]) => `<div class="st-row"><span>${k}</span><b>${v}</b></div>`).join('')}</div>`;
+  return `<div class="stat-table" style="--cols:1">${rows.map(([k, v]) => `<div class="st-row"><span>${starLabel(k)}</span><b>${v}</b></div>`).join('')}</div>`;
 }
 
 function costHtml(g: Game, cost: Partial<Record<MaterialId, number>>, check = true): string {

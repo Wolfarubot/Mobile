@@ -9299,3 +9299,49 @@ body .title-row .quick-type .cyc-cur {
 .upg-reveal {
   display: inline-block;
 }
+
+/* The drawn star (public/ui/star.png): gold when earned, grey when empty, sized to the text around it. */
+.star {
+  display: inline-block;
+  width: 0.95em;
+  height: 0.95em;
+  margin-right: 0.05em;
+  vertical-align: -0.12em;
+  background: url('/ui/star-empty.png') center / contain no-repeat;
+  image-rendering: pixelated;
+}
+.star.on {
+  background-image: url('/ui/star.png');
+}
+/* A line of a piece's stars: no text glyph styling (the stars are pictures now). */
+.stars {
+  text-shadow: none;
+  letter-spacing: 0;
+}
+.stars .star:last-child,
+.st-n + .star {
+  margin-right: 0;
+}
+/* An upgrade's new star: a gold star over the empty one, revealed left to right (sparks shed inside the star). */
+.stars .star {
+  position: relative;
+}
+.star.star-new {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  vertical-align: top;
+}
+/* The heading cell holds its number's sparks (the number is revealed on its own inside it). */
+.gear-sheet .stat-table .st-head b {
+  position: relative;
+}
+/* On inventory and crafting tiles: five stars fit the tile's width (each a sixth of it, at most 13px, its pixel size). */
+.inv-tile .stars .star,
+.craft-tile .stars .star {
+  width: min(13px, 15cqw);
+  height: min(13px, 15cqw);
+  margin-right: 1px;
+}

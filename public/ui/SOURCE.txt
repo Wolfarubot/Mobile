@@ -8,3 +8,5 @@ filled at runtime (src/render/hudBars.ts).
 upgrade-arrow.png (the Equipment tiles' "can upgrade" arrow): the arrow cut out of icon 012 of CraftPix's "100 Pixel
 Art Status Effect Icons Pack" (public/icons/status1/012.png, same license), its square dropped, recoloured green and
 outlined in black.
+star.png, star-empty.png: an equipment star (earned, in gold; and empty, in grey), 13px, drawn for this game in the
+  style of the status icons (none of the packs has a plain star).
