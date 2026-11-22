@@ -2110,9 +2110,10 @@ export class AppUI {
             // Redrawn in place with its new stars, scrolled where it was. Only what changed sparkles in (white and gold,
             // as a Modify roll's choices do, but small): the star just earned fills in, the star counts in the headings
             // ("Now 3★" → "Now 4★") change just their number, and each stat value that rose.
-            const values = () => [...body.querySelectorAll<HTMLElement>('.stat-table .st-row:not(.st-head) b')];
+            // Cells by row and column (the table drops to one column at max stars, so cells are matched by place).
+            const grid = () => [...body.querySelectorAll<HTMLElement>('.stat-table .st-row:not(.st-head)')].map((r) => [...r.querySelectorAll<HTMLElement>('b')]);
             const counts = () => [...body.querySelectorAll<HTMLElement>('.stat-table .st-head .st-n')];
-            const before = { values: values().map((c) => c.textContent), counts: counts().map((c) => c.textContent) };
+            const before = { values: grid().map((r) => r.map((c) => c.textContent)), counts: counts().map((c) => c.textContent) };
             const top = body.scrollTop;
             if (!g.upgradeGear(uid)) return;
             sfx('craft');
@@ -2121,7 +2122,10 @@ export class AppUI {
             fade();
             if (more) up.disabled = !g.canUpgradeGear(uid);
             else up.remove();
-            const changed = [...values().filter((c, i) => c.textContent && c.textContent !== before.values[i]), ...counts().filter((c, i) => c.textContent !== before.counts[i])];
+            const changed = [
+              ...grid().flatMap((r, ri) => r.filter((c, ci) => c.textContent && before.values[ri] && c.textContent !== before.values[ri][ci])),
+              ...counts().filter((c, i) => c.textContent !== before.counts[i]),
+            ];
             for (const c of changed) {
               c.classList.add('upg-reveal');
               revealWithPixels(c, REVEAL_PIXELS.upgrade, 1, () => c.classList.remove('upg-reveal'), UPGRADE_REVEAL);
@@ -3791,7 +3795,7 @@ export class AppUI {
         const tile = el('button', `inv-tile rar${gd.unboundOf ? ' ub' : ''}`) as HTMLButtonElement;
         tile.style.setProperty('--rc', gearColor(gd.id));
         const slots = g.modSlots(it.uid);
-        tile.innerHTML = `<i>${gearIcon(gd)}</i><span>${gd.name}</span><small class="stars">${starsHtml(it.stars)}</small>${worn ? `<em>${wearerIcon(worn.who)}</em>` : ''}${slots.length ? `<b class="mod-pips" title="Modifiers">${slots.map((m) => `<i class="mp ${m ? (modPerfect(m) ? 'perfect' : 'full') : 'empty'}"></i>`).join('')}</b>` : ''}${stack.length > 1 ? `<b class="stack-n">×${stack.length}</b>` : ''}${affordable(it) ? '<b class="can-up" title="Can upgrade"></b>' : ''}${stack.some((x) => x.uid > g.state.seen.gearUid) ? '<span class="alert-mark white tile-new"></span>' : ''}`;
+        tile.innerHTML = `<i>${gearIcon(gd)}</i><span>${gd.name}</span><small class="stars">${starsHtml(it.stars)}</small>${worn ? `<em>${wearerIcon(worn.who)}</em>` : ''}${slots.length ? `<b class="mod-pips" title="Modifiers">${slots.map((m) => `<i class="mp ${m ? (modPerfect(m) ? 'perfect' : 'full') : 'empty'}"><i></i></i>`).join('')}</b>` : ''}${stack.length > 1 ? `<b class="stack-n">×${stack.length}</b>` : ''}${affordable(it) ? '<b class="can-up" title="Can upgrade"></b>' : ''}${stack.some((x) => x.uid > g.state.seen.gearUid) ? '<span class="alert-mark white tile-new"></span>' : ''}`;
         if (salvaging) {
           // Worn gear can't be salvaged; a stack is picked (and salvaged) whole.
           tile.classList.toggle('sv-worn', !!worn);
@@ -4269,7 +4273,7 @@ export class AppUI {
                   ],
             );
         $('.fc-owned', card).innerHTML = item.once ? (lv ? 'Owned: <b>crafted</b>' : 'Owned: <b>not crafted yet</b>') : lv ? `Owned: <b class="stars">${starsHtml(lv)}</b>${maxed ? ' · MAX' : ''}` : 'Owned: <b>not crafted yet</b>';
-        $('.fc-cost', card).innerHTML = maxed ? (item.once ? '<p>Crafted.</p>' : '<p>Fully upgraded.</p>') : recipeHtml(g, itemCost(item, lv));
+        $('.fc-cost', card).innerHTML = maxed ? `<p class="fc-done">${item.once ? 'Crafted' : 'Fully upgraded'}</p>` : recipeHtml(g, itemCost(item, lv));
         btn.textContent = maxed ? (item.once ? 'Crafted' : 'MAX') : lv ? 'Upgrade' : 'Craft';
         btn.disabled = !g.canCraft(item.id);
       }
@@ -8131,12 +8135,14 @@ interface RevealSize {
   perFrame: number;
   size: [number, number];
   fly: number;
+  /** Pixels drawn over the page (not inside the box's container), so ones flying out of a scrolling list never stretch it. */
+  overPage?: boolean;
 }
 const ROLL_REVEAL: RevealSize = { ms: 800, perFrame: 4, size: [2, 5], fly: 1 };
 /** An upgrade's: a quick, small sparkle on just the number or star that changes. */
-const UPGRADE_REVEAL: RevealSize = { ms: 450, perFrame: 2, size: [1, 2.5], fly: 0.45 };
+const UPGRADE_REVEAL: RevealSize = { ms: 450, perFrame: 2, size: [1, 2.5], fly: 0.45, overPage: true };
 function revealWithPixels(box: HTMLElement, palette: string[], fall: 1 | -1, done: () => void, sz: RevealSize = ROLL_REVEAL): void {
-  const host = box.parentElement ?? box;
+  const host = sz.overPage ? document.body : (box.parentElement ?? box);
   const start = performance.now();
   const ms = sz.ms;
   const step = (now: number) => {
@@ -8144,12 +8150,12 @@ function revealWithPixels(box: HTMLElement, palette: string[], fall: 1 | -1, don
     const p = Math.min(1, (now - start) / ms);
     box.style.clipPath = `inset(-6px ${(1 - p) * 100}% -6px -6px)`;
     // Pixels break off the moving edge, all the way down the box.
-    const hb = host.getBoundingClientRect();
+    const hb = sz.overPage ? new DOMRect(0, 0, 0, 0) : host.getBoundingClientRect();
     const bb = box.getBoundingClientRect();
     const edge = bb.left - hb.left + bb.width * p;
     for (let i = 0; i < sz.perFrame && p < 1; i++) {
       const px = document.createElement('i');
-      px.className = 'roll-px';
+      px.className = sz.overPage ? 'roll-px over-page' : 'roll-px';
       const size = sz.size[0] + Math.random() * (sz.size[1] - sz.size[0]);
       Object.assign(px.style, { left: `${edge - Math.random() * 6}px`, top: `${bb.top - hb.top + Math.random() * bb.height}px`, width: `${size}px`, height: `${size}px`, background: palette[(Math.random() * palette.length) | 0] });
       host.appendChild(px);

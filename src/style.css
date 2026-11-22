@@ -9346,31 +9346,6 @@ body .title-row .quick-type .cyc-cur {
   margin-right: 1px;
 }
 
-/* An item tile's modifier slots: a diamond per slot, by colour (white empty, gold filled, Exalted pink for a perfect
-   roll), outlined in dark so they read at this size on the light tile. */
-.inv-tile .mod-pips {
-  display: flex;
-  gap: 2px;
-  left: 4px;
-  top: 4px;
-  letter-spacing: 0;
-  filter: drop-shadow(1px 0 0 var(--c0)) drop-shadow(-1px 0 0 var(--c0)) drop-shadow(0 1px 0 var(--c0)) drop-shadow(0 -1px 0 var(--c0));
-}
-.inv-tile .mod-pips .mp {
-  display: block;
-  width: 8px;
-  height: 11px;
-  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
-}
-.mp.empty {
-  background: #ffffff;
-}
-.mp.full {
-  background: var(--gold);
-}
-.mp.perfect {
-  background: #ff2fd0;
-}
 /* Scaled down to fit a tile, the pixel star is drawn smoothly, so all five come out the same size. */
 .inv-tile .stars .star,
 .craft-tile .stars .star {
@@ -9387,4 +9362,61 @@ body .title-row .quick-type .cyc-cur {
   margin: 0;
   vertical-align: -1px;
   image-rendering: auto;
+}
+/* A reveal's pixels drawn over the page (an upgrade's), so they never make a list scroll. */
+.roll-px.over-page {
+  position: fixed;
+  z-index: 1000;
+}
+/* A Crafted (or Fully upgraded) Upgrade's recipe column: like the card's other lines. */
+.fc-cost .fc-done {
+  margin: 4px 0 0;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* An item tile's modifier slots: a diamond per slot, by colour: gold when filled, Exalted pink for a perfect roll, each
+   outlined in dark so they read at this size on the light tile; an empty slot is just a thin dark diamond outline. */
+.inv-tile .mod-pips {
+  display: flex;
+  gap: 2px;
+  left: 4px;
+  top: 4px;
+  letter-spacing: 0;
+}
+.inv-tile .mod-pips .mp {
+  display: block;
+  width: 8px;
+  height: 11px;
+}
+.inv-tile .mod-pips .mp > i {
+  display: block;
+  width: 100%;
+  height: 100%;
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+.inv-tile .mod-pips .mp.full,
+.inv-tile .mod-pips .mp.perfect {
+  filter: drop-shadow(1px 0 0 var(--c0)) drop-shadow(-1px 0 0 var(--c0)) drop-shadow(0 1px 0 var(--c0)) drop-shadow(0 -1px 0 var(--c0));
+}
+.mp.full > i {
+  background: var(--gold);
+}
+.mp.perfect > i {
+  background: #ff2fd0;
+}
+.inv-tile .mod-pips .mp.empty > i {
+  background: var(--c0);
+  clip-path: polygon(evenodd, 50% 0, 100% 50%, 50% 100%, 0 50%, 50% 0, 50% 20%, 20% 50%, 50% 80%, 80% 50%, 50% 20%);
+}
+/* Stars in whole pixels: at a fractional size the browser rounds some up a pixel and others down, so a row of them
+   looked uneven. */
+.star {
+  width: round(down, 0.95em, 1px);
+  height: round(down, 0.95em, 1px);
+}
+.inv-tile .stars .star,
+.craft-tile .stars .star {
+  width: 10px;
+  height: 10px;
 }
