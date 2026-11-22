@@ -9252,3 +9252,12 @@ body .title-row .quick-type .cyc-cur {
   font-size: 14px;
   text-decoration: underline;
 }
+
+/* The signed-in badge (Google, Apple or email) framed in the game's dark border, so it stands off the light panel. */
+.account-badge {
+  box-sizing: border-box;
+  width: 40px;
+  height: 40px;
+  border: 2px solid var(--c0);
+  box-shadow: 2px 2px 0 var(--c0);
+}
