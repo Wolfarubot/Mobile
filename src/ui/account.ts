@@ -67,6 +67,8 @@ function accountError(e: unknown): AccountError {
     'auth/network-request-failed': 'network',
     'auth/requires-recent-login': 'recentLogin',
     'auth/too-many-requests': 'tooMany',
+    // A sign-in method that isn't switched on in the Firebase project yet.
+    'auth/operation-not-allowed': 'unavailable',
     'auth/popup-closed-by-user': 'cancelled',
     'auth/cancelled-popup-request': 'cancelled',
     'auth/user-cancelled': 'cancelled',

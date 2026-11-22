@@ -84,7 +84,7 @@ async function boot(): Promise<void> {
   // The signed-in account (if any) comes back as the game starts.
   void import('./ui/account').then((m) => {
     m.initAccounts();
-    if (import.meta.env.DEV) (window as unknown as { __account: unknown }).__account = { fake: m.devFakeSignIn, signOut: m.signOut };
+    if (import.meta.env.DEV) (window as unknown as { __account: unknown }).__account = { fake: m.devFakeSignIn, signOut: m.signOut, signInEmail: m.signInEmail, deleteAccount: m.deleteAccount, current: m.currentUser };
   });
   const offline = saved ? game.applyOffline() : null;
 
