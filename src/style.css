@@ -9345,3 +9345,46 @@ body .title-row .quick-type .cyc-cur {
   height: min(13px, 15cqw);
   margin-right: 1px;
 }
+
+/* An item tile's modifier slots: a diamond per slot, by colour (white empty, gold filled, Exalted pink for a perfect
+   roll), outlined in dark so they read at this size on the light tile. */
+.inv-tile .mod-pips {
+  display: flex;
+  gap: 2px;
+  left: 4px;
+  top: 4px;
+  letter-spacing: 0;
+  filter: drop-shadow(1px 0 0 var(--c0)) drop-shadow(-1px 0 0 var(--c0)) drop-shadow(0 1px 0 var(--c0)) drop-shadow(0 -1px 0 var(--c0));
+}
+.inv-tile .mod-pips .mp {
+  display: block;
+  width: 8px;
+  height: 11px;
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+.mp.empty {
+  background: #ffffff;
+}
+.mp.full {
+  background: var(--gold);
+}
+.mp.perfect {
+  background: #ff2fd0;
+}
+/* Scaled down to fit a tile, the pixel star is drawn smoothly, so all five come out the same size. */
+.inv-tile .stars .star,
+.craft-tile .stars .star {
+  image-rendering: auto;
+}
+/* Stars in an "off" run (a minigame rank's unearned stars) show empty. */
+.off .star.on {
+  background-image: url('/ui/star-empty.png');
+}
+/* A crafting tile's corner badge ("4★" on an Upgrade): the star as tall as the number beside it. */
+.craft-tile em .star {
+  width: 11px;
+  height: 11px;
+  margin: 0;
+  vertical-align: -1px;
+  image-rendering: auto;
+}

@@ -3,7 +3,8 @@ import { gearIconUrl } from '../render/sprites';
 /**
  * Every emoji the game uses, drawn as a pixel-art icon instead (keys into public/icons/<pack>/<NNN>.png).
  * The swap happens on the page itself (see installEmojiIcons), so text anywhere in the UI can keep using
- * emoji: change an icon here and it changes everywhere. Typographic symbols (★ ✓ ✕ arrows) stay as text.
+ * emoji: change an icon here and it changes everywhere. Stars (★ earned, ☆ empty) become the game's drawn star
+ * (public/ui/star.png); other typographic symbols (✓ ✕ arrows) stay as text.
  */
 export const EMOJI_ICONS: Record<string, string> = {
   "⏱️": 'status2/005',
@@ -235,7 +236,7 @@ const PATTERN = new RegExp(
   [...ICONS.keys()]
     .sort((a, b) => b.length - a.length)
     .map((e) => [...e].map((ch) => ch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\uFE0F?').join(''))
-    .join('|'),
+    .join('|') + '|★|☆',
   'gu',
 );
 
@@ -263,13 +264,20 @@ function swapText(node: Text): void {
   PATTERN.lastIndex = 0;
   for (let m = PATTERN.exec(text); m; m = PATTERN.exec(text)) {
     if (m.index > last) frag.append(text.slice(last, m.index));
+    last = m.index + m[0].length;
+    // A star: the drawn one (gold, or grey when empty).
+    if (m[0] === '★' || m[0] === '☆') {
+      const star = document.createElement('i');
+      star.className = m[0] === '★' ? 'star on' : 'star';
+      frag.append(star);
+      continue;
+    }
     const img = document.createElement('img');
     img.className = 'ei';
     img.src = gearIconUrl(emojiIconKey(m[0]))!;
     img.alt = m[0];
     img.draggable = false;
     frag.append(img);
-    last = m.index + m[0].length;
   }
   if (last < text.length) frag.append(text.slice(last));
   parent.replaceChild(frag, node);

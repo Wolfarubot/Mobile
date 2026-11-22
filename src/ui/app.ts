@@ -3791,7 +3791,7 @@ export class AppUI {
         const tile = el('button', `inv-tile rar${gd.unboundOf ? ' ub' : ''}`) as HTMLButtonElement;
         tile.style.setProperty('--rc', gearColor(gd.id));
         const slots = g.modSlots(it.uid);
-        tile.innerHTML = `<i>${gearIcon(gd)}</i><span>${gd.name}</span><small class="stars">${starsHtml(it.stars)}</small>${worn ? `<em>${wearerIcon(worn.who)}</em>` : ''}${slots.length ? `<b class="mod-pips">${slots.map((m) => (m ? (modPerfect(m) ? '★' : '◆') : '◇')).join('')}</b>` : ''}${stack.length > 1 ? `<b class="stack-n">×${stack.length}</b>` : ''}${affordable(it) ? '<b class="can-up" title="Can upgrade"></b>' : ''}${stack.some((x) => x.uid > g.state.seen.gearUid) ? '<span class="alert-mark white tile-new"></span>' : ''}`;
+        tile.innerHTML = `<i>${gearIcon(gd)}</i><span>${gd.name}</span><small class="stars">${starsHtml(it.stars)}</small>${worn ? `<em>${wearerIcon(worn.who)}</em>` : ''}${slots.length ? `<b class="mod-pips" title="Modifiers">${slots.map((m) => `<i class="mp ${m ? (modPerfect(m) ? 'perfect' : 'full') : 'empty'}"></i>`).join('')}</b>` : ''}${stack.length > 1 ? `<b class="stack-n">×${stack.length}</b>` : ''}${affordable(it) ? '<b class="can-up" title="Can upgrade"></b>' : ''}${stack.some((x) => x.uid > g.state.seen.gearUid) ? '<span class="alert-mark white tile-new"></span>' : ''}`;
         if (salvaging) {
           // Worn gear can't be salvaged; a stack is picked (and salvaged) whole.
           tile.classList.toggle('sv-worn', !!worn);
