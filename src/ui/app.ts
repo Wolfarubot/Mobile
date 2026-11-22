@@ -2104,7 +2104,7 @@ export class AppUI {
           up.disabled = !g.canUpgradeGear(uid);
           up.addEventListener('click', () => {
             // Redrawn in place with its new stars, scrolled where it was: the numbers that changed and the stars are
-            // revealed left to right, shedding sparks (as a Modify roll's choices are).
+            // revealed left to right, shedding white and gold sparks (as a Modify roll's choices shed theirs).
             const cells = () => [...body.querySelectorAll<HTMLElement>('.stat-table .st-row b')];
             const before = cells().map((c) => c.textContent);
             const top = body.scrollTop;
@@ -2120,7 +2120,7 @@ export class AppUI {
             if (stars) changed.push(stars);
             for (const c of changed) {
               c.classList.add('upg-reveal');
-              revealWithPixels(c, REVEAL_PIXELS.refine, 1, () => c.classList.remove('upg-reveal'));
+              revealWithPixels(c, REVEAL_PIXELS.upgrade, 1, () => c.classList.remove('upg-reveal'));
             }
             this.refresh();
           });
@@ -8102,6 +8102,8 @@ function modSlotsHtml(g: Game, uid: number): string {
 const REVEAL_PIXELS = {
   refine: ['#8a8f96', '#c4c8cc', '#5a5f66', '#ff3a2a', '#ff7a3a'],
   enchant: ['#ffffff', '#ffd34d', '#e8a800', '#5ab0ff', '#9fd8ff'],
+  /** An upgrade's new numbers and stars: light sparks, white and gold. */
+  upgrade: ['#ffffff', '#fff6d6', '#ffe58a', '#ffd34d', '#f2b822'],
 };
 function revealWithPixels(box: HTMLElement, palette: string[], fall: 1 | -1, done: () => void): void {
   const host = box.parentElement ?? box;
