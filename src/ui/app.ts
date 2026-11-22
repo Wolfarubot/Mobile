@@ -2053,33 +2053,38 @@ export class AppUI {
         const box = body.closest('.modal-box') as HTMLElement;
         box.classList.add('gear-sheet');
         const worn = g.wearerOf(uid);
-        const cost = g.gearUpgradeCost(uid);
-        const cols = cost ? [{ label: `Now ${item.stars}★`, stars: item.stars }, { label: `Next ${item.stars + 1}★`, stars: item.stars + 1 }] : [{ label: `${item.stars}★`, stars: item.stars }];
-        // Attack speed doesn't change with stars: only under the current ones, so it doesn't read as something upgrading raises.
-        const speed = gd.weaponClass ? [{ label: 'Attacks/s', values: cols.map((c, i) => (i ? '' : String(Number(weaponSpeed(gd, c.stars).toFixed(2))))) }] : [];
         const x = el('button', 'gs-close');
         x.setAttribute('aria-label', 'Close');
         x.innerHTML = '<span class="close-x"></span>';
         x.addEventListener('click', close);
         box.appendChild(x);
         const sub = el('p', 'gs-sub');
-        sub.innerHTML = `<b class="rarity-tag" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${gearKindName(gd)} · <span class="stars">${starsHtml(item.stars)}</span>${gd.unboundOf ? ' · <span class="ub-tag">Unbound</span>' : ''}${worn ? ` · <span class="worn-by">${wearerIcon(worn.who)} ${wearerName(worn.who)}</span>` : ''}`;
         $('h2', box).after(sub);
-        body.innerHTML = `
-        ${gd.unboundOf ? '<p class="hd-note">Unbound: an Unbound area\'s piece, as strong as that area. It stays through every Regression.</p>' : ''}
-        ${featureTags(gd, item.stars)}
-        ${statTable(gd, cols, speed) || (gd.effect || gd.identity ? '' : '<p class="gear-now">No bonuses: plain everyday wear.</p>')}
-        ${modSlotsHtml(g, uid)}
-        ${cost ? `<div class="fc-label">Upgrade cost</div><div class="fc-cost">${recipeHtml(g, cost, g.gearUpgradeGold(uid) ?? 0)}</div>` : ''}`;
-        // Modify (once Kargesh or Marceline has joined): beside the Modifiers heading.
-        if (g.modifiable(uid)) {
-          const rb = el('button', 'buy gs-modify', '🛠️ Modify') as HTMLButtonElement;
-          rb.addEventListener('click', () => {
-            close();
-            this.openModify(uid);
-          });
-          body.querySelector('.mod-slots .filter-label')?.appendChild(rb);
-        }
+        // The details at its stars now (drawn again in place when it's upgraded).
+        const draw = () => {
+          const cost = g.gearUpgradeCost(uid);
+          const cols = cost ? [{ label: `Now ${item.stars}★`, stars: item.stars }, { label: `Next ${item.stars + 1}★`, stars: item.stars + 1 }] : [{ label: `${item.stars}★`, stars: item.stars }];
+          // Attack speed doesn't change with stars: only under the current ones, so it doesn't read as something upgrading raises.
+          const speed = gd.weaponClass ? [{ label: 'Attacks/s', values: cols.map((c, i) => (i ? '' : String(Number(weaponSpeed(gd, c.stars).toFixed(2))))) }] : [];
+          sub.innerHTML = `<b class="rarity-tag" style="--rc:${gearColor(gd.id)}">${RARITIES[gd.rarity].name}</b> ${gearKindName(gd)} · <span class="stars">${starsHtml(item.stars)}</span>${gd.unboundOf ? ' · <span class="ub-tag">Unbound</span>' : ''}${worn ? ` · <span class="worn-by">${wearerIcon(worn.who)} ${wearerName(worn.who)}</span>` : ''}`;
+          body.innerHTML = `
+          ${gd.unboundOf ? '<p class="hd-note">Unbound: an Unbound area\'s piece, as strong as that area. It stays through every Regression.</p>' : ''}
+          ${featureTags(gd, item.stars)}
+          ${statTable(gd, cols, speed) || (gd.effect || gd.identity ? '' : '<p class="gear-now">No bonuses: plain everyday wear.</p>')}
+          ${modSlotsHtml(g, uid)}
+          ${cost ? `<div class="fc-label">Upgrade cost</div><div class="fc-cost">${recipeHtml(g, cost, g.gearUpgradeGold(uid) ?? 0)}</div>` : ''}`;
+          // Modify (once Kargesh or Marceline has joined): beside the Modifiers heading.
+          if (g.modifiable(uid)) {
+            const rb = el('button', 'buy gs-modify', '🛠️ Modify') as HTMLButtonElement;
+            rb.addEventListener('click', () => {
+              close();
+              this.openModify(uid);
+            });
+            body.querySelector('.mod-slots .filter-label')?.appendChild(rb);
+          }
+          return cost;
+        };
+        const cost = draw();
         // The details scroll; the last line fades while there's more below.
         const fade = () => body.classList.toggle('more', body.scrollTop + body.clientHeight < body.scrollHeight - 2);
         body.addEventListener('scroll', fade, { passive: true });
@@ -2098,12 +2103,26 @@ export class AppUI {
           const up = el('button', 'buy', 'Upgrade') as HTMLButtonElement;
           up.disabled = !g.canUpgradeGear(uid);
           up.addEventListener('click', () => {
-            // Redrawn with its new stars, scrolled where it was.
+            // Redrawn in place with its new stars, scrolled where it was: the numbers that changed and the stars are
+            // revealed left to right, shedding sparks (as a Modify roll's choices are).
+            const cells = () => [...body.querySelectorAll<HTMLElement>('.stat-table .st-row b')];
+            const before = cells().map((c) => c.textContent);
             const top = body.scrollTop;
-            g.upgradeGear(uid);
-            close();
-            this.openGearDetail(uid);
-            $('.sheet-body', this.modal).scrollTop = top;
+            if (!g.upgradeGear(uid)) return;
+            sfx('craft');
+            const more = draw();
+            body.scrollTop = top;
+            fade();
+            if (more) up.disabled = !g.canUpgradeGear(uid);
+            else up.remove();
+            const changed = cells().filter((c, i) => c.textContent && c.textContent !== before[i]);
+            const stars = sub.querySelector<HTMLElement>('.stars');
+            if (stars) changed.push(stars);
+            for (const c of changed) {
+              c.classList.add('upg-reveal');
+              revealWithPixels(c, REVEAL_PIXELS.refine, 1, () => c.classList.remove('upg-reveal'));
+            }
+            this.refresh();
           });
           actions.appendChild(up);
         }

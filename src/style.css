@@ -9290,3 +9290,12 @@ body .title-row .quick-type .cyc-cur {
   display: block;
   margin-bottom: 4px;
 }
+
+/* An upgrade's reveal in the item window: the new numbers and stars sweep in, shedding sparks from their edge. */
+.gear-sheet .stat-table .st-row,
+.gear-sheet .gs-sub {
+  position: relative;
+}
+.upg-reveal {
+  display: inline-block;
+}
