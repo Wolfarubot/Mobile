@@ -23,6 +23,7 @@ if (isIosWebKit()) installIosTap();
 // Info.plist; Android hides both of its bars in MainActivity).
 if (Capacitor.getPlatform() === 'ios') void SystemBars.hide().catch(() => {});
 import { AppUI } from './ui/app';
+import { initAds, onAdUnavailable } from './ui/ads';
 import { TEXT_REGISTRY, txt } from './core/textRegistry';
 
 // Dev builds: the text table, for tools/text/dump.mjs (the Text editor's list of every line).
@@ -206,6 +207,10 @@ async function boot(): Promise<void> {
     choose: (device, cloud) => ui.askCloudChoice(device, cloud),
   });
   if (import.meta.env.DEV) (window as unknown as { __ui: AppUI }).__ui = ui;
+  // Rewarded ads (the app only): the consent message where needed and the first ads load a moment after start-up,
+  // unless ads were removed.
+  onAdUnavailable(() => ui.toast(txt('toast.rewards.noAd')));
+  if (!game.state.noAds) setTimeout(() => void initAds(), 3000);
   // Measures each farming group on a hidden copy of its battlefield, for offline gains and stationed Hunters.
   new SamplerHost(game, () => field.view);
   if (!game.state.flags.welcome) ui.showWelcome();

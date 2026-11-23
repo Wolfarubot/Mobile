@@ -11,7 +11,17 @@ const otherPlugins = Object.keys((JSON.parse(readFileSync('package.json', 'utf8'
   (d) => d.startsWith('@capacitor/') && d !== '@capacitor/cli' && d !== '@capacitor/core' && d !== '@capacitor/android' && d !== '@capacitor/ios',
 );
 const androidPlugins = existsSync('android/app/google-services.json') ? undefined : otherPlugins;
-const iosPlugins = existsSync('ios/App/App/GoogleService-Info.plist') ? undefined : otherPlugins;
+/**
+ * The ads plugin likewise closes the app at launch without its AdMob app ID (GADApplicationIdentifier in
+ * ios/App/App/Info.plist), so the iPhone build leaves it out until that's added (the game then pays ad rewards at once,
+ * as on the web).
+ */
+const iosHasAdMob = existsSync('ios/App/App/Info.plist') && readFileSync('ios/App/App/Info.plist', 'utf8').includes('GADApplicationIdentifier');
+const iosAll = [...otherPlugins, '@capacitor-firebase/authentication', '@capacitor-community/admob'];
+const iosPlugins =
+  existsSync('ios/App/App/GoogleService-Info.plist') && iosHasAdMob
+    ? undefined
+    : iosAll.filter((d) => (d !== '@capacitor-firebase/authentication' || existsSync('ios/App/App/GoogleService-Info.plist')) && (d !== '@capacitor-community/admob' || iosHasAdMob));
 
 const config: CapacitorConfig = {
   appId: 'com.variettestudios.pockethunter',

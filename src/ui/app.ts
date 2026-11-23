@@ -4457,7 +4457,7 @@ export class AppUI {
   }
 
   /** A short message above the tab bar (`html`: the text holds markup, such as a piece's icon). */
-  private toast(text: string, html = false): HTMLElement {
+  toast(text: string, html = false): HTMLElement {
     const t = el('div', 'toast');
     const span = el('span');
     if (html) span.innerHTML = text;
@@ -4663,7 +4663,7 @@ export class AppUI {
         {
           label: txt('popup.noEnergy.watch'),
           action: () => {
-            void showRewardedAd().then((ok) => {
+            void showRewardedAd('energy').then((ok) => {
               if (!ok || !g.adEnergy()) return;
               this.toast(txt('toast.rewards.energy', { n: ENERGY_AD }));
               this.hooks.save();
@@ -5812,7 +5812,7 @@ export class AppUI {
             this.refresh();
           };
           if (noAds) give();
-          else void showRewardedAd().then((ok) => ok && give());
+          else void showRewardedAd('checkIn').then((ok) => ok && give());
         });
       });
     }
@@ -7241,7 +7241,7 @@ export class AppUI {
     this.modal.querySelector('.modal-box')?.classList.add('offline-summary');
     $('.offline-details-btn', this.modal).addEventListener('click', () => this.showOfflineDetails(r));
     this.modal.querySelector('.offline-double-btn')?.addEventListener('click', () => {
-      void showRewardedAd().then((ok) => {
+      void showRewardedAd('offline').then((ok) => {
         if (!ok || !this.game.doubleOffline(r)) return;
         this.hooks.save();
         this.showOffline(r);

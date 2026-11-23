@@ -4,4 +4,6 @@
     <string name="title_activity_main">Pocket Hunter</string>
     <string name="package_name">com.variettestudios.pockethunter</string>
     <string name="custom_url_scheme">com.variettestudios.pockethunter</string>
+    <!-- AdMob's app ID for the Android app (not an ad unit; those are in src/ui/ads.ts). -->
+    <string name="admob_app_id">ca-app-pub-4449157620018312~4098413018</string>
 </resources>
