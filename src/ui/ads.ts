@@ -19,6 +19,7 @@ const AD_UNITS: Record<'android' | 'ios', Partial<Record<AdSpot, string>>> = {
   android: {
     checkIn: 'ca-app-pub-4449157620018312/7981817706',
     energy: 'ca-app-pub-4449157620018312/1472249675',
+    offline: 'ca-app-pub-4449157620018312/9159168003',
   },
   ios: {},
 };
