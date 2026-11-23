@@ -3469,6 +3469,16 @@ export class Game {
     return this.pointsIn(who, which) >= this.rowGate(who, row, which);
   }
 
+  /** Whether any of their skill points can be spent now (not when every node they could reach costs more than they have). */
+  canSpendSkill(who: Wearer): boolean {
+    if (this.skillPoints(who) <= 0) return false;
+    for (const which of ['base', 'ascended'] as const) {
+      if (which === 'ascended' && !this.ascended(who)) continue;
+      if (this.skillTree(who, which).some((n) => this.canLearn(who, n.id, which))) return true;
+    }
+    return false;
+  }
+
   canLearn(who: Wearer, id: string, which: TreeKind = 'base'): boolean {
     const node = this.treeNode(who, id, which);
     if (!node) return false;
@@ -3807,6 +3817,11 @@ export class Game {
   evoReachable(id: EnemyId, node: string): boolean {
     const n = evoNode(id, node);
     return !!n && this.evoSpent(id) >= this.evoRowGate(n.row) && (n.requires.length === 0 || n.requires.some((r) => this.evoRank(id, r) > 0));
+  }
+
+  /** Whether any of a monster's evolution points can be spent now (not when every node it could reach costs more). */
+  canSpendEvo(id: EnemyId): boolean {
+    return this.evoPoints(id) > 0 && this.evoTree(id).some((n) => this.canEvolve(id, n.id));
   }
 
   canEvolve(id: EnemyId, node: string): boolean {

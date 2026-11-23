@@ -9426,3 +9426,39 @@ body .title-row .quick-type .cyc-cur {
 .nv {
   position: relative;
 }
+
+/* Skill or evolution points nothing can be bought with yet (every node in reach costs more): greyed out. */
+.sp-dot.stuck {
+  background: #9a9690;
+  filter: grayscale(1);
+}
+.skills-head.stuck b {
+  color: #9a9690;
+}
+
+/* In landscape, what holding a card's Train / Empower / skill button brings up sits over the menu's column (where the
+   cards are), not the battlefield: the confirm pop-up and the filling bar. */
+body.landscape .modal.over-menu {
+  justify-items: end;
+  padding-right: calc(8px + var(--safe-right));
+}
+body.landscape.left-handed .modal.over-menu {
+  justify-items: start;
+  padding-left: calc(8px + var(--safe-left));
+}
+body.landscape .modal.over-menu .modal-box {
+  width: calc(var(--menu-w) - 16px);
+}
+.hold-bar.over-menu {
+  position: fixed;
+  bottom: calc(12px + var(--safe-bottom, 0px));
+  left: auto;
+  right: calc(var(--safe-right) + var(--menu-w) / 2);
+  transform: translateX(50%);
+  width: calc(var(--menu-w) * 0.78);
+}
+body.left-handed .hold-bar.over-menu {
+  right: auto;
+  left: calc(var(--safe-left) + var(--menu-w) / 2);
+  transform: translateX(-50%);
+}

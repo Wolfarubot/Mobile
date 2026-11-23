@@ -768,7 +768,11 @@ export class AppUI {
     const bar = el('div', 'hold-bar');
     bar.innerHTML = `<i></i><span>${label}</span>`;
     bar.style.setProperty('--hold-ms', `${ms}ms`);
-    (document.querySelector('.battle-wrap') ?? document.body).appendChild(bar);
+    // In landscape, over the menu's column (where the cards are held), not the battlefield.
+    if (document.body.classList.contains('landscape')) {
+      bar.classList.add('over-menu');
+      document.body.appendChild(bar);
+    } else (document.querySelector('.battle-wrap') ?? document.body).appendChild(bar);
     void bar.offsetWidth; // start from empty, then fill
     bar.classList.add('filling');
     return () => bar.remove();
@@ -865,6 +869,8 @@ export class AppUI {
           },
           { label: txt(pop.ok), action: o.run },
         ]);
+        // In landscape, over the menu's column (the cards it came from), not the battlefield.
+        this.modal.classList.add('over-menu');
       }, MAX_HOLD_MS);
     });
     btn.addEventListener('pointermove', (ev) => {
@@ -955,6 +961,8 @@ export class AppUI {
           const points = g.skillPoints(who);
           dot.textContent = String(points);
           dot.classList.toggle('hidden', points <= 0);
+          // Points that nothing can be bought with yet (every node in reach costs more): greyed out.
+          dot.classList.toggle('stuck', points > 0 && !g.canSpendSkill(who));
         } else {
           ready = g.canRecruit(def!.id);
           lv.textContent = open ? 'Recruit' : 'Locked';
@@ -1146,6 +1154,7 @@ export class AppUI {
       lv.classList.remove('hidden');
       dot.textContent = String(points);
       dot.classList.toggle('hidden', points <= 0);
+      dot.classList.toggle('stuck', points > 0 && !g.canSpendSkill(who));
       const station = def ? g.state.hunters[def.id].station : g.area;
       const down = def && station && station !== g.area ? (this.rates(station, g.stationedIn(station), g.stationEfficiency).stunned[def.id] ?? 0) : 0;
       setHtml(status, `${station ? `📍 ${areaDef(station).name}` : '💤 Resting'} · ⚔️ ${this.dpsText(who)} DPS${down >= 0.05 ? ' · <b class="warn">💫 overwhelmed</b>' : ''}`);
@@ -1526,10 +1535,14 @@ export class AppUI {
       }
       const points = t.points();
       const active = t.active();
+      // Points nothing in reach can be bought with yet (every node costs more): greyed out, and said so.
+      const spendable = points > 0 && buttons.some(({ n }) => !t.hidden?.(n.id) && t.canLearn(n.id));
       if (!active) head.textContent = t.inactiveText;
-      else if (points > 0) head.innerHTML = `<b>${points}</b> ${t.pointName}${points > 1 ? 's' : ''} to spend. Tap a glowing node.`;
+      else if (points > 0 && spendable) head.innerHTML = `<b>${points}</b> ${t.pointName}${points > 1 ? 's' : ''} to spend. Tap a glowing node.`;
+      else if (points > 0) head.innerHTML = `<b>${points}</b> ${t.pointName}${points > 1 ? 's' : ''}: not enough for any node yet.`;
       else head.textContent = t.waitText();
-      head.classList.toggle('has', active && points > 0);
+      head.classList.toggle('has', active && spendable);
+      head.classList.toggle('stuck', active && points > 0 && !spendable);
       for (const { n, b } of buttons) {
         const rank = t.rank(n.id);
         b.classList.toggle('learned', rank > 0);
@@ -2400,6 +2413,7 @@ export class AppUI {
   /** `ownClose`: the sheet draws its own Close (Modify's goes back a screen first), so none is added here. */
   private showSheet(title: string, build: (body: HTMLElement, close: () => void) => void, ownClose = false): void {
     this.modal.innerHTML = `<div class="modal-box sheet"><h2>${title}</h2><div class="sheet-body"></div><div class="buttons"></div></div>`;
+    this.modal.classList.remove('over-menu');
     const close = () => {
       this.modal.classList.add('hidden');
       this.modalClose = null;
@@ -3259,6 +3273,7 @@ export class AppUI {
           const points = g.evoPoints(def.id);
           dot.textContent = String(points);
           dot.classList.toggle('hidden', points <= 0);
+          dot.classList.toggle('stuck', points > 0 && !g.canSpendEvo(def.id));
         } else {
           lv.textContent = 'Locked';
           ready = false;
@@ -3369,6 +3384,7 @@ export class AppUI {
       const points = g.evoPoints(def.id);
       dot.textContent = String(points);
       dot.classList.toggle('hidden', points <= 0);
+      dot.classList.toggle('stuck', points > 0 && !g.canSpendEvo(def.id));
     });
   }
 
@@ -7171,6 +7187,7 @@ export class AppUI {
     const mail = this.fromMail;
     this.fromMail = null;
     this.modal.innerHTML = `<div class="modal-box">${html}<div class="buttons"></div></div>`;
+    this.modal.classList.remove('over-menu');
     const wrap = $('.buttons', this.modal);
     this.lastPopup = performance.now();
     const close = () => {
