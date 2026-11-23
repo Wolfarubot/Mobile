@@ -114,6 +114,10 @@ import {
   PREMIUM_IDS,
   PREMIUM_ITEMS,
   PREMIUM_UPGRADES,
+  BOOSTS,
+  BOOST_IDS,
+  BOOST_TIERS,
+  type BoostId,
   premiumItem,
   premiumName,
   SHARD_ICON,
@@ -5854,6 +5858,36 @@ export class AppUI {
     );
   }
 
+  /** Buying a boost tier: what it gives and costs, or that gems are short. */
+  private confirmBoost(kind: BoostId, tier: number): void {
+    const g = this.game;
+    const d = BOOSTS[kind];
+    const t = BOOST_TIERS[tier];
+    if (g.state.gems < t.gems) {
+      const v = { gem: gemIcon(), item: d.name, cost: gemsText(t.gems), have: gemsText(g.state.gems) };
+      this.showModal(`<h2>${tx('popup.noGems.title', v)}</h2>${txp('popup.noGems.body', v)}`, [
+        { label: txt('popup.noGems.go'), action: () => this.openShop('gems') },
+        { label: txt('popup.noGems.notNow'), secondary: true },
+      ]);
+      return;
+    }
+    if (!g.canBoost(kind, tier)) return;
+    const left = g.boostLeft(kind);
+    const v = { what: d.text(t.gems / 100), time: boostDur(t.minutes), left: fmtTime(left + t.minutes * 60), gem: gemIcon(), cost: gemsText(t.gems), have: gemsText(g.state.gems) };
+    this.showModal(`<h2>${sprite(d.icon)} ${d.name}</h2>${txp(left > 0 ? 'popup.buyBoost.more' : 'popup.buyBoost.body', v)}`, [
+      {
+        label: txt('popup.buyBoost.buy'),
+        action: () => {
+          if (!g.buyBoost(kind, tier)) return;
+          this.toast(txt('popup.buyBoost.bought', { name: d.name, what: d.text(t.gems / 100), time: boostDur(t.minutes) }));
+          this.hooks.save();
+          this.refresh();
+        },
+      },
+      { label: txt('popup.buyBoost.notNow'), secondary: true },
+    ]);
+  }
+
   /** The Shop: a market stall, then Remove Ads and permanent upgrades, or packs of Exalted Gems. */
   private openShop(page: 'shop' | 'gems' = 'shop'): void {
     if (this.detail) this.dropDetail();
@@ -5926,6 +5960,31 @@ export class AppUI {
         ads.classList.toggle('owned', g.state.noAds);
         btn.innerHTML = g.state.noAds ? 'Owned ✓' : REMOVE_ADS.price;
       });
+      // Boosts: a card a kind, its four tiers on buttons, the one running (and its time) on top.
+      body.appendChild(sectionTitle(txt('menu.shop.boosts')));
+      body.appendChild(el('p', 'hd-note', txt('menu.shop.boostsNote')));
+      for (const kind of BOOST_IDS) {
+        const d = BOOSTS[kind];
+        const card = el('div', 'card boost-card');
+        card.innerHTML = `<div class="bc-head"><div class="si-icon">${sprite(d.icon)}</div><div class="bc-title"><b>${d.name}</b><small class="bc-state"></small></div></div><div class="bc-tiers">${BOOST_TIERS.map((t, i) => `<button type="button" class="bc-tier" data-i="${i}"><b>+${t.gems}%</b><small>${boostDur(t.minutes)}</small><span class="bc-cost">${gemIcon()} ${t.gems}</span></button>`).join('')}</div>`;
+        const state = $('.bc-state', card);
+        const tiers = [...card.querySelectorAll<HTMLButtonElement>('.bc-tier')];
+        tiers.forEach((b) => b.addEventListener('click', () => this.confirmBoost(kind, Number(b.dataset.i))));
+        refreshers.push(() => {
+          const left = g.boostLeft(kind);
+          const on = g.boostBonus(kind);
+          card.classList.toggle('running', left > 0);
+          setHtml(state, left > 0 ? tx('menu.shop.boostActive', { what: d.text(on), time: fmtTime(left) }) : tx('menu.shop.boostIdle'));
+          tiers.forEach((b, i) => {
+            const t = BOOST_TIERS[i];
+            const mine = left > 0 && on === t.gems / 100;
+            b.classList.toggle('on', mine);
+            b.classList.toggle('short', g.state.gems < t.gems);
+            b.disabled = left > 0 && !mine;
+          });
+        });
+        body.appendChild(card);
+      }
       body.appendChild(stockTitle(txt('menu.shop.today')));
       body.appendChild(el('p', 'hd-note', txt('menu.shop.stock')));
       const grid = el('div', 'shop-grid');
@@ -7545,6 +7604,11 @@ function gemIcon(): string {
 function fmtWait(ms: number): string {
   const h = Math.floor(ms / 3600000);
   return h >= 24 ? `${Math.floor(h / 24)}d ${h % 24}h` : fmtTime(ms / 1000);
+}
+
+/** A boost tier's time: "15 min", "1 hr", "1.5 hr". */
+function boostDur(minutes: number): string {
+  return minutes < 60 ? `${minutes} min` : `${Number((minutes / 60).toFixed(1))} hr`;
 }
 
 /** A whole number with thousands separators (gem counts). */

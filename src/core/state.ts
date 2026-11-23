@@ -9,6 +9,10 @@ import {
   type MinigameId,
   type Quest,
   PREMIUM_IDS,
+  BOOST_IDS,
+  BOOST_MAX_SEC,
+  BOOST_TIERS,
+  type BoostId,
   PREMIUM_UPGRADES,
   premiumItem,
   AUTO_EMPOWER_SHARES,
@@ -346,6 +350,8 @@ export interface GameState {
   events: Record<string, EventState>;
   /** Permanent upgrade items owned (PREMIUM_ITEMS ids). */
   premium: string[];
+  /** Boosts running (Exalted Gems, the Shop): each kind's bonus and seconds left. */
+  boosts: Partial<Record<BoostId, { value: number; left: number }>>;
   /** Today's items on sale in the Shop. */
   shop: { day: string; items: string[] };
   /** The Monster Merchant's materials today, and those already traded today. */
@@ -483,6 +489,7 @@ export function newGame(now = Date.now()): GameState {
     echo: {},
     gems: 0,
     premium: [],
+    boosts: {},
     shop: { day: '', items: [] },
     merchant: { day: '', offers: [], traded: [] },
     regression: { unlocked: false, runs: 0, shards: 0, totalShards: 0, tree: {}, runStart: now, autoShare: AUTO_EMPOWER_SHARES[0], goldAtStart: 0 },
@@ -907,6 +914,17 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
       for (const id of PREMIUM_IDS) {
         const v = (p as Record<string, unknown> | undefined)?.[id];
         for (let i = 1; typeof v === 'number' && i <= Math.min(v, PREMIUM_UPGRADES[id].values.length); i++) out.push(`${id}${i}`);
+      }
+      return out;
+    })(),
+    boosts: (() => {
+      const b = (data.boosts ?? {}) as Record<string, { value?: unknown; left?: unknown }>;
+      const out: Partial<Record<BoostId, { value: number; left: number }>> = {};
+      for (const id of BOOST_IDS) {
+        const v = b[id];
+        if (!v || typeof v.left !== 'number' || !Number.isFinite(v.left) || v.left <= 0) continue;
+        const tier = BOOST_TIERS.find((t) => t.gems / 100 === v.value);
+        if (tier) out[id] = { value: tier.gems / 100, left: Math.min(BOOST_MAX_SEC, v.left) };
       }
       return out;
     })(),

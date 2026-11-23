@@ -3,7 +3,7 @@ import { DEV_FLAGS } from '../src/core/devFlags';
 import { GEAR_CATALOG } from '../src/core/gearCatalog';
 import { GEAR_SPRITES } from '../src/core/gearSprites';
 import { describe, expect, it } from 'vitest';
-import { ARMOR_MIXES, AREA_STAR_MULT, AREA_WORTH, statShare, worthAt, WORTH_RATE, ARROW_RAIN, FOCUS_VIEW_SHARE, GUARDIAN_TAP_TAKEN, archetypeValue, WEAPON_ARCHETYPES, weaponArchetype, withArchetype, type WeaponClass, type EnemyId } from '../src/core/balance';
+import { ARMOR_MIXES, AREA_STAR_MULT, AREA_WORTH, statShare, worthAt, WORTH_RATE, ARROW_RAIN, FOCUS_VIEW_SHARE, GUARDIAN_TAP_TAKEN, archetypeValue, WEAPON_ARCHETYPES, weaponArchetype, withArchetype, type WeaponClass, type EnemyId, BOOST_TIERS } from '../src/core/balance';
 import {
   areaDef,
   AREAS,
@@ -1164,6 +1164,54 @@ describe('Skill tree row gates', () => {
 });
 
 describe('Shops', () => {
+  it('boosts: gems for a temporary bonus, as many percent as gems, longer for more; they run down, online and away', () => {
+    const g = rich();
+    g.state.gems = 0;
+    expect(BOOST_TIERS.map((t) => [t.gems, t.minutes])).toEqual([[25, 15], [50, 30], [75, 60], [100, 90]]);
+    expect(g.buyBoost('gold', 1)).toBe(false); // no gems
+    g.state.gems = 300;
+    const gold = g.enemyStats('greenSlime').gold;
+    const dmg = g.damage;
+    expect(g.buyBoost('gold', 1)).toBe(true);
+    expect(g.state.gems).toBe(250);
+    expect(g.boostLeft('gold')).toBe(30 * 60);
+    expect(g.enemyStats('greenSlime').gold).toBeCloseTo(gold * 1.5);
+    expect(g.damage).toBeCloseTo(dmg); // only the boosted kind
+    // One boost a kind: another tier waits; the same tier adds its time.
+    expect(g.buyBoost('gold', 3)).toBe(false);
+    expect(g.buyBoost('gold', 1)).toBe(true);
+    expect(g.boostLeft('gold')).toBe(60 * 60);
+    expect(g.enemyStats('greenSlime').gold).toBeCloseTo(gold * 1.5);
+    // Other kinds run alongside, multiplying on top of upgrades.
+    g.state.premium = ['damage1'];
+    expect(g.buyBoost('damage', 3)).toBe(true);
+    expect(g.damage).toBeCloseTo(dmg * 1.1 * 2);
+    g.state.premium = [];
+    // Running down while you play, gone at 0.
+    g.tick(60 * 60 - 1);
+    expect(g.boostLeft('gold')).toBeCloseTo(1);
+    g.tick(2);
+    expect(g.boostLeft('gold')).toBe(0);
+    expect(g.state.boosts.gold).toBeUndefined();
+    expect(g.enemyStats('greenSlime').gold).toBeCloseTo(gold);
+    // Away: the time away is farmed boosted only while the boost lasted.
+    const a = rich();
+    a.state.lastSeen = 0;
+    const plain = a.applyOffline(2 * 3600 * 1000).gold;
+    const b = rich();
+    b.state.gems = 100;
+    b.buyBoost('gold', 0); // +25% for 15 minutes
+    b.state.lastSeen = 0;
+    const boosted = b.applyOffline(2 * 3600 * 1000).gold;
+    expect(boosted / plain).toBeCloseTo(1 + 0.25 * (15 / 120), 2);
+    expect(b.state.boosts.gold).toBeUndefined();
+    // Kept through a save, and through a Regression.
+    const c = rich();
+    c.state.gems = 100;
+    c.buyBoost('drops', 2);
+    expect(deserialize(serialize(c.state))!.boosts.drops).toEqual({ value: 0.75, left: 3600 });
+  });
+
   it('training is open from the start', () => {
     const g = new Game(newGame(0), noCrit);
     g.state.gold = 1e9;

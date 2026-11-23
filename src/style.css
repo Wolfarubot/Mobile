@@ -9480,3 +9480,85 @@ body.left-handed .hold-bar.over-menu {
     filter: none;
   }
 }
+
+/* Shop → Boosts: a card a kind, its four tiers as buttons; the tier running lit gold, the card outlined. */
+.hunter-detail.shop .boost-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 6px 8px !important;
+}
+.hunter-detail.shop .boost-card.running {
+  box-shadow: 0 0 0 2px var(--gold), 0 0 12px rgba(232, 168, 0, 0.5), 0 3px 0 rgba(0, 0, 0, 0.45) !important;
+}
+.boost-card .bc-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.boost-card .si-icon {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border: 6px solid #8a1677;
+  border-image: var(--img-btn-purple, var(--img-btn)) 3 / 6px / 0 stretch;
+  background: var(--c3) padding-box;
+  image-rendering: pixelated;
+  box-sizing: content-box;
+}
+.boost-card .si-icon img.ei {
+  width: 26px;
+  height: 26px;
+}
+.boost-card .bc-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.boost-card .bc-title b {
+  font-size: 17px;
+  text-shadow: var(--outline-thick) !important;
+}
+.boost-card .bc-state {
+  font-size: 12px;
+}
+.boost-card .bc-tiers {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+.boost-card .bc-tier {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 6px 2px;
+  font: inherit;
+  min-width: 0;
+}
+.boost-card .bc-tier b {
+  font-size: 16px;
+}
+.boost-card .bc-tier small {
+  font-size: 11px;
+}
+.boost-card .bc-tier .bc-cost {
+  font-size: 12px;
+  white-space: nowrap;
+}
+.boost-card .bc-tier .bc-cost img.ei {
+  width: 12px;
+  height: 12px;
+}
+.boost-card .bc-tier.short .bc-cost {
+  color: #ff8a8a;
+}
+.boost-card .bc-tier.on {
+  box-shadow: 0 0 0 2px var(--gold), 0 0 8px rgba(232, 168, 0, 0.6) !important;
+}
+.boost-card .bc-tier:disabled {
+  opacity: 0.45;
+}

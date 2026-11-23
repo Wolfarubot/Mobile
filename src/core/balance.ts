@@ -209,6 +209,29 @@ export const premiumName = (it: PremiumItem): string => PREMIUM_UPGRADES[it.kind
 export const SHOP_DAILY_ITEMS = 6;
 
 /**
+ * Boosts: temporary bonuses bought with Exalted Gems (the Shop), something to spend gems on once every upgrade is
+ * owned, or a cheaper lift than an upgrade for a while. The bonus is as many percent as the gems paid (+50% for 50),
+ * and dearer boosts last longer. Each kind multiplies on top of everything else (upgrades included). A kind runs one
+ * boost at a time; buying the same tier again adds its time. They run on while you're away.
+ */
+export type BoostId = 'gold' | 'damage' | 'drops';
+export const BOOST_IDS: BoostId[] = ['gold', 'damage', 'drops'];
+export const BOOSTS: Record<BoostId, { name: string; icon: string; text: (v: number) => string }> = {
+  gold: { name: 'Gold Boost', icon: PREMIUM_UPGRADES.gold.icon, text: (v) => `+${pctOf(v)} gold from kills` },
+  damage: { name: 'Damage Boost', icon: PREMIUM_UPGRADES.damage.icon, text: (v) => `+${pctOf(v)} damage for every Hunter` },
+  drops: { name: 'Drop Boost', icon: PREMIUM_UPGRADES.drops.icon, text: (v) => `+${pctOf(v)} material drop chance` },
+};
+/** The tiers: gems paid (the bonus in percent) and minutes it lasts. */
+export const BOOST_TIERS: Array<{ gems: number; minutes: number }> = [
+  { gems: 25, minutes: 15 },
+  { gems: 50, minutes: 30 },
+  { gems: 75, minutes: 60 },
+  { gems: 100, minutes: 90 },
+];
+/** The most time a boost can hold (buying the same tier again adds its time, up to this). */
+export const BOOST_MAX_SEC = 24 * 3600;
+
+/**
  * What a quest counts. Dailies name one event each: a minigame played for at least a star (`stars`), a particular
  * swarm survived or Guardian beaten. Weeklies are bigger, across any events: minigame plays at a star rank, different
  * minigames played, swarms, Guardians, days of dailies done. Monster slaying fills in while too little is open.

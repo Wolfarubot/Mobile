@@ -133,6 +133,7 @@ export function regress(old: GameState, now: number): { state: GameState; shards
   s.stats.mostShards = Math.max(s.stats.mostShards, shards);
   s.gems = old.gems;
   s.premium = [...old.premium];
+  s.boosts = copy(old.boosts);
   s.noAds = old.noAds;
   s.shop = copy(old.shop);
   s.merchant = copy(old.merchant);

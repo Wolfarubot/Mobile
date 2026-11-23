@@ -77,6 +77,10 @@ import {
   type Quest,
   PREMIUM_ITEMS,
   premiumItem,
+  BOOST_IDS,
+  BOOST_MAX_SEC,
+  BOOST_TIERS,
+  type BoostId,
   SHOP_DAILY_ITEMS,
   MERCHANT_AMOUNT,
   MERCHANT_DAILY,
@@ -1937,9 +1941,53 @@ export class Game {
     return v;
   }
 
-  /** A kind's multiplier, on top of everything else: 1 + its items' bonuses. */
+  /** A kind's multiplier, on top of everything else: 1 + its items' bonuses, times a boost running for it. */
   premiumMult(kind: PremiumId): number {
-    return 1 + this.premiumBonus(kind);
+    return (1 + this.premiumBonus(kind)) * (1 + this.boostBonus(kind as BoostId));
+  }
+
+  // ---- Boosts (Exalted Gems): a temporary bonus per kind ----
+
+  /** A boost's bonus while it runs (0 otherwise, and for kinds that have none). */
+  boostBonus(kind: BoostId): number {
+    const b = this.state.boosts[kind];
+    return b && b.left > 0 ? b.value : 0;
+  }
+
+  /** Seconds left of a kind's boost (0 when none runs). */
+  boostLeft(kind: BoostId): number {
+    return this.state.boosts[kind]?.left ?? 0;
+  }
+
+  /** Whether a tier (BOOST_TIERS index) can be bought: none of that kind running, or the same tier (adding time). */
+  canBoost(kind: BoostId, tier: number): boolean {
+    const t = BOOST_TIERS[tier];
+    if (!t || this.state.gems < t.gems) return false;
+    const b = this.state.boosts[kind];
+    return !b || b.left <= 0 || (b.value === t.gems / 100 && b.left + t.minutes * 60 <= BOOST_MAX_SEC);
+  }
+
+  /** Buys a boost: its bonus for its time (or its time added to the same tier already running). */
+  buyBoost(kind: BoostId, tier: number): boolean {
+    if (!BOOST_IDS.includes(kind) || !this.canBoost(kind, tier)) return false;
+    const t = BOOST_TIERS[tier];
+    this.state.gems -= t.gems;
+    const left = this.boostLeft(kind);
+    this.state.boosts[kind] = { value: t.gems / 100, left: left + t.minutes * 60 };
+    this.rev++;
+    return true;
+  }
+
+  /** Boosts run down (`dt` seconds), ending at 0. */
+  private tickBoosts(dt: number): void {
+    for (const id of Object.keys(this.state.boosts) as BoostId[]) {
+      const b = this.state.boosts[id]!;
+      b.left -= dt;
+      if (b.left <= 0) {
+        delete this.state.boosts[id];
+        this.rev++;
+      }
+    }
   }
 
   ownsPremium(id: string): boolean {
@@ -2823,6 +2871,7 @@ export class Game {
       this.rollQuests();
       this.checkQuests();
     }
+    this.tickBoosts(dt);
     // Timed minigame buffs run down while you play.
     for (const id of Object.keys(s.buffs) as MinigameId[]) if (MINIGAME_BUFFS[id].kind === 'timed') s.buffs[id] = Math.max(0, s.buffs[id]! - dt);
     for (const id of Object.keys(s.echo) as MinigameId[]) {
@@ -3966,13 +4015,17 @@ export class Game {
     const timed = (Object.keys(MINIGAME_BUFFS) as MinigameId[]).filter((id) => MINIGAME_BUFFS[id].kind === 'timed');
     const left0 = Object.fromEntries(timed.map((id) => [id, s.buffs[id] ?? 0])) as Record<MinigameId, number>;
     const echo0 = { ...s.echo };
-    const cuts = [...new Set([0, seconds, ...timed.flatMap((id) => [left0[id], echo0[id] ?? 0]).filter((t) => t > 0 && t < seconds)])].sort((x, y) => x - y);
+    // Boosts too: each stretch is farmed with the boosts still running then.
+    const boost0 = Object.fromEntries(Object.entries(s.boosts).map(([k, b]) => [k, { ...b! }])) as Partial<Record<BoostId, { value: number; left: number }>>;
+    const boostEnds = Object.values(boost0).map((b) => b!.left);
+    const cuts = [...new Set([0, seconds, ...[...timed.flatMap((id) => [left0[id], echo0[id] ?? 0]), ...boostEnds].filter((t) => t > 0 && t < seconds)])].sort((x, y) => x - y);
     for (let i = 0; i + 1 < cuts.length; i++) {
       const from = cuts[i];
       const span = cuts[i + 1] - from;
       if (span <= 0) continue;
       for (const id of timed) s.buffs[id] = Math.max(0, left0[id] - from);
       for (const id of Object.keys(echo0) as MinigameId[]) s.echo[id] = Math.max(0, echo0[id]! - from);
+      for (const id of Object.keys(boost0) as BoostId[]) s.boosts[id] = { value: boost0[id]!.value, left: boost0[id]!.left - from };
       add(s.area, withYou, this.accrue(s.area, this.ratesFor(s.area, withYou, OFFLINE_EFFICIENCY * dream), span, true));
       for (const area of AREAS) {
         const group = this.stationedIn(area.id);
@@ -3980,7 +4033,9 @@ export class Game {
         add(area.id, group, this.accrue(area.id, this.ratesFor(area.id, group, this.stationEfficiency * OFFLINE_EFFICIENCY * dream), span, true));
       }
     }
-    // The buffs ran down over the time away.
+    // The buffs and boosts ran down over the time away.
+    s.boosts = {};
+    for (const id of Object.keys(boost0) as BoostId[]) if (boost0[id]!.left - away > 0) s.boosts[id] = { value: boost0[id]!.value, left: boost0[id]!.left - away };
     for (const id of timed) if (left0[id] > 0) s.buffs[id] = Math.max(0, left0[id] - away);
     for (const id of Object.keys(echo0) as MinigameId[]) {
       const e = Math.max(0, echo0[id]! - away);

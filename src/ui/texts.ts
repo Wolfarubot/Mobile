@@ -427,6 +427,19 @@ section(
 );
 section(
   P,
+  'popup.buyBoost',
+  'Buy a boost',
+  {
+    body: '**{what}** for **{time}**.\n\nCosts {gem} **{cost}** (you have {have}). It multiplies on top of everything else, and keeps running while you are away.',
+    more: '**{what}**: {time} more, for {left} in all.\n\nCosts {gem} **{cost}** (you have {have}).',
+    buy: 'Buy',
+    notNow: 'Not now',
+    bought: '{name} running: {what} for {time}',
+  },
+  { note: 'Tapping a boost tier in the Shop. "more" is when the same tier is already running.', vars: { what: 'the bonus', time: 'how long', left: 'time in all', gem: 'the gem icon', cost: 'its price', have: 'gems you have', name: 'the boost' } },
+);
+section(
+  P,
   'popup.offline',
   'Welcome back',
   {
@@ -1066,9 +1079,14 @@ section(
     popular: 'Most popular',
     bestValue: 'Best value',
     bonus: '+{n} bonus',
+    boosts: 'Boosts',
+    boostsNote: 'A bonus for a while, as many percent as the gems it costs. They keep running while you are away.',
+    boostActive: 'Running: **{what}** · {time} left',
+    boostIdle: 'Not running',
+    boostMore: 'Add {time}',
   },
   {
-    vars: { cap: 'energy cap without ads', n: 'bonus gems', time: 'time to the next stock', amount: 'materials per trade', gems: 'gems per trade' },
-    labels: { test: 'Test mode note', removeAds: 'Remove Ads tagline', removeAdsPoints: "Remove Ads: what you get (split with |)", today: 'Heading', stock: 'Stock note', merchant: 'Merchant heading', merchantNote: 'Merchant note', restock: 'Countdown on the headings', popular: 'Pack badge', bestValue: 'Pack badge', bonus: 'Pack bonus ribbon' },
+    vars: { cap: 'energy cap without ads', n: 'bonus gems', time: 'time to the next stock (or a boost\'s time)', amount: 'materials per trade', gems: 'gems per trade', what: 'the boost running' },
+    labels: { test: 'Test mode note', removeAds: 'Remove Ads tagline', removeAdsPoints: "Remove Ads: what you get (split with |)", today: 'Heading', stock: 'Stock note', merchant: 'Merchant heading', merchantNote: 'Merchant note', restock: 'Countdown on the headings', popular: 'Pack badge', bestValue: 'Pack badge', bonus: 'Pack bonus ribbon', boosts: 'Boosts heading', boostsNote: 'Boosts note', boostActive: 'A boost card while one runs', boostIdle: 'A boost card with none running', boostMore: 'Tier button while the same tier runs' },
   },
 );
