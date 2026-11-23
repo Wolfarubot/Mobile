@@ -21,7 +21,10 @@ const AD_UNITS: Record<'android' | 'ios', Partial<Record<AdSpot, string>>> = {
     energy: 'ca-app-pub-4449157620018312/1472249675',
     offline: 'ca-app-pub-4449157620018312/9159168003',
   },
-  ios: {},
+  ios: {
+    checkIn: 'ca-app-pub-4449157620018312/3906841325',
+    energy: 'ca-app-pub-4449157620018312/2593759657',
+  },
 };
 /** A spot without its own ad unit yet borrows this one's. */
 const FALLBACK_SPOT: AdSpot = 'checkIn';

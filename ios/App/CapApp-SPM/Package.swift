@@ -15,7 +15,8 @@ let package = Package(
         .package(name: "CapacitorApp", path: "../../../node_modules/@capacitor/app"),
         .package(name: "CapacitorHaptics", path: "../../../node_modules/@capacitor/haptics"),
         .package(name: "CapacitorPreferences", path: "../../../node_modules/@capacitor/preferences"),
-        .package(name: "CapacitorScreenOrientation", path: "../../../node_modules/@capacitor/screen-orientation")
+        .package(name: "CapacitorScreenOrientation", path: "../../../node_modules/@capacitor/screen-orientation"),
+        .package(name: "CapacitorCommunityAdmob", path: "../../../node_modules/@capacitor-community/admob")
     ],
     targets: [
         .target(
@@ -26,7 +27,8 @@ let package = Package(
                 .product(name: "CapacitorApp", package: "CapacitorApp"),
                 .product(name: "CapacitorHaptics", package: "CapacitorHaptics"),
                 .product(name: "CapacitorPreferences", package: "CapacitorPreferences"),
-                .product(name: "CapacitorScreenOrientation", package: "CapacitorScreenOrientation")
+                .product(name: "CapacitorScreenOrientation", package: "CapacitorScreenOrientation"),
+                .product(name: "CapacitorCommunityAdmob", package: "CapacitorCommunityAdmob")
             ]
         )
     ]
