@@ -84,6 +84,7 @@ import {
   POSSESSION_REACH,
   BIG_SUMMON,
   type TreeStat,
+  FIREBURST_MAX_GROW,
 } from './balance';
 import type { Game, GearMode, KillReward, Shooter } from './game';
 import { COUNTER_ART, DASH_ART, gearCooldownArt, specialTint, TAP_ART, WALL_ART, type CooldownTint } from './cooldownArt';
@@ -3946,9 +3947,10 @@ export class Field {
   }
 
   /** A gear burst around a point: every monster within `r` is hit (and gets its type's effect). */
-  private abilityBurst(who: Shooter, x: number, y: number, r: number, base: number, dtype: DamageType): void {
-    // Area-size upgrades (gear, skills) and the area's own scale widen it, as they do every area effect.
-    r *= this.game.radiusMult(who);
+  private abilityBurst(who: Shooter, x: number, y: number, r: number, base: number, dtype: DamageType, maxGrow = Infinity): void {
+    // Area-size upgrades (gear, skills) and the Hunter's level widen it, as they do every area effect (up to
+    // `maxGrow` times its own size, for bursts that set each other off).
+    r *= Math.min(maxGrow, this.game.radiusMult(who));
     this.events.push({ type: 'nova', x, y, r, color: DAMAGE_TYPES[dtype].color, pulse: dtype });
     for (const e of [...this.enemies]) if (e.hp > 0 && Math.hypot(e.x - x, e.y - y) <= r + e.r) this.abilityHit(who, e, base, dtype, true);
   }
@@ -5717,7 +5719,7 @@ export class Field {
     this.quickDrawKill(shooter);
     // Fireburst (an enchantment): monsters the weapon kills burst, hurting everything around them.
     const burst = this.game.killBurst(shooter);
-    if (burst && this.game.rng() < this.chained(burst.chance)) this.inChain(() => this.abilityBurst(shooter, e.x, e.y, burst.radius, burst.base, burst.damageType));
+    if (burst && this.game.rng() < this.chained(burst.chance)) this.inChain(() => this.abilityBurst(shooter, e.x, e.y, burst.radius, burst.base, burst.damageType, FIREBURST_MAX_GROW));
     this.events.push({ type: 'kill', x: e.x, y: e.y, enemy: e.type, boss: e.boss, reward, ...(e.boss ? { foe: e } : {}) });
     // Double or Nothing (Ted in this area).
     if (reward.luck === 'double') this.say(e.x, e.y - 14, '×2!', '#ffd84a', 11);

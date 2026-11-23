@@ -1384,7 +1384,7 @@ export class AppUI {
         else if (potion) cells.push(['Puddle damage', `${hit}/tick`], ['Puddle size', fmt(g.specialRadius(who))], ['Potion every', `${cd}s`]);
         else cells.push([`${def?.special?.name ?? 'Special'} damage`, hit], [`${def?.special?.name ?? 'Special'} size`, fmt(g.specialRadius(who))], [`${def?.special?.name ?? 'Special'} every`, `${cd}s`]);
       }
-      stats.innerHTML = cells.map(([k, v]) => `<div><b>${v}</b>${k}</div>`).join('');
+      setHtml(stats, cells.map(([k, v]) => `<div><b>${v}</b>${k}</div>`).join(''));
     });
 
     this.detail.refreshers = this.refreshers;
@@ -1509,34 +1509,57 @@ export class AppUI {
       bar.style.top = `${row * ROW - 20}px`;
       bar.innerHTML = '<canvas></canvas><span></span>';
       tree.appendChild(bar);
-      return [{ row, bar }];
+      return [{ row, bar, key: '', drawn: false }];
     });
     wrap.appendChild(tree);
-    this.refreshers.push(() => {
-      for (const { row, bar } of gates) {
+    // The gate bars' width, from a ResizeObserver rather than measured each refresh (which made the page lay out
+    // again every time); 0 while the tree is hidden (another tab), and redrawn once it shows or resizes.
+    let gateWidth = 0;
+    if (gates.length && typeof ResizeObserver !== 'undefined')
+      new ResizeObserver(([entry]) => {
+        gateWidth = entry.contentRect.width * 0.92;
+        for (const gate of gates) gate.drawn = false;
+        if (gateWidth > 0) drawGates();
+      }).observe(tree);
+    const drawGates = () => {
+      for (const gate of gates) {
+        const { row, bar } = gate;
         const gt = t.rowGate!(row)!;
         const open = gt.have >= gt.need;
-        bar.classList.toggle('hidden', open || (t.hidden ? nodes.filter((n) => n.row === row).every((n) => t.hidden!(n.id)) : false));
+        const hide = open || (t.hidden ? nodes.filter((n) => n.row === row).every((n) => t.hidden!(n.id)) : false);
+        // Redrawn only when it changed (measuring its width every refresh made the whole page lay out again).
+        const key = `${gt.have}/${gt.need}/${hide}`;
+        if (key === gate.key && gate.drawn) continue;
+        gate.key = key;
+        bar.classList.toggle('hidden', hide);
+        if (hide) continue;
         // The framed bar at 2× its pixels: 10 frame pixels tall, as wide as the row band.
         const cv = $<HTMLCanvasElement>('canvas', bar);
-        const w = Math.max(30, Math.round(bar.clientWidth / 2));
+        const cw = gateWidth;
+        if (cw <= 0) continue;
+        gate.drawn = true;
+        const w = Math.max(30, Math.round(cw / 2));
         if (cv.width !== w || cv.height !== 10) {
           cv.width = w;
           cv.height = 10;
         }
         const cg = cv.getContext('2d')!;
         cg.clearRect(0, 0, w, 10);
-        drawFramedBar(cg, 0, 0, 1, w, 10, gt.have / gt.need, TIMER_COLOR);
+        // Drawn again next refresh until the frame image has loaded.
+        gate.drawn = drawFramedBar(cg, 0, 0, 1, w, 10, gt.have / gt.need, TIMER_COLOR);
         $('span', bar).textContent = `🔒 ${Math.min(gt.have, gt.need)}/${gt.need}`;
       }
+    };
+    this.refreshers.push(() => {
+      drawGates();
       const points = t.points();
       const active = t.active();
       // Points nothing in reach can be bought with yet (every node costs more): greyed out, and said so.
       const spendable = points > 0 && buttons.some(({ n }) => !t.hidden?.(n.id) && t.canLearn(n.id));
-      if (!active) head.textContent = t.inactiveText;
-      else if (points > 0 && spendable) head.innerHTML = `<b>${points}</b> ${t.pointName}${points > 1 ? 's' : ''} to spend. Tap a glowing node.`;
-      else if (points > 0) head.innerHTML = `<b>${points}</b> ${t.pointName}${points > 1 ? 's' : ''}: not enough for any node yet.`;
-      else head.textContent = t.waitText();
+      if (!active) setHtml(head, esc(t.inactiveText));
+      else if (points > 0 && spendable) setHtml(head, `<b>${points}</b> ${t.pointName}${points > 1 ? 's' : ''} to spend. Tap a glowing node.`);
+      else if (points > 0) setHtml(head, `<b>${points}</b> ${t.pointName}${points > 1 ? 's' : ''}: not enough for any node yet.`);
+      else setHtml(head, esc(t.waitText()));
       head.classList.toggle('has', active && spendable);
       head.classList.toggle('stuck', active && points > 0 && !spendable);
       for (const { n, b } of buttons) {
@@ -2654,7 +2677,7 @@ export class AppUI {
         ['Escaped', fmt(st.escaped)],
         ['Knockouts', fmt(st.knockouts)],
       ];
-      stats.innerHTML = cells.map(([k, v]) => `<div><b>${v}</b>${k}</div>`).join('');
+      setHtml(stats, cells.map(([k, v]) => `<div><b>${v}</b>${k}</div>`).join(''));
     });
 
     this.detail.refreshers = this.refreshers;
@@ -3521,7 +3544,7 @@ export class AppUI {
       body.appendChild(gstats);
       this.refreshers.push(() => {
         const ev = g.state.events[`guardian-${def.area}`];
-        $('.hd-sub', view).innerHTML = `<span>${arch.name} · Guardian</span><span class="where">${areaDef(def.area).name}</span>`;
+        setHtml($('.hd-sub', view), `<span>${arch.name} · Guardian</span><span class="where">${areaDef(def.area).name}</span>`);
         const cells: Array<[string, string]> = [
           ['Health', fmt(g.guardianHpIn(def.area))],
           ['Time to beat it', `${GUARDIAN_TIME}s`],
@@ -3529,7 +3552,7 @@ export class AppUI {
           ['Beaten', fmt(ev?.completed ?? 0)],
           ['Bounty', `🪙 ${fmt(areaDef(def.area).gold * GUARDIAN_GOLD_MULT * g.regMult('gold'))}`],
         ];
-        gstats.innerHTML = cells.map(([k, v]) => `<div><b>${v}</b>${k}</div>`).join('');
+        setHtml(gstats, cells.map(([k, v]) => `<div><b>${v}</b>${k}</div>`).join(''));
       });
       this.detail.refreshers = this.refreshers;
       this.refreshers = main;
@@ -3570,7 +3593,7 @@ export class AppUI {
       const st = g.enemyStats(id);
       const evo = g.evo(id);
       const [lo, hi] = g.packOf(id);
-      $('.hd-sub', view).innerHTML = `<span>${arch.name} · Lv ${g.monsterLevelInfo(id).level}</span><span class="where">${areaDef(def.area).name}</span>`;
+      setHtml($('.hd-sub', view), `<span>${arch.name} · Lv ${g.monsterLevelInfo(id).level}</span><span class="where">${areaDef(def.area).name}</span>`);
       const cells: Array<[string, string]> = [
         ['Slain', fmt(g.state.bestiary[id].kills)],
         ['HP', fmt(st.hp)],
@@ -3582,7 +3605,7 @@ export class AppUI {
       ];
       const legacies = g.legacyDrops(def.archetype);
       if (legacies.length) cells.push(['Legacy drops', legacies.map((d) => `${gemHtml(d.material)}<small>${materialDef(d.material).name}</small>`).join('')]);
-      stats.innerHTML = cells.map(([k, v]) => `<div><b>${v}</b>${k}</div>`).join('');
+      setHtml(stats, cells.map(([k, v]) => `<div><b>${v}</b>${k}</div>`).join(''));
     });
 
     this.detail.refreshers = this.refreshers;

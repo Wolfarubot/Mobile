@@ -3012,6 +3012,11 @@ export const GHOSTS = { chance: 0.1, spread: 0.25, life: 3, speed: 170, radius: 
  */
 export const AOE_PER_LEVEL = 0.03;
 /**
+ * Fireburst's burst grows with area-size upgrades and level like every area effect, but only up to this many times
+ * its own radius: its kills set off more bursts, and at full size a chain of them covered the whole battlefield.
+ */
+export const FIREBURST_MAX_GROW = 1.6;
+/**
  * A Focus's burst or wave (and Ba'al's sound waves) reaches at most this share of the way from the middle of the
  * field to its nearest edge, so a big Focus late on still leaves most of a small room (the Silent Crypt) alone.
  */
