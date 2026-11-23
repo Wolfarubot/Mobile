@@ -2864,13 +2864,24 @@ const portraitQueue: Array<[HTMLCanvasElement, EnemyId, AreaId | undefined]> = [
  */
 export function queuePortrait(canvas: HTMLCanvasElement, id: EnemyId, ground?: AreaId): void {
   portraitQueue.push([canvas, id, ground]);
-  if (portraitQueue.length === 1)
-    requestAnimationFrame(() => {
-      const batch = portraitQueue.splice(0);
-      const sizes = batch.map(([c]) => [c.clientWidth, c.clientHeight] as [number, number]);
-      batch.forEach(([c, e, a], i) => drawEnemyPortrait(c, e, sizes[i], a));
-    });
+  if (portraitQueue.length === 1) requestAnimationFrame(drawPortraitQueue);
 }
+
+/** Portrait drawing gets this many ms a frame; the rest wait for the next (a full Bestiary's first draw stalled a frame). */
+const PORTRAIT_FRAME_MS = 6;
+function drawPortraitQueue(): void {
+  const t0 = performance.now();
+  // Sizes read together (one layout), then drawn until the frame's share of time is used.
+  const sizes = new Map(portraitQueue.map(([c]) => [c, [c.clientWidth, c.clientHeight] as [number, number]]));
+  while (portraitQueue.length && performance.now() - t0 < PORTRAIT_FRAME_MS) {
+    const [c, e, a] = portraitQueue.shift()!;
+    if (c.isConnected) drawEnemyPortrait(c, e, sizes.get(c), a);
+  }
+  if (portraitQueue.length) requestAnimationFrame(drawPortraitQueue);
+}
+
+/** Each portrait's centring shift, by monster and canvas size (see drawEnemyPortrait). */
+const portraitShifts = new Map<string, [number, number]>();
 
 /**
  * A monster's portrait, centred on its visible pixels (sprites sit off-centre in their frames), optionally on a
@@ -2882,18 +2893,26 @@ export function drawEnemyPortrait(canvas: HTMLCanvasElement, id: EnemyId, size?:
   const W = canvas.width;
   const H = canvas.height;
   if (!W || !H) return;
-  const px = g.getImageData(0, 0, W, H).data;
-  let x0 = W, y0 = H, x1 = -1, y1 = -1;
-  for (let y = 0; y < H; y++)
-    for (let x = 0; x < W; x++)
-      if (px[(y * W + x) * 4 + 3] > 16) {
-        if (x < x0) x0 = x;
-        if (x > x1) x1 = x;
-        if (y < y0) y0 = y;
-        if (y > y1) y1 = y;
-      }
-  const dx = x1 < 0 ? 0 : Math.round(W / 2 - (x0 + x1 + 1) / 2);
-  const dy = x1 < 0 ? 0 : Math.round(H / 2 - (y0 + y1 + 1) / 2);
+  // How far to shift it to centre its visible pixels: read back from the canvas once per monster and size (reading
+  // pixels back is slow, and a tab of portraits did it for every one each time it opened).
+  const ckey = `${id}:${W}x${H}`;
+  let shift = portraitShifts.get(ckey);
+  if (!shift) {
+    const px = g.getImageData(0, 0, W, H).data;
+    let x0 = W, y0 = H, x1 = -1, y1 = -1;
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++)
+        if (px[(y * W + x) * 4 + 3] > 16) {
+          if (x < x0) x0 = x;
+          if (x > x1) x1 = x;
+          if (y < y0) y0 = y;
+          if (y > y1) y1 = y;
+        }
+    shift = x1 < 0 ? [0, 0] : [Math.round(W / 2 - (x0 + x1 + 1) / 2), Math.round(H / 2 - (y0 + y1 + 1) / 2)];
+    // Not kept while the sprite is still loading (nothing drawn yet).
+    if (x1 >= 0) portraitShifts.set(ckey, shift);
+  }
+  const [dx, dy] = shift;
   let floor: HTMLCanvasElement | null = null;
   if (ground) {
     // A patch from the middle of a larger background, so it's the clearing's floor, not the trees round its edge.

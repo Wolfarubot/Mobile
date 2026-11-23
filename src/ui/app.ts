@@ -4579,15 +4579,17 @@ export class AppUI {
       Object.assign(tip.style, { left: `${left}px`, top: `${top}px` });
     });
     let drawn = '';
-    this.refreshers.push(() => {
+    const draw = () => {
       rested.classList.toggle('hidden', !g.wellRested);
       bar.classList.toggle('rested', g.wellRested);
       const whole = Math.floor(g.energy + 1e-9);
       const max = g.energyMax;
       const over = whole > max;
-      text.textContent = over ? `${whole} / ${max} · overcharged` : whole >= max ? `${max} / ${max} · full` : `${whole} / ${max} · +1 in ${fmtTime(g.energyNextIn)}`;
-      // The frame at 2× its pixels, 12 tall, as wide as the bar.
-      const w = Math.max(40, Math.round(cv.parentElement!.clientWidth / 2));
+      setHtml(text, esc(over ? `${whole} / ${max} · overcharged` : whole >= max ? `${max} / ${max} · full` : `${whole} / ${max} · +1 in ${fmtTime(g.energyNextIn)}`));
+      // The frame at 2× its pixels, 12 tall, as wide as the bar (drawn once it's laid out).
+      const bw = boxWidth(cv.parentElement!, draw);
+      if (!bw) return;
+      const w = Math.max(40, Math.round(bw / 2));
       const n = Math.min(max, ENERGY_BAR_SEGMENTS);
       const key = `${w}:${whole}:${n}`;
       if (key === drawn) return;
@@ -4609,7 +4611,8 @@ export class AppUI {
         if (laps >= 1) frame.push([i / n, (i + 1) / n, laps >= 2 ? '#e0352b' : '#e8a800']);
       }
       if (drawFramedSegments(cg, 0, 0, 1, w, 12, segs, frame)) drawn = key;
-    });
+    };
+    this.refreshers.push(draw);
     return bar;
   }
 
@@ -4637,11 +4640,13 @@ export class AppUI {
     const cv = $<HTMLCanvasElement>('canvas', bar);
     const text = $('.bb-text', bar);
     let drawn = '';
-    this.refreshers.push(() => {
+    const draw = () => {
       const left = g.buffLeft(mg);
-      text.textContent = !g.eventUnlocked(ev.id) && left <= 0 ? `🔒 Recruit ${hunterDef(ev.hunter!).name}` : this.buffAmount(mg);
+      setHtml(text, esc(!g.eventUnlocked(ev.id) && left <= 0 ? `🔒 Recruit ${hunterDef(ev.hunter!).name}` : this.buffAmount(mg)));
       bar.classList.toggle('on', left > 0);
-      const w = Math.max(40, Math.round(cv.parentElement!.clientWidth / 2));
+      const bw = boxWidth(cv.parentElement!, draw);
+      if (!bw) return;
+      const w = Math.max(40, Math.round(bw / 2));
       const cap = g.buffCap(mg);
       const frac = Math.min(1, left / cap);
       const key = `${w}:${Math.round(frac * w)}:${cap}`;
@@ -4661,7 +4666,8 @@ export class AppUI {
         for (let i = 1; i < cap; i++) segs.push([i / cap - px, i / cap + px * 0.5, '#2e2a20']);
       }
       if (drawFramedSegments(cg, 0, 0, 1, w, 12, segs)) drawn = key;
-    });
+    };
+    this.refreshers.push(draw);
     return bar;
   }
 
@@ -8147,6 +8153,32 @@ function affinityHtml(e: EnemyDef, compact = false): string {
   return compact
     ? `<div class="affinities compact">${row('Weak', 'weak', e.weak)}${row('Resists', 'resist', e.resist)}</div>`
     : `<div class="affinities">${row(`Weak ×${WEAK_MULT}`, 'weak', e.weak)}${row(`Resists ×${RESIST_MULT}`, 'resist', e.resist)}</div>`;
+}
+
+/**
+ * An element's width (its clientWidth), from a ResizeObserver rather than measured on each refresh: measuring right
+ * after the page changed made the browser lay it all out again, once per bar (slow with a late game's big tabs).
+ * 0 until it has been laid out (or while it's hidden); `redraw` runs whenever the width changes.
+ */
+const boxWidths = new WeakMap<Element, number>();
+const boxRedraws = new WeakMap<Element, () => void>();
+const boxResize =
+  typeof ResizeObserver !== 'undefined'
+    ? new ResizeObserver((entries) => {
+        for (const e of entries) {
+          boxWidths.set(e.target, (e.target as HTMLElement).clientWidth);
+          boxRedraws.get(e.target)?.();
+        }
+      })
+    : null;
+function boxWidth(e: HTMLElement, redraw: () => void): number {
+  if (!boxResize) return e.clientWidth;
+  if (!boxWidths.has(e)) {
+    boxWidths.set(e, 0);
+    boxRedraws.set(e, redraw);
+    boxResize.observe(e);
+  }
+  return boxWidths.get(e)!;
 }
 
 /** A damage type tag whose name can be hidden (icon only) when its row runs out of room. */
