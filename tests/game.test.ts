@@ -157,7 +157,6 @@ import {
   weaponUptime,
   weaponHitsPerAttack,
   EVENTS,
-  TRAIN_UNLOCK_KILLS,
   dropsFrom,
   ASCENDED_TREES,
   MAX_LEVEL,
@@ -1165,20 +1164,14 @@ describe('Skill tree row gates', () => {
 });
 
 describe('Shops', () => {
-  it('training opens once 20 slimes are slain', () => {
+  it('training is open from the start', () => {
     const g = new Game(newGame(0), noCrit);
     g.state.gold = 1e9;
-    expect(g.trainUnlocked).toBe(false);
-    expect(g.train('main')).toBe(false);
-    g.state.bestiary.greenSlime.kills = TRAIN_UNLOCK_KILLS - 1;
-    expect(g.train('main')).toBe(false);
-    g.state.bestiary.greenSlime.kills = TRAIN_UNLOCK_KILLS;
     expect(g.train('main')).toBe(true);
   });
 
   it('training to the max (holding Train on a card) buys every session the gold covers, whatever the ×1/×10 switch says', () => {
     const g = new Game(newGame(0), noCrit);
-    g.state.bestiary.greenSlime.kills = TRAIN_UNLOCK_KILLS;
     g.state.buyAmount = 1;
     g.state.gold = 1e6;
     const p = g.trainPurchase('main', 'max');

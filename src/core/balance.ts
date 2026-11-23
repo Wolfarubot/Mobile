@@ -2199,9 +2199,6 @@ export function enemyUnlockKills(def: EnemyDef): number {
 
 // ---- Monsters: Empower (gold) raises a monster's level; levels earn evolution points for its evolution tree ----
 
-/** Slimes to slay (in all) before training unlocks. */
-export const TRAIN_UNLOCK_KILLS = 20;
-
 /** Slimes to slay (in all) before Empower unlocks. */
 export const EMPOWER_UNLOCK_KILLS = 100;
 

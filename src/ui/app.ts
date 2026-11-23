@@ -22,7 +22,6 @@ import {
   EMPOWER_SESSIONS_PER_LEVEL,
   MAX_MONSTER_LEVEL,
   EMPOWER_UNLOCK_KILLS,
-  TRAIN_UNLOCK_KILLS,
   enemyDef,
   FLYING,
   GUARDIAN_ENEMY,
@@ -956,7 +955,7 @@ export class AppUI {
         let ready = false;
         if (joined) {
           const p = g.trainPurchase(who, 1);
-          ready = g.trainUnlocked && p.count > 0 && g.state.gold >= p.cost;
+          ready = p.count > 0 && g.state.gold >= p.cost;
           lv.textContent = `Lv ${g.levelOf(who)}`;
           const points = g.skillPoints(who);
           dot.textContent = String(points);
@@ -1017,13 +1016,6 @@ export class AppUI {
     this.refreshers.push(() => {
       const p = g.trainPurchase(who, amount());
       const { level, into, need } = g.levelInfo(who);
-      if (!g.trainUnlocked) {
-        setHtml(btn, `🔒 ${fmt(Math.min(g.slimeKills, TRAIN_UNLOCK_KILLS))}/${TRAIN_UNLOCK_KILLS} slimes`);
-        btn.disabled = true;
-        $('i', bar).style.width = '0%';
-        $('span', bar).textContent = compact ? '' : `${into}/${need}`;
-        return;
-      }
       setHtml(btn, p.count === 0 ? (g.ascended(who) ? 'Max level' : 'Ascend in Skills') : `🪙 ${fmt(p.cost)}`);
       label.textContent = `Training${p.count > 1 ? ` ×${p.count}` : ''}`;
       btn.disabled = p.count === 0 || g.state.gold < p.cost;
@@ -5138,7 +5130,7 @@ export class AppUI {
     const s = g.state;
     return [
       { id: 'events', title: txt('popup.events.title'), ready: () => g.eventsOpen && !s.flags.eventsIntro, mark: () => (s.flags.eventsIntro = true), show: (r) => this.showEventsIntro(r) },
-      { id: 'train', title: txt('popup.train.title'), ready: () => !s.flags.trainIntro && g.trainUnlocked && s.gold >= g.trainPurchase('main', 1).cost, mark: () => (s.flags.trainIntro = true), show: (r) => this.showTrainIntro(r) },
+      { id: 'train', title: txt('popup.train.title'), ready: () => !s.flags.trainIntro && s.gold >= g.trainPurchase('main', 1).cost, mark: () => (s.flags.trainIntro = true), show: (r) => this.showTrainIntro(r) },
       { id: 'wolf', title: txt('popup.wolf.title'), ready: () => !s.flags.wolfIntro && !s.bestiary.wolf.unlocked && s.gold >= enemyUnlockCost(enemyDef('wolf')), mark: () => (s.flags.wolfIntro = true), show: (r) => this.showWolfIntro(r) },
       { id: 'craft', title: txt('popup.craft.title'), ready: () => !s.flags.craftIntro && !!this.firstCraftable(), mark: () => (s.flags.craftIntro = true), show: (r) => this.showCraftIntro(r) },
       { id: 'empower', title: txt('popup.empower.title'), ready: () => !s.flags.empowerIntro && g.empowerUnlocked, mark: () => (s.flags.empowerIntro = true), show: (r) => this.showEmpowerIntro(r) },
@@ -6357,7 +6349,7 @@ export class AppUI {
       body.appendChild(b);
     };
     // Each row's name and line from the text table (tut.menu.<key> and <key>Desc).
-    const tut = (icon: string, key: string, open: () => void) => row(icon, tx(`tut.menu.${key}`), tx(`tut.menu.${key}Desc`, { train: TRAIN_UNLOCK_KILLS, empower: EMPOWER_UNLOCK_KILLS }), open);
+    const tut = (icon: string, key: string, open: () => void) => row(icon, tx(`tut.menu.${key}`), tx(`tut.menu.${key}Desc`, { empower: EMPOWER_UNLOCK_KILLS }), open);
     body.appendChild(sectionTitle(txt('tut.menu.guides')));
     tut(sprite(MENU_SPRITES.weapons), 'weapons', () => this.openTutorials('weapons'));
     tut(sprite(MENU_SPRITES.damage), 'damage', () => this.openTutorials('damage'));

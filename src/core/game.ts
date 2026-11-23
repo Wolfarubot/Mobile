@@ -106,7 +106,6 @@ import {
   ENERGY_REGEN,
   eventEnergyCost,
   EMPOWER_UNLOCK_KILLS,
-  TRAIN_UNLOCK_KILLS,
   empowerMult,
   EMPOWER_GROWTH,
   MAX_EMPOWER_SESSIONS,
@@ -2156,7 +2155,7 @@ export class Game {
 
   /** Eager Trainer: sessions for your Hunters, cheapest first, while one costs at most AUTO_TRAIN_SHARE of your gold. */
   private autoTrain(): void {
-    if (!this.hasRegFlag('autoTrain') || !this.trainUnlocked) return;
+    if (!this.hasRegFlag('autoTrain')) return;
     const who: Wearer[] = ['main', ...HUNTERS.filter((h) => this.state.hunters[h.id].recruited).map((h) => h.id)];
     for (let guard = 0; guard < 200; guard++) {
       let best: { w: Wearer; cost: number } | null = null;
@@ -3560,7 +3559,6 @@ export class Game {
 
   /** Trains a Hunter `amount` times (the ×1/×10/×100/MAX switch by default). False if they can't afford it (or aren't recruited). */
   train(who: Wearer, amount: BuyAmount = this.state.buyAmount): boolean {
-    if (!this.trainUnlocked) return false;
     if (who !== 'main' && !this.state.hunters[who].recruited) return false;
     const p = this.trainPurchase(who, amount);
     if (p.count <= 0 || this.state.gold < p.cost) return false;
@@ -3742,11 +3740,6 @@ export class Game {
   }
 
   /** Empower opens once you've slain EMPOWER_UNLOCK_KILLS slimes. */
-  /** Training opens once you've slain TRAIN_UNLOCK_KILLS slimes (for good). */
-  get trainUnlocked(): boolean {
-    return this.state.flags.trainIntro || this.slimeKills >= TRAIN_UNLOCK_KILLS;
-  }
-
   get empowerUnlocked(): boolean {
     return this.state.flags.empowerIntro || this.slimeKills >= EMPOWER_UNLOCK_KILLS;
   }

@@ -535,7 +535,7 @@ section(
     welcome: 'Welcome',
     welcomeDesc: 'Getting started.',
     training: 'Training',
-    trainingDesc: 'Making your Hunter stronger. Opens after {train} slimes.',
+    trainingDesc: 'Making your Hunter stronger.',
     crafting: 'Crafting',
     craftingDesc: 'Materials, gear, and Upgrades.',
     wolf: 'New monsters & the full-screen menu',
@@ -559,7 +559,7 @@ section(
   },
   {
     note: 'Menu → Tutorials: the page title, two headings, and a name and a line for each tip.',
-    vars: { train: 'slimes to open Training', empower: 'slimes to open Empower' },
+    vars: { empower: 'slimes to open Empower' },
     labels: Object.fromEntries(
       ['title:Page title', 'guides:Heading', 'tips:Heading', 'weapons:Row', 'damage:Row', 'modify:Row', 'welcome:Row', 'training:Row', 'crafting:Row', 'wolf:Row', 'empower:Row', 'quickTrain:Row', 'salvage:Row', 'eventsLocked:Row', 'events:Row', 'minigames:Row', 'timeEater:Row']
         .map((s) => s.split(':'))
