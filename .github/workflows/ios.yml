@@ -65,20 +65,19 @@ jobs:
           printf '%s\n' "$ASC_KEY_P8" > "$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8"
           sed "s/TEAM_ID/$APPLE_TEAM_ID/" ios/ExportOptions.plist > "$RUNNER_TEMP/ExportOptions.plist"
 
-      - name: Archive (signed)
+      # The archive is only signed "to run locally" (no certificate, but with the app's entitlements): Xcode's own
+      # signing would want a development profile, which needs a registered iPhone. The upload step below signs it
+      # properly for the App Store, with a distribution certificate Xcode creates and keeps in the Apple account.
+      - name: Archive
         if: github.event_name == 'workflow_dispatch'
         env:
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         shell: bash
         run: >
           xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release
           -destination 'generic/platform=iOS' -archivePath build/App.xcarchive
-          -allowProvisioningUpdates
-          -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8"
-          -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID"
           DEVELOPMENT_TEAM="$APPLE_TEAM_ID" CURRENT_PROJECT_VERSION="${{ github.run_number }}"
+          CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- PROVISIONING_PROFILE_SPECIFIER= CODE_SIGNING_REQUIRED=NO
           archive | tail -n 60;
           exit ${PIPESTATUS[0]}
 
