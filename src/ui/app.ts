@@ -168,7 +168,7 @@ import { DEV_FLAGS } from '../core/devFlags';
 import { Game, type FarmRates, type Shooter, type TreeKind } from '../core/game';
 import type { OfflineResult } from '../core/offline';
 import { COOLDOWN_POSITIONS, deserialize, newGame, EMPOWER_AMOUNTS, TAB_IDS, TRAIN_AMOUNTS, type GameState, type GearMod, type AudioSettings, type BuyAmount, type CooldownPos, type DpsCorner, type FxKey, type IndicatorStyle, type GearItem, type TabId, type Wearer } from '../core/state';
-import { drawEventBackdrop, queuePortrait } from '../render/battle';
+import { drawEventBackdrop, portraitsDrawn, queuePortrait } from '../render/battle';
 import { drawFramedBar, drawFramedSegments, TIMER_COLOR } from '../render/hudBars';
 import { showRewardedAd } from './ads';
 import { GEM_PACKS, purchase, REMOVE_ADS, STORE_TEST_MODE, type Product } from './store';
@@ -673,6 +673,50 @@ export class AppUI {
     setInterval(pickMusic, 500);
   }
 
+  /** Tabs and pages being built behind the loading screen (they mark nothing seen and show no tips). */
+  private preloading = false;
+
+  /**
+   * Behind the loading screen: builds the heavy tabs and pages once (the Bestiary, Events, Areas, a monster's and a
+   * Hunter's page), so their images are decoded and their portraits drawn and cached before play, not on the first
+   * tap mid-game. Back on the tab it started on when done, or when `budgetMs` runs out.
+   */
+  async preload(budgetMs: number): Promise<void> {
+    const g = this.game;
+    const start = performance.now();
+    const home = this.tab;
+    const frame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
+    const left = () => budgetMs - (performance.now() - start);
+    const settle = async () => {
+      await Promise.race([portraitsDrawn(), new Promise((r) => setTimeout(r, Math.max(0, left())))]);
+      await frame();
+      await frame();
+    };
+    this.preloading = true;
+    try {
+      const tabs: Tab[] = ['beasts', ...(g.eventsOpen ? (['events'] as Tab[]) : []), ...(this.areasOpen ? (['areas'] as Tab[]) : [])];
+      for (const tab of tabs) {
+        if (left() <= 0) break;
+        this.setTab(tab);
+        await settle();
+      }
+      const beast = g.roster(g.area)[0];
+      if (left() > 0 && beast) {
+        this.openMonsterDetail(beast.id);
+        await settle();
+        this.closeHunterDetail();
+      }
+      if (left() > 0) {
+        this.openHunterDetail('main', 'skills');
+        await settle();
+        this.closeHunterDetail();
+      }
+    } finally {
+      this.preloading = false;
+      this.setTab(home);
+    }
+  }
+
   setTab(tab: Tab, keepScroll = false): void {
     if (tab !== this.tab || this.invSub !== 'crafting') this.closeFieldCard();
     // Gear shown in the Equipment list counts as seen once you leave it (its "!" stays up while you look).
@@ -711,7 +755,7 @@ export class AppUI {
     $('.tabs button[data-tab=events]').classList.toggle('locked', !g.eventsOpen);
     $('.tabs button[data-tab=areas]').classList.toggle('locked', !this.areasOpen);
     // One-time tips, never two within POPUP_GAP of each other (or of any other popup).
-    const tipReady = s.flags.welcome && !this.modalClose && !this.detail && performance.now() - this.lastPopup >= POPUP_GAP_MS;
+    const tipReady = s.flags.welcome && !this.preloading && !this.modalClose && !this.detail && performance.now() - this.lastPopup >= POPUP_GAP_MS;
     if (tipReady) this.tips().find((t) => t.ready())?.show(false);
     // The envelope: tips that came due while you were away.
     const mailBtn = $('#mailBtn');
@@ -5361,7 +5405,8 @@ export class AppUI {
   }
 
   private markSeen(kind: 'recipes' | 'beasts' | 'events', id: string): void {
-    if (this.seenSet(kind).has(id)) return;
+    // Tabs built behind the loading screen (preload) haven't been looked at.
+    if (this.preloading || this.seenSet(kind).has(id)) return;
     this.game.state.seen[kind].push(id);
   }
 

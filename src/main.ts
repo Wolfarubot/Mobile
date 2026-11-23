@@ -62,7 +62,11 @@ function fitIosHomeScreen(): void {
 }
 fitIosHomeScreen();
 
-async function hideSplash(): Promise<void> {
+/** The most the loading screen waits on the game building its heavy tabs behind it (AppUI.preload). */
+const PRELOAD_MAX_MS = 5000;
+
+/** Lifts the loading screen once the page has loaded, at least SPLASH_MIN_MS in, and `preload` is done. */
+async function hideSplash(preload: Promise<void>): Promise<void> {
   const splash = document.getElementById('splash');
   if (!splash) return;
   // Its wording from the text table (index.html's is the same, there before the game's code loads).
@@ -72,7 +76,7 @@ async function hideSplash(): Promise<void> {
   }
   const loaded = document.readyState === 'complete' ? Promise.resolve() : new Promise<void>((r) => window.addEventListener('load', () => r(), { once: true }));
   const frames = new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
-  await Promise.all([loaded, document.fonts?.ready, frames]);
+  await Promise.all([loaded, document.fonts?.ready, frames, preload.catch(() => {})]);
   await new Promise((r) => setTimeout(r, Math.max(0, SPLASH_MIN_MS - performance.now())));
   splash.classList.add('gone');
   setTimeout(() => splash.remove(), 500);
@@ -294,7 +298,8 @@ async function boot(): Promise<void> {
     }
   };
   requestAnimationFrame(frame);
-  void hideSplash();
+  // The loading screen's time builds the heavy tabs (Bestiary, Events, Areas) behind it, so they're quick in play.
+  void hideSplash(ui.preload(PRELOAD_MAX_MS));
 
   // Leaving/returning: save on the way out, grant offline progress on the way back.
   let away = false;

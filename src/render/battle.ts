@@ -2867,6 +2867,14 @@ export function queuePortrait(canvas: HTMLCanvasElement, id: EnemyId, ground?: A
   if (portraitQueue.length === 1) requestAnimationFrame(drawPortraitQueue);
 }
 
+/** Resolves once every queued portrait has been drawn. */
+export function portraitsDrawn(): Promise<void> {
+  return new Promise((done) => {
+    const check = () => (portraitQueue.length ? requestAnimationFrame(check) : done());
+    check();
+  });
+}
+
 /** Portrait drawing gets this many ms a frame; the rest wait for the next (a full Bestiary's first draw stalled a frame). */
 const PORTRAIT_FRAME_MS = 6;
 function drawPortraitQueue(): void {
