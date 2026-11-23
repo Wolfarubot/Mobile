@@ -574,6 +574,8 @@ export class AppUI {
     $('#questBtn .qb-icon').innerHTML = sprite(MENU_SPRITES.quests);
     $('#questBtn').addEventListener('click', () => this.openQuests());
     $('#mailBtn').addEventListener('click', () => this.openMailbox());
+    // The boosts running (Shop → Boosts), each with its time left; tapping one opens the Shop.
+    $('#boostDock').addEventListener('click', (e) => (e.target as HTMLElement).closest('.bd-chip') && this.openShop());
     $('#mailBtn').title = txt('popup.mailbox.button');
     // Any tap may change what the cached rates and DPS show (training, stationing, equipping): recompute them.
     document.addEventListener('pointerdown', () => this.shownCache.clear(), true);
@@ -715,6 +717,17 @@ export class AppUI {
     const mailBtn = $('#mailBtn');
     mailBtn.classList.toggle('hidden', !s.mailbox.length);
     mailBtn.classList.toggle('mail-low', s.settings.dps && s.settings.dpsCorner === 'tl');
+    // Boosts running: under the DPS meter (or in its corner when it's off), each with its time left.
+    const running = BOOST_IDS.filter((k) => g.boostLeft(k) > 0);
+    const dock = $('#boostDock');
+    const mailHere = !!s.mailbox.length && s.settings.dpsCorner === 'tl';
+    dock.className = `boost-dock bd-${s.settings.dpsCorner}${s.settings.dps ? ' bd-after' : ''}${mailHere ? ' bd-mail' : ''}${running.length ? '' : ' hidden'}`;
+    setHtml(
+      dock,
+      running
+        .map((k) => `<button type="button" class="bd-chip" data-k="${k}" title="${esc(BOOSTS[k].text(g.boostBonus(k)))}">${sprite(BOOSTS[k].icon)}<b>+${Math.round(g.boostBonus(k) * 100)}%</b><span>${clockText(g.boostLeft(k))}</span></button>`)
+        .join(''),
+    );
     $('.mail-count', mailBtn).textContent = s.mailbox.length > 1 ? String(s.mailbox.length) : '';
     // The quest log's button only appears once you've reached the Restless Graveyard.
     $('#questBtn').classList.toggle('hidden', !g.questsOpen);
@@ -7632,6 +7645,15 @@ function gemIcon(): string {
 function fmtWait(ms: number): string {
   const h = Math.floor(ms / 3600000);
   return h >= 24 ? `${Math.floor(h / 24)}d ${h % 24}h` : fmtTime(ms / 1000);
+}
+
+/** A countdown as a clock: "4:05", "1:29:58". */
+function clockText(seconds: number): string {
+  const t = Math.max(0, Math.ceil(seconds));
+  const h = Math.floor(t / 3600);
+  const m = Math.floor((t % 3600) / 60);
+  const ss = String(t % 60).padStart(2, '0');
+  return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`;
 }
 
 /** A boost tier's time: "15 min", "1 hr", "1.5 hr". */

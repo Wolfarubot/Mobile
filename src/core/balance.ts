@@ -3040,6 +3040,13 @@ export const areaScale = (area: AreaId): number => 1 + AREA_GROWTH * Math.max(0,
 export const DEEP_ZOOM_OUT = 0.6;
 /** How much more of the field an area's view shows than the Woods' (its size, and the Depths' extra step on). */
 export const viewScale = (area: AreaId): number => areaScale(area) + (AREAS.findIndex((a) => a.id === area) >= AREAS.findIndex((a) => a.id === 'depths') ? DEEP_ZOOM_OUT : 0);
+/**
+ * Monsters walk faster in bigger areas, so the longer way in from the edge of a wider view doesn't leave the Hunters
+ * idle: this share of an area's extra view size goes on their speed (the Fey Grove +3.5%, the Forbidden Crypt +10.5%,
+ * the Shadowy Depths +35%, the Void Rift +60%), on top of each area's own speed.
+ */
+export const AREA_WALK_SHARE = 0.35;
+export const areaWalkMult = (area: AreaId): number => 1 + AREA_WALK_SHARE * (viewScale(area) - 1);
 /** The battlefield's zoom in an area. */
 export const fieldZoom = (area: AreaId): number => FIELD_ZOOM / viewScale(area);
 /** Seconds for a Paladin-style guard to regain one charge. */

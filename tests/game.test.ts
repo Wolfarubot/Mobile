@@ -3,7 +3,7 @@ import { DEV_FLAGS } from '../src/core/devFlags';
 import { GEAR_CATALOG } from '../src/core/gearCatalog';
 import { GEAR_SPRITES } from '../src/core/gearSprites';
 import { describe, expect, it } from 'vitest';
-import { ARMOR_MIXES, AREA_STAR_MULT, AREA_WORTH, statShare, worthAt, WORTH_RATE, ARROW_RAIN, FOCUS_VIEW_SHARE, GUARDIAN_TAP_TAKEN, archetypeValue, WEAPON_ARCHETYPES, weaponArchetype, withArchetype, type WeaponClass, type EnemyId, BOOST_TIERS } from '../src/core/balance';
+import { ARMOR_MIXES, AREA_STAR_MULT, AREA_WORTH, statShare, worthAt, WORTH_RATE, ARROW_RAIN, FOCUS_VIEW_SHARE, GUARDIAN_TAP_TAKEN, archetypeValue, WEAPON_ARCHETYPES, weaponArchetype, withArchetype, type WeaponClass, type EnemyId, BOOST_TIERS, areaWalkMult } from '../src/core/balance';
 import {
   areaDef,
   AREAS,
@@ -1164,6 +1164,17 @@ describe('Skill tree row gates', () => {
 });
 
 describe('Shops', () => {
+  it('monsters walk faster in bigger areas (a share of the extra view size)', () => {
+    expect(areaWalkMult('forest')).toBe(1);
+    expect(areaWalkMult('glade')).toBeCloseTo(1.035);
+    expect(areaWalkMult('depths')).toBeCloseTo(1.35);
+    expect(areaWalkMult('rift')).toBeCloseTo(1.595);
+    const g = rich();
+    g.state.areas.depths.unlocked = true;
+    g.state.bestiary.gloomcrawler.unlocked = true;
+    expect(g.enemyStats('gloomcrawler').speed).toBeCloseTo(g.areaStats('depths').speed * enemyDef('gloomcrawler').speed * 1.35, 5);
+  });
+
   it('boosts: gems for a temporary bonus, as many percent as gems, longer for more; they run down, online and away', () => {
     const g = rich();
     g.state.gems = 0;

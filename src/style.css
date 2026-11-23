@@ -9566,3 +9566,70 @@ body.left-handed .hold-bar.over-menu {
 .shop-owned .so-boost {
   color: #6fe3ff !important;
 }
+
+/*
+ * The battlefield's boost dock: the boosts running (Shop → Boosts), each a chip with its icon, bonus and time left,
+ * in the DPS meter's corner just past it (in the corner itself when the meter is off). Tap one for the Shop.
+ */
+.boost-dock {
+  position: absolute;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  --bd-step: 0px;
+}
+.boost-dock.bd-after {
+  --bd-step: calc(var(--hud-row) + 4px);
+}
+.boost-dock.bd-tl.bd-mail {
+  --bd-step: calc(var(--hud-row) + 52px);
+}
+.boost-dock.bd-tl:not(.bd-after).bd-mail {
+  --bd-step: 46px;
+}
+.bd-tl,
+.bd-tr {
+  top: calc(6px + var(--bd-step));
+}
+.bd-bl,
+.bd-br {
+  bottom: calc(6px + var(--bd-step));
+  flex-direction: column-reverse;
+}
+.bd-tl,
+.bd-bl {
+  left: 8px;
+  align-items: flex-start;
+}
+.bd-tr,
+.bd-br {
+  right: 8px;
+  align-items: flex-end;
+}
+.boost-dock .bd-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  min-height: 0 !important;
+  padding: 0 6px 0 3px !important;
+  font: inherit;
+  background: rgba(0, 0, 0, 0.55) !important;
+  border: 2px solid var(--gold) !important;
+  border-image: none !important;
+  box-shadow: 0 0 6px rgba(232, 168, 0, 0.55) !important;
+  color: #fff;
+}
+.boost-dock .bd-chip img.ei {
+  width: 18px;
+  height: 18px;
+}
+.boost-dock .bd-chip b {
+  font-size: 12px;
+  color: #ffd34d;
+}
+.boost-dock .bd-chip span {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
