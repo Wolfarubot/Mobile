@@ -4,7 +4,7 @@ import './ui/fonts';
 import './style.css';
 import { installEmojiIcons } from './ui/emojiIcons';
 import { App as CapApp } from '@capacitor/app';
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, SystemBars } from '@capacitor/core';
 import { GUARDIAN_MOVES_ON, OFFLINE_POPUP_SEC } from './core/balance';
 import { Field } from './core/field';
 import { Game } from './core/game';
@@ -19,6 +19,9 @@ installEmojiIcons();
 initSound();
 // iPhone Safari can hold back a tap's click while the field is busy: send it on finger up instead.
 if (isIosWebKit()) installIosTap();
+// The iPhone app plays full screen: the Home indicator fades away while you play (the status bar is hidden by
+// Info.plist; Android hides both of its bars in MainActivity).
+if (Capacitor.getPlatform() === 'ios') void SystemBars.hide().catch(() => {});
 import { AppUI } from './ui/app';
 import { TEXT_REGISTRY, txt } from './core/textRegistry';
 
