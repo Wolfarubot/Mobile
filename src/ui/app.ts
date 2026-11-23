@@ -5960,31 +5960,6 @@ export class AppUI {
         ads.classList.toggle('owned', g.state.noAds);
         btn.innerHTML = g.state.noAds ? 'Owned ✓' : REMOVE_ADS.price;
       });
-      // Boosts: a card a kind, its four tiers on buttons, the one running (and its time) on top.
-      body.appendChild(sectionTitle(txt('menu.shop.boosts')));
-      body.appendChild(el('p', 'hd-note', txt('menu.shop.boostsNote')));
-      for (const kind of BOOST_IDS) {
-        const d = BOOSTS[kind];
-        const card = el('div', 'card boost-card');
-        card.innerHTML = `<div class="bc-head"><div class="si-icon">${sprite(d.icon)}</div><div class="bc-title"><b>${d.name}</b><small class="bc-state"></small></div></div><div class="bc-tiers">${BOOST_TIERS.map((t, i) => `<button type="button" class="bc-tier" data-i="${i}"><b>+${t.gems}%</b><small>${boostDur(t.minutes)}</small><span class="bc-cost">${gemIcon()} ${t.gems}</span></button>`).join('')}</div>`;
-        const state = $('.bc-state', card);
-        const tiers = [...card.querySelectorAll<HTMLButtonElement>('.bc-tier')];
-        tiers.forEach((b) => b.addEventListener('click', () => this.confirmBoost(kind, Number(b.dataset.i))));
-        refreshers.push(() => {
-          const left = g.boostLeft(kind);
-          const on = g.boostBonus(kind);
-          card.classList.toggle('running', left > 0);
-          setHtml(state, left > 0 ? tx('menu.shop.boostActive', { what: d.text(on), time: fmtTime(left) }) : tx('menu.shop.boostIdle'));
-          tiers.forEach((b, i) => {
-            const t = BOOST_TIERS[i];
-            const mine = left > 0 && on === t.gems / 100;
-            b.classList.toggle('on', mine);
-            b.classList.toggle('short', g.state.gems < t.gems);
-            b.disabled = left > 0 && !mine;
-          });
-        });
-        body.appendChild(card);
-      }
       body.appendChild(stockTitle(txt('menu.shop.today')));
       body.appendChild(el('p', 'hd-note', txt('menu.shop.stock')));
       const grid = el('div', 'shop-grid');
@@ -6024,6 +5999,31 @@ export class AppUI {
         const html = rows.length ? rows.join('') : '<p class="hd-note">None yet. Buy an upgrade above with Exalted Gems.</p>';
         if (mine.innerHTML !== html) mine.innerHTML = html;
       });
+      // Boosts: a card a kind, its four tiers on buttons, the one running (and its time) on top.
+      body.appendChild(sectionTitle(txt('menu.shop.boosts')));
+      body.appendChild(el('p', 'hd-note', txt('menu.shop.boostsNote')));
+      for (const kind of BOOST_IDS) {
+        const d = BOOSTS[kind];
+        const card = el('div', 'card boost-card');
+        card.innerHTML = `<div class="bc-head"><div class="si-icon">${sprite(d.icon)}</div><div class="bc-title"><b>${d.name}</b><small class="bc-state"></small></div></div><div class="bc-tiers">${BOOST_TIERS.map((t, i) => `<button type="button" class="bc-tier" data-i="${i}"><b>+${t.gems}%</b><small>${boostDur(t.minutes)}</small><span class="bc-cost">${gemIcon()} ${t.gems}</span></button>`).join('')}</div>`;
+        const state = $('.bc-state', card);
+        const tiers = [...card.querySelectorAll<HTMLButtonElement>('.bc-tier')];
+        tiers.forEach((b) => b.addEventListener('click', () => this.confirmBoost(kind, Number(b.dataset.i))));
+        refreshers.push(() => {
+          const left = g.boostLeft(kind);
+          const on = g.boostBonus(kind);
+          card.classList.toggle('running', left > 0);
+          setHtml(state, left > 0 ? tx('menu.shop.boostActive', { what: d.text(on), time: fmtTime(left) }) : tx('menu.shop.boostIdle'));
+          tiers.forEach((b, i) => {
+            const t = BOOST_TIERS[i];
+            const mine = left > 0 && on === t.gems / 100;
+            b.classList.toggle('on', mine);
+            b.classList.toggle('short', g.state.gems < t.gems);
+            b.disabled = left > 0 && !mine;
+          });
+        });
+        body.appendChild(card);
+      }
     }
     body = panes.gems;
     {
