@@ -9462,3 +9462,21 @@ body.left-handed .hold-bar.over-menu {
   left: calc(var(--safe-left) + var(--menu-w) / 2);
   transform: translateX(-50%);
 }
+
+/* Settings: a setting opened from elsewhere (Name my Hunter) lights up for a moment. */
+.card.setting-flash {
+  animation: setting-flash 1.2s ease-out;
+}
+@keyframes setting-flash {
+  0%,
+  40% {
+    outline: 4px solid #ffd34d;
+    outline-offset: 2px;
+    filter: brightness(1.12);
+  }
+  100% {
+    outline: 4px solid rgba(255, 211, 77, 0);
+    outline-offset: 2px;
+    filter: none;
+  }
+}

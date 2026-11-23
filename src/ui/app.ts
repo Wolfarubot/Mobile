@@ -5183,7 +5183,7 @@ export class AppUI {
   showWelcome(replay = false): void {
     if (!replay) this.game.state.flags.welcome = true;
     this.showModal(`<h2>${tx('popup.welcome.title')}</h2>${txp('popup.welcome.body', { settings: sprite(MENU_SPRITES.settings) })}`, [
-      { label: txt('popup.welcome.name'), secondary: true, action: () => this.openSettings() },
+      { label: txt('popup.welcome.name'), secondary: true, action: () => this.openSettings('name') },
       { label: txt('popup.welcome.go') },
     ]);
   }
@@ -5288,7 +5288,7 @@ export class AppUI {
     if (!replay) this.game.state.flags.feedbackIntro = true;
     this.showModal(`<h2>${tx('popup.feedback.title')}</h2>${txp('popup.feedback.body', { settings: sprite(MENU_SPRITES.settings) })}`, [
       { label: txt('popup.feedback.later'), secondary: true },
-      { label: txt('popup.feedback.go'), action: () => this.openSettings() },
+      { label: txt('popup.feedback.go'), action: () => this.openSettings('feedback') },
     ]);
   }
 
@@ -6490,8 +6490,11 @@ export class AppUI {
     }
   }
 
-  /** Full-screen Settings page. */
-  private openSettings(): void {
+  /**
+   * Full-screen Settings page. `focus: 'name'` opens it at your Hunter's name (Gameplay opened, the Name setting
+   * scrolled to and lit up for a moment); `focus: 'feedback'` with Feedback opened.
+   */
+  private openSettings(focus?: 'name' | 'feedback'): void {
     if (this.detail) this.dropDetail();
     const g = this.game;
     const view = el('div', 'hunter-detail settings');
@@ -6554,12 +6557,13 @@ export class AppUI {
     };
     const st = g.state.settings;
     const styles: Array<[IndicatorStyle, string]> = [['fancy', 'Fancy'], ['basic', 'Basic']];
-    scroll.appendChild(this.feedbackCard());
-    section('audio', 'Audio');
-    body.appendChild(this.audioSettings());
+    if (focus === 'feedback') openSettingsCats.add('feedback');
+    section('feedback', 'Feedback');
+    body.appendChild(this.feedbackCard());
 
+    if (focus === 'name') openSettingsCats.add('gameplay');
     section('gameplay', 'Gameplay');
-    const nameCard = el('div', 'card setting');
+    const nameCard = el('div', 'card setting name-setting');
     nameCard.innerHTML = `<div class="setting-name">Name</div><p>What your Hunter is called on their card and around the game.</p><input class="name-input" type="text" maxlength="${MAX_NAME_LENGTH}" placeholder="You" autocomplete="off" spellcheck="false" />`;
     const input = $<HTMLInputElement>('.name-input', nameCard);
     input.value = g.state.settings.name;
@@ -6579,7 +6583,17 @@ export class AppUI {
     });
     input.addEventListener('change', () => this.hooks.save());
     input.addEventListener('keydown', (e) => e.key === 'Enter' && input.blur());
+    // The iPhone app can leave a tapped field without its keyboard: focusing it from the tap itself brings it up.
+    input.addEventListener('touchend', () => {
+      if (document.activeElement !== input) input.focus();
+    });
     body.appendChild(nameCard);
+    if (focus === 'name')
+      requestAnimationFrame(() => {
+        nameCard.scrollIntoView({ block: 'center' });
+        nameCard.classList.add('setting-flash');
+        setTimeout(() => nameCard.classList.remove('setting-flash'), 1200);
+      });
 
     choices(
       tx('popup.salvage.setting'),
@@ -6646,6 +6660,9 @@ export class AppUI {
         this.applySettings();
       },
     );
+    section('audio', 'Audio');
+    body.appendChild(this.audioSettings());
+
     section('controls', 'Controls');
     const hand = el('div', 'card setting');
     hand.innerHTML = `<div class="setting-name">Handedness</div><p>Which side of the Hunter cards the Train button sits on.</p><div class="segmented"><button data-v="left">Left-handed</button><button data-v="right">Right-handed</button></div>`;
