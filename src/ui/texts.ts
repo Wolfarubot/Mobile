@@ -524,7 +524,7 @@ section(
   T,
   'toast.rewards',
   'Rewards & shop',
-  { energy: '🗲 +{n} energy', gems: '💎 +{n} Exalted Gems', bought: '{item} bought', noAds: '🚫 Ads removed. Thank you!', noAd: 'No ad is available right now. Try again in a moment.' },
+  { energy: '🗲 +{n} energy', gems: '+{n} Exalted Gems', bought: '{item} bought', noAds: '🚫 Ads removed. Thank you!', noAd: 'No ad is available right now. Try again in a moment.' },
   { vars: { n: 'amount', item: 'the upgrade' }, labels: { energy: 'Energy ad', gems: 'Gems', bought: 'Shop upgrade bought', noAds: 'Remove Ads bought', noAd: 'No ad to show (offline, or none ready)' } },
 );
 

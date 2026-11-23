@@ -5791,7 +5791,7 @@ export class AppUI {
       claim.innerHTML = `<img class="q-orb" src="${UI_URL}orb-gem.png" alt=""><span>${tx(page === 'daily' ? 'menu.quests.allDaily' : 'menu.quests.allWeekly')}: ${gemIcon()} <b>${reward}</b> Exalted Gems</span><button class="buy"${!all || claimed ? ' disabled' : ''}>${claimed ? 'Collected ✓' : all ? 'Collect' : 'Not yet'}</button>`;
       $('button', claim).addEventListener('click', () => {
         if (!(page === 'daily' ? g.claimDaily() : g.claimWeekly())) return;
-        this.toast(txt('toast.rewards.gems', { n: reward }));
+        this.toast(`${gemIcon()} ${esc(txt('toast.rewards.gems', { n: reward }))}`, true);
         this.hooks.save();
         this.refresh();
       });
@@ -5811,7 +5811,7 @@ export class AppUI {
         $('button', check).addEventListener('click', () => {
           const give = () => {
             if (!g.claimCheckIn()) return;
-            this.toast(txt('toast.rewards.gems', { n: GEMS_CHECKIN }));
+            this.toast(`${gemIcon()} ${esc(txt('toast.rewards.gems', { n: GEMS_CHECKIN }))}`, true);
             this.hooks.save();
             this.refresh();
           };
@@ -6047,7 +6047,7 @@ export class AppUI {
         const trade = $<HTMLButtonElement>('.mc-trade', cell);
         trade.addEventListener('click', () => {
           if (!g.tradeMaterial(m)) return;
-          this.toast(txt('toast.rewards.gems', { n: gemsText(MERCHANT_GEMS) }));
+          this.toast(`${gemIcon()} ${esc(txt('toast.rewards.gems', { n: gemsText(MERCHANT_GEMS) }))}`, true);
           this.hooks.save();
           this.refresh();
         });
@@ -6079,7 +6079,7 @@ export class AppUI {
         $<HTMLButtonElement>('.st-buy', cell).addEventListener('click', () =>
           buy(p, () => {
             g.addGems(total);
-            this.toast(txt('toast.rewards.gems', { n: gemsText(total) }));
+            this.toast(`${gemIcon()} ${esc(txt('toast.rewards.gems', { n: gemsText(total) }))}`, true);
           }),
         );
         packs.appendChild(cell);
