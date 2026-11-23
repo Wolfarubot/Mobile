@@ -16,6 +16,7 @@ import {
   BULLET_SPEED,
   enemyDef,
   fieldZoom,
+  screenZoom,
   FROST_TAP_CHILL,
   MIASMA_PUDDLE,
   TAP_EFFECTS,
@@ -1086,10 +1087,13 @@ export class Field {
   /** The last screen size set (the background battlefield samples use the same view). */
   view = { w: 390, h: 420 };
 
-  /** Screen size in CSS pixels; the visible world is larger by 1 / the area's zoom. */
+  /** The battlefield's zoom now: the area's, times the screen's (bigger screens zoom in a little). */
+  zoom = 1;
+
+  /** Screen size in CSS pixels; the visible world is larger by 1 / the zoom. */
   setView(w: number, h: number): void {
     this.view = { w, h };
-    const z = fieldZoom(this.game.area);
+    const z = (this.zoom = fieldZoom(this.game.area) * screenZoom(w, h));
     this.halfW = w / 2 / z;
     this.halfH = h / 2 / z;
     this.walls = GATED.has(this.game.area) ? gateWalls(w, h).map(([x, y, rw, rh]) => ({ x0: (x - w / 2) / z, y0: (y - h / 2) / z, x1: (x + rw - w / 2) / z, y1: (y + rh - h / 2) / z })) : [];

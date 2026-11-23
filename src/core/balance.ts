@@ -3047,6 +3047,16 @@ export const viewScale = (area: AreaId): number => areaScale(area) + (AREAS.find
  */
 export const AREA_WALK_SHARE = 0.35;
 export const areaWalkMult = (area: AreaId): number => 1 + AREA_WALK_SHARE * (viewScale(area) - 1);
+/**
+ * Big screens (a tablet, an unfolded phone, a computer) zoom the battlefield in a little: by the battlefield's
+ * shorter side next to a phone's (SCREEN_REF CSS px), to the SCREEN_ZOOM_POW power, up to SCREEN_ZOOM_MAX. A
+ * phone stays at 1; a big screen still shows more of the field than a phone, but not so much that everything on it
+ * is tiny.
+ */
+export const SCREEN_REF = 400;
+export const SCREEN_ZOOM_POW = 0.75;
+export const SCREEN_ZOOM_MAX = 2;
+export const screenZoom = (w: number, h: number): number => Math.min(SCREEN_ZOOM_MAX, Math.max(1, (Math.min(w, h) / SCREEN_REF) ** SCREEN_ZOOM_POW));
 /** The battlefield's zoom in an area. */
 export const fieldZoom = (area: AreaId): number => FIELD_ZOOM / viewScale(area);
 /** Seconds for a Paladin-style guard to regain one charge. */

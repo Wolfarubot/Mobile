@@ -3,7 +3,7 @@ import { DEV_FLAGS } from '../src/core/devFlags';
 import { GEAR_CATALOG } from '../src/core/gearCatalog';
 import { GEAR_SPRITES } from '../src/core/gearSprites';
 import { describe, expect, it } from 'vitest';
-import { ARMOR_MIXES, AREA_STAR_MULT, AREA_WORTH, statShare, worthAt, WORTH_RATE, ARROW_RAIN, FOCUS_VIEW_SHARE, GUARDIAN_TAP_TAKEN, archetypeValue, WEAPON_ARCHETYPES, weaponArchetype, withArchetype, type WeaponClass, type EnemyId, BOOST_TIERS, areaWalkMult } from '../src/core/balance';
+import { ARMOR_MIXES, AREA_STAR_MULT, AREA_WORTH, statShare, worthAt, WORTH_RATE, ARROW_RAIN, FOCUS_VIEW_SHARE, GUARDIAN_TAP_TAKEN, archetypeValue, WEAPON_ARCHETYPES, weaponArchetype, withArchetype, type WeaponClass, type EnemyId, BOOST_TIERS, areaWalkMult, screenZoom } from '../src/core/balance';
 import {
   areaDef,
   AREAS,
@@ -1164,6 +1164,14 @@ describe('Skill tree row gates', () => {
 });
 
 describe('Shops', () => {
+  it('big screens zoom the battlefield in a little; phones stay as they are', () => {
+    expect(screenZoom(390, 307)).toBe(1); // a phone held upright
+    expect(screenZoom(700, 380)).toBe(1); // a phone on its side
+    expect(screenZoom(612, 787)).toBeCloseTo((612 / 400) ** 0.75); // an unfolded phone
+    expect(screenZoom(1112, 847)).toBeCloseTo((847 / 400) ** 0.75); // a computer
+    expect(screenZoom(4000, 2000)).toBe(2); // capped
+  });
+
   it('monsters walk faster in bigger areas (a share of the extra view size)', () => {
     expect(areaWalkMult('forest')).toBe(1);
     expect(areaWalkMult('glade')).toBeCloseTo(1.035);
