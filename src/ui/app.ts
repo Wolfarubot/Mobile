@@ -5986,19 +5986,6 @@ export class AppUI {
         grid.appendChild(cell);
       }
       if (!g.shopItems.length) grid.appendChild(el('p', 'hd-note', "You own every upgrade. There's nothing left to sell!"));
-      // Everything you own, combined by kind: two offline items of +25% and +50% show as +75% offline gains.
-      body.appendChild(sectionTitle('Total bonuses'));
-      const mine = el('div', 'card shop-owned');
-      body.appendChild(mine);
-      refreshers.push(() => {
-        const rows = PREMIUM_IDS.filter((k) => g.premiumBonus(k) > 0).map((k) => {
-          const d = PREMIUM_UPGRADES[k];
-          const owned = PREMIUM_ITEMS.filter((it) => it.kind === k && g.ownsPremium(it.id)).map((it) => `<span style="color:${RARITIES[it.rarity].color}">${premiumName(it)}</span>`);
-          return `<div class="so-row">${sprite(d.icon)}<span><b>${d.text(g.premiumBonus(k))}</b><small>${owned.join(' · ')}</small></span></div>`;
-        });
-        const html = rows.length ? rows.join('') : '<p class="hd-note">None yet. Buy an upgrade above with Exalted Gems.</p>';
-        if (mine.innerHTML !== html) mine.innerHTML = html;
-      });
       // Boosts: a card a kind, its four tiers on buttons, the one running (and its time) on top.
       body.appendChild(sectionTitle(txt('menu.shop.boosts')));
       body.appendChild(el('p', 'hd-note', txt('menu.shop.boostsNote')));
@@ -6024,6 +6011,24 @@ export class AppUI {
         });
         body.appendChild(card);
       }
+      // Everything you own, combined by kind: two offline items of +25% and +50% show as +75% offline gains.
+      body.appendChild(sectionTitle('Total bonuses'));
+      const mine = el('div', 'card shop-owned');
+      body.appendChild(mine);
+      refreshers.push(() => {
+        // A boost running counts too, multiplied on top of the items (and named with its time left).
+        const boostOf = (k: (typeof PREMIUM_IDS)[number]) => ((BOOST_IDS as string[]).includes(k) ? g.boostBonus(k as BoostId) : 0);
+        const rows = PREMIUM_IDS.filter((k) => g.premiumBonus(k) > 0 || boostOf(k) > 0).map((k) => {
+          const d = PREMIUM_UPGRADES[k];
+          const owned = PREMIUM_ITEMS.filter((it) => it.kind === k && g.ownsPremium(it.id)).map((it) => `<span style="color:${RARITIES[it.rarity].color}">${premiumName(it)}</span>`);
+          const boost = boostOf(k);
+          if (boost > 0) owned.push(`<span class="so-boost">${BOOSTS[k as BoostId].name} +${Math.round(boost * 100)}% (${fmtTime(g.boostLeft(k as BoostId))})</span>`);
+          const total = (1 + g.premiumBonus(k)) * (1 + boost) - 1;
+          return `<div class="so-row${boost > 0 ? ' boosted' : ''}">${sprite(d.icon)}<span><b>${d.text(total)}</b><small>${owned.join(' · ')}</small></span></div>`;
+        });
+        const html = rows.length ? rows.join('') : '<p class="hd-note">None yet. Buy an upgrade above with Exalted Gems.</p>';
+        if (mine.innerHTML !== html) mine.innerHTML = html;
+      });
     }
     body = panes.gems;
     {

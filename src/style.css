@@ -9562,3 +9562,7 @@ body.left-handed .hold-bar.over-menu {
 .boost-card .bc-tier:disabled {
   opacity: 0.45;
 }
+/* Total bonuses: a kind with a boost running, the boost named in light blue (apart from the rarity colours). */
+.shop-owned .so-boost {
+  color: #6fe3ff !important;
+}
