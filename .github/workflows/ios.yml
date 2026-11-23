@@ -37,8 +37,14 @@ jobs:
       - run: npm run build
       - run: npx cap sync ios
 
-      - name: Xcode version
-        run: xcodebuild -version
+      # The newest Xcode on the runner (the default can lag behind): App Store uploads must be built with a recent SDK
+      # (the iOS 27 SDK from April 2027).
+      - name: Newest Xcode
+        run: |
+          ls -d /Applications/Xcode*.app
+          newest=$(ls -d /Applications/Xcode_[0-9]*.app | grep -v -i beta | sort -V | tail -n 1)
+          sudo xcode-select -s "$newest/Contents/Developer"
+          xcodebuild -version
 
       - name: Build for the iOS Simulator
         if: github.event_name != 'workflow_dispatch'
