@@ -168,7 +168,7 @@ import { DEV_FLAGS } from '../core/devFlags';
 import { Game, type FarmRates, type Shooter, type TreeKind } from '../core/game';
 import type { OfflineResult } from '../core/offline';
 import { COOLDOWN_POSITIONS, deserialize, newGame, EMPOWER_AMOUNTS, TAB_IDS, TRAIN_AMOUNTS, type GameState, type GearMod, type AudioSettings, type BuyAmount, type CooldownPos, type DpsCorner, type FxKey, type IndicatorStyle, type GearItem, type TabId, type Wearer } from '../core/state';
-import { drawEventBackdrop, portraitsDrawn, queuePortrait } from '../render/battle';
+import { drawEventBackdrop, loadMonsterArt, portraitsDrawn, queuePortrait } from '../render/battle';
 import { drawFramedBar, drawFramedSegments, TIMER_COLOR } from '../render/hudBars';
 import { showRewardedAd } from './ads';
 import { GEM_PACKS, purchase, REMOVE_ADS, STORE_TEST_MODE, type Product } from './store';
@@ -694,6 +694,8 @@ export class AppUI {
     };
     this.preloading = true;
     try {
+      // The monsters' art first, so the portraits drawn (and kept) are the real ones, not stand-in shapes.
+      await Promise.race([loadMonsterArt(), new Promise((r) => setTimeout(r, Math.max(0, left() * 0.6)))]);
       const tabs: Tab[] = ['beasts', ...(g.eventsOpen ? (['events'] as Tab[]) : []), ...(this.areasOpen ? (['areas'] as Tab[]) : [])];
       for (const tab of tabs) {
         if (left() <= 0) break;

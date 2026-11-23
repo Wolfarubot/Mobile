@@ -9,7 +9,7 @@ import { fmt } from '../core/format';
 import type { Game, Shooter } from '../core/game';
 import type { ClarityLevel, FxKey } from '../core/state';
 import { canvasFont, fitCanvas, Fx } from './fx';
-import { effectImage, gearImage, hunterSheetImage, monsterSheetImage, sprite } from './sprites';
+import { effectImage, gearImage, hunterSheetImage, monsterSheetImage, sprite, spriteUrl } from './sprites';
 import { HUNTER_SHEETS } from './hunterSheets';
 import { EFFECTS, type EffectKey } from './effectSheets';
 import { areaBackground, areaScene, drawVignette, RIFT_WINGS, type SceneProp } from './backgrounds';
@@ -2867,6 +2867,17 @@ export function queuePortrait(canvas: HTMLCanvasElement, id: EnemyId, ground?: A
   if (portraitQueue.length === 1) requestAnimationFrame(drawPortraitQueue);
 }
 
+/** Loads and decodes every monster's sprite sheet (the loading screen's time: AppUI.preload). */
+export function loadMonsterArt(): Promise<void> {
+  const keys = [...new Set(Object.values(MONSTER_SHEETS))] as string[];
+  return Promise.all(
+    keys.map((k) => {
+      const img = monsterSheetImage(k);
+      return img.complete && img.naturalWidth > 0 ? img.decode().catch(() => {}) : new Promise<void>((r) => img.addEventListener('load', () => void img.decode().catch(() => {}).then(() => r()), { once: true })).catch(() => {});
+    }),
+  ).then(() => {});
+}
+
 /** Resolves once every queued portrait has been drawn. */
 export function portraitsDrawn(): Promise<void> {
   return new Promise((done) => {
@@ -2883,11 +2894,30 @@ function drawPortraitQueue(): void {
   const sizes = new Map(portraitQueue.map(([c]) => [c, [c.clientWidth, c.clientHeight] as [number, number]]));
   while (portraitQueue.length && performance.now() - t0 < PORTRAIT_FRAME_MS) {
     const [c, e, a] = portraitQueue.shift()!;
-    if (c.isConnected) drawEnemyPortrait(c, e, sizes.get(c), a);
+    if (!c.isConnected) continue;
+    const size = sizes.get(c)!;
+    // A finished portrait is kept, and the next canvas wanting the same one (reopening a tab) just copies it.
+    const key = `${e}:${size[0]}x${size[1]}:${a ?? ''}`;
+    const done = portraitCache.get(key);
+    if (done) {
+      c.width = done.width;
+      c.height = done.height;
+      c.getContext('2d')!.drawImage(done, 0, 0);
+      continue;
+    }
+    if (drawEnemyPortrait(c, e, size, a) && c.width && c.height) {
+      const keep = document.createElement('canvas');
+      keep.width = c.width;
+      keep.height = c.height;
+      keep.getContext('2d')!.drawImage(c, 0, 0);
+      portraitCache.set(key, keep);
+    }
   }
   if (portraitQueue.length) requestAnimationFrame(drawPortraitQueue);
 }
 
+/** Finished portraits, by monster, size and ground (see drawPortraitQueue). */
+const portraitCache = new Map<string, HTMLCanvasElement>();
 /** Each portrait's centring shift, by monster and canvas size (see drawEnemyPortrait). */
 const portraitShifts = new Map<string, [number, number]>();
 
@@ -2895,12 +2925,16 @@ const portraitShifts = new Map<string, [number, number]>();
  * A monster's portrait, centred on its visible pixels (sprites sit off-centre in their frames), optionally on a
  * patch of `ground`: the area's battlefield floor, from the middle of its painted background.
  */
-export function drawEnemyPortrait(canvas: HTMLCanvasElement, id: EnemyId, size?: [number, number], ground?: AreaId): void {
+export function drawEnemyPortrait(canvas: HTMLCanvasElement, id: EnemyId, size?: [number, number], ground?: AreaId): boolean {
   drawPortraitSprite(canvas, id, size, ground);
   const g = canvas.getContext('2d')!;
   const W = canvas.width;
   const H = canvas.height;
-  if (!W || !H) return;
+  if (!W || !H) return false;
+  // Its art has loaded (until then a placeholder shape stands in, which mustn't be kept as its portrait).
+  const sheetKey = MONSTER_SHEETS[id];
+  const sheet = sheetKey ? monsterSheetImage(sheetKey) : null;
+  const artReady = sheetKey ? !!(sheet && sheet.complete && sheet.naturalWidth > 0) : !spriteUrl(`enemies/${id}`) || !!sprite(`enemies/${id}`);
   // How far to shift it to centre its visible pixels: read back from the canvas once per monster and size (reading
   // pixels back is slow, and a tab of portraits did it for every one each time it opened).
   const ckey = `${id}:${W}x${H}`;
@@ -2917,19 +2951,21 @@ export function drawEnemyPortrait(canvas: HTMLCanvasElement, id: EnemyId, size?:
           if (y > y1) y1 = y;
         }
     shift = x1 < 0 ? [0, 0] : [Math.round(W / 2 - (x0 + x1 + 1) / 2), Math.round(H / 2 - (y0 + y1 + 1) / 2)];
-    // Not kept while the sprite is still loading (nothing drawn yet).
-    if (x1 >= 0) portraitShifts.set(ckey, shift);
+    // Not kept while the sprite is still loading (nothing drawn yet, or its placeholder).
+    if (x1 >= 0 && artReady) portraitShifts.set(ckey, shift);
   }
   const [dx, dy] = shift;
   let floor: HTMLCanvasElement | null = null;
   if (ground) {
     // A patch from the middle of a larger background, so it's the clearing's floor, not the trees round its edge.
-    const w = canvas.clientWidth || W;
-    const h = canvas.clientHeight || H;
+    const w = size?.[0] || canvas.clientWidth || W;
+    const h = size?.[1] || canvas.clientHeight || H;
     floor = areaBackground(ground, Math.round(w * 3), Math.round(h * 3));
     if (!floor) setTimeout(() => canvas.isConnected && drawEnemyPortrait(canvas, id, size, ground), 250);
   }
-  if (!dx && !dy && !floor) return;
+  // Finished: the sprite was drawn (its shift is known) and its ground too, if it wants one.
+  const complete = artReady && portraitShifts.has(ckey) && (!ground || !!floor);
+  if (!dx && !dy && !floor) return complete;
   const copy = document.createElement('canvas');
   copy.width = W;
   copy.height = H;
@@ -2945,6 +2981,7 @@ export function drawEnemyPortrait(canvas: HTMLCanvasElement, id: EnemyId, size?:
   }
   g.drawImage(copy, dx, dy);
   g.restore();
+  return complete;
 }
 
 /**
@@ -4505,20 +4542,49 @@ function auraCells(phase: number): Cell[] {
  * one is cropped by the canvas's edges. Waits for the monster's art to load.
  */
 export function drawEventBackdrop(canvas: HTMLCanvasElement, id: EnemyId, mode: 'swarm' | 'silhouette', scale = 1): void {
-  if (!canvas.isConnected) return;
-  const W = canvas.clientWidth;
-  const H = canvas.clientHeight;
-  const sheetKey = MONSTER_SHEETS[id];
-  const sheet = sheetKey ? monsterSheetImage(sheetKey) : null;
-  const ready = sheetKey ? !!(sheet && sheet.complete && sheet.naturalWidth > 0) : !!sprite(`enemies/${id}`);
-  if (!W || !H || !ready) {
-    setTimeout(() => drawEventBackdrop(canvas, id, mode, scale), 200);
-    return;
-  }
+  backdropQueue.push({ canvas, id, mode, scale });
+  if (backdropQueue.length === 1) requestAnimationFrame(drawBackdropQueue);
+}
+
+/**
+ * Event tiles' backdrops, drawn a few ms' worth a frame with their sizes read together (one layout), each kept once
+ * drawn: opening the Events tab redrew every one from scratch (a silhouette reads its pixels back), all in one frame.
+ */
+const backdropQueue: Array<{ canvas: HTMLCanvasElement; id: EnemyId; mode: 'swarm' | 'silhouette'; scale: number }> = [];
+const backdrops = new Map<string, HTMLCanvasElement>();
+function drawBackdropQueue(): void {
+  const t0 = performance.now();
+  const sizes = new Map(backdropQueue.map(({ canvas }) => [canvas, [canvas.clientWidth, canvas.clientHeight] as [number, number]]));
   const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+  while (backdropQueue.length && performance.now() - t0 < PORTRAIT_FRAME_MS) {
+    const { canvas, id, mode, scale } = backdropQueue.shift()!;
+    if (!canvas.isConnected) continue;
+    const [W, H] = sizes.get(canvas) ?? [0, 0];
+    const key = `${id}:${mode}:${scale}:${W}x${H}:${dpr}`;
+    let art = backdrops.get(key);
+    if (!art) {
+      const sheetKey = MONSTER_SHEETS[id];
+      const sheet = sheetKey ? monsterSheetImage(sheetKey) : null;
+      const ready = sheetKey ? !!(sheet && sheet.complete && sheet.naturalWidth > 0) : !!sprite(`enemies/${id}`);
+      if (!W || !H || !ready) {
+        setTimeout(() => drawEventBackdrop(canvas, id, mode, scale), 200);
+        continue;
+      }
+      art = document.createElement('canvas');
+      renderBackdrop(art, W, H, dpr, id, mode, scale);
+      backdrops.set(key, art);
+    }
+    canvas.width = art.width;
+    canvas.height = art.height;
+    canvas.getContext('2d')!.drawImage(art, 0, 0);
+  }
+  if (backdropQueue.length) requestAnimationFrame(drawBackdropQueue);
+}
+
+function renderBackdrop(canvas: HTMLCanvasElement, W: number, H: number, dpr: number, id: EnemyId, mode: 'swarm' | 'silhouette', scale: number): void {
   canvas.width = Math.round(W * dpr);
   canvas.height = Math.round(H * dpr);
-  const g = canvas.getContext('2d')!;
+  const g = canvas.getContext('2d', { willReadFrequently: mode === 'silhouette' })!;
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
   g.imageSmoothingEnabled = false;
   g.clearRect(0, 0, W, H);
