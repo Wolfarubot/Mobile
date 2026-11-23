@@ -4205,6 +4205,26 @@ export class AppUI {
     pane.appendChild(note);
     // The newest recipes first: by when their materials come within reach, latest at the top.
     let gearKey = '';
+    let holdOrderUntil = 0;
+    const gearTiles = new Map<string, { gd: GearDef; tile: HTMLElement; mark: HTMLElement; ready: () => boolean; badge: () => string }>();
+    this.refreshers.push(() => {
+      for (const t of gearTiles.values()) t.mark.classList.toggle('hidden', !this.newRecipe(t.gd));
+    });
+    // The Time Release: first in the list while it's still to craft (and nothing narrows the list to gear).
+    const timeItem = itemDef('timeRelease');
+    const featured = () => {
+      const f = this.craftFilter;
+      return (f.type === 'all' || f.type === 'upgrades') && f.rarity === 'any' && f.dtype === 'any' && f.bonus === 'any' && g.itemOffered(timeItem.id) && this.upgradeShown(timeItem.id) && g.state.items[timeItem.id] < itemMaxStars(timeItem);
+    };
+    const timeTile = (() => {
+      const tile = el('button', 'craft-tile rar featured-recipe') as HTMLButtonElement;
+      tile.style.setProperty('--rc', RARITIES[timeItem.rarity].color);
+      tile.innerHTML = `<i>${upgradeIcon(timeItem)}</i><em></em>`;
+      tile.title = timeItem.name;
+      tile.dataset.item = timeItem.id;
+      tile.addEventListener('click', () => this.openCraftCard({ item: timeItem }));
+      return { tile, ready: () => g.canCraft(timeItem.id), badge: () => '' };
+    })();
     const buildGear = () => {
       const f = this.craftFilter;
       // An Unbound area's recipes are its Unbound copies (its original materials no longer drop there).
@@ -4218,8 +4238,8 @@ export class AppUI {
       const list = known
         .filter((gd) => gearMatches(gd, f) && f.type !== 'upgrades')
         .sort((a, b) => Number(isNew.has(b.id)) - Number(isNew.has(a.id)) || Number(!!b.unboundOf) - Number(!!a.unboundOf) || recipeOrder(b) - recipeOrder(a) || rank(b) - rank(a));
-      const key = JSON.stringify(f) + list.map((gd) => gd.id + (isNew.has(gd.id) ? '!' : '')).join(',');
-      if (key === gearKey) return;
+      const key = JSON.stringify(f) + (featured() ? 'T' : '') + list.map((gd) => gd.id + (isNew.has(gd.id) ? '!' : '')).join(',');
+      if (key === gearKey || performance.now() < holdOrderUntil) return;
       gearKey = key;
       const on = filtering(f);
       craftTitle.innerHTML = `<span>Craft Equipment</span><span>${on ? `${list.length} of ${known.length}` : known.length} recipe${known.length === 1 ? '' : 's'}</span>`;
@@ -4228,24 +4248,41 @@ export class AppUI {
         this.craftFilter = { ...NO_FILTER, type: this.craftFilter.type };
         this.refresh();
       });
-      gearGrid.innerHTML = '';
+      // The tiles are kept per recipe and only moved into the new order: rebuilding them all (as tapping a new
+      // recipe reorders the list) stalled a frame while its card opened.
       tiles = [];
-      for (const gd of list) {
-        const tile = el('button', `craft-tile rar${gd.unboundOf ? ' ub' : ''}`) as HTMLButtonElement;
-        tile.style.setProperty('--rc', gearColor(gd.id));
-        tile.innerHTML = `<i>${gearIcon(gd)}</i><em></em><span class="alert-mark white tile-new hidden"></span>`;
-        tile.title = gd.name;
-        tile.addEventListener('click', () => {
-          this.markSeen('recipes', gd.id);
-          this.openCraftCard({ gear: gd });
-          this.refresh();
-        });
-        const mark = $('.tile-new', tile);
-        this.refreshers.push(() => mark.classList.toggle('hidden', !this.newRecipe(gd)));
-        gearGrid.appendChild(tile);
-        tiles.push({ tile, ready: () => g.canCraftGear(gd.id), badge: () => String(g.state.inventory.filter((it) => it.base === gd.id).length || '') });
+      const order: HTMLElement[] = [];
+      // The Time Release, while it's still to craft, comes before everything (new recipes too).
+      if (featured()) {
+        order.push(timeTile.tile);
+        tiles.push(timeTile);
       }
-      if (!list.length && known.length) gearGrid.innerHTML = '<p class="empty-inv">No recipes match these filters.</p>';
+      for (const gd of list) {
+        let t = gearTiles.get(gd.id);
+        if (!t) {
+          const tile = el('button', `craft-tile rar${gd.unboundOf ? ' ub' : ''}`) as HTMLButtonElement;
+          tile.style.setProperty('--rc', gearColor(gd.id));
+          tile.innerHTML = `<i>${gearIcon(gd)}</i><em></em><span class="alert-mark white tile-new hidden"></span>`;
+          tile.title = gd.name;
+          tile.addEventListener('click', () => {
+            this.markSeen('recipes', gd.id);
+            // The list moves this recipe out of the new ones a moment later, once its card is open.
+            holdOrderUntil = performance.now() + 450;
+            this.openCraftCard({ gear: gd });
+            this.refresh();
+          });
+          t = { gd, tile, mark: $('.tile-new', tile), ready: () => g.canCraftGear(gd.id), badge: () => String(g.state.inventory.filter((it) => it.base === gd.id).length || '') };
+          gearTiles.set(gd.id, t);
+        }
+        order.push(t.tile);
+        tiles.push(t);
+      }
+      const keep = new Set<Element>(order);
+      for (const c of [...gearGrid.children]) if (!keep.has(c)) c.remove();
+      order.forEach((tile, i) => {
+        if (gearGrid.children[i] !== tile) gearGrid.insertBefore(tile, gearGrid.children[i] ?? null);
+      });
+      if (!list.length && known.length && !order.length) gearGrid.innerHTML = '<p class="empty-inv">No recipes match these filters.</p>';
       const lockedGear = GEAR.filter((gd) => !gd.starter && !this.gearKnown(gd)).length;
       note.textContent = lockedGear ? `🔒 ${lockedGear} more recipes show up once you've found their materials.` : '';
       note.classList.toggle('hidden', !lockedGear);
@@ -4263,7 +4300,7 @@ export class AppUI {
       const f = this.craftFilter;
       if (!((f.type === 'all' || f.type === 'upgrades') && f.rarity === 'any' && f.dtype === 'any' && f.bonus === 'any')) return;
       for (const [title, list] of [
-        ['Available Upgrades', ITEMS.filter((it) => g.state.items[it.id] < itemMaxStars(it) && g.itemOffered(it.id) && this.upgradeShown(it.id))],
+        ['Available Upgrades', ITEMS.filter((it) => g.state.items[it.id] < itemMaxStars(it) && g.itemOffered(it.id) && this.upgradeShown(it.id) && !(it.id === timeItem.id && featured()))],
         ['Completed Upgrades', ITEMS.filter((it) => g.state.items[it.id] >= itemMaxStars(it))],
       ] as const) {
         if (!list.length) continue;
@@ -5163,7 +5200,15 @@ export class AppUI {
             action: () => {
               this.dropDetail();
               this.invSub = 'crafting';
+              this.craftFilter = { ...NO_FILTER };
               this.setTab('inventory');
+              // The Time Release (first in the list) lights up for a moment.
+              const tile = this.panel.querySelector<HTMLElement>('[data-item="timeRelease"]');
+              if (tile) {
+                tile.scrollIntoView({ block: 'center' });
+                tile.classList.add('tile-flash');
+                setTimeout(() => tile.classList.remove('tile-flash'), 1400);
+              }
             },
           },
         ]);

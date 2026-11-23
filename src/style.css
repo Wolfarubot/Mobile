@@ -9633,3 +9633,22 @@ body.left-handed .hold-bar.over-menu {
   font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
+
+/* Crafting: a recipe opened from a pop-up (the Time Release) lights up for a moment. */
+.craft-tile.tile-flash {
+  animation: tile-flash 1.4s ease-out;
+  z-index: 2;
+}
+@keyframes tile-flash {
+  0%,
+  45% {
+    outline: 4px solid #ffd34d;
+    outline-offset: 2px;
+    filter: brightness(1.25);
+  }
+  100% {
+    outline: 4px solid rgba(255, 211, 77, 0);
+    outline-offset: 2px;
+    filter: none;
+  }
+}
