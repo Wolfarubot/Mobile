@@ -925,6 +925,19 @@ section(
 );
 section(
   M,
+  'settings.privacy',
+  'Privacy Policy',
+  {
+    section: 'Privacy',
+    title: 'Privacy Policy',
+    blurb: 'What Pocket Hunter collects, why, and how to delete your account and data.',
+    note: 'The link may open in a separate browser.',
+    open: 'View Privacy Policy',
+  },
+  { note: 'The Privacy section of Settings.', labels: { section: 'Section header', note: 'Note above the link', open: 'Link button' } },
+);
+section(
+  M,
   'menu.account',
   'Account',
   {

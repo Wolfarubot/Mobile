@@ -7367,6 +7367,13 @@ export class AppUI {
     );
     body.appendChild(wipe);
 
+    section('privacy', tx('settings.privacy.section'));
+    const privacy = el('div', 'card setting privacy-setting');
+    privacy.innerHTML = `<div class="setting-name">${tx('settings.privacy.title')}</div><p>${tx('settings.privacy.blurb')}</p>
+      <small class="privacy-note">${tx('settings.privacy.note')}</small>
+      <a class="buy privacy-link" href="${PRIVACY_URL}" target="_blank" rel="noopener">${tx('settings.privacy.open')}</a>`;
+    body.appendChild(privacy);
+
     // Dev: jump to any point of the game, and save codes. In release builds only for the Dev name.
     if (import.meta.env.MODE === 'release' && !devUnlocked(g.state.settings.name)) return;
     section('dev', 'Dev');
@@ -8043,6 +8050,8 @@ function saveClosedBeastAreas(): void {
     // Storage blocked: it's remembered until the game restarts.
   }
 }
+/** Pocket Hunter's privacy policy, on the Variette Studios site (opened in the system browser from the app). */
+const PRIVACY_URL = 'https://variette-studios.github.io/pocket-hunter/privacy.html';
 const openSettingsCats = new Set<string>();
 
 /**
