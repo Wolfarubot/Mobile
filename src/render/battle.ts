@@ -2789,7 +2789,11 @@ function headTop(key: string, img: HTMLImageElement, sh: MonsterSheet, row: numb
   const id = `${key}:${row}:${col}`;
   if (HEAD_TOPS.has(id)) return HEAD_TOPS.get(id)!;
   const F = sh.frame;
-  const [ax, fromY] = spot;
+  const [ax, fromY, fixed] = spot;
+  if (fixed) {
+    HEAD_TOPS.set(id, { x: ax, y: fromY });
+    return HEAD_TOPS.get(id)!;
+  }
   headCanvas ??= document.createElement('canvas').getContext('2d', { willReadFrequently: true });
   let found: { x: number; y: number } | null = { x: ax, y: fromY };
   if (headCanvas) {
