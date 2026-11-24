@@ -3962,7 +3962,13 @@ describe('Equipment', () => {
     expect(g.state.inventory.length).toBe(before + 1);
     expect(Object.entries(g.state.materials).some(([m, n]) => n > mats[m as keyof typeof mats])).toBe(true);
     // Salvage now: unequipped pieces of the chosen rarities go; equipped gear stays.
-    expect(g.salvageRarities([looted.rarity])).toBe(looted.starter ? 0 : 1);
+    expect(g.salvageRarities([looted.rarity])).toBeGreaterThanOrEqual(1);
+    expect(g.state.inventory.some((it) => gearDef(it.base).rarity === looted.rarity && !g.wearerOf(it.uid))).toBe(false);
+    // The starting kit goes too once it's off (the Short Bow is Common).
+    const kit = { uid: g.state.nextGearUid++, base: 'shortBow' as const, stars: 1 };
+    g.state.inventory.push(kit);
+    expect(g.salvageRarities(['common'])).toBe(1);
+    expect(g.state.inventory.some((it) => it.uid === kit.uid)).toBe(false);
     // Auto Salvage opens at the Restless Graveyard.
     expect(g.autoSalvageOpen).toBe(false);
     g.state.areas.graveyard.unlocked = true;

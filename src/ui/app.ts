@@ -4544,7 +4544,7 @@ export class AppUI {
       .map((r) => `<button class="as-chip" data-r="${r}" style="--rc:${RARITIES[r].color}">${RARITIES[r].name}</button>`)
       .join('')}</div><button class="buy as-now"></button>`;
     const now = $<HTMLButtonElement>('.as-now', card);
-    const spare = () => g.state.inventory.filter((it) => st.autoSalvage.includes(gearDef(it.base).rarity) && !gearDef(it.base).starter && !g.wearerOf(it.uid)).length;
+    const spare = () => g.state.inventory.filter((it) => st.autoSalvage.includes(gearDef(it.base).rarity) && !g.wearerOf(it.uid)).length;
     const draw = () => {
       card.querySelectorAll<HTMLButtonElement>('.as-chip').forEach((b) => b.classList.toggle('on', st.autoSalvage.includes(b.dataset.r as Rarity)));
       const n = spare();

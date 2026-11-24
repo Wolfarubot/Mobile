@@ -3058,7 +3058,7 @@ export class Game {
 
   /** Salvages every unequipped piece of the given rarities. Returns how many went. */
   salvageRarities(rarities: Rarity[]): number {
-    const doomed = this.state.inventory.filter((it) => rarities.includes(gearDef(it.base).rarity) && !gearDef(it.base).starter && !this.wearerOf(it.uid));
+    const doomed = this.state.inventory.filter((it) => rarities.includes(gearDef(it.base).rarity) && !this.wearerOf(it.uid));
     for (const it of doomed) this.salvageGear(it.uid);
     return doomed.length;
   }
