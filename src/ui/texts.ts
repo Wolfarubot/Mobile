@@ -1014,6 +1014,8 @@ section(
     gear: 'Gear and Upgrades (×{weight})',
     total: 'Total',
     shardsNow: 'Memory Shards now',
+    shardsTitle: 'Memory Shards',
+    shardsInfo: 'Regress to earn more. Regressing now would pay **{shards}**.',
     runs: 'Regressions',
     runTime: 'This run',
     button: 'Regress for {shards} Memory Shards',
@@ -1031,7 +1033,7 @@ section(
   },
   {
     vars: { shards: 'Memory Shards', weight: 'gear weighting', cost: 'shards' },
-    labels: { title: 'Title', tree: 'Tab', regress: 'Tab', treeNote: 'Tree note', regressNote: 'Regress note', button: 'Regress button', confirmTitle: 'Confirm title', confirmBody: 'Confirm text', confirmYes: 'Confirm button', confirmNo: 'Cancel button', buy: 'Node buy button', maxed: 'Node owned', cost: 'Node price label', soon: 'Node not yet for sale', locked: 'Node locked note', share: 'Perpetual Growth share label', regressFor: 'Node note when regressing now would pay for it' },
+    labels: { title: 'Title', tree: 'Tab', regress: 'Tab', treeNote: 'Memory Shards pop-up text', shardsTitle: 'Memory Shards bar and pop-up title', shardsInfo: 'Memory Shards pop-up: what regressing now pays', regressNote: 'Regress note', button: 'Regress button', confirmTitle: 'Confirm title', confirmBody: 'Confirm text', confirmYes: 'Confirm button', confirmNo: 'Cancel button', buy: 'Node buy button', maxed: 'Node owned', cost: 'Node price label', soon: 'Node not yet for sale', locked: 'Node locked note', share: 'Perpetual Growth share label', regressFor: 'Node note when regressing now would pay for it' },
   },
 );
 section(

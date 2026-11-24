@@ -6281,15 +6281,12 @@ export class AppUI {
     tabs.querySelectorAll<HTMLElement>('button').forEach((b) => b.addEventListener('click', () => show(b.dataset.page as 'tree' | 'regress')));
     {
       const body = treePane;
-      body.appendChild(el('p', 'hd-note', txt('menu.regression.treeNote')));
-      // Regress from right here, e.g. when a node is just out of reach: the shards this run would pay, and the button.
-      const bar = el('div', 'card reg-bar');
-      bar.innerHTML = `<span class="rb-now"></span><button class="buy rb-go"></button>`;
-      $('.rb-go', bar).addEventListener('click', () => this.confirmRegress());
-      refreshers.push(() => {
-        setHtml($('.rb-now', bar), `${tx('menu.regression.shardsNow')}<b>${this.shardsHtml(g.shardsNow)}</b>`);
-        setHtml($('.rb-go', bar), tx('menu.regression.regress'));
-      });
+      // The shards you have, big; tapping it explains the tree (and what regressing now would pay).
+      const bar = el('button', 'card reg-bar') as HTMLButtonElement;
+      bar.type = 'button';
+      bar.innerHTML = `<span class="rb-label">${tx('menu.regression.shardsTitle')}<small>ⓘ</small></span><b class="rb-have"></b>`;
+      bar.addEventListener('click', () => this.showShardsInfo());
+      refreshers.push(() => setHtml($('.rb-have', bar), `${sprite(SHARD_ICON)}${this.shardsExact(g.state.regression.shards)}`));
       body.appendChild(bar);
       // The web: only what you own and the nodes joined to it, so it grows outward as you buy. Rings and threads are
       // drawn in an SVG with the nodes laid over it; it scrolls once it's wider or taller than the screen.
@@ -6535,6 +6532,15 @@ export class AppUI {
   }
 
   /** A Regression Tree node: what it does, whether it's owned, and Buy (Perpetual Growth also picks its share of gold). */
+  /** What Memory Shards and the Regression Tree are, from the shards bar on the tree page. */
+  private showShardsInfo(): void {
+    const g = this.game;
+    this.showModal(
+      `<div class="rn-head">${sprite(SHARD_ICON)}<h2>${tx('menu.regression.shardsTitle')}</h2></div><p>${tx('menu.regression.treeNote')}</p><p class="hint">${txp('menu.regression.shardsInfo', { shards: this.shardsExact(g.shardsNow) })}</p>`,
+      [{ label: txt('menu.main.close'), secondary: true }],
+    );
+  }
+
   private showRegNode(id: string): void {
     const g = this.game;
     const n = regNode(id)!;

@@ -7742,29 +7742,38 @@ html body .hunter-detail.regression {
   height: 18px;
   vertical-align: -3px;
 }
-/* The tree page's Regress bar: what regressing now pays, and the button. */
+/* The tree page's shards bar: what you have, big; tapping it explains the tree. */
 .reg-bar {
   display: flex !important;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
 }
-.rb-now {
+.rb-label {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+}
+.rb-label small {
   font-size: 12px;
+  opacity: 0.6;
 }
-.rb-now b {
-  font-size: 16px;
+.rb-have {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 24px;
+  font-variant-numeric: tabular-nums;
 }
-.rb-now img.ei {
-  width: 16px;
-  height: 16px;
-  vertical-align: -3px;
-}
-.rb-go {
-  flex: 0 0 auto;
-  padding: 8px 18px;
+.rb-have img.ei {
+  width: 34px;
+  height: 34px;
 }
 
 /* The monster view's description, drops and weaknesses, at the top of its Stats page. */
