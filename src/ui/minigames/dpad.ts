@@ -33,6 +33,9 @@ export interface Dpad {
 /** Room kept clear under the D-pad, so its down button isn't right against the phone's own (home, back) buttons. */
 const DPAD_LIFT = 48;
 
+/** The most of a portrait screen's height the D-pad (and the room kept under it) takes: as on a usual phone. */
+const PAD_MAX_H = 0.44;
+
 /** In a split landscape layout, the share of the stage's width the D-pad's column takes (on the handedness side). */
 const PAD_COLUMN = 0.36;
 
@@ -53,7 +56,9 @@ export function dpadAt(api: MinigameApi, size = 1): Dpad {
     const b = Math.min(68 * size * api.k, col * 0.29, api.H * 0.17);
     return { x: api.leftHanded ? col / 2 : api.W - col / 2, y: api.H * 0.58, b };
   }
-  const b = Math.min(68 * size * api.k, api.W * 0.29);
+  // Sized by the screen's width, but never taller (with the room under it) than PAD_MAX_H of the screen: on a wide,
+  // short-ish phone (a foldable's inner screen) a width-sized pad would leave the game itself little room.
+  const b = Math.min(68 * size * api.k, api.W * 0.29, (api.H * PAD_MAX_H - DPAD_LIFT * api.k) / 3.24);
   return { x: api.W / 2, y: api.H - b * 1.62 - DPAD_LIFT * api.k, b };
 }
 
