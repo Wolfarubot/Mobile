@@ -22,6 +22,18 @@ function ascend(g: Game, id: 'main' | (typeof HUNTERS)[number]['id']) {
   t.trains = 99999; t.ascendAt = 10; t.skills2 = {};
 }
 
+/** Takes a recruit's starting kit off again (for tests that kit a Hunter out by hand). */
+function unkit(g: Game, ...ids: Array<Parameters<Game['recruit']>[0]>): void {
+  for (const id of ids) {
+    const slots = g.state.equipment[id];
+    if (!slots) continue;
+    const uids = new Set(slots.filter((u): u is number => u !== null));
+    slots.fill(null);
+    g.state.inventory = g.state.inventory.filter((it) => !uids.has(it.uid));
+  }
+  g.rev++;
+}
+
 describe('second slots', () => {
   it('every Hunter has one; its node says so', () => {
     for (const h of HUNTERS) expect(BONUS_SLOTS[h.id]).toBeTruthy();
@@ -31,6 +43,7 @@ describe('second slots', () => {
   it('opens with Awakening; Deku off-hand tome summons at half speed with its own damage', () => {
     const g = game();
     g.recruit('druid');
+    unkit(g, 'druid');
     expect(g.slotsOf('druid')).toHaveLength(3);
     ascend(g, 'druid');
     expect(g.learn('druid', 'root', 'ascended')).toBe(true);

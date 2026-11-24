@@ -200,6 +200,18 @@ import { sortBin, workbenchSort, WS_TIME } from '../src/ui/minigames/workbenchSo
 import { dayKey as dayKeyOf, Game, questsDone, weekKey as weekKeyOf } from '../src/core/game';
 import { deserialize, EMPOWER_AMOUNTS, FX_KEYS, newGame as startingGame, SAVE_VERSION, serialize, type GameState } from '../src/core/state';
 
+/** Takes a recruit's starting kit off again (for tests that kit a Hunter out by hand). */
+function unkit(g: Game, ...ids: Array<keyof GameState['hunters']>): void {
+  for (const id of ids) {
+    const slots = g.state.equipment[id];
+    if (!slots) continue;
+    const uids = new Set(slots.filter((u): u is number => u !== null));
+    slots.fill(null);
+    g.state.inventory = g.state.inventory.filter((it) => !uids.has(it.uid));
+  }
+  g.rev++;
+}
+
 /** A new game without the starting gear, so tests see a bare Hunter unless they add gear themselves. */
 function newGame(now = 0): GameState {
   const s = startingGame(now);
@@ -1630,6 +1642,7 @@ describe('Equipment', () => {
     for (const a of ['graveyard', 'caves'] as const) s.areas[a].unlocked = true;
     const g = new Game(veteran(s), noCrit);
     for (const id of ['glimmer', 'lance', 'wilhelm', 'ranger'] as const) g.recruit(id);
+    unkit(g, 'glimmer', 'lance', 'wilhelm', 'ranger');
     return g;
   };
 
@@ -2434,6 +2447,7 @@ describe('Equipment', () => {
     for (const m of Object.keys(s.materials) as Array<keyof typeof s.materials>) s.materials[m] = 1e6;
     const g = new Game(veteran(s), () => roll);
     g.recruit('glimmer');
+    unkit(g, 'glimmer');
     expect(g.procOf('main')).toBe(0); // bare hands, physical
     const bow = g.craftGear('emberLongbow')!;
     g.equip('main', 0, bow.uid);
@@ -5511,6 +5525,7 @@ describe('Field', () => {
     g.state.areas[hunterDef(id).area].unlocked = true;
     g.state.gold = Math.max(g.state.gold, hunterDef(id).recruitCost);
     g.recruit(id);
+    unkit(g, id);
     g.state.hunters[id].trains = 10;
     g.state.hunters[id].skills = { root: 1 }; // e.g. Lance's Zone of Protection
     g.station(id, 'forest');

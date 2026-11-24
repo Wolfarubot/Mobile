@@ -149,6 +149,17 @@ describe('Regression', () => {
     expect(g.hunterAvailable('riftwalker')).toBe(true);
   });
 
+  it("a recruit comes with every slot filled from their home area's earliest gear, whatever's been found", () => {
+    const s = regress({ ...midRun(), regression: { ...midRun().regression, unlocked: true } }, 1).state;
+    s.gold = 1e30;
+    s.areas.glade.unlocked = true;
+    const g = new Game(s);
+    expect(g.recruit('alchemist')).toBe(true);
+    expect(g.equipped('alchemist').map((it) => it && gearDef(it.base).name)).toEqual(['Forest Bow', 'Fur Coat', 'Sap Brew']);
+    expect(g.recruit('druid')).toBe(true);
+    expect(g.equipped('druid').every((it) => it && areaDef('glade') && gearTier(gearDef(it.base)) >= 2 && gearTier(gearDef(it.base)) < 3)).toBe(true);
+  });
+
   it("a save from before a run's start was kept: the first run counts all it earned, a later one its gold on hand", () => {
     const first = midRun();
     first.stats.totalGold = 9e9;
