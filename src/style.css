@@ -7599,9 +7599,10 @@ html body .hunter-detail.regression {
   vertical-align: -3px;
 }
 .reg-pan {
+  /* As tall as the open space below the shards bar (set in openRegression); a smaller web sits in its middle. */
+  display: grid;
   overflow: auto;
-  max-height: 72vh;
-  margin: 4px 0 16px;
+  margin: 4px 0 0;
   overscroll-behavior: contain;
   /* Dragged by hand in any direction (see openRegression), not scrolled by the browser. */
   touch-action: none;
@@ -7612,7 +7613,7 @@ html body .hunter-detail.regression {
 }
 .reg-web {
   position: relative;
-  margin: 0 auto;
+  margin: auto;
 }
 .reg-web svg {
   position: absolute;

@@ -6296,10 +6296,13 @@ export class AppUI {
       const pad = 40;
       const xs = shown.map((n) => at(n).x);
       const ys = shown.map((n) => at(n).y);
-      const x0 = Math.min(...xs) - padX;
-      const y0 = Math.min(...ys) - pad;
-      const W = Math.max(...xs) + padX - x0;
-      const H = Math.max(...ys) + pad - y0;
+      // Laid out around Stabilize (the middle of the web is always Stabilize), so centring the web centres it.
+      const reachX = Math.max(...xs.map(Math.abs)) + padX;
+      const reachY = Math.max(...ys.map(Math.abs)) + pad;
+      const x0 = -reachX;
+      const y0 = -reachY;
+      const W = 2 * reachX;
+      const H = 2 * reachY;
       const pos = (n: RegNode) => ({ x: at(n).x - x0, y: at(n).y - y0 });
       const pan = el('div', 'reg-pan');
       const web = el('div', 'reg-web');
@@ -6397,8 +6400,18 @@ export class AppUI {
         true,
       );
       body.appendChild(pan);
-      // Start with Stabilize in the middle of the view.
+      // The web fills the open space below the shards bar, Stabilize in the middle of it (scrolled there once the web
+      // is bigger than the space).
+      const fill = () => {
+        if (!pan.isConnected || treePane.classList.contains('hidden')) return;
+        const scroller = $('.hd-scroll', view);
+        const top = pan.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
+        pan.style.height = `${Math.max(220, scroller.clientHeight - top - 12)}px`;
+      };
+      const onResize = () => (pan.isConnected ? fill() : window.removeEventListener('resize', onResize));
+      window.addEventListener('resize', onResize);
       centre = () => {
+        fill();
         const c = pos(REGRESSION_TREE[0]);
         pan.scrollLeft = c.x - pan.clientWidth / 2;
         pan.scrollTop = c.y - pan.clientHeight / 2;
