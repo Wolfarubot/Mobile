@@ -833,11 +833,8 @@ export class AppUI {
     const bar = el('div', 'hold-bar');
     bar.innerHTML = `<i></i><span>${label}</span>`;
     bar.style.setProperty('--hold-ms', `${ms}ms`);
-    // In landscape, over the menu's column (where the cards are held), not the battlefield.
-    if (document.body.classList.contains('landscape')) {
-      bar.classList.add('over-menu');
-      document.body.appendChild(bar);
-    } else (document.querySelector('.battle-wrap') ?? document.body).appendChild(bar);
+    // At the foot of the battlefield, in portrait and landscape alike.
+    (document.querySelector('.battle-wrap') ?? document.body).appendChild(bar);
     void bar.offsetWidth; // start from empty, then fill
     bar.classList.add('filling');
     return () => bar.remove();

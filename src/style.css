@@ -9474,7 +9474,7 @@ body .title-row .quick-type .cyc-cur {
 }
 
 /* In landscape, pop-ups open over the menu's column (Settings → Pop-ups, the default), backdrop and all, leaving the
-   battlefield uncovered; so do what holding a card's Train / Empower / skill button brings up, and its filling bar. */
+   battlefield uncovered; so does what holding a card's Train / Empower / skill button brings up. */
 body.landscape .modal.over-menu {
   left: auto;
   right: 0;
@@ -9501,20 +9501,6 @@ body.landscape .modal.over-menu .modal-box {
   max-width: calc(var(--menu-w) - 16px);
   max-height: calc(100vh - 16px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
 }
-.hold-bar.over-menu {
-  position: fixed;
-  bottom: calc(12px + var(--safe-bottom, 0px));
-  left: auto;
-  right: calc(var(--safe-right) + var(--menu-w) / 2);
-  transform: translateX(50%);
-  width: calc(var(--menu-w) * 0.78);
-}
-body.left-handed .hold-bar.over-menu {
-  right: auto;
-  left: calc(var(--safe-left) + var(--menu-w) / 2);
-  transform: translateX(-50%);
-}
-
 /* Settings: a setting opened from elsewhere (Name my Hunter) lights up for a moment. */
 .card.setting-flash {
   animation: setting-flash 1.2s ease-out;
