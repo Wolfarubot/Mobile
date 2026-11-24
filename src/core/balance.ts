@@ -687,7 +687,7 @@ export interface TapAbilityDef {
 }
 export const TAP_ABILITIES: TapAbilityDef[] = [
   { id: 'flame', name: 'Flame Burst', icon: '🔥', damageType: 'fire', damage: 1, desc: 'Your taps deal Fire damage, and every 3 seconds a tap erupts, setting everything it hits ablaze.' },
-  { id: 'thunder', name: 'Thunderclap', icon: '⚡', damageType: 'lightning', damage: 1, desc: 'Your taps crack with lightning: every monster hit arcs a bolt to another one nearby.' },
+  { id: 'thunder', name: 'Thunderclap', icon: '⚡', damageType: 'lightning', damage: 1, cooldown: 3, desc: 'Your taps deal Lightning damage, and every 3 seconds a tap calls down a thunderclap: every monster it hits arcs a bolt to another monster within twice the tap\'s reach.' },
   { id: 'frost', name: 'Frost Nova', icon: '❄️', damageType: 'frost', damage: 1, desc: 'Your taps deal Frost damage, and every 3 seconds a tap freezes everything it hits solid for 1.5 seconds, then chills it (half speed) for 3 seconds.' },
   { id: 'miasma', name: 'Melting Miasma', icon: '🧪', damageType: 'acid', damage: 1, desc: 'Your taps splash acid on everything they hit, and every 4 seconds a tap leaves an acid puddle that eats away at monsters walking through it.' },
   { id: 'earth', name: 'Earthshatter', icon: '🪨', damageType: 'physical', damage: 1, cooldown: 3, desc: 'Your taps deal Physical damage, and every 3 seconds a tap breaks the ground: boulders roll out from it in every direction, crushing the monsters in their path and knocking them aside.' },
@@ -774,7 +774,7 @@ const MAIN_FIRST_TREE: SkillNode[] = [
   { id: 'fortune', name: 'Fortune', icon: '🍀', desc: '+10% gold from your kills.', maxRank: 3, effect: { gold: 0.1 }, requires: ['reach', 'will'], col: 1.5, row: 7 },
   { id: 'treasure', name: 'Treasure Sense', icon: '💎', desc: '+5% materials from your kills.', maxRank: 3, effect: { drops: 0.05 }, requires: ['will', 'longShot'], col: 2.5, row: 7 },
   { id: 'extendedEffects', name: 'Extended Effects', icon: '⏳', desc: 'Increase Status Effect duration by 10%.', maxRank: 3, effect: { duration: 0.1 }, requires: ['longShot'], col: 3.5, row: 7 },
-  { id: 'thunderTap', name: 'Thunderclap', icon: '⚡', desc: `Unlocks the Thunderclap tap ability: taps deal Lightning damage and arc to monsters nearby. ${TAP_HINT}`, maxRank: 1, effect: {}, ability: 'thunder', requires: ['deadlyTaps'], col: 0.5, row: 8 },
+  { id: 'thunderTap', name: 'Thunderclap', icon: '⚡', desc: `Unlocks the Thunderclap tap ability: taps deal Lightning damage, and every 3 seconds one arcs to monsters nearby. ${TAP_HINT}`, maxRank: 1, effect: {}, ability: 'thunder', requires: ['deadlyTaps'], col: 0.5, row: 8 },
   { id: 'haste', name: "Hunter's Haste", icon: '💨', desc: '+5.5% attack speed.', maxRank: 5, effect: { rate: 0.055 }, requires: ['fortune'], col: 1.5, row: 8 },
   { id: 'brutalCriticals', name: 'Brutal Criticals', icon: '💢', desc: 'Your critical hits deal +50% more damage.', maxRank: 1, effect: { critDamage: 0.5 }, requires: ['treasure'], col: 2.5, row: 8 },
   { id: 'meltingMiasma', name: 'Melting Miasma', icon: '🧪', desc: `Unlocks the Melting Miasma tap ability: taps splash acid on monsters, and every 4 seconds a tap leaves an acid puddle that eats away at monsters walking through it. ${TAP_HINT}`, maxRank: 1, effect: {}, ability: 'miasma', requires: ['extendedEffects'], col: 3.5, row: 8 },
@@ -3016,6 +3016,8 @@ export const AOE_PER_LEVEL = 0.03;
  * its own radius: its kills set off more bursts, and at full size a chain of them covered the whole battlefield.
  */
 export const FIREBURST_MAX_GROW = 1.6;
+/** Thunderclap: a struck monster's bolt reaches any other monster within this many tap radii of the tap. */
+export const THUNDER_ARC_REACH = 2;
 /**
  * A Focus's burst or wave (and Ba'al's sound waves) reaches at most this share of the way from the middle of the
  * field to its nearest edge, so a big Focus late on still leaves most of a small room (the Silent Crypt) alone.

@@ -2914,13 +2914,23 @@ describe('Equipment', () => {
     expect(f.enemies[0].held ?? 0).toBe(0);
     expect(f.drainEvents().some((e) => e.type === 'blast' && e.spell)).toBe(false);
     expect(f.cooldowns().some((c) => c.key === 'tap:frost')).toBe(true);
-    // Thunderclap: each monster hit arcs to another one nearby.
+    // Thunderclap: when ready, every monster the tap hits arcs to another within twice the tap's reach, and the
+    // thunder comes down (the blast's spell); then it recharges, and taps just deal Lightning damage.
     g.setTapAbility('thunder');
     fresh();
-    f.tap(-200, -200); // hits nothing
-    expect(f.drainEvents().some((e) => e.type === 'beam')).toBe(false);
+    f.tapCd = 0;
+    f.tap(-2000, -2000); // hits nothing: no thunder, and it stays ready
+    expect(f.drainEvents().some((e) => e.type === 'beam' || (e.type === 'blast' && e.spell))).toBe(false);
+    // The second monster sits outside the tap but inside twice its radius.
+    f.enemies[1].x = g.tapRadius * 1.6;
     f.tap(0, 0);
-    expect(f.drainEvents().some((e) => e.type === 'beam' && e.zigzag)).toBe(true);
+    const ev = f.drainEvents();
+    expect(ev.some((e) => e.type === 'blast' && e.spell)).toBe(true);
+    expect(ev.some((e) => e.type === 'beam' && e.zigzag && e.x2 === f.enemies[1].x)).toBe(true);
+    expect(f.cooldowns().some((c) => c.key === 'tap:thunder')).toBe(true);
+    fresh();
+    f.tap(0, 0);
+    expect(f.drainEvents().some((e) => e.type === 'beam' || (e.type === 'blast' && e.spell))).toBe(false); // recharging
     // Melting Miasma (Acid): everything hit is splashed with acid, and an acid puddle is left behind, at most once
     // per cooldown.
     g.setTapAbility('miasma');

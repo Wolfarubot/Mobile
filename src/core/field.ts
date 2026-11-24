@@ -86,6 +86,7 @@ import {
   BIG_SUMMON,
   type TreeStat,
   FIREBURST_MAX_GROW,
+  THUNDER_ARC_REACH,
 } from './balance';
 import type { Game, GearMode, KillReward, Shooter } from './game';
 import { COUNTER_ART, DASH_ART, gearCooldownArt, specialTint, TAP_ART, WALL_ART, type CooldownTint } from './cooldownArt';
@@ -5160,9 +5161,10 @@ export class Field {
    * Lightning: a bolt jumps from a monster to another creature within the arc radius (picked at random), and
    * strikes it and every creature whose body the bolt passes through on the way.
    */
-  private arc(from: Enemy, amount: number, by: Shooter): void {
-    const r = STATUS.arc.radius;
-    const near = this.enemies.filter((o) => o !== from && o.hp > 0 && Math.hypot(o.x - from.x, o.y - from.y) <= r + o.r);
+  private arc(from: Enemy, amount: number, by: Shooter, within?: { x: number; y: number; r: number }): void {
+    // To a monster near it, or (Thunderclap) any other monster within the given circle.
+    const c = within ?? { x: from.x, y: from.y, r: STATUS.arc.radius };
+    const near = this.enemies.filter((o) => o !== from && o.hp > 0 && Math.hypot(o.x - c.x, o.y - c.y) <= c.r + o.r);
     if (!near.length) return;
     const to = near[Math.floor(this.game.rng() * near.length)];
     const dx = to.x - from.x;
@@ -5781,8 +5783,11 @@ export class Field {
     // The newer abilities: their effect goes off when ready (Withering Touch's and Sunburst's only on a tap that
     // found something to curse or strike).
     const def = ability ? tapAbilityDef(ability) : null;
-    const ready = !echo && !!def?.cooldown && this.tapCd <= 0 && (ability !== 'wither' || hit.length > 0);
-    blast.spell = ignite || freeze;
+    // Thunderclap: when ready, a tap that hits something calls the thunder down (each monster hit arcs a bolt).
+    const zap = !echo && ability === 'thunder' && this.tapCd <= 0 && hit.length > 0;
+    const ready = !echo && !!def?.cooldown && ability !== 'thunder' && this.tapCd <= 0 && (ability !== 'wither' || hit.length > 0);
+    if (zap) this.tapCd = def!.cooldown! * g.cooldownMult('main');
+    blast.spell = ignite || freeze || zap;
     for (const { e, dmg: amount } of hit) {
       if (e.hp <= 0) continue;
       if (ability === 'flame') {
@@ -5793,7 +5798,9 @@ export class Field {
           e.held = Math.max(e.held ?? 0, hold);
           e.slow = Math.max(e.slow ?? 0, hold + FROST_TAP_CHILL * g.effectDurationMult('main'));
         }
-      } else if (ability === 'thunder' && !this.immuneTo(e, 'lightning')) this.arc(e, amount * STATUS.arc.share, 'main');
+      } else if (ability === 'thunder') {
+        if (zap && !this.immuneTo(e, 'lightning')) this.arc(e, amount * STATUS.arc.share, 'main', { x, y, r: g.tapRadius * THUNDER_ARC_REACH });
+      }
       else if (ability === 'miasma') this.applyStatus(e, 'acid', amount, 'main', g.procRarity('main'));
       else if (ability === 'venom') this.applyStatus(e, 'poison', amount, 'main', g.procRarity('main'));
       else if (ability === 'echo') this.applyStatus(e, 'arcane', amount, 'main', g.procRarity('main'));
