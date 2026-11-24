@@ -7553,8 +7553,29 @@ body.ui-parchment .mod-action b {
   color: #fff !important;
   text-shadow: var(--outline) !important;
 }
-.hunter-detail.regression {
-  background: radial-gradient(circle at 50% 38%, #3a2470 0%, #1a1036 45%, #08060f 100%) !important;
+/* The Regression view: deep space, black and purple with faint pink and blue nebulae, and motes of white, pink and
+   blue drifting through it (ui/stardust.ts, on .reg-space). Over the UI theme's own page background. */
+html body .hunter-detail.regression {
+  background:
+    radial-gradient(ellipse at 22% 28%, rgba(255, 90, 200, 0.16) 0%, transparent 42%),
+    radial-gradient(ellipse at 80% 70%, rgba(80, 150, 255, 0.15) 0%, transparent 45%),
+    radial-gradient(circle at 50% 40%, #2a1650 0%, #120a26 48%, #040208 100%) !important;
+}
+.reg-space {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+}
+.hunter-detail.regression > .hd-top,
+.hunter-detail.regression > .hd-scroll {
+  position: relative;
+  z-index: 1;
+}
+.hunter-detail.regression > .hd-scroll {
+  background: transparent !important;
 }
 .hunter-detail.regression .hd-scroll,
 .hunter-detail.regression .hd-scroll * {

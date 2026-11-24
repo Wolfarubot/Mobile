@@ -181,6 +181,7 @@ import { TAP_ART } from '../core/cooldownArt';
 import { tintedIconUrl } from '../render/cdIcons';
 import { hunterIconHtml } from './hunterIcons';
 import { startMarket } from './market';
+import { startStardust } from './stardust';
 import { buzz, setHaptics } from './haptics';
 import { applyOrientation } from './orientation';
 import { perfOn, setPerfOn } from './perfMeter';
@@ -6240,9 +6241,12 @@ export class AppUI {
     const g = this.game;
     const view = el('div', 'hunter-detail settings regression');
     view.innerHTML = `
+      <canvas class="reg-space"></canvas>
       <div class="hd-top"><button class="hd-close" aria-label="Close">✕</button><span>${tx('menu.regression.title')}</span><b class="shard-count"></b></div>
       <div class="hd-scroll"></div>`;
     document.body.appendChild(view);
+    // Motes of white, pink and blue drifting through the void behind it all (they stop once the view closes).
+    startStardust($<HTMLCanvasElement>('.reg-space', view));
     $('.hd-close', view).addEventListener('click', () => this.closeHunterDetail());
     const refreshers: Array<() => void> = [];
     this.detail = { el: view, refreshers };
