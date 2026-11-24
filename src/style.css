@@ -9821,7 +9821,12 @@ body.landscape.left-handed .field-card.floating.big:not(.over-menu) {
   right: calc(8px + var(--safe-right, 0px));
 }
 
-/* Settings → Privacy: the note sits above the link, which is a button-styled anchor. */
+/* Settings → Privacy: the note sits above the links, which are button-styled anchors. */
+.privacy-setting .privacy-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 .privacy-setting .privacy-note {
   display: block;
   margin: 2px 0 8px;

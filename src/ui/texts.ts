@@ -926,15 +926,16 @@ section(
 section(
   M,
   'settings.privacy',
-  'Privacy Policy',
+  'Privacy & Terms',
   {
-    section: 'Privacy',
-    title: 'Privacy Policy',
-    blurb: 'What Pocket Hunter collects, why, and how to delete your account and data.',
-    note: 'The link may open in a separate browser.',
+    section: 'Privacy & Terms',
+    title: 'Privacy Policy & Terms',
+    blurb: 'What Pocket Hunter collects, why, and how to delete your account and data; and the terms for playing.',
+    note: 'These links may open in a separate browser.',
     open: 'View Privacy Policy',
+    terms: 'View Terms of Service',
   },
-  { note: 'The Privacy section of Settings.', labels: { section: 'Section header', note: 'Note above the link', open: 'Link button' } },
+  { note: 'The Privacy section of Settings.', labels: { section: 'Section header', note: 'Note above the links', open: 'Privacy link button', terms: 'Terms link button' } },
 );
 section(
   M,
