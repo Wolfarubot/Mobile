@@ -2181,6 +2181,22 @@ export class Game {
   }
 
   /** What a material drops as in an area: its Unbound copy there once the area is Unbound. */
+  /** A monster slain in an Unbound area: the Unbound materials it drops are found (they show in Materials from now on). */
+  private findUnbound(type: EnemyId): void {
+    const def = enemyDef(type);
+    if (!this.isUnbound(def.area)) return;
+    const found = this.state.regression.ubFound;
+    for (const m of [def.material, ...enemyExtraDrops(def).map((d) => d.material)]) {
+      const u = this.dropIn(m, def.area);
+      if (isUnboundId(u) && !found.includes(u)) found.push(u);
+    }
+  }
+
+  /** An Unbound material you've found (or held): it shows in Materials. */
+  unboundFound(m: MaterialId): boolean {
+    return this.state.regression.ubFound.includes(m) || this.state.materials[m] > 0 || (this.state.stats.matGained[m] ?? 0) > 0;
+  }
+
   dropIn(m: MaterialId, area: AreaId): MaterialId {
     return this.isUnbound(area) && !isUnboundId(m) ? unboundId(m as BaseMaterialId) : m;
   }
@@ -3114,6 +3130,7 @@ export class Game {
     s.stats.totalGold += gold;
     s.areas[enemyDef(type).area].gold += gold;
     s.bestiary[type].kills++;
+    this.findUnbound(type);
     // Past 100% a kill drops several: each full 100% is a sure drop, the rest the chance of one more.
     const chance = e.dropChance * this.shooterDrops(shooter) * (golden ? GOLDEN_DROPS : 1);
     const amount = dropsFrom(chance, this.rng()) * lm;
@@ -3392,6 +3409,7 @@ export class Game {
       const n = take(`${area}:k:${id}`, rate * seconds);
       kills += n;
       s.bestiary[id].kills += n;
+      if (n > 0) this.findUnbound(id);
       lootRate += rate * (lootChance(id) + this.evo(id).loot);
     }
     const loot: Array<{ gear: GearId; salvaged: boolean }> = [];
@@ -3719,7 +3737,7 @@ export class Game {
     const mine = this.equipped('main').filter((it): it is GearItem => !!it).map((it) => gearDef(it.base));
     if (!mine.length) return;
     const best = Math.max(...mine.map(gearTier));
-    const found = (gd: GearDef) => (Object.keys(gd.recipe) as MaterialId[]).every((m) => s.materials[m] > 0 || (s.stats.matGained[m] ?? 0) > 0);
+    const found = (gd: GearDef) => (Object.keys(gd.recipe) as MaterialId[]).every((m) => this.gatheredThisRun(m));
     const pool = GEAR.filter((gd) => !gd.starter && !gd.special && found(gd));
     this.slotsOf(id).forEach((slot, i) => {
       if (this.equipped(id)[i]) return;

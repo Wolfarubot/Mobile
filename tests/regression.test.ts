@@ -263,6 +263,23 @@ describe('Regression Tree', () => {
     expect(['ring-0-4', 'ring-0-5', 'unbound-glade'].map((id) => g.regVisible(id))).toEqual([false, false, false]);
   });
 
+  it("an Unbound material shows only once a monster that drops it is slain in its Unbound area", () => {
+    const g = withShards(0);
+    expect(g.unboundFound('u_goo')).toBe(false);
+    // A Green Slime slain in the ordinary Woods finds nothing Unbound.
+    g.registerKill('greenSlime', false);
+    expect(g.unboundFound('u_goo')).toBe(false);
+    g.state.regression.tree['unbound-forest'] = 1;
+    expect(g.unboundFound('u_goo')).toBe(false);
+    g.registerKill('greenSlime', false);
+    expect(g.unboundFound('u_goo')).toBe(true);
+    expect(g.state.regression.ubFound).toEqual(['u_goo']);
+    // Kept through a save and a Regression.
+    expect(deserialize(serialize(g.state))!.regression.ubFound).toEqual(['u_goo']);
+    g.state.regression.unlocked = true;
+    expect(regress(g.state, 1).state.regression.ubFound).toEqual(['u_goo']);
+  });
+
   it('between two Unbound areas there is no one order: take a node beside the area or go straight for the hub', () => {
     const g = withShards(1e12);
     g.state.regression.tree = Object.fromEntries(REGRESSION_TREE.filter((n) => n.ring <= 3).map((n) => [n.id, 1]));

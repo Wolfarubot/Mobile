@@ -3739,9 +3739,9 @@ export class AppUI {
   /** You've met a material once you've unlocked a monster that drops it or held some. */
   private materialKnown(id: MaterialId): boolean {
     const g = this.game;
-    // An Unbound copy is known once a monster that drops it is unlocked in its Unbound area.
-    const base = unboundBase(id) as MaterialId;
-    return g.state.materials[id] > 0 || (g.state.stats.matGained[id] ?? 0) > 0 || ENEMIES.some((e) => enemyDrops(e).includes(base) && g.isUnlocked(e.id) && (!isUnboundId(id) || g.isUnbound(e.area)));
+    // An Unbound copy only once a monster that drops it has been slain in its Unbound area.
+    if (isUnboundId(id)) return g.unboundFound(id);
+    return g.state.materials[id] > 0 || (g.state.stats.matGained[id] ?? 0) > 0 || ENEMIES.some((e) => enemyDrops(e).includes(id) && g.isUnlocked(e.id));
   }
 
   /** A material's details: icon, name, flavour, how many you hold and have ever gained, and who drops it. */

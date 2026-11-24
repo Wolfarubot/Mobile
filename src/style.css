@@ -397,6 +397,10 @@ button {
   white-space: nowrap;
   line-height: 1.2;
 }
+/* A tile kept out of the list (an Unbound material not found yet); its display: grid would otherwise show it. */
+.mat[hidden] {
+  display: none;
+}
 .mat.unknown {
   opacity: 0.35;
 }

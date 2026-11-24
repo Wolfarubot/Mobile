@@ -181,6 +181,8 @@ export interface RegressionState {
    * gathered this run (or are on hand), so Regression hides them again.
    */
   matsAtStart: Partial<Record<MaterialId, number>>;
+  /** Unbound materials found: a monster that drops one has been slain in its Unbound area (kept for good). */
+  ubFound: MaterialId[];
 }
 
 /** A modifier on a piece of gear: a Refine stat (Kargesh) or an Enchantment (Marceline). */
@@ -498,7 +500,7 @@ export function newGame(now = Date.now()): GameState {
     boosts: {},
     shop: { day: '', items: [] },
     merchant: { day: '', offers: [], traded: [] },
-    regression: { unlocked: false, runs: 0, shards: 0, totalShards: 0, tree: {}, runStart: now, autoShare: AUTO_EMPOWER_SHARES[0], goldAtStart: 0, matsAtStart: {} },
+    regression: { unlocked: false, runs: 0, shards: 0, totalShards: 0, tree: {}, runStart: now, autoShare: AUTO_EMPOWER_SHARES[0], goldAtStart: 0, matsAtStart: {}, ubFound: [] },
     noAds: false,
     quests: newQuests(),
     freePlayDay: '',
@@ -961,7 +963,7 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
           if (left > 0) matsAtStart[m.id] = left;
         }
       }
-      return { unlocked: r.unlocked === true, runs: num(r.runs), shards: num(r.shards), totalShards: num(r.totalShards), tree, runStart: num(r.runStart) || Date.now(), autoShare, goldAtStart, matsAtStart };
+      return { unlocked: r.unlocked === true, runs: num(r.runs), shards: num(r.shards), totalShards: num(r.totalShards), tree, runStart: num(r.runStart) || Date.now(), autoShare, goldAtStart, matsAtStart, ubFound: Array.isArray(r.ubFound) ? [...new Set(r.ubFound.filter((m): m is MaterialId => typeof m === 'string' && UNBOUND_MATERIALS.some((u) => u.id === m)))] : [] };
     })(),
     merchant: (() => {
       const m = (data.merchant ?? {}) as { day?: unknown; offers?: unknown; traded?: unknown };
