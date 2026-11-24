@@ -412,6 +412,11 @@ export class BattleView {
           this.fx.text(h.x, h.y - PLAYER_RADIUS * CHAR_SCALE - 22, 'DEFLECT', '#d8e8ff', 12, 0.6);
           break;
         }
+        case 'deathBurst':
+          // A monster bursting as it dies: its colour flung out every way, reaching about as far as the burst hurts.
+          this.fx.burst(e.x, e.y, e.color, this.fancy ? 26 : 12, e.r * 4, 4, 0, true);
+          this.fx.burst(e.x, e.y, shade(e.color, 0.35), this.fancy ? 10 : 4, e.r * 2.5, 3, 0, true);
+          break;
         case 'thorns':
           // Thorny vines lashing up round whoever reached the wearer.
           if (this.fancy) this.playEffect('vines', e.x, e.y + e.r * 0.6, Math.max(40, e.r * 3.2), 'bottom', 24);

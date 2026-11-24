@@ -786,6 +786,8 @@ export type FieldEvent =
   | { type: 'guard'; x: number; y: number }
   /** Thorns armor stabbed a monster that reached a Hunter. */
   | { type: 'thorns'; x: number; y: number; r: number }
+  /** A monster bursting as it dies (a burst signature): an explosion of particles in its colour. */
+  | { type: 'deathBurst'; x: number; y: number; r: number; color: string }
   | { type: 'boneWall'; r: number }
   | { type: 'escape'; x: number; y: number }
   /** `magic`: a spell's blast, which sounds like its element rather than a plain explosion. */
@@ -1285,7 +1287,7 @@ export class Field {
 
   /** A monster that bursts as it dies: every other monster close by takes a share of its max HP. */
   private burstAt(shooter: Shooter, e: Enemy): void {
-    this.events.push({ type: 'thorns', x: e.x, y: e.y, r: BURST_RADIUS });
+    this.events.push({ type: 'deathBurst', x: e.x, y: e.y, r: BURST_RADIUS, color: enemyDef(e.type).color });
     for (const o of this.enemies)
       if (o !== e && o.hp > 0 && !o.boss && Math.hypot(o.x - e.x, o.y - e.y) <= BURST_RADIUS + o.r) {
         const d = Math.hypot(o.x - e.x, o.y - e.y) || 1;
