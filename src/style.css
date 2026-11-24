@@ -9436,18 +9436,33 @@ body .title-row .quick-type .cyc-cur {
   color: #9a9690;
 }
 
-/* In landscape, what holding a card's Train / Empower / skill button brings up sits over the menu's column (where the
-   cards are), not the battlefield: the confirm pop-up and the filling bar. */
+/* In landscape, pop-ups open over the menu's column (Settings → Pop-ups, the default), backdrop and all, leaving the
+   battlefield uncovered; so do what holding a card's Train / Empower / skill button brings up, and its filling bar. */
 body.landscape .modal.over-menu {
-  justify-items: end;
-  padding-right: calc(8px + var(--safe-right));
+  left: auto;
+  right: 0;
+  width: calc(var(--menu-w) + var(--safe-right));
+  padding: calc(8px + var(--safe-top, 0px)) calc(8px + var(--safe-right)) calc(8px + var(--safe-bottom, 0px)) 8px;
+  box-sizing: border-box;
 }
 body.landscape.left-handed .modal.over-menu {
-  justify-items: start;
-  padding-left: calc(8px + var(--safe-left));
+  left: 0;
+  right: auto;
+  width: calc(var(--menu-w) + var(--safe-left));
+  padding: calc(8px + var(--safe-top, 0px)) 8px calc(8px + var(--safe-bottom, 0px)) calc(8px + var(--safe-left));
+}
+/* Or over the battlefield's side (Settings → Pop-ups → Battlefield), leaving the menu clear. */
+body.landscape .modal.over-field {
+  right: calc(var(--menu-w) + var(--safe-right));
+}
+body.landscape.left-handed .modal.over-field {
+  right: 0;
+  left: calc(var(--menu-w) + var(--safe-left));
 }
 body.landscape .modal.over-menu .modal-box {
-  width: calc(var(--menu-w) - 16px);
+  width: 100%;
+  max-width: calc(var(--menu-w) - 16px);
+  max-height: calc(100vh - 16px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
 }
 .hold-bar.over-menu {
   position: fixed;

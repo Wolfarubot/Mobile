@@ -314,7 +314,8 @@ export interface GameState {
     /** How big all text is drawn: Medium is the size the UI was laid out for; Small and Large go a step either way. */
     textSize: TextSize;
     /** In landscape, where a recipe's card opens: over the battlefield (default) or over the menu's column. */
-    craftCardPos: CraftCardPos;
+    /** In landscape, where pop-ups (and a recipe's card) open: over the menu's column (leaving the battlefield clear) or over the battlefield. */
+    popupPos: PopupPos;
     /** A recipe's card opens in its large version (its arrow toggles it; the last choice is kept for the next). */
     craftCardBig: boolean;
     /** Sound effects and music: switches and volumes. */
@@ -481,7 +482,7 @@ export function newGame(now = Date.now()): GameState {
     nextGearUid: 4,
     lastSeen: now,
     samples: {},
-    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', lootPopups: true, hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', advancedTips: false, maxTrainPopup: true, salvageConfirm: true, autoSkillPopup: true, autoEvoPopup: true, autoSalvage: [], fx: allFx(), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium', orientation: 'rotate', fps: '60', textSize: 'medium', craftCardPos: 'battlefield', craftCardBig: false, audio: defaultAudio() },
+    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', lootPopups: true, hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', advancedTips: false, maxTrainPopup: true, salvageConfirm: true, autoSkillPopup: true, autoEvoPopup: true, autoSalvage: [], fx: allFx(), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium', orientation: 'rotate', fps: '60', textSize: 'medium', popupPos: 'menu', craftCardBig: false, audio: defaultAudio() },
     flags: { eventsIntro: false, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false, minigameIntro: false, questsIntro: false, feedbackIntro: false, quickTrainIntro: false, salvageIntro: false, salvageExplained: false },
     blessings: { refine: 0, enchant: 0 },
     energy: ENERGY_MAX,
@@ -533,8 +534,8 @@ export const FRAME_RATES = ['30', '60', 'max'] as const;
 export type FrameRate = (typeof FRAME_RATES)[number];
 export const TEXT_SIZES = ['small', 'medium', 'large'] as const;
 export type TextSize = (typeof TEXT_SIZES)[number];
-export const CRAFT_CARD_POSITIONS = ['battlefield', 'menu'] as const;
-export type CraftCardPos = (typeof CRAFT_CARD_POSITIONS)[number];
+export const POPUP_POSITIONS = ['menu', 'battlefield'] as const;
+export type PopupPos = (typeof POPUP_POSITIONS)[number];
 /** Sound effect volume: off, or how loud. */
 /**
  * Audio: a switch for all of it, and under it one each for music and sound effects; a volume (0-100) for all of it,
@@ -832,7 +833,8 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
       orientation: pick(ORIENTATIONS, (data.settings as { orientation?: unknown } | undefined)?.orientation, 'rotate'),
       fps: pick(FRAME_RATES, (data.settings as { fps?: unknown } | undefined)?.fps, '60'),
       textSize: pick(TEXT_SIZES, (data.settings as { textSize?: unknown } | undefined)?.textSize, 'medium'),
-      craftCardPos: pick(CRAFT_CARD_POSITIONS, (data.settings as { craftCardPos?: unknown } | undefined)?.craftCardPos, 'battlefield'),
+      // (It was only the crafting card's, craftCardPos, until pop-ups followed it; over the menu is the default now.)
+      popupPos: pick(POPUP_POSITIONS, (data.settings as { popupPos?: unknown } | undefined)?.popupPos, 'menu'),
       craftCardBig: (data.settings as { craftCardBig?: unknown } | undefined)?.craftCardBig === true,
       audio: readAudio(data.settings as Record<string, unknown> | undefined),
     },
