@@ -937,6 +937,7 @@ export class AppUI {
         // In landscape, over the menu's column (the cards it came from), not the battlefield.
         this.modal.classList.add('over-menu');
         this.modal.classList.remove('over-field');
+        this.modal.querySelector('.pop-side')?.remove();
       }, MAX_HOLD_MS);
     });
     btn.addEventListener('pointermove', (ev) => {
@@ -2491,13 +2492,52 @@ export class AppUI {
     }, true);
   }
 
+  /**
+   * In landscape a pop-up opens over the menu's column or the battlefield (Settings → Pop-ups). An arrow on the edge
+   * of its box facing the other side slides it across (and keeps the choice, as the setting would).
+   */
+  private placePopup(): void {
+    const st = this.game.state.settings;
+    const set = () => {
+      this.modal.classList.toggle('over-menu', st.popupPos === 'menu');
+      this.modal.classList.toggle('over-field', st.popupPos === 'battlefield');
+    };
+    set();
+    this.modal.querySelector('.pop-side')?.remove();
+    const box = this.modal.querySelector<HTMLElement>('.modal-box');
+    if (!box) return;
+    const arrow = el('button', 'pop-side') as HTMLButtonElement;
+    arrow.type = 'button';
+    arrow.setAttribute('aria-label', 'Move to the other side of the screen');
+    // Held on the box's inner edge, outside its scrolling, wherever the box sits.
+    const pin = () => {
+      if (!arrow.isConnected) return ro.disconnect();
+      const r = box.getBoundingClientRect();
+      // Toward the battlefield from the menu's column, and back: which edge that is depends on the hand.
+      const towardLeft = (st.popupPos === 'menu') !== st.leftHanded;
+      arrow.classList.toggle('point-left', towardLeft);
+      arrow.style.top = `${r.top + r.height / 2}px`;
+      arrow.style.left = `${towardLeft ? r.left : r.right}px`;
+    };
+    arrow.addEventListener('click', (e) => {
+      e.stopPropagation();
+      st.popupPos = st.popupPos === 'menu' ? 'battlefield' : 'menu';
+      set();
+      this.hooks.save();
+      requestAnimationFrame(pin);
+    });
+    this.modal.appendChild(arrow);
+    const ro = new ResizeObserver(pin);
+    ro.observe(box);
+    requestAnimationFrame(pin);
+  }
+
   /** A modal with arbitrary content and a Close button. */
   /** `ownClose`: the sheet draws its own Close (Modify's goes back a screen first), so none is added here. */
   private showSheet(title: string, build: (body: HTMLElement, close: () => void) => void, ownClose = false): void {
     this.modal.innerHTML = `<div class="modal-box sheet"><h2>${title}</h2><div class="sheet-body"></div><div class="buttons"></div></div>`;
     // In landscape, over the menu's column (the default) or the battlefield: Settings → Pop-ups.
-    this.modal.classList.toggle('over-menu', this.game.state.settings.popupPos === 'menu');
-    this.modal.classList.toggle('over-field', this.game.state.settings.popupPos === 'battlefield');
+    this.placePopup();
     const close = () => {
       this.modal.classList.add('hidden');
       this.modalClose = null;
@@ -4451,6 +4491,20 @@ export class AppUI {
       grow.setAttribute('aria-label', big ? 'Shrink' : 'Expand');
       (big ? document.body : $('.battle-wrap')).appendChild(card);
     };
+    // In landscape an arrow on its side slides it across to the menu's column or the battlefield (Settings → Pop-ups).
+    if (document.body.classList.contains('landscape') && !this.menuFull) {
+      const side = el('button', 'pop-side fc-side') as HTMLButtonElement;
+      side.type = 'button';
+      side.setAttribute('aria-label', 'Move to the other side of the screen');
+      side.classList.toggle('point-left', (g.state.settings.popupPos === 'menu') !== g.state.settings.leftHanded);
+      side.addEventListener('click', (e) => {
+        e.stopPropagation();
+        g.state.settings.popupPos = g.state.settings.popupPos === 'menu' ? 'battlefield' : 'menu';
+        this.hooks.save();
+        this.openCraftCard(what);
+      });
+      card.appendChild(side);
+    }
     if (g.state.settings.popupPos === 'menu' && document.body.classList.contains('landscape')) {
       card.classList.add('over-menu');
       grow.remove();
@@ -7166,7 +7220,7 @@ export class AppUI {
 
     choices(
       'Pop-ups (landscape)',
-      'While the screen is sideways, where pop-ups and a recipe\'s card open: over the menu, leaving the battlefield clear, or over the battlefield.',
+      'While the screen is sideways, where pop-ups and a recipe\'s card open: over the menu, leaving the battlefield clear, or over the battlefield. The arrow on the side of a pop-up slides it across too.',
       [['menu', 'Menu'], ['battlefield', 'Battlefield']],
       () => st.popupPos,
       (v) => {
@@ -7548,8 +7602,7 @@ export class AppUI {
     this.fromMail = null;
     this.modal.innerHTML = `<div class="modal-box">${html}<div class="buttons"></div></div>`;
     // In landscape, over the menu's column (the default) or the battlefield: Settings → Pop-ups.
-    this.modal.classList.toggle('over-menu', this.game.state.settings.popupPos === 'menu');
-    this.modal.classList.toggle('over-field', this.game.state.settings.popupPos === 'battlefield');
+    this.placePopup();
     const wrap = $('.buttons', this.modal);
     this.lastPopup = performance.now();
     const close = () => {
