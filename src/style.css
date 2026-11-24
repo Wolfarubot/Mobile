@@ -8360,9 +8360,10 @@ body.ui-parchment .account-delete .buy.danger-btn:not(:disabled) {
   color: #fff;
 }
 .signin-btn.email {
-  background: var(--card-hi);
+  /* Always the Wandering Woods' green, a shade darker so the white label stands out on every area's theme. */
+  background: #256628;
   color: #fff;
-  border-color: transparent;
+  border-color: #173f19;
 }
 .signin-btn.email .sb-icon {
   color: #fff;
@@ -9282,8 +9283,9 @@ body .title-row .quick-type .cyc-cur {
   font-size: 14px;
 }
 .modal-box .signin-forgot {
-  color: #9a1c1c;
-  text-shadow: none;
+  /* A bright red in the game's black text outline, readable on any area's panel. */
+  color: #ff6b6b;
+  text-shadow: var(--outline);
   font-size: 14px;
   text-decoration: underline;
 }
