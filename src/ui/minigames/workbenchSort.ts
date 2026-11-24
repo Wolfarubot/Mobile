@@ -3,6 +3,7 @@ import { GEAR_SPRITES } from '../../core/gearSprites';
 import { canvasFont } from '../../render/fx';
 import { DAMAGE_TAG_ICONS } from '../tagIcons';
 import { drawHunter } from './art';
+import { mgArt } from './dpad';
 import { TITLE_Y, type MinigameApi, type MinigameGame } from './shell';
 
 /**
@@ -209,6 +210,7 @@ export function workbenchSort(api: MinigameApi): MinigameGame {
       g.fillRect(Math.round(end - 4 * K), Math.round(by - beltH / 2 - 4 * K), Math.round(10 * K), Math.round(beltH + 8 * K));
       g.fillStyle = '#b4b4c0';
       g.fillRect(Math.round(end - 2 * K), Math.round(by - beltH / 2 - 2 * K), Math.round(3 * K), Math.round(beltH + 4 * K));
+      drawProps(g, api.W, bot + face + 14 * K, binTop() - 6 * K, K);
       drawFire(g, fireX(), fireY(), K, api.t);
       // The bins: wooden crates, labelled for the rule now.
       for (let i = 0; i < 3; i++) {
@@ -403,40 +405,56 @@ function drawCrate(g: CanvasRenderingContext2D, x: number, y: number, w: number,
   }
 }
 
-/** The fire past the belt's end: an iron brazier with flames licking up, flickering, and a warm glow round it. */
+/** The bonfire's six frames (from CraftPix's night camp pack), and how fast they turn. */
+const FIRE_FRAMES = 6;
+const FIRE_FPS = 10;
+
+/** The fire past the belt's end: the night camp pack's bonfire in its ring of stones, flickering, glowing warm. */
 function drawFire(g: CanvasRenderingContext2D, x: number, y: number, K: number, t: number): void {
-  // The glow.
-  const glow = g.createRadialGradient(x, y - 14 * K, 4 * K, x, y - 14 * K, 60 * K);
+  const glow = g.createRadialGradient(x, y - 14 * K, 4 * K, x, y - 14 * K, 70 * K);
   glow.addColorStop(0, 'rgba(255,150,40,0.45)');
   glow.addColorStop(1, 'rgba(255,120,20,0)');
   g.fillStyle = glow;
-  g.fillRect(Math.round(x - 60 * K), Math.round(y - 74 * K), Math.round(120 * K), Math.round(120 * K));
-  // The flames: pixel tongues of red, orange and yellow, each flickering on its own beat.
-  const px = Math.max(2, Math.round(3 * K));
-  const tongues = 7;
-  for (let layer = 0; layer < 3; layer++) {
-    const color = ['#d8331a', '#ff8a1e', '#ffd84a'][layer];
-    const k = [1, 0.7, 0.42][layer];
-    for (let i = 0; i < tongues; i++) {
-      const fx = x + (i - (tongues - 1) / 2) * 6 * K * k * 1.2;
-      const hgt = (24 + 12 * Math.sin(t * 9 + i * 1.9) + 6 * Math.sin(t * 15 + i)) * K * k * (1 - Math.abs(i - 3) * 0.12);
-      const wid = 7 * K * k;
-      for (let yy = 0; yy < hgt; yy += px) {
-        const f = yy / Math.max(1, hgt);
-        const ww = Math.max(px, Math.round((wid * (1 - f * 0.8)) / px) * px);
-        g.fillStyle = color;
-        g.fillRect(Math.round((fx - ww / 2) / px) * px, Math.round((y - 8 * K - yy) / px) * px, ww, px);
-      }
-    }
+  g.fillRect(Math.round(x - 70 * K), Math.round(y - 84 * K), Math.round(140 * K), Math.round(140 * K));
+  const img = mgArt('workroom/bonfire');
+  if (!img) return;
+  const fw = img.naturalWidth / FIRE_FRAMES;
+  const fh = img.naturalHeight;
+  const sc = 1.7 * K;
+  const f = Math.floor(t * FIRE_FPS) % FIRE_FRAMES;
+  g.imageSmoothingEnabled = false;
+  // Its stones' foot just below the belt's end, the flames reaching up past it.
+  g.drawImage(img, f * fw, 0, fw, fh, Math.round(x - (fw * sc) / 2), Math.round(y + 14 * K - fh * sc), Math.round(fw * sc), Math.round(fh * sc));
+}
+
+/**
+ * The workroom's floor between the bench and the bins: crates, barrels, sacks of supplies, a coal heap by the fire
+ * and a spare anvil (from CraftPix's blacksmith house and dungeon objects packs), each standing on its feet.
+ */
+const PROPS: Array<{ art: string; x: number; y: number }> = [
+  { art: 'anvil', x: 0.2, y: 0.3 },
+  { art: 'coal', x: 0.8, y: 0.42 },
+  { art: 'crates2', x: 0.44, y: 0.6 },
+  { art: 'barrels', x: 0.12, y: 0.98 },
+  { art: 'crates-tall', x: 0.28, y: 0.96 },
+  { art: 'supplies', x: 0.52, y: 0.99 },
+  { art: 'barrel', x: 0.69, y: 0.95 },
+  { art: 'crates', x: 0.87, y: 1 },
+];
+function drawProps(g: CanvasRenderingContext2D, W: number, top: number, bottom: number, K: number): void {
+  g.imageSmoothingEnabled = false;
+  const sc = 1.5 * K;
+  for (const p of PROPS) {
+    const img = mgArt(`workroom/${p.art}`);
+    if (!img) continue;
+    const w = img.naturalWidth * sc;
+    const h = img.naturalHeight * sc;
+    const fx = W * p.x;
+    const fy = top + (bottom - top) * p.y;
+    g.fillStyle = 'rgba(0,0,0,0.28)';
+    g.beginPath();
+    g.ellipse(fx, fy - 2 * K, w * 0.45, 4 * K, 0, 0, Math.PI * 2);
+    g.fill();
+    g.drawImage(img, Math.round(fx - w / 2), Math.round(fy - h), Math.round(w), Math.round(h));
   }
-  // The brazier: an iron bowl on short legs.
-  g.fillStyle = '#1c1c22';
-  g.fillRect(Math.round(x - 26 * K), Math.round(y - 10 * K), Math.round(52 * K), Math.round(14 * K));
-  g.fillStyle = '#3a3a44';
-  g.fillRect(Math.round(x - 24 * K), Math.round(y - 8 * K), Math.round(48 * K), Math.round(10 * K));
-  g.fillStyle = '#5a5a66';
-  g.fillRect(Math.round(x - 24 * K), Math.round(y - 8 * K), Math.round(48 * K), Math.max(2, Math.round(2 * K)));
-  g.fillStyle = '#1c1c22';
-  g.fillRect(Math.round(x - 20 * K), Math.round(y + 4 * K), Math.round(5 * K), Math.round(12 * K));
-  g.fillRect(Math.round(x + 15 * K), Math.round(y + 4 * K), Math.round(5 * K), Math.round(12 * K));
 }

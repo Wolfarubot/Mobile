@@ -40,3 +40,10 @@ Everything else the minigames draw comes from the packs already in the game: ico
 sheets, magic effects (public/effects), the RPG UI's panel, button and framed bar (public/ui), and the areas' scenery
 pieces (public/backgrounds: the Meteor Field's rocks and shooting stars, the Steps' floating island, the Frost Peaks'
 rocks). Only lighting is drawn in code: shadows, glows, fades, shot tracers and the odd sparkle.
+- workroom/bonfire.png: Bonfire.png (six frames, 48x80) from CraftPix's "Night Camp Pixel Art Pack with NPC Characters"
+  (PNG/Ruins_bonfire_fit1): the fire at the end of Reginald's Workbench Sort belt.
+- workroom/crates.png, crates2.png, crates-tall.png, barrel.png, barrels.png, anvil.png, coal.png: cut from
+  House_interior_objects.png in CraftPix's "Pixel Blacksmith House Interior and Exterior Assets" (at 265,3; 266,51;
+  329,93; 358,43; 480,96; 550,64; 181,136): props on the Workbench Sort's floor.
+- workroom/supplies.png: a crate, barrel and sacks stack cut from supplies_objects.png (at 146,275) in CraftPix's
+  "Free Pixel Art Dungeon Objects Asset Pack": a prop on the Workbench Sort's floor.
