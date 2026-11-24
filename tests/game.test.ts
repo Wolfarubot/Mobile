@@ -1751,7 +1751,7 @@ describe('Equipment', () => {
     expect(g.equip('lance', 0, wand.uid)).toBe(false);
   });
 
-  it("a spellcaster's weapon damage powers their special and its attack speed widens it", () => {
+  it("a spellcaster's weapon damage powers their special; its attack speed doesn't widen it, area gear does", () => {
     const g = stocked();
     const dmg = g.shotDamage('glimmer') * g.specialDamageMult('glimmer');
     const r = g.specialRadius('glimmer');
@@ -1759,12 +1759,12 @@ describe('Equipment', () => {
     const staff = g.craftGear('soulfireStaff')!; // its base damage, +15% rate
     g.equip('glimmer', 0, staff.uid);
     expect(g.shotDamage('glimmer') * g.specialDamageMult('glimmer')).toBeCloseTo(dmg * weaponHit(gearDef('soulfireStaff'), 1));
-    expect(g.specialRadius('glimmer')).toBeCloseTo(r * 1.15);
+    expect(g.specialRadius('glimmer')).toBeCloseTo(r);
     expect(g.dpsOf('glimmer')).toBeGreaterThan(dps * 1.5);
-    // Area gear still widens it too, and Hunters without a special have none.
+    // Area gear widens it, and Hunters without a special have none.
     const orb = g.craftGear('emberOrb')!;
     g.equip('glimmer', 2, orb.uid);
-    expect(g.specialRadius('glimmer')).toBeCloseTo(r * 1.15 * (1 + gearTotals(gearDef('emberOrb'), 1).radius!));
+    expect(g.specialRadius('glimmer')).toBeCloseTo(r * (1 + gearTotals(gearDef('emberOrb'), 1).radius!));
     expect(g.specialCooldown('bard')).toBeNull();
     expect(g.specialDamageMult('bard')).toBe(0);
   });

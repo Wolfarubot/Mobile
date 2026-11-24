@@ -3253,7 +3253,7 @@ export class Field {
         continue;
       }
       // The copy: the special's own shape and power, driven by Thomas's damage, attack speed (its size) and skills.
-      const radius = t.special.radius * (1 + (g.weaponStats(t.by).rate ?? 0)) * g.radiusMult(t.by);
+      const radius = t.special.radius * g.radiusMult(t.by);
       const dmg = t.special.damage * g.specialDamageMult(t.by) * (t.power ?? 1);
       const only = t.special.summon ? undefined : t.special.damageType;
       // Great Library: the copy comes with its own Hunter's skills (their capstone, their second cast...).

@@ -1103,10 +1103,10 @@ export class Game {
     return sp ? sp.damage * (1 + this.abilityPower(shooter)) : 0;
   }
 
-  /** Radius of the special: its base × (1 + weapon attack speed) × area bonuses (skills, gear). */
+  /** Radius of the special: its base × area bonuses (skills, gear, level); a weapon's attack speed doesn't widen it. */
   specialRadius(shooter: Shooter): number {
     const sp = shooter === 'main' ? undefined : hunterDef(shooter).special;
-    return sp ? sp.radius * (1 + (this.weaponStats(shooter).rate ?? 0)) * this.radiusMult(shooter) : 0;
+    return sp ? sp.radius * this.radiusMult(shooter) : 0;
   }
 
   /**

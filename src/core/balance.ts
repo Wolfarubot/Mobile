@@ -2849,7 +2849,7 @@ export const DAMAGE_TYPES: Record<DamageType, { name: string; icon: string; colo
 /**
  * A Guild Hunter's signature ability, used on a cooldown alongside the attacks of the weapon they hold:
  * Andrejz's potions, Glimmer's fireballs, Deku's wolves, Theon's puppets. Its damage per hit is `damage` ×
- * their shot damage (so their weapon powers it); its radius is `radius` × (1 + their weapon's attack speed).
+ * their shot damage (so their weapon powers it); its radius is `radius` × their area bonuses (gear, tree, level).
  * `ticks` is how many times it hits (a puddle ticks), and `crowd` how many monsters it typically catches, for
  * the background model. Summons copy the weapon's damage type and status effects; the others keep their own.
  */
@@ -3074,7 +3074,7 @@ export const HUNTERS: HunterDef[] = [
     story: "Andrejz is in the Wandering Woods doing research on Slimes, with an idea for a new potion, but he needs far more test subjects than he can catch. Survive a Slime Swarm, and Andrejz will help you hunt monsters.",
     ability: 'Every 4 seconds, lobs a potion that leaves a poison puddle. Deals 50% bonus damage to Slimes. Uses ranged or magic weapons.',
     slots: [{ kind: 'weapon', label: 'Weapon', accepts: ['weapon', 'magic'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
-    special: { kind: 'potion', name: 'Potions', damageType: 'poison', cooldown: 4, damage: 0.35, radius: 45, ticks: 6, crowd: 2.5, describe: 'Every 4 seconds, lobs a potion whose poison puddle keeps hurting. His weapon\'s damage powers it, and its attack speed widens the puddle.' },
+    special: { kind: 'potion', name: 'Potions', damageType: 'poison', cooldown: 4, damage: 0.35, radius: 45, ticks: 6, crowd: 2.5, describe: 'Every 4 seconds, lobs a potion whose poison puddle keeps hurting. His weapon\'s damage powers it.' },
   },
   {
     id: 'ranger', name: 'Galladair', title: 'Ranger', icon: '🏹', color: '#c09060', area: 'forest', recruitCost: 2_000, bane: { archetype: 'beast', mult: BANE_BASE },
@@ -3146,7 +3146,7 @@ export const HUNTERS: HunterDef[] = [
     story: 'Glimmer came to the Forbidden Crypt to study the old magic sealed inside, but its Guardian won\'t let anyone near. Put it to rest, and Glimmer will lend you a fireball or two.',
     ability: 'Every 4 seconds, hurls a fireball that explodes for area damage. Wields only magic weapons.',
     slots: [{ kind: 'magic', label: 'Magic weapon' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
-    special: { kind: 'fireball', name: 'Fireballs', damageType: 'fire', proc: 1, cooldown: 4, damage: 1.75, radius: 55, ticks: 1, crowd: 3, describe: 'Every 4 seconds, hurls a fireball that explodes. His weapon\'s damage powers the blast, and its attack speed widens it.' },
+    special: { kind: 'fireball', name: 'Fireballs', damageType: 'fire', proc: 1, cooldown: 4, damage: 1.75, radius: 55, ticks: 1, crowd: 3, describe: 'Every 4 seconds, hurls a fireball that explodes. His weapon\'s damage powers the blast.' },
   },  {
     id: 'puppeteer', name: 'Theon', title: 'Puppeteer', icon: '🎎', color: '#c89a6a', area: 'crypt', recruitCost: 1_000_000_000_000, summonBonus: { type: 'construct', mult: 1.5 },
     short: 'Summons puppets to fight for her.',
@@ -3183,7 +3183,7 @@ export const HUNTERS: HunterDef[] = [
     slots: [{ kind: 'magic', label: 'Weapon', accepts: ['magic', 'weapon'] }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
     special: {
       kind: 'projection', name: 'Astral Projection', damageType: 'arcane', proc: 0.5, cooldown: 10, damage: 2.5, radius: 70, ticks: 1, crowd: 3, projection: { life: 6 },
-      describe: 'Every 10 seconds, sends a copy of herself to a random spot on the field. For 6 seconds it attacks exactly as she does, with her weapon, then explodes, hurting everything around it. Her weapon\'s damage powers the blast, and its attack speed widens it.',
+      describe: 'Every 10 seconds, sends a copy of herself to a random spot on the field. For 6 seconds it attacks exactly as she does, with her weapon, then explodes, hurting everything around it. Her weapon\'s damage powers the blast.',
     },
   },
   {
@@ -3216,7 +3216,7 @@ export const HUNTERS: HunterDef[] = [
     ascendedTitle: 'Grandmaster',
     story: 'Sciirj trains in the heat of the Ember Mines, punching stone until the stone gives first. The Imps keep heckling him: knock out three hundred thousand of them, and he\'ll lend you his fists.',
     ability: 'Every 5 seconds, throws a massive punch that hits every monster in front of him and sends them flying. Fights with melee weapons.',
-    special: { kind: 'punch', name: 'Mountain Fist', damageType: 'physical', cooldown: 5, damage: 3, radius: 95, ticks: 1, crowd: 2.5, knock: 700, arc: 1.6, describe: 'Every 5 seconds, when a monster is close, throws a massive punch that hits everything in front of him and knocks it far back. His weapon\'s damage powers the blow, and its attack speed lengthens his reach.' },
+    special: { kind: 'punch', name: 'Mountain Fist', damageType: 'physical', cooldown: 5, damage: 3, radius: 95, ticks: 1, crowd: 2.5, knock: 700, arc: 1.6, describe: 'Every 5 seconds, when a monster is close, throws a massive punch that hits everything in front of him and knocks it far back. His weapon\'s damage powers the blow.' },
     slots: [{ kind: 'melee', label: 'Melee' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
   },
   {
@@ -3248,7 +3248,7 @@ export const HUNTERS: HunterDef[] = [
     ascendedTitle: 'Bonelord',
     story: "Gideon came to the Venom Caverns for the bones of the things that died there, and there are a great many. He only follows the strong: train your Hunters 4,300 times in all, and he'll raise them for you.",
     ability: 'Every 5 seconds, bone spikes burst from the ground under a group of monsters, hurting them and holding them in place. When he is stunned, a Bone Wall rises around every Hunter for a few seconds. Uses magic weapons.',
-    special: { kind: 'spikes', name: 'Bone Spikes', damageType: 'physical', cooldown: 5, damage: 1.6, radius: 60, ticks: 1, crowd: 3, hold: 1.5, describe: 'Every 5 seconds, bone spikes burst up under the nearest monster, hurting everything around it and holding it in place for 1.5 seconds. His weapon\'s damage powers them, and its attack speed widens them. Not while his Bone Wall stands.' },
+    special: { kind: 'spikes', name: 'Bone Spikes', damageType: 'physical', cooldown: 5, damage: 1.6, radius: 60, ticks: 1, crowd: 3, hold: 1.5, describe: 'Every 5 seconds, bone spikes burst up under the nearest monster, hurting everything around it and holding it in place for 1.5 seconds. His weapon\'s damage powers them. Not while his Bone Wall stands.' },
     wall: { name: 'Bone Wall', cooldown: 25, duration: 4, radius: 70, describe: 'When he is stunned, a wall of bone rises around every Hunter for 4 seconds, and no monster can reach them. It is ready again 25 seconds later.' },
     slots: [{ kind: 'magic', label: 'Magic weapon' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
   },
@@ -3269,7 +3269,7 @@ export const HUNTERS: HunterDef[] = [
     ascendedTitle: 'Crimson Lord',
     story: "Themus walks the Frost Peaks, where blood freezes before it can fall, and the Ice Wolves hunt him for it. Thin the pack by a million, and his blade is yours.",
     ability: 'Every 5 seconds, sends a Crimson Wave of blood surging toward the monsters, hurting everything it passes and making it bleed. Once his tree is complete, monsters it kills burst into blood bolts. Fights with melee weapons.',
-    special: { kind: 'wave', name: 'Crimson Wave', damageType: 'physical', cooldown: 5, damage: 1.4, radius: 200, width: 26, ticks: 1, crowd: 3, describe: 'Every 5 seconds, a surge of blood rushes out toward the nearest monster, hurting everything in its path and making it bleed. His weapon\'s damage powers it, and its attack speed lengthens it. With Blood Rain (his capstone), monsters it kills burst into blood bolts that seek out others and make them bleed too.' },
+    special: { kind: 'wave', name: 'Crimson Wave', damageType: 'physical', cooldown: 5, damage: 1.4, radius: 200, width: 26, ticks: 1, crowd: 3, describe: 'Every 5 seconds, a surge of blood rushes out toward the nearest monster, hurting everything in its path and making it bleed. His weapon\'s damage powers it. With Blood Rain (his capstone), monsters it kills burst into blood bolts that seek out others and make them bleed too.' },
     slots: [{ kind: 'melee', label: 'Melee' }, { kind: 'armor', label: 'Armor' }, { kind: 'accessory', label: 'Accessory' }],
   },
   {
@@ -3299,7 +3299,7 @@ export const HUNTERS: HunterDef[] = [
       radius: 1,
       ticks: 2,
       crowd: 2.5,
-      describe: "Every 6 seconds, a tome opens somewhere on the field and casts a copy of another Hunter's special at the monsters near it, powered by his weapon (its attack speed makes the copy bigger). 85% of the time it's the special of a Hunter fighting in his area, and otherwise any recruited Hunter's. Only active specials are copied, not passives like Reginald's or Alias's.",
+      describe: "Every 6 seconds, a tome opens somewhere on the field and casts a copy of another Hunter's special at the monsters near it, powered by his weapon. 85% of the time it's the special of a Hunter fighting in his area, and otherwise any recruited Hunter's. Only active specials are copied, not passives like Reginald's or Alias's.",
     },
   },
   {
@@ -3320,7 +3320,7 @@ export const HUNTERS: HunterDef[] = [
       radius: 60,
       ticks: 1,
       crowd: 3,
-      describe: "Every 5 seconds, throws two dice at the monsters, powered by his weapon (its attack speed widens the blasts). Rolling a 2 (snake eyes) does nothing, and he's dazed for a moment. A 3 or 4 hits one monster, 5 to 9 causes a blast, 10 or 11 causes a bigger blast, and a 12 (double 6s) hits the whole field. Other doubles hit twice as hard, and his crit chance can re-roll his lower die.",
+      describe: "Every 5 seconds, throws two dice at the monsters, powered by his weapon. Rolling a 2 (snake eyes) does nothing, and he's dazed for a moment. A 3 or 4 hits one monster, 5 to 9 causes a blast, 10 or 11 causes a bigger blast, and a 12 (double 6s) hits the whole field. Other doubles hit twice as hard, and his crit chance can re-roll his lower die.",
     },
   },
   {
