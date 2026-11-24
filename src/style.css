@@ -9701,26 +9701,50 @@ body.left-handed .hold-bar.over-menu {
 
 /*
  * Regressing (AppUI.regressFx): the whole screen shakes harder and harder as a bright white glow swells over it,
- * then holds white (2.4 s in all) before the new run loads.
+ * then holds white (3.9 s in all; the last 1.5 s shake much harder) before the new run loads.
  */
 body.regressing #app,
 body.regressing .hunter-detail,
 body.regressing .modal {
-  animation: regress-shake 2.4s ease-in forwards;
+  animation: regress-shake 3.9s linear forwards;
 }
 @keyframes regress-shake {
   0% { transform: translate(0, 0); }
-  8% { transform: translate(-1px, 1px); }
-  16% { transform: translate(2px, -1px); }
-  24% { transform: translate(-2px, 2px); }
-  32% { transform: translate(3px, -2px); }
-  40% { transform: translate(-4px, 3px); }
-  48% { transform: translate(5px, -3px) rotate(0.3deg); }
-  56% { transform: translate(-6px, 4px) rotate(-0.4deg); }
-  64% { transform: translate(7px, -5px) rotate(0.5deg); }
-  72% { transform: translate(-8px, 6px) rotate(-0.6deg); }
-  80% { transform: translate(9px, -7px) rotate(0.7deg); }
-  88%, 100% { transform: translate(0, 0); }
+  4.3% { transform: translate(-1px, 1px); }
+  8.6% { transform: translate(2px, -1px); }
+  12.9% { transform: translate(-2px, 2px); }
+  17.2% { transform: translate(3px, -2px); }
+  21.5% { transform: translate(-4px, 3px); }
+  25.8% { transform: translate(5px, -3px) rotate(0.3deg); }
+  30.2% { transform: translate(-6px, 4px) rotate(-0.4deg); }
+  34.5% { transform: translate(7px, -5px) rotate(0.5deg); }
+  38.8% { transform: translate(-8px, 6px) rotate(-0.6deg); }
+  43.1% { transform: translate(9px, -7px) rotate(0.7deg); }
+  55.4% { transform: translate(11px, -9px) rotate(0.95deg); }
+  56.9% { transform: translate(-12px, 9px) rotate(-1.0deg); }
+  58.5% { transform: translate(12px, -9px) rotate(1.06deg); }
+  60.0% { transform: translate(-13px, 10px) rotate(-1.11deg); }
+  61.5% { transform: translate(13px, -10px) rotate(1.16deg); }
+  63.1% { transform: translate(-14px, 10px) rotate(-1.21deg); }
+  64.6% { transform: translate(14px, -11px) rotate(1.26deg); }
+  66.2% { transform: translate(-15px, 11px) rotate(-1.32deg); }
+  67.7% { transform: translate(15px, -11px) rotate(1.37deg); }
+  69.2% { transform: translate(-15px, 12px) rotate(-1.42deg); }
+  70.8% { transform: translate(16px, -12px) rotate(1.47deg); }
+  72.3% { transform: translate(-16px, 12px) rotate(-1.52deg); }
+  73.8% { transform: translate(17px, -13px) rotate(1.58deg); }
+  75.4% { transform: translate(-17px, 13px) rotate(-1.63deg); }
+  76.9% { transform: translate(18px, -13px) rotate(1.68deg); }
+  78.5% { transform: translate(-18px, 14px) rotate(-1.73deg); }
+  80.0% { transform: translate(18px, -14px) rotate(1.78deg); }
+  81.5% { transform: translate(-19px, 14px) rotate(-1.84deg); }
+  83.1% { transform: translate(19px, -15px) rotate(1.89deg); }
+  84.6% { transform: translate(-20px, 15px) rotate(-1.94deg); }
+  86.2% { transform: translate(20px, -15px) rotate(1.99deg); }
+  87.7% { transform: translate(-21px, 16px) rotate(-2.04deg); }
+  89.2% { transform: translate(21px, -16px) rotate(2.1deg); }
+  90.8% { transform: translate(-22px, 16px) rotate(-2.15deg); }
+  94%, 100% { transform: translate(0, 0); }
 }
 .regress-flash {
   position: fixed;
@@ -9729,10 +9753,11 @@ body.regressing .modal {
   pointer-events: all;
   background: radial-gradient(circle at 50% 45%, #ffffff 0%, #fffbea 35%, #fff2c4 70%, #ffe9a8 100%);
   opacity: 0;
-  animation: regress-white 2.4s ease-in forwards;
+  animation: regress-white 3.9s ease-in forwards;
 }
 @keyframes regress-white {
   0% { opacity: 0; filter: brightness(1); }
-  70% { opacity: 0.85; filter: brightness(1.1); }
-  85%, 100% { opacity: 1; filter: brightness(1.3); background: #ffffff; }
+  43% { opacity: 0.6; filter: brightness(1.05); }
+  85% { opacity: 0.85; filter: brightness(1.1); }
+  94%, 100% { opacity: 1; filter: brightness(1.3); background: #ffffff; }
 }

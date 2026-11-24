@@ -7900,10 +7900,13 @@ function fmtWait(ms: number): string {
   return h >= 24 ? `${Math.floor(h / 24)}d ${h % 24}h` : fmtTime(ms / 1000);
 }
 
-/** How long the Regression's shake and white-out lasts before the new run loads (see .regress-flash). */
 /** How far the Regression web pinches in (it pinches out until the whole web fits). */
 const REG_ZOOM_MAX = 2;
-const REGRESS_FX_MS = 2400;
+/**
+ * How long the Regression's shake and white-out lasts before the new run loads (see .regress-flash): the shake builds
+ * for 2.1 s, then shakes much harder for the last 1.5 s as the white closes in.
+ */
+const REGRESS_FX_MS = 3900;
 
 /** A countdown as a clock: "4:05", "1:29:58". */
 function clockText(seconds: number): string {
