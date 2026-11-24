@@ -804,7 +804,8 @@ describe('Hunters', () => {
     }
     expect(g.actualDps('main')).toBeGreaterThan(0);
     expect(g.actualDps('alchemist')).toBeGreaterThan(0);
-    expect(g.dps).toBe(g.liveDps('main'));
+    // The DPS counter: you and the Hunters beside you together.
+    expect(g.dps).toBeCloseTo(g.liveDps('main')! + g.liveDps('alchemist')!, 6);
     expect(g.areaGoldPerSecond('forest')).toBeGreaterThan(0);
     // Stationed elsewhere: measured on their area's background battlefield, once it's been sampled.
     expect(g.actualDps('ranger')).toBeNull();
@@ -1164,6 +1165,18 @@ describe('Skill tree row gates', () => {
 });
 
 describe('Shops', () => {
+  it('the DPS counter adds up every Hunter on the battlefield in view', () => {
+    const g = rich();
+    g.tick(0.01); // starts the live window in this area
+    for (let i = 0; i < 6; i++) {
+      g.noteDealt('main', 100);
+      g.noteDealt('alchemist', 50);
+      g.tick(1);
+    }
+    expect(g.dps).toBeCloseTo(150);
+    expect(g.liveDps('main')).toBeCloseTo(100);
+  });
+
   it('big screens zoom the battlefield in a little; phones stay as they are', () => {
     expect(screenZoom(390, 307)).toBe(1); // a phone held upright
     expect(screenZoom(700, 380)).toBe(1); // a phone on its side

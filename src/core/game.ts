@@ -1187,8 +1187,13 @@ export class Game {
   }
 
   /** Your main Hunter's DPS. */
+  /** The battlefield in view's damage per second: every Hunter fighting on it together (the DPS counter). */
   get dps(): number {
-    return this.liveDps('main') ?? 0;
+    const past = this.live.past;
+    if (past.length < LIVE_MIN) return 0;
+    let sum = 0;
+    for (const b of past) for (const v of b.dmg.values()) sum += v;
+    return sum / past.length;
   }
 
   shooterGold(shooter: Shooter): number {
