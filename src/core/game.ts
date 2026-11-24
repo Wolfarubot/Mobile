@@ -3934,6 +3934,11 @@ export class Game {
 
   // ---- Forge ----
 
+  /** A material on hand or gathered this run (since the last Regression): what makes its recipes known. */
+  gatheredThisRun(m: MaterialId): boolean {
+    return this.state.materials[m] > 0 || (this.state.stats.matGained[m] ?? 0) > (this.state.regression.matsAtStart[m] ?? 0);
+  }
+
   /** Whether an Upgrade is on offer in Crafting at all (the Time Release only until Regression is open). */
   itemOffered(id: ItemId): boolean {
     return id !== 'timeRelease' || !this.state.regression.unlocked || this.state.items[id] > 0;

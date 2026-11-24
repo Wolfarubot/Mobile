@@ -176,6 +176,11 @@ export interface RegressionState {
   autoShare: number;
   /** Gold earned in all (stats.totalGold) when this run began: the run's own earnings are what's been earned since. */
   goldAtStart: number;
+  /**
+   * Materials gained in all (stats.matGained) when this run began: a recipe is known once all its materials have been
+   * gathered this run (or are on hand), so Regression hides them again.
+   */
+  matsAtStart: Partial<Record<MaterialId, number>>;
 }
 
 /** A modifier on a piece of gear: a Refine stat (Kargesh) or an Enchantment (Marceline). */
@@ -493,7 +498,7 @@ export function newGame(now = Date.now()): GameState {
     boosts: {},
     shop: { day: '', items: [] },
     merchant: { day: '', offers: [], traded: [] },
-    regression: { unlocked: false, runs: 0, shards: 0, totalShards: 0, tree: {}, runStart: now, autoShare: AUTO_EMPOWER_SHARES[0], goldAtStart: 0 },
+    regression: { unlocked: false, runs: 0, shards: 0, totalShards: 0, tree: {}, runStart: now, autoShare: AUTO_EMPOWER_SHARES[0], goldAtStart: 0, matsAtStart: {} },
     noAds: false,
     quests: newQuests(),
     freePlayDay: '',
@@ -946,7 +951,17 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
       const onHand = typeof data.gold === 'number' && Number.isFinite(data.gold) ? Math.max(0, data.gold) : 0;
       const goldAtStart =
         typeof r.goldAtStart === 'number' && Number.isFinite(r.goldAtStart) && r.goldAtStart >= 0 ? r.goldAtStart : num(r.runs) > 0 ? Math.max(0, lifetime - onHand) : 0;
-      return { unlocked: r.unlocked === true, runs: num(r.runs), shards: num(r.shards), totalShards: num(r.totalShards), tree, runStart: num(r.runStart) || Date.now(), autoShare, goldAtStart };
+      // Materials at the run's start: a save from before it was kept counts what's on hand as this run's (as with gold).
+      const matsAtStart: Partial<Record<MaterialId, number>> = {};
+      if (r.matsAtStart && typeof r.matsAtStart === 'object') {
+        for (const [k, v] of Object.entries(r.matsAtStart)) if (typeof v === 'number' && Number.isFinite(v) && v > 0 && MATERIALS.some((m) => m.id === k)) matsAtStart[k as MaterialId] = v;
+      } else if (num(r.runs) > 0) {
+        for (const m of MATERIALS) {
+          const left = (stats.matGained[m.id] ?? 0) - (typeof held[m.id] === 'number' && Number.isFinite(held[m.id]) ? (held[m.id] as number) : 0);
+          if (left > 0) matsAtStart[m.id] = left;
+        }
+      }
+      return { unlocked: r.unlocked === true, runs: num(r.runs), shards: num(r.shards), totalShards: num(r.totalShards), tree, runStart: num(r.runStart) || Date.now(), autoShare, goldAtStart, matsAtStart };
     })(),
     merchant: (() => {
       const m = (data.merchant ?? {}) as { day?: unknown; offers?: unknown; traded?: unknown };
@@ -1112,6 +1127,8 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
       }),
     );
   }
+  // A run begun before Regression hid recipes again: what was seen is worked out afresh from this run's materials.
+  if (state.regression.runs > 0 && !((data.regression as { matsAtStart?: unknown } | undefined)?.matsAtStart)) state.seen = { ...state.seen, recipes: [], init: false };
   // v9 -> v10: new areas were added between the old ones. Everything before your furthest area is open.
   const furthest = AREAS.reduce((last, a, i) => (state.areas[a.id].unlocked ? i : last), 0);
   for (let i = 0; i <= furthest; i++) state.areas[AREAS[i].id].unlocked = true;

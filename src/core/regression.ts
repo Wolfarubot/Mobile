@@ -143,9 +143,10 @@ export function regress(old: GameState, now: number): { state: GameState; shards
   s.blessings = copy(old.blessings);
   s.energy = old.energy;
   s.buyAmount = old.buyAmount;
-  s.seen = { ...copy(old.seen), gearUid: s.nextGearUid - 1, beasts: [], events: [] };
+  // Recipes are found again (see matsAtStart below).
+  s.seen = { ...copy(old.seen), gearUid: s.nextGearUid - 1, recipes: [], beasts: [], events: [] };
   s.lastSeen = now;
-  s.regression = { ...copy(old.regression), runs: old.regression.runs + 1, shards: old.regression.shards + shards, totalShards: old.regression.totalShards + shards, runStart: now, goldAtStart: s.stats.totalGold };
+  s.regression = { ...copy(old.regression), runs: old.regression.runs + 1, shards: old.regression.shards + shards, totalShards: old.regression.totalShards + shards, runStart: now, goldAtStart: s.stats.totalGold, matsAtStart: copy(s.stats.matGained) };
   // Ancestral Memory: monsters keep a share of their Empower sessions (their evolutions start over, the points come back).
   if (owns('keepEmpower')) for (const [id, b] of Object.entries(old.bestiary)) if (s.bestiary[id as keyof typeof s.bestiary]) s.bestiary[id as keyof typeof s.bestiary].empower = Math.floor(b.empower * KEEP_EMPOWER_SHARE);
   // Old Haunts: the first areas start open.

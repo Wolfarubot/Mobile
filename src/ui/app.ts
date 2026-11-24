@@ -4606,7 +4606,7 @@ export class AppUI {
   /** A recipe shows once you've found at least one of every material it needs. */
   private gearKnown(gd: GearDef): boolean {
     const g = this.game;
-    return (Object.keys(gd.recipe) as MaterialId[]).every((m) => g.state.materials[m] > 0 || (g.state.stats.matGained[m] ?? 0) > 0);
+    return (Object.keys(gd.recipe) as MaterialId[]).every((m) => g.gatheredThisRun(m));
   }
 
   // ---- Events tab: the energy bar, then each area's events as tiles; the selected one's card pinned below ----

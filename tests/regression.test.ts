@@ -96,6 +96,42 @@ describe('Regression', () => {
     expect(runWorth(next).gold).toBe(1234);
   });
 
+  it('recipes are found again after a Regression: only materials gathered this run (or on hand) make them known', () => {
+    const s = midRun();
+    s.regression.unlocked = true;
+    s.materials.goo = 0;
+    s.stats.matGained.goo = 500;
+    s.seen.recipes = ['someRecipe', 'upgrade:whetstone'];
+    expect(new Game(s).gatheredThisRun('goo')).toBe(true);
+    const next = regress(s, 1).state;
+    const g = new Game(next);
+    expect(next.seen.recipes).toEqual([]);
+    expect(g.gatheredThisRun('goo')).toBe(false);
+    next.stats.matGained.goo = 501;
+    expect(g.gatheredThisRun('goo')).toBe(true);
+    // Kept through a save.
+    expect(deserialize(serialize(next))!.regression.matsAtStart.goo).toBe(500);
+  });
+
+  it('a run begun before recipes reset: only what it holds now counts as gathered, and seen recipes are worked out again', () => {
+    const s = midRun();
+    s.regression.runs = 1;
+    s.materials.goo = 0;
+    s.materials.pelt = 7;
+    s.stats.matGained.goo = 500;
+    s.stats.matGained.pelt = 20;
+    s.seen.init = true;
+    s.seen.recipes = ['upgrade:whetstone'];
+    const old = JSON.parse(serialize(s));
+    delete old.regression.matsAtStart;
+    const back = deserialize(JSON.stringify(old))!;
+    const g = new Game(back);
+    expect(g.gatheredThisRun('goo')).toBe(false);
+    expect(g.gatheredThisRun('pelt')).toBe(true);
+    expect(back.seen.init).toBe(false);
+    expect(back.seen.recipes).toEqual([]);
+  });
+
   it("a save from before a run's start was kept: the first run counts all it earned, a later one its gold on hand", () => {
     const first = midRun();
     first.stats.totalGold = 9e9;
