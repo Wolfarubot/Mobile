@@ -16,7 +16,7 @@ import { workbenchSort, WS_INTRO } from './workbenchSort';
 import { editableData, fromHtml, registerText, txp } from '../../core/textRegistry';
 
 export { runMinigame } from './shell';
-import { cardTable, iceCamp, meteorSky, nestPit, readingTable, theatre, type Backdrop } from './backdrops';
+import { cardTable, icePeak, meteorSky, nestPit, readingTable, theatre, type Backdrop } from './backdrops';
 
 /** Every minigame: its title on the intro card, the intro text, lives, how it lays out in landscape, and the game itself. */
 export const MINIGAMES: Record<MinigameId, { title: string; intro: string; lives: number; decor?: DecorOpts; room?: string; backdrop?: Backdrop; landscape: LandscapeLayout; create: (api: MinigameApi) => MinigameGame }> = {
@@ -27,7 +27,7 @@ export const MINIGAMES: Record<MinigameId, { title: string; intro: string; lives
   shootingGallery: { title: '🎯 Shooting Gallery', intro: SG_INTRO, lives: 0, backdrop: nestPit, landscape: 'wide', create: shootingGallery },
   forgeStrike: { title: '⚒️ Forge Strike', intro: FS_INTRO, lives: 0, room: 'smithy', landscape: 'wide', create: forgeStrike },
   runeMatch: { title: '✨ Rune Match', intro: RM_INTRO, lives: 0, backdrop: readingTable, landscape: 'wide', create: runeMatch },
-  icebreaker: { title: '🔨 Icebreaker', intro: IB_INTRO, lives: 3, backdrop: iceCamp, landscape: 'center', create: icebreaker },
+  icebreaker: { title: '🔨 Icebreaker', intro: IB_INTRO, lives: 3, backdrop: icePeak, landscape: 'center', create: icebreaker },
   clockworkTower: { title: '⚙️ Workbench Sort', intro: WS_INTRO, lives: 3, room: 'workroom', landscape: 'center', create: workbenchSort },
   highOrLow: { title: '🃏 Card Hop', intro: CH_INTRO, lives: 3, backdrop: cardTable, landscape: 'center', create: cardHop },
   meteorBounce: { title: '☄️ Meteor Bounce', intro: MB_INTRO, lives: 3, backdrop: meteorSky, landscape: 'center', create: meteorBounce },

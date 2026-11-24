@@ -291,64 +291,107 @@ export const readingTable: Backdrop = (v) => {
 };
 
 /**
- * Lilith's camp in an ice cave: a ceiling of dark rock and hanging icicles along the top, cold blue ice walls
- * glinting down the sides, and the camp below on the snow (tents either side), under the game's wall of rocks.
+ * Lilith's lookout (the Frost Peaks): a night sky full of stars, far ranges of snowy mountains, and far below in the
+ * valley a little village with its windows lit and smoke rising; in front, the snowy summit Lilith stands on to keep
+ * the icicles off it.
  */
-export const iceCamp: Backdrop = (v) => {
+export const icePeak: Backdrop = (v) => {
   const { api } = v;
   const A = pixels(v);
   const { g, W, H, rect } = A;
   const r = rng(51);
-  const ground = Math.round(A.Y(api.H - 120 + 12 * api.k));
-  bands(rect, W, 0, ground, ['#0a1424', '#0e1a2e', '#122136', '#16293f', '#1a3149', '#1f3a54', '#24435f', '#294c69']);
-  // Ice glinting in the walls: little facets, thicker toward the sides.
-  for (let i = 0; i < W * H * 0.02; i++) {
-    const x = Math.floor(r() * W);
-    const y = Math.floor(r() * ground);
-    const edge = Math.min(x, W - 1 - x) / (W / 2);
-    if (r() < edge * 1.3) continue;
-    g.globalAlpha = 0.25 + r() * 0.35;
-    rect(x, y, 1 + Math.floor(r() * 2), 1, r() < 0.5 ? '#6aa6d0' : '#a8daf4');
+  // The summit's top: where the icicles are stopped (the game's ground line).
+  const summit = Math.round(A.Y(api.H - 120 + 14 * api.k));
+  const valley = Math.round(summit - (H - summit) * 0.2);
+  // The sky, darkest overhead, and its stars (fewer toward the mountains).
+  bands(rect, W, 0, valley, ['#070d1f', '#0a1328', '#0e1a33', '#12223e', '#172b4a', '#1d3556', '#244062', '#2c4b6d']);
+  for (let i = 0; i < W * valley * 0.012; i++) {
+    const y = Math.floor(r() * r() * valley * 0.75);
+    g.globalAlpha = 0.35 + r() * 0.65;
+    rect(Math.floor(r() * W), y, 1, 1, r() < 0.8 ? '#e8f2ff' : '#bcd8ff');
   }
   g.globalAlpha = 1;
-  // The ceiling: ragged dark rock, and icicles hanging from it.
-  const top = Math.round(A.Y(TITLE_Y - 30));
-  let edge = top;
+  // A faint aurora across the sky.
   for (let x = 0; x < W; x++) {
-    edge = Math.max(top - 3, Math.min(top + 5, edge + Math.round((r() - 0.5) * 3)));
-    rect(x, 0, 1, edge, '#070d18');
-    rect(x, edge, 1, 1, '#3a6a92');
+    const y = Math.round(valley * 0.22 + Math.sin(x / (W / 5)) * valley * 0.05 + Math.sin(x / 7) * 1.5);
+    g.globalAlpha = 0.12;
+    rect(x, y, 1, Math.round(valley * 0.06), '#5fe0b0');
+    g.globalAlpha = 0.07;
+    rect(x, y - 3, 1, 3, '#9a8cff');
   }
-  for (let x = 1; x < W - 2; x += 3 + Math.floor(r() * 5)) {
-    const len = 3 + Math.floor(r() * (r() < 0.2 ? 18 : 8));
-    for (let k = 0; k < len; k++) {
-      const w = Math.max(1, Math.round(3 * (1 - k / len)));
-      rect(x, top + k, w, 1, '#8ccbef');
-      rect(x, top + k, 1, 1, '#d8f2ff');
+  g.globalAlpha = 1;
+  // Two far ranges of mountains, the nearer one darker, their tops in snow.
+  const range = (base: number, high: number, seed: number, body: string, snow: string) => {
+    const q = rng(seed);
+    let y = base - high * 0.5;
+    let dir = 1;
+    for (let x = 0; x < W; x++) {
+      if (q() < 0.06) dir = -dir;
+      y = Math.max(base - high, Math.min(base - 2, y + dir * (0.3 + q() * 0.9)));
+      rect(x, Math.round(y), 1, valley - Math.round(y), body);
+      rect(x, Math.round(y), 1, Math.max(1, Math.round((base - y) * 0.18)), snow);
     }
+  };
+  range(valley, valley * 0.2, 7, '#2e4766', '#a9c4dc');
+  range(valley, valley * 0.12, 9, '#223852', '#8fb0cc');
+  // The valley floor, snowy, fading into the distance.
+  bands(rect, W, valley, H, ['#5d7a96', '#6c89a4', '#7b97b1', '#8aa5bd']);
+  for (let i = 0; i < W * (H - valley) * 0.05; i++) rect(Math.floor(r() * W), valley + Math.floor(r() * (H - valley)), 1, 1, r() < 0.5 ? '#9fb7cc' : '#56728e');
+  // The village far below: little houses down each side, windows lit, smoke rising, a few dark pines.
+  const house = (x: number, y: number, s: number) => {
+    const w = Math.max(3, Math.round(4 * s));
+    const h = Math.max(2, Math.round(3 * s));
+    rect(x, y - h, w, h, '#3a2a28');
+    for (let k = 0; k < Math.ceil(w / 2) + 1; k++) rect(x - 1 + k, y - h - 1 - k, w + 2 - k * 2, 1, '#e6f0f8');
+    rect(x + Math.floor(w / 2) - 1, y - h + 1, 1, 1, '#ffcf5a');
+    if (w > 4) rect(x + w - 2, y - h + 1, 1, 1, '#ffb43a');
+    if (r() < 0.6) {
+      g.globalAlpha = 0.35;
+      for (let k = 0; k < 4 + s * 2; k++) rect(x + w - 1 + Math.round(Math.sin(k * 0.9) * 1), y - h - 3 - k, 1, 1, '#c8d4e0');
+      g.globalAlpha = 1;
+    }
+  };
+  const pine = (x: number, y: number, s: number) => {
+    const h = Math.max(3, Math.round(5 * s));
+    for (let k = 0; k < h; k++) rect(x - Math.floor(k / 2), y - h + k, Math.floor(k / 2) * 2 + 1, 1, k % 3 === 0 ? '#2c4a3a' : '#1d3529');
+  };
+  const things: Array<{ x: number; y: number; d: number; tree: boolean }> = [];
+  for (const side of [0, 1])
+    for (let i = 0; i < 26; i++) {
+      const d = r(); // 0 far (small, high in the valley), 1 near (bigger, lower)
+      const y = Math.round(valley + 4 + d * (H - valley - 6));
+      const reach = W * (0.18 + d * 0.16);
+      const x = side === 0 ? Math.round(2 + r() * reach) : Math.round(W - 6 - r() * reach);
+      things.push({ x, y, d, tree: r() < 0.35 });
+    }
+  // Farthest first, so the nearer ones stand in front.
+  for (const t of things.sort((a, b) => a.y - b.y)) (t.tree ? pine : house)(t.x, t.y, 0.6 + t.d * 1.2);
+  // The summit in front: a snowy peak rising from below to a ledge where Lilith stands.
+  const cx = Math.round(A.X(api.W / 2));
+  const top = Math.round(Math.max(10, A.S(84 * api.k)));
+  for (let y = summit; y < H; y++) {
+    const f = (y - summit) / Math.max(1, H - summit);
+    const half = Math.round(top / 2 + f * W * 0.24 + Math.sin(y * 0.9) * 1.2);
+    const x0 = cx - half;
+    const x1 = cx + half;
+    rect(x0, y, x1 - x0, 1, '#4a5c72');
+    // Shadow down its right side, light down its left.
+    rect(cx + Math.round(half * 0.25), y, Math.round(half * 0.75), 1, '#34445a');
+    rect(x0, y, Math.max(1, Math.round(half * 0.2)), 1, '#617690');
+    // Snow on the ledge and spilling down.
+    const snow = Math.max(0, Math.round((1 - f * 3.2) * half));
+    if (snow > 0) rect(cx - snow, y, snow * 2, 1, f < 0.04 ? '#f4fbff' : '#dbe9f4');
   }
-  // The snow the camp stands on.
-  rect(0, ground, W, H - ground, '#dfeef6');
-  for (let i = 0; i < W * (H - ground) * 0.12; i++) rect(Math.floor(r() * W), ground + Math.floor(r() * (H - ground)), 1, 1, r() < 0.6 ? '#c6dce8' : '#f4fbff');
-  // Two tents either side of the camp.
-  for (const fx of [0.16, 0.84]) {
-    const tx = Math.round(W * fx);
-    const ty = Math.round(ground + (H - ground) * 0.55);
-    const tw = Math.max(10, Math.round(A.S(46 * api.k)));
-    const th = Math.round(tw * 0.7);
-    for (let k = 0; k < th; k++) {
-      const half = Math.round((tw / 2) * (k / th));
-      rect(tx - half, ty - th + k, half, 1, '#a8442e');
-      rect(tx, ty - th + k, half, 1, '#7c2e20');
-    }
-    for (let k = Math.round(th * 0.45); k < th; k++) {
-      const half = Math.round((tw / 6) * ((k - th * 0.45) / (th * 0.55)));
-      rect(tx - half, ty - th + k, half * 2 + 1, 1, '#3a140e');
-    }
-    g.globalAlpha = 0.25;
-    rect(tx - tw / 2 - 1, ty, tw + 2, 2, '#7a98aa');
-    g.globalAlpha = 1;
+  // Rocks and snow patches on its face.
+  for (let i = 0; i < W * (H - summit) * 0.04; i++) {
+    const y = summit + 3 + Math.floor(r() * (H - summit - 3));
+    const f = (y - summit) / Math.max(1, H - summit);
+    const half = top / 2 + f * W * 0.24;
+    const x = Math.round(cx - half + 2 + r() * (half * 2 - 4));
+    rect(x, y, 1 + Math.floor(r() * 2), 1, r() < 0.5 ? '#2a3848' : '#c9dbe8');
   }
+  // The ledge's rim, catching the light.
+  rect(cx - Math.round(top / 2), summit, top, 1, '#ffffff');
   return upscale(A.c, v);
 };
 

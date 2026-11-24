@@ -115,13 +115,23 @@ export interface Burst {
   from?: number;
   to?: number;
   rot?: number;
+  /** Falling: its speed down (px a second), and the pull that speeds it up (px a second, a second). */
+  vy?: number;
+  fall?: number;
+  /** Fades out over its life. */
+  fade?: boolean;
 }
 
 /** Steps and draws a list of bursts, dropping the ones that have finished. */
 export function stepBursts(list: Burst[], dt: number): void {
   for (let i = list.length - 1; i >= 0; i--) {
-    list[i].t += dt;
-    if (list[i].t >= list[i].dur) list.splice(i, 1);
+    const b = list[i];
+    b.t += dt;
+    if (b.vy !== undefined) {
+      b.y += b.vy * dt;
+      b.vy += (b.fall ?? 0) * dt;
+    }
+    if (b.t >= b.dur) list.splice(i, 1);
   }
 }
 
@@ -129,6 +139,6 @@ export function drawBursts(g: CanvasRenderingContext2D, list: Burst[]): void {
   for (const b of list) {
     const from = b.from ?? 0;
     const to = b.to ?? EFFECTS[b.key].frames - 1;
-    drawEffect(g, b.key, from + (to - from + 1) * (b.t / b.dur), b.x, b.y, b.size, b.rot ?? 0);
+    drawEffect(g, b.key, Math.min(to, from + (to - from + 1) * (b.t / b.dur)), b.x, b.y, b.size, b.rot ?? 0, b.fade ? Math.max(0, 1 - b.t / b.dur) : 1);
   }
 }
