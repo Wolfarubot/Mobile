@@ -894,7 +894,7 @@ export const ASCEND_NODE: SkillNode = {
   id: 'ascend',
   name: 'Ascend',
   icon: '🌟',
-  desc: 'Ascend, with a new title, a new Skill Tree, and training up to Lv 100. Keeps Lv 50 and its training: from here each level takes one session more than the last, from 30 up to 50 a level at Lv 70.',
+  desc: 'Ascend in power, gaining a new title and a new Skill Tree.',
   maxRank: 1,
   cost: 10,
   effect: {},
