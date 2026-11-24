@@ -1,5 +1,6 @@
 import { EFFECTS, type EffectKey } from '../../render/effectSheets';
 import { HUNTER_SHEETS } from '../../render/hunterSheets';
+import { outlineOf } from '../../render/outline';
 import { effectImage, hunterSheetImage } from '../../render/sprites';
 import type { Wearer } from '../../core/state';
 
@@ -63,9 +64,10 @@ export function drawArt(g: CanvasRenderingContext2D, path: string, x: number, y:
 
 /**
  * A Hunter's idle animation (public/hunters/), its feet at (x, y) and the character `h` tall: row 0 faces down,
- * 1 left, 2 right, 3 up. `frame` picks the frame (wrapping), or it runs at 6 a second from `t`.
+ * 1 left, 2 right, 3 up. `frame` picks the frame (wrapping), or it runs at 6 a second from `t`. `ghost`: only their
+ * outline, in that colour, at that opacity (where they're about to go).
  */
-export function drawHunter(g: CanvasRenderingContext2D, who: Wearer, x: number, y: number, h: number, t: number, row = 0, frame?: number): boolean {
+export function drawHunter(g: CanvasRenderingContext2D, who: Wearer, x: number, y: number, h: number, t: number, row = 0, frame?: number, ghost?: { color: string; alpha: number }): boolean {
   const sheet = HUNTER_SHEETS[who];
   const img = hunterSheetImage(who);
   if (!sheet || !img || !img.complete || !img.naturalWidth) return false;
@@ -76,7 +78,8 @@ export function drawHunter(g: CanvasRenderingContext2D, who: Wearer, x: number, 
   const k = h / bh;
   g.save();
   g.imageSmoothingEnabled = false;
-  g.drawImage(img, col * F, row * F, F, F, x - (bx + bw / 2) * k, y - (by + bh) * k, F * k, F * k);
+  if (ghost) g.globalAlpha *= ghost.alpha;
+  g.drawImage(ghost ? outlineOf(img, ghost.color, 1) : img, col * F, row * F, F, F, x - (bx + bw / 2) * k, y - (by + bh) * k, F * k, F * k);
   g.restore();
   return true;
 }

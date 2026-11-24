@@ -195,7 +195,7 @@ import { CHARM_MAX, CHARM_TIME, DICE_FLIGHT, Field, PERSIST_TIME, SLAM_OFFSET, S
 import { mergeSample, runSample, SAMPLE_KEEP } from '../src/core/sampler';
 import { GATED } from '../src/core/gates';
 import { boardCells, RM_BOARDS } from '../src/ui/minigames/runeMatch';
-import { cardPoints, followsOn } from '../src/ui/minigames/cardHop';
+import { cardHop, cardPoints, followsOn } from '../src/ui/minigames/cardHop';
 import { sortBin, workbenchSort, WS_TIME } from '../src/ui/minigames/workbenchSort';
 import { dayKey as dayKeyOf, Game, questsDone, weekKey as weekKeyOf } from '../src/core/game';
 import { deserialize, EMPOWER_AMOUNTS, FX_KEYS, newGame as startingGame, SAVE_VERSION, serialize, type GameState } from '../src/core/state';
@@ -2041,6 +2041,27 @@ describe('Equipment', () => {
     expect(followsOn(5, 13)).toBe(true); // onto a Joker
     expect(followsOn(13, 9)).toBe(true); // and off it, to anything
     expect(followsOn(3, 3)).toBe(false);
+  });
+
+  it('Card Hop: tapping while the card above is out of reach makes Ted leap and fall (a heart), even from the table', () => {
+    let t = 0;
+    let lives = 3;
+    let lost = 0;
+    const api = {
+      W: 400, H: 760, k: 1, layout: 'portrait' as const, leftHanded: false, expert: false,
+      get t() { return t; }, get score() { return 0; }, get lives() { return lives; },
+      addScore: () => {}, loseLife: () => { lost++; }, pop: () => {}, end: () => {}, icon: () => false,
+    };
+    const game = cardHop(api as never);
+    // Tapping all the time: some taps find a card in reach (hops), others don't (falls); it never breaks.
+    expect(() => {
+      for (let i = 0; t < 30; i++) {
+        t += 1 / 30;
+        game.step(1 / 30);
+        if (i % 4 === 0) game.tap(200, 400);
+      }
+    }).not.toThrow();
+    expect(lost).toBeGreaterThan(0);
   });
 
   it("Reginald's Workbench Sort: each part's bin by type, rarity and element; a minute of play scores and ends", () => {

@@ -5,7 +5,9 @@ import { type MinigameApi, type MinigameGame } from './shell';
 
 /**
  * Ted's Card Hop (the Cloud Fortress): rows of playing cards slide across the table, each row its own way, and Ted
- * hops up from card to card. Tap anywhere to hop him onto the card in the row above, when one is close enough
+ * hops up from card to card (an arrow points from him to the card he'd land on, with a faint outline of him there; a
+ * "!" when it's out of reach, and tapping then makes him leap and fall, a heart). Tap anywhere to hop him onto the
+ * card in the row above, when one is close enough
  * above him. His card carries him along, and if it takes him off the edge he falls (a heart) and climbs back onto
  * the row. The board scrolls up as he climbs; the rows start slow, and each one is a little quicker.
  *
@@ -19,7 +21,7 @@ import { type MinigameApi, type MinigameGame } from './shell';
 
 export const CH_TIME = 60;
 export const CH_INTRO =
-  "<p>Cards slide across the table. <b>Tap anywhere</b> to hop Ted up onto the card above him, when one passes close enough. Don't let his card carry him off the edge: that costs a heart.</p><p>Higher cards score more: Ace to 3 are 1, 4 to 7 are 2, 8 to 10 are 3, and Jack to King 4.</p><p>Hop onto the <b>next card up</b> (… Queen, King, Ace, 2 …) for double, and more for every one in a row. A <b>Joker</b> always counts as the next card, and so does whatever you hop to from it. You have " +
+  "<p>Cards slide across the table. <b>Tap anywhere</b> to hop Ted up onto the card his arrow points to. When it shows a <b>!</b> instead, the card is out of reach: hop then and he falls, costing a heart. Don't let his card carry him off the edge either.</p><p>Higher cards score more: Ace to 3 are 1, 4 to 7 are 2, 8 to 10 are 3, and Jack to King 4.</p><p>Hop onto the <b>next card up</b> (… Queen, King, Ace, 2 …) for double, and more for every one in a row. A <b>Joker</b> always counts as the next card, and so does whatever you hop to from it. You have " +
   CH_TIME +
   ' seconds.</p>';
 
@@ -116,6 +118,7 @@ export function cardHop(api: MinigameApi): MinigameGame {
   /** Ted's back on his row after a fall: on the card nearest the middle. */
   const climbBack = () => {
     const r = rows[row];
+    if (!r) return; // still on the table's edge, where he started
     card = r.cards.reduce((a, c) => (Math.abs(c.x - api.W / 2) < Math.abs(a.x - api.W / 2) ? c : a));
     tedX = card.x;
   };
@@ -139,20 +142,28 @@ export function cardHop(api: MinigameApi): MinigameGame {
     ensureRows();
   };
 
+  /** The card Ted would hop onto now (the nearest in the row above), and whether it's within his reach. */
+  const nextCard = (): { card: Card; row: number; near: boolean } | null => {
+    const r = rows[row + 1];
+    if (!r || !r.cards.length) return null;
+    const hit = r.cards.reduce((a, c) => (Math.abs(c.x - tedX) < Math.abs(a.x - tedX) ? c : a));
+    return { card: hit, row: row + 1, near: Math.abs(hit.x - tedX) <= cw() * REACH };
+  };
+
   return {
     titleSuffix: () => `${Math.ceil(Math.max(0, CH_TIME - api.t))}s`,
     tap() {
       if (hop || falling > 0) return;
-      // Up onto the card in the row above nearest to him, if it's close enough above him.
-      const target = row + 1;
-      const r = rows[target];
-      if (!r) return;
-      const hit = r.cards.reduce((a, c) => (Math.abs(c.x - tedX) < Math.abs(a.x - tedX) ? c : a));
-      if (Math.abs(hit.x - tedX) > cw() * REACH) {
-        api.pop(tedX, rowY(target) - ch() * 0.5, 'Too far!', '#e0e0e0');
+      // Up onto the card in the row above nearest to him; too far, and he leaps anyway and falls (a heart).
+      const next = nextCard();
+      if (!next) return;
+      if (!next.near) {
+        falling = 0.6;
+        run = 0;
+        api.loseLife(Math.max(30, Math.min(api.W - 30, tedX)), rowY(row) - ch() * 0.5);
         return;
       }
-      hop = { fromX: tedX, fromRow: row, to: hit, toRow: target, t: 0 };
+      hop = { fromX: tedX, fromRow: row, to: next.card, toRow: next.row, t: 0 };
     },
     step(dt) {
       if (api.t >= CH_TIME) {
@@ -225,8 +236,55 @@ export function cardHop(api: MinigameApi): MinigameGame {
         g.fillStyle = '#6a4428';
         g.fillRect(0, edge, api.W, 12 * k());
       }
-      // Ted (from the back, climbing), tumbling a moment when he falls.
+      // Where he'd hop: a faint outline of him on that card, and an arrow from him to its centre; out of his reach,
+      // a "!" in place of the arrow (tap anyway and he falls).
       const p = tedPos();
+      const aim = !hop && falling <= 0 ? nextCard() : null;
+      if (aim) {
+        const cy = rowY(aim.row);
+        const tx = aim.card.x;
+        const sx = p.x;
+        const sy = p.y - H * 0.55;
+        if (aim.near) {
+          drawHunter(g, 'gambler', tx, cy + H * 0.35, 82 * k(), api.t, 3, undefined, { color: '#000000', alpha: 0.4 });
+          const ang = Math.atan2(cy - sy, tx - sx);
+          const len = Math.max(10 * k(), Math.hypot(tx - sx, cy - sy) - 4 * k());
+          const ex = sx + Math.cos(ang) * len;
+          const ey = sy + Math.sin(ang) * len;
+          const head = 9 * k();
+          const path = () => {
+            g.beginPath();
+            g.moveTo(sx, sy);
+            g.lineTo(ex, ey);
+            g.moveTo(ex - Math.cos(ang - 0.5) * head, ey - Math.sin(ang - 0.5) * head);
+            g.lineTo(ex, ey);
+            g.lineTo(ex - Math.cos(ang + 0.5) * head, ey - Math.sin(ang + 0.5) * head);
+          };
+          g.lineCap = 'round';
+          g.lineJoin = 'round';
+          g.strokeStyle = 'rgba(0,0,0,0.75)';
+          g.lineWidth = 6 * k();
+          path();
+          g.stroke();
+          g.strokeStyle = '#ffe08a';
+          g.lineWidth = 3 * k();
+          path();
+          g.stroke();
+        } else {
+          const bob = Math.sin(api.t * 10) * 2 * k();
+          g.font = canvasFont(Math.round(26 * k()), 800);
+          g.textAlign = 'center';
+          g.textBaseline = 'middle';
+          g.lineWidth = 5 * k();
+          g.lineJoin = 'round';
+          g.strokeStyle = '#000';
+          g.strokeText('!', sx, sy - 6 * k() + bob);
+          g.fillStyle = '#ff5a4a';
+          g.fillText('!', sx, sy - 6 * k() + bob);
+          g.textBaseline = 'alphabetic';
+        }
+      }
+      // Ted (from the back, climbing), tumbling a moment when he falls.
       g.save();
       if (falling > 0) {
         g.globalAlpha = 0.4 + 0.6 * (Math.floor(falling * 12) % 2);
