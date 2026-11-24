@@ -899,8 +899,9 @@ export const ASCEND_NODE: SkillNode = {
   cost: 10,
   effect: {},
   requires: ['capstone'],
-  col: 1,
-  row: 4,
+  // Straight below the capstone.
+  col: 2,
+  row: 5,
 };
 
 /** Sessions from Lv 1 to `level` (`ramp`: where the curve climbs; see trainsForLevel). */
