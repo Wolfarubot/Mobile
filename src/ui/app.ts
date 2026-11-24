@@ -676,6 +676,8 @@ export class AppUI {
 
   /** Tabs and pages being built behind the loading screen (they mark nothing seen and show no tips). */
   private preloading = false;
+  /** The Regression web's pinch zoom, kept while the view is rebuilt. */
+  private regZoom = 1;
 
   /**
    * Behind the loading screen: builds the heavy tabs and pages once (the Bestiary, Events, Areas, a monster's and a
@@ -6232,6 +6234,11 @@ export class AppUI {
     return `${sprite(SHARD_ICON)} ${fmt(n)}`;
   }
 
+  /** Memory Shards counted out in full (1,209 rather than 1.21K), up to the millions. */
+  private shardsExact(n: number): string {
+    return n < 1e7 ? Math.floor(n).toLocaleString('en-US') : fmt(n);
+  }
+
   /**
    * The Regression view (menu → Regression): the Regression Tree, a web of nodes bought with Memory Shards, and
    * the Regress page with what this run is worth and the shards a Regression pays now.
@@ -6252,7 +6259,7 @@ export class AppUI {
     this.detail = { el: view, refreshers };
     const body = $('.hd-scroll', view);
     const count = $('.shard-count', view);
-    refreshers.push(() => setHtml(count, this.shardsHtml(g.state.regression.shards)));
+    refreshers.push(() => setHtml(count, `${sprite(SHARD_ICON)} ${this.shardsExact(g.state.regression.shards)}`));
     const tabs = el('div', 'subtabs');
     tabs.innerHTML = `<button data-page="tree" class="${page === 'tree' ? 'on' : ''}">${tx('menu.regression.tree')}</button><button data-page="regress" class="${page === 'regress' ? 'on' : ''}">${tx('menu.regression.regress')}</button>`;
     body.appendChild(tabs);
@@ -6362,15 +6369,73 @@ export class AppUI {
       );
       pan.appendChild(web);
       // Slide the web around by dragging it (finger or mouse, in any direction); a drag never taps the node under it.
+      // Two fingers pinch it bigger or smaller (so does ctrl + the wheel, i.e. a trackpad pinch), round the point
+      // between them; the zoom is kept while the view is rebuilt (e.g. after buying a node).
       let draggedAt = -Infinity;
+      let zoom = this.regZoom;
+      const minZoom = () => Math.min(1, Math.max(0.35, Math.min(pan.clientWidth / W, pan.clientHeight / H)));
+      const setZoom = (z: number, mx: number, my: number) => {
+        // Keep the web point under (mx, my) where it is.
+        const r = web.getBoundingClientRect();
+        const cx = (mx - r.left) / zoom;
+        const cy = (my - r.top) / zoom;
+        zoom = Math.min(REG_ZOOM_MAX, Math.max(minZoom(), z));
+        this.regZoom = zoom;
+        web.style.zoom = `${zoom}`;
+        const r2 = web.getBoundingClientRect();
+        pan.scrollLeft += r2.left + cx * zoom - mx;
+        pan.scrollTop += r2.top + cy * zoom - my;
+      };
+      if (zoom !== 1) web.style.zoom = `${zoom}`;
+      const fingers = new Map<number, { x: number; y: number }>();
+      let pinch: { d: number; z: number } | null = null;
+      const spread = () => {
+        const [a, b] = [...fingers.values()];
+        return { d: Math.hypot(a.x - b.x, a.y - b.y), x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      };
       pan.addEventListener('pointerdown', (ev) => {
         if (ev.button > 0) return;
-        const sx = ev.clientX;
-        const sy = ev.clientY;
-        const left = pan.scrollLeft;
-        const top = pan.scrollTop;
+        fingers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+        if (fingers.size === 2) {
+          // A second finger: from here on it's a pinch (and never a tap).
+          pinch = { d: Math.max(1, spread().d), z: zoom };
+          pan.classList.add('dragging');
+          draggedAt = performance.now();
+          return;
+        }
+        if (fingers.size > 2) return;
+        let sx = ev.clientX;
+        let sy = ev.clientY;
+        let left = pan.scrollLeft;
+        let top = pan.scrollTop;
         let moved = false;
+        let mid: { x: number; y: number } | null = null;
         const move = (e: PointerEvent) => {
+          if (!fingers.has(e.pointerId)) return;
+          fingers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+          if (pinch && fingers.size >= 2) {
+            e.preventDefault();
+            const s = spread();
+            if (mid) {
+              // The pair moving together slides the web too.
+              pan.scrollLeft -= s.x - mid.x;
+              pan.scrollTop -= s.y - mid.y;
+            }
+            mid = { x: s.x, y: s.y };
+            setZoom((pinch.z * s.d) / pinch.d, s.x, s.y);
+            draggedAt = performance.now();
+            return;
+          }
+          if (pinch) {
+            // Back to one finger after a pinch: carry on sliding from here.
+            pinch = null;
+            mid = null;
+            sx = e.clientX;
+            sy = e.clientY;
+            left = pan.scrollLeft;
+            top = pan.scrollTop;
+            moved = true;
+          }
           const dx = e.clientX - sx;
           const dy = e.clientY - sy;
           if (!moved && Math.hypot(dx, dy) > 6) {
@@ -6382,17 +6447,31 @@ export class AppUI {
           pan.scrollLeft = left - dx;
           pan.scrollTop = top - dy;
         };
-        const up = () => {
+        const up = (e: PointerEvent) => {
+          fingers.delete(e.pointerId);
+          if (fingers.size > 0) return;
           window.removeEventListener('pointermove', move);
           window.removeEventListener('pointerup', up);
           window.removeEventListener('pointercancel', up);
           pan.classList.remove('dragging');
-          if (moved) draggedAt = performance.now();
+          if (moved || pinch) draggedAt = performance.now();
+          pinch = null;
         };
         window.addEventListener('pointermove', move, { passive: false });
         window.addEventListener('pointerup', up);
         window.addEventListener('pointercancel', up);
       });
+      pan.addEventListener(
+        'wheel',
+        (e) => {
+          if (!e.ctrlKey) return;
+          e.preventDefault();
+          setZoom(zoom * Math.exp(-e.deltaY / 200), e.clientX, e.clientY);
+        },
+        { passive: false },
+      );
+      // Safari's own page pinch stays out of it.
+      pan.addEventListener('gesturestart', (e) => e.preventDefault());
       pan.addEventListener(
         'click',
         (e) => {
@@ -6418,8 +6497,8 @@ export class AppUI {
         fill();
         // Stabilize a ring's width above the middle of the space (where the node above it would otherwise sit).
         const c = pos(REGRESSION_TREE[0]);
-        pan.scrollLeft = c.x - pan.clientWidth / 2;
-        pan.scrollTop = c.y + R - pan.clientHeight / 2;
+        pan.scrollLeft = c.x * zoom - pan.clientWidth / 2;
+        pan.scrollTop = (c.y + R) * zoom - pan.clientHeight / 2;
       };
     }
     {
@@ -6467,7 +6546,7 @@ export class AppUI {
         ? `<p class="rn-share-label">${tx('menu.regression.share')}</p><div class="chips rn-shares">${AUTO_EMPOWER_SHARES.map((v) => `<button type="button" class="chip${g.state.regression.autoShare === v ? ' on' : ''}" data-share="${v}">${Math.round(v * 100)}% of gold</button>`).join('')}</div>`
         : '';
     this.showModal(
-      `<div class="rn-head">${sprite(n.icon)}<h2>${esc(n.name)}</h2></div><p>${esc(n.desc)}</p><p class="hint">${status ? esc(status) : `${tx('menu.regression.cost')} ${this.shardsHtml(cost)}${g.canBuyReg(id) ? '' : ` (you have ${fmt(g.state.regression.shards)})`}`}</p>${!status && cost < Infinity && !g.canBuyReg(id) && g.state.regression.shards + g.shardsNow >= cost ? `<p class="hint">${tx('menu.regression.regressFor')}</p>` : ''}${shares}`,
+      `<div class="rn-head">${sprite(n.icon)}<h2>${esc(n.name)}</h2></div><p>${esc(n.desc)}</p><p class="hint">${status ? esc(status) : `${tx('menu.regression.cost')} ${this.shardsHtml(cost)}${g.canBuyReg(id) ? '' : ` (you have ${this.shardsExact(g.state.regression.shards)})`}`}</p>${!status && cost < Infinity && !g.canBuyReg(id) && g.state.regression.shards + g.shardsNow >= cost ? `<p class="hint">${tx('menu.regression.regressFor')}</p>` : ''}${shares}`,
       [
         { label: g.canBuyReg(id) ? txt('menu.regression.confirmNo') : txt('menu.main.close'), secondary: true },
         ...(g.canBuyReg(id)
@@ -7816,6 +7895,8 @@ function fmtWait(ms: number): string {
 }
 
 /** How long the Regression's shake and white-out lasts before the new run loads (see .regress-flash). */
+/** How far the Regression web pinches in (it pinches out until the whole web fits). */
+const REG_ZOOM_MAX = 2;
 const REGRESS_FX_MS = 2400;
 
 /** A countdown as a clock: "4:05", "1:29:58". */
