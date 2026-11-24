@@ -35,6 +35,27 @@ export const GUARDIAN_ANIMS: Record<string, Record<string, number>> = {
 };
 
 /**
+ * Where each Guardian's crown sits, in its walk sheet's frame pixels: the column over its head, and the row to look
+ * down from (below anything held over it: the Executioner's axe, the King of Slimes' bubbles, the Time Eater's
+ * horns). Each frame the crown sits on the first pixel of the head found there, so it rides the walk's bob; a side
+ * view's mirrors with it.
+ */
+export const GUARDIAN_HEADS: Record<string, [x: number, fromY: number]> = {
+  'slime-king': [64, 49],
+  'huge-mushroom': [47, 0],
+  executioner: [46, 29],
+  necromancer: [50, 12],
+  'mega-beholder': [63, 30],
+  'demon-slime': [140, 196],
+  'kobold-king': [40, 12],
+  'frost-gargoyle': [46, 18],
+  'wyvern-ice': [215, 100],
+  'storm-titan': [71, 46],
+  'star-eater': [215, 100],
+  'time-eater': [222, 272],
+};
+
+/**
  * Guardians' deaths: frames in each one's `<sheet>-death` sheet (from its pack, recoloured like its walk), played
  * where it fell. A sheet with facing rows (the King Slime's) has them in its walk's order.
  */

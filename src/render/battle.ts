@@ -13,7 +13,7 @@ import { effectImage, gearImage, hunterSheetImage, monsterSheetImage, sprite, sp
 import { HUNTER_SHEETS } from './hunterSheets';
 import { EFFECTS, type EffectKey } from './effectSheets';
 import { areaBackground, areaScene, drawVignette, RIFT_WINGS, type SceneProp } from './backgrounds';
-import { GUARDIAN_ANIMS, GUARDIAN_DEATHS, MONSTER_SHEETS, SHEETS, sheetRow, sideFlip, type MonsterSheet } from './monsterSheets';
+import { GUARDIAN_ANIMS, GUARDIAN_DEATHS, GUARDIAN_HEADS, MONSTER_SHEETS, SHEETS, sheetRow, sideFlip, type MonsterSheet } from './monsterSheets';
 import { GEAR_SPRITES } from '../core/gearSprites';
 import { emojiIconKey } from '../ui/emojiIcons';
 import { tintedIconUrl } from './cdIcons';
@@ -1930,6 +1930,7 @@ export class BattleView {
     const ra = r * SIZE_SCALE[e.art ? 'medium' : (def.size ?? 'medium')] * (e.scale ?? 1);
     // Walking away from the Hunter while fleeing, toward them otherwise.
     const dirX = e.fleeing ? e.x : -e.x;
+    let crownAt: { x: number; y: number } | null = null;
     g.save();
     g.translate(e.x, e.y);
     if (e.fleeing) g.globalAlpha = 0.8;
@@ -1990,6 +1991,14 @@ export class BattleView {
         g.restore();
       }
       drawSheetFrame(g, src, sh, sheetRow(sh, dir), col, ra * SHEET_SCALE, { of: sheet, alpha: this.monsterClarity(e) });
+      // A Guardian's crown sits on its head (GUARDIAN_HEADS), mirrored with a side view.
+      if (e.boss) {
+        const at = headTop(sheetKey, sheet, sh, sheetRow(sh, dir), col);
+        if (at) {
+          const k = (ra * SHEET_SCALE) / Math.max(sh.box[2], sh.box[3]);
+          crownAt = { x: (at.x - (sh.box[0] + sh.box[2] / 2)) * k * (flip ? -1 : 1), y: (at.y - (sh.box[1] + sh.box[3] / 2)) * k };
+        }
+      }
       if (e.persist) redGlow(g, sheet, sh, sheetRow(sh, dir), col, ra * SHEET_SCALE, e.persist, this.time);
       if (e.phased) g.globalAlpha = 1;
       if (e.flash > 0.5) {
@@ -2046,7 +2055,7 @@ export class BattleView {
       g.restore();
     }
 
-    if (e.boss) drawCrown(g, ra);
+    if (e.boss) drawCrown(g, ra, crownAt);
     if (e.golden) drawGoldSparkle(g, ra, this.time + e.phase);
     if (e.fleeing) drawDizzy(g, ra, this.time + e.phase, 0.6);
     drawStatus(g, e, this.time, (k) => this.fxOn(k), this.game.state.settings.aoeStyle === 'basic');
@@ -2771,15 +2780,48 @@ function star(g: CanvasRenderingContext2D, x: number, y: number, s: number): voi
   g.fill();
 }
 
+/** Each Guardian frame's head top (see GUARDIAN_HEADS), found once per frame from its pixels. */
+const HEAD_TOPS = new Map<string, { x: number; y: number } | null>();
+let headCanvas: CanvasRenderingContext2D | null = null;
+function headTop(key: string, img: HTMLImageElement, sh: MonsterSheet, row: number, col: number): { x: number; y: number } | null {
+  const spot = GUARDIAN_HEADS[key];
+  if (!spot) return null;
+  const id = `${key}:${row}:${col}`;
+  if (HEAD_TOPS.has(id)) return HEAD_TOPS.get(id)!;
+  const F = sh.frame;
+  const [ax, fromY] = spot;
+  headCanvas ??= document.createElement('canvas').getContext('2d', { willReadFrequently: true });
+  let found: { x: number; y: number } | null = { x: ax, y: fromY };
+  if (headCanvas) {
+    const w = 5;
+    const h = F - fromY;
+    const c = headCanvas.canvas;
+    if (c.width < w || c.height < h) {
+      c.width = Math.max(c.width, w);
+      c.height = Math.max(c.height, h);
+    }
+    headCanvas.clearRect(0, 0, w, h);
+    headCanvas.drawImage(img, col * F + ax - 2, row * F + fromY, w, h, 0, 0, w, h);
+    const px = headCanvas.getImageData(0, 0, w, h).data;
+    let top = -1;
+    for (let y = 0; y < h && top < 0; y++) for (let x = 0; x < w; x++) if (px[(y * w + x) * 4 + 3] > 96) { top = y; break; }
+    found = top < 0 ? null : { x: ax, y: fromY + top };
+  }
+  HEAD_TOPS.set(id, found);
+  return found;
+}
+
 /** The Guardian's crown: the same pixel crown as the Events tab's icon (a drawn one until it has loaded). */
 const CROWN_ICON = 'armor7/068';
 
-function drawCrown(g: CanvasRenderingContext2D, r: number): void {
+/** `head`: where the top of its head is (a Guardian with a walk sheet); otherwise the crown sits over its radius. */
+function drawCrown(g: CanvasRenderingContext2D, r: number, head: { x: number; y: number } | null = null): void {
   const img = gearImage(CROWN_ICON);
   if (img) {
     const size = Math.max(14, r * 0.95);
     g.imageSmoothingEnabled = false;
-    g.drawImage(img, -size / 2, -r - size * 0.85, size, size);
+    if (head) g.drawImage(img, head.x - size / 2, head.y - size * 0.78, size, size);
+    else g.drawImage(img, -size / 2, -r - size * 0.85, size, size);
     return;
   }
   g.fillStyle = '#ffd34d';
