@@ -9821,53 +9821,6 @@ body.landscape .modal.over-menu .menu-item {
   min-height: 0;
 }
 
-/* A pop-up's (and a recipe card's) arrow, on the edge facing the other side of the screen: slides it across. Only
-   in landscape, where pop-ups sit over the menu's column or the battlefield. */
-.pop-side {
-  display: none;
-}
-body.landscape .pop-side {
-  display: grid;
-  place-items: center;
-  position: fixed;
-  z-index: 21;
-  width: 26px;
-  height: 52px;
-  padding: 0;
-  transform: translate(-50%, -50%);
-  background: var(--c3);
-  border: 2px solid var(--c0);
-  box-shadow: 2px 2px 0 var(--c0);
-  border-radius: 6px;
-}
-body.landscape .pop-side::before {
-  content: '';
-  width: 10px;
-  height: 10px;
-  border-right: 4px solid var(--c0);
-  border-bottom: 4px solid var(--c0);
-  transform: translateX(-2px) rotate(-45deg);
-}
-body.landscape .pop-side.point-left::before {
-  transform: translateX(2px) rotate(135deg);
-}
-/* On a recipe card it sits on the card's own edge, halfway down. */
-body.landscape .field-card:has(.fc-side) {
-  overflow: visible;
-}
-body.landscape .field-card .fc-side {
-  position: absolute;
-  top: 50%;
-  transform: translate(50%, -50%);
-  right: 0;
-  left: auto;
-}
-body.landscape .field-card .fc-side.point-left {
-  right: auto;
-  left: 0;
-  transform: translate(-50%, -50%);
-}
-
 /* A recipe card's large version in landscape stays over the battlefield (not the middle of the whole screen). */
 body.landscape .field-card.floating.big:not(.over-menu) {
   top: calc(56px + var(--safe-top, 0px));
@@ -9880,11 +9833,4 @@ body.landscape .field-card.floating.big:not(.over-menu) {
 body.landscape.left-handed .field-card.floating.big:not(.over-menu) {
   left: calc(var(--menu-w) + var(--safe-left, 0px) + 8px);
   right: calc(8px + var(--safe-right, 0px));
-}
-/* Room on that side, so the arrow never covers the card's text. */
-body.landscape .field-card:has(.fc-side:not(.point-left)) {
-  padding-right: 20px;
-}
-body.landscape .field-card:has(.fc-side.point-left) {
-  padding-left: 20px;
 }
