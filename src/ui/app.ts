@@ -6296,12 +6296,13 @@ export class AppUI {
       const pad = 40;
       const xs = shown.map((n) => at(n).x);
       const ys = shown.map((n) => at(n).y);
-      // Laid out around Stabilize (the middle of the web is always Stabilize), as big as the whole finished web (its
-      // outer ring and a border round it) from the start, so there's always room to slide it around.
+      // Laid out around Stabilize (the middle of the web is always Stabilize), as big as the whole finished web from the
+      // start (its outer ring and a little room round it), so there's always room to slide it around, and sliding
+      // stops at that edge.
       const outer = Math.max(...REGRESSION_TREE.map((n) => drawRing(n))) * R;
       const edge = outer + 44;
-      const reachX = Math.max(edge, ...xs.map(Math.abs)) + padX;
-      const reachY = Math.max(edge, ...ys.map(Math.abs)) + pad;
+      const reachX = Math.max(edge, ...xs.map((x) => Math.abs(x) + padX));
+      const reachY = Math.max(edge, ...ys.map((y) => Math.abs(y) + pad));
       const x0 = -reachX;
       const y0 = -reachY;
       const W = 2 * reachX;
@@ -6332,9 +6333,7 @@ export class AppUI {
           return `<line x1="${-x0 + 3.3 * R * Math.cos(a)}" y1="${-y0 + 3.3 * R * Math.sin(a)}" x2="${pos(n).x - 26 * Math.cos(a)}" y2="${pos(n).y - 26 * Math.sin(a)}" class="rw-thread"/>`;
         })
         .join('');
-      // The border of the area the web can grow to: just outside its final outer ring.
-      const border = `<circle cx="${-x0}" cy="${-y0}" r="${edge}" class="rw-edge"/>`;
-      web.innerHTML = `<svg viewBox="0 0 ${W} ${H}" aria-hidden="true">${border}${rings}${threads}${links}</svg>`;
+      web.innerHTML = `<svg viewBox="0 0 ${W} ${H}" aria-hidden="true">${rings}${threads}${links}</svg>`;
       for (const n of shown) {
         const p = pos(n);
         const b = el('button', 'reg-node') as HTMLButtonElement;
