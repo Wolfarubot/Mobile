@@ -132,6 +132,23 @@ describe('Regression', () => {
     expect(back.seen.recipes).toEqual([]);
   });
 
+  it('after a Regression a Guild Hunter can be recruited once their home area is reached', () => {
+    const s = midRun();
+    s.regression.unlocked = true;
+    for (const h of HUNTERS) s.hunters[h.id].met = true;
+    const g = new Game(regress(s, 1).state);
+    const open = (area: string) => HUNTERS.filter((h) => h.area === area).every((h) => g.hunterAvailable(h.id));
+    // The Woods' Hunters straight away; the Fey Grove's only once it's reached; the Void Rift's Id last.
+    expect(open('forest')).toBe(true);
+    expect(open('glade')).toBe(false);
+    expect(g.hunterAvailable('riftwalker')).toBe(false);
+    expect(g.unlockProgress('druid')).toEqual({ have: 0, need: 1 });
+    g.state.areas.glade.unlocked = true;
+    expect(open('glade')).toBe(true);
+    g.state.areas.rift.unlocked = true;
+    expect(g.hunterAvailable('riftwalker')).toBe(true);
+  });
+
   it("a save from before a run's start was kept: the first run counts all it earned, a later one its gold on hand", () => {
     const first = midRun();
     first.stats.totalGold = 9e9;

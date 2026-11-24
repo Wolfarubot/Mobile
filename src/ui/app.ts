@@ -8251,6 +8251,7 @@ const NEXT_HUNTERS_SHOWN = 3;
  */
 function unlockText(g: Game, def: HunterDef): string {
   const u = def.unlock;
+  if (g.state.regression.runs > 0) return `Reach the ${areaDef(def.area).name}`;
   const { have, need } = g.unlockProgress(def.id);
   const of = ` (${fmt(Math.min(have, need))}/${fmt(need)})`;
   if ('event' in u) {

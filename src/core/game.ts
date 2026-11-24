@@ -3675,7 +3675,10 @@ export class Game {
    */
   hunterAvailable(id: HunterId): boolean {
     const st = this.state.hunters[id];
-    if (st.recruited || st.met) return true;
+    if (st.recruited) return true;
+    // After a Regression a Guild Hunter is found again in their home area: reach it and they can be recruited.
+    if (this.state.regression.runs > 0) return this.state.areas[hunterDef(id).area].unlocked;
+    if (st.met) return true;
     const { have, need } = this.unlockProgress(id);
     if (have < need) return false;
     st.met = true;
@@ -3685,6 +3688,7 @@ export class Game {
   /** How far along a Hunter's unlock is: what you have of it, and what it needs. */
   unlockProgress(id: HunterId): { have: number; need: number } {
     const u = hunterDef(id).unlock;
+    if (this.state.regression.runs > 0) return { have: this.state.areas[hunterDef(id).area].unlocked ? 1 : 0, need: 1 };
     if ('event' in u) return { have: this.eventCompletions(u.event), need: u.times };
     if ('enemy' in u) return { have: this.state.bestiary[u.enemy]?.kills ?? 0, need: u.kills };
     if ('archetype' in u) return { have: ENEMIES.filter((e) => e.area === u.area && e.archetype === u.archetype).reduce((n, e) => n + (this.state.bestiary[e.id]?.kills ?? 0), 0), need: u.kills };
@@ -3710,6 +3714,8 @@ export class Game {
 
   /** Hunters a completion of this event would make available (the next time it's completed). */
   huntersUnlockedBy(id: string): HunterId[] {
+    // (After a Regression, Hunters are found by reaching their area instead.)
+    if (this.state.regression.runs > 0) return [];
     const next = this.eventCompletions(id) + 1;
     return HUNTERS.filter((h) => 'event' in h.unlock && h.unlock.event === id && h.unlock.times === next).map((h) => h.id);
   }
