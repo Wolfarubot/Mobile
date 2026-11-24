@@ -38,19 +38,19 @@ export const GUARDIAN_ANIMS: Record<string, Record<string, number>> = {
  * Where each Guardian's crown sits, in its walk sheet's frame pixels: the column over its head, and the row to look
  * down from (below anything held over it: the Executioner's axe, the King of Slimes' bubbles, the Time Eater's
  * horns). Each frame the crown sits on the first pixel of the head found there, so it rides the walk's bob; a side
- * view's mirrors with it. `fixed`: it sits at exactly that point instead (the Time Eater's, up between its horns).
+ * view's mirrors with it. `fixed`: it sits at exactly that point instead (the Kobold King's on his helmet, the Demon Lord's and Time Eater's between their horns).
  */
 export const GUARDIAN_HEADS: Record<string, [x: number, fromY: number, fixed?: true]> = {
   'slime-king': [64, 49],
-  'huge-mushroom': [47, 0],
+  'huge-mushroom': [50, 0],
   executioner: [46, 29],
   necromancer: [50, 12],
   'mega-beholder': [63, 30],
-  'demon-slime': [144, 212],
-  'kobold-king': [40, 12],
-  'frost-gargoyle': [46, 18],
+  'demon-slime': [146, 214, true],
+  'kobold-king': [44, 19, true],
+  'frost-gargoyle': [42, 14],
   'wyvern-ice': [215, 100],
-  'storm-titan': [71, 46],
+  'storm-titan': [75, 46],
   'star-eater': [215, 100],
   'time-eater': [224, 270, true],
 };
