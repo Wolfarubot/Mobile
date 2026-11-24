@@ -7621,12 +7621,11 @@ html body .hunter-detail.regression {
   width: 100%;
   height: 100%;
 }
-/* The edge of the area the web grows to (just outside its final outer ring): a glowing border round the space. */
+/* The edge of the area the web grows to (just outside its final outer ring): a solid glowing border round the space. */
 .rw-edge {
   fill: rgba(30, 14, 60, 0.35);
   stroke: rgba(210, 170, 255, 0.55);
   stroke-width: 3;
-  stroke-dasharray: 10 6;
   filter: drop-shadow(0 0 6px rgba(200, 140, 255, 0.6));
 }
 .rw-ring {
