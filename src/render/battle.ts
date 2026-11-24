@@ -582,9 +582,10 @@ export class BattleView {
   private drawEchoes(g: CanvasRenderingContext2D): void {
     for (const x of this.field.echoes) {
       const def = enemyDef(x.type);
-      const ghost: Enemy = { id: -1, type: x.type, x: x.x, y: x.y, hp: 1, maxHp: 1, r: def.radius * 2.6, speed: 0, boss: true, fleeing: false, flash: 0, kx: 0, ky: 0, phase: x.t };
+      // A red border (its glow) marks it as one of the Time Eater's.
+      const ghost: Enemy = { id: -1, type: x.type, x: x.x, y: x.y, hp: 1, maxHp: 1, r: def.radius * 2.6, speed: 0, boss: true, fleeing: false, flash: 0, kx: 0, ky: 0, phase: x.t, glow: '#ff2a2a' };
       g.save();
-      g.globalAlpha = 0.45 * Math.min(1, x.t / 0.3, (x.max - x.t) / 0.4);
+      g.globalAlpha = 0.6 * Math.min(1, x.t / 0.3, (x.max - x.t) / 0.4);
       this.scaledAt(g, x.x, x.y, () => this.drawEnemy(g, ghost));
       g.restore();
     }

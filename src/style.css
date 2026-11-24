@@ -9652,3 +9652,41 @@ body.left-handed .hold-bar.over-menu {
     filter: none;
   }
 }
+
+/*
+ * Regressing (AppUI.regressFx): the whole screen shakes harder and harder as a bright white glow swells over it,
+ * then holds white (2.4 s in all) before the new run loads.
+ */
+body.regressing #app,
+body.regressing .hunter-detail,
+body.regressing .modal {
+  animation: regress-shake 2.4s ease-in forwards;
+}
+@keyframes regress-shake {
+  0% { transform: translate(0, 0); }
+  8% { transform: translate(-1px, 1px); }
+  16% { transform: translate(2px, -1px); }
+  24% { transform: translate(-2px, 2px); }
+  32% { transform: translate(3px, -2px); }
+  40% { transform: translate(-4px, 3px); }
+  48% { transform: translate(5px, -3px) rotate(0.3deg); }
+  56% { transform: translate(-6px, 4px) rotate(-0.4deg); }
+  64% { transform: translate(7px, -5px) rotate(0.5deg); }
+  72% { transform: translate(-8px, 6px) rotate(-0.6deg); }
+  80% { transform: translate(9px, -7px) rotate(0.7deg); }
+  88%, 100% { transform: translate(0, 0); }
+}
+.regress-flash {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  pointer-events: all;
+  background: radial-gradient(circle at 50% 45%, #ffffff 0%, #fffbea 35%, #fff2c4 70%, #ffe9a8 100%);
+  opacity: 0;
+  animation: regress-white 2.4s ease-in forwards;
+}
+@keyframes regress-white {
+  0% { opacity: 0; filter: brightness(1); }
+  70% { opacity: 0.85; filter: brightness(1.1); }
+  85%, 100% { opacity: 1; filter: brightness(1.3); background: #ffffff; }
+}

@@ -6248,9 +6248,25 @@ export class AppUI {
     refreshers.push(() => setHtml(count, this.shardsHtml(g.state.regression.shards)));
     const tabs = el('div', 'subtabs');
     tabs.innerHTML = `<button data-page="tree" class="${page === 'tree' ? 'on' : ''}">${tx('menu.regression.tree')}</button><button data-page="regress" class="${page === 'regress' ? 'on' : ''}">${tx('menu.regression.regress')}</button>`;
-    tabs.querySelectorAll<HTMLElement>('button').forEach((b) => b.addEventListener('click', () => b.dataset.page !== page && this.openRegression(b.dataset.page as 'tree' | 'regress')));
     body.appendChild(tabs);
-    if (page === 'tree') {
+    // Both pages are built once; the tabs just switch which one shows (no rebuilding the page).
+    const treePane = el('div', 'reg-pane');
+    const regressPane = el('div', 'reg-pane');
+    body.append(treePane, regressPane);
+    let centre: (() => void) | null = null;
+    const show = (p: 'tree' | 'regress') => {
+      tabs.querySelectorAll<HTMLElement>('button').forEach((b) => b.classList.toggle('on', b.dataset.page === p));
+      treePane.classList.toggle('hidden', p !== 'tree');
+      regressPane.classList.toggle('hidden', p !== 'regress');
+      // The web starts centred on Stabilize, the first time it shows.
+      if (p === 'tree' && centre) {
+        requestAnimationFrame(centre);
+        centre = null;
+      }
+    };
+    tabs.querySelectorAll<HTMLElement>('button').forEach((b) => b.addEventListener('click', () => show(b.dataset.page as 'tree' | 'regress')));
+    {
+      const body = treePane;
       body.appendChild(el('p', 'hd-note', txt('menu.regression.treeNote')));
       // Regress from right here, e.g. when a node is just out of reach: the shards this run would pay, and the button.
       const bar = el('div', 'card reg-bar');
@@ -6375,12 +6391,14 @@ export class AppUI {
       );
       body.appendChild(pan);
       // Start with Stabilize in the middle of the view.
-      requestAnimationFrame(() => {
+      centre = () => {
         const c = pos(REGRESSION_TREE[0]);
         pan.scrollLeft = c.x - pan.clientWidth / 2;
         pan.scrollTop = c.y - pan.clientHeight / 2;
-      });
-    } else {
+      };
+    }
+    {
+      const body = regressPane;
       const note = el('div', 'hd-note reg-note');
       body.appendChild(note);
       const card = el('div', 'card reg-worth');
@@ -6408,6 +6426,7 @@ export class AppUI {
         setHtml(btn, `${sprite(SHARD_ICON)} ${tx('menu.regression.button', { shards: fmt(shards) })}`);
       });
     }
+    show(page);
     for (const r of refreshers) r();
   }
 
@@ -6461,8 +6480,32 @@ export class AppUI {
     const shards = g.shardsNow;
     this.showModal(`<h2>${tx('menu.regression.confirmTitle')}</h2>${txp('menu.regression.confirmBody', { shards: fmt(shards) })}`, [
       { label: txt('menu.regression.confirmNo'), secondary: true },
-      { label: txt('menu.regression.confirmYes'), action: () => void this.hooks.regress(regress(g.state, g.clock()).state) },
+      {
+        label: txt('menu.regression.confirmYes'),
+        action: () => {
+          const next = regress(g.state, g.clock()).state;
+          void this.regressFx().then(() => this.hooks.regress(next));
+        },
+      },
     ]);
+  }
+
+  /**
+   * Regressing: the whole screen (the battlefield, the menu, any page over it) shakes harder and harder as it
+   * fades into a bright glowing white, which holds a moment before the new run loads.
+   */
+  private regressFx(): Promise<void> {
+    const flash = el('div', 'regress-flash');
+    document.body.appendChild(flash);
+    document.body.classList.add('regressing');
+    try {
+      sessionStorage.setItem('ph-regress', '1');
+    } catch {
+      // Without it the loading screen just starts dark.
+    }
+    const pulses = [0, 450, 900, 1250, 1500, 1700];
+    for (const t of pulses) setTimeout(buzz, t);
+    return new Promise((done) => setTimeout(done, REGRESS_FX_MS));
   }
 
   private openJournal(entry?: JournalEntry): void {
@@ -7744,6 +7787,9 @@ function fmtWait(ms: number): string {
   const h = Math.floor(ms / 3600000);
   return h >= 24 ? `${Math.floor(h / 24)}d ${h % 24}h` : fmtTime(ms / 1000);
 }
+
+/** How long the Regression's shake and white-out lasts before the new run loads (see .regress-flash). */
+const REGRESS_FX_MS = 2400;
 
 /** A countdown as a clock: "4:05", "1:29:58". */
 function clockText(seconds: number): string {

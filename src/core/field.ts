@@ -153,7 +153,7 @@ const GUARDIAN_MOVE: Record<GuardianMove, { cd: number; first: number; reach?: n
   meteors: { cd: 7, first: 2.5, windup: 0.8, size: 55 },
   plunge: { cd: 10, first: 6, windup: 1, size: 120 },
   freeze: { cd: 15, first: 6 },
-  echo: { cd: 9, first: 3 },
+  echo: { cd: 5, first: 2 },
 };
 /** The Undead Executioner's wisps: how many around each Hunter, how far out, how fast, and how long they hang first. */
 const WISPS = { count: 5, ring: 150, speed: 230, wait: 0.7 };
@@ -185,6 +185,11 @@ export const PERSIST = { first: 0.8, gap: 0.3, slams: 9, rate: 2.5, glow: 1.6 };
 const PERSIST_LAST = PERSIST.first + (PERSIST.slams - 1) * PERSIST.gap;
 export const PERSIST_TIME = PERSIST_LAST + PERSIST.glow;
 const GUARDIAN_STACK_MAX = 5;
+/**
+ * An echo (a ghost of another Guardian the Time Eater calls up) shows for `lead` seconds before it does its move,
+ * and stays `linger` seconds after its move's strikes have landed.
+ */
+const ECHO_TIMING = { lead: 1.2, strikes: 2.5, linger: 1.5 };
 /** The Time Eater's echoes: the other Guardians' moves its ghosts can do. */
 const ECHOES: Array<{ type: EnemyId; move: GuardianMove }> = [
   { type: 'skeletonKing', move: 'wisps' },
@@ -843,7 +848,7 @@ export class Field {
   /** The Time Eater persisting (see PERSIST): it, seconds in, the beats done, and who dealt the blow that brought it to half. */
   persisting: { e: Enemy; t: number; step: number; shooter: Shooter } | null = null;
   /** The Time Eater's echoes: a ghost of another Guardian, shown where it appears for a moment. */
-  echoes: Array<{ type: EnemyId; x: number; y: number; t: number; max: number }> = [];
+  echoes: Array<{ type: EnemyId; x: number; y: number; t: number; max: number; /** The ghost, until it has done its move. */ ghost?: Enemy; move?: GuardianMove }> = [];
   puddles: Puddle[] = [];
   ghosts: Ghost[] = [];
   /** Seconds the field has run (for timing things like a summon's repeat strikes). */
@@ -1438,7 +1443,13 @@ export class Field {
     if (this.guardianMoves) {
       this.gust = Math.max(0, this.gust - dt);
       this.runHazards(dt);
-      for (const x of this.echoes) x.t += dt;
+      for (const x of this.echoes) {
+        x.t += dt;
+        if (x.ghost && x.move && x.t >= ECHO_TIMING.lead) {
+          this.echoMove(x.ghost, x.move);
+          x.ghost = undefined;
+        }
+      }
       this.echoes = this.echoes.filter((x) => x.t < x.max);
       if (!g.guardianActive) this.hazards = [];
       if (this.freeze > 0) {
@@ -1956,6 +1967,15 @@ export class Field {
     this.stepMove(e, next, 0);
   }
 
+  /** An echo does its move: its opening beat, from where the ghost stands (the moves that play out from there in one go). */
+  private echoMove(ghost: Enemy, move: GuardianMove): void {
+    this.stepMove(ghost, move, 0);
+    for (let t = 0; t < 2.5 && ghost.gm!.move; t += 0.05) {
+      ghost.gm!.t += 0.05;
+      this.stepMove(ghost, move, 0.05);
+    }
+  }
+
   /** Plays the anim `key` on the Guardian. */
   private animate(e: Enemy, key: string, rate?: number): void {
     e.anim = { key, at: this.clock, ...(rate ? { rate } : {}) };
@@ -2279,14 +2299,9 @@ export class Field {
           this.animate(e, 'attack');
           const pick = ECHOES[Math.floor(g.rng() * ECHOES.length)];
           const p = this.spotAway(180);
-          this.echoes.push({ type: pick.type, x: p.x, y: p.y, t: 0, max: 1.8 });
+          // It appears, waits a moment (ECHO_TIMING.lead), does its move, and stays a while after.
           const ghost: Enemy = { ...e, id: -1, type: pick.type, x: p.x, y: p.y, gm: { ...gm, move: pick.move, t: 0, step: 0, hit: [] } };
-          // Its move's opening beat, from where the ghost stands (the moves that play out from there in one go).
-          this.stepMove(ghost, pick.move, 0);
-          for (let t = 0; t < 2.5 && ghost.gm!.move; t += 0.05) {
-            ghost.gm!.t += 0.05;
-            this.stepMove(ghost, pick.move, 0.05);
-          }
+          this.echoes.push({ type: pick.type, x: p.x, y: p.y, t: 0, max: ECHO_TIMING.lead + ECHO_TIMING.strikes + ECHO_TIMING.linger, ghost, move: pick.move });
         }
         done(1.0);
         break;

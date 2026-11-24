@@ -30,6 +30,22 @@
         transition: opacity 0.45s ease-out;
         padding: env(safe-area-inset-top, 0px) 16px env(safe-area-inset-bottom, 0px);
       }
+      #splash.from-white::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: #fff;
+        pointer-events: none;
+        animation: sp-unwhite 1.4s ease-out forwards;
+      }
+      @keyframes sp-unwhite {
+        from {
+          opacity: 1;
+        }
+        to {
+          opacity: 0;
+        }
+      }
       #splash.gone {
         opacity: 0;
         pointer-events: none;
@@ -75,6 +91,15 @@
       <img class="sp-sword" src="./icons/weapons/015.png" alt="" />
       <div class="sp-by">By Variette Studios</div>
     </div>
+    <script>
+      // Just after a Regression's white-out: the loading screen starts white and fades in from it.
+      try {
+        if (sessionStorage.getItem('ph-regress')) {
+          document.getElementById('splash').classList.add('from-white');
+          sessionStorage.removeItem('ph-regress');
+        }
+      } catch (e) {}
+    </script>
     <div id="app">
       <header class="topbar">
         <div class="stat gold"><span>🪙</span><b id="gold">0</b></div>
