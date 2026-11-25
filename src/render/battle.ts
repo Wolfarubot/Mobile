@@ -1555,7 +1555,7 @@ export class BattleView {
         this.fx.burst(e.x, e.y, e.color, 3, 70, 2, 0, true);
         break;
       case 'anchor':
-        if (this.fancy) this.playEffect('blackhole', e.x, e.y, e.r * 1.6, 'center', 16, 0, 0.85, e.color);
+        if (this.fancy) this.playEffect('blackhole', e.x, e.y, e.r * 1.6, 'center', 16, 0, 0.4, e.color); // faint: a vast well shouldn't hide the fight
         else this.rings.push({ x: e.x, y: e.y, t: 0, r: e.r, color: rgb, max: 0.4 });
         this.fx.burst(e.x, e.y, e.color, 10, 120, 3, 0, true);
         break;
@@ -1794,11 +1794,11 @@ export class BattleView {
       case 'gravityAnchor': {
         // A black hole at the anchor, pulling a ring of pixels in from its reach.
         const img = effectImage('blackhole');
-        g.globalAlpha = 0.9 * fade;
+        g.globalAlpha = 0.45 * fade;
         if (img) drawEffectFrame(g, img, 'blackhole', Math.floor(t * 12), z.x, z.y, z.r * 0.7, 'center', true);
         g.strokeStyle = '#ff5fd7';
         g.lineWidth = 2;
-        g.globalAlpha = 0.5 * fade;
+        g.globalAlpha = 0.3 * fade;
         g.beginPath();
         g.arc(z.x, z.y, z.r * (1 - ((t * 1.5) % 1)), 0, Math.PI * 2);
         g.stroke();
@@ -3170,14 +3170,14 @@ function drawStatus(g: CanvasRenderingContext2D, e: Enemy, t: number, on: (k: Fx
     const R = STATUS.well.radius;
     const fade = Math.min(1, e.well * 3);
     if (basic) {
-      g.strokeStyle = `rgba(255,95,215,${0.3 * fade})`;
+      g.strokeStyle = `rgba(255,95,215,${0.18 * fade})`;
       g.lineWidth = 2;
       g.beginPath();
       g.arc(0, 0, r + (R - r) * (1 - ((t * 1.5 + e.phase) % 1)), 0, Math.PI * 2);
       g.stroke();
     } else if (effectImage('blackhole')) {
       // A swirling black hole under the monster, as wide as the well's pull.
-      g.globalAlpha = fade * 0.5;
+      g.globalAlpha = fade * 0.3;
       drawEffectFrame(g, effectImage('blackhole')!, 'blackhole', Math.floor(t * 12 + e.phase * 8), 0, 0, Math.max(r * 2.6, R * 0.9), 'center', true);
       g.globalAlpha = 1;
     } else {
@@ -3187,7 +3187,7 @@ function drawStatus(g: CanvasRenderingContext2D, e: Enemy, t: number, on: (k: Fx
         const dist = r + (R - r) * (1 - p);
         const a = (i * Math.PI * 2) / n + p * 3 + t * 2;
         const s = 2 + 2 * (1 - p);
-        g.globalAlpha = fade * 0.6 * (0.35 + 0.65 * p);
+        g.globalAlpha = fade * 0.35 * (0.35 + 0.65 * p);
         g.fillStyle = i % 2 ? '#ff5fd7' : '#5a2a8a';
         g.fillRect(Math.cos(a) * dist - s / 2, Math.sin(a) * dist - s / 2, s, s);
       }
