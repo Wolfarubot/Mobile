@@ -177,10 +177,10 @@ section(
   'You are the Slayer',
   {
     title: 'You are the Slayer!',
-    body: "{name} {is} now **the Slayer**! The Slayer's **Skill Tree** is now open, and training can continue up to **Lv {max}**.\n\nThe level curve starts over, so it only takes one session to reach Lv {next}, and training costs stay the same.",
+    body: "{name} {is} now **the Slayer**! The Slayer's **Skill Tree** is now open, and training can continue up to **Lv {max}**.",
     ok: 'Onward',
   },
-  { note: 'When your Hunter takes the Ascend node.', vars: { name: "your Hunter's name", is: '"is" (or "are" if unnamed: "You are")', max: 'new level cap', next: 'the next level' } },
+  { note: 'When your Hunter takes the Ascend node.', vars: { name: "your Hunter's name", is: '"is" (or "are" if unnamed: "You are")', max: 'new level cap' } },
 );
 section(
   P,
@@ -188,10 +188,10 @@ section(
   'Hunter ascended',
   {
     title: '{name} ascended!',
-    body: '{name} is now **the {title}**! A new **Skill Tree** is now open, and training can continue up to **Lv {max}**.\n\nThe level curve starts over, so it only takes one session to reach Lv {next}, and training costs stay the same.',
+    body: '{name} is now **the {title}**! A new **Skill Tree** is now open, and training can continue up to **Lv {max}**.',
     ok: 'Onward',
   },
-  { note: 'When a Guild Hunter takes the Ascend node.', vars: { name: 'the Hunter', title: 'their ascended title', max: 'new level cap', next: 'the next level' } },
+  { note: 'When a Guild Hunter takes the Ascend node.', vars: { name: 'the Hunter', title: 'their ascended title', max: 'new level cap' } },
 );
 section(
   P,
