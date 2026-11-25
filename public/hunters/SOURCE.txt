@@ -1,11 +1,31 @@
-Hunter idle sheets from CraftPix.net's top-down 4-direction Swordsman (lvl 2-9), Mage (lvl 2-9), Archer (lvl 2-9)
-and Vampire packs (license: https://craftpix.net/file-licenses/): the idle animation's body and head layers (no
-weapon; the game draws each Hunter's equipped weapon), rows in the order down, left, right, up. Every Hunter uses
-the same style. You: the look you choose in Settings → Hunter Sprite, put together in the game (src/render/mainSheet.ts) from public/hunters/parts/ (every level 1-9 Swordsman, Mage and Archer idle head and body, as drawn) with the skin and eyes recoloured; main.png (Swordsman 3) shows until it's ready. Galladair: Mage 3 (skin recoloured light blue). Ba'al: Archer 3 (skin recoloured copper). Andrejz: Swordsman 2. Deku: Mage 6. Alias:
-Archer 4. Lance: Swordsman 7. Glimmer: Mage 2 (warmed to fiery tones). Theon: Archer 6. Wilhelm: Archer 5. Celeste:
-Mage 5 (white hair, purple eyes, dark brown cloak and leather-brown shirt). Kargesh: Swordsman 4. Sciirj: Archer 2 (tinted to a monk's orange). Marceline: Mage 4 (black hair). Gideon: Vampire 1
-(greyed toward bone). Lilith (Haunter): Swordsman 5 recoloured to a ghost's palette (dusky violet hood and armour, pale bloodless skin, a spectral teal scarf, glowing cyan eyes). Themus: Vampire 3 (pale red skin, dark brown hair). Reginald (Artificer): Swordsman 8. Thomas: Mage 9 (as drawn). Ted: Archer 7 (as drawn). No two Hunters share a base outfit, recoloured or not.
+Hunter idle sheets from CraftPix.net's top-down 4-direction packs (license: https://craftpix.net/file-licenses/):
+Swordsman, Mage and Archer 1-9, Vampire, Lich, Lizardmen, Guild Hall, Market Square, Training Arena and Blacksmith.
+No weapons (the game draws each Hunter's equipped weapon); rows in the order down, left, right, up; laid out by
+tools/hunter-sprites/install.py, which also has the scripts that built each one. No two Hunters share a look.
+You: the look you choose in Settings → Hunter Sprite, put together in the game (src/render/mainSheet.ts) from
+public/hunters/parts/ (every level 1-9 Swordsman, Mage and Archer idle head and body, as drawn) with the skin and
+eyes recoloured; main.png (Swordsman 3) shows until it's ready.
+Andrejz: Archer 2's head (grey-white hair, fair skin) on Swordsman 6's body (its steel as leather).
+Galladair: Mage 3's head (light-blue skin) on Archer 6's body.
+Deku: Mage 6 without the cape, the robe in the hood's greens, a turtle shell on his back.
+Alias: Archer 7 in a red cloak and armour, black mask and trousers, white trim, a brown tuft, lighter skin.
+Lance: Archer 9 without the red plumes from the shoulder pads up.
+Ba'al: Lizardmen pack's crested lizardman in copper, Archer 6's hat, a lute on his back (4 idle frames).
+Glimmer: Guild Hall Ember Mage with crimson skin and flame-coloured hair (the cast's calm first frame, breathing).
+Theon: Market Square's red-haired woman (Citizen 5), her hair purplish black.
+Wilhelm: Training Arena's braided fighter's head (tan-brown hair, light skin) in place of Archer 3's, under Archer 3's
+hat, on Archer 3's body with a red cowl, tan shirt and leather trousers.
+Celeste: Mage 5 (white hair, purple eyes, dark brown cloak and leather-brown shirt).
+Kargesh: the Blacksmith pack's smith, his hair and beard white.
+Sciirj: Guild Hall's red-haired caped fighter (Fighter 2).
+Marceline: Guild Hall's wide-hat wizard (Mage 3) in black with purple accents, very dark purple hair (breathing, as Glimmer).
+Thomas: Guild Hall's witch-hat mage (Mage 1), as drawn (breathing, as Glimmer).
+Ted: Market Square's freckled farmhand (Citizen 4), as drawn.
+Lilith (Haunter): Swordsman 8 with purple trim, a blue cape and a dark purple plume.
+Themus: Training Arena's red-tunic fighter's head on Swordsman 6's body.
+Reginald (Artificer): Swordsman 9's body, Swordsman 4's head with its helmet in Swordsman 9's navy and pale blue.
+Azir (Lich): Lich pack's golden lich (Lich 3), as drawn (4 idle frames).
+Gideon: Vampire 1 (greyed toward bone).
 Norm the Space Slime is a slime, not a person: the Shadow Slime's walk sheet from the monster packs (public/monsters/slime-shadow.png), its rows reordered to down, left, right, up, shifted to a cosmic purple-pink (hue-rotate 30deg, saturate 1.6, brightness 1.3) and sprinkled with star pixels.
-Azir (Lich): Lich 2 idle from CraftPix's top-down Lich pack, brown robes recoloured sky teal, blue crown and staff to gold, red gem to cyan; rows reordered from front, back, left, right to down, left, right, up.
-Tonk (Alien): Vampire 2 idle (body and head), skin recoloured alien green, red eyes to lime, blue cape to violet, maroon to purple; rows reordered the same way.
+Tonk (Alien): Vampire 2 idle (body and head), skin recoloured alien green, red eyes to lime, blue cape to violet, maroon to purple; rows reordered from front, back, left, right to down, left, right, up.
 Id (Rift Walker): the Shadow Wisp's dark ghost walk sheet from the monster packs (public/monsters/ghost-dark.png), rows reordered from down, up, left, right to down, left, right, up; robe shifted to a deep rift violet, orange eyes to glowing cyan, outline kept, and a few twinkling star pixels sprinkled on each frame.
