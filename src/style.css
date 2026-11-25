@@ -1162,6 +1162,14 @@ button {
 .hunter-card.locked .expand-tag {
   opacity: 0.7;
 }
+/* Points to spend: the tag turns gold (as the points badge was) and says how many. */
+.expand-tag.pts {
+  color: var(--gold) !important;
+  text-shadow: var(--outline);
+}
+.expand-tag.pts.stuck {
+  color: #9a9690 !important;
+}
 .hc-ability {
   font-size: 12px;
   color: var(--fg);

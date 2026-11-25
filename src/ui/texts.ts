@@ -52,7 +52,7 @@ section(
   'Time to train',
   {
     title: "Time to train!",
-    body: "You have enough gold to **Train** your Hunter! Tap **Train** in the **Hunters** tab to increase your strength!\n\nAfter enough training, your Hunter will level up, granting **Skill Points** that are used to unlock more power and abilities within the **Skill Tree**. \n\nTap on the Hunter's card to see more details, train quicker, upgrade their abilities, and change their equipment!",
+    body: "You have enough gold to **Train** your Hunter! Tap **Train** in the **Hunters** tab to grow stronger.\n\nTap your Hunter's card to see their skills and equipment.",
     later: "Dismiss",
     go: 'Go to Hunters',
   },
@@ -123,7 +123,7 @@ section(
   'Minigames unlocked',
   {
     title: "Minigames unlocked!",
-    body: "**{game}** is open in the Events tab.\n\nEvery area has a minigame that can be unlocked. Each play costs 🗲 **{cost} energy**.\n\nMinigames always pay **gold relative to where you are in the game**. They also drop materials and grant a **timed buff** relative to the game. They can give more drops, faster attacks, more gold, and more, each helping you across the whole game while it lasts.\n\nYour score earns up to **3 stars**. The better you do, the more you get. Each minigame's details page shows exactly what every rank pays.",
+    body: '**{game}** is open in the Events tab. Each play costs 🗲 **{cost} energy**.\n\nMinigames pay **gold** and **materials**, and grant a **timed buff**. Score up to **3 stars** for bigger rewards.',
     later: "Dismiss",
     go: 'Play now',
   },
@@ -135,7 +135,7 @@ section(
   'Daily quests',
   {
     title: 'Daily Quests',
-    body: "Welcome to the **{area}**! Your **Quest Log** is now open. Tap the 📜 scroll at the top of the screen to see it.\n\nEvery day brings **{daily} Daily Quests**, like playing events, taking on Guardians and swarms, and slaying monsters. Finish them all to earn **{gemsDaily} Exalted Gems**. Every week brings **{weekly} Weekly Quests** worth **{gemsWeekly} Exalted Gems**, and you can collect a **Daily Check-in** bonus of {checkin} more.\n\nDaily Quests change at midnight, and Weekly Quests change on Monday. Spend your Exalted Gems in the **Shop** on upgrades that last forever.",
+    body: 'Welcome to the **{area}**! Your **Quest Log** is now open: tap the 📜 scroll at the top of the screen.\n\nFinish **Daily** and **Weekly Quests** to earn **Exalted Gems**, and spend them in the **Shop** on upgrades that last forever.',
     later: 'Dismiss',
     go: 'Open quests',
   },
@@ -295,7 +295,7 @@ section(
   'Salvage explained',
   {
     title: 'Salvage',
-    body: "Salvaging breaks a piece of equipment down for good, giving back **half of the materials** it took to craft and upgrade (and half of what its **modifiers** cost, in gold). It can't be undone, and worn pieces need to be unequipped first.\n\nPieces above **2★** or with modifiers ask before they're salvaged (this can be turned off in **Settings**). To clear out many at once, use **Mass Salvage** or **Auto Salvage** from the saw button in Equipment's corner.",
+    body: 'Salvaging breaks a piece down for good and gives back **half of its materials**. Worn pieces need to be unequipped first.\n\nPieces above **2★** or with modifiers ask first (you can turn this off in **Settings**).',
     cancel: 'Keep it',
     ok: 'Salvage',
   },
@@ -334,17 +334,17 @@ section(
   'Spend skill points',
   {
     hunterTitle: 'Spend skill points?',
-    hunter: "Spend **{name}'s** {points} skill point{s}? They're spread evenly: every skill within reach gets a point before any gets a second, and skills that open up along the way are evened out too. Ascending is always left to you.",
+    hunter: "Spend **{name}'s** {points} skill point{s} evenly across their tree?",
     hunterHint: 'Holding down a **Hunter card** always spends their skill points this way.',
     monsterTitle: 'Spend evolution points?',
-    monster: "Spend the **{name}'s** {points} evolution point{s}? They're spread evenly: every evolution within reach gets a point before any gets a second, and evolutions that open up along the way are evened out too.",
+    monster: "Spend the **{name}'s** {points} evolution point{s} evenly across its tree?",
     monsterHint: 'Holding down a **monster card** in the Bestiary always spends its evolution points this way.',
     never: 'Do not show again',
     ok: 'OK',
     hunterSetting: 'Hold a Hunter card to spend skill points',
-    hunterSettingBody: "Holding down a Hunter's card spends their skill points evenly across their tree, a point in every skill within reach before any gets a second. **Ask first** shows a pop-up to confirm, and **Just spend** skips it.",
+    hunterSettingBody: "Holding a Hunter's card spends their skill points evenly. **Ask first** shows a pop-up to confirm, and **Just spend** skips it.",
     monsterSetting: 'Hold a monster card to spend evolution points',
-    monsterSettingBody: "Holding down a monster's card in the Bestiary spends its evolution points evenly across its tree, a point in every evolution within reach before any gets a second. **Ask first** shows a pop-up to confirm, and **Just spend** skips it.",
+    monsterSettingBody: "Holding a monster's card in the Bestiary spends its evolution points evenly. **Ask first** shows a pop-up to confirm, and **Just spend** skips it.",
   },
   {
     note: "Holding down a Hunter's card (skill points) or a monster's card in the Bestiary (evolution points). Each has its own Do not show again.",
@@ -358,7 +358,7 @@ section(
   'Tip: quick training and spending points',
   {
     title: 'Tip: Quick Train & Empower',
-    body: "**Hold** the **Train** button on a Hunter's card, or the **Empower** button on a monster's card, to train or empower them as far as your gold goes. It spends all the gold you have on them at once.\n\nGot **skill points** (or a monster's **evolution points**) to spend? **Hold** the card's **Expand** button and they're all spent for you, spread out as evenly as possible across the tree.\n\nAiming for a particular upgrade first? Open their **Skill** or **Evolution** tree and choose it yourself.",
+    body: "**Hold** **Train** on a Hunter's card, or **Empower** on a monster's card, to spend all the gold you can on them.\n\nWhen a card says **points available**, **hold** it to spend them evenly across the tree.",
     ok: 'Got it',
   },
   { note: 'Shown once, when a Hunter or a monster first reaches Lv 5 (behind the envelope if that happened while you were away).' },
@@ -369,7 +369,7 @@ section(
   'Tip: salvaging',
   {
     title: "That's a lot of items!",
-    body: "Want to clear some out? **Salvage** them. Salvaging a piece gives back half of the materials spent on it, its upgrades included (and gold for any modifiers on it).\n\nTap the **Salvage** button beside Filter in **Inventory → Equipment** for the Salvage menu. There, **Mass Salvage** lets you pick pieces by hand, and **Auto Salvage** salvages gear of the rarities you choose the moment it drops. Hold the Salvage button to go straight to Mass Salvage.\n\n**Careful:** picking a stack salvages **every** piece in that stack.",
+    body: 'Want to clear some out? Tap **Salvage** beside Filter in **Inventory → Equipment**. Hold the button to go straight to picking pieces.\n\n**Mass Salvage** lets you pick pieces by hand, and **Auto Salvage** clears out the rarities you choose as they drop.\n\n**Careful:** picking a stack salvages **every** piece in it.',
     later: 'Got it',
     go: 'Show me',
   },
@@ -381,7 +381,7 @@ section(
   'Tip: hold a card to spend points',
   {
     title: 'Tip: hold a card',
-    body: "Holding a button works on cards too! When a Hunter has **skill points** to spend, **hold their card** and they're spent for you, spread evenly across their tree. Holding a monster's card in the **Bestiary** spends its **evolution points** the same way.",
+    body: 'Holding works on cards too! When a card says **points available**, **hold** it to spend the points evenly across the tree.',
     ok: 'Got it',
   },
   { note: "Shown once, after you've held a Train button to train to the max five times." },

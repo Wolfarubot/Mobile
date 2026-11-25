@@ -1116,7 +1116,7 @@ export class AppUI {
       <div class="hc-top">
         <div class="hc-art">${portraitHtml(who)}<b class="lv-tag hidden"></b></div>
         <div class="hc-info">
-          <div class="card-corner"><b class="sp-dot hidden" title="${esc(txt('tip.markers.skillPoints'))}"></b><span class="expand-tag">Expand ›</span></div>
+          <div class="card-corner"><span class="expand-tag">Expand ›</span></div>
           <div class="hc-name">${def ? `${def.name} <small>the ${g.titleOf(def.id)}</small>` : `${esc(mainName())} <small>the ${g.titleOf('main')}</small>`}</div>
           <div class="hc-ability">${def ? def.short : MAIN_SHORT}</div>
           <div class="hc-status"></div>
@@ -1140,7 +1140,6 @@ export class AppUI {
     const lv = $('.lv-tag', card);
     const gearEl = $('.hc-gear', card);
     const status = $('.hc-status', card);
-    const dot = $('.sp-dot', card);
     // One chip per slot; a slot's partner (Wilhelm's Secondary, a second slot) peeks out behind it, up to the left.
     const gearHtml = (items: Array<GearItem | null>) => {
       const slots = g.slotsOf(who);
@@ -1211,9 +1210,7 @@ export class AppUI {
       const points = g.skillPoints(who);
       lv.textContent = `Lv ${g.levelOf(who)}`;
       lv.classList.remove('hidden');
-      dot.textContent = String(points);
-      dot.classList.toggle('hidden', points <= 0);
-      dot.classList.toggle('stuck', points > 0 && !g.canSpendSkill(who));
+      expandTag($('.expand-tag', card), points, points > 0 && !g.canSpendSkill(who));
       const station = def ? g.state.hunters[def.id].station : g.area;
       const down = def && station && station !== g.area ? (this.rates(station, g.stationedIn(station), g.stationEfficiency).stunned[def.id] ?? 0) : 0;
       setHtml(status, `${station ? `📍 ${areaDef(station).name}` : '💤 Resting'} · ⚔️ ${this.dpsText(who)} DPS${down >= 0.05 ? ' · <b class="warn">💫 overwhelmed</b>' : ''}`);
@@ -3412,15 +3409,13 @@ export class AppUI {
     // Unlocked: level, progress and an Empower button, like a Hunter's Train row. Tap the card to evolve.
     const row = el('div', 'hc-train');
     row.innerHTML = '<span class="hc-lv"></span><div class="hc-mid"></div><div class="hc-action"></div>';
-    const dot = el('b', 'sp-dot hidden');
-    dot.title = txt('tip.markers.evoPoints');
     if (unlocked) {
       const { btn, bar } = this.empowerParts(def.id, false, true);
       $('.hc-lv', row).textContent = 'Power';
       $('.hc-mid', row).appendChild(bar);
       $('.hc-action', row).appendChild(btn);
       actions.appendChild(row);
-      $('.card-corner', card).append(dot, el('span', 'expand-tag', 'Expand ›'));
+      $('.card-corner', card).append(el('span', 'expand-tag', 'Expand ›'));
       card.setAttribute('role', 'button');
       card.addEventListener('click', () => {
         // The release of a long press (which spent evolution points) doesn't also open the card.
@@ -3472,9 +3467,7 @@ export class AppUI {
       tag.textContent = `Lv ${g.monsterLevelInfo(def.id).level}`;
       tag.classList.remove('hidden');
       const points = g.evoPoints(def.id);
-      dot.textContent = String(points);
-      dot.classList.toggle('hidden', points <= 0);
-      dot.classList.toggle('stuck', points > 0 && !g.canSpendEvo(def.id));
+      expandTag($('.expand-tag', card), points, points > 0 && !g.canSpendEvo(def.id));
     });
   }
 
@@ -7974,6 +7967,17 @@ const LOOT_SOUND_MAX = 5;
 const LOOT_SOUND_WINDOW = 10_000;
 
 const mainName = () => mainHunterName || 'You';
+/**
+ * A card's corner tag: "Expand ›", or, while there are skill or evolution points to spend, "N points available ›" in
+ * gold (greyed out when nothing in reach can be bought with them yet). Holding the card spends them.
+ */
+function expandTag(tag: HTMLElement, points: number, stuck: boolean): void {
+  const text = points > 0 ? `${fmt(points)} point${points === 1 ? '' : 's'} available ›` : 'Expand ›';
+  if (tag.textContent !== text) tag.textContent = text;
+  tag.classList.toggle('pts', points > 0);
+  tag.classList.toggle('stuck', stuck);
+}
+
 /** Each facing's window in the look previews: the part of the 64px frame around the character (helmets and plumes included). */
 const LOOK_CELL = { x: 15, y: 6, w: 34, h: 40 };
 
