@@ -442,7 +442,10 @@ export const SAVE_VERSION = 30;
 
 /** Things already looked at: Journal entries read, recipes, monsters and events seen, and gear up to a uid. */
 export interface SeenState {
+  /** Journal entries read. */
   journal: string[];
+  /** Journal entries unlocked (kept for good: a Regression resets what unlocked most of them). */
+  journalFound: string[];
   recipes: string[];
   beasts: string[];
   /** Ready events already seen in the Events tab (an event leaves this list when it next runs or cools down). */
@@ -508,7 +511,7 @@ export function newGame(now = Date.now()): GameState {
     quests: newQuests(),
     freePlayDay: '',
     events: Object.fromEntries(EVENTS.map((e) => [e.id, { runs: 0, completed: 0 }])),
-    seen: { journal: [], recipes: [], beasts: [], events: [], gearUid: 3, init: true },
+    seen: { journal: [], journalFound: [], recipes: [], beasts: [], events: [], gearUid: 3, init: true },
     buyAmount: 1,
     empowerAmount: 1,
     mailbox: [],
@@ -880,6 +883,8 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
       const strs = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
       return {
         journal: strs(s.journal),
+        // Saves from before it was kept: the entries already read were found.
+        journalFound: [...new Set([...strs(s.journalFound), ...strs(s.journal)])],
         recipes: strs(s.recipes),
         beasts: strs(s.beasts),
         events: strs(s.events),

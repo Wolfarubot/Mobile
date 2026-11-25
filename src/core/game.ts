@@ -3643,8 +3643,17 @@ export class Game {
 
   // ---- Hunters ----
 
-  /** Whether a Journal entry's unlock condition has been met. */
+  /** Whether a Journal entry has been unlocked: met now, or met before (it stays, through Regressions too). */
   journalUnlocked(e: JournalEntry): boolean {
+    const found = this.state.seen.journalFound;
+    if (found.includes(e.id)) return true;
+    if (!this.journalMet(e)) return false;
+    found.push(e.id);
+    return true;
+  }
+
+  /** Whether a Journal entry's unlock condition is met right now. */
+  private journalMet(e: JournalEntry): boolean {
     const u = e.unlock;
     switch (u.kind) {
       case 'start':
@@ -3661,6 +3670,14 @@ export class Game {
         return !!this.state.hunters[u.hunter]?.recruited;
       case 'level':
         return this.levelOf('main') >= u.level;
+      case 'regressions':
+        return this.state.regression.runs >= u.count;
+      case 'unbound':
+        return this.isUnbound(u.area) && this.isAreaUnlocked(u.area);
+      case 'unboundGuardian':
+        // Events start over each run, and an Unbound area stays Unbound: a Guardian beaten this run while its area
+        // is Unbound is the Unbound Guardian.
+        return this.isUnbound(u.area) && this.eventCompletions(`guardian-${u.area}`) > 0;
     }
   }
 

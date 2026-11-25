@@ -6990,6 +6990,44 @@ describe('journal', () => {
     // Every entry's unlock names something that exists.
     for (const e of JOURNAL) expect(() => g.journalUnlocked(e)).not.toThrow();
   });
+
+  it('has an entry for every Guild Hunter recruited and every area reached after the first', async () => {
+    const { JOURNAL } = await import('../src/core/journal');
+    const { HUNTERS, AREAS } = await import('../src/core/balance');
+    const hunters = JOURNAL.flatMap((e) => (e.unlock.kind === 'hunter' ? [e.unlock.hunter] : []));
+    expect([...hunters].sort()).toEqual(HUNTERS.map((h) => h.id).sort());
+    const areas = JOURNAL.flatMap((e) => (e.unlock.kind === 'area' ? [e.unlock.area] : []));
+    expect([...areas].sort()).toEqual(AREAS.slice(1).map((a) => a.id).sort());
+    expect(new Set(JOURNAL.map((e) => e.id)).size).toBe(JOURNAL.length);
+  });
+
+  it('unlocks the Regression and Unbound entries, and keeps every unlocked entry through a Regression', async () => {
+    const { JOURNAL } = await import('../src/core/journal');
+    const entry = (id: string) => JOURNAL.find((e) => e.id === id)!;
+    const g = new Game(newGame(0));
+    g.state.areas.graveyard.unlocked = true;
+    expect(g.journalUnlocked(entry('graveyard'))).toBe(true);
+    expect(g.journalUnlocked(entry('regress-1'))).toBe(false);
+    const g2 = new Game(regress(g.state, 1000).state);
+    // The Regression locked the graveyard again, but its entry stays.
+    expect(g2.isAreaUnlocked('graveyard')).toBe(false);
+    expect(g2.journalUnlocked(entry('graveyard'))).toBe(true);
+    expect(g2.journalUnlocked(entry('regress-1'))).toBe(true);
+    expect(g2.journalUnlocked(entry('regress-5'))).toBe(false);
+    g2.state.regression.runs = 5;
+    expect(g2.journalUnlocked(entry('regress-5'))).toBe(true);
+    // Unbound: the Woods once their node is bought; the Rift once reached as Unbound; the Time Eater once beaten there.
+    expect(g2.journalUnlocked(entry('unbound-forest'))).toBe(false);
+    g2.state.regression.tree['unbound-forest'] = 1;
+    expect(g2.journalUnlocked(entry('unbound-forest'))).toBe(true);
+    g2.state.regression.tree['unbound-rift'] = 1;
+    expect(g2.journalUnlocked(entry('unbound-rift'))).toBe(false);
+    g2.state.areas.rift.unlocked = true;
+    expect(g2.journalUnlocked(entry('unbound-rift'))).toBe(true);
+    expect(g2.journalUnlocked(entry('unbound-timeEater'))).toBe(false);
+    g2.state.events['guardian-rift'].completed = 1;
+    expect(g2.journalUnlocked(entry('unbound-timeEater'))).toBe(true);
+  });
 });
 
 describe('gold monsters and size variety', () => {
