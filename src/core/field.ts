@@ -1398,6 +1398,11 @@ export class Field {
   }
 
   update(dt: number): void {
+    // Derived stats (monster stats, the spawn roster, gear totals...) are worked out once a frame, not per hit.
+    this.game.withFrameCache(() => this.updateNow(dt));
+  }
+
+  private updateNow(dt: number): void {
     const g = this.game;
     this.clock += dt;
     this.artCache.clear();

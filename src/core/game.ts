@@ -370,6 +370,10 @@ function evenPick<N>(order: N[], can: (node: N) => boolean, rank: (node: N) => n
  * Field; Field reports kills/escapes here and reads combat stats from here.
  * Hunters stationed in areas you're not looking at farm here, analytically.
  */
+/** An area's droppable loot (see Game.lootPools): kinds crafted before and new ones, each by tier. */
+type LootSide = { all: GearDef[]; current: GearDef[]; older: GearDef[] };
+type LootPools = { crafted: LootSide; fresh: LootSide };
+
 export class Game {
   state: GameState;
   /** A Guardian challenge is in progress (the Field spawns it). */
@@ -403,6 +407,13 @@ export class Game {
   private live = { area: '' as string, t: 0, dmg: new Map<Shooter, number>(), gold: 0, past: [] as Array<{ dmg: Map<Shooter, number>; gold: number }> };
   private listeners: Array<(e: GameEvent) => void> = [];
   rng: () => number;
+  /**
+   * Derived stats remembered for one battlefield frame (see withFrameCache): monster stats, the spawn roster, gear and
+   * evolution totals, area perks and which loot can drop. Off (null) outside a frame, so menus always see fresh numbers.
+   */
+  private frameCache: Map<string, unknown> | null = null;
+  /** Each area's loot pools (see lootPools), with what they were worked out from. */
+  private lootCache = new Map<AreaId, { sig: string; pools: LootPools | null }>();
 
   constructor(state: GameState, rng: () => number = Math.random) {
     this.state = state;
@@ -571,6 +582,10 @@ export class Game {
   /** The enchantments on a piece, with their rolled chance (`v`) and power (`p`), and the piece they're on. */
   private enchantsOf(item: GearItem | null): Array<{ en: EnchantDef; v: number; p: number; def: GearDef }> {
     if (!item) return [];
+    return this.memo(`en:${item.uid}`, () => this.enchantsNow(item));
+  }
+
+  private enchantsNow(item: GearItem): Array<{ en: EnchantDef; v: number; p: number; def: GearDef }> {
     const def = gearDef(item.base);
     return allMods(item).flatMap((m) => (m?.kind === 'enchant' ? [{ en: ENCHANTS[m.id], v: modValue(m, def), p: modPower(m, def), def }] : []));
   }
@@ -585,7 +600,7 @@ export class Game {
    * their accessories (which can carry weapon enchantments for whatever weapon the wearer holds).
    */
   private weaponEnchants(who: Shooter, mode: GearMode = 'long'): Array<{ en: EnchantDef; v: number; p: number; def: GearDef }> {
-    return [this.weaponItem(who, mode), ...this.wornNonWeapons(who)].flatMap((it) => this.enchantsOf(it));
+    return this.memo(`we:${who}:${mode}`, () => [this.weaponItem(who, mode), ...this.wornNonWeapons(who)].flatMap((it) => this.enchantsOf(it)));
   }
 
   /** Fireburst (on the weapon or an accessory): each kill has `chance` to burst for this much base damage around it. */
@@ -1277,6 +1292,10 @@ export class Game {
 
   /** The gear in each of a Hunter's slots (null = empty). */
   equipped(who: Wearer): Array<GearItem | null> {
+    return this.memo(`eq:${who}`, () => this.equippedNow(who));
+  }
+
+  private equippedNow(who: Wearer): Array<GearItem | null> {
     const uids = this.state.equipment[who] ?? [];
     return this.slotsOf(who).map((_, i) => (uids[i] != null ? (this.gearItem(uids[i]!) ?? null) : null));
   }
@@ -1296,6 +1315,10 @@ export class Game {
    * their mode; with no mode given, the 'long' (default) weapon counts.
    */
   gear(who: Shooter, mode: GearMode = 'long'): Record<GearStat, number> {
+    return this.memo(`gear:${who}:${mode}`, () => this.gearNow(who, mode));
+  }
+
+  private gearNow(who: Shooter, mode: GearMode): Record<GearStat, number> {
     const total: Record<GearStat, number> = { damage: 0, rate: 0, range: 0, crit: 0, stun: 0, guard: 0, gold: 0, drops: 0, radius: 0, pierce: 0, cooldown: 0, critDamage: 0, duration: 0, abilityPower: 0, statusChance: 0, bowDamage: 0, gunDamage: 0, meleeDamage: 0, magicDamage: 0, knockback: 0, flurry: 0 };
     const slots = this.slotsOf(who);
     const wi = this.weaponSlot(who, mode);
@@ -2811,6 +2834,11 @@ export class Game {
 
   /** A monster's stats; `calm` leaves out the event running in its area (its usual spawn rate, for swarms). */
   enemyStats(id: EnemyId, calm = false): EnemyStats {
+    if (!this.frameCache) return this.enemyStatsNow(id, calm);
+    return { ...this.memo(`es:${id}:${calm ? 1 : 0}`, () => this.enemyStatsNow(id, calm)) };
+  }
+
+  private enemyStatsNow(id: EnemyId, calm: boolean): EnemyStats {
     const def = enemyDef(id);
     const area = this.areaStats(def.area);
     const b = this.state.bestiary[id];
@@ -2839,6 +2867,10 @@ export class Game {
 
   /** Unlocked enemies of an area (defaults to where you are). */
   roster(area: AreaId = this.state.area): EnemyStats[] {
+    return this.memo(`roster:${area}`, () => this.rosterNow(area));
+  }
+
+  private rosterNow(area: AreaId): EnemyStats[] {
     const here = areaEnemies(area).filter((e) => this.state.bestiary[e.id].unlocked);
     const list = here.map((e) => this.enemyStats(e.id));
     // A growing horde: from the Restless Graveyard on, every monster unlocked past the first brings more of the whole
@@ -2873,7 +2905,37 @@ export class Game {
 
   // ---- Simulation hooks ----
 
+  /**
+   * Runs `fn` (a battlefield frame) with derived stats remembered until it returns: they're asked for thousands of
+   * times a frame in a big horde and change only when something is bought, equipped or evolved, which doesn't happen
+   * mid-frame (a potion drunk mid-frame counts from the next frame).
+   */
+  withFrameCache<T>(fn: () => T): T {
+    if (this.frameCache) return fn();
+    this.frameCache = new Map();
+    try {
+      return fn();
+    } finally {
+      this.frameCache = null;
+    }
+  }
+
+  private memo<T>(key: string, make: () => T): T {
+    const c = this.frameCache;
+    if (!c) return make();
+    let v = c.get(key) as T | undefined;
+    if (v === undefined) {
+      v = make();
+      c.set(key, v);
+    }
+    return v;
+  }
+
   tick(dt: number): void {
+    this.withFrameCache(() => this.tickNow(dt));
+  }
+
+  private tickNow(dt: number): void {
     const s = this.state;
     this.tickLive(dt);
     this.coolEvents(dt);
@@ -2969,6 +3031,10 @@ export class Game {
    * ×loot chance. Your current area counts the Hunters stationed with you.
    */
   areaPerk(area: AreaId): { gold: number; loot: number } {
+    return this.memo(`perk:${area}`, () => this.areaPerkNow(area));
+  }
+
+  private areaPerkNow(area: AreaId): { gold: number; loot: number } {
     // Loaded Dice (Ted's Card Hop): loot drops twice as often everywhere.
     const out = { gold: 1, loot: 1 + BUFF_LOOT * this.buffPower('highOrLow') };
     for (const h of HUNTERS) {
@@ -3009,21 +3075,48 @@ export class Game {
     const roll = this.rng();
     const tierRoll = this.rng();
     const pick = this.rng();
-    const reachable = lootPool(area).filter((g) => this.lootReachable(g));
-    if (!reachable.length) return rollLoot(area, tierRoll, pick);
-    const done = new Set(this.state.crafted.map((id) => (isUnboundId(id) ? unboundBase(id) : id)));
-    const crafted = reachable.filter((g) => done.has(g.id));
-    const fresh = reachable.filter((g) => !done.has(g.id));
-    const from = !fresh.length || (crafted.length && roll >= LOOT_UNCRAFTED_SHARE) ? crafted : fresh;
-    const top = Math.max(...from.map(gearArea));
-    const current = from.filter((g) => gearArea(g) === top);
-    const older = from.filter((g) => gearArea(g) < top);
-    const set = tierRoll < LOOT_CURRENT_SHARE || !older.length ? current : older;
+    const pools = this.lootPools(area);
+    if (!pools) return rollLoot(area, tierRoll, pick);
+    const side = !pools.fresh.all.length || (pools.crafted.all.length && roll >= LOOT_UNCRAFTED_SHARE) ? pools.crafted : pools.fresh;
+    const set = tierRoll < LOOT_CURRENT_SHARE || !side.older.length ? side.current : side.older;
     return set[Math.floor(pick * set.length) % set.length];
   }
 
+  /**
+   * An area's loot, sorted the way pickLoot draws from it: reachable pieces of kinds crafted before and new ones, each
+   * split into the newest tier and the older ones. Kept until a monster is unlocked, an area opened, a Guardian beaten
+   * or a new kind crafted (null: nothing reachable yet).
+   */
+  private lootPools(area: AreaId): LootPools | null {
+    const s = this.state;
+    let beaten = 0;
+    for (const a of AREAS) if (this.guardianBeaten(a.id)) beaten++;
+    let unlocked = 0;
+    for (const b of Object.values(s.bestiary)) if (b.unlocked) unlocked++;
+    const sig = `${unlocked}:${this.unlockedAreas.length}:${beaten}:${s.crafted.length}`;
+    const hit = this.lootCache.get(area);
+    if (hit && hit.sig === sig) return hit.pools;
+    const reachable = lootPool(area).filter((g) => this.lootReachable(g));
+    let pools: LootPools | null = null;
+    if (reachable.length) {
+      const done = new Set(s.crafted.map((id) => (isUnboundId(id) ? unboundBase(id) : id)));
+      const split = (all: GearDef[]) => {
+        const top = Math.max(...all.map(gearArea));
+        return { all, current: all.filter((g) => gearArea(g) === top), older: all.filter((g) => gearArea(g) < top) };
+      };
+      pools = { crafted: split(reachable.filter((g) => done.has(g.id))), fresh: split(reachable.filter((g) => !done.has(g.id))) };
+    }
+    this.lootCache.set(area, { sig, pools });
+    return pools;
+  }
+
+
   /** Whether a piece's every material comes from a monster you've unlocked (a Guardian's: one you've beaten). */
   private lootReachable(g: GearDef): boolean {
+    return this.memo(`lr:${g.id}`, () => this.lootReachableNow(g));
+  }
+
+  private lootReachableNow(g: GearDef): boolean {
     return (Object.keys(g.recipe) as MaterialId[]).every((m) => {
       const from = materialSources(isUnboundId(m) ? (unboundBase(m) as MaterialId) : m);
       return !from.length || from.some((e) => (e.guardianOnly ? this.guardianBeaten(e.area) : this.isUnlocked(e.id)));
@@ -3954,6 +4047,10 @@ export class Game {
 
   /** Summed evolution effects of a monster. */
   evo(id: EnemyId): Record<EvoStat, number> {
+    return this.memo(`evo:${id}`, () => this.evoNow(id));
+  }
+
+  private evoNow(id: EnemyId): Record<EvoStat, number> {
     const total: Record<EvoStat, number> = { hp: 0, gold: 0, drops: 0, spawn: 0, pack: 0, speed: 0, split: 0, fireTrail: 0, lunge: 0, loot: 0, rise: 0, burst: 0 };
     const ranks = this.state.bestiary[id].evo;
     for (const n of this.evoTree(id)) {
