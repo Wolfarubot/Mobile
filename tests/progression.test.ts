@@ -140,8 +140,15 @@ function botShop(game: Game, t: number, memo: { lastChallenge: number; lastHeavy
  * A bot playing the real battlefield headless for `seconds`, tapping `tapsPerSec` and shopping
  * once a second. Records when areas unlock (at clock time `clock + elapsed`).
  */
+/** SIM_DT: the battlefield's step while the bot plays (default 0.05s). SIM_SAMPLE_DT: the background samples' step. */
+const PLAY_DT = Number(process.env.SIM_DT ?? 0.05);
+const SAMPLE_STEP = process.env.SIM_SAMPLE_DT ? Number(process.env.SIM_SAMPLE_DT) : undefined;
+/** SIM_PROFILE: real time spent playing and sampling (ms), logged with each farm day. */
+const prof = { play: 0, sample: 0 };
+
 function play(game: Game, field: Field, seconds: number, clock: number, tapsPerSec: number, memo: { lastChallenge: number; lastHeavy?: number }, unlockedAt: Partial<Record<AreaId, number>>, onShop?: () => void): void {
-  const dt = 0.05;
+  const dt = PLAY_DT;
+  const t0 = Date.now();
   let tapAcc = 0;
   for (let t = 0; t < seconds; t += dt) {
     game.tick(dt);
@@ -154,11 +161,13 @@ function play(game: Game, field: Field, seconds: number, clock: number, tapsPerS
       if (e) field.tap(e.x, e.y);
     }
     for (const a of AREAS) if (!(a.id in unlockedAt) && game.isAreaUnlocked(a.id)) unlockedAt[a.id] = clock + t;
-    if (Math.round(t / dt) % 20 === 0) {
+    // The bot shops once a simulated second, whatever the step.
+    if (Math.round(t / dt) % Math.max(1, Math.round(1 / dt)) === 0) {
       botShop(game, clock + t, memo);
       onShop?.();
     }
   }
+  prof.play += Date.now() - t0;
 }
 
 /**
@@ -167,13 +176,18 @@ function play(game: Game, field: Field, seconds: number, clock: number, tapsPerS
  * as a session ends, one 60s run per group whose sample is missing, stale (another group or strength) or short.
  */
 function sampleGroups(game: Game, rng: () => number): void {
+  const t0 = Date.now();
+  sampleGroupsNow(game, rng);
+  prof.sample += Date.now() - t0;
+}
+function sampleGroupsNow(game: Game, rng: () => number): void {
   const groups: Array<{ area: AreaId; group: Shooter[] }> = [{ area: game.area, group: ['main', ...game.helpersHere] }];
   for (const area of game.unlockedAreas) if (area !== game.area && game.stationedIn(area).length) groups.push({ area, group: game.stationedIn(area) });
   for (const { area, group } of groups) {
     const sig = game.sampleSig(area, group);
     const smp = game.state.samples[area];
     if (smp && smp.sig === sig && sameGroup(smp.group, group) && smp.seconds >= SAMPLE_SETTLED) continue;
-    const run = runSample({ save: serialize(game.state), area, group, seconds: 60, view: { w: 390, h: 420 } }, rng);
+    const run = runSample({ save: serialize(game.state), area, group, seconds: 60, view: { w: 390, h: 420 }, dt: SAMPLE_STEP }, rng);
     game.state.samples[area] = mergeSample(game.state.samples[area], group, sig, run);
   }
 }
@@ -558,6 +572,7 @@ it.runIf(!!process.env.SIM_FULL)('full game: a typical player beats the Time Eat
     if (day !== lastFarmLog) {
       lastFarmLog = day;
       log(`  [farm day ${day}] in ${g.areaStats(g.state.area).name}: ${g.shardsNow} shards this run (${budget} to spend); ${nextUnbound.name} costs ${g.regCostOf(nextUnbound.id)}`);
+      if (process.env.SIM_PROFILE) log(`    real time so far: playing ${Math.round(prof.play / 1000)}s, sampling ${Math.round(prof.sample / 1000)}s`);
     }
     if (plannedBuys(g, budget) < 1) return false;
     // Shards carried over can pay for a node before this run has earned much: keep farming until the run itself has

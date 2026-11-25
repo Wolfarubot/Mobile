@@ -26,6 +26,8 @@ export interface SampleJob {
   group: Shooter[];
   seconds: number;
   view: { w: number; h: number };
+  /** Step size (default SAMPLE_DT); the pacing sim can take bigger steps to run faster. */
+  dt?: number;
 }
 
 export type SampleRun = Omit<FieldSample, 'sig' | 'group'>;
@@ -55,11 +57,12 @@ export function* sampleSteps(job: SampleJob, rng: () => number = Math.random): G
   const game = new Game(state, rng);
   const field = new Field(game, job.group[0]);
   field.setView(job.view.w, job.view.h);
+  const dt = job.dt ?? SAMPLE_DT;
   const step = (): void => {
-    game.tick(SAMPLE_DT);
-    field.update(SAMPLE_DT);
+    game.tick(dt);
+    field.update(dt);
   };
-  for (let t = 0; t < SAMPLE_WARMUP; t += SAMPLE_DT) {
+  for (let t = 0; t < SAMPLE_WARMUP; t += dt) {
     step();
     field.drainEvents();
     yield;
@@ -76,10 +79,10 @@ export function* sampleSteps(job: SampleJob, rng: () => number = Math.random): G
   const dmg0 = new Map(game.dealt);
   const out: SampleRun = { seconds: 0, kills: {}, gold: 0, materials: {}, stuns: {}, down: {}, hunterKills: {} };
   let t = 0;
-  for (; t < job.seconds; t += SAMPLE_DT) {
+  for (; t < job.seconds; t += dt) {
     step();
     for (const e of field.drainEvents()) if (e.type === 'stun') out.stuns[e.who] = (out.stuns[e.who] ?? 0) + 1;
-    for (const who of job.group) if (field.isDown(who)) out.down[who] = (out.down[who] ?? 0) + SAMPLE_DT;
+    for (const who of job.group) if (field.isDown(who)) out.down[who] = (out.down[who] ?? 0) + dt;
     yield;
   }
   out.seconds = t;
