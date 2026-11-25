@@ -9838,37 +9838,37 @@ body.landscape.left-handed .field-card.floating.big:not(.over-menu) {
   text-align: center;
 }
 
-/* Settings → Hunter Sprite */
+/* Settings → Hunter Sprite. The buttons are the menu style's own (.buy); the preview and the values sit in wells. */
 .look-setting .look-open {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 6px 14px 6px 6px;
-  border-radius: 12px;
-  font-weight: 800;
+  min-width: 0;
+  padding: 4px 14px 4px 4px;
 }
-.look-setting .look-thumb {
-  width: 34px;
-  height: 40px;
+.look-setting .look-thumb,
+.look-box .look-preview {
   image-rendering: pixelated;
   background: var(--card-hi);
   border-radius: 8px;
 }
+.look-setting .look-thumb {
+  width: 34px;
+  height: 40px;
+}
 .look-box .look-preview {
+  display: block;
   width: 100%;
   aspect-ratio: 136 / 40;
-  image-rendering: pixelated;
-  background: var(--card-hi);
-  border-radius: 12px;
   margin: 6px 0 10px;
 }
 .look-box .look-rows {
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 .look-box .look-row {
   display: grid;
-  grid-template-columns: 52px 40px 1fr 40px;
+  grid-template-columns: 52px 44px 1fr 44px;
   align-items: center;
   gap: 6px;
 }
@@ -9877,9 +9877,9 @@ body.landscape.left-handed .field-card.floating.big:not(.over-menu) {
   font-weight: 800;
 }
 .look-box .look-arrow {
-  height: 36px;
-  border-radius: 10px;
-  background: var(--card-hi);
+  min-width: 0;
+  height: 40px;
+  padding: 0;
   font-weight: 900;
 }
 .look-box .look-value {
@@ -9887,11 +9887,11 @@ body.landscape.left-handed .field-card.floating.big:not(.over-menu) {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 36px;
+  min-height: 40px;
+  min-width: 0;
   border-radius: 10px;
   background: var(--card);
   font-weight: 700;
-  min-width: 0;
 }
 .look-box .look-value.locked {
   opacity: 0.6;
@@ -9908,4 +9908,23 @@ body.landscape.left-handed .field-card.floating.big:not(.over-menu) {
 }
 .look-box .buttons button:disabled {
   opacity: 0.45;
+}
+/* Parchment: square wells sunk into the page, like the gear slots and portraits. */
+body.ui-parchment .look-setting .look-thumb,
+body.ui-parchment .look-box .look-preview,
+body.ui-parchment .look-box .look-value {
+  background: var(--well) !important;
+  border-radius: 0 !important;
+  border: 3px solid var(--ink);
+  box-shadow: inset 2px 2px 0 var(--well-lo), inset -2px -2px 0 color-mix(in srgb, var(--well) 70%, #fff);
+}
+body.ui-parchment .look-box .look-swatch {
+  border-radius: 0;
+  border-color: var(--ink);
+}
+body.ui-parchment .look-box .look-lock {
+  color: var(--ink);
+}
+body.ui-parchment .look-box .buttons button {
+  min-width: 0;
 }

@@ -6947,7 +6947,7 @@ export class AppUI {
     });
     body.appendChild(nameCard);
     const lookCard = el('div', 'card setting look-setting');
-    lookCard.innerHTML = `<div class="setting-name">Hunter Sprite</div><p>Your Hunter's look: head, body, skin tone and eyes. Higher outfits open as your Hunter levels up.</p><button class="look-open"><canvas class="look-thumb" width="34" height="40"></canvas><span>Change look</span></button>`;
+    lookCard.innerHTML = `<div class="setting-name">Hunter Sprite</div><p>Your Hunter's look: head, body, skin tone and eyes. Higher outfits open as your Hunter levels up.</p><button class="buy look-open"><canvas class="look-thumb" width="34" height="40"></canvas><span>Change look</span></button>`;
     const thumb = $<HTMLCanvasElement>('.look-thumb', lookCard);
     const drawThumb = () => void drawLook(thumb, g.state.settings.look, [0], 0);
     drawThumb();
@@ -7581,7 +7581,7 @@ export class AppUI {
       { key: 'eyes', label: 'Eyes', options: EYE_COLORS.map((t) => t.id) },
     ];
     const rowHtml = rows
-      .map((r) => `<div class="look-row" data-key="${r.key}"><span class="look-label">${r.label}</span><button class="look-arrow" data-d="-1" aria-label="Previous">◀</button><div class="look-value"></div><button class="look-arrow" data-d="1" aria-label="Next">▶</button></div>`)
+      .map((r) => `<div class="look-row" data-key="${r.key}"><span class="look-label">${r.label}</span><button class="buy look-arrow" data-d="-1" aria-label="Previous">◀</button><div class="look-value"></div><button class="buy look-arrow" data-d="1" aria-label="Next">▶</button></div>`)
       .join('');
     let open = true;
     this.showModal(`<h2>Hunter Sprite</h2><canvas class="look-preview" width="${4 * LOOK_CELL.w * 3}" height="${LOOK_CELL.h * 3}"></canvas><div class="look-rows">${rowHtml}</div><p class="look-lock hidden"></p>`, [
@@ -7601,6 +7601,8 @@ export class AppUI {
     box.classList.add('look-box');
     const preview = $<HTMLCanvasElement>('.look-preview', box);
     const confirm = $<HTMLButtonElement>('.buttons button', box);
+    // The menu style's own buttons (the parchment frames, or the classic ones).
+    box.querySelectorAll('.buttons button').forEach((b) => b.classList.add('buy'));
     const lockNote = $('.look-lock', box);
     const locked = (p: string) => partLevel(p as LookPart) > level;
     const sync = () => {

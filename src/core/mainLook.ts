@@ -32,16 +32,16 @@ export const headName = (p: LookPart): string => `${LOOK_CLASSES.find((c) => c.i
 
 type RGB = [number, number, number];
 
-/** Skin tones, lightest first: highlight, base, shade, deep shade, darkest. */
+/** Skin tones (shown as Tone 1-8), lightest first; each: highlight, base, shade, deep shade, darkest. */
 export const SKIN_TONES: Array<{ id: string; name: string; ramp: RGB[] }> = [
-  { id: 'pale', name: 'Very light', ramp: [[255, 236, 220], [250, 222, 202], [228, 190, 170], [198, 154, 138], [162, 120, 110]] },
-  { id: 'fair', name: 'Fair', ramp: [[250, 214, 184], [234, 188, 160], [204, 156, 132], [164, 118, 106], [140, 100, 92]] },
-  { id: 'rose', name: 'Rosy', ramp: [[255, 202, 150], [233, 179, 142], [192, 138, 123], [165, 116, 108], [126, 86, 85]] },
-  { id: 'golden', name: 'Golden', ramp: [[246, 202, 116], [225, 178, 110], [190, 134, 95], [164, 111, 89], [121, 80, 72]] },
-  { id: 'tan', name: 'Tan', ramp: [[208, 148, 108], [187, 123, 95], [158, 102, 85], [120, 80, 72], [98, 64, 63]] },
-  { id: 'bronze', name: 'Bronze', ramp: [[201, 129, 85], [174, 109, 79], [157, 95, 75], [141, 82, 70], [110, 62, 57]] },
-  { id: 'brown', name: 'Brown', ramp: [[208, 142, 78], [187, 117, 66], [160, 97, 66], [125, 71, 50], [94, 50, 39]] },
-  { id: 'deep', name: 'Very dark', ramp: [[130, 86, 60], [106, 68, 48], [86, 54, 40], [66, 40, 32], [50, 30, 26]] },
+  { id: 'pale', name: 'Tone 1', ramp: [[255, 236, 220], [250, 222, 202], [228, 190, 170], [198, 154, 138], [162, 120, 110]] },
+  { id: 'fair', name: 'Tone 2', ramp: [[250, 214, 184], [234, 188, 160], [204, 156, 132], [164, 118, 106], [140, 100, 92]] },
+  { id: 'rose', name: 'Tone 3', ramp: [[255, 202, 150], [233, 179, 142], [192, 138, 123], [165, 116, 108], [126, 86, 85]] },
+  { id: 'golden', name: 'Tone 4', ramp: [[246, 202, 116], [225, 178, 110], [190, 134, 95], [164, 111, 89], [121, 80, 72]] },
+  { id: 'tan', name: 'Tone 5', ramp: [[208, 148, 108], [187, 123, 95], [158, 102, 85], [120, 80, 72], [98, 64, 63]] },
+  { id: 'bronze', name: 'Tone 6', ramp: [[201, 129, 85], [174, 109, 79], [157, 95, 75], [141, 82, 70], [110, 62, 57]] },
+  { id: 'brown', name: 'Tone 7', ramp: [[208, 142, 78], [187, 117, 66], [160, 97, 66], [125, 71, 50], [94, 50, 39]] },
+  { id: 'deep', name: 'Tone 8', ramp: [[130, 86, 60], [106, 68, 48], [86, 54, 40], [66, 40, 32], [50, 30, 26]] },
 ];
 
 /** Eye colours: the iris and its darker lower pixel. */
