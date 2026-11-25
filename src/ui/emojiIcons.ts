@@ -194,7 +194,7 @@ export const EMOJI_ICONS: Record<string, string> = {
   "🪄": 'wands-books/014',
   "🪆": 'ab-engineer-psionic/064',
   "🪓": 'weapons/081',
-  "🪕": 'instruments/014',
+  "🪕": 'instruments/011',
   "🪖": 'armor6/041',
   "🪙": 'things/001',
   "🪜": 'ab-paladin-dk/023',

@@ -6282,7 +6282,7 @@ export function echoChangesIn(now: number): number {
 /** Each minigame's item: what its game is played with (a bow, a lute, a shovel...). */
 export const MINIGAME_SPRITES: Record<MinigameId, string> = {
   huntingPractice: 'weapons/031',
-  pixieSerenade: 'instruments/014',
+  pixieSerenade: 'instruments/011',
   graveRobbing: 'resources3/008',
   puppetShow: 'rpg-items/273',
   shootingGallery: 'rpg-items/269',

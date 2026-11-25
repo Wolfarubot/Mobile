@@ -26,7 +26,7 @@ export const PS_IMMUNE = 1.5;
 /** Each path's colour, for the music notes a hit sends up from Ba'al's guitar. */
 const COLORS = ['#ff8ad8', '#8ad8ff', '#c8ff8a'];
 /** Ba'al's guitar. */
-const GUITAR = 'instruments/092';
+const GUITAR = 'instruments/011';
 
 /** How wide the paths' cobbled road is, in their tiles' pixels (the tiles are widened to it). */
 const ROAD = 30;
