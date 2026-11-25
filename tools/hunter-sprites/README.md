@@ -11,6 +11,7 @@ Scripts that build the new hunter sprites from the CraftPix packs (the packs the
 | Glimmer | Guild Hall Ember mage: crimson skin, flame-coloured hair (option D) | `glimmer.py 356 out.png notips` |
 | Deku | Mage 6 without the cape, robe in the hood's greens, a turtle shell on the back | `deku4.py` |
 | Ba'al | Crested lizardman in copper, Archer 6's hat, lute 011 on the back | `baal_lute.py 3` |
+| Lance | Archer 9 as drawn, the red plumes removed from the shoulder pads up (the cape kept) | `lance.py` |
 | Alias | Archer 7: red cloak and armour, black mask and trousers, brown tuft, lighter skin, white trim | `alias.py` |
 
 Glimmer's and Ba'al's sheets are in their packs' own layouts (Glimmer: 64x52 frames, rows down/up/right/left;
