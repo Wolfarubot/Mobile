@@ -202,7 +202,7 @@ import { ACCOUNTS_READY, AccountError, currentUser, deleteAccount, resetPassword
 import { cloudSaveNow, cloudStatus, type SaveSummary } from './cloudSave';
 import { applyFont, fontDef, FONTS } from './fonts';
 import { GainPops } from './gainPops';
-import { EYE_COLORS, LOOK_PARTS, SKIN_TONES, partLevel, partName, type LookPart, type MainLook } from '../core/mainLook';
+import { EYE_COLORS, LOOK_BODIES, LOOK_HEADS, SKIN_TONES, headName, partLevel, partName, type LookPart, type MainLook } from '../core/mainLook';
 import { applyMainLook, buildMainSheet } from '../render/mainSheet';
 import { HUNTER_SHEETS } from '../render/hunterSheets';
 import { ACC_TAG_ICONS, ARCHETYPE_TAG_ICONS, ARMOR_TAG_ICONS, DAMAGE_TAG_ICONS, EFFECT_TAG_ICONS, FEATURE_TAG_ICONS, SPECIAL_TAG_ICON, SUMMON_TAG_ICONS, tagIconHtml } from './tagIcons';
@@ -7575,8 +7575,8 @@ export class AppUI {
     const level = g.levelOf('main');
     const draft: MainLook = { ...g.state.settings.look };
     const rows: Array<{ key: keyof MainLook; label: string; options: string[] }> = [
-      { key: 'head', label: 'Head', options: LOOK_PARTS },
-      { key: 'body', label: 'Body', options: LOOK_PARTS },
+      { key: 'head', label: 'Head', options: LOOK_HEADS },
+      { key: 'body', label: 'Body', options: LOOK_BODIES },
       { key: 'skin', label: 'Skin', options: SKIN_TONES.map((t) => t.id) },
       { key: 'eyes', label: 'Eyes', options: EYE_COLORS.map((t) => t.id) },
     ];
@@ -7611,7 +7611,7 @@ export class AppUI {
           const t = (r.key === 'skin' ? SKIN_TONES : EYE_COLORS).find((x) => x.id === id)!;
           const [c0, c1] = [t.ramp[1] ?? t.ramp[0], t.ramp[0]];
           v.innerHTML = `<i class="look-swatch" style="background:rgb(${c1.join(',')});box-shadow:inset 0 -6px rgb(${c0.join(',')})"></i>${t.name}`;
-        } else v.innerHTML = `${partName(id as LookPart)}${locked(id) ? ` <small>🔒 Lv ${partLevel(id as LookPart)}</small>` : ''}`;
+        } else v.innerHTML = `${(r.key === 'head' ? headName : partName)(id as LookPart)}${locked(id) ? ` <small>🔒 Lv ${partLevel(id as LookPart)}</small>` : ''}`;
         v.classList.toggle('locked', (r.key === 'head' || r.key === 'body') && locked(id));
       }
       const need = Math.max(locked(draft.head) ? partLevel(draft.head) : 0, locked(draft.body) ? partLevel(draft.body) : 0);

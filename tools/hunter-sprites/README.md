@@ -29,3 +29,6 @@ prints each one's `HUNTER_SHEETS` entry.
 Some approved sheets are in their packs' own layouts (frame sizes and row orders are listed in `install.py`). The
 Guild Hall mages (Glimmer, Thomas, Marceline) only come with a spell cast, so their idle is the cast's calm first
 frame, breathing.
+
+`s9head.py` fixes Swordsman 9's head for the Hunter Sprite editor (`public/hunters/parts/s9-head.png`): on its own, without
+its body, the side views had a notch at the back of the helmet under the brim, which it fills from the body's collar.

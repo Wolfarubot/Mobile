@@ -1,7 +1,8 @@
 /**
  * Your Hunter's look, chosen in the appearance editor: any head and any body from the Warrior, Mage and Archer
  * outfits (levels 1-9 of CraftPix's top-down Swordsman, Mage and Archer packs, public/hunters/parts/), a skin tone
- * and an eye colour. Outfit level n opens at Hunter Lv (n - 1) x 10 (level 1 from the start, level 9 at Lv 80).
+ * and an eye colour. Outfit level n opens at Hunter Lv (n - 1) x 10 (level 1 from the start, level 9 at Lv 80). Level 2's
+ * heads are left out (they're level 1's again), so there are 8 heads per outfit and 9 bodies.
  */
 
 export type LookClass = 's' | 'm' | 'a';
@@ -22,6 +23,12 @@ export const partTier = (p: LookPart): number => Number(p.slice(1));
 export const tierLevel = (tier: number): number => (tier <= 1 ? 1 : (tier - 1) * 10);
 export const partLevel = (p: LookPart): number => tierLevel(partTier(p));
 export const partName = (p: LookPart): string => `${LOOK_CLASSES.find((c) => c.id === partClass(p))!.name} ${partTier(p)}`;
+/** Heads: every level but 2, whose heads are the same as level 1's. They keep their outfit's level (and when it
+ * opens) but are numbered 1-8 in the editor: Warrior head 2 is the level-3 head, opening at Lv 20. */
+export const LOOK_HEADS: LookPart[] = LOOK_PARTS.filter((p) => partTier(p) !== 2);
+export const LOOK_BODIES: LookPart[] = LOOK_PARTS;
+/** A head's name in the editor (numbered 1-8). */
+export const headName = (p: LookPart): string => `${LOOK_CLASSES.find((c) => c.id === partClass(p))!.name} ${partTier(p) === 1 ? 1 : partTier(p) - 1}`;
 
 type RGB = [number, number, number];
 
@@ -75,10 +82,10 @@ export const DEFAULT_LOOK: MainLook = { head: 's1', body: 's1', skin: 'golden', 
 /** A saved look, checked piece by piece (anything unknown falls back to the default). */
 export function readLook(x: unknown): MainLook {
   const o = (x && typeof x === 'object' ? x : {}) as Record<string, unknown>;
-  const part = (v: unknown, d: LookPart) => (LOOK_PARTS.includes(v as LookPart) ? (v as LookPart) : d);
+  const part = (list: LookPart[], v: unknown, d: LookPart) => (list.includes(v as LookPart) ? (v as LookPart) : d);
   return {
-    head: part(o.head, DEFAULT_LOOK.head),
-    body: part(o.body, DEFAULT_LOOK.body),
+    head: part(LOOK_HEADS, o.head, DEFAULT_LOOK.head),
+    body: part(LOOK_BODIES, o.body, DEFAULT_LOOK.body),
     skin: SKIN_TONES.some((t) => t.id === o.skin) ? (o.skin as string) : DEFAULT_LOOK.skin,
     eyes: EYE_COLORS.some((t) => t.id === o.eyes) ? (o.eyes as string) : DEFAULT_LOOK.eyes,
   };
