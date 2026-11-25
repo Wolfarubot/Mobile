@@ -202,7 +202,7 @@ import { ACCOUNTS_READY, AccountError, currentUser, deleteAccount, resetPassword
 import { cloudSaveNow, cloudStatus, type SaveSummary } from './cloudSave';
 import { applyFont, fontDef, FONTS } from './fonts';
 import { GainPops } from './gainPops';
-import { EYE_COLORS, LOOK_BODIES, LOOK_HEADS, SKIN_TONES, headName, partLevel, partName, type LookPart, type MainLook } from '../core/mainLook';
+import { EYE_COLORS, HAIR_COLORS, LOOK_BODIES, LOOK_HEADS, SKIN_TONES, headName, partLevel, partName, type LookPart, type MainLook } from '../core/mainLook';
 import { applyMainLook, buildMainSheet } from '../render/mainSheet';
 import { HUNTER_SHEETS } from '../render/hunterSheets';
 import { ACC_TAG_ICONS, ARCHETYPE_TAG_ICONS, ARMOR_TAG_ICONS, DAMAGE_TAG_ICONS, EFFECT_TAG_ICONS, FEATURE_TAG_ICONS, SPECIAL_TAG_ICON, SUMMON_TAG_ICONS, tagIconHtml } from './tagIcons';
@@ -6947,7 +6947,7 @@ export class AppUI {
     });
     body.appendChild(nameCard);
     const lookCard = el('div', 'card setting look-setting');
-    lookCard.innerHTML = `<div class="setting-name">Hunter Sprite</div><p>Your Hunter's look: head, body, skin tone and eyes. Higher outfits open as your Hunter levels up.</p><button class="buy look-open"><canvas class="look-thumb" width="34" height="40"></canvas><span>Change look</span></button>`;
+    lookCard.innerHTML = `<div class="setting-name">Hunter Sprite</div><p>Your Hunter's look: head, body, skin tone, hair and eyes. Higher outfits open as your Hunter levels up.</p><button class="buy look-open"><canvas class="look-thumb" width="34" height="40"></canvas><span>Change look</span></button>`;
     const thumb = $<HTMLCanvasElement>('.look-thumb', lookCard);
     const drawThumb = () => void drawLook(thumb, g.state.settings.look, [0], 0);
     drawThumb();
@@ -7578,6 +7578,7 @@ export class AppUI {
       { key: 'head', label: 'Head', options: LOOK_HEADS },
       { key: 'body', label: 'Body', options: LOOK_BODIES },
       { key: 'skin', label: 'Skin', options: SKIN_TONES.map((t) => t.id) },
+      { key: 'hair', label: 'Hair', options: HAIR_COLORS.map((t) => t.id) },
       { key: 'eyes', label: 'Eyes', options: EYE_COLORS.map((t) => t.id) },
     ];
     const rowHtml = rows
@@ -7609,9 +7610,12 @@ export class AppUI {
       for (const r of rows) {
         const v = $('.look-row[data-key=' + r.key + '] .look-value', box);
         const id = draft[r.key];
-        if (r.key === 'skin' || r.key === 'eyes') {
-          const t = (r.key === 'skin' ? SKIN_TONES : EYE_COLORS).find((x) => x.id === id)!;
-          const [c0, c1] = [t.ramp[1] ?? t.ramp[0], t.ramp[0]];
+        if (r.key === 'hair' && id === 'natural') {
+          v.innerHTML = 'Natural';
+        } else if (r.key === 'skin' || r.key === 'eyes' || r.key === 'hair') {
+          const t = (r.key === 'skin' ? SKIN_TONES : r.key === 'hair' ? HAIR_COLORS : EYE_COLORS).find((x) => x.id === id)!;
+          // Hair's ramp runs dark to light; skin's and eyes' run light to dark.
+          const [c1, c0] = r.key === 'hair' ? [t.ramp[2], t.ramp[1]] : [t.ramp[0], t.ramp[1] ?? t.ramp[0]];
           v.innerHTML = `<i class="look-swatch" style="background:rgb(${c1.join(',')});box-shadow:inset 0 -6px rgb(${c0.join(',')})"></i>${t.name}`;
         } else v.innerHTML = `${(r.key === 'head' ? headName : partName)(id as LookPart)}${locked(id) ? ` <small>🔒 Lv ${partLevel(id as LookPart)}</small>` : ''}`;
         v.classList.toggle('locked', (r.key === 'head' || r.key === 'body') && locked(id));

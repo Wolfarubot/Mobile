@@ -1,4 +1,4 @@
-import { EYE_COLORS, PACK_EYES, PACK_SKIN, SKIN_TONES, partClass, type LookPart, type MainLook } from '../core/mainLook';
+import { EYE_COLORS, HAIR_COLORS, HAIR_HEADS, PACK_EYES, PACK_HAIR, PACK_SKIN, SKIN_TONES, hairRamp, partClass, type LookPart, type MainLook } from '../core/mainLook';
 import { setHunterSheet } from './sprites';
 
 /**
@@ -30,13 +30,19 @@ function loadPart(part: LookPart, kind: 'head' | 'body'): Promise<HTMLImageEleme
 
 const rgbKey = (r: number, g: number, b: number) => (r << 16) | (g << 8) | b;
 
-/** Recolours a layer in place: its pack's skin to the chosen tone, its irises to the chosen eye colour. */
-function recolour(data: ImageData, part: LookPart, look: MainLook): void {
+/** Recolours a layer in place: its pack's skin to the chosen tone, its irises to the chosen eye colour and (heads that
+ * show hair) its hair to the chosen colour. */
+function recolour(data: ImageData, part: LookPart, look: MainLook, kind: 'head' | 'body'): void {
   const cls = partClass(part);
   const tone = (SKIN_TONES.find((t) => t.id === look.skin) ?? SKIN_TONES[3]).ramp;
   const eye = (EYE_COLORS.find((t) => t.id === look.eyes) ?? EYE_COLORS[0]).ramp;
   const skin = new Map<number, number[]>();
   PACK_SKIN[cls].forEach((c, i) => skin.set(rgbKey(...c), tone[i]));
+  const hair = HAIR_COLORS.find((t) => t.id === look.hair);
+  if (kind === 'head' && hair && hair.ramp.length && HAIR_HEADS.includes(part)) {
+    const to = hairRamp(hair.ramp, PACK_HAIR[cls].length);
+    PACK_HAIR[cls].forEach((c, i) => skin.set(rgbKey(...c), to[i]));
+  }
   const iris = rgbKey(...PACK_EYES[cls][0]);
   const lower = rgbKey(...PACK_EYES[cls][1]);
   const d = data.data;
@@ -59,7 +65,7 @@ function recolour(data: ImageData, part: LookPart, look: MainLook): void {
   }
 }
 
-function layer(img: HTMLImageElement, part: LookPart, look: MainLook, crop?: [number, number, number, number]): HTMLCanvasElement {
+function layer(img: HTMLImageElement, part: LookPart, kind: 'head' | 'body', look: MainLook, crop?: [number, number, number, number]): HTMLCanvasElement {
   const [sx, sy, sw, sh] = crop ?? [0, 0, img.naturalWidth, img.naturalHeight];
   const c = document.createElement('canvas');
   c.width = sw;
@@ -67,7 +73,7 @@ function layer(img: HTMLImageElement, part: LookPart, look: MainLook, crop?: [nu
   const g = c.getContext('2d', { willReadFrequently: true })!;
   g.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
   const data = g.getImageData(0, 0, sw, sh);
-  recolour(data, part, look);
+  recolour(data, part, look, kind);
   g.putImageData(data, 0, 0);
   return c;
 }
@@ -79,15 +85,15 @@ export async function buildMainSheet(look: MainLook): Promise<HTMLCanvasElement>
   c.width = body.naturalWidth;
   c.height = body.naturalHeight;
   const g = c.getContext('2d')!;
-  g.drawImage(layer(body, look.body, look), 0, 0);
-  g.drawImage(layer(head, look.head, look), 0, 0);
+  g.drawImage(layer(body, look.body, 'body', look), 0, 0);
+  g.drawImage(layer(head, look.head, 'head', look), 0, 0);
   return c;
 }
 
 /** One part's first facing-down frame, recoloured for the look (the editor's thumbnails). */
 export async function partThumb(part: LookPart, kind: 'head' | 'body', look: MainLook): Promise<HTMLCanvasElement> {
   const img = await loadPart(part, kind);
-  return layer(img, part, look, [0, 0, FRAME, FRAME]);
+  return layer(img, part, kind, look, [0, 0, FRAME, FRAME]);
 }
 
 let applied = '';

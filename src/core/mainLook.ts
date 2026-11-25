@@ -1,7 +1,7 @@
 /**
  * Your Hunter's look, chosen in the appearance editor: any head and any body from the Warrior, Mage and Archer
  * outfits (levels 1-9 of CraftPix's top-down Swordsman, Mage and Archer packs, public/hunters/parts/), a skin tone
- * and an eye colour. Outfit level n opens at Hunter Lv (n - 1) x 10 (level 1 from the start, level 9 at Lv 80). Level 2's
+ * a hair colour and an eye colour. Outfit level n opens at Hunter Lv (n - 1) x 10 (level 1 from the start, level 9 at Lv 80). Level 2's
  * heads are left out (they're level 1's again), so there are 8 heads per outfit and 9 bodies.
  */
 
@@ -58,6 +58,46 @@ export const EYE_COLORS: Array<{ id: string; name: string; ramp: RGB[] }> = [
   { id: 'red', name: 'Red', ramp: [[212, 52, 52], [132, 28, 34]] },
 ];
 
+/**
+ * Hair colours: 'natural' keeps each head's own; the rest are a dark, mid and light shade, spread over the head's
+ * hair shades (darkest first).
+ */
+export const HAIR_COLORS: Array<{ id: string; name: string; ramp: RGB[] }> = [
+  { id: 'natural', name: 'Natural', ramp: [] },
+  { id: 'black', name: 'Black', ramp: [[20, 18, 24], [44, 42, 52], [84, 82, 96]] },
+  { id: 'darkBrown', name: 'Dark brown', ramp: [[34, 20, 16], [76, 48, 34], [124, 84, 58]] },
+  { id: 'brown', name: 'Brown', ramp: [[52, 30, 18], [120, 76, 44], [178, 124, 76]] },
+  { id: 'auburn', name: 'Auburn', ramp: [[60, 18, 16], [140, 52, 30], [206, 98, 56]] },
+  { id: 'ginger', name: 'Ginger', ramp: [[86, 30, 14], [200, 88, 30], [250, 160, 70]] },
+  { id: 'blonde', name: 'Blonde', ramp: [[92, 58, 30], [196, 148, 64], [250, 226, 140]] },
+  { id: 'platinum', name: 'Platinum', ramp: [[96, 88, 74], [206, 196, 170], [252, 248, 232]] },
+  { id: 'white', name: 'White', ramp: [[78, 80, 96], [188, 190, 204], [250, 250, 252]] },
+  { id: 'grey', name: 'Grey', ramp: [[40, 40, 48], [104, 104, 116], [170, 170, 182]] },
+  { id: 'red', name: 'Red', ramp: [[70, 14, 18], [176, 40, 36], [236, 96, 70]] },
+  { id: 'pink', name: 'Pink', ramp: [[96, 30, 66], [222, 104, 166], [255, 186, 220]] },
+  { id: 'purple', name: 'Purple', ramp: [[40, 20, 64], [110, 62, 170], [184, 140, 236]] },
+  { id: 'blue', name: 'Blue', ramp: [[18, 26, 64], [48, 84, 170], [110, 170, 236]] },
+  { id: 'green', name: 'Green', ramp: [[14, 44, 30], [40, 124, 70], [120, 206, 120]] },
+];
+
+/** Each pack's hair shades, darkest (its outline) first, and the heads that show hair (the rest are helmets and hoods). */
+export const PACK_HAIR: Record<LookClass, RGB[]> = {
+  s: [[33, 26, 28], [43, 32, 35], [59, 44, 51], [77, 57, 69], [104, 79, 90], [135, 108, 125]],
+  m: [[77, 27, 26], [113, 32, 31], [136, 45, 32], [154, 53, 36], [173, 70, 38], [187, 83, 34], [207, 104, 29]],
+  a: [[32, 35, 53], [38, 40, 62], [44, 52, 78], [53, 67, 97], [59, 82, 113]],
+};
+export const HAIR_HEADS: LookPart[] = ['s1', 's3', 's4', 'm1', 'm3', 'm4', 'm5', 'a1', 'a3', 'a4', 'a5'];
+
+/** A hair colour's shades for a head with `n` hair shades (darkest first), spread from its dark, mid and light. */
+export function hairRamp(anchors: RGB[], n: number): RGB[] {
+  return Array.from({ length: n }, (_, i) => {
+    const t = (i / Math.max(1, n - 1)) * (anchors.length - 1);
+    const k = Math.min(Math.floor(t), anchors.length - 2);
+    const f = t - k;
+    return anchors[k].map((v, j) => Math.round(v + (anchors[k + 1][j] - v) * f)) as RGB;
+  });
+}
+
 /** Each outfit pack's own skin colours (in SKIN_TONES order) and eye colours (iris, lower pixel). */
 export const PACK_SKIN: Record<LookClass, RGB[]> = {
   s: SKIN_TONES[3].ramp,
@@ -74,10 +114,11 @@ export interface MainLook {
   head: LookPart;
   body: LookPart;
   skin: string;
+  hair: string;
   eyes: string;
 }
 
-export const DEFAULT_LOOK: MainLook = { head: 's1', body: 's1', skin: 'golden', eyes: 'blue' };
+export const DEFAULT_LOOK: MainLook = { head: 's1', body: 's1', skin: 'golden', hair: 'natural', eyes: 'blue' };
 
 /** A saved look, checked piece by piece (anything unknown falls back to the default). */
 export function readLook(x: unknown): MainLook {
@@ -87,6 +128,7 @@ export function readLook(x: unknown): MainLook {
     head: part(LOOK_HEADS, o.head, DEFAULT_LOOK.head),
     body: part(LOOK_BODIES, o.body, DEFAULT_LOOK.body),
     skin: SKIN_TONES.some((t) => t.id === o.skin) ? (o.skin as string) : DEFAULT_LOOK.skin,
+    hair: HAIR_COLORS.some((t) => t.id === o.hair) ? (o.hair as string) : DEFAULT_LOOK.hair,
     eyes: EYE_COLORS.some((t) => t.id === o.eyes) ? (o.eyes as string) : DEFAULT_LOOK.eyes,
   };
 }

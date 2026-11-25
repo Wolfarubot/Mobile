@@ -5,7 +5,7 @@ tools/hunter-sprites/install.py, which also has the scripts that built each one.
 You: the look you choose in Settings → Hunter Sprite, put together in the game (src/render/mainSheet.ts) from
 public/hunters/parts/ (every level 1-9 Swordsman, Mage and Archer idle body and head, as drawn, except the level 2
 heads, which match level 1's; Swordsman 9's head has the back of its helmet filled in from its own body's collar,
-tools/hunter-sprites/s9head.py) with the skin and eyes recoloured; main.png (Swordsman 3) shows until it's ready.
+tools/hunter-sprites/s9head.py) with the skin, hair and eyes recoloured; main.png (Swordsman 3) shows until it's ready.
 Andrejz: Archer 2's head (grey-white hair, fair skin) on Swordsman 6's body (its steel as leather).
 Galladair: Mage 3's head (light-blue skin) on Archer 6's body.
 Deku: Mage 6 without the cape, the robe in the hood's greens, a turtle shell on his back.

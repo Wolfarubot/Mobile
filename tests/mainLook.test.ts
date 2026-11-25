@@ -25,9 +25,9 @@ describe('Your Hunter look', () => {
 
   it('saves the look, and anything unknown in a save falls back to the default', () => {
     const s = newGame(0);
-    s.settings.look = { head: 'a9', body: 'm3', skin: 'deep', eyes: 'violet' };
-    expect(deserialize(serialize(s))!.settings.look).toEqual({ head: 'a9', body: 'm3', skin: 'deep', eyes: 'violet' });
-    expect(readLook({ head: 'x4', body: 's10', skin: 'blue', eyes: 7 })).toEqual(DEFAULT_LOOK);
+    s.settings.look = { head: 'a9', body: 'm3', skin: 'deep', hair: 'pink', eyes: 'violet' };
+    expect(deserialize(serialize(s))!.settings.look).toEqual({ head: 'a9', body: 'm3', skin: 'deep', hair: 'pink', eyes: 'violet' });
+    expect(readLook({ head: 'x4', body: 's10', skin: 'blue', hair: 'teal', eyes: 7 })).toEqual(DEFAULT_LOOK);
     expect(readLook(undefined)).toEqual(DEFAULT_LOOK);
   });
 });
