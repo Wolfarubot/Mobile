@@ -87,3 +87,8 @@ export function hunterSheetImage(id: string): HTMLImageElement | null {
   }
   return img.complete && img.naturalWidth > 0 ? img : null;
 }
+
+/** Puts a sheet made in the game (your Hunter's chosen look, see mainSheet.ts) in place of a Hunter's file. */
+export function setHunterSheet(id: string, img: HTMLImageElement): void {
+  hunterImages.set(id, img);
+}

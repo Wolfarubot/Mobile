@@ -202,6 +202,9 @@ import { ACCOUNTS_READY, AccountError, currentUser, deleteAccount, resetPassword
 import { cloudSaveNow, cloudStatus, type SaveSummary } from './cloudSave';
 import { applyFont, fontDef, FONTS } from './fonts';
 import { GainPops } from './gainPops';
+import { EYE_COLORS, LOOK_PARTS, SKIN_TONES, partLevel, partName, type LookPart, type MainLook } from '../core/mainLook';
+import { applyMainLook, buildMainSheet } from '../render/mainSheet';
+import { HUNTER_SHEETS } from '../render/hunterSheets';
 import { ACC_TAG_ICONS, ARCHETYPE_TAG_ICONS, ARMOR_TAG_ICONS, DAMAGE_TAG_ICONS, EFFECT_TAG_ICONS, FEATURE_TAG_ICONS, SPECIAL_TAG_ICON, SUMMON_TAG_ICONS, tagIconHtml } from './tagIcons';
 
 type Tab = TabId;
@@ -6827,6 +6830,7 @@ export class AppUI {
   private applySettings(): void {
     document.body.classList.toggle('left-handed', this.game.state.settings.leftHanded);
     mainHunterName = this.game.state.settings.name.trim();
+    void applyMainLook(this.game.state.settings.look);
     setHaptics(this.game.state.settings.haptics);
     applyOrientation(this.game.state.settings.orientation);
     applyAudio(this.game.state.settings.audio);
@@ -6942,6 +6946,13 @@ export class AppUI {
       if (document.activeElement !== input) input.focus();
     });
     body.appendChild(nameCard);
+    const lookCard = el('div', 'card setting look-setting');
+    lookCard.innerHTML = `<div class="setting-name">Hunter Sprite</div><p>Your Hunter's look: head, body, skin tone and eyes. Higher outfits open as your Hunter levels up.</p><button class="look-open"><canvas class="look-thumb" width="34" height="40"></canvas><span>Change look</span></button>`;
+    const thumb = $<HTMLCanvasElement>('.look-thumb', lookCard);
+    const drawThumb = () => void drawLook(thumb, g.state.settings.look, [0], 0);
+    drawThumb();
+    $('.look-open', lookCard).addEventListener('click', () => this.openLookEditor(drawThumb));
+    body.appendChild(lookCard);
     if (focus === 'name')
       requestAnimationFrame(() => {
         nameCard.scrollIntoView({ block: 'center' });
@@ -7554,6 +7565,83 @@ export class AppUI {
 
   // ---- Modals ----
 
+  /**
+   * The Hunter Sprite pop-up: your Hunter at the top (all four facings, idling), then head, body, skin tone and eye
+   * colour, each cycled with arrows. Outfits above your Hunter's level show what level opens them, and can't be
+   * confirmed until then.
+   */
+  private openLookEditor(onSaved: () => void): void {
+    const g = this.game;
+    const level = g.levelOf('main');
+    const draft: MainLook = { ...g.state.settings.look };
+    const rows: Array<{ key: keyof MainLook; label: string; options: string[] }> = [
+      { key: 'head', label: 'Head', options: LOOK_PARTS },
+      { key: 'body', label: 'Body', options: LOOK_PARTS },
+      { key: 'skin', label: 'Skin', options: SKIN_TONES.map((t) => t.id) },
+      { key: 'eyes', label: 'Eyes', options: EYE_COLORS.map((t) => t.id) },
+    ];
+    const rowHtml = rows
+      .map((r) => `<div class="look-row" data-key="${r.key}"><span class="look-label">${r.label}</span><button class="look-arrow" data-d="-1" aria-label="Previous">◀</button><div class="look-value"></div><button class="look-arrow" data-d="1" aria-label="Next">▶</button></div>`)
+      .join('');
+    let open = true;
+    this.showModal(`<h2>Hunter Sprite</h2><canvas class="look-preview" width="${4 * LOOK_CELL.w * 3}" height="${LOOK_CELL.h * 3}"></canvas><div class="look-rows">${rowHtml}</div><p class="look-lock hidden"></p>`, [
+      {
+        label: 'Confirm',
+        action: () => {
+          open = false;
+          g.state.settings.look = { ...draft };
+          this.applySettings();
+          this.hooks.save();
+          onSaved();
+        },
+      },
+      { label: 'Cancel', secondary: true, action: () => (open = false) },
+    ]);
+    const box = $('.modal-box', this.modal);
+    box.classList.add('look-box');
+    const preview = $<HTMLCanvasElement>('.look-preview', box);
+    const confirm = $<HTMLButtonElement>('.buttons button', box);
+    const lockNote = $('.look-lock', box);
+    const locked = (p: string) => partLevel(p as LookPart) > level;
+    const sync = () => {
+      for (const r of rows) {
+        const v = $('.look-row[data-key=' + r.key + '] .look-value', box);
+        const id = draft[r.key];
+        if (r.key === 'skin' || r.key === 'eyes') {
+          const t = (r.key === 'skin' ? SKIN_TONES : EYE_COLORS).find((x) => x.id === id)!;
+          const [c0, c1] = [t.ramp[1] ?? t.ramp[0], t.ramp[0]];
+          v.innerHTML = `<i class="look-swatch" style="background:rgb(${c1.join(',')});box-shadow:inset 0 -6px rgb(${c0.join(',')})"></i>${t.name}`;
+        } else v.innerHTML = `${partName(id as LookPart)}${locked(id) ? ` <small>🔒 Lv ${partLevel(id as LookPart)}</small>` : ''}`;
+        v.classList.toggle('locked', (r.key === 'head' || r.key === 'body') && locked(id));
+      }
+      const need = Math.max(locked(draft.head) ? partLevel(draft.head) : 0, locked(draft.body) ? partLevel(draft.body) : 0);
+      confirm.disabled = need > 0;
+      lockNote.classList.toggle('hidden', !need);
+      lockNote.textContent = need ? `Your Hunter needs Lv ${need} to wear this.` : '';
+      void buildMainSheet(draft).then((sheet) => (previewSheet = sheet));
+    };
+    let previewSheet: HTMLCanvasElement | null = null;
+    box.querySelectorAll<HTMLElement>('.look-row').forEach((rowEl) => {
+      const r = rows.find((x) => x.key === rowEl.dataset.key)!;
+      rowEl.querySelectorAll<HTMLButtonElement>('.look-arrow').forEach((b) =>
+        b.addEventListener('click', () => {
+          const n = r.options.length;
+          const i = r.options.indexOf(draft[r.key]);
+          (draft as unknown as Record<string, string>)[r.key] = r.options[(i + Number(b.dataset.d) + n) % n];
+          sync();
+        }),
+      );
+    });
+    sync();
+    const pg = preview.getContext('2d')!;
+    const tick = (t: number) => {
+      if (!open || this.modal.classList.contains('hidden')) return;
+      if (previewSheet) paintLook(pg, previewSheet, [0, 1, 2, 3], Math.floor(t / 125));
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }
+
   showModal(html: string, buttons: Array<{ label: string; secondary?: boolean; action?: () => void }>): void {
     // A tip opened from the envelope: either button takes it out; the one that goes nowhere ("Later") brings the
     // envelope's window back while other tips wait there.
@@ -7880,6 +7968,27 @@ const LOOT_SOUND_MAX = 5;
 const LOOT_SOUND_WINDOW = 10_000;
 
 const mainName = () => mainHunterName || 'You';
+/** Each facing's window in the look previews: the part of the 64px frame around the character (helmets and plumes included). */
+const LOOK_CELL = { x: 15, y: 6, w: 34, h: 40 };
+
+/** Draws facings (0 down, 1 left, 2 right, 3 up) of a look sheet side by side, at frame `f` (wrapping per row). */
+function paintLook(g: CanvasRenderingContext2D, sheet: CanvasImageSource, facings: number[], f: number): void {
+  const { x, y, w, h } = LOOK_CELL;
+  const k = Math.min(g.canvas.width / (facings.length * w), g.canvas.height / h);
+  const x0 = (g.canvas.width - facings.length * w * k) / 2;
+  g.clearRect(0, 0, g.canvas.width, g.canvas.height);
+  g.imageSmoothingEnabled = false;
+  facings.forEach((row, i) => {
+    const col = f % HUNTER_SHEETS.main!.frames[row];
+    g.drawImage(sheet, col * 64 + x, row * 64 + y, w, h, x0 + i * w * k, 0, w * k, h * k);
+  });
+}
+
+async function drawLook(c: HTMLCanvasElement, look: MainLook, facings: number[], f: number): Promise<void> {
+  const sheet = await buildMainSheet(look).catch(() => null);
+  if (sheet) paintLook(c.getContext('2d')!, sheet, facings, f);
+}
+
 export const MAX_NAME_LENGTH = 16;
 
 /** A damage type's symbol: the same pixel icon as its tag everywhere (filters, stats, tooltips, gear cards). */

@@ -1,7 +1,7 @@
 Hunter idle sheets from CraftPix.net's top-down 4-direction Swordsman (lvl 2-9), Mage (lvl 2-9), Archer (lvl 2-9)
 and Vampire packs (license: https://craftpix.net/file-licenses/): the idle animation's body and head layers (no
 weapon; the game draws each Hunter's equipped weapon), rows in the order down, left, right, up. Every Hunter uses
-the same style; no level 1 outfits. You: Swordsman 3. Galladair: Mage 3 (skin recoloured light blue). Ba'al: Archer 3 (skin recoloured copper). Andrejz: Swordsman 2. Deku: Mage 6. Alias:
+the same style. You: the look you choose in Settings → Hunter Sprite, put together in the game (src/render/mainSheet.ts) from public/hunters/parts/ (every level 1-9 Swordsman, Mage and Archer idle head and body, as drawn) with the skin and eyes recoloured; main.png (Swordsman 3) shows until it's ready. Galladair: Mage 3 (skin recoloured light blue). Ba'al: Archer 3 (skin recoloured copper). Andrejz: Swordsman 2. Deku: Mage 6. Alias:
 Archer 4. Lance: Swordsman 7. Glimmer: Mage 2 (warmed to fiery tones). Theon: Archer 6. Wilhelm: Archer 5. Celeste:
 Mage 5 (white hair, purple eyes, dark brown cloak and leather-brown shirt). Kargesh: Swordsman 4. Sciirj: Archer 2 (tinted to a monk's orange). Marceline: Mage 4 (black hair). Gideon: Vampire 1
 (greyed toward bone). Lilith (Haunter): Swordsman 5 recoloured to a ghost's palette (dusky violet hood and armour, pale bloodless skin, a spectral teal scarf, glowing cyan eyes). Themus: Vampire 3 (pale red skin, dark brown hair). Reginald (Artificer): Swordsman 8. Thomas: Mage 9 (as drawn). Ted: Archer 7 (as drawn). No two Hunters share a base outfit, recoloured or not.

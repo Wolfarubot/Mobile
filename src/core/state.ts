@@ -1,3 +1,4 @@
+import { DEFAULT_LOOK, readLook, type MainLook } from './mainLook';
 import {
   ASCENDED_TREES,
   SLAYER_TREE,
@@ -267,6 +268,8 @@ export interface GameState {
     leftHanded: boolean;
     /** Your Hunter's name ('' shows as "You"). */
     name: string;
+    /** Your Hunter's look: head, body, skin tone and eye colour (see mainLook.ts). */
+    look: MainLook;
     /** Left-to-right order of the main menu tabs. */
     tabOrder: TabId[];
     /** Font chosen in Settings (an id from ui/fonts). */
@@ -489,7 +492,7 @@ export function newGame(now = Date.now()): GameState {
     nextGearUid: 4,
     lastSeen: now,
     samples: {},
-    settings: { leftHanded: false, name: '', tabOrder: [...TAB_IDS], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', lootPopups: true, hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', advancedTips: false, maxTrainPopup: true, salvageConfirm: true, autoSkillPopup: true, autoEvoPopup: true, autoSalvage: [], fx: allFx(), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium', orientation: 'rotate', fps: '60', textSize: 'medium', popupPos: 'menu', craftCardBig: false, audio: defaultAudio() },
+    settings: { leftHanded: false, name: '', look: { ...DEFAULT_LOOK }, tabOrder: [...TAB_IDS], font: 'terminal', dps: true, dpsCorner: 'tr', pickups: true, pickupCorner: 'bl', lootPopups: true, hudPos: 'bottom', cooldowns: true, cooldownPos: 'top', reloads: true, reloadPos: 'above', reloadStyle: 'fancy', summonText: false, cooldownStyle: 'fancy', advancedTips: false, maxTrainPopup: true, salvageConfirm: true, autoSkillPopup: true, autoEvoPopup: true, autoSalvage: [], fx: allFx(), aoeStyle: 'fancy', uiStyle: 'parchment', clarity: 'low', haptics: 'medium', orientation: 'rotate', fps: '60', textSize: 'medium', popupPos: 'menu', craftCardBig: false, audio: defaultAudio() },
     flags: { eventsIntro: false, welcome: false, trainIntro: false, empowerIntro: false, craftIntro: false, wolfIntro: false, minigameIntro: false, questsIntro: false, feedbackIntro: false, quickTrainIntro: false, salvageIntro: false, salvageExplained: false },
     blessings: { refine: 0, enchant: 0 },
     energy: ENERGY_MAX,
@@ -800,6 +803,7 @@ export function deserialize(raw: string | null | undefined, now = Date.now()): G
     settings: {
       leftHanded: !!(data.settings as { leftHanded?: unknown } | undefined)?.leftHanded,
       name: String((data.settings as { name?: unknown } | undefined)?.name ?? '').slice(0, 16),
+      look: readLook((data.settings as { look?: unknown } | undefined)?.look),
       tabOrder: readTabOrder((data.settings as { tabOrder?: unknown } | undefined)?.tabOrder),
       font: (() => {
         const f = (data.settings as { font?: unknown } | undefined)?.font;

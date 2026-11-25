@@ -9837,3 +9837,75 @@ body.landscape.left-handed .field-card.floating.big:not(.over-menu) {
   text-decoration: none;
   text-align: center;
 }
+
+/* Settings → Hunter Sprite */
+.look-setting .look-open {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px 6px 6px;
+  border-radius: 12px;
+  font-weight: 800;
+}
+.look-setting .look-thumb {
+  width: 34px;
+  height: 40px;
+  image-rendering: pixelated;
+  background: var(--card-hi);
+  border-radius: 8px;
+}
+.look-box .look-preview {
+  width: 100%;
+  aspect-ratio: 136 / 40;
+  image-rendering: pixelated;
+  background: var(--card-hi);
+  border-radius: 12px;
+  margin: 6px 0 10px;
+}
+.look-box .look-rows {
+  display: grid;
+  gap: 8px;
+}
+.look-box .look-row {
+  display: grid;
+  grid-template-columns: 52px 40px 1fr 40px;
+  align-items: center;
+  gap: 6px;
+}
+.look-box .look-label {
+  text-align: left;
+  font-weight: 800;
+}
+.look-box .look-arrow {
+  height: 36px;
+  border-radius: 10px;
+  background: var(--card-hi);
+  font-weight: 900;
+}
+.look-box .look-value {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  border-radius: 10px;
+  background: var(--card);
+  font-weight: 700;
+  min-width: 0;
+}
+.look-box .look-value.locked {
+  opacity: 0.6;
+}
+.look-box .look-swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid #0008;
+}
+.look-box .look-lock {
+  color: var(--gold);
+  font-weight: 700;
+}
+.look-box .buttons button:disabled {
+  opacity: 0.45;
+}
