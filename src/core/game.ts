@@ -250,7 +250,7 @@ import {
   UNLOCK_SPAWN_BONUS,
 } from './balance';
 import { capAway, type OfflineResult } from './offline';
-import { invest, runWorth, shardsNow, type RunWorth } from './regression';
+import { invest, runWorth, unboundKit, shardsNow, type RunWorth } from './regression';
 import { type BuyAmount, type GameState, type GearItem, type GearMod, type PendingMod, type Training, type Wearer } from './state';
 
 /** A piece's enchantments and refinements: its built-in effects first, then what's in its modifier slots. */
@@ -2183,6 +2183,8 @@ export class Game {
     const r = this.state.regression;
     r.shards -= this.regCostOf(id);
     r.tree[id] = 1;
+    // The Unbound Woods: your starting pieces become their Unbound copies.
+    if (id === 'unbound-forest') unboundKit(this.state, this.state.inventory.map((it) => it.uid));
     this.regVersion++;
     this.rev++;
     return true;

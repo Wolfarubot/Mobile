@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { areaDef, weaponHit, UNBOUND_GEAR, UNBOUND_GEAR_TIERS, gearTier, GEAR_WORTH_WEIGHT, gearCost, gearDef, HUNTERS, MATERIAL_WORTH, MATERIALS, regNode, REGRESSION_LINKS, REGRESSION_TREE, shardsFor, SHARD_POWER, TIME_EATER_GROWTH, timeEaterGrowth, type MaterialId } from '../src/core/balance';
+import { areaDef, GEAR, weaponHit, UNBOUND_GEAR, UNBOUND_GEAR_TIERS, gearTier, GEAR_WORTH_WEIGHT, gearCost, gearDef, HUNTERS, MATERIAL_WORTH, MATERIALS, regNode, REGRESSION_LINKS, REGRESSION_TREE, shardsFor, SHARD_POWER, TIME_EATER_GROWTH, timeEaterGrowth, type MaterialId } from '../src/core/balance';
 import { Game } from '../src/core/game';
 import { Field, PERSIST, PERSIST_TIME } from '../src/core/field';
 import { estimateInvested, gearInvested, regress, runWorth } from '../src/core/regression';
@@ -347,6 +347,37 @@ describe('Regression Tree', () => {
     }
     // Between two areas, the five nodes in the middle come first.
     expect(ring.findIndex((n) => n.id === 'unbound-glade') - ring.findIndex((n) => n.id === 'unbound-forest')).toBe(6);
+  });
+
+  it('the starting kit has Unbound copies, only stronger: no built-in effects, as far past their originals as the Unbound Woods is past the Woods', () => {
+    for (const id of ['shortSword', 'shortBow', 'commonClothes'] as const) {
+      const u = gearDef(`u_${id}`);
+      expect(u).toMatchObject({ name: gearDef(id).name, starter: true, unboundOf: id });
+      expect(u.builtIn ?? []).toEqual([]);
+    }
+    const best = (cls: string, area: number, list: typeof UNBOUND_GEAR) => Math.max(...list.filter((g) => g.weaponClass === cls && Math.floor(gearTier(g)) === area && !g.starter).map((g) => weaponHit(g, 1)));
+    const ratio = best('sword', 13, UNBOUND_GEAR) / best('sword', 1, GEAR);
+    expect(weaponHit(gearDef('u_shortSword'), 1) / weaponHit(gearDef('shortSword'), 1)).toBeCloseTo(ratio, 0);
+    expect(UNBOUND_GEAR.some((g) => g.starter)).toBe(false); // not craftable
+  });
+
+  it('buying the Unbound Woods turns your starting pieces Unbound, and every Regression after starts in them (one of each)', () => {
+    const g = withShards(1e15);
+    g.state.regression.tree = Object.fromEntries(REGRESSION_TREE.filter((n) => n.ring <= 3).map((n) => [n.id, 1]));
+    g.state.inventory[0].stars = 3;
+    expect(g.buyReg('unbound-forest')).toBe(true);
+    expect(g.state.inventory.map((it) => [it.base, it.stars])).toEqual([['u_shortSword', 3], ['u_commonClothes', 1], ['u_shortBow', 1]]);
+    expect(g.equipped('main').map((it) => it?.base ?? null)).toEqual(['u_shortSword', 'u_commonClothes', null]);
+    // A Regression keeps them (worn where they were) and adds no second set.
+    const once = regress(g.state, 1e9).state;
+    expect(once.inventory.map((it) => it.base).sort()).toEqual(['u_commonClothes', 'u_shortBow', 'u_shortSword']);
+    const one = new Game(once, noCrit);
+    expect(one.equipped('main').map((it) => it?.base ?? null)).toEqual(['u_shortSword', 'u_commonClothes', null]);
+    expect(once.inventory.find((it) => it.base === 'u_shortSword')!.stars).toBe(3);
+    // Salvaged meanwhile: the next Regression's kit is Unbound.
+    once.inventory = once.inventory.filter((it) => it.base !== 'u_shortBow');
+    const twice = regress(once, 2e9).state;
+    expect(twice.inventory.map((it) => it.base).sort()).toEqual(['u_commonClothes', 'u_shortBow', 'u_shortSword']);
   });
 
   it('the Unbound areas are for sale, each opening the nodes past it; nothing past an area before it', () => {

@@ -2,7 +2,7 @@ import { buzz } from '../ui/haptics';
 import { pixelShadow } from './pixelShadow';
 import { battleSfx as sfx } from '../ui/sound';
 import { MAGIC_SFX, SFX } from '../ui/sfxConfig';
-import { areaDef, DAMAGE_TYPES, FIELD_ZOOM, FLYING, gearDef, WEAPON_CLASSES, STATUS, enemyDef, eventDef, GUARDIAN_TIME, guardianName, hunterDef, materialDef, SIZE_SCALE, type AreaId, type DamageType, type EnemyId, type EnemyShape, type SummonType } from '../core/balance';
+import { areaDef, unboundBase, DAMAGE_TYPES, FIELD_ZOOM, FLYING, gearDef, WEAPON_CLASSES, STATUS, enemyDef, eventDef, GUARDIAN_TIME, guardianName, hunterDef, materialDef, SIZE_SCALE, type AreaId, type DamageType, type EnemyId, type EnemyShape, type SummonType } from '../core/balance';
 import { DICE_FLIGHT, DICE_REST, PLAYER_RADIUS, SHOT_RADIUS, SUMMON_RADIUS, TOME_LIFE, TOME_OPEN, type EnemyShot, type Summon, type SpellZone, type FieldEvent, type Bullet, type BulletKind, type Enemy, type Field, type Helper, type Puddle, type Hazard, type Projection } from '../core/field';
 import { MATERIAL_SPRITES } from '../core/materialSprites';
 import { fmt } from '../core/format';
@@ -2197,7 +2197,7 @@ export class BattleView {
     const weapons = this.game.equipped(who).filter((it) => it && gearDef(it.base).weaponClass);
     const it = (close && weapons[1]) || weapons[0];
     if (!it) return null;
-    const img = gearImage(GEAR_SPRITES[it.base]);
+    const img = gearImage(GEAR_SPRITES[unboundBase(it.base) as keyof typeof GEAR_SPRITES]);
     return img ? { cls: gearDef(it.base).weaponClass!, img } : null;
   }
 

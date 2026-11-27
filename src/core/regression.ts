@@ -1,4 +1,4 @@
-import { isUnboundId, KEEP_EMPOWER_SHARE, OLD_HAUNTS, GEAR_WORTH_WEIGHT, gearCost, gearDef, HUNTERS, itemCost, itemDef, ITEMS, MATERIAL_WORTH, modCost, modGold, REGRESSION_TREE, regTreeMult, shardsFor, type MaterialId } from './balance';
+import { isUnboundId, unboundId, type BaseGearId, KEEP_EMPOWER_SHARE, OLD_HAUNTS, GEAR_WORTH_WEIGHT, gearCost, gearDef, HUNTERS, itemCost, itemDef, ITEMS, MATERIAL_WORTH, modCost, modGold, REGRESSION_TREE, regTreeMult, shardsFor, type MaterialId } from './balance';
 import { newGame, type GameState, type GearItem, type Invested } from './state';
 
 /**
@@ -124,6 +124,8 @@ export function regress(old: GameState, now: number): { state: GameState; shards
     });
   }
   for (const [m, n] of Object.entries(old.materials)) if (isUnboundId(m) && n > 0) s.materials[m as keyof typeof s.materials] = n;
+  // With the Unbound Woods owned, the starting kit is its Unbound copies: a piece already kept takes its place.
+  if ((old.regression.tree['unbound-forest'] ?? 0) > 0) unboundKit(s, [...renumber.values()]);
   // Kept as they were.
   s.settings = copy(old.settings);
   s.flags = copy(old.flags);
@@ -153,4 +155,28 @@ export function regress(old: GameState, now: number): { state: GameState; shards
   if (owns('oldHaunts')) for (const a of OLD_HAUNTS) s.areas[a].unlocked = true;
   s.gold = startGold(s);
   return { state: s, shards, worth };
+}
+
+/**
+ * Turns starting-kit pieces (by uid) into their Unbound copies. Where an Unbound copy of one is already owned, the
+ * new piece goes and that copy takes its slot (if it isn't worn elsewhere).
+ */
+export function unboundKit(s: GameState, uids: number[]): void {
+  const worn = (uid: number) => Object.values(s.equipment).some((slots) => slots?.includes(uid));
+  for (const uid of uids) {
+    const item = s.inventory.find((it) => it.uid === uid);
+    if (!item || isUnboundId(item.base) || !gearDef(item.base).starter) continue;
+    const ub = unboundId(item.base as BaseGearId);
+    const have = s.inventory.find((it) => it.base === ub && it.uid !== uid);
+    if (!have) {
+      item.base = ub;
+      continue;
+    }
+    s.inventory = s.inventory.filter((it) => it !== item);
+    for (const slots of Object.values(s.equipment)) {
+      if (!slots) continue;
+      const i = slots.indexOf(uid);
+      if (i >= 0) slots[i] = worn(have.uid) ? null : have.uid;
+    }
+  }
 }

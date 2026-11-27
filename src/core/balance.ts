@@ -4073,6 +4073,7 @@ export function weaponBoost(def: GearDef): number {
     const classes = new Set(GEAR.filter((g) => g.weaponClass).map((g) => g.weaponClass));
     for (const c of classes) {
       let best = 0;
+      const bestAt = new Map<number, number>();
       // On through the Unbound areas (13 on): the Unbound Woods' best of each class a step past the Void Rift's.
       for (let t = 1; t <= AREAS.length + UNBOUND_TIERS; t++) {
         const group = (t <= AREAS.length ? GEAR : UNBOUND_GEAR).filter((g) => g.weaponClass === c && gearArea(g) === t);
@@ -4083,6 +4084,16 @@ export function weaponBoost(def: GearDef): number {
         const lift = area * (best && top < best * jump ? (best * jump) / top : 1);
         for (const g of group) WEAPON_BOOST.set(g.id, best ? Math.max(lift, (best * WEAPON_FLOOR) / catalogHit(g)) : 1);
         best = Math.max(best, top * lift);
+        bestAt.set(t, top * lift);
+      }
+      // The starting weapons' Unbound copies (not in the chain): as far past their originals as the class's best
+      // first area is past its Unbound self's, so they sit against the Unbound Woods' gear as the originals do
+      // against the Woods'.
+      const first = Math.min(...[...bestAt.keys()].filter((t) => t <= AREAS.length && bestAt.has(t + UNBOUND_TIERS)));
+      for (const g of GEAR.filter((x) => x.starter && x.weaponClass === c)) {
+        const u = unboundGearDef(unboundId(g.id as BaseGearId));
+        const ratio = Number.isFinite(first) ? bestAt.get(first + UNBOUND_TIERS)! / bestAt.get(first)! : 1;
+        WEAPON_BOOST.set(u.id, (catalogHit(g) * (WEAPON_BOOST.get(g.id) ?? 1) * ratio) / catalogHit(u));
       }
     }
   }
@@ -6523,9 +6534,9 @@ function unboundGearDef(id: UnboundGearId): GearDef {
     stats: base.weaponClass ? {...base.stats } : stats,
    ...(base.effect && 'base' in base.effect ? { effect: {...base.effect, base: base.effect.base * hk } as GearEffect } : {}),
    ...(base.bane ? { bane: {...base.bane, bonus: Math.round(base.bane.bonus * k * 1000) / 1000 } } : {}),
-    // One more built-in effect than its original.
-    builtIn: unboundBuiltIns(base, id),
-    starter: false,
+    // One more built-in effect than its original (the starting kit's copies have none: they're only stronger).
+    builtIn: base.starter ? base.builtIn : unboundBuiltIns(base, id),
+    starter: !!base.starter,
    ...(base.identity && 'base' in base.identity ? { identity: { ...base.identity, base: Math.round(base.identity.base * hk * 10) / 10 } as GearEffect } : {}),
   };
   // Armor and accessories: the table carried on past the Void Rift (their mix, at their Unbound tier).
@@ -6536,6 +6547,11 @@ function unboundGearDef(id: UnboundGearId): GearDef {
 }
 /** Every craftable piece's Unbound copy. */
 export const UNBOUND_GEAR: GearDef[] = GEAR.filter((g) => !g.starter).map((g) => unboundGearDef(unboundId(g.id as BaseGearId)));
+/**
+ * The starting kit's Unbound copies (not craftable): with the Unbound Woods owned, a Regression starts you in these,
+ * and buying it turns the starting pieces you have into them.
+ */
+export const UNBOUND_STARTERS: GearDef[] = GEAR.filter((g) => g.starter).map((g) => unboundGearDef(unboundId(g.id as BaseGearId)));
 
 /**
  * An Unbound area's strength: the Void Rift's, carried on past it (the Unbound Woods is area 13, the Unbound Grove
