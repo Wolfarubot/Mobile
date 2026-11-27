@@ -1,0 +1,11 @@
+The shop's market square, from CraftPix.net's "Pixel Art Market Square RPG Shop and NPC Assets Pack"
+(license: https://craftpix.net/file-licenses/):
+- paving.png: the paved street from Walls_street.png (at 0,192, 192x96, tiles seamlessly).
+- stall-*.png, stand-fruit, tent-magic, cart-*, table*, barrels*, crates*, banner, rug, chests: single pieces cut
+  from Objects.png.
+- citizen1..5-walk.png / -idle.png and shadow.png: Character_citizens_animation (Without_shadow); 32px frames, rows
+  facing down, left, right and up (6 walking frames, 12 idle).
+- trader-weapons, trader-bread, trader-drinks, trader-magic, trader-fruit, lute, flute: Character_others_animation
+  (one-row animations).
+- flags.png: Flags_animation.png.
+Laid out and animated by src/ui/market.ts.
