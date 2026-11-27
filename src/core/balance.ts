@@ -6549,7 +6549,14 @@ export const UNBOUND_GEAR: GearDef[] = GEAR.filter((g) => !g.starter).map((g) =>
  * between areas (about ×1.5 an area along the chain) ease it back, so each new area is a small step up.
  */
 export const UNBOUND_HP_STEP = 3.6;
-export const UNBOUND_GOLD_STEP = 30;
+/**
+ * Unbound gold: ×UNBOUND_GOLD_STEP an area on the Void Rift's, ×UNBOUND_GOLD_BUMP. A little steeper than it was (×30)
+ * from a lower start, so the first Unbound areas pay 0.4 of what they did and the Frost Peaks about the same: Unbound
+ * gear made stronger farms the first ones faster, and on the paced chain this keeps Memory Shards (and so when
+ * each Unbound area is bought) where they were.
+ */
+export const UNBOUND_GOLD_STEP = 34;
+export const UNBOUND_GOLD_BUMP = 0.35;
 /**
  * Each Unbound Guardian's step on the last's: as much as the gear an area gives (a team in each area's Unbound
  * gear is about ×1.21 stronger than one in the last's, against the old ×2.5 Guardians).
@@ -6579,7 +6586,7 @@ export function unboundAreaDef(area: AreaId): AreaDef {
    ...base,
     name: `Unbound ${base.name}`,
     hp: rift.hp * UNBOUND_HP_STEP ** n * UNBOUND_BUMP,
-    gold: rift.gold * UNBOUND_GOLD_STEP ** n,
+    gold: rift.gold * UNBOUND_GOLD_STEP ** n * UNBOUND_GOLD_BUMP,
     speed: Math.min(70, rift.speed + 2 * n),
     guardian: rift.guardian * UNBOUND_GUARDIAN_STEP ** n * UNBOUND_GUARDIAN_BUMP,
   };
