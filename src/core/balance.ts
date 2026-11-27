@@ -6565,8 +6565,9 @@ export const UNBOUND_GUARDIAN_STEP = 3.025;
 /**
  * How an Unbound area's monsters' health sits against the trend it carries on: set so your Hunter, fresh from a
  * Regression with the Unbound Woods bought, needs about 7 hits a monster there (measured on the paced Regression
- * chain, after the first run's retune made the Void Rift's monsters four times tougher). You first fight there in
- * Void Rift gear, so it's the same as before Unbound gear was made stronger.
+ * chain, after the first run's retune made the Void Rift's monsters four times tougher). You first fight there
+ * fresh from a Regression, in the starting kit (no Unbound gear yet), so it's the same as before Unbound gear was
+ * made stronger.
  */
 export const UNBOUND_BUMP = 0.1528;
 /**
