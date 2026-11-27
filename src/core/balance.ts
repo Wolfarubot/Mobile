@@ -5620,7 +5620,9 @@ const RARITY_EXTRAS: Partial<Record<Rarity, number>> = Object.fromEntries(
 /** The share of the table a piece's stats get: armor's half, more for fewer abilities and slots than its rarity's usual. */
 export function statShare(d: GearDef): number {
   const kind = d.kind === 'armor' ? ARMOR_SHARE : 1;
-  return kind * Math.min(1.6, Math.max(0.5, 1 + EXTRA_STEP * ((RARITY_EXTRAS[d.rarity] ?? 0) - gearExtras(d))));
+  // An Unbound copy's extra built-in effect is a bonus: it keeps its original's share.
+  const src = d.unboundOf ? gearDef(d.unboundOf) : d;
+  return kind * Math.min(1.6, Math.max(0.5, 1 + EXTRA_STEP * ((RARITY_EXTRAS[src.rarity] ?? 0) - gearExtras(src))));
 }
 
 /**
@@ -5672,6 +5674,27 @@ function mixOf(d: GearDef, armorTurn?: number): Mix {
   if (d.typeBonus) mix.typeBonus = d.typeBonus.bonus / OLD_UNIT.typeBonus!;
   return mix;
 }
+/**
+ * Knockback on the melee and heavy side: Gauntlets whose second stat was shorter stuns, Shields that had stun and
+ * attack speed (their attack speed), and the heavier metal Helms (their second stat) trade it for knockback, at
+ * the same share of the piece. It only pushes harder for melee weapons (they're the ones that knock monsters back).
+ */
+const KNOCK_HELMS = new Set(['hornedHelm', 'cobaltHelm', 'starHelm', 'voidHelm']);
+function knockSwap(d: GearDef, mix: Mix): Mix {
+  const swap = (from: keyof Mix) => {
+    if (!mix[from]) return mix;
+    const out: Mix = { ...mix, knockback: mix[from] };
+    delete out[from];
+    return out;
+  };
+  if (d.accType === 'gauntlet') return swap('stun');
+  if (d.accType === 'shield' && mix.stun && mix.rate) return swap('rate');
+  if (KNOCK_HELMS.has(d.id)) {
+    const second = (Object.keys(mix) as Array<keyof Mix>).find((k) => k !== 'stun');
+    return second ? swap(second) : mix;
+  }
+  return mix;
+}
 /** Every armor and accessory's stats at a tier from the table (also used for Unbound copies). */
 export function rebuildGearStats(d: GearDef, mix: Mix, tier: number): void {
   const { stats, bane, typeBonus } = statsFromMix(d, mix, tier);
@@ -5707,7 +5730,7 @@ const GEAR_MIX = new Map<string, Mix>();
     // Dodging grows with stars now: its 1★ chance a little lower than it was.
     if (d.effect?.kind === 'evade') d.effect = { ...d.effect, chance: Math.round(d.effect.chance * 0.75 * 1000) / 1000 };
     const turn = d.armorType ? (turns[d.armorType] = (turns[d.armorType] ?? -1) + 1) : undefined;
-    const mix = mixOf(d, turn);
+    const mix = knockSwap(d, mixOf(d, turn));
     GEAR_MIX.set(d.id, mix);
     rebuildGearStats(d, mix, tier);
   }
