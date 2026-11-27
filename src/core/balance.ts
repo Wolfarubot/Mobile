@@ -4048,14 +4048,15 @@ export interface GearDef {
  * class makes it heavier or lighter: each new area's weapons reach well past the last area's.
  */
 export const TIER_HIT = [2, 4, 8, 15, 27, 45, 72, 110, 160, 230, 320, 440,
-  // The Unbound areas (13 = Unbound Woods … 24 = Unbound Void Rift), each ×1.375 the last, as the Void Rift is the Meteor Field's.
- ...Array.from({ length: 12 }, (_, i) => Math.round(440 * 1.375 ** (i + 1)))];
+  // The Unbound areas (13 = Unbound Woods … 24 = Unbound Void Rift, and one past it for the Rift's deepest Unbound
+  // pieces), each ×1.375 the last, as the Void Rift is the Meteor Field's.
+ ...Array.from({ length: 13 }, (_, i) => Math.round(440 * 1.375 ** (i + 1)))];
 /**
  * Every weapon is a clear step past the same kind of weapon from the areas before it, so gear brought back to an
  * old area tears through it: an area's best of each weapon class hits at least WEAPON_STEP harder than the best
  * before it (or as much harder as the areas' TIER_HIT grows, if that's more), and none of its others falls under
  * WEAPON_FLOOR times that best. Where a class's catalog numbers fall short (a few rifles and the like punch well above
- * their tier), the later ones are raised to match. Unbound copies keep their original's raise.
+ * their tier), the later ones are raised to match. The Unbound areas carry the chain on past the Void Rift.
  */
 export const WEAPON_STEP = 1.5;
 export const WEAPON_FLOOR = 1.2;
@@ -4072,8 +4073,9 @@ export function weaponBoost(def: GearDef): number {
     const classes = new Set(GEAR.filter((g) => g.weaponClass).map((g) => g.weaponClass));
     for (const c of classes) {
       let best = 0;
-      for (let t = 1; t <= AREAS.length; t++) {
-        const group = GEAR.filter((g) => g.weaponClass === c && gearArea(g) === t);
+      // On through the Unbound areas (13 on): the Unbound Woods' best of each class a step past the Void Rift's.
+      for (let t = 1; t <= AREAS.length + UNBOUND_TIERS; t++) {
+        const group = (t <= AREAS.length ? GEAR : UNBOUND_GEAR).filter((g) => g.weaponClass === c && gearArea(g) === t);
         if (!group.length) continue;
         const jump = t > 1 ? Math.max(WEAPON_STEP, TIER_HIT[t - 1] / TIER_HIT[t - 2]) : 1;
         const top = Math.max(...group.map(catalogHit));
@@ -4084,7 +4086,7 @@ export function weaponBoost(def: GearDef): number {
       }
     }
   }
-  return WEAPON_BOOST.get(def.unboundOf ?? def.id) ?? 1;
+  return WEAPON_BOOST.get(def.id) ?? 1;
 }
 /** A weapon's base damage at each star, as a multiple of 1★. */
 export const WEAPON_HIT_POWER = [0, 1, 1.3, 1.65, 2.1, 2.6, 3.2];
@@ -4679,7 +4681,11 @@ export const enchantTierHit = (def: GearDef): number => TIER_HIT[Math.max(1, Mat
 export const MOD_RECIPE_SHARE = 0.5;
 
 /** Gold a piece's area pays per kill (Forest gear: the Forest's), for pricing upgrades and modifiers in gold. */
-const gearAreaGold = (def: GearDef): number => areaDef(AREAS[Math.max(1, Math.min(AREAS.length, gearArea(def))) - 1].id).gold;
+const gearAreaGold = (def: GearDef): number => areaDef(AREAS[Math.max(1, Math.min(AREAS.length, costArea(def))) - 1].id).gold;
+/** The area a piece is priced as (an Unbound piece as only UNBOUND_COST_TIERS deeper than its original). */
+function costArea(def: GearDef): number {
+  return Math.max(1, Math.floor(def.unboundOf ? gearTier(gearDef(def.unboundOf)) + UNBOUND_COST_TIERS : gearTier(def)));
+}
 /** Upgrading also costs gold: this many kills' worth in the piece's area for 1★ → 2★, doubling each star. */
 export const UPGRADE_GOLD_KILLS = 300;
 export const gearUpgradeGold = (def: GearDef, stars: number): number => Math.ceil(gearAreaGold(def) * UPGRADE_GOLD_KILLS * 2 ** (stars - 1));
@@ -5551,7 +5557,14 @@ export const ARMOR_SHARE = 0.5;
  */
 export const EXTRA_STEP = 0.3;
 
-const areaWorth = (i: number): number => (i < AREA_WORTH.length ? AREA_WORTH[Math.max(0, i)] : AREA_WORTH[AREA_WORTH.length - 1] * UNBOUND_WORTH_STEP ** (i - AREA_WORTH.length + 1));
+/**
+ * The Unbound Woods' worth against the Void Rift's: enough that every Unbound Woods piece, Commons included, has more
+ * stats than the Void Rift's Exalted pieces of its kind (they have fewer abilities and slots than an Exalted's usual,
+ * so the table gives them more of it), then ×UNBOUND_WORTH_STEP an area.
+ */
+export const UNBOUND_WORTH_ENTRY = 2.5;
+const areaWorth = (i: number): number =>
+  i < AREA_WORTH.length ? AREA_WORTH[Math.max(0, i)] : AREA_WORTH[AREA_WORTH.length - 1] * UNBOUND_WORTH_ENTRY * UNBOUND_WORTH_STEP ** (i - AREA_WORTH.length);
 /** The table's place for a (fractional) tier: its area, plus half the way toward the next for how deep into it. */
 const tierPlace = (tier: number): number => {
   const a = Math.max(1, Math.floor(tier));
@@ -5562,13 +5575,22 @@ export function worthAt(tier: number): number {
   const t = tierPlace(tier);
   const a = Math.floor(t);
   const lo = areaWorth(a - 1);
-  return lo * (areaWorth(a) / lo) ** (t - a);
+  // The Void Rift's deepest pieces lean toward an ordinary next step, not the Unbound Woods' jump.
+  const hi = a === AREA_WORTH.length ? lo * UNBOUND_WORTH_STEP : areaWorth(a);
+  return lo * (hi / lo) ** (t - a);
 }
 /** A capped stat's 1★ value on a stat-only accessory at a tier. */
 export function scaleAt(stat: GearStat, tier: number, scale = STAT_SCALE[stat]): number {
   if (!scale) return 0;
-  return scale[0] + ((scale[1] - scale[0]) * (tierPlace(tier) - 1)) / 11;
+  const line = (p: number) => scale[0] + ((scale[1] - scale[0]) * (p - 1)) / 11;
+  const p = tierPlace(tier);
+  // Past the Void Rift's deepest pieces (Unbound gear), only UNBOUND_SCALE_GROWTH more an area: they're capped or
+  // multiply each other, so a straight line on would soon max them out.
+  return p <= SCALE_LINE_END ? line(p) : line(SCALE_LINE_END) * (1 + UNBOUND_SCALE_GROWTH * (p - SCALE_LINE_END));
 }
+const SCALE_LINE_END = 12.5;
+/** How much more of a capped stat (STAT_SCALE) each Unbound area's gear has than the last's. */
+export const UNBOUND_SCALE_GROWTH = 0.03;
 /** A non-weapon piece's power at a star count, as a multiple of its 1★ (5★ = its area's star multiplier). */
 export function gearStarPower(def: GearDef, stars: number): number {
   const s = Math.max(0, Math.min(MAX_EFFECTIVE_STARS, stars));
@@ -5826,7 +5848,7 @@ export function materialAbundance(m: MaterialId): number | undefined {
 }
 /** A piece's star-cost scale from its area (Unbound gear carries on past the Void Rift). */
 export function starCostArea(def: GearDef): number {
-  const a = Math.max(1, Math.floor(gearTier(def)));
+  const a = costArea(def);
   return a <= STAR_COST_AREA.length ? STAR_COST_AREA[a - 1] : UNBOUND_STAR_COST_BASE * UNBOUND_STAR_COST_STEP ** (a - STAR_COST_AREA.length);
 }
 /** Materials to go from `stars` to `stars + 1` (0 = crafting it). */
@@ -6427,10 +6449,15 @@ editableData('Shop', 'premium', textRec(PREMIUM_UPGRADES, (d) => `Upgrade kind �
 export const UNBOUND_TIERS = 12;
 /**
  * How many tiers stronger an Unbound piece of gear is than its original (its weapon hit, stats, abilities and bane
- * are that tier's). Fewer than UNBOUND_TIERS: a team in Unbound gear still needs several hits a monster, while a
- * team fresh from a Regression, in its starting kit, can still make headway.
+ * are that tier's): as deep as its area (UNBOUND_TIERS), so the Unbound Woods' Commons already beat the Void Rift's
+ * Exalted gear, and each Unbound area's gear is a step past the last's, as the original areas' are.
  */
-export const UNBOUND_GEAR_TIERS = 4;
+export const UNBOUND_GEAR_TIERS = UNBOUND_TIERS;
+/**
+ * Unbound gear's star costs are worked out as if it were only this many tiers deeper (they were set on the paced
+ * Regression chain, and the materials it's upgraded with drop no faster for the stronger stats).
+ */
+export const UNBOUND_COST_TIERS = 4;
 /** Is this an Unbound copy's id (`u_…`)? (Functions, not arrows: the gear catalog calls them while the module loads.) */
 export function isUnboundId(id: string): boolean {
   return id.startsWith('u_');
@@ -6515,20 +6542,32 @@ export const UNBOUND_GEAR: GearDef[] = GEAR.filter((g) => !g.starter).map((g) =>
  * area 14 …), with a difficulty bump on top. It keeps its name, look and monsters; its Guardian unlocks as quickly
  * as the original's (the same mastery).
  */
-export const UNBOUND_HP_STEP = 2.2;
+/**
+ * Each Unbound area's monsters are this much tougher than the last's. Set on saves from the paced Regression chain,
+ * giving a team the area before's Unbound gear (4★ weapon, 3★ the rest): at one strength, each area takes about 1.3
+ * times the hits the last did (that gear alone keeps up with ×2.7), while the Regression Tree and levels gained
+ * between areas (about ×1.5 an area along the chain) ease it back, so each new area is a small step up.
+ */
+export const UNBOUND_HP_STEP = 3.6;
 export const UNBOUND_GOLD_STEP = 30;
-export const UNBOUND_GUARDIAN_STEP = 2.5;
+/**
+ * Each Unbound Guardian's step on the last's: as much as the gear an area gives (a team in each area's Unbound
+ * gear is about ×1.21 stronger than one in the last's, against the old ×2.5 Guardians).
+ */
+export const UNBOUND_GUARDIAN_STEP = 3.025;
 /**
  * How an Unbound area's monsters' health sits against the trend it carries on: set so your Hunter, fresh from a
  * Regression with the Unbound Woods bought, needs about 7 hits a monster there (measured on the paced Regression
- * chain, after the first run's retune made the Void Rift's monsters four times tougher).
+ * chain, after the first run's retune made the Void Rift's monsters four times tougher). You first fight there in
+ * Void Rift gear, so it's the same as before Unbound gear was made stronger.
  */
-export const UNBOUND_BUMP = 0.25;
+export const UNBOUND_BUMP = 0.1528;
 /**
- * The same for an Unbound area's Guardian: set so it falls quickly to a team that has started gearing up in its
- * Unbound gear (UNBOUND_GEAR_TIERS), as a new area's Guardian does in the first run.
+ * The same for an Unbound area's Guardian: set so it falls as quickly as it did to a team in its area's Unbound
+ * gear before that gear was made twelve tiers deeper (about 450 times more damage in the Unbound Woods), and the
+ * Unbound Time Eater stays the long fight it was.
  */
-export const UNBOUND_GUARDIAN_BUMP = 0.0022;
+export const UNBOUND_GUARDIAN_BUMP = 0.818;
 const UNBOUND_AREA_MAP = new Map<AreaId, AreaDef>();
 export function unboundAreaDef(area: AreaId): AreaDef {
   let d = UNBOUND_AREA_MAP.get(area);
